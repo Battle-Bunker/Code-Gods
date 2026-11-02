@@ -7,7 +7,6 @@ test("an agent's source is highlighted in its language and reassembles exactly",
   const cases: [string, string, string][] = [
     ["python", "def act(obs):\n    return 1  # go", "def"],
     ["typescript", "export const act = () => 'x';", "const"],
-    ["haskell", "act obs = if True then 1 else 2 -- go", "then"],
   ];
   for (const [language, code, keyword] of cases) {
     const tokens = highlight(code, language);

@@ -6,7 +6,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { DEFAULT_SETTINGS, type GameSettings } from "@workspace/game-core";
-import { agentLanguage } from "../../convex/lib/language.ts";
+import { agentLanguage, storedLanguageV } from "../../convex/lib/language.ts";
 
 const both: GameSettings = { ...DEFAULT_SETTINGS, languages: ["python", "typescript"] };
 
@@ -19,4 +19,10 @@ test("an agent stored without a language runs in its game's one language, old se
   assert.equal(agentLanguage({}, { ...DEFAULT_SETTINGS, languages: ["typescript"] }), "typescript");
   const { languages: _l, ...rest } = DEFAULT_SETTINGS;
   assert.equal(agentLanguage({}, { ...rest, language: "typescript", grammarId: "typescript-agent-v1" } as never), "typescript");
+});
+
+test("Haskell is retired: past games' agents keep it as their language; new commands cannot use it", () => {
+  // The stored agent's language accepts the retired one (history); commands use languageV, which does not.
+  assert.deepEqual(storedLanguageV.members.map(m => m.value).sort(), ["haskell", "python", "typescript"]);
+  assert.equal(agentLanguage({ language: "haskell" }, both), "haskell");
 });

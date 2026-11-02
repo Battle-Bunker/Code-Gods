@@ -1,11 +1,10 @@
 # Isolated computational runtime adapters
 
 This package owns no server, database, authentication, transport or game rules.
-All three languages run in WebAssembly on Node's own V8, with no child processes:
-Python is CPython 3.15 (WASI) hosted by `engine/python.mjs`, TypeScript is
+Both languages run in WebAssembly on Node's own V8, with no child processes:
+Python is CPython 3.15 (WASI) hosted by `engine/python.mjs`, and TypeScript is
 QuickJS (`engine/quickjs.mjs`) behind the TypeScript 5.9.3 compiler
-(`engine/typescript.mjs`), and Haskell is MicroHs (WASI) hosted by
-`engine/haskell.mjs` (see "Haskell" below). `GameRuntime` (index.mjs) is the asynchronous,
+(`engine/typescript.mjs`). `GameRuntime` (index.mjs) is the asynchronous,
 bounded pool to use from a request handler or a Convex action; the engines
 themselves are synchronous and have no admission queue.
 
@@ -18,8 +17,6 @@ other compiler version). Python needs one build artifact, the **runtime bundle**
 ```
 pnpm --filter @workspace/game-runtime setup:python    # pinned CPython WASI download (python3, stdlib only)
 pnpm --filter @workspace/game-runtime build:python    # dist/python-runtime.bin.gz, checked against its pin
-pnpm --filter @workspace/game-runtime setup:haskell   # pinned MicroHs commit (git) + wasi-sdk 25 (curl, tar)
-pnpm --filter @workspace/game-runtime build:haskell   # dist/haskell-runtime.bin.gz (about 30 s), checked against its pin
 pnpm --filter @workspace/game-runtime test
 pnpm --filter @workspace/game-runtime benchmark
 ```
@@ -180,90 +177,17 @@ accepts. An unannotated first parameter of `agent` is typed as
 `ReturnType<typeof __decode>` (other unannotated parameters are strict-mode
 errors). Types are then erased and QuickJS runs the JavaScript.
 
-**haskell-agent-v1.** A module body without a `module` header: optional
-`import` lines, then declarations, one of them `agent :: Obj -> [Call]` (or an
-unannotated `agent` of that type). The engine compiles it as module `Agent`
-after `import Room` (the room's generated helpers, lib/game-types `haskell.ts`)
-and `import Prelude hiding (...)` for the Prelude names the room redefines
-(String's `reverse`, `truncate`), so the room's names win; `Prelude.reverse` and
-`Data.List` stay reachable qualified. `Obj` is the room's object (`Int`,
-`String`, or `Grid` with `Cell` records); `Call` is a move. Diagnostics give the
-player's own line and column.
+## Compile and execution pools apart
 
-## Haskell (MicroHs on WASI)
-
-**Bundle.** `setup:haskell` fetches MicroHs (Apache-2.0) at a pinned commit
-(`git`, then SHA-256 of the files the build reads) and wasi-sdk 25 (SHA-256 of
-the release archive) into `.cache/code-gods`; `build:haskell` compiles MicroHs's
-evaluator twice for `wasm32-wasip1` (with the compiler's combinator image, and
-alone) and packs both with the precompiled `base` package into
-`dist/haskell-runtime.bin.gz` (1.2 MB gzip), pinned by
-`HASKELL_BUNDLE_SHA256` (engine/haskell-bundle.mjs). `wasi/config.h` and
-`wasi/extra.c` replace MicroHs's unix platform files (no terminal, signals,
-sockets, directories or processes; sleeping returns at once). eval.c is patched
-at build time (`patchEval`): a reduction budget checked every 10,000 reductions
-(the scheduler slice), exit code 86 when it is spent, and two exports for the host;
-bfile.c's LZMA compressor becomes the identity (`patchBfile`: the encoder needs
-about 190 MB), so compilation caches are written uncompressed. Both modules import
-their memory (16 MiB initial); `extra.c`'s `sbrk` grows it past `__heap_end`.
-
-**Compile** (one compiler worker, output cached by the pool like TypeScript's):
-the player's `Agent`, the room's `Room` and a fixed `Main` (`getContents`,
-`cgDecode`, `agent`, `cgEncode`, `putStr`) become one self-contained combinator
-program (6M-cell heap, about 95 MiB of wasm memory; the compiler has a
-2·10⁹-reduction ceiling and the pool's preparation wall). The room's first
-compilation writes a MicroHs compilation cache (`-CW`, about 12 MB, kept per room
-by prelude digest in the compiler worker, 4 rooms / 64 MiB); later ones read it
-(`-CR`) and skip compiling `Room`. On V8: 4.5–7 s for a room's first compilation
-in a worker, then about 1.3–1.8 s (2.8–3.4 s before the cache). The program is
-byte-identical either way; a cache the compiler cannot use is replaced, and a
-cache over 32 MiB is not kept.
-
-**Compile and execution pools apart.** `role: "compile"` makes a pool that only
-compiles (`compile(source, settings)` → `{inspection, js}`), and
-`compilation: "external"` an execution pool with no compiler, which runs only such
-programs (`actCompiled`). The engine (artifacts/engine) compiles in an action of its
-own (`runtime/compile.ts`, for TypeScript too), which stores each program (`compiledPrograms`),
-and runs Haskell acts in another (`runtime/haskellAct.ts`, batched): on a cloud
-Node action (512 MiB, a fraction of a vCPU) the process is about 100–200 MiB,
-Python and TypeScript warm about 280 MiB more, the compiler about 250 MiB, so an
-instance holds one group of pools at a time and whichever is used closes the
-others' idle pools. There a room's first compilation took about 37 s and an act
-about 150 ms; the compile pool's wall is 120 s and it stays warm 5 minutes.
-
-**Memory.** Each module has one linear memory per thread, zeroed and reused by
-the next run (fresh memories pile up faster than V8 frees them): always for the
-compiler, and for the evaluator while it is at most 32 MiB. A Haskell-only pool
-(compiler and evaluator worker) peaks at about 490 MiB RSS locally, about 340 MiB
-steady.
-
-**Act** (execution workers): a fresh evaluator instance runs that program with
-the wire value on stdin (the number in decimal, or the text) and a 2M-cell heap;
-its stdout is the moves as JSON (`[["slide", [{"__hs": "row", "args": [2]}]]]`,
-or `{"commit": "if-improves", "calls": [...]}`). The room's trusted JavaScript
-constructors, in QuickJS, turn each move into the wire call exactly as a
-TypeScript agent's call would (`movesProgram`): only the room's move helpers and
-area helpers may be named. A Haskell agent's calls equal a TypeScript agent's for
-the same moves (test/haskell.test.mjs).
-
-**Determinism and steps.** Single-threaded graph reduction with a fixed heap is
-deterministic; the WASI host (engine/haskell-wasi.mjs) answers only the virtual
-clock and the act's seeded byte stream, a read-only tree, stdin/stdout/stderr and
-writes under `/out/`. One step is 10 reductions; the budget is checked every
-10,000 reductions and exactly at the end. Running out of heap (or the Haskell
-stack) is `LIMIT`; an uncaught exception is `EXECUTION`. Node's own `node:wasi`
-is not used (its fast path crashes on these modules).
-
-**Price: hs-token-bits-v1-uniform.** Over the token stream of the player's
-source (engine/hs-token-bits.mjs): a token kind (log2 7), then keyword/special
-class, line breaks by indentation (Elias gamma), names alpha-equivalent with
-standard Haskell names (`hs-standard-names.json`) and the room's names as
-externals, literals by the universal codes, and the move flag per use of a move
-helper. The grammar's own signature line `agent :: Obj -> [Call]` is free. No
-literal moves (Haskell moves are coded like other expressions). Uniform and
-approximate like ts-ast-bits, and not calibrated against Python: a one-move agent
-costs about 52 bits (TypeScript 47, Python 30, before their literal moves); the
-realistic Grid agent of benchmark.mjs about 1,800 (TypeScript 1,760, Python 760).
+`role: "compile"` makes a TypeScript pool that only compiles
+(`compile(source, settings)` → `{inspection, js}`; its compiler worker stops after
+`compilerIdleMs` idle), and `compilation: "external"` an execution pool with no
+compiler, which runs only such programs (`actCompiled`). `compilationKey(language,
+source, settings)` is the key a pool caches a compilation under, so a host can store
+programs a compile pool produced. The engine (artifacts/engine) compiles in an action
+of its own (`runtime/compile.ts`), which stores each program (`compiledPrograms`). On a
+cloud Node action (512 MiB, a fraction of a vCPU) an instance holds one group of pools
+at a time and whichever is used closes the others' idle pools (`idle`).
 
 ## Summon price: ast-bits-v1 (Python) and ts-ast-bits-v1-uniform (TypeScript)
 
@@ -630,7 +554,7 @@ These ran inside a `"use node"` Convex action (`artifacts/engine/convex/runtime/
 on the **local** backend (`npx convex dev`, backend `precompiled-2026-10-22-1447815`,
 Node 22.22). Each measurement started from a freshly started executor process with an
 empty `/tmp`, and the Python bundle came from file storage. Run them with
-`npx convex run runtime/probe:cold` (first call after a push), `runtime/probe:footprint`,
+`npx convex run runtime/probe:cold` (first call after a push), `runtime/probe:concurrent`,
 and `runtime/probe:bench '{"language":"python","workers":2,"acts":400}'`.
 
 **Cold start** (first call after a push; the module was loaded 0–1 ms before the call):
