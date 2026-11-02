@@ -5,7 +5,8 @@
  * helpers drawer with insert, a byte count, Validate (free) and Summon (pays from your energy). The same command
  * path as everything else; an uncertain summon keeps its envelope for the identical retry under the header.
  */
-import { useRef } from "react";
+import { useRef, useState } from "react";
+import { AGENT_DESCRIPTION_MAX, AGENT_NAME_MAX } from "@workspace/player-client";
 import { Loader2, Sparkles, Wand2 } from "lucide-react";
 import { AgentCost, HelpersDrawer, type ActCostBreakdown } from "@workspace/object-views";
 import { useMyAgents, useMutators, useObservation } from "@/sdk";
@@ -45,6 +46,8 @@ export default function Forge({ params, phase }: PanelProps<"forge">) {
 }
 
 function Editor({ language, allowed, assistantDraft, showHelpers, ended }: { language: Lang; allowed: readonly Lang[]; assistantDraft?: string; showHelpers: boolean; ended: boolean }) {
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
   const obs = useObservation({ hz: 2 });
   const { instance } = useMutators();
   const commands = useGameCommands();
@@ -88,11 +91,23 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended }: { lan
         className="h-56 w-full resize-y border-l-4 border-[hsl(var(--input))] bg-secondary p-3 font-mono text-[13px] leading-relaxed text-secondary-foreground caret-[hsl(var(--primary))] outline-none focus:border-primary" />
       <p className="text-xs text-muted-foreground">Write <code>{language === "python" ? `def agent(${arg}):` : language === "haskell" ? "agent :: Obj -> [Call]" : `function agent(${arg})`}</code>. It reads the {noun} and returns at most 16 moves from the room's helpers; each act costs bits from the agent's own energy.</p>
       {obs?.instance && <HelpersDrawer helpers={obs.instance.helpers} language={language} onInsert={insert} open={showHelpers} />}
+      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+        <label className="space-y-0.5 text-xs text-muted-foreground">
+          Name (required to summon)
+          <input data-testid="input-agent-name" value={name} maxLength={AGENT_NAME_MAX} onChange={e => setName(e.target.value)} placeholder="e.g. Corner hoarder"
+            className="block w-full border border-[hsl(var(--input))] bg-background px-2 py-1 text-sm text-foreground outline-none focus:border-primary" />
+        </label>
+        <label className="space-y-0.5 text-xs text-muted-foreground">
+          Description (optional)
+          <input data-testid="input-agent-description" value={description} maxLength={AGENT_DESCRIPTION_MAX} onChange={e => setDescription(e.target.value)} placeholder="What it does and why"
+            className="block w-full border border-[hsl(var(--input))] bg-background px-2 py-1 text-sm text-foreground outline-none focus:border-primary" />
+        </label>
+      </div>
       <div className="flex flex-wrap items-center gap-2">
         <GhostButton testId="button-validate" disabled={!gameplay || !allowed.includes(language) || !source.trim() || !!busy} onClick={() => void commands.run({ type: "validate", language, source })}>
           <Wand2 size={14} /> {busy === "validate" ? "Validating" : "Validate (free)"}
         </GhostButton>
-        <PrimaryButton testId="button-summon" disabled={!canSummon || !!busy} onClick={() => void commands.run({ type: "summon", language, source })}>
+        <PrimaryButton testId="button-summon" disabled={!canSummon || !!busy || !name.trim()} onClick={() => void commands.run({ type: "summon", language, source, name: name.trim(), ...(description.trim() ? { description: description.trim() } : {}) })}>
           <Sparkles size={14} /> {busy === "summon" ? "Summoning" : current ? `Summon · cost ${fmt(current.cost)}` : "Summon"}
         </PrimaryButton>
         <TextButton onClick={() => runner.setEditing(false)}>Done</TextButton>

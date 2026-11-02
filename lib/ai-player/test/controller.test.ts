@@ -49,12 +49,12 @@ test("autonomous summon is runtime-validated and within fresh energy",async()=>{
   const transport:PlayerTransport={observe:async()=>observation,send:async env=>{
     sent.push(env);return {commandId:env.commandId,accepted:true,message:"ok",...(env.command.type==="validate"?{validation:{valid:true,cost:10,expectedActCost:5,diagnostics:[]}}:{})};
   }};
-  await new AIController({roomId:"room",godId:"ai",provider:provider([{type:"summon",language:"python",source:"def agent(x):\n    return [add(1)]"},{type:"chat",text:"I propose cooperation."}]),budget:budget(),transport,onEvent:event=>events.push(event)}).step();
+  await new AIController({roomId:"room",godId:"ai",provider:provider([{type:"summon",name:"Bot",language:"python",source:"def agent(x):\n    return [add(1)]"},{type:"chat",text:"I propose cooperation."}]),budget:budget(),transport,onEvent:event=>events.push(event)}).step();
   assert.deepEqual(sent.map(e=>e.command.type),["validate","summon","chat"]);
   assert.equal(events.filter(e=>e.type==="usage").length,1);
   sent.length=0;
   transport.send=async env=>{sent.push(env);return{commandId:env.commandId,accepted:true,message:"costly",validation:{valid:true,cost:1000,expectedActCost:5,diagnostics:[]}};};
-  await new AIController({roomId:"room",godId:"ai",provider:provider([{type:"summon",language:"python",source:"def agent(x):\n    return [add(1)]"}]),budget:budget(),transport,onEvent:()=>{}}).step();
+  await new AIController({roomId:"room",godId:"ai",provider:provider([{type:"summon",name:"Bot",language:"python",source:"def agent(x):\n    return [add(1)]"}]),budget:budget(),transport,onEvent:()=>{}}).step();
   assert.deepEqual(sent.map(e=>e.command.type),["validate"]);
 });
 test("an AI seat writes each agent in any language the game allows, and only those",async()=>{
@@ -62,7 +62,7 @@ test("an AI seat writes each agent in any language the game allows, and only tho
   const transport:PlayerTransport={observe:async()=>({...observation,languages:["python","typescript"]}),send:async env=>{
     sent.push(env);return {commandId:env.commandId,accepted:true,message:"ok",...(env.command.type==="validate"?{validation:{valid:true,cost:10,expectedActCost:5,diagnostics:[]}}:{})};
   }};
-  const ts={type:"summon",language:"typescript",source:"function agent(x) { return [add(1)]; }"};
+  const ts={type:"summon",name:"Bot",language:"typescript",source:"function agent(x) { return [add(1)]; }"};
   await new AIController({roomId:"room",godId:"ai",provider:provider([ts]),budget:budget(),transport,onEvent:()=>{}}).step();
   assert.deepEqual(sent.map(e=>[e.command.type,"language" in e.command?e.command.language:null]),[["validate","typescript"],["summon","typescript"]],
     "the second allowed language, though python is the default");
@@ -131,7 +131,8 @@ test("the provider is asked for the decision schema in the game's agent language
   const summon=variants.find((v:any)=>v.properties.type.const==="summon");
   assert.deepEqual(summon.properties.language.enum,["python","typescript"]);
   // Every object the schema admits is a decision the controller accepts.
-  assert.deepEqual(decisionSchema.parse({actions:[{type:"summon",language:"python",source:"x"},{type:"pause"},{type:"ready",ready:true},{type:"destroy",agentId:"a"}]}).actions.length,4);
+  assert.deepEqual(summon.properties.name.maxLength,40); assert.ok(summon.required.includes("name")&&summon.required.includes("description"),"the AI names every agent");
+  assert.deepEqual(decisionSchema.parse({actions:[{type:"summon",name:"Bot",language:"python",source:"x"},{type:"pause"},{type:"ready",ready:true},{type:"destroy",agentId:"a"}]}).actions.length,4);
 });
 test("provider and incomplete-reply failures carry their own reasons",async()=>{
   for(const [thrown,reason] of [[new Error("529 overloaded"),"provider_error"],[new AITurnError("incomplete_reply","Incomplete or unsupported Anthropic response"),"incomplete_reply"]] as const) {

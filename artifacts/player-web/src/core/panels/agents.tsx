@@ -8,6 +8,7 @@ import { AgentCost, formatBits, type ActCostBreakdown } from "@workspace/object-
 import { Sparkline, Timeline, useGame, useMyAgents } from "@/sdk";
 import { useDockActions } from "@/dock/actions";
 import { useGameCommands, useRunner } from "@/core/game/runner";
+import { AgentName } from "./agent-name";
 import { AgentSource } from "./agent-source";
 import { pruneSourceOpen } from "./agent-source-state";
 import { PanelEmpty, TextButton, type PanelProps } from "./kit";
@@ -46,7 +47,7 @@ export default function Agents({ params, phase }: PanelProps<"agents">) {
   }
   const lanes = agents.map((a, i) => {
     const samples = (history.get(a.id) ?? []).filter(s => s.at >= world - params.window);
-    return { label: `agent ${i + 1}`, spans: samples.slice(1).map((s, j) => ({ start: samples[j].at, end: s.at, kind: samples[j].energy < 0 ? "cool" as const : samples[j].eligible ? "ok" as const : "idle" as const })) };
+    return { label: a.name, spans: samples.slice(1).map((s, j) => ({ start: samples[j].at, end: s.at, kind: samples[j].energy < 0 ? "cool" as const : samples[j].eligible ? "ok" as const : "idle" as const })) };
   });
   return (
     <div className="space-y-4">
@@ -59,7 +60,7 @@ export default function Agents({ params, phase }: PanelProps<"agents">) {
           return (
             <li key={a.id} data-testid={`row-agent-${a.id}`} className="min-w-0 space-y-1.5">
               <div className="flex flex-wrap items-baseline justify-between gap-x-3 text-sm">
-                <span className="font-semibold">Agent {i + 1} <span className="font-mono text-xs font-normal text-muted-foreground">{a.language} · summoned for {formatBits(a.summonCost)} bits</span></span>
+                <span className="flex flex-wrap items-baseline gap-x-2"><AgentName id={a.id} name={a.name} description={a.description} /> <span className="font-mono text-xs font-normal text-muted-foreground">{a.language} · summoned for {formatBits(a.summonCost)} bits</span></span>
                 <span data-testid={`text-agent-status-${a.id}`} className={`text-xs font-semibold ${a.energy < 0 ? "text-destructive" : a.eligible ? "text-[hsl(var(--accent))]" : "text-muted-foreground"}`}>
                   {status}{!a.eligible && Number.isFinite(wait) && wait > 0 ? ` · ~${formatBits(wait)} s` : ""}
                 </span>

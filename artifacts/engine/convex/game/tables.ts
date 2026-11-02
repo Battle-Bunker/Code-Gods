@@ -57,6 +57,7 @@ export const eventV = v.union(
   v.object({ t: v.literal("phase"), phase, world: v.number(), reason: v.optional(v.string()) }),
   v.object({
     t: v.literal("summon"), agentId: v.string(), ownerId: v.string(), world: v.number(), language: v.string(), source: v.string(),
+    name: v.optional(v.string()), description: v.optional(v.string()),
     summonCost: v.number(), decisionBits: v.number(), expectedActCost: v.number(), perActFloorBits: v.number(),
     breakdown, randomized: v.boolean(), account,
   }),
@@ -172,8 +173,10 @@ export const gameTables = {
 
   agents: defineTable({
     gameId: v.id("games"), ownerId: v.string(),
-    /** PRIVATE to the owner. */
+    /** PRIVATE to the owner (and shown to everyone in the ended game's replay). */
     source: v.string(), createdAt: v.number(),
+    /** The owner's name and description for it (summon requires the name; agents from before it carry neither: lib/projection defaults the name). */
+    name: v.optional(v.string()), description: v.optional(v.string()),
     /** The language the source is written in (one the game allows). Absent on agents from single-language games: lib/language agentLanguage. */
     language: v.optional(languageV),
     summonCost: v.number(), decisionBits: v.number(), perActFloorBits: v.number(), expectedActCost: v.number(),

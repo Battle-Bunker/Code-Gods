@@ -5,6 +5,7 @@
  * opponents' scores and descriptors, seeds, other gods' agent sources, AI prompts and the end deadline
  * (endAtWorld) never leave. Every public query builds its result through these functions.
  */
+import { agentDisplayName } from "./agentName";
 import { allowedLanguages, instantiationOf, leaderboard, rankTotals, type GameSettings } from "@workspace/game-core";
 import { COMMIT_CLAUSE_HELPER, instanceInfo, type InstanceInfo } from "@workspace/game-types";
 import { VERSION, observationSchema, type Observation } from "@workspace/player-client";
@@ -144,10 +145,10 @@ export function personalObject(o: Obj, godId: string, live: boolean) {
 }
 
 /** An agent as its owner sees it. */
-export function agentView(game: Game, agent: Doc<"agents">, nowMs = Date.now()) {
+export function agentView(game: Game, agent: Doc<"agents">, nowMs = Date.now(), ordinal = 0) {
   const status = agentStatus(game.settings, agent, worldNow(game, nowMs));
   return {
-    id: agent._id as string, source: agent.source, language: agentLanguage(agent, game.settings as GameSettings), createdAt: agent.createdAt,
+    id: agent._id as string, name: agentDisplayName(agent.name, ordinal), ...(agent.description ? { description: agent.description } : {}), source: agent.source, language: agentLanguage(agent, game.settings as GameSettings), createdAt: agent.createdAt,
     summonCost: agent.summonCost, decisionBits: agent.decisionBits, expectedActCost: agent.expectedActCost,
     breakdown: agent.breakdown, randomized: agent.randomized, energy: status.energy, eligible: status.eligible,
     acts: agent.acts, spent: agent.spent,
@@ -178,7 +179,7 @@ export function projectEvent(ev: Ev, godId: string, index: number, live = true) 
     return {
       type: "agent.summoned" as const, agentId: ev.agentId, mine, worldSeconds: ev.world,
       ...(mine ? {
-        language: ev.language, source: ev.source, summonCost: ev.summonCost, decisionBits: ev.decisionBits, expectedActCost: ev.expectedActCost,
+        name: ev.name, ...(ev.description ? { description: ev.description } : {}), language: ev.language, source: ev.source, summonCost: ev.summonCost, decisionBits: ev.decisionBits, expectedActCost: ev.expectedActCost,
         perActFloorBits: ev.perActFloorBits, breakdown: ev.breakdown, randomized: ev.randomized, account: ev.account,
       } : {}),
     };
@@ -236,6 +237,7 @@ export function replayEvent(ev: Ev) {
     };
     case "summon": return {
       type: "agent.summoned" as const, agentId: ev.agentId, ownerId: ev.ownerId, worldSeconds: ev.world, language: ev.language, source: ev.source,
+      ...(ev.name ? { name: ev.name } : {}), ...(ev.description ? { description: ev.description } : {}),
       summonCost: ev.summonCost, decisionBits: ev.decisionBits, expectedActCost: ev.expectedActCost, perActFloorBits: ev.perActFloorBits,
       breakdown: ev.breakdown, randomized: ev.randomized, account: ev.account,
     };
@@ -308,7 +310,7 @@ export function observation(input: ObservationInput): Observation {
       const view = personalObject(o, self.godId, game.phase !== "ended");
       return view ? [{ id: view.id, value: view.value, own: view.own, peerNetBits: view.peerNetBits, peerCare: view.peerCare, payoff: view.payoff }] : [];
     }) : [],
-    agents: game ? input.agents.filter(a => a.ownerId === self.godId).map(a => agentView(game, a, now)) : [],
+    agents: game ? input.agents.filter(a => a.ownerId === self.godId).map((a, i) => agentView(game, a, now, i)) : [],
     transformations: input.transformations.slice(-500).map(t => ({
       id: t.id, agentId: t.agentId, before: t.before, after: t.after,
       ...(Array.isArray(t.calls) ? { calls: t.calls.slice(0, 16) } : {}), ...(t.cost !== undefined ? { cost: t.cost } : {}),

@@ -34,7 +34,7 @@ export function useActions() {
     /** Measure an agent without paying: summon price, expected cost per act, diagnostics. */
     validate: (language: Language, source: string) => run({ type: "validate", language, source }),
     /** Pay the summon price from your god energy; the agent then earns its own energy. */
-    summon: (language: Language, source: string) => run({ type: "summon", language, source }),
+    summon: (language: Language, source: string, name: string, description?: string) => run({ type: "summon", language, source, name, ...(description?.trim() ? { description } : {}) }),
     /** Destroy one of your agents (free; spent energy is not refunded). */
     destroy: (agentId: string) => run({ type: "destroy", agentId }),
     /** Say something in the public chat (1–2000 characters; everyone sees it). */

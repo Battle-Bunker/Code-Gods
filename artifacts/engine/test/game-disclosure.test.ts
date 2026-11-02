@@ -25,10 +25,11 @@ test("no player-facing result discloses another god's scores, descriptor, agent 
   const game = await startGame(host, roomId);
   const send = (god: typeof ada, command: Record<string, unknown>) => god.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
   const SECRET_BO = "bo_private_marker", SECRET_HOST = "host_private_marker";
+  const NAME_BO = "bo_secret_name", DESC_BO = "bo_secret_description", NAME_HOST = "host_secret_name";
   const ok = (r: any) => assert.equal(r.accepted, true, r.message);
-  ok((await send(ada, { type: "summon", language: "typescript", source: "function agent(grid) { return [slide(row(0), 1)]; }" })));
-  ok((await send(bo, { type: "summon", language: "typescript", source: `function agent(grid) { const ${SECRET_BO} = 1; return [slide(column(0), ${SECRET_BO})]; }` })));
-  ok((await send(host, { type: "summon", language: "typescript", source: `function agent(grid) { const ${SECRET_HOST} = 2; return [slide(row(1), ${SECRET_HOST})]; }` })));
+  ok((await send(ada, { type: "summon", name: "Ada hoarder", description: "Ada describes it.", language: "typescript", source: "function agent(grid) { return [slide(row(0), 1)]; }" })));
+  ok((await send(bo, { type: "summon", name: NAME_BO, description: DESC_BO, language: "typescript", source: `function agent(grid) { const ${SECRET_BO} = 1; return [slide(column(0), ${SECRET_BO})]; }` })));
+  ok((await send(host, { type: "summon", name: NAME_HOST, language: "typescript", source: `function agent(grid) { const ${SECRET_HOST} = 2; return [slide(row(1), ${SECRET_HOST})]; }` })));
   await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 3517.8173 }, kick: true });
   await waitFor(async () => {
     const r = await raw(game.gameId);
@@ -52,8 +53,9 @@ test("no player-facing result discloses another god's scores, descriptor, agent 
       roomHistory: await client.query(api.rooms.history, { room: roomId }),
     };
   };
-  const check = disclosureChecker(game.gameId, ada.subject, [SECRET_BO, SECRET_HOST], { live: true });
+  const check = disclosureChecker(game.gameId, ada.subject, [SECRET_BO, SECRET_HOST, NAME_BO, DESC_BO, NAME_HOST], { live: true });
 
+  const summonsOf = (c: any) => c.eventsFromStart.events.concat(c.history.events).filter((e: any) => e.type === "agent.summoned");
   const live = await collect(ada);
   for (const [label, result] of Object.entries(live)) await check(`live ${label}`, result);
   {
@@ -78,6 +80,9 @@ test("no player-facing result discloses another god's scores, descriptor, agent 
   assert.equal(live.myUtility.instantiationKey, "Grid(5,base10,rgby)");
   assert.equal(live.observation.agents.length, 1);
   assert.ok(live.observation.agents[0].source.includes("slide(row(0), 1)"));
+  assert.equal(live.observation.agents[0].name, "Ada hoarder", "the viewer's own agent carries its name");
+  assert.equal(live.observation.agents[0].description, "Ada describes it.");
+  assert.ok(summonsOf(live).every((e: any) => e.mine && e.name === "Ada hoarder"), "own summons carry the name; another god's never reach a live log");
   // While live, the event log shows only the viewer's own summons (another god's would date its agent and attribute its
   // transformations: docs/public-log-design.md §1), with their source.
   const summons = live.eventsFromStart.events.concat(live.history.events).filter((e: any) => e.type === "agent.summoned");
@@ -159,7 +164,7 @@ test("other gods' scores move only when the scoreboard is published; the own sco
   const start = (await raw(game.gameId)).game.scoreboard;
   assert.equal(start.world, 0, "the first scoreboard is published at the start");
   for (const god of [ada, bo]) {
-    const r = await god.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", language: "typescript", source: "function agent(x) { return [add(3)]; }" }, game.gameId) });
+    const r = await god.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", name: "Test agent", language: "typescript", source: "function agent(x) { return [add(3)]; }" }, game.gameId) });
     assert.equal(r.accepted, true, r.message);
   }
   await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 3517.8173 }, kick: true });

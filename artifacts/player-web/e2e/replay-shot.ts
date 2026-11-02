@@ -47,7 +47,7 @@ for (let i = 0; i < 180 && !gameId; i++, await sleep(1000)) {
 assert.ok(gameId, "the game started");
 const submit = (command: Record<string, unknown>) => bob.action(fn.a("commands:submit"), { roomId, envelope: { version: "code-gods.player.v3", commandId: crypto.randomUUID(), gameId, command } });
 const source = (k: number) => language === "python" ? `def agent(grid):\n    return [slide(row(${k}), 1)]` : `function agent(grid) { return [slide(row(${k}), 1)]; }`;
-for (const k of [0, 1]) { const r = await submit({ type: "summon", language, source: source(k) }) as { accepted: boolean; message: string }; assert.ok(r.accepted, r.message); }
+for (const k of [0, 1]) { const r = await submit({ type: "summon", name: "Test agent", language, source: source(k) }) as { accepted: boolean; message: string }; assert.ok(r.accepted, r.message); }
 await submit({ type: "chat", text: "I'll keep the top rows moving; leave them to me." });
 await admin.mutation(fn.m("testing:patchGame"), { gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 5000 }, kick: true });
 await sleep(14_000);

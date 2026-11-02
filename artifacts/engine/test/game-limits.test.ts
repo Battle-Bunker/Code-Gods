@@ -25,7 +25,7 @@ test("validate and summon examinations are capped per human per room per minute,
   const refused = validate();
   assert.match(await rejects(app.action(api.commands.submit, { roomId, envelope: refused })), /At most 30/);
   assert.equal(await ada.c.query(api.receipts.get, { roomId, commandId: refused.commandId }), null, "no receipt: the same envelope may be retried");
-  assert.match(await rejects(ada.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", language: "typescript", source: TS.Int }, game.gameId) })), /At most 30/,
+  assert.match(await rejects(ada.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", name: "Test agent", language: "typescript", source: TS.Int }, game.gameId) })), /At most 30/,
     "summon counts too");
 
   // Other humans are not affected; cheap commands are not limited by it.

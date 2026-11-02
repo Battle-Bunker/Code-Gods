@@ -10,6 +10,7 @@ import { join } from "node:path";
 import { CORE_TOOLS, SHORT_MAX, TOOLS, TOOL_NAMES, buildEnvelope, envelopeNeedsGame, mayUse, tool, toolJsonSchemas, toolsFor } from "../src/tools.ts";
 import { CATALOG } from "../src/catalog.ts";
 import { PANEL_IDS } from "../src/panels.ts";
+import { commandSchema } from "../src/protocol.ts";
 import { Engine } from "../src/engine.ts";
 import { journalPath, runAssistant } from "../src/assistant.ts";
 
@@ -107,7 +108,7 @@ test("JSON Schema: the committed snapshot matches the zod definitions", () => {
 test("commandId rules: required for summon, destroy and pause; optional (generated) for the rest", () => {
   for (const name of ["summon_agent", "destroy_agent", "pause_game"]) {
     const t = tool(name);
-    const base = name === "summon_agent" ? { source: "x" } : name === "destroy_agent" ? { agentId: "a" } : {};
+    const base = name === "summon_agent" ? { source: "x", name: "N" } : name === "destroy_agent" ? { agentId: "a" } : {};
     assert.equal(t.input.safeParse(base).success, false, `${name} without commandId`);
     assert.equal(t.input.safeParse({ ...base, commandId: "not-a-uuid" }).success, false);
     assert.equal(t.input.safeParse({ ...base, commandId: uuid }).success, true);
@@ -119,16 +120,32 @@ test("commandId rules: required for summon, destroy and pause; optional (generat
   for (const name of ["update_settings", "start_game", "resume_game", "end_game", "add_ai", "remove_ai"]) {
     assert.equal(tool(name).input.safeParse({ revision: 0, aiAgentId: "x", deityId: "y" }).success, false, `${name} needs a requestId`);
   }
-  assert.equal(tool("summon_agent").input.safeParse({ source: "x", commandId: uuid, roomId: "other" }).success, false, "unknown keys are refused");
-  assert.equal((tool("summon_agent").input.parse({ source: "x", commandId: uuid }) as { waitMs: number }).waitMs, 90_000, "waitMs defaults to 90 s");
-  assert.equal(tool("summon_agent").input.safeParse({ source: "x", commandId: uuid, waitMs: 10 * 60_000 }).success, false, "waitMs is bounded");
+  assert.equal(tool("summon_agent").input.safeParse({ source: "x", name: "N", commandId: uuid, roomId: "other" }).success, false, "unknown keys are refused");
+  assert.equal((tool("summon_agent").input.parse({ source: "x", name: "N", commandId: uuid }) as { waitMs: number }).waitMs, 90_000, "waitMs defaults to 90 s");
+  assert.equal(tool("summon_agent").input.safeParse({ source: "x", name: "N", commandId: uuid, waitMs: 10 * 60_000 }).success, false, "waitMs is bounded");
+});
+
+test("summon_agent requires a name (trimmed, 1-40) and takes an optional description (up to 500)", () => {
+  const t = tool("summon_agent");
+  const ok = { source: "x", commandId: uuid };
+  assert.equal(t.input.safeParse(ok).success, false, "no name");
+  assert.equal(t.input.safeParse({ ...ok, name: "   " }).success, false, "blank name");
+  assert.equal(t.input.safeParse({ ...ok, name: "x".repeat(41) }).success, false, "name too long");
+  assert.equal((t.input.parse({ ...ok, name: "  Hoarder  " }) as { name: string }).name, "Hoarder", "trimmed");
+  assert.equal(t.input.safeParse({ ...ok, name: "N", description: "d".repeat(501) }).success, false, "description too long");
+  assert.equal(t.input.safeParse({ ...ok, name: "N", description: "Moves things." }).success, true);
+  const game = { gameId: "g1", language: "typescript" as const };
+  assert.deepEqual(buildEnvelope("summon_agent", { ...ok, name: "N", description: "Moves things." }, game).command,
+    { type: "summon", name: "N", description: "Moves things.", language: "typescript", source: "x" });
+  assert.ok(!("description" in buildEnvelope("summon_agent", { ...ok, name: "N" }, game).command), "no description key when none was given");
+  assert.equal(commandSchema.safeParse({ type: "summon", language: "python", source: "x" }).success, false, "the protocol requires a name too");
 });
 
 test("buildEnvelope: v3 envelopes with the game's language and id; the given commandId is kept", () => {
   const game = { gameId: "g1", language: "typescript" as const };
-  const summon = buildEnvelope("summon_agent", { source: "function agent(x) { return [add(1)]; }", commandId: uuid }, game);
+  const summon = buildEnvelope("summon_agent", { source: "function agent(x) { return [add(1)]; }", name: "Test agent", commandId: uuid }, game);
   assert.deepEqual(summon, { version: "code-gods.player.v3", commandId: uuid, gameId: "g1",
-    command: { type: "summon", language: "typescript", source: "function agent(x) { return [add(1)]; }" } });
+    command: { type: "summon", name: "Test agent", language: "typescript", source: "function agent(x) { return [add(1)]; }" } });
   const chat = buildEnvelope("send_chat", { text: "hello" }, game);
   assert.match(chat.commandId, /^[0-9a-f-]{36}$/);
   assert.equal(chat.gameId, undefined, "chat is a room command: no gameId");
@@ -137,7 +154,7 @@ test("buildEnvelope: v3 envelopes with the game's language and id; the given com
   assert.deepEqual(buildEnvelope("pause_game", { commandId: uuid, gameId: "g0" }, game).gameId, "g0", "an explicit gameId wins");
   assert.deepEqual(buildEnvelope("destroy_agent", { agentId: "a1", commandId: uuid }, game).command, { type: "destroy", agentId: "a1" });
   assert.deepEqual(buildEnvelope("validate_agent", { source: "def agent(x):\n    return []", language: "python", commandId: uuid }, game).command.type, "validate");
-  assert.throws(() => buildEnvelope("summon_agent", { source: "x", commandId: uuid }, { gameId: undefined, language: undefined }), /No game/);
+  assert.throws(() => buildEnvelope("summon_agent", { source: "x", name: "N", commandId: uuid }, { gameId: undefined, language: undefined }), /No game/);
 });
 
 test("envelopeNeedsGame: only game commands without a gameId, or agents without a language, read the current game", () => {
@@ -170,7 +187,7 @@ test("assistant command: a lost answer is uncertain and stays in the journal; a 
   const seen: string[] = [];
   const env = { CODE_GODS_STATE_DIR: mkdtempSync(join(tmpdir(), "cg-journal-")) };
   const engine = new Engine({ engineUrl: "https://dep-1.convex.site", credential: "cgc_" + "A".repeat(43) }, { fetch: lostAnswers(seen) });
-  const envelope = { version: "code-gods.player.v3", commandId: uuid, gameId: "g1", command: { type: "summon", language: "typescript", source: "function agent(x) { return [add(1)]; }" } };
+  const envelope = { version: "code-gods.player.v3", commandId: uuid, gameId: "g1", command: { type: "summon", name: "Test agent", language: "typescript", source: "function agent(x) { return [add(1)]; }" } };
   const io = { readStdin: async () => JSON.stringify(envelope), env };
   const lost = await runAssistant(engine, "command", {}, io) as { status: string };
   assert.equal(lost.status, "uncertain", "the summon may have been applied: never 'rejected'");

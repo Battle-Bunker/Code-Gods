@@ -363,7 +363,7 @@ await check("after the game ends every built-in panel shows the frozen final sta
     const source = AGENT[obs.language][obs.instance.objectType];
     assert(source, `no agent source for ${obs.language} ${obs.instance.objectType}`);
     const summon = await carol.action(fn.a("commands:submit"), { roomId, envelope: { version: "code-gods.player.v3", commandId: crypto.randomUUID(), gameId: obs.gameId,
-      command: { type: "summon", language: obs.language, source } } }) as { accepted: boolean; message?: string };
+      command: { type: "summon", name: "Test agent", language: obs.language, source } } }) as { accepted: boolean; message?: string };
     assert(summon.accepted, `summon: ${summon.message}`);
     obs = await until(async () => { const o = await observe(); return o.transformations.some(t => t.calls?.length) ? o : undefined; }, "carol's agent acts", 120_000);
   } finally { await owner("endGame"); }

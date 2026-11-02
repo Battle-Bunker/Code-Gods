@@ -86,8 +86,8 @@ for (const spec of SPECS) for (const language of languages) {
 
     // Summon: the god pays the description bits; the agent starts with no energy.
     const before = obs.self.energy;
-    assert.equal((await send(ada, { type: "summon", language, source })).accepted, true);
-    assert.equal((await send(bo, { type: "summon", language, source })).accepted, true);
+    assert.equal((await send(ada, { type: "summon", name: "Test agent", language, source })).accepted, true);
+    assert.equal((await send(bo, { type: "summon", name: "Test agent", language, source })).accepted, true);
     obs = observationSchema.parse(await ada.c.query(api.player.observation, { roomId }));
     assert.equal(obs.agents.length, 1, "own agents only");
     const [mine] = obs.agents;

@@ -49,7 +49,7 @@ export function mockProvider(): ModelProvider {
       const sources = SIMPLE_AGENTS[observation.instance?.objectType ?? ""] ?? {};
       const language = observation.languages.find(l => sources[l] !== undefined);
       if (language && observation.seated !== false && observation.agents.length === 0 && (observation.phase === "planning" || observation.phase === "running")) {
-        actions.push({ type: "summon", language, source: sources[language] });
+        actions.push({ type: "summon", language, source: sources[language], name: "Mock agent", description: "A simple agent from the mock AI." });
       }
       const text = JSON.stringify({ actions });
       return { text, inputTokens: Math.ceil((request.system.length + request.data.length) / 4), outputTokens: Math.ceil(text.length / 4) };

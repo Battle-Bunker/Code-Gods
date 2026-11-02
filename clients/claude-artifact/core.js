@@ -34,7 +34,8 @@ export const OBSERVATION_INPUT = Object.freeze({ objectsLimit: 50, objectsCursor
  */
 export const COMMAND_WAIT_MS = 45_000;
 
-export function summonInput(source, commandId) { return { source, commandId, waitMs: COMMAND_WAIT_MS }; }
+/** summon_agent requires a name; this page has no name field yet, so its agents carry a default one. */
+export function summonInput(source, commandId, name = "Artifact agent") { return { source, name, commandId, waitMs: COMMAND_WAIT_MS }; }
 export function validateInput(source, commandId) { return { source, commandId, waitMs: COMMAND_WAIT_MS }; }
 export function chatInput(text, commandId) { return { text, commandId }; }
 export function readyInput(ready, commandId) { return { ready: !!ready, commandId }; }

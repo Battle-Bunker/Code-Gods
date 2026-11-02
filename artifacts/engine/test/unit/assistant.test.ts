@@ -114,7 +114,7 @@ test("the model sees only the tools its grant may use, without command or reques
     assert.equal((t.inputSchema as Record<string, unknown>).type, "object");
   }
   const summon = modelTools("act").find(t => t.name === "summon_agent")!;
-  assert.deepEqual((summon.inputSchema as { required?: string[] }).required, ["source"]);
+  assert.deepEqual((summon.inputSchema as { required?: string[] }).required, ["source", "name"]);
 });
 
 test("command ids and request ids come from the engine, overriding the model's; waits are capped", () => {

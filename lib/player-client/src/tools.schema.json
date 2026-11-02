@@ -1001,6 +1001,17 @@
             "haskell"
           ]
         },
+        "name": {
+          "description": "A short, meaningful name for the agent (required, up to 40 characters), e.g. \"Corner hoarder\". Shown in the player's My agents list.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "description": {
+          "description": "One or two sentences on what the agent does and why (optional, up to 500 characters). Shown on hover next to the name.",
+          "type": "string",
+          "maxLength": 500
+        },
         "commandId": {
           "description": "A fresh UUID per new intent; resend the identical call (same id) to retry: never applied twice.",
           "type": "string",
@@ -1023,6 +1034,7 @@
       },
       "required": [
         "source",
+        "name",
         "commandId"
       ],
       "additionalProperties": false
