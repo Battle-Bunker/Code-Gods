@@ -49,4 +49,16 @@ export const runtimeTables = {
     error: v.optional(v.object({ code: v.string(), message: v.string() })),
     compiledAt: v.number(),
   }).index("by_key", ["key"]).index("by_compiledAt", ["compiledAt"]),
+  /**
+   * MicroHs compilation caches of Haskell rooms (runtime/haskellCompile.ts), gzip in file storage: a compiler with a
+   * room's cache skips compiling its Room module (a cloud compilation from ~37 s to a fraction). `key`: runtime/node.ts
+   * haskellRoomKey (the bundle and the Room module). Pruned like haskellPrograms.
+   */
+  haskellRoomCaches: defineTable({
+    key: v.string(),
+    storageId: v.id("_storage"),
+    /** Uncompressed bytes. */
+    size: v.number(),
+    usedAt: v.number(),
+  }).index("by_key", ["key"]).index("by_usedAt", ["usedAt"]),
 };

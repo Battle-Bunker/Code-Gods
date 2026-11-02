@@ -179,6 +179,10 @@ function closeIdleExcept(group: "agents" | "haskell" | "compiler"): void {
     if (owner !== group && runtime?.idle) { runtime.close(); delete registry[language]; }
   }
 }
+/** The key of a Haskell room's compilation cache (runtime/haskellCompile.ts): the bundle and the Room module. */
+export function haskellRoomKey(settings: ActSettings): string {
+  return createHash("sha256").update(JSON.stringify([HASKELL_BUNDLE_SHA256, settings.prelude.haskell ?? ""])).digest("hex");
+}
 /**
  * The key of a compiled Haskell program (runtime/haskellPrograms.ts), as the package keys its own compilations: the
  * grammar and price function, the bundle, the room's prelude, the source.

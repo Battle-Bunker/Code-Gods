@@ -214,9 +214,11 @@ export class GameRuntime {
   act(source: string, input: WireValue, settings: ActSettings, seed: string): Promise<ActResult>;
   /**
    * A compile pool (role "compile", TypeScript or Haskell): the trusted compiler output for `source`, `{inspection, js}`.
-   * (An execution pool with its own compiler also answers this, from its cache.)
+   * (An execution pool with its own compiler also answers this, from its cache.) Haskell: `roomCache` is the room's
+   * MicroHs compilation cache from elsewhere (used when the pool's compiler has none for the room); a compilation that
+   * writes the room's cache returns it as `roomCache`, and so does any with `wantRoomCache` (the caller has none stored).
    */
-  compile(source: string, settings: ActSettings): Promise<Compiled>;
+  compile(source: string, settings: ActSettings, options?: { roomCache?: Uint8Array; wantRoomCache?: boolean }): Promise<Compiled & { roomCache?: Uint8Array }>;
   /** An execution pool: one act of `js`, the `compile(source, ...)` output of a compile pool (trusted, not the player's). */
   actCompiled(source: string, js: string, input: WireValue, settings: ActSettings, seed: string): Promise<ActResult>;
   /** Nothing queued or running: closing the pool now interrupts no request. */

@@ -43,11 +43,14 @@ async function updateSettings(ctx: ActionCtx, args: SettingsArgs): Promise<Setti
   if (args.revision !== context.room.revision) fail("CONFLICT", "Settings changed; refresh before saving");
   if (args.settings && args.setupId) fail("BAD_REQUEST", "Send settings or a setupId, not both");
   const previous = context.room.settings as GameSettings;
-  const commit = (settings: GameSettings, setup?: { kind: "apply"; setupId: Id<"gameSetups"> } | { kind: "edit"; baseUpdatedAt?: number }): Promise<SettingsResult> =>
-    ctx.runMutation(internal.game.lobby.commitSettings, {
+  const commit = async (settings: GameSettings, setup?: { kind: "apply"; setupId: Id<"gameSetups"> } | { kind: "edit"; baseUpdatedAt?: number }): Promise<SettingsResult> => {
+    const result: SettingsResult = await ctx.runMutation(internal.game.lobby.commitSettings, {
       roomId: context.room._id, principal: args.principal, revision: args.revision, settings, catalog: catalogFor(settings), aiBudget: args.aiBudget,
       ...(setup ? { setup } : {}),
     });
+    await prewarmHaskell(ctx, settings);
+    return result;
+  };
   if (args.setupId) {
     const setup: { id: Id<"gameSetups">; settings: GameSettings } = await ctx.runQuery(internal.setups.resolve, { setupId: args.setupId });
     return commit(nextSettings(await calibrationManifest(ctx), previous, { setup: setup.settings }), { kind: "apply", setupId: setup.id });
@@ -77,6 +80,15 @@ export const settings = action({
 export function aiProviderAvailable(provider: string) {
   if (process.env.AI_MOCK === "1") return true;
   return !!(provider === "anthropic" ? process.env.ANTHROPIC_API_KEY : process.env.OPENAI_API_KEY)?.trim();
+}
+
+/**
+ * A room whose settings allow Haskell: compile its empty agent in the background (runtime/haskellCompile.ts prewarm), so
+ * the room's compilation cache is stored before a player's first validation (a room's first compilation is ~37 s on a
+ * cloud action; with the cache, a fraction). Nothing waits for it.
+ */
+async function prewarmHaskell(ctx: ActionCtx, settings: GameSettings): Promise<void> {
+  if (settings.languages?.includes("haskell")) await ctx.scheduler.runAfter(0, internal.runtime.haskellCompile.prewarm, { settings });
 }
 
 type Started = { gameId: Id<"games">; shortCode: string; guid: string };
@@ -152,6 +164,7 @@ async function startGame(ctx: ActionCtx, args: { roomId: string; requestId?: str
   // runtime is deployed and has not just failed, and schedules the warm-ups. Until they report, validate and summon
   // answer "not ready yet" and planning holds past its deadline (lib/sandboxes.ts planningEnd).
   const sandboxes = await ensureSandboxes(ctx, settings.languages, true);
+  await prewarmHaskell(ctx, settings);
   const down = sandboxes.filter(s => s.state === "failed");
   if (down.length) {
     fail("UNAVAILABLE", down.map(s => `The isolated ${LANGUAGE_SPECS[s.language].label} runtime is unavailable: ${s.reason}`).join("; ").slice(0, 1000));

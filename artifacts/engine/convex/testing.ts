@@ -186,6 +186,15 @@ export const rawGame = internalQuery({
   },
 });
 
+/** The stored Haskell room compilation caches (runtime/haskellCompile.ts), newest first. */
+export const haskellRoomCaches = internalQuery({
+  args: {},
+  handler: async ctx => {
+    dev();
+    return (await ctx.db.query("haskellRoomCaches").withIndex("by_usedAt").order("desc").take(20)).map(row => ({ key: row.key, size: row.size }));
+  },
+});
+
 /** The latest stored Haskell compilations (runtime/haskellPrograms.ts), newest first. */
 export const haskellProgramsLatest = internalQuery({
   args: { count: v.number() },

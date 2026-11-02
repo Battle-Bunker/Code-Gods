@@ -72,6 +72,8 @@ test("a Haskell agent is compiled by MicroHs, priced by hs-token-bits and acts l
   assert.equal(broken.validation.valid, false);
   // Another action compiled both (runtime/haskellCompile.ts) and stored the outcome for every action: the program,
   // and the agent's own compile failure, which a second validation reports the same without compiling again.
+  // The room's MicroHs compilation cache is stored for every instance's compiler (the room's settings pre-warmed it).
+  assert.ok((await admin.query(internal.testing.haskellRoomCaches, {}) as { size: number }[]).some(row => row.size > 1e6), "a room cache is stored");
   const [failure, stored] = await admin.query(internal.testing.haskellProgramsLatest, { count: 2 });
   assert.ok(!stored.error && stored.chars > 1000, "the program is stored");
   assert.equal(stored.inspection.complexityFunctionId, "hs-token-bits-v1-uniform");
