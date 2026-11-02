@@ -5,7 +5,8 @@
  * wider the dockview dock is loaded; below, the stacked renderer (dockview is never downloaded on phones).
  *
  * Replay mode (`replay`, docs/replay-design.md §4): the same dock over an ended game at a replay's playhead. The SDK
- * answers come from the replay (core/replay sets the source), the header is the replay's transport, the layout is the
+ * answers come from the replay (core/replay sets the source), the header names the game and the replay bar under the dock (`footer`) drives the
+ * playhead, the layout is the
  * human's own arrangement but changes stay in this tab (never pushed), and the Timeline panel is opened.
  *
  * Keys: Cmd/Ctrl+K opens the palette everywhere; `/` focuses the assistant's composer and `?` opens the palette when
@@ -18,10 +19,12 @@ import { useRoom } from "@/sdk";
 import { Confirmations } from "@/shell/confirmations";
 import { SAFE_MODE } from "@/shell/safe-mode";
 import { Header, HeaderBanners } from "@/core/header";
+import { assistantPaneOf } from "@workspace/player-client/layout";
 import { composer } from "@/core/chat/composer";
 import { useSituation } from "@/core/game/situation";
 import { paletteStore } from "@/core/palette/store";
 import { useWide } from "@/core/use-wide";
+import { EndedGameBar } from "@/core/replay/ended-bar";
 import { dockActions } from "./actions";
 import { PanelsProvider, usePanelRegistry, type Panels } from "./panels";
 import StackedDock from "./stacked";
@@ -80,8 +83,8 @@ function useNewFilePanels(store: DockStore, fileIds: readonly string[] | undefin
   }, [store, fileIds, loaded]);
 }
 
-/** Replay mode: the header that replaces the live one (the replay's transport). */
-export type ShellReplay = { header: ReactNode };
+/** Replay mode: the header that replaces the live one, and the replay bar anchored under the dock. */
+export type ShellReplay = { header: ReactNode; footer: ReactNode };
 
 export function PlayerShell({ replay }: { replay?: ShellReplay } = {}) {
   const room = useRoom();
@@ -96,6 +99,25 @@ export function PlayerShell({ replay }: { replay?: ShellReplay } = {}) {
       </PanelsProvider>
     </DockContext.Provider>
   );
+}
+
+/**
+ * The bar under the dock (the replay bar, or the room's "Watch the replay"): its height is published as
+ * `--cg-footer-h`, so the phone's assistant sheet (fixed to the screen's bottom) sits above it rather than over it.
+ */
+function ShellFooter({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current, root = document.documentElement;
+    if (!el) return;
+    const publish = () => root.style.setProperty("--cg-footer-h", `${el.offsetHeight}px`);
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(el);
+    // Removed only while it is still this footer's height: the next page's footer may already have written its own.
+    return () => { observer.disconnect(); if (root.style.getPropertyValue("--cg-footer-h") === `${el.offsetHeight}px`) root.style.removeProperty("--cg-footer-h"); };
+  }, []);
+  return <div ref={ref} className="relative z-50 shrink-0" data-testid="shell-footer">{children}</div>;
 }
 
 /** Replay mode opens the Timeline once the human's layout is in (unless it already has one). */
@@ -118,6 +140,8 @@ function Screen({ panels, replay }: { panels: Panels; replay?: ShellReplay }) {
   const current = useQuery(api.layout.current, { roomId });
   const setLayout = useMutation(api.layout.set);
   useShortcuts(store);
+  // "Ask your assistant" links, the composer's hand-offs and "/" reopen the assistant pane when the player closed it.
+  useEffect(() => composer.setReopen(() => { if (!assistantPaneOf(store.layout)) dockActions(store).openAssistant(); }), [store]);
 
   useEffect(() => { store.setPusher((layout, ifUpdatedAt) => setLayout({ roomId, layout, ...(ifUpdatedAt !== undefined ? { ifUpdatedAt } : {}) })); return () => store.setPusher(undefined); }, [store, setLayout, roomId]);
   useEffect(() => { store.setPhase(obs?.phase ?? current?.phase ?? phase); }, [store, obs?.phase, current?.phase, phase]);
@@ -132,6 +156,7 @@ function Screen({ panels, replay }: { panels: Panels; replay?: ShellReplay }) {
       <main data-testid="dock" className="min-h-0 flex-1">
         {wide ? <Suspense fallback={<p className="p-4 text-sm text-muted-foreground">Loading the dock…</p>}><DesktopDock /></Suspense> : <StackedDock />}
       </main>
+      <ShellFooter>{replay ? replay.footer : <EndedGameBar />}</ShellFooter>
       <Confirmations entries={panels.entries} />
     </div>
   );

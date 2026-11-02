@@ -6,7 +6,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { SPEEDS, describeEvent, parseReplayParams, replaySearch, shortId } from "../src/core/replay/model.ts";
+import { SPEEDS, worldAtFraction, describeEvent, endedGameReplay, parseReplayParams, replaySearch, shortId } from "../src/core/replay/model.ts";
 
 test("deep-link parameters: an exact event wins over a world time; junk is ignored; speeds are the offered ones", () => {
   assert.deepEqual(parseReplayParams("?t=12.5&speed=4&play=1&as=god-b"), { t: 12.5, speed: 4, play: true, as: "god-b" });
@@ -35,4 +35,31 @@ test("event sentences name the god behind every move and what changed", () => {
   assert.equal(describeEvent({ type: "phase", phase: "paused", worldSeconds: 3, reason: "paused by Bo" }, names), "Paused: paused by Bo");
   assert.equal(describeEvent({ type: "object.spawned", objectId: "obj7777", value: 5, version: 0, worldSeconds: 2, net: [0, 0] }, names), "Object 7777 appeared");
   assert.equal(describeEvent({ type: "agent.destroyed", agentId: "aaaa1234", ownerId: "g1", worldSeconds: 4 }, names), "Ada destroyed agent 1234");
+});
+
+test("the scrub track maps a pointer's position to a world time along the game, clamped to it", () => {
+  assert.equal(worldAtFraction(0, 120), 0);
+  assert.equal(worldAtFraction(1, 120), 120);
+  assert.equal(worldAtFraction(0.25, 120), 30, "continuous: no rounding to events");
+  assert.equal(worldAtFraction(-0.3, 120), 0, "left of the track is the start");
+  assert.equal(worldAtFraction(1.7, 120), 120, "right of the track is the end");
+  assert.equal(worldAtFraction(Number.NaN, 120), 0);
+  assert.equal(worldAtFraction(0.5, 0), 0, "a game with no time has one position");
+});
+
+test("the URL keeps the moment: an exact event after a step, a world time anywhere else", () => {
+  assert.equal(replaySearch("?panels=off", { e: 12, speed: 2 }), "?panels=off&e=12");
+  assert.equal(replaySearch("?e=3", { t: 41.237, speed: 4 }), "?t=41.24&speed=4");
+  assert.deepEqual(parseReplayParams(replaySearch("", { t: 7.5, speed: 2 })), { t: 7.5, speed: 2, play: false });
+});
+
+test("the room page offers the replay of its game once that game has ended, to its players and the room's owner", () => {
+  const player = { seated: true, isOwner: false };
+  assert.deepEqual(endedGameReplay({ phase: "ended", gameShortCode: "G7KQ" }, player), { game: "G7KQ" });
+  assert.deepEqual(endedGameReplay({ phase: "ended", gameShortCode: "G7KQ" }, { seated: false, isOwner: true }), { game: "G7KQ" }, "the owner");
+  assert.equal(endedGameReplay({ phase: "ended", gameShortCode: "G7KQ" }, { seated: false, isOwner: false }), null, "the engine refuses anyone else");
+  assert.equal(endedGameReplay({ phase: "running", gameShortCode: "G7KQ" }, player), null, "a live game has no replay");
+  assert.equal(endedGameReplay({ phase: "lobby" }, player), null, "a room that never played");
+  assert.equal(endedGameReplay({ phase: "ended" }, player), null, "no game to open");
+  assert.equal(endedGameReplay(undefined, player), null, "still connecting");
 });

@@ -59,7 +59,7 @@ const submit = (who: God, command: Record<string, unknown>) => who.c.action(fn.a
 /** Summon, retrying while the language's sandbox warms (launches are async). */
 const summon = async (who: God, language: string, source: string) => {
   for (let i = 0; i < 60; i++, await sleep(2000)) {
-    const r = await submit(who, { type: "summon", language, source }) as { accepted: boolean; message: string };
+    const r = await submit(who, { type: "summon", name: "Test agent", language, source }) as { accepted: boolean; message: string };
     if (r.accepted) return;
     if (!/warm|ready/i.test(r.message)) throw new Error(`${language}: ${r.message}`);
   }
@@ -75,7 +75,7 @@ await sleep(20_000);
 
 // ---- Bob's hosted client ----------------------------------------------------------------------------------------
 type Layout = Record<string, unknown>;
-const tabs = (id: string) => ({ type: "tabs", panes: [id], active: id });
+const tabs = (id: string) => ({ type: "pane", id });
 const panel = (id: string, panelId: string) => ({ id, kind: "panel", panelId, params: {}, setBy: "human" });
 const setLayout = (layout: Layout) => bob.c.mutation(fn.m("layout:set"), { roomId, layout });
 const beside = (panelId: string, sizes = [62, 38]): Layout => ({ version: 1, root: { type: "split", direction: "row", sizes, children: [tabs("p1"), tabs("p2")] },

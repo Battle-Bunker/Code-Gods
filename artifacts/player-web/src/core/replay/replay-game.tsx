@@ -1,7 +1,7 @@
 /**
  * An ended game's page, {base}rooms/:room/games/:game (docs/replay-design.md §4): the player client's own dock in
  * replay mode. Every built-in and stored panel shows the game at the replay's playhead (the SDK's answers come from
- * the replay: sdk/replay-source.ts), the header is the replay's transport, the Timeline panel drives the playhead, and
+ * the replay: sdk/replay-source.ts), the replay bar at the bottom drives the playhead (so does the Timeline panel), and
  * nothing acts. Deep links: `?e=<event>` or `?t=<world seconds>`, `&speed=`, `&play=1`, `&as=<god id>`; the URL
  * follows the playhead whenever it stops. If the replay cannot load, the game's final state (history/historic-game)
  * is shown instead.
@@ -9,16 +9,17 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useConvex } from "convex/react";
 import { api } from "@workspace/engine/convex/_generated/api";
-import { buildReplay, cursorAtWorld, type ReplayPage } from "@workspace/player-client/replay";
+import { buildReplay, type ReplayPage } from "@workspace/player-client/replay";
 import { RoomProvider } from "@/sdk/context";
 import { ReplaySourceContext } from "@/sdk/replay-source";
 import { MyGoalProvider } from "@/sdk/goal";
 import { PlayerShell } from "@/dock/shell";
 import { CoreBoundary } from "@/core/core-boundary";
 import { Link, hrefTo } from "../navigation";
+import { PlayerPalette } from "../header";
 import { parseReplayParams, replaySearch } from "./model";
 import { ReplayController, replaySource } from "./controller";
-import { AgentCode, AgentCodeContext, ReplayControllerContext, Transport, useReplayKeys } from "./parts";
+import { AgentCode, AgentCodeContext, ReplayBar, ReplayControllerContext, useReplayKeys } from "./parts";
 
 type Load = { pages: ReplayPage[]; done: boolean; error?: string };
 
@@ -61,8 +62,8 @@ export function ReplayGame({ room, gameId, gameCode, access, fallback }: { room:
     if (!replay) return null;
     const p = parseReplayParams(location.search);
     const pov = replay.game.roster.findIndex(g => g.id === p.as);
-    const cursor = p.e !== undefined ? p.e : p.t !== undefined ? cursorAtWorld(replay, p.t) : replay.log.length;
-    return new ReplayController(replay, { roomId: room.id, roomShortCode: room.shortCode }, { cursor, speed: p.speed, ...(pov >= 0 ? { pov } : {}) });
+    const start = p.e !== undefined ? { cursor: p.e } : p.t !== undefined ? { cursor: 0, world: p.t } : { cursor: replay.log.length, world: Infinity };
+    return new ReplayController(replay, { roomId: room.id, roomShortCode: room.shortCode }, { ...start, speed: p.speed, ...(pov >= 0 ? { pov } : {}) });
   }, [replay, room.id, room.shortCode]);
   useEffect(() => {
     if (!controller) return;
@@ -80,11 +81,13 @@ export function ReplayGame({ room, gameId, gameCode, access, fallback }: { room:
 function ReplayDock({ room, gameCode, access, controller, partial }: { room: Room; gameCode: string; access: Access; controller: ReplayController; partial?: string }) {
   const [agent, setAgent] = useState<string | null>(null);
   useReplayKeys(controller);
-  // The URL follows the playhead whenever it stops (never while playing).
+  // The URL follows the playhead whenever it stops (never while playing or dragging): the exact event after a step, else the time.
   useEffect(() => controller.subscribe(() => {
     const v = controller.get();
-    if (v.playing) return;
-    const search = replaySearch(location.search, { e: v.cursor, speed: v.speed, as: controller.replay.game.roster[v.pov]?.id });
+    if (v.playing || v.scrubbing) return;
+    const onEvent = v.cursor > 0 && v.world === controller.replay.worldMax[v.cursor - 1];
+    const as = controller.replay.game.roster[v.pov]?.id;
+    const search = replaySearch(location.search, onEvent ? { e: v.cursor, speed: v.speed, as } : { t: v.world, speed: v.speed, as });
     if (search !== location.search) history.replaceState(history.state, "", `${location.pathname}${search}`);
   }), [controller]);
   const sdkRoom = useMemo(() => ({ roomId: room.id, ...access }), [room.id, access]);
@@ -98,10 +101,11 @@ function ReplayDock({ room, gameCode, access, controller, partial }: { room: Roo
         <span className="font-serif text-base">Game <span className="font-mono" data-testid="text-game-code">{gameCode}</span></span>
         <span className="label" data-testid="text-game-status">ended · read-only replay</span>
         {partial && <span className="text-xs text-destructive" data-testid="text-replay-partial">Only part of the replay loaded ({partial}).</span>}
+        <PlayerPalette compact suggested={["ui.replay.toggle", "ui.replay.start", "ui.replay.end"]} />
       </div>
-      <Transport controller={controller} exitHref={exit} />
     </div>
   );
+  const footer = <ReplayBar controller={controller} exitHref={exit} />;
   return (
     <RoomProvider room={sdkRoom}>
       <ReplaySourceContext.Provider value={source}>
@@ -110,7 +114,7 @@ function ReplayDock({ room, gameCode, access, controller, partial }: { room: Roo
             <CoreBoundary>
               {/* The point-of-view god's goal explains every grid, as the live client's own goal does (sdk/goal.tsx). */}
               <MyGoalProvider>
-                <PlayerShell replay={{ header }} />
+                <PlayerShell replay={{ header, footer }} />
               </MyGoalProvider>
             </CoreBoundary>
             {agent && <AgentCode controller={controller} agentId={agent} onClose={() => setAgent(null)} />}

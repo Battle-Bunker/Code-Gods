@@ -36,6 +36,14 @@ try {
     assert.equal(await board.getAttribute("data-rich"), "true", `${f}: the example's breakdown adds up to the card's score`);
     assert.match(await board.locator("[data-testid=goal-board-headline]").innerText(), /^Row \d, column \d: /);
     assert.ok(await board.locator("[data-testid=goal-callout], [data-testid=goal-outcome-table]").count() > 0, `${f}: the default focus expands something`);
+    // Every annotated family explains its bits: raw parts, the share of boards, then −log₂(P) with the same P.
+    const how = board.locator("[data-testid=how-this-scores]");
+    assert.equal(await how.count(), 1, `${f}: "How this scores" is shown`);
+    const rarity = await how.locator("[data-testid=how-rarity]").innerText(), bits = await how.locator("[data-testid=how-bits]").innerText();
+    const p = /P = (\d\.\d+)/.exec(rarity)?.[1];
+    assert.ok(p, `${f}: shows P (${rarity})`);
+    assert.ok(bits.includes(`−log₂(${p})`), `${f}: the bits line uses the same P (${bits})`);
+    if (f === "number_bonds") await how.screenshot({ path: process.env.HOW_SHOT ?? "/tmp/how-number-bonds.png" });
   }
 
   // A family without a lens: the board and its score, no breakdown, no crash.

@@ -3,8 +3,10 @@ import test from "node:test";
 import {
   DEFAULT_SETTINGS, SETTINGS_OPTIONS, MAX_AGENTS_PER_GOD, settingsOptionsFor, validateSettings, LANGUAGES, LANGUAGE_SPECS,
   grammarFor, complexityFor, allowedLanguages, upgradeLegacyLanguage,
+  upgradeStoredSettings, FIRST_STEPS_SEED_ID, ANNOTATED_BASICS_SEED_ID,
   instantiationOf, codecOf, assertObjectValue, defaultSettingsFor, SEED_SETUPS, SETUP_NAME_MAX, seedSetupSettings, type GameSettings,
 } from "../src/settings.ts";
+import { gameEndSeconds } from "../src/random.ts";
 
 const settings = (patch: Partial<GameSettings>): GameSettings => ({ ...DEFAULT_SETTINGS, ...patch });
 
@@ -196,4 +198,41 @@ test("defaultSettingsFor gives valid settings for every type and language", () =
   assert.ok(!seedSetupSettings("grid-master").excludedFamilies.includes("ladder_of_numbers"), "cards cannot deal it, so it is not listed");
   assert.throws(() => seedSetupSettings("nope"), /Unknown seed setup/);
   assert.throws(() => validateSettings(settings({ excludedFamilies: ["Bad Id"] })));
+});
+
+test("duration mode and the time bounds are validated server-side", () => {
+  assert.equal(DEFAULT_SETTINGS.durationMode, "halfLife");
+  for (const patch of [
+    { durationMode: "random" as never }, { durationMode: undefined as never }, { halfLifeSeconds: 0.5 }, { halfLifeSeconds: 1_000_000_001 },
+    { planningSeconds: 3601 }, { pauseSeconds: 3601 }, { pauseSeconds: 0 }, { scoreIntervalSeconds: 0 }, { scoreIntervalSeconds: 3601 },
+    { scoreIntervalSeconds: 7.5 }, { scoreIntervalSeconds: NaN },
+  ] as Partial<GameSettings>[]) assert.throws(() => validateSettings(settings(patch)), JSON.stringify(patch));
+  for (const patch of [
+    { durationMode: "fixed" as const, halfLifeSeconds: 600 }, { halfLifeSeconds: 1 }, { scoreIntervalSeconds: 7 }, { scoreIntervalSeconds: 1 },
+    { planningSeconds: 0 }, { pauseSeconds: 45 }, { interactionRateHz: 3 },
+  ] as Partial<GameSettings>[]) assert.doesNotThrow(() => validateSettings(settings(patch)), JSON.stringify(patch));
+});
+
+test("gameEndSeconds: fixed ends exactly on time without drawing; half-life draws the random lifetime", () => {
+  let draws = 0;
+  assert.equal(gameEndSeconds("fixed", 600, () => { draws++; return 0.5; }), 600);
+  assert.equal(draws, 0);
+  assert.ok(Math.abs(gameEndSeconds("halfLife", 300, () => 0.5) - 300) < 1e-9, "a draw of one half is one half-life");
+  assert.throws(() => gameEndSeconds("fixed", 0, () => 0.5));
+});
+
+test("upgradeStoredSettings gives stored settings without a duration mode the half-life mode, keeping their value", () => {
+  const { durationMode: _m, ...old } = { ...DEFAULT_SETTINGS, halfLifeSeconds: 777 };
+  assert.deepEqual(upgradeStoredSettings(old)?.durationMode, "halfLife");
+  assert.equal(upgradeStoredSettings(old)?.halfLifeSeconds, 777);
+  assert.equal(upgradeStoredSettings({ ...old, durationMode: "fixed" }), null, "idempotent");
+});
+
+test("First steps and Annotated basics are 10 minutes fixed", () => {
+  for (const id of [FIRST_STEPS_SEED_ID, ANNOTATED_BASICS_SEED_ID]) {
+    const s = seedSetupSettings(id);
+    assert.equal(s.durationMode, "fixed"); assert.equal(s.halfLifeSeconds, 600);
+    assert.doesNotThrow(() => validateSettings(s));
+  }
+  assert.equal(seedSetupSettings("grid-classic").durationMode, "halfLife");
 });

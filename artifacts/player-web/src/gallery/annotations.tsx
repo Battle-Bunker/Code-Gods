@@ -7,12 +7,19 @@
 import React, { StrictMode, useMemo } from "react";
 import { createRoot } from "react-dom/client";
 import { instantiate } from "@workspace/game-types";
-import { context, explainer, family, story, whatIf } from "@workspace/game-utilities";
+import { context, explainer, family, instanceTables, story, tableFor, whatIf, type CalibrationFile } from "@workspace/game-utilities";
+import firstSteps from "../../../../lib/game-utilities/data/calibration/v1/Grid(4,base10,rgb).json";
 import { GoalBoard, GoalExplainerProvider, GridObject, PartScrubber, StoryPlayer, WhatIfBoard } from "@workspace/object-views";
 import "../index.css";
 
 const GRID = { size: 4, symbols: "base10", colours: "rgb" } as const;
 const INST = instantiate("Grid", GRID);
+// The shipped First Steps tables (dev gallery only; the game fetches its tables from the engine), so the cards show "How this scores".
+const TABLES = instanceTables(INST.key, firstSteps as unknown as CalibrationFile);
+const withTables = (draw: { familyId: string; params: never }) => {
+  const reward = tableFor(TABLES, draw, INST);
+  return explainer(draw, INST, reward ? { tables: { reward } } : {})!;
+};
 
 export const SHOWCASE = [
   { familyId: "parity_painter", params: { P: 0, Q: 1, key: "parity" } },
@@ -33,7 +40,7 @@ const PLAIN = { familyId: "rainbow_steps" } as const;
 const LIVE = ["2R,5R,8R,1G/4G,4B,4R,7G/6B,3G,9R,0B/1R,7B,3B,5G", "7G,3B,0R,9R/1R,1G,1B,4G/5B,8R,2G,6B/0G,3R,6G,9B"];
 
 function Family({ familyId, params }: { familyId: string; params: Record<string, unknown> }) {
-  const goal = useMemo(() => explainer({ familyId, params: params as never }, INST)!, [familyId]);
+  const goal = useMemo(() => withTables({ familyId, params: params as never }), [familyId]);
   const f = family(familyId), example = useMemo(() => goal.example(), [goal]);
   return (
     <section className="space-y-4 border bg-card p-5" data-family={familyId}>

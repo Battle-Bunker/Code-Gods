@@ -2,7 +2,7 @@
  * 🪞 Mirrormancer: each row (or column) folded onto itself; its pairs (first and last, …) are drawn as arcs. A whole
  * mirror scores a point; every matching pair is the tie-break. The focus selects its line.
  */
-import { lens } from "../lens.ts";
+import { lens, tally, count } from "../lens.ts";
 import type { Board } from "../board.ts";
 import type { Cell, Part } from "../model.ts";
 
@@ -13,6 +13,16 @@ const ORDINAL = ["1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th"];
 export const mirrormancer = lens<P>({
   familyId: "mirrormancer",
   components: () => ["mirror lines", "tie-break: matching pairs"],
+  breakdown: (p, _b, parts) => {
+    const kind = p.axis === "LR" ? "row" : "column";
+    return {
+      unit: ["mirror line", "mirror lines"],
+      items: tally(parts, [
+        { of: t => t.points[0] > 0, text: (n, pts) => `${count(n, kind)} that ${n === 1 ? "is a mirror" : "are mirrors"}; ${count(pts[1], "matching pair")} (tie-break)` },
+        { of: () => true, text: (n, pts) => `${count(n, kind)} that ${n === 1 ? "is" : "are"} not a mirror; ${count(pts[1], "matching pair")} (tie-break)` },
+      ]),
+    };
+  },
   parts: (p, b) => {
     const kind = p.axis === "LR" ? "row" : "column";
     const lines = Array.from({ length: b.N }, (_, i) => (p.axis === "LR" ? b.row(i) : b.column(i)));

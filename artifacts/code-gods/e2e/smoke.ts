@@ -177,6 +177,22 @@ async function palette(page: Page, query: string) {
   await page.getByTestId("input-palette").fill(query);
   await page.keyboard.press("Enter");
 }
+/** The row ids the open palette lists (empty query), after opening it by `how`; closes it again. */
+async function paletteItems(page: Page, how: "search box" | "menu button" | "ctrl+k"): Promise<string[]> {
+  if (how === "search box") await page.getByTestId("button-palette").click();
+  else if (how === "menu button") {
+    // On a phone the one "Menu" control is the search box; on a desktop ☰ is its own button.
+    const menu = page.getByTestId("button-palette-menu");
+    await ((await menu.isVisible()) ? menu : page.getByTestId("button-palette")).click();
+  } else await page.keyboard.press("Control+k");
+  await page.getByTestId("dialog-palette").waitFor();
+  const rows = page.locator('[data-testid^="row-palette-"]');
+  await rows.first().waitFor();
+  const ids = (await rows.evaluateAll(els => els.map(e => e.getAttribute("data-testid")!))).sort();
+  await page.keyboard.press("Escape");
+  await page.getByTestId("dialog-palette").waitFor({ state: "hidden" });
+  return ids;
+}
 /** Opens a collapsed section (a <details> with this test id). */
 async function expand(page: Page, testId: string) {
   const details = page.getByTestId(testId);
@@ -327,7 +343,11 @@ try {
       assert.equal(await a.getByTestId("choice-languages-typescript").getAttribute("aria-checked"), "true");
       assert.equal(await a.getByTestId("choice-languages-python").getAttribute("aria-checked"), "false");
       await a.getByTestId("button-exact-planningSeconds").click();
-      await a.getByTestId("input-planningSeconds").fill("1");
+      await a.getByTestId("input-planningSeconds").fill("0.02");   // minutes (1.2 s), so the game runs at once
+      await a.getByTestId("choice-durationMode-fixed").click();
+      await a.getByTestId("button-exact-halfLifeSeconds").click();
+      await a.getByTestId("input-halfLifeSeconds").fill("7");
+      assert.equal(await a.getByTestId("choice-durationMode-fixed").getAttribute("aria-checked"), "true");
       await a.getByTestId("text-unsaved").filter({ hasText: /unsaved changes/ }).waitFor();
       await a.getByTestId("button-save-settings").click();
       await a.waitForURL(new RegExp(`/rooms/${code}$`));
@@ -396,6 +416,11 @@ try {
       await row.waitFor();
       assert.equal(await row.getAttribute("data-unavailable"), "true", "dimmed, with the reason in the detail line");
       await b.keyboard.press("Escape");
+      // One palette: the search box, the menu button and Ctrl+K list exactly the same commands.
+      const viaBox = await paletteItems(a, "search box");
+      assert.ok(viaBox.length > 12, `the whole list, not a curated few (${viaBox.length})`);
+      assert.deepEqual(await paletteItems(a, "menu button"), viaBox, "menu button = search box");
+      assert.deepEqual(await paletteItems(a, "ctrl+k"), viaBox, "Ctrl+K = search box");
       await shot(a, `room-${name}`);
       await noHorizontalScroll(a, `${name} room`);
     });
@@ -444,6 +469,12 @@ try {
       await b.getByTestId("panel-final-results").waitFor({ timeout: 30_000 });
       assert.equal(await a.getByTestId("text-game-status").innerText(), "ENDED");
       assert.match(await a.getByTestId("text-end-reason").textContent(), /ended by owner/);
+      // Nothing on the ended game's page offers an action it no longer has: no chat box, no owner menu, no next step.
+      for (const page of [a, b]) {
+        await page.getByTestId("text-chat-closed").waitFor();
+        assert.equal(await page.getByTestId("input-chat").count(), 0, "the ended game's chat has no input");
+        assert.equal(await page.getByTestId("button-owner-menu").count(), 0, "no End game menu after the end");
+      }
       await shot(a, `game-${name}-ended`);
     });
 

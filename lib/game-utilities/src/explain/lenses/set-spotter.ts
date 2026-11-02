@@ -1,5 +1,5 @@
 /** 🔺 Set Spotter: trios in a line. The focus expands the trios that END at it (a middle cell is another cell's end). */
-import { lens, orderParts } from "../lens.ts";
+import { lens, orderParts, tally, count } from "../lens.ts";
 import type { Board } from "../board.ts";
 import { sameCell, type Cell, type Fact, type Part } from "../model.ts";
 
@@ -24,6 +24,13 @@ function numberFact(b: Board, t: readonly Cell[]): Fact {
 export const setSpotter = lens<P>({
   familyId: "set_spotter",
   components: () => ["SETs"],
+  breakdown: (_p, _b, parts) => ({
+    unit: ["SET", "SETs"],
+    items: tally(parts, [
+      { of: t => t.points[0] > 0, text: n => `${count(n, "SET")} (colours and numbers both fit)` },
+      { of: () => true, text: n => `${count(n, "trio")} that ${n === 1 ? "is" : "are"} not a SET` },
+    ]),
+  }),
   parts: (p, b) => {
     const out: Part[] = [];
     for (const x of b.cells) {

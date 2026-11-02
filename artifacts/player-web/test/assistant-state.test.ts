@@ -96,6 +96,8 @@ test("confirmation cards lead with a plain sentence", () => {
   assert.equal(confirmSentence(call(0, "m", "send_chat", "awaiting_confirmation", { argsJson: '{"text":"Let\'s leave the blue grids alone"}' })),
     "Post to everyone: \"Let's leave the blue grids alone\"");
   assert.equal(confirmSentence(call(0, "m", "summon_agent", "awaiting_confirmation"), { energy: 412 }), "Summon this agent: it pays from your 412 bits of energy");
+  const named = { ...call(0, "m", "summon_agent", "awaiting_confirmation"), argsJson: JSON.stringify({ name: "Corner hoarder", description: "Hoards the corner." }) };
+  assert.equal(confirmSentence(named, { energy: 412 }), 'Summon "Corner hoarder" (Hoards the corner.): it pays from your 412 bits of energy');
   assert.equal(confirmSentence(call(0, "m", "pause_game", "awaiting_confirmation"), { pauseSeconds: 180 }), "Use your one pause: it stops the world for everyone for 180 s");
   assert.match(confirmSentence(call(0, "m", "destroy_agent", "awaiting_confirmation", { argsJson: '{"agentId":"abc"}' })), /^Destroy your agent abc/);
   assert.equal(confirmSentence(call(0, "m", "end_game", "awaiting_confirmation")), "End the game now for everyone");

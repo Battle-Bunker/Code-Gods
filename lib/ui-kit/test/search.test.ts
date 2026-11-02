@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { CATALOG, CATALOG_PATHS } from "@workspace/player-client/catalog";
 import { TOOLS } from "@workspace/player-client/tools";
 import { commandsFromCatalog } from "../src/commands.ts";
-import { EMPTY_VIEW_LIMIT, matchScore, paletteRows, scoreCommand, sectionOf } from "../src/search.ts";
+import { matchScore, paletteRows, scoreCommand, sectionOf } from "../src/search.ts";
 import { INLINE_TIMEOUT_MS, deriveConfirm, inlineStep } from "../src/confirm.ts";
 import { pushRecent, readRecent, recordRecent } from "../src/recency.ts";
 import { isEditable, paletteKey } from "../src/keys.ts";
@@ -49,25 +49,24 @@ test("searching ranks available rows first, dims what the role blocks and hides 
   assert.ok(paletteRows(commands, { ...member, admin: true }, { query: "template" }).flatMap(s => s.rows).length > 0);
 });
 
-test("the empty query shows at most 12 available rows, only those with a default score, the suggestion and recent ones first", () => {
-  const many: Command[] = Array.from({ length: 30 }, (_, i) => cmd(`c${i}`, `Command ${i}`, { defaultScore: i % 3, group: i % 2 ? "view" : "play" }));
+test("the empty query is one list: every available command, the suggestion and recent ones pinned first, none twice", () => {
+  const many: Command[] = Array.from({ length: 30 }, (_, i) => cmd(`c${i}`, `Command ${i}`, { defaultScore: i % 3, group: i % 2 ? "view" : i % 5 === 0 ? "account" : "play" }));
   many.push(cmd("blocked", "Blocked thing", { defaultScore: 9, available: () => ({ ok: false, reason: "No." }) }));
   many.push(cmd("help1", "How to play", { group: "help", defaultScore: 1 }));
   const sections = paletteRows(many, owner, { query: "", suggested: ["c3"], recent: ["c9", "c4", "c1"] });
   const rows = sections.flatMap(s => s.rows);
-  assert.ok(rows.length <= EMPTY_VIEW_LIMIT, `${rows.length} rows`);
   assert.equal(sections[0].section, "suggested");
   assert.deepEqual(sections[0].rows.map(r => r.command.id), ["c3", "c9", "c4"], "the next step, then the two most recent");
   assert.ok(rows.every(r => r.availability.ok), "nothing unavailable");
-  assert.ok(!rows.some(r => r.command.id === "c0" || r.command.id === "c6"), "default score 0 stays out until typed");
-  assert.ok(sections.some(s => s.section === "help"), "help keeps its place");
+  assert.deepEqual(rows.map(r => r.command.id).sort(), many.filter(c => c.id !== "blocked").map(c => c.id).sort(), "every available command, including default score 0 and Settings");
   assert.equal(new Set(rows.map(r => r.command.id)).size, rows.length, "no row twice");
-  assert.ok(paletteRows(many, owner, { query: "command 6" }).flatMap(s => s.rows).some(r => r.command.id === "c6"), "typed, it appears");
+  // Suggested and recent only reorder: without them the same commands are listed.
+  assert.deepEqual(paletteRows(many, owner, { query: "" }).flatMap(s => s.rows).map(r => r.command.id).sort(), rows.map(r => r.command.id).sort());
 });
 
-test("browse mode lists every available command; the help page only help", () => {
+test("the help page is the same list narrowed to help", () => {
   const many = [cmd("a", "Alpha"), cmd("b", "Beta", { group: "help" }), cmd("c", "Gamma", { available: () => ({ ok: false, reason: "x" }) })];
-  assert.deepEqual(paletteRows(many, owner, { query: "", browse: true }).flatMap(s => s.rows).map(r => r.command.id).sort(), ["a", "b"]);
+  assert.deepEqual(paletteRows(many, owner, { query: "" }).flatMap(s => s.rows).map(r => r.command.id).sort(), ["a", "b"]);
   assert.deepEqual(paletteRows(many, owner, { query: "", only: "help" }).flatMap(s => s.rows).map(r => r.command.id), ["b"]);
 });
 

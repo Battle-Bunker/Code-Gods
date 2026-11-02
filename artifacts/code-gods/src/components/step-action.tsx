@@ -9,7 +9,7 @@ import { gamePath, playerClientPath, roomPath } from "@/lib/routes";
 const TEST_IDS: Partial<Record<StepId, string>> = {
   "ui.auth.signIn": "button-login-room", "rooms.join": "button-join", "ui.nav.playerClient": "link-player", "rooms.setReady": "button-ready",
   "ui.copyInviteLink": "button-copy-link", "rooms.addAi": "button-add-ai", "owner.start": "button-start", "ui.nav.game": "link-running-game",
-  "rooms.resume": "button-resume", "ui.nav.room": "button-back-to-room",
+  "rooms.resume": "button-resume", "ui.nav.room": "button-back-to-room", "ui.nav.replay": "link-watch-replay",
 };
 
 export function StepAction({ id, primary, roomCode, gameCode }: { id: StepId; primary?: boolean; roomCode?: string | null; gameCode?: string | null }) {
@@ -22,6 +22,7 @@ export function StepAction({ id, primary, roomCode, gameCode }: { id: StepId; pr
   if (id === "ui.nav.playerClient" && roomCode) {
     return <Action k={id} tone={tone} href={playerClientPath(roomCode)} external unavailable={unavailable(id)} testId={testId} showReason={primary} />;
   }
+  if (id === "ui.nav.replay" && roomCode && gameCode) return <Action k={id} tone={tone} href={playerClientPath(roomCode, gameCode)} external testId={testId} />;
   if (id === "ui.nav.game" && gameCode && roomCode) return <Action k={id} tone={tone} href={gamePath(roomCode, gameCode)} testId={testId} />;
   if (id === "ui.nav.room" && roomCode) return <Action k={id} label={`Back to room ${roomCode}`} tone={tone} href={roomPath(roomCode)} testId={testId} />;
   // The start registers in the same frame: busy, spinner, no second click, until the room shows the game or its preparation.

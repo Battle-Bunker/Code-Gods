@@ -14,6 +14,7 @@ import { PANELS, PANEL_IDS, type PanelId, type Phase } from "@workspace/player-c
 import type { Pane } from "@workspace/player-client/layout";
 import type { Command as GameCommand } from "@workspace/player-client";
 import type { GridRendererId } from "@workspace/object-views";
+import { endedGameReplay } from "../replay/model.ts";
 import { GLOSSARY, GLOSSARY_IDS, availabilityFor, commandsFromCatalog, type Availability, type Command, type PaletteContext, type Performer, type PickOption } from "@workspace/ui-kit";
 
 export type PaletteState = {
@@ -48,6 +49,8 @@ export type PaletteState = {
   aiSeats: readonly PickOption[];
   /** How this viewer sees grids (lib/object-views' Grid renderer, remembered per browser). */
   gridRenderer: GridRendererId;
+  /** In a replay (an ended game's page, docs/replay-design.md): the playhead's state. Absent in the live room. */
+  replay?: { playing: boolean; atStart: boolean; atEnd: boolean };
 };
 
 export type PaletteActions = {
@@ -74,6 +77,8 @@ export type PaletteActions = {
     change(paneId: string, panelId: PanelId): void;
     close(paneId: string): void;
     dockAssistant(side: "left" | "right" | "bottom"): void;
+    /** Show the assistant pane, reopening it when it was closed. */
+    openAssistant(): void;
     preset(name: "stacked" | "side-by-side" | "two-panels"): void;
     reset(): void;
     maximise(paneId: string): void;
@@ -83,6 +88,8 @@ export type PaletteActions = {
   links: { roomPage(): string; gamePage(): string | null; copyRoomLink(): void; safeMode(on: boolean): void };
   /** setObjectRenderer("Grid", id): every grid this viewer sees redraws. */
   objects: { setGridRenderer(id: GridRendererId): void };
+  /** `watch` opens the ended game's replay (its page); the others drive the replay on screen. */
+  replay: { watch(): void; toggle(): void; start(): void; end(): void };
   notify(text: string): void;
 };
 
@@ -223,12 +230,12 @@ export function playerCommands(s: PaletteState, a: PaletteActions): Command[] {
       available: ctx => {
         const pane = scope(ctx);
         if (!pane) return no("Open the palette from a pane.", undefined, true);
-        if (pane.kind === "assistant") return no("The assistant pane stays; drag it smaller instead.");
         return pane.closable ? OK : no("The last panel stays; change it instead.");
       },
     }),
     ui("ui.pane.maximise", "Maximise or restore this pane", "Gives this pane the whole dock, or puts it back.", "view", local(() => { if (s.scopePaneId) a.dock.maximise(s.scopePaneId); }),
       { keywords: ["zoom", "full screen", "maximize"], available: ctx => (scope(ctx) ? OK : no("Open the palette from a pane.", undefined, true)) }),
+    ui("ui.assistant.open", "Open assistant", "Your assistant, in its own pane: it comes back at the bottom if you closed it.", "view", local(() => a.dock.openAssistant()), { keywords: ["chat", "ask", "reopen", "show"] }),
     ui("ui.assistant.right", "Move assistant right", "Your assistant beside the panels, on the right.", "view", local(() => a.dock.dockAssistant("right")), { keywords: ["layout", "side"] }),
     ui("ui.assistant.bottom", "Move assistant to the bottom", "Your assistant below the panels.", "view", local(() => a.dock.dockAssistant("bottom")), { keywords: ["layout", "below"] }),
     ui("ui.assistant.left", "Move assistant left", "Your assistant beside the panels, on the left.", "view", local(() => a.dock.dockAssistant("left")), { keywords: ["layout", "side"] }),
@@ -275,6 +282,23 @@ export function playerCommands(s: PaletteState, a: PaletteActions): Command[] {
       { keywords: ["chat", "message", "public", "negotiate"], ...always(() => gameplay(s)) }),
   ];
 
+  // ----- the replay of a completed game (docs/replay-design.md §7) -----
+  const inReplay = (): Availability => (s.replay ? OK : no("Only in a game's replay.", undefined, true));
+  const replayRows: Command[] = [
+    ui("ui.replay.watch", "Watch the replay", "This game's replay: scrub through every move, play it at ¼× to 64×, and see every player's goal, agents and code.", "play",
+      local(() => a.replay.watch()), { keywords: ["replay", "timeline", "scrub", "playback", "rewatch"], defaultScore: 9,
+        ...always(() => (s.replay ? no("You are watching it.", undefined, true)
+          : s.phase !== "ended" ? no("The replay opens when the game ends.", undefined, true)
+          : s.roomCode && endedGameReplay({ phase: s.phase, gameShortCode: s.gameCode }, s) ? OK
+          : no("Only its players and the room's owner can open a game's replay.", undefined, true))) }),
+    ui("ui.replay.toggle", s.replay?.playing ? "Pause the replay" : "Play the replay", "Plays the replay from the playhead at the chosen speed, or pauses it (Space).", "play",
+      local(() => a.replay.toggle()), { keywords: ["replay", "play", "pause", "resume"], defaultScore: 8, ...always(inReplay) }),
+    ui("ui.replay.start", "Replay: jump to the start", "Moves the replay's playhead to the game's first event (Home).", "play",
+      local(() => a.replay.start()), { keywords: ["replay", "start", "beginning", "rewind", "home"], ...always(() => both(inReplay(), s.replay?.atStart ? no("The replay is at its start.") : OK)) }),
+    ui("ui.replay.end", "Replay: jump to the end", "Moves the replay's playhead to the end of the game (End).", "play",
+      local(() => a.replay.end()), { keywords: ["replay", "end", "final", "last"], ...always(() => both(inReplay(), s.replay?.atEnd ? no("The replay is at its end.") : OK)) }),
+  ];
+
   const linkRows: Command[] = [
     ui("ui.room.copy-link", "Copy room link", "The room page's link, to invite people.", "room", local(() => a.links.copyRoomLink()),
       { keywords: ["invite", "share", "url"], ...always(() => (s.roomCode ? OK : no("Waiting for the room."))) }),
@@ -299,5 +323,12 @@ export function playerCommands(s: PaletteState, a: PaletteActions): Command[] {
       local(() => a.panels.openFile(id)), { keywords: ["panel", "file", id] })),
   ];
 
-  return [...fromCatalog, ...builtInRows, ...paneRows, ...assistantRows, ...gameRows, ...linkRows, ...ownPanelRows];
+  const all = [...fromCatalog, ...builtInRows, ...paneRows, ...assistantRows, ...gameRows, ...replayRows, ...linkRows, ...ownPanelRows];
+  if (!s.replay) return all;
+  // A replay acts on nothing: the engine functions (the catalogue's rows), submits and forms (which write: chat, panels,
+  // the assistant's settings) are off. Looking stays: the dock, links, the replay's own controls, the assistant.
+  const catalogIds = new Set(fromCatalog.map(c => c.id));
+  const refused = no("This is a replay of an ended game: nothing can be done in it. Go back to the room to play.", undefined, true);
+  const looks = (c: Command) => !catalogIds.has(c.id) && (c.performer.kind === "local" || c.performer.kind === "navigate" || c.performer.kind === "handoff" || c.id === "ui.glossary");
+  return all.map(c => (looks(c) ? c : { ...c, available: () => refused }));
 }

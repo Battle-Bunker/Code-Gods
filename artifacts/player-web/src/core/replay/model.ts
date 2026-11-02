@@ -29,11 +29,12 @@ export function parseReplayParams(search: string): ReplayParams {
   };
 }
 
-/** The query string for a position (always as an exact event), keeping the page's other parameters. */
-export function replaySearch(current: string, p: { e: number; speed: number; as?: string }): string {
+/** The query string for a position (an exact event `e`, or a world time `t`), keeping the page's other parameters. */
+export function replaySearch(current: string, p: ({ e: number; t?: undefined } | { t: number; e?: undefined }) & { speed: number; as?: string }): string {
   const q = new URLSearchParams(current);
   for (const k of ["e", "t", "speed", "play", "as"]) q.delete(k);
-  q.set("e", String(p.e));
+  if (p.e !== undefined) q.set("e", String(p.e));
+  else q.set("t", String(Math.round(p.t * 100) / 100));
   if (p.speed !== DEFAULT_SPEED) q.set("speed", String(p.speed));
   if (p.as) q.set("as", p.as);
   return `?${q}`;
@@ -62,4 +63,18 @@ export function describeEvent(ev: ReplayEvent, names: ReadonlyMap<string, string
     case "agent.summoned": return `${god(ev.ownerId)} summoned agent ${shortId(ev.agentId)} (${ev.language}, ${bits(ev.summonCost)} bits)`;
     case "agent.destroyed": return `${god(ev.ownerId)} destroyed agent ${shortId(ev.agentId)}`;
   }
+}
+
+/** The world time a point of the scrub track stands for: `fraction` of the way along a game of `endWorld` seconds (clamped). */
+export function worldAtFraction(fraction: number, endWorld: number): number {
+  if (!Number.isFinite(fraction) || !(endWorld > 0)) return 0;
+  return Math.max(0, Math.min(1, fraction)) * endWorld;
+}
+
+/**
+ * The room page's way into the replay: its game, once that game has ended, for its players and the room's owner (the
+ * engine serves a replay to no one else: player.replay).
+ */
+export function endedGameReplay(obs: { phase?: string; gameShortCode?: string | null } | undefined, viewer: { seated: boolean; isOwner: boolean }): { game: string } | null {
+  return obs?.phase === "ended" && obs.gameShortCode && (viewer.seated || viewer.isOwner) ? { game: obs.gameShortCode } : null;
 }

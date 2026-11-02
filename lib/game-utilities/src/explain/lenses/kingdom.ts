@@ -1,5 +1,5 @@
 /** 🏰 Kingdom: patches of your colour; only the biggest scores, one point per cell. */
-import { lens } from "../lens.ts";
+import { lens, tally, count } from "../lens.ts";
 import { hasCell, type Part } from "../model.ts";
 
 type P = { C: number };
@@ -7,6 +7,13 @@ type P = { C: number };
 export const kingdom = lens<P>({
   familyId: "kingdom",
   components: () => ["cells in your biggest patch"],
+  breakdown: (p, b, parts) => ({
+    unit: ["cell", "cells"],
+    items: tally(parts, [
+      { of: t => t.points[0] > 0, text: (_n, pts) => `Your biggest ${b.spec.colourNames[p.C]} patch: ${count(pts[0], "cell")}` },
+      { of: () => true, text: n => `${count(n, "smaller " + b.spec.colourNames[p.C] + " patch", "other " + b.spec.colourNames[p.C] + " patches")}: only the biggest scores` },
+    ]),
+  }),
   parts: (p, b) => {
     const mine = b.regions((x, y) => b.col(x) === b.col(y)).filter(patch => b.col(patch[0]) === p.C);
     const biggest = Math.max(0, ...mine.map(patch => patch.length));

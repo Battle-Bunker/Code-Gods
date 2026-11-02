@@ -140,3 +140,11 @@ test("messages from any window but this frame, or without the boot nonce, are dr
   assert.equal(acceptMessage({ source: frame, data: "not an object" }, frame, "n-1"), null);
   assert.equal(acceptMessage({ source: frame, data: { nonce: "n-1", type: 7 } }, frame, "n-1"), null);
 });
+
+test("a stored panel's objects page is clamped and its cursor validated; the room is the host's", async () => {
+  const { BRIDGE_QUERIES } = await import("../src/sdk/bridge-protocol.ts");
+  const ask = BRIDGE_QUERIES["player.objectsPage"];
+  assert.deepEqual(ask({ sort: "nope", filter: "x", limit: 99999, after: { key: "1", id: "o" } }, "room-1"), { roomId: "room-1", sort: "payoff", filter: "all", limit: 2100 });
+  assert.deepEqual(ask({ sort: "mine", filter: "chips", limit: 0, after: { key: 2.5, id: "o7" }, roomId: "elsewhere" }, "room-1"),
+    { roomId: "room-1", sort: "mine", filter: "chips", limit: 1, after: { key: 2.5, id: "o7" } });
+});

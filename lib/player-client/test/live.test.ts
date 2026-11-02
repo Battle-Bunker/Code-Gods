@@ -194,7 +194,7 @@ test("assistant: observation and events carry the untrusted-data framing", async
 });
 
 test("assistant: summon via command, receipt replay, retry of an uncertain command, chat", async () => {
-  const summon = envelope({ type: "summon", language: "typescript", source: AGENT });
+  const summon = envelope({ type: "summon", name: "Test agent", language: "typescript", source: AGENT });
   const first = await cli(["assistant", "command"], { env: apps.bob.env, input: JSON.stringify(summon) });
   assert.equal(first.status, 0, first.stdout);
   const receipt = parse(first);

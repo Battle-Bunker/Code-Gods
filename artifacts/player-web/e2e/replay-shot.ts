@@ -6,7 +6,9 @@
  * an ended game opens in the dock's replay mode at its end with the Timeline and the built-in panels; the deep link
  * reopens the same event; a step onto a change animates it on the board; the URL follows; an agent's code opens from
  * the timeline; the point of view switches; play moves the playhead (and starts over from the end); other pages'
- * links carry no replay position.
+ * links carry no replay position. First, as a player finds it: from the room page right after the game ends, with no
+ * typed URL, "Watch the replay" opens the replay bar at the bottom of the screen; scrubbing to the middle, playing at
+ * 4× and stepping each move the playhead, and the board changes with it.
  * Usage: node --experimental-transform-types e2e/replay-shot.ts <out-dir>
  */
 import "../../engine/scripts/local-only.mjs";
@@ -45,7 +47,7 @@ for (let i = 0; i < 180 && !gameId; i++, await sleep(1000)) {
 assert.ok(gameId, "the game started");
 const submit = (command: Record<string, unknown>) => bob.action(fn.a("commands:submit"), { roomId, envelope: { version: "code-gods.player.v3", commandId: crypto.randomUUID(), gameId, command } });
 const source = (k: number) => language === "python" ? `def agent(grid):\n    return [slide(row(${k}), 1)]` : `function agent(grid) { return [slide(row(${k}), 1)]; }`;
-for (const k of [0, 1]) { const r = await submit({ type: "summon", language, source: source(k) }) as { accepted: boolean; message: string }; assert.ok(r.accepted, r.message); }
+for (const k of [0, 1]) { const r = await submit({ type: "summon", name: "Test agent", language, source: source(k) }) as { accepted: boolean; message: string }; assert.ok(r.accepted, r.message); }
 await submit({ type: "chat", text: "I'll keep the top rows moving; leave them to me." });
 await admin.mutation(fn.m("testing:patchGame"), { gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 5000 }, kick: true });
 await sleep(14_000);
@@ -69,6 +71,100 @@ const open = async (width: number, height: number, query: string) => {
   await page.waitForSelector("[data-testid=panel-timeline]", { timeout: 30_000 });
   return { page, context };
 };
+
+const boardText = (page: import("playwright").Page) => page.locator("[data-testid^=row-object-]").allTextContents().then(t => t.join("|"));
+{
+  // The owner's journey: the room page right after "Game over". No URL is typed: the bar under the dock offers the replay.
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
+  await context.addCookies(session.split("; ").map(pair => ({ name: pair.slice(0, pair.indexOf("=")), value: pair.slice(pair.indexOf("=") + 1), url: SITE })));
+  const page = await context.newPage();
+  await page.goto(`${SITE}/client/rooms/${shortCode}`);
+  await page.waitForSelector("[data-testid=ended-game-bar]", { timeout: 60_000 });
+  await page.waitForSelector(".cg-pane-header", { timeout: 30_000 });
+  await sleep(1500);
+  await page.screenshot({ path: `${OUT}/replay-room-ended.png` });
+  await page.click("[data-testid=link-watch-replay]");
+  await page.waitForSelector(T, { timeout: 60_000 });
+  assert.equal(new URL(page.url()).pathname, `/client/rooms/${shortCode}/games/${gameCode}`, "the replay is the game's page");
+  // One bar, anchored to the bottom of the screen, with a track wider than half the screen.
+  const bar = (await page.locator(T).boundingBox())!;
+  assert.ok(Math.abs(bar.y + bar.height - 900) <= 2, `the replay bar sits at the bottom (${bar.y}+${bar.height})`);
+  const track = (await page.locator("[data-testid=input-replay-scrub]").boundingBox())!;
+  assert.ok(track.width > 720, `the scrub track is wide (${track.width})`);
+  const total = Number(await page.getAttribute(T, "data-events"));
+  assert.equal(await cursorOf(page), total, "it opens at the end");
+  assert.ok(await page.locator("[data-testid=replay-marker]").count() > 0, "key moments are marked on the track");
+  // Scrub to the middle: hover names the moment, a click seeks there, and the board shows the game at that moment.
+  await page.mouse.move(track.x + track.width / 2, track.y + track.height / 2);
+  await page.waitForSelector("[data-testid=replay-scrub-tooltip]");
+  assert.match(await page.textContent("[data-testid=replay-scrub-tooltip]") ?? "", /\d+:\d\d · event \d+/);
+  // Drag from a fifth of the way to the middle in small steps: the playhead's time rises with every step (no jumping
+  // back), the clock follows, and on release the URL keeps the time.
+  const worldOf = async () => Number(await page.getAttribute("[data-testid=input-replay-scrub]", "data-world"));
+  const endWorld = Number(await page.getAttribute("[data-testid=input-replay-scrub]", "aria-valuemax"));
+  const y = track.y + track.height / 2;
+  await page.mouse.move(track.x + track.width * 0.2, y);
+  await page.mouse.down();
+  const seen: number[] = [];
+  for (let i = 1; i <= 10; i++) {
+    await page.mouse.move(track.x + track.width * (0.2 + 0.03 * i), y);
+    await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
+    seen.push(await worldOf());
+  }
+  assert.ok(seen.every((w, i) => i === 0 || w > seen[i - 1]), `the playhead's time rises with every step of the drag: ${seen.join(", ")}`);
+  assert.ok(!new URL(page.url()).searchParams.has("t"), "the URL waits for the release");
+  await page.mouse.up();
+  const middle = await cursorOf(page);
+  assert.ok(Math.abs(await worldOf() - endWorld / 2) <= endWorld * 0.02, `dragging to the middle seeks there in time (${await worldOf()} of ${endWorld})`);
+  await page.waitForFunction(() => new URL(location.href).searchParams.has("t"), null, { timeout: 5000 });
+  await page.waitForSelector("[data-testid^=row-object-]", { timeout: 15_000 });
+  await page.screenshot({ path: `${OUT}/replay-bar-middle.png` });
+  const atMiddle = await boardText(page);
+  // Play at 4×: the playhead moves on and the board with it.
+  await page.selectOption("[data-testid=select-replay-speed]", "4");
+  await page.click("[data-testid=button-replay-play]");
+  await page.waitForFunction(m => Number(document.querySelector("[data-testid=replay-transport]")?.getAttribute("data-cursor")) > m + 3, middle, { timeout: 15_000 });
+  await page.click("[data-testid=button-replay-play]");
+  assert.equal(await page.getAttribute(T, "data-playing"), "0", "pause stops playback");
+  const played = await cursorOf(page);
+  await page.waitForFunction(b => [...document.querySelectorAll("[data-testid^=row-object-]")].map(e => e.textContent).join("|") !== b, atMiddle, { timeout: 5_000 });
+  // Step forward and back by one event; the keys step too.
+  await page.click("[data-testid=button-replay-next]");
+  assert.equal(await cursorOf(page), played + 1, "step forward moves one event");
+  await page.click("[data-testid=button-replay-prev]");
+  await page.click("[data-testid=button-replay-prev]");
+  assert.equal(await cursorOf(page), played - 1, "step back moves one event");
+  await page.locator("body").press("ArrowRight");
+  assert.equal(await cursorOf(page), played, "→ steps forward");
+  await page.locator("body").press("Home");
+  assert.equal(await cursorOf(page), 0, "Home jumps to the start");
+  await page.click("[data-testid=button-replay-end]");
+  assert.equal(await cursorOf(page), total, "the end button jumps to the end");
+  // The palette drives the replay too: jump to the start, then play.
+  const palette = async (id: string) => {
+    await page.keyboard.press("Control+k");
+    await page.waitForSelector("[data-testid=dialog-palette]");
+    await page.click(`[data-testid="row-palette-${id}"]`);
+    await page.waitForSelector("[data-testid=dialog-palette]", { state: "detached", timeout: 10_000 });
+  };
+  await palette("ui.replay.start");
+  assert.equal(await cursorOf(page), 0, "the palette's Replay: jump to the start");
+  await palette("ui.replay.toggle");
+  await page.waitForFunction(() => Number(document.querySelector("[data-testid=replay-transport]")?.getAttribute("data-cursor")) > 0, null, { timeout: 15_000 });
+  assert.equal(await page.getAttribute(T, "data-playing"), "1", "the palette's Play the replay plays it");
+  // Back in the room, the palette offers the replay as well.
+  await page.goto(`${SITE}/client/rooms/${shortCode}`);
+  await page.waitForSelector("[data-testid=ended-game-bar]", { timeout: 60_000 });
+  await palette("ui.replay.watch");
+  await page.waitForSelector(T, { timeout: 60_000 });
+  assert.equal(new URL(page.url()).pathname, `/client/rooms/${shortCode}/games/${gameCode}`, "the palette's Watch the replay opens it");
+  // The engine UI's page of the ended game leads with the replay.
+  await page.goto(`${SITE}/rooms/${shortCode}/games/${gameCode}`);
+  await page.waitForSelector("[data-testid=link-watch-replay]", { timeout: 60_000 });
+  assert.equal(new URL(await page.getAttribute("[data-testid=link-watch-replay]", "href") ?? "", SITE).pathname, `/client/rooms/${shortCode}/games/${gameCode}`);
+  await page.screenshot({ path: `${OUT}/replay-engine-game-page.png` });
+  await context.close();
+}
 
 let events = 0;
 {
@@ -139,8 +235,54 @@ const mid = Math.floor(events * 0.6);
 }
 {
   const { page, context } = await open(390, 844, `?e=${mid}`);
+  // On a phone the bar stays at the bottom, above the assistant's sheet.
+  const bar = (await page.locator(T).boundingBox())!;
+  assert.ok(Math.abs(bar.y + bar.height - 844) <= 2, `the phone's replay bar sits at the bottom (${bar.y}+${bar.height})`);
+  const sheet = await page.locator(".cg-sheet").boundingBox();
+  assert.ok(!sheet || sheet.y + sheet.height <= bar.y + 1, "the assistant's sheet sits above the bar");
+  const play = (await page.locator("[data-testid=button-replay-play]").boundingBox())!;
+  assert.equal(await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest("[data-testid=button-replay-play]") !== null, [play.x + play.width / 2, play.y + play.height / 2]), true, "play is not covered");
   await page.screenshot({ path: `${OUT}/replay-phone.png` });
   await context.close();
+}
+{
+  // A short video of smooth playback and scrubbing (docs/videos/replay/), for people to look at.
+  const VIDEO = `${OUT}/../../videos/replay`;
+  const context = await browser.newContext({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1, recordVideo: { dir: VIDEO, size: { width: 960, height: 540 } } });
+  await context.addCookies(session.split("; ").map(pair => ({ name: pair.slice(0, pair.indexOf("=")), value: pair.slice(pair.indexOf("=") + 1), url: SITE })));
+  const page = await context.newPage();
+  const recording = Date.now();
+  await page.goto(`${SITE}/client/rooms/${shortCode}/games/${gameCode}?t=0&speed=2`);
+  await page.waitForSelector(T, { timeout: 60_000 });
+  await page.waitForSelector(".cg-pane-header", { timeout: 30_000 });
+  await sleep(1000);
+  const ready = (Date.now() - recording) / 1000 - 0.5;
+  await page.click("[data-testid=button-replay-play]");
+  await sleep(4000);
+  await page.click("[data-testid=button-replay-play]");
+  const track = (await page.locator("[data-testid=input-replay-scrub]").boundingBox())!;
+  const y = track.y + track.height / 2;
+  await page.mouse.move(track.x + track.width * 0.3, y);
+  await page.mouse.down();
+  for (let i = 0; i <= 40; i++) { await page.mouse.move(track.x + track.width * (0.3 + 0.012 * i), y); await sleep(40); }
+  for (let i = 40; i >= 0; i -= 2) { await page.mouse.move(track.x + track.width * (0.3 + 0.012 * i), y); await sleep(40); }
+  await page.mouse.up();
+  await page.selectOption("[data-testid=select-replay-speed]", "4");
+  await page.click("[data-testid=button-replay-play]");
+  await sleep(3000);
+  const video = page.video();
+  await context.close();
+  const { renameSync } = await import("node:fs");
+  if (video) {
+    // Cut the sign-in and loading screens and keep the file small (ffmpeg when available, else the raw recording).
+    const raw = await video.path();
+    try {
+      const { execFileSync } = await import("node:child_process");
+      execFileSync("ffmpeg", ["-v", "error", "-y", "-ss", ready.toFixed(1), "-i", raw, "-c:v", "libvpx-vp9", "-b:v", "250k", "-an", `${VIDEO}/replay-smooth.webm`]);
+      const { rmSync } = await import("node:fs");
+      rmSync(raw);
+    } catch { renameSync(raw, `${VIDEO}/replay-smooth.webm`); }
+  }
 }
 console.log(JSON.stringify({ out: OUT, room: shortCode, game: gameCode, events }));
 await browser.close();

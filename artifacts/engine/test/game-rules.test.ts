@@ -24,9 +24,23 @@ async function runningGame(settings: Record<string, unknown> = {}) {
   return { trio, roomId, shortCode, game, send, run };
 }
 
+test("a summon needs a name (trimmed, up to 40) and takes an optional description (up to 500); both are stored on the agent", { timeout: 120000 }, async () => {
+  const { trio: [, ada], roomId, game, send } = await runningGame({ startingObjectCount: 3 });
+  const src = { language: "typescript", source: "function agent(x) { return [setTo(5)]; }" };
+  for (const bad of [{}, { name: "   " }, { name: "x".repeat(41) }, { name: "N", description: "d".repeat(501) }]) {
+    assert.match(await rejects(send(ada, { type: "summon", ...src, ...bad })), /Invalid command envelope/, JSON.stringify(bad).slice(0, 40));
+  }
+  assert.equal((await raw(game.gameId)).agents.length, 0, "nothing was summoned");
+  assert.equal((await send(ada, { type: "summon", ...src, name: "  Setter  ", description: "Sets everything to five." })).accepted, true);
+  const stored = (await raw(game.gameId)).agents[0];
+  assert.deepEqual([stored.name, stored.description], ["Setter", "Sets everything to five."]);
+  const observed = await ada.c.query(api.player.observation, { roomId });
+  assert.deepEqual([observed.agents[0].name, observed.agents[0].description], ["Setter", "Sets everything to five."]);
+});
+
 test("objects stay unique: a constant transformation commits once, then collides and still pays decision + floor", { timeout: 120000 }, async () => {
   const { trio: [host, ada], roomId, game, send, run } = await runningGame({ startingObjectCount: 3, agentEnergyPerSecond: 1000, agentBatteryActs: 1000, interactionRateHz: 40 });
-  assert.equal((await send(ada, { type: "summon", language: "typescript", source: "function agent(x) { return [setTo(5)]; }" })).accepted, true);
+  assert.equal((await send(ada, { type: "summon", name: "Test agent", language: "typescript", source: "function agent(x) { return [setTo(5)]; }" })).accepted, true);
   await run();
   const events = async () => (await raw(game.gameId)).batches.flatMap((b: any) => b.events);
   await waitFor(async () => (await events()).filter((e: any) => e.t === "fail" && /already has this value/.test(e.reason)).length >= 3, "later constant acts collide", 60000);
@@ -47,7 +61,7 @@ test("objects stay unique: a constant transformation commits once, then collides
 test("pause: once per god, freezes world time, discards in-flight windows, god energy keeps accruing; resumes at its end", { timeout: 120000 }, async () => {
   const { trio: [host, ada, bo], game, send, run } = await runningGame({ startingObjectCount: 4, agentEnergyPerSecond: 1000, agentBatteryActs: 1000, pauseSeconds: 60, energyPerSecond: 5 });
   assert.equal((await send(ada, { type: "pause" })).accepted, false, "no pause during planning");
-  assert.equal((await send(host, { type: "summon", language: "typescript", source: TS.Int })).accepted, true);
+  assert.equal((await send(host, { type: "summon", name: "Test agent", language: "typescript", source: TS.Int })).accepted, true);
   await run();
   await waitFor(async () => (await raw(game.gameId)).agents[0].acts >= 3, "acting before the pause", 60000);
   const paused = await send(ada, { type: "pause" });
@@ -77,7 +91,7 @@ test("pause: once per god, freezes world time, discards in-flight windows, god e
 
 test("receipts: identical envelopes replay the receipt, reused ids with other content fail, rejections are receipted", { timeout: 120000 }, async () => {
   const { trio: [host, ada], roomId, game } = await runningGame({ startingObjectCount: 2 });
-  const summon = envelope({ type: "summon", language: "typescript", source: TS.Int }, game.gameId);
+  const summon = envelope({ type: "summon", name: "Test agent", language: "typescript", source: TS.Int }, game.gameId);
   const first = await ada.c.action(api.commands.submit, { roomId, envelope: summon });
   assert.equal(first.accepted, true, first.message);
   assert.deepEqual(await ada.c.action(api.commands.submit, { roomId, envelope: summon }), first);
@@ -96,7 +110,7 @@ test("receipts: identical envelopes replay the receipt, reused ids with other co
 
 test("a summon the engine could not examine is not receipted: the identical envelope later goes through", { timeout: 120000 }, async () => {
   const { trio: [, ada], roomId, game } = await runningGame({ startingObjectCount: 2 });
-  const summon = envelope({ type: "summon", language: "typescript", source: TS.Int }, game.gameId);
+  const summon = envelope({ type: "summon", name: "Test agent", language: "typescript", source: TS.Int }, game.gameId);
   // What the command action does after a host failure in the sandbox (capacity, unavailable runtime): no examination.
   assert.match(await rejects(ada.c.mutation(internal.game.commands.apply, { roomId, envelope: summon })), /retry/i);
   assert.equal(await ada.c.query(api.receipts.get, { roomId, commandId: summon.commandId }), null, "no receipt for a transient failure");
@@ -127,12 +141,12 @@ test("permissions: read/act/owner credentials are room-bound; spectators observe
   assert.equal((await ownerApp.query(api.rooms.get, { room: shortCode })).id, roomId);
 
   // Energy and the agent cap; spectators cannot act in the game.
-  assert.equal((await send(ada, { type: "summon", language: "typescript", source: TS.Int })).accepted, true);
-  assert.match((await send(ada, { type: "summon", language: "typescript", source: "function agent(x) { return [add(2)]; }" })).message, /1-agent resource limit|Insufficient energy/);
-  assert.match((await send(bo, { type: "summon", language: "typescript", source: "function agent(x) { const k = x % 7 + 1; return k > 3 ? [add(k), add(1), add(2)] : [add(k)]; }" })).message, /Insufficient energy/);
+  assert.equal((await send(ada, { type: "summon", name: "Test agent", language: "typescript", source: TS.Int })).accepted, true);
+  assert.match((await send(ada, { type: "summon", name: "Test agent", language: "typescript", source: "function agent(x) { return [add(2)]; }" })).message, /1-agent resource limit|Insufficient energy/);
+  assert.match((await send(bo, { type: "summon", name: "Test agent", language: "typescript", source: "function agent(x) { const k = x % 7 + 1; return k > 3 ? [add(k), add(1), add(2)] : [add(k)]; }" })).message, /Insufficient energy/);
   const [late] = await gods("Late Larry");
   await late.c.mutation(api.rooms.join, { room: shortCode });
-  assert.match((await send(late, { type: "summon", language: "typescript", source: TS.Int })).message, /observing until the next game/);
+  assert.match((await send(late, { type: "summon", name: "Test agent", language: "typescript", source: TS.Int })).message, /observing until the next game/);
 
   // Chat: public, ≤ 2,000 characters, one message a second per god.
   assert.match(await rejects(bo.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "chat", text: "x".repeat(2001) }) })), /Invalid command envelope/);

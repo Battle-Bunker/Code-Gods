@@ -20,7 +20,7 @@ Information hiding applies only during live games; ended games are fully transpa
 
 **How to apply:** The boundary is the game's `ended` phase, enforced by the engine (the replay refuses a live game, with a test). Live reads keep the aggregate-only rules above. Never reveal the season salt (it seeds every live game of the season); per-act seeds are HMAC-derived and safe. Replays are for the game's players and the room owner (the past-game read rule).
 
-During a live game every transformation and spawn is public to every player as it happens (object, value before and after, world time, and the viewer's own and others' summed bits), without attribution; every deity's public score moves together every `scoreIntervalSeconds` of world time (5, 10, 20, 30 or 60; default 10), while a player's own score is live. While live, every disclosed sum of the other gods' bits carries Gaussian noise of `peerNoiseBits` (0, 2, 4, 8 or 16; default 8), a keyed function of the object's value (so a recurring value shows the same noise), stored with each version and shared by every viewer; everything built on it (care, payoff, own live score, salience, the published scoreboard, and the commit clause's decision) follows the noisy value. An ended game is fully transparent.
+During a live game every transformation and spawn is public to every player as it happens (object, value before and after, world time, and the viewer's own and others' summed bits), without attribution; every deity's public score moves together every `scoreIntervalSeconds` of world time (a whole 1 to 3600 s; presets 5, 10, 20, 30, 60; default 10), while a player's own score is live. While live, every disclosed sum of the other gods' bits carries Gaussian noise of `peerNoiseBits` (0, 2, 4, 8 or 16; default 8), a keyed function of the object's value (so a recurring value shows the same noise), stored with each version and shared by every viewer; everything built on it (care, payoff, own live score, salience, the published scoreboard, and the commit clause's decision) follows the noisy value. An ended game is fully transparent.
 
 **Why:** The owner wants the other gods' interests to be analysable in real time (possible but hard, helped by negotiation clues), without a per-transformation link to one god's score jump (2026-11-01). Replays of ended games show everything (owner ruling the same day).
 
@@ -223,3 +223,22 @@ The player can keep typing while their assistant works: messages queue in Convex
 **Why:** The owner asked (2026-11-01) for message queuing, with queued user messages inserted as soon as the current (tool call) turn completes.
 
 **How to apply:** A queued message joins the running turn after the current step's tool results (in that user message, after the results, for both providers), or starts the next turn when the turn ends without a tool step. It never approves a card: it declines a waiting one. Stop keeps queued messages held until the player sends again. Delivery is exactly once (status change in the delivering mutation, clientId for retries); the queue is keyed by (player, game). Details: docs/surface-architecture.md §6 "Queued messages".
+
+## Game duration mode (2026-11)
+`durationMode` is `"halfLife"` (default; today's hidden random end, half of games ending within `halfLifeSeconds`) or `"fixed"` (the game ends exactly `halfLifeSeconds` of world time after it starts). The field keeps its old name `halfLifeSeconds` and holds the length in both modes. A fixed game's end is public, since the setting is; `endAtWorld` stays out of every live projection regardless. Stored settings migrate to `halfLife` with their value (`upgradeStoredSettings`). First steps and Annotated basics are 10 min fixed. Every time setting takes a custom value within `TIME_LIMITS` (game-core), enforced by `validateSettings`.
+
+## Panes have no tabs (2026-11-02)
+
+**Rule:** a dock pane holds exactly one panel. Dropping a panel on the centre of another pane *replaces* it; the replaced panel is simply removed (reopen it from the panel menu), and the source pane closes as when any panel moves out. Edge drops still split. 
+**Why:** the owner could not reach a hidden tab: every part of the header was a menu or a close button.
+**How to apply:** `Node` is `split | pane`; `parseLayout` migrates legacy `tabs` groups to their active pane (`lib/player-client/src/layout.ts`); do not reintroduce tab arrays, `active`, or a `tab` place direction.
+
+## The assistant is an ordinary, optional pane (2026-11-02)
+
+**Rule:** the "Your assistant" pane is in the default dock (full width at the bottom) but is a pane like any other: it can be moved, split and closed (✕ in its header or "Close pane"), because a player may use an external agent (MCP or API). A layout without it stays without it: `parseLayout` and the presets no longer add one. Reopen it from the panel menu ("Your assistant"), the palette ("Open assistant", or "Move assistant left/right/bottom"). Anything that hands the player to the chat (`composer.fill` / `composer.focus`: "Ask about this view", object clicks, palette hand-offs, "/" and Ctrl+`) reopens it first (`composer.setReopen`, registered by the dock shell). The assistant's own `close_pane` refuses to close the chat pane: only the player does. Replacing it by a centre drop removes it like any panel.
+**Why:** owner request: not everyone wants the in-client assistant.
+**How to apply:** never assume `assistantPaneOf(layout)` exists; the draft, queue and status live in `composer`, not in the pane, so they survive a close. The phone's stacked dock shows the sheet only when the pane exists, and the replay footer offset (`--cg-footer-h`) is independent of it.
+
+## The panel picker is a combobox (2026-11-02)
+
+**Rule:** the panel-type menu in a pane header is a Popover with a cmdk combobox (`dock/headers.tsx` PanelMenu): focused on open, typing filters fuzzily over names and synonyms with the palette's `matchScore` (`dock/panel-search.ts`, `PANEL_SYNONYMS`), sections kept ("For now", "Other panels", "Your panels" incl. the assistant), arrows/Enter select, Esc closes. Give a new built-in panel synonyms there (a unit test requires them).

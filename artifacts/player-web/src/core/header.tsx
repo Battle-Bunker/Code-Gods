@@ -44,9 +44,6 @@ export function Header() {
   const { permission, mode, roomId } = useRoom();
   const s = useSituation();
   const now = useNow(1000);
-  const { focused } = useDock();
-  const palette = usePaletteState();
-  const { commands, context } = usePlayerCommands(palette.open ? palette.scopePaneId : focused);
   const wide = useWide();
   const self = s.obs?.self;
   const live = s.obs?.phase === "planning" || s.obs?.phase === "running" || s.obs?.phase === "paused";
@@ -69,14 +66,26 @@ export function Header() {
         {roomCode && <> · <Link to={{ kind: "games", room: roomCode }} className="underline" data-testid="link-past-games">past games</Link></>}
       </span>
       {SAFE_MODE && <span className="shrink-0 text-xs text-muted-foreground" data-testid="text-safe-mode">Safe mode: panels are off</span>}
+      <PlayerPalette compact={!wide} />
+    </header>
+  );
+}
+
+/** The command palette: its trigger (search field + menu) and the palette itself. The live header and the replay's both carry it. */
+export function PlayerPalette({ compact, suggested = ["ui.forge.edit", "ui.panel.add.objects", "ui.chat", "ui.layout.side-by-side"] }: { compact: boolean; suggested?: string[] }) {
+  const { focused } = useDock();
+  const palette = usePaletteState();
+  const { commands, context } = usePlayerCommands(palette.open ? palette.scopePaneId : focused);
+  return (
+    <>
       <div className="ml-auto shrink-0">
-        <PaletteTrigger placeholder="Search or do…" onOpen={init => paletteStore.open(focused, init)} compact={!wide} />
+        <PaletteTrigger placeholder="Search or do…" onOpen={init => paletteStore.open(focused, init)} compact={compact} />
       </div>
       {/* The dock shell binds Cmd/Ctrl+K, "/" and "?" itself (it knows the focused pane), so the palette's own hotkeys stay off. */}
       <CommandPalette commands={commands} context={context} open={palette.open} onOpenChange={open => (open ? paletteStore.open(focused) : paletteStore.close())}
         init={palette.init} hotkeys={false} handoff={draft => composer.fill(draft.text)}
-        placeholder="Search or do…" recentKey="cg.palette.player" suggested={["ui.forge.edit", "ui.panel.add.objects", "ui.chat", "ui.layout.side-by-side"]} />
-    </header>
+        placeholder="Search or do…" recentKey="cg.palette.player" suggested={suggested} />
+    </>
   );
 }
 

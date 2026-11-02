@@ -13,7 +13,7 @@
  * - the family shelves of an instantiation (reward rules and defence goals);
  * - stepped choices that always contain the current value; the length and pace lines of the summary.
  */
-import { LANGUAGES, LANGUAGE_SPECS, SETTINGS_DOCS, sameSettings, validateSettings, type FamilyRole, type FieldDoc, type GameSettings, type Language, type SettingsDomain, type SettingsSection } from "@workspace/game-core";
+import { LANGUAGES, TIME_LIMITS, LANGUAGE_SPECS, SETTINGS_DOCS, sameSettings, validateSettings, type FamilyRole, type FieldDoc, type GameSettings, type Language, type SettingsDomain, type SettingsSection } from "@workspace/game-core";
 import { instanceInfo, instantiate, type ParamSchema, type TypeArgs } from "@workspace/game-types";
 import { familiesFor, firstUseSeconds, isPlayableInstantiation, publicCatalog, type CatalogEntry } from "@workspace/game-utilities";
 
@@ -41,7 +41,7 @@ export function fieldsOf(section: SettingsSection): SettingsKey[] {
 /** Short labels for summaries and diffs ("World speed: 100 → 25 acts/s"). */
 export const LABELS: Readonly<Record<SettingsKey, string>> = {
   languages: "Languages", objectType: "Objects", typeArgs: "Object shape", utilitySelectorId: "Goal dealing",
-  spawnFunctionId: "New objects", planningSeconds: "Planning", halfLifeSeconds: "Game length (half-life)",
+  spawnFunctionId: "New objects", planningSeconds: "Planning", durationMode: "Game end", halfLifeSeconds: "Game length",
   startingObjectCount: "Starting objects", spawnRateHz: "New objects per second", interactionRateHz: "World speed", interactionComputeMs: "CPU limit per act",
   stepBudget: "Steps per act", perActFloorBits: "Minimum act price", pauseSeconds: "Pause length", startingEnergy: "Starting energy",
   energyPerSecond: "Energy refill", agentEnergyPerSecond: "Agent charging", agentBatteryActs: "Agent battery", maxAgentsPerGod: "Agents per player",
@@ -53,15 +53,16 @@ export const LABELS: Readonly<Record<SettingsKey, string>> = {
 type Limit = { min: number; max?: number; int?: boolean; above?: boolean; unit: string };
 /** Bounds from validateSettings and the engine's nextSettings resource limits (onboarding §0). */
 export const LIMITS: Readonly<Partial<Record<SettingsKey, Limit>>> = {
-  planningSeconds: { min: 0, max: 3600, unit: "seconds" },
-  halfLifeSeconds: { min: 0, above: true, unit: "seconds" },
+  planningSeconds: { ...TIME_LIMITS.planningSeconds, unit: "seconds" },
+  halfLifeSeconds: { ...TIME_LIMITS.halfLifeSeconds, unit: "seconds" },
   startingObjectCount: { min: 0, max: 1000, int: true, unit: "objects" },
   spawnRateHz: { min: 0, max: 10, unit: "per second" },
-  interactionRateHz: { min: 0, max: 1000, unit: "acts per second" },
+  interactionRateHz: { ...TIME_LIMITS.interactionRateHz, unit: "acts per second" },
+  scoreIntervalSeconds: { ...TIME_LIMITS.scoreIntervalSeconds, int: true, unit: "seconds" },
   interactionComputeMs: { min: 1, max: 1000, int: true, unit: "ms" },
   stepBudget: { min: 1, max: 10_000_000, int: true, unit: "steps" },
   perActFloorBits: { min: 0, unit: "bits" },
-  pauseSeconds: { min: 0, above: true, max: 3600, unit: "seconds" },
+  pauseSeconds: { ...TIME_LIMITS.pauseSeconds, unit: "seconds" },
   startingEnergy: { min: 0, unit: "bits" },
   energyPerSecond: { min: 0, unit: "bits per second" },
   agentEnergyPerSecond: { min: 0, unit: "bits per second" },
@@ -248,7 +249,7 @@ export function formatValue(key: SettingsKey, v: unknown): string {
   if (key === "commitClause") return v ? "offered" : "off";
   if (key === "defenceGoals") return v ? "every player" : "off";
   if (key === "languages" && Array.isArray(v)) return v.map(l => choiceLabel(key, l)).join(", ") || "none";
-  if ((key === "utilitySelectorId" || key === "objectSelection") && typeof v === "string") return choiceLabel(key, v);
+  if ((key === "utilitySelectorId" || key === "objectSelection" || key === "durationMode") && typeof v === "string") return choiceLabel(key, v);
   const unit = (SETTINGS_DOCS[key] as FieldDoc).unit;
   return typeof v === "number" ? `${n(v)}${unit ? ` ${unit}` : ""}` : String(v);
 }
@@ -264,6 +265,7 @@ const duration = (s: number) => (s >= 60 && s % 60 === 0 ? `${s / 60} min` : `${
 /** A stepped choice's label: "Slow (25/s)", "2 min", "50%", "500,000 steps". */
 export function choiceLabel(key: SettingsKey, v: number | string | boolean): string {
   const named = NAMED[key]?.[String(v)];
+  if (key === "durationMode") return v === "fixed" ? "Fixed duration" : "Half-life";
   if (typeof v === "boolean") return key === "defenceGoals" ? (v ? "On: everyone" : "Off") : v ? "Offered" : "Off";
   if (key === "interactionRateHz" && typeof v === "number") return named ? `${named} (${n(v)}/s)` : `${n(v)}/s`;
   if (key === "halfLifeSeconds" && typeof v === "number") return named ? `${named} (${duration(v)})` : duration(v);
@@ -275,10 +277,11 @@ export function choiceLabel(key: SettingsKey, v: number | string | boolean): str
   return typeof v === "number" ? n(v) : v;
 }
 
-/** "~6 min (often 3–13)": planning plus the half-life, and the 20%–80% range of the random end. */
-export function lengthLine(s: Pick<Settings, "planningSeconds" | "halfLifeSeconds">): string {
+/** "~6 min (often 3–13)": planning plus the half-life, and the 20%–80% range of the random end; "10 min" for a fixed game. */
+export function lengthLine(s: Pick<Settings, "planningSeconds" | "halfLifeSeconds"> & { durationMode?: Settings["durationMode"] }): string {
   const m = (sec: number) => Math.max(1, Math.round(sec / 60));
   const p = s.planningSeconds, h = s.halfLifeSeconds;
+  if (s.durationMode === "fixed") return `${m(p + h)} min`;
   return `~${m(p + h)} min (often ${m(p + 0.415 * h)}–${m(p + 2.32 * h)})`;
 }
 export const paceWord = (hz: number) => (hz <= 30 ? "slow" : hz <= 150 ? "normal" : "fast");

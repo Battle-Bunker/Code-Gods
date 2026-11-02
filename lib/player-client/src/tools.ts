@@ -28,7 +28,7 @@ import { PANEL_IDS } from "./panels.ts";
 import { SKILLS, SKILL_NAMES } from "./skills.ts";
 import { placeSchema } from "./layout.ts";
 import { DATASET_NAMES } from "./datasets.ts";
-import { VERSION, type Envelope, type Permission } from "./protocol.ts";
+import { AGENT_DESCRIPTION_MAX, AGENT_NAME_MAX, VERSION, type Envelope, type Permission } from "./protocol.ts";
 
 const RANK: Record<Permission, number> = { read: 0, act: 1, owner: 2 };
 /** Default and maximum time a summon or validate call waits for its receipt before answering `pending`. */
@@ -172,7 +172,10 @@ export const ACT_TOOLS = [
     output: result(receiptData) }),
   def({ name: "summon_agent", short: "Summon an agent into the game, paying its cost from the player's energy.", title: "Summon an agent", functions: ["commands.submit"], permission: "act", annotations: acts,
     about: "Summon an agent into the current game, paying its description bits from the player's god energy (the player confirms first). Requires a commandId; resend the identical call to retry. The receipt does not name the new agent: its id is in get_observation (agents[].id).",
-    input: obj({ source, language: language.optional().describe("The agent's language, the one it was validated in: one the game allows. Default: the game's first allowed language."), commandId, gameId, waitMs }), output: result(receiptData) }),
+    input: obj({ source, language: language.optional().describe("The agent's language, the one it was validated in: one the game allows. Default: the game's first allowed language."),
+      name: z.string().trim().min(1).max(AGENT_NAME_MAX).describe("A short, meaningful name for the agent (required, up to 40 characters), e.g. \"Corner hoarder\". Shown in the player's My agents list."),
+      description: z.string().trim().max(AGENT_DESCRIPTION_MAX).optional().describe("One or two sentences on what the agent does and why (optional, up to 500 characters). Shown on hover next to the name."),
+      commandId, gameId, waitMs }), output: result(receiptData) }),
   def({ name: "destroy_agent", short: "Destroy one of the player's agents (no refund).", title: "Destroy an agent", functions: ["commands.submit"], permission: "act", annotations: destructive,
     about: "Destroy one of the player's own agents, for free (energy already spent is not refunded; the player confirms first).",
     input: obj({ agentId: id.describe("The agent's id from get_observation (agents[].id); never a command id."), commandId, gameId }), output: result(receiptData) }),
@@ -268,7 +271,7 @@ const panelId = z.enum(PANEL_IDS).describe("A built-in panel id (get_layout list
 const storedSlug = slug.describe("One of the player's stored panels (list_panels). Give this or panelId, not both.");
 const panelParams = z.record(z.string(), z.unknown()).optional()
   .describe("The built-in panel's parameters (schemas in get_layout; all optional except what-if's objectId and calls). Not for stored panels.");
-const place = placeSchema.optional().describe("Where a new pane goes: next to relativeTo (default: the last built-in panel's pane) in a direction, or 'tab'. Omit to reuse a pane.");
+const place = placeSchema.optional().describe("Where a new pane goes: next to relativeTo (default: the last built-in panel's pane) in a direction (left, right, above, below). Omit to reuse a pane.");
 const layoutData = z.object({ paneId: z.string(), layout: z.unknown(), summary: z.string(), reused: z.boolean() });
 export const LAYOUT_TOOLS = [
   def({ name: "get_layout", short: "The player's panes and the built-in panel catalogue with parameter schemas.", title: "Dock layout", functions: ["layout.current"], permission: "read", annotations: read,
@@ -280,11 +283,11 @@ export const LAYOUT_TOOLS = [
   def({ name: "set_panel_params", short: "Replace the parameters of the built-in panel in one pane.", title: "Set a panel's parameters", functions: ["layout.set"], permission: "act", annotations: acts,
     about: "Replace the parameters of the built-in panel in one pane (the pane keeps its panel and place).",
     input: obj({ paneId, params: z.record(z.string(), z.unknown()).describe("The complete parameters; omitted fields take their defaults.") }), output: result(layoutData) }),
-  def({ name: "move_pane", short: "Move a pane next to another or into its tab group.", title: "Move a pane", functions: ["layout.set"], permission: "act", annotations: acts,
-    about: "Move a pane next to another or into its tab group. Only when the player asks for an arrangement; never to illustrate an answer. \"Put the chat on the right\" means moving this conversation's pane (kind assistant), not opening the public-chat panel.",
-    input: obj({ paneId, place: placeSchema.describe("Where the pane goes: relativeTo another pane id (default: the last built-in panel's pane) and a direction, or 'tab'.") }), output: result(layoutData) }),
+  def({ name: "move_pane", short: "Move a pane next to another.", title: "Move a pane", functions: ["layout.set"], permission: "act", annotations: acts,
+    about: "Move a pane next to another. Only when the player asks for an arrangement; never to illustrate an answer. \"Put the chat on the right\" means moving this conversation's pane (kind assistant), not opening the public-chat panel.",
+    input: obj({ paneId, place: placeSchema.describe("Where the pane goes: relativeTo another pane id (default: the last built-in panel's pane) and a direction (left, right, above, below).") }), output: result(layoutData) }),
   def({ name: "close_pane", short: "Close a pane the player asked to close.", title: "Close a pane", functions: ["layout.set"], permission: "act", annotations: acts,
-    about: "Close a pane the player asked to close. The assistant pane and the last built-in panel cannot be closed (CONFLICT).",
+    about: "Close a pane the player asked to close. The last built-in panel cannot be closed, and neither can the player's own chat pane (kind assistant): only the player closes that (CONFLICT).",
     input: obj({ paneId }), output: result(layoutData) }),
 ] as const;
 
@@ -421,7 +424,7 @@ export const isCommandTool = (name: string): name is CommandToolName => (COMMAND
 /** The command tool of each envelope command type (the CLI's `assistant command` alias). */
 export const TOOL_OF_COMMAND = { validate: "validate_agent", summon: "summon_agent", destroy: "destroy_agent", ready: "set_ready", chat: "send_chat", pause: "pause_game" } as const;
 
-type CommandArgs = { commandId?: string; gameId?: string; source?: string; language?: Language; agentId?: string; ready?: boolean; text?: string };
+type CommandArgs = { commandId?: string; gameId?: string; source?: string; language?: Language; name?: string; description?: string; agentId?: string; ready?: boolean; text?: string };
 
 /** Does buildEnvelope need the current game (its id or language) for these arguments? */
 export function envelopeNeedsGame(name: CommandToolName, args: CommandArgs): boolean {
@@ -447,7 +450,7 @@ export function buildEnvelope(name: CommandToolName, args: CommandArgs, game: { 
   };
   const command: Envelope["command"] =
     name === "validate_agent" ? { type: "validate", language: lang(), source: args.source! }
-    : name === "summon_agent" ? { type: "summon", language: lang(), source: args.source! }
+    : name === "summon_agent" ? { type: "summon", language: lang(), source: args.source!, name: args.name!, ...(args.description ? { description: args.description } : {}) }
     : name === "destroy_agent" ? { type: "destroy", agentId: args.agentId! }
     : name === "set_ready" ? { type: "ready", ready: args.ready! }
     : name === "send_chat" ? { type: "chat", text: args.text! }

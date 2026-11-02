@@ -25,6 +25,8 @@ export type ComposerState = {
 
 let state: ComposerState = { draft: "", focusTick: 0, collapseTick: 0, threads: {}, permission: null, ownerConsent: false, status: "" };
 const listeners = new Set<() => void>();
+/** Brings the assistant pane back when the player closed it (the dock registers this); a hand-off to the chat reopens it. */
+let reopen: (() => void) | undefined;
 function set(patch: Partial<ComposerState>) { state = { ...state, ...patch }; for (const l of listeners) l(); }
 
 export const composer = {
@@ -32,10 +34,12 @@ export const composer = {
   get: () => state,
   setDraft(draft: string) { set({ draft }); },
   /** Pre-fill (replacing an empty draft, else appending) and focus; never sends. */
-  fill(text: string) { set({ draft: state.draft.trim() ? `${state.draft.trimEnd()} ${text}` : text, focusTick: state.focusTick + 1 }); },
-  focus() { set({ focusTick: state.focusTick + 1 }); },
+  fill(text: string) { reopen?.(); set({ draft: state.draft.trim() ? `${state.draft.trimEnd()} ${text}` : text, focusTick: state.focusTick + 1 }); },
+  focus() { reopen?.(); set({ focusTick: state.focusTick + 1 }); },
   collapse() { set({ collapseTick: state.collapseTick + 1 }); },
   /** Choose the conversation shown in `game` (null: its latest). */
+  /** The dock's way to reopen a closed assistant pane; returns the unregister function. */
+  setReopen(fn: () => void) { reopen = fn; return () => { if (reopen === fn) reopen = undefined; }; },
   setThread(game: string, thread: string | null) {
     const { [game]: _old, ...rest } = state.threads;
     set({ threads: thread === null ? rest : { ...rest, [game]: thread } });

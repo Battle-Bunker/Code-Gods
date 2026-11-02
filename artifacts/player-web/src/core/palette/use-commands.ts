@@ -5,7 +5,7 @@
  */
 import { enginePageHref } from "@/core/routes";
 import { engineSite } from "@/core/connection";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useSyncExternalStore } from "react";
 import { useConvex, useMutation, useQuery } from "convex/react";
 import { api } from "@workspace/engine/convex/_generated/api";
 import type { Id } from "@workspace/engine/convex/_generated/dataModel";
@@ -24,8 +24,20 @@ import { useOwnerActions } from "@/core/game/owner";
 import { useStartView } from "@/core/game/start";
 import { useSituation } from "@/core/game/situation";
 import { notify, notifyError } from "@/core/notices";
+import { navigate, hrefTo } from "@/core/navigation";
+import { useReplayController } from "@/core/replay/parts";
 import { playerCommands, type PaletteActions, type PaletteState } from "./commands";
 import { publishCommands, withHandoffs } from "./registry";
+
+const noSubscription = () => () => {};
+const noView = () => null;
+/** The replay on screen (the dock's replay mode), as the palette gates on it: playing, at the start, at the end. */
+function useReplayState(): PaletteState["replay"] {
+  const c = useReplayController();
+  const v = useSyncExternalStore(c ? c.subscribe : noSubscription, c ? c.get : noView);
+  const playing = !!v?.playing, atStart = v?.cursor === 0, atEnd = !!c && !!v && v.cursor >= c.end && v.world >= c.endWorld;
+  return useMemo(() => (c ? { playing, atStart, atEnd } : undefined), [c, playing, atStart, atEnd]);
+}
 
 const roomUrl = (code: string) => `${location.origin}/rooms/${encodeURIComponent(code)}`;
 const copy = (text: string, done: string) => navigator.clipboard?.writeText(text).then(() => notify(done), () => notify(text));
@@ -53,13 +65,15 @@ export function usePlayerCommands(scopePaneId: string | null): { commands: Comma
   const gridRenderer = useGridRenderer();
   const start = useStartView();
   const starting = start.phase === "idle" ? undefined : start.phase;
+  const replayController = useReplayController();
+  const replay = useReplayState();
 
   const state = useMemo((): PaletteState => {
     const panelCount = panelPanesOf(dock.layout).length;
     const panes = Object.values(dock.layout.panes).map(pane => ({
       id: pane.id, kind: pane.kind,
       label: pane.kind === "panel" ? PANELS[pane.panelId].title : paneCaption(pane),
-      closable: pane.kind !== "assistant" && (pane.kind !== "panel" || panelCount > 1),
+      closable: pane.kind !== "panel" || panelCount > 1,
     }));
     const obs = s.obs;
     return {
@@ -73,8 +87,9 @@ export function usePlayerCommands(scopePaneId: string | null): { commands: Comma
       setups: (setups ?? []).map(x => ({ id: x.id, label: x.name, detail: x.summary })),
       aiSeats: (s.room?.members ?? []).filter(m => m.kind === "ai").map(m => ({ id: m.id, label: m.name })),
       gridRenderer,
+      ...(replay ? { replay } : {}),
     };
-  }, [dock.layout, s, permission, runner.unknown, runner.busy, status?.enabled, scopePaneId, panels.stored, panels.fileIds, gridRenderer, setups, starting]);
+  }, [dock.layout, s, permission, runner.unknown, runner.busy, status?.enabled, scopePaneId, panels.stored, panels.fileIds, gridRenderer, setups, starting, replay]);
 
   const paletteActions = useMemo((): PaletteActions => ({
     submit: command => game.run(command),
@@ -112,7 +127,7 @@ export function usePlayerCommands(scopePaneId: string | null): { commands: Comma
       handoff: draft => composer.fill(draft),
     },
     dock: {
-      show: actions.show, change: actions.change, close: actions.close, dockAssistant: actions.dockAssistant, preset: actions.preset, reset: actions.reset,
+      show: actions.show, change: actions.change, close: actions.close, dockAssistant: actions.dockAssistant, openAssistant: actions.openAssistant, preset: actions.preset, reset: actions.reset,
       maximise: actions.maximise, forgeEdit: () => actions.forgeEdit(),
     },
     links: {
@@ -127,8 +142,14 @@ export function usePlayerCommands(scopePaneId: string | null): { commands: Comma
       },
     },
     objects: { setGridRenderer: id => { setObjectRenderer("Grid", id); } },
+    replay: {
+      watch: () => { if (state.roomCode && state.gameCode) navigate(hrefTo({ kind: "game", room: state.roomCode, game: state.gameCode })); },
+      toggle: () => replayController?.toggle(),
+      start: () => replayController?.seek(0),
+      end: () => replayController?.seekWorld(replayController.endWorld),
+    },
     notify,
-  }), [game, wake, join, s.obs, permission, roomId, room, convex, owner, actions, setEnabled, removePanel, rollback, panels.stored, status, cancel, setPrefs, state.roomCode, state.gameCode]);
+  }), [replayController, game, wake, join, s.obs, permission, roomId, room, convex, owner, actions, setEnabled, removePanel, rollback, panels.stored, status, cancel, setPrefs, state.roomCode, state.gameCode]);
 
   const context = useMemo((): PaletteContext => ({
     role: s.isOwner ? "owner" : s.seated ? "seated" : "member", admin: false, permission, phase: s.obs?.phase, assistantOn: !!status?.enabled,

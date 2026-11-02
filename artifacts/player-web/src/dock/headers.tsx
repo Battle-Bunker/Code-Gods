@@ -1,21 +1,24 @@
 /**
  * Pane headers (docs/research/ui-redesign/player-client.md §1.5), 32 px, one per pane; in the desktop dock each is
- * dockview's tab, so the header is the drag handle. A built-in panel: `[Panel title ▾]`, the read-only parameter
+ * dockview's tab, so the header is the drag handle. A built-in panel: `[Panel title ▾] (a combobox: type to filter)`, the read-only parameter
  * caption ("set by your assistant" when it was), ‹ and ↺ only after an assistant change, ⋯, and ✕ when two or more
- * built-in panels are open. The assistant pane: its name and a status word, no buttons. A stored or file panel: its
+ * built-in panels are open. The assistant pane: its name, a status word and ✕ (it is an ordinary pane the player may close). A stored or file panel: its
  * title and version.
  */
-import type { ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { ChevronDown, Maximize2, MoreHorizontal, RotateCcw, Undo2, X } from "lucide-react";
 import { PANELS, PANEL_IDS, type PanelId } from "@workspace/player-client/panels";
-import { panelPanesOf, paneCaption, type Pane } from "@workspace/player-client/layout";
+import { assistantPaneOf, panelPanesOf, paneCaption, type Pane } from "@workspace/player-client/layout";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { useComposer } from "@/core/chat/composer";
 import { useDockActions } from "./actions";
 import { canUndo, lastParams } from "./history";
-import { addPanelLabel, isTabbed } from "./operations";
+import { addPanelLabel } from "./operations";
+import { PANEL_SYNONYMS, filterChoices, type PickerChoice } from "./panel-search";
 import { entryFor, panelTitle, sandboxed, useSandboxed, usePanels } from "./panels";
 import { useDock, useDockStore } from "./store";
 
@@ -32,29 +35,31 @@ export function PaneHeader({ paneId, desktop }: { paneId: string; desktop: boole
   const pane = layout.panes[paneId];
   if (!pane) return null;
   const focus = () => store.setFocused(paneId);
-  // On a phone tabs become stacked panes, each with its full header.
-  const tabbed = desktop && isTabbed(layout, paneId);
   return (
     <div data-testid={`tab-${paneId}`} onPointerDownCapture={focus} onFocusCapture={focus}
-      className={`cg-pane-header flex h-8 w-full min-w-0 items-center gap-1 px-2 ${tabbed ? "max-w-72" : ""}`}>
-      {pane.kind === "panel" ? <BuiltInPanelHeader pane={pane} desktop={desktop} tabbed={tabbed} />
-        : pane.kind === "assistant" ? <AssistantHeader />
+      className="cg-pane-header flex h-8 w-full min-w-0 items-center gap-1 px-2">
+      {pane.kind === "panel" ? <BuiltInPanelHeader pane={pane} desktop={desktop} />
+        : pane.kind === "assistant" ? <AssistantHeader paneId={paneId} />
         : <OwnPanelHeader pane={pane} desktop={desktop} />}
     </div>
   );
 }
 
-function AssistantHeader() {
+function AssistantHeader({ paneId }: { paneId: string }) {
   const { status } = useComposer();
+  const actions = useDockActions();
   return (
-    <span className="flex min-w-0 items-baseline gap-2">
-      <span className="truncate font-serif text-sm font-semibold">Your assistant <span className="font-sans text-xs font-normal text-muted-foreground">(private)</span></span>
-      {status && <span className={`text-xs text-muted-foreground ${status === "thinking…" ? "beat" : ""}`} data-testid="text-assistant-status">{status}</span>}
-    </span>
+    <>
+      <span className="flex min-w-0 flex-1 items-baseline gap-2">
+        <span className="truncate font-serif text-sm font-semibold">Your assistant <span className="font-sans text-xs font-normal text-muted-foreground">(private)</span></span>
+        {status && <span className={`text-xs text-muted-foreground ${status === "thinking…" ? "beat" : ""}`} data-testid="text-assistant-status">{status}</span>}
+      </span>
+      <IconButton label="Close the assistant (reopen it from the panel menu or the palette)" onClick={() => actions.close(paneId)} testId={`button-close-${paneId}`}><X size={13} /></IconButton>
+    </>
   );
 }
 
-function BuiltInPanelHeader({ pane, desktop, tabbed }: { pane: Extract<Pane, { kind: "panel" }>; desktop: boolean; tabbed: boolean }) {
+function BuiltInPanelHeader({ pane, desktop }: { pane: Extract<Pane, { kind: "panel" }>; desktop: boolean }) {
   const { layout, history } = useDock();
   const store = useDockStore();
   const actions = useDockActions();
@@ -64,12 +69,10 @@ function BuiltInPanelHeader({ pane, desktop, tabbed }: { pane: Extract<Pane, { k
   const byAssistant = pane.setBy === "assistant";
   return (
     <>
-      <PanelMenu pane={pane} tabbed={tabbed} />
-      {!tabbed && (
-        <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground" title={`${caption}${byAssistant ? " · set by your assistant" : ""}`} data-testid={`text-caption-${pane.id}`}>
-          {caption}{byAssistant ? " · set by your assistant" : ""}
-        </span>
-      )}
+      <PanelMenu pane={pane} />
+      <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground" title={`${caption}${byAssistant ? " · set by your assistant" : ""}`} data-testid={`text-caption-${pane.id}`}>
+        {caption}{byAssistant ? " · set by your assistant" : ""}
+      </span>
       {byAssistant && canUndo(history, pane) && <IconButton label="Back to the previous view" onClick={() => store.undo(pane.id)}><Undo2 size={13} /></IconButton>}
       {byAssistant && <IconButton label="Reset this panel to its defaults" onClick={() => store.reset(pane.id)}><RotateCcw size={13} /></IconButton>}
       <DropdownMenu>
@@ -86,42 +89,65 @@ function BuiltInPanelHeader({ pane, desktop, tabbed }: { pane: Extract<Pane, { k
   );
 }
 
-/** The panel menu: built-in panels for this phase first, then the others, then the player's own panels. It changes the built-in panel only. */
-function PanelMenu({ pane, tabbed }: { pane: Extract<Pane, { kind: "panel" }>; tabbed: boolean }) {
-  const { phase, history } = useDock();
+/**
+ * The panel picker: a combobox (cmdk: ARIA combobox and listbox, arrows, Enter, Esc). The input takes focus on open;
+ * typing filters fuzzily over names and synonyms (panel-search.ts, the palette's matcher), keeping the sections: built-in
+ * panels for this phase first, then the others, then the player's own panels and the assistant. Choosing a built-in panel
+ * changes this pane's panel; the player's own panels and the assistant open in their own pane.
+ */
+function PanelMenu({ pane }: { pane: Extract<Pane, { kind: "panel" }> }) {
+  const { phase, history, layout } = useDock();
   const actions = useDockActions();
   const panels = usePanels();
-  const now = PANEL_IDS.filter(id => PANELS[id].phases.includes(phase));
-  const later = PANEL_IDS.filter(id => !PANELS[id].phases.includes(phase));
-  const item = (id: PanelId) => {
-    const remembered = lastParams(history, pane.id, id);
-    const needsAssistant = id === "what-if" && !remembered;
-    return (
-      <DropdownMenuItem key={id} data-testid={`menu-panel-item-${id}`} disabled={needsAssistant} title={needsAssistant ? "Your assistant sets up a what-if: ask it" : PANELS[id].blurb}
-        onSelect={() => actions.change(pane.id, id)} className={id === pane.panelId ? "font-semibold" : ""}>
-        {PANELS[id].title}{needsAssistant ? " (ask your assistant)" : ""}
-      </DropdownMenuItem>
-    );
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const assistantOpen = !!assistantPaneOf(layout);
+  const choices = useMemo(() => {
+    const built: PickerChoice[] = PANEL_IDS.map(id => ({
+      key: id, title: PANELS[id].title, section: PANELS[id].phases.includes(phase) ? "now" : "later", keywords: PANEL_SYNONYMS[id],
+      disabled: id === "what-if" && !lastParams(history, pane.id, id), detail: PANELS[id].blurb,
+    }));
+    const own: PickerChoice[] = [
+      { key: "assistant", title: assistantOpen ? "Your assistant" : "Your assistant (closed)", section: "mine", keywords: ["chat", "ask", "ai"], detail: assistantOpen ? "Your assistant is open" : "Opens in its own pane" },
+      ...panels.entries.filter(e => e.origin === "stored").map(e => ({ key: `stored:${e.id}`, title: e.stored?.title ?? e.id, section: "mine" as const, detail: "Opens in its own pane" })),
+      ...panels.entries.filter(e => e.origin === "file").map(e => ({ key: `file:${e.id}`, title: panelTitle(e, panels.statuses, e.id), section: "mine" as const, detail: "Opens in its own pane" })),
+    ];
+    return [...built, ...own];
+  }, [phase, history, pane.id, panels.entries, panels.statuses, assistantOpen]);
+  const groups = useMemo(() => filterChoices(choices, query), [choices, query]);
+  const testId = (key: string) => key === "assistant" ? "menu-assistant" : key.startsWith("stored:") ? `menu-stored-panel-${key.slice(7)}` : key.startsWith("file:") ? `menu-file-panel-${key.slice(5)}` : `menu-panel-item-${key}`;
+  const choose = (key: string) => {
+    setOpen(false);
+    if (key === "assistant") actions.openAssistant();
+    else if (key.startsWith("stored:")) actions.openPanel(key.slice(7));
+    else if (key.startsWith("file:")) actions.openFile(key.slice(5));
+    else actions.change(pane.id, key as PanelId);
   };
-  const stored = panels.entries.filter(e => e.origin === "stored");
-  const files = panels.entries.filter(e => e.origin === "file");
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger data-testid="menu-panel" title="Change this panel" onPointerDown={e => e.stopPropagation()}
-        className={`inline-flex ${tabbed ? "" : "max-w-[60%]"} min-w-0 shrink-0 items-center gap-1 px-1 font-serif text-sm font-semibold hover:bg-muted`}>
+    <Popover open={open} onOpenChange={next => { setOpen(next); if (!next) setQuery(""); }}>
+      <PopoverTrigger data-testid="menu-panel" title="Change this panel" aria-haspopup="listbox" onPointerDown={e => e.stopPropagation()}
+        className="inline-flex max-w-[60%] min-w-0 shrink-0 items-center gap-1 px-1 font-serif text-sm font-semibold hover:bg-muted">
         <span className="truncate">{PANELS[pane.panelId].title}</span><ChevronDown size={13} className="shrink-0 text-muted-foreground" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="max-h-[70vh] overflow-auto rounded-none">
-        <DropdownMenuLabel className="label">For now</DropdownMenuLabel>
-        {now.map(item)}
-        {later.length > 0 && <><DropdownMenuSeparator /><DropdownMenuLabel className="label">Other panels</DropdownMenuLabel>{later.map(item)}</>}
-        {stored.length + files.length > 0 && <>
-          <DropdownMenuSeparator /><DropdownMenuLabel className="label">Your panels</DropdownMenuLabel>
-          {stored.map(e => <DropdownMenuItem key={e.file} data-testid={`menu-stored-panel-${e.id}`} title="Opens in its own pane" onSelect={() => actions.openPanel(e.id)}>{e.stored?.title ?? e.id}</DropdownMenuItem>)}
-          {files.map(e => <DropdownMenuItem key={e.file} data-testid={`menu-file-panel-${e.id}`} title="Opens in its own pane" onSelect={() => actions.openFile(e.id)}>{panelTitle(e, panels.statuses, e.id)}</DropdownMenuItem>)}
-        </>}
-      </DropdownMenuContent>
-    </DropdownMenu>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-72 rounded-none p-0">
+        <Command shouldFilter={false} loop label="Choose a panel">
+          <CommandInput data-testid="input-panel-search" autoFocus value={query} onValueChange={setQuery} placeholder="Type a panel name…" aria-label="Panel name" />
+          <CommandList className="max-h-[60vh]">
+            <CommandEmpty>No panel matches “{query}”.</CommandEmpty>
+            {groups.map(({ section, choices: rows }) => (
+              <CommandGroup key={section.id} heading={section.title} className="[&_[cmdk-group-heading]]:label">
+                {rows.map(c => (
+                  <CommandItem key={c.key} value={c.key} data-testid={testId(c.key)} disabled={c.disabled} title={c.disabled ? "Your assistant sets up a what-if: ask it" : c.detail}
+                    onSelect={() => choose(c.key)} className={`rounded-none ${c.key === pane.panelId ? "font-semibold" : ""}`}>
+                    {c.title}{c.disabled ? " (ask your assistant)" : ""}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            ))}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }
 

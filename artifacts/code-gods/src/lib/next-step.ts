@@ -10,7 +10,7 @@ import type { StartView } from "@workspace/player-client/start";
 /** The ids a page's next step can name; every one is a palette command (tested). */
 export const STEP_IDS = [
   "ui.auth.signIn", "rooms.join", "ui.nav.playerClient", "rooms.setReady", "ui.copyInviteLink", "rooms.addAi",
-  "owner.start", "ui.nav.game", "rooms.resume", "ui.nav.room", "rooms.create",
+  "owner.start", "ui.nav.game", "rooms.resume", "ui.nav.room", "rooms.create", "ui.nav.replay",
 ] as const;
 export type StepId = (typeof STEP_IDS)[number];
 
@@ -91,10 +91,20 @@ export interface StepGame {
   roster: readonly { id: string }[];
 }
 
-/** The game page's next step: seated players play; spectators watch (no button); after the end, back to the room. */
+/** Whether the viewer may open an ended game's replay: its players and the room's owner (the engine's player.replay rule). */
+export function canWatchReplay(viewerId: string | null | undefined, game: { roster?: readonly { id: string }[]; ownerId?: string | null }): boolean {
+  return !!viewerId && (game.ownerId === viewerId || !!game.roster?.some(r => r.id === viewerId));
+}
+
+/** The game page's next step: seated players play; spectators watch (no button); after the end, its replay (or back to the room). */
 export function gameStep(viewerId: string | null | undefined, game: StepGame): NextStep {
   const active = game.status === "active";
-  if (!active) return { status: "This game has ended.", primary: game.roomShortCode ? "ui.nav.room" : null, secondary: [] };
+  if (!active) {
+    if (!game.roomShortCode) return { status: "This game has ended.", primary: null, secondary: [] };
+    return canWatchReplay(viewerId, game)
+      ? { status: "This game has ended.", primary: "ui.nav.replay", secondary: ["ui.nav.room"] }
+      : { status: "This game has ended.", primary: "ui.nav.room", secondary: [] };
+  }
   const owner = !!viewerId && game.ownerId === viewerId;
   const seated = !!viewerId && game.roster.some(r => r.id === viewerId);
   if (game.phase === "recovery" && owner) return { status: "Paused for safety.", primary: "rooms.resume", secondary: seated ? ["ui.nav.playerClient"] : [] };

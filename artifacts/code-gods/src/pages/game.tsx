@@ -1,7 +1,9 @@
 /**
  * The game page (palette-and-pages.md §3.4): "Game G9TQ" with its room, one status sentence, then Leaderboard (with
  * the roster), Objects and Public chat; settings, utility functions and timings under "Game details". The owner's
- * actions live in a ⋯ menu (End game asks in a modal). After the end: the results and "Back to room".
+ * actions live in a ⋯ menu (End game asks in a modal). After the end: the results, "Watch the replay" (the player
+ * client's replay page of the game, for its players and the room's owner) and "Back to room"; the page returns to the
+ * room by itself only for whom the replay is closed.
  */
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useParams } from "wouter";
@@ -20,7 +22,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
-import { gameStep } from "@/lib/next-step";
+import { canWatchReplay, gameStep } from "@/lib/next-step";
 import { gamePath } from "@/lib/routes";
 import { errMsg, fmt } from "@/lib/errors";
 import { endReasonLabel, fmtDuration, fmtWhen, secsLeft, toMs } from "@/lib/time";
@@ -86,7 +88,7 @@ function OwnerMenu({ game }: { game: GameView }) {
   </>);
 }
 
-function Results({ game, returnIn, onStay }: { game: GameView; returnIn: number | null; onStay: () => void }) {
+function Results({ game, returnIn, onStay, replay }: { game: GameView; returnIn: number | null; onStay: () => void; replay: boolean }) {
   return (
     <section className="border-2 border-accent bg-card p-5 space-y-3" data-testid="panel-final-results">
       <div className="flex items-start gap-3">
@@ -98,7 +100,8 @@ function Results({ game, returnIn, onStay }: { game: GameView; returnIn: number 
       </div>
       {game.roomShortCode && (
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-          <StepAction id="ui.nav.room" primary roomCode={game.roomShortCode} />
+          {replay && <StepAction id="ui.nav.replay" primary roomCode={game.roomShortCode} gameCode={game.shortCode} />}
+          <StepAction id="ui.nav.room" primary={!replay} roomCode={game.roomShortCode} />
           {returnIn !== null && (
             <span className="text-sm" role="status" data-testid="status-auto-return">
               Returning to the room in <b className="tabular-nums">{returnIn}</b> s · <button type="button" onClick={onStay} className="underline underline-offset-4" data-testid="button-stay-results">Stay here</button>
@@ -126,8 +129,8 @@ function GameBody({ game, room }: { game: GameView; room?: { members: readonly {
   useEffect(() => {
     if (watched.current?.id !== game.id) { watched.current = { id: game.id, sawActive: false }; setReturnAt(null); }
     if (game.status === "active") watched.current.sawActive = true;
-    else if (watched.current.sawActive && game.roomShortCode) { watched.current.sawActive = false; const t = Date.now(); setTick(t); setReturnAt(t + RETURN_SECONDS * 1000); }
-  }, [game.id, game.status, game.roomShortCode]);
+    else if (watched.current.sawActive && game.roomShortCode && !canWatchReplay(user?.id, game)) { watched.current.sawActive = false; const t = Date.now(); setTick(t); setReturnAt(t + RETURN_SECONDS * 1000); }
+  }, [game.id, game.status, game.roomShortCode, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (returnAt === null) return; const t = setInterval(() => setTick(Date.now()), 250); return () => clearInterval(t); }, [returnAt]);
   const returnIn = returnAt === null ? null : Math.max(0, Math.ceil((returnAt - tick) / 1000));
   useEffect(() => { if (returnIn === 0 && game.roomShortCode) { setReturnAt(null); navigate(`/rooms/${game.roomShortCode}`); } }, [returnIn, game.roomShortCode, navigate]);
@@ -162,13 +165,14 @@ function GameBody({ game, room }: { game: GameView; room?: { members: readonly {
           Room {game.roomShortCode} is now playing game {newer.shortCode}. <Link href={gamePath(game.roomShortCode ?? "", newer.shortCode)} className="underline underline-offset-4">Open it</Link>
         </p>
       )}
-      {!active && <Results game={game} returnIn={returnIn} onStay={() => setReturnAt(null)} />}
+      {!active && <Results game={game} returnIn={returnIn} onStay={() => setReturnAt(null)} replay={step.primary === "ui.nav.replay"} />}
       <div className="grid gap-6 grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] items-start">
         <div className="space-y-6 min-w-0">
           <Leaderboard rows={game.leaderboard} roster={game.roster} meId={user?.id} ownerId={game.ownerId} agentCount={game.agentCount}
             emptyBody={active ? "Scores appear once the world begins to run." : "No standings were recorded."} />
           <Chat messages={game.chat} canPost={canPost} pending={act.pending}
-            placeholder={!active ? "Game over; chat continues in the room" : canPost ? "Say something to everyone…" : "Join the room to chat"}
+            placeholder={canPost ? "Say something to everyone…" : "Join the room to chat"}
+            closed={active ? undefined : "Chat closed: the game is over. It continues in the room."}
             onSend={(text, done) => act.run("chat", () => sendChat(text), done)} />
         </div>
         <Objects objects={game.objects} instance={game.objectInstance} emptyBody={active ? "Objects appear once the world begins to run." : "No objects remained when this game ended."} />

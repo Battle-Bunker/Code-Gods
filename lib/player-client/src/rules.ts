@@ -42,7 +42,7 @@ At most ${n(s, "maxAgentsPerGod", 200)} agents per god.
 ## Energy and timing
 God energy starts at ${n(s, "startingEnergy")} bits and earns ${n(s, "energyPerSecond")} bits per real second.
 Planning lasts ${n(s, "planningSeconds")} s (the world does not move). Each god may pause a running game once, for ${n(s, "pauseSeconds")} s.
-The game's lifetime is random (half-life ${n(s, "halfLifeSeconds")} world seconds); the end is hidden.
+${s.durationMode === "fixed" ? `The game lasts exactly ${n(s, "halfLifeSeconds")} world seconds after planning: the end time is public.` : `The game's lifetime is random (half-life ${n(s, "halfLifeSeconds")} world seconds); the end is hidden.`}
 Starting objects: ${n(s, "startingObjectCount")}; spawning: ${n(s, "spawnRateHz")} objects per world second; interaction cap ${n(s, "interactionRateHz")}/s.
 
 ## Information and conduct

@@ -337,7 +337,7 @@ test("revoking the assistant credential mid-turn fails its next call and ends th
 
 test("confirmation: a summon waits for the player; approve runs it once with the derived id; deny never sends chat", { timeout: 240_000 }, async () => {
   const { members: [ann, bob], roomId, game } = await assistantRoom(["Ann Alpha", "Bob Bravo", "Cyd Charl"]);
-  const sent = await ann.c.mutation(api.assistant.send, { roomId, text: mock([{ tools: [{ name: "summon_agent", input: { source: TS.Int } }] }, { text: "Summoned." }]) });
+  const sent = await ann.c.mutation(api.assistant.send, { roomId, text: mock([{ tools: [{ name: "summon_agent", input: { source: TS.Int, name: "Test agent" } }] }, { text: "Summoned." }]) });
   const waiting = await until(ann, sent, ["awaiting_confirmation"], "the turn waits for confirmation");
   const call = waiting.calls[0];
   assert.equal(call.status, "awaiting_confirmation");
@@ -424,7 +424,7 @@ test("budget: the assistant pool is per human and game, separate from seats; 0 m
 test("disclosure: threads are their human's only; stored tool results pass the disclosure checker", { timeout: 240_000 }, async () => {
   const { members: [ann, bob], roomId, game } = await assistantRoom(["Ann Alpha", "Bob Bravo", "Cyd Charl"]);
   const SECRET = "bob_assistant_marker";
-  const r = await bob.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", language: "typescript", source: `function agent(x) { const ${SECRET} = 1; return [add(${SECRET})]; }` }, game!.gameId) });
+  const r = await bob.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", name: "Test agent", language: "typescript", source: `function agent(x) { const ${SECRET} = 1; return [add(${SECRET})]; }` }, game!.gameId) });
   assert.equal(r.accepted, true, r.message);
   const sent = await ann.c.mutation(api.assistant.send, { roomId, text: mock([{ tools: [
     { name: "get_observation" }, { name: "get_events" }, { name: "get_trajectories" }, { name: "get_my_utility" }, { name: "get_chat" },
@@ -487,7 +487,7 @@ test("a new game starts the assistant afresh: no thread, card, run, note or allo
   assert.equal(one.turn.status, "done", JSON.stringify(one.turn.error));
   const run1 = JSON.parse(one.calls[0].resultJson).data;
   assert.deepEqual(run1.store, { written: ["notes/plan", "scripts/plan"], deleted: [] }, JSON.stringify(run1));
-  const waiting = await ann.c.mutation(api.assistant.send, { roomId, threadId: first.threadId, text: mock([{ tools: [{ name: "summon_agent", input: { source: TS.Int } }] }, { text: "never" }]) });
+  const waiting = await ann.c.mutation(api.assistant.send, { roomId, threadId: first.threadId, text: mock([{ tools: [{ name: "summon_agent", input: { source: TS.Int, name: "Test agent" } }] }, { text: "never" }]) });
   const card = await until(ann, waiting, ["awaiting_confirmation"], "the card waits");
   assert.ok((await ann.c.query(api.assistant.status, { roomId })).allowance.used > 0);
 
@@ -540,6 +540,9 @@ test("a new game starts the assistant afresh: no thread, card, run, note or allo
 
 test("the assistant arranges the player's screen: open_panel changes the layout row at once, chips name it, a third layout change in one step is refused", { timeout: 180_000 }, async () => {
   const { members: [ann], roomId } = await assistantRoom(["Ann Alpha", "Bob Bravo", "Cyd Charl"]);
+  // Start from one default objects panel over the assistant (the mechanics below are about a single panel), not the full default dock.
+  await ann.c.mutation(api.layout.set, { roomId, layout: { version: 1, root: { type: "split", direction: "column", sizes: [50, 50], children: [{ type: "pane", id: "p1" }, { type: "pane", id: "p2" }] },
+    panes: { p1: { id: "p1", kind: "panel", panelId: "objects", params: {}, setBy: "default" }, p2: { id: "p2", kind: "assistant" } } } });
   const sent = await ann.c.mutation(api.assistant.send, { roomId, text: mock([
     { tools: [{ name: "open_panel", input: { panelId: "objects", params: { limit: 4, filter: "chips" } } }] },
     { tools: [
@@ -563,8 +566,8 @@ test("the assistant arranges the player's screen: open_panel changes the layout 
   assert.deepEqual(panels.map(p => [p.panelId, p.setBy]).sort(), [["objects", "assistant"], ["race", "assistant"]]);
   assert.equal(panels.find(p => p.panelId === "objects").params.limit, 4);
   const assistantPane = (Object.values(layout.layout.panes) as any[]).find(p => p.kind === "assistant");
-  const parentOf = (node: any, id: string): any => node.type === "tabs" ? (node.panes.includes(id) ? node : null)
-    : node.children.map((c: any) => parentOf(c, id)).find(Boolean) && (node.children.some((c: any) => c.type === "tabs" && c.panes.includes(id)) ? node : node.children.map((c: any) => parentOf(c, id)).find(Boolean));
+  const parentOf = (node: any, id: string): any => node.type === "pane" ? null
+    : node.children.some((c: any) => c.type === "pane" && c.id === id) ? node : node.children.map((c: any) => parentOf(c, id)).find(Boolean);
   assert.equal(parentOf(layout.layout.root, assistantPane.id).direction, "row", "the assistant pane moved beside the objects pane");
   assert.ok(Object.values(layout.layout.panes).some((p: any) => p.kind === "assistant"), "the assistant pane is still there");
 });

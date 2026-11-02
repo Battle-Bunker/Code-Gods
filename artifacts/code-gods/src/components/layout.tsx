@@ -138,7 +138,7 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
 
   const setups = useLive(api.setups.list, user ? {} : "skip").data;
   const scope: EngineScope = {
-    user, room: room ?? null, game: game ? { shortCode: game.shortCode, status: game.status, roomShortCode: game.roomShortCode } : null,
+    user, room: room ?? null, game: game ? { shortCode: game.shortCode, status: game.status, roomShortCode: game.roomShortCode, roster: game.roster, ownerId: game.ownerId } : null,
     aiConfigured: manifest?.aiFunding.configured, setups: setups ?? [],
     currentSetup: room?.setup && !room.setup.deleted ? room.setup.id : undefined,
     minPlayers: manifest?.minimumPlayers ?? 3, maxPlayers: manifest?.maximumPlayers ?? 8,

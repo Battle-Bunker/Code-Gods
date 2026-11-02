@@ -37,7 +37,8 @@ export function disclosureChecker(gameId: string, viewerSubject: string, secrets
     for (const marker of secrets) assert.ok(!json.includes(marker), `${label}: never another god's agent source`);
     assert.ok(!json.includes("Play strategically"), `${label}: never an AI seat's prompt`);
     assert.ok(!json.includes("local-test-salt"), `${label}: never the season salt`);
-    assert.ok(!numbers(result).has(JSON.stringify(secret.game.endAtWorld)), `${label}: never the end deadline`);
+    // A fixed game's end is its public setting (halfLifeSeconds), so only a half-life game's drawn deadline is secret.
+    if (secret.game.settings.durationMode !== "fixed") assert.ok(!numbers(result).has(JSON.stringify(secret.game.endAtWorld)), `${label}: never the end deadline`);
     // Other gods' individual per-object net bits (where distinctive) never appear. Numbers are compared as whole JSON
     // values, never substrings. A small integer is not distinctive: ordinary public data (counts, ids, values, a
     // seat's energy) holds the same numbers, so "7 net bits" matched "objectCount: 7" about one run in two.

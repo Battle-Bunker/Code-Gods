@@ -40,7 +40,7 @@ panels** (`docs/panels.md`), "Your panels" in menus.
 |---|---|---|
 | Dock library | `dockview-react` 8.x (MIT, React 19, JSON layouts, `addPanel` relative to a pane). Not loaded under 768 px: a stacked renderer draws the same layout with the assistant as a bottom sheet. `react-resizable-panels` is removed. | player-client §1.1 |
 | Layout state | A library-independent tree (`DockLayout`, below) in a new table `dockLayouts` per (human, room). The arrangement follows the human to a new room; panel parameters do not (they name one game's objects). | architecture §2.2–2.3 |
-| Panes | `panel` (built-in), `assistant` (exactly one, never closable), `stored-panel` (the human's stored panel in its sandboxed frame), `file-panel` (dev containers). | architecture §3 |
+| Panes | `panel` (built-in), `assistant` (at most one; the player may close it and reopen it from the panel menu or the palette), `stored-panel` (the human's stored panel in its sandboxed frame), `file-panel` (dev containers). | architecture §3 |
 | Layout tools | `get_layout` (read), `open_panel` (a built-in panel by `panelId` or a stored panel by `slug`, exactly one), `set_panel_params`, `move_pane`, `close_pane` (act). No confirmation card: view changes touch no game state and are reversible; a chip in the chat names every change. `place_panel` is removed; `placement`/`size` on panels become add-pane hints only. | architecture §2.4, player-client §6 |
 | Anti-flap | `open_panel` without `place` reuses an open pane of that panel, else switches a built-in panel the player did not choose (`setBy` default, then the assistant's own latest) and opens a new pane only when `place` is given or every built-in panel is the player's; at most two layout tools per model step; 12 layout writes a minute per human per room; the assistant never moves or closes a pane the player arranged unless asked. | architecture §2.4, player-client §2.2 |
 | Panels | 13 built-in panels (§3). Parameters: primitives, enums, short id lists; `forge.source` is the only code. | player-client §2, architecture §2.1 |
@@ -120,11 +120,11 @@ export type Pane =
   | { id: string; kind: "file-panel"; fileId: string };
 export type Node =
   | { type: "split"; direction: "row" | "column"; sizes: number[]; children: Node[] }   // weights, same length as children
-  | { type: "tabs"; panes: string[]; active: string };
+  | { type: "pane"; id: string };   // one panel per pane: there are no tabs (stored layouts with a `tabs` group migrate on read to its active pane)
 export type DockLayout = { version: 1; root: Node; panes: Record<string, Pane> };
-export type Place = { relativeTo?: string; direction: "left" | "right" | "above" | "below" | "tab" };
+export type Place = { relativeTo?: string; direction: "left" | "right" | "above" | "below" };
 export const LAYOUT_LIMITS = { panes: 12, panelPanes: 4, depth: 6, bytes: 32 * 1024, writesPerMinute: 12 } as const;
-export const DEFAULT_LAYOUT: (phase: Phase) => DockLayout;   // column split 50/50: p1 panel (defaultPanelFor), p2 assistant
+export const DEFAULT_LAYOUT: (phase: Phase) => DockLayout;   // column 76/24: [row 50/50: p1 my-card, column 58/42: p2 objects (defaultPanelFor), p3 agents], p4 assistant
 export function parseLayout(raw: unknown, ctx: { phase: Phase; storedSlugs: readonly string[]; fileIds?: readonly string[] }): { layout: DockLayout; warnings: string[] };  // never throws
 export function openPane(layout: DockLayout, pane: Pane, place?: Place): { layout: DockLayout; paneId: string };   // default place: below the most recent panel when the assistant is left/right, else to its right; a 5th built-in panel is refused (CONFLICT)
 export function movePane(layout: DockLayout, paneId: string, place: Place): DockLayout;

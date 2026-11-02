@@ -28,8 +28,8 @@ test("an ended game keeps and serves everything the panels and the assistant rea
   await host.c.mutation(api.rooms.approveAiBudget, { roomId, aiBudget: 0, assistantBudget: 500_000 });
   const game = await startGame(host, roomId);
   const send = (god: typeof ann, command: Record<string, unknown>) => god.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
-  assert.equal((await send(ann, { type: "summon", language: "typescript", source: TS.Int })).accepted, true);
-  assert.equal((await send(bob, { type: "summon", language: "typescript", source: TS.Int })).accepted, true);
+  assert.equal((await send(ann, { type: "summon", name: "Test agent", language: "typescript", source: TS.Int })).accepted, true);
+  assert.equal((await send(bob, { type: "summon", name: "Test agent", language: "typescript", source: TS.Int })).accepted, true);
   await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 3600 }, kick: true });
   await waitFor(async () => (await ann.c.query(api.player.observation, { roomId })).transformations.length >= 2, "Ann's agent transforms objects", 60_000);
   assert.equal((await send(ann, { type: "chat", text: "frozen-chat marker" })).accepted, true);
@@ -72,7 +72,7 @@ test("an ended game keeps and serves everything the panels and the assistant rea
   assert.equal((await ann.c.query(api.layout.current, { roomId })).phase, "ended");
 
   // Actions stay refused with a reason; chat belongs to the room and stays open, as on the room page.
-  const summon = await send(ann, { type: "summon", language: "typescript", source: TS.Int });
+  const summon = await send(ann, { type: "summon", name: "Test agent", language: "typescript", source: TS.Int });
   assert.equal(summon.accepted, false);
   assert.match(summon.message, /not accepting commands/);
   assert.equal((await send(ann, { type: "destroy", agentId: end.agents[0].id })).accepted, false);

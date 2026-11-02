@@ -13,9 +13,14 @@ const finite = z.number().finite();
 const language = z.enum(LANGUAGES as [Language, ...Language[]]);
 const wire = z.union([finite, z.string().max(1024)]);
 const program = { language, source: z.string().min(1).max(16384).refine(source=>new TextEncoder().encode(source).length<=16384,"Source exceeds 16384 UTF-8 bytes") };
+/** An agent's name (required on summon) and description (optional): shown to its owner, and in an ended game's replay. */
+export const AGENT_NAME_MAX = 40;
+export const AGENT_DESCRIPTION_MAX = 500;
+const agentName = z.string().trim().min(1).max(AGENT_NAME_MAX);
+const agentDescription = z.string().trim().max(AGENT_DESCRIPTION_MAX);
 export const commandSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("validate"), ...program }).strict(),
-  z.object({ type: z.literal("summon"), ...program }).strict(),
+  z.object({ type: z.literal("summon"), ...program, name: agentName, description: agentDescription.optional() }).strict(),
   z.object({ type: z.literal("ready"), ready: z.boolean() }).strict(),
   z.object({ type: z.literal("pause") }).strict(),
   z.object({ type: z.literal("chat"), text: z.string().trim().min(1).max(2000) }).strict(),
@@ -99,7 +104,7 @@ export const observationSchema = z.object({
     own: z.object({ ordinal, rewardBits: finite, penaltyBits: finite.optional(), netBits: finite }),
     peerNetBits: finite, peerCare: finite, payoff: finite })).max(2000),
   // Your agents. An agent acts only while eligible (energy ≥ expectedActCost); a negative energy is a cooldown.
-  agents: z.array(z.object({ id, source: z.string().max(16384), language, summonCost: finite, decisionBits: finite, expectedActCost: finite,
+  agents: z.array(z.object({ id, name: agentName, description: agentDescription.optional(), source: z.string().max(16384), language, summonCost: finite, decisionBits: finite, expectedActCost: finite,
     breakdown: breakdownSchema, randomized: z.boolean(),
     energy: finite, eligible: z.boolean(), acts: z.number().int().nonnegative(), spent: finite })).max(200),
   transformations: z.array(z.object({ id, agentId: id, before: wire, after: wire,

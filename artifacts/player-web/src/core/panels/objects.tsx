@@ -6,26 +6,26 @@
  * breakdown. Colour coding, the same in every panel: "yours" petrol blue, "others" raspberry (lib/object-views
  * dimensions.ts); the rectangle's fill and the bar run one amber ramp from muted to strong by the payoff relative to
  * the best shown. Before the world runs, the empty state says what will appear and offers the one next
- * step. The assistant chooses the sort, the filter, how many, which to highlight, and list or grid.
+ * step. The list scrolls over the whole collection: `limit` rows at a time, more loading as the end comes into view
+ * (player.objectsPage, one windowed query; replays answer it too). The sort (payoff, your bits, others' care) is the pane's
+ * `sortBy` parameter, set here or by the assistant, with the filter, which to highlight, and list or grid.
  */
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { OBJECT_PAGE_MAX } from "@workspace/player-client/objects-page";
 import {
   ScoreBreakdown, dimensionVar, rampVar, relativeStrength,
 } from "@workspace/object-views";
-import { ObjectGrid, ObjectView, formatBits, useMyCard, useObjectContext, useObjects, type LiveObject } from "@/sdk";
+import { ObjectGrid, ObjectView, formatBits, useMyCard, useObjectContext, type LiveObject } from "@/sdk";
+import { useObjectsPage } from "@/sdk/hooks";
+import { useDockActions } from "@/dock/actions";
 import { useNow } from "@/core/game/situation";
-import { PanelEmpty, PrimaryButton, TextButton, referObject, useObjectRanks, type PanelProps } from "./kit";
+import { PanelEmpty, PrimaryButton, TextButton, referObject, type PanelProps } from "./kit";
 import { payoffLabels, payoffRect, payoffScale, type PayoffScale } from "./payoff-geometry";
 import { useNextStep } from "./use-next-step";
 import { useReplayChanged } from "@/core/replay/parts";
 
-const FILTERS: Record<string, (o: LiveObject) => boolean> = {
-  all: () => true,
-  positive: o => o.payoff > 0,
-  contested: o => o.own.netBits > 0 && o.peerCare > 0,
-  chips: o => o.peerCare > 0 && o.own.netBits <= 0,
-};
-const SORTS: Record<string, (o: LiveObject) => number> = { payoff: o => o.payoff, mine: o => o.own.netBits, othersCare: o => o.peerCare };
+/** The sort selector: the panel's `sortBy` parameter, which the assistant sets too. */
+const SORT_CHOICES = [["payoff", "Payoff"], ["mine", "Your bits"], ["othersCare", "Others' care"]] as const;
 /** The rectangle's box: the side the largest value fills, and room for the two edge labels. */
 const SIDE = 44, LABEL_W = 36, LABEL_H = 13;
 const YOURS = dimensionVar("yours"), OTHERS = dimensionVar("others");
@@ -78,16 +78,47 @@ function PayoffKey() {
 
 /** Before the world runs (the default panel in the lobby and during planning): what will appear here, and the next step. */
 function BeforeTheWorld({ paneId, phase, noun }: Pick<PanelProps<"objects">, "paneId" | "phase"> & { noun: string }) {
-  const { step, go, situation } = useNextStep(paneId, phase);
+  const { step, go, offered, situation } = useNextStep(paneId, phase);
   const now = useNow();
   const until = situation.obs?.planningEndsAt;
   const left = phase === "planning" && until && until > now ? Math.ceil((until - now) / 1000) : null;
   const when = phase === "lobby" ? "When the game starts and the world runs" : `When the world starts${left ? ` (in ${left} s)` : ""}`;
   return (
-    <PanelEmpty testId="panel-empty-objects" action={<PrimaryButton onClick={go} busy={step.busy} testId="button-next-step">{step.label}</PrimaryButton>}>
+    <PanelEmpty testId="panel-empty-objects" action={offered ? <PrimaryButton onClick={go} busy={step.busy} testId="button-next-step">{step.label}</PrimaryButton> : undefined}>
       {when}, its {noun}s appear here, best first: each one marked with what makes up your score, and a rectangle whose width is
-      your bits and whose height is what the others care, on one scale, so its area is your payoff. Next: {step.why}
+      your bits and whose height is what the others care, on one scale, so its area is your payoff.{offered ? ` Next: ${step.why}` : ""}
     </PanelEmpty>
+  );
+}
+
+/** Rows are fetched a page (the panel's `limit`) at a time and the window grows while the end of the list is in view. */
+function LoadMore({ more, ready, onMore, loaded, matching }: { more: boolean; ready: boolean; onMore: () => void; loaded: number; matching: number }) {
+  const sentinel = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = sentinel.current;
+    if (!el || !more || !ready || typeof IntersectionObserver === "undefined") return;
+    const watch = new IntersectionObserver(entries => { if (entries.some(e => e.isIntersecting)) onMore(); }, { rootMargin: "240px" });
+    watch.observe(el);
+    return () => watch.disconnect();
+    // Only a window that has arrived asks for the next page (`ready`); `loaded` re-arms the observer, so a page that
+    // still leaves the sentinel in view loads the next one.
+  }, [more, ready, onMore, loaded]);
+  return more
+    ? <div ref={sentinel} data-testid="objects-more" className="py-1"><TextButton onClick={onMore} testId="button-objects-more">Load more ({loaded} of {matching})</TextButton></div>
+    : null;
+}
+
+/** The sort order, settable by the player here and by the assistant (show_panel's sortBy). */
+function SortSelector({ paneId, value }: { paneId: string; value: string }) {
+  const dock = useDockActions();
+  return (
+    <div role="radiogroup" aria-label="Sort objects by" className="flex flex-wrap items-center gap-1 font-mono text-[11px]" data-testid="objects-sort">
+      <span className="text-muted-foreground">sort</span>
+      {SORT_CHOICES.map(([id, label]) => (
+        <button key={id} type="button" role="radio" aria-checked={value === id} data-testid={`sort-${id}`} onClick={() => value !== id && dock.setParams(paneId, { sortBy: id })}
+          className={`rounded-sm border px-1.5 py-0.5 ${value === id ? "border-foreground text-foreground" : "border-[hsl(var(--card-border))] text-muted-foreground hover:text-foreground"}`}>{label}</button>
+      ))}
+    </div>
   );
 }
 
@@ -96,25 +127,31 @@ export default function Objects({ paneId, params, phase }: PanelProps<"objects">
   const changed = useReplayChanged();
   // Only the row showing the value the change reached flashes (panels render at their own rate).
   const flash = (o: { id: string; value: unknown }) => { const ch = changed.get(o.id); return !!ch && ch.after === o.value; };
-  const objects = useObjects({ hz: 1 });
+  const [pages, setPages] = useState(1);
+  const view = `${params.sortBy}|${params.filter}|${params.limit}`;
+  useEffect(() => setPages(1), [view]);   // a new sort or filter starts from the top
+  const data = useObjectsPage({ sort: params.sortBy, filter: params.filter, limit: params.limit * pages, hz: 1 });
   const card = useMyCard();
   const { ctx, noun } = useObjectContext();
-  const ranks = useObjectRanks(objects);
+  const loadMore = useCallback(() => setPages(p => p + 1), []);
   const [open, setOpen] = useState<string | null>(null);
   const comparative = card?.penalty?.comparative;
-  const shown = useMemo(() => objects.filter(FILTERS[params.filter] ?? FILTERS.all).sort((a, b) => SORTS[params.sortBy](b) - SORTS[params.sortBy](a)).slice(0, params.limit),
-    [objects, params.filter, params.sortBy, params.limit]);
+  const shown = useMemo(() => data?.rows ?? [], [data]);
+  const ranks = useMemo(() => new Map(shown.map(o => [o.id, o.rank])), [shown]);
   const scale = useMemo(() => payoffScale(shown.map(o => ({ own: o.own.netBits, care: o.peerCare }))), [shown]);
   const max = Math.max(1e-9, ...shown.map(o => Math.abs(o.payoff)));
   const best = Math.max(0, ...shown.map(o => o.payoff));
   const highlight = new Set(params.highlight);
-  const sum = (f: (o: LiveObject) => number) => objects.reduce((s, o) => s + f(o), 0);
+  const more = !!data?.next, ready = shown.length >= Math.min(pages * params.limit, OBJECT_PAGE_MAX, data?.matching ?? 0);
+  const objects = { length: data?.total ?? 0 };
 
+  if (!data) return null;
   if (!objects.length && (phase === "lobby" || phase === "planning")) return <BeforeTheWorld paneId={paneId} phase={phase} noun={noun} />;
   if (!objects.length) return <PanelEmpty testId="panel-empty-objects">The world holds no {noun}s yet. They spawn once the world starts running.</PanelEmpty>;
   if (!shown.length) return <PanelEmpty>No {noun} matches this view right now ({objects.length} in the world).</PanelEmpty>;
   const header = (
-    <header className="space-y-1">
+    <header className="space-y-1.5">
+      <SortSelector paneId={paneId} value={params.sortBy} />
       <PayoffKey />
     </header>
   );
@@ -122,7 +159,8 @@ export default function Objects({ paneId, params, phase }: PanelProps<"objects">
     return (
       <div className="space-y-3">
         {header}
-        <ObjectGrid objects={shown} max={params.limit} badge={(o: LiveObject) => `#${ranks.get(o.id)} · ${formatBits(o.payoff)}`} onSelect={id => referObject(ranks.get(id))} />
+        <ObjectGrid objects={shown} max={shown.length} badge={(o: LiveObject) => `#${ranks.get(o.id)} · ${formatBits(o.payoff)}`} onSelect={id => referObject(ranks.get(id))} />
+        <LoadMore more={more} ready={ready} onMore={loadMore} loaded={shown.length} matching={data.matching} />
       </div>
     );
   }
@@ -155,8 +193,9 @@ export default function Objects({ paneId, params, phase }: PanelProps<"objects">
           </li>
         ))}
       </ol>
-      <p className="font-mono text-[11px] text-muted-foreground">
-        {shown.length} of {objects.length} · Σ your net bits {formatBits(sum(o => o.own.netBits))} · Σ others' {formatBits(sum(o => o.peerNetBits))}
+      <LoadMore more={more} ready={ready} onMore={loadMore} loaded={shown.length} matching={data.matching} />
+      <p className="font-mono text-[11px] text-muted-foreground" data-testid="text-objects-footer">
+        {shown.length} of {data.matching}{params.filter !== "all" ? ` matching (${data.total} in all)` : ""} · Σ your net bits {formatBits(data.sumOwnNetBits)} · Σ others' {formatBits(data.sumPeerNetBits)}
       </p>
     </div>
   );

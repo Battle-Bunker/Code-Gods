@@ -11,7 +11,8 @@
  *   a panel saved with panels.save and opened as a pane from the panel menu appears without a reload (a window marker
  *   survives), with live data over the bridge, also when the frame is served from another origin than its CSP
  *   names (a custom domain); a pane opened through the engine's layout reaches the page; an update and a rollback
- *   change it live; moving the pane does not restart its frame; a render-throwing version stays inside its frame; a panel
+ *   change it live; moving the pane does not restart its frame; dragging a panel onto the centre of another replaces
+ *   it, with no tab and no ghost header left behind; the assistant pane closes and the palette reopens it; a render-throwing version stays inside its frame; a panel
  *   that tries fetch, parent.document, cookies, storage and image/style/script beacons gets nothing (a local
  *   beacon server sees no request); a panel navigating its frame away is stopped and the page it loads hears
  *   nothing (with and without the page CSP); a chat from a panel shows the host's confirmation with the exact
@@ -91,11 +92,14 @@ type Layout = ReturnType<typeof DEFAULT_LAYOUT>;
 // Layouts follow the human across rooms: start this room from the default arrangement.
 await carol.mutation(fn.m("layout:set"), { roomId, layout: DEFAULT_LAYOUT("lobby") });
 
+/** layout:set allows 12 changes a minute: wait for the window instead of failing. */
+const setLayoutPatiently = (roomId: unknown, layout: Layout) => until(() => carol.mutation(fn.m("layout:set"), { roomId, layout }).then(() => true, () => undefined), "layout:set", 90_000);
+
 /** Open a stored panel as a pane through the engine's layout, as the assistant's open_panel does (the page follows). */
 async function openAsPane(slug: string) {
   const { layout } = await carol.query(fn.q("layout:current"), { roomId }) as { layout: Layout };
   if (Object.values(layout.panes).some(p => p.kind === "stored-panel" && p.slug === slug)) return;
-  await carol.mutation(fn.m("layout:set"), { roomId, layout: openPane(layout, { id: "", kind: "stored-panel", slug }).layout });
+  await setLayoutPatiently(roomId, openPane(layout, { id: "", kind: "stored-panel", slug }).layout);
 }
 /** Save a panel (and open it as a pane unless told not to). */
 async function save(slug: string, source: string, { open = true } = {}) {
@@ -174,6 +178,65 @@ await check("moving a panel's pane (the assistant to the right) does not restart
   await page.keyboard.type("Move assistant to the bottom");
   await page.keyboard.press("Enter");
   await sleep(500);
+});
+
+await check("dragging a panel onto the centre of another replaces it: no tabs, no ghost header left behind", async () => {
+  await setLayoutPatiently(roomId, DEFAULT_LAYOUT("lobby"));
+  await page.waitForSelector("[data-testid=tab-p3]", { timeout: 15_000 });
+  const panesNow = async () => Object.keys((await carol.query(fn.q("layout:current"), { roomId }) as { layout: Layout }).layout.panes).sort();
+  assert((await panesNow()).join() === "p1,p2,p3,p4", "the default layout has four panes");
+  const goal = await page.locator("[data-testid=tab-p1]").textContent();
+  // The drag ghost is the dragged header; it must be gone once the drop is done.
+  await page.locator("[data-testid=tab-p1]").dragTo(page.locator("[data-testid=pane-p3]"), { targetPosition: { x: 200, y: 120 } });
+  await until(async () => (await panesNow()).join() === "p1,p2,p4" ? true : undefined, "the replaced pane (p3) is gone and the dragged one (p1) stays", 20_000);
+  await sleep(1200);
+  await page.screenshot({ path: process.env.CG_E2E_SHOT ?? "/tmp/replace-drop.png" });
+  assert(await page.locator("[data-testid=tab-p3]").count() === 0, "the replaced pane still has a header");
+  assert(await page.locator("[data-testid=tab-p1]").count() === 1, "the dragged pane has one header");
+  const tabCount = await page.locator(".dv-tab").count();
+  assert(tabCount === 3, `a header per pane and no second tab in a group (${tabCount} .dv-tab: ${await page.evaluate(() => [...document.querySelectorAll(".dv-tab")].map(el => `${el.parentElement?.className}>${el.className}@${Math.round(el.getBoundingClientRect().top)}:${(el.textContent ?? "").slice(0, 30)}`).join(" | "))})`);
+  const stray = await page.evaluate(text => [...document.querySelectorAll("body *")].filter(el => el.children.length === 0 && el.textContent?.trim() === text && !el.closest("[data-testid^=tab-]")).length, (goal ?? "").trim().split("\n")[0]);
+  assert(stray === 0, `${stray} stray copies of the dragged header's text outside the pane headers`);
+  await setLayoutPatiently(roomId, DEFAULT_LAYOUT("lobby"));
+  await openAsPane("e2e-live");   // the later checks use its frame
+});
+
+await check("the assistant is an ordinary pane: close it, and the palette's \"Open assistant\" brings it back", async () => {
+  await setLayoutPatiently(roomId, DEFAULT_LAYOUT("lobby"));
+  await page.waitForSelector("[data-testid=assistant-pane]", { timeout: 15_000 });
+  await page.locator("[data-testid=button-close-p4]").click();
+  await page.waitForSelector("[data-testid=assistant-pane]", { state: "detached", timeout: 15_000 });
+  const kinds = async () => Object.values((await carol.query(fn.q("layout:current"), { roomId }) as { layout: Layout }).layout.panes).map(p => p.kind);
+  await until(async () => !(await kinds()).includes("assistant") ? true : undefined, "the closed assistant is gone from the stored layout", 75_000);
+  await page.keyboard.press("Control+k");
+  await page.waitForSelector("[data-testid=dialog-palette]");
+  await page.keyboard.type("Open assistant");
+  await page.keyboard.press("Enter");
+  await page.waitForSelector("[data-testid=assistant-pane]", { timeout: 15_000 });
+  await until(async () => (await kinds()).includes("assistant") ? true : undefined, "the reopened assistant is in the stored layout", 75_000);
+  assert(await page.locator("[data-testid=assistant-pane]").count() === 1, "one assistant pane");
+  await setLayoutPatiently(roomId, DEFAULT_LAYOUT("lobby"));
+  await openAsPane("e2e-live");
+});
+
+await check("the panel menu is a combobox: it opens focused, Esc closes it, typing \"chat\" then Enter switches the pane to Public chat", async () => {
+  await setLayoutPatiently(roomId, DEFAULT_LAYOUT("lobby"));
+  const trigger = page.locator("[data-testid=tab-p2] [data-testid=menu-panel]");
+  await trigger.waitFor({ timeout: 15_000 });
+  await trigger.click();
+  const input = page.locator("[data-testid=input-panel-search]");
+  await input.waitFor({ timeout: 5_000 });
+  assert(await input.evaluate(el => el === document.activeElement), "the input is not focused on open");
+  assert(await input.getAttribute("role") === "combobox", "the input is not an ARIA combobox");
+  await page.keyboard.press("Escape");
+  await input.waitFor({ state: "detached", timeout: 5_000 });
+  await trigger.click();
+  await page.keyboard.type("chat");
+  assert(await page.locator("[data-testid=menu-panel-item-public-chat]").count() === 1 && await page.locator("[data-testid=menu-panel-item-race]").count() === 0, "typing does not filter");
+  await page.keyboard.press("Enter");
+  await until(async () => (await trigger.textContent())?.trim() === "Public chat" ? true : undefined, "the pane shows Public chat", 15_000);
+  await setLayoutPatiently(roomId, DEFAULT_LAYOUT("lobby"));
+  await openAsPane("e2e-live");
 });
 
 await check("a panel still runs when its frame CSP names another site origin (a custom domain): 'self' admits the runtime", async () => {
@@ -363,7 +426,7 @@ await check("after the game ends every built-in panel shows the frozen final sta
     const source = AGENT[obs.language][obs.instance.objectType];
     assert(source, `no agent source for ${obs.language} ${obs.instance.objectType}`);
     const summon = await carol.action(fn.a("commands:submit"), { roomId, envelope: { version: "code-gods.player.v3", commandId: crypto.randomUUID(), gameId: obs.gameId,
-      command: { type: "summon", language: obs.language, source } } }) as { accepted: boolean; message?: string };
+      command: { type: "summon", name: "Test agent", language: obs.language, source } } }) as { accepted: boolean; message?: string };
     assert(summon.accepted, `summon: ${summon.message}`);
     obs = await until(async () => { const o = await observe(); return o.transformations.some(t => t.calls?.length) ? o : undefined; }, "carol's agent acts", 120_000);
   } finally { await owner("endGame"); }
@@ -376,8 +439,10 @@ await check("after the game ends every built-in panel shows the frozen final sta
     "what-if": "[data-testid=panel-what-if]", "public-chat": "[data-testid^=row-chat-]", forge: "[data-testid=text-forge-ended]", results: "[data-testid=panel-results]", rules: "[data-testid=panel-rules]",
     "code-output": "[data-testid=table-code-result]",
   };
-  const { PANEL_IDS } = await import("@workspace/player-client/panels");
-  assert(PANEL_IDS.length === 14 && PANEL_IDS.every(id => CONTENT[id]), "a content selector for each built-in panel");
+  const { PANEL_IDS: ALL_PANEL_IDS } = await import("@workspace/player-client/panels");
+  // The replay timeline exists only in replay mode (it has no live or frozen state to show here).
+  const PANEL_IDS = ALL_PANEL_IDS.filter(id => id !== "timeline");
+  assert(PANEL_IDS.length === 14 && PANEL_IDS.every(id => CONTENT[id]), "a content selector for each live built-in panel");
   // Code results show carol's latest analytics run: one through the assistant (mock provider) over the frozen objects.
   // The AI seats keep the budget the evaluator check gave them (a later check starts another game with them).
   await carol.mutation(fn.m("rooms:approveAiBudget"), { roomId, aiBudget: 50_000, assistantBudget: 400_000 });

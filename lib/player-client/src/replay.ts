@@ -38,7 +38,7 @@ export type ReplayEvent =
   | { type: "object.transformed"; objectId: string; before: Wire; value: Wire; version: number; worldSeconds: number; agentId?: string; ownerId?: string;
     calls: unknown; cost: Charge; net: number[]; seed?: string }
   | { type: "agent.failed"; objectId: string; agentId: string; ownerId: string; worldSeconds: number; reason: string; cost: Charge; seed?: string }
-  | { type: "agent.summoned"; agentId: string; ownerId: string; worldSeconds: number; language: string; source: string; summonCost: number; decisionBits: number;
+  | { type: "agent.summoned"; agentId: string; ownerId: string; worldSeconds: number; language: string; source: string; name?: string; description?: string; summonCost: number; decisionBits: number;
     expectedActCost: number; perActFloorBits: number; breakdown: Breakdown; randomized: boolean; account: AgentAccount }
   | { type: "agent.destroyed"; agentId: string; ownerId: string; worldSeconds: number };
 
@@ -69,7 +69,7 @@ export type ReplayObject = { id: string; value: Wire; version: number; net: numb
 export type ReplayAgent = {
   id: string; ownerId: string; alive: boolean; summonedAt: number; destroyedAt?: number;
   /** From the summon (absent for an agent whose summon predates schema 2). */
-  language?: string; source?: string; summonCost?: number; expectedActCost?: number; decisionBits?: number; breakdown?: Breakdown; randomized?: boolean;
+  name?: string; description?: string; language?: string; source?: string; summonCost?: number; expectedActCost?: number; decisionBits?: number; breakdown?: Breakdown; randomized?: boolean;
   acts: number; transforms: number; failures: number; spent: number; account?: AgentAccount;
 };
 export type ReplayState = {
@@ -171,7 +171,7 @@ export function applyEntry(state: ReplayState, entry: LogEntry, settings: GameSe
     case "agent.summoned": {
       state.agents.set(ev.agentId, {
         id: ev.agentId, ownerId: ev.ownerId, alive: true, summonedAt: entry.world, acts: 0, transforms: 0, failures: 0, spent: 0,
-        language: ev.language, source: ev.source, summonCost: ev.summonCost, expectedActCost: ev.expectedActCost, decisionBits: ev.decisionBits, account: ev.account,
+        name: ev.name, description: ev.description, language: ev.language, source: ev.source, summonCost: ev.summonCost, expectedActCost: ev.expectedActCost, decisionBits: ev.decisionBits, account: ev.account,
         breakdown: ev.breakdown, randomized: ev.randomized,
       });
       const i = roster.get(ev.ownerId);

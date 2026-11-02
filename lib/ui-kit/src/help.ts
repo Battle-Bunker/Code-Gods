@@ -14,7 +14,7 @@ export function glossaryCommands(): Command[] {
     const { term, gloss } = GLOSSARY[id];
     const t = term.toLowerCase();
     return {
-      id: `ui.glossary.${id}`, human: { title: `Explain: ${t}`, tooltip: gloss }, group: "help", section: "help",
+      id: `ui.glossary.${id}`, human: { title: `Explain: ${t}`, tooltip: gloss }, group: "help", section: "help", typedOnly: true,
       keywords: [t, `what is ${t}`, `what are ${t}`, `explain ${t}`, "meaning", "glossary"],
       performer: { kind: "form", page: glossPage(id) }, available: always,
     } satisfies Command;

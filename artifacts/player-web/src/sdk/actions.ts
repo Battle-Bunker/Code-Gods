@@ -12,11 +12,14 @@ import { useSdkSubmit } from "@sdk-transport";
 import { GAME_COMMANDS, VERSION, type Command, type CommandResult, type Envelope } from "@workspace/player-client";
 import { useRoom } from "./context";
 import { useObservation } from "./hooks";
+import { useReplaySource } from "./replay-source";
 
 export type Language = "python" | "typescript" | "haskell";
 
 export function useActions() {
   const { roomId, permission } = useRoom();
+  // A replay refuses every command (sdk/replay-source.ts), so nothing can act in one either.
+  const replay = !!useReplaySource();
   const gameId = useObservation({ hz: 1 })?.gameId;
   const submit = useSdkSubmit();
   const send = useCallback(async (envelope: Envelope): Promise<CommandResult> =>
@@ -29,12 +32,12 @@ export function useActions() {
     return send(envelope);
   }, [send, gameId]);
   return useMemo(() => ({
-    /** False with a read-only credential: every action would be refused. */
-    canAct: permission !== "read",
+    /** False with a read-only credential or in a replay: every action would be refused. */
+    canAct: permission !== "read" && !replay,
     /** Measure an agent without paying: summon price, expected cost per act, diagnostics. */
     validate: (language: Language, source: string) => run({ type: "validate", language, source }),
     /** Pay the summon price from your god energy; the agent then earns its own energy. */
-    summon: (language: Language, source: string) => run({ type: "summon", language, source }),
+    summon: (language: Language, source: string, name: string, description?: string) => run({ type: "summon", language, source, name, ...(description?.trim() ? { description } : {}) }),
     /** Destroy one of your agents (free; spent energy is not refunded). */
     destroy: (agentId: string) => run({ type: "destroy", agentId }),
     /** Say something in the public chat (1–2000 characters; everyone sees it). */
@@ -46,5 +49,5 @@ export function useActions() {
     retry: send,
     /** Build and send any v3 command. */
     run,
-  }), [run, send, permission]);
+  }), [run, send, permission, replay]);
 }

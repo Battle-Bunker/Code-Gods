@@ -1,6 +1,6 @@
 /**
  * The phone renderer (under 768 px): the same synced layout without dockview. Every panel's pane in reading order,
- * stacked and scrolled (tabs become stacked panes), each at least 280 px; the assistant is always a bottom sheet
+ * stacked and scrolled each at least 280 px; the assistant is always a bottom sheet
  * (peek / half / full), wherever it sits on desktop. No drag, no gutters: phones read the synced layout, and the panel
  * menu still works.
  */
@@ -32,7 +32,7 @@ export default function StackedDock() {
     return () => el.removeEventListener("focusin", onFocus);
   }, []);
   return (
-    <div className="relative h-full overflow-y-auto overflow-x-hidden" style={{ paddingBottom: HEIGHT.peek }} data-testid="dock-stacked">
+    <div className="relative h-full overflow-y-auto overflow-x-hidden" style={{ paddingBottom: assistant ? HEIGHT.peek : 0 }} data-testid="dock-stacked">
       <div className="divide-y divide-[hsl(var(--card-border))]">
         {panes.map(pane => (
           <section key={pane.id} className="flex min-h-[280px] flex-col bg-card" aria-label={pane.kind === "panel" ? pane.panelId : pane.kind}>
@@ -43,7 +43,7 @@ export default function StackedDock() {
       </div>
       {assistant && (
         <div ref={sheet} className="cg-sheet fixed inset-x-0 bottom-0 z-40 flex flex-col border-t border-[hsl(var(--card-border))] bg-card shadow-[0_-4px_16px_rgba(0,0,0,0.08)]"
-          style={{ height: HEIGHT[snap] }} data-snap={snap}>
+          style={{ height: `min(${HEIGHT[snap]}, calc(100dvh - 44px - var(--cg-footer-h, 0px)))`, bottom: "var(--cg-footer-h, 0px)" }} data-snap={snap}>
           <button type="button" data-testid="button-sheet" onClick={() => setSnap(NEXT[snap])} aria-label={snap === "full" ? "Shrink your assistant" : "Enlarge your assistant"}
             className="flex h-4 shrink-0 items-center justify-center"><span className="h-1 w-10 bg-[hsl(var(--input))]" aria-hidden /></button>
           <div className="border-b border-[hsl(var(--card-border))]" onClick={() => { if (snap === "peek") { setSnap("half"); composer.focus(); } }}>

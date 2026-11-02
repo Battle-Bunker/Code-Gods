@@ -7,17 +7,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { DEFAULT_LAYOUT, assistantSide, panelPanesOf, movePane, openPane, parseLayout, setPanePanel, setPaneParams, type DockLayout } from "@workspace/player-client/layout";
+import { SINGLE_LAYOUT } from "./single-layout.ts";
 import {
   effectiveLayout, initialSync, pushPlan, sameLayout, syncReducer, type SyncState,
 } from "../src/dock/layout-sync.ts";
 import { back, canUndo, lastParams, observe, emptyHistory, resetView } from "../src/dock/history.ts";
 import { dockAssistant, showPanel } from "../src/dock/operations.ts";
 
-const base = DEFAULT_LAYOUT("running");
+const base = SINGLE_LAYOUT;
 const withRace = openPane(base, { id: "", kind: "panel", panelId: "race", params: {}, setBy: "human" }).layout;
 const sideBySide = movePane(base, "p2", { relativeTo: "p1", direction: "right" });
 const run = (state: SyncState, ...events: Parameters<typeof syncReducer>[1][]) => events.reduce(syncReducer, state);
-const loaded = (layout = base, updatedAt = 100) => run(initialSync(DEFAULT_LAYOUT("running")), { type: "server", layout, updatedAt });
+const loaded = (layout = base, updatedAt = 100) => run(initialSync(SINGLE_LAYOUT), { type: "server", layout, updatedAt });
 
 test("a server layout is applied when nothing local is pending", () => {
   const s = loaded(withRace, 100);
@@ -93,7 +94,7 @@ test("a read-only sync (safe mode) applies server layouts and never pushes", () 
   assert.equal(pushPlan(s), null);
 });
 
-test("panel 1 follows the phase only while nobody chose its panel", () => {
+test("the first panel nobody chose follows the phase", () => {
   const ended = effectiveLayout(base, "ended");
   assert.equal(ended.panes.p1.kind === "panel" && ended.panes.p1.panelId, "results");
   assert.equal(effectiveLayout(base, "running"), base, "unchanged when it already shows the phase's panel");
@@ -103,7 +104,14 @@ test("panel 1 follows the phase only while nobody chose its panel", () => {
   assert.equal(effectiveLayout(assisted, "ended"), assisted);
   const second = setPanePanel(openPane(chosen, { id: "", kind: "panel", panelId: "overview", params: {}, setBy: "default" }).layout, "p1", "race", "human");
   const p3 = effectiveLayout(second, "ended").panes.p3;
-  assert.equal(p3.kind === "panel" && p3.panelId, "overview", "only the first built-in panel follows");
+  assert.equal(p3.kind === "panel" && p3.panelId, "results", "the first panel nobody chose follows, wherever it is");
+  const both = setPanePanel(openPane(base, { id: "", kind: "panel", panelId: "overview", params: {}, setBy: "default" }).layout, "p1", "objects", "default");
+  const followed = effectiveLayout(both, "ended");
+  assert.deepEqual(panelPanesOf(followed).map(p => p.kind === "panel" && p.panelId), ["results", "overview"], "only the first of them");
+  // The default dock (the goal card is the player's): objects become the results at the end, and back in a replay.
+  const dock = DEFAULT_LAYOUT("running");
+  assert.deepEqual(panelPanesOf(effectiveLayout(dock, "ended")).map(p => p.kind === "panel" && p.panelId), ["my-card", "results", "agents"]);
+  assert.deepEqual(panelPanesOf(effectiveLayout(effectiveLayout(dock, "ended"), "running")).map(p => p.kind === "panel" && p.panelId), ["my-card", "objects", "agents"]);
 });
 
 test("sameLayout ignores sub-pixel size drift but not structure, panels or a real resize", () => {
@@ -162,12 +170,12 @@ test("moving the assistant to a side stacks the panels beside it; to the bottom 
   const twoInARow = parseLayout(withRace, ctx).layout;
   const right = parseLayout(dockAssistant(twoInARow, "right"), ctx).layout;
   assert.equal(assistantSide(right), "row");
-  assert.deepEqual(right.root.type === "split" && [right.root.direction, right.root.children.map(c => c.type === "split" ? c.direction : c.panes.join())],
+  assert.deepEqual(right.root.type === "split" && [right.root.direction, right.root.children.map(c => c.type === "split" ? c.direction : c.id)],
     ["row", ["column", "p2"]], "panels in a column, the assistant on the right");
   const bottom = parseLayout(dockAssistant(right, "bottom"), ctx).layout;
   assert.equal(assistantSide(bottom), "column");
-  assert.deepEqual(bottom.root.type === "split" && [bottom.root.direction, bottom.root.children.map(c => c.type === "split" ? c.direction : c.panes.join())],
+  assert.deepEqual(bottom.root.type === "split" && [bottom.root.direction, bottom.root.children.map(c => c.type === "split" ? c.direction : c.id)],
     ["column", ["row", "p2"]]);
   const left = parseLayout(dockAssistant(twoInARow, "left"), ctx).layout;
-  assert.deepEqual(left.root.type === "split" && left.root.children[0], { type: "tabs", panes: ["p2"], active: "p2" });
+  assert.deepEqual(left.root.type === "split" && left.root.children[0], { type: "pane", id: "p2" });
 });

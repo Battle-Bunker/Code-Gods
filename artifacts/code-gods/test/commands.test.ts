@@ -118,3 +118,45 @@ test("while the next game prepares its rule tables the owner can end the prepara
   assert.equal(avail(scope({ room: { ...preparing, preparing: { error: "failed" } } }), "owner.start").ok, true, "a failed preparation may be started again");
   assert.equal(avail(scope({ room: room(["ada", "bob", "cy"]) }), "rooms.endActiveGame").ok, false, "nothing to end");
 });
+
+test("the palette lists the same commands however it was opened: one list per context (home, room, live game, ended game)", () => {
+  const game = (status: "active" | "ended") => ({ id: "g1", shortCode: "7A8P", roomShortCode: "K7QX", status, ownerId: "ada" }) as unknown as NonNullable<EngineScope["game"]>;
+  const contexts: Record<string, EngineScope> = {
+    home: scope({}), room: scope({ room: room(["ada", "bob", "cy"]) }),
+    "live game": scope({ game: game("active") }), "ended game": scope({ game: game("ended") }),
+  };
+  for (const [name, s] of Object.entries(contexts)) {
+    const commands = engineCommands(s, act), ctx = paletteContextFor(s);
+    const wanted = commands.filter(c => c.available(ctx).ok && !c.typedOnly).map(c => c.id).sort();
+    // The button, the search box and Ctrl+K all open with no init and no query, so they all get these rows; the
+    // suggestion and the recent ones only reorder them.
+    const opened = (opts: Parameters<typeof paletteRows>[2]) => paletteRows(commands, ctx, opts).flatMap(x => x.rows).map(r => r.command.id);
+    assert.deepEqual(opened({ query: "" }).sort(), wanted, `${name}: every available command, none left for a second mode`);
+    assert.deepEqual(opened({ query: "", suggested: [wanted[0]], recent: [wanted[1]] }).sort(), wanted, `${name}: pinning does not filter`);
+    assert.ok(wanted.length > 3, name);
+  }
+});
+
+test("an ended game offers its replay (the player client's replay page); a live one does not", () => {
+  const opened: string[] = [];
+  const tabAct: EngineActions = { ...act, openTab: (href: string) => { opened.push(href); } };
+  const game = (status: "active" | "ended", roster = [{ id: "ada" }], ownerId = "ada") => ({ shortCode: "7A8P", roomShortCode: "K7QX", status, roster, ownerId });
+  const ended = scope({ game: game("ended") });
+  const run = (s: EngineScope, id: string) => {
+    const c = engineCommands(s, tabAct).find(x => x.id === id)!;
+    assert.deepEqual(c.available(paletteContextFor(s)), { ok: true }, `${id} is available on an ended game`);
+    assert.equal(c.performer.kind, "local");
+    (c.performer as { run: () => void }).run();
+  };
+  run(ended, "ui.nav.replay");
+  run(ended, "ui.nav.replayFromStart");
+  assert.deepEqual(opened, ["/client/rooms/K7QX/games/7A8P", "/client/rooms/K7QX/games/7A8P?e=0&play=1"]);
+  assert.ok((find(ended, "ui.nav.replay").defaultScore ?? 0) >= 8, "Watch the replay leads the ended game's palette");
+  for (const id of ["ui.nav.replay", "ui.nav.replayFromStart"]) {
+    assert.equal((avail(scope({ game: game("active") }), id) as { hidden?: boolean }).hidden, true, `${id}: a live game has no replay`);
+    assert.equal((avail(scope({ room: room(["ada"]) }), id) as { hidden?: boolean }).hidden, true, `${id}: no game here`);
+    // The engine serves a replay to the game's players and the room's owner only (player.replay).
+    assert.deepEqual(avail(scope({ user: { ...ada, id: "zed" }, game: game("ended") }), id), { ok: false, reason: "Only its players and the room's owner can open a game's replay." });
+    assert.deepEqual(avail(scope({ game: game("ended", [{ id: "bob" }], "ada") }), id), { ok: true }, `${id}: the owner may`);
+  }
+});

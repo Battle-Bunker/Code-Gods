@@ -16,7 +16,7 @@ import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalMutation, internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import {
-  DEFAULT_LAYOUT, LAYOUT_LIMITS, LayoutError, activatePane, carryLayout, closePane, panelPanesOf, movePane, openPane, paneCaption, panesOf, parseLayout, resetPanelParams,
+  DEFAULT_LAYOUT, LAYOUT_LIMITS, LayoutError, carryLayout, closePane, panelPanesOf, movePane, openPane, paneCaption, panesOf, parseLayout, resetPanelParams,
   placeSchema, setPanePanel, setPaneParams, type DockLayout, type Pane, type Place,
 } from "@workspace/player-client/layout";
 import { canonicalJson } from "@workspace/game-utilities/canonical-json";
@@ -166,11 +166,11 @@ async function change(ctx: MutationCtx, p: Principal, apply: (layout: DockLayout
 
 /**
  * A pane already on screen asked for again with a place: it goes to that place (a duplicate of it would show the same
- * thing twice). When the place is next to the pane itself it just comes to the front.
+ * thing twice). When the place is next to the pane itself nothing moves.
  */
 function placeExisting(layout: DockLayout, id: string, place: Place) {
   const moved = place.relativeTo === id ? layout : movePane(layout, id, place);
-  return { layout: activatePane(moved, id), paneId: id, reused: true };
+  return { layout: moved, paneId: id, reused: true };
 }
 
 /** A built-in panel the assistant chose, with its parameters: reuse, switch or open (see openPanelAs). */
@@ -181,9 +181,9 @@ function showBuiltIn(layout: DockLayout, panelId: PanelId, params: Record<string
   } else {
     const panels = panelPanesOf(layout);
     const open = panels.find(pane => pane.panelId === panelId);
-    if (open) return { layout: activatePane(setPaneParams(layout, open.id, params, "assistant"), open.id), paneId: open.id, reused: true };
+    if (open) return { layout: setPaneParams(layout, open.id, params, "assistant"), paneId: open.id, reused: true };
     const target = panels.find(pane => pane.setBy === "default") ?? panels.filter(pane => pane.setBy === "assistant").at(-1);
-    if (target) return { layout: activatePane(setPanePanel(layout, target.id, panelId, "assistant", params), target.id), paneId: target.id, reused: false };
+    if (target) return { layout: setPanePanel(layout, target.id, panelId, "assistant", params), paneId: target.id, reused: false };
   }
   const pane: Pane = { id: "", kind: "panel", panelId, params, setBy: "assistant" };
   return openPane(layout, pane, place);
@@ -193,7 +193,7 @@ function showBuiltIn(layout: DockLayout, panelId: PanelId, params: Record<string
  * Show a panel (the open_panel tool): exactly one of `panelId` (built-in) and `slug` (one of the human's stored panels).
  *
  * Built-in, with parameters the assistant chose. Without `place`, no pane is added: an open pane of that panel is
- * reused (its parameters replaced, its tab activated); else a built-in panel nobody chose (setBy default) or one the
+ * reused (its parameters replaced); else a built-in panel nobody chose (setBy default) or one the
  * assistant set earlier is switched to it (the player's own choices are never overridden); only when every built-in
  * panel is the player's does a new pane open. The assistant adds panes only when asked, with `place`; even then a pane
  * already showing that panel with the same parameters is moved there instead of duplicated.
@@ -218,7 +218,7 @@ export const openPanelAs = internalMutation({
     if (!panel.enabled) fail("CONFLICT", `Panel "${storedSlug}" is turned off (panels.setEnabled)`);
     return change(ctx, p, layout => {
       const open = panesOf(layout).find(pane => pane.kind === "stored-panel" && pane.slug === storedSlug);
-      if (open) return place ? placeExisting(layout, open.id, place) : { layout: activatePane(layout, open.id), paneId: open.id, reused: true };
+      if (open) return place ? placeExisting(layout, open.id, place) : { layout: layout, paneId: open.id, reused: true };
       return openPane(layout, { id: "", kind: "stored-panel", slug: storedSlug }, place);
     });
   },
@@ -230,7 +230,7 @@ export const setPanelParamsAs = internalMutation({
     const pane = layout.panes[paneId];
     if (!pane) throw new LayoutError("NOT_FOUND", `No pane ${paneId}`);
     if (pane.kind !== "panel") throw new LayoutError("BAD_REQUEST", `Pane ${paneId} shows ${paneCaption(pane)}, not a built-in panel`);
-    return { layout: activatePane(setPaneParams(layout, paneId, requireParams(pane.panelId, params), "assistant"), paneId), paneId };
+    return { layout: setPaneParams(layout, paneId, requireParams(pane.panelId, params), "assistant"), paneId };
   }),
 });
 
@@ -244,5 +244,9 @@ export const movePaneAs = internalMutation({
 
 export const closePaneAs = internalMutation({
   args: { principal, paneId: v.string() },
-  handler: async (ctx, { principal: p, paneId }): Promise<LayoutChange> => change(ctx, p, layout => ({ layout: closePane(layout, paneId), paneId })),
+  handler: async (ctx, { principal: p, paneId }): Promise<LayoutChange> => change(ctx, p, layout => {
+    // The player may close their chat (they might use an external agent); the assistant never closes it on their behalf.
+    if (layout.panes[paneId]?.kind === "assistant") throw new LayoutError("CONFLICT", "Only the player can close the chat pane");
+    return { layout: closePane(layout, paneId), paneId };
+  }),
 });

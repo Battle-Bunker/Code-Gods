@@ -9,8 +9,8 @@
  *   - CONFLICT (the row moved in the meantime) adopts the server's version; another failure keeps the edit and retries.
  *   - Nothing is pushed before the first server layout arrives, or ever in a read-only (safe-mode) dock.
  */
-import { defaultPanelFor, defaultPanelParams, type Phase } from "@workspace/player-client/panels";
-import { panelPanesOf, type DockLayout, type Node } from "@workspace/player-client/layout";
+import type { Phase } from "@workspace/player-client/panels";
+import { followPhase, type DockLayout, type Node } from "@workspace/player-client/layout";
 
 export const PUSH_DELAY_MS = 800;
 /** A discrete action (menu, palette): pushed almost at once, coalescing a burst. */
@@ -87,14 +87,11 @@ export function pushPlan(state: SyncState): { layout: DockLayout; ifUpdatedAt: n
 }
 
 /**
- * The layout as shown in a phase: the first built-in panel follows the phase's default while nobody (human or
- * assistant) chose its panel. The same object when nothing changes.
+ * The layout as shown in a phase: the first panel nobody (human or assistant) chose follows the phase's default
+ * (`followPhase`, the same rule the engine's parse applies). The same object when nothing changes.
  */
 export function effectiveLayout(layout: DockLayout, phase: Phase): DockLayout {
-  const first = panelPanesOf(layout)[0];
-  const panelId = defaultPanelFor(phase);
-  if (!first || first.setBy !== "default" || first.panelId === panelId) return layout;
-  return { ...layout, panes: { ...layout.panes, [first.id]: { ...first, panelId, params: defaultPanelParams(panelId) ?? {} } } };
+  return followPhase(layout, phase);
 }
 
 /** A stable JSON text (sorted keys), for comparing panes. */
@@ -108,9 +105,7 @@ export function canonical(value: unknown): string {
 }
 
 function sameNode(a: Node, b: Node, tolerance: number): boolean {
-  if (a.type === "tabs" || b.type === "tabs") {
-    return a.type === "tabs" && b.type === "tabs" && a.active === b.active && a.panes.length === b.panes.length && a.panes.every((p, i) => p === b.panes[i]);
-  }
+  if (a.type === "pane" || b.type === "pane") return a.type === "pane" && b.type === "pane" && a.id === b.id;
   return a.direction === b.direction && a.children.length === b.children.length
     && a.sizes.every((s, i) => Math.abs(s - b.sizes[i]) <= tolerance) && a.children.every((c, i) => sameNode(c, b.children[i], tolerance));
 }

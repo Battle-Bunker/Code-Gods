@@ -1,5 +1,5 @@
 /** 🎭 Parity Painter: each cell alone. The outcome table is the whole rule: kind × colour → +1, −1 or 0. */
-import { lens } from "../lens.ts";
+import { lens, tally, count } from "../lens.ts";
 import type { Board } from "../board.ts";
 import type { Cell, OutcomeTable, Part } from "../model.ts";
 
@@ -34,6 +34,14 @@ function otherKindSymbol(p: P, b: Board, sym: number): number {
 export const parityPainter = lens<P>({
   familyId: "parity_painter",
   components: () => ["points"],
+  breakdown: (_p, _b, parts) => ({
+    unit: ["point", "points"],
+    items: tally(parts, [
+      { of: t => t.points[0] > 0, text: n => `${count(n, "cell")} in the right colour: +1 each` },
+      { of: t => t.points[0] < 0, text: n => `${count(n, "cell")} in the other kind's colour: −1 each` },
+      { of: () => true, text: n => `${count(n, "cell")} in a colour neither kind wants: 0` },
+    ]),
+  }),
   parts: (p, b) => b.cells.map((x): Part => {
     const kind = kindOf(p, b, x), right = kind === 0 ? p.P : p.Q;
     const pts = pointsFor(p, kind, b.col(x));
