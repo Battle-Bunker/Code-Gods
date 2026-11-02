@@ -343,7 +343,11 @@ try {
       assert.equal(await a.getByTestId("choice-languages-typescript").getAttribute("aria-checked"), "true");
       assert.equal(await a.getByTestId("choice-languages-python").getAttribute("aria-checked"), "false");
       await a.getByTestId("button-exact-planningSeconds").click();
-      await a.getByTestId("input-planningSeconds").fill("1");
+      await a.getByTestId("input-planningSeconds").fill("0.02");   // minutes (1.2 s), so the game runs at once
+      await a.getByTestId("choice-durationMode-fixed").click();
+      await a.getByTestId("button-exact-halfLifeSeconds").click();
+      await a.getByTestId("input-halfLifeSeconds").fill("7");
+      assert.equal(await a.getByTestId("choice-durationMode-fixed").getAttribute("aria-checked"), "true");
       await a.getByTestId("text-unsaved").filter({ hasText: /unsaved changes/ }).waitFor();
       await a.getByTestId("button-save-settings").click();
       await a.waitForURL(new RegExp(`/rooms/${code}$`));

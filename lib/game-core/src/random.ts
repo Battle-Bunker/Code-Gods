@@ -21,3 +21,12 @@ export function poissonIntervalSeconds(rateHz: number, uniformOpen: number): num
   if (!Number.isFinite(rateHz) || rateHz < 0) throw new Error("Invalid event rate");
   return rateHz === 0 ? Infinity : lifetimeSeconds(Math.LN2 / rateHz, uniformOpen);
 }
+
+/**
+ * The world time a game ends at: exactly `lengthSeconds` in "fixed" mode, else a random lifetime with that half-life.
+ * Fixed games draw nothing (`uniformOpen` is not called).
+ */
+export function gameEndSeconds(mode: "fixed" | "halfLife", lengthSeconds: number, uniformOpen: () => number): number {
+  if (!Number.isFinite(lengthSeconds) || lengthSeconds <= 0) throw new Error("Invalid game length");
+  return mode === "fixed" ? lengthSeconds : lifetimeSeconds(lengthSeconds, uniformOpen());
+}

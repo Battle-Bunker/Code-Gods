@@ -9,7 +9,7 @@
  * endGame, addAi, removeAi (browser owner, or an `owner` credential of the room's current owner).
  */
 import { ConvexError, v } from "convex/values";
-import { LANGUAGE_SPECS, instantiationOf, lifetimeSeconds, upgradeStoredSettings, poissonIntervalSeconds, validateSettings, type GameSettings, type ObjectValue } from "@workspace/game-core";
+import { LANGUAGE_SPECS, instantiationOf, gameEndSeconds, upgradeStoredSettings, poissonIntervalSeconds, validateSettings, type GameSettings, type ObjectValue } from "@workspace/game-core";
 import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { action, internalAction, type ActionCtx } from "./_generated/server";
@@ -103,7 +103,7 @@ async function launch(ctx: ActionCtx, settings: GameSettings, deals: readonly De
   const next = poissonIntervalSeconds(settings.spawnRateHz, openUniform());
   return ctx.runMutation(internal.game.lobby.commitStart, {
     ...commit,
-    seasonCommitment: seasonCommitment(), noiseKey, endAtWorld: lifetimeSeconds(settings.halfLifeSeconds, openUniform()),
+    seasonCommitment: seasonCommitment(), noiseKey, endAtWorld: gameEndSeconds(settings.durationMode, settings.halfLifeSeconds, openUniform),
     nextSpawn: Number.isFinite(next) ? next : Number.MAX_VALUE, catalog: catalogFor(settings),
     deities: deals.map(d => ({ godId: d.godId, utility: d.utility, card: utilityCard(settings, d.utility) })),
     objects,
