@@ -48,10 +48,13 @@ test("the scrub track maps a pointer's position to an event: clamped to the log,
   assert.equal(cursorAtFraction(0.5, 0), 0, "an empty log has one position");
 });
 
-test("the room page offers the replay of its game once that game has ended, and only then", () => {
-  assert.deepEqual(endedGameReplay({ phase: "ended", gameShortCode: "G7KQ" }), { game: "G7KQ" });
-  assert.equal(endedGameReplay({ phase: "running", gameShortCode: "G7KQ" }), null, "a live game has no replay");
-  assert.equal(endedGameReplay({ phase: "lobby" }), null, "a room that never played");
-  assert.equal(endedGameReplay({ phase: "ended" }), null, "no game to open");
-  assert.equal(endedGameReplay(undefined), null, "still connecting");
+test("the room page offers the replay of its game once that game has ended, to its players and the room's owner", () => {
+  const player = { seated: true, isOwner: false };
+  assert.deepEqual(endedGameReplay({ phase: "ended", gameShortCode: "G7KQ" }, player), { game: "G7KQ" });
+  assert.deepEqual(endedGameReplay({ phase: "ended", gameShortCode: "G7KQ" }, { seated: false, isOwner: true }), { game: "G7KQ" }, "the owner");
+  assert.equal(endedGameReplay({ phase: "ended", gameShortCode: "G7KQ" }, { seated: false, isOwner: false }), null, "the engine refuses anyone else");
+  assert.equal(endedGameReplay({ phase: "running", gameShortCode: "G7KQ" }, player), null, "a live game has no replay");
+  assert.equal(endedGameReplay({ phase: "lobby" }, player), null, "a room that never played");
+  assert.equal(endedGameReplay({ phase: "ended" }, player), null, "no game to open");
+  assert.equal(endedGameReplay(undefined, player), null, "still connecting");
 });

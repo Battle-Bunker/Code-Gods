@@ -11,7 +11,7 @@ import {
   type Availability, type Command, type PaletteContext, type PaletteGroup, type PaletteSection, type Performer, type PickOption,
 } from "@workspace/ui-kit/core";
 import type { GridRendererId } from "@workspace/object-views";
-import { firstName } from "./next-step.ts";
+import { canWatchReplay, firstName } from "./next-step.ts";
 import { ownerLabel } from "./setup-words.ts";
 export { STEP_IDS } from "./next-step.ts";
 
@@ -61,7 +61,7 @@ export interface CmdRoom {
   /** The next game is preparing its rule tables (rooms.get `preparing`). */
   preparing?: { error?: string } | null;
 }
-export interface CmdGame { shortCode: string; status: string; roomShortCode?: string | null }
+export interface CmdGame { shortCode: string; status: string; roomShortCode?: string | null; roster?: readonly { id: string }[]; ownerId?: string | null }
 export interface Template { id: string; name: string; provider: string; model: string }
 export interface SetupLike { id: string; name: string; summary: string; system: boolean; mine: boolean; ownerName: string }
 
@@ -221,7 +221,8 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
 
   // An ended game's replay is the player client's page of that game (artifacts/player-web, docs/replay-design.md §7).
   const replayable = !!game && game.status !== "active" && !!roomCode;
-  const replay = () => (replayable ? ok : no(game ? "The replay opens when the game ends." : "Open an ended game first.", { hidden: true }));
+  const replay = () => (!replayable ? no(game ? "The replay opens when the game ends." : "Open an ended game first.", { hidden: true })
+    : canWatchReplay(user?.id, game!) ? ok : no("Only its players and the room's owner can open a game's replay."));
   const uiCommands: Command[] = [
     ui("ui.nav.home", { kind: "navigate", to: "/" }, signedIn),
     ui("ui.nav.room", { kind: "navigate", to: `/rooms/${roomCode ?? ""}` }, () => (game && roomCode ? ok : no("No room here.", { hidden: true }))),

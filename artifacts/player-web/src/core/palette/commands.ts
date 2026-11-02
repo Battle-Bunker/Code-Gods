@@ -14,6 +14,7 @@ import { PANELS, PANEL_IDS, type PanelId, type Phase } from "@workspace/player-c
 import type { Pane } from "@workspace/player-client/layout";
 import type { Command as GameCommand } from "@workspace/player-client";
 import type { GridRendererId } from "@workspace/object-views";
+import { endedGameReplay } from "../replay/model.ts";
 import { GLOSSARY, GLOSSARY_IDS, availabilityFor, commandsFromCatalog, type Availability, type Command, type PaletteContext, type Performer, type PickOption } from "@workspace/ui-kit";
 
 export type PaletteState = {
@@ -286,7 +287,10 @@ export function playerCommands(s: PaletteState, a: PaletteActions): Command[] {
   const replayRows: Command[] = [
     ui("ui.replay.watch", "Watch the replay", "This game's replay: scrub through every move, play it at ¼× to 64×, and see every player's goal, agents and code.", "play",
       local(() => a.replay.watch()), { keywords: ["replay", "timeline", "scrub", "playback", "rewatch"], defaultScore: 9,
-        ...always(() => (s.replay ? no("You are watching it.", undefined, true) : s.phase === "ended" && s.gameCode && s.roomCode ? OK : no("The replay opens when the game ends.", undefined, true))) }),
+        ...always(() => (s.replay ? no("You are watching it.", undefined, true)
+          : s.phase !== "ended" ? no("The replay opens when the game ends.", undefined, true)
+          : s.roomCode && endedGameReplay({ phase: s.phase, gameShortCode: s.gameCode }, s) ? OK
+          : no("Only its players and the room's owner can open a game's replay.", undefined, true))) }),
     ui("ui.replay.toggle", s.replay?.playing ? "Pause the replay" : "Play the replay", "Plays the replay from the playhead at the chosen speed, or pauses it (Space).", "play",
       local(() => a.replay.toggle()), { keywords: ["replay", "play", "pause", "resume"], defaultScore: 8, ...always(inReplay) }),
     ui("ui.replay.start", "Replay: jump to the start", "Moves the replay's playhead to the game's first event (Home).", "play",
@@ -319,5 +323,12 @@ export function playerCommands(s: PaletteState, a: PaletteActions): Command[] {
       local(() => a.panels.openFile(id)), { keywords: ["panel", "file", id] })),
   ];
 
-  return [...fromCatalog, ...builtInRows, ...paneRows, ...assistantRows, ...gameRows, ...replayRows, ...linkRows, ...ownPanelRows];
+  const all = [...fromCatalog, ...builtInRows, ...paneRows, ...assistantRows, ...gameRows, ...replayRows, ...linkRows, ...ownPanelRows];
+  if (!s.replay) return all;
+  // A replay acts on nothing: the engine functions (the catalogue's rows), submits and forms (which write: chat, panels,
+  // the assistant's settings) are off. Looking stays: the dock, links, the replay's own controls, the assistant.
+  const catalogIds = new Set(fromCatalog.map(c => c.id));
+  const refused = no("This is a replay of an ended game: nothing can be done in it. Go back to the room to play.", undefined, true);
+  const looks = (c: Command) => !catalogIds.has(c.id) && (c.performer.kind === "local" || c.performer.kind === "navigate" || c.performer.kind === "handoff" || c.id === "ui.glossary");
+  return all.map(c => (looks(c) ? c : { ...c, available: () => refused }));
 }

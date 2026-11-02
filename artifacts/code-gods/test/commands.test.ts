@@ -140,7 +140,7 @@ test("the palette lists the same commands however it was opened: one list per co
 test("an ended game offers its replay (the player client's replay page); a live one does not", () => {
   const opened: string[] = [];
   const tabAct: EngineActions = { ...act, openTab: (href: string) => { opened.push(href); } };
-  const game = (status: "active" | "ended") => ({ shortCode: "7A8P", roomShortCode: "K7QX", status });
+  const game = (status: "active" | "ended", roster = [{ id: "ada" }], ownerId = "ada") => ({ shortCode: "7A8P", roomShortCode: "K7QX", status, roster, ownerId });
   const ended = scope({ game: game("ended") });
   const run = (s: EngineScope, id: string) => {
     const c = engineCommands(s, tabAct).find(x => x.id === id)!;
@@ -155,5 +155,8 @@ test("an ended game offers its replay (the player client's replay page); a live 
   for (const id of ["ui.nav.replay", "ui.nav.replayFromStart"]) {
     assert.equal((avail(scope({ game: game("active") }), id) as { hidden?: boolean }).hidden, true, `${id}: a live game has no replay`);
     assert.equal((avail(scope({ room: room(["ada"]) }), id) as { hidden?: boolean }).hidden, true, `${id}: no game here`);
+    // The engine serves a replay to the game's players and the room's owner only (player.replay).
+    assert.deepEqual(avail(scope({ user: { ...ada, id: "zed" }, game: game("ended") }), id), { ok: false, reason: "Only its players and the room's owner can open a game's replay." });
+    assert.deepEqual(avail(scope({ game: game("ended", [{ id: "bob" }], "ada") }), id), { ok: true }, `${id}: the owner may`);
   }
 });

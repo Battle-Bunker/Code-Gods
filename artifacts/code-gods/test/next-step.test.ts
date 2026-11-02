@@ -44,6 +44,7 @@ test("the game page: players open their client, spectators just watch, the ended
   assert.equal(gameStep("ada", { ...g, phase: "recovery" }).primary, "rooms.resume");
   assert.equal(gameStep("bob", { ...g, status: "ended" }).primary, "ui.nav.replay", "an ended game's first step is its replay");
   assert.deepEqual(gameStep("bob", { ...g, status: "ended" }).secondary, ["ui.nav.room"]);
+  assert.equal(gameStep("zed", { ...g, status: "ended" }).primary, "ui.nav.room", "who may not open the replay goes back to the room");
   assert.equal(gameStep("bob", { ...g, status: "ended", roomShortCode: null }).primary, null);
 });
 

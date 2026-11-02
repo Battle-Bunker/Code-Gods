@@ -27,19 +27,17 @@ import { notify, notifyError } from "@/core/notices";
 import { navigate, hrefTo } from "@/core/navigation";
 import { useReplayController } from "@/core/replay/parts";
 import { playerCommands, type PaletteActions, type PaletteState } from "./commands";
+import { publishCommands, withHandoffs } from "./registry";
 
 const noSubscription = () => () => {};
+const noView = () => null;
 /** The replay on screen (the dock's replay mode), as the palette gates on it: playing, at the start, at the end. */
 function useReplayState(): PaletteState["replay"] {
   const c = useReplayController();
-  const key = useSyncExternalStore(c ? c.subscribe : noSubscription, () => {
-    if (!c) return "";
-    const v = c.get();
-    return `${v.playing ? 1 : 0}${v.cursor === 0 ? 1 : 0}${v.cursor >= c.end ? 1 : 0}`;
-  });
-  return useMemo(() => (key ? { playing: key[0] === "1", atStart: key[1] === "1", atEnd: key[2] === "1" } : undefined), [key]);
+  const v = useSyncExternalStore(c ? c.subscribe : noSubscription, c ? c.get : noView);
+  const playing = !!v?.playing, atStart = v?.cursor === 0, atEnd = !!c && !!v && v.cursor >= c.end;
+  return useMemo(() => (c ? { playing, atStart, atEnd } : undefined), [c, playing, atStart, atEnd]);
 }
-import { publishCommands, withHandoffs } from "./registry";
 
 const roomUrl = (code: string) => `${location.origin}/rooms/${encodeURIComponent(code)}`;
 const copy = (text: string, done: string) => navigator.clipboard?.writeText(text).then(() => notify(done), () => notify(text));

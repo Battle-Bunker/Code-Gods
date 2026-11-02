@@ -189,6 +189,7 @@ test("a completed game: the room page offers its replay; in the replay, play/pau
   for (const id of ["ui.replay.toggle", "ui.replay.start", "ui.replay.end"]) assert.ok(!ok(commands, id, endedCtx), `${id}: only in the replay`);
   assert.ok(!ok(playerCommands(state(), actions), "ui.replay.watch"), "a live game has no replay");
   assert.ok(!ok(playerCommands(state({ phase: "ended", gameCode: undefined }), actions), "ui.replay.watch", endedCtx), "no game to replay");
+  assert.ok(!ok(playerCommands(state({ phase: "ended", seated: false }), actions), "ui.replay.watch", endedCtx), "only its players and the owner");
 
   commands = playerCommands(state({ phase: "ended", replay: { playing: false, atStart: false, atEnd: true } }), actions);
   assert.ok(!ok(commands, "ui.replay.watch", endedCtx), "already watching it");
@@ -199,4 +200,9 @@ test("a completed game: the room page offers its replay; in the replay, play/pau
   calls.length = 0;
   for (const id of ["ui.replay.toggle", "ui.replay.start"]) await perform(find(commands, id));
   assert.deepEqual(calls, ["replayToggle", "replayStart"]);
+  // A replay acts on nothing: every command that would change the room is off; looking, the dock and the assistant stay.
+  const owner = playerCommands(state({ phase: "ended", isOwner: true, replay: { playing: false, atStart: false, atEnd: true } }), actions);
+  const ownerCtx = ctx({ phase: "ended", role: "owner" });
+  for (const id of ["owner.start", "ui.ready", "ui.chat", "rooms.join"]) assert.ok(!ok(owner, id, ownerCtx), `${id} is off in a replay`);
+  for (const id of ["ui.replay.toggle", "ui.layout.reset", "ui.panel.add.objects", "ui.glossary"]) assert.ok(ok(owner, id, ownerCtx), `${id} stays in a replay`);
 });

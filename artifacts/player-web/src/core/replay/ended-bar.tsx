@@ -10,8 +10,8 @@ import { SPEEDS, endedGameReplay } from "./model";
 const speed = (s: number) => `${s === 0.25 ? "¼" : s === 0.5 ? "½" : s}×`;
 
 export function EndedGameBar() {
-  const { obs, room } = useSituation();
-  const target = endedGameReplay(obs);
+  const { obs, room, seated, isOwner } = useSituation();
+  const target = endedGameReplay(obs, { seated, isOwner });
   const roomCode = obs?.roomShortCode ?? room?.shortCode;
   if (!target || !roomCode) return null;
   return (
