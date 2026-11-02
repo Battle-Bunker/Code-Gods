@@ -129,6 +129,69 @@ occurrence is classified as (a) a legitimate one-off read, (b) a local clock, or
 - countdown clocks: `room.tsx`, `game.tsx` `useServerNow`, `device.tsx`, `connect.tsx`, `situation.ts` `useNow`;
 - confirm-disarm timers.
 
+### 1.4 Computing stats in Convex versus sending the world (measured)
+
+The owner's diagnosis: "calculating stats within convex would be efficient for up to 10k scale objects. The problem
+was sending all the objects to the client on every change to any of them." To test it, a temporary local-only query
+read N objects and returned either a stats result or every object.
+- The stats result: per-god Σ net bits, positive counts, top 10.
+- Every object: what the page queries did.
+
+Medians from `npx convex logs --jsonl`, on the local backend:
+
+| N objects | Docs read | Read | Stats: user ms | Stats: answer | All objects: user ms | All objects: answer | All objects: client round trip |
+|---|---|---|---|---|---|---|---|
+| 1,000 | 1,000 | 590 KiB | 30 | 0.97 KB | 56 | 468 KiB | 231 ms |
+| 2,000 | 2,000 | 1.2 MiB | 64 | 0.98 KB | 106 | 935 KiB | 499 ms |
+| 5,000 | 5,000 | 2.9 MiB | 149 | 0.98 KB | 240 | 2.3 MiB | 2.6 s |
+| 10,000 | 10,000 | 5.8 MiB | 252 | 0.98 KB | — | **refused**: "Array length is too long (10000 > maximum length 8192)" | — |
+
+**What this shows.**
+- **The owner is right about the catastrophe.**
+  - Sending the world costs 500× the bytes of the stats, and round trips grow to seconds.
+  - Past 8,192 objects Convex refuses to return the array at all.
+- **Computing stats in Convex over 10k objects is feasible**: 252 ms of user code, within the 32,000-document and
+  16 MiB read limits.
+- **It is not free if every viewer's subscription repeats it on every tick.**
+  - Any object change invalidates a query that read every object. A stats query over the whole world therefore
+    re-runs every tick: 10k reads and 252 ms each time.
+  - With a per-user cache key (§1.2), that cost is multiplied by the number of viewers.
+  - The local backend's wall time at 10k was 7.9 s, mostly document fetch. The local backend's fetch is SQLite-bound,
+    and cloud will differ, but not by enough to make 10k reads per viewer per tick sound.
+
+**The cheapest place to compute stats is the tick.**
+- Its `snapshot` already reads every object once per tick. It already computes every god's totals (`tick.ts:231`)
+  and the scoreboard.
+- Adding Σpayoff, counts and quadrant counts there costs almost nothing.
+- Writing them as one small document per god (≤ 8 per game) lets every reader read one document.
+- If a stat is needed that the tick does not compute, one shared, no-auth query over the world, run once per tick,
+  is acceptable at this scale. A per-viewer one is not.
+
+### 1.5 The `games` document's shape
+
+Measured on real documents:
+- A running game's doc is **2.1 KB**. An ended game's is 4.6 KB, of which `summary` is 2.3 KB.
+- It is a flat header row: ids, short codes, phase, deadlines, counters.
+- Its only nested values are bounded snapshots, taken at start and never changed during the game:
+  - `settings`: 887 B, typed `v.any`;
+  - `roster`: ≤ 8 entries, 242 B;
+  - `summary`, the end-of-game result. It duplicates `settings` and `roster` (another reason to drop it in the
+    narrowing).
+- Small fixed objects: `scoreboard` (≤ 8 numbers), `stats` (4 counters), `tick` (2 numbers).
+
+Everything that grows lives in its own table, keyed by `gameId` with indexes:
+- objects, agents, deities;
+- events (`objectEvents`, `tickBatches`);
+- chat, catalogs.
+
+So the table is normalised. The defect is narrower:
+- **Seven fields are written about once a second**: `worldSeconds`, `lastTick`, `nextSpawn`, `nextBatch`,
+  `objectCount`, `stats`, `tick`.
+- They sit in the header row that every query reads, so each write invalidates every reader.
+
+Moving them to `gameClocks` and `gameEngine` (§4.1) is a split of hot columns from a cold row, not a de-nesting.
+Typing `settings` and `summary` precisely (instead of `v.any`) is worthwhile hygiene but unrelated to performance.
+
 ---
 
 ## 2. Does the owner's pattern fit Convex's guidance?
@@ -219,19 +282,35 @@ load that state", [AI Town ARCHITECTURE.md][aitown]).
      ([Queries that Scale][qts]).
    - This is our `games` doc exactly. It is the biggest single fix, and the owner's pattern does not imply it.
 
-5. **Precompute aggregates on the write path.**
-   - Reactive counts and sums over a large table invalidate on every change. Convex recommends the Aggregate
-     component, or "precomputed summary rows", for leaderboards and totals ([subscription-cost.md][subcost],
+5. **Compute aggregates once per change, not once per viewer. Our tick is the place; the Aggregate component is
+   not needed.**
+   - Reactive counts and sums over a large table re-run on every change. Convex recommends the Aggregate component,
+     or "precomputed summary rows", for leaderboards and totals ([subscription-cost.md][subcost],
      [Aggregate][aggregate]).
-   - Our tick already computes each god's totals and the scoreboard. Readers then recompute them from all objects
-     anyway.
-   - **Refinement:** the tick writes standings and per-god totals as small documents. Readers read them.
-   - We need not adopt the Aggregate component for this:
-     - the engine is the single writer and already holds the totals;
-     - its README warns that reading a whole aggregate "depends on the entire aggregate data structure" and
-       invalidates on every change ([aggregate README][aggregatereadme]).
-   - Keep the component in mind for ad-hoc ranked queries over large ranges.
-   - The Sharded Counter fits many writers to one count. Our engine is a single writer, so we have no such contention.
+   - **What the Aggregate component is.**
+     - A B-tree kept in the component's own tables.
+     - It gives O(log n) `count`, `sum`, `max`, `indexOf` (rank) and `at(offset)`, with namespaces (one per game, or
+       per game and god).
+     - It is maintained by calling `insert`/`replace`/`delete` in the same mutation as each write, or through
+       convex-helpers triggers.
+   - **What it costs.**
+     - Each object change would update one namespace per god: ≤ 8 tree updates, each O(log n) writes in the tick's
+       transaction.
+     - Its README warns that `count(ctx)` with no bounds "depends on the entire data structure… the query reruns"
+       on every change, and that concurrent writes to the tree can conflict ([aggregate README][aggregatereadme]).
+   - **What we need instead.**
+     - Totals, Σpayoff, counts and quadrant counts change every tick and are needed whole. The tick already holds
+       every object, so it computes them in memory (§1.4) and writes ≤ 8 small documents.
+     - That is cheaper than maintaining a B-tree and reading its root.
+     - Top and bottom N, and paging in sort order, come from an ordinary index (`objectViews.by_game_god_payoff`)
+       with `take(n)` and `paginate`.
+   - **Where the component would still earn its place.**
+     - "Rank of this one object" (the `#rank` badge on a single row: `indexOf`).
+     - Jumping to an arbitrary offset in a sorted list (`at(offset)`, for a scrollbar you can drag to row 1,500).
+     - Neither is needed for the first version. The rank shown in a list is the row's position in its skeleton page.
+     - Adopt the component only if a component needs one of these and an index page cannot serve it.
+   - The Sharded Counter fits many writers to one count. Our engine is the single writer, so we have no such
+     contention.
 
 6. **Public data must not read `ctx.auth`.**
    - "If many clients request the same query, with the same arguments, they will receive a cached response"
@@ -324,14 +403,18 @@ together; per-item is right when they change independently. Our objects change i
 - Examples: the tick clock, the lease, stats, per-object payoffs.
 - A query that needs only cold fields never reads a hot document.
 
-**R4. Derived state is written by the writer, not derived on read.**
-- If a query would fold, sort or rank over many documents, the writer (usually the tick) maintains the result as
-  small documents, and the query reads those:
+**R4. Stats are computed in Convex once per change, never sent as the world and never recomputed per viewer.**
+- Computing over the whole game (≤ 10k objects) inside Convex is fine.
+- What is forbidden:
+  - shipping the objects to the client to compute there;
+  - a per-viewer query that re-reads the world on every tick.
+- Prefer the writer that already holds the data (the tick's snapshot) and have it write small result documents:
   - standings and ranks;
-  - per-god totals;
-  - counts;
-  - the payoff-sorted index of objects;
-  - a scoreboard history.
+  - per-god totals and counts;
+  - the scoreboard history.
+- Otherwise use one shared (no-auth) query.
+- Sort orders are indexes, not sorts on read.
+- The Aggregate component is used only for what an index cannot serve: a single item's rank, or a jump to an offset.
 
 **R5. Data that anyone may see is read without `ctx.auth`; private data is small.**
 - A query whose answer does not depend on the viewer, and that the product lets anyone read, must not read
@@ -452,7 +535,7 @@ is removed, except for replay playback.
 | Objects panel | skeleton `player.objectIds {gameId, sort, paginationOpts}` over `objectViews.by_game_god_<sort>` + row `player.object {objectId}` (own `objectViews` row; value from the row) | 1 page + 1 doc per visible row |
 | My card, bits over time, results: top/bottom N | `player.objectsTop {gameId, by, n ≤ 20, dir}` | `take(n)` on the index; rank is the position |
 | `#rank` badges (`useObjectRanks`) | Rank comes from the skeleton position, or `player.objectRank {objectId}` (count over the index range with the Aggregate component if needed) | Removes 6 client-side whole-world sorts |
-| Overview Σpayoff, others-care quadrant counts | `player.totals {gameId}` → `godTotals` | 1 doc |
+| Overview Σpayoff, others-care quadrant counts | `player.totals {gameId}` → `godTotals` (computed by the tick from its snapshot) | 1 doc |
 | Others-care scatter | `player.objectDigest {gameId}` → `objectDigests` | 1 doc (about 30 KiB) |
 | What-if (one object) | `player.object {objectId}` | 1 doc |
 | `useMyCard`, `useEvaluator` | `player.myUtility` (cold now) | as today |

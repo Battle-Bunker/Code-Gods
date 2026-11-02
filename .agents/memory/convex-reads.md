@@ -20,7 +20,11 @@ on the write path.
 - Public queries read one doc or one index page (≤ 100): no `collect()`, no scan-then-filter, no reading every object.
 - A field written more than about once a minute during a game lives apart from cold fields others read (the clock and
   lease are not on `games`).
-- Standings, totals, ranks, counts, sort orders and histories are written by the writer (the tick) as small docs.
+- Stats are computed in Convex (fine over ≤ 10k objects), once per change: preferably by the tick, which already holds
+  every object, written as small docs; never by shipping objects to the client, never per viewer per tick. Sort orders
+  are indexes. The Aggregate component only for a single item's rank or offset jumps an index cannot serve.
+- The catastrophic anti-pattern is sending every object to the client on every change (measured: 468 KiB at 1k, 2.3 MiB
+  at 5k, and Convex refuses arrays over 8,192 elements).
 - Data anyone may see is read without `ctx.auth` so Convex shares one execution across viewers; where the product
   restricts readers, keep the check and make each execution one cheap doc; private queries return only the viewer's
   slice; no `Date.now()` in a query.
