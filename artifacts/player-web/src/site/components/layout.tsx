@@ -13,6 +13,7 @@ import { CommandPalette, PaletteTrigger, type Command, type PaletteContext, type
 import { setObjectRenderer, useGridRenderer } from "@workspace/object-views";
 import { startTracker, startView, trackStart, type StartView } from "@workspace/player-client/start";
 import { useAuth } from "@/site/hooks/use-auth";
+import { engineSite } from "@/core/connection";
 import { useManifest } from "@/site/hooks/use-manifest";
 import { useToast } from "@/hooks/use-toast";
 import { api, useLive } from "@/site/lib/convex";
@@ -143,7 +144,7 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
     aiConfigured: manifest?.aiFunding.configured, setups: setups ?? [],
     currentSetup: room?.setup && !room.setup.deleted ? room.setup.id : undefined,
     minPlayers: manifest?.minimumPlayers ?? 3, maxPlayers: manifest?.maximumPlayers ?? 8,
-    gridRenderer, starting,
+    gridRenderer, starting, siteSession: kind === "site",
   };
   const act: EngineActions = {
     navigate: to => navigate(to),
@@ -258,9 +259,12 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
                   <DropdownMenuLabel className="font-normal"><span className="block text-sm" data-testid="text-username">{user.name}</span></DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   {user.isAdmin && <DropdownMenuItem asChild><Link href="/admin/agents" data-testid="link-admin-agents">AI library</Link></DropdownMenuItem>}
-                  <DropdownMenuItem onSelect={() => setSheet("connected-apps")} data-testid="menu-connected-apps">Connected apps</DropdownMenuItem>
+                  {/* Managing credentials is the engine site's own (its Google session); elsewhere, a link there. */}
+                  {kind === "site"
+                    ? <DropdownMenuItem onSelect={() => setSheet("connected-apps")} data-testid="menu-connected-apps">Connected apps</DropdownMenuItem>
+                    : engineSite() !== location.origin && <DropdownMenuItem asChild><a href={`${engineSite()}/`} target="_blank" rel="noreferrer" data-testid="menu-connected-apps">Connected apps: on the engine site</a></DropdownMenuItem>}
                   {/* A dev server's credential is not a sign-in: it ends when the dev server stops. */}
-                  {kind === "site" && <DropdownMenuItem onSelect={() => logout()} data-testid="button-logout">Sign out</DropdownMenuItem>}
+                  {kind !== "token" && <DropdownMenuItem onSelect={() => logout()} data-testid="button-logout">Sign out</DropdownMenuItem>}
                 </DropdownMenuContent>
               </DropdownMenu>
             )}

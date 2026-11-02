@@ -4,6 +4,10 @@
  *
  *  "site"     : the app served by the engine itself (or a dev server proxying /api to it: CODE_GODS_SITE_URL). It
  *               signs in with the site's Google session (Better Auth cookie, same origin) and is the human everywhere.
+ *  "account"  : the app on any other origin (localhost, a Replit dev URL, a static host), built or run with
+ *               VITE_CODE_GODS_ENGINE_URL naming the engine's site. The human approves an account grant on
+ *               the engine's /connect page (OAuth + PKCE; lib/player-client/src/browser.ts) and the app is then the
+ *               human everywhere, as on the site, except the consent pages and admin, which stay on the engine's site.
  *  "devserver": a player's own app, run as a Vite dev server in any environment. The dev server holds a room
  *               credential (CODE_GODS_CREDENTIAL, from the environment's secret store or .env.local) and answers
  *               GET /__codegods/token with a 10-minute player JWT; the browser never sees the credential. The app is
@@ -13,11 +17,19 @@
  * subscriptions.
  */
 import { ConvexReactClient } from "convex/react";
+import { createPlayerAuth, isAccountSession, type AccountSession, type PlayerAuth } from "@workspace/player-client/browser";
 import { keepCurrent } from "./updates";
 
-export type Mode = "devserver" | "site";
+export type Mode = "devserver" | "site" | "account";
 export type Connection =
   | { mode: "site"; convexUrl: string }
+  | {
+      mode: "account"; convexUrl: string; siteUrl: string; auth: PlayerAuth;
+      /** The stored account grant; null until the human signs in (the app then shows its sign-in screen). */
+      session: AccountSession | null;
+      /** Why the last sign-in did not complete (denied, expired, …), shown on the sign-in screen. */
+      signInError?: string;
+    }
   | {
       mode: "devserver"; convexUrl: string;
       /** The credential's room (Convex id) and permission. */
@@ -56,7 +68,30 @@ async function siteConvexUrl(): Promise<string> {
   return body.convexUrl;
 }
 
+/** The engine an account-mode app signs in to (build time, or the dev server's environment), if any. */
+export const accountEngineUrl = () => (import.meta.env.VITE_CODE_GODS_ENGINE_URL as string | undefined)?.replace(/\/+$/, "") || undefined;
+
+async function accountConnection(engineUrl: string): Promise<Connection> {
+  // Back from the engine's /connect page with ?code&state: the answer is redeemed here, on whatever path it lands.
+  // The engine sends the browser back to the app's own base path (it may be served under a prefix).
+  const auth = createPlayerAuth({ engineUrl, clientName: "Code Gods app", redirectUri: `${location.origin}${import.meta.env.BASE_URL}` });
+  let done: Awaited<ReturnType<PlayerAuth["completeSignIn"]>> = null, signInError: string | undefined;
+  try {
+    done = await auth.completeSignIn();
+  } catch (error) {
+    // Denied on /connect, expired, or an answer to another browser's request: the sign-in screen says so.
+    signInError = error instanceof Error ? error.message : String(error);
+  }
+  const session = done && isAccountSession(done.session) ? done.session : auth.account();
+  // Where the sign-in started: a path on this origin only.
+  if (done?.returnTo && /^\/(?!\/)/.test(done.returnTo)) history.replaceState(history.state, "", done.returnTo);
+  site = auth.engineUrl;
+  return { mode: "account", convexUrl: session?.convexUrl ?? await auth.convexUrl(), siteUrl: auth.engineUrl, auth, session, ...(signInError ? { signInError } : {}) };
+}
+
 async function detect(): Promise<Connection> {
+  const engine = accountEngineUrl();
+  if (engine) return accountConnection(engine);
   const app = await fetchAppToken();
   if (app) {
     site = app.siteUrl;
