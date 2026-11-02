@@ -29,7 +29,7 @@ const round = (x: number) => Math.round(x * 100) / 100;
 const browser = await chromium.launch().catch((e: unknown) => { stop(); throw e; });
 try {
   if (OUT) mkdirSync(OUT, { recursive: true });
-  for (const cue of ["pattern", "letter"] as const) {
+  for (const cue of ["colour", "letter"] as const) {
     const page = await browser.newPage({ viewport: { width: 1400, height: 1000 }, deviceScaleFactor: 2 });
     const errors: string[] = [];
     page.on("pageerror", e => errors.push(e.message));
@@ -68,7 +68,7 @@ try {
         await page.locator(`[data-scheme=${scheme}]`).screenshot({ path: `${OUT}/${LABEL}-${cue}-${scheme}.png` });
       }
       // The rich popover of the 7×7 grid with tens.
-      if (cue === "pattern") {
+      if (cue === "colour") {
         await page.locator("[data-board=cards-tens-digits] [data-testid=grid-object]").first().click();
         const pop = page.locator("[data-testid=grid-object-detail]");
         await pop.waitFor();

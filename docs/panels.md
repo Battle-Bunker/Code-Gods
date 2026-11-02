@@ -169,7 +169,7 @@ differ by dash pattern.
 **Renderers.** An object type can have several named renderers (`lib/object-views`, `objectViews.register({type,
 renderers, defaultRenderer, infer})`); each viewer picks one per type and the choice is remembered in their browser
 (`localStorage` key `code-gods.object-views.renderer.<type>`). Grids have two: `digits` (the default: rows of
-coloured digits, or card rank and suit, compact enough for lists) and `tiles` (coloured tiles with a pattern or
+coloured digits, or card rank and suit, compact enough for lists) and `tiles` (coloured tiles with an optional
 letter per colour). Int and string have one each (`text`). The viewer switches grids from the palette ("Show grids as
 tiles" / "Show grids as coloured digits", `ui.objects.renderer`) or with the Display toggle in a grid's detail view;
 every `Obj`, `ObjectGrid` and `ObjectView` redraws. Panels normally follow the viewer's choice; pass `renderer` only

@@ -3,7 +3,7 @@ import test from "node:test";
 import { COLOUR_COMPONENTS, COLOUR_LETTERS, SYMBOL_COMPONENTS } from "@workspace/game-types";
 import {
   TEXT_SHADES,
-  COLOUR_PATTERNS, changedCells, contrastRatio, gridModel, gridSummary, looksLikeGrid, patternStyle,
+  changedCells, contrastRatio, gridModel, gridSummary, looksLikeGrid,
   getColourCue, setColourCue, subscribeColourCue, gridDigitsLines, glyphParts,
 } from "../src/grid-display.ts";
 import { createObjectTypeRegistry } from "../src/registry.ts";
@@ -25,16 +25,11 @@ test("contrast ratio matches known WCAG values", () => {
   assert.equal(contrastRatio("#777777", "#777777"), 1);
 });
 
-test("every colour has a distinct non-colour cue (letter and pattern)", () => {
+test("every colour has a distinct letter cue", () => {
   const letters = Object.keys(COLOUR_LETTERS);
   assert.equal(new Set(letters).size, letters.length);
-  const patterns = letters.map(l => COLOUR_PATTERNS[l]);
-  assert.ok(patterns.every(Boolean), "every colour letter has a pattern");
-  assert.equal(new Set(patterns).size, letters.length, "patterns are distinct");
-  const images = letters.map(l => JSON.stringify(patternStyle(l, COLOUR_LETTERS[l].ink)));
-  assert.equal(new Set(images).size, letters.length, "rendered patterns are distinct");
   for (const set of Object.values(COLOUR_COMPONENTS)) {
-    assert.equal(new Set(set.letters.map(l => COLOUR_PATTERNS[l])).size, set.count, `${set.id} cues distinct`);
+    assert.equal(new Set(set.letters).size, set.count, `${set.id} letters distinct`);
   }
 });
 
@@ -94,19 +89,19 @@ test("registry: known type wins, otherwise latest matching infer", () => {
   assert.deepEqual(r.types(), ["string", "Int", "Grid", "Tree"]);
 });
 
-test("colour cue: defaults to pattern, survives missing or throwing storage", () => {
+test("colour cue: defaults to colour only, survives missing or throwing storage", () => {
   const g = globalThis as { localStorage?: unknown };
   const had = Object.getOwnPropertyDescriptor(g, "localStorage");
   try {
     Object.defineProperty(g, "localStorage", { configurable: true, get() { throw new Error("blocked"); } });
-    assert.equal(getColourCue(), "pattern");
+    assert.equal(getColourCue(), "colour");
     let calls = 0;
     const off = subscribeColourCue(() => calls++);
     setColourCue("letter");
     assert.equal(getColourCue(), "letter");
     assert.equal(calls, 1);
     off();
-    setColourCue("pattern");
+    setColourCue("colour");
     assert.equal(calls, 1);
   } finally {
     if (had) Object.defineProperty(g, "localStorage", had); else delete g.localStorage;

@@ -239,8 +239,8 @@ export function playerCommands(s: PaletteState, a: PaletteActions): Command[] {
     s.gridRenderer === "tiles"
       ? ui("ui.objects.renderer", "Show grids as coloured digits", "Draws every grid as rows of coloured digits: compact and quick to scan. Remembered in this browser.", "view",
         local(() => a.objects.setGridRenderer("digits")), { keywords: ["grid", "digits", "numbers", "compact", "display", "colour"] })
-      : ui("ui.objects.renderer", "Show grids as tiles", "Draws every grid as coloured tiles with a pattern or letter per colour. Remembered in this browser.", "view",
-        local(() => a.objects.setGridRenderer("tiles")), { keywords: ["grid", "tiles", "board", "display", "pattern", "colour"] }),
+      : ui("ui.objects.renderer", "Show grids as tiles", "Draws every grid as coloured tiles with an optional letter per colour. Remembered in this browser.", "view",
+        local(() => a.objects.setGridRenderer("tiles")), { keywords: ["grid", "tiles", "board", "display", "colour", "letter"] }),
   ];
 
   const assistantRows: Command[] = [

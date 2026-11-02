@@ -4,10 +4,10 @@
  * per-cell rules, and a headline. Hover (mouse, pen) or tap moves the focus; the board is one keyboard stop and arrow
  * keys move the focus; the headline and callouts are an aria-live region. Geometry lives in ./layout.ts.
  */
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { COLOUR_COMPONENTS, SYMBOL_COMPONENTS, type GridColourSet, type GridSymbolSet } from "@workspace/game-types";
 import { toneOf, type Cell, type Explanation, type FocusView, type GoalExplainer, type OutcomeTable, type Part, type Tone } from "@workspace/game-utilities";
-import { getColourCue, gridModel, patternStyle, subscribeColourCue, type ColourCue, type GridCellModel } from "../grid-display.ts";
+import { getColourCue, gridModel, subscribeColourCue, type ColourCue, type GridCellModel } from "../grid-display.ts";
 import type { GridSettings } from "../registry.ts";
 import {
   TONE_COLOUR, TONE_DASH, TONE_MARK, arrowPath, badgePoints, boardPx, calloutOrder, cellX, cellY, centre, isStroke, litCells,
@@ -50,22 +50,21 @@ const pointsText = (points: readonly number[]) => {
   return chips.length ? chips.join(" · ") : "0 points";
 };
 
-/** A tile as the grid's detail view draws it: the colour, the viewer's colour cue (pattern), the colour letter in a corner. */
-/** The viewer's colour cue (pattern or letter), live. */
-export const useColourCueSetting = (): ColourCue => useSyncExternalStore(subscribeColourCue, getColourCue, () => "pattern" as ColourCue);
+/** A tile as the grid's detail view draws it: the colour, the colour letter in a corner. */
+/** The viewer's colour cue (colour only or letter), live. */
+export const useColourCueSetting = (): ColourCue => useSyncExternalStore(subscribeColourCue, getColourCue, () => "colour" as ColourCue);
 
 export { Tile as GoalTile };
 
-function Tile({ cell, px, dim, cue = "pattern", changed }: { cell: GridCellModel; px: number; dim?: boolean; cue?: ColourCue; changed?: boolean }) {
-  const pattern = cue === "pattern";
+function Tile({ cell, px, dim, cue = "colour", changed }: { cell: GridCellModel; px: number; dim?: boolean; cue?: ColourCue; changed?: boolean }) {
   return (
     <span className="relative flex items-center justify-center font-mono font-semibold leading-none select-none"
       style={{
-        width: px, height: px, backgroundColor: cell.css, ...(pattern ? patternStyle(cell.letter, cell.ink, px > 30 ? 7 : 5) : {}),
+        width: px, height: px, backgroundColor: cell.css,
         fontSize: Math.round(px * 0.44), opacity: dim ? 0.32 : 1, transition: "opacity 120ms",
         ...(changed ? { outline: "2px solid currentColor", outlineOffset: -2 } : {}),
       }} data-changed={changed || undefined}>
-      <span style={{ color: cell.ink, textShadow: pattern ? `0 0 2px ${cell.css}` : undefined, ...(pattern ? { "--cg-glyph-halo": `drop-shadow(0 0 1px ${cell.css})` } as CSSProperties : {}) }}><CellGlyph parts={cell.parts} weight={600} /></span>
+      <span style={{ color: cell.ink }}><CellGlyph parts={cell.parts} weight={600} /></span>
       {px > 24 && <span className="absolute bottom-0.5 right-0.5 leading-none" style={{ fontSize: 9, color: cell.ink }}>{cell.letter}</span>}
     </span>
   );

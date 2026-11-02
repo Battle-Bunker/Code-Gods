@@ -55,7 +55,7 @@ function Panel({ scheme }: { scheme: "light" | "dark" }) {
 }
 
 // The cue is set before the first render, so the page is measured as it asks.
-setColourCue(new URLSearchParams(location.search).get("cue") === "letter" ? "letter" : "pattern");
+setColourCue(new URLSearchParams(location.search).get("cue") === "letter" ? "letter" : "colour");
 
 function Gallery() {
   return <main className="space-y-2" data-ready="true"><Panel scheme="light" /><Panel scheme="dark" /></main>;
