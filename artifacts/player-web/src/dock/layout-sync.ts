@@ -15,7 +15,7 @@
  *     whose own edits stay on screen until the next server layout.
  */
 import type { Phase } from "@workspace/player-client/panels";
-import { LAYOUT_LIMITS, closePane, followPhase, openPane, panelPanesOf, type DockLayout, type Node } from "@workspace/player-client/layout";
+import { LAYOUT_LIMITS, closePane, followPhase, nextPaneId, openPane, panelPanesOf, type DockLayout, type Node, type Pane } from "@workspace/player-client/layout";
 
 export const PUSH_DELAY_MS = 800;
 /** A discrete action (menu, palette): pushed almost at once, coalescing a burst. */
@@ -132,13 +132,22 @@ export function effectiveLayout(layout: DockLayout, phase: Phase): DockLayout {
 }
 
 /**
- * A replay's layout: the human's (or the assistant's) layout from the engine with a Timeline pane over it when it has
- * none and has room for one, never a change pushed anywhere (dock/store.ts shows it until the human closes it).
+ * A replay's layout (derived for display, never pushed; dock/store.ts shows it until the human closes it): the human's
+ * layout from the engine with the Timeline in the assistant's place (the assistant's pane becomes the Timeline, so
+ * the bottom half shows the replay), or, with no assistant pane, added as a full-width bottom half. A layout that
+ * already has a Timeline is the human's own arrangement and is left alone. The assistant stays reachable from the panel
+ * menu and Ctrl+K (opening it puts it back).
  */
 export function withTimeline(layout: DockLayout): DockLayout {
   const panels = panelPanesOf(layout);
   if (panels.some(p => p.panelId === "timeline") || panels.length >= LAYOUT_LIMITS.panelPanes) return layout;
-  return openPane(layout, { id: "", kind: "panel", panelId: "timeline", params: {}, setBy: "human" }).layout;
+  const timeline = (id: string): Pane => ({ id, kind: "panel", panelId: "timeline", params: {}, setBy: "human" });
+  const assistant = Object.values(layout.panes).find(p => p.kind === "assistant");
+  if (assistant) return { ...layout, panes: { ...layout.panes, [assistant.id]: timeline(assistant.id) } };
+  if (Object.keys(layout.panes).length >= LAYOUT_LIMITS.panes) return layout;
+  const id = nextPaneId(layout);
+  const root: Node = { type: "split", direction: "column", sizes: [50, 50], children: [layout.root, { type: "pane", id }] };
+  return { ...layout, root, panes: { ...layout.panes, [id]: timeline(id) } };
 }
 
 /**

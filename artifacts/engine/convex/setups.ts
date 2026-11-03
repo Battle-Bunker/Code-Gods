@@ -19,7 +19,7 @@
  * Every function has an internal twin `<fn>As` taking `principal: {credentialId}` for the agent registry.
  */
 import { v } from "convex/values";
-import { FIRST_STEPS_SEED_ID, LANGUAGE_SPECS, SEED_SETUPS, allowedLanguages, SETUP_NAME_MAX, instantiationOf, sameSettings, seedSetupSettings, type GameSettings } from "@workspace/game-core";
+import { DEFAULT_SETUP_SEED_ID, LANGUAGE_SPECS, SEED_SETUPS, allowedLanguages, SETUP_NAME_MAX, instantiationOf, sameSettings, seedSetupSettings, type GameSettings } from "@workspace/game-core";
 import { instanceInfo } from "@workspace/game-types";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -61,9 +61,9 @@ export async function seed(ctx: MutationCtx) {
 }
 export const ensureSeeded = internalMutation({ args: {}, handler: async (ctx) => { await seed(ctx); } });
 
-/** The First steps system setup a new room starts on (a never-seeded deployment, e.g. a fresh local backend, is seeded here). */
-export async function firstSteps(ctx: MutationCtx): Promise<Doc<"gameSetups">> {
-  const find = () => ctx.db.query("gameSetups").withIndex("by_seed", q => q.eq("seedId", FIRST_STEPS_SEED_ID)).first();
+/** The default system setup (Annotated basics) a new room starts on (a never-seeded deployment, e.g. a fresh local backend, is seeded here). */
+export async function defaultSetup(ctx: MutationCtx): Promise<Doc<"gameSetups">> {
+  const find = () => ctx.db.query("gameSetups").withIndex("by_seed", q => q.eq("seedId", DEFAULT_SETUP_SEED_ID)).first();
   let doc = await find();
   if (!doc || doc.deleted) { await seed(ctx); doc = await find(); }
   return doc!;

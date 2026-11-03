@@ -157,16 +157,16 @@ test("duplicate: any setup becomes the duplicator's own \"<name>'s copy\", dedup
   assert.equal(await errorCode(ann.c.mutation(api.setups.duplicate, { setupId: "nope" })), "NOT_FOUND");
 });
 
-test("a new room runs the system's First steps; owner.settings applies anyone's setup and names it in the room", { timeout: 60_000 }, async () => {
+test("a new room runs the system's Annotated basics; owner.settings applies anyone's setup and names it in the room", { timeout: 60_000 }, async () => {
   const [host, ada] = await gods("Setup Host", "Setup Ada");
   await touch(host);
   const { roomId, shortCode } = await roomWith([host]);
   await ada.c.mutation(api.rooms.join, { room: shortCode });
   const setups = await list(host);
-  const first = setups.find(r => r.seedId === "grid-first-steps")!, master = setups.find(r => r.seedId === "grid-master")!;
+  const first = setups.find(r => r.seedId === "grid-annotated-basics")!, master = setups.find(r => r.seedId === "grid-master")!;
   let room = await host.c.query(api.rooms.get, { room: roomId });
-  assert.deepEqual(room.settings, seedSetupSettings("grid-first-steps"));
-  assert.deepEqual(room.setup, { id: first.id, name: "First steps", deleted: false });
+  assert.deepEqual(room.settings, seedSetupSettings("grid-annotated-basics"));
+  assert.deepEqual(room.setup, { id: first.id, name: "Annotated basics", deleted: false });
 
   // Ada's setup, in another language: applied whole by the room's owner (setups are shared).
   const adas: Setup = await ada.c.action(api.setups.save, { name: "TypeScript Master", settings: {

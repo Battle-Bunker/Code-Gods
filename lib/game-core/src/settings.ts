@@ -472,11 +472,13 @@ export interface SeedSetup {
 }
 /** The longest setup name. */
 export const SETUP_NAME_MAX = 40;
-/** The setup a new room starts on (docs/ui-redesign.md §1): a small, slowed-down board a newcomer can follow. */
 export const FIRST_STEPS_SEED_ID = "grid-first-steps";
 
 /** The setup of the families that have a rich annotation (a lens): every other 4×4 reward family is excluded. */
 export const ANNOTATED_BASICS_SEED_ID = "grid-annotated-basics";
+
+/** The setup a new room starts on (owner, 2026-11-03): the single source of every default setup. */
+export const DEFAULT_SETUP_SEED_ID = ANNOTATED_BASICS_SEED_ID;
 /**
  * Grid(4,base10,rgb) reward families without a lens. Pre-authored; the engine unit test (test/unit/setups.test.ts)
  * derives the expected list from the lens registry (game-utilities LENSES), so a new lens or family fails it.
