@@ -95,7 +95,7 @@ const SOLVERS: Readonly<Record<string, Solver>> = {
     return binomial(pairs, matchProb(g, p.layer));
   },
   /** Pairs (c, c+p) in a row form chains (a forest): equality indicators on a forest are independent. */
-  wallpaper_weaver: (p, g) => binomial(g.N * Math.max(0, g.N - p.p), 1 / g.C),
+  wallpaper_weaver: (p, g) => binomial(g.N * Math.max(0, g.N - p.steps), 1 / g.C),
   /** Each row: matches ~ Binomial(⌊N/2⌋, q); (mirrors, pairs) summed over iid rows. */
   mirrormancer: (p, g) => wholeAndParts(binomial(Math.floor(g.N / 2), matchProb(g, p.layer)), Math.floor(g.N / 2), g.N),
   /** ⌊N²/4⌋ disjoint quarter-turn orbits of 4 iid keys (colour; symbol, or suit for cards): (full, most) = Σ ([max mult = 4], max mult). */
