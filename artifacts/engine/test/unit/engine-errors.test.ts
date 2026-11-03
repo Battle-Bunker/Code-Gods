@@ -24,5 +24,8 @@ test("a game's notice: engine retrying, idle park, safety pause, or none", () =>
   assert.equal(gameNotice({ phase: "recovery", recoveryReason: "The world reached its 2,000-object safety limit." })?.text,
     "Paused for safety: The world reached its 2,000-object safety limit. The room's owner can resume it.");
   assert.equal(gameNotice({ phase: "running" }), undefined);
-  assert.equal(gameNotice({ phase: "ended", engineError: { reason: "x" } }), undefined);
+  // An ended game says so (never mistaken for a stall), whatever error it last had.
+  assert.deepEqual(gameNotice({ phase: "ended", endReason: "lifetime", worldSeconds: 600, engineError: { reason: "x" } }),
+    { kind: "ended", text: "Game over: this game reached the end of its lifetime at 10:00 of world time. Nothing changes any more." });
+  assert.equal(gameNotice({ phase: "ended", endReason: "owner" })?.text, "Game over: the owner ended this game.");
 });

@@ -301,6 +301,7 @@ export function observation(input: ObservationInput): Observation {
     gameId: game?._id, planningEndsAt: game?.planningEndsAt, pauseEndsAt: game?.pauseEndsAt,
     phase: game?.phase === "recovery" ? "paused" : game?.phase ?? "lobby",
     ...(notice ? { notice } : {}),
+    ...(game?.phase === "ended" && game.endReason ? { endReason: game.endReason } : {}),
     language: allowedLanguages(settings)[0], languages: allowedLanguages(settings),
     ...(input.sandboxes ? { sandboxes: input.sandboxes.map(s => ({ language: s.language, state: s.state, ...(s.reason ? { reason: s.reason } : {}) })) } : {}),
     instance: objectInstance(settings),

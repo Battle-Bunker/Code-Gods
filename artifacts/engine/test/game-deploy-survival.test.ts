@@ -101,6 +101,13 @@ test("a tick that keeps failing is shown to players and spectators, retried with
     assert.equal((await raw(gameId)).game.failures ?? 0, 0, "the backoff resets");
     assert.equal((await ada.c.query(api.player.observation, { roomId })).notice, undefined);
     assert.equal((await host.c.query(api.games.header, { code: shortCode })).notice, null);
+
+    // The end is unmistakable too (a game that ended by its lifetime was once taken for a stall).
+    await host.c.mutation(api.rooms.endActiveGame, { roomId });
+    const ended = await ada.c.query(api.player.observation, { roomId });
+    assert.equal(ended.endReason, "owner");
+    assert.match(ended.notice?.text ?? "", /^Game over: the owner ended this game at \d+:\d\d of world time\.$/);
+    assert.equal((await host.c.query(api.games.header, { code: shortCode })).notice?.kind, "ended");
   } finally {
     await host.c.mutation(api.rooms.endActiveGame, { roomId }).catch(() => {});
   }
