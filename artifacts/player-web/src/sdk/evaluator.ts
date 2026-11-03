@@ -13,6 +13,7 @@ import type { GameSettings, ObjectValue } from "@workspace/game-core";
 import type { CalibrationTable, UtilityDescriptor } from "@workspace/game-utilities";
 import type { ActOutcome, MutatorCallWire } from "@workspace/game-types";
 import { loadTables } from "@sdk-transport";
+import type { TableSeat } from "./transport-types";
 
 /** Your score of one value: the ordinal, reward bits (surprisal), optional penalty bits, and net bits. */
 export type OwnScore = { ordinal: number | readonly number[]; rewardBits: number; penaltyBits?: number; netBits: number };
@@ -28,12 +29,12 @@ const bits = (x: number) => (x === 0 ? 0 : x);
 
 /**
  * Build an evaluator for a game's settings and your descriptor (loads the scoring libraries once). The
- * calibration tables come from the transport: the engine (calibration.node.tables) in the player client, or, in a stored panel's
- * sandboxed frame, from the host over the bridge, once per game.
+ * calibration tables come from the transport: the engine (GET /api/calibration for `seat`, your seat in the game) in the
+ * player client, or, in a stored panel's sandboxed frame, from the host over the bridge, once per game.
  */
-export async function createEvaluator(settings: GameSettings, descriptor: UtilityDescriptor): Promise<Evaluator> {
+export async function createEvaluator(settings: GameSettings, descriptor: UtilityDescriptor, seat: TableSeat): Promise<Evaluator> {
   const [core, utilities, types, tables] = await Promise.all([
-    import("@workspace/game-core"), import("@workspace/game-utilities"), import("@workspace/game-types"), loadTables(settings, descriptor),
+    import("@workspace/game-core"), import("@workspace/game-utilities"), import("@workspace/game-types"), loadTables(settings, descriptor, seat),
   ]);
   const inst = core.instantiationOf(settings);
   const rewardTable = tables.reward as CalibrationTable;

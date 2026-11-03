@@ -351,7 +351,7 @@ export function createEngine(options: LoadConfigOptions & EngineOptions = {}): E
 // ---------------------------------------------------------------------------------------------
 
 /** What `GET /__codegods/token` returns to the same-origin browser. */
-/** `siteUrl`: the engine's site (from /api/config), so the page can link to the engine UI from another origin. */
+/** `siteUrl`: the engine's site (from /api/config), so the page can link to the engine site from another origin. */
 export interface BrowserToken { token: string; expiresAt: number; convexUrl: string; siteUrl: string; roomId: string; permission: Permission }
 
 export interface TokenHandlerOptions {

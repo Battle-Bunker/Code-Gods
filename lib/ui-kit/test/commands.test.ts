@@ -9,12 +9,12 @@ import type { PaletteContext } from "../src/types.ts";
 const member: PaletteContext = { role: "member", admin: false, assistantOn: false };
 
 test("one command per palette entry of the surface, unless the app leaves it unbound", () => {
-  const all = commandsFromCatalog(CATALOG, () => ({ kind: "local", run() {} }), "engine");
-  assert.equal(all.length, paletteEntries("engine").length);
+  const all = commandsFromCatalog(CATALOG, () => ({ kind: "local", run() {} }), "site");
+  assert.equal(all.length, paletteEntries("site").length);
   assert.ok(all.some(c => c.id === "owner.start" && c.human.title === "Start the game" && c.confirm === "summary"));
-  const none = commandsFromCatalog(CATALOG, path => (path === "owner.start" ? null : { kind: "local", run() {} }), "engine");
+  const none = commandsFromCatalog(CATALOG, path => (path === "owner.start" ? null : { kind: "local", run() {} }), "site");
   assert.equal(none.length, all.length - 1);
-  assert.ok(!commandsFromCatalog(CATALOG, () => ({ kind: "local", run() {} }), "player").some(c => c.id === "rooms.create"), "surfaces are respected");
+  assert.ok(!commandsFromCatalog(CATALOG, () => ({ kind: "local", run() {} }), "dock").some(c => c.id === "rooms.create"), "surfaces are respected");
 });
 
 test("availability follows the audience; search ranks titles first and hides what can never apply", () => {
@@ -23,7 +23,7 @@ test("availability follows the audience; search ranks titles first and hides wha
   assert.equal(availabilityFor(CATALOG["aiTemplates.create"], member).ok, false);
   assert.equal((availabilityFor(CATALOG["aiTemplates.create"], member) as { hidden?: boolean }).hidden, true);
   assert.equal(availabilityFor(CATALOG["panels.save"], { ...member, permission: "read" }).ok, false, "a read credential cannot write");
-  const commands = commandsFromCatalog(CATALOG, () => ({ kind: "local", run() {} }), "engine");
+  const commands = commandsFromCatalog(CATALOG, () => ({ kind: "local", run() {} }), "site");
   const rows = searchCommands(commands, "start", member);
   assert.equal(rows[0].command.id, "owner.start");
   assert.equal(rows[0].availability.ok, false, "shown dimmed with its reason");

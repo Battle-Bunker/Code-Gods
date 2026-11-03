@@ -4,7 +4,7 @@
  * `npx convex run runtime/probe:<name>`). Numbers are recorded in lib/game-runtime/README.md.
  *   cold   first call after a push: bundle fetch, compile, bootstrap, first acts (both languages)
  *   smoke  {language?}: inspection, acts and the step limit per language, through the engine's path
- *   concurrent  {acts?, budgetMiB?}: all three languages' pools busy at once, against a memory budget
+ *   concurrent  {budgetMiB?}: each language's act action under load, and a compilation, against a memory budget
  *   bench  {language, execution?, workers?, acts?}: @workspace/game-runtime/benchmark on the Grid agent
  */
 import { v } from "convex/values";
@@ -16,10 +16,10 @@ import { GRID_AGENTS, measure } from "@workspace/game-runtime/benchmark";
 import { assetLoad, bindRuntime, pythonBundle, runtimeFor, RUNTIME_OPTIONS } from "./node";
 import * as engine from "../engine/runtime";
 import { internal } from "../_generated/api";
-import { HASKELL_ACT_BATCH } from "../lib/haskellPrograms";
+import { ACT_BATCH } from "../lib/programs";
 
 const moduleLoadedAt = Date.now();
-const language = v.union(v.literal("python"), v.literal("typescript"), v.literal("haskell"));
+const language = v.union(v.literal("python"), v.literal("typescript"));
 
 /** The runtime's view of a room's settings (as the engine's adapter builds it). */
 function room(lang: Language): { game: GameSettings; settings: ActSettings; inputs: string[] } {
@@ -31,7 +31,7 @@ function room(lang: Language): { game: GameSettings; settings: ActSettings; inpu
     settings: {
       objectType: inst.objectType, wireMaxLength: codecOf(settings).maxLength,
       interactionComputeMs: settings.interactionComputeMs, stepBudget: settings.stepBudget,
-      prelude: { key: parts.hash, python: parts.python, js: parts.js, dts: parts.dts, ...(lang === "haskell" ? { haskell: parts.haskell } : {}),
+      prelude: { key: parts.hash, python: parts.python, js: parts.js, dts: parts.dts,
         pricing: parts.pricing as unknown as { python: PricingVocab; typescript: PricingVocab } },
     },
     inputs: Array.from({ length: 16 }, () => T.codec(inst).encode(T.spawn(inst, rng)) as string),
@@ -51,7 +51,8 @@ export const cold = internalAction({
     out.assetLoad = { ...assetLoad };
     for (const lang of ["python", "typescript"] as const) {
       const { settings, inputs } = room(lang);
-      const runtime = runtimeFor(lang);
+      // TypeScript's agent pool compiles nothing (runtime/compile.ts does): this measurement gives it a compiler of its own.
+      const runtime = lang === "typescript" ? createRuntime({ ...RUNTIME_OPTIONS.typescript, compilation: "pool" }) : runtimeFor(lang);
       t = performance.now();
       await runtime.warm(1);                  // worker start (+ Python bootstrap to the snapshot)
       const warmMs = since(t);
@@ -73,12 +74,11 @@ export const cold = internalAction({
 
 const ENDLESS: Record<Language, string> = {
   python: "def agent(g):\n    while True:\n        pass\n", typescript: "function agent(g) { while (true) {} return []; }",
-  haskell: "agent :: Obj -> [Call]\nagent g = let loop n = loop (n + 1) in [paint (row (loop 0)) \"red\"]",
 };
 
 /**
  * The deploy's smoke test of the agent sandboxes, one language per call (deploy.yml calls it for each), through the
- * engine's own path (engine/runtime.ts: this instance's pools; Haskell compiled by runtime/haskellCompile.ts in another
+ * engine's own path (engine/runtime.ts: this instance's pools; TypeScript compiled by runtime/compile.ts in another
  * action): inspect, acts, determinism and the step limit.
  */
 export const smoke = internalAction({
@@ -86,7 +86,7 @@ export const smoke = internalAction({
   handler: async (ctx, args) => {
     await bindRuntime(ctx);
     const out: Record<string, unknown> = {};
-    for (const lang of args.language ? [args.language] : (["python", "typescript", "haskell"] as const)) {
+    for (const lang of args.language ? [args.language] : (["python", "typescript"] as const)) {
       const { game, inputs } = room(lang);
       const t = performance.now();
       const inspection = await engine.inspect(ctx, GRID_AGENTS[lang], lang, game);
@@ -105,72 +105,43 @@ export const smoke = internalAction({
 });
 
 /**
- * A three-language game's agents all busy at once, as its tick runs them (deploy.yml): Python and TypeScript on this
- * instance's pools, Haskell compiled and acted by actions of their own (runtime/haskellCompile.ts, haskellAct.ts). Fails
- * when this instance's peak resident memory, sampled every 50 ms, passes `budgetMiB` (default 480 of the action's 512 MiB; on dev the
- * instance sat at 446 MiB before and peaked at 449 under the load, the Haskell act action at 359).
+ * Each language's actions under load, as a tick of a game allowing both runs them (deploy.yml): a full batch of acts
+ * per language in its own action (runtime/acts.ts), both at once, and a fresh TypeScript compilation
+ * (runtime/compile.ts). Fails when any of those actions ends above `budgetMiB` resident (default 380 of the 512 MiB:
+ * one language's pools need far less; real headroom, not a pass mark). Also reports what dispatching acts to their own
+ * actions costs: the round trip of a one-act call.
  */
 export const concurrent = internalAction({
-  args: { acts: v.optional(v.number()), budgetMiB: v.optional(v.number()) },
-  handler: async (ctx, { acts = 24, budgetMiB = 480 }) => {
-    await bindRuntime(ctx);
-    let peak = rssMiB();
-    const sampler = setInterval(() => { peak = Math.max(peak, rssMiB()); }, 50);
+  args: { budgetMiB: v.optional(v.number()) },
+  handler: async (ctx, { budgetMiB = 380 }) => {
     const t = performance.now();
-    const out: Record<string, unknown> = { rssBeforeMiB: peak };
-    try {
-      const langs = ["python", "typescript", "haskell"] as const;
-      const runs = await Promise.all(langs.map(async lang => {
-        const { game, inputs } = room(lang);
-        const inspection = await engine.inspect(ctx, GRID_AGENTS[lang], lang, game);
-        const calls = await Promise.all(Array.from({ length: acts }, (_, i) =>
-          engine.act(ctx, GRID_AGENTS[lang], lang, inputs[i % inputs.length], game, BigInt(i)).then(r => r.calls)));
-        return [lang, { cost: inspection.cost, acts: calls.length }] as const;
-      }));
-      Object.assign(out, Object.fromEntries(runs));
-      // The Haskell act action's own instance, under the same budget: a full batch of acts on its pool.
-      const { game, inputs } = room("haskell");
-      const haskell = await ctx.runAction(internal.runtime.haskellAct.acts, { settings: game,
-        requests: Array.from({ length: HASKELL_ACT_BATCH }, (_, i) => ({ source: GRID_AGENTS.haskell, input: inputs[i % inputs.length], seed: String(i) })) });
-      if (!haskell.replies.every(reply => reply.ok)) throw new Error(`Haskell acts failed: ${JSON.stringify(haskell.replies.find(reply => !reply.ok))}`);
-      out.haskellActRssMiB = haskell.rssMiB;
-      if (haskell.rssMiB > budgetMiB) throw new Error(`The Haskell act action held ${haskell.rssMiB} MiB, over the ${budgetMiB} MiB budget`);
-    } finally { clearInterval(sampler); }
-    peak = Math.max(peak, rssMiB());
-    Object.assign(out, { peakRssMiB: peak, budgetMiB, seconds: Math.round(since(t) / 100) / 10 });
-    if (peak > budgetMiB) throw new Error(`Three languages at once peaked at ${peak} MiB, over the ${budgetMiB} MiB budget: ${JSON.stringify(out)}`);
-    return out;
-  },
-});
-
-/**
- * The production Python and TypeScript pools (runtime/node.ts RUNTIME_OPTIONS) all warm and busy at once:
- * the instance's memory footprint, and the combined throughput with both languages in flight.
- */
-export const footprint = internalAction({
-  args: { acts: v.optional(v.number()), idleMs: v.optional(v.number()) },
-  handler: async (ctx, { acts = 200, idleMs = 0 }) => {
-    await bindRuntime(ctx);
-    const out: Record<string, unknown> = { rssBeforeMiB: rssMiB() };
-    const work = (["python", "typescript"] as const).map(lang => ({ lang, runtime: runtimeFor(lang), ...room(lang) }));
-    await Promise.all(work.map(w => w.runtime.warm()));
-    await Promise.all(work.map(w => w.runtime.inspect(GRID_AGENTS[w.lang], w.settings)));
-    out.rssWarmMiB = rssMiB();
-    const t = performance.now();
-    const done = { python: 0, typescript: 0 };
-    await Promise.all(work.flatMap(w => Array.from({ length: w.runtime.workers }, async (_, k) => {
-      for (let i = k; i < acts; i += w.runtime.workers) {
-        await w.runtime.act(GRID_AGENTS[w.lang], w.inputs[i % w.inputs.length], w.settings, String(i + 1));
-        done[w.lang]++;
-      }
-    })));
-    const seconds = (performance.now() - t) / 1000;
-    out.combined = { python: done.python, typescript: done.typescript, seconds: Math.round(seconds * 100) / 100,
-      actsPerSecond: Math.round((done.python + done.typescript) / seconds) };
-    out.rssAfterMiB = rssMiB();
-    // After the idle TypeScript compiler stops (RUNTIME_OPTIONS compilerIdleMs): the pools' steady state between compiles.
-    if (idleMs > 0) { await new Promise(resolve => setTimeout(resolve, Math.min(idleMs, 60_000))); out.rssIdleMiB = rssMiB(); }
-    out.memory = process.memoryUsage();
+    const out: Record<string, unknown> = { budgetMiB };
+    const batch = async (lang: Language) => {
+      const { game, inputs } = room(lang);
+      const { replies, rssMiB } = await ctx.runAction(internal.runtime.acts.run, { language: lang, settings: game,
+        requests: Array.from({ length: ACT_BATCH }, (_, i) => ({ source: GRID_AGENTS[lang], input: inputs[i % inputs.length], seed: String(i) })) });
+      const failed = replies.find(reply => !reply.ok);
+      if (failed) throw new Error(`${lang} acts failed: ${JSON.stringify(failed)}`);
+      return rssMiB;
+    };
+    const fresh = `${GRID_AGENTS.typescript}\n// probe ${Date.now()}\n`;
+    const [python, typescript, compiled] = await Promise.all([batch("python"), batch("typescript"),
+      ctx.runAction(internal.runtime.compile.compile, { language: "typescript", source: fresh, settings: room("typescript").game })]);
+    if (!compiled.ok) throw new Error(`The TypeScript compilation failed: ${compiled.message}`);
+    const rss: Record<string, number> = { python, typescript, ...(compiled.rssMiB !== undefined ? { typescriptCompiler: compiled.rssMiB } : {}) };
+    out.rssMiB = rss;
+    // The dispatch's cost: one warm act through its own action, end to end (median of 5).
+    const { game, inputs } = room("python");
+    const trips: number[] = [];
+    for (let i = 0; i < 5; i++) {
+      const start = performance.now();
+      await engine.act(ctx, GRID_AGENTS.python, "python", inputs[i]!, game, BigInt(100 + i));
+      trips.push(performance.now() - start);
+    }
+    out.oneActRoundTripMs = Math.round(trips.sort((a, b) => a - b)[2]!);
+    out.seconds = Math.round(since(t) / 100) / 10;
+    const over = Object.entries(rss).filter(([, mib]) => mib > budgetMiB);
+    if (over.length) throw new Error(`Over the ${budgetMiB} MiB budget: ${over.map(([k, mib]) => `${k} ${mib} MiB`).join(", ")}: ${JSON.stringify(out)}`);
     return out;
   },
 });
@@ -180,9 +151,8 @@ export const memory = internalAction({
   args: {},
   handler: async () => {
     const python = runtimeFor("python") as GameRuntime & { slots: unknown[] };
-    const typescript = runtimeFor("typescript") as GameRuntime & { slots: unknown[]; compiler: { slots: unknown[] } };
-    return { rssMiB: rssMiB(), pythonWorkers: python.slots.length, typescriptWorkers: typescript.slots.length,
-      typescriptCompilers: typescript.compiler.slots.length, memory: process.memoryUsage() };
+    const typescript = runtimeFor("typescript") as GameRuntime & { slots: unknown[] };
+    return { rssMiB: rssMiB(), pythonWorkers: python.slots.length, typescriptWorkers: typescript.slots.length, memory: process.memoryUsage() };
   },
 });
 
@@ -209,8 +179,8 @@ export const bench = internalAction({
     if (!runtime) {
       // Close the other benchmark pools first, so each configuration is measured alone in the 512 MiB.
       for (const [k, r] of benchRuntimes) { r.close(); benchRuntimes.delete(k); }
-      // Haskell's agent pool compiles nothing (another action does): the benchmark gives it a compiler of its own.
-      const own = lang === "haskell" ? { compilation: "pool" as const, startupMs: 120_000, prepareMs: 120_000 } : {};
+      // TypeScript's agent pool compiles nothing (another action does): the benchmark gives it a compiler of its own.
+      const own = lang === "typescript" ? { compilation: "pool" as const } : {};
       runtime = createRuntime({ ...RUNTIME_OPTIONS[lang], ...own, execution, workers });
       benchRuntimes.set(key, runtime);
     }

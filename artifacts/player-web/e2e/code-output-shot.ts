@@ -1,6 +1,7 @@
 /**
  * A screenshot of the code-output panel after a REAL assistant turn (opt-in, costs money; the local deployment must be
- * live: `pnpm --filter @workspace/engine assistant:live`). A signed-in player at phone size (390×844) asks the
+ * live: `pnpm --filter @workspace/engine assistant:live`). A player signed in with the site's session, at phone size
+ * (390×844) on the live game's page (/rooms/:room/games/:game, the app deploy-static put on the engine), asks the
  * assistant, through the composer, to rank their top 5 objects by payoff and show a table; the shot is of the pane
  * the assistant opened. Usage: node --experimental-transform-types e2e/code-output-shot.ts <out.png>
  */
@@ -22,6 +23,7 @@ const { session } = await login("bob");
 const dana = new ConvexHttpClient(CLOUD);
 dana.setAuth(await browserJwt(session));
 const { roomId, shortCode } = await dana.mutation(fn.m("rooms:create"), {}) as { roomId: string; shortCode: string };
+await dana.mutation(fn.m("rooms:setSpectator"), { roomId: roomId, spectator: false });   // owners start as spectators; this one plays
 const owner = (action: string, extra: Record<string, unknown> = {}) => dana.action(fn.a("owner:command"), { roomId, action, requestId: crypto.randomUUID(), ...extra });
 await owner("addAi", { aiAgentId: "sonnet-strategist" });
 await owner("addAi", { aiAgentId: "sonnet-strategist" });
@@ -33,13 +35,15 @@ for (let i = 0; i < 120; i++) {
   if (o.phase === "running" && o.objects.length >= 5) break;
   await sleep(1000);
 }
+const gameCode = (await dana.query(fn.q("rooms:get"), { room: roomId }) as { activeGame: { shortCode: string } | null }).activeGame?.shortCode;
+if (!gameCode) throw new Error("the game did not start");
 
 const { chromium } = createRequire(import.meta.url)("playwright") as typeof import("playwright");
 const browser = await chromium.launch();
 const context = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
 await context.addCookies(session.split("; ").map(pair => ({ name: pair.slice(0, pair.indexOf("=")), value: pair.slice(pair.indexOf("=") + 1), url: SITE })));
 const page = await context.newPage();
-await page.goto(`${SITE}/client/rooms/${shortCode}`);
+await page.goto(`${SITE}/rooms/${shortCode}/games/${gameCode}`);
 await page.waitForSelector("[data-testid=text-self-label]", { state: "attached", timeout: 60_000 });
 // Ask through the composer (on a phone the assistant is a sheet).
 const input = page.locator("[data-testid=input-assistant]");

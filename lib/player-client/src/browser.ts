@@ -1,6 +1,6 @@
 /**
  * Sign-in for a player client running in a browser, on ANY origin (docs/external-clients.md): the hosted client at
- * /client/, a Replit dev URL, localhost, a static host. Browser-safe: only `fetch`, Web Storage and (when present)
+ * the engine's own site, a Replit dev URL, localhost, a static host. Browser-safe: only `fetch`, Web Storage and (when present)
  * the Web Locks API. No Node, no cookies.
  *
  *   const auth = createPlayerAuth({ engineUrl, clientName: "My client" });
@@ -19,18 +19,22 @@
  *     be framed) or with no stable redirect target. The human opens the verification URL anywhere; the app gets a
  *     `cgc_` credential (7 days) and exchanges it for 10-minute JWTs.
  *
- * Sessions are stored per engine and per room. What this stores is a bearer secret for one room: anything that
- * runs script on the app's origin can read it. Revoke it from the engine UI ("Your player apps") or signOut().
+ * Or, OAuth only, an account grant (`signInWithRedirect({ permission: "account" })`): the app acts as its human in
+ * every room, as the engine's own site does, except approving connections and devices, managing credentials and
+ * admin (docs/external-clients.md). The human approves it explicitly on /connect; it lasts 7 days without use.
+ *
+ * Sessions are stored per engine: one per room, and at most one account session. What this stores is a bearer
+ * secret (for one room, or for the human's account): anything that runs script on the app's origin can read it.
+ * Revoke it on the engine site (Connected apps) or signOut().
  */
 export type Permission = "read" | "act" | "owner";
+/** What a sign-in asks for: one room with a Permission, or the human's whole account. */
+export type Grant = Permission | "account";
 
-export type PlayerSession = {
+type SessionCommon = {
   kind: "oauth" | "device";
   engineUrl: string;
   convexUrl: string;
-  roomId: string;
-  roomCode: string;
-  permission: Permission;
   credentialId: string;
   /** The current player JWT and when it expires (ms since epoch). */
   accessToken: string;
@@ -41,6 +45,15 @@ export type PlayerSession = {
   /** Device flow: the room credential (`cgc_…`). */
   credential?: string;
 };
+/** A connection to one room. */
+export type PlayerSession = SessionCommon & { roomId: string; roomCode: string; permission: Permission };
+/** An account grant (OAuth only): the human in every room. */
+export type AccountSession = SessionCommon & { kind: "oauth"; permission: "account" };
+export type AnySession = PlayerSession | AccountSession;
+export const isAccountSession = (s: AnySession): s is AccountSession => s.permission === "account";
+/** The storage and lock key of an account session (room sessions use their room code). */
+const ACCOUNT_KEY = "*";
+const keyOf = (s: AnySession) => (isAccountSession(s) ? ACCOUNT_KEY : s.roomCode);
 
 export type PlayerAuthErrorCode =
   | "BAD_ENGINE_URL" | "UNREACHABLE" | "REGISTRATION_FAILED" | "STATE_MISMATCH" | "DENIED" | "EXPIRED" | "EXCHANGE_FAILED" | "RECONNECT";
@@ -71,6 +84,7 @@ type Stored = {
   /** The engine's public site URL from /api/config: the OAuth issuer and resource (a custom domain may differ from engineUrl). */
   siteUrl?: string;
   sessions: Record<string, PlayerSession>;
+  account?: AccountSession;
   pending: Record<string, Pending>;
 };
 
@@ -176,15 +190,17 @@ export function createPlayerAuth(options: PlayerAuthOptions) {
     return data.client_id;
   }
 
-  function save(session: PlayerSession) {
-    write(s => { s.sessions[roomKey(session.roomCode)] = session; });
-    emit(session.roomCode);
+  function save<S extends AnySession>(session: S): S {
+    write(s => { if (isAccountSession(session)) s.account = session; else s.sessions[roomKey(session.roomCode)] = session; });
+    emit(keyOf(session));
     return session;
   }
-  function forget(roomCode: string) {
-    write(s => { delete s.sessions[roomKey(roomCode)]; });
-    emit(roomCode);
+  /** Forget the session stored under `key`: a room code, or ACCOUNT_KEY for the account session. */
+  function forget(key: string) {
+    write(s => { if (key === ACCOUNT_KEY) delete s.account; else delete s.sessions[roomKey(key)]; });
+    emit(key);
   }
+  const stored = (key: string): AnySession | null => (key === ACCOUNT_KEY ? read().account ?? null : session(key));
   /** The stored session for a room (short code in any form, or the room id), or the most recent one. */
   function session(room?: string): PlayerSession | null {
     const all = Object.values(read().sessions);
@@ -192,44 +208,47 @@ export function createPlayerAuth(options: PlayerAuthOptions) {
     return all.find(s => roomKey(s.roomCode) === roomKey(room) || s.roomId === room) ?? null;
   }
 
-  const fromTokens = async (data: Record<string, any>, clientId: string): Promise<PlayerSession> => ({
-    kind: "oauth", engineUrl, convexUrl: await convexUrl(), clientId, roomId: data.room_id, roomCode: data.room_code, permission: data.scope,
-    credentialId: data.credential_id, accessToken: data.access_token, refreshToken: data.refresh_token, expiresAt: now() + Number(data.expires_in) * 1000,
-  });
+  const fromTokens = async (data: Record<string, any>, clientId: string): Promise<AnySession> => {
+    const common = { kind: "oauth" as const, engineUrl, convexUrl: await convexUrl(), clientId, credentialId: data.credential_id, accessToken: data.access_token,
+      refreshToken: data.refresh_token, expiresAt: now() + Number(data.expires_in) * 1000 };
+    return data.scope === "account" ? { ...common, permission: "account" } : { ...common, roomId: data.room_id, roomCode: data.room_code, permission: data.scope };
+  };
 
-  async function revokeOnEngine(s: PlayerSession) {
+  async function revokeOnEngine(s: AnySession) {
     if (s.kind === "oauth") await call("/api/oauth/revoke", { body: { token: s.refreshToken!, client_id: s.clientId! } });
     else await call("/api/device/revoke", { bearer: s.credential! });
   }
 
-  /** A fresh token for the stored session of `roomCode`, or null when the connection is gone (it is then forgotten). */
-  async function refresh(roomCode: string): Promise<PlayerSession | null> {
-    const current = session(roomCode);
+  /** A fresh token for the session stored under `key` (a room code or ACCOUNT_KEY), or null when the connection is gone (it is then forgotten). */
+  async function refresh(key: string): Promise<AnySession | null> {
+    const current = stored(key);
     if (!current) return null;
     if (current.kind === "oauth") {
       const { status, data } = await call("/api/oauth/token", { body: { grant_type: "refresh_token", refresh_token: current.refreshToken!, client_id: current.clientId! } });
       if (status === 200 && typeof data.access_token === "string") return save({ ...(await fromTokens(data, current.clientId!)), convexUrl: current.convexUrl });
       if (status >= 500) throw new PlayerAuthError("UNREACHABLE", "The engine could not refresh the token; try again");
-    } else {
+    } else if (!isAccountSession(current)) {
       const { status, data } = await call("/api/device/token", { bearer: current.credential! });
       if (status === 200 && typeof data.token === "string") return save({ ...current, accessToken: data.token, expiresAt: data.expiresAt });
       if (status >= 500) throw new PlayerAuthError("UNREACHABLE", "The engine could not exchange the credential; try again");
     }
-    forget(current.roomCode);
+    forget(key);
     return null;
   }
 
   return {
     engineUrl,
     session,
-    /** Every stored session of this engine. */
+    /** Every stored room session of this engine. */
     sessions: () => Object.values(read().sessions),
-    /** Called with a room code whenever its session is saved, refreshed or forgotten. Returns an unsubscribe. */
+    /** The stored account session (the human in every room), or null. */
+    account: (): AccountSession | null => read().account ?? null,
+    /** Called with a room code ("*" for the account session) whenever its session is saved, refreshed or forgotten. Returns an unsubscribe. */
     onChange(listener: (roomCode: string) => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
     convexUrl,
 
     /** The /oauth/authorize URL for a new connection (registers the client if needed and remembers the PKCE verifier). */
-    async authorizeUrl(request: { room?: string; permission?: Permission; returnTo?: string } = {}): Promise<string> {
+    async authorizeUrl(request: { room?: string; permission?: Grant; returnTo?: string } = {}): Promise<string> {
       const [clientId, { siteUrl }] = await Promise.all([client(), config()]);
       const { verifier, challenge } = await pkce();
       const state = randomString(24);
@@ -241,19 +260,19 @@ export function createPlayerAuth(options: PlayerAuthOptions) {
       const url = new URL(`${engineUrl}/oauth/authorize`);
       const params: Record<string, string> = { response_type: "code", client_id: clientId, redirect_uri: redirectUri, code_challenge: challenge,
         code_challenge_method: "S256", state, scope: request.permission ?? "act", resource: siteUrl };
-      if (request.room) params.room = request.room;
+      if (request.room && request.permission !== "account") params.room = request.room;
       for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
       return url.toString();
     },
-    /** Send the browser to the engine to approve a connection for `room`. */
-    async signInWithRedirect(request: { room?: string; permission?: Permission; returnTo?: string } = {}): Promise<void> {
+    /** Send the browser to the engine to approve a connection for `room` (or, with permission "account", for every room). */
+    async signInWithRedirect(request: { room?: string; permission?: Grant; returnTo?: string } = {}): Promise<void> {
       navigate(await this.authorizeUrl(request));
     },
     /**
      * On the redirect URI: redeem `?code&state` (default: this page's URL, which is then cleaned with
      * history.replaceState). Null when the URL carries no answer; throws on a forged state or a refusal.
      */
-    async completeSignIn(href?: string): Promise<{ session: PlayerSession; returnTo: string } | null> {
+    async completeSignIn(href?: string): Promise<{ session: AnySession; returnTo: string } | null> {
       const url = new URL(href ?? globalThis.location.href);
       const state = url.searchParams.get("state");
       const code = url.searchParams.get("code"), error = url.searchParams.get("error");
@@ -278,8 +297,9 @@ export function createPlayerAuth(options: PlayerAuthOptions) {
       if (status !== 200 || typeof data.access_token !== "string") {
         throw new PlayerAuthError("EXCHANGE_FAILED", data.error_description ?? `The engine refused the sign-in (${status}); sign in again`);
       }
-      const replaced = session(data.room_code);
-      const fresh = save(await fromTokens(data, pending.clientId));
+      const fresh = await fromTokens(data, pending.clientId);
+      const replaced = stored(keyOf(fresh));
+      save(fresh);
       // A new connection for a room (e.g. an owner upgrade) replaces the stored one: revoke that, so none is orphaned.
       if (replaced && replaced.credentialId !== fresh.credentialId) void revokeOnEngine(replaced).catch(() => undefined);
       return { session: fresh, returnTo: pending.returnTo };
@@ -332,16 +352,16 @@ export function createPlayerAuth(options: PlayerAuthOptions) {
      * token) refreshes unless another tab already did. Null once the connection is revoked or expired: the
      * session is forgotten and onChange fires, so the app can offer to sign in again.
      */
-    fetchToken(of: PlayerSession) {
-      const roomCode = of.roomCode;
+    fetchToken(of: AnySession) {
+      const sessionKey = keyOf(of);
       let last: string | undefined;
       return async ({ forceRefreshToken }: { forceRefreshToken: boolean } = { forceRefreshToken: false }): Promise<string | null> => {
-        const token = await withLock(`${key}:${roomKey(roomCode)}`, async () => {
-          const stored = session(roomCode);
-          if (!stored) return null;
-          const fresh = stored.expiresAt - now() > REFRESH_MARGIN_MS;
-          if (fresh && (!forceRefreshToken || (last !== undefined && stored.accessToken !== last))) return stored.accessToken;
-          return (await refresh(roomCode))?.accessToken ?? null;
+        const token = await withLock(`${key}:${roomKey(sessionKey)}`, async () => {
+          const current = stored(sessionKey);
+          if (!current) return null;
+          const fresh = current.expiresAt - now() > REFRESH_MARGIN_MS;
+          if (fresh && (!forceRefreshToken || (last !== undefined && current.accessToken !== last))) return current.accessToken;
+          return (await refresh(sessionKey))?.accessToken ?? null;
         });
         last = token ?? undefined;
         return token;
@@ -349,12 +369,12 @@ export function createPlayerAuth(options: PlayerAuthOptions) {
     },
 
     /** Revoke the connection on the engine and forget it here. */
-    async signOut(of: PlayerSession): Promise<void> {
-      const stored = session(of.roomCode) ?? of;
+    async signOut(of: AnySession): Promise<void> {
+      const current = stored(keyOf(of)) ?? of;
       try {
-        await revokeOnEngine(stored);
+        await revokeOnEngine(current);
       } finally {
-        forget(stored.roomCode);
+        forget(keyOf(current));
       }
     },
   };

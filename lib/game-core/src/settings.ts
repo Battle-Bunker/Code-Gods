@@ -29,15 +29,18 @@ export const LANGUAGE_SPECS = Object.freeze({
     grammarLabel: "function agent(obj) returns mutator calls",
     emptyAgent: "function agent(x) { return []; }",
   }),
-  haskell: Object.freeze({
-    label: "Haskell", grammarId: "haskell-agent-v1", complexityFunctionId: "hs-token-bits-v1-uniform",
-    grammarLabel: "agent :: Obj -> [Call] returns mutator calls",
-    emptyAgent: "agent :: Obj -> [Call]\nagent x = []",
-  }),
 } as const);
 export type Language = keyof typeof LANGUAGE_SPECS;
 export const LANGUAGES: readonly Language[] = Object.freeze(Object.keys(LANGUAGE_SPECS) as Language[]);
 export const isLanguage = (value: unknown): value is Language => typeof value === "string" && Object.hasOwn(LANGUAGE_SPECS, value);
+/**
+ * Languages agents were once written in and no longer can be (Haskell, retired 2026-11-02): a past game's agents keep
+ * theirs as history, stored settings drop them (upgradeStoredSettings), and the engine runs none of their acts.
+ */
+export const RETIRED_LANGUAGES = Object.freeze(["haskell"] as const);
+export type RetiredLanguage = typeof RETIRED_LANGUAGES[number];
+/** The language a stored agent may carry. */
+export type StoredLanguage = Language | RetiredLanguage;
 
 /** Agent grammars: source defines `agent(obj)` returning mutator calls, against the room's prelude. */
 export type GrammarId = (typeof LANGUAGE_SPECS)[Language]["grammarId"];
@@ -184,19 +187,22 @@ export const DEFAULT_SETTINGS: Readonly<GameSettings> = Object.freeze({
 
 /**
  * The languages a game allows (the first is the game's default). Settings stored before `languages` existed held a single `language` (with its grammar
- * and price ids): that one language is the set. Use this wherever stored settings are read, so a document the
+ * and price ids): that one language is the set. Languages no longer supported (an ended game's stored "haskell") are
+ * dropped, so every result has a LANGUAGE_SPECS entry. Use this wherever stored settings are read, so a document the
  * migration has not reached yet still plays.
  */
 export function allowedLanguages(settings: Pick<GameSettings, "languages"> | { language?: unknown; languages?: unknown } | null | undefined): readonly Language[] {
   if (!settings) return [];
   const s = settings as { language?: unknown; languages?: unknown };
-  if (Array.isArray(s.languages) && s.languages.length && s.languages.every(isLanguage)) return s.languages as Language[];
+  const known = Array.isArray(s.languages) ? s.languages.filter(isLanguage) : [];
+  if (known.length) return known.length === (s.languages as unknown[]).length ? s.languages as Language[] : known;
   return isLanguage(s.language) ? [s.language] : [];
 }
 
 /**
  * Stored settings in today's shape, or null when they already are (idempotent): the single-language shape converted
- * (see upgradeLegacyLanguage), and fields added since filled with their defaults (scoreIntervalSeconds, peerNoiseBits, durationMode:
+ * (see upgradeLegacyLanguage), the removed Haskell language dropped from `languages` (TypeScript when none is left:
+ * 2026-11), and fields added since filled with their defaults (scoreIntervalSeconds, peerNoiseBits, durationMode:
  * 2026-11).
  * Use it wherever stored settings (rooms, setups, games) are read.
  */
@@ -204,7 +210,9 @@ export function upgradeStoredSettings(settings: unknown): Record<string, unknown
   const languages = upgradeLegacyLanguage(settings);
   const s = (languages ?? settings) as Record<string, unknown> | null;
   if (!s || typeof s !== "object" || Array.isArray(s)) return languages;
+  const kept = Array.isArray(s.languages) ? s.languages.filter(l => l !== "haskell") : undefined;
   const filled: Record<string, unknown> = {
+    ...(kept && kept.length !== (s.languages as unknown[]).length ? { languages: kept.length ? kept : ["typescript"] } : {}),
     ...(!("scoreIntervalSeconds" in s) ? { scoreIntervalSeconds: DEFAULT_SCORE_INTERVAL_SECONDS } : {}),
     ...(!("durationMode" in s) ? { durationMode: "halfLife" } : {}),
     ...(!("peerNoiseBits" in s) ? { peerNoiseBits: DEFAULT_PEER_NOISE_BITS } : {}),
@@ -494,7 +502,10 @@ export const SEED_SETUPS: readonly SeedSetup[] = Object.freeze([
   seed(FIRST_STEPS_SEED_ID, "First steps", "A small 4×4 board, slowed down so you can watch your score",
     "Grid", { size: 4, symbols: "base10", colours: "rgb" }, { interactionRateHz: 25, durationMode: "fixed", halfLifeSeconds: 600 }),
   seed(ANNOTATED_BASICS_SEED_ID, "Annotated basics", "Only rules with picture-by-picture explanations, on a small slowed-down board",
-    "Grid", { size: 4, symbols: "base10", colours: "rgb" }, { interactionRateHz: 25, durationMode: "fixed", halfLifeSeconds: 600, excludedFamilies: ANNOTATED_BASICS_EXCLUDED }),
+    "Grid", { size: 4, symbols: "base10", colours: "rgb" }, {
+      interactionRateHz: 25, durationMode: "fixed", halfLifeSeconds: 600, excludedFamilies: ANNOTATED_BASICS_EXCLUDED,
+      startingObjectCount: 10, spawnRateHz: 0.1, planningSeconds: 300,
+    }),
   seed("grid-classic", "Classic", "5×5 with four colours: the standard game",
     "Grid", { size: 5, symbols: "base10", colours: "rgby" }, {}),
   // grid-lab PR #14 §4.9's alternative economy: half the income, half the floor (see TYPE_DEFAULTS.Grid).

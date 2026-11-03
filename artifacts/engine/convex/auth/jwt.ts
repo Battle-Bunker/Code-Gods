@@ -3,7 +3,7 @@
  * holders of a room credential. Browser JWTs come from Better Auth instead (betterAuth.ts). Tokens last
  * 10 minutes and carry:
  *   sub   the human's god id (Better Auth user id)
- *   scope "player"
+ *   scope "player", or "account" for an account grant (no room: the human everywhere; MCP refuses it)
  *   cred  the credential id, re-checked for revocation on every call (access.ts)
  *   room, perm  informational copies; access.ts reads the credential row instead
  */
@@ -31,13 +31,15 @@ export async function jwks(): Promise<{ keys: JWK[] }> {
   return { keys: [(await signer()).publicJwk] };
 }
 
-export type MintInput = { subject: string; credentialId: string; roomId: string; permission: string };
+export type MintInput = { subject: string; credentialId: string; roomId?: string; permission: string };
 
 /** `ttlSeconds` (default 10 minutes): MCP OAuth access tokens last 60 minutes (convex/agent/oauth.ts). */
 export async function mintPlayerJwt(input: MintInput, ttlSeconds = JWT_TTL_SECONDS): Promise<{ token: string; expiresAt: number }> {
   const { key, publicJwk } = await signer();
   const now = Math.floor(Date.now() / 1000);
-  const token = await new SignJWT({ scope: "player", cred: input.credentialId, room: input.roomId, perm: input.permission })
+  const claims = input.permission === "account" ? { scope: "account", cred: input.credentialId }
+    : { scope: "player", cred: input.credentialId, room: input.roomId, perm: input.permission };
+  const token = await new SignJWT(claims)
     .setProtectedHeader({ alg: "RS256", kid: publicJwk.kid, typ: "JWT" })
     .setIssuer(playerIssuer()).setAudience(PLAYER_JWT_AUDIENCE).setSubject(input.subject)
     .setIssuedAt(now).setExpirationTime(now + ttlSeconds)

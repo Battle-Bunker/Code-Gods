@@ -18,13 +18,16 @@ derive expectations by hand; exercise real code and don't assert on mocks; run t
 | Sandboxes: determinism, limits, hostile input, Python ≡ old host | unit and integration | `lib/game-runtime/test` | `pnpm --filter @workspace/game-runtime test` |
 | Engine pure helpers (`convex/lib/*`: spawn planning, clocks) | unit, `node --test`, no backend | `artifacts/engine/test/unit` | `pnpm --filter @workspace/engine test:unit` |
 | Engine functions: rules, disclosure, permissions, receipts, ticks, AI seats | integration against the **live local Convex backend** | `artifacts/engine/test/game-*.test.ts` | start `pnpm --filter @workspace/engine dev` and wait for `[dev] READY` (it uploads the Python runtime, building it if needed, and seeds the system setups), then `pnpm --filter @workspace/engine test:game` |
+| Schema migrations (`convex/migrations.ts`, the @convex-dev/migrations component): legacy rows become the new shape, a second run changes nothing (CLAUDE.md "Schema migrations") | integration against the live local backend | `artifacts/engine/test/game-schema-migrations.test.ts` (legacy rows written by a `convex/testing.ts` fixture; `runAll` with `reset: true`) | part of `test:game` |
+| Query cost (R8 of `docs/convex-read-architecture.md`): every query a page subscribes to fits its documents, bytes and time budget in a 1,000-object game, a cold one stays cached across tick commits, a signed-out caller is refused | integration against the live local backend; numbers from the backend's execution log (`test/execution-log.ts`) | `artifacts/engine/test/game-query-cost.test.ts`, budget table `test/query-budgets.ts` (a new page query needs a row: `test/unit/query-budgets.test.ts` checks) | part of `test:game` |
 | Agent interface: `POST /mcp` (both protocol eras), tool permissions, idempotent tool commands, disclosure through every read tool, MCP OAuth | integration against the live local backend over HTTP | `artifacts/engine/test/mcp.test.ts` | with the dev engine running, `pnpm --filter @workspace/engine test:mcp` |
 | Auth: Google sign-in via Better Auth (the test-only "fake" provider locally), device flow, credentials, player JWTs, static routes | integration (it starts its own backend; stop the dev engine first, since the checkout has one local deployment) | `artifacts/engine/test/auth.test.ts` | `pnpm --filter @workspace/engine test:auth` |
 | Player CLI, assistant, token middleware | unit + live | `lib/player-client/test` | `pnpm --filter @workspace/player-client test` (reuses `CG_TEST_SITE_URL`) |
 | Claude artifact client (`clients/claude-artifact`): view model, error codes, commandId/receipt retry, manifest ⊆ registry, build | unit, `node --test`, no backend | `clients/claude-artifact/core.test.js` | `pnpm run test:artifact` |
 | Claude artifact page in a browser against a stand-in runtime (`dev/claude-stub.js`), and `probe.html` | browser smoke (Playwright, about 10 s) | `clients/claude-artifact/smoke.mjs` | `pnpm run smoke:artifact` |
-| Engine UI pure logic (`artifacts/code-gods/src/lib`: settings form rules, time, device approval) | unit, `node --test` | `artifacts/code-gods/test` | `pnpm --filter @workspace/code-gods test` |
-| Engine UI flows | browser e2e (Playwright) | `artifacts/code-gods/e2e/smoke.ts` | `pnpm --filter @workspace/code-gods e2e` |
+| The app's pure logic (`artifacts/player-web/src`: routes, next steps, palette commands, settings form rules, time, device approval, the dock's models) | unit, `node --test` | `artifacts/player-web/test` | `pnpm --filter @workspace/player-web test` |
+| The app's site pages (home, room, configure, the game's spectator view and replay, /connect, /device, admin) | browser e2e (Playwright) | `artifacts/player-web/e2e/site-smoke.ts` | `pnpm --filter @workspace/player-web e2e:site` |
+| The app on another origin in account mode (sign-in, consent, create → play, sign out) | browser e2e (Playwright) | `artifacts/player-web/e2e/account-mode.ts` | `pnpm --filter @workspace/player-web e2e:account` |
 | Several player apps, panels and HMR, assistant, static hosting | multi-client browser e2e (slow: about 20 minutes) | `artifacts/player-web/e2e/multi-client.ts` | commit first (the apps are worktrees of HEAD), then `pnpm --filter @workspace/player-web e2e` |
 
 **Choosing a layer.** A rule belongs in a unit test of the library that owns it. A Convex function is tested
@@ -61,6 +64,6 @@ mock first (`/mock {json}` scripts in `test/game-assistant.test.ts`); keep live 
   about 273 bits per act; prefer `swapChars`, `add`, or a small `slide`.
 - **A bug fix starts with a failing test** at the cheapest layer that reproduces it. The multi-client e2e found
   three engine bugs; each fix should also gain a fast test.
-- **Before finishing**, run every suite your change can affect: at least the package's own tests, the root
-  `pnpm run typecheck`, and `test:game` for any engine change. Report each by name with pass counts, including
-  failures you didn't cause.
+- **Before finishing**, run your change's selective set once, when it is ready to merge (the `selective-testing`
+  skill picks it from the paths you changed), plus the root `pnpm run typecheck`. Report each suite by name with pass
+  counts, including failures you didn't cause. While you work, run only the file you are writing.

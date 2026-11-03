@@ -13,7 +13,8 @@ import type { Doc } from "./_generated/dataModel";
 import { internalQuery, query, type QueryCtx } from "./_generated/server";
 import { requireRoomPermission, requireViewer, type Viewer } from "./auth/access";
 import { fail } from "./lib/errors";
-import { buildObservation, currentGame, deityOf, objectsOf } from "./lib/load";
+import { buildObservation, currentGame, deityOf, latestBatchSeq, objectsOf } from "./lib/load";
+import { withClock } from "./game/state";
 import { objectInstance, personalObject, projectBatches, replayBatches, trajectories as trajectoriesOf } from "./lib/projection";
 import { pageObjects } from "@workspace/player-client/objects-page";
 import { EVENT_LOG_SCHEMA, viewOfNet } from "./lib/world";
@@ -49,7 +50,7 @@ export const observationAs = internalQuery({
  * The room's active or current game is for its members; a historic one (lib/rooms isHistoric) only for the gods who
  * played in it and the room owner.
  */
-async function gameFor(ctx: QueryCtx, viewer: Viewer, roomRef: string, gameRef?: string) {
+export async function gameFor(ctx: QueryCtx, viewer: Viewer, roomRef: string, gameRef?: string) {
   const room = await requireRoom(ctx, roomRef);
   let game: Doc<"games"> | null;
   if (gameRef) {
@@ -68,7 +69,7 @@ async function gameFor(ctx: QueryCtx, viewer: Viewer, roomRef: string, gameRef?:
 /**
  * One game of the room as the caller may see it, by id, GUID or short code: its public world (live, or final once
  * ended: the recorded standings, winners, last objects) and its chat, with whether it is the room's current game and
- * whether the caller was seated. The player client's /rooms/:room/games/:game page; a historic game is read-only
+ * whether the caller was seated. The app's /rooms/:room/games/:game page; a historic game is read-only
  * and readable only by its participants and the room owner (gameFor).
  */
 const gameArgs = { roomId: v.string(), gameId: v.string() };
@@ -101,7 +102,8 @@ export const eventsFor = async (ctx: QueryCtx, caller: Viewer, args: { roomId: s
     const batches = after === undefined
       ? (await ctx.db.query("tickBatches").withIndex("by_game_seq", q => q.eq("gameId", game._id)).order("desc").take(limit)).reverse()
       : await ctx.db.query("tickBatches").withIndex("by_game_seq", q => q.eq("gameId", game._id).gt("seq", after)).take(limit);
-    const latestCursor = game.nextBatch - 1;
+    // The newest batches include the latest; a cursor read looks the latest up.
+    const latestCursor = after === undefined ? batches.at(-1)?.seq ?? -1 : await latestBatchSeq(ctx, game._id);
     return {
       gameId: game._id, events: projectBatches(batches, viewer.subject, index, game.phase !== "ended"),
       nextCursor: batches.at(-1)?.seq ?? after ?? latestCursor, latestCursor,
@@ -121,7 +123,7 @@ export const historyFor = async (ctx: QueryCtx, caller: Viewer, args: { roomId: 
     const limit = Math.max(1, Math.min(50, Math.floor(args.limit ?? 20)));
     const after = args.afterSeq ?? -1;
     const batches = await ctx.db.query("tickBatches").withIndex("by_game_seq", q => q.eq("gameId", game!._id).gt("seq", after)).take(limit);
-    return { gameId: game!._id, events: projectBatches(batches, viewer.subject, index, game!.phase !== "ended"), nextCursor: batches.at(-1)?.seq ?? after, latestCursor: game!.nextBatch - 1 };
+    return { gameId: game!._id, events: projectBatches(batches, viewer.subject, index, game!.phase !== "ended"), nextCursor: batches.at(-1)?.seq ?? after, latestCursor: await latestBatchSeq(ctx, game!._id) };
 };
 
 /** The replay API's version (docs/replay-design.md §3): bump it when the shape of player.replay changes. 2: transparent. */
@@ -151,13 +153,30 @@ export const replayAs = internalQuery({
   args: { principal: principalV, ...replayArgs },
   handler: async (ctx, { principal, ...args }) => replayFor(ctx, await viewerOf(ctx, principal), args),
 });
-export async function replayFor(ctx: QueryCtx, caller: Viewer, args: { roomId: string; gameId: string; afterSeq?: number; chatAfter?: number; limit?: number; maxEvents?: number; eventOffset?: number; maxChat?: number }) {
-  const { room, game, index } = await gameFor(ctx, caller, args.roomId, args.gameId);
-  if (!game) return fail("NOT_FOUND", "Game not found in this room");
-  // As for every past game (lib/rooms requireHistoricReaderAs): its players and the room's owner.
-  if (index < 0 && room.ownerId !== caller.subject) return fail("FORBIDDEN", "Only the gods who played in it and the room owner can open a game's replay");
+type ReplayCursor = { afterSeq?: number; chatAfter?: number; limit?: number; maxEvents?: number; eventOffset?: number; maxChat?: number };
+/**
+ * The ended game the caller may replay, with the caller's place in its roster: its players, its spectators and the
+ * room's owner (lib/rooms requireHistoricReaderAs), once it has ended. player.replay and replays.url both ask here.
+ */
+export async function replayableGame(ctx: QueryCtx, caller: Viewer, roomId: string, gameId: string) {
+  const found = await gameFor(ctx, caller, roomId, gameId);
+  const { room, index } = found;
+  if (!found.game) return fail("NOT_FOUND", "Game not found in this room");
+  if (index < 0) requireHistoricReaderAs(caller, room, found.game);
   // The boundary of the transparency: nothing of a live game is revealed (its live reads keep hiding as before).
-  if (game.phase !== "ended") return fail("CONFLICT", "The replay opens when the game ends: until then, what each player may see stays hidden");
+  if (found.game.phase !== "ended") return fail("CONFLICT", "The replay opens when the game ends: until then, what each player may see stays hidden");
+  return { room, game: found.game, viewer: { godId: caller.subject, index } };
+}
+export async function replayFor(ctx: QueryCtx, caller: Viewer, args: { roomId: string; gameId: string } & ReplayCursor) {
+  const { room, game, viewer } = await replayableGame(ctx, caller, args.roomId, args.gameId);
+  return { ...(await replayPage(ctx, room, game, args)), viewer };
+}
+/**
+ * One page of an ended game's replay, the same for every viewer (the caller's place is added by replayFor). The stored
+ * replay (convex/replays.ts) is every page of it, built once when the game ends.
+ */
+export async function replayPage(ctx: QueryCtx, room: Doc<"rooms">, stored: Doc<"games">, args: ReplayCursor) {
+  const game = await withClock(ctx, stored);
   const limit = Math.max(1, Math.min(REPLAY_PAGE_BATCHES, Math.floor(args.limit ?? REPLAY_PAGE_BATCHES)));
   const after = args.afterSeq ?? -1;
   const maxEvents = Math.max(1, Math.min(REPLAY_PAGE_EVENTS, Math.floor(args.maxEvents ?? REPLAY_PAGE_EVENTS)));
@@ -178,7 +197,7 @@ export async function replayFor(ctx: QueryCtx, caller: Viewer, args: { roomId: s
     batches.push({ ...b, events: b.events.slice(from), from }); events += left;
     if (batches.length >= limit) break;
   }
-  const latestCursor = game.nextBatch - 1;
+  const latestCursor = await latestBatchSeq(ctx, game._id);
   const nextCursor = eventOffset !== undefined ? batches.at(-1)!.seq - 1 : batches.at(-1)?.seq ?? after;
   const first = after < 0 && !args.eventOffset;
   const logDone = nextCursor >= latestCursor;
@@ -203,13 +222,11 @@ export async function replayFor(ctx: QueryCtx, caller: Viewer, args: { roomId: s
       endedAt: game.endedAt ?? null, endReason: game.endReason ?? null, worldSeconds: game.worldSeconds, endAtWorld: game.endAtWorld,
       settings, setup: game.setupId ? { id: game.setupId, name: game.setupName ?? "" } : null,
       roster: game.roster.map(({ id, name, kind }) => ({ id, name, kind })), objectInstance: objectInstance(settings),
-      seasonCommitment: game.seasonCommitment, stats: game.stats,
+      seasonCommitment: game.seasonCommitment,
       // On the first page, the log's schema (its first batch's): below EVENT_LOG_SCHEMA it predates some records
       // (summons, totals and chat stamps below 2; act seeds below 3), wholly or up to a deploy during the game.
       ...(first ? { logSchema: batches[0]?.schema ?? 1, currentLogSchema: EVENT_LOG_SCHEMA } : {}),
     },
-    /** The caller's place in the roster: the replay's default point of view, nothing more. */
-    viewer: { godId: caller.subject, index },
     /** First page only: every god's dealt utility (descriptor and kid card), spending, pause and AI seat. */
     ...(first ? { gods: deities.map(d => ({
       godId: d.godId, index: d.index, utility: d.utility, card: d.card, spent: d.spent, pauseUsed: d.pauseUsed,
@@ -237,11 +254,11 @@ export const trajectoriesAs = internalQuery({
 });
 export const trajectoriesFor = async (ctx: QueryCtx, viewer: Viewer, args: { roomId: string; gameId?: string; afterSeq?: number; limit?: number }) => {
     const { game, index } = await gameFor(ctx, viewer, args.roomId, args.gameId);
-    if (!game || index < 0) return { gameId: game?._id ?? null, objects: [], nextCursor: args.afterSeq ?? -1, latestCursor: game ? game.nextBatch - 1 : -1 };
+    if (!game || index < 0) return { gameId: game?._id ?? null, objects: [], nextCursor: args.afterSeq ?? -1, latestCursor: game ? await latestBatchSeq(ctx, game._id) : -1 };
     const limit = Math.max(1, Math.min(200, Math.floor(args.limit ?? 100)));
     const after = args.afterSeq ?? -1;
     const batches = await ctx.db.query("tickBatches").withIndex("by_game_seq", q => q.eq("gameId", game._id).gt("seq", after)).take(limit);
-    return { gameId: game._id, objects: trajectoriesOf(batches, index, game.phase !== "ended"), nextCursor: batches.at(-1)?.seq ?? after, latestCursor: game.nextBatch - 1 };
+    return { gameId: game._id, objects: trajectoriesOf(batches, index, game.phase !== "ended"), nextCursor: batches.at(-1)?.seq ?? after, latestCursor: await latestBatchSeq(ctx, game._id) };
 };
 
 /**
@@ -401,7 +418,7 @@ export const boardAs = internalQuery({
 });
 export async function boardFor(ctx: QueryCtx, caller: Viewer, args: { roomId: string; gameId?: string; world?: number }) {
   const { game, index } = await seatedGame(ctx, caller, args.roomId, args.gameId);
-  const world = args.world ?? game.worldSeconds;
+  const world = args.world ?? (await withClock(ctx, game)).worldSeconds;
   const objects = await ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", game._id)).take(2100);
   const rows = await Promise.all(objects.map(o => ctx.db.query("objectEvents")
     .withIndex("by_game_object_world", q => q.eq("gameId", game._id).eq("objectId", o._id).lte("world", world)).order("desc").first()));

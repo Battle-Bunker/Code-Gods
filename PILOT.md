@@ -7,8 +7,7 @@ store. At `https://<dep>.convex.site` it serves:
 
 | Path | What |
 |---|---|
-| `/` | the engine UI (`artifacts/code-gods`): rooms, lobby, owner controls, game pages, AI library, `/device` approvals |
-| `/client/` | the hosted default player client (`artifacts/player-web`) |
+| `/` | the app (`artifacts/player-web`, static component `engineSite`): your rooms, room pages, owner controls, games (player view, spectator view, replay), AI library, `/connect` and `/device` approvals |
 | `/api/*` | HTTP actions: Google sign-in (Better Auth, `/api/auth/*`), device flow, token exchange, JWKS, `/api/config`, `/api/health` |
 
 Clients call Convex queries, mutations and actions at `https://<dep>.convex.cloud`. AI seats, the tick
@@ -33,7 +32,7 @@ pnpm --filter @workspace/engine gen-jwt-key --set --prod                  # play
 pnpm --filter @workspace/game-runtime setup:python                        # once: the pinned CPython WASI download
 pnpm --filter @workspace/engine upload-runtime --prod                     # the Python runtime bundle → file storage
 pnpm --filter @workspace/engine upload-calibration --prod                 # the calibration tables → file storage (a warm cache: a shape without them prepares its tables on its first game)
-pnpm --filter @workspace/engine deploy-static --prod                      # build and upload the engine UI and /client/
+pnpm --filter @workspace/engine deploy-static --prod                      # build and upload the app, served at /
 ```
 
 Also set `ADMIN_EMAILS` (verified Google emails) and the provider keys
@@ -64,13 +63,15 @@ again and push. Rotation makes browsers fetch new Convex JWTs; sessions survive.
 Each deploy (one at a time per environment): install, the pinned Python runtime bundle (the CPython
 download is cached) and a check that the sandbox worker build is current, `npx convex deploy --typecheck
 enable` (it typechecks every function, validates the schema, and accepts dev and production deploy keys
-alike), `BETTER_AUTH_JWKS` on the first deploy only (`rotateKeys` → env set → push again),
+alike), `BETTER_AUTH_JWKS` on the first deploy only (`rotateKeys` → env set → push again), the schema migrations
+(`scripts/run-migrations.mjs`: the `@convex-dev/migrations` component's `runAll`, waited for until every one reports
+success, else the deploy fails; CLAUDE.md "Schema migrations"),
 `upload-runtime` (skipped when the bundle is already there), `upload-calibration` (uploads only the calibration files
 whose bytes changed and removes instances no longer in git, right after the push; the engine loads them lazily, and a
 new shape is offered within a minute; a push that changes table keys, e.g. an edited card, leaves the affected tables
-stale for the seconds until this step lands), `deploy-static --if-changed` (both sites
-build in parallel; a site whose build hashes to the deployment's env var `STATIC_SHA256_ENGINE` /
-`STATIC_SHA256_PLAYER`, recorded at its last upload, isn't uploaded again), and a smoke test
+stale for the seconds until this step lands), `deploy-static --if-changed` (the app's
+one site, `app`; a build that hashes to the deployment's env var `STATIC_SHA256_APP`, recorded at its last upload,
+isn't uploaded again), and a smoke test
 (`/api/health`, `/mcp` answers 401, `runtime/probe:smoke`, and `calibration/node:probe` loading the Grid default's
 tables from storage).
 
@@ -119,11 +120,15 @@ Sonnet 5.5; deleted defaults stay deleted. Both direct Anthropic and OpenAI are 
 
 - **Rooms.** Create a room and share its short code or URL. Rooms have no names; they are persistent
   lobbies with a history of ended games. All humans sign in with Google and join.
-- **Players.** A game needs at least three players. The owner may fill seats with AI players from the
-  library. Readiness is advisory. **Start game** takes everyone to that game's page. When it ends, the
-  result joins the room's history and everyone returns to the lobby, where the owner can change
-  settings and start the next game with the same members. Anyone who joins mid-game watches and plays
-  in the next one.
+- **Players and spectators.** A game needs three to eight players. Every member is a player or a
+  spectator: the owner starts as a spectator and members join as players, and a member (or the owner, for
+  any human member) switches it on the room page (`rooms.setSpectator`, tool `set_spectator`; it applies
+  to the next game). Only players count toward the 3–8. The owner may fill seats with AI players from the
+  library. Readiness is advisory. **Start game** takes everyone on the room page to the game's page,
+  `/rooms/CODE/games/GAME`: seated players get the dock, everyone else the spectator view. When the game
+  ends, the same URL becomes its replay, for its players, its spectators and the owner; the room page lists
+  it under past games, and the owner can change settings and start the next game with the same members.
+  Anyone who joins mid-game watches and plays in the next one.
 - **AI seats and budgets.** Before starting with AI seats, the owner approves a token budget. AI usage
   bills the deployment's provider keys. Reservations are taken before each call and capped at $2 per
   game and $5 per UTC day across the deployment, plus the room's token budget and 6 calls per minute
@@ -134,10 +139,11 @@ Sonnet 5.5; deleted defaults stay deleted. Both direct Anthropic and OpenAI are 
   next human activity resumes parked games automatically; the room assistant can do it with
   `pnpm player assistant wake`.
 
-### Hosted player client (no duplicate needed)
+### The engine's own app (no duplicate needed)
 
-Each human can play at `https://<dep>.convex.site/client/rooms/CODE`, signed in on the engine site.
-Use it as the fallback for anyone without their own player app.
+Each human can play at `https://<dep>.convex.site/rooms/CODE`, signed in with Google on the engine site.
+It is the same app a player can run themselves, with the same rights. Use it as the fallback for anyone
+without their own player app.
 
 ### Your own player app (any dev environment)
 
@@ -156,7 +162,7 @@ or provider keys. Do not give players editor access to the engine's own deployme
    comparison code, room, permission and label, and approve. An owner grant needs the current room
    owner's extra consent.
 5. Store the printed credential as `CODE_GODS_CREDENTIAL` the same way. It is shown once; it is
-   room-bound, expires after 7 days and can be revoked on the engine's player page or with
+   room-bound, expires after 7 days and can be revoked on the engine site (menu → Connected apps) or with
    `pnpm player assistant disconnect`.
 6. Run `pnpm --filter @workspace/player-web dev` (port 22772 unless `PORT` is set). The Vite dev server
    keeps the credential server-side and gives the browser only 10-minute JWTs (`/__codegods/token`).
@@ -166,6 +172,12 @@ or provider keys. Do not give players editor access to the engine's own deployme
    value as `CODE_GODS_LAUNCH_KEY`. Otherwise each restart prints a new link. Replit, Codespaces and
    Gitpod URLs are detected; behind another proxy or tunnel set `CODE_GODS_PUBLIC_ORIGIN` (and
    `CODE_GODS_ALLOWED_HOSTS` for any further hosts).
+
+Or, with no credential at all: set `VITE_CODE_GODS_ENGINE_URL` to the engine's site URL instead and run the
+same dev server. The app then asks you to sign in, you approve it on the engine's `/connect` page (it acts as
+you in every room, like the engine's own site; revoke it there under Connected apps), and it works from any
+origin (`docs/player-client-integration.md`, "the app in account mode"). In Replit's webview, open the app in a
+tab of its own to sign in.
 
 #### On Replit
 
@@ -192,7 +204,7 @@ def agent(x):
 
 TypeScript: `function agent(x) { return [add(1)]; }`. On a Grid:
 `def agent(grid):\n    return [paint(row(2), "red")]`. The mutators and helpers of the room are listed
-in the observation's `instance` and in the player client. An agent that returns `[]`, or calls that
+in the observation's `instance` and in the app. An agent that returns `[]`, or calls that
 change nothing, validates but every act fails: every object value is unique, so a change onto an
 existing value fails as well.
 
@@ -220,14 +232,14 @@ public message, and try one pause. Then revoke and reconnect a player app.
 ```sh
 pnpm install
 pnpm --filter @workspace/engine dev        # local Convex backend (3210 client, 3211 site) + stand-in OIDC (3399); uploads the Python runtime and the calibration tables, seeds the system setups
-pnpm --filter @workspace/engine deploy-static     # engine UI at http://127.0.0.1:3211/, player client at /client/ (/player/ redirects there)
+pnpm --filter @workspace/engine deploy-static     # the app at http://127.0.0.1:3211/
 ```
 
 `dev` runs the official Convex CLI's local backend (`npx convex dev`, anonymous) and a stand-in OIDC
 provider (`scripts/fake-oidc.mjs`), which Better Auth offers as the test-only provider "fake" because the
 **local-only** env vars `TEST_FIXTURES` and `FAKE_OIDC_URL` are set. The UI's button goes to
 Google (dummy client id locally); sign in as a test identity with `POST /api/auth/sign-in/oauth2
-{"providerId":"fake","callbackURL":"/"}` from the page, as `artifacts/code-gods/e2e/smoke.ts` does.
+{"providerId":"fake","callbackURL":"/"}` from the page, as `artifacts/player-web/e2e/site-smoke.ts` does.
 Signing in offers the test identities alice, bob, carol, admin and unverified. It also sets a random
 season salt, JWT keys, a Better Auth secret and JWKS, and `AI_MOCK=1` (an offline mock AI provider).
 Before it prints `[dev] READY` it uploads the Python runtime bundle (`upload-runtime`: it runs `setup:python`
@@ -238,7 +250,8 @@ matches the code after a pull. On every start it removes any `DEV` env var from 
 `TEST_FIXTURES` is the one fixtures switch locally, and a leftover `DEV=1` would keep fixtures on when
 `test:auth` turns them off.
 A local deployment created before Google sign-in (its `users` rows have `issuer`) refuses the new schema:
-there is no migration, so stop the engine, delete `artifacts/engine/.convex/local` and start it again.
+there is no migration, so stop the engine, delete `artifacts/engine/.convex/local` and start it again. Schema changes since then are
+migrations (CLAUDE.md "Schema migrations"), which `dev` starts on every run like a deploy does.
 
 A local player app: `pnpm player connect --engine http://127.0.0.1:3211 --room CODE --write-env .env.local`
 (gitignored), approve as a test identity, then `PORT=22772 BASE_PATH=/ pnpm --filter @workspace/player-web dev`.
@@ -246,7 +259,7 @@ A local player app: `pnpm player connect --engine http://127.0.0.1:3211 --room C
 
 Tests that use the local backend: `pnpm --filter @workspace/engine test:game`,
 `pnpm --filter @workspace/engine test:auth`, `pnpm --filter @workspace/player-client test` and
-`pnpm --filter @workspace/code-gods run e2e` (Playwright, three signed-in browsers). Tests without an
+`pnpm --filter @workspace/player-web run e2e:site` (Playwright, three signed-in browsers). Tests without an
 engine: `pnpm run typecheck`, `pnpm --filter @workspace/game-runtime test` (after
 `setup:python` and `build:python`), and the `lib/game-*`, `lib/object-views` and `lib/ai-player` tests.
 
@@ -271,9 +284,9 @@ the engine.
 
 Tested locally, against the Convex local backend: the engine's functions and HTTP actions, full games
 on Int, string and Grid in both languages, disclosure, idle parking, the device flow and credentials,
-revocation, the room assistant, the player app's token endpoint, static hosting of both sites, mock AI
-seats, Better Auth sign-in, sign-out and session expiry through the stand-in provider, and the engine UI
-end to end in Playwright with stand-in identities.
+revocation, the room assistant, the player app's token endpoint, static hosting of the app, mock AI
+seats, Better Auth sign-in, sign-out and session expiry through the stand-in provider, and the app's site
+pages and its account mode end to end in Playwright with stand-in identities.
 
 Needs the real account and is **not** yet verified:
 

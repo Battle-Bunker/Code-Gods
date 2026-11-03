@@ -11,7 +11,7 @@ import { nextStep } from "../src/core/panels/next-step.ts";
 
 const PHASES = ["lobby", "planning", "running", "paused", "ended"] as const;
 const ctx = (over: Partial<SuggestionContext> = {}): SuggestionContext =>
-  ({ phase: "running", seated: true, isOwner: false, agents: 1, ready: false, members: 4, assistantOn: true, ...over });
+  ({ phase: "running", seated: true, isOwner: false, agents: 1, ready: false, players: 4, assistantOn: true, ...over });
 
 test("every phase offers one to three chips; each sends a prompt when the assistant is on and runs a command when it is off", () => {
   for (const phase of PHASES) {
@@ -38,7 +38,7 @@ test("the phase decides the chips (player-client.md §4)", () => {
 
 test("the situation adjusts them: ready, an owner short of players, no agent yet, a spectator", () => {
   assert.ok(!suggestionsFor(ctx({ phase: "lobby", ready: true })).some(c => c.label === "I'm ready"), "no 'I'm ready' once ready");
-  const owner = suggestionsFor(ctx({ phase: "lobby", isOwner: true, members: 2 }));
+  const owner = suggestionsFor(ctx({ phase: "lobby", isOwner: true, players: 2 }));
   assert.equal(owner[0].label, "Add an AI player");
   assert.equal(owner[0].command, "rooms.addAi", "a command, also with the assistant on: seating an AI is an owner's form");
   assert.ok(owner.length <= 3);
@@ -65,9 +65,9 @@ test("empty-state copy: a greeting and one short paragraph per phase, the off st
 });
 
 test("the overview's one next step follows the situation", () => {
-  const step = (over: Partial<Parameters<typeof nextStep>[0]>) => nextStep({ phase: "running", seated: true, isOwner: false, members: 4, agents: 1, ...over });
-  assert.deepEqual(step({ phase: "lobby", isOwner: true, members: 3 }).action, { kind: "start" }, "an owner with players starts the game");
-  assert.deepEqual(step({ phase: "lobby", isOwner: true, members: 2 }).action, { kind: "palette", command: "rooms.addAi" }, "short of players: seat an AI");
+  const step = (over: Partial<Parameters<typeof nextStep>[0]>) => nextStep({ phase: "running", seated: true, isOwner: false, players: 4, agents: 1, ...over });
+  assert.deepEqual(step({ phase: "lobby", isOwner: true, players: 3 }).action, { kind: "start" }, "an owner with players starts the game");
+  assert.deepEqual(step({ phase: "lobby", isOwner: true, players: 2 }).action, { kind: "palette", command: "rooms.addAi" }, "short of players: seat an AI");
   assert.deepEqual(step({ phase: "lobby" }).action, { kind: "panel", panelId: "rules" }, "a player waits and learns");
   assert.deepEqual(step({ phase: "planning", agents: 0 }).action, { kind: "forge" });
   assert.deepEqual(step({ phase: "running", agents: 0 }).action, { kind: "forge" });

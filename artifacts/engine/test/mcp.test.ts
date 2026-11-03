@@ -499,7 +499,7 @@ test("OAuth: challenge → metadata → DCR → authorize → /connect approval 
   assert.equal(who.data.roomCode, shortCode);
   assert.equal(who.data.permission, "act");
   assert.equal(who.data.kind, "oauth");
-  // The connection is listed on the engine UI's credential list, with its client.
+  // The connection is listed under the app's Connected apps, with its client.
   const listed = (await ada.c.query(api.auth.credentials.list, {})).find((c: any) => c.credentialId === who.data.credentialId);
   assert.equal(listed?.kind, "oauth");
   assert.match(listed?.label ?? "", /^Test Connector /);
@@ -517,7 +517,7 @@ test("OAuth: challenge → metadata → DCR → authorize → /connect approval 
   assert.equal((await modern(next.access_token, "tools/list")).status, 401, "reuse revoked the grant: its live access token fails");
   assert.equal((await refresh(next.refresh_token)).status, 400, "and its newest refresh token too");
 
-  // A second connection, revoked from the engine UI.
+  // A second connection, revoked from the app's Connected apps.
   const second = await connect(ada, roomId, "read");
   assert.deepEqual((await listTools(second.tokens.access_token)).filter(n => n === "send_chat"), [], "read scope: no act tools");
   const id = (await call(second.tokens.access_token, "whoami", {})).data.credentialId;

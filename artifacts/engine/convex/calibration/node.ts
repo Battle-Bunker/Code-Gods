@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { instantiationOf, type GameSettings } from "@workspace/game-core";
 import { manifestEntry, tableFor, type CalibrationFile } from "@workspace/game-utilities";
 import { internal } from "../_generated/api";
-import { action, internalAction } from "../_generated/server";
+import { internalAction } from "../_generated/server";
 import { priorOf } from "../engine/node";
 import { calibrationLoad, forgetCalibrationIndex, resolveTables, tablesFor } from "../engine/calibration";
 import { fail } from "../lib/errors";
@@ -50,11 +50,12 @@ export const register = internalAction({
 const drawV = v.object({ familyId: v.string(), params: v.any() });
 
 /**
- * The calibration tables of some draws of a game's instantiation (the player client's own utility: its reward channel
- * and its defence goal), as JSON text. The tables are public data (they are in the repository); only the requested
- * ones are sent, never a whole file. Fails when a draw has no fresh table (shipped, analytic or computed earlier).
+ * The calibration tables of a player's own draws (its reward channel and its defence goal), as JSON text: what
+ * GET /api/calibration/<roomId>/<gameId>/<godId> serves (calibration/mine.ts checks the caller first). Only the
+ * requested tables are sent, never a whole file. Fails when a draw has no fresh table (shipped, analytic or computed
+ * earlier: a started game's draws always have one).
  */
-export const tables = action({
+export const tablesOf = internalAction({
   args: { settings: v.any(), draws: v.array(drawV) },
   handler: async (ctx, { settings, draws }): Promise<string> => {
     if (draws.length < 1 || draws.length > 2) fail("BAD_REQUEST", "Ask for one or two draws (a utility and its defence goal)");

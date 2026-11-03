@@ -37,7 +37,7 @@ export const createRoom = internalMutation({
       settings: defaultSettingsFor(DEFAULT_SETTINGS.objectType),
       aiBudget: 0, aiUsed: 0, aiReservedUsd: 0, aiInputTokens: 0, aiOutputTokens: 0, aiCalls: [],
     });
-    await ctx.db.insert("members", { roomId, godId: ownerId, userId: ownerId, name: ownerId, kind: "human", ready: false, joinedAt: now });
+    await ctx.db.insert("members", { roomId, godId: ownerId, userId: ownerId, name: ownerId, kind: "human", ready: false, spectator: true, joinedAt: now });
     return roomId;
   },
 });

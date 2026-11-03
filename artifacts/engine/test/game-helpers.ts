@@ -7,7 +7,7 @@
 import assert from "node:assert/strict";
 import { after } from "node:test";
 import { readFileSync } from "node:fs";
-import { randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { ConvexHttpClient } from "convex/browser";
 import { ConvexError } from "convex/values";
@@ -62,6 +62,19 @@ export async function playerClient(god: God, roomId: string, permission: "read" 
   return clientFor(god.subject, "player", { cred: credentialId });
 }
 
+/**
+ * A real Convex JWT for `god` over HTTP (what a client sends to an engine route that checks `Authorization: Bearer`):
+ * a player JWT minted by /api/device/token from a seeded `cgc_` credential bound to `roomId`. (Admin impersonation,
+ * which the other tests use, does not reach HTTP actions.)
+ */
+export async function httpJwt(god: God, roomId: string): Promise<string> {
+  const credential = `cgc_${randomBytes(32).toString("base64url")}`;
+  await admin.mutation(internal.testing.seedCredential, { subject: god.subject, roomId, permission: "read", tokenHash: createHash("sha256").update(credential).digest("hex") });
+  const response = await fetch(`${SITE_}/api/device/token`, { method: "POST", headers: { authorization: `Bearer ${credential}` } });
+  assert.equal(response.status, 200, await response.clone().text());
+  return (await response.json() as { token: string }).token;
+}
+
 export const envelope = (command: Record<string, unknown>, gameId?: string) =>
   ({ version: VERSION, commandId: randomUUID(), ...(gameId ? { gameId } : {}), command });
 
@@ -70,12 +83,14 @@ export async function touch(god: God) { await god.c.mutation(api.activity.touch,
 /** A room with these gods (first is owner); settings applied directly by the test helper when given. */
 /**
  * Every agent sandbox of the deployment warm (runtime/readiness.ts): a start never waits for one, so a test that
- * validates right after its start needs them booted first. Once per test process; the manifest schedules the boots.
+ * validates right after its start needs them booted first. Once per test process; manifest.node.warm schedules the boots.
  */
 let warm: Promise<void> | undefined;
 export function sandboxesWarm(): Promise<void> {
   return warm ??= (async () => {
-    const sandboxes: { language: string; state: string; reason?: string }[] = (await admin.action(api.manifest.get, {})).sandboxes;
+    // The manifest is for signed-in callers (the admin key alone carries no identity).
+    const [warmer] = await gods("Sandbox Warmer");
+    const sandboxes: { language: string; state: string; reason?: string }[] = (await warmer.c.action(api.manifest.node.warm, {})).sandboxes;
     const undeployed = sandboxes.find(s => s.state === "failed");
     if (undeployed) throw new Error(`The ${undeployed.language} sandbox cannot boot: ${undeployed.reason}`);
     const languages = sandboxes.map(s => s.language);
@@ -92,6 +107,8 @@ export async function roomWith(members: God[], settings?: Record<string, unknown
   await sandboxesWarm();
   const [owner, ...rest] = members;
   const { roomId, shortCode } = await owner.c.mutation(api.rooms.create, {});
+  // The owner starts as a spectator (docs/unify-apps-plan.md §2); these rooms seat every member given.
+  await owner.c.mutation(api.rooms.setSpectator, { roomId, spectator: false });
   for (const m of rest) await m.c.mutation(api.rooms.join, { room: shortCode });
   if (settings) {
     const room = await owner.c.query(api.rooms.get, { room: roomId });
@@ -146,7 +163,7 @@ export async function startedGame(owner: God, roomId: string, started: any, ms =
     if (room.preparing?.error) throw new Error(`the game in ${roomId} failed to prepare: ${room.preparing.error}`);
     return room.activeGame;
   }, `the prepared game in ${roomId} starts`, ms, 500);
-  const { guid } = await owner.c.query(api.games.view, { code: game.shortCode });
+  const { guid } = await owner.c.query(api.games.header, { code: game.shortCode });
   return { gameId: game.id, shortCode: game.shortCode, guid };
 }
 
@@ -159,9 +176,4 @@ export const PY = {
   Int: "def agent(x):\n    return [add(1)]",
   string: "def agent(s):\n    return [rotate(1)]",
   Grid: "def agent(grid):\n    return [slide(row(0), 1)]",
-} as const;
-export const HS = {
-  Int: "agent :: Obj -> [Call]\nagent x = [add 1]",
-  string: "agent :: Obj -> [Call]\nagent s = [rotate' 1]",
-  Grid: "agent :: Obj -> [Call]\nagent grid = [slide' (row 0) 1 \"both\"]",
 } as const;

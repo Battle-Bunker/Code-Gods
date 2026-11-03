@@ -3,7 +3,8 @@
  * the mock assistant (no provider cost) driven through the composer: turn 1 ranks the player's objects and saves the
  * ranking (store.put) and the script (saveAs); turn 2 re-reads the saved ranking from the store and compares it with
  * the objects now. Shots: phone 390×844 and desktop 1440×900 (cropped to the panel), at 1× to stay small.
- * Usage (local engine running, mocked): node --experimental-transform-types e2e/code-results-shots.ts <out dir>
+ * The player is signed in with the site's session, in the app the engine serves (deploy-static), at the live game's
+ * page. Usage (local engine running, mocked): node --experimental-transform-types e2e/code-results-shots.ts <out dir>
  */
 import "../../engine/scripts/local-only.mjs";
 import { createRequire } from "node:module";
@@ -23,6 +24,7 @@ const { session } = await login("alice");
 const me = new ConvexHttpClient(CLOUD);
 me.setAuth(await browserJwt(session));
 const { roomId, shortCode } = await me.mutation(fn.m("rooms:create"), {}) as { roomId: string; shortCode: string };
+await me.mutation(fn.m("rooms:setSpectator"), { roomId: roomId, spectator: false });   // owners start as spectators; this one plays
 const owner = (action: string, extra: Record<string, unknown> = {}) => me.action(fn.a("owner:command"), { roomId, action, requestId: crypto.randomUUID(), ...extra });
 await owner("addAi", { aiAgentId: "sonnet-strategist" });
 await owner("addAi", { aiAgentId: "sonnet-strategist" });
@@ -33,6 +35,9 @@ for (let i = 0; i < 120; i++) {
   if (o.phase === "running" && o.objects.length >= 5) break;
   await sleep(1000);
 }
+// The player's dock is the live game's page, /rooms/:room/games/:game.
+const gameCode = (await me.query(fn.q("rooms:get"), { room: roomId }) as { activeGame: { shortCode: string } | null }).activeGame?.shortCode;
+if (!gameCode) throw new Error("the game did not start");
 
 const RANK = "def main(data):\n    rows = sorted(data['objects'], key=lambda o: -o['payoff'])[:5]\n"
   + "    top = [{'rank': i + 1, 'value': str(o['value'])[:14], 'payoff': round(o['payoff'], 2), 'id': o['id']} for i, o in enumerate(rows)]\n"
@@ -67,7 +72,7 @@ for (const [name, viewport, scale] of [["phone-390x844", { width: 390, height: 8
   const context = await browser.newContext({ viewport, deviceScaleFactor: scale });
   await context.addCookies(cookies);
   const page = await context.newPage();
-  await page.goto(`${SITE}/client/rooms/${shortCode}`);
+  await page.goto(`${SITE}/rooms/${shortCode}/games/${gameCode}`);
   await page.locator("[data-testid=table-code-result]").first().waitFor({ timeout: 60_000 });
   await page.locator("[data-testid=panel-code-output]").first().scrollIntoViewIfNeeded();
   const path = `${OUT}/${name}.png`;

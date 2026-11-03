@@ -27,7 +27,7 @@ function phasePill(s: Situation, now: number): string {
   const live = obs.phase === "planning" || obs.phase === "running" || obs.phase === "paused";
   if (live && !s.seated) return `Spectating · ${obs.phase}`;
   switch (obs.phase) {
-    case "lobby": { const ready = s.room?.members.filter(m => m.ready).length; return s.room ? `Lobby · ${ready} of ${s.members} ready` : "Lobby"; }
+    case "lobby": { const ready = s.room?.members.filter(m => m.ready && !m.spectator).length; return s.room ? `Lobby · ${ready} of ${s.players} ready` : "Lobby"; }
     case "planning": {
       const left = countdown(obs.planningEndsAt);
       if (left) return `Planning · starts in ${left}`;
@@ -63,7 +63,7 @@ export function Header() {
       </span>
       <span className="hidden min-w-0 truncate font-mono text-[11px] text-muted-foreground lg:inline">
         room <span data-testid="text-room">{roomCode ?? roomId}</span> · <span data-testid="text-mode">{mode === "devserver" ? "your player app" : "hosted client"}</span>
-        {roomCode && <> · <Link to={{ kind: "games", room: roomCode }} className="underline" data-testid="link-past-games">past games</Link></>}
+        {roomCode && <> · <Link to={{ kind: "room", room: roomCode }} className="underline" data-testid="link-room-page">room page</Link></>}
       </span>
       {SAFE_MODE && <span className="shrink-0 text-xs text-muted-foreground" data-testid="text-safe-mode">Safe mode: panels are off</span>}
       <PlayerPalette compact={!wide} />

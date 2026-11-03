@@ -1,9 +1,10 @@
 /**
- * Screenshots of Grid digits as the apps draw them, one game per colour set (rgb, rgby, rainbow6) and a 7×7 card
- * game, in the player client (/client/) and the engine UI (/), for checking the digit palettes by eye (DIGIT_SHADES).
+ * Screenshots of Grid digits as the app draws them, one game per colour set (rgb, rgby, rainbow6) and a 7×7 card
+ * game, on the live game's page (/rooms/:room/games/:game) in both of its views: the player view (Alice's dock: she
+ * plays) and the spectator view (Bob, a member who watches), for checking the digit palettes by eye (DIGIT_SHADES).
  * Each shot is cropped to the first panel that shows digits, at 1× (a real monitor's pixels).
  *
- * Usage (local engine running, both sites deployed with deploy-static.mjs):
+ * Usage (local engine running, the app deployed with deploy-static.mjs):
  *   node --experimental-transform-types e2e/grid-digits-shots.ts <out dir> [label]
  */
 import "../../engine/scripts/local-only.mjs";
@@ -24,19 +25,21 @@ mkdirSync(OUT, { recursive: true });
 const { session } = await login("alice");
 const me = new ConvexHttpClient(CLOUD);
 me.setAuth(await browserJwt(session));
+// Bob joins each room as a spectator: his page of the game is the spectator view.
+const { session: watcher } = await login("bob");
+const bob = new ConvexHttpClient(CLOUD);
+bob.setAuth(await browserJwt(watcher));
 // The colour sets at their seed setups' sizes, and the widest grid: 7×7 playing cards.
 const SETS = [["rgb", 5, "base10"], ["rgby", 5, "base10"], ["rainbow6", 6, "base10"], ["rainbow6", 7, "cards"]] as const;
 const { chromium } = createRequire(import.meta.url)("playwright") as typeof import("playwright");
 const browser = await chromium.launch();
-const cookies = session.split("; ").map(pair => ({ name: pair.slice(0, pair.indexOf("=")), value: pair.slice(pair.indexOf("=") + 1), url: SITE }));
+const cookiesOf = (header: string) => header.split("; ").map(pair => ({ name: pair.slice(0, pair.indexOf("=")), value: pair.slice(pair.indexOf("=") + 1), url: SITE }));
 
-async function shoot(app: "player" | "engine", set: string, shortCode: string) {
+async function shoot(app: "player" | "spectator", set: string, gamePath: string) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
-  await context.addCookies(cookies);
+  await context.addCookies(cookiesOf(app === "player" ? session : watcher));
   const page = await context.newPage();
-  await page.goto(`${SITE}${app === "player" ? "/client/rooms/" : "/rooms/"}${shortCode}`);
-  // The engine UI shows objects on the room's live game page.
-  if (app === "engine") await page.locator("[data-testid=link-running-game]").first().click();
+  await page.goto(`${SITE}${gamePath}`);
   const digits = page.locator("[data-renderer=digits]");
   try { await digits.first().waitFor({ timeout: 60_000 }); } catch { console.log(`${app} ${set}: no digits shown`); await page.screenshot({ path: `${OUT}/${LABEL}-${app}-${set}-page.png` }); await context.close(); return; }
   await page.waitForTimeout(1500);
@@ -52,9 +55,11 @@ async function shoot(app: "player" | "engine", set: string, shortCode: string) {
   await context.close();
 }
 
-// One game at a time, shot in both apps while it runs.
+// One game at a time, shot in both views while it runs.
 for (const [colours, size, symbols] of SETS) {
   const { roomId, shortCode } = await me.mutation(fn.m("rooms:create"), {}) as { roomId: string; shortCode: string };
+  await me.mutation(fn.m("rooms:setSpectator"), { roomId: roomId, spectator: false });   // owners start as spectators; this one plays
+  await bob.mutation(fn.m("rooms:join"), { room: roomId, spectator: true });
   const room = await me.query(fn.q("rooms:get"), { room: roomId }) as { revision: number; settings: Record<string, unknown> };
   await me.action(fn.a("owner:settings"), { roomId, revision: room.revision, settings: { ...room.settings, typeArgs: { size, symbols, colours } } });
   const owner = (action: string, extra: Record<string, unknown> = {}) => me.action(fn.a("owner:command"), { roomId, action, requestId: crypto.randomUUID(), ...extra });
@@ -69,7 +74,8 @@ for (const [colours, size, symbols] of SETS) {
     await sleep(1000);
   }
   const set = symbols === "cards" ? `${colours}-cards` : colours;
-  for (const app of ["player", "engine"] as const) await shoot(app, set, shortCode);
+  const game = (await me.query(fn.q("rooms:get"), { room: roomId }) as { activeGame: { shortCode: string } | null }).activeGame!.shortCode;
+  for (const app of ["player", "spectator"] as const) await shoot(app, set, `/rooms/${shortCode}/games/${game}`);
   await owner("endGame");
 }
 await browser.close();

@@ -64,7 +64,7 @@ export async function status(engine: Engine) {
       engine.query(api.auth.user.me, {}), engine.query(api.rooms.get, { room: token.roomId }), engine.query(api.activity.status, {}),
     ]);
     out.user = me && { name: me.name, subject: me.subject, scope: me.scope, label: me.label, labelIsSelfReported: true };
-    out.room = { id: room.id, code: room.shortCode, owner: room.ownerName, members: room.members.length,
+    out.room = { id: room.id, code: room.shortCode, owner: room.ownerName, members: room.members.length, players: room.members.filter(m => !m.spectator).length,
       phase: room.activeGame?.phase ?? "lobby", activeGame: room.activeGame?.shortCode ?? null };
     out.idle = activity.idle;
     out.ok = true;

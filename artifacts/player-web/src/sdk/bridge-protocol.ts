@@ -41,7 +41,7 @@ export const DEFAULT_HZ = 2;
 export const MAX_HZ = 5;
 export const clampHz = (hz: unknown) => Math.min(MAX_HZ, Math.max(0.2, typeof hz === "number" && Number.isFinite(hz) ? hz : DEFAULT_HZ));
 
-export type BridgeRoom = { roomId: string; permission: "read" | "act" | "owner"; mode: "devserver" | "hosted" };
+export type BridgeRoom = { roomId: string; permission: "read" | "act" | "owner"; mode: "devserver" | "site" };
 /** `version`: a stored version number, or a source hash for a file panel run sandboxed. */
 export type BridgePanel = { slug: string; version: number | string; compiled: string; title: string };
 

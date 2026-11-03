@@ -92,6 +92,9 @@ test("public chat, owner actions, pauses, destroys and panel and setup deletion 
     "get_layout", "open_panel", "set_panel_params", "open_panel", "move_pane", "close_pane"]) {
     assert.equal(needsConfirmation(tool, {}, {}), false, tool);
   }
+  // Catches: the owner's assistant moving another member to spectator (or back) without a card.
+  assert.equal(needsConfirmation("set_spectator", { spectator: true }, {}), false, "the player's own choice");
+  assert.equal(needsConfirmation("set_spectator", { spectator: true, deityId: "u2" }, {}), true, "another member's: an owner action");
   assert.equal(needsConfirmation("summon_agent", {}, {}), true, "no auto-approval set");
   assert.equal(needsConfirmation("summon_agent", {}, { autoApproveSummonBits: 50 }), true, "no validated cost known");
   assert.equal(needsConfirmation("summon_agent", {}, { autoApproveSummonBits: 50, validatedCost: 50 }), false, "within the limit (inclusive)");

@@ -24,7 +24,6 @@ import { composer } from "@/core/chat/composer";
 import { useSituation } from "@/core/game/situation";
 import { paletteStore } from "@/core/palette/store";
 import { useWide } from "@/core/use-wide";
-import { EndedGameBar } from "@/core/replay/ended-bar";
 import { dockActions } from "./actions";
 import { PanelsProvider, usePanelRegistry, type Panels } from "./panels";
 import StackedDock from "./stacked";
@@ -102,7 +101,7 @@ export function PlayerShell({ replay }: { replay?: ShellReplay } = {}) {
 }
 
 /**
- * The bar under the dock (the replay bar, or the room's "Watch the replay"): its height is published as
+ * The bar under the dock (the replay bar): its height is published as
  * `--cg-footer-h`, so the phone's assistant sheet (fixed to the screen's bottom) sits above it rather than over it.
  */
 function ShellFooter({ children }: { children: ReactNode }) {
@@ -120,16 +119,6 @@ function ShellFooter({ children }: { children: ReactNode }) {
   return <div ref={ref} className="relative z-50 shrink-0" data-testid="shell-footer">{children}</div>;
 }
 
-/** Replay mode opens the Timeline once the human's layout is in (unless it already has one). */
-function useTimelinePane(store: DockStore, on: boolean, loaded: boolean) {
-  const done = useRef(false);
-  useEffect(() => {
-    if (!on || !loaded || done.current) return;
-    done.current = true;
-    const panes = Object.values(store.layout.panes);
-    if (!panes.some(p => p.kind === "panel" && p.panelId === "timeline")) dockActions(store).show("timeline");
-  }, [store, on, loaded]);
-}
 
 function Screen({ panels, replay }: { panels: Panels; replay?: ShellReplay }) {
   useHumanActivity(!replay);
@@ -148,7 +137,8 @@ function Screen({ panels, replay }: { panels: Panels; replay?: ShellReplay }) {
   useEffect(() => { store.setPanels(SAFE_MODE ? [] : panels.stored ? panels.stored.filter(p => p.enabled).map(p => p.slug) : null, panels.fileIds); }, [store, panels.stored, panels.fileIds]);
   useEffect(() => { if (current) store.server(current.layout, current.updatedAt); }, [store, current]);
   useNewFilePanels(store, panels.fileIds, current !== undefined);
-  useTimelinePane(store, !!replay, current !== undefined);
+  // A replay shows its Timeline over whatever layout the engine has (dock/layout-sync.ts withTimeline).
+  useEffect(() => { store.setReplayTimeline(!!replay); }, [store, replay]);
 
   return (
     <div className="flex h-[100dvh] flex-col overflow-hidden bg-background">
@@ -156,7 +146,7 @@ function Screen({ panels, replay }: { panels: Panels; replay?: ShellReplay }) {
       <main data-testid="dock" className="min-h-0 flex-1">
         {wide ? <Suspense fallback={<p className="p-4 text-sm text-muted-foreground">Loading the dock…</p>}><DesktopDock /></Suspense> : <StackedDock />}
       </main>
-      <ShellFooter>{replay ? replay.footer : <EndedGameBar />}</ShellFooter>
+      {replay && <ShellFooter>{replay.footer}</ShellFooter>}
       <Confirmations entries={panels.entries} />
     </div>
   );

@@ -5,7 +5,7 @@
  *
  *   pnpm --filter @workspace/engine dev
  *     → backend http://127.0.0.1:3210 (client URL), site http://127.0.0.1:3211 (HTTP actions + static sites),
- *       fake OIDC http://127.0.0.1:3399. The engine UI's "Sign in" goes to Google (which refuses the dummy
+ *       fake OIDC http://127.0.0.1:3399. The app's "Sign in" goes to Google (which refuses the dummy
  *       client id locally); tests and e2e sign in through Better Auth's test-only provider "fake" instead:
  *       POST /api/auth/sign-in/oauth2 {"providerId":"fake"} and pick an identity (alice, bob, carol, admin,
  *       unverified; see scripts/fake-oidc.mjs and test/helpers.ts login()).
@@ -19,7 +19,7 @@
  * What it does: (1) starts the fake OIDC server; (2) `convex dev --once` creates/pushes the local
  * deployment; (3) sets the deployment env vars below; (4) generates Better Auth's static JWKS once
  * (`convex run auth/betterAuth:rotateKeys`); (5) runs `convex dev` (watch), whose first push re-evaluates
- * auth.config.ts with both JWKS; (6) once that push has finished, uploads the runtime bundles (Python, Haskell)
+ * auth.config.ts with both JWKS; (6) once that push has finished, uploads the runtime bundle (Python)
  * (scripts/upload-runtime.mjs: built first if missing or stale, skipped if the deployment has it) and the
  * calibration tables (scripts/upload-calibration.mjs; unchanged files are skipped) to the local deployment's
  * file storage, and seeds the system setups (`setups:ensureSeeded`, idempotent, as every deploy does), then
@@ -121,7 +121,7 @@ const watch = (stream, out) => stream.on("data", chunk => {
   // The CLI logs progress on stderr; the first "functions ready" after the env change is the signal.
   if (!ready && /Convex functions ready/.test(String(chunk))) {
     ready = true;
-    // 5. The runtime bundles (Python, Haskell) and the calibration tables → file storage (each skips what is already there),
+    // 5. The runtime bundle (Python) and the calibration tables → file storage (each skips what is already there),
     //    and the system setups (game-core SEED_SETUPS), which deploys seed with the same idempotent mutation.
     const runner = convexRunner([], root, env), log = line => console.log(`[dev] ${line}`);
     Promise.all([
@@ -131,6 +131,9 @@ const watch = (stream, out) => stream.on("data", chunk => {
         .catch(error => console.error(`[dev] uploading the calibration tables failed: ${error.message}`)),
       runner("setups:ensureSeeded").then(() => log("Seeded the system setups."))
         .catch(error => console.error(`[dev] seeding the system setups failed (setup tests will fail): ${error.message}`)),
+      // A local deployment migrates its stored rows as every deploy does (CLAUDE.md "Schema migrations").
+      runner("migrations:runAll").then(() => log("Started the schema migrations (migrations:status)."))
+        .catch(error => console.error(`[dev] starting the schema migrations failed: ${error.message}`)),
     ]).finally(() => console.log(`[dev] READY cloud=http://127.0.0.1:${cloudPort} site=http://127.0.0.1:${sitePort} oidc=${oidc.issuer}`));
   }
 });

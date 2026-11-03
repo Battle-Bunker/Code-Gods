@@ -7,16 +7,18 @@ export type CredentialKind = "device" | "oauth" | "assistant";
 export const credentialKind = (row: { kind?: CredentialKind }): CredentialKind => row.kind ?? "device";
 
 type CredentialFacts = {
-  subject: string; roomId: string; permission: "read" | "act" | "owner"; expiresAt: number;
+  subject: string; roomId?: string; permission: "read" | "act" | "owner" | "account"; expiresAt: number;
   revokedAt?: number; kind?: CredentialKind; refreshExpiresAt?: number;
 };
 /**
- * Why a credential cannot be used now, or null when it can: revoked, expired (an OAuth grant also after 30
- * idle days), its room gone, or an owner grant whose human is no longer the room's current owner.
+ * Why a credential cannot be used now, or null when it can: revoked, expired (an OAuth grant also after its idle
+ * time), its room gone, or an owner grant whose human is no longer the room's current owner.
  */
 export function credentialProblem(row: CredentialFacts, room: { ownerId: string } | null, now: number): "revoked" | "expired" | "room_gone" | "not_owner" | null {
   if (row.revokedAt !== undefined) return "revoked";
   if (row.expiresAt <= now || (row.refreshExpiresAt !== undefined && row.refreshExpiresAt <= now)) return "expired";
+  // An account grant (docs/external-clients.md) belongs to no room.
+  if (row.permission === "account") return row.roomId === undefined ? null : "room_gone";
   if (!room) return "room_gone";
   if (row.permission === "owner" && room.ownerId !== row.subject) return "not_owner";
   return null;

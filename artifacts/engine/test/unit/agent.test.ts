@@ -6,13 +6,21 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { credentialKind, credentialProblem } from "../../convex/auth/principal.ts";
 import {
-  CLAUDE_CALLBACKS, bearerFrom, firstPartyGrant, isFirstParty, resourceAllowed, cimdUrlProblem, isAllowedOrigin, parseScope, pollDelay, redirectAllowedForRegistration, redirectMatches,
+  CLAUDE_CALLBACKS, bearerFrom, resourceAllowed, cimdUrlProblem, isAllowedOrigin, parseScope, pollDelay, redirectAllowedForRegistration, redirectMatches,
 } from "../../convex/agent/rules.ts";
 import { bound } from "../../convex/agent/bound.ts";
 
 const NOW = 1_000_000_000_000;
 const row = (over: Record<string, unknown> = {}) =>
   ({ subject: "alice", roomId: "room1", permission: "act" as const, expiresAt: NOW + 1000, ...over });
+
+test("credentialProblem: an account grant has no room to lose; one naming a room is malformed", () => {
+  const live = { subject: "u", permission: "account" as const, expiresAt: 2_000 };
+  assert.equal(credentialProblem(live, null, 1_000), null);
+  assert.equal(credentialProblem({ ...live, revokedAt: 500 }, null, 1_000), "revoked");
+  assert.equal(credentialProblem(live, null, 3_000), "expired");
+  assert.equal(credentialProblem({ ...live, roomId: "r" }, null, 1_000), "room_gone");
+});
 
 test("credentialProblem: a live grant passes; revoked, expired, missing room and lost ownership fail", () => {
   assert.equal(credentialProblem(row(), { ownerId: "bob" }, NOW), null, "act grants do not need ownership");
@@ -52,23 +60,6 @@ test("resource: the site, its MCP endpoint, or none; never another resource", ()
   assert.equal(resourceAllowed("https://other.example", custom), false);
 });
 
-test("first-party approval: only the site's own origin, only for a member, never an owner grant", () => {
-  const site = "https://dep.convex.site";
-  const base = { redirectUri: `${site}/client/`, siteOrigin: site, member: true, isOwner: false };
-  assert.equal(isFirstParty(`${site}/client/`, site), true);
-  assert.equal(isFirstParty("https://dep.convex.site.evil.example/client/", site), false);
-  assert.equal(isFirstParty("http://127.0.0.1:3211/client/", "http://127.0.0.1:3211"), true);
-  for (const other of [`${site}/player/`, `${site}/`, `${site}/connect`, `${site}/rooms/ABCD?x=1`, `${site}/mcp`, `${site}/clientx/`]) {
-    assert.equal(isFirstParty(other, site), false, `another page of the site is not the hosted client: ${other}`);
-  }
-  assert.equal(firstPartyGrant({ ...base, requested: "act" }), "act");
-  assert.equal(firstPartyGrant({ ...base, requested: "read" }), "read");
-  assert.equal(firstPartyGrant({ ...base, requested: "owner" }), "act", "a non-owner's owner request is lowered to act");
-  assert.equal(firstPartyGrant({ ...base, requested: "owner", isOwner: true }), null, "the owner consents explicitly");
-  assert.equal(firstPartyGrant({ ...base, requested: "act", member: false }), null, "joining is the human's own click");
-  assert.equal(firstPartyGrant({ ...base, requested: "act", redirectUri: "https://xyz.replit.dev/" }), null, "any other origin asks");
-});
-
 test("redirect matching: exact, except that a loopback port may vary (RFC 8252)", () => {
   assert.equal(redirectMatches("https://claude.ai/api/mcp/auth_callback", ["https://claude.ai/api/mcp/auth_callback"]), true);
   assert.equal(redirectMatches("https://claude.ai/api/mcp/auth_callback?x=1", ["https://claude.ai/api/mcp/auth_callback"]), false);
@@ -93,6 +84,9 @@ test("scopes: read, act and owner (default act); unknown scopes are refused", ()
   assert.equal(parseScope("act read"), "act", "the strongest requested scope");
   assert.equal(parseScope("owner"), "owner");
   assert.equal(parseScope("admin"), null);
+  // An account grant (docs/external-clients.md): alone, never mixed with a room permission.
+  assert.equal(parseScope("account"), "account");
+  assert.equal(parseScope("account act"), null);
 });
 
 test("Origin: absent passes; the site and configured origins pass; anything else is refused", () => {

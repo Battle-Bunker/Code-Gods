@@ -3,7 +3,7 @@
  * test/unit/agent.test.ts): which redirect URIs a client may use, the CIMD URL guard, scopes, the Origin
  * check and how a request presents its credential.
  */
-import type { Permission } from "../auth/access";
+import type { Grant, Permission } from "../auth/access";
 
 /** Claude's hosted MCP connector callbacks (claude.ai custom connectors). */
 export const CLAUDE_CALLBACKS = ["https://claude.ai/api/mcp/auth_callback", "https://claude.com/api/mcp/auth_callback"] as const;
@@ -42,29 +42,6 @@ export function resourceAllowed(resource: string | null | undefined, sites: stri
     const base = site.replace(/\/+$/, "");
     return resource === base || resource === `${base}/` || resource === `${base}/mcp`;
   });
-}
-
-/** Where the engine serves its own player client (`/player/*` only redirects there: convex/http.ts). */
-export const HOSTED_CLIENT_PATHS = ["/client/"] as const;
-/**
- * Is this redirect URI the engine's own hosted player client: the site's origin AND the client's path? Any other
- * page of the site is not, so a code can never be auto-approved to a page that might expose its query string.
- */
-export function isFirstParty(redirectUri: string, siteOrigin: string): boolean {
-  const url = parse(redirectUri);
-  return !!url && url.origin === siteOrigin && HOSTED_CLIENT_PATHS.some(p => url.pathname.startsWith(p));
-}
-
-/**
- * The grant /connect may approve without a click, or null when the human decides (docs/external-clients.md
- * decision 5): only for a redirect to the site's own origin (the code can reach only the engine's own page), a
- * human already in the room, and at most `act`. A non-owner's `owner` request is lowered to `act`; an owner grant
- * always needs the owner's explicit consent.
- */
-export function firstPartyGrant(input: { redirectUri: string; siteOrigin: string; member: boolean; isOwner: boolean; requested: Permission }): Permission | null {
-  if (!isFirstParty(input.redirectUri, input.siteOrigin) || !input.member) return null;
-  if (input.requested !== "owner") return input.requested;
-  return input.isOwner ? null : "act";
 }
 
 /** Does an authorization request's redirect_uri match a registered one? Exact, except a loopback port may vary. */
@@ -106,10 +83,14 @@ export function cimdUrlProblem(clientId: string): string | null {
 }
 
 const PERMISSIONS: readonly Permission[] = ["read", "act", "owner"];
-/** The permission a scope string asks for: the strongest of read/act/owner named (default act); null for anything else. */
-export function parseScope(scope: string | null | undefined): Permission | null {
+/**
+ * The grant a scope string asks for: the strongest of read/act/owner named (default act), or "account" alone (the
+ * human everywhere, docs/external-clients.md); null for anything else, "account" mixed with a room permission included.
+ */
+export function parseScope(scope: string | null | undefined): Grant | null {
   const parts = (scope ?? "").split(/\s+/).filter(Boolean);
   if (!parts.length) return "act";
+  if (parts.includes("account")) return parts.every(p => p === "account") ? "account" : null;
   if (parts.some(p => !PERMISSIONS.includes(p as Permission))) return null;
   return PERMISSIONS.filter(p => parts.includes(p)).at(-1)!;
 }

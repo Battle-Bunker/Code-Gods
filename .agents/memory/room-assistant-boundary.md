@@ -15,7 +15,7 @@ that stores the scoped credential in Replit Secrets.
 `CODE_GODS_CREDENTIAL` (the environment's secret store, e.g. Replit Secrets, or `.env.local`) and
 exchanged for 10-minute JWTs on every call. There is no
 persistent bridge or daemon: each `pnpm player assistant` command is one stateless engine
-call. Revocation is from the engine UI's player page or `pnpm player assistant disconnect`,
+call. Revocation is from Connected apps on the engine site or `pnpm player assistant disconnect`,
 and takes effect on the next call. Owner grants still need the current room owner's
 explicit consent, and read/act grants never inherit owner powers; a stronger grant is a new
 `connect`, never an upgrade. Labels are self-reported: never imply the credential proves

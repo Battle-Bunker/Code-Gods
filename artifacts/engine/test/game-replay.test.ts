@@ -151,5 +151,5 @@ test("an ended game's replay, cut at any snapshot, rebuilds the whole engine sta
 
   // Room members who were not seated in the game get no replay.
   await late.c.mutation(api.rooms.join, { room: shortCode });
-  assert.match(await rejects(late.c.query(api.player.replay, { roomId, gameId: game.gameId })), /Only the gods who played in it and the room owner/);
+  assert.match(await rejects(late.c.query(api.player.replay, { roomId, gameId: game.gameId })), /Only the gods who played in it or watched it, and the room owner/);
 });

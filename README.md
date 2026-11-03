@@ -36,7 +36,7 @@ appearing. Every change to every object is shown to everyone as it happens, but 
 
 ### 3. You write agents
 
-An agent is a few lines of Python, TypeScript or Haskell. Each time it gets a turn, it looks at one object and
+An agent is a few lines of Python or TypeScript. Each time it gets a turn, it looks at one object and
 returns up to 16 moves: slide a row, sort a column, paint a square, swap two colours and so on.
 
 <img src="docs/readme/agent.webp" width="560" alt="The agent editor with a short Python agent that sorts the most out-of-order row. Validation shows the agent is valid and what it costs.">
@@ -67,7 +67,8 @@ moment.
 
 ![The replay of a finished game: final standings, and every player's score over time](docs/readme/replay.webp)
 
-A game needs at least three players. AI players can fill empty seats.
+A game needs three to eight players. AI players can fill empty seats, and anyone in the room can choose to watch
+instead: spectators follow the live game and its replay without being dealt in.
 
 ---
 
@@ -114,13 +115,14 @@ so a move that would copy another object's value fails.
 
 **Your client is part of the game.** The server is the only authority on the rules. Your *client*, the app you play
 in, is yours to change. You can fork it, run it in any dev environment (a local checkout, Codespaces, Gitpod or
-Replit) and have a coding agent improve it while you play. The hosted client at `/client/` is a reference
-implementation with no special powers. It signs in with the same room-scoped token any other app gets, and the engine
-enforces what every client may see. Players can also write *panels*: small TSX views stored in the engine that every
-open client renders, live, in a sandboxed frame.
+Replit) and have a coding agent improve it while you play. The app the engine serves is a reference implementation
+with no special powers: your rights come only from your Google identity, never from which app you run, and the engine
+enforces what every app may see. Run your copy of the app on another origin and it signs in to the same engine as you.
+Players can also write *panels*: small TSX views stored in the engine that every open client renders, live, in a
+sandboxed frame.
 
-**Agents run in deterministic sandboxes.** Python runs as CPython on WebAssembly (WASI), TypeScript runs in QuickJS
-and Haskell is compiled by MicroHs. Agents have no filesystem, network or process access. Time and randomness exist
+**Agents run in deterministic sandboxes.** Python runs as CPython on WebAssembly (WASI) and TypeScript runs in
+QuickJS. Agents have no filesystem, network or process access. Time and randomness exist
 only as a virtual clock and a seeded stream, so the same act gives the same result when it is measured and when it
 is played. A step budget bounds every act.
 
@@ -166,7 +168,7 @@ References: [docs/engine-api.md](docs/engine-api.md) (every route, function and 
 
 **Coding agents working on this repository:** read [CLAUDE.md](CLAUDE.md) first, then the product rules in
 [.agents/memory/](.agents/memory/), and [artifacts/player-web/AGENTS.md](artifacts/player-web/AGENTS.md) if you are
-changing a player client.
+changing the app.
 
 ---
 
@@ -175,15 +177,15 @@ changing a player client.
 ### Architecture at a glance
 
 Everything authoritative lives in **one Convex deployment**: rules, persistence, the tick loop, AI seats, the
-assistant, agent sandboxes, sign-in, and static hosting of both web apps. There is no other server and no other
+assistant, agent sandboxes, sign-in, and static hosting of the web app. There is no other server and no other
 database.
 
 ```mermaid
 flowchart LR
   subgraph clients["Where players are"]
-    ui["Engine UI<br/>artifacts/code-gods"]
-    hosted["Hosted player client at /client/<br/>artifacts/player-web"]
-    own["Your own client, any origin<br/>(a fork, clients/hello)"]
+    ui["The app at /<br/>artifacts/player-web"]
+    own["Your copy of the app, any origin<br/>(a fork on localhost or Replit)"]
+    hello["Other clients<br/>(clients/hello)"]
     agents["Claude, Claude Code,<br/>pnpm player CLI"]
   end
   subgraph convex["One Convex deployment: artifacts/engine"]
@@ -193,8 +195,8 @@ flowchart LR
     store[("Tables and file storage")]
   end
   ui -- "Google session" --> fns
-  hosted -- "room token" --> fns
-  own -- "room token" --> fns
+  own -- "account grant or room token" --> fns
+  hello -- "room token" --> fns
   agents -- "room credential" --> mcp
   mcp --> fns
   fns --> sandboxes
@@ -204,13 +206,12 @@ flowchart LR
 | Path | What it is |
 |---|---|
 | `artifacts/engine` | The Convex deployment: schema, functions, HTTP routes, `/mcp`, sandboxes, scripts |
-| `artifacts/code-gods` | Engine UI: rooms, lobby, owner controls, sign-in and approvals |
-| `artifacts/player-web` | The reference player client, a dock of panels around the assistant |
+| `artifacts/player-web` | The app: rooms, owner controls, sign-in and approvals (`src/site`), and the game itself, a dock of panels around the assistant |
 | `clients/hello`, `clients/claude-artifact` | Minimal external clients |
 | `lib/game-core` | Settings, setups, energy and scoring |
 | `lib/game-types` | Object types (Grid, Int, string), their moves and helper preludes |
 | `lib/game-utilities` | The goal families, their kid cards, annotations and calibration |
-| `lib/game-runtime` | The Python, TypeScript and Haskell agent sandboxes |
+| `lib/game-runtime` | The Python and TypeScript agent sandboxes |
 | `lib/player-client` | Protocol, typed function catalogue, tool registry, browser SDK and the `pnpm player` CLI |
 | `lib/ai-player` | AI seats and the assistant's model providers |
 | `lib/object-views`, `lib/ui-kit` | Shared views (boards, goal cards) and UI building blocks |
@@ -229,7 +230,7 @@ You need Node and pnpm. You don't need a Convex account.
 pnpm install
 # a local Convex backend and a stand-in sign-in provider; wait for "[dev] READY"
 pnpm --filter @workspace/engine dev
-# in a second terminal: the engine UI at http://127.0.0.1:3211/ and the player client at /client/
+# in a second terminal: build and upload the app, served at http://127.0.0.1:3211/
 pnpm --filter @workspace/engine deploy-static
 ```
 

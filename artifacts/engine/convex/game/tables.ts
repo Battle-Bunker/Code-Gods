@@ -1,6 +1,6 @@
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
-import { languageV } from "../lib/language";
+import { storedLanguageV } from "../lib/language";
 
 /**
  * Rooms, games, objects, agents, events, chat, receipts, AI library and budgets (owned by convex/game).
@@ -29,6 +29,9 @@ const aiAgentSnapshot = v.object({
   prompt: v.string(), revision: v.number(),
 });
 const rosterEntry = v.object({ id: v.string(), name: v.string(), kind });
+const leaseV = v.object({ seq: v.number(), leaseUntil: v.number() });
+const statsV = v.object({ acts: v.number(), commits: v.number(), discarded: v.number(), opportunities: v.number() });
+const scoreboardV = v.object({ totals: v.array(v.number()), world: v.number(), at: v.number() });
 const account = v.object({ balance: v.number(), settledWorldSeconds: v.number() });
 const breakdown = v.object({ decision: v.number(), erasure: v.number(), motion: v.number(), floor: v.number() });
 const charge = v.object({ decision: v.number(), erasure: v.number(), motion: v.number(), floor: v.number(), total: v.number(), naming: v.number() });
@@ -108,6 +111,13 @@ export const gameTables = {
 
   members: defineTable({
     roomId: v.id("rooms"), godId: v.string(), name: v.string(), kind, ready: v.boolean(), joinedAt: v.number(),
+    /**
+     * Watches the next game instead of playing it (docs/unify-apps-plan.md §2): not dealt in, not counted toward the
+     * 3 to 8 players. A preference for the next game; a running game's roster never changes. The owner starts as one;
+     * AI seats never are. Optional while migrations:backfillMemberSpectator runs (absent = player); required once every
+     * deployment has run it (CLAUDE.md "Schema migrations").
+     */
+    spectator: v.optional(v.boolean()),
     /** Humans only: the Replit subject (= godId), indexed for auth's device approval (auth/rooms.ts isRoomMember). */
     userId: v.optional(v.string()),
     aiAgent: v.optional(aiAgentSnapshot), status: v.optional(v.string()),
@@ -119,38 +129,104 @@ export const gameTables = {
     roomId: v.id("rooms"), guid: v.string(), shortCode: v.string(), encoded: v.string(),
     phase, scoring: v.literal("information-v1"), seasonCommitment: v.string(),
     settings: v.any(), roster: v.array(rosterEntry),
+    /**
+     * The room's human members who watch this game: everyone not dealt in at launch, and whoever joins while it runs.
+     * Optional while migrations:backfillGameSpectators runs (absent = none); required once every deployment has run it.
+     */
+    spectators: v.optional(v.array(v.string())),
     /** The room's setup when the game started (its id and name then), so history can name it. */
     setupId: v.optional(v.id("gameSetups")), setupName: v.optional(v.string()),
     /** LEGACY (pre setups-v2; cleared by the migration). */
     settingsOrigin: v.optional(settingsOriginV),
     createdAt: v.number(), planningEndsAt: v.number(), pauseEndsAt: v.number(),
-    worldSeconds: v.number(), lastTick: v.number(), nextSpawn: v.number(),
+    /**
+     * LEGACY hot fields (read-architecture R3): every tick commit wrote them here, so every query that read the game
+     * re-ran once a second. They live in gameClocks (worldSeconds, lastTick, objectCount, agentCount, scoreboard) and
+     * gameEngine (tick, nextSpawn, nextBatch, stats) now; migrations:splitGameHotFields moves a stored game's values
+     * there and clears them here (game/state.ts reads either shape). Removed from this validator once every deployment
+     * reports it done (CLAUDE.md "Schema migrations").
+     */
+    worldSeconds: v.optional(v.number()), lastTick: v.optional(v.number()), nextSpawn: v.optional(v.number()),
     /** PRIVATE: the sampled lifetime in world seconds. Never projected. */
     endAtWorld: v.number(),
     /** PRIVATE: the key of the live disclosure noise per object value (engine/node.ts disclosureNoise). Never projected. */
     noiseKey: v.optional(v.string()),
     executionEpoch: v.number(),
-    /** Engine loop lease: only the commit holding `seq` schedules `seq + 1`; the watchdog restarts expired leases. */
-    tick: v.object({ seq: v.number(), leaseUntil: v.number() }),
-    /** Next tickBatches sequence number. */
-    nextBatch: v.number(),
-    objectCount: v.number(),
-    /** Live agents (summon +1, destroy −1), so the public view never reads agent documents to count them. */
+    /** LEGACY (gameEngine.tick). */
+    tick: v.optional(leaseV),
+    /** LEGACY (gameEngine.nextBatch). */
+    nextBatch: v.optional(v.number()),
+    /** LEGACY (gameClocks.objectCount). */
+    objectCount: v.optional(v.number()),
+    /** LEGACY (gameClocks.agentCount). */
     agentCount: v.optional(v.number()),
     autoResume: v.optional(v.boolean()), recoveryReason: v.optional(v.string()),
     endedAt: v.optional(v.number()), endReason: v.optional(v.union(v.literal("lifetime"), v.literal("owner"))),
+    /** LEGACY (gameClocks.scoreboard: published every scoreIntervalSeconds, a hot field too). */
+    scoreboard: v.optional(scoreboardV),
+    /** Public result, written in the commit that ends the game. */
+    summary: v.optional(v.any()),
+    /**
+     * The ended game's whole replay log in file storage (convex/replays.ts), written once after the end; the replay
+     * page fetches it in one read. Optional: a game ended before it existed gets one from migrations:backfillReplays,
+     * and a game whose build failed keeps the paged replay (player.replay).
+     */
+    replayStorageId: v.optional(v.id("_storage")),
+    /** LEGACY (gameEngine.stats). */
+    stats: v.optional(statsV),
+  }).index("by_room", ["roomId"]).index("by_short_code", ["shortCode"]).index("by_encoded", ["encoded"])
+    .index("by_guid", ["guid"]).index("by_phase", ["phase"]),
+
+  /**
+   * A game's public clock (read-architecture §4.1, R3): what changes on every tick commit and what readers of the world
+   * clock need. Kept off the games doc, which the cold queries (room, layout, my utility, history) read. One per game.
+   */
+  gameClocks: defineTable({
+    gameId: v.id("games"),
+    worldSeconds: v.number(), lastTick: v.number(), objectCount: v.number(),
+    /** Live agents (summon +1, destroy −1), so the public view never reads agent documents to count them. */
+    agentCount: v.number(),
     /**
      * The published scoreboard (docs/public-log-design.md §3): every roster god's total payoff, roster order, as the
      * leaderboard shows it, published at world time `world` (wall `at`) by the first commit reaching the next multiple of
      * settings.scoreIntervalSeconds, at the start and at the end. Public. Absent on games started before it existed
      * (their leaderboard is live).
      */
-    scoreboard: v.optional(v.object({ totals: v.array(v.number()), world: v.number(), at: v.number() })),
-    /** Public result, written in the commit that ends the game. */
-    summary: v.optional(v.any()),
-    stats: v.object({ acts: v.number(), commits: v.number(), discarded: v.number(), opportunities: v.number() }),
-  }).index("by_room", ["roomId"]).index("by_short_code", ["shortCode"]).index("by_encoded", ["encoded"])
-    .index("by_guid", ["guid"]).index("by_phase", ["phase"]),
+    scoreboard: v.optional(scoreboardV),
+  }).index("by_game", ["gameId"]),
+
+  /** The engine loop's own state of a game (internal: the loop, the watchdog and commands; never a public query). */
+  gameEngine: defineTable({
+    gameId: v.id("games"),
+    /** Engine loop lease: only the commit holding `seq` schedules `seq + 1`; the watchdog restarts expired leases. */
+    tick: leaseV,
+    nextSpawn: v.number(),
+    /** Next tickBatches sequence number. */
+    nextBatch: v.number(),
+    stats: statsV,
+  }).index("by_game", ["gameId"]),
+
+  /**
+   * The published scoreboard as standings (read-architecture §4.1, R4): one row per roster god, rewritten by the commit
+   * that publishes the scoreboard (every scoreIntervalSeconds of world time, at the start and at the end), so readers
+   * read at most 8 small rows instead of the hot clock or the objects. Public: the disclosed totals only.
+   */
+  standings: defineTable({
+    gameId: v.id("games"), godId: v.string(), rank: v.number(), total: v.number(),
+    /** The publication's world time and wall time. */
+    world: v.number(), at: v.number(),
+  }).index("by_game", ["gameId"]).index("by_game_god", ["gameId", "godId"]),
+
+  /**
+   * One row per published scoreboard (read-architecture §4.1): the race's series, read in cursor pages by `seq` (the
+   * game's publications counted from 0). `totals` are in roster order, as disclosed; the live agent and object counts
+   * are published with them, so the spectator page shows them without reading the hot clock. The latest row's
+   * `agentCount` follows summons and destroys until the next publication (game/readModel.ts recountAgents).
+   */
+  standingsHistory: defineTable({
+    gameId: v.id("games"), seq: v.number(), world: v.number(), at: v.number(), totals: v.array(v.number()),
+    agentCount: v.number(), objectCount: v.number(),
+  }).index("by_game_seq", ["gameId", "seq"]),
 
   deities: defineTable({
     gameId: v.id("games"), godId: v.string(), index: v.number(),
@@ -169,7 +245,14 @@ export const gameTables = {
     salience: v.number(),
     /** PRIVATE: the live disclosure noise on this value's peers' sums and salience (settings.peerNoiseBits). */
     noise: v.optional(v.number()),
-  }).index("by_game", ["gameId"]).index("by_game_value", ["gameId", "value"]),
+    /**
+     * Public: the salience as disclosed now (read-architecture §4.3): `salience + noise` while the game is live, exact
+     * once it has ended (engine/readModel.ts). The spectator's skeleton orders by it (by_game_salience) and its object
+     * row shows it, so neither ever reads `noise`. Optional while migrations:backfillPublicSalience runs (absent = not
+     * written yet); required once every deployment reports it done (CLAUDE.md "Schema migrations").
+     */
+    publicSalience: v.optional(v.number()),
+  }).index("by_game", ["gameId"]).index("by_game_value", ["gameId", "value"]).index("by_game_salience", ["gameId", "publicSalience"]),
 
   agents: defineTable({
     gameId: v.id("games"), ownerId: v.string(),
@@ -178,7 +261,7 @@ export const gameTables = {
     /** The owner's name and description for it (summon requires the name; agents from before it carry neither: lib/projection defaults the name). */
     name: v.optional(v.string()), description: v.optional(v.string()),
     /** The language the source is written in (one the game allows). Absent on agents from single-language games: lib/language agentLanguage. */
-    language: v.optional(languageV),
+    language: v.optional(storedLanguageV),
     summonCost: v.number(), decisionBits: v.number(), perActFloorBits: v.number(), expectedActCost: v.number(),
     breakdown, randomized: v.boolean(), account, acts: v.number(), spent: v.number(),
   }).index("by_game", ["gameId"]).index("by_game_owner", ["gameId", "ownerId"]),

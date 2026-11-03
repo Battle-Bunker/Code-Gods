@@ -1,6 +1,6 @@
 /**
  * Device approval: a player app or room assistant asks for a scoped credential for ONE room; the human
- * approves it in their signed-in browser (engine UI `/device`).
+ * approves it in their signed-in browser (the engine site's `/device`).
  *
  *   HTTP POST /api/device/request  → internal.auth.device.createRequest
  *   query     auth/device:pending  ({userCode})                         browser scope

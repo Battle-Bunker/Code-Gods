@@ -135,9 +135,10 @@ async function startGame(ctx: ActionCtx, args: { roomId: string; requestId?: str
   if (context.activeGame) fail("CONFLICT", "There is already a live game");
   // A preparation in progress is reported, not restarted; a failed one may be started afresh.
   if (room.preparing && !room.preparing.error) return preparingResult(room.preparing);
-  const members = context.members;
-  if (members.length < 3) fail("BAD_REQUEST", "At least three gods are required");
-  if (members.length > MAX_GODS) fail("BAD_REQUEST", "At most eight gods can play");
+  // Spectators watch: only players are dealt in (docs/unify-apps-plan.md §2).
+  const members = context.members.filter(m => !m.spectator);
+  if (members.length < 3) fail("BAD_REQUEST", "At least three players are required (spectators don't count)");
+  if (members.length > MAX_GODS) fail("BAD_REQUEST", "At most eight players can play");
   const bots = members.filter(m => m.kind === "ai");
   for (const bot of bots) {
     if (!bot.aiAgent) fail("BAD_REQUEST", "Every AI seat needs an agent from the library");

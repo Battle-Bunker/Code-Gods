@@ -20,10 +20,11 @@ export const list = query({
     const rows = await ctx.db.query("credentials").withIndex("by_subject", q => q.eq("subject", viewer.subject)).order("desc").take(200);
     const active = rows.filter(row => row.revokedAt === undefined && row.expiresAt > now);
     return await Promise.all(active.map(async row => {
-      const roomId = ctx.db.normalizeId("rooms", row.roomId);
+      const roomId = row.roomId ? ctx.db.normalizeId("rooms", row.roomId) : null;
       const room = roomId ? await ctx.db.get(roomId) : null;
       return {
-        credentialId: row._id, roomId: row.roomId, roomCode: room?.shortCode ?? null, permission: row.permission,
+        /** permission "account": an app acting as you in every room (no roomId). */
+        credentialId: row._id, roomId: row.roomId ?? null, roomCode: room?.shortCode ?? null, permission: row.permission,
         /** device (device flow), oauth (an MCP connection; label = its client's self-reported name) or assistant. */
         kind: row.kind ?? "device", ...(row.clientId ? { clientId: row.clientId } : {}),
         /** Self-reported by the app that requested it: NOT a verified identity. */
@@ -53,7 +54,8 @@ export const exchange = internalMutation({
   handler: async (ctx, { tokenHash }) => {
     const row = await ctx.db.query("credentials").withIndex("by_token", q => q.eq("tokenHash", tokenHash)).unique();
     const now = Date.now();
-    if (!row || row.revokedAt !== undefined || row.expiresAt <= now) return null;
+    // Device credentials are room grants; an account grant is never exchanged here.
+    if (!row || row.revokedAt !== undefined || row.expiresAt <= now || row.permission === "account" || row.roomId === undefined) return null;
     const user = await ctx.db.query("users").withIndex("by_subject", q => q.eq("subject", row.subject)).unique();
     if (!user) return null;
     if (row.lastUsedAt === undefined || now - row.lastUsedAt > LAST_USED_RESOLUTION_MS) await ctx.db.patch(row._id, { lastUsedAt: now });

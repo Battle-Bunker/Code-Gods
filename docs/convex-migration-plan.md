@@ -25,6 +25,11 @@ only, at least 3 players, rooms as unnamed lobbies with history, full verified n
 funded by server-side provider keys with budgets, "utility function" terminology, object uniqueness,
 summon pricing, two energy accounts, the 2-bit floor and information scoring.
 
+> **Reading data (2026-11-02).** How pages and clients read Convex (one query per component, skeleton + per-item
+> queries, hot fields split from cold, derived state written by the tick, public queries without `ctx.auth`, a tested
+> query-cost budget) is set out in [`convex-read-architecture.md`](convex-read-architecture.md). Where this plan
+> describes whole-world page queries (`observation`, `games.view`), that document supersedes it.
+
 ## 1. Target architecture
 
 ```

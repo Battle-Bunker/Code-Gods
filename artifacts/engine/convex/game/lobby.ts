@@ -18,6 +18,7 @@ import { membersOf, principalV, requireOwnerAs, requireRoom, shortCodeFor, viewe
 import { EVENT_LOG_SCHEMA, LEASE_MS, disclosedTotalsOf, totalsOf } from "../lib/world";
 import { roomSetupWrite, type RoomSetupChange } from "../setups";
 import { scoreV } from "./tables";
+import { publicSalienceOf, publishStandings } from "./readModel";
 
 /** The second half's watchdog period while tables compute (owner.ts completeStart; finished() normally launches at once). */
 export const PREPARING_WATCHDOG_MS = 60_000;
@@ -36,7 +37,7 @@ export const ownerContext = internalQuery({
     const members = await membersOf(ctx, room._id);
     const active = room.activeGameId ? await ctx.db.get(room.activeGameId) : null;
     return {
-      room, ownerId: viewer.subject, members: members.map(m => ({ godId: m.godId, name: m.name, kind: m.kind, aiAgent: m.aiAgent })),
+      room, ownerId: viewer.subject, members: members.map(m => ({ godId: m.godId, name: m.name, kind: m.kind, spectator: m.spectator, aiAgent: m.aiAgent })),
       activeGame: active && active.phase !== "ended" ? { id: active._id, phase: active.phase } : null,
       receipt: null as unknown,
     };
@@ -161,7 +162,7 @@ export async function cancelPreparing(ctx: MutationCtx, room: Doc<"rooms">) {
  * prepared start (`prepared`: the room's preparing requestId, owner.ts completeStart) runs without the owner's
  * identity: the owner was checked when the preparation began, and it launches only while that preparation is the
  * room's (an ended or replaced one returns null). Its roster is the dealt gods, who must all still be members; anyone
- * who joined meanwhile spectates, as on joining a running game.
+ * who joined meanwhile spectates, as on joining a running game. Every human member not dealt in is a spectator of it.
  */
 export const commitStart = internalMutation({
   args: {
@@ -186,14 +187,14 @@ export const commitStart = internalMutation({
     const active = room.activeGameId ? await ctx.db.get(room.activeGameId) : null;
     if (active && active.phase !== "ended") fail("CONFLICT", "There is already a live game");
     const allMembers = await membersOf(ctx, room._id);
-    let members = allMembers;
+    let members = allMembers.filter(m => !m.spectator);
     if (args.prepared !== undefined) {
       const current = new Set(allMembers.map(m => m.godId));
       const gone = args.memberIds.filter(id => !current.has(id));
       if (gone.length) fail("CONFLICT", `${gone.length === 1 ? "A dealt god" : `${gone.length} dealt gods`} left while the game was preparing; start again`);
       const dealt = new Set(args.memberIds);
       members = allMembers.filter(m => dealt.has(m.godId));
-    } else if (members.map(m => m.godId).sort().join("\n") !== [...args.memberIds].sort().join("\n")) fail("CONFLICT", "Members changed while starting; try again");
+    } else if (members.map(m => m.godId).sort().join("\n") !== [...args.memberIds].sort().join("\n")) fail("CONFLICT", "Players changed while starting; try again");
     const byGod = new Map(members.map(m => [m.godId, m]));
     const settings = room.settings as GameSettings;
     const setupId = room.setupId, setupName = (setupId ? (await ctx.db.get(setupId))?.name : undefined) ?? room.setupName;
@@ -206,10 +207,10 @@ export const commitStart = internalMutation({
     const planningEndsAt = now + settings.planningSeconds * 1000;
     const gameId: Id<"games"> = await ctx.db.insert("games", {
       roomId: room._id, guid, shortCode, encoded, phase: "planning", scoring: "information-v1", seasonCommitment: args.seasonCommitment,
-      settings, roster, ...(setupId ? { setupId, setupName } : {}),
-      createdAt: now, planningEndsAt, pauseEndsAt: 0, worldSeconds: 0, lastTick: now, nextSpawn: args.nextSpawn,
-      endAtWorld: args.endAtWorld, noiseKey: args.noiseKey, executionEpoch: 0, tick: { seq: 0, leaseUntil: planningEndsAt + LEASE_MS },
-      nextBatch: 0, agentCount: 0, objectCount: args.objects.length, stats: { acts: 0, commits: 0, discarded: 0, opportunities: 0 },
+      settings, roster, spectators: allMembers.filter(m => m.kind === "human" && !byGod.has(m.godId)).map(m => m.godId),
+      ...(setupId ? { setupId, setupName } : {}),
+      createdAt: now, planningEndsAt, pauseEndsAt: 0,
+      endAtWorld: args.endAtWorld, noiseKey: args.noiseKey, executionEpoch: 0,
     });
     await putCatalog(ctx, `game:${gameId}`, args.catalog, 0);
     for (const [index, d] of args.deities.entries()) {
@@ -218,7 +219,8 @@ export const commitStart = internalMutation({
     }
     const events = [];
     for (const o of args.objects) {
-      const objectId = await ctx.db.insert("objects", { gameId, value: o.value, version: 0, scores: o.scores, salience: o.salience, ...(o.noise !== undefined ? { noise: o.noise } : {}) });
+      const objectId = await ctx.db.insert("objects", { gameId, value: o.value, version: 0, scores: o.scores, salience: o.salience, ...(o.noise !== undefined ? { noise: o.noise } : {}),
+        publicSalience: publicSalienceOf(o, true) });
       events.push({ t: "spawn" as const, objectId, value: o.value, version: 0, world: 0, net: args.deities.map(d => o.scores.find(s => s.god === d.godId)!.netBits),
         ...(o.noise !== undefined ? { noise: o.noise } : {}) });
     }
@@ -230,7 +232,14 @@ export const commitStart = internalMutation({
       gameId, seq: 0, at: now, worldFrom: 0, worldTo: 0, schema: EVENT_LOG_SCHEMA, events: [{ t: "phase", phase: "planning", world: 0 }, ...events], totals, scoreboard: disclosed,
     });
     await insertObjectEvents(ctx, gameId, 0, events);
-    await ctx.db.patch(gameId, { nextBatch: 1, scoreboard: { totals: disclosed, world: 0, at: now } });
+    // The hot state lives off the games doc (game/state.ts): the clock every reader of world time reads, and the loop's own.
+    const scoreboard = { totals: disclosed, world: 0, at: now };
+    await ctx.db.insert("gameClocks", { gameId, worldSeconds: 0, lastTick: now, objectCount: args.objects.length, agentCount: 0, scoreboard });
+    await publishStandings(ctx, { _id: gameId, roster }, scoreboard, { agentCount: 0, objectCount: args.objects.length });
+    await ctx.db.insert("gameEngine", {
+      gameId, tick: { seq: 0, leaseUntil: planningEndsAt + LEASE_MS }, nextSpawn: args.nextSpawn, nextBatch: 1,
+      stats: { acts: 0, commits: 0, discarded: 0, opportunities: 0 },
+    });
     for (const m of members) await ctx.db.patch(m._id, { ready: false, ...(m.kind === "ai" ? { status: "Planning", aiFailures: 0 } : {}) });
     // The assistant's conversation and working state are per (player, game): the last game's turns end here.
     await endTurnsForNewGame(ctx, room._id);

@@ -11,6 +11,8 @@ import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
 import { eventV, scoreV } from "../game/tables";
+import { liveGame, withEngine, writeGame, type LiveGame } from "../game/state";
+import { publicSalienceOf } from "../game/readModel";
 import { gameRecord } from "../lib/projection";
 import { AI_LOBBY_STATUS, isIdle, lastHumanActivity, membersOf } from "../lib/rooms";
 import { EVENT_LOG_SCHEMA, EVENTS_PER_BATCH, LEASE_MS, MIN_TICK_MS, scoreIntervalOf, scoreboardDue, totalsOf } from "../lib/world";
@@ -32,14 +34,14 @@ export function nextDeadline(game: Pick<Doc<"games">, "phase" | "planningEndsAt"
 }
 
 /** Take the lease for `seq + 1` and schedule that tick at `at` (or not at all when the phase needs none). */
-export async function scheduleTick(ctx: MutationCtx, game: Doc<"games">, at: number | null, patch: Partial<Doc<"games">> = {}) {
+export async function scheduleTick(ctx: MutationCtx, game: LiveGame, at: number | null, patch: Partial<LiveGame> = {}) {
   const seq = game.tick.seq + 1, now = Date.now();
   if (at === null) {
-    await ctx.db.patch(game._id, { ...patch, tick: { seq, leaseUntil: 0 } });
+    await writeGame(ctx, game, { ...patch, tick: { seq, leaseUntil: 0 } });
     return;
   }
   const when = Math.max(now, at);
-  await ctx.db.patch(game._id, { ...patch, tick: { seq, leaseUntil: when + LEASE_MS } });
+  await writeGame(ctx, game, { ...patch, tick: { seq, leaseUntil: when + LEASE_MS } });
   await ctx.scheduler.runAt(when, internal.engine.tick.run, { gameId: game._id, seq });
 }
 
@@ -48,7 +50,7 @@ export async function scheduleTick(ctx: MutationCtx, game: Doc<"games">, at: num
  * goes on the last doc, so a reader that has it has every event it sums; `scoreboard` (the live scoreboard as
  * published, disclosed totals) marks that doc as its publication. Every spawn and transform also gets its objectEvents row (docs/public-log-design.md §2).
  */
-export async function appendEvents(ctx: MutationCtx, game: Doc<"games">, events: Ev[], worldFrom: number, worldTo: number,
+export async function appendEvents(ctx: MutationCtx, game: Pick<LiveGame, "_id" | "nextBatch">, events: Ev[], worldFrom: number, worldTo: number,
   perf?: Doc<"tickBatches">["perf"], totals?: number[], scoreboard?: number[]): Promise<number> {
   let next = game.nextBatch;
   const docs = Math.max(1, Math.ceil(events.length / EVENTS_PER_BATCH));
@@ -86,7 +88,7 @@ async function allObjects(ctx: MutationCtx, gameId: Id<"games">) {
  * End a game: stamp it, publish its final scoreboard (exact, whatever the interval), write its public summary and free
  * the room. Bumps the epoch.
  */
-export async function endGame(ctx: MutationCtx, game: Doc<"games">, reason: "lifetime" | "owner", patch: Partial<Doc<"games">> = {}) {
+export async function endGame(ctx: MutationCtx, game: LiveGame, reason: "lifetime" | "owner", patch: Partial<LiveGame> = {}) {
   const now = Date.now();
   const objects = await allObjects(ctx, game._id);
   const scoreboard = { totals: totalsOf(game.roster.map(m => m.id), objects), world: patch.worldSeconds ?? game.worldSeconds, at: now };
@@ -94,10 +96,14 @@ export async function endGame(ctx: MutationCtx, game: Doc<"games">, reason: "lif
   const summary = gameRecord(ended, objects);
   const nextBatch = await appendEvents(ctx, ended, [{ t: "phase", phase: "ended", world: ended.worldSeconds, reason }], ended.worldSeconds, ended.worldSeconds,
     undefined, scoreboard.totals, scoreboard.totals);
-  await ctx.db.patch(game._id, {
+  await writeGame(ctx, game, {
     ...patch, phase: "ended", endedAt: now, endReason: reason, executionEpoch: ended.executionEpoch, autoResume: undefined,
     summary, nextBatch, scoreboard, tick: { seq: game.tick.seq + 1, leaseUntil: 0 },
   });
+  // The ended game never changes again: its whole replay is stored once, after this commit (convex/replays.ts).
+  await ctx.scheduler.runAfter(0, internal.replays.build, { gameId: game._id });
+  // Its disclosure is exact from now on: the public salience loses the live noise (paged, off this commit).
+  await ctx.scheduler.runAfter(0, internal.game.readModel.finalizeObjects, { gameId: game._id, cursor: null });
   const room = await ctx.db.get(game.roomId);
   if (room && room.activeGameId === game._id) {
     await ctx.db.patch(room._id, { activeGameId: undefined, seq: room.seq + 1 });
@@ -107,16 +113,16 @@ export async function endGame(ctx: MutationCtx, game: Doc<"games">, reason: "lif
 }
 
 /** Freeze a game in recovery (world time stops). `autoResume` games resume when a human returns. */
-export async function parkGame(ctx: MutationCtx, game: Doc<"games">, reason: string, autoResume: boolean) {
+export async function parkGame(ctx: MutationCtx, game: LiveGame, reason: string, autoResume: boolean) {
   const nextBatch = await appendEvents(ctx, game, [{ t: "phase", phase: "recovery", world: game.worldSeconds, reason }], game.worldSeconds, game.worldSeconds);
-  await ctx.db.patch(game._id, {
+  await writeGame(ctx, game, {
     phase: "recovery", recoveryReason: reason, autoResume: autoResume || undefined, executionEpoch: game.executionEpoch + 1,
     nextBatch, tick: { seq: game.tick.seq + 1, leaseUntil: 0 },
   });
 }
 
 /** Resume a recovered game. World time stays frozen across recovery, so downtime is never simulated. */
-export async function resumeGame(ctx: MutationCtx, game: Doc<"games">) {
+export async function resumeGame(ctx: MutationCtx, game: LiveGame) {
   const now = Date.now();
   const phase = game.worldSeconds === 0 && game.planningEndsAt > now ? "planning" as const : "running" as const;
   const resumed = { ...game, phase };
@@ -135,7 +141,7 @@ export async function resumeGame(ctx: MutationCtx, game: Doc<"games">) {
 export const snapshot = internalQuery({
   args: { gameId: v.id("games"), seq: v.number() },
   handler: async (ctx, { gameId, seq }) => {
-    const game = await ctx.db.get(gameId);
+    const game = await liveGame(ctx, gameId);
     if (!game || game.tick.seq !== seq) return null;
     const [objects, agents, deities] = await Promise.all([
       ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", gameId)).take(2100),
@@ -188,7 +194,7 @@ export const commit = internalMutation({
     wakeAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const game = await ctx.db.get(args.gameId);
+    const game = await liveGame(ctx, args.gameId);
     if (!game || game.tick.seq !== args.seq) return { result: "stale" as const };
     const now = Date.now();
     const unchanged = game.executionEpoch === args.epoch && game.phase === args.phaseBefore && game.lastTick === args.lastTickBefore;
@@ -238,11 +244,13 @@ export const commit = internalMutation({
 
     // Apply.
     for (const change of args.objects) {
-      await ctx.db.patch(change.id, { value: change.value, version: change.version, scores: change.scores, salience: change.salience, noise: change.noise });
+      await ctx.db.patch(change.id, { value: change.value, version: change.version, scores: change.scores, salience: change.salience, noise: change.noise,
+        publicSalience: publicSalienceOf(change, true) });
     }
     const ids = new Map<string, string>();
     for (const spawn of args.spawns) {
-      ids.set(spawn.tmp, await ctx.db.insert("objects", { gameId: game._id, value: spawn.value, version: 0, scores: spawn.scores, salience: spawn.salience, ...(spawn.noise !== undefined ? { noise: spawn.noise } : {}) }));
+      ids.set(spawn.tmp, await ctx.db.insert("objects", { gameId: game._id, value: spawn.value, version: 0, scores: spawn.scores, salience: spawn.salience, ...(spawn.noise !== undefined ? { noise: spawn.noise } : {}),
+        publicSalience: publicSalienceOf(spawn, true) }));
     }
     for (const state of args.agents) {
       if (live.has(state.id)) await ctx.db.patch(state.id, { acts: state.acts, spent: state.spent, account: state.account });
@@ -262,7 +270,7 @@ export const commit = internalMutation({
     const scored = resolved.some(e => e.t === "spawn" || e.t === "transform");
     const nextBatch = await appendEvents(ctx, game, resolved, game.worldSeconds, clock.worldSeconds, acts > 0 ? perf : undefined,
       scored || publish ? args.totals : undefined, scoreboard?.totals);
-    const patch: Partial<Doc<"games">> = {
+    const patch: Partial<LiveGame> = {
       ...(scoreboard ? { scoreboard } : {}),
       worldSeconds: clock.worldSeconds, lastTick: clock.lastTick, nextSpawn: clock.nextSpawn, nextBatch,
       objectCount: game.objectCount + args.spawns.length,
@@ -274,7 +282,7 @@ export const commit = internalMutation({
       return { result: "ended" as const, acts };
     }
     if (clock.phase === "recovery") {
-      await ctx.db.patch(game._id, { ...patch, phase: "recovery", recoveryReason: clock.recoveryReason, executionEpoch: game.executionEpoch + 1, tick: { seq: game.tick.seq + 1, leaseUntil: 0 } });
+      await writeGame(ctx, game, { ...patch, phase: "recovery", recoveryReason: clock.recoveryReason, executionEpoch: game.executionEpoch + 1, tick: { seq: game.tick.seq + 1, leaseUntil: 0 } });
       return { result: "recovery" as const, acts };
     }
     const at = clock.phase === "running" ? Math.max(now, args.wakeAt ?? now + MIN_TICK_MS) : nextDeadline(updated, now);
@@ -298,7 +306,7 @@ export const watchdog = internalMutation({
     let restarted = 0, parked = 0;
     for (const phase of ["planning", "running", "paused"] as const) {
       const games = await ctx.db.query("games").withIndex("by_phase", q => q.eq("phase", phase)).take(200);
-      for (const game of games) {
+      for (const game of await Promise.all(games.map(g => withEngine(ctx, g)))) {
         if (idle) {
           await parkGame(ctx, game, "The engine went idle after 30 minutes without human activity. The game resumes when a player returns.", true);
           parked++;

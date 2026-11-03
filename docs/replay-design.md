@@ -10,7 +10,7 @@ so players (and their assistants) can study how the others played. The boundary 
 by the engine: `player.replay` refuses a live game.
 
 This document records how the engine makes that possible (§1–§3: the event log, its schema and the
-replay API) and how the player client presents it (§4 onwards: the replay view).
+replay API) and how the app presents it (§4 onwards: the replay view, the game's own page once it has ended).
 
 Status: §1–§3 shipped with the event-log completeness change (PR #80) and the transparent replay (schema 3, replay API
 version 2, PR #98); the replay page shipped as §4a. §4–§10 remain the design for the rest; its mockups are
@@ -115,9 +115,10 @@ clients call it like any other public function (docs/engine-api.md); the referen
 `@workspace/player-client/replay`. Assistants read it through the `get_replay` tool (small pages) and, for analysis
 over a whole game, through `run_code`'s `replay` dataset (the game flattened: header, gods, every event, chat).
 
-- **Who:** the gods who played in that game (its roster) and the room's owner, as for every past game
-  (`lib/rooms.ts requireHistoricReaderAs`). Other room members, spectators of the game included, get `FORBIDDEN`;
-  non-members get the room's usual refusal.
+- **Who:** the gods who played in that game (its roster), its spectators (`games.spectators`: the human members
+  not dealt in at the start, plus those who joined while it ran) and the room's owner, as for every past game
+  (`lib/rooms.ts requireHistoricReaderAs`). Other room members get `FORBIDDEN`; non-members get the room's usual
+  refusal.
 - **When:** only once the game has ended. A live game's replay is `CONFLICT` ("The replay opens when the game
   ends"), so none of its hidden information leaves through this door; the `replay` dataset is `null` for it.
 - **Paging:** pages of up to `limit` batches (default and maximum 100), stopping before `maxEvents` events (default
@@ -129,7 +130,7 @@ over a whole game, through `run_code`'s `replay` dataset (the game flattened: he
 - **Result (version 2):**
   - `version`: the replay API version. The reducer refuses a version it does not know.
   - `game`: id, short code, phase, `startedAt`, `planningEndsAt`, `endedAt`, `endReason`, `worldSeconds`, `endAtWorld`,
-    settings, setup, roster (`{id, name, kind}`), object instance, season commitment, engine stats; on the first page
+    settings, setup, roster (`{id, name, kind}`), object instance, season commitment; on the first page
     `logSchema` (the log's schema) and `currentLogSchema`.
   - `viewer`: the caller's god id and roster index (the view's default point of view, nothing more).
   - `gods` (first page): every god's dealt utility descriptor and kid card, final summon spending, whether it paused,
@@ -189,7 +190,7 @@ Checked in a browser on a real local game by `artifacts/player-web/e2e/replay-sh
 end with every goal card; `?e=` reopens that event; next steps one; the URL follows; an agent's code opens from the
 timeline; play moves the playhead), which also renders the screenshots above.
 
-**Then the dock (PR after #105):** the page became the player client's own dock in replay mode, as designed in §4
+**Then the dock (PR after #105):** the page became the app's own dock in replay mode, as designed in §4
 below. `core/replay/replay-game.tsx` loads the replay, a `ReplayController` (`core/replay/controller.ts`) holds the
 playhead, the point of view and the playback loop, and its answers reach every panel through the SDK transport
 (`sdk/replay-source.ts`: `useSdkQuery` for built-in panels, the bridge's `watch` for stored panels; commands are
@@ -201,32 +202,32 @@ objects panel **animates** each change the playhead crosses (the row flashes and
 that moved). The layout is the human's own arrangement; changes in a replay stay in that tab. The log records net
 bits only, so in a replay `own.ordinal` and `own.rewardBits` carry the net bits.
 
-**The replay bar (PR after #125, the owner's report "I can't find a timeline scrubber"):** the room page kept the
-live dock after "Game over" and nothing on it led to the replay; the only way in was the header's small "past games"
-link, then a game code. Now:
+**The replay bar (PR after #125, the owner's report "I can't find a timeline scrubber"):** the room page then kept the
+live dock after "Game over" and nothing on it led to the replay. Since the one-app unification
+(docs/unify-apps-plan.md) a game's page, `/rooms/:room/games/:game`, *is* its replay once the game has ended: a player
+watching the end stays on the URL and the dock turns into the replay. The room page never shows a game; its past
+games link each one. Then:
 
-- The room page, once its game has ended, shows a bar under the dock with **Watch the replay** (`core/replay/ended-bar.tsx`).
-  The room stays live above it (results, chat, the owner's next game).
 - The replay's transport is **one bar anchored to the bottom of the screen**, like a video player's (`ReplayBar` in
   `core/replay/parts.tsx`; the shell's `replay.footer`), independent of the dock's layout. It has a wide scrub track:
   drag or click it; hovering shows the time, the event and its sentence; key moments are marked on the track; with
   focus, the arrows step and Page Up/Down jump a tenth. Under it: start, step back, play/pause, step forward, end,
   previous/next key moment, the time (`1:23 / 5:00`), the event counter, the speed (¼× to 64×), "seen as", Link and
   Exit replay. The page keys (Space, ←/→, Shift+←/→, Home/End, `[`/`]`) work anywhere outside a text field.
-- `e2e:replay` starts as the owner did: from the room page right after the game ends, without typing a URL, it
-  finds the bar, drags to the middle, plays at 4×, pauses and steps, and checks that the board changes.
+- `e2e:replay` starts as the owner would: from the room page right after the game ends, without typing a URL, it
+  follows the game's link in the room's history, drags the bar to the middle, plays at 4×, pauses and steps, and
+  checks that the board changes.
 
 - **Everywhere a completed game is shown:**
-  - The engine UI's ended-game page leads with **Watch the replay**, a link to the player client's replay page of
-    the game (the game's next step, `ui.nav.replay`), with "Back to room" beside it.
-  - Its palette offers "Watch the replay" and "Play the replay from the start" (`?e=0&play=1`).
-  - The player client's palette offers "Watch the replay" on the ended room. In the replay it offers play/pause and
-    jump to the start or end. The replay page's header carries the palette too.
-  - The replay player itself stays in the player client: it is built on the client's SDK and dock.
+  - The game's own page is the replay once the game has ended, for its players, its spectators and the owner alike.
+  - The room page's past games link each game's page; a deep link such as `?e=0&play=1` plays it from the start.
+  - The dock's palette offers "Watch the replay" (`ui.replay.watch`) and, in the replay, play/pause and jump to the
+    start or end (`ui.replay.*`).
+  - The replay player is built on the app's SDK and dock.
 
-| The room page after the game | The replay bar, mid-game | The engine UI's ended game |
-|---|---|---|
-| ![Room](screenshots/replay/replay-room-ended.png) | ![Bar](screenshots/replay/replay-bar-middle.png) | ![Engine UI](screenshots/replay/replay-engine-game-page.png) |
+| The room page after the game (its history links each game's page) | The replay bar, mid-game (the game's page once it has ended) |
+|---|---|
+| ![Room](screenshots/replay/replay-room-ended.png) | ![Bar](screenshots/replay/replay-bar-middle.png) |
 
 
 **The assistant receives the playhead (§8):** in replay mode, the chat pane sends each message with the moment on
@@ -246,7 +247,7 @@ briefing is already written.
 
 Phone (stacked dock, the transport strip on top): ![Phone](screenshots/replay/mobile.png)
 
-**Decision: a replay is the player client in a read-only mode at a moment of the past.** Every built-in panel and
+**Decision: a replay is the dock in a read-only mode at a moment of the past.** Every built-in panel and
 every stored panel renders the game *as it was at the playhead*, and one new built-in panel, the **Timeline**, drives
 the playhead. A thin **transport strip** under the header is the shell's own chrome in replay mode.
 
@@ -344,14 +345,15 @@ code. The card is a mode of the feed panel (`feed` with `focus: "cursor"`), not 
 
 ## 7. Routes, deep links and entry points
 
-- `/client/rooms/:roomId/games/:gameId` opens the game. A finished game opens in replay mode at its end (the frozen
+- `/rooms/:room/games/:game` opens the game. A finished game opens in replay mode at its end (the frozen
   final state, which is where a player arriving from the results most wants to start), with the playhead at the end.
 - `?t=<world seconds>` seeks to that world time; `?e=<event index>` to an exact event (it wins over `t`);
   `&play=1&speed=4` starts playing. "Link" writes the current position (`t` while paused between events, `e` after
   stepping). The URL is updated with `replaceState` when the playhead stops, never while playing.
 - Entry points: the results panel's past games list ("Replay"), the room page's game list, the end-of-game results
   ("Watch the replay"), and the palette ("Replay a game I played…", from the catalogue entry of `player.replay`).
-- A live game's page is the live client. There is no replay of a live game: it would reveal what live play hides.
+- A live game's page is the live dock for a seated player and the spectator view for everyone else. There is no
+  replay of a live game: it would reveal what live play hides.
 
 ## 8. The assistant in a replay
 
@@ -388,7 +390,7 @@ of the overview panel (`overview` with `focus: "moments"`).
   attributed, without their source. Scores are exact throughout (they come from the per-god net bits).
 - **Recovery and idle parking** show as notches like pauses, labelled with their reason; world time does not move
   during them, so the axis is unaffected.
-- **Spectators** (members who were not seated) get no replay, by the API's contract; the room page's game list shows
-  them the public game page instead.
+- **Spectators** (members who were not seated: `games.spectators`) get the same replay as its players; other members
+  who were not in the room for that game get none, by the API's contract.
 - **An AI seat** replays like any god, with its library agent's name, model and prompt in the roster.
 - **Disclosure** is the API's (§3): nothing until the game ends, everything after.

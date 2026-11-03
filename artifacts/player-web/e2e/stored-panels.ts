@@ -1,11 +1,12 @@
 /**
- * Stored panels in the hosted player client (/client/ on the engine's site), in a real browser.
+ * Stored panels in the app on the engine's site (signed in with the site's Google session), in a real browser: carol
+ * plays a live game with two (mock) AI seats, and her dock is the game's page, /rooms/:room/games/:game.
  *
  *   pnpm --filter @workspace/player-web e2e:panels
  *
  * Needs a running local engine (`pnpm --filter @workspace/engine dev`); CG_TEST_CLOUD_URL, CG_TEST_SITE_URL and
- * CG_TEST_OIDC_URL name its ports (defaults 3210 / 3211 / 3399). It uploads a fresh build of the player client
- * first (CG_E2E_SKIP_DEPLOY=1 skips that). Playwright must be resolvable (e.g. NODE_PATH to a global install).
+ * CG_TEST_OIDC_URL name its ports (defaults 3210 / 3211 / 3399). It uploads a fresh build of the app first
+ * (CG_E2E_SKIP_DEPLOY=1 skips that). Playwright must be resolvable (e.g. NODE_PATH to a global install).
  *
  * What it checks (each line printed as ok / FAIL):
  *   a panel saved with panels.save and opened as a pane from the panel menu appears without a reload (a window marker
@@ -17,9 +18,10 @@
  *   beacon server sees no request); a panel navigating its frame away is stopped and the page it loads hears
  *   nothing (with and without the page CSP); a chat from a panel shows the host's confirmation with the exact
  *   payload and nothing is sent until confirmed (and nothing when cancelled); the evaluator in a frame scores like
- *   the engine; after the game ends every built-in panel shows the frozen final state (none blank) and the forge says
- *   why it is read-only; at phone size (390×844) a panel pane runs in the stacked layout; ?panels=off loads only the
- *   built-in panels and the assistant; the page CSP reports nothing of its own and sign-in still works.
+ *   the engine; after the game ends its page turns into the replay without a reload, where every built-in panel shows
+ *   the final state (none blank) and the forge is read-only; while the next game prepares its rule tables the room page
+ *   shows the progress; at phone size (390×844) a panel pane runs in the stacked layout; ?panels=off loads only the
+ *   built-in panels and the assistant; the page CSP reports nothing of its own and a signed-out visit offers sign-in.
  */
 import "../../engine/scripts/local-only.mjs";   // refuses to run with CONVEX_DEPLOY_KEY set
 import { execFileSync } from "node:child_process";
@@ -35,8 +37,10 @@ const SITE = process.env.CG_TEST_SITE_URL ??= "http://127.0.0.1:3211";
 process.env.CG_TEST_OIDC_URL ??= "http://127.0.0.1:3399";
 
 const results: { name: string; ok: boolean; detail?: string }[] = [];
+/** Runs before each check (set once the engine client exists): carol's Convex token is short-lived. */
+let beforeEach = async () => {};
 async function check(name: string, run: () => Promise<unknown> | unknown) {
-  try { await run(); results.push({ name, ok: true }); console.log(`ok   ${name}`); }
+  try { await beforeEach(); await run(); results.push({ name, ok: true }); console.log(`ok   ${name}`); }
   catch (error) { const detail = (error as Error).message.split("\n")[0]; results.push({ name, ok: false, detail }); console.log(`FAIL ${name}: ${detail}`); }
 }
 function assert(condition: unknown, message: string): asserts condition { if (!condition) throw new Error(message); }
@@ -52,8 +56,8 @@ if (!(await fetch(`${SITE}/api/health`).then(r => r.ok, () => false))) {
 }
 const anonymous = { ...process.env, CONVEX_AGENT_MODE: "anonymous" };
 if (process.env.CG_E2E_SKIP_DEPLOY !== "1") {
-  console.log("building and uploading the player client…");
-  execFileSync("node", ["scripts/deploy-static.mjs", "--only", "player"], { cwd: ENGINE, stdio: "ignore", env: anonymous });
+  console.log("building and uploading the app…");
+  execFileSync("node", ["scripts/deploy-static.mjs"], { cwd: ENGINE, stdio: "ignore", env: anonymous });
 }
 
 // A beacon server: any request reaching it is a leak. /nav is a page a panel may navigate its own frame to: it
@@ -83,14 +87,40 @@ const { session } = await login("carol");
 const sessionCookies = (header: string) => header.split("; ").map(pair => ({ name: pair.slice(0, pair.indexOf("=")), value: pair.slice(pair.indexOf("=") + 1), url: SITE }));
 const carol = new ConvexHttpClient(CLOUD);
 carol.setAuth(await browserJwt(session));
+beforeEach = async () => carol.setAuth(await browserJwt(session));
 const { roomId, shortCode } = await carol.mutation(fn.m("rooms:create"), {}) as { roomId: string; shortCode: string };
+await carol.mutation(fn.m("rooms:setSpectator"), { roomId: roomId, spectator: false });   // owners start as spectators; this one plays
 // Earlier runs' panels of this identity would crowd the dock: start clean.
 for (const p of await carol.query(fn.q("panels:list"), {}) as { slug: string }[]) await carol.mutation(fn.m("panels:remove"), { slug: p.slug });
 
-const { DEFAULT_LAYOUT, openPane } = await import("@workspace/player-client/layout");
-type Layout = ReturnType<typeof DEFAULT_LAYOUT>;
+const { DEFAULT_LAYOUT: defaultLayout, openPane } = await import("@workspace/player-client/layout");
+type Layout = ReturnType<typeof defaultLayout>;
+/** The default arrangement of a live game's dock. */
+const DEFAULT = () => defaultLayout("running");
 // Layouts follow the human across rooms: start this room from the default arrangement.
-await carol.mutation(fn.m("layout:set"), { roomId, layout: DEFAULT_LAYOUT("lobby") });
+await carol.mutation(fn.m("layout:set"), { roomId, layout: DEFAULT() });
+
+/** A long-lived Int game: three objects, no spawns, a lifetime far beyond this run. */
+const LONG_GAME = { objectType: "Int", languages: ["typescript"], spawnRateHz: 0, startingObjectCount: 3, halfLifeSeconds: 100_000, planningSeconds: 5 };
+/**
+ * Configure and start a game in a room carol owns (with `settings`), and wait until it is live: a start may first
+ * prepare the rule tables (`{ status: "preparing" }`). Returns the game's short code.
+ */
+async function startGame(room: string, settings: Record<string, unknown>) {
+  const owner = (action: string, extra: Record<string, unknown> = {}) => carol.action(fn.a("owner:command"), { roomId: room, action, requestId: crypto.randomUUID(), ...extra });
+  const { revision } = await carol.query(fn.q("rooms:get"), { room }) as { revision: number };
+  await owner("settings", { revision, settings, aiBudget: 50_000 });
+  const started = await owner("start") as { status?: string; message?: string; ok?: boolean };
+  return until(async () => {
+    const r = await carol.query(fn.q("rooms:get"), { room }) as { activeGame: { shortCode: string } | null; preparing?: { error?: string } | null };
+    assert(!r.preparing?.error, `preparing failed: ${r.preparing?.error} (start: ${JSON.stringify(started)})`);
+    return r.activeGame?.shortCode;
+  }, `the game starts (start: ${JSON.stringify(started)})`, 300_000);
+}
+// A game needs three players: carol and two (mock) AI seats.
+for (let i = 0; i < 2; i++) await carol.action(fn.a("owner:command"), { roomId, action: "addAi", aiAgentId: "sonnet-strategist", requestId: crypto.randomUUID() });
+const gameCode = await startGame(roomId, LONG_GAME);
+const GAME_PATH = `/rooms/${shortCode}/games/${gameCode}`;
 
 /** layout:set allows 12 changes a minute: wait for the window instead of failing. */
 const setLayoutPatiently = (roomId: unknown, layout: Layout) => until(() => carol.mutation(fn.m("layout:set"), { roomId, layout }).then(() => true, () => undefined), "layout:set", 90_000);
@@ -127,10 +157,11 @@ page.on("pageerror", e => pageErrors.push(e.message));
 page.on("console", m => { if (/Content Security Policy/i.test(m.text()) && !/panel-(runtime|frame)|^panel:/.test(m.location().url)) cspReports.push(`${m.location().url}: ${m.text()}`); });
 let navigations = 0;
 page.on("framenavigated", f => { if (f === page.mainFrame()) navigations++; });
-await page.goto(`${SITE}/client/rooms/${shortCode}`);
+await page.goto(`${SITE}${GAME_PATH}`);
+await page.waitForSelector("[data-testid=dock]", { timeout: 60_000 });
 await page.waitForSelector("[data-testid=text-self-label]", { timeout: 60_000 });
-// The first visit connected the room through the engine's OAuth flow (/oauth/authorize → /connect, approved
-// without a click for the engine's own client → back with a code): count navigations from the settled page.
+// The site's session cookie signs the app in: no redirect, so the page's one navigation is its load.
+assert(new URL(page.url()).pathname === GAME_PATH, `the game page stays at its URL: ${page.url()}`);
 navigations = 1;
 await page.evaluate(() => { (window as unknown as { __cgMarker: number }).__cgMarker = 42; });
 const sameDocument = async () => navigations === 1 && await page.evaluate(() => (window as unknown as { __cgMarker?: number }).__cgMarker === 42);
@@ -181,7 +212,7 @@ await check("moving a panel's pane (the assistant to the right) does not restart
 });
 
 await check("dragging a panel onto the centre of another replaces it: no tabs, no ghost header left behind", async () => {
-  await setLayoutPatiently(roomId, DEFAULT_LAYOUT("lobby"));
+  await setLayoutPatiently(roomId, DEFAULT());
   await page.waitForSelector("[data-testid=tab-p3]", { timeout: 15_000 });
   const panesNow = async () => Object.keys((await carol.query(fn.q("layout:current"), { roomId }) as { layout: Layout }).layout.panes).sort();
   assert((await panesNow()).join() === "p1,p2,p3,p4", "the default layout has four panes");
@@ -197,12 +228,14 @@ await check("dragging a panel onto the centre of another replaces it: no tabs, n
   assert(tabCount === 3, `a header per pane and no second tab in a group (${tabCount} .dv-tab: ${await page.evaluate(() => [...document.querySelectorAll(".dv-tab")].map(el => `${el.parentElement?.className}>${el.className}@${Math.round(el.getBoundingClientRect().top)}:${(el.textContent ?? "").slice(0, 30)}`).join(" | "))})`);
   const stray = await page.evaluate(text => [...document.querySelectorAll("body *")].filter(el => el.children.length === 0 && el.textContent?.trim() === text && !el.closest("[data-testid^=tab-]")).length, (goal ?? "").trim().split("\n")[0]);
   assert(stray === 0, `${stray} stray copies of the dragged header's text outside the pane headers`);
-  await setLayoutPatiently(roomId, DEFAULT_LAYOUT("lobby"));
+  await setLayoutPatiently(roomId, DEFAULT());
   await openAsPane("e2e-live");   // the later checks use its frame
 });
 
 await check("the assistant is an ordinary pane: close it, and the palette's \"Open assistant\" brings it back", async () => {
-  await setLayoutPatiently(roomId, DEFAULT_LAYOUT("lobby"));
+  await setLayoutPatiently(roomId, DEFAULT());
+  // Closed at once, while the page may still be catching up with the layout just set: a close pushed on top of an
+  // older version meets a CONFLICT and is replayed on the newer one (src/dock/layout-sync.ts), never undone.
   await page.waitForSelector("[data-testid=assistant-pane]", { timeout: 15_000 });
   await page.locator("[data-testid=button-close-p4]").click();
   await page.waitForSelector("[data-testid=assistant-pane]", { state: "detached", timeout: 15_000 });
@@ -215,12 +248,12 @@ await check("the assistant is an ordinary pane: close it, and the palette's \"Op
   await page.waitForSelector("[data-testid=assistant-pane]", { timeout: 15_000 });
   await until(async () => (await kinds()).includes("assistant") ? true : undefined, "the reopened assistant is in the stored layout", 75_000);
   assert(await page.locator("[data-testid=assistant-pane]").count() === 1, "one assistant pane");
-  await setLayoutPatiently(roomId, DEFAULT_LAYOUT("lobby"));
+  await setLayoutPatiently(roomId, DEFAULT());
   await openAsPane("e2e-live");
 });
 
 await check("the panel menu is a combobox: it opens focused, Esc closes it, typing \"chat\" then Enter switches the pane to Public chat", async () => {
-  await setLayoutPatiently(roomId, DEFAULT_LAYOUT("lobby"));
+  await setLayoutPatiently(roomId, DEFAULT());
   const trigger = page.locator("[data-testid=tab-p2] [data-testid=menu-panel]");
   await trigger.waitFor({ timeout: 15_000 });
   await trigger.click();
@@ -235,7 +268,7 @@ await check("the panel menu is a combobox: it opens focused, Esc closes it, typi
   assert(await page.locator("[data-testid=menu-panel-item-public-chat]").count() === 1 && await page.locator("[data-testid=menu-panel-item-race]").count() === 0, "typing does not filter");
   await page.keyboard.press("Enter");
   await until(async () => (await trigger.textContent())?.trim() === "Public chat" ? true : undefined, "the pane shows Public chat", 15_000);
-  await setLayoutPatiently(roomId, DEFAULT_LAYOUT("lobby"));
+  await setLayoutPatiently(roomId, DEFAULT());
   await openAsPane("e2e-live");
 });
 
@@ -249,13 +282,13 @@ await check("a panel still runs when its frame CSP names another site origin (a 
   const custom = await laxContext.newPage();
   const customLog: string[] = [];
   custom.on("console", m => customLog.push(m.text().slice(0, 200)));
-  await custom.route(url => url.pathname === "/client/panel-frame.html", async route => {
+  await custom.route(url => url.pathname === "/panel-frame.html", async route => {
     const response = await route.fetch();
     const body = (await response.text()).replaceAll(new URL(SITE).origin, "https://custom-domain.example");
     assert(body.includes("https://custom-domain.example"), "the frame CSP names the site origin");
     await route.fulfill({ response, body });
   });
-  await custom.goto(`${SITE}/client/rooms/${shortCode}`);
+  await custom.goto(`${SITE}${GAME_PATH}`);
   const end = Date.now() + 30_000;
   for (;;) {
     const text = await custom.frameLocator('[data-testid="panel-frame-stored:e2e-live"] iframe').locator("[data-testid=sp-text]").textContent({ timeout: 30_000 }).catch(() => null);
@@ -311,7 +344,7 @@ export default definePanel({ title: "Hostile", Component() {
 });
 
 await check("a panel that navigates its own frame away is stopped; the page it loads hears nothing from the bridge", async () => {
-  // The frame's own CSP cannot stop it navigating itself; the hosted page's `frame-src 'self'` does (it governs
+  // The frame's own CSP cannot stop it navigating itself; the site page's `frame-src 'self'` does (it governs
   // navigations of its child frames), so the request never leaves; a dev server's page has the same frame-src
   // (vite/csp.ts devPageCsp). Without any page CSP, the page the frame loads must still hear nothing: it does not
   // own the bridge's MessagePort (defence in depth).
@@ -339,15 +372,12 @@ export default definePanel({ title: "Navigates", Component() {
   const bareLog: string[] = [];
   bare.on("console", m => bareLog.push(m.text().slice(0, 150)));
   bare.on("pageerror", e => bareLog.push("pageerror " + e.message.slice(0, 150)));
-  await bare.route(url => url.pathname.startsWith("/client/rooms/"), async route => {
+  await bare.route(url => url.pathname === GAME_PATH, async route => {
     const response = await route.fetch();
     await route.fulfill({ response, body: (await response.text()).replace(/<meta http-equiv="Content-Security-Policy"[^>]*>/, "") });
   });
-  // Connect the room first (the OAuth round trip ends in a redirect, which the route above does not see), then
-  // load the page directly: it uses the stored connection and is served without its CSP.
-  await bare.goto(`${SITE}/client/rooms/${shortCode}`);
-  await bare.waitForSelector("[data-testid=text-self-label]", { timeout: 60_000 });
-  await bare.goto(`${SITE}/client/rooms/${shortCode}`);
+  // The session cookie signs the page in (no redirect): the game page is served without its CSP.
+  await bare.goto(`${SITE}${GAME_PATH}`);
   await bare.waitForSelector('[data-testid="panel-error-stored:e2e-navigates"]', { timeout: 60_000 }).catch(async error => {
     throw new Error(`no CSP: ${(error as Error).message.split("\n")[0]}; hits ${hits.join(", ")}; frame ${await bare.getAttribute('[data-testid="panel-frame-stored:e2e-navigates"]', "data-frame-state").catch(() => "none")}; csp ${await bare.locator('meta[http-equiv="Content-Security-Policy"]').count()}; text ${(await bare.innerText("body")).slice(0, 300).replace(/\s+/g, " ")}; log ${bareLog.slice(0, 5).join(" | ")}`);
   });
@@ -388,13 +418,7 @@ export default definePanel({ title: "Chatty", Component() {
 });
 
 await check("the evaluator works in a frame: calibration tables arrive over the bridge, scores match the engine's", async () => {
-  const owner = (action: string, extra: Record<string, unknown> = {}) =>
-    carol.action(fn.a("owner:command"), { roomId, action, requestId: crypto.randomUUID(), ...extra });
-  // A game needs three gods: carol and two (mock) AI seats.
-  await owner("addAi", { aiAgentId: "sonnet-strategist" });
-  await owner("addAi", { aiAgentId: "sonnet-strategist" });
-  await owner("settings", { aiBudget: 50_000, revision: (await carol.query(fn.q("rooms:get"), { room: roomId }) as { revision: number }).revision });
-  await owner("start");
+  // The game carol plays in (started at the top) supplies the objects.
   await save("e2e-eval", `import { definePanel, useEvaluator, useObjects } from "@sdk";
 export default definePanel({ title: "Evaluator", Component() {
   const evaluator = useEvaluator();
@@ -411,7 +435,7 @@ export default definePanel({ title: "Evaluator", Component() {
   assert(/^match \d+$/.test(text ?? ""), `evaluator: ${text}`);
 });
 
-await check("after the game ends every built-in panel shows the frozen final state (no placeholder), the forge says why it is read-only", async () => {
+await check("after the game ends its page turns into the replay without a reload; every built-in panel shows the final state (no placeholder), the forge is read-only", async () => {
   const owner = (action: string, extra: Record<string, unknown> = {}) =>
     carol.action(fn.a("owner:command"), { roomId, action, requestId: crypto.randomUUID(), ...extra });
   type Obs = { gameId: string; language: "python" | "typescript"; instance: { objectType: string }; objects: { id: string }[]; agents: unknown[]; transformations: { calls?: [string, Record<string, unknown>][] }[] };
@@ -430,21 +454,21 @@ await check("after the game ends every built-in panel shows the frozen final sta
     assert(summon.accepted, `summon: ${summon.message}`);
     obs = await until(async () => { const o = await observe(); return o.transformations.some(t => t.calls?.length) ? o : undefined; }, "carol's agent acts", 120_000);
   } finally { await owner("endGame"); }
-  await page.waitForFunction(() => /ended/i.test(document.querySelector("[data-testid=text-phase]")?.textContent ?? ""), null, { timeout: 30_000 });
+  // The game's URL is its replay once it has ended: the open page switches in place, at the end of the game.
+  await page.waitForSelector("[data-testid=replay-transport]", { timeout: 60_000 });
+  assert(new URL(page.url()).pathname === GAME_PATH && await sameDocument(), `the page reloaded or moved: ${page.url()}`);
   const whatIf = { objectId: obs.objects[0].id, calls: [obs.transformations.find(t => t.calls?.length)!.calls![0]] };
   /** Each panel's own content, as it renders with data (any one selector). */
   const CONTENT: Record<string, string> = {
     overview: "[data-testid=panel-overview]", "my-card": "[data-testid=panel-utility]", objects: "[data-testid^=row-object-]", "others-care": "[data-testid=panel-others-care]",
     "bits-over-time": "[data-testid=panel-bits-over-time]", race: "[data-testid^=row-leader-]", agents: "[data-testid^=row-agent-]", feed: "[data-testid^=row-transformation-]",
-    "what-if": "[data-testid=panel-what-if]", "public-chat": "[data-testid^=row-chat-]", forge: "[data-testid=text-forge-ended]", results: "[data-testid=panel-results]", rules: "[data-testid=panel-rules]",
-    "code-output": "[data-testid=table-code-result]",
+    "what-if": "[data-testid=panel-what-if]", "public-chat": "[data-testid^=row-chat-]", forge: "[data-testid=panel-forge-readonly]", results: "[data-testid=panel-results]", rules: "[data-testid=panel-rules]",
+    "code-output": "[data-testid=table-code-result]", timeline: "[data-testid=panel-timeline]",
   };
-  const { PANEL_IDS: ALL_PANEL_IDS } = await import("@workspace/player-client/panels");
-  // The replay timeline exists only in replay mode (it has no live or frozen state to show here).
-  const PANEL_IDS = ALL_PANEL_IDS.filter(id => id !== "timeline");
-  assert(PANEL_IDS.length === 14 && PANEL_IDS.every(id => CONTENT[id]), "a content selector for each live built-in panel");
+  const { PANEL_IDS } = await import("@workspace/player-client/panels");
+  assert(PANEL_IDS.length === 15 && PANEL_IDS.every(id => CONTENT[id]), "a content selector for each built-in panel");
   // Code results show carol's latest analytics run: one through the assistant (mock provider) over the frozen objects.
-  // The AI seats keep the budget the evaluator check gave them (a later check starts another game with them).
+  // The AI seats keep the budget startGame gave them (a later check starts another game with them).
   await carol.mutation(fn.m("rooms:approveAiBudget"), { roomId, aiBudget: 50_000, assistantBudget: 400_000 });
   const rank = "def main(data):\n    rows = sorted(data['objects'], key=lambda o: -o['payoff'])[:5]\n    return [{'object': o['id'], 'payoff': round(o['payoff'], 2)} for o in rows]\n";
   const sent = await carol.mutation(fn.m("assistant:send"), { roomId, text: `/mock ${JSON.stringify({ steps: [
@@ -455,20 +479,23 @@ await check("after the game ends every built-in panel shows the frozen final sta
     if (turn && turn.status !== "running") { assert(turn.status === "done", `the code turn ended ${turn.status}`); return true; }
     return undefined;
   }, "carol's code run", 90_000);
-  // layout:set allows 12 changes a minute: a sweep of 14 panels waits for the window instead of failing.
+  // layout:set allows 12 changes a minute: a sweep of 15 panels waits for the window instead of failing.
   const setLayout = (layout: Layout) => until(() => carol.mutation(fn.m("layout:set"), { roomId, layout }).then(() => true, (e: Error) => {
     if (/RATE_LIMITED/.test(e.message)) return sleep(4_000).then(() => undefined);
     throw e;
   }), "layout:set", 120_000);
   const show = (panelId: string) => {
-    const layout = DEFAULT_LAYOUT("ended");
+    const layout = defaultLayout("ended");
     layout.panes.p1 = { id: "p1", kind: "panel", panelId: panelId as never, params: panelId === "what-if" ? whatIf : {}, setBy: "human" };
+    // No Timeline pane here: the replay adds its own over each layout from the engine and still follows the next one.
     return setLayout(layout);
   };
   // The checks after this one use carol's arrangement (her stored panels' panes): put it back at the end.
   const arranged = (await carol.query(fn.q("layout:current"), { roomId }) as { layout: Layout }).layout;
   try { await sweep(); } finally { await setLayout(arranged); }
   async function sweep() {
+  // The replay follows each layout set below, without a reload.
+  await page.waitForSelector("[data-testid=replay-transport]", { timeout: 60_000 });
   const blank: string[] = [];
   for (const id of PANEL_IDS) {
     await show(id);
@@ -478,15 +505,18 @@ await check("after the game ends every built-in panel shows the frozen final sta
     if (!ok || await pane.locator("[data-testid^=panel-empty-]").count() > 0 || /shows data|How the game went\.$/.test(text)) blank.push(`${id}: ${text.slice(0, 120)}`);
   }
   assert(blank.length === 0, `blank after the end: ${blank.join(" | ")}`);
+  // The replay acts on nothing: the forge has no editor and says why.
   await show("forge");
-  await page.locator("[data-testid=pane-p1] [data-testid=input-source]").fill("def agent(x):\n    return []");
-  assert(await page.locator("[data-testid=pane-p1] [data-testid=button-summon]").isDisabled() && await page.locator("[data-testid=pane-p1] [data-testid=button-validate]").isDisabled(), "summon and validate are off after the end");
+  const forge = page.locator("[data-testid=pane-p1] [data-testid=panel-forge-readonly]");
+  await forge.waitFor({ timeout: 20_000 });
+  assert(/Read-only replay/.test(await forge.textContent() ?? ""), `the forge's note: ${await forge.textContent()}`);
+  assert(await page.locator("[data-testid=pane-p1] [data-testid=input-source]").count() === 0, "an editor in the replay's forge");
   // Phone-size screenshots of the frozen agents, objects and feed panels (CG_E2E_SHOTS=<dir> keeps them).
   if (process.env.CG_E2E_SHOTS) {
     const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
     await phone.addCookies(sessionCookies(session));
     const shot = await phone.newPage();
-    await shot.goto(`${SITE}/client/rooms/${shortCode}`);
+    await shot.goto(`${SITE}${GAME_PATH}`);
     await shot.waitForSelector("[data-testid=dock-stacked]", { state: "attached", timeout: 60_000 });
     for (const id of ["agents", "objects", "feed"]) {
       await show(id);
@@ -499,15 +529,16 @@ await check("after the game ends every built-in panel shows the frozen final sta
   }
 });
 
-await check("while the next game prepares its rule tables (a shape with no shipped file), the overview and results panels say so with the progress", async () => {
+// The dock exists only in a live game: preparing the next one is shown on the room page.
+await check("while the next game prepares its rule tables (a shape with no shipped file), the room page says so with the progress", async () => {
   const owner = (action: string, extra: Record<string, unknown> = {}) => carol.action(fn.a("owner:command"), { roomId, action, requestId: crypto.randomUUID(), ...extra });
-  const { canonicalSupport, context, familiesFor, firstUseSeconds, instantiateKey, paramsKey, tableKey } = await import("@workspace/game-utilities");
+  const { canonicalSupport, context: tableContext, familiesFor, firstUseSeconds, instantiateKey, paramsKey, tableKey } = await import("@workspace/game-utilities");
   const inst = instantiateKey("Int(0,2147483647)");
   const smooth = familiesFor("Int", "reward").find(f => f.id === "smooth-operator")!;
   const convex = (fnName: string, args: unknown) => execFileSync("npx", ["convex", "run", fnName, JSON.stringify(args)], { cwd: ENGINE, encoding: "utf8" });
   convex("calibration/cache:forget", { instance: inst.key });
   // The three tables are claimed as if computing elsewhere: the room waits on them, nothing is computed here.
-  for (const p of canonicalSupport(smooth, context(inst))) {
+  for (const p of canonicalSupport(smooth, tableContext(inst))) {
     convex("calibration/cache:claim", { key: tableKey(smooth.id, p, inst), instance: inst.key, family: smooth.id, paramsKey: paramsKey(p), prior: "uniform" });
   }
   const { revision } = await carol.query(fn.q("rooms:get"), { room: roomId }) as { revision: number };
@@ -515,13 +546,30 @@ await check("while the next game prepares its rule tables (a shape with no shipp
     excludedFamilies: familiesFor("Int", "reward").map(f => f.id).filter(id => id !== smooth.id) } });
   const started = await owner("start") as { status?: string; message?: string };
   assert(started.status === "preparing" && /preparing its rule tables: 0 of 3 ready/.test(started.message ?? ""), `start: ${JSON.stringify(started)}`);
-  const note = page.locator("[data-testid=note-preparing]").first();
+  const roomPage = await context.newPage();
+  await roomPage.goto(`${SITE}/rooms/${shortCode}`);
+  const note = roomPage.locator("[data-testid=text-preparing]");
   await note.waitFor({ timeout: 30_000 });
   const text = await note.innerText();
-  assert(new RegExp(`The game is preparing its rule tables, 0 of 3 ready\\. It is the first game on Int\\(0,2147483647\\) on this server \\(about ${firstUseSeconds(inst)} s\\)`).test(text), `note: ${text}`);
+  assert(new RegExp(`The game is preparing its rule tables, 0 of 3 ready\\. This is the first game on Int\\(0,2147483647\\) on this server \\(about ${firstUseSeconds(inst)} s;`).test(text), `note: ${text}`);
   await owner("endGame");   // ends the preparation
-  await page.locator("[data-testid=note-preparing]").first().waitFor({ state: "detached", timeout: 30_000 });
+  await note.waitFor({ state: "detached", timeout: 30_000 });
+  await roomPage.close();
   convex("calibration/cache:forget", { instance: inst.key });
+});
+
+// A second live game (Grid) for the checks that need a dock: the phone layouts and safe mode.
+let gridPath = "";
+await check("a second game (Grid) starts and the room page opens it: carol plays, so its page is her dock", async () => {
+  const roomPage = await context.newPage();
+  await roomPage.goto(`${SITE}/rooms/${shortCode}`);
+  await roomPage.waitForSelector("[data-testid=text-room-code]", { timeout: 60_000 });
+  const code = await startGame(roomId, { objectType: "Grid", languages: ["typescript"], planningSeconds: 2, halfLifeSeconds: 3600 });
+  gridPath = `/rooms/${shortCode}/games/${code}`;
+  // Looking at the room page when a game launches takes the viewer to it.
+  await roomPage.waitForURL(url => url.pathname === gridPath, { timeout: 30_000 });
+  await roomPage.waitForSelector("[data-testid=dock]", { timeout: 60_000 });
+  await roomPage.close();
 });
 
 await check("at phone size (390×844) a panel's pane runs in the stacked layout, with the assistant as a sheet", async () => {
@@ -529,7 +577,7 @@ await check("at phone size (390×844) a panel's pane runs in the stacked layout,
   await phoneContext.addCookies(sessionCookies(session));
   const phone = await phoneContext.newPage();
   phone.on("pageerror", e => pageErrors.push(`phone: ${e.message}`));
-  await phone.goto(`${SITE}/client/rooms/${shortCode}`);
+  await phone.goto(`${SITE}${gridPath}`);
   await phone.waitForSelector("[data-testid=dock-stacked] [data-testid=assistant-pane]", { state: "attached", timeout: 60_000 });
   const text = await phone.frameLocator('[data-testid="panel-frame-stored:e2e-live"] iframe').locator("[data-testid=sp-text]").textContent({ timeout: 30_000 });
   assert(text === "v1 with data", `phone frame: ${text}`);
@@ -540,17 +588,13 @@ await check("at phone size (390×844) a panel's pane runs in the stacked layout,
 });
 
 await check("a Grid game's objects panel at phone size: no ✓/✗ glyphs, rectangles to scale with labelled edges, the top bar at the ramp's strong end, no sideways scroll", async () => {
-  const owner = (action: string, extra: Record<string, unknown> = {}) => carol.action(fn.a("owner:command"), { roomId, action, requestId: crypto.randomUUID(), ...extra });
-  const { revision } = await carol.query(fn.q("rooms:get"), { room: roomId }) as { revision: number };
-  await owner("settings", { revision, settings: { objectType: "Grid", languages: ["typescript"], planningSeconds: 2, halfLifeSeconds: 3600 } });
-  await owner("start");
   const { layout } = await carol.query(fn.q("layout:current"), { roomId }) as { layout: Layout };
   await carol.mutation(fn.m("layout:set"), { roomId, layout: { ...layout, panes: { ...layout.panes, p1: { id: "p1", kind: "panel", panelId: "objects", params: {}, setBy: "human" } } } });
   const phoneContext = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
   await phoneContext.addCookies(sessionCookies(session));
   const phone = await phoneContext.newPage();
   phone.on("pageerror", e => pageErrors.push(`phone: ${e.message}`));
-  await phone.goto(`${SITE}/client/rooms/${shortCode}`);
+  await phone.goto(`${SITE}${gridPath}`);
   await phone.waitForSelector("[data-testid^=row-object-]", { timeout: 90_000 });
   const panel = await phone.evaluate(() => {
     const rows = [...document.querySelectorAll("[data-testid^=row-object-]")];
@@ -581,12 +625,11 @@ await check("a Grid game's objects panel at phone size: no ✓/✗ glyphs, recta
   if (panel.rects[0].kind === "gain") assert(srgb(panel.topBar).join() === "154,96,5", `the top object's bar is ${panel.topBar}, not the ramp's strong end #9a6005`);
   assert(panel.scrollWidth <= 390, `the page scrolls sideways: ${panel.scrollWidth}px`);
   await phoneContext.close();
-  await owner("endGame");
 });
 
 await check("?panels=off loads only the built-in panels and the assistant", async () => {
   const safe = await context.newPage();
-  await safe.goto(`${SITE}/client/rooms/${shortCode}?panels=off`);
+  await safe.goto(`${SITE}${gridPath}?panels=off`);
   await safe.waitForSelector("[data-testid=text-self-label]", { timeout: 60_000 });
   await safe.waitForSelector("[data-testid=text-safe-mode]");
   await safe.waitForSelector("[data-testid=dock] [data-testid=assistant-pane]");
@@ -594,9 +637,10 @@ await check("?panels=off loads only the built-in panels and the assistant", asyn
   assert(await safe.locator("[data-panel-origin]").count() === 0, "panels rendered in safe mode");
   assert(await safe.locator("[data-testid=dock] [data-testid=menu-panel]").count() >= 1, "no panel in safe mode");
   await safe.close();
+  await carol.action(fn.a("owner:command"), { roomId, action: "endGame", requestId: crypto.randomUUID() });
 });
 
-await check("the hosted page runs under its CSP without violations of its own", async () => {
+await check("the page runs under its CSP without violations of its own", async () => {
   const csp = await page.getAttribute('meta[http-equiv="Content-Security-Policy"]', "content");
   assert(csp?.includes("connect-src 'self' " + new URL(CLOUD).origin), `page CSP: ${csp}`);
   // Expected: the navigating panel's frame was refused by frame-src (checked above).
@@ -604,15 +648,15 @@ await check("the hosted page runs under its CSP without violations of its own", 
   assert(own.length === 0, own.slice(0, 2).join(" | "));
 });
 
-await check("a signed-out visit goes to the engine's /connect page, whose sign-in reaches the provider; no CSP reports", async () => {
+await check("a signed-out visit to a game's page shows the sign-in screen there, which reaches the provider; no CSP reports", async () => {
   const fresh = await browser.newContext();
   const out = await fresh.newPage();
   const reports: string[] = [];
   out.on("console", m => { if (/Content Security Policy/i.test(m.text())) reports.push(m.text()); });
-  await out.goto(`${SITE}/client/rooms/${shortCode}`);
-  await out.waitForURL(url => url.pathname === "/connect", { timeout: 60_000 });
-  await out.waitForSelector("[data-testid=button-login-connect]", { timeout: 60_000 });
-  await Promise.all([out.waitForURL(url => !url.href.startsWith(SITE), { timeout: 30_000 }), out.click("[data-testid=button-login-connect]")]);
+  await out.goto(`${SITE}${GAME_PATH}`);
+  await out.waitForSelector("[data-testid=button-login]", { timeout: 60_000 });
+  assert(new URL(out.url()).pathname === GAME_PATH, `the signed-out page moved: ${out.url()}`);
+  await Promise.all([out.waitForURL(url => !url.href.startsWith(SITE), { timeout: 30_000 }), out.click("[data-testid=button-login]")]);
   assert(reports.length === 0, reports.slice(0, 2).join(" | "));
   await fresh.close();
 });
@@ -620,12 +664,16 @@ await check("a signed-out visit goes to the engine's /connect page, whose sign-i
 await check("the assistant timeline stays at the bottom when the suggestion chips appear under a long answer (mock provider)", async () => {
   // Real-provider testing hid the end of an answer under the chips: the timeline shrank without scrolling.
   const other = await carol.mutation(fn.m("rooms:create"), { assistantBudget: 400_000 }) as { roomId: string; shortCode: string };
-  await carol.mutation(fn.m("rooms:approveAiBudget"), { roomId: other.roomId, aiBudget: 0, assistantBudget: 400_000 });
+  await carol.mutation(fn.m("rooms:setSpectator"), { roomId: other.roomId, spectator: false });   // owners start as spectators; this one plays
+  await carol.mutation(fn.m("rooms:approveAiBudget"), { roomId: other.roomId, aiBudget: 50_000, assistantBudget: 400_000 });
+  // The assistant pane is in the dock, which a live game has: carol and two (mock) AI seats play one.
+  for (let i = 0; i < 2; i++) await carol.action(fn.a("owner:command"), { roomId: other.roomId, action: "addAi", aiAgentId: "sonnet-strategist", requestId: crypto.randomUUID() });
+  const otherGame = await startGame(other.roomId, { objectType: "Grid", languages: ["typescript"], planningSeconds: 3600, halfLifeSeconds: 100_000 });
   const chat = await browser.newContext({ viewport: { width: 1200, height: 700 } });
   await chat.addCookies(sessionCookies(session));
   const p = await chat.newPage();
   p.on("pageerror", e => pageErrors.push(`timeline: ${e.message}`));
-  await p.goto(`${SITE}/client/rooms/${other.shortCode}`);
+  await p.goto(`${SITE}/rooms/${other.shortCode}/games/${otherGame}`);
   await p.waitForSelector("[data-testid=input-assistant]", { timeout: 60_000 });
   const lines = Array.from({ length: 40 }, (_, i) => `line ${i + 1}\n`);
   await p.fill("[data-testid=input-assistant]", `/mock ${JSON.stringify({ steps: [{ text: [...lines, "THE END"] }] })}`);
@@ -635,6 +683,7 @@ await check("the assistant timeline stays at the bottom when the suggestion chip
   const gap = await p.$eval("[data-testid=assistant-timeline]", el => el.scrollHeight - el.scrollTop - el.clientHeight);
   assert(gap < 24, `the end of the answer is ${gap}px below the visible timeline`);
   await chat.close();
+  await carol.action(fn.a("owner:command"), { roomId: other.roomId, action: "endGame", requestId: crypto.randomUUID() });
 });
 
 await check("no uncaught page errors in the host", () => assert(pageErrors.length === 0, pageErrors.slice(0, 3).join(" | ")));

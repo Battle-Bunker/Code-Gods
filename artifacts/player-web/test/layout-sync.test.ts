@@ -6,10 +6,10 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_LAYOUT, assistantSide, panelPanesOf, movePane, openPane, parseLayout, setPanePanel, setPaneParams, type DockLayout } from "@workspace/player-client/layout";
+import { DEFAULT_LAYOUT, assistantSide, closePane, panelPanesOf, movePane, openPane, parseLayout, setPanePanel, setPaneParams, type DockLayout } from "@workspace/player-client/layout";
 import { SINGLE_LAYOUT } from "./single-layout.ts";
 import {
-  effectiveLayout, initialSync, pushPlan, sameLayout, syncReducer, type SyncState,
+  effectiveLayout, initialSync, pushPlan, sameLayout, syncReducer, withTimeline, type SyncState,
 } from "../src/dock/layout-sync.ts";
 import { back, canUndo, lastParams, observe, emptyHistory, resetView } from "../src/dock/history.ts";
 import { dockAssistant, showPanel } from "../src/dock/operations.ts";
@@ -64,6 +64,45 @@ test("a server layout arriving over an unpushed edit waits; a CONFLICT then adop
   assert.equal(pushPlan(conflict), null);
 });
 
+test("a pane the player closed stays closed through a CONFLICT: the close is replayed on the server's version and pushed", () => {
+  // Catches: the closed pane coming back because a CONFLICT adopted the server's version (the assistant opened a
+  // panel while the player closed another).
+  const closed = closePane(base, "p2");
+  const s = run(loaded(), { type: "edit", layout: closed }, { type: "push-start" }, { type: "server", layout: withRace, updatedAt: 200 }, { type: "push-conflict" });
+  assert.deepEqual(s.local, closePane(withRace, "p2"), "the server's change kept, the player's close replayed on it");
+  assert.deepEqual(pushPlan(s), { layout: closePane(withRace, "p2"), ifUpdatedAt: 200 });
+  // A conflict before the newer version has arrived: the close stays on screen and is pushed again once it has.
+  const early = run(loaded(), { type: "edit", layout: closed }, { type: "push-start" }, { type: "push-conflict" });
+  assert.deepEqual(early.local, closed);
+  const later = run(early, { type: "server", layout: withRace, updatedAt: 200 });
+  assert.deepEqual(later.local, closePane(withRace, "p2"));
+  assert.deepEqual(pushPlan(later), { layout: closePane(withRace, "p2"), ifUpdatedAt: 200 });
+});
+
+test("a close replayed after a CONFLICT: never the last panel, never a pane reopened or now showing something else, never on a stale version", () => {
+  // The last panel: the player closed p1 while the server closed p3, leaving p1 its only panel (closePane refuses).
+  const lastPanel = run(loaded(withRace), { type: "edit", layout: closePane(withRace, "p1") }, { type: "push-start" },
+    { type: "server", layout: base, updatedAt: 200 }, { type: "push-conflict" });
+  assert.deepEqual(lastPanel.local, base, "the server's version, unchanged");
+  assert.equal(pushPlan(lastPanel), null);
+  // Reopened by the player before the newer version arrived: the reopened pane stays.
+  const reopened = run(loaded(), { type: "edit", layout: closePane(base, "p2") }, { type: "push-start" }, { type: "push-conflict" },
+    { type: "edit", layout: base }, { type: "server", layout: withRace, updatedAt: 200 }, { type: "push-start" }, { type: "push-conflict" });
+  assert.equal(reopened.local.panes.p2?.kind, "assistant");
+  // The id now names another pane on the server (the assistant put a feed where the race was): left alone.
+  const feedAtP3 = setPanePanel(withRace, Object.keys(withRace.panes).find(id => !(id in base.panes))!, "feed", "assistant");
+  const raceId = Object.keys(withRace.panes).find(id => !(id in base.panes))!;
+  const reused = run(loaded(withRace), { type: "edit", layout: closePane(withRace, raceId) }, { type: "push-start" }, { type: "push-conflict" },
+    { type: "server", layout: feedAtP3, updatedAt: 300 });
+  assert.deepEqual(reused.local, feedAtP3);
+  assert.equal(pushPlan(reused), null);
+  // The same version delivered again is not the one that moved the row: the close stays on screen, nothing is pushed.
+  const stale = run(loaded(), { type: "edit", layout: closePane(base, "p2") }, { type: "push-start" }, { type: "push-conflict" },
+    { type: "server", layout: base, updatedAt: 100 });
+  assert.deepEqual(stale.local, closePane(base, "p2"));
+  assert.equal(pushPlan(stale), null);
+});
+
 test("an edit made while a push is in flight is pushed after it, based on the new version", () => {
   const s = run(loaded(), { type: "edit", layout: sideBySide }, { type: "push-start" }, { type: "edit", layout: withRace });
   assert.equal(pushPlan(s), null);
@@ -88,10 +127,15 @@ test("before the server's layout has loaded nothing is pushed; an early edit is 
   assert.deepEqual(pushPlan(fresh), { layout: sideBySide, ifUpdatedAt: undefined }, "no row yet: nothing to compare with");
 });
 
-test("a read-only sync (safe mode) applies server layouts and never pushes", () => {
+test("a read-only sync (safe mode, a replay) applies server layouts and never pushes, also after a local edit", () => {
   const s = run(initialSync(base, { canWrite: false }), { type: "server", layout: base, updatedAt: 1 }, { type: "edit", layout: sideBySide });
   assert.deepEqual(s.local, sideBySide);
   assert.equal(pushPlan(s), null);
+  // Catches: the local edit (a replay's own Timeline pane) left "unpushed" for good, so every later server layout
+  // (the assistant opening a panel) was queued behind it and never shown.
+  const next = run(s, { type: "server", layout: withRace, updatedAt: 2 });
+  assert.deepEqual(next.local, withRace);
+  assert.equal(next.queued, false);
 });
 
 test("the first panel nobody chose follows the phase", () => {
@@ -178,4 +222,14 @@ test("moving the assistant to a side stacks the panels beside it; to the bottom 
     ["column", ["row", "p2"]]);
   const left = parseLayout(dockAssistant(twoInARow, "left"), ctx).layout;
   assert.deepEqual(left.root.type === "split" && left.root.children[0], { type: "pane", id: "p2" });
+});
+
+test("a replay's Timeline is shown over any layout with room for it, and never twice or past the panel limit", () => {
+  const shown = withTimeline(base);
+  assert.equal(panelPanesOf(shown).filter(p => p.panelId === "timeline").length, 1);
+  assert.equal(withTimeline(shown), shown, "already there");
+  let full = base;
+  for (const panelId of ["race", "feed", "agents"] as const) full = openPane(full, { id: "", kind: "panel", panelId, params: {}, setBy: "human" }).layout;
+  assert.equal(panelPanesOf(full).length, 4);
+  assert.equal(withTimeline(full), full, "a full dock keeps its panels (no panel replaced)");
 });

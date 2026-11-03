@@ -1,14 +1,15 @@
 # External player clients
 
-Status: design adopted 2026-11-01. It extends [`surface-architecture.md`](surface-architecture.md) and
+Status: design adopted 2026-11-01; the account grant (decision 9, §3.3) added 2026-11-02 with the app unification
+(docs/unify-apps-plan.md §3). It extends [`surface-architecture.md`](surface-architecture.md) and
 [`player-client-integration.md`](player-client-integration.md). Routes and functions are in [`engine-api.md`](engine-api.md).
 
 **Goal.** A player can run their own client on any origin and change it freely with a coding agent during play. The
 origin can be a Replit dev URL (`https://xyz.replit.dev`), `http://localhost:5173`, Codespaces, a static host or a
-claude.ai artifact. The hosted client at `/client/` is a **reference implementation** of such an app. It gets nothing
-from the engine that a client on another origin cannot get the same way. Server authority stays in the Convex
-deployment: whatever a client is or does, it can act only as its human, in one room, with one permission. The
-disclosure rules hold in the engine's queries.
+claude.ai artifact. The app the engine serves at `/` (`artifacts/player-web`) is a **reference implementation** of
+such an app: the same app on another origin gets the same rights, through an account grant (decision 9). Server
+authority stays in the Convex deployment: whatever a client is or does, it can act only as its human, with what its
+grant allows (one room and one permission, or the account), and the disclosure rules hold in the engine's queries.
 
 ## 1. Audit (2026-11-01, `develop` at 5c75a0f)
 
@@ -26,10 +27,12 @@ disclosure rules hold in the engine's queries.
 
 ## 2. Decisions
 
-1. **One way in for every client: a room credential, never the site session.** The engine site's Google session is
-   used only by the engine UI: signing in, approving connections and devices, creating and joining rooms, managing
-   credentials. Every player client authenticates with a **player JWT** naming a credential, the hosted `/client`
-   included.
+1. **Rights come from the human's Google identity, never from which app they run** (owner, 2026-11-02, superseding
+   "a room credential, never the site session"). The app served by the engine uses the site's Google session; the same
+   app, or any other, on another origin uses an **account grant** (decision 9) and gets the same rights. A **room
+   credential** (one room, one permission) remains the way in for agents, CLIs, the in-client assistant and any app
+   that wants least privilege. Only the consent surface stays with the site session on the engine's own origin:
+   approving connections and devices, listing and revoking credentials, and admin.
 2. **Browser apps on any origin use OAuth 2.1 with PKCE** (the authorization code flow, public clients), the same
    authorization server Claude uses. Changes:
    - any `https://` redirect URI can be registered (exact match; never a fragment or userinfo), as well as loopback http;
@@ -47,47 +50,56 @@ disclosure rules hold in the engine's queries.
    send `Access-Control-Allow-Credentials`. Cookie-authenticated routes (`/api/auth/*`) stay same-origin, so no foreign
    page can use a human's session. Convex functions (`*.convex.cloud`, HTTP and WebSocket) already take a bearer JWT
    from any origin.
-5. **First-party consent.** When the redirect URI is the hosted client itself (the engine's own origin and the client's
-   path, `/client/`), the human is a member of the hinted room and the grant is at most `act`, `/connect`
-   approves without a click. No other page of the engine's origin qualifies. The code can only
-   reach the engine's own page, and the token is the same as any external app's. An `owner` grant always needs the
-   explicit consent checkbox, whoever asks. No other client gets this shortcut. It skips one click; the engine
-   grants it no extra rights.
+5. **No first-party shortcut** (2026-11-02, with the unification). The app on the engine's origin uses the site
+   session and asks for no grant, so `/connect` treats every request alike: nothing is approved without a click, and
+   an `owner` or account grant always needs the explicit consent checkbox.
 6. **Scope is per room, not per game.** The room is the unit of membership, ownership and chat. Games in a room
    follow one another, and replays and history are per room. A per-game token would ask for consent at every game
    start and buy nothing, since a credential already sees only its human's projection. The in-client assistant's
    credential stays per (human, room) for the same reason.
 7. **MCP keeps its Origin allowlist.** Browser apps call Convex functions directly, through the SDK. MCP is for
    agents, which send no `Origin`. An operator can still list extra origins (`MCP_ALLOWED_ORIGINS`).
+9. **Account grants** (OAuth `scope=account`, alone). An app on any origin may ask to act as its human **in every
+   room**: list, create and join rooms, play, chat, run the rooms the human owns, save setups and panels. The engine
+   resolves it to a viewer with `scope: "account"`, which every game function treats like the browser session
+   (`access.ts` `actsAsHuman`). It cannot reach the consent surface (credentials, `/connect` and `/device` approval) or
+   admin, and `/mcp` refuses it (agents act per room). `/connect` shows "act as you in every room" with the app's
+   origin and needs the consent checkbox: an account grant is never approved without a click.
+   It is approved as asked or denied (never turned into a room grant, or the reverse). Its refresh token rotates like
+   any OAuth grant's, reuse revokes it, and it expires after **7 days** without use (room grants: 30). It is listed
+   and revocable under Connected apps on the engine site.
 8. **The SDK lives in the repository** (`@workspace/player-client/browser`). Players fork this repository and change
    their client in place (the product rule), so a workspace package is the SDK. Publishing it to npm is a packaging
    step for later: the browser module depends only on `fetch`, Web Storage and `convex`.
 
 ## 3. Design
 
-### 3.1 The hosted client is an OAuth client of its own engine
+### 3.1 The app is the same on every origin
 
-`/client/` (player-web in "browser" mode) does what any external page does:
+The engine serves the app (`artifacts/player-web`) at `/`; a player can run the same app anywhere else. Rights come
+only from the human's Google identity; the app picks how it proves it (`src/core/connection.ts`):
 
-1. It reads `GET /api/config` → `{convexUrl, siteUrl}` (same origin when hosted; `VITE_CODE_GODS_ENGINE_URL` elsewhere).
-2. It looks up a stored session for the room in the URL. Sessions are kept per engine and room, in `localStorage`.
-3. With none, it registers itself (DCR: the engine answers the same name and redirect URI with the same
-   `client_id`, outside its registration limit) and sends the browser to `/oauth/authorize` with `scope=act` and
-   `room=<code>`. The return path is kept with the PKCE `state`.
-4. `/connect` (engine UI): sign in with Google if needed, join the room if needed, then approve. The approval is
-   automatic for the first-party `act` grant (decision 5). An owner action in the client (start, settings, AI seats)
-   asks for an `owner` connection instead. The owner approves it with the consent checkbox, and it replaces the
-   `act` connection, which the SDK revokes.
-5. Back on `/client/?code&state`, it exchanges the code at `/api/oauth/token` → `{access_token (60-min player JWT),
-   refresh_token, room_id, room_code, credential_id, scope}` and gives the Convex client a `fetchToken` that
-   refreshes. Refreshes are serialized across tabs with the Web Locks API, because a reused refresh token revokes
-   the connection.
-6. Revoking on the engine UI ("Your player apps") stops the client at its next call. The client then waits for a click
-   to connect again: a revoked connection is never renewed silently. `signOut()` in the SDK (the hello client's
-   **Disconnect**) revokes it from the client.
+- **site** (served by the engine): the site's Better Auth session cookie, the human everywhere. It asks for no grant.
+- **account** (any other origin, built or run with `VITE_CODE_GODS_ENGINE_URL`): an OAuth client of the engine, as
+  any external page is.
+  1. It registers itself (DCR: the engine answers the same name and redirect URI with the same `client_id`, outside
+     its registration limit) and sends the browser to `/oauth/authorize` with `scope=account`. The return path is
+     kept with the PKCE `state`.
+  2. `/connect` (the app's consent page, on the engine origin): sign in with Google if needed, then approve with
+     the explicit consent checkbox (decision 9). Nothing is approved without a click.
+  3. Back on the app's base path with `?code&state`, it exchanges the code at `/api/oauth/token` → a 60-min player
+     JWT with `scope: "account"` and a rotating refresh token, stored per engine, and gives the Convex client a
+     `fetchToken` that refreshes. Refreshes are serialized across tabs with the Web Locks API, because a reused
+     refresh token revokes the grant.
+  4. The app is then the human everywhere, except the consent pages (`/connect`, `/device`), Connected apps and
+     admin, which it links to on the engine's site. Revoking it there (menu → Connected apps), or 7 days without
+     use, stops it at its next call; the app then shows its sign-in screen again. A revoked grant is never renewed
+     silently. Sign out revokes it from the app.
+- **devserver** (a Vite dev server holding a room credential, `CODE_GODS_CREDENTIAL`): the credential lives in the
+  Node dev server, and the browser gets 10-minute JWTs from `/__codegods/token`. It is the safest option for a dev
+  container, because the browser never holds a refresh token, and it is the human in one room only.
 
-The dev-server mode is unchanged: the credential lives in the Node dev server, and the browser gets JWTs from
-`/__codegods/token`. It is the safest option for a dev container, because the browser never holds a refresh token.
+Other clients (`clients/hello`) use the same SDK, usually with a room grant (`scope=act`, `room=<code>`).
 
 ### 3.2 Authenticating from an arbitrary origin
 
@@ -100,24 +112,29 @@ The dev-server mode is unchanged: the credential lives in the Node dev server, a
 
 ### 3.3 Threat model
 
-- **A malicious or buggy client** acts as its human only, in its one room, with its permission. It sees exactly the
+- **A malicious or buggy client with a room grant** acts as its human only, in its one room, with its permission. It sees exactly the
   human's projection. Every engine function re-checks the credential and the room membership, and an owner grant
   works only while the human owns the room. It cannot approve connections, list or revoke other credentials,
-  create rooms or reach other rooms: those need the browser session, which only the engine site's origin has.
+  create rooms or reach other rooms: those need the site session or an account grant.
   Rate limits are per human, so a loop in one client cannot exceed the human's limits. That includes 30 agent
   checks (validate and summon) a minute.
 - **A token leaked from a public Repl.** The damage is bounded by room × permission × lifetime. An access JWT lasts at
   most 60 min, but revocation stops it on its next call. A leaked refresh token used by an attacker rotates; when the
-  real app next refreshes, the reuse revokes the connection for both. Revoke from "Your player apps" on the engine
-  UI. Keep credentials in the environment's secret store, never in files of a public Repl; the docs and the CLI say so.
+  real app next refreshes, the reuse revokes the connection for both. Revoke it under Connected apps on the engine
+  site. Keep credentials in the environment's secret store, never in files of a public Repl; the docs and the CLI say so.
 - **An AI coding agent with the token in its environment** is the human's delegate (room-assistant boundary): it can
   do whatever the credential allows. Give it a `read` credential for analytics work. An `act` credential lets it
   chat publicly and summon. The in-client assistant's confirmations do not apply to outside agents. Never give an
   agent an `owner` credential unless the human wants it to run the room.
-- **A phishing page posing as a client** must still pass `/connect`, which shows its real origin. The first-party
-  consent shortcut applies only to the engine's own origin.
-- **XSS in a player's own client** steals what that origin stores: the refresh token for one room. A player who
-  changes their client can harm only their own access. The hosted client's CSP limits `connect-src` to the engine.
+- **An account grant** (decision 9) widens what a client can do to everything its human can do in Code Gods, except
+  the consent surface and admin: create and join rooms, act in every room, owner actions in the rooms the human owns.
+  XSS in a player's own client therefore steals an account-wide refresh token instead of a room one. Mitigations: the
+  explicit consent naming the origin, 7 days idle expiry, rotation with reuse detection, revocation from the engine
+  site, per-human rate limits (unchanged), and no MCP. An app that does not need it asks for a room grant.
+- **A phishing page posing as a client** must still pass `/connect`, which shows its real origin, and a click.
+- **XSS in a player's own client** steals what that origin stores: a room's refresh token, or the account grant's.
+  A player who changes their client can harm only their own access. A build of the app limits `connect-src` to its
+  own origin, the deployment and (account mode) the engine's site (`vite/csp.ts`).
 
 ### 3.4 Realtime
 
@@ -149,7 +166,7 @@ engine's deployed versions now and after every deploy (`version.current`, engine
 client compares `version.functions.build` with the first value it saw to learn that the engine changed, and treats a
 `CLIENT_OUTDATED` error (`incompatibility(error)`) as "update me", not as something to retry. Nothing reloads a
 client on its own: a dev server with hot reloading can show a note (as the reference client's dev server does) or
-ignore it. The engine-hosted builds use `startAutoUpdate` from the same module to reload themselves safely.
+ignore it. The app's engine-hosted build uses `startAutoUpdate` from the same module to reload itself safely.
 
 The example app is in `clients/hello/` (README: a Replit quickstart). The typed catalogue of every public function is
 `lib/player-client/src/catalog.ts`; its generated table is in `engine-api.md`. The protocol types and Zod schemas are
@@ -171,7 +188,10 @@ in `lib/player-client/src/protocol.ts`.
 - `test:auth`: CORS preflight and headers on every bearer endpoint for a foreign `Origin`; no CORS on `/api/auth/*`.
   A client "served" from `https://xyz.replit.dev` and from `http://localhost:5173` registers, is approved, exchanges
   its code, subscribes over the WebSocket, acts, and is revoked. The subscription then loses auth.
+- `test:mcp` (account grant): consent required, never auto-approved, never converted to or from a room grant; the
+  app lists, creates and joins rooms and plays in each as its human, never reaches credentials, approvals, admin or
+  `/mcp`; refresh rotates; revocation stops it at once.
 - `test:mcp`: https redirect URIs register, the same metadata gets the same client, the `resource` and `room` hints
-  work, and first-party approval applies only to the hosted client's path and never to `owner`.
+  work, and no grant is approved without a click.
 - `lib/player-client` unit tests: the browser SDK's PKCE, state, storage per room, cross-tab refresh and reconnect.
 - Browser: `clients/hello` served on a different port from the engine, driven by Playwright (`pnpm run smoke:hello`).

@@ -86,13 +86,13 @@ export async function requireOwnerAs(ctx: Ctx, viewer: Viewer, room: Doc<"rooms"
  */
 export const isHistoric = (room: Doc<"rooms">, game: Doc<"games">) => game._id !== room.currentGameId && game._id !== room.activeGameId;
 /**
- * Read access to a historic game: a god who played in it (seated on its roster, member of the room today or not) or
- * the room's current owner, through any scope bound to this room.
+ * Read access to a historic game: a god who played in it (seated on its roster, member of the room today or not), a
+ * human who watched it (its spectators) or the room's current owner, through any scope bound to this room.
  */
 export function requireHistoricReaderAs(viewer: Viewer, room: Doc<"rooms">, game: Doc<"games">): Viewer {
   requireRoomPermission(viewer, room._id, "read");
-  if (room.ownerId === viewer.subject || game.roster.some(m => m.id === viewer.subject)) return viewer;
-  return fail("FORBIDDEN", "Only the gods who played in it and the room owner can open a past game");
+  if (room.ownerId === viewer.subject || game.roster.some(m => m.id === viewer.subject) || (game.spectators ?? []).includes(viewer.subject)) return viewer;
+  return fail("FORBIDDEN", "Only the gods who played in it or watched it, and the room owner, can open a past game");
 }
 /** Read access to a room's public state: browser humans, or a player credential bound to this room. */
 export async function requireReader(ctx: Ctx, room: Doc<"rooms">): Promise<Viewer> {
@@ -134,9 +134,13 @@ export async function lastHumanActivity(ctx: Ctx): Promise<number> {
 export const isIdle = (lastActivity: number, now = Date.now()) => now - lastActivity >= IDLE_MS;
 
 export async function recentChat(ctx: Ctx, roomId: Id<"rooms">, limit = 100, from = 0, to = Infinity) {
-  const rows = await ctx.db.query("chat").withIndex("by_room", q => {
+  return (await chatWindow(ctx, roomId, from, to).take(limit)).reverse();
+}
+
+/** A room's chat sent in [from, to] (a game's window: its start to its end), newest first, by the by_room index. */
+export function chatWindow(ctx: Ctx, roomId: Id<"rooms">, from = 0, to = Infinity) {
+  return ctx.db.query("chat").withIndex("by_room", q => {
     const lower = q.eq("roomId", roomId).gte("timestamp", from);
     return Number.isFinite(to) ? lower.lte("timestamp", to) : lower;
-  }).order("desc").take(limit);
-  return rows.reverse();
+  }).order("desc");
 }

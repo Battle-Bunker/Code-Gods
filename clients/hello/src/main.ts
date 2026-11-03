@@ -12,7 +12,7 @@
 import { ConvexClient } from "convex/browser";
 import { api } from "@workspace/engine/convex/_generated/api";
 import { VERSION } from "@workspace/player-client";
-import { createPlayerAuth, type PlayerAuth, type PlayerSession } from "@workspace/player-client/browser";
+import { createPlayerAuth, isAccountSession, type PlayerAuth, type PlayerSession } from "@workspace/player-client/browser";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const show = (id: string, on: boolean) => { $(id).hidden = !on; };
@@ -84,6 +84,8 @@ function play(a: PlayerAuth, session: PlayerSession) {
   if (!engineUrl) return;
   const a = authFor(engineUrl);
   const done = await a.completeSignIn();
-  const session = done?.session ?? (roomInput.value ? a.session(roomInput.value) : null);
+  // This client asks for one room: an account grant it never asked for is revoked at once, not kept.
+  if (done && isAccountSession(done.session)) await a.signOut(done.session);
+  const session = (done && !isAccountSession(done.session) ? done.session : null) ?? (roomInput.value ? a.session(roomInput.value) : null);
   if (session) play(a, session);
 })().catch(fail);

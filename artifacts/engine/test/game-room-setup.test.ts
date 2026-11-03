@@ -36,6 +36,21 @@ test("a new room runs First steps and can turn the assistant on in the same call
   assert.equal(rows.find((r: any) => r.id === roomId)?.setupName, "First steps");
 });
 
+test("a setup saved on a stale view of the room is refused with CONFLICT and leaves the newer change", { timeout: 60_000 }, async () => {
+  // Catches: owner.settings dropping its revision guard, so the owner's second tab silently overwrites the first.
+  const [host] = await gods("Stale Host");
+  await touch(host);
+  const { roomId } = await roomWith([host]);
+  const seen = (await host.c.query(api.rooms.get, { room: roomId })).revision;
+  const classic = await setupId(host.c, "grid-classic");
+  const first = await setupId(host.c, "grid-first-steps");
+  await host.c.action(api.owner.settings, { roomId, revision: seen, setupId: classic });
+  assert.equal(await errorCode(host.c.action(api.owner.settings, { roomId, revision: seen, setupId: first })), "CONFLICT");
+  const room = await host.c.query(api.rooms.get, { room: roomId });
+  assert.equal(room.setup?.id, classic, "the newer change stands");
+  assert.equal(room.revision, seen + 1);
+});
+
 test("a settings change moves only what the game ties to it: no retuning on a new world, nothing else; a single language still works", { timeout: 60_000 }, async () => {
   const [host] = await gods("Model Host");
   await touch(host);
@@ -114,7 +129,7 @@ test("a change edits the room's setup when the owner owns it, else their copy, w
   // A started game snapshots the setup; the ended game's record and the public view name it.
   await host.c.action(api.owner.settings, { roomId, revision: await revision(), settings: { planningSeconds: 3600, halfLifeSeconds: 1e9, startingObjectCount: 3, spawnRateHz: 0 } });
   const game = await startGame(host, roomId);
-  const view = await ada.c.query(api.games.view, { code: game.shortCode });
+  const view = await ada.c.query(api.games.header, { code: game.shortCode });
   assert.deepEqual(view.setup, { id: fromDeleted.setup.id, name: "Ada's board's copy 2" });
   await host.c.mutation(api.rooms.endActiveGame, { roomId });
   const [record] = await ada.c.query(api.rooms.history, { room: roomId });

@@ -18,7 +18,7 @@ export function HistoricGame({ game, roomCode, meId, note }: { game: GameView; r
       <header className="space-y-2">
         <p className="text-sm">
           <Link to={{ kind: "room", room: roomCode }} className="underline" data-testid="link-room">Room {roomCode}</Link>
-          {" · "}<Link to={{ kind: "games", room: roomCode }} className="underline" data-testid="link-past-games">Past games</Link>
+          {" · "}<Link to={{ kind: "room", room: roomCode }} className="underline" data-testid="link-past-games">Past games</Link>
         </p>
         <h1 className="font-serif text-3xl">Game <span className="font-mono" data-testid="text-game-code">{game.shortCode}</span> <span className="label align-middle" data-testid="text-game-status">ended · read-only</span></h1>
         <p className="text-sm text-muted-foreground" data-testid="text-game-summary">

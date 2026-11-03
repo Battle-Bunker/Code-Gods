@@ -1,6 +1,6 @@
 /**
  * The rules of Code Gods as plain text for an assistant (the `get_rules` tool), filled in from a room's
- * settings. The engine UI's "rules for an AI assistant" copy (artifacts/code-gods game-rules.tsx) says the
+ * settings. The app's "rules for an AI assistant" copy (artifacts/player-web/src/site/components/game-rules.tsx) says the
  * same at more length.
  */
 import { LANGUAGE_SPECS, SETTINGS_DOCS, allowedLanguages, type FieldDoc } from "@workspace/game-core";

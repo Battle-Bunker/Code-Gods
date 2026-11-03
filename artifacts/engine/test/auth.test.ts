@@ -90,6 +90,21 @@ test("admin needs a verified allowlisted email", async () => {
   assert.equal((await client((await login("unverified")).jwt).query("auth/user:me") as { isAdmin: boolean }).isAdmin, false);
 });
 
+test("sign-in is required for the server info, the sandboxes' warm-up and the engine's HTTP data routes (owner decision 2026-11-02)", async () => {
+  // Catches: an anonymous visitor reading the manifest, booting the agent sandboxes, or loading tables or a replay; and
+  // a browser's Better Auth JWT not being accepted by the HTTP routes the app calls with it.
+  assert.equal(await errorCode(client().query("manifest:get")), "UNAUTHENTICATED");
+  assert.equal(await errorCode(client().action("manifest/node:warm")), "UNAUTHENTICATED");
+  const routes = [`${SITE}/api/calibration/no-room/no-game/no-god`, `${SITE}/api/replay/no-room/no-game`];
+  for (const url of routes) assert.equal((await fetch(url)).status, 401, `${url} signed out`);
+  // A signed-in human still gets them (the routes then refuse the unknown room, not the caller).
+  const { jwt } = await login("alice");
+  const alice = client(jwt);
+  await alice.action("manifest/node:warm");
+  assert.ok(((await alice.query("manifest:get")) as { objectTypes: unknown[] }).objectTypes.length > 0);
+  for (const url of routes) assert.equal((await fetch(url, { headers: { authorization: `Bearer ${jwt}` } })).status, 404, `${url} with a browser JWT`);
+});
+
 test("sign-out ends the session at once, even for an unexpired browser JWT", async () => {
   const { session, jwt } = await login("carol");
   assert.equal((await client(jwt).query("auth/testing:probe", {}) as { name: string }).name, "Carol Nguyen");
@@ -398,38 +413,19 @@ test("health, /api 404s and both static sites with SPA fallback and asset cachin
     const response = await fetch(`${SITE}${path}`);
     return { status: response.status, type: response.headers.get("content-type") ?? "", cache: response.headers.get("cache-control") ?? "", body: await response.text() };
   };
-  for (const path of ["/", "/rooms/ABCD", "/device"]) {
+  // The app serves every page from "/" (SPA fallback); there is no other site or prefix (no /client/, no /player).
+  for (const path of ["/", "/rooms/ABCD", "/rooms/ABCD/games/EFGH", "/device", "/client/", "/player/?room=ABCD"]) {
     const result = await page(path);
     assert.equal(result.status, 200, path);
     assert.match(result.type, /text\/html/, path);
-    assert.match(result.body, /id="engine-fixture"|<div id="root"|<html/i, path);
-    assert.doesNotMatch(result.body, /player-fixture/, path);
+    assert.match(result.body, /id="app-fixture"|<div id="root"|<html/i, path);
   }
-  for (const path of ["/client/", "/client", "/client/rooms/ABCD", "/client/rooms/ABCD/games/EFGH"]) {
-    const result = await page(path);
-    assert.equal(result.status, 200, path);
-    assert.match(result.type, /text\/html/, path);
-    assert.match(result.body, /player-fixture/, path);
-  }
-  // The old /player/ prefix redirects permanently to /client/, keeping the rest of the path and the query.
-  for (const [from, to] of [["/player", "/client"], ["/player/", "/client/"], ["/player/?room=ABCD", "/client/?room=ABCD"],
-    ["/player/rooms/ABCD/games/EFGH?panels=off", "/client/rooms/ABCD/games/EFGH?panels=off"], ["/player/panel-frame.html", "/client/panel-frame.html"]]) {
-    const response = await fetch(`${SITE}${from}`, { redirect: "manual" });
-    assert.equal(response.status, 308, from);
-    assert.equal(new URL(response.headers.get("location")!, SITE).href, `${SITE}${to}`, from);
-  }
-  // Only the exact segment: /players is the engine UI's (SPA fallback), not a redirect.
-  assert.match((await page("/players")).body, /engine-fixture/);
-  const engineIndex = (await page("/")).body;
-  const playerIndex = (await page("/client/")).body;
-  const engineAsset = engineIndex.match(/src="(\/assets\/[^"]+\.js)"/)![1];
-  const playerAsset = playerIndex.match(/src="(\/client\/assets\/[^"]+\.js)"/)![1];
-  for (const asset of [engineAsset, playerAsset]) {
-    const result = await page(asset);
-    assert.equal(result.status, 200, asset);
-    assert.match(result.type, /javascript/, asset);
-    assert.equal(result.cache, "public, max-age=31536000, immutable", asset);
-  }
+  for (const path of ["/player", "/player/rooms/ABCD"]) assert.equal((await fetch(`${SITE}${path}`, { redirect: "manual" })).status, 200, `${path}: no redirect`);
+  const asset = (await page("/")).body.match(/src="(\/assets\/[^"]+\.js)"/)![1];
+  const served = await page(asset);
+  assert.equal(served.status, 200, asset);
+  assert.match(served.type, /javascript/, asset);
+  assert.equal(served.cache, "public, max-age=31536000, immutable", asset);
   assert.match((await page("/")).cache, /max-age=0, must-revalidate/);
   assert.equal((await page("/assets/missing-abc123.js")).status, 404);
 });

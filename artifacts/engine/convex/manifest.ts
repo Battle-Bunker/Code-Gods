@@ -1,61 +1,36 @@
-"use node";
-import { MIN_TICK_MS, TICK_SECONDS } from "./lib/world";
 /**
- * The settings manifest for pickers: object types with parameters, classes and the PLAYABLE instantiations (every one
- * the type can instantiate, minus retired shapes: game-utilities playableInstantiations, the list the settings model
- * is given on the server), each saying how its first game here goes (`prepare`: how many rule tables would be
- * computed on demand, and about how long that takes; none for a shape whose tables are shipped or analytic) and
- * the priors under which the Aligned Lottery has measured synergy for it (`synergy`). `offered` keeps the shapes whose every table is shipped, for
- * diagnostics. Also the pre-authored dropdown options, available runtimes and AI funding status. Game setups are a
- * table of their own (convex/setups.ts).
+ * The settings manifest for pickers (a query the app subscribes to; docs/convex-read-architecture.md R6): object types
+ * with their playable instantiations and the priors (stored by manifest/node.ts, which computes them from the code and
+ * the calibration files), plus what a query reads itself: the pre-authored dropdown options, languages, the agent
+ * sandboxes' state as stored (live: a boot that finishes updates every open page), available runtimes and AI funding
+ * status. null until the first refresh stored it (a deploy's, or manifest.node.warm's, which the app calls once per
+ * session). Reading it never warms a sandbox: that is manifest.node.warm.
  */
+import { v } from "convex/values";
 import { DEFAULT_SETTINGS, LANGUAGES, LANGUAGE_SPECS, SETTINGS_OPTIONS } from "@workspace/game-core";
-import { OBJECT_TYPES, instanceInfo, type Instantiation } from "@workspace/game-types";
-import { analyticFor, coverage, firstUseSeconds, offeredInstantiations, playableInstantiations, synergyFor, type CalibrationManifest } from "@workspace/game-utilities";
 import { VERSION as PLAYER_PROTOCOL } from "@workspace/player-client";
-import { action } from "./_generated/server";
-import { calibrationManifest } from "./engine/calibration";
-import { priorIds } from "./engine/node";
-import { ensureSandboxes } from "./engine/runtime";
+import { internalMutation, internalQuery, query, type QueryCtx } from "./_generated/server";
+import { requireViewer } from "./auth/access";
 import { AI_MODEL_CATALOG, ASSISTANT_BUDGET_MAX, DEFAULT_AGENT_MODEL, mockEnabled, providerConfigured } from "./lib/aiModels";
+import { MIN_TICK_MS, TICK_SECONDS } from "./lib/world";
+import { sandboxViews } from "./runtime/readiness";
 
-const shape = (inst: Instantiation) => {
-  const info = instanceInfo(inst);
-  return { key: inst.key, args: inst.args, label: info.label, badges: info.badges, classes: inst.classes };
-};
-/** How a first game on `inst` goes on this deployment: the dealable draws with no shipped or analytic table. */
-function prepareOf(calibration: CalibrationManifest, inst: Instantiation) {
-  const toCompute = coverage(calibration, inst).missing.filter(m => !analyticFor(m.familyId, m.params, inst)).length;
-  return toCompute ? { toCompute, seconds: firstUseSeconds(inst) } : null;
-}
+const NAME = "settings";
+const row = (ctx: QueryCtx) => ctx.db.query("manifests").withIndex("by_name", q => q.eq("name", NAME)).unique();
 
-/** Per calibration manifest (file storage's, cached ≤ 1 min by engine/calibration.ts): a new upload is listed. */
-const objectTypes = new WeakMap<CalibrationManifest, unknown[]>();
-function objectTypesManifest(calibration: CalibrationManifest) {
-  let found = objectTypes.get(calibration);
-  if (!found) objectTypes.set(calibration, found = OBJECT_TYPES.map(T => ({
-    id: T.id, label: T.label, emoji: T.emoji, kid: T.kid, params: T.params, defaults: T.defaults,
-    classes: T.classes.map(c => ({ id: c.id, slot: c.slot, superclasses: c.superclasses, badge: c.badge })),
-    // The same list the settings model is given on the server (engine/settingsDomain.ts).
-    playable: playableInstantiations(T.id).map(inst => ({ ...shape(inst), prepare: prepareOf(calibration, inst), synergy: priorIds(calibration).filter(p => synergyFor(inst, p)) })),
-    // Diagnostics: the shapes whose every dealable table is shipped in file storage.
-    offered: offeredInstantiations(calibration, T.id).map(shape),
-  })));
-  return found;
-}
-
-export const get = action({
+export const get = query({
   args: {},
   handler: async (ctx) => {
-    const calibration = await calibrationManifest(ctx);
-    // Deployed runtimes, without booting any (a cold boot is 1-2 s): opening the settings is also the cheapest moment
-    // to warm them (throttled deployment-wide by runtime/readiness.ts), so a start finds them ready.
-    const sandboxes = await ensureSandboxes(ctx, LANGUAGES, true);
-    const runtimes = sandboxes.filter(s => s.state !== "failed").map(s => s.language);
+    await requireViewer(ctx);
+    const stored = await row(ctx);
+    if (!stored) return null;
+    const { objectTypes, priors } = JSON.parse(stored.body) as { objectTypes: unknown[]; priors: string[] };
+    const sandboxes = await sandboxViews(ctx, LANGUAGES);   // bounded: one row per language
     return {
       protocolVersion: 1, playerProtocol: PLAYER_PROTOCOL, minimumPlayers: 3, maximumPlayers: 8, defaults: DEFAULT_SETTINGS,
-      runtimes, sandboxes: sandboxes.map(({ language, state, reason }) => ({ language, state, ...(reason ? { reason } : {}) })), languages: LANGUAGES.map(id => ({ id, ...LANGUAGE_SPECS[id] })), options: SETTINGS_OPTIONS, objectTypes: objectTypesManifest(calibration),
-      priors: priorIds(calibration),
+      runtimes: sandboxes.filter(s => s.state !== "failed").map(s => s.language),
+      sandboxes: sandboxes.map(({ language, state, reason }) => ({ language, state, ...(reason ? { reason } : {}) })),
+      languages: LANGUAGES.map(id => ({ id, ...LANGUAGE_SPECS[id] })), options: SETTINGS_OPTIONS, objectTypes, priors,
       aiFunding: {
         provider: "anthropic", model: DEFAULT_AGENT_MODEL, billing: "direct", mock: mockEnabled(),
         configured: mockEnabled() || providerConfigured("anthropic") || providerConfigured("openai"), live: true,
@@ -65,5 +40,20 @@ export const get = action({
       },
       engine: { tickSeconds: TICK_SECONDS, minTickMs: MIN_TICK_MS },
     };
+  },
+});
+
+/** The stored body (tests). */
+export const stored = internalQuery({ args: {}, handler: async ctx => (await row(ctx))?.body ?? null });
+
+/** Store the computed part (manifest/node.ts); no write when it is unchanged, so subscribers re-run only on a change. */
+export const store = internalMutation({
+  args: { body: v.string() },
+  handler: async (ctx, { body }): Promise<boolean> => {
+    const old = await row(ctx);
+    if (old?.body === body) return false;
+    if (old) await ctx.db.patch(old._id, { body, updatedAt: Date.now() });
+    else await ctx.db.insert("manifests", { name: NAME, body, updatedAt: Date.now() });
+    return true;
   },
 });

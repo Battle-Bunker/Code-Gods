@@ -24,7 +24,7 @@ import {
 import { deltaE2000, deltaE2000Lab, deltaEOk, oklchOf, simulateHex, smallFieldMetrics } from "../src/colour-science.ts";
 
 const css = (app: string) => readFileSync(new URL(`../../../artifacts/${app}/src/index.css`, import.meta.url), "utf8");
-const APPS = ["player-web", "code-gods"] as const;
+const APPS = ["player-web"] as const;
 
 /** `hsl(H S% L%)` → #rrggbb (CSS Color 4). */
 function hslHex(h: number, s: number, l: number): string {
@@ -60,6 +60,8 @@ function backgrounds(): { light: Map<string, string>; dark: Map<string, string> 
     const scheme = relativeDark(hslToken(darkBlock, "background")) ? dark : light;
     for (const s of SURFACES) scheme.set(`${app} .dark --${s}`, hslToken(darkBlock, s));
   }
+  // No page of the app is dark today: the dark scheme is judged on the documented dark page (PAGE.dark).
+  if (!dark.size) dark.set("PAGE.dark", PAGE.dark);
   return { light, dark };
 }
 const shadesOf = (set: GridColourSet, scheme: "light" | "dark") => COLOUR_COMPONENTS[set].letters.map(l => DIGIT_SHADES[set][scheme][l]);
@@ -140,7 +142,7 @@ test("the digits are WCAG large text, so light shades need 3:1; dark shades and 
   assert.equal(MIN_CONTRAST.light, 3);
   assert.equal(MIN_CONTRAST.dark, 4.5);
   const bg = backgrounds();
-  assert.ok(bg.light.size >= 8 && bg.dark.size >= 4, "both apps' light surfaces and the engine UI's dark ones are checked");
+  assert.ok(bg.light.size >= 4 && bg.dark.size >= 1, "the app's light surfaces and a dark page are checked");
   for (const set of GRID_COLOUR_SETS) for (const scheme of ["light", "dark"] as const) {
     for (const [letter, shade] of Object.entries(DIGIT_SHADES[set][scheme])) for (const [where, hex] of bg[scheme]) {
       const ratio = contrastRatio(shade, hex);
@@ -200,12 +202,11 @@ test("tile fills are the set's bright shades with a dark glyph that reads on eac
 });
 
 test("the small-field model judges the shades on the apps' real pages", () => {
-  // The player client's page (both its themes keep the paper) and the engine UI's dark page.
+  // The app's page (both its themes keep the paper).
   assert.equal(hslToken(block(css("player-web"), ":root"), "background"), PAGE.light);
-  assert.equal(hslToken(block(css("code-gods"), ".dark"), "background"), PAGE.dark);
 });
 
-test("both apps define the shades as --cg-ink-* (light under :root; the engine UI's real dark theme under .dark)", () => {
+test("the app defines the shades as --cg-ink-* (light under :root; a `.dark` that keeps the paper inherits them)", () => {
   for (const app of APPS) {
     const source = css(app);
     const root = block(source, ":root"), dark = block(source, ".dark");

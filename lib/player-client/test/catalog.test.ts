@@ -31,7 +31,7 @@ test("the catalogue lists exactly the public functions in the engine's sources, 
   const found = walkPublicFunctions();
   assert.deepEqual([...CATALOG_PATHS].sort(), [...found.keys()].sort());
   for (const [path, kind] of found) assert.equal(CATALOG[path as keyof typeof CATALOG].kind, kind, `${path} is a ${kind}`);
-  assert.equal(found.size, 77);
+  assert.equal(found.size, 85);
   assert.ok(found.has("layout.current") && found.has("layout.set") && !found.has("panels.place") && !found.has("panels.layout"));
 });
 
@@ -45,7 +45,8 @@ test("every player or owner affordance reaches the assistant through a tool, or 
   // The gaps the design names are the only ones without a tool among player/owner entries.
   const noTool = CATALOG_PATHS.filter(p => (CATALOG[p].audience === "player" || CATALOG[p].audience === "owner") && !CATALOG[p].tools.length).sort();
   assert.deepEqual(noTool, ["assistant.cancel", "assistant.confirm", "assistant.editQueued", "assistant.removeQueued", "assistant.send", "assistant.sendQueued", "assistant.setPrefs", "assistant.status", "assistant.thread", "assistant.threads", "assistant.transcript",
-    "games.resolve", "games.view", "panels.setEnabled", "player.game", "player.objectsPage", "rooms.create", "rooms.join", "rooms.leave", "rooms.list"]);
+    "games.header", "games.instance", "games.object", "games.objectIds", "games.resolve", "games.standings", "games.standingsHistory",
+    "panels.setEnabled", "player.game", "player.objectsPage", "replays.stored", "rooms.chat", "rooms.create", "rooms.join", "rooms.leave", "rooms.list"]);
 });
 
 test("tools and entries agree in both directions; kinds match annotations", () => {
@@ -58,7 +59,7 @@ test("tools and entries agree in both directions; kinds match annotations", () =
     // A tool wrapping only queries is read-only; a read-only tool wraps no mutation-only function (validate_agent is a read-only command).
     const kinds = functions.map(f => CATALOG[f].kind);
     if (kinds.length && kinds.every(k => k === "query")) assert.equal(t.annotations.readOnlyHint, true, `${t.name} wraps only queries`);
-    if (t.annotations.readOnlyHint && kinds.length && t.name !== "validate_agent") assert.ok(kinds.some(k => k === "query") || t.functions.includes("manifest.get"), `${t.name} is read-only but reaches ${kinds}`);
+    if (t.annotations.readOnlyHint && kinds.length && t.name !== "validate_agent") assert.ok(kinds.some(k => k === "query"), `${t.name} is read-only but reaches ${kinds}`);
   }
   // The registry covers every tool name the catalogue mentions.
   const mentioned = new Set(CATALOG_PATHS.flatMap(p => CATALOG[p].tools));
@@ -88,16 +89,17 @@ test("docs/engine-api.md carries the current generated catalogue table", () => {
   assert.equal(catalogMarkdown().split("\n").length, CATALOG_PATHS.length + 2);
 });
 
-test("palette specs name surfaces and groups; the engine UI never gets player-only commands", () => {
-  for (const { path, palette } of [...paletteEntries("player"), ...paletteEntries("engine")]) {
+test("palette specs name a group and, only when page-specific, a palette: the site pages never get dock-only commands", () => {
+  for (const { path, palette } of [...paletteEntries("dock"), ...paletteEntries("site")]) {
     assert.ok(palette.label.length >= 4 && palette.label.length <= 40, `${path} label`);
-    assert.ok(palette.surfaces.length > 0);
+    assert.ok(palette.surfaces === undefined || palette.surfaces.length === 1, `${path}: one palette, or none named (both)`);
   }
-  const engineLabels = paletteEntries("engine").map(e => e.palette.label);
-  assert.ok(engineLabels.includes("Start the game") && engineLabels.includes("Create a room"));
-  assert.ok(!engineLabels.includes("Make a panel…") && !engineLabels.includes("Arrange the dock…"), "panels and the dock are player-client affairs");
-  const playerLabels = paletteEntries("player").map(e => e.palette.label);
-  assert.ok(playerLabels.includes("Arrange the dock…") && playerLabels.includes("Ask the assistant…") && !playerLabels.includes("Create a room"));
+  const siteLabels = paletteEntries("site").map(e => e.palette.label);
+  assert.ok(siteLabels.includes("Start the game") && siteLabels.includes("Create a room"));
+  assert.ok(!siteLabels.includes("Make a panel…") && !siteLabels.includes("Arrange the dock…"), "panels and the dock belong to the dock's palette");
+  const dockLabels = paletteEntries("dock").map(e => e.palette.label);
+  assert.ok(dockLabels.includes("Arrange the dock…") && dockLabels.includes("Ask the assistant…") && !dockLabels.includes("Create a room"));
+  assert.ok(dockLabels.includes("Start the game") && siteLabels.includes("Show who I am"), "an entry naming no palette is on both");
   assert.equal(CATALOG["rooms.endActiveGame"].palette?.confirm, "modal");
   assert.equal(CATALOG["panels.remove"].palette?.confirm, "inline");
 });

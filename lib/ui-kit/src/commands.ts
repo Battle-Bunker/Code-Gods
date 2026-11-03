@@ -5,11 +5,11 @@
  * member (or a credential that may act), infrastructure entries a signed-in human. The confirmation level is the
  * palette spec's; test/search.test.ts checks that every entry reached by a destructive tool states one, so a new
  * destructive tool cannot land unconfirmed (checked there rather than here, to keep the tool schemas out of the
- * engine UI's bundle).
+ * site pages' bundle).
  */
-import { CATALOG, type CatalogEntry, type PaletteSurface, type PublicFunctionPath } from "@workspace/player-client/catalog";
+import { CATALOG, onSurface, type CatalogEntry, type PaletteSurface, type PublicFunctionPath } from "@workspace/player-client/catalog";
 import { paletteRows } from "./search.ts";
-import type { Availability, Command, PaletteContext, Performer } from "./types.ts";
+import type { Availability, Command, LiveOptions, PaletteContext, Performer, PickOption } from "./types.ts";
 
 const RANK = { visitor: 0, "signed-in": 1, member: 2, seated: 3, owner: 4 } as const;
 
@@ -39,7 +39,7 @@ export function commandsFromCatalog(
   const out: Command[] = [];
   for (const path of Object.keys(catalog) as PublicFunctionPath[]) {
     const entry: CatalogEntry = catalog[path];
-    if (!entry.palette || !entry.palette.surfaces.includes(surface)) continue;
+    if (!entry.palette || !onSurface(entry.palette, surface)) continue;
     const performer = bind(path, entry);
     if (!performer) continue;
     out.push({
@@ -56,4 +56,12 @@ export function searchCommands(commands: readonly Command[], query: string, ctx:
   return paletteRows(commands, ctx, { query }).flatMap(s => s.rows)
     .filter(r => query.trim() || r.availability.ok)
     .map(({ command, availability }) => ({ command, availability }));
+}
+
+/**
+ * A pick page's live list from a subscription's current state (the app's shared query hook): loading while it has no
+ * answer, its error's message, else every item mapped to an option.
+ */
+export function liveOptions<T>(result: { data: readonly T[] | undefined; error?: Error | null }, option: (item: T) => PickOption): LiveOptions {
+  return { options: result.data?.map(option), error: result.error ? result.error.message : null };
 }

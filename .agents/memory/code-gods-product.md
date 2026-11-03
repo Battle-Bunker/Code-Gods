@@ -6,7 +6,7 @@ Code Gods aims to elicit human technical understanding through political negotia
 
 **Why:** The user wants technical fluency to be causally important to negotiation, not artificial limits on AI assistance.
 
-**How to apply:** Keep server authority separate from freely customizable player clients in the same repo. The server UI is a common display and owner control panel, not a player gameplay editor. Video-call politics is external and out of scope.
+**How to apply:** Keep server authority (the engine) separate from the freely customizable app in the same repo. The app's room pages and a live game's spectator view are a common display and owner control panel, not a player gameplay editor; gameplay is the seated player's dock. Video-call politics is external and out of scope.
 
 Individual opponents' object utilities are not directly shared: clients receive their own utility, the sum of other gods' utilities and their product (the score). Public leaderboards show player total scores.
 
@@ -104,7 +104,7 @@ AI-player templates are persistent admin-editable named records with provider/mo
 
 **How to apply:** Gate authoring by an environment-configured verified-email allowlist. Seed defaults once and preserve edits/deletions across restarts. Do not save allowlisted personal emails in memory.
 
-Deploy the engine as one Convex deployment that serves the engine UI, the hosted player client and the API. Park after 30 minutes without human activity.
+Deploy the engine as one Convex deployment that serves the app (at `/`) and the API. Park after 30 minutes without human activity.
 
 **Why:** The user wants affordable compute with no separate server; Convex bills function time, so a parked tick loop costs nothing. The 30-minute idle rule is kept from the former Autoscale deployment.
 
@@ -168,9 +168,9 @@ Every public Convex function has an entry in one typed catalogue (lib/player-cli
 
 **Why:** The owner wants every affordance a player has to be available and documented for their assistant, enumerated in one place that forks into the human and the AI API, with the documentation required by the type system (2026-10-31).
 
-**How to apply:** A new public function fails the typecheck until it has an entry; a new registry tool names its `functions` and derives its description from the first one's entry (or gives its own `about` when it wraps a shared function), never a free-standing description. Buttons, menus and the command palette in both apps read the human side; MCP, the CLI and the in-client assistant read the AI side. Keep `docs/engine-api.md`'s generated table current (`pnpm --filter @workspace/player-client gen:catalog`).
+**How to apply:** A new public function fails the typecheck until it has an entry; a new registry tool names its `functions` and derives its description from the first one's entry (or gives its own `about` when it wraps a shared function), never a free-standing description. Buttons, menus and the command palettes (the dock's and the site pages') read the human side; MCP, the CLI and the in-client assistant read the AI side. Keep `docs/engine-api.md`'s generated table current (`pnpm --filter @workspace/player-client gen:catalog`).
 
-The player client is a dock of panes: built-in panels, the human's stored panels and exactly one assistant pane (never closable). A human picks a pane's panel from a menu; a panel's parameters are set only by the assistant, through the layout tools.
+A seated player's game is a dock of panes: built-in panels, the human's stored panels and at most one assistant pane (see "The assistant is an ordinary, optional pane"). A human picks a pane's panel from a menu; a panel's parameters are set only by the assistant, through the layout tools.
 
 **Why:** The owner centred the interface on the assistant, wants IDE-style movable panes with one analytics panel over the chat by default, and wants every panel parameterised by the AI rather than by controls (docs/ui-redesign.md, 2026-10-31).
 
@@ -200,17 +200,17 @@ The assistant's state is per (player, game): starting a new game in the same roo
 
 **How to apply:** Threads (turns, briefings, messages, tool calls, cards), the allowance, code runs and stored objects carry the game's epoch (the room's current game, or the lobby before the first); launching a game ends the room's active assistant turns. An earlier game's conversation stays readable by its human for that game (replays) but is never listed, continued or loaded in the next. The player's own choices are not assistant state and stay: layout and panels, saved scripts (`scripts/`), the auto-approve preference, the room credential. New assistant state gets the same key.
 
-URLs nest games in their rooms, in both apps: `/rooms/:room` and `/rooms/:room/games/:game` (short codes) in the engine UI, and the same scheme under the player client's own base path. The engine hosts the player client at `/client/` (never "player" in the prefix; `/player/*` redirects there), and the client is a reference implementation of a separate app: it must run unchanged from any surface (a Replit or Codespaces dev server at `/`, a proxy path). A player can open the past games of a room they played in, read-only.
+There is one app (artifacts/player-web), served by the engine at `/` and runnable by a player on any other origin (a dev server or a build); every page is calibrated to the signed-in human. `/rooms/:room` is the room only (its active game and a link to it, members and their roles, chat, next game, past games) and never a game; `/rooms/:room/games/:game` is the game: the player view (the dock) for a god dealt into it while it is live, the spectator view for a member who is not, and its replay once it has ended.
 
-**Why:** The owner's instruction (2026-11-01): "make the player client URL schema as rich as the platform url schema and mirror it, but with the /client/ prefix", "nest games within rooms like /rooms/<id>/games/<id> (for both platform and client apps)", "It should be possible for the player client to visit historic games within a room they participated in", and treat `/client` as "a reference implementation of a separate app that we could run from Replit dev environments (or any other surface)".
+**Why:** The owner (2026-11-02): "get rid of the distinction of having a separate client app inside the reference implementation and just put all functionality on its appropriate page calibrated to the signed in user. Remove the /client/ prefix context entirely. Game play should occur at /rooms/:id/games/:id. That same URL becomes a replay interface once the game is over." And: "Remove the old code as thoroughly as possible … There is no reason to collect junk old code for backwards compatibility purposes."
 
-**How to apply:** Build engine UI paths with `artifacts/code-gods/src/lib/routes.ts` and client paths with `artifacts/player-web/src/core/routes.ts` (relative to Vite's base, never a hard-coded prefix). Keep old links (`/games/:code`, `?game=`, `?room=`, `/player/*`) redirecting. A past game (neither the room's active nor its current game) is readable only by the gods who played in it and the room owner; the engine enforces it on every per-game read (`convex/lib/rooms.ts` `requireHistoricReaderAs`), never the UI alone.
+**How to apply:** One URL scheme (`artifacts/player-web/src/core/routes.ts`; the pages' paths in `src/site/lib/routes.ts`), relative to Vite's base, never a hard-coded prefix. No redirects or legacy aliases (no `/client/`, `/player`, `/games/:code`, `?game=`, `?room=`): an unknown path is the not-found page. `src/site/pages/game.tsx` chooses the view from the roster and the phase. A past game (neither the room's active nor its current game) is readable only by the gods who played in it, its spectators and the room owner; the engine enforces it on every per-game read (`convex/lib/rooms.ts` `requireHistoricReaderAs`), never the UI alone. docs/unify-apps-plan.md.
 
-Every player client, the hosted `/client/` one included, is an external app of the engine: it authenticates only with a room-scoped player token (OAuth + PKCE or the device flow, `@workspace/player-client/browser`), never with the engine site's session cookie, and calls only public catalogued functions.
+Rights come from the human's Google identity, never from which app they run. The app served by the engine uses the site's Google session; an app on any other origin (localhost, a Replit dev URL, a static host) uses an OAuth account grant (`scope=account`) with the same rights. Room credentials (one room, one permission) stay the way in for agents, CLIs, the in-client assistant and least-privilege apps. Every client calls only public catalogued functions.
 
-**Why:** The owner wants `/client` to be a reference implementation of an app players run from any surface (Replit, localhost, …) and change freely; any privileged shortcut of the hosted client is a design bug (2026-11-01, docs/external-clients.md).
+**Why:** The owner (2026-11-02): "Only one's Google identity determines one's permissions over Convex not the application code one is running as their interface." This supersedes the 2026-11-01 rule that every client, the hosted one included, held only a room token.
 
-**How to apply:** The Google session is for the engine UI only (sign-in, rooms, /connect, /device, credential management). Bearer-authorized routes answer CORS `*` without credentials; cookie routes stay same-origin. A capability the hosted client needs is added for every client (a public function, an OAuth parameter), never as a same-origin or first-party exception; the only first-party difference is that /connect approves the engine's own client without a click (a member, at most act).
+**How to apply:** Game functions check `actsAsHuman(viewer)` (browser session or account grant), never `scope === "browser"`, except the consent surface (credentials list and revoke, `/connect` and `/device` approval) and admin, which stay browser-only. An account grant is never approved without the explicit consent checkbox, expires after 7 idle days, and `/mcp` refuses it. A capability any client needs is a public function, never a same-origin exception. docs/external-clients.md decision 9.
 
 Players never wait for agent sandboxes to boot: launches are async, and whatever needs a warm sandbox says "not ready yet".
 
@@ -225,7 +225,7 @@ The player can keep typing while their assistant works: messages queue in Convex
 **How to apply:** A queued message joins the running turn after the current step's tool results (in that user message, after the results, for both providers), or starts the next turn when the turn ends without a tool step. It never approves a card: it declines a waiting one. Stop keeps queued messages held until the player sends again. Delivery is exactly once (status change in the delivering mutation, clientId for retries); the queue is keyed by (player, game). Details: docs/surface-architecture.md §6 "Queued messages".
 
 ## Game duration mode (2026-11)
-`durationMode` is `"halfLife"` (default; today's hidden random end, half of games ending within `halfLifeSeconds`) or `"fixed"` (the game ends exactly `halfLifeSeconds` of world time after it starts). The field keeps its old name `halfLifeSeconds` and holds the length in both modes. A fixed game's end is public, since the setting is; `endAtWorld` stays out of every live projection regardless. Stored settings migrate to `halfLife` with their value (`upgradeStoredSettings`). First steps and Annotated basics are 10 min fixed. Every time setting takes a custom value within `TIME_LIMITS` (game-core), enforced by `validateSettings`.
+`durationMode` is `"halfLife"` (default; today's hidden random end, half of games ending within `halfLifeSeconds`) or `"fixed"` (the game ends exactly `halfLifeSeconds` of world time after it starts). The field keeps its old name `halfLifeSeconds` and holds the length in both modes. A fixed game's end is public, since the setting is; `endAtWorld` stays out of every live projection regardless. Stored settings migrate to `halfLife` with their value (`upgradeStoredSettings`). First steps and Annotated basics are 10 min fixed; Annotated basics also starts with 10 objects, spawns 0.1 per second and plans for 5 minutes. Every time setting takes a custom value within `TIME_LIMITS` (game-core), enforced by `validateSettings`.
 
 ## Panes have no tabs (2026-11-02)
 
@@ -242,3 +242,9 @@ The player can keep typing while their assistant works: messages queue in Convex
 ## The panel picker is a combobox (2026-11-02)
 
 **Rule:** the panel-type menu in a pane header is a Popover with a cmdk combobox (`dock/headers.tsx` PanelMenu): focused on open, typing filters fuzzily over names and synonyms with the palette's `matchScore` (`dock/panel-search.ts`, `PANEL_SYNONYMS`), sections kept ("For now", "Other panels", "Your panels" incl. the assistant), arrows/Enter select, Esc closes. Give a new built-in panel synonyms there (a unit test requires them).
+
+A room member is a player or a spectator of the next game. The owner starts as a spectator; a member sets it for themselves, the owner for any human member; AI seats always play. Only players are dealt in and count toward the 3 to 8.
+
+**Why:** The owner (2026-11-02): "Allow room members to be spectators (owner or the member themselves can configure this) and default the room owner to a spectator." Spectators see the public view of a live game, never per-god secrets.
+
+**How to apply:** `members.spectator` is a preference for the next game (`rooms.setSpectator`, tool `set_spectator`); a running game's roster never changes. `games.spectators` lists everyone not dealt in at launch plus whoever joins while it runs, and they may open the game once it is past (`requireHistoricReaderAs`). A spectator's live reads are the unseated projection (roster index -1). docs/unify-apps-plan.md §2.

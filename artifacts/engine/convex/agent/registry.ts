@@ -310,6 +310,9 @@ export const EXECUTORS: Executors = {
   summon_agent: (ctx, p, args) => command(ctx, p, "summon_agent", args),
   destroy_agent: (ctx, p, args) => command(ctx, p, "destroy_agent", args),
   set_ready: (ctx, p, args) => command(ctx, p, "set_ready", args),
+  set_spectator: async (ctx, { principal, who }, args) => ({
+    data: await ctx.runMutation(internal.rooms.setSpectatorAs, { principal, roomId: who.roomId, spectator: args.spectator, ...(args.deityId ? { godId: args.deityId } : {}) }),
+  }),
   send_chat: (ctx, p, args) => command(ctx, p, "send_chat", args),
   pause_game: (ctx, p, args) => command(ctx, p, "pause_game", args),
   wake_engine: async (ctx, { principal }) => {

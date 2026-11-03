@@ -13,7 +13,7 @@ panels** (`docs/panels.md`), "Your panels" in menus.
 
 1. The whole site is cluttered. Centre the interface on the AI assistant, which reaches every capability the player
    has through its tools, plus tools that show parameterisable analytics.
-2. The player client is an IDE-style dock of movable, resizable panes. Default: one analytics **panel** in the top
+2. The game, for a seated player, is an IDE-style dock of movable, resizable panes. Default: one analytics **panel** in the top
    half, the assistant chat in the bottom half. Dragging the assistant to the right, adding a second panel (from the
    palette or by asking the assistant) and dragging it under the first must be easy.
 3. A pane's panel is chosen from a dropdown; a panel's **parameters are set only by the assistant**.
@@ -48,17 +48,17 @@ panels** (`docs/panels.md`), "Your panels" in menus.
 | The forge | A panel (`forge`) with an in-place edit mode: the assistant drafts code into it (`open_panel {panelId: forge, params: {source}}`), the human may type or paste. Validate and Summon live in it, with the console's test ids. | architecture §0, player-client §3 |
 | Public chat vs. assistant | Separate inputs. The assistant pane is "Your assistant (private)"; the `public-chat` panel has the only public input ("Say to everyone…"). A palette hand-off always targets the assistant and never sends by itself. | palette §6, onboarding §6 |
 | Assistant off (allowance 0) | The client is complete without it: panels at defaults, every action in the palette and in the panels that need it. The assistant pane shows the welcome, chips in command form and one sentence on how the owner turns it on. | architecture §4.3 |
-| Catalogue | `lib/player-client/src/catalog.ts`: `CATALOG: Record<PublicFunctionPath, CatalogEntry>`, keys derived from `typeof api`. Tool descriptions, the assistant's tool guide, palette rows and tooltips in both apps read from it. `TOOL_GUIDE` is deleted. | architecture §1 |
+| Catalogue | `lib/player-client/src/catalog.ts`: `CATALOG: Record<PublicFunctionPath, CatalogEntry>`, keys derived from `typeof api`. Tool descriptions, the assistant's tool guide, palette rows and tooltips in the dock and the site pages read from it. `TOOL_GUIDE` is deleted. | architecture §1 |
 | Settings documentation | `SETTINGS_DOCS` beside `GameSettings` in `lib/game-core` (`satisfies Record<keyof GameSettings, FieldDoc>`), type-argument docs on `ParamSchema` in `lib/game-types`, room budget docs in the engine; served by `manifest.get` and `get_rules`. | onboarding §4.6 |
 | Palette | One shared component in a new `lib/ui-kit` (`CommandPalette`, `PaletteTrigger`, `Term` glossary). Rows = catalogue entries with a `palette` spec + client-only `ui.*` commands of the same human shape, each with a performer: navigate, form, submit, hand-off, local. Trigger: search field + ☰ at the top right; Cmd/Ctrl+K everywhere; `/` and `?` only when no input has focus. | palette §2 |
 | Confirmations in the palette | none / inline (press Enter again) / summary / modal, derived from `destructiveHint` and cost. The assistant's cards stay as they are, plus `destroy_agent` now also asks. | palette §2.6 |
-| Engine UI | Stays AI-free (shared display and owner panel). Every page: one status sentence from `nextStep()`, one filled primary action, at most four sections, the rest behind Details or in the palette. Owner and creation date stay prominent wherever rooms are listed; rooms have no names. | palette §3, architecture §6 |
+| Site pages | The app's room, configure and spectator pages (`src/site`) stay AI-free (shared display and owner panel); the assistant lives in a seated player's dock. Every page: one status sentence from `nextStep()`, one filled primary action, at most four sections, the rest behind Details or in the palette. Owner and creation date stay prominent wherever rooms are listed; rooms have no names. | palette §3, architecture §6 |
 | Game setups and configuration | Game setups are ONE shared collection of complete, named, owned settings (`gameSetups`, `convex/setups.ts`): the system's First steps, Classic, Low income, Big board and Master (game-core `SEED_SETUPS`, owned by the system, kept equal to the code at every deploy, editable by nobody) and every human's own, visible to everyone. The room page shows one **Setup** combobox (cmdk, as the palette): typing filters by name, owner and summary; each row shows its name, owner ("System", "You", or the owner's name) and summary, with **Edit** (unavailable, with the reason, unless it is yours) and **Duplicate**; picking a row applies it at once with Undo; "New setup" duplicates the room's current one. There is no "Custom" and no "Defaults" group. The page `/rooms/:code/configure?setup=<id>` edits ONE setup (the room's when no id is given): its name first, then every `GameSettings` field as a real control (`SETTINGS_DOCS[k].control`) grouped World → Goals → Agents → Energy → Population → Time → Players & AI → Review, with meaning and consequence from `SETTINGS_DOCS`; the board is one control per type argument, every playable combination enabled (only the retired 3×3 is not), with a light note when the first game on that shape will prepare rule tables ("about 70 s", from the measured cloud latencies) and, for the Aligned Lottery, when no synergy is measured there (it then deals like the Divine Lottery); defence goals are a switch with a checklist of the allowed ones (on: every player gets one). Anyone but the owner reads it with every control disabled and one action, "Duplicate and edit". Save writes the setup and puts the room's next game on it; Delete is in the review section. | onboarding §3–4, palette §3.3, owner (directive 8) |
 | Settings changes | Every change goes through game-core `applySettingsChange` (the page per control, the engine per `owner.settings`): a language sets its grammar and summon price, an object type its default instantiation, type arguments must be playable (valid and not retired; tables are prepared on demand), excluded families that no longer exist are dropped (an excluded id must be a family of the type; one the board cannot deal is dropped), option fields must be choices of the language and type; everything else is free within `validateSettings`. Nothing else moves. | owner (2026-10-31) |
 | Room creation | New rooms start on the seeded First steps setup. Creating a room asks the owner, once, to turn on the assistant with a pre-filled allowance and a consent checkbox ("Not now" keeps it off). Adding the first AI player asks for the AI budget in the same step. | onboarding §0 |
 | Which setup is active | `rooms.setupId` (+ `setupName`): a room always runs a setup, and its `settings` are that setup's at the time they were applied. `owner.settings({setupId})` applies any setup; `owner.settings({settings})` edits the room's setup if the owner owns it, else creates their "<name>'s copy" and switches the room to it. A deleted setup's rooms keep their snapshot and show it as "(deleted)". Games snapshot `setupId`/`setupName`. | owner (directive 8) |
 | Wording | "player" in functional copy, "god" kept in flavour copy and the glossary. "Declare ready" leaves the primary path (it gates nothing). Revision numbers and protocol versions leave the UI. | palette §5, onboarding §1.3 |
-| Invite links | Stay on the room page (`/rooms/CODE`); the room page's primary action for a member is "Open player client". | this document |
+| Invite links | Stay on the room page (`/rooms/CODE`). The room page never shows a game: while one is live its card leads with "Open game G…" (`/rooms/CODE/games/G…`), where a seated player gets the dock and a spectator the spectator view. | this document, docs/unify-apps-plan.md |
 | Object renderers | An object type may register several named renderers with a default; each viewer's choice per type is remembered in their browser and switched from the palette (`ui.objects.renderer`) or the grid detail view. Grids default to coloured digits (per colour set, `--cg-ink-<set>-<letter>`, derived to maximise CIEDE2000 and colour-blind separation at 4.5:1 contrast), with tiles in the same sets as the alternative. | this document |
 | Object annotations | Being rebuilt; see docs/annotations-design.md. | this document |
 | Deferred | per-user coaching flags and zero-token coaching messages beyond the empty states and chips, `players` hints on setups, Int/string default setups, "Present on a big screen". | this document |
@@ -72,7 +72,8 @@ type Paths<T, P extends string = ""> = { [K in keyof T & string]: T[K] extends F
 export type PublicFunctionPath = Paths<typeof api>;          // "rooms.join" | "auth.credentials.list" | …  (verified against convex 1.48)
 export type Audience = "player" | "owner" | "infrastructure" | "admin" | "test";
 export type PaletteGroup = "play" | "view" | "room" | "owner" | "account" | "help";
-export interface PaletteSpec { label: string; group: PaletteGroup; keywords?: readonly string[]; surfaces: readonly ("player" | "engine")[]; confirm?: "none" | "inline" | "summary" | "modal" }
+export type PaletteSurface = "dock" | "site";                // which palette: the game's dock, or the site pages
+export interface PaletteSpec { label: string; group: PaletteGroup; keywords?: readonly string[]; surfaces?: readonly PaletteSurface[]; confirm?: "none" | "inline" | "summary" | "modal" }
 export interface CatalogEntry {
   kind: "query" | "mutation" | "action";
   audience: Audience;
@@ -133,7 +134,7 @@ export function setPaneParams(layout: DockLayout, paneId: string, params: Record
 export const PRESET_LAYOUTS: Record<"stacked" | "side-by-side" | "two-panels", (current: DockLayout) => DockLayout>;
 ```
 
-The player client owns one adapter (`src/dock/adapter.ts`: `toDockview`, `fromDockview`) with round-trip tests.
+The dock owns one adapter (`src/dock/adapter.ts`: `toDockview`, `fromDockview`) with round-trip tests.
 Floating and pop-out groups fold back into the tree on save.
 
 ### 2.4 Engine (`artifacts/engine/convex/layout.ts`, `convex/layout/tables.ts`)
@@ -178,11 +179,12 @@ export function CommandPalette(props: { commands: readonly Command[]; context: P
 export function PaletteTrigger(props: { placeholder: string; onOpen(init?: { query?: string; page?: string }): void; compact?: boolean }): JSX.Element;
 export function Term(props: { id: GlossaryId; children?: ReactNode; onAsk?: (draft: string) => void }): JSX.Element;
 export const GLOSSARY: Record<GlossaryId, { term: string; gloss: string }>;
-export function commandsFromCatalog(catalog: typeof CATALOG, bind: (path: PublicFunctionPath, entry: CatalogEntry) => Performer | null, surface: "player" | "engine"): Command[];
+export function commandsFromCatalog(catalog: typeof CATALOG, bind: (path: PublicFunctionPath, entry: CatalogEntry) => Performer | null, surface: PaletteSurface): Command[];
 ```
 
-Per-app command lists: `artifacts/player-web/src/core/palette/commands.ts` and `artifacts/code-gods/src/lib/commands.ts`
-(catalogue-derived rows + `ui.*` rows: navigation, clipboard, dock, glossary, help). Unavailable commands are
+Per-palette command lists, both in `artifacts/player-web`: the dock's `src/core/palette/commands.ts` and the site
+pages' `src/site/lib/commands.ts` (catalogue-derived rows + `ui.*` rows: navigation, clipboard, dock, glossary, help).
+`PaletteSurface` is `"dock" | "site"`; a spec without `surfaces` appears in both palettes. Unavailable commands are
 hidden from the empty query and shown dimmed with their reason when searched; commands that can never apply are hidden.
 
 ### 2.6 Test ids
@@ -192,7 +194,7 @@ Kept verbatim (the e2e suites use them): `input-source`, `button-validate`, `but
 `status-connection`, `input-chat`, `button-send-chat`, `row-agent-*`, `row-object-*`, `row-transformation-*`,
 `banner-core-error`, `input-room-id`, `button-open-room`, `text-room-error`, `link-login`, `panel-frame-stored:*`,
 `panel-error-*`, `badge-stored-*`, `dialog-panel-action`, `button-panel-action-*`, `text-panel-action-payload`,
-`text-safe-mode`. Engine UI: `button-login`, `button-logout`, `text-room-code`, `text-room-owner`, `text-room-created`,
+`text-safe-mode`. Site pages: `button-login`, `button-logout`, `text-room-code`, `text-room-owner`, `text-room-created`,
 `text-viewer-seat`, `button-save-settings`, `button-ready`, `select-language`, `type-Int`, `list-settings`,
 `link-player`, `link-admin-agents`, `link-game-*`, `row-member-*`, `row-credential-*`, `button-revoke-*`,
 `panel-player-apps`, `text-game-status`, `panel-final-results`, `text-world-t`, `text-game-code`, `text-end-reason`,
@@ -249,7 +251,7 @@ onboarding §2 (the glossary lives in `lib/ui-kit/src/glossary.ts` and feeds the
 | 0 contracts | `lib/player-client/src/{catalog,panels,layout}.ts` + exports; `tools.ts` (+5 tools, −`place_panel`, `functions`, derived descriptions) + `tools.schema.json`; `convex/layout/tables.ts`, `schema.ts`, `convex/layout.ts` (functions), `agent/registry.ts` executors, `assistant/rules.ts`, `assistant-prompt.ts` (tool list from the catalogue); `panels.*` removals; `lib/ui-kit` package skeleton with the §2.5 API; `code-gods/package.json` dependencies | `lib/player-client/test/{catalog,panels,layout,tools}.test.ts`, `lib/ai-player` prompt test, engine `test:unit`, root typecheck |
 | 1 engine | `convex/layout.ts` behaviour, `rooms.create` preset, `settingsOrigin`, `SETTINGS_DOCS` + `ParamSchema` docs + budget docs + manifest, briefing PANELS, prompt sections, `docs/engine-api.md`, `docs/panels.md`, `docs/room-assistant.md` | `test/game-layout.test.ts` (new), `game-assistant`, `mcp`, `game-disclosure`, game-core tests |
 | 2 player client | `artifacts/player-web/src/{core,dock}/**` (built-in panels in `src/core/panels/`), `index.css`, `package.json` (dockview), deletions of `console.tsx`, `shell/dock.tsx`, `shell/layout*.ts`, `core/assistant/drawer.tsx`; palette command list; e2e updates | `test/{adapter,layout-sync,suggestions,palette-commands,assistant-state}.test.ts`; e2e `multi-client.ts` and `stored-panels.ts` updated |
-| 3 ui-kit + engine UI | `lib/ui-kit/**` (palette, glossary, Term), `artifacts/code-gods/**` (shell, pages, config page, presets menu, room-creation dialog, palette wiring, tooltips), `code-gods/e2e/smoke.ts` | `lib/ui-kit/test/*`, `code-gods/test/*` (nextStep, settings form rules), e2e smoke updated |
+| 3 ui-kit + engine UI | `lib/ui-kit/**` (palette, glossary, Term), `artifacts/code-gods/**` (shell, pages, config page, presets menu, room-creation dialog, palette wiring, tooltips), `code-gods/e2e/smoke.ts` (since moved into `artifacts/player-web/src/site` and `e2e/site-smoke.ts`) | `lib/ui-kit/test/*`, `code-gods/test/*` (nextStep, settings form rules), e2e smoke updated |
 
 Order: 0 → (1, 2, 3 in parallel worktrees) → merge 1, 2, 3 → every suite → code review → one PR into `develop`.
 
@@ -264,5 +266,5 @@ Order: 0 → (1, 2, 3 in parallel worktrees) → merge 1, 2, 3 → every suite �
 - Calibration never constrains the board controls (on-demand calibration B2): every playable size × symbols × colours
   combination, and any valid Int range or string length, can be chosen. The first game on a shape with no shipped
   tables prepares them: the room page shows "The game is preparing its rule tables, 12 of 18 ready" with a progress
-  bar, the player client's overview and results panels and the assistant's briefing say the same, and the game opens
+  bar, the dock's overview and results panels and the assistant's briefing say the same, and the game opens
   by itself when they are ready. Shipping tables (`calibrate` + `upload-calibration`) only warms the cache.

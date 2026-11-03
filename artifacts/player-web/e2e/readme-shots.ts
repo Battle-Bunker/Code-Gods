@@ -2,15 +2,16 @@
  * The README's screenshots (docs/readme/), taken from a REAL game on the local engine:
  *
  *   pnpm --filter @workspace/engine dev            # in another terminal; wait for "[dev] READY"
- *   pnpm --filter @workspace/engine deploy-static  # builds the engine UI and /client/ into the local deployment
+ *   pnpm --filter @workspace/engine deploy-static  # builds the app (served at /) into the local deployment
  *   cd artifacts/player-web && node --experimental-transform-types e2e/readme-shots.ts <out-dir>
  *
- * Bob owns a First Steps room with Alice and two AI seats; the room allows Python, TypeScript and Haskell. Bob summons
- * a Python and a TypeScript agent, Alice a Haskell one, they talk in public chat, and the world runs. The script then
- * photographs Bob's hosted client: the live dock with the board, the leaderboard and the assistant (hero.png; the
- * assistant is the local mock provider, so its words are scripted here, while its tool calls are real), his goal card
- * with an annotation under the pointer (goal-card.png), the agent editor after a free validation (agent.png), and the
- * replay once the owner ends the game (replay.png). Raw PNGs at 2x; compress them before committing (docs/readme/README.md).
+ * Bob owns a First Steps room with Alice and two AI seats; the room allows Python and TypeScript. Bob summons
+ * a Python and a TypeScript agent, Alice a TypeScript one, they talk in public chat, and the world runs. The script then
+ * photographs Bob's page of the game in the app on the engine's site (/rooms/:room/games/:game, signed in with his site
+ * session): the live dock with the board, the leaderboard and the assistant (hero.png; the assistant is the local mock
+ * provider, so its words are scripted here, while its tool calls are real), his goal card with an annotation under the
+ * pointer (goal-card.png), the agent editor after a free validation (agent.png), and the replay the same page shows
+ * once the owner ends the game (replay.png). Raw PNGs at 2x; compress them before committing (docs/readme/README.md).
  */
 import "../../engine/scripts/local-only.mjs";
 import assert from "node:assert/strict";
@@ -35,6 +36,7 @@ const admin = new ConvexHttpClient(CLOUD);
 const as = async (who: string) => { const { session } = await login(who); const c = new ConvexHttpClient(CLOUD); c.setAuth(await browserJwt(session)); return { c, session }; };
 const bob = await as("bob"), alice = await as("alice");
 const { roomId, shortCode } = await bob.c.mutation(fn.m("rooms:create"), {}) as { roomId: string; shortCode: string };
+await bob.c.mutation(fn.m("rooms:setSpectator"), { roomId: roomId, spectator: false });   // owners start as spectators; this one plays
 await alice.c.mutation(fn.m("rooms:join"), { room: roomId });
 const owner = (action: string, extra: Record<string, unknown> = {}) => bob.c.action(fn.a("owner:command"), { roomId, action, requestId: crypto.randomUUID(), ...extra });
 await admin.mutation(fn.m("aiTemplates:ensureSeeded"), {});
@@ -45,7 +47,7 @@ const room = await bob.c.query(fn.q("rooms:get"), { room: roomId }) as { revisio
 const { FAMILIES, LENSES } = await import("@workspace/game-utilities");
 const annotated = new Set(LENSES.map(l => l.familyId));
 const excludedFamilies = FAMILIES.filter(f => f.objectType === "Grid" && f.role === "reward" && !annotated.has(f.familyId ?? f.id)).map(f => f.id);
-await owner("settings", { revision: room.revision, settings: { languages: ["python", "typescript", "haskell"], planningSeconds: 600, halfLifeSeconds: 3600, excludedFamilies } });
+await owner("settings", { revision: room.revision, settings: { languages: ["python", "typescript"], planningSeconds: 600, halfLifeSeconds: 3600, excludedFamilies } });
 await bob.c.mutation(fn.m("rooms:approveAiBudget"), { roomId, aiBudget: 20_000, assistantBudget: 200_000 });
 await owner("start");
 let gameId = "", gameCode = "";
@@ -67,13 +69,13 @@ const summon = async (who: God, language: string, source: string) => {
 };
 await summon(bob, "python", "def agent(grid):\n    # keep the top row moving, like a conveyor belt\n    return [slide(row(0), 1)]");
 await summon(bob, "typescript", "function agent(grid) {\n  // slide the second column along by one\n  return [slide(column(1), 1)];\n}");
-await summon(alice, "haskell", "agent :: Obj -> [Call]\nagent grid = [slide' (row 2) 1 \"both\"]");
+await summon(alice, "typescript", "function agent(grid) {\n  // keep the third row moving\n  return [slide(row(2), 1)];\n}");
 await submit(alice, { type: "chat", text: "Anyone else care about the top row? I'd like it to settle down." });
 await submit(bob, { type: "chat", text: "Maybe. What's it worth to you?" });
 await admin.mutation(fn.m("testing:patchGame"), { gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 100_000 }, kick: true });
 await sleep(20_000);
 
-// ---- Bob's hosted client ----------------------------------------------------------------------------------------
+// ---- Bob's game page ----------------------------------------------------------------------------------------------
 type Layout = Record<string, unknown>;
 const tabs = (id: string) => ({ type: "pane", id });
 const panel = (id: string, panelId: string) => ({ id, kind: "panel", panelId, params: {}, setBy: "human" });
@@ -86,7 +88,7 @@ const browser = await chromium.launch();
 const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 });
 await context.addCookies(bob.session.split("; ").map(pair => ({ name: pair.slice(0, pair.indexOf("=")), value: pair.slice(pair.indexOf("=") + 1), url: SITE })));
 const page = await context.newPage();
-const url = `${SITE}/client/rooms/${shortCode}/games/${gameCode}`;
+const url = `${SITE}/rooms/${shortCode}/games/${gameCode}`;   // Bob plays: his dock; once the game ends, its replay
 // Hero layout: the board by payoff, the leaderboard race (it samples while open) and the assistant.
 await setLayout({ version: 1, root: { type: "split", direction: "row", sizes: [56, 44], children: [tabs("p1"),
   { type: "split", direction: "column", sizes: [50, 50], children: [tabs("p3"), tabs("p2")] }] },

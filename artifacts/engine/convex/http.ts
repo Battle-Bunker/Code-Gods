@@ -4,15 +4,14 @@
  *   /api/auth/*   Better Auth: Google sign-in, session cookie, sign-out, Convex JWTs (convex/auth/betterAuth.ts)
  *   /mcp          the MCP server (convex/agent/mcp.ts); /.well-known/oauth-*, /oauth/authorize[/complete] and
  *                 /api/oauth/{register,token,revoke}: its OAuth authorization server (convex/agent/oauth.ts)
+ *   /api/replay/<roomId>/<gameId>  an ended game's stored replay, for a signed-in caller its replay admits (convex/replays.ts)
+ *   /api/calibration/<roomId>/<gameId>/<godId>  a seat's calibration tables, for that player or a replay viewer (convex/calibration/mine.ts)
  *   /api/*        exact routes: device flow, player JWKS, config, health (convex/auth/routes.ts); any other
  *                 /api/ path is a JSON 404 (a longer prefix than "/", so it beats the SPA fallback)
- *   /client/*     the reference player client (static-hosting instance `playerSite`, built with base /client/); the
- *                 client itself is path-independent and runs from any dev server at / too (artifacts/player-web)
- *   /player[/*]   308 to the same path under /client/ (the client's old prefix: links and bookmarks keep working)
- *   /*            engine UI (static-hosting instance `engineSite`, built with base /)
+ *   /*            the app (artifacts/player-web; static-hosting instance `engineSite`, built with base /)
  *
- * Convex matches exact paths first, then the LONGEST matching pathPrefix, which is what lets the two
- * static catch-alls and the /api/ 404 coexist.
+ * Convex matches exact paths first, then the LONGEST matching pathPrefix, which is what lets the static catch-all and
+ * the /api/ 404 coexist.
  */
 import { httpRouter } from "convex/server";
 import { registerStaticRoutes } from "@convex-dev/static-hosting";
@@ -21,6 +20,8 @@ import { httpAction } from "./_generated/server";
 import { mcp, mcpMethodNotAllowed } from "./agent/mcp";
 import { registerOAuthRoutes } from "./agent/oauth";
 import { registerAuthRoutes } from "./auth/routes";
+import { download as replayDownload, downloadPreflight as replayPreflight } from "./replays";
+import { download as tablesDownload, preflight as tablesPreflight } from "./calibration/mine";
 import { authComponent, createAuth } from "./auth/betterAuth";
 
 const http = httpRouter();
@@ -54,22 +55,20 @@ http.route({
   }),
 });
 
-// The engine UI's cookie session: same origin only, no CORS (player clients use room tokens: docs/external-clients.md).
+// The site's Google session: same origin only, no CORS (other origins use OAuth grants: docs/external-clients.md).
 // Registers /api/auth/* and /.well-known/openid-configuration.
 authComponent.registerRoutes(http, createAuth);
 // MCP (convex/agent/mcp.ts) and its OAuth authorization server (convex/agent/oauth.ts).
 http.route({ path: "/mcp", method: "POST", handler: mcp });
 for (const method of ["GET", "DELETE"] as const) http.route({ path: "/mcp", method, handler: mcpMethodNotAllowed });
 registerOAuthRoutes(http);
+// An ended game's stored replay, for a caller its replay admits (convex/replays.ts): the JWT in Authorization.
+http.route({ pathPrefix: "/api/replay/", method: "GET", handler: replayDownload });
+http.route({ pathPrefix: "/api/replay/", method: "OPTIONS", handler: replayPreflight });
+// A player's own calibration tables (convex/calibration/mine.ts): the JWT in Authorization.
+http.route({ pathPrefix: "/api/calibration/", method: "GET", handler: tablesDownload });
+http.route({ pathPrefix: "/api/calibration/", method: "OPTIONS", handler: tablesPreflight });
 registerAuthRoutes(http);
-// The player client's old prefix: /player → /client, /player/x?y → /client/x?y. Only that exact segment (not /players).
-const toClient = httpAction(async (_ctx, request) => {
-  const url = new URL(request.url);
-  return new Response(null, { status: 308, headers: { Location: `${url.pathname.replace(/^\/player/, "/client")}${url.search}` } });
-});
-http.route({ path: "/player", method: "GET", handler: toClient });
-http.route({ pathPrefix: "/player/", method: "GET", handler: toClient });
-registerStaticRoutes(http, components.playerSite, { pathPrefix: "/client/" });
 registerStaticRoutes(http, components.engineSite);
 
 export default http;

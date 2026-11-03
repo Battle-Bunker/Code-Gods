@@ -36,6 +36,7 @@ const as = async (identity: string) => client(await browserJwt(sessions.get(iden
 
 const owner = await as(identities[0]);
 const { roomId, shortCode } = await owner.mutation("rooms:create") as { roomId: string; shortCode: string };
+await owner.mutation("rooms:setSpectator", { roomId, spectator: false });   // owners start as spectators; the seeded owner plays
 for (const identity of identities.slice(1)) await (await as(identity)).mutation("rooms:join", { room: roomId });
 if (values.settings) {
   const room = await owner.query("rooms:get", { room: roomId }) as { revision: number };
