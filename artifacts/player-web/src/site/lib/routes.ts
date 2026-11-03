@@ -12,6 +12,9 @@ import { routeHref } from "../../core/routes.ts";
 export const roomPath = (room: string) => routeHref("/", { kind: "room", room });
 export const configurePath = (room: string, setup?: string) => routeHref("/", { kind: "configure", room }, setup ? `?setup=${encodeURIComponent(setup)}` : "");
 export const gamePath = (room: string, game: string) => routeHref("/", { kind: "game", room, game });
+/** The rule gallery and one family's page; `search` is the query string (site/lib/rule-gallery.ts gallerySearch). */
+export const ruleGalleryPath = (search = "") => routeHref("/", { kind: "ruleGallery" }, search);
+export const ruleFamilyPath = (family: string, search = "") => routeHref("/", { kind: "ruleFamily", family }, search);
 
 /**
  * Whether the viewer may open a finished game of the room's history (newest first, `index` in it): the gods who played

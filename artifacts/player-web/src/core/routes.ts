@@ -8,6 +8,8 @@
  *   {base}rooms/:room/games/:game        one game: player view, spectator view, or replay once it has ended
  *   {base}connect, {base}device          approving an app or a device
  *   {base}admin/agents[/:id]             the AI player library
+ *   {base}rule-gallery                   the rule gallery: every annotated rule family for a board (setup in GET params)
+ *   {base}rule-gallery/:family           one rule family's page (board and params in GET params)
  *
  * Any other path is not found. The pages under site/ build their paths with site/lib/routes.ts, from routeHref.
  */
@@ -19,6 +21,8 @@ export type AppRoute =
   | { kind: "connect" }
   | { kind: "device" }
   | { kind: "admin"; agent?: string }
+  | { kind: "ruleGallery" }
+  | { kind: "ruleFamily"; family: string }
   | { kind: "notFound" };
 
 const withSlash = (base: string) => (base.endsWith("/") ? base : `${base}/`);
@@ -31,6 +35,8 @@ export function routeHref(base: string, route: Exclude<AppRoute, { kind: "notFou
     : route.kind === "configure" ? `rooms/${seg(route.room)}/configure`
     : route.kind === "game" ? `rooms/${seg(route.room)}/games/${seg(route.game)}`
     : route.kind === "admin" ? `admin/agents${route.agent ? `/${seg(route.agent)}` : ""}`
+    : route.kind === "ruleGallery" ? "rule-gallery"
+    : route.kind === "ruleFamily" ? `rule-gallery/${seg(route.family)}`
     : route.kind;
   return `${withSlash(base)}${path}${search}`;
 }
@@ -48,6 +54,8 @@ export const ROUTE_PATTERNS = {
   connect: "/connect",
   admin: "/admin/agents",
   adminAgent: "/admin/agents/:id",
+  ruleGallery: "/rule-gallery",
+  ruleFamily: "/rule-gallery/:family",
 } as const;
 
 /** A replay's position parameters (src/core/replay/model.ts): they belong to one game's page, never carried elsewhere. */

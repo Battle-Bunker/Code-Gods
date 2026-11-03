@@ -673,7 +673,7 @@
    {
     "id": "my-card",
     "title": "Your secret goal",
-    "blurb": "Your utility card in plain words, with live examples.",
+    "blurb": "Your utility card in plain words, with an example object you can edit.",
     "phases": [
      "planning",
      "running",
@@ -683,31 +683,15 @@
     "paramsSchema": {
      "type": "object",
      "properties": {
-      "examples": {
-       "default": 3,
-       "type": "integer",
-       "minimum": 0,
-       "maximum": 6
-      },
       "showSource": {
        "default": false,
        "type": "boolean"
-      },
-      "exampleSort": {
-       "default": "best",
-       "type": "string",
-       "enum": [
-        "best",
-        "worst"
-       ]
       }
      },
      "additionalProperties": false
     },
     "defaults": {
-     "examples": 3,
-     "showSource": false,
-     "exampleSort": "best"
+     "showSource": false
     }
    },
    {

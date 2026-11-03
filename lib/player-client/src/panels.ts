@@ -55,9 +55,9 @@ export const PANELS = {
     summary: p => (p.focus === "auto" ? "Situation, standing, next step" : `Focus: ${p.focus}`),
   }),
   "my-card": def({
-    id: "my-card", title: "Your secret goal", blurb: "Your utility card in plain words, with live examples.", phases: GAME,
-    params: z.strictObject({ examples: z.number().int().min(0).max(6).default(3), showSource: bool(false), exampleSort: z.enum(["best", "worst"]).default("best") }),
-    summary: p => line([p.examples ? `${p.examples} ${p.exampleSort} example${p.examples === 1 ? "" : "s"}` : "No examples", ...when(p.showSource, "with source")]),
+    id: "my-card", title: "Your secret goal", blurb: "Your utility card in plain words, with an example object you can edit.", phases: GAME,
+    params: z.strictObject({ showSource: bool(false) }),
+    summary: p => (p.showSource ? "Goal, with source open" : "Goal and an example object"),
   }),
   objects: def({
     id: "objects", title: "Objects by payoff", blurb: "Which things in the world earn you points.", phases: WORLD,
@@ -166,7 +166,8 @@ export const panel = (id: PanelId): PanelDefinition => PANELS[id] as PanelDefini
 export const defaultPanelFor = (phase: Phase): PanelId => (phase === "ended" ? "results" : "objects");
 
 /** Parameters a panel used to have. Stored layouts may still carry them, and the schemas are strict, so they are dropped before parsing. */
-const RETIRED_PARAMS: Partial<Record<PanelId, readonly string[]>> = { objects: ["annotate"] };
+// my-card's live-examples list (examples, exampleSort) became one editable example object (2026-11-03).
+const RETIRED_PARAMS: Partial<Record<PanelId, readonly string[]>> = { objects: ["annotate"], "my-card": ["examples", "exampleSort"] };
 
 /**
  * Parse a panel's parameters: the defaults when none are given; retired keys (RETIRED_PARAMS) ignored; the parsed output (defaults filled) when valid; else

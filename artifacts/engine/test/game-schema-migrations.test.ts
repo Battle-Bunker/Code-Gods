@@ -1,7 +1,6 @@
 /**
  * The component migrations (convex/migrations.ts runAll, @convex-dev/migrations; CLAUDE.md "Schema migrations") on
- * rows stored before the change, against the live local backend. What would break: an existing room's owner turned
- * into a spectator (their room would stop starting with its players), a member or game left without the field after
+ * rows stored before the change, against the live local backend. What would break: a row left in the old shape after
  * the migration reports success (the later narrowing would then fail to deploy), or a second run changing anything.
  */
 import test from "node:test";
@@ -22,33 +21,6 @@ async function runAll(reset: boolean) {
     return statuses.every(s => s.state === "success" && (!reset || (s.latestStart ?? 0) >= since)) && statuses;
   }, "every migration reports success", 120_000, 250);
 }
-
-test("spectators backfill: stored members keep playing, stored games had no spectators; a second run changes nothing", { timeout: 240_000 }, async () => {
-  const [host, ada, bo] = await gods("Mig Host", "Mig Ada", "Mig Bo");
-  await touch(host);
-  const { roomId } = await roomWith([host, ada, bo], INT_TS);
-  const game = await startGame(host, roomId);
-  await host.c.mutation(api.rooms.endActiveGame, { roomId });
-  await admin.mutation(internal.testing.legacySpectators, { roomId });
-  assert.ok((await admin.query(internal.testing.rawMembers, { roomId })).every((m: any) => m.spectator === undefined), "the fixture is legacy");
-
-  const statuses = await runAll(true);
-  assert.ok(["migrations:backfillGameSpectators", "migrations:backfillMemberSpectator"].every(name => statuses.some(s => s.name === name)));
-  // Catches: the owner (or anyone) backfilled as a spectator; a row left unset.
-  const members = await admin.query(internal.testing.rawMembers, { roomId }) as any[];
-  assert.deepEqual(members.map(m => m.spectator), [false, false, false]);
-  assert.deepEqual((await raw(game.gameId)).game.spectators, []);
-  // The room still starts with the same three players.
-  const next = await startGame(host, roomId);
-  assert.equal((await raw(next.gameId)).game.roster.length, 3);
-  await host.c.mutation(api.rooms.endActiveGame, { roomId });
-
-  // Idempotent: a run over migrated rows (a new member already has the field) keeps every value.
-  await host.c.mutation(api.rooms.setSpectator, { roomId, spectator: true });
-  await runAll(true);
-  assert.deepEqual((await admin.query(internal.testing.rawMembers, { roomId }) as any[]).map(m => [m.godId === host.subject, m.spectator]).sort(),
-    [[false, false], [false, false], [true, true]]);
-});
 
 test("Haskell retired: stored settings drop it (TypeScript when nothing is left); a second run changes nothing", { timeout: 240_000 }, async () => {
   const [host, ada, bo] = await gods("Hs Mig Host", "Hs Mig Ada", "Hs Mig Bo");
@@ -148,7 +120,7 @@ test("backfillReplays: ended games stored before stored replays get one; a secon
   assert.deepEqual(await Promise.all(games.map(({ gameId }) => storageOf(gameId))), stored);
 });
 
-test("backfillStandings, backfillPublicSalience: games and objects stored before the spectator read model get it; a second run changes nothing", { timeout: 240_000 }, async () => {
+test("backfillStandings: games stored before the standings read model get it; a second run changes nothing", { timeout: 240_000 }, async () => {
   const [host, ada, bo] = await gods("ReadModel Mig Host", "ReadModel Mig Ada", "ReadModel Mig Bo");
   await touch(host);
   // Noise on: a live game's public salience differs from the exact one. Planning holds the live game (no tick publishes).
@@ -165,7 +137,6 @@ test("backfillStandings, backfillPublicSalience: games and objects stored before
   for (const g of [ended, live]) {
     const legacy = await rows(g.gameId);
     assert.deepEqual([legacy.standings, legacy.history], [[], []], "the fixture is legacy: no standings");
-    assert.ok(legacy.objects.every((o: any) => o.publicSalience === undefined), "the fixture is legacy: no public salience");
   }
   assert.ok((await rows(live.gameId)).objects.some((o: any) => o.noise !== 0), "the live game's values carry noise");
 
@@ -178,7 +149,7 @@ test("backfillStandings, backfillPublicSalience: games and objects stored before
     assert.deepEqual(after.standings.map((r: any) => [r.godId, r.rank, r.total, r.world]),
       rankTotals(game.roster.map((m: any) => m.id), board.totals).map(r => [r.godId, r.rank, r.totalPayoff, board.world]).sort((a, b) => String(a[0]).localeCompare(String(b[0]))));
     assert.deepEqual(after.history.map((h: any) => [h.seq, h.world, h.totals]), [[0, board.world, board.totals]]);
-    // Catches: a live object showing its exact salience, or an ended one its noisy salience.
+    // The writers' side: a live object shows its exact salience, or an ended one its noisy salience.
     for (const o of after.objects) assert.equal(o.publicSalience, o.salience + (isLive ? o.noise : 0), `${isLive ? "live" : "ended"} object ${o.id}`);
   }
   const first = await Promise.all([ended, live].map(g => rows(g.gameId)));

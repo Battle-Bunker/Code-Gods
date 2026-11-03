@@ -386,8 +386,7 @@ mutations and the `sweep` cron), `ai/seats:reserve|settle({pool: "assistant", �
 Open pages learn of a deploy and update themselves (`lib/player-client/src/update.ts`).
 - `version.current({own?: {site: app, build}})` query (anyone, signed in or not) → per site `app` (the app at `/`)
   and `functions`: `{build, deployedAt}|null`, plus, with `own`, `known`: whether that build was ever deployed here.
-  A page of a retired site (`engine`, `player`) is answered with the app's build under its own name, so it updates
-  onto the app. `scripts/deploy-static.mjs` stamps each static build's
+  `scripts/deploy-static.mjs` stamps each static build's
   index.html with its id (`<meta name="code-gods-build" content="…">`, a hash of every file of the build) and records it
   after the upload; the deploy workflow records the commit as the `functions` build after `convex deploy`.
 - A page whose build is known but is not the live one is outdated. The engine-hosted app then reloads at a safe moment and keeps

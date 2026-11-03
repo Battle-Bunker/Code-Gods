@@ -45,6 +45,11 @@ test("a stored objects pane carrying the retired annotate key still parses, to t
   assert.equal(parsePanelParams("objects", { bogus: 1 }).ok, false, "other unknown keys are still refused");
 });
 
+test("a stored goal pane carrying the retired live-examples keys still parses, to the defaults without them", () => {
+  assert.deepEqual(parsePanelParams("my-card", { examples: 3, exampleSort: "best", showSource: true }), { ok: true, params: { showSource: true } });
+  assert.deepEqual(parsePanelParams("my-card", { examples: 0 }), { ok: true, params: { showSource: false } });
+});
+
 test("summaries read as pane captions", () => {
   assert.equal(panelSummary("objects", {}), "Top 12 by payoff");
   assert.equal(panelSummary("objects", { limit: 5, filter: "chips", layout: "grid" }), "Top 5 by payoff · only ones others care about · grid");

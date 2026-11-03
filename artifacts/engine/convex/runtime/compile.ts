@@ -12,14 +12,16 @@ import { internalAction } from "../_generated/server";
 import { compilationKey, type Compiled } from "@workspace/game-runtime";
 import { actSettings } from "../engine/runtime";
 import { compilePool } from "./node";
+import { memoryOf, rssNow, type Memory } from "./memory";
 
-export type CompileReply = (({ ok: true } & Compiled) | { ok: false; code: string; message: string }) & { rssMiB?: number };
+export type CompileReply = (({ ok: true } & Compiled) | { ok: false; code: string; message: string }) & Partial<Memory>;
 /** The agent's own compile failures; any other is the host's (never stored, never blamed on the player). */
 const AGENT_CODES = new Set(["COMPILE", "LIMIT"]);
 
 export const compile = internalAction({
   args: { language: v.literal("typescript"), source: v.string(), settings: v.any() },
   handler: async (ctx, { language, source, settings }): Promise<CompileReply> => {
+    const startMiB = rssNow();
     const room = actSettings(settings), key = compilationKey(language, source, room);
     const stored = await ctx.runQuery(internal.runtime.programs.get, { key });
     if (stored?.error) return { ok: false, ...stored.error };
@@ -34,6 +36,6 @@ export const compile = internalAction({
     }
     await ctx.runMutation(internal.runtime.programs.put, { key, language, js: compiled.js, inspection: compiled.inspection });
     // This instance's resident memory after compiling (runtime/probe.ts concurrent checks it).
-    return { ok: true, inspection: compiled.inspection, js: compiled.js, rssMiB: Math.round(process.memoryUsage().rss / 1048576) };
+    return { ok: true, inspection: compiled.inspection, js: compiled.js, ...memoryOf(startMiB) };
   },
 });

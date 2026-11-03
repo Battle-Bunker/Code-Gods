@@ -8,6 +8,7 @@
  *                              its replay once it has ended (site/pages/game.tsx decides)
  *   /connect, /device          approving an app or a device (the engine's own site only)
  *   /admin/agents[/:id]        the AI player library (admins, the engine's own site only)
+ *   /rule-gallery[/:family]    the rule gallery and one rule family's page (no room or game; pure library data)
  *
  * It runs where the engine serves it (the site's Google session), on any other origin with an account grant the human
  * approved on the engine's /connect, or as a player's own dev server holding a room credential (./connection.ts);
@@ -28,6 +29,8 @@ import Connect from "@/site/pages/connect";
 import AdminAgents from "@/site/pages/admin-agents";
 import Configure from "@/site/pages/configure";
 import SignIn from "@/site/pages/sign-in";
+import RuleGallery from "@/site/pages/rule-gallery";
+import RuleFamily from "@/site/pages/rule-family";
 import { roomPath } from "@/site/lib/routes";
 import { connection, convexClient, engineSite, fetchAppAccessToken, type Connection } from "./connection";
 import { Screen } from "./screen";
@@ -112,6 +115,8 @@ function Routes({ mode }: { mode: Connection["mode"] }) {
         <Route path={ROUTE_PATTERNS.connect} component={offSite ? siteOnly("Approve a connection") : Connect} />
         <Route path={ROUTE_PATTERNS.admin} component={offSite ? siteOnly("AI players") : AdminAgents} />
         <Route path={ROUTE_PATTERNS.adminAgent} component={offSite ? siteOnly("AI players") : AdminAgents} />
+        <Route path={ROUTE_PATTERNS.ruleGallery} component={RuleGallery} />
+        <Route path={ROUTE_PATTERNS.ruleFamily} component={RuleFamily} />
         <Route component={NotFound} />
       </Switch>
       </SignInGate>
