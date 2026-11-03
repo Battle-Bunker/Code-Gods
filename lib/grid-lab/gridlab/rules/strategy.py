@@ -431,36 +431,42 @@ ROOKS_WATCH = mk(
     source="strat#11 (catalog D8 coverage temperament); tie-breaker = lines holding a half-token")
 
 
-# --- Picture Frame (all-or-nothing: deliberately no tie-breaker) -----------------------------------
+# --- Picture Frame (your colour plus the best edge symbol, each +1 on the edge and -1 in the middle) -----------------
 def pf_ord(g, p, gtype):
     N = gtype.N
-    col = g.col.tolist()
-    return int(all(col[r][c] == p["X"] for r in range(N) for c in range(N)
-                   if r in (0, N - 1) or c in (0, N - 1)))
+    sym, col = g.sym.tolist(), g.col.tolist()
+    cells = [(r, c) for r in range(N) for c in range(N)]
+    edge = {(r, c) for r, c in cells if r in (0, N - 1) or c in (0, N - 1)}
+
+    def net(match):
+        return sum((1 if x in edge else -1) for x in cells if match(*x))
+    colour = net(lambda r, c: col[r][c] == p["X"])
+    best = max(net(lambda r, c, s=s: sym[r][c] == s) for s in {sym[r][c] for r, c in edge})
+    return colour + best
 
 
 def pf_batch(sym, col, p, gtype):
     rim = rim_mask(gtype.N)
-    return ((col == p["X"]) | ~rim).all((1, 2)).astype(np.int64)
-
-
-def pf_tail(t, p, gtype):
-    if t <= 0:
-        return 0.0
-    if t == 1:
-        return -(4 * gtype.N - 4) * math.log2(gtype.C)
-    return float("-inf")
+    sign = np.where(rim, 1, -1)
+    colour = ((col == p["X"]) * sign).sum((1, 2))
+    best = np.full(sym.shape[0], np.iinfo(np.int64).min, dtype=np.int64)
+    for s in range(gtype.S):
+        here = sym == s
+        on_edge = (here & rim).any((1, 2))
+        best = np.where(on_edge, np.maximum(best, (here * sign).sum((1, 2))), best)
+    return (colour + best).astype(np.int64)
 
 
 PICTURE_FRAME = mk(
-    id="picture_frame", name="Picture Frame", theme="A perfect frame, all or nothing",
-    requires=req(), layers={"colour", "position"}, camp="clumper",
+    id="picture_frame", name="Picture Frame", theme="One colour and one symbol around a clear middle",
+    requires=req(), layers={"colour", "symbol", "position"}, camp="clumper",
     sample=lambda rng, gt: {"X": colour(rng, gt)},
-    summary=lambda p, gt: (f"You want every edge cell to be {cname(gt, p['X'])}. All or nothing: one wrong edge cell "
-                           "and you score zero."),
-    ordinal=pf_ord, batch=pf_batch, canonical=lambda p, gt: recolour(p, ["X"]), exact_log2_tail=pf_tail,
-    exemplar=lambda p, gt: grid(np.zeros((gt.N, gt.N)), np.full((gt.N, gt.N), p["X"])),
-    source="strat#12 (catalog D5 all-or-nothing temperament; holdout, so no tie-breaker)")
+    summary=lambda p, gt: (f"Each {cname(gt, p['X'])} edge cell scores 1 and each {cname(gt, p['X'])} middle cell "
+                           "loses 1; the best symbol on the edge scores the same way. Best: every edge cell the same "
+                           "symbol in your colour, and neither in the middle."),
+    ordinal=pf_ord, batch=pf_batch, canonical=lambda p, gt: recolour(p, ["X"]),
+    exemplar=lambda p, gt: grid(np.where(rim_mask(gt.N), 0, 1), np.where(rim_mask(gt.N), p["X"], (p["X"] + 1) % gt.C)),
+    source="strat#12 (catalog D5; reworked 2026-11 from all-or-nothing to a continuous score, product strategy.ts)")
 
 
 # --- Staircase Climber ----------------------------------------------------------------------------

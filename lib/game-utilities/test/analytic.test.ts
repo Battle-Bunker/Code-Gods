@@ -192,6 +192,21 @@ test("hand-derived pins: exact tops and body values of the wired analytics", () 
   const rr = analyticFor("rainbow_road", { dir: "→" }, g5)!;
   close(at(rr, [1, 4]), Math.log2(1 - (1 - 4 ** -4) ** 5), 1e-12);
   close(last(rr)[1], 5 * 4 * Math.log2(1 / 4));
+  // Picture Frame on 4×4, base 10, rgb: 12 edge cells, 4 middle cells, C = 3, S = 10. u = colour + symbol, where
+  // colour = (red edge) − (red middle) and symbol = the best edge symbol's (edge − middle) count; they are independent.
+  //   top 24: every edge cell red (3^-12), no red middle ((2/3)^4); one of 10 symbols on every edge cell (10·10^-12) and
+  //           not in the middle ((9/10)^4).
+  //   23: colour 12 with symbol ≥ 11, or colour 11 with symbol 12. Colour 11: 11 red edge, 0 red middle, or 12 and 1.
+  //       Symbol 11 (one symbol only, as 11 > 12/2): 11 on the edge and none in the middle, or 12 and 1.
+  //   lowest −3: colour ≥ −4 always, symbol ≥ 1 always (the edge symbols' nets add up to at least 12 − 4 = 8).
+  const pf = analyticFor("picture_frame", { X: 0 }, g4)!;
+  const c12 = 3 ** -12 * (2 / 3) ** 4, c11 = 12 * 3 ** -11 * (2 / 3) * (2 / 3) ** 4 + 3 ** -12 * 4 * (1 / 3) * (2 / 3) ** 3;
+  const s12 = 10 * 10 ** -12 * 0.9 ** 4, s11 = 10 * (12 * 10 ** -11 * 0.9 * 0.9 ** 4 + 10 ** -12 * 4 * 0.1 * 0.9 ** 3);
+  assert.equal(pf.id, "picture-frame@2");
+  assert.deepEqual(pf.levels[0], [-3, 0]);
+  assert.deepEqual(last(pf)[0], 24);
+  close(last(pf)[1], Math.log2(c12 * s12), 1e-9);
+  close(at(pf, 23), Math.log2(c12 * (s12 + s11) + c11 * s12), 1e-9);
   // Staircase Climber: all N−1 steps in every row needs a run of N consecutive values from S−N+1 starts
   const sc = analyticFor("staircase_climber", { dir: "→" }, g4)!;
   assert.deepEqual(last(sc)[0], 12);
@@ -201,12 +216,14 @@ test("hand-derived pins: exact tops and body values of the wired analytics", () 
 test("tables built from an analytic carry its id in the key and the budget label; the estimator's key differs", () => {
   const inst = instantiate("Grid", { size: 4, symbols: "base10", colours: "rgb" });
   const r = buildTable("picture_frame", { X: 0 }, inst);
-  assert.equal(r.table.estimator.budget, "exact:picture-frame@1");
+  assert.equal(r.table.estimator.budget, "exact:picture-frame@2");
   assert.equal(r.table.key, tableKey("picture_frame", { X: 0 }, inst));
-  assert.equal(tableKeyParts("picture_frame", { X: 0 }, inst).exact, "picture-frame@1");
+  assert.equal(tableKeyParts("picture_frame", { X: 0 }, inst).exact, "picture-frame@2");
   assert.notEqual(mcTableKey("picture_frame", { X: 0 }, inst), r.table.key);
   assert.equal(tableKeyParts("snap", {}, inst).exact, undefined, "a family without an analytic has no id in its key");
-  assert.deepEqual(r.table.levels, [[0, 1e-6], [1, 12 * Math.log2(3)]].map(([o, b]) => [o, Math.round(b * 1e9) / 1e9]));
+  // Every score from −3 to 24 is a level (see the pins below); the lowest is 1e-6 (calibration's floor), the top is rare.
+  assert.deepEqual(r.table.levels.map(([o]) => o), Array.from({ length: 28 }, (_, i) => i - 3));
+  assert.equal(r.table.levels[0][1], 1e-6);
   assert.equal(r.evaluations, 0, "no sampling");
 });
 

@@ -62,6 +62,11 @@ P7. **Show, don't only tell.** A rule whose pattern is small (a 2×2 block, a pa
 
 P8. **Same words in the summary, the card comment, the assistant briefing.** They are all rendered from one place.
 
+P9. **A continuous landscape of points** (owner, 2026-11-03). The score has many attainable levels, each rarer than the
+   last, so every improvement earns something and the last steps are the hardest (the calibration turns rarity into
+   bits, so a count or a signed per-cell sum gives a curve whose steps grow). Never all or nothing: Picture Frame was,
+   and now sums +1 per edge cell and −1 per middle cell of your colour and of the best edge symbol.
+
 ## 3. Rendering descriptions for the instantiation
 
 Descriptions were already functions of the shape (`summary(params, gridSpec)`), but each family formatted symbols its
