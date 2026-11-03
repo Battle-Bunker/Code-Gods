@@ -187,7 +187,7 @@ A `room` or `code` argument accepts a Convex id, a GUID or a short code.
 - `auth/credentials:revoke({credentialId})` mutation; takes effect on the next call
 
 ### Rooms (`rooms`)
-- `create({assistantBudget?, assistantModel?})` mutation (browser) → `{roomId, shortCode, guid}`. The room runs the system's First steps setup (`setup {id, name, deleted: false}`); the optional assistant allowance (tokens per human per game, 0 = off, ≤ 2,000,000) and model turn the in-client assistant on at creation.
+- `create({assistantBudget?, assistantModel?})` mutation (browser) → `{roomId, shortCode, guid}`. The room runs the system's Annotated basics setup (`setup {id, name, deleted: false}`); the optional assistant allowance (tokens per human per game, 0 = off, ≤ 2,000,000) and model turn the in-client assistant on at creation.
 - `list()` query → `[{id, guid, shortCode, ownerId, ownerName, createdAt, memberCount, phase, activeGameShortCode, setupName|null}]`
 - `get({room})` query → `{id, guid, shortCode, ownerId, ownerName, createdAt, revision, settings, setup|null, members[{id, name, kind, ready, status?, aiAgentId?, aiAgentRevision?, provider?, model?}], chat[≤100], aiBudget, aiUsed, aiReservedUsd, aiInputTokens, aiOutputTokens, assistantBudget, assistantModel, objectInstance, utilityCatalog|null, activeGame|null, preparing|null}`.
   `preparing` is `{instance, ready, total, startedAt, estimateSeconds, dealtAs, dealerNote?, error?}` while the next game computes rule tables nobody had for its shape (`owner.start` below): progress only, never the deal. `error` says why it could not finish; the owner starts again or ends it with `endActiveGame`.
@@ -313,7 +313,7 @@ Every public function above has an entry in `lib/player-client/src/catalog.ts` (
 | `player.board` | query | player | Board at a moment | Every object as it was at a world time, with your bits and the others' total. | `get_board_at` |
 | `player.myUtility` | query | player | Open my secret goal | Your own utility descriptor and the settings to evaluate it; nobody else's. | `get_my_utility` |
 | `receipts.get` | query | player | Check a command's status | Whether a command you sent was received, is pending or failed. | `get_receipt` |
-| `rooms.create` | mutation | player | Create a room | Opens a new room on the First steps setup with you as owner, ready to share its invite link. | — (A credential is bound to one existing room; rooms are created in the browser.) |
+| `rooms.create` | mutation | player | Create a room | Opens a new room on the Annotated basics setup with you as owner, ready to share its invite link. | — (A credential is bound to one existing room; rooms are created in the browser.) |
 | `rooms.list` | query | player | Show my rooms | Rooms you can see, with owner, creation date, players and phase. | — (A live subscription a page renders; there is nothing to run.) |
 | `rooms.get` | query | player | Show the room | Members, settings, chat, budgets and the active game of a room. | `get_rules`, `get_room_state`, `load_skill` |
 | `rooms.join` | mutation | player | Join this room | Plays the next game or watches it (a game already running, or once eight play, you watch). | — (Membership precedes any credential: the human joins in the browser before an assistant can act for them there.) |

@@ -142,7 +142,7 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
   const need = <T,>(v: T | null | undefined): T => { if (v === null || v === undefined) throw new Error("Open a room first."); return v; };
 
   /**
-   * Create a room in one step, on the First steps setup, and open it: its invite link is the owner's first next step.
+   * Create a room in one step, on the default (Annotated basics) setup, and open it: its invite link is the owner's first next step.
    * Nothing is asked first; the assistant is turned on later from the room page (Assistant: off · Turn on…).
    */
   const doCreate = useCallback(async () => {

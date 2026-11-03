@@ -16,7 +16,7 @@ import { fail } from "./lib/errors";
 import { aiSeatName } from "./lib/aiNames";
 import { chatView, publicRoom } from "./lib/projection";
 import { paginationOptsValidator } from "convex/server";
-import { firstSteps } from "./setups";
+import { defaultSetup } from "./setups";
 import {
   AI_LOBBY_STATUS, chatWindow, displayName, getCatalog, isHistoric, requireHistoricReaderAs, membersOf, memberOf, principalV, recentChat, requireMember, requireMemberAs, requireOwner, requireOwnerAs, requireReaderAs, requireRoom,
   shortCodeFor, viewerOf,
@@ -52,7 +52,7 @@ const quotaPatch = ({ aiQuota, assistantQuota, assistantModel }: Quotas) => ({
 
 /**
  * Create a room (the human everywhere: a browser session or an account grant; never a room credential). The creator owns it and is its first member, a spectator until they choose to
- * play (setSpectator; docs/unify-apps-plan.md §2). It starts on the seeded First steps
+ * play (setSpectator; docs/unify-apps-plan.md §2). It starts on the seeded default (Annotated basics)
  * setup (docs/ui-redesign.md §1: a small, slowed-down board a newcomer can follow; its built-in settings if an admin
  * removed it). Its AI quotas start at the defaults (300,000 tokens per game for the AI players, and for each player's
  * assistant); an API caller may set them and the assistant's model in the same call.
@@ -66,7 +66,7 @@ export const create = mutation({
     const guid = crypto.randomUUID();
     const { shortCode, encoded } = await shortCodeFor(ctx, "rooms", guid);
     const now = Date.now();
-    const first = await firstSteps(ctx);
+    const first = await defaultSetup(ctx);
     const roomId = await ctx.db.insert("rooms", {
       shortCode, guid, encoded, ownerId: viewer.subject, createdAt: now, revision: 0, seq: 0,
       settings: first.settings, setupId: first._id, setupName: first.name,
