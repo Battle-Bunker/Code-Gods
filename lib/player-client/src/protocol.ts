@@ -138,9 +138,19 @@ export const resultSchema = z.object({
     decisionBits: finite.nonnegative().optional(), breakdown: breakdownSchema.optional(), randomized: z.boolean().optional(),
     // Measured on the reference objects: the share of acts that change the object, and that fail or are invalid.
     changeRate: finite.min(0).max(1).optional(), invalidRate: finite.min(0).max(1).optional(),
+    // Two passes over a sample world (the game's objects first; docs/rules-design.md §11): the share of acts that
+    // succeed, and why the rest would fail: one result for every object (constant), nothing more on a second application
+    // (idempotent), or no change at all (identity). Constant and idempotent are claims about a deterministic agent only.
+    expectedSuccessRate: finite.min(0).max(1).optional(),
+    futility: z.object({ deterministic: z.boolean(), constant: z.boolean(), idempotent: z.boolean(), identity: z.boolean(),
+      firstPass: finite.min(0).max(1), secondPass: finite.min(0).max(1), successRate: finite.min(0).max(1) }).optional(),
+    // One line each for the player, shown before the summon; a summon is never refused for them.
+    warnings: z.array(z.string().max(500)).max(8).optional(),
     // The validating god's energy when it was measured, and whether it covers the summon price.
     energy: finite.optional(), affordable: z.boolean().optional(),
     diagnostics: z.array(z.string().max(1000)).max(30) }).optional(),
+  // A summon's examination warnings (as validate's): the agent is summoned anyway.
+  warnings: z.array(z.string().max(500)).max(8).optional(),
   // Validate or summon before the agent's language's sandbox is warm: nothing was examined or stored, and the identical
   // command can be sent again after retryAfterMs. `failed` carries the boot's reason (it is retried automatically).
   notReady: sandboxNotReadySchema.optional(),

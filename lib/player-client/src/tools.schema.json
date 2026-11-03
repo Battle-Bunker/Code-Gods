@@ -670,13 +670,14 @@
               "description": "The engine's CommandResult: accepted, message, validation details."
             },
             "assessment": {
-              "description": "A validation's meaning: works, fails (on the reference objects), no_change or rejected (does not compile); the price against the player's energy, and the next step.",
+              "description": "A validation's meaning: works, warns (works, but most acts would fail or the player already runs this code: tell them the warnings before any summon), fails (on the reference objects), no_change or rejected (does not compile); the price against the player's energy, and the next step.",
               "type": "object",
               "properties": {
                 "verdict": {
                   "type": "string",
                   "enum": [
                     "works",
+                    "warns",
                     "fails",
                     "no_change",
                     "rejected",
@@ -901,13 +902,14 @@
               "description": "The engine's CommandResult: accepted, message, validation details."
             },
             "assessment": {
-              "description": "A validation's meaning: works, fails (on the reference objects), no_change or rejected (does not compile); the price against the player's energy, and the next step.",
+              "description": "A validation's meaning: works, warns (works, but most acts would fail or the player already runs this code: tell them the warnings before any summon), fails (on the reference objects), no_change or rejected (does not compile); the price against the player's energy, and the next step.",
               "type": "object",
               "properties": {
                 "verdict": {
                   "type": "string",
                   "enum": [
                     "works",
+                    "warns",
                     "fails",
                     "no_change",
                     "rejected",
@@ -1069,13 +1071,14 @@
               "description": "The engine's CommandResult: accepted, message, validation details."
             },
             "assessment": {
-              "description": "A validation's meaning: works, fails (on the reference objects), no_change or rejected (does not compile); the price against the player's energy, and the next step.",
+              "description": "A validation's meaning: works, warns (works, but most acts would fail or the player already runs this code: tell them the warnings before any summon), fails (on the reference objects), no_change or rejected (does not compile); the price against the player's energy, and the next step.",
               "type": "object",
               "properties": {
                 "verdict": {
                   "type": "string",
                   "enum": [
                     "works",
+                    "warns",
                     "fails",
                     "no_change",
                     "rejected",
@@ -1210,13 +1213,14 @@
               "description": "The engine's CommandResult: accepted, message, validation details."
             },
             "assessment": {
-              "description": "A validation's meaning: works, fails (on the reference objects), no_change or rejected (does not compile); the price against the player's energy, and the next step.",
+              "description": "A validation's meaning: works, warns (works, but most acts would fail or the player already runs this code: tell them the warnings before any summon), fails (on the reference objects), no_change or rejected (does not compile); the price against the player's energy, and the next step.",
               "type": "object",
               "properties": {
                 "verdict": {
                   "type": "string",
                   "enum": [
                     "works",
+                    "warns",
                     "fails",
                     "no_change",
                     "rejected",
@@ -1341,13 +1345,14 @@
               "description": "The engine's CommandResult: accepted, message, validation details."
             },
             "assessment": {
-              "description": "A validation's meaning: works, fails (on the reference objects), no_change or rejected (does not compile); the price against the player's energy, and the next step.",
+              "description": "A validation's meaning: works, warns (works, but most acts would fail or the player already runs this code: tell them the warnings before any summon), fails (on the reference objects), no_change or rejected (does not compile); the price against the player's energy, and the next step.",
               "type": "object",
               "properties": {
                 "verdict": {
                   "type": "string",
                   "enum": [
                     "works",
+                    "warns",
                     "fails",
                     "no_change",
                     "rejected",
@@ -1533,13 +1538,14 @@
               "description": "The engine's CommandResult: accepted, message, validation details."
             },
             "assessment": {
-              "description": "A validation's meaning: works, fails (on the reference objects), no_change or rejected (does not compile); the price against the player's energy, and the next step.",
+              "description": "A validation's meaning: works, warns (works, but most acts would fail or the player already runs this code: tell them the warnings before any summon), fails (on the reference objects), no_change or rejected (does not compile); the price against the player's energy, and the next step.",
               "type": "object",
               "properties": {
                 "verdict": {
                   "type": "string",
                   "enum": [
                     "works",
+                    "warns",
                     "fails",
                     "no_change",
                     "rejected",
@@ -1667,13 +1673,14 @@
               "description": "The engine's CommandResult: accepted, message, validation details."
             },
             "assessment": {
-              "description": "A validation's meaning: works, fails (on the reference objects), no_change or rejected (does not compile); the price against the player's energy, and the next step.",
+              "description": "A validation's meaning: works, warns (works, but most acts would fail or the player already runs this code: tell them the warnings before any summon), fails (on the reference objects), no_change or rejected (does not compile); the price against the player's energy, and the next step.",
               "type": "object",
               "properties": {
                 "verdict": {
                   "type": "string",
                   "enum": [
                     "works",
+                    "warns",
                     "fails",
                     "no_change",
                     "rejected",

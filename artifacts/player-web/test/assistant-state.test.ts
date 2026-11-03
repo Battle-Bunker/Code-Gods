@@ -5,7 +5,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  allowanceMeter, allowanceNote, buildTimeline, queueNote, cardReducer, chipView, confirmSentence, initialCard, prettyArgs, stepView, withPending, withSteps, type CallRow, type MessageRow,
+  allowanceMeter, allowanceNote, buildTimeline, queueNote, cardReducer, chipView, confirmSentence, initialCard, prettyArgs, stepView, summonWarnings, withPending, withSteps, type CallRow, type MessageRow,
 } from "../src/core/chat/state.ts";
 
 const msg = (seq: number, role: "user" | "assistant", text: string, over: Partial<MessageRow> = {}): MessageRow =>
@@ -126,4 +126,17 @@ test("the queue line says when queued messages reach the assistant: next step, a
   assert.equal(queueNote({ count: 2, active: true, card: false }), "2 queued · your assistant reads them after its current step");
   assert.equal(queueNote({ count: 1, active: true, card: true }), "Queued · this declines the card above; your assistant reads it next");
   assert.equal(queueNote({ count: 1, active: false, card: false }), "Held · your assistant stopped; send it now or with your next message");
+});
+
+test("the summon card carries the warnings of the latest validation of the identical code", () => {
+  const source = "def agent(grid):\n    return [write(everything(), 0)]";
+  const validated = (src: string, warnings: string[], rate = 0.03) => call(0, "m1", "validate_agent", "ok", { argsJson: JSON.stringify({ source: src, language: "python" }),
+    resultJson: JSON.stringify({ data: { status: "received", receipt: { accepted: true, validation: { valid: true, expectedSuccessRate: rate, warnings } } } }) });
+  const summon = call(0, "m2", "summon_agent", "awaiting_confirmation", { argsJson: JSON.stringify({ source, language: "python", name: "Zero" }) });
+  const constant = "It gives every object the same result, so only one object can ever hold this value; every other act will collide.";
+  assert.deepEqual(summonWarnings(summon, [validated(source, [constant]), summon]), { successRate: 0.03, warnings: [constant] });
+  // Another source's validation, or a clean one, says nothing.
+  assert.equal(summonWarnings(summon, [validated("def agent(g):\n    return []", [constant]), summon]), null);
+  assert.equal(summonWarnings(summon, [validated(source, [constant]), validated(source, []), summon]), null);
+  assert.equal(summonWarnings(call(0, "m", "send_chat", "awaiting_confirmation"), []), null);
 });

@@ -323,4 +323,27 @@ agents that can act. Randomized agents keep their retries: their next act on the
 collision, noChange, commit, invalid, error; `lastFailures`: the last invalid call's and runtime error's reasons). `agentView` turns
 them into a diagnosis, "38 of 38 acts failed: another object already has this value", with a one-line fix when at least
 half fail. My Agents shows it; the assistant reads it in `get_observation` (`agents[].outcomes`, `agents[].diagnosis`).
-Summon-time validation warns before the summon (constant, idempotent and identity agents; §11 when it lands).
+Summon-time validation warns before the summon (§11).
+
+## 11. Summon-time futility warnings (2026-11-03)
+
+Validate and summon examine the agent (`engine/pricing.ts` examineAgent). Besides the price, the examination now runs
+`probeFutility` (`lib/game-types/src/pricing/futility.ts`): two passes over a sample world of up to 16 objects (the
+game's live objects first, then the season's reference mixture), applying each result with the engine's uniqueness rule.
+It reports the share of acts that succeed (`expectedSuccessRate`) and, for a deterministic agent (no run read `random`):
+
+| Flag | Means | The warning |
+|---|---|---|
+| identity | no sample object changed | it never changes an object; every act would fail and still cost energy |
+| constant | at least two objects changed, all to one value | only one object can ever hold this value; every other act will collide |
+| idempotent | acting again on any of its own results changes nothing | it acts once per object, then wastes acts |
+| (any agent) | under half its acts succeed in the sample world | most of its acts fail, with the rate |
+
+A validate or summon of code the player already runs as a live agent adds a copies warning (a copy gives each object
+the same result; for a constant, idempotent or identity agent it only adds failures).
+
+Warnings never block. They reach the player before the summon: the forge's validation box, the assistant's
+`validate_agent` assessment (verdict `warns`, its `next` says to tell the player and offer a fix), and the summon
+confirmation card, which shows the warnings of the latest validation of the identical code in the conversation. A
+summon's receipt carries them too (`warnings`). A deterministic agent runs once per distinct value (at most two runs per
+sample object); a randomized one runs twice per object.

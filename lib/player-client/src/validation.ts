@@ -1,19 +1,21 @@
 /**
- * What a validate_agent receipt means for the next step: a verdict (works, fails, never changes anything, does not
- * compile), one line saying why, the summon price against the player's energy, and what to do next. The receipt's
+ * What a validate_agent receipt means for the next step: a verdict (works, works but most acts would fail or the player
+ * already runs this code, fails, never changes anything, does not compile), one line saying why, the summon price against the player's energy, and what to do next. The receipt's
  * own `valid` only says the source compiled and was priced; an agent that raises on every object is still "valid".
  * The in-client assistant once validated thirteen variants of a failing agent because every receipt read
  * "Accepted". Pure: the registry adds it to validate_agent results and the activity chip summarises it.
  */
 import type { CommandResult } from "./protocol.ts";
 
-export type ValidationVerdict = "works" | "fails" | "no_change" | "rejected" | "not_ready";
+export type ValidationVerdict = "works" | "warns" | "fails" | "no_change" | "rejected" | "not_ready";
 export interface ValidationAssessment {
   verdict: ValidationVerdict;
   /** One line: what the measurement found. */
   summary: string;
   /** What to do next (for a model; a person reads the summary). */
   next: string;
+  /** The examination's warnings (docs/rules-design.md §11), for the player before any summon. */
+  warnings?: string[];
   cost?: number; expectedActCost?: number; energy?: number; affordable?: boolean;
 }
 
@@ -51,6 +53,11 @@ export function assessValidation(receipt: CommandResult): ValidationAssessment {
   }
   if (v.changeRate !== undefined && v.changeRate === 0) {
     return { verdict: "no_change", summary: `Never changes a reference object: every act would pay without effect. ${price}`, next: fixIt, ...money };
+  }
+  if (v.warnings?.length) {
+    const rate = v.expectedSuccessRate !== undefined ? `About ${pct(v.expectedSuccessRate)} of its acts would succeed: ` : "";
+    return { verdict: "warns", summary: `${rate}${v.warnings.join(" ")} ${price}`, warnings: v.warnings, ...money,
+      next: "Tell the player the warning in plain words before any summon, and offer a fix: an act whose result depends on the object it is given (so different objects get different values) and that keeps changing an object it has changed before. Validate the fix. Summon this version only if the player still wants it; the summon card shows them the warning." };
   }
   const measured = v.changeRate !== undefined ? `Works: changes ${pct(v.changeRate)} of reference objects${v.invalidRate ? `, ${pct(v.invalidRate)} invalid or failing` : ""}. ` : "Works. ";
   const next = v.affordable === false

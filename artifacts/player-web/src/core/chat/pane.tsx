@@ -29,7 +29,7 @@ import { runPaletteCommand } from "@/core/palette/registry";
 import { composer, threadIn, useComposer, type Permission } from "./composer";
 import { emptyStateFor, suggestionsFor, type Suggestion } from "./suggestions";
 import {
-  TURN_ACTIVE, allowanceMeter, allowanceNote, buildTimeline, cardReducer, chipView, confirmSentence, initialCard, queueNote, stepView, userCount, withPending, withSteps,
+  TURN_ACTIVE, allowanceMeter, allowanceNote, buildTimeline, cardReducer, chipView, confirmSentence, initialCard, queueNote, stepView, summonWarnings, userCount, withPending, withSteps,
   type CallRow, type ChatItem, type StepTone,
 } from "./state";
 import { ToolDetail } from "./tool-detail-view";
@@ -170,7 +170,7 @@ function Conversation({ paneId, status }: { paneId: string; status: Status | und
           ))}
         </div>
       )}
-      {card && <ConfirmCard key={card._id} call={card} energy={situation.obs?.self.energy} pauseSeconds={(situation.room?.settings as { pauseSeconds?: number } | undefined)?.pauseSeconds} />}
+      {card && <ConfirmCard key={card._id} call={card} warning={summonWarnings(card, calls)} energy={situation.obs?.self.energy} pauseSeconds={(situation.room?.settings as { pauseSeconds?: number } | undefined)?.pauseSeconds} />}
       {enabled && <QueueList queued={(status?.queued ?? []).filter(q => !threadId || q.threadId === threadId)} active={active} card={!!card} roomId={room}
         threadId={threadId as Id<"assistantThreads"> | null} onError={setError} />}
       {error && <p className="px-3 pb-1 text-xs text-destructive" data-testid="text-assistant-error">{error}</p>}
@@ -280,7 +280,7 @@ function Chip({ call, defaultOpen = false }: { call: CallRow; defaultOpen?: bool
 }
 
 /** The confirmation card, docked above the composer: the plain sentence, Approve / Not now, Details, the deadline. */
-function ConfirmCard({ call, energy, pauseSeconds }: { call: CallRow; energy?: number; pauseSeconds?: number }) {
+function ConfirmCard({ call, warning, energy, pauseSeconds }: { call: CallRow; warning: ReturnType<typeof summonWarnings>; energy?: number; pauseSeconds?: number }) {
   const confirm = useMutation(api.assistant.confirm);
   const [state, dispatch] = useReducer(cardReducer, initialCard);
   const [armed, setArmed] = useState(false);
@@ -316,6 +316,13 @@ function ConfirmCard({ call, energy, pauseSeconds }: { call: CallRow; energy?: n
     <div ref={card} className="mx-2 mb-2 border border-[hsl(var(--card-border))] border-l-2 border-l-primary bg-card" data-testid={`assistant-card-${call.tool}`} role="alertdialog" aria-label="Your assistant asks first">
       <div className="space-y-2 p-2.5 text-sm">
         <p className="font-medium">{confirmSentence(call, { energy, pauseSeconds })}</p>
+        {warning && (
+          // What its validation warned (docs/rules-design.md §11): the player reads it before approving.
+          <div data-testid="assistant-card-warning" className="space-y-0.5 text-xs text-destructive">
+            {warning.successRate !== undefined && <p className="font-semibold">About {Math.round(100 * warning.successRate)}% of its acts would succeed.</p>}
+            {warning.warnings.map((w, i) => <p key={i}>{w}</p>)}
+          </div>
+        )}
         {state.phase === "error" && <p className="text-xs text-destructive">{state.message}</p>}
         {!approve.ok && <p className="text-xs text-muted-foreground" data-testid="text-confirm-readonly">{approve.reason}</p>}
         <div className="flex items-center gap-2">
