@@ -5,28 +5,63 @@
  *
  * - `build` (internal action): scheduled by endGame (engine/loop.ts) and by migrations:backfillReplays for games ended
  *   before this existed. Idempotent: a game that has its file is left alone; a build that loses a race deletes its copy.
- * - `url` (query): the file's URL for whoever may watch the replay (the same check as player.replay), with the caller's
- *   place in the roster; `url: null` until it is built (the page pages the log meanwhile). The URL is a capability:
- *   access is checked when it is handed out, as for any stored file; the replay it holds is what player.replay shows
- *   that viewer. A build that fails (nothing retries it) leaves the game on the paged replay.
+ * - `stored` (query): whether the file is there, for whoever may watch the replay (the same check as player.replay), with
+ *   the caller's place in the roster; `stored: false` until it is built (the page pages the log meanwhile). A build
+ *   that fails (nothing retries it) leaves the game on the paged replay.
+ * - GET /api/replay/<roomId>/<gameId> (`download`, registered by convex/http.ts): the file itself, checked on every
+ *   request against the caller's Convex JWT (`Authorization: Bearer`, the token the app's Convex client holds) with the
+ *   same rule. Never a storage URL: that is a bearer capability anyone holding the link could download, and sign-in is
+ *   required for everything (owner decision 2026-11-02).
  */
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { internalAction, internalMutation, internalQuery, query } from "./_generated/server";
+import { httpAction, internalAction, internalMutation, internalQuery, query } from "./_generated/server";
 import { requireViewer } from "./auth/access";
+import { BEARER_CORS } from "./auth/routes";
+import { json } from "./lib/http";
 import { replayPage, replayableGame } from "./player";
 
 /** The stored file's shape (written in the file); a page that reads another version pages the log instead. */
 export const STORED_REPLAY_VERSION = 1;
 
-export const url = query({
+export const stored = query({
   args: { roomId: v.string(), gameId: v.string() },
   handler: async (ctx, { roomId, gameId }) => {
     const { game, viewer } = await replayableGame(ctx, await requireViewer(ctx), roomId, gameId);
-    return { url: game.replayStorageId ? await ctx.storage.getUrl(game.replayStorageId) : null, viewer };
+    return { stored: !!game.replayStorageId, viewer };
   },
 });
+
+/** The stored file of a replay the caller may watch (the download's check; the caller is the request's JWT). */
+export const fileFor = internalQuery({
+  args: { roomId: v.string(), gameId: v.string() },
+  handler: async (ctx, { roomId, gameId }) => (await replayableGame(ctx, await requireViewer(ctx), roomId, gameId)).game.replayStorageId ?? null,
+});
+
+const STATUS: Record<string, number> = { UNAUTHENTICATED: 401, FORBIDDEN: 403, NOT_FOUND: 404, CONFLICT: 409, BAD_REQUEST: 400 };
+const reply = (body: unknown, status: number) => json(body, status, BEARER_CORS);
+
+/** GET /api/replay/<roomId>/<gameId>: the stored replay file, for a caller the replay admits. */
+export const download = httpAction(async (ctx, request) => {
+  let parts: string[];
+  try { parts = new URL(request.url).pathname.split("/").slice(3).map(decodeURIComponent); } catch { parts = []; }
+  if (parts.length !== 2 || !parts[0] || !parts[1]) return reply({ error: "GET /api/replay/<roomId>/<gameId>" }, 400);
+  // A missing or invalid token is no identity, and requireViewer refuses it (401) like any signed-out call.
+  let storageId: Id<"_storage"> | null;
+  try {
+    storageId = await ctx.runQuery(internal.replays.fileFor, { roomId: parts[0], gameId: parts[1] });
+  } catch (error) {
+    const data = error instanceof ConvexError ? error.data as { code?: string; message?: string } : null;
+    if (data?.code && STATUS[data.code]) return reply({ error: data.message ?? data.code, code: data.code }, STATUS[data.code]);
+    console.error("replay download failed", error instanceof Error ? error.message : "unknown");
+    return reply({ error: "Internal error" }, 500);
+  }
+  const file = storageId && await ctx.storage.get(storageId);
+  if (!file) return reply({ error: "This game's replay is not stored (yet): page it with player.replay", code: "NOT_FOUND" }, 404);
+  return new Response(file, { headers: { ...BEARER_CORS, "Content-Type": "application/json", "Cache-Control": "private, no-store" } });
+});
+export const downloadPreflight = httpAction(async () => new Response(null, { status: 204, headers: BEARER_CORS }));
 
 /** One page of an ended game's replay for the builder (no caller: the builder is the engine itself). */
 export const page = internalQuery({

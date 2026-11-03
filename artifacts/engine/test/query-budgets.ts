@@ -93,7 +93,7 @@ export const BUDGETS: Budget[] = [
     args: f => ({ roomId: f.roomId, gameId: f.gameId }), cold: true },
   { query: "receipts:get", subscribedBy: "core/palette/use-commands.ts (Check a command's status, while the page is open)",
     args: f => ({ roomId: f.roomId, commandId: f.commandId }), cold: true },
-  { query: "replays:url", subscribedBy: "core/replay/replay-game.tsx (an ended game's stored replay)",
+  { query: "replays:stored", subscribedBy: "core/replay/replay-game.tsx (whether an ended game's replay is stored)",
     args: f => ({ roomId: f.endedRoomId, gameId: f.endedGameId }), cold: true },
   { query: "code/runs:get", subscribedBy: "core/panels/code-output.tsx", args: f => ({ roomId: f.roomId }), cold: true },
   { query: "player:myUtility", subscribedBy: "sdk useMyCard/useEvaluator, lib/player-client state.ts", args: f => ({ roomId: f.roomId }), cold: true },
