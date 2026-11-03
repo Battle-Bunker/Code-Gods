@@ -136,8 +136,7 @@ export const join = mutation({
       if (!spectator && playersOf(members).length >= MAX_GODS) fail("CONFLICT", "This room has its eight players; join as a spectator");
       await ctx.db.insert("members", { roomId: room._id, godId: viewer.subject, userId: viewer.subject, name: viewer.name, kind: "human", ready: false, spectator, joinedAt: Date.now() });
       const game = await activeGame(ctx, room);
-      const watching = game?.spectators ?? [];
-      if (game && !watching.includes(viewer.subject)) await ctx.db.patch(game._id, { spectators: [...watching, viewer.subject] });
+      if (game && !game.spectators.includes(viewer.subject)) await ctx.db.patch(game._id, { spectators: [...game.spectators, viewer.subject] });
       await bump(ctx, room);
     }
     await touchActivity(ctx);

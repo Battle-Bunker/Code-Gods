@@ -1,6 +1,6 @@
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
-import { storedLanguageV } from "../lib/language";
+import { languageV } from "../lib/language";
 
 /**
  * Runtime assets in Convex file storage (scripts/upload-runtime.mjs). One row per name; today the only
@@ -23,8 +23,7 @@ export const runtimeTables = {
    * writes it, runtime/warm.ts boots). Read by the observation, the tick, AI seats and every function that runs agent code.
    */
   runtimeReadiness: defineTable({
-    /** storedLanguageV until migrations.ts dropHaskellReadiness has run everywhere; then languageV. */
-    language: storedLanguageV,
+    language: languageV,
     /** The runtime version this row is about (the Python bundle's pin; `builtin:<language>` for packaged runtimes). */
     version: v.string(),
     state: v.union(v.literal("warming"), v.literal("ready"), v.literal("failed")),
@@ -52,9 +51,4 @@ export const runtimeTables = {
     error: v.optional(v.object({ code: v.string(), message: v.string() })),
     compiledAt: v.number(),
   }).index("by_key", ["key"]).index("by_compiledAt", ["compiledAt"]).index("by_language", ["language"]),
-  /** Haskell's compiled programs (Haskell is retired): emptied by migrations.ts dropHaskellPrograms, then dropped from the schema. */
-  haskellPrograms: defineTable({
-    key: v.string(), js: v.string(), inspection: v.any(),
-    error: v.optional(v.object({ code: v.string(), message: v.string() })), compiledAt: v.number(),
-  }).index("by_key", ["key"]).index("by_compiledAt", ["compiledAt"]),
 };

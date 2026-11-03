@@ -114,10 +114,9 @@ export const gameTables = {
     /**
      * Watches the next game instead of playing it (docs/unify-apps-plan.md §2): not dealt in, not counted toward the
      * 3 to 8 players. A preference for the next game; a running game's roster never changes. The owner starts as one;
-     * AI seats never are. Optional while migrations:backfillMemberSpectator runs (absent = player); required once every
-     * deployment has run it (CLAUDE.md "Schema migrations").
+     * AI seats never are.
      */
-    spectator: v.optional(v.boolean()),
+    spectator: v.boolean(),
     /** Humans only: the Replit subject (= godId), indexed for auth's device approval (auth/rooms.ts isRoomMember). */
     userId: v.optional(v.string()),
     aiAgent: v.optional(aiAgentSnapshot), status: v.optional(v.string()),
@@ -131,9 +130,8 @@ export const gameTables = {
     settings: v.any(), roster: v.array(rosterEntry),
     /**
      * The room's human members who watch this game: everyone not dealt in at launch, and whoever joins while it runs.
-     * Optional while migrations:backfillGameSpectators runs (absent = none); required once every deployment has run it.
      */
-    spectators: v.optional(v.array(v.string())),
+    spectators: v.array(v.string()),
     /** The room's setup when the game started (its id and name then), so history can name it. */
     setupId: v.optional(v.id("gameSetups")), setupName: v.optional(v.string()),
     /** LEGACY (pre setups-v2; cleared by the migration). */
@@ -248,10 +246,9 @@ export const gameTables = {
     /**
      * Public: the salience as disclosed now (read-architecture §4.3): `salience + noise` while the game is live, exact
      * once it has ended (engine/readModel.ts). The spectator's skeleton orders by it (by_game_salience) and its object
-     * row shows it, so neither ever reads `noise`. Optional while migrations:backfillPublicSalience runs (absent = not
-     * written yet); required once every deployment reports it done (CLAUDE.md "Schema migrations").
+     * row shows it, so neither ever reads `noise`.
      */
-    publicSalience: v.optional(v.number()),
+    publicSalience: v.number(),
   }).index("by_game", ["gameId"]).index("by_game_value", ["gameId", "value"]).index("by_game_salience", ["gameId", "publicSalience"]),
 
   agents: defineTable({
