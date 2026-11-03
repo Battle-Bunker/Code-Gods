@@ -105,15 +105,19 @@ export const smoke = internalAction({
   },
 });
 
-/** The process's highest resident size must stay this far under Convex's 512 MiB Node action limit (whatever the call ended at). */
-const PEAK_CEILING_MIB = 470;
+/**
+ * The process's highest resident size, whatever the call ended at. Convex's Node actions have 512 MiB RAM (docs.convex.dev
+ * production/state/limits: MiB, not MB); 460 leaves 52 MiB. Set from the limit before any peak had been observed: tighten it
+ * to the observed peaks.
+ */
+const PEAK_CEILING_MIB = 460;
 /**
  * Each language's actions under load, as a tick of a game allowing both runs them (deploy.yml): a full batch of acts
  * per language in its own action (runtime/acts.ts), both at once, and a fresh TypeScript compilation
  * (runtime/compile.ts). Convex reuses warm Node processes, so each action reports its resident size when it started
  * (what earlier calls left behind), when it ended and the process's peak (runtime/memory.ts). Fails when an action ends
  * above `budgetMiB` resident (default 400: the 14 deploys from #145 to now ended between 253 and 387 MiB with no trend,
- * so 400 holds the 512 MiB limit's 110 MiB headroom for the process's own and Convex's overhead) or its process ever
+ * so 400 keeps 112 MiB of the 512 MiB limit as headroom, 125 over the worst run) or its process ever
  * peaked above PEAK_CEILING_MIB. Also reports what dispatching acts to their own actions costs: the round trip of a
  * one-act call.
  */
