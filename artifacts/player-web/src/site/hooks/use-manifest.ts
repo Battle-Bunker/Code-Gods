@@ -1,28 +1,31 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useAction } from "convex/react";
-import { api } from "@/site/lib/convex";
+import { api, useLive } from "@/site/lib/convex";
 import type { Manifest } from "@/site/lib/types";
 
 /**
- * The settings manifest (object types, offered instantiations, options, runtimes). It is a
- * Convex action, not a reactive query; it only changes with a deploy, so one load per page session.
+ * The settings manifest (object types, offered instantiations, options, runtimes): a live subscription to
+ * `manifest.get`, a query over the document each deploy stores (convex/manifest.ts), held once however many components
+ * show it. It updates as the sandboxes boot. `enabled` false (signed out): no subscription.
  */
-let cached: Promise<Manifest> | null = null;
-
-/** `enabled` false (signed out): no request; the manifest is for signed-in callers. */
 export function useManifest(enabled = true) {
-  const get = useAction(api.manifest.get);
-  const [data, setData] = useState<Manifest | undefined>(undefined);
-  const [error, setError] = useState<Error | null>(null);
-  const [nonce, setNonce] = useState(0);
+  const { data, error, isLoading } = useLive(api.manifest.get, enabled ? {} : "skip");
+  return { data: (data ?? undefined) as Manifest | undefined, error, isError: !!error, isLoading: enabled && (isLoading || data === null) };
+}
+
+/** The users whose sandbox warm-up this page has asked for (once per signed-in user per page load: not a read). */
+const warmed = new Set<string>();
+
+/**
+ * Once per signed-in session: warm the agent sandboxes (so a game's start finds them ready) and refresh the stored
+ * manifest (manifest/node.warm; the null manifest of a deployment that has none yet gets one). Reading the manifest
+ * never warms anything.
+ */
+export function useWarmSandboxes(userId: string | undefined) {
+  const warm = useAction(api.manifest.node.warm);
   useEffect(() => {
-    if (!enabled) return;
-    let live = true;
-    cached ??= get({}).then(m => m as unknown as Manifest);
-    cached.then(m => { if (live) { setData(m); setError(null); } },
-      e => { cached = null; if (live) setError(e instanceof Error ? e : new Error(String(e))); });
-    return () => { live = false; };
-  }, [get, nonce, enabled]);
-  const refetch = useCallback(() => { cached = null; setError(null); setNonce(n => n + 1); }, []);
-  return { data: enabled ? data : undefined, error, isError: !!error, isLoading: enabled && !data && !error, refetch };
+    if (!userId || warmed.has(userId)) return;
+    warmed.add(userId);
+    void warm({}).catch(error => { warmed.delete(userId); console.warn("[manifest] warming the sandboxes failed:", error); });
+  }, [userId, warm]);
 }

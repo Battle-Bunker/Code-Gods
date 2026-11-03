@@ -50,7 +50,7 @@ export const observationAs = internalQuery({
  * The room's active or current game is for its members; a historic one (lib/rooms isHistoric) only for the gods who
  * played in it and the room owner.
  */
-async function gameFor(ctx: QueryCtx, viewer: Viewer, roomRef: string, gameRef?: string) {
+export async function gameFor(ctx: QueryCtx, viewer: Viewer, roomRef: string, gameRef?: string) {
   const room = await requireRoom(ctx, roomRef);
   let game: Doc<"games"> | null;
   if (gameRef) {

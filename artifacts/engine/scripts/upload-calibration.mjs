@@ -58,6 +58,10 @@ export async function uploadCalibration(convex, { dir = CALIBRATION_DIR, log = c
   const removed = await convex("calibration/files:prune", { keep: local.map(f => ({ instance: f.instance, rank: f.rank })) });
   for (const instance of removed) log(`Removed ${instance} (no file in git).`);
   log(`Calibration: ${keys.length} files; ${uploaded.length} uploaded, ${keys.length - changed.length} unchanged, ${removed.length} removed.`);
+  // The stored settings manifest (convex/manifest.ts) lists what these files offer, and what the deployed code computes
+  // from them: refresh it on every run (every deploy runs this), a write only when it changed.
+  const { changed: manifestChanged } = await convex("manifest/node:refresh");
+  if (manifestChanged) log("Settings manifest refreshed.");
   return { uploaded: uploaded.map(r => r.instance), unchanged: keys.length - changed.length, removed };
 }
 

@@ -11,7 +11,7 @@ import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:f
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { CALIBRATION_DIR, convexRunner, instanceFiles, uploadCalibration } from "../scripts/upload-calibration.mjs";
-import { admin, api, gods, internal } from "./game-helpers.ts";
+import { admin, internal } from "./game-helpers.ts";
 
 const convex = convexRunner();
 const quiet = { log: () => {} };
@@ -50,12 +50,12 @@ test("upload skips unchanged files, replaces a changed one, and the engine then 
   assert.equal(back.load.bytes, readFileSync(`${CALIBRATION_DIR}${INSTANCE}.json`).length);
 });
 
-test("a player client gets the tables of its own draws from the engine; unknown draws fail", async () => {
-  const [alice] = await gods("alice");
-  const [table] = JSON.parse(await alice.c.action(api.calibration.node.tables, { settings, draws: [draw] }));
+// The HTTP route that serves a player's own tables (and its access rules) is tested in game-static-data.test.ts.
+test("the tables of a player's draws are the engine's own; unknown draws fail", async () => {
+  const [table] = JSON.parse(await admin.action(internal.calibration.node.tablesOf, { settings, draws: [draw] }));
   const probe = await admin.action(internal.calibration.node.probe, { settings, draw });
   assert.equal(table.key, probe.key);
   assert.equal(table.instance, INSTANCE);
   assert.ok(table.levels.length > 1);
-  await assert.rejects(alice.c.action(api.calibration.node.tables, { settings, draws: [{ familyId: "seed3_green_ones", params: {} }] }));
+  await assert.rejects(admin.action(internal.calibration.node.tablesOf, { settings, draws: [{ familyId: "seed3_green_ones", params: {} }] }));
 });

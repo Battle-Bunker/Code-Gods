@@ -318,22 +318,22 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   },
   // ----- manifest -----
   "manifest.get": {
-    kind: "action", audience: "infrastructure",
+    kind: "query", audience: "infrastructure",
     human: { title: "Show server info", tooltip: "Object types, offered instantiations, options, runtimes and whether AI players are funded." },
-    ai: { description: "The deployment's manifest: object types with their offered instantiations, pre-authored option lists, runtimes and AI funding status. get_rules includes what a player needs of it; list_setups lists the game setups." },
+    ai: { description: "The deployment's manifest: object types with their offered instantiations, pre-authored option lists, runtimes (the agent sandboxes' state, live) and AI funding status; null until the deployment has stored it. get_rules includes what a player needs of it; list_setups lists the game setups." },
     tools: ["get_rules"], palette: { label: "Show server info", group: "help", keywords: ["version", "manifest", "runtimes", "instantiations"], surfaces: SITE },
+  },
+  "manifest.node.warm": {
+    kind: "action", audience: "infrastructure",
+    human: { title: "Warm the agent sandboxes", tooltip: "Boots this server's agent sandboxes ahead of a game and refreshes its settings manifest." },
+    ai: { description: "Schedules the agent sandboxes' warm-up (throttled deployment-wide) and refreshes the stored settings manifest; returns each language's sandbox state. The app calls it once per signed-in session; agents need nothing from it (validate_agent says when a sandbox is warming)." },
+    tools: [], palette: null, why: "The app calls it once per session so a game's start finds the sandboxes warm; agents are told by validate_agent when one is warming.",
   },
   "version.current": {
     kind: "query", audience: "infrastructure",
     human: { title: "Show deployed versions", tooltip: "The app's and the engine functions' builds now live, so open pages can update themselves." },
     ai: { description: "Per site (the app, the functions): the live build id and when it was deployed; with your own build, whether it was ever deployed here. Clients compare their own build with it to update after a deploy (lib/player-client/src/update.ts); agents need nothing from it." },
     tools: [], palette: null,
-  },
-  "calibration.node.tables": {
-    kind: "action", audience: "infrastructure",
-    human: { title: "Load calibration tables", tooltip: "The calibration tables of a utility and its defence goal, for scoring values in the browser." },
-    ai: { description: "The calibration tables (ordinal to surprisal bits) of one or two draws of a game's instantiation, as JSON text. The app's evaluator (the dock, panels) uses them to score hypothetical values exactly as the engine does; evaluate_value does this server-side for agents." },
-    tools: [], palette: null, why: "The app's evaluator loads these itself; agents score values with evaluate_value.",
   },
   // ----- owner -----
   "owner.settings": {

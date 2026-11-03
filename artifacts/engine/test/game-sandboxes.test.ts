@@ -18,7 +18,7 @@ let warmer: Awaited<ReturnType<typeof gods>>[number] | undefined;
 async function rewarm() {
   await admin.mutation(internal.testing.setSandbox, { language: "python", patch: { attemptAt: Date.now() - 3600_000, attempts: 0 } });
   warmer ??= (await gods("Rewarm"))[0];
-  await warmer.c.action(api.manifest.get, {});
+  await warmer.c.action(api.manifest.node.warm, {});
   await waitFor(async () => (await pythonRow())?.state === "ready" || undefined, "python ready again", 60_000, 100);
 }
 

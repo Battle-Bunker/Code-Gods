@@ -22,5 +22,7 @@ export type QueryReturns = {
 export type UseSdkQuery = <N extends QueryName>(name: N, args: Record<string, unknown> | "skip", hz?: number) => QueryReturns[N] | undefined;
 /** Submit a v3 envelope for this room through the one command path. */
 export type UseSdkSubmit = () => (roomId: string, envelope: Envelope) => Promise<CommandResult>;
+/** Where your tables are: your seat in a room's current game (player.myUtility's gameId and godId). */
+export type TableSeat = { roomId: string; gameId: string; godId: string };
 /** The calibration tables of your utility (reward channel, and the defence goal's when dealt). */
-export type LoadTables = (settings: unknown, descriptor: unknown) => Promise<{ reward: unknown; penalty?: unknown }>;
+export type LoadTables = (settings: unknown, descriptor: unknown, seat: TableSeat) => Promise<{ reward: unknown; penalty?: unknown }>;

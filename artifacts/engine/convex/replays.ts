@@ -13,13 +13,13 @@
  *   same rule. Never a storage URL: that is a bearer capability anyone holding the link could download, and sign-in is
  *   required for everything (owner decision 2026-11-02).
  */
-import { ConvexError, v } from "convex/values";
+import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { httpAction, internalAction, internalMutation, internalQuery, query } from "./_generated/server";
 import { requireViewer } from "./auth/access";
 import { BEARER_CORS } from "./auth/routes";
-import { json } from "./lib/http";
+import { json, pathSegments, refusal } from "./lib/http";
 import { replayPage, replayableGame } from "./player";
 
 /** The stored file's shape (written in the file); a page that reads another version pages the log instead. */
@@ -39,21 +39,18 @@ export const fileFor = internalQuery({
   handler: async (ctx, { roomId, gameId }) => (await replayableGame(ctx, await requireViewer(ctx), roomId, gameId)).game.replayStorageId ?? null,
 });
 
-const STATUS: Record<string, number> = { UNAUTHENTICATED: 401, FORBIDDEN: 403, NOT_FOUND: 404, CONFLICT: 409, BAD_REQUEST: 400 };
 const reply = (body: unknown, status: number) => json(body, status, BEARER_CORS);
 
 /** GET /api/replay/<roomId>/<gameId>: the stored replay file, for a caller the replay admits. */
 export const download = httpAction(async (ctx, request) => {
-  let parts: string[];
-  try { parts = new URL(request.url).pathname.split("/").slice(3).map(decodeURIComponent); } catch { parts = []; }
-  if (parts.length !== 2 || !parts[0] || !parts[1]) return reply({ error: "GET /api/replay/<roomId>/<gameId>" }, 400);
-  // A missing or invalid token is no identity, and requireViewer refuses it (401) like any signed-out call.
+  const parts = pathSegments(request);
+  if (!parts || parts.length !== 2 || !parts[0] || !parts[1]) return reply({ error: "GET /api/replay/<roomId>/<gameId>" }, 400);
   let storageId: Id<"_storage"> | null;
   try {
     storageId = await ctx.runQuery(internal.replays.fileFor, { roomId: parts[0], gameId: parts[1] });
   } catch (error) {
-    const data = error instanceof ConvexError ? error.data as { code?: string; message?: string } : null;
-    if (data?.code && STATUS[data.code]) return reply({ error: data.message ?? data.code, code: data.code }, STATUS[data.code]);
+    const refused = refusal(error);
+    if (refused) return reply(refused.body, refused.status);
     console.error("replay download failed", error instanceof Error ? error.message : "unknown");
     return reply({ error: "Internal error" }, 500);
   }

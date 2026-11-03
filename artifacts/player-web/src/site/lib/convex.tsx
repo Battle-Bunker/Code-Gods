@@ -20,6 +20,7 @@ import type { AccountSession, PlayerAuth } from "@workspace/player-client/browse
 import { api } from "@/site/lib/convex-api";
 import { toast } from "@/hooks/use-toast";
 import { MAX_RETRIES, liveResult, retryDelay, transientQueryError, type Retry } from "@/lib/live-retry";
+import { setAppAccessToken } from "@/core/connection";
 
 export { api };
 
@@ -144,9 +145,13 @@ export function EngineProvider({ client, auth, children }: { client: ConvexReact
   const grant = auth.kind === "account" ? auth : null;
   const accountToken = useMemo(() => (grant ? grant.auth.fetchToken(grant.session) : null), [grant?.auth, grant?.session]); // eslint-disable-line react-hooks/exhaustive-deps
   const fetchToken = auth.kind === "token" ? auth.fetchAccessToken : accountToken;
+  const tokenSource = fetchToken ?? siteToken;
+  // The SDK's transport reads the same source for the engine routes it calls outside React (calibration tables): set
+  // while rendering, so it is there before any child's effect asks.
+  setAppAccessToken(tokenSource);
   const inner = <SessionProvider auth={auth}><ActivityPing />{children}</SessionProvider>;
   return (
-    <AccessTokenContext.Provider value={fetchToken ?? siteToken}>
+    <AccessTokenContext.Provider value={tokenSource}>
       {fetchToken ? <TokenProvider client={client} fetchAccessToken={fetchToken}>{inner}</TokenProvider> : (
         // The cast bridges a type-level quirk of @convex-dev/better-auth 0.12 (its AuthClient union infers `never` for
         // useSession().data under this repo's compiler settings); the runtime object is exactly what it expects.

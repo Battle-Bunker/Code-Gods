@@ -72,10 +72,11 @@ const convex = new ConvexReactClient(convexUrl);
 | `POST /api/device/token` | `{credential}` or `Authorization: Bearer cgc_…` → a player JWT (see above) |
 | `POST /api/device/revoke` | `{credential}` → `{status:"revoked"}` |
 | `GET /api/replay/<roomId>/<gameId>` | `Authorization: Bearer <Convex JWT>` (a browser or player JWT, the one the Convex client sends) → an ended game's stored replay `{version, pages}` (the `player.replay` pages without `viewer`; `replays.stored` gives the caller's place). Same access as `player.replay`: 401 signed out, 403 not a player, spectator or the room owner, 404 unknown game or not stored yet, 409 live. `Cache-Control: private, no-store` |
+| `GET /api/calibration/<roomId>/<gameId>/<godId>` | `Authorization: Bearer <Convex JWT>` → the caller's own calibration tables `{reward, penalty?}` in the room's current game (`gameId`, `godId`: `player.myUtility`'s). 401 signed out, 403 another god's, 404 no seat in the current game, 409 not the current game. `Cache-Control: private, max-age=31536000, immutable` (a seat's tables never change) |
 
 **CORS.** The routes authorized by what a request carries (a secret, a credential or a bearer token) answer any
 origin with `Access-Control-Allow-Origin: *` and an `OPTIONS` preflight, never `Access-Control-Allow-Credentials`:
-`/api/config`, `/api/.well-known/jwks.json`, `/api/device/*`, `/api/replay/*`, `/api/oauth/*` and `/.well-known/oauth-*`. The cookie
+`/api/config`, `/api/.well-known/jwks.json`, `/api/device/*`, `/api/replay/*`, `/api/calibration/*`, `/api/oauth/*` and `/.well-known/oauth-*`. The cookie
 routes (`/api/auth/*`) are same-origin only. Convex functions take a bearer JWT from any origin.
 
 Local deployments only (`pnpm --filter @workspace/engine dev`): `POST /api/auth/sign-in/oauth2
@@ -288,9 +289,9 @@ Every public function above has an entry in `lib/player-client/src/catalog.ts` (
 | `games.object` | query | player | Show one object | One object of a game: its value and how many bits all players together see in it. | — (One row of the spectator list subscribes to it; the assistant reads its own objects with get_observation.) |
 | `layout.current` | query | player | Show the dock layout | The panes you see in this room, as every open client of yours renders them. | `get_layout`, `load_skill` |
 | `layout.set` | mutation | player | Arrange the dock | Moves, resizes, adds or closes panes; every open client of yours follows. | `open_panel`, `set_panel_params`, `move_pane`, `close_pane` |
-| `manifest.get` | action | infrastructure | Show server info | Object types, offered instantiations, options, runtimes and whether AI players are funded. | `get_rules` |
+| `manifest.get` | query | infrastructure | Show server info | Object types, offered instantiations, options, runtimes and whether AI players are funded. | `get_rules` |
+| `manifest.node.warm` | action | infrastructure | Warm the agent sandboxes | Boots this server's agent sandboxes ahead of a game and refreshes its settings manifest. | — (The app calls it once per session so a game's start finds the sandboxes warm; agents are told by validate_agent when one is warming.) |
 | `version.current` | query | infrastructure | Show deployed versions | The app's and the engine functions' builds now live, so open pages can update themselves. | — |
-| `calibration.node.tables` | action | infrastructure | Load calibration tables | The calibration tables of a utility and its defence goal, for scoring values in the browser. | — (The app's evaluator loads these itself; agents score values with evaluate_value.) |
 | `owner.settings` | action | owner | Choose the next game's setup | Puts the next game on a game setup, or changes the room's setup; running games keep theirs. | `update_settings` |
 | `owner.start` | action | owner | Start the game | Deals secret goals and spawns the world for 3 to 8 players; planning begins at once. | `start_game` |
 | `owner.command` | action | owner | Run an owner action | Settings, start, resume, end, add or remove an AI player, in one call. | `update_settings`, `start_game`, `resume_game`, `end_game`, `add_ai`, `remove_ai` |
@@ -414,8 +415,8 @@ Open pages learn of a deploy and update themselves (`lib/player-client/src/updat
   game's) chat, newest first. `games.resolve({code})` → `{…, status: current|historical|unavailable}`.
 - `activity.touch()` mutation: human activity, which resumes idle-parked games (the assistant's `wake`). `activity.status()` query.
 - `aiTemplates.catalog()` query: the public AI library, without prompts. Admin only: `adminList()`, `create`, `update({id, revision, …})`, `remove({id, revision})`.
-- Sign-in is required for every function a page uses (owner decision 2026-11-02): queries and the actions `manifest.get` and `calibration.node.tables` answer a signed-out caller `UNAUTHENTICATED`. Open by decision: `version.current` (the deploy auto-update), `auth/user.me` (null when signed out), the HTTP routes `/api/health`, `/api/config`, Better Auth, the device flow and OAuth/MCP discovery and registration (`/mcp` itself answers 401 without a token).
-- `manifest.get()` action: object types with their `playable` instantiations (every combination of the type's parameter choices, minus retired shapes; each with `prepare: {toCompute, seconds}|null`, the first game's preparation on this server, and `synergy`, whether the Aligned Lottery has measured synergy there), `offered` (diagnostics: the shapes whose every table is shipped), options, runtimes and AI funding status.
+- Sign-in is required for every function a page uses (owner decision 2026-11-02): queries and the action `manifest.node.warm` answer a signed-out caller `UNAUTHENTICATED`, and the HTTP routes `/api/replay/*` and `/api/calibration/*` answer 401. Open by decision: `version.current` (the deploy auto-update), `auth/user.me` (null when signed out), the HTTP routes `/api/health`, `/api/config`, Better Auth, the device flow and OAuth/MCP discovery and registration (`/mcp` itself answers 401 without a token).
+- `manifest.get()` query (null until the deployment stored it: every deploy and calibration upload does, and `manifest.node.warm`): object types with their `playable` instantiations (every combination of the type's parameter choices, minus retired shapes; each with `prepare: {toCompute, seconds}|null`, the first game's preparation on this server, and `synergy`, whether the Aligned Lottery has measured synergy there), `offered` (diagnostics: the shapes whose every table is shipped), options, runtimes (each agent sandbox's state as stored, live) and AI funding status. Reading it never boots a sandbox: `manifest.node.warm()` (action, signed in; the app calls it once per session) schedules the warm-up and refreshes the stored manifest, returning `{sandboxes}`.
 
 ### Internal twins (principals)
 

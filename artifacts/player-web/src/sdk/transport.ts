@@ -4,9 +4,8 @@ import { useAction, useQuery } from "convex/react";
 import type { FunctionReference } from "convex/server";
 import { api } from "@workspace/engine/convex/_generated/api";
 import type { CommandResult } from "@workspace/player-client";
-import type { GameSettings } from "@workspace/game-core";
 import type { UtilityDescriptor } from "@workspace/game-utilities";
-import { existingConvexClient } from "../core/connection";
+import { appAccessToken, engineSite } from "../core/connection";
 import type { QueryName } from "./bridge-protocol";
 import { useReplaySource } from "./replay-source";
 import type { LoadTables, UseSdkQuery, UseSdkSubmit } from "./transport-types";
@@ -44,25 +43,26 @@ export const useSdkSubmit: UseSdkSubmit = () => {
   }, [submit, replay]);
 };
 
-const tableCache = new Map<string, Promise<{ reward: unknown; penalty?: unknown }>>();
+/** Requests in flight per path (two panels mounting together ask once); dropped when answered: no result cache. */
+const inFlight = new Map<string, Promise<{ reward: unknown; penalty?: unknown }>>();
 /**
- * Asks the engine for the tables of your utility (calibration.node.tables: the engine loads them from its file
- * storage; no table data is bundled into the client). Cached per game settings and descriptor.
+ * A seat's tables from the engine (GET /api/calibration/<roomId>/<gameId>/<godId>, with your Convex JWT; the engine
+ * loads them from its file storage; no table data is bundled into the client). The answer for a seat never changes,
+ * so the browser caches it per path (`Cache-Control: private, immutable`).
  */
-export const loadTables: LoadTables = async (settings, descriptor) => {
-  const d = descriptor as UtilityDescriptor;
-  const key = JSON.stringify([settings, d]);
-  let found = tableCache.get(key);
-  if (!found) {
-    const convex = existingConvexClient();
-    if (!convex) throw new Error("Not connected to the engine");
-    const draws = [{ familyId: d.familyId, params: d.params }, ...(d.penalty ? [{ familyId: d.penalty.familyId, params: d.penalty.params }] : [])];
-    found = convex.action(api.calibration.node.tables, { settings: settings as GameSettings, draws }).then(text => {
-      const [reward, penalty] = JSON.parse(text) as unknown[];
-      return { reward, ...(d.penalty ? { penalty } : {}) };
-    });
-    tableCache.set(key, found);
-    found.catch(() => tableCache.delete(key));
+export const loadTables: LoadTables = (_settings, descriptor, seat) => {
+  const path = [seat.roomId, seat.gameId, seat.godId].map(encodeURIComponent).join("/");
+  let request = inFlight.get(path);
+  if (!request) {
+    request = (async () => {
+      const token = await appAccessToken();
+      if (!token) throw new Error("Not signed in");
+      const response = await fetch(`${engineSite().replace(/\/$/, "")}/api/calibration/${path}`, { headers: { authorization: `Bearer ${token}` } });
+      if (!response.ok) throw new Error(`The calibration tables did not load (HTTP ${response.status}).`);
+      return await response.json() as { reward: unknown; penalty?: unknown };
+    })();
+    inFlight.set(path, request);
+    void request.finally(() => inFlight.delete(path)).catch(() => {});
   }
-  return found;
+  return request.then(({ reward, penalty }) => ({ reward, ...((descriptor as UtilityDescriptor).penalty ? { penalty } : {}) }));
 };

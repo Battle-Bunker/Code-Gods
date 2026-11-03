@@ -125,7 +125,7 @@ function SandboxedPanel({ file, title, panel, info }: { file: string; title: str
         const mine = latest.current.mine;
         if (mine === undefined) throw new Error("Your utility is still loading; try again in a moment");
         if (!mine) throw new Error("You are not seated in the current game");
-        const tables = await loadTables(mine.settings, mine.utility);
+        const tables = await loadTables(mine.settings, mine.utility, { roomId: room.roomId, gameId: mine.gameId, godId: mine.godId });
         return { key: `${mine.gameId}:${mine.godId}`, settings: mine.settings, utility: mine.utility, ...tables };
       },
     });

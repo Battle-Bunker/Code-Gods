@@ -11,10 +11,9 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createHash, randomBytes } from "node:crypto";
 import { ConvexHttpClient } from "convex/browser";
 import type { ReplayPage } from "@workspace/player-client/replay";
-import { SITE_, URL_, admin, api, envelope, gods, internal, rejects, roomWith, startGame, touch, TS, waitFor, type God } from "./game-helpers.ts";
+import { SITE_, URL_, api, envelope, gods, httpJwt as jwtFor, rejects, roomWith, startGame, touch, TS, waitFor } from "./game-helpers.ts";
 
 const settings = {
   language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Int",
@@ -32,17 +31,6 @@ async function pagedReplay(god: { c: ConvexHttpClient }, roomId: string, gameId:
   }
 }
 
-/**
- * A real Convex JWT for `god` (what the app's Convex client sends): a player JWT minted by /api/device/token from a
- * seeded `cgc_` credential bound to `roomId`. (The other tests impersonate with the admin key, which HTTP cannot.)
- */
-async function jwtFor(god: God, roomId: string): Promise<string> {
-  const credential = `cgc_${randomBytes(32).toString("base64url")}`;
-  await admin.mutation(internal.testing.seedCredential, { subject: god.subject, roomId, permission: "read", tokenHash: createHash("sha256").update(credential).digest("hex") });
-  const response = await fetch(`${SITE_}/api/device/token`, { method: "POST", headers: { authorization: `Bearer ${credential}` } });
-  assert.equal(response.status, 200, await response.clone().text());
-  return (await response.json() as { token: string }).token;
-}
 const download = (roomId: string, gameId: string, token?: string) =>
   fetch(`${SITE_}/api/replay/${encodeURIComponent(roomId)}/${encodeURIComponent(gameId)}`, token ? { headers: { authorization: `Bearer ${token}` } } : {});
 
