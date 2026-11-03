@@ -15,7 +15,7 @@
  *     whose own edits stay on screen until the next server layout.
  */
 import type { Phase } from "@workspace/player-client/panels";
-import { LAYOUT_LIMITS, closePane, followPhase, nextPaneId, openPane, panelPanesOf, type DockLayout, type Node, type Pane } from "@workspace/player-client/layout";
+import { closePane, followPhase, nextPaneId, openPane, panelPanesOf, type DockLayout, type Node, type Pane } from "@workspace/player-client/layout";
 
 export const PUSH_DELAY_MS = 800;
 /** A discrete action (menu, palette): pushed almost at once, coalescing a burst. */
@@ -140,11 +140,12 @@ export function effectiveLayout(layout: DockLayout, phase: Phase): DockLayout {
  */
 export function withTimeline(layout: DockLayout): DockLayout {
   const panels = panelPanesOf(layout);
-  if (panels.some(p => p.panelId === "timeline") || panels.length >= LAYOUT_LIMITS.panelPanes) return layout;
+  // Exempt from LAYOUT_LIMITS (panes, panelPanes): they bound what is saved (parseLayout, layout:set), and this layout is
+  // derived for display and never saved, so a full dock still opens an ended game with its Timeline.
+  if (panels.some(p => p.panelId === "timeline")) return layout;
   const timeline = (id: string): Pane => ({ id, kind: "panel", panelId: "timeline", params: {}, setBy: "human" });
   const assistant = Object.values(layout.panes).find(p => p.kind === "assistant");
   if (assistant) return { ...layout, panes: { ...layout.panes, [assistant.id]: timeline(assistant.id) } };
-  if (Object.keys(layout.panes).length >= LAYOUT_LIMITS.panes) return layout;
   const id = nextPaneId(layout);
   const root: Node = { type: "split", direction: "column", sizes: [50, 50], children: [layout.root, { type: "pane", id }] };
   return { ...layout, root, panes: { ...layout.panes, [id]: timeline(id) } };
