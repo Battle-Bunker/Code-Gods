@@ -311,12 +311,12 @@ def lone_peak(p, gt):
 
 # --- geometry -------------------------------------------------------------------------------------------
 def castle_keeper(p, gt):
-    W = col(gt, p["W"])
+    W = p["wall"]
     mode = p["mode"]
     consts = [("WALL", W)]
     if mode == "treasure":
-        consts.append(("TREASURE", col(gt, p["T"])))
-        about = f"""Build {W} walls. Every {col(gt, p['T'])} treasure cell that the walls shut off from
+        consts.append(("TREASURE", p["treasure"]))
+        about = f"""Build {W} walls. Every {p['treasure']} treasure cell that the walls shut off from
             the edge of the grid scores a point. If that's a tie, more {W} wall on the edge is better."""
         count = """
             treasure = 0
@@ -390,8 +390,8 @@ def chessmaster(p, gt):
 
 
 def bridge_builder(p, gt):
-    C = col(gt, p["C"])
-    lr = p["D"] == "LR"
+    C = p["colour"]
+    lr = p["direction"] == "LR"
     across, attr = ("columns", "col") if lr else ("rows", "row")
     goal = "from the left edge to the right edge" if lr else "from the top edge to the bottom edge"
     return card("🌉", "Bridge Builder", f"""Build a bridge of touching {C} cells {goal}. Score how many
@@ -444,9 +444,9 @@ def card_windmill(p, gt):
 
 def royal_court(p, gt):
     s = p["suit"]
-    who = "picture card (J, Q, K)" if s is None else f"picture card (J, Q, K) of {SUIT_NAMES[s]}"
-    consts = [] if s is None else [("MY_SUIT", SUIT_NAMES[s])]
-    test = "cell.is_picture" if s is None else "cell.is_picture and cell.suit == MY_SUIT"
+    who = "picture card (J, Q, K)" if s == "any" else f"picture card (J, Q, K) of {s}"
+    consts = [] if s == "any" else [("MY_SUIT", s)]
+    test = "cell.is_picture" if s == "any" else "cell.is_picture and cell.suit == MY_SUIT"
     return card("👑", "Royal Court", f"""Put a {who} in the very middle. Your court is it plus every
         such card joined to it through touching cells: score its size, doubled if none of it is on the
         edge. If that's a tie, count those picture cards that are off the edge.""", consts, f"""
@@ -762,7 +762,7 @@ def lantern_lighter(p, gt):
 
 # --- games ----------------------------------------------------------------------------------------------
 def rummy_melder(p, gt):
-    lines, kind = ("grid.rows", "row") if p["dir"] == "rows" else ("grid.columns", "column")
+    lines, kind = ("grid.rows", "row") if p["axis"] == "rows" else ("grid.columns", "column")
     cards = gt.symbols == "cards"
     suit = "cell.suit" if cards else "cell.colour"
     suit_word = "suit" if cards else "colour"
@@ -801,7 +801,7 @@ def rummy_melder(p, gt):
 
 
 def othello_sandwich(p, gt):
-    X = col(gt, p["X"])
+    X = p["colour"]
     diag = p["diag"]
     sides = "left and right, or above and below, or the two corners on either diagonal" if diag else \
         "left and right, or above and below"
@@ -891,7 +891,7 @@ def sudoku_scholar(p, gt):
                         return 0
                 return 1
             """)
-    lines, kind = _AXIS[p["dir"]]
+    lines, kind = _AXIS[p["axis"]]
     return card("🔢", "Sudoku Scholar", f"""Every {kind} where no {word} appears twice scores a point. If
         that's a tie, more different {word}s in each line is better.""", [], f"""
         def different(line):
@@ -914,7 +914,7 @@ def sudoku_scholar(p, gt):
 
 
 def full_house(p, gt):
-    lines, kind = ("grid.rows", "row") if p["dir"] == "rows" else ("grid.columns", "column")
+    lines, kind = ("grid.rows", "row") if p["axis"] == "rows" else ("grid.columns", "column")
     word = "rank" if gt.symbols == "cards" else "number"
     return card("🏠", "Full House", f"""In each {kind}, every pair of cells showing the same {word} scores
         a point (three of a kind makes 3 pairs, four makes 6).""", [], f"""

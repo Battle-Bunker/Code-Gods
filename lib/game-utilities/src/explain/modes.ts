@@ -9,7 +9,7 @@
  * (The third mode, the part scrubber, steps through an Explanation's parts and needs nothing new here.)
  */
 import { decodeGrid, gridArgs, type Instantiation, type ObjectValue } from "@workspace/game-types";
-import { context, evaluator, type Draw } from "../catalog.ts";
+import { context, evaluator, upgradeParams, type Draw } from "../catalog.ts";
 import { gridSpec, wire, type GridSpec } from "../families/grid/_util.ts";
 import type { Ordinal } from "../types.ts";
 import { readBoard } from "./board.ts";
@@ -81,11 +81,11 @@ export interface Story {
 
 /** 🏯 Castle Keeper (plain): walls, water pouring in at the edge and spreading step by step, then the shut-in cells. */
 function castleKeeper(draw: Draw, inst: Instantiation, value: ObjectValue): Story | null {
-  const p = draw.params as { W: number; mode: string };
+  const p = upgradeParams(draw.familyId, draw.params, inst) as { wall: string; mode: string };
   if (p.mode !== "plain") return null;
   const b = readBoard(inst, value);
   if (!b) return null;
-  const wall = (x: Cell) => b.col(x) === p.W, name = b.spec.colourNames[p.W];
+  const W = b.spec.colourNames.indexOf(p.wall), wall = (x: Cell) => b.col(x) === W, name = p.wall;
   const key = (x: Cell) => x.r * b.N + x.c, wet = new Set<number>();
   const walls = b.cells.filter(wall).map(cell => ({ cell, role: "wall" as const }));
   const frames: StoryFrame[] = [{ text: `The ${name} cells are walls. Water can't cross them.`, marks: walls }];

@@ -34,18 +34,13 @@ export function family(id: string): UtilityFamily<any> {
 export const UNTYPED_FAMILIES: ReadonlySet<string> = new Set<string>([
   "seed1_line_painter", "seed2_patchwork",
   "seed3_green_ones", "rainbow_road", "border_baron", "conqueror", "homebody", "lone_peak", "islander",
-  "rooks_watch", "staircase_climber", "lucky_token", "neighbourhood_vote", "far_apart", "castle_keeper",
-  "archipelago", "bridge_builder", "looking_glass", "pinwheel", "card_windmill", "royal_court", "bullseye",
-  "snake_charmer", "tetromino_tamer", "rainbow_bands", "constellation", "rainbow_roads", "paint_mixer",
-  "colour_carousel", "gravity", "swiss_cheese", "mountain_climb", "treasure_map", "straight_shooter",
+  "rooks_watch", "staircase_climber", "lucky_token", "neighbourhood_vote", "far_apart", "straight_shooter",
   "round_numbers", "king_of_the_hill", "divisibility_detective", "number_sandwich", "magic_window",
   "times_table_territory", "odds_evens", "number_painter", "robin_hood", "seesaw", "stepping_stones",
   "column_addition", "ladder_of_numbers", "snap", "young_tableau", "fillomino", "colour_value_ladder",
   "stripe_painter", "feuding_families", "colour_mixer", "fair_weaver", "lantern_lighter", "best_friends",
   "rainbow_steps", "quilt_maker", "flag_bearer", "colour_by_number", "wallpaper_weaver", "sunset_sky",
-  "colour_wheel_harmony", "warm_hearts", "twin_friends", "rummy_melder", "othello_sandwich", "bingo_caller",
-  "sudoku_scholar", "full_house", "flush_royale", "twenty_one", "go_fish_books", "knight_riders", "uno_snake",
-  "court_parade", "kings_court", "connect_four",
+  "colour_wheel_harmony", "warm_hearts", "twin_friends", "bingo_caller",
 ]);
 
 /** Families of one object type, optionally of one role. */
