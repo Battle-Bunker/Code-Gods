@@ -26,6 +26,8 @@ const PAGES: [Exclude<AppRoute, { kind: "notFound" }>, Page, Record<string, stri
   [{ kind: "device" }, "device", {}],
   [{ kind: "admin" }, "admin", {}],
   [{ kind: "admin", agent: "a1" }, "adminAgent", { id: "a1" }],
+  [{ kind: "ruleGallery" }, "ruleGallery", {}],
+  [{ kind: "ruleFamily", family: "picture_frame" }, "ruleFamily", { family: "picture_frame" }],
 ];
 
 test("every page's href reaches exactly its page, under any base path", () => {
@@ -43,7 +45,7 @@ test("every page's href reaches exactly its page, under any base path", () => {
 
 test("no legacy aliases: old and stray paths are not found", () => {
   // Catches: a compatibility route sneaking back (the owner, 2026-11-02: no backwards compatibility).
-  for (const path of ["/client/", "/client/rooms/ABCD", "/player/", "/games/G9TQ", "/rooms/ABCD/games", "/rooms", "/rooms/ABCD/games/G9TQ/x", "/admin", "/nope"]) {
+  for (const path of ["/client/", "/client/rooms/ABCD", "/player/", "/games/G9TQ", "/rooms/ABCD/games", "/rooms", "/rooms/ABCD/games/G9TQ/x", "/admin", "/rule-gallery/a/b", "/nope"]) {
     assert.deepEqual(routed(path), [], path);
   }
 });
