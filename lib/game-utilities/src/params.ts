@@ -11,13 +11,13 @@
  * views, and the tests that check every support value lies in its domain.
  */
 import { COLOUR_COMPONENTS, SYMBOL_COMPONENTS, type GridColourSet, type GridSymbolSet, type Instantiation } from "@workspace/game-types";
-import type { ParamScalar, Params } from "./types.ts";
+import type { ParamJson, Params } from "./types.ts";
 
 export type ParamType =
   | { readonly kind: "colour" }
   | { readonly kind: "symbol" }
   | { readonly kind: "int"; readonly min: number; readonly max: number }
-  | { readonly kind: "choice"; readonly options: readonly (readonly [value: string, label: string])[] }
+  | { readonly kind: "choice"; readonly options: readonly (readonly [value: ParamJson, label: string])[] }
   | { readonly kind: "bool" };
 export type ParamKind = ParamType["kind"];
 
@@ -28,7 +28,8 @@ export type ParamDecls<P extends Params> = { readonly [K in keyof P]: ParamDecl 
 
 /** One value a param can take here, with how to show it. */
 export interface ParamOption {
-  readonly value: ParamScalar;
+  /** A scalar, or a fixed list for a choice among presets (Smooth Operator's primes). */
+  readonly value: ParamJson;
   /** "red", "A (10)", "10♥ (ten of hearts)", "12", "rows". */
   readonly label: string;
   /** Colours: the display colour and a contrasting ink (the board's own tables). */
@@ -47,7 +48,12 @@ export const colourParam = (label: string): ParamDecl => ({ kind: "colour", labe
 export const symbolParam = (label: string): ParamDecl => ({ kind: "symbol", label });
 export const intParam = (label: string, min: number, max: number): ParamDecl => ({ kind: "int", label, min, max });
 export const boolParam = (label: string): ParamDecl => ({ kind: "bool", label });
-export const choiceParam = (label: string, options: readonly (readonly [string, string])[]): ParamDecl => ({ kind: "choice", label, options });
+export const choiceParam = (label: string, options: readonly (readonly [ParamJson, string])[]): ParamDecl => ({ kind: "choice", label, options });
+/** A choice among a fixed list of values, each labelled by itself (or `labelOf`): Power Hoarder's primes 2, 3, 5, 7. */
+export const valuesParam = <T extends ParamJson>(label: string, values: readonly T[], labelOf: (v: T) => string = v => String(v)): ParamDecl =>
+  choiceParam(label, values.map(v => [v, labelOf(v)] as const));
+/** Values compare by content (lists included). */
+const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
 const colourSet = (inst: Instantiation) => (COLOUR_COMPONENTS as Readonly<Record<string, (typeof COLOUR_COMPONENTS)[GridColourSet]>>)[String(inst.args.colours)];
 const symbolSet = (inst: Instantiation) => (SYMBOL_COMPONENTS as Readonly<Record<string, (typeof SYMBOL_COMPONENTS)[GridSymbolSet]>>)[String(inst.args.symbols)];
@@ -84,10 +90,10 @@ export function resolveParams(decls: { readonly [key: string]: ParamDecl }, inst
 export function paramsInDomain(fields: readonly ParamField[], params: Params): boolean {
   const keys = Object.keys(params);
   if (keys.length !== fields.length || !fields.every(f => keys.includes(f.key))) return false;
-  return fields.every(f => f.options.some(o => o.value === params[f.key]));
+  return fields.every(f => f.options.some(o => same(o.value, params[f.key])));
 }
 
 /** How a param's value reads to a person: its option's label ("A (10)"), or the value itself. */
 export function paramLabel(field: ParamField, value: unknown): string {
-  return field.options.find(o => o.value === value)?.label ?? String(value);
+  return field.options.find(o => same(o.value, value))?.label ?? String(value);
 }

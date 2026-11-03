@@ -8,7 +8,7 @@
  * `new Function` here.
  */
 import { instanceInfo, objectType, resolve, type Badge, type Resolution, type Instantiation, type ObjectValue, type TypeArgs } from "@workspace/game-types";
-import type { CardParam, FamilyContext, Ordinal, ParamScalar, Params, ScoreShape, UtilityCard, UtilityDescriptor, UtilityFamily } from "./types.ts";
+import type { CardParam, FamilyContext, Ordinal, ParamJson, Params, ScoreShape, UtilityCard, UtilityDescriptor, UtilityFamily } from "./types.ts";
 import { paramLabel } from "./params.ts";
 import { setHostEval } from "./families/define.ts";
 import { cardProgram } from "./families/card.ts";
@@ -32,10 +32,7 @@ export function family(id: string): UtilityFamily<any> {
  * (Annotated basics) and the defence goals were typed first; the rest are listed in docs/rules-design.md §9.
  */
 export const UNTYPED_FAMILIES: ReadonlySet<string> = new Set<string>([
-  "digit-devotee", "tailwright", "firstborn", "power-hoarder", "many-faced", "smooth-operator", "truncation-saint",
-  "palindromist", "stairwalker", "residue-oracle", "bit-sigil", "zebra", "numerologist", "refrain", "glyph-glutton",
-  "purist", "streaker", "incantor", "last-word", "mirror", "ascender", "echo", "nest-builder", "haiku-master",
-  "wordsmith", "tallykeeper", "palette-keeper", "scale-keeper", "seed1_line_painter", "seed2_patchwork",
+  "seed1_line_painter", "seed2_patchwork",
   "seed3_green_ones", "rainbow_road", "border_baron", "conqueror", "homebody", "lone_peak", "islander",
   "rooks_watch", "staircase_climber", "lucky_token", "neighbourhood_vote", "far_apart", "castle_keeper",
   "archipelago", "bridge_builder", "looking_glass", "pinwheel", "card_windmill", "royal_court", "bullseye",
@@ -101,7 +98,7 @@ export function cardParams(f: UtilityFamily<any>, params: Params, ctx: FamilyCon
   if (!f.params) return undefined;
   const p = f.upgrade ? f.upgrade(params, ctx) : params;
   return f.params(ctx).map(field => ({
-    key: field.key, label: field.label, kind: field.kind, value: p[field.key] as ParamScalar, text: paramLabel(field, p[field.key]),
+    key: field.key, label: field.label, kind: field.kind, value: p[field.key] as ParamJson, text: paramLabel(field, p[field.key]),
   }));
 }
 

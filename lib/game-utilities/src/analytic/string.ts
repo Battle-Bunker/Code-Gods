@@ -97,7 +97,7 @@ const SOLVERS: Readonly<Record<string, Solver>> = {
   tallykeeper: (p, L) => sweep(L, point([0]), dist([...Array.from({ length: 10 }, (_, d) => [[d], 1 / A] as const), [[0], 118 / A] as const]),
     ([s], [d]) => [s + d], ([s]) => [-Math.abs(s - p.total)]),
   /** (−|distinct − K|, min(n, 32)): distinct characters ~ occupancy of n draws over 128. */
-  "palette-keeper": (p, L) => mixture(L, n => map(occupancy(n, A), ([k]) => [-Math.abs(k - p.colours), Math.min(n, 32)])),
+  "palette-keeper": (p, L) => mixture(L, n => map(occupancy(n, A), ([k]) => [-Math.abs(k - p.distinct_chars), Math.min(n, 32)])),
   /** Σ char codes: n-fold convolution of uniform{0..127}; −|weight − W|. */
   "scale-keeper": (p, L) => {
     const w = lengthLaw(L), res: Dist = new Map();

@@ -9,7 +9,7 @@ import { COLOUR_COMPONENTS, SYMBOL_COMPONENTS, instantiate } from "@workspace/ga
 import {
   FAMILIES, LENSES, UNTYPED_FAMILIES, card, context, family, paramOptions, paramsInDomain, upgradeDescriptor, upgradeParams,
 } from "../src/index.ts";
-import { allGrids, familiesOf } from "./support.ts";
+import { allGrids, familiesOf, intInsts, stringInsts } from "./support.ts";
 
 const rgb = instantiate("Grid", { size: 4, symbols: "base10", colours: "rgb" });
 const b12 = instantiate("Grid", { size: 5, symbols: "base12", colours: "rainbow6" });
@@ -34,8 +34,8 @@ test("colour and symbol types resolve to the shape's own colours and glyphs", ()
   assert.throws(() => paramOptions({ kind: "colour", label: "c" }, instantiate("Int", {})));
 });
 
-test("every typed family × every grid: named params, exact domains, support inside them, no colour or symbol indices", () => {
-  for (const inst of allGrids()) {
+test("every typed family × every shape: named params, exact domains, support inside them, no colour or symbol indices", () => {
+  for (const inst of [...allGrids(), ...intInsts(), ...stringInsts()]) {
     const ctx = context(inst);
     for (const f of familiesOf(inst)) {
       if (UNTYPED_FAMILIES.has(f.id)) { assert.equal(f.params, undefined, `${f.id} is listed untyped but declares params`); continue; }
@@ -93,6 +93,11 @@ test("legacy params (stored before typing) upgrade to today's shape, idempotentl
     assert.deepEqual(card({ familyId: id === "hate_colour" ? "kingdom" : id, params: (id === "hate_colour" ? { C: 0 } : old) as never }, context(rgb)).summary,
       card({ familyId: id === "hate_colour" ? "kingdom" : id, params: (id === "hate_colour" ? { colour: "red" } : now) as never }, context(rgb)).summary, id);
   }
+  const int = instantiate("Int", {}), str = instantiate("string", { maxLength: 16 });
+  assert.deepEqual(upgradeParams("digit-devotee", { d: 7 }, int), { digit: 7 });
+  assert.deepEqual(upgradeParams("power-hoarder", { p: 5 }, int), { prime: 5 });
+  assert.deepEqual(upgradeParams("glyph-glutton", { c: "q" }, str), { char: "q" });
+  assert.deepEqual(upgradeParams("palette-keeper", { colours: 4 }, str), { distinct_chars: 4 });
   assert.deepEqual(upgradeDescriptor({ familyId: "kingdom", params: { C: 0 }, penalty: { familyId: "hate_colour", params: { colour: 2 } } }, rgb),
     { familyId: "kingdom", params: { colour: "red" }, penalty: { familyId: "hate_colour", params: { colour: "blue" } } });
 });

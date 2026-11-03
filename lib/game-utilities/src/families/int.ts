@@ -5,6 +5,7 @@
 import type { CardText } from "./card.ts";
 import { pyCard, tsCard } from "./card.ts";
 import { SCALAR, bestValue, defineFamilies } from "./define.ts";
+import { choiceParam, intParam, valuesParam } from "../params.ts";
 import type { FamilyContext } from "../types.ts";
 import { solvedAnalytic } from "../analytic/hook.ts";
 
@@ -26,14 +27,16 @@ const range = (a: number, b: number) => Array.from({ length: b - a + 1 }, (_, i)
 const repeatNum = (digits: string, n: number) => Number(digits.repeat(Math.ceil(n / digits.length)).slice(0, n));
 
 // --- Digit Devotee ---------------------------------------------------------------------------------
-type DigitP = { d: number };
+type DigitP = { digit: number };
 const digitText = (p: DigitP) => card("🔢", "Digit Devotee",
-  `You adore the digit ${p.d}. Count the ${p.d}s in x (the minus sign doesn't count). More is better.`, [["MY_DIGIT", p.d]]);
+  `You adore the digit ${p.digit}. Count the ${p.digit}s in x (the minus sign doesn't count). More is better.`, [["MY_DIGIT", p.digit]]);
 const digitDevotee = intFamily<DigitP>({
   id: "digit-devotee", name: "Digit Devotee", emoji: "🔢", theme: "Loves one particular decimal digit.", shape: SCALAR,
   analytic: solvedAnalytic("digit-devotee"),
-  support: () => range(0, 9).map(d => ({ d })),
-  summary: p => `You adore the digit ${p.d}: the more ${p.d}s in the decimal digits of x, the better.`,
+  params: () => ({ digit: intParam("Favourite digit", 0, 9) }),
+  legacy: p => (typeof p.d === "number" ? { digit: p.d } : null),
+  support: () => range(0, 9).map(digit => ({ digit })),
+  summary: p => `You adore the digit ${p.digit}: the more ${p.digit}s in the decimal digits of x, the better.`,
   python: p => pyCard(digitText(p), `
     def utility(x):
         count = 0
@@ -50,7 +53,7 @@ const digitDevotee = intFamily<DigitP>({
       return count;
     }`),
   exemplar: (p, s, ctx) => bestOf("digit-devotee", p, s, ctx, range(1, 10).flatMap(k =>
-    p.d === 0 ? [10 ** k, 2 * 10 ** k] : [repeatNum(String(p.d), k), Number(`1${String(p.d).repeat(k)}`)])),
+    p.digit === 0 ? [10 ** k, 2 * 10 ** k] : [repeatNum(String(p.digit), k), Number(`1${String(p.digit).repeat(k)}`)])),
 });
 
 // --- Tailwright ----------------------------------------------------------------------------------
@@ -63,6 +66,7 @@ const tailwright = intFamily<TailP>({
   id: "tailwright", name: "Tailwright", emoji: "🦎", theme: "Wants x to end in a particular run of decimal digits.",
   analytic: solvedAnalytic("tailwright"),
   shape: SCALAR,
+  params: () => ({ tail: valuesParam("Wanted ending digits", TAILS) }),
   support: () => TAILS.map(tail => ({ tail })),
   summary: p => `You want the decimal digits of x to end in ${p.tail}. The more trailing digits match, counting from `
     + "the end, the better. Everything before the tail is yours to trade.",
@@ -95,6 +99,7 @@ const firstborn = intFamily<HeadP>({
   id: "firstborn", name: "Firstborn", emoji: "👑", theme: "Wants x to begin with a particular run of decimal digits.",
   analytic: solvedAnalytic("firstborn"),
   shape: SCALAR,
+  params: () => ({ head: valuesParam("Wanted leading digits", HEADS) }),
   support: () => HEADS.map(head => ({ head })),
   summary: p => `You want the decimal digits of x to begin with ${p.head}. The more leading digits match, the better. `
     + "Whatever follows the head is negotiable.",
@@ -117,16 +122,18 @@ const firstborn = intFamily<HeadP>({
 });
 
 // --- Power Hoarder -------------------------------------------------------------------------------
-type PowerP = { p: number };
+type PowerP = { prime: number };
 const powerText = (p: PowerP) => card("🏺", "Power Hoarder",
-  `You hoard factors of ${p.p}. Count how many times you can divide x by ${p.p} and still get a whole number. `
-  + "Zero is worthless.", [["MY_PRIME", p.p]]);
+  `You hoard factors of ${p.prime}. Count how many times you can divide x by ${p.prime} and still get a whole number. `
+  + "Zero is worthless.", [["MY_PRIME", p.prime]]);
 const powerHoarder = intFamily<PowerP>({
   id: "power-hoarder", name: "Power Hoarder", emoji: "🏺", theme: "Wants x divisible by a high power of one prime.",
   analytic: solvedAnalytic("power-hoarder"),
   shape: SCALAR,
-  support: () => [2, 3, 5, 7].map(p => ({ p })),
-  summary: p => `You hoard factors of ${p.p}: the more times ${p.p} divides x, the better. Zero is worthless.`,
+  params: () => ({ prime: valuesParam("Prime", [2, 3, 5, 7]) }),
+  legacy: p => (typeof p.p === "number" ? { prime: p.p } : null),
+  support: () => [2, 3, 5, 7].map(prime => ({ prime })),
+  summary: p => `You hoard factors of ${p.prime}: the more times ${p.prime} divides x, the better. Zero is worthless.`,
   python: p => pyCard(powerText(p), `
     def utility(x):
         if x == 0:
@@ -146,7 +153,7 @@ const powerHoarder = intFamily<PowerP>({
       }
       return times;
     }`),
-  exemplar: (p, s, ctx) => bestOf("power-hoarder", p, s, ctx, range(0, 31).map(k => p.p ** k).filter(Number.isSafeInteger)),
+  exemplar: (p, s, ctx) => bestOf("power-hoarder", p, s, ctx, range(0, 31).map(k => p.prime ** k).filter(Number.isSafeInteger)),
 });
 
 // --- The Many-Faced ------------------------------------------------------------------------------
@@ -156,6 +163,7 @@ const manyText = card("🎭", "The Many-Faced",
 const manyFaced = intFamily<Record<string, never>>({
   id: "many-faced", name: "The Many-Faced", emoji: "🎭", theme: "Wants x to have many different prime factors.",
   shape: SCALAR,
+  params: () => ({}),
   support: () => [{}],
   summary: () => "You want x to have many distinct prime factors: 2·3·5·7·11·13·17·19·23 = 223092870 has nine.",
   python: () => pyCard(manyText, `
@@ -197,6 +205,7 @@ const smoothText = (p: SmoothP) => card("🧈", "Smooth Operator",
 const smoothOperator = intFamily<SmoothP>({
   id: "smooth-operator", name: "Smooth Operator", emoji: "🧈", theme: "Wants x to be a big product of small odd primes.",
   shape: SCALAR,
+  params: () => ({ primes: valuesParam("Allowed primes", SMOOTH, ps => ps.join(", ")) }),
   support: () => SMOOTH.map(primes => ({ primes })),
   summary: p => `You want x built from the odd primes ${p.primes.join(", ")}. Only the part of x made of those primes `
     + "counts, and bigger is better; factors of 2 or any other prime are dead weight.",
@@ -241,6 +250,7 @@ const truncText = card("😇", "Truncation Saint",
 const truncationSaint = intFamily<Record<string, never>>({
   id: "truncation-saint", name: "Truncation Saint", emoji: "😇", theme: "Wants the leading digits of x to keep forming primes.",
   shape: SCALAR,
+  params: () => ({}),
   support: () => [{}],
   summary: () => "Read x one more leading digit at a time (7, 73, 739, …) and count how many of those prefixes are prime. "
     + "Numbers like 73939133, where every prefix is prime, are sacred and very rare.",
@@ -291,6 +301,7 @@ const palText = (p: BaseP) => card("🪞", "Palindromist",
 const palindromist = intFamily<BaseP>({
   id: "palindromist", name: "Palindromist", emoji: "🪞", theme: "Wants x to be a palindrome in some base.", shape: SCALAR,
   analytic: solvedAnalytic("palindromist"),
+  params: () => ({ base: intParam("Base", 2, 10) }),
   support: () => range(2, 10).map(base => ({ base })),
   summary: p => `You want x to read the same forwards and backwards in base ${p.base}. The more digit pairs match from `
     + "the outside in, the better.",
@@ -330,6 +341,7 @@ const stairwalker = intFamily<StepP>({
   id: "stairwalker", name: "Stairwalker", emoji: "🪜", theme: "Wants decimal digits that climb or descend one step at a time.",
   analytic: solvedAnalytic("stairwalker"),
   shape: SCALAR,
+  params: () => ({ step: choiceParam("Direction", [[1, "up"], [-1, "down"]]) }),
   support: () => [{ step: 1 }, { step: -1 }],
   summary: p => `You want a staircase in the decimal digits of x: each digit exactly one ${p.step > 0 ? "more" : "less"} `
     + `than the one before. The longer the staircase, the better: ${p.step > 0 ? "123456789" : "9876543210"} is perfect.`,
@@ -381,6 +393,7 @@ const residueOracle = intFamily<OmenP>({
   id: "residue-oracle", name: "Residue Oracle", emoji: "🔮", theme: "Wants x to leave particular remainders when divided by several small primes.",
   analytic: solvedAnalytic("residue-oracle"),
   shape: SCALAR,
+  params: () => ({ omens: valuesParam("Omens (divisor, remainder)", OMENS, os => os.map(([m, r]) => `${r} mod ${m}`).join(", ")) }),
   support: () => OMENS.map(omens => ({ omens })),
   summary: p => `You have ${p.omens.length} omens. ${p.omens.map(([m, r], i) => `Omen ${i + 1}: x mod ${m} = ${r}.`).join(" ")} `
     + "Here mod means the remainder after dividing, never negative. Each omen that comes true scores 1 point. "
@@ -431,6 +444,7 @@ const bitSigil = intFamily<SigilP>({
   id: "bit-sigil", name: "Bit Sigil", emoji: "🪬", theme: "Wants a secret pattern stamped into the bits of x.",
   analytic: solvedAnalytic("bit-sigil"),
   shape: SCALAR,
+  params: () => ({ sigil: valuesParam("Sigil", SIGILS) }),
   support: () => SIGILS.map(sigil => ({ sigil })),
   summary: p => `You want your sigil stamped into x's 32 two's-complement bits. From bit 31 (the sign) down to bit 0 it `
     + `reads ${p.sigil}: 1s and 0s are required, dots are free. The more bits match, the better.`,
@@ -464,6 +478,7 @@ const zebraText = card("🦓", "Zebra",
 const zebra = intFamily<Record<string, never>>({
   id: "zebra", name: "Zebra", emoji: "🦓", theme: "Wants stripes of alternating bits.", shape: SCALAR,
   analytic: solvedAnalytic("zebra"),
+  params: () => ({}),
   support: () => [{}],
   summary: () => "Write x as 32 two's-complement bits: the longer the stretch of alternating bits, the better. "
     + "0x55555555 = 1431655765 is a perfect zebra.",
@@ -510,16 +525,18 @@ type SumP = { total: number };
 const sumText = (p: SumP) => card("🔯", "Numerologist",
   `Your sacred number is ${p.total}. Add up the digits of x: the closer the total is to ${p.total}, the better.`,
   [["SACRED", p.total]]);
+/** Totals some x in the domain reaches (the digit sum of the top bound always qualifies). */
+function numerologistTotals(s: IntSpec): number[] {
+  const ok = TOTALS.filter(t => inRange(s, smallestWithDigitSum(t)) || inRange(s, -smallestWithDigitSum(t)));
+  return ok.length ? ok : [[...String(Math.abs(s.max))].reduce((a, d) => a + Number(d), 0)];
+}
 const numerologist = intFamily<SumP>({
   id: "numerologist", name: "Numerologist", emoji: "🔯", theme: "Wants the decimal digits of x to add up to a sacred number.",
   analytic: solvedAnalytic("numerologist"),
   shape: SCALAR,
   // Totals some x in the domain reaches (the digit sum of the top bound always qualifies).
-  support: s => {
-    const ok = TOTALS.filter(t => inRange(s, smallestWithDigitSum(t)) || inRange(s, -smallestWithDigitSum(t)));
-    const top = [...String(Math.abs(s.max))].reduce((a, d) => a + Number(d), 0);
-    return (ok.length ? ok : [top]).map(total => ({ total }));
-  },
+  params: s => ({ total: valuesParam("Sacred number", numerologistTotals(s)) }),
+  support: s => numerologistTotals(s).map(total => ({ total })),
   summary: p => `Your sacred number is ${p.total}. Add up the decimal digits of x; the closer to ${p.total}, the better.`,
   python: p => pyCard(sumText(p), `
     def utility(x):
@@ -545,6 +562,7 @@ const refrainText = (p: PeriodP) => card("🎵", "Refrain",
 const refrain = intFamily<PeriodP>({
   id: "refrain", name: "Refrain", emoji: "🎵", theme: "Wants the decimal digits of x to repeat a short motif.", shape: SCALAR,
   analytic: solvedAnalytic("refrain"),
+  params: () => ({ period: intParam("Period", 2, 4) }),
   support: () => [2, 3, 4].map(period => ({ period })),
   summary: p => `You want the decimal digits of x to repeat every ${p.period} digits: the longer the repeat holds from `
     + "the front, the better.",
