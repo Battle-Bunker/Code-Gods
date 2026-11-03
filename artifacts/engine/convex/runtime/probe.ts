@@ -4,7 +4,7 @@
  * `npx convex run runtime/probe:<name>`). Numbers are recorded in lib/game-runtime/README.md.
  *   cold   first call after a push: bundle fetch, compile, bootstrap, first acts (both languages)
  *   smoke  {language?}: inspection, acts and the step limit per language, through the engine's path
- *   concurrent  {budgetMiB?}: each language's act action under load, and a compilation, against a memory budget
+ *   concurrent  each language's act action under load, and a compilation, against the peak memory ceiling
  *   bench  {language, execution?, workers?, acts?}: @workspace/game-runtime/benchmark on the Grid agent
  */
 import { v } from "convex/values";
@@ -17,7 +17,7 @@ import { assetLoad, bindRuntime, pythonBundle, runtimeFor, RUNTIME_OPTIONS } fro
 import * as engine from "../engine/runtime";
 import { internal } from "../_generated/api";
 import { ACT_BATCH } from "../lib/programs";
-import type { Memory } from "./memory";
+import { judgeMemory, PEAK_CEILING_MIB, type Memory } from "./memory";
 
 const moduleLoadedAt = Date.now();
 const language = v.union(v.literal("python"), v.literal("typescript"));
@@ -106,26 +106,19 @@ export const smoke = internalAction({
 });
 
 /**
- * The process's highest resident size, whatever the call ended at. Convex's Node actions have 512 MiB RAM (docs.convex.dev
- * production/state/limits: MiB, not MB); 460 leaves 52 MiB. Set from the limit before any peak had been observed: tighten it
- * to the observed peaks.
- */
-const PEAK_CEILING_MIB = 460;
-/**
  * Each language's actions under load, as a tick of a game allowing both runs them (deploy.yml): a full batch of acts
  * per language in its own action (runtime/acts.ts), both at once, and a fresh TypeScript compilation
  * (runtime/compile.ts). Convex reuses warm Node processes, so each action reports its resident size when it started
- * (what earlier calls left behind), when it ended and the process's peak (runtime/memory.ts). Fails when an action ends
- * above `budgetMiB` resident (default 400: the 14 deploys from #145 to now ended between 253 and 387 MiB with no trend,
- * so 400 keeps 112 MiB of the 512 MiB limit as headroom, 125 over the worst run) or its process ever
- * peaked above PEAK_CEILING_MIB. Also reports what dispatching acts to their own actions costs: the round trip of a
+ * (what earlier calls left behind), when it ended and the process's peak (runtime/memory.ts). Fails only when an action's
+ * process peaked above PEAK_CEILING_MIB (460 of the Convex Node limit's 512 MiB, leaving 52 MiB): the end of a reused warm
+ * process is already inside the next call's peak, so it only logs a warning when above 400. Also reports what dispatching acts to their own actions costs: the round trip of a
  * one-act call.
  */
 export const concurrent = internalAction({
-  args: { budgetMiB: v.optional(v.number()) },
-  handler: async (ctx, { budgetMiB = 400 }) => {
+  args: {},
+  handler: async ctx => {
     const t = performance.now();
-    const out: Record<string, unknown> = { budgetMiB };
+    const out: Record<string, unknown> = {};
     const batch = async (lang: Language) => {
       const { game, inputs } = room(lang);
       const { replies, startMiB, rssMiB, peakMiB } = await ctx.runAction(internal.runtime.acts.run, { language: lang, settings: game,
@@ -151,8 +144,10 @@ export const concurrent = internalAction({
     }
     out.oneActRoundTripMs = Math.round(trips.sort((a, b) => a - b)[2]!);
     out.seconds = Math.round(since(t) / 100) / 10;
-    const over = Object.entries(memory).filter(([, m]) => m.rssMiB > budgetMiB || m.peakMiB > PEAK_CEILING_MIB);
-    if (over.length) throw new Error(`Over the ${budgetMiB} MiB budget (peak ${PEAK_CEILING_MIB}): ${over.map(([k, m]) => `${k} start ${m.startMiB}, end ${m.rssMiB}, peak ${m.peakMiB} MiB`).join("; ")}: ${JSON.stringify(out)}`);
+    const { failures, warnings } = judgeMemory(memory);
+    if (warnings.length) console.warn(`Ended above 400 MiB resident (peak within ${PEAK_CEILING_MIB}): ${warnings.join("; ")}`);
+    out.warnings = warnings;
+    if (failures.length) throw new Error(`Peak over ${PEAK_CEILING_MIB} MiB: ${failures.join("; ")}: ${JSON.stringify(out)}`);
     return out;
   },
 });
