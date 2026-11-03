@@ -32,10 +32,7 @@ export function family(id: string): UtilityFamily<any> {
  * (Annotated basics) and the defence goals were typed first; the rest are listed in docs/rules-design.md §9.
  */
 export const UNTYPED_FAMILIES: ReadonlySet<string> = new Set<string>([
-  "seed1_line_painter", "seed2_patchwork", "seed3_green_ones", "straight_shooter", "round_numbers",
-  "king_of_the_hill", "divisibility_detective", "number_sandwich", "magic_window", "times_table_territory",
-  "odds_evens", "number_painter", "robin_hood", "seesaw", "stepping_stones", "column_addition", "ladder_of_numbers",
-  "snap", "young_tableau", "fillomino", "colour_value_ladder", "bingo_caller",
+  "bingo_caller",
 ]);
 
 /** Families of one object type, optionally of one role. */

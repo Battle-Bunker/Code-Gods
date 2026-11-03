@@ -21,6 +21,16 @@ def _sym_grid(gtype, v):
     return np.vectorize(lambda x: sym_for_value(gtype, int(x)))(np.asarray(v))
 
 
+def _recolour_maybe(p, keys, gtype):
+    """`recolour_names` for params that may be "any" (left alone)."""
+    return recolour_names(p, [k for k in keys if p[k] != "any"], gtype)
+
+
+def _maybe_colour(rng, gtype):
+    """grid-lab's `colour if rng.random() < 0.5 else None`, the colour as its name and None as "any"."""
+    return colour_name(rng, gtype) if rng.random() < 0.5 else "any"
+
+
 def _axis_canon(p, key="axis"):
     q = dict(p)
     if q[key] == "cols":
@@ -37,7 +47,7 @@ def ss_vals(sym, gtype, ace_high):
 
 
 def ss_ord(g, p, gtype):
-    N, st = gtype.N, p["step"]
+    N, st = gtype.N, 1 if p["direction"] == "up" else -1
     v = ss_vals(g.sym, gtype, p["ace_high"]).tolist()
     col = g.col.tolist()
     score = pairs = 0
@@ -56,7 +66,7 @@ def ss_ord(g, p, gtype):
 
 
 def ss_batch(sym, col, p, gtype):
-    N, st = gtype.N, p["step"]
+    N, st = gtype.N, 1 if p["direction"] == "up" else -1
     v = lines_rc(ss_vals(sym, gtype, p["ace_high"]), "both")
     c = lines_rc(col, "both")
     B = len(sym)
@@ -95,7 +105,7 @@ def ss_exemplar(p, gtype):
     for v in (lo + r + c, lo + c, lo + np.minimum(r + c, R), lo + (r + c) % (R + 1)):
         if v.max() <= hi:
             s = sg(v)
-            if p["step"] == -1:
+            if p["direction"] == "down":
                 s = np.rot90(s, 2)
             cands.append(grid(s, np.zeros((N, N))))
     return best_of(ss_ord, cands, p, gtype)
@@ -104,13 +114,13 @@ def ss_exemplar(p, gtype):
 STRAIGHT_SHOOTER = mk(
     id="straight_shooter", name="Straight Shooter", theme="Rows and columns that count",
     requires=req("Valued", "Ranked"), layers={"symbol", "colour", "position"}, camp="alternator",
-    sample=lambda rng, gt: {"step": int(rng.choice([1, -1])), "flush": bool(rng.random() < 0.5),
+    sample=lambda rng, gt: {"direction": str(rng.choice(["up", "down"])), "flush": bool(rng.random() < 0.5),
                             "ace_high": bool(gt.symbols == "cards" and rng.random() < 0.5)},
-    summary=lambda p, gt: (f"Runs of 3 or more numbers that count {'up' if p['step'] == 1 else 'down'} one at a time "
+    summary=lambda p, gt: (f"Runs of 3 or more numbers that count {p['direction']} one at a time "
                            "(left to right, or top to bottom) score their length squared"
                            + (", doubled if the run is all one colour" if p["flush"] else "")
                            + (". Aces are high (Q, K, A counts)." if p["ace_high"] else ".")),
-    ordinal=ss_ord, batch=ss_batch, canonical=lambda p, gt: {**p, "step": 1}, exemplar=ss_exemplar,
+    ordinal=ss_ord, batch=ss_batch, canonical=lambda p, gt: {**p, "direction": "up"}, exemplar=ss_exemplar,
     source="catalog#9 (D11: arith#2 + games#3; flush and aceHigh); tie-breaker = counting steps", tags={"shortlist"})
 
 
@@ -243,12 +253,12 @@ ROUND_NUMBERS = mk(
 
 # --- King of the Hill -----------------------------------------------------------------------------------------
 def kh_ord(g, p, gtype):
-    N = gtype.N
+    N, X = gtype.N, ci(gtype, p["colour"])
     v, col = gtype.value[g.sym].tolist(), g.col.tolist()
     s = 0
     for r in range(N):
         for c in range(N):
-            if col[r][c] != p["X"]:
+            if col[r][c] != X:
                 continue
             ns = [v[a][b] for a, b in nbrs4(N, r, c)]
             s += all(v[r][c] < x for x in ns) if p["valley"] else all(v[r][c] > x for x in ns)
@@ -257,7 +267,7 @@ def kh_ord(g, p, gtype):
 
 def kh_batch(sym, col, p, gtype):
     v = vals(sym, gtype)
-    ok = col == p["X"]
+    ok = col == ci(gtype, p["colour"])
     for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):
         if p["valley"]:
             ok &= v < shift(v, dr, dc, 10 ** 6)
@@ -271,17 +281,17 @@ def kh_exemplar(p, gtype):
     r, c = np.indices((N, N))
     hi, lo = sym_for_value(gtype, vmax(gtype)), sym_for_value(gtype, vmin(gtype))
     top, bot = (lo, hi) if p["valley"] else (hi, lo)
-    return grid(np.where((r + c) % 2 == 0, top, bot), np.full((N, N), p["X"]))
+    return grid(np.where((r + c) % 2 == 0, top, bot), np.full((N, N), ci(gtype, p["colour"])))
 
 
 KING_OF_THE_HILL = mk(
     id="king_of_the_hill", name="King of the Hill", theme="Mountain tops in your colour",
     requires=req("Valued"), layers={"colour", "symbol", "position"}, camp="alternator",
-    sample=lambda rng, gt: {"X": colour(rng, gt), "valley": bool(rng.random() < 0.3)},
-    summary=lambda p, gt: (f"A {'valley' if p['valley'] else 'mountain top'} is a {cname(gt, p['X'])} cell whose number is "
+    sample=lambda rng, gt: {"colour": colour_name(rng, gt), "valley": bool(rng.random() < 0.3)},
+    summary=lambda p, gt: (f"A {'valley' if p['valley'] else 'mountain top'} is a {p['colour']} cell whose number is "
                            f"{'smaller' if p['valley'] else 'bigger'} than every touching neighbour. Count them."),
     ordinal=kh_ord, batch=kh_batch,
-    canonical=lambda p, gt: {"X": 0, "valley": False},  # value reflection maps valleys to peaks
+    canonical=lambda p, gt: {"colour": gt.colour_names[0], "valley": False},  # value reflection maps valleys to peaks
     exemplar=kh_exemplar, source="catalog#26 (arith#13; valley variant)", tags={"shortlist"})
 
 
@@ -290,7 +300,7 @@ DIVISORS = {10: [5, 10, 3, 9], 12: [3, 4, 6, 12, 11], 16: [4, 8, 16, 3, 5, 15]} 
 
 
 def dd_ord(g, p, gtype):
-    b, m = gtype.base, p["m"]
+    b, m = gtype.base, p["divisor"]
     s = 0
     for ln in _lines_scalar(gtype.value[g.sym].tolist(), p["scope"]):
         x = 0
@@ -301,7 +311,7 @@ def dd_ord(g, p, gtype):
 
 
 def dd_batch(sym, col, p, gtype):
-    b, m = gtype.base, p["m"]
+    b, m = gtype.base, p["divisor"]
     L = lines_rc(vals(sym, gtype), p["scope"])
     x = np.zeros(L.shape[:2], np.int64)
     for i in range(gtype.N):
@@ -312,9 +322,9 @@ def dd_batch(sym, col, p, gtype):
 DIVISIBILITY = mk(
     id="divisibility_detective", name="Divisibility Detective", theme="Rows read as numbers that divide evenly",
     requires=req("Numeral"), layers={"symbol", "position"}, camp="neutral",
-    sample=lambda rng, gt: {"m": int(rng.choice(DIVISORS[gt.base])), "scope": str(rng.choice(["rows", "both"]))},
+    sample=lambda rng, gt: {"divisor": int(rng.choice(DIVISORS[gt.base])), "scope": str(rng.choice(["rows", "both"]))},
     summary=lambda p, gt: (f"Read each row{' (and each column, top to bottom)' if p['scope'] == 'both' else ''} as one big "
-                           f"base-{gt.base} number. Score a point for each one that {p['m']} divides exactly."),
+                           f"base-{gt.base} number. Score a point for each one that {p['divisor']} divides exactly."),
     ordinal=dd_ord, batch=dd_batch,
     exemplar=lambda p, gt: grid(np.zeros((gt.N, gt.N)), np.zeros((gt.N, gt.N))),
     source="catalog#29 (arith#14; m=2 dropped)", tags={"shortlist"})
@@ -332,7 +342,7 @@ def sw_ord(g, p, gtype):
                 ok, tc = a > 0 and c > 0 and b == a + c, lc[i + 1]
             else:
                 ok, tc = a > 0 and b > 0 and c == a + b, lc[i + 2]
-            s += ok and (p["X"] is None or tc == p["X"])
+            s += ok and (p["colour"] == "any" or tc == ci(gtype, p["colour"]))
     return s
 
 
@@ -343,15 +353,15 @@ def sw_batch(sym, col, p, gtype):
         ok, tc = (a > 0) & (c > 0) & (b == a + c), C[:, :, 1:-1]
     else:
         ok, tc = (a > 0) & (b > 0) & (c == a + b), C[:, :, 2:]
-    if p["X"] is not None:
-        ok &= tc == p["X"]
+    if p["colour"] != "any":
+        ok &= tc == ci(gtype, p["colour"])
     return ok.sum((1, 2))
 
 
 def sw_exemplar(p, gtype):
     N = gtype.N
     r, c = np.indices((N, N))
-    X = 0 if p["X"] is None else p["X"]
+    X = 0 if p["colour"] == "any" else ci(gtype, p["colour"])
     cands = [np.where((r + c) % 2 == 0, 1, 2), np.array([1, 1, 2])[(r + c) % 3], np.array([1, 1, 2])[c % 3]]
     if vmax(gtype) >= 8:
         fib = np.array([1, 1, 2, 3, 5, 8, 13])
@@ -364,13 +374,13 @@ NUMBER_SANDWICH = mk(
     id="number_sandwich", name="Number Sandwich", theme="The middle number is the total",
     requires=req("Valued"), layers={"symbol", "colour", "position"}, camp="alternator",
     sample=lambda rng, gt: {"mode": str(rng.choice(["sandwich", "fibonacci"])),
-                            "X": colour(rng, gt) if rng.random() < 0.5 else None},
+                            "colour": _maybe_colour(rng, gt)},
     summary=lambda p, gt: (("Three cells in a line where the middle number is the two outside numbers added (like 2 5 3)"
                             if p["mode"] == "sandwich" else
                             "Three cells in a line where the last number is the first two added (like 2 3 5)")
                            + " score a point (no zeros on the outside)"
-                           + (f"; the total cell must be {cname(gt, p['X'])}." if p["X"] is not None else ".")),
-    ordinal=sw_ord, batch=sw_batch, canonical=lambda p, gt: recolour(p, ["X"]), exemplar=sw_exemplar,
+                           + (f"; the total cell must be {p['colour']}." if p["colour"] != "any" else ".")),
+    ordinal=sw_ord, batch=sw_batch, canonical=lambda p, gt: _recolour_maybe(p, ["colour"], gt), exemplar=sw_exemplar,
     source="arith#4 Sum Sandwich (renamed per catalog)")
 
 
@@ -391,7 +401,7 @@ def mw_ord(g, p, gtype):
             for ln in _wlines():
                 xs = [v[r + a][c + b] for a, b in ln]
                 k += sum(xs) == S and len(set(xs)) > 1
-            if p["X"] is not None and col[r + 1][c + 1] != p["X"]:
+            if p["colour"] != "any" and col[r + 1][c + 1] != ci(gtype, p["colour"]):
                 k = 0
             best, tot = max(best, k), tot + k
     return tup(best, tot)
@@ -407,8 +417,8 @@ def mw_batch(sym, col, p, gtype):
     for ln in _wlines():
         xs = [v[:, a:a + n, b:b + n] for a, b in ln]
         k += ((xs[0] + xs[1] + xs[2]) == S) & ~((xs[0] == xs[1]) & (xs[1] == xs[2]))
-    if p["X"] is not None:
-        k *= col[:, 1:n + 1, 1:n + 1] == p["X"]
+    if p["colour"] != "any":
+        k *= col[:, 1:n + 1, 1:n + 1] == ci(gtype, p["colour"])
     return tupb(k.reshape(B, -1).max(1), k.sum((1, 2)))
 
 
@@ -416,18 +426,18 @@ def mw_exemplar(p, gtype):
     N = gtype.N
     v = np.full((N, N), 5)
     v[:3, :3] = [[2, 7, 6], [9, 5, 1], [4, 3, 8]]
-    col = np.full((N, N), 0 if p["X"] is None else p["X"])
+    col = np.full((N, N), 0 if p["colour"] == "any" else ci(gtype, p["colour"]))
     return grid(_sym_grid(gtype, v), col)
 
 
 MAGIC_WINDOW = mk(
     id="magic_window", name="Magic Window", theme="Find a magic square",
     requires=req("Valued"), layers={"symbol", "position"}, camp="alternator",
-    sample=lambda rng, gt: {"X": colour(rng, gt) if rng.random() < 0.5 else None},
+    sample=lambda rng, gt: {"colour": _maybe_colour(rng, gt)},
     summary=lambda p, gt: ("In your best 3×3 window, count the rows, columns and diagonals that add up to three times the "
                            "middle number (all-equal lines don't count). 8 is a perfect magic square"
-                           + (f"; the middle cell must be {cname(gt, p['X'])}." if p["X"] is not None else ".")),
-    ordinal=mw_ord, batch=mw_batch, canonical=lambda p, gt: recolour(p, ["X"]), exemplar=mw_exemplar,
+                           + (f"; the middle cell must be {p['colour']}." if p["colour"] != "any" else ".")),
+    ordinal=mw_ord, batch=mw_batch, canonical=lambda p, gt: _recolour_maybe(p, ["colour"], gt), exemplar=mw_exemplar,
     source="arith#5; tie-breaker = magic lines summed over all windows")
 
 
@@ -436,44 +446,44 @@ TT_M = {"base10": [3, 4, 5], "base12": [3, 4, 6], "base16": [3, 4, 5], "cards": 
 PRIMES = {2, 3, 5, 7, 11, 13}
 
 
-def tt_pred(v, m):
-    if m == "prime":
+def tt_pred(v, table):
+    if table == "prime":
         return np.isin(v, list(PRIMES))
-    return v % m == 0
+    return v % int(table) == 0
 
 
 def tt_ord(g, p, gtype):
     v = gtype.value[g.sym]
-    ok = tt_pred(v, p["m"])
-    if p["X"] is not None:
-        ok = ok & (g.col == p["X"])
+    ok = tt_pred(v, p["table"])
+    if p["colour"] != "any":
+        ok = ok & (g.col == ci(gtype, p["colour"]))
     N = gtype.N
     return max((len(c) for c in comps2d([[0] * N for _ in range(N)], ok.tolist())), default=0)
 
 
 def tt_batch(sym, col, p, gtype):
-    ok = tt_pred(vals(sym, gtype), p["m"])
-    if p["X"] is not None:
-        ok &= col == p["X"]
+    ok = tt_pred(vals(sym, gtype), p["table"])
+    if p["colour"] != "any":
+        ok &= col == ci(gtype, p["colour"])
     lab = label_batch(np.zeros(sym.shape, np.int64), ok)
     return comp_sum(lab, np.ones(sym.shape, np.int64), ok).reshape(len(sym), -1).max(1)
 
 
 def tt_exemplar(p, gtype):
     N = gtype.N
-    v = 2 if p["m"] == "prime" else (0 if vmin(gtype) == 0 else p["m"])
-    return grid(np.full((N, N), sym_for_value(gtype, v)), np.full((N, N), 0 if p["X"] is None else p["X"]))
+    v = 2 if p["table"] == "prime" else (0 if vmin(gtype) == 0 else int(p["table"]))
+    return grid(np.full((N, N), sym_for_value(gtype, v)), np.full((N, N), 0 if p["colour"] == "any" else ci(gtype, p["colour"])))
 
 
 TIMES_TABLE = mk(
     id="times_table_territory", name="Times-Table Territory", theme="The biggest patch of your times table",
     requires=req("Valued"), layers={"symbol", "position"}, camp="clumper",
-    sample=lambda rng, gt: {"m": (TT_M[gt.symbols] + ["prime"])[int(rng.integers(4))],
-                            "X": colour(rng, gt) if rng.random() < 0.5 else None},
+    sample=lambda rng, gt: {"table": str((TT_M[gt.symbols] + ["prime"])[int(rng.integers(4))]),
+                            "colour": _maybe_colour(rng, gt)},
     summary=lambda p, gt: ("Find the biggest patch of touching cells whose numbers are all "
-                           + ("prime numbers" if p["m"] == "prime" else f"in the {p['m']} times table")
-                           + (f" and all {cname(gt, p['X'])}" if p["X"] is not None else "") + ". Its size is your score."),
-    ordinal=tt_ord, batch=tt_batch, canonical=lambda p, gt: recolour(p, ["X"]), exemplar=tt_exemplar,
+                           + ("prime numbers" if p["table"] == "prime" else f"in the {p['table']} times table")
+                           + (f" and all {p['colour']}" if p["colour"] != "any" else "") + ". Its size is your score."),
+    ordinal=tt_ord, batch=tt_batch, canonical=lambda p, gt: _recolour_maybe(p, ["colour"], gt), exemplar=tt_exemplar,
     source="arith#6 (m menu per symbol set, prime variant, colour twist)")
 
 
@@ -486,9 +496,9 @@ def oe_ord(g, p, gtype):
         for c in range(N - 1):
             a, b, d, e = par[r][c], par[r][c + 1], par[r + 1][c], par[r + 1][c + 1]
             if a == e and b == d and a != b:
-                if p["X"] is not None:
+                if p["colour"] != "any":
                     cells = [(r, c), (r, c + 1), (r + 1, c), (r + 1, c + 1)]
-                    if any(par[x][y] == 1 and col[x][y] != p["X"] for x, y in cells):
+                    if any(par[x][y] == 1 and col[x][y] != ci(gtype, p["colour"]) for x, y in cells):
                         continue
                 s += 1
     return s
@@ -498,8 +508,8 @@ def oe_batch(sym, col, p, gtype):
     par = vals(sym, gtype) % 2
     a, b, d, e = par[:, :-1, :-1], par[:, :-1, 1:], par[:, 1:, :-1], par[:, 1:, 1:]
     ok = (a == e) & (b == d) & (a != b)
-    if p["X"] is not None:
-        bad = (par == 1) & (col != p["X"])
+    if p["colour"] != "any":
+        bad = (par == 1) & (col != ci(gtype, p["colour"]))
         ok &= ~(bad[:, :-1, :-1] | bad[:, :-1, 1:] | bad[:, 1:, :-1] | bad[:, 1:, 1:])
     return ok.sum((1, 2))
 
@@ -508,27 +518,27 @@ def oe_exemplar(p, gtype):
     N = gtype.N
     r, c = np.indices((N, N))
     v = vmin(gtype) + (r + c) % 2
-    return grid(_sym_grid(gtype, v), np.full((N, N), 0 if p["X"] is None else p["X"]))
+    return grid(_sym_grid(gtype, v), np.full((N, N), 0 if p["colour"] == "any" else ci(gtype, p["colour"])))
 
 
 ODDS_EVENS = mk(
     id="odds_evens", name="Odds & Evens", theme="A chessboard of odd and even numbers",
     requires=req("Valued"), layers={"symbol", "position"}, camp="alternator",
-    sample=lambda rng, gt: {"X": colour(rng, gt) if rng.random() < 0.5 else None},
+    sample=lambda rng, gt: {"colour": _maybe_colour(rng, gt)},
     summary=lambda p, gt: ("Every 2×2 square whose numbers go odd, even / even, odd like a chessboard scores a point"
-                           + (f"; its odd numbers must be {cname(gt, p['X'])}." if p["X"] is not None else ".")),
-    ordinal=oe_ord, batch=oe_batch, canonical=lambda p, gt: recolour(p, ["X"]), exemplar=oe_exemplar,
+                           + (f"; its odd numbers must be {p['colour']}." if p["colour"] != "any" else ".")),
+    ordinal=oe_ord, batch=oe_batch, canonical=lambda p, gt: _recolour_maybe(p, ["colour"], gt), exemplar=oe_exemplar,
     source="arith#7 Odds & Evens Chessboard (colourLock as X)")
 
 
 # --- Number Painter ------------------------------------------------------------------------------------------------
 def np_ord(g, p, gtype):
     v, col = gtype.value[g.sym].ravel().tolist(), g.col.ravel().tolist()
-    return sum(a == c + 1 + p["o"] for a, c in zip(v, col))
+    return sum(a == c + p["first_number"] for a, c in zip(v, col))
 
 
 def np_batch(sym, col, p, gtype):
-    return (vals(sym, gtype) == col.astype(np.int64) + 1 + p["o"]).sum((1, 2))
+    return (vals(sym, gtype) == col.astype(np.int64) + p["first_number"]).sum((1, 2))
 
 
 def np_offsets(gtype):
@@ -538,13 +548,13 @@ def np_offsets(gtype):
 NUMBER_PAINTER = mk(
     id="number_painter", name="Number Painter", theme="Paint by numbers",
     requires=req("Valued", "Spectral"), layers={"colour", "symbol"}, camp="neutral",
-    sample=lambda rng, gt: {"o": int(rng.choice(np_offsets(gt)))},
-    summary=lambda p, gt: ("Each colour has a number: " + ", ".join(f"{n}={i + 1 + p['o']}" for i, n in enumerate(gt.colour_names))
+    sample=lambda rng, gt: {"first_number": int(rng.choice(np_offsets(gt))) + 1},
+    summary=lambda p, gt: ("Each colour has a number: " + ", ".join(f"{n}={i + p['first_number']}" for i, n in enumerate(gt.colour_names))
                            + ". Score a point for every cell whose number matches its colour."),
-    ordinal=np_ord, batch=np_batch, canonical=lambda p, gt: {"o": np_offsets(gt)[0]},
+    ordinal=np_ord, batch=np_batch, canonical=lambda p, gt: {"first_number": np_offsets(gt)[0] + 1},
     exact_log2_tail=lambda t, p, gt: log2_binom_tail(gt.N ** 2, 1.0 / len(set(gt.value.tolist())), int(t)),
-    exemplar=lambda p, gt: grid(np.full((gt.N, gt.N), sym_for_value(gt, 1 + p["o"])), np.zeros((gt.N, gt.N))),
-    source="arith#8 (offset o; every valid o gives Bin(N², 1/#values))")
+    exemplar=lambda p, gt: grid(np.full((gt.N, gt.N), sym_for_value(gt, p["first_number"])), np.zeros((gt.N, gt.N))),
+    source="arith#8 (first_number = o + 1; every valid o gives Bin(N², 1/#values))")
 
 
 # --- Robin Hood ------------------------------------------------------------------------------------------------------
@@ -588,17 +598,18 @@ ROBIN_HOOD = mk(
 
 
 # --- Seesaw ------------------------------------------------------------------------------------------------------------
-def sa_imb_scalar(lv, lc, p, N):
+def sa_imb_scalar(lv, lc, p, N, gtype):
     if p["mode"] == "halves":
         h = N // 2
         return sum(lv[:h]) - sum(lv[N - h:])
-    return sum(a for a, c in zip(lv, lc) if c == p["X"]) - sum(a for a, c in zip(lv, lc) if c == p["Y"])
+    X, Y = ci(gtype, p["left_colour"]), ci(gtype, p["right_colour"])
+    return sum(a for a, c in zip(lv, lc) if c == X) - sum(a for a, c in zip(lv, lc) if c == Y)
 
 
 def sa_ord(g, p, gtype):
     N = gtype.N
     v, col = gtype.value[g.sym].tolist(), g.col.tolist()
-    imb = [abs(sa_imb_scalar(a, b, p, N)) for a, b in zip(_lines_scalar(v, p["scope"]), _lines_scalar(col, p["scope"]))]
+    imb = [abs(sa_imb_scalar(a, b, p, N, gtype)) for a, b in zip(_lines_scalar(v, p["scope"]), _lines_scalar(col, p["scope"]))]
     return tup(sum(x == 0 for x in imb), -sum(imb))
 
 
@@ -609,21 +620,22 @@ def sa_batch(sym, col, p, gtype):
         h = N // 2
         imb = np.abs(L[:, :, :h].sum(2) - L[:, :, N - h:].sum(2))
     else:
-        imb = np.abs((L * (C == p["X"])).sum(2) - (L * (C == p["Y"])).sum(2))
+        X, Y = cis(gtype, p, "left_colour", "right_colour")
+        imb = np.abs((L * (C == X)).sum(2) - (L * (C == Y)).sum(2))
     return tupb((imb == 0).sum(1), -imb.sum(1))
 
 
 def sa_sample(rng, gtype):
     p = {"scope": str(rng.choice(["rows", "cols", "both"])), "mode": str(rng.choice(["halves", "colours"])),
-         "X": None, "Y": None}
+         "left_colour": "any", "right_colour": "any"}
     if p["mode"] == "colours":
-        p["X"], p["Y"] = colours(rng, gtype, 2)
+        p["left_colour"], p["right_colour"] = colour_names(rng, gtype, 2)
     return p
 
 
 def sa_exemplar(p, gtype):
     N = gtype.N
-    col = np.full((N, N), _third(gtype, p["X"], p["Y"]))
+    col = np.full((N, N), _third(gtype, *[ci(gtype, p[k]) for k in ("left_colour", "right_colour") if p[k] != "any"]))
     return grid(np.full((N, N), sym_for_value(gtype, vmax(gtype))), col)
 
 
@@ -638,9 +650,9 @@ SEESAW = mk(
     summary=lambda p, gt: ("Each " + {"rows": "row", "cols": "column", "both": "row and column"}[p["scope"]] + " is a seesaw. "
                            + ("Add up the left half and the right half (skip the middle): if they match it balances."
                               if p["mode"] == "halves" else
-                              f"Add up its {cname(gt, p['X'])} numbers and its {cname(gt, p['Y'])} numbers: if they match it balances.")
+                              f"Add up its {p['left_colour']} numbers and its {p['right_colour']} numbers: if they match it balances.")
                            + " Score a point for each balanced one; nearly balanced is better than way off."),
-    ordinal=sa_ord, batch=sa_batch, canonical=lambda p, gt: recolour(_axis_canon(p, "scope"), ["X", "Y"]),
+    ordinal=sa_ord, batch=sa_batch, canonical=lambda p, gt: _recolour_maybe(_axis_canon(p, "scope"), ["left_colour", "right_colour"], gt),
     exemplar=sa_exemplar, source="arith#11 (colourSeesaw variant as mode=colours); tie-breaker = total imbalance")
 
 
@@ -652,7 +664,7 @@ def st_menu(gtype):
 
 
 def st_ord(g, p, gtype):
-    N, d = gtype.N, p["d"]
+    N, d = gtype.N, p["hop"]
     v = gtype.value[g.sym].tolist()
     seen, best = set(), 0
     for r in range(N):
@@ -673,7 +685,7 @@ def st_ord(g, p, gtype):
 
 def st_batch(sym, col, p, gtype):
     v = vals(sym, gtype)
-    lab = label_links(np.abs(v[:, :, 1:] - v[:, :, :-1]) == p["d"], np.abs(v[:, 1:, :] - v[:, :-1, :]) == p["d"])
+    lab = label_links(np.abs(v[:, :, 1:] - v[:, :, :-1]) == p["hop"], np.abs(v[:, 1:, :] - v[:, :-1, :]) == p["hop"])
     allm = np.ones(sym.shape, bool)
     return comp_sum(lab, np.ones(sym.shape, np.int64), allm).reshape(len(sym), -1).max(1)
 
@@ -681,14 +693,14 @@ def st_batch(sym, col, p, gtype):
 def st_exemplar(p, gtype):
     N = gtype.N
     r, c = np.indices((N, N))
-    return grid(_sym_grid(gtype, vmin(gtype) + p["d"] * ((r + c) % 2)), np.zeros((N, N)))
+    return grid(_sym_grid(gtype, vmin(gtype) + p["hop"] * ((r + c) % 2)), np.zeros((N, N)))
 
 
 STEPPING_STONES = mk(
     id="stepping_stones", name="Stepping Stones", theme="Hop between numbers that differ by your step",
     requires=req("Valued"), layers={"symbol", "position"}, camp="alternator",
-    sample=lambda rng, gt: {"d": int(rng.choice(st_menu(gt)))},
-    summary=lambda p, gt: (f"You can hop between touching cells whose numbers differ by exactly {p['d']}. Score the size "
+    sample=lambda rng, gt: {"hop": int(rng.choice(st_menu(gt)))},
+    summary=lambda p, gt: (f"You can hop between touching cells whose numbers differ by exactly {p['hop']}. Score the size "
                            "of the biggest group you can reach by hopping."),
     ordinal=st_ord, batch=st_batch, exemplar=st_exemplar,
     source="arith#12 (d menu incl. Cliffhanger ⌈V/2⌉)")
@@ -696,7 +708,7 @@ STEPPING_STONES = mk(
 
 # --- Column Addition ---------------------------------------------------------------------------------------------------
 def ca_ord(g, p, gtype):
-    N, b, t = gtype.N, gtype.base, p["top"]
+    N, b, t = gtype.N, gtype.base, p["top_row"]
     v = gtype.value[g.sym].tolist()
     if not any(v[t]):
         return (0, 0)
@@ -712,7 +724,7 @@ def ca_ord(g, p, gtype):
 
 
 def ca_batch(sym, col, p, gtype):
-    N, b, t = gtype.N, gtype.base, p["top"]
+    N, b, t = gtype.N, gtype.base, p["top_row"]
     v = vals(sym, gtype)
     B = len(sym)
     carry = np.zeros(B, np.int64)
@@ -731,7 +743,7 @@ def ca_batch(sym, col, p, gtype):
 
 
 def ca_exemplar(p, gtype):
-    N, t = gtype.N, p["top"]
+    N, t = gtype.N, p["top_row"]
     v = np.zeros((N, N), np.int64)
     v[t], v[t + 1], v[t + 2] = 1, 1, 2
     return grid(v, np.zeros((N, N)))
@@ -740,11 +752,11 @@ def ca_exemplar(p, gtype):
 COLUMN_ADDITION = mk(
     id="column_addition", name="Column Addition", theme="Three rows make a written sum",
     requires=req("Numeral"), layers={"symbol", "position"}, camp="neutral",
-    sample=lambda rng, gt: {"top": int(rng.integers(gt.N - 2))},
-    summary=lambda p, gt: (f"Rows {p['top'] + 1} + {p['top'] + 2} should make row {p['top'] + 3}, like a written sum in "
+    sample=lambda rng, gt: {"top_row": int(rng.integers(gt.N - 2))},
+    summary=lambda p, gt: (f"Rows {p['top_row'] + 1} + {p['top_row'] + 2} should make row {p['top_row'] + 3}, like a written sum in "
                            f"base {gt.base} (carry when you reach {gt.base}). Score the columns you got right counting from "
                            "the right-hand end (the top row can't be all zeros)."),
-    ordinal=ca_ord, batch=ca_batch, canonical=lambda p, gt: {"top": 0}, exemplar=ca_exemplar,
+    ordinal=ca_ord, batch=ca_batch, canonical=lambda p, gt: {"top_row": 0}, exemplar=ca_exemplar,
     source="arith#15 (all-zero top row excluded); tie-breaker = correct columns anywhere")
 
 
@@ -753,7 +765,7 @@ def ld_ord(g, p, gtype):
     N, b = gtype.N, gtype.base
     v = gtype.value[g.sym].tolist()
     nums = [sum(d * b ** (N - 1 - i) for i, d in enumerate(row)) for row in v]
-    if p["dir"] == "up":
+    if p["direction"] == "up":
         nums = nums[::-1]
     inc = [nums[r] > nums[r - 1] for r in range(1, N)]
     return tup(max((L for _, L in runs(inc)), default=0), sum(inc))
@@ -763,7 +775,7 @@ def ld_batch(sym, col, p, gtype):
     N, b = gtype.N, gtype.base
     v = vals(sym, gtype)
     nums = (v * (b ** np.arange(N - 1, -1, -1, dtype=np.int64))).sum(2)
-    if p["dir"] == "up":
+    if p["direction"] == "up":
         nums = nums[:, ::-1]
     inc = nums[:, 1:] > nums[:, :-1]
     run = np.zeros(len(sym), np.int64)
@@ -777,17 +789,17 @@ def ld_batch(sym, col, p, gtype):
 def ld_exemplar(p, gtype):
     N = gtype.N
     v = np.zeros((N, N), np.int64)
-    v[:, -1] = np.arange(N) if p["dir"] == "down" else np.arange(N)[::-1]
+    v[:, -1] = np.arange(N) if p["direction"] == "down" else np.arange(N)[::-1]
     return grid(v, np.zeros((N, N)))
 
 
 LADDER = mk(
     id="ladder_of_numbers", name="Ladder of Numbers", theme="Row numbers that keep getting bigger",
     requires=req("Numeral"), layers={"symbol", "position"}, camp="neutral",
-    sample=lambda rng, gt: {"dir": str(rng.choice(["down", "up"]))},
-    summary=lambda p, gt: (f"Read each row as a base-{gt.base} number. Going {p['dir']} the page they should keep getting "
+    sample=lambda rng, gt: {"direction": str(rng.choice(["down", "up"]))},
+    summary=lambda p, gt: (f"Read each row as a base-{gt.base} number. Going {p['direction']} the page they should keep getting "
                            "bigger. Score your longest unbroken climb, then the number of rows bigger than the one before."),
-    ordinal=ld_ord, batch=ld_batch, canonical=lambda p, gt: {"dir": "down"}, exemplar=ld_exemplar,
+    ordinal=ld_ord, batch=ld_batch, canonical=lambda p, gt: {"direction": "down"}, exemplar=ld_exemplar,
     source="arith#16 (catalog: longest streak primary, count of rises as tie-breaker)")
 
 
@@ -826,7 +838,7 @@ def _to_br(a, K):
 
 def yt_ord(g, p, gtype):
     N = gtype.N
-    v = _to_br(gtype.value[g.sym], p["K"]).tolist()
+    v = _to_br(gtype.value[g.sym], p["corner"]).tolist()
     full = pairs = 0
     for ln in _lines_scalar(v, "both"):
         ok = [ln[i + 1] > ln[i] for i in range(N - 1)]
@@ -836,7 +848,7 @@ def yt_ord(g, p, gtype):
 
 
 def yt_batch(sym, col, p, gtype):
-    L = lines_rc(_to_br(vals(sym, gtype), p["K"]), "both")
+    L = lines_rc(_to_br(vals(sym, gtype), p["corner"]), "both")
     ok = L[:, :, 1:] > L[:, :, :-1]
     return tupb(ok.all(2).sum(1), ok.sum((1, 2)))
 
@@ -846,7 +858,7 @@ def yt_exemplar(p, gtype):
     r, c = np.indices((N, N))
     lo, R = vmin(gtype), vmax(gtype) - vmin(gtype)
     v = lo + np.minimum(r + c, R)
-    g0 = grid(_to_br(_sym_grid(gtype, v), p["K"]), np.zeros((N, N)))
+    g0 = grid(_to_br(_sym_grid(gtype, v), p["corner"]), np.zeros((N, N)))
     choices = [sym_for_value(gtype, x) for x in range(lo, vmax(gtype) + 1)]
     return hill_climb(yt_batch, g0, p, gtype, layers=("symbol",), sym_choices=choices, max_steps=60)
 
@@ -854,11 +866,11 @@ def yt_exemplar(p, gtype):
 YOUNG_TABLEAU = mk(
     id="young_tableau", name="Uphill", theme="Numbers rise toward your corner",
     requires=req("Valued"), layers={"symbol", "position"}, camp="alternator",
-    sample=lambda rng, gt: {"K": str(rng.choice(["TL", "TR", "BL", "BR"]))},
+    sample=lambda rng, gt: {"corner": str(rng.choice(["TL", "TR", "BL", "BR"]))},
     summary=lambda p, gt: (f"Numbers should get strictly bigger as you walk toward the "
-                           f"{'top' if p['K'][0] == 'T' else 'bottom'}-{'left' if p['K'][1] == 'L' else 'right'} corner, "
+                           f"{'top' if p['corner'][0] == 'T' else 'bottom'}-{'left' if p['corner'][1] == 'L' else 'right'} corner, "
                            "along every row and column. Score whole lines first, then single uphill steps."),
-    ordinal=yt_ord, batch=yt_batch, canonical=lambda p, gt: {"K": "BR"}, exemplar=yt_exemplar,
+    ordinal=yt_ord, batch=yt_batch, canonical=lambda p, gt: {"corner": "BR"}, exemplar=yt_exemplar,
     source="arith cross-lens idea 'Gradient / Young tableau' (strict); tie-breaker = uphill steps")
 
 

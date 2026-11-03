@@ -1,8 +1,8 @@
 /** Arithmetic & number-pattern lens rules (lib/grid-lab/gridlab/rules/arithmetic.py, cards from rules/cards.py). */
 import type { Cand, CardText, GridSpec, Layer } from "./_util.ts";
-import { choiceParam, intParam } from "../../params.ts";
+import { boolParam, choiceParam, colourParam, intParam } from "../../params.ts";
 import {
-  SCALAR, article, bestOf, cap, chance, climb, cname, colourPairs, fromFn, full, gridFamily, pick, product, pyCard, range, list, recolour, sentences, symForValue, thing, tsCard, tuple, wire,
+  SCALAR, article, bestOf, cap, chance, climb, colourAt, colourPairs, fromFn, full, gridFamily, pick, product, pyCard, range, list, recolourNames, sentences, symForValue, thing, tsCard, tuple, wire,
 } from "./_util.ts";
 import { solvedAnalytic } from "../../analytic/hook.ts";
 
@@ -12,6 +12,11 @@ const PY_AXIS: Record<Axis, [string, string]> = {
 };
 const TS_AXIS: Record<Axis, string> = { rows: "grid.rows", cols: "grid.columns", both: "[...grid.rows, ...grid.columns]" };
 const AXIS_WORD: Record<Axis, string> = { rows: "row", cols: "column", both: "row and column" };
+const AXIS_OPTIONS = [["rows", "rows"], ["cols", "columns"], ["both", "rows and columns"]] as const;
+/** A colour param that may be "any" (grid-lab's `colour or None`): the colour names and "any". */
+const colourOrAny = (label: string, g: GridSpec) => choiceParam(label, [...g.colourNames.map(n => [n, n] as const), ["any", "any colour"]]);
+/** A stored colour index (or null) as today's colour name (or "any"). */
+const legacyMaybe = (g: GridSpec, v: unknown): string => (typeof v === "number" ? g.colourNames[v] : "any");
 const symGrid = (g: GridSpec, v: Layer) => v.map(row => row.map(x => symForValue(g, x)));
 
 // --- the words the goal texts share (docs/rules-design.md §2) -----------------------------------------------
@@ -27,13 +32,13 @@ const digitNote = (g: GridSpec) => (g.cards || g.vmax < 10 ? "" : `The digits go
 const valueTile = (g: GridSpec, v: number) => (g.cards ? g.say.tile(symForValue(g, v)).replace(/[♠♥♦♣]$/, "") : g.say.tile(v));
 
 // --- Straight Shooter ------------------------------------------------------------------------------
-type ShootP = { step: 1 | -1; flush: boolean; ace_high: boolean };
+type ShootP = { direction: "up" | "down"; flush: boolean; ace_high: boolean };
 const shootText = (p: ShootP, g: GridSpec): CardText => ({
-  emoji: "🎯", name: "Straight Shooter", consts: [["STEP", p.step, p.step === 1 ? "count up" : "count down"]],
+  emoji: "🎯", name: "Straight Shooter", consts: [["STEP", p.direction === "up" ? 1 : -1, p.direction === "up" ? "count up" : "count down"]],
   about: sentences(
-    `A run is 3 or more ${thing(g)}s in a row that count ${p.step === 1 ? "up" : "down"} by one, like ${p.step === 1 ? "4, 5, 6" : "6, 5, 4"}.`,
+    `A run is 3 or more ${thing(g)}s in a row that count ${p.direction} by one, like ${p.direction === "up" ? "4, 5, 6" : "6, 5, 4"}.`,
     "Runs go left to right along rows, or top to bottom down columns.",
-    p.ace_high ? `Aces count as 14, so a run can go ${p.step === 1 ? "Q, K, A" : "A, K, Q"}. Here J counts 11, Q counts 12 and K counts 13.` : g.say.valueKey(),
+    p.ace_high ? `Aces count as 14, so a run can go ${p.direction === "up" ? "Q, K, A" : "A, K, Q"}. Here J counts 11, Q counts 12 and K counts 13.` : g.say.valueKey(),
     "A run scores its length times itself, so 3 in a row is 9 points." + (p.flush ? " Double that if the whole run is one colour." : ""),
     "Most points wins. If that's a tie, the most single steps wins: each pair of neighbours in a line that count by one.",
   ),
@@ -41,9 +46,16 @@ const shootText = (p: ShootP, g: GridSpec): CardText => ({
 const straightShooter = gridFamily<ShootP>({
   id: "straight_shooter", name: "Straight Shooter", emoji: "🎯", theme: "Rows and columns that count",
   requires: { classes: ["Valued", "Ranked"] }, shape: tuple(2), tags: ["shortlist"],
-  support: g => product<ShootP>({ step: [1, -1], flush: [false, true], ace_high: g.cards ? [false, true] : [false] }),
-  sample: (rng, g) => ({ step: pick(rng, [1, -1] as const), flush: chance(rng, 1, 2), ace_high: g.cards && chance(rng, 1, 2) }),
-  canonical: p => ({ ...p, step: 1 }),
+  params: () => ({
+    direction: choiceParam("Counting", [["up", "count up"], ["down", "count down"]]),
+    flush: boolParam("Double for one colour"),
+    ace_high: boolParam("Aces count high"),
+  }),
+  legacy: p => (typeof p.step === "number"
+    ? { direction: p.step === 1 ? "up" : "down", flush: p.flush as boolean, ace_high: p.ace_high as boolean } : null),
+  support: g => product<ShootP>({ direction: ["up", "down"], flush: [false, true], ace_high: g.cards ? [false, true] : [false] }),
+  sample: (rng, g) => ({ direction: pick(rng, ["up", "down"] as const), flush: chance(rng, 1, 2), ace_high: g.cards && chance(rng, 1, 2) }),
+  canonical: p => ({ ...p, direction: "up" }),
   summary: (p, g) => shootText(p, g).about,
   python: (p, g) => pyCard(shootText(p, g), `
     def number(cell):
@@ -124,7 +136,7 @@ ${p.flush ? `
       const v = fromFn(N, f);
       if (Math.max(...v.flat()) > hi) continue;
       let s = sg(v);
-      if (p.step === -1) s = s.slice().reverse().map(row => row.slice().reverse());
+      if (p.direction === "down") s = s.slice().reverse().map(row => row.slice().reverse());
       cands.push({ sym: s, col: full(N, 0) });
     }
     return bestOf("straight_shooter", p, ctx, cands);
@@ -246,12 +258,12 @@ const magicAccountant = gridFamily<MagicP>({
 });
 
 // --- King of the Hill ------------------------------------------------------------------------------
-type KingP = { X: number; valley: boolean };
+type KingP = { colour: string; valley: boolean };
 const kingText = (p: KingP, g: GridSpec): CardText => ({
   emoji: p.valley ? "🕳️" : "⛰️", name: p.valley ? "King of the Valley" : "King of the Hill",
-  consts: [["MY_COLOUR", cname(g, p.X)]],
+  consts: [["MY_COLOUR", p.colour]],
   about: sentences(
-    `${cap(article(cname(g, p.X)))} cell is ${p.valley ? "in a valley" : "a king"} when its ${num(g)} is `
+    `${cap(article(p.colour))} cell is ${p.valley ? "in a valley" : "a king"} when its ${num(g)} is `
       + `${p.valley ? "smaller" : "bigger"} than every cell touching it.`,
     g.say.valueKey(),
     `Each ${p.valley ? "valley" : "king"} scores 1 point.`,
@@ -260,9 +272,11 @@ const kingText = (p: KingP, g: GridSpec): CardText => ({
 const kingOfTheHill = gridFamily<KingP>({
   id: "king_of_the_hill", name: "King of the Hill", emoji: "⛰️", theme: "Mountain tops in your colour",
   requires: { classes: ["Valued"] }, shape: SCALAR, tags: ["shortlist"],
-  support: g => product<KingP>({ X: range(g.C), valley: [false, true] }),
-  sample: (rng, g) => ({ X: rng.int(g.C), valley: chance(rng, 3, 10) }),
-  canonical: () => ({ X: 0, valley: false }), // value reflection maps valleys to peaks
+  params: () => ({ colour: colourParam("Your colour"), valley: boolParam("Valleys instead of hills") }),
+  legacy: (p, g) => (typeof p.X === "number" ? { colour: g.colourNames[p.X], valley: p.valley as boolean } : null),
+  support: g => product<KingP>({ colour: g.colourNames, valley: [false, true] }),
+  sample: (rng, g) => ({ colour: g.colourNames[rng.int(g.C)], valley: chance(rng, 3, 10) }),
+  canonical: (_, g) => ({ colour: g.colourNames[0], valley: false }), // value reflection maps valleys to peaks
   summary: (p, g) => kingText(p, g).about,
   python: (p, g) => pyCard(kingText(p, g), `
     def utility(grid):
@@ -284,26 +298,31 @@ const kingOfTheHill = gridFamily<KingP>({
     }`),
   exemplar: (p, g) => {
     const hi = symForValue(g, g.vmax), lo = symForValue(g, g.vmin), [top, bot] = p.valley ? [lo, hi] : [hi, lo];
-    return wire(g, fromFn(g.N, (r, c) => ((r + c) % 2 === 0 ? top : bot)), full(g.N, p.X));
+    return wire(g, fromFn(g.N, (r, c) => ((r + c) % 2 === 0 ? top : bot)), full(g.N, colourAt(g, p.colour)));
   },
 });
 
 // --- Divisibility Detective ------------------------------------------------------------------------
 const DIVISORS: Readonly<Record<number, readonly number[]>> = { 10: [5, 10, 3, 9], 12: [3, 4, 6, 12, 11], 16: [4, 8, 16, 3, 5, 15] };
-type DivP = { m: number; scope: "rows" | "both" };
+type DivP = { divisor: number; scope: "rows" | "both" };
 const divText = (p: DivP, g: GridSpec): CardText => ({
-  emoji: "🔍", name: "Divisibility Detective", consts: [["BASE", g.base!], ["DIVIDE_BY", p.m]],
+  emoji: "🔍", name: "Divisibility Detective", consts: [["BASE", g.base!], ["DIVIDE_BY", p.divisor]],
   about: sentences(
     `Read ${p.scope === "both" ? "each row, and each column from top to bottom," : "each row"} as one big number in base ${g.base}.`,
     digitNote(g),
-    `Each one that divides exactly by ${p.m}${g.base !== 10 && p.m >= 10 ? " (counting the normal way)" : ""} scores 1 point.`,
+    `Each one that divides exactly by ${p.divisor}${g.base !== 10 && p.divisor >= 10 ? " (counting the normal way)" : ""} scores 1 point.`,
   ),
 });
 const divisibility = gridFamily<DivP>({
   id: "divisibility_detective", name: "Divisibility Detective", emoji: "🔍", theme: "Rows read as numbers that divide evenly",
   analytic: solvedAnalytic("divisibility_detective"),
   requires: { classes: ["Numeral"] }, shape: SCALAR, tags: ["shortlist"],
-  support: g => product<DivP>({ m: DIVISORS[g.base!], scope: ["rows", "both"] }),
+  params: g => ({
+    divisor: intParam("Divisor", Math.min(...DIVISORS[g.base!]), Math.max(...DIVISORS[g.base!])),
+    scope: choiceParam("Numbers read", [["rows", "rows"], ["both", "rows and columns"]]),
+  }),
+  legacy: p => (typeof p.m === "number" ? { divisor: p.m, scope: p.scope as DivP["scope"] } : null),
+  support: g => product<DivP>({ divisor: DIVISORS[g.base!], scope: ["rows", "both"] }),
   summary: (p, g) => divText(p, g).about,
   python: (p, g) => pyCard(divText(p, g), `
     def utility(grid):
@@ -334,11 +353,16 @@ export { roundHalfEven };
 // Not shortlisted (new cards, checked against grid-lab by test/gridlab_parity.py)
 // ================================================================================================
 
-/** An optional colour (grid-lab `colour if rng.random() < 0.5 else None`). */
-type MaybeColour = number | null;
-const maybeColours = (g: GridSpec): MaybeColour[] => [null, ...range(g.C)];
-const sampleMaybe = (rng: Parameters<typeof pick>[0], g: GridSpec): MaybeColour => (chance(rng, 1, 2) ? rng.int(g.C) : null);
-const colourConst = (g: GridSpec, X: MaybeColour) => (X === null ? [] : [["MY_COLOUR", cname(g, X)] as const]);
+/** An optional colour (grid-lab `colour if rng.random() < 0.5 else None`): a colour name, or "any". */
+type MaybeColour = string;
+const maybeColours = (g: GridSpec): MaybeColour[] => ["any", ...g.colourNames];
+const sampleMaybe = (rng: Parameters<typeof pick>[0], g: GridSpec): MaybeColour => (chance(rng, 1, 2) ? g.colourNames[rng.int(g.C)] : "any");
+const colourConst = (colour: MaybeColour) => (colour === "any" ? [] : [["MY_COLOUR", colour] as const]);
+/** The colour index of an optional colour (colour 0 for "any", as the exemplars use). */
+const colourOr0 = (g: GridSpec, colour: MaybeColour) => (colour === "any" ? 0 : colourAt(g, colour));
+/** `recolourNames` for params that may be "any" (left alone). */
+const recolourMaybe = <P extends Record<string, unknown>>(g: GridSpec, p: P, keys: readonly string[]): P =>
+  recolourNames(g, p as never, keys.filter(k => p[k] !== "any")) as P;
 
 // --- Round Numbers -----------------------------------------------------------------------------------
 type RoundP = { axis: Axis };
@@ -355,6 +379,7 @@ const roundNumbers = gridFamily<RoundP>({
   id: "round_numbers", name: "Round Numbers", emoji: "⭕", theme: "Line totals that end in zero",
   analytic: solvedAnalytic("round_numbers"),
   requires: { classes: ["Numeral"] }, shape: tuple(2),
+  params: () => ({ axis: choiceParam("Lines that count", AXIS_OPTIONS) }),
   support: () => (["rows", "cols", "both"] as const).map(axis => ({ axis })),
   canonical: p => ({ axis: p.axis === "cols" ? "rows" : p.axis }),
   summary: (p, g) => roundText(p, g).about,
@@ -388,16 +413,16 @@ const roundNumbers = gridFamily<RoundP>({
 });
 
 // --- Number Sandwich --------------------------------------------------------------------------------------
-type SandP = { mode: "sandwich" | "fibonacci"; X: MaybeColour };
+type SandP = { mode: "sandwich" | "fibonacci"; colour: MaybeColour };
 const sandText = (p: SandP, g: GridSpec): CardText => ({
-  emoji: "🥙", name: "Number Sandwich", consts: colourConst(g, p.X),
+  emoji: "🥙", name: "Number Sandwich", consts: colourConst(p.colour),
   about: sentences(
     "Look at any 3 cells in a row, across or down.",
     p.mode === "sandwich"
       ? `If the middle ${num(g)} is the two outside ${nums(g)} added, that is a sandwich, like 2, 5, 3.`
       : `If the last ${num(g)} is the first two ${nums(g)} added, that is a sandwich, like 2, 3, 5.`,
     g.cards ? "" : p.mode === "sandwich" ? "The outside numbers can't be 0." : "The first two numbers can't be 0.",
-    p.X === null ? "" : `The ${p.mode === "sandwich" ? "middle" : "last"} cell must be ${cname(g, p.X)}.`,
+    p.colour === "any" ? "" : `The ${p.mode === "sandwich" ? "middle" : "last"} cell must be ${p.colour}.`,
     g.say.valueKey(),
     "Each sandwich scores 1 point.",
   ),
@@ -405,9 +430,14 @@ const sandText = (p: SandP, g: GridSpec): CardText => ({
 const numberSandwich = gridFamily<SandP>({
   id: "number_sandwich", name: "Number Sandwich", emoji: "🥙", theme: "The middle number is the total",
   requires: { classes: ["Valued"] }, shape: SCALAR,
-  support: g => product<SandP>({ mode: ["sandwich", "fibonacci"], X: maybeColours(g) }),
-  sample: (rng, g) => ({ mode: pick(rng, ["sandwich", "fibonacci"] as const), X: sampleMaybe(rng, g) }),
-  canonical: p => recolour(p, ["X"]),
+  params: g => ({
+    mode: choiceParam("Kind of sandwich", [["sandwich", "middle is the total"], ["fibonacci", "last is the total"]]),
+    colour: colourOrAny("Colour of the total cell", g),
+  }),
+  legacy: (p, g) => ("X" in p ? { mode: p.mode as SandP["mode"], colour: legacyMaybe(g, p.X) } : null),
+  support: g => product<SandP>({ mode: ["sandwich", "fibonacci"], colour: maybeColours(g) }),
+  sample: (rng, g) => ({ mode: pick(rng, ["sandwich", "fibonacci"] as const), colour: sampleMaybe(rng, g) }),
+  canonical: (p, g) => recolourMaybe(g, p, ["colour"]),
   summary: (p, g) => sandText(p, g).about,
   python: (p, g) => {
     const test = p.mode === "sandwich" ? "a.value > 0 and c.value > 0 and b.value == a.value + c.value"
@@ -419,7 +449,7 @@ const numberSandwich = gridFamily<SandP>({
           for line in grid.rows + grid.columns:
               for i in range(len(line) - 2):
                   a, b, c = line[i], line[i + 1], line[i + 2]
-                  if ${test}${p.X === null ? "" : ` and ${total}.colour == MY_COLOUR`}:
+                  if ${test}${p.colour === "any" ? "" : ` and ${total}.colour == MY_COLOUR`}:
                       points += 1
           return points`);
   },
@@ -433,14 +463,14 @@ const numberSandwich = gridFamily<SandP>({
         for (const line of [...grid.rows, ...grid.columns]) {
           for (let i = 0; i < line.length - 2; i++) {
             const a = line[i], b = line[i + 1], c = line[i + 2];
-            if (${test}${p.X === null ? "" : ` && ${total}.colour === MY_COLOUR`}) points += 1;
+            if (${test}${p.colour === "any" ? "" : ` && ${total}.colour === MY_COLOUR`}) points += 1;
           }
         }
         return points;
       }`);
   },
   exemplar: (p, g, ctx) => {
-    const N = g.N, X = p.X ?? 0, fib = [1, 1, 2, 3, 5, 8, 13];
+    const N = g.N, X = colourOr0(g, p.colour), fib = [1, 1, 2, 3, 5, 8, 13];
     const vs = [fromFn(N, (r, c) => ((r + c) % 2 === 0 ? 1 : 2)), fromFn(N, (r, c) => [1, 1, 2][(r + c) % 3]),
       fromFn(N, (_, c) => [1, 1, 2][c % 3])];
     if (g.vmax >= 8) vs.push(fromFn(N, (_, c) => fib[Math.min(c, g.vmax < 13 ? 5 : 6)]));
@@ -449,13 +479,13 @@ const numberSandwich = gridFamily<SandP>({
 });
 
 // --- Magic Window ---------------------------------------------------------------------------------------
-type WindowP = { X: MaybeColour };
+type WindowP = { colour: MaybeColour };
 const windowText = (p: WindowP, g: GridSpec): CardText => ({
-  emoji: "🪟", name: "Magic Window", consts: colourConst(g, p.X),
+  emoji: "🪟", name: "Magic Window", consts: colourConst(p.colour),
   about: sentences(
     "Look at every 3×3 window. In each one, a line is a row, column or diagonal of 3 cells.",
     `A line scores 1 point when its ${nums(g)} add up to 3 times the middle cell's ${num(g)}, unless all 3 are the same.`,
-    p.X === null ? "" : `A window only counts if its middle cell is ${cname(g, p.X)}.`,
+    p.colour === "any" ? "" : `A window only counts if its middle cell is ${p.colour}.`,
     g.say.valueKey(),
     "The window with the most scoring lines wins (8 is a perfect magic square). If that's a tie, the most scoring lines over all windows wins.",
   ),
@@ -463,9 +493,11 @@ const windowText = (p: WindowP, g: GridSpec): CardText => ({
 const magicWindow = gridFamily<WindowP>({
   id: "magic_window", name: "Magic Window", emoji: "🪟", theme: "Find a magic square",
   requires: { classes: ["Valued"] }, shape: tuple(2),
-  support: g => maybeColours(g).map(X => ({ X })),
-  sample: (rng, g) => ({ X: sampleMaybe(rng, g) }),
-  canonical: p => recolour(p, ["X"]),
+  params: g => ({ colour: colourOrAny("Colour of the middle cell", g) }),
+  legacy: (p, g) => ("X" in p ? { colour: legacyMaybe(g, p.X) } : null),
+  support: g => maybeColours(g).map(colour => ({ colour })),
+  sample: (rng, g) => ({ colour: sampleMaybe(rng, g) }),
+  canonical: (p, g) => recolourMaybe(g, p, ["colour"]),
   summary: (p, g) => windowText(p, g).about,
   python: (p, g) => pyCard(windowText(p, g), `
     def window_lines(grid, top, left):
@@ -475,7 +507,7 @@ const magicWindow = gridFamily<WindowP>({
         return rows + columns + diagonals
 
     def magic(grid, top, left):
-        middle = grid.cell(top + 1, left + 1)${p.X === null ? "" : `
+        middle = grid.cell(top + 1, left + 1)${p.colour === "any" ? "" : `
         if middle.colour != MY_COLOUR:
             return 0`}
         lines = 0
@@ -503,7 +535,7 @@ const magicWindow = gridFamily<WindowP>({
     }
 
     function magic(grid, top, left) {
-      const middle = grid.cell(top + 1, left + 1);${p.X === null ? "" : `
+      const middle = grid.cell(top + 1, left + 1);${p.colour === "any" ? "" : `
       if (middle.colour !== MY_COLOUR) return 0;`}
       let lines = 0;
       for (const line of windowLines(grid, top, left)) {
@@ -528,21 +560,23 @@ const magicWindow = gridFamily<WindowP>({
     }`),
   exemplar: (p, g) => {
     const sq = [[2, 7, 6], [9, 5, 1], [4, 3, 8]];
-    return wire(g, symGrid(g, fromFn(g.N, (r, c) => (r < 3 && c < 3 ? sq[r][c] : 5))), full(g.N, p.X ?? 0));
+    return wire(g, symGrid(g, fromFn(g.N, (r, c) => (r < 3 && c < 3 ? sq[r][c] : 5))), full(g.N, colourOr0(g, p.colour)));
   },
 });
 
 // --- Times-Table Territory --------------------------------------------------------------------------------
 const TT_M: Readonly<Record<string, readonly number[]>> = { base10: [3, 4, 5], base12: [3, 4, 6], base16: [3, 4, 5], cards: [3, 4, 5] };
-type TimesP = { m: number | "prime"; X: MaybeColour };
-const timesText = (p: TimesP, g: GridSpec): CardText => ({
+type TimesP = { table: string; colour: MaybeColour };
+/** The table as the card holds it: a number, or "prime". */
+const timesOf = (p: TimesP) => (p.table === "prime" ? ("prime" as const) : Number(p.table));
+const timesText = (p: TimesP, g: GridSpec, m = timesOf(p)): CardText => ({
   emoji: "✖️", name: "Times-Table Territory",
-  consts: [...(p.m === "prime" ? [["PRIMES", [2, 3, 5, 7, 11, 13]] as const] : [["TIMES", p.m] as const]), ...colourConst(g, p.X)],
+  consts: [...(m === "prime" ? [["PRIMES", [2, 3, 5, 7, 11, 13]] as const] : [["TIMES", m] as const]), ...colourConst(p.colour)],
   about: sentences(
     "Find the biggest patch of touching cells that all show "
-      + (p.m === "prime" ? `prime ${nums(g)}` : `${nums(g)} in the ${p.m} times table`)
-      + `: ${g.say.values(range(g.vmax + 1).filter(v => v >= g.vmin && (p.m === "prime" ? [2, 3, 5, 7, 11, 13].includes(v) : v % p.m === 0)), "or")}.`,
-    p.X === null ? "" : `Every cell in the patch must also be ${cname(g, p.X)}.`,
+      + (m === "prime" ? `prime ${nums(g)}` : `${nums(g)} in the ${m} times table`)
+      + `: ${g.say.values(range(g.vmax + 1).filter(v => v >= g.vmin && (m === "prime" ? [2, 3, 5, 7, 11, 13].includes(v) : v % m === 0)), "or")}.`,
+    p.colour === "any" ? "" : `Every cell in the patch must also be ${p.colour}.`,
     g.say.valueKey(),
     "Each cell in the patch scores 1 point.",
   ),
@@ -550,13 +584,18 @@ const timesText = (p: TimesP, g: GridSpec): CardText => ({
 const timesTable = gridFamily<TimesP>({
   id: "times_table_territory", name: "Times-Table Territory", emoji: "✖️", theme: "The biggest patch of your times table",
   requires: { classes: ["Valued"] }, shape: SCALAR,
-  support: g => product<TimesP>({ m: [...TT_M[g.symbols], "prime"], X: maybeColours(g) }),
-  sample: (rng, g) => ({ m: pick(rng, [...TT_M[g.symbols], "prime" as const]), X: sampleMaybe(rng, g) }),
-  canonical: p => recolour(p, ["X"]),
+  params: g => ({
+    table: choiceParam("Times table", [...TT_M[g.symbols].map(m => [String(m), `${m} times table`] as const), ["prime", "prime numbers"]]),
+    colour: colourOrAny("Colour of the patch", g),
+  }),
+  legacy: (p, g) => ("X" in p ? { table: String(p.m), colour: legacyMaybe(g, p.X) } : null),
+  support: g => product<TimesP>({ table: [...TT_M[g.symbols].map(String), "prime"], colour: maybeColours(g) }),
+  sample: (rng, g) => ({ table: pick(rng, [...TT_M[g.symbols].map(String), "prime"]), colour: sampleMaybe(rng, g) }),
+  canonical: (p, g) => recolourMaybe(g, p, ["colour"]),
   summary: (p, g) => timesText(p, g).about,
   python: (p, g) => pyCard(timesText(p, g), `
     def good(cell):
-        return ${p.m === "prime" ? "cell.value in PRIMES" : "cell.value % TIMES == 0"}${p.X === null ? "" : " and cell.colour == MY_COLOUR"}
+        return ${p.table === "prime" ? "cell.value in PRIMES" : "cell.value % TIMES == 0"}${p.colour === "any" ? "" : " and cell.colour == MY_COLOUR"}
 
     def both_good(a, b):
         return good(a) and good(b)
@@ -569,7 +608,7 @@ const timesTable = gridFamily<TimesP>({
         return best`),
   typescript: (p, g) => tsCard(timesText(p, g), `
     function good(cell) {
-      return ${p.m === "prime" ? "PRIMES.includes(cell.value)" : "cell.value % TIMES === 0"}${p.X === null ? "" : " && cell.colour === MY_COLOUR"};
+      return ${p.table === "prime" ? "PRIMES.includes(cell.value)" : "cell.value % TIMES === 0"}${p.colour === "any" ? "" : " && cell.colour === MY_COLOUR"};
     }
 
     function bothGood(a, b) {
@@ -584,27 +623,29 @@ const timesTable = gridFamily<TimesP>({
       return best;
     }`),
   exemplar: (p, g) => {
-    const v = p.m === "prime" ? 2 : g.vmin === 0 ? 0 : p.m;
-    return wire(g, full(g.N, symForValue(g, v)), full(g.N, p.X ?? 0));
+    const v = p.table === "prime" ? 2 : g.vmin === 0 ? 0 : Number(p.table);
+    return wire(g, full(g.N, symForValue(g, v)), full(g.N, colourOr0(g, p.colour)));
   },
 });
 
 // --- Odds & Evens ----------------------------------------------------------------------------------------
-type OddP = { X: MaybeColour };
+type OddP = { colour: MaybeColour };
 const oddText = (p: OddP, g: GridSpec): CardText => ({
-  emoji: "🏁", name: "Odds & Evens", consts: colourConst(g, p.X),
+  emoji: "🏁", name: "Odds & Evens", consts: colourConst(p.colour),
   about: sentences(
     `Look at every 2×2 square. It is a chessboard when odd and even ${nums(g)} alternate: odd, even on top and even, odd below, or the other way round.`,
     g.say.valueKey(),
-    `Each chessboard scores 1 point${p.X === null ? "" : `, as long as all its odd ${nums(g)} are on ${cname(g, p.X)} cells`}.`,
+    `Each chessboard scores 1 point${p.colour === "any" ? "" : `, as long as all its odd ${nums(g)} are on ${p.colour} cells`}.`,
   ),
 });
 const oddsEvens = gridFamily<OddP>({
   id: "odds_evens", name: "Odds & Evens", emoji: "🏁", theme: "A chessboard of odd and even numbers",
   requires: { classes: ["Valued"] }, shape: SCALAR,
-  support: g => maybeColours(g).map(X => ({ X })),
-  sample: (rng, g) => ({ X: sampleMaybe(rng, g) }),
-  canonical: p => recolour(p, ["X"]),
+  params: g => ({ colour: colourOrAny("Colour of the odd numbers", g) }),
+  legacy: (p, g) => ("X" in p ? { colour: legacyMaybe(g, p.X) } : null),
+  support: g => maybeColours(g).map(colour => ({ colour })),
+  sample: (rng, g) => ({ colour: sampleMaybe(rng, g) }),
+  canonical: (p, g) => recolourMaybe(g, p, ["colour"]),
   summary: (p, g) => oddText(p, g).about,
   python: (p, g) => pyCard(oddText(p, g), `
     def odd(cell):
@@ -617,7 +658,7 @@ const oddsEvens = gridFamily<OddP>({
             if right is None or below is None:
                 continue
             corner = below.right
-            if odd(cell) == odd(corner) and odd(right) == odd(below) and odd(cell) != odd(right):${p.X === null ? `
+            if odd(cell) == odd(corner) and odd(right) == odd(below) and odd(cell) != odd(right):${p.colour === "any" ? `
                 boards += 1` : `
                 square = [cell, right, below, corner]
                 if all(other.colour == MY_COLOUR for other in square if odd(other)):
@@ -634,7 +675,7 @@ const oddsEvens = gridFamily<OddP>({
         const right = cell.right, below = cell.down;
         if (right === null || below === null) continue;
         const corner = below.right;
-        if (odd(cell) === odd(corner) && odd(right) === odd(below) && odd(cell) !== odd(right)) {${p.X === null ? `
+        if (odd(cell) === odd(corner) && odd(right) === odd(below) && odd(cell) !== odd(right)) {${p.colour === "any" ? `
           boards += 1;` : `
           const square = [cell, right, below, corner];
           if (square.filter(odd).every(other => other.colour === MY_COLOUR)) boards += 1;`}
@@ -642,16 +683,17 @@ const oddsEvens = gridFamily<OddP>({
       }
       return boards;
     }`),
-  exemplar: (p, g) => wire(g, symGrid(g, fromFn(g.N, (r, c) => g.vmin + ((r + c) % 2))), full(g.N, p.X ?? 0)),
+  exemplar: (p, g) => wire(g, symGrid(g, fromFn(g.N, (r, c) => g.vmin + ((r + c) % 2))), full(g.N, colourOr0(g, p.colour))),
 });
 
 // --- Number Painter ---------------------------------------------------------------------------------------
-type PaintP = { o: number };
-const offsets = (g: GridSpec) => range(g.vmax - g.C + 1 - (g.vmin - 1)).map(k => g.vmin - 1 + k);
+type PaintP = { first_number: number };
+/** The number the first colour is worth: every value that leaves room for the other colours after it. */
+const firstNumbers = (g: GridSpec) => range(g.vmax - g.C + 2 - g.vmin).map(k => g.vmin + k);
 const paintText = (p: PaintP, g: GridSpec): CardText => ({
-  emoji: "🖍️", name: "Number Painter", consts: [["FIRST", 1 + p.o, `${g.colourNames[0]} is worth this, the next colour one more, ...`]],
+  emoji: "🖍️", name: "Number Painter", consts: [["FIRST", p.first_number, `${g.colourNames[0]} is worth this, the next colour one more, ...`]],
   about: sentences(
-    "Each colour has a number: " + g.colourNames.map((n, i) => `${n} = ${valueTile(g, i + 1 + p.o)}`).join(", ") + ".",
+    "Each colour has a number: " + g.colourNames.map((n, i) => `${n} = ${valueTile(g, i + p.first_number)}`).join(", ") + ".",
     g.say.valueKey(),
     `Every cell whose ${num(g)} matches its colour scores 1 point.`,
   ),
@@ -660,8 +702,10 @@ const numberPainter = gridFamily<PaintP>({
   id: "number_painter", name: "Number Painter", emoji: "🖍️", theme: "Paint by numbers",
   analytic: solvedAnalytic("number_painter"),
   requires: { classes: ["Valued", "Spectral"] }, shape: SCALAR,
-  support: g => offsets(g).map(o => ({ o })),
-  canonical: (_, g) => ({ o: offsets(g)[0] }),
+  params: g => ({ first_number: intParam("Number of the first colour", g.vmin, g.vmax - g.C + 1) }),
+  legacy: p => (typeof p.o === "number" ? { first_number: p.o + 1 } : null),
+  support: g => firstNumbers(g).map(first_number => ({ first_number })),
+  canonical: (_, g) => ({ first_number: firstNumbers(g)[0] }),
   summary: (p, g) => paintText(p, g).about,
   python: (p, g) => pyCard(paintText(p, g), `
     def utility(grid):
@@ -678,7 +722,7 @@ const numberPainter = gridFamily<PaintP>({
       }
       return points;
     }`),
-  exemplar: (p, g) => wire(g, full(g.N, symForValue(g, 1 + p.o)), full(g.N, 0)),
+  exemplar: (p, g) => wire(g, full(g.N, symForValue(g, p.first_number)), full(g.N, 0)),
 });
 
 // --- Robin Hood -------------------------------------------------------------------------------------------
@@ -694,6 +738,7 @@ const robinText = (g: GridSpec): CardText => ({
 const robinHood = gridFamily<Record<string, never>>({
   id: "robin_hood", name: "Robin Hood", emoji: "🏹", theme: "Fair shares for every colour",
   requires: { classes: ["Valued"] }, shape: SCALAR,
+  params: () => ({}),
   support: () => [{}],
   summary: (_, g) => robinText(g).about,
   python: (_, g) => pyCard(robinText(g), `
@@ -735,13 +780,13 @@ const robinHood = gridFamily<Record<string, never>>({
 });
 
 // --- Seesaw ------------------------------------------------------------------------------------------------
-type SeesawP = { scope: Axis; mode: "halves" | "colours"; X: number | null; Y: number | null };
+type SeesawP = { scope: Axis; mode: "halves" | "colours"; left_colour: MaybeColour; right_colour: MaybeColour };
 const seesawText = (p: SeesawP, g: GridSpec): CardText => ({
-  emoji: "⚖️", name: "Seesaw", consts: p.mode === "colours" ? [["LEFT_COLOUR", cname(g, p.X!)], ["RIGHT_COLOUR", cname(g, p.Y!)]] : [],
+  emoji: "⚖️", name: "Seesaw", consts: p.mode === "colours" ? [["LEFT_COLOUR", p.left_colour], ["RIGHT_COLOUR", p.right_colour]] : [],
   about: sentences(
     `Treat ${everyLine(p.scope)} as a seesaw.`,
     p.mode === "halves" ? `Add up the ${nums(g)} in its left half and its right half, skipping the middle cell if there is one.`
-      : `Add up the ${nums(g)} on its ${cname(g, p.X!)} cells and on its ${cname(g, p.Y!)} cells.`,
+      : `Add up the ${nums(g)} on its ${p.left_colour} cells and on its ${p.right_colour} cells.`,
     g.say.valueKey(),
     "A seesaw balances when both sides match. Each balanced seesaw scores 1 point.",
     "Most points wins. If that's a tie, the smaller total gap between the two sides wins.",
@@ -751,16 +796,24 @@ const seesaw = gridFamily<SeesawP>({
   id: "seesaw", name: "Seesaw", emoji: "⚖️", theme: "Lines that balance",
   analytic: solvedAnalytic("seesaw"),
   requires: { classes: ["Valued"] }, shape: tuple(2),
+  params: g => ({
+    scope: choiceParam("Lines that count", AXIS_OPTIONS),
+    mode: choiceParam("Sides", [["halves", "left and right halves"], ["colours", "two colours"]]),
+    left_colour: colourOrAny("Colour of the left side", g),
+    right_colour: colourOrAny("Colour of the right side", g),
+  }),
+  legacy: (p, g) => ("X" in p
+    ? { scope: p.scope as Axis, mode: p.mode as SeesawP["mode"], left_colour: legacyMaybe(g, p.X), right_colour: legacyMaybe(g, p.Y) } : null),
   support: g => (["rows", "cols", "both"] as const).flatMap(scope => [
-    { scope, mode: "halves" as const, X: null, Y: null },
-    ...colourPairs(g).map(([X, Y]) => ({ scope, mode: "colours" as const, X, Y }))]),
+    { scope, mode: "halves" as const, left_colour: "any", right_colour: "any" },
+    ...colourPairs(g).map(([a, b]) => ({ scope, mode: "colours" as const, left_colour: g.colourNames[a], right_colour: g.colourNames[b] }))]),
   sample: (rng, g) => {
     const scope = pick(rng, ["rows", "cols", "both"] as const), mode = pick(rng, ["halves", "colours"] as const);
-    if (mode === "halves") return { scope, mode, X: null, Y: null };
-    const [X, Y] = pick(rng, colourPairs(g));
-    return { scope, mode, X, Y };
+    if (mode === "halves") return { scope, mode, left_colour: "any", right_colour: "any" };
+    const [a, b] = pick(rng, colourPairs(g));
+    return { scope, mode, left_colour: g.colourNames[a], right_colour: g.colourNames[b] };
   },
-  canonical: p => recolour({ ...p, scope: p.scope === "cols" ? "rows" : p.scope }, ["X", "Y"]),
+  canonical: (p, g) => recolourMaybe(g, { ...p, scope: p.scope === "cols" ? "rows" : p.scope }, ["left_colour", "right_colour"]),
   summary: (p, g) => seesawText(p, g).about,
   python: (p, g) => pyCard(seesawText(p, g), `
     def lean(line):${p.mode === "halves" ? `
@@ -806,18 +859,18 @@ const seesaw = gridFamily<SeesawP>({
       return [balanced, -wobble];
     }`),
   exemplar: (p, g) => {
-    const third = range(g.C).find(k => k !== p.X && k !== p.Y)!;
+    const third = range(g.C).find(k => g.colourNames[k] !== p.left_colour && g.colourNames[k] !== p.right_colour)!;
     return wire(g, full(g.N, symForValue(g, g.vmax)), full(g.N, third));
   },
 });
 
 // --- Stepping Stones ----------------------------------------------------------------------------------------
-type HopP = { d: number };
+type HopP = { hop: number };
 const hopMenu = (g: GridSpec) => [...new Set([1, 2, 3, ...(g.symbols === "base16" ? [4] : []), Math.ceil(g.vmax / 2)])].sort((a, b) => a - b);
 const hopText = (p: HopP, g: GridSpec): CardText => ({
-  emoji: "🪨", name: "Stepping Stones", consts: [["HOP", p.d]],
+  emoji: "🪨", name: "Stepping Stones", consts: [["HOP", p.hop]],
   about: sentences(
-    `You can hop between touching cells whose ${nums(g)} differ by exactly ${p.d}.`,
+    `You can hop between touching cells whose ${nums(g)} differ by exactly ${p.hop}.`,
     g.say.valueKey(),
     "A group is every cell you can reach by hopping from one cell.",
     "Your score is the size of the biggest group, 1 point per cell.",
@@ -826,7 +879,9 @@ const hopText = (p: HopP, g: GridSpec): CardText => ({
 const steppingStones = gridFamily<HopP>({
   id: "stepping_stones", name: "Stepping Stones", emoji: "🪨", theme: "Hop between numbers that differ by your step",
   requires: { classes: ["Valued"] }, shape: SCALAR,
-  support: g => hopMenu(g).map(d => ({ d })),
+  params: g => ({ hop: intParam("Hop size", 1, Math.max(...hopMenu(g))) }),
+  legacy: p => (typeof p.d === "number" ? { hop: p.d } : null),
+  support: g => hopMenu(g).map(hop => ({ hop })),
   summary: (p, g) => hopText(p, g).about,
   python: (p, g) => pyCard(hopText(p, g), `
     def hop(a, b):
@@ -847,15 +902,15 @@ const steppingStones = gridFamily<HopP>({
       for (const group of grid.regions(hop)) best = Math.max(best, group.length);
       return best;
     }`),
-  exemplar: (p, g) => wire(g, symGrid(g, fromFn(g.N, (r, c) => g.vmin + p.d * ((r + c) % 2))), full(g.N, 0)),
+  exemplar: (p, g) => wire(g, symGrid(g, fromFn(g.N, (r, c) => g.vmin + p.hop * ((r + c) % 2))), full(g.N, 0)),
 });
 
 // --- Column Addition ----------------------------------------------------------------------------------------
-type SumP = { top: number };
+type SumP = { top_row: number };
 const sumText = (p: SumP, g: GridSpec): CardText => ({
-  emoji: "➕", name: "Column Addition", consts: [["TOP", p.top, "rows count from 0 at the top"], ["BASE", g.base!]],
+  emoji: "➕", name: "Column Addition", consts: [["TOP", p.top_row, "rows count from 0 at the top"], ["BASE", g.base!]],
   about: sentences(
-    `Rows ${p.top + 1} and ${p.top + 2} are added together, like a written sum in base ${g.base}, and row ${p.top + 3} is the answer.`,
+    `Rows ${p.top_row + 1} and ${p.top_row + 2} are added together, like a written sum in base ${g.base}, and row ${p.top_row + 3} is the answer.`,
     digitNote(g),
     `Work from the right-hand end, and carry 1 whenever a column adds up to ${g.base} or more.`,
     "Most columns right in a row from the right-hand end wins. If that's a tie, the most right columns anywhere wins.",
@@ -866,8 +921,10 @@ const columnAddition = gridFamily<SumP>({
   id: "column_addition", name: "Column Addition", emoji: "➕", theme: "Three rows make a written sum",
   analytic: solvedAnalytic("column_addition"),
   requires: { classes: ["Numeral"] }, shape: tuple(2),
-  support: g => range(g.N - 2).map(top => ({ top })),
-  canonical: () => ({ top: 0 }),
+  params: g => ({ top_row: intParam("Row of the first number (0 is the top)", 0, g.N - 3) }),
+  legacy: p => (typeof p.top === "number" ? { top_row: p.top } : null),
+  support: g => range(g.N - 2).map(top_row => ({ top_row })),
+  canonical: () => ({ top_row: 0 }),
   summary: (p, g) => sumText(p, g).about,
   python: (p, g) => pyCard(sumText(p, g), `
     def utility(grid):
@@ -906,17 +963,17 @@ const columnAddition = gridFamily<SumP>({
       }
       return [fromRight, right];
     }`),
-  exemplar: (p, g) => wire(g, fromFn(g.N, r => (r === p.top || r === p.top + 1 ? 1 : r === p.top + 2 ? 2 : 0)), full(g.N, 0)),
+  exemplar: (p, g) => wire(g, fromFn(g.N, r => (r === p.top_row || r === p.top_row + 1 ? 1 : r === p.top_row + 2 ? 2 : 0)), full(g.N, 0)),
 });
 
 // --- Ladder of Numbers ---------------------------------------------------------------------------------------
-type LadderP = { dir: "down" | "up" };
+type LadderP = { direction: "down" | "up" };
 const ladderText = (p: LadderP, g: GridSpec): CardText => ({
   emoji: "🪜", name: "Ladder of Numbers", consts: [["BASE", g.base!]],
   about: sentences(
     `Read each row as one big number in base ${g.base}.`,
     digitNote(g),
-    `Going ${p.dir} the page, each row should be bigger than the row before it.`,
+    `Going ${p.direction} the page, each row should be bigger than the row before it.`,
     "The longest unbroken climb wins: the most rows in a row that each beat the row before.",
     "If that's a tie, the most rows that beat the row before wins.",
   ),
@@ -924,8 +981,10 @@ const ladderText = (p: LadderP, g: GridSpec): CardText => ({
 const ladder = gridFamily<LadderP>({
   id: "ladder_of_numbers", name: "Ladder of Numbers", emoji: "🪜", theme: "Row numbers that keep getting bigger",
   requires: { classes: ["Numeral"] }, shape: tuple(2),
-  support: () => [{ dir: "down" }, { dir: "up" }],
-  canonical: () => ({ dir: "down" }),
+  params: () => ({ direction: choiceParam("Climbing", [["down", "down the page"], ["up", "up the page"]]) }),
+  legacy: p => ("dir" in p ? { direction: p.dir as LadderP["direction"] } : null),
+  support: () => [{ direction: "down" }, { direction: "up" }],
+  canonical: () => ({ direction: "down" }),
   summary: (p, g) => ladderText(p, g).about,
   python: (p, g) => pyCard(ladderText(p, g), `
     def number(row):
@@ -935,7 +994,7 @@ const ladder = gridFamily<LadderP>({
         return n
 
     def utility(grid):
-        numbers = [number(row) for row in ${p.dir === "down" ? "grid.rows" : "reversed(grid.rows)"}]
+        numbers = [number(row) for row in ${p.direction === "down" ? "grid.rows" : "reversed(grid.rows)"}]
         best = 0
         climb = 0
         rises = 0
@@ -955,7 +1014,7 @@ const ladder = gridFamily<LadderP>({
     }
 
     function utility(grid) {
-      const numbers = grid.rows.map(number)${p.dir === "down" ? "" : ".reverse()"};
+      const numbers = grid.rows.map(number)${p.direction === "down" ? "" : ".reverse()"};
       let best = 0;
       let climb = 0;
       let rises = 0;
@@ -970,7 +1029,7 @@ const ladder = gridFamily<LadderP>({
       }
       return [best, rises];
     }`),
-  exemplar: (p, g) => wire(g, fromFn(g.N, (r, c) => (c === g.N - 1 ? (p.dir === "down" ? r : g.N - 1 - r) : 0)), full(g.N, 0)),
+  exemplar: (p, g) => wire(g, fromFn(g.N, (r, c) => (c === g.N - 1 ? (p.direction === "down" ? r : g.N - 1 - r) : 0)), full(g.N, 0)),
 });
 
 // --- Snap! ---------------------------------------------------------------------------------------------------
@@ -980,6 +1039,7 @@ const snapText = (g: GridSpec): CardText => ({
 });
 const snap = gridFamily<Record<string, never>>({
   id: "snap", name: "Snap!", emoji: "🫰", theme: "Touching twins", shape: SCALAR,
+  params: () => ({}),
   support: () => [{}],
   summary: (_, g) => snapText(g).about,
   python: (_, g) => pyCard(snapText(g), `
@@ -1004,11 +1064,11 @@ const snap = gridFamily<Record<string, never>>({
 });
 
 // --- Uphill (Young tableau) ------------------------------------------------------------------------------------
-type CornerP = { K: "TL" | "TR" | "BL" | "BR" };
+type CornerP = { corner: "TL" | "TR" | "BL" | "BR" };
 const uphillText = (p: CornerP, g: GridSpec): CardText => ({
   emoji: "⛷️", name: "Uphill", consts: [],
   about: sentences(
-    `Walk toward the ${p.K[0] === "T" ? "top" : "bottom"}-${p.K[1] === "L" ? "left" : "right"} corner along every row and column.`,
+    `Walk toward the ${p.corner[0] === "T" ? "top" : "bottom"}-${p.corner[1] === "L" ? "left" : "right"} corner along every row and column.`,
     `Each step should reach a bigger ${num(g)}, never the same or a smaller one.`,
     g.say.valueKey(),
     "A line is whole when every step in it gets bigger.",
@@ -1016,15 +1076,19 @@ const uphillText = (p: CornerP, g: GridSpec): CardText => ({
   ),
 });
 const uphillLines = (p: CornerP, lang: "py" | "ts") => {
-  const rows = p.K[1] === "R" ? "grid.rows" : lang === "py" ? "[list(reversed(row)) for row in grid.rows]" : "grid.rows.map(row => [...row].reverse())";
-  const cols = p.K[0] === "B" ? "grid.columns" : lang === "py" ? "[list(reversed(c)) for c in grid.columns]" : "grid.columns.map(column => [...column].reverse())";
+  const rows = p.corner[1] === "R" ? "grid.rows" : lang === "py" ? "[list(reversed(row)) for row in grid.rows]" : "grid.rows.map(row => [...row].reverse())";
+  const cols = p.corner[0] === "B" ? "grid.columns" : lang === "py" ? "[list(reversed(c)) for c in grid.columns]" : "grid.columns.map(column => [...column].reverse())";
   return lang === "py" ? `${rows} + ${cols}` : `[\n        ...${rows},\n        ...${cols},\n      ]`;
 };
 const youngTableau = gridFamily<CornerP>({
   id: "young_tableau", name: "Uphill", emoji: "⛷️", theme: "Numbers rise toward your corner",
   requires: { classes: ["Valued"] }, shape: tuple(2),
-  support: () => (["TL", "TR", "BL", "BR"] as const).map(K => ({ K })),
-  canonical: () => ({ K: "BR" }),
+  params: () => ({
+    corner: choiceParam("Corner the numbers rise toward", [["TL", "top-left"], ["TR", "top-right"], ["BL", "bottom-left"], ["BR", "bottom-right"]]),
+  }),
+  legacy: p => ("K" in p ? { corner: p.K as CornerP["corner"] } : null),
+  support: () => (["TL", "TR", "BL", "BR"] as const).map(corner => ({ corner })),
+  canonical: () => ({ corner: "BR" }),
   summary: (p, g) => uphillText(p, g).about,
   python: (p, g) => pyCard(uphillText(p, g), `
     def utility(grid):
@@ -1056,7 +1120,7 @@ const youngTableau = gridFamily<CornerP>({
     }`),
   exemplar: (p, g, ctx) => {
     const N = g.N, R = g.vmax - g.vmin;
-    const dist = (r: number, c: number) => (p.K[0] === "B" ? r : N - 1 - r) + (p.K[1] === "R" ? c : N - 1 - c);
+    const dist = (r: number, c: number) => (p.corner[0] === "B" ? r : N - 1 - r) + (p.corner[1] === "R" ? c : N - 1 - c);
     const sym = fromFn(N, (r, c) => symForValue(g, g.vmin + Math.min(dist(r, c), R)));
     return climb("young_tableau", p, ctx, [{ sym, col: full(N, 0) }], 0, range(R + 1).map(k => symForValue(g, g.vmin + k)));
   },
@@ -1075,6 +1139,7 @@ const fillText = (g: GridSpec): CardText => ({
 const fillomino = gridFamily<Record<string, never>>({
   id: "fillomino", name: "Fillomino", emoji: "🧩", theme: "A 3 lives in a group of three",
   requires: { classes: ["Valued"] }, shape: SCALAR,
+  params: () => ({}),
   support: () => [{}],
   summary: (_, g) => fillText(g).about,
   python: (_, g) => pyCard(fillText(g), `
@@ -1120,6 +1185,7 @@ const ladderColourText = (g: GridSpec): CardText => ({
 const colourValueLadder = gridFamily<Record<string, never>>({
   id: "colour_value_ladder", name: "Colour Ladder", emoji: "🎚️", theme: "Bigger numbers wear later rainbow colours",
   requires: { classes: ["Valued", "Spectral"] }, shape: SCALAR,
+  params: () => ({}),
   support: () => [{}],
   summary: (_, g) => ladderColourText(g).about,
   python: (_, g) => pyCard(ladderColourText(g), `

@@ -9,14 +9,14 @@ DIRS = {False: [(0, 1), (1, 0)], True: [(0, 1), (1, 0), (1, 1), (1, -1)]}
 
 # --- Seed 1: Line Painter ---------------------------------------------------------------------
 def s1_sample(rng, gtype):
-    return {"colour": colour(rng, gtype), "diag": bool(rng.random() < 0.25)}
+    return {"colour": colour_name(rng, gtype), "diagonals": bool(rng.random() < 0.25)}
 
 
 def s1_ord(g, p, gtype):
-    N, X = gtype.N, p["colour"]
+    N, X = gtype.N, ci(gtype, p["colour"])
     col, v = g.col.tolist(), gtype.value[g.sym].tolist()
     tot = 0
-    for d in DIRS[p["diag"]]:
+    for d in DIRS[p["diagonals"]]:
         for ln in scalar_lines(N, d):
             for i, L in runs([col[r][c] == X for r, c in ln]):
                 if L >= 2:
@@ -25,10 +25,10 @@ def s1_ord(g, p, gtype):
 
 
 def s1_batch(sym, col, p, gtype):
-    X = col == p["colour"]
+    X = col == ci(gtype, p["colour"])
     v = vals(sym, gtype)
     tot = np.zeros(len(sym), np.int64)
-    for dr, dc in DIRS[p["diag"]]:
+    for dr, dc in DIRS[p["diagonals"]]:
         inrun = X & (shift(X, dr, dc, False) | shift(X, -dr, -dc, False))
         tot += (v * inrun).sum((1, 2))
     return tot
@@ -36,17 +36,17 @@ def s1_batch(sym, col, p, gtype):
 
 def s1_exemplar(p, gtype):
     N = gtype.N
-    return grid(np.full((N, N), sym_for_value(gtype, vmax(gtype))), np.full((N, N), p["colour"]))
+    return grid(np.full((N, N), sym_for_value(gtype, vmax(gtype))), np.full((N, N), ci(gtype, p["colour"])))
 
 
 SEED1 = mk(
     id="seed1_line_painter", name="Line Painter", theme="Straight lines of one colour",
     requires=req("Valued"), layers={"colour", "symbol", "position"}, camp="clumper",
     sample=s1_sample,
-    summary=lambda p, gt: (f"Every straight line of 2 or more {cname(gt, p['colour'])} cells touching in a row "
-                           f"(across or down{', or diagonally' if p['diag'] else ''}) scores the sum of its numbers."),
+    summary=lambda p, gt: (f"Every straight line of 2 or more {p['colour']} cells touching in a row "
+                           f"(across or down{', or diagonally' if p['diagonals'] else ''}) scores the sum of its numbers."),
     ordinal=s1_ord, batch=s1_batch,
-    canonical=lambda p, gt: recolour(p, ["colour"]), exemplar=s1_exemplar,
+    canonical=lambda p, gt: recolour_names(p, ["colour"], gt), exemplar=s1_exemplar,
     source="seed rule 1 / catalog#13 (D7: colour=mine, runs>=2, diag option)", tags={"seed", "shortlist"})
 
 
@@ -137,21 +137,21 @@ def tok_tail_factory(ps_fn):
 
 
 def s3_sample(rng, gtype):
-    c = gtype.colour("green")
     vs = set(int(x) for x in gtype.value)
-    return {"colour": c if c is not None else colour(rng, gtype),
+    return {"colour": "green" if gtype.colour("green") is not None else colour_name(rng, gtype),
             "value": 1 if 1 in vs else int(rng.choice(sorted(vs)))}
 
 
 def s3_ord(g, p, gtype):
     v, col = gtype.value[g.sym].ravel().tolist(), g.col.ravel().tolist()
-    tok = sum(1 for a, b in zip(v, col) if a == p["value"] and b == p["colour"])
-    half = sum(1 for a, b in zip(v, col) if (a == p["value"]) != (b == p["colour"]))
+    k = ci(gtype, p["colour"])
+    tok = sum(1 for a, b in zip(v, col) if a == p["value"] and b == k)
+    half = sum(1 for a, b in zip(v, col) if (a == p["value"]) != (b == k))
     return tup(tok, half)
 
 
 def s3_batch(sym, col, p, gtype):
-    tok, half = _token_counts(vals(sym, gtype) == p["value"], col == p["colour"])
+    tok, half = _token_counts(vals(sym, gtype) == p["value"], col == ci(gtype, p["colour"]))
     return tupb(tok.sum((1, 2)), half.sum((1, 2)))
 
 
@@ -163,13 +163,13 @@ SEED3 = mk(
     id="seed3_green_ones", name="Green Ones", theme="Lucky green ones",
     requires=req(), layers={"colour", "symbol"}, camp="clumper",
     sample=s3_sample,
-    summary=lambda p, gt: (f"Count the {cname(gt, p['colour'])} "
+    summary=lambda p, gt: (f"Count the {p['colour']} "
                            f"{'aces' if gt.symbols == 'cards' and p['value'] == 1 else str(p['value']) + 's'}. "
                            "More is better; a cell with only the right colour or only the right number is a small step."),
     ordinal=s3_ord, batch=s3_batch,
-    canonical=lambda p, gt: {"colour": 0, "value": vmin(gt)},
+    canonical=lambda p, gt: {"colour": gt.colour_names[0], "value": vmin(gt)},
     exact_log2_tail=tok_tail_factory(s3_ps),
-    exemplar=lambda p, gt: grid(np.full((gt.N, gt.N), sym_for_value(gt, p["value"])), np.full((gt.N, gt.N), p["colour"])),
+    exemplar=lambda p, gt: grid(np.full((gt.N, gt.N), sym_for_value(gt, p["value"])), np.full((gt.N, gt.N), ci(gt, p["colour"]))),
     source="seed rule 3 / catalog#14 (D8); tie-breaker = half-tokens", tags={"seed", "shortlist"})
 
 FAMILIES = [SEED1, SEED2, SEED3]
