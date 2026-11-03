@@ -273,3 +273,9 @@ Owner, verbatim (abridged only where marked):
     power/selection model (energy-weighted selection).
   - It's the same q for every rule in a game, so rules stay comparable, and calibration tables gain a key or
     parameter for q.
+- Why not a single mutation (m = 1)? In the quick test, m = 1 inverts the ordering at matched rarity: reds ≥ 12
+  held 0.33 vs chessboards ≥ 4 held 0.43. At m = 2 it's 0.29 vs 0.24, and the lattice's fragility compounds with
+  more hits.
+  - High-order brittleness is invisible to a first-order (single-hit) probe, so prefer the geometric average over m.
+  - Verify on more families at high levels (MCMC) before deciding.
+  - Test details: hold.py; 600k uniform boards, rejection-sampled to ≥ u; noise = m uniform single-cell recolourings.
