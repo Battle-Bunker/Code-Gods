@@ -695,6 +695,59 @@ PRs 2 and 3 deliver most of the relief: every per-tick re-run of cold queries go
 becomes shared. PR 4 is the largest; it needs the tick's extra writes measured (≤ 800 row patches per tick) against
 the commit's time budget, using the existing `probe:concurrent`.
 
+### 6.1 Results so far (2026-11-03; released to production at 15:51 AEDT)
+
+The figures below were measured by the query-cost gate in each PR, in a running game with 1,000 objects on the local
+backend: documents and KiB read per execution, and median user-code ms. "Cached" means the query was answered from
+the cache across 5 tick commits.
+
+**Landed:**
+
+| PR | Change | Rule |
+|---|---|---|
+| #155 | Query-cost gate and budget table | R8 |
+| #158 | `games` split into `gameClocks` and `gameEngine`, with a migration | R3 |
+| #161 | Sign-in required everywhere | — |
+| #154, #156, #157 | Palette lists as subscriptions; no dock remount loop; guard against one-off reads | R6 |
+| #159, #160, #162 | Stored replays, served behind sign-in | R7 |
+| #163 | Spectator read model, with tick-written standings | R1, R4 |
+| #166 | Manifest and calibration as subscriptions | R6 |
+| #169 | Gate reliability | — |
+| #173 | The observation reads its own transformations through an index | R2 |
+
+**Measured before and after:**
+
+| Query | Before | After |
+|---|---|---|
+| `games.view` (spectator page; the query that hit the 1 s limit) | 1,019 docs, 566 KiB, 56 ms, every tick for every viewer | **Removed**, replaced by 8 small queries |
+| Spectator queries (#163): `games.header`, `standings`, `standingsHistory`, `instance`, `object`, `rooms.chat` | — | 4–8 docs, 3–6 KiB, about 10 ms each; header, instance and chat cached |
+| `games.objectIds` (spectator skeleton page) | — | 54 docs, 32 KiB, 9 ms |
+| Metadata queries (#158): `rooms.get`, `rooms.list`, `rooms.history`, `games.resolve`, `layout.current`, `myUtility`, `assistant.*` | Re-executed on every tick commit, for every viewer | **Cached across ticks** (all 22 cold queries); 4–9 docs, ≤ 7.5 KiB, 16–35 ms when they do run |
+| `player.observation` (the dock) | 1,062 docs, 792 KiB, 126 ms | 1,185 docs, 688 KiB, 119 ms (#173: −104 KiB per player per tick; small index rows replace 15 large batches) |
+| `manifest.get` | Action, cached by hand in the browser | Live query: 5 docs, 56 KiB |
+
+**Still debt** (listed in `test/query-budgets.ts`, ratcheting down):
+- `player.observation`: whole world. The fix is moving the dock off it (PR 5).
+- `player.objectsPage`: whole world. The fix is the per-god read model (PR 4).
+- `player.game`: an ended game's final state; static once ended.
+- `player.events` and `player.trajectories`: up to 50 `tickBatches` per call, 300–650 KiB depending on load.
+- `setups.list`: the whole shared setup catalogue.
+
+**Held or postponed to Thursday 2026-11-05** (owner's decision, to protect the evening release):
+
+| Item | Status |
+|---|---|
+| Removing `useLive`'s retry (#171) | Ready, but held. Without the retry, a query over 1 s on a loaded backend leaves the page on an error until reconnect. Merge it after the dock leaves the observation. |
+| Trajectory windows plus a live tail (PR 8's trajectories item) | Not started |
+| Per-god object read model (PR 4, branch `c2-object-views`) | Built, but the per-object row sync doubled tick commit time (298 → 667 ms at 1,000 objects, 100 Hz). Needs a cheaper write before it can merge. |
+| The dock off the observation (PR 5); the SDK and MCP (PR 6); `setups.list` paging | Not started |
+| Narrowing `games`' hot fields and their fallbacks | Waits for the migration to succeed on dev and production. |
+| Narrowing `objects.publicSalience` | Waits for the same. |
+| Narrowing `objectEvents.index` and `cost`, and removing the old-scan fallback (#173) | Waits for the same. |
+
+**Process rule added on the way** (`.claude/skills/selective-testing`): each change runs its own selective set of
+suites, once, when it is ready to merge. CI on `develop` is the full net.
+
 ---
 
 ## 7. Sources
