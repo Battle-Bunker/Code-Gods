@@ -248,3 +248,18 @@ Owner, verbatim (abridged only where marked):
     reference share of edits, plus 2^(−cost)-weighted mutator noise from others, run T steps.
   - Payoff bits = −log2 P_ref(U ≥ u). Equal effort then earns equal expected bits across rules.
   - It fits the existing Monte Carlo calibration pipeline (simulated per family/shape; expensive but offline).
+- Owner's refinement (3 Nov): avoid intelligent-player simulations. Measure how far boards at a given score fall
+  under weighted random mutations.
+  - Coordinator's formalisation: "hold rarity" = −log2 P(U(x) ≥ u AND U(x′) ≥ u), where x ~ prior and x′ = x after
+    m random mutations weighted 2^(−cost).
+  - That's static rarity + −log2 P(hold | ≥ u). It is cheap: prior sampling, MCMC for high levels, noise, and no
+    player.
+  - Quick test (4×4×3, single-cell noise), adjustment for m = 2:
+    - reds: +0.5 bits at u ≥ 7, +1.8 at u ≥ 12 (10.4 static);
+    - chessboards: +1.2 at u ≥ 2, +2.1 at u ≥ 4 (10.0 static), +2.8 at u ≥ 5.
+  - At matched static rarity the gap is real but modest (~0.3 bits at ~10 bits). It grows with level, and
+    chessboards' hold probability falls much faster.
+  - The contest sim showed a larger effect. Part of it is gradient sparsity (few improving single mutations), which
+    a hold measure doesn't see. A cheap companion metric: P(a random mutation raises U) at level u.
+  - Next: sample high levels with MCMC; compare hold rarity, and hold + ascent, against the contest sim on several
+    families; pick the formula.
