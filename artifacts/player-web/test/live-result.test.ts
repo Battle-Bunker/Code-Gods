@@ -8,6 +8,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { ConvexError } from "convex/values";
 import { liveResult } from "../src/lib/live-result.ts";
+import { transient } from "../src/site/lib/errors.ts";
 
 const timeout = new Error("[CONVEX Q(games:view)] Function execution timed out (maximum duration: 1s)");
 const refusal = new ConvexError({ code: "FORBIDDEN", message: "Join this room first" }) as unknown as Error;
@@ -27,4 +28,8 @@ test("loading while subscribed without an answer; neither loading nor failed whe
   assert.deepEqual(liveResult(false, undefined), { data: undefined, error: null, isLoading: true });
   assert.deepEqual(liveResult(true, undefined), { data: undefined, error: null, isLoading: false });
   assert.deepEqual(liveResult(false, null), { data: null, error: null, isLoading: false }, "null is an answer (not found)");
+});
+
+test("a page offers a reload for a failure that can pass (a timeout), never for the engine's refusal", () => {
+  assert.deepEqual([timeout, refusal, null, undefined].map(transient), [true, false, false, false]);
 });

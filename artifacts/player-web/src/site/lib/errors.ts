@@ -17,5 +17,12 @@ export function errMsg(e: unknown): string {
 export function errCode(e: unknown): string | undefined {
   return e instanceof ConvexError ? (e.data as { code?: string } | undefined)?.code : undefined;
 }
+/**
+ * A failure that is not the engine's answer (a timeout, a server error): it can pass. Convex re-runs a failed query
+ * only when its data changes or the socket reconnects (no client retry, read-architecture R6), so the page offers a
+ * reload for it.
+ */
+export const transient = (e: unknown): boolean => e instanceof Error && !(e instanceof ConvexError);
+export const reload = () => window.location.reload();
 export const rid = () => crypto.randomUUID();
 export const fmt = (n: number, d = 0) => n.toLocaleString(undefined, { maximumFractionDigits: d, minimumFractionDigits: d });
