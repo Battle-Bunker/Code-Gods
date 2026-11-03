@@ -5,6 +5,7 @@ from functools import lru_cache
 
 from ._util import *  # noqa: F401,F403
 from ._util import rim_mask, multi_climb, hill_climb
+from .games import SUIT_WORDS, rank_at, rank_name, recolour_some, suit_at
 
 
 def _other(gtype, *cs):
@@ -20,16 +21,16 @@ def _roots(lab, mask):
 
 
 # --- Castle Keeper (merged with Go Territory) ------------------------------------------------------
-def ck_score_parts(enc_cells, regions, p, col):
+def ck_score_parts(enc_cells, regions, p, col, gtype):
     if p["mode"] == "treasure":
-        return sum(1 for r, c in enc_cells if col[r][c] == p["T"])
+        return sum(1 for r, c in enc_cells if col[r][c] == ci(gtype, p["treasure"]))
     if p["mode"] == "eyes":
         return len(enc_cells) + 3 * regions
     return len(enc_cells)
 
 
 def ck_ord(g, p, gtype):
-    N, W = gtype.N, p["W"]
+    N, W = gtype.N, ci(gtype, p["wall"])
     col = g.col.tolist()
     nonw = [[x != W for x in row] for row in col]
     enc, regions = [], 0
@@ -38,18 +39,18 @@ def ck_ord(g, p, gtype):
             enc += comp
             regions += 1
     rimw = sum(1 for r in range(N) for c in range(N) if (r in (0, N - 1) or c in (0, N - 1)) and col[r][c] == W)
-    return tup(ck_score_parts(enc, regions, p, col), rimw)
+    return tup(ck_score_parts(enc, regions, p, col, gtype), rimw)
 
 
 def ck_batch(sym, col, p, gtype):
-    N, W = gtype.N, p["W"]
+    N, W = gtype.N, ci(gtype, p["wall"])
     rim = rim_mask(N)
     mask = col != W
     lab = label_batch(np.zeros(col.shape, np.int64), mask)
     touch = comp_sum(lab, np.broadcast_to(rim, col.shape).astype(np.int64), mask) > 0
     enc = mask & ~touch
     if p["mode"] == "treasure":
-        s = (enc & (col == p["T"])).sum((1, 2))
+        s = (enc & (col == ci(gtype, p["treasure"]))).sum((1, 2))
     elif p["mode"] == "eyes":
         s = enc.sum((1, 2)) + 3 * _roots(lab, enc).sum((1, 2))
     else:
@@ -59,14 +60,14 @@ def ck_batch(sym, col, p, gtype):
 
 
 def ck_sample(rng, gtype):
-    W, T = colours(rng, gtype, 2)
+    W, T = colour_names(rng, gtype, 2)
     mode = str(rng.choice(["plain", "plain", "treasure", "eyes"]))
-    return {"W": W, "mode": mode, "T": T if mode == "treasure" else None}
+    return {"wall": W, "mode": mode, "treasure": T if mode == "treasure" else "none"}
 
 
 def ck_exemplar(p, gtype):
-    N, W = gtype.N, p["W"]
-    inner = p["T"] if p["mode"] == "treasure" else _other(gtype, W)
+    N, W = gtype.N, ci(gtype, p["wall"])
+    inner = ci(gtype, p["treasure"]) if p["mode"] == "treasure" else _other(gtype, W)
     col = np.full((N, N), inner)
     col[rim_mask(N)] = W
     if p["mode"] != "eyes":
@@ -77,10 +78,10 @@ def ck_exemplar(p, gtype):
 
 
 def ck_summary(p, gt):
-    w = cname(gt, p["W"])
+    w = p["wall"]
     base = f"Build walls of {w}. A cell is safe when water flowing in from the edge (not through {w}) can't reach it. "
     if p["mode"] == "treasure":
-        return base + f"Score a point for every safe {cname(gt, p['T'])} cell."
+        return base + f"Score a point for every safe {p['treasure']} cell."
     if p["mode"] == "eyes":
         return base + "Score a point for every safe cell, plus 3 for every separate safe pocket (like eyes in Go)."
     return base + "Score a point for every safe cell."
@@ -90,7 +91,7 @@ CASTLE_KEEPER = mk(
     id="castle_keeper", name="Castle Keeper", theme="Walls that keep the water out",
     requires=req(min_size=4), layers={"colour", "position"}, camp="clumper",
     sample=ck_sample, summary=ck_summary, ordinal=ck_ord, batch=ck_batch,
-    canonical=lambda p, gt: recolour(p, ["W", "T"]), exemplar=ck_exemplar,
+    canonical=lambda p, gt: recolour_some(p, ["wall", "treasure"], gt), exemplar=ck_exemplar,
     source="catalog#4 (D4: geo#5 + games#8 Go Territory; treasure and eyes variants; MinSize 4); "
            "tie-breaker = wall cells on the rim", tags={"shortlist"})
 
@@ -151,11 +152,11 @@ CHESSMASTER = mk(
 # --- Archipelago -----------------------------------------------------------------------------------
 def ar_ord(g, p, gtype):
     col = g.col.tolist()
-    return len(comps2d(col, [[x == p["C"] for x in row] for row in col]))
+    return len(comps2d(col, [[x == ci(gtype, p["colour"]) for x in row] for row in col]))
 
 
 def ar_batch(sym, col, p, gtype):
-    mask = col == p["C"]
+    mask = col == ci(gtype, p["colour"])
     lab = label_batch(np.zeros(col.shape, np.int64), mask)
     return _roots(lab, mask).sum((1, 2))
 
@@ -163,29 +164,29 @@ def ar_batch(sym, col, p, gtype):
 ARCHIPELAGO = mk(
     id="archipelago", name="Archipelago", theme="As many separate islands as possible",
     requires=req(), layers={"colour", "position"}, camp="alternator",
-    sample=lambda rng, gt: {"C": colour(rng, gt)},
-    summary=lambda p, gt: f"Count the separate islands of {cname(gt, p['C'])} (touching corners don't join islands).",
-    ordinal=ar_ord, batch=ar_batch, canonical=lambda p, gt: recolour(p, ["C"]),
-    exemplar=lambda p, gt: checker(gt, p["C"], (p["C"] + 1) % gt.C),
+    sample=lambda rng, gt: {"colour": colour_name(rng, gt)},
+    summary=lambda p, gt: f"Count the separate islands of {p['colour']} (touching corners don't join islands).",
+    ordinal=ar_ord, batch=ar_batch, canonical=lambda p, gt: recolour_names(p, ["colour"], gt),
+    exemplar=lambda p, gt: checker(gt, ci(gt, p["colour"]), (ci(gt, p["colour"]) + 1) % gt.C),
     source="geo#4 (catalog D2 'islands')")
 
 
 # --- Bridge Builder ----------------------------------------------------------------------------------
 def br_ord(g, p, gtype):
-    col = g.col if p["D"] == "LR" else g.col.T
+    col = g.col if p["direction"] == "LR" else g.col.T
     col = col.tolist()
     best = 0
-    for comp in comps2d(col, [[x == p["C"] for x in row] for row in col]):
+    for comp in comps2d(col, [[x == ci(gtype, p["colour"]) for x in row] for row in col]):
         best = max(best, len({c for _, c in comp}))
     return best
 
 
 def br_batch(sym, col, p, gtype):
     N = gtype.N
-    if p["D"] == "TB":
+    if p["direction"] == "TB":
         col = np.swapaxes(col, 1, 2)
     B = len(col)
-    mask = col == p["C"]
+    mask = col == ci(gtype, p["colour"])
     lab = label_batch(np.zeros(col.shape, np.int64), mask)
     gl = lab + (np.arange(B, dtype=np.int64) * N * N)[:, None, None]
     span = np.zeros(B * N * N, np.int64)
@@ -198,23 +199,23 @@ def br_batch(sym, col, p, gtype):
 
 def br_exemplar(p, gtype):
     N = gtype.N
-    col = np.full((N, N), (p["C"] + 1) % gtype.C)
-    if p["D"] == "LR":
-        col[N // 2, :] = p["C"]
+    col = np.full((N, N), (ci(gtype, p["colour"]) + 1) % gtype.C)
+    if p["direction"] == "LR":
+        col[N // 2, :] = ci(gtype, p["colour"])
     else:
-        col[:, N // 2] = p["C"]
+        col[:, N // 2] = ci(gtype, p["colour"])
     return grid(np.zeros((N, N)), col)
 
 
 BRIDGE_BUILDER = mk(
     id="bridge_builder", name="Bridge Builder", theme="A path from one edge to the other",
     requires=req(), layers={"colour", "position"}, camp="clumper",
-    sample=lambda rng, gt: {"C": colour(rng, gt), "D": str(rng.choice(["LR", "TB"]))},
-    summary=lambda p, gt: (f"Build a bridge of touching {cname(gt, p['C'])} cells from the "
-                           f"{'left edge to the right edge' if p['D'] == 'LR' else 'top edge to the bottom edge'}. "
-                           f"Score = how many {'columns' if p['D'] == 'LR' else 'rows'} your best bridge reaches."),
+    sample=lambda rng, gt: {"colour": colour_name(rng, gt), "direction": str(rng.choice(["LR", "TB"]))},
+    summary=lambda p, gt: (f"Build a bridge of touching {p['colour']} cells from the "
+                           f"{'left edge to the right edge' if p['direction'] == 'LR' else 'top edge to the bottom edge'}. "
+                           f"Score = how many {'columns' if p['direction'] == 'LR' else 'rows'} your best bridge reaches."),
     ordinal=br_ord, batch=br_batch,
-    canonical=lambda p, gt: {"C": 0, "D": "LR"}, exemplar=br_exemplar,
+    canonical=lambda p, gt: {"colour": gt.colour_names[0], "direction": "LR"}, exemplar=br_exemplar,
     source="catalog#11 (geo#1; the 2N full-crossing bonus is monotone, so the ordinal is the span)",
     tags={"shortlist"})
 
@@ -287,7 +288,7 @@ def _pin_key(sym, col, gtype, attr):
 
 
 def pw_ord(g, p, gtype):
-    k = _pin_key(g.sym, g.col, gtype, p["attr"]).ravel().tolist()
+    k = _pin_key(g.sym, g.col, gtype, p["layer"]).ravel().tolist()
     full = plur = 0
     for o in orbits(gtype.N).tolist():
         vs = [k[i] for i in o]
@@ -297,7 +298,7 @@ def pw_ord(g, p, gtype):
 
 
 def pw_batch(sym, col, p, gtype):
-    k = _pin_key(sym, col, gtype, p["attr"]).reshape(len(sym), -1)
+    k = _pin_key(sym, col, gtype, p["layer"]).reshape(len(sym), -1)
     O = orbits(gtype.N)
     v = k[:, O]  # (B, M, 4)
     full = (v == v[:, :, :1]).all(2).sum(1)
@@ -308,9 +309,9 @@ def pw_batch(sym, col, p, gtype):
 PINWHEEL = mk(
     id="pinwheel", name="Pinwheel", theme="Looks the same after a quarter turn",
     requires=req(), layers={"colour", "symbol", "position"}, camp="clumper",
-    sample=lambda rng, gt: {"attr": str(rng.choice(["colour", "symbol"]))},
+    sample=lambda rng, gt: {"layer": str(rng.choice(["colour", "symbol"]))},
     summary=lambda p, gt: ("Turn the grid a quarter turn. Every set of 4 cells that swap places and all share the same "
-                           + ("colour" if p["attr"] == "colour" else "suit" if gt.symbols == "cards" else "symbol")
+                           + ("colour" if p["layer"] == "colour" else "suit" if gt.symbols == "cards" else "symbol")
                            + " scores a point."),
     ordinal=pw_ord, batch=pw_batch,
     exemplar=lambda p, gt: grid(np.zeros((gt.N, gt.N)), np.zeros((gt.N, gt.N))),
@@ -364,7 +365,7 @@ def _court(sym, gtype, suit):
 def rc_ord(g, p, gtype):
     N = gtype.N
     m = N // 2
-    fc = _court(g.sym, gtype, p["suit"]).tolist()
+    fc = _court(g.sym, gtype, suit_at(p["suit"])).tolist()
     interior = sum(1 for r in range(1, N - 1) for c in range(1, N - 1) if fc[r][c])
     score = 0
     if fc[m][m]:
@@ -377,7 +378,7 @@ def rc_ord(g, p, gtype):
 def rc_batch(sym, col, p, gtype):
     N = gtype.N
     m = N // 2
-    fc = _court(sym, gtype, p["suit"])
+    fc = _court(sym, gtype, suit_at(p["suit"]))
     lab = label_batch(np.zeros(sym.shape, np.int64), fc)
     reg = fc & (lab == lab[:, m, m][:, None, None]) & fc[:, m, m][:, None, None]
     size = reg.sum((1, 2))
@@ -388,7 +389,7 @@ def rc_batch(sym, col, p, gtype):
 
 def rc_exemplar(p, gtype):
     N = gtype.N
-    su = 0 if p["suit"] is None else p["suit"]
+    su = suit_at(p["suit"]) or 0
     s = np.where(rim_mask(N), su * 13 + 1, su * 13 + 12)
     # The doubled safe palace (2(N-2)^2) only beats an all-picture grid (N^2) at N = 7.
     cands = [grid(s, np.zeros((N, N))), grid(np.full((N, N), su * 13 + 12), np.zeros((N, N)))]
@@ -398,12 +399,12 @@ def rc_exemplar(p, gtype):
 ROYAL_COURT = mk(
     id="royal_court", name="Royal Court", theme="A palace of picture cards around the centre",
     requires=req("Faced", parity="odd"), layers={"symbol", "position"}, camp="clumper",
-    sample=lambda rng, gt: {"suit": None if rng.random() < 0.5 else int(rng.integers(4))},
+    sample=lambda rng, gt: {"suit": "any" if rng.random() < 0.5 else SUIT_WORDS[int(rng.integers(4))]},
     summary=lambda p, gt: ("The king lives in the centre. If the centre card is a picture card "
-                           + ("(J, Q, K)" if p["suit"] is None else f"(J, Q, K of {SUITS_[p['suit']]})")
+                           + ("(J, Q, K)" if p["suit"] == "any" else f"(J, Q, K of {SUITS_[suit_at(p['suit'])]})")
                            + ", score the size of the joined-up patch of picture cards around it, doubled if the patch "
                              "doesn't touch the edge."),
-    ordinal=rc_ord, batch=rc_batch, canonical=lambda p, gt: {"suit": None if p["suit"] is None else 0},
+    ordinal=rc_ord, batch=rc_batch, canonical=lambda p, gt: {"suit": "any" if p["suit"] == "any" else "spades"},
     exemplar=rc_exemplar,
     source="catalog#31 (geo#16; HasCentre = odd N only); tie-breaker = picture cards off the edge", tags={"shortlist"})
 
@@ -468,7 +469,7 @@ BULLSEYE = mk(
 
 # --- Snake Charmer -------------------------------------------------------------------------------------
 def sn_ord(g, p, gtype):
-    N, C = gtype.N, p["C"]
+    N, C = gtype.N, ci(gtype, p["colour"])
     col = g.col.tolist()
     mask = [[x == C for x in row] for row in col]
     best = 0
@@ -480,7 +481,7 @@ def sn_ord(g, p, gtype):
 
 
 def sn_batch(sym, col, p, gtype):
-    mask = col == p["C"]
+    mask = col == ci(gtype, p["colour"])
     lab = label_batch(np.zeros(col.shape, np.int64), mask)
     deg = sum(shift(mask, dr, dc, False).astype(np.int64) for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1))) * mask
     size = comp_sum(lab, np.ones(col.shape, np.int64), mask)
@@ -492,22 +493,22 @@ def sn_batch(sym, col, p, gtype):
 
 def sn_exemplar(p, gtype):
     N = gtype.N
-    col = np.full((N, N), (p["C"] + 1) % gtype.C)
+    col = np.full((N, N), (ci(gtype, p["colour"]) + 1) % gtype.C)
     for r in range(N):
         if r % 2 == 0:
-            col[r, :] = p["C"]
+            col[r, :] = ci(gtype, p["colour"])
         else:
-            col[r, N - 1 if (r // 2) % 2 == 0 else 0] = p["C"]
+            col[r, N - 1 if (r // 2) % 2 == 0 else 0] = ci(gtype, p["colour"])
     return grid(np.zeros((N, N)), col)
 
 
 SNAKE_CHARMER = mk(
     id="snake_charmer", name="Snake Charmer", theme="The longest wiggly snake",
     requires=req(), layers={"colour", "position"}, camp="neutral",
-    sample=lambda rng, gt: {"C": colour(rng, gt)},
-    summary=lambda p, gt: (f"Build the longest snake of {cname(gt, p['C'])}: a patch one cell wide with no branches and "
+    sample=lambda rng, gt: {"colour": colour_name(rng, gt)},
+    summary=lambda p, gt: (f"Build the longest snake of {p['colour']}: a patch one cell wide with no branches and "
                            "no loops. Score its length."),
-    ordinal=sn_ord, batch=sn_batch, canonical=lambda p, gt: recolour(p, ["C"]), exemplar=sn_exemplar,
+    ordinal=sn_ord, batch=sn_batch, canonical=lambda p, gt: recolour_names(p, ["colour"], gt), exemplar=sn_exemplar,
     source="geo#9")
 
 
@@ -536,15 +537,15 @@ def _mask_of(form):
 
 def tt_ord(g, p, gtype):
     col = g.col.tolist()
-    forms = piece_forms(p["P"])
-    cs = [cp for cp in comps2d(col, [[x == p["C"] for x in row] for row in col]) if len(cp) == 4]
+    forms = piece_forms(p["piece"])
+    cs = [cp for cp in comps2d(col, [[x == ci(gtype, p["colour"]) for x in row] for row in col]) if len(cp) == 4]
     pieces = sum(_norm(cp) in forms for cp in cs)
     return tup(pieces, len(cs))
 
 
 def tt_batch(sym, col, p, gtype):
     B, N = len(col), gtype.N
-    mask = col == p["C"]
+    mask = col == ci(gtype, p["colour"])
     lab = label_batch(np.zeros(col.shape, np.int64), mask)
     size = comp_sum(lab, np.ones(col.shape, np.int64), mask)
     m4 = mask & (size == 4)
@@ -557,7 +558,7 @@ def tt_batch(sym, col, p, gtype):
     np.add.at(bits, gl, np.left_shift(1, (rr - rmin[gl]) * 4 + (cc - cmin[gl])))
     roots = _roots(lab, m4)
     rg = (lab + (np.arange(B, dtype=np.int64) * N * N)[:, None, None])
-    ok = np.isin(bits, np.array([_mask_of(f) for f in piece_forms(p["P"])]))
+    ok = np.isin(bits, np.array([_mask_of(f) for f in piece_forms(p["piece"])]))
     pieces = (roots & ok[rg]).sum((1, 2))
     return tupb(pieces, roots.sum((1, 2)))
 
@@ -565,7 +566,7 @@ def tt_batch(sym, col, p, gtype):
 def tt_exemplar(p, gtype):
     N = gtype.N
     occ = np.zeros((N, N), bool)
-    forms = sorted(sorted(f) for f in piece_forms(p["P"]))
+    forms = sorted(sorted(f) for f in piece_forms(p["piece"]))
     for r in range(N):
         for c in range(N):
             for f in forms:
@@ -577,16 +578,16 @@ def tt_exemplar(p, gtype):
                 for x, y in cells:
                     occ[x, y] = True
                 break
-    return grid(np.zeros((N, N)), np.where(occ, p["C"], (p["C"] + 1) % gtype.C))
+    return grid(np.zeros((N, N)), np.where(occ, ci(gtype, p["colour"]), (ci(gtype, p["colour"]) + 1) % gtype.C))
 
 
 TETROMINO_TAMER = mk(
     id="tetromino_tamer", name="Tetromino Tamer", theme="Islands shaped like your Tetris piece",
     requires=req(), layers={"colour", "position"}, camp="neutral",
-    sample=lambda rng, gt: {"C": colour(rng, gt), "P": str(rng.choice(["O", "T", "L", "S"] + (["I"] if gt.N >= 4 else [])))},
+    sample=lambda rng, gt: {"colour": colour_name(rng, gt), "piece": str(rng.choice(["O", "T", "L", "S"] + (["I"] if gt.N >= 4 else [])))},
     summary=lambda p, gt: (f"Every island of {cname(gt, p['C'])} that is exactly the shape of a Tetris {p['P']} piece "
                            "(turned or flipped is fine) scores a point."),
-    ordinal=tt_ord, batch=tt_batch, canonical=lambda p, gt: recolour(p, ["C"]), exemplar=tt_exemplar,
+    ordinal=tt_ord, batch=tt_batch, canonical=lambda p, gt: recolour_names(p, ["colour"], gt), exemplar=tt_exemplar,
     source="geo#10 (I only for N>=4); tie-breaker = 4-cell islands of any shape")
 
 
@@ -598,7 +599,7 @@ def _band_d(N, K):
 
 def rb_ord(g, p, gtype):
     N, C = gtype.N, gtype.C
-    d = _band_d(N, p["K"]).tolist()
+    d = _band_d(N, p["corner"]).tolist()
     col = g.col.tolist()
     score = cells = 0
     for t in range(2 * N - 1):
@@ -611,7 +612,7 @@ def rb_ord(g, p, gtype):
 
 def rb_batch(sym, col, p, gtype):
     N, C = gtype.N, gtype.C
-    d = _band_d(N, p["K"])
+    d = _band_d(N, p["corner"])
     ok = col == (d % C)
     score = np.zeros(len(col), np.int64)
     for t in range(2 * N - 1):
@@ -623,24 +624,24 @@ def rb_batch(sym, col, p, gtype):
 RAINBOW_BANDS = mk(
     id="rainbow_bands", name="Rainbow Bands", theme="Slanted rainbow stripes from your corner",
     requires=req("Spectral"), layers={"colour", "position"}, camp="alternator",
-    sample=lambda rng, gt: {"K": str(rng.choice(["TL", "TR", "BL", "BR"]))},
+    sample=lambda rng, gt: {"corner": str(rng.choice(["TL", "TR", "BL", "BR"]))},
     summary=lambda p, gt: (f"Paint slanted stripes starting from the {'top' if p['K'][0] == 'T' else 'bottom'}-"
                            f"{'left' if p['K'][1] == 'L' else 'right'} corner in rainbow order "
                            f"({', '.join(gt.colour_names)}, then again). Every cell on a stripe that is fully right scores."),
-    ordinal=rb_ord, batch=rb_batch, canonical=lambda p, gt: {"K": "TL"},
-    exemplar=lambda p, gt: grid(np.zeros((gt.N, gt.N)), _band_d(gt.N, p["K"]) % gt.C),
+    ordinal=rb_ord, batch=rb_batch, canonical=lambda p, gt: {"corner": "TL"},
+    exemplar=lambda p, gt: grid(np.zeros((gt.N, gt.N)), _band_d(gt.N, p["corner"]) % gt.C),
     source="geo#11; tie-breaker = individually correct cells")
 
 
 # --- Constellation -------------------------------------------------------------------------------------
 def co_ord(g, p, gtype):
     k = rank_key(g.sym, gtype).tolist()
-    cs = comps2d(k, [[x == p["S"] for x in row] for row in k], diag=True)
+    cs = comps2d(k, [[x == rank_at(gtype, p["star"]) for x in row] for row in k], diag=True)
     return max((len(c) for c in cs), default=0)
 
 
 def co_batch(sym, col, p, gtype):
-    mask = rank_key(sym, gtype) == p["S"]
+    mask = rank_key(sym, gtype) == rank_at(gtype, p["star"])
     lab = label_batch(np.zeros(sym.shape, np.int64), mask, diag=True)
     return comp_sum(lab, np.ones(sym.shape, np.int64), mask).reshape(len(sym), -1).max(1)
 
@@ -648,12 +649,12 @@ def co_batch(sym, col, p, gtype):
 CONSTELLATION = mk(
     id="constellation", name="Constellation", theme="The biggest star cluster of your symbol",
     requires=req(), layers={"symbol", "position"}, camp="clumper",
-    sample=lambda rng, gt: {"S": int(rng.integers(gt.ranks))},
-    summary=lambda p, gt: (f"Join up cells showing {sglyph(gt, p['S'])}"
+    sample=lambda rng, gt: {"star": rank_name(gt, rng.integers(gt.ranks))},
+    summary=lambda p, gt: (f"Join up cells showing {sglyph(gt, rank_at(gt, p['star']))}"
                            f"{' (any suit)' if gt.symbols == 'cards' else ''}: touching sides or corners counts. "
                            "Score the size of your biggest cluster."),
-    ordinal=co_ord, batch=co_batch, canonical=lambda p, gt: {"S": 0},
-    exemplar=lambda p, gt: grid(np.full((gt.N, gt.N), p["S"]), np.zeros((gt.N, gt.N))),
+    ordinal=co_ord, batch=co_batch, canonical=lambda p, gt: {"star": rank_name(gt, 0)},
+    exemplar=lambda p, gt: grid(np.full((gt.N, gt.N), rank_at(gt, p["star"])), np.zeros((gt.N, gt.N))),
     source="geo#13 (8-connectivity; cards sample a rank)")
 
 
@@ -781,7 +782,7 @@ def border_ring(N):
 def cc_ord(g, p, gtype):
     C = gtype.C
     ring = border_ring(gtype.N).tolist()
-    if p["dir"] == "ccw":
+    if p["direction"] == "ccw":
         ring = ring[::-1]
     col = g.col.ravel().tolist()
     L = len(ring)
@@ -794,7 +795,7 @@ def cc_ord(g, p, gtype):
 def cc_batch(sym, col, p, gtype):
     C = gtype.C
     ring = border_ring(gtype.N)
-    if p["dir"] == "ccw":
+    if p["direction"] == "ccw":
         ring = ring[::-1]
     v = col.reshape(len(col), -1)[:, ring].astype(np.int64)
     d = (np.roll(v, -1, axis=1) - v) % C
@@ -807,7 +808,7 @@ def cc_batch(sym, col, p, gtype):
 def cc_exemplar(p, gtype):
     N, C = gtype.N, gtype.C
     ring = border_ring(N)
-    if p["dir"] == "ccw":
+    if p["direction"] == "ccw":
         ring = ring[::-1]
     L = len(ring)
     A = C * (L // C)
@@ -820,11 +821,11 @@ def cc_exemplar(p, gtype):
 COLOUR_CAROUSEL = mk(
     id="colour_carousel", name="Colour Carousel", theme="The border goes round the colour wheel",
     requires=req("Wheel", min_size=4), layers={"colour", "position"}, camp="alternator",
-    sample=lambda rng, gt: {"dir": str(rng.choice(["cw", "ccw"]))},
+    sample=lambda rng, gt: {"direction": str(rng.choice(["cw", "ccw"]))},
     summary=lambda p, gt: (f"Walk round the edge {'clockwise' if p['dir'] == 'cw' else 'anticlockwise'}. Each step "
                            "should stay the same colour or move to the next colour on the wheel. Best of all is going "
                            "all the way round the wheel; then count the steps that move on a colour."),
-    ordinal=cc_ord, batch=cc_batch, canonical=lambda p, gt: {"dir": "cw"}, exemplar=cc_exemplar,
+    ordinal=cc_ord, batch=cc_batch, canonical=lambda p, gt: {"direction": "cw"}, exemplar=cc_exemplar,
     source="geo#18 (catalog fix: count only advancing steps; full lap ranked first)")
 
 
@@ -832,28 +833,28 @@ COLOUR_CAROUSEL = mk(
 def gv_ord(g, p, gtype):
     N = gtype.N
     col = g.col.tolist()
-    return sum(1 for r in range(N) for c in range(N) if all(col[k][c] == p["X"] for k in range(r, N)))
+    return sum(1 for r in range(N) for c in range(N) if all(col[k][c] == ci(gtype, p["colour"]) for k in range(r, N)))
 
 
 def gv_batch(sym, col, p, gtype):
-    X = (col == p["X"])[:, ::-1, :]
+    X = (col == ci(gtype, p["colour"]))[:, ::-1, :]
     return np.logical_and.accumulate(X, axis=1).sum((1, 2))
 
 
 GRAVITY = mk(
     id="gravity", name="Falling Sand", theme="Your colour sinks to the bottom",
     requires=req(), layers={"colour", "position"}, camp="clumper",
-    sample=lambda rng, gt: {"X": colour(rng, gt)},
-    summary=lambda p, gt: (f"{cname(gt, p['X']).capitalize()} is sand that sinks. Score every {cname(gt, p['X'])} cell "
-                           f"that has only {cname(gt, p['X'])} below it, all the way to the bottom."),
-    ordinal=gv_ord, batch=gv_batch, canonical=lambda p, gt: recolour(p, ["X"]),
-    exemplar=lambda p, gt: grid(np.zeros((gt.N, gt.N)), np.full((gt.N, gt.N), p["X"])),
+    sample=lambda rng, gt: {"colour": colour_name(rng, gt)},
+    summary=lambda p, gt: (f"{p['colour'].capitalize()} is sand that sinks. Score every {p['colour']} cell "
+                           f"that has only {p['colour']} below it, all the way to the bottom."),
+    ordinal=gv_ord, batch=gv_batch, canonical=lambda p, gt: recolour_names(p, ["colour"], gt),
+    exemplar=lambda p, gt: grid(np.zeros((gt.N, gt.N)), np.full((gt.N, gt.N), ci(gt, p["colour"]))),
     source="geo cross-lens idea 'Gravity / falling sand'")
 
 
 # --- Swiss Cheese (hole counting, geo idea) -------------------------------------------------------------
 def sw_ord(g, p, gtype):
-    N, X = gtype.N, p["X"]
+    N, X = gtype.N, ci(gtype, p["colour"])
     col = g.col.tolist()
     holes = sum(1 for cp in comps2d([[0] * N for _ in range(N)], [[x != X for x in row] for row in col])
                 if not any(r in (0, N - 1) or c in (0, N - 1) for r, c in cp))
@@ -864,27 +865,27 @@ def sw_ord(g, p, gtype):
 def sw_batch(sym, col, p, gtype):
     N = gtype.N
     rim = rim_mask(N)
-    mask = col != p["X"]
+    mask = col != ci(gtype, p["colour"])
     lab = label_batch(np.zeros(col.shape, np.int64), mask)
     touch = comp_sum(lab, np.broadcast_to(rim, col.shape).astype(np.int64), mask) > 0
     holes = _roots(lab, mask & ~touch).sum((1, 2))
-    return tupb(holes, ((col == p["X"]) & rim).sum((1, 2)))
+    return tupb(holes, ((col == ci(gtype, p["colour"])) & rim).sum((1, 2)))
 
 
 def sw_exemplar(p, gtype):
     N = gtype.N
     r, c = np.indices((N, N))
-    col = np.where(rim_mask(N) | ((r + c) % 2 == 1), p["X"], (p["X"] + 1) % gtype.C)
+    col = np.where(rim_mask(N) | ((r + c) % 2 == 1), ci(gtype, p["colour"]), (ci(gtype, p["colour"]) + 1) % gtype.C)
     return multi_climb(sw_batch, [grid(np.zeros((N, N)), col)], p, gtype, restarts=0)
 
 
 SWISS_CHEESE = mk(
     id="swiss_cheese", name="Swiss Cheese", theme="As many holes as possible",
     requires=req(min_size=4), layers={"colour", "position"}, camp="clumper",
-    sample=lambda rng, gt: {"X": colour(rng, gt)},
-    summary=lambda p, gt: (f"Your cheese is {cname(gt, p['X'])}. A hole is a patch of other colours completely "
-                           f"surrounded by {cname(gt, p['X'])} (not touching the edge). Count the holes."),
-    ordinal=sw_ord, batch=sw_batch, canonical=lambda p, gt: recolour(p, ["X"]), exemplar=sw_exemplar,
+    sample=lambda rng, gt: {"colour": colour_name(rng, gt)},
+    summary=lambda p, gt: (f"Your cheese is {p['colour']}. A hole is a patch of other colours completely "
+                           f"surrounded by {p['colour']} (not touching the edge). Count the holes."),
+    ordinal=sw_ord, batch=sw_batch, canonical=lambda p, gt: recolour_names(p, ["colour"], gt), exemplar=sw_exemplar,
     source="geo cross-lens idea 'Hole counting (Euler number)'; tie-breaker = rim cells of your colour")
 
 
@@ -950,21 +951,21 @@ def _closeness(N):
 def tm_ord(g, p, gtype):
     w = _closeness(gtype.N).ravel().tolist()
     v = gtype.value[g.sym].ravel().tolist()
-    return sum(a * b for a, b, c in zip(v, w, g.col.ravel().tolist()) if c == p["X"])
+    return sum(a * b for a, b, c in zip(v, w, g.col.ravel().tolist()) if c == ci(gtype, p["colour"]))
 
 
 def tm_batch(sym, col, p, gtype):
-    return (vals(sym, gtype) * _closeness(gtype.N) * (col == p["X"])).sum((1, 2))
+    return (vals(sym, gtype) * _closeness(gtype.N) * (col == ci(gtype, p["colour"]))).sum((1, 2))
 
 
 TREASURE_MAP = mk(
     id="treasure_map", name="Treasure Map", theme="Big numbers of your colour near the middle",
     requires=req("Valued"), layers={"colour", "symbol", "position"}, camp="clumper",
-    sample=lambda rng, gt: {"X": colour(rng, gt)},
-    summary=lambda p, gt: (f"Every {cname(gt, p['X'])} cell scores its number times how close it is to the middle "
+    sample=lambda rng, gt: {"colour": colour_name(rng, gt)},
+    summary=lambda p, gt: (f"Every {p['colour']} cell scores its number times how close it is to the middle "
                            "(corners count nothing)."),
-    ordinal=tm_ord, batch=tm_batch, canonical=lambda p, gt: recolour(p, ["X"]),
-    exemplar=lambda p, gt: grid(np.full((gt.N, gt.N), sym_for_value(gt, vmax(gt))), np.full((gt.N, gt.N), p["X"])),
+    ordinal=tm_ord, batch=tm_batch, canonical=lambda p, gt: recolour_names(p, ["colour"], gt),
+    exemplar=lambda p, gt: grid(np.full((gt.N, gt.N), sym_for_value(gt, vmax(gt))), np.full((gt.N, gt.N), ci(gt, p["colour"]))),
     source="geo cross-lens idea 'distance-weighted rules' (value × doubled closeness to centre, your colour)")
 
 
