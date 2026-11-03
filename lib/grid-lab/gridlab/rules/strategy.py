@@ -4,7 +4,7 @@ from __future__ import annotations
 from functools import lru_cache
 
 from ._util import *  # noqa: F401,F403
-from ._util import unorient, rim_mask, multi_climb
+from ._util import unorient, rim_mask, multi_climb, si
 from .seeds import tok_tail_factory
 
 
@@ -433,43 +433,44 @@ ROOKS_WATCH = mk(
     source="strat#11 (catalog D8 coverage temperament); tie-breaker = lines holding a half-token")
 
 
-# --- Picture Frame (your colour plus the best edge symbol, each +1 on the edge and -1 in the middle) -----------------
+# --- Picture Frame (your colour and your symbol: +1 for either / +4 for both on the edge, the same lost in the middle) --
 def pf_ord(g, p, gtype):
     N = gtype.N
+    X, Y = ci(gtype, p["colour"]), si(gtype, p["symbol"])
     sym, col = g.sym.tolist(), g.col.tolist()
-    cells = [(r, c) for r in range(N) for c in range(N)]
-    edge = {(r, c) for r, c in cells if r in (0, N - 1) or c in (0, N - 1)}
-
-    def net(match):
-        return sum((1 if x in edge else -1) for x in cells if match(*x))
-    X = ci(gtype, p["colour"])
-    colour = net(lambda r, c: col[r][c] == X)
-    best = max(net(lambda r, c, s=s: sym[r][c] == s) for s in {sym[r][c] for r, c in edge})
-    return colour + best
+    total = 0
+    for r in range(N):
+        for c in range(N):
+            hits = (col[r][c] == X) + (sym[r][c] == Y)
+            if hits:
+                edge = r in (0, N - 1) or c in (0, N - 1)
+                total += (1 if hits == 1 else 4) * (1 if edge else -1)
+    return total
 
 
 def pf_batch(sym, col, p, gtype):
     rim = rim_mask(gtype.N)
-    sign = np.where(rim, 1, -1)
-    colour = ((col == ci(gtype, p["colour"])) * sign).sum((1, 2))
-    best = np.full(sym.shape[0], np.iinfo(np.int64).min, dtype=np.int64)
-    for s in range(gtype.S):
-        here = sym == s
-        on_edge = (here & rim).any((1, 2))
-        best = np.where(on_edge, np.maximum(best, (here * sign).sum((1, 2))), best)
-    return (colour + best).astype(np.int64)
+    hits = (col == ci(gtype, p["colour"])).astype(np.int64) + (sym == si(gtype, p["symbol"]))
+    pts = np.where(hits == 2, 4, hits)
+    return (pts * np.where(rim, 1, -1)).sum((1, 2)).astype(np.int64)
+
+
+def pf_exemplar(p, gt):
+    rim = rim_mask(gt.N)
+    s, c = si(gt, p["symbol"]), ci(gt, p["colour"])
+    return grid(np.where(rim, s, (s + 1) % gt.S), np.where(rim, c, (c + 1) % gt.C))
 
 
 PICTURE_FRAME = mk(
     id="picture_frame", name="Picture Frame", theme="One colour and one symbol around a clear middle",
     requires=req(), layers={"colour", "symbol", "position"}, camp="clumper",
-    sample=lambda rng, gt: {"colour": colour_name(rng, gt)},
-    summary=lambda p, gt: (f"Each {p['colour']} edge cell scores 1 and each {p['colour']} middle cell "
-                           "loses 1; the best symbol on the edge scores the same way. Best: every edge cell the same "
-                           "symbol in your colour, and neither in the middle."),
-    ordinal=pf_ord, batch=pf_batch, canonical=lambda p, gt: recolour_names(p, ["colour"], gt),
-    exemplar=lambda p, gt: grid(np.where(rim_mask(gt.N), 0, 1), np.where(rim_mask(gt.N), ci(gt, p["colour"]), (ci(gt, p["colour"]) + 1) % gt.C)),
-    source="strat#12 (catalog D5; reworked 2026-11 from all-or-nothing to a continuous score, product strategy.ts)")
+    sample=lambda rng, gt: {"colour": colour_name(rng, gt), "symbol": gt.glyph(int(rng.integers(gt.S)))},
+    summary=lambda p, gt: ("Each edge cell with your colour or your symbol scores 1 point, with both 4 points; "
+                           "each middle cell with either loses 1, with both loses 4."),
+    ordinal=pf_ord, batch=pf_batch,
+    canonical=lambda p, gt: {"colour": gt.colour_names[0], "symbol": gt.glyph(0)},
+    exemplar=pf_exemplar,
+    source="strat#12 (catalog D5; redesigned 2026-11-03: colour and symbol both chosen, +1 for either and +4 for both; product strategy.ts)")
 
 
 # --- Staircase Climber ----------------------------------------------------------------------------

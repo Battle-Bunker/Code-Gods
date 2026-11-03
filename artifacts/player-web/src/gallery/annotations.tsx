@@ -29,7 +29,7 @@ export const SHOWCASE = [
   { familyId: "honest_minesweeper", params: { mine: "red" } },
   { familyId: "magic_accountant", params: { axis: "rows", target: 16 } },
   { familyId: "kingdom", params: { colour: "red" } },
-  { familyId: "picture_frame", params: { colour: "red" } },
+  { familyId: "picture_frame", params: { colour: "red", symbol: "7" } },
   { familyId: "mirrormancer", params: { axis: "LR", layer: "colour" } },
 ] as const;
 

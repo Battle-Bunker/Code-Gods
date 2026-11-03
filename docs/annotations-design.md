@@ -165,7 +165,7 @@ focus cell alone teaches little and needs another mode (§11). ★ = annotated i
 | 🧱 Tetromino Tamer, 🏰 Border Baron, 🧀 Swiss Cheese | regions of regions (shapes, borders, holes) | Region outline plus shape/size facts. |
 | 🔍 Looking-Glass, 🎡 Pinwheel, 🎯 Bullseye, 🌈 Rainbow Bands | symmetry orbits, rings, diagonals | The focus's orbit / ring as connectors. Bullseye stops at the first failing ring: needs a step-through. |
 | ➕ Column Addition | carries flow right to left | Step-through narration of the written sum (§11 M3). |
-| 🖼️ Picture Frame (★) | per cell: your colour and the best edge symbol, +1 on the edge, −1 in the middle | One piece per cell (+2 to −2) with ✓/✗ for colour and symbol; the note names the best edge symbol and both counts. Was all-or-nothing until 2026-11. |
+| 🖼️ Picture Frame (★) | per cell: your dealt colour and symbol, +1 on the edge for either and +4 for both, −1 / −4 in the middle | One piece per cell (+4 to −4) titled "+1 right colour", "+1 right symbol" or "+4 both", with ✓/✗ for colour and symbol. Was all-or-nothing until 2026-11; the symbol was the best edge symbol until the owner's redesign (2026-11-03). |
 
 ### Tier D: global counts and processes
 
@@ -272,7 +272,7 @@ Steps (4×4, base 10, rgb):
 | 💣 Honest Minesweeper | 3×3 neighbourhood | spots (mines), reverse selection for mines |
 | 🧮 Magic Accountant | row / column | line sums, tuple with a negative tie-break |
 | 🏰 Kingdom | region | max over regions |
-| 🖼️ Picture Frame | cell (one per cell) | a sum over every cell; the note explains the best edge symbol (was all-or-nothing: a ring and its breakers) |
+| 🖼️ Picture Frame | cell (one per cell) | a sum over every cell; the note restates the points table (was all-or-nothing: a ring and its breakers) |
 | 🪞 Mirrormancer | row / column with pair arcs | connectors (`links`), tuple tie-break |
 
 Where to look: the gallery page `artifacts/player-web/annotations.html` (dev server: `pnpm --filter @workspace/player-web

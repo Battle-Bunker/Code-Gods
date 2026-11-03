@@ -78,7 +78,7 @@ test("goal cards carry the typed params with how each value reads", () => {
 
 test("legacy params (stored before typing) upgrade to today's shape, idempotently", () => {
   const cases: [string, object, object][] = [
-    ["picture_frame", { X: 1 }, { colour: "green" }],
+    ["picture_frame", { X: 1 }, { colour: "green", symbol: "0" }],
     ["kingdom", { C: 2 }, { colour: "blue" }],
     ["honest_minesweeper", { X: 0 }, { mine: "red" }],
     ["chessmaster", { A: 2, B: 0 }, { colour_a: "blue", colour_b: "red" }],

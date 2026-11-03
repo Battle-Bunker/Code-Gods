@@ -202,7 +202,7 @@ test("typedParams: gods dealt before their family was typed get named, typed par
   // Catches: a legacy descriptor left (the readers' fallbacks could then never be removed), or a value changed in the move.
   assert.deepEqual(deities.map((d: any) => d.utility), [
     { familyId: "kingdom", params: { colour: "blue" } },
-    { familyId: "picture_frame", params: { colour: "green" }, penalty: { familyId: "hate_colour", params: { colour: "red" } } },
+    { familyId: "picture_frame", params: { colour: "green", symbol: "0" }, penalty: { familyId: "hate_colour", params: { colour: "red" } } },
     { familyId: "magic_accountant", params: { axis: "rows", target: 18 } },
   ]);
   assert.deepEqual(deities[0].card.params, [{ key: "colour", label: "Your colour", kind: "colour", value: "blue", text: "blue" }]);
