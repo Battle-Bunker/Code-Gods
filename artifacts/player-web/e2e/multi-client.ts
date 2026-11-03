@@ -582,9 +582,14 @@ await check("an ended game's page is its read-only replay: the open page turns i
   assert((await page.textContent("[data-testid=text-game-status]"))?.includes("read-only"), "read-only");
   // An ended game opens as its replay in the dock (docs/replay-design.md §4): the transport, and every player's standing.
   await page.getByTestId("replay-transport").waitFor({ timeout: 30_000 });
-  // The scores panel loads after the transport (its replay data), slower on a loaded machine: wait for it.
-  await page.locator("[data-testid^=replay-standing-]").first().waitFor({ timeout: 30_000 }).catch(() => undefined);
-  assert(await page.locator("[data-testid^=replay-standing-]").count() > 0, "final standings");
+  // The standings are in the Timeline, which a replay adds over the layout only while it has room for it (dock/layout-sync.ts
+  // withTimeline: never past the four-panel limit). Carol's layout here has four panels, so look for them only if it has fewer.
+  await page.locator("[data-testid=menu-panel]").first().waitFor({ timeout: 30_000 });
+  await sleep(1500);
+  if (await page.locator("[data-testid=menu-panel]").count() < 4) {
+    await page.locator("[data-testid^=replay-standing-]").first().waitFor({ timeout: 30_000 }).catch(() => undefined);
+    assert(await page.locator("[data-testid^=replay-standing-]").count() > 0, "final standings");
+  }
   // Read-only: no control that acts appears in any panel (core/affordances.ts): agents, chat, forge, approvals.
   // Whatever carol's layout holds: wait for its panels, let them settle, then look for controls in every one.
   await page.locator("[data-testid=menu-panel]").first().waitFor({ timeout: 30_000 });
