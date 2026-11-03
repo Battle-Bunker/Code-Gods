@@ -19,13 +19,13 @@ export type SkillRead = "rules" | "observation" | "layout";
 export interface SkillEntry { name: string; description: string; reads: readonly SkillRead[]; tools: readonly string[] }
 
 export const SKILLS = [
-  { name: "game-rules", description: "This room's full rules: scoring, agents, energy, timing, phases. Load when the briefing isn't enough.", reads: ["rules"], tools: [] },
-  { name: "writing-agents", description: "Writing, validating and summoning agents: workflow, mutators, helpers, your utility's source.", reads: ["observation"],
+  { name: "game-rules", description: "The room's full rules: scoring, agents, energy, timing, phases. Load when the briefing isn't enough.", reads: ["rules"], tools: [] },
+  { name: "writing-agents", description: "Writing, validating, summoning agents: workflow, mutators, helpers, your utility's source.", reads: ["observation"],
     tools: ["evaluate_value", "validate_agent", "summon_agent", "destroy_agent"] },
-  { name: "screen", description: "The player's screen: panes, every built-in panel with its parameters, and when to open, change, move or close one.", reads: ["layout"], tools: ["get_layout", "move_pane", "close_pane"] },
-  { name: "game-setups", description: "Game setups and room settings: list, copy, save and switch setups (owners); what each choice does.", reads: [],
+  { name: "screen", description: "The player's screen: panes, every built-in panel and its parameters; when to open, move or close one.", reads: ["layout"], tools: ["get_layout", "move_pane", "close_pane"] },
+  { name: "game-setups", description: "Game setups and room settings: list, copy, save, switch (owners); what each choice does.", reads: [],
     tools: ["list_setups", "get_setup", "save_setup", "duplicate_setup", "get_room_state", "update_settings"] },
-  { name: "analytics-code", description: "Tables, rankings and statistics with run_code: datasets, libraries, examples. Load for any table.", reads: [],
+  { name: "analytics-code", description: "Tables, rankings, statistics with run_code: datasets, libraries, examples. Load for any table.", reads: [],
     tools: ["run_code", "get_code_run", "list_code_runs", "list_code_objects"] },
   { name: "rival-inference", description: "Infer other gods' rules from the public log.", reads: [],
     tools: ["get_utility_series", "get_board_at", "list_utility_candidates", "fit_utility_mixture"] },
