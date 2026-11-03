@@ -267,8 +267,7 @@ export const legacyGameHotFields = internalMutation({
 });
 
 /**
- * Store a game as it was before the spectator read model (migrations:backfillStandings, backfillPublicSalience): no
- * standings or history rows, and objects without publicSalience.
+ * Store a game as it was before the standings read model (migrations:backfillStandings): no standings or history rows.
  */
 export const legacyReadModels = internalMutation({
   args: { gameId: v.id("games") },
@@ -276,7 +275,6 @@ export const legacyReadModels = internalMutation({
     dev();
     for (const r of await ctx.db.query("standings").withIndex("by_game", q => q.eq("gameId", gameId)).collect()) await ctx.db.delete(r._id);
     for (const r of await ctx.db.query("standingsHistory").withIndex("by_game_seq", q => q.eq("gameId", gameId)).collect()) await ctx.db.delete(r._id);
-    for (const o of await ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", gameId)).collect()) await ctx.db.patch(o._id, { publicSalience: undefined });
   },
 });
 
@@ -412,16 +410,6 @@ export const legacyAiSeat = internalMutation({
   },
 });
 
-/** Make a room and its games look as they did before spectators (no `members.spectator`, no `games.spectators`). */
-export const legacySpectators = internalMutation({
-  args: { roomId: v.id("rooms") },
-  handler: async (ctx, { roomId }) => {
-    dev();
-    for (const m of await ctx.db.query("members").withIndex("by_room", q => q.eq("roomId", roomId)).collect()) await ctx.db.patch(m._id, { spectator: undefined });
-    for (const g of await ctx.db.query("games").withIndex("by_room", q => q.eq("roomId", roomId)).collect()) await ctx.db.patch(g._id, { spectators: undefined });
-  },
-});
-
 /** A room's member rows as stored (rooms.get defaults what it projects). */
 export const rawMembers = internalQuery({
   args: { roomId: v.id("rooms") },
@@ -468,21 +456,3 @@ export const setSandbox = internalMutation({
     return ctx.db.get(row._id);
   },
 });
-
-/** A build row of a retired site ("engine", "player"), as deployments before the one app stored them. */
-export const retiredSiteBuild = internalMutation({
-  args: { site: v.union(v.literal("engine"), v.literal("player")), build: v.string() },
-  handler: async (ctx, { site, build }) => { dev(); await ctx.db.insert("siteBuilds", { site, build, deployedAt: Date.now() }); },
-});
-
-/** How many build rows each site has, as stored. */
-export const siteBuildCounts = internalQuery({
-  args: {},
-  handler: async (ctx) => {
-    dev();
-    const counts: Record<string, number> = {};
-    for (const row of await ctx.db.query("siteBuilds").collect()) counts[row.site] = (counts[row.site] ?? 0) + 1;
-    return counts;
-  },
-});
-

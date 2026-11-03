@@ -91,7 +91,7 @@ export const header = query({
       phase: game.phase, status: ended ? "ended" as const : "active" as const,
       startedAt: game.createdAt, planningEndsAt: game.planningEndsAt, pauseEndsAt: game.pauseEndsAt,
       endedAt: game.endedAt ?? null, endReason: game.endReason ?? null, recoveryReason: game.recoveryReason ?? null,
-      settings: game.settings as GameSettings, setup: gameSetup(game), roster: game.roster.map(rosterEntry), spectators: game.spectators ?? [],
+      settings: game.settings as GameSettings, setup: gameSetup(game), roster: game.roster.map(rosterEntry), spectators: game.spectators,
       seasonCommitment: game.seasonCommitment,
       // The ended game's result was stored by the commit that ended it.
       winners: ended ? ((game.summary as { winners?: Winner[] } | undefined)?.winners ?? []) : [],
@@ -169,7 +169,7 @@ export const objectIds = query({
     await readable(ctx, gameId);
     const page = await ctx.db.query("objects").withIndex("by_game_salience", q => q.eq("gameId", gameId)).order("desc")
       .paginate({ ...paginationOpts, numItems: Math.max(1, Math.min(OBJECT_PAGE_MAX, Math.floor(paginationOpts.numItems))) });
-    return { ...page, page: page.page.map(o => ({ id: o._id, salience: o.publicSalience ?? null })) };
+    return { ...page, page: page.page.map(o => ({ id: o._id, salience: o.publicSalience })) };
   },
 });
 
@@ -181,9 +181,8 @@ export const object = query({
     const o = id ? await ctx.db.get(id) : null;
     if (!o) { await requireViewer(ctx); return null; }
     const { game } = await readable(ctx, o.gameId);
-    // Exact once the game has ended (before game/readModel.ts finalizeObjects reaches this object too); an object stored
-    // before publicSalience (until migrations:backfillPublicSalience has run) is computed the same way.
+    // Exact once the game has ended, before game/readModel.ts finalizeObjects reaches this object too.
     const live = game.phase !== "ended";
-    return { id: o._id, value: o.value, version: o.version, salience: live ? o.publicSalience ?? publicSalienceOf(o, true) : publicSalienceOf(o, false) };
+    return { id: o._id, value: o.value, version: o.version, salience: live ? o.publicSalience : publicSalienceOf(o, false) };
   },
 });
