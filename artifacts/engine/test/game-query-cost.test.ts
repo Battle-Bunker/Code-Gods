@@ -6,12 +6,18 @@
  *   1. reads: the most documents and bytes any of 10 uncached executions read (deterministic);
  *   2. time: the median user-code time of those 10 executions. Each run is uncached legitimately: Convex keys its
  *      query cache by the caller's identity, so each run is the same human with a fresh token claim (`gate`), which is
- *      what a new browser session or a refreshed JWT is;
+ *      what a new browser session or a refreshed JWT is. Time is the one machine-dependent number: a query over its
+ *      time budget (and within its read budgets) is measured once more, and fails only if it is over again;
  *   3. cold queries: the same caller asks twice with 5 tick commits in between, and the backend's log must show the
  *      second answer served from the cache (a commit that wrote a document the query read would have invalidated it:
- *      read-architecture §1.5, measured);
+ *      read-architecture §1.5, measured). All cold queries are asked at once, so the gap between a query's two asks is
+ *      the 5 commits, not the time 26 sequential calls take on a loaded machine (a cached answer is not reused after a
+ *      long gap: measured, a 2-minute gap re-executed 25 of the 26 even without a write they read). A query that
+ *      re-executes is asked once more and fails only if it re-executes again;
  *   4. a caller who is not signed in is refused (owner decision 2026-11-02), except the rows decided open.
- * The numbers come from the backend's execution log (test/execution-log.ts), never from client timings.
+ * The numbers come from the backend's execution log (test/execution-log.ts), never from client timings. The gate
+ * measures a quiescent deployment: it first waits for the schema migrations the dev script starts at READY to finish
+ * (their batches write rows these queries read, and flood the log).
  *
  * What would break: a page query that grows with the world or reads a hot document for a cold answer; a new page
  * query without a budget row (test/unit/query-budgets.test.ts); a known-debt row that a fix paid off but that still
@@ -47,6 +53,11 @@ const caller = (b: Budget, claim: string) => {
 const commits = async () => (await admin.query(internal.testing.gameCounters, { gameId }))!.commits as number;
 
 before(async () => {
+  await waitFor(async () => {
+    const statuses = await admin.query(internal.migrations.status, {}) as { name: string; state: string }[];
+    assert.ok(!statuses.some(s => s.state === "failed" || s.state === "canceled"), `a schema migration failed: ${JSON.stringify(statuses)}`);
+    return !statuses.some(s => s.state === "inProgress");
+  }, "the schema migrations are done (migrations:status)", 300_000, 500);
   const [ada, bo, cy] = await gods("Gate Ada", "Gate Bo", "Gate Cy");
   const subject = `test|${randomUUID()}`;
   const sid = await admin.mutation(internal.testing.seedUser, { subject, name: "Gate Admin", email: "admin@example.test", emailVerified: true, provider: "fake" });
@@ -90,41 +101,53 @@ type Measured = { budget: Budget; docs: number; bytes: number; ms: number; runs:
 let measured: Measured[] = [];
 
 test("every page query fits its budget: documents, bytes and time in a running 1,000-object game", { timeout: 600_000 }, async () => {
-  const log = await executionLog();
-  for (const b of BUDGETS) {
-    for (let i = 0; i < RUNS; i++) {
-      const run = `run-${i}-${randomUUID()}`;
-      try { await caller(b, run).query(ref(b.query), b.args(fixture, run)); } catch (error) {
-        assert.fail(`${b.query} failed for the gate's caller: ${(error as Error).message}`);
-      }
-    }
-  }
-  // The gate's own calls (over HTTP), uncached.
-  const uncached = (of: (id: string) => Execution[], q: string) => of(q).filter(e => e.caller === "HttpApi" && !e.cachedResult);
-  await log.until(of => BUDGETS.every(b => uncached(of, b.query).length >= RUNS), `${RUNS} uncached runs of every budgeted query`)
-    .catch(error => assert.fail(`${(error as Error).message}; short: ${BUDGETS.filter(b => uncached(log.of, b.query).length < RUNS).map(b => `${b.query} ${uncached(log.of, b.query).length}`).join(", ")}`));
   const median = (xs: number[]) => { const s = [...xs].sort((a, b) => a - b), h = s.length / 2; return (s[Math.floor(h - 0.5)] + s[Math.ceil(h - 0.5)]) / 2; };
   /** User-code time in ms; the log must carry it, or the time budget would pass unmeasured. */
   const userMs = (e: Execution) => { assert.equal(typeof e.userExecutionTime, "number", `${e.identifier}: the log gives its user time`); return e.userExecutionTime! * 1000; };
-  measured = BUDGETS.map(budget => {
-    const runs = uncached(log.of, budget.query).slice(0, RUNS);
-    return {
-      budget, runs,
-      docs: Math.max(...runs.map(r => r.usageStats.databaseReadDocuments)),
-      bytes: Math.max(...runs.map(r => r.usageStats.databaseReadBytes)),
-      ms: median(runs.map(userMs)),
-    };
-  });
+  /** RUNS uncached executions of each of `budgets` (each with a fresh claim), as the backend logged them. */
+  const measure = async (budgets: Budget[]): Promise<Measured[]> => {
+    const log = await executionLog();
+    try {
+      for (const b of budgets) {
+        for (let i = 0; i < RUNS; i++) {
+          const run = `run-${i}-${randomUUID()}`;
+          try { await caller(b, run).query(ref(b.query), b.args(fixture, run)); } catch (error) {
+            assert.fail(`${b.query} failed for the gate's caller: ${(error as Error).message}`);
+          }
+        }
+      }
+      // The gate's own calls (over HTTP), uncached.
+      const uncached = (of: (id: string) => Execution[], q: string) => of(q).filter(e => e.caller === "HttpApi" && !e.cachedResult);
+      await log.until(of => budgets.every(b => uncached(of, b.query).length >= RUNS), `${RUNS} uncached runs of every budgeted query`)
+        .catch(error => assert.fail(`${(error as Error).message}; short: ${budgets.filter(b => uncached(log.of, b.query).length < RUNS).map(b => `${b.query} ${uncached(log.of, b.query).length}`).join(", ")}`));
+      return budgets.map(budget => {
+        const runs = uncached(log.of, budget.query).slice(0, RUNS);
+        return {
+          budget, runs,
+          docs: Math.max(...runs.map(r => r.usageStats.databaseReadDocuments)),
+          bytes: Math.max(...runs.map(r => r.usageStats.databaseReadBytes)),
+          ms: median(runs.map(userMs)),
+        };
+      });
+    } finally { await log.stop(); }
+  };
+  const ceilings = ({ debt }: Budget) => ({ docs: debt?.docs ?? LIMITS.docs, bytes: debt?.bytes ?? LIMITS.bytes, ms: debt?.ms ?? LIMITS.ms });
+  measured = await measure(BUDGETS);
+  // Over its time budget alone: measured once more (documents and bytes are deterministic and stay hard).
+  const slow = measured.filter(m => { const c = ceilings(m.budget); return m.ms > c.ms && m.docs <= c.docs && m.bytes <= c.bytes; });
+  const again = new Map<string, number>();
+  if (slow.length) for (const m of await measure(slow.map(m => m.budget))) again.set(m.budget.query, m.ms);
+  const time = (m: Measured) => `${m.ms.toFixed(1)}${again.has(m.budget.query) ? `, again ${again.get(m.budget.query)!.toFixed(1)}` : ""}`;
   console.log(["query | docs | KiB | median user ms | budget", ...[...measured].sort((a, b) => b.docs - a.docs).map(m =>
-    `${m.budget.query} | ${m.docs} | ${(m.bytes / 1024).toFixed(1)} | ${m.ms.toFixed(1)} | ${m.budget.debt ? `debt (${m.budget.debt.why})` : "R8"}`)].join("\n"));
+    `${m.budget.query} | ${m.docs} | ${(m.bytes / 1024).toFixed(1)} | ${time(m)} | ${m.budget.debt ? `debt (${m.budget.debt.why})` : "R8"}`)].join("\n"));
 
   const problems: string[] = [];
   for (const m of measured) {
     const { query, debt } = m.budget;
-    const docs = debt?.docs ?? LIMITS.docs, bytes = debt?.bytes ?? LIMITS.bytes, ms = debt?.ms ?? LIMITS.ms;
+    const { docs, bytes, ms } = ceilings(m.budget);
     if (m.docs > docs) problems.push(`${query} read ${m.docs} documents (budget ${docs})`);
     if (m.bytes > bytes) problems.push(`${query} read ${m.bytes} bytes (budget ${bytes})`);
-    if (m.ms > ms) problems.push(`${query} took a median ${m.ms.toFixed(1)} ms of user code (budget ${ms})`);
+    if (m.ms > ms && (again.get(query) ?? m.ms) > ms) problems.push(`${query} took a median ${time(m)} ms of user code (budget ${ms})`);
     // Paid-off debt is removed, so the list only shrinks (time is noisy: only the read ceilings are checked).
     if (!debt?.capped && debt?.docs !== undefined && m.docs <= LIMITS.docs && (debt.bytes === undefined || m.bytes <= LIMITS.bytes))
       problems.push(`${query} now reads ${m.docs} documents (${m.bytes} bytes), within R8: remove its docs/bytes debt`);
@@ -134,26 +157,38 @@ test("every page query fits its budget: documents, bytes and time in a running 1
   assert.deepEqual(problems, []);
 });
 
-test(`a cold page query is still cached after ${COMMITS} tick commits`, { timeout: 120_000 }, async () => {
-  const cold = BUDGETS.filter(b => b.cold);
-  const log = await executionLog();
-  const claim = `cold-${randomUUID()}`;
-  const ask = async () => { for (const b of cold) await caller(b, claim).query(ref(b.query), b.args(fixture, claim)); };
-  await ask();
-  const from = await commits();
-  await waitFor(async () => (await commits()) >= from + COMMITS, `${COMMITS} tick commits`, 60_000, 250);
-  await ask();
-  // The gate's own calls (over HTTP), not a browser's subscription that may run the same query meanwhile.
-  const mine = (of: (id: string) => Execution[], q: string) => of(q).filter(e => e.caller === "HttpApi");
-  await log.until(of => cold.every(b => mine(of, b.query).length >= 2), "both calls of every cold query");
+test(`a cold page query is still cached after ${COMMITS} tick commits`, { timeout: 180_000 }, async () => {
   const problems: string[] = [];
+  /** For each of `budgets`, whether its second ask (after COMMITS tick commits) re-executed. */
+  const reExecuted = async (budgets: Budget[]): Promise<Map<string, boolean>> => {
+    const log = await executionLog();
+    try {
+      const claim = `cold-${randomUUID()}`;
+      const ask = () => Promise.all(budgets.map(b => caller(b, claim).query(ref(b.query), b.args(fixture, claim))));
+      await ask();
+      const from = await commits();
+      await waitFor(async () => (await commits()) >= from + COMMITS, `${COMMITS} tick commits`, 60_000, 100);
+      await ask();
+      // The gate's own calls (over HTTP), not a browser's subscription that may run the same query meanwhile.
+      const mine = (of: (id: string) => Execution[], q: string) => of(q).filter(e => e.caller === "HttpApi");
+      await log.until(of => budgets.every(b => mine(of, b.query).length >= 2), "both calls of every cold query");
+      return new Map(budgets.map(b => {
+        const [first, second] = mine(log.of, b.query);
+        if (first.cachedResult) problems.push(`${b.query}: the first call was answered from the cache (its cache key is not the caller's)`);
+        return [b.query, !second.cachedResult];
+      }));
+    } finally { await log.stop(); }
+  };
+  const cold = BUDGETS.filter(b => b.cold);
+  const once = await reExecuted(cold);
+  // Not what its budget says: asked once more, so a one-off cache miss is not read as a hot read (or a paid-off debt).
+  const suspects = cold.filter(b => once.get(b.query) !== Boolean(b.debt?.invalidatedByTick));
+  const twice = suspects.length ? await reExecuted(suspects) : new Map<string, boolean>();
   const report: string[] = [];
   for (const b of cold) {
-    const [first, second] = mine(log.of, b.query);
-    if (first.cachedResult) problems.push(`${b.query}: the first call was answered from the cache (its cache key is not the caller's)`);
-    const invalidated = !second.cachedResult;
-    report.push(`${b.query}: ${invalidated ? "re-executed" : "cached"}`);
-    if (invalidated && !b.debt?.invalidatedByTick) problems.push(`${b.query} re-executed across ${COMMITS} tick commits: it reads a document the tick writes`);
+    const invalidated = twice.get(b.query) ?? once.get(b.query)!;
+    report.push(`${b.query}: ${invalidated ? "re-executed" : "cached"}${twice.has(b.query) ? ` (asked again; first ${once.get(b.query) ? "re-executed" : "cached"})` : ""}`);
+    if (invalidated && !b.debt?.invalidatedByTick) problems.push(`${b.query} re-executed across ${COMMITS} tick commits, twice: it reads a document the tick writes`);
     if (!invalidated && b.debt?.invalidatedByTick) problems.push(`${b.query} stayed cached across ${COMMITS} tick commits: remove its invalidatedByTick debt`);
   }
   console.log(report.join("\n"));
