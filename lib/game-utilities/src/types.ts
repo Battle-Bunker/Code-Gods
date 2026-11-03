@@ -133,7 +133,7 @@ export interface CardParam {
   readonly key: string;
   readonly label: string;
   readonly kind: ParamKind;
-  readonly value: ParamScalar;
+  readonly value: ParamJson;
   readonly text: string;
 }
 

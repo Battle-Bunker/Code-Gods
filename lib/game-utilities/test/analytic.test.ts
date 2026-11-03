@@ -124,7 +124,7 @@ test("harness: compareWithTable reports Δ, z, unattainable levels and the top; 
 });
 
 test("harness: enumeration agrees with itself on Int(0,9999) and catches a wrong level; spawns catch a wrong formula", () => {
-  const inst = instantiate("Int", { min: 0, max: 9999 }), draw = { familyId: "digit-devotee", params: { d: 7 } };
+  const inst = instantiate("Int", { min: 0, max: 9999 }), draw = { familyId: "digit-devotee", params: { digit: 7 } };
   const ev = evaluator(draw, inst), counts = new Map<number, number>();
   for (let x = 0; x <= 9999; x++) { const o = ev(x) as number; counts.set(o, (counts.get(o) ?? 0) + 1); }
   const d = distOf([...counts].map(([o, c]) => [o, c / 10000] as const));

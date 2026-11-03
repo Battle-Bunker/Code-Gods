@@ -293,5 +293,5 @@ test("explain refuses what it cannot read: another shape's board, a non-Grid gam
   const goal = explainer({ familyId: "set_spotter", params: { diag: false } }, FIRST_STEPS)!;
   assert.equal(goal.explain("1R,1R,1R/1R,1R,1R/1R,1R,1R"), null);
   assert.equal(goal.explain(42), null);
-  assert.equal(explainer({ familyId: "digit-devotee", params: { d: 0 } }, instantiate("Int", {})), null);
+  assert.equal(explainer({ familyId: "digit-devotee", params: { digit: 0 } }, instantiate("Int", {})), null);
 });
