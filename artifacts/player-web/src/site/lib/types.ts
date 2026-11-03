@@ -10,13 +10,15 @@ export type Settings = GameSettings;
 export type InstanceInfo = EngineInstanceInfo;
 export type RoomState = NonNullable<FunctionReturnType<typeof api.rooms.get>>;
 export type RoomListRow = FunctionReturnType<typeof api.rooms.list>[number];
-export type GameView = FunctionReturnType<typeof api.games.view>;
+/** A game's cold header (games.header): what the game page routes on and its header shows. */
+export type GameHeader = FunctionReturnType<typeof api.games.header>;
+/** What a page passes the layout of its game: the header and, once loaded, the game's object type (games.instance). */
+export type GameView = GameHeader & { objectInstance?: InstanceInfo };
 /** rooms.history rows are stored game summaries (`gameRecord` in the engine's projection). */
 export type { GameRecord } from "@workspace/engine/convex/lib/projection";
 export type ChatMessage = RoomState["chat"][number];
-export type RosterEntry = GameView["roster"][number];
-export type Standing = GameView["leaderboard"][number];
-export type PublicObject = GameView["objects"][number];
+export type RosterEntry = GameHeader["roster"][number];
+export type Standing = FunctionReturnType<typeof api.games.standings>["rows"][number];
 export type Credential = FunctionReturnType<typeof api.auth.credentials.list>[number];
 export type DeviceRequest = NonNullable<FunctionReturnType<typeof api.auth.device.pending>>;
 export type AdminAgents = FunctionReturnType<typeof api.aiTemplates.adminList>;

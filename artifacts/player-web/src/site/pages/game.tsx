@@ -9,14 +9,14 @@
  *   ended                    its replay, for its players, its spectators and the room's owner (core/play.tsx Replay);
  *                            the engine refuses anyone else, and that refusal is shown
  */
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useParams } from "wouter";
 // The dock (player view and replay) loads only on a game page: home, room and configure stay light.
 const Play = lazy(() => import("@/core/play").then(m => ({ default: m.Play })));
 const Replay = lazy(() => import("@/core/play").then(m => ({ default: m.Replay })));
 const dockFallback = <div className="p-8 text-sm text-muted-foreground" data-testid="status-loading-dock">Loading the game…</div>;
 import { api, useLive } from "@/site/lib/convex";
-import { catalogOf, type GameView } from "@/site/lib/types";
+import { catalogOf, type GameHeader } from "@/site/lib/types";
 import { useRun } from "@/site/hooks/use-run";
 import { useSendChat } from "@/site/hooks/use-chat";
 import { useAuth } from "@/site/hooks/use-auth";
@@ -24,7 +24,7 @@ import { Page, usePage } from "@/site/components/layout";
 import { Tip } from "@/site/components/action";
 import { StepAction } from "@/site/components/step-action";
 import { ErrorLine, NextStepBar, Section } from "@/site/components/page-parts";
-import { Chat, Leaderboard, Objects, SettingsList, UtilityFamilies } from "@/site/components/game-panels";
+import { Chat, GameChat, GameStandings, Objects, SettingsList, UtilityFamilies } from "@/site/components/game-panels";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
@@ -33,28 +33,41 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { gameStep } from "@/site/lib/next-step";
 import { gamePath, roomPath } from "@/site/lib/routes";
 import { errMsg, fmt } from "@/site/lib/errors";
-import { endReasonLabel, fmtDuration, fmtWhen, secsLeft, toMs } from "@/site/lib/time";
+import { endReasonLabel, fmtDuration, fmtWhen, secsLeft, toMs, worldSecondsAt } from "@/site/lib/time";
+import type { FunctionReturnType } from "convex/server";
+import { DEFAULT_SCORE_INTERVAL_SECONDS } from "@workspace/game-core";
+
+type GameInstance = FunctionReturnType<typeof api.games.instance>;
 import { MoreHorizontal } from "lucide-react";
 
 
 /**
- * The engine's clock, ticking locally: a reactive query only re-runs when its data changes, so countdowns advance
- * from the last `serverTime` (corrected for clock skew) instead of polling.
+ * The time now, ticking locally once a second while the game runs: countdowns and the world clock render time passing
+ * towards deadlines that come from subscriptions (the header's, the published scoreboard's), never a per-tick query.
  */
-function useServerNow(serverTime: number, running: boolean) {
-  const skew = useRef(0);
+function useNow(running: boolean) {
   const [now, setNow] = useState(() => Date.now());
-  useEffect(() => { skew.current = serverTime - Date.now(); setNow(Date.now()); }, [serverTime]);
   useEffect(() => {
     if (!running) return;
+    setNow(Date.now());
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, [running]);
-  return now + skew.current;
+  return now;
+}
+
+/** The world clock: the last published scoreboard's world time, run on locally while the world runs (games.standings). */
+function WorldTime({ game, now }: { game: GameHeader; now: number }) {
+  const standings = useLive(api.games.standings, { gameId: game.id }).data;
+  const running = game.status === "active" && game.phase === "running" && !(game.pauseEndsAt && toMs(game.pauseEndsAt) > now);
+  const world = worldSecondsAt(standings?.world != null && standings.at != null
+    ? { world: standings.world, at: standings.at, running, resumedAt: Math.max(game.planningEndsAt ?? 0, game.pauseEndsAt ?? 0),
+      interval: game.settings.scoreIntervalSeconds ?? DEFAULT_SCORE_INTERVAL_SECONDS } : null, now);
+  return <dd className="tabular-nums" data-testid="text-world-t">{world === null ? "—" : `${fmt(world, 1)} s`}</dd>;
 }
 
 /** "Running · world starts in 12 s" / "Paused · resumes in 8 s" / "Ended: time limit". */
-function statusLine(game: GameView, now: number) {
+function statusLine(game: GameHeader, now: number) {
   if (game.status !== "active") return `Ended: ${endReasonLabel(game.endReason)}.`;
   const plan = secsLeft(game.planningEndsAt, now), pause = secsLeft(game.pauseEndsAt, now);
   if (game.phase === "recovery") return `Paused for safety${game.recoveryReason ? `: ${game.recoveryReason.replace(/\.$/, "")}` : ""}.`;
@@ -65,7 +78,7 @@ function statusLine(game: GameView, now: number) {
   return "Running.";
 }
 
-function OwnerMenu({ game }: { game: GameView }) {
+function OwnerMenu({ game }: { game: GameHeader }) {
   const { run, unavailable } = usePage();
   const [confirm, setConfirm] = useState(false);
   const [ending, setEnding] = useState(false);
@@ -96,13 +109,18 @@ function OwnerMenu({ game }: { game: GameView }) {
 }
 
 /** The spectator view of a live game: the public game, as every member who does not play in it sees it. */
-function SpectatorView({ game, room }: { game: GameView; room?: { members: readonly { id: string }[] } | null }) {
+/**
+ * Each part subscribes to what it renders (docs/convex-read-architecture.md §4.2): the header comes from the page, the
+ * leaderboard and the world clock from games.standings, the objects from their skeleton and one query per visible row,
+ * the chat from rooms.chat, the object type and utility catalog from games.instance.
+ */
+function SpectatorView({ game, instance, room }: { game: GameHeader; instance?: GameInstance; room?: { members: readonly { id: string }[] } | null }) {
   const { user } = useAuth();
   const { manifest } = usePage();
   const act = useRun();
   const sendChat = useSendChat(game.roomId);
   const active = game.status === "active";
-  const now = useServerNow(game.serverTime, active);
+  const now = useNow(active);
 
   const isOwner = !!user && game.ownerId === user.id;
   const seated = game.roster.some(r => r.id === user?.id);
@@ -130,14 +148,16 @@ function SpectatorView({ game, room }: { game: GameView; room?: { members: reado
       </header>
       <div className="grid gap-6 grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] items-start">
         <div className="space-y-6 min-w-0">
-          <Leaderboard rows={game.leaderboard} roster={game.roster} meId={user?.id} ownerId={game.ownerId} agentCount={game.agentCount}
+          <GameStandings gameId={game.id} roster={game.roster} meId={user?.id} ownerId={game.ownerId}
             emptyBody={active ? "Scores appear once the world begins to run." : "No standings were recorded."} />
-          <Chat messages={game.chat} canPost={canPost} pending={act.pending}
-            placeholder={canPost ? "Say something to everyone…" : "Join the room to chat"}
-            closed={active ? undefined : "Chat closed: the game is over. It continues in the room."}
-            onSend={(text, done) => act.run("chat", () => sendChat(text), done)} />
+          {game.roomId ? (
+            <GameChat roomId={game.roomId} gameId={game.id} canPost={canPost} pending={act.pending}
+              placeholder={canPost ? "Say something to everyone…" : "Join the room to chat"}
+              closed={active ? undefined : "Chat closed: the game is over. It continues in the room."}
+              onSend={(text, done) => act.run("chat", () => sendChat(text), done)} />
+          ) : <Chat messages={[]} canPost={false} pending={false} placeholder="" onSend={() => undefined} closed="Its room is no longer available." />}
         </div>
-        <Objects objects={game.objects} instance={game.objectInstance} emptyBody={active ? "Objects appear once the world begins to run." : "No objects remained when this game ended."} />
+        <Objects gameId={game.id} instance={instance?.objectInstance} emptyBody={active ? "Objects appear once the world begins to run." : "No objects remained when this game ended."} />
       </div>
       <Section title="Game details" collapsible defaultOpen={false} testId="section-game-details">
         <div className="p-4 grid gap-6 md:grid-cols-2">
@@ -145,10 +165,10 @@ function SpectatorView({ game, room }: { game: GameView; room?: { members: reado
             <dt className="label-mono">Started</dt><dd data-testid="text-started">{fmtWhen(game.startedAt)}</dd>
             <dt className="label-mono">Ended</dt><dd data-testid="text-ended">{game.endedAt ? `${fmtWhen(game.endedAt)} (${fmtDuration(toMs(game.endedAt) - toMs(game.startedAt))})` : "still running"}</dd>
             <dt className="label-mono">End reason</dt><dd data-testid="text-end-reason">{active ? "—" : endReasonLabel(game.endReason)}</dd>
-            <dt className="label-mono">World time</dt><dd className="tabular-nums" data-testid="text-world-t">{fmt(game.worldSeconds, 1)} s</dd>
+            <dt className="label-mono">World time</dt><WorldTime game={game} now={now} />
           </dl>
-          <SettingsList settings={game.settings} instance={game.objectInstance} />
-          <div className="md:col-span-2"><UtilityFamilies catalog={catalogOf(game.utilityCatalog)} classes={manifest?.objectTypes.find(t => t.id === game.settings.objectType)?.classes} /></div>
+          <SettingsList settings={game.settings} instance={instance?.objectInstance} />
+          <div className="md:col-span-2"><UtilityFamilies catalog={catalogOf(instance?.utilityCatalog)} classes={manifest?.objectTypes.find(t => t.id === game.settings.objectType)?.classes} /></div>
         </div>
       </Section>
     </div>
@@ -160,13 +180,20 @@ export default function Game() {
   const { roomId: roomCode = "", gameId: code = "" } = useParams<{ roomId: string; gameId: string }>();
   const [location, navigate] = useLocation();
   const { user, kind, permission, isAuthenticated, error: authError, refetch: refetchAuth } = useAuth();
-  // One reactive subscription: the public world updates as the engine commits each tick.
-  const q = useLive(api.games.view, isAuthenticated && code ? { code } : "skip");
+  // The page routes on the game's cold header (play, watch or replay): a tick never re-runs it. The world is read by the
+  // components that show it (the spectator view), never under the dock.
+  const q = useLive(api.games.header, isAuthenticated && code ? { code } : "skip");
   const game = q.data;
   const active = game?.status === "active";
-  // The room (membership, the owner's commands, the replay's room); the game view itself does not carry it.
+  // The room (membership, the owner's commands, the replay's room); the header carries only its codes.
   const room = useLive(api.rooms.get, game?.roomId ? { room: game.roomId } : "skip");
   const seated = !!game && game.roster.some(r => r.id === user?.id);
+  // The object type and utility catalog (static for the game), for the spectator view and the page's rules text.
+  // Only the spectator view reads it: wait for the room (or its absence) to know whether the dock takes the page.
+  const roomKnown = !game?.roomId || !!room.data || !!room.error;
+  const docked = isAuthenticated && !!game && !!room.data && (!active || seated);
+  const instance = useLive(api.games.instance, game && roomKnown && !docked ? { gameId: game.id } : "skip").data;
+  const view = useMemo(() => (game ? { ...game, objectInstance: instance?.objectInstance } : null), [game, instance]);
   useEffect(() => { document.title = `Game ${game?.shortCode ?? code} · Code Gods`; }, [game?.shortCode, code]);
   // The canonical URL names the game's own room and codes.
   const canonical = game?.roomShortCode ? gamePath(game.roomShortCode, game.shortCode) : null;
@@ -184,7 +211,7 @@ export default function Game() {
   const step = game ? gameStep(user?.id, game) : null;
   const crumbs = [{ label: game?.roomShortCode ?? roomCode.toUpperCase(), href: roomPath(game?.roomShortCode ?? roomCode) }, { label: `Game ${game?.shortCode ?? code.toUpperCase()}` }];
   return (
-    <Page game={game ?? null} room={room.data ?? null} crumbs={crumbs} placeholder={`Search or do anything in ${game?.shortCode ?? code.toUpperCase()}`}
+    <Page game={view} room={room.data ?? null} crumbs={crumbs} placeholder={`Search or do anything in ${game?.shortCode ?? code.toUpperCase()}`}
       suggested={step?.primary ? [step.primary] : []} conn={game ? { ok: !q.error, label: active ? "live" : "final" } : null}>
       {authError ? <div className="mx-auto max-w-lg px-4 py-20"><ErrorLine message={errMsg(authError)} onRetry={() => void refetchAuth()} /></div>
       : !isAuthenticated ? null
@@ -197,7 +224,7 @@ export default function Game() {
           <ErrorLine message={q.error ? errMsg(q.error) : "Game not found. Check the code, or open it from its room."} />
           <Link href="/" className="underline underline-offset-4" data-testid="link-game-home">Your rooms</Link>
         </div>
-      ) : <SpectatorView game={game} room={room.data} />}
+      ) : <SpectatorView game={game} instance={instance} room={room.data} />}
     </Page>
   );
 }

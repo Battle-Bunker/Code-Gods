@@ -18,6 +18,7 @@ import { membersOf, principalV, requireOwnerAs, requireRoom, shortCodeFor, viewe
 import { EVENT_LOG_SCHEMA, LEASE_MS, disclosedTotalsOf, totalsOf } from "../lib/world";
 import { roomSetupWrite, type RoomSetupChange } from "../setups";
 import { scoreV } from "./tables";
+import { publicSalienceOf, publishStandings } from "./readModel";
 
 /** The second half's watchdog period while tables compute (owner.ts completeStart; finished() normally launches at once). */
 export const PREPARING_WATCHDOG_MS = 60_000;
@@ -218,7 +219,8 @@ export const commitStart = internalMutation({
     }
     const events = [];
     for (const o of args.objects) {
-      const objectId = await ctx.db.insert("objects", { gameId, value: o.value, version: 0, scores: o.scores, salience: o.salience, ...(o.noise !== undefined ? { noise: o.noise } : {}) });
+      const objectId = await ctx.db.insert("objects", { gameId, value: o.value, version: 0, scores: o.scores, salience: o.salience, ...(o.noise !== undefined ? { noise: o.noise } : {}),
+        publicSalience: publicSalienceOf(o, true) });
       events.push({ t: "spawn" as const, objectId, value: o.value, version: 0, world: 0, net: args.deities.map(d => o.scores.find(s => s.god === d.godId)!.netBits),
         ...(o.noise !== undefined ? { noise: o.noise } : {}) });
     }
@@ -231,7 +233,9 @@ export const commitStart = internalMutation({
     });
     await insertObjectEvents(ctx, gameId, 0, events);
     // The hot state lives off the games doc (game/state.ts): the clock every reader of world time reads, and the loop's own.
-    await ctx.db.insert("gameClocks", { gameId, worldSeconds: 0, lastTick: now, objectCount: args.objects.length, agentCount: 0, scoreboard: { totals: disclosed, world: 0, at: now } });
+    const scoreboard = { totals: disclosed, world: 0, at: now };
+    await ctx.db.insert("gameClocks", { gameId, worldSeconds: 0, lastTick: now, objectCount: args.objects.length, agentCount: 0, scoreboard });
+    await publishStandings(ctx, { _id: gameId, roster }, scoreboard, { agentCount: 0, objectCount: args.objects.length });
     await ctx.db.insert("gameEngine", {
       gameId, tick: { seq: 0, leaseUntil: planningEndsAt + LEASE_MS }, nextSpawn: args.nextSpawn, nextBatch: 1,
       stats: { acts: 0, commits: 0, discarded: 0, opportunities: 0 },

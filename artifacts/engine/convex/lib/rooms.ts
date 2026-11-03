@@ -134,9 +134,13 @@ export async function lastHumanActivity(ctx: Ctx): Promise<number> {
 export const isIdle = (lastActivity: number, now = Date.now()) => now - lastActivity >= IDLE_MS;
 
 export async function recentChat(ctx: Ctx, roomId: Id<"rooms">, limit = 100, from = 0, to = Infinity) {
-  const rows = await ctx.db.query("chat").withIndex("by_room", q => {
+  return (await chatWindow(ctx, roomId, from, to).take(limit)).reverse();
+}
+
+/** A room's chat sent in [from, to] (a game's window: its start to its end), newest first, by the by_room index. */
+export function chatWindow(ctx: Ctx, roomId: Id<"rooms">, from = 0, to = Infinity) {
+  return ctx.db.query("chat").withIndex("by_room", q => {
     const lower = q.eq("roomId", roomId).gte("timestamp", from);
     return Number.isFinite(to) ? lower.lte("timestamp", to) : lower;
-  }).order("desc").take(limit);
-  return rows.reverse();
+  }).order("desc");
 }

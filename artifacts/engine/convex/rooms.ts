@@ -13,10 +13,11 @@ import { liveGame, withEngine } from "./game/state";
 import { AI_MODEL_CATALOG, ASSISTANT_BUDGET_MAX, DEFAULT_AGENT_MODEL } from "./lib/aiModels";
 import { fail } from "./lib/errors";
 import { aiSeatName } from "./lib/aiNames";
-import { publicRoom } from "./lib/projection";
+import { chatView, publicRoom } from "./lib/projection";
+import { paginationOptsValidator } from "convex/server";
 import { firstSteps } from "./setups";
 import {
-  AI_LOBBY_STATUS, displayName, getCatalog, membersOf, memberOf, principalV, recentChat, requireMember, requireMemberAs, requireOwner, requireOwnerAs, requireReaderAs, requireRoom,
+  AI_LOBBY_STATUS, chatWindow, displayName, getCatalog, isHistoric, requireHistoricReaderAs, membersOf, memberOf, principalV, recentChat, requireMember, requireMemberAs, requireOwner, requireOwnerAs, requireReaderAs, requireRoom,
   shortCodeFor, viewerOf,
 } from "./lib/rooms";
 import { touchActivity } from "./activity";
@@ -210,6 +211,30 @@ export const chatHistory = query({
   args: { roomId: v.id("rooms"), before: v.optional(v.number()) },
   handler: async (ctx, args) => chatFor(ctx, await requireViewer(ctx), args),
 });
+export const CHAT_PAGE_MAX = 100;
+/**
+ * The room's public chat for a page's chat component: one page, newest first (usePaginatedQuery loads older pages).
+ * With `gameId`, only that game's chat: the messages sent between its start and its end (a past game's chat is for
+ * the gods who played in it or watched it, and the room owner). Readable by whoever may read the room, like rooms.get.
+ */
+export const chat = query({
+  args: { roomId: v.id("rooms"), gameId: v.optional(v.id("games")), paginationOpts: paginationOptsValidator },
+  handler: async (ctx, { roomId, gameId, paginationOpts }) => {
+    const viewer = await requireViewer(ctx);
+    const room = await requireRoom(ctx, roomId);
+    requireReaderAs(viewer, room);
+    let from = 0, to = Infinity;
+    if (gameId) {
+      const game = await ctx.db.get(gameId);
+      if (!game || game.roomId !== room._id) fail("NOT_FOUND", "Game not found in this room");
+      if (isHistoric(room, game)) requireHistoricReaderAs(viewer, room, game);
+      from = game.createdAt; to = game.endedAt ?? Infinity;
+    }
+    const page = await chatWindow(ctx, room._id, from, to).paginate({ ...paginationOpts, numItems: Math.max(1, Math.min(CHAT_PAGE_MAX, Math.floor(paginationOpts.numItems))) });
+    return { ...page, page: page.page.map(chatView) };
+  },
+});
+
 /**
  * One page of the room's chat, newest page first and each page oldest-first (the get_chat tool). `cursor` is the
  * previous page's `nextCursor`: Convex's own pagination cursor, so messages sharing a timestamp are never skipped

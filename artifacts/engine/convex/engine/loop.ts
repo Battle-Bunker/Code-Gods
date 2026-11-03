@@ -12,6 +12,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
 import { eventV, scoreV } from "../game/tables";
 import { liveGame, withEngine, writeGame, type LiveGame } from "../game/state";
+import { publicSalienceOf } from "../game/readModel";
 import { gameRecord } from "../lib/projection";
 import { AI_LOBBY_STATUS, isIdle, lastHumanActivity, membersOf } from "../lib/rooms";
 import { EVENT_LOG_SCHEMA, EVENTS_PER_BATCH, LEASE_MS, MIN_TICK_MS, scoreIntervalOf, scoreboardDue, totalsOf } from "../lib/world";
@@ -101,6 +102,8 @@ export async function endGame(ctx: MutationCtx, game: LiveGame, reason: "lifetim
   });
   // The ended game never changes again: its whole replay is stored once, after this commit (convex/replays.ts).
   await ctx.scheduler.runAfter(0, internal.replays.build, { gameId: game._id });
+  // Its disclosure is exact from now on: the public salience loses the live noise (paged, off this commit).
+  await ctx.scheduler.runAfter(0, internal.game.readModel.finalizeObjects, { gameId: game._id, cursor: null });
   const room = await ctx.db.get(game.roomId);
   if (room && room.activeGameId === game._id) {
     await ctx.db.patch(room._id, { activeGameId: undefined, seq: room.seq + 1 });
@@ -241,11 +244,13 @@ export const commit = internalMutation({
 
     // Apply.
     for (const change of args.objects) {
-      await ctx.db.patch(change.id, { value: change.value, version: change.version, scores: change.scores, salience: change.salience, noise: change.noise });
+      await ctx.db.patch(change.id, { value: change.value, version: change.version, scores: change.scores, salience: change.salience, noise: change.noise,
+        publicSalience: publicSalienceOf(change, true) });
     }
     const ids = new Map<string, string>();
     for (const spawn of args.spawns) {
-      ids.set(spawn.tmp, await ctx.db.insert("objects", { gameId: game._id, value: spawn.value, version: 0, scores: spawn.scores, salience: spawn.salience, ...(spawn.noise !== undefined ? { noise: spawn.noise } : {}) }));
+      ids.set(spawn.tmp, await ctx.db.insert("objects", { gameId: game._id, value: spawn.value, version: 0, scores: spawn.scores, salience: spawn.salience, ...(spawn.noise !== undefined ? { noise: spawn.noise } : {}),
+        publicSalience: publicSalienceOf(spawn, true) }));
     }
     for (const state of args.agents) {
       if (live.has(state.id)) await ctx.db.patch(state.id, { acts: state.acts, spent: state.spent, account: state.account });

@@ -280,7 +280,12 @@ Every public function above has an entry in `lib/player-client/src/catalog.ts` (
 | `code.runs.get` | query | player | Show a code run | One analytics run's source, result table and printed output. | `get_code_run` |
 | `commands.submit` | action | player | Send a game command | Validate, summon or destroy an agent, mark yourself ready, chat publicly or use your pause. | `validate_agent`, `summon_agent`, `destroy_agent`, `set_ready`, `send_chat`, `pause_game` |
 | `games.resolve` | query | player | Open a game by code | Finds a game's page from its code, current or historical. | — (Resolves a code for the game page; the room's games reach the assistant through list_games and get_game_history.) |
-| `games.view` | query | player | Watch a game | The public view of a game: salience, standings, roster and winners. | — (The public game page's subscription; the human's private view is get_observation.) |
+| `games.header` | query | player | Open a game's header | A game's codes, room, status, roster, settings and deadlines, as its page header shows them. | — (The game page's header subscription; the assistant reads the human's own view with get_observation.) |
+| `games.standings` | query | player | Show a game's standings | The published scoreboard of a game, ranked, with its live agent and object counts. | — (The spectator page's leaderboard subscription; the assistant reads the leaderboard from get_observation.) |
+| `games.standingsHistory` | query | player | Show a game's score history | Every published scoreboard of a game, oldest first, for the race chart. | — (The race chart's subscription; the assistant follows the published scoreboards in the event log (get_events).) |
+| `games.instance` | query | player | Show a game's object type | A game's object type with its moves, and the utility functions its gods might have drawn. | — (The game page's rules subscription; the assistant reads the object type with get_rules and get_observation.) |
+| `games.objectIds` | query | player | List a game's objects | A page of a game's objects, hottest first, for the spectator's list. | — (The spectator list's skeleton subscription; the assistant reads its own objects with get_observation.) |
+| `games.object` | query | player | Show one object | One object of a game: its value and how many bits all players together see in it. | — (One row of the spectator list subscribes to it; the assistant reads its own objects with get_observation.) |
 | `layout.current` | query | player | Show the dock layout | The panes you see in this room, as every open client of yours renders them. | `get_layout`, `load_skill` |
 | `layout.set` | mutation | player | Arrange the dock | Moves, resizes, adds or closes panes; every open client of yours follows. | `open_panel`, `set_panel_params`, `move_pane`, `close_pane` |
 | `manifest.get` | action | infrastructure | Show server info | Object types, offered instantiations, options, runtimes and whether AI players are funded. | `get_rules` |
@@ -314,6 +319,7 @@ Every public function above has an entry in `lib/player-client/src/catalog.ts` (
 | `rooms.leave` | mutation | player | Leave this room | Gives up your seat; you can join again later. | — (Leaving would revoke the very credential the assistant acts through.) |
 | `rooms.setReady` | mutation | player | Mark me ready | Tells the room you are ready for the next game; it gates nothing. | `set_ready` |
 | `rooms.setSpectator` | mutation | player | Watch or play the next game | Spectators watch without being dealt in, from the next game; the owner can set it for anyone. | `set_spectator` |
+| `rooms.chat` | query | player | Show the chat | The room's public chat, or one game's, newest first and paged. | — (A page's chat subscription; the assistant pages back through the chat with get_chat.) |
 | `rooms.chatHistory` | query | player | Show older chat | Earlier public messages than the ones on screen. | `get_chat` |
 | `rooms.history` | query | player | Show past games | Finished games of this room with their standings and winners. | `list_games` |
 | `rooms.approveAiBudget` | mutation | owner | Set AI spending | Approves the AI players' token budget and the assistant allowance per player per game. | `update_settings` |
@@ -396,7 +402,16 @@ Open pages learn of a deploy and update themselves (`lib/player-client/src/updat
 - Internal: `version.record({site, build})` (deploys only).
 
 ### Other modules
-- `games.view({code})` query: the public game view (salience, leaderboard, roster, settings, objectInstance, game chat, winners, utilityCatalog, roomActiveGame, serverTime). `games.resolve({code})` → `{…, status: current|historical|unavailable}`.
+- The game page reads one narrow query per component (docs/convex-read-architecture.md §4.2), each signed-in and
+  following the game's access rule (a past game is its players', spectators' and room owner's only):
+  `games.header({code})` the cold header (codes, room, phase, deadlines, roster, spectators, settings, setup, winners
+  once ended, roomActiveGame; never re-run by a tick); `games.standings({gameId})` the published scoreboard ranked, with
+  its world and wall time and the agent and object counts published with it; `games.standingsHistory({gameId, after?})`
+  one row per publication, oldest first, at most 100 after seq `after`; `games.instance({gameId})` the object type and
+  utility catalog; `games.objectIds({gameId, paginationOpts})` a page (≤ 50) of `{id, salience}` by disclosed salience,
+  highest first; `games.object({objectId})` one object's `{id, value, version, salience}` (salience with its disclosure
+  noise while live, exact once ended); `rooms.chat({roomId, gameId?, paginationOpts})` a page of the room's (or one
+  game's) chat, newest first. `games.resolve({code})` → `{…, status: current|historical|unavailable}`.
 - `activity.touch()` mutation: human activity, which resumes idle-parked games (the assistant's `wake`). `activity.status()` query.
 - `aiTemplates.catalog()` query: the public AI library, without prompts. Admin only: `adminList()`, `create`, `update({id, revision, …})`, `remove({id, revision})`.
 - Sign-in is required for every function a page uses (owner decision 2026-11-02): queries and the actions `manifest.get` and `calibration.node.tables` answer a signed-out caller `UNAUTHENTICATED`. Open by decision: `version.current` (the deploy auto-update), `auth/user.me` (null when signed out), the HTTP routes `/api/health`, `/api/config`, Better Auth, the device flow and OAuth/MCP discovery and registration (`/mcp` itself answers 401 without a token).

@@ -60,14 +60,14 @@ test("a historic game opens read-only for its participants and the owner, and fo
   const cyApp = await playerClient(cy, roomId, "read");
   assert.match(await rejects(cyApp.query(api.player.game, { roomId, gameId: game1.gameId })), /played in it/);
   // The app's game page (the spectator view) and its link resolver follow the same rule for a past game...
-  assert.match(await rejects(cy.c.query(api.games.view, { code: game1.shortCode })), /played in it/);
+  assert.match(await rejects(cy.c.query(api.games.header, { code: game1.shortCode })), /played in it/);
   assert.match(await rejects(cy.c.query(api.games.resolve, { code: game1.shortCode })), /played in it/);
-  assert.equal((await ada.c.query(api.games.view, { code: game1.shortCode })).status, "ended");
+  assert.equal((await ada.c.query(api.games.header, { code: game1.shortCode })).status, "ended");
   assert.equal((await ada.c.query(api.games.resolve, { code: game1.shortCode })).status, "historical");
   // ...and stay open to any signed-in viewer for the room's current game.
   const [stranger] = await gods("Historic Stranger");
-  assert.equal((await stranger.c.query(api.games.view, { code: game2.shortCode })).status, "active");
-  assert.match(await rejects(stranger.c.query(api.games.view, { code: game1.shortCode })), /played in it/);
+  assert.equal((await stranger.c.query(api.games.header, { code: game2.shortCode })).status, "active");
+  assert.match(await rejects(stranger.c.query(api.games.header, { code: game1.shortCode })), /played in it/);
   // ...but reads the room's current game.
   assert.equal((await cy.c.query(api.player.game, { roomId, gameId: game2.gameId })).seated, true);
 
@@ -84,5 +84,5 @@ test("a historic game opens read-only for its participants and the owner, and fo
   const asOwner = await host.c.query(api.player.game, { roomId, gameId: game1.gameId });
   assert.equal(asOwner.seated, false);
   assert.equal(asOwner.id, game1.gameId);
-  assert.equal((await host.c.query(api.games.view, { code: game1.gameId })).id, game1.gameId);
+  assert.equal((await host.c.query(api.games.header, { code: game1.gameId })).id, game1.gameId);
 });

@@ -69,6 +69,7 @@ import type * as engine_tick from "../engine/tick.js";
 import type * as game_commands from "../game/commands.js";
 import type * as game_lobby from "../game/lobby.js";
 import type * as game_queries from "../game/queries.js";
+import type * as game_readModel from "../game/readModel.js";
 import type * as game_state from "../game/state.js";
 import type * as game_tables from "../game/tables.js";
 import type * as games from "../games.js";
@@ -186,6 +187,7 @@ declare const fullApi: ApiFromModules<{
   "game/commands": typeof game_commands;
   "game/lobby": typeof game_lobby;
   "game/queries": typeof game_queries;
+  "game/readModel": typeof game_readModel;
   "game/state": typeof game_state;
   "game/tables": typeof game_tables;
   games: typeof games;

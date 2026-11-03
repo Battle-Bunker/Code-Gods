@@ -81,8 +81,9 @@ before(async () => {
     const c = await admin.query(internal.testing.gameCounters, { gameId });
     return c?.phase === "running" && c.objectCount >= 1000 && c.worldSeconds > 2;
   }, "the game runs with 1,000 objects", 120_000, 500);
+  const objectId = (await ada.c.query(api.games.objectIds, { gameId, paginationOpts: { numItems: 1, cursor: null } })).page[0].id;
   fixture = { roomId, roomCode: shortCode, gameId, gameCode: game.shortCode, setupId: room.setup.id, panelSlug: "gate", userCode, commandId,
-    endedRoomId: ended.roomId, endedGameId: endedGame.gameId };
+    endedRoomId: ended.roomId, endedGameId: endedGame.gameId, objectId };
 });
 
 type Measured = { budget: Budget; docs: number; bytes: number; ms: number; runs: Execution[] };

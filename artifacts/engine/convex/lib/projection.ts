@@ -41,7 +41,7 @@ export function objectInstance(settings: GameSettings): InstanceInfo {
   return settings.commitClause ? { ...info, helpers: [...info.helpers, COMMIT_CLAUSE_HELPER] } : info;
 }
 
-const rosterEntry = ({ id, name, kind }: Game["roster"][number]) => ({ id, name, kind });
+export const rosterEntry = ({ id, name, kind }: Game["roster"][number]) => ({ id, name, kind });
 
 /** A room's pointer to its single active game; null in the lobby between games. */
 export function activeGameRef(game: Game | null) {
@@ -51,7 +51,7 @@ export function activeGameRef(game: Game | null) {
 }
 
 /** The setup a game was started from, as named then (null for games started before setups-v2). */
-const gameSetup = (game: Game) => (game.setupId ? { id: game.setupId, name: game.setupName ?? "" } : null);
+export const gameSetup = (game: Game) => (game.setupId ? { id: game.setupId, name: game.setupName ?? "" } : null);
 
 /** Public result of an ended game (games.summary and the room's history). */
 export function gameRecord(game: ClockedGame, objects: readonly Obj[]) {
@@ -86,7 +86,7 @@ export function publicGame(game: ClockedGame, objects: readonly Obj[]) {
 }
 
 type Chat = Doc<"chat">;
-const chatView = (m: Chat) => ({ id: m._id, authorId: m.authorId, authorName: m.authorName, kind: m.kind, text: m.text, timestamp: m.timestamp });
+export const chatView = (m: Chat) => ({ id: m._id, authorId: m.authorId, authorName: m.authorName, kind: m.kind, text: m.text, timestamp: m.timestamp });
 
 /** The setup a room runs: its id, its name (live, else as last applied) and whether it was deleted since. */
 export type RoomSetup = { id: string; name: string; deleted: boolean };

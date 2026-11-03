@@ -10,6 +10,7 @@
  */
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
+import { publishStandings, recountAgents } from "./readModel";
 
 export type Scoreboard = NonNullable<Doc<"gameClocks">["scoreboard"]>;
 export type Clock = Omit<Doc<"gameClocks">, "_id" | "_creationTime" | "gameId">;
@@ -94,6 +95,9 @@ export async function writeGame(ctx: MutationCtx, game: LiveGame, patch: Partial
   const next = { ...game, ...patch } as LiveGame;
   const clock = pick(patch as Clock, CLOCK_KEYS), engine = pick(patch as Engine, ENGINE_KEYS);
   let [stored, clockRow, engineRow] = await Promise.all([ctx.db.get(game._id), clockDoc(ctx, game._id), engineDoc(ctx, game._id)]);
+  // The scoreboard as stored before this write (the caller's `game` may already carry the new one; a legacy game's split
+  // below would store it too).
+  const published = clockRow?.scoreboard ?? stored?.scoreboard;
   // Header fields that actually change only: a commit that restates the phase must not touch the doc every page reads.
   const header = Object.fromEntries(Object.entries(patch).filter(([k, value]) =>
     !(HOT_KEYS as readonly string[]).includes(k) && JSON.stringify(value) !== JSON.stringify((stored as Record<string, unknown> | null)?.[k])));
@@ -104,5 +108,12 @@ export async function writeGame(ctx: MutationCtx, game: LiveGame, patch: Partial
   if (Object.keys(header).length) await ctx.db.patch(game._id, header);
   if (clockRow && Object.keys(clock).length) await ctx.db.patch(clockRow._id, clock);
   if (engineRow && Object.keys(engine).length) await ctx.db.patch(engineRow._id, engine);
+  // A newly published scoreboard reaches the standings read model in the same commit (game/readModel.ts).
+  if (patch.scoreboard && JSON.stringify(patch.scoreboard) !== JSON.stringify(published)) {
+    await publishStandings(ctx, next, patch.scoreboard, { agentCount: next.agentCount, objectCount: next.objectCount });
+  } else if (patch.agentCount !== undefined && patch.agentCount !== game.agentCount) {
+    // A summon or a destroy between publications: the spectator's agent count (games.standings) follows at once.
+    await recountAgents(ctx, game._id, patch.agentCount);
+  }
   return next;
 }

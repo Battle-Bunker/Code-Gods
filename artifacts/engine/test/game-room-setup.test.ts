@@ -129,7 +129,7 @@ test("a change edits the room's setup when the owner owns it, else their copy, w
   // A started game snapshots the setup; the ended game's record and the public view name it.
   await host.c.action(api.owner.settings, { roomId, revision: await revision(), settings: { planningSeconds: 3600, halfLifeSeconds: 1e9, startingObjectCount: 3, spawnRateHz: 0 } });
   const game = await startGame(host, roomId);
-  const view = await ada.c.query(api.games.view, { code: game.shortCode });
+  const view = await ada.c.query(api.games.header, { code: game.shortCode });
   assert.deepEqual(view.setup, { id: fromDeleted.setup.id, name: "Ada's board's copy 2" });
   await host.c.mutation(api.rooms.endActiveGame, { roomId });
   const [record] = await ada.c.query(api.rooms.history, { room: roomId });
