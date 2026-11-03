@@ -10,7 +10,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { admin, api, gods, internal, playerClient, roomWith, sleep, startGame, touch, waitFor, type God } from "./game-helpers.ts";
+import { admin, api, gods, internal, playerClient, roomWith, sleep, startGame, touch, waitFor, type God, makeAdmin } from "./game-helpers.ts";
 import { QUEUED_NOTE } from "../convex/assistant/rules.ts";
 
 const settings = {
@@ -31,7 +31,8 @@ async function assistantRoom(names: [string, string, string]) {
   const members = await gods(...names);
   await touch(members[0]);
   const { roomId } = await roomWith(members, settings);
-  await members[0].c.mutation(api.rooms.approveAiBudget, { roomId, aiBudget: 0, assistantBudget: 500_000 });
+  await makeAdmin(members[0]);
+  await members[0].c.mutation(api.rooms.setAiQuotas, { roomId, assistantQuota: 500_000 });
   await startGame(members[0], roomId);
   return { members, roomId };
 }

@@ -32,7 +32,8 @@ import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/s
 import { touchActivity } from "./activity";
 import { actsAsHuman, type Permission, type Viewer } from "./auth/access";
 import { credentialProblem } from "./auth/principal";
-import { ASSISTANT_LOBBY as LOBBY, allowanceOf, assistantEpoch } from "./ai/seats";
+import { ASSISTANT_LOBBY as LOBBY, ASSISTANT_QUOTA_ZERO, allowanceOf, assistantEpoch } from "./ai/seats";
+import { AI_ADMIN_ONLY, aiEnabledFor, assistantQuotaOf } from "./lib/aiAccess";
 import { AI_MODEL_CATALOG, DEFAULT_AGENT_MODEL } from "./lib/aiModels";
 import { fail } from "./lib/errors";
 import { findGame, requireHistoricReaderAs, requireMember, requireRoom } from "./lib/rooms";
@@ -150,9 +151,7 @@ export const send = mutation({
         return { threadId: seen.threadId, turnId: seen.status === "delivered" ? seen.turnId ?? null : null, queueId: seen._id, queued: seen.status === "queued" };
       }
     }
-    if (!(room.assistantBudget ?? 0)) {
-      fail("FORBIDDEN", "The room owner has not enabled the assistant in this room (its allowance is 0 tokens). The owner approves an assistant allowance in the room's AI budget card.");
-    }
+    await requireAssistantAvailable(ctx, room);
     const epoch = assistantEpoch(room);
     if (args.gameId !== undefined && args.gameId !== epoch) fail("CONFLICT", "A new game has started: your message was not sent. Send it again to start this game's conversation");
     const replay = args.replay ? await replayContext(ctx, room, viewer, args.replay) : undefined;
@@ -257,7 +256,7 @@ export const sendQueued = mutation({
   handler: async (ctx, args) => {
     const room = await requireRoom(ctx, args.roomId);
     const { viewer } = await requireMember(ctx, room, "read");
-    if (!(room.assistantBudget ?? 0)) fail("FORBIDDEN", "The room owner has not enabled the assistant in this room");
+    await requireAssistantAvailable(ctx, room);
     if (await busyTurn(ctx, room, viewer.subject)) fail("CONFLICT", "Your assistant is still working: the queued messages reach it at its next step");
     // The given conversation's queued messages (the one on screen), else the oldest one's.
     const rows = (await queuedForKey(ctx, room._id, viewer.subject, assistantEpoch(room))).filter(r => !args.threadId || r.threadId === args.threadId);
@@ -330,12 +329,19 @@ export const setPrefs = mutation({
   },
 });
 
+/** The assistant may take a turn: AI is available in the room (lib/aiAccess.ts) and its assistant quota is not 0. */
+async function requireAssistantAvailable(ctx: QueryCtx, room: Doc<"rooms">) {
+  if (!(await aiEnabledFor(ctx, room))) fail("FORBIDDEN", AI_ADMIN_ONLY);
+  if (assistantQuotaOf(room) <= 0) fail("FORBIDDEN", ASSISTANT_QUOTA_ZERO);
+}
+
 export const status = query({
   args: { roomId: v.id("rooms") },
   handler: async (ctx, { roomId }) => {
     const room = await requireRoom(ctx, roomId);
     const { viewer } = await requireMember(ctx, room, "read");
     const allowance = await allowanceOf(ctx, room, viewer.subject);
+    const available = await aiEnabledFor(ctx, room);
     const [credential] = await activeAssistantCredential(ctx, viewer.subject, room);
     const latest = await latestTurn(ctx, room._id, viewer.subject);
     // A turn of an earlier game (ending after the next game started) is not this game's active turn.
@@ -343,7 +349,9 @@ export const status = query({
     const prefs = await ctx.db.query("assistantPrefs").withIndex("by_key", q => q.eq("roomId", room._id).eq("subject", viewer.subject)).unique();
     const model = AI_MODEL_CATALOG.find(m => m.id === (room.assistantModel ?? DEFAULT_AGENT_MODEL));
     return {
-      enabled: allowance.limit > 0,
+      /** AI is available in this room (its owner is an administrator, lib/aiAccess.ts) and its assistant quota is not 0. */
+      enabled: available && allowance.limit > 0,
+      available,
       /** The game the assistant works in now: the room's current game id, or "lobby" (transcript's and send's gameId). */
       game: allowance.epoch,
       allowance: { limit: allowance.limit, used: allowance.used, epoch: allowance.epoch },

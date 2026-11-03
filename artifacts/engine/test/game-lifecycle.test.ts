@@ -5,7 +5,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { admin, api, gods, internal, rejects, roomWith, startGame, touch, waitFor } from "./game-helpers.ts";
+import { admin, api, gods, internal, rejects, roomWith, startGame, touch, waitFor, makeAdmin } from "./game-helpers.ts";
 
 const INT_TS = { languages: ["typescript"], objectType: "Int", spawnRateHz: 0 };
 
@@ -64,6 +64,7 @@ test("room lobby lifecycle: launch, spectate, end by lifetime, history, second g
   assert.equal((await host.c.query(api.games.resolve, { code: game1.shortCode.toLowerCase() })).status, "current");
   assert.match(await rejects(host.c.action(api.owner.start, { roomId })), /already a live game/);
   assert.match(await rejects(host.c.action(api.owner.settings, { roomId, revision: room.revision, settings: { ...INT_TS } })), /frozen/);
+  await makeAdmin(host);
   assert.match(await rejects(host.c.mutation(api.rooms.addAi, { roomId, templateId: "sonnet-strategist" })), /frozen/);
 
   // A latecomer joins mid-game: a member who spectates and is dealt in next game.
@@ -156,10 +157,6 @@ test("AI seats and budgets in the lobby: library snapshot, owner-only seats, bud
   const seat = room.members.find((m: any) => m.id === godId);
   assert.deepEqual([seat.kind, seat.aiAgentId, seat.provider, seat.model], ["ai", template.id, "anthropic", "claude-sonnet-5-5"]);
   assert.ok(!JSON.stringify(room).includes("Play strategically"), "the seat's strategy prompt is not public room data");
-  assert.match(await rejects(host.c.action(api.owner.start, { roomId })), /AI token budget/);
-  assert.match(await rejects(ada.c.mutation(api.rooms.approveAiBudget, { roomId, aiBudget: 5000 })), /owner/i);
-  await host.c.mutation(api.rooms.approveAiBudget, { roomId, aiBudget: 5000 });
-  assert.equal((await host.c.query(api.rooms.get, { room: roomId })).aiBudget, 5000);
   await host.c.mutation(api.rooms.removeAi, { roomId, godId });
   assert.equal((await host.c.query(api.rooms.get, { room: roomId })).members.length, 2);
 });

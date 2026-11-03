@@ -80,7 +80,7 @@ test("an earlier turn that ended without its answer closes with an engine note; 
   const history = buildHistory(rows, calls, { turnId: "D", briefings: { D: "<briefing/>" }, endings: { A: "budget_exhausted", B: "cancelled", C: "done", D: "running" } });
   const notes = history.flatMap(m => m.role === "user" && typeof m.content !== "string" ? m.content.flatMap(b => b.type === "text" && b.text.startsWith("Engine note") ? [b.text] : []) : []);
   assert.deepEqual(notes, [UNANSWERED_NOTES.budget_exhausted, UNANSWERED_NOTES.cancelled], "A's and B's notes, in order; none for C or D");
-  assert.match(UNANSWERED_NOTES.budget_exhausted!, /allowance ran out[\s\S]*UNANSWERED/);
+  assert.match(UNANSWERED_NOTES.budget_exhausted!, /quota for this game ran out[\s\S]*UNANSWERED/);
   // The note follows the turn it closes: A's question, then its note, before B's question.
   assert.deepEqual(history.slice(0, 2), [
     { role: "user", content: "what is my utility?" },

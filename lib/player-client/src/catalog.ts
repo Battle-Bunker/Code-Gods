@@ -339,7 +339,7 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   "owner.settings": {
     kind: "action", audience: "owner",
     human: { title: "Choose the next game's setup", tooltip: "Puts the next game on a game setup, or changes the room's setup; running games keep theirs." },
-    ai: { description: "Owner: the next game's setup and AI token budget, with the room's revision (CONFLICT when stale). setupId (any setup) applies its settings. settings (fields to change; languages lists the languages agents may be written in, an object type moves its default shape) edits the room's setup if the human owns it, else their new copy \"<name>'s copy\", which the room then runs; the result's setup.note says which." },
+    ai: { description: "Owner: the next game's setup, with the room's revision (CONFLICT when stale). setupId (any setup) applies its settings. settings (fields to change; languages lists the languages agents may be written in, an object type moves its default shape) edits the room's setup if the human owns it, else their new copy \"<name>'s copy\", which the room then runs; the result's setup.note says which." },
     tools: ["update_settings"], palette: { label: "Choose the next game's setup…", group: "owner", keywords: ["setup", "configuration", "settings", "world"] },
   },
   "owner.start": {
@@ -350,9 +350,9 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   },
   "owner.command": {
     kind: "action", audience: "owner",
-    human: { title: "Run an owner action", tooltip: "Settings, start, resume, end, add or remove an AI player, in one call." },
-    ai: { description: "Owner: one entry point for settings, start, resume, endGame, addAi and removeAi with a requestId; the owner tools map onto it one to one." },
-    tools: ["update_settings", "start_game", "resume_game", "end_game", "add_ai", "remove_ai"], palette: null,
+    human: { title: "Run an owner action", tooltip: "Settings, AI quotas, start, resume, end, add or remove an AI player, in one call." },
+    ai: { description: "Owner: one entry point for settings, quotas, start, resume, endGame, addAi and removeAi with a requestId; the owner tools map onto it one to one." },
+    tools: ["update_settings", "set_ai_quotas", "start_game", "resume_game", "end_game", "add_ai", "remove_ai"], palette: null,
     why: "The assistant's single owner entry point; humans use the direct owner functions.",
   },
   // ----- panels -----
@@ -473,7 +473,7 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   "rooms.create": {
     kind: "mutation", audience: "player",
     human: { title: "Create a room", tooltip: "Opens a new room on the First steps setup with you as owner, ready to share its invite link." },
-    ai: { description: "Create a room owned by the signed-in human (browser only). It runs the system's First steps setup (setup {id, name}); optional assistantBudget (tokens per human per game, 0 = off) and assistantModel turn the in-client assistant on at creation." },
+    ai: { description: "Create a room owned by the signed-in human (browser only). It runs the system's First steps setup (setup {id, name}); its AI quotas start at 300,000 tokens per game for the AI players and for each player's assistant; optional aiQuota, assistantQuota (0 = none) and assistantModel set them at creation. AI is used only in rooms whose owner is an administrator." },
     tools: [], palette: { label: "Create a room", group: "room", keywords: ["new room", "host", "create"], surfaces: SITE },
     why: "A credential is bound to one existing room; rooms are created in the browser.",
   },
@@ -533,15 +533,15 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
     ai: { description: "The room's finished games, newest first, with public results (leaderboard, winners, settings)." },
     tools: ["list_games"], palette: { label: "Show past games", group: "room", keywords: ["history", "results", "past games"] },
   },
-  "rooms.approveAiBudget": {
+  "rooms.setAiQuotas": {
     kind: "mutation", audience: "owner",
-    human: { title: "Set AI spending", tooltip: "Approves the AI players' token budget and the assistant allowance per player per game." },
-    ai: { description: "Owner: approve the AI seats' token budget (frozen during games), the in-client assistant allowance per human per game (0 = off) and the assistant's model. update_settings covers the AI budget." },
-    tools: ["update_settings"], palette: { label: "Set AI spending…", group: "owner", keywords: ["budget", "tokens", "billing", "assistant allowance"], surfaces: SITE, confirm: "summary" },
+    human: { title: "Set AI quotas", tooltip: "The tokens the AI players may use per game, and each player's assistant." },
+    ai: { description: "Owner: set the room's per-game token quotas (any of them, also during a game; 0 = none): aiQuota for all AI players together, assistantQuota for each player's assistant, and assistantModel. Defaults 300,000 each. FORBIDDEN unless the room's owner is an administrator (AI is only available there for now)." },
+    tools: ["set_ai_quotas"], palette: { label: "Set AI quotas…", group: "owner", keywords: ["quota", "tokens", "billing", "assistant", "ai players"], surfaces: SITE, confirm: "summary" },
   },
   "rooms.addAi": {
     kind: "mutation", audience: "owner",
-    human: { title: "Add an AI player", tooltip: "Seats an AI player from the library between games; it spends the room's AI budget." },
+    human: { title: "Add an AI player", tooltip: "Seats an AI player from the library between games; it draws on the room's AI players' quota." },
     ai: { description: "Owner: seat an AI player from the library (aiTemplates.catalog / get_ai_catalog) between games." },
     tools: ["add_ai"], palette: { label: "Add an AI player…", group: "owner", keywords: ["bot", "ai seat", "add"], confirm: "summary" },
   },

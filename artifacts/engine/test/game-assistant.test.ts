@@ -10,7 +10,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { admin, api, envelope, gods, internal, playerClient, raw, rejects, roomWith, sleep, startGame, touch, waitFor, TS, type God } from "./game-helpers.ts";
+import { admin, api, envelope, gods, internal, playerClient, raw, rejects, roomWith, sleep, startGame, touch, waitFor, TS, type God, makeAdmin } from "./game-helpers.ts";
 import { disclosureChecker } from "./disclosure.ts";
 import { commandIdFor } from "../convex/assistant/rules.ts";
 
@@ -33,7 +33,8 @@ async function assistantRoom(names: [string, string, string], { budget = 500_000
   const members = await gods(...names);
   await touch(members[0]);
   const { roomId } = await roomWith(members, roomSettings);
-  if (budget) await members[0].c.mutation(api.rooms.approveAiBudget, { roomId, aiBudget: 0, assistantBudget: budget });
+  await makeAdmin(members[0]);
+  await members[0].c.mutation(api.rooms.setAiQuotas, { roomId, assistantQuota: budget });
   const game = start ? await startGame(members[0], roomId) : null;
   return { members, roomId, game };
 }
@@ -372,7 +373,7 @@ test("confirmation: a summon waits for the player; approve runs it once with the
 test("budget: the assistant pool is per human and game, separate from seats; 0 means off", { timeout: 180_000 }, async () => {
   const off = await assistantRoom(["Ann Alpha", "Bob Bravo", "Cyd Charl"], { budget: 0, start: false });
   const message = await rejects(off.members[0].c.mutation(api.assistant.send, { roomId: off.roomId, text: "hi" }));
-  assert.match(message, /owner has not enabled the assistant/i);
+  assert.match(message, /assistant quota is 0 tokens/i);
 
   const { members: [ann, bob, cyd], roomId } = await assistantRoom(["Ann Alpha", "Bob Bravo", "Cyd Charl"]);
   const probe = await ann.c.mutation(api.assistant.send, { roomId, text: mock([{ tools: [{ name: "whoami" }] }, { text: "x" }]) });
@@ -395,13 +396,13 @@ test("budget: the assistant pool is per human and game, separate from seats; 0 m
   // The reservation was made from an input estimate no smaller than the actual input.
   assert.ok(step.inputEstimate >= step.inputTokens, `${step.inputEstimate} >= ${step.inputTokens}`);
   // An allowance that covers one step but not two.
-  await ann.c.mutation(api.rooms.approveAiBudget, { roomId, aiBudget: 0, assistantBudget: firstStep + 1000 });
+  await ann.c.mutation(api.rooms.setAiQuotas, { roomId, assistantQuota: firstStep + 1000 });
   const sent = await bob.c.mutation(api.assistant.send, { roomId, text: mock([{ tools: [{ name: "whoami" }] }, { text: "never" }]) });
   const t = await until(bob, sent, DONE, "Bob's turn ends");
   assert.equal(t.turn.status, "budget_exhausted");
-  assert.match(t.turn.error.message, /allowance/i);
+  assert.match(t.turn.error.message, /quota/i);
   // Not "used up" while tokens remain: how many are left, what the next step may need, and who can raise it.
-  assert.match(t.turn.error.message, /^Your assistant allowance for this game is too low for another step: [\d,]+ of [\d,]+ tokens used \([\d,]+ left\), and the next step may need up to [\d,]+\. The room owner can raise it\.$/);
+  assert.match(t.turn.error.message, /^Your assistant quota for this game is too low for another step: [\d,]+ of [\d,]+ tokens used \([\d,]+ left\), and the next step may need up to [\d,]+\. The room owner can raise it\.$/);
   assert.deepEqual(t.calls.map((c: any) => c.status), ["ok"], "the first step ran");
   assert.ok(!finalText(t).includes("never"));
   assert.equal((await ann.c.query(api.assistant.status, { roomId })).allowance.used, annUsed + step.billedTokens, "Ann's allowance is untouched");
@@ -413,12 +414,12 @@ test("budget: the assistant pool is per human and game, separate from seats; 0 m
   assert.equal(status.enabled, true);
   assert.ok(status.allowance.used <= status.allowance.limit);
   // Bob's unanswered message is not silent context for his next turn: the model sees it marked as unanswered.
-  await ann.c.mutation(api.rooms.approveAiBudget, { roomId, aiBudget: 0, assistantBudget: 500_000 });
+  await ann.c.mutation(api.rooms.setAiQuotas, { roomId, assistantQuota: 500_000 });
   const next = await bob.c.mutation(api.assistant.send, { roomId, threadId: sent.threadId, text: mock([{ echo: true }]) });
   const n = await until(bob, next, DONE, "Bob's next turn");
   assert.equal(n.turn.status, "done");
   const earlier: string[] = JSON.parse(finalText(n)).earlier;
-  assert.match(earlier.at(-1)!, /^Engine note \(not from the player\): the turn above stopped before you answered it, because the player's assistant allowance ran out\./);
+  assert.match(earlier.at(-1)!, /^Engine note \(not from the player\): the turn above stopped before you answered it, because the player's assistant quota for this game ran out\./);
 });
 
 test("disclosure: threads are their human's only; stored tool results pass the disclosure checker", { timeout: 240_000 }, async () => {

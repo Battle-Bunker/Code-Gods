@@ -92,12 +92,21 @@ export const patchGame = internalMutation({
 
 /** Patch a room's settings directly (bypassing the offered-instantiation check). */
 export const patchRoom = internalMutation({
-  args: { roomId: v.id("rooms"), settings: v.optional(v.any()), aiBudget: v.optional(v.number()) },
-  handler: async (ctx, { roomId, settings, aiBudget }) => {
+  args: { roomId: v.id("rooms"), settings: v.optional(v.any()) },
+  handler: async (ctx, { roomId, settings }) => {
     dev();
     const room = await ctx.db.get(roomId);
     if (!room) fail("NOT_FOUND", "no room");
-    await ctx.db.patch(roomId, { ...(settings ? { settings: { ...room.settings, ...settings }, revision: room.revision + 1 } : {}), ...(aiBudget !== undefined ? { aiBudget } : {}) });
+    await ctx.db.patch(roomId, { ...(settings ? { settings: { ...room.settings, ...settings }, revision: room.revision + 1 } : {}) });
+  },
+});
+
+/** Put a room back into its shape before AI quotas: an approved `aiBudget` (and optional `assistantBudget`), no quotas. */
+export const legacyAiBudget = internalMutation({
+  args: { roomId: v.id("rooms"), aiBudget: v.number(), assistantBudget: v.optional(v.number()) },
+  handler: async (ctx, { roomId, aiBudget, assistantBudget }) => {
+    dev();
+    await ctx.db.patch(roomId, { aiQuota: undefined, assistantQuota: undefined, aiBudget, assistantBudget });
   },
 });
 

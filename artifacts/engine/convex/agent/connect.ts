@@ -111,7 +111,7 @@ export const approve = mutation({
     if (args.permission === "owner") {
       if (room.ownerId !== viewer.subject) fail("FORBIDDEN", "Only the room's current owner can approve an owner grant");
       if (args.ownerConsent !== true) {
-        fail("OWNER_CONSENT_REQUIRED", "An owner grant needs explicit consent: it can configure the room, spend its AI budget, start and end games and play as you");
+        fail("OWNER_CONSENT_REQUIRED", "An owner grant needs explicit consent: it can configure the room and its AI quotas, start and end games and play as you");
       }
     }
     await ctx.db.patch(request._id, {

@@ -8,7 +8,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { seedSetupSettings } from "@workspace/game-core";
-import { api, gods, roomWith, startGame, touch } from "./game-helpers.ts";
+import { api, gods, roomWith, startGame, touch, adminGods } from "./game-helpers.ts";
 
 async function errorCode(promise: Promise<unknown>): Promise<string> {
   try { await promise; } catch (error) { return (error as { data?: { code?: string } }).data?.code ?? `untyped: ${(error as Error).message}`; }
@@ -16,22 +16,22 @@ async function errorCode(promise: Promise<unknown>): Promise<string> {
 }
 const setupId = async (c: any, seedId: string): Promise<string> => (await c.query(api.setups.list, {})).find((s: any) => s.seedId === seedId).id;
 
-test("a new room runs First steps and can turn the assistant on in the same call", async () => {
-  const [host] = await gods("Origin Host");
+test("a new room runs First steps and can set its AI quotas in the same call", async () => {
+  const [host] = await adminGods("Origin Host");
   await touch(host);
-  const { roomId } = await host.c.mutation(api.rooms.create, { assistantBudget: 150_000, assistantModel: "claude-sonnet-5-5" });
+  const { roomId } = await host.c.mutation(api.rooms.create, { assistantQuota: 150_000, aiQuota: 40_000, assistantModel: "claude-sonnet-5-5" });
   const room = await host.c.query(api.rooms.get, { room: roomId });
   const first = await setupId(host.c, "grid-first-steps");
   assert.deepEqual(room.settings, seedSetupSettings("grid-first-steps"));
   assert.deepEqual(room.setup, { id: first, name: "First steps", deleted: false });
-  assert.equal(room.assistantBudget, 150_000);
+  assert.deepEqual([room.assistantQuota, room.aiQuota], [150_000, 40_000]);
   assert.equal(room.assistantModel, "claude-sonnet-5-5");
   assert.equal((await host.c.query(api.assistant.status, { roomId })).enabled, true, "the assistant is on from the start");
-  assert.equal(await errorCode(host.c.mutation(api.rooms.create, { assistantBudget: -1 })), "BAD_REQUEST");
-  assert.equal(await errorCode(host.c.mutation(api.rooms.create, { assistantBudget: 1.5 })), "BAD_REQUEST");
+  assert.equal(await errorCode(host.c.mutation(api.rooms.create, { assistantQuota: -1 })), "BAD_REQUEST");
+  assert.equal(await errorCode(host.c.mutation(api.rooms.create, { aiQuota: 1.5 })), "BAD_REQUEST");
   assert.equal(await errorCode(host.c.mutation(api.rooms.create, { assistantModel: "gpt-nope" })), "BAD_REQUEST");
   const plain = await host.c.mutation(api.rooms.create, {});
-  assert.equal((await host.c.query(api.rooms.get, { room: plain.roomId })).assistantBudget, 0, "off unless asked");
+  assert.equal((await host.c.query(api.rooms.get, { room: plain.roomId })).assistantQuota, 300_000, "the default quota");
   const rows = await host.c.query(api.rooms.list, {});
   assert.equal(rows.find((r: any) => r.id === roomId)?.setupName, "First steps");
 });
@@ -105,10 +105,10 @@ test("a change edits the room's setup when the owner owns it, else their copy, w
   const edited = await host.c.action(api.owner.settings, { roomId, revision: await revision(), settings: { planningSeconds: 120 } });
   assert.deepEqual([edited.setup.id, edited.setup.created], [copied.setup.id, false]);
   assert.deepEqual((await mine()).map((s: any) => [s.name, s.settings.interactionRateHz, s.settings.planningSeconds]), [["First steps's copy", 10, 120]]);
-  // The same settings again change nothing (no copy, no edit); only the AI budget leaves the setup alone.
+  // The same settings again change nothing (no copy, no edit); nor does a commit with no settings at all.
   const same = await host.c.action(api.owner.settings, { roomId, revision: await revision(), settings: { planningSeconds: 120 } });
   assert.equal(same.setup, undefined);
-  await host.c.action(api.owner.settings, { roomId, revision: await revision(), aiBudget: 1000 });
+  await host.c.action(api.owner.settings, { roomId, revision: await revision() });
   assert.deepEqual((await host.c.query(api.rooms.get, { room: roomId })).setup.id, copied.setup.id);
   assert.equal((await mine()).length, 1);
 

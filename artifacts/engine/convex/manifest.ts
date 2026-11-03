@@ -11,7 +11,7 @@ import { DEFAULT_SETTINGS, LANGUAGES, LANGUAGE_SPECS, SETTINGS_OPTIONS } from "@
 import { VERSION as PLAYER_PROTOCOL } from "@workspace/player-client";
 import { internalMutation, internalQuery, query, type QueryCtx } from "./_generated/server";
 import { requireViewer } from "./auth/access";
-import { AI_MODEL_CATALOG, ASSISTANT_BUDGET_MAX, DEFAULT_AGENT_MODEL, mockEnabled, providerConfigured } from "./lib/aiModels";
+import { AI_MODEL_CATALOG, AI_QUOTA_MAX, ASSISTANT_QUOTA_MAX, DEFAULT_AGENT_MODEL, DEFAULT_AI_QUOTA, DEFAULT_ASSISTANT_QUOTA, mockEnabled, providerConfigured } from "./lib/aiModels";
 import { MIN_TICK_MS, TICK_SECONDS } from "./lib/world";
 import { sandboxViews } from "./runtime/readiness";
 
@@ -35,8 +35,8 @@ export const get = query({
         provider: "anthropic", model: DEFAULT_AGENT_MODEL, billing: "direct", mock: mockEnabled(),
         configured: mockEnabled() || providerConfigured("anthropic") || providerConfigured("openai"), live: true,
         models: AI_MODEL_CATALOG.map(m => ({ ...m, configured: mockEnabled() || providerConfigured(m.provider) })),
-        /** The largest assistant allowance (tokens per human per game) an owner may approve. */
-        assistantBudgetMax: ASSISTANT_BUDGET_MAX,
+        /** The rooms' per-game token quotas (rooms.setAiQuotas): defaults and the largest an owner may set. */
+        quotas: { aiDefault: DEFAULT_AI_QUOTA, aiMax: AI_QUOTA_MAX, assistantDefault: DEFAULT_ASSISTANT_QUOTA, assistantMax: ASSISTANT_QUOTA_MAX },
       },
       engine: { tickSeconds: TICK_SECONDS, minTickMs: MIN_TICK_MS },
     };

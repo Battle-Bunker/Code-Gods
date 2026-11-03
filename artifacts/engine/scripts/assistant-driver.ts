@@ -34,7 +34,9 @@ const members = await gods("Dee Driver", "Max Driver", "Ned Driver");
 await touch(members[0]);
 const { roomId } = await roomWith(members, settings);
 const [me] = members;
-await me.c.mutation(api.rooms.approveAiBudget, { roomId, aiBudget: 0, assistantBudget: 1_000_000, assistantModel: model });
+await makeAdmin(me);
+// AI is used only in rooms an administrator owns: the driver signs in as one (makeAdmin).
+await me.c.mutation(api.rooms.setAiQuotas, { roomId, assistantQuota: 1_000_000, assistantModel: model });
 await startGame(me, roomId); // waits out a preparing start (test/game-helpers.ts)
 
 if (process.argv.includes("--fixture") || process.argv.includes("--fixture-only")) {

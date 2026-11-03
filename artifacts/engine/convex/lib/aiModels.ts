@@ -13,14 +13,19 @@ export const DEFAULT_AGENT_MODEL = "claude-sonnet-5-5";
 export function findModel(provider: string, model: string): AIModel | undefined {
   return AI_MODEL_CATALOG.find(item => item.provider === provider && item.id === model);
 }
-/** Host-key safety ceilings, in addition to the room owner's token budget. */
+/**
+ * Each room's two per-game token quotas, configurable by its owner (rooms.setAiQuotas; 0 = none): the AI players' pool
+ * (all AI seats of one game together) and each player's assistant. New and migrated rooms start at these defaults.
+ */
+export const DEFAULT_AI_QUOTA = 300_000, DEFAULT_ASSISTANT_QUOTA = 300_000;
+export const AI_QUOTA_MAX = 1_000_000, ASSISTANT_QUOTA_MAX = 2_000_000;
+/** Host-key safety ceilings, in addition to the room's AI players' quota. */
 export const GAME_USD = 2, DAILY_HOST_USD = 5, CALLS_PER_MINUTE = 6;
 /**
  * The in-client assistant's pool (assistant/*), separate from the seats': USD reserved per room per game and per
- * UTC day across rooms, model calls per player and per room per rolling minute, and the largest per-human allowance.
+ * UTC day across rooms, and model calls per player and per room per rolling minute.
  */
 export const ASSISTANT_GAME_USD = 2, DAILY_ASSISTANT_USD = 5, ASSISTANT_CALLS_PER_MINUTE = 8, ASSISTANT_ROOM_CALLS_PER_MINUTE = 30;
-export const ASSISTANT_BUDGET_MAX = 2_000_000;
 export const PROMPT_MAX = 10_000;
 export const mockEnabled = () => process.env.AI_MOCK === "1";
 /**
