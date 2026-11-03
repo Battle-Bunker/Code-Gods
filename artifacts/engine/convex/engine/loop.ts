@@ -66,15 +66,19 @@ export async function appendEvents(ctx: MutationCtx, game: Pick<LiveGame, "_id" 
   return next;
 }
 
-/** One objectEvents row per spawn and transform (the indexed per-object history, docs/public-log-design.md §2). */
-export async function insertObjectEvents(ctx: MutationCtx, gameId: Id<"games">, seq: number, events: readonly Ev[]) {
-  for (const e of events) {
+/**
+ * One objectEvents row per spawn and transform (the indexed per-object history, docs/public-log-design.md §2). `first`:
+ * the position of `events[0]` in the batch doc `seq` (the batch may begin with other events).
+ */
+export async function insertObjectEvents(ctx: MutationCtx, gameId: Id<"games">, seq: number, events: readonly Ev[], first = 0) {
+  for (const [i, e] of events.entries()) {
+    const index = first + i;
     if (e.t === "spawn") {
-      await ctx.db.insert("objectEvents", { gameId, objectId: e.objectId as Id<"objects">, seq, world: e.world, kind: "spawn", value: e.value, version: e.version, net: e.net, ...(e.noise !== undefined ? { noise: e.noise } : {}) });
+      await ctx.db.insert("objectEvents", { gameId, objectId: e.objectId as Id<"objects">, seq, index, world: e.world, kind: "spawn", value: e.value, version: e.version, net: e.net, ...(e.noise !== undefined ? { noise: e.noise } : {}) });
     } else if (e.t === "transform") {
       await ctx.db.insert("objectEvents", {
-        gameId, objectId: e.objectId as Id<"objects">, seq, world: e.world, kind: "transform", before: e.before, value: e.value, version: e.version,
-        calls: e.calls, agentId: e.agentId, ownerId: e.ownerId, net: e.net, ...(e.noise !== undefined ? { noise: e.noise } : {}),
+        gameId, objectId: e.objectId as Id<"objects">, seq, index, world: e.world, kind: "transform", before: e.before, value: e.value, version: e.version,
+        calls: e.calls, agentId: e.agentId, ownerId: e.ownerId, cost: e.cost.total, net: e.net, ...(e.noise !== undefined ? { noise: e.noise } : {}),
       });
     }
   }
