@@ -498,6 +498,19 @@ try {
         assert.match(page.url(), new RegExp(`/rooms/${code}/games/${gameCode}`));
         assert.equal(await page.getByTestId("button-owner-menu").count(), 0, "no End game menu after the end");
       }
+      // Opened again once its file is stored, the replay is one download from the engine's /api/replay route,
+      // authorised by the player's JWT (never a storage URL, which anyone with the link could read).
+      let downloaded: { status: number; auth: string | null } | null = null;
+      for (let tries = 0; !downloaded && tries < 20; tries++) {
+        const response = b.waitForResponse(r => r.url().includes("/api/replay/"), { timeout: 5_000 }).catch(() => null);
+        await b.reload();
+        const r = await response;
+        if (r) downloaded = { status: r.status(), auth: await r.request().headerValue("authorization") };
+      }
+      assert.ok(downloaded, "the stored replay was downloaded");
+      assert.equal(downloaded.status, 200);
+      assert.match(downloaded.auth ?? "", /^Bearer \S+/);
+      await b.getByTestId("input-replay-scrub").waitFor({ timeout: 60_000 });
       await shot(a, `game-${name}-ended`);
     });
 

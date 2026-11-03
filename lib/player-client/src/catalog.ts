@@ -389,12 +389,12 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
     tools: ["get_replay"], palette: null,
     why: "The replay view opens from the room's game list and the results panel (docs/replay-design.md §7); there is nothing to run from the palette.",
   },
-  "replays.url": {
+  "replays.stored": {
     kind: "query", audience: "player",
-    human: { title: "Open a game's stored replay", tooltip: "The whole replay of an ended game, stored once when it ended, in one download." },
-    ai: { description: "The URL of an ENDED game's whole replay (every player.replay page, without `viewer`, as {version, pages}), stored once when it ended, and the caller's place in its roster; url is null until it is stored. Same access as player.replay." },
+    human: { title: "Check a game's stored replay", tooltip: "Whether an ended game's whole replay is stored for one download, and your place in it." },
+    ai: { description: "Whether an ENDED game's whole replay (every player.replay page, without `viewer`, as {version, pages}) is stored, and the caller's place in its roster. The file itself is GET /api/replay/<roomId>/<gameId> with the caller's Convex JWT as `Authorization: Bearer` (same access). Same access as player.replay." },
     tools: [], palette: null,
-    why: "The replay page reads it to download the replay in one fetch; agents page player.replay with get_replay.",
+    why: "The replay page reads it to download the replay in one authenticated fetch; agents page player.replay with get_replay.",
   },
   "player.game": {
     kind: "query", audience: "player",

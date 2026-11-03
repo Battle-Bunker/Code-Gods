@@ -122,21 +122,38 @@ function ActivityPing() {
   return null;
 }
 
-export function EngineProvider({ client, auth, children }: { client: ConvexReactClient; auth: EngineAuth; children: ReactNode }) {
-  const inner = <SessionProvider auth={auth}><ActivityPing />{children}</SessionProvider>;
-  if (auth.kind === "token") return <TokenProvider client={client} fetchAccessToken={auth.fetchAccessToken}>{inner}</TokenProvider>;
-  if (auth.kind === "account") return <AccountProvider client={client} auth={auth.auth} session={auth.session}>{inner}</AccountProvider>;
-  return (
-    // The cast bridges a type-level quirk of @convex-dev/better-auth 0.12 (its AuthClient union infers `never` for
-    // useSession().data under this repo's compiler settings); the runtime object is exactly what it expects.
-    <ConvexBetterAuthProvider client={client} authClient={authClient as unknown as AuthClient}>{inner}</ConvexBetterAuthProvider>
-  );
+/** A fresh Convex JWT of the signed-in human, or null: the one the Convex client sends. */
+type FetchAccessToken = () => Promise<string | null>;
+const AccessTokenContext = createContext<FetchAccessToken | null>(null);
+/** Better Auth's session cookie exchanged for a Convex JWT, as ConvexBetterAuthProvider does. */
+const siteToken: FetchAccessToken = () => authClient.convex.token({ fetchOptions: { throw: false } }).then(r => r.data?.token ?? null, () => null);
+
+/**
+ * The signed-in human's Convex JWT for an engine HTTP route that checks it (`Authorization: Bearer`): an ended game's
+ * stored replay (GET /api/replay/<roomId>/<gameId>). Never for Convex data, which is read by subscription.
+ */
+export function useAccessToken(): FetchAccessToken {
+  const fetchToken = useContext(AccessTokenContext);
+  if (!fetchToken) throw new Error("useAccessToken outside EngineProvider");
+  return fetchToken;
 }
 
-/** Convex auth over an account grant: its player JWTs, refreshed (one refresh at a time across tabs) by the SDK. */
-function AccountProvider({ client, auth, session, children }: { client: ConvexReactClient; auth: PlayerAuth; session: AccountSession; children: ReactNode }) {
-  const fetchAccessToken = useMemo(() => auth.fetchToken(session), [auth, session]);
-  return <TokenProvider client={client} fetchAccessToken={fetchAccessToken}>{children}</TokenProvider>;
+export function EngineProvider({ client, auth, children }: { client: ConvexReactClient; auth: EngineAuth; children: ReactNode }) {
+  // One token source per sign-in: the Convex client's and the HTTP routes' (an account grant refreshes one at a time).
+  // An account grant's player JWTs are refreshed (one refresh at a time across tabs) by the SDK.
+  const grant = auth.kind === "account" ? auth : null;
+  const accountToken = useMemo(() => (grant ? grant.auth.fetchToken(grant.session) : null), [grant?.auth, grant?.session]); // eslint-disable-line react-hooks/exhaustive-deps
+  const fetchToken = auth.kind === "token" ? auth.fetchAccessToken : accountToken;
+  const inner = <SessionProvider auth={auth}><ActivityPing />{children}</SessionProvider>;
+  return (
+    <AccessTokenContext.Provider value={fetchToken ?? siteToken}>
+      {fetchToken ? <TokenProvider client={client} fetchAccessToken={fetchToken}>{inner}</TokenProvider> : (
+        // The cast bridges a type-level quirk of @convex-dev/better-auth 0.12 (its AuthClient union infers `never` for
+        // useSession().data under this repo's compiler settings); the runtime object is exactly what it expects.
+        <ConvexBetterAuthProvider client={client} authClient={authClient as unknown as AuthClient}>{inner}</ConvexBetterAuthProvider>
+      )}
+    </AccessTokenContext.Provider>
+  );
 }
 
 /** Convex auth over a token fetcher (always "signed in": the fetcher may refuse), with a stable useAuth hook. */

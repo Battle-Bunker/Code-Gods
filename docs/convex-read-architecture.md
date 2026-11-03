@@ -583,7 +583,7 @@ is removed, except for replay playback.
 |---|---|
 | Room (`room.tsx`) | `rooms.get` stays one query. It reads the room, members, setup and the cold `games` header. It stops re-running per tick once the clock leaves `games`. Chat moves to its own paged `rooms.chat` component. `utilityCatalog` moves to its own `rooms.catalog` query, because it is large and static. `serverTime: Date.now()` is dropped: clocks use `games.clock`, or a skew estimate from a `version`-style shared query. `rooms.history` gains the index `games.by_room_phase` instead of take-200-and-filter. |
 | Home (`home.tsx`) | `rooms.list` is already narrow. Cold header only. `memberCount` stored on the room. |
-| Replay | `endGame` schedules an action that writes the full replay log to file storage once (`replays.storageId` on the game). The page fetches one URL. This is a legitimate one-off read of an immutable record: no paging loop, no retry. Playback keeps its client-side fold (it is a player, not a query). |
+| Replay | `endGame` schedules an action that writes the full replay log to file storage once (`replays.storageId` on the game). The page fetches it once from `GET /api/replay/<roomId>/<gameId>`, which checks the caller's Convex JWT like `player.replay` (never a storage URL: anyone holding one could download it). This is a legitimate one-off read of an immutable record: no paging loop, no retry. Playback keeps its client-side fold (it is a player, not a query). |
 | Owner (`owner.ts`) | `owner.settings` takes the revision the user saw (`useRoomInfo().revision`). No one-off `rooms.get`. |
 
 ### 4.5 External player SDK (`lib/player-client`) and MCP

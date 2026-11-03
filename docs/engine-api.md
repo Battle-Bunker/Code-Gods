@@ -71,10 +71,11 @@ const convex = new ConvexReactClient(convexUrl);
 | `POST /api/device/poll` | `{deviceId, deviceSecret, verifier}` → 200 `{status:"approved", credential, credentialId, roomId, permission, expiresAt}` (once only), 202 pending, 429 slow_down, 403 denied/forbidden, 410 expired, 400 invalid |
 | `POST /api/device/token` | `{credential}` or `Authorization: Bearer cgc_…` → a player JWT (see above) |
 | `POST /api/device/revoke` | `{credential}` → `{status:"revoked"}` |
+| `GET /api/replay/<roomId>/<gameId>` | `Authorization: Bearer <Convex JWT>` (a browser or player JWT, the one the Convex client sends) → an ended game's stored replay `{version, pages}` (the `player.replay` pages without `viewer`; `replays.stored` gives the caller's place). Same access as `player.replay`: 401 signed out, 403 not a player, spectator or the room owner, 404 unknown game or not stored yet, 409 live. `Cache-Control: private, no-store` |
 
 **CORS.** The routes authorized by what a request carries (a secret, a credential or a bearer token) answer any
 origin with `Access-Control-Allow-Origin: *` and an `OPTIONS` preflight, never `Access-Control-Allow-Credentials`:
-`/api/config`, `/api/.well-known/jwks.json`, `/api/device/*`, `/api/oauth/*` and `/.well-known/oauth-*`. The cookie
+`/api/config`, `/api/.well-known/jwks.json`, `/api/device/*`, `/api/replay/*`, `/api/oauth/*` and `/.well-known/oauth-*`. The cookie
 routes (`/api/auth/*`) are same-origin only. Convex functions take a bearer JWT from any origin.
 
 Local deployments only (`pnpm --filter @workspace/engine dev`): `POST /api/auth/sign-in/oauth2
@@ -298,7 +299,7 @@ Every public function above has an entry in `lib/player-client/src/catalog.ts` (
 | `player.events` | query | player | Open the event log | Spawns, transformations and phase changes of the current game, as they affect you. | `get_events` |
 | `player.history` | query | player | Replay a past game's log | The event log of a game of this room; past games open for their players. | `get_game_history` |
 | `player.replay` | query | player | Replay a game I played | Everything that happened in an ended game you played in, fully revealed: every player's goal, every agent's code, every move. | `get_replay` |
-| `replays.url` | query | player | Open a game's stored replay | The whole replay of an ended game, stored once when it ended, in one download. | — (The replay page reads it to download the replay in one fetch; agents page player.replay with get_replay.) |
+| `replays.stored` | query | player | Check a game's stored replay | Whether an ended game's whole replay is stored for one download, and your place in it. | — (The replay page reads it to download the replay in one authenticated fetch; agents page player.replay with get_replay.) |
 | `player.game` | query | player | Open a game of this room | One game of this room, live or as it ended; past games open for their players, spectators and the owner. | — (The app's game page (/rooms/:room/games/:game); the assistant reads past games through list_games and get_game_history.) |
 | `player.trajectories` | query | player | Open my points over time | Per-object series of your bits, the others' total and your payoff. | `get_trajectories` |
 | `player.objectsPage` | query | player | Scroll the objects | Your objects a page at a time, by payoff, your bits or the others' care. | — (The Objects by payoff panel's infinite scroll; the assistant reads the same numbers through the observation and sets the panel's sort with show_panel.) |

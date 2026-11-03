@@ -136,13 +136,13 @@ test("backfillReplays: ended games stored before stored replays get one; a secon
     await waitFor(() => storageOf(gameId), "endGame's build", 60_000, 250);
     await admin.mutation(internal.testing.forgetReplay, { gameId });
   }
-  for (const { roomId, gameId } of games) assert.equal((await host.c.query(api.replays.url, { roomId, gameId })).url, null, "the fixture is legacy");
+  for (const { roomId, gameId } of games) assert.equal((await host.c.query(api.replays.stored, { roomId, gameId })).stored, false, "the fixture is legacy");
 
   const statuses = await runAll(true);
   assert.ok(statuses.some(s => s.name === "migrations:backfillReplays"));
   // Catches: an ended game left without its file (the builds are spread over a minute).
   const stored = await Promise.all(games.map(({ gameId }) => waitFor(() => storageOf(gameId), "the backfilled build", 150_000, 500)));
-  for (const { roomId, gameId } of games) assert.ok((await host.c.query(api.replays.url, { roomId, gameId })).url);
+  for (const { roomId, gameId } of games) assert.equal((await host.c.query(api.replays.stored, { roomId, gameId })).stored, true);
   // A second run leaves every stored file as it is (the migration skips them; a build would keep the first file).
   await runAll(true);
   assert.deepEqual(await Promise.all(games.map(({ gameId }) => storageOf(gameId))), stored);
