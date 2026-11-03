@@ -8,7 +8,8 @@
  * `new Function` here.
  */
 import { instanceInfo, objectType, resolve, type Badge, type Resolution, type Instantiation, type ObjectValue, type TypeArgs } from "@workspace/game-types";
-import type { FamilyContext, Ordinal, Params, ScoreShape, UtilityCard, UtilityDescriptor, UtilityFamily } from "./types.ts";
+import type { CardParam, FamilyContext, Ordinal, ParamScalar, Params, ScoreShape, UtilityCard, UtilityDescriptor, UtilityFamily } from "./types.ts";
+import { paramLabel } from "./params.ts";
 import { setHostEval } from "./families/define.ts";
 import { cardProgram } from "./families/card.ts";
 import { GRID_FAMILIES } from "./families/grid/index.ts";
@@ -24,6 +25,31 @@ export function family(id: string): UtilityFamily<any> {
   if (!found) throw new Error(`Unknown utility family: ${id}`);
   return found;
 }
+
+/**
+ * Families whose params are not yet declared by name and type (src/params.ts). Only shrinks: test/params.test.ts
+ * requires every other family to declare `params`, and every family here to lack them. The annotated families
+ * (Annotated basics) and the defence goals were typed first; the rest are listed in docs/rules-design.md §9.
+ */
+export const UNTYPED_FAMILIES: ReadonlySet<string> = new Set<string>([
+  "digit-devotee", "tailwright", "firstborn", "power-hoarder", "many-faced", "smooth-operator", "truncation-saint",
+  "palindromist", "stairwalker", "residue-oracle", "bit-sigil", "zebra", "numerologist", "refrain", "glyph-glutton",
+  "purist", "streaker", "incantor", "last-word", "mirror", "ascender", "echo", "nest-builder", "haiku-master",
+  "wordsmith", "tallykeeper", "palette-keeper", "scale-keeper", "seed1_line_painter", "seed2_patchwork",
+  "seed3_green_ones", "rainbow_road", "border_baron", "conqueror", "homebody", "lone_peak", "islander",
+  "rooks_watch", "staircase_climber", "lucky_token", "neighbourhood_vote", "far_apart", "castle_keeper",
+  "archipelago", "bridge_builder", "looking_glass", "pinwheel", "card_windmill", "royal_court", "bullseye",
+  "snake_charmer", "tetromino_tamer", "rainbow_bands", "constellation", "rainbow_roads", "paint_mixer",
+  "colour_carousel", "gravity", "swiss_cheese", "mountain_climb", "treasure_map", "straight_shooter",
+  "round_numbers", "king_of_the_hill", "divisibility_detective", "number_sandwich", "magic_window",
+  "times_table_territory", "odds_evens", "number_painter", "robin_hood", "seesaw", "stepping_stones",
+  "column_addition", "ladder_of_numbers", "snap", "young_tableau", "fillomino", "colour_value_ladder",
+  "stripe_painter", "feuding_families", "colour_mixer", "fair_weaver", "lantern_lighter", "best_friends",
+  "rainbow_steps", "quilt_maker", "flag_bearer", "colour_by_number", "wallpaper_weaver", "sunset_sky",
+  "colour_wheel_harmony", "warm_hearts", "twin_friends", "rummy_melder", "othello_sandwich", "bingo_caller",
+  "sudoku_scholar", "full_house", "flush_royale", "twenty_one", "go_fish_books", "knight_riders", "uno_snake",
+  "court_parade", "kings_court", "connect_four",
+]);
 
 /** Families of one object type, optionally of one role. */
 export const familiesFor = (objectType: string, role?: "reward" | "penalty") =>
@@ -52,6 +78,32 @@ export function applicable(f: UtilityFamily<any>, inst: Instantiation, params?: 
 }
 /** Whether a family can be dealt in this instantiation at all: `applicable` without params. */
 export const available = (f: UtilityFamily<any>, inst: Instantiation): Resolution => applicable(f, inst);
+
+/**
+ * A draw's params in today's shape. LEGACY (typed-params widen step): params stored before the family was typed are
+ * rewritten (`UtilityFamily.upgrade`); today's come back unchanged. Used by the migration and by readers that hand
+ * params to code outside the family (lenses). Removed with `upgrade` when the migration is narrowed.
+ */
+export function upgradeParams(familyId: string, params: Params, inst: Instantiation): Params {
+  const f = family(familyId);
+  return f.upgrade ? f.upgrade(params, context(inst)) : params;
+}
+/** A descriptor (utility and defence goal) with today's params (see `upgradeParams`). */
+export function upgradeDescriptor(d: UtilityDescriptor, inst: Instantiation): UtilityDescriptor {
+  return {
+    familyId: d.familyId, params: upgradeParams(d.familyId, d.params, inst),
+    ...(d.penalty ? { penalty: { familyId: d.penalty.familyId, params: upgradeParams(d.penalty.familyId, d.penalty.params, inst) } } : {}),
+  };
+}
+
+/** The dealt params of a typed family as a goal card shows them (name, label, type, value and how it reads). */
+export function cardParams(f: UtilityFamily<any>, params: Params, ctx: FamilyContext): CardParam[] | undefined {
+  if (!f.params) return undefined;
+  const p = f.upgrade ? f.upgrade(params, ctx) : params;
+  return f.params(ctx).map(field => ({
+    key: field.key, label: field.label, kind: field.kind, value: p[field.key] as ParamScalar, text: paramLabel(field, p[field.key]),
+  }));
+}
 
 /** The distinct canonical params of the support: what calibration enumerates (one table each). */
 export function canonicalSupport<P extends Params>(f: UtilityFamily<P>, ctx: FamilyContext): P[] {
@@ -111,13 +163,16 @@ export function card(descriptor: UtilityDescriptor, ctx: FamilyContext): Utility
   const f = family(descriptor.familyId), p = descriptor.params;
   const pen = descriptor.penalty;
   const pf = pen ? family(pen.familyId) : null;
+  const typed = cardParams(f, p, ctx);
   return {
     familyId: f.id, emoji: f.emoji, name: f.name, theme: f.theme, summary: f.summary(p, ctx), shape: f.shape(ctx),
     source: { python: f.card.python(p, ctx), typescript: f.card.typescript(p, ctx) },
     ...(f.example ? { example: f.example(p, ctx) } : {}),
+    ...(typed ? { params: typed } : {}),
     ...(pen && pf ? {
       penalty: {
         familyId: pf.id, emoji: pf.emoji, name: pf.name, summary: pf.summary(pen.params, ctx),
+        ...(pf.params ? { params: cardParams(pf, pen.params, ctx)! } : {}),
         comparative: pf.comparative?.(pen.params, ctx) ?? "worse", shape: pf.shape(ctx),
         source: { python: pf.card.python(pen.params, ctx), typescript: pf.card.typescript(pen.params, ctx) },
       },

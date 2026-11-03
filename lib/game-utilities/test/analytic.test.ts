@@ -181,7 +181,7 @@ test("hand-derived pins: exact tops and body values of the wired analytics", () 
   assert.deepEqual(last(bf)[0], 24);
   close(last(bf)[1], 1 - 16 * Math.log2(3));
   // Hated colour: all cells my colour; Hated takeover: all cells one colour (C ways); first level ceil(n/C) has G = 1
-  close(last(analyticFor("hate_colour", { colour: 0 }, g5)!)[1], -25 * 2);
+  close(last(analyticFor("hate_colour", { colour: "red" }, g5)!)[1], -25 * 2);
   const tk = analyticFor("hate_takeover", {}, g5)!;
   assert.deepEqual(tk.levels[0], [7, 0]);
   close(last(tk)[1], 2 - 25 * 2);
@@ -200,7 +200,7 @@ test("hand-derived pins: exact tops and body values of the wired analytics", () 
   //   23: colour 12 with symbol ≥ 11, or colour 11 with symbol 12. Colour 11: 11 red edge, 0 red middle, or 12 and 1.
   //       Symbol 11 (one symbol only, as 11 > 12/2): 11 on the edge and none in the middle, or 12 and 1.
   //   lowest −3: colour ≥ −4 always, symbol ≥ 1 always (the edge symbols' nets add up to at least 12 − 4 = 8).
-  const pf = analyticFor("picture_frame", { X: 0 }, g4)!;
+  const pf = analyticFor("picture_frame", { colour: "red" }, g4)!;
   const c12 = 3 ** -12 * (2 / 3) ** 4, c11 = 12 * 3 ** -11 * (2 / 3) * (2 / 3) ** 4 + 3 ** -12 * 4 * (1 / 3) * (2 / 3) ** 3;
   const s12 = 10 * 10 ** -12 * 0.9 ** 4, s11 = 10 * (12 * 10 ** -11 * 0.9 * 0.9 ** 4 + 10 ** -12 * 4 * 0.1 * 0.9 ** 3);
   assert.equal(pf.id, "picture-frame@2");
@@ -216,11 +216,11 @@ test("hand-derived pins: exact tops and body values of the wired analytics", () 
 
 test("tables built from an analytic carry its id in the key and the budget label; the estimator's key differs", () => {
   const inst = instantiate("Grid", { size: 4, symbols: "base10", colours: "rgb" });
-  const r = buildTable("picture_frame", { X: 0 }, inst);
+  const r = buildTable("picture_frame", { colour: "red" }, inst);
   assert.equal(r.table.estimator.budget, "exact:picture-frame@2");
-  assert.equal(r.table.key, tableKey("picture_frame", { X: 0 }, inst));
-  assert.equal(tableKeyParts("picture_frame", { X: 0 }, inst).exact, "picture-frame@2");
-  assert.notEqual(mcTableKey("picture_frame", { X: 0 }, inst), r.table.key);
+  assert.equal(r.table.key, tableKey("picture_frame", { colour: "red" }, inst));
+  assert.equal(tableKeyParts("picture_frame", { colour: "red" }, inst).exact, "picture-frame@2");
+  assert.notEqual(mcTableKey("picture_frame", { colour: "red" }, inst), r.table.key);
   assert.equal(tableKeyParts("snap", {}, inst).exact, undefined, "a family without an analytic has no id in its key");
   // Every score from −3 to 24 is a level (see the pins below); the lowest is 1e-6 (calibration's floor), the top is rare.
   assert.deepEqual(r.table.levels.map(([o]) => o), Array.from({ length: 28 }, (_, i) => i - 3));

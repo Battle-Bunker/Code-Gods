@@ -147,7 +147,7 @@ export const READ_TOOLS = [
     input: obj({ gameId: id, cursor: z.string().max(200).optional().describe("The previous page's nextCursor (omit for the first page).") }),
     output: result(anyData) }),
   def({ name: "get_my_utility", short: "The player's utility (family, parameters, defence goal) and game settings.", title: "My utility", functions: ["player.myUtility"], permission: "read", annotations: read,
-    note: "The observation's self.utility has the readable name, summary and source.",
+    note: "The observation's self.utility has the readable name, summary and source. typedParams lists each param by name and type (colour, symbol, int, choice, bool) with its value and how it reads.",
     input: obj({}), output: result(anyData) }),
   def({ name: "evaluate_value", short: "Score a hypothetical object value with the player's own utility.", title: "Evaluate a value", functions: [], permission: "read", annotations: read,
     about: "Score a hypothetical object value with YOUR OWN utility in the current game: ordinal, reward bits, penalty bits and net bits. Other gods' utilities are never evaluated. Use it to check what an agent should aim for before writing it.",

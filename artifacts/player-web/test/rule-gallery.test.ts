@@ -31,18 +31,26 @@ test("the gallery lists exactly the annotated families each board can deal, in t
   assert.deepEqual(galleryFamilies(instantiate("Int", { min: 0, max: 9999 })), [], "no Int family is annotated yet");
 });
 
-test("a tile's fields are the family's params with the values its support allows; changing one snaps to the support", () => {
+test("a tile's fields are the family's named, typed params with the values its support allows; changing one snaps to the support", () => {
   const inst = instantiate("Grid", { size: 4, symbols: "base10", colours: "rgb" });
   const fields = paramFields("parity_painter", inst);
-  assert.deepEqual(fields.map(f => f.key), ["P", "Q", "key"]);
-  assert.deepEqual(fields.find(f => f.key === "P")!.options, [0, 1, 2]);
-  // P = Q is outside the support: setting P to the current Q keeps P and moves Q.
-  const next = withParam("parity_painter", inst, { P: 0, Q: 1, key: "parity" }, "P", 1);
-  assert.equal(next.P, 1);
-  assert.notEqual(next.Q, 1);
+  assert.deepEqual(fields.map(f => [f.key, f.kind]), [["even_or_red", "colour"], ["odd_or_black", "colour"], ["split", "choice"]]);
+  const even = fields.find(f => f.key === "even_or_red")!;
+  assert.equal(even.label, "Colour for even numbers");
+  // A colour picker: the board's colours by name, each with its swatch (never "0/1/2").
+  assert.deepEqual(even.options.map(o => o.value), ["red", "green", "blue"]);
+  assert.ok(even.options.every(o => o.swatch && o.label === o.value));
+  // even = odd is outside the support: setting even to the current odd colour keeps it and moves odd.
+  const next = withParam("parity_painter", inst, { even_or_red: "red", odd_or_black: "green", split: "parity" }, "even_or_red", "green");
+  assert.equal(next.even_or_red, "green");
+  assert.notEqual(next.odd_or_black, "green");
   assert.ok(inSupport("parity_painter", inst, next));
-  assert.deepEqual(withParam("magic_accountant", inst, { axis: "rows", T: 14 }, "axis", "cols").axis, "cols");
+  const magic = paramFields("magic_accountant", inst);
+  assert.deepEqual(magic.map(f => [f.key, f.kind, f.label]), [["axis", "choice", "Lines that count"], ["target", "int", "Magic number"]]);
+  assert.deepEqual(magic[0].options.map(o => o.label), ["rows", "columns", "rows and columns"]);
+  assert.deepEqual(withParam("magic_accountant", inst, { axis: "rows", target: 18 }, "axis", "cols").axis, "cols");
   for (const id of galleryFamilies(inst)) assert.ok(inSupport(id, inst, randomParams(id, inst, 7)), `${id}: random params are in the support`);
+  for (const id of galleryFamilies(inst)) for (const f of paramFields(id, inst)) assert.ok(f.label && f.options.length, `${id}.${f.key}`);
 });
 
 test("a tile's link carries the board and every param, and the family page reads them back exactly", () => {
@@ -64,7 +72,7 @@ test("params missing or outside the support on a family page are completed from 
   const p = paramsFromSearch("magic_accountant", inst, "?axis=cols");
   assert.equal(p.axis, "cols");
   assert.ok(inSupport("magic_accountant", inst, p));
-  assert.ok(inSupport("magic_accountant", inst, paramsFromSearch("magic_accountant", inst, "?T=99999")));
+  assert.ok(inSupport("magic_accountant", inst, paramsFromSearch("magic_accountant", inst, "?target=99999")));
   assert.deepEqual(paramsFromSearch("set_spotter", inst, "?diag=true"), { diag: true });
 });
 

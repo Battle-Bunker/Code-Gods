@@ -367,11 +367,12 @@ COLOUR_BY_NUMBER = mk(
 # --- Kingdom ------------------------------------------------------------------------------------------------------------
 def kg_ord(g, p, gtype):
     col = g.col.tolist()
-    return max((len(c) for c in comps2d(col, [[x == p["C"] for x in row] for row in col])), default=0)
+    X = ci(gtype, p["colour"])
+    return max((len(c) for c in comps2d(col, [[x == X for x in row] for row in col])), default=0)
 
 
 def kg_batch(sym, col, p, gtype):
-    mask = col == p["C"]
+    mask = col == ci(gtype, p["colour"])
     lab = label_batch(np.zeros(col.shape, np.int64), mask)
     return comp_sum(lab, np.ones(col.shape, np.int64), mask).reshape(len(col), -1).max(1)
 
@@ -379,10 +380,10 @@ def kg_batch(sym, col, p, gtype):
 KINGDOM = mk(
     id="kingdom", name="Kingdom", theme="The biggest patch of your colour",
     requires=req(), layers={"colour", "position"}, camp="clumper",
-    sample=lambda rng, gt: {"C": colour(rng, gt)},
-    summary=lambda p, gt: f"Score the size of your biggest joined-up patch of {cname(gt, p['C'])} cells.",
-    ordinal=kg_ord, batch=kg_batch, canonical=lambda p, gt: recolour(p, ["C"]),
-    exemplar=lambda p, gt: grid(np.zeros((gt.N, gt.N)), np.full((gt.N, gt.N), p["C"])),
+    sample=lambda rng, gt: {"colour": colour_name(rng, gt)},
+    summary=lambda p, gt: f"Score the size of your biggest joined-up patch of {p['colour']} cells.",
+    ordinal=kg_ord, batch=kg_batch, canonical=lambda p, gt: recolour_names(p, ["colour"], gt),
+    exemplar=lambda p, gt: grid(np.zeros((gt.N, gt.N)), np.full((gt.N, gt.N), ci(gt, p["colour"]))),
     source="col#10")
 
 

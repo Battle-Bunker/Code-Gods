@@ -2,7 +2,8 @@
 import { lens, orderParts, tally, count } from "../lens.ts";
 import { hasCell, sameCell, type Part } from "../model.ts";
 
-type P = { X: number };
+type P = { mine: string };
+
 
 export const honestMinesweeper = lens<P>({
   familyId: "honest_minesweeper",
@@ -15,8 +16,8 @@ export const honestMinesweeper = lens<P>({
       { of: () => true, text: n => `${count(n, "number")} that ${n === 1 ? "is" : "are"} not honest: worth nothing` },
     ]),
   }),
-  parts: (p, b) => b.cells.filter(x => b.col(x) !== p.X).map((x): Part => {
-    const around = b.surrounding(x), mines = around.filter(y => b.col(y) === p.X);
+  parts: (p, b) => b.cells.filter(x => b.colour(x) !== p.mine).map((x): Part => {
+    const around = b.surrounding(x), mines = around.filter(y => b.colour(y) === p.mine);
     const v = b.value(x), honest = v === mines.length, shows = b.glyph(x);
     return {
       id: `window:${x.r},${x.c}`, shape: "window", cells: [x, ...around], points: [honest ? v : 0],
@@ -30,7 +31,7 @@ export const honestMinesweeper = lens<P>({
     // A mine: the cells that count it, at most 3 (scoring first), so the board stays readable.
     return own.length ? own : orderParts(parts.filter(t => hasCell(t.cells.slice(1), focus)), 3);
   },
-  note: (_parts, focus, p, b) => (b.col(focus) === p.X
-    ? `This ${b.spec.colourNames[p.X]} cell is a mine: it scores nothing itself, but every cell around it counts it.`
+  note: (_parts, focus, p, b) => (b.colour(focus) === p.mine
+    ? `This ${p.mine} cell is a mine: it scores nothing itself, but every cell around it counts it.`
     : null),
 });

@@ -53,7 +53,10 @@ export function SetupForm({ setup, onChange, language, onLanguage }: {
   );
 }
 
-/** One field per family param, offering exactly the values its support allows here. */
+/**
+ * One labelled picker per family param, offering exactly the values its support allows here: a colour is a row of named
+ * swatches, everything else (a symbol, a number, a choice, yes/no) a select of labelled values ("A (10)", "columns").
+ */
 export function ParamFields({ familyId, inst, params, onChange, compact = false }: {
   familyId: string; inst: Instantiation; params: Params; onChange: (key: string, value: string | number | boolean) => void; compact?: boolean;
 }) {
@@ -61,13 +64,31 @@ export function ParamFields({ familyId, inst, params, onChange, compact = false 
   if (!fields.length) return <p className="text-xs text-muted-foreground">No parameters.</p>;
   return (
     <div className={`flex flex-wrap items-end ${compact ? "gap-2" : "gap-4"}`} data-testid={`params-${familyId}`}>
-      {fields.map(f => (
+      {fields.map(f => f.kind === "colour" ? (
+        <fieldset key={f.key} className="flex flex-col gap-0.5 text-[11px]" data-testid={`colour-param-${familyId}-${f.key}`}>
+          <legend className="text-muted-foreground">{f.label}</legend>
+          <div className="flex gap-1" role="radiogroup" aria-label={f.label}>
+            {f.options.map(o => {
+              const on = params[f.key] === o.value;
+              return (
+                <button key={String(o.value)} type="button" role="radio" aria-checked={on} title={o.label}
+                  data-testid={`colour-${familyId}-${f.key}-${String(o.value)}`}
+                  className={`border px-1.5 py-0.5 text-[11px] ${on ? "ring-2 ring-foreground ring-offset-1" : "opacity-70 hover:opacity-100"}`}
+                  style={{ background: o.swatch, color: o.ink }}
+                  onClick={() => onChange(f.key, o.value)}>
+                  {o.label}
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
+      ) : (
         <label key={f.key} className="flex flex-col gap-0.5 text-[11px]">
-          <span className="font-mono text-muted-foreground">{f.key}</span>
+          <span className="text-muted-foreground">{f.label}</span>
           <select className={compact ? "border bg-background px-1 py-0.5 text-xs" : fieldClass} value={String(params[f.key])}
             data-testid={`select-param-${familyId}-${f.key}`}
-            onChange={e => { const v = f.options.find(o => String(o) === e.target.value); if (v !== undefined) onChange(f.key, v); }}>
-            {f.options.map(o => <option key={String(o)} value={String(o)}>{String(o)}</option>)}
+            onChange={e => { const v = f.options.find(o => String(o.value) === e.target.value); if (v !== undefined) onChange(f.key, v.value); }}>
+            {f.options.map(o => <option key={String(o.value)} value={String(o.value)}>{o.label}</option>)}
           </select>
         </label>
       ))}

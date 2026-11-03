@@ -1,8 +1,8 @@
 /** Arithmetic & number-pattern lens rules (lib/grid-lab/gridlab/rules/arithmetic.py, cards from rules/cards.py). */
 import type { Cand, CardText, GridSpec, Layer } from "./_util.ts";
+import { choiceParam, intParam } from "../../params.ts";
 import {
-  SCALAR, article, bestOf, cap, chance, climb, cname, colourPairs, fromFn, full, gridFamily, pick, product, pyCard, range,
-  list, recolour, sentences, symForValue, thing, tsCard, tuple, wire,
+  SCALAR, article, bestOf, cap, chance, climb, cname, colourPairs, fromFn, full, gridFamily, pick, product, pyCard, range, list, recolour, sentences, symForValue, thing, tsCard, tuple, wire,
 } from "./_util.ts";
 import { solvedAnalytic } from "../../analytic/hook.ts";
 
@@ -145,6 +145,7 @@ const bondsText = (p: BondsP, g: GridSpec): CardText => ({
 const numberBonds = gridFamily<BondsP>({
   id: "number_bonds", name: "Number Bonds", emoji: "🤝", theme: "Neighbours that make the magic number",
   requires: { classes: ["Valued"] }, shape: SCALAR, tags: ["shortlist"],
+  params: () => ({ mode: choiceParam("Colours of the pair", [["any", "any colours"], ["same", "the same colour"], ["different", "different colours"]]) }),
   support: () => (["any", "same", "different"] as const).map(mode => ({ mode })),
   summary: (p, g) => bondsText(p, g).about,
   python: (p, g) => pyCard(bondsText(p, g), `
@@ -172,7 +173,7 @@ const numberBonds = gridFamily<BondsP>({
 });
 
 // --- Magic Accountant ------------------------------------------------------------------------------
-type MagicP = { axis: Axis; T: number };
+type MagicP = { axis: Axis; target: number };
 /** Python's round(): halves go to the even neighbour. */
 function roundHalfEven(x: number): number {
   const f = Math.floor(x), d = x - f;
@@ -184,25 +185,33 @@ function magicTargets(g: GridSpec): number[] {
   return [...out].sort((a, b) => a - b);
 }
 const magicText = (p: MagicP, g: GridSpec): CardText => ({
-  emoji: "🧮", name: "Magic Accountant", consts: [["TARGET", p.T]],
+  emoji: "🧮", name: "Magic Accountant", consts: [["TARGET", p.target]],
   about: sentences(
-    `Your magic number is ${p.T}.`,
-    `${cap(everyLine(p.axis))} whose ${nums(g)} add up to exactly ${p.T} scores 1 point.`,
+    `Your magic number is ${p.target}.`,
+    `${cap(everyLine(p.axis))} whose ${nums(g)} add up to exactly ${p.target} scores 1 point.`,
     g.say.valueKey(),
-    `Most points wins. If that's a tie, the totals that are closest to ${p.T} overall win.`,
+    `Most points wins. If that's a tie, the totals that are closest to ${p.target} overall win.`,
   ),
 });
 const magicAccountant = gridFamily<MagicP>({
   id: "magic_accountant", name: "Magic Accountant", emoji: "🧮", theme: "Lines that add up to your magic number",
   analytic: solvedAnalytic("magic_accountant"),
   requires: { classes: ["Valued"] }, shape: tuple(2), tags: ["shortlist"],
-  support: g => product<MagicP>({ axis: ["rows", "cols", "both"], T: magicTargets(g) }),
+  params: g => {
+    const t = magicTargets(g);
+    return {
+      axis: choiceParam("Lines that count", [["rows", "rows"], ["cols", "columns"], ["both", "rows and columns"]]),
+      target: intParam("Magic number", t[0], t[t.length - 1]),
+    };
+  },
+  legacy: p => (typeof p.T === "number" ? { axis: p.axis as Axis, target: p.T } : null),
+  support: g => product<MagicP>({ axis: ["rows", "cols", "both"], target: magicTargets(g) }),
   sample: (rng, g) => {
     const N = g.N, mid = roundHalfEven((N * (g.vmin + g.vmax)) / 2);
-    const T = Math.min(Math.max(mid + rng.int(2 * N + 1) - N, N * g.vmin), N * g.vmax);
-    return { axis: pick(rng, ["rows", "cols", "both"] as const), T };
+    const target = Math.min(Math.max(mid + rng.int(2 * N + 1) - N, N * g.vmin), N * g.vmax);
+    return { axis: pick(rng, ["rows", "cols", "both"] as const), target };
   },
-  canonical: (p, g) => ({ axis: p.axis === "cols" ? "rows" : p.axis, T: Math.min(p.T, g.N * (g.vmin + g.vmax) - p.T) }),
+  canonical: (p, g) => ({ axis: p.axis === "cols" ? "rows" : p.axis, target: Math.min(p.target, g.N * (g.vmin + g.vmax) - p.target) }),
   summary: (p, g) => magicText(p, g).about,
   python: (p, g) => pyCard(magicText(p, g), `
     def utility(grid):
@@ -230,7 +239,7 @@ const magicAccountant = gridFamily<MagicP>({
     }`),
   exemplar: (p, g) => {
     const N = g.N, row = Array<number>(N).fill(g.vmin);
-    let rem = p.T - N * g.vmin;
+    let rem = p.target - N * g.vmin;
     for (let i = 0; i < N; i++) { const add = Math.min(g.vmax - g.vmin, rem); row[i] += add; rem -= add; }
     return wire(g, symGrid(g, fromFn(N, (r, c) => row[(c + r) % N])), full(N, 0));
   },

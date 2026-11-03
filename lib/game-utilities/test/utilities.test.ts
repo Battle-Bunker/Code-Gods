@@ -171,7 +171,7 @@ test("availability and the public catalog follow the constraints", () => {
 
 test("cards: summary, both sources, shape, and the defence goal", () => {
   const inst = instantiate("Grid", { size: 5, symbols: "base10", colours: "rainbow6" }), ctx = context(inst);
-  const d = readDescriptor({ familyId: "seed3_green_ones", params: { colour: 3, value: 1 }, penalty: { familyId: "hate_colour", params: { colour: 0 } } });
+  const d = readDescriptor({ familyId: "seed3_green_ones", params: { colour: 3, value: 1 }, penalty: { familyId: "hate_colour", params: { colour: "red" } } });
   const c = card(d, ctx);
   assert.equal(c.name, "Green Ones");
   assert.deepEqual(c.shape, { kind: "tuple", arity: 2 });

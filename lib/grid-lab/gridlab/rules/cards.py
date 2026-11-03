@@ -213,8 +213,8 @@ def conqueror(p, gt):
 
 
 def parity_painter(p, gt):
-    P, Q = col(gt, p["P"]), col(gt, p["Q"])
-    if p["key"] == "suit":
+    P, Q = p["even_or_red"], p["odd_or_black"]
+    if p["split"] == "suit":
         return card("🎭", "Parity Painter", f"""Red suits (♥ ♦) should be {P} and black suits (♠ ♣)
             should be {Q}. A card in its right colour is +1; a card wearing the other team's colour is −1.""",
                     [("RED_SUIT_COLOUR", P), ("BLACK_SUIT_COLOUR", Q)], """
@@ -367,7 +367,7 @@ def castle_keeper(p, gt):
 
 
 def chessmaster(p, gt):
-    A, B = col(gt, p["A"]), col(gt, p["B"])
+    A, B = p["colour_a"], p["colour_b"]
     return card("♟️", "Chessmaster", f"""Every 2×2 square coloured like a chessboard in {A} and {B}
         scores a point. If that's a tie, count the places where {an(A)} cell touches {an(B)} cell.""",
                 [("COLOUR_A", A), ("COLOUR_B", B)], """
@@ -550,9 +550,9 @@ _AXIS = {"rows": ("grid.rows", "row"), "cols": ("grid.columns", "column"),
 
 def magic_accountant(p, gt):
     lines, kind = _AXIS[p["axis"]]
-    return card("🧮", "Magic Accountant", f"""Every {kind} whose {thing(gt)}s add up to exactly {p['T']}
-        scores a point. If that's a tie, it's better when the totals are closer to {p['T']}.""",
-                [("TARGET", p["T"])], f"""
+    return card("🧮", "Magic Accountant", f"""Every {kind} whose {thing(gt)}s add up to exactly {p['target']}
+        scores a point. If that's a tie, it's better when the totals are closer to {p['target']}.""",
+                [("TARGET", p["target"])], f"""
         def utility(grid):
             exact = 0
             distance = 0
@@ -829,7 +829,7 @@ def othello_sandwich(p, gt):
 
 
 def honest_minesweeper(p, gt):
-    X = col(gt, p["X"])
+    X = p["mine"]
     return card("💣", "Honest Minesweeper", f"""{X.capitalize()} cells are mines. Any other cell is
         honest when its {thing(gt)} equals how many mines surround it (corners count). Each honest cell
         scores its value.""", [("MINE", X)], """
