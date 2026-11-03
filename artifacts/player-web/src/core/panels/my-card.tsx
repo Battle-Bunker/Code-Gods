@@ -1,36 +1,29 @@
-/** Your secret goal: the utility card in plain words, how scoring works, and live objects that score best (or worst) for you. */
-import { HowScoringWorks, ScoreBreakdown, UtilityCardView, useGoalExplainer } from "@workspace/object-views";
-import { Obj, useMyCard, useObjectContext, useObjects } from "@/sdk";
-import { PanelEmpty, Section, referObject, useObjectRanks, type PanelProps } from "./kit";
+/**
+ * Your secret goal: the goal card (core/goal/goal-card.tsx): your utility card in plain words, one example object you
+ * can randomise or edit (hover it for its annotations), and how scoring works. Static apart from your own card: the
+ * same component renders a rule family's page in the rule gallery.
+ */
+import { useMemo } from "react";
+import { instantiate } from "@workspace/game-types";
+import { UtilityCardView, useGoalExplainer } from "@workspace/object-views";
+import { useMutators, useMyCard } from "@/sdk";
+import { GoalCard } from "@/core/goal/goal-card";
+import { PanelEmpty, type PanelProps } from "./kit";
 
-export default function MyCard({ params, phase }: PanelProps<"my-card">) {
+export default function MyCard({ params }: PanelProps<"my-card">) {
   const card = useMyCard();
-  const objects = useObjects({ hz: 1 });
-  const ranks = useObjectRanks(objects);
-  const { noun, ctx } = useObjectContext();
+  const { instance } = useMutators();
   // Your own goal, as MyGoalProvider gives it to every grid (one explainer per game).
   const goal = useGoalExplainer();
+  const inst = useMemo(() => {
+    if (!instance) return null;
+    try { return instantiate(instance.objectType, instance.args); } catch { return null; }
+  }, [instance?.key]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!card) return <PanelEmpty>Your secret goal is dealt when the game starts. Until then, nobody knows what anyone wants.</PanelEmpty>;
-  const examples = [...objects].sort((a, b) => (params.exampleSort === "best" ? b.own.netBits - a.own.netBits : a.own.netBits - b.own.netBits)).slice(0, params.examples);
   return (
-    <div className="space-y-5" data-testid="panel-utility">
-      <UtilityCardView card={card} grid={ctx.grid} goal={goal} />
-      {params.showSource && <pre className="max-h-48 overflow-auto bg-secondary p-3 font-mono text-[12px] text-secondary-foreground">{card.source}</pre>}
-      {params.examples > 0 && (
-        <Section title={`${phase === "ended" ? "Final" : "Live"} ${noun}s you like ${params.exampleSort === "best" ? "most" : "least"}`}>
-          {examples.length === 0 ? <p className="text-sm text-muted-foreground">No {noun}s yet: they appear when the world starts.</p> : (
-            <ul className="space-y-2">
-              {examples.map(o => (
-                <li key={o.id} className="flex items-start gap-3">
-                  <button type="button" className="shrink-0 font-mono text-xs" onClick={() => referObject(ranks.get(o.id))} title="Ask your assistant about this object">#{ranks.get(o.id)} <Obj value={o.value} /></button>
-                  <span className="min-w-0 text-sm"><ScoreBreakdown score={o} noun={noun} comparative={card.penalty?.comparative} compact /></span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Section>
-      )}
-      <HowScoringWorks noun={noun} />
+    <div data-testid="panel-utility">
+      {/* Without the board's type (not yet observed, or unknown to this client) the card shows without its example object. */}
+      {inst ? <GoalCard key={inst.key} card={card} goal={goal} inst={inst} sourceOpen={params.showSource} /> : <UtilityCardView card={card} goal={goal} sourceOpen={params.showSource} />}
     </div>
   );
 }
