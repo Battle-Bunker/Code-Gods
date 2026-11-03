@@ -50,7 +50,7 @@ const { ConvexHttpClient } = await import("convex/browser");
 const { makeFunctionReference } = await import("convex/server");
 const fn = { q: (n: string) => makeFunctionReference<"query">(n), m: (n: string) => makeFunctionReference<"mutation">(n), a: (n: string) => makeFunctionReference<"action">(n) };
 
-const { session } = await login("bob");
+const { session } = await login("admin");
 const dana = new ConvexHttpClient(CLOUD);
 dana.setAuth(await browserJwt(session));
 const { roomId, shortCode } = await dana.mutation(fn.m("rooms:create"), {}) as { roomId: string; shortCode: string };
@@ -62,7 +62,7 @@ await owner("addAi", { aiAgentId: "sonnet-strategist" });
 await owner("addAi", { aiAgentId: "sonnet-strategist" });
 await owner("settings", { revision: await revision(), settings: { objectType: "Int", typeArgs: { min: 0, max: 2147483647 }, languages: ["typescript"],
   startingObjectCount: 3, spawnRateHz: 0, planningSeconds: 3600, halfLifeSeconds: 1e9 } });
-await dana.mutation(fn.m("rooms:approveAiBudget"), { roomId, aiBudget: 50_000, assistantBudget: 400_000 });
+await dana.mutation(fn.m("rooms:setAiQuotas"), { roomId, aiQuota: 50_000, assistantQuota: 400_000 });
 /** Start the room's next game and wait until it is live (a start may first prepare rule tables); its short code. */
 async function startGame() {
   await owner("start");

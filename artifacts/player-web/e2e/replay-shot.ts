@@ -30,7 +30,7 @@ const config = JSON.parse(readFileSync(new URL("../../engine/.convex/local/defau
 const admin = new ConvexHttpClient(CLOUD);
 (admin as unknown as { setAdminAuth(key: string): void }).setAdminAuth(config.adminKey);
 
-const { session } = await login("bob");
+const { session } = await login("admin");
 const bob = new ConvexHttpClient(CLOUD);
 bob.setAuth(await browserJwt(session));
 const { roomId, shortCode } = await bob.mutation(fn.m("rooms:create"), {}) as { roomId: string; shortCode: string };
@@ -39,7 +39,7 @@ const owner = (action: string, extra: Record<string, unknown> = {}) => bob.actio
 await admin.mutation(fn.m("aiTemplates:ensureSeeded"), {});
 await owner("addAi", { aiAgentId: "sonnet-strategist" });
 await owner("addAi", { aiAgentId: "sonnet-strategist" });
-await bob.mutation(fn.m("rooms:approveAiBudget"), { roomId, aiBudget: 20_000, assistantBudget: 200_000 });
+await bob.mutation(fn.m("rooms:setAiQuotas"), { roomId, aiQuota: 20_000, assistantQuota: 200_000 });
 await owner("start");
 let gameId = "", gameCode = "", language = "python";
 for (let i = 0; i < 180 && !gameId; i++, await sleep(1000)) {

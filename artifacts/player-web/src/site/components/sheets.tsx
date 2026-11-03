@@ -1,17 +1,15 @@
 /**
  * Secondary surfaces reached from the palette and Details (palette-and-pages.md §3.3, onboarding §0, S3a):
- * the AI spending sheet (where the owner turns the assistant on, from the room page's "Turn on…"), connected apps,
- * scoring, past games, and the AI budget approval that comes with the first AI player. Spending approvals always keep their consent text and
- * checkbox here; the palette never approves money.
+ * the AI quotas sheet (where the owner sets the AI players' and the assistant's token quotas, from the room page's "Change"),
+ * connected apps, scoring and past games.
  */
 import { useState } from "react";
 import { canOpenGame, gamePath } from "@/site/lib/routes";
 import { Link } from "wouter";
 import { useMutation } from "convex/react";
 import { HowScoringWorks, objectNoun } from "@workspace/object-views";
-import { ROOM_BUDGET_DOCS } from "@workspace/game-core";
+import { ROOM_QUOTA_DOCS } from "@workspace/game-core";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState, ErrorLine } from "@/site/components/page-parts";
 import { useRun } from "@/site/hooks/use-run";
@@ -21,8 +19,6 @@ import { kindLabel } from "@/site/lib/device-approval";
 import { endReasonLabel, fmtDuration, fmtWhen, isoWhen, toMs } from "@/site/lib/time";
 import type { Credential, GameRecord, Manifest, RoomState } from "@/site/lib/types";
 
-export const DEFAULT_ASSISTANT_TOKENS = 200_000;
-export const DEFAULT_AI_TOKENS = 300_000;
 export type AiModelInfo = NonNullable<Manifest["aiFunding"]["models"]>[number];
 
 /** "Up to about $0.40 per player per game at Claude Sonnet 5.5 rates", from the model's input price. */
@@ -35,84 +31,61 @@ export function costLine(tokens: number, model: AiModelInfo | undefined, per: st
 const field = "w-full min-w-0 border bg-background px-2 py-1.5 font-mono text-sm outline-none focus:border-primary";
 const whole = (raw: string, max: number) => { const v = Number(raw); return raw.trim() !== "" && Number.isInteger(v) && v >= 0 && v <= max ? v : null; };
 
-/** The room's spending: the AI players' token budget (frozen during games) and the assistant allowance per player. */
-export function AiSpendingSheet({ room, manifest, open, onOpenChange }: { room: RoomState; manifest?: Manifest; open: boolean; onOpenChange(o: boolean): void }) {
+/** The room's AI quotas: the AI players' token pool per game and the assistant's tokens per player per game (changeable any time). */
+export function AiQuotasSheet({ room, manifest, open, onOpenChange }: { room: RoomState; manifest?: Manifest; open: boolean; onOpenChange(o: boolean): void }) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto" data-testid="sheet-ai-spending">
+      <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto" data-testid="sheet-ai-quotas">
         <SheetHeader>
-          <SheetTitle>AI spending</SheetTitle>
-          <SheetDescription>Tokens are billed to the server owner's provider accounts. Every change needs your explicit approval.</SheetDescription>
+          <SheetTitle>AI quotas</SheetTitle>
+          <SheetDescription>Tokens are billed to the server owner's provider accounts. Dollar caps of $2 per game and $5 per day always apply.</SheetDescription>
         </SheetHeader>
         <div className="mt-6 space-y-8">
-          {manifest?.aiFunding.configured === false ? <p className="text-sm text-muted-foreground">AI players and assistants are not set up on this server.</p> : (<>
-            <AiBudgetForm room={room} manifest={manifest} />
-            <AssistantForm room={room} manifest={manifest} />
-          </>)}
+          {manifest?.aiFunding.configured === false ? <p className="text-sm text-muted-foreground">AI players and assistants are not set up on this server.</p>
+            : <AiQuotasForm room={room} manifest={manifest} />}
         </div>
       </SheetContent>
     </Sheet>
   );
 }
 
-function AiBudgetForm({ room, manifest }: { room: RoomState; manifest?: Manifest }) {
-  const approve = useMutation(api.rooms.approveAiBudget);
+function AiQuotasForm({ room, manifest }: { room: RoomState; manifest?: Manifest }) {
+  const setQuotas = useMutation(api.rooms.setAiQuotas);
   const act = useRun();
-  const [budget, setBudget] = useState(String(room.aiBudget || DEFAULT_AI_TOKENS));
-  const [agree, setAgree] = useState(false);
-  const b = whole(budget, 1_000_000);
-  const used = (room.aiInputTokens ?? 0) + (room.aiOutputTokens ?? 0);
-  const frozen = !!room.activeGame;
-  return (
-    <section className="space-y-3" data-testid="ai-funding-status">
-      <h3 className="font-medium">AI players</h3>
-      <p className="text-sm text-muted-foreground">{ROOM_BUDGET_DOCS.aiBudget.meaning} {ROOM_BUDGET_DOCS.aiBudget.consequence}</p>
-      {manifest?.aiFunding.mock && <p className="text-sm text-accent" data-testid="text-ai-mock">Development server: AI players play scripted moves and nothing is billed.</p>}
-      <p className="text-sm" data-testid="text-ai-usage">{fmt(used)} / {fmt(room.aiBudget)} used</p>
-      <div className="h-1.5 bg-muted overflow-hidden"><div className="h-full bg-accent origin-left" style={{ transform: `scaleX(${room.aiBudget ? Math.min(1, used / room.aiBudget) : 0})` }} /></div>
-      <label className="block text-sm space-y-1"><span>Tokens per game for all AI players</span>
-        <input type="number" min={0} max={1_000_000} step={1000} value={budget} disabled={frozen} onChange={e => { setBudget(e.target.value); setAgree(false); }} className={field} data-testid="input-ai-budget" /></label>
-      {b === null && <p role="alert" className="text-xs text-destructive">Enter a whole number from 0 to 1,000,000 tokens.</p>}
-      {frozen && <p className="text-xs text-muted-foreground">The AI budget can change after game {room.activeGame?.shortCode} ends.</p>}
-      <label className="flex items-start gap-2 text-sm text-muted-foreground">
-        <input type="checkbox" checked={agree} disabled={frozen} onChange={e => setAgree(e.target.checked)} className="mt-1 accent-[hsl(var(--primary))]" data-testid="checkbox-approve-budget" />
-        I approve AI players in this room using up to {b !== null ? fmt(b) : "?"} tokens per game, billed to the server owner's provider accounts.
-      </label>
-      <button type="button" disabled={b === null || !agree || act.pending || frozen} onClick={() => act.run("AI budget", () => approve({ roomId: room.id, aiBudget: b! }), () => setAgree(false))}
-        className="w-full border py-2 text-sm hover:bg-muted disabled:opacity-40" data-testid="button-save-budget">Approve AI budget</button>
-    </section>
-  );
-}
-
-function AssistantForm({ room, manifest }: { room: RoomState; manifest?: Manifest }) {
-  const approve = useMutation(api.rooms.approveAiBudget);
-  const act = useRun();
-  const max = manifest?.aiFunding.assistantBudgetMax ?? 2_000_000;
+  const q = manifest?.aiFunding.quotas;
+  const aiMax = q?.aiMax ?? 1_000_000;
+  const assistantMax = q?.assistantMax ?? 2_000_000;
   const models = manifest?.aiFunding.models ?? [];
-  const [tokens, setTokens] = useState(String(room.assistantBudget || DEFAULT_ASSISTANT_TOKENS));
+  const [aiTokens, setAiTokens] = useState(String(room.aiQuota));
+  const [tokens, setTokens] = useState(String(room.assistantQuota));
   const [model, setModel] = useState(room.assistantModel);
-  const [agree, setAgree] = useState(false);
-  const t = whole(tokens, max);
+  const a = whole(aiTokens, aiMax);
+  const t = whole(tokens, assistantMax);
+  const used = (room.aiInputTokens ?? 0) + (room.aiOutputTokens ?? 0);
   return (
-    <section className="space-y-3" data-testid="assistant-budget">
-      <h3 className="font-medium">Assistant <span className="text-sm font-normal text-muted-foreground" data-testid="text-assistant-budget">{room.assistantBudget ? `${fmt(room.assistantBudget)} tokens per player per game` : "off"}</span></h3>
-      <p className="text-sm text-muted-foreground">{ROOM_BUDGET_DOCS.assistantBudget.meaning}</p>
+    <section className="space-y-3" data-testid="ai-quotas">
+      <h3 className="font-medium">AI players</h3>
+      <p className="text-sm text-muted-foreground">{ROOM_QUOTA_DOCS.aiQuota.meaning} {ROOM_QUOTA_DOCS.aiQuota.consequence}</p>
+      {manifest?.aiFunding.mock && <p className="text-sm text-accent" data-testid="text-ai-mock">Development server: AI players play scripted moves and nothing is billed.</p>}
+      <p className="text-sm" data-testid="text-ai-usage">{fmt(used)} / {fmt(room.aiQuota)} used</p>
+      <div className="h-1.5 bg-muted overflow-hidden"><div className="h-full bg-accent origin-left" style={{ transform: `scaleX(${room.aiQuota ? Math.min(1, used / room.aiQuota) : 0})` }} /></div>
+      <label className="block text-sm space-y-1"><span>Tokens per game for all AI players (0 for none)</span>
+        <input type="number" min={0} max={aiMax} step={1000} value={aiTokens} onChange={e => setAiTokens(e.target.value)} className={field} data-testid="input-ai-quota" /></label>
+      {a === null && <p role="alert" className="text-xs text-destructive">Enter a whole number from 0 to {fmt(aiMax)} tokens.</p>}
+      <h3 className="font-medium pt-2">Assistant <span className="text-sm font-normal text-muted-foreground" data-testid="text-assistant-quota">{room.assistantQuota ? `${fmt(room.assistantQuota)} tokens per player per game` : "off"}</span></h3>
+      <p className="text-sm text-muted-foreground">{ROOM_QUOTA_DOCS.assistantQuota.meaning}</p>
       <label className="block text-sm space-y-1"><span>Tokens per player per game (0 turns it off)</span>
-        <input type="number" min={0} max={max} step={1000} value={tokens} onChange={e => { setTokens(e.target.value); setAgree(false); }} className={field} data-testid="input-assistant-budget" /></label>
-      {t === null && <p role="alert" className="text-xs text-destructive">Enter a whole number from 0 to {fmt(max)} tokens.</p>}
+        <input type="number" min={0} max={assistantMax} step={1000} value={tokens} onChange={e => setTokens(e.target.value)} className={field} data-testid="input-assistant-quota" /></label>
+      {t === null && <p role="alert" className="text-xs text-destructive">Enter a whole number from 0 to {fmt(assistantMax)} tokens.</p>}
       <label className="block text-sm space-y-1"><span>Model</span>
-        <select value={model} onChange={e => { setModel(e.target.value); setAgree(false); }} className={field} data-testid="select-assistant-model">
+        <select value={model} onChange={e => setModel(e.target.value)} className={field} data-testid="select-assistant-model">
           {(models.length ? models : [{ id: room.assistantModel, label: room.assistantModel, configured: true }]).map(m => (
             <option key={m.id} value={m.id} disabled={!m.configured}>{m.label}{m.configured ? "" : " (not set up on this server)"}</option>
           ))}
         </select></label>
       <p className="text-xs text-muted-foreground">{costLine(t ?? 0, models.find(m => m.id === model), "per player per game")}</p>
-      <label className="flex items-start gap-2 text-sm text-muted-foreground">
-        <input type="checkbox" checked={agree} onChange={e => setAgree(e.target.checked)} className="mt-1 accent-[hsl(var(--primary))]" data-testid="checkbox-approve-assistant" />
-        I approve each player's assistant in this room using up to {t !== null ? fmt(t) : "?"} tokens per game, billed to the server owner's provider accounts.
-      </label>
-      <button type="button" disabled={t === null || !agree || act.pending} onClick={() => act.run("assistant allowance", () => approve({ roomId: room.id, aiBudget: room.aiBudget, assistantBudget: t!, assistantModel: model }), () => setAgree(false))}
-        className="w-full border py-2 text-sm hover:bg-muted disabled:opacity-40" data-testid="button-save-assistant-budget">Approve assistant allowance</button>
+      <button type="button" disabled={a === null || t === null || act.pending} onClick={() => act.run("AI quotas", () => setQuotas({ roomId: room.id, aiQuota: a!, assistantQuota: t!, assistantModel: model }))}
+        className="w-full border py-2 text-sm hover:bg-muted disabled:opacity-40" data-testid="button-save-ai-quotas">Save AI quotas</button>
     </section>
   );
 }
@@ -190,37 +163,5 @@ export function PastGamesSheet({ open, onOpenChange, games, roomCode, viewer }: 
         {!games?.length ? <EmptyState title="No games yet" body="Finished games and their winners appear here." /> : <ul className="mt-4 divide-y -mx-4">{games.map((g, i) => <PastGameRow key={g.id} g={g} roomCode={roomCode} canOpen={canOpenGame(g, i, viewer)} />)}</ul>}
       </SheetContent>
     </Sheet>
-  );
-}
-
-/** S3a: the first AI player needs an AI budget; approve it (pre-filled) and seat the player in one step. */
-export function AiBudgetDialog({ open, onOpenChange, templateName, pending, onApprove }: {
-  open: boolean; onOpenChange(o: boolean): void; templateName?: string; pending: boolean; onApprove(tokens: number): void;
-}) {
-  const [tokens, setTokens] = useState(String(DEFAULT_AI_TOKENS));
-  const [agree, setAgree] = useState(false);
-  const t = whole(tokens, 1_000_000);
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent data-testid="dialog-ai-budget">
-        <DialogHeader>
-          <DialogTitle>Approve AI play</DialogTitle>
-          <DialogDescription>{templateName ? `${templateName} needs` : "AI players need"} a token budget for each game. {ROOM_BUDGET_DOCS.aiBudget.consequence}</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-3 text-sm">
-          <label className="block space-y-1"><span>Tokens per game for all AI players</span>
-            <input type="number" min={1} max={1_000_000} step={1000} value={tokens} onChange={e => { setTokens(e.target.value); setAgree(false); }} className={field} data-testid="input-dialog-ai-budget" /></label>
-          {(t === null || t === 0) && <p role="alert" className="text-xs text-destructive">Enter a whole number from 1 to 1,000,000 tokens.</p>}
-          <label className="flex items-start gap-2 text-muted-foreground">
-            <input type="checkbox" checked={agree} onChange={e => setAgree(e.target.checked)} className="mt-1 accent-[hsl(var(--primary))]" data-testid="checkbox-dialog-ai-budget" />
-            I approve AI players in this room using up to {t ? fmt(t) : "?"} tokens per game, billed to the server owner's provider accounts.
-          </label>
-        </div>
-        <DialogFooter className="gap-2 sm:gap-0">
-          <button type="button" onClick={() => onOpenChange(false)} className="px-3 py-2 text-sm underline underline-offset-4">Cancel</button>
-          <button type="button" disabled={pending || !t || !agree} onClick={() => onApprove(t!)} className="bg-primary text-primary-foreground px-4 py-2 text-sm disabled:opacity-40" data-testid="button-dialog-approve-ai">Approve and add</button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }

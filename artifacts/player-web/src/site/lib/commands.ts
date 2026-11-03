@@ -31,7 +31,6 @@ export const UI_COMMANDS = {
   "ui.copyRules": { title: "Copy game rules for an AI", tooltip: "Copies this room's rules as text you can paste into any AI assistant.", group: "help", section: "help", keywords: ["rules", "prompt", "copy"] },
   "ui.help.scoring": { title: "How scoring works", tooltip: "Rarity bits, defence goals and why others' care decides your points.", group: "help", section: "help", keywords: ["points", "bits", "payoff", "score"] },
   "ui.help.howToPlay": { title: "How to play", tooltip: "The game in 90 seconds.", group: "help", section: "help", keywords: ["rules", "intro", "tutorial"] },
-  "ui.aiSpending": { title: "AI spending…", tooltip: "The AI players' token budget and every player's assistant allowance.", group: "owner", section: "settings", keywords: ["budget", "tokens", "billing", "assistant"] },
   "ui.auth.signIn": { title: "Sign in with Google", tooltip: "Sign in with your Google account to create or join rooms.", group: "account", section: "settings", keywords: ["login", "log in"] },
   "ui.auth.signOut": { title: "Sign out", tooltip: "Signs you out of this browser.", group: "account", section: "settings", keywords: ["logout", "log out"] },
   "ui.objects.renderer": { title: "Show grids as tiles", tooltip: "Draws every grid as coloured tiles with a pattern or letter per colour. Remembered in this browser.", group: "view", section: "views", keywords: ["grid", "tiles", "digits", "display", "compact", "colour"] },
@@ -55,7 +54,8 @@ export interface CmdRoom {
   id: string; shortCode: string; ownerId: string; ownerName: string;
   members: readonly { id: string; name: string; kind: string; ready: boolean; spectator?: boolean }[];
   activeGame: { shortCode: string; phase: string; roster: readonly { id: string }[] } | null;
-  aiBudget: number; assistantBudget: number;
+  /** The room's owner is an administrator: AI seats, the assistant and the quotas are available (rooms.get `aiEnabled`). */
+  aiEnabled: boolean; aiQuota: number; assistantQuota: number;
   /** The next game is preparing its rule tables (rooms.get `preparing`). */
   preparing?: { error?: string } | null;
 }
@@ -100,7 +100,7 @@ export interface EngineActions {
   start(): Promise<unknown>;
   resume(): Promise<unknown>;
   endGame(): Promise<unknown>;
-  /** Seat an AI player (the app asks for the AI budget first when it is 0). */
+  /** Seat an AI player. */
   addAi(templateId: string): Promise<unknown>;
   removeAi(godId: string): Promise<unknown>;
   /** Put the next game on a setup at once (the app offers Undo). */
@@ -116,7 +116,7 @@ export interface EngineActions {
   usePastGames(): Live<readonly { shortCode: string; startedAt: number; winners: readonly { name: string }[] }[]>;
   useCredentials(): Live<readonly { credentialId: string; label?: string | null; kind?: string; permission: string; roomCode?: string | null }[]>;
   revoke(credentialId: string): Promise<unknown>;
-  openSheet(sheet: "ai-spending" | "connected-apps" | "scoring" | "past-games"): void;
+  openSheet(sheet: "ai-quotas" | "connected-apps" | "scoring" | "past-games"): void;
   rulesText(): string | null;
   serverInfo(): readonly string[];
   whoAmI(): readonly string[];
@@ -147,6 +147,8 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
   const seated = !!user && !!running?.roster.some(r => r.id === user.id);
   const roomCode = room?.shortCode ?? game?.roomShortCode ?? null;
   const aiOff = scope.aiConfigured === false;
+  const notAdminRoom = !!room && !room.aiEnabled;
+  const adminOnly = "AI is only available in rooms run by an administrator for now.";
   const ais = room?.members.filter(m => m.kind === "ai") ?? [];
   const players = room?.members.filter(m => !m.spectator).length ?? 0;
 
@@ -160,16 +162,18 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
     "owner.start": () => ownerOnly(() => running ? no(`Game ${running.shortCode} is already running.`)
       : scope.starting ? no("The game is already starting.")
       : room!.preparing && !room!.preparing.error ? no("The game is preparing its rule tables; it starts by itself.")
-      : players < scope.minPlayers ? no(`Needs ${scope.minPlayers} players; ${players} ${players === 1 ? "plays" : "play"} (spectators don't count).`, aiOff ? {} : { fix: "rooms.addAi" }) : ok),
+      : notAdminRoom && ais.some(a => !a.spectator) ? no(`${adminOnly} Remove the AI players to start.`, { fix: "rooms.removeAi" })
+      : players < scope.minPlayers ? no(`Needs ${scope.minPlayers} players; ${players} ${players === 1 ? "plays" : "play"} (spectators don't count).`, aiOff || notAdminRoom ? {} : { fix: "rooms.addAi" }) : ok),
     "owner.settings": () => ownerOnly(() => lobby(ok)),
     "rooms.addAi": () => (aiOff ? no("AI players are not set up on this server.", { hidden: true })
+      : notAdminRoom ? no(adminOnly, { hidden: true })
       : ownerOnly(() => lobby(players >= scope.maxPlayers ? no(`The next game is full (${scope.maxPlayers} players).`) : ok))),
     "rooms.removeAi": () => (aiOff && !ais.length ? no("AI players are not set up on this server.", { hidden: true })
       : ownerOnly(() => lobby(ais.length ? ok : no("No AI players are seated.")))),
     // With no game running it ends a preparation (the next game computing its rule tables).
     "rooms.endActiveGame": () => ownerOnly(() => running || room!.preparing ? ok : no("No game is running.")),
     "rooms.resume": () => ownerOnly(() => running?.phase === "recovery" ? ok : no(running ? "The game is not paused for safety." : "No game is running.")),
-    "rooms.approveAiBudget": () => ownerOnly(() => ok),
+    "rooms.setAiQuotas": () => (aiOff ? no("AI players are not set up on this server.", { hidden: true }) : notAdminRoom ? no(adminOnly, { hidden: true }) : ownerOnly(() => ok)),
     "rooms.join": () => (!user ? no("Sign in first.") : needRoom(me ? no("You are already in this room.", { hidden: true }) : ok)),
     "rooms.leave": () => (!room || !me ? no("You are not in this room.", { hidden: true }) : isOwner ? no("The owner cannot leave their room.", { hidden: true })
       : seated ? no(`You are playing in game ${running!.shortCode}; leave after it ends.`) : ok),
@@ -206,9 +210,9 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
     "rooms.setReady": { kind: "submit", run: () => act.setReady(!me?.ready) },
     "rooms.setSpectator": { kind: "submit", run: () => act.setSpectator(!me?.spectator) },
     "rooms.history": { kind: "local", run: () => act.openSheet("past-games") },
-    "rooms.approveAiBudget": { kind: "local", run: () => act.openSheet("ai-spending") },
+    "rooms.setAiQuotas": { kind: "local", run: () => act.openSheet("ai-quotas") },
     "rooms.addAi": { kind: "form", page: { kind: "pick", title: "Add an AI player", empty: "The AI library is empty; an admin adds AI players.",
-      useOptions: () => liveOptions(act.useTemplates(), t => ({ id: t.id, label: t.name, detail: `${t.model} · uses the room's AI budget`, keywords: [t.provider, t.model] })),
+      useOptions: () => liveOptions(act.useTemplates(), t => ({ id: t.id, label: t.name, detail: `${t.model} · uses the room's AI players' quota`, keywords: [t.provider, t.model] })),
       onPick: id => act.addAi(id) } },
     "rooms.removeAi": { kind: "form", page: { kind: "pick", title: "Remove an AI player", empty: "No AI players are seated.",
       options: () => ais.map(m => ({ id: m.id, label: m.name, detail: "Press ↵ twice to remove" })), onPick: id => act.removeAi(id) } },
@@ -221,7 +225,7 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
     const extra: Partial<Command> = {};
     if (c.id === "rooms.setSpectator") extra.human = { title: me?.spectator ? "Play the next game" : "Watch the next game", tooltip: c.human.tooltip };
     if (c.id === "rooms.setReady") extra.human = { title: me?.ready ? "Mark me not ready" : "Mark me ready", tooltip: c.human.tooltip };
-    if (c.id === "rooms.approveAiBudget") extra.confirm = "none"; // the sheet carries the consent
+    if (c.id === "rooms.setAiQuotas") extra.confirm = "none"; // the sheet is the form and its Save the confirmation
     if (c.id === "owner.start" && room) extra.summary = () => `${players} players (${ais.length} AI) start now; each gets a secret goal. Spectators watch.`;
     if (c.id === "rooms.endActiveGame" && running) { extra.confirmLabel = `End game ${running.shortCode}`; extra.summary = () => `The current leaderboard becomes the final result of game ${running.shortCode}.`; }
     // A state check replaces the audience rule: it knows the room (the owner's name, who is seated, what runs).
@@ -258,7 +262,6 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
     ui("ui.copyRules", { kind: "local", run: () => { const t = act.rulesText(); if (t) act.copy(t, "Game rules"); } }, () => (room || game ? ok : no("Open a room or game first.", { hidden: true }))),
     ui("ui.help.scoring", { kind: "local", run: () => act.openSheet("scoring") }, () => ok, { defaultScore: 1 }),
     ui("ui.help.howToPlay", { kind: "form", page: { kind: "info", title: "How to play", lines: HOW_TO_PLAY } }, () => ok, { defaultScore: 2 }),
-    ui("ui.aiSpending", { kind: "local", run: () => act.openSheet("ai-spending") }, () => (!room ? no("Open a room first.", { hidden: true }) : isOwner ? ok : no(`Only the owner, ${room.ownerName}, can change spending.`))),
     ui("ui.auth.signIn", { kind: "local", run: act.login }, () => (user ? no("You are signed in.", { hidden: true }) : ok)),
     ui("ui.auth.signOut", { kind: "local", run: act.logout }, signedIn),
     scope.gridRenderer === "tiles"

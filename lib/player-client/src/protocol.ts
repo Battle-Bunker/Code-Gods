@@ -140,12 +140,14 @@ export const permissionSchema = z.enum(["read", "act", "owner"]);
 export type Permission = z.infer<typeof permissionSchema>;
 /** The room assistant's `room-command` (engine `owner.command`): owner credential (or browser owner) only. */
 export const ownerActionSchema = z.object({
-  action: z.enum(["settings", "start", "resume", "endGame", "addAi", "removeAi"]),
+  action: z.enum(["settings", "quotas", "start", "resume", "endGame", "addAi", "removeAi"]),
   requestId: z.string().uuid(),
   revision: z.number().int().nonnegative().optional(),
   settings: z.record(z.string(), z.unknown()).optional(),
   setupId: z.string().max(128).optional(),
-  aiBudget: z.number().int().min(0).max(1000000).optional(),
+  aiQuota: z.number().int().min(0).max(1000000).optional(),
+  assistantQuota: z.number().int().min(0).max(2000000).optional(),
+  assistantModel: z.string().max(64).optional(),
   aiAgentId: z.string().max(128).optional(),
   deityId: z.string().max(128).optional(),
 }).strict();

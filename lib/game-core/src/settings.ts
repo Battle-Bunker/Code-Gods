@@ -528,7 +528,7 @@ export function seedSetupSettings(seedId: string): GameSettings {
 // field documentation (docs/research/ui-redesign/onboarding-and-config.md §4.3, §4.6)
 // ------------------------------------------------------------------------------------------------
 
-/** The configuration page's sections, in order (the Players & AI section documents room budgets, not settings). */
+/** The configuration page's sections, in order (the Players & AI section documents room quotas, not settings). */
 export type SettingsSection = "world" | "goals" | "agents" | "energy" | "population" | "time" | "players";
 
 /**
@@ -711,21 +711,21 @@ export const SETTINGS_DOCS = {
   },
 } as const satisfies Record<keyof GameSettings, FieldDoc>;
 
-/** The room budgets the configuration page also asks about (room state, not GameSettings; set by approveAiBudget). */
-export const ROOM_BUDGET_DOCS = {
-  aiBudget: {
+/** The room quotas the configuration page also asks about (room state, not GameSettings; set by setAiQuotas). */
+export const ROOM_QUOTA_DOCS = {
+  aiQuota: {
     question: "How many tokens may AI players use per game?", section: "players", tier: "ask", control: "number", unit: "tokens", suggested: [0, 100_000, 300_000, 1_000_000],
-    meaning: "The total tokens all AI players together may use in one game, billed to the server owner.",
-    consequence: "Too low a budget makes AI players stop acting mid-game, and dollar caps of $2 per game and $5 per day still apply.",
+    meaning: "The total tokens all AI players together may use in one game (300,000 by default, zero for none), billed to the server owner.",
+    consequence: "Too low a quota makes AI players stop acting mid-game, and dollar caps of $2 per game and $5 per day still apply.",
   },
-  assistantBudget: {
-    question: "How many assistant tokens does each human get per game?", section: "players", tier: "ask", control: "number", unit: "tokens", suggested: [0, 50_000, 200_000, 1_000_000],
-    meaning: "The tokens each human's in-client assistant may use per game, billed to the server owner, where zero turns the assistant off.",
-    consequence: "Raising it lets players rely on the assistant for more of the game.",
+  assistantQuota: {
+    question: "How many assistant tokens does each human get per game?", section: "players", tier: "ask", control: "number", unit: "tokens", suggested: [0, 50_000, 300_000, 2_000_000],
+    meaning: "The tokens each human's in-client assistant may use per game (300,000 by default), billed to the server owner, where zero turns the assistant off.",
+    consequence: "Raising it lets players rely on the assistant for more of the game, within the dollar caps of $2 per game and $5 per day.",
   },
   assistantModel: {
     question: "Which model powers the assistants?", section: "players", tier: "ask", control: "select",
     meaning: "The AI model that powers every player's assistant in the room.",
     consequence: "Larger models give better help at a higher cost per token.",
   },
-} as const satisfies Record<"aiBudget" | "assistantBudget" | "assistantModel", FieldDoc>;
+} as const satisfies Record<"aiQuota" | "assistantQuota" | "assistantModel", FieldDoc>;

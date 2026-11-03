@@ -4,10 +4,10 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { admin, api, gods, internal, roomWith, touch } from "./game-helpers.ts";
+import { admin, api, gods, internal, roomWith, touch, adminGods } from "./game-helpers.ts";
 
 async function roomWithTwoAis() {
-  const [host] = await gods("Names Host");
+  const [host] = await adminGods("Names Host");
   await touch(host);
   const { roomId } = await roomWith([host]);
   await admin.mutation(internal.aiTemplates.ensureSeeded, {});

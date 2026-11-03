@@ -8,6 +8,7 @@ import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { assistantEpoch } from "../ai/seats";
+import { aiEnabledFor, assistantQuotaOf } from "../lib/aiAccess";
 import { ENGINE_NOTES, LIMITS, withEngineNote, type TurnStatus } from "./limits";
 
 export type Ctx = QueryCtx | MutationCtx;
@@ -104,7 +105,7 @@ export async function openTurn(ctx: MutationCtx, at: { room: Doc<"rooms">; threa
 /**
  * After a turn ends done (or cancelled: messages sent while it stopped): the thread's queued messages that a Stop did
  * not hold start the next turn at once, in order (a turn that ended with no tool step had no boundary to take them).
- * Not when the thread is an earlier game's or the owner has turned the assistant off: they stay queued, visible,
+ * Not when the thread is an earlier game's, the assistant quota is 0 or AI is not available in the room: they stay queued, visible,
  * until the player sends or removes them.
  */
 async function startQueuedTurn(ctx: MutationCtx, turn: Turn) {
@@ -112,7 +113,7 @@ async function startQueuedTurn(ctx: MutationCtx, turn: Turn) {
   if (!rows.length) return;
   const room = await ctx.db.get(turn.roomId);
   const thread = await ctx.db.get(turn.threadId);
-  if (!room || !thread || thread.epoch !== assistantEpoch(room) || !(room.assistantBudget ?? 0)) return;
+  if (!room || !thread || thread.epoch !== assistantEpoch(room) || assistantQuotaOf(room) <= 0 || !(await aiEnabledFor(ctx, room))) return;
   const turnId = await openTurn(ctx, { room, threadId: turn.threadId, subject: turn.subject, credentialId: turn.credentialId }, rows.map(row => ({ text: row.text, row })));
   log("queue.turn", { turnId, after: turn._id, messages: rows.length });
 }

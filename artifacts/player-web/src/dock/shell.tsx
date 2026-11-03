@@ -15,6 +15,7 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@workspace/engine/convex/_generated/api";
+import type { Id } from "@workspace/engine/convex/_generated/dataModel";
 import { useRoom } from "@/sdk";
 import { Confirmations } from "@/shell/confirmations";
 import { SAFE_MODE } from "@/shell/safe-mode";
@@ -127,6 +128,8 @@ function Screen({ panels, replay }: { panels: Panels; replay?: ShellReplay }) {
   const wide = useWide();
   const { phase, obs } = useSituation();
   const current = useQuery(api.layout.current, { roomId });
+  // The same subscription the assistant pane and the palette hold (Convex shares identical queries).
+  const assistant = useQuery(api.assistant.status, { roomId: roomId as Id<"rooms"> });
   const setLayout = useMutation(api.layout.set);
   useShortcuts(store);
   // "Ask your assistant" links, the composer's hand-offs and "/" reopen the assistant pane when the player closed it.
@@ -139,6 +142,8 @@ function Screen({ panels, replay }: { panels: Panels; replay?: ShellReplay }) {
   useNewFilePanels(store, panels.fileIds, current !== undefined);
   // A replay shows its Timeline over whatever layout the engine has (dock/layout-sync.ts withTimeline).
   useEffect(() => { store.setReplayTimeline(!!replay); }, [store, replay]);
+  // A room run by a non-admin has no assistant: its pane is not shown (shown until the status says so).
+  useEffect(() => { store.setAssistantAvailable(assistant?.available !== false); }, [store, assistant?.available]);
 
   return (
     <div className="flex h-[100dvh] flex-col overflow-hidden bg-background">

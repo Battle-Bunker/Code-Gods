@@ -6,7 +6,7 @@
  * What it simulates:
  *   - The engine: the local Convex backend from `pnpm --filter @workspace/engine dev` (started here if
  *     it is not already running), with the stand-in OIDC provider (Better Auth's test-only "fake") and the mock AI provider.
- *   - Three players (alice, bob, carol) who each run their own copy of the repository as a player app: three
+ *   - Three players (ada, an administrator, since AI is used only in rooms one owns; bob; carol) who each run their own copy of the repository as a player app: three
  *     git worktrees of HEAD, each with its own install, panels directory, credential (obtained through
  *     the real device flow) and Vite dev server on its own port.
  *   - Humans, driven by Playwright through each app's own UI, plus one mock AI seat.
@@ -44,10 +44,10 @@ const WORK = process.env.CG_E2E_DIR ?? join(ROOT, ".e2e");
 const CLOUD = process.env.CG_TEST_CLOUD_URL ??= "http://127.0.0.1:3210";
 const SITE = process.env.CG_TEST_SITE_URL ??= "http://127.0.0.1:3211";
 process.env.CG_TEST_OIDC_URL ??= "http://127.0.0.1:3399";
-const PLAYERS = ["alice", "bob", "carol"] as const;
+const PLAYERS = ["admin", "bob", "carol"] as const;
 type Player = typeof PLAYERS[number];
-const PORTS: Record<Player, number> = { alice: 5501, bob: 5502, carol: 5503 };
-const LAUNCH_KEYS: Record<Player, string> = { alice: crypto.randomUUID(), bob: crypto.randomUUID(), carol: crypto.randomUUID() };
+const PORTS: Record<Player, number> = { admin: 5501, bob: 5502, carol: 5503 };
+const LAUNCH_KEYS: Record<Player, string> = { admin: crypto.randomUUID(), bob: crypto.randomUUID(), carol: crypto.randomUUID() };
 
 const results: { name: string; ok: boolean; detail?: string }[] = [];
 /** Set once the browsers are up: on a failure, screenshots of every app and what each one shows. */
@@ -130,7 +130,7 @@ const secretsOf = (p: Player) => Object.fromEntries(readFileSync(seed.players.fi
   .map(l => [l.slice(0, l.indexOf("=")), l.slice(l.indexOf("=") + 1)])) as Record<string, string>;
 console.log(`room ${shortCode} (${roomId})`);
 
-async function ownerClient() { const c = new ConvexHttpClient(CLOUD); c.setAuth(await browserJwt(sessionOf("alice"))); return c; }
+async function ownerClient() { const c = new ConvexHttpClient(CLOUD); c.setAuth(await browserJwt(sessionOf("admin"))); return c; }
 const ref = { action: (n: string) => makeFunctionReference<"action">(n), query: (n: string) => makeFunctionReference<"query">(n) };
 async function owner(action: string, extra: Record<string, unknown> = {}) {
   const c = await ownerClient();
@@ -232,7 +232,7 @@ diagnose = async (label: string) => {
 };
 const sameDocument = async (p: Player) => await pages[p].evaluate(() => (window as unknown as { __e2eMarker?: string }).__e2eMarker === "same-document");
 
-const NAMES = { alice: "Alice Liddell", bob: "Bob Okafor", carol: "Carol Nguyen" } as const;
+const NAMES = { admin: "Ada Admin", bob: "Bob Okafor", carol: "Carol Nguyen" } as const;
 await check("each app shows its credential's room page: the room's code and its three human members by name", async () => {
   for (const p of PLAYERS) {
     const page = pages[p];
@@ -257,14 +257,14 @@ await check("each app's dock is connected to the shared engine as its own player
 });
 
 await check("the dock: the default is three panels (goal | objects over agents) above the assistant, no tabs; the palette adds a panel, the panel menu changes it, the engine stores it", async () => {
-  const page = pages.alice;
+  const page = pages.admin;
   await page.waitForSelector("[data-testid=dock] [data-testid=assistant-pane]");
-  // A long-lived engine may carry alice's arrangement from an earlier run's room: start from the default.
-  await palette("alice", "Reset layout");
+  // A long-lived engine may carry ada's arrangement from an earlier run's room: start from the default.
+  await palette("admin", "Reset layout");
   await page.waitForFunction(() => document.querySelectorAll("[data-testid=dock] [data-testid=menu-panel]").length === 3, null, { timeout: 10_000 });
-  await palette("alice", "Add panel: Leaderboard race");
+  await palette("admin", "Add panel: Leaderboard race");
   await page.waitForFunction(() => document.querySelectorAll("[data-testid=dock] [data-testid=menu-panel]").length === 4, null, { timeout: 10_000 });
-  await choosePanel("alice", "p5", "rules");
+  await choosePanel("admin", "p5", "rules");
   const stored = async () => JSON.stringify((await (await ownerClient()).query(ref.query("layout:current"), { roomId }) as { layout: unknown }).layout);
   await until(async () => /"panelId":"rules"/.test(await stored()), "the layout stored in the engine");
   await page.click("[data-testid=button-close-p5]");
@@ -272,7 +272,7 @@ await check("the dock: the default is three panels (goal | objects over agents) 
   // The assistant is an ordinary pane: closed, it leaves the engine's layout; the palette reopens it.
   await page.click("[data-testid=button-close-p4]");
   await until(async () => !/"kind":"assistant"/.test(await stored()), "the closed assistant gone from the engine's layout");
-  await palette("alice", "Open assistant");
+  await palette("admin", "Open assistant");
   await page.waitForSelector("[data-testid=dock] [data-testid=assistant-pane]");
   await until(async () => /"kind":"assistant"/.test(await stored()), "the reopened assistant in the engine's layout");
 });
@@ -283,9 +283,8 @@ await check("a layout written to the engine reaches each open client (four panel
 });
 }
 
-await check("an AI seat with a budget joins the room (mock provider)", async () => {
+await check("an AI seat joins the room (mock provider)", async () => {
   await owner("addAi", { aiAgentId: "sonnet-strategist" });
-  await owner("settings", { aiBudget: 50_000 });
   const room = await (await ownerClient()).query(ref.query("rooms:get"), { room: roomId }) as { members: { kind: string }[] };
   assert(room.members.filter(m => m.kind === "ai").length === 1, "one AI member");
 });
@@ -353,7 +352,7 @@ async function playGame(type: keyof typeof AGENTS, start: () => Promise<unknown>
     const text = `${type} round: hello from bob`;
     await pages.bob.fill("[data-testid=input-chat]", text);
     await pages.bob.click("[data-testid=button-send-chat]");
-    for (const p of ["alice", "carol"] as const) await pages[p].waitForFunction(t => document.body.textContent!.includes(t), text, { timeout: 20_000 });
+    for (const p of ["admin", "carol"] as const) await pages[p].waitForFunction(t => document.body.textContent!.includes(t), text, { timeout: 20_000 });
   });
   if (during) await during();
   await check(`${type} game: the owner ends it, every app's page turns into its replay, and it is in the room's history`, async () => {
@@ -379,15 +378,15 @@ async function playGame(type: keyof typeof AGENTS, start: () => Promise<unknown>
 // Int: started from the engine (the owner's browser session). The dock's own checks run in it first.
 await playGame("Int", () => owner("start"), undefined, dockChecks);
 
-// string: started by alice's coding agent as her room assistant, with an owner credential she approved.
+// string: started by ada's coding agent as her room assistant, with an owner credential she approved.
 const ownerSecrets = await (async () => {
-  const device = await deviceRequest(roomId, "owner", "alice's coding agent");
-  await client(await browserJwt(sessionOf("alice"))).mutation("auth/device:approve", { userCode: device.userCode, ownerConsent: true });
+  const device = await deviceRequest(roomId, "owner", "ada's coding agent");
+  await client(await browserJwt(sessionOf("admin"))).mutation("auth/device:approve", { userCode: device.userCode, ownerConsent: true });
   const claimed = await until(async () => { const r = await poll(device); if (r.status === 200) return r.body; await sleep(2100); return undefined; }, "owner credential");
   return { CODE_GODS_ENGINE_URL: SITE, CODE_GODS_CREDENTIAL: claimed.credential as string };
 })();
 await playGame("string", async () => {
-  const out = JSON.parse(playerCli("alice", ["assistant", "room-command"], JSON.stringify({ action: "start", requestId: crypto.randomUUID() }), ownerSecrets));
+  const out = JSON.parse(playerCli("admin", ["assistant", "room-command"], JSON.stringify({ action: "start", requestId: crypto.randomUUID() }), ownerSecrets));
   assert(JSON.stringify(out).includes("gameId") || out.ok !== false, `start via assistant: ${JSON.stringify(out).slice(0, 200)}`);
 }, async () => {
   await check("assistant (bob's coding agent, act credential): chats and summons on bob's behalf", async () => {
@@ -413,9 +412,9 @@ await playGame("string", async () => {
   });
   await check("assistant observation discloses only bob's own scores and peer aggregates", async () => {
     const text = playerCli("bob", ["assistant", "observation"]);
-    // God ids are Better Auth user ids: read alice's and carol's from their browser JWTs.
+    // God ids are Better Auth user ids: read ada's and carol's from their browser JWTs.
     const subjectOf = async (p: Player) => decodeJwt(await browserJwt(sessionOf(p))).payload.sub as string;
-    for (const forbidden of [await subjectOf("alice"), await subjectOf("carol")]) {
+    for (const forbidden of [await subjectOf("admin"), await subjectOf("carol")]) {
       // Opponents appear only as leaderboard/chat identities, never with per-object scores.
       const objects = JSON.stringify((JSON.parse(text) as { observation?: { objects?: unknown[] }; objects?: unknown[] }).observation?.objects ?? (JSON.parse(text) as { objects?: unknown[] }).objects ?? []);
       assert(!objects.includes(forbidden), `objects mention ${forbidden}`);
@@ -436,18 +435,18 @@ await playGame("string", async () => {
 
 // Grid: the HMR test runs while it is live.
 await playGame("Grid", () => owner("start"), async () => {
-  const panelFile = join(appDir("alice"), "artifacts/player-web/src/panels/test-live.tsx");
-  await check("HMR: a panel written into alice's app mid-game appears without a reload and updates live", async () => {
+  const panelFile = join(appDir("admin"), "artifacts/player-web/src/panels/test-live.tsx");
+  await check("HMR: a panel written into ada's app mid-game appears without a reload and updates live", async () => {
     writeFileSync(panelFile, `import { definePanel, useGame, useObjects } from "@sdk";
 export default definePanel({ title: "Test live", placement: "left", Component() {
   const game = useGame({ hz: 4 }); const objects = useObjects({ hz: 4 });
   return <p data-testid="test-live">world {game?.worldSeconds.toFixed(2)} objects {objects.length} phase {game?.phase}</p>;
 } });
 `);
-    await pages.alice.waitForSelector("[data-testid=test-live]", { timeout: 20_000 });
-    const first = await pages.alice.textContent("[data-testid=test-live]");
-    await pages.alice.waitForFunction(t => document.querySelector("[data-testid=test-live]")?.textContent !== t, first, { timeout: 20_000 });
-    assert(await sameDocument("alice"), "alice's page reloaded");
+    await pages.admin.waitForSelector("[data-testid=test-live]", { timeout: 20_000 });
+    const first = await pages.admin.textContent("[data-testid=test-live]");
+    await pages.admin.waitForFunction(t => document.querySelector("[data-testid=test-live]")?.textContent !== t, first, { timeout: 20_000 });
+    assert(await sameDocument("admin"), "ada's page reloaded");
   });
   await check("HMR: bob's and carol's apps are unaffected (no panel, no reload)", async () => {
     for (const p of ["bob", "carol"] as const) {
@@ -457,23 +456,23 @@ export default definePanel({ title: "Test live", placement: "left", Component() 
   });
   await check("a syntax error in the panel is contained in its frame; the game keeps updating", async () => {
     writeFileSync(panelFile, `import { definePanel } from "@sdk";\nexport default definePanel({ title: "Test live", Component() { return <p>broken</p> ; } ) ;;; <<<\n`);
-    await pages.alice.waitForSelector("[data-testid='panel-error-test-live.tsx']", { timeout: 20_000 });
-    const message = await pages.alice.textContent("[data-testid='panel-error-test-live.tsx']");
+    await pages.admin.waitForSelector("[data-testid='panel-error-test-live.tsx']", { timeout: 20_000 });
+    const message = await pages.admin.textContent("[data-testid='panel-error-test-live.tsx']");
     assert(/test-live\.tsx|Unexpected|expected/i.test(message ?? ""), `error text: ${message}`);
-    const objects = await pages.alice.$$eval("[data-testid^=row-object-]", els => els.length);
+    const objects = await pages.admin.$$eval("[data-testid^=row-object-]", els => els.length);
     assert(objects > 0, "core console still shows the world");
     await pages.carol.fill("[data-testid=input-chat]", "still playing");
     await pages.carol.click("[data-testid=button-send-chat]");
-    await pages.alice.waitForFunction(() => document.body.textContent!.includes("still playing"), null, { timeout: 30_000 })
+    await pages.admin.waitForFunction(() => document.body.textContent!.includes("still playing"), null, { timeout: 30_000 })
       .catch(async () => { throw new Error(`chat did not arrive; carol's notice: ${await pages.carol.textContent("[data-testid=text-notice]").catch(() => "none")}`); });
-    assert(await sameDocument("alice"), "alice's page reloaded");
+    assert(await sameDocument("admin"), "ada's page reloaded");
   });
   await check("fixing or deleting the broken panel recovers without a reload", async () => {
     writeFileSync(panelFile, `import { definePanel } from "@sdk";\nexport default definePanel({ title: "Test live", Component() { return <p data-testid="test-live">fixed</p>; } });\n`);
-    await pages.alice.waitForFunction(() => document.querySelector("[data-testid=test-live]")?.textContent === "fixed", null, { timeout: 20_000 });
+    await pages.admin.waitForFunction(() => document.querySelector("[data-testid=test-live]")?.textContent === "fixed", null, { timeout: 20_000 });
     rmSync(panelFile);
-    await pages.alice.waitForFunction(() => !document.querySelector("[data-panel-file='test-live.tsx']"), null, { timeout: 20_000 });
-    assert(await sameDocument("alice"), "alice's page reloaded");
+    await pages.admin.waitForFunction(() => !document.querySelector("[data-panel-file='test-live.tsx']"), null, { timeout: 20_000 });
+    assert(await sameDocument("admin"), "ada's page reloaded");
   });
 });
 

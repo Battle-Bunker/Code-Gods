@@ -141,6 +141,26 @@ export function withTimeline(layout: DockLayout): DockLayout {
   return openPane(layout, { id: "", kind: "panel", panelId: "timeline", params: {}, setBy: "human" }).layout;
 }
 
+/**
+ * A room with no assistant (its owner is not an administrator) shows its layout without the assistant pane: derived for
+ * display like the replay's Timeline, so the stored layout keeps it for rooms where it exists.
+ */
+export function withoutAssistant(layout: DockLayout): DockLayout {
+  const pane = Object.values(layout.panes).find(p => p.kind === "assistant");
+  if (!pane) return layout;
+  try { return closePane(layout, pane.id); } catch { return layout; }
+}
+
+/**
+ * A change made from the shown layout while the assistant is hidden (withoutAssistant) lacks its pane: put the
+ * `stored` layout's assistant pane back, so the saved layout keeps it for when AI is available in the room again.
+ */
+export function keepAssistantPane(next: DockLayout, stored: DockLayout): DockLayout {
+  const pane = Object.values(stored.panes).find(p => p.kind === "assistant");
+  if (!pane || Object.values(next.panes).some(p => p.kind === "assistant")) return next;
+  try { return openPane(next, pane).layout; } catch { return next; }
+}
+
 /** A stable JSON text (sorted keys), for comparing panes. */
 export function canonical(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;

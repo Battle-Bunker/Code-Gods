@@ -119,7 +119,7 @@ async function command(ctx: ActionCtx, p: { principal: Principal; who: Who }, na
   }
 }
 
-const owner = (action: "settings" | "start" | "resume" | "endGame" | "addAi" | "removeAi") =>
+const owner = (action: "settings" | "quotas" | "start" | "resume" | "endGame" | "addAi" | "removeAi") =>
   async (ctx: ActionCtx, { principal, who }: { principal: Principal; who: Who }, args: { requestId: string } & Record<string, unknown>): Promise<Page> => {
     const { requestId, ...rest } = args;
     const result: unknown = await ctx.runAction(internal.owner.commandAs, { principal, roomId: who.roomId, action, requestId, ...rest });
@@ -329,6 +329,7 @@ export const EXECUTORS: Executors = {
     return { data: catalog };
   },
   update_settings: owner("settings"),
+  set_ai_quotas: owner("quotas"),
   start_game: owner("start"),
   resume_game: owner("resume"),
   end_game: owner("endGame"),

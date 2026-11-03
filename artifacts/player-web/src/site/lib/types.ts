@@ -50,5 +50,5 @@ export interface Manifest {
   priors?: string[];
   aiFunding: { provider: string; model: string; billing: string; mock: boolean; configured: boolean; live: boolean;
     /** The vetted model catalog (ids, labels, whether this deployment has the provider key). */
-    models?: { id: string; label: string; provider: string; configured: boolean; inputUsdPerMillion?: number; outputUsdPerMillion?: number }[]; assistantBudgetMax?: number };
+    models?: { id: string; label: string; provider: string; configured: boolean; inputUsdPerMillion?: number; outputUsdPerMillion?: number }[]; quotas?: { aiDefault: number; aiMax: number; assistantDefault: number; assistantMax: number } };
 }

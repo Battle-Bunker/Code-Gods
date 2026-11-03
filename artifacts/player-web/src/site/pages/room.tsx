@@ -106,12 +106,14 @@ function NextGame({ room, isOwner }: { room: RoomState; isOwner: boolean }) {
         )}
         {frozen && <p className="text-xs text-muted-foreground" data-testid="text-settings-frozen">Changes apply after game {frozen.shortCode} ends.</p>}
         <p className="text-sm text-muted-foreground" data-testid="text-next-game-summary">{current ? `${current.name}: ${current.summary}. ` : ""}{settingsSummary(room.settings, room.objectInstance)}</p>
-        {/* Out of Details: creating a room asks nothing, so this line is where the owner finds the assistant. */}
-        <p className="text-sm" data-testid="text-ai-spending">
-          AI players: {fmt(used)} of {fmt(room.aiBudget)} tokens · Assistant: {room.assistantBudget ? `${fmt(room.assistantBudget)} per player` : "off"}
-          {isOwner && manifest?.aiFunding.configured !== false && <> · <button type="button" className="underline underline-offset-4" onClick={() => openSheet("ai-spending")}
-            data-testid="button-ai-spending">{room.assistantBudget ? "Change" : "Turn on…"}</button></>}
-        </p>
+        {/* Out of Details: creating a room asks nothing, so this line is where the owner finds the AI quotas (only in rooms run by an admin). */}
+        {room.aiEnabled && (
+          <p className="text-sm" data-testid="text-ai-quotas">
+            AI players: {fmt(used)} of {fmt(room.aiQuota)} tokens · Assistant: {room.assistantQuota ? `${fmt(room.assistantQuota)} per player` : "off"}
+            {isOwner && manifest?.aiFunding.configured !== false && <> · <button type="button" className="underline underline-offset-4" onClick={() => openSheet("ai-quotas")}
+              data-testid="button-ai-quotas">Change</button></>}
+          </p>
+        )}
         <details className="text-sm" data-testid="details-next-game">
           <summary className="cursor-pointer select-none">Details</summary>
           <div className="mt-3 space-y-4">
@@ -176,7 +178,7 @@ function RoomBody({ room, games }: { room: RoomState; games?: GameRecord[] }) {
   const isOwner = room.ownerId === user?.id;
   const isMember = room.members.some(m => m.id === user?.id);
   const minPlayers = manifest?.minimumPlayers ?? 3;
-  const step = nextStep(user?.id, room, { minPlayers, maxPlayers: manifest?.maximumPlayers ?? 8, aiAvailable: manifest?.aiFunding.configured !== false, start });
+  const step = nextStep(user?.id, room, { minPlayers, maxPlayers: manifest?.maximumPlayers ?? 8, aiAvailable: manifest?.aiFunding.configured !== false && room.aiEnabled, start });
   return (
     <div className="mx-auto max-w-[1200px] px-4 md:px-6 py-8 space-y-6">
       <header className="space-y-4 rise">
@@ -233,7 +235,7 @@ export default function Room() {
   }, [activeId, room, navigate]);
   useEffect(() => { document.title = `Room ${room?.shortCode ?? id} · Code Gods`; }, [room?.shortCode, id]);
   const code = room?.shortCode ?? id.toUpperCase();
-  const step = room ? nextStep(user?.id, room, { minPlayers: manifest?.minimumPlayers, maxPlayers: manifest?.maximumPlayers, aiAvailable: manifest?.aiFunding.configured !== false }) : null;
+  const step = room ? nextStep(user?.id, room, { minPlayers: manifest?.minimumPlayers, maxPlayers: manifest?.maximumPlayers, aiAvailable: manifest?.aiFunding.configured !== false && room.aiEnabled }) : null;
 
   return (
     <Page room={room ?? null} history={games} crumbs={[{ label: code }]} placeholder={`Search or do anything in ${code}`}

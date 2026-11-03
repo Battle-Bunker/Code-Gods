@@ -36,7 +36,7 @@ const actions: Actions = {
 };
 const state = (over: Partial<State> = {}): State => ({
   phase: "running", hasObservation: true, permission: "act", isOwner: false, seated: true, ready: false, pauseUsed: false,
-  agents: [{ id: "agent-1", label: "agent-1 · python" }], unknownOutcome: false, busy: false, assistantOn: true, roomCode: "ABCD", gameCode: "WXYZ",
+  agents: [{ id: "agent-1", label: "agent-1 · python" }], unknownOutcome: false, busy: false, assistantOn: true, assistantAvailable: true, roomCode: "ABCD", gameCode: "WXYZ",
   panes: [{ id: "p1", kind: "panel", label: "Where am I", closable: false }, { id: "p2", kind: "assistant", label: "Your assistant", closable: true }],
   scopePaneId: "p1", storedPanels: [{ slug: "race-plus", title: "Race plus", enabled: true, currentVersion: 2 }], filePanels: [], safeMode: false,
   setups: [{ id: "setup-classic", label: "Classic" }], aiSeats: [{ id: "ai-1", label: "Sonnet" }], gridRenderer: "digits", ...over,
@@ -143,6 +143,18 @@ test("hand-offs only pre-fill the composer, and need the assistant", async () =>
   const off = playerCommands(state({ assistantOn: false }), actions);
   assert.match(reason(off, "panels.save", ctx({ assistantOn: false })), /assistant is off/);
   assert.match(reason(off, "assistant.send", ctx({ assistantOn: false })), /assistant is off/);
+});
+
+test("in a room with no assistant (its owner is not an admin) every assistant and AI-seat affordance is hidden, not dimmed", () => {
+  const commands = playerCommands(state({ assistantOn: false, assistantAvailable: false, aiEnabled: false, isOwner: true }), actions);
+  for (const id of ["assistant.send", "panels.save", "ui.assistant.open", "ui.assistant.right", "ui.assistant.focus", "ui.assistant.new", "ui.assistant.settings", "rooms.addAi"]) {
+    const a = find(commands, id).available(ctx({ assistantOn: false, role: "owner" }));
+    assert.equal(a.ok, false, `${id} is unavailable`);
+    assert.equal((a as { hidden?: boolean }).hidden, true, `${id} is hidden`);
+  }
+  assert.equal(ok(playerCommands(state({ assistantAvailable: true, aiEnabled: true, phase: "lobby" }), actions), "rooms.addAi", ctx({ role: "owner", phase: "lobby" })), true, "in an admin's room it is offered");
+  // AI seats follow the room's aiEnabled, not the assistant's status (which may still be loading).
+  assert.equal(ok(playerCommands(state({ assistantAvailable: false, aiEnabled: true, phase: "lobby" }), actions), "rooms.addAi", ctx({ role: "owner", phase: "lobby" })), true);
 });
 
 test("pick pages: stored panels open as panes, a glossary term is explained, conversations switch", async () => {

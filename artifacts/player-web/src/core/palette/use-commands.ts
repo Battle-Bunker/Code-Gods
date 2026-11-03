@@ -94,7 +94,7 @@ export function usePlayerCommands(scopePaneId: string | null): { commands: Comma
     return {
       phase: obs?.phase, hasObservation: !!obs, permission, isOwner: s.isOwner, seated: s.seated, ready: s.ready, pauseUsed: s.pauseUsed, preparing: !!s.room?.preparing, starting,
       agents: (obs?.agents ?? []).map((a, i) => ({ id: a.id, label: `agent ${i + 1} (${a.language}, ${a.acts} acts)` })),
-      unknownOutcome: !!runner.unknown, busy: !!runner.busy, assistantOn: !!status?.enabled,
+      unknownOutcome: !!runner.unknown, busy: !!runner.busy, assistantOn: !!status?.enabled, assistantAvailable: status?.available !== false, aiEnabled: s.room?.aiEnabled !== false,
       roomCode: obs?.roomShortCode ?? s.room?.shortCode, gameCode: obs?.gameShortCode,
       panes, scopePaneId, safeMode: SAFE_MODE,
       storedPanels: (panels.stored ?? []).map(p => ({ slug: p.slug, title: p.title, enabled: p.enabled, currentVersion: p.currentVersion })),
@@ -104,7 +104,7 @@ export function usePlayerCommands(scopePaneId: string | null): { commands: Comma
       gridRenderer,
       ...(replay ? { replay } : {}),
     };
-  }, [dock.layout, s, permission, runner.unknown, runner.busy, status?.enabled, scopePaneId, panels.stored, panels.fileIds, gridRenderer, setups, starting, replay]);
+  }, [dock.layout, s, permission, runner.unknown, runner.busy, status?.enabled, status?.available, scopePaneId, panels.stored, panels.fileIds, gridRenderer, setups, starting, replay]);
 
   const paletteActions = useMemo((): PaletteActions => ({
     submit: command => game.run(command),

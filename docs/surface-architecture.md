@@ -168,7 +168,7 @@ player credential that created it. It is listed and revocable under Connected ap
 bearer token. Every tool runs through `registry.runTool(ctx, {credentialId}, …)`: there is no other path to game state.
 
 **Turn loop** (`convex/assistant.ts`, `assistant/store.ts`, `assistant/turns.ts`, `assistant/step.ts`, `assistant/limits.ts`).
-- `send` (requireMember read; FORBIDDEN while the owner's allowance is 0) inserts the user message and the turn and
+- `send` (requireMember read; FORBIDDEN while the quota is 0 or the room's owner is not an administrator) inserts the user message and the turn and
   schedules `assistant/step:run({turnId, gen})`; while the human's turn in this game is active it queues the message
   instead (below).
 - One scheduled Node action per model step, chained with `gen`; a step whose `gen` or status is stale exits. A step:
@@ -224,13 +224,13 @@ Reads, `validate_agent`, `set_ready`, `wake_engine`, panel saves (`save_panel`, 
 (at most two layout changes per step) run automatically and show as activity chips. A tool the grant does not allow is
 refused at once (FORBIDDEN), with no card.
 
-**Models and budget.** `lib/ai-player`'s `ChatProvider` (`stream({system, messages, tools, maxOutputTokens, signal,
+**Models and quotas.** `lib/ai-player`'s `ChatProvider` (`stream({system, messages, tools, maxOutputTokens, signal,
 onText})`) has Anthropic Messages and OpenAI chat-completions adapters (direct endpoints, catalog prices, no retries;
 a max-tokens or other incomplete stop is an error) and `mockChatProvider()` under `AI_MOCK=1` (a message
 starting with `/mock {json}` scripts the steps; anything else reads the observation and summarizes it). Seats and the
 assistant explain the game with one `GAME_PRIMER`. The model is offered the registry's JSON Schemas for the
-credential's permission, without the engine-derived ids. The separate assistant pool: an equal allowance per human per
-game and the model, approved by the owner in the AI budget card (default 0 = off); `ASSISTANT_GAME_USD` per room per
+credential's permission, without the engine-derived ids. The separate assistant pool: an equal quota per human per
+game (`assistantQuota`, default 300,000, set by the owner with `rooms.setAiQuotas`; no approval) and the model, only in rooms owned by an administrator; `ASSISTANT_GAME_USD` per room per
 game, `DAILY_ASSISTANT_USD` per day; per-player and per-room call rates (`convex/lib/aiModels.ts`).
 
 **Cost.** Anthropic requests cache the tools and system prompt (an explicit breakpoint) and the conversation so far
@@ -266,8 +266,8 @@ to 8 KB starts with a `TRUNCATED` field naming what was kept of what, and the pr
 
 **UI** (`artifacts/player-web/src/core/chat/`): the dock's assistant pane, in every mode of the app, for a seated player
 (spectators have no assistant): streaming messages, tool chips (expandable to the exact arguments and the outcome),
-confirmation cards with a countdown, Stop, the allowance meter, the permission choice on first use, and an explanation
-while the owner has not enabled it. The owner sets the assistant allowance with the AI budget on the room's configure
+confirmation cards with a countdown, Stop, the quota meter, the permission choice on first use, and an explanation
+while AI is unavailable in the room (not run by an administrator, or the quota is 0). The owner sets the assistant quota on the room's configure
 page.
 
 **Deferred.** Phase 2 **watches**: declarative per-tick triggers for AI-speed tactics, open to every surface. A browser
@@ -285,7 +285,7 @@ e2e of the drawer (the unit-tested UI state and the engine suite cover the behav
 2. **Pilot data:** none exists beyond local tests, so there is no migration (clean break).
 3. **Stored panels:** sandboxed iframes; compile-time syntax checks only in phase 1; scoped to the human; `act` credentials may write.
 4. **MCP:** stateless JSON. OAuth with DCR and CIMD, plus raw `cgc_` bearer tokens. One room per connection. `evaluate_value` covers the caller's own utility only. The CLI becomes an MCP client.
-5. **Assistant:** a separate pool, an equal allowance per seated human, default off, owner-approved. Confirmations as in §6. No public "via assistant" label: delegation is to the same human. Watches are deferred.
+5. **Assistant:** a separate pool, an equal token quota per seated human (default 300,000, owner-configurable, no approval), only in rooms owned by an administrator. Confirmations as in §6. No public "via assistant" label: delegation is to the same human. Watches are deferred.
 6. **Artifacts:** an experimental, slow-dashboard surface. 1 Hz play stays on the clients built on Convex.
    - **Reference page** (Wave 2B): `clients/claude-artifact/template.html`, with its pure logic in `core.js` (unit-tested with
      `node --test`) inlined by `build.mjs` into `dist/template.html`, the file that gets published. It declares

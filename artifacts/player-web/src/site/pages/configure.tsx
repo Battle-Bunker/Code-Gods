@@ -14,7 +14,7 @@
  *   not), and a shape whose first game computes rule tables says so in a light note with the measured time.
  * - Defence goals are a switch plus a checklist of the defence goals that may be dealt: on, every player gets one.
  * - Save writes the setup (setups.save) and, for the room's owner while no game runs, applies it to the room
- *   (owner.settings {setupId}); budgets approve with consent (rooms.approveAiBudget). Delete is in the review section.
+ *   (owner.settings {setupId}); the room's AI quotas save through rooms.setAiQuotas (rooms run by an admin only). Delete is in the review section.
  * - The draft survives a reload (localStorage, per setup). A setup saved elsewhere meanwhile replaces an untouched draft;
  *   an edited draft is kept (saving puts it in its place) with an offer to load theirs.
  */
@@ -22,7 +22,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation, useParams, useSearch } from "wouter";
 import { useAction, useMutation } from "convex/react";
 import {
-  LANGUAGES, LANGUAGE_SPECS, ROOM_BUDGET_DOCS, SETTINGS_DOCS, SETUP_NAME_MAX, allowedLanguages, applySettingsChange, settingsOptionsFor, type FieldDoc, type Language, type OptionKey,
+  LANGUAGES, LANGUAGE_SPECS, ROOM_QUOTA_DOCS, SETTINGS_DOCS, SETUP_NAME_MAX, allowedLanguages, applySettingsChange, settingsOptionsFor, type FieldDoc, type Language, type OptionKey,
   type SettingsSection,
 } from "@workspace/game-core";
 import { BadgeChips, RuleShelf, sameArgs } from "@workspace/object-views";
@@ -38,19 +38,19 @@ import { SettingsList, settingsSummary } from "@/site/components/game-panels";
 import { Skeleton } from "@/components/ui/skeleton";
 import { errCode, errMsg, fmt } from "@/site/lib/errors";
 import {
-  BUDGET_LIMITS, LABELS, SECTIONS, argChoices, choiceLabel, defenceBlocker, draftErrors, fieldsOf, formatValue, isHidden, lengthLine, limitError, paceWord,
+  QUOTA_LIMITS, LABELS, SECTIONS, argChoices, choiceLabel, defenceBlocker, draftErrors, fieldsOf, formatValue, isHidden, lengthLine, limitError, paceWord,
   dealerNote, firstUseNote, same, settingsDomain, shelfEntries, stepChoices, toggleLanguage, type PlayableTypes, type Settings, type SettingsKey,
 } from "@/site/lib/settings-form";
 import { freeName, ownerLabel } from "@/site/lib/setup-words";
 
-type Budgets = { aiBudget: number; assistantBudget: number; assistantModel: string };
+type Quotas = { aiQuota: number; assistantQuota: number; assistantModel: string };
 type Base = { settings: Settings; name: string; updatedAt: number };
-type Stored = { base: Base; draft: Settings; name: string; budgets: Budgets };
-/** A draft belongs to one setup as edited from one room (the budgets in it are that room's). */
+type Stored = { base: Base; draft: Settings; name: string; quotas: Quotas };
+/** A draft belongs to one setup as edited from one room (the quotas in it are that room's). */
 const draftKey = (key: string) => `code-gods:setup-draft:${key}`;
 const loadDraft = (key: string): Stored | null => { try { const raw = window.localStorage.getItem(draftKey(key)); return raw ? JSON.parse(raw) as Stored : null; } catch { return null; } };
 const saveDraft = (key: string, s: Stored | null) => { try { if (s) window.localStorage.setItem(draftKey(key), JSON.stringify(s)); else window.localStorage.removeItem(draftKey(key)); } catch { /* a convenience */ } };
-const budgetsOf = (room: RoomState): Budgets => ({ aiBudget: room.aiBudget, assistantBudget: room.assistantBudget ?? 0, assistantModel: room.assistantModel });
+const quotasOf = (room: RoomState): Quotas => ({ aiQuota: room.aiQuota, assistantQuota: room.assistantQuota, assistantModel: room.assistantModel });
 const tidyName = (raw: string) => raw.trim().replace(/\s+/g, " ");
 const PRIOR_LABELS: Record<string, string> = { uniform: "Uniformly random objects (the spawn prior)" };
 
@@ -86,42 +86,41 @@ function ConfigureForm({ room, setup, roomOwner }: { room: RoomState; setup: Set
   const saveSetup = useAction(api.setups.save);
   const removeSetup = useMutation(api.setups.remove);
   const applyToRoom = useAction(api.owner.settings);
-  const approve = useMutation(api.rooms.approveAiBudget);
+  const setQuotas = useMutation(api.rooms.setAiQuotas);
   const editable = setup.editable;
-  // The budgets are the room's: its owner sets them here whoever owns the setup.
-  const budgetsEditable = roomOwner;
+  // The quotas are the room's: its owner sets them here whoever owns the setup, in rooms where AI is available.
+  const quotasEditable = roomOwner && room.aiEnabled && manifest?.aiFunding.configured !== false;
   const key = `${room.id}:${setup.id}`;
   const fresh: Base = { settings: setup.settings, name: setup.name, updatedAt: setup.updatedAt };
   const stored = useMemo(() => (editable || roomOwner ? loadDraft(key) : null), [key, editable, roomOwner]);
   const [base, setBase] = useState<Base>(() => stored?.base ?? fresh);
   const [draft, setDraft] = useState<Settings>(() => stored?.draft ?? setup.settings);
   const [name, setName] = useState(() => stored?.name ?? setup.name);
-  const [budgets, setBudgets] = useState<Budgets>(() => stored?.budgets ?? budgetsOf(room));
-  const [consent, setConsent] = useState(false);
+  const [quotas, setQuotasDraft] = useState<Quotas>(() => stored?.quotas ?? quotasOf(room));
   const [elsewhere, setElsewhere] = useState(false);
   const [changeError, setChangeError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const roomBudgets = budgetsOf(room);
+  const roomQuotas = quotasOf(room);
   const dirtySettings = !same(draft, base.settings);
   const dirtyName = tidyName(name) !== base.name;
-  const dirtyBudgets = budgetsEditable && !same(budgets, roomBudgets);
+  const dirtyQuotas = quotasEditable && !same(quotas, roomQuotas);
   const roomOnIt = room.setup?.id === setup.id && same(room.settings, draft);
-  const dirty = dirtySettings || dirtyName || dirtyBudgets;
+  const dirty = dirtySettings || dirtyName || dirtyQuotas;
   const types = manifest?.objectTypes ?? [];
   const domain = useMemo(() => settingsDomain((manifest?.objectTypes ?? []) as unknown as PlayableTypes[]), [manifest]);
 
-  // Budgets approved elsewhere (the AI spending sheet, another tab) replace the draft's unless edited here.
-  const lastRoomBudgets = useRef(roomBudgets);
+  // Quotas saved elsewhere (the AI quotas sheet, another tab) replace the draft's unless edited here.
+  const lastRoomQuotas = useRef(roomQuotas);
   useEffect(() => {
-    const prev = lastRoomBudgets.current;
-    lastRoomBudgets.current = roomBudgets;
-    if (same(prev, roomBudgets)) return;
-    setBudgets(b => (same(b, prev) ? roomBudgets : b));
-  }, [room.aiBudget, room.assistantBudget, room.assistantModel]); // eslint-disable-line react-hooks/exhaustive-deps
+    const prev = lastRoomQuotas.current;
+    lastRoomQuotas.current = roomQuotas;
+    if (same(prev, roomQuotas)) return;
+    setQuotasDraft(b => (same(b, prev) ? roomQuotas : b));
+  }, [room.aiQuota, room.assistantQuota, room.assistantModel]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keep the draft across reloads; clear it once nothing differs.
-  useEffect(() => { if (editable || roomOwner) saveDraft(key, dirty ? { base, draft, name, budgets } : null); }, [editable, roomOwner, key, base, draft, name, budgets, dirty]);
+  useEffect(() => { if (editable || roomOwner) saveDraft(key, dirty ? { base, draft, name, quotas } : null); }, [editable, roomOwner, key, base, draft, name, quotas, dirty]);
 
   // The setup saved elsewhere (another tab, the assistant): an untouched draft follows it; an edited one is kept whole
   // (saving puts it in its place) and the owner may load theirs instead.
@@ -142,23 +141,18 @@ function ConfigureForm({ room, setup, roomOwner }: { room: RoomState; setup: Set
   const errors = draftErrors(draft, domain);
   const currentType = types.find(t => t.id === draft.objectType);
   const playable = currentType?.playable.find(o => sameArgs({ ...currentType.defaults, ...o.args }, { ...currentType.defaults, ...draft.typeArgs }));
-  const budgetErrors = {
-    aiBudget: limitError(BUDGET_LIMITS.aiBudget, budgets.aiBudget),
-    assistantBudget: limitError({ ...BUDGET_LIMITS.assistantBudget, max: manifest?.aiFunding.assistantBudgetMax ?? BUDGET_LIMITS.assistantBudget.max }, budgets.assistantBudget),
+  const quotaErrors = {
+    aiQuota: limitError({ ...QUOTA_LIMITS.aiQuota, max: manifest?.aiFunding.quotas?.aiMax ?? QUOTA_LIMITS.aiQuota.max }, quotas.aiQuota),
+    assistantQuota: limitError({ ...QUOTA_LIMITS.assistantQuota, max: manifest?.aiFunding.quotas?.assistantMax ?? QUOTA_LIMITS.assistantQuota.max }, quotas.assistantQuota),
   };
   const trimmed = tidyName(name);
   const nameProblem = !trimmed ? "Give the setup a name." : trimmed.length > SETUP_NAME_MAX ? `At most ${SETUP_NAME_MAX} characters.` : null;
   const settingsInvalid = Object.keys(errors).length > 0;
-  const invalid = settingsInvalid || !!nameProblem || (dirtyBudgets && (!!budgetErrors.aiBudget || !!budgetErrors.assistantBudget));
+  const invalid = settingsInvalid || !!nameProblem || (dirtyQuotas && (!!quotaErrors.aiQuota || !!quotaErrors.assistantQuota));
   const running = room.activeGame;
-  const budgetFrozen = !!running && dirtyBudgets && budgets.aiBudget !== room.aiBudget;
   const willApply = roomOwner && !running;
-  const saveBlocker = !editable && !budgetsEditable ? null : !editable ? (budgetFrozen ? `The AI players' budget can change after game ${running!.shortCode} ends.`
-      : dirtyBudgets && (budgetErrors.aiBudget || budgetErrors.assistantBudget) ? "Fix the budgets marked in red first."
-      : dirtyBudgets && !consent ? "Tick the approval for the new spending first." : !dirtyBudgets ? "Nothing has changed yet." : null)
+  const saveBlocker = !editable && !quotasEditable ? null : !editable ? (dirtyQuotas && (quotaErrors.aiQuota || quotaErrors.assistantQuota) ? "Fix the quotas marked in red first." : !dirtyQuotas ? "Nothing has changed yet." : null)
     : invalid ? "Fix the settings marked in red first."
-    : budgetFrozen ? `The AI players' budget can change after game ${running!.shortCode} ends.`
-    : dirtyBudgets && !consent ? "Tick the approval for the new spending first."
     : !dirty && (!willApply || roomOnIt) ? "Nothing has changed yet." : null;
 
   const save = async () => {
@@ -166,9 +160,9 @@ function ConfigureForm({ room, setup, roomOwner }: { room: RoomState; setup: Set
     setSaving(true); setSaveError(null);
     try {
       if (!editable) {
-        await approve({ roomId: room.id, aiBudget: budgets.aiBudget, assistantBudget: budgets.assistantBudget, assistantModel: budgets.assistantModel });
+        await setQuotas({ roomId: room.id, aiQuota: quotas.aiQuota, assistantQuota: quotas.assistantQuota, assistantModel: quotas.assistantModel });
         saveDraft(key, null);
-        toast({ title: "Saved the room's budgets" });
+        toast({ title: "Saved the room's AI quotas" });
         return;
       }
       if (dirtySettings || dirtyName) await saveSetup({ setupId: setup.id, name: trimmed, settings: draft });
@@ -177,7 +171,7 @@ function ConfigureForm({ room, setup, roomOwner }: { room: RoomState; setup: Set
         await applyToRoom({ roomId: room.id, revision: room.revision, setupId: setup.id });
         applied = true;
       }
-      if (dirtyBudgets) await approve({ roomId: room.id, aiBudget: budgets.aiBudget, assistantBudget: budgets.assistantBudget, assistantModel: budgets.assistantModel });
+      if (dirtyQuotas) await setQuotas({ roomId: room.id, aiQuota: quotas.aiQuota, assistantQuota: quotas.assistantQuota, assistantModel: quotas.assistantModel });
       saveDraft(key, null);
       toast({ title: `Saved ${trimmed}`, description: applied || roomOnIt ? `Room ${room.shortCode}'s next game runs it.`
         : running && roomOwner ? `Game ${running.shortCode} is running: pick it for the next game when it ends.` : "It changes no room until its owner picks it." });
@@ -254,8 +248,8 @@ function ConfigureForm({ room, setup, roomOwner }: { room: RoomState; setup: Set
           ))}
 
           <FormSection id="players">
-            <PlayersAndAi room={room} editable={budgetsEditable} manifest={manifest} budgets={budgets} setBudgets={b => { setBudgets(b); setConsent(false); }}
-              errors={budgetErrors} openPalette={openPalette} />
+            <PlayersAndAi room={room} editable={quotasEditable} manifest={manifest} quotas={quotas} setQuotas={setQuotasDraft}
+              errors={quotaErrors} openPalette={openPalette} />
           </FormSection>
 
           <FormSection id="review">
@@ -265,12 +259,6 @@ function ConfigureForm({ room, setup, roomOwner }: { room: RoomState; setup: Set
                 <p className="text-muted-foreground">{settingsSummary(draft, instance)}</p>
               </div>
               {errors._form && <ErrorLine message={errors._form} />}
-              {budgetsEditable && dirtyBudgets && (
-                <label className="flex items-start gap-2 text-sm text-muted-foreground" data-testid="block-consent">
-                  <input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} className="mt-1 accent-[hsl(var(--primary))]" data-testid="checkbox-config-consent" />
-                  I approve AI players using up to {fmt(budgets.aiBudget)} tokens per game and each player's assistant up to {fmt(budgets.assistantBudget)} tokens per game in this room, billed to the server owner's provider accounts.
-                </label>
-              )}
               {editable ? (<>
                 <p className="text-sm" data-testid="text-unsaved">{dirty ? "You have unsaved changes." : willApply && !roomOnIt ? `Saving puts room ${room.shortCode} on this setup.` : "Nothing to save yet."}</p>
                 <div className="flex flex-wrap items-center gap-4">
@@ -283,8 +271,8 @@ function ConfigureForm({ room, setup, roomOwner }: { room: RoomState; setup: Set
                   usedHere={room.setup?.id === setup.id} />
               </>) : (<>
                 <Action k="setups.duplicate" label="Duplicate and edit" tone="primary" onClick={duplicateAndEdit} testId="button-duplicate-and-edit-review" />
-                {budgetsEditable && dirtyBudgets && (
-                  <Action k="rooms.approveAiBudget" label={saving ? "Saving…" : "Save the room's budgets"} onClick={() => void save()} unavailable={saveBlocker} pending={saving} testId="button-save-budgets" showReason />
+                {quotasEditable && dirtyQuotas && (
+                  <Action k="rooms.setAiQuotas" label={saving ? "Saving…" : "Save the room's AI quotas"} onClick={() => void save()} unavailable={saveBlocker} pending={saving} testId="button-save-ai-quotas" showReason />
                 )}
                 {saveError && <ErrorLine message={saveError} />}
               </>)}
@@ -302,7 +290,7 @@ function ConfigureForm({ room, setup, roomOwner }: { room: RoomState; setup: Set
             <p>{fmt(draft.startingObjectCount)} objects, +{draft.spawnRateHz}/s</p>
             <p>{lengthLine(draft)} · {paceWord(draft.interactionRateHz)} pace</p>
             <p>{room.members.filter(m => !m.spectator).length} of {manifest?.minimumPlayers ?? 3}–{manifest?.maximumPlayers ?? 8} players ({room.members.filter(m => m.kind === "ai").length} AI; spectators watch)</p>
-            <p>AI budget: {fmt(budgets.aiBudget)} · Assistant: {budgets.assistantBudget ? fmt(budgets.assistantBudget) : "off"}</p>
+            {room.aiEnabled && <p>AI players: {fmt(quotas.aiQuota)} · Assistant: {quotas.assistantQuota ? fmt(quotas.assistantQuota) : "off"}</p>}
             {editable && dirty && <p className="text-primary">Unsaved changes</p>}
             {editable && <a href="#section-review" className="underline underline-offset-4">Review and save</a>}
           </div>
@@ -627,16 +615,25 @@ function More({ section, draft, children }: { section: SettingsSection; draft: S
   );
 }
 
-function PlayersAndAi({ room, editable, manifest, budgets, setBudgets, errors, openPalette }: {
-  room: RoomState; editable: boolean; manifest?: Manifest; budgets: Budgets; setBudgets(b: Budgets): void;
-  errors: { aiBudget: string | null; assistantBudget: string | null }; openPalette: (init?: { page?: string }) => void;
+function PlayersAndAi({ room, editable, manifest, quotas, setQuotas, errors, openPalette }: {
+  room: RoomState; editable: boolean; manifest?: Manifest; quotas: Quotas; setQuotas(b: Quotas): void;
+  errors: { aiQuota: string | null; assistantQuota: string | null }; openPalette: (init?: { page?: string }) => void;
 }) {
   const ais = room.members.filter(m => m.kind === "ai");
   if (manifest?.aiFunding.configured === false) return <p className="text-sm text-muted-foreground">AI players and assistants are not set up on this server. {room.members.filter(m => !m.spectator).length} players are in the room (spectators don't count); a game needs {manifest.minimumPlayers}.</p>;
+  if (!room.aiEnabled) return (
+    <p className="text-sm text-muted-foreground" data-testid="text-ai-admin-only">
+      AI players and assistants are only available in rooms run by an administrator for now. {room.members.filter(m => !m.spectator).length} players are in the room (spectators don't count); a game needs {manifest?.minimumPlayers ?? 3}.
+      {/* AI seats left from before: the game cannot start with them here, so say so and offer their removal. */}
+      {ais.length > 0 && <> Seated AI players ({ais.map(a => a.name).join(", ")}) cannot play here: {editable
+        ? <button type="button" className="underline underline-offset-4" onClick={() => openPalette({ page: "rooms.removeAi" })} data-testid="button-remove-legacy-ai">remove them</button>
+        : "the owner can remove them"} to start.</>}
+    </p>
+  );
   const models = manifest?.aiFunding.models ?? [];
-  const budgetChoice = (key: "aiBudget" | "assistantBudget") => {
-    const doc = ROOM_BUDGET_DOCS[key];
-    const choices = [...new Set([...(doc.suggested as readonly number[]), budgets[key]])].sort((a, b) => a - b);
+  const quotaChoice = (key: "aiQuota" | "assistantQuota") => {
+    const doc = ROOM_QUOTA_DOCS[key];
+    const choices = [...new Set([...(doc.suggested as readonly number[]), quotas[key]])].sort((a, b) => a - b);
     return (
       <div className="space-y-2" data-testid={`field-${key}`}>
         <h3 className="font-medium">{doc.question}</h3>
@@ -644,13 +641,13 @@ function PlayersAndAi({ room, editable, manifest, budgets, setBudgets, errors, o
         {editable ? (
           <div className="flex flex-wrap items-center gap-1.5">
             {choices.map(c => (
-              <button key={c} type="button" role="radio" aria-checked={c === budgets[key]} onClick={() => setBudgets({ ...budgets, [key]: c })} data-testid={`choice-${key}-${c}`}
-                className={`border px-3 py-1.5 text-sm ${c === budgets[key] ? "border-primary bg-primary/10 ring-1 ring-primary" : "hover:bg-muted"}`}>{c === 0 ? "Off" : fmt(c)}</button>
+              <button key={c} type="button" role="radio" aria-checked={c === quotas[key]} onClick={() => setQuotas({ ...quotas, [key]: c })} data-testid={`choice-${key}-${c}`}
+                className={`border px-3 py-1.5 text-sm ${c === quotas[key] ? "border-primary bg-primary/10 ring-1 ring-primary" : "hover:bg-muted"}`}>{c === 0 ? "Off" : fmt(c)}</button>
             ))}
-            <input type="number" min={0} step={1000} value={budgets[key]} onChange={e => setBudgets({ ...budgets, [key]: Number(e.target.value) })} aria-label={`Exact ${key === "aiBudget" ? "AI budget" : "assistant allowance"}`}
+            <input type="number" min={0} step={1000} value={quotas[key]} onChange={e => setQuotas({ ...quotas, [key]: Number(e.target.value) })} aria-label={`Exact ${key === "aiQuota" ? "AI players' quota" : "assistant quota"}`}
               className="w-36 border bg-background px-2 py-1 font-mono text-sm outline-none focus:border-primary" data-testid={`input-config-${key}`} />
           </div>
-        ) : <p className="text-sm font-mono">{budgets[key] ? `${fmt(budgets[key])} tokens` : "off"}</p>}
+        ) : <p className="text-sm font-mono">{quotas[key] ? `${fmt(quotas[key])} tokens` : "off"}</p>}
         {errors[key] && <p className="text-sm text-destructive" role="alert">{errors[key]}</p>}
       </div>
     );
@@ -659,25 +656,25 @@ function PlayersAndAi({ room, editable, manifest, budgets, setBudgets, errors, o
     <div className="space-y-6">
       <div className="space-y-2" data-testid="field-aiSeats">
         <h3 className="font-medium">How many seats do AI players fill?</h3>
-        <p className="text-sm text-muted-foreground">AI players play with the same information and actions as humans. More AI seats let games start without waiting, and each one draws on the AI budget.</p>
+        <p className="text-sm text-muted-foreground">AI players play with the same information and actions as humans. More AI seats let games start without waiting, and each one draws on the AI players' quota.</p>
         <p className="text-sm">{ais.length ? ais.map(a => a.name).join(", ") : "No AI players yet."} {room.members.filter(m => !m.spectator).length} of {manifest?.minimumPlayers ?? 3}–{manifest?.maximumPlayers ?? 8} seats taken.</p>
         {editable && !room.activeGame && <p className="text-sm">
           <button type="button" className="underline underline-offset-4" onClick={() => openPalette({ page: "rooms.addAi" })} data-testid="button-config-add-ai">Add an AI player</button>
           {ais.length > 0 && <>{" · "}<button type="button" className="underline underline-offset-4" onClick={() => openPalette({ page: "rooms.removeAi" })}>Remove one</button></>}
           <span className="text-muted-foreground"> (seats change at once, not with Save)</span></p>}
       </div>
-      {budgetChoice("aiBudget")}
-      {budgetChoice("assistantBudget")}
+      {quotaChoice("aiQuota")}
+      {quotaChoice("assistantQuota")}
       <div className="space-y-2" data-testid="field-assistantModel">
-        <h3 className="font-medium">{ROOM_BUDGET_DOCS.assistantModel.question}</h3>
-        <p className="text-sm text-muted-foreground">{ROOM_BUDGET_DOCS.assistantModel.meaning} {ROOM_BUDGET_DOCS.assistantModel.consequence}</p>
+        <h3 className="font-medium">{ROOM_QUOTA_DOCS.assistantModel.question}</h3>
+        <p className="text-sm text-muted-foreground">{ROOM_QUOTA_DOCS.assistantModel.meaning} {ROOM_QUOTA_DOCS.assistantModel.consequence}</p>
         {editable ? (
-          <select value={budgets.assistantModel} onChange={e => setBudgets({ ...budgets, assistantModel: e.target.value })} data-testid="select-config-assistant-model"
+          <select value={quotas.assistantModel} onChange={e => setQuotas({ ...quotas, assistantModel: e.target.value })} data-testid="select-config-assistant-model"
             className="border bg-background px-2 py-1.5 text-sm outline-none focus:border-primary">
-            {(models.length ? models : [{ id: budgets.assistantModel, label: budgets.assistantModel, configured: true }]).map(m => <option key={m.id} value={m.id} disabled={!m.configured}>{m.label}{m.configured ? "" : " (not set up on this server)"}</option>)}
+            {(models.length ? models : [{ id: quotas.assistantModel, label: quotas.assistantModel, configured: true }]).map(m => <option key={m.id} value={m.id} disabled={!m.configured}>{m.label}{m.configured ? "" : " (not set up on this server)"}</option>)}
           </select>
-        ) : <p className="text-sm">{models.find(m => m.id === budgets.assistantModel)?.label ?? budgets.assistantModel}</p>}
-        <p className="text-xs text-muted-foreground">{costLine(budgets.assistantBudget, models.find(m => m.id === budgets.assistantModel), "per player per game")}</p>
+        ) : <p className="text-sm">{models.find(m => m.id === quotas.assistantModel)?.label ?? quotas.assistantModel}</p>}
+        <p className="text-xs text-muted-foreground">{costLine(quotas.assistantQuota, models.find(m => m.id === quotas.assistantModel), "per player per game")}</p>
       </div>
     </div>
   );

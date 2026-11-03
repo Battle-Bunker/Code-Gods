@@ -13,6 +13,7 @@ import { touchActivity } from "../activity";
 import { endTurnsForNewGame } from "../assistant/turns";
 import { insertObjectEvents, nextDeadline } from "../engine/loop";
 import { fail } from "../lib/errors";
+import { aiEnabledFor } from "../lib/aiAccess";
 import { putCatalog } from "../lib/rooms";
 import { membersOf, principalV, requireOwnerAs, requireRoom, shortCodeFor, viewerOf } from "../lib/rooms";
 import { EVENT_LOG_SCHEMA, LEASE_MS, disclosedTotalsOf, totalsOf } from "../lib/world";
@@ -39,6 +40,8 @@ export const ownerContext = internalQuery({
     return {
       room, ownerId: viewer.subject, members: members.map(m => ({ godId: m.godId, name: m.name, kind: m.kind, spectator: m.spectator, aiAgent: m.aiAgent })),
       activeGame: active && active.phase !== "ended" ? { id: active._id, phase: active.phase } : null,
+      /** AI may be used in this room: its owner is an administrator (lib/aiAccess.ts). */
+      aiEnabled: await aiEnabledFor(ctx, room),
       receipt: null as unknown,
     };
   },
@@ -53,7 +56,7 @@ export const receiptFor = internalQuery({
 });
 
 export const commitSettings = internalMutation({
-  args: { roomId: v.id("rooms"), principal: v.optional(principalV), revision: v.number(), settings: v.any(), setup: v.optional(setupChangeV), catalog: v.any(), aiBudget: v.optional(v.number()) },
+  args: { roomId: v.id("rooms"), principal: v.optional(principalV), revision: v.number(), settings: v.any(), setup: v.optional(setupChangeV), catalog: v.any() },
   handler: async (ctx, args): Promise<{ revision: number; setup?: RoomSetupChange }> => {
     const room = await requireRoom(ctx, args.roomId);
     const { viewer } = await requireOwnerAs(ctx, await viewerOf(ctx, args.principal), room);
@@ -61,9 +64,6 @@ export const commitSettings = internalMutation({
     const active = room.activeGameId ? await ctx.db.get(room.activeGameId) : null;
     if (active && active.phase !== "ended") fail("CONFLICT", "Settings and seats are frozen during games");
     if (room.preparing && !room.preparing.error) fail("CONFLICT", "The next game is preparing its rule tables; settings are frozen until it starts (or end the preparation)");
-    if (args.aiBudget !== undefined && (!Number.isSafeInteger(args.aiBudget) || args.aiBudget < 0 || args.aiBudget > 1_000_000)) {
-      fail("BAD_REQUEST", "The AI budget is a whole number of tokens from 0 to 1,000,000");
-    }
     const settings = args.settings as GameSettings;
     validateSettings(settings);
     // The room always runs a setup: applying one names it; an edit changes the room's own setup or a copy of it.
@@ -79,7 +79,6 @@ export const commitSettings = internalMutation({
     await ctx.db.patch(room._id, {
       settings, revision: room.revision + 1, seq: room.seq + 1,
       ...(setup ? { setupId: setup.id, setupName: setup.name } : {}),
-      ...(args.aiBudget !== undefined ? { aiBudget: args.aiBudget } : {}),
     });
     return { revision: room.revision + 1, ...(setup ? { setup } : {}) };
   },

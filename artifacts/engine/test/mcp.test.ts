@@ -18,7 +18,7 @@ import { Client } from "@modelcontextprotocol/client";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 import { Client as LegacyClient } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport as LegacyTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { admin, api, envelope, gods, internal, raw, roomWith, startedGame, startGame, touch, waitFor, type God } from "./game-helpers.ts";
+import { admin, api, envelope, gods, makeAdmin, internal, raw, roomWith, startedGame, startGame, touch, waitFor, type God } from "./game-helpers.ts";
 import { disclosureChecker } from "./disclosure.ts";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
@@ -210,6 +210,14 @@ test("permissions: a read grant never lists or runs act or owner tools; revoked 
   const changed = await call(owner.token, "update_settings", { requestId: randomUUID(), revision: room.revision, settings: { planningSeconds: 300 } });
   assert.equal(changed.data?.result?.setup?.name, "Ada over MCP's copy", JSON.stringify(changed).slice(0, 400));
   assert.match(changed.data.result.setup.note, /belongs to/);
+  // set_ai_quotas: refused while the owner is not an administrator; applied once they are.
+  const refused = await call(owner.token, "set_ai_quotas", { requestId: randomUUID(), aiQuota: 1000 });
+  assert.match(refused.error?.message ?? "", /AI is only available in rooms run by an administrator/, JSON.stringify(refused).slice(0, 300));
+  await makeAdmin(host);
+  const quotas = await call(owner.token, "set_ai_quotas", { requestId: randomUUID(), aiQuota: 1000, assistantQuota: 2000 });
+  assert.ok(!quotas.error, JSON.stringify(quotas).slice(0, 300));
+  room = await host.c.query(api.rooms.get, { room: roomId });
+  assert.deepEqual([room.aiQuota, room.assistantQuota], [1000, 2000]);
   assert.equal((await call(actor.token, "get_setup", { setupId: saved.data.id })).data.settings.planningSeconds, 120, "Ada's setup is untouched");
   assert.equal((await call(actor.token, "delete_setup", { setupId: saved.data.id })).data.name, "Ada over MCP");
   await call(actor.token, "delete_setup", { setupId: copy.data.id });

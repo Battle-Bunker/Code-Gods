@@ -1,7 +1,7 @@
 /**
  * Every site page's frame (palette-and-pages.md §3.0): the header (wordmark, breadcrumb with the live dot, the
  * palette trigger, the avatar menu) and the one command palette, plus the secondary surfaces the palette opens
- * (AI spending, connected apps, scoring, past games) and the AI-budget dialog.
+ * (AI quotas, connected apps, scoring, past games).
  *
  * A page passes what it shows (its room, its game); the commands are built from that once, and the page's own
  * buttons run them by id through `usePage().run`, so a button and its palette row do the same thing.
@@ -23,7 +23,7 @@ import { errMsg } from "@/site/lib/errors";
 import type { GameRecord, GameView, Manifest, RoomState, Setup } from "@/site/lib/types";
 import { rulesFor } from "@/site/components/game-rules";
 import { Tip } from "@/site/components/action";
-import { AiBudgetDialog, AiSpendingSheet, ConnectedAppsSheet, PastGamesSheet, ScoringSheet } from "@/site/components/sheets";
+import { AiQuotasSheet, ConnectedAppsSheet, PastGamesSheet, ScoringSheet } from "@/site/components/sheets";
 import { ToastAction } from "@/components/ui/toast";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
@@ -40,7 +40,7 @@ export function Sigil({ size = 28, animate = true }: { size?: number; animate?: 
   );
 }
 
-type Sheet = "ai-spending" | "connected-apps" | "scoring" | "past-games";
+type Sheet = "ai-quotas" | "connected-apps" | "scoring" | "past-games";
 export interface Crumb { label: string; href?: string }
 
 interface PageApi {
@@ -117,9 +117,6 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
   const [palette, setPalette] = useState<{ open: boolean; init?: PaletteOpenInit }>({ open: false });
   const [sheet, setSheet] = useState<Sheet | null>(null);
   const creating = useRef(false);
-  const [pendingAi, setPendingAi] = useState<{ templateId: string; busy?: boolean } | null>(null);
-  // The approval dialog names the template from the same catalog subscription the palette's pick page holds.
-  const pendingTemplate = useAgentOptions(!!pendingAi).data?.agents.find(a => a.id === pendingAi?.templateId);
 
   const create = useMutation(api.rooms.create);
   const join = useMutation(api.rooms.join);
@@ -131,7 +128,6 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
   const end = useMutation(api.rooms.endActiveGame);
   const addAi = useMutation(api.rooms.addAi);
   const removeAi = useMutation(api.rooms.removeAi);
-  const approve = useMutation(api.rooms.approveAiBudget);
   const saveSettings = useAction(api.owner.settings);
   const duplicate = useMutation(api.setups.duplicate);
   const revoke = useMutation(api.auth.credentials.revoke);
@@ -181,10 +177,7 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
     start: () => trackStart(startTracker, need(roomId), requestId => start({ roomId: need(roomId), requestId })),
     resume: () => resume({ roomId: need(roomId) }),
     endGame: () => end({ roomId: need(roomId) }),
-    addAi: async templateId => {
-      if (need(room).aiBudget <= 0) { setPendingAi({ templateId }); return; }
-      await addAi({ roomId: need(roomId), templateId });
-    },
+    addAi: templateId => addAi({ roomId: need(roomId), templateId }),
     removeAi: godId => removeAi({ roomId: need(roomId), godId }),
     applySetup: async id => {
       const r = need(room);
@@ -291,21 +284,11 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
       <CommandPalette commands={commands} context={ctx} open={palette.open} init={palette.init} onOpenChange={o => setPalette(p => ({ open: o, init: o ? p.init : undefined }))}
         placeholder={placeholder} suggested={suggested} recentKey={user ? `code-gods:palette-recent:${user.id}` : undefined} chip={chip}
         dynamic={q => (user ? codeCommands(q, act) : [])} onNavigate={to => navigate(to)} onError={(e, c) => fail(c.human.title, e)} />
-      {room && <AiSpendingSheet key={`${room.id}-${room.aiBudget}-${room.assistantBudget}-${room.assistantModel}`} room={room} manifest={manifest} open={sheet === "ai-spending"} onOpenChange={o => setSheet(o ? "ai-spending" : null)} />}
+      {room && <AiQuotasSheet key={`${room.id}-${room.aiQuota}-${room.assistantQuota}-${room.assistantModel}`} room={room} manifest={manifest} open={sheet === "ai-quotas"} onOpenChange={o => setSheet(o ? "ai-quotas" : null)} />}
       <ConnectedAppsSheet open={sheet === "connected-apps"} onOpenChange={o => setSheet(o ? "connected-apps" : null)} roomCode={room?.shortCode} />
       <ScoringSheet open={sheet === "scoring"} onOpenChange={o => setSheet(o ? "scoring" : null)} objectType={room?.settings.objectType ?? game?.settings.objectType} />
       <PastGamesSheet open={sheet === "past-games"} onOpenChange={o => setSheet(o ? "past-games" : null)} games={history} roomCode={room?.shortCode ?? game?.roomShortCode}
         viewer={{ meId: user?.id, ownerId: room?.ownerId ?? game?.ownerId ?? undefined, roomLive: room ? !!room.activeGame : !!(game && (game.status === "active" || game.roomActiveGame)) }} />
-      {room && (
-        <AiBudgetDialog open={!!pendingAi} templateName={pendingTemplate?.name} pending={!!pendingAi?.busy} onOpenChange={o => { if (!o) setPendingAi(null); }}
-          onApprove={tokens => {
-            const p = pendingAi!;
-            setPendingAi({ ...p, busy: true });
-            approve({ roomId: room.id, aiBudget: tokens })
-              .then(() => addAi({ roomId: room.id, templateId: p.templateId }))
-              .then(() => setPendingAi(null), e => { setPendingAi({ ...p, busy: false }); fail("Adding the AI player", e); });
-          }} />
-      )}
     </PageCtx.Provider>
   );
 }

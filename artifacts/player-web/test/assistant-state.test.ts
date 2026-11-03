@@ -115,8 +115,8 @@ test("the optimistic message also shows when the same text is sent again (counte
 
 test("the allowance note is silent below 80 % and speaks after", () => {
   assert.equal(allowanceNote(500, 1000), null);
-  assert.equal(allowanceNote(850, 1000), "15 % of this game's assistant allowance left");
-  assert.match(allowanceNote(1000, 1000)!, /^Allowance used up/);
+  assert.equal(allowanceNote(850, 1000), "15 % of this game's assistant quota left");
+  assert.match(allowanceNote(1000, 1000)!, /^Assistant quota used up/);
   assert.equal(allowanceNote(0, 0), null, "off is said elsewhere");
 });
 

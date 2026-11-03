@@ -22,7 +22,7 @@ const fn = { q: (n: string) => makeFunctionReference<"query">(n), m: (n: string)
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 mkdirSync(OUT, { recursive: true });
 
-const { session } = await login("alice");
+const { session } = await login("admin");
 const me = new ConvexHttpClient(CLOUD);
 me.setAuth(await browserJwt(session));
 // Bob joins each room as a spectator: his page of the game is the spectator view.
@@ -65,7 +65,7 @@ for (const [colours, size, symbols] of SETS) {
   const owner = (action: string, extra: Record<string, unknown> = {}) => me.action(fn.a("owner:command"), { roomId, action, requestId: crypto.randomUUID(), ...extra });
   await owner("addAi", { aiAgentId: "sonnet-strategist" });
   await owner("addAi", { aiAgentId: "sonnet-strategist" });
-  await me.mutation(fn.m("rooms:approveAiBudget"), { roomId, aiBudget: 50_000, assistantBudget: 200_000 });
+  await me.mutation(fn.m("rooms:setAiQuotas"), { roomId, aiQuota: 50_000, assistantQuota: 200_000 });
   await owner("start");
   for (let i = 0; ; i++) {
     const o = await me.query(fn.q("player:observation"), { roomId }) as { phase: string; objects: unknown[] };

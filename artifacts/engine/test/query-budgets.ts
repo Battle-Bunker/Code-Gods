@@ -97,7 +97,7 @@ export const BUDGETS: Budget[] = [
     debt: { ms: 80, why: "its module loads the zod layout schemas (measured 31-42 ms of user code): split the module" } },
   { query: "panels:list", subscribedBy: "dock/panels.tsx", args: () => ({}), cold: true },
   { query: "panels:code", subscribedBy: "shell/stored-frame.tsx", args: f => ({ slug: f.panelSlug }), cold: true },
-  { query: "assistant:status", subscribedBy: "core/chat/pane.tsx, core/palette/use-commands.ts", args: f => ({ roomId: f.roomId }), cold: true },
+  { query: "assistant:status", subscribedBy: "core/chat/pane.tsx, core/palette/use-commands.ts, dock/shell.tsx", args: f => ({ roomId: f.roomId }), cold: true },
   { query: "assistant:transcript", subscribedBy: "core/chat/pane.tsx", args: f => ({ roomId: f.roomId, gameId: f.gameId }), cold: true },
   { query: "assistant:threads", subscribedBy: "core/palette/use-commands.ts (Past conversations, while the page is open)",
     args: f => ({ roomId: f.roomId, gameId: f.gameId }), cold: true },

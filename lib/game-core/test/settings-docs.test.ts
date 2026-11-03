@@ -8,17 +8,17 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { OBJECT_TYPES } from "@workspace/game-types";
 import {
-  DEFAULT_SETTINGS, ROOM_BUDGET_DOCS, SEED_SETUPS, SETTINGS_DOCS, TYPE_DEFAULTS, type FieldDoc, type GameSettings,
+  DEFAULT_SETTINGS, ROOM_QUOTA_DOCS, SEED_SETUPS, SETTINGS_DOCS, TYPE_DEFAULTS, type FieldDoc, type GameSettings,
 } from "../src/settings.ts";
 
 const LAYOUT_WORDS = /\b(below|above|click|button|tab|panel|page|screen)\b/i;
 const paramDocs = OBJECT_TYPES.flatMap(t => t.params.map((p): [string, Pick<FieldDoc, "question" | "meaning" | "consequence">] => [`${t.id}.${p.id}`, p]));
-const docs = [...Object.entries({ ...SETTINGS_DOCS, ...ROOM_BUDGET_DOCS }), ...paramDocs] as [string, FieldDoc][];
+const docs = [...Object.entries({ ...SETTINGS_DOCS, ...ROOM_QUOTA_DOCS }), ...paramDocs] as [string, FieldDoc][];
 
-test("every settings field, type argument and room budget has a question, a meaning and a consequence", () => {
+test("every settings field, type argument and room quota has a question, a meaning and a consequence", () => {
   assert.ok(paramDocs.length >= 6, "Grid size/symbols/colours, Int min/max and string maxLength are documented");
   assert.deepEqual(Object.keys(SETTINGS_DOCS).sort(), Object.keys(DEFAULT_SETTINGS).sort(), "one doc per GameSettings field, no stale keys");
-  assert.deepEqual(Object.keys(ROOM_BUDGET_DOCS).sort(), ["aiBudget", "assistantBudget", "assistantModel"]);
+  assert.deepEqual(Object.keys(ROOM_QUOTA_DOCS).sort(), ["aiQuota", "assistantModel", "assistantQuota"]);
   for (const [key, doc] of docs) {
     assert.match(doc.question, /^[A-Z].*\?$/, `${key}: the question is a question`);
     for (const part of ["meaning", "consequence"] as const) {

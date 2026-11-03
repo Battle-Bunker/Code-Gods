@@ -294,7 +294,7 @@ Every public function above has an entry in `lib/player-client/src/catalog.ts` (
 | `version.current` | query | infrastructure | Show deployed versions | The app's and the engine functions' builds now live, so open pages can update themselves. | — |
 | `owner.settings` | action | owner | Choose the next game's setup | Puts the next game on a game setup, or changes the room's setup; running games keep theirs. | `update_settings` |
 | `owner.start` | action | owner | Start the game | Deals secret goals and spawns the world for 3 to 8 players; planning begins at once. | `start_game` |
-| `owner.command` | action | owner | Run an owner action | Settings, start, resume, end, add or remove an AI player, in one call. | `update_settings`, `start_game`, `resume_game`, `end_game`, `add_ai`, `remove_ai` |
+| `owner.command` | action | owner | Run an owner action | Settings, AI quotas, start, resume, end, add or remove an AI player, in one call. | `update_settings`, `set_ai_quotas`, `start_game`, `resume_game`, `end_game`, `add_ai`, `remove_ai` |
 | `panels.list` | query | player | Show my panels | Your stored panels with version, author and whether each is on. | `list_panels` |
 | `panels.code` | query | player | View a panel's source | The TSX, compiled code and diagnostics of one panel version. | `get_panel` |
 | `panels.save` | action | player | Make a panel | Saves TSX as a panel you can open as a pane; a syntax error saves nothing. | `save_panel` |
@@ -323,8 +323,8 @@ Every public function above has an entry in `lib/player-client/src/catalog.ts` (
 | `rooms.chat` | query | player | Show the chat | The room's public chat, or one game's, newest first and paged. | — (A page's chat subscription; the assistant pages back through the chat with get_chat.) |
 | `rooms.chatHistory` | query | player | Show older chat | Earlier public messages than the ones on screen. | `get_chat` |
 | `rooms.history` | query | player | Show past games | Finished games of this room with their standings and winners. | `list_games` |
-| `rooms.approveAiBudget` | mutation | owner | Set AI spending | Approves the AI players' token budget and the assistant allowance per player per game. | `update_settings` |
-| `rooms.addAi` | mutation | owner | Add an AI player | Seats an AI player from the library between games; it spends the room's AI budget. | `add_ai` |
+| `rooms.setAiQuotas` | mutation | owner | Set AI quotas | The tokens the AI players may use per game, and each player's assistant. | `set_ai_quotas` |
+| `rooms.addAi` | mutation | owner | Add an AI player | Seats an AI player from the library between games; it draws on the room's AI players' quota. | `add_ai` |
 | `rooms.removeAi` | mutation | owner | Remove an AI player | Unseats an AI player between games. | `remove_ai` |
 | `rooms.endActiveGame` | mutation | owner | End the game now | Ends the running game for everyone; its final standings are recorded. | `end_game` |
 | `rooms.resume` | mutation | owner | Resume the game | Restarts a game stopped in recovery. | `resume_game` |

@@ -61,7 +61,7 @@ export function mockProvider(): ModelProvider {
 type SeatFailure = AIFailureReason | "provider_missing" | "model_retired";
 export function failureStatus(reason: SeatFailure): string {
   switch (reason) {
-    case "budget_exhausted": return "AI budget or rate limit reached";
+    case "budget_exhausted": return "AI quota or spending limit reached";
     case "invalid_reply": return "Turn failed: the model's reply was not a valid move";
     case "incomplete_reply": return "Turn failed: the model's reply was cut off or declined";
     case "provider_error": return "Turn failed: the AI provider call failed";
@@ -96,6 +96,8 @@ export const run = internalAction({
     let status = "Thinking";
     let ok = true;
     let failure: SeatFailure | undefined;
+    // A refused reservation's own sentence (which quota, ceiling or rule), shown as the seat's status.
+    let refusal: string | undefined;
     try {
       let provider: ModelProvider;
       try { provider = providerFor(agent); } catch (error) { failure = mockEnabled() || findModel(agent.provider, agent.model) ? "provider_missing" : "model_retired"; throw error; }
@@ -104,7 +106,7 @@ export const run = internalAction({
         budget: {
           reserve: async (tokens, usd) => {
             const reservation: Reservation = await ctx.runMutation(internal.ai.seats.reserve, { roomId, gameId, tokens, usd });
-            if (!reservation.ok) throw new Error(reservation.message);
+            if (!reservation.ok) { refusal = reservation.message; throw new Error(reservation.message); }
             return { reservedTokens: reservation.reservedTokens, reservedUsd: reservation.reservedUsd, settle: async (_actual: number, usage: { inputTokens: number; outputTokens: number }) => {
               await ctx.runMutation(internal.ai.seats.settle, { roomId, gameId, reservedTokens: tokens, ...usage });
             } };
@@ -131,7 +133,7 @@ export const run = internalAction({
       const reason = failure ?? (error instanceof AITurnError ? error.reason : "turn_failed");
       const cause = error instanceof Error && error.cause !== undefined ? ` (cause: ${messageOf(error.cause)})` : "";
       console.warn(`AI turn failed for ${godId} [${reason}]: ${messageOf(error)}${cause}`);
-      status = failureStatus(reason);
+      status = reason === "budget_exhausted" && refusal ? refusal.replace(/\.$/, "") : failureStatus(reason);
     }
     await ctx.runMutation(internal.ai.seats.afterTurn, { gameId, godId, chain, ok, status });
     return { ok, status };
