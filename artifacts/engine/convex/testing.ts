@@ -269,6 +269,33 @@ export const legacyReadModels = internalMutation({
   },
 });
 
+/** Store a game as it was before the per-god object read model (migrations:backfillObjectViews): no rows. */
+export const legacyObjectViews = internalMutation({
+  args: { gameId: v.id("games") },
+  handler: async (ctx, { gameId }) => {
+    dev();
+    for (const table of ["godTotals", "objectDigests"] as const) {
+      for (const r of await ctx.db.query(table).withIndex("by_game_god", q => q.eq("gameId", gameId)).collect()) await ctx.db.delete(r._id);
+    }
+    for (const r of await ctx.db.query("objectViews").withIndex("by_game_god_payoff", q => q.eq("gameId", gameId)).collect()) await ctx.db.delete(r._id);
+  },
+});
+
+/** A game's per-god read model as stored: every objectViews row, godTotals and objectDigests (without system fields). */
+export const rawObjectViews = internalQuery({
+  args: { gameId: v.id("games") },
+  handler: async (ctx, { gameId }) => {
+    dev();
+    const strip = <D extends { _id: unknown; _creationTime: number }>({ _id, _creationTime, ...rest }: D) => rest;
+    const byKey = (a: { godId: string; objectId?: string }, b: { godId: string; objectId?: string }) => `${a.godId}|${a.objectId ?? ""}`.localeCompare(`${b.godId}|${b.objectId ?? ""}`);
+    return {
+      views: (await ctx.db.query("objectViews").withIndex("by_game_god_payoff", q => q.eq("gameId", gameId)).collect()).map(strip).sort(byKey),
+      totals: (await ctx.db.query("godTotals").withIndex("by_game_god", q => q.eq("gameId", gameId)).collect()).map(strip).sort(byKey),
+      digests: (await ctx.db.query("objectDigests").withIndex("by_game_god", q => q.eq("gameId", gameId)).collect()).map(strip).sort(byKey),
+    };
+  },
+});
+
 /** A game's read-model rows as stored: standings, history, and each object's publicSalience. */
 export const rawReadModels = internalQuery({
   args: { gameId: v.id("games") },

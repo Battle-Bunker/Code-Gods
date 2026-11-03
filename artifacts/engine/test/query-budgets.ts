@@ -114,8 +114,13 @@ export const BUDGETS: Budget[] = [
     debt: { bytes: 480 * KiB, ms: 150, why: "PR 5/6: pages of tickBatches, about 12 KiB each (measured 26 docs, 320 KiB, 60 ms)" } },
   { query: "player:trajectories", subscribedBy: "sdk useTrajectories", args: f => ({ roomId: f.roomId, gameId: f.gameId, limit: 200 }), cold: false,
     debt: { bytes: 480 * KiB, ms: 150, why: "PR 5: pages of tickBatches, about 12 KiB each (measured 27 docs, 331 KiB, 60 ms)" } },
-  { query: "player:objectsPage", subscribedBy: "sdk useObjectsPage", args: f => ({ roomId: f.roomId }), cold: false,
-    debt: { docs: 1200, bytes: 800 * KiB, ms: 200, why: "PR 4: reads and sorts every object to return one page (measured 1,034 docs, 572 KiB, 73 ms)" } },
+  { query: "player:objectsPage", subscribedBy: "sdk bridge (stored panels' compatibility shape)", args: f => ({ roomId: f.roomId }), cold: false },
+  { query: "player:objectIds", subscribedBy: "core/panels/objects.tsx (skeleton), sdk useObjectIds",
+    args: f => ({ gameId: f.gameId, sort: "payoff", paginationOpts: { numItems: 50, cursor: null } }), cold: false },
+  { query: "player:object", subscribedBy: "core/panels/objects.tsx (one per visible row), sdk useObject", args: f => ({ objectId: f.objectId }), cold: false },
+  { query: "player:objectsTop", subscribedBy: "sdk useObjectsTop", args: f => ({ gameId: f.gameId, n: 20 }), cold: false },
+  { query: "player:totals", subscribedBy: "core/panels/objects.tsx (footer), sdk useTotals", args: f => ({ gameId: f.gameId }), cold: false },
+  { query: "player:objectDigest", subscribedBy: "sdk useObjectDigest (others-care scatter)", args: f => ({ gameId: f.gameId }), cold: false },
 ];
 
 /** The client reference of a logged identifier: "auth/credentials:list" → api.auth.credentials.list (of `api`). */

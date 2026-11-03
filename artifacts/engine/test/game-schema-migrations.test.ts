@@ -186,3 +186,37 @@ test("backfillStandings, backfillPublicSalience: games and objects stored before
   assert.deepEqual(await Promise.all([ended, live].map(g => rows(g.gameId))), first, "a second run changes nothing");
   await host.c.mutation(api.rooms.endActiveGame, { roomId: liveRoom });
 });
+
+test("backfillObjectViews: games stored before the per-god object read model get every god's rows, totals and digest; a second run changes nothing", { timeout: 240_000 }, async () => {
+  const [host, ada, bo] = await gods("Views Mig Host", "Views Mig Ada", "Views Mig Bo");
+  await touch(host);
+  const noisy = { ...INT_TS, startingObjectCount: 7, peerNoiseBits: 4, planningSeconds: 3600 };
+  const { roomId: endedRoom } = await roomWith([host, ada, bo], noisy);
+  const ended = await startGame(host, endedRoom);
+  await host.c.mutation(api.rooms.endActiveGame, { roomId: endedRoom });
+  const { roomId: liveRoom } = await roomWith([host, ada, bo], noisy);
+  const live = await startGame(host, liveRoom);
+  const views = (gameId: string) => admin.query(internal.testing.rawObjectViews, { gameId });
+  // As written by the game itself (the start's fill, the end's exact rows): what the backfill must reproduce.
+  const settled = async (gameId: string) => waitFor(async () => {
+    const v = await views(gameId), r = await raw(gameId);
+    return v.views.length === r.objects.length * 3 && v.totals.length === 3 && v.digests.length === 3 && (r.game.phase !== "ended" || v.views.every((x: any) => {
+      const o = r.objects.find((y: any) => y._id === x.objectId);
+      const exact = o.scores.filter((s: any) => s.god !== x.godId).reduce((n: number, s: any) => n + s.netBits, 0);
+      return x.peerNetBits === exact;
+    })) && v;
+  }, "the game's own rows", 60_000, 250);
+  const before = await Promise.all([ended, live].map(g => settled(g.gameId)));
+  for (const g of [ended, live]) await admin.mutation(internal.testing.legacyObjectViews, { gameId: g.gameId });
+  for (const g of [ended, live]) assert.deepEqual(await views(g.gameId), { views: [], totals: [], digests: [] }, "the fixture is legacy");
+
+  const statuses = await runAll(true);
+  assert.ok(statuses.some(s => s.name === "migrations:backfillObjectViews"));
+  // Catches: a game left without rows, a live game's rows exact (a leak) or an ended game's noisy, wrong totals.
+  const after = await Promise.all([ended, live].map(g => settled(g.gameId)));
+  const sorted = (v: any) => ({ ...v, digests: v.digests.map((d: any) => ({ ...d, own: [...d.own].sort(), peer: [...d.peer].sort() })) });
+  assert.deepEqual(after.map(sorted), before.map(sorted), "the backfill writes what the game itself wrote");
+  await runAll(true);
+  assert.deepEqual(await Promise.all([ended, live].map(g => views(g.gameId))), after, "a second run changes nothing");
+  await host.c.mutation(api.rooms.endActiveGame, { roomId: liveRoom });
+});

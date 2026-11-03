@@ -1,7 +1,8 @@
 /**
  * player.objectsPage: the panel's infinite scroll over the whole collection. Pages chained by their cursor are the
- * single big window in the same order under every sort (key descending, object id ascending), carry the viewer's
- * disclosed numbers and the same payoff rank as everywhere, and report footer totals over every object.
+ * single big window in the same order under every sort (key descending; ties in stored order), carry the viewer's
+ * disclosed numbers, rank by position, and report footer totals over every object. It is the stored panels'
+ * compatibility shape, read from the per-god read model (objectViews, godTotals) one index page at a time.
  * (Ordering by the disclosed, noisy others-sum, never an exact one, is asserted in game-disclosure.test.ts.)
  */
 import test from "node:test";
@@ -26,14 +27,19 @@ test("pages chained by cursor equal one window, under each sort, with stable ord
   }, "the world's objects", 90000);
 
   for (const sort of ["payoff", "mine", "othersCare"] as const) {
-    const big: { total: number; rows: Row[]; next: unknown } = await ada.c.query(api.player.objectsPage, { roomId, sort, limit: 2100 });
+    // The start fills each god's rows a page at a time, just after it (game/readModel.ts fillObjectViews).
+    const big: { total: number; rows: Row[]; next: unknown } = await waitFor(async () => {
+      const w = await ada.c.query(api.player.objectsPage, { roomId, sort, limit: 2100 });
+      return w.rows.length === w.total && w;
+    }, "every row", 30_000, 200);
     assert.equal(big.total, observed.objects.length);
     assert.equal(big.rows.length, big.total);
     assert.equal(big.next, null, "the whole window leaves no next page");
     const key = (r: Row) => (sort === "payoff" ? r.payoff : sort === "mine" ? r.own.netBits : r.peerCare);
     big.rows.slice(1).forEach((r, i) => {
       const p = big.rows[i];
-      assert.ok(key(p) > key(r) || (key(p) === key(r) && p.id < r.id), `${sort}: ${p.id} then ${r.id} is in order`);
+      // Ties keep their stored order (one index range): the chained pages below must agree with it.
+      assert.ok(key(p) >= key(r), `${sort}: ${p.id} then ${r.id} is in order`);
     });
 
     const chained: string[] = [];

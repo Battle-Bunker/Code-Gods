@@ -50,6 +50,18 @@ test("no player-facing result discloses another god's scores, descriptor, agent 
       chat: await client.query(api.rooms.chat, { roomId, gameId: game.gameId, paginationOpts: { numItems: 50, cursor: null } }),
     };
   };
+  // The per-god object read model (player.ts; read-architecture §4.3): the viewer's own rows only.
+  const ownViews = async (client: typeof ada.c) => {
+    const objectIds = await client.query(api.player.objectIds, { gameId: game.gameId, paginationOpts: { numItems: 100, cursor: null } });
+    return {
+      objectIds, objectIdsByOthers: await client.query(api.player.objectIds, { gameId: game.gameId, sort: "othersCare", paginationOpts: { numItems: 100, cursor: null } }),
+      ownRows: await Promise.all(objectIds.page.map((r: any) => client.query(api.player.object, { objectId: r.id }))),
+      objectsTop: await client.query(api.player.objectsTop, { gameId: game.gameId, n: 20 }),
+      objectsBottom: await client.query(api.player.objectsTop, { gameId: game.gameId, by: "othersCare", n: 20, dir: "asc" }),
+      totals: await client.query(api.player.totals, { gameId: game.gameId }),
+      objectDigest: await client.query(api.player.objectDigest, { gameId: game.gameId }),
+    };
+  };
   const collect = async (viewer: typeof ada, client = viewer.c) => {
     const observation = observationSchema.parse(await client.query(api.player.observation, { roomId }));
     return {
@@ -61,6 +73,7 @@ test("no player-facing result discloses another god's scores, descriptor, agent 
       objectsByPayoff: await client.query(api.player.objectsPage, { roomId, sort: "payoff", limit: 2100 }),
       objectsByOthers: await client.query(api.player.objectsPage, { roomId, sort: "othersCare", limit: 2100 }),
       myUtility: await client.query(api.player.myUtility, { roomId }),
+      ...await ownViews(client),
       room: await client.query(api.rooms.get, { room: shortCode }),
       ...await spectator(client),
       roomHistory: await client.query(api.rooms.history, { room: roomId }),

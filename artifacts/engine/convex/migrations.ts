@@ -30,6 +30,9 @@
  *  - backfillStandings (games; read-architecture §4.1): a game stored before the standings read model gets its last
  *    published scoreboard as `standings` rows and one `standingsHistory` row (game/readModel.ts). Nothing to narrow:
  *    games.standings' fallback to the clock's scoreboard goes once dev and production report it done.
+ *  - backfillObjectViews (games; read-architecture §4.1): each roster god's objectViews row of every object, godTotals and
+ *    objectDigests for a game stored before them, scheduled per game and filled a page at a time (game/readModel.ts
+ *    fillObjectViews). Nothing to narrow: they are read models (objects.scores stays the engine's truth).
  *  - backfillPublicSalience (objects; read-architecture §4.3): `publicSalience` (salience + its noise while the game is
  *    live, exact once ended) on objects stored before it. Narrowed later: the field becomes required and games.object's
  *    fallback goes.
@@ -68,7 +71,7 @@ import { aiSeatName, renameInRecord } from "./lib/aiNames";
 import { migrateSettings } from "./lib/migrateSetups";
 import { freeName, setupSummary } from "./setups";
 import { clockDoc, clockFrom, splitHotFields } from "./game/state";
-import { hasStandings, publicSalienceOf, publishStandings } from "./game/readModel";
+import { hasObjectViews, hasStandings, publicSalienceOf, publishStandings } from "./game/readModel";
 
 export const migrations = new Migrations(components.migrations, { schema });
 
@@ -140,6 +143,17 @@ export const backfillStandings = migrations.define({
   },
 });
 
+export const backfillObjectViews = migrations.define({
+  table: "games",
+  // A game stored before the per-god object read model gets its objectViews rows, totals and digests, filled a page at a
+  // time by game/readModel.ts fillObjectViews (live disclosure while it runs, exact once ended). A game that has rows
+  // (new, or filled since) is left alone. Its success means scheduled, like backfillReplays.
+  migrateOne: async (ctx, game) => {
+    if (await hasObjectViews(ctx, game._id)) return;
+    await ctx.scheduler.runAfter(0, internal.game.readModel.fillObjectViews, { gameId: game._id, cursor: null });
+  },
+});
+
 export const backfillPublicSalience = migrations.define({
   table: "objects",
   // The salience as disclosed now: with its noise while the game is live, exact once it has ended.
@@ -156,7 +170,8 @@ const RUN_ALL: FunctionReference<"mutation", "internal">[] = [internal.migration
   internal.migrations.dropHaskellFromSetups, internal.migrations.dropHaskellFromRooms, internal.migrations.dropHaskellFromGames,
   internal.migrations.dropHaskellReadiness, internal.migrations.dropHaskellBundle, internal.migrations.dropHaskellPrograms,
   internal.migrations.dropHaskellCompiledPrograms, internal.migrations.dropRetiredSiteBuilds, internal.migrations.splitGameHotFields,
-  internal.migrations.backfillReplays, internal.migrations.backfillStandings, internal.migrations.backfillPublicSalience];
+  internal.migrations.backfillReplays, internal.migrations.backfillStandings, internal.migrations.backfillPublicSalience,
+  internal.migrations.backfillObjectViews];
 export const runAll = migrations.runner(RUN_ALL);
 /** The state of each of runAll's migrations (scripts/run-migrations.mjs waits for all of them to succeed). */
 export const status = internalQuery({
