@@ -68,7 +68,7 @@ export type PaletteActions = {
   useReceipt(commandId: string): readonly string[];
   copyObservation(): void;
   owner: {
-    start(): Promise<unknown>; resume(): Promise<unknown>; endGame(): Promise<unknown>;
+    start(): Promise<unknown>; resume(): Promise<unknown>; startWorldNow(): Promise<unknown>; endGame(): Promise<unknown>;
     addAi(templateId: string): Promise<unknown>; removeAi(godId: string): Promise<unknown>; setup(setupId: string): Promise<unknown>;
     /** A hook: the AI templates an owner can seat (aiTemplates.catalog), live while the pick page is open. */
     useAiCatalog(): LiveOptions;
@@ -216,6 +216,7 @@ export function playerCommands(s: PaletteState, a: PaletteActions): Command[] {
     },
     // With no game running it ends a preparation (the next game computing its rule tables).
     "rooms.endActiveGame": { performer: submit(() => a.owner.endGame()), available: () => (live(s.phase) || s.preparing ? OK : no("No game is running.")) },
+    "rooms.startWorldNow": { performer: submit(() => a.owner.startWorldNow()), available: () => (s.phase === "planning" ? OK : no("The world has started.")) },
     "rooms.resume": { performer: submit(() => a.owner.resume()), available: () => (s.phase === "paused" ? OK : no("The game is not stopped.")) },
   };
   const fromCatalog = commandsFromCatalog(CATALOG, (path: PublicFunctionPath, _entry: CatalogEntry) => BIND[path]?.performer ?? null, "dock")

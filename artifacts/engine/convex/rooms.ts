@@ -8,7 +8,7 @@ import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { internalMutation, internalQuery, mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { actsAsHuman, requireViewer, type Viewer } from "./auth/access";
-import { endGame, resumeGame } from "./engine/loop";
+import { endGame, nextDeadline, resumeGame, scheduleTick } from "./engine/loop";
 import { liveGame, withEngine } from "./game/state";
 import { AI_MODEL_CATALOG, AI_QUOTA_MAX, ASSISTANT_QUOTA_MAX, DEFAULT_AGENT_MODEL, DEFAULT_AI_QUOTA, DEFAULT_ASSISTANT_QUOTA } from "./lib/aiModels";
 import { aiEnabledFor, aiQuotaOf, assistantQuotaOf, requireAiEnabled } from "./lib/aiAccess";
@@ -362,6 +362,26 @@ async function endFor(ctx: MutationCtx, viewer: Viewer, { roomId }: { roomId: st
   if (!game && room.preparing) { await cancelPreparing(ctx, room); return { cancelled: "preparing" as const }; }
   if (!game) return fail("CONFLICT", "There is no active game to end");
   await endGame(ctx, await withEngine(ctx, game), "owner");
+  return { gameId: game._id };
+}
+
+/** The owner ends planning early: the world starts now (the tick still waits for the agent sandboxes to be ready). */
+export const startWorldNow = mutation({ args: { roomId: v.id("rooms") }, handler: async (ctx, args) => startWorldFor(ctx, await requireViewer(ctx), args) });
+export const startWorldNowAs = internalMutation({
+  args: { principal: principalV, roomId: v.id("rooms") },
+  handler: async (ctx, { principal, ...args }) => startWorldFor(ctx, await viewerOf(ctx, principal), args),
+});
+async function startWorldFor(ctx: MutationCtx, viewer: Viewer, { roomId }: { roomId: string }) {
+  const room = await requireRoom(ctx, roomId);
+  await requireOwnerAs(ctx, viewer, room);
+  const game = await activeGame(ctx, room);
+  if (game?.phase !== "planning") fail("CONFLICT", "The game is not in planning");
+  const now = Date.now();
+  const live = await liveGame(ctx, game._id);
+  if (live && live.phase === "planning" && live.planningEndsAt > now) {
+    const early = { ...live, planningEndsAt: now };
+    await scheduleTick(ctx, early, nextDeadline(early, now), { planningEndsAt: now });
+  }
   return { gameId: game._id };
 }
 
