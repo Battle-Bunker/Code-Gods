@@ -257,3 +257,27 @@ export function queueNote({ count, active, card }: { count: number; active: bool
   const label = count === 1 ? "Queued" : `${count} queued`;
   return card ? `${label} · this declines the card above; your assistant reads ${it} next` : `${label} · your assistant reads ${it} after its current step`;
 }
+
+/**
+ * What the summon card warns about: the latest validation in this conversation of the identical source and language
+ * (docs/rules-design.md §11), its expected success rate and warnings. Null when there is none or it warned of nothing.
+ */
+export function summonWarnings(card: CallRow, calls: readonly CallRow[]): { successRate?: number; warnings: string[] } | null {
+  if (card.tool !== "summon_agent") return null;
+  const want = argsOf(card);
+  const same = (call: CallRow) => {
+    const args = argsOf(call);
+    return call.tool === "validate_agent" && call.resultJson !== null && args.source === want.source && (args.language ?? null) === (want.language ?? null);
+  };
+  const latest = [...calls].reverse().find(same);
+  if (!latest) return null;
+  let validation: Record<string, unknown> | undefined;
+  try {
+    const parsed = JSON.parse(latest.resultJson!) as { data?: { receipt?: { validation?: Record<string, unknown> } }; receipt?: { validation?: Record<string, unknown> } };
+    validation = (parsed.data ?? parsed).receipt?.validation;
+  } catch { return null; }
+  const warnings = Array.isArray(validation?.warnings) ? (validation.warnings as unknown[]).filter((w): w is string => typeof w === "string") : [];
+  if (!warnings.length) return null;
+  const rate = validation?.expectedSuccessRate;
+  return { ...(typeof rate === "number" ? { successRate: rate } : {}), warnings };
+}

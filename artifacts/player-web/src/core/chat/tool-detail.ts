@@ -134,7 +134,7 @@ const output = (data: unknown, title = "Result"): Section[] => (data === undefin
 const rest = (data: unknown, skip: string[]): unknown => (isRecord(data) ? Object.fromEntries(Object.entries(data).filter(([k]) => !skip.includes(k))) : data);
 const hasKeys = (v: unknown) => isRecord(v) && Object.keys(v).length > 0;
 const pct = (rate: unknown) => (typeof rate === "number" ? `${Math.round(rate * 100)}%` : undefined);
-const VERDICT: Record<string, string> = { works: "Works", fails: "Fails", no_change: "Never changes an object", rejected: "Does not compile" };
+const VERDICT: Record<string, string> = { works: "Works", warns: "Works, but read the warning", fails: "Fails", no_change: "Never changes an object", rejected: "Does not compile" };
 
 /** validate_agent and summon_agent: the code, then the price, energy and verdict, the diagnostics, the next step. */
 const agentView: View = (args, data) => {
@@ -154,16 +154,19 @@ const agentView: View = (args, data) => {
     ["Cost per act", typeof v.expectedActCost === "number" ? `${num(v.expectedActCost)} bits expected` : undefined],
     ["Decision bits", typeof v.decisionBits === "number" ? num(v.decisionBits) : undefined],
     ["Changes objects", pct(v.changeRate)],
+    ["Acts that would succeed", pct(v.expectedSuccessRate)],
     ["Invalid or failing", pct(v.invalidRate)],
     ["Uses randomness", typeof v.randomized === "boolean" ? (v.randomized ? "yes" : "no") : undefined],
     ["Message", typeof d.message === "string" ? d.message : undefined],
   ];
   const facts = rows.filter((r): r is [string, string] => r[1] !== undefined);
   if (facts.length) sections.push({ kind: "facts", title: "Outcome", rows: facts });
+  const warnings = Array.isArray(v.warnings) ? v.warnings : Array.isArray(receipt.warnings) ? receipt.warnings : [];
+  if (warnings.length) sections.push({ kind: "list", title: "Warnings", items: warnings.map(scalarText) });
   if (typeof a.summary === "string") sections.push({ kind: "text", title: "What it means", text: a.summary });
   if (typeof a.next === "string") sections.push({ kind: "text", title: "Next step given to the assistant", text: a.next });
   if (Array.isArray(v.diagnostics) && v.diagnostics.length) sections.push({ kind: "list", title: "Diagnostics", items: v.diagnostics.map(scalarText) });
-  const other = { ...rest(v, ["cost", "energy", "affordable", "expectedActCost", "decisionBits", "changeRate", "invalidRate", "randomized", "diagnostics", "valid"]) as Json };
+  const other = { ...rest(v, ["cost", "energy", "affordable", "expectedActCost", "decisionBits", "changeRate", "invalidRate", "randomized", "diagnostics", "valid", "expectedSuccessRate", "warnings", "futility"]) as Json };
   if (hasKeys(other)) sections.push(...output(other, "Price details"));
   return sections;
 };

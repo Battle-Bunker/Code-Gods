@@ -16,7 +16,7 @@ import { withEngine, writeGame } from "./state";
 import { fail, messageOf } from "../lib/errors";
 import { memberOf, principalV, requireMemberAs, requireRoom, viewerOf, type Principal } from "../lib/rooms";
 import { godEnergy, worldNow } from "../lib/world";
-import { languageV } from "../lib/language";
+import { agentLanguage, languageV } from "../lib/language";
 
 const CHAT_INTERVAL_MS = 1000;
 /** Agent examinations (validate, summon) per human per room per rolling minute: a looping client cannot burn the sandbox. */
@@ -52,17 +52,35 @@ export const prepare = internalQuery({
     const prior = await findReceipt(ctx, room._id, member.godId, envelope.commandId);
     const game = room.currentGameId ? await ctx.db.get(room.currentGameId) : null;
     const command = envelope.command;
-    let examine: null | { settings: GameSettings; live: (number | string)[] } = null;
+    let examine: null | { settings: GameSettings; live: (number | string)[]; twins: number } = null;
     if (!prior && game && (command.type === "validate" || command.type === "summon") && envelope.gameId === game._id &&
         allowedLanguages(game.settings as GameSettings).includes(command.language) && game.phase !== "ended" && game.phase !== "recovery" &&
         game.roster.some(m => m.id === member.godId)) {
       const live = await ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", game._id)).take(16);
       // A game the single-language migration has not reached yet is examined as its one language (validateSettings needs the set).
-      examine = { settings: (upgradeStoredSettings(game.settings) ?? game.settings) as GameSettings, live: live.map(o => o.value) };
+      const settings = (upgradeStoredSettings(game.settings) ?? game.settings) as GameSettings;
+      // The player's live agents running this exact code (the copies warning), read here, off the mutation's read set.
+      const own = await ctx.db.query("agents").withIndex("by_game_owner", q => q.eq("gameId", game._id).eq("ownerId", member.godId)).take(settings.maxAgentsPerGod + 1);
+      const twins = own.filter(a => a.source === command.source && agentLanguage(a, settings) === command.language).length;
+      examine = { settings, live: live.map(o => o.value), twins };
     }
     return { roomId: room._id, godId: member.godId, prior: prior ? { hash: prior.hash, result: prior.result as CommandResult } : null, examine };
   },
 });
+
+/** The summon-time futility probe (game-types probeFutility, docs/rules-design.md §11). */
+const futilityV = v.object({ deterministic: v.boolean(), constant: v.boolean(), idempotent: v.boolean(), identity: v.boolean(),
+  firstPass: v.number(), secondPass: v.number(), successRate: v.number() });
+type Futility = { deterministic: boolean; constant: boolean; idempotent: boolean; identity: boolean; firstPass: number; secondPass: number; successRate: number };
+
+/** The warning for a validate or summon of code the player already runs `twins` agents of. */
+export function copiesWarning(twins: number, futility?: Futility): string {
+  const same = `You already have ${twins === 1 ? "an agent" : `${twins} agents`} with this exact code`;
+  if (futility?.deterministic && (futility.constant || futility.idempotent || futility.identity)) {
+    return `${same}: a copy gives each object the same result, so it only adds failed acts.`;
+  }
+  return `${same}: a copy acts the same way on the objects it is given, so it adds speed only when they cannot keep up.`;
+}
 
 const examinedV = v.object({
   gameId: v.string(), source: v.string(), language: languageV,
@@ -72,7 +90,10 @@ const examinedV = v.object({
     breakdown: v.object({ decision: v.number(), erasure: v.number(), motion: v.number(), floor: v.number() }),
     randomized: v.boolean(), diagnostics: v.array(v.string()),
     changeRate: v.optional(v.number()), invalidRate: v.optional(v.number()),
+    futility: v.optional(futilityV), warnings: v.optional(v.array(v.string())),
   })),
+  /** The player's live agents with this exact code and language when it was examined (the copies warning). */
+  twins: v.optional(v.number()),
 });
 
 export const apply = internalMutation({
@@ -92,7 +113,9 @@ export const apply = internalMutation({
     try {
       const result = await run(ctx, room, member, envelope, args.examined);
       receipt = { commandId: envelope.commandId, accepted: true, message: "Accepted",
-        ...(command.type === "validate" ? { validation: result as NonNullable<CommandResult["validation"]> } : {}) };
+        ...(command.type === "validate" ? { validation: result as NonNullable<CommandResult["validation"]> } : {}),
+        // A summon is never refused for what the examination found: it is told, with the agent summoned.
+        ...(command.type === "summon" && (result as { warnings?: string[] }).warnings ? { warnings: (result as { warnings: string[] }).warnings } : {}) };
     } catch (error) {
       // A transient failure (the sandbox could not examine the agent) is not the command's outcome: no
       // receipt, so the client's retry of the identical envelope runs it.
@@ -128,9 +151,9 @@ export const claimExamination = internalMutation({
   },
 });
 
-type Examined = { gameId: string; source: string; language: Language; error?: string; result?: { cost: number; parts: unknown; decisionBits: number; expectedActCost: number;
+type Examined = { gameId: string; source: string; language: Language; error?: string; twins?: number; result?: { cost: number; parts: unknown; decisionBits: number; expectedActCost: number;
   breakdown: { decision: number; erasure: number; motion: number; floor: number }; randomized: boolean; diagnostics: string[];
-  changeRate?: number; invalidRate?: number } };
+  changeRate?: number; invalidRate?: number; futility?: Futility; warnings?: string[] } };
 
 async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">, envelope: Envelope, examined: Examined | undefined): Promise<unknown> {
   const command = envelope.command, now = Date.now();
@@ -181,12 +204,16 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     if (!examined || examined.gameId !== game._id || examined.source !== command.source || examined.language !== command.language) fail("UNAVAILABLE", "The agent could not be examined; retry");
     if (examined.error !== undefined || !examined.result) return fail("BAD_REQUEST", examined.error ?? "Examination failed");
     const e = examined.result;
+    // Copies of the player's own live agents: the same code acts the same way on the same objects.
+    const twins = examined.twins ?? 0;
+    const warnings = [...(e.warnings ?? []), ...(twins ? [copiesWarning(twins, e.futility)] : [])];
+    const findings = { ...(e.futility ? { futility: e.futility, expectedSuccessRate: e.futility.successRate } : {}), ...(warnings.length ? { warnings } : {}) };
     if (command.type === "validate") {
       const energy = godEnergy(game, deity.spent, now);
       return { valid: true, cost: e.cost, parts: e.parts, decisionBits: e.decisionBits, expectedActCost: e.expectedActCost,
         breakdown: e.breakdown, randomized: e.randomized, diagnostics: e.diagnostics.slice(0, 30).map(d => d.slice(0, 1000)),
         ...(e.changeRate !== undefined ? { changeRate: e.changeRate } : {}), ...(e.invalidRate !== undefined ? { invalidRate: e.invalidRate } : {}),
-        energy, affordable: energy >= e.cost };
+        ...findings, energy, affordable: energy >= e.cost };
     }
     if (godEnergy(game, deity.spent, now) < e.cost) fail("CONFLICT", "Insufficient energy");
     const owned = await ctx.db.query("agents").withIndex("by_game_owner", q => q.eq("gameId", game._id).eq("ownerId", member.godId)).take(settings.maxAgentsPerGod + 1);
@@ -202,7 +229,7 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     // every agent, destroyed ones included, and its energy from then on (docs/replay-design.md §2).
     const nextBatch = await appendEvents(ctx, game, [{ t: "summon", agentId, ownerId: member.godId, world, language: command.language, source: command.source, name: command.name, ...(command.description ? { description: command.description } : {}), ...record }], world, world);
     await writeGame(ctx, game, { agentCount: game.agentCount + 1, nextBatch });
-    return { id: agentId, summonCost: e.cost, decisionBits: e.decisionBits, expectedActCost: e.expectedActCost };
+    return { id: agentId, summonCost: e.cost, decisionBits: e.decisionBits, expectedActCost: e.expectedActCost, ...(warnings.length ? { warnings } : {}) };
   }
   if (command.type === "destroy") {
     // Gods may destroy their own agents at any time, for free. Energy already spent is not refunded.

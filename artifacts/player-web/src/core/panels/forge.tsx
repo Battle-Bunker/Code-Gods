@@ -127,6 +127,13 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended }: { lan
             <p className="font-mono text-xs"><strong>{current.valid ? "VALID" : "INVALID"}</strong></p>
             <div className="mt-1"><AgentCost summonCost={current.cost} expectedActCost={current.expectedActCost} breakdown={current.breakdown as ActCostBreakdown | undefined}
               agentEnergyPerSecond={obs?.economy?.agentEnergyPerSecond} godEnergy={obs?.self.energy} /></div>
+            {current.warnings?.length ? (
+              // The examination's warnings (docs/rules-design.md §11): shown before the summon, which they never block.
+              <div data-testid="text-validation-warnings" className="mt-1 space-y-0.5 text-xs">
+                {current.expectedSuccessRate !== undefined && <p className="font-semibold text-destructive">About {Math.round(100 * current.expectedSuccessRate)}% of its acts would succeed.</p>}
+                {current.warnings.map((w, i) => <p key={i} className="text-destructive">{w}</p>)}
+              </div>
+            ) : null}
             {current.diagnostics.length > 0
               ? <ul className="mt-1 space-y-0.5 font-mono text-xs text-muted-foreground">{current.diagnostics.map((d, i) => <li key={i} className="whitespace-pre-wrap break-words">{d}</li>)}</ul>
               : <p className="mt-1 font-mono text-xs text-muted-foreground">no diagnostics</p>}

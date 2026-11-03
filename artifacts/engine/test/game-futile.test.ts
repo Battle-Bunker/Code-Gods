@@ -52,3 +52,38 @@ test("a constant agent stops colliding: one act per object version, then a diagn
   await waitFor(async () => (await admin.query(internal.testing.futileActs, { gameId: game.gameId })).every((m: any) => m.agentId !== mine.id), "the memo goes with the agent", 30000, 250);
   await host.c.mutation(api.rooms.endActiveGame, { roomId });
 });
+
+test("validation warns before the summon: a constant agent, an idempotent one, and copies of the player's own agent", { timeout: 180000 }, async () => {
+  const [host, ada, bo] = await gods("Warn Host", "Warn Ada", "Warn Bo");
+  await touch(host);
+  const { roomId } = await roomWith([host, ada, bo], { objectType: "Int", typeArgs: { min: -1000000, max: 1000000 }, languages: ["typescript"], startingObjectCount: 8, spawnRateHz: 0, planningSeconds: 3600, startingEnergy: 5000 });
+  const game = await startGame(host, roomId);
+  const send = (command: Record<string, unknown>) => ada.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
+
+  const constant = (await send({ type: "validate", language: "typescript", source: "function agent(x) { return [setTo(7)]; }" })).validation;
+  assert.equal(constant.valid, true);
+  assert.equal(constant.futility.constant, true);
+  assert.ok(constant.expectedSuccessRate < 0.2, `${constant.expectedSuccessRate}`);
+  assert.match(constant.warnings.join(" "), /only one object can ever hold this value/);
+
+  const rounding = (await send({ type: "validate", language: "typescript", source: "function agent(x) { return [roundOff(3)]; }" })).validation;
+  assert.equal(rounding.futility.idempotent, true);
+  assert.equal(rounding.futility.secondPass, 0);
+  assert.match(rounding.warnings.join(" "), /acts once per object, then wastes acts/);
+
+  const adder = "function agent(x) { return [add(1)]; }";
+  const working = (await send({ type: "validate", language: "typescript", source: adder })).validation;
+  assert.equal(working.warnings, undefined, "a working agent has nothing to warn about");
+  assert.equal(working.expectedSuccessRate, 1);
+
+  // The summon is never refused for a warning; the receipt carries it.
+  const summoned = await send({ type: "summon", name: "Seven", language: "typescript", source: "function agent(x) { return [setTo(7)]; }" });
+  assert.equal(summoned.accepted, true);
+  assert.match(summoned.warnings.join(" "), /only one object can ever hold/);
+  // Code the player already runs: a copies warning.
+  const second = await send({ type: "summon", name: "Adder", language: "typescript", source: adder });
+  assert.equal(second.accepted, true, second.message);
+  const copy = (await send({ type: "validate", language: "typescript", source: adder })).validation;
+  assert.match(copy.warnings.join(" "), /You already have an agent with this exact code/);
+  await host.c.mutation(api.rooms.endActiveGame, { roomId });
+});
