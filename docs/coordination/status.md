@@ -185,3 +185,27 @@ Owner, verbatim (abridged only where marked):
     given a fixed mean SQUARED change: P(k) ∝ exp(−βk²), so cost = a·k + b·k². With b = 1 bit, a row costs 8.6× a
     cell and a whole grid 109×. That matches the motion term's existing quadratic form, but needs a much larger
     weight. See the conversation for the full table.
+- **Owner follow-up (3 Nov):**
+  - Agreed: cost = W + β·W² per act.
+  - AI-facing docs (skills, prompt, engine-api) must state clearly the incentive this creates: prefer incremental
+    agents.
+  - Change size must NOT depend on a static lens (e.g. digits). Examples:
+    - ×7 is cheap; ×7⁴ costs more than 4× it;
+    - incrementing digit 3 costs less than ⅓ of incrementing digits 1, 3 and 5.
+- **Coordinator's proposal: operation-based, not lens-based.**
+  - Each object type has a small set of ELEMENTARY generators:
+    - Grid: set one cell's colour or symbol;
+    - Int: add d·10ᵖ (or increment one digit), multiply by m.
+  - Each generator has its own information cost w = the surprisal of its parameters under a max-entropy prior.
+    Magnitudes use a universal integer prior, so w(×m) ≈ log2 m (+ the op choice), and w(×ab) ≈ w(×a) + w(×b).
+    Overwriting ops add their erased bits.
+  - Convenience ops (paint a row, ×2401) are priced as their decomposition into generators.
+  - An act's W = Σ the generator costs of its calls, i.e. the act's description length in the generator language.
+  - charge = W + β·W² (plus read bits). This is the max-entropy prior over act description length with a fixed
+    E[W²].
+  - Check against the owner's examples:
+    - row = 4 cells, so W is 4×, the linear part 4× and the quadratic part 16×;
+    - ×7⁴: W = 4·w(×7), more than 4× the cost;
+    - digits 1, 3, 5: W = 3w, more than 3×.
+  - Splitting a change across acts is the intended route (each act needs its own selection); within an act, the
+    quadratic falls on the total W.
