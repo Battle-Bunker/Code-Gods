@@ -8,7 +8,7 @@
  * `new Function` here.
  */
 import { instanceInfo, objectType, resolve, type Badge, type Resolution, type Instantiation, type ObjectValue, type TypeArgs } from "@workspace/game-types";
-import type { CardParam, FamilyContext, Ordinal, ParamScalar, Params, ScoreShape, UtilityCard, UtilityDescriptor, UtilityFamily } from "./types.ts";
+import type { CardParam, FamilyContext, Ordinal, ParamJson, Params, ScoreShape, UtilityCard, UtilityDescriptor, UtilityFamily } from "./types.ts";
 import { paramLabel } from "./params.ts";
 import { setHostEval } from "./families/define.ts";
 import { cardProgram } from "./families/card.ts";
@@ -32,23 +32,15 @@ export function family(id: string): UtilityFamily<any> {
  * (Annotated basics) and the defence goals were typed first; the rest are listed in docs/rules-design.md §9.
  */
 export const UNTYPED_FAMILIES: ReadonlySet<string> = new Set<string>([
-  "digit-devotee", "tailwright", "firstborn", "power-hoarder", "many-faced", "smooth-operator", "truncation-saint",
-  "palindromist", "stairwalker", "residue-oracle", "bit-sigil", "zebra", "numerologist", "refrain", "glyph-glutton",
-  "purist", "streaker", "incantor", "last-word", "mirror", "ascender", "echo", "nest-builder", "haiku-master",
-  "wordsmith", "tallykeeper", "palette-keeper", "scale-keeper", "seed1_line_painter", "seed2_patchwork",
+  "seed1_line_painter", "seed2_patchwork",
   "seed3_green_ones", "rainbow_road", "border_baron", "conqueror", "homebody", "lone_peak", "islander",
-  "rooks_watch", "staircase_climber", "lucky_token", "neighbourhood_vote", "far_apart", "castle_keeper",
-  "archipelago", "bridge_builder", "looking_glass", "pinwheel", "card_windmill", "royal_court", "bullseye",
-  "snake_charmer", "tetromino_tamer", "rainbow_bands", "constellation", "rainbow_roads", "paint_mixer",
-  "colour_carousel", "gravity", "swiss_cheese", "mountain_climb", "treasure_map", "straight_shooter",
+  "rooks_watch", "staircase_climber", "lucky_token", "neighbourhood_vote", "far_apart", "straight_shooter",
   "round_numbers", "king_of_the_hill", "divisibility_detective", "number_sandwich", "magic_window",
   "times_table_territory", "odds_evens", "number_painter", "robin_hood", "seesaw", "stepping_stones",
   "column_addition", "ladder_of_numbers", "snap", "young_tableau", "fillomino", "colour_value_ladder",
   "stripe_painter", "feuding_families", "colour_mixer", "fair_weaver", "lantern_lighter", "best_friends",
   "rainbow_steps", "quilt_maker", "flag_bearer", "colour_by_number", "wallpaper_weaver", "sunset_sky",
-  "colour_wheel_harmony", "warm_hearts", "twin_friends", "rummy_melder", "othello_sandwich", "bingo_caller",
-  "sudoku_scholar", "full_house", "flush_royale", "twenty_one", "go_fish_books", "knight_riders", "uno_snake",
-  "court_parade", "kings_court", "connect_four",
+  "colour_wheel_harmony", "warm_hearts", "twin_friends", "bingo_caller",
 ]);
 
 /** Families of one object type, optionally of one role. */
@@ -101,7 +93,7 @@ export function cardParams(f: UtilityFamily<any>, params: Params, ctx: FamilyCon
   if (!f.params) return undefined;
   const p = f.upgrade ? f.upgrade(params, ctx) : params;
   return f.params(ctx).map(field => ({
-    key: field.key, label: field.label, kind: field.kind, value: p[field.key] as ParamScalar, text: paramLabel(field, p[field.key]),
+    key: field.key, label: field.label, kind: field.kind, value: p[field.key] as ParamJson, text: paramLabel(field, p[field.key]),
   }));
 }
 
