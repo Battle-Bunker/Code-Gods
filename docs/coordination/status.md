@@ -55,6 +55,14 @@ Coordinator session: session_0119hWTUfnFoGVhQud4gmKNK. All times are AEDT.
    box to its board region; per-family hover geometry.
 4. PR 4: points tuples. Primary/secondary points; boxes show (+1, 0), (0, −2); no "wins"/"tie" anywhere.
 5. Finish assistant modes (Autopilot / On request / Read-only), if not merged at the pause.
+6. **My agents panel legibility** (owner, 3 Nov: "I don't understand the numbers in this interface so new players
+   will be even more confused"). Redesign it together with intention 1, since "per act" changes there.
+   - Label every number: the summon price; the agent's energy vs your energy; "est. per act" vs the actual average.
+   - Explain the bar: its scale is the battery (agentBatteryActs × est. per act) and the tick is one act's cost.
+   - Give the timeline a legend and row labels (green ready, grey charging, red cooldown, dashed now).
+   - Name unnamed agents.
+   - Add one-line hover explanations (Terms).
+   - Panel code: artifacts/player-web/src/core/panels/agents.tsx; economy in artifacts/engine/convex/lib/world.ts.
 
 ## Open questions for the owner
 - Picture Frame middle cells: symmetric −1 (colour or symbol) / −4 (both) is implemented; the owner hasn't
