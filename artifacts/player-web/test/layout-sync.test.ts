@@ -224,14 +224,24 @@ test("moving the assistant to a side stacks the panels beside it; to the bottom 
   assert.deepEqual(left.root.type === "split" && left.root.children[0], { type: "pane", id: "p2" });
 });
 
-test("a replay's Timeline is shown over any layout with room for it, and never twice or past the panel limit", () => {
+test("a replay's Timeline is shown once, even in a full dock (four panels, twelve panes); a live layout is untouched", () => {
   const shown = withTimeline(base);
   assert.equal(panelPanesOf(shown).filter(p => p.panelId === "timeline").length, 1);
   assert.equal(withTimeline(shown), shown, "already there");
-  let full = base;
-  for (const panelId of ["race", "feed", "agents"] as const) full = openPane(full, { id: "", kind: "panel", panelId, params: {}, setBy: "human" }).layout;
+  let full = DEFAULT_LAYOUT("ended");
+  for (const panelId of ["race", "feed", "agents", "rules"] as const) {
+    if (panelPanesOf(full).length < 4) full = openPane(full, { id: "", kind: "panel", panelId, params: {}, setBy: "human" }).layout;
+  }
   assert.equal(panelPanesOf(full).length, 4);
-  assert.equal(withTimeline(full), full, "a full dock keeps its panels (no panel replaced)");
+  const replaced = withTimeline(full);
+  assert.equal(panelPanesOf(replaced).filter(p => p.panelId === "timeline").length, 1, "four panels + assistant: the Timeline replaces the assistant");
+  assert.equal(panelPanesOf(replaced).length, 5);
+  assert.ok(Object.values(replaced.panes).every(p => p.kind !== "assistant"));
+  const noAssistant = withTimeline(withoutAssistant(full));
+  assert.equal(panelPanesOf(noAssistant).length, 5, "four panels, no assistant: added");
+  assert.ok(noAssistant.root.type === "split" && noAssistant.root.direction === "column" && noAssistant.root.sizes.join() === "50,50"
+    && (noAssistant.root.children.at(-1) as { id: string }).id === Object.values(noAssistant.panes).find(p => p.kind === "panel" && p.panelId === "timeline")!.id, "the bottom half");
+  assert.equal(withTimeline(noAssistant), noAssistant, "a layout with a Timeline is unchanged");
 });
 
 test("a replay's Timeline takes the assistant's slot; with no assistant it is the full-width bottom half; a live layout is untouched", () => {
