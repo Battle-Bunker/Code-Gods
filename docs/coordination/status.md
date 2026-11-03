@@ -193,14 +193,14 @@ Owner, verbatim (abridged only where marked):
     - ×7 is cheap; ×7⁴ costs more than 4× it;
     - incrementing digit 3 costs less than ⅓ of incrementing digits 1, 3 and 5.
 - **Coordinator's proposal: operation-based, not lens-based.**
-  - Each object type has a small set of ELEMENTARY generators:
+  - Each object type has a small set of ELEMENTARY mutators:
     - Grid: set one cell's colour or symbol;
     - Int: add d·10ᵖ (or increment one digit), multiply by m.
-  - Each generator has its own information cost w = the surprisal of its parameters under a max-entropy prior.
+  - Each elementary mutator has its own information cost w = the surprisal of its parameters under a max-entropy prior.
     Magnitudes use a universal integer prior, so w(×m) ≈ log2 m (+ the op choice), and w(×ab) ≈ w(×a) + w(×b).
     Overwriting ops add their erased bits.
-  - Convenience ops (paint a row, ×2401) are priced as their decomposition into generators.
-  - An act's W = Σ the generator costs of its calls, i.e. the act's description length in the generator language.
+  - Convenience ops (paint a row, ×2401) are priced as their decomposition into elementary mutators.
+  - An act's W = Σ the elementary-mutator costs of its calls, i.e. the act's description length in the mutator language.
   - charge = W + β·W² (plus read bits). This is the max-entropy prior over act description length with a fixed
     E[W²].
   - Check against the owner's examples:
@@ -209,3 +209,7 @@ Owner, verbatim (abridged only where marked):
     - digits 1, 3, 5: W = 3w, more than 3×.
   - Splitting a change across acts is the intended route (each act needs its own selection); within an act, the
     quadratic falls on the total W.
+- Terminology (owner, 3 Nov): use "mutator", never "generator". The code already says mutators
+  (lib/game-types/src/mutators.ts). Elementary mutators are priced by their own information cost; composite
+  mutators (paint a row, ×2401) are priced by their decomposition into elementary ones. Use these terms in the
+  code, the docs and the AI-facing text.
