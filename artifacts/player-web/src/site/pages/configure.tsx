@@ -57,7 +57,7 @@ const PRIOR_LABELS: Record<string, string> = { uniform: "Uniformly random object
 export default function Configure() {
   const { id = "" } = useParams<{ id: string }>();
   const requested = new URLSearchParams(useSearch()).get("setup");
-  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const q = useLive(api.rooms.get, isAuthenticated && id ? { room: id } : "skip");
   const room = q.data;
   const setupId = requested ?? room?.setup?.id ?? null;
@@ -67,7 +67,7 @@ export default function Configure() {
   return (
     <Page room={room ?? null} crumbs={[{ label: code, href: `/rooms/${code}` }, { label: "Configure" }]} placeholder={`Search or do anything in ${code}`}>
       <div data-testid="page-configure">
-        {authLoading ? null : !isAuthenticated ? <p className="mx-auto max-w-lg px-4 py-20">Sign in to see this room's settings.</p>
+        {!isAuthenticated ? null
         : q.isLoading || (setupId && sq.isLoading) ? <div className="mx-auto max-w-[1200px] px-4 md:px-6 py-8 space-y-4"><Skeleton className="h-12 w-1/2" /><Skeleton className="h-96" /></div>
         : !room ? <div className="mx-auto max-w-lg px-4 py-20"><ErrorLine message={q.error ? errMsg(q.error) : "Room not found. Check the code, or ask the owner for the link."} /></div>
         : !requested && room.setup?.deleted ? <DeletedSetup room={room} roomOwner={room.ownerId === user?.id} />

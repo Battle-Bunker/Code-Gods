@@ -57,6 +57,7 @@ const drawV = v.object({ familyId: v.string(), params: v.any() });
 export const tables = action({
   args: { settings: v.any(), draws: v.array(drawV) },
   handler: async (ctx, { settings, draws }): Promise<string> => {
+    await ctx.runQuery(internal.auth.user.requireSignedIn, {});
     if (draws.length < 1 || draws.length > 2) fail("BAD_REQUEST", "Ask for one or two draws (a utility and its defence goal)");
     let inst;
     try { inst = instantiationOf(settings as GameSettings); } catch (error) { return fail("BAD_REQUEST", `Invalid settings: ${(error as Error).message}`); }

@@ -22,3 +22,11 @@ export function canOpenGame(game: { roster: readonly { id: string }[]; spectator
   if (index === 0 && !viewer.roomLive) return true;
   return !!viewer.meId && (viewer.meId === viewer.ownerId || game.roster.some(m => m.id === viewer.meId) || !!game.spectators?.includes(viewer.meId));
 }
+
+/** What the signed-out visitor opened, in words: an invite link names its room (and game). */
+export function invitedTo(path: string): string | null {
+  const m = /^\/rooms\/([^/?#]+)(?:\/games\/([^/?#]+))?/.exec(path);
+  if (!m) return null;
+  const room = decodeURIComponent(m[1]).toUpperCase();
+  return m[2] ? `Sign in to watch or play game ${decodeURIComponent(m[2]).toUpperCase()} in room ${room}.` : `Sign in to open room ${room}.`;
+}

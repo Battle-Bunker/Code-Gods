@@ -10,39 +10,6 @@ import { errMsg } from "@/site/lib/errors";
 import { fmtWhen, isoWhen } from "@/site/lib/time";
 import type { RoomListRow } from "@/site/lib/types";
 
-const STEPS = [
-  ["Join or create a room", "A room is a table for 3 to 8 players; AI players can fill seats."],
-  ["Write a tiny agent and bargain in chat", "Agents change the shared world; deals in the public chat decide whose wishes win."],
-  ["Highest score wins", "The game ends at a random moment; your score is what your objects are worth then."],
-] as const;
-
-/** Signed out: one sentence, three steps, one button. */
-function Landing() {
-  const { run } = usePage();
-  return (
-    <div className="mx-auto max-w-[1100px] px-4 md:px-6 py-14 md:py-24 rise">
-      <h1 className="font-display text-6xl md:text-8xl leading-[0.92]">Gods bargain.<br /><em className="text-primary">Universes</em> execute.</h1>
-      <p className="mt-6 max-w-xl text-lg text-muted-foreground">A negotiation game for programmers: players share one running world, write tiny agents that change it, and bargain over what it should become.</p>
-      <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3">
-        <Action k="ui.auth.signIn" tone="primary" onClick={() => run("ui.auth.signIn")} testId="button-login" className="px-6 py-3 text-base" />
-        <span className="text-sm text-muted-foreground">Got an invite link? Just open it; you'll sign in there.</span>
-      </div>
-      <section className="mt-16 border-t pt-8">
-        <h2 className="text-sm font-medium">How a game goes</h2>
-        <ol className="mt-4 grid gap-6 md:grid-cols-3">
-          {STEPS.map(([title, body], i) => (
-            <li key={title}>
-              <span className="font-mono text-accent text-sm">{i + 1}</span>
-              <h3 className="font-display text-2xl mt-1">{title}</h3>
-              <p className="text-sm text-muted-foreground mt-1">{body}</p>
-            </li>
-          ))}
-        </ol>
-      </section>
-    </div>
-  );
-}
-
 const statusWords = (r: RoomListRow) =>
   r.activeGameShortCode ? `Game ${r.activeGameShortCode} ${r.phase === "recovery" ? "paused" : r.phase}` : `Lobby · ${r.memberCount} player${r.memberCount === 1 ? "" : "s"}`;
 
@@ -96,7 +63,7 @@ export default function Home() {
         <div className="mx-auto max-w-[1100px] px-6 py-16 space-y-4"><Skeleton className="h-16 w-2/3" /><Skeleton className="h-6 w-1/2" /></div>
       ) : error ? (
         <div className="mx-auto max-w-xl px-6 py-16"><ErrorLine message={errMsg(error)} onRetry={() => refetch()} /></div>
-      ) : isAuthenticated ? <Rooms /> : <Landing />}
+      ) : isAuthenticated ? <Rooms /> : null}
     </Page>
   );
 }

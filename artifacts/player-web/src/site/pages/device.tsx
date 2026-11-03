@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMutation } from "convex/react";
 import { Link } from "wouter";
-import { Page, usePage } from "@/site/components/layout";
-import { Action } from "@/site/components/action";
+import { Page } from "@/site/components/layout";
 import { ErrorLine } from "@/site/components/page-parts";
 import { useAuth } from "@/site/hooks/use-auth";
 import { api, useLive } from "@/site/lib/convex";
@@ -53,7 +52,7 @@ export default function Device() {
       <div className="mx-auto max-w-lg px-4 py-14 rise">
         <h1 className="font-display text-5xl">Approve a device</h1>
         <p className="text-muted-foreground mt-3">Approve only if you started this and the code matches your client.</p>
-        {isLoading ? null : !isAuthenticated ? <SignIn />
+        {isLoading || !isAuthenticated ? null
         : result ? (
           <div className="mt-8 border border-primary bg-primary/5 p-5 flex gap-3 items-start" data-testid={`status-${result}`}>
             <Check className="h-5 w-5 text-primary mt-0.5" />
@@ -109,8 +108,3 @@ export default function Device() {
   );
 }
 
-function SignIn({ testId = "button-login-device" }: { testId?: string }) {
-  const { run } = usePage();
-  return <div className="mt-8"><Action k="ui.auth.signIn" tone="primary" onClick={() => run("ui.auth.signIn")} testId={testId} /></div>;
-}
-export { SignIn };

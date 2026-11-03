@@ -110,7 +110,7 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
   conn?: { ok: boolean; label?: string } | null;
 }) {
   const { user, kind, login, logout } = useAuth();
-  const manifest = useManifest().data;
+  const manifest = useManifest(!!user).data;
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const [palette, setPalette] = useState<{ open: boolean; init?: PaletteOpenInit }>({ open: false });

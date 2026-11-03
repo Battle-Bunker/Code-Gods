@@ -90,6 +90,18 @@ test("admin needs a verified allowlisted email", async () => {
   assert.equal((await client((await login("unverified")).jwt).query("auth/user:me") as { isAdmin: boolean }).isAdmin, false);
 });
 
+test("sign-in is required for the server info and the calibration tables (owner decision 2026-11-02)", async () => {
+  // Catches: an anonymous visitor reading the manifest, or booting the agent sandboxes it warms, or loading tables.
+  const tables = { settings: { objectType: "Grid", typeArgs: { size: 4, symbols: "base10", colours: "rgb" }, priorId: "uniform" },
+    draws: [{ familyId: "seed3_green_ones", params: { colour: 0, value: 0 } }] };
+  assert.equal(await errorCode(client().action("manifest:get")), "UNAUTHENTICATED");
+  assert.equal(await errorCode(client().action("calibration/node:tables", tables)), "UNAUTHENTICATED");
+  // A signed-in human still gets them (whether this backend holds that table is not the question here).
+  const alice = client((await login("alice")).jwt);
+  assert.ok(((await alice.action("manifest:get")) as { objectTypes: unknown[] }).objectTypes.length > 0);
+  assert.notEqual(await errorCode(alice.action("calibration/node:tables", tables)), "UNAUTHENTICATED");
+});
+
 test("sign-out ends the session at once, even for an unexpired browser JWT", async () => {
   const { session, jwt } = await login("carol");
   assert.equal((await client(jwt).query("auth/testing:probe", {}) as { name: string }).name, "Carol Nguyen");

@@ -2,9 +2,14 @@
  * The current caller for UIs and clients:
  *   query auth/user:me ({}) → null when signed out, else
  *     {subject, name, scope, isAdmin, roomId?, permission?, credentialId?, label?}
+ * An action that serves only signed-in callers starts with `ctx.runQuery(internal.auth.user.requireSignedIn, {})`
+ * (sign-in is required for everything on the site, owner decision 2026-11-02).
  */
-import { query } from "../_generated/server";
-import { getViewer } from "./access";
+import { internalQuery, query } from "../_generated/server";
+import { getViewer, requireViewer } from "./access";
+
+/** Throws UNAUTHENTICATED unless the caller (the action's identity) is signed in. */
+export const requireSignedIn = internalQuery({ args: {}, handler: async (ctx) => { await requireViewer(ctx); return null; } });
 
 export const me = query({
   args: {},

@@ -211,7 +211,7 @@ function RoomBody({ room, games }: { room: RoomState; games?: GameRecord[] }) {
 export default function Room() {
   const { id = "" } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
-  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const live = !!id && isAuthenticated;
   const q = useLive(api.rooms.get, live ? { room: id } : "skip");
   const room = q.data;
@@ -238,7 +238,7 @@ export default function Room() {
   return (
     <Page room={room ?? null} history={games} crumbs={[{ label: code }]} placeholder={`Search or do anything in ${code}`}
       suggested={step ? [step.primary, ...step.secondary].filter((s): s is NonNullable<typeof s> => !!s) : []} conn={room ? { ok: !q.error } : null}>
-      {authLoading ? null : !isAuthenticated ? <Invited code={code} />
+      {!isAuthenticated ? null
       : q.isLoading ? (
         <div className="mx-auto max-w-[1200px] px-6 py-8 space-y-4"><Skeleton className="h-20 w-1/2" /><div className="grid lg:grid-cols-2 gap-4"><Skeleton className="h-72" /><Skeleton className="h-72" /></div></div>
       ) : !room ? (
@@ -251,13 +251,3 @@ export default function Room() {
   );
 }
 
-function Invited({ code }: { code: string }) {
-  const { run } = usePage();
-  return (
-    <div className="mx-auto max-w-lg px-4 py-20 text-center rise space-y-4">
-      <h1 className="font-display text-5xl">Room {code}</h1>
-      <p className="text-muted-foreground" data-testid="text-viewer-seat">You were invited to room {code}. Sign in to see who is here and take a seat.</p>
-      <Action k="ui.auth.signIn" tone="primary" onClick={() => run("ui.auth.signIn")} testId="button-login-room" />
-    </div>
-  );
-}

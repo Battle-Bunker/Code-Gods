@@ -13,7 +13,7 @@
  * approved on the engine's /connect, or as a player's own dev server holding a room credential (./connection.ts);
  * the pages are the same, the engine decides what the human may do.
  */
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Route, Switch, useLocation, Router as WouterRouter } from "wouter";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { Toaster } from "@/components/ui/toaster";
@@ -27,6 +27,7 @@ import Device from "@/site/pages/device";
 import Connect from "@/site/pages/connect";
 import AdminAgents from "@/site/pages/admin-agents";
 import Configure from "@/site/pages/configure";
+import SignIn from "@/site/pages/sign-in";
 import { roomPath } from "@/site/lib/routes";
 import { connection, convexClient, engineSite, fetchAppAccessToken, type Connection } from "./connection";
 import { Screen } from "./screen";
@@ -101,6 +102,7 @@ function Routes({ mode }: { mode: Connection["mode"] }) {
   return (
     // Keep a shared shell outside the boundary so it survives a page crash.
     <RoutedErrorBoundary>
+      <SignInGate>
       <Switch>
         <Route path={ROUTE_PATTERNS.home} component={devserver ? CredentialRoom : Home} />
         <Route path={ROUTE_PATTERNS.configure} component={Configure} />
@@ -112,8 +114,32 @@ function Routes({ mode }: { mode: Connection["mode"] }) {
         <Route path={ROUTE_PATTERNS.adminAgent} component={offSite ? siteOnly("AI players") : AdminAgents} />
         <Route component={NotFound} />
       </Switch>
+      </SignInGate>
     </RoutedErrorBoundary>
   );
+}
+
+/**
+ * Sign-in is required for everything on the site (owner decision 2026-11-02): signed out, every path shows the one
+ * sign-in screen, which returns to that path. Account mode signs in before this (AccountSignIn); a dev server's app
+ * holds a room credential instead, and its own pages report a refused one.
+ */
+function SignInGate({ children }: { children: ReactNode }) {
+  const { kind, user, isLoading, error, refetch } = useSession();
+  // Once signed in, a token refresh (loading again) keeps the page mounted, with its drafts and sheets.
+  const seen = useRef(false);
+  if (user) seen.current = true;
+  if (kind !== "site" || user || (isLoading && seen.current)) return <>{children}</>;
+  if (isLoading) return <Screen title="Connecting…" testId="status-connecting" />;
+  if (error) {
+    return (
+      <Screen title="Signed out" testId="text-session-error">
+        <p>{error.message}</p>
+        <button type="button" className="underline" onClick={refetch} data-testid="button-session-retry">Reload</button>
+      </Screen>
+    );
+  }
+  return <SignIn />;
 }
 
 function RoutedErrorBoundary({ children }: { children: ReactNode }) {

@@ -13,10 +13,12 @@ const INT = { languages: ["python"], objectType: "Int", typeArgs: { min: -214748
   startingObjectCount: 4, agentEnergyPerSecond: 1000, agentBatteryActs: 1000, interactionRateHz: 20, halfLifeSeconds: 1e9 };
 
 const pythonRow = async () => (await admin.query(internal.testing.sandboxes, {})).find((r: any) => r.language === "python");
+let warmer: Awaited<ReturnType<typeof gods>>[number] | undefined;
 /** Back to a warm Python sandbox for the next test: the row's last attempt is long past, so the next ensure boots it. */
 async function rewarm() {
   await admin.mutation(internal.testing.setSandbox, { language: "python", patch: { attemptAt: Date.now() - 3600_000, attempts: 0 } });
-  await admin.action(api.manifest.get, {});
+  warmer ??= (await gods("Rewarm"))[0];
+  await warmer.c.action(api.manifest.get, {});
   await waitFor(async () => (await pythonRow())?.state === "ready" || undefined, "python ready again", 60_000, 100);
 }
 
