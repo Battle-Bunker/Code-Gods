@@ -215,6 +215,17 @@ export const rawGame = internalQuery({
   },
 });
 
+/** A game's objectEvents rows as stored before they carried `index` and `cost` (test/game-observation-transformations). */
+export const stripObjectEventPlaces = internalMutation({
+  args: { gameId: v.id("games") },
+  handler: async (ctx, { gameId }) => {
+    dev();
+    const rows = await ctx.db.query("objectEvents").withIndex("by_game_world", q => q.eq("gameId", gameId)).take(5000);
+    for (const r of rows) await ctx.db.patch(r._id, { index: undefined, cost: undefined });
+    return rows.length;
+  },
+});
+
 /** A game's engine counters (the query-cost gate waits for tick commits with it): one small read, unlike rawGame. */
 export const gameCounters = internalQuery({
   args: { gameId: v.id("games") },

@@ -110,7 +110,7 @@ export const BUDGETS: Budget[] = [
   { query: "player:game", subscribedBy: "core/play.tsx (an ended game's final state)", args: f => ({ roomId: f.roomId, gameId: f.gameId }), cold: false,
     debt: { docs: 1200, bytes: 800 * KiB, ms: 150, why: "PR 3/5: the whole world for an ended game's final state (measured 1,030 docs, 572 KiB, 54 ms)" } },
   { query: "player:observation", subscribedBy: "sdk hooks (every dock panel), lib/player-client state.ts", args: f => ({ roomId: f.roomId }), cold: false,
-    debt: { docs: 1250, bytes: 1024 * KiB, ms: 200, why: "PR 5: the whole world for every dock panel (measured 1,051 docs, 724 KiB, 89 ms)" } },
+    debt: { docs: 1300, bytes: 800 * KiB, ms: 200, why: "PR 5: the whole world for every dock panel; its own recent transformations are objectEvents rows (one per transform, by_game_owner_seq) plus the latest batch, not 16 batches of every god's events (measured 1,185 docs, 688 KiB, 119 ms; before: 1,062 docs, 792 KiB)" } },
   { query: "player:events", subscribedBy: "sdk useEvents, lib/player-client state.ts", args: f => ({ roomId: f.roomId, limit: 200 }), cold: false,
     debt: { bytes: 2048 * KiB, ms: 150, why: "PR 5/6: pages of tickBatches (≤ 50 per call, the query's clamp). Bytes depend on how busy the game was (measured 26 docs, 320–650 KiB under load), so the ceiling is the structural bound, not a measurement; a document-count regression still fails at R8's 100" } },
   { query: "player:trajectories", subscribedBy: "sdk useTrajectories", args: f => ({ roomId: f.roomId, gameId: f.gameId, limit: 200 }), cold: false,

@@ -302,8 +302,15 @@ export const gameTables = {
     net: v.array(v.number()),
     /** PRIVATE: the live disclosure noise on this version's others' sums (settings.peerNoiseBits). */
     noise: v.optional(v.number()),
+    /**
+     * The event's position in its tickBatches doc (`seq`), and a transform's charge (cost.total): the observation's
+     * recent own transformations read these rows instead of the batches. Absent on rows written before 2026-11-03.
+     */
+    index: v.optional(v.number()), cost: v.optional(v.number()),
   }).index("by_game_world", ["gameId", "world"]).index("by_game_object_world", ["gameId", "objectId", "world"])
-    .index("by_game_object_version", ["gameId", "objectId", "version"]),
+    .index("by_game_object_version", ["gameId", "objectId", "version"])
+    /** A god's transformations in log order (spawns have no owner): the observation's recent own transformations. */
+    .index("by_game_owner_seq", ["gameId", "ownerId", "seq"]),
 
   /**
    * Large, rarely written public data kept OFF the hot docs (the game doc is rewritten every tick and Convex
