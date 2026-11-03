@@ -263,3 +263,13 @@ Owner, verbatim (abridged only where marked):
     a hold measure doesn't see. A cheap companion metric: P(a random mutation raises U) at level u.
   - Next: sample high levels with MCMC; compare hold rarity, and hold + ascent, against the contest sim on several
     families; pick the formula.
+- Choosing the noise amount m (owner question 3 Nov). Proposal: don't fix m; derive it from the game's own mutation
+  economy.
+  - The noise that matters is how many FOREIGN mutations hit an object before its owner can act on it again.
+  - If the owner's share of mutation events on an object is q, that count is geometric: P(m) = q(1−q)^m, mean
+    (1−q)/q (memoryless: each event is the owner's with probability q).
+  - So hold = Σ_m q(1−q)^m · P(U(x′_m) ≥ u | U(x) ≥ u).
+  - q comes from the settings: 1/(number of deities) under symmetric play, or the expected share from the
+    power/selection model (energy-weighted selection).
+  - It's the same q for every rule in a game, so rules stay comparable, and calibration tables gain a key or
+    parameter for q.
