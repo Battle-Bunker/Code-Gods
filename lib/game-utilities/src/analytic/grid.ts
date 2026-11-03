@@ -132,7 +132,7 @@ const SOLVERS: Readonly<Record<string, Solver>> = {
     const h = Math.floor(g.N / 2), V = valueLaw(g);
     const diff = p.mode === "halves"
       ? combine(power(V, h), power(V, h), ([a], [b]) => [a - b])
-      : power(combine(V, colourLaw(g), ([v], [c]) => [c === p.X ? v : c === p.Y ? -v : 0]), g.N);
+      : power(combine(V, colourLaw(g), ([v], [c]) => [g.colourNames[c] === p.left_colour ? v : g.colourNames[c] === p.right_colour ? -v : 0]), g.N);
     return power(map(diff, ([d]) => [d === 0 ? 1 : 0, -Math.abs(d)]), g.N);
   },
   /**
@@ -261,7 +261,7 @@ const SOLVERS: Readonly<Record<string, Solver>> = {
   /** Rows only: the row's base-B number mod m is a chain over digits; found ~ Binomial(N, P(≡ 0)). */
   divisibility_detective: (p, g) => {
     if (p.scope !== "rows") throw new NoSolution("rows and columns share cells");
-    const B = g.base!, res = chain(point([0]), valueLaw(g), g.N, ([r], [v]) => [(r * B + v) % p.m]);
+    const B = g.base!, res = chain(point([0]), valueLaw(g), g.N, ([r], [v]) => [(r * B + v) % p.divisor]);
     return binomial(g.N, res.get("0")?.p ?? 0);
   },
   /**

@@ -71,17 +71,17 @@ def rank_value(gt: GridType, rank: int) -> int:
 
 # --- seeds --------------------------------------------------------------------------------------------
 def line_painter(p, gt):
-    diag = p["diag"]
+    diag = p["diagonals"]
     dirs = "across, down and along both diagonals" if diag else "across and down"
     extra = """
                 if is_mine(cell.up_left) or is_mine(cell.down_right):
                     points += cell.value
                 if is_mine(cell.up_right) or is_mine(cell.down_left):
                     points += cell.value""" if diag else ""
-    return card("🖍️", "Line Painter", f"""Your colour scores when it lines up. Each {col(gt, p['colour'])} cell that
-        touches another {col(gt, p['colour'])} cell in a straight line ({dirs}) earns its value, once for
+    return card("🖍️", "Line Painter", f"""Your colour scores when it lines up. Each {p['colour']} cell that
+        touches another {p['colour']} cell in a straight line ({dirs}) earns its value, once for
         every direction it lines up in.""",
-                [("MY_COLOUR", col(gt, p["colour"]))], f"""
+                [("MY_COLOUR", p["colour"])], f"""
         def is_mine(cell):
             return cell is not None and cell.colour == MY_COLOUR
 
@@ -124,9 +124,9 @@ def patchwork(p, gt):
 def green_ones(p, gt):
     v = p["value"]
     what = "aces" if gt.symbols == "cards" and v == 1 else f"{v}s"
-    return card("🍀", "Green Ones", f"""Count the {col(gt, p['colour'])} {what}. If that's a tie, count the
+    return card("🍀", "Green Ones", f"""Count the {p['colour']} {what}. If that's a tie, count the
         cells that are halfway there: the right colour or the right {thing(gt)}, but not both.""",
-                [("MY_COLOUR", col(gt, p["colour"])), ("MY_VALUE", v, value_note(gt, v))], """
+                [("MY_COLOUR", p["colour"]), ("MY_VALUE", v, value_note(gt, v))], """
         def utility(grid):
             perfect = 0
             halfway = 0
@@ -475,8 +475,8 @@ def royal_court(p, gt):
 
 # --- arithmetic -----------------------------------------------------------------------------------------
 def straight_shooter(p, gt):
-    up = p["step"] == 1
-    consts = [("STEP", p["step"], "count up" if up else "count down")]
+    up = p["direction"] == "up"
+    consts = [("STEP", 1 if up else -1, "count up" if up else "count down")]
     number = "cell.value"
     if p["ace_high"]:
         number = "14 if cell.value == 1 else cell.value"
@@ -569,7 +569,7 @@ def magic_accountant(p, gt):
 
 def king_of_the_hill(p, gt):
     valley = p["valley"]
-    X = col(gt, p["X"])
+    X = p["colour"]
     word, cmp = ("lower", "<") if valley else ("higher", ">")
     return card("⛰️" if not valley else "🕳️", "King of the Hill" if not valley else "King of the Valley",
                 f"""{an(X).capitalize()} cell is {'in a valley' if valley else 'a king'} when its {thing(gt)} is {word}
@@ -586,7 +586,7 @@ def king_of_the_hill(p, gt):
 
 
 def divisibility_detective(p, gt):
-    b, m = gt.base, p["m"]
+    b, m = gt.base, p["divisor"]
     lines, kind = _AXIS[p["scope"]]
     base_note = "" if b == 10 else f" (base {b}: the digits go 0-9 then A, B, ...)"
     return card("🔍", "Divisibility Detective", f"""Read each {kind} as one big number{base_note}. Every
