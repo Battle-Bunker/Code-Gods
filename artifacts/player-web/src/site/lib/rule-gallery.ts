@@ -1,0 +1,110 @@
+/**
+ * The rule gallery's model (pages site/pages/rule-gallery.tsx and rule-family.tsx): pure library data, no server.
+ *
+ *   setup     the rule-determining settings: an object type and its type args (Grid: size, symbols, colours)
+ *   families  the richly annotated families (game-utilities LENSES) the setup's board can deal
+ *   params    one draw of a family: each param a field whose values come from the family's finite support
+ *
+ * Both pages keep everything in GET params: the type args by their own names (size, symbols, colours; objectType
+ * only when it is not Grid) and every family param by its name, so a tile's link opens its family page on exactly
+ * the board and params the tile showed. Unit tested in test/rule-gallery.test.ts.
+ */
+import { instantiate, objectType, seededRng, type Instantiation, type TypeArgs } from "@workspace/game-types";
+import { LENSES, applicable, context, family, isPlayableInstantiation, playableInstantiations, type Params } from "@workspace/game-utilities";
+
+export interface GallerySetup { objectType: string; typeArgs: TypeArgs }
+type Scalar = string | number | boolean;
+
+const DEFAULT_TYPE = "Grid";
+export const DEFAULT_SETUP: GallerySetup = Object.freeze({ objectType: DEFAULT_TYPE, typeArgs: Object.freeze({ ...objectType(DEFAULT_TYPE).defaults }) });
+
+/** The object types the setup form offers (every type the game supports). */
+export const galleryObjectTypes = (): { id: string; label: string; emoji: string }[] =>
+  ["Grid", "Int", "string"].map(id => { const t = objectType(id); return { id, label: t.label, emoji: t.emoji }; });
+
+/** The setup form's fields for an object type: each type param with the values some playable board has. */
+export function setupFields(objectTypeId: string): { id: string; label: string; options: { value: string | number; label: string }[] }[] {
+  const t = objectType(objectTypeId), boards = playableInstantiations(objectTypeId);
+  return t.params.map(p => {
+    const values = [...new Set(boards.map(b => b.args[p.id]))];
+    const label = (v: string | number) => (p.kind === "component" ? p.options.find(o => o.id === v)?.label ?? String(v) : String(v));
+    return { id: p.id, label: p.label, options: values.map(value => ({ value, label: label(value) })) };
+  });
+}
+
+/** The instantiation of a setup (throws on an invalid one). */
+export const instOf = (setup: GallerySetup): Instantiation => instantiate(setup.objectType, setup.typeArgs);
+
+/** The setup in a query string; anything missing takes the type's default, and an unplayable board the beginner board. */
+export function setupFromSearch(search: string): GallerySetup {
+  const q = new URLSearchParams(search);
+  const typeId = q.get("objectType") ?? DEFAULT_TYPE;
+  let t;
+  try { t = objectType(typeId); } catch { return DEFAULT_SETUP; }
+  const args: Record<string, string | number> = { ...t.defaults };
+  for (const p of t.params) {
+    const raw = q.get(p.id);
+    if (raw !== null) args[p.id] = p.kind === "int" ? Number(raw) : raw;
+  }
+  try {
+    const inst = instantiate(typeId, args);
+    return isPlayableInstantiation(inst) ? { objectType: typeId, typeArgs: { ...inst.args } } : DEFAULT_SETUP;
+  } catch { return DEFAULT_SETUP; }
+}
+
+/** The annotated families this board can deal, in the lens registry's order. */
+export function galleryFamilies(inst: Instantiation): string[] {
+  return LENSES.map(l => l.familyId).filter(id => {
+    const f = family(id);
+    return f.role === "reward" && applicable(f, inst).ok;
+  });
+}
+
+const support = (familyId: string, inst: Instantiation) => family(familyId).support(context(inst)) as readonly Record<string, Scalar>[];
+
+/** A tile's fields: each param of the family and the values it takes somewhere in the support (support order). */
+export function paramFields(familyId: string, inst: Instantiation): { key: string; options: Scalar[] }[] {
+  const sup = support(familyId, inst), keys: string[] = [];
+  for (const p of sup) for (const k of Object.keys(p)) if (!keys.includes(k)) keys.push(k);
+  return keys.map(key => ({ key, options: [...new Set(sup.map(p => p[key]))] }));
+}
+
+/** The support entry that agrees with `wanted` on the most keys (`must` keys first), the support's first on a tie. */
+function closest(familyId: string, inst: Instantiation, wanted: Record<string, unknown>, must: readonly string[] = []): Params {
+  let best: Record<string, Scalar> | undefined, bestScore = -1;
+  for (const p of support(familyId, inst)) {
+    if (must.some(k => p[k] !== wanted[k])) continue;
+    const score = Object.keys(p).filter(k => p[k] === wanted[k]).length;
+    if (score > bestScore) { best = p; bestScore = score; }
+  }
+  return { ...(best ?? support(familyId, inst)[0]) };
+}
+
+/** The params after one field changes: that field's value, the rest kept where the support allows. */
+export const withParam = (familyId: string, inst: Instantiation, params: Params, key: string, value: Scalar): Params =>
+  closest(familyId, inst, { ...params, [key]: value }, [key]);
+
+/** A random draw of the family's params (its own sampler), repeatable by seed. */
+export const randomParams = (familyId: string, inst: Instantiation, seed: number | string): Params =>
+  ({ ...family(familyId).sample(seededRng(seed), context(inst)) });
+
+/** The query string of a setup and (optionally) a family's params. */
+export function gallerySearch(setup: GallerySetup, params: Params = {}): string {
+  const q = new URLSearchParams();
+  if (setup.objectType !== DEFAULT_TYPE) q.set("objectType", setup.objectType);
+  for (const p of objectType(setup.objectType).params) if (setup.typeArgs[p.id] !== undefined) q.set(p.id, String(setup.typeArgs[p.id]));
+  for (const [k, v] of Object.entries(params)) q.set(k, String(v));
+  const s = q.toString();
+  return s ? `?${s}` : "";
+}
+
+/** A family's params from a query string: each named param matched against its support values, the rest completed. */
+export function paramsFromSearch(familyId: string, inst: Instantiation, search: string): Params {
+  const q = new URLSearchParams(search), wanted: Record<string, Scalar> = {}, given: string[] = [];
+  for (const { key, options } of paramFields(familyId, inst)) {
+    const raw = q.get(key);
+    const match = raw === null ? undefined : options.find(o => String(o) === raw);
+    if (match !== undefined) { wanted[key] = match; given.push(key); }
+  }
+  return closest(familyId, inst, wanted, given);
+}
