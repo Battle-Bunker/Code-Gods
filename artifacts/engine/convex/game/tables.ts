@@ -175,10 +175,11 @@ export const gameTables = {
     tablesStorageId: v.optional(v.id("_storage")),
     /**
      * Public: the engine's ticks for this game are failing and being retried with backoff (engine/loop.ts tickFailed);
-     * cleared by the next tick that succeeds. `reason` is a fixed, non-revealing phrase (never the raw error, which
-     * may name a god's family); the raw error goes to the deployment's logs.
+     * cleared by the next tick that succeeds. Written when the failures start (or their reason changes), never per retry
+     * (the count lives on gameEngine). `reason` is a fixed, non-revealing phrase (never the raw error, which may name a
+     * god's family); the raw error goes to the deployment's logs.
      */
-    engineError: v.optional(v.object({ reason: v.string(), since: v.number(), failures: v.number(), retryAt: v.number() })),
+    engineError: v.optional(v.object({ reason: v.string(), since: v.number() })),
     endedAt: v.optional(v.number()), endReason: v.optional(v.union(v.literal("lifetime"), v.literal("owner"))),
     /** LEGACY (gameClocks.scoreboard: published every scoreIntervalSeconds, a hot field too). */
     scoreboard: v.optional(scoreboardV),
@@ -222,6 +223,8 @@ export const gameTables = {
     /** Next tickBatches sequence number. */
     nextBatch: v.number(),
     stats: statsV,
+    /** Ticks failed in a row (engine/loop.ts tickFailed: the retry backoff); 0 or absent while the loop is healthy. */
+    failures: v.optional(v.number()),
   }).index("by_game", ["gameId"]),
 
   /**

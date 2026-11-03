@@ -117,7 +117,8 @@ async function launch(ctx: ActionCtx, settings: GameSettings, deals: readonly De
   try {
     return started = await ctx.runMutation(internal.game.lobby.commitStart, { ...args, tablesStorageId });
   } finally {
-    if (!started) await ctx.storage.delete(tablesStorageId);   // not started (a refused or stale start): no game holds the file
+    // Not started (a refused or stale start): no game holds the file. Never let the cleanup hide the start's own error.
+    if (!started) await ctx.storage.delete(tablesStorageId).catch(error => console.warn(`pinned tables ${tablesStorageId} not deleted: ${String(error)}`));
   }
 }
 

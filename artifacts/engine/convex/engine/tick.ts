@@ -80,10 +80,6 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
     if (game.phase === "ended" || game.phase === "recovery") return { result: "stopped" };
     const now = Date.now();
     if (isIdle(snap.lastActivity, now)) return ctx.runMutation(internal.engine.loop.commit, { ...base, kind: "park" });
-    // The game's own tables (engine/pinned.ts), pinned at its start (or here, from planning on, for a game started
-    // before pinning): a deploy that re-keys the shipped tables never reaches a game in progress.
-    const deals = snap.deities.map(d => ({ godId: d.godId, utility: d.utility as UtilityDescriptor }));
-    const tables = await gameScoringTables(ctx, game, deals);
 
     // Clock: planning and pauses end at their deadline; world time then runs from that deadline.
     let phase: Doc<"games">["phase"] = game.phase, lastTick = game.lastTick;
@@ -101,9 +97,14 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
         const failed = sandboxes.some(s => s.state === "failed");
         return ctx.runMutation(internal.engine.loop.commit, { ...base, kind: "wait", wakeAt: now + (failed ? HOLD_FAILED_POLL_MS : HOLD_POLL_MS) });
       }
-      phase = "running"; lastTick = Math.min(now, end.at);
+      // Not before lastTick: a game whose ticks failed past its deadline starts its world at the retry (loop.ts tickFailed).
+      phase = "running"; lastTick = Math.max(game.lastTick, Math.min(now, end.at));
       events.push({ t: "phase", phase: "running", world: game.worldSeconds });
     }
+    // The game's own tables (engine/pinned.ts), pinned at its start (or by its first simulating tick, for a game started
+    // before pinning): a deploy that re-keys the shipped tables never reaches a game in progress.
+    const deals = snap.deities.map(d => ({ godId: d.godId, utility: d.utility as UtilityDescriptor }));
+    const tables = await gameScoringTables(ctx, game, deals);
     const started = performance.now();
     const target = game.worldSeconds + Math.max(0, now - lastTick) / 1000;
     const until = Math.min(target, game.endAtWorld);

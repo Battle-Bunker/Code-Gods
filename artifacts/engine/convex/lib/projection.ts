@@ -293,13 +293,14 @@ export type ObservationInput = {
 export function observation(input: ObservationInput): Observation {
   const { room, game, self, deity } = input, now = input.nowMs ?? Date.now();
   const settings = (game?.settings ?? room.settings) as GameSettings;
+  const notice = game ? gameNotice(game) : undefined;
   return observationSchema.parse({
     // Grows with every room change and every commit that moves the world (the world clock, in ms).
     version: VERSION, roomId: room._id, revision: room.seq + Math.round((game?.worldSeconds ?? 0) * 1000),
     roomShortCode: room.shortCode, gameShortCode: game?.shortCode, seated: !!deity,
     gameId: game?._id, planningEndsAt: game?.planningEndsAt, pauseEndsAt: game?.pauseEndsAt,
     phase: game?.phase === "recovery" ? "paused" : game?.phase ?? "lobby",
-    ...(game && gameNotice(game) ? { notice: gameNotice(game) } : {}),
+    ...(notice ? { notice } : {}),
     language: allowedLanguages(settings)[0], languages: allowedLanguages(settings),
     ...(input.sandboxes ? { sandboxes: input.sandboxes.map(s => ({ language: s.language, state: s.state, ...(s.reason ? { reason: s.reason } : {}) })) } : {}),
     instance: objectInstance(settings),

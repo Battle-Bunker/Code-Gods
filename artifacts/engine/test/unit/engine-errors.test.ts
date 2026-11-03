@@ -17,12 +17,12 @@ test("the public reason is a fixed phrase, never the error", () => {
 });
 
 test("a game's notice: engine retrying, idle park, safety pause, or none", () => {
-  assert.deepEqual(gameNotice({ phase: "running", engineError: { reason: "an internal error", failures: 1 } }),
-    { kind: "retrying", text: "The engine hit an error and is retrying: an internal error (1 try so far)." });
+  assert.deepEqual(gameNotice({ phase: "running", engineError: { reason: "an internal error" } }),
+    { kind: "retrying", text: "The engine hit an error and is retrying: an internal error." });
   assert.deepEqual(gameNotice({ phase: "recovery", autoResume: true, recoveryReason: "idle" }),
     { kind: "idle", text: "Paused: no human activity for 30 min — click anywhere to resume." });
   assert.equal(gameNotice({ phase: "recovery", recoveryReason: "The world reached its 2,000-object safety limit." })?.text,
     "Paused for safety: The world reached its 2,000-object safety limit. The room's owner can resume it.");
   assert.equal(gameNotice({ phase: "running" }), undefined);
-  assert.equal(gameNotice({ phase: "ended", engineError: { reason: "x", failures: 2 } }), undefined);
+  assert.equal(gameNotice({ phase: "ended", engineError: { reason: "x" } }), undefined);
 });

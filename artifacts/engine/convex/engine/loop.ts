@@ -102,12 +102,12 @@ export async function endGame(ctx: MutationCtx, game: LiveGame, reason: "lifetim
   const nextBatch = await appendEvents(ctx, ended, [{ t: "phase", phase: "ended", world: ended.worldSeconds, reason }], ended.worldSeconds, ended.worldSeconds,
     undefined, scoreboard.totals, scoreboard.totals);
   await writeGame(ctx, game, {
-    ...patch, phase: "ended", endedAt: now, endReason: reason, executionEpoch: ended.executionEpoch, autoResume: undefined, engineError: undefined,
+    ...patch, phase: "ended", endedAt: now, endReason: reason, executionEpoch: ended.executionEpoch, autoResume: undefined, engineError: undefined, failures: 0,
     summary, nextBatch, scoreboard, tick: { seq: game.tick.seq + 1, leaseUntil: 0 },
   });
   // Its pinned tables (engine/pinned.ts) are no longer needed: nothing scores an ended game.
   if (game.tablesStorageId) {
-    await ctx.storage.delete(game.tablesStorageId);
+    if (await ctx.db.system.get(game.tablesStorageId)) await ctx.storage.delete(game.tablesStorageId);
     await ctx.db.patch(game._id, { tablesStorageId: undefined });
   }
   // The ended game never changes again: its whole replay is stored once, after this commit (convex/replays.ts).
@@ -126,7 +126,7 @@ export async function endGame(ctx: MutationCtx, game: LiveGame, reason: "lifetim
 export async function parkGame(ctx: MutationCtx, game: LiveGame, reason: string, autoResume: boolean) {
   const nextBatch = await appendEvents(ctx, game, [{ t: "phase", phase: "recovery", world: game.worldSeconds, reason }], game.worldSeconds, game.worldSeconds);
   await writeGame(ctx, game, {
-    phase: "recovery", recoveryReason: reason, autoResume: autoResume || undefined, executionEpoch: game.executionEpoch + 1, engineError: undefined,
+    phase: "recovery", recoveryReason: reason, autoResume: autoResume || undefined, executionEpoch: game.executionEpoch + 1, engineError: undefined, failures: 0,
     nextBatch, tick: { seq: game.tick.seq + 1, leaseUntil: 0 },
   });
 }
@@ -220,7 +220,7 @@ export const commit = internalMutation({
       await parkGame(ctx, game, "The engine went idle after 30 minutes without human activity. The game resumes when a player returns.", true);
       return { result: "parked" as const };
     }
-    const recovered: Partial<LiveGame> = game.engineError ? { engineError: undefined } : {};
+    const recovered: Partial<LiveGame> = game.engineError || game.failures ? { engineError: undefined, failures: 0 } : {};
     if (args.kind === "wait") {
       // wakeAt: planning held past its deadline for a warming sandbox polls instead of spinning.
       await scheduleTick(ctx, game, args.wakeAt ?? nextDeadline(game, now), recovered);
@@ -320,12 +320,13 @@ export const tickFailed = internalMutation({
   handler: async (ctx, { gameId, seq, message }) => {
     const game = await liveGame(ctx, gameId);
     if (!game || game.tick.seq !== seq || !["planning", "running", "paused"].includes(game.phase)) return { result: "stale" as const };
-    const now = Date.now(), failures = (game.engineError?.failures ?? 0) + 1, retryAt = now + retryDelayMs(failures);
+    const now = Date.now(), failures = (game.failures ?? 0) + 1, retryAt = now + retryDelayMs(failures);
     console.error(`tick ${gameId}#${seq} failed (${failures} in a row; retrying in ${retryAt - now} ms): ${message}`);
-    const engineError = { reason: engineErrorReason(message), since: game.engineError?.since ?? now, failures, retryAt };
-    await scheduleTick(ctx, game, Math.max(retryAt, nextDeadline(game, now) ?? retryAt), {
-      engineError, ...(game.phase === "running" ? { lastTick: retryAt } : {}),
-    });
+    // The public notice changes only when the failures start or their reason changes (games is the cold header).
+    const reason = engineErrorReason(message);
+    const engineError = game.engineError?.reason === reason ? game.engineError : { reason, since: game.engineError?.since ?? now };
+    // lastTick: the retry is where world time resumes (engine/tick.ts never starts it before lastTick), in every phase.
+    await scheduleTick(ctx, game, Math.max(retryAt, nextDeadline(game, now) ?? retryAt), { engineError, failures, lastTick: retryAt });
     return { result: "retrying" as const, failures, retryAt };
   },
 });
@@ -341,7 +342,7 @@ export const pinTables = internalMutation({
   args: { gameId: v.id("games"), storageId: v.id("_storage") },
   handler: async (ctx, { gameId, storageId }) => {
     const game = await ctx.db.get(gameId);
-    if (!game) return null;
+    if (!game || game.phase === "ended") return null;   // ended meanwhile: endGame deletes only a file it can see
     if (game.tablesStorageId) return game.tablesStorageId;
     await ctx.db.patch(gameId, { tablesStorageId: storageId });
     return storageId;
@@ -390,7 +391,7 @@ export const liveProgress = internalQuery({
       const games = await ctx.db.query("games").withIndex("by_phase", q => q.eq("phase", phase)).take(200);
       for (const game of await Promise.all(games.map(g => withEngine(ctx, g)))) {
         out.push({ id: game._id, shortCode: game.shortCode, phase: game.phase, seq: game.tick.seq, commits: game.stats.commits,
-          worldSeconds: game.worldSeconds, idleParked: !!game.autoResume, engineError: game.engineError ?? null });
+          worldSeconds: game.worldSeconds, idleParked: !!game.autoResume, engineError: game.engineError ? { ...game.engineError, failures: game.failures ?? 0 } : null });
       }
     }
     return { now: Date.now(), idle: isIdle(await lastHumanActivity(ctx)), games: out };

@@ -69,11 +69,19 @@ success, else the deploy fails; CLAUDE.md "Schema migrations"),
 `upload-runtime` (skipped when the bundle is already there), `upload-calibration` (uploads only the calibration files
 whose bytes changed and removes instances no longer in git, right after the push; the engine loads them lazily, and a
 new shape is offered within a minute; a push that changes table keys, e.g. an edited card, leaves the affected tables
-stale for the seconds until this step lands), `deploy-static --if-changed` (the app's
+stale for new starts until this step lands, while a game in progress scores with the tables pinned at its start,
+`engine/pinned.ts`), `deploy-static --if-changed` (the app's
 one site, `app`; a build that hashes to the deployment's env var `STATIC_SHA256_APP`, recorded at its last upload,
 isn't uploaded again), and a smoke test
 (`/api/health`, `/mcp` answers 401, `runtime/probe:smoke`, and `calibration/node:probe` loading the Grid default's
-tables from storage).
+tables from storage), and last a read-only check that every game running on the deployment still ticks
+(`scripts/check-live-games.mjs`: each must commit again within 90 s; it fails the deploy loudly, naming the game, and
+never touches game data).
+
+**A game whose ticks fail** is never a silent stall: the tick records it (`games.engineError`, a fixed public phrase;
+the raw error is in the deployment's logs as `tick … failed`), retries with backoff (2 s doubling to 60 s), and clears
+it on the next success. Players and spectators see "The engine hit an error and is retrying: …"; an idle park reads
+"Paused: no human activity for 30 min — click anywhere to resume".
 
 **The gate** is the `checks` job: the root typecheck, the offline unit suites (`game-utilities`, which holds nearly all
 the test time, is split over 8 parallel shards by `CG_SHARD=k/8`, `lib/game-utilities/test/shard.ts`; every other

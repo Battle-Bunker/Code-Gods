@@ -78,15 +78,18 @@ test("a tick that keeps failing is shown to players and spectators, retried with
   try {
     const pinned = (await gameDoc(gameId))!.tablesStorageId;
     const junk = await admin.action(internal.testing.junkFile, {});
+    const t0 = Date.now();
     await admin.mutation(internal.testing.setGameTables, { gameId, storageId: junk });
-    const failing = await waitFor(async () => { const e = (await gameDoc(gameId))?.engineError; return e && e.failures >= 3 && e; }, "three failed ticks", 60_000, 250);
-    // Backoff: 2 s, 4 s, 8 s … (lib/engineErrors.ts retryDelayMs), never a tight loop.
-    assert.ok(failing.retryAt - Date.now() <= 8_000 + 1_000 && failing.since <= Date.now() - 5_000, `backed off: ${JSON.stringify(failing)}`);
+    await waitFor(async () => ((await raw(gameId)).game.failures ?? 0) >= 3, "three failed ticks", 60_000, 250);
+    // Backoff: 2 s, then 4 s … (lib/engineErrors.ts retryDelayMs), never a tight loop; one notice, written once.
+    assert.ok(Date.now() - t0 >= 6_000, `three failures took ${Date.now() - t0} ms: no backoff`);
+    const notice = (await gameDoc(gameId))!.engineError;
+    assert.ok(notice && notice.since >= t0, `the notice: ${JSON.stringify(notice)}`);
     const before = await commits(gameId);
 
     const obs = await ada.c.query(api.player.observation, { roomId });
     assert.equal(obs.notice?.kind, "retrying");
-    assert.match(obs.notice.text, /^The engine hit an error and is retrying: an internal error \(\d+ tries so far\)\.$/);
+    assert.equal(obs.notice.text, "The engine hit an error and is retrying: an internal error.");
     const header = await host.c.query(api.games.header, { code: shortCode });
     assert.equal(header.notice?.text.startsWith("The engine hit an error and is retrying"), true, "the game page shows it too");
     // Disclosure: the raw error never reaches a player (it may name a god's family or params).
@@ -95,6 +98,7 @@ test("a tick that keeps failing is shown to players and spectators, retried with
     // Recovery: the next retry succeeds, the notice goes and the world moves again.
     await admin.mutation(internal.testing.setGameTables, { gameId, storageId: pinned });
     await waitFor(async () => (await commits(gameId)) > before && !(await gameDoc(gameId))?.engineError, "the game recovers by itself", 40_000, 250);
+    assert.equal((await raw(gameId)).game.failures ?? 0, 0, "the backoff resets");
     assert.equal((await ada.c.query(api.player.observation, { roomId })).notice, undefined);
     assert.equal((await host.c.query(api.games.header, { code: shortCode })).notice, null);
   } finally {

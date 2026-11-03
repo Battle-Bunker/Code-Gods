@@ -3,6 +3,7 @@
  * spectators are told. The public reason is a fixed phrase chosen from the error, never the error itself: an engine
  * error can name a god's family or params ("No calibration table for chessmaster …"), which no other player may see.
  */
+import { IDLE_MS } from "./world.ts";
 
 /** The first retry waits 2 s; each failure doubles it, up to a minute (the watchdog's own period). */
 export const RETRY_BASE_MS = 2_000;
@@ -20,18 +21,17 @@ export function engineErrorReason(message: string): string {
 }
 
 /** The status line shown to everyone watching a game whose engine is retrying. */
-export const engineErrorLine = (e: { reason: string; failures: number }) =>
-  `The engine hit an error and is retrying: ${e.reason} (${e.failures} ${e.failures === 1 ? "try" : "tries"} so far).`;
+export const engineErrorLine = (e: { reason: string }) => `The engine hit an error and is retrying: ${e.reason}.`;
 
 /** What players and spectators are told about a game that is not advancing on its own. */
 export type GameNotice = { kind: "retrying" | "idle" | "safety"; text: string };
-export const IDLE_NOTICE = "Paused: no human activity for 30 min — click anywhere to resume.";
+export const IDLE_NOTICE = `Paused: no human activity for ${IDLE_MS / 60_000} min — click anywhere to resume.`;
 /**
  * The game's notice, if any: its engine retrying a failing tick, an idle park (any signed-in human's click or key resumes
  * it: activity.touch), or a pause for safety (the owner resumes it). Shown by the player app's header and the game page,
  * so a park or a failing engine is never mistaken for a crash.
  */
-export function gameNotice(game: { phase: string; autoResume?: boolean; recoveryReason?: string; engineError?: { reason: string; failures: number } }): GameNotice | undefined {
+export function gameNotice(game: { phase: string; autoResume?: boolean; recoveryReason?: string; engineError?: { reason: string } }): GameNotice | undefined {
   if (game.phase === "recovery") {
     if (game.autoResume) return { kind: "idle", text: IDLE_NOTICE };
     return { kind: "safety", text: `Paused for safety${game.recoveryReason ? `: ${game.recoveryReason.replace(/\.$/, "")}` : ""}. The room's owner can resume it.` };

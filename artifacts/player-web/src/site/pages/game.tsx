@@ -73,7 +73,6 @@ function statusLine(game: GameHeader, now: number) {
   const plan = secsLeft(game.planningEndsAt, now), pause = secsLeft(game.pauseEndsAt, now);
   // An idle park, a pause for safety or the engine retrying a failing tick (engine lib/engineErrors.ts gameNotice).
   if (game.notice) return game.notice.text;
-  if (game.phase === "recovery") return `Paused for safety${game.recoveryReason ? `: ${game.recoveryReason.replace(/\.$/, "")}` : ""}.`;
   if (pause && pause > 0) return `Paused · resumes in ${fmt(pause, 0)} s.`;
   if (plan && plan > 0) return `Planning · world starts in ${fmt(plan, 0)} s.`;
   // Past its deadline, planning holds until every allowed language's agent sandbox is warm (the engine's tick).
