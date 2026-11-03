@@ -96,6 +96,8 @@ export const observationSchema = z.object({
   /** The game's energy rules. God energy pays summons (real time); each agent earns per world second. */
   economy: z.object({ energyPerSecond: finite, agentEnergyPerSecond: finite, agentBatteryActs: finite,
     maxAgentsPerGod: z.number().int().nonnegative(), penaltyWeight: finite, worldSeconds: finite,
+    /** How the game ends and its length in world seconds (the exact length when "fixed", else the half-life): the game timer. */
+    durationMode: z.enum(["fixed", "halfLife"]).optional(), lengthSeconds: finite.optional(),
     perActFloorBits: finite.optional(), commitClause: z.boolean().optional(), objectSelection: z.enum(["uniform", "shelter"]).optional() }).optional(),
   self: z.object({ godId: id, label: z.string().max(128), isAI: z.boolean(), energy: finite, ready: z.boolean(), pauseUsed: z.boolean().optional(),
     utility: utilityCardSchema.optional(),

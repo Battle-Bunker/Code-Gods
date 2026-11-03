@@ -20,6 +20,7 @@ import { useRoom } from "@/sdk";
 import { Confirmations } from "@/shell/confirmations";
 import { SAFE_MODE } from "@/shell/safe-mode";
 import { Header, HeaderBanners } from "@/core/header";
+import { DockGameTimer } from "@/core/game-timer";
 import { assistantPaneOf } from "@workspace/player-client/layout";
 import { composer } from "@/core/chat/composer";
 import { useSituation } from "@/core/game/situation";
@@ -147,7 +148,7 @@ function Screen({ panels, replay }: { panels: Panels; replay?: ShellReplay }) {
 
   return (
     <div className="flex h-[100dvh] flex-col overflow-hidden bg-background">
-      {replay ? replay.header : <><Header /><HeaderBanners /></>}
+      {replay ? replay.header : <><Header /><DockGameTimer /><HeaderBanners /></>}
       <main data-testid="dock" className="min-h-0 flex-1">
         {wide ? <Suspense fallback={<p className="p-4 text-sm text-muted-foreground">Loading the dock…</p>}><DesktopDock /></Suspense> : <StackedDock />}
       </main>
