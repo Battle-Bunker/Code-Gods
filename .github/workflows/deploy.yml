@@ -6,7 +6,9 @@
 # The gate (root typecheck, offline unit suites, sandbox tests) blocks every production deploy. On develop it runs
 # in the parallel `checks` job instead: it marks the commit red on failure but never holds back the dev deploy, which
 # keeps only the cheap checks (env var names, the functions typecheck in `convex deploy`, the worker build, the
-# bundle pin, the post-deploy smoke test).
+# bundle pin, the post-deploy smoke test). On main the gate is skipped when the `lookup` job proves it already passed:
+# a Deploy run on develop whose head commit has the identical tree (a release is a merge of develop) and whose
+# `checks` job succeeded. No match, a red/cancelled run or any API error runs the gate in full.
 name: Deploy
 
 on:
@@ -19,6 +21,22 @@ permissions:
   contents: read
 
 jobs:
+  lookup:
+    if: github.ref_name == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read   # list the develop runs and their jobs
+    outputs:
+      passed: ${{ steps.find.outputs.passed }}   # "true" only on a proven match; empty (job failed) counts as not passed
+    steps:
+      - uses: actions/checkout@v4
+      - id: find
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node .github/scripts/previous-gate.mjs "$(git rev-parse 'HEAD^{tree}')" | tee -a "$GITHUB_OUTPUT"
+
   checks:
     if: github.ref_name == 'develop'
     runs-on: ubuntu-latest
@@ -62,7 +80,8 @@ jobs:
       - run: pnpm --filter @workspace/game-runtime test
 
   deploy:
-    if: github.ref_name == 'develop' || github.ref_name == 'main'
+    needs: lookup   # skipped on develop, which does not wait for it
+    if: ${{ !cancelled() && (github.ref_name == 'develop' || github.ref_name == 'main') }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: ${{ github.ref_name == 'main' && 'production' || 'development' }}
@@ -84,8 +103,8 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # ---- gate (production only; develop runs it in the parallel `checks` job) ----
-      - if: github.ref_name == 'main'
+      # ---- gate (production only, unless develop already passed it on this tree; develop runs it in the parallel `checks` job) ----
+      - if: github.ref_name == 'main' && needs.lookup.outputs.passed != 'true'
         uses: actions/cache@v4
         with:
           path: |
@@ -94,11 +113,11 @@ jobs:
             artifacts/*/tsconfig.tsbuildinfo
           key: tsbuild2-${{ github.sha }}   # tsbuild2: caches saved before every dist was included must never be restored
           restore-keys: tsbuild2-
-      - if: github.ref_name == 'main'
+      - if: github.ref_name == 'main' && needs.lookup.outputs.passed != 'true'
         run: pnpm run typecheck
-      - if: github.ref_name == 'main'
+      - if: github.ref_name == 'main' && needs.lookup.outputs.passed != 'true'
         run: pnpm run test:offline
-      - if: github.ref_name == 'main'
+      - if: github.ref_name == 'main' && needs.lookup.outputs.passed != 'true'
         run: pnpm --filter @workspace/game-utilities calibrate --check
 
       # ---- the pinned runtime bundle (Python) ----
@@ -113,7 +132,7 @@ jobs:
       - name: Worker build is current   # 0.1s; never deploy a stale sandbox worker
         working-directory: lib/game-runtime
         run: node scripts/build-worker.mjs --check
-      - if: github.ref_name == 'main'
+      - if: github.ref_name == 'main' && needs.lookup.outputs.passed != 'true'
         run: pnpm --filter @workspace/game-runtime test   # sandboxes, incl. the bundle and the worker build
 
       # ---- deploy (from here on the deploy key is in the environment) ----

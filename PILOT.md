@@ -79,7 +79,12 @@ tables from storage).
 and the `game-runtime` sandbox tests run before every **production** deploy, inside the deploy job. On
 **`develop`** they run in the parallel `checks` job instead, so a change reaches dev in about 1½–2 minutes.
 A failure there marks the commit red but doesn't hold back the dev deploy, so fix or revert it before
-merging `develop` into `main`. A newer push to `develop` cancels the dev deploy still running; production
+merging `develop` into `main`.
+A release that merges `develop` has the identical tree, so on **`main`** the `lookup` job
+(`.github/scripts/previous-gate.mjs`, workflow token with `actions: read`) first looks for a Deploy run on `develop`
+whose head commit has the same tree and whose `checks` job succeeded; if there is one the gate is not re-run and the
+production deploy takes only the deploy job's own time. No match, a red, cancelled or still-running `checks`, or any
+API error runs the gate in full (a lookup problem can only cost time). A newer push to `develop` cancels the dev deploy still running; production
 deploys never cancel. Pushes that only change `*.md`, `docs/`, `.agents/` or `.claude/` don't deploy.
 
 Re-run a failed run from the Actions tab; a manual run ("Run workflow") works on `develop` and `main` only.
