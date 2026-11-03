@@ -18,7 +18,7 @@ const fieldClass = "border bg-background px-2 py-1 text-sm";
 export function SetupForm({ setup, onChange, language, onLanguage }: {
   setup: GallerySetup; onChange: (setup: GallerySetup) => void; language: SourceLanguage; onLanguage: (l: SourceLanguage) => void;
 }) {
-  const fields = useMemo(() => setupFields(setup.objectType), [setup.objectType]);
+  const fields = useMemo(() => setupFields(setup), [setup]);
   return (
     <fieldset className="flex flex-wrap items-end gap-4" data-testid="form-gallery-setup">
       <legend className="sr-only">Board</legend>

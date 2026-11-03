@@ -5,11 +5,11 @@
  *   families  the richly annotated families (game-utilities LENSES) the setup's board can deal
  *   params    one draw of a family: each param a field whose values come from the family's finite support
  *
- * Both pages keep everything in GET params: the type args by their own names (size, symbols, colours; objectType
+ * The family page keeps everything in GET params (the gallery keeps its board there; a tile's params ride on its link): the type args by their own names (size, symbols, colours; objectType
  * only when it is not Grid), every family param by its name and `lang` for TypeScript source, so a tile's link opens its family page on exactly
  * the board and params the tile showed. Unit tested in test/rule-gallery.test.ts.
  */
-import { instantiate, objectType, seededRng, type Instantiation, type TypeArgs } from "@workspace/game-types";
+import { OBJECT_TYPES, instantiate, objectType, seededRng, type Instantiation, type TypeArgs } from "@workspace/game-types";
 import { LENSES, applicable, context, family, isPlayableInstantiation, playableInstantiations, type Params } from "@workspace/game-utilities";
 
 export interface GallerySetup { objectType: string; typeArgs: TypeArgs }
@@ -20,13 +20,16 @@ export const DEFAULT_SETUP: GallerySetup = Object.freeze({ objectType: DEFAULT_T
 
 /** The object types the setup form offers (every type the game supports). */
 export const galleryObjectTypes = (): { id: string; label: string; emoji: string }[] =>
-  ["Grid", "Int", "string"].map(id => { const t = objectType(id); return { id, label: t.label, emoji: t.emoji }; });
+  OBJECT_TYPES.map(t => ({ id: t.id, label: t.label, emoji: t.emoji }));
 
-/** The setup form's fields for an object type: each type param with the values some playable board has. */
-export function setupFields(objectTypeId: string): { id: string; label: string; options: { value: string | number; label: string }[] }[] {
-  const t = objectType(objectTypeId), boards = playableInstantiations(objectTypeId);
+/**
+ * The setup form's fields for a setup: each type param with the values some playable board has, plus the setup's own
+ * value when it is a valid board the presets do not list (Int(5,100)), so a select always shows what the page uses.
+ */
+export function setupFields(setup: GallerySetup): { id: string; label: string; options: { value: string | number; label: string }[] }[] {
+  const t = objectType(setup.objectType), boards = playableInstantiations(setup.objectType);
   return t.params.map(p => {
-    const values = [...new Set(boards.map(b => b.args[p.id]))];
+    const values = [...new Set([...boards.map(b => b.args[p.id]), ...(setup.typeArgs[p.id] !== undefined ? [setup.typeArgs[p.id]] : [])])];
     const label = (v: string | number) => (p.kind === "component" ? p.options.find(o => o.id === v)?.label ?? String(v) : String(v));
     return { id: p.id, label: p.label, options: values.map(value => ({ value, label: label(value) })) };
   });
@@ -87,6 +90,17 @@ export const withParam = (familyId: string, inst: Instantiation, params: Params,
 /** A random draw of the family's params (its own sampler), repeatable by seed. */
 export const randomParams = (familyId: string, inst: Instantiation, seed: number | string): Params =>
   ({ ...family(familyId).sample(seededRng(seed), context(inst)) });
+
+/** The GET params the board and language use: a family param must never share one of these names (tested). */
+export const RESERVED_PARAMS = ["objectType", "lang", ...new Set(OBJECT_TYPES.flatMap(t => t.params.map(p => p.id)))];
+
+/** The family params a query string carries as typed (everything but the board and language), for a board that cannot use them. */
+export function rawParamsOf(search: string): Record<string, string> {
+  return Object.fromEntries([...new URLSearchParams(search)].filter(([k]) => !RESERVED_PARAMS.includes(k)));
+}
+
+/** A fresh random seed (the gallery's random params and example objects). */
+export const freshSeed = () => Math.floor(Math.random() * 2 ** 31);
 
 /** The query string of a setup, (optionally) a family's params, and the source language when it is not Python. */
 export function gallerySearch(setup: GallerySetup, params: Params = {}, language: "python" | "typescript" = "python"): string {

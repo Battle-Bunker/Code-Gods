@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 import { LENSES, family, context } from "@workspace/game-utilities";
 import { instantiate } from "@workspace/game-types";
 import {
-  galleryFamilies, gallerySearch, paramFields, paramsFromSearch, randomParams, setupFromSearch, withParam, DEFAULT_SETUP,
+  RESERVED_PARAMS, galleryFamilies, gallerySearch, paramFields, rawParamsOf, setupFields, paramsFromSearch, randomParams, setupFromSearch, withParam, DEFAULT_SETUP,
 } from "../src/site/lib/rule-gallery.ts";
 
 const inSupport = (familyId: string, inst: ReturnType<typeof instantiate>, p: unknown) =>
@@ -66,4 +66,19 @@ test("params missing or outside the support on a family page are completed from 
   assert.ok(inSupport("magic_accountant", inst, p));
   assert.ok(inSupport("magic_accountant", inst, paramsFromSearch("magic_accountant", inst, "?T=99999")));
   assert.deepEqual(paramsFromSearch("set_spotter", inst, "?diag=true"), { diag: true });
+});
+
+test("no annotated family has a param named like a board arg or the language, so links never overwrite the board", () => {
+  for (const args of [{ size: 4, symbols: "base10", colours: "rgb" }, { size: 7, symbols: "cards", colours: "rainbow6" }]) {
+    const inst = instantiate("Grid", args);
+    for (const id of galleryFamilies(inst)) for (const f of paramFields(id, inst)) assert.ok(!RESERVED_PARAMS.includes(f.key), `${id}.${f.key}`);
+  }
+  assert.ok(RESERVED_PARAMS.includes("size") && RESERVED_PARAMS.includes("max") && RESERVED_PARAMS.includes("lang"));
+  assert.deepEqual(rawParamsOf("?size=4&X=1&lang=typescript&axis=rows"), { X: "1", axis: "rows" });
+});
+
+test("a valid board the presets do not list still shows its own values in the setup selects", () => {
+  const fields = setupFields({ objectType: "Int", typeArgs: { min: 5, max: 100 } });
+  assert.ok(fields.find(f => f.id === "min")!.options.some(o => o.value === 5));
+  assert.ok(fields.find(f => f.id === "max")!.options.some(o => o.value === 100));
 });

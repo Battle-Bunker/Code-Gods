@@ -7,11 +7,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useSearch } from "wouter";
 import type { Instantiation } from "@workspace/game-types";
-import { card as cardOf, context, family, type Params } from "@workspace/game-utilities";
+import { context, family, type Params } from "@workspace/game-utilities";
 import { Page } from "@/site/components/layout";
 import { EmptyState } from "@/site/components/page-parts";
 import { ParamFields, SetupForm, familySummary, languageOf, type SourceLanguage } from "@/site/components/rule-gallery-parts";
-import { galleryFamilies, gallerySearch, instOf, randomParams, setupFromSearch, withParam, type GallerySetup } from "@/site/lib/rule-gallery";
+import { freshSeed, galleryFamilies, gallerySearch, instOf, randomParams, setupFromSearch, withParam, type GallerySetup } from "@/site/lib/rule-gallery";
+import { ruleGalleryPath } from "@/site/lib/routes";
 import { routeHref } from "@/core/routes";
 
 export default function RuleGallery() {
@@ -22,7 +23,7 @@ export default function RuleGallery() {
   const inst = useMemo(() => instOf(setup), [setup]);
   const families = useMemo(() => galleryFamilies(inst), [inst]);
   useEffect(() => { document.title = "Rule gallery · Code Gods"; }, []);
-  const go = (s: GallerySetup, l: SourceLanguage) => navigate(`/rule-gallery${gallerySearch(s, {}, l)}`, { replace: true });
+  const go = (s: GallerySetup, l: SourceLanguage) => navigate(ruleGalleryPath(gallerySearch(s, {}, l)), { replace: true });
   return (
     <Page crumbs={[{ label: "Rule gallery" }]}>
       <div className="mx-auto max-w-[1200px] px-4 md:px-6 py-10 space-y-6 rise" data-testid="page-rule-gallery">
@@ -48,7 +49,8 @@ export default function RuleGallery() {
 
 function Tile({ familyId, inst, setup, language }: { familyId: string; inst: Instantiation; setup: GallerySetup; language: SourceLanguage }) {
   const f = family(familyId);
-  const [params, setParams] = useState<Params>(() => randomParams(familyId, inst, Math.floor(Math.random() * 2 ** 31)));
+  const [params, setParams] = useState<Params>(() => randomParams(familyId, inst, freshSeed()));
+  const [sourceOpen, setSourceOpen] = useState(false);
   const summary = useMemo(() => familySummary(familyId, params, inst), [familyId, params, inst]);
   const href = routeHref(import.meta.env.BASE_URL, { kind: "ruleFamily", family: familyId }, gallerySearch(setup, params, language));
   return (
@@ -63,12 +65,12 @@ function Tile({ familyId, inst, setup, language }: { familyId: string; inst: Ins
       <div className="flex items-end gap-2">
         <ParamFields familyId={familyId} inst={inst} params={params} compact onChange={(k, v) => setParams(p => withParam(familyId, inst, p, k, v))} />
         <button type="button" className="border px-1.5 py-0.5 text-xs hover:bg-muted" title="Random settings" aria-label={`Random settings for ${f.name}`}
-          onClick={() => setParams(randomParams(familyId, inst, Math.floor(Math.random() * 2 ** 31)))}>🎲</button>
+          onClick={() => setParams(randomParams(familyId, inst, freshSeed()))}>🎲</button>
       </div>
       <p className="text-sm leading-relaxed" data-testid={`text-summary-${familyId}`}>{summary}</p>
-      <details className="mt-auto text-xs" data-testid={`source-${familyId}`}>
+      <details className="mt-auto text-xs" data-testid={`source-${familyId}`} onToggle={e => setSourceOpen(e.currentTarget.open)}>
         <summary className="cursor-pointer text-muted-foreground">Source ({language === "python" ? "Python" : "TypeScript"})</summary>
-        <Source familyId={familyId} params={params} inst={inst} language={language} />
+        {sourceOpen && <Source familyId={familyId} params={params} inst={inst} language={language} />}
       </details>
     </li>
   );
@@ -76,6 +78,6 @@ function Tile({ familyId, inst, setup, language }: { familyId: string; inst: Ins
 
 /** The card program for these params, in the chosen language. */
 function Source({ familyId, params, inst, language }: { familyId: string; params: Params; inst: Instantiation; language: SourceLanguage }) {
-  const text = useMemo(() => cardOf({ familyId, params }, context(inst)).source[language], [familyId, params, inst, language]);
+  const text = useMemo(() => family(familyId).card[language](params as never, context(inst)), [familyId, params, inst, language]);
   return <pre className="mt-1 max-h-72 overflow-auto whitespace-pre-wrap break-words bg-muted p-2 font-mono text-[11px] leading-snug">{text}</pre>;
 }

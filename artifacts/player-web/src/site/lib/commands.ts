@@ -5,7 +5,7 @@
  * button and its palette row never disagree. Pure: the app passes its state and actions in.
  */
 import { CATALOG, paletteEntries, type PublicFunctionPath } from "@workspace/player-client/catalog";
-import { gamePath, roomPath } from "./routes.ts";
+import { gamePath, roomPath, ruleGalleryPath } from "./routes.ts";
 import {
   commandsFromCatalog, explainTermCommand, glossaryCommands, liveOptions, shortcutsCommand,
   type Availability, type Command, type PaletteContext, type PaletteGroup, type PaletteSection, type Performer, type PickOption,
@@ -238,7 +238,7 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
 
   const uiCommands: Command[] = [
     ui("ui.nav.home", { kind: "navigate", to: "/" }, signedIn),
-    ui("ui.nav.ruleGallery", { kind: "navigate", to: "/rule-gallery" }, signedIn),
+    ui("ui.nav.ruleGallery", { kind: "navigate", to: ruleGalleryPath() }, signedIn),
     ui("ui.nav.room", { kind: "navigate", to: `/rooms/${roomCode ?? ""}` }, () => (game && roomCode ? ok : no("No room here.", { hidden: true }))),
     ui("ui.nav.game", { kind: "navigate", to: gamePath(roomCode ?? "", running?.shortCode ?? "") }, () => (!room ? no("Open a room first.", { hidden: true }) : running ? ok : no("No game is running."))),
     ui("ui.nav.pastGame", { kind: "form", page: { kind: "pick", title: "Open a past game", empty: "No games have finished in this room yet.",
