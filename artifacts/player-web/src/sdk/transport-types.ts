@@ -16,6 +16,11 @@ export type QueryReturns = {
   "player.trajectories": FunctionReturnType<typeof api.player.trajectories>;
   "player.objectsPage": FunctionReturnType<typeof api.player.objectsPage>;
   "rooms.get": FunctionReturnType<typeof api.rooms.get>;
+  "player.objectIds": FunctionReturnType<typeof api.player.objectIds>;
+  "player.object": FunctionReturnType<typeof api.player.object>;
+  "player.objectsTop": FunctionReturnType<typeof api.player.objectsTop>;
+  "player.totals": FunctionReturnType<typeof api.player.totals>;
+  "player.objectDigest": FunctionReturnType<typeof api.player.objectDigest>;
 };
 
 /** A live query (undefined while loading); `hz` is the rate the frame transport asks the host for. */

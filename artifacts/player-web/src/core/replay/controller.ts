@@ -11,7 +11,7 @@ import {
   cursorAtWorld, keyMoments, replayEvents, replayMyUtility, replayObservation, replayTrajectories, scoreSeries, stateAt,
   type KeyMoment, type Replay, type ReplayState,
 } from "@workspace/player-client/replay";
-import { pageObjects, type ObjectCursor, type ObjectFilter, type ObjectSort } from "@workspace/player-client/objects-page";
+import { matchesFilter, pageObjects, sortKey, type ObjectCursor, type ObjectFilter, type ObjectSort } from "@workspace/player-client/objects-page";
 import type { QueryName } from "@/sdk/bridge-protocol";
 import type { ReplaySource } from "@/sdk/replay-source";
 import { DEFAULT_SPEED, SPEEDS } from "./model.ts";
@@ -188,6 +188,8 @@ export class ReplayController {
       : name === "player.events" ? replayEvents(this.replay, at, typeof args.limit === "number" ? args.limit : 20)
       : name === "player.trajectories" ? replayTrajectories(this.replay, at, typeof args.afterSeq === "number" ? args.afterSeq : -1)
       : name === "player.objectsPage" ? replayObjectsPage(this.replay, at, p.state, args)
+      : name === "player.objectIds" || name === "player.object" || name === "player.objectsTop" || name === "player.totals" || name === "player.objectDigest"
+        ? replayObjectViews(name, replayObservation(this.replay, at, p.state).objects, args)
       : name === "player.myUtility" ? replayMyUtility(this.replay, p.pov)
       : undefined;
     this.answers.set(key, value);
@@ -203,6 +205,45 @@ function replayObjectsPage(replay: Replay, at: Parameters<typeof replayObservati
     sort: args.sort as ObjectSort | undefined, filter: args.filter as ObjectFilter | undefined,
     after: (args.after as ObjectCursor | null | undefined) ?? null, limit: typeof args.limit === "number" ? args.limit : undefined,
   });
+}
+
+type ReplayObject = ReturnType<typeof replayObservation>["objects"][number];
+
+/**
+ * The per-god object read model's queries (player.objectIds, object, objectsTop, totals, objectDigest) at the playhead,
+ * from the replay's objects as the point of view saw them (exact: a replay is of an ended game), ordered and filtered
+ * as the engine's indexes order them. A skeleton's cursor is the offset of its next row.
+ */
+function replayObjectViews(name: QueryName, objects: readonly ReplayObject[], args: Record<string, unknown>): unknown {
+  const sort = (args.sort ?? args.by) as ObjectSort | undefined;
+  const ordered = (filter?: ObjectFilter) => pageObjects(objects, { sort, filter, limit: objects.length || 1 }).rows;
+  const key = (o: ReplayObject) => sortKey(o, sort ?? "payoff");
+  if (name === "player.object") {
+    const o = objects.find(x => x.id === args.objectId);
+    return o ? { id: o.id, value: o.value, version: (o as { version?: number }).version ?? 0, own: o.own, peerNetBits: o.peerNetBits, peerCare: o.peerCare, payoff: o.payoff } : null;
+  }
+  if (name === "player.objectIds") {
+    const rows = ordered(args.filter as ObjectFilter | undefined);
+    if (args.dir === "asc") rows.reverse();
+    const opts = (args.paginationOpts ?? {}) as { numItems?: number; cursor?: string | null };
+    const from = Number(opts.cursor ?? 0) || 0, to = from + Math.max(1, Math.min(100, opts.numItems ?? 50));
+    return { page: rows.slice(from, to).map(o => ({ id: o.id, key: key(o) })), isDone: to >= rows.length, continueCursor: String(Math.min(to, rows.length)) };
+  }
+  if (name === "player.objectsTop") {
+    const rows = ordered();
+    if (args.dir === "asc") rows.reverse();
+    return rows.slice(0, Math.max(1, Math.min(20, typeof args.n === "number" ? args.n : 10))).map((o, i) => ({ ...o, rank: i + 1 }));
+  }
+  if (name === "player.totals") {
+    return {
+      objectCount: objects.length, score: objects.reduce((n, o) => n + o.payoff, 0),
+      sumOwnNetBits: objects.reduce((n, o) => n + o.own.netBits, 0), sumPeerNetBits: objects.reduce((n, o) => n + o.peerNetBits, 0),
+      contested: objects.filter(o => matchesFilter(o, "contested")).length, chips: objects.filter(o => matchesFilter(o, "chips")).length,
+      maxOwn: Math.max(0, ...objects.map(o => Math.abs(o.own.netBits))), maxCare: Math.max(0, ...objects.map(o => o.peerCare)),
+      maxPayoff: Math.max(0, ...objects.map(o => o.payoff)), minPayoff: Math.min(0, ...objects.map(o => o.payoff)),
+    };
+  }
+  return { own: objects.map(o => o.own.netBits), peer: objects.map(o => o.peerNetBits) };
 }
 
 /** The controller as the SDK's replay source: answers move with the playhead and the point of view only. */

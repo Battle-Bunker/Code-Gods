@@ -18,6 +18,11 @@ export const QUERY_REFS: Record<QueryName, FunctionReference<"query">> = {
   "player.trajectories": api.player.trajectories,
   "player.objectsPage": api.player.objectsPage,
   "rooms.get": api.rooms.get,
+  "player.objectIds": api.player.objectIds,
+  "player.object": api.player.object,
+  "player.objectsTop": api.player.objectsTop,
+  "player.totals": api.player.totals,
+  "player.objectDigest": api.player.objectDigest,
 };
 
 const noSubscription = () => () => {};

@@ -12,7 +12,8 @@
  */
 import { OBJECT_FILTERS, OBJECT_PAGE_MAX, OBJECT_SORTS } from "@workspace/player-client/objects-page";
 
-export type QueryName = "player.observation" | "player.events" | "player.myUtility" | "player.trajectories" | "player.objectsPage" | "rooms.get";
+export type QueryName = "player.observation" | "player.events" | "player.myUtility" | "player.trajectories" | "player.objectsPage" | "rooms.get"
+  | "player.objectIds" | "player.object" | "player.objectsTop" | "player.totals" | "player.objectDigest";
 
 const int = (value: unknown, min: number, max: number, fallback: number) =>
   typeof value === "number" && Number.isFinite(value) ? Math.min(max, Math.max(min, Math.trunc(value))) : fallback;
@@ -34,7 +35,24 @@ export const BRIDGE_QUERIES: Record<QueryName, (args: Record<string, unknown>, r
     };
   },
   "rooms.get": (_args, roomId) => ({ room: roomId }),
+  // The per-god object read model: each answers the viewer's own rows only (the engine reads no other god's), so the
+  // frame may name any game; ids are bounded strings and pages ≤ 100.
+  "player.objectIds": args => !gameRef(args) ? null : {
+    gameId: args.gameId, sort: OBJECT_SORTS.find(s => s === args.sort) ?? "payoff", filter: OBJECT_FILTERS.find(f => f === args.filter) ?? "all",
+    dir: args.dir === "asc" ? "asc" : "desc", paginationOpts: pageOpts(args.paginationOpts),
+  },
+  "player.object": args => (typeof args.objectId === "string" && args.objectId.length <= 64 ? { objectId: args.objectId } : null),
+  "player.objectsTop": args => !gameRef(args) ? null : {
+    gameId: args.gameId, by: OBJECT_SORTS.find(s => s === args.by) ?? "payoff", n: int(args.n, 1, 20, 10), dir: args.dir === "asc" ? "asc" : "desc",
+  },
+  "player.totals": args => (gameRef(args) ? { gameId: args.gameId } : null),
+  "player.objectDigest": args => (gameRef(args) ? { gameId: args.gameId } : null),
 };
+function gameRef(args: Record<string, unknown>) { return typeof args.gameId === "string" && args.gameId.length > 0 && args.gameId.length <= 64; }
+function pageOpts(value: unknown) {
+  const p = (value ?? {}) as { numItems?: unknown; cursor?: unknown };
+  return { numItems: int(p.numItems, 1, 100, 50), cursor: typeof p.cursor === "string" && p.cursor.length <= 4096 ? p.cursor : null };
+}
 export const isQueryName = (name: unknown): name is QueryName => typeof name === "string" && Object.hasOwn(BRIDGE_QUERIES, name);
 
 export const DEFAULT_HZ = 2;

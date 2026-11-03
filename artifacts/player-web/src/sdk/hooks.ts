@@ -77,6 +77,46 @@ export function useObjectsPage(
   return throttled ?? (kept?.view === view ? kept.window : undefined);
 }
 
+// ----- the per-god object read model (docs/convex-read-architecture.md §4.3): one index page or one row per query -----
+// Each hook is one live subscription (no throttle): a row re-renders only when its own object changes.
+
+export type ObjectSort = "payoff" | "mine" | "othersCare";
+export type ObjectFilter = "all" | "positive" | "contested" | "chips";
+export type ObjectIdsPage = FunctionReturnType<typeof api.player.objectIds>;
+export type MyObject = NonNullable<FunctionReturnType<typeof api.player.object>>;
+export type MyTotals = NonNullable<FunctionReturnType<typeof api.player.totals>>;
+
+/** The game whose objects the read-model hooks read (the current game, or the replay's). */
+export function useGameId(): string | undefined {
+  return useObservation({ hz: 0.2 })?.gameId;
+}
+
+/** One page of your object ids in `sort` order, after `cursor` (null: the first). Undefined while loading. */
+export function useObjectIdsPage(gameId: string | undefined, { sort = "payoff", filter = "all", cursor = null, numItems = 50 }:
+  { sort?: ObjectSort; filter?: ObjectFilter; cursor?: string | null; numItems?: number } = {}): ObjectIdsPage | undefined {
+  return useSdkQuery("player.objectIds", gameId ? { gameId, sort, filter, paginationOpts: { numItems, cursor } } : "skip");
+}
+
+/** One of your objects as you see it (null when you hold no score on it). */
+export function useObject(objectId: string): MyObject | null | undefined {
+  return useSdkQuery("player.object", { objectId });
+}
+
+/** Your totals over every object: count, score, Σ your and the others' bits, contested and bargaining-chip counts. */
+export function useTotals(gameId: string | undefined): MyTotals | null | undefined {
+  return useSdkQuery("player.totals", gameId ? { gameId } : "skip");
+}
+
+/** Your top (or bottom) `n` ≤ 20 objects by `by`, ranked. */
+export function useObjectsTop(gameId: string | undefined, { by = "payoff", n = 10, dir = "desc" }: { by?: ObjectSort; n?: number; dir?: "asc" | "desc" } = {}) {
+  return useSdkQuery("player.objectsTop", gameId ? { gameId, by, n, dir } : "skip");
+}
+
+/** Your others-care scatter points (own bits, the others' sum), refreshed every few seconds. */
+export function useObjectDigest(gameId: string | undefined) {
+  return useSdkQuery("player.objectDigest", gameId ? { gameId } : "skip");
+}
+
 /** Your own utility card (kid card: emoji, summary, source, optional defence goal). */
 export function useMyCard() {
   return useObservation({ hz: 0.5 })?.self.utility;

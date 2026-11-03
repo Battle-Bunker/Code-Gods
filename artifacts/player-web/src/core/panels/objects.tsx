@@ -6,17 +6,19 @@
  * breakdown. Colour coding, the same in every panel: "yours" petrol blue, "others" raspberry (lib/object-views
  * dimensions.ts); the rectangle's fill and the bar run one amber ramp from muted to strong by the payoff relative to
  * the best shown. Before the world runs, the empty state says what will appear and offers the one next
- * step. The list scrolls over the whole collection: `limit` rows at a time, more loading as the end comes into view
- * (player.objectsPage, one windowed query; replays answer it too). The sort (payoff, your bits, others' care) is the pane's
- * `sortBy` parameter, set here or by the assistant, with the filter, which to highlight, and list or grid.
+ * step. The list scrolls over the whole collection (docs/convex-read-architecture.md §4.3): a skeleton of ids,
+ * `limit` at a time by the sort's index (player.objectIds), more pages as the end comes into view, and one subscription
+ * per visible row (player.object), virtualised so only rows in view mount; the footer and the scale come from your
+ * totals (player.totals). Replays answer the same queries at the playhead. The sort (payoff, your bits, others' care) is
+ * the pane's `sortBy` parameter, set here or by the assistant, with the filter, which to highlight, and list or grid.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { OBJECT_PAGE_MAX } from "@workspace/player-client/objects-page";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ScoreBreakdown, dimensionVar, rampVar, relativeStrength,
 } from "@workspace/object-views";
-import { ObjectGrid, ObjectView, formatBits, useMyCard, useObjectContext, type LiveObject } from "@/sdk";
-import { useObjectsPage } from "@/sdk/hooks";
+import { ObjectView, formatBits, useMyCard, useObjectContext, type LiveObject } from "@/sdk";
+import { useGameId, useObject, useObjectIdsPage, useTotals, type ObjectFilter, type ObjectIdsPage, type ObjectSort } from "@/sdk/hooks";
+import { VirtualRows } from "@/components/virtual-rows";
 import { useDockActions } from "@/dock/actions";
 import { useNow } from "@/core/game/situation";
 import { PanelEmpty, PrimaryButton, TextButton, referObject, type PanelProps } from "./kit";
@@ -91,23 +93,6 @@ function BeforeTheWorld({ paneId, phase, noun }: Pick<PanelProps<"objects">, "pa
   );
 }
 
-/** Rows are fetched a page (the panel's `limit`) at a time and the window grows while the end of the list is in view. */
-function LoadMore({ more, ready, onMore, loaded, matching }: { more: boolean; ready: boolean; onMore: () => void; loaded: number; matching: number }) {
-  const sentinel = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = sentinel.current;
-    if (!el || !more || !ready || typeof IntersectionObserver === "undefined") return;
-    const watch = new IntersectionObserver(entries => { if (entries.some(e => e.isIntersecting)) onMore(); }, { rootMargin: "240px" });
-    watch.observe(el);
-    return () => watch.disconnect();
-    // Only a window that has arrived asks for the next page (`ready`); `loaded` re-arms the observer, so a page that
-    // still leaves the sentinel in view loads the next one.
-  }, [more, ready, onMore, loaded]);
-  return more
-    ? <div ref={sentinel} data-testid="objects-more" className="py-1"><TextButton onClick={onMore} testId="button-objects-more">Load more ({loaded} of {matching})</TextButton></div>
-    : null;
-}
-
 /** The sort order, settable by the player here and by the assistant (show_panel's sortBy). */
 function SortSelector({ paneId, value }: { paneId: string; value: string }) {
   const dock = useDockActions();
@@ -122,81 +107,152 @@ function SortSelector({ paneId, value }: { paneId: string; value: string }) {
   );
 }
 
+/** One skeleton page (player.objectIds), reported to the list; mounted while the list holds it. */
+function SkeletonPage({ gameId, sort, filter, cursor, index, numItems, onPage }: {
+  gameId: string; sort: ObjectSort; filter: ObjectFilter; cursor: string | null; index: number; numItems: number;
+  onPage: (index: number, page: ObjectIdsPage) => void;
+}) {
+  const page = useObjectIdsPage(gameId, { sort, filter, cursor, numItems });
+  useEffect(() => { if (page) onPage(index, page); }, [page, index, onPage]);
+  return null;
+}
+
+/** The row's fixed height (the list is virtualised: only rows in view mount, each with its own subscription). */
+const ROW_PX = 104;
+
+/** One row: its own subscription (player.object), held while the row is in view. */
+function ObjectRow({ id, rank, scale, best, max, highlighted, flash, open, onOpen, noun, comparative }: {
+  id: string; rank: number; scale: PayoffScale; best: number; max: number; highlighted: boolean;
+  flash: { version: number; before: unknown } | null; open: boolean; onOpen: () => void; noun: string; comparative?: string;
+}) {
+  const o = useObject(id);
+  const { ctx } = useObjectContext();
+  if (!o) return <div className="h-full border-b border-[hsl(var(--card-border))]" data-testid={`row-object-${id}`} />;
+  return (
+    <div data-testid={`row-object-${id}`}
+      className={`h-full min-w-0 overflow-hidden border-b border-[hsl(var(--card-border))] py-2 ${highlighted ? "bg-[hsl(var(--primary)/0.06)]" : ""} ${flash ? "replay-changed" : ""}`}>
+      <div className="flex min-w-0 items-start gap-3">
+        <button type="button" onClick={() => referObject(rank)} title="Ask your assistant about this object"
+          className="w-7 shrink-0 pt-0.5 text-left font-mono text-xs text-muted-foreground hover:text-foreground">#{rank}</button>
+        <span className="max-w-[40%] shrink-0 truncate font-mono text-xs"><ObjectView value={o.value} compareTo={flash ? flash.before as never : undefined} {...ctx} showTitle /></span>
+        <PayoffRectangle o={o} scale={scale} strength={relativeStrength(o.payoff, best)} />
+        <span className="min-w-0 flex-1 space-y-1">
+          <span className="block font-mono text-[12px] leading-snug text-muted-foreground" data-testid={`text-payoff-${id}`}>
+            <span style={{ color: YOURS }}>yours {formatBits(o.own.netBits)}</span> × <span style={{ color: OTHERS }}>others {formatBits(o.peerCare)}</span>{" "}
+            <span className="whitespace-nowrap">= <b className={o.payoff < 0 ? "text-destructive" : "text-foreground"}>{formatBits(o.payoff)}</b></span>
+          </span>
+          <span className="relative block h-1.5 bg-muted" aria-hidden>
+            <span className={`absolute inset-y-0 left-0 ${o.payoff < 0 ? "bg-destructive" : ""}`} data-testid={`payoff-bar-${id}`}
+              style={{ width: `${Math.min(100, (100 * Math.abs(o.payoff)) / max)}%`, ...(o.payoff < 0 ? {} : { background: rampVar(relativeStrength(o.payoff, best)) }) }} />
+          </span>
+          <span className="block truncate" data-testid={`text-rarity-${id}`}><ScoreBreakdown score={o as never} noun={noun} comparative={comparative} compact /></span>
+          <TextButton onClick={onOpen} testId={`button-object-detail-${id}`}>{open ? "hide" : "why?"}</TextButton>
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/** The opened row's full breakdown, under the list (rows are fixed-height). */
+function ObjectDetail({ id, noun, comparative }: { id: string; noun: string; comparative?: string }) {
+  const o = useObject(id);
+  if (!o) return null;
+  return <div className="border-l-2 border-[hsl(var(--card-border))] pl-3" data-testid={`object-detail-${id}`}><ScoreBreakdown score={o as never} noun={noun} comparative={comparative} /></div>;
+}
+
+/** One grid cell: its own subscription. */
+function GridCell({ id, rank }: { id: string; rank: number }) {
+  const o = useObject(id);
+  const { ctx } = useObjectContext();
+  return (
+    <button type="button" onClick={() => referObject(rank)} data-testid={`row-object-${id}`}
+      className="flex flex-col items-center gap-0.5 border border-[hsl(var(--card-border))] p-1 text-[10px] font-mono">
+      {o ? <ObjectView value={o.value} {...ctx} /> : <span className="opacity-60">…</span>}
+      <span>#{rank}{o ? ` · ${formatBits(o.payoff)}` : ""}</span>
+    </button>
+  );
+}
+
 export default function Objects({ paneId, params, phase }: PanelProps<"objects">) {
   // A replay's playhead just changed these (docs/replay-design.md §6): their rows flash and grids outline the cells that moved.
   const changed = useReplayChanged();
-  // Only the row showing the value the change reached flashes (panels render at their own rate).
-  const flash = (o: { id: string; value: unknown }) => { const ch = changed.get(o.id); return !!ch && ch.after === o.value; };
-  const [pages, setPages] = useState(1);
-  const view = `${params.sortBy}|${params.filter}|${params.limit}`;
-  useEffect(() => setPages(1), [view]);   // a new sort or filter starts from the top
-  const data = useObjectsPage({ sort: params.sortBy, filter: params.filter, limit: params.limit * pages, hz: 1 });
+  const gameId = useGameId();
+  const sort = params.sortBy as ObjectSort, filter = params.filter as ObjectFilter;
+  const view = `${gameId}|${sort}|${filter}|${params.limit}`;
+  // The skeleton: pages of ids chained by cursor, each its own subscription; the list asks for the next as its end nears.
+  const [pages, setPages] = useState<{ view: string; list: ObjectIdsPage[] }>({ view, list: [] });
+  const [wanted, setWanted] = useState(1);
+  useEffect(() => { setPages({ view, list: [] }); setWanted(1); }, [view]);   // a new sort or filter starts from the top
+  const onPage = useCallback((index: number, page: ObjectIdsPage) => setPages(p => {
+    if (p.view !== view) return p;
+    const list = p.list.slice(0, index + 1);
+    list[index] = page;
+    return { view, list };
+  }), [view]);
+  const loaded = pages.view === view ? pages.list : [];
+  const ids = useMemo(() => {
+    const seen = new Set<string>(), out: string[] = [];
+    for (const page of loaded) for (const r of page?.page ?? []) if (!seen.has(r.id)) { seen.add(r.id); out.push(r.id); }
+    return out;
+  }, [loaded]);
+  const done = loaded.length > 0 && !!loaded.at(-1)?.isDone;
+  const cursors: (string | null)[] = [null];
+  for (let i = 0; i < Math.min(wanted, loaded.length + 1) - 1; i++) { const p = loaded[i]; if (!p || p.isDone) break; cursors.push(p.continueCursor); }
+  const more = useCallback(() => { if (!done && loaded.length >= wanted) setWanted(w => w + 1); }, [done, loaded.length, wanted]);
+  const totals = useTotals(gameId);
   const card = useMyCard();
-  const { ctx, noun } = useObjectContext();
-  const loadMore = useCallback(() => setPages(p => p + 1), []);
+  const { noun } = useObjectContext();
   const [open, setOpen] = useState<string | null>(null);
   const comparative = card?.penalty?.comparative;
-  const shown = useMemo(() => data?.rows ?? [], [data]);
-  const ranks = useMemo(() => new Map(shown.map(o => [o.id, o.rank])), [shown]);
-  const scale = useMemo(() => payoffScale(shown.map(o => ({ own: o.own.netBits, care: o.peerCare }))), [shown]);
-  const max = Math.max(1e-9, ...shown.map(o => Math.abs(o.payoff)));
-  const best = Math.max(0, ...shown.map(o => o.payoff));
+  // Scaled over every object (the tick's extremes), so a row draws the same whatever else is in view.
+  const scale = useMemo(() => payoffScale([{ own: totals?.maxOwn ?? 0, care: totals?.maxCare ?? 0 }]), [totals?.maxOwn, totals?.maxCare]);
+  const max = Math.max(1e-9, Math.abs(totals?.maxPayoff ?? 0), Math.abs(totals?.minPayoff ?? 0));
+  const best = Math.max(0, totals?.maxPayoff ?? 0);
   const highlight = new Set(params.highlight);
-  const more = !!data?.next, ready = shown.length >= Math.min(pages * params.limit, OBJECT_PAGE_MAX, data?.matching ?? 0);
-  const objects = { length: data?.total ?? 0 };
+  const total = totals?.objectCount ?? 0;
+  const matching = filter === "all" ? total : filter === "chips" ? totals?.chips ?? 0 : totals?.contested ?? 0;
+  const flashOf = (id: string) => { const ch = changed.get(id); return ch ? { version: ch.version, before: ch.before } : null; };
+  const skeleton = gameId ? cursors.map((cursor, i) => (
+    <SkeletonPage key={`${view}|${i}`} gameId={gameId} sort={sort} filter={filter} cursor={cursor} index={i} numItems={params.limit} onPage={onPage} />
+  )) : null;
 
-  if (!data) return null;
-  if (!objects.length && (phase === "lobby" || phase === "planning")) return <BeforeTheWorld paneId={paneId} phase={phase} noun={noun} />;
-  if (!objects.length) return <PanelEmpty testId="panel-empty-objects">The world holds no {noun}s yet. They spawn once the world starts running.</PanelEmpty>;
-  if (!shown.length) return <PanelEmpty>No {noun} matches this view right now ({objects.length} in the world).</PanelEmpty>;
+  if (gameId && totals === undefined) return <>{skeleton}</>;
+  if (!total && (phase === "lobby" || phase === "planning")) return <>{skeleton}<BeforeTheWorld paneId={paneId} phase={phase} noun={noun} /></>;
+  if (!total) return <>{skeleton}<PanelEmpty testId="panel-empty-objects">The world holds no {noun}s yet. They spawn once the world starts running.</PanelEmpty></>;
+  if (loaded.length && done && !ids.length) return <>{skeleton}<PanelEmpty>No {noun} matches this view right now ({total} in the world).</PanelEmpty></>;
   const header = (
     <header className="space-y-1.5">
       <SortSelector paneId={paneId} value={params.sortBy} />
       <PayoffKey />
     </header>
   );
+  const footer = (
+    <p className="font-mono text-[11px] text-muted-foreground" data-testid="text-objects-footer">
+      {ids.length} of {matching}{filter !== "all" ? ` matching (${total} in all)` : ""} · Σ your net bits {formatBits(totals?.sumOwnNetBits ?? 0)} · Σ others' {formatBits(totals?.sumPeerNetBits ?? 0)}
+    </p>
+  );
   if (params.layout === "grid") {
     return (
       <div className="space-y-3">
+        {skeleton}
         {header}
-        <ObjectGrid objects={shown} max={shown.length} badge={(o: LiveObject) => `#${ranks.get(o.id)} · ${formatBits(o.payoff)}`} onSelect={id => referObject(ranks.get(id))} />
-        <LoadMore more={more} ready={ready} onMore={loadMore} loaded={shown.length} matching={data.matching} />
+        <div className="flex flex-wrap gap-2">{ids.map((id, i) => <GridCell key={id} id={id} rank={i + 1} />)}</div>
+        {!done && <TextButton onClick={more} testId="button-objects-more">Load more ({ids.length} of {matching})</TextButton>}
+        {footer}
       </div>
     );
   }
   return (
     <div className="space-y-3">
+      {skeleton}
       {header}
-      <ol className="divide-y divide-[hsl(var(--card-border))]">
-        {shown.map(o => (
-          <li key={flash(o) ? `${o.id}:${changed.get(o.id)!.version}` : o.id} data-testid={`row-object-${o.id}`}
-            className={`min-w-0 py-2 ${highlight.has(o.id) ? "bg-[hsl(var(--primary)/0.06)]" : ""} ${flash(o) ? "replay-changed" : ""}`}>
-            <div className="flex min-w-0 items-start gap-3">
-              <button type="button" onClick={() => referObject(ranks.get(o.id))} title="Ask your assistant about this object"
-                className="w-7 shrink-0 pt-0.5 text-left font-mono text-xs text-muted-foreground hover:text-foreground">#{ranks.get(o.id)}</button>
-              <span className="max-w-[40%] shrink-0 truncate font-mono text-xs"><ObjectView value={o.value} compareTo={flash(o) ? changed.get(o.id)!.before : undefined} {...ctx} showTitle /></span>
-              <PayoffRectangle o={o} scale={scale} strength={relativeStrength(o.payoff, best)} />
-              <span className="min-w-0 flex-1 space-y-1">
-                <span className="block font-mono text-[12px] leading-snug text-muted-foreground" data-testid={`text-payoff-${o.id}`}>
-                  <span style={{ color: YOURS }}>yours {formatBits(o.own.netBits)}</span> × <span style={{ color: OTHERS }}>others {formatBits(o.peerCare)}</span>{" "}
-                  <span className="whitespace-nowrap">= <b className={o.payoff < 0 ? "text-destructive" : "text-foreground"}>{formatBits(o.payoff)}</b></span>
-                </span>
-                <span className="relative block h-1.5 bg-muted" aria-hidden>
-                  <span className={`absolute inset-y-0 left-0 ${o.payoff < 0 ? "bg-destructive" : ""}`} data-testid={`payoff-bar-${o.id}`}
-                    style={{ width: `${(100 * Math.abs(o.payoff)) / max}%`, ...(o.payoff < 0 ? {} : { background: rampVar(relativeStrength(o.payoff, best)) }) }} />
-                </span>
-                <span className="block" data-testid={`text-rarity-${o.id}`}><ScoreBreakdown score={o} noun={noun} comparative={comparative} compact /></span>
-                <TextButton onClick={() => setOpen(open === o.id ? null : o.id)} testId={`button-object-detail-${o.id}`}>{open === o.id ? "hide" : "why?"}</TextButton>
-              </span>
-            </div>
-            {open === o.id && <div className="ml-10 mt-2 border-l-2 border-[hsl(var(--card-border))] pl-3" data-testid={`object-detail-${o.id}`}><ScoreBreakdown score={o} noun={noun} comparative={comparative} /></div>}
-          </li>
-        ))}
-      </ol>
-      <LoadMore more={more} ready={ready} onMore={loadMore} loaded={shown.length} matching={data.matching} />
-      <p className="font-mono text-[11px] text-muted-foreground" data-testid="text-objects-footer">
-        {shown.length} of {data.matching}{params.filter !== "all" ? ` matching (${data.total} in all)` : ""} · Σ your net bits {formatBits(data.sumOwnNetBits)} · Σ others' {formatBits(data.sumPeerNetBits)}
-      </p>
+      <VirtualRows rows={ids} rowHeight={ROW_PX} maxHeight={640}
+        // A row the playhead just changed remounts, so its flash plays again.
+        keyOf={id => { const f = changed.get(id); return f ? `${id}:${f.version}` : id; }} onNearEnd={more} testId="list-objects"
+        render={(id, i) => <ObjectRow id={id} rank={i + 1} scale={scale} best={best} max={max} highlighted={highlight.has(id)} flash={flashOf(id)}
+          open={open === id} onOpen={() => setOpen(open === id ? null : id)} noun={noun} comparative={comparative} />} />
+      {open && <ObjectDetail id={open} noun={noun} comparative={comparative} />}
+      {footer}
     </div>
   );
 }

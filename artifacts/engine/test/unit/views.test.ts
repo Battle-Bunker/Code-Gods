@@ -37,9 +37,9 @@ test("quadrants are the panel's filters: contested is exactly payoff > 0", () =>
 test("totals and digests per roster god, in object order", () => {
   const [ada, bo] = godTotalsOf(["ada", "bo"], objects, true);
   // Hand, ada live: payoffs 4.5, -8, 0 → score -3.5; own 3 - 2 + 4 = 5; others 1.5 + 4 + (-4) = 1.5.
-  assert.deepEqual(ada, { godId: "ada", objectCount: 3, score: -3.5, sumOwnNetBits: 5, sumPeerNetBits: 1.5, contested: 1, chips: 1 });
+  assert.deepEqual(ada, { godId: "ada", objectCount: 3, score: -3.5, sumOwnNetBits: 5, sumPeerNetBits: 1.5, contested: 1, chips: 1, maxOwn: 4, maxCare: 4, maxPayoff: 4.5, minPayoff: -8 });
   // bo live: a others 3 - 1 + 0.5 = 2.5 → 2 × 2.5 = 5; b others -2 + 0 - 1 = -3 → 0; c others 4 - 1 = 3 → -3 × 3 = -9.
-  assert.deepEqual(bo, { godId: "bo", objectCount: 3, score: -4, sumOwnNetBits: 4, sumPeerNetBits: 2.5, contested: 1, chips: 1 });
+  assert.deepEqual(bo, { godId: "bo", objectCount: 3, score: -4, sumOwnNetBits: 4, sumPeerNetBits: 2.5, contested: 1, chips: 1, maxOwn: 5, maxCare: 3, maxPayoff: 5, minPayoff: -9 });
   const [d] = digestsOf(["ada"], objects, false);
   assert.deepEqual(d, { godId: "ada", own: [3, -2, 4], peer: [1, 5, -4] });
 });

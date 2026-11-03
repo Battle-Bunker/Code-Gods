@@ -396,7 +396,8 @@ export const totals = query({
   handler: async (ctx, { gameId }) => {
     const viewer = await requireViewer(ctx);
     const t = await ctx.db.query("godTotals").withIndex("by_game_god", q => q.eq("gameId", gameId).eq("godId", viewer.subject)).first();
-    return t && { objectCount: t.objectCount, score: t.score, sumOwnNetBits: t.sumOwnNetBits, sumPeerNetBits: t.sumPeerNetBits, contested: t.contested, chips: t.chips };
+    return t && { objectCount: t.objectCount, score: t.score, sumOwnNetBits: t.sumOwnNetBits, sumPeerNetBits: t.sumPeerNetBits, contested: t.contested, chips: t.chips,
+      maxOwn: t.maxOwn, maxCare: t.maxCare, maxPayoff: t.maxPayoff, minPayoff: t.minPayoff };
   },
 });
 

@@ -194,7 +194,7 @@ export const commit = internalMutation({
     /** The same as disclosed live (payoffs from the noisy peers' sums): the scoreboard, published when due. */
     disclosedTotals: v.optional(v.array(v.number())),
     /** Each roster god's totals after the window, as disclosed live (lib/views.ts godTotalsOf), when objects changed. */
-    godTotals: v.optional(v.array(v.object({ godId: v.string(), objectCount: v.number(), score: v.number(), sumOwnNetBits: v.number(), sumPeerNetBits: v.number(), contested: v.number(), chips: v.number() }))),
+    godTotals: v.optional(v.array(v.object({ godId: v.string(), objectCount: v.number(), score: v.number(), sumOwnNetBits: v.number(), sumPeerNetBits: v.number(), contested: v.number(), chips: v.number(), maxOwn: v.number(), maxCare: v.number(), maxPayoff: v.number(), minPayoff: v.number() }))),
     /** Each roster god's scatter points after the window (lib/views.ts digestsOf), at most every few seconds. */
     digests: v.optional(v.array(v.object({ godId: v.string(), own: v.array(v.number()), peer: v.array(v.number()) }))),
     wakeAt: v.optional(v.number()),

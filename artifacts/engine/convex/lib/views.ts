@@ -30,16 +30,22 @@ export function viewRowOf(o: Scored, godId: string, live: boolean) {
 }
 export type ViewRow = NonNullable<ReturnType<typeof viewRowOf>>;
 
-export type GodTotals = { godId: string; objectCount: number; score: number; sumOwnNetBits: number; sumPeerNetBits: number; contested: number; chips: number };
+/** `maxOwn`, `maxCare`, `maxPayoff`, `minPayoff`: the extremes the objects panel scales its rectangles and bars by. */
+export type GodTotals = {
+  godId: string; objectCount: number; score: number; sumOwnNetBits: number; sumPeerNetBits: number; contested: number; chips: number;
+  maxOwn: number; maxCare: number; maxPayoff: number; minPayoff: number;
+};
 
 /** Every roster god's totals over these objects, as disclosed (score = Σ payoff: the observation's self.score). */
 export function godTotalsOf(roster: readonly string[], objects: readonly Scored[], live: boolean): GodTotals[] {
   return roster.map(godId => {
-    const t: GodTotals = { godId, objectCount: 0, score: 0, sumOwnNetBits: 0, sumPeerNetBits: 0, contested: 0, chips: 0 };
+    const t: GodTotals = { godId, objectCount: 0, score: 0, sumOwnNetBits: 0, sumPeerNetBits: 0, contested: 0, chips: 0, maxOwn: 0, maxCare: 0, maxPayoff: 0, minPayoff: 0 };
     for (const o of objects) {
       const r = viewRowOf(o, godId, live);
       if (!r) continue;
       t.objectCount++; t.score += r.payoff; t.sumOwnNetBits += r.netBits; t.sumPeerNetBits += r.peerNetBits;
+      t.maxOwn = Math.max(t.maxOwn, Math.abs(r.netBits)); t.maxCare = Math.max(t.maxCare, r.peerCare);
+      t.maxPayoff = Math.max(t.maxPayoff, r.payoff); t.minPayoff = Math.min(t.minPayoff, r.payoff);
       if (r.quadrant === "contested") t.contested++;
       else if (r.quadrant === "chips") t.chips++;
     }

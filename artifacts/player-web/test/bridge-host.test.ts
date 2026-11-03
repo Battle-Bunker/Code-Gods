@@ -148,3 +148,16 @@ test("a stored panel's objects page is clamped and its cursor validated; the roo
   assert.deepEqual(ask({ sort: "mine", filter: "chips", limit: 0, after: { key: 2.5, id: "o7" }, roomId: "elsewhere" }, "room-1"),
     { roomId: "room-1", sort: "mine", filter: "chips", limit: 1, after: { key: 2.5, id: "o7" } });
 });
+
+test("a stored panel reads the object read model through the bridge: arguments clamped, ids bounded", async () => {
+  // What would break: a frame asking for a page of thousands, or passing an unbounded id or cursor through the host.
+  const { BRIDGE_QUERIES } = await import("../src/sdk/bridge-protocol.ts");
+  assert.deepEqual(BRIDGE_QUERIES["player.objectIds"]({ gameId: "g1", sort: "nope", filter: "chips", paginationOpts: { numItems: 5000, cursor: 7 } }, "room-1"),
+    { gameId: "g1", sort: "payoff", filter: "chips", dir: "desc", paginationOpts: { numItems: 100, cursor: null } });
+  assert.equal(BRIDGE_QUERIES["player.objectIds"]({ gameId: "x".repeat(65) }, "room-1"), null);
+  assert.deepEqual(BRIDGE_QUERIES["player.object"]({ objectId: "o1", extra: 1 }, "room-1"), { objectId: "o1" });
+  assert.equal(BRIDGE_QUERIES["player.object"]({ objectId: 7 }, "room-1"), null);
+  assert.deepEqual(BRIDGE_QUERIES["player.objectsTop"]({ gameId: "g1", by: "mine", n: 99, dir: "asc" }, "room-1"), { gameId: "g1", by: "mine", n: 20, dir: "asc" });
+  assert.deepEqual(BRIDGE_QUERIES["player.totals"]({ gameId: "g1" }, "room-1"), { gameId: "g1" });
+  assert.equal(BRIDGE_QUERIES["player.objectDigest"]({}, "room-1"), null);
+});

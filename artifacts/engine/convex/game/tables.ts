@@ -258,6 +258,8 @@ export const gameTables = {
   godTotals: defineTable({
     gameId: v.id("games"), godId: v.string(), objectCount: v.number(), score: v.number(),
     sumOwnNetBits: v.number(), sumPeerNetBits: v.number(), contested: v.number(), chips: v.number(),
+    /** The extremes over every object (|own bits|, others' care, payoff): the panel's scale. */
+    maxOwn: v.number(), maxCare: v.number(), maxPayoff: v.number(), minPayoff: v.number(),
   }).index("by_game_god", ["gameId", "godId"]),
 
   /**

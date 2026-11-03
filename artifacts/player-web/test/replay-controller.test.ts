@@ -86,6 +86,23 @@ test("player.objectsPage is answered from the replay at the playhead, exactly, i
   assert.equal(page().total, 0, "before the first spawn there is nothing to scroll");
 });
 
+test("the objects panel's read-model queries are answered from the replay at the playhead, as the engine's would be", () => {
+  // What would break: the objects panel empty (or live) in replay mode, once it reads player.objectIds and player.object.
+  const c = controller(5);
+  const ids = c.answer("player.objectIds", { gameId: "g", sort: "mine", paginationOpts: { numItems: 10, cursor: null } }) as { page: { id: string; key: number }[]; isDone: boolean; continueCursor: string };
+  assert.deepEqual([ids.page, ids.isDone], [[{ id: "o1", key: 4 }], true], "hand: o1 is the only object, Ada's own bits 4");
+  const row = c.answer("player.object", { objectId: "o1" }) as { own: { netBits: number }; peerNetBits: number };
+  assert.deepEqual([row.own.netBits, row.peerNetBits], [4, 1]);
+  assert.equal(c.answer("player.object", { objectId: "nope" }), null);
+  assert.deepEqual(c.answer("player.totals", { gameId: "g" }), { objectCount: 1, score: 4, sumOwnNetBits: 4, sumPeerNetBits: 1, contested: 1, chips: 0, maxOwn: 4, maxCare: 1, maxPayoff: 4, minPayoff: 0 }, "hand: payoff 4 × 1");
+  assert.deepEqual(c.answer("player.objectDigest", { gameId: "g" }), { own: [4], peer: [1] });
+  assert.equal((c.answer("player.objectsTop", { gameId: "g", n: 3 }) as unknown[]).length, 1);
+  c.setPov(1);
+  assert.equal((c.answer("player.object", { objectId: "o1" }) as { own: { netBits: number } }).own.netBits, 1, "the point of view's own row");
+  c.seek(0);
+  assert.deepEqual((c.answer("player.objectIds", { gameId: "g", paginationOpts: { numItems: 10, cursor: null } }) as { page: unknown[] }).page, []);
+});
+
 // ----- the clock: a continuous playhead in world time (events at world 0, 0, 2, 3 and 5) -----
 // No browser frames here: play() asks for one if it can, and advance(ms) moves the clock as a frame would.
 (globalThis as { requestAnimationFrame?: unknown }).requestAnimationFrame ??= () => 0;
