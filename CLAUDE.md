@@ -8,7 +8,8 @@
 - **You own code quality.** Before merging:
   - review your own diff (the `code-review` skill at an effort that fits the change);
   - fix what it confirms;
-  - run every affected test suite (`.claude/skills/code-gods-testing/SKILL.md`);
+  - run your change's selective set of suites, once, when it is ready to merge (`.claude/skills/selective-testing/SKILL.md`;
+    how to write and run each suite: `.claude/skills/code-gods-testing/SKILL.md`). CI on `develop` is the full net;
   - make sure the root `pnpm run typecheck` passes;
   - make sure CI is green, if any runs.
 - **Branches.** Branch from `develop` and target `develop`. Never push to or merge into `main` unless
