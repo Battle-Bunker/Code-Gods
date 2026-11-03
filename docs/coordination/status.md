@@ -73,3 +73,33 @@ Coordinator session: session_0119hWTUfnFoGVhQud4gmKNK. All times are AEDT.
 
 ## Final reports from workers
 (appended below as they arrive)
+
+### Energy model (session_0119hWTVSN8TR78vRcYy8naD), stopped 20:21
+- No code: branch feat/read-metered-acts has no commits.
+- Survey notes:
+  - actCharge (lib/game-types/src/pricing/measure.ts) is called from convex/engine/tick.ts.
+  - Eligibility is energy ≥ expectedActCost (lib/world.ts, game-core energy.ts).
+  - Opportunities are a room-wide interactionRateHz stream, picked from eligible agents.
+- Design: meter reads in the grid prelude (lib/game-types/src/grid/prelude.ts) by making Cell's symbol/value/suit/
+  is_picture/colour properties. A read costs log2 of its alphabet, capped per cell per layer; repeat reads are free.
+- **Owner decision needed:** the Python/QuickJS sandbox can't hide private slots or closures, so an agent could
+  read past the meter. Options: host-side metering, or an AST ban on underscore/dunder attribute access in agent
+  source. The worker's default is the AST ban.
+
+### Assistant modes (session_0119hWTXQru41EPmeU8vK7FP), stopped 20:22
+- Draft PR #206 (branch feat/assistant-modes, ff68a59), NOT merged.
+- Done:
+  - Approvals removed everywhere.
+  - Modes Autopilot / On request (default) / Read-only, one per player per room. Read-only is enforced server-side.
+  - Autopilot is a scheduled chain (assistant/autopilot.ts): ≤ 6-step turns at game start, then every 60 s, from
+    the per-game quota. It stops at 10% of the quota left, at game end, on idle parking and under the AI gate.
+  - 4 widen+migrate migrations.
+  - Medium code-review fixes are applied.
+- Left:
+  1. Rebase onto develop (#205 landed). Keep #205's skill text. The Autopilot prompt variant will be ~8,013 chars,
+     over the 8,000 limit, so trim the mode text, not #205's.
+  2. Run the selective set: game-assistant, -queue, -modes, game-schema-migrations, game-disclosure, game-ai,
+     game-query-cost, lib/ai-player and root typecheck. Then merge.
+  3. Optional tests for the review fixes.
+  4. The narrowing PR once dev and prod report the migrations done.
+- Gotchas: convex/_generated/api.d.ts was hand-edited (regenerate it); the dev watcher takes ~20 s to push.
