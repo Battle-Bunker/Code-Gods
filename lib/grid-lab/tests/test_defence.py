@@ -254,7 +254,7 @@ def test_repair_valued_only_when_scored():
                                                             "magic_accountant"])
         draws = draws_for(cfg)
         hated = GT.colour_names.index(draws[0].params["defence"]["colour"])
-        fav = draws[0].params["X"]
+        fav = GT.colour_names.index(draws[0].params["colour"])
         tables = [cal.survival(d, GT) for d in draws]
         w = World(cfg, draws, tables, np.random.default_rng(0))
         rng = np.random.default_rng(1)

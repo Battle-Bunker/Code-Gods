@@ -147,8 +147,8 @@ _READ = {"→": ("left to right", "grid.rows"), "←": ("right to left", "[list(
 
 
 def rainbow_road(p, gt):
-    how, lines = _READ[p["dir"]]
-    kind = "row" if p["dir"] in "→←" else "column"
+    how, lines = _READ[p["direction"]]
+    kind = "row" if p["direction"] in "→←" else "column"
     order = " → ".join(gt.colour_names + (gt.colour_names[0],))
     return card("🌈", "Rainbow Road", f"""Read every {kind} {how}. A step scores when the next colour is
         the next one round the rainbow ({order}). A whole {kind} of rainbow steps beats any number of
@@ -170,9 +170,9 @@ def rainbow_road(p, gt):
 
 def border_baron(p, gt):
     return card("🏰", "Border Baron", f"""Touching cells of one colour form a country. Every place where
-        two countries touch is a border, and it scores when both countries have at least {p['K']} cells.
-        If that's a tie, each border counts the size of its smaller country (up to {p['K']}).""",
-                [("BIG", p["K"])], """
+        two countries touch is a border, and it scores when both countries have at least {p['country_size']} cells.
+        If that's a tie, each border counts the size of its smaller country (up to {p['country_size']}).""",
+                [("BIG", p["country_size"])], """
         def same_colour(a, b):
             return a.colour == b.colour
 
@@ -198,9 +198,9 @@ def conqueror(p, gt):
     by_value = p["weight"] == "value"
     worth = "its value" if by_value else "1 point"
     pts = "cell.value" if by_value else "1"
-    return card("⚔️", "Conqueror", f"""Your colour against your enemy's. Each {col(gt, p['A'])} cell adds
-        {worth}, and each {col(gt, p['B'])} cell takes {worth} away.""",
-                [("MY_COLOUR", col(gt, p["A"])), ("ENEMY_COLOUR", col(gt, p["B"]))], f"""
+    return card("⚔️", "Conqueror", f"""Your colour against your enemy's. Each {p['colour']} cell adds
+        {worth}, and each {p['enemy_colour']} cell takes {worth} away.""",
+                [("MY_COLOUR", p["colour"]), ("ENEMY_COLOUR", p["enemy_colour"])], f"""
         def utility(grid):
             points = 0
             for cell in grid.cells:
@@ -276,8 +276,8 @@ def homebody(p, gt):
     rim = p["zone"] == "rim"
     home = "the edge (the outside ring)" if rim else "the middle (everything off the edge)"
     test = "cell.on_edge" if rim else "not cell.on_edge"
-    return card("🏡", "Homebody", f"""Your colour likes to stay home in {home}. Each {col(gt, p['X'])}
-        cell at home is +1, and each one away from home is −1.""", [("MY_COLOUR", col(gt, p["X"]))], f"""
+    return card("🏡", "Homebody", f"""Your colour likes to stay home in {home}. Each {p['colour']}
+        cell at home is +1, and each one away from home is −1.""", [("MY_COLOUR", p["colour"])], f"""
         def utility(grid):
             points = 0
             for cell in grid.cells:
@@ -292,8 +292,8 @@ def homebody(p, gt):
 
 def lone_peak(p, gt):
     return card("🏔️", "Lone Peak", f"""The highest {thing(gt)} on the grid is the peak. If there is just one
-        peak and it is {col(gt, p['X'])}, score how far it stands above the next highest. If that's a tie,
-        it helps if one of the peaks is {col(gt, p['X'])}.""", [("MY_COLOUR", col(gt, p["X"]))], """
+        peak and it is {p['colour']}, score how far it stands above the next highest. If that's a tie,
+        it helps if one of the peaks is {p['colour']}.""", [("MY_COLOUR", p["colour"])], """
         def utility(grid):
             top = max(cell.value for cell in grid.cells)
             peaks = [cell for cell in grid.cells if cell.value == top]
@@ -638,7 +638,7 @@ def stripe_painter(p, gt):
 
 
 def feuding_families(p, gt):
-    X, Y = col(gt, p["X"]), col(gt, p["Y"])
+    X, Y = p["first_family"], p["second_family"]
     return card("😤", "Feuding Families", f"""{X.capitalize()} and {Y} cells are feuding. A cell is
         safe when it doesn't touch the other family. Score the safe cells of whichever family has fewer;
         if that's a tie, count all safe cells.""", [("FAMILY_1", X), ("FAMILY_2", Y)], """
@@ -661,7 +661,7 @@ def feuding_families(p, gt):
 
 
 def colour_mixer(p, gt):
-    P1, P2, M = col(gt, p["P1"]), col(gt, p["P2"]), col(gt, p["M"])
+    P1, P2, M = p["first_paint"], p["second_paint"], p["mixed_colour"]
     consts = [("PAINT_1", P1), ("PAINT_2", P2)]
     if p["strict"]:
         about = f"""{P1.capitalize()} + {P2} = {M}. A {M} cell scores when it sits between its two
@@ -739,7 +739,7 @@ def fair_weaver(p, gt):
 
 
 def lantern_lighter(p, gt):
-    X = col(gt, p["X"])
+    X = p["colour"]
     return card("🏮", "Lantern Lighter", f"""{an(X).capitalize()} cell is a lantern when it is the only {X} cell in its
         row and the only one in its column. Each lantern scores a point.""", [("MY_COLOUR", X)], """
         def count_mine(line):

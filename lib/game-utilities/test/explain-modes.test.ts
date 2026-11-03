@@ -18,7 +18,7 @@ test("compareOrdinal: lexicographic, numbers as one-tuples", () => {
 
 test("what if: every symbol × colour of the focus cell, scored by the card", () => {
   // Far Apart, red vs green: the middles of the red and green cells, as far apart as possible.
-  const draw = { familyId: "far_apart", params: { A: 0, B: 1 } };
+  const draw = { familyId: "far_apart", params: { first_colour: "red", second_colour: "green" } };
   // One red cell top-left, one green cell bottom-right, the rest blue: middles 3 + 3 = 6 steps apart → 6 × 64 = 384.
   const value = "0R,0B,0B,0B/0B,0B,0B,0B/0B,0B,0B,0B/0B,0B,0B,0G";
   const w = whatIf(draw, FS, value, { r: 0, c: 1 })!;
