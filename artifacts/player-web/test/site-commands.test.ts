@@ -22,7 +22,7 @@ const lists: Record<"templates" | "adminTemplates" | "pastGames" | "credentials"
 const applied: string[] = [], duplicated: string[] = [];
 const ada = { id: "ada", name: "Ada Lovelace", isAdmin: false };
 const room = (members: string[], activeGame: NonNullable<EngineScope["room"]>["activeGame"] = null): NonNullable<EngineScope["room"]> => ({
-  id: "r1", shortCode: "K7QX", ownerId: "ada", ownerName: "Ada Lovelace", aiBudget: 0, assistantBudget: 0, activeGame,
+  id: "r1", shortCode: "K7QX", ownerId: "ada", ownerName: "Ada Lovelace", aiEnabled: true, aiQuota: 300_000, assistantQuota: 300_000, activeGame,
   members: members.map(id => ({ id, name: id, kind: id.startsWith("ai:") ? "ai" : "human", ready: false })),
 });
 const scope = (s: Partial<EngineScope>): EngineScope => ({ user: ada, setups: [], minPlayers: 3, maxPlayers: 8, aiConfigured: true, ...s });
@@ -52,6 +52,21 @@ test("without AI on the server, AI commands are hidden; seats freeze while a gam
   const g = { shortCode: "G9TQ", phase: "running", roster: [{ id: "ada" }] };
   assert.deepEqual(avail(scope({ room: room(["ada", "ai:x"], g) }), "rooms.removeAi"), { ok: false, reason: "Changes wait until game G9TQ ends." });
   assert.deepEqual(avail(scope({ room: room(["ada"], g) }), "rooms.endActiveGame"), { ok: true });
+});
+
+test("in a room whose owner is not an admin, AI seats and quotas are hidden and Start offers no AI fix; quotas never freeze during games", () => {
+  const plain = { ...room(["ada", "bob"]), aiEnabled: false };
+  for (const id of ["rooms.addAi", "rooms.setAiQuotas"]) assert.equal((avail(scope({ room: plain }), id) as { hidden?: boolean }).hidden, true, `${id} is hidden`);
+  assert.deepEqual(avail(scope({ room: plain }), "owner.start"), { ok: false, reason: "Needs 3 players; 2 play (spectators don't count)." });
+  // AI seats left from an admin owner: Start says why it cannot, and offers their removal.
+  const legacy = { ...room(["ada", "bob", "ai:x"]), aiEnabled: false };
+  assert.deepEqual(avail(scope({ room: legacy }), "owner.start"),
+    { ok: false, reason: "AI is only available in rooms run by an administrator for now. Remove the AI players to start.", fix: "rooms.removeAi" });
+  assert.equal(avail(scope({ room: legacy }), "rooms.removeAi").ok, true);
+  assert.deepEqual(avail(scope({ room: room(["ada", "bob"]) }), "rooms.setAiQuotas"), { ok: true });
+  const g = { shortCode: "G9TQ", phase: "running", roster: [{ id: "ada" }] };
+  assert.deepEqual(avail(scope({ room: room(["ada", "bob", "cy"], g) }), "rooms.setAiQuotas"), { ok: true }, "allowed during a game");
+  assert.equal(avail(scope({ user: { ...ada, id: "bob" }, room: room(["ada", "bob"]) }), "rooms.setAiQuotas").ok, false, "owner only");
 });
 
 test("joining and leaving: only for whom it applies", () => {

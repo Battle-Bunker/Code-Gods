@@ -77,3 +77,9 @@ test("the overview's one next step follows the situation", () => {
   assert.deepEqual(step({ phase: "ended" }).action, { kind: "panel", panelId: "results" });
   for (const phase of PHASES) assert.ok(step({ phase }).label.length <= 30, "a short button label");
 });
+
+test("no Add an AI player chip in a room without AI seats", () => {
+  const lobby = { phase: "lobby" as const, isOwner: true, players: 1, assistantOn: false };
+  assert.ok(suggestionsFor(ctx(lobby)).some(c => c.command === "rooms.addAi"));
+  assert.ok(suggestionsFor(ctx({ ...lobby, aiEnabled: false })).every(c => c.command !== "rooms.addAi"));
+});

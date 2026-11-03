@@ -24,16 +24,16 @@ requested. Review model availability and rates before changing this config.
 The SDK connects explicitly to `https://api.anthropic.com` or
 `https://api.openai.com/v1`, never an environment-selected proxy. SDK retries are
 disabled so ambiguous failures cannot silently multiply billed attempts.
-Controller budget reservations remain consumed on failures and cancellations.
+Controller quota reservations remain consumed on failures and cancellations.
 Requests have an abort signal, a timeout, and an output-token ceiling.
 
-The room approval control authorizes usage against the **engine operator's**
-provider account. It does not charge each room owner separately. Token budgets
-are usage limits, not prepaid balances. Every call first commits a conservative
+There is no approval step. AI runs only in rooms whose **owner is an administrator** (an `ADMIN_EMAILS` address),
+checked when tokens are spent ("AI is only available in rooms run by an administrator for now"). Usage is charged to the **engine operator's**
+provider account, not to each room owner. Token quotas are usage limits, not prepaid balances. Every call first commits a conservative
 input/output reservation in a Convex mutation (`ai/seats.ts:reserve`) on the room and the
 daily usage record. Gates are:
 
-- The room owner's explicitly approved token budget, reset in usage at game start.
+- The room's `aiQuota` (default 300,000 tokens per game for all its AI seats together, at most 1,000,000; 0 = none), reset in usage at game start. The owner changes it with `rooms.setAiQuotas`, also during a game.
 - USD 2 reserved per game, across all its AI seats.
 - USD 5 reserved across all rooms of the deployment per UTC calendar day.
 - At most six reservations per room per rolling minute.
@@ -41,12 +41,11 @@ daily usage record. Gates are:
 Input estimates count UTF-8 bytes plus framing allowance; output is capped at
 8,192 tokens. USD reservations are never refunded, whether the call succeeds, fails
 or is cancelled. After a trustworthy provider usage report, only the unused part of
-the reserved token allowance is returned to the room's token budget. A failed
+the reserved token allowance is returned to the room's token quota. A failed
 reservation prevents the provider call. Reservation state is stored in Convex, so it
 survives game restarts, redeploys and idle parking. These are conservative application
 limits, not a guarantee about an external provider's future pricing; use provider
-account spending controls too. Any eligible room owner can allocate the shared
-host allowance: there is no separate host-admin approval queue for each room.
+account spending controls too. A refusal says which quota or ceiling was hit.
 
 The initial library seeds `sonnet-strategist` (“Sonnet Strategist”) once.
 Administrators manage named templates with a vetted model and at most 10,000
@@ -68,13 +67,13 @@ requests. Actual calls begin only for active AI games with successful reservatio
 The player client's assistant drawer (`docs/surface-architecture.md` §6) calls the same providers with the same
 deployment keys, through a streaming, tool-using `ChatProvider` (`lib/ai-player` `chat-*.ts`: Anthropic Messages or
 OpenAI chat completions, one attempt each, no retries, an abort signal and a 4,096-token output ceiling per step). It
-draws on a **separate pool**, so the assistant can never spend the AI seats' budget, nor one player another's:
+draws on a **separate pool**, so the assistant can never spend the AI seats' budget, nor one player another's. Only rooms owned by an administrator can use it:
 
-- **Allowance per human per game.** The room owner approves "assistant tokens per player per game" and the assistant's
-  model in the AI budget card (`rooms.approveAiBudget({…, assistantBudget, assistantModel})`). Every human member gets
-  the same allowance, counted per (room, human, epoch); the epoch is the room's current game (the lobby after a game
-  shares that game's epoch; before the first game it is `lobby`). The default is 0: the assistant is off until the
-  owner approves one. The allowance may change during a game, for everyone alike.
+- **Quota per human per game.** The room's `assistantQuota` ("assistant tokens per player per game", default 300,000, at
+  most 2,000,000; 0 = none) and the assistant's model are set by the owner with
+  `rooms.setAiQuotas({roomId, aiQuota?, assistantQuota?, assistantModel?})`. Every human member gets
+  the same quota, counted per (room, human, epoch); the epoch is the room's current game (the lobby after a game
+  shares that game's epoch; before the first game it is `lobby`). There is no approval. The quota may change during a game, for everyone alike.
 - **USD ceilings.** `ASSISTANT_GAME_USD` (2) reserved per room per game and `DAILY_ASSISTANT_USD` (5) per UTC day
   across rooms (`convex/lib/aiModels.ts`), on counters separate from the seats' `GAME_USD` and `DAILY_HOST_USD`.
 - **Call rates.** At most `ASSISTANT_CALLS_PER_MINUTE` (8) model steps per player and
@@ -84,7 +83,7 @@ draws on a **separate pool**, so the assistant can never spend the AI seats' bud
 Each model step reserves first (`ai/seats.ts:reserve` with `pool: "assistant"`): the UTF-8 bytes of the system prompt,
 the conversation and the tool definitions plus 2,048, and the 4,096-token output ceiling. Unlike a seat's call, a
 step's worst-case reservation is far above what it usually uses, so after a trustworthy usage report both the unused
-tokens (to the player's allowance) and the unused USD (to the room's and the day's assistant counters, keeping the
+tokens (to the player's quota) and the unused USD (to the room's and the day's assistant counters, keeping the
 actual cost at the catalog rate) are returned. A cancelled or failed step keeps its whole reservation. The room's
 counters live in its own allowance row (subject ""), not on the room document. Logs record ids, tools, outcomes and usage, never
 message text or tool arguments.

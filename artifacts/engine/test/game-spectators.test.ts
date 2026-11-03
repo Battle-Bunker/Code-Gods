@@ -6,7 +6,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { api, gods, raw, rejects, sandboxesWarm, startGame, touch } from "./game-helpers.ts";
+import { api, gods, raw, rejects, sandboxesWarm, startGame, touch, makeAdmin } from "./game-helpers.ts";
 
 const INT_TS = { language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Int", spawnRateHz: 0, startingObjectCount: 3, halfLifeSeconds: 100000 };
 const roles = async (c: any, roomId: string) => Object.fromEntries((await c.query(api.rooms.get, { room: roomId })).members.map((m: any) => [m.name, m.spectator]));
@@ -57,7 +57,8 @@ test("who may set it: a member for themselves, the owner for any human, never an
   await host.c.mutation(api.rooms.setSpectator, { roomId, spectator: false });
   await host.c.mutation(api.rooms.setSpectator, { roomId, spectator: false, godId: ada.subject });
   assert.deepEqual(await roles(host.c, roomId), { "Set Host": false, "Set Ada": false, "Set Bo": false, "Set Cy": false });
-  // AI seats always play.
+  // AI seats always play (in a room an administrator owns: AI is used only there).
+  await makeAdmin(host);
   const { agents } = await host.c.query(api.aiTemplates.catalog, {});
   {
     assert.ok(agents.length, "the AI catalogue is seeded");

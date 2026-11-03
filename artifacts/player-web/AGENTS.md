@@ -53,8 +53,8 @@ identity, whichever copy of the app they use (`src/core/connection.ts`: site, ac
 - **The in-client assistant** (the "Your assistant (private)" pane, `src/core/chat/`) is part of the protected
   core, in every mode of the app, for a seated player (spectators have none). It is a model served by the engine (`convex/assistant*`), not you:
   it acts through the player's own revocable assistant credential, asks the player before public chat, summons,
-  destroys, pauses, panel deletions and owner actions, and runs only once the room owner approves an assistant
-  allowance. Don't reimplement it in a panel; its pure UI state is unit-tested in `test/assistant-state.test.ts`
+  destroys, pauses, panel deletions and owner actions, and runs only in rooms run by an administrator, within the assistant quota the room owner
+  configures (300,000 tokens per player per game by default). Don't reimplement it in a panel; its pure UI state is unit-tested in `test/assistant-state.test.ts`
   and `test/suggestions.test.ts`.
 - **Tests:** `pnpm --filter @workspace/player-web test` (pure logic: the dock adapter and sync, the palette's
   command lists, the assistant's state, the site pages' rules); the browser checks include `e2e/multi-client.ts`,

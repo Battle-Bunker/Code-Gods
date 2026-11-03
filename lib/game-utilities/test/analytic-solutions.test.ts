@@ -21,6 +21,7 @@ import { FAMILIES } from "../src/catalog.ts";
 import { compareTable } from "../src/analytic/compare.ts";
 import { NoSolution, cellAdditive } from "../src/analytic/grid.ts";
 import { add, levels, type Dist } from "../src/analytic/kit.ts";
+import { shardCount, shardOf } from "./shard.ts";   // CG_SHARD="k/n": the shipped-table loop below is split across CI jobs
 
 function exhaustiveLevels(familyId: string, params: object, inst: ReturnType<typeof instantiateKey>, values: Iterable<unknown>) {
   const ev = evaluator({ familyId, params: params as never }, inst), d: Dist = new Map();
@@ -64,7 +65,7 @@ test("cellAdditive refuses a rule that is not a sum over cells", () => {
 
 test("every analytic solution agrees with every shipped table (Monte Carlo body within 5.5 se; exact tables exactly)", () => {
   let compared = 0;
-  for (const key of shippedInstanceKeys()) {
+  for (const key of shardOf(shippedInstanceKeys())) {
     const file = shippedFile(key)!, inst = instantiateKey(key);
     for (const t of file.tables) {
       if (t.prior) continue;
@@ -77,7 +78,7 @@ test("every analytic solution agrees with every shipped table (Monte Carlo body 
       compared++;
     }
   }
-  assert.ok(compared > 300, `only ${compared} tables compared`);
+  assert.ok(compared > Math.floor(300 / shardCount / 2), `only ${compared} tables compared`);
 });
 
 /** Families with their own analytic hook (written in the family file, documented in tail-toolkit.md). */

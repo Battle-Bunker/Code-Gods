@@ -1910,16 +1910,98 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 128
-        },
-        "aiBudget": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 1000000
         }
       },
       "required": [
         "requestId",
         "revision"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "notice": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "requestId": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000)$"
+            },
+            "result": {}
+          },
+          "required": [
+            "requestId",
+            "result"
+          ],
+          "additionalProperties": false
+        },
+        "nextCursor": {
+          "description": "Pass back as the cursor argument for the next page; null when there is none.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "untrusted",
+        "notice",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "set_ai_quotas": {
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "requestId": {
+          "description": "A fresh UUID per owner action, echoed back; start_game is idempotent per requestId.",
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000)$"
+        },
+        "aiQuota": {
+          "description": "Tokens all AI players together may use per game (default 300,000).",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "assistantQuota": {
+          "description": "Tokens each player's assistant may use per game (default 300,000).",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2000000
+        },
+        "assistantModel": {
+          "description": "The assistant's model id (manifest aiFunding.models).",
+          "type": "string",
+          "maxLength": 64
+        }
+      },
+      "required": [
+        "requestId"
       ],
       "additionalProperties": false
     },

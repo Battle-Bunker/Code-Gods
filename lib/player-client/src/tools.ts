@@ -116,7 +116,7 @@ function def<const N extends string, I extends z.ZodType, O extends z.ZodType, c
 }
 
 export const READ_TOOLS = [
-  def({ name: "whoami", short: "Who this connection acts for: the human, room, permission and expiry.", title: "Who am I", functions: ["auth.user.me"], permission: "read", annotations: read,
+  def({ name: "whoami", short: "Who this connection acts for: human, room, permission, expiry.", title: "Who am I", functions: ["auth.user.me"], permission: "read", annotations: read,
     about: "This connection: the human it acts for, its room, permission (read < act < owner) and credential expiry.",
     input: obj({}), output: result(anyData) }),
   def({ name: "get_rules", short: "The room's rules as text, with its settings and object type.", title: "Game rules", functions: ["rooms.get", "manifest.get"], permission: "read", annotations: read,
@@ -132,21 +132,21 @@ export const READ_TOOLS = [
     note: "Omit `after` for the latest batches.",
     input: obj({ gameId, after: cursor.optional().describe("The last seq you have (nextCursor)."), limit: z.number().int().min(1).max(50).default(20) }),
     output: result(anyData) }),
-  def({ name: "get_trajectories", short: "Per-object series of the player's net bits, the peers' aggregate and payoff.", title: "Trajectories", functions: ["player.trajectories"], permission: "read", annotations: read,
+  def({ name: "get_trajectories", short: "Per-object series of the player's net bits, the peers' aggregate, payoff.", title: "Trajectories", functions: ["player.trajectories"], permission: "read", annotations: read,
     note: "Pages by afterSeq.",
     input: obj({ gameId, afterSeq: cursor.optional(), limit: z.number().int().min(1).max(200).default(100) }), output: result(anyData) }),
   def({ name: "list_games", short: "The room's finished games with their public results.", title: "Finished games", functions: ["rooms.history"], permission: "read", annotations: read,
     note: "Paged by offset.",
     input: obj({ cursor: z.number().int().min(0).default(0).describe("Offset (nextCursor)."), limit: z.number().int().min(1).max(20).default(5) }),
     output: result(anyData) }),
-  def({ name: "get_game_history", short: "The event log of a game of the room; past games only for their players and the owner.", title: "Game history", functions: ["player.history"], permission: "read", annotations: read,
+  def({ name: "get_game_history", short: "A game's event log; past games only for its players and the owner.", title: "Game history", functions: ["player.history"], permission: "read", annotations: read,
     note: "Takes the gameId (list_games) and pages by afterSeq.",
     input: obj({ gameId: id, afterSeq: cursor.optional(), limit: z.number().int().min(1).max(50).default(20) }), output: result(anyData) }),
-  def({ name: "get_replay", short: "An ended game the player played in, fully revealed: every utility, agent's code and act.", title: "Replay of an ended game", functions: ["player.replay"], permission: "read", annotations: read,
+  def({ name: "get_replay", short: "An ended game the player played in, fully revealed (utilities, agents' code, acts).", title: "Replay of an ended game", functions: ["player.replay"], permission: "read", annotations: read,
     note: "Takes the gameId (list_games); pass nextCursor back as cursor. For whole-game analysis use run_code's replay dataset.",
     input: obj({ gameId: id, cursor: z.string().max(200).optional().describe("The previous page's nextCursor (omit for the first page).") }),
     output: result(anyData) }),
-  def({ name: "get_my_utility", short: "The player's utility descriptor (family, parameters, defence goal) and game settings.", title: "My utility", functions: ["player.myUtility"], permission: "read", annotations: read,
+  def({ name: "get_my_utility", short: "The player's utility (family, parameters, defence goal) and game settings.", title: "My utility", functions: ["player.myUtility"], permission: "read", annotations: read,
     note: "The observation's self.utility has the readable name, summary and source.",
     input: obj({}), output: result(anyData) }),
   def({ name: "evaluate_value", short: "Score a hypothetical object value with the player's own utility.", title: "Evaluate a value", functions: [], permission: "read", annotations: read,
@@ -157,7 +157,7 @@ export const READ_TOOLS = [
     note: "Newest last; nextCursor gives the next older page.",
     input: obj({ cursor: z.string().max(2000).optional().describe("The previous page's nextCursor (omit for the newest page)."), limit: z.number().int().min(1).max(100).default(50) }),
     output: result(anyData) }),
-  def({ name: "get_receipt", short: "A command's receipt by commandId: received, pending, failed or not found.", title: "Command receipt", functions: ["receipts.get"], permission: "read", annotations: read,
+  def({ name: "get_receipt", short: "A command's receipt by commandId: received, pending, failed, not found.", title: "Command receipt", functions: ["receipts.get"], permission: "read", annotations: read,
     note: "Status received (with the engine's result), pending (still running), failed (not applied: resend the identical call) or not_found.",
     input: obj({ commandId: uuid }), output: result(receiptData) }),
   def({ name: "load_skill", short: "Load a skill (domain guidance with live data) by name from the skills index.", title: "Load a skill", functions: ["rooms.get", "player.observation", "layout.current"], permission: "read", annotations: read,
@@ -166,7 +166,7 @@ export const READ_TOOLS = [
 ] as const;
 
 export const ACT_TOOLS = [
-  def({ name: "validate_agent", short: "Measure an agent's source without summoning it (free): compiles, summon cost, cost per act.", title: "Validate an agent", functions: ["commands.submit"], permission: "act", annotations: read,
+  def({ name: "validate_agent", short: "Check an agent's source without summoning it (free): compiles, summon cost, act cost.", title: "Validate an agent", functions: ["commands.submit"], permission: "act", annotations: read,
     about: "Measure an agent without summoning it (free): whether it compiles, its summon cost, decision bits and expected cost per act, with sample moves. Takes a few seconds. Always validate before summoning.",
     input: obj({ source, language: language.optional().describe("The agent's language: one the game allows (get_observation languages). Default: the game's first allowed language."), commandId: optionalCommandId, gameId, waitMs }),
     output: result(receiptData) }),
@@ -197,17 +197,22 @@ export const ACT_TOOLS = [
 ] as const;
 
 export const OWNER_TOOLS = [
-  def({ name: "get_room_state", short: "The room's full state for its owner, with the revision update_settings needs.", title: "Room state", functions: ["rooms.get"], permission: "owner", annotations: read,
+  def({ name: "get_room_state", short: "Full room state for its owner, with the revision update_settings needs.", title: "Room state", functions: ["rooms.get"], permission: "owner", annotations: read,
     about: "The room's full state for its owner, revision included (needed by update_settings).",
     input: obj({}), output: result(anyData) }),
   def({ name: "get_ai_catalog", short: "The AI players that can be seated (ids for add_ai).", title: "AI catalog", functions: ["aiTemplates.catalog"], permission: "owner", annotations: read,
     input: obj({}), output: result(anyData) }),
-  def({ name: "update_settings", short: "Put the room on a setup, change its settings, or set its AI budget (next game).", title: "Update settings", functions: ["owner.settings", "owner.command", "rooms.approveAiBudget"], permission: "owner", annotations: acts,
-    note: "Give a setupId (list_setups) or settings (only the fields to change), and/or the AI budget, with the room's current revision (get_room_state). Confirmed by the player first.",
+  def({ name: "update_settings", short: "Put the room on a setup or change its settings (next game).", title: "Update settings", functions: ["owner.settings", "owner.command"], permission: "owner", annotations: acts,
+    note: "Give a setupId (list_setups) or settings (only the fields to change), with the room's current revision (get_room_state). Confirmed by the player first.",
     input: obj({ requestId, revision: z.number().int().min(0),
       settings: z.record(z.string(), z.unknown()).optional().describe("The settings fields to change; languages is the non-empty list of languages agents may be written in (each agent's grammar and summon price follow its own language), an object type change moves its default instantiation. Not with setupId."),
-      setupId: id.optional().describe("Any game setup's id (list_setups): the room runs it and the next game takes its complete settings. Not with settings."),
-      aiBudget: z.number().int().min(0).max(1_000_000).optional() }), output: result(ownerData) }),
+      setupId: id.optional().describe("Any game setup's id (list_setups): the room runs it and the next game takes its complete settings. Not with settings.") }), output: result(ownerData) }),
+  def({ name: "set_ai_quotas", short: "Set the room's per-game AI token quotas (AI players, assistants).", title: "Set AI quotas", functions: ["rooms.setAiQuotas", "owner.command"], permission: "owner", annotations: acts,
+    note: "Any of the three; 0 = none; also during a game. Only in rooms run by an administrator. Confirmed by the player first.",
+    input: obj({ requestId,
+      aiQuota: z.number().int().min(0).max(1_000_000).optional().describe("Tokens all AI players together may use per game (default 300,000)."),
+      assistantQuota: z.number().int().min(0).max(2_000_000).optional().describe("Tokens each player's assistant may use per game (default 300,000)."),
+      assistantModel: z.string().max(64).optional().describe("The assistant's model id (manifest aiFunding.models).") }), output: result(ownerData) }),
   def({ name: "start_game", short: "Start the next game.", title: "Start a game", functions: ["owner.start", "owner.command"], permission: "owner", annotations: acts,
     note: "Confirmed by the player first.", input: obj({ requestId }), output: result(ownerData) }),
   def({ name: "resume_game", short: "Resume a game stopped in recovery.", title: "Resume the game", functions: ["rooms.resume", "owner.command"], permission: "owner", annotations: acts,
@@ -309,7 +314,7 @@ const datasetRequest = z.union([datasetName, obj({
 })]);
 const runId = id.describe("A run's id (run_code's runId, or list_code_runs).");
 export const CODE_TOOLS = [
-  def({ name: "run_code", short: "Run a Python or TypeScript analytics script server-side over named datasets (reads only).", title: "Run analytics code", functions: [], permission: "read", annotations: read,
+  def({ name: "run_code", short: "Run a Python or TypeScript analytics script over named datasets (reads only).", title: "Run analytics code", functions: [], permission: "read", annotations: read,
     about: "Run a short Python or TypeScript analytics script server-side in the sandbox: it defines main(data), where data holds the datasets you name "
       + "(fetched by the engine as the player; they never pass through this conversation) plus params. Returns main's JSON result and printed text, "
       + "clipped (TRUNCATED; get_code_run has the rest), and a runId; open_panel {panelId: code-output, params: {runId}} shows it to the player as a table. "
@@ -330,10 +335,10 @@ export const CODE_TOOLS = [
     note: "A slice of a run's full result JSON, printed output or source, from offset (nextOffset pages on); or its summary without part.",
     input: obj({ runId, part: z.enum(["result", "output", "source"]).optional(), offset: z.number().int().min(0).default(0),
       length: z.number().int().min(100).max(6000).default(4000) }), output: result(anyData) }),
-  def({ name: "list_code_objects", short: "The player's stored objects (keys and sizes) and the object store's quota.", title: "List stored objects", functions: ["code.objects.list"], permission: "read", annotations: read,
+  def({ name: "list_code_objects", short: "The player's stored objects (keys, sizes) and the store's quota.", title: "List stored objects", functions: ["code.objects.list"], permission: "read", annotations: read,
     note: "Values are read by a script (run_code load); runs/<runId> keys hold past run results, scripts/<name> saved scripts.",
     input: obj({ prefix: z.string().max(128).optional(), limit: z.number().int().min(1).max(500).default(100) }), output: result(anyData) }),
-  def({ name: "list_code_runs", short: "The player's recent code runs in this room and the game's run budget left.", title: "List code runs", functions: ["code.runs.list"], permission: "read", annotations: read,
+  def({ name: "list_code_runs", short: "The player's recent code runs here and the run budget left.", title: "List code runs", functions: ["code.runs.list"], permission: "read", annotations: read,
     note: "Your recent runs in this room, newest first, with this game's budget left.",
     input: obj({ limit: z.number().int().min(1).max(50).default(10) }), output: result(anyData) }),
 ] as const;

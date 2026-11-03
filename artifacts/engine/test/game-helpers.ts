@@ -56,6 +56,25 @@ export async function gods(...names: string[]): Promise<God[]> {
   return out;
 }
 
+/**
+ * Seed administrators: a verified ADMIN_EMAILS address (scripts/dev.mjs allows admin@example.test) on the test-only
+ * "fake" provider (auth/identity.ts isAdminUser). AI seats and the assistant work only in rooms an admin owns.
+ */
+export async function adminGods(...names: string[]): Promise<God[]> {
+  const out: God[] = [];
+  for (const name of names) {
+    const subject = `test|${randomUUID()}`;
+    const sid = await admin.mutation(internal.testing.seedUser, { subject, name, email: "admin@example.test", emailVerified: true, provider: "fake" });
+    out.push({ subject, name, sid, c: clientFor(subject, "browser", { sessionId: sid }) });
+  }
+  return out;
+}
+
+/** Make an existing god an administrator (its sessions stay valid): its rooms may then use AI. */
+export async function makeAdmin(god: God): Promise<void> {
+  await admin.mutation(internal.testing.seedUser, { subject: god.subject, name: god.name, email: "admin@example.test", emailVerified: true, provider: "fake" });
+}
+
 /** A player-scope client for `god` bound to `roomId` with a seeded credential of `permission`. */
 export async function playerClient(god: God, roomId: string, permission: "read" | "act" | "owner") {
   const credentialId = await admin.mutation(internal.testing.seedCredential, { subject: god.subject, roomId, permission });

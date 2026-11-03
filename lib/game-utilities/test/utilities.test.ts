@@ -7,6 +7,7 @@ import {
 } from "../src/index.ts";
 import { packTetrominoes } from "../src/families/grid/geometry.ts";
 import type { Ordinal } from "../src/types.ts";
+import { shardOf } from "./shard.ts";   // CG_SHARD="k/n": the two instantiation loops below are split across CI jobs
 import { allGrids, coveringGrids, familiesOf, intInsts, sampleObjects, seededRng, stringInsts } from "./support.ts";
 
 const ALL: Instantiation[] = [...allGrids(), ...intInsts(), ...stringInsts()];
@@ -51,7 +52,7 @@ function lint(src: string, lang: "python" | "typescript", f: UtilityFamily<any>,
 
 test("every family × every instantiation: support, sample ∈ support, canonical idempotent and small, cards, shape, determinism", () => {
   let largest = { n: 0, at: "" };
-  for (const inst of ALL) {
+  for (const inst of shardOf(ALL)) {
     const ctx = context(inst), rng = seededRng(`laws:${inst.key}`), def = objectType(inst.objectType);
     const objs = Array.from({ length: 4 }, () => def.codec(inst).encode(def.spawn(inst, rng)));
     for (const f of familiesOf(inst)) {
@@ -86,7 +87,7 @@ test("every family × every instantiation: support, sample ∈ support, canonica
 });
 
 test("exemplars are legal and reach the top of every sampled ordinal", () => {
-  for (const inst of [...coveringGrids(), ...intInsts(), ...stringInsts()]) {
+  for (const inst of shardOf([...coveringGrids(), ...intInsts(), ...stringInsts()])) {
     const ctx = context(inst), rng = seededRng(`exemplar:${inst.key}`), codec = objectType(inst.objectType).codec(inst);
     const objs = sampleObjects(inst, rng, 60);
     for (const f of familiesOf(inst)) {

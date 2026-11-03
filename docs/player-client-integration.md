@@ -239,11 +239,11 @@ is `instance.objectType` / `instance.args`.
 ## AI seats run inside the engine
 
 AI players are not player apps. The room owner adds an AI seat from the admin-edited template library
-(`rooms.addAi`), approves a token budget, and the engine runs each seat as a scheduled Convex action
+(`rooms.addAi`), and (AI is only enabled in rooms owned by an administrator; the room's `aiQuota`, default 300,000 tokens per game, bounds it) the engine runs each seat as a scheduled Convex action
 chain (`artifacts/engine/convex/ai/turn.ts`, `ai/seats.ts`):
 
 1. build the seat's observation with the same projection as a human's (`self.isAI = true`);
-2. reserve budget in a mutation **before** the call (room token budget, $2 per game, $5 per UTC day
+2. reserve budget in a mutation **before** the call (room token quota, $2 per game, $5 per UTC day
    across the deployment, 6 calls per minute per room);
 3. run `lib/ai-player`'s `AIController` with the provider (Anthropic or OpenAI, keys only in the
    deployment's env vars `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`; the offline `mock` provider only with

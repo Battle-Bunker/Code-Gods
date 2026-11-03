@@ -18,7 +18,7 @@ export function useNextStep(paneId: string, phase: Phase) {
   const dock = useDockActions();
   const owner = useOwnerActions();
   const start = useStartView();
-  const step = nextStep({ phase, seated: situation.seated, isOwner: situation.isOwner, players: situation.players, agents: agents.length, start });
+  const step = nextStep({ phase, seated: situation.seated, isOwner: situation.isOwner, players: situation.players, agents: agents.length, start, aiEnabled: situation.room?.aiEnabled });
   // Read-only (a replay, a read-only credential): only a step that opens a panel is offered; one that acts is not shown.
   const { can } = useAffordances();
   const offered = step.action.kind === "panel" || can.roomStep.ok;

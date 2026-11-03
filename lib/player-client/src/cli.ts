@@ -118,7 +118,7 @@ async function connect(args: string[]) {
       "Open this page in the browser where you are signed in to the engine, and approve:",
       `  ${p.verificationUrl}`,
       `Comparison code: ${p.userCode}`,
-      `Check that the page shows this code, room ${p.roomCode} and permission ${p.permission}${p.permission === "owner" ? " (full owner control: settings, AI budget, start/end, playing as you)" : ""}.`,
+      `Check that the page shows this code, room ${p.roomCode} and permission ${p.permission}${p.permission === "owner" ? " (full owner control: settings, AI quotas, start/end, playing as you)" : ""}.`,
       `The label "${p.label}" is self-reported, not a verified identity.`,
       `Waiting for approval (expires ${new Date(p.expiresAt).toISOString()})...`,
     ].join("\n")),

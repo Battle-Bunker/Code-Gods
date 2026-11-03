@@ -19,6 +19,7 @@ import { assertShape, catalogFor, deal, dealerOf, disclosureNoise, newNoiseKey, 
 import { ensureSandboxes } from "./engine/runtime";
 import { settingsDomain } from "./engine/settingsDomain";
 import { fail } from "./lib/errors";
+import { AI_ADMIN_ONLY } from "./lib/aiAccess";
 import { principalV, type Principal } from "./lib/rooms";
 import type { RoomSetupChange } from "./setups";
 import { salienceOf } from "./lib/world";
@@ -35,7 +36,7 @@ export const fillCatalog = internalAction({
   },
 });
 
-type SettingsArgs = { roomId: string; revision: number; settings?: Record<string, unknown>; setupId?: string; aiBudget?: number; principal?: Principal };
+type SettingsArgs = { roomId: string; revision: number; settings?: Record<string, unknown>; setupId?: string; principal?: Principal };
 type SettingsResult = { revision: number; setup?: RoomSetupChange };
 async function updateSettings(ctx: ActionCtx, args: SettingsArgs): Promise<SettingsResult> {
   const context = await ctx.runQuery(internal.game.lobby.ownerContext, { room: args.roomId, principal: args.principal });
@@ -46,7 +47,7 @@ async function updateSettings(ctx: ActionCtx, args: SettingsArgs): Promise<Setti
   const previous = (upgradeStoredSettings(context.room.settings) ?? context.room.settings) as GameSettings;
   const commit = (settings: GameSettings, setup?: { kind: "apply"; setupId: Id<"gameSetups"> } | { kind: "edit"; baseUpdatedAt?: number }): Promise<SettingsResult> =>
     ctx.runMutation(internal.game.lobby.commitSettings, {
-      roomId: context.room._id, principal: args.principal, revision: args.revision, settings, catalog: catalogFor(settings), aiBudget: args.aiBudget,
+      roomId: context.room._id, principal: args.principal, revision: args.revision, settings, catalog: catalogFor(settings),
       ...(setup ? { setup } : {}),
     });
   if (args.setupId) {
@@ -63,14 +64,14 @@ async function updateSettings(ctx: ActionCtx, args: SettingsArgs): Promise<Setti
 }
 
 /**
- * Edit the next game's settings and/or the AI budget. The room always runs a game setup: `setupId` applies one (any
+ * Edit the next game's settings (the AI quotas are rooms.setAiQuotas). The room always runs a game setup: `setupId` applies one (any
  * setup: they are shared), its complete settings becoming the room's; `settings` changes some fields through the
  * settings model (game-core settings-model.ts: only the game's own dependencies move) and writes the result to the
  * room's setup when the owner owns it, else to a new setup of theirs named "<name>'s copy" that the room then runs.
  * The result's `setup` says which, with a one-sentence `note`.
  */
 export const settings = action({
-  args: { roomId: v.string(), revision: v.number(), settings: v.optional(v.any()), setupId: v.optional(v.string()), aiBudget: v.optional(v.number()) },
+  args: { roomId: v.string(), revision: v.number(), settings: v.optional(v.any()), setupId: v.optional(v.string()) },
   handler: async (ctx, args): Promise<SettingsResult> => { return updateSettings(ctx, args); },
 });
 
@@ -140,11 +141,11 @@ async function startGame(ctx: ActionCtx, args: { roomId: string; requestId?: str
   if (members.length < 3) fail("BAD_REQUEST", "At least three players are required (spectators don't count)");
   if (members.length > MAX_GODS) fail("BAD_REQUEST", "At most eight players can play");
   const bots = members.filter(m => m.kind === "ai");
+  if (bots.length && !context.aiEnabled) fail("FORBIDDEN", `${AI_ADMIN_ONLY}: remove the AI seats to start`);
   for (const bot of bots) {
     if (!bot.aiAgent) fail("BAD_REQUEST", "Every AI seat needs an agent from the library");
     if (!aiProviderAvailable(bot.aiAgent.provider)) fail("UNAVAILABLE", `AI players require a server-side ${bot.aiAgent.provider} API key`);
   }
-  if (bots.length && room.aiBudget <= 0) fail("BAD_REQUEST", "Approve an AI token budget before starting with AI seats");
   // A room the single-language migration has not reached yet plays its one language (upgradeStoredSettings).
   const settings = (upgradeStoredSettings(room.settings) ?? room.settings) as GameSettings;
   const manifest = await calibrationManifest(ctx);
@@ -222,12 +223,13 @@ export const start = action({
 
 const commandArgs = {
   roomId: v.string(),
-  action: v.union(v.literal("settings"), v.literal("start"), v.literal("resume"), v.literal("endGame"), v.literal("addAi"), v.literal("removeAi")),
+  action: v.union(v.literal("settings"), v.literal("quotas"), v.literal("start"), v.literal("resume"), v.literal("endGame"), v.literal("addAi"), v.literal("removeAi")),
   requestId: v.optional(v.string()), revision: v.optional(v.number()), settings: v.optional(v.any()), setupId: v.optional(v.string()),
-  aiBudget: v.optional(v.number()), aiAgentId: v.optional(v.string()), deityId: v.optional(v.string()),
+  aiQuota: v.optional(v.number()), assistantQuota: v.optional(v.number()), assistantModel: v.optional(v.string()),
+  aiAgentId: v.optional(v.string()), deityId: v.optional(v.string()),
 };
-type CommandArgs = { roomId: string; action: "settings" | "start" | "resume" | "endGame" | "addAi" | "removeAi"; requestId?: string; revision?: number;
-  settings?: Record<string, unknown>; setupId?: string; aiBudget?: number; aiAgentId?: string; deityId?: string };
+type CommandArgs = { roomId: string; action: "settings" | "quotas" | "start" | "resume" | "endGame" | "addAi" | "removeAi"; requestId?: string; revision?: number;
+  settings?: Record<string, unknown>; setupId?: string; aiQuota?: number; assistantQuota?: number; assistantModel?: string; aiAgentId?: string; deityId?: string };
 
 /** One owner action as the authenticated caller, or as the human behind `principal` (the agent registry's owner tools). */
 async function ownerCommand(ctx: ActionCtx, args: CommandArgs, principal?: Principal): Promise<unknown> {
@@ -236,7 +238,11 @@ async function ownerCommand(ctx: ActionCtx, args: CommandArgs, principal?: Princ
   switch (args.action) {
     case "settings":
       if (args.revision === undefined) return fail("BAD_REQUEST", "revision is required");
-      return updateSettings(ctx, { roomId, revision: args.revision, settings: args.settings, setupId: args.setupId, aiBudget: args.aiBudget, principal });
+      return updateSettings(ctx, { roomId, revision: args.revision, settings: args.settings, setupId: args.setupId, principal });
+    case "quotas": {
+      const quotas = { roomId, aiQuota: args.aiQuota, assistantQuota: args.assistantQuota, assistantModel: args.assistantModel };
+      return principal ? ctx.runMutation(internal.rooms.setAiQuotasAs, { principal, ...quotas }) : ctx.runMutation(api.rooms.setAiQuotas, quotas);
+    }
     case "start": return startGame(ctx, { roomId, requestId: args.requestId, principal });
     case "resume": return principal ? ctx.runMutation(internal.rooms.resumeAs, { principal, roomId }) : ctx.runMutation(api.rooms.resume, { roomId });
     case "endGame": return principal ? ctx.runMutation(internal.rooms.endActiveGameAs, { principal, roomId }) : ctx.runMutation(api.rooms.endActiveGame, { roomId });

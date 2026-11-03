@@ -23,6 +23,10 @@
  *  - backfillStandings (games; read-architecture §4.1): a game stored before the standings read model gets its last
  *    published scoreboard as `standings` rows and one `standingsHistory` row (game/readModel.ts). Nothing to narrow:
  *    games.standings' fallback to the clock's scoreboard goes once dev and production report it done.
+ *  - aiQuotas (rooms; 2026-11-03, AI budget approvals removed): every room gets the default per-game quotas
+ *    (DEFAULT_AI_QUOTA for its AI players, DEFAULT_ASSISTANT_QUOTA per player's assistant) where it has none, whatever
+ *    it had approved before, and its legacy `aiBudget` / `assistantBudget` are cleared. Narrowed later: `aiQuota` and
+ *    `assistantQuota` become required, the legacy fields leave the validator, and lib/aiAccess.ts's `??` defaults go.
  *
  * Older hand-rolled steps, idempotent and run by their own deploy-workflow steps (kept as they are: they predate the
  * component, and porting the Node action setupsV2 buys nothing):
@@ -56,6 +60,7 @@ import { ASSISTANT_LOBBY } from "./ai/seats";
 import { PLAYER_PARTITION, PLAYER_PREFIX, RUNS_PREFIX, codeEpoch } from "./code/keys";
 import { aiSeatName, renameInRecord } from "./lib/aiNames";
 import { migrateSettings } from "./lib/migrateSetups";
+import { DEFAULT_AI_QUOTA, DEFAULT_ASSISTANT_QUOTA } from "./lib/aiModels";
 import { freeName, setupSummary } from "./setups";
 import { clockDoc, clockFrom, splitHotFields } from "./game/state";
 import { hasStandings, publishStandings } from "./game/readModel";
@@ -111,11 +116,22 @@ export const backfillStandings = migrations.define({
   },
 });
 
+export const aiQuotas = migrations.define({
+  table: "rooms",
+  migrateOne: (_ctx, room) => {
+    if (room.aiQuota !== undefined && room.assistantQuota !== undefined && room.aiBudget === undefined && room.assistantBudget === undefined) return;
+    return {
+      aiQuota: room.aiQuota ?? DEFAULT_AI_QUOTA, assistantQuota: room.assistantQuota ?? DEFAULT_ASSISTANT_QUOTA,
+      aiBudget: undefined, assistantBudget: undefined,
+    };
+  },
+});
+
 /** Every component migration, in order: run by the deploy workflow (`npx convex run migrations:runAll`). Append only. */
 // Annotated: this module's own `internal` references would otherwise make its exported types circular.
 const RUN_ALL: FunctionReference<"mutation", "internal">[] = [internal.migrations.dropHaskellFromSetups, internal.migrations.dropHaskellFromRooms,
   internal.migrations.dropHaskellFromGames, internal.migrations.dropHaskellBundle, internal.migrations.dropHaskellCompiledPrograms,
-  internal.migrations.splitGameHotFields, internal.migrations.backfillReplays, internal.migrations.backfillStandings];
+  internal.migrations.splitGameHotFields, internal.migrations.backfillReplays, internal.migrations.backfillStandings, internal.migrations.aiQuotas];
 export const runAll = migrations.runner(RUN_ALL);
 /** The state of each of runAll's migrations (scripts/run-migrations.mjs waits for all of them to succeed). */
 export const status = internalQuery({

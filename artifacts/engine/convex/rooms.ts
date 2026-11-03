@@ -10,7 +10,8 @@ import { internalMutation, internalQuery, mutation, query, type MutationCtx, typ
 import { actsAsHuman, requireViewer, type Viewer } from "./auth/access";
 import { endGame, resumeGame } from "./engine/loop";
 import { liveGame, withEngine } from "./game/state";
-import { AI_MODEL_CATALOG, ASSISTANT_BUDGET_MAX, DEFAULT_AGENT_MODEL } from "./lib/aiModels";
+import { AI_MODEL_CATALOG, AI_QUOTA_MAX, ASSISTANT_QUOTA_MAX, DEFAULT_AGENT_MODEL, DEFAULT_AI_QUOTA, DEFAULT_ASSISTANT_QUOTA } from "./lib/aiModels";
+import { aiEnabledFor, aiQuotaOf, assistantQuotaOf, requireAiEnabled } from "./lib/aiAccess";
 import { fail } from "./lib/errors";
 import { aiSeatName } from "./lib/aiNames";
 import { chatView, publicRoom } from "./lib/projection";
@@ -35,27 +36,33 @@ async function activeGame(ctx: MutationCtx, room: Doc<"rooms">) {
   return game && game.phase !== "ended" ? game : null;
 }
 
-/** The in-client assistant's allowance (tokens per human per game; 0 = off) and model, as the owner approves them. */
-function checkAssistant(assistantBudget: number | undefined, assistantModel: string | undefined) {
-  if (assistantBudget !== undefined && (!Number.isSafeInteger(assistantBudget) || assistantBudget < 0 || assistantBudget > ASSISTANT_BUDGET_MAX)) {
-    fail("BAD_REQUEST", `The assistant allowance is a whole number of tokens from 0 to ${ASSISTANT_BUDGET_MAX.toLocaleString("en")}`);
+/** The room's AI quotas (tokens per game; 0 = none) and the assistant's model, as the owner configures them. */
+type Quotas = { aiQuota?: number; assistantQuota?: number; assistantModel?: string };
+function checkQuotas({ aiQuota, assistantQuota, assistantModel }: Quotas) {
+  const whole = (n: number | undefined, max: number) => n === undefined || (Number.isSafeInteger(n) && n >= 0 && n <= max);
+  if (!whole(aiQuota, AI_QUOTA_MAX)) fail("BAD_REQUEST", `The AI players' quota is a whole number of tokens per game from 0 to ${AI_QUOTA_MAX.toLocaleString("en")}`);
+  if (!whole(assistantQuota, ASSISTANT_QUOTA_MAX)) {
+    fail("BAD_REQUEST", `The assistant quota is a whole number of tokens per player per game from 0 to ${ASSISTANT_QUOTA_MAX.toLocaleString("en")}`);
   }
   if (assistantModel !== undefined && !AI_MODEL_CATALOG.some(m => m.id === assistantModel)) fail("BAD_REQUEST", "Unknown assistant model");
 }
+const quotaPatch = ({ aiQuota, assistantQuota, assistantModel }: Quotas) => ({
+  ...(aiQuota !== undefined ? { aiQuota } : {}), ...(assistantQuota !== undefined ? { assistantQuota } : {}), ...(assistantModel !== undefined ? { assistantModel } : {}),
+});
 
 /**
  * Create a room (the human everywhere: a browser session or an account grant; never a room credential). The creator owns it and is its first member, a spectator until they choose to
  * play (setSpectator; docs/unify-apps-plan.md §2). It starts on the seeded First steps
  * setup (docs/ui-redesign.md §1: a small, slowed-down board a newcomer can follow; its built-in settings if an admin
- * removed it); an API caller may turn the in-client assistant on in the same call. The app creates in one click
- * and leaves the assistant off until the owner turns it on from the room page.
+ * removed it). Its AI quotas start at the defaults (300,000 tokens per game for the AI players, and for each player's
+ * assistant); an API caller may set them and the assistant's model in the same call.
  */
 export const create = mutation({
-  args: { assistantBudget: v.optional(v.number()), assistantModel: v.optional(v.string()) },
-  handler: async (ctx, { assistantBudget, assistantModel }) => {
+  args: { aiQuota: v.optional(v.number()), assistantQuota: v.optional(v.number()), assistantModel: v.optional(v.string()) },
+  handler: async (ctx, quotas) => {
     const viewer = await requireViewer(ctx);
     if (!actsAsHuman(viewer)) fail("FORBIDDEN", "Sign in (in a browser, or an app you allowed to act as you in every room) to create a room");
-    checkAssistant(assistantBudget, assistantModel);
+    checkQuotas(quotas);
     const guid = crypto.randomUUID();
     const { shortCode, encoded } = await shortCodeFor(ctx, "rooms", guid);
     const now = Date.now();
@@ -63,8 +70,8 @@ export const create = mutation({
     const roomId = await ctx.db.insert("rooms", {
       shortCode, guid, encoded, ownerId: viewer.subject, createdAt: now, revision: 0, seq: 0,
       settings: first.settings, setupId: first._id, setupName: first.name,
-      aiBudget: 0, aiUsed: 0, aiReservedUsd: 0, aiInputTokens: 0, aiOutputTokens: 0, aiCalls: [],
-      ...(assistantBudget !== undefined ? { assistantBudget } : {}), ...(assistantModel !== undefined ? { assistantModel } : {}),
+      aiQuota: DEFAULT_AI_QUOTA, assistantQuota: DEFAULT_ASSISTANT_QUOTA, aiUsed: 0, aiReservedUsd: 0, aiInputTokens: 0, aiOutputTokens: 0, aiCalls: [],
+      ...quotaPatch(quotas),
     });
     await ctx.db.insert("members", { roomId, godId: viewer.subject, userId: viewer.subject, name: viewer.name, kind: "human", ready: false, spectator: true, joinedAt: now });
     await ctx.scheduler.runAfter(0, internal.owner.fillCatalog, { roomId });
@@ -107,7 +114,7 @@ export async function roomFor(ctx: QueryCtx, viewer: Viewer, { room: ref }: { ro
   const setup = room.setupId ? { id: room.setupId, name: setupDoc?.name ?? room.setupName ?? "", deleted: !setupDoc || !!setupDoc.deleted } : null;
   // No server clock here (Date.now() would be cached with the answer, read-architecture §2.2 point 6): the room's answer
   // changes only when the room, its members, chat, setup or its game's header does.
-  return publicRoom(room, members, chat, game, owner, await getCatalog(ctx, `room:${room._id}`), setup);
+  return publicRoom(room, members, chat, game, owner, await getCatalog(ctx, `room:${room._id}`), setup, await aiEnabledFor(ctx, room));
 }
 export const get = query({ args: { room: v.string() }, handler: async (ctx, args) => roomFor(ctx, await requireViewer(ctx), args) });
 /** Internal twin of `get` for a principal; `requireOwner` makes it the owner-only room state of the agent registry. */
@@ -270,22 +277,26 @@ export const historyAs = internalQuery({
 // ------------------------------------------------------------------------------------------------
 
 /**
- * The owner approves the room's AI token budget for its AI seats (between games) and, optionally, the in-client
- * assistant's allowance: tokens per human per game (0 = off) and its model. The assistant fields may change during
- * a game (every human's allowance changes alike); the seats' budget stays frozen then.
+ * The owner sets the room's AI quotas (tokens per game; 0 = none): the AI players' pool (all AI seats of a game
+ * together) and each player's assistant, and the assistant's model. Any field may be left out, and they may change
+ * during a game (the next reservation checks the new value). Only in rooms where AI is available (lib/aiAccess.ts).
  */
-export const approveAiBudget = mutation({
-  args: { roomId: v.id("rooms"), aiBudget: v.number(), assistantBudget: v.optional(v.number()), assistantModel: v.optional(v.string()) },
-  handler: async (ctx, { roomId, aiBudget, assistantBudget, assistantModel }) => {
-    const room = await requireRoom(ctx, roomId);
-    await requireOwner(ctx, room);
-    if (!Number.isSafeInteger(aiBudget) || aiBudget < 0 || aiBudget > 1_000_000) fail("BAD_REQUEST", "The AI budget is a whole number of tokens from 0 to 1,000,000");
-    checkAssistant(assistantBudget, assistantModel);
-    if (aiBudget !== room.aiBudget && await activeGame(ctx, room)) fail("CONFLICT", "Settings and seats are frozen during games");
-    await bump(ctx, room, { aiBudget, ...(assistantBudget !== undefined ? { assistantBudget } : {}), ...(assistantModel !== undefined ? { assistantModel } : {}) });
-    return { aiBudget, assistantBudget: assistantBudget ?? room.assistantBudget ?? 0, assistantModel: assistantModel ?? room.assistantModel ?? DEFAULT_AGENT_MODEL };
-  },
+export const setAiQuotas = mutation({
+  args: { roomId: v.id("rooms"), aiQuota: v.optional(v.number()), assistantQuota: v.optional(v.number()), assistantModel: v.optional(v.string()) },
+  handler: async (ctx, args) => setAiQuotasFor(ctx, await requireViewer(ctx), args),
 });
+export const setAiQuotasAs = internalMutation({
+  args: { principal: principalV, roomId: v.id("rooms"), aiQuota: v.optional(v.number()), assistantQuota: v.optional(v.number()), assistantModel: v.optional(v.string()) },
+  handler: async (ctx, { principal, ...args }) => setAiQuotasFor(ctx, await viewerOf(ctx, principal), args),
+});
+async function setAiQuotasFor(ctx: MutationCtx, viewer: Viewer, { roomId, ...quotas }: Quotas & { roomId: string }) {
+  const room = await requireRoom(ctx, roomId);
+  await requireOwnerAs(ctx, viewer, room);
+  await requireAiEnabled(ctx, room);
+  checkQuotas(quotas);
+  await bump(ctx, room, quotaPatch(quotas));
+  return { aiQuota: quotas.aiQuota ?? aiQuotaOf(room), assistantQuota: quotas.assistantQuota ?? assistantQuotaOf(room), assistantModel: quotas.assistantModel ?? room.assistantModel ?? DEFAULT_AGENT_MODEL };
+}
 
 /**
  * Add an AI seat from the template library; the seat snapshots the template (name, provider, model, prompt, revision)
@@ -302,6 +313,7 @@ export const addAiAs = internalMutation({
 async function addAiFor(ctx: MutationCtx, viewer: Viewer, { roomId, templateId }: { roomId: string; templateId: string }) {
     const room = await requireRoom(ctx, roomId);
     await requireOwnerAs(ctx, viewer, room);
+    await requireAiEnabled(ctx, room);
     if (await activeGame(ctx, room)) fail("CONFLICT", "Settings and seats are frozen during games");
     const members = await membersOf(ctx, room._id);
     if (members.length >= MAX_MEMBERS) fail("CONFLICT", `This room has reached its ${MAX_MEMBERS}-member limit`);

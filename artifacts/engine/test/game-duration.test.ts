@@ -32,16 +32,15 @@ test("a fixed game ends exactly at its configured world time, and a half-life ga
   assert.ok(ends[1]! > 0 && ends[1] !== 3, "a half-life game's end is a random draw, not its half-life");
 });
 
-test("a room whose stored settings predate durationMode still takes an AI budget (and keeps working)", async () => {
+test("a room whose stored settings predate durationMode still commits (and keeps working)", async () => {
   const [host] = await gods("Legacy Duration");
   const { roomId } = await roomWith([host]);
   const room = await host.c.query(api.rooms.get, { room: roomId }) as { settings: Record<string, unknown>; revision: number };
   const { durationMode: _gone, ...legacy } = room.settings;
   await admin.mutation(internal.testing.makeLegacy, { roomId, settings: legacy });
   const before = await host.c.query(api.rooms.get, { room: roomId }) as { revision: number };
-  // Only the budget changes: the stored settings are carried over, upgraded to today's shape (durationMode "halfLife").
-  await host.c.action(api.owner.command, { roomId, action: "settings", requestId: crypto.randomUUID(), revision: before.revision, aiBudget: 50_000 } as never);
-  const after = await host.c.query(api.rooms.get, { room: roomId }) as { settings: Record<string, unknown>; aiBudget: number };
-  assert.equal(after.aiBudget, 50_000);
+  // No settings change at all: the stored settings are carried over, upgraded to today's shape (durationMode "halfLife").
+  await host.c.action(api.owner.command, { roomId, action: "settings", requestId: crypto.randomUUID(), revision: before.revision });
+  const after = await host.c.query(api.rooms.get, { room: roomId }) as { settings: Record<string, unknown> };
   assert.equal(after.settings.durationMode, "halfLife");
 });

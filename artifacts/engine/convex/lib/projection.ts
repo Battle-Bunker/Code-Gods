@@ -12,6 +12,7 @@ import { VERSION, observationSchema, type Observation } from "@workspace/player-
 import type { Doc } from "../_generated/dataModel";
 import type { ClockedGame, Scoreboard } from "../game/state";
 import { DEFAULT_AGENT_MODEL } from "./aiModels";
+import { aiQuotaOf, assistantQuotaOf } from "./aiAccess";
 import { agentStatus, disclosedTotalsOf, godEnergy, totalsOf, viewOf, viewOfNet, worldNow } from "./world";
 import { agentLanguage } from "./language";
 
@@ -92,7 +93,7 @@ export const chatView = (m: Chat) => ({ id: m._id, authorId: m.authorId, authorN
 export type RoomSetup = { id: string; name: string; deleted: boolean };
 
 export function publicRoom(room: Doc<"rooms">, members: readonly Doc<"members">[], chat: readonly Chat[], active: Game | null, ownerName: string, catalog: unknown,
-  setup: RoomSetup | null) {
+  setup: RoomSetup | null, aiEnabled: boolean) {
   const settings = room.settings as GameSettings;
   return {
     id: room._id, guid: room.guid, shortCode: room.shortCode, ownerId: room.ownerId, ownerName, createdAt: room.createdAt,
@@ -105,10 +106,13 @@ export function publicRoom(room: Doc<"rooms">, members: readonly Doc<"members">[
       ...(m.aiAgent ? { aiAgentId: m.aiAgent.id, aiAgentRevision: m.aiAgent.revision, provider: m.aiAgent.provider, model: m.aiAgent.model } : {}),
     })),
     chat: chat.map(chatView),
-    aiBudget: room.aiBudget, aiUsed: room.aiUsed, aiReservedUsd: room.aiReservedUsd,
+    // AI (seats and the assistant) is available only in rooms whose owner is an administrator (lib/aiAccess.ts).
+    aiEnabled,
+    // The AI players' per-game token quota (all seats together; 0 = none) and this game's usage.
+    aiQuota: aiQuotaOf(room), aiUsed: room.aiUsed, aiReservedUsd: room.aiReservedUsd,
     aiInputTokens: room.aiInputTokens, aiOutputTokens: room.aiOutputTokens,
-    // The in-client assistant's pool: tokens per human per game (0 = off) and its model.
-    assistantBudget: room.assistantBudget ?? 0, assistantModel: room.assistantModel ?? DEFAULT_AGENT_MODEL,
+    // The in-client assistant: each player's per-game token quota (0 = none) and its model.
+    assistantQuota: assistantQuotaOf(room), assistantModel: room.assistantModel ?? DEFAULT_AGENT_MODEL,
     // The lobby describes the NEXT game: its object type and the families its gods might draw, never who drew which.
     objectInstance: objectInstance(settings),
     utilityCatalog: catalog ?? null,

@@ -6,7 +6,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { observationSchema } from "@workspace/player-client";
-import { admin, api, envelope, gods, internal, playerClient, raw, rejects, roomWith, startGame, touch, waitFor } from "./game-helpers.ts";
+import { admin, api, envelope, gods, internal, playerClient, raw, rejects, roomWith, startGame, touch, waitFor, makeAdmin } from "./game-helpers.ts";
 import { disclosureChecker } from "./disclosure.ts";
 
 
@@ -20,8 +20,9 @@ test("no player-facing result discloses another god's scores, descriptor, agent 
   };
   const { roomId, shortCode } = await roomWith([host, ada, bo], settings);
   await admin.mutation(internal.aiTemplates.ensureSeeded, {});
+  await makeAdmin(host);
   await host.c.mutation(api.rooms.addAi, { roomId, templateId: "sonnet-strategist" });
-  await host.c.mutation(api.rooms.approveAiBudget, { roomId, aiBudget: 200_000 });
+  await host.c.mutation(api.rooms.setAiQuotas, { roomId, aiQuota: 200_000 });
   const game = await startGame(host, roomId);
   const send = (god: typeof ada, command: Record<string, unknown>) => god.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
   const SECRET_BO = "bo_private_marker", SECRET_HOST = "host_private_marker";
