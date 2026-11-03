@@ -26,11 +26,12 @@ import { gameTables } from "./calibration";
 import { cryptoRng, disclosureNoise, openUniform, scoresOf, seasonSalt, uniform01, uniqueSpawn } from "./node";
 import { act, bindRuntime, ensureSandboxes, isAgentFault, runtimeVersion, WORKERS } from "./runtime";
 import { effectiveSandbox, planningEnd } from "../lib/sandboxes";
+import { FutileMemo, failureKind, futileAfter, pickPair, type ActKind } from "../lib/futility";
 import { MAX_OBJECTS, MIN_TICK_MS, TICK_SECONDS, planSpawns, agentStatus, pickObject, salienceOf, secondsUntilEligible, settledAccount, commitRaises, disclosedTotalsOf, scoreIntervalOf, scoreboardDue, totalsOf } from "../lib/world";
 
 type Score = Doc<"objects">["scores"][number];
 type Ev = Doc<"tickBatches">["events"][number];
-type ActResult = { calls: string } | { error: string };
+type ActResult = { calls: string; usedRandom: boolean } | { error: string };
 
 /** The previous commit's round trip per game (module scope: a warm instance reports it with the next commit). */
 const lastCommitMs = new Map<string, number>();
@@ -99,9 +100,15 @@ export const run = internalAction({
     const deals = snap.deities.map(d => ({ godId: d.godId, utility: d.utility as UtilityDescriptor }));
     const objects = snap.objects.map(o => ({ ...o, fromVersion: o.version, changed: false, noise: o.noise }));
     const occupied = new Set<ObjectValue>(objects.map(o => o.value));
+    // Which object holds each value (a collision remembers its holder: lib/futility.ts), and each object's version.
+    const holders = new Map<ObjectValue, typeof objects[number]>(objects.map(o => [o.value, o]));
+    const byId = new Map(objects.map(o => [o.id, o]));
+    const versionOf = (id: string) => byId.get(id)?.version;
+    // The futile pairs: an agent is never offered an object its deterministic act can only fail on.
+    const futile = new FutileMemo(snap.futile);
     // An agent whose sandbox is not ready sits the window out: never picked, never charged, its energy still accrues.
     // A past game's agent in a retired language (game-core RETIRED_LANGUAGES) sits out too: it can no longer act.
-    const agents = snap.agents.filter(a => isLanguage(a.language) && !unready.has(a.language)).map(a => ({ ...a, fromActs: a.acts, touched: false }));
+    const agents = snap.agents.filter(a => isLanguage(a.language) && !unready.has(a.language)).map(a => ({ ...a, failures: { ...a.failures }, fromActs: a.acts, touched: false }));
     const salt = seasonSalt();
 
     // Opportunities: rate × Δt, stochastically rounded; spread evenly over the window.
@@ -131,8 +138,19 @@ export const run = internalAction({
       const cost = { ...actCharge(agent, outcome, { duplicate }), naming: outcome.cost.decision };
       agent.account = chargeAct(settledAccount(settings, agent, p.world), cost.total);
       agent.acts++; agent.spent += cost.total; agent.touched = true; acts++;
+      const kind: ActKind = "error" in result ? "error" : !outcome.ok ? failureKind(outcome.reason) : duplicate ? "collision" : "transform";
+      if (kind === "transform") agent.transforms++;
+      else {
+        agent.failures[kind]++;
+        // The last invalid call or runtime error, verbatim (the other kinds say all there is): the diagnosis quotes it.
+        if (kind === "invalid" || kind === "error") agent.lastFailure = ("error" in result ? result.error : outcome.ok ? "" : outcome.reason).slice(0, 300);
+      }
+      const holder = outcome.ok && duplicate ? holders.get(outcome.value) : undefined;
+      futile.record(agent.id, object.id, futileAfter({ object, deterministic: "calls" in result && !result.usedRandom, kind,
+        ...(holder ? { holder: { id: holder.id, version: holder.version } } : {}) }));
       if (outcome.ok && !duplicate) {
         occupied.delete(object.value); occupied.add(outcome.value);
+        holders.delete(object.value); holders.set(outcome.value, object);
         object.value = outcome.value; object.version++; object.changed = true;
         object.scores = next ?? scoresOf(tables, settings, deals, outcome.value);
         object.salience = salienceOf(object.scores);
@@ -147,7 +165,10 @@ export const run = internalAction({
     };
     const flush = async () => {
       const results = await Promise.all(wave.map(async (p): Promise<ActResult | null> => {
-        try { return { calls: (await act(ctx, p.agent.source, p.agent.language, p.before, settings, p.seed)).calls }; }
+        try {
+          const { calls, usedRandom } = await act(ctx, p.agent.source, p.agent.language, p.before, settings, p.seed);
+          return { calls, usedRandom };
+        }
         catch (error) {
           if (isAgentFault(error)) return { error: (error as Error).message.slice(0, 300) };
           console.warn(`act skipped (host): ${(error as Error).message}`);
@@ -170,8 +191,14 @@ export const run = internalAction({
           if (wave.length) { await flush(); continue; }
           break;
         }
-        const object = pickObject(freeObjects, settings.objectSelection, uniform01);
-        const agent = eligible[cryptoRng.int(eligible.length)];
+        const pair = pickPair(freeObjects, eligible, os => pickObject(os, settings.objectSelection, uniform01), n => cryptoRng.int(n),
+          (a, o) => futile.isFutile(a.id, o, versionOf));
+        if (!pair) {
+          // Every free object is futile for every eligible agent: the acts in flight may change that; else it passes.
+          if (wave.length) { await flush(); continue; }
+          break;
+        }
+        const { object, agent } = pair;
         wave.push({ object, agent, world, before: object.value, seed: deriveSeed(salt, ["play", game._id, agent.id, agent.acts]) });
         if (wave.length >= WORKERS) await flush();
         break;
@@ -223,7 +250,10 @@ export const run = internalAction({
       objects: changed.map(o => ({ id: o.id as Doc<"objects">["_id"], fromVersion: o.fromVersion, value: o.value as number | string, version: o.version, scores: o.scores, salience: o.salience,
         ...(o.noise !== undefined ? { noise: o.noise } : {}) })),
       spawns: spawns.map(s => ({ ...s, value: s.value as number | string })),
-      agents: agents.filter(a => a.touched).map(a => ({ id: a.id as Doc<"agents">["_id"], fromActs: a.fromActs, acts: a.acts, spent: a.spent, account: a.account })),
+      agents: agents.filter(a => a.touched).map(a => ({ id: a.id as Doc<"agents">["_id"], fromActs: a.fromActs, acts: a.acts, spent: a.spent, account: a.account,
+        transforms: a.transforms, failures: a.failures, ...(a.lastFailure !== undefined ? { lastFailure: a.lastFailure } : {}) })),
+      futile: futile.changedRows(versionOf).map(m => ({ agentId: m.agentId as Doc<"agents">["_id"],
+        entries: m.entries as { o: Doc<"objects">["_id"]; v: number; by?: Doc<"objects">["_id"]; bv?: number }[] })),
       events, stats: { opportunities, acts, simulateMs, prevCommitMs: lastCommitMs.get(gameId) }, wakeAt,
       // The leaderboard after the window: the commit publishes it only when the scoreboard is due (scoreIntervalSeconds).
       // Exact totals for the log when scores changed; the disclosed ones only when the scoreboard is due (the commit

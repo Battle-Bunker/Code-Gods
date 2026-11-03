@@ -18,6 +18,9 @@ import { AI_LOBBY_STATUS, isIdle, lastHumanActivity, membersOf } from "../lib/ro
 import { EVENT_LOG_SCHEMA, EVENTS_PER_BATCH, LEASE_MS, MIN_TICK_MS, scoreIntervalOf, scoreboardDue, totalsOf } from "../lib/world";
 import { agentLanguage } from "../lib/language";
 import { readinessRows } from "../runtime/readiness";
+import { NO_FAILURES, type Futile } from "../lib/futility";
+const failuresV = v.object({ collision: v.number(), noChange: v.number(), commit: v.number(), invalid: v.number(), error: v.number() });
+const futileEntriesV = v.array(v.object({ o: v.id("objects"), v: v.number(), by: v.optional(v.id("objects")), bv: v.optional(v.number()) }));
 
 type Ev = Doc<"tickBatches">["events"][number];
 
@@ -147,10 +150,11 @@ export const snapshot = internalQuery({
   handler: async (ctx, { gameId, seq }) => {
     const game = await liveGame(ctx, gameId);
     if (!game || game.tick.seq !== seq) return null;
-    const [objects, agents, deities] = await Promise.all([
+    const [objects, agents, deities, futile] = await Promise.all([
       ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", gameId)).take(2100),
       ctx.db.query("agents").withIndex("by_game", q => q.eq("gameId", gameId)).take(2000),
       ctx.db.query("deities").withIndex("by_game", q => q.eq("gameId", gameId)).take(16),
+      ctx.db.query("futileActs").withIndex("by_game", q => q.eq("gameId", gameId)).take(2000),
     ]);
     return {
       game, lastActivity: await lastHumanActivity(ctx),
@@ -158,7 +162,9 @@ export const snapshot = internalQuery({
       agents: agents.map(a => ({
         id: a._id as string, ownerId: a.ownerId, source: a.source, language: agentLanguage(a, game.settings as GameSettings), decisionBits: a.decisionBits, perActFloorBits: a.perActFloorBits,
         expectedActCost: a.expectedActCost, account: a.account, acts: a.acts, spent: a.spent,
+        transforms: a.transforms ?? 0, failures: a.failures ?? NO_FAILURES, ...(a.lastFailure !== undefined ? { lastFailure: a.lastFailure } : {}),
       })),
+      futile: futile.map(f => ({ agentId: f.agentId as string, entries: f.entries as Futile[] })),
       deities: deities.sort((a, b) => a.index - b.index).map(d => ({ godId: d.godId, utility: d.utility })),
       sandboxes: await readinessRows(ctx, allowedLanguages(game.settings as GameSettings)),
     };
@@ -188,7 +194,10 @@ export const commit = internalMutation({
     clock: v.optional(clockV),
     objects: v.array(v.object({ id: v.id("objects"), fromVersion: v.number(), value: wire, version: v.number(), scores: v.array(scoreV), salience: v.number(), noise: v.optional(v.number()) })),
     spawns: v.array(v.object({ tmp: v.string(), value: wire, scores: v.array(scoreV), salience: v.number(), noise: v.optional(v.number()) })),
-    agents: v.array(v.object({ id: v.id("agents"), fromActs: v.number(), acts: v.number(), spent: v.number(), account: v.object({ balance: v.number(), settledWorldSeconds: v.number() }) })),
+    agents: v.array(v.object({ id: v.id("agents"), fromActs: v.number(), acts: v.number(), spent: v.number(), account: v.object({ balance: v.number(), settledWorldSeconds: v.number() }),
+      transforms: v.number(), failures: failuresV, lastFailure: v.optional(v.string()) })),
+    /** The futile-pair memos that changed in the window (lib/futility.ts), each agent's whole memo. */
+    futile: v.optional(v.array(v.object({ agentId: v.id("agents"), entries: futileEntriesV }))),
     events: v.array(eventV),
     stats: v.object({ opportunities: v.number(), acts: v.number(), simulateMs: v.number(), prevCommitMs: v.optional(v.number()) }),
     /** The leaderboard after the window (every roster god's exact total payoff, roster order), stored on scoring batches. */
@@ -263,7 +272,17 @@ export const commit = internalMutation({
         publicSalience: publicSalienceOf(spawn, true), createdAt: spawnedAt.get(spawn.tmp) ?? args.clock!.worldSeconds }));
     }
     for (const state of args.agents) {
-      if (live.has(state.id)) await ctx.db.patch(state.id, { acts: state.acts, spent: state.spent, account: state.account });
+      if (live.has(state.id)) {
+        await ctx.db.patch(state.id, { acts: state.acts, spent: state.spent, account: state.account, transforms: state.transforms, failures: state.failures,
+          ...(state.lastFailure !== undefined ? { lastFailure: state.lastFailure } : {}) });
+      }
+    }
+    for (const memo of args.futile ?? []) {
+      // Only an agent that acted changes its memo; a destroyed one's is never written (destroy deletes it).
+      if (!live.has(memo.agentId)) continue;
+      const row = await ctx.db.query("futileActs").withIndex("by_agent", q => q.eq("agentId", memo.agentId)).unique();
+      if (row) await (memo.entries.length ? ctx.db.patch(row._id, { entries: memo.entries }) : ctx.db.delete(row._id));
+      else if (memo.entries.length) await ctx.db.insert("futileActs", { gameId: game._id, agentId: memo.agentId, entries: memo.entries });
     }
     const resolved = events.map(e => (e.t === "spawn" && ids.has(e.objectId) ? { ...e, objectId: ids.get(e.objectId)! } : e));
     const clock = args.clock!;
