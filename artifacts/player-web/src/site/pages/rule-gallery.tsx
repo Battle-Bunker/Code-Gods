@@ -64,7 +64,7 @@ function Tile({ familyId, inst, setup, language }: { familyId: string; inst: Ins
       </header>
       <div className="flex items-end gap-2">
         <ParamFields familyId={familyId} inst={inst} params={params} compact onChange={(k, v) => setParams(p => withParam(familyId, inst, p, k, v))} />
-        <button type="button" className="border px-1.5 py-0.5 text-xs hover:bg-muted" title="Random settings" aria-label={`Random settings for ${f.name}`}
+        <button type="button" className="border px-1.5 py-0.5 text-xs hover:bg-muted" aria-label={`Random settings for ${f.name}`}
           onClick={() => setParams(randomParams(familyId, inst, freshSeed()))}>🎲</button>
       </div>
       <p className="text-sm leading-relaxed" data-testid={`text-summary-${familyId}`}>{summary}</p>
