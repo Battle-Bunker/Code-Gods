@@ -94,7 +94,7 @@ const ids = (v: FocusView) => v.parts.map(p => p.id);
 const total = (e: Explanation, k = 0) => e.parts.reduce((s, p) => s + p.points[k], 0);
 
 test("Parity Painter (even red, odd green): one piece per cell, and the outcome table rings the focus's kind and colour", () => {
-  const { e, at } = look("parity_painter", { P: 0, Q: 1, key: "parity" });
+  const { e, at } = look("parity_painter", { even_or_red: "red", odd_or_black: "green", split: "parity" });
   // +1: 2R 8R 1G 4R 7G 3G 5G (7 cells); −1: 5R 4G 9R 1R (4 cells); 0: the blue cells. 7 − 4 = 3.
   assert.equal(e.ordinal, 3);
   assert.equal(e.parts.length, 16);
@@ -117,7 +117,7 @@ test("Parity Painter by suit (cards): the other kind's sample is the same rank i
   const cards = instantiate("Grid", { size: 4, symbols: "cards", colours: "rgb" });
   // Rows of hearts, clubs, diamonds, spades (all 7s): 7H 7C / 7D 7S ...
   const value = "7HR,7CR,7DR,7SR/7HG,7CG,7DG,7SG/7HB,7CB,7DB,7SB/7HR,7CR,7DR,7SR";
-  const goal = explainer({ familyId: "parity_painter", params: { P: 0, Q: 1, key: "suit" } }, cards)!;
+  const goal = explainer({ familyId: "parity_painter", params: { even_or_red: "red", odd_or_black: "green", split: "suit" } }, cards)!;
   const e = goal.explain(value)!;
   assert.ok(e.verified);
   const redSuit = (s: number) => [1, 2].includes(Math.floor(s / 13));
@@ -164,21 +164,21 @@ test("Number Bonds: the pairs touching the focus, with their sums", () => {
 });
 
 test("Chessmaster: blocks score, seams are the tie-break", () => {
-  const { e, at } = look("chessmaster", { A: 0, B: 1 });
+  const { e, at } = look("chessmaster", { colour_a: "red", colour_b: "green" });
   // No 2×2 block alternates red and green; four red–green touches: 8R|1G, 4R|7G, 3G|9R, 2R over 4G.
   assert.deepEqual(e.ordinal, [0, 4]);
   assert.equal(total(e, 1), 4);
   const v = at(0, 2); // 8R: blocks at (0,1) and (0,2); seam 8R|1G
   assert.deepEqual(ids(v), ["block:0,1", "block:0,2", "seam:0,2:right"]);
   assert.deepEqual(v.parts[1].facts.map(f => f.ok), [true, false, false], "8R 1G alternate on top; 8R over 4R does not; 8R vs 7G corners differ");
-  const small = look("chessmaster", { A: 0, B: 1 }, "1R,1G,1R,1R/1G,1R,1R,1R/1R,1R,1R,1R/1R,1R,1R,1R");
+  const small = look("chessmaster", { colour_a: "red", colour_b: "green" }, "1R,1G,1R,1R/1G,1R,1R,1R/1R,1R,1R,1R/1R,1R,1R,1R");
   // One chessboard at the top-left; touches: 1R|1G, 1G|1R in row 1, 1G|1R in row 2, and the three downward ones.
   assert.deepEqual(small.e.ordinal, [1, 6]);
   assert.equal(small.at(0, 0).parts[0].title, "a little chessboard");
 });
 
 test("Honest Minesweeper: the focus's own 3×3 window; a mine shows the cells that count it", () => {
-  const { e, at } = look("honest_minesweeper", { X: 0 });
+  const { e, at } = look("honest_minesweeper", { mine: "red" });
   // Only 3G (row 3) is honest: it touches 5R? no — 4R, 9R and 1R: 3 mines. It scores 3.
   assert.equal(e.ordinal, 3);
   const v = at(2, 1);
@@ -194,29 +194,29 @@ test("Honest Minesweeper: the focus's own 3×3 window; a mine shows the cells th
 });
 
 test("Magic Accountant: the focus's row against the magic number, with the tie-break distance", () => {
-  const { e, at } = look("magic_accountant", { axis: "rows", T: 16 });
+  const { e, at } = look("magic_accountant", { axis: "rows", target: 16 });
   // Row totals 16, 19, 18, 16: two rows make 16; distance 0 + 3 + 2 + 0 = 5.
   assert.deepEqual(e.ordinal, [2, -5]);
   assert.deepEqual(at(1, 3).parts.map(p => [p.title, p.points]), [["row 2: 3 over", [0, -3]]]);
   assert.deepEqual(at(1, 3).parts[0].facts, [{ text: "4 + 4 + 4 + 7 = 19, not 16", ok: false }]);
-  assert.deepEqual(look("magic_accountant", { axis: "both", T: 16 }).at(0, 0).parts.map(p => p.id), ["line:row 1", "line:column 1"]);
+  assert.deepEqual(look("magic_accountant", { axis: "both", target: 16 }).at(0, 0).parts.map(p => p.id), ["line:row 1", "line:column 1"]);
 });
 
 test("Kingdom: the focus's patch, and the biggest patch, which alone scores", () => {
-  const { e, at } = look("kingdom", { C: 0 });
+  const { e, at } = look("kingdom", { colour: "red" });
   // Red patches: 2R 5R 8R 4R 9R (5 cells) and 1R (1 cell). The biggest scores 5.
   assert.equal(e.ordinal, 5);
   assert.deepEqual(at(3, 0).parts.map(p => [p.cells.length, p.points[0]]), [[1, 0], [5, 5]]);
   assert.match(at(1, 1).note!, /This cell is blue: only red patches count/);
   assert.deepEqual(at(1, 1).parts.map(p => p.points[0]), [5], "a non-red focus still sees what scores");
-  const tie = look("kingdom", { C: 0 }, "1R,1R,1G,1G/1G,1G,1G,1G/1G,1G,1G,1G/1G,1G,1R,1R");
+  const tie = look("kingdom", { colour: "red" }, "1R,1R,1G,1G/1G,1G,1G,1G/1G,1G,1G,1G/1G,1G,1R,1R");
   assert.equal(tie.e.ordinal, 2);
   assert.deepEqual(tie.e.parts.map(p => p.points[0]), [2, 0], "two biggest patches: only one scores");
   assert.match(tie.e.parts[1].facts[1].text, /as big as the biggest \(2\), but only one patch scores/);
 });
 
 test("Picture Frame: one piece per cell; edge matches gain, middle matches lose, the best edge symbol is named", () => {
-  const { e, at } = look("picture_frame", { X: 0 });
+  const { e, at } = look("picture_frame", { colour: "red" });
   // Edge: 2R 5R 8R 1G / 4G 7G / 6B 0B / 1R 7B 3B 5G. Middle: 4B 4R / 3G 9R.
   // Colour (red): 4 red edge cells (2R 5R 8R 1R) − 2 red middle cells (4R 9R) = 2.
   // Symbol: edge counts 1:2, 5:2, 7:2, 2/8/4/6/0/3: 1 each; middle 4,4,3,9. Net: 1, 5, 7 → 2; 4 → −1; 3 → 0. Best 2. The
@@ -232,7 +232,7 @@ test("Picture Frame: one piece per cell; edge matches gain, middle matches lose,
   assert.deepEqual(at(1, 1).parts.map(p => p.points), [[0]], "4B in the middle: neither, so nothing lost");
   assert.equal(at(2, 3).parts[0].points[0], 0, "0B on the edge: neither red nor 5");
   assert.equal(at(1, 1).note, "red: 4 edge cells minus 2 middle cells. The best edge symbol is 5: 2 edge cells show it, 0 middle cells do.");
-  const bd = lensFor("picture_frame")!.breakdown({ X: 0 }, readBoard(FIRST_STEPS, BOARD)!, e.parts);
+  const bd = lensFor("picture_frame")!.breakdown({ colour: "red" }, readBoard(FIRST_STEPS, BOARD)!, e.parts);
   // Edge: 5R (red 5); 2R 8R 1R (red); 5G (5); 1G 4G 7G 6B 0B 7B 3B (neither). Middle: 4R 9R (red); 4B 3G (clear).
   assert.deepEqual(bd.items.map(i => [i.text, i.points[0]]), [
     ["1 red 5 edge cell: 2 points each", 2],
@@ -242,13 +242,13 @@ test("Picture Frame: one piece per cell; edge matches gain, middle matches lose,
     ["2 red middle cells without 5: lose 1 point each", -2],
     ["2 middle cells neither red nor 5: nothing lost", 0],
   ]);
-  assert.equal(look("picture_frame", { X: 1 }).e.ordinal, 5, "green: 4 edge (1G 4G 7G 5G) − 1 middle (3G) = 3, plus 2");
+  assert.equal(look("picture_frame", { colour: "green" }).e.ordinal, 5, "green: 4 edge (1G 4G 7G 5G) − 1 middle (3G) = 3, plus 2");
   // Every edge cell a red 1 and the middle all 1s: colour 12, symbol 12 − 4 = 8.
-  assert.equal(look("picture_frame", { X: 0 }, "1R,1R,1R,1R/1R,1G,1B,1R/1R,1B,1G,1R/1R,1R,1R,1R").e.ordinal, 20);
+  assert.equal(look("picture_frame", { colour: "red" }, "1R,1R,1R,1R/1R,1G,1B,1R/1R,1B,1G,1R/1R,1R,1R,1R").e.ordinal, 20);
   // The best board: every edge cell a red 1, no red and no 1 in the middle: 12 + 12.
-  assert.equal(look("picture_frame", { X: 0 }, "1R,1R,1R,1R/1R,2G,3B,1R/1R,4G,5B,1R/1R,1R,1R,1R").e.ordinal, 24);
+  assert.equal(look("picture_frame", { colour: "red" }, "1R,1R,1R,1R/1R,2G,3B,1R/1R,4G,5B,1R/1R,1R,1R,1R").e.ordinal, 24);
   // The worst: no red edge cell and a red middle (−4), edge symbols 0–9 with 4 and 5 twice, the middle 4 4 5 5, so every symbol nets 0 or 1 (−4 + 1 = −3).
-  assert.equal(look("picture_frame", { X: 0 }, "0G,1G,2G,3G/4G,4R,4R,5G/6G,5R,5R,7G/8G,9G,4G,5G").e.ordinal, -3);
+  assert.equal(look("picture_frame", { colour: "red" }, "0G,1G,2G,3G/4G,4R,4R,5G/6G,5R,5R,7G/8G,9G,4G,5G").e.ordinal, -3);
 });
 
 test("Mirrormancer: the focus's row folded onto itself, pairs as ✓/✗ arcs", () => {

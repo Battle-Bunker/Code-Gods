@@ -7,7 +7,7 @@ import { storedLanguageV } from "./lib/language";
 import { v } from "convex/values";
 import { components } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
-import { internalMutation, internalQuery } from "./_generated/server";
+import { internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { endGame, nextDeadline, scheduleTick } from "./engine/loop";
 import { clockDoc, engineDoc, liveGame, withEngine, writeGame, type LiveGame } from "./game/state";
 import { fail } from "./lib/errors";
@@ -198,6 +198,42 @@ export const forgetReplay = internalMutation({
     if (!game) return fail("NOT_FOUND", "no game");
     if (game.replayStorageId) await ctx.storage.delete(game.replayStorageId);
     await ctx.db.patch(gameId, { replayStorageId: undefined });
+  },
+});
+
+/**
+ * Give a game's gods utilities stored before their family was typed (e.g. `{ familyId: "kingdom", params: { C: 0 } }`,
+ * one per god in roster order) and cards without typed params, for migrations:typedParamsDeities' test.
+ */
+export const legacyUtilities = internalMutation({
+  args: { gameId: v.id("games"), utilities: v.array(v.any()) },
+  handler: async (ctx, { gameId, utilities }) => {
+    dev();
+    const deities = (await ctx.db.query("deities").withIndex("by_game", q => q.eq("gameId", gameId)).take(16)).sort((a, b) => a.index - b.index);
+    for (const [i, d] of deities.entries()) {
+      const { params: _typed, ...card } = d.card as { params?: unknown };
+      await ctx.db.patch(d._id, { utility: utilities[i % utilities.length], card });
+    }
+  },
+});
+
+/** A game's gods as stored (descriptor and card). */
+export const rawDeities = internalQuery({
+  args: { gameId: v.id("games") },
+  handler: async (ctx, { gameId }) => {
+    dev();
+    return (await ctx.db.query("deities").withIndex("by_game", q => q.eq("gameId", gameId)).take(16)).sort((a, b) => a.index - b.index)
+      .map(d => ({ utility: d.utility, card: d.card }));
+  },
+});
+
+/** An ended game's stored replay file, parsed (null when it has none). */
+export const replayFile = internalAction({
+  args: { storageId: v.id("_storage") },
+  handler: async (ctx, { storageId }) => {
+    dev();
+    const blob = await ctx.storage.get(storageId);
+    return blob ? JSON.parse(await blob.text()) : null;
   },
 });
 

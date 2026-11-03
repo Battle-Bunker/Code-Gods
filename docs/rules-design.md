@@ -237,3 +237,55 @@ enters their briefing; nothing about other gods changes.
    `top`, the exhaustive test; every family's text rewritten through the phrasebook (the bulk).
 4. **Cards and assistant**: `example` on cards (both apps through `UtilityCardView`, protocol field), board key in the
    briefing and the prompt rule.
+
+## 9. Named, typed params (2026-11-03)
+
+Owner: *"Make sure that all rules have appropriately named and typed parameters instead of abstruse parameters like
+x: int that get converted into a colour. That's terrible architecture."* A draw used to store grid-lab's carrier indices
+under one-letter names (`picture_frame {X: 0}`, `chessmaster {A: 0, B: 1}`, `magic_accountant {T: 16}`), decoded into a
+colour or a number wherever it was shown, so the rule gallery offered "X: 0/1/2".
+
+**The model** (`lib/game-utilities/src/params.ts`). A family declares every param by name with a type and a label
+(`params: g => ({ colour: colourParam("Your colour") })`); the type resolves against the instantiation into an exact
+domain (`UtilityFamily.params(ctx)` → `ParamField[]`):
+
+| Type | Stored value | Domain on a shape | Shown as |
+|---|---|---|---|
+| `colour` | the colour's name, `"red"` | the room's colour set | a named swatch |
+| `symbol` | the glyph the board prints (`cell.symbol`): `"7"`, `"B"`, `"10♥"` | the room's symbol set | `"A (10)"`, `"10♥ (ten of hearts)"` |
+| `int` | a whole number | `min..max` for this shape (Magic Accountant's magic numbers) | the number |
+| `choice` | one of a few strings | the options this shape offers (Parity Painter's `suit` only on cards) | its label ("columns") |
+| `bool` | `true`/`false` | both | yes / no |
+
+The stored value is the value the card's constant holds (`MY_COLOUR = "red"`), so a descriptor reads on its own. The
+family converts a name to the index it computes with only inside itself (`colourAt`, `symbolAt`); canonical forms rename
+colours by first appearance to the shape's first colour names (`recolourNames`). `test/params.test.ts` checks, on every
+grid shape, that every typed family's support and canonical forms lie in the declared domains under word names.
+
+**Consumers.** The goal card carries the dealt params (`UtilityCard.params`: name, label, type, value, how it reads);
+`player.myUtility` (the MCP `get_my_utility` tool) returns them as `typedParams`; the rule gallery's pickers are built
+from the fields (a colour is a row of named swatches, the rest labelled selects); the lenses (annotations) and the
+analytic solvers read the named params; the Python reference rules (lib/grid-lab) take the same params, checked by
+`test/gridlab_parity.py`.
+
+**Calibration.** The table key hashes the canonical params, so the typed families' keys moved while their card programs
+did not (the constants already held names). `scripts/rekey-typed-params.ts` re-keyed the shipped tables and the analytic
+reference archive after checking each stored key equals today's derivation with the old params in place of the new
+(1,392 tables, none rebuilt). Tables computed on demand in Convex (`calibrationComputed`) are keyed the old way and are
+recomputed once, on the first game of such a shape.
+
+**Stored data** (CLAUDE.md "Schema migrations"). Widen: every method of a typed family accepts the old shape through
+its `legacy` reader (`UtilityFamily.upgrade`, `upgradeDescriptor`), and the explainer upgrades a draw it is handed, so
+a live game, an old replay file or a stored deal keeps working. Migrate: `migrations:typedParamsDeities` rewrites
+`deities.utility` (utility and defence goal) and adds `deities.card.params` (the card's text is kept as dealt), and
+drops and rebuilds the stored replay file of each ended game it touches (the file embeds the descriptors);
+`migrations:typedParamsPreparing` rewrites `rooms.preparing.deals`. Narrow (a later PR, once dev and production report
+both done): delete the `legacy` readers, `upgrade`, `upgradeParams`/`upgradeDescriptor` and the rekey script.
+
+**Typed so far:** every family with a lens (the Annotated basics set: Parity Painter, Set Spotter, Number Bonds,
+Chessmaster, Honest Minesweeper, Magic Accountant, Kingdom, Picture Frame, Mirrormancer) and all 8 defence goals.
+**Still untyped** (`UNTYPED_FAMILIES`, which only shrinks): the other 89 Grid families and the 28 Int and string
+families. Most Int/string families already have word names and plain values (`d`, `tail`, `period`), so typing them is a
+declaration each; the Grid ones with colour or symbol indices (about 45) need the same treatment as above: rename, store
+names, `legacy` reader, Python port, rekey. Estimate: about a day of agent time for all of them (four batches of about
+25 families, each a TS + Python + lens-free change verified by `params.test.ts`, the parity test and the rekey).

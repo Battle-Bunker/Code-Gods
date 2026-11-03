@@ -271,7 +271,7 @@ Court, Connect Four (gravity).
 |---|---|
 | Grudge (strat) | Equals Conqueror(A, next(A)). It is a dealer constraint on Conqueror's draw, not a new order. |
 | Dominoes pair target (games) | This is Number Bonds with a sampled T. |
-| Suit politics, suit warm/cool overlay, "♥ cells must be red" (strat, col, games) | These are Warm Hearts, or Parity Painter `key="suit"`. |
+| Suit politics, suit warm/cool overlay, "♥ cells must be red" (strat, col, games) | These are Warm Hearts, or Parity Painter `split="suit"`. |
 | Rainbow-order paths (geo) | This is Rainbow Roads. |
 | Colour-weighted sums (col) | This is Seed 1 with a per-colour weight, a parameter rather than a rule. |
 | Diagonal Best Friends / Rainbow Road (col) | These are adjacency variants. Seed 1, Othello, Set Spotter and Constellation already cover diagonals. |

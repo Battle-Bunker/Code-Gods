@@ -4,7 +4,7 @@
  * then fetches one URL instead of paging the log with queries.
  *
  * - `build` (internal action): scheduled by endGame (engine/loop.ts) and by migrations:backfillReplays for games ended
- *   before this existed. Idempotent: a game that has its file is left alone; a build that loses a race deletes its copy.
+ *   before this existed, and rebuilt after a migration rewrites what the file embeds (`rebuildAfterMigration`). Idempotent: a game that has its file is left alone; a build that loses a race deletes its copy.
  * - `stored` (query): whether the file is there, for whoever may watch the replay (the same check as player.replay), with
  *   the caller's place in the roster; `stored: false` until it is built (the page pages the log meanwhile). A build
  *   that fails (nothing retries it) leaves the game on the paged replay.
@@ -21,6 +21,8 @@ import { requireViewer } from "./auth/access";
 import { BEARER_CORS } from "./auth/routes";
 import { json, pathSegments, refusal } from "./lib/http";
 import { replayPage, replayableGame } from "./player";
+import { instantiationOf, type GameSettings } from "@workspace/game-core";
+import { paramsKey, upgradeDescriptor, type UtilityDescriptor } from "@workspace/game-utilities";
 
 /** The stored file's shape (written in the file); a page that reads another version pages the log instead. */
 export const STORED_REPLAY_VERSION = 1;
@@ -86,6 +88,30 @@ export const build = internalAction({
     const kept: boolean = await ctx.runMutation(internal.replays.attach, { gameId, storageId });
     if (!kept) await ctx.storage.delete(storageId);
     return { stored: kept };
+  },
+});
+
+/**
+ * After migrations:typedParamsDeities dropped a game's file: build it again once every god of the game has today's
+ * params (a god still waiting for its batch reschedules the build), so the new file never embeds a legacy descriptor.
+ */
+export const rebuildAfterMigration = internalMutation({
+  args: { gameId: v.id("games"), attempt: v.optional(v.number()) },
+  handler: async (ctx, { gameId, attempt = 0 }) => {
+    const game = await ctx.db.get(gameId);
+    if (!game || game.phase !== "ended" || game.replayStorageId) return;
+    const deities = await ctx.db.query("deities").withIndex("by_game", q => q.eq("gameId", gameId)).take(16);
+    let inst;
+    try { inst = instantiationOf(game.settings as GameSettings); } catch { inst = null; }
+    const pending = inst && deities.some(d => {
+      const u = d.utility as UtilityDescriptor | null;
+      try {
+        return !!u && paramsKey(upgradeDescriptor(u, inst)) !== paramsKey({ familyId: u.familyId, params: u.params, ...(u.penalty ? { penalty: u.penalty } : {}) });
+      } catch { return false; }
+    });
+    // Wait (backing off up to 10 minutes) until the migration reaches this game's last god, however long that takes.
+    if (pending) await ctx.scheduler.runAfter(Math.min(600_000, 20_000 * 2 ** Math.min(attempt, 5)), internal.replays.rebuildAfterMigration, { gameId, attempt: attempt + 1 });
+    else await ctx.scheduler.runAfter(0, internal.replays.build, { gameId });
   },
 });
 

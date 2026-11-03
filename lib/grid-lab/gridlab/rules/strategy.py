@@ -157,18 +157,20 @@ def pp_cls(sym, gtype, key):
 
 
 def pp_ord(g, p, gtype):
-    cls = pp_cls(g.sym, gtype, p["key"]).ravel().tolist()
+    cls = pp_cls(g.sym, gtype, p["split"]).ravel().tolist()
+    P, Q = cis(gtype, p, "even_or_red", "odd_or_black")
     tot = 0
     for k, c in zip(cls, g.col.ravel().tolist()):
-        want, other = (p["P"], p["Q"]) if k else (p["Q"], p["P"])
+        want, other = (P, Q) if k else (Q, P)
         tot += 1 if c == want else -1 if c == other else 0
     return tot
 
 
 def pp_batch(sym, col, p, gtype):
-    cls = pp_cls(sym, gtype, p["key"])
-    want = np.where(cls, p["P"], p["Q"])
-    other = np.where(cls, p["Q"], p["P"])
+    cls = pp_cls(sym, gtype, p["split"])
+    P, Q = cis(gtype, p, "even_or_red", "odd_or_black")
+    want = np.where(cls, P, Q)
+    other = np.where(cls, Q, P)
     return ((col == want).astype(np.int64) - (col == other)).sum((1, 2))
 
 
@@ -185,20 +187,20 @@ def _pp_dist(n, C):
 def pp_exemplar(p, gtype):
     N = gtype.N
     sym = (np.arange(N * N).reshape(N, N) * 7) % gtype.S
-    cls = pp_cls(sym, gtype, p["key"])
-    return grid(sym, np.where(cls, p["P"], p["Q"]))
+    cls = pp_cls(sym, gtype, p["split"])
+    return grid(sym, np.where(cls, *cis(gtype, p, "even_or_red", "odd_or_black")))
 
 
 PARITY_PAINTER = mk(
     id="parity_painter", name="Parity Painter", theme="Numbers wear the colour of their kind",
     requires=req("Valued"), layers={"colour", "symbol"}, camp="neutral",
-    sample=lambda rng, gt: dict(zip(("P", "Q"), colours(rng, gt, 2)),
-                                key="suit" if gt.suit is not None and rng.random() < 0.5 else "parity"),
-    summary=lambda p, gt: ((f"Even numbers should wear {cname(gt, p['P'])} and odd numbers {cname(gt, p['Q'])}. "
-                            if p["key"] == "parity" else
-                            f"Red suits (♥♦) should wear {cname(gt, p['P'])} and black suits (♠♣) {cname(gt, p['Q'])}. ")
+    sample=lambda rng, gt: dict(zip(("even_or_red", "odd_or_black"), colour_names(rng, gt, 2)),
+                                split="suit" if gt.suit is not None and rng.random() < 0.5 else "parity"),
+    summary=lambda p, gt: ((f"Even numbers should wear {p['even_or_red']} and odd numbers {p['odd_or_black']}. "
+                            if p["split"] == "parity" else
+                            f"Red suits (♥♦) should wear {p['even_or_red']} and black suits (♠♣) {p['odd_or_black']}. ")
                            + "+1 for each cell dressed right, -1 for each wearing the other one's colour."),
-    ordinal=pp_ord, batch=pp_batch, canonical=lambda p, gt: recolour(p, ["P", "Q"]),
+    ordinal=pp_ord, batch=pp_batch, canonical=lambda p, gt: recolour_names(p, ["even_or_red", "odd_or_black"], gt),
     exact_log2_tail=pp_tail, exemplar=pp_exemplar,
     source="catalog#8 (D13: strat#10 ±1 scoring; strat's Suited key as key=suit)", tags={"shortlist"})
 
@@ -440,7 +442,8 @@ def pf_ord(g, p, gtype):
 
     def net(match):
         return sum((1 if x in edge else -1) for x in cells if match(*x))
-    colour = net(lambda r, c: col[r][c] == p["X"])
+    X = ci(gtype, p["colour"])
+    colour = net(lambda r, c: col[r][c] == X)
     best = max(net(lambda r, c, s=s: sym[r][c] == s) for s in {sym[r][c] for r, c in edge})
     return colour + best
 
@@ -448,7 +451,7 @@ def pf_ord(g, p, gtype):
 def pf_batch(sym, col, p, gtype):
     rim = rim_mask(gtype.N)
     sign = np.where(rim, 1, -1)
-    colour = ((col == p["X"]) * sign).sum((1, 2))
+    colour = ((col == ci(gtype, p["colour"])) * sign).sum((1, 2))
     best = np.full(sym.shape[0], np.iinfo(np.int64).min, dtype=np.int64)
     for s in range(gtype.S):
         here = sym == s
@@ -460,12 +463,12 @@ def pf_batch(sym, col, p, gtype):
 PICTURE_FRAME = mk(
     id="picture_frame", name="Picture Frame", theme="One colour and one symbol around a clear middle",
     requires=req(), layers={"colour", "symbol", "position"}, camp="clumper",
-    sample=lambda rng, gt: {"X": colour(rng, gt)},
-    summary=lambda p, gt: (f"Each {cname(gt, p['X'])} edge cell scores 1 and each {cname(gt, p['X'])} middle cell "
+    sample=lambda rng, gt: {"colour": colour_name(rng, gt)},
+    summary=lambda p, gt: (f"Each {p['colour']} edge cell scores 1 and each {p['colour']} middle cell "
                            "loses 1; the best symbol on the edge scores the same way. Best: every edge cell the same "
                            "symbol in your colour, and neither in the middle."),
-    ordinal=pf_ord, batch=pf_batch, canonical=lambda p, gt: recolour(p, ["X"]),
-    exemplar=lambda p, gt: grid(np.where(rim_mask(gt.N), 0, 1), np.where(rim_mask(gt.N), p["X"], (p["X"] + 1) % gt.C)),
+    ordinal=pf_ord, batch=pf_batch, canonical=lambda p, gt: recolour_names(p, ["colour"], gt),
+    exemplar=lambda p, gt: grid(np.where(rim_mask(gt.N), 0, 1), np.where(rim_mask(gt.N), ci(gt, p["colour"]), (ci(gt, p["colour"]) + 1) % gt.C)),
     source="strat#12 (catalog D5; reworked 2026-11 from all-or-nothing to a continuous score, product strategy.ts)")
 
 

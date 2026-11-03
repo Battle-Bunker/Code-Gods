@@ -127,7 +127,7 @@ OTHELLO = mk(
 
 # --- Honest Minesweeper ---------------------------------------------------------------------------------
 def ms_ord(g, p, gtype):
-    N, X = gtype.N, p["X"]
+    N, X = gtype.N, ci(gtype, p["mine"])
     col, v = g.col.tolist(), gtype.value[g.sym].tolist()
     s = 0
     for r in range(N):
@@ -144,14 +144,14 @@ def _count8(mask):
 
 
 def ms_batch(sym, col, p, gtype):
-    X = col == p["X"]
+    X = col == ci(gtype, p["mine"])
     m = _count8(X)
     v = vals(sym, gtype)
     return (v * (~X & (v == m))).sum((1, 2))
 
 
 def ms_exemplar(p, gtype):
-    N, X = gtype.N, p["X"]
+    N, X = gtype.N, ci(gtype, p["mine"])
     o = (X + 1) % gtype.C
     r, c = np.indices((N, N))
     have = set(gtype.value.tolist())
@@ -167,10 +167,10 @@ def ms_exemplar(p, gtype):
 MINESWEEPER = mk(
     id="honest_minesweeper", name="Honest Minesweeper", theme="Numbers that count the mines around them",
     requires=req("Valued"), layers={"colour", "symbol", "position"}, camp="alternator",
-    sample=lambda rng, gt: {"X": colour(rng, gt)},
-    summary=lambda p, gt: (f"Your {cname(gt, p['X'])} cells are mines. Every other cell whose number says exactly how many "
+    sample=lambda rng, gt: {"mine": colour_name(rng, gt)},
+    summary=lambda p, gt: (f"Your {p['mine']} cells are mines. Every other cell whose number says exactly how many "
                            "mines touch it (corners too) scores that number."),
-    ordinal=ms_ord, batch=ms_batch, canonical=lambda p, gt: recolour(p, ["X"]), exemplar=ms_exemplar,
+    ordinal=ms_ord, batch=ms_batch, canonical=lambda p, gt: recolour_names(p, ["mine"], gt), exemplar=ms_exemplar,
     source="catalog#20 (games#9)", tags={"shortlist"})
 
 

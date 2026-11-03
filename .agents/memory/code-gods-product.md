@@ -261,3 +261,16 @@ difficulty … Ensure that all annotated rules have such a continuous landscape 
 
 **How to apply:** a new or changed rule shows its calibration curve (levels and bits) in its PR; a curve with a jump
 from 0 to its top, or long flat runs, needs a finer score. docs/rules-design.md P9.
+
+## Rule params are named and typed (2026-11-03)
+
+**Rule:** a family declares every param by name with a type (`colour`, `symbol`, `int` with a range, `choice`, `bool`;
+lib/game-utilities/src/params.ts) resolved against the shape into an exact domain. A colour is stored by its name and a
+symbol as the board prints it, never as an index decoded later; names are words (`colour`, `mine`, `target`), never
+letters (`X`, `T`).
+**Why:** the owner (2026-11-03): "Make sure that all rules have appropriately named and typed parameters instead of
+abstruse parameters like x: int that get converted into a colour. That's terrible architecture."
+**How to apply:** every consumer reads `UtilityFamily.params` (gallery pickers, goal card `params`, `myUtility.typedParams`,
+lenses, the Python reference rules). A new family declares `params`; `UNTYPED_FAMILIES` only shrinks (test/params.test.ts).
+Typing an existing family renames stored params: give it a `legacy` reader, migrate the stored rows (typedParams*) and
+re-key its tables (scripts/rekey-typed-params.ts). docs/rules-design.md §9.

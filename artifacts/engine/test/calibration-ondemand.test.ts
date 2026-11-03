@@ -57,7 +57,7 @@ test("first use on a new shape: analytic draws are ready at once, sampled draws 
 
 test("a shipped shape resolves every draw from the warm file without computing anything; impossible draws fail at once", async () => {
   const shipped = { objectType: "Grid", typeArgs: { size: 5, symbols: "base10", colours: "rgby" }, priorId: "uniform" };
-  const r = await admin.action(internal.calibration.compute.prepare, { settings: shipped, draws: [{ familyId: "snap", params: {} }, { familyId: "hate_colour", params: { colour: 0 } }] });
+  const r = await admin.action(internal.calibration.compute.prepare, { settings: shipped, draws: [{ familyId: "snap", params: {} }, { familyId: "hate_colour", params: { colour: "red" } }] });
   assert.equal(r.pending.length, 0);
   assert.deepEqual(r.ready.map((x: { source: string }) => x.source), ["file", "file"]);
   // A family of another object type is refused before anything is claimed.

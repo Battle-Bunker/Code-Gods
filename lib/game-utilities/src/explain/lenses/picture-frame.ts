@@ -8,7 +8,8 @@ import type { Board } from "../board.ts";
 import type { Cell, Part } from "../model.ts";
 import { glyph } from "../../families/grid/_util.ts";
 
-type P = { X: number };
+type P = { colour: string };
+
 
 /** The best edge symbol and its edge and middle counts, chosen as the card's loop chooses (first edge cell to reach the max). */
 function bestSymbol(b: Board): { sym: number; edge: number; middle: number } {
@@ -27,11 +28,11 @@ export const pictureFrame = lens<P>({
   familyId: "picture_frame",
   components: () => ["points"],
   breakdown: (p, b, parts) => {
-    const X = b.spec.colourNames[p.X], best = bestSymbol(b).sym, S = glyphOf(b, best);
+    const X = p.colour, best = bestSymbol(b).sym, S = glyphOf(b, best);
     // Each part is one cell: sort them by where the cell is and what it has.
     const is = (onEdge: boolean, colour: boolean | null, sym: boolean | null) => (t: Part) => {
       const x = t.cells[0];
-      return b.isEdge(x) === onEdge && (colour === null || (b.col(x) === p.X) === colour) && (sym === null || (b.sym(x) === best) === sym);
+      return b.isEdge(x) === onEdge && (colour === null || (b.colour(x) === p.colour) === colour) && (sym === null || (b.sym(x) === best) === sym);
     };
     return {
       unit: ["point", "points"],
@@ -48,9 +49,9 @@ export const pictureFrame = lens<P>({
     };
   },
   parts: (p, b) => {
-    const X = b.spec.colourNames[p.X], best = bestSymbol(b), S = glyphOf(b, best.sym);
+    const X = p.colour, best = bestSymbol(b), S = glyphOf(b, best.sym);
     return b.cells.map((x: Cell): Part => {
-      const onEdge = b.isEdge(x), hasColour = b.col(x) === p.X, hasSym = b.sym(x) === best.sym;
+      const onEdge = b.isEdge(x), hasColour = b.colour(x) === p.colour, hasSym = b.sym(x) === best.sym;
       const n = (hasColour ? 1 : 0) + (hasSym ? 1 : 0), points = onEdge || n === 0 ? n : -n;
       const facts = onEdge
         ? [
@@ -69,8 +70,8 @@ export const pictureFrame = lens<P>({
     });
   },
   note: (_parts, _focus, p, b) => {
-    const X = b.spec.colourNames[p.X], best = bestSymbol(b);
-    const edgeX = b.cells.filter(x => b.isEdge(x) && b.col(x) === p.X).length, midX = b.cells.filter(x => !b.isEdge(x) && b.col(x) === p.X).length;
+    const X = p.colour, best = bestSymbol(b);
+    const edgeX = b.cells.filter(x => b.isEdge(x) && b.colour(x) === p.colour).length, midX = b.cells.filter(x => !b.isEdge(x) && b.colour(x) === p.colour).length;
     return `${X}: ${count(edgeX, "edge cell")} minus ${count(midX, "middle cell")}. The best edge symbol is ${glyphOf(b, best.sym)}: `
       + `${count(best.edge, "edge cell")} show it, ${count(best.middle, "middle cell")} do.`;
   },

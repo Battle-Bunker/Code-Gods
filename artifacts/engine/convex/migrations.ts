@@ -27,6 +27,13 @@
  *    (DEFAULT_AI_QUOTA for its AI players, DEFAULT_ASSISTANT_QUOTA per player's assistant) where it has none, whatever
  *    it had approved before, and its legacy `aiBudget` / `assistantBudget` are cleared. Narrowed later: `aiQuota` and
  *    `assistantQuota` become required, the legacy fields leave the validator, and lib/aiAccess.ts's `??` defaults go.
+ *  - typedParams* (2026-11-03, docs/rules-design.md §9): families that now declare named, typed params store them as
+ *    such (`{ X: 0 }` became `{ colour: "red" }`, game-utilities `upgradeDescriptor`). typedParamsDeities rewrites a
+ *    dealt god's descriptor (`deities.utility`, utility and defence goal) and adds the typed params to its stored card
+ *    (`deities.card.params`; the card's text is kept as dealt); when that god's game has ended with a stored replay
+ *    file (which embeds the descriptors), the file is dropped and rebuilt (replays.ts rebuildAfterMigration).
+ *    typedParamsPreparing rewrites the fixed deal of a room waiting for calibration (`rooms.preparing.deals`).
+ *    Narrowed later (no schema change: both are v.any()): game-utilities' `upgrade`/`legacy` readers go.
  *
  * Older hand-rolled steps, idempotent and run by their own deploy-workflow steps (kept as they are: they predate the
  * component, and porting the Node action setupsV2 buys nothing):
@@ -48,7 +55,8 @@
  * A room with a game in progress is left alone (names never change mid-game); a later deploy renames it.
  */
 import { v } from "convex/values";
-import type { GameSettings } from "@workspace/game-core";
+import { instantiationOf, type GameSettings } from "@workspace/game-core";
+import { cardParams, context, family, paramsKey, upgradeDescriptor, type UtilityDescriptor } from "@workspace/game-utilities";
 import type { Doc } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { internalAction, internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
@@ -127,11 +135,55 @@ export const aiQuotas = migrations.define({
   },
 });
 
+/** A stored descriptor with today's params, or null when it already has them (or cannot be read on this game's board). */
+function typedDescriptor(utility: unknown, settings: unknown): UtilityDescriptor | null {
+  const d = utility as UtilityDescriptor | null;
+  if (!d || typeof d.familyId !== "string" || !d.params) return null;
+  let inst, next;
+  // A row this cannot read (a retired family, a malformed descriptor) is left as it is rather than failing the deploy.
+  try { inst = instantiationOf(settings as GameSettings); next = upgradeDescriptor(d, inst); } catch { return null; }
+  return paramsKey(next) === paramsKey({ familyId: d.familyId, params: d.params, ...(d.penalty ? { penalty: d.penalty } : {}) }) ? null : next;
+}
+
+export const typedParamsDeities = migrations.define({
+  table: "deities",
+  migrateOne: async (ctx, deity) => {
+    const game = await ctx.db.get(deity.gameId);
+    if (!game) return;
+    const utility = typedDescriptor(deity.utility, game.settings);
+    if (!utility) return;
+    const ctx2 = context(instantiationOf(game.settings as GameSettings));
+    const stored = deity.card as { penalty?: object } | null, typed = cardParams(family(utility.familyId), utility.params, ctx2);
+    const penaltyTyped = utility.penalty && stored?.penalty ? cardParams(family(utility.penalty.familyId), utility.penalty.params, ctx2) : undefined;
+    await ctx.db.patch(deity._id, { utility, card: {
+      ...stored, ...(typed ? { params: typed } : {}),
+      ...(penaltyTyped && stored?.penalty ? { penalty: { ...stored.penalty, params: penaltyTyped } } : {}),
+    } });
+    // The stored replay embeds the old descriptor: drop it and build it again once this game's gods are migrated.
+    if (game.phase === "ended" && game.replayStorageId) {
+      await ctx.storage.delete(game.replayStorageId);
+      await ctx.db.patch(game._id, { replayStorageId: undefined });
+      await ctx.scheduler.runAfter(5_000 + Math.floor(Math.random() * 5_000), internal.replays.rebuildAfterMigration, { gameId: game._id });
+    }
+  },
+});
+
+export const typedParamsPreparing = migrations.define({
+  table: "rooms",
+  migrateOne: (_ctx, room) => {
+    if (!room.preparing) return;
+    const deals = room.preparing.deals.map(d => ({ godId: d.godId, utility: typedDescriptor(d.utility, room.settings) ?? d.utility }));
+    if (deals.every((d, i) => d.utility === room.preparing!.deals[i].utility)) return;
+    return { preparing: { ...room.preparing, deals } };
+  },
+});
+
 /** Every component migration, in order: run by the deploy workflow (`npx convex run migrations:runAll`). Append only. */
 // Annotated: this module's own `internal` references would otherwise make its exported types circular.
 const RUN_ALL: FunctionReference<"mutation", "internal">[] = [internal.migrations.dropHaskellFromSetups, internal.migrations.dropHaskellFromRooms,
   internal.migrations.dropHaskellFromGames, internal.migrations.dropHaskellBundle, internal.migrations.dropHaskellCompiledPrograms,
-  internal.migrations.splitGameHotFields, internal.migrations.backfillReplays, internal.migrations.backfillStandings, internal.migrations.aiQuotas];
+  internal.migrations.splitGameHotFields, internal.migrations.backfillReplays, internal.migrations.backfillStandings, internal.migrations.aiQuotas,
+  internal.migrations.typedParamsDeities, internal.migrations.typedParamsPreparing];
 export const runAll = migrations.runner(RUN_ALL);
 /** The state of each of runAll's migrations (scripts/run-migrations.mjs waits for all of them to succeed). */
 export const status = internalQuery({
