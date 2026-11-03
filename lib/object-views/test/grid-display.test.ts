@@ -167,3 +167,16 @@ test("digits lines carry each cell's glyph parts, for the fixed-width renderer",
   assert.deepEqual(lines[0].cells.map(c => c.parts), [{ rank: "10", suit: "♥", ten: true }, { rank: "A", suit: "♠", ten: false }]);
   assert.deepEqual(gridDigitsLines(gridModel("1R,2B/3B,5R")!)[0].cells[0].parts, { rank: "1", suit: "", ten: false });
 });
+
+test("objectRowHeight: a Grid row holds every line of its digits and tiles, whatever the size", async () => {
+  const { objectRowHeight, DIGIT_TYPE, compactTilePx, OBJECT_ROW_LINE_PX } = await import("../src/grid-display.ts");
+  for (const size of [3, 4, 5, 6, 7]) {
+    const h = objectRowHeight({ objectType: "Grid", grid: { size } });
+    assert.ok(h >= size * DIGIT_TYPE.px * DIGIT_TYPE.lineHeight + 8, `digits fit at size ${size}`);
+    assert.ok(h >= size * (compactTilePx(size) + 1) + 1 + 8, `tiles fit at size ${size}`);
+  }
+  assert.ok(objectRowHeight({ objectType: "Grid", grid: { size: 7 } }) > objectRowHeight({ objectType: "Grid", grid: { size: 4 } }));
+  assert.ok(objectRowHeight({ objectType: "Grid", grid: {} }) >= objectRowHeight({ objectType: "Grid", grid: { size: 7 } }), "unknown size assumes the largest");
+  assert.equal(objectRowHeight({ objectType: "Int" }), OBJECT_ROW_LINE_PX);
+  assert.equal(objectRowHeight(undefined), OBJECT_ROW_LINE_PX);
+});
