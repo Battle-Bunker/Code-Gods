@@ -18,6 +18,7 @@ import { AI_LOBBY_STATUS, isIdle, lastHumanActivity, membersOf } from "../lib/ro
 import { EVENT_LOG_SCHEMA, EVENTS_PER_BATCH, LEASE_MS, MIN_TICK_MS, scoreIntervalOf, scoreboardDue, totalsOf } from "../lib/world";
 import { agentLanguage } from "../lib/language";
 import { readinessRows } from "../runtime/readiness";
+import { engineErrorReason, retryDelayMs } from "../lib/engineErrors";
 
 type Ev = Doc<"tickBatches">["events"][number];
 
@@ -101,9 +102,14 @@ export async function endGame(ctx: MutationCtx, game: LiveGame, reason: "lifetim
   const nextBatch = await appendEvents(ctx, ended, [{ t: "phase", phase: "ended", world: ended.worldSeconds, reason }], ended.worldSeconds, ended.worldSeconds,
     undefined, scoreboard.totals, scoreboard.totals);
   await writeGame(ctx, game, {
-    ...patch, phase: "ended", endedAt: now, endReason: reason, executionEpoch: ended.executionEpoch, autoResume: undefined,
+    ...patch, phase: "ended", endedAt: now, endReason: reason, executionEpoch: ended.executionEpoch, autoResume: undefined, engineError: undefined,
     summary, nextBatch, scoreboard, tick: { seq: game.tick.seq + 1, leaseUntil: 0 },
   });
+  // Its pinned tables (engine/pinned.ts) are no longer needed: nothing scores an ended game.
+  if (game.tablesStorageId) {
+    await ctx.storage.delete(game.tablesStorageId);
+    await ctx.db.patch(game._id, { tablesStorageId: undefined });
+  }
   // The ended game never changes again: its whole replay is stored once, after this commit (convex/replays.ts).
   await ctx.scheduler.runAfter(0, internal.replays.build, { gameId: game._id });
   // Its disclosure is exact from now on: the public salience loses the live noise (paged, off this commit).
@@ -120,7 +126,7 @@ export async function endGame(ctx: MutationCtx, game: LiveGame, reason: "lifetim
 export async function parkGame(ctx: MutationCtx, game: LiveGame, reason: string, autoResume: boolean) {
   const nextBatch = await appendEvents(ctx, game, [{ t: "phase", phase: "recovery", world: game.worldSeconds, reason }], game.worldSeconds, game.worldSeconds);
   await writeGame(ctx, game, {
-    phase: "recovery", recoveryReason: reason, autoResume: autoResume || undefined, executionEpoch: game.executionEpoch + 1,
+    phase: "recovery", recoveryReason: reason, autoResume: autoResume || undefined, executionEpoch: game.executionEpoch + 1, engineError: undefined,
     nextBatch, tick: { seq: game.tick.seq + 1, leaseUntil: 0 },
   });
 }
@@ -214,9 +220,10 @@ export const commit = internalMutation({
       await parkGame(ctx, game, "The engine went idle after 30 minutes without human activity. The game resumes when a player returns.", true);
       return { result: "parked" as const };
     }
+    const recovered: Partial<LiveGame> = game.engineError ? { engineError: undefined } : {};
     if (args.kind === "wait") {
       // wakeAt: planning held past its deadline for a warming sandbox polls instead of spinning.
-      await scheduleTick(ctx, game, args.wakeAt ?? nextDeadline(game, now));
+      await scheduleTick(ctx, game, args.wakeAt ?? nextDeadline(game, now), recovered);
       return { result: "waited" as const };
     }
 
@@ -281,6 +288,7 @@ export const commit = internalMutation({
     const nextBatch = await appendEvents(ctx, game, resolved, game.worldSeconds, clock.worldSeconds, acts > 0 ? perf : undefined,
       scored || publish ? args.totals : undefined, scoreboard?.totals);
     const patch: Partial<LiveGame> = {
+      ...recovered,
       ...(scoreboard ? { scoreboard } : {}),
       worldSeconds: clock.worldSeconds, lastTick: clock.lastTick, nextSpawn: clock.nextSpawn, nextBatch,
       objectCount: game.objectCount + args.spawns.length,
@@ -298,6 +306,45 @@ export const commit = internalMutation({
     const at = clock.phase === "running" ? Math.max(now, args.wakeAt ?? now + MIN_TICK_MS) : nextDeadline(updated, now);
     await scheduleTick(ctx, updated, at, { ...patch, phase: clock.phase });
     return { result: "committed" as const, acts };
+  },
+});
+
+/**
+ * A tick action failed (engine/tick.ts run catches everything but a stale lease): record it on the game for everyone
+ * watching (`engineError`, a fixed public phrase; the raw error is logged) and retry with backoff under the next lease,
+ * so a failing game is never a silent stall and recovers by itself once the cause is gone (a deploy finishing, a file
+ * uploaded). A running game's downtime is not simulated: its wall clock restarts at the retry, as the watchdog's does.
+ */
+export const tickFailed = internalMutation({
+  args: { gameId: v.id("games"), seq: v.number(), message: v.string() },
+  handler: async (ctx, { gameId, seq, message }) => {
+    const game = await liveGame(ctx, gameId);
+    if (!game || game.tick.seq !== seq || !["planning", "running", "paused"].includes(game.phase)) return { result: "stale" as const };
+    const now = Date.now(), failures = (game.engineError?.failures ?? 0) + 1, retryAt = now + retryDelayMs(failures);
+    console.error(`tick ${gameId}#${seq} failed (${failures} in a row; retrying in ${retryAt - now} ms): ${message}`);
+    const engineError = { reason: engineErrorReason(message), since: game.engineError?.since ?? now, failures, retryAt };
+    await scheduleTick(ctx, game, Math.max(retryAt, nextDeadline(game, now) ?? retryAt), {
+      engineError, ...(game.phase === "running" ? { lastTick: retryAt } : {}),
+    });
+    return { result: "retrying" as const, failures, retryAt };
+  },
+});
+
+/** A game's pinned tables file, if any (engine/pinned.ts; internal: the file holds every god's tables). */
+export const pinnedTablesOf = internalQuery({
+  args: { gameId: v.id("games") },
+  handler: async (ctx, { gameId }) => (await ctx.db.get(gameId))?.tablesStorageId ?? null,
+});
+
+/** Keep a game's pinned tables (engine/pinned.ts): the first file wins. Returns the kept file (null: the game is gone). */
+export const pinTables = internalMutation({
+  args: { gameId: v.id("games"), storageId: v.id("_storage") },
+  handler: async (ctx, { gameId, storageId }) => {
+    const game = await ctx.db.get(gameId);
+    if (!game) return null;
+    if (game.tablesStorageId) return game.tablesStorageId;
+    await ctx.db.patch(gameId, { tablesStorageId: storageId });
+    return storageId;
   },
 });
 
@@ -328,6 +375,25 @@ export const watchdog = internalMutation({
     }
     if (restarted || parked) console.log(`watchdog: restarted ${restarted}, parked ${parked}`);
     return { restarted, parked };
+  },
+});
+
+/**
+ * Read-only: every live game's loop progress (scripts/check-live-games.mjs, the deploy's last check: each running game's
+ * tick must advance after a deploy). Bounded like the watchdog; returns no game data beyond the loop's own counters.
+ */
+export const liveProgress = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const out = [];
+    for (const phase of ["planning", "running", "paused", "recovery"] as const) {
+      const games = await ctx.db.query("games").withIndex("by_phase", q => q.eq("phase", phase)).take(200);
+      for (const game of await Promise.all(games.map(g => withEngine(ctx, g)))) {
+        out.push({ id: game._id, shortCode: game.shortCode, phase: game.phase, seq: game.tick.seq, commits: game.stats.commits,
+          worldSeconds: game.worldSeconds, idleParked: !!game.autoResume, engineError: game.engineError ?? null });
+      }
+    }
+    return { now: Date.now(), idle: isIdle(await lastHumanActivity(ctx)), games: out };
   },
 });
 

@@ -14,6 +14,7 @@
  *   object          one object as disclosed
  */
 import { v } from "convex/values";
+import { gameNotice } from "./lib/engineErrors";
 import { paginationOptsValidator } from "convex/server";
 import { rankTotals, type GameSettings } from "@workspace/game-core";
 import type { Doc } from "./_generated/dataModel";
@@ -91,6 +92,7 @@ export const header = query({
       phase: game.phase, status: ended ? "ended" as const : "active" as const,
       startedAt: game.createdAt, planningEndsAt: game.planningEndsAt, pauseEndsAt: game.pauseEndsAt,
       endedAt: game.endedAt ?? null, endReason: game.endReason ?? null, recoveryReason: game.recoveryReason ?? null,
+      notice: gameNotice(game) ?? null,
       settings: game.settings as GameSettings, setup: gameSetup(game), roster: game.roster.map(rosterEntry), spectators: game.spectators,
       seasonCommitment: game.seasonCommitment,
       // The ended game's result was stored by the commit that ended it.

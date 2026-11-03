@@ -299,6 +299,12 @@ jobs:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
         run: pnpm --filter @workspace/engine upload-runtime
 
+      - name: Games in progress are still ticking   # read-only (engine/loop:liveProgress); fails loudly if a running game stalled
+        working-directory: artifacts/engine
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+        run: node scripts/check-live-games.mjs
+
       - name: Build and upload the static sites
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}

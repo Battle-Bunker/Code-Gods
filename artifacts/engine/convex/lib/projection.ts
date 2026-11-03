@@ -6,6 +6,7 @@
  * (endAtWorld) never leave. Every public query builds its result through these functions.
  */
 import { agentDisplayName } from "./agentName";
+import { gameNotice } from "./engineErrors";
 import { allowedLanguages, instantiationOf, leaderboard, rankTotals, type GameSettings } from "@workspace/game-core";
 import { COMMIT_CLAUSE_HELPER, instanceInfo, type InstanceInfo } from "@workspace/game-types";
 import { VERSION, observationSchema, type Observation } from "@workspace/player-client";
@@ -79,7 +80,7 @@ export function publicGame(game: ClockedGame, objects: readonly Obj[]) {
     // others = salience still holds for each of them and nothing can be averaged); ended, it is exact.
     objects: objects.map(o => ({ id: o._id, value: o.value, version: o.version, salience: o.salience + (game.phase !== "ended" ? o.noise ?? 0 : 0) })),
     startedAt: game.createdAt, endedAt: game.endedAt ?? null, endReason: game.endReason ?? null,
-    recoveryReason: game.recoveryReason ?? null,
+    recoveryReason: game.recoveryReason ?? null, notice: gameNotice(game) ?? null,
     settings: game.settings as GameSettings, setup: gameSetup(game), roster: game.roster.map(rosterEntry), spectators: game.spectators,
     objectInstance: objectInstance(game.settings as GameSettings),
     seasonCommitment: game.seasonCommitment,
@@ -298,6 +299,7 @@ export function observation(input: ObservationInput): Observation {
     roomShortCode: room.shortCode, gameShortCode: game?.shortCode, seated: !!deity,
     gameId: game?._id, planningEndsAt: game?.planningEndsAt, pauseEndsAt: game?.pauseEndsAt,
     phase: game?.phase === "recovery" ? "paused" : game?.phase ?? "lobby",
+    ...(game && gameNotice(game) ? { notice: gameNotice(game) } : {}),
     language: allowedLanguages(settings)[0], languages: allowedLanguages(settings),
     ...(input.sandboxes ? { sandboxes: input.sandboxes.map(s => ({ language: s.language, state: s.state, ...(s.reason ? { reason: s.reason } : {}) })) } : {}),
     instance: objectInstance(settings),
