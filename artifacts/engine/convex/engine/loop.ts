@@ -102,7 +102,7 @@ export async function endGame(ctx: MutationCtx, game: LiveGame, reason: "lifetim
   const nextBatch = await appendEvents(ctx, ended, [{ t: "phase", phase: "ended", world: ended.worldSeconds, reason }], ended.worldSeconds, ended.worldSeconds,
     undefined, scoreboard.totals, scoreboard.totals);
   await writeGame(ctx, game, {
-    ...patch, phase: "ended", endedAt: now, endReason: reason, executionEpoch: ended.executionEpoch, autoResume: undefined, engineError: undefined, failures: 0,
+    ...patch, phase: "ended", endedAt: now, endReason: reason, executionEpoch: ended.executionEpoch, autoResume: undefined, engineError: undefined, ...(game.failures ? { failures: 0 } : {}),
     summary, nextBatch, scoreboard, tick: { seq: game.tick.seq + 1, leaseUntil: 0 },
   });
   // Its pinned tables (engine/pinned.ts) are no longer needed: nothing scores an ended game.
@@ -126,7 +126,7 @@ export async function endGame(ctx: MutationCtx, game: LiveGame, reason: "lifetim
 export async function parkGame(ctx: MutationCtx, game: LiveGame, reason: string, autoResume: boolean) {
   const nextBatch = await appendEvents(ctx, game, [{ t: "phase", phase: "recovery", world: game.worldSeconds, reason }], game.worldSeconds, game.worldSeconds);
   await writeGame(ctx, game, {
-    phase: "recovery", recoveryReason: reason, autoResume: autoResume || undefined, executionEpoch: game.executionEpoch + 1, engineError: undefined, failures: 0,
+    phase: "recovery", recoveryReason: reason, autoResume: autoResume || undefined, executionEpoch: game.executionEpoch + 1, engineError: undefined, ...(game.failures ? { failures: 0 } : {}),
     nextBatch, tick: { seq: game.tick.seq + 1, leaseUntil: 0 },
   });
 }
