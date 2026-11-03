@@ -16,7 +16,7 @@ Requests to other owners (nothing blocks; the engine has fallbacks):
   `robin_hood` (reaches 51 of 54, 60 bits) and `lone_peak` (17 of 19, 54 bits). Ordinals above the
   deepest level get +1..+4 bits by extrapolation. An `exact_log2_tail` would make these exact. Every
   other family either reaches 64 bits or reaches its exemplar's top (`Survival.meta["top_reached"]`,
-  `["stopped_early"]`). Binary all-or-nothing rules such as `picture_frame` only work via
+  `["stopped_early"]`). Binary all-or-nothing rules (`picture_frame` was one until 2026-11) only work via
   `exact_log2_tail`, because splitting has no intermediate levels to climb, so keep exact tails on them.
 - **mutator worker**: thanks, the interface fits. The simulator uses `.cost`, `.apply`, `.describe` and
   `.mutator_ids`. Pricing fresh programs at every decision made the closure probe 85% of game time,

@@ -1,33 +1,77 @@
-/** 🖼️ Picture Frame: all or nothing over the edge ring. Inside cells never matter. */
+/**
+ * 🖼️ Picture Frame: your colour and the best edge symbol, each +1 on an edge cell and −1 on a middle cell. One piece per
+ * cell, worth its colour point plus its symbol point. The best symbol is the one the card's loop keeps: the first edge
+ * cell, in grid order, whose symbol reaches the highest net (any symbol with that net gives the same score).
+ */
 import { lens, tally, count } from "../lens.ts";
-import type { Part } from "../model.ts";
+import type { Board } from "../board.ts";
+import type { Cell, Part } from "../model.ts";
+import { glyph } from "../../families/grid/_util.ts";
 
 type P = { X: number };
 
+/** The best edge symbol and its edge and middle counts, chosen as the card's loop chooses (first edge cell to reach the max). */
+function bestSymbol(b: Board): { sym: number; edge: number; middle: number } {
+  let best: { sym: number; edge: number; middle: number } | null = null;
+  for (const x of b.cells.filter(y => b.isEdge(y))) {
+    const s = b.sym(x), same = b.cells.filter(y => b.sym(y) === s);
+    const edge = same.filter(y => b.isEdge(y)).length, middle = same.length - edge;
+    if (!best || edge - middle > best.edge - best.middle) best = { sym: s, edge, middle };
+  }
+  return best!;
+}
+
+const glyphOf = (b: Board, s: number) => glyph(b.spec, s);
+
 export const pictureFrame = lens<P>({
   familyId: "picture_frame",
-  components: () => ["frame"],
-  breakdown: (p, b, parts) => ({
-    unit: ["frame", "frames"],
-    items: tally(parts, [
-      { of: t => t.points[0] > 0, text: () => `A complete ${b.spec.colourNames[p.X]} frame: every edge cell matches` },
-      { of: () => true, text: () => `The frame is broken: ${parts[0].spots?.length ?? 0} edge cell${parts[0].spots?.length === 1 ? "" : "s"} not ${b.spec.colourNames[p.X]}` },
-    ]),
-  }),
-  parts: (p, b) => {
-    const edge = b.cells.filter(x => b.isEdge(x)), name = b.spec.colourNames[p.X];
-    const breakers = edge.filter(x => b.col(x) !== p.X), whole = breakers.length === 0;
-    return [{
-      id: "frame", shape: "ring", cells: edge, points: [whole ? 1 : 0],
-      title: whole ? `a complete ${name} frame` : "the frame is broken",
-      facts: [{ text: `${edge.length - breakers.length} of ${edge.length} edge cells are ${name}`, ok: whole }],
-      spots: breakers.map(cell => ({ cell, label: `not ${name}`, tone: "zero" as const })),
-    }];
+  components: () => ["points"],
+  breakdown: (p, b, parts) => {
+    const X = b.spec.colourNames[p.X], best = bestSymbol(b).sym, S = glyphOf(b, best);
+    // Each part is one cell: sort them by where the cell is and what it has.
+    const is = (onEdge: boolean, colour: boolean | null, sym: boolean | null) => (t: Part) => {
+      const x = t.cells[0];
+      return b.isEdge(x) === onEdge && (colour === null || (b.col(x) === p.X) === colour) && (sym === null || (b.sym(x) === best) === sym);
+    };
+    return {
+      unit: ["point", "points"],
+      items: tally(parts, [
+        { of: is(true, true, true), text: n => `${count(n, `${X} ${S} edge cell`)}: 2 points each` },
+        { of: is(true, true, false), text: n => `${count(n, `${X} edge cell`)} without ${S}: 1 point each` },
+        { of: is(true, false, true), text: n => `${count(n, "edge cell")} showing ${S}, not ${X}: 1 point each` },
+        { of: is(true, null, null), text: n => `${count(n, "edge cell")} neither ${X} nor ${S}: no points` },
+        { of: is(false, true, true), text: n => `${count(n, `${X} ${S} middle cell`)}: lose 2 points each` },
+        { of: is(false, true, false), text: n => `${count(n, `${X} middle cell`)} without ${S}: lose 1 point each` },
+        { of: is(false, false, true), text: n => `${count(n, "middle cell")} showing ${S}, not ${X}: lose 1 point each` },
+        { of: () => true, text: n => `${count(n, "middle cell")} neither ${X} nor ${S}: nothing lost` },
+      ]),
+    };
   },
-  select: parts => parts.slice(),
-  note: (_parts, focus, p, b) => {
-    const name = b.spec.colourNames[p.X];
-    if (!b.isEdge(focus)) return "This cell is inside the frame: it never changes your score.";
-    return b.col(focus) === p.X ? `This edge cell is ${name}: it helps close the frame.` : `This edge cell is ${b.colour(focus)}: it breaks the frame.`;
+  parts: (p, b) => {
+    const X = b.spec.colourNames[p.X], best = bestSymbol(b), S = glyphOf(b, best.sym);
+    return b.cells.map((x: Cell): Part => {
+      const onEdge = b.isEdge(x), hasColour = b.col(x) === p.X, hasSym = b.sym(x) === best.sym;
+      const n = (hasColour ? 1 : 0) + (hasSym ? 1 : 0), points = onEdge || n === 0 ? n : -n;
+      const facts = onEdge
+        ? [
+          { text: hasColour ? X : `${b.colour(x)}, not ${X}`, ok: hasColour },
+          { text: hasSym ? `shows ${S}, the best edge symbol` : `shows ${b.glyph(x)}, not ${S}`, ok: hasSym },
+        ]
+        : [
+          { text: hasColour ? `${X}: the middle should not be ${X}` : `${b.colour(x)}, not ${X}`, ok: !hasColour },
+          { text: hasSym ? `shows ${S}: the middle should not show it` : `shows ${b.glyph(x)}, not ${S}`, ok: !hasSym },
+        ];
+      const what = [hasColour ? X : "", hasSym ? S : ""].filter(Boolean).join(" ");
+      const title = onEdge
+        ? (n ? `an edge cell with ${what}: +${n}` : `an edge cell with neither ${X} nor ${S}`)
+        : (n ? `a middle cell with ${what}: −${n}` : "a clear middle cell");
+      return { id: `${onEdge ? "edge" : "middle"}:${x.r},${x.c}`, shape: "cell", cells: [x], points: [points], title, facts };
+    });
+  },
+  note: (_parts, _focus, p, b) => {
+    const X = b.spec.colourNames[p.X], best = bestSymbol(b);
+    const edgeX = b.cells.filter(x => b.isEdge(x) && b.col(x) === p.X).length, midX = b.cells.filter(x => !b.isEdge(x) && b.col(x) === p.X).length;
+    return `${X}: ${count(edgeX, "edge cell")} minus ${count(midX, "middle cell")}. The best edge symbol is ${glyphOf(b, best.sym)}: `
+      + `${count(best.edge, "edge cell")} show it, ${count(best.middle, "middle cell")} do.`;
   },
 });

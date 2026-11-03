@@ -174,7 +174,7 @@ const leaf = (id: string): Node => ({ type: "pane", id });
 const split = (direction: Direction, sizes: number[], children: Node[]): Node => ({ type: "split", direction, sizes, children });
 
 /**
- * Two columns over a full-width assistant row: your secret goal (3 best examples) on the left, objects by payoff (top 12)
+ * Two columns over a full-width assistant row: your secret goal on the left, objects by payoff (top 12)
  * above my agents (all, last 120 s) on the right. The goal panel is marked "human" so it does not follow the phase's
  * default panel (followPhase only moves the first panel nobody chose); the others are the panels' default parameters.
  */

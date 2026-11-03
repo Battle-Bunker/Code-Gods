@@ -103,6 +103,10 @@ test("sign-in is required for the server info, the sandboxes' warm-up and the en
   await alice.action("manifest/node:warm");
   assert.ok(((await alice.query("manifest:get")) as { objectTypes: unknown[] }).objectTypes.length > 0);
   for (const url of routes) assert.equal((await fetch(url, { headers: { authorization: `Bearer ${jwt}` } })).status, 404, `${url} with a browser JWT`);
+  // The rule gallery's tables by instantiation: signed out refused; signed in, an unknown family is the request's fault.
+  const ruleTables = `${SITE}/api/rule-tables?instance=Grid(4,base10,rgb)&family=no_such_family&params=%7B%7D`;
+  assert.equal((await fetch(ruleTables)).status, 401, "rule tables signed out");
+  assert.equal((await fetch(ruleTables, { headers: { authorization: `Bearer ${jwt}` } })).status, 400, "rule tables with a browser JWT");
 });
 
 test("sign-out ends the session at once, even for an unexpired browser JWT", async () => {

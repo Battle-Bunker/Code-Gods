@@ -165,7 +165,7 @@ focus cell alone teaches little and needs another mode (§11). ★ = annotated i
 | 🧱 Tetromino Tamer, 🏰 Border Baron, 🧀 Swiss Cheese | regions of regions (shapes, borders, holes) | Region outline plus shape/size facts. |
 | 🔍 Looking-Glass, 🎡 Pinwheel, 🎯 Bullseye, 🌈 Rainbow Bands | symmetry orbits, rings, diagonals | The focus's orbit / ring as connectors. Bullseye stops at the first failing ring: needs a step-through. |
 | ➕ Column Addition | carries flow right to left | Step-through narration of the written sum (§11 M3). |
-| 🖼️ Picture Frame (★) | all-or-nothing over the edge | Always draws the frame; breakers spotted; inner cells get "never matters". Built as the whole-board example. |
+| 🖼️ Picture Frame (★) | per cell: your colour and the best edge symbol, +1 on the edge, −1 in the middle | One piece per cell (+2 to −2) with ✓/✗ for colour and symbol; the note names the best edge symbol and both counts. Was all-or-nothing until 2026-11. |
 
 ### Tier D: global counts and processes
 
@@ -272,7 +272,7 @@ Steps (4×4, base 10, rgb):
 | 💣 Honest Minesweeper | 3×3 neighbourhood | spots (mines), reverse selection for mines |
 | 🧮 Magic Accountant | row / column | line sums, tuple with a negative tie-break |
 | 🏰 Kingdom | region | max over regions |
-| 🖼️ Picture Frame | ring (whole edge) | all-or-nothing, notes for cells that never matter |
+| 🖼️ Picture Frame | cell (one per cell) | a sum over every cell; the note explains the best edge symbol (was all-or-nothing: a ring and its breakers) |
 | 🪞 Mirrormancer | row / column with pair arcs | connectors (`links`), tuple tie-break |
 
 Where to look: the gallery page `artifacts/player-web/annotations.html` (dev server: `pnpm --filter @workspace/player-web
@@ -295,7 +295,8 @@ explains poorly. Each kind comes with the evidence that shows it and what helps.
    are far apart. The focus selects the line, but the eye has to travel. Arcs (`links`) help (Mirrormancer). A line
    rule's verdict still depends on cells the kid did not point at, and "why is row 3 not a mirror?" is answered in the
    callout, not on the board. **Helps:** a focus *line* (select a row, not a cell) and the scrubber over lines.
-3. **Whole-board properties and "max" rules.** These are all-or-nothing rules (Picture Frame, Sudoku Scholar) and
+3. **Whole-board properties and "max" rules.** These are all-or-nothing rules (Sudoku Scholar; Picture Frame until it
+   became a per-cell sum in 2026-11) and
    max-over rules (Kingdom, Lone Peak, Snake Charmer, Magic Window). Most cells play no part in the score, and saying
    so ("This cell is inside the frame: it never changes your score.") is the main lesson. That note is honest but
    static. For max rules, the focus cell's patch is often not the one that scores, so the lens has to show *two*

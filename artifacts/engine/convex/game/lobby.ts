@@ -231,7 +231,7 @@ export const commitStart = internalMutation({
     await ctx.db.insert("tickBatches", {
       gameId, seq: 0, at: now, worldFrom: 0, worldTo: 0, schema: EVENT_LOG_SCHEMA, events: [{ t: "phase", phase: "planning", world: 0 }, ...events], totals, scoreboard: disclosed,
     });
-    await insertObjectEvents(ctx, gameId, 0, events);
+    await insertObjectEvents(ctx, gameId, 0, events, 1);
     // The hot state lives off the games doc (game/state.ts): the clock every reader of world time reads, and the loop's own.
     const scoreboard = { totals: disclosed, world: 0, at: now };
     await ctx.db.insert("gameClocks", { gameId, worldSeconds: 0, lastTick: now, objectCount: args.objects.length, agentCount: 0, scoreboard });
