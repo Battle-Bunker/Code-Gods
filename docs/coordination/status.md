@@ -279,3 +279,8 @@ Owner, verbatim (abridged only where marked):
   - High-order brittleness is invisible to a first-order (single-hit) probe, so prefer the geometric average over m.
   - Verify on more families at high levels (MCMC) before deciding.
   - Test details: hold.py; 600k uniform boards, rejection-sampled to ≥ u; noise = m uniform single-cell recolourings.
+- Owner's simpler heuristic (3 Nov): m = number of other players (n − 1).
+  - It's the mean of the geometric model (q = 1/n).
+  - One player gives m = 0, which is static rarity.
+  - Recommended default. Verify that it's close to the geometric average and the contest sim on a few families;
+    keep it if so.
