@@ -10,7 +10,7 @@
  *   engine out of idle parking and resumes parked games. Nothing else pings: no polling, no heartbeats.
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ConvexProviderWithAuth, ConvexReactClient, useConvexAuth, useMutation, useQueries } from "convex/react";
+import { ConvexProviderWithAuth, ConvexReactClient, useConvexAuth, useMutation, usePaginatedQuery, useQueries, type PaginatedQueryArgs, type PaginatedQueryReference } from "convex/react";
 import { getFunctionName, type FunctionArgs, type FunctionReference, type FunctionReturnType } from "convex/server";
 import { convexToJson, type Value } from "convex/values";
 import { ConvexBetterAuthProvider, type AuthClient } from "@convex-dev/better-auth/react";
@@ -171,6 +171,15 @@ export type Result<T> = { data: T | undefined; error: Error | null; isLoading: b
  * A reactive query that reports errors instead of throwing them into render. It waits for the Convex
  * client to hold a browser JWT (every engine query needs a signed-in caller). "skip" disables it.
  */
+/**
+ * A paged subscription (convex's usePaginatedQuery: every loaded page stays live), skipped until Convex holds the
+ * viewer's token, as useLive is. A query error throws to the nearest error boundary.
+ */
+export function useLivePages<Q extends PaginatedQueryReference>(query: Q, args: PaginatedQueryArgs<Q> | "skip", options: { initialNumItems: number }) {
+  const { isAuthenticated } = useConvexAuth();
+  return usePaginatedQuery(query, isAuthenticated && args !== "skip" ? args : "skip", options);
+}
+
 export function useLive<Q extends FunctionReference<"query">>(query: Q, args: FunctionArgs<Q> | "skip"): Result<FunctionReturnType<Q>> {
   type T = FunctionReturnType<Q>;
   const { isAuthenticated } = useConvexAuth();

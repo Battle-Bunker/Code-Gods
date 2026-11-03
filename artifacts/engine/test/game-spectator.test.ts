@@ -69,6 +69,9 @@ test("spectator read model: header, standings and their history, the salience sk
     const r = await god.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", name: "Spec agent", language: "typescript", source: "function agent(x) { return [add(3)]; }" }, game.gameId) });
     assert.equal(r.accepted, true, r.message);
   }
+  // Catches: an agent count that waits for the next publication (in planning, none comes).
+  assert.equal((await standingsOf()).agentCount, 2, "summons show at once, between publications");
+  assert.deepEqual((await watcher.c.query(api.games.standingsHistory, { gameId: game.gameId })).rows.map((r: any) => r.seq), [0], "a summon publishes nothing");
   await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now() }, kick: true });
   await say("During the game", game.gameId);
   const history = await waitFor(async () => {

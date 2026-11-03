@@ -220,7 +220,8 @@ export const gameTables = {
   /**
    * One row per published scoreboard (read-architecture §4.1): the race's series, read in cursor pages by `seq` (the
    * game's publications counted from 0). `totals` are in roster order, as disclosed; the live agent and object counts
-   * are published with them, so the spectator page shows them without reading the hot clock.
+   * are published with them, so the spectator page shows them without reading the hot clock. The latest row's
+   * `agentCount` follows summons and destroys until the next publication (game/readModel.ts recountAgents).
    */
   standingsHistory: defineTable({
     gameId: v.id("games"), seq: v.number(), world: v.number(), at: v.number(), totals: v.array(v.number()),

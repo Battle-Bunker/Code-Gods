@@ -17,7 +17,7 @@ import { chatView, publicRoom } from "./lib/projection";
 import { paginationOptsValidator } from "convex/server";
 import { firstSteps } from "./setups";
 import {
-  AI_LOBBY_STATUS, displayName, getCatalog, isHistoric, requireHistoricReaderAs, membersOf, memberOf, principalV, recentChat, requireMember, requireMemberAs, requireOwner, requireOwnerAs, requireReaderAs, requireRoom,
+  AI_LOBBY_STATUS, chatWindow, displayName, getCatalog, isHistoric, requireHistoricReaderAs, membersOf, memberOf, principalV, recentChat, requireMember, requireMemberAs, requireOwner, requireOwnerAs, requireReaderAs, requireRoom,
   shortCodeFor, viewerOf,
 } from "./lib/rooms";
 import { touchActivity } from "./activity";
@@ -230,10 +230,7 @@ export const chat = query({
       if (isHistoric(room, game)) requireHistoricReaderAs(viewer, room, game);
       from = game.createdAt; to = game.endedAt ?? Infinity;
     }
-    const page = await ctx.db.query("chat").withIndex("by_room", q => {
-      const lower = q.eq("roomId", room._id).gte("timestamp", from);
-      return Number.isFinite(to) ? lower.lte("timestamp", to) : lower;
-    }).order("desc").paginate({ ...paginationOpts, numItems: Math.max(1, Math.min(CHAT_PAGE_MAX, Math.floor(paginationOpts.numItems))) });
+    const page = await chatWindow(ctx, room._id, from, to).paginate({ ...paginationOpts, numItems: Math.max(1, Math.min(CHAT_PAGE_MAX, Math.floor(paginationOpts.numItems))) });
     return { ...page, page: page.page.map(chatView) };
   },
 });

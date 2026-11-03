@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { usePaginatedQuery } from "convex/react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Id } from "@workspace/engine/convex/_generated/dataModel";
 import type { ChatMessage, InstanceInfo, ObjectTypeInfo, RosterEntry, Settings, Standing, UtilityFamily } from "@/site/lib/types";
-import { api, useLive } from "@/site/lib/convex";
+import { api, useLive, useLivePages } from "@/site/lib/convex";
+import { ErrorBoundary, type ErrorFallbackProps } from "@/components/error-boundary";
+import { errMsg } from "@/site/lib/errors";
 import { VirtualRows } from "@/components/virtual-rows";
-import { EmptyState, Section } from "@/site/components/page-parts";
+import { EmptyState, ErrorLine, Section } from "@/site/components/page-parts";
 import { fmt } from "@/site/lib/errors";
 import { toMs } from "@/site/lib/time";
 import { allowedLanguages } from "@workspace/game-core";
@@ -63,8 +64,19 @@ const OBJECT_PAGE = 50;
  * while live), never anyone's own score. A skeleton (games.objectIds: ids and salience, paged by the index) and one
  * subscription per visible row (games.object); rows scrolled out of view unmount and drop theirs.
  */
-export function Objects({ gameId, instance, emptyBody = "Objects appear once the world begins to run." }: { gameId: string; instance?: InstanceInfo; emptyBody?: string }) {
-  const skeleton = usePaginatedQuery(api.games.objectIds, { gameId: gameId as Id<"games"> }, { initialNumItems: OBJECT_PAGE });
+export function Objects(props: { gameId: string; instance?: InstanceInfo; emptyBody?: string }) {
+  return <ErrorBoundary FallbackComponent={ObjectsError} resetKey={props.gameId}><ObjectList {...props} /></ErrorBoundary>;
+}
+
+/** A panel whose query failed: the error, and a retry that subscribes afresh. */
+const PanelError = (title: string) => function PanelErrorLine({ error, resetError }: ErrorFallbackProps) {
+  return <Section title={title}><div className="p-4"><ErrorLine message={errMsg(error)} onRetry={resetError} /></div></Section>;
+};
+const ObjectsError = PanelError("Objects");
+const ChatError = PanelError("Public chat");
+
+function ObjectList({ gameId, instance, emptyBody = "Objects appear once the world begins to run." }: { gameId: string; instance?: InstanceInfo; emptyBody?: string }) {
+  const skeleton = useLivePages(api.games.objectIds, { gameId: gameId as Id<"games"> }, { initialNumItems: OBJECT_PAGE });
   const { status, loadMore } = skeleton;
   // Pages hold disjoint index ranges, so an id is never listed twice; the guard keeps React keys unique regardless.
   const rows = useMemo(() => { const seen = new Set<string>(); return skeleton.results.filter(r => !seen.has(r.id) && !!seen.add(r.id)); }, [skeleton.results]);
@@ -104,8 +116,13 @@ function ObjectRow({ objectId, rank, max, ctx }: { objectId: string; rank: numbe
 const CHAT_PAGE = 50;
 
 /** One game's public chat (rooms.chat with its gameId): newest page first, older pages on request. */
-export function GameChat({ roomId, gameId, ...chat }: { roomId: string; gameId: string } & Omit<Parameters<typeof Chat>[0], "messages" | "onOlder">) {
-  const page = usePaginatedQuery(api.rooms.chat, { roomId: roomId as Id<"rooms">, gameId: gameId as Id<"games"> }, { initialNumItems: CHAT_PAGE });
+type GameChatProps = { roomId: string; gameId: string } & Omit<Parameters<typeof Chat>[0], "messages" | "onOlder">;
+export function GameChat(props: GameChatProps) {
+  return <ErrorBoundary FallbackComponent={ChatError} resetKey={props.gameId}><GameChatPages {...props} /></ErrorBoundary>;
+}
+
+function GameChatPages({ roomId, gameId, ...chat }: GameChatProps) {
+  const page = useLivePages(api.rooms.chat, { roomId: roomId as Id<"rooms">, gameId: gameId as Id<"games"> }, { initialNumItems: CHAT_PAGE });
   const messages = useMemo(() => [...page.results].reverse(), [page.results]);
   return <Chat {...chat} messages={messages} onOlder={page.status === "CanLoadMore" ? () => page.loadMore(CHAT_PAGE) : undefined} />;
 }
@@ -119,13 +136,22 @@ export function Chat({ messages, canPost, placeholder, pending, onSend, title = 
 }) {
   const [text, setText] = useState("");
   const end = useRef<HTMLDivElement>(null);
+  const box = useRef<HTMLDivElement>(null);
   const n = messages.length;
-  const newest = messages.at(-1)?.id;
-  // Follow the newest message (not older pages loading above it).
+  const newest = messages.at(-1)?.id, oldest = messages[0]?.id;
+  // Follow the newest message.
   useEffect(() => { end.current?.scrollIntoView({ block: "nearest" }); }, [newest]);
+  // An older page loading above keeps what the reader was looking at in place.
+  const before = useRef<{ oldest?: string; height: number }>({ height: 0 });
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    if (before.current.oldest && oldest !== before.current.oldest) el.scrollTop += el.scrollHeight - before.current.height;
+    before.current = { oldest, height: el.scrollHeight };
+  }, [oldest, n]);
   return (
     <Section title={title}>
-      <div className="h-[300px] overflow-auto px-4 py-2 space-y-2">
+      <div ref={box} className="h-[300px] overflow-auto px-4 py-2 space-y-2">
         {onOlder && <button type="button" onClick={onOlder} className="text-xs underline underline-offset-4 text-muted-foreground" data-testid="button-chat-older">Earlier messages</button>}
         {n === 0 && <EmptyState title="No messages yet" body="Deals start here. Say hello." />}
         {messages.map(c => (

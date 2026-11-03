@@ -35,6 +35,7 @@ import { gamePath, roomPath } from "@/site/lib/routes";
 import { errMsg, fmt } from "@/site/lib/errors";
 import { endReasonLabel, fmtDuration, fmtWhen, secsLeft, toMs, worldSecondsAt } from "@/site/lib/time";
 import type { FunctionReturnType } from "convex/server";
+import { DEFAULT_SCORE_INTERVAL_SECONDS } from "@workspace/game-core";
 
 type GameInstance = FunctionReturnType<typeof api.games.instance>;
 import { MoreHorizontal } from "lucide-react";
@@ -60,7 +61,8 @@ function WorldTime({ game, now }: { game: GameHeader; now: number }) {
   const standings = useLive(api.games.standings, { gameId: game.id }).data;
   const running = game.status === "active" && game.phase === "running" && !(game.pauseEndsAt && toMs(game.pauseEndsAt) > now);
   const world = worldSecondsAt(standings?.world != null && standings.at != null
-    ? { world: standings.world, at: standings.at, running, resumedAt: Math.max(game.planningEndsAt ?? 0, game.pauseEndsAt ?? 0) } : null, now);
+    ? { world: standings.world, at: standings.at, running, resumedAt: Math.max(game.planningEndsAt ?? 0, game.pauseEndsAt ?? 0),
+      interval: game.settings.scoreIntervalSeconds ?? DEFAULT_SCORE_INTERVAL_SECONDS } : null, now);
   return <dd className="tabular-nums" data-testid="text-world-t">{world === null ? "—" : `${fmt(world, 1)} s`}</dd>;
 }
 
@@ -187,8 +189,10 @@ export default function Game() {
   const room = useLive(api.rooms.get, game?.roomId ? { room: game.roomId } : "skip");
   const seated = !!game && game.roster.some(r => r.id === user?.id);
   // The object type and utility catalog (static for the game), for the spectator view and the page's rules text.
+  // Only the spectator view reads it: wait for the room (or its absence) to know whether the dock takes the page.
+  const roomKnown = !game?.roomId || !!room.data || !!room.error;
   const docked = isAuthenticated && !!game && !!room.data && (!active || seated);
-  const instance = useLive(api.games.instance, game && !docked ? { gameId: game.id } : "skip").data;
+  const instance = useLive(api.games.instance, game && roomKnown && !docked ? { gameId: game.id } : "skip").data;
   const view = useMemo(() => (game ? { ...game, objectInstance: instance?.objectInstance } : null), [game, instance]);
   useEffect(() => { document.title = `Game ${game?.shortCode ?? code} · Code Gods`; }, [game?.shortCode, code]);
   // The canonical URL names the game's own room and codes.

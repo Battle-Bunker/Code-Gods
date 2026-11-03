@@ -39,6 +39,15 @@ export async function publishStandings(ctx: MutationCtx, game: { _id: Id<"games"
   });
 }
 
+/**
+ * The live agent count changed between publications (a summon or a destroy): the latest publication's row carries the
+ * count since, so games.standings shows it at once. Earlier rows keep the count they were published with.
+ */
+export async function recountAgents(ctx: MutationCtx, gameId: Id<"games">, agentCount: number) {
+  const last = await ctx.db.query("standingsHistory").withIndex("by_game_seq", q => q.eq("gameId", gameId)).order("desc").first();
+  if (last && last.agentCount !== agentCount) await ctx.db.patch(last._id, { agentCount });
+}
+
 /** Whether a game already has its standings (a game stored before them has none until migrations:backfillStandings). */
 export async function hasStandings(ctx: MutationCtx, gameId: Id<"games">) {
   return !!await ctx.db.query("standings").withIndex("by_game", q => q.eq("gameId", gameId)).first();
