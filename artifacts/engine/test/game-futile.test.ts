@@ -56,7 +56,7 @@ test("a constant agent stops colliding: one act per object version, then a diagn
 test("validation warns before the summon: a constant agent, an idempotent one, and copies of the player's own agent", { timeout: 180000 }, async () => {
   const [host, ada, bo] = await gods("Warn Host", "Warn Ada", "Warn Bo");
   await touch(host);
-  const { roomId } = await roomWith([host, ada, bo], { objectType: "Int", typeArgs: { min: -1000000, max: 1000000 }, languages: ["typescript"], startingObjectCount: 8, spawnRateHz: 0, planningSeconds: 3600 });
+  const { roomId } = await roomWith([host, ada, bo], { objectType: "Int", typeArgs: { min: -1000000, max: 1000000 }, languages: ["typescript"], startingObjectCount: 8, spawnRateHz: 0, planningSeconds: 3600, startingEnergy: 5000 });
   const game = await startGame(host, roomId);
   const send = (command: Record<string, unknown>) => ada.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
 
@@ -81,7 +81,8 @@ test("validation warns before the summon: a constant agent, an idempotent one, a
   assert.equal(summoned.accepted, true);
   assert.match(summoned.warnings.join(" "), /only one object can ever hold/);
   // Code the player already runs: a copies warning.
-  assert.equal((await send({ type: "summon", name: "Adder", language: "typescript", source: adder })).accepted, true);
+  const second = await send({ type: "summon", name: "Adder", language: "typescript", source: adder });
+  assert.equal(second.accepted, true, second.message);
   const copy = (await send({ type: "validate", language: "typescript", source: adder })).validation;
   assert.match(copy.warnings.join(" "), /You already have an agent with this exact code/);
   await host.c.mutation(api.rooms.endActiveGame, { roomId });
