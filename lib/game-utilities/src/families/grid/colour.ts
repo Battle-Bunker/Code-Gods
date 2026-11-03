@@ -779,7 +779,7 @@ const harmony = gridFamily<HarmonyP>({
   id: "colour_wheel_harmony", name: "Colour Wheel Harmony", emoji: "☯️", theme: "Opposite colours that make each other pop",
   requires: { classes: ["Wheel"], evenColours: true }, shape: SCALAR,
   params: g => ({
-    favourite: choiceParam("Favourite colour (its pairs score double)", [["any", "no favourite"], ...g.colourNames.map(n => [n, n] as const)]),
+    favourite: choiceParam("Favourite colour (its pairs score double)", [["any", "no favourite"], ...g.colourNames.slice(0, Math.floor(g.C / 2)).map(n => [n, n] as const)]),
   }),
   legacy: (p, g) => (p.fav !== undefined ? { favourite: p.fav === null ? "any" : g.colourNames[p.fav as number] } : null),
   support: g => ["any", ...g.colourNames.slice(0, Math.floor(g.C / 2))].map(favourite => ({ favourite })),
@@ -819,7 +819,7 @@ const harmony = gridFamily<HarmonyP>({
       return points;
     }`),
   exemplar: (p, g) => {
-    const a = p.favourite === "any" ? 0 : colourAt(g, p.favourite), b = a + Math.floor(g.C / 2);
+    const a = p.favourite === "any" ? 0 : colourAt(g, p.favourite), b = (a + Math.floor(g.C / 2)) % g.C;
     return wire(g, full(g.N, 0), fromFn(g.N, (r, c) => ((r + c) % 2 === 0 ? a : b)));
   },
 });
