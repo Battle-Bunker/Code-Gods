@@ -67,6 +67,7 @@ export const BUDGETS: Budget[] = [
     args: (_, run) => ({ own: { site: "app", build: `gate-${run}` } }), cold: true,
     open: "the deploy auto-update: names the live builds only" },
   { query: "rooms:list", subscribedBy: "site/pages/home.tsx", args: () => ({}), cold: true },
+  { query: "manifest:get", subscribedBy: "site/hooks/use-manifest.ts (layout.tsx, room.tsx, configure.tsx)", args: () => ({}), cold: true },
   { query: "setups:list", subscribedBy: "site/components/layout.tsx, core/palette/use-commands.ts", args: () => ({}), cold: true,
     debt: { capped: true, docs: 1100, bytes: 640 * KiB, ms: 200,
       why: "the whole shared catalogue, capped (setups.ts LIST_CAP 500 + the caller's own + one owner name each): page it (R1). Measured 306 docs, 234 KiB, 51 ms on a dev deployment after one test:game run" } },

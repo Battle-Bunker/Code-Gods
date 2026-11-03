@@ -14,7 +14,7 @@ import { setObjectRenderer, useGridRenderer } from "@workspace/object-views";
 import { startTracker, startView, trackStart, type StartView } from "@workspace/player-client/start";
 import { useAuth } from "@/site/hooks/use-auth";
 import { engineSite } from "@/core/connection";
-import { useManifest } from "@/site/hooks/use-manifest";
+import { useManifest, useWarmSandboxes } from "@/site/hooks/use-manifest";
 import { useAdminAgents, useAgentOptions } from "@/site/hooks/use-agents";
 import { useToast } from "@/hooks/use-toast";
 import { api, useLive } from "@/site/lib/convex";
@@ -111,6 +111,7 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
 }) {
   const { user, kind, login, logout } = useAuth();
   const manifest = useManifest(!!user).data;
+  useWarmSandboxes(user?.id);
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const [palette, setPalette] = useState<{ open: boolean; init?: PaletteOpenInit }>({ open: false });

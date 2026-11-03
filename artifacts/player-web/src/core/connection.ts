@@ -120,6 +120,15 @@ export function existingConvexClient(): ConvexReactClient | undefined {
   return g.__cgConvex;
 }
 
+type AccessToken = () => Promise<string | null>;
+let accessToken: AccessToken | undefined;
+/**
+ * The signed-in human's Convex JWT source (the one the Convex client uses), registered by site/lib/convex.tsx
+ * EngineProvider, for the engine's HTTP routes that check `Authorization: Bearer` (a player's calibration tables).
+ */
+export function setAppAccessToken(source: AccessToken | undefined): void { accessToken = source; }
+export async function appAccessToken(): Promise<string | null> { return accessToken ? accessToken() : null; }
+
 /** Dev-server mode: a fresh player JWT for the Convex client's fetchAccessToken (null = refused). */
 export async function fetchAppAccessToken(): Promise<string | null> {
   return (await fetchAppToken())?.token ?? null;

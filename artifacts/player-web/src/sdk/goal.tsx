@@ -11,17 +11,19 @@ import { explainer, type CalibrationTable, type GoalExplainer, type UtilityDescr
 import { GoalExplainerProvider } from "@workspace/object-views";
 import { loadTables } from "@sdk-transport";
 import { useMyUtility } from "./hooks";
+import { useRoom } from "./context";
 
 /**
  * Your calibration tables and the scoring function that finish "How this scores" (rarity, bits, net): loaded once per
  * game from the engine, as the local evaluator does. Until then (or if they fail) the goal explains without that section.
  */
 function useScoringInputs(key: string, mine: ReturnType<typeof useMyUtility>) {
+  const { roomId } = useRoom();
   const [loaded, setLoaded] = useState<{ key: string; tables: { reward: CalibrationTable; penalty?: CalibrationTable }; netBits: (typeof import("@workspace/game-core"))["netBits"] }>();
   useEffect(() => {
     if (!mine || loaded?.key === key) return;
     let live = true;
-    void Promise.all([loadTables(mine.settings as GameSettings, mine.utility as UtilityDescriptor), import("@workspace/game-core")])
+    void Promise.all([loadTables(mine.settings as GameSettings, mine.utility as UtilityDescriptor, { roomId, gameId: mine.gameId, godId: mine.godId }), import("@workspace/game-core")])
       .then(([tables, core]) => { if (live) setLoaded({ key, tables: tables as { reward: CalibrationTable; penalty?: CalibrationTable }, netBits: core.netBits }); })
       .catch(error => console.warn("[sdk] score workings unavailable:", error));
     return () => { live = false; };

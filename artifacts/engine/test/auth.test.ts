@@ -90,16 +90,19 @@ test("admin needs a verified allowlisted email", async () => {
   assert.equal((await client((await login("unverified")).jwt).query("auth/user:me") as { isAdmin: boolean }).isAdmin, false);
 });
 
-test("sign-in is required for the server info and the calibration tables (owner decision 2026-11-02)", async () => {
-  // Catches: an anonymous visitor reading the manifest, or booting the agent sandboxes it warms, or loading tables.
-  const tables = { settings: { objectType: "Grid", typeArgs: { size: 4, symbols: "base10", colours: "rgb" }, priorId: "uniform" },
-    draws: [{ familyId: "seed3_green_ones", params: { colour: 0, value: 0 } }] };
-  assert.equal(await errorCode(client().action("manifest:get")), "UNAUTHENTICATED");
-  assert.equal(await errorCode(client().action("calibration/node:tables", tables)), "UNAUTHENTICATED");
-  // A signed-in human still gets them (whether this backend holds that table is not the question here).
-  const alice = client((await login("alice")).jwt);
-  assert.ok(((await alice.action("manifest:get")) as { objectTypes: unknown[] }).objectTypes.length > 0);
-  assert.notEqual(await errorCode(alice.action("calibration/node:tables", tables)), "UNAUTHENTICATED");
+test("sign-in is required for the server info, the sandboxes' warm-up and the engine's HTTP data routes (owner decision 2026-11-02)", async () => {
+  // Catches: an anonymous visitor reading the manifest, booting the agent sandboxes, or loading tables or a replay; and
+  // a browser's Better Auth JWT not being accepted by the HTTP routes the app calls with it.
+  assert.equal(await errorCode(client().query("manifest:get")), "UNAUTHENTICATED");
+  assert.equal(await errorCode(client().action("manifest/node:warm")), "UNAUTHENTICATED");
+  const routes = [`${SITE}/api/calibration/no-room/no-game/no-god`, `${SITE}/api/replay/no-room/no-game`];
+  for (const url of routes) assert.equal((await fetch(url)).status, 401, `${url} signed out`);
+  // A signed-in human still gets them (the routes then refuse the unknown room, not the caller).
+  const { jwt } = await login("alice");
+  const alice = client(jwt);
+  await alice.action("manifest/node:warm");
+  assert.ok(((await alice.query("manifest:get")) as { objectTypes: unknown[] }).objectTypes.length > 0);
+  for (const url of routes) assert.equal((await fetch(url, { headers: { authorization: `Bearer ${jwt}` } })).status, 404, `${url} with a browser JWT`);
 });
 
 test("sign-out ends the session at once, even for an unexpired browser JWT", async () => {

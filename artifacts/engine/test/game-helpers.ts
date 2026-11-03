@@ -7,7 +7,7 @@
 import assert from "node:assert/strict";
 import { after } from "node:test";
 import { readFileSync } from "node:fs";
-import { randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { ConvexHttpClient } from "convex/browser";
 import { ConvexError } from "convex/values";
@@ -62,6 +62,19 @@ export async function playerClient(god: God, roomId: string, permission: "read" 
   return clientFor(god.subject, "player", { cred: credentialId });
 }
 
+/**
+ * A real Convex JWT for `god` over HTTP (what a client sends to an engine route that checks `Authorization: Bearer`):
+ * a player JWT minted by /api/device/token from a seeded `cgc_` credential bound to `roomId`. (Admin impersonation,
+ * which the other tests use, does not reach HTTP actions.)
+ */
+export async function httpJwt(god: God, roomId: string): Promise<string> {
+  const credential = `cgc_${randomBytes(32).toString("base64url")}`;
+  await admin.mutation(internal.testing.seedCredential, { subject: god.subject, roomId, permission: "read", tokenHash: createHash("sha256").update(credential).digest("hex") });
+  const response = await fetch(`${SITE_}/api/device/token`, { method: "POST", headers: { authorization: `Bearer ${credential}` } });
+  assert.equal(response.status, 200, await response.clone().text());
+  return (await response.json() as { token: string }).token;
+}
+
 export const envelope = (command: Record<string, unknown>, gameId?: string) =>
   ({ version: VERSION, commandId: randomUUID(), ...(gameId ? { gameId } : {}), command });
 
@@ -70,14 +83,14 @@ export async function touch(god: God) { await god.c.mutation(api.activity.touch,
 /** A room with these gods (first is owner); settings applied directly by the test helper when given. */
 /**
  * Every agent sandbox of the deployment warm (runtime/readiness.ts): a start never waits for one, so a test that
- * validates right after its start needs them booted first. Once per test process; the manifest schedules the boots.
+ * validates right after its start needs them booted first. Once per test process; manifest.node.warm schedules the boots.
  */
 let warm: Promise<void> | undefined;
 export function sandboxesWarm(): Promise<void> {
   return warm ??= (async () => {
     // The manifest is for signed-in callers (the admin key alone carries no identity).
     const [warmer] = await gods("Sandbox Warmer");
-    const sandboxes: { language: string; state: string; reason?: string }[] = (await warmer.c.action(api.manifest.get, {})).sandboxes;
+    const sandboxes: { language: string; state: string; reason?: string }[] = (await warmer.c.action(api.manifest.node.warm, {})).sandboxes;
     const undeployed = sandboxes.find(s => s.state === "failed");
     if (undeployed) throw new Error(`The ${undeployed.language} sandbox cannot boot: ${undeployed.reason}`);
     const languages = sandboxes.map(s => s.language);

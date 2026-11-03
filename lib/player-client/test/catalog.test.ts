@@ -59,7 +59,7 @@ test("tools and entries agree in both directions; kinds match annotations", () =
     // A tool wrapping only queries is read-only; a read-only tool wraps no mutation-only function (validate_agent is a read-only command).
     const kinds = functions.map(f => CATALOG[f].kind);
     if (kinds.length && kinds.every(k => k === "query")) assert.equal(t.annotations.readOnlyHint, true, `${t.name} wraps only queries`);
-    if (t.annotations.readOnlyHint && kinds.length && t.name !== "validate_agent") assert.ok(kinds.some(k => k === "query") || t.functions.includes("manifest.get"), `${t.name} is read-only but reaches ${kinds}`);
+    if (t.annotations.readOnlyHint && kinds.length && t.name !== "validate_agent") assert.ok(kinds.some(k => k === "query"), `${t.name} is read-only but reaches ${kinds}`);
   }
   // The registry covers every tool name the catalogue mentions.
   const mentioned = new Set(CATALOG_PATHS.flatMap(p => CATALOG[p].tools));
