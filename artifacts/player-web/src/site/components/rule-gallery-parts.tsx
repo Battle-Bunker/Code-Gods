@@ -89,7 +89,7 @@ export function familyCard(familyId: string, params: Params, inst: Instantiation
  * (site/lib/rule-tables.ts) it also explains "How this scores": rarity and bits.
  */
 export const familyExplainer = (familyId: string, params: Params, inst: Instantiation, scoring?: RuleScoring) =>
-  explainer({ familyId, params }, inst, scoring ? { tables: scoring.tables, netBits: scoring.netBits } : {});
+  explainer({ familyId, params }, inst, scoring ?? {});
 
 /** The family's plain description for these params. */
 export const familySummary = (familyId: string, params: Params, inst: Instantiation) => family(familyId).summary(params as never, context(inst));

@@ -1,8 +1,8 @@
 /**
  * One draw's calibration table for the rule gallery's goal card ("How this scores": rarity and bits), from the
  * engine's GET /api/rule-tables (artifacts/engine/convex/calibration/draw.ts), keyed by the instantiation and the draw,
- * with your Convex JWT. Static data: the answer for a URL never changes, so the browser caches it (`immutable`);
- * requests in flight are shared, and nothing is cached here. Until it arrives (or if the draw has no table yet) the
+ * with your Convex JWT, the way a seat's tables come (sdk/transport.ts loadTables). Static data: the browser keeps an
+ * answer for an hour (the route's Cache-Control); requests in flight are shared, and nothing is cached here. Until it arrives (or if the draw has no table yet) the
  * card explains without that section.
  */
 import { useEffect, useState } from "react";
@@ -27,7 +27,9 @@ function load(path: string): Promise<RuleScoring> {
         fetch(`${engineSite().replace(/\/$/, "")}${path}`, { headers: { authorization: `Bearer ${token}` } }),
         import("@workspace/game-core"),
       ]);
-      if (!response.ok) throw new Error(`No calibration table (HTTP ${response.status}).`);
+      if (!response.ok) {
+        throw new Error(response.status === 404 ? "This draw has no calibration table yet." : `The calibration table did not load (HTTP ${response.status}).`);
+      }
       const { reward } = await response.json() as { reward: CalibrationTable };
       return { tables: { reward }, netBits: core.netBits };
     })();

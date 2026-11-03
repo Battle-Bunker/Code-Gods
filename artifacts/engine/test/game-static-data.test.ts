@@ -117,16 +117,17 @@ test("one draw's table by instantiation: GET /api/rule-tables, for any signed-in
   assert.equal((await get(ok)).status, 401, "signed out");
   const response = await get(ok, jwt);
   assert.equal(response.status, 200, await response.clone().text());
-  assert.match(response.headers.get("cache-control") ?? "", /private.*immutable/, "per caller, never changes");
+  assert.match(response.headers.get("cache-control") ?? "", /^private, max-age=3600$/, "per caller; a deploy may ship a newer table for the URL");
   const { reward } = await response.json() as { reward: { key: string; instance: string } };
   const settings = { objectType: "Grid", typeArgs: { size: 4, symbols: "base10", colours: "rgb" }, priorId: "uniform" };
   const probe = await admin.action(internal.calibration.node.probe, { settings, draw: { familyId: "set_spotter", params: { diag: false } } });
   assert.equal(reward.instance, "Grid(4,base10,rgb)");
   assert.equal(reward.key, probe.key, "the engine's own table for that draw");
 
-  // Anything that names no dealable draw is refused before any table is looked up.
+  // Anything that names no dealable draw (made-up params included) is refused before any table is looked up.
   for (const bad of [url("Grid(3,base10,rgb)", "set_spotter", { diag: false }), url("Grid(4,base10,rgb)", "no_such_family", {}),
-    url("Grid(4,base10,rgb)", "set_spotter", [1]), `${SITE_}/api/rule-tables?instance=Grid(4,base10,rgb)`]) {
+    url("Grid(4,base10,rgb)", "set_spotter", [1]), url("Grid(4,base10,rgb)", "set_spotter", { diag: "banana" }),
+    `${SITE_}/api/rule-tables?instance=Grid(4,base10,rgb)`]) {
     assert.equal((await get(bad, jwt)).status, 400, bad);
   }
 });
