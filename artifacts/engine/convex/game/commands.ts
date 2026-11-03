@@ -16,7 +16,7 @@ import { withEngine, writeGame } from "./state";
 import { fail, messageOf } from "../lib/errors";
 import { memberOf, principalV, requireMemberAs, requireRoom, viewerOf, type Principal } from "../lib/rooms";
 import { godEnergy, worldNow } from "../lib/world";
-import { languageV } from "../lib/language";
+import { agentLanguage, languageV } from "../lib/language";
 
 const CHAT_INTERVAL_MS = 1000;
 /** Agent examinations (validate, summon) per human per room per rolling minute: a looping client cannot burn the sandbox. */
@@ -52,13 +52,17 @@ export const prepare = internalQuery({
     const prior = await findReceipt(ctx, room._id, member.godId, envelope.commandId);
     const game = room.currentGameId ? await ctx.db.get(room.currentGameId) : null;
     const command = envelope.command;
-    let examine: null | { settings: GameSettings; live: (number | string)[] } = null;
+    let examine: null | { settings: GameSettings; live: (number | string)[]; twins: number } = null;
     if (!prior && game && (command.type === "validate" || command.type === "summon") && envelope.gameId === game._id &&
         allowedLanguages(game.settings as GameSettings).includes(command.language) && game.phase !== "ended" && game.phase !== "recovery" &&
         game.roster.some(m => m.id === member.godId)) {
       const live = await ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", game._id)).take(16);
       // A game the single-language migration has not reached yet is examined as its one language (validateSettings needs the set).
-      examine = { settings: (upgradeStoredSettings(game.settings) ?? game.settings) as GameSettings, live: live.map(o => o.value) };
+      const settings = (upgradeStoredSettings(game.settings) ?? game.settings) as GameSettings;
+      // The player's live agents running this exact code (the copies warning), read here, off the mutation's read set.
+      const own = await ctx.db.query("agents").withIndex("by_game_owner", q => q.eq("gameId", game._id).eq("ownerId", member.godId)).take(settings.maxAgentsPerGod + 1);
+      const twins = own.filter(a => a.source === command.source && agentLanguage(a, settings) === command.language).length;
+      examine = { settings, live: live.map(o => o.value), twins };
     }
     return { roomId: room._id, godId: member.godId, prior: prior ? { hash: prior.hash, result: prior.result as CommandResult } : null, examine };
   },
@@ -88,6 +92,8 @@ const examinedV = v.object({
     changeRate: v.optional(v.number()), invalidRate: v.optional(v.number()),
     futility: v.optional(futilityV), warnings: v.optional(v.array(v.string())),
   })),
+  /** The player's live agents with this exact code and language when it was examined (the copies warning). */
+  twins: v.optional(v.number()),
 });
 
 export const apply = internalMutation({
@@ -145,7 +151,7 @@ export const claimExamination = internalMutation({
   },
 });
 
-type Examined = { gameId: string; source: string; language: Language; error?: string; result?: { cost: number; parts: unknown; decisionBits: number; expectedActCost: number;
+type Examined = { gameId: string; source: string; language: Language; error?: string; twins?: number; result?: { cost: number; parts: unknown; decisionBits: number; expectedActCost: number;
   breakdown: { decision: number; erasure: number; motion: number; floor: number }; randomized: boolean; diagnostics: string[];
   changeRate?: number; invalidRate?: number; futility?: Futility; warnings?: string[] } };
 
@@ -199,8 +205,7 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     if (examined.error !== undefined || !examined.result) return fail("BAD_REQUEST", examined.error ?? "Examination failed");
     const e = examined.result;
     // Copies of the player's own live agents: the same code acts the same way on the same objects.
-    const twins = (await ctx.db.query("agents").withIndex("by_game_owner", q => q.eq("gameId", game._id).eq("ownerId", member.godId)).take(settings.maxAgentsPerGod + 1))
-      .filter(a => a.source === command.source).length;
+    const twins = examined.twins ?? 0;
     const warnings = [...(e.warnings ?? []), ...(twins ? [copiesWarning(twins, e.futility)] : [])];
     const findings = { ...(e.futility ? { futility: e.futility, expectedSuccessRate: e.futility.successRate } : {}), ...(warnings.length ? { warnings } : {}) };
     if (command.type === "validate") {

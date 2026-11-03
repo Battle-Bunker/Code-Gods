@@ -82,6 +82,15 @@ test("a constant agent warns: the success rate and the warning come first, and t
 test("copies of a working agent warn without changing a works verdict's advice to summon", () => {
   const copies = "You already have an agent with this exact code: a copy acts the same way on the objects it is given, so it adds speed only when they cannot keep up.";
   const a = assessValidation(receipt({ changeRate: 1, invalidRate: 0, expectedSuccessRate: 1, energy: 500, affordable: true, warnings: [copies] }));
-  assert.equal(a.verdict, "warns");
+  assert.equal(a.verdict, "works");
   assert.match(a.summary, /You already have an agent/);
+  assert.match(a.next, /^Stop validating/);
+  assert.match(a.next, /Tell them first: You already have an agent/);
+  assert.doesNotMatch(a.next, /depends on the object/);
+});
+
+test("a warning on an agent the player cannot afford yet says so", () => {
+  const a = assessValidation(receipt({ changeRate: 1, invalidRate: 0, expectedSuccessRate: 0.1, energy: 20, affordable: false, warnings: ["Most of its acts fail."] }));
+  assert.equal(a.verdict, "warns");
+  assert.match(a.next, /not affordable yet/);
 });

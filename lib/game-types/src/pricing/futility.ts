@@ -96,13 +96,22 @@ export async function probeFutility(run: RunActs, inst: Instantiation, values: r
   const deterministic = !randomized;
   const identity = changedInputs === 0;
   const constant = deterministic && changedInputs >= 2 && outputs.length === 1;
-  const idempotent = deterministic && again.length > 0 && again.every(r => !r.ok);
+  // "No change" only: a crash or an invalid act on its own results is a failure of another kind, not idempotence.
+  const idempotent = deterministic && again.length > 0 && again.every(r => !r.ok && r.reason === "no change");
   const successRate = n ? (s1 + s2) / (2 * n) : 0;
-  const rate = `in a sample world of ${n} objects, ${pct(successRate)} of its acts succeed`;
-  const warnings: string[] = [];
-  if (identity) warnings.push(`It never changes an object (${n} tried): every act would fail and still cost energy.`);
-  else if (constant) warnings.push(`It gives every object the same result, so only one object can ever hold this value; every other act will collide (${rate}). Make the result depend on the object.`);
-  else if (idempotent) warnings.push(`Applying it twice changes nothing more: it acts once per object, then wastes acts (${rate}). Make each act change something new.`);
-  else if (successRate < 0.5) warnings.push(`Most of its acts fail: ${rate} over two passes (results collide with other objects' values or change nothing).`);
-  return { n, deterministic, constant, idempotent, identity, firstPass: n ? s1 / n : 0, secondPass: n ? s2 / n : 0, successRate, warnings };
+  const profile = { n, deterministic, constant, idempotent, identity, firstPass: n ? s1 / n : 0, secondPass: n ? s2 / n : 0, successRate };
+  return { ...profile, warnings: futilityWarnings(profile) };
+}
+
+/** Below this expected success rate an agent is warned about even when no flag explains why. */
+export const LOW_SUCCESS = 0.5;
+
+/** The owner's warnings for a profile (empty when nothing is wrong); a caller that corrects a flag recomputes them. */
+export function futilityWarnings(p: Omit<FutilityProfile, "warnings">): string[] {
+  const rate = `in a sample world of ${p.n} objects, ${pct(p.successRate)} of its acts succeed`;
+  if (p.identity) return [`It never changes an object (${p.n} tried): every act would fail and still cost energy.`];
+  if (p.constant) return [`It gives every object the same result, so only one object can ever hold this value; every other act will collide (${rate}). Make the result depend on the object.`];
+  if (p.idempotent) return [`Applying it twice changes nothing more: it acts once per object, then wastes acts (${rate}). Make each act change something new.`];
+  if (p.successRate < LOW_SUCCESS) return [`Most of its acts fail: ${rate} over two passes (results collide with other objects' values or change nothing).`];
+  return [];
 }

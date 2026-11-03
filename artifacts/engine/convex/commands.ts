@@ -29,7 +29,7 @@ export async function runEnvelope(ctx: ActionCtx, roomId: string, raw: unknown, 
     if (prepared.prior.hash !== envelopeHash(envelope)) fail("CONFLICT", "Command ID was reused with different content");
     return prepared.prior.result;
   }
-  let examined: { gameId: string; source: string; language: Language; error?: string; result?: Awaited<ReturnType<typeof examineAgent>> } | undefined;
+  let examined: { gameId: string; source: string; language: Language; error?: string; twins?: number; result?: Awaited<ReturnType<typeof examineAgent>> } | undefined;
   const command = envelope.command;
   if (prepared.examine && (command.type === "validate" || command.type === "summon")) {
     // A cold sandbox is never waited for: the caller is told it is warming (nothing examined, claimed or receipted).
@@ -42,7 +42,7 @@ export async function runEnvelope(ctx: ActionCtx, roomId: string, raw: unknown, 
     await ctx.runMutation(internal.game.commands.claimExamination, { roomId: prepared.roomId, godId: prepared.godId });
     try {
       const e = await examineAgent(ctx, prepared.examine.settings, command.language, command.source, prepared.examine.live);
-      examined = { gameId: envelope.gameId!, source: command.source, language: command.language, result: e };
+      examined = { gameId: envelope.gameId!, source: command.source, language: command.language, twins: prepared.examine.twins, result: e };
     } catch (error) {
       // The agent's own fault (it does not compile) is a final answer; a host failure (capacity, runtime
       // unavailable) is not: nothing is receipted and the identical envelope can be retried.
@@ -60,7 +60,8 @@ export async function runEnvelope(ctx: ActionCtx, roomId: string, raw: unknown, 
     diagnostics: examined.result.diagnostics };
   return ctx.runMutation(internal.game.commands.apply, {
     roomId: prepared.roomId, asAi, principal, envelope,
-    ...(examined ? { examined: { gameId: examined.gameId, source: examined.source, language: examined.language, ...(examined.error !== undefined ? { error: examined.error } : {}), ...(result ? { result } : {}) } } : {}),
+    ...(examined ? { examined: { gameId: examined.gameId, source: examined.source, language: examined.language, ...(examined.error !== undefined ? { error: examined.error } : {}), ...(result ? { result } : {}),
+      ...(examined.twins ? { twins: examined.twins } : {}) } } : {}),
   });
 }
 
