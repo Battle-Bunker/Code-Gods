@@ -38,6 +38,8 @@
  *    `lastMutatedAt` (world seconds) from its objectEvents rows; its mutation count is its `version`. Narrowed later:
  *    `createdAt` becomes required and the `?? 0` fallbacks go (lib/projection.ts personalObject), once dev and
  *    production report it done.
+ *  - pictureFrameSymbol* (2026-11-03): Picture Frame's redesign deals a symbol too; the same two rewrites again, for
+ *    rows the typedParams* steps already left as `{ colour }` (deployments that ran them before the redesign).
  *
  * Older hand-rolled steps, idempotent and run by their own deploy-workflow steps (kept as they are: they predate the
  * component, and porting the Node action setupsV2 buys nothing):
@@ -149,38 +151,43 @@ function typedDescriptor(utility: unknown, settings: unknown): UtilityDescriptor
   return paramsKey(next) === paramsKey({ familyId: d.familyId, params: d.params, ...(d.penalty ? { penalty: d.penalty } : {}) }) ? null : next;
 }
 
-export const typedParamsDeities = migrations.define({
-  table: "deities",
-  migrateOne: async (ctx, deity) => {
-    const game = await ctx.db.get(deity.gameId);
-    if (!game) return;
-    const utility = typedDescriptor(deity.utility, game.settings);
-    if (!utility) return;
-    const ctx2 = context(instantiationOf(game.settings as GameSettings));
-    const stored = deity.card as { penalty?: object } | null, typed = cardParams(family(utility.familyId), utility.params, ctx2);
-    const penaltyTyped = utility.penalty && stored?.penalty ? cardParams(family(utility.penalty.familyId), utility.penalty.params, ctx2) : undefined;
-    await ctx.db.patch(deity._id, { utility, card: {
-      ...stored, ...(typed ? { params: typed } : {}),
-      ...(penaltyTyped && stored?.penalty ? { penalty: { ...stored.penalty, params: penaltyTyped } } : {}),
-    } });
-    // The stored replay embeds the old descriptor: drop it and build it again once this game's gods are migrated.
-    if (game.phase === "ended" && game.replayStorageId) {
-      await ctx.storage.delete(game.replayStorageId);
-      await ctx.db.patch(game._id, { replayStorageId: undefined });
-      await ctx.scheduler.runAfter(5_000 + Math.floor(Math.random() * 5_000), internal.replays.rebuildAfterMigration, { gameId: game._id });
-    }
-  },
-});
+/** A god's stored descriptor (and card) with today's params; its game's replay file rebuilt when it changes. */
+async function typedDeity(ctx: MutationCtx, deity: Doc<"deities">): Promise<void> {
+  const game = await ctx.db.get(deity.gameId);
+  if (!game) return;
+  const utility = typedDescriptor(deity.utility, game.settings);
+  if (!utility) return;
+  const ctx2 = context(instantiationOf(game.settings as GameSettings));
+  const stored = deity.card as { penalty?: object } | null, typed = cardParams(family(utility.familyId), utility.params, ctx2);
+  const penaltyTyped = utility.penalty && stored?.penalty ? cardParams(family(utility.penalty.familyId), utility.penalty.params, ctx2) : undefined;
+  await ctx.db.patch(deity._id, { utility, card: {
+    ...stored, ...(typed ? { params: typed } : {}),
+    ...(penaltyTyped && stored?.penalty ? { penalty: { ...stored.penalty, params: penaltyTyped } } : {}),
+  } });
+  // The stored replay embeds the old descriptor: drop it and build it again once this game's gods are migrated.
+  if (game.phase === "ended" && game.replayStorageId) {
+    await ctx.storage.delete(game.replayStorageId);
+    await ctx.db.patch(game._id, { replayStorageId: undefined });
+    await ctx.scheduler.runAfter(5_000 + Math.floor(Math.random() * 5_000), internal.replays.rebuildAfterMigration, { gameId: game._id });
+  }
+}
 
-export const typedParamsPreparing = migrations.define({
-  table: "rooms",
-  migrateOne: (_ctx, room) => {
-    if (!room.preparing) return;
-    const deals = room.preparing.deals.map(d => ({ godId: d.godId, utility: typedDescriptor(d.utility, room.settings) ?? d.utility }));
-    if (deals.every((d, i) => d.utility === room.preparing!.deals[i].utility)) return;
-    return { preparing: { ...room.preparing, deals } };
-  },
-});
+export const typedParamsDeities = migrations.define({ table: "deities", migrateOne: typedDeity });
+
+/**
+ * Picture Frame's redesign (2026-11-03) added a dealt symbol: the same rewrite again, for rows typedParams* already
+ * migrated to `{ colour }` (they read with the first symbol, game-utilities picture_frame `legacy`).
+ */
+export const pictureFrameSymbolDeities = migrations.define({ table: "deities", migrateOne: typedDeity });
+
+function typedPreparing(_ctx: MutationCtx, room: Doc<"rooms">) {
+  if (!room.preparing) return;
+  const deals = room.preparing.deals.map(d => ({ godId: d.godId, utility: typedDescriptor(d.utility, room.settings) ?? d.utility }));
+  if (deals.every((d, i) => d.utility === room.preparing!.deals[i].utility)) return;
+  return { preparing: { ...room.preparing, deals } };
+}
+export const typedParamsPreparing = migrations.define({ table: "rooms", migrateOne: typedPreparing });
+export const pictureFrameSymbolPreparing = migrations.define({ table: "rooms", migrateOne: typedPreparing });
 
 export const backfillObjectTimes = migrations.define({
   table: "objects",
@@ -203,7 +210,7 @@ const RUN_ALL: FunctionReference<"mutation", "internal">[] = [internal.migration
   internal.migrations.dropHaskellFromGames, internal.migrations.dropHaskellBundle, internal.migrations.dropHaskellCompiledPrograms,
   internal.migrations.splitGameHotFields, internal.migrations.backfillReplays, internal.migrations.backfillStandings, internal.migrations.aiQuotas,
   internal.migrations.typedParamsDeities, internal.migrations.typedParamsPreparing,
-  internal.migrations.backfillObjectTimes];
+  internal.migrations.backfillObjectTimes, internal.migrations.pictureFrameSymbolDeities, internal.migrations.pictureFrameSymbolPreparing];
 export const runAll = migrations.runner(RUN_ALL);
 /** The state of each of runAll's migrations (scripts/run-migrations.mjs waits for all of them to succeed). */
 export const status = internalQuery({

@@ -215,40 +215,35 @@ test("Kingdom: the focus's patch, and the biggest patch, which alone scores", ()
   assert.match(tie.e.parts[1].facts[1].text, /as big as the biggest \(2\), but only one patch scores/);
 });
 
-test("Picture Frame: one piece per cell; edge matches gain, middle matches lose, the best edge symbol is named", () => {
-  const { e, at } = look("picture_frame", { colour: "red" });
+test("Picture Frame: one piece per cell; an edge cell gains +1 for the colour or the symbol and +4 for both, a middle cell loses the same", () => {
+  const p = { colour: "red", symbol: "5" };
+  const { e, at } = look("picture_frame", p);
   // Edge: 2R 5R 8R 1G / 4G 7G / 6B 0B / 1R 7B 3B 5G. Middle: 4B 4R / 3G 9R.
-  // Colour (red): 4 red edge cells (2R 5R 8R 1R) − 2 red middle cells (4R 9R) = 2.
-  // Symbol: edge counts 1:2, 5:2, 7:2, 2/8/4/6/0/3: 1 each; middle 4,4,3,9. Net: 1, 5, 7 → 2; 4 → −1; 3 → 0. Best 2. The
-  // card keeps the first edge cell (grid order) to reach it: 5 at row 1, column 2. Total 2 + 2 = 4.
-  assert.equal(e.ordinal, 4);
+  // Edge: 5R both (+4); 2R 8R 1R red (+1 each); 5G the symbol (+1); the other 7 neither. Middle: 4R 9R red (−1 each). 8 − 2 = 6.
+  assert.equal(e.ordinal, 6);
   assert.equal(e.parts.length, 16);
-  assert.deepEqual(at(0, 1).parts.map(p => p.points), [[2]], "5R on the edge: red and the best symbol");
-  assert.deepEqual(at(3, 0).parts.map(p => p.points), [[1]], "1R on the edge: red only (1 ties with 5, but 5 is the one kept)");
-  assert.deepEqual(at(3, 3).parts.map(p => p.points), [[1]], "5G on the edge: the best symbol only");
-  assert.deepEqual(at(3, 3).parts[0].facts, [{ text: "green, not red", ok: false }, { text: "shows 5, the best edge symbol", ok: true }]);
-  assert.deepEqual(at(1, 2).parts.map(p => p.points), [[-1]], "4R in the middle: red loses a point");
+  assert.deepEqual(at(0, 1).parts.map(x => x.points), [[4]], "5R on the edge: both");
+  assert.equal(at(0, 1).parts[0].title, "an edge cell, +4 both");
+  assert.deepEqual(at(3, 0).parts.map(x => x.points), [[1]], "1R on the edge: the colour only");
+  assert.equal(at(3, 0).parts[0].title, "an edge cell, +1 right colour");
+  assert.deepEqual(at(3, 3).parts[0].facts, [{ text: "green, not red", ok: false }, { text: "shows 5: the right symbol", ok: true }]);
+  assert.equal(at(3, 3).parts[0].title, "an edge cell, +1 right symbol");
+  assert.deepEqual(at(1, 2).parts.map(x => x.points), [[-1]], "4R in the middle: red loses a point");
   assert.deepEqual(at(1, 2).parts[0].facts, [{ text: "red: the middle should not be red", ok: false }, { text: "shows 4, not 5", ok: true }]);
-  assert.deepEqual(at(1, 1).parts.map(p => p.points), [[0]], "4B in the middle: neither, so nothing lost");
-  assert.equal(at(2, 3).parts[0].points[0], 0, "0B on the edge: neither red nor 5");
-  assert.equal(at(1, 1).note, "red: 4 edge cells minus 2 middle cells. The best edge symbol is 5: 2 edge cells show it, 0 middle cells do.");
-  const bd = lensFor("picture_frame")!.breakdown({ colour: "red" }, readBoard(FIRST_STEPS, BOARD)!, e.parts);
-  // Edge: 5R (red 5); 2R 8R 1R (red); 5G (5); 1G 4G 7G 6B 0B 7B 3B (neither). Middle: 4R 9R (red); 4B 3G (clear).
+  assert.equal(at(1, 1).parts[0].title, "a clear middle cell");
+  const bd = lensFor("picture_frame")!.breakdown(p, readBoard(FIRST_STEPS, BOARD)!, e.parts);
   assert.deepEqual(bd.items.map(i => [i.text, i.points[0]]), [
-    ["1 red 5 edge cell: 2 points each", 2],
-    ["3 red edge cells without 5: 1 point each", 3],
-    ["1 edge cell showing 5, not red: 1 point each", 1],
+    ["1 red 5 edge cell: +4 each", 4],
+    ["3 red edge cells without 5: +1 each", 3],
+    ["1 edge cell showing 5, not red: +1 each", 1],
     ["7 edge cells neither red nor 5: no points", 0],
-    ["2 red middle cells without 5: lose 1 point each", -2],
+    ["2 red middle cells without 5: −1 each", -2],
     ["2 middle cells neither red nor 5: nothing lost", 0],
   ]);
-  assert.equal(look("picture_frame", { colour: "green" }).e.ordinal, 5, "green: 4 edge (1G 4G 7G 5G) − 1 middle (3G) = 3, plus 2");
-  // Every edge cell a red 1 and the middle all 1s: colour 12, symbol 12 − 4 = 8.
-  assert.equal(look("picture_frame", { colour: "red" }, "1R,1R,1R,1R/1R,1G,1B,1R/1R,1B,1G,1R/1R,1R,1R,1R").e.ordinal, 20);
-  // The best board: every edge cell a red 1, no red and no 1 in the middle: 12 + 12.
-  assert.equal(look("picture_frame", { colour: "red" }, "1R,1R,1R,1R/1R,2G,3B,1R/1R,4G,5B,1R/1R,1R,1R,1R").e.ordinal, 24);
-  // The worst: no red edge cell and a red middle (−4), edge symbols 0–9 with 4 and 5 twice, the middle 4 4 5 5, so every symbol nets 0 or 1 (−4 + 1 = −3).
-  assert.equal(look("picture_frame", { colour: "red" }, "0G,1G,2G,3G/4G,4R,4R,5G/6G,5R,5R,7G/8G,9G,4G,5G").e.ordinal, -3);
+  // The best board: every edge cell a red 1, nothing red and no 1 in the middle: 12 × 4.
+  assert.equal(look("picture_frame", { colour: "red", symbol: "1" }, "1R,1R,1R,1R/1R,2G,3B,1R/1R,4G,5B,1R/1R,1R,1R,1R").e.ordinal, 48);
+  // The worst: nothing on the edge, every middle cell a red 1: −4 × 4.
+  assert.equal(look("picture_frame", { colour: "red", symbol: "1" }, "0G,2G,2G,3G/4G,1R,1R,5G/6G,1R,1R,7G/8G,9G,4G,5G").e.ordinal, -16);
 });
 
 test("Mirrormancer: the focus's row folded onto itself, pairs as ✓/✗ arcs", () => {
