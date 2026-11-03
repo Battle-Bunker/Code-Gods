@@ -284,3 +284,9 @@ Owner, verbatim (abridged only where marked):
   - One player gives m = 0, which is static rarity.
   - Recommended default. Verify that it's close to the geometric average and the contest sim on a few families;
     keep it if so.
+- DECIDED by the owner (3 Nov): hold rarity with m = number of other players is the rule-balance mechanic to
+  implement:
+  - payoff bits = −log2 P(U(x) ≥ u AND U(x′) ≥ u), with x′ = x after (n − 1) mutations weighted 2^(−cost);
+  - calibration tables keyed by player count;
+  - verification against the geometric average and the contest sim is a check, not a gate.
+  It belongs with the energy/mutator-cost work, because the noise uses the mutator costs.
