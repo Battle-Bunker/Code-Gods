@@ -417,6 +417,21 @@ Open pages learn of a deploy and update themselves (`lib/player-client/src/updat
   highest first; `games.object({objectId})` one object's `{id, value, version, salience}` (salience with its disclosure
   noise while live, exact once ended); `rooms.chat({roomId, gameId?, paginationOpts})` a page of the room's (or one
   game's) chat, newest first. `games.resolve({code})` → `{…, status: current|historical|unavailable}`.
+- Your objects, from the per-god read model the tick maintains (docs/convex-read-architecture.md §4.3): each query
+  reads only the caller's own rows (`objectViews`: one per roster god per object, private to that god; the others' sum
+  carries its disclosure noise while live, exact once ended), one index page or one document per call. A caller with no
+  seat gets empty answers.
+  `player.objectIds({gameId, sort?: payoff|mine|othersCare, filter?: all|positive|contested|chips, dir?, paginationOpts})`
+  a page (≤ 100) of `{id, key}` in that order; `player.object({objectId})` the caller's view of one object (the
+  observation's object shape plus `version`; null without a score on it); `player.objectsTop({gameId, by?, n ≤ 20, dir?})`
+  ranked rows; `player.totals({gameId})` `{objectCount, score, sumOwnNetBits, sumPeerNetBits, contested, chips, maxOwn,
+  maxCare, maxPayoff, minPayoff}` (score is Σ payoff, the observation's `self.score`); `player.objectDigest({gameId})`
+  `{own[], peer[]}` (the others-care scatter, refreshed at most every 3 s).
+- `player.objectsPage({roomId, sort?, filter?, after?, limit?})` is the **compatibility shape** kept for stored panels
+  (the SDK bridge): the same response as before (`rows` with `rank`, `next` cursor `{key, id}`, `matching`, `total`,
+  `sumOwnNetBits`, `sumPeerNetBits`), now one index page of the read model (`limit` ≤ 100) with the totals from
+  `player.totals`. `rank` is the position in the requested order from the window's first row; ties keep stored order.
+  New code uses `player.objectIds` + `player.object`.
 - `activity.touch()` mutation: human activity, which resumes idle-parked games (the assistant's `wake`). `activity.status()` query.
 - `aiTemplates.catalog()` query: the public AI library, without prompts. Admin only: `adminList()`, `create`, `update({id, revision, …})`, `remove({id, revision})`.
 - Sign-in is required for every function a page uses (owner decision 2026-11-02): queries and the actions `manifest.get` and `calibration.node.tables` answer a signed-out caller `UNAUTHENTICATED`. Open by decision: `version.current` (the deploy auto-update), `auth/user.me` (null when signed out), the HTTP routes `/api/health`, `/api/config`, Better Auth, the device flow and OAuth/MCP discovery and registration (`/mcp` itself answers 401 without a token).

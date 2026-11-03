@@ -127,7 +127,7 @@ function ObjectRow({ id, rank, scale, best, max, highlighted, flash, open, onOpe
 }) {
   const o = useObject(id);
   const { ctx } = useObjectContext();
-  if (!o) return <div className="h-full border-b border-[hsl(var(--card-border))]" data-testid={`row-object-${id}`} />;
+  if (!o) return <div className="h-full border-b border-[hsl(var(--card-border))]" data-testid={`object-pending-${id}`} />;
   return (
     <div data-testid={`row-object-${id}`}
       className={`h-full min-w-0 overflow-hidden border-b border-[hsl(var(--card-border))] py-2 ${highlighted ? "bg-[hsl(var(--primary)/0.06)]" : ""} ${flash ? "replay-changed" : ""}`}>
@@ -180,12 +180,13 @@ export default function Objects({ paneId, params, phase }: PanelProps<"objects">
   const sort = params.sortBy as ObjectSort, filter = params.filter as ObjectFilter;
   const view = `${gameId}|${sort}|${filter}|${params.limit}`;
   // The skeleton: pages of ids chained by cursor, each its own subscription; the list asks for the next as its end nears.
+  // Both are kept per view: a new sort or filter starts from the top. (Not reset in an effect: a page reports from its
+  // own effect, which runs before the list's, and a replay's answer never changes to report again.)
   const [pages, setPages] = useState<{ view: string; list: ObjectIdsPage[] }>({ view, list: [] });
-  const [wanted, setWanted] = useState(1);
-  useEffect(() => { setPages({ view, list: [] }); setWanted(1); }, [view]);   // a new sort or filter starts from the top
+  const [want, setWant] = useState({ view, n: 1 });
+  const wanted = want.view === view ? want.n : 1;
   const onPage = useCallback((index: number, page: ObjectIdsPage) => setPages(p => {
-    if (p.view !== view) return p;
-    const list = p.list.slice(0, index + 1);
+    const list = (p.view === view ? p.list : []).slice(0, index + 1);
     list[index] = page;
     return { view, list };
   }), [view]);
@@ -198,7 +199,7 @@ export default function Objects({ paneId, params, phase }: PanelProps<"objects">
   const done = loaded.length > 0 && !!loaded.at(-1)?.isDone;
   const cursors: (string | null)[] = [null];
   for (let i = 0; i < Math.min(wanted, loaded.length + 1) - 1; i++) { const p = loaded[i]; if (!p || p.isDone) break; cursors.push(p.continueCursor); }
-  const more = useCallback(() => { if (!done && loaded.length >= wanted) setWanted(w => w + 1); }, [done, loaded.length, wanted]);
+  const more = useCallback(() => { if (!done && loaded.length >= wanted) setWant({ view, n: wanted + 1 }); }, [done, loaded.length, wanted, view]);
   const totals = useTotals(gameId);
   const card = useMyCard();
   const { noun } = useObjectContext();
