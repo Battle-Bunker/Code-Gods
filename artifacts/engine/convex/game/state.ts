@@ -10,6 +10,7 @@
  */
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
+import { publishStandings } from "./readModel";
 
 export type Scoreboard = NonNullable<Doc<"gameClocks">["scoreboard"]>;
 export type Clock = Omit<Doc<"gameClocks">, "_id" | "_creationTime" | "gameId">;
@@ -104,5 +105,9 @@ export async function writeGame(ctx: MutationCtx, game: LiveGame, patch: Partial
   if (Object.keys(header).length) await ctx.db.patch(game._id, header);
   if (clockRow && Object.keys(clock).length) await ctx.db.patch(clockRow._id, clock);
   if (engineRow && Object.keys(engine).length) await ctx.db.patch(engineRow._id, engine);
+  // A newly published scoreboard reaches the standings read model in the same commit (game/readModel.ts).
+  if (patch.scoreboard && JSON.stringify(patch.scoreboard) !== JSON.stringify(game.scoreboard)) {
+    await publishStandings(ctx, next, patch.scoreboard, { agentCount: next.agentCount, objectCount: next.objectCount });
+  }
   return next;
 }

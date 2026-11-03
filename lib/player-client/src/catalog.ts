@@ -266,11 +266,41 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
     ai: { description: "Resolve a game code to the public game view plus a status (current, historical, unavailable). The assistant reads the room's games with list_games and get_game_history." },
     tools: [], palette: null, why: "Resolves a code for the game page; the room's games reach the assistant through list_games and get_game_history.",
   },
-  "games.view": {
+  "games.header": {
     kind: "query", audience: "player",
-    human: { title: "Watch a game", tooltip: "The public view of a game: salience, standings, roster and winners." },
-    ai: { description: "The public, non-private view of one game for the shared display. Private per-god data is never in it; the assistant uses get_observation for the human's own view." },
-    tools: [], palette: null, why: "The public game page's subscription; the human's private view is get_observation.",
+    human: { title: "Open a game's header", tooltip: "A game's codes, room, status, roster, settings and deadlines, as its page header shows them." },
+    ai: { description: "The cold header of one game (codes, room, phase, roster, settings, deadlines, winners once ended) for the game page's routing and header. No world state; the assistant uses get_observation for the human's own view." },
+    tools: [], palette: null, why: "The game page's header subscription; the assistant reads the human's own view with get_observation.",
+  },
+  "games.standings": {
+    kind: "query", audience: "player",
+    human: { title: "Show a game's standings", tooltip: "The published scoreboard of a game, ranked, with its live agent and object counts." },
+    ai: { description: "One game's published standings (the scoreboard as last disclosed, ranked) for the spectator page's leaderboard. The assistant reads the leaderboard from get_observation." },
+    tools: [], palette: null, why: "The spectator page's leaderboard subscription; the assistant reads the leaderboard from get_observation.",
+  },
+  "games.standingsHistory": {
+    kind: "query", audience: "player",
+    human: { title: "Show a game's score history", tooltip: "Every published scoreboard of a game, oldest first, for the race chart." },
+    ai: { description: "One game's published scoreboards in order, one row per publication, paged by sequence number, for the race chart. The assistant reads the event log with get_events." },
+    tools: [], palette: null, why: "The race chart's subscription; the assistant follows the published scoreboards in the event log (get_events).",
+  },
+  "games.instance": {
+    kind: "query", audience: "player",
+    human: { title: "Show a game's object type", tooltip: "A game's object type with its moves, and the utility functions its gods might have drawn." },
+    ai: { description: "One game's object type (wire format, mutators, helpers) and its public utility catalog. The assistant reads the same with get_rules and get_observation." },
+    tools: [], palette: null, why: "The game page's rules subscription; the assistant reads the object type with get_rules and get_observation.",
+  },
+  "games.objectIds": {
+    kind: "query", audience: "player",
+    human: { title: "List a game's objects", tooltip: "A page of a game's objects, hottest first, for the spectator's list." },
+    ai: { description: "One page of a game's object ids by disclosed salience, highest first: the spectator list's skeleton. The assistant reads its own objects with get_observation." },
+    tools: [], palette: null, why: "The spectator list's skeleton subscription; the assistant reads its own objects with get_observation.",
+  },
+  "games.object": {
+    kind: "query", audience: "player",
+    human: { title: "Show one object", tooltip: "One object of a game: its value and how many bits all players together see in it." },
+    ai: { description: "One object of a game as disclosed publicly: its value, version and salience (noisy while live). The assistant reads its own view of objects with get_observation." },
+    tools: [], palette: null, why: "One row of the spectator list subscribes to it; the assistant reads its own objects with get_observation.",
   },
   // ----- layout -----
   "layout.current": {
@@ -484,6 +514,12 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
     human: { title: "Watch or play the next game", tooltip: "Spectators watch without being dealt in, from the next game; the owner can set it for anyone." },
     ai: { description: "Watch (spectator: true) or play (false) the room's next game; a running game's players never change. The owner may set it for another human member (godId); AI seats always play. Refused while the next game is preparing." },
     tools: ["set_spectator"], palette: { label: "Watch or play the next game", group: "room", keywords: ["spectator", "watch", "spectate", "play", "sit out"], surfaces: SITE },
+  },
+  "rooms.chat": {
+    kind: "query", audience: "player",
+    human: { title: "Show the chat", tooltip: "The room's public chat, or one game's, newest first and paged." },
+    ai: { description: "One page of a room's public chat (or one game's), newest first, for a page's chat component. The assistant pages back with get_chat." },
+    tools: [], palette: null, why: "A page's chat subscription; the assistant pages back through the chat with get_chat.",
   },
   "rooms.chatHistory": {
     kind: "query", audience: "player",

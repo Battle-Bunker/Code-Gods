@@ -255,6 +255,35 @@ export const legacyGameHotFields = internalMutation({
   },
 });
 
+/**
+ * Store a game as it was before the spectator read model (migrations:backfillStandings, backfillPublicSalience): no
+ * standings or history rows, and objects without publicSalience.
+ */
+export const legacyReadModels = internalMutation({
+  args: { gameId: v.id("games") },
+  handler: async (ctx, { gameId }) => {
+    dev();
+    for (const r of await ctx.db.query("standings").withIndex("by_game", q => q.eq("gameId", gameId)).collect()) await ctx.db.delete(r._id);
+    for (const r of await ctx.db.query("standingsHistory").withIndex("by_game_seq", q => q.eq("gameId", gameId)).collect()) await ctx.db.delete(r._id);
+    for (const o of await ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", gameId)).collect()) await ctx.db.patch(o._id, { publicSalience: undefined });
+  },
+});
+
+/** A game's read-model rows as stored: standings, history, and each object's publicSalience. */
+export const rawReadModels = internalQuery({
+  args: { gameId: v.id("games") },
+  handler: async (ctx, { gameId }) => {
+    dev();
+    const strip = <D extends { _id: unknown; _creationTime: number }>({ _id, _creationTime, ...rest }: D) => rest;
+    return {
+      standings: (await ctx.db.query("standings").withIndex("by_game", q => q.eq("gameId", gameId)).collect()).map(strip).sort((a, b) => a.godId.localeCompare(b.godId)),
+      history: (await ctx.db.query("standingsHistory").withIndex("by_game_seq", q => q.eq("gameId", gameId)).collect()).map(strip),
+      objects: (await ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", gameId)).collect())
+        .map(o => ({ id: o._id, salience: o.salience, noise: o.noise ?? 0, publicSalience: o.publicSalience })),
+    };
+  },
+});
+
 /** The latest stored compilations (runtime/programs.ts), newest first. */
 export const compiledProgramsLatest = internalQuery({
   args: { count: v.number() },
@@ -336,6 +365,8 @@ export const cloneEndedGame = internalMutation({
     const events = all(await ctx.db.query("objectEvents").withIndex("by_game_world", q => q.eq("gameId", gameId)).take(1001), 1000, "object events");
     const chat = all(await ctx.db.query("chat").withIndex("by_room", q => q.eq("roomId", game.roomId)).take(1001), 1000, "chat messages in its room")
       .filter(m => m.gameId === gameId);
+    const standings = all(await ctx.db.query("standings").withIndex("by_game", q => q.eq("gameId", gameId)).take(9), 8, "standings");
+    const history = all(await ctx.db.query("standingsHistory").withIndex("by_game_seq", q => q.eq("gameId", gameId)).take(1001), 1000, "scoreboard publications");
     const strip = <D extends { _id: unknown; _creationTime: number }>({ _id, _creationTime, ...rest }: D) => rest;
     const [clock, engine] = [await clockDoc(ctx, gameId), await engineDoc(ctx, gameId)];
     for (let i = 0; i < copies; i++) {
@@ -351,6 +382,8 @@ export const cloneEndedGame = internalMutation({
       for (const b of batches) await ctx.db.insert("tickBatches", { ...strip(b), gameId: id });
       for (const e of events) await ctx.db.insert("objectEvents", { ...strip(e), gameId: id, objectId: objectIds.get(e.objectId) ?? e.objectId });
       for (const m of chat) await ctx.db.insert("chat", { ...strip(m), gameId: id });
+      for (const s of standings) await ctx.db.insert("standings", { ...strip(s), gameId: id });
+      for (const h of history) await ctx.db.insert("standingsHistory", { ...strip(h), gameId: id });
     }
     return { games: copies, batches: batches.length, events: events.length, objects: objects.length, chat: chat.length };
   },

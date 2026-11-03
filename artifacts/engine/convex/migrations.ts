@@ -27,6 +27,12 @@
  *    (convex/replays.ts build, which endGame schedules for every game ending since). Its success means scheduled, not
  *    built: nothing to narrow in the schema, and the replay page's paging fallback goes only once no ended game on dev
  *    and production lacks its file (a failed build is not retried).
+ *  - backfillStandings (games; read-architecture §4.1): a game stored before the standings read model gets its last
+ *    published scoreboard as `standings` rows and one `standingsHistory` row (game/readModel.ts). Nothing to narrow:
+ *    games.standings' fallback to the clock's scoreboard goes once dev and production report it done.
+ *  - backfillPublicSalience (objects; read-architecture §4.3): `publicSalience` (salience + its noise while the game is
+ *    live, exact once ended) on objects stored before it. Narrowed later: the field becomes required and games.object's
+ *    fallback goes.
  *
  * Older hand-rolled steps, idempotent and run by their own deploy-workflow steps (kept as they are: they predate the
  * component, and porting the Node action setupsV2 buys nothing):
@@ -61,7 +67,8 @@ import { PLAYER_PARTITION, PLAYER_PREFIX, RUNS_PREFIX, codeEpoch } from "./code/
 import { aiSeatName, renameInRecord } from "./lib/aiNames";
 import { migrateSettings } from "./lib/migrateSetups";
 import { freeName, setupSummary } from "./setups";
-import { splitHotFields } from "./game/state";
+import { clockDoc, clockFrom, splitHotFields } from "./game/state";
+import { hasStandings, publicSalienceOf, publishStandings } from "./game/readModel";
 
 export const migrations = new Migrations(components.migrations, { schema });
 
@@ -121,13 +128,35 @@ export const backfillReplays = migrations.define({
   },
 });
 
+export const backfillStandings = migrations.define({
+  table: "games",
+  // A game stored before the standings read model gets its last published scoreboard (from its clock, or its legacy
+  // fields) as standings and one history row. A game that has standings (new, or published since) is left alone.
+  migrateOne: async (ctx, game) => {
+    if (await hasStandings(ctx, game._id)) return;
+    const clock = clockFrom(game, await clockDoc(ctx, game._id));
+    if (!clock.scoreboard) return;
+    await publishStandings(ctx, game, clock.scoreboard, { agentCount: clock.agentCount, objectCount: clock.objectCount });
+  },
+});
+
+export const backfillPublicSalience = migrations.define({
+  table: "objects",
+  // The salience as disclosed now: with its noise while the game is live, exact once it has ended.
+  migrateOne: async (ctx, o) => {
+    if (o.publicSalience !== undefined) return;
+    const game = await ctx.db.get(o.gameId);
+    return { publicSalience: publicSalienceOf(o, !!game && game.phase !== "ended") };
+  },
+});
+
 /** Every component migration, in order: run by the deploy workflow (`npx convex run migrations:runAll`). Append only. */
 // Annotated: this module's own `internal` references would otherwise make its exported types circular.
 const RUN_ALL: FunctionReference<"mutation", "internal">[] = [internal.migrations.backfillMemberSpectator, internal.migrations.backfillGameSpectators,
   internal.migrations.dropHaskellFromSetups, internal.migrations.dropHaskellFromRooms, internal.migrations.dropHaskellFromGames,
   internal.migrations.dropHaskellReadiness, internal.migrations.dropHaskellBundle, internal.migrations.dropHaskellPrograms,
   internal.migrations.dropHaskellCompiledPrograms, internal.migrations.dropRetiredSiteBuilds, internal.migrations.splitGameHotFields,
-  internal.migrations.backfillReplays];
+  internal.migrations.backfillReplays, internal.migrations.backfillStandings, internal.migrations.backfillPublicSalience];
 export const runAll = migrations.runner(RUN_ALL);
 /** The state of each of runAll's migrations (scripts/run-migrations.mjs waits for all of them to succeed). */
 export const status = internalQuery({

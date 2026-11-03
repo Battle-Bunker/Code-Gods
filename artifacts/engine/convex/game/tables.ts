@@ -206,6 +206,27 @@ export const gameTables = {
     stats: statsV,
   }).index("by_game", ["gameId"]),
 
+  /**
+   * The published scoreboard as standings (read-architecture §4.1, R4): one row per roster god, rewritten by the commit
+   * that publishes the scoreboard (every scoreIntervalSeconds of world time, at the start and at the end), so readers
+   * read at most 8 small rows instead of the hot clock or the objects. Public: the disclosed totals only.
+   */
+  standings: defineTable({
+    gameId: v.id("games"), godId: v.string(), rank: v.number(), total: v.number(),
+    /** The publication's world time and wall time. */
+    world: v.number(), at: v.number(),
+  }).index("by_game", ["gameId"]).index("by_game_god", ["gameId", "godId"]),
+
+  /**
+   * One row per published scoreboard (read-architecture §4.1): the race's series, read in cursor pages by `seq` (the
+   * game's publications counted from 0). `totals` are in roster order, as disclosed; the live agent and object counts
+   * are published with them, so the spectator page shows them without reading the hot clock.
+   */
+  standingsHistory: defineTable({
+    gameId: v.id("games"), seq: v.number(), world: v.number(), at: v.number(), totals: v.array(v.number()),
+    agentCount: v.number(), objectCount: v.number(),
+  }).index("by_game_seq", ["gameId", "seq"]),
+
   deities: defineTable({
     gameId: v.id("games"), godId: v.string(), index: v.number(),
     /** PRIVATE: the dealt utility descriptor and its kid card (shown to its own god only). */
@@ -223,7 +244,14 @@ export const gameTables = {
     salience: v.number(),
     /** PRIVATE: the live disclosure noise on this value's peers' sums and salience (settings.peerNoiseBits). */
     noise: v.optional(v.number()),
-  }).index("by_game", ["gameId"]).index("by_game_value", ["gameId", "value"]),
+    /**
+     * Public: the salience as disclosed now (read-architecture §4.3): `salience + noise` while the game is live, exact
+     * once it has ended (engine/readModel.ts). The spectator's skeleton orders by it (by_game_salience) and its object
+     * row shows it, so neither ever reads `noise`. Optional while migrations:backfillPublicSalience runs (absent = not
+     * written yet); required once every deployment reports it done (CLAUDE.md "Schema migrations").
+     */
+    publicSalience: v.optional(v.number()),
+  }).index("by_game", ["gameId"]).index("by_game_value", ["gameId", "value"]).index("by_game_salience", ["gameId", "publicSalience"]),
 
   agents: defineTable({
     gameId: v.id("games"), ownerId: v.string(),
