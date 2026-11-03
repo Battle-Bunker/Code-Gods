@@ -303,6 +303,7 @@ export function observation(input: ObservationInput): Observation {
       energyPerSecond: settings.energyPerSecond, agentEnergyPerSecond: settings.agentEnergyPerSecond,
       agentBatteryActs: settings.agentBatteryActs, maxAgentsPerGod: settings.maxAgentsPerGod,
       penaltyWeight: settings.penaltyWeight, worldSeconds: game ? worldNow(game, now) : 0,
+      durationMode: settings.durationMode, lengthSeconds: settings.halfLifeSeconds,
       perActFloorBits: settings.perActFloorBits, commitClause: settings.commitClause, objectSelection: settings.objectSelection,
     },
     self: {

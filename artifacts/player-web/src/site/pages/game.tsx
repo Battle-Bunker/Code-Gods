@@ -35,7 +35,8 @@ import { gamePath, roomPath } from "@/site/lib/routes";
 import { errMsg, fmt } from "@/site/lib/errors";
 import { endReasonLabel, fmtDuration, fmtWhen, secsLeft, toMs, worldSecondsAt } from "@/site/lib/time";
 import type { FunctionReturnType } from "convex/server";
-import { DEFAULT_SCORE_INTERVAL_SECONDS } from "@workspace/game-core";
+import { DEFAULT_SCORE_INTERVAL_SECONDS, gameTimer } from "@workspace/game-core";
+import { GameTimerView } from "@/core/game-timer-view";
 
 type GameInstance = FunctionReturnType<typeof api.games.instance>;
 import { MoreHorizontal } from "lucide-react";
@@ -76,6 +77,18 @@ function statusLine(game: GameHeader, now: number) {
   // Past its deadline, planning holds until every allowed language's agent sandbox is warm (the engine's tick).
   if (game.phase === "planning") return "Planning · agent sandboxes warming up; the world starts when they are ready.";
   return "Running.";
+}
+
+/** The prominent timer: planning's countdown, then the fixed game's exact remaining time or the half-life game's 90% range. */
+function SiteGameTimer({ game, now }: { game: GameHeader; now: number }) {
+  const standings = useLive(api.games.standings, { gameId: game.id }).data;
+  if (game.status !== "active" || game.phase === "recovery") return null;
+  const paused = !!game.pauseEndsAt && toMs(game.pauseEndsAt) > now;
+  const phase = game.phase === "planning" ? "planning" as const : paused || game.phase === "paused" ? "paused" as const : "running" as const;
+  const world = worldSecondsAt(standings?.world != null && standings.at != null
+    ? { world: standings.world, at: standings.at, running: phase === "running", resumedAt: Math.max(game.planningEndsAt ?? 0, game.pauseEndsAt ?? 0),
+      interval: game.settings.scoreIntervalSeconds ?? DEFAULT_SCORE_INTERVAL_SECONDS } : null, now) ?? 0;
+  return <GameTimerView timer={gameTimer({ phase, durationMode: game.settings.durationMode, lengthSeconds: game.settings.halfLifeSeconds, world, planningEndsAt: game.planningEndsAt, nowMs: now })} />;
 }
 
 function OwnerMenu({ game }: { game: GameHeader }) {
@@ -130,6 +143,7 @@ function SpectatorView({ game, instance, room }: { game: GameHeader; instance?: 
   const step = gameStep(user?.id, game);
   return (
     <div className="mx-auto max-w-[1440px] px-4 md:px-6 py-8 space-y-6">
+      {active && <SiteGameTimer game={game} now={now} />}
       <header className="flex flex-wrap items-start justify-between gap-4 rise">
         <div className="space-y-3 min-w-0">
           <h1 className="font-display text-4xl md:text-5xl leading-none">
