@@ -69,12 +69,13 @@ await page.screenshot({ path: `${OUT}/before-scroll.png` });
 
 // Scrolling to the end of the list loads the next page, by itself.
 const loadedNow = () => page.locator("[data-testid=text-objects-footer]").innerText().then(t => Number(t.match(/^(\d+) of/)![1]));
-await page.locator("[data-testid=text-objects-footer]").scrollIntoViewIfNeeded();
+await page.locator("[data-testid=list-objects]").hover();
 await page.mouse.wheel(0, 4000);
 await page.waitForFunction(n => Number(document.querySelector("[data-testid=text-objects-footer]")?.textContent?.match(/^(\d+) of/)?.[1]) > n, first, { timeout: 20_000 });
 const loaded = await loadedNow();
 assert.ok(loaded > first, `scrolling loaded more rows (${first} → ${loaded})`);
-assert.equal(await rows.count(), loaded, "every counted row is on the page");
+// Virtualised: only the rows in view (and a few either side) mount, each with its own subscription.
+assert.ok((await rows.count()) <= loaded, "no more rows mounted than loaded");
 await page.screenshot({ path: `${OUT}/after-scroll.png` });
 console.log(JSON.stringify({ first, loaded, total }));
 
