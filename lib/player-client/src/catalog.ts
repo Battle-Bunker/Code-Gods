@@ -149,26 +149,20 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   },
   "assistant.cancel": {
     kind: "mutation", audience: "player",
-    human: { title: "Stop the assistant", tooltip: "Stops the current answer and cancels a waiting card; messages you queued stay held until you send." },
+    human: { title: "Stop the assistant", tooltip: "Stops the current answer; messages you queued stay held until you send." },
     ai: { description: "Cancel the human's active assistant turn: the running step stops at its next flush or between tool calls." },
     tools: [], palette: { label: "Stop the assistant", group: "help", keywords: ["stop", "cancel", "assistant"], surfaces: DOCK }, why: NO_SELF_DRIVE,
   },
-  "assistant.confirm": {
+  "assistant.setMode": {
     kind: "mutation", audience: "player",
-    human: { title: "Decide a confirmation", tooltip: "Approves or denies an action the assistant asked permission for." },
-    ai: { description: "Approve or deny one tool call waiting on a confirmation card (public chat, summons, destroys, pauses, panel deletion, owner actions). Unanswered cards are denied after 2 minutes." },
-    tools: [], palette: null, why: "Decided on the confirmation card in the assistant pane, never elsewhere.",
-  },
-  "assistant.setPrefs": {
-    kind: "mutation", audience: "player",
-    human: { title: "Set assistant preferences", tooltip: "Lets summons the assistant validated run without a card up to this many bits (0 asks every time)." },
-    ai: { description: "Set the human's assistant preference for a room: auto-approve summons up to N bits when the same turn validated the source at that cost (0 = always ask)." },
-    tools: [], palette: { label: "Auto-approve summons up to…", group: "help", keywords: ["assistant", "summon", "approve", "preferences"], surfaces: DOCK }, why: NO_SELF_DRIVE,
+    human: { title: "Set the assistant's mode", tooltip: "Autopilot plays on its own; On request acts only when you ask; Read-only only answers questions." },
+    ai: { description: "Set the human's assistant mode for a room: autopilot (plays without being prompted, within the game's assistant quota), onRequest (acts only in response to the human's messages) or readOnly (read-only tools only, enforced server-side)." },
+    tools: [], palette: { label: "Assistant mode…", group: "help", keywords: ["assistant", "mode", "autopilot", "on request", "read-only"], surfaces: DOCK }, why: NO_SELF_DRIVE,
   },
   "assistant.status": {
     kind: "query", audience: "player",
     human: { title: "Show assistant status", tooltip: "Whether the assistant is on, its allowance, model, credential and active turn." },
-    ai: { description: "The assistant pane's status subscription: enabled, allowance used, model, credential, active turn and preferences." },
+    ai: { description: "The assistant pane's status subscription: enabled, allowance used, model, credential, active turn and mode." },
     tools: [], palette: null, why: SUBSCRIPTION,
   },
   "assistant.threads": {
@@ -185,7 +179,7 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   },
   "assistant.thread": {
     kind: "query", audience: "player",
-    human: { title: "Show a conversation", tooltip: "One conversation's messages, tool calls and confirmation cards." },
+    human: { title: "Show a conversation", tooltip: "One conversation's messages and tool calls." },
     ai: { description: "One assistant thread's turns, messages and tool calls, readable by its human only." },
     tools: [], palette: null, why: SUBSCRIPTION,
   },

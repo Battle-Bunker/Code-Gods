@@ -3,3 +3,4 @@
 - [Room assistant boundary](room-assistant-boundary.md) — same-human delegation through a revocable room credential in the environment's secret store, owner consent, Google-only sign-in with a fake provider only on local deployments.
 - [Reading data from Convex](convex-reads.md) — one query per component (paginated skeleton + per-item queries, virtualised), no whole-table reads in public queries, hot fields split from widely read docs, derived state written by the tick, public queries without ctx.auth (shared cache), subscriptions only (no client retry, throttle or polling), budgets enforced by the query-cost gate.
 - [AI quotas](ai-quotas.md) — no approvals; per-game token quotas default 300k (AI players, assistant); AI only in admin-owned rooms (2026-11-03).
+- [Assistant modes](assistant-modes.md) — no per-action approvals; Autopilot, On request (default) or Read-only per player per room, Read-only enforced in the dispatch (2026-11-03).

@@ -585,13 +585,13 @@ await check("an ended game's page is its read-only replay: the open page turns i
   // The scores panel loads after the transport (its replay data), slower on a loaded machine: wait for it.
   await page.locator("[data-testid^=replay-standing-]").first().waitFor({ timeout: 30_000 }).catch(() => undefined);
   assert(await page.locator("[data-testid^=replay-standing-]").count() > 0, "final standings");
-  // Read-only: no control that acts appears in any panel (core/affordances.ts): agents, chat, forge, approvals.
+  // Read-only: no control that acts appears in any panel (core/affordances.ts): agents, chat, forge.
   // Whatever carol's layout holds: wait for its panels, let them settle, then look for controls in every one.
   await page.locator("[data-testid=menu-panel]").first().waitFor({ timeout: 30_000 });
   await sleep(1500);
   for (const sel of ["[data-testid^=button-load-agent-]", "[data-testid^=button-destroy-agent-]", "[data-testid=input-chat]", "[data-testid=button-send-chat]",
-    "[data-testid=input-source]", "[data-testid=button-validate]", "[data-testid=button-summon]", "[data-testid=button-forge-edit]", "[data-testid=button-confirm-approve]",
-    "[data-testid=button-confirm-deny]", "[data-testid^=button-confirm-destroy-]"]) {
+    "[data-testid=input-source]", "[data-testid=button-validate]", "[data-testid=button-summon]", "[data-testid=button-forge-edit]",
+    "[data-testid^=button-confirm-destroy-]"]) {
     assert(await page.locator(sel).count() === 0, `a read-only replay shows ${sel}`);
   }
   await site.context.close();

@@ -2,15 +2,15 @@
  * The assistant pane (docs/research/ui-redesign/player-client.md §4): the player's private conversation with the
  * in-client assistant, part of the protected core in every mode (site, account, dev server). It talks only to the engine's
  * assistant functions (convex/assistant.ts): the model runs in Convex and acts through the player's own revocable
- * assistant credential; public chat, summons, destroys, pauses, panel deletions and owner actions wait for the
- * confirmation card docked above the composer.
+ * assistant credential. Nothing waits for an approval: the mode selector at the top says what the assistant may do
+ * (Autopilot, On request, Read-only; convex/assistant/mode.ts), and the engine enforces it.
  *
- * Designed for 160 px tall: messages, one step line per model step (expanding to the exact tool chips), system
- * lines, the card, the composer with the allowance as a 2 px line on its top edge. Empty: the phase's greeting, the
- * first-use permission choice and up to three prompt chips. Off (no allowance): one sentence, the chips in command
+ * Designed for 160 px tall: the mode row, messages, one step line per model step (expanding to the exact tool chips),
+ * system lines (an autopilot turn starts with "(autopilot)"), the composer with the allowance as a 2 px line on its
+ * top edge. Empty: the phase's greeting, owner powers for the room owner and up to three prompt chips. Off (no allowance): one sentence, the chips in command
  * form and a palette button instead of a textarea.
  */
-import { useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import { ArrowDown, ChevronDown, ChevronRight, Pencil, Send, Square, X } from "lucide-react";
@@ -21,28 +21,22 @@ import { startTracker } from "@workspace/player-client/start";
 import { useRoom } from "@/sdk";
 import { useDockStore } from "@/dock/store";
 import { replayPlayhead, useReplayController } from "@/core/replay/parts";
-import { useAffordances } from "@/core/use-affordances";
-import { useNow, useSituation } from "@/core/game/situation";
+import { useSituation } from "@/core/game/situation";
 import { errorText } from "@/core/notices";
 import { paletteStore } from "@/core/palette/store";
 import { runPaletteCommand } from "@/core/palette/registry";
 import { composer, threadIn, useComposer, type Permission } from "./composer";
 import { emptyStateFor, suggestionsFor, type Suggestion } from "./suggestions";
 import {
-  TURN_ACTIVE, allowanceMeter, allowanceNote, buildTimeline, cardReducer, chipView, confirmSentence, initialCard, queueNote, stepView, summonWarnings, userCount, withPending, withSteps,
-  type CallRow, type ChatItem, type StepTone,
+  MODE_OPTIONS, TURN_ACTIVE, allowanceMeter, allowanceNote, buildTimeline, chipView, queueNote, stepView, summonWarnings, userCount, withPending, withSteps,
+  type AssistantMode, type CallRow, type ChatItem, type StepTone,
 } from "./state";
 import { ToolDetail } from "./tool-detail-view";
 
-const RANK: Record<Permission, number> = { read: 0, act: 1, owner: 2 };
 type Note = { at: number; key: string; text: string };
 const PHASE_NOTE: Record<Phase, string> = {
   lobby: "Back in the lobby", planning: "Game started · you're in planning", running: "The world is running", paused: "The world is paused", ended: "Game over",
 };
-const ARM_MS = 700;
-const CARD_MS = 120_000;
-/** The pane grows to this while a card waits, and returns to its size after. */
-const CARD_ROOM = { height: 320, width: 360 };
 
 type Status = FunctionReturnType<typeof api.assistant.status>;
 
@@ -78,33 +72,21 @@ function Conversation({ paneId, status }: { paneId: string; status: Status | und
   const calls = (thread?.toolCalls ?? []) as CallRow[];
   const timeline = useMemo(() => buildTimeline(thread?.messages ?? [], calls), [thread]); // eslint-disable-line react-hooks/exhaustive-deps
   const items = useMemo(() => withSteps(withPending(timeline, pending?.text ?? null, pending?.users)), [timeline, pending]);
+  // What a summon's validation warned (docs/rules-design.md §11), shown under its step line.
+  const warnings = useMemo(() => new Map(calls.flatMap(call => { const w = summonWarnings(call, calls); return w ? [[call._id, w] as const] : []; })), [thread]); // eslint-disable-line react-hooks/exhaustive-deps
   const latestTurn = thread?.turns.at(-1);
   const active = !!latestTurn && TURN_ACTIVE.includes(latestTurn.status);
-  const card = calls.find(call => call.status === "awaiting_confirmation");
   const enabled = status?.enabled ?? false;
-  const permission: Permission = c.permission ?? status?.credential?.permission ?? (status?.maxPermission === "read" ? "read" : "act");
+  const max = status?.maxPermission ?? "act";
+  // A credential from "Only look" (read) is not the mode any more: the next message asks for act when this connection may.
+  const held = status?.credential?.permission;
+  const permission: Permission = c.permission ?? (held && !(held === "read" && max !== "read") ? held : max === "read" ? "read" : "act");
   const blocked = permission === "owner" && !c.ownerConsent && !status?.credential;
   useEffect(() => { if (pending && userCount(timeline) > pending.users) setPending(null); }, [timeline, pending]);
-  // An approved start_game shows as the room's pending start everywhere (overview, palette), like the owner's own click.
+  // A start_game the assistant ran shows as the room's pending start everywhere (overview, palette), like the owner's own click.
   const startCall = calls.findLast(call => call.tool === "start_game");
   useEffect(() => { if (startCall) startTracker.follow(roomId, startCall._id, startCall.status); }, [roomId, startCall?._id, startCall?.status]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { composer.setStatus(!status ? "" : !enabled ? "off" : card ? "waiting for you" : active ? "thinking…" : ""); }, [status, enabled, card, active]);
-
-  // Grow the pane while a card waits, so the card and the composer both fit; give the space back after.
-  const store = useDockStore();
-  const grown = useRef<{ width?: number; height?: number } | null>(null);
-  useEffect(() => {
-    const panel = store.api?.getPanel(paneId);
-    if (!panel) return;
-    if (card && !grown.current) {
-      const side = panel.api.width < panel.api.height * 0.8;
-      if (!side && panel.api.height < 200) { grown.current = { height: panel.api.height }; panel.api.setSize({ height: CARD_ROOM.height }); }
-      else if (side && panel.api.width < 280) { grown.current = { width: panel.api.width }; panel.api.setSize({ width: CARD_ROOM.width }); }
-    } else if (!card && grown.current) {
-      panel.api.setSize(grown.current);
-      grown.current = null;
-    }
-  }, [card, paneId, store]);
+  useEffect(() => { composer.setStatus(!status ? "" : !enabled ? "off" : active ? "thinking…" : status.mode === "autopilot" ? "autopilot" : ""); }, [status, enabled, active]);
 
   // In a replay (core/replay), each message carries the moment on screen, so the assistant reads "here" as that moment.
   const replay = useReplayController();
@@ -132,7 +114,7 @@ function Conversation({ paneId, status }: { paneId: string; status: Status | und
     else if (chip.prompt) void submit(chip.prompt);
   };
   const empty = emptyStateFor(situation.phase, enabled);
-  const showChips = !active && !card && !c.draft.trim() && (!items.length || items.at(-1)?.kind === "assistant");
+  const showChips = !active && !c.draft.trim() && (!items.length || items.at(-1)?.kind === "assistant");
 
   // Phase changes seen while this pane is open become system lines where they happened in the conversation.
   const [notes, setNotes] = useState<Note[]>([]);
@@ -147,7 +129,8 @@ function Conversation({ paneId, status }: { paneId: string; status: Status | und
 
   return (
     <div data-testid="assistant-pane" className="flex h-full min-h-0 flex-col bg-card">
-      <Timeline items={items} notes={notes} empty={!status ? null : !enabled ? (
+      {enabled && status && <ModeSelector roomId={room} mode={status.mode} max={max} onError={setError} />}
+      <Timeline items={items} notes={notes} warnings={warnings} empty={!status ? null : !enabled ? (
         <div data-testid="text-assistant-off" className="space-y-1 text-sm">
           <p className="font-serif text-xl">{empty.greeting}</p>
           <p className="text-muted-foreground">{empty.body}</p>
@@ -156,11 +139,11 @@ function Conversation({ paneId, status }: { paneId: string; status: Status | und
         <div className="space-y-3 text-sm">
           <p className="font-serif text-xl">{empty.greeting}</p>
           <p className="text-muted-foreground">{empty.body}</p>
-          {!status.credential && <PermissionChoice permission={permission} max={status.maxPermission} isOwner={status.isOwner} />}
+          {status.isOwner && max === "owner" && <OwnerPowers permission={permission} />}
         </div>
       )} footer={<>
         {latestTurn?.error && !active && <p className={`text-xs ${latestTurn.status === "done" ? "text-muted-foreground" : "text-destructive"}`} data-testid="text-assistant-turn-error">{latestTurn.error.message}</p>}
-        {latestTurn?.status === "cancelled" && <SystemLine>You stopped the assistant.</SystemLine>}
+        {latestTurn?.status === "cancelled" && <SystemLine>{latestTurn.trigger === "autopilot" ? "Autopilot stopped." : "You stopped the assistant."}</SystemLine>}
       </>} />
       {showChips && chips.length > 0 && (
         <div className="flex flex-wrap gap-1.5 px-3 pb-2" data-testid="assistant-chips">
@@ -170,8 +153,7 @@ function Conversation({ paneId, status }: { paneId: string; status: Status | und
           ))}
         </div>
       )}
-      {card && <ConfirmCard key={card._id} call={card} warning={summonWarnings(card, calls)} energy={situation.obs?.self.energy} pauseSeconds={(situation.room?.settings as { pauseSeconds?: number } | undefined)?.pauseSeconds} />}
-      {enabled && <QueueList queued={(status?.queued ?? []).filter(q => !threadId || q.threadId === threadId)} active={active} card={!!card} roomId={room}
+      {enabled && <QueueList queued={(status?.queued ?? []).filter(q => !threadId || q.threadId === threadId)} active={active} autopilot={active && latestTurn?.trigger === "autopilot"} roomId={room}
         threadId={threadId as Id<"assistantThreads"> | null} onError={setError} />}
       {error && <p className="px-3 pb-1 text-xs text-destructive" data-testid="text-assistant-error">{error}</p>}
       {enabled
@@ -191,7 +173,8 @@ function Conversation({ paneId, status }: { paneId: string; status: Status | und
 }
 
 /** The scrolling timeline: pinned to the bottom unless the player scrolled up ("↓ new" then). */
-function Timeline({ items, notes, empty, footer }: { items: ChatItem[]; notes: Note[]; empty: React.ReactNode; footer: React.ReactNode }) {
+type Warnings = ReadonlyMap<string, NonNullable<ReturnType<typeof summonWarnings>>>;
+function Timeline({ items, notes, warnings, empty, footer }: { items: ChatItem[]; notes: Note[]; warnings: Warnings; empty: React.ReactNode; footer: React.ReactNode }) {
   const scroller = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
   const [fresh, setFresh] = useState(false);
@@ -203,7 +186,7 @@ function Timeline({ items, notes, empty, footer }: { items: ChatItem[]; notes: N
     if (pinned.current) el.scrollTop = el.scrollHeight;
     else setFresh(true);
   }, [signature]);
-  // The timeline shrinks when the suggestion chips or a confirmation card appear below it: stay at the bottom, or the
+  // The timeline shrinks when the suggestion chips or the queue appear below it: stay at the bottom, or the
   // end of the latest answer is hidden under them (seen with a narrow assistant pane).
   useEffect(() => {
     const el = scroller.current;
@@ -224,14 +207,15 @@ function Timeline({ items, notes, empty, footer }: { items: ChatItem[]; notes: N
         {items.length === 0 && empty}
         {items.map((item, i) => [
           ...notes.filter(n => n.at === i).map(n => <SystemLine key={n.key}>{n.text}</SystemLine>),
-          item.kind === "user" ? (
+          item.kind === "user" && item.autopilot ? <SystemLine key={item.key}>(autopilot)</SystemLine>
+          : item.kind === "user" ? (
             <div key={item.key} className={`ml-auto max-w-[75%] whitespace-pre-wrap break-words bg-muted px-2.5 py-1.5 text-sm ${item.pending ? "opacity-60" : ""}`} data-testid="assistant-user-message">{item.text}</div>
           ) : item.kind === "assistant" ? (
             <div key={item.key} className="max-w-[68ch] whitespace-pre-wrap break-words text-sm" data-testid="assistant-message" data-status={item.status}>
               {item.text || <span className="beat text-muted-foreground">thinking…</span>}
               {item.status === "cancelled" && <span className="ml-1 text-[11px] text-muted-foreground">(stopped)</span>}
             </div>
-          ) : <StepLine key={item.key} calls={item.calls} />,
+          ) : <StepLine key={item.key} calls={item.calls} warnings={warnings} />,
         ])}
         {notes.filter(n => n.at >= items.length).map(n => <SystemLine key={n.key}>{n.text}</SystemLine>)}
         {footer}
@@ -248,9 +232,9 @@ function SystemLine({ children }: { children: React.ReactNode }) {
   return <p className="text-center text-xs text-muted-foreground">{children}</p>;
 }
 
-const TONE: Record<StepTone, string> = { ok: "text-muted-foreground", error: "text-destructive", muted: "text-muted-foreground opacity-70", busy: "text-muted-foreground beat", ask: "text-foreground" };
+const TONE: Record<StepTone, string> = { ok: "text-muted-foreground", error: "text-destructive", muted: "text-muted-foreground opacity-70", busy: "text-muted-foreground beat" };
 /** One model step: its verbs in one line (a summary); ▸ opens every call in it with its full detail. */
-function StepLine({ calls }: { calls: CallRow[] }) {
+function StepLine({ calls, warnings }: { calls: CallRow[]; warnings: Warnings }) {
   const view = stepView(calls);
   const [open, setOpen] = useState(view.open);
   useEffect(() => { if (view.open) setOpen(true); }, [view.open]);
@@ -260,6 +244,12 @@ function StepLine({ calls }: { calls: CallRow[] }) {
         <span aria-hidden>◦</span><span className="truncate">{view.text}</span>{open ? <ChevronDown size={11} className="shrink-0" /> : <ChevronRight size={11} className="shrink-0" />}
       </button>
       {open && <div className="mt-1 space-y-1 pl-3">{calls.map(call => <Chip key={call._id} call={call} defaultOpen />)}</div>}
+      {calls.flatMap(call => { const w = warnings.get(call._id); return w ? [w] : []; }).map((w, i) => (
+        <div key={i} data-testid="assistant-summon-warning" className="mt-0.5 space-y-0.5 pl-3 text-destructive">
+          {w.successRate !== undefined && <p className="font-semibold">About {Math.round(100 * w.successRate)}% of its acts would succeed.</p>}
+          {w.warnings.map((text, j) => <p key={j}>{text}</p>)}
+        </div>
+      ))}
     </div>
   );
 }
@@ -279,94 +269,43 @@ function Chip({ call, defaultOpen = false }: { call: CallRow; defaultOpen?: bool
   );
 }
 
-/** The confirmation card, docked above the composer: the plain sentence, Approve / Not now, Details, the deadline. */
-function ConfirmCard({ call, warning, energy, pauseSeconds }: { call: CallRow; warning: ReturnType<typeof summonWarnings>; energy?: number; pauseSeconds?: number }) {
-  const confirm = useMutation(api.assistant.confirm);
-  const [state, dispatch] = useReducer(cardReducer, initialCard);
-  const [armed, setArmed] = useState(false);
-  const [details, setDetails] = useState(false);
-  const now = useNow(1000);
-  const card = useRef<HTMLDivElement>(null);
-  // In a replay the card says what the assistant asks, but approving waits for the live room.
-  const approve = useAffordances().can.approve;
-  useEffect(() => { const t = setTimeout(() => setArmed(true), ARM_MS); return () => clearTimeout(t); }, []);
-  useEffect(() => { dispatch({ type: "server", status: call.status }); }, [call.status]);
-  const decide = async (decision: "approve" | "deny") => {
-    if (!approve.ok || !armed || (state.phase !== "idle" && state.phase !== "error")) return;
-    dispatch({ type: "submit", decision });
-    try { await confirm({ toolCallId: call._id as Id<"assistantToolCalls">, decision }); dispatch({ type: "sent" }); }
-    catch (e) { dispatch({ type: "failed", message: errorText(e) }); }
+/**
+ * What the assistant may do in this room (assistant.setMode): three compact choices, the chosen one's line below. A
+ * read-only connection offers Read-only and On request only (Autopilot acts for you).
+ */
+function ModeSelector({ roomId, mode, max, onError }: { roomId: Id<"rooms">; mode: AssistantMode; max: Permission; onError: (e: string) => void }) {
+  const setMode = useMutation(api.assistant.setMode);
+  const [busy, setBusy] = useState(false);
+  const options = MODE_OPTIONS.filter(o => o.id !== "autopilot" || max !== "read");
+  const choose = (next: AssistantMode) => {
+    if (next === mode || busy) return;
+    setBusy(true);
+    void setMode({ roomId, mode: next }).catch(e => onError(errorText(e))).finally(() => setBusy(false));
   };
-  // ⌘↵ / Ctrl+↵ approves, only from the assistant pane (or with nothing focused); a plain Enter never does.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Enter" || !(e.metaKey || e.ctrlKey)) return;
-      const focus = document.activeElement;
-      const pane = card.current?.closest("[data-testid=assistant-pane]");
-      if (focus && focus !== document.body && !pane?.contains(focus)) return;
-      e.preventDefault();
-      void decide("approve");
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  });
-  const left = call.confirmDeadline ? Math.max(0, call.confirmDeadline - now) : null;
-  const busy = state.phase === "submitting" || state.phase === "sent";
   return (
-    <div ref={card} className="mx-2 mb-2 border border-[hsl(var(--card-border))] border-l-2 border-l-primary bg-card" data-testid={`assistant-card-${call.tool}`} role="alertdialog" aria-label="Your assistant asks first">
-      <div className="space-y-2 p-2.5 text-sm">
-        <p className="font-medium">{confirmSentence(call, { energy, pauseSeconds })}</p>
-        {warning && (
-          // What its validation warned (docs/rules-design.md §11): the player reads it before approving.
-          <div data-testid="assistant-card-warning" className="space-y-0.5 text-xs text-destructive">
-            {warning.successRate !== undefined && <p className="font-semibold">About {Math.round(100 * warning.successRate)}% of its acts would succeed.</p>}
-            {warning.warnings.map((w, i) => <p key={i}>{w}</p>)}
-          </div>
-        )}
-        {state.phase === "error" && <p className="text-xs text-destructive">{state.message}</p>}
-        {!approve.ok && <p className="text-xs text-muted-foreground" data-testid="text-confirm-readonly">{approve.reason}</p>}
-        <div className="flex items-center gap-2">
-          {approve.ok && <>
-          <button type="button" disabled={busy || !armed} onClick={() => void decide("approve")} data-testid="button-confirm-approve" data-armed={armed}
-            className="bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground disabled:opacity-40">Approve</button>
-          <button type="button" disabled={busy || !armed} onClick={() => void decide("deny")} data-testid="button-confirm-deny"
-            className="px-3 py-1 text-xs disabled:opacity-40">Not now</button>
-          </>}
-          <button type="button" onClick={() => setDetails(!details)} aria-expanded={details} className="ml-auto text-xs text-muted-foreground">Details {details ? "▾" : "▸"}</button>
-        </div>
-        {details && <div className="max-h-56 overflow-auto" data-testid="assistant-card-args"><ToolDetail call={call} /></div>}
+    <div className="flex items-center gap-2 border-b border-[hsl(var(--card-border))] px-3 py-1" data-testid="assistant-mode" data-mode={mode}>
+      <div role="radiogroup" aria-label="Assistant mode" className="flex shrink-0 border border-[hsl(var(--input))] text-[11px]">
+        {options.map(o => (
+          <button key={o.id} type="button" role="radio" aria-checked={mode === o.id} title={o.detail} disabled={busy} onClick={() => choose(o.id)} data-testid={`button-mode-${o.id}`}
+            className={`px-2 py-0.5 ${mode === o.id ? "bg-primary font-semibold text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>{o.label}</button>
+        ))}
       </div>
-      {left !== null && <div className="h-0.5 bg-muted" aria-hidden><div className="h-full bg-primary transition-[width] duration-1000 ease-linear" style={{ width: `${Math.min(100, (100 * left) / CARD_MS)}%` }} /></div>}
+      <p className="min-w-0 truncate text-[11px] text-muted-foreground" data-testid="text-mode-detail">{MODE_OPTIONS.find(o => o.id === mode)?.detail}</p>
     </div>
   );
 }
 
-/** First use: what the assistant may do as you. Sending the first message accepts the choice. */
-function PermissionChoice({ permission, max, isOwner }: { permission: Permission; max: Permission; isOwner: boolean }) {
-  const { ownerConsent } = useComposer();
-  const allowed = (p: Permission) => RANK[p] <= RANK[max];
-  const option = (p: Permission, label: string, detail?: string) => allowed(p) && (
-    <label className="flex items-start gap-2">
-      <input type="radio" name="assistant-permission" checked={permission === p} onChange={() => composer.setPermission(p)} data-testid={`radio-assistant-${p}`} className="mt-1" />
-      <span><span className="font-semibold">{label}</span>{detail && <span className="text-muted-foreground"> ({detail})</span>}</span>
-    </label>
-  );
+/** The room owner's choice: the assistant may also use owner powers (from the next message; orthogonal to the mode). */
+function OwnerPowers({ permission }: { permission: Permission }) {
   return (
-    <fieldset className="space-y-1 border-l-2 border-[hsl(var(--input))] pl-3 text-xs" data-testid="assistant-permission">
-      <legend className="mb-1 text-muted-foreground">Your assistant acts as you.</legend>
-      {option("act", "Play for me", "asks before anything public or costly")}
-      {option("read", "Only look")}
-      {isOwner && allowed("owner") && (
-        <details>
-          <summary className="cursor-pointer text-muted-foreground">Owner powers…</summary>
-          {option("owner", "Play for me, with owner powers", "settings, starting and ending games, AI seats")}
-          {permission === "owner" && (
-            <label className="mt-1 flex items-start gap-1.5"><input type="checkbox" checked={ownerConsent} onChange={e => composer.setOwnerConsent(e.target.checked)} data-testid="checkbox-assistant-owner" />
-              I let my assistant propose owner actions; each still asks me first.</label>
-          )}
-        </details>
-      )}
-    </fieldset>
+    <details className="border-l-2 border-[hsl(var(--input))] pl-3 text-xs" data-testid="assistant-owner-powers" open={permission === "owner"}>
+      <summary className="cursor-pointer text-muted-foreground">Owner powers…</summary>
+      <label className="mt-1 flex items-start gap-1.5">
+        <input type="checkbox" checked={permission === "owner"} data-testid="checkbox-assistant-owner"
+          onChange={e => { composer.setPermission(e.target.checked ? "owner" : "act"); composer.setOwnerConsent(e.target.checked); }} />
+        Let my assistant use owner powers too (settings, starting and ending games, AI seats).
+      </label>
+    </details>
   );
 }
 
@@ -376,11 +315,11 @@ type Queued = { _id: string; threadId: string; text: string; held: boolean };
  * The player's messages waiting for their assistant (assistant.status queued): each editable and removable until the
  * assistant reads it; the ones a Stop held can be sent now (or go with the next message).
  */
-function QueueList({ queued, active, card, roomId, threadId, onError }: {
-  queued: Queued[]; active: boolean; card: boolean; roomId: Id<"rooms">; threadId: Id<"assistantThreads"> | null; onError: (e: string) => void;
+function QueueList({ queued, active, autopilot, roomId, threadId, onError }: {
+  queued: Queued[]; active: boolean; autopilot: boolean; roomId: Id<"rooms">; threadId: Id<"assistantThreads"> | null; onError: (e: string) => void;
 }) {
   const sendQueued = useMutation(api.assistant.sendQueued);
-  const note = queueNote({ count: queued.length, active, card });
+  const note = queueNote({ count: queued.length, active, autopilot });
   if (!note) return null;
   return (
     <div className="space-y-1 border-t border-[hsl(var(--card-border))] px-3 py-2" data-testid="assistant-queue">

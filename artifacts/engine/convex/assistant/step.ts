@@ -2,8 +2,8 @@
 /**
  * One step of an assistant turn (docs/surface-architecture.md §6), a scheduled Node action chained by generation:
  *
- *   1. resolve the current step's tool calls in order: run the automatic ones; stop at one that needs the player's
- *      confirmation (the turn waits with no action open; assistant:confirm schedules the next run);
+ *   1. resolve the current step's tool calls in order (in Read-only mode a call that would change anything is refused
+ *      here, whatever the model was offered: rules.ts allowedInMode);
  *   2. otherwise ask the model: reserve from the assistant pool, stream (flushing text about every 250 ms or 400
  *      characters through a mutation that also reports cancellation), settle the usage, record its tool calls;
  *   3. run those calls (step 1), then schedule the next step, or finish (model stop, step ceiling, deadline, budget).
@@ -24,7 +24,7 @@ import {
   inputReservation, mockChatProvider, providerFailure, usageCost, worstCaseCost,
   type ChatMessage, type ChatProvider, type ChatResult, type ChatToolUse, type Prices,
 } from "@workspace/ai-player";
-import { findTool, mayUse, type ToolResult } from "@workspace/player-client/tools";
+import type { ToolResult } from "@workspace/player-client/tools";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalAction, type ActionCtx } from "../_generated/server";
@@ -33,7 +33,7 @@ import type { Who } from "../agent/store";
 import type { Reservation } from "../ai/seats";
 import { AI_MODEL_CATALOG, DEFAULT_AGENT_MODEL, assistantMockEnabled } from "../lib/aiModels";
 import { messageOf } from "../lib/errors";
-import { callLimitProblem, clipJson, commandIdFor, loadTools, modelTools, needsConfirmation, outputCeiling, prepareArgs, repeatsOf, resultLimit, summarize, argsLimit } from "./rules";
+import { allowedInMode, callLimitProblem, clipJson, commandIdFor, loadTools, modelTools, outputCeiling, prepareArgs, repeatsOf, resultLimit, summarize, argsLimit } from "./rules";
 import { ENGINE_NOTES, LIMITS, withEngineNote } from "./limits";
 import { log } from "./turns";
 
@@ -63,21 +63,6 @@ function providerFor(modelId: string | null): ChatProvider {
  */
 const cacheKeyOf = (system: string, tools: { name: string }[]) =>
   createHash("sha256").update(JSON.stringify([system, tools.map(t => t.name)])).digest("hex").slice(0, 32);
-
-/** The cost a validate_agent call of this turn reported for exactly this source and language (for auto-approved summons). */
-function validatedCost(calls: CallRow[], args: Record<string, unknown>): number | undefined {
-  for (const c of calls) {
-    if (c.tool !== "validate_agent" || c.status !== "ok" || !c.resultJson) continue;
-    try {
-      const validated = JSON.parse(c.argsJson) as { source?: unknown; language?: unknown; gameId?: unknown };
-      if (validated.source !== args.source || validated.language !== args.language || validated.gameId !== args.gameId) continue;
-      const result = JSON.parse(c.resultJson) as { data?: { receipt?: { accepted?: boolean; validation?: { valid?: boolean; cost?: number } } } };
-      const validation = result.data?.receipt?.validation;
-      if (result.data?.receipt?.accepted && validation?.valid && typeof validation.cost === "number") return validation.cost;
-    } catch { /* not a usable validation */ }
-  }
-  return undefined;
-}
 
 /**
  * The player's live situation for the turn's briefing, read as the turn's credential like any tool call: the
@@ -109,15 +94,14 @@ export function replayBriefing(r: { gameId: string; shortCode: string; cursor: n
 const finished = (status: string) => status === "ok" || status === "error" || status === "denied";
 
 /**
- * Resolve the step's open tool calls in order. Returns "paused" (waiting for a confirmation), "cancelled", "resolved"
- * (every call has an outcome) or {repeating} (a call repeated the one before it LIMITS.repeatStop times in a row: the next
+ * Resolve the step's open tool calls in order. Returns "cancelled", "resolved" (every call has an outcome) or {repeating} (a call repeated the one before it LIMITS.repeatStop times in a row: the next
  * model step is the turn's last, with a note asking the model to tell the player where it got stuck).
  *
  * A result can carry the engine's notes (rules.ts ENGINE_NOTES), stored with it so the model's history replays them:
  * a repeat of an earlier call with the same result, and on the last call before the turn's final model step, to
  * answer the player now instead of running out of steps silently.
  */
-async function resolveCalls(ctx: ActionCtx, turnId: Id<"assistantTurns">, gen: number, c: Context, who: Who | null): Promise<"paused" | "cancelled" | "resolved" | { repeating: string; times: number }> {
+async function resolveCalls(ctx: ActionCtx, turnId: Id<"assistantTurns">, gen: number, c: Context, who: Who | null): Promise<"cancelled" | "resolved" | { repeating: string; times: number }> {
   const principal = { credentialId: c.turn.credentialId };
   const lastOpen = Math.max(...c.calls.filter(x => !finished(x.status)).map(x => x.index));
   const finalStepNext = c.turn.step >= c.turn.maxSteps - 1;
@@ -126,28 +110,19 @@ async function resolveCalls(ctx: ActionCtx, turnId: Id<"assistantTurns">, gen: n
   let repeating: { repeating: string; times: number } | undefined;
   for (const call of [...c.calls].sort((a, b) => a.index - b.index)) {
     if (finished(call.status)) continue;
-    if (call.status === "awaiting_confirmation") return "paused";
     const args = JSON.parse(call.argsJson) as Record<string, unknown>;
-    const definition = findTool(call.tool);
-    const permitted = !!definition && !!who && mayUse(who.permission, definition);
-    if (permitted && !call.approved && needsConfirmation(call.tool, args, { autoApproveSummonBits: c.autoApproveSummonBits, validatedCost: validatedCost(c.calls, args) })) {
-      // The player has a message queued: never stop on a card they did not see; decline it (never approve) and let
-      // the message, delivered after this step's results, say what they want.
-      if (c.queued > 0) {
-        const { cancelled, declined } = await ctx.runMutation(internal.assistant.store.declineForMessage, { turnId, gen, callDocId: call.id });
-        if (cancelled) return "cancelled";
-        if (declined) { call.status = "denied"; continue; }
-      }
-      const { cancelled } = await ctx.runMutation(internal.assistant.store.awaitConfirmation, { turnId, gen, callDocId: call.id });
-      return cancelled ? "cancelled" : "paused";
-    }
     const start = await ctx.runMutation(internal.assistant.store.startCall, { turnId, gen, callDocId: call.id });
     if (start.cancelled) return "cancelled";
     if (!start.go) continue;
     let outcome: { status: "ok" | "error"; summary: string; resultJson: string };
     // The tool loader changes only the model's context (the history turns its result into tool references).
-    if (call.tool === LOAD_TOOLS) outcome = who ? loadTools(who.permission, args) : { status: "error", summary: "Not loaded", resultJson: JSON.stringify({ error: { code: "UNAUTHENTICATED", message: "The assistant's credential was revoked or has expired." } }) };
-    else try {
+    if (call.tool === LOAD_TOOLS) outcome = who ? loadTools(who.permission, c.mode, args) : { status: "error", summary: "Not loaded", resultJson: JSON.stringify({ error: { code: "UNAUTHENTICATED", message: "The assistant's credential was revoked or has expired." } }) };
+    // The mode as it is now (read at every step): in Read-only nothing that changes anything runs, whatever was offered.
+    else if (!allowedInMode(call.tool, c.mode)) {
+      outcome = c.mode === "readOnly"
+        ? { status: "error", summary: "Not run: Read-only mode", resultJson: withEngineNote(JSON.stringify({ error: { code: "READ_ONLY", message: `${call.tool} changes the game or the player's things; the assistant is in Read-only mode.` } }), ENGINE_NOTES.readOnly(call.tool)) }
+        : { status: "error", summary: `Not run in ${c.mode} mode`, resultJson: JSON.stringify({ error: { code: "FORBIDDEN", message: `${call.tool} is not available on Autopilot: only the player's own activity keeps the engine awake.` } }) };
+    } else try {
       const result: ToolResult = await runTool(ctx, principal, call.tool, args);
       outcome = { status: "ok", summary: summarize(call.tool, result), resultJson: clipJson(result, resultLimit(call.tool)) };
     } catch (error) {
@@ -220,7 +195,6 @@ export const run = internalAction({
     if (c.calls.some(call => !finished(call.status))) {
       const resolved = await resolveCalls(ctx, turnId, gen, c, who);
       if (resolved === "cancelled") return void await finish("cancelled");
-      if (resolved === "paused") return;
       await ctx.runMutation(internal.assistant.store.next, { turnId, gen, ...(typeof resolved === "object" ? { lastStep: true } : {}) });
       return;
     }
@@ -233,7 +207,7 @@ export const run = internalAction({
     }
     if (!who) return void await finish("failed", { code: "UNAUTHENTICATED", message: "The assistant's credential was revoked or has expired." });
     // The step boundary: the latest step's tool calls are all resolved and the next model step has not started (here
-    // after `next`, a decided or declined card, or a rate-limit wait). Messages the player queued join the turn now.
+    // after `next` or a rate-limit wait). Messages the player queued join the turn now.
     if (c.queued > 0 && c.turn.lastStop === "tool_use") {
       const { delivered } = await ctx.runMutation(internal.assistant.store.deliverQueued, { turnId, gen });
       if (delivered) {
@@ -254,8 +228,8 @@ export const run = internalAction({
     }
     let provider: ChatProvider;
     try { provider = providerFor(c.model); } catch (error) { return void await finish("failed", { code: "UNAVAILABLE", message: messageOf(error) }); }
-    const tools = modelTools(who.permission);
-    const system = assistantSystemPrompt({ playerName: c.playerName, roomCode: c.roomCode, permission: who.permission });
+    const tools = modelTools(who.permission, c.mode);
+    const system = assistantSystemPrompt({ playerName: c.playerName, roomCode: c.roomCode, permission: who.permission, mode: c.mode });
     const messages = JSON.parse(c.historyJson) as ChatMessage[];
     // The reservation: the request's estimated input (a provider count, else a measured characters-per-token ratio),
     // with a margin, at its dearest price (all written to the prompt cache), plus the output ceiling. Settled to the
@@ -372,7 +346,6 @@ export const run = internalAction({
     if ("stop" in fresh) { if (fresh.stop === "stale" && fresh.status === "cancelling") await finish("cancelled"); return; }
     const resolved = await resolveCalls(ctx, turnId, gen, fresh, who);
     if (resolved === "cancelled") return void await finish("cancelled");
-    if (resolved === "paused") return;
     await ctx.runMutation(internal.assistant.store.next, { turnId, gen, ...(typeof resolved === "object" ? { lastStep: true } : {}) });
   },
 });

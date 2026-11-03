@@ -15,6 +15,7 @@ import type { Pane } from "@workspace/player-client/layout";
 import type { Command as GameCommand } from "@workspace/player-client";
 import type { GridRendererId } from "@workspace/object-views";
 import { endedGameReplay } from "../replay/model.ts";
+import { MODE_OPTIONS, type AssistantMode } from "../chat/state.ts";
 import { GLOSSARY, GLOSSARY_IDS, availabilityFor, commandsFromCatalog, type Availability, type Command, type LiveOptions, type PaletteContext, type Performer, type PickOption } from "@workspace/ui-kit";
 
 export type PaletteState = {
@@ -75,8 +76,8 @@ export type PaletteActions = {
   };
   panels: { open(slug: string): void; openFile(id: string): void; setEnabled(slug: string, enabled: boolean): Promise<unknown>; remove(slug: string): Promise<unknown>; rollback(slug: string): Promise<unknown> };
   assistant: {
-    cancel(): Promise<unknown>; setAutoApprove(bits: number): Promise<unknown>; useThreads(): LiveOptions; openThread(id: string): void;
-    newThread(): void; setPermission(permission: "read" | "act" | "owner"): void; focus(): void; handoff(draft: string): void;
+    cancel(): Promise<unknown>; setMode(mode: "autopilot" | "onRequest" | "readOnly"): Promise<unknown>; useThreads(): LiveOptions; openThread(id: string): void;
+    newThread(): void; setPermission(permission: "act" | "owner"): void; focus(): void; handoff(draft: string): void;
   };
   dock: {
     /** Show a panel: activate an open pane of it, else add one by the placement rule. */
@@ -156,9 +157,10 @@ export function playerCommands(s: PaletteState, a: PaletteActions): Command[] {
     "activity.touch": { performer: submit(() => a.wake()) },
     "assistant.send": { performer: { kind: "handoff", draft: "" }, available: () => assistantOn(s) },
     "assistant.cancel": { performer: submit(() => a.assistant.cancel()), available: () => assistantOn(s) },
-    "assistant.setPrefs": {
-      performer: field("Auto-approve summons", "Up to how many bits (0 asks every time)", v => a.assistant.setAutoApprove(Number(v)),
-        v => (/^\d+(\.\d+)?$/.test(v.trim()) ? null : "A number of bits, 0 or more."), "0"),
+    "assistant.setMode": {
+      // Autopilot acts for you: not offered to a read-only connection (the engine refuses it too).
+      performer: pick("Your assistant", () => MODE_OPTIONS.filter(m => m.id !== "autopilot" || s.permission !== "read").map(m => ({ id: m.id, label: m.label, detail: m.detail })),
+        id => a.assistant.setMode(id as AssistantMode)),
       available: () => assistantOn(s),
     },
     "assistant.threads": { performer: livePick("Past conversations", () => a.assistant.useThreads(), id => a.assistant.openThread(id)), available: () => assistantOn(s) },
@@ -269,14 +271,13 @@ export function playerCommands(s: PaletteState, a: PaletteActions): Command[] {
   const assistantRows: Command[] = [
     ui("ui.assistant.focus", "Focus assistant", "Puts the cursor in your assistant's message box.", "help", local(() => a.assistant.focus()), { shortcut: "Ctrl+`", keywords: ["chat", "ask"], ...always(() => assistantHere(s)) }),
     ui("ui.assistant.new", "New conversation", "Starts a fresh conversation with your assistant.", "help", local(() => a.assistant.newThread()), { keywords: ["thread", "clear"], ...always(() => assistantOn(s)) }),
-    ui("ui.assistant.settings", "Assistant settings…", "What your assistant may do as you; it asks before anything public or costly.", "help",
+    ui("ui.assistant.owner", "Assistant owner powers…", "Whether your assistant may also use the room owner's powers, from your next message.", "help",
       pick("Your assistant may", [
-        { id: "act", label: "Play for me", detail: "Asks before anything public or costly." },
-        { id: "read", label: "Only look" },
+        { id: "act", label: "Play as a player", detail: "No owner powers." },
         // The engine caps the assistant at this client's own permission (assistant.ts maxPermission).
-        ...(s.isOwner && s.permission === "owner" ? [{ id: "owner", label: "Play for me, with owner powers", detail: "Each owner action still asks you." }] : []),
-      ], id => a.assistant.setPermission(id as "read" | "act" | "owner")),
-      { keywords: ["permission", "rights", "assistant"], ...always(() => assistantOn(s)) }),
+        { id: "owner", label: "Use owner powers too", detail: "Settings, starting and ending games, AI seats." },
+      ], id => a.assistant.setPermission(id as "act" | "owner")),
+      { keywords: ["permission", "rights", "assistant", "owner"], ...always(() => both(assistantOn(s), s.isOwner && s.permission === "owner" ? OK : no("Only the room's owner.", undefined, true))) }),
   ];
 
   const gameRows: Command[] = [

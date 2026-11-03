@@ -28,12 +28,13 @@ export const MAX_FAILURES = 5;
 const SANDBOX_WARMING_WAIT_MS = 1_500;
 const SANDBOX_FAILED_WAIT_MS = 10_000;
 
-/** (Re)start every AI seat's chain of a game: on start and on resume. */
+/** (Re)start every AI seat's chain of a game, and its players' autopilots (assistant/autopilot.ts): on start and on resume. */
 export const startAll = internalMutation({
   args: { gameId: v.id("games") },
   handler: async (ctx, { gameId }) => {
     const game = await ctx.db.get(gameId);
     if (!game || game.phase === "ended" || game.phase === "recovery") return;
+    await ctx.scheduler.runAfter(0, internal.assistant.autopilot.startRoom, { roomId: game.roomId });
     const members = await membersOf(ctx, game.roomId);
     let i = 0;
     for (const member of members) {

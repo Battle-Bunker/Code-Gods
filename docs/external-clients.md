@@ -124,7 +124,7 @@ Other clients (`clients/hello`) use the same SDK, usually with a room grant (`sc
   site. Keep credentials in the environment's secret store, never in files of a public Repl; the docs and the CLI say so.
 - **An AI coding agent with the token in its environment** is the human's delegate (room-assistant boundary): it can
   do whatever the credential allows. Give it a `read` credential for analytics work. An `act` credential lets it
-  chat publicly and summon. The in-client assistant's confirmations do not apply to outside agents. Never give an
+  chat publicly and summon. The in-client assistant's modes (Autopilot, On request, Read-only) do not apply to outside agents: the credential's permission is the whole limit. Never give an
   agent an `owner` credential unless the human wants it to run the room.
 - **An account grant** (decision 9) widens what a client can do to everything its human can do in Code Gods, except
   the consent surface and admin: create and join rooms, act in every room, owner actions in the rooms the human owns.

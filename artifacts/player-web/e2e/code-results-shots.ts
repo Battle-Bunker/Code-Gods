@@ -60,7 +60,7 @@ async function ask(text: string) {
   for (let i = 0; i < 120; i++) {
     const t = await me.query(fn.q("assistant:thread"), { threadId: sent.threadId }) as { turns: { _id: string; status: string }[] };
     const turn = t.turns.find(x => x._id === sent.turnId);
-    if (turn && !["running", "awaiting_confirmation", "cancelling"].includes(turn.status)) return turn.status;
+    if (turn && !["running", "cancelling"].includes(turn.status)) return turn.status;
     await sleep(500);
   }
   throw new Error("turn did not finish");

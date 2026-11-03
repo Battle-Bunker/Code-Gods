@@ -13,6 +13,7 @@ import { clockDoc, engineDoc, liveGame, withEngine, writeGame, type LiveGame } f
 import { fail } from "./lib/errors";
 import { shortCodeFor } from "./lib/rooms";
 import { seed as seedSetups } from "./setups";
+import { openTurn } from "./assistant/turns";
 
 const dev = () => {
   if (process.env.DEV !== "1" && process.env.TEST_FIXTURES !== "1") fail("FORBIDDEN", "Testing functions need DEV=1 or TEST_FIXTURES=1");
@@ -549,5 +550,70 @@ export const hideCalibration = internalMutation({
     const row = await ctx.db.query("calibrationFiles").withIndex("by_instance", q => q.eq("instance", from)).unique();
     if (row) await ctx.db.patch(row._id, { instance: to });
     return !!row;
+
+/**
+ * One human's assistant rows as they were under per-action approvals (the assistant-mode migrations' input): a prefs
+ * row with `autoApproveSummonBits` and no mode, and the given turn waiting on the given call's approval card.
+ */
+export const legacyAssistantApprovals = internalMutation({
+  args: { roomId: v.id("rooms"), subject: v.string(), turnId: v.id("assistantTurns"), callId: v.id("assistantToolCalls") },
+  handler: async (ctx, { roomId, subject, turnId, callId }) => {
+    dev();
+    for (const p of await ctx.db.query("assistantPrefs").withIndex("by_key", q => q.eq("roomId", roomId).eq("subject", subject)).collect()) await ctx.db.delete(p._id);
+    await ctx.db.insert("assistantPrefs", { roomId, subject, autoApproveSummonBits: 25 });
+    const turn = await ctx.db.get(turnId);
+    await ctx.db.patch(turnId, { status: "awaiting_confirmation", finishedAt: undefined });
+    if (turn) await ctx.db.patch(turn.threadId, { activeTurnId: turnId });
+    await ctx.db.patch(callId, { status: "awaiting_confirmation", confirmDeadline: Date.now() + 120_000, approved: false });
+  },
+});
+
+/** A human's raw assistant prefs row in a room (its mode and autopilot chain), or null. */
+export const rawAssistantPrefs = internalQuery({
+  args: { roomId: v.id("rooms"), subject: v.string() },
+  handler: async (ctx, { roomId, subject }) => {
+    dev();
+    return ctx.db.query("assistantPrefs").withIndex("by_key", q => q.eq("roomId", roomId).eq("subject", subject)).unique();
+  },
+});
+
+/** Set a human's assistant usage in the room's current game (the autopilot's budget stop). */
+export const setAssistantUsed = internalMutation({
+  args: { roomId: v.id("rooms"), subject: v.string(), usedTokens: v.number() },
+  handler: async (ctx, { roomId, subject, usedTokens }) => {
+    dev();
+    const room = await ctx.db.get(roomId);
+    const epoch = room?.currentGameId ? String(room.currentGameId) : "lobby";
+    const row = await ctx.db.query("assistantAllowances").withIndex("by_key", q => q.eq("roomId", roomId).eq("subject", subject).eq("epoch", epoch)).unique();
+    if (row) await ctx.db.patch(row._id, { usedTokens });
+    else await ctx.db.insert("assistantAllowances", { roomId, subject, epoch, usedTokens, calls: [] });
+  },
+});
+
+/**
+ * Open an autopilot turn whose engine prompt is `text` (a `/mock` script, so a test can make it slow) in the human's
+ * latest thread of the game, as assistant/autopilot.ts tick does with its fixed prompt.
+ */
+export const openAutopilotTurn = internalMutation({
+  args: { roomId: v.id("rooms"), subject: v.string(), text: v.string() },
+  handler: async (ctx, { roomId, subject, text }) => {
+    dev();
+    const room = await ctx.db.get(roomId) ?? fail("NOT_FOUND", "Room not found");
+    const epoch = room.currentGameId ? String(room.currentGameId) : "lobby";
+    const thread = await ctx.db.query("assistantThreads").withIndex("by_room_subject_epoch", q => q.eq("roomId", roomId).eq("subject", subject).eq("epoch", epoch)).order("desc").first()
+      ?? fail("NOT_FOUND", "No thread in this game");
+    const cred = (await ctx.db.query("credentials").withIndex("by_subject", q => q.eq("subject", subject)).order("desc").collect())
+      .find(c => c.kind === "assistant" && c.roomId === roomId && c.revokedAt === undefined) ?? fail("NOT_FOUND", "No assistant credential");
+    const turnId = await openTurn(ctx, { room, threadId: thread._id, subject, credentialId: cred._id, trigger: "autopilot" }, [{ text, autopilot: true }]);
+    return { threadId: thread._id, turnId };
+  },
+});
+
+/** An assistant tool call's raw row (the retired approval fields included). */
+export const rawAssistantCall = internalQuery({
+  args: { callId: v.id("assistantToolCalls") },
+  handler: async (ctx, { callId }) => {
+    dev();
+    return ctx.db.get(callId);
   },
 });
