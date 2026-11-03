@@ -31,9 +31,9 @@ export function BadgeChips({ badges, empty = "🌍 Works everywhere", testId }: 
   );
 }
 
-function Source({ text, language, testId }: { text: string; language: string; testId: string }) {
+function Source({ text, language, testId, open }: { text: string; language: string; testId: string; open: boolean }) {
   return (
-    <details className="mt-2" open>
+    <details className="mt-2" open={open} data-testid={`${testId}-section`}>
       <summary className="cursor-pointer text-xs text-muted-foreground">{language} source</summary>
       <pre data-testid={testId} className="mt-1 font-mono text-[11px] leading-snug whitespace-pre-wrap break-words max-h-72 overflow-auto bg-muted p-2">{text}</pre>
     </details>
@@ -67,10 +67,12 @@ export function GoalExampleView({ goal, grid }: { goal: GoalExplainer; grid: Gri
 
 /**
  * Emoji and name, plain summary, an example board (the annotated one with `goal`, else the card's tiny one when the rule
- * has one), a "uses" chip row, then the source; a defence goal follows as its own card. `grid` (the room's Grid settings) draws the example with the room's colour shades.
+ * has one), a "uses" chip row, then the source (collapsed unless `sourceOpen`); a defence goal follows as its own card. `grid` (the room's Grid settings) draws the example with the room's colour shades.
  */
-export function UtilityCardView({ card, uses, grid, goal }: {
+export function UtilityCardView({ card, uses, grid, goal, sourceOpen = false }: {
   card: UtilityCardLike; uses?: readonly BadgeLike[]; grid?: GridSettings;
+  /** Whether the source sections start expanded (they are collapsed by default). */
+  sourceOpen?: boolean;
   /**
    * The player's own goal explainer: the card then shows its annotated example board (a family without a lens keeps its
    * hand-made tiny example when it has one, else shows a searched example board with its score).
@@ -87,7 +89,7 @@ export function UtilityCardView({ card, uses, grid, goal }: {
         <p className="mt-2 text-sm leading-relaxed" data-testid="text-utility-summary">{card.summary}</p>
         {goal && grid && (goal.rich || !card.example) ? <GoalExampleView goal={goal} grid={grid} /> : card.example && <CardExample example={card.example} grid={grid} />}
         <p className="mt-2 text-xs flex flex-wrap items-center gap-1.5"><span className="text-muted-foreground">uses:</span><BadgeChips badges={badges} testId="utility-card-uses" /></p>
-        <Source text={card.source} language={card.language} testId="text-utility-source" />
+        <Source text={card.source} language={card.language} testId="text-utility-source" open={sourceOpen} />
       </div>
       {card.penalty && (
         <div className="border-l-4 border-destructive pl-3 py-1" data-testid="utility-card-penalty">
@@ -95,7 +97,7 @@ export function UtilityCardView({ card, uses, grid, goal }: {
           <p className="mt-1 text-sm">{card.penalty.summary}</p>
           <p className="mt-1 text-xs text-muted-foreground">Only counts when an object is {card.penalty.comparative} than usual. Then you see “⚠️ {card.penalty.comparative} than 90% of …”.</p>
           {penaltyUses.length > 0 && <p className="mt-1 text-xs flex flex-wrap items-center gap-1.5"><span className="text-muted-foreground">uses:</span><BadgeChips badges={penaltyUses} /></p>}
-          <Source text={card.penalty.source} language={card.language} testId="text-penalty-source" />
+          <Source text={card.penalty.source} language={card.language} testId="text-penalty-source" open={sourceOpen} />
         </div>
       )}
     </div>

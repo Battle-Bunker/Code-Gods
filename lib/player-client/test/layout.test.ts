@@ -69,7 +69,7 @@ function wellFormed(layout: DockLayout) {
   assert.deepEqual([...seen].sort(), Object.keys(layout.panes).sort(), "every pane is placed exactly once");
 }
 
-test("the default layout: the goal (3 best examples) left, objects by payoff over my agents right, the assistant across the bottom", () => {
+test("the default layout: the goal left, objects by payoff over my agents right, the assistant across the bottom", () => {
   const layout = DEFAULT_LAYOUT("running");
   wellFormed(layout);
   const tabsOf = (id: string): Node => ({ type: "pane", id });
@@ -78,7 +78,7 @@ test("the default layout: the goal (3 best examples) left, objects by payoff ove
     tabsOf("p4"),
   ] });
   const shown = (id: string) => { const p = layout.panes[id]; return p.kind === "panel" ? [p.panelId, p.params] : p.kind; };
-  assert.deepEqual(shown("p1"), ["my-card", { examples: 3, showSource: false, exampleSort: "best" }]);
+  assert.deepEqual(shown("p1"), ["my-card", { showSource: false }]);
   assert.deepEqual(shown("p2"), ["objects", { sortBy: "payoff", filter: "all", limit: 12, highlight: [], layout: "list" }]);
   assert.deepEqual(shown("p3"), ["agents", { agentIds: [], window: 120, showSource: false, showCosts: false }]);
   assert.equal(shown("p4"), "assistant");
