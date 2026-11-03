@@ -3,10 +3,15 @@
 #   push to main    → GitHub Environment "production"  → the production deployment
 # Each environment holds one secret, CONVEX_DEPLOY_KEY (a deploy key for that deployment); the key alone
 # selects the deployment. Setup and recovery: PILOT.md, "Automatic deploys".
-# The gate (root typecheck, offline unit suites, sandbox tests) blocks every production deploy. On develop it runs
-# in the parallel `checks` job instead: it marks the commit red on failure but never holds back the dev deploy, which
-# keeps only the cheap checks (env var names, the functions typecheck in `convex deploy`, the worker build, the
-# bundle pin, the post-deploy smoke test).
+#
+# The gate is the `checks` job: root typecheck, the offline unit suites (game-utilities split over 8 parallel shards,
+# the rest in one job), calibration freshness and the sandbox tests; each part is its own parallel job and `checks`
+# aggregates them. Pushing to develop runs it beside the deploy: it marks the commit red on failure but never holds
+# back the dev deploy, which keeps only the cheap checks (env var names, the functions typecheck in `convex deploy`,
+# the worker build, the bundle pin, the post-deploy smoke test). A production deploy waits for it, after doing its own
+# install and bundle build in parallel, except when `lookup` finds that the gate already passed on develop for a commit
+# with the identical tree (a release is a merge of develop, so usually it did): then nothing is re-run.
+# Any doubt (no match, API error, a red or cancelled run) runs the gate in full.
 name: Deploy
 
 on:
@@ -19,13 +24,32 @@ permissions:
   contents: read
 
 jobs:
-  checks:
-    if: github.ref_name == 'develop'
+  # ---- main only: did the gate already pass on develop for this exact tree? ----
+  lookup:
+    if: github.ref_name == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read   # list the develop runs and their jobs
+    outputs:
+      passed: ${{ steps.find.outputs.passed }}   # "true" only on a proven match; empty (job failed) counts as not passed
+    steps:
+      - uses: actions/checkout@v4
+      - id: find
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node .github/scripts/previous-gate.mjs "$(git rev-parse 'HEAD^{tree}')" | tee -a "$GITHUB_OUTPUT"
+
+  # ---- the gate: parallel parts, aggregated by `checks` ----
+  typecheck:
+    needs: lookup
+    if: ${{ !cancelled() && (github.ref_name == 'develop' || needs.lookup.outputs.passed != 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     concurrency:
-      group: checks-development
-      cancel-in-progress: true
+      group: gate-typecheck-${{ github.ref_name }}
+      cancel-in-progress: ${{ github.ref_name != 'main' }}
     defaults:
       run:
         shell: bash
@@ -48,9 +72,64 @@ jobs:
           key: tsbuild2-${{ github.sha }}   # tsbuild2: caches saved before every dist was included must never be restored
           restore-keys: tsbuild2-
       - run: pnpm run typecheck
-      - run: pnpm run test:offline
+
+  # The offline unit suites. game-utilities holds nearly all the time (its calibration, analytic and family-law tests
+  # loop over every family and instantiation), so its loops are split by CG_SHARD=k/8 (lib/game-utilities/test/shard.ts);
+  # shards 1..8 together cover every item once. "rest" is every other suite plus calibration freshness.
+  unit:
+    needs: lookup
+    if: ${{ !cancelled() && (github.ref_name == 'develop' || needs.lookup.outputs.passed != 'true') }}
+    name: unit (${{ matrix.shard }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ['1/8', '2/8', '3/8', '4/8', '5/8', '6/8', '7/8', '8/8', rest]
+    concurrency:
+      group: gate-unit-${{ matrix.shard }}-${{ github.ref_name }}
+      cancel-in-progress: ${{ github.ref_name != 'main' }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - if: matrix.shard != 'rest'
+        run: pnpm --filter @workspace/game-utilities test
+        env:
+          CG_SHARD: ${{ matrix.shard }}
+      - if: matrix.shard == 'rest'
+        run: pnpm run test:offline:rest
       - name: Calibration tables are fresh   # every instance file in git matches the current code (seconds; builds nothing)
+        if: matrix.shard == 'rest'
         run: pnpm --filter @workspace/game-utilities calibrate --check
+
+  # The sandbox tests (Python bundle, QuickJS worker).
+  runtime:
+    needs: lookup
+    if: ${{ !cancelled() && (github.ref_name == 'develop' || needs.lookup.outputs.passed != 'true') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: gate-runtime-${{ github.ref_name }}
+      cancel-in-progress: ${{ github.ref_name != 'main' }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
       - uses: actions/cache@v4
         id: cpython
         with:
@@ -61,10 +140,28 @@ jobs:
       - run: pnpm --filter @workspace/game-runtime build:python
       - run: pnpm --filter @workspace/game-runtime test
 
+  # The one name the rest of the workflow (and `previous-gate.mjs`) relies on: success only when every part succeeded.
+  # Skipped (not failed) when `lookup` proved the gate already passed on this tree.
+  checks:
+    needs: [lookup, typecheck, unit, runtime]
+    if: ${{ !cancelled() && (github.ref_name == 'develop' || needs.lookup.outputs.passed != 'true') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - env:
+          RESULTS: ${{ needs.typecheck.result }} ${{ needs.unit.result }} ${{ needs.runtime.result }}
+        run: |
+          echo "typecheck / unit / runtime: $RESULTS"
+          for r in $RESULTS; do [ "$r" = success ] || { echo "::error::The gate did not pass"; exit 1; }; done
+
   deploy:
-    if: github.ref_name == 'develop' || github.ref_name == 'main'
+    needs: lookup   # skipped on develop, which does not wait for the gate
+    if: ${{ !cancelled() && (github.ref_name == 'develop' || github.ref_name == 'main') }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read   # the production gate wait reads this run's jobs
     environment: ${{ github.ref_name == 'main' && 'production' || 'development' }}
     concurrency:
       group: deploy-${{ github.ref_name == 'main' && 'production' || 'development' }}
@@ -84,23 +181,6 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # ---- gate (production only; develop runs it in the parallel `checks` job) ----
-      - if: github.ref_name == 'main'
-        uses: actions/cache@v4
-        with:
-          path: |
-            lib/*/tsconfig.tsbuildinfo
-            lib/*/dist
-            artifacts/*/tsconfig.tsbuildinfo
-          key: tsbuild2-${{ github.sha }}   # tsbuild2: caches saved before every dist was included must never be restored
-          restore-keys: tsbuild2-
-      - if: github.ref_name == 'main'
-        run: pnpm run typecheck
-      - if: github.ref_name == 'main'
-        run: pnpm run test:offline
-      - if: github.ref_name == 'main'
-        run: pnpm --filter @workspace/game-utilities calibrate --check
-
       # ---- the pinned runtime bundle (Python) ----
       - uses: actions/cache@v4
         id: cpython
@@ -113,8 +193,24 @@ jobs:
       - name: Worker build is current   # 0.1s; never deploy a stale sandbox worker
         working-directory: lib/game-runtime
         run: node scripts/build-worker.mjs --check
-      - if: github.ref_name == 'main'
-        run: pnpm --filter @workspace/game-runtime test   # sandboxes, incl. the bundle and the worker build
+      # ---- production: nothing below this line ships until the gate has passed (the steps above ran beside it) ----
+      - name: Wait for the gate
+        if: github.ref_name == 'main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PASSED_ON_DEVELOP: ${{ needs.lookup.outputs.passed }}
+        run: |
+          if [ "$PASSED_ON_DEVELOP" = true ]; then echo "The gate already passed on develop for this exact tree (see the lookup job); not re-run."; exit 0; fi
+          # `checks` finishes only after every gate part, and is skipped or failed otherwise; poll its conclusion.
+          while true; do
+            job=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs?per_page=100" --jq '.jobs[] | select(.name == "checks") | "\(.status) \(.conclusion)"' || true)   # a transient API error just polls again
+            echo "checks: ${job:-not started}"
+            case "$job" in
+              "completed success") exit 0 ;;
+              completed*) echo "::error::The gate failed: nothing is deployed to production"; exit 1 ;;
+            esac
+            sleep 15
+          done
 
       # ---- deploy (from here on the deploy key is in the environment) ----
       - name: Check the deployment's env vars

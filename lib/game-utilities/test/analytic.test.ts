@@ -22,6 +22,7 @@ import {
   MAX_RMS_Z_BELOW_32, assertAnalyticAgainstSpawns, compareWithEnumeration, compareWithTable, nominalSe, keyOfOrdinal, tableViolations,
 } from "../src/analytic-verify.ts";
 import { DEFAULT_BUDGET, buildTable, mcTableKey } from "../scripts/estimator.ts";
+import { shardCount, shardOf } from "./shard.ts";   // CG_SHARD="k/n": the families loop below is split across CI jobs
 
 export const REFERENCE_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "data", "analytic-reference");
 export const REFERENCE_COMMAND = "node --experimental-strip-types lib/game-utilities/scripts/analytic-reference.ts <family>";
@@ -147,7 +148,7 @@ test("harness: enumeration agrees with itself on Int(0,9999) and catches a wrong
 test("every family analytic is well formed, lists every spawned ordinal, matches spawn frequencies and puts the exemplar on top", () => {
   assert.ok(ANALYTIC_FAMILIES.length >= 2, "picture_frame and lone_peak have analytics");
   let checked = 0;
-  for (const f of ANALYTIC_FAMILIES) {
+  for (const f of shardOf(ANALYTIC_FAMILIES)) {
     for (const instKey of shippedInstanceKeys()) {
       const inst = instOf(instKey);
       if (!available(f, inst).ok) continue;
@@ -167,7 +168,7 @@ test("every family analytic is well formed, lists every spawned ordinal, matches
       }
     }
   }
-  assert.ok(checked >= 10, `only ${checked} analytic draws checked`);
+  assert.ok(checked >= Math.floor(10 / shardCount), `only ${checked} analytic draws checked`);
 });
 
 test("hand-derived pins: exact tops and body values of the wired analytics", () => {
