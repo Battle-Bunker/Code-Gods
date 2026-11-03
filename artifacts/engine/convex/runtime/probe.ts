@@ -17,6 +17,7 @@ import { assetLoad, bindRuntime, pythonBundle, runtimeFor, RUNTIME_OPTIONS } fro
 import * as engine from "../engine/runtime";
 import { internal } from "../_generated/api";
 import { ACT_BATCH } from "../lib/programs";
+import type { Memory } from "./memory";
 
 const moduleLoadedAt = Date.now();
 const language = v.union(v.literal("python"), v.literal("typescript"));
@@ -105,31 +106,41 @@ export const smoke = internalAction({
 });
 
 /**
+ * The process's highest resident size, whatever the call ended at. Convex's Node actions have 512 MiB RAM (docs.convex.dev
+ * production/state/limits: MiB, not MB); 460 leaves 52 MiB. Set from the limit before any peak had been observed: tighten it
+ * to the observed peaks.
+ */
+const PEAK_CEILING_MIB = 460;
+/**
  * Each language's actions under load, as a tick of a game allowing both runs them (deploy.yml): a full batch of acts
  * per language in its own action (runtime/acts.ts), both at once, and a fresh TypeScript compilation
- * (runtime/compile.ts). Fails when any of those actions ends above `budgetMiB` resident (default 380 of the 512 MiB:
- * one language's pools need far less; real headroom, not a pass mark). Also reports what dispatching acts to their own
- * actions costs: the round trip of a one-act call.
+ * (runtime/compile.ts). Convex reuses warm Node processes, so each action reports its resident size when it started
+ * (what earlier calls left behind), when it ended and the process's peak (runtime/memory.ts). Fails when an action ends
+ * above `budgetMiB` resident (default 400: the 14 deploys from #145 to now ended between 253 and 387 MiB with no trend,
+ * so 400 keeps 112 MiB of the 512 MiB limit as headroom, 125 over the worst run) or its process ever
+ * peaked above PEAK_CEILING_MIB. Also reports what dispatching acts to their own actions costs: the round trip of a
+ * one-act call.
  */
 export const concurrent = internalAction({
   args: { budgetMiB: v.optional(v.number()) },
-  handler: async (ctx, { budgetMiB = 380 }) => {
+  handler: async (ctx, { budgetMiB = 400 }) => {
     const t = performance.now();
     const out: Record<string, unknown> = { budgetMiB };
     const batch = async (lang: Language) => {
       const { game, inputs } = room(lang);
-      const { replies, rssMiB } = await ctx.runAction(internal.runtime.acts.run, { language: lang, settings: game,
+      const { replies, startMiB, rssMiB, peakMiB } = await ctx.runAction(internal.runtime.acts.run, { language: lang, settings: game,
         requests: Array.from({ length: ACT_BATCH }, (_, i) => ({ source: GRID_AGENTS[lang], input: inputs[i % inputs.length], seed: String(i) })) });
       const failed = replies.find(reply => !reply.ok);
       if (failed) throw new Error(`${lang} acts failed: ${JSON.stringify(failed)}`);
-      return rssMiB;
+      return { startMiB, rssMiB, peakMiB } as Memory;
     };
     const fresh = `${GRID_AGENTS.typescript}\n// probe ${Date.now()}\n`;
     const [python, typescript, compiled] = await Promise.all([batch("python"), batch("typescript"),
       ctx.runAction(internal.runtime.compile.compile, { language: "typescript", source: fresh, settings: room("typescript").game })]);
     if (!compiled.ok) throw new Error(`The TypeScript compilation failed: ${compiled.message}`);
-    const rss: Record<string, number> = { python, typescript, ...(compiled.rssMiB !== undefined ? { typescriptCompiler: compiled.rssMiB } : {}) };
-    out.rssMiB = rss;
+    const memory: Record<string, Memory> = { python, typescript,
+      ...(compiled.rssMiB !== undefined ? { typescriptCompiler: compiled as Memory } : {}) };
+    out.memory = Object.fromEntries(Object.entries(memory).map(([k, m]) => [k, { startMiB: m.startMiB, endMiB: m.rssMiB, peakMiB: m.peakMiB }]));
     // The dispatch's cost: one warm act through its own action, end to end (median of 5).
     const { game, inputs } = room("python");
     const trips: number[] = [];
@@ -140,8 +151,8 @@ export const concurrent = internalAction({
     }
     out.oneActRoundTripMs = Math.round(trips.sort((a, b) => a - b)[2]!);
     out.seconds = Math.round(since(t) / 100) / 10;
-    const over = Object.entries(rss).filter(([, mib]) => mib > budgetMiB);
-    if (over.length) throw new Error(`Over the ${budgetMiB} MiB budget: ${over.map(([k, mib]) => `${k} ${mib} MiB`).join(", ")}: ${JSON.stringify(out)}`);
+    const over = Object.entries(memory).filter(([, m]) => m.rssMiB > budgetMiB || m.peakMiB > PEAK_CEILING_MIB);
+    if (over.length) throw new Error(`Over the ${budgetMiB} MiB budget (peak ${PEAK_CEILING_MIB}): ${over.map(([k, m]) => `${k} start ${m.startMiB}, end ${m.rssMiB}, peak ${m.peakMiB} MiB`).join("; ")}: ${JSON.stringify(out)}`);
     return out;
   },
 });
