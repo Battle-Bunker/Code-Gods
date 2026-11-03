@@ -234,6 +234,23 @@ test("a replay's Timeline is shown over any layout with room for it, and never t
   assert.equal(withTimeline(full), full, "a full dock keeps its panels (no panel replaced)");
 });
 
+test("a replay's Timeline takes the assistant's slot; with no assistant it is the full-width bottom half; a live layout is untouched", () => {
+  const stored = DEFAULT_LAYOUT("running");
+  const assistant = Object.values(stored.panes).find(p => p.kind === "assistant")!;
+  const before = panelPanesOf(stored).length;
+  const shown = withTimeline(stored);
+  assert.equal(shown.panes[assistant.id].kind, "panel", "the assistant's pane now holds the Timeline");
+  assert.equal(panelPanesOf(shown).filter(p => p.panelId === "timeline").length, 1, "once, not also in the top row");
+  assert.equal(panelPanesOf(shown).length, before + 1);
+  assert.deepEqual(shown.root, stored.root, "same slot");
+  assert.equal(stored.panes[assistant.id].kind, "assistant", "the input is not changed");
+  // No assistant: a full-width bottom half under everything.
+  const none = withTimeline(withoutAssistant(stored));
+  const timelineId = Object.values(none.panes).find(p => p.kind === "panel" && p.panelId === "timeline")!.id;
+  assert.ok(none.root.type === "split" && none.root.direction === "column" && none.root.children.at(-1)?.type === "pane"
+    && (none.root.children.at(-1) as { id: string }).id === timelineId && none.root.sizes.join() === "50,50");
+});
+
 test("a room with no assistant shows the layout without its assistant pane; the stored layout is untouched", () => {
   const stored = DEFAULT_LAYOUT("running");
   assert.ok(Object.values(stored.panes).some(p => p.kind === "assistant"), "the default has an assistant");

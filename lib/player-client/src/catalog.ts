@@ -472,8 +472,8 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   // ----- rooms -----
   "rooms.create": {
     kind: "mutation", audience: "player",
-    human: { title: "Create a room", tooltip: "Opens a new room on the First steps setup with you as owner, ready to share its invite link." },
-    ai: { description: "Create a room owned by the signed-in human (browser only). It runs the system's First steps setup (setup {id, name}); its AI quotas start at 300,000 tokens per game for the AI players and for each player's assistant; optional aiQuota, assistantQuota (0 = none) and assistantModel set them at creation. AI is used only in rooms whose owner is an administrator." },
+    human: { title: "Create a room", tooltip: "Opens a new room on the Annotated basics setup with you as owner, ready to share its invite link." },
+    ai: { description: "Create a room owned by the signed-in human (browser only). It runs the system's Annotated basics setup (setup {id, name}); its AI quotas start at 300,000 tokens per game for the AI players and for each player's assistant; optional aiQuota, assistantQuota (0 = none) and assistantModel set them at creation. AI is used only in rooms whose owner is an administrator." },
     tools: [], palette: { label: "Create a room", group: "room", keywords: ["new room", "host", "create"], surfaces: SITE },
     why: "A credential is bound to one existing room; rooms are created in the browser.",
   },
