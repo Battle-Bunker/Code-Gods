@@ -6,7 +6,9 @@
  * - `build` (internal action): scheduled by endGame (engine/loop.ts) and by migrations:backfillReplays for games ended
  *   before this existed. Idempotent: a game that has its file is left alone; a build that loses a race deletes its copy.
  * - `url` (query): the file's URL for whoever may watch the replay (the same check as player.replay), with the caller's
- *   place in the roster; `url: null` until it is built (the page pages the log meanwhile).
+ *   place in the roster; `url: null` until it is built (the page pages the log meanwhile). The URL is a capability:
+ *   access is checked when it is handed out, as for any stored file; the replay it holds is what player.replay shows
+ *   that viewer. A build that fails (nothing retries it) leaves the game on the paged replay.
  */
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
@@ -15,14 +17,14 @@ import { internalAction, internalMutation, internalQuery, query } from "./_gener
 import { requireViewer } from "./auth/access";
 import { replayPage, replayableGame } from "./player";
 
-/** The stored file's shape; the page refuses a version it does not know (and pages the log instead). */
+/** The stored file's shape (written in the file); a page that reads another version pages the log instead. */
 export const STORED_REPLAY_VERSION = 1;
 
 export const url = query({
   args: { roomId: v.string(), gameId: v.string() },
   handler: async (ctx, { roomId, gameId }) => {
     const { game, viewer } = await replayableGame(ctx, await requireViewer(ctx), roomId, gameId);
-    return { url: game.replayStorageId ? await ctx.storage.getUrl(game.replayStorageId) : null, version: STORED_REPLAY_VERSION, viewer };
+    return { url: game.replayStorageId ? await ctx.storage.getUrl(game.replayStorageId) : null, viewer };
   },
 });
 

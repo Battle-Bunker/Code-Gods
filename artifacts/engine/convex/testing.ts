@@ -340,7 +340,8 @@ export const cloneEndedGame = internalMutation({
     const [clock, engine] = [await clockDoc(ctx, gameId), await engineDoc(ctx, gameId)];
     for (let i = 0; i < copies; i++) {
       const guid = crypto.randomUUID();
-      const id = await ctx.db.insert("games", { ...strip(game), guid, ...await shortCodeFor(ctx, "games", guid) });
+      // A clone has no stored replay of its own (the source's file names the source game).
+      const id = await ctx.db.insert("games", { ...strip(game), replayStorageId: undefined, guid, ...await shortCodeFor(ctx, "games", guid) });
       if (clock) await ctx.db.insert("gameClocks", { ...strip(clock), gameId: id });
       if (engine) await ctx.db.insert("gameEngine", { ...strip(engine), gameId: id });
       for (const d of deities) await ctx.db.insert("deities", { ...strip(d), gameId: id });

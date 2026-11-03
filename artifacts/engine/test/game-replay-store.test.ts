@@ -2,14 +2,14 @@
  * The stored replay (docs/convex-read-architecture.md §4.4): when a game ends, the engine writes its whole replay log
  * once to file storage, and replays.url gives a permitted viewer its URL. What would break: the stored log differing
  * from what player.replay pages give (the page would replay another game), the URL given to someone the replay
- * refuses (a member who neither played, watched nor owns the room; a signed-out caller) or for a live game, a game
- * ended before the change never getting one (migrations:backfillReplays), or a second run building it again.
+ * refuses (a member who neither played, watched nor owns the room; a signed-out caller) or for a live game.
+ * migrations:backfillReplays is tested with the other migrations (game-schema-migrations.test.ts).
  */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { ConvexHttpClient } from "convex/browser";
 import type { ReplayPage } from "@workspace/player-client/replay";
-import { URL_, admin, api, envelope, gods, internal, rejects, roomWith, startGame, touch, TS, waitFor } from "./game-helpers.ts";
+import { URL_, api, envelope, gods, rejects, roomWith, startGame, touch, TS, waitFor } from "./game-helpers.ts";
 
 const settings = {
   language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Int",
@@ -55,33 +55,4 @@ test("an ended game's replay is stored once: the same pages player.replay gives,
   await late.c.mutation(api.rooms.join, { room: shortCode });
   assert.equal(await rejects(late.c.query(api.replays.url, { roomId, gameId: game.gameId })), await rejects(late.c.query(api.player.replay, { roomId, gameId: game.gameId })));
   assert.ok(await rejects(new ConvexHttpClient(URL_).query(api.replays.url, { roomId, gameId: game.gameId })), "signed out: refused");
-});
-
-test("backfillReplays: a game ended before stored replays gets one; a second run builds nothing again", { timeout: 240_000 }, async () => {
-  const [host, ada, bo] = await gods("Backfill Host", "Backfill Ada", "Backfill Bo");
-  await touch(host);
-  const { roomId } = await roomWith([host, ada, bo], settings);
-  const game = await startGame(host, roomId);
-  await host.c.mutation(api.rooms.endActiveGame, { roomId });
-  await storedUrl(host, roomId, game.gameId);
-  await admin.mutation(internal.testing.forgetReplay, { gameId: game.gameId });
-  assert.equal((await host.c.query(api.replays.url, { roomId, gameId: game.gameId })).url, null, "the fixture is legacy: no stored replay");
-
-  const run = async () => {
-    const since = Date.now();
-    await admin.mutation(internal.migrations.runAll, { reset: true });
-    await waitFor(async () => {
-      const statuses = await admin.query(internal.migrations.status, {}) as { name: string; state: string; latestStart?: number }[];
-      assert.ok(!statuses.some(s => s.state === "failed" || s.state === "canceled"), JSON.stringify(statuses));
-      return statuses.some(s => s.name === "migrations:backfillReplays") && statuses.every(s => s.state === "success" && (s.latestStart ?? 0) >= since);
-    }, "every migration reports success", 120_000, 250);
-  };
-  await run();
-  const first = await storedUrl(host, roomId, game.gameId);
-  const storageId = (await admin.query(internal.testing.rawGameDoc, { gameId: game.gameId })).replayStorageId;
-  assert.ok(storageId);
-  await run();
-  await new Promise(r => setTimeout(r, 2000)); // anything a second run scheduled has run by now
-  assert.equal((await admin.query(internal.testing.rawGameDoc, { gameId: game.gameId })).replayStorageId, storageId, "a second run builds nothing again");
-  assert.ok(first.url);
 });

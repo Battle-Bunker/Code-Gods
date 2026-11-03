@@ -21,46 +21,49 @@ import { PlayerPalette } from "../header";
 import { parseReplayParams, replaySearch } from "./model";
 import { ReplayController, replaySource } from "./controller";
 import { AgentCode, AgentCodeContext, ReplayBar, ReplayControllerContext, useReplayKeys } from "./parts";
-import { pagesFromStored } from "./stored";
+import { STORED_REPLAY_VERSION, pagesFromStored } from "./stored";
 
 type Load = { pages: ReplayPage[]; done: boolean; error?: string };
 const LOADING: Load = { pages: [], done: false };
 const errorText = (error: unknown) => (error as { data?: { message?: string } }).data?.message ?? (error as Error).message;
 
 /**
- * The game's whole replay: the file stored when it ended (replays.url, an immutable record fetched once), or, for a
- * game whose replay is not stored yet (ended before stored replays; migrations:backfillReplays builds it), its pages.
+ * The game's whole replay: the file stored when it ended (replays.url, an immutable record fetched once), or its pages
+ * for a game whose file is not there (ended before stored replays, until migrations:backfillReplays builds it; or its
+ * build failed) or cannot be read (a failed download, another file version).
  */
 export function useReplayLoad(roomId: string, gameId: string): Load {
   const stored = useLive(api.replays.url, { roomId, gameId });
   // The source is chosen once per game: a page opened as the game ends pages its log, and the file stored a moment
-  // later does not rebuild the replay under the viewer.
+  // later does not rebuild the replay under the viewer. A stored file that fails moves it to the pages, once.
   const [source, setSource] = useState<{ gameId: string; stored: boolean } | null>(null);
   const known = stored.data ? { gameId, stored: !!stored.data.url } : null;
   useEffect(() => { if (known && source?.gameId !== gameId) setSource(known); }, [known?.gameId, known?.stored, source?.gameId, gameId]); // eslint-disable-line react-hooks/exhaustive-deps
   const chosen = source?.gameId === gameId ? source : known;
-  const fetched = useStoredReplay(chosen?.stored && stored.data ? stored.data : null);
+  const fetched = useStoredReplay(chosen?.stored && stored.data?.url ? { url: stored.data.url, viewer: stored.data.viewer } : null);
+  const failed = chosen?.stored === true && !!fetched.error;
+  useEffect(() => { if (failed) { console.warn("[replay] stored replay unusable, paging the log:", fetched.error); setSource({ gameId, stored: false }); } }, [failed, gameId]); // eslint-disable-line react-hooks/exhaustive-deps
   const paged = useReplayPages(roomId, gameId, chosen?.stored === false);
   if (stored.error && !chosen) return { pages: [], done: true, error: errorText(stored.error) };
-  if (!chosen) return LOADING;
+  if (!chosen || failed) return LOADING;
   return chosen.stored ? fetched : paged;
 }
 
-/** One fetch of the stored file (no retry: a failure shows the game's final state with the error). */
-function useStoredReplay(stored: { url: string | null; version: number; viewer: ReplayPage["viewer"] } | null): Load {
-  const [load, setLoad] = useState<{ url: string; load: Load } | null>(null);
-  const url = stored?.url ?? null;
+/** One fetch of the stored file; a failure is reported (the caller then pages the log), never retried. */
+function useStoredReplay(stored: { url: string; viewer: ReplayPage["viewer"] } | null): Load {
+  const [load, setLoad] = useState<{ key: string; load: Load } | null>(null);
+  const key = stored ? `${stored.url} ${stored.viewer.godId} ${stored.viewer.index}` : "";
   useEffect(() => {
-    if (!stored || !url) return;
+    if (!stored) return;
     let live = true;
-    void fetch(url).then(r => (r.ok ? r.json() : Promise.reject(new Error(`The stored replay did not download (HTTP ${r.status}).`))))
-      .then(file => pagesFromStored(file, stored.version, stored.viewer))
-      .then(pages => { if (live) setLoad({ url, load: { pages, done: true } }); },
-        error => { if (live) setLoad({ url, load: { pages: [], done: true, error: errorText(error) } }); });
+    void fetch(stored.url).then(r => (r.ok ? r.json() : Promise.reject(new Error(`The stored replay did not download (HTTP ${r.status}).`))))
+      .then(file => pagesFromStored(file, STORED_REPLAY_VERSION, stored.viewer))
+      .then(pages => { if (live) setLoad({ key, load: { pages, done: true } }); },
+        error => { if (live) setLoad({ key, load: { pages: [], done: true, error: errorText(error) } }); });
     return () => { live = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [url]);
-  return load?.url === url ? load.load : LOADING;
+  }, [key]);
+  return load?.key === key ? load.load : LOADING;
 }
 
 /**

@@ -4,6 +4,9 @@
  */
 import type { ReplayPage } from "@workspace/player-client/replay";
 
+/** The file version this page reads (engine replays.ts STORED_REPLAY_VERSION); another version pages the log instead. */
+export const STORED_REPLAY_VERSION = 1;
+
 export function pagesFromStored(file: unknown, version: number, viewer: ReplayPage["viewer"]): ReplayPage[] {
   const f = file as { version?: unknown; pages?: unknown } | null;
   if (!f || typeof f !== "object" || !Array.isArray(f.pages)) throw new Error("The download is not a stored replay.");

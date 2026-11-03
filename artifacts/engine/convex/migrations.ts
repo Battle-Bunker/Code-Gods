@@ -24,8 +24,9 @@
  *    the new code already wrote (game/state.ts writeGame splits on its first write) only gets what it lacks. Narrowed
  *    later: the hot fields leave the games validator, and game/state.ts's legacy fallbacks go.
  *  - backfillReplays (games; read-architecture §4.4): an ended game without a stored replay gets its build scheduled
- *    (convex/replays.ts build, which endGame schedules for every game ending since). Nothing to narrow: once every
- *    deployment reports it done, the replay page's paging fallback goes (only a failed build would still use it).
+ *    (convex/replays.ts build, which endGame schedules for every game ending since). Its success means scheduled, not
+ *    built: nothing to narrow in the schema, and the replay page's paging fallback goes only once no ended game on dev
+ *    and production lacks its file (a failed build is not retried).
  *
  * Older hand-rolled steps, idempotent and run by their own deploy-workflow steps (kept as they are: they predate the
  * component, and porting the Node action setupsV2 buys nothing):
@@ -113,9 +114,10 @@ export const splitGameHotFields = migrations.define({
 
 export const backfillReplays = migrations.define({
   table: "games",
-  // Only schedules: the build (an action) pages the log and stores the file; it leaves a game that has one alone.
+  // Only schedules: the build (an action) pages the log and stores the file; it leaves a game that has one alone. The
+  // builds are spread over a minute, so a deployment with many past games does not start them all at once.
   migrateOne: async (ctx, game) => {
-    if (game.phase === "ended" && !game.replayStorageId) await ctx.scheduler.runAfter(0, internal.replays.build, { gameId: game._id });
+    if (game.phase === "ended" && !game.replayStorageId) await ctx.scheduler.runAfter(Math.floor(Math.random() * 60_000), internal.replays.build, { gameId: game._id });
   },
 });
 
