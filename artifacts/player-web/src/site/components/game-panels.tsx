@@ -1,5 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { ChatMessage, InstanceInfo, ObjectTypeInfo, PublicObject, RosterEntry, Settings, Standing, UtilityFamily } from "@/site/lib/types";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePaginatedQuery } from "convex/react";
+import type { Id } from "@workspace/engine/convex/_generated/dataModel";
+import type { ChatMessage, InstanceInfo, ObjectTypeInfo, RosterEntry, Settings, Standing, UtilityFamily } from "@/site/lib/types";
+import { api, useLive } from "@/site/lib/convex";
+import { VirtualRows } from "@/components/virtual-rows";
 import { EmptyState, Section } from "@/site/components/page-parts";
 import { fmt } from "@/site/lib/errors";
 import { toMs } from "@/site/lib/time";
@@ -43,54 +47,86 @@ export function Leaderboard({ rows, roster, meId, ownerId, agentCount, emptyBody
   );
 }
 
-/** The world's objects, hottest first. Public: only salience (Σ of every player's net bits), never anyone's own score. */
-export function Objects({ objects, instance, emptyBody = "Objects appear once the world begins to run." }: { objects: readonly PublicObject[]; instance?: InstanceInfo; emptyBody?: string }) {
-  const objs = useMemo(() => [...objects].sort((a, b) => b.salience - a.salience), [objects]);
-  const max = Math.max(1, ...objs.map(o => Math.abs(o.salience)));
+/** One page of the game's standings (games.standings): the leaderboard re-renders when the scoreboard is published. */
+export function GameStandings({ gameId, roster, meId, ownerId, emptyBody }: {
+  gameId: string; roster: readonly RosterEntry[]; meId?: string; ownerId?: string | null; emptyBody?: string;
+}) {
+  const standings = useLive(api.games.standings, { gameId: gameId as Id<"games"> }).data;
+  return <Leaderboard rows={standings?.rows ?? []} roster={roster} meId={meId} ownerId={ownerId} agentCount={standings?.agentCount ?? undefined} emptyBody={emptyBody} />;
+}
+
+const OBJECT_ROW_PX = 36;
+const OBJECT_PAGE = 50;
+
+/**
+ * The world's objects, hottest first. Public: only salience (Σ of every player's net bits, with its disclosure noise
+ * while live), never anyone's own score. A skeleton (games.objectIds: ids and salience, paged by the index) and one
+ * subscription per visible row (games.object); rows scrolled out of view unmount and drop theirs.
+ */
+export function Objects({ gameId, instance, emptyBody = "Objects appear once the world begins to run." }: { gameId: string; instance?: InstanceInfo; emptyBody?: string }) {
+  const skeleton = usePaginatedQuery(api.games.objectIds, { gameId: gameId as Id<"games"> }, { initialNumItems: OBJECT_PAGE });
+  const { status, loadMore } = skeleton;
+  // Pages hold disjoint index ranges, so an id is never listed twice; the guard keeps React keys unique regardless.
+  const rows = useMemo(() => { const seen = new Set<string>(); return skeleton.results.filter(r => !seen.has(r.id) && !!seen.add(r.id)); }, [skeleton.results]);
+  const max = Math.max(1, ...rows.slice(0, 1).map(r => Math.abs(r.salience ?? 0)));
   const ctx = objectContext(instance);
+  const more = useCallback(() => { if (status === "CanLoadMore") loadMore(OBJECT_PAGE); }, [status, loadMore]);
   return (
-    <Section title="Objects" count={objs.length}>
+    <Section title="Objects" count={status === "Exhausted" ? rows.length : undefined}>
       <p className="px-4 pt-2 pb-1 text-xs text-muted-foreground">Hottest first. 🔥 <Term id="salience" /> is how many bits all players together see in an object; who likes what stays secret.</p>
-      {objs.length === 0 ? <EmptyState title="No objects yet" body={emptyBody} /> : (
-        <div className="max-h-[560px] overflow-auto">
-          <table className="w-full text-sm">
-            <thead className="sticky top-0 bg-card z-10"><tr className="text-xs text-muted-foreground text-left">
-              <th className="px-4 py-2 font-normal">#</th><th className="py-2 font-normal">Object</th><th className="px-4 py-2 font-normal text-right">🔥</th>
-            </tr></thead>
-            <tbody>
-              {objs.map((o, i) => (
-                <tr key={o.id} className="border-t" data-testid={`row-object-${o.id}`}>
-                  <td className="px-4 py-1.5 font-mono text-muted-foreground align-middle">{i + 1}</td>
-                  <td className="py-1.5 font-mono max-w-[220px] truncate align-middle"><ObjectView value={o.value} {...ctx} showTitle /></td>
-                  <td className="px-4 py-1.5 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <div className="w-12 sm:w-16 h-1.5 bg-muted overflow-hidden"><div className="h-full bg-accent origin-left" style={{ transform: `scaleX(${Math.max(0, o.salience) / max})` }} /></div>
-                      <span className="font-mono tabular-nums w-14 text-right">{fmt(o.salience, 1)}</span>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {status === "LoadingFirstPage" ? <p className="px-4 py-3 text-sm text-muted-foreground" data-testid="status-objects-loading">Loading objects…</p>
+      : rows.length === 0 ? <EmptyState title="No objects yet" body={emptyBody} /> : (<>
+        <div className="grid grid-cols-[3rem_minmax(0,1fr)_auto] text-xs text-muted-foreground border-b">
+          <span className="px-4 py-2">#</span><span className="py-2">Object</span><span className="px-4 py-2 text-right">🔥</span>
         </div>
-      )}
+        <VirtualRows rows={rows} rowHeight={OBJECT_ROW_PX} maxHeight={560} keyOf={r => r.id} onNearEnd={more} testId="list-objects"
+          render={(r, i) => <ObjectRow objectId={r.id} rank={i + 1} max={max} ctx={ctx} />} />
+      </>)}
     </Section>
   );
 }
 
+/** One object row: its own subscription (games.object), held while the row is mounted (visible). */
+function ObjectRow({ objectId, rank, max, ctx }: { objectId: string; rank: number; max: number; ctx: ReturnType<typeof objectContext> }) {
+  const o = useLive(api.games.object, { objectId }).data;
+  return (
+    <div className="grid grid-cols-[3rem_minmax(0,1fr)_auto] items-center h-full border-t text-sm" data-testid={`row-object-${objectId}`}>
+      <span className="px-4 font-mono text-muted-foreground">{rank}</span>
+      <span className="font-mono truncate">{o ? <ObjectView value={o.value} {...ctx} showTitle /> : <span className="text-muted-foreground">…</span>}</span>
+      <span className="px-4 flex items-center justify-end gap-2">
+        <span className="w-12 sm:w-16 h-1.5 bg-muted overflow-hidden"><span className="block h-full bg-accent origin-left" style={{ transform: `scaleX(${o ? Math.min(1, Math.max(0, o.salience) / max) : 0})` }} /></span>
+        <span className="font-mono tabular-nums w-14 text-right">{o ? fmt(o.salience, 1) : ""}</span>
+      </span>
+    </div>
+  );
+}
+
+const CHAT_PAGE = 50;
+
+/** One game's public chat (rooms.chat with its gameId): newest page first, older pages on request. */
+export function GameChat({ roomId, gameId, ...chat }: { roomId: string; gameId: string } & Omit<Parameters<typeof Chat>[0], "messages" | "onOlder">) {
+  const page = usePaginatedQuery(api.rooms.chat, { roomId: roomId as Id<"rooms">, gameId: gameId as Id<"games"> }, { initialNumItems: CHAT_PAGE });
+  const messages = useMemo(() => [...page.results].reverse(), [page.results]);
+  return <Chat {...chat} messages={messages} onOlder={page.status === "CanLoadMore" ? () => page.loadMore(CHAT_PAGE) : undefined} />;
+}
+
 /** Public chat: the only free-text input on the site pages. */
 /** `closed`: why nobody can post here (e.g. the game is over); the composer is replaced by that line. */
-export function Chat({ messages, canPost, placeholder, pending, onSend, title = "Public chat", closed }: {
+/** `onOlder`: loads earlier messages (a paged chat); shown above the oldest one. */
+export function Chat({ messages, canPost, placeholder, pending, onSend, title = "Public chat", closed, onOlder }: {
   messages: readonly ChatMessage[]; canPost: boolean; placeholder: string; pending: boolean;
-  onSend: (text: string, done: () => void) => void; title?: string; closed?: string;
+  onSend: (text: string, done: () => void) => void; title?: string; closed?: string; onOlder?: () => void;
 }) {
   const [text, setText] = useState("");
   const end = useRef<HTMLDivElement>(null);
   const n = messages.length;
-  useEffect(() => { end.current?.scrollIntoView({ block: "nearest" }); }, [n]);
+  const newest = messages.at(-1)?.id;
+  // Follow the newest message (not older pages loading above it).
+  useEffect(() => { end.current?.scrollIntoView({ block: "nearest" }); }, [newest]);
   return (
     <Section title={title}>
       <div className="h-[300px] overflow-auto px-4 py-2 space-y-2">
+        {onOlder && <button type="button" onClick={onOlder} className="text-xs underline underline-offset-4 text-muted-foreground" data-testid="button-chat-older">Earlier messages</button>}
         {n === 0 && <EmptyState title="No messages yet" body="Deals start here. Say hello." />}
         {messages.map(c => (
           <div key={c.id} className={(c.kind as string) === "system" ? "text-xs text-muted-foreground py-1" : "text-sm"} data-testid={`row-chat-${c.id}`}>
