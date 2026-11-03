@@ -106,6 +106,14 @@ test("legacy params (stored before typing) upgrade to today's shape, idempotentl
   assert.deepEqual(upgradeParams("power-hoarder", { p: 5 }, int), { prime: 5 });
   assert.deepEqual(upgradeParams("glyph-glutton", { c: "q" }, str), { char: "q" });
   assert.deepEqual(upgradeParams("palette-keeper", { colours: 4 }, str), { distinct_chars: 4 });
+  // A set param: Bingo Caller's called ranks, stored by name in rank order (was rank indices).
+  assert.deepEqual(upgradeParams("bingo_caller", { called: [0, 4, 9, 12] }, cards), { called: ["A", "5", "10", "K"] });
+  const bingo = family("bingo_caller").params!(context(b12))[0];
+  assert.equal(bingo.kind, "set");
+  assert.equal(bingo.size, 4);
+  assert.equal(paramsInDomain([bingo], { called: ["0", "3", "A", "B"] }), true);
+  assert.equal(paramsInDomain([bingo], { called: ["3", "0", "A", "B"] }), false, "out of order");
+  assert.equal(paramsInDomain([bingo], { called: ["0", "0", "A", "B"] }), false, "repeated");
   assert.deepEqual(upgradeDescriptor({ familyId: "kingdom", params: { C: 0 }, penalty: { familyId: "hate_colour", params: { colour: 2 } } }, rgb),
     { familyId: "kingdom", params: { colour: "red" }, penalty: { familyId: "hate_colour", params: { colour: "blue" } } });
 });

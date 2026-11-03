@@ -18,7 +18,9 @@ export type ParamType =
   | { readonly kind: "symbol" }
   | { readonly kind: "int"; readonly min: number; readonly max: number }
   | { readonly kind: "choice"; readonly options: readonly (readonly [value: ParamJson, label: string])[] }
-  | { readonly kind: "bool" };
+  | { readonly kind: "bool" }
+  /** A fixed number of distinct options, stored as a list in the options' order (Bingo Caller's called ranks). */
+  | { readonly kind: "set"; readonly size: number; readonly options: readonly (readonly [value: string, label: string])[] };
 export type ParamKind = ParamType["kind"];
 
 /** One declared param: its type and a plain label ("Your colour", "Magic number"). */
@@ -41,6 +43,8 @@ export interface ParamField {
   readonly key: string;
   readonly label: string;
   readonly kind: ParamKind;
+  /** Sets only: how many distinct elements a value holds. */
+  readonly size?: number;
   readonly options: readonly ParamOption[];
 }
 
@@ -49,6 +53,8 @@ export const symbolParam = (label: string): ParamDecl => ({ kind: "symbol", labe
 export const intParam = (label: string, min: number, max: number): ParamDecl => ({ kind: "int", label, min, max });
 export const boolParam = (label: string): ParamDecl => ({ kind: "bool", label });
 export const choiceParam = (label: string, options: readonly (readonly [ParamJson, string])[]): ParamDecl => ({ kind: "choice", label, options });
+/** `size` distinct values out of `options`, stored in the options' order. */
+export const setParam = (label: string, size: number, options: readonly (readonly [string, string])[]): ParamDecl => ({ kind: "set", label, size, options });
 /** A choice among a fixed list of values, each labelled by itself (or `labelOf`): Power Hoarder's primes 2, 3, 5, 7. */
 export const valuesParam = <T extends ParamJson>(label: string, values: readonly T[], labelOf: (v: T) => string = v => String(v)): ParamDecl =>
   choiceParam(label, values.map(v => [v, labelOf(v)] as const));
@@ -78,22 +84,34 @@ export function paramOptions(decl: ParamDecl, inst: Instantiation): ParamOption[
     case "int": return Array.from({ length: Math.max(0, decl.max - decl.min + 1) }, (_, i) => ({ value: decl.min + i, label: String(decl.min + i) }));
     case "choice": return decl.options.map(([value, label]) => ({ value, label }));
     case "bool": return [{ value: false, label: "no" }, { value: true, label: "yes" }];
+    // A set's options are its elements; a value is a list of `size` of them (`paramsInDomain` checks it).
+    case "set": return decl.options.map(([value, label]) => ({ value, label }));
   }
 }
 
 /** A family's declaration resolved against an instantiation, in declaration order. */
 export function resolveParams(decls: { readonly [key: string]: ParamDecl }, inst: Instantiation): ParamField[] {
-  return Object.entries(decls).map(([key, d]) => ({ key, label: d.label, kind: d.kind, options: paramOptions(d, inst) }));
+  return Object.entries(decls).map(([key, d]) => ({
+    key, label: d.label, kind: d.kind, options: paramOptions(d, inst), ...(d.kind === "set" ? { size: d.size } : {}),
+  }));
 }
 
 /** Whether every declared param of `params` holds a value of its domain (and nothing undeclared is present). */
 export function paramsInDomain(fields: readonly ParamField[], params: Params): boolean {
   const keys = Object.keys(params);
   if (keys.length !== fields.length || !fields.every(f => keys.includes(f.key))) return false;
-  return fields.every(f => f.options.some(o => same(o.value, params[f.key])));
+  return fields.every(f => (f.kind === "set" ? setInDomain(f, params[f.key]) : f.options.some(o => same(o.value, params[f.key]))));
+}
+
+/** A set value: `size` distinct elements of the field's options, in their order. */
+function setInDomain(f: ParamField, value: unknown): boolean {
+  if (!Array.isArray(value) || value.length !== f.size) return false;
+  const at = value.map(v => f.options.findIndex(o => o.value === v));
+  return at.every((i, k) => i >= 0 && (k === 0 || i > at[k - 1]));
 }
 
 /** How a param's value reads to a person: its option's label ("A (10)"), or the value itself. */
 export function paramLabel(field: ParamField, value: unknown): string {
+  if (field.kind === "set" && Array.isArray(value)) return value.map(v => field.options.find(o => o.value === v)?.label ?? String(v)).join(", ");
   return field.options.find(o => same(o.value, value))?.label ?? String(value);
 }

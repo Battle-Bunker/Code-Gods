@@ -211,14 +211,14 @@ def _bingo_lines(N):
 def bi_ord(g, p, gtype):
     N = gtype.N
     k = rank_key(g.sym, gtype).tolist()
-    called = set(p["called"])
+    called = {rank_at(gtype, n) for n in p["called"]}
     dab = [[k[r][c] in called or (N % 2 == 1 and r == c == N // 2) for c in range(N)] for r in range(N)]
     return sum(map(sum, dab)) + N * sum(all(dab[r][c] for r, c in ln) for ln in _bingo_lines(N))
 
 
 def bi_batch(sym, col, p, gtype):
     N = gtype.N
-    dab = np.isin(rank_key(sym, gtype), p["called"])
+    dab = np.isin(rank_key(sym, gtype), [rank_at(gtype, n) for n in p["called"]])
     if N % 2:
         dab[:, N // 2, N // 2] = True
     lines = dab.all(2).sum(1) + dab.all(1).sum(1) + np.diagonal(dab, axis1=1, axis2=2).all(1) \
@@ -228,19 +228,19 @@ def bi_batch(sym, col, p, gtype):
 
 def bi_sample(rng, gtype):
     k = -(-gtype.ranks // 3)
-    return {"called": sorted(int(x) for x in rng.choice(gtype.ranks, k, replace=False))}
+    return {"called": [rank_name(gtype, r) for r in sorted(int(x) for x in rng.choice(gtype.ranks, k, replace=False))]}
 
 
 BINGO = mk(
     id="bingo_caller", name="Bingo Caller", theme="Dab your called numbers",
     requires=req(), layers={"symbol", "position"}, camp="neutral",
     sample=bi_sample,
-    summary=lambda p, gt: ("Your called numbers are " + ", ".join(sglyph(gt, s) for s in p["called"])
+    summary=lambda p, gt: ("Your called numbers are " + ", ".join(sglyph(gt, rank_at(gt, s)) for s in p["called"])
                            + (" (any suit)" if gt.symbols == "cards" else "") + ". Dab every cell showing one"
                            + (" (the centre is a free space)" if gt.N % 2 else "")
                            + f". Each dab is a point; a full row, column or long diagonal is BINGO for {gt.N} more."),
-    ordinal=bi_ord, batch=bi_batch, canonical=lambda p, gt: {"called": list(range(len(p["called"])))},
-    exemplar=lambda p, gt: grid(np.full((gt.N, gt.N), p["called"][0]), np.zeros((gt.N, gt.N))),
+    ordinal=bi_ord, batch=bi_batch, canonical=lambda p, gt: {"called": [rank_name(gt, r) for r in range(len(p["called"]))]},
+    exemplar=lambda p, gt: grid(np.full((gt.N, gt.N), rank_at(gt, p["called"][0])), np.zeros((gt.N, gt.N))),
     source="catalog#21 (games#11; cards call ranks)", tags={"shortlist"})
 
 

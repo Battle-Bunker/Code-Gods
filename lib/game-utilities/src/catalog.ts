@@ -31,9 +31,7 @@ export function family(id: string): UtilityFamily<any> {
  * requires every other family to declare `params`, and every family here to lack them. The annotated families
  * (Annotated basics) and the defence goals were typed first; the rest are listed in docs/rules-design.md §9.
  */
-export const UNTYPED_FAMILIES: ReadonlySet<string> = new Set<string>([
-  "bingo_caller",
-]);
+export const UNTYPED_FAMILIES: ReadonlySet<string> = new Set<string>([]);
 
 /** Families of one object type, optionally of one role. */
 export const familiesFor = (objectType: string, role?: "reward" | "penalty") =>
