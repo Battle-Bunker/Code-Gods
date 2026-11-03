@@ -29,6 +29,7 @@ export function useOwnerActions() {
   const removeAi = useMutation(api.rooms.removeAi);
   const end = useMutation(api.rooms.endActiveGame);
   const resume = useMutation(api.rooms.resume);
+  const startWorldNow = useMutation(api.rooms.startWorldNow);
   return useMemo(() => {
     const room = roomId as Id<"rooms">;
     const done = (text: string) => <T,>(p: Promise<T>) => p.then(r => { notify(text); return r; }, e => { notifyError(e); return undefined; });
@@ -52,6 +53,7 @@ export function useOwnerActions() {
         return r;
       }, e => { notifyError(e); return undefined; }),
       resume: () => done("Game resumed.")(resume({ roomId: room })),
+      startWorldNow: () => done("The world starts now.")(startWorldNow({ roomId: room })),
       addAi: (templateId: string) => done("AI player seated.")(addAi({ roomId: room, templateId })),
       removeAi: (godId: string) => done("AI player removed.")(removeAi({ roomId: room, godId })),
       setup: async (setupId: string) => {
@@ -62,5 +64,5 @@ export function useOwnerActions() {
       },
       useAiCatalog,
     };
-  }, [roomId, seen, start, settings, addAi, removeAi, end, resume]);
+  }, [roomId, seen, start, settings, addAi, removeAi, end, resume, startWorldNow]);
 }

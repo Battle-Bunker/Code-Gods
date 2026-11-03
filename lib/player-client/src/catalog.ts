@@ -557,6 +557,13 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
     ai: { description: "Owner: end the active game now; its final state is recorded like any other ending. With no game running, ends a preparation (the next game computing its rule tables)." },
     tools: ["end_game"], palette: { label: "End the game now", group: "owner", keywords: ["stop", "finish", "end"], confirm: "modal" },
   },
+  "rooms.startWorldNow": {
+    kind: "mutation", audience: "owner",
+    human: { title: "Start the world now", tooltip: "Ends planning early: the world starts running now." },
+    ai: { description: "Owner: end the planning countdown of the active game early so the world starts now (it still waits for the agents' sandboxes to be ready). CONFLICT when the game is not in planning." },
+    tools: [], palette: { label: "Start the world now", group: "owner", keywords: ["planning", "skip", "begin", "start", "early"] },
+    why: "The owner's page and palette only; the assistant can wait for the countdown.",
+  },
   "rooms.resume": {
     kind: "mutation", audience: "owner",
     human: { title: "Resume the game", tooltip: "Restarts a game stopped in recovery." },

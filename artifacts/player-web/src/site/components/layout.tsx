@@ -125,6 +125,7 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
   const setSpectator = useMutation(api.rooms.setSpectator);
   const start = useAction(api.owner.start);
   const resume = useMutation(api.rooms.resume);
+  const startWorldNow = useMutation(api.rooms.startWorldNow);
   const end = useMutation(api.rooms.endActiveGame);
   const addAi = useMutation(api.rooms.addAi);
   const removeAi = useMutation(api.rooms.removeAi);
@@ -176,6 +177,7 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
     // One click is one requestId; a second click while it is pending sends nothing (the button shows "Starting…").
     start: () => trackStart(startTracker, need(roomId), requestId => start({ roomId: need(roomId), requestId })),
     resume: () => resume({ roomId: need(roomId) }),
+    startWorldNow: () => startWorldNow({ roomId: need(roomId) }),
     endGame: () => end({ roomId: need(roomId) }),
     addAi: templateId => addAi({ roomId: need(roomId), templateId }),
     removeAi: godId => removeAi({ roomId: need(roomId), godId }),

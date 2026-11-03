@@ -99,6 +99,7 @@ export interface EngineActions {
   setSpectator(spectator: boolean, godId?: string): Promise<unknown>;
   start(): Promise<unknown>;
   resume(): Promise<unknown>;
+  startWorldNow(): Promise<unknown>;
   endGame(): Promise<unknown>;
   /** Seat an AI player. */
   addAi(templateId: string): Promise<unknown>;
@@ -172,6 +173,7 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
       : ownerOnly(() => lobby(ais.length ? ok : no("No AI players are seated.")))),
     // With no game running it ends a preparation (the next game computing its rule tables).
     "rooms.endActiveGame": () => ownerOnly(() => running || room!.preparing ? ok : no("No game is running.")),
+    "rooms.startWorldNow": () => ownerOnly(() => running?.phase === "planning" ? ok : no(running ? "The world has started." : "No game is running.")),
     "rooms.resume": () => ownerOnly(() => running?.phase === "recovery" ? ok : no(running ? "The game is not paused for safety." : "No game is running.")),
     "rooms.setAiQuotas": () => (aiOff ? no("AI players are not set up on this server.", { hidden: true }) : notAdminRoom ? no(adminOnly, { hidden: true }) : ownerOnly(() => ok)),
     "rooms.join": () => (!user ? no("Sign in first.") : needRoom(me ? no("You are already in this room.", { hidden: true }) : ok)),
@@ -218,6 +220,7 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
       options: () => ais.map(m => ({ id: m.id, label: m.name, detail: "Press ↵ twice to remove" })), onPick: id => act.removeAi(id) } },
     "rooms.endActiveGame": { kind: "submit", run: act.endGame },
     "rooms.resume": { kind: "submit", run: act.resume },
+    "rooms.startWorldNow": { kind: "submit", run: act.startWorldNow },
   };
 
   const fromCatalog = commandsFromCatalog(CATALOG, path => (path in EXCLUDED ? null : binds[path] ?? null), "site").map(c => {
