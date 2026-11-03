@@ -4,7 +4,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { canOpenGame, configurePath, gamePath, roomPath } from "../src/site/lib/routes.ts";
+import { canOpenGame, configurePath, gamePath, invitedTo, roomPath } from "../src/site/lib/routes.ts";
 
 test("paths nest games in their room and encode every segment", () => {
   assert.equal(roomPath("ABCD"), "/rooms/ABCD");
@@ -24,4 +24,12 @@ test("a past game is linked for its players and the room owner; between games th
   assert.equal(canOpenGame(g(["c"]), 0, { ...viewer, roomLive: false }), true, "the newest between games is the room's current game");
   assert.equal(canOpenGame(g(["c"]), 3, { ...viewer, meId: undefined }), false);
   assert.equal(canOpenGame({ ...g(["c"]), spectators: ["b"] }, 3, viewer), true, "watched it");
+});
+
+test("the sign-in screen names what an invite link opens: its room, or its game in its room", () => {
+  assert.equal(invitedTo("/rooms/abcd"), "Sign in to open room ABCD.");
+  assert.equal(invitedTo("/rooms/ABCD/configure"), "Sign in to open room ABCD.");
+  assert.equal(invitedTo("/rooms/ABCD/games/g9tq"), "Sign in to watch or play game G9TQ in room ABCD.");
+  assert.equal(invitedTo("/"), null);
+  assert.equal(invitedTo("/device"), null);
 });

@@ -179,3 +179,11 @@ test("the palette's lists are live subscriptions: a pick page shows loading, the
   lists.pastGames = { data: [{ shortCode: "WXYZ", startedAt: 1, winners: [{ name: "Ada" }] }], error: null };
   assert.deepEqual(options("ui.nav.pastGame").options?.map(o => o.detail), ["won by Ada"]);
 });
+
+test("Show server info is for signed-in humans only: the engine refuses a signed-out caller (owner decision 2026-11-02)", () => {
+  // Catches: the palette offering a command whose engine call answers UNAUTHENTICATED.
+  const out = avail(scope({ user: null }), "manifest.get");
+  assert.equal(out.ok, false);
+  assert.equal(out.hidden, true);
+  assert.equal(avail(scope({}), "manifest.get").ok, true);
+});

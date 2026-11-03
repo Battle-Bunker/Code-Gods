@@ -397,6 +397,7 @@ Open pages learn of a deploy and update themselves (`lib/player-client/src/updat
 - `games.view({code})` query: the public game view (salience, leaderboard, roster, settings, objectInstance, game chat, winners, utilityCatalog, roomActiveGame, serverTime). `games.resolve({code})` → `{…, status: current|historical|unavailable}`.
 - `activity.touch()` mutation: human activity, which resumes idle-parked games (the assistant's `wake`). `activity.status()` query.
 - `aiTemplates.catalog()` query: the public AI library, without prompts. Admin only: `adminList()`, `create`, `update({id, revision, …})`, `remove({id, revision})`.
+- Sign-in is required for every function a page uses (owner decision 2026-11-02): queries and the actions `manifest.get` and `calibration.node.tables` answer a signed-out caller `UNAUTHENTICATED`. Open by decision: `version.current` (the deploy auto-update), `auth/user.me` (null when signed out), the HTTP routes `/api/health`, `/api/config`, Better Auth, the device flow and OAuth/MCP discovery and registration (`/mcp` itself answers 401 without a token).
 - `manifest.get()` action: object types with their `playable` instantiations (every combination of the type's parameter choices, minus retired shapes; each with `prepare: {toCompute, seconds}|null`, the first game's preparation on this server, and `synergy`, whether the Aligned Lottery has measured synergy there), `offered` (diagnostics: the shapes whose every table is shipped), options, runtimes and AI funding status.
 
 ### Internal twins (principals)

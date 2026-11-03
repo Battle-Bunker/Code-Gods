@@ -32,6 +32,7 @@ export function client(token?: string) {
   return {
     query: (name: string, args: Record<string, unknown> = {}) => c.query(makeFunctionReference<"query">(name), args),
     mutation: (name: string, args: Record<string, unknown> = {}) => c.mutation(makeFunctionReference<"mutation">(name), args),
+    action: (name: string, args: Record<string, unknown> = {}) => c.action(makeFunctionReference<"action">(name), args),
   };
 }
 

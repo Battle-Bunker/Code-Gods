@@ -3,7 +3,6 @@ import { useMutation } from "convex/react";
 import { Page } from "@/site/components/layout";
 import { ErrorLine } from "@/site/components/page-parts";
 import { OwnerAccessWarning, OwnerConsentCheck, permissionDescription } from "@/site/components/grant-review";
-import { SignIn } from "@/site/pages/device";
 import { useAuth } from "@/site/hooks/use-auth";
 import { api, useLive } from "@/site/lib/convex";
 import { connectBlocker, initialConnectChoice, permissionChoices, type Permission } from "@/site/lib/device-approval";
@@ -76,7 +75,7 @@ export default function Connect() {
         <p className="text-muted-foreground mt-3">{d?.permission === "account" ? "An app asks to act as you in every room." : "An app (Claude, a player client, a coding agent) asks to play as you in one room."} Approve only if you started this from that app.</p>
         {!request ? <div className="mt-8"><ErrorLine message="This page needs a connection request. Start again from your app." /></div>
         : isLoading ? null
-        : !isAuthenticated ? <SignIn testId="button-login-connect" />
+        : !isAuthenticated ? null
         : details.isLoading ? <p className="mt-8 text-sm text-muted-foreground">Loading the request…</p>
         : d === null ? <p role="alert" className="mt-8 text-sm text-destructive" data-testid="text-connect-unknown">No connection request is waiting for you here. It may have expired or been decided; start again from your app.</p>
         : d?.permission === "account" ? <AccountRequest d={d} pending={pending} decide={consent => {

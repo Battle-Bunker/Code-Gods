@@ -75,7 +75,9 @@ export async function touch(god: God) { await god.c.mutation(api.activity.touch,
 let warm: Promise<void> | undefined;
 export function sandboxesWarm(): Promise<void> {
   return warm ??= (async () => {
-    const sandboxes: { language: string; state: string; reason?: string }[] = (await admin.action(api.manifest.get, {})).sandboxes;
+    // The manifest is for signed-in callers (the admin key alone carries no identity).
+    const [warmer] = await gods("Sandbox Warmer");
+    const sandboxes: { language: string; state: string; reason?: string }[] = (await warmer.c.action(api.manifest.get, {})).sandboxes;
     const undeployed = sandboxes.find(s => s.state === "failed");
     if (undeployed) throw new Error(`The ${undeployed.language} sandbox cannot boot: ${undeployed.reason}`);
     const languages = sandboxes.map(s => s.language);

@@ -648,15 +648,15 @@ await check("the page runs under its CSP without violations of its own", async (
   assert(own.length === 0, own.slice(0, 2).join(" | "));
 });
 
-await check("a signed-out visit to a game's page offers sign-in, which reaches the provider; no CSP reports", async () => {
+await check("a signed-out visit to a game's page shows the sign-in screen there, which reaches the provider; no CSP reports", async () => {
   const fresh = await browser.newContext();
   const out = await fresh.newPage();
   const reports: string[] = [];
   out.on("console", m => { if (/Content Security Policy/i.test(m.text())) reports.push(m.text()); });
   await out.goto(`${SITE}${GAME_PATH}`);
-  await out.waitForSelector("[data-testid=button-login-game]", { timeout: 60_000 });
+  await out.waitForSelector("[data-testid=button-login]", { timeout: 60_000 });
   assert(new URL(out.url()).pathname === GAME_PATH, `the signed-out page moved: ${out.url()}`);
-  await Promise.all([out.waitForURL(url => !url.href.startsWith(SITE), { timeout: 30_000 }), out.click("[data-testid=button-login-game]")]);
+  await Promise.all([out.waitForURL(url => !url.href.startsWith(SITE), { timeout: 30_000 }), out.click("[data-testid=button-login]")]);
   assert(reports.length === 0, reports.slice(0, 2).join(" | "));
   await fresh.close();
 });

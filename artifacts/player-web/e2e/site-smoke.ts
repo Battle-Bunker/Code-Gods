@@ -633,6 +633,12 @@ try {
     const url = new URL((await google).url());
     assert.equal(url.searchParams.get("redirect_uri"), `${SITE}/api/auth/callback/google`);
     assert.equal(url.searchParams.get("prompt"), "select_account");
+    // Sign-in is required for everything (owner decision 2026-11-02): every path shows the one sign-in screen, in place.
+    for (const path of ["/rooms/ZZZZZZ", "/rooms/ZZZZZZ/configure", "/device?code=ABCD-EFGH", "/admin/agents"]) {
+      await page.goto(`${SITE}${path}`);
+      await page.getByTestId("button-login").waitFor();
+      assert.equal(new URL(page.url()).pathname, path.split("?")[0], `the signed-out page at ${path} moved`);
+    }
     await context.close();
 
     const carol = await signIn(browser, "carol", { width: 1280, height: 900 });

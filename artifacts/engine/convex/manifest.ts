@@ -14,6 +14,7 @@ import { OBJECT_TYPES, instanceInfo, type Instantiation } from "@workspace/game-
 import { analyticFor, coverage, firstUseSeconds, offeredInstantiations, playableInstantiations, synergyFor, type CalibrationManifest } from "@workspace/game-utilities";
 import { VERSION as PLAYER_PROTOCOL } from "@workspace/player-client";
 import { action } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { calibrationManifest } from "./engine/calibration";
 import { priorIds } from "./engine/node";
 import { ensureSandboxes } from "./engine/runtime";
@@ -47,6 +48,8 @@ function objectTypesManifest(calibration: CalibrationManifest) {
 export const get = action({
   args: {},
   handler: async (ctx) => {
+    // Signed-in callers only: it also warms the agent sandboxes, which an anonymous visitor must not boot.
+    await ctx.runQuery(internal.auth.user.requireSignedIn, {});
     const calibration = await calibrationManifest(ctx);
     // Deployed runtimes, without booting any (a cold boot is 1-2 s): opening the settings is also the cheapest moment
     // to warm them (throttled deployment-wide by runtime/readiness.ts), so a start finds them ready.

@@ -21,7 +21,7 @@ import { useRun } from "@/site/hooks/use-run";
 import { useSendChat } from "@/site/hooks/use-chat";
 import { useAuth } from "@/site/hooks/use-auth";
 import { Page, usePage } from "@/site/components/layout";
-import { Action, Tip } from "@/site/components/action";
+import { Tip } from "@/site/components/action";
 import { StepAction } from "@/site/components/step-action";
 import { ErrorLine, NextStepBar, Section } from "@/site/components/page-parts";
 import { Chat, Leaderboard, Objects, SettingsList, UtilityFamilies } from "@/site/components/game-panels";
@@ -159,7 +159,7 @@ function SpectatorView({ game, room }: { game: GameView; room?: { members: reado
 export default function Game() {
   const { roomId: roomCode = "", gameId: code = "" } = useParams<{ roomId: string; gameId: string }>();
   const [location, navigate] = useLocation();
-  const { user, kind, permission, isAuthenticated, isLoading: authLoading, error: authError, refetch: refetchAuth } = useAuth();
+  const { user, kind, permission, isAuthenticated, error: authError, refetch: refetchAuth } = useAuth();
   // One reactive subscription: the public world updates as the engine commits each tick.
   const q = useLive(api.games.view, isAuthenticated && code ? { code } : "skip");
   const game = q.data;
@@ -187,7 +187,7 @@ export default function Game() {
     <Page game={game ?? null} room={room.data ?? null} crumbs={crumbs} placeholder={`Search or do anything in ${game?.shortCode ?? code.toUpperCase()}`}
       suggested={step?.primary ? [step.primary] : []} conn={game ? { ok: !q.error, label: active ? "live" : "final" } : null}>
       {authError ? <div className="mx-auto max-w-lg px-4 py-20"><ErrorLine message={errMsg(authError)} onRetry={() => void refetchAuth()} /></div>
-      : authLoading ? null : !isAuthenticated ? <SignInToWatch code={code} />
+      : !isAuthenticated ? null
       // A game whose room was deleted has no roomId: it is shown without its room.
       : q.isLoading || (game?.roomId && !room.data && !room.error) ? (
         <div className="mx-auto max-w-[1440px] px-6 py-8 space-y-4"><Skeleton className="h-20 w-1/2" /><div className="grid lg:grid-cols-2 gap-4"><Skeleton className="h-80" /><Skeleton className="h-80" /></div></div>
@@ -202,13 +202,3 @@ export default function Game() {
   );
 }
 
-function SignInToWatch({ code }: { code: string }) {
-  const { run } = usePage();
-  return (
-    <div className="mx-auto max-w-lg px-4 py-20 text-center rise space-y-4">
-      <h1 className="font-display text-5xl">Game {code.toUpperCase()}</h1>
-      <p className="text-muted-foreground">Sign in to watch this game.</p>
-      <Action k="ui.auth.signIn" tone="primary" onClick={() => run("ui.auth.signIn")} testId="button-login-game" />
-    </div>
-  );
-}
