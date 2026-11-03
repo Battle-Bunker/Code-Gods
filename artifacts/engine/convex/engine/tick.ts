@@ -26,12 +26,16 @@ import { gameTables } from "./calibration";
 import { cryptoRng, disclosureNoise, openUniform, scoresOf, seasonSalt, uniform01, uniqueSpawn } from "./node";
 import { act, bindRuntime, ensureSandboxes, isAgentFault, runtimeVersion, WORKERS } from "./runtime";
 import { effectiveSandbox, planningEnd } from "../lib/sandboxes";
+import { digestsOf, godTotalsOf } from "../lib/views";
 import { MAX_OBJECTS, MIN_TICK_MS, TICK_SECONDS, planSpawns, agentStatus, pickObject, salienceOf, secondsUntilEligible, settledAccount, commitRaises, disclosedTotalsOf, scoreIntervalOf, scoreboardDue, totalsOf } from "../lib/world";
 
 type Score = Doc<"objects">["scores"][number];
 type Ev = Doc<"tickBatches">["events"][number];
 type ActResult = { calls: string } | { error: string };
 
+/** The others-care scatter (objectDigests) is rewritten at most this often per game (a warm instance remembers when). */
+const DIGEST_MS = 3000;
+const lastDigest = new Map<string, number>();
 /** The previous commit's round trip per game (module scope: a warm instance reports it with the next commit). */
 const lastCommitMs = new Map<string, number>();
 
@@ -216,6 +220,8 @@ export const run = internalAction({
     const simulateMs = performance.now() - started;
     const due = !!game.scoreboard && phase !== "ended" && scoreboardDue(game.scoreboard.world, until, scoreIntervalOf(game));
     const changed = objects.filter(o => o.changed);
+    const scored = changed.length > 0 || spawns.length > 0;
+    const digest = scored && now - (lastDigest.get(gameId) ?? 0) >= DIGEST_MS;
     const commitStarted = Date.now();
     const committed = await ctx.runMutation(internal.engine.loop.commit, {
       ...base, kind: "window",
@@ -230,7 +236,12 @@ export const run = internalAction({
       // re-checks), so an ordinary tick does not pay for them.
       ...(changed.length || spawns.length || due ? { totals: totalsOf(roster, [...objects, ...spawns]) } : {}),
       ...(due ? { disclosedTotals: disclosedTotalsOf(roster, [...objects, ...spawns]) } : {}),
+      // Each god's totals (lib/views.ts) whenever scores changed, and its scatter at most every DIGEST_MS: the snapshot
+      // already holds every object, so the read model costs ≤ 16 small writes, never a read of the world.
+      ...(scored ? { godTotals: godTotalsOf(roster, [...objects, ...spawns], true) } : {}),
+      ...(digest ? { digests: digestsOf(roster, [...objects, ...spawns], true) } : {}),
     });
+    if (digest) lastDigest.set(gameId, now);
     lastCommitMs.set(gameId, Date.now() - commitStarted);
     return committed;
   },

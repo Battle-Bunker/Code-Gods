@@ -9,14 +9,14 @@
 import { v } from "convex/values";
 import type { GameSettings } from "@workspace/game-core";
 import { allowedLanguages, instantiationOf } from "@workspace/game-core";
-import type { Doc } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
+import { paginationOptsValidator } from "convex/server";
 import { internalQuery, query, type QueryCtx } from "./_generated/server";
 import { requireRoomPermission, requireViewer, type Viewer } from "./auth/access";
 import { fail } from "./lib/errors";
 import { buildObservation, currentGame, deityOf, latestBatchSeq, objectsOf } from "./lib/load";
 import { withClock } from "./game/state";
 import { objectInstance, personalObject, projectBatches, replayBatches, trajectories as trajectoriesOf } from "./lib/projection";
-import { pageObjects } from "@workspace/player-client/objects-page";
 import { EVENT_LOG_SCHEMA, viewOfNet } from "./lib/world";
 import { findGame, isHistoric, principalV, requireHistoricReaderAs, requireMemberAs, requireRoom, viewerOf } from "./lib/rooms";
 import { publicGameView } from "./games";
@@ -281,16 +281,134 @@ export const objectsPageAs = internalQuery({
   handler: async (ctx, { principal, ...args }) => objectsPageFor(ctx, await viewerOf(ctx, principal), args),
 });
 export async function objectsPageFor(ctx: QueryCtx, viewer: Viewer, { roomId, ...q }: {
-  roomId: string; sort?: "payoff" | "mine" | "othersCare"; filter?: "all" | "positive" | "contested" | "chips"; after?: { key: number; id: string }; limit?: number;
+  roomId: string; sort?: ObjectSort; filter?: ObjectFilter; after?: { key: number; id: string }; limit?: number;
 }) {
   const room = await requireRoom(ctx, roomId);
   await requireMemberAs(ctx, viewer, room, "read");
   const game = await currentGame(ctx, room);
-  const deity = game ? await deityOf(ctx, game._id, viewer.subject) : null;
-  const live = game?.phase !== "ended";
-  const mine = game && deity ? (await objectsOf(ctx, game._id)).map(o => personalObject(o, viewer.subject, live)).filter(o => o !== null) : [];
-  return pageObjects(mine, q);
+  const empty = { rows: [], next: null, matching: 0, total: 0, sumOwnNetBits: 0, sumPeerNetBits: 0 };
+  if (!game || !game.roster.some(m => m.id === viewer.subject)) return empty;
+  const sort = q.sort ?? "payoff", filter = q.filter ?? "all";
+  const limit = Math.max(1, Math.min(OBJECT_VIEW_PAGE_MAX, Math.floor(q.limit ?? 12)));
+  const key = SORT_FIELD[sort];
+  const range = (from?: { lt?: number; eq?: number }) => viewIndex(ctx, game._id, viewer.subject, sort, filter, from).order("desc");
+  // The page starts strictly after the cursor: the rest of its key's rows (stored order), then the smaller keys.
+  const rows: Doc<"objectViews">[] = [];
+  if (q.after) {
+    // bounded: rows sharing one key (an exact tie) are few; at most a page and one past the cursor.
+    const tied = await range({ eq: q.after.key }).take(limit + 101);
+    const at = tied.findIndex(r => r.objectId === q.after!.id);
+    rows.push(...(at < 0 ? tied.filter(r => r.objectId > q.after!.id) : tied.slice(at + 1)).slice(0, limit + 1));
+  }
+  if (rows.length <= limit) rows.push(...await range(q.after ? { lt: q.after.key } : undefined).take(limit + 1 - rows.length));
+  const page = rows.slice(0, limit);
+  const totals = await ctx.db.query("godTotals").withIndex("by_game_god", t => t.eq("gameId", game._id).eq("godId", viewer.subject)).first();
+  const total = totals?.objectCount ?? 0;
+  const last = page.at(-1);
+  return {
+    // rank: the position in this window's order, counted from the window's first row (the compatibility shape; the
+    // panel's own queries are player.objectIds and player.object).
+    rows: page.map((r, i) => ({ ...objectViewOf(r), rank: i + 1 })),
+    next: last && rows.length > limit ? { key: last[key], id: last.objectId as string } : null,
+    matching: filter === "all" ? total : filter === "chips" ? totals?.chips ?? 0 : totals?.contested ?? 0,
+    total, sumOwnNetBits: totals?.sumOwnNetBits ?? 0, sumPeerNetBits: totals?.sumPeerNetBits ?? 0,
+  };
 }
+
+// ------------------------------------------------------------------------------------------------
+// the per-god object read model (docs/convex-read-architecture.md §4.3): the viewer's own objectViews rows, one index
+// page or one document per query; never another god's row, never the world
+// ------------------------------------------------------------------------------------------------
+
+export type ObjectSort = "payoff" | "mine" | "othersCare";
+export type ObjectFilter = "all" | "positive" | "contested" | "chips";
+const sortV = v.union(v.literal("payoff"), v.literal("mine"), v.literal("othersCare"));
+const filterV = v.union(v.literal("all"), v.literal("positive"), v.literal("contested"), v.literal("chips"));
+/** The most rows one page (or one compatibility window) returns. */
+export const OBJECT_VIEW_PAGE_MAX = 100;
+const SORT_FIELD = { payoff: "payoff", mine: "netBits", othersCare: "peerCare" } as const;
+
+/** The index range of one god's rows in one sort, narrowed by a filter (positive is contested: payoff > 0). */
+function viewIndex(ctx: QueryCtx, gameId: Id<"games">, godId: string, sort: ObjectSort, filter: ObjectFilter, from?: { lt?: number; eq?: number }) {
+  const quadrant = filter === "positive" ? "contested" : filter === "all" ? null : filter;
+  const bound = <Q extends { lt(f: string, x: number): Q; eq(f: string, x: number): Q }>(q: Q, field: string) =>
+    from?.eq !== undefined ? q.eq(field, from.eq) : from?.lt !== undefined ? q.lt(field, from.lt) : q;
+  const views = ctx.db.query("objectViews");
+  if (quadrant) {
+    if (sort === "mine") return views.withIndex("by_game_god_quadrant_netBits", q => bound(q.eq("gameId", gameId).eq("godId", godId).eq("quadrant", quadrant) as any, "netBits"));
+    if (sort === "othersCare") return views.withIndex("by_game_god_quadrant_peer", q => bound(q.eq("gameId", gameId).eq("godId", godId).eq("quadrant", quadrant) as any, "peerCare"));
+    return views.withIndex("by_game_god_quadrant_payoff", q => bound(q.eq("gameId", gameId).eq("godId", godId).eq("quadrant", quadrant) as any, "payoff"));
+  }
+  if (sort === "mine") return views.withIndex("by_game_god_netBits", q => bound(q.eq("gameId", gameId).eq("godId", godId) as any, "netBits"));
+  if (sort === "othersCare") return views.withIndex("by_game_god_peer", q => bound(q.eq("gameId", gameId).eq("godId", godId) as any, "peerCare"));
+  return views.withIndex("by_game_god_payoff", q => bound(q.eq("gameId", gameId).eq("godId", godId) as any, "payoff"));
+}
+
+/** One row as its god sees the object (the observation's object shape). */
+function objectViewOf(r: Doc<"objectViews">) {
+  return {
+    id: r.objectId as string, value: r.value, version: r.version,
+    own: { ordinal: r.ordinal, rewardBits: r.rewardBits, ...(r.penaltyBits !== undefined ? { penaltyBits: r.penaltyBits } : {}), netBits: r.netBits },
+    peerNetBits: r.peerNetBits, peerCare: r.peerCare, payoff: r.payoff,
+  };
+}
+
+/**
+ * The objects panel's skeleton: one page of the viewer's objects in `sort` order, highest first (or lowest, `dir:
+ * "asc"`), narrowed by `filter`, as ids and the sort key. Each visible row reads its object with player.object.
+ * Only the viewer's own rows are read: a viewer without a seat in the game gets an empty page.
+ */
+export const objectIds = query({
+  args: { gameId: v.id("games"), sort: v.optional(sortV), filter: v.optional(filterV), dir: v.optional(v.union(v.literal("desc"), v.literal("asc"))), paginationOpts: paginationOptsValidator },
+  handler: async (ctx, { gameId, sort = "payoff", filter = "all", dir = "desc", paginationOpts }) => {
+    const viewer = await requireViewer(ctx);
+    const page = await viewIndex(ctx, gameId, viewer.subject, sort, filter).order(dir)
+      .paginate({ ...paginationOpts, numItems: Math.max(1, Math.min(OBJECT_VIEW_PAGE_MAX, Math.floor(paginationOpts.numItems))) });
+    const key = SORT_FIELD[sort];
+    return { ...page, page: page.page.map(r => ({ id: r.objectId as string, key: r[key] })) };
+  },
+});
+
+/** One object as the viewer sees it (its own row): null when the viewer holds no score on it. */
+export const object = query({
+  args: { objectId: v.string() },
+  handler: async (ctx, { objectId }) => {
+    const viewer = await requireViewer(ctx);
+    const id = ctx.db.normalizeId("objects", objectId);
+    const row = id && await ctx.db.query("objectViews").withIndex("by_object_god", q => q.eq("objectId", id).eq("godId", viewer.subject)).first();
+    return row ? objectViewOf(row) : null;
+  },
+});
+
+/** The viewer's top (or bottom, `dir: "asc"`) `n` ≤ 20 objects by `by`, each with its position as `rank`. */
+export const objectsTop = query({
+  args: { gameId: v.id("games"), by: v.optional(sortV), n: v.optional(v.number()), dir: v.optional(v.union(v.literal("desc"), v.literal("asc"))) },
+  handler: async (ctx, { gameId, by = "payoff", n = 10, dir = "desc" }) => {
+    const viewer = await requireViewer(ctx);
+    const rows = await viewIndex(ctx, gameId, viewer.subject, by, "all").order(dir).take(Math.max(1, Math.min(20, Math.floor(n))));
+    return rows.map((r, i) => ({ ...objectViewOf(r), rank: i + 1 }));
+  },
+});
+
+/** The viewer's totals over every object (as disclosed): count, score (Σ payoff), Σ own and others' bits, quadrants. */
+export const totals = query({
+  args: { gameId: v.id("games") },
+  handler: async (ctx, { gameId }) => {
+    const viewer = await requireViewer(ctx);
+    const t = await ctx.db.query("godTotals").withIndex("by_game_god", q => q.eq("gameId", gameId).eq("godId", viewer.subject)).first();
+    return t && { objectCount: t.objectCount, score: t.score, sumOwnNetBits: t.sumOwnNetBits, sumPeerNetBits: t.sumPeerNetBits, contested: t.contested, chips: t.chips };
+  },
+});
+
+/** The viewer's others-care scatter: own net bits and the others' sum (as disclosed) of every object, refreshed every few seconds. */
+export const objectDigest = query({
+  args: { gameId: v.id("games") },
+  handler: async (ctx, { gameId }) => {
+    const viewer = await requireViewer(ctx);
+    const d = await ctx.db.query("objectDigests").withIndex("by_game_god", q => q.eq("gameId", gameId).eq("godId", viewer.subject)).first();
+    return d && { own: d.own, peer: d.peer };
+  },
+});
 
 /**
  * The caller's OWN utility descriptor for the current game, with what a client needs to run

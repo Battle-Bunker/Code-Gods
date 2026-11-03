@@ -88,6 +88,7 @@ import type * as lib_programs from "../lib/programs.js";
 import type * as lib_projection from "../lib/projection.js";
 import type * as lib_rooms from "../lib/rooms.js";
 import type * as lib_sandboxes from "../lib/sandboxes.js";
+import type * as lib_views from "../lib/views.js";
 import type * as lib_world from "../lib/world.js";
 import type * as manifest from "../manifest.js";
 import type * as migrations from "../migrations.js";
@@ -206,6 +207,7 @@ declare const fullApi: ApiFromModules<{
   "lib/projection": typeof lib_projection;
   "lib/rooms": typeof lib_rooms;
   "lib/sandboxes": typeof lib_sandboxes;
+  "lib/views": typeof lib_views;
   "lib/world": typeof lib_world;
   manifest: typeof manifest;
   migrations: typeof migrations;

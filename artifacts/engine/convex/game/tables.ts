@@ -228,6 +228,46 @@ export const gameTables = {
     agentCount: v.number(), objectCount: v.number(),
   }).index("by_game_seq", ["gameId", "seq"]),
 
+  /**
+   * PRIVATE to `godId`: one object as that god sees it now (read-architecture §4.1, §4.3), one row per roster god per
+   * object, written by the commit that changes the object (game/readModel.ts syncObjectViews), filled when the game
+   * starts and made exact when it ends. Only the owning god's queries read a row: other gods' scores never leave the
+   * server. `peerNetBits` carries the value's disclosure noise while live (as the observation discloses it); `quadrant`
+   * is the panel's filter (contested: yours > 0 and others care, which is exactly payoff > 0; chips: others care and
+   * yours ≤ 0; other), so each filter and sort is one index range.
+   */
+  objectViews: defineTable({
+    gameId: v.id("games"), godId: v.string(), objectId: v.id("objects"), value: wire, version: v.number(),
+    ordinal, rewardBits: v.number(), penaltyBits: v.optional(v.number()), netBits: v.number(),
+    peerNetBits: v.number(), peerCare: v.number(), payoff: v.number(),
+    quadrant: v.union(v.literal("contested"), v.literal("chips"), v.literal("other")),
+  }).index("by_object_god", ["objectId", "godId"])
+    .index("by_game_god_payoff", ["gameId", "godId", "payoff"])
+    .index("by_game_god_netBits", ["gameId", "godId", "netBits"])
+    .index("by_game_god_peer", ["gameId", "godId", "peerCare"])
+    .index("by_game_god_quadrant_payoff", ["gameId", "godId", "quadrant", "payoff"])
+    .index("by_game_god_quadrant_netBits", ["gameId", "godId", "quadrant", "netBits"])
+    .index("by_game_god_quadrant_peer", ["gameId", "godId", "quadrant", "peerCare"]),
+
+  /**
+   * PRIVATE to `godId`: that god's totals over every object, as disclosed (read-architecture §4.1, R4), computed by the
+   * tick from its snapshot and written when that god's numbers change: Σ own net bits, Σ the others' sums, the score
+   * (Σ payoff, the observation's self.score) and the quadrant counts. Never an exact payoff while live: a total of
+   * exact payoffs would disclose the exact others' sum of whichever object changed between two commits.
+   */
+  godTotals: defineTable({
+    gameId: v.id("games"), godId: v.string(), objectCount: v.number(), score: v.number(),
+    sumOwnNetBits: v.number(), sumPeerNetBits: v.number(), contested: v.number(), chips: v.number(),
+  }).index("by_game_god", ["gameId", "godId"]),
+
+  /**
+   * PRIVATE to `godId`: the others-care scatter's points (read-architecture §4.1): own net bits and the others' sum (as
+   * disclosed) of every object, as two parallel arrays. Rewritten by the tick at most every few seconds.
+   */
+  objectDigests: defineTable({
+    gameId: v.id("games"), godId: v.string(), own: v.array(v.number()), peer: v.array(v.number()),
+  }).index("by_game_god", ["gameId", "godId"]),
+
   deities: defineTable({
     gameId: v.id("games"), godId: v.string(), index: v.number(),
     /** PRIVATE: the dealt utility descriptor and its kid card (shown to its own god only). */

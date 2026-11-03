@@ -12,7 +12,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
 import { eventV, scoreV } from "../game/tables";
 import { liveGame, withEngine, writeGame, type LiveGame } from "../game/state";
-import { publicSalienceOf } from "../game/readModel";
+import { publicSalienceOf, syncObjectViews, writeDigests, writeGameAggregates, writeGodTotals } from "../game/readModel";
 import { gameRecord } from "../lib/projection";
 import { AI_LOBBY_STATUS, isIdle, lastHumanActivity, membersOf } from "../lib/rooms";
 import { EVENT_LOG_SCHEMA, EVENTS_PER_BATCH, LEASE_MS, MIN_TICK_MS, scoreIntervalOf, scoreboardDue, totalsOf } from "../lib/world";
@@ -102,7 +102,9 @@ export async function endGame(ctx: MutationCtx, game: LiveGame, reason: "lifetim
   });
   // The ended game never changes again: its whole replay is stored once, after this commit (convex/replays.ts).
   await ctx.scheduler.runAfter(0, internal.replays.build, { gameId: game._id });
-  // Its disclosure is exact from now on: the public salience loses the live noise (paged, off this commit).
+  // Its disclosure is exact from now on: each god's totals and scatter now (≤ 16 docs), and the public salience and
+  // each god's object rows paged, off this commit.
+  await writeGameAggregates(ctx, ended, objects, false);
   await ctx.scheduler.runAfter(0, internal.game.readModel.finalizeObjects, { gameId: game._id, cursor: null });
   const room = await ctx.db.get(game.roomId);
   if (room && room.activeGameId === game._id) {
@@ -191,6 +193,10 @@ export const commit = internalMutation({
     totals: v.optional(v.array(v.number())),
     /** The same as disclosed live (payoffs from the noisy peers' sums): the scoreboard, published when due. */
     disclosedTotals: v.optional(v.array(v.number())),
+    /** Each roster god's totals after the window, as disclosed live (lib/views.ts godTotalsOf), when objects changed. */
+    godTotals: v.optional(v.array(v.object({ godId: v.string(), objectCount: v.number(), score: v.number(), sumOwnNetBits: v.number(), sumPeerNetBits: v.number(), contested: v.number(), chips: v.number() }))),
+    /** Each roster god's scatter points after the window (lib/views.ts digestsOf), at most every few seconds. */
+    digests: v.optional(v.array(v.object({ godId: v.string(), own: v.array(v.number()), peer: v.array(v.number()) }))),
     wakeAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
@@ -246,15 +252,22 @@ export const commit = internalMutation({
     for (const change of args.objects) {
       await ctx.db.patch(change.id, { value: change.value, version: change.version, scores: change.scores, salience: change.salience, noise: change.noise,
         publicSalience: publicSalienceOf(change, true) });
+      // Each god's row of it, as disclosed (game/readModel.ts): what the objects panel's rows and skeletons read.
+      await syncObjectViews(ctx, { _id: change.id, gameId: game._id, value: change.value, version: change.version, scores: change.scores, noise: change.noise }, true);
     }
     const ids = new Map<string, string>();
     for (const spawn of args.spawns) {
-      ids.set(spawn.tmp, await ctx.db.insert("objects", { gameId: game._id, value: spawn.value, version: 0, scores: spawn.scores, salience: spawn.salience, ...(spawn.noise !== undefined ? { noise: spawn.noise } : {}),
-        publicSalience: publicSalienceOf(spawn, true) }));
+      const id = await ctx.db.insert("objects", { gameId: game._id, value: spawn.value, version: 0, scores: spawn.scores, salience: spawn.salience, ...(spawn.noise !== undefined ? { noise: spawn.noise } : {}),
+        publicSalience: publicSalienceOf(spawn, true) });
+      ids.set(spawn.tmp, id);
+      await syncObjectViews(ctx, { _id: id, gameId: game._id, value: spawn.value, version: 0, scores: spawn.scores, noise: spawn.noise }, true);
     }
     for (const state of args.agents) {
       if (live.has(state.id)) await ctx.db.patch(state.id, { acts: state.acts, spent: state.spent, account: state.account });
     }
+    // Each god's totals and scatter, computed by the tick from its snapshot (≤ 8 small docs each).
+    if (args.godTotals) await writeGodTotals(ctx, game._id, args.godTotals);
+    if (args.digests) await writeDigests(ctx, game._id, args.digests);
     const resolved = events.map(e => (e.t === "spawn" && ids.has(e.objectId) ? { ...e, objectId: ids.get(e.objectId)! } : e));
     const clock = args.clock!;
     const acts = events.filter(e => e.t === "transform" || e.t === "fail").length;

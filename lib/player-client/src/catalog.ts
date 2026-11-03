@@ -441,8 +441,38 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   "player.objectsPage": {
     kind: "query", audience: "player",
     human: { title: "Scroll the objects", tooltip: "Your objects a page at a time, by payoff, your bits or the others' care." },
-    ai: { description: "A page of the human's objects ordered by payoff, their bits or the others' care (the disclosed, noisy sum while the game is live), with footer totals; the Objects panel's infinite scroll." },
-    tools: [], palette: null, why: "The Objects by payoff panel's infinite scroll; the assistant reads the same numbers through the observation and sets the panel's sort with show_panel.",
+    ai: { description: "A page of the human's objects ordered by payoff, their bits or the others' care (the disclosed, noisy sum while the game is live), with footer totals: the compatibility shape for stored panels, read from the per-god read model one index page at a time." },
+    tools: [], palette: null, why: "Stored panels' compatibility query; the Objects panel reads player.objectIds and player.object, and the assistant reads the same numbers through the observation.",
+  },
+  "player.objectIds": {
+    kind: "query", audience: "player",
+    human: { title: "List your objects", tooltip: "A page of your objects in one order (payoff, your bits or the others' care), as ids." },
+    ai: { description: "One page of the human's object ids in a sort order and filter, with the sort key: the Objects panel's skeleton. The assistant reads the human's objects through the observation." },
+    tools: [], palette: null, why: "The Objects panel's skeleton subscription; the assistant reads the human's objects through the observation.",
+  },
+  "player.object": {
+    kind: "query", audience: "player",
+    human: { title: "Show one of your objects", tooltip: "One object as you see it: your bits, the others' sum and your payoff." },
+    ai: { description: "One object as the human sees it: own ordinal and bits, the others' sum (noisy while live), others' care and payoff. The assistant reads the same through the observation." },
+    tools: [], palette: null, why: "One row of the Objects panel subscribes to it; the assistant reads the same through the observation.",
+  },
+  "player.objectsTop": {
+    kind: "query", audience: "player",
+    human: { title: "Your best objects", tooltip: "Your top (or bottom) objects by payoff, your bits or the others' care." },
+    ai: { description: "The human's top or bottom n ≤ 20 objects by payoff, own bits or others' care, ranked. The assistant reads the same through the observation." },
+    tools: [], palette: null, why: "Panels' top-N subscription; the assistant reads the same through the observation.",
+  },
+  "player.totals": {
+    kind: "query", audience: "player",
+    human: { title: "Your totals", tooltip: "Your score, your bits and the others' over every object, and how many are contested or bargaining chips." },
+    ai: { description: "The human's totals over every object as disclosed: object count, score, Σ own and others' net bits, contested and bargaining-chip counts. The assistant reads the same through the observation." },
+    tools: [], palette: null, why: "Panels' totals subscription; the assistant reads the same through the observation.",
+  },
+  "player.objectDigest": {
+    kind: "query", audience: "player",
+    human: { title: "Your others-care map", tooltip: "Every object's point on your others-care scatter: your bits against the others' sum." },
+    ai: { description: "The human's scatter points: own net bits and the others' sum (as disclosed) of every object, refreshed every few seconds. The assistant reads the same through the observation." },
+    tools: [], palette: null, why: "The others-care scatter's subscription; the assistant reads the same through the observation.",
   },
   "player.series": {
     kind: "query", audience: "player",

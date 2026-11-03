@@ -18,7 +18,7 @@ import { membersOf, principalV, requireOwnerAs, requireRoom, shortCodeFor, viewe
 import { EVENT_LOG_SCHEMA, LEASE_MS, disclosedTotalsOf, totalsOf } from "../lib/world";
 import { roomSetupWrite, type RoomSetupChange } from "../setups";
 import { scoreV } from "./tables";
-import { publicSalienceOf, publishStandings } from "./readModel";
+import { publicSalienceOf, publishStandings, writeGameAggregates } from "./readModel";
 
 /** The second half's watchdog period while tables compute (owner.ts completeStart; finished() normally launches at once). */
 export const PREPARING_WATCHDOG_MS = 60_000;
@@ -236,6 +236,10 @@ export const commitStart = internalMutation({
     const scoreboard = { totals: disclosed, world: 0, at: now };
     await ctx.db.insert("gameClocks", { gameId, worldSeconds: 0, lastTick: now, objectCount: args.objects.length, agentCount: 0, scoreboard });
     await publishStandings(ctx, { _id: gameId, roster }, scoreboard, { agentCount: 0, objectCount: args.objects.length });
+    // Each god's totals and scatter now; each god's object rows a page at a time after this commit (≤ 8 per object
+    // would make the start's transaction too large), before the world runs (game/readModel.ts fillObjectViews).
+    await writeGameAggregates(ctx, { _id: gameId, roster }, args.objects, true);
+    await ctx.scheduler.runAfter(0, internal.game.readModel.fillObjectViews, { gameId, cursor: null });
     await ctx.db.insert("gameEngine", {
       gameId, tick: { seq: 0, leaseUntil: planningEndsAt + LEASE_MS }, nextSpawn: args.nextSpawn, nextBatch: 1,
       stats: { acts: 0, commits: 0, discarded: 0, opportunities: 0 },
