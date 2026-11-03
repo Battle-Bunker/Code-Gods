@@ -64,6 +64,6 @@ mock first (`/mock {json}` scripts in `test/game-assistant.test.ts`); keep live 
   about 273 bits per act; prefer `swapChars`, `add`, or a small `slide`.
 - **A bug fix starts with a failing test** at the cheapest layer that reproduces it. The multi-client e2e found
   three engine bugs; each fix should also gain a fast test.
-- **Before finishing**, run every suite your change can affect: at least the package's own tests, the root
-  `pnpm run typecheck`, and `test:game` for any engine change. Report each by name with pass counts, including
-  failures you didn't cause.
+- **Before finishing**, run your change's selective set once, when it is ready to merge (the `selective-testing`
+  skill picks it from the paths you changed), plus the root `pnpm run typecheck`. Report each suite by name with pass
+  counts, including failures you didn't cause. While you work, run only the file you are writing.
