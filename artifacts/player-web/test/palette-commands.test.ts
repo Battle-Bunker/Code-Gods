@@ -22,7 +22,7 @@ const receipts = new Map<string, readonly string[]>();
 const rec = (name: string) => (...args: unknown[]) => { calls.push(`${name}${args.length ? ` ${JSON.stringify(args)}` : ""}`); return Promise.resolve(); };
 const actions: Actions = {
   submit: rec("submit"), wake: rec("wake"), join: rec("join"), whoami: rec("whoami"), useReceipt: id => receipts.get(id) ?? ["Loading…"], copyObservation: rec("copyObservation"),
-  owner: { start: rec("start"), resume: rec("resume"), endGame: rec("endGame"), addAi: rec("addAi"), removeAi: rec("removeAi"), setup: rec("setup"),
+  owner: { start: rec("start"), resume: rec("resume"), startWorldNow: rec("startWorldNow"), endGame: rec("endGame"), addAi: rec("addAi"), removeAi: rec("removeAi"), setup: rec("setup"),
     useAiCatalog: () => ({ options: [{ id: "sonnet", label: "Sonnet" }] }) },
   panels: { open: rec("openPanel"), openFile: rec("openFile"), setEnabled: rec("setEnabled"), remove: rec("removePanel"), rollback: rec("rollback") },
   assistant: { cancel: rec("cancel"), setAutoApprove: rec("autoApprove"), useThreads: () => ({ options: [{ id: "t1", label: "Earlier" }] }), openThread: rec("openThread"),
@@ -128,6 +128,9 @@ test("owner commands need the owner and the right moment", () => {
   assert.match(reason(preparing, "owner.start", as("lobby")), /preparing/);
   assert.ok(ok(owner("running"), "rooms.endActiveGame", as("running")));
   assert.ok(!ok(owner("lobby"), "rooms.endActiveGame", as("lobby")));
+  assert.ok(ok(owner("planning"), "rooms.startWorldNow", as("planning")));
+  assert.ok(!ok(owner("running"), "rooms.startWorldNow", as("running")), "only during planning");
+  assert.ok(!ok(player, "rooms.startWorldNow", as("planning")), "owner only");
   assert.ok(ok(owner("lobby"), "rooms.addAi", as("lobby")));
   assert.ok(!ok(owner("running"), "rooms.addAi", as("running")), "seats change between games");
   assert.equal(find(owner("running"), "rooms.endActiveGame").confirm, "modal");

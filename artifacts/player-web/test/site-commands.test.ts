@@ -10,7 +10,7 @@ import { EXCLUDED, STEP_IDS, allCatalogSitePaths, codeCommands, engineCommands, 
 const nothing = async () => undefined;
 const act: EngineActions = {
   navigate() {}, openTab() {}, copy() {}, login() {}, logout() {}, createRoom() {}, join: nothing, leave: nothing, setReady: nothing, start: nothing,
-  resume: nothing, endGame: nothing, addAi: nothing, removeAi: nothing, applySetup: async id => { applied.push(id); }, duplicateSetup: async id => { duplicated.push(id); },
+  resume: nothing, startWorldNow: nothing, endGame: nothing, addAi: nothing, removeAi: nothing, applySetup: async id => { applied.push(id); }, duplicateSetup: async id => { duplicated.push(id); },
   useTemplates: () => lists.templates, useAdminTemplates: () => lists.adminTemplates, usePastGames: () => lists.pastGames, useCredentials: () => lists.credentials, revoke: nothing, openSheet() {}, rulesText: () => "rules", serverInfo: () => [], whoAmI: () => [], origin: "https://cg.test",
   setGridRenderer: id => { gridCalls.push(id); },
 };
@@ -52,6 +52,14 @@ test("without AI on the server, AI commands are hidden; seats freeze while a gam
   const g = { shortCode: "G9TQ", phase: "running", roster: [{ id: "ada" }] };
   assert.deepEqual(avail(scope({ room: room(["ada", "ai:x"], g) }), "rooms.removeAi"), { ok: false, reason: "Changes wait until game G9TQ ends." });
   assert.deepEqual(avail(scope({ room: room(["ada"], g) }), "rooms.endActiveGame"), { ok: true });
+});
+
+test("Start the world now is offered to the owner (also a spectating owner) during planning only, never to others or after the world starts", () => {
+  const planning = { shortCode: "G9TQ", phase: "planning", roster: [{ id: "bob" }] }; // ada owns the room and is not in the roster: spectating
+  assert.deepEqual(avail(scope({ room: room(["ada", "bob"], planning) }), "rooms.startWorldNow"), { ok: true });
+  assert.equal(avail(scope({ room: room(["ada", "bob"], { ...planning, phase: "running" }) }), "rooms.startWorldNow").ok, false, "not after the world starts");
+  assert.equal(avail(scope({ room: room(["ada", "bob"]) }), "rooms.startWorldNow").ok, false, "no game");
+  assert.deepEqual(avail(scope({ user: { ...ada, id: "bob" }, room: room(["ada", "bob"], planning) }), "rooms.startWorldNow"), { ok: false, reason: "Only the owner, Ada Lovelace, can do this." });
 });
 
 test("in a room whose owner is not an admin, AI seats and quotas are hidden and Start offers no AI fix; quotas never freeze during games", () => {

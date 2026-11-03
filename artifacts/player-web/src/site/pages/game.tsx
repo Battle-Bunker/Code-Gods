@@ -90,6 +90,7 @@ function OwnerMenu({ game }: { game: GameHeader }) {
       </DropdownMenuTrigger></Tip>
       <DropdownMenuContent align="end">
         {recovery && <DropdownMenuItem onSelect={() => run("rooms.resume")} data-testid="menu-resume">Resume game</DropdownMenuItem>}
+        {game.status === "active" && game.phase === "planning" && !unavailable("rooms.startWorldNow") && <DropdownMenuItem onSelect={() => run("rooms.startWorldNow")} data-testid="menu-start-world-now">Start the world now</DropdownMenuItem>}
         <DropdownMenuItem onSelect={() => setConfirm(true)} disabled={!!unavailable("rooms.endActiveGame")} className="text-destructive" data-testid="button-end-game">End game…</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

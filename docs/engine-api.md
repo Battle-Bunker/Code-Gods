@@ -327,6 +327,7 @@ Every public function above has an entry in `lib/player-client/src/catalog.ts` (
 | `rooms.addAi` | mutation | owner | Add an AI player | Seats an AI player from the library between games; it draws on the room's AI players' quota. | `add_ai` |
 | `rooms.removeAi` | mutation | owner | Remove an AI player | Unseats an AI player between games. | `remove_ai` |
 | `rooms.endActiveGame` | mutation | owner | End the game now | Ends the running game for everyone; its final standings are recorded. | `end_game` |
+| `rooms.startWorldNow` | mutation | owner | Start the world now | Ends planning early: the world starts running now. | — (The owner's page and palette only; the assistant can wait for the countdown.) |
 | `rooms.resume` | mutation | owner | Resume the game | Restarts a game stopped in recovery. | `resume_game` |
 | `setups.list` | query | player | Browse game setups | Every game setup: the system's, then everyone's by name, each with its owner. | `list_setups` |
 | `setups.get` | query | player | Show a game setup | One setup's complete settings, whoever owns it. | `get_setup` |
