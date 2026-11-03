@@ -108,7 +108,7 @@ export const run = internalAction({
     const futile = new FutileMemo(snap.futile);
     // An agent whose sandbox is not ready sits the window out: never picked, never charged, its energy still accrues.
     // A past game's agent in a retired language (game-core RETIRED_LANGUAGES) sits out too: it can no longer act.
-    const agents = snap.agents.filter(a => isLanguage(a.language) && !unready.has(a.language)).map(a => ({ ...a, failures: { ...a.failures }, fromActs: a.acts, touched: false }));
+    const agents = snap.agents.filter(a => isLanguage(a.language) && !unready.has(a.language)).map(a => ({ ...a, failures: { ...a.failures }, lastFailures: { ...a.lastFailures }, fromActs: a.acts, touched: false }));
     const salt = seasonSalt();
 
     // Opportunities: rate × Δt, stochastically rounded; spread evenly over the window.
@@ -116,10 +116,11 @@ export const run = internalAction({
     const count = agents.length && objects.length ? Math.floor(expected) + (uniform01() < expected - Math.floor(expected) ? 1 : 0) : 0;
     type Pending = { object: typeof objects[number]; agent: typeof agents[number]; world: number; before: ObjectValue; seed: bigint };
     let wave: Pending[] = [];
-    let acts = 0, opportunities = 0;
+    let acts = 0, opportunities = 0, applied = 0, exhausted: string | null = null;
 
     const apply = (p: Pending, result: ActResult | null) => {
       if (!result) return; // a host failure (capacity, unavailable): not the agent's fault, nothing is charged
+      applied++;
       const { object, agent } = p;
       let outcome = actOutcome(settings, p.before, result);
       let next: Score[] | undefined;
@@ -143,7 +144,7 @@ export const run = internalAction({
       else {
         agent.failures[kind]++;
         // The last invalid call or runtime error, verbatim (the other kinds say all there is): the diagnosis quotes it.
-        if (kind === "invalid" || kind === "error") agent.lastFailure = ("error" in result ? result.error : outcome.ok ? "" : outcome.reason).slice(0, 300);
+        if (kind === "invalid" || kind === "error") agent.lastFailures[kind] = ("error" in result ? result.error : outcome.ok ? "" : outcome.reason).slice(0, 300);
       }
       const holder = outcome.ok && duplicate ? holders.get(outcome.value) : undefined;
       futile.record(agent.id, object.id, futileAfter({ object, deterministic: "calls" in result && !result.usedRandom, kind,
@@ -191,11 +192,16 @@ export const run = internalAction({
           if (wave.length) { await flush(); continue; }
           break;
         }
-        const pair = pickPair(freeObjects, eligible, os => pickObject(os, settings.objectSelection, uniform01), n => cryptoRng.int(n),
-          (a, o) => futile.isFutile(a.id, o, versionOf));
+        // A world known to have no workable pair (same applied acts, same eligible agents, nothing in flight) is not
+        // searched again: pickPair's fallback scans every object × agent.
+        const key = wave.length ? null : `${applied}:${eligible.map(a => a.id).join()}`;
+        const pair = key !== null && key === exhausted ? null
+          : pickPair(freeObjects, eligible, os => pickObject(os, settings.objectSelection, uniform01), n => cryptoRng.int(n),
+            (a, o) => futile.isFutile(a.id, o, versionOf));
         if (!pair) {
           // Every free object is futile for every eligible agent: the acts in flight may change that; else it passes.
           if (wave.length) { await flush(); continue; }
+          exhausted = key;
           break;
         }
         const { object, agent } = pair;
@@ -251,7 +257,7 @@ export const run = internalAction({
         ...(o.noise !== undefined ? { noise: o.noise } : {}) })),
       spawns: spawns.map(s => ({ ...s, value: s.value as number | string })),
       agents: agents.filter(a => a.touched).map(a => ({ id: a.id as Doc<"agents">["_id"], fromActs: a.fromActs, acts: a.acts, spent: a.spent, account: a.account,
-        transforms: a.transforms, failures: a.failures, ...(a.lastFailure !== undefined ? { lastFailure: a.lastFailure } : {}) })),
+        transforms: a.transforms, failures: a.failures, lastFailures: a.lastFailures })),
       futile: futile.changedRows(versionOf).map(m => ({ agentId: m.agentId as Doc<"agents">["_id"],
         entries: m.entries as { o: Doc<"objects">["_id"]; v: number; by?: Doc<"objects">["_id"]; bv?: number }[] })),
       events, stats: { opportunities, acts, simulateMs, prevCommitMs: lastCommitMs.get(gameId) }, wakeAt,

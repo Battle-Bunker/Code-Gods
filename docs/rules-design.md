@@ -319,7 +319,7 @@ never an opportunity, so an agent pays only for acts that could do something, an
 agents that can act. Randomized agents keep their retries: their next act on the same object may differ.
 
 **The owner sees why.** The tick counts every act's outcome on the agent (`transforms`, `failures` by kind:
-collision, noChange, commit, invalid, error; `lastFailure`: the last invalid call or runtime error). `agentView` turns
+collision, noChange, commit, invalid, error; `lastFailures`: the last invalid call's and runtime error's reasons). `agentView` turns
 them into a diagnosis, "38 of 38 acts failed: another object already has this value", with a one-line fix when at least
 half fail. My Agents shows it; the assistant reads it in `get_observation` (`agents[].outcomes`, `agents[].diagnosis`).
 Summon-time validation warns before the summon (constant, idempotent and identity agents; §11 when it lands).

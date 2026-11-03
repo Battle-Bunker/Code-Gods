@@ -4,7 +4,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { FutileMemo, diagnoseAgent, futileAfter, pickPair, failureKind } from "../../convex/lib/futility.ts";
+import { FutileMemo, MAX_FUTILE_PER_AGENT, diagnoseAgent, futileAfter, pickPair, failureKind } from "../../convex/lib/futility.ts";
 
 const obj = (id: string, version = 0) => ({ id, version });
 
@@ -86,7 +86,8 @@ test("failureKind sorts the engine's failure reasons into the breakdown's kinds"
   assert.equal(failureKind("another object already has this value"), "collision");
   assert.equal(failureKind("no change"), "noChange");
   assert.equal(failureKind("the commit clause kept the object: it would not raise your points"), "commit");
-  assert.equal(failureKind("this room does not offer the commit clause"), "commit");
+  // Calling commit() where the room has no commit clause is an invalid act, not the clause keeping the object.
+  assert.equal(failureKind("this room does not offer the commit clause"), "invalid");
   assert.equal(failureKind("call 1 (paint): unknown colour"), "invalid");
 });
 
@@ -99,10 +100,28 @@ test("diagnoseAgent: the owner's failure breakdown, one line on why and a fix", 
   const mixed = diagnoseAgent({ transforms: 10, failures: { ...none, noChange: 25, collision: 5 } })!;
   assert.equal(mixed.summary, "30 of 40 acts failed: the act changed nothing ×25, another object already has this value ×5");
   assert.match(mixed.hint!, /changes nothing more/);
-  const invalid = diagnoseAgent({ transforms: 0, failures: { ...none, invalid: 4 }, lastFailure: "call 1 (paint): unknown colour" })!;
+  const invalid = diagnoseAgent({ transforms: 0, failures: { ...none, invalid: 4 }, lastFailures: { invalid: "call 1 (paint): unknown colour", error: "timed out" } })!;
+  assert.doesNotMatch(invalid.hint!, /timed out/);
   assert.match(invalid.hint!, /unknown colour/);
   // Mostly working: the breakdown, no fix to suggest.
   const fine = diagnoseAgent({ transforms: 30, failures: { ...none, collision: 2 } })!;
   assert.equal(fine.summary, "2 of 32 acts failed: another object already has this value");
   assert.equal(fine.hint, undefined);
+});
+
+test("pickPair finds the one workable object among thousands of futile ones", () => {
+  const objects = Array.from({ length: 2000 }, (_, i) => obj(`o${i}`));
+  const agents = [{ id: "x" }];
+  for (let i = 0; i < 50; i++) {
+    const pair = pickPair(objects, agents, os => os[Math.floor(Math.random() * os.length)], () => 0, (_a, o) => o.id !== "o1234");
+    assert.equal(pair?.object.id, "o1234");
+  }
+});
+
+test("the memo keeps at most MAX_FUTILE_PER_AGENT pairs per agent, forgetting the oldest", () => {
+  const memo = new FutileMemo([]);
+  for (let i = 0; i <= MAX_FUTILE_PER_AGENT; i++) memo.record("x", `o${i}`, { o: `o${i}`, v: 0 });
+  const [row] = memo.changedRows(() => 0);
+  assert.equal(row.entries.length, MAX_FUTILE_PER_AGENT);
+  assert.equal(row.entries[0].o, "o1", "the oldest went");
 });

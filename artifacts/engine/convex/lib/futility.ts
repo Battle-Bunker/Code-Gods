@@ -26,7 +26,7 @@ export const NO_FAILURES: Readonly<Record<FailureKind, number>> = Object.freeze(
 export function failureKind(reason: string): Exclude<FailureKind, "error"> {
   if (reason === "another object already has this value") return "collision";
   if (reason === "no change") return "noChange";
-  if (reason.includes("commit clause")) return "commit";
+  if (reason.startsWith("the commit clause kept")) return "commit";
   return "invalid";
 }
 
@@ -60,7 +60,10 @@ export class FutileMemo {
       return;
     }
     if (!entries) this.byAgent.set(agentId, entries = new Map());
+    // Most recent last: past the cap the oldest entry goes (it is only retried, never wrong).
+    entries.delete(objectId);
     entries.set(objectId, entry);
+    if (entries.size > MAX_FUTILE_PER_AGENT) entries.delete(entries.keys().next().value!);
     this.changed.add(agentId);
   }
   /** The memos to write: agents whose memo changed, without the entries that no longer hold. */
@@ -72,27 +75,29 @@ export class FutileMemo {
   }
 }
 
-/** Objects tried per opportunity before it passes unused (every eligible agent futile on each). */
-export const PAIR_TRIES = 8;
-
 /**
  * One opportunity's pair: the object as the room picks it (`pick`), then a uniformly random eligible agent (`int`)
- * among those whose act on it is not futile. An object every agent is futile on is set aside and another picked, up to
- * PAIR_TRIES objects; null when none has a taker (the opportunity passes and nobody is charged).
+ * among those whose act on it is not futile. When every agent is futile on the picked object, the object is picked
+ * again among the objects some agent is not futile on; null when there is none (the opportunity passes and nobody is
+ * charged).
  */
 export function pickPair<O extends { id: string }, A extends { id: string }>(
-  objects: readonly O[], agents: readonly A[], pick: (objects: O[]) => O, int: (n: number) => number,
-  futile: (agent: A, object: O) => boolean, tries = PAIR_TRIES,
+  objects: O[], agents: readonly A[], pick: (objects: O[]) => O, int: (n: number) => number,
+  futile: (agent: A, object: O) => boolean,
 ): { object: O; agent: A } | null {
-  let pool = [...objects];
-  for (let t = 0; t < tries && pool.length && agents.length; t++) {
-    const object = pick(pool);
+  if (!objects.length || !agents.length) return null;
+  const take = (object: O) => {
     const able = agents.filter(a => !futile(a, object));
-    if (able.length) return { object, agent: able[int(able.length)] };
-    pool = pool.filter(o => o !== object);
-  }
-  return null;
+    return able.length ? { object, agent: able[int(able.length)] } : null;
+  };
+  const first = take(pick(objects));
+  if (first) return first;
+  const workable = objects.filter(o => agents.some(a => !futile(a, o)));
+  return workable.length ? take(pick(workable)) : null;
 }
+
+/** Remembered pairs per agent at most (about 50 KB stored); past it the oldest are forgotten, so only retried. */
+export const MAX_FUTILE_PER_AGENT = 500;
 
 /** Each failure kind as the owner reads it, and what to do about it. */
 const FAILURE_TEXT: Record<FailureKind, { label: string; hint: (last?: string) => string }> = {
@@ -118,19 +123,22 @@ const FAILURE_TEXT: Record<FailureKind, { label: string; hint: (last?: string) =
   },
 };
 
+const lastOf = (kind: FailureKind, last?: { invalid?: string; error?: string }) =>
+  kind === "invalid" ? last?.invalid : kind === "error" ? last?.error : undefined;
+
 /** At least this share of failed acts: the diagnosis suggests a fix. */
 export const FAILING_SHARE = 0.5;
 
 /**
- * The owner's diagnosis of an agent from its counted outcomes (agents.transforms, failures, lastFailure): "38 of 38
+ * The owner's diagnosis of an agent from its counted outcomes (agents.transforms, failures, lastFailures): "38 of 38
  * acts failed: another object already has this value" and, when most acts fail, why and how to fix it. Undefined
  * before any failure.
  */
-export function diagnoseAgent(a: { transforms: number; failures: Record<FailureKind, number>; lastFailure?: string }): { summary: string; hint?: string } | undefined {
+export function diagnoseAgent(a: { transforms: number; failures: Record<FailureKind, number>; lastFailures?: { invalid?: string; error?: string } }): { summary: string; hint?: string } | undefined {
   const kinds = FAILURE_KINDS.filter(k => a.failures[k] > 0).sort((x, y) => a.failures[y] - a.failures[x]);
   if (!kinds.length) return undefined;
   const failed = kinds.reduce((n, k) => n + a.failures[k], 0), counted = failed + a.transforms;
   const why = kinds.length === 1 ? FAILURE_TEXT[kinds[0]].label : kinds.map(k => `${FAILURE_TEXT[k].label} ×${a.failures[k]}`).join(", ");
   const summary = `${failed} of ${counted} acts failed: ${why}`;
-  return failed / counted >= FAILING_SHARE ? { summary, hint: FAILURE_TEXT[kinds[0]].hint(a.lastFailure) } : { summary };
+  return failed / counted >= FAILING_SHARE ? { summary, hint: FAILURE_TEXT[kinds[0]].hint(lastOf(kinds[0], a.lastFailures)) } : { summary };
 }
