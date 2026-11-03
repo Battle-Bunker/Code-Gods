@@ -142,3 +142,10 @@ Coordinator session: session_0119hWTUfnFoGVhQud4gmKNK. All times are AEDT.
   - Grep for conflict markers before every rebase --continue (one slipped into #204's branch; repaired).
   - The full game-utilities and grid-lab suites take 10–15 min: run targeted files.
   - e2e:site isn't run locally; develop CI covers it.
+- Late delivery: the rules worker received the Set Spotter / equal-opportunity brief and the #196 note only after
+  the wrap-up, so neither was acted on. Give the equal-opportunity brief to Thursday's resume in full.
+  - The owner's words: "Parameters should create peer variations within a rule family without any unfair asymmetry
+    in scoring opportunity between them."
+  - Set Spotter's binary diagonals option is the example.
+  - Build an audit test with a shrinking allowlist.
+  - Keep @workspace/game-utilities out of hot query modules; the engine test:unit catches it.
