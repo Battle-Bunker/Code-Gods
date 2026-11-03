@@ -7,6 +7,7 @@ import { useMemo } from "react";
 import type { Instantiation } from "@workspace/game-types";
 import { card as cardOf, context, explainer, family, type Params } from "@workspace/game-utilities";
 import type { UtilityCardLike } from "@workspace/object-views";
+import type { RuleScoring } from "@/site/lib/rule-tables";
 import { galleryObjectTypes, paramFields, setupFields, type GallerySetup } from "@/site/lib/rule-gallery";
 
 export type SourceLanguage = "python" | "typescript";
@@ -83,8 +84,12 @@ export function familyCard(familyId: string, params: Params, inst: Instantiation
   };
 }
 
-/** The draw's explainer on the board (the annotations), or null when the board's type has none. */
-export const familyExplainer = (familyId: string, params: Params, inst: Instantiation) => explainer({ familyId, params }, inst);
+/**
+ * The draw's explainer on the board (the annotations), or null when the board's type has none. With the draw's table
+ * (site/lib/rule-tables.ts) it also explains "How this scores": rarity and bits.
+ */
+export const familyExplainer = (familyId: string, params: Params, inst: Instantiation, scoring?: RuleScoring) =>
+  explainer({ familyId, params }, inst, scoring ? { tables: scoring.tables, netBits: scoring.netBits } : {});
 
 /** The family's plain description for these params. */
 export const familySummary = (familyId: string, params: Params, inst: Instantiation) => family(familyId).summary(params as never, context(inst));
