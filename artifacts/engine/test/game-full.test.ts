@@ -38,12 +38,14 @@ for (const spec of SPECS) for (const language of languages) {
     const game = await startGame(host, roomId);
 
     // Public: values and salience only.
-    let view = await host.c.query(api.games.view, { code: game.shortCode });
-    assert.equal(view.objects.length, 5);
+    let view: any = await host.c.query(api.games.header, { code: game.shortCode });
     assert.equal(view.phase, "planning");
+    const ids = await host.c.query(api.games.objectIds, { gameId: game.gameId, paginationOpts: { numItems: 50, cursor: null } });
+    assert.equal(ids.page.length, 5);
+    const objects = await Promise.all(ids.page.map((r: any) => host.c.query(api.games.object, { objectId: r.id })));
     const codec = codecOf(settings as unknown as GameSettings);
-    assert.ok(view.objects.every((o: any) => codec.isValid(o.value) && typeof o.salience === "number"));
-    for (const leak of ["scores", "netBits", "rewardBits", "ordinal", "deities", "utility", "endAtWorld"]) assert.ok(!JSON.stringify(view).includes(`"${leak}"`), `public view hides ${leak}`);
+    assert.ok(objects.every((o: any) => codec.isValid(o.value) && typeof o.salience === "number"));
+    for (const leak of ["scores", "netBits", "rewardBits", "ordinal", "deities", "utility", "endAtWorld"]) assert.ok(!JSON.stringify([view, ids, objects]).includes(`"${leak}"`), `public view hides ${leak}`);
 
     // Personal: own score, peer aggregates and the kid card; parity with game-core over the raw private scores.
     let obs = observationSchema.parse(await ada.c.query(api.player.observation, { roomId }));
@@ -64,7 +66,7 @@ for (const spec of SPECS) for (const language of languages) {
       near(o.peerCare, expected.peerCare, "peerCare");
       near(o.payoff, expected.payoff, "payoff");
       near(o.peerNetBits, net.get(host.subject)! + net.get(bo.subject)!, "peerNetBits is the sum over the other gods");
-      near(view.objects.find((x: any) => x.id === o.id).salience, salience(net), "salience is Σ net bits");
+      near(objects.find((x: any) => x.id === o.id).salience, salience(net), "salience is Σ net bits");
     }
     const board = leaderboard([host.subject, ada.subject, bo.subject], secret.objects.map((o: any) => new Map(o.scores.map((s: any) => [s.god, s.netBits]))));
     for (const row of board) near(obs.leaderboard.find(l => l.godId === row.godId)!.totalPayoff, row.totalPayoff, "leaderboard parity");
@@ -134,7 +136,8 @@ for (const spec of SPECS) for (const language of languages) {
     assert.equal(obs.agents.length, 0);
     assert.ok(obs.self.energy >= energyBefore, "destroying costs nothing");
     assert.equal((await raw(game.gameId)).agents.length, 1, "Bo's agent lives on");
-    assert.equal((await host.c.query(api.games.view, { code: game.shortCode })).agentCount, 1, "the public view counts live agents");
+    // The live agent count is published with the scoreboard (games.standings), so check it at the next publication.
+    await waitFor(async () => (await host.c.query(api.games.standings, { gameId: game.gameId })).agentCount === 1, "the public standings count live agents", 30_000, 250);
 
     // End by the owner: the public result joins the room's history.
     await host.c.mutation(api.rooms.endActiveGame, { roomId });
@@ -142,7 +145,7 @@ for (const spec of SPECS) for (const language of languages) {
     const record = history.find((h: any) => h.id === game.gameId);
     assert.equal(record.endReason, "owner");
     assert.equal(record.leaderboard.length, 3);
-    view = await host.c.query(api.games.view, { code: game.shortCode });
+    view = await host.c.query(api.games.header, { code: game.shortCode });
     assert.equal(view.status, "ended");
     for (const leak of ["scores", "netBits", "source", "deities", "account"]) {
       assert.ok(!JSON.stringify(history).includes(`"${leak}"`) && !JSON.stringify(view).includes(`"${leak}"`), `history hides ${leak}`);

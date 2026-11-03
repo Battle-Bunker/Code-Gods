@@ -150,7 +150,7 @@ export async function startedGame(owner: God, roomId: string, started: any, ms =
     if (room.preparing?.error) throw new Error(`the game in ${roomId} failed to prepare: ${room.preparing.error}`);
     return room.activeGame;
   }, `the prepared game in ${roomId} starts`, ms, 500);
-  const { guid } = await owner.c.query(api.games.view, { code: game.shortCode });
+  const { guid } = await owner.c.query(api.games.header, { code: game.shortCode });
   return { gameId: game.id, shortCode: game.shortCode, guid };
 }
 

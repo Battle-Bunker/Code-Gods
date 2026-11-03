@@ -32,7 +32,7 @@ test("the owner spectates by default; only players are dealt in and count toward
   // The owner watches: the spectator's projection (unseated), and still runs the game.
   const seen = await host.c.query(api.player.game, { roomId, gameId: game.gameId });
   assert.equal(seen.seated, false);
-  assert.deepEqual((await host.c.query(api.games.view, { code: game.shortCode })).spectators, [host.subject]);
+  assert.deepEqual((await host.c.query(api.games.header, { code: game.shortCode })).spectators, [host.subject]);
   await host.c.mutation(api.rooms.endActiveGame, { roomId });
 });
 

@@ -13,6 +13,12 @@ test("room lobby lifecycle: launch, spectate, end by lifetime, history, second g
   const [host, ada, bo, cy] = await gods("Lobby Host", "Ada Seated", "Bo Seated", "Cy Latecomer");
   await touch(host);
   const { roomId, shortCode } = await roomWith([host, ada, bo]);
+  // The game page's narrow queries (games.ts): its object count (skeleton pages) and its own chat.
+  const objectCount = async (gameId: string) => (await host.c.query(api.games.objectIds, { gameId, paginationOpts: { numItems: 50, cursor: null } })).page.length;
+  const gameChat = async (gameId: string) => {
+    const header = await host.c.query(api.games.header, { code: gameId });
+    return (await host.c.query(api.rooms.chat, { roomId: header.roomId, gameId, paginationOpts: { numItems: 50, cursor: null } })).page;
+  };
   assert.match(shortCode, /^[0-9A-HJKMNP-TV-Z]{4,26}$/);
 
   let room = await host.c.query(api.rooms.get, { room: shortCode });
@@ -50,10 +56,10 @@ test("room lobby lifecycle: launch, spectate, end by lifetime, history, second g
   room = await host.c.query(api.rooms.get, { room: roomId });
   assert.equal(room.activeGame.id, game1.gameId);
   assert.deepEqual(room.activeGame.roster.map((m: any) => m.id).sort(), [host.subject, ada.subject, bo.subject].sort());
-  let view = await host.c.query(api.games.view, { code: game1.shortCode });
+  let view: any = await host.c.query(api.games.header, { code: game1.shortCode });
   assert.equal(view.status, "active");
   assert.equal(view.roomShortCode, shortCode);
-  assert.equal(view.objects.length, 4);
+  assert.equal((await objectCount(game1.gameId)), 4);
   assert.deepEqual(view.winners, []);
   assert.equal((await host.c.query(api.games.resolve, { code: game1.shortCode.toLowerCase() })).status, "current");
   assert.match(await rejects(host.c.action(api.owner.start, { roomId })), /already a live game/);
@@ -76,7 +82,7 @@ test("room lobby lifecycle: launch, spectate, end by lifetime, history, second g
 
   // End by lifetime: the result is recorded in the room's history; the room is a lobby again.
   await admin.mutation(internal.testing.patchGame, { gameId: game1.gameId, patch: { planningEndsAt: Date.now() - 1, endAtWorld: 0.3, nextSpawn: Number.MAX_VALUE }, kick: true });
-  await waitFor(async () => (await host.c.query(api.games.view, { code: game1.gameId })).status === "ended", "the loop ends the game when its lifetime elapses", 30000);
+  await waitFor(async () => (await host.c.query(api.games.header, { code: game1.gameId })).status === "ended", "the loop ends the game when its lifetime elapses", 30000);
   room = await host.c.query(api.rooms.get, { room: roomId });
   assert.equal(room.activeGame, null);
   assert.equal((await host.c.query(api.rooms.list, {})).find((r: any) => r.id === roomId).phase, "lobby");
@@ -96,10 +102,10 @@ test("room lobby lifecycle: launch, spectate, end by lifetime, history, second g
   for (const leak of ["scores", "netBits", "utility", "deities", "aiAgent", "endAtWorld", "source", "prompt"]) {
     assert.ok(!JSON.stringify(history).includes(`"${leak}"`), `history never discloses ${leak}`);
   }
-  view = await host.c.query(api.games.view, { code: game1.shortCode });
+  view = await host.c.query(api.games.header, { code: game1.shortCode });
   assert.equal(view.status, "ended");
   assert.deepEqual(view.winners, record.winners);
-  assert.ok(view.chat.some((m: any) => m.text === "Treaty proposal during game one"), "the game page shows chat sent during play");
+  assert.ok((await gameChat(game1.gameId)).some((m: any) => m.text === "Treaty proposal during game one"), "the game page shows chat sent during play");
   const ended = await ada.c.query(api.player.observation, { roomId });
   assert.equal(ended.phase, "ended", "observations show the final state until the next launch");
 
@@ -116,10 +122,9 @@ test("room lobby lifecycle: launch, spectate, end by lifetime, history, second g
   room = await host.c.query(api.rooms.get, { room: roomId });
   assert.equal(room.activeGame.roster.length, 4, "the latecomer is dealt into the next game");
   assert.equal((await cy.c.query(api.player.observation, { roomId })).seated, true);
-  view = await host.c.query(api.games.view, { code: game2.shortCode });
-  assert.equal(view.objects.length, 2);
-  assert.ok(!view.chat.some((m: any) => m.text === "Treaty proposal during game one"), "each game page shows only its own chat");
-  const old = await host.c.query(api.games.view, { code: game1.guid });
+  assert.equal(await objectCount(game2.gameId), 2);
+  assert.ok(!(await gameChat(game2.gameId)).some((m: any) => m.text === "Treaty proposal during game one"), "each game page shows only its own chat");
+  const old = await host.c.query(api.games.header, { code: game1.guid });
   assert.equal(old.status, "ended", "a previous game stays viewable as its final state");
   assert.equal(old.roomActiveGame.id, game2.gameId, "an old game's page points to the room's newer game");
   assert.equal((await host.c.query(api.games.resolve, { code: game1.shortCode })).status, "historical");
