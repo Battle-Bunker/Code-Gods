@@ -86,7 +86,7 @@ export function publicGame(game: ClockedGame, objects: readonly Obj[]) {
 }
 
 type Chat = Doc<"chat">;
-export const chatView =(m: Chat) => ({ id: m._id, authorId: m.authorId, authorName: m.authorName, kind: m.kind, text: m.text, timestamp: m.timestamp });
+export const chatView = (m: Chat) => ({ id: m._id, authorId: m.authorId, authorName: m.authorName, kind: m.kind, text: m.text, timestamp: m.timestamp });
 
 /** The setup a room runs: its id, its name (live, else as last applied) and whether it was deleted since. */
 export type RoomSetup = { id: string; name: string; deleted: boolean };

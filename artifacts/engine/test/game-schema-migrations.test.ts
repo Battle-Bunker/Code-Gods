@@ -6,6 +6,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
+import { rankTotals } from "@workspace/game-core";
 import { admin, api, internal, raw, roomWith, gods, startGame, touch, waitFor } from "./game-helpers.ts";
 
 const INT_TS = { language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Int", spawnRateHz: 0, startingObjectCount: 3, halfLifeSeconds: 100000 };
@@ -93,9 +94,8 @@ test("games split: a stored game's clock and engine state move to gameClocks/gam
   assert.deepEqual(strip(after.clock), strip(before.clock));
   assert.deepEqual(strip(after.engine), strip(before.engine));
   // Readers see the same game: its final scoreboard and world time.
-  const view = await host.c.query(api.games.view, { code: ended.shortCode });
-  assert.equal(view.worldSeconds, before.clock.worldSeconds);
-  assert.equal(view.leaderboardWorldSeconds, before.clock.scoreboard.world);
+  const standings = await host.c.query(api.games.standings, { gameId: ended.gameId });
+  assert.equal(standings.world, before.clock.scoreboard.world);
 
   // Idempotent: a second run leaves every document as it is.
   await runAll(true);
@@ -146,4 +146,43 @@ test("backfillReplays: ended games stored before stored replays get one; a secon
   // A second run leaves every stored file as it is (the migration skips them; a build would keep the first file).
   await runAll(true);
   assert.deepEqual(await Promise.all(games.map(({ gameId }) => storageOf(gameId))), stored);
+});
+
+test("backfillStandings, backfillPublicSalience: games and objects stored before the spectator read model get it; a second run changes nothing", { timeout: 240_000 }, async () => {
+  const [host, ada, bo] = await gods("ReadModel Mig Host", "ReadModel Mig Ada", "ReadModel Mig Bo");
+  await touch(host);
+  // Noise on: a live game's public salience differs from the exact one. Planning holds the live game (no tick publishes).
+  const noisy = { ...INT_TS, startingObjectCount: 6, peerNoiseBits: 4, planningSeconds: 3600 };
+  const { roomId: endedRoom } = await roomWith([host, ada, bo], noisy);
+  const ended = await startGame(host, endedRoom);
+  await host.c.mutation(api.rooms.endActiveGame, { roomId: endedRoom });
+  const { roomId: liveRoom } = await roomWith([host, ada, bo], noisy);
+  const live = await startGame(host, liveRoom);
+  const rows = (gameId: string) => admin.query(internal.testing.rawReadModels, { gameId });
+  // The ended game's exact salience is written after its end (game/readModel.ts finalizeObjects).
+  await waitFor(async () => (await rows(ended.gameId)).objects.every((o: any) => o.publicSalience === o.salience) || undefined, "the end's exact salience");
+  for (const g of [ended, live]) await admin.mutation(internal.testing.legacyReadModels, { gameId: g.gameId });
+  for (const g of [ended, live]) {
+    const legacy = await rows(g.gameId);
+    assert.deepEqual([legacy.standings, legacy.history], [[], []], "the fixture is legacy: no standings");
+    assert.ok(legacy.objects.every((o: any) => o.publicSalience === undefined), "the fixture is legacy: no public salience");
+  }
+  assert.ok((await rows(live.gameId)).objects.some((o: any) => o.noise !== 0), "the live game's values carry noise");
+
+  await runAll(true);
+  for (const [g, isLive] of [[ended, false], [live, true]] as const) {
+    const after = await rows(g.gameId);
+    const { game } = await raw(g.gameId);
+    const board = game.scoreboard;
+    // Hand: the standings are rankTotals of the stored scoreboard, one history row (seq 0) carrying it.
+    assert.deepEqual(after.standings.map((r: any) => [r.godId, r.rank, r.total, r.world]),
+      rankTotals(game.roster.map((m: any) => m.id), board.totals).map(r => [r.godId, r.rank, r.totalPayoff, board.world]).sort((a, b) => String(a[0]).localeCompare(String(b[0]))));
+    assert.deepEqual(after.history.map((h: any) => [h.seq, h.world, h.totals]), [[0, board.world, board.totals]]);
+    // Catches: a live object showing its exact salience, or an ended one its noisy salience.
+    for (const o of after.objects) assert.equal(o.publicSalience, o.salience + (isLive ? o.noise : 0), `${isLive ? "live" : "ended"} object ${o.id}`);
+  }
+  const first = await Promise.all([ended, live].map(g => rows(g.gameId)));
+  await runAll(true);
+  assert.deepEqual(await Promise.all([ended, live].map(g => rows(g.gameId))), first, "a second run changes nothing");
+  await host.c.mutation(api.rooms.endActiveGame, { roomId: liveRoom });
 });

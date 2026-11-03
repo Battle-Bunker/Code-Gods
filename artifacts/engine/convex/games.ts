@@ -181,7 +181,9 @@ export const object = query({
     const o = id ? await ctx.db.get(id) : null;
     if (!o) { await requireViewer(ctx); return null; }
     const { game } = await readable(ctx, o.gameId);
-    // An object stored before publicSalience (until migrations:backfillPublicSalience has run): computed the same way.
-    return { id: o._id, value: o.value, version: o.version, salience: o.publicSalience ?? publicSalienceOf(o, game.phase !== "ended") };
+    // Exact once the game has ended (before game/readModel.ts finalizeObjects reaches this object too); an object stored
+    // before publicSalience (until migrations:backfillPublicSalience has run) is computed the same way.
+    const live = game.phase !== "ended";
+    return { id: o._id, value: o.value, version: o.version, salience: live ? o.publicSalience ?? publicSalienceOf(o, true) : publicSalienceOf(o, false) };
   },
 });

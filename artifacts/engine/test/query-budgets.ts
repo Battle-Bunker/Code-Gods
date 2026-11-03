@@ -25,6 +25,8 @@ export type Fixture = {
   commandId: string;
   /** An ended game (another room of the same players) whose replay is stored. */
   endedRoomId: string; endedGameId: string;
+  /** One object of the running game. */
+  objectId: string;
 };
 
 export type Debt = {
@@ -80,8 +82,15 @@ export const BUDGETS: Budget[] = [
   { query: "rooms:get", subscribedBy: "site/pages/room.tsx, configure.tsx, game.tsx, core/app.tsx, sdk useRoom", args: f => ({ room: f.roomId }), cold: true },
   { query: "rooms:history", subscribedBy: "site/pages/room.tsx, core/game/past-games.ts", args: f => ({ room: f.roomId }), cold: true },
   { query: "games:resolve", subscribedBy: "lib/player-client catalog (game links)", args: f => ({ code: f.gameCode }), cold: true },
-  { query: "games:view", subscribedBy: "site/pages/game.tsx (spectator view)", args: f => ({ code: f.gameCode }), cold: false,
-    debt: { docs: 1200, bytes: 800 * KiB, ms: 150, why: "PR 3: the whole world for the spectator view (measured 1,019 docs, 566 KiB, 56 ms)" } },
+  { query: "games:header", subscribedBy: "site/pages/game.tsx (routing, the spectator's header)", args: f => ({ code: f.gameCode }), cold: true },
+  { query: "games:standings", subscribedBy: "site/components/game-panels.tsx Leaderboard", args: f => ({ gameId: f.gameId }), cold: false },
+  { query: "games:standingsHistory", subscribedBy: "race series (cursor-paged)", args: f => ({ gameId: f.gameId }), cold: false },
+  { query: "games:instance", subscribedBy: "site/pages/game.tsx (object type, utility catalog)", args: f => ({ gameId: f.gameId }), cold: true },
+  { query: "games:objectIds", subscribedBy: "site/components/game-panels.tsx Objects (skeleton)",
+    args: f => ({ gameId: f.gameId, paginationOpts: { numItems: 50, cursor: null } }), cold: false },
+  { query: "games:object", subscribedBy: "site/components/game-panels.tsx ObjectRow (one per visible row)", args: f => ({ objectId: f.objectId }), cold: false },
+  { query: "rooms:chat", subscribedBy: "site/components/game-panels.tsx Chat (the game's chat)",
+    args: f => ({ roomId: f.roomId, gameId: f.gameId, paginationOpts: { numItems: 50, cursor: null } }), cold: true },
   // ---- the dock -----------------------------------------------------------------------------------------------------
   { query: "layout:current", subscribedBy: "dock/shell.tsx", args: f => ({ roomId: f.roomId }), cold: true,
     debt: { ms: 80, why: "its module loads the zod layout schemas (measured 31-42 ms of user code): split the module" } },

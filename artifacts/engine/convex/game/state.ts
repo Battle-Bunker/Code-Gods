@@ -102,11 +102,13 @@ export async function writeGame(ctx: MutationCtx, game: LiveGame, patch: Partial
     await splitHotFields(ctx, stored, next);
     [clockRow, engineRow] = await Promise.all([clockDoc(ctx, game._id), engineDoc(ctx, game._id)]);
   }
+  // The scoreboard as stored before this write (the caller's `game` may already carry the new one).
+  const published = clockRow?.scoreboard ?? stored?.scoreboard;
   if (Object.keys(header).length) await ctx.db.patch(game._id, header);
   if (clockRow && Object.keys(clock).length) await ctx.db.patch(clockRow._id, clock);
   if (engineRow && Object.keys(engine).length) await ctx.db.patch(engineRow._id, engine);
   // A newly published scoreboard reaches the standings read model in the same commit (game/readModel.ts).
-  if (patch.scoreboard && JSON.stringify(patch.scoreboard) !== JSON.stringify(game.scoreboard)) {
+  if (patch.scoreboard && JSON.stringify(patch.scoreboard) !== JSON.stringify(published)) {
     await publishStandings(ctx, next, patch.scoreboard, { agentCount: next.agentCount, objectCount: next.objectCount });
   }
   return next;

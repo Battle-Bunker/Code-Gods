@@ -37,6 +37,19 @@ test("no player-facing result discloses another god's scores, descriptor, agent 
     return events.some((e: any) => e.t === "transform" && e.ownerId === bo.subject) && events.some((e: any) => e.t === "spawn" && e.world > 0);
   }, "others' transforms and live spawns", 90000);
 
+  // The spectator page's queries (games.ts; read-architecture §4.2): what any signed-in viewer of the game reads.
+  const spectator = async (client: typeof ada.c) => {
+    const objectIds = await client.query(api.games.objectIds, { gameId: game.gameId, paginationOpts: { numItems: 50, cursor: null } });
+    return {
+      header: await client.query(api.games.header, { code: game.shortCode }),
+      standings: await client.query(api.games.standings, { gameId: game.gameId }),
+      standingsHistory: await client.query(api.games.standingsHistory, { gameId: game.gameId }),
+      instance: await client.query(api.games.instance, { gameId: game.gameId }),
+      objectIds,
+      objectRows: await Promise.all(objectIds.page.map((r: any) => client.query(api.games.object, { objectId: r.id }))),
+      chat: await client.query(api.rooms.chat, { roomId, gameId: game.gameId, paginationOpts: { numItems: 50, cursor: null } }),
+    };
+  };
   const collect = async (viewer: typeof ada, client = viewer.c) => {
     const observation = observationSchema.parse(await client.query(api.player.observation, { roomId }));
     return {
@@ -49,7 +62,7 @@ test("no player-facing result discloses another god's scores, descriptor, agent 
       objectsByOthers: await client.query(api.player.objectsPage, { roomId, sort: "othersCare", limit: 2100 }),
       myUtility: await client.query(api.player.myUtility, { roomId }),
       room: await client.query(api.rooms.get, { room: shortCode }),
-      view: await client.query(api.games.view, { code: game.shortCode }),
+      ...await spectator(client),
       roomHistory: await client.query(api.rooms.history, { room: roomId }),
     };
   };
@@ -98,8 +111,8 @@ test("no player-facing result discloses another god's scores, descriptor, agent 
   for (const [label, result] of Object.entries(live)) {
     const json = JSON.stringify(result);
     for (const id of othersAgents) assert.ok(!json.includes(id), `live ${label}: never another god's agent id`);
-    // (rooms.get and games.view name the ROOM's owner; event-bearing results never name an agent's.)
-    if (label !== "room" && label !== "view") for (const g of [bo.subject, host.subject]) assert.ok(!json.includes(`"ownerId":"${g}"`), `live ${label}: never an owner`);
+    // (rooms.get and games.header name the ROOM's owner; event-bearing results never name an agent's.)
+    if (label !== "room" && label !== "header") for (const g of [bo.subject, host.subject]) assert.ok(!json.includes(`"ownerId":"${g}"`), `live ${label}: never an owner`);
   }
   // Transformations reach the viewer with their value change and the viewer's bits (own and the peers' sum only).
   assert.ok(theirs.every((e: any) => "before" in e && "value" in e && "own" in e && "peerNetBits" in e && typeof e.worldSeconds === "number"));
@@ -183,8 +196,9 @@ test("other gods' scores move only when the scoreboard is published; the own sco
   assert.deepEqual(observation.leaderboard.map((r: any) => r.totalPayoff), roster.map((_, i) => start.totals[i]).sort((a, b) => b - a),
     "the leaderboard is still the start's scoreboard");
   assert.equal(observation.leaderboardWorldSeconds, 0);
-  const view = await ada.c.query(api.games.view, { code: game.shortCode });
-  assert.deepEqual(view.leaderboard.map((r: any) => r.totalPayoff).sort(), [...start.totals].sort(), "the public game view too");
+  const standings = await ada.c.query(api.games.standings, { gameId: game.gameId });
+  assert.deepEqual(standings.rows.map((r: any) => r.totalPayoff).sort(), [...start.totals].sort(), "the spectator's standings too");
+  assert.equal(standings.world, 0);
   // The own score is live: the sum of own payoffs now.
   const now = await raw(game.gameId);
   const obs = await ada.c.query(api.player.observation, { roomId });
