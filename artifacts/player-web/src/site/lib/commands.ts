@@ -18,6 +18,7 @@ export { STEP_IDS } from "./next-step.ts";
 /** Client-only commands: the human text every button and palette row of these actions uses. */
 export const UI_COMMANDS = {
   "ui.nav.home": { title: "Your rooms", tooltip: "Every room you created or joined, with its owner and creation date.", group: "room", section: "goto", keywords: ["home", "rooms", "list"] },
+  "ui.nav.ruleGallery": { title: "Rule gallery", tooltip: "Every rule with picture-by-picture explanations, for a board you pick: try their settings and read their code.", group: "help", section: "goto", keywords: ["rules", "gallery", "families", "utility", "goals", "browse"] },
   "ui.nav.room": { title: "Room page", tooltip: "The room this game belongs to: its players, chat and next game.", group: "room", section: "goto", keywords: ["lobby", "back"] },
   "ui.nav.game": { title: "Watch live game", tooltip: "The shared view of the running game: leaderboard, objects and chat.", group: "room", section: "goto", keywords: ["arena", "spectate", "live"] },
   "ui.nav.pastGame": { title: "Open a past game…", tooltip: "The final results of a finished game of this room.", group: "room", section: "goto", keywords: ["results", "history"] },
@@ -237,6 +238,7 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
 
   const uiCommands: Command[] = [
     ui("ui.nav.home", { kind: "navigate", to: "/" }, signedIn),
+    ui("ui.nav.ruleGallery", { kind: "navigate", to: "/rule-gallery" }, signedIn),
     ui("ui.nav.room", { kind: "navigate", to: `/rooms/${roomCode ?? ""}` }, () => (game && roomCode ? ok : no("No room here.", { hidden: true }))),
     ui("ui.nav.game", { kind: "navigate", to: gamePath(roomCode ?? "", running?.shortCode ?? "") }, () => (!room ? no("Open a room first.", { hidden: true }) : running ? ok : no("No game is running."))),
     ui("ui.nav.pastGame", { kind: "form", page: { kind: "pick", title: "Open a past game", empty: "No games have finished in this room yet.",

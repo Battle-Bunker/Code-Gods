@@ -6,7 +6,7 @@
  *   params    one draw of a family: each param a field whose values come from the family's finite support
  *
  * Both pages keep everything in GET params: the type args by their own names (size, symbols, colours; objectType
- * only when it is not Grid) and every family param by its name, so a tile's link opens its family page on exactly
+ * only when it is not Grid), every family param by its name and `lang` for TypeScript source, so a tile's link opens its family page on exactly
  * the board and params the tile showed. Unit tested in test/rule-gallery.test.ts.
  */
 import { instantiate, objectType, seededRng, type Instantiation, type TypeArgs } from "@workspace/game-types";
@@ -88,12 +88,13 @@ export const withParam = (familyId: string, inst: Instantiation, params: Params,
 export const randomParams = (familyId: string, inst: Instantiation, seed: number | string): Params =>
   ({ ...family(familyId).sample(seededRng(seed), context(inst)) });
 
-/** The query string of a setup and (optionally) a family's params. */
-export function gallerySearch(setup: GallerySetup, params: Params = {}): string {
+/** The query string of a setup, (optionally) a family's params, and the source language when it is not Python. */
+export function gallerySearch(setup: GallerySetup, params: Params = {}, language: "python" | "typescript" = "python"): string {
   const q = new URLSearchParams();
   if (setup.objectType !== DEFAULT_TYPE) q.set("objectType", setup.objectType);
   for (const p of objectType(setup.objectType).params) if (setup.typeArgs[p.id] !== undefined) q.set(p.id, String(setup.typeArgs[p.id]));
   for (const [k, v] of Object.entries(params)) q.set(k, String(v));
+  if (language !== "python") q.set("lang", language);
   const s = q.toString();
   return s ? `?${s}` : "";
 }

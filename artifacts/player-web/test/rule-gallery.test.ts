@@ -55,6 +55,7 @@ test("a tile's link carries the board and every param, and the family page reads
     assert.deepEqual(paramsFromSearch(id, inst, search), p, id);
   }
   assert.equal(gallerySearch(setup, { diag: true }), "?size=5&symbols=cards&colours=rgby&diag=true");
+  assert.equal(gallerySearch(setup, { diag: true }, "typescript"), "?size=5&symbols=cards&colours=rgby&diag=true&lang=typescript");
   assert.equal(gallerySearch({ objectType: "Grid", typeArgs: setup.typeArgs }, {}), "?size=5&symbols=cards&colours=rgby", "Grid is the default type");
 });
 

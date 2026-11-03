@@ -50,6 +50,9 @@ function Rooms() {
       <p className="mt-4 text-sm text-muted-foreground">
         Have a code? <button type="button" onClick={() => openPalette()} className="underline underline-offset-4" data-testid="button-open-by-code">Type it in search</button> (Ctrl K or ⌘K).
       </p>
+      <p className="mt-2 text-sm text-muted-foreground">
+        Curious what goals the gods can have? <Link href="/rule-gallery" className="underline underline-offset-4" data-testid="link-rule-gallery">Browse the rule gallery</Link>.
+      </p>
     </div>
   );
 }
