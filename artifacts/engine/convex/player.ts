@@ -9,7 +9,6 @@
 import { v } from "convex/values";
 import type { GameSettings } from "@workspace/game-core";
 import { allowedLanguages, instantiationOf } from "@workspace/game-core";
-import { cardParams, context, family, upgradeDescriptor, type Params, type UtilityDescriptor } from "@workspace/game-utilities";
 import type { Doc } from "./_generated/dataModel";
 import { internalQuery, query, type QueryCtx } from "./_generated/server";
 import { requireRoomPermission, requireViewer, type Viewer } from "./auth/access";
@@ -310,16 +309,17 @@ export async function myUtilityFor(ctx: QueryCtx, viewer: Viewer, { roomId }: { 
     const deity = game ? await deityOf(ctx, game._id, viewer.subject) : null;
     if (!game || !deity) return null;
     const settings = game.settings as GameSettings;
-    const inst = instantiationOf(settings);
-    // LEGACY (typed-params widen step): a god dealt before its family was typed reads as today's until migrated.
-    const utility = upgradeDescriptor(deity.utility as UtilityDescriptor, inst), ctxOf = context(inst);
-    const typed = (familyId: string, params: Params) => cardParams(family(familyId), params, ctxOf) ?? null;
+    // The typed params come from the dealt card (catalog.ts deals them; migrations.ts typedParamsDeities fills older
+    // gods), so this hot query never loads the families library (test/unit/hot-query-bundles.test.ts).
+    type Descriptor = { familyId: string; params: unknown; penalty?: { familyId: string; params: unknown } };
+    const utility = deity.utility as Descriptor;
+    const card = deity.card as { params?: unknown; penalty?: { params?: unknown } } | null;
     return {
       gameId: game._id, godId: viewer.subject,
       utility: { familyId: utility.familyId, params: utility.params, ...(utility.penalty ? { penalty: { familyId: utility.penalty.familyId, params: utility.penalty.params } } : {}) },
       /** The params by name and type, with how each value reads (game-utilities CardParam); null for a family not yet typed. */
-      typedParams: typed(utility.familyId, utility.params),
-      ...(utility.penalty ? { penaltyTypedParams: typed(utility.penalty.familyId, utility.penalty.params) } : {}),
+      typedParams: card?.params ?? null,
+      ...(utility.penalty ? { penaltyTypedParams: card?.penalty?.params ?? null } : {}),
       instantiationKey: instantiationOf(settings).key,
       objectType: settings.objectType, typeArgs: settings.typeArgs, priorId: settings.priorId, penaltyWeight: settings.penaltyWeight,
       language: allowedLanguages(settings)[0], languages: allowedLanguages(settings), settings,
