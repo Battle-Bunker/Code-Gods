@@ -195,7 +195,30 @@ export type ShadeScheme = "light" | "dark";
  * The digits' type: 14 pt (18.67 CSS px) bold or larger is WCAG 2's "large text", which needs 3:1 rather than 4.5:1.
  * `stemEm` is JetBrains Mono Bold's vertical stem width in em, measured from the font (semibold is 0.11).
  */
-export const DIGIT_TYPE = Object.freeze({ px: 19, weight: 700, stemEm: 0.115 });
+export const DIGIT_TYPE = Object.freeze({ px: 19, weight: 700, stemEm: 0.115, lineHeight: 1.1 });
+
+/** The tiles renderer's cell size in px for a grid of this size (views.tsx draws with it). */
+export const compactTilePx = (n: number) => (n <= 5 ? 14 : n <= 7 ? 12 : 10);
+
+/** Rows of a list of objects: one text line for a non-grid object (and the floor for any row), padding top and bottom. */
+export const OBJECT_ROW_LINE_PX = 36;
+const OBJECT_ROW_PAD_PX = 16;
+/** The grid size assumed when a game's settings do not say (the largest the game offers, so rows never overlap). */
+const UNKNOWN_GRID_SIZE = 7;
+
+/**
+ * The height in px of a list row that shows one object whole, whichever Grid renderer the viewer picked: a Grid draws
+ * `size` lines of digits (DIGIT_TYPE) or `size` rows of tiles (1px gaps and border), so its row is the taller of the
+ * two plus padding; any other type is one line. Lists virtualise on a fixed row height, so it is derived from the
+ * game's object type once, not measured per row.
+ */
+export function objectRowHeight(context: { objectType?: string; grid?: { size?: number } } | undefined | null): number {
+  if (context?.objectType !== "Grid") return OBJECT_ROW_LINE_PX;
+  const n = context.grid?.size && context.grid.size > 0 ? context.grid.size : UNKNOWN_GRID_SIZE;
+  const digits = n * DIGIT_TYPE.px * DIGIT_TYPE.lineHeight;
+  const tiles = n * (compactTilePx(n) + 1) + 1;
+  return Math.max(OBJECT_ROW_LINE_PX, Math.ceil(Math.max(digits, tiles)) + OBJECT_ROW_PAD_PX);
+}
 /**
  * The viewing condition the shades are designed for: 60 CSS px per degree of visual angle, a 96 dpi monitor seen from
  * about 90 cm (or a denser laptop panel nearer): "small and distant".
