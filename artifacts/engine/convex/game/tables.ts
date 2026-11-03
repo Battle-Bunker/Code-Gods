@@ -267,9 +267,7 @@ export const gameTables = {
      * had is `version` (the tick adds one per transformation), so there is no separate counter. Nothing here says who.
      */
     lastMutatedAt: v.optional(v.number()),
-  }).index("by_game", ["gameId"]).index("by_game_value", ["gameId", "value"]).index("by_game_salience", ["gameId", "publicSalience"])
-    /** The three public sorts of the Objects panel (read-architecture R1): mutation count, creation time, last mutation time. */
-    .index("by_game_version", ["gameId", "version"]).index("by_game_created", ["gameId", "createdAt"]).index("by_game_mutated", ["gameId", "lastMutatedAt"]),
+  }).index("by_game", ["gameId"]).index("by_game_value", ["gameId", "value"]).index("by_game_salience", ["gameId", "publicSalience"]),
 
   agents: defineTable({
     gameId: v.id("games"), ownerId: v.string(),
