@@ -5,7 +5,7 @@
  */
 import { useMemo } from "react";
 import { instantiate } from "@workspace/game-types";
-import { useGoalExplainer } from "@workspace/object-views";
+import { UtilityCardView, useGoalExplainer } from "@workspace/object-views";
 import { useMutators, useMyCard } from "@/sdk";
 import { GoalCard } from "@/core/goal/goal-card";
 import { PanelEmpty, type PanelProps } from "./kit";
@@ -19,10 +19,11 @@ export default function MyCard({ params }: PanelProps<"my-card">) {
     if (!instance) return null;
     try { return instantiate(instance.objectType, instance.args); } catch { return null; }
   }, [instance?.key]); // eslint-disable-line react-hooks/exhaustive-deps
-  if (!card || !inst) return <PanelEmpty>Your secret goal is dealt when the game starts. Until then, nobody knows what anyone wants.</PanelEmpty>;
+  if (!card) return <PanelEmpty>Your secret goal is dealt when the game starts. Until then, nobody knows what anyone wants.</PanelEmpty>;
   return (
     <div data-testid="panel-utility">
-      <GoalCard key={inst.key} card={card} goal={goal} inst={inst} sourceOpen={params.showSource} />
+      {/* Without the board's type (not yet observed, or unknown to this client) the card shows without its example object. */}
+      {inst ? <GoalCard key={inst.key} card={card} goal={goal} inst={inst} sourceOpen={params.showSource} /> : <UtilityCardView card={card} goal={goal} sourceOpen={params.showSource} />}
     </div>
   );
 }

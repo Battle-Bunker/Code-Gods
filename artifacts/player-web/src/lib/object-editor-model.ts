@@ -1,5 +1,5 @@
 /**
- * The goal card's example object (src/core/goal-card.tsx): a random legal value of the board's type, and the edits its
+ * The goal card's example object (src/core/goal/goal-card.tsx): a random legal value of the board's type, and the edits its
  * object editor can make, for every object type the game supports. Pure (no React), so it is unit tested
  * (test/object-editor-model.test.ts). Every value it returns is the type's canonical wire form, checked by the type's
  * own codec: the card only ever explains an object a game could hold.

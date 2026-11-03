@@ -1,7 +1,7 @@
 /**
  * A goal card: the utility card in plain words (its source collapsed unless asked), ONE example object you can
  * randomise or edit, and how scoring works. Static: it reads nothing from the server, so the "Your secret goal" panel
- * (core/panels/my-card.tsx) and the rule gallery's family page (site/pages/rule-family.tsx) render it identically.
+ * (core/panels/my-card.tsx) and the rule gallery's family page render it identically.
  * Hovering (or clicking) the example object opens its rich view, explained with `goal` like every grid in a game.
  */
 import { useMemo, useState } from "react";

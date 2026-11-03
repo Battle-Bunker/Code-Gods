@@ -38,6 +38,7 @@ function GridEditor({ value, inst, onChange }: ObjectEditorProps) {
   const name = (rr: number, cc: number) => `${palette.colours[cells[rr][cc].col].name} ${palette.symbols[cells[rr][cc].sym].name}`;
 
   const onKey = (e: KeyboardEvent) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (copy, zoom) stay the browser's
     const move: Record<string, [number, number]> = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] };
     const step = (n: number, k: number, d: number) => (n + d + k) % k;
     if (move[e.key]) {
@@ -98,7 +99,11 @@ function GridEditor({ value, inst, onChange }: ObjectEditorProps) {
 function TextEditor({ value, inst, onChange }: ObjectEditorProps) {
   const [text, setText] = useState(String(value));
   const [error, setError] = useState<string | null>(null);
-  useEffect(() => { setText(String(value)); setError(null); }, [value]);
+  // A new value from elsewhere (Randomise) replaces the text; the user's own typing of the same value is left alone.
+  useEffect(() => {
+    setText(t => { const typed = parseObjectText(t, inst); return typed.ok && typed.value === value ? t : String(value); });
+    setError(null);
+  }, [value, inst]);
   const number = inst.objectType === "Int";
   const args = inst.args as { min?: number; max?: number; maxLength?: number };
   return (
