@@ -149,3 +149,39 @@ Coordinator session: session_0119hWTUfnFoGVhQud4gmKNK. All times are AEDT.
   - Set Spotter's binary diagonals option is the example.
   - Build an audit test with a shrinking allowlist.
   - Keep @workspace/game-utilities out of hot query modules; the engine test:unit catches it.
+
+## More owner intentions recorded 3 Nov (not started; design these together with intention 1, the energy model)
+Owner, verbatim (abridged only where marked):
+- "[An energy cap of N acts' worth] is entirely the wrong paradigm. It gives an unfair advantage to agents whose
+  acts are more information expensive. We want imposing change on the world to be uniformly expensive for everyone
+  though. I want to make it far harder for agents to make radical changes to objects in one go (like setting every
+  cell to red or 1) so that every object becomes a meaningful incremental battleground."
+- **Mutators:**
+  - Grid: the default agent mutation sets the value of one cell, or changes the colour of a row (much more
+    expensive).
+  - Number objects: change one digit, multiply by a number, or add a number. There is NO operation for setting the
+    number; you could expensively iterate over digits and set them.
+- **Superlinear change cost:** setting a row's colour should cost more than 4× setting one cell's (4×4 grid). The
+  owner prefers a principled superlinear cost in how much of an object one mutation changes (to motivate
+  incremental change) over a per-agent energy cap.
+- **Power:**
+  - Deities have a fixed power budget (energy/s).
+  - They allocate shares of it to their agents and can re-allocate at will. This removes the motive for duplicate
+    agents.
+  - Unallocated power is the deity's own energy income, which pays for summoning.
+  - A new agent starts with zero energy and a chosen share of the power budget.
+- **Selection:**
+  - The probability of selecting an agent for the next mutation is proportional to its current energy balance.
+  - There is no eligibility filter: spend varies per object.
+  - Balances may go negative.
+  - There is no per-agent energy cap (unless one is still needed to force incremental change).
+  - Agents spend by query information plus change information (intention 1).
+- **Coordinator's analysis (3 Nov),** for this grid: 4×4, 3 colours.
+  - The "proportion of objects on the post side" principle is exactly linear: −log2 P(post-set) for k independent
+    cells is k·log2 C. Information of independent constraints adds, so a row costs exactly 4× a cell (6.34 vs
+    1.58 bits).
+  - The current repo cost (erasure + a 0.35-weighted quadratic motion term) is 4.02×: barely superlinear.
+  - The principled superlinear form is the surprisal of the change under the maximum-entropy prior on change size
+    given a fixed mean SQUARED change: P(k) ∝ exp(−βk²), so cost = a·k + b·k². With b = 1 bit, a row costs 8.6× a
+    cell and a whole grid 109×. That matches the motion term's existing quadratic form, but needs a much larger
+    weight. See the conversation for the full table.
