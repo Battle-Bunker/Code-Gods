@@ -2,7 +2,7 @@ import { useMemo, useRef, useState, useSyncExternalStore, type ComponentType, ty
 import * as Popover from "@radix-ui/react-popover";
 import { createObjectTypeRegistry, type GridSettings, type ObjectContext, type ObjectRendererOf, type ObjectValue } from "./registry.ts";
 import {
-  DIGIT_TYPE, changedCells, getColourCue, gridDigitsLines, gridModel, gridSummary, looksLikeGrid, setColourCue, subscribeColourCue,
+  DIGIT_TYPE, changedCells, compactTilePx, getColourCue, gridDigitsLines, gridModel, gridSummary, looksLikeGrid, setColourCue, subscribeColourCue,
   textShadeVar, type ColourCue, type GridCellModel, type GridModel,
 } from "./grid-display.ts";
 import { GoalBoard } from "./explain/GoalBoard.tsx";
@@ -78,7 +78,7 @@ function useColourCue(): ColourCue {
 }
 
 const TOP_LEFT = { r: 0, c: 0 } as const;
-const compactPx = (n: number) => (n <= 5 ? 14 : n <= 7 ? 12 : 10);
+const compactPx = compactTilePx;
 const detailPx = (n: number) => (n <= 4 ? 40 : n <= 5 ? 36 : n <= 6 ? 32 : n <= 7 ? 28 : 20);
 
 function Cell({ cell, px, wide, cue, changed, detail }: {
@@ -132,8 +132,8 @@ function Cells({ model, px, cue, changes, detail, label }: {
 function Digits({ model, cue, changes, label }: { model: GridModel; cue: ColourCue; changes: boolean[][] | null; label: string }) {
   const lines = useMemo(() => gridDigitsLines(model, changes, { letters: cue === "letter" }), [model, changes, cue]);
   return (
-    <span role="img" aria-label={label} className="inline-grid justify-items-end font-mono leading-[1.1] select-none"
-      style={{ fontSize: DIGIT_TYPE.px, fontWeight: DIGIT_TYPE.weight, gridTemplateColumns: `repeat(${model.size}, auto)`, columnGap: "0.45ch" }} data-renderer="digits">
+    <span role="img" aria-label={label} className="inline-grid justify-items-end font-mono select-none"
+      style={{ fontSize: DIGIT_TYPE.px, lineHeight: DIGIT_TYPE.lineHeight, fontWeight: DIGIT_TYPE.weight, gridTemplateColumns: `repeat(${model.size}, auto)`, columnGap: "0.45ch" }} data-renderer="digits">
       {lines.flatMap((line, r) => line.cells.map((c, k) => (
           <span key={`${r}-${k}`} data-cell={`${model.rows[r][k].code}${c.letter}`} data-changed={c.changed || undefined}
             style={{
