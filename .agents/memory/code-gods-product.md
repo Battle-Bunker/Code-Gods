@@ -248,3 +248,16 @@ A room member is a player or a spectator of the next game. The owner starts as a
 **Why:** The owner (2026-11-02): "Allow room members to be spectators (owner or the member themselves can configure this) and default the room owner to a spectator." Spectators see the public view of a live game, never per-god secrets.
 
 **How to apply:** `members.spectator` is a preference for the next game (`rooms.setSpectator`, tool `set_spectator`); a running game's roster never changes. `games.spectators` lists everyone not dealt in at launch plus whoever joins while it runs, and they may open the game once it is past (`requireHistoricReaderAs`). A spectator's live reads are the unseated projection (roster index -1). docs/unify-apps-plan.md §2.
+
+## Every rule offers a continuous landscape of points (2026-11-03)
+
+**Rule:** a rule's score has many attainable levels, each harder (rarer, so worth more bits) than the last: no
+all-or-nothing scores. Counts, signed per-cell sums and tie-breaks that measure closeness all qualify; a single 0/1 does
+not. The annotated set (Annotated basics) was audited: Picture Frame was the only all-or-nothing rule and is now a
+per-cell sum (your colour, plus the best edge symbol, +1 on the edge and −1 in the middle; top 2·(4N−4)).
+
+**Why:** the owner (2026-11-03): "a smooth distribution of points available to be earned of logarithmically increasing
+difficulty … Ensure that all annotated rules have such a continuous landscape of scoring opportunity."
+
+**How to apply:** a new or changed rule shows its calibration curve (levels and bits) in its PR; a curve with a jump
+from 0 to its top, or long flat runs, needs a finer score. docs/rules-design.md P9.

@@ -43,9 +43,9 @@ An ordinal utility is an `int`, or a fixed-length tuple of ints compared lexicog
      Windmill counts suit steps, Tetromino counts 4-cell blobs, Royal Court counts faces off the rim, and Go Fish
      counts fish cells per window.
 
-   **No tie-breaker on deliberate all-or-nothing temperaments.** These are Picture Frame and Sudoku at N ≤ 4. A
-   progress tie-breaker would turn them back into linear rules (Picture Frame plus rim count is *exactly* the order
-   of "count X on the rim"), and that would erase the holdout temperament the catalog wants (§4.5). No tie-breaker
+   **No tie-breaker on deliberate all-or-nothing temperaments.** This is Sudoku at N ≤ 4. A progress tie-breaker
+   would turn it back into a linear rule, and that would erase the holdout temperament the catalog wants (§4.5).
+   (Picture Frame was one too until 2026-11: it is now a continuous score, rules-design.md P9.) No tie-breaker
    was added to rules that are already fine-grained (Low/Med in §2b). That covers Seeds 1–2, Conqueror, Parity
    Painter, Homebody, Number Bonds, Full House, Bingo, Lantern, KotH, Othello, Minesweeper and similar rules.
 4. **Name the symmetry.** `canonical(params)` maps params to an orbit representative. Two draws can then share a
@@ -74,7 +74,6 @@ Exact tails (`exact_log2_tail`) exist for Lone Peak (order statistics: a unique 
 the rest) and:
 - Seed 3 and Lucky Token: the multinomial of tokens and half-tokens, so the tuple order is handled exactly;
 - Conqueror (both weights), Homebody and Parity Painter: exact convolution of the per-cell laws;
-- Picture Frame: `−(4N−4)·log₂K`;
 - Number Painter and Colour-by-Number: binomial.
 
 The tests check each one against the empirical tail.
@@ -125,7 +124,7 @@ and `canon` (canonical params). Every family has `batch` and `exemplar`.
 | `lone_peak` ★ | Lone Peak | C+S | neutral | Valued | m1 − m2 if the max value is unique and coloured X, else 0 | some max-valued cell is X | S_k colours; exact order-statistic tail | exact, canon | catalog#27 (strat#9); tie-breaker = some top cell is your colour |
 | `islander` | Islander | C+P | alternator | generic | #X cells whose in-grid neighbours all share one colour ≠ X | #X cells with no X neighbour | S_k colours | canon | strat#6 (catalog D2 'dots'); tie-breaker = your cells with no same-colour neighbour |
 | `rooks_watch` | Rook's Watch | C+S+P | neutral | generic | #rows + #cols containing token (S, X) | #rows + #cols containing a half-token | S_symbols × S_k (→ (0,0)) | canon | strat#11 (catalog D8 coverage temperament); tie-breaker = lines holding a half-token |
-| `picture_frame` | Picture Frame | C+P | clumper | generic | 1 if every rim cell is X else 0 (all-or-nothing) | none (deliberate holdout) | S_k colours; exact tail | exact, canon | strat#12 (catalog D5 all-or-nothing temperament; holdout, so no tie-breaker) |
+| `picture_frame` | Picture Frame | C+P | clumper | generic | (#rim X − #middle X) + max over rim symbols s of (#rim s − #middle s); top 2·(4N−4) | none (continuous already) | S_k colours | canon (exact analytic on the TS side) | strat#12 (was all-or-nothing until 2026-11; now continuous, rules-design.md P9) |
 | `staircase_climber` | Staircase Climber | S+P | alternator | Ranked, Valued | #adjacent pairs (→ or ↓) with value(next) = value + 1 | — | D4 (dir→→) | canon | strat#8 (catalog D11 'pairs' temperament) |
 | `lucky_token` | Lucky Token | C+S | clumper | generic | #cells equal to token (S, X) (full card identity) | #half-tokens | S_symbols × S_k; exact multinomial tail | exact, canon | catalog D8 / strat 'sample your colour and your symbol'; tie-breaker = half-tokens |
 | `neighbourhood_vote` | Neighbourhood Vote | C+P | clumper | generic | #cells whose strict-plurality 4-neighbour colour is X | — | S_k colours | canon | strat cross-lens idea 'Neighbourhood vote' |
@@ -251,7 +250,7 @@ All pass the same checks as every family (`tests.test_defence` runs `tests.test_
 requirements or kid story is distinct):
 - Best Friends (seams), Islander (dots) and Archipelago (islands), from the Chessmaster family;
 - Rook's Watch (coverage), from Seed 3;
-- Picture Frame (all-or-nothing), from Homebody;
+- Picture Frame (frame of colour and symbol), from Homebody;
 - Looking-Glass (pairs), from Mirrormancer;
 - Staircase Climber (pairs), from Straight Shooter;
 - Paint Mixer (strict, both axes, no param), from Colour Mixer;

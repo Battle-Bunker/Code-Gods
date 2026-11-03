@@ -4,7 +4,9 @@ import {
   SCALAR, article, cap, chance, climb, cname, colourPairs, fromFn, full, glyph, gridFamily, isRim, pick, product, pyCard,
   range, recolour, sentences, symForValue, thing, tsCard, tuple, valueLaw, wire,
 } from "./_util.ts";
-import { binomial, exactSurvival, iidSum, lineChainCount, mapDist, type AnalyticSurvival } from "../../analytic.ts";
+import {
+  binomial, combine, distOf, exactSurvival, iidSum, lazySurvival, lineChainCount, logFactorial, mapDist, type AnalyticSurvival, type Dist,
+} from "../../analytic.ts";
 import { solvedAnalytic } from "../../analytic/hook.ts";
 
 const DIRS4 = ["→", "←", "↓", "↑"] as const;
@@ -547,33 +549,115 @@ const rooksWatch = gridFamily<TokenP>({
   exemplar: (p, g) => wire(g, fromFn(g.N, (r, c) => (r === c ? p.S : (p.S + 1) % g.S)), full(g.N, p.X)),
 });
 
-// --- Picture Frame (all or nothing) -----------------------------------------------------------------
-const frameText = (p: ColourP, g: GridSpec): CardText => ({
-  emoji: "🖼️", name: "Picture Frame", consts: [["MY_COLOUR", cname(g, p.X)]],
-  about: `The edge is the outside ring of cells. If every edge cell is ${cname(g, p.X)}, you score 1 point. `
-    + "If even one edge cell is another colour, you score 0.",
-});
+// --- Picture Frame -----------------------------------------------------------------------------------
+/**
+ * Two halves, added: your colour, and the best symbol on the edge. Each counts +1 for every edge cell that has it and
+ * −1 for every middle cell that has it. The top, 2·(4N−4), is every edge cell the same symbol in your colour with
+ * neither in the middle; every score from the bottom up to it is reachable, each step rarer than the last.
+ */
+const frameText = (p: ColourP, g: GridSpec): CardText => {
+  const X = cname(g, p.X), kind = g.cards ? "card" : "symbol";
+  return {
+    emoji: "🖼️", name: "Picture Frame", consts: [["MY_COLOUR", X]],
+    about: sentences(
+      "The edge is the outside ring of cells. The middle is every cell inside it.",
+      `Each ${X} edge cell scores 1 point, and each ${X} middle cell loses 1 point.`,
+      `Then take the ${kind} on the edge that does best: each edge cell showing it scores 1 point, and each middle cell `
+        + "showing it loses 1 point.",
+      `Best of all: every edge cell the same ${X} ${kind}, and no ${X} and no such ${kind} in the middle.`,
+    ),
+  };
+};
+/** P(max over edge symbols of (edge count − middle count) = k), B edge cells and M middle cells, S equally likely symbols. */
+function frameSymbolLaw(B: number, M: number, S: number): Dist {
+  const lf = logFactorial, out: [number, number][] = [];
+  const half = Math.floor(B / 2);
+  const W = Array.from({ length: B + 1 }, (_, a) => Array.from({ length: M + 1 }, (_, b) => Math.exp(-lf(a) - lf(b))));
+  // Normaliser of the multinomial: B!·M!/S^(B+M), in logs.
+  const norm = lf(B) + lf(M) - (B + M) * Math.log(S);
+  // k ≤ B/2: symbols are interchangeable, so a dynamic programme over symbols, state (edge cells used, middle cells used,
+  // whether some edge symbol nets exactly k), each symbol with a ≥ 1 needing a − b ≤ k. Positive terms only: no cancellation.
+  for (let k = Math.min(0, B - M); k <= half; k++) {
+    let dp = [new Float64Array((B + 1) * (M + 1)), new Float64Array((B + 1) * (M + 1))];
+    dp[0][0] = 1;
+    for (let s = 0; s < S; s++) {
+      const next = [new Float64Array((B + 1) * (M + 1)), new Float64Array((B + 1) * (M + 1))];
+      for (let f = 0; f < 2; f++) for (let e = 0; e <= B; e++) for (let i = 0; i <= M; i++) {
+        const cur = dp[f][e * (M + 1) + i];
+        if (!cur) continue;
+        for (let a = 0; a + e <= B; a++) for (let b = 0; b + i <= M; b++) {
+          if (a > 0 && a - b > k) continue;
+          const g = a > 0 && a - b === k ? 1 : f;
+          next[g][(e + a) * (M + 1) + i + b] += cur * W[a][b];
+        }
+      }
+      dp = next;
+    }
+    out.push([k, dp[1][B * (M + 1) + M] * Math.exp(norm)]);
+  }
+  // k > B/2: only one symbol can have more than half the edge, so P(max = k) = S·P(edge count − middle count = k) for one
+  // symbol, whose counts are Binomial(B, 1/S) and Binomial(M, 1/S).
+  const bin = (n: number, j: number) => Math.exp(lf(n) - lf(j) - lf(n - j) + j * Math.log(1 / S) + (n - j) * Math.log(1 - 1 / S));
+  for (let k = half + 1; k <= B; k++) {
+    let p = 0;
+    for (let b = 0; b <= M && k + b <= B; b++) p += bin(B, k + b) * bin(M, b);
+    out.push([k, S * p]);
+  }
+  return distOf(out);
+}
 const pictureFrame = gridFamily<ColourP>({
-  id: "picture_frame", name: "Picture Frame", emoji: "🖼️", theme: "A perfect frame, all or nothing", shape: SCALAR,
+  id: "picture_frame", name: "Picture Frame", emoji: "🖼️", theme: "One colour and one symbol around a clear middle", shape: SCALAR,
   support: g => range(g.C).map(X => ({ X })),
   canonical: p => recolour(p, ["X"]),
   summary: (p, g) => frameText(p, g).about,
   python: (p, g) => pyCard(frameText(p, g), `
+    def frame_score(cells):
+        score = 0
+        for cell in cells:
+            if cell.on_edge:
+                score += 1
+            else:
+                score -= 1
+        return score
+
     def utility(grid):
-        for cell in grid.edge_cells:
-            if cell.colour != MY_COLOUR:
-                return 0
-        return 1`),
+        colour_score = frame_score([cell for cell in grid.cells if cell.colour == MY_COLOUR])
+        best_symbol_score = None
+        for edge_cell in grid.edge_cells:
+            score = frame_score([cell for cell in grid.cells if cell.symbol == edge_cell.symbol])
+            if best_symbol_score is None or score > best_symbol_score:
+                best_symbol_score = score
+        return colour_score + best_symbol_score`),
   typescript: (p, g) => tsCard(frameText(p, g), `
-    function utility(grid) {
-      for (const cell of grid.edgeCells) {
-        if (cell.colour !== MY_COLOUR) return 0;
+    function frameScore(cells) {
+      let score = 0;
+      for (const cell of cells) {
+        if (cell.onEdge) score += 1;
+        else score -= 1;
       }
-      return 1;
+      return score;
+    }
+
+    function utility(grid) {
+      const colourScore = frameScore(grid.cells.filter(cell => cell.colour === MY_COLOUR));
+      let bestSymbolScore = null;
+      for (const edgeCell of grid.edgeCells) {
+        const score = frameScore(grid.cells.filter(cell => cell.symbol === edgeCell.symbol));
+        if (bestSymbolScore === null || score > bestSymbolScore) bestSymbolScore = score;
+      }
+      return colourScore + bestSymbolScore;
     }`),
-  exemplar: (p, g) => wire(g, full(g.N, 0), full(g.N, p.X)),
-  /** All or nothing: μ{u ≥ 1} = C^−(4N−4), the 4N−4 edge cells all my colour (tail-toolkit.md §1). */
-  analytic: (_p, g): AnalyticSurvival => ({ id: "picture-frame@1", kind: "exact", levels: [[0, 0], [1, -(4 * g.N - 4) * Math.log2(g.C)]] }),
+  exemplar: (p, g) => wire(g, fromFn(g.N, (r, c) => (isRim(g.N, r, c) ? 0 : 1)), fromFn(g.N, (r, c) => (isRim(g.N, r, c) ? p.X : (p.X + 1) % g.C))),
+  top: (_p, g) => 2 * (4 * g.N - 4),
+  /**
+   * Exact (tail-toolkit.md §1): colour and symbol are independent per cell, so u = (E − I) + D with E ~ Bin(4N−4, 1/C),
+   * I ~ Bin((N−2)², 1/C) and D the best edge symbol's net count (frameSymbolLaw), all independent.
+   */
+  analytic: (_p, g): AnalyticSurvival => lazySurvival("picture-frame@2", () => {
+    const B = 4 * g.N - 4, M = (g.N - 2) ** 2;
+    const colour = combine(binomial(B, 1 / g.C), binomial(M, 1 / g.C), (e, i) => (e as number) - (i as number));
+    return combine(colour, frameSymbolLaw(B, M, g.S), (x, y) => (x as number) + (y as number));
+  }),
 });
 
 // --- Staircase Climber -------------------------------------------------------------------------------
