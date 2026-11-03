@@ -257,7 +257,19 @@ export const gameTables = {
      * row shows it, so neither ever reads `noise`.
      */
     publicSalience: v.number(),
-  }).index("by_game", ["gameId"]).index("by_game_value", ["gameId", "value"]).index("by_game_salience", ["gameId", "publicSalience"]),
+    /**
+     * Public (the owner's disclosure decision, docs/public-log-design.md §2): when the object was spawned, in world
+     * seconds. The tick and the game start write it. Optional while backfillObjectTimes runs; absent reads as 0.
+     */
+    createdAt: v.optional(v.number()),
+    /**
+     * Public: the world time (seconds) of the object's last transformation; absent until it has one. How many it has
+     * had is `version` (the tick adds one per transformation), so there is no separate counter. Nothing here says who.
+     */
+    lastMutatedAt: v.optional(v.number()),
+  }).index("by_game", ["gameId"]).index("by_game_value", ["gameId", "value"]).index("by_game_salience", ["gameId", "publicSalience"])
+    /** The three public sorts of the Objects panel (read-architecture R1): mutation count, creation time, last mutation time. */
+    .index("by_game_version", ["gameId", "version"]).index("by_game_created", ["gameId", "createdAt"]).index("by_game_mutated", ["gameId", "lastMutatedAt"]),
 
   agents: defineTable({
     gameId: v.id("games"), ownerId: v.string(),

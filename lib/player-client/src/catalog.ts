@@ -440,9 +440,9 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   },
   "player.objectsPage": {
     kind: "query", audience: "player",
-    human: { title: "Scroll the objects", tooltip: "Your objects a page at a time, by payoff, your bits or the others' care." },
-    ai: { description: "A page of the human's objects ordered by payoff, their bits or the others' care (the disclosed, noisy sum while the game is live), with footer totals; the Objects panel's infinite scroll." },
-    tools: [], palette: null, why: "The Objects by payoff panel's infinite scroll; the assistant reads the same numbers through the observation and sets the panel's sort with show_panel.",
+    human: { title: "Scroll the objects", tooltip: "Your objects a page at a time, by payoff, your bits, the others' care, mutations, creation time or last mutation." },
+    ai: { description: "A page of the human's objects ordered by payoff, their bits, the others' care (the disclosed, noisy sum while the game is live), how many times they have been mutated, when they were created or when last mutated (all public), with footer totals; the Objects panel's infinite scroll." },
+    tools: [], palette: null, why: "The Objects panel's infinite scroll; the assistant reads the same numbers through the observation and sets the panel's sort with show_panel.",
   },
   "player.series": {
     kind: "query", audience: "player",

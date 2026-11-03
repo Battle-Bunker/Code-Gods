@@ -34,6 +34,10 @@
  *    file (which embeds the descriptors), the file is dropped and rebuilt (replays.ts rebuildAfterMigration).
  *    typedParamsPreparing rewrites the fixed deal of a room waiting for calibration (`rooms.preparing.deals`).
  *    Narrowed later (no schema change: both are v.any()): game-utilities' `upgrade`/`legacy` readers go.
+ *  - backfillObjectTimes (objects; 2026-11-03, the Objects panel's public sorts): an object gets `createdAt` and
+ *    `lastMutatedAt` (world seconds) from its objectEvents rows; its mutation count is its `version`. Narrowed later:
+ *    `createdAt` becomes required and the `?? 0` fallbacks go (lib/projection.ts personalObject), once dev and
+ *    production report it done.
  *
  * Older hand-rolled steps, idempotent and run by their own deploy-workflow steps (kept as they are: they predate the
  * component, and porting the Node action setupsV2 buys nothing):
@@ -178,12 +182,28 @@ export const typedParamsPreparing = migrations.define({
   },
 });
 
+export const backfillObjectTimes = migrations.define({
+  table: "objects",
+  // An object stored before its public times gets `createdAt` (its spawn row's world time) and `lastMutatedAt` (its last
+  // transformation's) from objectEvents; the mutation count is its `version`, already stored. An object whose game
+  // predates objectEvents rows has no spawn row: it reads as created at 0 and without a last mutation time.
+  migrateOne: async (ctx, o) => {
+    if (o.createdAt !== undefined) return;
+    const spawn = await ctx.db.query("objectEvents").withIndex("by_game_object_version", q => q.eq("gameId", o.gameId).eq("objectId", o._id).eq("version", 0)).first();
+    const last = o.lastMutatedAt !== undefined || o.version === 0 ? null
+      : await ctx.db.query("objectEvents").withIndex("by_game_object_world", q => q.eq("gameId", o.gameId).eq("objectId", o._id)).order("desc")
+        .filter(q => q.eq(q.field("kind"), "transform")).first();
+    return { createdAt: spawn?.world ?? 0, ...(last ? { lastMutatedAt: last.world } : {}) };
+  },
+});
+
 /** Every component migration, in order: run by the deploy workflow (`npx convex run migrations:runAll`). Append only. */
 // Annotated: this module's own `internal` references would otherwise make its exported types circular.
 const RUN_ALL: FunctionReference<"mutation", "internal">[] = [internal.migrations.dropHaskellFromSetups, internal.migrations.dropHaskellFromRooms,
   internal.migrations.dropHaskellFromGames, internal.migrations.dropHaskellBundle, internal.migrations.dropHaskellCompiledPrograms,
   internal.migrations.splitGameHotFields, internal.migrations.backfillReplays, internal.migrations.backfillStandings, internal.migrations.aiQuotas,
-  internal.migrations.typedParamsDeities, internal.migrations.typedParamsPreparing];
+  internal.migrations.typedParamsDeities, internal.migrations.typedParamsPreparing,
+  internal.migrations.backfillObjectTimes];
 export const runAll = migrations.runner(RUN_ALL);
 /** The state of each of runAll's migrations (scripts/run-migrations.mjs waits for all of them to succeed). */
 export const status = internalQuery({

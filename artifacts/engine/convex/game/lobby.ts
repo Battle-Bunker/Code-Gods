@@ -219,7 +219,7 @@ export const commitStart = internalMutation({
     const events = [];
     for (const o of args.objects) {
       const objectId = await ctx.db.insert("objects", { gameId, value: o.value, version: 0, scores: o.scores, salience: o.salience, ...(o.noise !== undefined ? { noise: o.noise } : {}),
-        publicSalience: publicSalienceOf(o, true) });
+        publicSalience: publicSalienceOf(o, true), createdAt: 0 });
       events.push({ t: "spawn" as const, objectId, value: o.value, version: 0, world: 0, net: args.deities.map(d => o.scores.find(s => s.god === d.godId)!.netBits),
         ...(o.noise !== undefined ? { noise: o.noise } : {}) });
     }

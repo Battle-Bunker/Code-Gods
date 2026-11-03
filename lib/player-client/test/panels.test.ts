@@ -58,7 +58,7 @@ test("summaries read as pane captions", () => {
   assert.equal(panelSummary("bits-over-time", { objects: "ids", ids: ["a", "b"] }), "Payoff · 2 chosen objects");
   assert.equal(panelSummary("forge", { source: "def agent(x): return []", language: "python" }), "A draft · python");
   assert.equal(panelSummary("what-if", { objectId: "o", calls: [["add", { k: 1 }]], compare: [["add", { k: 2 }]] }), "1 move on one object · vs an alternative");
-  assert.equal(panelSummary("objects", { limit: "many" }), "Objects by payoff", "invalid params fall back to the title");
+  assert.equal(panelSummary("objects", { limit: "many" }), "Objects", "invalid params fall back to the title");
   assert.equal(panelSummary("overview", {}), "Situation, standing, next step");
 });
 

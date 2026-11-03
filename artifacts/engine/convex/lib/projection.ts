@@ -145,6 +145,8 @@ export function personalObject(o: Obj, godId: string, live: boolean) {
   const view = viewOf(o.scores, godId, live ? o.noise ?? 0 : 0);
   return {
     id: o._id as string, value: o.value, version: o.version,
+    // Public figures (docs/public-log-design.md §2): the transformation count, the spawn time and the last transformation time.
+    mutations: o.version, createdAt: o.createdAt ?? 0, lastMutatedAt: o.lastMutatedAt ?? null,
     own: { ordinal: own.ordinal, rewardBits: own.rewardBits, ...(own.penaltyBits !== undefined ? { penaltyBits: own.penaltyBits } : {}), netBits: own.netBits },
     peerNetBits: view.peerNetBits, peerCare: view.peerCare, payoff: view.payoff,
   };

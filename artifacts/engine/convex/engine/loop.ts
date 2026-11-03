@@ -247,14 +247,20 @@ export const commit = internalMutation({
     if (game.objectCount + args.spawns.length > 2000) return discard("object limit");
 
     // Apply.
+    // The world time of each object's last transformation in this window (public: games/tables.ts objects.lastMutatedAt).
+    const mutatedAt = new Map<string, number>();
+    for (const e of events) if (e.t === "transform") mutatedAt.set(e.objectId, Math.max(mutatedAt.get(e.objectId) ?? 0, e.world));
     for (const change of args.objects) {
+      const at = mutatedAt.get(change.id);
       await ctx.db.patch(change.id, { value: change.value, version: change.version, scores: change.scores, salience: change.salience, noise: change.noise,
-        publicSalience: publicSalienceOf(change, true) });
+        publicSalience: publicSalienceOf(change, true), ...(at !== undefined ? { lastMutatedAt: at } : {}) });
     }
+    const spawnedAt = new Map<string, number>();
+    for (const e of events) if (e.t === "spawn") spawnedAt.set(e.objectId, e.world);
     const ids = new Map<string, string>();
     for (const spawn of args.spawns) {
       ids.set(spawn.tmp, await ctx.db.insert("objects", { gameId: game._id, value: spawn.value, version: 0, scores: spawn.scores, salience: spawn.salience, ...(spawn.noise !== undefined ? { noise: spawn.noise } : {}),
-        publicSalience: publicSalienceOf(spawn, true) }));
+        publicSalience: publicSalienceOf(spawn, true), createdAt: spawnedAt.get(spawn.tmp) ?? args.clock!.worldSeconds }));
     }
     for (const state of args.agents) {
       if (live.has(state.id)) await ctx.db.patch(state.id, { acts: state.acts, spent: state.spent, account: state.account });

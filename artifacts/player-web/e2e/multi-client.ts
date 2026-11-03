@@ -141,7 +141,7 @@ async function owner(action: string, extra: Record<string, unknown> = {}) {
 
 /**
  * The dock layout the games are played in, written to the engine as that human (the open client follows it, as it
- * would an arrangement made on another device): panel p1 (Agent code; switched to Objects by payoff once the agent
+ * would an arrangement made on another device): panel p1 (Agent code; switched to Objects once the agent
  * runs), My agents, What just changed and Public chat side by side on top, the assistant below.
  */
 const PANELS_FOR_PLAY = ["public-chat"] as const;   // the default dock has the goal, objects and agents; p1 and p2 are changed below
@@ -167,7 +167,7 @@ async function choosePanel(p: Player, paneId: string, panelId: string) {
   await page.waitForFunction(([id, title]) => document.querySelector(`[data-testid=tab-${id}] [data-testid=menu-panel]`)?.textContent === title, [paneId, panelTitle(panelId)] as const);
   await sleep(300);
 }
-const panelTitle = (panelId: string) => ({ forge: "Agent code", objects: "Objects by payoff", race: "Leaderboard race", rules: "How to play" } as Record<string, string>)[panelId] ?? panelId;
+const panelTitle = (panelId: string) => ({ forge: "Agent code", objects: "Objects", race: "Leaderboard race", rules: "How to play" } as Record<string, string>)[panelId] ?? panelId;
 /** Run a palette command by its title (Cmd/Ctrl+K, type, Enter). */
 async function palette(p: Player, title: string) {
   const page = pages[p];

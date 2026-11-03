@@ -218,7 +218,8 @@ test("the SDK's answers at a playhead, for any god: the observation, the event w
   const at = (cursor: number, pov: number) => ({ room: { roomId: "r", roomShortCode: "R" }, cursor, pov });
   // As "you" (index 1) after every event: you hold 4 bits on o1, the others (me) −1: their care is 0, your payoff 0.
   const youEnd = replayObservation(replay, at(4, 1));
-  assert.deepEqual(youEnd.objects, [{ id: "o1", value: 2, own: { ordinal: 4, rewardBits: 4, netBits: 4 }, peerNetBits: -1, peerCare: 0, payoff: 0 }]);
+  assert.deepEqual(youEnd.objects, [{ id: "o1", value: 2, own: { ordinal: 4, rewardBits: 4, netBits: 4 }, peerNetBits: -1, peerCare: 0, payoff: 0,
+    mutations: 1, createdAt: 0, lastMutatedAt: 4 }]);
   assert.deepEqual(youEnd.self, { godId: "you", label: "You", isAI: false, energy: 100 + 4 * 2, ready: false, pauseUsed: true, utility: { name: "Yours" } });
   assert.deepEqual(youEnd.agents, [], "the point of view's own agents: you summoned none");
   assert.deepEqual(youEnd.leaderboard.map(r => [r.godId, r.totalPayoff]), [["you", 0], ["me", -4]], "ranked, as live");
@@ -231,6 +232,8 @@ test("the SDK's answers at a playhead, for any god: the observation, the event w
   const meMid = replayObservation(replay, at(3, 0));
   assert.deepEqual(meMid.agents.map(a => [a.id, a.source, a.energy, a.eligible, a.acts]), [["a1", "src of a1", 0, false, 0]]);
   assert.deepEqual(meMid.transformations, []);
+  // The public figures follow the playhead: before the transformation the object has had none, after it one, at world 4.
+  assert.deepEqual(replayObservation(replay, at(3, 0)).objects.map(o => [o.mutations, o.createdAt, o.lastMutatedAt]), [[0, 0, null]]);
   assert.deepEqual(replayObservation(replay, at(4, 0)).transformations, [{ id: "1:0", agentId: "a1", before: 1, after: 2, calls: [["add", { k: 1 }]], cost: 5 }]);
   // Events: the window up to the playhead, each with the point of view's bits; calls are shown for everyone (transparent).
   const ev = replayEvents(replay, at(4, 1), 20);
