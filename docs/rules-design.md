@@ -65,7 +65,8 @@ P8. **Same words in the summary, the card comment, the assistant briefing.** The
 P9. **A continuous landscape of points** (owner, 2026-11-03). The score has many attainable levels, each rarer than the
    last, so every improvement earns something and the last steps are the hardest (the calibration turns rarity into
    bits, so a count or a signed per-cell sum gives a curve whose steps grow). Never all or nothing: Picture Frame was,
-   and now sums +1 per edge cell and −1 per middle cell of your colour and of the best edge symbol.
+   and now (owner's redesign, 2026-11-03) deals a colour and a symbol and sums, per cell, +1 on the edge for either and +4
+   for both, −1 / −4 in the middle (`FRAME_POINTS`).
 
 ## 3. Rendering descriptions for the instantiation
 

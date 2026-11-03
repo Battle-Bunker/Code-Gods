@@ -254,7 +254,9 @@ A room member is a player or a spectator of the next game. The owner starts as a
 **Rule:** a rule's score has many attainable levels, each harder (rarer, so worth more bits) than the last: no
 all-or-nothing scores. Counts, signed per-cell sums and tie-breaks that measure closeness all qualify; a single 0/1 does
 not. The annotated set (Annotated basics) was audited: Picture Frame was the only all-or-nothing rule and is now a
-per-cell sum (your colour, plus the best edge symbol, +1 on the edge and −1 in the middle; top 2·(4N−4)).
+per-cell sum. Since the owner's redesign (2026-11-03) both a colour and a symbol are dealt (typed params, nothing
+inferred from the board): an edge cell scores +1 with either and +4 with both; a middle cell loses the same (the middle
+half is an assumption awaiting the owner's confirmation; `FRAME_POINTS` in families/grid/strategy.ts); top 4·(4N−4).
 
 **Why:** the owner (2026-11-03): "a smooth distribution of points available to be earned of logarithmically increasing
 difficulty … Ensure that all annotated rules have such a continuous landscape of scoring opportunity."

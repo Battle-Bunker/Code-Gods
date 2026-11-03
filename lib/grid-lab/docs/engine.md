@@ -113,7 +113,7 @@ Failure modes:
   without reaching the top means the kernel got stuck. On Grid(5,base10,rgby), 35 of the 54 tables stop
   early at their true top, and only `robin_hood` (60 bits) and `lone_peak` (54 bits) stop short of
   their exemplar's ordinal.
-* **Binary all-or-nothing rules** (e.g. `picture_frame`, P = 4^-16) have no intermediate levels, so
+* **Binary all-or-nothing rules** (none left since `picture_frame` became a continuous score) have no intermediate levels, so
   splitting cannot climb at all. They need `exact_log2_tail`, which they have.
 * **Plateaus.** A big mass on one value just above ℓ makes f small for one stage. The estimate stays
   unbiased but has a higher se, and the se reports it.
