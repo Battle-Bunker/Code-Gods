@@ -9,6 +9,7 @@ import { LANGUAGES, RETIRED_LANGUAGES, type Language, type StoredLanguage } from
 export const VERSION = "code-gods.player.v3" as const;
 const id = z.string().min(1).max(128);
 const finite = z.number().finite();
+const count = z.number().int().nonnegative();
 /** An agent language (game-core LANGUAGES). */
 const language = z.enum(LANGUAGES as [Language, ...Language[]]);
 /** A stored agent's language: one of LANGUAGES, or a retired one (a past game's agent keeps it). */
@@ -115,7 +116,15 @@ export const observationSchema = z.object({
   // Your agents. An agent acts only while eligible (energy ≥ expectedActCost); a negative energy is a cooldown.
   agents: z.array(z.object({ id, name: agentName, description: agentDescription.optional(), source: z.string().max(16384), language: storedLanguage, summonCost: finite, decisionBits: finite, expectedActCost: finite,
     breakdown: breakdownSchema, randomized: z.boolean(),
-    energy: finite, eligible: z.boolean(), acts: z.number().int().nonnegative(), spent: finite })).max(200),
+    energy: finite, eligible: z.boolean(), acts: z.number().int().nonnegative(), spent: finite,
+    // How its acts ended (counted since the engine started counting: older agents' earlier acts are not in it): changed
+    // the object, or failed by kind (collision: another object already had the value; noChange; commit: the commit
+    // clause kept the object; invalid call; error: the code raised or timed out), with the last invalid call or error.
+    outcomes: z.object({ transforms: z.number().int().nonnegative(),
+      failures: z.object({ collision: count, noChange: count, commit: count, invalid: count, error: count }),
+      lastFailures: z.object({ invalid: z.string().max(300).optional(), error: z.string().max(300).optional() }).optional() }).optional(),
+    // "38 of 38 acts failed: another object already has this value", and when most acts fail, why and how to fix it.
+    diagnosis: z.object({ summary: z.string().max(500), hint: z.string().max(600).optional() }).optional() })).max(200),
   transformations: z.array(z.object({ id, agentId: id, before: wire, after: wire,
     calls: z.array(z.tuple([z.string().max(64), z.record(z.string(), z.unknown())])).max(16).optional(), cost: finite.optional() })).max(500),
   // Every god's total payoff as last published: it changes for everyone at once every settings.scoreIntervalSeconds of
@@ -134,9 +143,19 @@ export const resultSchema = z.object({
     decisionBits: finite.nonnegative().optional(), breakdown: breakdownSchema.optional(), randomized: z.boolean().optional(),
     // Measured on the reference objects: the share of acts that change the object, and that fail or are invalid.
     changeRate: finite.min(0).max(1).optional(), invalidRate: finite.min(0).max(1).optional(),
+    // Two passes over a sample world (the game's objects first; docs/rules-design.md §11): the share of acts that
+    // succeed, and why the rest would fail: one result for every object (constant), nothing more on a second application
+    // (idempotent), or no change at all (identity). Constant and idempotent are claims about a deterministic agent only.
+    expectedSuccessRate: finite.min(0).max(1).optional(),
+    futility: z.object({ deterministic: z.boolean(), constant: z.boolean(), idempotent: z.boolean(), identity: z.boolean(),
+      firstPass: finite.min(0).max(1), secondPass: finite.min(0).max(1), successRate: finite.min(0).max(1) }).optional(),
+    // One line each for the player, shown before the summon; a summon is never refused for them.
+    warnings: z.array(z.string().max(500)).max(8).optional(),
     // The validating god's energy when it was measured, and whether it covers the summon price.
     energy: finite.optional(), affordable: z.boolean().optional(),
     diagnostics: z.array(z.string().max(1000)).max(30) }).optional(),
+  // A summon's examination warnings (as validate's): the agent is summoned anyway.
+  warnings: z.array(z.string().max(500)).max(8).optional(),
   // Validate or summon before the agent's language's sandbox is warm: nothing was examined or stored, and the identical
   // command can be sent again after retryAfterMs. `failed` carries the boot's reason (it is retried automatically).
   notReady: sandboxNotReadySchema.optional(),

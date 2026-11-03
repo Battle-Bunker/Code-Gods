@@ -7,7 +7,35 @@ from __future__ import annotations
 from functools import lru_cache
 
 from ._util import *  # noqa: F401,F403
+from ..core import RANK_GLYPHS
 from ._util import multi_climb, plateau_search
+
+SUIT_WORDS = ("spades", "hearts", "diamonds", "clubs")
+
+
+def suit_at(name):
+    """A suit param (its name, or "any") -> the suit index numpy code compares against (None for "any")."""
+    return None if name == "any" else SUIT_WORDS.index(name)
+
+
+def recolour_some(params, keys, gtype):
+    """`recolour_names` for params that may hold a non-colour word ("any", "none"): only the colours are renamed."""
+    return recolour_names(params, [k for k in keys if params.get(k) in gtype.colour_names], gtype)
+
+
+def rank_names(gtype):
+    """The values of a rank param: a card's rank without its suit, or the digit a number grid prints."""
+    return list(RANK_GLYPHS) if gtype.symbols == "cards" else [gtype.glyph(s) for s in range(gtype.S)]
+
+
+def rank_name(gtype, r):
+    return rank_names(gtype)[int(r)]
+
+
+def rank_at(gtype, name):
+    """A rank param (its name) -> the rank index numpy code compares against."""
+    return rank_names(gtype).index(name)
+
 
 DIRS2 = [(0, 1), (1, 0)]
 DIRS4D = [(0, 1), (1, 0), (1, 1), (1, -1)]
@@ -24,7 +52,7 @@ def _sg(gtype, v):
 # --- Rummy Melder ------------------------------------------------------------------------------------
 def rm_ord(g, p, gtype):
     N = gtype.N
-    tr = (lambda a: a) if p["dir"] == "rows" else (lambda a: a.T)
+    tr = (lambda a: a) if p["axis"] == "rows" else (lambda a: a.T)
     rk, v = tr(rank_key(g.sym, gtype)).tolist(), tr(vals(g.sym, gtype)).tolist()
     su = tr(suits(g.sym, g.col, gtype)).tolist()
     score = half = 0
@@ -45,7 +73,7 @@ def rm_ord(g, p, gtype):
 
 def rm_batch(sym, col, p, gtype):
     N = gtype.N
-    rk, v, su = (lines_rc(x, p["dir"]) for x in (rank_key(sym, gtype), vals(sym, gtype), suits(sym, col, gtype)))
+    rk, v, su = (lines_rc(x, p["axis"]) for x in (rank_key(sym, gtype), vals(sym, gtype), suits(sym, col, gtype)))
     a, b, c = (slice(0, N - 2), slice(1, N - 1), slice(2, N))
     st = (rk[:, :, a] == rk[:, :, b]) & (rk[:, :, b] == rk[:, :, c]) & (su[:, :, a] != su[:, :, b]) \
         & (su[:, :, b] != su[:, :, c]) & (su[:, :, a] != su[:, :, c])
@@ -62,7 +90,7 @@ def rm_batch(sym, col, p, gtype):
 def rm_exemplar(p, gtype):
     N = gtype.N
     r, c = np.indices((N, N))
-    pos = c if p["dir"] == "rows" else r
+    pos = c if p["axis"] == "rows" else r
     if gtype.suit is not None:
         return grid((pos % 4) * 13 + 12, np.zeros((N, N)))
     return grid(np.full((N, N), vmax(gtype)), pos % gtype.C)
@@ -71,19 +99,19 @@ def rm_exemplar(p, gtype):
 RUMMY_MELDER = mk(
     id="rummy_melder", name="Rummy Melder", theme="Sets and runs, like rummy",
     requires=req("Valued", "Ranked"), layers={"colour", "symbol", "position"}, camp="neutral",
-    sample=lambda rng, gt: {"dir": str(rng.choice(LINE_AXES))},
+    sample=lambda rng, gt: {"axis": str(rng.choice(LINE_AXES))},
     summary=lambda p, gt: (f"Look at every 3 cells in a {'row' if p['dir'] == 'rows' else 'column'}. Three of the same "
                            f"number in three different {'suits' if gt.symbols == 'cards' else 'colours'} is a set; three "
                            f"counting up in one {'suit' if gt.symbols == 'cards' else 'colour'} is a run. Every cell in a "
                            "set or run scores its number."),
-    ordinal=rm_ord, batch=rm_batch, canonical=lambda p, gt: {"dir": "rows"}, exemplar=rm_exemplar,
+    ordinal=rm_ord, batch=rm_batch, canonical=lambda p, gt: {"axis": "rows"}, exemplar=rm_exemplar,
     source="catalog#3 (games#4; suits = colours outside cards); tie-breaker = half-melds (adjacent pairs)",
     tags={"shortlist"})
 
 
 # --- Othello Sandwich (gap-1) ----------------------------------------------------------------------------
 def os_ord(g, p, gtype):
-    N, X = gtype.N, p["X"]
+    N, X = gtype.N, ci(gtype, p["colour"])
     col = g.col.tolist()
     s = 0
     for dr, dc in (DIRS4D if p["diag"] else DIRS2):
@@ -96,7 +124,7 @@ def os_ord(g, p, gtype):
 
 
 def os_batch(sym, col, p, gtype):
-    X = col == p["X"]
+    X = col == ci(gtype, p["colour"])
     s = 0
     for dr, dc in (DIRS4D if p["diag"] else DIRS2):
         nx = ~shift(X, dr, dc, True)
@@ -105,7 +133,7 @@ def os_batch(sym, col, p, gtype):
 
 
 def os_exemplar(p, gtype):
-    N, X = gtype.N, p["X"]
+    N, X = gtype.N, ci(gtype, p["colour"])
     o = (X + 1) % gtype.C
     r, c = np.indices((N, N))
     z = np.zeros((N, N))
@@ -118,10 +146,10 @@ def os_exemplar(p, gtype):
 OTHELLO = mk(
     id="othello_sandwich", name="Othello Sandwich", theme="Capture cells between two of yours",
     requires=req(), layers={"colour", "position"}, camp="alternator",
-    sample=lambda rng, gt: {"X": colour(rng, gt), "diag": bool(rng.random() < 0.5)},
-    summary=lambda p, gt: (f"Every single cell of another colour trapped between two {cname(gt, p['X'])} cells in a line "
+    sample=lambda rng, gt: {"colour": colour_name(rng, gt), "diag": bool(rng.random() < 0.5)},
+    summary=lambda p, gt: (f"Every single cell of another colour trapped between two {p['colour']} cells in a line "
                            f"(across or down{', or diagonally' if p['diag'] else ''}) is captured: one point each."),
-    ordinal=os_ord, batch=os_batch, canonical=lambda p, gt: recolour(p, ["X"]), exemplar=os_exemplar,
+    ordinal=os_ord, batch=os_batch, canonical=lambda p, gt: recolour_names(p, ["colour"], gt), exemplar=os_exemplar,
     source="catalog#7 (games#7 with the catalog fix: exactly one cell between)", tags={"shortlist"})
 
 
@@ -223,8 +251,8 @@ def su_ord(g, p, gtype):
     if N <= 4:
         # All or nothing; the constant second component keeps the tuple length the same at every N.
         return tup(all(len({k[r][c] for r, c in ln}) == N for ln in _bingo_lines(N)), 0)
-    ls = [list(r) for r in k] if p["dir"] != "cols" else []
-    if p["dir"] != "rows":
+    ls = [list(r) for r in k] if p["axis"] != "cols" else []
+    if p["axis"] != "rows":
         ls += [[k[r][c] for r in range(N)] for c in range(N)]
     ok = sum(len(set(l)) == N for l in ls)
     return tup(ok, sum(len(set(l)) for l in ls))
@@ -242,7 +270,7 @@ def su_batch(sym, col, p, gtype):
         L = np.concatenate([k, np.swapaxes(k, 1, 2), np.diagonal(k, axis1=1, axis2=2)[:, None],
                             np.diagonal(k[:, :, ::-1], axis1=1, axis2=2)[:, None]], axis=1)
         return tupb((_distinct(L) == N).all(1), np.zeros(len(sym)))
-    d = _distinct(lines_rc(k, p["dir"]))
+    d = _distinct(lines_rc(k, p["axis"]))
     return tupb((d == N).sum(1), d.sum(1))
 
 
@@ -261,14 +289,14 @@ def su_exemplar(p, gtype):
 SUDOKU = mk(
     id="sudoku_scholar", name="Sudoku Scholar", theme="No number twice in a line",
     requires=req(), layers={"symbol", "position"}, camp="alternator",
-    sample=lambda rng, gt: {"dir": str(rng.choice(["rows", "cols", "both"]))},
+    sample=lambda rng, gt: {"axis": str(rng.choice(["rows", "cols", "both"]))},
     summary=lambda p, gt: (("All or nothing: you score only if no number appears twice in any row, column or long "
                             "diagonal." if gt.N <= 4 else
-                            "Score a point for every " + {"rows": "row", "cols": "column", "both": "row and column"}[p["dir"]]
+                            "Score a point for every " + {"rows": "row", "cols": "column", "both": "row and column"}[p["axis"]]
                             + " where no number appears twice; more different numbers is better.")
                            + (" Cards compare rank only." if gt.symbols == "cards" else "")),
     ordinal=su_ord, batch=su_batch,
-    canonical=lambda p, gt: {"dir": "both" if gt.N <= 4 or p["dir"] == "both" else "rows"},
+    canonical=lambda p, gt: {"axis": "both" if gt.N <= 4 or p["axis"] == "both" else "rows"},
     exemplar=su_exemplar,
     source="catalog#22 (games#10; N<=4 all-or-nothing over rows, cols and diagonals: no tie-breaker; "
            "N>=5 Latin bonus is monotone so dropped; tie-breaker = distinct symbols per line)", tags={"shortlist"})
@@ -278,7 +306,7 @@ SUDOKU = mk(
 def fh_ord(g, p, gtype):
     k = rank_key(g.sym, gtype)
     s = 0
-    for ln in (k if p["dir"] == "rows" else k.T).tolist():
+    for ln in (k if p["axis"] == "rows" else k.T).tolist():
         for x in set(ln):
             n = ln.count(x)
             s += n * (n - 1) // 2
@@ -287,7 +315,7 @@ def fh_ord(g, p, gtype):
 
 def fh_batch(sym, col, p, gtype):
     N = gtype.N
-    L = lines_rc(rank_key(sym, gtype), p["dir"])
+    L = lines_rc(rank_key(sym, gtype), p["axis"])
     s = 0
     for i in range(N):
         for j in range(i + 1, N):
@@ -298,10 +326,10 @@ def fh_batch(sym, col, p, gtype):
 FULL_HOUSE = mk(
     id="full_house", name="Full House", theme="Rows read like poker hands",
     requires=req(), layers={"symbol", "position"}, camp="clumper",
-    sample=lambda rng, gt: {"dir": str(rng.choice(LINE_AXES))},
+    sample=lambda rng, gt: {"axis": str(rng.choice(LINE_AXES))},
     summary=lambda p, gt: (f"Read each {'row' if p['dir'] == 'rows' else 'column'} like a poker hand. Every pair of "
                            "matching numbers in it scores a point (three of a kind = 3, four of a kind = 6)."),
-    ordinal=fh_ord, batch=fh_batch, canonical=lambda p, gt: {"dir": "rows"},
+    ordinal=fh_ord, batch=fh_batch, canonical=lambda p, gt: {"axis": "rows"},
     exemplar=lambda p, gt: grid(np.zeros((gt.N, gt.N)), np.zeros((gt.N, gt.N))),
     source="catalog#23 (games#1)", tags={"shortlist"})
 
@@ -359,7 +387,7 @@ def _bj(sym, gtype):
 
 
 def tw_ord(g, p, gtype):
-    T = p["T"]
+    T = p["target"]
     v, ace = _bj(g.sym, gtype)
     s = 0
     for lv, la in zip(v.tolist() + v.T.tolist(), ace.tolist() + ace.T.tolist()):
@@ -372,7 +400,7 @@ def tw_ord(g, p, gtype):
 
 
 def tw_batch(sym, col, p, gtype):
-    T = p["T"]
+    T = p["target"]
     v, ace = _bj(sym, gtype)
     t = lines_rc(v, "both").sum(2)
     a = lines_rc(ace, "both").any(2)
@@ -383,17 +411,17 @@ def tw_batch(sym, col, p, gtype):
 def tw_sample(rng, gtype):
     N = gtype.N
     if gtype.symbols == "cards":
-        return {"T": 21}
-    return {"T": int(rng.integers(2 * N, round(0.7 * N * (gtype.S - 1)) + 1))}
+        return {"target": 21}
+    return {"target": int(rng.integers(2 * N, round(0.7 * N * (gtype.S - 1)) + 1))}
 
 
 def tw_exemplar(p, gtype):
     from .arithmetic import base_row, circulant
     N = gtype.N
     if gtype.symbols == "cards":
-        v = circulant(base_row(N, p["T"], 2, 10))
+        v = circulant(base_row(N, p["target"], 2, 10))
         return grid(v - 1, np.zeros((N, N)))
-    v = circulant(base_row(N, p["T"], vmin(gtype), vmax(gtype)))
+    v = circulant(base_row(N, p["target"], vmin(gtype), vmax(gtype)))
     return grid(v, np.zeros((N, N)))
 
 
@@ -403,7 +431,7 @@ TWENTY_ONE = mk(
     sample=tw_sample,
     summary=lambda p, gt: (f"Each row and column is a blackjack hand: add it up"
                            + (" (J, Q, K count 10; an ace counts 11 unless that busts)" if gt.symbols == "cards" else "")
-                           + f". A hand of {p['T']} or less scores its total, exactly {p['T']} scores {p['T']} more, "
+                           + f". A hand of {p['target']} or less scores its total, exactly {p['target']} scores {p['target']} more, "
                              "and going over scores nothing."),
     ordinal=tw_ord, batch=tw_batch, exemplar=tw_exemplar,
     source="games#5 (cards T=21 with soft ace; number grid types sample T)")
@@ -415,7 +443,7 @@ def _nuniq4(a, b, d, e):
 
 
 def gf_ord(g, p, gtype):
-    N, R = gtype.N, p["r"]
+    N, R = gtype.N, rank_at(gtype, p["fish"])
     k = rank_key(g.sym, gtype).tolist()
     su = suits(g.sym, g.col, gtype).tolist()
     need = 4 if gtype.suit is not None else min(4, gtype.C)
@@ -431,7 +459,7 @@ def gf_ord(g, p, gtype):
 
 
 def gf_batch(sym, col, p, gtype):
-    m = rank_key(sym, gtype) == p["r"]
+    m = rank_key(sym, gtype) == rank_at(gtype, p["fish"])
     su = suits(sym, col, gtype)
     need = 4 if gtype.suit is not None else min(4, gtype.C)
     q = [x[:, :-1, :-1] for x in (m, su)], [x[:, :-1, 1:] for x in (m, su)], \
@@ -444,22 +472,22 @@ def gf_batch(sym, col, p, gtype):
 
 
 def gf_exemplar(p, gtype):
-    N = gtype.N
+    N, R = gtype.N, rank_at(gtype, p["fish"])
     r, c = np.indices((N, N))
     if gtype.suit is not None:
-        return grid((2 * (r % 2) + c % 2) * 13 + p["r"], np.zeros((N, N)))
+        return grid((2 * (r % 2) + c % 2) * 13 + R, np.zeros((N, N)))
     col = 2 * (r % 2) + c % 2 if gtype.C >= 4 else (r + c) % 3
-    return grid(np.full((N, N), p["r"]), col)
+    return grid(np.full((N, N), R), col)
 
 
 GO_FISH = mk(
     id="go_fish_books", name="Go Fish Books", theme="2×2 blocks of your fish",
     requires=req(), layers={"colour", "symbol", "position"}, camp="clumper",
-    sample=lambda rng, gt: {"r": int(rng.integers(gt.ranks))},
-    summary=lambda p, gt: (f"Your fish is {sglyph(gt, p['r'])}{' (any suit)' if gt.symbols == 'cards' else ''}. Every 2×2 "
+    sample=lambda rng, gt: {"fish": rank_name(gt, rng.integers(gt.ranks))},
+    summary=lambda p, gt: (f"Your fish is {sglyph(gt, rank_at(gt, p['fish']))}{' (any suit)' if gt.symbols == 'cards' else ''}. Every 2×2 "
                            f"block of four of them is a book (1 point), or a perfect book (2 points) if they are all "
                            f"different {'suits' if gt.symbols == 'cards' else 'colours'}."),
-    ordinal=gf_ord, batch=gf_batch, canonical=lambda p, gt: {"r": 0}, exemplar=gf_exemplar,
+    ordinal=gf_ord, batch=gf_batch, canonical=lambda p, gt: {"fish": rank_name(gt, 0)}, exemplar=gf_exemplar,
     source="games#6 (RGB perfect = all 3 colours); tie-breaker = fish cells summed over 2×2 windows")
 
 
@@ -513,6 +541,7 @@ KN = [(1, 2), (2, 1), (2, -1), (1, -2)]
 
 def kr_ord(g, p, gtype):
     N = gtype.N
+    X = None if p["colour"] == "any" else ci(gtype, p["colour"])
     s, c = g.sym.tolist(), g.col.tolist()
     t = 0
     for r in range(N):
@@ -520,7 +549,7 @@ def kr_ord(g, p, gtype):
             for dr, dc in KN:
                 r2, k2 = r + dr, k + dc
                 if _cells_in(N, r2, k2) and s[r][k] == s[r2][k2] and c[r][k] == c[r2][k2] \
-                        and (p["X"] is None or c[r][k] == p["X"]):
+                        and (p["colour"] == "any" or c[r][k] == X):
                     t += 1
     return t
 
@@ -531,8 +560,8 @@ def kr_batch(sym, col, p, gtype):
     c16 = col.astype(np.int64)
     for dr, dc in KN:
         ok = (s16 == shift(s16, dr, dc, -1)) & (c16 == shift(c16, dr, dc, -1))
-        if p["X"] is not None:
-            ok &= c16 == p["X"]
+        if p["colour"] != "any":
+            ok &= c16 == ci(gtype, p["colour"])
         t = t + ok.sum((1, 2))
     return t
 
@@ -540,11 +569,11 @@ def kr_batch(sym, col, p, gtype):
 KNIGHT_RIDERS = mk(
     id="knight_riders", name="Knight Riders", theme="Twins a knight's jump apart",
     requires=req(), layers={"colour", "symbol", "position"}, camp="clumper",
-    sample=lambda rng, gt: {"X": colour(rng, gt) if rng.random() < 0.5 else None},
+    sample=lambda rng, gt: {"colour": colour_name(rng, gt) if rng.random() < 0.5 else "any"},
     summary=lambda p, gt: ("Every pair of cells a chess knight's jump apart that are exact twins (same symbol and same "
-                           "colour" + (f", and {cname(gt, p['X'])}" if p["X"] is not None else "") + ") scores a point."),
-    ordinal=kr_ord, batch=kr_batch, canonical=lambda p, gt: recolour(p, ["X"]),
-    exemplar=lambda p, gt: grid(np.zeros((gt.N, gt.N)), np.full((gt.N, gt.N), p["X"] or 0)),
+                           "colour" + (f", and {p['colour']}" if p["colour"] != "any" else "") + ") scores a point."),
+    ordinal=kr_ord, batch=kr_batch, canonical=lambda p, gt: recolour_some(p, ["colour"], gt),
+    exemplar=lambda p, gt: grid(np.zeros((gt.N, gt.N)), np.full((gt.N, gt.N), 0 if p["colour"] == "any" else ci(gt, p["colour"]))),
     source="games#13 (full card identity)")
 
 
@@ -597,18 +626,19 @@ UNO_SNAKE = mk(
 # --- Court Parade -------------------------------------------------------------------------------------------------
 def cp_ord(g, p, gtype):
     N = gtype.N
+    suit = suit_at(p["suit"])
     rk, su, col = gtype.rank[g.sym], gtype.suit[g.sym], g.col
     score = pairs = 0
     for R, S, C in ((rk.tolist(), su.tolist(), col.tolist()), (rk.T.tolist(), su.T.tolist(), col.T.tolist())):
         for r in range(N):
             for i in range(N - 1):
-                okp = S[r][i] == S[r][i + 1] and (p["suit"] is None or S[r][i] == p["suit"]) \
+                okp = S[r][i] == S[r][i + 1] and (suit is None or S[r][i] == suit) \
                     and (R[r][i], R[r][i + 1]) in ((10, 11), (11, 12))
                 pairs += okp
             for i in range(N - 2):
                 ok = (R[r][i], R[r][i + 1], R[r][i + 2]) == (10, 11, 12) and S[r][i] == S[r][i + 1] == S[r][i + 2] \
-                    and (p["suit"] is None or S[r][i] == p["suit"]) \
-                    and (not p["match"] or C[r][i] == C[r][i + 1] == C[r][i + 2])
+                    and (suit is None or S[r][i] == suit) \
+                    and (not p["one_colour"] or C[r][i] == C[r][i + 1] == C[r][i + 2])
                 if ok:
                     score += 1
                     if i > 0 and R[r][i - 1] == 0 and S[r][i - 1] == S[r][i]:
@@ -618,14 +648,15 @@ def cp_ord(g, p, gtype):
 
 def cp_batch(sym, col, p, gtype):
     N = gtype.N
+    suit = suit_at(p["suit"])
     rk, su, c = (lines_rc(x.astype(np.int64), "both") for x in (gtype.rank[sym], gtype.suit[sym], col))
-    sp = (lambda x: x == p["suit"]) if p["suit"] is not None else (lambda x: np.ones(x.shape, bool))
+    sp = (lambda x: x == suit) if suit is not None else (lambda x: np.ones(x.shape, bool))
     pr = (su[:, :, 1:] == su[:, :, :-1]) & sp(su[:, :, :-1]) & (
         ((rk[:, :, :-1] == 10) & (rk[:, :, 1:] == 11)) | ((rk[:, :, :-1] == 11) & (rk[:, :, 1:] == 12)))
     a, b, d = slice(0, N - 2), slice(1, N - 1), slice(2, N)
     ok = (rk[:, :, a] == 10) & (rk[:, :, b] == 11) & (rk[:, :, d] == 12) & (su[:, :, a] == su[:, :, b]) \
         & (su[:, :, b] == su[:, :, d]) & sp(su[:, :, a])
-    if p["match"]:
+    if p["one_colour"]:
         ok &= (c[:, :, a] == c[:, :, b]) & (c[:, :, b] == c[:, :, d])
     grand = np.zeros(ok.shape, bool)
     grand[:, :, 1:] = ok[:, :, 1:] & (rk[:, :, :N - 3] == 0) & (su[:, :, :N - 3] == su[:, :, 1:N - 2])
@@ -635,21 +666,21 @@ def cp_batch(sym, col, p, gtype):
 def cp_exemplar(p, gtype):
     N = gtype.N
     r, c = np.indices((N, N))
-    s = 0 if p["suit"] is None else p["suit"]
+    s = suit_at(p["suit"]) or 0
     return grid(s * 13 + np.array([0, 10, 11, 12])[(r + c) % 4], np.zeros((N, N)))
 
 
 COURT_PARADE = mk(
     id="court_parade", name="Court Parade", theme="J, Q, K of one suit marching in a line",
     requires=req("Suited", "Faced"), layers={"symbol", "colour", "position"}, camp="neutral",
-    sample=lambda rng, gt: {"suit": None if rng.random() < 0.5 else int(rng.integers(4)), "match": bool(rng.random() < 0.3)},
+    sample=lambda rng, gt: {"suit": "any" if rng.random() < 0.5 else SUIT_WORDS[int(rng.integers(4))], "one_colour": bool(rng.random() < 0.3)},
     summary=lambda p, gt: ("A Jack, Queen and King of the same suit"
-                           + (f" ({'♠♥♦♣'[p['suit']]})" if p["suit"] is not None else "")
+                           + (f" ({'♠♥♦♣'[suit_at(p['suit'])]})" if p["suit"] != "any" else "")
                            + " standing in that order (left to right or top to bottom)"
-                           + (" and all one colour" if p["match"] else "")
+                           + (" and all one colour" if p["one_colour"] else "")
                            + " is a parade; with its Ace just before the Jack it's a grand parade worth double."),
     ordinal=cp_ord, batch=cp_batch,
-    canonical=lambda p, gt: {"suit": None if p["suit"] is None else 0, "match": p["match"]},
+    canonical=lambda p, gt: {"suit": "any" if p["suit"] == "any" else "spades", "one_colour": p["one_colour"]},
     exemplar=cp_exemplar,
     source="games#15 (+5 units rescaled to counts); tie-breaker = J→Q / Q→K pairs")
 
@@ -657,13 +688,14 @@ COURT_PARADE = mk(
 # --- King's Court (games idea) ----------------------------------------------------------------------------------
 def kc_ord(g, p, gtype):
     N = gtype.N
+    R = rank_at(gtype, p["target"])
     k, col = rank_key(g.sym, gtype).tolist(), g.col.tolist()
     return sum(sum(col[a][b] != col[r][c] for a, b in nbrs8(N, r, c))
-               for r in range(N) for c in range(N) if k[r][c] == p["r"])
+               for r in range(N) for c in range(N) if k[r][c] == R)
 
 
 def kc_batch(sym, col, p, gtype):
-    m = rank_key(sym, gtype) == p["r"]
+    m = rank_key(sym, gtype) == rank_at(gtype, p["target"])
     c = col.astype(np.int64)
     d = sum(((shift(c, dr, dc, -1) != c) & valid(gtype.N, dr, dc)).astype(np.int64)
             for dr in (-1, 0, 1) for dc in (-1, 0, 1) if dr or dc)
@@ -673,7 +705,7 @@ def kc_batch(sym, col, p, gtype):
 def kc_exemplar(p, gtype):
     N, C = gtype.N, gtype.C
     r, c = np.indices((N, N))
-    s = np.full((N, N), p["r"])
+    s = np.full((N, N), rank_at(gtype, p["target"]))
     cands = [grid(s, x % C) for x in (2 * (r % 2) + c % 2, r + c, r + 2 * c, 2 * r + c)]
     return multi_climb(kc_batch, [best_of(kc_ord, cands, p, gtype)], p, gtype, restarts=0)
 
@@ -681,18 +713,19 @@ def kc_exemplar(p, gtype):
 KINGS_COURT = mk(
     id="kings_court", name="King's Court", theme="Your symbol surrounded by every other colour",
     requires=req(), layers={"colour", "symbol", "position"}, camp="alternator",
-    sample=lambda rng, gt: {"r": int(rng.integers(gt.ranks))},
-    summary=lambda p, gt: (f"Every {sglyph(gt, p['r'])}{' (any suit)' if gt.symbols == 'cards' else ''} scores a point for "
+    sample=lambda rng, gt: {"target": rank_name(gt, rng.integers(gt.ranks))},
+    summary=lambda p, gt: (f"Every {sglyph(gt, rank_at(gt, p['target']))}{' (any suit)' if gt.symbols == 'cards' else ''} scores a point for "
                            "each of its 8 neighbours (corners too) that is a different colour from it."),
-    ordinal=kc_ord, batch=kc_batch, canonical=lambda p, gt: {"r": 0}, exemplar=kc_exemplar,
+    ordinal=kc_ord, batch=kc_batch, canonical=lambda p, gt: {"target": rank_name(gt, 0)}, exemplar=kc_exemplar,
     source="games cross-lens idea 'King's court' (a diagonal-inclusive Seed 2 cousin)")
 
 
 # --- Connect Four (games idea) --------------------------------------------------------------------------------------
 def c4_ord(g, p, gtype):
     N = gtype.N
+    X = ci(gtype, p["colour"])
     col = g.col.tolist()
-    sup = [[all(col[k][c] == p["X"] for k in range(r, N)) for c in range(N)] for r in range(N)]
+    sup = [[all(col[k][c] == X for k in range(r, N)) for c in range(N)] for r in range(N)]
     w = 0
     for dr, dc in DIRS4D:
         for r in range(N):
@@ -704,7 +737,7 @@ def c4_ord(g, p, gtype):
 
 
 def c4_batch(sym, col, p, gtype):
-    sup = np.logical_and.accumulate((col == p["X"])[:, ::-1, :], axis=1)[:, ::-1, :]
+    sup = np.logical_and.accumulate((col == ci(gtype, p["colour"]))[:, ::-1, :], axis=1)[:, ::-1, :]
     w = 0
     for dr, dc in DIRS4D:
         ok = sup.copy()
@@ -717,12 +750,12 @@ def c4_batch(sym, col, p, gtype):
 CONNECT_FOUR = mk(
     id="connect_four", name="Connect Four", theme="Four in a row, stacked from the bottom",
     requires=req(min_size=4), layers={"colour", "position"}, camp="clumper",
-    sample=lambda rng, gt: {"X": colour(rng, gt)},
-    summary=lambda p, gt: (f"Your counters are {cname(gt, p['X'])} and they fall to the bottom: a counter only stands if "
-                           f"everything below it is {cname(gt, p['X'])} too. Score every four-in-a-row of standing counters "
+    sample=lambda rng, gt: {"colour": colour_name(rng, gt)},
+    summary=lambda p, gt: (f"Your counters are {p['colour']} and they fall to the bottom: a counter only stands if "
+                           f"everything below it is {p['colour']} too. Score every four-in-a-row of standing counters "
                            "(across, down or diagonal)."),
-    ordinal=c4_ord, batch=c4_batch, canonical=lambda p, gt: recolour(p, ["X"]),
-    exemplar=lambda p, gt: grid(np.zeros((gt.N, gt.N)), np.full((gt.N, gt.N), p["X"])),
+    ordinal=c4_ord, batch=c4_batch, canonical=lambda p, gt: recolour_names(p, ["colour"], gt),
+    exemplar=lambda p, gt: grid(np.zeros((gt.N, gt.N)), np.full((gt.N, gt.N), ci(gt, p["colour"]))),
     source="games cross-lens idea 'Connect Four with gravity'; tie-breaker = standing counters")
 
 

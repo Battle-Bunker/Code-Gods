@@ -29,7 +29,7 @@ export const SHOWCASE = [
   { familyId: "honest_minesweeper", params: { mine: "red" } },
   { familyId: "magic_accountant", params: { axis: "rows", target: 16 } },
   { familyId: "kingdom", params: { colour: "red" } },
-  { familyId: "picture_frame", params: { colour: "red" } },
+  { familyId: "picture_frame", params: { colour: "red", symbol: "7" } },
   { familyId: "mirrormancer", params: { axis: "LR", layer: "colour" } },
 ] as const;
 
@@ -75,7 +75,7 @@ function PlainFamily() {
 // alternative modes for hard rules (docs/annotations-design.md §11)
 // ------------------------------------------------------------------------------------------------
 
-const CASTLE = { familyId: "castle_keeper", params: { W: 0, mode: "plain", T: null } };
+const CASTLE = { familyId: "castle_keeper", params: { wall: "red", mode: "plain", treasure: "none" } };
 const CASTLE_BOARD = "1G,0R,0R,0R/2B,3G,0R,5B/0R,0R,4G,0R/2B,0R,0R,3G";
 const FAR = { familyId: "far_apart", params: { A: 0, B: 1 } };
 const FAR_BOARD = "3R,1R,0B,2G/4R,7B,5G,1B/0B,2R,6B,8G/9G,1B,3R,7G";

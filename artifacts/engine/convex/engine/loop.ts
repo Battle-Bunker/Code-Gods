@@ -10,7 +10,7 @@ import { allowedLanguages, type GameSettings } from "@workspace/game-core";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
-import { eventV, scoreV } from "../game/tables";
+import { eventV, failuresV, futileEntriesV, lastFailuresV, scoreV } from "../game/tables";
 import { liveGame, withEngine, writeGame, type LiveGame } from "../game/state";
 import { publicSalienceOf } from "../game/readModel";
 import { gameRecord } from "../lib/projection";
@@ -19,6 +19,7 @@ import { EVENT_LOG_SCHEMA, EVENTS_PER_BATCH, LEASE_MS, MIN_TICK_MS, scoreInterva
 import { agentLanguage } from "../lib/language";
 import { readinessRows } from "../runtime/readiness";
 import { engineErrorReason, retryDelayMs } from "../lib/engineErrors";
+import { NO_FAILURES, type Futile } from "../lib/futility";
 
 type Ev = Doc<"tickBatches">["events"][number];
 
@@ -102,7 +103,7 @@ export async function endGame(ctx: MutationCtx, game: LiveGame, reason: "lifetim
   const nextBatch = await appendEvents(ctx, ended, [{ t: "phase", phase: "ended", world: ended.worldSeconds, reason }], ended.worldSeconds, ended.worldSeconds,
     undefined, scoreboard.totals, scoreboard.totals);
   await writeGame(ctx, game, {
-    ...patch, phase: "ended", endedAt: now, endReason: reason, executionEpoch: ended.executionEpoch, autoResume: undefined, engineError: undefined, ...(game.failures ? { failures: 0 } : {}),
+    ...patch, phase: "ended", endedAt: now, endReason: reason, executionEpoch: ended.executionEpoch, autoResume: undefined, engineError: undefined, ...(game.tickFailures ? { tickFailures: 0 } : {}),
     summary, nextBatch, scoreboard, tick: { seq: game.tick.seq + 1, leaseUntil: 0 },
   });
   // Its pinned tables (engine/pinned.ts) are no longer needed: nothing scores an ended game.
@@ -126,7 +127,7 @@ export async function endGame(ctx: MutationCtx, game: LiveGame, reason: "lifetim
 export async function parkGame(ctx: MutationCtx, game: LiveGame, reason: string, autoResume: boolean) {
   const nextBatch = await appendEvents(ctx, game, [{ t: "phase", phase: "recovery", world: game.worldSeconds, reason }], game.worldSeconds, game.worldSeconds);
   await writeGame(ctx, game, {
-    phase: "recovery", recoveryReason: reason, autoResume: autoResume || undefined, executionEpoch: game.executionEpoch + 1, engineError: undefined, ...(game.failures ? { failures: 0 } : {}),
+    phase: "recovery", recoveryReason: reason, autoResume: autoResume || undefined, executionEpoch: game.executionEpoch + 1, engineError: undefined, ...(game.tickFailures ? { tickFailures: 0 } : {}),
     nextBatch, tick: { seq: game.tick.seq + 1, leaseUntil: 0 },
   });
 }
@@ -153,10 +154,11 @@ export const snapshot = internalQuery({
   handler: async (ctx, { gameId, seq }) => {
     const game = await liveGame(ctx, gameId);
     if (!game || game.tick.seq !== seq) return null;
-    const [objects, agents, deities] = await Promise.all([
+    const [objects, agents, deities, futile] = await Promise.all([
       ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", gameId)).take(2100),
       ctx.db.query("agents").withIndex("by_game", q => q.eq("gameId", gameId)).take(2000),
       ctx.db.query("deities").withIndex("by_game", q => q.eq("gameId", gameId)).take(16),
+      ctx.db.query("futileActs").withIndex("by_game", q => q.eq("gameId", gameId)).take(2000),
     ]);
     return {
       game, lastActivity: await lastHumanActivity(ctx),
@@ -164,7 +166,9 @@ export const snapshot = internalQuery({
       agents: agents.map(a => ({
         id: a._id as string, ownerId: a.ownerId, source: a.source, language: agentLanguage(a, game.settings as GameSettings), decisionBits: a.decisionBits, perActFloorBits: a.perActFloorBits,
         expectedActCost: a.expectedActCost, account: a.account, acts: a.acts, spent: a.spent,
+        transforms: a.transforms ?? 0, failures: a.failures ?? NO_FAILURES, lastFailures: a.lastFailures ?? {},
       })),
+      futile: futile.map(f => ({ agentId: f.agentId as string, entries: f.entries as Futile[] })),
       deities: deities.sort((a, b) => a.index - b.index).map(d => ({ godId: d.godId, utility: d.utility })),
       sandboxes: await readinessRows(ctx, allowedLanguages(game.settings as GameSettings)),
     };
@@ -194,7 +198,10 @@ export const commit = internalMutation({
     clock: v.optional(clockV),
     objects: v.array(v.object({ id: v.id("objects"), fromVersion: v.number(), value: wire, version: v.number(), scores: v.array(scoreV), salience: v.number(), noise: v.optional(v.number()) })),
     spawns: v.array(v.object({ tmp: v.string(), value: wire, scores: v.array(scoreV), salience: v.number(), noise: v.optional(v.number()) })),
-    agents: v.array(v.object({ id: v.id("agents"), fromActs: v.number(), acts: v.number(), spent: v.number(), account: v.object({ balance: v.number(), settledWorldSeconds: v.number() }) })),
+    agents: v.array(v.object({ id: v.id("agents"), fromActs: v.number(), acts: v.number(), spent: v.number(), account: v.object({ balance: v.number(), settledWorldSeconds: v.number() }),
+      transforms: v.number(), failures: failuresV, lastFailures: lastFailuresV })),
+    /** The futile-pair memos that changed in the window (lib/futility.ts), each agent's whole memo. */
+    futile: v.optional(v.array(v.object({ agentId: v.id("agents"), entries: futileEntriesV }))),
     events: v.array(eventV),
     stats: v.object({ opportunities: v.number(), acts: v.number(), simulateMs: v.number(), prevCommitMs: v.optional(v.number()) }),
     /** The leaderboard after the window (every roster god's exact total payoff, roster order), stored on scoring batches. */
@@ -220,7 +227,7 @@ export const commit = internalMutation({
       await parkGame(ctx, game, "The engine went idle after 30 minutes without human activity. The game resumes when a player returns.", true);
       return { result: "parked" as const };
     }
-    const recovered: Partial<LiveGame> = game.engineError || game.failures ? { engineError: undefined, failures: 0 } : {};
+    const recovered: Partial<LiveGame> = game.engineError || game.tickFailures ? { engineError: undefined, tickFailures: 0 } : {};
     if (args.kind === "wait") {
       // wakeAt: planning held past its deadline for a warming sandbox polls instead of spinning.
       await scheduleTick(ctx, game, args.wakeAt ?? nextDeadline(game, now), recovered);
@@ -270,8 +277,17 @@ export const commit = internalMutation({
         publicSalience: publicSalienceOf(spawn, true), createdAt: spawnedAt.get(spawn.tmp) ?? args.clock!.worldSeconds }));
     }
     for (const state of args.agents) {
-      if (live.has(state.id)) await ctx.db.patch(state.id, { acts: state.acts, spent: state.spent, account: state.account });
+      if (live.has(state.id)) {
+        await ctx.db.patch(state.id, { acts: state.acts, spent: state.spent, account: state.account, transforms: state.transforms, failures: state.failures,
+          lastFailures: state.lastFailures });
+      }
     }
+    // Only an agent that acted changes its memo; a destroyed one's is never written (destroy deletes it).
+    await Promise.all((args.futile ?? []).filter(memo => live.has(memo.agentId)).map(async memo => {
+      const row = await ctx.db.query("futileActs").withIndex("by_agent", q => q.eq("agentId", memo.agentId)).unique();
+      if (row) await (memo.entries.length ? ctx.db.patch(row._id, { entries: memo.entries }) : ctx.db.delete(row._id));
+      else if (memo.entries.length) await ctx.db.insert("futileActs", { gameId: game._id, agentId: memo.agentId, entries: memo.entries });
+    }));
     const resolved = events.map(e => (e.t === "spawn" && ids.has(e.objectId) ? { ...e, objectId: ids.get(e.objectId)! } : e));
     const clock = args.clock!;
     const acts = events.filter(e => e.t === "transform" || e.t === "fail").length;
@@ -320,13 +336,13 @@ export const tickFailed = internalMutation({
   handler: async (ctx, { gameId, seq, message }) => {
     const game = await liveGame(ctx, gameId);
     if (!game || game.tick.seq !== seq || !["planning", "running", "paused"].includes(game.phase)) return { result: "stale" as const };
-    const now = Date.now(), failures = (game.failures ?? 0) + 1, retryAt = now + retryDelayMs(failures);
+    const now = Date.now(), failures = (game.tickFailures ?? 0) + 1, retryAt = now + retryDelayMs(failures);
     console.error(`tick ${gameId}#${seq} failed (${failures} in a row; retrying in ${retryAt - now} ms): ${message}`);
     // The public notice changes only when the failures start or their reason changes (games is the cold header).
     const reason = engineErrorReason(message);
     const engineError = game.engineError?.reason === reason ? game.engineError : { reason, since: game.engineError?.since ?? now };
     // lastTick: the retry is where world time resumes (engine/tick.ts never starts it before lastTick), in every phase.
-    await scheduleTick(ctx, game, Math.max(retryAt, nextDeadline(game, now) ?? retryAt), { engineError, failures, lastTick: retryAt });
+    await scheduleTick(ctx, game, Math.max(retryAt, nextDeadline(game, now) ?? retryAt), { engineError, tickFailures: failures, lastTick: retryAt });
     return { result: "retrying" as const, failures, retryAt };
   },
 });
@@ -391,7 +407,7 @@ export const liveProgress = internalQuery({
       const games = await ctx.db.query("games").withIndex("by_phase", q => q.eq("phase", phase)).take(200);
       for (const game of await Promise.all(games.map(g => withEngine(ctx, g)))) {
         out.push({ id: game._id, shortCode: game.shortCode, phase: game.phase, seq: game.tick.seq, commits: game.stats.commits,
-          worldSeconds: game.worldSeconds, idleParked: !!game.autoResume, engineError: game.engineError ? { ...game.engineError, failures: game.failures ?? 0 } : null });
+          worldSeconds: game.worldSeconds, idleParked: !!game.autoResume, engineError: game.engineError ? { ...game.engineError, failures: game.tickFailures ?? 0 } : null });
       }
     }
     return { now: Date.now(), idle: isIdle(await lastHumanActivity(ctx)), games: out };

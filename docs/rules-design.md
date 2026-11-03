@@ -65,7 +65,8 @@ P8. **Same words in the summary, the card comment, the assistant briefing.** The
 P9. **A continuous landscape of points** (owner, 2026-11-03). The score has many attainable levels, each rarer than the
    last, so every improvement earns something and the last steps are the hardest (the calibration turns rarity into
    bits, so a count or a signed per-cell sum gives a curve whose steps grow). Never all or nothing: Picture Frame was,
-   and now sums +1 per edge cell and −1 per middle cell of your colour and of the best edge symbol.
+   and now (owner's redesign, 2026-11-03) deals a colour and a symbol and sums, per cell, +1 on the edge for either and +4
+   for both, −1 / −4 in the middle (`FRAME_POINTS`).
 
 ## 3. Rendering descriptions for the instantiation
 
@@ -289,3 +290,60 @@ families. Most Int/string families already have word names and plain values (`d`
 declaration each; the Grid ones with colour or symbol indices (about 45) need the same treatment as above: rename, store
 names, `legacy` reader, Python port, rekey. Estimate: about a day of agent time for all of them (four batches of about
 25 families, each a TS + Python + lens-free change verified by `params.test.ts`, the parity test and the rekey).
+
+## 10. Futile acts (2026-11-03)
+
+**The problem.** Production game k972kgwq…: of 804 acts in 30 tick batches, 793 failed. 438 were collisions ("another
+object already has this value") by a dozen copies of `return [write(everything(), 0), paint(everything(), "green")]`,
+which maps every object to the same grid: once one object holds it, every other act collides, forever. 355 were
+"no change" from idempotent agents (`mirror_grid("top", what="colour")`), which change an object once and then nothing.
+Each failed act still paid its floor, and the engine kept offering the same agents the same object versions.
+
+**The rule.** The runtime freezes the clock and reports whether an act read `random` (`usedRandom`). An act that did
+not is a pure function of the agent's source and the object's value (settings and the god's utility table are fixed for
+the game), so when it fails, the same agent on the same object version fails again, identically. The tick remembers
+those pairs (`convex/lib/futility.ts`, table `futileActs`, one row per agent, written by the commit) and never offers
+the agent that object again until a retry could differ:
+
+| The act | Remembered until |
+|---|---|
+| failed by the rules: no change, an invalid call, the commit clause kept the object | the object changes version |
+| collided with a value another object (or the object itself) holds | the object changes version, or the holder does (it may have freed the value) |
+| read `random` | never remembered: the next act has another seed |
+| raised or timed out (a runtime error) | never remembered: a timeout is not reproducible |
+| changed the object | nothing to remember (the version changed; any entry for the pair goes) |
+
+**Opportunities stay fair.** An opportunity picks its object as before (uniform or shelter), then a uniformly random
+eligible agent among those whose act on it is not futile. When every eligible agent is futile on that object, the
+opportunity tries another object (up to 8); when none has a taker it passes, and nobody is charged. A futile pair is
+never an opportunity, so an agent pays only for acts that could do something, and it does not take opportunities from
+agents that can act. Randomized agents keep their retries: their next act on the same object may differ.
+
+**The owner sees why.** The tick counts every act's outcome on the agent (`transforms`, `failures` by kind:
+collision, noChange, commit, invalid, error; `lastFailures`: the last invalid call's and runtime error's reasons). `agentView` turns
+them into a diagnosis, "38 of 38 acts failed: another object already has this value", with a one-line fix when at least
+half fail. My Agents shows it; the assistant reads it in `get_observation` (`agents[].outcomes`, `agents[].diagnosis`).
+Summon-time validation warns before the summon (§11).
+
+## 11. Summon-time futility warnings (2026-11-03)
+
+Validate and summon examine the agent (`engine/pricing.ts` examineAgent). Besides the price, the examination now runs
+`probeFutility` (`lib/game-types/src/pricing/futility.ts`): two passes over a sample world of up to 16 objects (the
+game's live objects first, then the season's reference mixture), applying each result with the engine's uniqueness rule.
+It reports the share of acts that succeed (`expectedSuccessRate`) and, for a deterministic agent (no run read `random`):
+
+| Flag | Means | The warning |
+|---|---|---|
+| identity | no sample object changed | it never changes an object; every act would fail and still cost energy |
+| constant | at least two objects changed, all to one value | only one object can ever hold this value; every other act will collide |
+| idempotent | acting again on any of its own results changes nothing | it acts once per object, then wastes acts |
+| (any agent) | under half its acts succeed in the sample world | most of its acts fail, with the rate |
+
+A validate or summon of code the player already runs as a live agent adds a copies warning (a copy gives each object
+the same result; for a constant, idempotent or identity agent it only adds failures).
+
+Warnings never block. They reach the player before the summon: the forge's validation box, the assistant's
+`validate_agent` assessment (verdict `warns`, its `next` says to tell the player and offer a fix), and the summon
+confirmation card, which shows the warnings of the latest validation of the identical code in the conversation. A
+summon's receipt carries them too (`warnings`). A deterministic agent runs once per distinct value (at most two runs per
+sample object); a randomized one runs twice per object.

@@ -38,12 +38,13 @@ test("a summon needs a name (trimmed, up to 40) and takes an optional descriptio
   assert.deepEqual([observed.agents[0].name, observed.agents[0].description], ["Setter", "Sets everything to five."]);
 });
 
-test("objects stay unique: a constant transformation commits once, then collides and still pays decision + floor", { timeout: 120000 }, async () => {
+test("objects stay unique: a constant transformation commits once, then collides once per other object (futile acts) and still pays decision + floor", { timeout: 120000 }, async () => {
   const { trio: [host, ada], roomId, game, send, run } = await runningGame({ startingObjectCount: 3, agentEnergyPerSecond: 1000, agentBatteryActs: 1000, interactionRateHz: 40 });
   assert.equal((await send(ada, { type: "summon", name: "Test agent", language: "typescript", source: "function agent(x) { return [setTo(5)]; }" })).accepted, true);
   await run();
   const events = async () => (await raw(game.gameId)).batches.flatMap((b: any) => b.events);
-  await waitFor(async () => (await events()).filter((e: any) => e.t === "fail" && /already has this value/.test(e.reason)).length >= 3, "later constant acts collide", 60000);
+  await waitFor(async () => (await events()).filter((e: any) => e.t === "fail" && /already has this value/.test(e.reason)).length >= 2, "later constant acts collide", 60000);
+  await sleep(3000); // 40 opportunities a second: a deterministic act is never retried on an object version it failed on
   await host.c.mutation(api.rooms.endActiveGame, { roomId });
   const secret = await raw(game.gameId);
   const values = secret.objects.map((o: any) => o.value);
@@ -54,6 +55,9 @@ test("objects stay unique: a constant transformation commits once, then collides
   const failed = all.filter((e: any) => e.t === "fail");
   const odd = failed.filter((e: any) => !(/already has this value|no change/.test(e.reason) && e.cost.erasure === 0 && e.cost.motion === 0 && e.cost.total === e.cost.decision + e.cost.floor));
   assert.deepEqual(odd, [], "duplicates fail and pay decision + floor only");
+  // One success, one collision on each other object, one "no change" on the holder: then nothing left to try.
+  assert.equal(failed.filter((e: any) => /already has this value/.test(e.reason)).length, 2);
+  assert.ok(failed.filter((e: any) => /no change/.test(e.reason)).length <= 1);
   const agent = secret.agents[0];
   assert.equal(agent.acts, all.filter((e: any) => e.t === "transform" || e.t === "fail").length, "every act is charged, successful or not");
 });

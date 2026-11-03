@@ -14,6 +14,7 @@ import type { Doc } from "../_generated/dataModel";
 import type { ClockedGame, Scoreboard } from "../game/state";
 import { DEFAULT_AGENT_MODEL } from "./aiModels";
 import { aiQuotaOf, assistantQuotaOf } from "./aiAccess";
+import { NO_FAILURES, diagnoseAgent } from "./futility";
 import { agentStatus, disclosedTotalsOf, godEnergy, totalsOf, viewOf, viewOfNet, worldNow } from "./world";
 import { agentLanguage } from "./language";
 
@@ -161,7 +162,16 @@ export function agentView(game: ClockedGame, agent: Doc<"agents">, nowMs = Date.
     summonCost: agent.summonCost, decisionBits: agent.decisionBits, expectedActCost: agent.expectedActCost,
     breakdown: agent.breakdown, randomized: agent.randomized, energy: status.energy, eligible: status.eligible,
     acts: agent.acts, spent: agent.spent,
+    ...agentOutcomes(agent),
   };
+}
+
+/** The owner's breakdown of how the agent's acts ended (counted by the tick) and its diagnosis (lib/futility.ts). */
+export function agentOutcomes(agent: Pick<Doc<"agents">, "transforms" | "failures" | "lastFailures">) {
+  if (agent.failures === undefined && agent.transforms === undefined) return {};
+  const outcomes = { transforms: agent.transforms ?? 0, failures: agent.failures ?? NO_FAILURES, ...(agent.lastFailures ? { lastFailures: agent.lastFailures } : {}) };
+  const diagnosis = diagnoseAgent(outcomes);
+  return { outcomes, ...(diagnosis ? { diagnosis } : {}) };
 }
 
 // ------------------------------------------------------------------------------------------------

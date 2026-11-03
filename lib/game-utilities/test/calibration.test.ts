@@ -318,7 +318,7 @@ test("tableFor canonicalises raw draws and serves fresh tables only", () => {
     assert.equal(t!.key, tableKey(f.id, f.canonical(p, ctx), inst));
     assert.ok(hasTable(tables, { familyId: f.id, params: p }, inst));
   }
-  assert.equal(tableFor(tables, { familyId: "digit-devotee", params: { d: 3 } }, inst), undefined);
+  assert.equal(tableFor(tables, { familyId: "digit-devotee", params: { digit: 3 } }, inst), undefined);
   // Nothing shipped for an instantiation: an empty set, every lookup misses.
   const none = instantiate("Grid", { size: 3, symbols: "cards", colours: "rgb" });
   assert.equal(hasTable(instanceTables(none.key, null), { familyId: "seed3_green_ones", params: { colour: 0, value: 0 } }, none), false);
@@ -382,7 +382,7 @@ test("mixture prior: G_ρ = ½·G_uniform + ½·(pool share) exactly at every le
   assert.equal(tableJson(mixtureTable(uniform, pool, inst)), tableJson(mix));
   for (let i = 1; i < mix.levels.length; i++) assert.ok(mix.levels[i][1] > mix.levels[i - 1][1]);
   // Not shipped: the registry serves uniform tables only unless a mixture is shipped.
-  assert.equal(tableFor(shippedTables(inst.key), { familyId: "digit-devotee", params: { d: 7 } }, inst, prior), undefined);
+  assert.equal(tableFor(shippedTables(inst.key), { familyId: "digit-devotee", params: { digit: 7 } }, inst, prior), undefined);
   assert.throws(() => mixtureTable(uniform, { ...pool, wires: [-5] }, inst));
 });
 

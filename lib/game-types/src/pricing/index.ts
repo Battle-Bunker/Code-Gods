@@ -5,3 +5,4 @@ export * from "./space.ts";
 export * from "./estimators.ts";
 export * from "./mixture.ts";
 export * from "./measure.ts";
+export * from "./futility.ts";

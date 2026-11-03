@@ -85,6 +85,7 @@ import type * as lib_aiModels from "../lib/aiModels.js";
 import type * as lib_aiNames from "../lib/aiNames.js";
 import type * as lib_engineErrors from "../lib/engineErrors.js";
 import type * as lib_errors from "../lib/errors.js";
+import type * as lib_futility from "../lib/futility.js";
 import type * as lib_http from "../lib/http.js";
 import type * as lib_language from "../lib/language.js";
 import type * as lib_load from "../lib/load.js";
@@ -211,6 +212,7 @@ declare const fullApi: ApiFromModules<{
   "lib/aiNames": typeof lib_aiNames;
   "lib/engineErrors": typeof lib_engineErrors;
   "lib/errors": typeof lib_errors;
+  "lib/futility": typeof lib_futility;
   "lib/http": typeof lib_http;
   "lib/language": typeof lib_language;
   "lib/load": typeof lib_load;

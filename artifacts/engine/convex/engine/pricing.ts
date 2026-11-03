@@ -10,7 +10,8 @@
 import { instantiationOf, type GameSettings, type Language, type ObjectValue } from "@workspace/game-core";
 import type { Inspection } from "@workspace/game-runtime";
 import {
-  availableMutators, measureAgent, parseAct, referenceMixture, withComponents, type Instantiation, type ReferenceMixture,
+  availableMutators, futilityWarnings, measureAgent, parseAct, probeFutility, referenceMixture, withComponents, type FutilityProfile, type Instantiation,
+  type ReferenceMixture,
 } from "@workspace/game-types";
 import type { ActionCtx } from "../_generated/server";
 import { act, inspect, isAgentFault } from "./runtime";
@@ -30,6 +31,8 @@ export type Examination = {
   decisionBits: number; expectedActCost: number; breakdown: CostBreakdown; randomized: boolean;
   /** Measured on the reference objects: the share of acts that change the object, and that fail or are invalid. */
   changeRate: number; invalidRate: number;
+  /** Two passes over a sample world (the game's objects first): the expected success rate and why acts would fail. */
+  futility: Omit<FutilityProfile, "warnings" | "n">; warnings: string[];
   diagnostics: string[]; runs: number; measureMs: number;
 };
 
@@ -80,7 +83,19 @@ export async function examineAgent(ctx: ActionCtx, settings: GameSettings, langu
   let hostFailure: unknown, runs = 0, usesClause = false;
   const sample = { value: undefined as ObjectValue | undefined, calls: undefined as string | undefined, error: undefined as string | undefined };
   const started = performance.now();
+  // The measurement and the futility probe (docs/rules-design.md §11: the game's objects first, then the reference
+  // mixture) run side by side; after a host failure neither runs anything more.
+  const probing = probeFutility(async (value, seed) => {
+    if (hostFailure) throw hostFailure;
+    runs++;
+    try { const result = await act(ctx, source, language, value, settings, seed); return { calls: result.calls, usedRandom: result.usedRandom, steps: result.steps }; }
+    catch (error) {
+      if (!isAgentFault(error)) { hostFailure ??= error; throw error; }
+      return { calls: "[]", error: (error as Error).message.slice(0, 200) };
+    }
+  }, inst, [...game, ...mixture.values], { salt: seasonSalt(), concurrency: CONCURRENCY });
   const measured = await measureAgent(async (value, seed, at) => {
+    if (hostFailure) throw hostFailure;
     runs++;
     try {
       const result = await act(ctx, source, language, value, settings, seed);
@@ -93,8 +108,13 @@ export async function examineAgent(ctx: ActionCtx, settings: GameSettings, langu
       return { calls: "[]", error: (error as Error).message.slice(0, 200) };
     }
   }, inst, mixture, { salt: seasonSalt(), perActFloorBits: settings.perActFloorBits, concurrency: CONCURRENCY, byComponent: false });
+  const probed = await probing;
   // A capacity or configuration failure is not the agent's price: never charge from a partial measurement.
   if (hostFailure) throw hostFailure;
+  // An agent the measurement saw read `random` (on inputs the probe's sample may have missed) makes no deterministic claims.
+  const { warnings: _w, ...profile } = measured.randomized ? { ...probed, deterministic: false, constant: false, idempotent: false } : probed;
+  const warnings = futilityWarnings(profile);
+  const { n: probedCount, ...futility } = profile;
   const measureMs = performance.now() - started;
   if (usesClause) { price.parts.commitClause = COMMIT_CLAUSE_BITS; price.cost += COMMIT_CLAUSE_BITS; }
   const breakdown: CostBreakdown = { decision: measured.decisionBits, erasure: measured.expectedErasure,
@@ -105,6 +125,7 @@ export async function examineAgent(ctx: ActionCtx, settings: GameSettings, langu
     `Each act: ${measured.expectedActCost.toFixed(2)} bits expected = decision ${measured.decisionBits.toFixed(2)} + erasure ${measured.expectedErasure.toFixed(2)} + motion ${measured.expectedMotion.toFixed(2)}${measured.perActFloorBits ? ` + floor ${measured.perActFloorBits}` : ""}.`,
     `Measured on ${d.n} reference objects${measured.randomized ? ` × ${d.replicates} seeds (it uses random)` : ""}: changes ${(100 * d.changeRate).toFixed(0)}%, invalid or failing ${(100 * d.invalidRate).toFixed(0)}%${d.errors.length ? ` (${d.errors.map(([e, n]) => `${e} ×${n}`).join(", ")})` : ""}; mutators ${d.mutators.join(", ") || "none"}.`,
   ];
+  diagnostics.push(`Two passes over a sample world of ${probedCount} objects: ${(100 * futility.successRate).toFixed(0)}% of its acts succeed (first pass ${(100 * futility.firstPass).toFixed(0)}%, second ${(100 * futility.secondPass).toFixed(0)}%).`);
   if (sample.value !== undefined) {
     diagnostics.push(sample.error ? `On object 1 it fails: ${sample.error.slice(0, 300)}`
       : `On object 1 it returns ${sample.calls!.length > 300 ? `${sample.calls!.slice(0, 300)}…` : sample.calls}.`);
@@ -112,7 +133,7 @@ export async function examineAgent(ctx: ActionCtx, settings: GameSettings, langu
   return {
     cost: price.cost, parts: price.parts, complexityFunctionId: inspection.complexityFunctionId,
     decisionBits: measured.decisionBits, expectedActCost: measured.expectedActCost, breakdown, randomized: measured.randomized,
-    changeRate: d.changeRate, invalidRate: d.invalidRate,
+    changeRate: d.changeRate, invalidRate: d.invalidRate, futility, warnings: [...warnings],
     diagnostics, runs, measureMs,
   };
 }

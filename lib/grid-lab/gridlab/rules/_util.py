@@ -86,6 +86,11 @@ def ci(gtype: GridType, name: str) -> int:
     return gtype.colour_names.index(name)
 
 
+def si(gtype: GridType, glyph: str) -> int:
+    """A symbol param (the glyph as the board prints it) -> the symbol index numpy code compares against."""
+    return next(s for s in range(gtype.S) if gtype.glyph(s) == glyph)
+
+
 def cis(gtype: GridType, p: dict, *keys: str) -> tuple[int, ...]:
     return tuple(ci(gtype, p[k]) for k in keys)
 

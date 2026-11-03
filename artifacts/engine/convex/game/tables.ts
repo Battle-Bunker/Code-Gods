@@ -67,6 +67,12 @@ export const eventV = v.union(
   v.object({ t: v.literal("destroy"), agentId: v.string(), ownerId: v.string(), world: v.number() }),
 );
 
+/** An agent's failure breakdown (lib/futility.ts FAILURE_KINDS) and the last reason of the kinds the diagnosis quotes. */
+export const failuresV = v.object({ collision: v.number(), noChange: v.number(), commit: v.number(), invalid: v.number(), error: v.number() });
+export const lastFailuresV = v.object({ invalid: v.optional(v.string()), error: v.optional(v.string()) });
+/** One agent's futile pairs (lib/futility.ts Futile). */
+export const futileEntriesV = v.array(v.object({ o: v.id("objects"), v: v.number(), by: v.optional(v.id("objects")), bv: v.optional(v.number()) }));
+
 export const gameTables = {
   rooms: defineTable({
     /** Short code from the room GUID (Crockford base32 prefix); `encoded` is the full 26-digit encoding. */
@@ -224,7 +230,7 @@ export const gameTables = {
     nextBatch: v.number(),
     stats: statsV,
     /** Ticks failed in a row (engine/loop.ts tickFailed: the retry backoff); 0 or absent while the loop is healthy. */
-    failures: v.optional(v.number()),
+    tickFailures: v.optional(v.number()),
   }).index("by_game", ["gameId"]),
 
   /**
@@ -282,9 +288,7 @@ export const gameTables = {
      * had is `version` (the tick adds one per transformation), so there is no separate counter. Nothing here says who.
      */
     lastMutatedAt: v.optional(v.number()),
-  }).index("by_game", ["gameId"]).index("by_game_value", ["gameId", "value"]).index("by_game_salience", ["gameId", "publicSalience"])
-    /** The three public sorts of the Objects panel (read-architecture R1): mutation count, creation time, last mutation time. */
-    .index("by_game_version", ["gameId", "version"]).index("by_game_created", ["gameId", "createdAt"]).index("by_game_mutated", ["gameId", "lastMutatedAt"]),
+  }).index("by_game", ["gameId"]).index("by_game_value", ["gameId", "value"]).index("by_game_salience", ["gameId", "publicSalience"]),
 
   agents: defineTable({
     gameId: v.id("games"), ownerId: v.string(),
@@ -296,7 +300,24 @@ export const gameTables = {
     language: v.optional(storedLanguageV),
     summonCost: v.number(), decisionBits: v.number(), perActFloorBits: v.number(), expectedActCost: v.number(),
     breakdown, randomized: v.boolean(), account, acts: v.number(), spent: v.number(),
+    /**
+     * PRIVATE to the owner: how its acts ended (lib/futility.ts FAILURE_KINDS), counted by the tick since this field
+     * existed (an older agent's earlier acts are not in it), and the last invalid call's and runtime error's reasons. lib/projection agentView
+     * turns them into the owner's diagnosis.
+     */
+    transforms: v.optional(v.number()),
+    failures: v.optional(failuresV),
+    lastFailures: v.optional(lastFailuresV),
   }).index("by_game", ["gameId"]).index("by_game_owner", ["gameId", "ownerId"]),
+
+  /**
+   * Engine only (the tick's snapshot and commit; no query reads it): one agent's futile pairs (lib/futility.ts), the
+   * objects its deterministic act can only fail on until they (or a colliding value's holder) change version.
+   */
+  futileActs: defineTable({
+    gameId: v.id("games"), agentId: v.id("agents"),
+    entries: futileEntriesV,
+  }).index("by_game", ["gameId"]).index("by_agent", ["agentId"]),
 
   /** The event log: one doc per committed tick (a large tick is split over several docs). */
   tickBatches: defineTable({

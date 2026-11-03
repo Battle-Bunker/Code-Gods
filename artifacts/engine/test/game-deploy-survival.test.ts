@@ -80,7 +80,7 @@ test("a tick that keeps failing is shown to players and spectators, retried with
     const junk = await admin.action(internal.testing.junkFile, {});
     const t0 = Date.now();
     await admin.mutation(internal.testing.setGameTables, { gameId, storageId: junk });
-    await waitFor(async () => ((await raw(gameId)).game.failures ?? 0) >= 3, "three failed ticks", 60_000, 250);
+    await waitFor(async () => ((await raw(gameId)).game.tickFailures ?? 0) >= 3, "three failed ticks", 60_000, 250);
     // Backoff: 2 s, then 4 s … (lib/engineErrors.ts retryDelayMs), never a tight loop; one notice, written once.
     assert.ok(Date.now() - t0 >= 6_000, `three failures took ${Date.now() - t0} ms: no backoff`);
     const notice = (await gameDoc(gameId))!.engineError;
@@ -98,7 +98,7 @@ test("a tick that keeps failing is shown to players and spectators, retried with
     // Recovery: the next retry succeeds, the notice goes and the world moves again.
     await admin.mutation(internal.testing.setGameTables, { gameId, storageId: pinned });
     await waitFor(async () => (await commits(gameId)) > before && !(await gameDoc(gameId))?.engineError, "the game recovers by itself", 40_000, 250);
-    assert.equal((await raw(gameId)).game.failures ?? 0, 0, "the backoff resets");
+    assert.equal((await raw(gameId)).game.tickFailures ?? 0, 0, "the backoff resets");
     assert.equal((await ada.c.query(api.player.observation, { roomId })).notice, undefined);
     assert.equal((await host.c.query(api.games.header, { code: shortCode })).notice, null);
 
