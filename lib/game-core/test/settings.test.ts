@@ -248,3 +248,9 @@ test("First steps and Annotated basics are 10 minutes fixed", () => {
   }
   assert.equal(seedSetupSettings("grid-classic").durationMode, "halfLife");
 });
+
+test("Annotated basics starts with 10 objects, spawns 0.1 per second and plans for 5 minutes", () => {
+  const s = seedSetupSettings(ANNOTATED_BASICS_SEED_ID);
+  assert.deepEqual([s.startingObjectCount, s.spawnRateHz, s.planningSeconds], [10, 0.1, 300]);
+  assert.doesNotThrow(() => validateSettings(s));
+});
