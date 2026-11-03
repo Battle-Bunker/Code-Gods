@@ -21,15 +21,13 @@ const SRC = join(import.meta.dirname, "../src");
 const ALLOWED: Record<string, { findings: number; why: string }> = {
   "core/replay/replay-game.tsx": { findings: 1,
     why: "the paged replay (no retry) for a game without a stored replay; removed once migrations:backfillReplays reports done on dev and production (read-architecture §4.4)" },
-  "site/lib/convex.tsx": { findings: 3,
-    why: "useLive's resubscribe-on-error retry; removed once the page queries fit (read-architecture §6 PR 8, after the gate's debt is paid)" },
 };
 
 /** One finding per line: the first that matches. */
 const ONE_OFF: [RegExp, string][] = [
   [/\.query\s*\(|\b(?:fetchQuery|preloadQuery)\b/, "a one-off query read (client.query)"],
   [/\bConvexHttpClient\b/, "an HTTP client (one-off reads)"],
-  [/@\/lib\/live-retry|\bretryDelay\s*\(/, "a client retry policy for queries"],
+  [/@\/lib\/live-retry|\bretryDelay\s*\(|\bMAX_RETRIES\b|\bsetRetrying\b/, "a client retry policy for queries"],
 ];
 /** A timer with a Convex read, re-read or resubscribe within three lines of it (before: a retry loop; after: its callback). */
 const TIMER = /\bset(?:Timeout|Interval)\s*\(/;

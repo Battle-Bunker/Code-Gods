@@ -9,7 +9,7 @@
  * - Real user input (pointer/keyboard) calls `activity.touch` at most once a minute, which keeps the
  *   engine out of idle parking and resumes parked games. Nothing else pings: no polling, no heartbeats.
  */
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { ConvexProviderWithAuth, ConvexReactClient, useConvexAuth, useMutation, usePaginatedQuery, useQueries, type PaginatedQueryArgs, type PaginatedQueryReference } from "convex/react";
 import { getFunctionName, type FunctionArgs, type FunctionReference, type FunctionReturnType } from "convex/server";
 import { convexToJson, type Value } from "convex/values";
@@ -19,7 +19,7 @@ import { createAuthClient } from "better-auth/react";
 import type { AccountSession, PlayerAuth } from "@workspace/player-client/browser";
 import { api } from "@/site/lib/convex-api";
 import { toast } from "@/hooks/use-toast";
-import { MAX_RETRIES, liveResult, retryDelay, transientQueryError, type Retry } from "@/lib/live-retry";
+import { liveResult } from "@/lib/live-result";
 import { setAppAccessToken } from "@/core/connection";
 
 export { api };
@@ -173,10 +173,6 @@ function TokenProvider({ client, fetchAccessToken, children }: { client: ConvexR
 export type Result<T> = { data: T | undefined; error: Error | null; isLoading: boolean };
 
 /**
- * A reactive query that reports errors instead of throwing them into render. It waits for the Convex
- * client to hold a browser JWT (every engine query needs a signed-in caller). "skip" disables it.
- */
-/**
  * A paged subscription (convex's usePaginatedQuery: every loaded page stays live), skipped until Convex holds the
  * viewer's token, as useLive is. A query error throws to the nearest error boundary.
  */
@@ -185,37 +181,16 @@ export function useLivePages<Q extends PaginatedQueryReference>(query: Q, args: 
   return usePaginatedQuery(query, isAuthenticated && args !== "skip" ? args : "skip", options);
 }
 
+/**
+ * A reactive query that reports errors instead of throwing them into render. It waits for the Convex
+ * client to hold a browser JWT (every engine query needs a signed-in caller). "skip" disables it.
+ */
 export function useLive<Q extends FunctionReference<"query">>(query: Q, args: FunctionArgs<Q> | "skip"): Result<FunctionReturnType<Q>> {
-  type T = FunctionReturnType<Q>;
   const { isAuthenticated } = useConvexAuth();
-  // Keyed like convex's own useQuery: a retry and the last answer belong to one query with one set of args.
-  const argsKey = args === "skip" ? "" : `${getFunctionName(query)}:${JSON.stringify(convexToJson(args as Value))}`;
-  // A transient failure is retried by dropping the subscription for a moment: Convex then runs the query afresh.
-  const [retrying, setRetrying] = useState<(Retry<T> & { key: string; dropped: boolean }) | null>(null);
-  const retry = retrying?.key === argsKey ? retrying : null;
-  const skip = args === "skip" || !isAuthenticated || !!retry?.dropped;
+  const skip = args === "skip" || !isAuthenticated;
+  const argsKey = skip ? "" : `${getFunctionName(query)}:${JSON.stringify(convexToJson(args as Value))}`;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const request = useMemo((): Parameters<typeof useQueries>[0] => (skip ? {} : { q: { query, args: args as FunctionArgs<Q> } }), [skip ? "" : argsKey]);
-  const r = useQueries(request).q as T | Error | undefined;
-  const last = useRef<{ key: string; data: T } | null>(null);
-  if (r !== undefined && !(r instanceof Error)) last.current = { key: argsKey, data: r };
-  const kept = last.current?.key === argsKey ? last.current.data : undefined;
-  const transient = transientQueryError(r);
-  const attempts = retry?.attempts ?? 0;
-  // An answer ends the retry.
-  useEffect(() => { if (r !== undefined && !(r instanceof Error)) setRetrying(null); }, [r]);
-  // One retry per failed subscription (not per error object: Convex may fail it again before the timer fires).
-  useEffect(() => {
-    if (!transient || attempts >= MAX_RETRIES) return;
-    const t = setTimeout(() => setRetrying({ key: argsKey, attempts: attempts + 1, data: kept, error: r as Error, dropped: true }), retryDelay(attempts));
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [transient, attempts, argsKey]);
-  useEffect(() => {
-    if (!retry?.dropped) return;
-    const t = setTimeout(() => setRetrying(c => (c ? { ...c, dropped: false } : c)), 0);
-    return () => clearTimeout(t);
-  }, [retry?.dropped]);
-  // The first failure counts as a retry about to happen (attempt 0) when it is transient.
-  return liveResult<T>(args === "skip", r, retry ?? (transient ? { attempts: 0, data: kept, error: r as Error } : null));
+  const request = useMemo((): Parameters<typeof useQueries>[0] => (skip ? {} : { q: { query, args: args as FunctionArgs<Q> } }), [argsKey]);
+  // No retry here (read-architecture R6): Convex resubscribes on reconnect, and its next value replaces an error.
+  return liveResult<FunctionReturnType<Q>>(args === "skip", useQueries(request).q as FunctionReturnType<Q> | Error | undefined);
 }
