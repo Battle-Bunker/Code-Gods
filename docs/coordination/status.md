@@ -119,3 +119,26 @@ Coordinator session: session_0119hWTUfnFoGVhQud4gmKNK. All times are AEDT.
   3. Merge.
   4. Release soon after: it protects live games across deploys.
 - The ~1–3 min start window on re-keying deploys is documented in the PR as a known follow-up.
+
+### Rules / typed params (session_0119hWTXb7nWu2F4Fp2GSwu6), stopped 20:30
+- Merged into develop: #184, #191 (Picture Frame), #202, #203, #204, and #207 arithmetic+seeds (24a7ef6).
+  136 of 137 families are typed.
+- On a branch, no PR: feat/typed-params-bingo (179321d4) types Bingo Caller, the last family, with a new `set`
+  param kind. It is based on #204, so on Thursday:
+  1. Rebase.
+  2. Take develop's lib/game-utilities/data/.
+  3. Rerun scripts/rekey-typed-params.ts (it must say "0 left alone") and calibrate --check.
+  4. Leave UNTYPED_FAMILIES empty; append typedParamsBingo* after typedParamsArithmetic* in runAll.
+  5. Run the unit set, then merge.
+- Left:
+  - bingo_caller.
+  - The typed-params narrowing, once migrations:status is done on dev AND prod: delete the legacy readers,
+    UtilityFamily.upgrade, upgradeParams/upgradeDescriptor, the explainer's upgrade and the rekey script.
+  - Set Spotter + the equal-opportunity audit.
+  - PR 3 annotations by scoring unit.
+  - PR 4 points tuples.
+- Gotchas:
+  - Never hand-merge data/calibration JSON: take develop's copy, re-run the rekey, regenerate manifest.json.
+  - Grep for conflict markers before every rebase --continue (one slipped into #204's branch; repaired).
+  - The full game-utilities and grid-lab suites take 10–15 min: run targeted files.
+  - e2e:site isn't run locally; develop CI covers it.
