@@ -12,6 +12,7 @@ import { GoalCard } from "@/core/goal/goal-card";
 import { ParamFields, SetupForm, familyCard, familyExplainer, languageOf, type SourceLanguage } from "@/site/components/rule-gallery-parts";
 import { galleryFamilies, gallerySearch, instOf, paramsFromSearch, rawParamsOf, setupFromSearch, withParam, type GallerySetup } from "@/site/lib/rule-gallery";
 import { ruleFamilyPath, ruleGalleryPath } from "@/site/lib/routes";
+import { useRuleScoring } from "@/site/lib/rule-tables";
 import type { Params } from "@workspace/game-utilities";
 
 export default function RuleFamily() {
@@ -29,7 +30,8 @@ export default function RuleFamily() {
   const go = (s: GallerySetup, p: Params, l: SourceLanguage) =>
     navigate(ruleFamilyPath(familyId, gallerySearch(s, p, l)), { replace: true });
   const card = useMemo(() => (offered ? familyCard(familyId, params, inst, language) : null), [offered, familyId, params, inst, language]);
-  const goal = useMemo(() => (offered ? familyExplainer(familyId, params, inst) : null), [offered, familyId, params, inst]);
+  const scoring = useRuleScoring(inst, familyId, offered ? params : null);
+  const goal = useMemo(() => (offered ? familyExplainer(familyId, params, inst, scoring) : null), [offered, familyId, params, inst, scoring]);
   const gallery = ruleGalleryPath(gallerySearch(setup, {}, language));
   return (
     <Page crumbs={[{ label: "Rule gallery", href: gallery }, { label: name }]}>
