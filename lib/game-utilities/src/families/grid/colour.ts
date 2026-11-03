@@ -1,9 +1,9 @@
 /** Colour & visual-pattern lens rules (lib/grid-lab/gridlab/rules/colour.py, cards from rules/cards.py). */
 import type { CardText, GridSpec } from "./_util.ts";
+import { colourParam } from "../../params.ts";
 import { lazySurvival, rowTransferCount, type AnalyticSurvival } from "../../analytic.ts";
 import {
-  SCALAR, article, cap, chance, climb, cname, colourPairs, fromFn, full, gridFamily, list, pick, product, pyCard, range,
-  recipes, recolour, tsCard, tuple, wire,
+  SCALAR, article, cap, chance, climb, cname, colourPairs, fromFn, full, gridFamily, list, pick, product, pyCard, range, recipes, recolour, tsCard, tuple, wire, colourAt, recolourNames,
 } from "./_util.ts";
 import { solvedAnalytic } from "../../analytic/hook.ts";
 import { MIXER_OPTIMA, mixerOptimum } from "../../analytic/maxima.ts";
@@ -597,18 +597,20 @@ const colourByNumber = gridFamily<ShiftP>({
 });
 
 // --- Kingdom ------------------------------------------------------------------------------------------
-type KingdomP = { C: number };
-const kingdomText = (p: KingdomP, g: GridSpec): CardText => ({
-  emoji: "🏰", name: "Kingdom", consts: [["MY_COLOUR", cname(g, p.C)]],
-  about: `Your colour is ${cname(g, p.C)}. A patch is a group of ${cname(g, p.C)} cells joined side to side. `
+type KingdomP = { colour: string };
+const kingdomText = (p: KingdomP): CardText => ({
+  emoji: "🏰", name: "Kingdom", consts: [["MY_COLOUR", p.colour]],
+  about: `Your colour is ${p.colour}. A patch is a group of ${p.colour} cells joined side to side. `
     + "Score 1 point for each cell in your biggest patch.",
 });
 const kingdom = gridFamily<KingdomP>({
   id: "kingdom", name: "Kingdom", emoji: "🏰", theme: "The biggest patch of your colour", shape: SCALAR,
-  support: g => range(g.C).map(C => ({ C })),
-  canonical: p => recolour(p, ["C"]),
-  summary: (p, g) => kingdomText(p, g).about,
-  python: (p, g) => pyCard(kingdomText(p, g), `
+  params: () => ({ colour: colourParam("Your colour") }),
+  legacy: (p, g) => (typeof p.C === "number" ? { colour: g.colourNames[p.C] } : null),
+  support: g => g.colourNames.map(colour => ({ colour })),
+  canonical: (p, g) => recolourNames(g, p, ["colour"]),
+  summary: p => kingdomText(p).about,
+  python: p => pyCard(kingdomText(p), `
     def same_colour(a, b):
         return a.colour == b.colour
 
@@ -618,7 +620,7 @@ const kingdom = gridFamily<KingdomP>({
             if patch[0].colour == MY_COLOUR:
                 biggest = max(biggest, len(patch))
         return biggest`),
-  typescript: (p, g) => tsCard(kingdomText(p, g), `
+  typescript: p => tsCard(kingdomText(p), `
     function sameColour(a, b) {
       return a.colour === b.colour;
     }
@@ -630,7 +632,7 @@ const kingdom = gridFamily<KingdomP>({
       }
       return biggest;
     }`),
-  exemplar: (p, g) => wire(g, full(g.N, 0), full(g.N, p.C)),
+  exemplar: (p, g) => wire(g, full(g.N, 0), full(g.N, colourAt(g, p.colour))),
 });
 
 // --- Wallpaper Weaver -----------------------------------------------------------------------------------

@@ -1,8 +1,8 @@
 /** Strategy-lens rules (lib/grid-lab/gridlab/rules/strategy.py, cards from rules/cards.py). */
 import type { CardText, GridSpec } from "./_util.ts";
+import { colourParam, choiceParam } from "../../params.ts";
 import {
-  SCALAR, article, cap, chance, climb, cname, colourPairs, fromFn, full, glyph, gridFamily, isRim, pick, product, pyCard,
-  range, recolour, sentences, symForValue, thing, tsCard, tuple, valueLaw, wire,
+  SCALAR, article, cap, chance, climb, cname, colourPairs, fromFn, full, glyph, gridFamily, isRim, pick, product, pyCard, range, recolour, sentences, symForValue, thing, tsCard, tuple, valueLaw, wire, colourAt, recolourNames,
 } from "./_util.ts";
 import {
   binomial, combine, distOf, exactSurvival, iidSum, lazySurvival, lineChainCount, logFactorial, mapDist, type AnalyticSurvival, type Dist,
@@ -200,10 +200,10 @@ const conqueror = gridFamily<ConqP>({
 });
 
 // --- Parity Painter ------------------------------------------------------------------------------
-type ParityP = { P: number; Q: number; key: "parity" | "suit" };
+type ParityP = { even_or_red: string; odd_or_black: string; split: "parity" | "suit" };
 const parityText = (p: ParityP, g: GridSpec): CardText => {
-  const P = cname(g, p.P), Q = cname(g, p.Q);
-  return p.key === "suit"
+  const P = p.even_or_red, Q = p.odd_or_black;
+  return p.split === "suit"
     ? {
       emoji: "🎭", name: "Parity Painter", consts: [["RED_SUIT_COLOUR", P], ["BLACK_SUIT_COLOUR", Q]],
       about: `Hearts and diamonds (♥ ♦) should be ${P}. Spades and clubs (♠ ♣) should be ${Q}. A card in its right `
@@ -219,15 +219,22 @@ const parityPainter = gridFamily<ParityP>({
   id: "parity_painter", name: "Parity Painter", emoji: "🎭", theme: "Numbers wear the colour of their kind",
   analytic: solvedAnalytic("parity_painter"),
   requires: { classes: ["Valued"] }, shape: SCALAR, tags: ["shortlist"],
+  params: g => ({
+    even_or_red: colourParam(g.cards ? "Colour for even values (or red suits)" : "Colour for even numbers"),
+    odd_or_black: colourParam(g.cards ? "Colour for odd values (or black suits)" : "Colour for odd numbers"),
+    split: choiceParam("Sort cells by", g.cards ? [["parity", "even or odd"], ["suit", "red or black suit"]] : [["parity", "even or odd"]]),
+  }),
+  legacy: (p, g) => (typeof p.P === "number" && typeof p.Q === "number"
+    ? { even_or_red: g.colourNames[p.P], odd_or_black: g.colourNames[p.Q], split: p.key as ParityP["split"] } : null),
   support: g => colourPairs(g).flatMap(([P, Q]) =>
-    (g.cards ? ["parity", "suit"] as const : ["parity"] as const).map(key => ({ P, Q, key }))),
+    (g.cards ? ["parity", "suit"] as const : ["parity"] as const).map(split => ({ even_or_red: g.colourNames[P], odd_or_black: g.colourNames[Q], split }))),
   sample: (rng, g) => {
     const [P, Q] = pick(rng, colourPairs(g));
-    return { P, Q, key: g.cards && chance(rng, 1, 2) ? "suit" : "parity" };
+    return { even_or_red: g.colourNames[P], odd_or_black: g.colourNames[Q], split: g.cards && chance(rng, 1, 2) ? "suit" : "parity" };
   },
-  canonical: p => recolour(p, ["P", "Q"]),
+  canonical: (p, g) => recolourNames(g, p, ["even_or_red", "odd_or_black"]),
   summary: (p, g) => parityText(p, g).about,
-  python: (p, g) => pyCard(parityText(p, g), p.key === "suit" ? `
+  python: (p, g) => pyCard(parityText(p, g), p.split === "suit" ? `
     def utility(grid):
         points = 0
         for cell in grid.cells:
@@ -252,7 +259,7 @@ const parityPainter = gridFamily<ParityP>({
             elif cell.colour == wrong:
                 points -= 1
         return points`),
-  typescript: (p, g) => tsCard(parityText(p, g), p.key === "suit" ? `
+  typescript: (p, g) => tsCard(parityText(p, g), p.split === "suit" ? `
     function utility(grid) {
       let points = 0;
       for (const cell of grid.cells) {
@@ -277,8 +284,9 @@ const parityPainter = gridFamily<ParityP>({
     }`),
   exemplar: (p, g) => {
     const sym = fromFn(g.N, (r, c) => ((r * g.N + c) * 7) % g.S);
-    const wears = (s: number) => (p.key === "suit" ? [1, 2].includes(Math.floor(s / 13)) : g.value[s] % 2 === 0);
-    return wire(g, sym, sym.map(row => row.map(s => (wears(s) ? p.P : p.Q))));
+    const wears = (s: number) => (p.split === "suit" ? [1, 2].includes(Math.floor(s / 13)) : g.value[s] % 2 === 0);
+    const P = colourAt(g, p.even_or_red), Q = colourAt(g, p.odd_or_black);
+    return wire(g, sym, sym.map(row => row.map(s => (wears(s) ? P : Q))));
   },
 });
 
@@ -298,6 +306,10 @@ const mirrormancer = gridFamily<MirrorP>({
   id: "mirrormancer", name: "Mirrormancer", emoji: "🪞", theme: "Lines that read the same both ways",
   analytic: solvedAnalytic("mirrormancer"),
   shape: tuple(2), tags: ["shortlist"],
+  params: g => ({
+    axis: choiceParam("Mirror lines", [["LR", "rows (left to right)"], ["TB", "columns (top to bottom)"]]),
+    layer: choiceParam("What must match", [["colour", "colours"], ["symbol", g.cards ? "ranks" : "numbers"]]),
+  }),
   support: () => product<MirrorP>({ axis: ["LR", "TB"], layer: ["colour", "symbol"] }),
   canonical: p => ({ ...p, axis: "LR" }),
   summary: (p, g) => mirrorText(p, g).about,
@@ -555,8 +567,9 @@ const rooksWatch = gridFamily<TokenP>({
  * −1 for every middle cell that has it. The top, 2·(4N−4), is every edge cell the same symbol in your colour with
  * neither in the middle; every score from the bottom up to it is reachable, each step rarer than the last.
  */
-const frameText = (p: ColourP, g: GridSpec): CardText => {
-  const X = cname(g, p.X), kind = g.cards ? "card" : "symbol";
+type FrameP = { colour: string };
+const frameText = (p: FrameP, g: GridSpec): CardText => {
+  const X = p.colour, kind = g.cards ? "card" : "symbol";
   return {
     emoji: "🖼️", name: "Picture Frame", consts: [["MY_COLOUR", X]],
     about: sentences(
@@ -605,10 +618,12 @@ function frameSymbolLaw(B: number, M: number, S: number): Dist {
   }
   return distOf(out);
 }
-const pictureFrame = gridFamily<ColourP>({
+const pictureFrame = gridFamily<FrameP>({
   id: "picture_frame", name: "Picture Frame", emoji: "🖼️", theme: "One colour and one symbol around a clear middle", shape: SCALAR,
-  support: g => range(g.C).map(X => ({ X })),
-  canonical: p => recolour(p, ["X"]),
+  params: () => ({ colour: colourParam("Your colour") }),
+  legacy: (p, g) => (typeof p.X === "number" ? { colour: g.colourNames[p.X] } : null),
+  support: g => g.colourNames.map(colour => ({ colour })),
+  canonical: (p, g) => recolourNames(g, p, ["colour"]),
   summary: (p, g) => frameText(p, g).about,
   python: (p, g) => pyCard(frameText(p, g), `
     def frame_score(cells):
@@ -647,7 +662,10 @@ const pictureFrame = gridFamily<ColourP>({
       }
       return colourScore + bestSymbolScore;
     }`),
-  exemplar: (p, g) => wire(g, fromFn(g.N, (r, c) => (isRim(g.N, r, c) ? 0 : 1)), fromFn(g.N, (r, c) => (isRim(g.N, r, c) ? p.X : (p.X + 1) % g.C))),
+  exemplar: (p, g) => {
+    const X = colourAt(g, p.colour);
+    return wire(g, fromFn(g.N, (r, c) => (isRim(g.N, r, c) ? 0 : 1)), fromFn(g.N, (r, c) => (isRim(g.N, r, c) ? X : (X + 1) % g.C)));
+  },
   top: (_p, g) => 2 * (4 * g.N - 4),
   /**
    * Exact (tail-toolkit.md §1): colour and symbol are independent per cell, so u = (E − I) + D with E ~ Bin(4N−4, 1/C),

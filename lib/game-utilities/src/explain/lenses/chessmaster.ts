@@ -2,22 +2,23 @@
 import { lens, orderParts, tally, count } from "../lens.ts";
 import { hasCell, type Cell, type Part } from "../model.ts";
 
-type P = { A: number; B: number };
+type P = { colour_a: string; colour_b: string };
+
 
 export const chessmaster = lens<P>({
   familyId: "chessmaster",
-  components: (p, b) => ["chessboards", `tie-break: places where ${b.spec.colourNames[p.A]} touches ${b.spec.colourNames[p.B]}`],
+  components: (p, b) => ["chessboards", `tie-break: places where ${p.colour_a} touches ${p.colour_b}`],
   breakdown: (p, b, parts) => ({
     unit: ["chessboard", "chessboards"],
     items: tally(parts, [
       { of: t => t.shape === "block" && t.points[0] > 0, text: n => `${count(n, "little chessboard")} (2×2 blocks that alternate)` },
       { of: t => t.shape === "block", text: n => `${count(n, "2×2 block")} that ${n === 1 ? "is" : "are"} not a chessboard` },
-      { of: () => true, text: n => `${count(n, "place")} where ${b.spec.colourNames[p.A]} touches ${b.spec.colourNames[p.B]} (tie-break)` },
+      { of: () => true, text: n => `${count(n, "place")} where ${p.colour_a} touches ${p.colour_b} (tie-break)` },
     ]),
   }),
   parts: (p, b) => {
-    const opposite = (x: Cell, y: Cell) => (b.col(x) === p.A && b.col(y) === p.B) || (b.col(x) === p.B && b.col(y) === p.A);
-    const A = b.spec.colourNames[p.A], B = b.spec.colourNames[p.B];
+    const opposite = (x: Cell, y: Cell) => (b.colour(x) === p.colour_a && b.colour(y) === p.colour_b) || (b.colour(x) === p.colour_b && b.colour(y) === p.colour_a);
+    const A = p.colour_a, B = p.colour_b;
     const blocks: Part[] = [], seams: Part[] = [];
     for (const x of b.cells) {
       for (const [name, y] of [["right", { r: x.r, c: x.c + 1 }], ["down", { r: x.r + 1, c: x.c }]] as const) {

@@ -623,16 +623,18 @@ try {
     assert.equal(await p.getByTestId("source-picture_frame").getAttribute("open"), null, "source starts collapsed");
     await p.getByTestId("select-setup-size").selectOption("6");
     await p.waitForURL(/size=6/);
-    await p.getByTestId("select-param-picture_frame-X").selectOption("1");
+    // A labelled colour picker (named swatches), never "X: 0/1/2".
+    await p.getByTestId("colour-param-picture_frame-colour").getByText("Your colour").waitFor();
+    await p.getByTestId("colour-picture_frame-colour-green").click();
     assert.match(await p.getByTestId("text-summary-picture_frame").innerText(), /green/, "the description follows the param");
     const link = p.getByTestId("link-family-picture_frame");
     assert.equal(await link.getAttribute("target"), "_blank");
-    assert.equal(await link.getAttribute("href"), "/rule-gallery/picture_frame?size=6&symbols=base10&colours=rgb&X=1");
+    assert.equal(await link.getAttribute("href"), "/rule-gallery/picture_frame?size=6&symbols=base10&colours=rgb&colour=green");
     await shot(p, "rule-gallery-desktop");
     const [family] = await Promise.all([alice.context.waitForEvent("page"), link.click()]);
     await family.getByTestId("goal-card").waitFor();
     assert.equal(await family.getByTestId("select-setup-size").inputValue(), "6");
-    assert.equal(await family.getByTestId("select-param-picture_frame-X").inputValue(), "1");
+    assert.equal(await family.getByTestId("colour-picture_frame-colour-green").getAttribute("aria-checked"), "true");
     await family.getByTestId("example-object").waitFor();
     await shot(family, "rule-family-desktop");
     assert.deepEqual(alice.errors, []);

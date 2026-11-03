@@ -124,7 +124,7 @@ const SOLVERS: Readonly<Record<string, Solver>> = {
   magic_accountant: (p, g) => {
     if (p.axis !== "rows") throw new NoSolution("rows and columns share cells");
     const total = power(valueLaw(g), g.N);
-    return power(map(total, ([t]) => [t === p.T ? 1 : 0, -Math.abs(t - p.T)]), g.N);
+    return power(map(total, ([t]) => [t === p.target ? 1 : 0, -Math.abs(t - p.target)]), g.N);
   },
   /** Rows only: lean = |left − right| with independent halves (or signed colour-weighted cells). */
   seesaw: (p, g) => {

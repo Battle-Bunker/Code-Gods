@@ -7,8 +7,9 @@
  */
 import type { CardText, GridSpec } from "./_util.ts";
 import {
-  SCALAR, cname, full, gridFamily, range, symForValue, tsCard, pyCard, tuple, valueNote, wire,
+  SCALAR, colourAt, full, gridFamily, range, symForValue, tsCard, pyCard, tuple, valueNote, wire,
 } from "./_util.ts";
+import { colourParam, intParam } from "../../params.ts";
 import { binomial, exactSurvival, maxOfEqualMultinomial, type AnalyticSurvival } from "../../analytic.ts";
 import { solvedAnalytic } from "../../analytic/hook.ts";
 
@@ -23,25 +24,29 @@ const hatedValue = (g: GridSpec, v: number) => (g.cards
 const PENALTY = { role: "penalty" as const, tags: ["penalty"] };
 
 // --- Hated colour -------------------------------------------------------------------------------
-type ColourP = { colour: number };
-const hateColourText = (p: ColourP, g: GridSpec): CardText => ({
-  emoji: "🚫", name: "Hated colour", consts: [["HATED_COLOUR", cname(g, p.colour)]],
-  about: `−1 for each ${cname(g, p.colour)} cell`,
+type ColourP = { colour: string };
+const hateColourText = (p: ColourP): CardText => ({
+  emoji: "🚫", name: "Hated colour", consts: [["HATED_COLOUR", p.colour]],
+  about: `−1 for each ${p.colour} cell`,
 });
+/** LEGACY (typed-params widen step): a colour stored as its index. */
+const colourByIndex = (key: string) => (p: Record<string, unknown>, g: GridSpec) => (typeof p[key] === "number" ? { colour: g.colourNames[p[key] as number] } : null);
 const hateColour = gridFamily<ColourP>({
   id: "hate_colour", name: "Hated colour", emoji: "🚫", theme: "Hates one colour", ...PENALTY, shape: SCALAR,
-  comparative: (p, g) => COMPARATIVE_COLOUR[cname(g, p.colour)] ?? `more ${cname(g, p.colour)}`,
-  support: g => range(g.C).map(colour => ({ colour })),
-  canonical: () => ({ colour: 0 }),
-  summary: (p, g) => hateColourText(p, g).about,
-  python: (p, g) => pyCard(hateColourText(p, g), `
+  comparative: p => COMPARATIVE_COLOUR[p.colour] ?? `more ${p.colour}`,
+  params: () => ({ colour: colourParam("Hated colour") }),
+  legacy: colourByIndex("colour"),
+  support: g => g.colourNames.map(colour => ({ colour })),
+  canonical: (_, g) => ({ colour: g.colourNames[0] }),
+  summary: p => hateColourText(p).about,
+  python: p => pyCard(hateColourText(p), `
     def penalty(grid):
         bad = 0
         for cell in grid.cells:
             if cell.colour == HATED_COLOUR:
                 bad += 1
         return bad`),
-  typescript: (p, g) => tsCard(hateColourText(p, g), `
+  typescript: p => tsCard(hateColourText(p), `
     function penalty(grid) {
       let bad = 0;
       for (const cell of grid.cells) {
@@ -49,7 +54,7 @@ const hateColour = gridFamily<ColourP>({
       }
       return bad;
     }`),
-  exemplar: (p, g) => wire(g, full(g.N, 0), full(g.N, p.colour)),
+  exemplar: (p, g) => wire(g, full(g.N, 0), full(g.N, colourAt(g, p.colour))),
   /** Cells are iid, each the hated colour with probability 1/C: the count is Binomial(N², 1/C) (tail-toolkit.md §2). */
   analytic: (_p, g) => exactSurvival("binomial-cells@1", binomial(g.N * g.N, 1 / g.C)),
 });
@@ -64,6 +69,7 @@ const hateValue = gridFamily<ValueP>({
   id: "hate_value", name: "Hated number", emoji: "🙅", theme: "Hates one number", ...PENALTY, shape: SCALAR,
   analytic: solvedAnalytic("hate_value"),
   comparative: (p, g) => `fuller of ${valueName(g, p.value)}s`,
+  params: g => ({ value: intParam(g.cards ? "Hated value (any suit)" : "Hated number", g.vmin, g.vmax) }),
   support: g => [...new Set(g.value)].sort((a, b) => a - b).map(value => ({ value })),
   // every value has the same share of the symbol set (digits 1/S, cards 4/52), so all values are one orbit
   canonical: (_, g) => ({ value: g.vmin }),
@@ -87,18 +93,20 @@ const hateValue = gridFamily<ValueP>({
 });
 
 // --- Hated patch (Kingdom as a penalty) -------------------------------------------------------------
-type BlobP = { C: number };
-const hateBlobText = (p: BlobP, g: GridSpec): CardText => ({
-  emoji: "🫧", name: "Hated patch", consts: [["HATED_COLOUR", cname(g, p.C)]],
-  about: `−1 for each cell in the biggest joined-up ${cname(g, p.C)} patch`,
+type BlobP = { colour: string };
+const hateBlobText = (p: BlobP): CardText => ({
+  emoji: "🫧", name: "Hated patch", consts: [["HATED_COLOUR", p.colour]],
+  about: `−1 for each cell in the biggest joined-up ${p.colour} patch`,
 });
 const hateBlob = gridFamily<BlobP>({
   id: "hate_blob", name: "Hated patch", emoji: "🫧", theme: "Hates a big patch of one colour", ...PENALTY, shape: SCALAR,
-  comparative: (p, g) => `with a bigger ${cname(g, p.C)} patch`,
-  support: g => range(g.C).map(C => ({ C })),
-  canonical: () => ({ C: 0 }),
-  summary: (p, g) => hateBlobText(p, g).about,
-  python: (p, g) => pyCard(hateBlobText(p, g), `
+  comparative: p => `with a bigger ${p.colour} patch`,
+  params: () => ({ colour: colourParam("Hated colour") }),
+  legacy: colourByIndex("C"),
+  support: g => g.colourNames.map(colour => ({ colour })),
+  canonical: (_, g) => ({ colour: g.colourNames[0] }),
+  summary: p => hateBlobText(p).about,
+  python: p => pyCard(hateBlobText(p), `
     def same_colour(a, b):
         return a.colour == b.colour
 
@@ -108,7 +116,7 @@ const hateBlob = gridFamily<BlobP>({
             if patch[0].colour == HATED_COLOUR:
                 biggest = max(biggest, len(patch))
         return biggest`),
-  typescript: (p, g) => tsCard(hateBlobText(p, g), `
+  typescript: p => tsCard(hateBlobText(p), `
     function sameColour(a, b) {
       return a.colour === b.colour;
     }
@@ -120,7 +128,7 @@ const hateBlob = gridFamily<BlobP>({
       }
       return biggest;
     }`),
-  exemplar: (p, g) => wire(g, full(g.N, 0), full(g.N, p.C)),
+  exemplar: (p, g) => wire(g, full(g.N, 0), full(g.N, colourAt(g, p.colour))),
 });
 
 // --- Takeover ---------------------------------------------------------------------------------------
@@ -131,6 +139,7 @@ const takeoverText: CardText = {
 const hateTakeover = gridFamily<Record<string, never>>({
   id: "hate_takeover", name: "Takeover", emoji: "🏴", theme: "Hates one colour taking over", ...PENALTY, shape: SCALAR,
   comparative: () => "more taken over by one colour",
+  params: () => ({}),
   support: () => [{}],
   summary: () => takeoverText.about,
   python: () => pyCard(takeoverText, `
@@ -168,6 +177,7 @@ const bigBlobText: CardText = {
 const hateBigBlob = gridFamily<Record<string, never>>({
   id: "hate_big_blob", name: "Big blobs", emoji: "🫠", theme: "Hates big blobs of any colour", ...PENALTY, shape: SCALAR,
   comparative: () => "blobbier",
+  params: () => ({}),
   support: () => [{}],
   summary: () => bigBlobText.about,
   python: () => pyCard(bigBlobText, `
@@ -203,6 +213,7 @@ const hateSameCorners = gridFamily<Record<string, never>>({
   analytic: solvedAnalytic("hate_same_corners"),
   comparative: () => "more alike in the corners",
   shape: tuple(2),
+  params: () => ({}),
   support: () => [{}],
   summary: (_, g) => cornersText(g).about,
   python: (_, g) => pyCard(cornersText(g), `
@@ -247,6 +258,7 @@ const hateRepeatRow = gridFamily<RowP>({
   analytic: solvedAnalytic("hate_repeat_row"),
   comparative: () => "more repetitive in that row",
   shape: tuple(2),
+  params: g => ({ row: intParam("Row (0 is the top row)", 0, g.N - 1) }),
   support: g => range(g.N).map(row => ({ row })),
   canonical: () => ({ row: 0 }), // permuting rows preserves the prior; the rule reads one row
   summary: p => repeatText(p).about,
@@ -288,6 +300,7 @@ const hateSymbolTakeover = gridFamily<Record<string, never>>({
   analytic: solvedAnalytic("hate_symbol_takeover"),
   comparative: () => "more crowded with one number",
   shape: SCALAR,
+  params: () => ({}),
   support: () => [{}],
   summary: (_, g) => crowdText(g).about,
   python: (_, g) => pyCard(crowdText(g), `

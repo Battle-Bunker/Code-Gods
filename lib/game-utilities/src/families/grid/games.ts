@@ -1,9 +1,9 @@
 /** Games-kids-know lens rules (lib/grid-lab/gridlab/rules/games.py, cards from rules/cards.py). */
 import type { Cand, CardText, GridSpec, Layer } from "./_util.ts";
+import { colourParam, boolParam } from "../../params.ts";
 import { roundHalfEven } from "./arithmetic.ts";
 import {
-  RANK_NAMES, SCALAR, SUIT_NAMES, bestOf, cap, chance, choose, climb, cname, fromFn, full, gridFamily, pick, product,
-  pyCard, range, recolour, sentences, symForValue, thing, tsCard, tuple, wire,
+  RANK_NAMES, SCALAR, SUIT_NAMES, bestOf, cap, chance, choose, climb, cname, fromFn, full, gridFamily, pick, product, pyCard, range, recolour, sentences, symForValue, thing, tsCard, tuple, wire, colourAt, recolourNames,
 } from "./_util.ts";
 import { solvedAnalytic } from "../../analytic/hook.ts";
 
@@ -164,10 +164,10 @@ const othello = gridFamily<SandP>({
 });
 
 // --- Honest Minesweeper ---------------------------------------------------------------------------------
-type MineP = { X: number };
+type MineP = { mine: string };
 const mineText = (p: MineP, g: GridSpec): CardText => ({
-  emoji: "💣", name: "Honest Minesweeper", consts: [["MINE", cname(g, p.X)]],
-  about: sentences(`${cap(cname(g, p.X))} cells are mines.`,
+  emoji: "💣", name: "Honest Minesweeper", consts: [["MINE", p.mine]],
+  about: sentences(`${cap(p.mine)} cells are mines.`,
     `Any other cell is honest when its ${g.cards ? "value" : "number"} equals how many mines touch it (corners count).`,
     "Each honest cell scores its value in points.", g.say.valueKey()),
 });
@@ -184,8 +184,10 @@ function count8(mine: boolean[][]): Layer {
 const minesweeper = gridFamily<MineP>({
   id: "honest_minesweeper", name: "Honest Minesweeper", emoji: "💣", theme: "Numbers that count the mines around them",
   requires: { classes: ["Valued"] }, shape: SCALAR, tags: ["shortlist"],
-  support: g => range(g.C).map(X => ({ X })),
-  canonical: p => recolour(p, ["X"]),
+  params: () => ({ mine: colourParam("Mine colour") }),
+  legacy: (p, g) => (typeof p.X === "number" ? { mine: g.colourNames[p.X] } : null),
+  support: g => g.colourNames.map(mine => ({ mine })),
+  canonical: (p, g) => recolourNames(g, p, ["mine"]),
   summary: (p, g) => mineText(p, g).about,
   python: (p, g) => pyCard(mineText(p, g), `
     def utility(grid):
@@ -214,7 +216,7 @@ const minesweeper = gridFamily<MineP>({
       return points;
     }`),
   exemplar: (p, g, ctx) => {
-    const N = g.N, X = p.X, o = (X + 1) % g.C, have = new Set(g.value);
+    const N = g.N, X = colourAt(g, p.mine), o = (X + 1) % g.C, have = new Set(g.value);
     const masks: ((r: number, c: number) => boolean)[] = [
       r => r % 2 === 0, (_, c) => c % 2 === 0, r => r % 2 === 1, (r, c) => (r + c) % 2 === 0,
       (r, c) => r % 2 === 0 && c % 2 === 0, (r, c) => r % 3 === 1 && c % 3 === 1, (r, c) => r % 3 !== 1 || c % 3 !== 1,
@@ -633,6 +635,7 @@ const setText = (p: SetP, g: GridSpec): CardText => ({
 const setSpotter = gridFamily<SetP>({
   id: "set_spotter", name: "Set Spotter", emoji: "🔺", theme: "Three in a line that make a SET",
   requires: { classes: ["Valued"], minColours: 3 }, shape: SCALAR,
+  params: () => ({ diag: boolParam("Diagonals count too") }),
   support: () => [{ diag: false }, { diag: true }],
   sample: rng => ({ diag: chance(rng, 1, 2) }),
   summary: (p, g) => setText(p, g).about,

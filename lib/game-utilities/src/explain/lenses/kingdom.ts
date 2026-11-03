@@ -2,7 +2,8 @@
 import { lens, tally, count } from "../lens.ts";
 import { hasCell, type Part } from "../model.ts";
 
-type P = { C: number };
+type P = { colour: string };
+
 
 export const kingdom = lens<P>({
   familyId: "kingdom",
@@ -10,15 +11,15 @@ export const kingdom = lens<P>({
   breakdown: (p, b, parts) => ({
     unit: ["cell", "cells"],
     items: tally(parts, [
-      { of: t => t.points[0] > 0, text: (_n, pts) => `Your biggest ${b.spec.colourNames[p.C]} patch: ${count(pts[0], "cell")}` },
-      { of: () => true, text: n => `${count(n, "smaller " + b.spec.colourNames[p.C] + " patch", "other " + b.spec.colourNames[p.C] + " patches")}: only the biggest scores` },
+      { of: t => t.points[0] > 0, text: (_n, pts) => `Your biggest ${p.colour} patch: ${count(pts[0], "cell")}` },
+      { of: () => true, text: n => `${count(n, "smaller " + p.colour + " patch", "other " + p.colour + " patches")}: only the biggest scores` },
     ]),
   }),
   parts: (p, b) => {
-    const mine = b.regions((x, y) => b.col(x) === b.col(y)).filter(patch => b.col(patch[0]) === p.C);
+    const mine = b.regions((x, y) => b.col(x) === b.col(y)).filter(patch => b.colour(patch[0]) === p.colour);
     const biggest = Math.max(0, ...mine.map(patch => patch.length));
     const winner = mine.findIndex(patch => patch.length === biggest);
-    const name = b.spec.colourNames[p.C];
+    const name = p.colour;
     return mine.map((cells, i): Part => ({
       id: `patch:${cells[0].r},${cells[0].c}`, shape: "region", cells, points: [i === winner ? cells.length : 0],
       title: i === winner ? `your biggest ${name} patch` : `a ${name} patch, not the biggest`,
@@ -33,6 +34,6 @@ export const kingdom = lens<P>({
     const best = parts.filter(t => t.points[0] > 0);
     return [...own, ...best.filter(t => !own.includes(t))];
   },
-  note: (_parts, focus, p, b) => (b.col(focus) === p.C ? null
-    : `This cell is ${b.colour(focus)}: only ${b.spec.colourNames[p.C]} patches count.`),
+  note: (_parts, focus, p, b) => (b.colour(focus) === p.colour ? null
+    : `This cell is ${b.colour(focus)}: only ${p.colour} patches count.`),
 });

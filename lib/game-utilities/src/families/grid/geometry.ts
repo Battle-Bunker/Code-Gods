@@ -1,8 +1,8 @@
 /** Geometry & topology lens rules (lib/grid-lab/gridlab/rules/geometry.py, cards from rules/cards.py). */
 import type { CardText, GridSpec } from "./_util.ts";
+import { colourParam } from "../../params.ts";
 import {
-  SCALAR, SUIT_NAMES, an, bestOf, cap, climb, cname, colourPairs, fromFn, full, gridFamily, isRim, pick, product,
-  pyCard, range, recipes, recolour, sentences, symForValue, tsCard, tuple, wire,
+  SCALAR, SUIT_NAMES, an, bestOf, cap, climb, cname, colourPairs, fromFn, full, gridFamily, isRim, pick, product, pyCard, range, recipes, recolour, sentences, symForValue, tsCard, tuple, wire, colourAt, recolourNames,
 } from "./_util.ts";
 import { solvedAnalytic } from "../../analytic/hook.ts";
 import { LONGEST_SNAKES, longestSnake } from "../../analytic/maxima.ts";
@@ -134,9 +134,9 @@ ${pockets}
 });
 
 // --- Chessmaster ---------------------------------------------------------------------------------
-type ChessP = { A: number; B: number };
-const chessText = (p: ChessP, g: GridSpec): CardText => {
-  const A = cname(g, p.A), B = cname(g, p.B);
+type ChessP = { colour_a: string; colour_b: string };
+const chessText = (p: ChessP): CardText => {
+  const A = p.colour_a, B = p.colour_b;
   return {
     emoji: "♟️", name: "Chessmaster", consts: [["COLOUR_A", A], ["COLOUR_B", B]],
     about: `Look at every 2×2 block. It is a little chessboard when ${A} and ${B} cells alternate, like a chessboard. `
@@ -146,10 +146,12 @@ const chessText = (p: ChessP, g: GridSpec): CardText => {
 const chessmaster = gridFamily<ChessP>({
   id: "chessmaster", name: "Chessmaster", emoji: "♟️", theme: "Little chessboards in your two colours",
   shape: tuple(2), tags: ["shortlist"],
-  support: g => colourPairs(g).map(([A, B]) => ({ A, B })),
-  canonical: p => recolour(p, ["A", "B"]),
-  summary: (p, g) => chessText(p, g).about,
-  python: (p, g) => pyCard(chessText(p, g), `
+  params: () => ({ colour_a: colourParam("First colour"), colour_b: colourParam("Second colour (not the first)") }),
+  legacy: (p, g) => (typeof p.A === "number" && typeof p.B === "number" ? { colour_a: g.colourNames[p.A], colour_b: g.colourNames[p.B] } : null),
+  support: g => colourPairs(g).map(([A, B]) => ({ colour_a: g.colourNames[A], colour_b: g.colourNames[B] })),
+  canonical: (p, g) => recolourNames(g, p, ["colour_a", "colour_b"]),
+  summary: p => chessText(p).about,
+  python: p => pyCard(chessText(p), `
     def opposite(a, b):
         return (a.colour == COLOUR_A and b.colour == COLOUR_B) or (a.colour == COLOUR_B and b.colour == COLOUR_A)
 
@@ -165,7 +167,7 @@ const chessmaster = gridFamily<ChessP>({
                 if opposite(cell, right) and opposite(cell, below) and below.right.colour == cell.colour:
                     boards += 1
         return (boards, seams)`),
-  typescript: (p, g) => tsCard(chessText(p, g), `
+  typescript: p => tsCard(chessText(p), `
     function opposite(a, b) {
       return (a.colour === COLOUR_A && b.colour === COLOUR_B) || (a.colour === COLOUR_B && b.colour === COLOUR_A);
     }
@@ -184,7 +186,7 @@ const chessmaster = gridFamily<ChessP>({
       }
       return [boards, seams];
     }`),
-  exemplar: (p, g) => wire(g, full(g.N, 0), fromFn(g.N, (r, c) => ((r + c) % 2 === 0 ? p.A : p.B))),
+  exemplar: (p, g) => wire(g, full(g.N, 0), fromFn(g.N, (r, c) => colourAt(g, (r + c) % 2 === 0 ? p.colour_a : p.colour_b))),
 });
 
 // --- Bridge Builder --------------------------------------------------------------------------------

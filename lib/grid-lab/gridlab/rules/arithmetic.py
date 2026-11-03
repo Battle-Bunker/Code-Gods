@@ -162,13 +162,13 @@ NUMBER_BONDS = mk(
 
 # --- Magic Accountant (merged with Row Ranger exact mode) ------------------------------------------------
 def ma_ord(g, p, gtype):
-    T = p["T"]
+    T = p["target"]
     sums = [sum(l) for l in _lines_scalar(gtype.value[g.sym].tolist(), p["axis"])]
     return tup(sum(s == T for s in sums), -sum(abs(s - T) for s in sums))
 
 
 def ma_batch(sym, col, p, gtype):
-    T = p["T"]
+    T = p["target"]
     s = lines_rc(vals(sym, gtype), p["axis"]).sum(2)
     return tupb((s == T).sum(1), -np.abs(s - T).sum(1))
 
@@ -176,7 +176,7 @@ def ma_batch(sym, col, p, gtype):
 def ma_sample(rng, gtype):
     N, lo, hi = gtype.N, vmin(gtype), vmax(gtype)
     T = int(np.clip(round(N * (lo + hi) / 2) + int(rng.integers(-N, N + 1)), N * lo, N * hi))
-    return {"axis": str(rng.choice(["rows", "cols", "both"])), "T": T}
+    return {"axis": str(rng.choice(["rows", "cols", "both"])), "target": T}
 
 
 def base_row(N, T, lo, hi):
@@ -194,13 +194,13 @@ def circulant(row):
 
 
 def ma_exemplar(p, gtype):
-    v = circulant(base_row(gtype.N, p["T"], vmin(gtype), vmax(gtype)))
+    v = circulant(base_row(gtype.N, p["target"], vmin(gtype), vmax(gtype)))
     return grid(_sym_grid(gtype, v), np.zeros((gtype.N, gtype.N)))
 
 
 def ma_canon(p, gtype):
     q = _axis_canon(p)
-    q["T"] = min(p["T"], gtype.N * (vmin(gtype) + vmax(gtype)) - p["T"])  # value reflection v -> lo+hi-v
+    q["target"] = min(p["target"], gtype.N * (vmin(gtype) + vmax(gtype)) - p["target"])  # value reflection v -> lo+hi-v
     return q
 
 
@@ -208,7 +208,7 @@ MAGIC_ACCOUNTANT = mk(
     id="magic_accountant", name="Magic Accountant", theme="Lines that add up to your magic number",
     requires=req("Valued"), layers={"symbol", "position"}, camp="neutral",
     sample=ma_sample,
-    summary=lambda p, gt: (f"Your magic number is {p['T']}. Every "
+    summary=lambda p, gt: (f"Your magic number is {p['target']}. Every "
                            + {"rows": "row", "cols": "column", "both": "row and column"}[p["axis"]]
                            + " whose numbers add up to exactly that scores a point; otherwise closer is better."),
     ordinal=ma_ord, batch=ma_batch, canonical=ma_canon, exemplar=ma_exemplar,

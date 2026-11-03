@@ -113,7 +113,7 @@ def _seams_batch(col, A, B):
 
 
 def ch_ord(g, p, gtype):
-    N, A, B = gtype.N, p["A"], p["B"]
+    N, (A, B) = gtype.N, cis(gtype, p, "colour_a", "colour_b")
     col = g.col.tolist()
     w = 0
     for r in range(N - 1):
@@ -125,7 +125,7 @@ def ch_ord(g, p, gtype):
 
 
 def ch_batch(sym, col, p, gtype):
-    A, B = p["A"], p["B"]
+    A, B = cis(gtype, p, "colour_a", "colour_b")
     a, b, c, d = col[:, :-1, :-1], col[:, :-1, 1:], col[:, 1:, :-1], col[:, 1:, 1:]
     w = ((((a == A) & (b == B)) | ((a == B) & (b == A))) & (d == a) & (c == b)).sum((1, 2))
     return tupb(w, _seams_batch(col, A, B))
@@ -140,11 +140,11 @@ def checker(gtype, A, B, sym=None):
 CHESSMASTER = mk(
     id="chessmaster", name="Chessmaster", theme="Little chessboards in your two colours",
     requires=req(), layers={"colour", "position"}, camp="alternator",
-    sample=lambda rng, gt: dict(zip(("A", "B"), colours(rng, gt, 2))),
-    summary=lambda p, gt: (f"Every 2×2 square that looks like a little chessboard of {cname(gt, p['A'])} and "
-                           f"{cname(gt, p['B'])} scores a point."),
-    ordinal=ch_ord, batch=ch_batch, canonical=lambda p, gt: recolour(p, ["A", "B"]),
-    exemplar=lambda p, gt: checker(gt, p["A"], p["B"]),
+    sample=lambda rng, gt: dict(zip(("colour_a", "colour_b"), colour_names(rng, gt, 2))),
+    summary=lambda p, gt: (f"Every 2×2 square that looks like a little chessboard of {p['colour_a']} and "
+                           f"{p['colour_b']} scores a point."),
+    ordinal=ch_ord, batch=ch_batch, canonical=lambda p, gt: recolour_names(p, ["colour_a", "colour_b"], gt),
+    exemplar=lambda p, gt: checker(gt, *cis(gt, p, "colour_a", "colour_b")),
     source="catalog#6 (D2 windows, geo#8); tie-breaker = A–B seams (Best Friends)", tags={"shortlist"})
 
 

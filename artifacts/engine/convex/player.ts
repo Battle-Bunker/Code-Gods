@@ -309,10 +309,17 @@ export async function myUtilityFor(ctx: QueryCtx, viewer: Viewer, { roomId }: { 
     const deity = game ? await deityOf(ctx, game._id, viewer.subject) : null;
     if (!game || !deity) return null;
     const settings = game.settings as GameSettings;
-    const utility = deity.utility as { familyId: string; params: unknown; penalty?: { familyId: string; params: unknown } };
+    // The typed params come from the dealt card (catalog.ts deals them; migrations.ts typedParamsDeities fills older
+    // gods), so this hot query never loads the families library (test/unit/hot-query-bundles.test.ts).
+    type Descriptor = { familyId: string; params: unknown; penalty?: { familyId: string; params: unknown } };
+    const utility = deity.utility as Descriptor;
+    const card = deity.card as { params?: unknown; penalty?: { params?: unknown } } | null;
     return {
       gameId: game._id, godId: viewer.subject,
       utility: { familyId: utility.familyId, params: utility.params, ...(utility.penalty ? { penalty: { familyId: utility.penalty.familyId, params: utility.penalty.params } } : {}) },
+      /** The params by name and type, with how each value reads (game-utilities CardParam); null for a family not yet typed. */
+      typedParams: card?.params ?? null,
+      ...(utility.penalty ? { penaltyTypedParams: card?.penalty?.params ?? null } : {}),
       instantiationKey: instantiationOf(settings).key,
       objectType: settings.objectType, typeArgs: settings.typeArgs, priorId: settings.priorId, penaltyWeight: settings.penaltyWeight,
       language: allowedLanguages(settings)[0], languages: allowedLanguages(settings), settings,

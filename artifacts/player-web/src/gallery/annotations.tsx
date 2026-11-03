@@ -22,14 +22,14 @@ const withTables = (draw: { familyId: string; params: never }) => {
 };
 
 export const SHOWCASE = [
-  { familyId: "parity_painter", params: { P: 0, Q: 1, key: "parity" } },
+  { familyId: "parity_painter", params: { even_or_red: "red", odd_or_black: "green", split: "parity" } },
   { familyId: "set_spotter", params: { diag: false } },
   { familyId: "number_bonds", params: { mode: "any" } },
-  { familyId: "chessmaster", params: { A: 0, B: 1 } },
-  { familyId: "honest_minesweeper", params: { X: 0 } },
-  { familyId: "magic_accountant", params: { axis: "rows", T: 16 } },
-  { familyId: "kingdom", params: { C: 0 } },
-  { familyId: "picture_frame", params: { X: 0 } },
+  { familyId: "chessmaster", params: { colour_a: "red", colour_b: "green" } },
+  { familyId: "honest_minesweeper", params: { mine: "red" } },
+  { familyId: "magic_accountant", params: { axis: "rows", target: 16 } },
+  { familyId: "kingdom", params: { colour: "red" } },
+  { familyId: "picture_frame", params: { colour: "red" } },
   { familyId: "mirrormancer", params: { axis: "LR", layer: "colour" } },
 ] as const;
 
