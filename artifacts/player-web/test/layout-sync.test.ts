@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { DEFAULT_LAYOUT, assistantSide, closePane, panelPanesOf, movePane, openPane, parseLayout, setPanePanel, setPaneParams, type DockLayout } from "@workspace/player-client/layout";
 import { SINGLE_LAYOUT } from "./single-layout.ts";
 import {
-  effectiveLayout, initialSync, pushPlan, sameLayout, syncReducer, withTimeline, type SyncState,
+  effectiveLayout, initialSync, keepAssistantPane, pushPlan, sameLayout, syncReducer, withTimeline, withoutAssistant, type SyncState,
 } from "../src/dock/layout-sync.ts";
 import { back, canUndo, lastParams, observe, emptyHistory, resetView } from "../src/dock/history.ts";
 import { dockAssistant, showPanel } from "../src/dock/operations.ts";
@@ -232,4 +232,25 @@ test("a replay's Timeline is shown over any layout with room for it, and never t
   for (const panelId of ["race", "feed", "agents"] as const) full = openPane(full, { id: "", kind: "panel", panelId, params: {}, setBy: "human" }).layout;
   assert.equal(panelPanesOf(full).length, 4);
   assert.equal(withTimeline(full), full, "a full dock keeps its panels (no panel replaced)");
+});
+
+test("a room with no assistant shows the layout without its assistant pane; the stored layout is untouched", () => {
+  const stored = DEFAULT_LAYOUT("running");
+  assert.ok(Object.values(stored.panes).some(p => p.kind === "assistant"), "the default has an assistant");
+  const shown = withoutAssistant(stored);
+  assert.ok(Object.values(shown.panes).every(p => p.kind !== "assistant"));
+  assert.ok(panelPanesOf(shown).length >= 1, "the panels stay");
+  assert.ok(Object.values(stored.panes).some(p => p.kind === "assistant"), "the input is not changed");
+  assert.equal(withoutAssistant(shown), shown, "nothing to remove");
+});
+
+test("an edit made while the assistant is hidden keeps its stored pane in the saved layout", () => {
+  const stored = DEFAULT_LAYOUT("live");
+  const hidden = withoutAssistant(stored);
+  const pane = panelPanesOf(hidden)[0]!;
+  const edited = keepAssistantPane(setPanePanel(hidden, pane.id, "rules"), stored);
+  const assistant = (l: DockLayout) => Object.values(l.panes).find(p => p.kind === "assistant");
+  assert.deepEqual(assistant(edited), assistant(stored), "the assistant pane is back");
+  assert.equal(panelPanesOf(edited).find(p => p.id === pane.id)?.panelId, "rules", "the edit is kept");
+  assert.equal(keepAssistantPane(hidden, hidden), hidden, "no stored assistant: unchanged");
 });

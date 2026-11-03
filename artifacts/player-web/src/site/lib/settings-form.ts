@@ -70,7 +70,7 @@ export const LIMITS: Readonly<Partial<Record<SettingsKey, Limit>>> = {
   maxAgentsPerGod: { min: 1, max: 200, int: true, unit: "agents" },
   penaltyWeight: { min: 0, unit: "" },
 };
-export const BUDGET_LIMITS = { aiBudget: { min: 0, max: 1_000_000, int: true, unit: "tokens" }, assistantBudget: { min: 0, max: 2_000_000, int: true, unit: "tokens" } } as const;
+export const QUOTA_LIMITS = { aiQuota: { min: 0, max: 1_000_000, int: true, unit: "tokens" }, assistantQuota: { min: 0, max: 2_000_000, int: true, unit: "tokens" } } as const;
 
 const n = (v: number) => v.toLocaleString("en-US");
 const unitText = (u: string) => (u ? ` ${u}` : "");

@@ -280,7 +280,7 @@ export const turnEnding = (status: TurnStatus, errorCode?: string | null): TurnE
  * answered nor answers it unasked. Keyed by how the turn ended; a finished ("done") turn gets none.
  */
 export const UNANSWERED_NOTES: Partial<Record<TurnEnding, string>> = {
-  budget_exhausted: "Engine note (not from the player): the turn above stopped before you answered it, because the player's assistant quota for this game ran out. The player's message above is UNANSWERED. If their next message does not make it moot, say in one short sentence that it was not answered and offer to answer it now.",
+  budget_exhausted: "Engine note (not from the player): the turn above stopped before you answered it, because it reached a limit (the player's assistant quota for this game, a spending ceiling, or AI not being available in this room). The player's message above is UNANSWERED. If their next message does not make it moot, say in one short sentence that it was not answered and offer to answer it now.",
   step_limit: "Engine note (not from the player): the turn above stopped at the step limit, possibly before you finished. If the player's next message does not make it moot, say briefly where you stopped.",
   repeating: "Engine note (not from the player): the engine stopped the turn above because you repeated the same tool call with the same result. Do not repeat it; if the player's next message does not make it moot, say briefly where you got stuck.",
   deadline: "Engine note (not from the player): the turn above ran past its time limit before you finished. Treat the player's message above as unanswered unless their next message makes it moot.",

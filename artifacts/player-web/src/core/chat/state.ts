@@ -81,12 +81,12 @@ export function allowanceMeter(used: number, limit: number) {
   return { fraction: Math.min(1, used / limit), label: `${n(used)} / ${n(limit)} tokens`, exhausted: used >= limit, off: false };
 }
 
-/** The composer's top-edge meter: silent below 80 % of the allowance, then one sentence. */
+/** The composer's top-edge meter: silent below 80 % of the quota, then one sentence. */
 export function allowanceNote(used: number, limit: number): string | null {
   if (limit <= 0) return null;
-  if (used >= limit) return "Allowance used up for this game · do it yourself from the command palette";
+  if (used >= limit) return "Assistant quota used up for this game · do it yourself from the command palette";
   const left = 1 - used / limit;
-  return left <= 0.2 ? `${Math.max(0, Math.round(left * 100))} % of this game's assistant allowance left` : null;
+  return left <= 0.2 ? `${Math.max(0, Math.round(left * 100))} % of this game's assistant quota left` : null;
 }
 
 export type ChipTone = "ok" | "error" | "muted" | "busy" | "ask";
@@ -128,6 +128,7 @@ export const STEP_VERBS = {
   start_game: ["started the game", "starting the game", "start the game"],
   resume_game: ["resumed the game", "resuming the game", "resume the game"],
   end_game: ["ended the game", "ending the game", "end the game"],
+  set_ai_quotas: ["set the room's AI quotas", "setting the room's AI quotas", "set the room's AI quotas"],
   add_ai: ["added an AI player", "adding an AI player", "add an AI player"],
   remove_ai: ["removed an AI player", "removing an AI player", "remove an AI player"],
   list_panels: ["listed your panels", "listing your panels", "list your panels"],
@@ -228,7 +229,8 @@ export function confirmSentence(call: CallRow, ctx: { energy?: number; pauseSeco
     case "start_game": return "Start the game for everyone in the room";
     case "end_game": return "End the game now for everyone";
     case "resume_game": return "Resume the game";
-    case "add_ai": return `Seat the AI player ${quote(args.aiAgentId, 64)} (it spends the room's AI budget)`;
+    case "set_ai_quotas": return `Set the room's AI quotas${typeof args.aiQuota === "number" ? ` (AI players ${args.aiQuota.toLocaleString("en-US")} tokens per game)` : ""}${typeof args.assistantQuota === "number" ? ` (assistants ${args.assistantQuota.toLocaleString("en-US")} tokens per player per game)` : ""}`;
+    case "add_ai": return `Seat the AI player ${quote(args.aiAgentId, 64)} (it draws on the room's AI players' quota)`;
     case "remove_ai": return "Remove an AI player from the room";
     case "delete_setup": return "Delete one of your game setups (rooms keep their settings)";
     case "update_settings": return typeof args.setupId === "string" ? "Put the next game on one of the game setups"

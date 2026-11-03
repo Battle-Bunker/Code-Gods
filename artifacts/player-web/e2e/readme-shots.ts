@@ -34,7 +34,7 @@ const admin = new ConvexHttpClient(CLOUD);
 
 // ---- a real game ----------------------------------------------------------------------------------------------
 const as = async (who: string) => { const { session } = await login(who); const c = new ConvexHttpClient(CLOUD); c.setAuth(await browserJwt(session)); return { c, session }; };
-const bob = await as("bob"), alice = await as("alice");
+const bob = await as("admin"), alice = await as("alice");
 const { roomId, shortCode } = await bob.c.mutation(fn.m("rooms:create"), {}) as { roomId: string; shortCode: string };
 await bob.c.mutation(fn.m("rooms:setSpectator"), { roomId: roomId, spectator: false });   // owners start as spectators; this one plays
 await alice.c.mutation(fn.m("rooms:join"), { room: roomId });
@@ -48,7 +48,7 @@ const { FAMILIES, LENSES } = await import("@workspace/game-utilities");
 const annotated = new Set(LENSES.map(l => l.familyId));
 const excludedFamilies = FAMILIES.filter(f => f.objectType === "Grid" && f.role === "reward" && !annotated.has(f.familyId ?? f.id)).map(f => f.id);
 await owner("settings", { revision: room.revision, settings: { languages: ["python", "typescript"], planningSeconds: 600, halfLifeSeconds: 3600, excludedFamilies } });
-await bob.c.mutation(fn.m("rooms:approveAiBudget"), { roomId, aiBudget: 20_000, assistantBudget: 200_000 });
+await bob.c.mutation(fn.m("rooms:setAiQuotas"), { roomId, aiQuota: 20_000, assistantQuota: 200_000 });
 await owner("start");
 let gameId = "", gameCode = "";
 for (let i = 0; i < 180 && !gameId; i++, await sleep(1000)) {

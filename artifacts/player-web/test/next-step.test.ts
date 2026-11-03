@@ -39,3 +39,9 @@ test("a pending start does not change the step once the game is live", () => {
   assert.equal(s.label, "Write your first agent");
   assert.ok(!s.busy);
 });
+
+test("an owner short of players in a room without AI seats is told to invite, not to add an AI player", () => {
+  const short = nextStep({ ...owner, players: 2, aiEnabled: false });
+  assert.equal(short.label, "Invite players");
+  assert.equal(nextStep({ ...owner, players: 2 }).label, "Add an AI player");
+});

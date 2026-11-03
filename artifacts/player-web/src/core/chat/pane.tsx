@@ -126,7 +126,7 @@ function Conversation({ paneId, status }: { paneId: string; status: Status | und
   };
 
   const chips = suggestionsFor({ phase: situation.phase, seated: situation.seated, isOwner: situation.isOwner, agents: situation.agents, ready: situation.ready,
-    players: situation.players, assistantOn: enabled });
+    players: situation.players, assistantOn: enabled, aiEnabled: situation.room?.aiEnabled });
   const runChip = (chip: Suggestion) => {
     if (chip.command) runPaletteCommand(chip.command);
     else if (chip.prompt) void submit(chip.prompt);

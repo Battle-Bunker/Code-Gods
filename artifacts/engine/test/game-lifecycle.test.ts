@@ -141,8 +141,9 @@ test("room lobby lifecycle: launch, spectate, end by lifetime, history, second g
   assert.match(await rejects(host.c.mutation(api.rooms.endActiveGame, { roomId })), /no active game/);
 });
 
-test("AI seats and budgets in the lobby: library snapshot, owner-only seats, budget approval", { timeout: 60000 }, async () => {
+test("AI seats in the lobby: library snapshot, owner-only seats", { timeout: 60000 }, async () => {
   const [host, ada] = await gods("Seat Host", "Seat Guest");
+  await makeAdmin(host);
   await touch(host);
   const { roomId } = await roomWith([host, ada]);
   await admin.mutation(internal.aiTemplates.ensureSeeded, {});

@@ -9,6 +9,8 @@ import type { Phase } from "@workspace/player-client/panels";
 export type Suggestion = { label: string; prompt?: string; command?: string };
 export type SuggestionContext = {
   phase: Phase; seated: boolean; isOwner: boolean; agents: number; ready: boolean; players: number; assistantOn: boolean;
+  /** AI seats exist in this room (its owner is an administrator); absent means yes. */
+  aiEnabled?: boolean;
 };
 
 /** One chip in both forms: the question for the assistant, and the command that answers it without one. */
@@ -45,7 +47,7 @@ function chipsFor(ctx: SuggestionContext): Chip[] {
 export function suggestionsFor(ctx: SuggestionContext): Suggestion[] {
   const out: Suggestion[] = chipsFor(ctx).map(c => (ctx.assistantOn ? { label: c.ask, prompt: c.prompt ?? c.ask } : { label: c.off, command: c.command }));
   // An owner short of players needs seats before anything else; seating an AI is a form, never a prompt.
-  if (ctx.phase === "lobby" && ctx.isOwner && ctx.players < 3) out.unshift({ label: "Add an AI player", command: "rooms.addAi" });
+  if (ctx.phase === "lobby" && ctx.isOwner && ctx.players < 3 && ctx.aiEnabled !== false) out.unshift({ label: "Add an AI player", command: "rooms.addAi" });
   return out.slice(0, 3);
 }
 
@@ -60,7 +62,7 @@ const COPY: Record<Phase, { greeting: string; body: string }> = {
 /** The empty state of the assistant pane: a greeting and one paragraph (under 40 words). */
 export function emptyStateFor(phase: Phase, assistantOn: boolean): { greeting: string; body: string } {
   if (!assistantOn) {
-    return { greeting: "Your assistant is off in this room.", body: "The room owner turns it on in the room's AI budget. Everything works without it: pick a panel above, or search every command." };
+    return { greeting: "Your assistant is off in this room.", body: "The room owner can give it a quota in the room's AI quotas. Everything works without it: pick a panel above, or search every command." };
   }
   return COPY[phase];
 }

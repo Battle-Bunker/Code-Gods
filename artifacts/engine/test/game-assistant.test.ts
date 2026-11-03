@@ -419,7 +419,7 @@ test("budget: the assistant pool is per human and game, separate from seats; 0 m
   const n = await until(bob, next, DONE, "Bob's next turn");
   assert.equal(n.turn.status, "done");
   const earlier: string[] = JSON.parse(finalText(n)).earlier;
-  assert.match(earlier.at(-1)!, /^Engine note \(not from the player\): the turn above stopped before you answered it, because the player's assistant quota for this game ran out\./);
+  assert.match(earlier.at(-1)!, /^Engine note \(not from the player\): the turn above stopped before you answered it, because it reached a limit \(the player's assistant quota for this game, a spending ceiling, or AI not being available in this room\)\./);
 });
 
 test("disclosure: threads are their human's only; stored tool results pass the disclosure checker", { timeout: 240_000 }, async () => {
