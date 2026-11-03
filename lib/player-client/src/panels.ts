@@ -10,12 +10,19 @@
  */
 import { z } from "zod/v4";
 import { LANGUAGES, type Language } from "@workspace/game-core";
+import { OBJECT_SORTS } from "./objects-page.ts";
 
 export type Phase = "lobby" | "planning" | "running" | "paused" | "ended";
 const ALL: readonly Phase[] = ["lobby", "planning", "running", "paused", "ended"];
 /** The game's phases with a world (planning has the dealt cards, not yet objects). `ended` is the frozen final state. */
 const WORLD: readonly Phase[] = ["running", "paused", "ended"];
 const GAME: readonly Phase[] = ["planning", "running", "paused", "ended"];
+
+/** How the objects panel's sort reads in a summary, after "Top N". */
+const SORT_SUMMARY: Record<(typeof OBJECT_SORTS)[number], string> = {
+  payoff: "by payoff", mine: "by your bits", othersCare: "by others' care",
+  mutations: "most mutated first", newest: "newest first", oldest: "oldest first", recentlyMutated: "most recently mutated first",
+};
 
 export const PANEL_IDS = ["overview", "my-card", "objects", "others-care", "bits-over-time", "race", "agents", "feed", "what-if", "public-chat", "forge", "results", "rules", "code-output", "timeline"] as const;
 export type PanelId = (typeof PANEL_IDS)[number];
@@ -60,16 +67,16 @@ export const PANELS = {
     summary: p => (p.showSource ? "Goal, with source open" : "Goal and an example object"),
   }),
   objects: def({
-    id: "objects", title: "Objects by payoff", blurb: "Which things in the world earn you points.", phases: WORLD,
+    id: "objects", title: "Objects", blurb: "Which things in the world earn you points.", phases: WORLD,
     params: z.strictObject({
-      sortBy: z.enum(["payoff", "mine", "othersCare"]).default("payoff"),
+      sortBy: z.enum(OBJECT_SORTS).default("payoff"),
       filter: z.enum(["all", "positive", "contested", "chips"]).default("all"),
       /** Rows per page: the list opens with this many and loads this many more as the player scrolls (player.objectsPage). */
       limit: z.number().int().min(3).max(60).default(12),
       highlight: objectIds(8),
       layout: z.enum(["list", "grid"]).default("list"),
     }),
-    summary: p => line([`Top ${p.limit} by ${{ payoff: "payoff", mine: "your bits", othersCare: "others' care" }[p.sortBy]}`,
+    summary: p => line([`Top ${p.limit} ${SORT_SUMMARY[p.sortBy]}`,
       ...when(p.filter !== "all", ({ positive: "positive only", contested: "only ones both care about", chips: "only ones others care about" } as Record<string, string>)[p.filter] ?? p.filter),
       ...when(p.highlight.length > 0, `${p.highlight.length} highlighted`), ...when(p.layout === "grid", "grid")]),
   }),

@@ -352,7 +352,9 @@ export function replayObservation(replay: Replay, at: ReplayAt, state: ReplaySta
     },
     objects: [...state.objects.values()].map(o => {
       const v = view(o.net);
-      return { id: o.id, value: o.value, own: { ordinal: v.netBits, rewardBits: v.netBits, netBits: v.netBits }, peerNetBits: v.peerNetBits, peerCare: v.peerCare, payoff: v.payoff };
+      // The public figures at the playhead: the version is the transformation count, changedAt a transformation's time once there is one.
+      return { id: o.id, value: o.value, own: { ordinal: v.netBits, rewardBits: v.netBits, netBits: v.netBits }, peerNetBits: v.peerNetBits, peerCare: v.peerCare, payoff: v.payoff,
+        mutations: o.version, createdAt: o.spawnedAt, lastMutatedAt: o.version > 0 ? o.changedAt : null };
     }),
     agents: [...state.agents.values()].filter(a => a.alive && a.ownerId === god?.id).map(a => {
       const account = a.account && a.expectedActCost !== undefined ? settleAccount(settings, a.account, a.expectedActCost, state.world) : undefined;

@@ -23,7 +23,7 @@ const CHIPS: Record<Phase, Chip[]> = {
   lobby: [RULES, chip("Who's in the room?", "Who's here", panel("overview")), chip("I'm ready", "Mark me ready", "ui.ready", "I'm ready for the next game.")],
   planning: [chip("Explain my goal simply", "Show my secret goal", panel("my-card")), chip("Write me a first agent", "Open the agent editor", "ui.forge.edit"),
     chip("What should my agent do?", "How to play", panel("rules"))],
-  running: [chip("What should I do next?", "Where am I", panel("overview")), chip("Which objects matter to me?", "Objects by payoff", panel("objects")),
+  running: [chip("What should I do next?", "Where am I", panel("overview")), chip("Which objects matter to me?", "Objects", panel("objects")),
     chip("What do the others want?", "What others care about", panel("others-care"))],
   paused: [chip("What changed?", "What just changed", panel("feed")), chip("Draft a public proposal", "Public chat", panel("public-chat")),
     chip("Should I change my agents?", "My agents", panel("agents"))],

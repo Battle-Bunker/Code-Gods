@@ -696,7 +696,7 @@
    },
    {
     "id": "objects",
-    "title": "Objects by payoff",
+    "title": "Objects",
     "blurb": "Which things in the world earn you points.",
     "phases": [
      "running",

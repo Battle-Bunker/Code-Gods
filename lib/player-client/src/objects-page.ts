@@ -1,5 +1,5 @@
 /**
- * Paging the player's objects ("Objects by payoff": infinite scroll over the whole collection). Pure, so the engine's
+ * Paging the player's objects ("Objects": infinite scroll over the whole collection). Pure, so the engine's
  * `player.objectsPage` and the replay (which answers the same query from its log) page identically.
  *
  * Order: the sort key descending, then the object id ascending, so every object has one place and a cursor `{key, id}`
@@ -7,17 +7,41 @@
  * disclosed numbers: live games hand in the noisy others-sum (settings.peerNoiseBits), never an exact one; ended games
  * and replays hand in exact values. This module only orders what it is given.
  */
-export const OBJECT_SORTS = ["payoff", "mine", "othersCare"] as const;
+export const OBJECT_SORTS = ["payoff", "mine", "othersCare", "mutations", "newest", "oldest", "recentlyMutated"] as const;
 export type ObjectSort = (typeof OBJECT_SORTS)[number];
+/** The sort selector's labels (the panel's dropdown, its summary, the palette). */
+export const OBJECT_SORT_LABELS: Record<ObjectSort, string> = {
+  payoff: "Payoff", mine: "Your bits", othersCare: "Others' care",
+  mutations: "Most mutated", newest: "Newest", oldest: "Oldest", recentlyMutated: "Recently mutated",
+};
 export const OBJECT_FILTERS = ["all", "positive", "contested", "chips"] as const;
 export type ObjectFilter = (typeof OBJECT_FILTERS)[number];
 export type ObjectCursor = { key: number; id: string };
 /** At most this many rows in one page: every object of a game (the engine reads at most 2,100). The panel asks for its whole window in one query. */
 export const OBJECT_PAGE_MAX = 2100;
 
-export type PageRow = { id: string; own: { netBits: number }; peerNetBits: number; peerCare: number; payoff: number };
+/**
+ * `mutations`, `createdAt` and `lastMutatedAt` are PUBLIC (the owner's disclosure decision, docs/public-log-design.md §2):
+ * how many transformations the object has had, the world time (seconds) it was spawned, and the world time of its last
+ * transformation (null: never). Nothing says who transformed it.
+ */
+export type PageRow = {
+  id: string; own: { netBits: number }; peerNetBits: number; peerCare: number; payoff: number;
+  mutations?: number; createdAt?: number; lastMutatedAt?: number | null;
+};
 
-export const sortKey = (o: PageRow, sort: ObjectSort) => (sort === "mine" ? o.own.netBits : sort === "othersCare" ? o.peerCare : o.payoff);
+/** The sort key, high first. "oldest" negates the creation time; an object never mutated sorts after every mutated one. */
+export const sortKey = (o: PageRow, sort: ObjectSort) => {
+  switch (sort) {
+    case "mine": return o.own.netBits;
+    case "othersCare": return o.peerCare;
+    case "mutations": return o.mutations ?? 0;
+    case "newest": return o.createdAt ?? 0;
+    case "oldest": return 0 - (o.createdAt ?? 0);   // not -0: Convex keeps the sign of zero in a cursor
+    case "recentlyMutated": return o.lastMutatedAt ?? -1;
+    default: return o.payoff;
+  }
+};
 export const matchesFilter = (o: PageRow, filter: ObjectFilter) =>
   filter === "positive" ? o.payoff > 0
     : filter === "contested" ? o.own.netBits > 0 && o.peerCare > 0
@@ -51,4 +75,18 @@ export function pageObjects<T extends PageRow>(all: readonly T[], q: PageQuery =
     sumOwnNetBits: all.reduce((s, o) => s + o.own.netBits, 0),
     sumPeerNetBits: all.reduce((s, o) => s + o.peerNetBits, 0),
   };
+}
+
+/** World seconds as m:ss ("0:42", "12:05"). */
+export const clockText = (seconds: number) => { const t = Math.max(0, Math.floor(seconds)); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`; };
+
+/**
+ * The public figures of one object as a line ("12 mutations · last 0:42 ago · spawned 3:10 ago"), for the row and the
+ * detail. `now`: the world time the viewer sees (the live clock, or a replay's playhead). Nothing here says who mutated.
+ */
+export function mutationLine(o: Pick<PageRow, "mutations" | "createdAt" | "lastMutatedAt">, now: number) {
+  const n = o.mutations ?? 0;
+  return [`${n} ${n === 1 ? "mutation" : "mutations"}`,
+    ...(o.lastMutatedAt != null ? [`last ${clockText(now - o.lastMutatedAt)} ago`] : []),
+    `spawned ${clockText(now - (o.createdAt ?? 0))} ago`].join(" · ");
 }

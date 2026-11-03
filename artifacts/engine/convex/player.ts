@@ -16,7 +16,7 @@ import { fail } from "./lib/errors";
 import { buildObservation, currentGame, deityOf, latestBatchSeq, objectsOf } from "./lib/load";
 import { withClock } from "./game/state";
 import { objectInstance, personalObject, projectBatches, replayBatches, trajectories as trajectoriesOf } from "./lib/projection";
-import { pageObjects } from "@workspace/player-client/objects-page";
+import { OBJECT_SORTS, pageObjects, type ObjectSort } from "@workspace/player-client/objects-page";
 import { EVENT_LOG_SCHEMA, viewOfNet } from "./lib/world";
 import { findGame, isHistoric, principalV, requireHistoricReaderAs, requireMemberAs, requireRoom, viewerOf } from "./lib/rooms";
 import { publicGameView } from "./games";
@@ -270,7 +270,7 @@ export const trajectoriesFor = async (ctx: QueryCtx, viewer: Viewer, args: { roo
  */
 const objectsPageArgs = {
   roomId: v.string(),
-  sort: v.optional(v.union(v.literal("payoff"), v.literal("mine"), v.literal("othersCare"))),
+  sort: v.optional(v.union(...OBJECT_SORTS.map(s => v.literal(s)))),
   filter: v.optional(v.union(v.literal("all"), v.literal("positive"), v.literal("contested"), v.literal("chips"))),
   after: v.optional(v.object({ key: v.number(), id: v.string() })),
   limit: v.optional(v.number()),
@@ -281,7 +281,7 @@ export const objectsPageAs = internalQuery({
   handler: async (ctx, { principal, ...args }) => objectsPageFor(ctx, await viewerOf(ctx, principal), args),
 });
 export async function objectsPageFor(ctx: QueryCtx, viewer: Viewer, { roomId, ...q }: {
-  roomId: string; sort?: "payoff" | "mine" | "othersCare"; filter?: "all" | "positive" | "contested" | "chips"; after?: { key: number; id: string }; limit?: number;
+  roomId: string; sort?: ObjectSort; filter?: "all" | "positive" | "contested" | "chips"; after?: { key: number; id: string }; limit?: number;
 }) {
   const room = await requireRoom(ctx, roomId);
   await requireMemberAs(ctx, viewer, room, "read");

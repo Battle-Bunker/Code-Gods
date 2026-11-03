@@ -12,6 +12,7 @@ import { useSdkQuery } from "@sdk-transport";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@workspace/engine/convex/_generated/api";
 import type { Observation } from "@workspace/player-client";
+import type { ObjectSort } from "@workspace/player-client/objects-page";
 import type { GameSettings } from "@workspace/game-core";
 import type { UtilityDescriptor } from "@workspace/game-utilities";
 import { useRoom } from "./context";
@@ -65,7 +66,7 @@ export function useObjects({ hz }: Live = {}): LiveObject[] {
  */
 export type ObjectsWindow = NonNullable<FunctionReturnType<typeof api.player.objectsPage>>;
 export function useObjectsPage(
-  { sort = "payoff", filter = "all", limit = 12, hz }: Live & { sort?: "payoff" | "mine" | "othersCare"; filter?: "all" | "positive" | "contested" | "chips"; limit?: number } = {},
+  { sort = "payoff", filter = "all", limit = 12, hz }: Live & { sort?: ObjectSort; filter?: "all" | "positive" | "contested" | "chips"; limit?: number } = {},
 ): ObjectsWindow | undefined {
   const { roomId } = useRoom();
   const page = useSdkQuery("player.objectsPage", { roomId, sort, filter, limit }, hz);

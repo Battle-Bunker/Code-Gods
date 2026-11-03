@@ -1,5 +1,5 @@
 /**
- * Objects by payoff, the default panel: the world's objects ranked by what they pay you. Each row: the rank, the object,
+ * Objects, the default panel: the world's objects, by default ranked by what they pay you. Each row: the rank, the object,
  * a payoff rectangle drawn to scale (width:
  * your bits, height: what the others care, on one scale, so equal values make a square and the area is the payoff),
  * its two values labelled on their edges, `yours × others = payoff`, the relative payoff bar, and "why?" for the full
@@ -7,15 +7,15 @@
  * dimensions.ts); the rectangle's fill and the bar run one amber ramp from muted to strong by the payoff relative to
  * the best shown. Before the world runs, the empty state says what will appear and offers the one next
  * step. The list scrolls over the whole collection: `limit` rows at a time, more loading as the end comes into view
- * (player.objectsPage, one windowed query; replays answer it too). The sort (payoff, your bits, others' care) is the pane's
- * `sortBy` parameter, set here or by the assistant, with the filter, which to highlight, and list or grid.
+ * (player.objectsPage, one windowed query; replays answer it too). The sort (a dropdown: payoff, your bits, others' care,
+ * most mutated, newest, oldest, recently mutated) is the pane's `sortBy` parameter, set here or by the assistant, with the filter, which to highlight, and list or grid.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { OBJECT_PAGE_MAX } from "@workspace/player-client/objects-page";
+import { OBJECT_PAGE_MAX, OBJECT_SORTS, OBJECT_SORT_LABELS, mutationLine, type ObjectSort } from "@workspace/player-client/objects-page";
 import {
   ScoreBreakdown, dimensionVar, rampVar, relativeStrength,
 } from "@workspace/object-views";
-import { ObjectGrid, ObjectView, formatBits, useMyCard, useObjectContext, type LiveObject } from "@/sdk";
+import { ObjectGrid, ObjectView, formatBits, useMyCard, useObjectContext, useObservation, type LiveObject } from "@/sdk";
 import { useObjectsPage } from "@/sdk/hooks";
 import { useDockActions } from "@/dock/actions";
 import { useNow } from "@/core/game/situation";
@@ -24,8 +24,6 @@ import { payoffLabels, payoffRect, payoffScale, type PayoffScale } from "./payof
 import { useNextStep } from "./use-next-step";
 import { useReplayChanged } from "@/core/replay/parts";
 
-/** The sort selector: the panel's `sortBy` parameter, which the assistant sets too. */
-const SORT_CHOICES = [["payoff", "Payoff"], ["mine", "Your bits"], ["othersCare", "Others' care"]] as const;
 /** The rectangle's box: the side the largest value fills, and room for the two edge labels. */
 const SIDE = 44, LABEL_W = 36, LABEL_H = 13;
 const YOURS = dimensionVar("yours"), OTHERS = dimensionVar("others");
@@ -108,16 +106,17 @@ function LoadMore({ more, ready, onMore, loaded, matching }: { more: boolean; re
     : null;
 }
 
-/** The sort order, settable by the player here and by the assistant (show_panel's sortBy). */
-function SortSelector({ paneId, value }: { paneId: string; value: string }) {
+/** The sort order, settable by the player here and by the assistant (show_panel's sortBy): one dropdown, kept per pane. */
+function SortSelector({ paneId, value }: { paneId: string; value: ObjectSort }) {
   const dock = useDockActions();
+  const id = `objects-sort-${paneId}`;
   return (
-    <div role="radiogroup" aria-label="Sort objects by" className="flex flex-wrap items-center gap-1 font-mono text-[11px]" data-testid="objects-sort">
-      <span className="text-muted-foreground">sort</span>
-      {SORT_CHOICES.map(([id, label]) => (
-        <button key={id} type="button" role="radio" aria-checked={value === id} data-testid={`sort-${id}`} onClick={() => value !== id && dock.setParams(paneId, { sortBy: id })}
-          className={`rounded-sm border px-1.5 py-0.5 ${value === id ? "border-foreground text-foreground" : "border-[hsl(var(--card-border))] text-muted-foreground hover:text-foreground"}`}>{label}</button>
-      ))}
+    <div className="flex flex-wrap items-center gap-1.5 font-mono text-[11px]" data-testid="objects-sort">
+      <label htmlFor={id} className="text-muted-foreground">Sort by</label>
+      <select id={id} value={value} data-testid="select-objects-sort" onChange={e => dock.setParams(paneId, { sortBy: e.target.value })}
+        className="rounded-sm border border-[hsl(var(--card-border))] bg-background px-1.5 py-0.5 text-foreground">
+        {OBJECT_SORTS.map(sort => <option key={sort} value={sort}>{OBJECT_SORT_LABELS[sort]}</option>)}
+      </select>
     </div>
   );
 }
@@ -132,6 +131,8 @@ export default function Objects({ paneId, params, phase }: PanelProps<"objects">
   useEffect(() => setPages(1), [view]);   // a new sort or filter starts from the top
   const data = useObjectsPage({ sort: params.sortBy, filter: params.filter, limit: params.limit * pages, hz: 1 });
   const card = useMyCard();
+  // The world time the ages are measured from: the live clock, or a replay's playhead (both answer the observation).
+  const world = useObservation({ hz: 1 })?.economy?.worldSeconds ?? 0;
   const { ctx, noun } = useObjectContext();
   const loadMore = useCallback(() => setPages(p => p + 1), []);
   const [open, setOpen] = useState<string | null>(null);
@@ -185,6 +186,7 @@ export default function Objects({ paneId, params, phase }: PanelProps<"objects">
                   <span className={`absolute inset-y-0 left-0 ${o.payoff < 0 ? "bg-destructive" : ""}`} data-testid={`payoff-bar-${o.id}`}
                     style={{ width: `${(100 * Math.abs(o.payoff)) / max}%`, ...(o.payoff < 0 ? {} : { background: rampVar(relativeStrength(o.payoff, best)) }) }} />
                 </span>
+                <span className="block font-mono text-[11px] text-muted-foreground" data-testid={`text-mutations-${o.id}`}>{mutationLine(o, world)}</span>
                 <span className="block" data-testid={`text-rarity-${o.id}`}><ScoreBreakdown score={o} noun={noun} comparative={comparative} compact /></span>
                 <TextButton onClick={() => setOpen(open === o.id ? null : o.id)} testId={`button-object-detail-${o.id}`}>{open === o.id ? "hide" : "why?"}</TextButton>
               </span>

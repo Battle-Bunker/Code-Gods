@@ -115,8 +115,8 @@ export const BUDGETS: Budget[] = [
     debt: { bytes: 2048 * KiB, ms: 150, why: "PR 5/6: pages of tickBatches (≤ 50 per call, the query's clamp). Bytes depend on how busy the game was (measured 26 docs, 320–650 KiB under load), so the ceiling is the structural bound, not a measurement; a document-count regression still fails at R8's 100" } },
   { query: "player:trajectories", subscribedBy: "sdk useTrajectories", args: f => ({ roomId: f.roomId, gameId: f.gameId, limit: 200 }), cold: false,
     debt: { bytes: 2048 * KiB, ms: 150, why: "PR 5: pages of tickBatches (≤ 50 per call). Bytes depend on how busy the game was (measured 27 docs, 331–650 KiB under load), so the ceiling is the structural bound, not a measurement; a document-count regression still fails at R8's 100" } },
-  { query: "player:objectsPage", subscribedBy: "sdk useObjectsPage", args: f => ({ roomId: f.roomId }), cold: false,
-    debt: { docs: 1200, bytes: 800 * KiB, ms: 200, why: "PR 4: reads and sorts every object to return one page (measured 1,034 docs, 572 KiB, 73 ms)" } },
+  { query: "player:objectsPage", subscribedBy: "sdk useObjectsPage", args: f => ({ roomId: f.roomId, sort: "recentlyMutated" }), cold: false,
+    debt: { docs: 1200, bytes: 800 * KiB, ms: 200, why: "PR 4: reads and sorts every object to return one page, by any of the seven sorts (the three public ones are indexed for the objectViews redesign, but the rank and footer totals still read the whole world; measured 1,034 docs, 572 KiB, 73 ms)" } },
 ];
 
 /** The client reference of a logged identifier: "auth/credentials:list" → api.auth.credentials.list (of `api`). */

@@ -1,5 +1,5 @@
 /**
- * Browser check of "Objects by payoff" infinite scroll on a REAL local game (docs/panels.md): the first screen holds
+ * Browser check of "Objects" infinite scroll on a REAL local game (docs/panels.md): the first screen holds
  * one page, scrolling to the end loads more rows (the footer's "N of M" grows), the sort selector reorders the whole
  * collection (and persists as the pane's `sortBy`), and a reload keeps the sort. Screenshots and a video go to <out-dir>.
  * Bob plays the game in the app on the engine's site (his site session), at the game's page /rooms/:room/games/:game.
