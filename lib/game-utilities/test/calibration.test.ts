@@ -16,6 +16,7 @@ import {
 } from "../src/calibration.ts";
 import { CALIBRATION_DIR, shippedFile, shippedInstanceKeys, shippedManifest, shippedTables } from "../src/calibration-data.ts";
 import type { Ordinal } from "../src/types.ts";
+import { shardOf } from "./shard.ts";   // CG_SHARD="k/n": the fresh-spawn loop below is split across CI jobs
 import { SMOKE_BUDGET, buildTable, tableJson, thin, THIN_BITS } from "../scripts/estimator.ts";
 
 const FILES: Record<string, CalibrationFile> = Object.fromEntries(shippedInstanceKeys().map(k => [k, shippedFile(k)!]));
@@ -194,7 +195,8 @@ test("fresh spawns: median s⁺ ≤ 2 bits, P(s ≥ k) ≤ 2^-k within tolerance
   const pooled = new Array(9).fill(0);
   let pooledN = 0;
   const lowExemplars: string[] = [];
-  for (const [instKey, file] of Object.entries(FILES)) {
+  const mine = shardOf(Object.entries(FILES));
+  for (const [instKey, file] of mine) {
     const inst = instOf(instKey), T = objectType(inst.objectType), codec = T.codec(inst), ctx = context(inst);
     const rng = seededRng(`fresh:${instKey}`);
     const wires = Array.from({ length: FRESH }, () => codec.encode(T.spawn(inst, rng)));
@@ -232,7 +234,7 @@ test("fresh spawns: median s⁺ ≤ 2 bits, P(s ≥ k) ≤ 2^-k within tolerance
   }
   // Exemplars are the family's best value: almost all reach high bits (the few exceptions are small domains or
   // families whose top is common, e.g. Int(0,9999) where 13.3 bits is the most any value can have).
-  const allowed = TABLES.length * 0.15;
+  const allowed = mine.reduce((n, [, f]) => n + f.tables.length, 0) * 0.15;
   assert.ok(lowExemplars.length <= allowed, `exemplars below 8 bits:\n${lowExemplars.join("\n")}`);
 });
 

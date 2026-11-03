@@ -75,17 +75,19 @@ isn't uploaded again), and a smoke test
 (`/api/health`, `/mcp` answers 401, `runtime/probe:smoke`, and `calibration/node:probe` loading the Grid default's
 tables from storage).
 
-**The gate differs by branch.** The root typecheck, `pnpm run test:offline` (every offline unit suite), `calibrate --check`
-and the `game-runtime` sandbox tests run before every **production** deploy, inside the deploy job. On
-**`develop`** they run in the parallel `checks` job instead, so a change reaches dev in about 1½–2 minutes.
-A failure there marks the commit red but doesn't hold back the dev deploy, so fix or revert it before
-merging `develop` into `main`.
-A release that merges `develop` has the identical tree, so on **`main`** the `lookup` job
-(`.github/scripts/previous-gate.mjs`, workflow token with `actions: read`) first looks for a Deploy run on `develop`
-whose head commit has the same tree and whose `checks` job succeeded; if there is one the gate is not re-run and the
-production deploy takes only the deploy job's own time. No match, a red, cancelled or still-running `checks`, or any
-API error runs the gate in full (a lookup problem can only cost time). A newer push to `develop` cancels the dev deploy still running; production
-deploys never cancel. Pushes that only change `*.md`, `docs/`, `.agents/` or `.claude/` don't deploy.
+**The gate** is the `checks` job: the root typecheck, the offline unit suites (`game-utilities`, which holds nearly all
+the test time, is split over 8 parallel shards by `CG_SHARD=k/8`, `lib/game-utilities/test/shard.ts`; every other
+suite plus `calibrate --check` runs in a ninth job), and the `game-runtime` sandbox tests. Its parts run as parallel jobs
+and `checks` succeeds only when all did (about 3–4 minutes). On **`develop`** it runs beside the deploy and never holds it
+back: a failure marks the commit red but the dev deploy proceeds (about 1½–2 minutes), so fix or revert it before
+merging `develop` into `main`. On **`main`** the production deploy does its install and bundle build while the gate runs,
+then waits for `checks` before anything ships. When the release is a merge of `develop` the tree is identical, so the
+`lookup` job (`.github/scripts/previous-gate.mjs`, using the workflow token's `actions: read`) looks for a Deploy run on
+`develop` whose head commit has the same tree and whose `checks` job succeeded; if one exists the gate is not re-run
+(a production deploy then takes about the deploy job's own 1½–2 minutes). No match, a red or cancelled run, or any API
+error means the gate runs in full: a lookup problem can only cost time. A newer push to `develop` cancels the dev deploy
+and gate still running; production never cancels. Pushes that only change `*.md`, `docs/`, `.agents/` or `.claude/`
+don't deploy. Locally `pnpm run test:offline` runs everything unsharded.
 
 Re-run a failed run from the Actions tab; a manual run ("Run workflow") works on `develop` and `main` only.
 Release `develop` → `main` with a pull request whose head is a short-lived branch cut from `develop`, never
