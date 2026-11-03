@@ -647,7 +647,7 @@ const pictureFrame = gridFamily<ColourP>({
       }
       return colourScore + bestSymbolScore;
     }`),
-  exemplar: (p, g) => wire(g, fromFn(g.N, (r, c) => (isFrame(g.N, r, c) ? 0 : 1)), fromFn(g.N, (r, c) => (isFrame(g.N, r, c) ? p.X : (p.X + 1) % g.C))),
+  exemplar: (p, g) => wire(g, fromFn(g.N, (r, c) => (isRim(g.N, r, c) ? 0 : 1)), fromFn(g.N, (r, c) => (isRim(g.N, r, c) ? p.X : (p.X + 1) % g.C))),
   top: (_p, g) => 2 * (4 * g.N - 4),
   /**
    * Exact (tail-toolkit.md §1): colour and symbol are independent per cell, so u = (E − I) + D with E ~ Bin(4N−4, 1/C),
@@ -659,7 +659,6 @@ const pictureFrame = gridFamily<ColourP>({
     return combine(colour, frameSymbolLaw(B, M, g.S), (x, y) => (x as number) + (y as number));
   }),
 });
-const isFrame = (N: number, r: number, c: number) => r === 0 || c === 0 || r === N - 1 || c === N - 1;
 
 // --- Staircase Climber -------------------------------------------------------------------------------
 type StairP = { dir: "→" | "↓" };

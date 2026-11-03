@@ -6,6 +6,7 @@
 import { lens, tally, count } from "../lens.ts";
 import type { Board } from "../board.ts";
 import type { Cell, Part } from "../model.ts";
+import { glyph } from "../../families/grid/_util.ts";
 
 type P = { X: number };
 
@@ -20,7 +21,7 @@ function bestSymbol(b: Board): { sym: number; edge: number; middle: number } {
   return best!;
 }
 
-const glyphOf = (b: Board, s: number) => b.glyph(b.cells.find(x => b.sym(x) === s)!);
+const glyphOf = (b: Board, s: number) => glyph(b.spec, s);
 
 export const pictureFrame = lens<P>({
   familyId: "picture_frame",
@@ -36,12 +37,12 @@ export const pictureFrame = lens<P>({
       unit: ["point", "points"],
       items: tally(parts, [
         { of: is(true, true, true), text: n => `${count(n, `${X} ${S} edge cell`)}: 2 points each` },
-        { of: is(true, true, false), text: n => `${count(n, `other ${X} edge cell`)}: 1 point each` },
-        { of: is(true, false, true), text: n => `${count(n, "other edge cell")} showing ${S}: 1 point each` },
+        { of: is(true, true, false), text: n => `${count(n, `${X} edge cell`)} without ${S}: 1 point each` },
+        { of: is(true, false, true), text: n => `${count(n, "edge cell")} showing ${S}, not ${X}: 1 point each` },
         { of: is(true, null, null), text: n => `${count(n, "edge cell")} neither ${X} nor ${S}: no points` },
         { of: is(false, true, true), text: n => `${count(n, `${X} ${S} middle cell`)}: lose 2 points each` },
-        { of: is(false, true, false), text: n => `${count(n, `other ${X} middle cell`)}: lose 1 point each` },
-        { of: is(false, false, true), text: n => `${count(n, "other middle cell")} showing ${S}: lose 1 point each` },
+        { of: is(false, true, false), text: n => `${count(n, `${X} middle cell`)} without ${S}: lose 1 point each` },
+        { of: is(false, false, true), text: n => `${count(n, "middle cell")} showing ${S}, not ${X}: lose 1 point each` },
         { of: () => true, text: n => `${count(n, "middle cell")} neither ${X} nor ${S}: nothing lost` },
       ]),
     };

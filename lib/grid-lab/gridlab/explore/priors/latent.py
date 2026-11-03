@@ -555,7 +555,7 @@ PATCH_VERSION = 1
 
 
 def patch_top(t: cal.Survival, draw: Draw, gtype: GridType, spec, budget: LBudget = DEFAULT_LBUDGET) -> cal.Survival:
-    """Fix the top of a table where splitting cannot climb (all-or-nothing rules such as Picture Frame):
+    """Fix the top of a table where splitting cannot climb (all-or-nothing rules such as Sudoku at N <= 4):
       * pool values above every level with >= 8 hits become Monte Carlo levels (count / n_pool);
       * if the family's best ordinal is still above every level and the uniform tail is exact, it gets
         min(s_μ(top) - log2 q0, max(s_last + 1, log2(n_pool / 3))): the mixture bound

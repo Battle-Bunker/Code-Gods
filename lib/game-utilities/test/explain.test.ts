@@ -232,16 +232,14 @@ test("Picture Frame: one piece per cell; edge matches gain, middle matches lose,
   assert.deepEqual(at(1, 1).parts.map(p => p.points), [[0]], "4B in the middle: neither, so nothing lost");
   assert.equal(at(2, 3).parts[0].points[0], 0, "0B on the edge: neither red nor 5");
   assert.equal(at(1, 1).note, "red: 4 edge cells minus 2 middle cells. The best edge symbol is 5: 2 edge cells show it, 0 middle cells do.");
-  const goal = explainer({ familyId: "picture_frame", params: { X: 0 } }, FIRST_STEPS)!;
   const bd = lensFor("picture_frame")!.breakdown({ X: 0 }, readBoard(FIRST_STEPS, BOARD)!, e.parts);
-  assert.ok(goal);
   // Edge: 5R (red 5); 2R 8R 1R (red); 5G (5); 1G 4G 7G 6B 0B 7B 3B (neither). Middle: 4R 9R (red); 4B 3G (clear).
   assert.deepEqual(bd.items.map(i => [i.text, i.points[0]]), [
     ["1 red 5 edge cell: 2 points each", 2],
-    ["3 other red edge cells: 1 point each", 3],
-    ["1 other edge cell showing 5: 1 point each", 1],
+    ["3 red edge cells without 5: 1 point each", 3],
+    ["1 edge cell showing 5, not red: 1 point each", 1],
     ["7 edge cells neither red nor 5: no points", 0],
-    ["2 other red middle cells: lose 1 point each", -2],
+    ["2 red middle cells without 5: lose 1 point each", -2],
     ["2 middle cells neither red nor 5: nothing lost", 0],
   ]);
   assert.equal(look("picture_frame", { X: 1 }).e.ordinal, 5, "green: 4 edge (1G 4G 7G 5G) − 1 middle (3G) = 3, plus 2");
