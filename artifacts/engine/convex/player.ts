@@ -153,15 +153,30 @@ export const replayAs = internalQuery({
   args: { principal: principalV, ...replayArgs },
   handler: async (ctx, { principal, ...args }) => replayFor(ctx, await viewerOf(ctx, principal), args),
 });
-export async function replayFor(ctx: QueryCtx, caller: Viewer, args: { roomId: string; gameId: string; afterSeq?: number; chatAfter?: number; limit?: number; maxEvents?: number; eventOffset?: number; maxChat?: number }) {
-  const found = await gameFor(ctx, caller, args.roomId, args.gameId);
+type ReplayCursor = { afterSeq?: number; chatAfter?: number; limit?: number; maxEvents?: number; eventOffset?: number; maxChat?: number };
+/**
+ * The ended game the caller may replay, with the caller's place in its roster: its players, its spectators and the
+ * room's owner (lib/rooms requireHistoricReaderAs), once it has ended. player.replay and replays.url both ask here.
+ */
+export async function replayableGame(ctx: QueryCtx, caller: Viewer, roomId: string, gameId: string) {
+  const found = await gameFor(ctx, caller, roomId, gameId);
   const { room, index } = found;
   if (!found.game) return fail("NOT_FOUND", "Game not found in this room");
-  const game = await withClock(ctx, found.game);
-  // As for every past game (lib/rooms requireHistoricReaderAs): its players, its spectators and the room's owner.
-  if (index < 0) requireHistoricReaderAs(caller, room, game);
+  if (index < 0) requireHistoricReaderAs(caller, room, found.game);
   // The boundary of the transparency: nothing of a live game is revealed (its live reads keep hiding as before).
-  if (game.phase !== "ended") return fail("CONFLICT", "The replay opens when the game ends: until then, what each player may see stays hidden");
+  if (found.game.phase !== "ended") return fail("CONFLICT", "The replay opens when the game ends: until then, what each player may see stays hidden");
+  return { room, game: found.game, viewer: { godId: caller.subject, index } };
+}
+export async function replayFor(ctx: QueryCtx, caller: Viewer, args: { roomId: string; gameId: string } & ReplayCursor) {
+  const { room, game, viewer } = await replayableGame(ctx, caller, args.roomId, args.gameId);
+  return { ...(await replayPage(ctx, room, game, args)), viewer };
+}
+/**
+ * One page of an ended game's replay, the same for every viewer (the caller's place is added by replayFor). The stored
+ * replay (convex/replays.ts) is every page of it, built once when the game ends.
+ */
+export async function replayPage(ctx: QueryCtx, room: Doc<"rooms">, stored: Doc<"games">, args: ReplayCursor) {
+  const game = await withClock(ctx, stored);
   const limit = Math.max(1, Math.min(REPLAY_PAGE_BATCHES, Math.floor(args.limit ?? REPLAY_PAGE_BATCHES)));
   const after = args.afterSeq ?? -1;
   const maxEvents = Math.max(1, Math.min(REPLAY_PAGE_EVENTS, Math.floor(args.maxEvents ?? REPLAY_PAGE_EVENTS)));
@@ -212,8 +227,6 @@ export async function replayFor(ctx: QueryCtx, caller: Viewer, args: { roomId: s
       // (summons, totals and chat stamps below 2; act seeds below 3), wholly or up to a deploy during the game.
       ...(first ? { logSchema: batches[0]?.schema ?? 1, currentLogSchema: EVENT_LOG_SCHEMA } : {}),
     },
-    /** The caller's place in the roster: the replay's default point of view, nothing more. */
-    viewer: { godId: caller.subject, index },
     /** First page only: every god's dealt utility (descriptor and kid card), spending, pause and AI seat. */
     ...(first ? { gods: deities.map(d => ({
       godId: d.godId, index: d.index, utility: d.utility, card: d.card, spent: d.spent, pauseUsed: d.pauseUsed,

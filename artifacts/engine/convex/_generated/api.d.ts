@@ -101,6 +101,7 @@ import type * as panels_tables from "../panels/tables.js";
 import type * as panels_testing from "../panels/testing.js";
 import type * as player from "../player.js";
 import type * as receipts from "../receipts.js";
+import type * as replays from "../replays.js";
 import type * as rooms from "../rooms.js";
 import type * as runtime_acts from "../runtime/acts.js";
 import type * as runtime_assets from "../runtime/assets.js";
@@ -217,6 +218,7 @@ declare const fullApi: ApiFromModules<{
   "panels/testing": typeof panels_testing;
   player: typeof player;
   receipts: typeof receipts;
+  replays: typeof replays;
   rooms: typeof rooms;
   "runtime/acts": typeof runtime_acts;
   "runtime/assets": typeof runtime_assets;

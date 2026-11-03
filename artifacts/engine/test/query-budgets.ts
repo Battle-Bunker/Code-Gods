@@ -23,6 +23,8 @@ export type Fixture = {
   userCode: string;
   /** The commandId of the player's summon in the game (it has a receipt). */
   commandId: string;
+  /** An ended game (another room of the same players) whose replay is stored. */
+  endedRoomId: string; endedGameId: string;
 };
 
 export type Debt = {
@@ -91,6 +93,8 @@ export const BUDGETS: Budget[] = [
     args: f => ({ roomId: f.roomId, gameId: f.gameId }), cold: true },
   { query: "receipts:get", subscribedBy: "core/palette/use-commands.ts (Check a command's status, while the page is open)",
     args: f => ({ roomId: f.roomId, commandId: f.commandId }), cold: true },
+  { query: "replays:url", subscribedBy: "core/replay/replay-game.tsx (an ended game's stored replay)",
+    args: f => ({ roomId: f.endedRoomId, gameId: f.endedGameId }), cold: true },
   { query: "code/runs:get", subscribedBy: "core/panels/code-output.tsx", args: f => ({ roomId: f.roomId }), cold: true },
   { query: "player:myUtility", subscribedBy: "sdk useMyCard/useEvaluator, lib/player-client state.ts", args: f => ({ roomId: f.roomId }), cold: true },
   { query: "player:game", subscribedBy: "core/play.tsx (an ended game's final state)", args: f => ({ roomId: f.roomId, gameId: f.gameId }), cold: false,

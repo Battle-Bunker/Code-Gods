@@ -389,6 +389,13 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
     tools: ["get_replay"], palette: null,
     why: "The replay view opens from the room's game list and the results panel (docs/replay-design.md §7); there is nothing to run from the palette.",
   },
+  "replays.url": {
+    kind: "query", audience: "player",
+    human: { title: "Open a game's stored replay", tooltip: "The whole replay of an ended game, stored once when it ended, in one download." },
+    ai: { description: "The URL of an ENDED game's whole replay (every player.replay page, without `viewer`, as {version, pages}), stored once when it ended, and the caller's place in its roster; url is null until it is stored. Same access as player.replay." },
+    tools: [], palette: null,
+    why: "The replay page reads it to download the replay in one fetch; agents page player.replay with get_replay.",
+  },
   "player.game": {
     kind: "query", audience: "player",
     human: { title: "Open a game of this room", tooltip: "One game of this room, live or as it ended; past games open for their players, spectators and the owner." },

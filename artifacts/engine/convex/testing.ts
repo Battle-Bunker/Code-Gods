@@ -180,6 +180,24 @@ export const endGames = internalMutation({
   },
 });
 
+/** Put an ended game back into its shape from before stored replays (no file), for migrations:backfillReplays' test. */
+export const forgetReplay = internalMutation({
+  args: { gameId: v.id("games") },
+  handler: async (ctx, { gameId }) => {
+    dev();
+    const game = await ctx.db.get(gameId);
+    if (!game) return fail("NOT_FOUND", "no game");
+    if (game.replayStorageId) await ctx.storage.delete(game.replayStorageId);
+    await ctx.db.patch(gameId, { replayStorageId: undefined });
+  },
+});
+
+/** The games row as stored (no clock or engine merged in). */
+export const rawGameDoc = internalQuery({
+  args: { gameId: v.id("games") },
+  handler: async (ctx, { gameId }) => { dev(); return await ctx.db.get(gameId); },
+});
+
 /** Raw private state of a game (scores, descriptors, sources, endAtWorld) for parity checks. */
 export const rawGame = internalQuery({
   args: { gameId: v.id("games") },
@@ -322,7 +340,8 @@ export const cloneEndedGame = internalMutation({
     const [clock, engine] = [await clockDoc(ctx, gameId), await engineDoc(ctx, gameId)];
     for (let i = 0; i < copies; i++) {
       const guid = crypto.randomUUID();
-      const id = await ctx.db.insert("games", { ...strip(game), guid, ...await shortCodeFor(ctx, "games", guid) });
+      // A clone has no stored replay of its own (the source's file names the source game).
+      const id = await ctx.db.insert("games", { ...strip(game), replayStorageId: undefined, guid, ...await shortCodeFor(ctx, "games", guid) });
       if (clock) await ctx.db.insert("gameClocks", { ...strip(clock), gameId: id });
       if (engine) await ctx.db.insert("gameEngine", { ...strip(engine), gameId: id });
       for (const d of deities) await ctx.db.insert("deities", { ...strip(d), gameId: id });

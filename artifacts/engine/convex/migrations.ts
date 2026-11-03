@@ -23,6 +23,10 @@
  *    stats) to its gameEngine doc, created from its fields where missing, and the fields are cleared on `games`. A game
  *    the new code already wrote (game/state.ts writeGame splits on its first write) only gets what it lacks. Narrowed
  *    later: the hot fields leave the games validator, and game/state.ts's legacy fallbacks go.
+ *  - backfillReplays (games; read-architecture §4.4): an ended game without a stored replay gets its build scheduled
+ *    (convex/replays.ts build, which endGame schedules for every game ending since). Its success means scheduled, not
+ *    built: nothing to narrow in the schema, and the replay page's paging fallback goes only once no ended game on dev
+ *    and production lacks its file (a failed build is not retried).
  *
  * Older hand-rolled steps, idempotent and run by their own deploy-workflow steps (kept as they are: they predate the
  * component, and porting the Node action setupsV2 buys nothing):
@@ -108,12 +112,22 @@ export const splitGameHotFields = migrations.define({
   migrateOne: async (ctx, game) => { await splitHotFields(ctx, game); },
 });
 
+export const backfillReplays = migrations.define({
+  table: "games",
+  // Only schedules: the build (an action) pages the log and stores the file; it leaves a game that has one alone. The
+  // builds are spread over a minute, so a deployment with many past games does not start them all at once.
+  migrateOne: async (ctx, game) => {
+    if (game.phase === "ended" && !game.replayStorageId) await ctx.scheduler.runAfter(Math.floor(Math.random() * 60_000), internal.replays.build, { gameId: game._id });
+  },
+});
+
 /** Every component migration, in order: run by the deploy workflow (`npx convex run migrations:runAll`). Append only. */
 // Annotated: this module's own `internal` references would otherwise make its exported types circular.
 const RUN_ALL: FunctionReference<"mutation", "internal">[] = [internal.migrations.backfillMemberSpectator, internal.migrations.backfillGameSpectators,
   internal.migrations.dropHaskellFromSetups, internal.migrations.dropHaskellFromRooms, internal.migrations.dropHaskellFromGames,
   internal.migrations.dropHaskellReadiness, internal.migrations.dropHaskellBundle, internal.migrations.dropHaskellPrograms,
-  internal.migrations.dropHaskellCompiledPrograms, internal.migrations.dropRetiredSiteBuilds, internal.migrations.splitGameHotFields];
+  internal.migrations.dropHaskellCompiledPrograms, internal.migrations.dropRetiredSiteBuilds, internal.migrations.splitGameHotFields,
+  internal.migrations.backfillReplays];
 export const runAll = migrations.runner(RUN_ALL);
 /** The state of each of runAll's migrations (scripts/run-migrations.mjs waits for all of them to succeed). */
 export const status = internalQuery({

@@ -120,3 +120,30 @@ test("games split: a legacy game still running keeps running, and its next tick 
   await waitFor(async () => ((await docs(game.gameId)).clock.worldSeconds > world) || undefined, "world time moves on");
   await host.c.mutation(api.rooms.endActiveGame, { roomId });
 });
+
+test("backfillReplays: ended games stored before stored replays get one; a second run builds nothing again", { timeout: 360_000 }, async () => {
+  const [host, ada, bo] = await gods("Replay Mig Host", "Replay Mig Ada", "Replay Mig Bo");
+  await touch(host);
+  const games: { roomId: string; gameId: string }[] = [];
+  for (let i = 0; i < 2; i++) {
+    const { roomId } = await roomWith([host, ada, bo], INT_TS);
+    const { gameId } = await startGame(host, roomId);
+    await host.c.mutation(api.rooms.endActiveGame, { roomId });
+    games.push({ roomId, gameId });
+  }
+  const storageOf = async (gameId: string) => (await admin.query(internal.testing.rawGameDoc, { gameId }))?.replayStorageId as string | undefined;
+  for (const { gameId } of games) {
+    await waitFor(() => storageOf(gameId), "endGame's build", 60_000, 250);
+    await admin.mutation(internal.testing.forgetReplay, { gameId });
+  }
+  for (const { roomId, gameId } of games) assert.equal((await host.c.query(api.replays.url, { roomId, gameId })).url, null, "the fixture is legacy");
+
+  const statuses = await runAll(true);
+  assert.ok(statuses.some(s => s.name === "migrations:backfillReplays"));
+  // Catches: an ended game left without its file (the builds are spread over a minute).
+  const stored = await Promise.all(games.map(({ gameId }) => waitFor(() => storageOf(gameId), "the backfilled build", 150_000, 500)));
+  for (const { roomId, gameId } of games) assert.ok((await host.c.query(api.replays.url, { roomId, gameId })).url);
+  // A second run leaves every stored file as it is (the migration skips them; a build would keep the first file).
+  await runAll(true);
+  assert.deepEqual(await Promise.all(games.map(({ gameId }) => storageOf(gameId))), stored);
+});
