@@ -96,8 +96,8 @@ Coordinator session: session_0119hWTUfnFoGVhQud4gmKNK. All times are AEDT.
   - 4 widen+migrate migrations.
   - Medium code-review fixes are applied.
 - Left:
-  1. Rebase onto develop (#205 landed). Keep #205's skill text. The Autopilot prompt variant will be ~8,013 chars,
-     over the 8,000 limit, so trim the mode text, not #205's.
+  1. Rebase onto develop (#205 landed). Keep #205's skill text. After the worker's correction, the owner prompt should be ~7,832 (On request)
+     / ~7,946 (Autopilot) chars, under 8,000, so no trim is expected; still re-run the lib/ai-player test.
   2. Run the selective set: game-assistant, -queue, -modes, game-schema-migrations, game-disclosure, game-ai,
      game-query-cost, lib/ai-player and root typecheck. Then merge.
   3. Optional tests for the review fixes.
