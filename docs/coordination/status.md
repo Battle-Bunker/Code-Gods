@@ -103,3 +103,19 @@ Coordinator session: session_0119hWTUfnFoGVhQud4gmKNK. All times are AEDT.
   3. Optional tests for the review fixes.
   4. The narrowing PR once dev and prod report the migrations done.
 - Gotchas: convex/_generated/api.d.ts was hand-edited (regenerate it); the dev watcher takes ~20 s to push.
+
+### Deploy safety (session_0119hWTT8rs9FPTwCbFNiPzZ), stopped 20:30
+- PR #201 is pushed (head c687560), NOT merged.
+- Covers: pinned tables, tick-failure banner with backoff (gameEngine.tickFailures), idle and game-over notices,
+  the post-deploy tick check, and the game-deploy-survival test.
+- Tested before the last commit: test:game green, test:mcp 17/17, unit 134, player-client 84, player-web 234,
+  game-core 57, typecheck.
+- The last commit merges develop (#202–#205) and renames `failures` → `tickFailures`. Root typecheck passes, but
+  the engine run is untested: the local backend refused the push over a local-only row with the old field. No dev or
+  production row has it, so no migration is needed.
+- Thursday:
+  1. Start a fresh local deployment.
+  2. Run the full test:game and test:mcp.
+  3. Merge.
+  4. Release soon after: it protects live games across deploys.
+- The ~1–3 min start window on re-keying deploys is documented in the PR as a known follow-up.
