@@ -210,6 +210,8 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     const agent = id ? await ctx.db.get(id) : null;
     if (!agent || agent.gameId !== game._id || agent.ownerId !== member.godId) fail("NOT_FOUND", "You have no agent with that ID");
     await ctx.db.delete(agent._id);
+    const memo = await ctx.db.query("futileActs").withIndex("by_agent", q => q.eq("agentId", agent._id)).unique();
+    if (memo) await ctx.db.delete(memo._id);
     const world = worldNow(game, now);
     const nextBatch = await appendEvents(ctx, game, [{ t: "destroy", agentId: agent._id, ownerId: member.godId, world }], world, world);
     await writeGame(ctx, game, { agentCount: Math.max(0, game.agentCount - 1), nextBatch });

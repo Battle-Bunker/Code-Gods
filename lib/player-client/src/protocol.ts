@@ -9,6 +9,7 @@ import { LANGUAGES, RETIRED_LANGUAGES, type Language, type StoredLanguage } from
 export const VERSION = "code-gods.player.v3" as const;
 const id = z.string().min(1).max(128);
 const finite = z.number().finite();
+const count = z.number().int().nonnegative();
 /** An agent language (game-core LANGUAGES). */
 const language = z.enum(LANGUAGES as [Language, ...Language[]]);
 /** A stored agent's language: one of LANGUAGES, or a retired one (a past game's agent keeps it). */
@@ -110,7 +111,15 @@ export const observationSchema = z.object({
   // Your agents. An agent acts only while eligible (energy ≥ expectedActCost); a negative energy is a cooldown.
   agents: z.array(z.object({ id, name: agentName, description: agentDescription.optional(), source: z.string().max(16384), language: storedLanguage, summonCost: finite, decisionBits: finite, expectedActCost: finite,
     breakdown: breakdownSchema, randomized: z.boolean(),
-    energy: finite, eligible: z.boolean(), acts: z.number().int().nonnegative(), spent: finite })).max(200),
+    energy: finite, eligible: z.boolean(), acts: z.number().int().nonnegative(), spent: finite,
+    // How its acts ended (counted since the engine started counting: older agents' earlier acts are not in it): changed
+    // the object, or failed by kind (collision: another object already had the value; noChange; commit: the commit
+    // clause kept the object; invalid call; error: the code raised or timed out), with the last invalid call or error.
+    outcomes: z.object({ transforms: z.number().int().nonnegative(),
+      failures: z.object({ collision: count, noChange: count, commit: count, invalid: count, error: count }),
+      lastFailures: z.object({ invalid: z.string().max(300).optional(), error: z.string().max(300).optional() }).optional() }).optional(),
+    // "38 of 38 acts failed: another object already has this value", and when most acts fail, why and how to fix it.
+    diagnosis: z.object({ summary: z.string().max(500), hint: z.string().max(600).optional() }).optional() })).max(200),
   transformations: z.array(z.object({ id, agentId: id, before: wire, after: wire,
     calls: z.array(z.tuple([z.string().max(64), z.record(z.string(), z.unknown())])).max(16).optional(), cost: finite.optional() })).max(500),
   // Every god's total payoff as last published: it changes for everyone at once every settings.scoreIntervalSeconds of

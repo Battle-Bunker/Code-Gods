@@ -1,0 +1,54 @@
+/**
+ * Futile acts (docs/rules-design.md §10, convex/lib/futility.ts) end to end: a deterministic agent that writes one
+ * constant value acts once per object version and then is never offered those objects again (no endless collisions),
+ * its owner sees the failure breakdown, and another agent changing the objects makes it worth trying again.
+ */
+import test from "node:test";
+import assert from "node:assert/strict";
+import { observationSchema } from "@workspace/player-client";
+import { admin, api, envelope, gods, internal, raw, roomWith, sleep, startGame, touch, waitFor } from "./game-helpers.ts";
+
+test("a constant agent stops colliding: one act per object version, then a diagnosis; a changed object is tried again", { timeout: 180000 }, async () => {
+  const [host, ada, bo] = await gods("Futile Host", "Futile Ada", "Futile Bo");
+  await touch(host);
+  const settings = {
+    objectType: "Int", typeArgs: { min: -1000000, max: 1000000 }, languages: ["typescript"],
+    startingObjectCount: 5, spawnRateHz: 0, planningSeconds: 3600, agentEnergyPerSecond: 1000, agentBatteryActs: 50, interactionRateHz: 50,
+  };
+  const { roomId } = await roomWith([host, ada, bo], settings);
+  const game = await startGame(host, roomId);
+  const send = (god: typeof ada, command: Record<string, unknown>) => god.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
+  const summoned = await send(ada, { type: "summon", name: "Seven", language: "typescript", source: "function agent(x) { return [setTo(7)]; }" });
+  assert.equal(summoned.accepted, true, summoned.message);
+  await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 3600 }, kick: true });
+
+  // Five objects: one becomes 7; the others collide once each, and on the holder the act changes nothing, once.
+  const agentOf = async () => (await raw(game.gameId)).agents.find((a: any) => a.ownerId === ada.subject);
+  await waitFor(async () => (await agentOf())?.acts >= 6, "the agent tries every object", 60000, 250);
+  await sleep(4000); // several more ticks at 50 opportunities a second: without the memo, hundreds more acts
+  const agent = await agentOf();
+  assert.equal(agent.acts, 6, "one act per object version, then nothing more to try");
+  assert.equal(agent.transforms, 1);
+  assert.deepEqual(agent.failures, { collision: 4, noChange: 1, commit: 0, invalid: 0, error: 0 });
+  const memo = await admin.query(internal.testing.futileActs, { gameId: game.gameId });
+  assert.equal(memo.length, 1);
+  assert.equal(memo[0].entries.length, 5, "every object is a futile pair");
+
+  // The owner reads why, and how to fix it.
+  const obs = observationSchema.parse(await ada.c.query(api.player.observation, { roomId }));
+  const [mine] = obs.agents;
+  assert.deepEqual(mine.outcomes?.failures, { collision: 4, noChange: 1, commit: 0, invalid: 0, error: 0 });
+  assert.equal(mine.diagnosis?.summary, "5 of 6 acts failed: another object already has this value ×4, the act changed nothing ×1");
+  assert.match(mine.diagnosis?.hint ?? "", /depend on the object/);
+
+  // Another agent changes the objects (and frees 7): the pairs are worth trying again.
+  assert.equal((await send(host, { type: "summon", name: "Adder", language: "typescript", source: "function agent(x) { return [add(1)]; }" })).accepted, true);
+  await waitFor(async () => (await agentOf()).acts > 6, "the constant agent is offered changed objects again", 60000, 250);
+  const values = (await raw(game.gameId)).objects.map((o: any) => o.value);
+  assert.equal(new Set(values).size, values.length, "every object stays unique");
+
+  // Destroying the agent drops its memo.
+  assert.equal((await send(ada, { type: "destroy", agentId: mine.id })).accepted, true);
+  await waitFor(async () => (await admin.query(internal.testing.futileActs, { gameId: game.gameId })).every((m: any) => m.agentId !== mine.id), "the memo goes with the agent", 30000, 250);
+  await host.c.mutation(api.rooms.endActiveGame, { roomId });
+});

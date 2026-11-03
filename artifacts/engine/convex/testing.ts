@@ -243,6 +243,12 @@ export const rawGameDoc = internalQuery({
   handler: async (ctx, { gameId }) => { dev(); return await ctx.db.get(gameId); },
 });
 
+/** A game's futile-pair memos (engine only, lib/futility.ts). */
+export const futileActs = internalQuery({
+  args: { gameId: v.id("games") },
+  handler: async (ctx, { gameId }) => { dev(); return await ctx.db.query("futileActs").withIndex("by_game", q => q.eq("gameId", gameId)).collect(); },
+});
+
 /** Raw private state of a game (scores, descriptors, sources, endAtWorld) for parity checks. */
 export const rawGame = internalQuery({
   args: { gameId: v.id("games") },

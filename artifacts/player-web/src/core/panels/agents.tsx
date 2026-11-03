@@ -1,6 +1,6 @@
 /**
  * My agents: each agent's status (ready / charging / cooldown), its energy against the cost of one act, an energy
- * sparkline and a timeline lane. Its actions: "Edit a copy" (into the forge) and destroy, with an inline confirm,
+ * sparkline, how its acts ended when some failed (the engine's diagnosis, with a fix when most fail) and a timeline lane. Its actions: "Edit a copy" (into the forge) and destroy, with an inline confirm,
  * through the same command path as everything else. Each appears only where it works (core/affordances.ts): neither does in
  * a read-only replay, and Destroy goes after the end. In a replay seen as another god, the panel says whose agents these are.
  */
@@ -84,6 +84,13 @@ export default function Agents({ params, phase }: PanelProps<"agents">) {
                   <Sparkline values={(history.get(a.id) ?? []).filter(s => s.at >= world - params.window).map(s => s.energy)} zero width={90} height={18} label={`agent ${i + 1} energy`} />
                 </p>
               </div>
+              {a.diagnosis && (
+                // How its acts ended (engine-counted) and, when most fail, why and what to change.
+                <div data-testid={`text-agent-diagnosis-${a.id}`} className="space-y-0.5 text-xs">
+                  <p className={a.diagnosis.hint ? "font-semibold text-destructive" : "text-muted-foreground"}>{a.diagnosis.summary}</p>
+                  {a.diagnosis.hint && <p className="text-muted-foreground">{a.diagnosis.hint}</p>}
+                </div>
+              )}
               {params.showCosts && <AgentCost summonCost={a.summonCost} expectedActCost={a.expectedActCost} breakdown={a.breakdown as ActCostBreakdown | undefined} agentEnergyPerSecond={economy?.agentEnergyPerSecond} />}
               <AgentSource id={a.id} source={a.source} language={a.language} defaultOpen={params.showSource} />
               {(editCode.ok || showDestroy) && (

@@ -290,3 +290,37 @@ families. Most Int/string families already have word names and plain values (`d`
 declaration each; the Grid ones with colour or symbol indices (about 45) need the same treatment as above: rename, store
 names, `legacy` reader, Python port, rekey. Estimate: about a day of agent time for all of them (four batches of about
 25 families, each a TS + Python + lens-free change verified by `params.test.ts`, the parity test and the rekey).
+
+## 10. Futile acts (2026-11-03)
+
+**The problem.** Production game k972kgwq…: of 804 acts in 30 tick batches, 793 failed. 438 were collisions ("another
+object already has this value") by a dozen copies of `return [write(everything(), 0), paint(everything(), "green")]`,
+which maps every object to the same grid: once one object holds it, every other act collides, forever. 355 were
+"no change" from idempotent agents (`mirror_grid("top", what="colour")`), which change an object once and then nothing.
+Each failed act still paid its floor, and the engine kept offering the same agents the same object versions.
+
+**The rule.** The runtime freezes the clock and reports whether an act read `random` (`usedRandom`). An act that did
+not is a pure function of the agent's source and the object's value (settings and the god's utility table are fixed for
+the game), so when it fails, the same agent on the same object version fails again, identically. The tick remembers
+those pairs (`convex/lib/futility.ts`, table `futileActs`, one row per agent, written by the commit) and never offers
+the agent that object again until a retry could differ:
+
+| The act | Remembered until |
+|---|---|
+| failed by the rules: no change, an invalid call, the commit clause kept the object | the object changes version |
+| collided with a value another object (or the object itself) holds | the object changes version, or the holder does (it may have freed the value) |
+| read `random` | never remembered: the next act has another seed |
+| raised or timed out (a runtime error) | never remembered: a timeout is not reproducible |
+| changed the object | nothing to remember (the version changed; any entry for the pair goes) |
+
+**Opportunities stay fair.** An opportunity picks its object as before (uniform or shelter), then a uniformly random
+eligible agent among those whose act on it is not futile. When every eligible agent is futile on that object, the
+opportunity tries another object (up to 8); when none has a taker it passes, and nobody is charged. A futile pair is
+never an opportunity, so an agent pays only for acts that could do something, and it does not take opportunities from
+agents that can act. Randomized agents keep their retries: their next act on the same object may differ.
+
+**The owner sees why.** The tick counts every act's outcome on the agent (`transforms`, `failures` by kind:
+collision, noChange, commit, invalid, error; `lastFailures`: the last invalid call's and runtime error's reasons). `agentView` turns
+them into a diagnosis, "38 of 38 acts failed: another object already has this value", with a one-line fix when at least
+half fail. My Agents shows it; the assistant reads it in `get_observation` (`agents[].outcomes`, `agents[].diagnosis`).
+Summon-time validation warns before the summon (constant, idempotent and identity agents; §11 when it lands).
