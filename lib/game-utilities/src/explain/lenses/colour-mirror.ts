@@ -1,6 +1,6 @@
 /**
  * 🪞 Colour Mirror: each row (or column) folded onto itself; its pairs (first and last, …) are drawn as arcs. A whole
- * mirror scores a point; every matching pair is the tie-break. The focus selects its line.
+ * mirror scores a point; every matching pair is the tie-break. The board picks the line under the pointer.
  */
 import { lens, tally, count } from "../lens.ts";
 import type { Board } from "../board.ts";
@@ -33,7 +33,7 @@ export const colourMirror = lens<P>({
       const pairs = Array.from({ length: half }, (_, k) => [cells[k], cells[cells.length - 1 - k]] as const);
       const matches = pairs.filter(([x, y]) => same(x, y)).length, mirror = matches === half;
       return {
-        id: `line:${kind}:${i}`, shape: "line", cells, points: [mirror ? 1 : 0, matches],
+        id: `line:${kind}:${i}`, shape: "line", group: kind, cells, points: [mirror ? 1 : 0, matches],
         title: mirror ? `${kind} ${i + 1} is a mirror` : `${kind} ${i + 1} is not a mirror`,
         facts: pairs.map(([x, y], k) => ({
           text: `${ORDINAL[k]} and ${k === 0 ? "last" : `${ORDINAL[k]}-last`}: ${show(x)}, ${show(y)}`, ok: same(x, y),
