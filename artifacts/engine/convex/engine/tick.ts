@@ -18,7 +18,7 @@
  */
 import { v } from "convex/values";
 import { chargeAct, instantiationOf, isLanguage, pickByEnergy, poissonIntervalSeconds, type GameSettings, type ObjectValue } from "@workspace/game-core";
-import { actCharge, applyCalls, deriveSeed, isSkip, objectType, readBound, type ActOutcome, type MutatorCallWire } from "@workspace/game-types";
+import { actCharge, applyCalls, deriveSeed, failedReadBits, isSkip, objectType, readBound, type ActOutcome, type MutatorCallWire } from "@workspace/game-types";
 import type { UtilityDescriptor } from "@workspace/game-utilities";
 import type { Id } from "../_generated/dataModel";
 import type { ActionCtx } from "../_generated/server";
@@ -199,8 +199,8 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
           return { calls, usedRandom, readBits: readBits ?? 0 };
         }
         catch (error) {
-          // An unreadable meter (a trap, the hard wall) is charged the whole object's information (game-types readBound).
-          if (isAgentFault(error)) return { error: (error as Error).message.slice(0, 300), readBits: (error as { readBits?: number }).readBits ?? readCap };
+          // An unreadable meter (a trap, the hard wall) is charged the whole object's information; a compile error read nothing.
+          if (isAgentFault(error)) return { error: (error as Error).message.slice(0, 300), readBits: failedReadBits(error as { readBits?: number; code?: string }, readCap) };
           console.warn(`act skipped (host): ${(error as Error).message}`);
           return null;
         }

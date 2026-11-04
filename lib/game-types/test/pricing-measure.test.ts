@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
-  GRID, INT, STRING, actCharge, applyCalls, gridFromHex, isSkip, measureAgent, mixtureFromHexFixture, readBound,
+  GRID, INT, STRING, actCharge, applyCalls, gridFromHex, isSkip, measureAgent, mixtureFromHexFixture, readBound, failedReadBits,
   referenceMixture, withComponents, type ObjectValue,
 } from "../src/index.ts";
 
@@ -171,4 +171,11 @@ test("isSkip: an empty call list, None/null, or a clause around no calls", () =>
 test("readBound: an unreadable meter is charged the whole object's information", () => {
   close(readBound(GRID.instantiate({ size: 4, symbols: "base10", colours: "rgb" })), 16 * (Math.log2(10) + Math.log2(3)), 1e-9, "4×4 grid");
   close(readBound(INT.instantiate({ min: -2147483648, max: 2147483647 })), 32, 1e-9, "Int32");
+});
+
+test("failedReadBits: the meter if it reported, the bound only for an act cut off while running, else nothing", () => {
+  assert.equal(failedReadBits({ readBits: 3, code: "EXECUTION" }, 100), 3);
+  assert.equal(failedReadBits({ code: "LIMIT" }, 100), 100);
+  assert.equal(failedReadBits({ code: "COMPILE" }, 100), 0, "a compile error never ran");
+  assert.equal(failedReadBits({}, 100), 0);
 });

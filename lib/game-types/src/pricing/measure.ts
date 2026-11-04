@@ -115,6 +115,15 @@ export function readBound(inst: Instantiation): number {
   return Object.values(layers).reduce((sum, b) => sum + b, 0);
 }
 
+/**
+ * The read charge of an act the runtime refused: the bits its meter reported, else the bound only when the act was cut off
+ * while running (a LIMIT: a trap, the step or time limit, the hard wall), else 0 (it never ran: a compile error).
+ */
+export function failedReadBits(error: { readBits?: unknown; code?: unknown }, bound: number): number {
+  if (typeof error.readBits === "number") return readCharge(error.readBits);
+  return error.code === "LIMIT" ? bound : 0;
+}
+
 /** True when the act's output is an empty call list (`[]`, None/null, or a clause around no calls): a skip. */
 export function isSkip(calls: unknown): boolean {
   let parsed = calls;

@@ -9,7 +9,7 @@
 import { instantiationOf, type GameSettings, type Language, type ObjectValue } from "@workspace/game-core";
 import type { Inspection } from "@workspace/game-runtime";
 import {
-  availableMutators, futilityWarnings, measureAgent, readBound, parseAct, probeFutility, referenceMixture, withComponents, type FutilityProfile, type Instantiation,
+  availableMutators, futilityWarnings, failedReadBits, measureAgent, readBound, parseAct, probeFutility, referenceMixture, withComponents, type FutilityProfile, type Instantiation,
   type ReferenceMixture,
 } from "@workspace/game-types";
 import type { ActionCtx } from "../_generated/server";
@@ -105,7 +105,7 @@ export async function examineAgent(ctx: ActionCtx, settings: GameSettings, langu
     } catch (error) {
       if (!isAgentFault(error)) { hostFailure ??= error; throw error; }
       if (at.component === "game" && at.replicate === 0 && sample.value === undefined) Object.assign(sample, { value, error: (error as Error).message });
-      return { calls: "[]", error: (error as Error).message.slice(0, 200), readBits: (error as { readBits?: number }).readBits ?? readBound(inst) };
+      return { calls: "[]", error: (error as Error).message.slice(0, 200), readBits: failedReadBits(error as { readBits?: number; code?: string }, readBound(inst)) };
     }
   }, inst, mixture, { salt: seasonSalt(), concurrency: CONCURRENCY });
   const probed = await probing;
