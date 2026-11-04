@@ -33,8 +33,22 @@ const leaseV = v.object({ seq: v.number(), leaseUntil: v.number() });
 const statsV = v.object({ acts: v.number(), commits: v.number(), discarded: v.number(), opportunities: v.number() });
 const scoreboardV = v.object({ totals: v.array(v.number()), world: v.number(), at: v.number() });
 const account = v.object({ balance: v.number(), settledWorldSeconds: v.number() });
-const breakdown = v.object({ decision: v.number(), erasure: v.number(), motion: v.number(), floor: v.number() });
-const charge = v.object({ decision: v.number(), erasure: v.number(), motion: v.number(), floor: v.number(), total: v.number(), naming: v.number() });
+/**
+ * An agent's estimated cost per act, split (docs/energy-model.md §5): the bits it reads and its change. LEGACY (agents
+ * summoned before the energy model; migrations.agentPricesV2 converts them): the decision/erasure/motion/floor split.
+ */
+const breakdown = v.union(
+  v.object({ read: v.number(), change: v.number() }),
+  v.object({ decision: v.number(), erasure: v.number(), motion: v.number(), floor: v.number() }),
+);
+/**
+ * One act's charge (docs/energy-model.md §2): what it read plus its change when that committed. Event-log schema ≤ 4
+ * (history) carries the older split, which stays readable by schema.
+ */
+const charge = v.union(
+  v.object({ read: v.number(), change: v.number(), total: v.number() }),
+  v.object({ decision: v.number(), erasure: v.number(), motion: v.number(), floor: v.number(), total: v.number(), naming: v.number() }),
+);
 
 /**
  * One entry of the event log (schema EVENT_LOG_SCHEMA, lib/world.ts; docs/replay-design.md §2). `net` is every roster
@@ -57,11 +71,17 @@ export const eventV = v.union(
     t: v.literal("fail"), objectId: v.string(), world: v.number(), agentId: v.string(), ownerId: v.string(),
     reason: v.string(), cost: charge, seed: v.optional(v.string()),
   }),
+  /** An act that returned no calls (schema 5): it paid its reads; not a failure (docs/energy-model.md §2). */
+  v.object({
+    t: v.literal("skip"), objectId: v.string(), world: v.number(), agentId: v.string(), ownerId: v.string(), cost: charge, seed: v.optional(v.string()),
+  }),
   v.object({ t: v.literal("phase"), phase, world: v.number(), reason: v.optional(v.string()) }),
   v.object({
     t: v.literal("summon"), agentId: v.string(), ownerId: v.string(), world: v.number(), language: v.string(), source: v.string(),
     name: v.optional(v.string()), description: v.optional(v.string()),
-    summonCost: v.number(), decisionBits: v.number(), expectedActCost: v.number(), perActFloorBits: v.number(),
+    summonCost: v.number(), expectedActCost: v.number(),
+    /** LEGACY (schema ≤ 4 history): the decision price and the per-act floor, no longer charged. */
+    decisionBits: v.optional(v.number()), perActFloorBits: v.optional(v.number()),
     breakdown, randomized: v.boolean(), account,
   }),
   v.object({ t: v.literal("destroy"), agentId: v.string(), ownerId: v.string(), world: v.number() }),
@@ -298,8 +318,14 @@ export const gameTables = {
     name: v.optional(v.string()), description: v.optional(v.string()),
     /** The language the source is written in (one the game allows). Absent on agents from single-language games: lib/language agentLanguage. */
     language: v.optional(storedLanguageV),
-    summonCost: v.number(), decisionBits: v.number(), perActFloorBits: v.number(), expectedActCost: v.number(),
+    summonCost: v.number(), expectedActCost: v.number(),
+    /** LEGACY (cleared by migrations.agentPricesV2): the decision price and the per-act floor, no longer charged. */
+    decisionBits: v.optional(v.number()), perActFloorBits: v.optional(v.number()),
     breakdown, randomized: v.boolean(), account, acts: v.number(), spent: v.number(),
+    /** Acts that returned no calls (docs/energy-model.md §2), counted since the energy model; absent: none yet. */
+    skips: v.optional(v.number()),
+    /** World time of its last opportunity: the per-agent cap (game-core MAX_AGENT_OPPORTUNITY_HZ); absent: none yet. */
+    lastOpportunityWorld: v.optional(v.number()),
     /**
      * PRIVATE to the owner: how its acts ended (lib/futility.ts FAILURE_KINDS), counted by the tick since this field
      * existed (an older agent's earlier acts are not in it), and the last invalid call's and runtime error's reasons. lib/projection agentView

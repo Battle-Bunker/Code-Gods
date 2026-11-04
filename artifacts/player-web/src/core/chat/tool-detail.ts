@@ -144,6 +144,7 @@ const agentView: View = (args, data) => {
   const receipt = isRecord(d.receipt) ? d.receipt : {};
   const v = isRecord(receipt.validation) ? receipt.validation : {};
   const a = isRecord(d.assessment) ? d.assessment : {};
+  const bd = isRecord(v.breakdown) ? v.breakdown : {};
   const rows: [string, string | undefined][] = [
     ["Status", typeof d.status === "string" ? d.status : undefined],
     ["Verdict", typeof a.verdict === "string" ? VERDICT[a.verdict] ?? a.verdict : undefined],
@@ -151,8 +152,10 @@ const agentView: View = (args, data) => {
     ["Summon price", typeof v.cost === "number" ? `${v.cost.toFixed(1)} bits` : undefined],
     ["Your energy", typeof v.energy === "number" ? `${v.energy.toFixed(1)} bits` : undefined],
     ["Affordable", typeof v.affordable === "boolean" ? (v.affordable ? "yes" : "not yet") : undefined],
-    ["Cost per act", typeof v.expectedActCost === "number" ? `${num(v.expectedActCost)} bits expected` : undefined],
-    ["Decision bits", typeof v.decisionBits === "number" ? num(v.decisionBits) : undefined],
+    ["Est. cost per act", typeof v.expectedActCost === "number" ? `${num(v.expectedActCost)} bits (an estimate: an act pays only what it does)` : undefined],
+    ["Reading per act", typeof bd.read === "number" ? `${num(bd.read)} bits` : undefined],
+    ["Changing per act", typeof bd.change === "number" ? `${num(bd.change)} bits` : undefined],
+    ["Skips (no calls)", pct(v.skipRate)],
     ["Changes objects", pct(v.changeRate)],
     ["Acts that would succeed", pct(v.expectedSuccessRate)],
     ["Invalid or failing", pct(v.invalidRate)],
@@ -166,7 +169,7 @@ const agentView: View = (args, data) => {
   if (typeof a.summary === "string") sections.push({ kind: "text", title: "What it means", text: a.summary });
   if (typeof a.next === "string") sections.push({ kind: "text", title: "Next step given to the assistant", text: a.next });
   if (Array.isArray(v.diagnostics) && v.diagnostics.length) sections.push({ kind: "list", title: "Diagnostics", items: v.diagnostics.map(scalarText) });
-  const other = { ...rest(v, ["cost", "energy", "affordable", "expectedActCost", "decisionBits", "changeRate", "invalidRate", "randomized", "diagnostics", "valid", "expectedSuccessRate", "warnings", "futility"]) as Json };
+  const other = { ...rest(v, ["cost", "energy", "affordable", "expectedActCost", "breakdown", "changeRate", "invalidRate", "skipRate", "randomized", "diagnostics", "valid", "expectedSuccessRate", "warnings", "futility"]) as Json };
   if (hasKeys(other)) sections.push(...output(other, "Price details"));
   return sections;
 };

@@ -7,7 +7,7 @@
  */
 import { agentDisplayName } from "./agentName";
 import { gameNotice } from "./engineErrors";
-import { allowedLanguages, instantiationOf, leaderboard, rankTotals, type GameSettings } from "@workspace/game-core";
+import { MAX_AGENT_OPPORTUNITY_HZ, allowedLanguages, instantiationOf, leaderboard, rankTotals, type GameSettings } from "@workspace/game-core";
 import { COMMIT_CLAUSE_HELPER, instanceInfo, type InstanceInfo } from "@workspace/game-types";
 import { VERSION, observationSchema, type Observation } from "@workspace/player-client";
 import type { Doc } from "../_generated/dataModel";
@@ -154,14 +154,30 @@ export function personalObject(o: Obj, godId: string, live: boolean) {
   };
 }
 
+/**
+ * An agent's estimated cost per act as {read, change} (docs/energy-model.md §5). A price stored before the energy model
+ * (until migrations.agentPricesV2 has run) shows its change part only: its decision and floor are no longer charged.
+ */
+export function costBreakdown(b: Doc<"agents">["breakdown"]): { read: number; change: number } {
+  return "read" in b ? { read: b.read, change: b.change } : { read: 0, change: b.erasure + b.motion };
+}
+/**
+ * One act's charge as {read, change, total}. An event-log schema ≤ 4 charge (history) keeps its exact total, and its
+ * erasure and motion as the change; its decision and floor were a fixed price, not reading, so `read` is 0 and the total
+ * is more than the parts.
+ */
+export function actCost(c: { read: number; change: number; total: number } | { decision: number; erasure: number; motion: number; floor: number; total: number }) {
+  return "read" in c ? { read: c.read, change: c.change, total: c.total } : { read: 0, change: c.erasure + c.motion, total: c.total };
+}
+
 /** An agent as its owner sees it. */
 export function agentView(game: ClockedGame, agent: Doc<"agents">, nowMs = Date.now(), ordinal = 0) {
   const status = agentStatus(game.settings, agent, worldNow(game, nowMs));
   return {
     id: agent._id as string, name: agentDisplayName(agent.name, ordinal), ...(agent.description ? { description: agent.description } : {}), source: agent.source, language: agentLanguage(agent, game.settings as GameSettings), createdAt: agent.createdAt,
-    summonCost: agent.summonCost, decisionBits: agent.decisionBits, expectedActCost: agent.expectedActCost,
-    breakdown: agent.breakdown, randomized: agent.randomized, energy: status.energy, eligible: status.eligible,
-    acts: agent.acts, spent: agent.spent,
+    summonCost: agent.summonCost, expectedActCost: agent.expectedActCost,
+    breakdown: costBreakdown(agent.breakdown), randomized: agent.randomized, energy: status.energy, eligible: status.eligible,
+    acts: agent.acts, spent: agent.spent, skips: agent.skips ?? 0,
     ...agentOutcomes(agent),
   };
 }
@@ -198,8 +214,8 @@ export function projectEvent(ev: Ev, godId: string, index: number, live = true) 
     return {
       type: "agent.summoned" as const, agentId: ev.agentId, mine, worldSeconds: ev.world,
       ...(mine ? {
-        name: ev.name, ...(ev.description ? { description: ev.description } : {}), language: ev.language, source: ev.source, summonCost: ev.summonCost, decisionBits: ev.decisionBits, expectedActCost: ev.expectedActCost,
-        perActFloorBits: ev.perActFloorBits, breakdown: ev.breakdown, randomized: ev.randomized, account: ev.account,
+        name: ev.name, ...(ev.description ? { description: ev.description } : {}), language: ev.language, source: ev.source, summonCost: ev.summonCost, expectedActCost: ev.expectedActCost,
+        breakdown: costBreakdown(ev.breakdown), randomized: ev.randomized, account: ev.account,
       } : {}),
     };
   }
@@ -209,7 +225,11 @@ export function projectEvent(ev: Ev, godId: string, index: number, live = true) 
   }
   if (ev.t === "fail") {
     if (ev.ownerId !== godId) return null;
-    return { type: "agent.failed" as const, objectId: ev.objectId, agentId: ev.agentId, worldSeconds: ev.world, reason: ev.reason, cost: ev.cost };
+    return { type: "agent.failed" as const, objectId: ev.objectId, agentId: ev.agentId, worldSeconds: ev.world, reason: ev.reason, cost: actCost(ev.cost) };
+  }
+  if (ev.t === "skip") {
+    if (ev.ownerId !== godId) return null;
+    return { type: "agent.skipped" as const, objectId: ev.objectId, agentId: ev.agentId, worldSeconds: ev.world, cost: actCost(ev.cost) };
   }
   // Live, the peers' sum carries the version's disclosure noise (settings.peerNoiseBits); ended, it is exact.
   const own = index >= 0 ? viewOfNet(ev.net, index, live ? ev.noise ?? 0 : 0) : null;
@@ -222,7 +242,7 @@ export function projectEvent(ev: Ev, godId: string, index: number, live = true) 
   const mine = ev.ownerId === godId;
   return {
     type: "object.transformed" as const, objectId: ev.objectId, value: ev.value, before: ev.before, version: ev.version,
-    worldSeconds: ev.world, mine, ...(mine || !live ? { agentId: ev.agentId } : {}), ...(mine ? { calls: ev.calls, cost: ev.cost } : {}), ...scored,
+    worldSeconds: ev.world, mine, ...(mine || !live ? { agentId: ev.agentId } : {}), ...(mine ? { calls: ev.calls, cost: actCost(ev.cost) } : {}), ...scored,
   };
 }
 export type ProjectedEvent = NonNullable<ReturnType<typeof projectEvent>>;
@@ -248,17 +268,21 @@ export function replayEvent(ev: Ev) {
     case "spawn": return { type: "object.spawned" as const, objectId: ev.objectId, value: ev.value, version: ev.version, worldSeconds: ev.world, net: ev.net };
     case "transform": return {
       type: "object.transformed" as const, objectId: ev.objectId, before: ev.before, value: ev.value, version: ev.version, worldSeconds: ev.world,
-      agentId: ev.agentId, ownerId: ev.ownerId, calls: ev.calls, cost: ev.cost, net: ev.net, ...(ev.seed ? { seed: ev.seed } : {}),
+      agentId: ev.agentId, ownerId: ev.ownerId, calls: ev.calls, cost: actCost(ev.cost), net: ev.net, ...(ev.seed ? { seed: ev.seed } : {}),
     };
     case "fail": return {
-      type: "agent.failed" as const, objectId: ev.objectId, worldSeconds: ev.world, agentId: ev.agentId, ownerId: ev.ownerId, reason: ev.reason, cost: ev.cost,
+      type: "agent.failed" as const, objectId: ev.objectId, worldSeconds: ev.world, agentId: ev.agentId, ownerId: ev.ownerId, reason: ev.reason, cost: actCost(ev.cost),
+      ...(ev.seed ? { seed: ev.seed } : {}),
+    };
+    case "skip": return {
+      type: "agent.skipped" as const, objectId: ev.objectId, worldSeconds: ev.world, agentId: ev.agentId, ownerId: ev.ownerId, cost: actCost(ev.cost),
       ...(ev.seed ? { seed: ev.seed } : {}),
     };
     case "summon": return {
       type: "agent.summoned" as const, agentId: ev.agentId, ownerId: ev.ownerId, worldSeconds: ev.world, language: ev.language, source: ev.source,
       ...(ev.name ? { name: ev.name } : {}), ...(ev.description ? { description: ev.description } : {}),
-      summonCost: ev.summonCost, decisionBits: ev.decisionBits, expectedActCost: ev.expectedActCost, perActFloorBits: ev.perActFloorBits,
-      breakdown: ev.breakdown, randomized: ev.randomized, account: ev.account,
+      summonCost: ev.summonCost, expectedActCost: ev.expectedActCost,
+      breakdown: costBreakdown(ev.breakdown), randomized: ev.randomized, account: ev.account,
     };
     case "destroy": return { type: "agent.destroyed" as const, agentId: ev.agentId, ownerId: ev.ownerId, worldSeconds: ev.world };
   }
@@ -317,10 +341,10 @@ export function observation(input: ObservationInput): Observation {
     instance: objectInstance(settings),
     economy: {
       energyPerSecond: settings.energyPerSecond, agentEnergyPerSecond: settings.agentEnergyPerSecond,
-      agentBatteryActs: settings.agentBatteryActs, maxAgentsPerGod: settings.maxAgentsPerGod,
+      maxAgentOpportunityHz: MAX_AGENT_OPPORTUNITY_HZ, maxAgentsPerGod: settings.maxAgentsPerGod,
       penaltyWeight: settings.penaltyWeight, worldSeconds: game ? worldNow(game, now) : 0,
       durationMode: settings.durationMode, lengthSeconds: settings.halfLifeSeconds,
-      perActFloorBits: settings.perActFloorBits, commitClause: settings.commitClause, objectSelection: settings.objectSelection,
+      commitClause: settings.commitClause, objectSelection: settings.objectSelection,
     },
     self: {
       godId: self.godId, label: self.name, isAI: self.kind === "ai", ready: self.ready,

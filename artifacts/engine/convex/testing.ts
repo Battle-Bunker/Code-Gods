@@ -111,6 +111,16 @@ export const legacyAiBudget = internalMutation({
   },
 });
 
+/** Store an agent's price as it was before the energy model: a decision price, a per-act floor, the old breakdown. */
+export const legacyAgentPrice = internalMutation({
+  args: { agentId: v.id("agents"), decisionBits: v.number(), perActFloorBits: v.number(), erasure: v.number(), motion: v.number() },
+  handler: async (ctx, { agentId, decisionBits, perActFloorBits, erasure, motion }) => {
+    dev();
+    await ctx.db.patch(agentId, { decisionBits, perActFloorBits, breakdown: { decision: decisionBits, erasure, motion, floor: perActFloorBits },
+      expectedActCost: decisionBits + erasure + motion + perActFloorBits });
+  },
+});
+
 /** Give an agent a stored language (e.g. a retired one, as a past game's agent may carry). */
 export const patchAgentLanguage = internalMutation({
   args: { agentId: v.id("agents"), language: storedLanguageV },

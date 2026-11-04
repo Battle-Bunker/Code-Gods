@@ -60,6 +60,7 @@ export function describeEvent(ev: ReplayEvent, names: ReadonlyMap<string, string
     case "object.spawned": return `Object ${shortId(ev.objectId)} appeared`;
     case "object.transformed": return `${god(ev.ownerId)}'s agent ${ev.agentId ? shortId(ev.agentId) : "?"} changed object ${shortId(ev.objectId)}: ${callText(ev.calls) || "no calls"}`;
     case "agent.failed": return `${god(ev.ownerId)}'s agent ${shortId(ev.agentId)} failed on object ${shortId(ev.objectId)}: ${ev.reason}`;
+    case "agent.skipped": return `${god(ev.ownerId)}'s agent ${shortId(ev.agentId)} looked at object ${shortId(ev.objectId)} and did nothing (read ${bits(ev.cost.read)} bits)`;
     case "agent.summoned": return `${god(ev.ownerId)} summoned agent ${shortId(ev.agentId)} (${ev.language}, ${bits(ev.summonCost)} bits)`;
     case "agent.destroyed": return `${god(ev.ownerId)} destroyed agent ${shortId(ev.agentId)}`;
   }

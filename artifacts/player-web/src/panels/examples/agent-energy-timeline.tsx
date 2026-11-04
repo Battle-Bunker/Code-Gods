@@ -1,7 +1,7 @@
 /**
  * Agent energy and cooldown timeline. Samples your agents once a second (energy is settled by the
- * engine) and draws each agent's energy as a sparkline plus a lane: green while eligible to act,
- * hatched while in cooldown (negative energy), grey while recharging.
+ * engine) and draws each agent's energy as a sparkline plus a lane: green while it can get a turn
+ * (energy above 0), hatched while it is in debt (negative energy: it waits for its income), grey otherwise.
  */
 import { useEffect, useRef, useState } from "react";
 import { definePanel, Sparkline, Timeline, useMyAgents, useGame, fmtBits } from "@sdk";
@@ -10,7 +10,7 @@ type Sample = { at: number; energy: number; eligible: boolean };
 const WINDOW_S = 120;
 
 export default definePanel({
-  title: "Agent energy & cooldowns",
+  title: "Agent energy",
   placement: "left",
   size: "md",
   Component() {
@@ -43,9 +43,9 @@ export default definePanel({
             <li key={a.id} className="flex items-center gap-2">
               <span className="w-14">agent {i + 1}</span>
               <Sparkline values={(history.current.get(a.id) ?? []).map(s => s.energy)} zero width={100} />
-              <span className="tabular-nums">{fmtBits(a.energy)} / {fmtBits(a.expectedActCost)} per act</span>
+              <span className="tabular-nums">{fmtBits(a.energy)} bits · est. {fmtBits(a.expectedActCost)} per act</span>
               <span className={a.energy < 0 ? "text-destructive" : a.eligible ? "font-semibold" : "opacity-70"}>
-                {a.eligible ? "ready" : `in ${secondsUntilEligible(a).toFixed(1)} s`}
+                {a.eligible ? "can act" : a.energy > 0 ? "at its turn limit" : `waits ~${secondsUntilEligible(a).toFixed(1)} s`}
               </span>
             </li>
           ))}

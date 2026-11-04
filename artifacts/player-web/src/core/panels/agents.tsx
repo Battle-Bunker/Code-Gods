@@ -1,6 +1,6 @@
 /**
- * My agents: each agent's status (ready / charging / cooldown), its energy against the cost of one act, an energy
- * sparkline, how its acts ended when some failed (the engine's diagnosis, with a fix when most fail) and a timeline lane. Its actions: "Edit a copy" (into the forge) and destroy, with an inline confirm,
+ * My agents: each agent's status (can act / waiting), its energy, what an act costs (the summon-time estimate and the
+ * actual average), how often it skipped, an energy sparkline, how its acts ended when some failed (the engine's diagnosis, with a fix when most fail) and a timeline lane. Its actions: "Edit a copy" (into the forge) and destroy, with an inline confirm,
  * through the same command path as everything else. Each appears only where it works (core/affordances.ts): neither does in
  * a read-only replay, and Destroy goes after the end. In a replay seen as another god, the panel says whose agents these are.
  */
@@ -61,26 +61,23 @@ export default function Agents({ params, phase }: PanelProps<"agents">) {
       {owner}
       <ul className="space-y-4">
         {agents.map((a, i) => {
-          const cap = Math.max(a.expectedActCost * (economy?.agentBatteryActs ?? 2), 1e-9);
           // Frozen at the final tick: what the agent was doing when the game ended, and no countdown.
-          const status = (ended ? "at the end: " : "") + (a.energy < 0 ? "cooldown" : a.eligible ? (ended ? "ready" : "ready to act") : "charging");
-          const wait = a.eligible || ended ? 0 : secondsUntilEligible(a);
+          const status = (ended ? "at the end: " : "") + (a.energy <= 0 ? "waiting for income" : a.eligible ? (ended ? "could act" : "can act") : "at its turn limit");
+          const wait = ended ? 0 : secondsUntilEligible(a);
           return (
             <li key={a.id} data-testid={`row-agent-${a.id}`} className="min-w-0 space-y-1.5">
               <div className="flex flex-wrap items-baseline justify-between gap-x-3 text-sm">
                 <span className="flex flex-wrap items-baseline gap-x-2"><AgentName id={a.id} name={a.name} description={a.description} /> <span className="font-mono text-xs font-normal text-muted-foreground">{a.language} · summoned for {formatBits(a.summonCost)} bits</span></span>
                 <span data-testid={`text-agent-status-${a.id}`} className={`text-xs font-semibold ${a.energy < 0 ? "text-destructive" : a.eligible ? "text-[hsl(var(--accent))]" : "text-muted-foreground"}`}>
-                  {status}{!a.eligible && Number.isFinite(wait) && wait > 0 ? ` · ~${formatBits(wait)} s` : ""}
+                  {status}{a.energy <= 0 && Number.isFinite(wait) && wait > 0 ? ` · ~${formatBits(wait)} s` : ""}
                 </span>
               </div>
               <div data-testid={`text-agent-energy-${a.id}`} className="space-y-1">
-                <div className="relative h-1.5 overflow-hidden bg-muted" aria-hidden>
-                  <div className={`h-full ${a.energy < 0 ? "bg-destructive" : "bg-[hsl(var(--accent))]"}`} style={{ width: `${Math.min(100, (100 * Math.abs(a.energy)) / cap)}%` }} />
-                  <div className="absolute inset-y-0 w-px bg-foreground" style={{ left: `${Math.min(100, (100 * a.expectedActCost) / cap)}%` }} title="cost of one act" />
-                </div>
                 <p className="flex flex-wrap items-center gap-x-3 font-mono text-[11px] text-muted-foreground">
-                  <span>⚡ {formatBits(a.energy)} bits · {formatBits(a.expectedActCost)} per act</span>
-                  <span>{a.acts} acts · {formatBits(a.spent)} bits spent</span>
+                  <span>⚡ energy {formatBits(a.energy)} bits</span>
+                  <span>est. {formatBits(a.expectedActCost)} bits per act</span>
+                  <span>{a.acts > 0 ? `actual ${formatBits(a.spent / a.acts)} bits per act` : "no acts yet"}</span>
+                  <span>{a.acts} acts ({a.skips ?? 0} skipped) · {formatBits(a.spent)} bits spent</span>
                   <Sparkline values={(history.get(a.id) ?? []).filter(s => s.at >= world - params.window).map(s => s.energy)} zero width={90} height={18} label={`agent ${i + 1} energy`} />
                 </p>
               </div>
@@ -91,7 +88,7 @@ export default function Agents({ params, phase }: PanelProps<"agents">) {
                   {a.diagnosis.hint && <p className="text-muted-foreground">{a.diagnosis.hint}</p>}
                 </div>
               )}
-              {params.showCosts && <AgentCost summonCost={a.summonCost} expectedActCost={a.expectedActCost} breakdown={a.breakdown as ActCostBreakdown | undefined} agentEnergyPerSecond={economy?.agentEnergyPerSecond} />}
+              {params.showCosts && <AgentCost summonCost={a.summonCost} expectedActCost={a.expectedActCost} breakdown={a.breakdown as ActCostBreakdown | undefined} agentEnergyPerSecond={economy?.agentEnergyPerSecond} acts={a.acts} spent={a.spent} />}
               <AgentSource id={a.id} source={a.source} language={a.language} defaultOpen={params.showSource} />
               {(editCode.ok || showDestroy) && (
                 <div className="flex flex-wrap gap-4">

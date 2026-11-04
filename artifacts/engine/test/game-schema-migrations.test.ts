@@ -6,7 +6,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { rankTotals } from "@workspace/game-core";
-import { admin, api, internal, raw, roomWith, gods, startGame, touch, waitFor } from "./game-helpers.ts";
+import { admin, api, envelope, internal, raw, roomWith, gods, startGame, touch, waitFor } from "./game-helpers.ts";
 
 const INT_TS = { language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Int", spawnRateHz: 0, startingObjectCount: 3, halfLifeSeconds: 100000 };
 
@@ -217,4 +217,27 @@ test("typedParams: gods dealt before their family was typed get named, typed par
   await runAll(true);
   assert.deepEqual(await admin.query(internal.testing.rawDeities, { gameId }), deities, "a second run changes nothing");
   assert.equal(await storageOf(), rebuilt, "and keeps the rebuilt file");
+});
+
+test("agentPricesV2: an agent priced with a decision price and a floor keeps only its change estimate; a second run changes nothing", { timeout: 240_000 }, async () => {
+  const [host, ada, bo] = await gods("Price Mig Host", "Price Mig Ada", "Price Mig Bo");
+  await touch(host);
+  const { roomId } = await roomWith([host, ada, bo], { ...INT_TS, planningSeconds: 3600, startingEnergy: 5000 });
+  const game = await startGame(host, roomId);
+  const summon = (source: string) => ada.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", name: "Priced", language: "typescript", source }, game.gameId) });
+  assert.equal((await summon("function agent(n) { return [add(1)]; }")).accepted, true);
+  assert.equal((await summon("function agent(n) { return n.digit(0) ? [] : [add(1)]; }")).accepted, true);
+  const [legacy, fresh] = (await raw(game.gameId)).agents;
+  const freshBefore = { breakdown: fresh.breakdown, expectedActCost: fresh.expectedActCost };
+  await admin.mutation(internal.testing.legacyAgentPrice, { agentId: legacy._id, decisionBits: 2.5, perActFloorBits: 2, erasure: 4, motion: 0.5 });
+  for (const run of [1, 2]) {
+    await runAll(true);
+    const agents = (await raw(game.gameId)).agents;
+    const a = agents.find((x: any) => x._id === legacy._id), b = agents.find((x: any) => x._id === fresh._id);
+    assert.deepEqual(a.breakdown, { read: 0, change: 4.5 }, `run ${run}`);
+    assert.equal(a.expectedActCost, 4.5, `run ${run}`);
+    assert.equal("decisionBits" in a || "perActFloorBits" in a, false, `run ${run}: legacy fields cleared`);
+    assert.deepEqual({ breakdown: b.breakdown, expectedActCost: b.expectedActCost }, freshBefore, `run ${run}: an agent already in the new shape is left alone`);
+  }
+  await host.c.mutation(api.rooms.endActiveGame, { roomId });
 });

@@ -1,4 +1,4 @@
-import { LANGUAGE_SPECS, allowedLanguages, complexityFor, grammarFor, type Language } from "@workspace/game-core";
+import { LANGUAGE_SPECS, MAX_AGENT_OPPORTUNITY_HZ, allowedLanguages, complexityFor, grammarFor, type Language } from "@workspace/game-core";
 import type { InstanceInfo, Settings } from "@/site/lib/types";
 
 const AGENT_SHAPES: Partial<Record<Language, string>> = { python: "def agent(grid):", typescript: "function agent(grid) { ... }" };
@@ -26,16 +26,16 @@ If, overall, the others don't care about an object, nobody scores from it. You c
 Object type: ${t}.
 An agent is ordinary code in one of this game's languages, chosen per agent: ${agent}, against the room's helper prelude. It returns a list of at most 16 mutator calls; objects change only through these mutators:
   ${moves}
-Each act costs bits (naming the moves and their parameters, erased information and how much of the object moved).
-Summoning costs the agent's description bits (counted in its own language: ${languages.map(l => `${LANGUAGE_SPECS[l].label} ${complexityFor(l)}`).join(", ")}) from your god energy. Each agent then has its own ⚡ energy: it earns ${s.agentEnergyPerSecond ?? 2} bits per second of world time (up to ${s.agentBatteryActs ?? 2} acts' worth), acts only while its energy covers its expected act cost, and pays each act's actual cost (it may go below zero: a cooldown). You may destroy your own agents at any time, for free. At most ${s.maxAgentsPerGod ?? 200} agents per god.
+An act pays only what it does: the bits of the object it READS (each value the first time it looks, repeats are free; where cells are is free) plus, only when it changes the object, the bits of its CHANGE. Returning no calls is a skip: it pays only its reads and is not a failure. There is no fixed charge per act.
+Summoning costs the agent's description bits (counted in its own language: ${languages.map(l => `${LANGUAGE_SPECS[l].label} ${complexityFor(l)}`).join(", ")}) from your god energy. Each agent then has its own ⚡ energy: it earns ${s.agentEnergyPerSecond ?? 2} bits per second of world time, with no cap, and pays each act's actual cost (it may go below zero: it then waits for its income). The expected cost per act that validation shows is only an estimate; nothing is charged from it. So scan cheaply, return no calls when nothing is worth doing, and save energy to act more often. Python agents may not use names or attributes that start with an underscore, getattr/setattr/delattr, attrgetter/methodcaller, format/format_map, or frame/closure introspection. You may destroy your own agents at any time, for free. At most ${s.maxAgentsPerGod ?? 200} agents per god.
 All object values are unique. A transformation to an existing value, including the object's own, fails without changing the world. Spawns redraw duplicates.
 Grammar: ${languages.map(grammarFor).join(" or ")}. Only the supported sandbox computational libraries/built-ins are available, not unrestricted host access. Read-only time and randomness are allowed; filesystem, network and process access are not.
-At each interaction a random eligible agent acts on a random object. You cannot choose its target.
+At each interaction a random object is picked, then an agent with positive energy, with probability proportional to its energy (at most ${MAX_AGENT_OPPORTUNITY_HZ} turns per world second per agent). You cannot choose its target.
 Interaction cap (not guaranteed throughput): ${s.interactionRateHz} interactions/second. Guest compute budget: ${s.interactionComputeMs} ms per interaction.
 Starting objects: ${s.startingObjectCount}. Uniform-random spawning: ${s.spawnRateHz} objects/second of world time.
 
 ## Energy and timing
-God energy: start ${s.startingEnergy} bits, income ${s.energyPerSecond} bits per real-world second, also during planning and pauses. Validation shows an agent's summon cost and expected cost per act without spending energy.
+God energy: start ${s.startingEnergy} bits, income ${s.energyPerSecond} bits per real-world second, also during planning and pauses. Validation shows an agent's summon price and estimated cost per act (reading and changing) without spending energy.
 Planning lasts ${s.planningSeconds} seconds; the world does not move during planning.
 Each god may pause a running game once, for ${s.pauseSeconds} seconds. World time stops during pauses.
 ${s.durationMode === "fixed" ? `Game length: exactly ${s.halfLifeSeconds} seconds of world time. The end time is public.` : `Game half-life: ${s.halfLifeSeconds} seconds of world time. This is a random lifetime, NOT a fixed duration. The exact end time is hidden.`}

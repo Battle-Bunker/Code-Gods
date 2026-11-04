@@ -8,7 +8,7 @@
  * _MIXES; JS the same with a "__" prefix (Maps for the lookups).
  */
 import { mixColours, type ColourComponent, type SymbolComponent } from "./components.ts";
-import { helper, js, jsMap, py, pyDict, type BasePrelude } from "../prelude.ts";
+import { fmtBits, floatLit, helper, js, jsMap, py, pyDict, type BasePrelude } from "../prelude.ts";
 import type { HelperDoc } from "../types.ts";
 
 export function gridPrelude(size: number, s: SymbolComponent, c: ColourComponent, classes: readonly string[]): BasePrelude {
@@ -282,6 +282,156 @@ ${suited ? "      x.suit = __SUITS[s];\n" : ""}${faced ? "      x.isPicture = __
 }
 `;
 
+  // Read costs (docs/energy-model.md §3.1): bits per accessor, first read per act; the symbol-layer accessors share log2 S.
+  const bC = Math.log2(c.count), bS = Math.log2(s.count), bV = Math.log2(new Set(s.values).size), bU = 2, bP = 1;
+  const agentPython = `
+
+def __read_bits():
+    """The bits the agent has read so far this act (the meter __agent_view resets and replaces)."""
+    return 0.0
+
+
+def __agent_view(wire):
+    """Canonical wire string -> the Grid an agent receives: the same cells and methods, but what is on a cell is metered
+    (docs/energy-model.md 3.1). The board and the meter live in this function's closure; cells hold only their position."""
+    global __read_bits
+    lines = wire.split("/")
+    if len(lines) != _SIZE:
+        raise ValueError("not a grid of this room")
+    syms, cols = [], []
+    for line in lines:
+        texts = line.split(",")
+        if len(texts) != _SIZE:
+            raise ValueError("not a grid of this room")
+        for text in texts:
+            syms.append(_CODES[text[:-1]])
+            cols.append(_LETTERS[text[-1:]])
+    n = _SIZE * _SIZE
+    bits = [0.0]
+    spent = [0.0] * n
+    seen_colour, seen_symbol, seen_value, seen_suit, seen_picture = bytearray(n), bytearray(n), bytearray(n), bytearray(n), bytearray(n)
+
+    def pay(flags, i, b, layered):
+        if flags[i]:
+            return
+        flags[i] = 1
+        if layered:
+            room = ${floatLit(bS)} - spent[i]
+            if b > room:
+                b = room
+            if b < 0.0:
+                b = 0.0
+            spent[i] += b
+        bits[0] += b
+
+    class AgentCell(Cell):
+        __slots__ = ()
+
+        @property
+        def colour(self):
+            i = self.row * _SIZE + self.col
+            pay(seen_colour, i, ${floatLit(bC)}, False)
+            return _COLOURS[cols[i]]
+
+        @property
+        def symbol(self):
+            i = self.row * _SIZE + self.col
+            pay(seen_symbol, i, ${floatLit(bS)}, True)
+            return _SYMBOLS[syms[i]]
+
+        @property
+        def value(self):
+            i = self.row * _SIZE + self.col
+            pay(seen_value, i, ${floatLit(bV)}, True)
+            return _VALUES[syms[i]]
+${suited ? `
+        @property
+        def suit(self):
+            i = self.row * _SIZE + self.col
+            pay(seen_suit, i, ${floatLit(bU)}, True)
+            return _SUITS[syms[i]]
+` : ""}${faced ? `
+        @property
+        def is_picture(self):
+            i = self.row * _SIZE + self.col
+            pay(seen_picture, i, ${floatLit(bP)}, True)
+            return _PICTURES[syms[i]]
+` : ""}
+    rows = [[AgentCell() for k in range(_SIZE)] for r in range(_SIZE)]
+
+    def at(r, k):
+        return rows[r][k] if 0 <= r < _SIZE and 0 <= k < _SIZE else None
+
+    for r in range(_SIZE):
+        for k in range(_SIZE):
+            x = rows[r][k]
+            x.row, x.col = r, k
+            x.left, x.right, x.up, x.down = at(r, k - 1), at(r, k + 1), at(r - 1, k), at(r + 1, k)
+            x.up_left, x.up_right, x.down_left, x.down_right = at(r - 1, k - 1), at(r - 1, k + 1), at(r + 1, k - 1), at(r + 1, k + 1)
+
+    def read_bits():
+        return bits[0]
+
+    __read_bits = read_bits
+    return Grid(rows)
+`;
+
+  const agentJs = `
+
+function __read_bits() { return 0; }
+
+function __agent_view(wire) {
+  const lines = wire.split("/");
+  if (lines.length !== __SIZE) throw new Error("not a grid of this room");
+  const n = __SIZE * __SIZE, syms = new Uint8Array(n), cols = new Uint8Array(n);
+  lines.forEach((line, r) => {
+    const texts = line.split(",");
+    if (texts.length !== __SIZE) throw new Error("not a grid of this room");
+    texts.forEach((text, k) => {
+      const s = __CODES.get(text.slice(0, -1)), h = __LETTERS.get(text.slice(-1));
+      if (s === undefined || h === undefined) throw new Error("not a grid of this room");
+      syms[r * __SIZE + k] = s; cols[r * __SIZE + k] = h;
+    });
+  });
+  // The meter: primitive arithmetic and typed arrays only, so redefining a builtin cannot slow or skip it.
+  const bits = new Float64Array(1), spent = new Float64Array(n);
+  const seenColour = new Uint8Array(n), seenSymbol = new Uint8Array(n), seenValue = new Uint8Array(n);
+  const seenSuit = new Uint8Array(n), seenPicture = new Uint8Array(n);
+  const pay = (flags, i, b, layered) => {
+    if (flags[i] !== 0) return;
+    flags[i] = 1;
+    if (layered) {
+      const room = ${floatLit(bS)} - spent[i];
+      if (b > room) b = room;
+      if (b < 0) b = 0;
+      spent[i] += b;
+    }
+    bits[0] += b;
+  };
+  const rows = [];
+  for (let r = 0; r < __SIZE; r++) {
+    const row = [];
+    for (let k = 0; k < __SIZE; k++) {
+      const i = r * __SIZE + k, x = Object.create(Cell.prototype);
+      x.row = r; x.col = k;
+      Object.defineProperty(x, "colour", { enumerable: true, get() { pay(seenColour, i, ${floatLit(bC)}, false); return __COLOURS[cols[i]]; } });
+      Object.defineProperty(x, "symbol", { enumerable: true, get() { pay(seenSymbol, i, ${floatLit(bS)}, true); return __SYMBOLS[syms[i]]; } });
+      Object.defineProperty(x, "value", { enumerable: true, get() { pay(seenValue, i, ${floatLit(bV)}, true); return __VALUES[syms[i]]; } });
+${suited ? `      Object.defineProperty(x, "suit", { enumerable: true, get() { pay(seenSuit, i, ${floatLit(bU)}, true); return __SUITS[syms[i]]; } });\n` : ""}${faced ? `      Object.defineProperty(x, "isPicture", { enumerable: true, get() { pay(seenPicture, i, ${floatLit(bP)}, true); return __PICTURES[syms[i]]; } });\n` : ""}      row.push(x);
+    }
+    rows.push(row);
+  }
+  const at = (r, k) => (r >= 0 && r < __SIZE && k >= 0 && k < __SIZE ? rows[r][k] : null);
+  rows.forEach((row, r) => row.forEach((x, k) => {
+    x.left = at(r, k - 1); x.right = at(r, k + 1); x.up = at(r - 1, k); x.down = at(r + 1, k);
+    x.upLeft = at(r - 1, k - 1); x.upRight = at(r - 1, k + 1); x.downLeft = at(r + 1, k - 1); x.downRight = at(r + 1, k + 1);
+    Object.freeze(x);
+  }));
+  __read_bits = () => bits[0];
+  return new Grid(rows);
+}
+`;
+
   const dts = `
 type Colour = string;
 type Suit = "spades" | "hearts" | "diamonds" | "clubs";
@@ -333,6 +483,12 @@ declare class Grid {
 declare function nextColour(colour: Colour): Colour;
 ${mixable ? "declare function mix(a: Colour, b: Colour): Colour | null;\n" : ""}declare function __decode(wire: string): Grid;
 `;
+  const agentDts = `
+/** What an agent receives instead of __decode's grid: the same Grid, but reading what is on a cell is metered. */
+declare function __agent_view(wire: string): Grid;
+/** Bits the agent has read so far this act. */
+declare function __read_bits(): number;
+`;
 
   const helpers: HelperDoc[] = [
     helper("grid.size", "grid.size -> int", "grid.size: number", "How many cells wide (and tall) the grid is"),
@@ -344,27 +500,28 @@ ${mixable ? "declare function mix(a: Colour, b: Colour): Colour | null;\n" : ""}
     helper("grid.cell", "grid.cell(row, col) -> Cell", "grid.cell(row: number, col: number): Cell", "One cell; grid.cell(0, 0) is the top-left"),
     helper("grid.palette", "grid.palette -> list[str]", "grid.palette: Colour[]", "Every colour this grid can use, in rainbow order"),
     helper("grid.reachable", "grid.reachable(start, through) -> list[Cell]", "grid.reachable(start: Cell | Cell[], through: (cell: Cell) => boolean): Cell[]",
-      "Every cell you can walk to from start, only stepping on cells where through(cell) is True"),
+      "Every cell you can walk to from start, only stepping on cells where through(cell) is True. Reads what through() reads"),
     helper("grid.regions", "grid.regions(same) -> list[list[Cell]]", "grid.regions(same: (a: Cell, b: Cell) => boolean): Cell[][]",
-      "Split the grid into groups of touching cells where same(a, b) is True"),
+      "Split the grid into groups of touching cells where same(a, b) is True. Reads what same() reads"),
     helper("grid.quarter_turn", "grid.quarter_turn(cell) -> Cell", "grid.quarterTurn(cell: Cell): Cell",
       "Where cell lands when the grid turns a quarter turn clockwise"),
     helper("cell.row", "cell.row, cell.col -> int", "cell.row, cell.col: number", "Where the cell is (0 = top row / left column)"),
-    helper("cell.colour", "cell.colour -> str", "cell.colour: Colour", `Its colour as a word: ${c.names.map(n => `"${n}"`).join(", ")}`),
-    helper("cell.symbol", "cell.symbol -> str", "cell.symbol: string", `What's printed on it: "${s.glyphs[1]}", "${s.glyphs[s.count - 1]}"`),
-    helper("cell.value", "cell.value -> int", "cell.value: number", s.suits ? "Points: A = 1, 2 to 10, J = 11, Q = 12, K = 13" : "Points: the digit's value"),
+    helper("cell.colour", "cell.colour -> str", "cell.colour: Colour", `Its colour as a word: ${c.names.map(n => `"${n}"`).join(", ")}. Reads ${fmtBits(bC)} bits`),
+    helper("cell.symbol", "cell.symbol -> str", "cell.symbol: string", `What's printed on it: "${s.glyphs[1]}", "${s.glyphs[s.count - 1]}". Reads ${fmtBits(bS)} bits`),
+    helper("cell.value", "cell.value -> int", "cell.value: number", (s.suits ? "Points: A = 1, 2 to 10, J = 11, Q = 12, K = 13" : "Points: the digit's value")
+      + `. Reads ${fmtBits(bV)} bits (symbol, value${suited ? ", suit" : ""}${faced ? " and is_picture" : ""} share ${fmtBits(bS)} bits per cell)`),
     helper("cell.left", "cell.left, .right, .up, .down -> Cell | None", "cell.left, .right, .up, .down: Cell | null", "The touching cell on that side, or None at the edge"),
     helper("cell.up_left", "cell.up_left, .up_right, .down_left, .down_right -> Cell | None",
       "cell.upLeft, .upRight, .downLeft, .downRight: Cell | null", "The corner cells, or None"),
     helper("cell.neighbours", "cell.neighbours -> list[Cell]", "cell.neighbours: Cell[]", "The 2 to 4 cells touching its sides"),
     helper("cell.surrounding", "cell.surrounding -> list[Cell]", "cell.surrounding: Cell[]", "The 3 to 8 cells around it, corners included"),
     helper("cell.on_edge", "cell.on_edge -> bool", "cell.onEdge: boolean", "True if it's in the outside ring"),
-    ...(suited ? [helper("cell.suit", "cell.suit -> str", "cell.suit: Suit", `"spades", "hearts", "diamonds" or "clubs"`, "Suited")] : []),
-    ...(faced ? [helper("cell.is_picture", "cell.is_picture -> bool", "cell.isPicture: boolean", "True for J, Q and K", "Faced")] : []),
+    ...(suited ? [helper("cell.suit", "cell.suit -> str", "cell.suit: Suit", `"spades", "hearts", "diamonds" or "clubs". Reads ${fmtBits(bU)} bits`, "Suited")] : []),
+    ...(faced ? [helper("cell.is_picture", "cell.is_picture -> bool", "cell.isPicture: boolean", `True for J, Q and K. Reads ${fmtBits(bP)} bit`, "Faced")] : []),
     helper("next_colour", "next_colour(colour) -> str", "nextColour(colour: Colour): Colour",
       "The next colour round the rainbow; the last one goes back to the first", "Spectral"),
     ...(mixable ? [helper("mix", "mix(a, b) -> str | None", "mix(a: Colour, b: Colour): Colour | null",
       `The colour two paints make, or None: ${c.mixes.map(([a, b, m]) => `${c.names[a]} + ${c.names[b]} = ${c.names[m]}`).join(", ")}`, "Mixable")] : []),
   ];
-  return { python, js: jsText, dts, helpers };
+  return { python, js: jsText, dts, helpers, agentPython, agentJs, agentDts };
 }

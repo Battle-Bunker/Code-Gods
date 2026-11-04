@@ -31,8 +31,8 @@ export interface DatasetSpec {
 
 const OBJECT = "{ id: string; value: number | string; payoff: number; own: { netBits: number; rewardBits: number; penaltyBits?: number; ordinal: number }; peerCare: number; peerNetBits: number }";
 /** One projected event (convex/lib/projection.ts projectEvent), tagged with its tick batch's seq. */
-const EVENT = "{ seq: number; worldSeconds: number; type: 'phase' | 'object.spawned' | 'object.transformed' | 'agent.failed' | 'agent.summoned' | 'agent.destroyed'; phase?: string; objectId?: string; "
-  + "value?: number | string; before?: number | string; version?: number; agentId?: string; mine?: boolean; calls?: [string, Record<string, unknown>][]; cost?: number; "
+const EVENT = "{ seq: number; worldSeconds: number; type: 'phase' | 'object.spawned' | 'object.transformed' | 'agent.failed' | 'agent.skipped' | 'agent.summoned' | 'agent.destroyed'; phase?: string; objectId?: string; "
+  + "value?: number | string; before?: number | string; version?: number; agentId?: string; mine?: boolean; calls?: [string, Record<string, unknown>][]; cost?: { read: number; change: number; total: number }; "
   + "own?: { netBits: number }; peerNetBits?: number; peerCare?: number; payoff?: number; reason?: string; "
   + "source?: string; summonCost?: number; expectedActCost?: number /* agent.summoned: source, price and act cost only when mine */ }";
 
@@ -49,8 +49,8 @@ export const DATASETS: { readonly [K in DatasetName]: DatasetSpec } = {
       + "and the definition the engine scores with (utility: family and parameters). null when you are not seated in a game. Never another god's.",
   },
   agents: {
-    shape: "{ id: string; source: string; language: string; energy: number; eligible: boolean; acts: number; spent: number; summonCost: number; decisionBits: number; expectedActCost: number; randomized: boolean; breakdown: { decision: number; erasure: number; floor: number; motion: number } }[]",
-    about: "Your own live agents with their energy, eligibility and source.",
+    shape: "{ id: string; source: string; language: string; energy: number; eligible: boolean; acts: number; skips: number; spent: number; summonCost: number; expectedActCost: number; randomized: boolean; breakdown: { read: number; change: number } }[]",
+    about: "Your own live agents with their energy, whether they can get the next turn (eligible), their source, and their estimated cost per act (reading + changing).",
   },
   leaderboard: {
     shape: "{ godId: string; label: string; isAI: boolean; totalPayoff: number }[]",
@@ -66,7 +66,7 @@ export const DATASETS: { readonly [K in DatasetName]: DatasetSpec } = {
     about: "The game's event log as you see it, one entry per event, oldest first, from the newest `limit` tick batches: spawns and transformations with "
       + "the object's new value and YOUR scores after it (own.netBits, peerCare, payoff); mine: true and calls / cost on your own agents' moves only; "
       + "agent.failed for your agents' failed acts; agent.summoned and agent.destroyed for every agent (mine: true, with source, language, summonCost, "
-      + "decisionBits, expectedActCost and the starting account, only for yours); phase changes. Use it for what changed when, which mutators paid off, or your agents' activity.",
+      + "expectedActCost and the starting account, only for yours); agent.skipped when your agent returned no calls (it paid only what it read); phase changes. Use it for what changed when, which mutators paid off, or your agents' activity.",
   },
   trajectories: {
     shape: "{ objectId: string; points: { seq: number; worldSeconds: number; value: number | string; ownNetBits: number; peerNetBits: number; payoff: number }[] }[]",

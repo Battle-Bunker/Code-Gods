@@ -106,12 +106,16 @@ def _M_INT(x, what):
 
 
 def _M_CHAR(x):
+    if type(x).__name__ == "Text":
+        x = str(x)   # the metered view, read in full (docs/energy-model.md §3.2)
     if not isinstance(x, str) or len(x) != 1 or ord(x) > 127:
         raise ValueError("expected one ASCII character, not " + repr(x))
     return x
 
 
 def _M_TEXT(x):
+    if type(x).__name__ == "Text":
+        x = str(x)   # the metered view, read in full (docs/energy-model.md §3.2)
     if not isinstance(x, str) or not x or any(ord(ch) > 127 for ch in x):
         raise ValueError("expected some ASCII text, not " + repr(x))
     return x
@@ -129,10 +133,12 @@ function __M_INT(x, what) {
   return x;
 }
 function __M_CHAR(x) {
+  if (x instanceof Text) x = x.text;   // the metered view, read in full (docs/energy-model.md §3.2)
   if (typeof x !== "string" || x.length !== 1 || x.charCodeAt(0) > 127) throw new Error("expected one ASCII character, not " + JSON.stringify(x));
   return x;
 }
 function __M_TEXT(x) {
+  if (x instanceof Text) x = x.text;   // the metered view, read in full (docs/energy-model.md §3.2)
   if (typeof x !== "string" || !x.length || !/^[\\x00-\\x7f]*$/.test(x)) throw new Error("expected some ASCII text, not " + JSON.stringify(x));
   return x;
 }

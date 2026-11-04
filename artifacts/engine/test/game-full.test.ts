@@ -77,8 +77,9 @@ for (const spec of SPECS) for (const language of languages) {
     assert.equal(validation.accepted, true, validation.message);
     assert.ok(validation.validation.valid && validation.validation.cost > 0 && validation.validation.expectedActCost > 0);
     assert.ok(validation.validation.diagnostics.some((d: string) => /^Each act/.test(d)));
-    assert.deepEqual(Object.keys(validation.validation.breakdown).sort(), ["decision", "erasure", "floor", "motion"]);
-    assert.equal(validation.validation.breakdown.floor, 2, "the 2-bit floor");
+    // The estimate per act splits into reading and changing; there is no fixed part (docs/energy-model.md §5).
+    assert.deepEqual(Object.keys(validation.validation.breakdown).sort(), ["change", "read"]);
+    near(validation.validation.expectedActCost, validation.validation.breakdown.read + validation.validation.breakdown.change, "estimate parts");
     const broken = await send(ada, { type: "validate", language, source: BROKEN[language] });
     assert.equal(broken.accepted, false);
     assert.equal(broken.validation.valid, false);
@@ -112,17 +113,16 @@ for (const spec of SPECS) for (const language of languages) {
     }
     const acted = obs.agents[0];
     assert.ok(acted.acts >= 2 && acted.spent > 0, "acts are charged to the agent's own account");
-    assert.equal(acted.eligible, acted.energy >= acted.expectedActCost);
-    // The event log: every act is charged exactly once; costs = decision + erasure + motion + floor.
+    if (acted.eligible) assert.ok(acted.energy > 0, "an agent gets turns only with positive energy");
+    // The event log: every act is charged exactly once; a charge is what it read plus its change when it committed.
     secret = await raw(game.gameId);
     const agentDoc = secret.agents.find((a: any) => a.ownerId === ada.subject);
-    const acts = secret.batches.flatMap((b: any) => b.events).filter((e: any) => (e.t === "transform" || e.t === "fail") && e.agentId === agentDoc._id);
+    const acts = secret.batches.flatMap((b: any) => b.events).filter((e: any) => (e.t === "transform" || e.t === "fail" || e.t === "skip") && e.agentId === agentDoc._id);
     assert.equal(acts.length, agentDoc.acts);
     near(acts.reduce((s: number, e: any) => s + e.cost.total, 0), agentDoc.spent, "the agent paid exactly its acts' charges");
     for (const e of acts) {
-      near(e.cost.total, e.cost.decision + e.cost.erasure + e.cost.motion + e.cost.floor, "charge parts");
-      assert.equal(e.cost.floor, 2);
-      if (e.t === "fail") assert.equal(e.cost.erasure + e.cost.motion, 0);
+      near(e.cost.total, e.cost.read + e.cost.change, "charge parts");
+      if (e.t !== "transform") assert.equal(e.cost.change, 0, "only a committed change pays for it");
     }
     // Objects stay scored consistently with the event log's net bits.
     const values = secret.objects.map((o: any) => o.value);

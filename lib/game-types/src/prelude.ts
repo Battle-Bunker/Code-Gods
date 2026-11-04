@@ -164,7 +164,22 @@ export interface BasePrelude {
   readonly js: string;
   readonly dts: string;
   readonly helpers: readonly HelperDoc[];
+  /**
+   * The metered view an AGENT receives (docs/energy-model.md §3): `__agent_view(wire)` and `__read_bits()`. Emitted right
+   * AFTER the call encoder, never before: utility cards evaluate the text before it (calibration tables are keyed by its
+   * hash, lib/game-utilities utilityPreludeHash), and `__decode` stays the plain, unmetered decoder.
+   */
+  readonly agentPython?: string;
+  readonly agentJs?: string;
+  readonly agentDts?: string;
+  /** Public attribute names the view adds (the vocabulary reads them off the texts, but not off nested classes). */
+  readonly agentAttrs?: readonly string[];
 }
+
+/** A number as a Python/JS float literal (identical in both languages, so the meters agree bit for bit). */
+export const floatLit = (x: number): string => (Number.isInteger(x) ? `${x}.0` : String(x));
+/** Bits for kid-readable docs: 1.58, 3.32, 32. */
+export const fmtBits = (x: number): string => String(+x.toFixed(2));
 
 /** Read helper doc; `ts` defaults to the Python name camelCased. */
 export function helper(python: string, pySig: string, tsSig: string, kid: string, cls?: string, ts?: string): HelperDoc {
@@ -184,12 +199,12 @@ export function availableOf<V>(mutators: readonly MutatorDef<V, any>[], inst: In
 export function assemblePrelude(inst: Instantiation, base: BasePrelude, mutators: readonly MutatorDef<any, any>[]): PreludeParts {
   const avail = availableOf(mutators, inst);
   const header = (c: string) => `${c} Room helpers for ${inst.key}. Generated; do not edit.\n`;
-  const python = header("#") + base.python + ENCODE_CALLS_PY + avail.map(m => m.guest.python).join("\n");
-  const jsText = header("//") + base.js + ENCODE_CALLS_JS + avail.map(m => m.guest.js).join("\n");
-  const dts = header("//") + base.dts + ENCODE_CALLS_DTS + avail.map(m => m.guest.dts).join("\n");
+  const python = header("#") + base.python + ENCODE_CALLS_PY + (base.agentPython ?? "") + avail.map(m => m.guest.python).join("\n");
+  const jsText = header("//") + base.js + ENCODE_CALLS_JS + (base.agentJs ?? "") + avail.map(m => m.guest.js).join("\n");
+  const dts = header("//") + base.dts + ENCODE_CALLS_DTS + (base.agentDts ?? "") + avail.map(m => m.guest.dts).join("\n");
   const helpers = [...base.helpers, ...avail.flatMap(m => m.guest.docs)];
   return withDerived({ python, js: jsText, dts, helpers: Object.freeze(helpers) },
-    () => ({ python: pythonVocab(python, avail), typescript: jsVocab(jsText, avail) }));
+    () => ({ python: pythonVocab(python, avail, base.agentAttrs ?? []), typescript: jsVocab(jsText, avail, base.agentAttrs ?? []) }));
 }
 
 /** Compute once, on first use. */
@@ -246,7 +261,7 @@ function roles(fns: Block[], isMutator: (b: Block) => boolean, isArea: (b: Block
   for (const b of fns) if (!mutators.includes(b.name) && [...areas].some(a => new RegExp(`return ${a}\\(`).test(b.body))) areas.add(b.name);
   return { mutators: sortedUnique(mutators), areas: sortedUnique(areas) };
 }
-function pythonVocab(text: string, avail: readonly MutatorDef<any, any>[]): PricingVocab {
+function pythonVocab(text: string, avail: readonly MutatorDef<any, any>[], extraAttrs: readonly string[]): PricingVocab {
   const isPublic = (n: string) => !n.startsWith("_");
   const fns = blocks(text, /^def (\w+)\(([^)]*)\)/, l => /^\S/.test(l) && !/^\s*#/.test(l), isPublic);
   const constants = [...text.matchAll(/^([A-Za-z]\w*)\s*=/gm)].map(m => m[1]);
@@ -259,13 +274,13 @@ function pythonVocab(text: string, avail: readonly MutatorDef<any, any>[]): Pric
   }
   return Object.freeze({
     api: sortedUnique([...fns.map(b => b.name), ...constants]),
-    attrs: sortedUnique(attrs.filter(isPublic)),
+    attrs: sortedUnique([...attrs, ...extraAttrs].filter(isPublic)),
     params: sortedUnique(fns.flatMap(b => b.params)),
     strings: meaningfulStrings(text, avail),
     ...roles(fns, b => /_M_CALL\(|"__m"/.test(b.body), b => /"kind"/.test(b.body)),
   });
 }
-function jsVocab(text: string, avail: readonly MutatorDef<any, any>[]): PricingVocab {
+function jsVocab(text: string, avail: readonly MutatorDef<any, any>[], extraAttrs: readonly string[]): PricingVocab {
   const isPublic = (n: string) => !n.startsWith("__");
   const fns = blocks(text, /^function (\w+)\(([^)]*)\)/, l => /^\S/.test(l) && !/^\s*\/\//.test(l) && !/^[}\])]/.test(l), isPublic);
   const constants = [...text.matchAll(/^(?:const|let|var) ([A-Za-z]\w*)\s*=/gm)].map(m => m[1]).filter(isPublic);
@@ -279,7 +294,7 @@ function jsVocab(text: string, avail: readonly MutatorDef<any, any>[]): PricingV
   attrs.push(...[...text.matchAll(/(?<![\w.#])[a-z]\w*\.([A-Za-z]\w*)\s*=(?!=)/g)].map(m => m[1]));
   return Object.freeze({
     api: sortedUnique([...fns.map(b => b.name), ...constants]),
-    attrs: sortedUnique(attrs.filter(n => !n.startsWith("_"))),
+    attrs: sortedUnique([...attrs, ...extraAttrs].filter(n => !n.startsWith("_"))),
     params: sortedUnique(fns.flatMap(b => b.params)),
     strings: meaningfulStrings(text, avail),
     ...roles(fns, b => /__m:/.test(b.body), b => /kind:/.test(b.body)),

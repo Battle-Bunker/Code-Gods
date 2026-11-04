@@ -164,9 +164,9 @@ export const snapshot = internalQuery({
       game, lastActivity: await lastHumanActivity(ctx),
       objects: objects.map(o => ({ id: o._id as string, value: o.value, version: o.version, scores: o.scores, salience: o.salience, noise: o.noise })),
       agents: agents.map(a => ({
-        id: a._id as string, ownerId: a.ownerId, source: a.source, language: agentLanguage(a, game.settings as GameSettings), decisionBits: a.decisionBits, perActFloorBits: a.perActFloorBits,
-        expectedActCost: a.expectedActCost, account: a.account, acts: a.acts, spent: a.spent,
-        transforms: a.transforms ?? 0, failures: a.failures ?? NO_FAILURES, lastFailures: a.lastFailures ?? {},
+        id: a._id as string, ownerId: a.ownerId, source: a.source, language: agentLanguage(a, game.settings as GameSettings), 
+        account: a.account, acts: a.acts, spent: a.spent, lastOpportunityWorld: a.lastOpportunityWorld,
+        transforms: a.transforms ?? 0, skips: a.skips ?? 0, failures: a.failures ?? NO_FAILURES, lastFailures: a.lastFailures ?? {},
       })),
       futile: futile.map(f => ({ agentId: f.agentId as string, entries: f.entries as Futile[] })),
       deities: deities.sort((a, b) => a.index - b.index).map(d => ({ godId: d.godId, utility: d.utility })),
@@ -199,7 +199,8 @@ export const commit = internalMutation({
     objects: v.array(v.object({ id: v.id("objects"), fromVersion: v.number(), value: wire, version: v.number(), scores: v.array(scoreV), salience: v.number(), noise: v.optional(v.number()) })),
     spawns: v.array(v.object({ tmp: v.string(), value: wire, scores: v.array(scoreV), salience: v.number(), noise: v.optional(v.number()) })),
     agents: v.array(v.object({ id: v.id("agents"), fromActs: v.number(), acts: v.number(), spent: v.number(), account: v.object({ balance: v.number(), settledWorldSeconds: v.number() }),
-      transforms: v.number(), failures: failuresV, lastFailures: lastFailuresV })),
+      transforms: v.number(), skips: v.optional(v.number()), failures: failuresV, lastFailures: lastFailuresV,
+      lastOpportunityWorld: v.optional(v.number()) })),
     /** The futile-pair memos that changed in the window (lib/futility.ts), each agent's whole memo. */
     futile: v.optional(v.array(v.object({ agentId: v.id("agents"), entries: futileEntriesV }))),
     events: v.array(eventV),
@@ -248,7 +249,7 @@ export const commit = internalMutation({
       if (doc.acts !== state.fromActs) return discard(`agent ${state.id} moved on`);
       live.add(state.id);
     }
-    const events = args.events.filter(e => e.t !== "fail" || live.has(e.agentId));
+    const events = args.events.filter(e => (e.t !== "fail" && e.t !== "skip") || live.has(e.agentId));
     if (events.some(e => e.t === "transform" && !live.has(e.agentId))) return discard("a destroyed agent changed an object");
     const finalValue = new Map(args.objects.map(c => [c.id as string, c.value]));
     const check = async (value: number | string, self?: string) => {
@@ -279,7 +280,8 @@ export const commit = internalMutation({
     for (const state of args.agents) {
       if (live.has(state.id)) {
         await ctx.db.patch(state.id, { acts: state.acts, spent: state.spent, account: state.account, transforms: state.transforms, failures: state.failures,
-          lastFailures: state.lastFailures });
+          lastFailures: state.lastFailures, ...(state.skips !== undefined ? { skips: state.skips } : {}),
+          ...(state.lastOpportunityWorld !== undefined ? { lastOpportunityWorld: state.lastOpportunityWorld } : {}) });
       }
     }
     // Only an agent that acted changes its memo; a destroyed one's is never written (destroy deletes it).
@@ -290,7 +292,7 @@ export const commit = internalMutation({
     }));
     const resolved = events.map(e => (e.t === "spawn" && ids.has(e.objectId) ? { ...e, objectId: ids.get(e.objectId)! } : e));
     const clock = args.clock!;
-    const acts = events.filter(e => e.t === "transform" || e.t === "fail").length;
+    const acts = events.filter(e => e.t === "transform" || e.t === "fail" || e.t === "skip").length;
     const perf = { acts, window: clock.worldSeconds - game.worldSeconds, simulateMs: args.stats.simulateMs, ...(args.stats.prevCommitMs !== undefined ? { commitMs: args.stats.prevCommitMs } : {}) };
     // The scoreboard is published for everyone at once when the window reaches the next multiple of the interval
     // (docs/public-log-design.md §3); the end publishes its own (endGame). A game without one (started before
