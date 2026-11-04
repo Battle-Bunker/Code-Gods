@@ -99,3 +99,12 @@ test("a warning on an agent the player cannot afford yet says so", () => {
   assert.equal(a.verdict, "warns");
   assert.match(a.next, /not affordable yet/);
 });
+
+test("an agent that skips every reference object is waiting, not broken: a warning, never 'do not summon'", () => {
+  const a = assessValidation(receipt({ changeRate: 0, invalidRate: 0, skipRate: 1, breakdown: { read: 1.58, change: 0 }, expectedActCost: 1.58 }));
+  assert.equal(a.verdict, "warns");
+  assert.match(a.summary, /skipped every reference object/);
+  assert.doesNotMatch(a.next, /Do not summon/);
+  // Never changing anything without skipping is still a broken agent.
+  assert.equal(assessValidation(receipt({ changeRate: 0, invalidRate: 0 })).verdict, "no_change");
+});
