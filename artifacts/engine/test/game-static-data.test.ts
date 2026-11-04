@@ -112,7 +112,7 @@ test("one draw's table by instantiation: GET /api/rule-tables, for any signed-in
   const url = (instance: string, family: string, params: unknown) =>
     `${SITE_}/api/rule-tables?instance=${encodeURIComponent(instance)}&family=${encodeURIComponent(family)}&params=${encodeURIComponent(JSON.stringify(params))}`;
   const get = (path: string, token?: string) => fetch(path, token ? { headers: { authorization: `Bearer ${token}` } } : {});
-  const ok = url("Grid(4,base10,rgb)", "set_spotter", { diag: false });
+  const ok = url("Grid(4,base10,rgb)", "set_spotter", {});
 
   assert.equal((await get(ok)).status, 401, "signed out");
   const response = await get(ok, jwt);
@@ -120,13 +120,13 @@ test("one draw's table by instantiation: GET /api/rule-tables, for any signed-in
   assert.match(response.headers.get("cache-control") ?? "", /^private, max-age=3600$/, "per caller; a deploy may ship a newer table for the URL");
   const { reward } = await response.json() as { reward: { key: string; instance: string } };
   const settings = { objectType: "Grid", typeArgs: { size: 4, symbols: "base10", colours: "rgb" }, priorId: "uniform" };
-  const probe = await admin.action(internal.calibration.node.probe, { settings, draw: { familyId: "set_spotter", params: { diag: false } } });
+  const probe = await admin.action(internal.calibration.node.probe, { settings, draw: { familyId: "set_spotter", params: {} } });
   assert.equal(reward.instance, "Grid(4,base10,rgb)");
   assert.equal(reward.key, probe.key, "the engine's own table for that draw");
 
   // Anything that names no dealable draw (made-up params included) is refused before any table is looked up.
-  for (const bad of [url("Grid(3,base10,rgb)", "set_spotter", { diag: false }), url("Grid(4,base10,rgb)", "no_such_family", {}),
-    url("Grid(4,base10,rgb)", "set_spotter", [1]), url("Grid(4,base10,rgb)", "set_spotter", { diag: "banana" }),
+  for (const bad of [url("Grid(3,base10,rgb)", "set_spotter", {}), url("Grid(4,base10,rgb)", "no_such_family", {}),
+    url("Grid(4,base10,rgb)", "set_spotter", [1]), url("Grid(4,base10,rgb)", "set_spotter", { colour: "banana" }),
     `${SITE_}/api/rule-tables?instance=Grid(4,base10,rgb)`]) {
     assert.equal((await get(bad, jwt)).status, 400, bad);
   }

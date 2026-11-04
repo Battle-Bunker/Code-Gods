@@ -78,7 +78,7 @@ test("params missing or outside the support on a family page are completed from 
   assert.equal(p.axis, "cols");
   assert.ok(inSupport("magic_accountant", inst, p));
   assert.ok(inSupport("magic_accountant", inst, paramsFromSearch("magic_accountant", inst, "?target=99999")));
-  assert.deepEqual(paramsFromSearch("set_spotter", inst, "?diag=true"), { diag: true });
+  assert.deepEqual(paramsFromSearch("set_spotter", inst, "?diag=true"), {}, "a param the family no longer has is ignored");
 });
 
 test("no annotated family has a param named like a board arg or the language, so links never overwrite the board", () => {

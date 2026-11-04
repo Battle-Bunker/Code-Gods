@@ -43,6 +43,8 @@
  *  - typedParamsIntString* (2026-11-03): the Int and string families typed; the same rewrites for their stored draws.
  *  - typedParamsGames* (2026-11-03): the games.ts and geometry.ts families typed; the same rewrites for their stored draws.
  *  - typedParamsArithmetic* (2026-11-03): the arithmetic.ts and seeds.ts families typed; the same rewrites for their stored draws.
+ *  - setSpotterGeometry* (2026-11-04, rules-design.md P10): Set Spotter's `diag` param is gone (diagonals always count);
+ *    stored `{ diag }` draws become `{}` through the same rewrites.
  *  - typedParamsBingo* (2026-11-03): Bingo Caller typed (a set param); the same rewrites for its stored draws.
  *  - typedParamsColour* (2026-11-03): the colour.ts and strategy.ts families typed; the same rewrites for their stored draws.
  *
@@ -207,6 +209,9 @@ export const typedParamsArithmeticPreparing = migrations.define({ table: "rooms"
 /** PR 5 (Bingo Caller typed: its called ranks by name): the same two rewrites for its stored draws. */
 export const typedParamsBingoDeities = migrations.define({ table: "deities", migrateOne: typedDeity });
 export const typedParamsBingoPreparing = migrations.define({ table: "rooms", migrateOne: typedPreparing });
+/** Set Spotter's one geometry (equal opportunity, rules-design.md P10): `{ diag }` draws become `{}`. */
+export const setSpotterGeometryDeities = migrations.define({ table: "deities", migrateOne: typedDeity });
+export const setSpotterGeometryPreparing = migrations.define({ table: "rooms", migrateOne: typedPreparing });
 export const pictureFrameSymbolPreparing = migrations.define({ table: "rooms", migrateOne: typedPreparing });
 
 export const backfillObjectTimes = migrations.define({
@@ -235,7 +240,8 @@ const RUN_ALL: FunctionReference<"mutation", "internal">[] = [internal.migration
   internal.migrations.typedParamsGamesDeities, internal.migrations.typedParamsGamesPreparing,
   internal.migrations.typedParamsColourDeities, internal.migrations.typedParamsColourPreparing,
   internal.migrations.typedParamsArithmeticDeities, internal.migrations.typedParamsArithmeticPreparing,
-  internal.migrations.typedParamsBingoDeities, internal.migrations.typedParamsBingoPreparing];
+  internal.migrations.typedParamsBingoDeities, internal.migrations.typedParamsBingoPreparing,
+  internal.migrations.setSpotterGeometryDeities, internal.migrations.setSpotterGeometryPreparing];
 export const runAll = migrations.runner(RUN_ALL);
 /** The state of each of runAll's migrations (scripts/run-migrations.mjs waits for all of them to succeed). */
 export const status = internalQuery({

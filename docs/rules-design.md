@@ -68,6 +68,15 @@ P9. **A continuous landscape of points** (owner, 2026-11-03). The score has many
    and now (owner's redesign, 2026-11-03) deals a colour and a symbol and sums, per cell, +1 on the edge for either and +4
    for both, −1 / −4 in the middle (`FRAME_POINTS`).
 
+P10. **Params make peer rules of equal opportunity** (owner, 2026-11-04: "Parameters should create peer variations
+   within a rule family without any unfair asymmetry in scoring opportunity between them"). Different values of a
+   family's params must be related by a symmetry of the object space (permuting colours or symbols, rotating or
+   reflecting the board, swapping rows and columns), so every god dealt the family faces the same score distribution
+   under the prior and the same top achievable bits. A param that only adds or removes scoring opportunity (diagonals
+   on or off, "rows | columns | both", a range of targets of different difficulty) is not allowed: fix it to one
+   value, make the variants separate families, or redesign it into a symmetric choice. Set Spotter was the first fix
+   (its "diagonals too" option gave 72 instead of 61 top bits on 4×4; diagonals now always count).
+
 ## 3. Rendering descriptions for the instantiation
 
 Descriptions were already functions of the shape (`summary(params, gridSpec)`), but each family formatted symbols its

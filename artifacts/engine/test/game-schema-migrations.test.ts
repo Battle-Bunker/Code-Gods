@@ -182,9 +182,9 @@ const GRID_4 = { language: "typescript", grammarId: "typescript-agent-v1", compl
   typeArgs: { size: 4, symbols: "base10", colours: "rgb" }, spawnRateHz: 0, startingObjectCount: 3, halfLifeSeconds: 100000 };
 
 test("typedParams: gods dealt before their family was typed get named, typed params, and their game's replay file is rebuilt; a second run changes nothing", { timeout: 300_000 }, async () => {
-  const [host, ada, bo] = await gods("Typed Mig Host", "Typed Mig Ada", "Typed Mig Bo");
+  const [host, ada, bo, cy] = await gods("Typed Mig Host", "Typed Mig Ada", "Typed Mig Bo", "Typed Mig Cy");
   await touch(host);
-  const { roomId } = await roomWith([host, ada, bo], GRID_4);
+  const { roomId } = await roomWith([host, ada, bo, cy], GRID_4);
   const { gameId } = await startGame(host, roomId);
   await host.c.mutation(api.rooms.endActiveGame, { roomId });
   const storageOf = async () => (await admin.query(internal.testing.rawGameDoc, { gameId }))?.replayStorageId as string | undefined;
@@ -194,6 +194,7 @@ test("typedParams: gods dealt before their family was typed get named, typed par
     { familyId: "kingdom", params: { C: 2 } },
     { familyId: "picture_frame", params: { X: 1 }, penalty: { familyId: "hate_colour", params: { colour: 0 } } },
     { familyId: "magic_accountant", params: { axis: "rows", T: 18 } },
+    { familyId: "set_spotter", params: { diag: false } },
   ];
   await admin.mutation(internal.testing.legacyUtilities, { gameId, utilities: legacy });
 
@@ -204,6 +205,7 @@ test("typedParams: gods dealt before their family was typed get named, typed par
     { familyId: "kingdom", params: { colour: "blue" } },
     { familyId: "picture_frame", params: { colour: "green", symbol: "0" }, penalty: { familyId: "hate_colour", params: { colour: "red" } } },
     { familyId: "magic_accountant", params: { axis: "rows", target: 18 } },
+    { familyId: "set_spotter", params: {} },
   ]);
   assert.deepEqual(deities[0].card.params, [{ key: "colour", label: "Your colour", kind: "colour", value: "blue", text: "blue" }]);
   assert.deepEqual(deities[2].card.params.map((p: any) => [p.key, p.value]), [["axis", "rows"], ["target", 18]]);

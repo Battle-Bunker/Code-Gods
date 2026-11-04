@@ -3,7 +3,7 @@ import { lens, orderParts, tally, count } from "../lens.ts";
 import type { Board } from "../board.ts";
 import { sameCell, type Cell, type Fact, type Part } from "../model.ts";
 
-type P = { diag: boolean };
+type P = Record<string, never>;
 const DIRS = [["right", 0, 1], ["down", 1, 0], ["down-right", 1, 1], ["down-left", 1, -1]] as const;
 
 function colourFact(b: Board, t: readonly Cell[]): Fact {
@@ -31,10 +31,10 @@ export const setSpotter = lens<P>({
       { of: () => true, text: n => `${count(n, "trio")} that ${n === 1 ? "is" : "are"} not a SET` },
     ]),
   }),
-  parts: (p, b) => {
+  parts: (_p, b) => {
     const out: Part[] = [];
     for (const x of b.cells) {
-      for (const [name, dr, dc] of DIRS.slice(0, p.diag ? 4 : 2)) {
+      for (const [name, dr, dc] of DIRS) {
         if (!b.inside(x.r + 2 * dr, x.c + 2 * dc)) continue;
         const t = [x, { r: x.r + dr, c: x.c + dc }, { r: x.r + 2 * dr, c: x.c + 2 * dc }];
         const facts = [colourFact(b, t), numberFact(b, t)];
