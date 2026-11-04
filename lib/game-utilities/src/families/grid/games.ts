@@ -661,10 +661,15 @@ const goFish = gridFamily<FishP>({
 });
 
 // --- Set Spotter --------------------------------------------------------------------------------------------
-type SetP = { diag: boolean };
-const setText = (p: SetP, g: GridSpec): CardText => ({
+/**
+ * One geometry: across, down and both diagonals. The rule used to deal "diagonals too" as a yes/no param, which only
+ * added scoring opportunity to some gods (top 72 vs 61 bits on 4×4): params must make peer rules of equal opportunity
+ * (docs/rules-design.md P10), so the richer geometry is the rule and the param is gone.
+ */
+type SetP = Record<string, never>;
+const setText = (_p: SetP, g: GridSpec): CardText => ({
   emoji: "🔺", name: "Set Spotter", consts: [],
-  about: sentences(`Look at 3 cells in a line (across or down${p.diag ? ", or diagonally" : ""}).`,
+  about: sentences("Look at 3 cells in a line (across, down or diagonally).",
     `They are a SET when both of these are true. Their colours are all the same, or ${g.say.distinctColours(3)} are used.`,
     `Their ${g.cards ? "values" : "numbers"} are all the same or evenly spaced (like 2, 5, 8).`, g.say.valueKey(),
     "Each SET scores 1 point."),
@@ -672,9 +677,10 @@ const setText = (p: SetP, g: GridSpec): CardText => ({
 const setSpotter = gridFamily<SetP>({
   id: "set_spotter", name: "Set Spotter", emoji: "🔺", theme: "Three in a line that make a SET",
   requires: { classes: ["Valued"], minColours: 3 }, shape: SCALAR,
-  params: () => ({ diag: boolParam("Diagonals count too") }),
-  support: () => [{ diag: false }, { diag: true }],
-  sample: rng => ({ diag: chance(rng, 1, 2) }),
+  params: () => ({}),
+  // LEGACY (equal-opportunity fix): `{ diag }` from before the geometry was fixed reads as today's rule.
+  legacy: p => ("diag" in p ? {} : null),
+  support: () => [{}],
   summary: (p, g) => setText(p, g).about,
   python: (p, g) => pyCard(setText(p, g), `
     def is_set(a, b, c):
@@ -689,11 +695,11 @@ const setSpotter = gridFamily<SetP>({
             if cell.right is not None and is_set(cell, cell.right, cell.right.right):
                 sets += 1
             if cell.down is not None and is_set(cell, cell.down, cell.down.down):
-                sets += 1${p.diag ? `
+                sets += 1
             if cell.down_right is not None and is_set(cell, cell.down_right, cell.down_right.down_right):
                 sets += 1
             if cell.down_left is not None and is_set(cell, cell.down_left, cell.down_left.down_left):
-                sets += 1` : ""}
+                sets += 1
         return sets`),
   typescript: (p, g) => tsCard(setText(p, g), `
     function isSet(a, b, c) {
@@ -706,9 +712,9 @@ const setSpotter = gridFamily<SetP>({
       let sets = 0;
       for (const cell of grid.cells) {
         if (cell.right !== null && isSet(cell, cell.right, cell.right.right)) sets += 1;
-        if (cell.down !== null && isSet(cell, cell.down, cell.down.down)) sets += 1;${p.diag ? `
+        if (cell.down !== null && isSet(cell, cell.down, cell.down.down)) sets += 1;
         if (cell.downRight !== null && isSet(cell, cell.downRight, cell.downRight.downRight)) sets += 1;
-        if (cell.downLeft !== null && isSet(cell, cell.downLeft, cell.downLeft.downLeft)) sets += 1;` : ""}
+        if (cell.downLeft !== null && isSet(cell, cell.downLeft, cell.downLeft.downLeft)) sets += 1;
       }
       return sets;
     }`),

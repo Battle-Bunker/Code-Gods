@@ -23,7 +23,7 @@ const withTables = (draw: { familyId: string; params: never }) => {
 
 export const SHOWCASE = [
   { familyId: "parity_painter", params: { even_or_red: "red", odd_or_black: "green", split: "parity" } },
-  { familyId: "set_spotter", params: { diag: false } },
+  { familyId: "set_spotter", params: {} },
   { familyId: "number_bonds", params: { mode: "any" } },
   { familyId: "chessmaster", params: { colour_a: "red", colour_b: "green" } },
   { familyId: "honest_minesweeper", params: { mine: "red" } },

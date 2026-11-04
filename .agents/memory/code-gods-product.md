@@ -276,3 +276,16 @@ abstruse parameters like x: int that get converted into a colour. That's terribl
 lenses, the Python reference rules). A new family declares `params`; `UNTYPED_FAMILIES` only shrinks (test/params.test.ts).
 Typing an existing family renames stored params: give it a `legacy` reader, migrate the stored rows (typedParams*) and
 re-key its tables (scripts/rekey-typed-params.ts). docs/rules-design.md §9.
+
+## Params make peer rules of equal opportunity (2026-11-04)
+
+**Rule:** a family's param values must be related by a symmetry of the object space (colour or symbol permutation,
+rotation or reflection, transpose), so every god dealt the family has the same score distribution and top achievable
+bits. A param that only adds or removes scoring opportunity (diagonals on/off, rows|cols|both, targets of different
+difficulty) is not allowed: fix it, split the family, or make the choice symmetric.
+**Why:** the owner (2026-11-04): "Set Spotter's parameter is binary and can purely advantage a player that gets
+diagonals as well … Parameters should create peer variations within a rule family without any unfair asymmetry in
+scoring opportunity between them."
+**How to apply:** docs/rules-design.md P10. Set Spotter now always counts diagonals. The audit test compares each
+family's calibration tables across its param classes (top bits, bits under the prior); current violators are an
+allowlist that only shrinks.

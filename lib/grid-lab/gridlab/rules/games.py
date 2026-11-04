@@ -496,7 +496,7 @@ def st_ord(g, p, gtype):
     N = gtype.N
     col, v = g.col.tolist(), gtype.value[g.sym].tolist()
     s = 0
-    for dr, dc in (DIRS4D if p["diag"] else DIRS2):
+    for dr, dc in DIRS4D:
         for r in range(N):
             for c in range(N):
                 r2, c2 = r + 2 * dr, c + 2 * dc
@@ -513,7 +513,7 @@ def st_batch(sym, col, p, gtype):
     v = vals(sym, gtype)
     c = col.astype(np.int64)
     s = 0
-    for dr, dc in (DIRS4D if p["diag"] else DIRS2):
+    for dr, dc in DIRS4D:
         ok = valid(N, 2 * dr, 2 * dc)
         c1, c2 = shift(c, dr, dc, -1), shift(c, 2 * dr, 2 * dc, -2)
         v1, v2 = shift(v, dr, dc, 0), shift(v, 2 * dr, 2 * dc, 0)
@@ -526,13 +526,13 @@ def st_batch(sym, col, p, gtype):
 SET_SPOTTER = mk(
     id="set_spotter", name="Set Spotter", theme="Three in a line that make a SET",
     requires=req("Valued"), layers={"colour", "symbol", "position"}, camp="clumper",
-    sample=lambda rng, gt: {"diag": bool(rng.random() < 0.5)},
-    summary=lambda p, gt: ("Three cells in a line (across or down" + (", or diagonally" if p["diag"] else "")
+    sample=lambda rng, gt: {},
+    summary=lambda p, gt: ("Three cells in a line (across, down or diagonally"
                            + ") are a SET if their colours are all the same or all different AND their numbers are all "
                              "the same or evenly spaced (like 2, 5, 8). Each SET scores a point."),
     ordinal=st_ord, batch=st_batch,
     exemplar=lambda p, gt: grid(np.zeros((gt.N, gt.N)), np.zeros((gt.N, gt.N))),
-    source="games#12")
+    source="games#12 (one geometry since 2026-11-04: the diagonals option was an unequal-opportunity param)")
 
 
 # --- Knight Riders ------------------------------------------------------------------------------------------------

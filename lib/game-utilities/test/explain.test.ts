@@ -129,18 +129,18 @@ test("Parity Painter by suit (cards): the other kind's sample is the same rank i
 });
 
 test("Set Spotter: a focus expands the trios that END at it, never ones where it is the middle", () => {
-  const { e, at } = look("set_spotter", { diag: false });
+  const { e, at } = look("set_spotter", {});
   // SETs: 2R 5R 8R (row 1: same colour, +3 steps), 4G 4B 4R (row 2: all colours, same number),
-  // 2R 4G 6B (column 1: all colours, +2 steps), 5R 4B 3G (column 2: all colours, −1 steps). Nothing else.
+  // 2R 4G 6B (column 1: all colours, +2 steps), 5R 4B 3G (column 2: all colours, −1 steps). No diagonal trio is a SET.
   assert.equal(e.ordinal, 4);
-  assert.deepEqual(ids(at(0, 0)), ["trio:0,0:right", "trio:0,0:down"]);
-  assert.deepEqual(at(0, 0).parts.map(p => p.title), ["SET", "SET"]);
+  assert.deepEqual(ids(at(0, 0)), ["trio:0,0:right", "trio:0,0:down", "trio:0,0:down-right"]);
+  assert.deepEqual(at(0, 0).parts.map(p => p.title), ["SET", "SET", "not a SET"], "diagonals count too (one geometry)");
   // 5R is the middle of 2R 5R 8R: that trio belongs to 2R and 8R, not to it.
-  assert.deepEqual(ids(at(0, 1)).sort(), ["trio:0,1:down", "trio:0,1:right"]);
+  assert.deepEqual(ids(at(0, 1)).sort(), ["trio:0,1:down", "trio:0,1:down-right", "trio:0,1:right"]);
   assert.ok(!ids(at(0, 1)).includes("trio:0,0:right"));
   // 8R ends 2R 5R 8R (a SET) and starts 8R 4R 9R (same colour, not evenly spaced).
   const v = at(0, 2);
-  assert.deepEqual(ids(v), ["trio:0,0:right", "trio:0,2:down"], "the SET first");
+  assert.deepEqual(ids(v), ["trio:0,0:right", "trio:0,2:down", "trio:0,2:down-left"], "the SET first");
   const miss = v.parts[1];
   assert.equal(miss.title, "not a SET");
   assert.deepEqual(miss.facts, [{ text: "colours all the same (red)", ok: true }, { text: "numbers not evenly spaced (8, 4, 9)", ok: false }]);
@@ -290,7 +290,7 @@ test("a family without a lens still gets an example board that scores, and no br
 });
 
 test("explain refuses what it cannot read: another shape's board, a non-Grid game", () => {
-  const goal = explainer({ familyId: "set_spotter", params: { diag: false } }, FIRST_STEPS)!;
+  const goal = explainer({ familyId: "set_spotter", params: {} }, FIRST_STEPS)!;
   assert.equal(goal.explain("1R,1R,1R/1R,1R,1R/1R,1R,1R"), null);
   assert.equal(goal.explain(42), null);
   assert.equal(explainer({ familyId: "digit-devotee", params: { digit: 0 } }, instantiate("Int", {})), null);

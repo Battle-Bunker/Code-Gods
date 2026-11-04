@@ -125,7 +125,7 @@ focus cell alone teaches little and needs another mode (§11). ★ = annotated i
 | Family | Pieces (what the focus selects) | Sketch |
 |---|---|---|
 | ★ 🎭 Parity Painter | the cell | Outcome table: kind (even, odd) × colour, +1 / −1 / 0, focus entry ringed. |
-| ★ 🔺 Set Spotter | trios with an end at the focus (across, down, diagonals when dealt) | Green capsule SET, grey not-a-SET; facts "colours all the same / all different" and "numbers evenly spaced". |
+| ★ 🔺 Set Spotter | trios with an end at the focus (across, down and both diagonals) | Green capsule SET, grey not-a-SET; facts "colours all the same / all different" and "numbers evenly spaced". |
 | ★ 🤝 Number Bonds | the pairs (right, down) containing the focus | "3 + 7 = 10 ✓", colour condition when the mode has one. |
 | ★ ♟️ Chessmaster | 2×2 blocks containing the focus (points), seams touching it (tie-break) | Block: alternating ✓/✗ per side; seams as thin pairs. |
 | ★ 💣 Honest Minesweeper | the focus's 3×3 neighbourhood | Mines spotted inside it; "shows 2, touches 2 mines ✓ → +2". A mine shows the honest cells it is counted by. |
