@@ -39,7 +39,7 @@ const roadText = (p: RoadP, g: GridSpec): CardText => {
     emoji: "🌈", name: "Rainbow Road", consts: [],
     about: `Try to make every ${kind} follow the rainbow. Look along ${READ_LINES[p.direction]}. A step is good if the next cell has the next colour in rainbow order `
       + `(${order}). Each ${kind} where every step is good scores ${tierPoints(1, 0, 2)}. `
-      + `Each good step in total scores ${tierPoints(1, 1, 2)}.`,
+      + `Each good step anywhere scores ${tierPoints(1, 1, 2)}.`,
   };
 };
 const rainbowRoad = gridFamily<RoadP>({
