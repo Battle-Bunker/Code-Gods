@@ -49,28 +49,43 @@ A7. **Quiet everything else.** Cells outside the focus pieces are dimmed, not hi
 A8. **Examples teach both sides.** The goal card's example board is searched (§6.5) so the default focus shows a piece
     that scores *and* one that doesn't, using only the room's symbols and colours.
 
-## 3. The focus-cell interaction model
+## 3. The interaction model: scoring units (2026-11-04)
 
-- **Focus.** Exactly one cell is the focus. Its pieces are drawn on the board and listed as callouts.
-- **Default focus.** In the compact-to-rich hover popover: the top-left cell (the owner's spec), so opening is
-  predictable. In the goal card's permanent example: the cell the example search chose as most illuminating (A8).
-- **Hover** (mouse/pen) over a cell moves the focus there. The focus stays where it was left when the pointer leaves the
-  board (it does not snap back), so a player can read the callouts.
-- **Tap** (touch) on a cell moves the focus. Touch never opens a hover state.
-- **Keyboard.** The board is one focusable `role="grid"` element; arrow keys move the focus, Home goes to the top-left.
-  The headline and callouts sit in an `aria-live="polite"` region, so each move is read out.
-- **Layout without clutter.**
-  - The board is drawn at detail size with an SVG overlay: pieces as capsules (lines, pairs), rounded blocks (2×2
-    windows), outlines (regions, the frame), and a ring around the focus cell.
-  - Each piece has a numbered badge at its end nearest the callout column.
-  - Callouts sit in a column beside the board (below it when the container is narrower than ~30rem), sorted by the
-    vertical position of their piece so arrows rarely cross. Arrows are drawn from the badge to the callout's edge as
-    gentle curves in the piece's tone.
-  - An outcome table, when the lens has one, is drawn under the callouts with an arrow from the focus cell.
-  - A one-line headline above: the focus cell in words ("Row 2, column 3: a green 7") and the board's total.
-- **Where it appears.** (1) The goal card (`UtilityCardView`) shows the example board with its annotations
-  permanently. (2) The grid popover (hover a compact grid anywhere in the player app) shows the hovered grid annotated
-  with the player's *own* goal when the app provides it (§7). Both use the same component, so replays can reuse it.
+The owner (2026-11-03): *"forcing annotations into the mould of orienting around a single selected cell is too limiting.
+We need the fundamental unit around which we construct the annotation to be each scoring unit."* The focus-cell model
+(one cell at a time, the pieces containing it, a per-cell outcome table, a note) is gone; this section replaces it.
+§10 and §11 keep the history of why.
+
+- **The unit is a scoring unit**: one box per part of the lens's decomposition (a row and its total, a 2×2 block that is
+  or is not a chessboard, an edge cell with the right colour…), each linked to its board region.
+- **The list**: every unit of the board, in a box each, sorted by what it scores: gains first (highest first), then losses
+  (most negative first), then units worth nothing (`sortUnits`, by the points tuple). It scrolls inside a fixed maximum
+  height (`UNIT_LIST_MAX_HEIGHT`, 22rem), so a busy board never grows the page.
+- **Two-way linking**: hovering or keyboard-focusing a box selects its unit: its cells light up (the rest dim), its shape
+  is drawn and an arrow joins it to its box. Hovering the board selects the unit under the pointer and marks its box,
+  scrolling it into view. Touch: a tap selects. The board is one keyboard stop (arrow keys step through the units in list
+  order); the boxes are reachable with Tab, in list order, with a visible focus ring.
+- **Board hover is data, per lens** (`Lens.hover`, game-utilities `src/explain/units.ts`): each part carries a `group`
+  and the lens offers hover modes over groups. Within a mode, the unit under the pointer is the one whose cells are
+  nearest it, ties broken by its centre: the board is carved into a Voronoi-like map of unit centres. A lens whose units
+  overlap offers one mode per kind, shown as an auxiliary toggle above the board. A unit whose cells overlap its
+  neighbours' (a minesweeper window) names an `anchor` cell to be picked by. `test/units.test.ts` checks, for every lens
+  on several shapes, that every unit is in some mode and that pointing at it picks it.
+
+| Family | Units | Board hover affordance |
+|---|---|---|
+| 🎭 Parity Painter | one per cell | the cell under the pointer |
+| 🔺 Set Spotter | one per trio in a line | toggle [→ ↓ ↘ ↙]; the trio of that direction centred nearest the pointer |
+| 🤝 Number Bonds | one per touching pair | the shared edge nearest the pointer |
+| ♟️ Chessmaster | 2×2 blocks (points) and touching pairs (second component) | toggle [2×2 blocks / touches]; the block whose centre is nearest, or the nearest shared edge |
+| 💣 Honest Minesweeper | one per non-mine cell (its 3×3 window) | the number's own cell (its anchor) |
+| 🧮 Magic Accountant | one per counted line | toggle [Row / Column] when both count; the line containing the pointer |
+| 🏰 Kingdom | one per patch of your colour | the patch containing the pointer |
+| 🖼️ Picture Frame | one per cell | the cell under the pointer |
+| 🪞 Mirrormancer | one per row (or column) | the line containing the pointer |
+
+The what-if mode (§11) stays cell-based by nature (it asks what one cell's change would do); the part scrubber steps
+through the units (`GoalBoard selected=`).
 
 ## 4. The annotation model
 
