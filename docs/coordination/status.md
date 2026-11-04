@@ -299,3 +299,9 @@ Owner, verbatim (abridged only where marked):
     awaiting_confirmation, autoApproveSummonBits, approved, confirmDeadline;
   - typed params (rules session): legacy readers and the rekey script;
   - aiQuotas, backfillObjectTimes, setSpotterGeometry, pictureFrameSymbol.
+- RELEASE RULE (from #213 on): release only when no game is running on production. The new Python source rule
+  (no _ names, getattr or .format), the TS Int/string view change and PR 2's removal of Int set make
+  already-summoned agents fail mid-game, harmlessly (runtime errors that pay only their reads) but visibly.
+  Not grandfathered (worker's recommendation, accepted).
+- Thursday merges: #212, #214, #215 (equal-opportunity batches; the audit's violators list is empty), #213 (energy
+  PR 1).
