@@ -27,6 +27,10 @@
  *    (DEFAULT_AI_QUOTA for its AI players, DEFAULT_ASSISTANT_QUOTA per player's assistant) where it has none, whatever
  *    it had approved before, and its legacy `aiBudget` / `assistantBudget` are cleared. Narrowed later: `aiQuota` and
  *    `assistantQuota` become required, the legacy fields leave the validator, and lib/aiAccess.ts's `??` defaults go.
+ *  - agentPricesV2 (agents; 2026-11-05, docs/energy-model.md §2, §9): acts no longer pay a decision price or a per-act
+ *    floor. An agent stored with the old price keeps only the change part of its estimate: `breakdown` becomes {read: 0,
+ *    change: erasure + motion}, `expectedActCost` that change, and `decisionBits` / `perActFloorBits` are cleared. Narrowed
+ *    later: the legacy breakdown leaves the union, and the two fields leave the validator.
  *  - typedParams* (2026-11-03, docs/rules-design.md §9): families that now declare named, typed params store them as
  *    such (`{ X: 0 }` became `{ colour: "red" }`, game-utilities `upgradeDescriptor`). typedParamsDeities rewrites a
  *    dealt god's descriptor (`deities.utility`, utility and defence goal) and adds the typed params to its stored card
@@ -77,6 +81,7 @@
  * name; the room's chat, its games' rosters and its ended games' stored results follow, so history reads the same.
  * A room with a game in progress is left alone (names never change mid-game); a later deploy renames it.
  */
+import { agentPriceV2 } from "./lib/agentPrice";
 import { v } from "convex/values";
 import { instantiationOf, type GameSettings } from "@workspace/game-core";
 import { cardParams, context, family, paramsKey, upgradeDescriptor, type UtilityDescriptor } from "@workspace/game-utilities";
@@ -287,6 +292,7 @@ export const assistantNoApprovalsCalls = migrations.define({
     };
   },
 });
+export const agentPricesV2 = migrations.define({ table: "agents", migrateOne: (_ctx, row) => agentPriceV2(row) });
 
 /** Every component migration, in order: run by the deploy workflow (`npx convex run migrations:runAll`). Append only. */
 // Annotated: this module's own `internal` references would otherwise make its exported types circular.
@@ -303,7 +309,7 @@ const RUN_ALL: FunctionReference<"mutation", "internal">[] = [internal.migration
   internal.migrations.setSpotterGeometryDeities, internal.migrations.setSpotterGeometryPreparing,
   internal.migrations.equalOpportunityGamesDeities, internal.migrations.equalOpportunityGamesPreparing,
   internal.migrations.assistantModeFromCredentials, internal.migrations.assistantPrefsMode, internal.migrations.assistantNoApprovalsTurns,
-  internal.migrations.assistantNoApprovalsCalls];
+  internal.migrations.assistantNoApprovalsCalls, internal.migrations.agentPricesV2];
 export const runAll = migrations.runner(RUN_ALL);
 /** The state of each of runAll's migrations (scripts/run-migrations.mjs waits for all of them to succeed). */
 export const status = internalQuery({

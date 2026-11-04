@@ -14,9 +14,13 @@ import { ACT_BATCH } from "../lib/programs";
 import { languageV } from "../lib/language";
 import { memoryOf, rssNow, type Memory } from "./memory";
 
-export type ActReply = ({ ok: true } & ActResult) | { ok: false; code: string; message: string };
-const failure = (error: unknown) =>
-  ({ ok: false as const, code: String((error as { code?: unknown })?.code ?? "UNAVAILABLE"), message: String((error as Error)?.message ?? error) });
+/** A failed act still carries the bits it read before it stopped (docs/energy-model.md §3.4), when the runtime said. */
+export type ActReply = ({ ok: true } & ActResult) | { ok: false; code: string; message: string; readBits?: number };
+const failure = (error: unknown) => {
+  const readBits = (error as { readBits?: unknown })?.readBits;
+  return { ok: false as const, code: String((error as { code?: unknown })?.code ?? "UNAVAILABLE"), message: String((error as Error)?.message ?? error),
+    ...(typeof readBits === "number" ? { readBits } : {}) };
+};
 
 export const run = internalAction({
   args: { language: languageV, settings: v.any(), requests: v.array(v.object({ source: v.string(), input: v.union(v.string(), v.number()), seed: v.string() })) },

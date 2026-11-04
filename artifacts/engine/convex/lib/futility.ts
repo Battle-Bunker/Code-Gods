@@ -15,8 +15,11 @@
 /** One remembered futile pair of an agent: object `o` at version `v`; for a collision, the holder `by` at version `bv`. */
 export type Futile = { o: string; v: number; by?: string; bv?: number };
 export type ObjectRef = { id: string; version: number };
-/** How an act ended, as the failure breakdown (agents.failures) counts it; "transform" changed the object. */
-export type ActKind = "transform" | FailureKind;
+/**
+ * How an act ended, as the failure breakdown (agents.failures) counts it; "transform" changed the object and "skip"
+ * returned no calls (docs/energy-model.md §2: a choice, not a failure; never counted or remembered as futile).
+ */
+export type ActKind = "transform" | "skip" | FailureKind;
 export type FailureKind = "collision" | "noChange" | "commit" | "invalid" | "error";
 export const FAILURE_KINDS: readonly FailureKind[] = ["collision", "noChange", "commit", "invalid", "error"];
 /** An agent's failure breakdown before its first counted act (agents.failures). */
@@ -32,7 +35,7 @@ export function failureKind(reason: string): Exclude<FailureKind, "error"> {
 
 /** The memo entry a finished act leaves, or null when a retry could turn out differently. */
 export function futileAfter(act: { object: ObjectRef; deterministic: boolean; kind: ActKind; holder?: ObjectRef }): Futile | null {
-  if (!act.deterministic || act.kind === "transform" || act.kind === "error") return null;
+  if (!act.deterministic || act.kind === "transform" || act.kind === "skip" || act.kind === "error") return null;
   if (act.kind === "collision") return act.holder ? { o: act.object.id, v: act.object.version, by: act.holder.id, bv: act.holder.version } : null;
   return { o: act.object.id, v: act.object.version };
 }
@@ -76,19 +79,20 @@ export class FutileMemo {
 }
 
 /**
- * One opportunity's pair: the object as the room picks it (`pick`), then a uniformly random eligible agent (`int`)
+ * One opportunity's pair: the object as the room picks it (`pick`), then an eligible agent drawn by `choose` (energy-weighted)
  * among those whose act on it is not futile. When every agent is futile on the picked object, the object is picked
  * again among the objects some agent is not futile on; null when there is none (the opportunity passes and nobody is
  * charged).
  */
 export function pickPair<O extends { id: string }, A extends { id: string }>(
-  objects: O[], agents: readonly A[], pick: (objects: O[]) => O, int: (n: number) => number,
+  objects: O[], agents: readonly A[], pick: (objects: O[]) => O, choose: (able: A[]) => A | undefined,
   futile: (agent: A, object: O) => boolean,
 ): { object: O; agent: A } | null {
   if (!objects.length || !agents.length) return null;
   const take = (object: O) => {
     const able = agents.filter(a => !futile(a, object));
-    return able.length ? { object, agent: able[int(able.length)] } : null;
+    const agent = able.length ? choose(able) : undefined;
+    return agent ? { object, agent } : null;
   };
   const first = take(pick(objects));
   if (first) return first;

@@ -74,6 +74,8 @@ export interface ActResult {
    * Deterministic steps used (Python: LINE + JUMP events in the player's code; JS: interrupt ticks, 10,000 granularity).
    */
   steps: number;
+  /** Bits of the board the act READ (the prelude's `__read_bits()` after the act); 0 if the prelude has no meter. */
+  readBits: number;
 }
 
 /** Script mode (python-script-v1 / typescript-script-v1): `main(data)` over host JSON, for analytics. */
@@ -105,7 +107,12 @@ export const SCRIPT_GRAMMAR_IDS: Readonly<{ python: "python-script-v1"; typescri
 export const SCRIPT_LIMITS: Readonly<{ sourceBytes: number; inputBytes: number; resultBytes: number; outputBytes: number; storeBytes: number; writesBytes: number; cpuMsDefault: number; cpuMsMax: number }>;
 
 export type RuntimeErrorCode = "CONFIG" | "COMPILE" | "DOMAIN" | "EXECUTION" | "LIMIT" | "CAPACITY" | "UNAVAILABLE";
-export class RuntimeError extends Error { readonly code: RuntimeErrorCode; constructor(code: RuntimeErrorCode, message: string); }
+export class RuntimeError extends Error {
+  readonly code: RuntimeErrorCode;
+  /** On a guest failure after execution began (EXECUTION / LIMIT / DOMAIN): bits read before it stopped, for the host to charge. */
+  readBits?: number;
+  constructor(code: RuntimeErrorCode, message: string);
+}
 /**
  * Where the Python runtime bundle comes from (dist/python-runtime.bin.gz, gzip or raw): its bytes, a
  * file path, or an async loader (e.g. a fetch from Convex file storage). Loaded once per process per

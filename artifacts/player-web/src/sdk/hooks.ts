@@ -85,18 +85,18 @@ export function useMyCard() {
 
 /**
  * Your agents with settled energy and eligibility, plus the rules to project them: an agent earns
- * `economy.agentEnergyPerSecond` per world second, is eligible while energy ≥ expectedActCost, and an
- * act can drive energy negative (a cooldown).
+ * `economy.agentEnergyPerSecond` per world second with no cap, can be offered a turn while its energy is above 0 (the more
+ * energy, the likelier), and an act can drive energy negative (it then waits for income to lift it above 0).
  */
 export function useMyAgents({ hz }: Live = {}) {
   const o = useObservation({ hz });
   return useMemo(() => ({
     agents: o?.agents ?? (EMPTY as MyAgent[]),
     economy: o?.economy,
-    /** Seconds of world time until `agent` is eligible again (0 if it is). */
+    /** Seconds of world time until `agent` has energy above 0 again (0 if it can act now). */
     secondsUntilEligible(agent: MyAgent) {
       const rate = o?.economy?.agentEnergyPerSecond ?? 0;
-      return agent.eligible ? 0 : rate > 0 ? Math.max(0, (agent.expectedActCost - agent.energy) / rate) : Infinity;
+      return agent.energy > 0 ? 0 : rate > 0 ? Math.max(0, -agent.energy / rate) : Infinity;
     },
   }), [o]);
 }

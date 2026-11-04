@@ -103,33 +103,37 @@ export function HowScoringWorks({ noun = "object", open = false, id = "how-scori
   );
 }
 
-/** Per-act cost parts (bits), when the server reports them: decision (naming the moves), erasure, motion. */
-export type ActCostBreakdown = { decision?: number; decisionBits?: number; erasure?: number; motion?: number } & { [part: string]: number | undefined };
-
-const PART_LABELS: Record<string, string> = {
-  decision: "choosing the moves", decisionBits: "choosing the moves", erasure: "information erased", motion: "how much moved",
-};
+/** An estimated act's cost split (bits), when the server reports it: what it reads and what it changes. */
+export type ActCostBreakdown = { read?: number; change?: number };
 
 /**
- * An agent's price: the one-off summon cost (paid from god energy) and the expected cost per act (paid
- * from the agent's own energy), with an optional breakdown of the per-act cost.
+ * An agent's price. The summon price is paid once, from god energy. An act then pays only what it does (the bits it
+ * reads, plus its change when it changes the object), so the per-act figure is an ESTIMATE made at summon, split into
+ * reading and changing; an ongoing agent also shows what its acts really cost on average (spent / acts).
  */
-export function AgentCost({ summonCost, expectedActCost, breakdown, agentEnergyPerSecond, godEnergy }: {
+export function AgentCost({ summonCost, expectedActCost, breakdown, agentEnergyPerSecond, godEnergy, acts, spent }: {
   summonCost: number; expectedActCost: number; breakdown?: ActCostBreakdown; agentEnergyPerSecond?: number; godEnergy?: number;
+  /** An ongoing agent: how many acts it has had and the bits they cost in all, for the actual average. */
+  acts?: number; spent?: number;
 }) {
-  const parts = Object.entries(breakdown ?? {}).filter((e): e is [string, number] => typeof e[1] === "number" && Number.isFinite(e[1]));
   const f = (x: number) => formatBits(x);
+  const finite = (x: number | undefined): x is number => typeof x === "number" && Number.isFinite(x);
   return (
     <dl className="grid grid-cols-[auto_1fr] gap-x-3 font-mono text-xs" data-testid="validation-costs">
-      <dt className="text-muted-foreground">summon cost</dt>
-      <dd data-testid="text-summon-cost">{f(summonCost)} bits from your energy{godEnergy !== undefined && summonCost > godEnergy ? ` (you have ${f(godEnergy)})` : ""}</dd>
-      <dt className="text-muted-foreground">expected per act</dt>
-      <dd data-testid="text-expected-act-cost">{f(expectedActCost)} bits{agentEnergyPerSecond && agentEnergyPerSecond > 0 ? ` · about one act every ${f(expectedActCost / agentEnergyPerSecond)}s of world time` : ""}</dd>
-      {parts.map(([k, v]) => (
-        <div key={k} className="contents" data-testid={`cost-part-${k}`}>
-          <dt className="text-muted-foreground pl-3">· {PART_LABELS[k] ?? k}</dt><dd>{f(v)} bits</dd>
-        </div>
-      ))}
+      <dt className="text-muted-foreground">summon price</dt>
+      <dd data-testid="text-summon-cost">{f(summonCost)} bits from your energy, paid once{godEnergy !== undefined && summonCost > godEnergy ? ` (you have ${f(godEnergy)})` : ""}</dd>
+      <dt className="text-muted-foreground">est. per act</dt>
+      <dd data-testid="text-expected-act-cost">{f(expectedActCost)} bits (an estimate: an act pays only what it does)</dd>
+      {finite(breakdown?.read) && <div className="contents" data-testid="cost-part-read"><dt className="text-muted-foreground pl-3">· reading</dt><dd>{f(breakdown.read)} bits</dd></div>}
+      {finite(breakdown?.change) && <div className="contents" data-testid="cost-part-change"><dt className="text-muted-foreground pl-3">· changing</dt><dd>{f(breakdown.change)} bits</dd></div>}
+      {finite(acts) && acts > 0 && finite(spent) && (<>
+        <dt className="text-muted-foreground">actual per act</dt>
+        <dd data-testid="text-actual-act-cost">{f(spent / acts)} bits on average, over {acts} acts</dd>
+      </>)}
+      {agentEnergyPerSecond !== undefined && agentEnergyPerSecond > 0 && (<>
+        <dt className="text-muted-foreground">earns</dt>
+        <dd data-testid="text-agent-income">{f(agentEnergyPerSecond)} bits per world second; richer agents get more turns</dd>
+      </>)}
     </dl>
   );
 }

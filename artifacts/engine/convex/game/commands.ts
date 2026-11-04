@@ -86,10 +86,10 @@ const examinedV = v.object({
   gameId: v.string(), source: v.string(), language: languageV,
   error: v.optional(v.string()),
   result: v.optional(v.object({
-    cost: v.number(), parts: v.any(), decisionBits: v.number(), expectedActCost: v.number(),
-    breakdown: v.object({ decision: v.number(), erasure: v.number(), motion: v.number(), floor: v.number() }),
+    cost: v.number(), parts: v.any(), expectedActCost: v.number(),
+    breakdown: v.object({ read: v.number(), change: v.number() }),
     randomized: v.boolean(), diagnostics: v.array(v.string()),
-    changeRate: v.optional(v.number()), invalidRate: v.optional(v.number()),
+    changeRate: v.optional(v.number()), invalidRate: v.optional(v.number()), skipRate: v.optional(v.number()),
     futility: v.optional(futilityV), warnings: v.optional(v.array(v.string())),
   })),
   /** The player's live agents with this exact code and language when it was examined (the copies warning). */
@@ -151,9 +151,9 @@ export const claimExamination = internalMutation({
   },
 });
 
-type Examined = { gameId: string; source: string; language: Language; error?: string; twins?: number; result?: { cost: number; parts: unknown; decisionBits: number; expectedActCost: number;
-  breakdown: { decision: number; erasure: number; motion: number; floor: number }; randomized: boolean; diagnostics: string[];
-  changeRate?: number; invalidRate?: number; futility?: Futility; warnings?: string[] } };
+type Examined = { gameId: string; source: string; language: Language; error?: string; twins?: number; result?: { cost: number; parts: unknown; expectedActCost: number;
+  breakdown: { read: number; change: number }; randomized: boolean; diagnostics: string[];
+  changeRate?: number; invalidRate?: number; skipRate?: number; futility?: Futility; warnings?: string[] } };
 
 async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">, envelope: Envelope, examined: Examined | undefined): Promise<unknown> {
   const command = envelope.command, now = Date.now();
@@ -210,9 +210,10 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     const findings = { ...(e.futility ? { futility: e.futility, expectedSuccessRate: e.futility.successRate } : {}), ...(warnings.length ? { warnings } : {}) };
     if (command.type === "validate") {
       const energy = godEnergy(game, deity.spent, now);
-      return { valid: true, cost: e.cost, parts: e.parts, decisionBits: e.decisionBits, expectedActCost: e.expectedActCost,
+      return { valid: true, cost: e.cost, parts: e.parts, expectedActCost: e.expectedActCost,
         breakdown: e.breakdown, randomized: e.randomized, diagnostics: e.diagnostics.slice(0, 30).map(d => d.slice(0, 1000)),
         ...(e.changeRate !== undefined ? { changeRate: e.changeRate } : {}), ...(e.invalidRate !== undefined ? { invalidRate: e.invalidRate } : {}),
+        ...(e.skipRate !== undefined ? { skipRate: e.skipRate } : {}),
         ...findings, energy, affordable: energy >= e.cost };
     }
     if (godEnergy(game, deity.spent, now) < e.cost) fail("CONFLICT", "Insufficient energy");
@@ -220,7 +221,7 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     if (owned.length >= settings.maxAgentsPerGod) fail("CONFLICT", `This god has reached the ${settings.maxAgentsPerGod}-agent resource limit`);
     const world = worldNow(game, now);
     const record = {
-      summonCost: e.cost, decisionBits: e.decisionBits, expectedActCost: e.expectedActCost, perActFloorBits: settings.perActFloorBits,
+      summonCost: e.cost, expectedActCost: e.expectedActCost,
       breakdown: e.breakdown, randomized: e.randomized, account: newAgentAccount(world),
     };
     const agentId = await ctx.db.insert("agents", { gameId: game._id, ownerId: member.godId, source: command.source, language: command.language, createdAt: now, name: command.name, ...(command.description ? { description: command.description } : {}), ...record, acts: 0, spent: 0 });
@@ -229,7 +230,7 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     // every agent, destroyed ones included, and its energy from then on (docs/replay-design.md §2).
     const nextBatch = await appendEvents(ctx, game, [{ t: "summon", agentId, ownerId: member.godId, world, language: command.language, source: command.source, name: command.name, ...(command.description ? { description: command.description } : {}), ...record }], world, world);
     await writeGame(ctx, game, { agentCount: game.agentCount + 1, nextBatch });
-    return { id: agentId, summonCost: e.cost, decisionBits: e.decisionBits, expectedActCost: e.expectedActCost, ...(warnings.length ? { warnings } : {}) };
+    return { id: agentId, summonCost: e.cost, expectedActCost: e.expectedActCost, ...(warnings.length ? { warnings } : {}) };
   }
   if (command.type === "destroy") {
     // Gods may destroy their own agents at any time, for free. Energy already spent is not refunded.

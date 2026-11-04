@@ -5,18 +5,20 @@
  *
  * Opportunities run at most interactionRateHz × Δt (stochastically rounded, never accumulated: no
  * interaction debt), each sequentially against an in-memory copy of the world, exactly as the Express
- * engine's semantics: pick the target object (uniform/shelter) and an eligible agent (energy ≥ expected act
- * cost, settled to the opportunity's world time) with a CSPRNG, run the act with the season-salted seed
+ * engine's semantics: pick the target object (uniform/shelter), then an agent with probability proportional to
+ * its positive energy (settled to the opportunity's world time; at most MAX_AGENT_OPPORTUNITY_HZ per agent,
+ * docs/energy-model.md §7) with a CSPRNG, run the act with the season-salted seed
  * deriveSeed(salt, ["play", gameId, agentId, actIndex]), applyCalls, enforce uniqueness (onto any existing
- * value, the object's own included, fails), apply the commit clause, charge the act, and score the result.
+ * value, the object's own included, fails), apply the commit clause, charge the act (the bits it read, plus its
+ * change when that commits: §2) and score the result. An act that returns no calls is skipped: not a failure.
  *
  * Throughput: up to WORKERS acts run concurrently in a "wave", but a wave never holds the same object or
  * agent twice (as the Express engine reserved them), and results are applied strictly in opportunity order,
  * so the outcome is the sequential one.
  */
 import { v } from "convex/values";
-import { chargeAct, instantiationOf, isLanguage, poissonIntervalSeconds, type GameSettings, type ObjectValue } from "@workspace/game-core";
-import { actCharge, applyCalls, deriveSeed, objectType, type ActOutcome, type MutatorCallWire } from "@workspace/game-types";
+import { chargeAct, instantiationOf, isLanguage, pickByEnergy, poissonIntervalSeconds, type GameSettings, type ObjectValue } from "@workspace/game-core";
+import { actCharge, applyCalls, deriveSeed, isSkip, objectType, type ActOutcome, type MutatorCallWire } from "@workspace/game-types";
 import type { UtilityDescriptor } from "@workspace/game-utilities";
 import type { Id } from "../_generated/dataModel";
 import type { ActionCtx } from "../_generated/server";
@@ -25,7 +27,7 @@ import type { Doc } from "../_generated/dataModel";
 import { internalAction } from "../_generated/server";
 import { isIdle } from "../lib/rooms";
 import { gameScoringTables } from "./pinned";
-import { cryptoRng, disclosureNoise, openUniform, scoresOf, seasonSalt, uniform01, uniqueSpawn } from "./node";
+import { disclosureNoise, openUniform, scoresOf, seasonSalt, uniform01, uniqueSpawn } from "./node";
 import { act, bindRuntime, ensureSandboxes, isAgentFault, runtimeVersion, WORKERS } from "./runtime";
 import { effectiveSandbox, planningEnd } from "../lib/sandboxes";
 import { FutileMemo, failureKind, futileAfter, pickPair, type ActKind } from "../lib/futility";
@@ -33,7 +35,8 @@ import { MAX_OBJECTS, MIN_TICK_MS, TICK_SECONDS, planSpawns, agentStatus, pickOb
 
 type Score = Doc<"objects">["scores"][number];
 type Ev = Doc<"tickBatches">["events"][number];
-type ActResult = { calls: string; usedRandom: boolean } | { error: string };
+/** One act's runtime result: its calls, or the agent's own error; either way the bits it read (docs/energy-model.md §3.4). */
+type ActResult = ({ calls: string; usedRandom: boolean } | { error: string }) & { readBits: number };
 
 /** The previous commit's round trip per game (module scope: a warm instance reports it with the next commit). */
 const lastCommitMs = new Map<string, number>();
@@ -138,6 +141,14 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
       if (!result) return; // a host failure (capacity, unavailable): not the agent's fault, nothing is charged
       applied++;
       const { object, agent } = p;
+      if ("calls" in result && isSkip(result.calls)) {
+        // Skipped (docs/energy-model.md §2): it read, chose not to act, and pays its reads; not a failure, never futile.
+        const cost = actCharge(null, result.readBits);
+        agent.account = chargeAct(settledAccount(settings, agent, p.world), cost.total);
+        agent.acts++; agent.skips++; agent.spent += cost.total; agent.touched = true; acts++;
+        events.push({ t: "skip", objectId: object.id, world: p.world, agentId: agent.id, ownerId: agent.ownerId, cost, seed: p.seed.toString() });
+        return;
+      }
       let outcome = actOutcome(settings, p.before, result);
       let next: Score[] | undefined;
       if (outcome.ok && outcome.commit) {
@@ -152,7 +163,7 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
         }
       }
       const duplicate = outcome.ok && occupied.has(outcome.value); // includes the object's own value
-      const cost = { ...actCharge(agent, outcome, { duplicate }), naming: outcome.cost.decision };
+      const cost = actCharge(outcome, result.readBits, { commits: !duplicate });
       agent.account = chargeAct(settledAccount(settings, agent, p.world), cost.total);
       agent.acts++; agent.spent += cost.total; agent.touched = true; acts++;
       const kind: ActKind = "error" in result ? "error" : !outcome.ok ? failureKind(outcome.reason) : duplicate ? "collision" : "transform";
@@ -183,11 +194,11 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
     const flush = async () => {
       const results = await Promise.all(wave.map(async (p): Promise<ActResult | null> => {
         try {
-          const { calls, usedRandom } = await act(ctx, p.agent.source, p.agent.language, p.before, settings, p.seed);
-          return { calls, usedRandom };
+          const { calls, usedRandom, readBits } = await act(ctx, p.agent.source, p.agent.language, p.before, settings, p.seed);
+          return { calls, usedRandom, readBits: readBits ?? 0 };
         }
         catch (error) {
-          if (isAgentFault(error)) return { error: (error as Error).message.slice(0, 300) };
+          if (isAgentFault(error)) return { error: (error as Error).message.slice(0, 300), readBits: (error as { readBits?: number }).readBits ?? 0 };
           console.warn(`act skipped (host): ${(error as Error).message}`);
           return null;
         }
@@ -204,6 +215,7 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
         const busyObjects = new Set(wave.map(p => p.object.id)), busyAgents = new Set(wave.map(p => p.agent.id));
         const freeObjects = objects.filter(o => !busyObjects.has(o.id));
         const eligible = agents.filter(a => !busyAgents.has(a.id) && agentStatus(settings, a, world).eligible);
+        const energyAt = (a: typeof agents[number]) => settledAccount(settings, a, world).balance;
         if (!freeObjects.length || !eligible.length) {
           if (wave.length) { await flush(); continue; }
           break;
@@ -212,7 +224,7 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
         // searched again: pickPair's fallback scans every object × agent.
         const key = wave.length ? null : `${applied}:${eligible.map(a => a.id).join()}`;
         const pair = key !== null && key === exhausted ? null
-          : pickPair(freeObjects, eligible, os => pickObject(os, settings.objectSelection, uniform01), n => cryptoRng.int(n),
+          : pickPair(freeObjects, eligible, os => pickObject(os, settings.objectSelection, uniform01), able => pickByEnergy(able, energyAt, uniform01),
             (a, o) => futile.isFutile(a.id, o, versionOf));
         if (!pair) {
           // Every free object is futile for every eligible agent: the acts in flight may change that; else it passes.
@@ -221,6 +233,7 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
           break;
         }
         const { object, agent } = pair;
+        agent.lastOpportunityWorld = world; agent.touched = true;
         wave.push({ object, agent, world, before: object.value, seed: deriveSeed(salt, ["play", game._id, agent.id, agent.acts]) });
         if (wave.length >= WORKERS) await flush();
         break;
@@ -253,7 +266,7 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
     }
     if (phase === "running" && target >= game.endAtWorld) phase = "ended";
 
-    // Next wake: soon if an agent will be eligible, else at the next spawn, the end, or eligibility (≤ 5 s).
+    // Next wake: soon if an agent can be offered an opportunity, else at the next spawn, the end, or then (≤ 5 s).
     let wakeAt: number | undefined;
     if (phase === "running") {
       const soonest = Math.min(
@@ -273,7 +286,8 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
         ...(o.noise !== undefined ? { noise: o.noise } : {}) })),
       spawns: spawns.map(s => ({ ...s, value: s.value as number | string })),
       agents: agents.filter(a => a.touched).map(a => ({ id: a.id as Doc<"agents">["_id"], fromActs: a.fromActs, acts: a.acts, spent: a.spent, account: a.account,
-        transforms: a.transforms, failures: a.failures, lastFailures: a.lastFailures })),
+        transforms: a.transforms, skips: a.skips, failures: a.failures, lastFailures: a.lastFailures,
+        ...(a.lastOpportunityWorld !== undefined ? { lastOpportunityWorld: a.lastOpportunityWorld } : {}) })),
       futile: futile.changedRows(versionOf).map(m => ({ agentId: m.agentId as Doc<"agents">["_id"],
         entries: m.entries as { o: Doc<"objects">["_id"]; v: number; by?: Doc<"objects">["_id"]; bv?: number }[] })),
       events, stats: { opportunities, acts, simulateMs, prevCommitMs: lastCommitMs.get(gameId) }, wakeAt,

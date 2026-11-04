@@ -75,8 +75,8 @@ export const utilityCardSchema = z.object({
   }).optional(),
 });
 export type UtilityCardView = z.infer<typeof utilityCardSchema>;
-/** Expected bits per act: measured decision information + erasure + motion + the floor. */
-const breakdownSchema = z.object({ decision: finite, erasure: finite, motion: finite, floor: finite });
+/** Estimated bits per act, split (docs/energy-model.md §5): the bits it reads and its change. No fixed part. */
+const breakdownSchema = z.object({ read: finite, change: finite });
 /** One allowed language's agent sandbox: booted (`ready`), booting (`warming`), or not booting (`failed`, with why). */
 export const sandboxSchema = z.object({ language, state: z.enum(["warming", "ready", "failed"]), reason: z.string().max(500).optional() });
 export type SandboxStatus = z.infer<typeof sandboxSchema>;
@@ -99,12 +99,17 @@ export const observationSchema = z.object({
   // `seated` is false for a member who joined after this game launched: they spectate and play in the next one.
   roomShortCode: z.string().max(32).optional(), gameShortCode: z.string().max(32).optional(), seated: z.boolean().optional(),
   instance: instanceSchema.optional(),
-  /** The game's energy rules. God energy pays summons (real time); each agent earns per world second. */
-  economy: z.object({ energyPerSecond: finite, agentEnergyPerSecond: finite, agentBatteryActs: finite,
+  /**
+   * The game's energy rules. God energy pays summons (real time); each agent earns agentEnergyPerSecond per world second,
+   * with no cap. Each opportunity goes to an agent with probability proportional to its positive energy, at most
+   * maxAgentOpportunityHz times per world second per agent; an act pays the bits it read plus its change when it
+   * changes the object (docs/energy-model.md).
+   */
+  economy: z.object({ energyPerSecond: finite, agentEnergyPerSecond: finite, maxAgentOpportunityHz: finite.optional(),
     maxAgentsPerGod: z.number().int().nonnegative(), penaltyWeight: finite, worldSeconds: finite,
     /** How the game ends and its length in world seconds (the exact length when "fixed", else the half-life): the game timer. */
     durationMode: z.enum(["fixed", "halfLife"]).optional(), lengthSeconds: finite.optional(),
-    perActFloorBits: finite.optional(), commitClause: z.boolean().optional(), objectSelection: z.enum(["uniform", "shelter"]).optional() }).optional(),
+    commitClause: z.boolean().optional(), objectSelection: z.enum(["uniform", "shelter"]).optional() }).optional(),
   self: z.object({ godId: id, label: z.string().max(128), isAI: z.boolean(), energy: finite, ready: z.boolean(), pauseUsed: z.boolean().optional(),
     utility: utilityCardSchema.optional(),
     // Your own total payoff NOW (live), while the leaderboard is the scoreboard last published (leaderboardWorldSeconds).
@@ -113,10 +118,12 @@ export const observationSchema = z.object({
   objects: z.array(z.object({ id, value: wire,
     own: z.object({ ordinal, rewardBits: finite, penaltyBits: finite.optional(), netBits: finite }),
     peerNetBits: finite, peerCare: finite, payoff: finite })).max(2000),
-  // Your agents. An agent acts only while eligible (energy ≥ expectedActCost); a negative energy is a cooldown.
-  agents: z.array(z.object({ id, name: agentName, description: agentDescription.optional(), source: z.string().max(16384), language: storedLanguage, summonCost: finite, decisionBits: finite, expectedActCost: finite,
+  // Your agents. `eligible`: it can be offered the next opportunity now (positive energy, under the per-agent cap); the
+  // more energy, the likelier. expectedActCost is the summon-time estimate per act (reading + changing); nothing is
+  // charged from it. `skips`: acts that returned no calls (they paid only what they read; not failures).
+  agents: z.array(z.object({ id, name: agentName, description: agentDescription.optional(), source: z.string().max(16384), language: storedLanguage, summonCost: finite, expectedActCost: finite,
     breakdown: breakdownSchema, randomized: z.boolean(),
-    energy: finite, eligible: z.boolean(), acts: z.number().int().nonnegative(), spent: finite,
+    energy: finite, eligible: z.boolean(), acts: z.number().int().nonnegative(), spent: finite, skips: z.number().int().nonnegative().optional(),
     // How its acts ended (counted since the engine started counting: older agents' earlier acts are not in it): changed
     // the object, or failed by kind (collision: another object already had the value; noChange; commit: the commit
     // clause kept the object; invalid call; error: the code raised or timed out), with the last invalid call or error.
@@ -137,12 +144,13 @@ export type Observation = z.infer<typeof observationSchema>;
 export const resultSchema = z.object({
   commandId: z.string().uuid(), accepted: z.boolean(),
   message: z.string().max(2000),
-  // cost: the summon price (description bits, by part); every act then pays decisionBits + erasure + motion + floor.
+  // cost: the summon price (description bits, by part), paid once. Every act then pays only what it does: the bits it
+  // reads, plus its change when it changes the object (expectedActCost estimates it; breakdown splits it).
   validation: z.object({ valid: z.boolean(), cost: finite.nonnegative(), expectedActCost: finite.nonnegative(),
     parts: z.object({ structure: finite, names: finite, literals: finite, moveFlags: finite, literalMoves: finite, commitClause: finite.optional() }).optional(),
-    decisionBits: finite.nonnegative().optional(), breakdown: breakdownSchema.optional(), randomized: z.boolean().optional(),
-    // Measured on the reference objects: the share of acts that change the object, and that fail or are invalid.
-    changeRate: finite.min(0).max(1).optional(), invalidRate: finite.min(0).max(1).optional(),
+    breakdown: breakdownSchema.optional(), randomized: z.boolean().optional(),
+    // Measured on the reference objects: the share of acts that change the object, that fail or are invalid, and that skip.
+    changeRate: finite.min(0).max(1).optional(), invalidRate: finite.min(0).max(1).optional(), skipRate: finite.min(0).max(1).optional(),
     // Two passes over a sample world (the game's objects first; docs/rules-design.md §11): the share of acts that
     // succeed, and why the rest would fail: one result for every object (constant), nothing more on a second application
     // (idempotent), or no change at all (identity). Constant and idempotent are claims about a deterministic agent only.

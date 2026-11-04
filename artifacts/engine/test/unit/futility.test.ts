@@ -15,6 +15,8 @@ test("a deterministic failed act is futile on that object version; a randomized 
   // A runtime error can be a timeout: never treated as reproducible.
   assert.equal(futileAfter({ object: obj("a", 3), deterministic: true, kind: "error" }), null);
   assert.equal(futileAfter({ object: obj("a", 3), deterministic: true, kind: "transform" }), null);
+  // a skip is a choice, not a failure: never remembered as futile (docs/energy-model.md §2)
+  assert.equal(futileAfter({ object: obj("a", 3), deterministic: true, kind: "skip" }), null);
 });
 
 test("a deterministic collision is futile while the object that holds the value keeps it", () => {
@@ -66,19 +68,19 @@ test("pickPair never offers an agent an object its act is futile on, and tries o
   let seed = 1;
   const rng = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
   for (let i = 0; i < 200; i++) {
-    const pair = pickPair(objects, agents, os => os[Math.floor(rng() * os.length)], n => Math.floor(rng() * n), futile);
+    const pair = pickPair(objects, agents, os => os[Math.floor(rng() * os.length)], as => as[Math.floor(rng() * as.length)], futile);
     assert.ok(pair, "a pair exists");
     assert.equal(pair.object.id, "c");
     assert.equal(pair.agent.id, "x");
   }
   // No pair at all: nothing is offered, so nobody is charged.
-  assert.equal(pickPair(objects, agents, os => os[0], () => 0, () => true), null);
+  assert.equal(pickPair(objects, agents, os => os[0], as => as[0], () => true), null);
 });
 
-test("pickPair with nothing futile is the plain pick: the object first, then a uniform agent", () => {
+test("pickPair with nothing futile is the plain pick: the object first, then the chosen agent", () => {
   const objects = [obj("a"), obj("b")];
   const agents = [{ id: "x" }, { id: "y" }, { id: "z" }];
-  const pair = pickPair(objects, agents, os => os[1], n => n - 1, () => false);
+  const pair = pickPair(objects, agents, os => os[1], as => as[as.length - 1], () => false);
   assert.deepEqual(pair, { object: objects[1], agent: agents[2] });
 });
 
@@ -113,7 +115,7 @@ test("pickPair finds the one workable object among thousands of futile ones", ()
   const objects = Array.from({ length: 2000 }, (_, i) => obj(`o${i}`));
   const agents = [{ id: "x" }];
   for (let i = 0; i < 50; i++) {
-    const pair = pickPair(objects, agents, os => os[Math.floor(Math.random() * os.length)], () => 0, (_a, o) => o.id !== "o1234");
+    const pair = pickPair(objects, agents, os => os[Math.floor(Math.random() * os.length)], as => as[0], (_a, o) => o.id !== "o1234");
     assert.equal(pair?.object.id, "o1234");
   }
 });

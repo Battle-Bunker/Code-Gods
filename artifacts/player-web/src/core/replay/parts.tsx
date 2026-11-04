@@ -287,7 +287,7 @@ export function AgentCode({ controller: c, agentId, onClose }: { controller: Rep
           <>
             <p className="mb-2 text-xs text-muted-foreground">
               {a.language ?? "language unknown"} · summoned {clock(a.summonedAt)}{a.summonCost !== undefined ? ` for ${num(a.summonCost)} bits` : ""}
-              {a.expectedActCost !== undefined ? ` · about ${num(a.expectedActCost)} bits an act` : ""} · {a.acts} acts {now ? "so far" : "by the end of the game (it is not summoned yet at this moment)"} ({a.transforms} changed, {a.failures} failed)
+              {a.expectedActCost !== undefined ? ` · about ${num(a.expectedActCost)} bits an act (estimate)` : ""}{a.acts > 0 ? ` · actually ${num(a.spent / a.acts)} bits an act on average` : ""} · {a.acts} acts {now ? "so far" : "by the end of the game (it is not summoned yet at this moment)"} ({a.transforms} changed, {a.skips} skipped, {a.failures} failed)
               {a.alive ? "" : ` · destroyed at ${clock(a.destroyedAt ?? 0)}`}
             </p>
             {a.source !== undefined

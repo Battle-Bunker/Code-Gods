@@ -3,7 +3,7 @@
  * settings. The app's "rules for an AI assistant" copy (artifacts/player-web/src/site/components/game-rules.tsx) says the
  * same at more length.
  */
-import { LANGUAGE_SPECS, SETTINGS_DOCS, allowedLanguages, type FieldDoc } from "@workspace/game-core";
+import { LANGUAGE_SPECS, SETTINGS_DOCS, allowedLanguages, type FieldDoc, MAX_AGENT_OPPORTUNITY_HZ } from "@workspace/game-core";
 
 type Settings = Record<string, unknown>;
 
@@ -35,8 +35,11 @@ If, overall, the others do not care about an object, nobody scores from it.
 An agent is code in one of this game's languages (${allowed.map(l => LANGUAGE_SPECS[l].label).join(", ") || "?"}), chosen per agent, defining ${shapes.join(" or ")} that returns mutator calls, against the room's helper prelude (see the observation's instance: mutators and helpers). Its summon price is counted in its own language.
 It returns at most 16 mutator calls; objects change only through mutators. All object values are unique.
 Summoning costs the agent's description bits from your god energy (validate first: it is free). Each agent has its own energy:
-it earns ${n(s, "agentEnergyPerSecond", 2)} bits per world second (up to ${n(s, "agentBatteryActs", 2)} acts' worth) and acts only while it can pay its expected act cost.
-At each interaction a random eligible agent acts on a random object. You may destroy your own agents at any time, for free.
+it earns ${n(s, "agentEnergyPerSecond", 2)} bits per world second, with no cap. At each interaction a random object is picked, then an agent,
+with probability proportional to its energy (an agent at or below zero waits; at most ${MAX_AGENT_OPPORTUNITY_HZ} turns per world second each).
+An act pays only what it does: the bits of the object it reads, plus its change when it changes the object. There is no fixed charge per act.
+So scan cheaply, return no calls when nothing is worth doing (a skip: it pays only what it read), and save energy to act more often.
+You may destroy your own agents at any time, for free.
 At most ${n(s, "maxAgentsPerGod", 200)} agents per god.
 
 ## Energy and timing

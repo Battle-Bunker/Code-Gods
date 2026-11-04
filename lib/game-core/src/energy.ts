@@ -4,10 +4,11 @@
  *
  * God:   accrues `energyPerSecond` bits per REAL-TIME second from `startingEnergy`, pays the summon
  *        price (description bits). Never negative: a summon it cannot afford is refused.
- * Agent: starts at 0, accrues `agentEnergyPerSecond` bits per WORLD second, capped at its battery
- *        (agentBatteryActs × expectedActCost; income above the cap is lost). It may act while
- *        energy ≥ expectedActCost and pays each act's actual cost, which may drive it negative (a
- *        cooldown: a negative balance keeps accruing until it is eligible again).
+ * Agent: starts at 0, accrues `agentEnergyPerSecond` bits per WORLD second, with no cap. Each mutation
+ *        opportunity goes to an agent with probability proportional to its positive energy (pickByEnergy),
+ *        at most MAX_AGENT_OPPORTUNITY_HZ times per world second per agent, and the agent pays what the
+ *        act actually cost: the bits it read plus its change (docs/energy-model.md §2, §7). The balance may
+ *        go negative; such an agent is not picked until its income lifts it above zero.
  *
  * Pure functions: the service persists the results under its own lock.
  */
@@ -68,46 +69,56 @@ export function newAgentAccount(worldSeconds: number): AgentAccount {
   return { balance: 0, settledWorldSeconds: worldSeconds };
 }
 
-/** Energy cap: batteryActs × expectedActCost. */
-export function agentBattery(expectedActCost: number, batteryActs: number): number {
-  assertRate(expectedActCost, "expected act cost");
-  assertRate(batteryActs, "battery size");
-  return batteryActs * expectedActCost;
-}
-
-/**
- * Credit income from the last settlement to `worldSeconds`, clipping at `battery` (as sim.py's
- * `accrue`: income above the cap is lost; a negative balance accrues normally up to the cap).
- */
-export function settleAgentEnergy(
-  account: AgentAccount, worldSeconds: number, perSecond: number, battery: number,
-): AgentAccount {
+/** Credit income from the last settlement to `worldSeconds` (no cap: an agent that spends little saves it). */
+export function settleAgentEnergy(account: AgentAccount, worldSeconds: number, perSecond: number): AgentAccount {
   assertClock(worldSeconds, "world clock");
   assertClock(account.settledWorldSeconds, "agent account clock");
   assertClock(account.balance, "agent balance");
   assertRate(perSecond, "agent income");
-  assertRate(battery, "agent battery");
   if (worldSeconds < account.settledWorldSeconds) throw new Error("World clock went backwards");
   const dt = worldSeconds - account.settledWorldSeconds;
   if (dt === 0) return { ...account };
-  const balance = Math.min(account.balance + dt * perSecond, battery);
+  const balance = account.balance + dt * perSecond;
   if (!Number.isFinite(balance)) throw new Error("Energy overflow");
   return { balance, settledWorldSeconds: worldSeconds };
 }
 
-/** Income that the battery cap would discard over this settlement (for analytics). */
-export function wastedAgentIncome(
-  account: AgentAccount, worldSeconds: number, perSecond: number, battery: number,
-): number {
-  const settled = settleAgentEnergy(account, worldSeconds, perSecond, battery);
-  return account.balance + (worldSeconds - account.settledWorldSeconds) * perSecond - settled.balance;
+// ------------------------------------------------------------------------------------------------
+// selection (docs/energy-model.md §7)
+// ------------------------------------------------------------------------------------------------
+
+/**
+ * The sanity cap: an agent is offered at most this many opportunities per world second. Without it an agent that reads
+ * nothing and returns no calls pays 0 per act, keeps all its energy and, as the richest agent, would take nearly every
+ * opportunity. Four a second is far more than an agent needs to contest an object, and it bounds the sandbox work one
+ * agent can cause.
+ */
+export const MAX_AGENT_OPPORTUNITY_HZ = 4;
+
+/** An agent's weight in the draw for an opportunity: its positive energy (none when at or below zero). */
+export const selectionWeight = (balance: number): number => (Number.isFinite(balance) && balance > 0 ? balance : 0);
+
+/** True while the cap allows offering the agent an opportunity at `world` (it was last offered one at `last`). */
+export function offerable(last: number | undefined, world: number, capHz = MAX_AGENT_OPPORTUNITY_HZ): boolean {
+  return last === undefined || !(capHz > 0) || world - last >= 1 / capHz - 1e-9;
 }
 
-/** Eligible to act: energy ≥ its expected cost per act. Settle the account first. */
-export function isEligible(account: AgentAccount, expectedActCost: number): boolean {
-  assertClock(account.balance, "agent balance");
-  assertRate(expectedActCost, "expected act cost");
-  return account.balance >= expectedActCost;
+/**
+ * Pick one of `candidates` with probability proportional to selectionWeight(energy(c)), using `uniform01` in [0, 1);
+ * undefined when none has positive energy.
+ */
+export function pickByEnergy<T>(candidates: readonly T[], energy: (c: T) => number, uniform01: () => number): T | undefined {
+  let total = 0;
+  const weights = candidates.map(c => { const w = selectionWeight(energy(c)); total += w; return w; });
+  if (!(total > 0)) return undefined;
+  let u = uniform01() * total;
+  for (let i = 0; i < candidates.length; i++) {
+    if (weights[i] <= 0) continue;
+    u -= weights[i];
+    if (u < 0) return candidates[i];
+  }
+  for (let i = candidates.length - 1; i >= 0; i--) if (weights[i] > 0) return candidates[i];
+  return undefined;
 }
 
 /** Deduct one act's actual cost. The balance may go negative (a cooldown). */

@@ -53,9 +53,9 @@ export async function runEnvelope(ctx: ActionCtx, roomId: string, raw: unknown, 
       examined = { gameId: envelope.gameId!, source: command.source, language: command.language, error: messageOf(error).slice(0, 1000) };
     }
   }
-  const result = examined?.result && { cost: examined.result.cost, parts: examined.result.parts, decisionBits: examined.result.decisionBits,
+  const result = examined?.result && { cost: examined.result.cost, parts: examined.result.parts,
     expectedActCost: examined.result.expectedActCost, breakdown: examined.result.breakdown, randomized: examined.result.randomized,
-    changeRate: examined.result.changeRate, invalidRate: examined.result.invalidRate,
+    changeRate: examined.result.changeRate, invalidRate: examined.result.invalidRate, skipRate: examined.result.skipRate,
     futility: examined.result.futility, warnings: examined.result.warnings,
     diagnostics: examined.result.diagnostics };
   return ctx.runMutation(internal.game.commands.apply, {

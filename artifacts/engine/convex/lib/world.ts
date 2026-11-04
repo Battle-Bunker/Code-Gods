@@ -2,7 +2,7 @@
  * The world clock and the two energy accounts as the engine and the projections read them (pure; ported
  * from api-server economy.ts / interaction-scheduler.ts). game-core holds the arithmetic.
  */
-import { DEFAULT_SCORE_INTERVAL_SECONDS, agentBattery, isEligible, leaderboard, personalView, settleAgentEnergy, type AgentAccount, type GameSettings } from "@workspace/game-core";
+import { DEFAULT_SCORE_INTERVAL_SECONDS, MAX_AGENT_OPPORTUNITY_HZ, leaderboard, offerable, personalView, settleAgentEnergy, type AgentAccount, type GameSettings } from "@workspace/game-core";
 
 /**
  * Engine constants (plan §3.1). The tick window is a constant, not a setting: game-core's settings carry no
@@ -31,16 +31,18 @@ export const EVENTS_PER_BATCH = 400;
  * each act's seed to transform and fail events. A batch without the stamp predates them. 4 marks the batches that
  * published the live scoreboard (`scoreboard`, every scoreIntervalSeconds of world time, docs/public-log-design.md §3),
  * adds the live disclosure noise per spawn and transform (`noise`) and writes one objectEvents row per spawn and
- * transform. Bump it whenever an event's meaning or fields change.
+ * transform. 5 is the energy model (docs/energy-model.md): an act's cost is {read, change, total} (no decision or floor),
+ * summons carry no decisionBits or perActFloorBits, and an act that returned no calls is a `skip` event. Bump it whenever
+ * an event's meaning or fields change.
  */
-export const EVENT_LOG_SCHEMA = 4;
+export const EVENT_LOG_SCHEMA = 5;
 
 export type Clock = {
   phase: "planning" | "running" | "paused" | "recovery" | "ended";
   worldSeconds: number; lastTick: number; endAtWorld: number;
   createdAt: number; settings: GameSettings;
 };
-export type AgentLike = { expectedActCost: number; account: AgentAccount };
+export type AgentLike = { account: AgentAccount; lastOpportunityWorld?: number };
 
 /** The world clock now, without mutating the game (world time stops outside `running`). */
 export function worldNow(game: Clock, nowMs = Date.now()): number {
@@ -51,18 +53,24 @@ export function worldNow(game: Clock, nowMs = Date.now()): number {
 /** The agent's account accrued to `world`; a clock behind the account's own accrues nothing. */
 export function settledAccount(settings: GameSettings, agent: AgentLike, world: number): AgentAccount {
   if (!(world > agent.account.settledWorldSeconds)) return agent.account;
-  return settleAgentEnergy(agent.account, world, settings.agentEnergyPerSecond, agentBattery(agent.expectedActCost, settings.agentBatteryActs));
+  return settleAgentEnergy(agent.account, world, settings.agentEnergyPerSecond);
 }
+/**
+ * The agent's energy at `world`, and whether it can be offered an opportunity then (docs/energy-model.md §7): positive
+ * energy (its weight in the draw) and the per-agent cap allows it.
+ */
 export function agentStatus(settings: GameSettings, agent: AgentLike, world: number) {
   const account = settledAccount(settings, agent, world);
-  return { energy: account.balance, eligible: isEligible(account, agent.expectedActCost) };
+  return { energy: account.balance, eligible: account.balance > 0 && offerable(agent.lastOpportunityWorld, world) };
 }
-/** World seconds until the agent is eligible (0 if it is), or Infinity if it never earns. */
+/** World seconds until the agent can be offered an opportunity (0 if it can now), or Infinity if it never earns. */
 export function secondsUntilEligible(settings: GameSettings, agent: AgentLike, world: number): number {
-  const { energy } = agentStatus(settings, agent, world);
-  if (energy >= agent.expectedActCost) return 0;
+  const { energy, eligible } = agentStatus(settings, agent, world);
+  if (eligible) return 0;
+  const cap = agent.lastOpportunityWorld === undefined ? 0 : Math.max(0, agent.lastOpportunityWorld + 1 / MAX_AGENT_OPPORTUNITY_HZ - world);
+  if (energy > 0) return cap;
   if (!(settings.agentEnergyPerSecond > 0)) return Infinity;
-  return (agent.expectedActCost - energy) / settings.agentEnergyPerSecond;
+  return Math.max(cap, -energy / settings.agentEnergyPerSecond + 1e-6);
 }
 
 /** God energy: starting energy plus real-time income, minus summon prices paid. */

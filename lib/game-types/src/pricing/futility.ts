@@ -6,14 +6,15 @@
  * - idempotent: acting again on its own result changes nothing, so it acts once per object, then wastes acts;
  * - identity: it never changes an object.
  *
- * The success rate is over both passes. Constant and idempotent are claims about a deterministic agent (no run read
+ * An act that returns no calls is a skip (docs/energy-model.md §2): a choice, not a failure, so it is left out of the
+ * success rate and of every flag. The success rate is over the acts of both passes that tried to change something. Constant and idempotent are claims about a deterministic agent (no run read
  * `random`); a randomized one gets the success rate only. A deterministic agent runs once per distinct value. Pure:
  * the caller supplies the runner (the sandbox) and the sample (the game's objects first, then the reference mixture).
  */
 import { applyCalls, DEFAULT_COST_KNOBS } from "../mutators.ts";
 import { objectType } from "../registry.ts";
 import type { Instantiation, ObjectTypeDef, ObjectValue } from "../types.ts";
-import type { AgentRun, RunActs } from "./measure.ts";
+import { isSkip, type AgentRun, type RunActs } from "./measure.ts";
 import { deriveSeed } from "./rng.ts";
 
 /** Sample objects at most (each costs up to two sandbox runs). */
@@ -33,13 +34,13 @@ export interface FutilityProfile {
   /** Share of sample objects changed by the first pass, and by the second. */
   readonly firstPass: number;
   readonly secondPass: number;
-  /** Share of all acts of both passes that changed their object (the expected success rate). */
+  /** Share of the acts of both passes that tried a change and made it (the expected success rate; 1 if none tried). */
   readonly successRate: number;
   /** One line each, for the owner. Empty when nothing is wrong. */
   readonly warnings: readonly string[];
 }
 
-type Result = { ok: true; value: ObjectValue } | { ok: false; reason: string };
+type Result = { ok: true; value: ObjectValue } | { ok: false; reason: string; skip?: true };
 
 const pct = (x: number) => `${Math.round(100 * x)}%`;
 const isRun = (x: unknown): x is AgentRun => typeof x === "object" && x !== null && !Array.isArray(x) && "calls" in x;
@@ -57,6 +58,7 @@ export async function probeFutility(run: RunActs, inst: Instantiation, values: r
     const r: AgentRun = isRun(res) ? res : { calls: res };
     if (r.usedRandom) randomized = true;
     if (r.error) return { ok: false, reason: r.error };
+    if (isSkip(r.calls)) return { ok: false, reason: "skipped", skip: true };
     const out = applyCalls(typeDef, inst, value, r.calls, DEFAULT_COST_KNOBS);
     return out.ok ? { ok: true, value: out.value } : { ok: false, reason: out.reason };
   };
@@ -92,13 +94,15 @@ export async function probeFutility(run: RunActs, inst: Instantiation, values: r
   const s1 = pass(first);
   // Idempotence: the agent on each of its own results (a deterministic agent's second pass reuses these runs).
   const again = !randomized && outputs.length ? await all(outputs, 2) : [];
-  const s2 = pass(await all([...state], 1));
+  const second = await all([...state], 1);
+  const s2 = pass(second);
+  const tried = [...first, ...second].filter(r => r.ok || !r.skip).length;
   const deterministic = !randomized;
-  const identity = changedInputs === 0;
+  const identity = changedInputs === 0 && tried > 0;
   const constant = deterministic && changedInputs >= 2 && outputs.length === 1;
   // "No change" only: a crash or an invalid act on its own results is a failure of another kind, not idempotence.
   const idempotent = deterministic && again.length > 0 && again.every(r => !r.ok && r.reason === "no change");
-  const successRate = n ? (s1 + s2) / (2 * n) : 0;
+  const successRate = tried ? (s1 + s2) / tried : n ? 1 : 0;
   const profile = { n, deterministic, constant, idempotent, identity, firstPass: n ? s1 / n : 0, secondPass: n ? s2 / n : 0, successRate };
   return { ...profile, warnings: futilityWarnings(profile) };
 }

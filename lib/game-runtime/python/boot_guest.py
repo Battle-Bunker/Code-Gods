@@ -21,13 +21,13 @@ def _price(tree):
         if v is Ellipsis: return 1
         raise ValueError('Unsupported constant')
     return sum(size(n.value) if isinstance(n, ast.Constant) else 1 for n in ast.walk(tree))
-def _inspect(source, vocab, scheme):
+def _inspect(source, vocab, scheme, reach=True):
     # Parses and prices; never evaluates the player's source. The trusted prelude's constructors
     # (_PRELUDE_G) are applied to literal arguments only, to detect literal moves.
     # Returns (json result, '') or ('', message).
     try:
         tree = ast.parse(source, mode='exec')
-        error = _shape(tree)
+        error = _shape(tree, reach)
         if error:
             return '', error
         bits = _AB['ast_bits'](tree, _AB['Tables'](_AB_BASE[scheme], json.loads(vocab)), _PRELUDE_G)
@@ -37,7 +37,41 @@ def _inspect(source, vocab, scheme):
         return '', f'SyntaxError: this program uses Python the price table does not cover ({e})'[:500]
     except Exception as e:
         return '', f'SyntaxError: {type(e).__name__}: {e}'[:500]
-def _shape(tree):
+# Agent source rule (docs/energy-model.md 3.3): nothing that could reach past the read meter.
+_BAD_ATTRS = frozenset((
+    'gi_frame gi_code gi_yieldfrom cr_frame cr_code cr_await ag_frame ag_code ag_await f_back f_globals '
+    'f_locals f_builtins f_code tb_frame tb_next cell_contents format format_map mro').split())
+_BAD_NAMES = frozenset('getattr setattr delattr attrgetter methodcaller vars globals locals'.split())
+def _reach(tree):
+    # The first (by line) use of a name the sandbox keeps for itself, as an error message, or ''.
+    found = []
+    def hit(node, name, attr=False):
+        line = getattr(node, 'lineno', 0) or 0
+        col = getattr(node, 'col_offset', 0) or 0
+        if name in _BAD_NAMES:
+            text = (f'agents can\'t use {name} (line {line}): read the board through the room\'s helpers '
+                    '(cell.colour, n.value, ...)')
+        elif attr and name in _BAD_ATTRS:
+            text = (f'agents can\'t use ".{name}" (line {line}): it reaches into the sandbox'
+                    + (', build text with f-strings or + instead' if name.startswith('format') else ''))
+        elif len(name) > 1 and name[0] == '_':
+            text = f'agents can\'t use "{name}" (line {line}): names starting with _ belong to the sandbox'
+        else:
+            return
+        found.append((line, col, text))
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name): hit(node, node.id)
+        elif isinstance(node, ast.Attribute): hit(node, node.attr, True)
+        elif isinstance(node, ast.arg): hit(node, node.arg)
+        elif isinstance(node, ast.keyword):
+            if node.arg: hit(node, node.arg)
+        elif isinstance(node, ast.alias):
+            for part in node.name.split('.'): hit(node, part)
+            if node.asname: hit(node, node.asname)
+        elif isinstance(node, (ast.Global, ast.Nonlocal)):
+            for n in node.names: hit(node, n)
+    return min(found)[2] if found else ''
+def _shape(tree, reach=True):
     found = [n for n in tree.body
              if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == 'agent']
     if not found:
@@ -55,7 +89,8 @@ def _shape(tree):
             or any(d is None for d in a.kw_defaults)):
         return (f'SyntaxError: agent must take exactly one argument (line {f.lineno}), '
                 'like:' + _EXAMPLE)
-    return ''
+    found = _reach(tree) if reach else ''
+    return 'SyntaxError: ' + found if found else ''
 def _explain(source):
     try:
         compile(source, '<agent>', 'exec')

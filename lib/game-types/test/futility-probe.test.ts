@@ -32,10 +32,21 @@ test("an idempotent agent: it acts once per object, then wastes acts", async () 
 });
 
 test("an identity agent: it never changes an object", async () => {
-  const p = await probe(agent(() => []));
+  const p = await probe(agent(() => [["add", { k: 0 }]]));
   assert.equal(p.identity, true);
   assert.equal(p.successRate, 0);
   assert.match(p.warnings.join(" "), /never changes an object/);
+});
+
+test("a skipper is not futile: skips are choices, left out of the success rate and every flag", async () => {
+  const always = await probe(agent(() => []));
+  assert.deepEqual([always.identity, always.constant, always.idempotent, always.successRate], [false, false, false, 1]);
+  assert.deepEqual(always.warnings, []);
+  // It acts once on an object, then skips its own results: the ideal incremental agent, not an idempotent waster.
+  const once = await probe(agent(x => (x % 2 === 0 ? [] : [["add", { k: 1 }]])));
+  assert.equal(once.idempotent, false);
+  assert.equal(once.successRate, 1);
+  assert.deepEqual(once.warnings, []);
 });
 
 test("a working agent: no warning, every act succeeds", async () => {

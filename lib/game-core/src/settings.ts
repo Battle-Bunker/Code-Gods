@@ -81,7 +81,7 @@ export interface GameSettings {
   interactionComputeMs: number;
   /** Deterministic step budget per act (lib/game-runtime): the same agent, input and seed always fit or never do. */
   stepBudget: number;
-  /** Bits added to every attempted act's charge, valid or not: the Margolus–Levitin floor (grid-lab PR #14). */
+  /** UNUSED since acts pay only what they do (docs/energy-model.md §2); removed with the power budget (§6). */
   perActFloorBits: number;
   pauseSeconds: number;
   /** God energy (bits) at the start of planning; accrues in real time. */
@@ -90,7 +90,7 @@ export interface GameSettings {
   energyPerSecond: number;
   /** Each agent's income, bits per second of world time (grid-lab `agent_income`). */
   agentEnergyPerSecond: number;
-  /** Agent battery in expected acts: income stops at agentBatteryActs × expectedActCost. */
+  /** UNUSED since agents have no battery (docs/energy-model.md §7); removed with the power budget (§6). */
   agentBatteryActs: number;
   maxAgentsPerGod: number;
   /** w in n = s⁺ − w(h − E_μh): the weight of a defence-goal bit against a reward bit. */
@@ -643,18 +643,18 @@ export const SETTINGS_DOCS = {
   },
   agentEnergyPerSecond: {
     question: "How fast do agents charge?", section: "energy", tier: "ask", control: "number", unit: "bits/s", suggested: [2, 8, 16, 32, 64],
-    meaning: "The bits each agent's own energy gains per second of world time, used to pay for its acts.",
-    consequence: "Raising it makes agents act more often, so objects change faster.",
+    meaning: "The bits each agent's own energy gains per second of world time, which pay for what its acts read and change.",
+    consequence: "Raising it makes agents act more often (an agent with more energy is likelier to get the next turn), so objects change faster.",
   },
   agentBatteryActs: {
     question: "How many acts can an agent save up?", section: "energy", tier: "more", control: "number", unit: "acts", suggested: [1, 2, 4, 8],
-    meaning: "How many expected acts' worth of energy an agent can store before its income stops.",
-    consequence: "Raising it lets agents act in bursts after quiet spells.",
+    meaning: "Not used any more: agents keep all the energy they save, and richer agents are offered more acts.",
+    consequence: "Changing it does nothing; it goes away when players get a power budget to share between their agents.",
   },
   perActFloorBits: {
     question: "What is the minimum price of an attempted act?", section: "energy", tier: "more", control: "number", unit: "bits", suggested: [0, 1, 2, 4],
-    meaning: "The minimum bits charged for every attempted act, whether or not it succeeds.",
-    consequence: "Raising it makes failed and wasteful moves costlier, which favours precise code.",
+    meaning: "Not used any more: an act pays only for the bits it reads and the change it makes.",
+    consequence: "Changing it does nothing; it goes away when players get a power budget to share between their agents.",
   },
   startingObjectCount: {
     question: "How many objects does the world start with?", section: "population", tier: "ask", control: "number", suggested: [10, 40, 80, 160],
