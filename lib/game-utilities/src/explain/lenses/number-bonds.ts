@@ -22,7 +22,7 @@ export const numberBonds = lens<P>({
         const sum = b.value(x) + b.value(y);
         const facts: Fact[] = [{ text: sum === T ? `${b.glyph(x)} + ${b.glyph(y)} = ${T}` : `${b.glyph(x)} + ${b.glyph(y)} = ${sum}, not ${T}`, ok: sum === T }];
         const bond = sum === T;
-        out.push({ id: `pair:${x.r},${x.c}:${name}`, shape: "pair", cells: [x, y], points: [bond ? 1 : 0], title: bond ? "best friends" : "not best friends", facts });
+        out.push({ id: `pair:${x.r},${x.c}:${name}`, shape: "pair", group: "pair", cells: [x, y], points: [bond ? 1 : 0], title: bond ? "best friends" : "not best friends", facts });
       }
     }
     return out;

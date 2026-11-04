@@ -1,10 +1,12 @@
-/** 🔺 Set Spotter: trios in a line. The focus expands the trios that END at it (a middle cell is another cell's end). */
-import { lens, orderParts, tally, count } from "../lens.ts";
+/** 🔺 Set Spotter: trios in a line, one unit per trio; the hover toggle picks a direction (→ ↓ ↘ ↙). */
+import { lens, tally, count } from "../lens.ts";
 import type { Board } from "../board.ts";
-import { sameCell, type Cell, type Fact, type Part } from "../model.ts";
+import type { Cell, Fact, Part } from "../model.ts";
 
 type P = Record<string, never>;
 const DIRS = [["right", 0, 1], ["down", 1, 0], ["down-right", 1, 1], ["down-left", 1, -1]] as const;
+/** The hover toggle: one mode per line direction (trios of different directions share centres). */
+const ARROWS: Readonly<Record<string, string>> = { right: "→", down: "↓", "down-right": "↘", "down-left": "↙" };
 
 function colourFact(b: Board, t: readonly Cell[]): Fact {
   const names = t.map(x => b.colour(x)), distinct = new Set(names).size;
@@ -39,10 +41,10 @@ export const setSpotter = lens<P>({
         const t = [x, { r: x.r + dr, c: x.c + dc }, { r: x.r + 2 * dr, c: x.c + 2 * dc }];
         const facts = [colourFact(b, t), numberFact(b, t)];
         const set = facts.every(f => f.ok);
-        out.push({ id: `trio:${x.r},${x.c}:${name}`, shape: "line", cells: t, points: [set ? 1 : 0], title: set ? "SET" : "not a SET", facts });
+        out.push({ id: `trio:${x.r},${x.c}:${name}`, shape: "line", group: name, cells: t, points: [set ? 1 : 0], title: set ? "SET" : "not a SET", facts });
       }
     }
     return out;
   },
-  select: (parts, focus) => orderParts(parts.filter(t => sameCell(t.cells[0], focus) || sameCell(t.cells[2], focus)), 8),
+  hover: () => ({ modes: DIRS.map(([name]) => ({ id: name, label: ARROWS[name], groups: [name] })) }),
 });

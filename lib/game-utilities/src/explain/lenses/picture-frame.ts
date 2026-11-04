@@ -54,11 +54,6 @@ export const pictureFrame = lens<P>({
         { text: c.symbol ? `shows ${S}: the middle should not show it` : `shows ${b.glyph(x)}, not ${S}`, ok: !c.symbol },
       ];
     const title = why ? `${where}, ${signed(c.points)} ${why}` : c.onEdge ? `an edge cell with neither ${X} nor ${S}` : "a clear middle cell";
-    return { id: `${c.onEdge ? "edge" : "middle"}:${x.r},${x.c}`, shape: "cell", cells: [x], points: [c.points], title, facts };
+    return { id: `${c.onEdge ? "edge" : "middle"}:${x.r},${x.c}`, shape: "cell", group: "cell", cells: [x], points: [c.points], title, facts };
   }),
-  note: (_parts, _focus, p) => {
-    const E = FRAME_POINTS.edge, M = FRAME_POINTS.middle;
-    return `Your colour is ${p.colour} and your symbol is ${p.symbol}. An edge cell with one of them scores ${signed(E.one)}, `
-      + `with both ${signed(E.both)}. A middle cell with one loses ${-M.one}, with both ${-M.both}.`;
-  },
 });

@@ -1,11 +1,13 @@
 /**
  * A lens: one family's annotation spec (docs/annotations-design.md §6.1). Pure functions of the dealt params and a decoded
- * board. `parts` is the whole-board decomposition of the card's score into pieces; the focus cell selects some of them.
+ * board. `parts` is the whole-board decomposition of the card's score into scoring units; the renderer lists them all
+ * (sorted by what they score, units.ts) and the board picks one under the pointer by the lens's `hover` geometry.
  * A lens never throws on a board of its instantiation; the tests check its parts add up to the card's own score.
  */
 import type { Params } from "../types.ts";
 import type { Board } from "./board.ts";
-import { hasCell, type Breakdown, type BreakdownItem, type Cell, type OutcomeTable, type Part } from "./model.ts";
+import type { Breakdown, BreakdownItem, Part } from "./model.ts";
+import type { HoverGeometry } from "./units.ts";
 
 export interface Lens<P extends Params = Params> {
   readonly familyId: string;
@@ -17,31 +19,14 @@ export interface Lens<P extends Params = Params> {
    * add up to the card's ordinal, and the "How this scores" view starts from it.
    */
   breakdown(p: P, b: Board, parts: readonly Part[]): Breakdown;
-  /** The pieces the focus expands, in display order. Default: the pieces containing the focus, scoring first. */
-  select?(parts: readonly Part[], focus: Cell, p: P, b: Board): Part[];
-  /** Per-cell rules: the outcome table, with the focus cell's entry. */
-  table?(p: P, b: Board, focus: Cell): OutcomeTable | null;
-  /** A sentence for the focus when no piece says it. */
-  note?(parts: readonly Part[], focus: Cell, p: P, b: Board): string | null;
+  /**
+   * How the board picks a unit under the pointer: hover modes over the parts' groups (units.ts). Default: one mode over
+   * every group the parts use. A lens whose units overlap (rows and columns, four line directions, blocks and pairs)
+   * offers one mode per kind, which the renderer shows as an auxiliary toggle.
+   */
+  hover?(p: P, b: Board): HoverGeometry;
   /** Boards worth trying as goal examples (wire values of the room's shape), besides the generic search. */
   seeds?(p: P, b: Board): string[];
-}
-
-/** Most pieces drawn for one focus (A1: one anchor, a few pieces). */
-export const MAX_FOCUS_PARTS = 6;
-
-/** The default selection: pieces containing the focus, scoring ones first, then losing, then zero; capped. */
-export function containing(parts: readonly Part[], focus: Cell): Part[] {
-  return orderParts(parts.filter(p => hasCell(p.cells, focus)));
-}
-
-const rank = (p: Part) => {
-  const first = p.points.find(x => x !== 0) ?? 0;
-  return first > 0 ? 0 : first < 0 ? 1 : 2;
-};
-/** Scoring pieces first, then losing, then the rest; stable; at most `max` (MAX_FOCUS_PARTS by default). */
-export function orderParts(parts: readonly Part[], max = MAX_FOCUS_PARTS): Part[] {
-  return parts.map((p, i) => [p, i] as const).sort((a, b) => rank(a[0]) - rank(b[0]) || a[1] - b[1]).map(([p]) => p).slice(0, max);
 }
 
 /** Lenses are written against their family's params; the registry stores them untyped. */
