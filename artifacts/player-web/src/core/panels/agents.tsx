@@ -29,7 +29,8 @@ function PowerShareControl({ id, share, allocated, onSet, disabled, reason }: {
   const text = draft ?? shown;
   const problem = draft === null ? null : shareProblem(draft, share, allocated);
   const parsed = parseSharePercent(text);
-  const changed = parsed !== null && parsed !== share;
+  // Only an edit counts: the box shows the share rounded to 0.1%, so an untouched box never re-sends it.
+  const changed = draft !== null && parsed !== null && parsed !== share;
   return (
     <div className="flex flex-wrap items-center gap-x-2 text-xs" data-testid={`power-share-${id}`}>
       <label className="text-muted-foreground" htmlFor={`input-power-share-${id}`}>power share</label>

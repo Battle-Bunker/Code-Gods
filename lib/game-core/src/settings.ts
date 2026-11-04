@@ -211,7 +211,25 @@ export function upgradeStoredSettings(settings: unknown): Record<string, unknown
     ...(!("durationMode" in s) ? { durationMode: "halfLife" } : {}),
     ...(!("peerNoiseBits" in s) ? { peerNoiseBits: DEFAULT_PEER_NOISE_BITS } : {}),
   };
+  const power = upgradeLegacyPower(s);
+  if (power) return { ...power, ...filled };
   return Object.keys(filled).length ? { ...s, ...filled } : languages;
+}
+
+/** Settings keys retired by the power budget (docs/energy-model.md §6). */
+export const RETIRED_POWER_SETTINGS = ["energyPerSecond", "agentEnergyPerSecond", "agentBatteryActs", "perActFloorBits"] as const;
+/**
+ * Stored settings from before the power budget: powerPerSecond = energyPerSecond + 2 · agentEnergyPerSecond (the deity's
+ * old income plus two agents at the old rate), the retired keys dropped. Null when there is nothing to convert.
+ */
+export function upgradeLegacyPower(settings: Record<string, unknown>): Record<string, unknown> | null {
+  if (typeof settings.powerPerSecond === "number" && RETIRED_POWER_SETTINGS.every(k => !(k in settings))) return null;
+  if (typeof settings.powerPerSecond !== "number" && RETIRED_POWER_SETTINGS.every(k => !(k in settings))) return null;
+  const num = (k: string, d: number) => (typeof settings[k] === "number" ? settings[k] as number : d);
+  const out: Record<string, unknown> = { ...settings,
+    powerPerSecond: typeof settings.powerPerSecond === "number" ? settings.powerPerSecond : num("energyPerSecond", 1) + 2 * num("agentEnergyPerSecond", 2) };
+  for (const k of RETIRED_POWER_SETTINGS) delete out[k];
+  return out;
 }
 
 /**

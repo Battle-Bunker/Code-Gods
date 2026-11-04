@@ -229,6 +229,7 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     if (owned.length >= settings.maxAgentsPerGod) fail("CONFLICT", `This god has reached the ${settings.maxAgentsPerGod}-agent resource limit`);
     // Power (docs/energy-model.md §6): the new agent's share comes out of what the deity has not allocated.
     const allocated = allocatedOf(deity, owned, settings);
+    if (command.powerShare === undefined && allocated >= 1 - 1e-9) fail("BAD_REQUEST", "All your power is given to your agents, so a new agent would never act: take some from another agent first (allocatePower), or summon with a powerShare");
     const powerShare = roundShare(command.powerShare ?? defaultShare(allocated));
     if (allocated + powerShare > 1 + 1e-9) fail("BAD_REQUEST", `Only ${(100 * Math.max(0, 1 - allocated)).toFixed(0)}% of your power is unallocated: give the new agent at most that, or take some from another agent first`);
     const record = {
@@ -274,7 +275,9 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     await ctx.db.patch(agent._id, { account: settledAccount(settings, agent, world), powerShare: share });
     await ctx.db.patch(deity._id, { account: deityAccount(game, deity, world, now), allocated: roundShare(others + share) });
     const nextBatch = await appendEvents(ctx, game, [{ t: "power", agentId: agent._id, ownerId: member.godId, world, share }], world, world);
-    await writeGame(ctx, game, { nextBatch });
+    // Bumping the epoch discards a window in flight (simulated at the old share), as a pause does: its commit would
+    // overwrite the account settled here.
+    await writeGame(ctx, game, { nextBatch, executionEpoch: game.executionEpoch + 1 });
     return { agentId: agent._id, share, allocated: roundShare(others + share) };
   }
   return fail("BAD_REQUEST", "Unknown command");

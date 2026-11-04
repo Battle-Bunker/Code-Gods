@@ -8,7 +8,7 @@
  * working: P = energyPerSecond + 2 · agentEnergyPerSecond, an agent's share agentEnergyPerSecond / P, and a deity's
  * account its old real-time energy. Narrowed (the fallbacks removed) once dev and production report powerV1 done.
  */
-import { agentIncome, deityIncome, settleAgentEnergy, type AgentAccount, type GameSettings } from "@workspace/game-core";
+import { agentIncome, deityIncome, settleAgentEnergy, upgradeLegacyPower, type AgentAccount, type GameSettings } from "@workspace/game-core";
 
 type LegacySettings = { energyPerSecond?: number; agentEnergyPerSecond?: number };
 const legacy = (settings: GameSettings) => settings as GameSettings & LegacySettings;
@@ -46,17 +46,8 @@ export function deityAccount(game: PowerClock, deity: DeityPower, world: number,
   return settleAgentEnergy(deity.account, world, deityIncome(powerOf(game.settings), deity.allocated ?? 0));
 }
 
-/**
- * migrations.powerV1 for stored settings (games, rooms, game setups): powerPerSecond from the old incomes, which are
- * dropped with the battery and the floor. Undefined when already in the new shape. P = energyPerSecond +
- * 2 · agentEnergyPerSecond: the deity's income plus two agents at the old rate (the new defaults' ratio).
- */
-const RETIRED = ["energyPerSecond", "agentEnergyPerSecond", "agentBatteryActs", "perActFloorBits"] as const;
+/** migrations.powerV1 for stored settings (games, rooms, game setups): game-core upgradeLegacyPower. */
 export function powerSettingsV1(settings: unknown): Record<string, unknown> | undefined {
   if (!settings || typeof settings !== "object") return undefined;
-  const s = settings as Record<string, unknown>;
-  if (typeof s.powerPerSecond === "number" && RETIRED.every(k => !(k in s))) return undefined;
-  const out: Record<string, unknown> = { ...s, powerPerSecond: typeof s.powerPerSecond === "number" ? s.powerPerSecond : legacyPower(s as LegacySettings) };
-  for (const k of RETIRED) delete out[k];
-  return out;
+  return upgradeLegacyPower(settings as Record<string, unknown>) ?? undefined;
 }

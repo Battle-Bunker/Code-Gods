@@ -7,7 +7,7 @@
  */
 import { agentDisplayName } from "./agentName";
 import { gameNotice } from "./engineErrors";
-import { MAX_AGENT_OPPORTUNITY_HZ, allowedLanguages, deityIncome, instantiationOf, leaderboard, rankTotals, type GameSettings } from "@workspace/game-core";
+import { MAX_AGENT_OPPORTUNITY_HZ, allowedLanguages, deityIncome, roundShare, instantiationOf, leaderboard, rankTotals, type GameSettings } from "@workspace/game-core";
 import { COMMIT_CLAUSE_HELPER, instanceInfo, type InstanceInfo } from "@workspace/game-types";
 import { VERSION, observationSchema, type Observation } from "@workspace/player-client";
 import type { Doc } from "../_generated/dataModel";
@@ -360,7 +360,7 @@ export function observation(input: ObservationInput): Observation {
       energy: game && deity ? godEnergy(game, deity, worldNow(game, now), now) : 0,
       // Power (docs/energy-model.md §6): the share its agents hold, and its own income from the rest.
       ...(game && deity ? (() => {
-        const allocated = deity.allocated ?? input.agents.reduce((sum, a) => sum + shareOf(a, settings), 0);
+        const allocated = deity.allocated ?? roundShare(Math.min(1, input.agents.reduce((sum, a) => sum + shareOf(a, settings), 0)));
         return { allocated, income: deityIncome(powerOf(settings), allocated) };
       })() : {}),
       // The own score is live; the leaderboard below is the scoreboard last published.

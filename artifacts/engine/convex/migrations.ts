@@ -316,11 +316,11 @@ export const powerV1Agents = migrations.define({
     if (agent.powerShare !== undefined) return;
     const game = await ctx.db.get(agent.gameId);
     if (!game) return { powerShare: 0 };
-    // The old share, scaled down when the owner's agents would hold more than all of its power.
+    // The old share (the same for every agent of the game), scaled down when the owner's agents would hold more than all
+    // of its power. Counted from the legacy shares only, so the order the rows migrate in does not matter.
     const owned = await ctx.db.query("agents").withIndex("by_game_owner", q => q.eq("gameId", agent.gameId).eq("ownerId", agent.ownerId)).take(201);
-    const total = owned.reduce((sum, a) => sum + shareOf(a, game.settings as GameSettings), 0);
-    const share = shareOf(agent, game.settings as GameSettings);
-    return { powerShare: roundShare(total > 1 ? share / total : share) };
+    const share = shareOf({}, game.settings as GameSettings), total = owned.length * share;
+    return { powerShare: roundShare(Math.floor((total > 1 ? share / total : share) * 1e6) / 1e6) };
   },
 });
 export const powerV1Deities = migrations.define({
@@ -357,7 +357,8 @@ const RUN_ALL: FunctionReference<"mutation", "internal">[] = [internal.migration
   internal.migrations.equalOpportunityArithmeticDeities, internal.migrations.equalOpportunityArithmeticPreparing,
   internal.migrations.assistantModeFromCredentials, internal.migrations.assistantPrefsMode, internal.migrations.assistantNoApprovalsTurns,
   internal.migrations.assistantNoApprovalsCalls, internal.migrations.agentPricesV2,
-  internal.migrations.equalOpportunityIntStringDeities, internal.migrations.equalOpportunityIntStringPreparing];
+  internal.migrations.equalOpportunityIntStringDeities, internal.migrations.equalOpportunityIntStringPreparing,
+  internal.migrations.powerV1Agents, internal.migrations.powerV1Deities, internal.migrations.powerV1Games, internal.migrations.powerV1Rooms, internal.migrations.powerV1Setups];
 export const runAll = migrations.runner(RUN_ALL);
 /** The state of each of runAll's migrations (scripts/run-migrations.mjs waits for all of them to succeed). */
 export const status = internalQuery({

@@ -205,7 +205,7 @@ export function applyEntry(state: ReplayState, entry: LogEntry, settings: GameSe
       if (i !== undefined) {
         state.spent[i] += ev.summonCost;
         const d = settleDeity(settings, state.deities[i], entry.world);
-        state.deities[i] = { balance: d.balance - ev.summonCost, world: d.world, allocated: d.allocated + (ev.powerShare ?? 0) };
+        state.deities[i] = { balance: d.balance - ev.summonCost, world: d.world, allocated: roundShare(d.allocated + (ev.powerShare ?? 0)) };
       }
       break;
     }

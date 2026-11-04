@@ -229,7 +229,7 @@ test("agentPricesV2: an agent priced with a decision price and a floor keeps onl
   assert.equal((await summon("function agent(n) { return n.digit(0) ? [] : [add(1)]; }")).accepted, true);
   const [legacy, fresh] = (await raw(game.gameId)).agents;
   const freshBefore = { breakdown: fresh.breakdown, expectedActCost: fresh.expectedActCost };
-  await admin.mutation(internal.testing.legacyAgentPrice, { agentId: legacy._id, decisionBits: 2.5, erasure: 4, motion: 0.5 });
+  await admin.mutation(internal.testing.legacyAgentPrice, { agentId: legacy._id, decisionBits: 2.5, perActFloorBits: 2, erasure: 4, motion: 0.5 });
   for (const run of [1, 2]) {
     await runAll(true);
     const agents = (await raw(game.gameId)).agents;
