@@ -2,7 +2,7 @@
  * The world clock and the two energy accounts as the engine and the projections read them (pure; ported
  * from api-server economy.ts / interaction-scheduler.ts). game-core holds the arithmetic.
  */
-import { agentIncomeOf, deityAccount, type DeityPower, type PowerClock } from "./power";
+import { agentIncomeOf, deityAccount, type DeityPower, type PowerClock } from "./power.ts";
 import { DEFAULT_SCORE_INTERVAL_SECONDS, MAX_AGENT_OPPORTUNITY_HZ, leaderboard, offerable, personalView, settleAgentEnergy, type AgentAccount, type GameSettings } from "@workspace/game-core";
 
 /**
