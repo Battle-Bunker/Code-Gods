@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { deriveAffordances, ownerPhrase, type AffordanceContext } from "../src/core/affordances.ts";
 
 const live: AffordanceContext = { replay: false, permission: "act", phase: "running", seated: true, hasObservation: true, unknownOutcome: false, busy: false };
-const MUTATING = ["editCode", "validate", "summon", "destroy", "chat", "roomStep"] as const;
+const MUTATING = ["editCode", "validate", "summon", "destroy", "allocatePower", "chat", "roomStep"] as const;
 
 test("a read-only replay hides every mutating control, with the replay as the reason", () => {
   for (const phase of ["planning", "running", "paused", "ended"] as const) {

@@ -32,12 +32,9 @@ export const SECTIONS: readonly { id: SettingsSection | "review"; title: string;
 ];
 
 /** The fields of a section in display order (asked first, then "More"). */
-/** Settings the energy model no longer uses (docs/energy-model.md): kept in the stored shape for old rooms, never shown or edited. */
-const RETIRED: ReadonlySet<SettingsKey> = new Set<SettingsKey>(["agentBatteryActs", "perActFloorBits"]);
-
 export function fieldsOf(section: SettingsSection): SettingsKey[] {
   const tier = { ask: 0, more: 1 } as const;
-  return (Object.keys(SETTINGS_DOCS) as SettingsKey[]).filter(k => SETTINGS_DOCS[k].section === section && !RETIRED.has(k))
+  return (Object.keys(SETTINGS_DOCS) as SettingsKey[]).filter(k => SETTINGS_DOCS[k].section === section)
     .sort((a, b) => tier[SETTINGS_DOCS[a].tier] - tier[SETTINGS_DOCS[b].tier]);
 }
 
@@ -46,8 +43,8 @@ export const LABELS: Readonly<Record<SettingsKey, string>> = {
   languages: "Languages", objectType: "Objects", typeArgs: "Object shape", utilitySelectorId: "Goal dealing",
   spawnFunctionId: "New objects", planningSeconds: "Planning", durationMode: "Game end", halfLifeSeconds: "Game length",
   startingObjectCount: "Starting objects", spawnRateHz: "New objects per second", interactionRateHz: "World speed", interactionComputeMs: "CPU limit per act",
-  stepBudget: "Steps per act", perActFloorBits: "Minimum act price (unused)", pauseSeconds: "Pause length", startingEnergy: "Starting energy",
-  energyPerSecond: "Energy refill", agentEnergyPerSecond: "Agent charging", agentBatteryActs: "Agent battery (unused)", maxAgentsPerGod: "Agents per player",
+  stepBudget: "Steps per act", pauseSeconds: "Pause length", startingEnergy: "Starting energy",
+  powerPerSecond: "Power per player", maxAgentsPerGod: "Agents per player",
   penaltyWeight: "Defence weight", defenceGoals: "Defence goals", excludedFamilies: "Rules never dealt", excludedDefenceFamilies: "Defence goals never dealt",
   priorId: "Rarity reference",
   commitClause: "Conditional moves", objectSelection: "Act targeting", scoreIntervalSeconds: "Score updates", peerNoiseBits: "Blur on others' interest",
@@ -66,8 +63,7 @@ export const LIMITS: Readonly<Partial<Record<SettingsKey, Limit>>> = {
   stepBudget: { min: 1, max: 10_000_000, int: true, unit: "steps" },
   pauseSeconds: { ...TIME_LIMITS.pauseSeconds, unit: "seconds" },
   startingEnergy: { min: 0, unit: "bits" },
-  energyPerSecond: { min: 0, unit: "bits per second" },
-  agentEnergyPerSecond: { min: 0, unit: "bits per second" },
+  powerPerSecond: { min: 0, unit: "bits per second" },
   maxAgentsPerGod: { min: 1, max: 200, int: true, unit: "agents" },
   penaltyWeight: { min: 0, unit: "" },
 };

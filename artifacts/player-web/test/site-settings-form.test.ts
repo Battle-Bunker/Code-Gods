@@ -39,8 +39,9 @@ test("limits mirror validateSettings and the engine's resource limits, with the 
   assert.equal(fieldError("pauseSeconds", 3601), "Must be between 1 and 3,600 seconds.");
   assert.equal(fieldError("scoreIntervalSeconds", 2.5), "Must be a whole number.");
   assert.equal(fieldError("scoreIntervalSeconds", 45), null, "any whole number of seconds, not only the presets");
-  assert.equal(fieldError("agentEnergyPerSecond", -1), "Must be at least 0 bits per second.");
-  assert.ok(!fieldsOf("energy").some(k => k === "agentBatteryActs" || k === "perActFloorBits"), "the retired battery and floor settings are not on the form");
+  assert.equal(fieldError("powerPerSecond", -1), "Must be at least 0 bits per second.");
+  assert.ok(fieldsOf("energy").includes("powerPerSecond"), "each player's power is on the form");
+  assert.ok(!fieldsOf("energy").some(k => ["energyPerSecond", "agentEnergyPerSecond", "agentBatteryActs", "perActFloorBits"].includes(k)), "the old income, battery and floor settings are gone");
   assert.equal(fieldError("planningSeconds", NaN), "Enter a number.");
   const grid = seedSetupSettings("grid-classic");
   assert.deepEqual(draftErrors(grid), {});

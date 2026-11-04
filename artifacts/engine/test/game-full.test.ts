@@ -52,7 +52,7 @@ for (const spec of SPECS) for (const language of languages) {
     assert.equal(obs.phase, "planning");
     assert.equal(obs.instance!.objectType, spec.objectType);
     assert.ok(obs.instance!.helpers.some(h => h.group === "mutator"));
-    assert.equal(obs.economy!.agentEnergyPerSecond, 100);
+    assert.equal(obs.economy!.powerPerSecond, 200);
     assert.ok(obs.self.utility!.familyId && obs.self.utility!.emoji && obs.self.utility!.summary);
     assert.match(obs.self.utility!.source, language === "python" ? /def utility\(/ : /function utility\(/);
     let secret = await raw(game.gameId);

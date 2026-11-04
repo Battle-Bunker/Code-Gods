@@ -313,7 +313,7 @@ export function scoreSeries(replay: Replay, maxPoints = 2000) {
   const step = Math.max(1, Math.ceil(n / (Math.max(2, maxPoints) - 1)));
   const cursor: number[] = [], world: number[] = [], totals: number[][] = Array.from({ length: gods }, () => []);
   const push = (c: number, w: number, t: readonly number[]) => { cursor.push(c); world.push(w); t.forEach((v, i) => totals[i].push(v)); };
-  const state = emptyState(gods);
+  const state = emptyState(gods, replay.game.settings.startingEnergy);
   push(0, 0, state.totals);
   replay.log.forEach((entry, i) => {
     applyEntry(state, entry, replay.game.settings, replay.roster);
@@ -339,7 +339,7 @@ export type KeyMoment = {
  */
 export function keyMoments(replay: Replay, swings = 8): KeyMoment[] {
   const out: KeyMoment[] = [], changes: KeyMoment[] = [];
-  const state = emptyState(replay.game.roster.length);
+  const state = emptyState(replay.game.roster.length, replay.game.settings.startingEnergy);
   const summoned = new Set<string>();
   // The last SOLE leader: a tie does not reset it, so retaking the lead after a tie is not a change.
   let leader = -1;

@@ -10,7 +10,7 @@ import { REPLAY_VERSION, buildReplay, type ReplayPage } from "@workspace/player-
 import { ReplayController } from "../src/core/replay/controller.ts";
 
 const charge = (total: number) => ({ read: total, change: 0, total });
-const settings = { languages: ["python"], agentEnergyPerSecond: 1, startingEnergy: 100, energyPerSecond: 1, maxAgentsPerGod: 4,
+const settings = { languages: ["python"], powerPerSecond: 2, startingEnergy: 100, maxAgentsPerGod: 4,
   penaltyWeight: 0, objectType: "Int", typeArgs: {}, priorId: "uniform" };
 const page: ReplayPage = {
   version: REPLAY_VERSION,

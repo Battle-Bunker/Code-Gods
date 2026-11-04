@@ -3,7 +3,7 @@ import test from "node:test";
 import { instantiate, instanceInfo, OBJECT_TYPES } from "@workspace/game-types";
 import { publicCatalog } from "@workspace/game-utilities";
 import {
-  formatCount, objectNoun, oneInN, penaltyLine, penaltyPercent, penaltySurprisal, rarerThanPerMille, rarityText,
+  formatCount, objectNoun, powerLine, oneInN, penaltyLine, penaltyPercent, penaltySurprisal, rarerThanPerMille, rarityText,
 } from "../src/rarity.ts";
 import { familyUses, groupByBadge, lockedText, primaryBadge, shelfCounts, WORKS_EVERYWHERE, DEFENCE_GOALS } from "../src/catalog.ts";
 import { changedParams, componentBadges, findOffered, ruleDelta, snapToOffered, type ObjectTypeInfoLike } from "../src/settings.ts";
@@ -142,4 +142,10 @@ test("dispatch: a known objectType wins over inference; untyped values fall back
   assert.equal(r.resolve("hello")?.component, "S");
   assert.equal(r.resolve("7R", {})?.component, "S", "1×1 is not inferred as a grid");
   assert.equal(r.resolve(3, { objectType: "Tree" })?.component, "I", "unknown types fall back to inference");
+});
+
+test("an agent's power line: income and its percentage of the god's power", () => {
+  assert.equal(powerLine(16, 0.25), "earns 16.0 bits/s (25% of your power)");
+  assert.equal(powerLine(0, 0), "earns 0.0 bits/s (0% of your power)");
+  assert.match(powerLine(2.667, 1 / 3), /\(33\.3% of your power\)/);
 });
