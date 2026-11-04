@@ -849,7 +849,8 @@ def honest_minesweeper(p, gt):
 
 
 def bingo_caller(p, gt):
-    called = [rank_value(gt, r) for r in p["called"]]
+    from .games import rank_at
+    called = [rank_value(gt, rank_at(gt, r)) for r in p["called"]]
     free = gt.N % 2 == 1
     any_suit = " (any suit)" if gt.symbols == "cards" else ""
     free_space = " The middle cell is a free space." if free else ""

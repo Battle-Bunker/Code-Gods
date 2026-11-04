@@ -1,7 +1,7 @@
 /** Games-kids-know lens rules (lib/grid-lab/gridlab/rules/games.py, cards from rules/cards.py). */
 import type { Cand, CardText, GridSpec, Layer } from "./_util.ts";
 import type { Params } from "../../types.ts";
-import { colourParam, boolParam, choiceParam, intParam } from "../../params.ts";
+import { setParam, colourParam, boolParam, choiceParam, intParam } from "../../params.ts";
 import { roundHalfEven } from "./arithmetic.ts";
 import {
   RANK_NAMES, SCALAR, SUIT_NAMES, bestOf, cap, chance, choose, climb, fromFn, full, glyph, gridFamily, pick, product, pyCard, range, sentences, symForValue, thing, tsCard, tuple, wire, colourAt, recolourNames,
@@ -258,7 +258,7 @@ const minesweeper = gridFamily<MineP>({
 });
 
 // --- Bingo Caller -----------------------------------------------------------------------------------------
-type BingoP = { called: readonly number[] };
+type BingoP = { called: readonly string[] };
 function* combinations(n: number, k: number, from = 0): Generator<number[]> {
   if (k === 0) { yield []; return; }
   for (let i = from; i <= n - k; i++) for (const rest of combinations(n, k - 1, i + 1)) yield [i, ...rest];
@@ -266,7 +266,7 @@ function* combinations(n: number, k: number, from = 0): Generator<number[]> {
 const calledCount = (g: GridSpec) => Math.ceil(g.ranks / 3);
 const rankValue = (g: GridSpec, rank: number) => (g.cards ? rank + 1 : rank);
 const bingoText = (p: BingoP, g: GridSpec): CardText => {
-  const called = p.called.map(r => rankValue(g, r)), free = g.N % 2 === 1;
+  const called = p.called.map(r => rankValue(g, rankAt(g, r))), free = g.N % 2 === 1;
   return {
     emoji: "🎱", name: "Bingo Caller",
     consts: [["CALLED", called, g.cards ? called.map(v => RANK_NAMES[v] ?? String(v)).join(", ") : ""]],
@@ -279,9 +279,12 @@ const bingoCaller = gridFamily<BingoP>({
   id: "bingo_caller", name: "Bingo Caller", emoji: "🎱", theme: "Dab your called numbers",
   analytic: solvedAnalytic("bingo_caller"),
   shape: SCALAR, tags: ["shortlist"],
-  support: g => [...combinations(g.ranks, calledCount(g))].map(called => ({ called })),
-  sample: (rng, g) => ({ called: choose(rng, range(g.ranks), calledCount(g)).sort((a, b) => a - b) }),
-  canonical: p => ({ called: range(p.called.length) }),
+  params: g => ({ called: setParam(g.cards ? "Called ranks (any suit)" : "Called numbers", calledCount(g), rankOptions(g)) }),
+  // LEGACY (typed-params widen step): ranks stored as indices.
+  legacy: (p, g) => (Array.isArray(p.called) && typeof p.called[0] === "number" ? { called: (p.called as number[]).map(r => rankName(g, r)) } : null),
+  support: g => [...combinations(g.ranks, calledCount(g))].map(called => ({ called: called.map(r => rankName(g, r)) })),
+  sample: (rng, g) => ({ called: choose(rng, range(g.ranks), calledCount(g)).sort((a, b) => a - b).map(r => rankName(g, r)) }),
+  canonical: (p, g) => ({ called: range(p.called.length).map(r => rankName(g, r)) }),
   summary: (p, g) => bingoText(p, g).about,
   python: (p, g) => pyCard(bingoText(p, g), `
     def dabbed(grid, cell):
@@ -313,7 +316,7 @@ const bingoCaller = gridFamily<BingoP>({
       }
       return points;
     }`),
-  exemplar: (p, g) => wire(g, full(g.N, p.called[0]), full(g.N, 0)),
+  exemplar: (p, g) => wire(g, full(g.N, rankAt(g, p.called[0])), full(g.N, 0)),
 });
 
 // --- Sudoku Scholar ---------------------------------------------------------------------------------------

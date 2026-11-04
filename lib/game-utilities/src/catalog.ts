@@ -27,13 +27,10 @@ export function family(id: string): UtilityFamily<any> {
 }
 
 /**
- * Families whose params are not yet declared by name and type (src/params.ts). Only shrinks: test/params.test.ts
- * requires every other family to declare `params`, and every family here to lack them. The annotated families
- * (Annotated basics) and the defence goals were typed first; the rest are listed in docs/rules-design.md §9.
+ * Families whose params are not yet declared by name and type (src/params.ts). Empty since 2026-11-04 (every family
+ * is typed, docs/rules-design.md §9) and it stays empty: test/params.test.ts requires every family to declare `params`.
  */
-export const UNTYPED_FAMILIES: ReadonlySet<string> = new Set<string>([
-  "bingo_caller",
-]);
+export const UNTYPED_FAMILIES: ReadonlySet<string> = new Set<string>([]);
 
 /** Families of one object type, optionally of one role. */
 export const familiesFor = (objectType: string, role?: "reward" | "penalty") =>
