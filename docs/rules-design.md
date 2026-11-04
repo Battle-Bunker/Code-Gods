@@ -283,13 +283,11 @@ drops and rebuilds the stored replay file of each ended game it touches (the fil
 `migrations:typedParamsPreparing` rewrites `rooms.preparing.deals`. Narrow (a later PR, once dev and production report
 both done): delete the `legacy` readers, `upgrade`, `upgradeParams`/`upgradeDescriptor` and the rekey script.
 
-**Typed so far:** every family with a lens (the Annotated basics set: Parity Painter, Set Spotter, Number Bonds,
-Chessmaster, Honest Minesweeper, Magic Accountant, Kingdom, Picture Frame, Mirrormancer) and all 8 defence goals.
-**Still untyped** (`UNTYPED_FAMILIES`, which only shrinks): the other 89 Grid families and the 28 Int and string
-families. Most Int/string families already have word names and plain values (`d`, `tail`, `period`), so typing them is a
-declaration each; the Grid ones with colour or symbol indices (about 45) need the same treatment as above: rename, store
-names, `legacy` reader, Python port, rekey. Estimate: about a day of agent time for all of them (four batches of about
-25 families, each a TS + Python + lens-free change verified by `params.test.ts`, the parity test and the rekey).
+**Every family is typed** (2026-11-04): the annotated families and defence goals (#184), Picture Frame's redesign
+(#191), then the Int and string families (#202), games and geometry (#203), colour and strategy (#204), arithmetic and
+seeds (#207) and Bingo Caller, whose called ranks are a `set` param (a fixed number of distinct ranks, stored by name in
+rank order). `UNTYPED_FAMILIES` is empty; `test/params.test.ts` requires every family to declare its params. Each batch
+added its own `typedParams*` migration pair (the same `typedDeity` / `typedPreparing` rewrites).
 
 ## 10. Futile acts (2026-11-03)
 
