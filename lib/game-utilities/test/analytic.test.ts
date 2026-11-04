@@ -177,7 +177,7 @@ test("hand-derived pins: exact tops and body values of the wired analytics", () 
   const at = (a: AnalyticSurvival, o: Ordinal) => a.levels.find(([l]) => cmpOrdinal(l, o) === 0)![1];
   const g4 = instantiate("Grid", { size: 4, symbols: "base10", colours: "rgb" }), g5 = instantiate("Grid", { size: 5, symbols: "base10", colours: "rgby" });
   // Best Friends: the maximum 2N(N−1) seams needs one of the two A/B checkerboards: G = 2 / C^n
-  const bf = analyticFor("best_friends", { A: 0, B: 1 }, g4)!;
+  const bf = analyticFor("best_friends", { first_colour: "red", second_colour: "green" }, g4)!;
   assert.deepEqual(last(bf)[0], 24);
   close(last(bf)[1], 1 - 16 * Math.log2(3));
   // Hated colour: all cells my colour; Hated takeover: all cells one colour (C ways); first level ceil(n/C) has G = 1
@@ -190,7 +190,7 @@ test("hand-derived pins: exact tops and body values of the wired analytics", () 
   assert.deepEqual(last(go)[0], [25, 0]);
   close(last(go)[1], 25 * Math.log2(1 / 40));
   // Rainbow Road: P(at least one whole row) = 1 − (1 − C^(1−N))^N, and the top is every row a whole rainbow line
-  const rr = analyticFor("rainbow_road", { dir: "→" }, g5)!;
+  const rr = analyticFor("rainbow_road", { direction: "→" }, g5)!;
   close(at(rr, [1, 4]), Math.log2(1 - (1 - 4 ** -4) ** 5), 1e-12);
   close(last(rr)[1], 5 * 4 * Math.log2(1 / 4));
   // Picture Frame on 4×4, base 10, rgb, red and 7: 12 edge cells, 4 middle cells. Per cell, both with probability 1/30,
@@ -206,7 +206,7 @@ test("hand-derived pins: exact tops and body values of the wired analytics", () 
   close(last(pf)[1], Math.log2(top), 1e-9);
   close(at(pf, 47), Math.log2(top + next), 1e-9);
   // Staircase Climber: all N−1 steps in every row needs a run of N consecutive values from S−N+1 starts
-  const sc = analyticFor("staircase_climber", { dir: "→" }, g4)!;
+  const sc = analyticFor("staircase_climber", { direction: "→" }, g4)!;
   assert.deepEqual(last(sc)[0], 12);
   close(last(sc)[1], 4 * Math.log2(7 / 10 ** 4), 1e-9);
 });

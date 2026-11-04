@@ -62,7 +62,8 @@ STRIPE_PAINTER = mk(
 
 # --- Feuding Families --------------------------------------------------------------------------------
 def ff_ord(g, p, gtype):
-    N, X, Y = gtype.N, p["X"], p["Y"]
+    N = gtype.N
+    X, Y = cis(gtype, p, "first_family", "second_family")
     col = g.col.tolist()
     sx = sy = 0
     for r in range(N):
@@ -81,14 +82,15 @@ def _nbr_has(col, k):
 
 
 def ff_batch(sym, col, p, gtype):
-    X, Y = p["X"], p["Y"]
+    X, Y = cis(gtype, p, "first_family", "second_family")
     sx = ((col == X) & ~_nbr_has(col, Y)).sum((1, 2))
     sy = ((col == Y) & ~_nbr_has(col, X)).sum((1, 2))
     return tupb(np.minimum(sx, sy), sx + sy)
 
 
 def ff_exemplar(p, gtype):
-    N, X, Y = gtype.N, p["X"], p["Y"]
+    N = gtype.N
+    X, Y = cis(gtype, p, "first_family", "second_family")
     Z = next(k for k in range(gtype.C) if k not in (X, Y))
     h = (N - 1) // 2
     r, c = np.indices((N, N))
@@ -100,17 +102,18 @@ def ff_exemplar(p, gtype):
 FEUDING_FAMILIES = mk(
     id="feuding_families", name="Feuding Families", theme="Two big families that must never touch",
     requires=req(), layers={"colour", "position"}, camp="clumper",
-    sample=lambda rng, gt: dict(zip(("X", "Y"), colours(rng, gt, 2))),
-    summary=lambda p, gt: (f"You want lots of {cname(gt, p['X'])} and lots of {cname(gt, p['Y'])}, but they must never "
+    sample=lambda rng, gt: dict(zip(("first_family", "second_family"), colour_names(rng, gt, 2))),
+    summary=lambda p, gt: (f"You want lots of {p['first_family']} and lots of {p['second_family']}, but they must never "
                            "touch. A cell is safe if it doesn't touch the other family; your score is the smaller "
                            "family's safe count."),
-    ordinal=ff_ord, batch=ff_batch, canonical=lambda p, gt: recolour(p, ["X", "Y"]), exemplar=ff_exemplar,
+    ordinal=ff_ord, batch=ff_batch, canonical=lambda p, gt: recolour_names(p, ["first_family", "second_family"], gt), exemplar=ff_exemplar,
     source="catalog#18 (col#11; ×2 dropped); tie-breaker = total safe cells", tags={"shortlist"})
 
 
 # --- Colour Mixer --------------------------------------------------------------------------------------
 def cm_ord(g, p, gtype):
-    N, P1, M, P2 = gtype.N, p["P1"], p["M"], p["P2"]
+    N = gtype.N
+    P1, M, P2 = cis(gtype, p, "first_paint", "mixed_colour", "second_paint")
     col = g.col.tolist()
     s = near = 0
     for r in range(N):
@@ -131,7 +134,7 @@ def cm_ord(g, p, gtype):
 
 
 def cm_batch(sym, col, p, gtype):
-    P1, M, P2 = p["P1"], p["M"], p["P2"]
+    P1, M, P2 = cis(gtype, p, "first_paint", "mixed_colour", "second_paint")
     isM = col == M
     h1, h2 = _nbr_has(col, P1), _nbr_has(col, P2)
     if p["strict"]:
@@ -147,18 +150,20 @@ def cm_batch(sym, col, p, gtype):
 def cm_sample(rng, gtype):
     rec = _recipes(gtype)
     a, b, m = rec[int(rng.integers(len(rec)))]
-    return {"P1": a, "M": m, "P2": b, "strict": bool(rng.random() < 0.5)}
+    return {"first_paint": cname(gtype, a), "mixed_colour": cname(gtype, m), "second_paint": cname(gtype, b),
+            "strict": bool(rng.random() < 0.5)}
 
 
 def cm_canon(p, gtype):
     a, b, m = _recipes(gtype)[0]  # all distinct colour triples are equivalent under colour permutation
-    return {"P1": a, "M": m, "P2": b, "strict": p["strict"]}
+    return {"first_paint": cname(gtype, a), "mixed_colour": cname(gtype, m), "second_paint": cname(gtype, b),
+            "strict": p["strict"]}
 
 
 def cm_exemplar(p, gtype):
     N = gtype.N
     c = np.indices((N, N))[1]
-    col = np.array([p["P1"], p["M"], p["P2"], p["M"]])[c % 4]
+    col = np.array(cis(gtype, p, "first_paint", "mixed_colour", "second_paint", "mixed_colour"))[c % 4]
     return multi_climb(cm_batch, [grid(np.zeros((N, N)), col)], p, gtype, restarts=2)
 
 
@@ -166,8 +171,8 @@ COLOUR_MIXER = mk(
     id="colour_mixer", name="Colour Mixer", theme="A mixed colour touching both its parents",
     requires=req("Mixable"), layers={"colour", "position"}, camp="alternator",
     sample=cm_sample,
-    summary=lambda p, gt: (f"{cname(gt, p['P1']).capitalize()} and {cname(gt, p['P2'])} make {cname(gt, p['M'])}. Every "
-                           f"{cname(gt, p['M'])} cell " + ("with one parent on each side of it (left/right or above/below)"
+    summary=lambda p, gt: (f"{p['first_paint'].capitalize()} and {p['second_paint']} make {p['mixed_colour']}. Every "
+                           f"{p['mixed_colour']} cell " + ("with one parent on each side of it (left/right or above/below)"
                                                            if p["strict"] else "touching both parents") + " is a perfect mix."),
     ordinal=cm_ord, batch=cm_batch, canonical=cm_canon, exemplar=cm_exemplar,
     source="catalog#19 (D12: col#5 recipe param, strict from geo#15); tie-breaker = mixes touching a parent",
@@ -208,7 +213,7 @@ FAIR_WEAVER = mk(
 
 # --- Lantern Lighter ----------------------------------------------------------------------------------------
 def ll_ord(g, p, gtype):
-    N, X = gtype.N, p["X"]
+    N, X = gtype.N, ci(gtype, p["colour"])
     a = g.col.tolist()
     rows = [r.count(X) for r in a]
     cols = [[a[r][c] for r in range(N)].count(X) for c in range(N)]
@@ -216,24 +221,25 @@ def ll_ord(g, p, gtype):
 
 
 def ll_batch(sym, col, p, gtype):
-    X = col == p["X"]
+    X = col == ci(gtype, p["colour"])
     return (X & (X.sum(2, keepdims=True) == 1) & (X.sum(1, keepdims=True) == 1)).sum((1, 2))
 
 
 def ll_exemplar(p, gtype):
     N = gtype.N
-    col = np.full((N, N), (p["X"] + 1) % gtype.C)
-    np.fill_diagonal(col, p["X"])
+    X = ci(gtype, p["colour"])
+    col = np.full((N, N), (X + 1) % gtype.C)
+    np.fill_diagonal(col, X)
     return grid(np.zeros((N, N)), col)
 
 
 LANTERN_LIGHTER = mk(
     id="lantern_lighter", name="Lantern Lighter", theme="One lantern per row and column",
     requires=req(), layers={"colour", "position"}, camp="alternator",
-    sample=lambda rng, gt: {"X": colour(rng, gt)},
-    summary=lambda p, gt: (f"A {cname(gt, p['X'])} cell is a lit lantern if it is the only {cname(gt, p['X'])} in its row "
+    sample=lambda rng, gt: {"colour": colour_name(rng, gt)},
+    summary=lambda p, gt: (f"A {p['colour']} cell is a lit lantern if it is the only {p['colour']} in its row "
                            "and the only one in its column. Count your lanterns."),
-    ordinal=ll_ord, batch=ll_batch, canonical=lambda p, gt: recolour(p, ["X"]), exemplar=ll_exemplar,
+    ordinal=ll_ord, batch=ll_batch, canonical=lambda p, gt: recolour_names(p, ["colour"], gt), exemplar=ll_exemplar,
     source="catalog#28 (col#12)", tags={"shortlist"})
 
 
@@ -241,34 +247,35 @@ LANTERN_LIGHTER = mk(
 BEST_FRIENDS = mk(
     id="best_friends", name="Best Friends", theme="Your two colours side by side",
     requires=req(), layers={"colour", "position"}, camp="alternator",
-    sample=lambda rng, gt: dict(zip(("A", "B"), colours(rng, gt, 2))),
-    summary=lambda p, gt: f"Every place a {cname(gt, p['A'])} cell touches a {cname(gt, p['B'])} cell scores a point.",
-    ordinal=lambda g, p, gt: _seams_scalar(g.col.tolist(), gt.N, p["A"], p["B"]),
-    batch=lambda s, c, p, gt: _seams_batch(c, p["A"], p["B"]),
-    canonical=lambda p, gt: recolour(p, ["A", "B"]), exemplar=lambda p, gt: checker(gt, p["A"], p["B"]),
+    sample=lambda rng, gt: dict(zip(("first_colour", "second_colour"), colour_names(rng, gt, 2))),
+    summary=lambda p, gt: f"Every place a {p['first_colour']} cell touches a {p['second_colour']} cell scores a point.",
+    ordinal=lambda g, p, gt: _seams_scalar(g.col.tolist(), gt.N, *cis(gt, p, "first_colour", "second_colour")),
+    batch=lambda s, c, p, gt: _seams_batch(c, *cis(gt, p, "first_colour", "second_colour")),
+    canonical=lambda p, gt: recolour_names(p, ["first_colour", "second_colour"], gt),
+    exemplar=lambda p, gt: checker(gt, *cis(gt, p, "first_colour", "second_colour")),
     source="col#1 (catalog D2 'seams')")
 
 
 # --- Rainbow Steps (Rainbow Road pairs) ------------------------------------------------------------------------
 def rs_ord(g, p, gtype):
     C = gtype.C
-    a = orient(g.col, p["dir"]).tolist()
+    a = orient(g.col, p["direction"]).tolist()
     return sum((row[i + 1] - row[i]) % C == 1 for row in a for i in range(gtype.N - 1))
 
 
 def rs_batch(sym, col, p, gtype):
-    a = orient(col, p["dir"]).astype(np.int64)
+    a = orient(col, p["direction"]).astype(np.int64)
     return ((a[:, :, 1:] - a[:, :, :-1]) % gtype.C == 1).sum((1, 2))
 
 
 RAINBOW_STEPS = mk(
     id="rainbow_steps", name="Rainbow Steps", theme="Next-door colours step round the rainbow",
     requires=req("Spectral"), layers={"colour", "position"}, camp="alternator",
-    sample=lambda rng, gt: {"dir": str(rng.choice(DIRS4))},
-    summary=lambda p, gt: (f"Every time a cell's next neighbour ({D4_DIR_NAMES[p['dir']]}) is the next colour of the "
+    sample=lambda rng, gt: {"direction": str(rng.choice(DIRS4))},
+    summary=lambda p, gt: (f"Every time a cell's next neighbour ({D4_DIR_NAMES[p['direction']]}) is the next colour of the "
                            f"rainbow ({' → '.join(gt.colour_names)} → {gt.colour_names[0]}), score a point."),
-    ordinal=rs_ord, batch=rs_batch, canonical=lambda p, gt: {"dir": "→"},
-    exemplar=lambda p, gt: grid(np.zeros((gt.N, gt.N)), unorient(np.indices((gt.N, gt.N))[1] % gt.C, p["dir"])),
+    ordinal=rs_ord, batch=rs_batch, canonical=lambda p, gt: {"direction": "→"},
+    exemplar=lambda p, gt: grid(np.zeros((gt.N, gt.N)), unorient(np.indices((gt.N, gt.N))[1] % gt.C, p["direction"])),
     source="col#3 (catalog D1 'pairs'; wrap on every Spectral set)")
 
 
@@ -318,7 +325,7 @@ QUILT_MAKER = mk(
 
 # --- Flag Bearer ------------------------------------------------------------------------------------------------
 def fb_ord(g, p, gtype):
-    N, C = gtype.N, p["C"]
+    N, C = gtype.N, ci(gtype, p["colour"])
     s = marg = 0
     for ln in _lines2(g.col, p["axis"]):
         n = [ln.count(k) for k in range(gtype.C)]
@@ -329,7 +336,7 @@ def fb_ord(g, p, gtype):
 
 
 def fb_batch(sym, col, p, gtype):
-    N, C = gtype.N, p["C"]
+    N, C = gtype.N, ci(gtype, p["colour"])
     L = lines_rc(col, p["axis"])
     n = np.stack([(L == k).sum(2) for k in range(gtype.C)], 2)
     other = np.delete(n, C, axis=2).max(2)
@@ -339,11 +346,11 @@ def fb_batch(sym, col, p, gtype):
 FLAG_BEARER = mk(
     id="flag_bearer", name="Flag Bearer", theme="Your colour wins the vote in every row",
     requires=req(), layers={"colour", "position"}, camp="clumper",
-    sample=lambda rng, gt: {"C": colour(rng, gt), "axis": str(rng.choice(LINE_AXES))},
-    summary=lambda p, gt: (f"A {'row' if p['axis'] == 'rows' else 'column'} is yours if it has more {cname(gt, p['C'])} "
+    sample=lambda rng, gt: {"colour": colour_name(rng, gt), "axis": str(rng.choice(LINE_AXES))},
+    summary=lambda p, gt: (f"A {'row' if p['axis'] == 'rows' else 'column'} is yours if it has more {p['colour']} "
                            "than any other single colour. Count your lines; a bigger lead is better."),
-    ordinal=fb_ord, batch=fb_batch, canonical=lambda p, gt: {"C": 0, "axis": "rows"},
-    exemplar=lambda p, gt: grid(np.zeros((gt.N, gt.N)), np.full((gt.N, gt.N), p["C"])),
+    ordinal=fb_ord, batch=fb_batch, canonical=lambda p, gt: {"colour": gt.colour_names[0], "axis": "rows"},
+    exemplar=lambda p, gt: grid(np.zeros((gt.N, gt.N)), np.full((gt.N, gt.N), ci(gt, p["colour"]))),
     source="col#6; tie-breaker = total winning margin")
 
 
@@ -351,16 +358,16 @@ FLAG_BEARER = mk(
 COLOUR_BY_NUMBER = mk(
     id="colour_by_number", name="Colour-by-Number", theme="Every number has its own colour",
     requires=req("Valued"), layers={"colour", "symbol"}, camp="neutral",
-    sample=lambda rng, gt: {"t": int(rng.integers(gt.C))},
+    sample=lambda rng, gt: {"shift": int(rng.integers(gt.C))},
     summary=lambda p, gt: ("Your colouring key: " + "; ".join(
-        f"{cname(gt, k)} for " + ",".join(str(v) for v in sorted(set(gt.value.tolist())) if (v + p["t"]) % gt.C == k)
+        f"{cname(gt, k)} for " + ",".join(str(v) for v in sorted(set(gt.value.tolist())) if (v + p["shift"]) % gt.C == k)
         for k in range(gt.C)) + ". Score a point for every cell painted the right colour for its number."),
-    ordinal=lambda g, p, gt: int(((gt.value[g.sym].astype(np.int64) + p["t"]) % gt.C == g.col).sum()),
-    batch=lambda s, c, p, gt: ((vals(s, gt) + p["t"]) % gt.C == c).sum((1, 2)),
-    canonical=lambda p, gt: {"t": 0},  # cyclic colour relabelling shifts t
+    ordinal=lambda g, p, gt: int(((gt.value[g.sym].astype(np.int64) + p["shift"]) % gt.C == g.col).sum()),
+    batch=lambda s, c, p, gt: ((vals(s, gt) + p["shift"]) % gt.C == c).sum((1, 2)),
+    canonical=lambda p, gt: {"shift": 0},  # cyclic colour relabelling shifts t
     exact_log2_tail=lambda t, p, gt: log2_binom_tail(gt.N ** 2, 1.0 / gt.C, int(t)),
     exemplar=lambda p, gt: grid(np.indices((gt.N, gt.N))[1] % gt.S,
-                                (gt.value[np.indices((gt.N, gt.N))[1] % gt.S].astype(np.int64) + p["t"]) % gt.C),
+                                (gt.value[np.indices((gt.N, gt.N))[1] % gt.S].astype(np.int64) + p["shift"]) % gt.C),
     source="col#8 (catalog D13 key=mod K; raw count, exact Bin(N², 1/K))")
 
 
@@ -389,24 +396,25 @@ KINGDOM = mk(
 
 # --- Wallpaper Weaver --------------------------------------------------------------------------------------------------
 def ww_ord(g, p, gtype):
-    N, k = gtype.N, p["p"]
-    a = (g.col if p["dir"] == "right" else g.col.T).tolist()
+    N, k = gtype.N, p["steps"]
+    a = (g.col if p["direction"] == "right" else g.col.T).tolist()
     return sum(a[r][c] == a[r][c + k] for r in range(N) for c in range(N - k))
 
 
 def ww_batch(sym, col, p, gtype):
-    k = p["p"]
-    a = col if p["dir"] == "right" else np.swapaxes(col, 1, 2)
+    k = p["steps"]
+    a = col if p["direction"] == "right" else np.swapaxes(col, 1, 2)
     return (a[:, :, :-k] == a[:, :, k:]).sum((1, 2))
 
 
 WALLPAPER = mk(
     id="wallpaper_weaver", name="Wallpaper Weaver", theme="A repeating pattern",
     requires=req(), layers={"colour", "position"}, camp="neutral",
-    sample=lambda rng, gt: {"p": int(rng.choice([2, 3] if gt.N >= 4 else [2])), "dir": str(rng.choice(["right", "down"]))},
-    summary=lambda p, gt: (f"Every cell whose colour matches the cell {p['p']} steps "
-                           f"{'to its right' if p['dir'] == 'right' else 'below it'} scores a point."),
-    ordinal=ww_ord, batch=ww_batch, canonical=lambda p, gt: {"p": p["p"], "dir": "right"},
+    sample=lambda rng, gt: {"steps": int(rng.choice([2, 3] if gt.N >= 4 else [2])),
+                            "direction": str(rng.choice(["right", "down"]))},
+    summary=lambda p, gt: (f"Every cell whose colour matches the cell {p['steps']} steps "
+                           f"{'to its right' if p['direction'] == 'right' else 'below it'} scores a point."),
+    ordinal=ww_ord, batch=ww_batch, canonical=lambda p, gt: {"steps": p["steps"], "direction": "right"},
     exemplar=lambda p, gt: grid(np.zeros((gt.N, gt.N)), np.zeros((gt.N, gt.N))),
     source="col#13 (p=3 needs N>=4)")
 
@@ -415,7 +423,7 @@ WALLPAPER = mk(
 def ss_ord(g, p, gtype):
     N = gtype.N
     s = good = 0
-    for ln in orient(g.col, p["dir"]).tolist():
+    for ln in orient(g.col, p["direction"]).tolist():
         ok = [0 <= ln[i + 1] - ln[i] <= 1 for i in range(N - 1)]
         good += sum(ok)
         s += all(ok) and len(set(ln)) >= 3
@@ -423,7 +431,7 @@ def ss_ord(g, p, gtype):
 
 
 def ss_batch(sym, col, p, gtype):
-    a = orient(col, p["dir"]).astype(np.int64)
+    a = orient(col, p["direction"]).astype(np.int64)
     d = a[:, :, 1:] - a[:, :, :-1]
     ok = (d >= 0) & (d <= 1)
     distinct = 1 + (d == 1).sum(2)  # monotone steps of 0/+1: distinct colours = 1 + number of +1 steps
@@ -433,27 +441,33 @@ def ss_batch(sym, col, p, gtype):
 SUNSET_SKY = mk(
     id="sunset_sky", name="Sunset Sky", theme="Lines that fade smoothly along the rainbow",
     requires=req("Spectral"), layers={"colour", "position"}, camp="neutral",
-    sample=lambda rng, gt: {"dir": str(rng.choice(DIRS4))},
-    summary=lambda p, gt: (f"Read each line {D4_DIR_NAMES[p['dir']]}. It is a sunset if every step stays the same colour "
+    sample=lambda rng, gt: {"direction": str(rng.choice(DIRS4))},
+    summary=lambda p, gt: (f"Read each line {D4_DIR_NAMES[p['direction']]}. It is a sunset if every step stays the same colour "
                            f"or moves one step along the rainbow ({', '.join(gt.colour_names)}), never back, and it uses at "
                            "least 3 colours. Count your sunsets."),
-    ordinal=ss_ord, batch=ss_batch, canonical=lambda p, gt: {"dir": "↓"},
+    ordinal=ss_ord, batch=ss_batch, canonical=lambda p, gt: {"direction": "↓"},
     exemplar=lambda p, gt: grid(np.zeros((gt.N, gt.N)),
-                                unorient(np.minimum(np.indices((gt.N, gt.N))[1], gt.C - 1), p["dir"])),
+                                unorient(np.minimum(np.indices((gt.N, gt.N))[1], gt.C - 1), p["direction"])),
     source="col#14; tie-breaker = good steps")
 
 
 # --- Colour Wheel Harmony ----------------------------------------------------------------------------------------------------
+def _favourite(gtype, p):
+    """The favourite colour's index, or None for 'any'."""
+    return None if p["favourite"] == "any" else ci(gtype, p["favourite"])
+
+
 def wh_ord(g, p, gtype):
     N, C = gtype.N, gtype.C
     h = C // 2
+    favourite = _favourite(gtype, p)
     col = g.col.tolist()
     s = 0
     for r in range(N):
         for c in range(N):
             for r2, c2 in ((r, c + 1), (r + 1, c)):
                 if r2 < N and c2 < N and (col[r][c] - col[r2][c2]) % C == h:
-                    fav = p["fav"] is not None and min(col[r][c], col[r2][c2]) == p["fav"]
+                    fav = favourite is not None and favourite in (col[r][c], col[r2][c2])
                     s += 2 if fav else 1
     return s
 
@@ -461,11 +475,12 @@ def wh_ord(g, p, gtype):
 def wh_batch(sym, col, p, gtype):
     C = gtype.C
     h = C // 2
+    favourite = _favourite(gtype, p)
     c = col.astype(np.int64)
     s = 0
     for a, b in ((c[:, :, :-1], c[:, :, 1:]), (c[:, :-1, :], c[:, 1:, :])):
         opp = (a - b) % C == h
-        w = 1 + (np.minimum(a, b) == p["fav"]) if p["fav"] is not None else 1
+        w = 1 + ((a == favourite) | (b == favourite)) if favourite is not None else 1
         s = s + (opp * w).sum((1, 2))
     return s
 
@@ -473,14 +488,15 @@ def wh_batch(sym, col, p, gtype):
 HARMONY = mk(
     id="colour_wheel_harmony", name="Colour Wheel Harmony", theme="Opposite colours that make each other pop",
     requires=req("Wheel"), layers={"colour", "position"}, camp="alternator",
-    sample=lambda rng, gt: {"fav": None if rng.random() < 0.5 else int(rng.integers(gt.C // 2))},
+    sample=lambda rng, gt: {"favourite": "any" if rng.random() < 0.5 else gt.colour_names[int(rng.integers(gt.C // 2))]},
     summary=lambda p, gt: ("Every time two opposite colours on the wheel touch ("
                            + ", ".join(f"{gt.colour_names[i]}–{gt.colour_names[i + gt.C // 2]}" for i in range(gt.C // 2))
                            + "), score a point"
-                           + (f"; {gt.colour_names[p['fav']]}–{gt.colour_names[p['fav'] + gt.C // 2]} scores double."
-                              if p["fav"] is not None else ".")),
-    ordinal=wh_ord, batch=wh_batch, canonical=lambda p, gt: {"fav": None if p["fav"] is None else 0},
-    exemplar=lambda p, gt: checker(gt, p["fav"] or 0, (p["fav"] or 0) + gt.C // 2),
+                           + (f"; {p['favourite']}–{gt.colour_names[(ci(gt, p['favourite']) + gt.C // 2) % gt.C]} scores double."
+                              if p["favourite"] != "any" else ".")),
+    ordinal=wh_ord, batch=wh_batch,
+    canonical=lambda p, gt: {"favourite": "any" if p["favourite"] == "any" else gt.colour_names[0]},
+    exemplar=lambda p, gt: checker(gt, _favourite(gt, p) or 0, (_favourite(gt, p) or 0) + gt.C // 2),
     source="col#15 (Wheel with an even colour count: rainbow6)")
 
 
@@ -531,7 +547,8 @@ WARM_HEARTS = mk(
 
 # --- Twin Friends (symbol-gated Best Friends, col idea) ---------------------------------------------------------------------
 def tf_ord(g, p, gtype):
-    N, A, B = gtype.N, p["A"], p["B"]
+    N = gtype.N
+    A, B = cis(gtype, p, "first_colour", "second_colour")
     col, k = g.col.tolist(), rank_key(g.sym, gtype).tolist()
     gated = 0
     for r in range(N):
@@ -543,7 +560,7 @@ def tf_ord(g, p, gtype):
 
 
 def tf_batch(sym, col, p, gtype):
-    A, B = p["A"], p["B"]
+    A, B = cis(gtype, p, "first_colour", "second_colour")
     k = rank_key(sym, gtype)
 
     def pr(x, y):
@@ -556,11 +573,11 @@ def tf_batch(sym, col, p, gtype):
 TWIN_FRIENDS = mk(
     id="twin_friends", name="Twin Friends", theme="Your two colours side by side on matching symbols",
     requires=req(), layers={"colour", "symbol", "position"}, camp="alternator",
-    sample=lambda rng, gt: dict(zip(("A", "B"), colours(rng, gt, 2))),
-    summary=lambda p, gt: (f"Every place a {cname(gt, p['A'])} cell touches a {cname(gt, p['B'])} cell with the same symbol "
+    sample=lambda rng, gt: dict(zip(("first_colour", "second_colour"), colour_names(rng, gt, 2))),
+    summary=lambda p, gt: (f"Every place a {p['first_colour']} cell touches a {p['second_colour']} cell with the same symbol "
                            "scores a point (touching with different symbols is a small step)."),
-    ordinal=tf_ord, batch=tf_batch, canonical=lambda p, gt: recolour(p, ["A", "B"]),
-    exemplar=lambda p, gt: checker(gt, p["A"], p["B"]),
+    ordinal=tf_ord, batch=tf_batch, canonical=lambda p, gt: recolour_names(p, ["first_colour", "second_colour"], gt),
+    exemplar=lambda p, gt: checker(gt, *cis(gt, p, "first_colour", "second_colour")),
     source="col cross-lens idea 'symbol-gated colour rules'; tie-breaker = ungated seams")
 
 

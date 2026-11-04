@@ -71,17 +71,17 @@ def rank_value(gt: GridType, rank: int) -> int:
 
 # --- seeds --------------------------------------------------------------------------------------------
 def line_painter(p, gt):
-    diag = p["diag"]
+    diag = p["diagonals"]
     dirs = "across, down and along both diagonals" if diag else "across and down"
     extra = """
                 if is_mine(cell.up_left) or is_mine(cell.down_right):
                     points += cell.value
                 if is_mine(cell.up_right) or is_mine(cell.down_left):
                     points += cell.value""" if diag else ""
-    return card("🖍️", "Line Painter", f"""Your colour scores when it lines up. Each {col(gt, p['colour'])} cell that
-        touches another {col(gt, p['colour'])} cell in a straight line ({dirs}) earns its value, once for
+    return card("🖍️", "Line Painter", f"""Your colour scores when it lines up. Each {p['colour']} cell that
+        touches another {p['colour']} cell in a straight line ({dirs}) earns its value, once for
         every direction it lines up in.""",
-                [("MY_COLOUR", col(gt, p["colour"]))], f"""
+                [("MY_COLOUR", p["colour"])], f"""
         def is_mine(cell):
             return cell is not None and cell.colour == MY_COLOUR
 
@@ -124,9 +124,9 @@ def patchwork(p, gt):
 def green_ones(p, gt):
     v = p["value"]
     what = "aces" if gt.symbols == "cards" and v == 1 else f"{v}s"
-    return card("🍀", "Green Ones", f"""Count the {col(gt, p['colour'])} {what}. If that's a tie, count the
+    return card("🍀", "Green Ones", f"""Count the {p['colour']} {what}. If that's a tie, count the
         cells that are halfway there: the right colour or the right {thing(gt)}, but not both.""",
-                [("MY_COLOUR", col(gt, p["colour"])), ("MY_VALUE", v, value_note(gt, v))], """
+                [("MY_COLOUR", p["colour"]), ("MY_VALUE", v, value_note(gt, v))], """
         def utility(grid):
             perfect = 0
             halfway = 0
@@ -147,8 +147,8 @@ _READ = {"→": ("left to right", "grid.rows"), "←": ("right to left", "[list(
 
 
 def rainbow_road(p, gt):
-    how, lines = _READ[p["dir"]]
-    kind = "row" if p["dir"] in "→←" else "column"
+    how, lines = _READ[p["direction"]]
+    kind = "row" if p["direction"] in "→←" else "column"
     order = " → ".join(gt.colour_names + (gt.colour_names[0],))
     return card("🌈", "Rainbow Road", f"""Read every {kind} {how}. A step scores when the next colour is
         the next one round the rainbow ({order}). A whole {kind} of rainbow steps beats any number of
@@ -170,9 +170,9 @@ def rainbow_road(p, gt):
 
 def border_baron(p, gt):
     return card("🏰", "Border Baron", f"""Touching cells of one colour form a country. Every place where
-        two countries touch is a border, and it scores when both countries have at least {p['K']} cells.
-        If that's a tie, each border counts the size of its smaller country (up to {p['K']}).""",
-                [("BIG", p["K"])], """
+        two countries touch is a border, and it scores when both countries have at least {p['country_size']} cells.
+        If that's a tie, each border counts the size of its smaller country (up to {p['country_size']}).""",
+                [("BIG", p["country_size"])], """
         def same_colour(a, b):
             return a.colour == b.colour
 
@@ -198,9 +198,9 @@ def conqueror(p, gt):
     by_value = p["weight"] == "value"
     worth = "its value" if by_value else "1 point"
     pts = "cell.value" if by_value else "1"
-    return card("⚔️", "Conqueror", f"""Your colour against your enemy's. Each {col(gt, p['A'])} cell adds
-        {worth}, and each {col(gt, p['B'])} cell takes {worth} away.""",
-                [("MY_COLOUR", col(gt, p["A"])), ("ENEMY_COLOUR", col(gt, p["B"]))], f"""
+    return card("⚔️", "Conqueror", f"""Your colour against your enemy's. Each {p['colour']} cell adds
+        {worth}, and each {p['enemy_colour']} cell takes {worth} away.""",
+                [("MY_COLOUR", p["colour"]), ("ENEMY_COLOUR", p["enemy_colour"])], f"""
         def utility(grid):
             points = 0
             for cell in grid.cells:
@@ -276,8 +276,8 @@ def homebody(p, gt):
     rim = p["zone"] == "rim"
     home = "the edge (the outside ring)" if rim else "the middle (everything off the edge)"
     test = "cell.on_edge" if rim else "not cell.on_edge"
-    return card("🏡", "Homebody", f"""Your colour likes to stay home in {home}. Each {col(gt, p['X'])}
-        cell at home is +1, and each one away from home is −1.""", [("MY_COLOUR", col(gt, p["X"]))], f"""
+    return card("🏡", "Homebody", f"""Your colour likes to stay home in {home}. Each {p['colour']}
+        cell at home is +1, and each one away from home is −1.""", [("MY_COLOUR", p["colour"])], f"""
         def utility(grid):
             points = 0
             for cell in grid.cells:
@@ -292,8 +292,8 @@ def homebody(p, gt):
 
 def lone_peak(p, gt):
     return card("🏔️", "Lone Peak", f"""The highest {thing(gt)} on the grid is the peak. If there is just one
-        peak and it is {col(gt, p['X'])}, score how far it stands above the next highest. If that's a tie,
-        it helps if one of the peaks is {col(gt, p['X'])}.""", [("MY_COLOUR", col(gt, p["X"]))], """
+        peak and it is {p['colour']}, score how far it stands above the next highest. If that's a tie,
+        it helps if one of the peaks is {p['colour']}.""", [("MY_COLOUR", p["colour"])], """
         def utility(grid):
             top = max(cell.value for cell in grid.cells)
             peaks = [cell for cell in grid.cells if cell.value == top]
@@ -475,8 +475,8 @@ def royal_court(p, gt):
 
 # --- arithmetic -----------------------------------------------------------------------------------------
 def straight_shooter(p, gt):
-    up = p["step"] == 1
-    consts = [("STEP", p["step"], "count up" if up else "count down")]
+    up = p["direction"] == "up"
+    consts = [("STEP", 1 if up else -1, "count up" if up else "count down")]
     number = "cell.value"
     if p["ace_high"]:
         number = "14 if cell.value == 1 else cell.value"
@@ -569,7 +569,7 @@ def magic_accountant(p, gt):
 
 def king_of_the_hill(p, gt):
     valley = p["valley"]
-    X = col(gt, p["X"])
+    X = p["colour"]
     word, cmp = ("lower", "<") if valley else ("higher", ">")
     return card("⛰️" if not valley else "🕳️", "King of the Hill" if not valley else "King of the Valley",
                 f"""{an(X).capitalize()} cell is {'in a valley' if valley else 'a king'} when its {thing(gt)} is {word}
@@ -586,7 +586,7 @@ def king_of_the_hill(p, gt):
 
 
 def divisibility_detective(p, gt):
-    b, m = gt.base, p["m"]
+    b, m = gt.base, p["divisor"]
     lines, kind = _AXIS[p["scope"]]
     base_note = "" if b == 10 else f" (base {b}: the digits go 0-9 then A, B, ...)"
     return card("🔍", "Divisibility Detective", f"""Read each {kind} as one big number{base_note}. Every
@@ -638,7 +638,7 @@ def stripe_painter(p, gt):
 
 
 def feuding_families(p, gt):
-    X, Y = col(gt, p["X"]), col(gt, p["Y"])
+    X, Y = p["first_family"], p["second_family"]
     return card("😤", "Feuding Families", f"""{X.capitalize()} and {Y} cells are feuding. A cell is
         safe when it doesn't touch the other family. Score the safe cells of whichever family has fewer;
         if that's a tie, count all safe cells.""", [("FAMILY_1", X), ("FAMILY_2", Y)], """
@@ -661,7 +661,7 @@ def feuding_families(p, gt):
 
 
 def colour_mixer(p, gt):
-    P1, P2, M = col(gt, p["P1"]), col(gt, p["P2"]), col(gt, p["M"])
+    P1, P2, M = p["first_paint"], p["second_paint"], p["mixed_colour"]
     consts = [("PAINT_1", P1), ("PAINT_2", P2)]
     if p["strict"]:
         about = f"""{P1.capitalize()} + {P2} = {M}. A {M} cell scores when it sits between its two
@@ -739,7 +739,7 @@ def fair_weaver(p, gt):
 
 
 def lantern_lighter(p, gt):
-    X = col(gt, p["X"])
+    X = p["colour"]
     return card("🏮", "Lantern Lighter", f"""{an(X).capitalize()} cell is a lantern when it is the only {X} cell in its
         row and the only one in its column. Each lantern scores a point.""", [("MY_COLOUR", X)], """
         def count_mine(line):

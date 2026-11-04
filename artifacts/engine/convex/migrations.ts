@@ -42,6 +42,8 @@
  *    rows the typedParams* steps already left as `{ colour }` (deployments that ran them before the redesign).
  *  - typedParamsIntString* (2026-11-03): the Int and string families typed; the same rewrites for their stored draws.
  *  - typedParamsGames* (2026-11-03): the games.ts and geometry.ts families typed; the same rewrites for their stored draws.
+ *  - typedParamsArithmetic* (2026-11-03): the arithmetic.ts and seeds.ts families typed; the same rewrites for their stored draws.
+ *  - typedParamsColour* (2026-11-03): the colour.ts and strategy.ts families typed; the same rewrites for their stored draws.
  *
  * Older hand-rolled steps, idempotent and run by their own deploy-workflow steps (kept as they are: they predate the
  * component, and porting the Node action setupsV2 buys nothing):
@@ -195,6 +197,12 @@ export const typedParamsIntStringPreparing = migrations.define({ table: "rooms",
 /** PR 5 (games.ts and geometry.ts families typed): the same two rewrites for their stored draws. */
 export const typedParamsGamesDeities = migrations.define({ table: "deities", migrateOne: typedDeity });
 export const typedParamsGamesPreparing = migrations.define({ table: "rooms", migrateOne: typedPreparing });
+/** PR 5 (colour.ts and strategy.ts families typed): the same two rewrites for their stored draws. */
+export const typedParamsColourDeities = migrations.define({ table: "deities", migrateOne: typedDeity });
+export const typedParamsColourPreparing = migrations.define({ table: "rooms", migrateOne: typedPreparing });
+/** PR 5 (arithmetic.ts and seeds.ts families typed): the same two rewrites for their stored draws. */
+export const typedParamsArithmeticDeities = migrations.define({ table: "deities", migrateOne: typedDeity });
+export const typedParamsArithmeticPreparing = migrations.define({ table: "rooms", migrateOne: typedPreparing });
 export const pictureFrameSymbolPreparing = migrations.define({ table: "rooms", migrateOne: typedPreparing });
 
 export const backfillObjectTimes = migrations.define({
@@ -220,7 +228,9 @@ const RUN_ALL: FunctionReference<"mutation", "internal">[] = [internal.migration
   internal.migrations.typedParamsDeities, internal.migrations.typedParamsPreparing,
   internal.migrations.backfillObjectTimes, internal.migrations.pictureFrameSymbolDeities, internal.migrations.pictureFrameSymbolPreparing,
   internal.migrations.typedParamsIntStringDeities, internal.migrations.typedParamsIntStringPreparing,
-  internal.migrations.typedParamsGamesDeities, internal.migrations.typedParamsGamesPreparing];
+  internal.migrations.typedParamsGamesDeities, internal.migrations.typedParamsGamesPreparing,
+  internal.migrations.typedParamsColourDeities, internal.migrations.typedParamsColourPreparing,
+  internal.migrations.typedParamsArithmeticDeities, internal.migrations.typedParamsArithmeticPreparing];
 export const runAll = migrations.runner(RUN_ALL);
 /** The state of each of runAll's migrations (scripts/run-migrations.mjs waits for all of them to succeed). */
 export const status = internalQuery({

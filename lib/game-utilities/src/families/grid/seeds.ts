@@ -1,19 +1,22 @@
 /** The three seed rules (lib/grid-lab/gridlab/rules/seeds.py, cards from rules/cards.py). */
 import type { GridSpec } from "./_util.ts";
 import { exactSurvival, multinomial } from "../../analytic.ts";
+import { boolParam, colourParam, intParam } from "../../params.ts";
 import {
-  SCALAR, article, chance, cname, cap, colourIndex, fromFn, full, gridFamily, product, pyCard, range, recolour, symForValue,
+  SCALAR, article, chance, cap, colourAt, fromFn, full, gridFamily, product, pyCard, recolourNames, symForValue,
   tsCard, tuple, valueNote, valueLaw, wire,
 } from "./_util.ts";
 
 // --- Seed 1: Line Painter ---------------------------------------------------------------------
-type LineP = { colour: number; diag: boolean };
+type LineP = { colour: string; diagonals: boolean };
 const linePainter = gridFamily<LineP>({
   id: "seed1_line_painter", name: "Line Painter", emoji: "🖍️", theme: "Straight lines of one colour",
   requires: { classes: ["Valued"] }, shape: SCALAR, tags: ["seed", "shortlist"],
-  support: g => product<LineP>({ colour: range(g.C), diag: [false, true] }),
-  sample: (rng, g) => ({ colour: rng.int(g.C), diag: chance(rng, 1, 4) }),
-  canonical: p => recolour(p, ["colour"]),
+  params: () => ({ colour: colourParam("Your colour"), diagonals: boolParam("Diagonals count too") }),
+  legacy: (p, g) => (typeof p.colour === "number" ? { colour: g.colourNames[p.colour], diagonals: p.diag as boolean } : null),
+  support: g => product<LineP>({ colour: g.colourNames, diagonals: [false, true] }),
+  sample: (rng, g) => ({ colour: g.colourNames[rng.int(g.C)], diagonals: chance(rng, 1, 4) }),
+  canonical: (p, g) => recolourNames(g, p, ["colour"]),
   summary: (p, g) => text(p, g).about,
   python: (p, g) => pyCard(text(p, g), `
     def is_mine(cell):
@@ -27,7 +30,7 @@ const linePainter = gridFamily<LineP>({
             if is_mine(cell.left) or is_mine(cell.right):
                 points += cell.value
             if is_mine(cell.up) or is_mine(cell.down):
-                points += cell.value${p.diag ? `
+                points += cell.value${p.diagonals ? `
             if is_mine(cell.up_left) or is_mine(cell.down_right):
                 points += cell.value
             if is_mine(cell.up_right) or is_mine(cell.down_left):
@@ -43,17 +46,17 @@ const linePainter = gridFamily<LineP>({
       for (const cell of grid.cells) {
         if (!isMine(cell)) continue;
         if (isMine(cell.left) || isMine(cell.right)) points += cell.value;
-        if (isMine(cell.up) || isMine(cell.down)) points += cell.value;${p.diag ? `
+        if (isMine(cell.up) || isMine(cell.down)) points += cell.value;${p.diagonals ? `
         if (isMine(cell.upLeft) || isMine(cell.downRight)) points += cell.value;
         if (isMine(cell.upRight) || isMine(cell.downLeft)) points += cell.value;` : ""}
       }
       return points;
     }`),
-  exemplar: (p, g) => wire(g, full(g.N, symForValue(g, g.vmax)), full(g.N, p.colour)),
+  exemplar: (p, g) => wire(g, full(g.N, symForValue(g, g.vmax)), full(g.N, colourAt(g, p.colour))),
 });
 function text(p: LineP, g: GridSpec) {
-  const c = cname(g, p.colour);
-  const dirs = p.diag ? "across, down and along both diagonals" : "across and down";
+  const c = p.colour;
+  const dirs = p.diagonals ? "across, down and along both diagonals" : "across and down";
   return {
     emoji: "🖍️", name: "Line Painter", consts: [["MY_COLOUR", c]] as const,
     about: [
@@ -68,6 +71,7 @@ const patchwork = gridFamily<Record<string, never>>({
   id: "seed2_patchwork", name: "Patchwork", emoji: "🧩",
   theme: "Same-symbol patches with no two touching colours alike",
   requires: { classes: ["Valued"] }, shape: SCALAR, tags: ["seed", "shortlist"],
+  params: () => ({}),
   support: () => [{}],
   summary: (_, g) => patchText(g).about,
   python: (_, g) => pyCard(patchText(g), `
@@ -121,13 +125,15 @@ const patchText = (g: GridSpec) => ({
 });
 
 // --- Seed 3: Green Ones -------------------------------------------------------------------------
-type GreenP = { colour: number; value: number };
+type GreenP = { colour: string; value: number };
 const greenOnes = gridFamily<GreenP>({
   id: "seed3_green_ones", name: "Green Ones", emoji: "🍀", theme: "Lucky green ones",
   shape: tuple(2), tags: ["seed", "shortlist"],
+  params: g => ({ colour: colourParam("Your colour"), value: intParam(g.cards ? "Rank (1 is the ace)" : "Number", g.vmin, g.vmax) }),
+  legacy: (p, g) => (typeof p.colour === "number" ? { colour: g.colourNames[p.colour], value: p.value as number } : null),
   // grid-lab's sampler always deals green (every colour set has it) and 1 (every symbol set has it).
-  support: g => [{ colour: colourIndex(g, "green"), value: 1 }],
-  canonical: (_, g) => ({ colour: 0, value: g.vmin }),
+  support: () => [{ colour: "green", value: 1 }],
+  canonical: (_, g) => ({ colour: g.colourNames[0], value: g.vmin }),
   summary: (p, g) => greenText(p, g).about,
   python: (p, g) => pyCard(greenText(p, g), `
     def utility(grid):
@@ -153,7 +159,7 @@ const greenOnes = gridFamily<GreenP>({
       }
       return [perfect, halfway];
     }`),
-  exemplar: (p, g) => wire(g, full(g.N, symForValue(g, p.value)), full(g.N, p.colour)),
+  exemplar: (p, g) => wire(g, full(g.N, symForValue(g, p.value)), full(g.N, colourAt(g, p.colour))),
   /**
    * Each cell is independently perfect (right colour and value, probability 1/C · p_v), halfway (one of the two,
    * 1/C + p_v − 2/C · p_v) or neither: the pair (perfect, halfway) is trinomial over N² cells and the lexicographic
@@ -169,8 +175,8 @@ const greenOnes = gridFamily<GreenP>({
 function greenText(p: GreenP, g: GridSpec) {
   return {
     emoji: "🍀", name: "Green Ones",
-    consts: [["MY_COLOUR", cname(g, p.colour)], ["MY_VALUE", p.value, valueNote(g, p.value)]] as const,
-    about: `Count the ${cname(g, p.colour)} cells showing ${g.say.value(p.value)}. Most of those wins. `
+    consts: [["MY_COLOUR", p.colour], ["MY_VALUE", p.value, valueNote(g, p.value)]] as const,
+    about: `Count the ${p.colour} cells showing ${g.say.value(p.value)}. Most of those wins. `
       + "If that's a tie, count the cells that are halfway there: "
       + `the right colour or the right ${g.cards ? "rank" : "number"}, but not both.`,
   };
