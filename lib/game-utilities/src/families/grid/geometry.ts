@@ -1,9 +1,9 @@
 /** Geometry & topology lens rules (lib/grid-lab/gridlab/rules/geometry.py, cards from rules/cards.py). */
 import type { CardText, GridSpec } from "./_util.ts";
 import { colourParam, choiceParam } from "../../params.ts";
-import { colourOrNone, rankAt, rankName, rankOptions, recolourSome, suitOptions } from "./games.ts";
+import { rankAt, rankName, rankOptions, suitOptions } from "./games.ts";
 import {
-  SCALAR, SUIT_NAMES, an, bestOf, cap, climb, cname, colourPairs, fromFn, full, gridFamily, isRim, pick, product, pyCard, range, recipes, sentences, symForValue, tsCard, tuple, wire, colourAt, recolourNames,
+  SCALAR, SUIT_NAMES, an, bestOf, cap, climb, cname, colourPairs, fromFn, full, gridFamily, isRim, product, pyCard, range, recipes, sentences, symForValue, tsCard, tuple, wire, colourAt, recolourNames,
 } from "./_util.ts";
 import { solvedAnalytic } from "../../analytic/hook.ts";
 import { LONGEST_SNAKES, longestSnake } from "../../analytic/maxima.ts";
@@ -12,67 +12,32 @@ const other = (g: GridSpec, ...cs: number[]) => range(g.C).find(k => !cs.include
 /** Join sentences, dropping the empty ones (the value key is "" on base 10). */
 
 // --- Castle Keeper ---------------------------------------------------------------------------------
-type CastleP = { wall: string; mode: "plain" | "treasure" | "eyes"; treasure: string };
-function castleText(p: CastleP, g: GridSpec): CardText {
+/**
+ * One idea: shut-in cells. The rule used to deal three scoring modes (shut-in cells; shut-in cells of a treasure colour;
+ * shut-in cells plus 3 per pocket), which are not peers (top 36.0, 42.0 and 49.8 bits on 5×5, base 10, rgby): params
+ * make peer rules of equal opportunity (docs/rules-design.md P10). The plain flood is the rule (it is the one the
+ * step-through story and the gallery tell), so the mode and treasure params are gone and only the wall colour remains.
+ */
+type CastleP = { wall: string };
+function castleText(p: CastleP, _g: GridSpec): CardText {
   const W = p.wall;
-  const tail = `Most points wins. If that's a tie, more ${W} cells on the edge wins.`;
-  const flood = `Build walls of ${W}. Water flows in from the edge and can't cross ${W} cells. A cell is shut in when the water can't reach it.`;
-  if (p.mode === "treasure") {
-    return {
-      emoji: "🏯", name: "Castle Keeper", consts: [["WALL", W], ["TREASURE", p.treasure]],
-      about: `${flood} Each shut-in ${p.treasure} cell scores 1 point. ${tail}`,
-    };
-  }
   return {
     emoji: "🏯", name: "Castle Keeper", consts: [["WALL", W]],
-    about: p.mode === "eyes"
-      ? `${flood} Each shut-in cell scores 1 point. Each separate pocket of shut-in cells scores 3 more. ${tail}`
-      : `${flood} Each shut-in cell scores 1 point. ${tail}`,
+    about: `Build walls of ${W}. Water flows in from the edge and can't cross ${W} cells. A cell is shut in when the water can't reach it. `
+      + `Each shut-in cell scores 1 point. Most points wins. If that's a tie, more ${W} cells on the edge wins.`,
   };
 }
 const castleKeeper = gridFamily<CastleP>({
   id: "castle_keeper", name: "Castle Keeper", emoji: "🏯", theme: "Walls that keep the water out",
   requires: { minSize: 4 }, shape: tuple(2), tags: ["shortlist"],
-  params: g => ({
-    wall: colourParam("Wall colour"),
-    mode: choiceParam("What scores", [["plain", "shut-in cells"], ["treasure", "shut-in treasure cells"], ["eyes", "shut-in cells and pockets"]]),
-    treasure: choiceParam("Treasure colour", colourOrNone(g, ["none", "no treasure"])),
-  }),
-  legacy: (p, g) => (typeof p.W === "number"
-    ? { wall: g.colourNames[p.W], mode: p.mode as CastleP["mode"], treasure: p.T === null ? "none" : g.colourNames[p.T as number] } : null),
-  support: g => g.colourNames.flatMap(wall => [
-    { wall, mode: "plain" as const, treasure: "none" }, { wall, mode: "eyes" as const, treasure: "none" },
-    ...g.colourNames.filter(treasure => treasure !== wall).map(treasure => ({ wall, mode: "treasure" as const, treasure })),
-  ]),
-  sample: (rng, g) => {
-    const [W, T] = pick(rng, colourPairs(g));
-    const mode = pick(rng, ["plain", "plain", "treasure", "eyes"] as const);
-    return { wall: g.colourNames[W], mode, treasure: mode === "treasure" ? g.colourNames[T] : "none" };
-  },
-  canonical: (p, g) => recolourSome(g, p, ["wall", "treasure"]),
+  params: () => ({ wall: colourParam("Wall colour") }),
+  // LEGACY: `{ W, mode, T }` (indices, before typing) and `{ wall, mode, treasure }` (before the mode was fixed) read as the wall colour alone.
+  legacy: (p, g) => (typeof p.W === "number" || "mode" in p ? { wall: typeof p.W === "number" ? g.colourNames[p.W] : (p.wall as string) } : null),
+  support: g => g.colourNames.map(wall => ({ wall })),
+  sample: (rng, g) => ({ wall: g.colourNames[rng.int(g.C)] }),
+  canonical: (p, g) => recolourNames(g, p, ["wall"]),
   summary: (p, g) => castleText(p, g).about,
-  python: (p, g) => {
-    const count = p.mode === "treasure" ? `
-        treasure = 0
-        for cell in grid.cells:
-            if inside(cell, outside) and cell.colour == TREASURE:
-                treasure += 1
-        return (treasure, walls_on_edge(grid))` : p.mode === "eyes" ? `
-        points = 0
-        for pocket in grid.regions(same_side):
-            if inside(pocket[0], outside):
-                points += len(pocket) + 3
-        return (points, walls_on_edge(grid))` : `
-        shut_in = 0
-        for cell in grid.cells:
-            if inside(cell, outside):
-                shut_in += 1
-        return (shut_in, walls_on_edge(grid))`;
-    const pockets = p.mode === "eyes" ? `
-    def same_side(a, b):
-        return not_wall(a) == not_wall(b)
-` : "";
-    return pyCard(castleText(p, g), `
+  python: (p, g) => pyCard(castleText(p, g), `
     def not_wall(cell):
         return cell.colour != WALL
 
@@ -85,33 +50,15 @@ const castleKeeper = gridFamily<CastleP>({
             if cell.colour == WALL:
                 walls += 1
         return walls
-${pockets}
+
     def utility(grid):
-        outside = grid.reachable(grid.edge_cells, through=not_wall)  # cells you can walk to from the edge${count}`);
-  },
-  typescript: (p, g) => {
-    const count = p.mode === "treasure" ? `
-      let treasure = 0;
-      for (const cell of grid.cells) {
-        if (inside(cell, outside) && cell.colour === TREASURE) treasure += 1;
-      }
-      return [treasure, wallsOnEdge(grid)];` : p.mode === "eyes" ? `
-      let points = 0;
-      for (const pocket of grid.regions(sameSide)) {
-        if (inside(pocket[0], outside)) points += pocket.length + 3;
-      }
-      return [points, wallsOnEdge(grid)];` : `
-      let shutIn = 0;
-      for (const cell of grid.cells) {
-        if (inside(cell, outside)) shutIn += 1;
-      }
-      return [shutIn, wallsOnEdge(grid)];`;
-    const pockets = p.mode === "eyes" ? `
-    function sameSide(a, b) {
-      return notWall(a) === notWall(b);
-    }
-` : "";
-    return tsCard(castleText(p, g), `
+        outside = grid.reachable(grid.edge_cells, through=not_wall)  # cells you can walk to from the edge
+        shut_in = 0
+        for cell in grid.cells:
+            if inside(cell, outside):
+                shut_in += 1
+        return (shut_in, walls_on_edge(grid))`),
+  typescript: (p, g) => tsCard(castleText(p, g), `
     function notWall(cell) {
       return cell.colour !== WALL;
     }
@@ -127,17 +74,18 @@ ${pockets}
       }
       return walls;
     }
-${pockets}
+
     function utility(grid) {
-      const outside = grid.reachable(grid.edgeCells, notWall);  // cells you can walk to from the edge${count}
-    }`);
-  },
-  exemplar: (p, g, ctx) => {
-    const N = g.N, W = colourAt(g, p.wall), inner = p.mode === "treasure" ? colourAt(g, p.treasure) : other(g, W), z = full(N, 0);
-    const col = fromFn(N, (r, c) => (isRim(N, r, c) ? W : inner));
-    if (p.mode !== "eyes") return wire(g, z, col);
-    const col2 = fromFn(N, (r, c) => (isRim(N, r, c) || (r + c) % 2 === 1 ? W : inner));
-    return climb("castle_keeper", p, ctx, [{ sym: z, col }, { sym: z, col: col2 }], 0);
+      const outside = grid.reachable(grid.edgeCells, notWall);  // cells you can walk to from the edge
+      let shutIn = 0;
+      for (const cell of grid.cells) {
+        if (inside(cell, outside)) shutIn += 1;
+      }
+      return [shutIn, wallsOnEdge(grid)];
+    }`),
+  exemplar: (p, g) => {
+    const N = g.N, W = colourAt(g, p.wall), inner = other(g, W);
+    return wire(g, full(N, 0), fromFn(N, (r, c) => (isRim(N, r, c) ? W : inner)));
   },
 });
 
@@ -341,12 +289,17 @@ const cardWindmill = gridFamily<Record<string, never>>({
 });
 
 // --- Royal Court -----------------------------------------------------------------------------------
+/**
+ * Your suit. "Any suit" used to be a fifth option, but a court of any picture card is far easier to build than one of a
+ * single suit (top 60.7 vs 70.9 bits on 7×7, a random board's mean 1.33 vs 1.09): params make peer rules of equal
+ * opportunity (docs/rules-design.md P10). The four named suits are peers (a permutation of suits), so they stay.
+ */
 type CourtP = { suit: string };
 const courtText = (p: CourtP, g: GridSpec): CardText => {
-  const royal = p.suit === "any" ? "a picture card (J, Q or K)" : `a picture card (J, Q or K) of ${g.say.suit(SUIT_NAMES.indexOf(p.suit as never))}`;
+  const royal = `a picture card (J, Q or K) of ${g.say.suit(SUIT_NAMES.indexOf(p.suit as never))}`;
   return {
     emoji: "👑", name: "Royal Court",
-    consts: p.suit === "any" ? [] : [["MY_SUIT", p.suit]],
+    consts: [["MY_SUIT", p.suit]],
     about: `The middle cell must be ${royal}. Your court is it plus every such card joined to it by touching cells. `
       + "Each card in your court scores 1 point, doubled if none of the court is on the edge. "
       + "Most points wins. If that's a tie, count such cards that are off the edge.",
@@ -355,15 +308,18 @@ const courtText = (p: CourtP, g: GridSpec): CardText => {
 const royalCourt = gridFamily<CourtP>({
   id: "royal_court", name: "Royal Court", emoji: "👑", theme: "A palace of picture cards around the centre",
   requires: { classes: ["Faced"], parity: "odd" }, shape: tuple(2), tags: ["shortlist"],
-  params: () => ({ suit: choiceParam("Suit of the court", [["any", "any suit"], ...suitOptions()]) }),
-  legacy: p => (p.suit === null || typeof p.suit === "number" ? { suit: p.suit === null ? "any" : SUIT_NAMES[p.suit] } : null),
-  support: () => ["any", ...SUIT_NAMES].map(suit => ({ suit })),
-  sample: rng => ({ suit: rng.int(2) === 0 ? "any" : SUIT_NAMES[rng.int(4)] }),
-  canonical: p => ({ suit: p.suit === "any" ? "any" : "spades" }),
+  params: () => ({ suit: choiceParam("Suit of the court", suitOptions()) }),
+  // LEGACY: `{ suit: index | null }` (before typing) and `{ suit: "any" }` (before the option was removed) read as a named suit
+  // ("any" as the first suit).
+  legacy: p => (p.suit === null || p.suit === "any" || typeof p.suit === "number"
+    ? { suit: typeof p.suit === "number" ? SUIT_NAMES[p.suit] : SUIT_NAMES[0] } : null),
+  support: () => SUIT_NAMES.map(suit => ({ suit })),
+  sample: rng => ({ suit: SUIT_NAMES[rng.int(4)] }),
+  canonical: () => ({ suit: SUIT_NAMES[0] }),
   summary: (p, g) => courtText(p, g).about,
   python: (p, g) => pyCard(courtText(p, g), `
     def royal(cell):
-        return ${p.suit === "any" ? "cell.is_picture" : "cell.is_picture and cell.suit == MY_SUIT"}
+        return cell.is_picture and cell.suit == MY_SUIT
 
     def utility(grid):
         middle = grid.cell(grid.size // 2, grid.size // 2)
@@ -384,7 +340,7 @@ const royalCourt = gridFamily<CourtP>({
         return (court_size, off_edge)`),
   typescript: (p, g) => tsCard(courtText(p, g), `
     function royal(cell) {
-      return ${p.suit === "any" ? "cell.isPicture" : "cell.isPicture && cell.suit === MY_SUIT"};
+      return cell.isPicture && cell.suit === MY_SUIT;
     }
 
     function utility(grid) {
@@ -406,7 +362,7 @@ const royalCourt = gridFamily<CourtP>({
       return [courtSize, offEdge];
     }`),
   exemplar: (p, g, ctx) => {
-    const su = p.suit === "any" ? 0 : SUIT_NAMES.indexOf(p.suit as never), N = g.N, z = full(N, 0);
+    const su = SUIT_NAMES.indexOf(p.suit as never), N = g.N, z = full(N, 0);
     // The doubled safe palace (2(N-2)^2) only beats an all-picture grid (N^2) at N = 7.
     return bestOf("royal_court", p, ctx, [
       { sym: fromFn(N, (r, c) => su * 13 + (isRim(N, r, c) ? 1 : 12)), col: z },
@@ -467,32 +423,34 @@ const archipelago = gridFamily<IslandsP>({
 });
 
 // --- Looking-Glass -------------------------------------------------------------------------------
-type GlassP = { axis: "V" | "H" | "D" | "A" | "half"; layer: "colour" | "symbol" };
-const TWIN: Record<GlassP["axis"], [string, string, string]> = {
-  V: ["Fold the grid down the middle, left onto right", "cell.row, n - cell.col", "cell.row, n - cell.col"],
-  H: ["Fold the grid top onto bottom", "n - cell.row, cell.col", "n - cell.row, cell.col"],
-  D: ["Fold the grid along the diagonal from the top-left", "cell.col, cell.row", "cell.col, cell.row"],
-  A: ["Fold the grid along the diagonal from the top-right", "n - cell.col, n - cell.row", "n - cell.col, n - cell.row"],
-  half: ["Turn the grid upside down", "n - cell.row, n - cell.col", "n - cell.row, n - cell.col"],
+/**
+ * Fold the grid left onto right or top onto bottom (peers: a transpose swaps them), and the numbers must match. The rule
+ * used to deal five folds (the diagonals and the half-turn pair up fewer or more cells: top 9.6 vs 13.0 bits on 4×4) and
+ * a colour or number layer (colours: 9.6..13.1 bits, numbers: 21.0..26.5), which are not peers: params make peer rules of
+ * equal opportunity (docs/rules-design.md P10). Only the two straight folds stay, and the layer is the number.
+ */
+type GlassP = { axis: "V" | "H" };
+const TWIN: Record<GlassP["axis"], [string, string]> = {
+  V: ["Fold the grid down the middle, left onto right", "cell.row, n - cell.col"],
+  H: ["Fold the grid top onto bottom", "n - cell.row, cell.col"],
 };
 const glassText = (p: GlassP, g: GridSpec): CardText => ({
   emoji: "🔍", name: "Looking-Glass", consts: [],
   about: `${TWIN[p.axis][0]}: every cell lands on a twin. Each pair of twins with the same `
-    + `${p.layer === "colour" ? "colour" : g.cards ? "rank" : "number"} scores 1 point. A cell that lands on itself scores nothing.`,
+    + `${g.cards ? "rank" : "number"} scores 1 point. A cell that lands on itself scores nothing.`,
 });
 const lookingGlass = gridFamily<GlassP>({
   id: "looking_glass", name: "Looking-Glass", emoji: "🔍", theme: "Every cell matches its mirror twin", shape: SCALAR,
-  params: g => ({
-    axis: choiceParam("Fold the grid", [["V", "left onto right"], ["H", "top onto bottom"], ["D", "along the diagonal from the top-left"],
-      ["A", "along the diagonal from the top-right"], ["half", "upside down"]]),
-    layer: choiceParam("What must match", [["colour", "colours"], ["symbol", g.cards ? "ranks" : "numbers"]]),
-  }),
-  support: () => product<GlassP>({ axis: ["V", "H", "D", "A", "half"], layer: ["colour", "symbol"] }),
-  canonical: p => ({ ...p, axis: p.axis === "H" ? "V" : p.axis === "A" ? "D" : p.axis }),
+  params: () => ({ axis: choiceParam("Fold the grid", [["V", "left onto right"], ["H", "top onto bottom"]]) }),
+  // LEGACY: `{ axis: V | H | D | A | half, layer }` read as a straight fold of the numbers (a diagonal or the half-turn as the nearest one).
+  legacy: p => {
+    if (!("layer" in p) && (p.axis === "V" || p.axis === "H")) return null;
+    return { axis: p.axis === "H" || p.axis === "A" ? "H" : "V" };
+  },
+  support: () => [{ axis: "V" }, { axis: "H" }],
+  canonical: () => ({ axis: "V" }),
   summary: (p, g) => glassText(p, g).about,
-  python: (p, g) => {
-    const what = p.layer === "colour" ? "colour" : "value";
-    return pyCard(glassText(p, g), `
+  python: (p, g) => pyCard(glassText(p, g), `
       def twin(grid, cell):
           n = grid.size - 1
           return grid.cell(${TWIN[p.axis][1]})
@@ -504,16 +462,13 @@ const lookingGlass = gridFamily<GlassP>({
           pairs = 0
           for cell in grid.cells:
               other = twin(grid, cell)
-              if place(grid, other) > place(grid, cell) and other.${what} == cell.${what}:
+              if place(grid, other) > place(grid, cell) and other.value == cell.value:
                   pairs += 1
-          return pairs`);
-  },
-  typescript: (p, g) => {
-    const what = p.layer === "colour" ? "colour" : "value";
-    return tsCard(glassText(p, g), `
+          return pairs`),
+  typescript: (p, g) => tsCard(glassText(p, g), `
       function twin(grid, cell) {
         const n = grid.size - 1;
-        return grid.cell(${TWIN[p.axis][2]});
+        return grid.cell(${TWIN[p.axis][1]});
       }
 
       function place(grid, cell) {
@@ -524,29 +479,34 @@ const lookingGlass = gridFamily<GlassP>({
         let pairs = 0;
         for (const cell of grid.cells) {
           const other = twin(grid, cell);
-          if (place(grid, other) > place(grid, cell) && other.${what} === cell.${what}) pairs += 1;
+          if (place(grid, other) > place(grid, cell) && other.value === cell.value) pairs += 1;
         }
         return pairs;
-      }`);
-  },
+      }`),
   exemplar: (_, g) => wire(g, full(g.N, 0), full(g.N, 0)),
 });
 
 // --- Pinwheel ------------------------------------------------------------------------------------
-type PinP = { layer: "colour" | "symbol" };
-const pinKey = (p: PinP, g: GridSpec) => (p.layer === "colour" ? "colour" : g.cards ? "suit" : "symbol");
-const pinWord = (p: PinP, g: GridSpec) => (p.layer === "colour" ? "colour" : g.cards ? "suit" : "number");
-const pinText = (p: PinP, g: GridSpec): CardText => ({
+/**
+ * The numbers (the suit on cards) decide. The rule used to deal a colour or a number layer, which are not peers (top
+ * 19.0 vs 40.0 bits on 4×4, base 10, rgb): params make peer rules of equal opportunity (docs/rules-design.md P10), so
+ * the layer is fixed to the number and the family has no params.
+ */
+type PinP = Record<string, never>;
+const pinKey = (g: GridSpec) => (g.cards ? "suit" : "symbol");
+const pinWord = (g: GridSpec) => (g.cards ? "suit" : "number");
+const pinText = (_p: PinP, g: GridSpec): CardText => ({
   emoji: "🎡", name: "Pinwheel", consts: [],
   about: "Turn the grid a quarter turn: cells swap places in sets of 4, and the middle cell stays put. "
-    + `A set of 4 that all share the same ${pinWord(p, g)} scores 1 point. Most points wins. `
-    + `If that's a tie, in each set count the most cells sharing a ${pinWord(p, g)}, and add those up.`,
+    + `A set of 4 that all share the same ${pinWord(g)} scores 1 point. Most points wins. `
+    + `If that's a tie, in each set count the most cells sharing a ${pinWord(g)}, and add those up.`,
 });
 const pinwheel = gridFamily<PinP>({
   id: "pinwheel", name: "Pinwheel", emoji: "🎡", theme: "Looks the same after a quarter turn", shape: tuple(2),
-  params: g => ({ layer: choiceParam("What must match", [["colour", "colours"], ["symbol", g.cards ? "suits" : "numbers"]]) }),
-  legacy: p => (typeof p.attr === "string" ? { layer: p.attr as PinP["layer"] } : null),
-  support: () => [{ layer: "colour" }, { layer: "symbol" }],
+  params: () => ({}),
+  // LEGACY: `{ attr }` (before typing) and `{ layer }` (colour | symbol, before the layer was fixed) read as today's rule.
+  legacy: p => ("attr" in p || "layer" in p ? {} : null),
+  support: () => [{}],
   summary: (p, g) => pinText(p, g).about,
   python: (p, g) => pyCard(pinText(p, g), `
     def place(grid, cell):
@@ -565,7 +525,7 @@ const pinwheel = gridFamily<PinP>({
             orbit = spin(grid, cell)
             if orbit[1] is cell or place(grid, cell) > min(place(grid, other) for other in orbit):
                 continue  # the middle cell, or a set already counted from its first cell
-            keys = [other.${pinKey(p, g)} for other in orbit]
+            keys = [other.${pinKey(g)} for other in orbit]
             same = max(keys.count(key) for key in keys)
             most += same
             if same == 4:
@@ -589,7 +549,7 @@ const pinwheel = gridFamily<PinP>({
         const orbit = spin(grid, cell);
         const first = Math.min(...orbit.map(other => place(grid, other)));
         if (orbit[1] === cell || place(grid, cell) > first) continue;  // the middle, or already counted
-        const keys = orbit.map(other => other.${pinKey(p, g)});
+        const keys = orbit.map(other => other.${pinKey(g)});
         const same = Math.max(...keys.map(key => keys.filter(k => k === key).length));
         most += same;
         if (same === 4) full += 1;
@@ -803,22 +763,29 @@ export function packTetrominoes(N: number, P: PieceP["piece"], window = 4 * N): 
 const PIECE_LOOK: Record<PieceP["piece"], string> = {
   I: "a straight line of 4", O: "a 2×2 square", T: "a T shape", L: "an L shape", S: "a zig-zag",
 };
-const tetText = (p: PieceP, g: GridSpec): CardText => ({
-  emoji: "🧱", name: "Tetromino Tamer", consts: [["MY_COLOUR", p.colour], ["MY_PIECE", p.piece]],
-  about: `An island is a patch of touching ${p.colour} cells. Each island of exactly 4 cells shaped like a Tetris ${p.piece} piece `
-    + `(${PIECE_LOOK[p.piece]}, turned or flipped is fine) scores 1 point. Most points wins. `
+/**
+ * One piece: the O (a 2×2 square). The rule used to deal a Tetris piece (I, O, T, L or S) as a param, but the pieces are
+ * not peers: they fit a board differently, and the sampled tops of the five (11.5 to 18.0 bits on 4×4, base 10, rgb; no two
+ * agree within 15% on every shape) differ by more than any band allows. Params make peer rules of equal opportunity
+ * (docs/rules-design.md P10), so the piece is fixed (O has the highest top bits on most shapes) and only the island
+ * colour is dealt. The packing search below still takes a piece.
+ */
+const PIECE = "O" satisfies PieceP["piece"];
+type TetP = { colour: string };
+const tetText = (p: TetP, _g: GridSpec): CardText => ({
+  emoji: "🧱", name: "Tetromino Tamer", consts: [["MY_COLOUR", p.colour], ["MY_PIECE", PIECE]],
+  about: `An island is a patch of touching ${p.colour} cells. Each island of exactly 4 cells shaped like a Tetris ${PIECE} piece `
+    + `(${PIECE_LOOK[PIECE]}) scores 1 point. Most points wins. `
     + "If that's a tie, more islands of exactly 4 cells, of any shape, wins.",
 });
-const tetrominoTamer = gridFamily<PieceP>({
-  id: "tetromino_tamer", name: "Tetromino Tamer", emoji: "🧱", theme: "Islands shaped like your Tetris piece",
+const tetrominoTamer = gridFamily<TetP>({
+  id: "tetromino_tamer", name: "Tetromino Tamer", emoji: "🧱", theme: "Islands shaped like a Tetris square",
   shape: tuple(2),
-  params: () => ({
-    colour: colourParam("Island colour"),
-    piece: choiceParam("Tetris piece", [["I", "I (a straight line)"], ["O", "O (a square)"], ["T", "T"], ["L", "L"], ["S", "S (a zig-zag)"]]),
-  }),
-  legacy: (p, g) => (typeof p.C === "number" ? { colour: g.colourNames[p.C], piece: p.P as PieceP["piece"] } : null),
-  support: g => product<PieceP>({ colour: g.colourNames, piece: ["O", "T", "L", "S", ...(g.N >= 4 ? ["I" as const] : [])] }),
-  sample: (rng, g) => ({ colour: g.colourNames[rng.int(g.C)], piece: pick(rng, ["O", "T", "L", "S", ...(g.N >= 4 ? ["I" as const] : [])]) }),
+  params: () => ({ colour: colourParam("Island colour") }),
+  // LEGACY: `{ C, P }` (indices, before typing) and `{ colour, piece }` (before the piece was fixed) read as the colour alone.
+  legacy: (p, g) => (typeof p.C === "number" || "piece" in p ? { colour: typeof p.C === "number" ? g.colourNames[p.C] : (p.colour as string) } : null),
+  support: g => g.colourNames.map(colour => ({ colour })),
+  sample: (rng, g) => ({ colour: g.colourNames[rng.int(g.C)] }),
   canonical: (p, g) => recolourNames(g, p, ["colour"]),
   summary: (p, g) => tetText(p, g).about,
   python: (p, g) => pyCard(tetText(p, g), `${SAME_COLOUR_PY}
@@ -882,7 +849,7 @@ const tetrominoTamer = gridFamily<PieceP>({
     }`),
   exemplar: (p, g) => {
     const C = colourAt(g, p.colour);
-    return wire(g, full(g.N, 0), bestPacking(g.N, p.piece).map(row => row.map(o => (o ? C : (C + 1) % g.C))));
+    return wire(g, full(g.N, 0), bestPacking(g.N, PIECE).map(row => row.map(o => (o ? C : (C + 1) % g.C))));
   },
 });
 

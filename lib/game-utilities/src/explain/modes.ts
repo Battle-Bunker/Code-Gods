@@ -79,10 +79,9 @@ export interface Story {
   readonly ordinal: Ordinal;
 }
 
-/** 🏯 Castle Keeper (plain): walls, water pouring in at the edge and spreading step by step, then the shut-in cells. */
+/** 🏯 Castle Keeper: walls, water pouring in at the edge and spreading step by step, then the shut-in cells. */
 function castleKeeper(draw: Draw, inst: Instantiation, value: ObjectValue): Story | null {
-  const p = upgradeParams(draw.familyId, draw.params, inst) as { wall: string; mode: string };
-  if (p.mode !== "plain") return null;
+  const p = upgradeParams(draw.familyId, draw.params, inst) as { wall: string };
   const b = readBoard(inst, value);
   if (!b) return null;
   const W = b.spec.colourNames.indexOf(p.wall), wall = (x: Cell) => b.col(x) === W, name = p.wall;

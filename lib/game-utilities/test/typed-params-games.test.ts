@@ -13,27 +13,36 @@ const deck = instantiate("Grid", { size: 5, symbols: "cards", colours: "rgby" })
 
 const CASES: [family: string, inst: typeof rgb, old: object, now: object][] = [
   ["rummy_melder", rgb, { dir: "cols" }, { axis: "cols" }],
-  ["othello_sandwich", rgb, { X: 2, diag: true }, { colour: "yellow", diag: true }],
-  ["sudoku_scholar", rgb, { dir: "both" }, { axis: "both" }],
+  ["othello_sandwich", rgb, { X: 2, diag: true }, { colour: "yellow" }],
+  ["othello_sandwich", rgb, { colour: "blue", diag: false }, { colour: "blue" }],
+  ["sudoku_scholar", rgb, { dir: "both" }, {}],
+  ["sudoku_scholar", rgb, { axis: "rows" }, {}],
   ["full_house", rgb, { dir: "rows" }, { axis: "rows" }],
-  ["twenty_one", rgb, { T: 40 }, { target: 40 }],
+  ["twenty_one", rgb, { T: 38 }, { target: 38 }],
+  ["twenty_one", rgb, { T: 52 }, { target: 41 }],
+  ["twenty_one", rgb, { target: 10 }, { target: 27 }],
+  ["twenty_one", rgb, { T: 8 }, { target: 27 }],
   ["go_fish_books", rgb, { r: 11 }, { fish: "B" }],
   ["go_fish_books", deck, { r: 9 }, { fish: "10" }],
   ["knight_riders", rgb, { X: null }, { colour: "any" }],
   ["knight_riders", rgb, { X: 3 }, { colour: "green" }],
-  ["court_parade", deck, { suit: null, match: true }, { suit: "any", one_colour: true }],
-  ["court_parade", deck, { suit: 2, match: false }, { suit: "diamonds", one_colour: false }],
+  ["court_parade", deck, { suit: null, match: true }, { suit: "spades" }],
+  ["court_parade", deck, { suit: 2, match: false }, { suit: "diamonds" }],
   ["kings_court", deck, { r: 12 }, { target: "K" }],
   ["connect_four", rgb, { X: 5 }, { colour: "violet" }],
-  ["castle_keeper", rgb, { W: 1, mode: "treasure", T: 4 }, { wall: "orange", mode: "treasure", treasure: "blue" }],
-  ["castle_keeper", rgb, { W: 0, mode: "plain", T: null }, { wall: "red", mode: "plain", treasure: "none" }],
+  ["castle_keeper", rgb, { W: 1, mode: "treasure", T: 4 }, { wall: "orange" }],
+  ["castle_keeper", rgb, { W: 0, mode: "plain", T: null }, { wall: "red" }],
   ["bridge_builder", rgb, { C: 2, D: "TB" }, { colour: "yellow", direction: "TB" }],
-  ["royal_court", deck, { suit: null }, { suit: "any" }],
+  ["royal_court", deck, { suit: null }, { suit: "spades" }],
+  ["royal_court", deck, { suit: "any" }, { suit: "spades" }],
   ["royal_court", deck, { suit: 3 }, { suit: "clubs" }],
   ["archipelago", rgb, { C: 1 }, { colour: "orange" }],
-  ["pinwheel", rgb, { attr: "symbol" }, { layer: "symbol" }],
+  ["pinwheel", rgb, { attr: "symbol" }, {}],
+  ["pinwheel", rgb, { layer: "colour" }, {}],
   ["snake_charmer", rgb, { C: 4 }, { colour: "blue" }],
-  ["tetromino_tamer", rgb, { C: 0, P: "L" }, { colour: "red", piece: "L" }],
+  ["tetromino_tamer", rgb, { C: 0, P: "L" }, { colour: "red" }],
+  ["looking_glass", rgb, { axis: "D", layer: "colour" }, { axis: "V" }],
+  ["looking_glass", rgb, { axis: "A", layer: "symbol" }, { axis: "H" }],
   ["rainbow_bands", rgb, { K: "BR" }, { corner: "BR" }],
   ["constellation", rgb, { S: 15 }, { star: "F" }],
   ["colour_carousel", rgb, { dir: "ccw" }, { direction: "ccw" }],
@@ -55,9 +64,9 @@ test("legacy params of the Games and Geometry families upgrade to named, typed p
 
 test("the card constants of the retyped families still hold names and values, not indices", () => {
   const consts = (id: string, params: object, inst = rgb) => card({ familyId: id, params: params as never }, context(inst)).source.python;
-  assert.match(consts("castle_keeper", { wall: "orange", mode: "treasure", treasure: "blue" }), /WALL = "orange"[\s\S]*TREASURE = "blue"/);
-  assert.match(consts("twenty_one", { target: 40 }), /TARGET = 40/);
-  assert.match(consts("court_parade", { suit: "hearts", one_colour: false }, deck), /MY_SUIT = "hearts"/);
-  assert.match(consts("tetromino_tamer", { colour: "red", piece: "L" }), /MY_PIECE = "L"/);
+  assert.match(consts("castle_keeper", { wall: "orange" }), /WALL = "orange"/);
+  assert.match(consts("twenty_one", { target: 38 }), /TARGET = 38/);
+  assert.match(consts("court_parade", { suit: "hearts" }, deck), /MY_SUIT = "hearts"/);
+  assert.match(consts("tetromino_tamer", { colour: "red" }), /MY_COLOUR = "red"/);
   assert.match(consts("kings_court", { target: "K" }, deck), /MY_VALUE = 13/);
 });
