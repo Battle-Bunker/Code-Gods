@@ -43,6 +43,9 @@
  *  - typedParamsIntString* (2026-11-03): the Int and string families typed; the same rewrites for their stored draws.
  *  - typedParamsGames* (2026-11-03): the games.ts and geometry.ts families typed; the same rewrites for their stored draws.
  *  - typedParamsArithmetic* (2026-11-03): the arithmetic.ts and seeds.ts families typed; the same rewrites for their stored draws.
+ *  - equalOpportunity<Group>* (2026-11-04, rules-design.md P10): families whose params made unequal rules keep only
+ *    peer values; a stored draw of a removed value reads as its nearest peer (the family's `legacy`), rewritten by the
+ *    same typedDeity / typedPreparing.
  *  - setSpotterGeometry* (2026-11-04, rules-design.md P10): Set Spotter's `diag` param is gone (diagonals always count);
  *    stored `{ diag }` draws become `{}` through the same rewrites.
  *  - typedParamsBingo* (2026-11-03): Bingo Caller typed (a set param); the same rewrites for its stored draws.
@@ -220,6 +223,9 @@ export const typedParamsBingoPreparing = migrations.define({ table: "rooms", mig
 /** Set Spotter's one geometry (equal opportunity, rules-design.md P10): `{ diag }` draws become `{}`. */
 export const setSpotterGeometryDeities = migrations.define({ table: "deities", migrateOne: typedDeity });
 export const setSpotterGeometryPreparing = migrations.define({ table: "rooms", migrateOne: typedPreparing });
+/** Equal opportunity (P10), games.ts and geometry.ts: draws of a removed param class read as their nearest peer. */
+export const equalOpportunityGamesDeities = migrations.define({ table: "deities", migrateOne: typedDeity });
+export const equalOpportunityGamesPreparing = migrations.define({ table: "rooms", migrateOne: typedPreparing });
 export const pictureFrameSymbolPreparing = migrations.define({ table: "rooms", migrateOne: typedPreparing });
 
 export const backfillObjectTimes = migrations.define({
@@ -295,6 +301,7 @@ const RUN_ALL: FunctionReference<"mutation", "internal">[] = [internal.migration
   internal.migrations.typedParamsArithmeticDeities, internal.migrations.typedParamsArithmeticPreparing,
   internal.migrations.typedParamsBingoDeities, internal.migrations.typedParamsBingoPreparing,
   internal.migrations.setSpotterGeometryDeities, internal.migrations.setSpotterGeometryPreparing,
+  internal.migrations.equalOpportunityGamesDeities, internal.migrations.equalOpportunityGamesPreparing,
   internal.migrations.assistantModeFromCredentials, internal.migrations.assistantPrefsMode, internal.migrations.assistantNoApprovalsTurns,
   internal.migrations.assistantNoApprovalsCalls];
 export const runAll = migrations.runner(RUN_ALL);
