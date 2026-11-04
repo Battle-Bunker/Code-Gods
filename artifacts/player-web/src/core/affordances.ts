@@ -29,10 +29,10 @@ export type Affordance = { ok: true } | { ok: false; hidden: boolean; reason: st
 
 /**
  * editCode: open the forge's editor (Write an agent, Edit a copy, Edit). validate/summon/destroy/chat: the game commands.
- * approve: act on the assistant's confirmation cards. roomStep: a next step that acts on the room (start the game, a
+ * roomStep: a next step that acts on the room (start the game, a
  * palette command, the forge) rather than only opening a panel.
  */
-export type Action = "editCode" | "validate" | "summon" | "destroy" | "chat" | "approve" | "roomStep";
+export type Action = "editCode" | "validate" | "summon" | "destroy" | "chat" | "roomStep";
 
 export type Affordances = { readOnly: boolean; readOnlyReason: string | null; can: Record<Action, Affordance> };
 
@@ -75,8 +75,6 @@ export function deriveAffordances(c: AffordanceContext): Affordances {
       ),
       // Not off while another command runs: typing goes on (the send button waits for the runner).
       chat: first(ro, loading, unknown),
-      // Approving is the assistant's own permission (assistant.confirm), not the room credential's: only a replay stops it.
-      approve: c.replay ? hide("This is a replay: approve your assistant's requests from the live room.") : OK,
       roomStep: first(ro),
     },
   };

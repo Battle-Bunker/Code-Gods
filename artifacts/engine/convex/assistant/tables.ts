@@ -1,5 +1,6 @@
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
+import { modeV } from "./mode";
 
 /**
  * The in-client assistant (owned by convex/assistant; docs/surface-architecture.md §6). A thread is one human's
@@ -11,6 +12,10 @@ import { v } from "convex/values";
  *
  * Message text, tool arguments and results are private to the thread's human: only assistant.thread(s), which check
  * `subject`, read them, and logs never carry them.
+ */
+/**
+ * `awaiting_confirmation` (turns and calls) is the retired per-action approval's: kept in the unions until the
+ * assistantNoApprovals* migrations (convex/migrations.ts) have ended every such row on dev and production; nothing writes it.
  */
 const turnStatus = v.union(
   v.literal("running"), v.literal("awaiting_confirmation"), v.literal("cancelling"),
@@ -38,7 +43,7 @@ export const assistantTables = {
   assistantTurns: defineTable({
     threadId: v.id("assistantThreads"), roomId: v.id("rooms"), subject: v.string(), gameId: v.optional(v.string()),
     credentialId: v.id("credentials"), status: turnStatus,
-    /** Chain generation: cancel and confirm bump it, so a stale scheduled step exits. */
+    /** Chain generation: cancel bumps it, so a stale scheduled step exits. */
     gen: v.number(),
     /** Model steps taken, the step ceiling and the wall-clock deadline (a cron fails turns past it). */
     step: v.number(), maxSteps: v.number(), deadline: v.number(),
@@ -62,6 +67,10 @@ export const assistantTables = {
     historyFromSeq: v.optional(v.number()),
     /** The output ceiling of the turn's later steps, raised after a step was cut (rules.ts outputCeiling). */
     outputCeiling: v.optional(v.number()),
+    /** "autopilot": opened by assistant/autopilot.ts, not by a player's message (its user message is the engine's prompt). */
+    trigger: v.optional(v.literal("autopilot")),
+    /** An autopilot turn a player's message preempted while one of its tool calls ran: it stops when that call ends. */
+    preempt: v.optional(v.boolean()),
     createdAt: v.number(), updatedAt: v.number(), finishedAt: v.optional(v.number()),
   }).index("by_room_subject", ["roomId", "subject"]).index("by_thread", ["threadId"]).index("by_status_deadline", ["status", "deadline"])
     .index("by_room_status", ["roomId", "status"]),
@@ -80,6 +89,8 @@ export const assistantTables = {
     inputEstimate: v.optional(v.number()), usageEstimated: v.optional(v.boolean()),
     /** Assistant messages: the model's own blocks of the step, verbatim (thinking included), replayed in its history. */
     contentJson: v.optional(v.string()),
+    /** A user message the engine wrote for an autopilot turn (shown as "(autopilot)", never as the player's words). */
+    autopilot: v.optional(v.boolean()),
     createdAt: v.number(), updatedAt: v.number(),
   }).index("by_thread_seq", ["threadId", "seq"]).index("by_turn", ["turnId"]),
 
@@ -94,10 +105,10 @@ export const assistantTables = {
     /** The tool result as the model sees it ({untrusted: true, …} or {error}), ≤ 8 KB. */
     resultJson: v.optional(v.string()),
     commandId: v.optional(v.string()),
-    /** Confirmation: when the card stops waiting (denied after), and the player's approval. */
+    /** The retired per-action approval's card deadline and decision: cleared by assistantNoApprovalsCalls, then dropped. */
     confirmDeadline: v.optional(v.number()), approved: v.optional(v.boolean()),
     createdAt: v.number(), updatedAt: v.number(),
-  }).index("by_turn", ["turnId", "index"]).index("by_thread", ["threadId"]).index("by_status_deadline", ["status", "confirmDeadline"]),
+  }).index("by_turn", ["turnId", "index"]).index("by_thread", ["threadId"]),
 
   assistantAllowances: defineTable({
     roomId: v.id("rooms"), subject: v.string(), epoch: v.string(), usedTokens: v.number(),
@@ -126,8 +137,15 @@ export const assistantTables = {
     .index("by_room_status", ["roomId", "status"])
     .index("by_client", ["subject", "clientId"]),
 
-  /** A player's assistant preferences per room: auto-approve summons up to this many bits (0 = always ask). A choice of
-   * the player's, like their layout, not the assistant's working state, so it is kept across the room's games. */
-  assistantPrefs: defineTable({ roomId: v.id("rooms"), subject: v.string(), autoApproveSummonBits: v.number() })
-    .index("by_key", ["roomId", "subject"]),
+  /**
+   * A player's assistant preferences per room: its `mode` (assistant/mode.ts; absent reads as onRequest until the
+   * assistantPrefsMode migration fills it). A choice of the player's, like their layout, not the assistant's working
+   * state, so it is kept across the room's games. `autopilotChain`: the generation of the autopilot's scheduled ticks
+   * (assistant/autopilot.ts), bumped when autopilot is chosen and when a game starts or resumes, so a stale tick exits.
+   * `autoApproveSummonBits` is the retired per-action approval's, cleared by assistantPrefsMode, then dropped.
+   */
+  assistantPrefs: defineTable({
+    roomId: v.id("rooms"), subject: v.string(), mode: v.optional(modeV), autopilotChain: v.optional(v.number()),
+    autoApproveSummonBits: v.optional(v.number()),
+  }).index("by_key", ["roomId", "subject"]),
 };

@@ -47,6 +47,13 @@
  *    stored `{ diag }` draws become `{}` through the same rewrites.
  *  - typedParamsBingo* (2026-11-03): Bingo Caller typed (a set param); the same rewrites for its stored draws.
  *  - typedParamsColour* (2026-11-03): the colour.ts and strategy.ts families typed; the same rewrites for their stored draws.
+ *  - assistant modes (2026-11-03, per-action approvals removed; assistant/mode.ts): assistantModeFromCredentials gives a
+ *    player who had chosen "Only look" (a live read assistant credential in a room) the Read-only mode there;
+ *    assistantPrefsMode gives every other prefs row On request and clears `autoApproveSummonBits`;
+ *    assistantNoApprovalsTurns ends a turn left waiting on an approval card (cancelled, its thread freed) and
+ *    assistantNoApprovalsCalls denies a call left waiting on one and clears `approved` / `confirmDeadline`. Narrowed
+ *    later: `mode` becomes required, the `awaiting_confirmation` statuses and the three retired fields leave the
+ *    validators, and the `?? DEFAULT_MODE` fallbacks go.
  *
  * Older hand-rolled steps, idempotent and run by their own deploy-workflow steps (kept as they are: they predate the
  * component, and porting the Node action setupsV2 buys nothing):
@@ -78,6 +85,7 @@ import type { FunctionReference } from "convex/server";
 import { components } from "./_generated/api";
 import schema from "./schema";
 import { ASSISTANT_LOBBY } from "./ai/seats";
+import { finishTurn } from "./assistant/turns";
 import { PLAYER_PARTITION, PLAYER_PREFIX, RUNS_PREFIX, codeEpoch } from "./code/keys";
 import { aiSeatName, renameInRecord } from "./lib/aiNames";
 import { migrateSettings } from "./lib/migrateSetups";
@@ -229,6 +237,51 @@ export const backfillObjectTimes = migrations.define({
   },
 });
 
+export const assistantModeFromCredentials = migrations.define({
+  table: "credentials",
+  migrateOne: async (ctx, cred) => {
+    if (cred.kind !== "assistant" || cred.permission !== "read" || !cred.roomId || cred.revokedAt !== undefined || cred.expiresAt <= Date.now()) return;
+    const roomId = ctx.db.normalizeId("rooms", cred.roomId);
+    if (!roomId) return;
+    const prefs = await ctx.db.query("assistantPrefs").withIndex("by_key", q => q.eq("roomId", roomId).eq("subject", cred.subject)).unique();
+    // A mode already set (by the player, or a run before this one) is left alone.
+    if (prefs?.mode !== undefined) return;
+    if (prefs) await ctx.db.patch(prefs._id, { mode: "readOnly" });
+    else await ctx.db.insert("assistantPrefs", { roomId, subject: cred.subject, mode: "readOnly" });
+  },
+});
+
+export const assistantPrefsMode = migrations.define({
+  table: "assistantPrefs",
+  migrateOne: (_ctx, prefs) => {
+    if (prefs.mode !== undefined && prefs.autoApproveSummonBits === undefined) return;
+    return { mode: prefs.mode ?? "onRequest", autoApproveSummonBits: undefined };
+  },
+});
+
+export const assistantNoApprovalsTurns = migrations.define({
+  table: "assistantTurns",
+  // Ended as a cancellation ends a turn (its thread freed, streaming messages closed, unrun calls denied, the
+  // thread's queued messages started).
+  migrateOne: async (ctx, turn) => {
+    if (turn.status === "awaiting_confirmation") await finishTurn(ctx, turn, "cancelled");
+  },
+});
+
+export const assistantNoApprovalsCalls = migrations.define({
+  table: "assistantToolCalls",
+  migrateOne: (_ctx, call) => {
+    if (call.status !== "awaiting_confirmation" && call.approved === undefined && call.confirmDeadline === undefined) return;
+    return {
+      approved: undefined, confirmDeadline: undefined,
+      ...(call.status === "awaiting_confirmation" ? {
+        status: "denied" as const, summary: "Not run: approvals were retired", updatedAt: Date.now(),
+        resultJson: JSON.stringify({ error: { code: "NOT_RUN", message: "This call waited for an approval card, which no longer exists; it did not run." } }),
+      } : {}),
+    };
+  },
+});
+
 /** Every component migration, in order: run by the deploy workflow (`npx convex run migrations:runAll`). Append only. */
 // Annotated: this module's own `internal` references would otherwise make its exported types circular.
 const RUN_ALL: FunctionReference<"mutation", "internal">[] = [internal.migrations.dropHaskellFromSetups, internal.migrations.dropHaskellFromRooms,
@@ -241,7 +294,9 @@ const RUN_ALL: FunctionReference<"mutation", "internal">[] = [internal.migration
   internal.migrations.typedParamsColourDeities, internal.migrations.typedParamsColourPreparing,
   internal.migrations.typedParamsArithmeticDeities, internal.migrations.typedParamsArithmeticPreparing,
   internal.migrations.typedParamsBingoDeities, internal.migrations.typedParamsBingoPreparing,
-  internal.migrations.setSpotterGeometryDeities, internal.migrations.setSpotterGeometryPreparing];
+  internal.migrations.setSpotterGeometryDeities, internal.migrations.setSpotterGeometryPreparing,
+  internal.migrations.assistantModeFromCredentials, internal.migrations.assistantPrefsMode, internal.migrations.assistantNoApprovalsTurns,
+  internal.migrations.assistantNoApprovalsCalls];
 export const runAll = migrations.runner(RUN_ALL);
 /** The state of each of runAll's migrations (scripts/run-migrations.mjs waits for all of them to succeed). */
 export const status = internalQuery({

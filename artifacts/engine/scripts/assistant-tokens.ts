@@ -34,8 +34,8 @@ async function count(parts: { system?: string; tools?: Tool[]; user?: string[] }
   return r.input_tokens;
 }
 
-const tools = modelTools(permission);
-const system = assistantSystemPrompt({ playerName: "Lia", roomCode: "ABCD", permission });
+const tools = modelTools(permission, "onRequest");
+const system = assistantSystemPrompt({ playerName: "Lia", roomCode: "ABCD", permission, mode: "onRequest" });
 const fixture = new URL("./fixtures/briefing-running.json", import.meta.url);
 const data = existsSync(fixture) ? JSON.parse(readFileSync(fixture, "utf8")) : undefined;
 const briefing = data ? assistantBriefing(data) : undefined;

@@ -7,8 +7,13 @@ export const LIMITS = {
   /** Model steps per turn, and a turn's wall-clock deadline. */
   maxSteps: 12,
   turnMs: 10 * 60_000,
-  /** A confirmation card waits this long before the call counts as denied. */
-  confirmMs: 2 * 60_000,
+  /**
+   * Autopilot (assistant/autopilot.ts): a turn at the game's start and then every `autopilotMs` while the game runs
+   * (never while another turn of the player's runs or a message of theirs waits), of at most `autopilotSteps` model
+   * steps, so a player's message rarely waits long behind one (and preempts it: assistant.send).
+   */
+  autopilotMs: 60_000,
+  autopilotSteps: 6,
   /** Stored sizes (bytes of UTF-16 text; Convex documents stay small). A message holds a whole model context echo. */
   textChars: 32 * 1024,
   argsChars: 8 * 1024,
@@ -44,6 +49,7 @@ export const LIMITS = {
   queued: 5,
 } as const;
 
+/** `awaiting_confirmation`: the retired per-action approval's, until the assistantNoApprovals* migrations end such turns. */
 export type TurnStatus = "running" | "awaiting_confirmation" | "cancelling" | "done" | "failed" | "cancelled" | "budget_exhausted";
 export const ACTIVE: readonly TurnStatus[] = ["running", "awaiting_confirmation", "cancelling"];
 export const isActive = (status: TurnStatus) => ACTIVE.includes(status);
@@ -64,5 +70,6 @@ export function withEngineNote(resultJson: string, note: string): string {
 export const ENGINE_NOTES = {
   repeat: (tool: string, times: number) => `Engine note: you just called ${tool} with these exact arguments ${times === 1 ? "once" : `${times} times`} in a row and got this same result. Repeating it will not change anything: use what you have, try something different, or answer the player.`,
   repeatStop: "Engine note: you are going round in circles, so the engine ends this turn after your next step. Do not call tools: tell the player where you got stuck (what you tried, the result, the error) and what you suggest.",
+  readOnly: (tool: string) => `Engine note: the player set you to Read-only, so ${tool} did not run: in this mode you answer with read-only tools and never change anything. Tell the player what you would do, and that they can switch you to On request or Autopilot to let you act.`,
   lastStep: "Engine note: your next step is the last of this turn. Do not call tools: answer the player now in text: what you did, what you found (with the numbers), and what you suggest next.",
 } as const;

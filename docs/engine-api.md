@@ -137,7 +137,7 @@ commands as the human's own client. How to connect Claude: `docs/connect-claude.
 | `start_game`, `resume_game`, `end_game` | owner | `requestId` (start is idempotent per requestId) |
 | `add_ai`, `remove_ai` | owner | `requestId, aiAgentId` / `requestId, deityId` |
 | `list_setups` | read | → `setups.list` (the defaults, then the human's own) |
-| `save_setup`, `delete_setup` | act | `name, settings, setupId?, summary?` → `setups.save` (changes no room, so the in-client assistant needs no card); `setupId` → `setups.remove` (always confirmed by the player) |
+| `save_setup`, `delete_setup` | act | `name, settings, setupId?, summary?` → `setups.save` (changes no room); `setupId` → `setups.remove` |
 | `list_panels`, `get_panel` | read | → `panels.list`; `slug, version?` → `panels.code` |
 | `save_panel`, `rollback_panel`, `delete_panel` | act | `slug, source, title?, placement?, size?` → `panels.save`; `slug, version` → `panels.rollback`; `slug` → `panels.remove` |
 | `get_layout` | read | → `layout.current` plus the built-in panel catalogue (`panels[{id, title, blurb, phases, paramsSchema, defaults}]`) and the caller's enabled stored panels (`storedPanels[{slug, title, placement, size}]`) |
@@ -262,13 +262,12 @@ Every public function above has an entry in `lib/player-client/src/catalog.ts` (
 | `assistant.editQueued` | mutation | player | Edit a queued message | Changes a message waiting for your assistant before it reads it. | — (Edited on the queued message in the assistant pane.) |
 | `assistant.removeQueued` | mutation | player | Remove a queued message | Takes back a message your assistant has not read yet. | — (Removed on the queued message in the assistant pane.) |
 | `assistant.sendQueued` | mutation | player | Send held messages | Sends the messages you queued before you stopped the assistant. | — (Sent from the held messages in the assistant pane.) |
-| `assistant.cancel` | mutation | player | Stop the assistant | Stops the current answer and cancels a waiting card; messages you queued stay held until you send. | — (The assistant does not drive itself; the human sends, stops and configures it from the assistant pane.) |
-| `assistant.confirm` | mutation | player | Decide a confirmation | Approves or denies an action the assistant asked permission for. | — (Decided on the confirmation card in the assistant pane, never elsewhere.) |
-| `assistant.setPrefs` | mutation | player | Set assistant preferences | Lets summons the assistant validated run without a card up to this many bits (0 asks every time). | — (The assistant does not drive itself; the human sends, stops and configures it from the assistant pane.) |
+| `assistant.cancel` | mutation | player | Stop the assistant | Stops the current answer; messages you queued stay held until you send. | — (The assistant does not drive itself; the human sends, stops and configures it from the assistant pane.) |
+| `assistant.setMode` | mutation | player | Set the assistant's mode | Autopilot plays on its own; On request acts only when you ask; Read-only only answers questions. | — (The assistant does not drive itself; the human sends, stops and configures it from the assistant pane.) |
 | `assistant.status` | query | player | Show assistant status | Whether the assistant is on, its allowance, model, credential and active turn. | — (A live subscription a page renders; there is nothing to run.) |
 | `assistant.threads` | query | player | Switch conversation | Your assistant conversations in this room's current game, newest first. | — (The assistant does not drive itself; the human sends, stops and configures it from the assistant pane.) |
 | `assistant.transcript` | query | player | Show this game's conversation | Your assistant conversation in this game: a new game starts with none. | — (A live subscription a page renders; there is nothing to run.) |
-| `assistant.thread` | query | player | Show a conversation | One conversation's messages, tool calls and confirmation cards. | — (A live subscription a page renders; there is nothing to run.) |
+| `assistant.thread` | query | player | Show a conversation | One conversation's messages and tool calls. | — (A live subscription a page renders; there is nothing to run.) |
 | `auth.credentials.list` | query | infrastructure | Show connected apps | Every app, connector and assistant acting as you, with its room, rights and expiry. | — |
 | `auth.credentials.revoke` | mutation | infrastructure | Revoke a connected app | Cuts that app's access on its next call; you can reconnect it later. | — |
 | `auth.device.pending` | query | infrastructure | Review a device code | Shows what a player app asks for before you approve its code. | — (The /device page's data; approval keeps its consent page.) |
@@ -346,8 +345,8 @@ NOT_FOUND).
   above the caller's own; `owner` only for the current owner with `ownerConsent: true`); a different `permission`
   replaces it. FORBIDDEN when the owner has not enabled the assistant (allowance 0). While the caller's turn in this
   game is active the message is **queued** (`queued: true`, `turnId: null`): it joins that turn after its current
-  step's tool results, or starts the next turn when it ends with none; a card waiting for the player is declined by it
-  (never approved). A turn that fails or runs out of allowance holds its queued messages. At most 5 queued (BAD_REQUEST
+  step's tool results, or starts the next turn when it ends with none; sent while an **autopilot** turn runs, it stops
+  that turn (error `PREEMPTED`) and runs next. A turn that fails or runs out of allowance holds its queued messages. At most 5 queued (BAD_REQUEST
   beyond); CONFLICT for another conversation than the busy one, or a `permission` other than the busy turn's. The
   same `clientId` again returns the same message (even after an edit). Messages a Stop held go first in the
   next send's turn (`docs/surface-architecture.md` §6 "Queued messages"). CLIENT_OUTDATED when an earlier game's
@@ -358,30 +357,33 @@ NOT_FOUND).
   that conversation (else the oldest one's); CONFLICT while a turn is active, NOT_FOUND with none.
 - `assistant.cancel({turnId})` mutation → `{status}`: `cancelling` (the running step stops at its next flush or between
   tool calls) or `cancelled`. Messages queued so far stay queued, `held`, until the next send or `sendQueued`.
-- `assistant.confirm({toolCallId, decision: approve|deny})` mutation → `{status}`: decides a call waiting for
-  confirmation (summons unless auto-approved, public chat, pauses, panel deletion, owner tools). A decision on a call
-  that no longer waits changes nothing. Unanswered cards are denied after 2 minutes.
-- `assistant.setPrefs({roomId, autoApproveSummonBits})` mutation: summons up to this many bits, validated earlier in
-  the same turn, run without a card (0 = always ask).
+- `assistant.setMode({roomId, mode: autopilot|onRequest|readOnly})` mutation → `{mode, label}`: the caller's assistant
+  mode in this room, kept across its games (`docs/surface-architecture.md` §6 "Modes"). No call waits for an approval.
+  **Autopilot** ("Autopilot") plays on its own: turns of at most 6 steps open without a message, at the game's start and
+  every 60 s while it is in planning or running, paid from the caller's per-game assistant quota and stopping at its
+  last tenth, at game end, on idle parking or a mode change; it needs a connection that may act (FORBIDDEN for a
+  read-only one, or when the assistant is off) and makes or keeps the act credential. **On request** ("On request", the
+  default) acts only in response to the caller's messages. **Read-only** ("Read-only") offers and runs only read-only
+  tools: any other call is refused in the dispatch with `READ_ONLY`. Owner powers stay the credential's permission.
 - `assistant.status({roomId})` query → `{enabled, allowance{limit, used, epoch}, model{id, label, provider}|null,
   credential{credentialId, permission, expiresAt}|null, activeTurn{turnId, threadId, status}|null, isOwner, maxPermission,
-  autoApproveSummonBits, queued[{_id, threadId, text, held, createdAt}]}` (queued: the caller's waiting messages in this game, oldest first). `allowance.used` counts billed tokens: input-price equivalents, so a prompt-cache read counts
+  mode, queued[{_id, threadId, text, held, createdAt}]}` (queued: the caller's waiting messages in this game, oldest first). `allowance.used` counts billed tokens: input-price equivalents, so a prompt-cache read counts
   its price relative to input (0.1 at Anthropic, 0.25 at OpenAI), an Anthropic cache write 1.25, uncached input and
   output 1 (`lib/ai-player` `usageCost`). A step reserves its worst case (estimated input at its dearest price plus the
   output ceiling) and settles to what it cost; a cancelled step is billed from what was known (its reported input and
   the streamed output), never its whole reservation.
 - `assistant.threads({roomId})` query → `[{_id, title, createdAt, updatedAt, activeTurnId}]` (the caller's, newest first).
-- `assistant.thread({threadId})` query → `{thread, turns[{_id, status: running|awaiting_confirmation|cancelling|done|failed|cancelled|budget_exhausted,
-  step, maxSteps, deadline, usage{inputTokens, outputTokens, reservedTokens, reservedUsd, billedTokens}, tools, credentialId, error|null, …}],
+- `assistant.thread({threadId})` query → `{thread, turns[{_id, status: running|cancelling|done|failed|cancelled|budget_exhausted,
+  step, maxSteps, deadline, usage{inputTokens, outputTokens, reservedTokens, reservedUsd, billedTokens}, tools, credentialId, trigger: "autopilot"|null, error|null, …}],
   messages[{_id, turnId, seq, role, text, status: streaming|done|error|cancelled, reservedTokens, inputTokens, outputTokens,
-  cacheReadTokens, cacheWriteTokens, billedTokens, inputEstimate, usageEstimated}],
-  toolCalls[{_id, turnId, messageId, callId, index, tool, argsJson, status: pending|awaiting_confirmation|running|ok|error|denied,
-  summary, resultJson, commandId, confirmDeadline}]}`. `argsJson` is the exact payload the call runs with; `resultJson` is
+  cacheReadTokens, cacheWriteTokens, billedTokens, inputEstimate, usageEstimated, autopilot}],
+  toolCalls[{_id, turnId, messageId, callId, index, tool, argsJson, status: pending|running|ok|error|denied,
+  summary, resultJson, commandId}]}` (`autopilot`: the engine's prompt of an autopilot turn; `denied`: a call that never ran). `argsJson` is the exact payload the call runs with; `resultJson` is
   the registry result the model saw (`{untrusted: true, …}` or `{error}`), at most 8 KB; a clipped one starts with a
   `TRUNCATED` field naming what was cut ("data.objects shows 11 of 60 items") and ends with `truncated: true`.
 
 Internal: `assistant/step:run({turnId, gen})` (one Node action per model step), `assistant/store:*` (the turn loop's
-mutations and the `sweep` cron), `ai/seats:reserve|settle({pool: "assistant", …})`.
+mutations and the `sweep` cron), `assistant/autopilot:tick|startRoom` (the autopilot's chain), `ai/seats:reserve|settle({pool: "assistant", …})`.
 
 ### Deployed versions (`version`)
 Open pages learn of a deploy and update themselves (`lib/player-client/src/update.ts`).

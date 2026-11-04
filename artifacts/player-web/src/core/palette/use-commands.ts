@@ -71,7 +71,7 @@ export function usePlayerCommands(scopePaneId: string | null): { commands: Comma
   const status = useQuery(api.assistant.status, { roomId: room });
   const setups = useQuery(api.setups.list, s.isOwner ? {} : "skip");
   const cancel = useMutation(api.assistant.cancel);
-  const setPrefs = useMutation(api.assistant.setPrefs);
+  const setMode = useMutation(api.assistant.setMode);
   const join = useMutation(api.rooms.join);
   const wake = useMutation(api.activity.touch);
   const setEnabled = useMutation(api.panels.setEnabled);
@@ -127,12 +127,12 @@ export function usePlayerCommands(scopePaneId: string | null): { commands: Comma
     },
     assistant: {
       cancel: () => (status?.activeTurn ? cancel({ turnId: status.activeTurn.turnId }).catch(notifyError) : Promise.resolve()),
-      setAutoApprove: bits => setPrefs({ roomId: room, autoApproveSummonBits: bits }).then(() => notify(bits > 0 ? `Summons up to ${bits} bits run without a card.` : "Every summon asks you first."), notifyError),
+      setMode: mode => setMode({ roomId: room, mode }).then(r => notify(`Your assistant is on ${r.label}.`), notifyError),
       // The current game's conversations only; a choice is kept for that game (composer.threadIn).
       useThreads: () => useThreads(room),
       openThread: id => { if (status) composer.setThread(status.game, id); composer.focus(); },
       newThread: () => { if (status) composer.setThread(status.game, "new"); composer.focus(); },
-      setPermission: p => { composer.setPermission(p); notify(p === "read" ? "Your assistant will only look, from your next message." : "Your assistant may act for you from your next message; it asks before anything public or costly."); },
+      setPermission: p => { composer.setPermission(p); composer.setOwnerConsent(p === "owner"); notify(p === "owner" ? "Your assistant may use owner powers from your next message." : "Your assistant plays without owner powers from your next message."); },
       focus: () => composer.focus(),
       handoff: draft => composer.fill(draft),
     },
@@ -158,7 +158,7 @@ export function usePlayerCommands(scopePaneId: string | null): { commands: Comma
       end: () => replayController?.seekWorld(replayController.endWorld),
     },
     notify,
-  }), [replayController, game, wake, join, s.obs, permission, roomId, room, owner, actions, setEnabled, removePanel, rollback, panels.stored, status, cancel, setPrefs, state.roomCode, state.gameCode]);
+  }), [replayController, game, wake, join, s.obs, permission, roomId, room, owner, actions, setEnabled, removePanel, rollback, panels.stored, status, cancel, setMode, state.roomCode, state.gameCode]);
 
   const context = useMemo((): PaletteContext => ({
     role: s.isOwner ? "owner" : s.seated ? "seated" : "member", admin: false, permission, phase: s.obs?.phase, assistantOn: !!status?.enabled,
