@@ -2,7 +2,7 @@
  * Kid wording for "How this scores" (game-utilities explain/workings.ts): one idea per line, the real numbers shown.
  * Pure text, so it is unit tested under Node; HowThisScores.tsx only lays it out.
  */
-import type { ScoreWorkings } from "@workspace/game-utilities";
+import { impactText, tierName, tupleText, type ScoreWorkings } from "@workspace/game-utilities";
 import { formatCount, oneInN } from "../rarity.ts";
 
 /** 0.172 → "0.172"; 0.0004213 → "0.000421"; 1 → "1": three significant digits, no exponent. */
@@ -37,16 +37,17 @@ export interface WorkingsText {
   netLines: string[];
 }
 
-const signedPoints = (points: readonly number[]) => points.map((p, k) => (p === 0 ? "" : `${p > 0 ? "+" : "−"}${Math.abs(p)}${k === 0 ? "" : " tie-break"}`)).filter(Boolean).join(" · ") || "0";
 
 export function workingsText(w: ScoreWorkings, noun = "board"): WorkingsText {
   const [one, many] = w.breakdown.unit, first = w.breakdown.total[0];
   const unit = first === 1 ? one : many;
-  const ties = w.components.slice(1);
-  const rawTotal = `Total: ${first} ${unit}`
-    + (ties.length ? ` (and tie-breaks: ${w.breakdown.total.slice(1).map((v, k) => `${ties[k].replace(/^tie-break: /, "")} ${v}`).join("; ")})` : "");
+  const multi = w.components.length > 1, tuple = tupleText(w.breakdown.total);
+  // The raw score is the points tuple; a rule with several tiers says what each counts.
+  const rawTotal = multi
+    ? `Total: ${tuple}: ${w.components.map((name, k) => `${tierName(k)} points ${String(w.breakdown.total[k]).replace("-", "−")} (${name})`).join(", ")}`
+    : `Total: ${tuple}, ${first} ${unit}`;
   const r = w.rarity, p = formatProbability(r.probability);
-  const atLeast = ties.length ? `at least this score (${first} ${unit}, counting tie-breaks)` : `at least ${first} ${unit}`;
+  const atLeast = multi ? `a points tuple at least ${tuple} (primary points first, then secondary…)` : `at least ${first} ${unit}`;
   const rarityLines = [
     `Out of all possible ${noun}s, dealt at random, ${formatPercent(r.probability)} have ${atLeast}.`,
     `As a chance: P = ${p}.`,
@@ -78,7 +79,7 @@ export function workingsText(w: ScoreWorkings, noun = "board"): WorkingsText {
   if (w.netBits !== undefined) netLines.push("Your points for a " + noun + " = your net bits × what the other gods add up to care about it (never less than 0).");
   return {
     rawTitle: "1. What this board scores",
-    rawLines: w.breakdown.items.length ? w.breakdown.items.map(it => ({ text: it.text, points: signedPoints(it.points) })) : [{ text: `Nothing on this ${noun} scores`, points: "0" }],
+    rawLines: w.breakdown.items.length ? w.breakdown.items.map(it => ({ text: it.text, points: impactText(it.points) })) : [{ text: `Nothing on this ${noun} scores`, points: impactText(w.breakdown.total.map(() => 0)) }],
     rawTotal,
     rarityTitle: "2. How rare is that?",
     rarityLines,

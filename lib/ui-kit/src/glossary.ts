@@ -12,6 +12,7 @@ export const GLOSSARY = {
   bits: { term: "Bits", gloss: "How rare an object is by your rule: 1 in 8 random objects as good means 3 bits." },
   "others-care": { term: "Others' care", gloss: "The other gods' bits for an object added together (never below 0): the only thing you learn about their rules." },
   payoff: { term: "Payoff", gloss: "Your bits × others' care for one object; your score is the sum over all live objects." },
+  "points-tuple": { term: "Points tuple", gloss: "What a rule scores a board: primary points, then secondary points (and tertiary…), like (3, −5). Tuples compare primary points first, then secondary, and so on; your bits are how rare your tuple is." },
   salience: { term: "Salience", gloss: "Everyone's bits for an object added up: public, so you can see what the table cares about." },
   agent: { term: "Agent", gloss: "Your small program, agent(obj), which returns up to 16 moves when the world picks it." },
   summon: { term: "Summon", gloss: "Paying energy to put an agent into the world; the price is the program's description bits (shorter is cheaper)." },

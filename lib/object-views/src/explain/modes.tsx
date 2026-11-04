@@ -10,7 +10,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { COLOUR_COMPONENTS, SYMBOL_COMPONENTS, type GridColourSet, type GridSymbolSet, type Instantiation } from "@workspace/game-types";
 import {
-  toneOf, whatIf, type Cell, type Draw, type GoalExplainer, type Part, type Story, type StoryRole, type WhatIfEntry,
+  toneOf, tupleText, whatIf, type Cell, type Draw, type GoalExplainer, type Part, type Story, type StoryRole, type WhatIfEntry,
 } from "@workspace/game-utilities";
 import { gridModel } from "../grid-display.ts";
 import type { GridSettings } from "../registry.ts";
@@ -57,8 +57,7 @@ export function PartScrubber({ goal, value, grid, testId = "part-scrubber" }: { 
   return (
     <div className="space-y-2" data-testid={testId}>
       <Stepper index={step} count={parts.length} onIndex={setIndex}
-        label={<>Counted so far: <b className="text-foreground" data-testid="scrubber-sofar">{sofar[0]} point{sofar[0] === 1 ? "" : "s"}</b>
-          {sofar.length > 1 && <> · tie-break {signed(sofar[1])}</>}</>} />
+        label={<>Counted so far: <b className="text-foreground" data-testid="scrubber-sofar">{tupleText(sofar)}</b></>} />
       <GoalBoard goal={goal} value={value} grid={grid} selected={part.id} explanation={explanation} testId={`${testId}-board`} />
     </div>
   );

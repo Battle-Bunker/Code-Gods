@@ -67,7 +67,7 @@ test("addsUp: a part that is off by one, or a missing component, is caught", () 
   assert.equal(addsUp([part([1]), part([2])], 1, 3), true);
   assert.equal(addsUp([part([1]), part([2])], 1, 4), false);
   assert.equal(addsUp([part([1, -2]), part([0, -3])], 2, [1, -5]), true);
-  assert.equal(addsUp([part([1, -2]), part([0, -3])], 2, [1, -4]), false, "the tie-break component is checked too");
+  assert.equal(addsUp([part([1, -2]), part([0, -3])], 2, [1, -4]), false, "the secondary tier is checked too");
   assert.equal(addsUp([part([1]), part([0, -3])], 2, [1, -3]), false, "every part carries every explained component");
   assert.equal(addsUp([], 1, 0), true, "no pieces, no points");
   assert.equal(addsUp([part([1])], 3, [1, 0]), false, "cannot explain more components than the score has");
@@ -154,7 +154,7 @@ test("Colour Bonds: the pairs that make the target must also share a colour", ()
     "3G + 7B: right sum, different colours");
 });
 
-test("Chessmaster: blocks score, touching pairs are the tie-break; two hover modes", () => {
+test("Chessmaster: primary points for blocks, secondary for touching pairs; two hover modes", () => {
   const { e, unit, point, modes } = look("chessmaster", { colour_a: "red", colour_b: "green" });
   // No 2×2 block alternates red and green; four red–green touches: 8R|1G, 4R|7G, 3G|9R, 2R over 4G.
   assert.deepEqual(e.ordinal, [0, 4]);
@@ -188,7 +188,10 @@ test("Magic Accountant: one unit per line against the magic number; rows or colu
   // Row totals 16, 19, 18, 16: two rows make 16; distance 0 + 3 + 2 + 0 = 5.
   assert.deepEqual(e.ordinal, [2, -5]);
   assert.deepEqual([unit("line:row 2").title, unit("line:row 2").points], ["row 2: 3 over", [0, -3]]);
-  assert.deepEqual(unit("line:row 2").facts, [{ text: "4 + 4 + 4 + 7 = 19, not 16", ok: false }]);
+  assert.deepEqual(unit("line:row 2").facts, [
+    { text: "4 + 4 + 4 + 7 = 19, not 16", ok: false },
+    { text: "19 − 16 = 3 over", ok: false, tier: 1 },
+  ], "each tier's derivation: primary (makes 16?), then secondary (how far)");
   assert.equal(point(0, 2)!.id, "line:row 1", "the row under the pointer");
   const cols = look("magic_accountant", { axis: "cols", target: 16 });
   assert.equal(cols.point(0, 0)!.id, "line:column 1", "columns are the transposed peer: the column under the pointer");
@@ -243,7 +246,10 @@ test("Mirrormancer: one unit per row, folded onto itself, pairs as ✓/✗ arcs"
   assert.deepEqual(e.ordinal, [0, 1]);
   const v = point(1, 2)!;
   assert.equal(v.id, "line:row:1");
-  assert.deepEqual(v.facts, [{ text: "1st and last: 4, 7", ok: false }, { text: "2nd and 2nd-last: 4, 4", ok: true }]);
+  assert.deepEqual(v.facts, [
+    { text: "1 pair of 2 differs", ok: false },
+    { text: "1st and last: 4, 7", ok: false, tier: 1 }, { text: "2nd and 2nd-last: 4, 4", ok: true, tier: 1 },
+  ], "primary: the whole mirror; secondary: each matching pair");
   assert.deepEqual(v.links!.map(l => [l.from.c, l.to.c, l.ok]), [[0, 3, false], [1, 2, true]]);
   assert.equal(look("mirrormancer", { axis: "TB" }).point(0, 0)!.id, "line:column:0");
 });
