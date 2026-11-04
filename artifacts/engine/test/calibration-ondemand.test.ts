@@ -17,7 +17,7 @@ import { admin, api, gods, internal, roomWith, touch, waitFor } from "./game-hel
 const settings = { objectType: "Int", typeArgs: { min: 0, max: 2147483647 }, priorId: "uniform" };
 const inst = instantiate("Int", settings.typeArgs);
 const analyticDraw = { familyId: "digit-devotee", params: { digit: 7 } };             // digit counts: analytic, instant
-const sampled = [3, 4, 5].map(n => ({ familyId: "smooth-operator", params: { primes: [3, 5, 7, 11, 13].slice(0, n) } }));
+const sampled = [4, 5, 6].map(n => ({ familyId: "smooth-operator", params: { primes: [3, 5, 7, 11, 13, 17].slice(0, n) } }));
 const draws = [analyticDraw, ...sampled];
 
 test("first use on a new shape: analytic draws are ready at once, sampled draws are computed in parallel actions and cached", { timeout: 600_000 }, async () => {

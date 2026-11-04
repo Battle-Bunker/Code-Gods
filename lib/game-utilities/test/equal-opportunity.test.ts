@@ -22,11 +22,7 @@ import type { CalibrationTable } from "../src/calibration.ts";
 const TOP_RATIO = 1.15, MEAN_DELTA = 0.5;
 
 /** Families whose param classes still differ in opportunity (being fixed in batches). Only shrinks. */
-const VIOLATORS: ReadonlySet<string> = new Set([
-  "bit-sigil", "digit-devotee", "firstborn", "haiku-master", "numerologist", "palette-keeper", "palindromist",
-  "power-hoarder", "purist", "refrain", "residue-oracle", "scale-keeper", "smooth-operator", "streaker",
-  "tailwright", "tallykeeper",
-]);
+const VIOLATORS: ReadonlySet<string> = new Set([]);
 
 function stats(t: CalibrationTable): { top: number; mean: number } {
   const b = t.levels.map(l => l[1]);

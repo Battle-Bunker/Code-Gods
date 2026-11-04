@@ -22,8 +22,6 @@ const CLASSES: Readonly<Record<string, string>> = {
   vowels: "aeiouAEIOU", digits: "0123456789", lowercase: "abcdefghijklmnopqrstuvwxyz",
   uppercase: "ABCDEFGHIJKLMNOPQRSTUVWXYZ", hex: "0123456789abcdef",
 };
-/** Character classes of the same size are one orbit. */
-const CLASS_CANON: Readonly<Record<string, string>> = { vowels: "vowels", digits: "vowels", lowercase: "lowercase", uppercase: "lowercase", hex: "hex" };
 const ALNUM = CLASSES.lowercase + CLASSES.uppercase + CLASSES.digits;
 
 // --- Glyph Glutton ---------------------------------------------------------------------------------
@@ -57,19 +55,23 @@ const glyphGlutton = stringFamily<CharP>({
 });
 
 // --- Purist ------------------------------------------------------------------------------------------
-type KindP = { kind: string };
-const kindConsts = (p: KindP): CardText["consts"] => [["MEMBERS", CLASSES[p.kind], p.kind]];
-const puristText = (p: KindP) => card("🧼", "Purist",
-  `You want x made purely of ${p.kind}. Every ${p.kind.replace(/s$/, "")} character is +1 and every other character is −1.`,
-  kindConsts(p));
-const purist = stringFamily<KindP>({
+/**
+ * One class, lowercase letters. The classes are different sizes (10, 16 and 26 of the 128 characters), so their top bits
+ * differ by up to 1.6x (294 to 471 on 128, 37 to 59 on 16) and are not related by a symmetry (P10).
+ */
+const KIND = "lowercase";
+const kindConsts: CardText["consts"] = [["MEMBERS", CLASSES[KIND], KIND]];
+const puristText = card("🧼", "Purist",
+  `You want x made purely of ${KIND}. Every ${KIND.replace(/s$/, "")} character is +1 and every other character is −1.`,
+  kindConsts);
+const purist = stringFamily<Record<string, never>>({
   id: "purist", name: "Purist", emoji: "🧼", theme: "Wants x made purely of one class of characters.", shape: SCALAR,
   analytic: solvedAnalytic("purist"),
-  params: () => ({ kind: valuesParam("Character class", Object.keys(CLASSES)) }),
-  support: () => Object.keys(CLASSES).map(kind => ({ kind })),
-  canonical: p => ({ kind: CLASS_CANON[p.kind] }),
-  summary: p => `You want x to be pure ${p.kind} (${CLASSES[p.kind]}): +1 for each of them, −1 for anything else.`,
-  python: p => pyCard(puristText(p), `
+  params: () => ({}),
+  legacy: p => ("kind" in p ? {} : null),
+  support: () => [{}],
+  summary: () => `You want x to be pure ${KIND} (${CLASSES[KIND]}): +1 for each of them, −1 for anything else.`,
+  python: () => pyCard(puristText, `
     def utility(x):
         points = 0
         for ch in x:
@@ -78,7 +80,7 @@ const purist = stringFamily<KindP>({
             else:
                 points -= 1
         return points`),
-  typescript: p => tsCard(puristText(p), `
+  typescript: () => tsCard(puristText, `
     function utility(x) {
       let points = 0;
       for (const ch of x) {
@@ -87,22 +89,22 @@ const purist = stringFamily<KindP>({
       }
       return points;
     }`),
-  exemplar: (p, s) => CLASSES[p.kind].repeat(s.L).slice(0, s.L),
+  exemplar: (_p, s) => CLASSES[KIND].repeat(s.L).slice(0, s.L),
 });
 
 // --- Streaker ------------------------------------------------------------------------------------------
-const streakText = (p: KindP) => card("🏃", "Streaker",
-  `You want one long unbroken streak of ${p.kind} somewhere in x. Score the longest streak.`, kindConsts(p));
-const streaker = stringFamily<KindP>({
+const streakText = card("🏃", "Streaker",
+  `You want one long unbroken streak of ${KIND} somewhere in x. Score the longest streak.`, kindConsts);
+const streaker = stringFamily<Record<string, never>>({
   id: "streaker", name: "Streaker", emoji: "🏃", theme: "Wants one long unbroken streak of a class of characters.",
   analytic: solvedAnalytic("streaker"),
   shape: SCALAR,
-  params: () => ({ kind: valuesParam("Character class", Object.keys(CLASSES)) }),
-  support: () => Object.keys(CLASSES).map(kind => ({ kind })),
-  canonical: p => ({ kind: CLASS_CANON[p.kind] }),
-  summary: p => `You want one long unbroken streak of ${p.kind} (${CLASSES[p.kind]}) somewhere in x: the longer the `
+  params: () => ({}),
+  legacy: p => ("kind" in p ? {} : null),
+  support: () => [{}],
+  summary: () => `You want one long unbroken streak of ${KIND} (${CLASSES[KIND]}) somewhere in x: the longer the `
     + "better. The rest of the string is irrelevant to you.",
-  python: p => pyCard(streakText(p), `
+  python: () => pyCard(streakText, `
     def utility(x):
         best = 0
         run = 0
@@ -113,7 +115,7 @@ const streaker = stringFamily<KindP>({
                 run = 0
             best = max(best, run)
         return best`),
-  typescript: p => tsCard(streakText(p), `
+  typescript: () => tsCard(streakText, `
     function utility(x) {
       let best = 0;
       let run = 0;
@@ -124,7 +126,7 @@ const streaker = stringFamily<KindP>({
       }
       return best;
     }`),
-  exemplar: (p, s) => CLASSES[p.kind].repeat(s.L).slice(0, s.L),
+  exemplar: (_p, s) => CLASSES[KIND].repeat(s.L).slice(0, s.L),
 });
 
 // --- Incantor ------------------------------------------------------------------------------------------
@@ -319,6 +321,19 @@ const nestBuilder = stringFamily<Record<string, never>>({
 
 // --- Haiku Master ------------------------------------------------------------------------------------------
 const HAIKU_LENGTHS = [5, 7, 10, 12, 17, 20, 24, 32, 40, 48, 64, 100];
+/**
+ * One length per shape: the largest listed one up to 0.6 of the cap. Hitting length n exactly costs about 7 bits per
+ * character the cap lies above it (string(16): n = 5, 7, 10, 12 take 75, 66, 43 and 27 bits), so no band of three
+ * lengths is equal (P10); the same share of the cap gives every shape a comparable chance.
+ */
+/** The legacy reader of a param fixed to one value per shape: a stored other value reads as it (none when the shape has none). */
+const fixedTo = <K extends string>(p: Record<string, unknown>, key: K, only: readonly number[]) =>
+  (typeof p[key] === "number" && only.length === 1 && p[key] !== only[0] ? ({ [key]: only[0] } as Record<K, number>) : null);
+const haikuLengths = (s: StringSpec): number[] => {
+  const fit = HAIKU_LENGTHS.filter(n => n <= s.L);
+  const one = fit.filter(n => n <= 0.6 * s.L).pop() ?? fit[0];
+  return one === undefined ? [] : [one];
+};
 type LengthP = { length: number };
 const haikuText = (p: LengthP) => card("🌸", "Haiku Master",
   `You want x to be exactly ${p.length} characters long. The closer its length is to ${p.length}, the better.`,
@@ -326,8 +341,9 @@ const haikuText = (p: LengthP) => card("🌸", "Haiku Master",
 const haikuMaster = stringFamily<LengthP>({
   id: "haiku-master", name: "Haiku Master", emoji: "🌸", theme: "Wants x to have one exact length.", shape: SCALAR,
   requires: minLength(5),
-  params: s => ({ length: valuesParam("Length", HAIKU_LENGTHS.filter(n => n <= s.L)) }),
-  support: s => HAIKU_LENGTHS.filter(n => n <= s.L).map(length => ({ length })),
+  params: s => ({ length: valuesParam("Length", haikuLengths(s)) }),
+  legacy: (p, s) => fixedTo(p, "length", haikuLengths(s)),
+  support: s => haikuLengths(s).map(length => ({ length })),
   summary: p => `You want x to be exactly ${p.length} characters long; content doesn't matter, closer is better.`,
   python: p => pyCard(haikuText(p), `
     def utility(x):
@@ -383,6 +399,15 @@ const wordsmith = stringFamily<Record<string, never>>({
 
 // --- Tallykeeper ---------------------------------------------------------------------------------------------
 const TALLIES = [9, 27, 45, 81, 100, 123, 150, 180, 234, 300, 365, 512];
+/**
+ * One sacred number per shape: the listed one nearest the typical digit total of a random string (10 of the 128 characters
+ * are digits, 4.5 on average: 0.35 per character). Targets far from it are rare (string(128): 5 to 199 bits across the
+ * twelve; string(16): 4 to 78), so no band of three is equal (P10).
+ */
+const tallyTotal = (s: StringSpec): number[] => {
+  const fit = TALLIES.filter(t => t <= 9 * s.L), typical = 0.3516 * s.L;
+  return fit.length ? [fit.reduce((best, t) => (Math.abs(t - typical) < Math.abs(best - typical) ? t : best))] : [];
+};
 type TallyP = { total: number };
 const tallyText = (p: TallyP) => card("🧾", "Tallykeeper",
   `Your sacred number is ${p.total}. Add up every digit character 0 to 9 in x: the closer the total is to ${p.total}, `
@@ -392,8 +417,9 @@ const tallykeeper = stringFamily<TallyP>({
   analytic: solvedAnalytic("tallykeeper"),
   requires: minLength(1),
   shape: SCALAR,
-  params: s => ({ total: valuesParam("Digit total", TALLIES.filter(t => t <= 9 * s.L)) }),
-  support: s => TALLIES.filter(t => t <= 9 * s.L).map(total => ({ total })),
+  params: s => ({ total: valuesParam("Digit total", tallyTotal(s)) }),
+  legacy: (p, s) => fixedTo(p, "total", tallyTotal(s)),
+  support: s => tallyTotal(s).map(total => ({ total })),
   summary: p => `Your sacred number is ${p.total}. Add up every digit character 0–9 in x; the closer to ${p.total}, the `
     + "better, and every digit anyone else adds or removes moves your tally.",
   python: p => pyCard(tallyText(p), `
@@ -415,27 +441,31 @@ const tallykeeper = stringFamily<TallyP>({
 });
 
 // --- Palette Keeper --------------------------------------------------------------------------------------------
-type PaletteP = { distinct_chars: number };
-const paletteText = (p: PaletteP) => card("🎨", "Palette Keeper",
-  `You want x to use exactly ${p.distinct_chars} different characters (any ${p.distinct_chars}). The closer, the better; if that's a `
-  + "tie, longer is better, up to 32 characters.", [["MY_COUNT", p.distinct_chars]]);
-const paletteKeeper = stringFamily<PaletteP>({
+/**
+ * Three distinct characters. The top bits fall with the count on short strings (string(16): 3 to 8 take 57, 62, 49, 41, 31
+ * and 26 bits), so no band of three counts is equal (P10); 3 fits every length the family accepts.
+ */
+const PALETTE = 3;
+const paletteText = card("🎨", "Palette Keeper",
+  `You want x to use exactly ${PALETTE} different characters (any ${PALETTE}). The closer, the better; if that's a `
+  + "tie, longer is better, up to 32 characters.", [["MY_COUNT", PALETTE]]);
+const paletteKeeper = stringFamily<Record<string, never>>({
   id: "palette-keeper", name: "Palette Keeper", emoji: "🎨", theme: "Wants a long string drawn from a tiny palette of distinct characters.",
   requires: minLength(3),
   shape: tuple(2),
-  params: s => ({ distinct_chars: intParam("Distinct characters", 3, Math.min(8, s.L)) }),
-  legacy: p => (typeof p.colours === "number" ? { distinct_chars: p.colours } : null),
-  support: s => range(3, 8).filter(k => k <= s.L).map(distinct_chars => ({ distinct_chars })),
-  summary: p => `You want x to use exactly ${p.distinct_chars} distinct characters, any ${p.distinct_chars}, and be at least 32 long. `
+  params: () => ({}),
+  legacy: p => ("colours" in p || "distinct_chars" in p ? {} : null),
+  support: () => [{}],
+  summary: () => `You want x to use exactly ${PALETTE} distinct characters, any ${PALETTE}, and be at least 32 long. `
     + "Random noise uses about 80 distinct characters.",
-  python: p => pyCard(paletteText(p), `
+  python: () => pyCard(paletteText, `
     def utility(x):
         different = []
         for ch in x:
             if ch not in different:
                 different.append(ch)
         return (-abs(len(different) - MY_COUNT), min(len(x), 32))`),
-  typescript: p => tsCard(paletteText(p), `
+  typescript: () => tsCard(paletteText, `
     function utility(x) {
       const different = [];
       for (const ch of x) {
@@ -443,11 +473,21 @@ const paletteKeeper = stringFamily<PaletteP>({
       }
       return [-Math.abs(different.length - MY_COUNT), Math.min(x.length, 32)];
     }`),
-  exemplar: (p, s) => "abcdefgh".slice(0, p.distinct_chars).repeat(s.L).slice(0, Math.max(p.distinct_chars, Math.min(s.L, 32))),
+  exemplar: (_p, s) => "abc".repeat(s.L).slice(0, Math.max(PALETTE, Math.min(s.L, 32))),
 });
 
 // --- Scale Keeper ------------------------------------------------------------------------------------------------
 const WEIGHTS = [100, 250, 500, 777, 1000, 1500, 2024, 3000, 4096, 5000, 6000, 8128];
+/**
+ * One weight per shape: the largest listed one up to 32 per character of the cap. Weights far from the typical total
+ * (64 per character) are rare, and the top bits swing with the target (string(16): 8.5 to 73 bits, string(128): 10 to
+ * 74), so no band of three is equal (P10).
+ */
+const scaleWeight = (s: StringSpec): number[] => {
+  const fit = WEIGHTS.filter(w => w <= 127 * s.L);
+  const one = fit.filter(w => w <= 32 * s.L).pop() ?? fit[0];
+  return one === undefined ? [] : [one];
+};
 type WeightP = { weight: number };
 const scaleText = (p: WeightP) => card("⚖️", "Scale Keeper",
   `You weigh strings: add up the ASCII codes of every character in x. You want a weight of exactly ${p.weight}: the `
@@ -456,8 +496,9 @@ const scaleKeeper = stringFamily<WeightP>({
   id: "scale-keeper", name: "Scale Keeper", emoji: "⚖️", theme: "Wants the ASCII codes of x to weigh an exact amount.",
   requires: minLength(1),
   shape: SCALAR,
-  params: s => ({ weight: valuesParam("Weight", WEIGHTS.filter(w => w <= 127 * s.L)) }),
-  support: s => WEIGHTS.filter(w => w <= 127 * s.L).map(weight => ({ weight })),
+  params: s => ({ weight: valuesParam("Weight", scaleWeight(s)) }),
+  legacy: (p, s) => fixedTo(p, "weight", scaleWeight(s)),
+  support: s => scaleWeight(s).map(weight => ({ weight })),
   summary: p => `You weigh strings by adding up their ASCII codes. You want a weight of exactly ${p.weight}; closer is `
     + "better, and every edit anyone makes shifts the scale.",
   python: p => pyCard(scaleText(p), `

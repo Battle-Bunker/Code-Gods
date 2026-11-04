@@ -107,7 +107,7 @@ test("legacy params (stored before typing) upgrade to today's shape, idempotentl
   assert.deepEqual(upgradeParams("digit-devotee", { d: 7 }, int), { digit: 7 });
   assert.deepEqual(upgradeParams("power-hoarder", { p: 5 }, int), { prime: 5 });
   assert.deepEqual(upgradeParams("glyph-glutton", { c: "q" }, str), { char: "q" });
-  assert.deepEqual(upgradeParams("palette-keeper", { colours: 4 }, str), { distinct_chars: 4 });
+  assert.deepEqual(upgradeParams("palette-keeper", { colours: 4 }, str), {}); // the count was fixed (P10)
   // A set param: Bingo Caller's called ranks, stored by name in rank order (was rank indices).
   assert.deepEqual(upgradeParams("bingo_caller", { called: [0, 4, 9, 12] }, cards), { called: ["A", "5", "10", "K"] });
   const bingo = family("bingo_caller").params!(context(b12))[0];
