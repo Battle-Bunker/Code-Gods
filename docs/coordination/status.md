@@ -290,3 +290,12 @@ Owner, verbatim (abridged only where marked):
   - calibration tables keyed by player count;
   - verification against the geometric average and the contest sim is a check, not a gate.
   It belongs with the energy/mutator-cost work, because the noise uses the mutator costs.
+
+## Thursday 5 Nov progress
+- Merged into develop: #208 energy design doc, #209 Bingo Caller (all families typed), #210 Set Spotter + P10
+  equal-opportunity principle, #201 deploy safety, #206 assistant modes.
+- Pending narrowing PRs, after prod `migrations:status` is done (needs a release first):
+  - assistant modes (session_0119hWTXQru41EPmeU8vK7FP, kept open): make mode required; drop
+    awaiting_confirmation, autoApproveSummonBits, approved, confirmDeadline;
+  - typed params (rules session): legacy readers and the rekey script;
+  - aiQuotas, backfillObjectTimes, setSpotterGeometry, pictureFrameSymbol.
