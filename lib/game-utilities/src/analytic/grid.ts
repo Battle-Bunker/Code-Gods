@@ -11,7 +11,7 @@ import { hostEval } from "../families/define.ts";
 import { gridSpec, type GridSpec } from "../families/grid/_util.ts";
 import type { FamilyContext, Ordinal, Params } from "../types.ts";
 import {
-  add, binomial, chain, combine, levels, longestRun, map, maxOccupancy, occupancy, point, power, sum, sumAll, uniform,
+  add, binomial, chain, combine, levels, longestRun, map, maxOccupancy, point, power, sum, sumAll, uniform,
   type Dist, type Levels, type Vec,
 } from "./kit.ts";
 
@@ -112,11 +112,6 @@ const SOLVERS: Readonly<Record<string, Solver>> = {
     let d: Dist = point([0, 0, -1]); // [mask, repeats, last]
     d = chain(d, colourLaw(g), g.N, ([mask, rep, last], [c]) => [mask | (1 << c), rep + (c === last ? 1 : 0), c]);
     return map(d, ([mask, rep]) => [g.N - popcount(mask), rep]);
-  },
-  /** Rows only: distinct values per row (occupancy over the value keys); (perfect, variety). */
-  sudoku_scholar: (p, g) => {
-    if (p.axis !== "rows") throw new NoSolution("rows and columns share cells");
-    return power(map(occupancy(g.N, keyCount(g, "symbol")), ([d]) => [d === g.N ? 1 : 0, d]), g.N);
   },
   /** Pairs of equal values within a row: Σ_v C(n_v, 2) (DP over the value keys); rows iid. */
   full_house: (_p, g) => power(pairsInRow(g.N, keyCount(g, "symbol")), g.N),
@@ -384,10 +379,6 @@ const lineApprox = (solver: Solver, rowParams: (p: any) => any): Solver => (p, g
 const APPROX: Readonly<Record<string, Solver>> = {
   magic_accountant: lineApprox(SOLVERS.magic_accountant, p => ({ ...p, axis: "rows" })),
   seesaw: lineApprox(SOLVERS.seesaw, p => ({ ...p, scope: "rows" })),
-  sudoku_scholar: (p, g) => {
-    if (g.N <= 4) throw new NoSolution("N ≤ 4 is a different, all-or-nothing rule");
-    return lineApprox(SOLVERS.sudoku_scholar, q => ({ ...q, axis: "rows" }))(p, g);
-  },
   round_numbers: lineApprox(SOLVERS.round_numbers, p => ({ ...p, axis: "rows" })),
   divisibility_detective: lineApprox(SOLVERS.divisibility_detective, p => ({ ...p, scope: "rows" })),
   /** Knight-move twins: Binomial(#knight edges, p) as if the knight graph were a forest (it has cycles). */
@@ -408,7 +399,6 @@ export function gridApproxLevels(familyId: string, params: Params, inst: Instant
 
 /** The draws a Grid solver declines (NoSolution) for, decided from the params and shape alone. */
 const DECLINES: Readonly<Record<string, (p: any, g: GridSpec) => boolean>> = {
-  sudoku_scholar: p => p.axis !== "rows",
   magic_accountant: p => p.axis !== "rows",
   seesaw: p => p.scope !== "rows",
   flag_bearer: p => p.axis !== "rows",

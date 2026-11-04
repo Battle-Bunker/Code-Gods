@@ -23,13 +23,13 @@ const TOP_RATIO = 1.15, MEAN_DELTA = 0.5;
 
 /** Families whose param classes still differ in opportunity (being fixed in batches). Only shrinks. */
 const VIOLATORS: ReadonlySet<string> = new Set([
-  "bit-sigil", "border_baron", "castle_keeper", "colour_mixer", "conqueror", "court_parade", "digit-devotee",
-  "divisibility_detective", "firstborn", "haiku-master", "homebody", "looking_glass", "magic_accountant",
+  "bit-sigil", "border_baron", "colour_mixer", "conqueror", "digit-devotee",
+  "divisibility_detective", "firstborn", "haiku-master", "homebody", "magic_accountant",
   "magic_window", "mirrormancer", "number_bonds", "number_sandwich", "numerologist", "odds_evens",
-  "othello_sandwich", "palette-keeper", "palindromist", "pinwheel", "power-hoarder", "purist", "refrain",
-  "residue-oracle", "round_numbers", "royal_court", "scale-keeper", "seesaw", "smooth-operator", "stepping_stones",
-  "straight_shooter", "streaker", "sudoku_scholar", "tailwright", "tallykeeper", "tetromino_tamer",
-  "times_table_territory", "twenty_one", "wallpaper_weaver",
+  "palette-keeper", "palindromist", "power-hoarder", "purist", "refrain",
+  "residue-oracle", "round_numbers", "scale-keeper", "seesaw", "smooth-operator", "stepping_stones",
+  "straight_shooter", "streaker", "tailwright", "tallykeeper",
+  "times_table_territory", "wallpaper_weaver",
 ]);
 
 function stats(t: CalibrationTable): { top: number; mean: number } {

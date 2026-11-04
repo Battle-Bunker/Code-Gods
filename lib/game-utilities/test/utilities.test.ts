@@ -132,7 +132,7 @@ test("tetromino_tamer: the exemplar is the true maximum (exhaustive on 3×3 and 
   for (const size of [5, 6, 7]) {
     const inst = instantiate("Grid", { size, symbols: "base10", colours: "rgb" }), ctx = context(inst);
     for (const p of f.support(ctx).filter(p => p.colour === "red")) {
-      assert.deepEqual(evaluator({ familyId: f.id, params: p }, inst)(f.exemplar!(p, ctx)), packTetrominoes(size, p.piece, size * size).value,
+      assert.deepEqual(evaluator({ familyId: f.id, params: p }, inst)(f.exemplar!(p, ctx)), packTetrominoes(size, "O", size * size).value,
         `${size}×${size} ${paramsKey(p)}: the exemplar (memo window 4N) is not the maximum of the full-state search`);
     }
   }

@@ -312,42 +312,8 @@ def lone_peak(p, gt):
 # --- geometry -------------------------------------------------------------------------------------------
 def castle_keeper(p, gt):
     W = p["wall"]
-    mode = p["mode"]
-    consts = [("WALL", W)]
-    if mode == "treasure":
-        consts.append(("TREASURE", p["treasure"]))
-        about = f"""Build {W} walls. Every {p['treasure']} treasure cell that the walls shut off from
-            the edge of the grid scores a point. If that's a tie, more {W} wall on the edge is better."""
-        count = """
-            treasure = 0
-            for cell in grid.cells:
-                if inside(cell, outside) and cell.colour == TREASURE:
-                    treasure += 1
-            return (treasure, walls_on_edge(grid))"""
-    elif mode == "eyes":
-        about = f"""Build {W} walls. Every cell the walls shut off from the edge of the grid scores a
-            point, and every separate pocket of them scores 3 more. If that's a tie, more {W} wall on the
-            edge is better."""
-        count = """
-            points = 0
-            for pocket in grid.regions(same_side):
-                if inside(pocket[0], outside):
-                    points += len(pocket) + 3
-            return (points, walls_on_edge(grid))"""
-    else:
-        about = f"""Build {W} walls. Every cell that the walls shut off from the edge of the grid scores a
-            point. If that's a tie, more {W} wall on the edge is better."""
-        count = """
-            shut_in = 0
-            for cell in grid.cells:
-                if inside(cell, outside):
-                    shut_in += 1
-            return (shut_in, walls_on_edge(grid))"""
-    pockets = """
-        def same_side(a, b):
-            return not_wall(a) == not_wall(b)
-        """ if mode == "eyes" else ""
-    return card("🏯", "Castle Keeper", about, consts, f"""
+    return card("🏯", "Castle Keeper", f"""Build {W} walls. Every cell that the walls shut off from the edge of the
+        grid scores a point. If that's a tie, more {W} wall on the edge is better.""", [("WALL", W)], """
         def not_wall(cell):
             return cell.colour != WALL
 
@@ -360,9 +326,14 @@ def castle_keeper(p, gt):
                 if cell.colour == WALL:
                     walls += 1
             return walls
-        {pockets}
+
         def utility(grid):
-            outside = grid.reachable(grid.edge_cells, through=not_wall)  # cells you can walk to from the edge{count}
+            outside = grid.reachable(grid.edge_cells, through=not_wall)  # cells you can walk to from the edge
+            shut_in = 0
+            for cell in grid.cells:
+                if inside(cell, outside):
+                    shut_in += 1
+            return (shut_in, walls_on_edge(grid))
         """)
 
 
@@ -444,9 +415,9 @@ def card_windmill(p, gt):
 
 def royal_court(p, gt):
     s = p["suit"]
-    who = "picture card (J, Q, K)" if s == "any" else f"picture card (J, Q, K) of {s}"
-    consts = [] if s == "any" else [("MY_SUIT", s)]
-    test = "cell.is_picture" if s == "any" else "cell.is_picture and cell.suit == MY_SUIT"
+    who = f"picture card (J, Q, K) of {s}"
+    consts = [("MY_SUIT", s)]
+    test = "cell.is_picture and cell.suit == MY_SUIT"
     return card("👑", "Royal Court", f"""Put a {who} in the very middle. Your court is it plus every
         such card joined to it through touching cells: score its size, doubled if none of it is on the
         edge. If that's a tie, count those picture cards that are off the edge.""", consts, f"""
@@ -802,14 +773,12 @@ def rummy_melder(p, gt):
 
 def othello_sandwich(p, gt):
     X = p["colour"]
-    diag = p["diag"]
-    sides = "left and right, or above and below, or the two corners on either diagonal" if diag else \
-        "left and right, or above and below"
+    sides = "left and right, or above and below, or the two corners on either diagonal"
     extra = """
                 if is_mine(cell.up_left) and is_mine(cell.down_right):
                     sandwiches += 1
                 if is_mine(cell.up_right) and is_mine(cell.down_left):
-                    sandwiches += 1""" if diag else ""
+                    sandwiches += 1"""
     return card("🥪", "Sandwich Maker", f"""A cell is sandwiched when the cells on both sides of it
         ({sides}) are {X} and it isn't. Each sandwich is a point.""", [("MY_COLOUR", X)], f"""
         def is_mine(cell):
@@ -892,7 +861,7 @@ def sudoku_scholar(p, gt):
                         return 0
                 return 1
             """)
-    lines, kind = _AXIS[p["axis"]]
+    lines, kind = _AXIS["both"]
     return card("🔢", "Sudoku Scholar", f"""Every {kind} where no {word} appears twice scores a point. If
         that's a tie, more different {word}s in each line is better.""", [], f"""
         def different(line):

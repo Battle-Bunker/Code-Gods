@@ -21,25 +21,16 @@ def _roots(lab, mask):
 
 
 # --- Castle Keeper (merged with Go Territory) ------------------------------------------------------
-def ck_score_parts(enc_cells, regions, p, col, gtype):
-    if p["mode"] == "treasure":
-        return sum(1 for r, c in enc_cells if col[r][c] == ci(gtype, p["treasure"]))
-    if p["mode"] == "eyes":
-        return len(enc_cells) + 3 * regions
-    return len(enc_cells)
-
-
 def ck_ord(g, p, gtype):
     N, W = gtype.N, ci(gtype, p["wall"])
     col = g.col.tolist()
     nonw = [[x != W for x in row] for row in col]
-    enc, regions = [], 0
+    enc = []
     for comp in comps2d([[0] * N for _ in range(N)], nonw):
         if not any(r in (0, N - 1) or c in (0, N - 1) for r, c in comp):
             enc += comp
-            regions += 1
     rimw = sum(1 for r in range(N) for c in range(N) if (r in (0, N - 1) or c in (0, N - 1)) and col[r][c] == W)
-    return tup(ck_score_parts(enc, regions, p, col, gtype), rimw)
+    return tup(len(enc), rimw)
 
 
 def ck_batch(sym, col, p, gtype):
@@ -49,51 +40,32 @@ def ck_batch(sym, col, p, gtype):
     lab = label_batch(np.zeros(col.shape, np.int64), mask)
     touch = comp_sum(lab, np.broadcast_to(rim, col.shape).astype(np.int64), mask) > 0
     enc = mask & ~touch
-    if p["mode"] == "treasure":
-        s = (enc & (col == ci(gtype, p["treasure"]))).sum((1, 2))
-    elif p["mode"] == "eyes":
-        s = enc.sum((1, 2)) + 3 * _roots(lab, enc).sum((1, 2))
-    else:
-        s = enc.sum((1, 2))
+    s = enc.sum((1, 2))
     rimw = ((col == W) & rim).sum((1, 2))
     return tupb(s, rimw)
 
 
-def ck_sample(rng, gtype):
-    W, T = colour_names(rng, gtype, 2)
-    mode = str(rng.choice(["plain", "plain", "treasure", "eyes"]))
-    return {"wall": W, "mode": mode, "treasure": T if mode == "treasure" else "none"}
-
-
 def ck_exemplar(p, gtype):
     N, W = gtype.N, ci(gtype, p["wall"])
-    inner = ci(gtype, p["treasure"]) if p["mode"] == "treasure" else _other(gtype, W)
-    col = np.full((N, N), inner)
+    col = np.full((N, N), _other(gtype, W))
     col[rim_mask(N)] = W
-    if p["mode"] != "eyes":
-        return grid(np.zeros((N, N)), col)
-    r, c = np.indices((N, N))
-    col2 = np.where(rim_mask(N) | ((r + c) % 2 == 1), W, inner)
-    return multi_climb(ck_batch, [grid(np.zeros((N, N)), col), grid(np.zeros((N, N)), col2)], p, gtype, restarts=0)
+    return grid(np.zeros((N, N)), col)
 
 
 def ck_summary(p, gt):
     w = p["wall"]
-    base = f"Build walls of {w}. A cell is safe when water flowing in from the edge (not through {w}) can't reach it. "
-    if p["mode"] == "treasure":
-        return base + f"Score a point for every safe {p['treasure']} cell."
-    if p["mode"] == "eyes":
-        return base + "Score a point for every safe cell, plus 3 for every separate safe pocket (like eyes in Go)."
-    return base + "Score a point for every safe cell."
+    return (f"Build walls of {w}. A cell is safe when water flowing in from the edge (not through {w}) can't reach it. "
+            "Score a point for every safe cell.")
 
 
 CASTLE_KEEPER = mk(
     id="castle_keeper", name="Castle Keeper", theme="Walls that keep the water out",
     requires=req(min_size=4), layers={"colour", "position"}, camp="clumper",
-    sample=ck_sample, summary=ck_summary, ordinal=ck_ord, batch=ck_batch,
-    canonical=lambda p, gt: recolour_some(p, ["wall", "treasure"], gt), exemplar=ck_exemplar,
-    source="catalog#4 (D4: geo#5 + games#8 Go Territory; treasure and eyes variants; MinSize 4); "
-           "tie-breaker = wall cells on the rim", tags={"shortlist"})
+    sample=lambda rng, gt: {"wall": colour_name(rng, gt)}, summary=ck_summary, ordinal=ck_ord, batch=ck_batch,
+    canonical=lambda p, gt: recolour_names(p, ["wall"], gt), exemplar=ck_exemplar,
+    source="catalog#4 (D4: geo#5 + games#8 Go Territory; MinSize 4); the plain flood only since 2026-11-04 (the "
+           "treasure and eyes modes were unequal-opportunity params); tie-breaker = wall cells on the rim",
+    tags={"shortlist"})
 
 
 # --- Chessmaster (2×2 windows) ---------------------------------------------------------------------
@@ -241,7 +213,7 @@ def _mirror_pairs(N, axis):
 
 def lg_ord(g, p, gtype):
     N = gtype.N
-    key = (g.col.astype(np.int64) if p["layer"] == "colour" else rank_key(g.sym, gtype)).tolist()
+    key = rank_key(g.sym, gtype).tolist()
     s = 0
     for r in range(N):
         for c in range(N):
@@ -252,23 +224,22 @@ def lg_ord(g, p, gtype):
 
 
 def lg_batch(sym, col, p, gtype):
-    key = (col.astype(np.int64) if p["layer"] == "colour" else rank_key(sym, gtype)).reshape(len(sym), -1)
+    key = rank_key(sym, gtype).reshape(len(sym), -1)
     a, b = _mirror_pairs(gtype.N, p["axis"])
     return (key[:, a] == key[:, b]).sum(1)
 
 
 LOOKING_GLASS = mk(
     id="looking_glass", name="Looking-Glass", theme="Every cell matches its mirror twin",
-    requires=req(), layers={"colour", "symbol", "position"}, camp="neutral",
-    sample=lambda rng, gt: {"axis": str(rng.choice(list(MIRROR))), "layer": str(rng.choice(["colour", "symbol"]))},
-    summary=lambda p, gt: ({"V": "Fold the grid down the middle (left onto right)", "H": "Fold the grid top onto bottom",
-                            "D": "Fold the grid along the diagonal from top-left", "A": "Fold the grid along the diagonal from top-right",
-                            "half": "Turn the grid upside down"}[p["axis"]]
-                           + f": every cell whose {'colour' if p['layer'] == 'colour' else 'symbol'} lands on a twin scores a point (each pair once)."),
+    requires=req(), layers={"symbol", "position"}, camp="neutral",
+    sample=lambda rng, gt: {"axis": str(rng.choice(["V", "H"]))},
+    summary=lambda p, gt: ({"V": "Fold the grid down the middle (left onto right)", "H": "Fold the grid top onto bottom"}[p["axis"]]
+                           + ": every cell whose symbol lands on a twin scores a point (each pair once)."),
     ordinal=lg_ord, batch=lg_batch,
-    canonical=lambda p, gt: {**p, "axis": {"H": "V", "A": "D"}.get(p["axis"], p["axis"])},
+    canonical=lambda p, gt: {"axis": "V"},
     exemplar=lambda p, gt: grid(np.zeros((gt.N, gt.N)), np.zeros((gt.N, gt.N))),
-    source="geo#2 + col#9 Mirror Quilt (catalog D9 'pairs'; half-turn axis from col)")
+    source="geo#2 + col#9 Mirror Quilt (catalog D9 'pairs'); the straight folds of the symbol only since 2026-11-04 "
+           "(the diagonal and half-turn folds, and the colour layer, were unequal-opportunity params)")
 
 
 # --- 90° orbits (Pinwheel, Card Windmill) --------------------------------------------------------------
@@ -288,7 +259,7 @@ def _pin_key(sym, col, gtype, attr):
 
 
 def pw_ord(g, p, gtype):
-    k = _pin_key(g.sym, g.col, gtype, p["layer"]).ravel().tolist()
+    k = _pin_key(g.sym, g.col, gtype, "symbol").ravel().tolist()
     full = plur = 0
     for o in orbits(gtype.N).tolist():
         vs = [k[i] for i in o]
@@ -298,7 +269,7 @@ def pw_ord(g, p, gtype):
 
 
 def pw_batch(sym, col, p, gtype):
-    k = _pin_key(sym, col, gtype, p["layer"]).reshape(len(sym), -1)
+    k = _pin_key(sym, col, gtype, "symbol").reshape(len(sym), -1)
     O = orbits(gtype.N)
     v = k[:, O]  # (B, M, 4)
     full = (v == v[:, :, :1]).all(2).sum(1)
@@ -308,14 +279,15 @@ def pw_batch(sym, col, p, gtype):
 
 PINWHEEL = mk(
     id="pinwheel", name="Pinwheel", theme="Looks the same after a quarter turn",
-    requires=req(), layers={"colour", "symbol", "position"}, camp="clumper",
-    sample=lambda rng, gt: {"layer": str(rng.choice(["colour", "symbol"]))},
+    requires=req(), layers={"symbol", "position"}, camp="clumper",
+    sample=lambda rng, gt: {},
     summary=lambda p, gt: ("Turn the grid a quarter turn. Every set of 4 cells that swap places and all share the same "
-                           + ("colour" if p["layer"] == "colour" else "suit" if gt.symbols == "cards" else "symbol")
+                           + ("suit" if gt.symbols == "cards" else "symbol")
                            + " scores a point."),
     ordinal=pw_ord, batch=pw_batch,
     exemplar=lambda p, gt: grid(np.zeros((gt.N, gt.N)), np.zeros((gt.N, gt.N))),
-    source="geo#3 (cards use suit); tie-breaker = Σ per-orbit plurality")
+    source="geo#3 (cards use suit); the symbol layer only since 2026-11-04 (the colour layer was an "
+           "unequal-opportunity param); tie-breaker = Σ per-orbit plurality")
 
 
 def cw_ord(g, p, gtype):
@@ -399,14 +371,15 @@ def rc_exemplar(p, gtype):
 ROYAL_COURT = mk(
     id="royal_court", name="Royal Court", theme="A palace of picture cards around the centre",
     requires=req("Faced", parity="odd"), layers={"symbol", "position"}, camp="clumper",
-    sample=lambda rng, gt: {"suit": "any" if rng.random() < 0.5 else SUIT_WORDS[int(rng.integers(4))]},
+    sample=lambda rng, gt: {"suit": SUIT_WORDS[int(rng.integers(4))]},
     summary=lambda p, gt: ("The king lives in the centre. If the centre card is a picture card "
-                           + ("(J, Q, K)" if p["suit"] == "any" else f"(J, Q, K of {SUITS_[suit_at(p['suit'])]})")
+                           + f"(J, Q, K of {SUITS_[suit_at(p['suit'])]})"
                            + ", score the size of the joined-up patch of picture cards around it, doubled if the patch "
                              "doesn't touch the edge."),
-    ordinal=rc_ord, batch=rc_batch, canonical=lambda p, gt: {"suit": "any" if p["suit"] == "any" else "spades"},
+    ordinal=rc_ord, batch=rc_batch, canonical=lambda p, gt: {"suit": "spades"},
     exemplar=rc_exemplar,
-    source="catalog#31 (geo#16; HasCentre = odd N only); tie-breaker = picture cards off the edge", tags={"shortlist"})
+    source="catalog#31 (geo#16; HasCentre = odd N only; a named suit since 2026-11-04: any-suit was an "
+           "unequal-opportunity param); tie-breaker = picture cards off the edge", tags={"shortlist"})
 
 SUITS_ = "♠♥♦♣"
 
@@ -526,6 +499,10 @@ def _norm(cells):
     return frozenset((r - r0, c - c0) for r, c in cells)
 
 
+# The one piece of the family (the five pieces were unequal-opportunity params; docs/rules-design.md P10).
+PIECE = "O"
+
+
 @lru_cache(maxsize=None)
 def piece_forms(P):
     return frozenset(_norm([f(r, c) for r, c in PIECES[P]]) for f in SYMS8)
@@ -537,7 +514,7 @@ def _mask_of(form):
 
 def tt_ord(g, p, gtype):
     col = g.col.tolist()
-    forms = piece_forms(p["piece"])
+    forms = piece_forms(PIECE)
     cs = [cp for cp in comps2d(col, [[x == ci(gtype, p["colour"]) for x in row] for row in col]) if len(cp) == 4]
     pieces = sum(_norm(cp) in forms for cp in cs)
     return tup(pieces, len(cs))
@@ -558,7 +535,7 @@ def tt_batch(sym, col, p, gtype):
     np.add.at(bits, gl, np.left_shift(1, (rr - rmin[gl]) * 4 + (cc - cmin[gl])))
     roots = _roots(lab, m4)
     rg = (lab + (np.arange(B, dtype=np.int64) * N * N)[:, None, None])
-    ok = np.isin(bits, np.array([_mask_of(f) for f in piece_forms(p["piece"])]))
+    ok = np.isin(bits, np.array([_mask_of(f) for f in piece_forms(PIECE)]))
     pieces = (roots & ok[rg]).sum((1, 2))
     return tupb(pieces, roots.sum((1, 2)))
 
@@ -566,7 +543,7 @@ def tt_batch(sym, col, p, gtype):
 def tt_exemplar(p, gtype):
     N = gtype.N
     occ = np.zeros((N, N), bool)
-    forms = sorted(sorted(f) for f in piece_forms(p["piece"]))
+    forms = sorted(sorted(f) for f in piece_forms(PIECE))
     for r in range(N):
         for c in range(N):
             for f in forms:
@@ -584,11 +561,12 @@ def tt_exemplar(p, gtype):
 TETROMINO_TAMER = mk(
     id="tetromino_tamer", name="Tetromino Tamer", theme="Islands shaped like your Tetris piece",
     requires=req(), layers={"colour", "position"}, camp="neutral",
-    sample=lambda rng, gt: {"colour": colour_name(rng, gt), "piece": str(rng.choice(["O", "T", "L", "S"] + (["I"] if gt.N >= 4 else [])))},
-    summary=lambda p, gt: (f"Every island of {cname(gt, p['C'])} that is exactly the shape of a Tetris {p['P']} piece "
-                           "(turned or flipped is fine) scores a point."),
+    sample=lambda rng, gt: {"colour": colour_name(rng, gt)},
+    summary=lambda p, gt: (f"Every island of {p['colour']} that is exactly the shape of a Tetris O piece "
+                           "(a 2x2 square) scores a point."),
     ordinal=tt_ord, batch=tt_batch, canonical=lambda p, gt: recolour_names(p, ["colour"], gt), exemplar=tt_exemplar,
-    source="geo#10 (I only for N>=4); tie-breaker = 4-cell islands of any shape")
+    source="geo#10 (the O piece only since 2026-11-04: the five pieces were unequal-opportunity params); "
+           "tie-breaker = 4-cell islands of any shape")
 
 
 # --- Rainbow Bands -------------------------------------------------------------------------------------

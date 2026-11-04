@@ -1,10 +1,10 @@
 /** Games-kids-know lens rules (lib/grid-lab/gridlab/rules/games.py, cards from rules/cards.py). */
 import type { Cand, CardText, GridSpec, Layer } from "./_util.ts";
 import type { Params } from "../../types.ts";
-import { setParam, colourParam, boolParam, choiceParam, intParam } from "../../params.ts";
+import { setParam, colourParam, choiceParam, intParam } from "../../params.ts";
 import { roundHalfEven } from "./arithmetic.ts";
 import {
-  RANK_NAMES, SCALAR, SUIT_NAMES, bestOf, cap, chance, choose, climb, fromFn, full, glyph, gridFamily, pick, product, pyCard, range, sentences, symForValue, thing, tsCard, tuple, wire, colourAt, recolourNames,
+  RANK_NAMES, SCALAR, SUIT_NAMES, bestOf, cap, chance, choose, climb, fromFn, full, glyph, gridFamily, pyCard, range, sentences, symForValue, thing, tsCard, tuple, wire, colourAt, recolourNames,
 } from "./_util.ts";
 import { solvedAnalytic } from "../../analytic/hook.ts";
 
@@ -128,20 +128,26 @@ const rummyMelder = gridFamily<RummyP>({
 });
 
 // --- Othello Sandwich ----------------------------------------------------------------------------------
-type SandP = { colour: string; diag: boolean };
-const sandText = (p: SandP, g: GridSpec): CardText => ({
+/**
+ * One geometry: across, down and both diagonals. "Diagonals count too" used to be a yes/no param, which only added
+ * scoring opportunity to some gods (top 20.7 vs 26.0 bits on 4×4, base 12, rainbow6): params make peer rules of equal
+ * opportunity (docs/rules-design.md P10), so the richer geometry is the rule and the param is gone.
+ */
+type SandP = { colour: string };
+const sandText = (p: SandP, _g: GridSpec): CardText => ({
   emoji: "🥪", name: "Sandwich Maker", consts: [["MY_COLOUR", p.colour]],
   about: `A cell is sandwiched when ${p.colour} cells are on both sides of it, and it isn't ${p.colour} itself. `
-    + "Both sides means " + (p.diag ? "left and right, above and below, or opposite corners" : "left and right, or above and below")
-    + ". Each sandwich scores 1 point.",
+    + "Both sides means left and right, above and below, or opposite corners. Each sandwich scores 1 point.",
 });
 const othello = gridFamily<SandP>({
   id: "othello_sandwich", name: "Othello Sandwich", emoji: "🥪", theme: "Capture cells between two of yours",
   shape: SCALAR, tags: ["shortlist"],
-  params: () => ({ colour: colourParam("Sandwiching colour"), diag: boolParam("Diagonals count too") }),
-  legacy: (p, g) => (typeof p.X === "number" ? { colour: g.colourNames[p.X], diag: p.diag as boolean } : null),
-  support: g => product<SandP>({ colour: g.colourNames, diag: [false, true] }),
-  sample: (rng, g) => ({ colour: g.colourNames[rng.int(g.C)], diag: chance(rng, 1, 2) }),
+  params: () => ({ colour: colourParam("Sandwiching colour") }),
+  // LEGACY: `{ X, diag }` (indices, before typing) and `{ colour, diag }` (before the geometry was fixed) read as today's rule.
+  legacy: (p, g) => (typeof p.X === "number" || "diag" in p
+    ? { colour: typeof p.X === "number" ? g.colourNames[p.X] : (p.colour as string) } : null),
+  support: g => g.colourNames.map(colour => ({ colour })),
+  sample: (rng, g) => ({ colour: g.colourNames[rng.int(g.C)] }),
   canonical: (p, g) => recolourNames(g, p, ["colour"]),
   summary: (p, g) => sandText(p, g).about,
   python: (p, g) => pyCard(sandText(p, g), `
@@ -156,11 +162,11 @@ const othello = gridFamily<SandP>({
             if is_mine(cell.left) and is_mine(cell.right):
                 sandwiches += 1
             if is_mine(cell.up) and is_mine(cell.down):
-                sandwiches += 1${p.diag ? `
+                sandwiches += 1
             if is_mine(cell.up_left) and is_mine(cell.down_right):
                 sandwiches += 1
             if is_mine(cell.up_right) and is_mine(cell.down_left):
-                sandwiches += 1` : ""}
+                sandwiches += 1
         return sandwiches`),
   typescript: (p, g) => tsCard(sandText(p, g), `
     function isMine(cell) {
@@ -172,9 +178,9 @@ const othello = gridFamily<SandP>({
       for (const cell of grid.cells) {
         if (isMine(cell)) continue;
         if (isMine(cell.left) && isMine(cell.right)) sandwiches += 1;
-        if (isMine(cell.up) && isMine(cell.down)) sandwiches += 1;${p.diag ? `
+        if (isMine(cell.up) && isMine(cell.down)) sandwiches += 1;
         if (isMine(cell.upLeft) && isMine(cell.downRight)) sandwiches += 1;
-        if (isMine(cell.upRight) && isMine(cell.downLeft)) sandwiches += 1;` : ""}
+        if (isMine(cell.upRight) && isMine(cell.downLeft)) sandwiches += 1;
       }
       return sandwiches;
     }`),
@@ -320,29 +326,31 @@ const bingoCaller = gridFamily<BingoP>({
 });
 
 // --- Sudoku Scholar ---------------------------------------------------------------------------------------
-type SudokuP = { axis: "rows" | "cols" | "both" };
-const SUDOKU_AXIS = { rows: ["grid.rows", "[...grid.rows]", "row"], cols: ["grid.columns", "[...grid.columns]", "column"],
-  both: ["grid.rows + grid.columns", "[...grid.rows, ...grid.columns]", "row and column"] } as const;
-const sudokuText = (p: SudokuP, g: GridSpec): CardText => {
+/**
+ * One geometry: every row and every column (at N <= 4, all or nothing over the long diagonals too). "Rows | columns |
+ * both" used to be a param, but rows alone has half the lines to score (top 8.6 vs 16.9 bits on 5×5): params make peer
+ * rules of equal opportunity (docs/rules-design.md P10), so the richer rule is the rule and the param is gone.
+ */
+type SudokuP = Record<string, never>;
+const sudokuText = (_p: SudokuP, g: GridSpec): CardText => {
   const word = g.cards ? "rank" : "number";
   return {
     emoji: "🔢", name: "Sudoku Scholar", consts: [],
     about: sentences(g.N <= 4
       ? `All or nothing: you score 1 point only if no ${word} appears twice in any row, column or long diagonal.`
-      : `Every ${SUDOKU_AXIS[p.axis][2]} where no ${word} appears twice scores 1 point. Most points wins. `
+      : `Every row and column where no ${word} appears twice scores 1 point. Most points wins. `
         + `If that's a tie, add up the different ${word}s in each of those lines: more is better.`,
       g.cards ? "Cards compare rank only, so suits don't matter." : ""),
   };
 };
 const sudoku = gridFamily<SudokuP>({
   id: "sudoku_scholar", name: "Sudoku Scholar", emoji: "🔢", theme: "No number twice in a line",
-  analytic: solvedAnalytic("sudoku_scholar"),
-  params: () => ({ axis: choiceParam("Lines that count", [...LINE_OPTIONS, ["both", "rows and columns"]]) }),
-  legacy: p => (typeof p.dir === "string" ? { axis: p.dir as SudokuP["axis"] } : null),
+  params: () => ({}),
+  // LEGACY: `{ dir }` (before typing) and `{ axis }` (rows | cols | both, before the geometry was fixed) read as today's rule.
+  legacy: p => ("dir" in p || "axis" in p ? {} : null),
   // All or nothing at N <= 4: grid-lab pads the tuple with a constant 0, the card returns 0 or 1.
   shape: g => (g.N <= 4 ? SCALAR : tuple(2)), tags: ["shortlist"],
-  support: () => (["rows", "cols", "both"] as const).map(axis => ({ axis })),
-  canonical: (p, g) => ({ axis: g.N <= 4 || p.axis === "both" ? "both" : "rows" }),
+  support: () => [{}],
   summary: (p, g) => sudokuText(p, g).about,
   python: (p, g) => pyCard(sudokuText(p, g), g.N <= 4 ? `
     def all_different(line):
@@ -368,7 +376,7 @@ const sudoku = gridFamily<SudokuP>({
     def utility(grid):
         perfect = 0
         variety = 0
-        for line in ${SUDOKU_AXIS[p.axis][0]}:
+        for line in grid.rows + grid.columns:
             d = different(line)
             variety += d
             if d == len(line):
@@ -401,7 +409,7 @@ const sudoku = gridFamily<SudokuP>({
     function utility(grid) {
       let perfect = 0;
       let variety = 0;
-      for (const line of ${SUDOKU_AXIS[p.axis][1]}) {
+      for (const line of [...grid.rows, ...grid.columns]) {
         const d = different(line);
         variety += d;
         if (d === line.length) perfect += 1;
@@ -536,10 +544,18 @@ type TwentyP = { target: number };
  * Number grids: grid-lab draws T uniformly from 2N .. round(0.7·N·(S−1)), up to 61 targets. Calibration enumerates
  * every target, so the product keeps at most 16 of them, evenly spaced and including both ends.
  */
-function targets(g: GridSpec): number[] {
-  if (g.cards) return [21];
+function spread(g: GridSpec): number[] {
   const lo = 2 * g.N, hi = roundHalfEven(0.7 * g.N * (g.S - 1)), n = Math.min(16, hi - lo + 1);
   return [...new Set(range(n).map(k => lo + Math.round((k * (hi - lo)) / Math.max(1, n - 1))))];
+}
+/**
+ * Equal opportunity (docs/rules-design.md P10): the targets of the full range are not peers (on 6×6, base 16, rainbow6
+ * the top is 73 bits for target 12 and 52 for 49, and a random board's mean 0.09 vs 1.40 bits: a low target busts almost
+ * every hand). Only the middle six of the sixteen spread targets agree within 15% on top bits (and 0.03 bits on the
+ * mean) on every shipped shape, so those are the targets.
+ */
+function targets(g: GridSpec): number[] {
+  return g.cards ? [21] : spread(g).slice(6, 12);
 }
 const twentyText = (p: TwentyP, g: GridSpec): CardText => ({
   emoji: "🃏", name: "Twenty-One", consts: [["TARGET", p.target]],
@@ -550,8 +566,13 @@ const twentyText = (p: TwentyP, g: GridSpec): CardText => ({
 const twentyOne = gridFamily<TwentyP>({
   id: "twenty_one", name: "Twenty-One", emoji: "🃏", theme: "Get close to your target without going bust",
   requires: { classes: ["Valued"] }, shape: SCALAR,
-  params: g => ({ target: g.cards ? intParam("Target total", 21, 21) : intParam("Target total", 2 * g.N, roundHalfEven(0.7 * g.N * (g.S - 1))) }),
-  legacy: p => (typeof p.T === "number" ? { target: p.T } : null),
+  params: g => ({ target: intParam("Target total", targets(g)[0], targets(g)[targets(g).length - 1]) }),
+  // LEGACY: `{ T }` (before typing), and a target outside the band of peers reads as the nearest target of the band.
+  legacy: (p, g) => {
+    const old = typeof p.T === "number" ? p.T : (p.target as number), band = targets(g);
+    if (typeof p.T !== "number" && band.includes(old)) return null;
+    return { target: band.reduce((best, t) => (Math.abs(t - old) < Math.abs(best - old) ? t : best)) };
+  },
   support: g => targets(g).map(target => ({ target })),
   summary: (p, g) => twentyText(p, g).about,
   python: (p, g) => pyCard(twentyText(p, g), `
@@ -830,33 +851,39 @@ const unoSnake = gridFamily<UnoP>({
 });
 
 // --- Court Parade -------------------------------------------------------------------------------------------------
-type ParadeP = { suit: string; one_colour: boolean };
-const paradeText = (p: ParadeP, g: GridSpec): CardText => {
-  const any = p.suit === "any", suit = any ? "the same suit" : g.say.suit(SUIT_NAMES.indexOf(p.suit as never));
-  return {
-    emoji: "🎺", name: "Court Parade", consts: any ? [] : [["MY_SUIT", p.suit]],
-    about: `A parade is a Jack, Queen and King of ${suit}, side by side in that order along a row or column`
-      + `${p.one_colour ? ", all in one colour" : ""}. A parade scores 1 point. `
-      + `With ${any ? "the Ace of that suit" : "your Ace"} just before the Jack, it scores 2 points. Most points wins. `
-      + `If that's a tie, count side-by-side Jack-Queen and Queen-King pairs of ${any ? "one suit" : "your suit"}.`,
-  };
-};
+/**
+ * Your suit, and a parade is always all in one colour. Both options used to vary: "any one suit" (4× the parades of a
+ * named suit, a random board's mean 0.28 vs 0.10 bits) and "all in one colour" yes/no (a restriction only some gods
+ * had). Params make peer rules of equal opportunity (docs/rules-design.md P10): the four named suits are peers (a
+ * permutation of suits), so they stay; the other options are fixed to the richer rule.
+ */
+type ParadeP = { suit: string };
+const paradeText = (p: ParadeP, g: GridSpec): CardText => ({
+  emoji: "🎺", name: "Court Parade", consts: [["MY_SUIT", p.suit]],
+  about: `A parade is a Jack, Queen and King of ${g.say.suit(SUIT_NAMES.indexOf(p.suit as never))}, side by side in that order `
+    + "along a row or column, all in one colour. A parade scores 1 point. "
+    + "With your Ace just before the Jack, it scores 2 points. Most points wins. "
+    + "If that's a tie, count side-by-side Jack-Queen and Queen-King pairs of your suit.",
+});
 const courtParade = gridFamily<ParadeP>({
   id: "court_parade", name: "Court Parade", emoji: "🎺", theme: "J, Q, K of one suit marching in a line",
   requires: { classes: ["Suited", "Faced"], minFaces: 3 }, shape: tuple(2),
-  params: () => ({
-    suit: choiceParam("Suit of the parade", [["any", "any one suit"], ...suitOptions()]),
-    one_colour: boolParam("All in one colour"),
-  }),
-  legacy: p => ("match" in p ? { suit: p.suit === null ? "any" : SUIT_NAMES[p.suit as number], one_colour: p.match as boolean } : null),
-  support: () => product<ParadeP>({ suit: ["any", ...SUIT_NAMES], one_colour: [false, true] }),
-  sample: rng => ({ suit: chance(rng, 1, 2) ? "any" : SUIT_NAMES[rng.int(4)], one_colour: chance(rng, 3, 10) }),
-  canonical: p => ({ suit: p.suit === "any" ? "any" : "spades", one_colour: p.one_colour }),
+  params: () => ({ suit: choiceParam("Suit of the parade", suitOptions()) }),
+  // LEGACY: `{ suit: index | null, match }` (before typing) and `{ suit: name | "any", one_colour }` (before the options were
+  // fixed) read as the named suit ("any" as the first suit) with the parade always in one colour.
+  legacy: p => {
+    if (!("match" in p) && !("one_colour" in p) && p.suit !== "any") return null;
+    const s = p.suit;
+    return { suit: typeof s === "number" ? SUIT_NAMES[s] : typeof s === "string" && s !== "any" ? s : SUIT_NAMES[0] };
+  },
+  support: () => SUIT_NAMES.map(suit => ({ suit })),
+  sample: rng => ({ suit: SUIT_NAMES[rng.int(4)] }),
+  canonical: () => ({ suit: SUIT_NAMES[0] }),
   summary: (p, g) => paradeText(p, g).about,
   python: (p, g) => pyCard(paradeText(p, g), `
     def one_suit(cells):
         for cell in cells:
-            if cell.suit != cells[0].suit${p.suit === "any" ? "" : " or cell.suit != MY_SUIT"}:
+            if cell.suit != cells[0].suit or cell.suit != MY_SUIT:
                 return False
         return True
 
@@ -870,16 +897,16 @@ const courtParade = gridFamily<ParadeP>({
                     pairs += 1
             for i in range(len(line) - 2):
                 jack, queen, king = line[i], line[i + 1], line[i + 2]
-                if jack.value == 11 and queen.value == 12 and king.value == 13 and one_suit([jack, queen, king]):${p.one_colour ? `
+                if jack.value == 11 and queen.value == 12 and king.value == 13 and one_suit([jack, queen, king]):
                     if jack.colour != queen.colour or queen.colour != king.colour:
-                        continue` : ""}
+                        continue
                     parades += 1
                     if i > 0 and line[i - 1].value == 1 and line[i - 1].suit == jack.suit:
                         parades += 1
         return (parades, pairs)`),
   typescript: (p, g) => tsCard(paradeText(p, g), `
     function oneSuit(cells) {
-      return cells.every(cell => cell.suit === cells[0].suit${p.suit === "any" ? "" : " && cell.suit === MY_SUIT"});
+      return cells.every(cell => cell.suit === cells[0].suit && cell.suit === MY_SUIT);
     }
 
     function utility(grid) {
@@ -893,8 +920,8 @@ const courtParade = gridFamily<ParadeP>({
         }
         for (let i = 0; i < line.length - 2; i++) {
           const jack = line[i], queen = line[i + 1], king = line[i + 2];
-          if (jack.value === 11 && queen.value === 12 && king.value === 13 && oneSuit([jack, queen, king])) {${p.one_colour ? `
-            if (jack.colour !== queen.colour || queen.colour !== king.colour) continue;` : ""}
+          if (jack.value === 11 && queen.value === 12 && king.value === 13 && oneSuit([jack, queen, king])) {
+            if (jack.colour !== queen.colour || queen.colour !== king.colour) continue;
             parades += 1;
             if (i > 0 && line[i - 1].value === 1 && line[i - 1].suit === jack.suit) parades += 1;
           }
@@ -902,7 +929,7 @@ const courtParade = gridFamily<ParadeP>({
       }
       return [parades, pairs];
     }`),
-  exemplar: (p, g) => wire(g, fromFn(g.N, (r, c) => (p.suit === "any" ? 0 : SUIT_NAMES.indexOf(p.suit as never)) * 13 + [0, 10, 11, 12][(r + c) % 4]), full(g.N, 0)),
+  exemplar: (p, g) => wire(g, fromFn(g.N, (r, c) => SUIT_NAMES.indexOf(p.suit as never) * 13 + [0, 10, 11, 12][(r + c) % 4]), full(g.N, 0)),
 });
 
 // --- King's Court ------------------------------------------------------------------------------------------------
