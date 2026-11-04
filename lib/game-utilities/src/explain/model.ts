@@ -52,6 +52,11 @@ export interface Part {
   readonly facts: readonly Fact[];
   readonly spots?: readonly Spot[];
   readonly links?: readonly Link[];
+  /**
+   * Which hover mode picks this unit on the board ("row", "column", "block", "pair", "cell"…): see units.ts. Units of
+   * one group never share a centre, so the board can point at each of them.
+   */
+  readonly group?: string;
 }
 
 /**
