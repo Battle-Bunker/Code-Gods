@@ -75,12 +75,12 @@ Worked examples (4×4, base10, rgb):
 The agent receives a metered view of the value, not the raw value.
 
 - **Int:** `n.value` reads the whole number: log2 W bits, where W = max − min + 1 (32 bits for a 32-bit range).
-  `n.digit(p)` reads one decimal place: log2 10 bits. `n.negative` reads the sign: 1 bit. The total for one act is
+  `n.digit(p)` reads one decimal place: log2 10 bits. `n.negative` reads the sign: 1 bit (free when the range has one sign). The total for one act is
   capped at log2 W.
   - In Python the view also behaves as a number (`n + 1`, `n % 2`, `n > 5`, `range(n)`, `str(n)`); any such use reads
     the whole number.
   - In TypeScript, use `n.value` (a `number`) or `n.digit(p)`.
-- **string:** `s.length` costs log2(maxLength + 1). `s.char(i)` costs log2 A, where A is the alphabet size. `s.text`
+- **string:** `s.length` costs log2(maxLength + 1). `s.char(i)` costs log2 A = 7 bits (ASCII). `s.text`
   reads all of it: length + length · log2 A, capped as above.
   - In Python, `len(s)`, `s[i]`, iteration, `in` and `str(s)` work and are charged the same way.
 
@@ -226,15 +226,16 @@ They are unit tests (`lib/game-types/test/change-cost.test.ts`).
   proportional to max(0, energy). An agent with no positive energy is not picked, and the opportunity passes if no agent
   has positive energy. Balances may go negative, because spend varies per object.
 - There is no eligibility threshold and no battery.
-- **Sanity cap:** an agent is offered at most `maxAgentOpportunityHz` opportunities per world second (default 4). It
-  is skipped while less than 1/cap world seconds have passed since its last opportunity.
+- **Sanity cap:** an agent is offered at most `MAX_AGENT_OPPORTUNITY_HZ` = 4 opportunities per world second (a
+  constant in `lib/game-core/src/energy.ts`, not a room setting; the observation's `economy.maxAgentOpportunityHz` reports
+  it). It is skipped while less than 1/cap world seconds have passed since its last opportunity.
   - Without the cap, an agent that reads nothing and always skips pays 0 per act. It would keep all its energy and,
     as the richest agent, take nearly every opportunity.
   - Four a second is far more than any agent needs to contest an object, and it bounds the sandbox work one agent can
     cause.
   - The futility memo still keeps agents off pairs where they can only fail.
 - A cheap skipper therefore runs more often than an expensive actor with the same income: its balance stays high.
-  This is a unit test (`lib/game-core/test/selection.test.ts`).
+  This is a unit test (`lib/game-core/test/energy.test.ts`).
 
 ## 8. Hold rarity (PR 5, last)
 
@@ -249,7 +250,7 @@ They are unit tests (`lib/game-types/test/change-cost.test.ts`).
 
 | PR | Widen | Migrate | Narrow (a later PR, once dev and prod report `migrations:status` done) |
 |---|---|---|---|
-| 1 | agents: `decisionBits`, `perActFloorBits` optional; `breakdown` gains `read`, `change`; `lastOpportunityWorld` optional; events: `skip`; `agents.skips` optional | `agentPricesV2`: drop decision/floor from `expectedActCost` and `breakdown` | require the new fields; drop the old ones |
+| 1 | agents: `decisionBits`, `perActFloorBits` optional; `breakdown` a union with {read, change}; `lastOpportunityWorld`, `skips` optional; events: `skip`, charge a union with {read, change, total} | `agentPricesV2`: drop decision/floor from `expectedActCost` and `breakdown` | require the new fields; drop the old ones. `perActFloorBits` and `agentBatteryActs` stay in settings (unused) until PR 3's settings migration |
 | 3 | games: `settings.powerPerSecond` optional; agents: `powerShare` optional; deities: `account` optional | `powerV1`: as §6 | drop the old settings fields |
 
 - Readers use the new shape with `??` fallbacks until the narrowing.

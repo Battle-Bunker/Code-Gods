@@ -107,6 +107,15 @@ const mean = (xs: readonly number[]): number => (xs.length ? xs.reduce((s, x) =>
 /** A meter reading as a charge: finite and non-negative, else 0. */
 export const readCharge = (bits: unknown): number => (typeof bits === "number" && Number.isFinite(bits) && bits > 0 ? bits : 0);
 
+/**
+ * The most an act can read: the whole object's information (Σ layerBits). An act whose meter cannot be read (it trapped,
+ * or its worker was killed at the hard wall) is charged this, so ending in a trap never dodges the reads it made.
+ */
+export function readBound(inst: Instantiation): number {
+  const layers = (objectType(inst.objectType) as ObjectTypeDef<unknown>).layerBits(inst);
+  return Object.values(layers).reduce((sum, b) => sum + b, 0);
+}
+
 /** True when the act's output is an empty call list (`[]`, None/null, or a clause around no calls): a skip. */
 export function isSkip(calls: unknown): boolean {
   let parsed = calls;

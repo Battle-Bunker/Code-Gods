@@ -292,7 +292,7 @@ export const commit = internalMutation({
     }));
     const resolved = events.map(e => (e.t === "spawn" && ids.has(e.objectId) ? { ...e, objectId: ids.get(e.objectId)! } : e));
     const clock = args.clock!;
-    const acts = events.filter(e => e.t === "transform" || e.t === "fail").length;
+    const acts = events.filter(e => e.t === "transform" || e.t === "fail" || e.t === "skip").length;
     const perf = { acts, window: clock.worldSeconds - game.worldSeconds, simulateMs: args.stats.simulateMs, ...(args.stats.prevCommitMs !== undefined ? { commitMs: args.stats.prevCommitMs } : {}) };
     // The scoreboard is published for everyone at once when the window reaches the next multiple of the interval
     // (docs/public-log-design.md §3); the end publishes its own (endGame). A game without one (started before

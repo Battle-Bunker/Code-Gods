@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
-  GRID, INT, STRING, actCharge, applyCalls, gridFromHex, isSkip, measureAgent, mixtureFromHexFixture,
+  GRID, INT, STRING, actCharge, applyCalls, gridFromHex, isSkip, measureAgent, mixtureFromHexFixture, readBound,
   referenceMixture, withComponents, type ObjectValue,
 } from "../src/index.ts";
 
@@ -166,4 +166,9 @@ test("isSkip: an empty call list, None/null, or a clause around no calls", () =>
   for (const x of ["[]", "null", []]) assert.equal(isSkip(x), true, JSON.stringify(x));
   assert.equal(isSkip('{"calls":[],"commit":"if-improves"}'), true);
   for (const x of ['[["add",{"k":1}]]', "not json", "{}"]) assert.equal(isSkip(x), false, x);
+});
+
+test("readBound: an unreadable meter is charged the whole object's information", () => {
+  close(readBound(GRID.instantiate({ size: 4, symbols: "base10", colours: "rgb" })), 16 * (Math.log2(10) + Math.log2(3)), 1e-9, "4×4 grid");
+  close(readBound(INT.instantiate({ min: -2147483648, max: 2147483647 })), 32, 1e-9, "Int32");
 });

@@ -86,6 +86,8 @@ def _M_CALL(_m, **params):
 
 
 def _M_INT(x, what):
+    if type(x).__name__ == "Num":
+        x = int(x)   # the metered view, read in full (docs/energy-model.md §3.2)
     if isinstance(x, bool) or not isinstance(x, int):
         raise ValueError(what + " must be a whole number, not " + repr(x))
     return x
@@ -93,6 +95,7 @@ def _M_INT(x, what):
 `;
 const SUPPORT_JS = `
 function __M_INT(x, what) {
+  if (x instanceof Num) x = x.value;   // the metered view, read in full (docs/energy-model.md §3.2)
   if (!Number.isInteger(x)) throw new Error(what + " must be a whole number, not " + JSON.stringify(x));
   return x;
 }

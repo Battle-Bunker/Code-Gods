@@ -56,6 +56,11 @@ export function assessValidation(receipt: CommandResult): ValidationAssessment {
     const why = failureLine(v.diagnostics);
     return { verdict: "fails", summary: `Fails or is invalid on ${pct(v.invalidRate)} of reference objects${why ? `: ${why}` : ""}. ${price}`, next: fixIt, ...money };
   }
+  // An agent that only ever skips (returns no calls) is waiting, not broken: say so, and let the player decide.
+  if (v.changeRate !== undefined && v.changeRate === 0 && v.skipRate !== undefined && v.skipRate > 0 && (v.invalidRate ?? 0) + v.skipRate >= 1 - 1e-9 && (v.invalidRate ?? 0) < FAILING_RATE) {
+    return { verdict: "warns", summary: `It skipped every reference object (returned no calls), so it would only pay for its reads until it finds something to do. ${price}`, ...money,
+      next: "Tell the player it waits for a pattern it never met on the reference objects. If that pattern is rare in this game, offer a version that acts more often; otherwise it is fine to summon." };
+  }
   if (v.changeRate !== undefined && v.changeRate === 0) {
     return { verdict: "no_change", summary: `Never changes a reference object: every act would pay for its reads without effect. ${price}`, next: fixIt, ...money };
   }

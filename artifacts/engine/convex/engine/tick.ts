@@ -18,7 +18,7 @@
  */
 import { v } from "convex/values";
 import { chargeAct, instantiationOf, isLanguage, pickByEnergy, poissonIntervalSeconds, type GameSettings, type ObjectValue } from "@workspace/game-core";
-import { actCharge, applyCalls, deriveSeed, isSkip, objectType, type ActOutcome, type MutatorCallWire } from "@workspace/game-types";
+import { actCharge, applyCalls, deriveSeed, isSkip, objectType, readBound, type ActOutcome, type MutatorCallWire } from "@workspace/game-types";
 import type { UtilityDescriptor } from "@workspace/game-utilities";
 import type { Id } from "../_generated/dataModel";
 import type { ActionCtx } from "../_generated/server";
@@ -129,6 +129,7 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
     // A past game's agent in a retired language (game-core RETIRED_LANGUAGES) sits out too: it can no longer act.
     const agents = snap.agents.filter(a => isLanguage(a.language) && !unready.has(a.language)).map(a => ({ ...a, failures: { ...a.failures }, lastFailures: { ...a.lastFailures }, fromActs: a.acts, touched: false }));
     const salt = seasonSalt();
+    const readCap = readBound(instantiationOf(settings));
 
     // Opportunities: rate × Δt, stochastically rounded; spread evenly over the window.
     const expected = settings.interactionRateHz * windowLength;
@@ -198,7 +199,8 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
           return { calls, usedRandom, readBits: readBits ?? 0 };
         }
         catch (error) {
-          if (isAgentFault(error)) return { error: (error as Error).message.slice(0, 300), readBits: (error as { readBits?: number }).readBits ?? 0 };
+          // An unreadable meter (a trap, the hard wall) is charged the whole object's information (game-types readBound).
+          if (isAgentFault(error)) return { error: (error as Error).message.slice(0, 300), readBits: (error as { readBits?: number }).readBits ?? readCap };
           console.warn(`act skipped (host): ${(error as Error).message}`);
           return null;
         }
@@ -214,8 +216,15 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
       for (let attempt = 0; attempt < 2; attempt++) {
         const busyObjects = new Set(wave.map(p => p.object.id)), busyAgents = new Set(wave.map(p => p.agent.id));
         const freeObjects = objects.filter(o => !busyObjects.has(o.id));
-        const eligible = agents.filter(a => !busyAgents.has(a.id) && agentStatus(settings, a, world).eligible);
-        const energyAt = (a: typeof agents[number]) => settledAccount(settings, a, world).balance;
+        // Each candidate's energy at this opportunity, settled once: the filter and the energy-weighted draw share it.
+        const energy = new Map<string, number>();
+        const eligible = agents.filter(a => {
+          if (busyAgents.has(a.id)) return false;
+          const status = agentStatus(settings, a, world);
+          energy.set(a.id, status.energy);
+          return status.eligible;
+        });
+        const energyAt = (a: typeof agents[number]) => energy.get(a.id) ?? 0;
         if (!freeObjects.length || !eligible.length) {
           if (wave.length) { await flush(); continue; }
           break;
