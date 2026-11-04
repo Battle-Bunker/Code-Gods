@@ -170,9 +170,9 @@ def rainbow_road(p, gt):
 
 def border_baron(p, gt):
     return card("🏰", "Border Baron", f"""Touching cells of one colour form a country. Every place where
-        two countries touch is a border, and it scores when both countries have at least {p['country_size']} cells.
-        If that's a tie, each border counts the size of its smaller country (up to {p['country_size']}).""",
-                [("BIG", p["country_size"])], """
+        two countries touch is a border, and it scores when both countries have at least {gt.N} cells.
+        If that's a tie, each border counts the size of its smaller country (up to {gt.N}).""",
+                [("BIG", gt.N)], """
         def same_colour(a, b):
             return a.colour == b.colour
 
@@ -195,19 +195,16 @@ def border_baron(p, gt):
 
 
 def conqueror(p, gt):
-    by_value = p["weight"] == "value"
-    worth = "its value" if by_value else "1 point"
-    pts = "cell.value" if by_value else "1"
     return card("⚔️", "Conqueror", f"""Your colour against your enemy's. Each {p['colour']} cell adds
-        {worth}, and each {p['enemy_colour']} cell takes {worth} away.""",
-                [("MY_COLOUR", p["colour"]), ("ENEMY_COLOUR", p["enemy_colour"])], f"""
+        its value, and each {p['enemy_colour']} cell takes its value away.""",
+                [("MY_COLOUR", p["colour"]), ("ENEMY_COLOUR", p["enemy_colour"])], """
         def utility(grid):
             points = 0
             for cell in grid.cells:
                 if cell.colour == MY_COLOUR:
-                    points += {pts}
+                    points += cell.value
                 elif cell.colour == ENEMY_COLOUR:
-                    points -= {pts}
+                    points -= cell.value
             return points
         """)
 
@@ -251,8 +248,7 @@ def parity_painter(p, gt):
 
 def mirrormancer(p, gt):
     lines, kind = ("grid.rows", "row") if p["axis"] == "LR" else ("grid.columns", "column")
-    what = "colour" if p["layer"] == "colour" else "value"
-    shown = "colours" if p["layer"] == "colour" else ("ranks" if gt.symbols == "cards" else "numbers")
+    shown = "ranks" if gt.symbols == "cards" else "numbers"
     return card("🪞", "Mirrormancer", f"""A {kind} is a mirror when its {shown} read the same forwards and
         backwards. Count mirror {kind}s; if that's a tie, count matching pairs (first and last, second and
         second-last, ...).""", [], f"""
@@ -263,7 +259,7 @@ def mirrormancer(p, gt):
                 half = len(line) // 2
                 matches = 0
                 for i in range(half):
-                    if line[i].{what} == line[len(line) - 1 - i].{what}:
+                    if line[i].value == line[len(line) - 1 - i].value:
                         matches += 1
                 pairs += matches
                 if matches == half:
@@ -273,16 +269,13 @@ def mirrormancer(p, gt):
 
 
 def homebody(p, gt):
-    rim = p["zone"] == "rim"
-    home = "the edge (the outside ring)" if rim else "the middle (everything off the edge)"
-    test = "cell.on_edge" if rim else "not cell.on_edge"
-    return card("🏡", "Homebody", f"""Your colour likes to stay home in {home}. Each {p['colour']}
-        cell at home is +1, and each one away from home is −1.""", [("MY_COLOUR", p["colour"])], f"""
+    return card("🏡", "Homebody", f"""Your colour likes to stay home on the edge (the outside ring). Each {p['colour']}
+        cell at home is +1, and each one away from home is −1.""", [("MY_COLOUR", p["colour"])], """
         def utility(grid):
             points = 0
             for cell in grid.cells:
                 if cell.colour == MY_COLOUR:
-                    if {test}:
+                    if cell.on_edge:
                         points += 1
                     else:
                         points -= 1
@@ -451,30 +444,23 @@ def straight_shooter(p, gt):
     number = "cell.value"
     if p["ace_high"]:
         number = "14 if cell.value == 1 else cell.value"
-    flush = p["flush"]
-    if flush:
-        score = """
+    score = """
                     if len(run) >= 3:
                         points = len(run) * len(run)
                         if one_colour(run):
                             points *= 2
                         score += points"""
-        helper = """
+    helper = """
         def one_colour(run):
             for cell in run:
                 if cell.colour != run[0].colour:
                     return False
             return True
         """
-    else:
-        score = """
-                    if len(run) >= 3:
-                        score += len(run) * len(run)"""
-        helper = ""
     aces = " Aces count as 14." if p["ace_high"] else ""
     return card("🎯", "Straight Shooter", f"""Find runs of 3 or more {thing(gt)}s that count
         {'up' if up else 'down'} by one, reading rows left to right and columns top to bottom. A run
-        scores its length × its length{', doubled if it is all one colour' if flush else ''}.{aces} If
+        scores its length × its length, doubled if it is all one colour.{aces} If
         that's a tie, count single counting steps.""", consts, f"""
         def number(cell):
             return {number}
@@ -500,23 +486,19 @@ def straight_shooter(p, gt):
 
 def number_bonds(p, gt):
     T = vmax(gt) + 1
-    mode = p["mode"]
-    cond = {"any": "", "same": " and cell.colour == other.colour", "different": " and cell.colour != other.colour"}[mode]
-    extra = {"any": "", "same": " and are the same colour", "different": " and are different colours"}[mode]
     return card("🤝", "Number Bonds", f"""Two touching cells are best friends when their {thing(gt)}s add
-        up to {T}{extra}. Every pair of best friends scores a point.""", [("TARGET", T)], f"""
+        up to {T}. Every pair of best friends scores a point.""", [("TARGET", T)], """
         def utility(grid):
             bonds = 0
             for cell in grid.cells:
                 for other in (cell.right, cell.down):
-                    if other is not None and cell.value + other.value == TARGET{cond}:
+                    if other is not None and cell.value + other.value == TARGET:
                         bonds += 1
             return bonds
         """)
 
 
-_AXIS = {"rows": ("grid.rows", "row"), "cols": ("grid.columns", "column"),
-         "both": ("grid.rows + grid.columns", "row and column")}
+_AXIS = {"rows": ("grid.rows", "row"), "cols": ("grid.columns", "column")}
 
 
 def magic_accountant(p, gt):
@@ -557,7 +539,7 @@ def king_of_the_hill(p, gt):
 
 
 def divisibility_detective(p, gt):
-    b, m = gt.base, p["divisor"]
+    b, m = gt.base, gt.base - 1
     lines, kind = _AXIS[p["scope"]]
     base_note = "" if b == 10 else f" (base {b}: the digits go 0-9 then A, B, ...)"
     return card("🔍", "Divisibility Detective", f"""Read each {kind} as one big number{base_note}. Every
@@ -634,32 +616,17 @@ def feuding_families(p, gt):
 def colour_mixer(p, gt):
     P1, P2, M = p["first_paint"], p["second_paint"], p["mixed_colour"]
     consts = [("PAINT_1", P1), ("PAINT_2", P2)]
-    if p["strict"]:
-        about = f"""{P1.capitalize()} + {P2} = {M}. A {M} cell scores when it sits between its two
-            paints: {P1} on one side and {P2} on the opposite side. If that's a tie, count {M} cells
-            touching either paint."""
-        check = """
-        def between(cell, a, b):
-            if a is None or b is None:
-                return False
-            return (a.colour == PAINT_1 and b.colour == PAINT_2) or (a.colour == PAINT_2 and b.colour == PAINT_1)
+    about = f"""{P1.capitalize()} + {P2} = {M}. A {M} cell scores when it touches both of its
+        paints. If that's a tie, count {M} cells touching either paint."""
+    return card("🎨", "Colour Mixer", about, consts, """
+        MIXED = mix(PAINT_1, PAINT_2)
 
-        def utility(grid):
-            mixes = 0
-            near = 0
-            for cell in grid.cells:
-                if cell.colour != MIXED:
-                    continue
-                if touches(cell, PAINT_1) or touches(cell, PAINT_2):
-                    near += 1
-                if between(cell, cell.left, cell.right) or between(cell, cell.up, cell.down):
-                    mixes += 1
-            return (mixes, near)
-        """
-    else:
-        about = f"""{P1.capitalize()} + {P2} = {M}. A {M} cell scores when it touches both of its
-            paints. If that's a tie, count {M} cells touching either paint."""
-        check = """
+        def touches(cell, colour):
+            for other in cell.neighbours:
+                if other.colour == colour:
+                    return True
+            return False
+
         def utility(grid):
             mixes = 0
             near = 0
@@ -671,16 +638,7 @@ def colour_mixer(p, gt):
                 if touches(cell, PAINT_1) and touches(cell, PAINT_2):
                     mixes += 1
             return (mixes, near)
-        """
-    return card("🎨", "Colour Mixer", about, consts, """
-        MIXED = mix(PAINT_1, PAINT_2)
-
-        def touches(cell, colour):
-            for other in cell.neighbours:
-                if other.colour == colour:
-                    return True
-            return False
-        """ + check)
+        """)
 
 
 def fair_weaver(p, gt):

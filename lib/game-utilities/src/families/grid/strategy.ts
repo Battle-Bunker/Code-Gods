@@ -1,6 +1,6 @@
 /** Strategy-lens rules (lib/grid-lab/gridlab/rules/strategy.py, cards from rules/cards.py). */
 import type { CardText, GridSpec } from "./_util.ts";
-import { colourParam, choiceParam, intParam, symbolParam } from "../../params.ts";
+import { colourParam, choiceParam, symbolParam } from "../../params.ts";
 import type { Params } from "../../types.ts";
 import {
   SCALAR, article, cap, chance, climb, cname, colourPairs, fromFn, full, glyph, gridFamily, isRim, pick, product, pyCard, range, recolour, sentences, symForValue, thing, tsCard, tuple, valueLaw, wire, colourAt, recolourNames, symbolAt, points,
@@ -95,21 +95,22 @@ const rainbowRoad = gridFamily<RoadP>({
 });
 
 // --- Border Baron ------------------------------------------------------------------------------
-type BaronP = { country_size: number };
-const baronText = (p: BaronP): CardText => ({
-  emoji: "🏰", name: "Border Baron", consts: [["BIG", p.country_size]],
+/** A country is big at N cells (a row's worth): the sizes N−1, N and 2N−2 had top bits up to 60% apart (P10). */
+type BaronP = Record<string, never>;
+const baronText = (g: GridSpec): CardText => ({
+  emoji: "🏰", name: "Border Baron", consts: [["BIG", g.N]],
   about: "A country is a group of touching cells of one colour. A border is a place where two countries touch. "
-    + `Each border scores 1 point if both countries have at least ${p.country_size} cells. Most points wins. If that's a tie, `
-    + `add up, for every border, the size of its smaller country (counting at most ${p.country_size}).`,
+    + `Each border scores 1 point if both countries have at least ${g.N} cells. Most points wins. If that's a tie, `
+    + `add up, for every border, the size of its smaller country (counting at most ${g.N}).`,
 });
 const borderBaron = gridFamily<BaronP>({
   id: "border_baron", name: "Border Baron", emoji: "🏰", theme: "Long borders between big countries",
   shape: tuple(2), tags: ["shortlist"],
-  params: g => ({ country_size: intParam("Cells a country needs to be big", g.N - 1, 2 * g.N - 2) }),
-  legacy: p => (typeof p.K === "number" ? { country_size: p.K } : null),
-  support: g => [g.N - 1, g.N, 2 * g.N - 2].map(country_size => ({ country_size })),
-  summary: p => baronText(p).about,
-  python: p => pyCard(baronText(p), `
+  params: () => ({}),
+  legacy: p => (Object.keys(p).length ? {} : null),
+  support: () => [{}],
+  summary: (_, g) => baronText(g).about,
+  python: (_, g) => pyCard(baronText(g), `
     def same_colour(a, b):
         return a.colour == b.colour
 
@@ -128,7 +129,7 @@ const borderBaron = gridFamily<BaronP>({
                     if smaller == BIG:
                         big_borders += 1
         return (big_borders, progress)`),
-  typescript: p => tsCard(baronText(p), `
+  typescript: (_, g) => tsCard(baronText(g), `
     function sameColour(a, b) {
       return a.colour === b.colour;
     }
@@ -162,53 +163,41 @@ const borderBaron = gridFamily<BaronP>({
 });
 
 // --- Conqueror -----------------------------------------------------------------------------------
-type ConqP = { colour: string; enemy_colour: string; weight: "one" | "value" };
-const conqText = (p: ConqP, g: GridSpec): CardText => {
-  const worth = p.weight === "value" ? "points equal to its value" : "1 point";
-  return {
-    emoji: "⚔️", name: "Conqueror", consts: [["MY_COLOUR", p.colour], ["ENEMY_COLOUR", p.enemy_colour]],
-    about: sentences(`Your colour is ${p.colour} and your enemy's is ${p.enemy_colour}. Each ${p.colour} cell `
-      + `scores ${worth}. Each ${p.enemy_colour} cell loses ${worth}.`, p.weight === "value" ? g.say.valueKey() : ""),
-  };
-};
+type ConqP = { colour: string; enemy_colour: string };
+const conqText = (p: ConqP, g: GridSpec): CardText => ({
+  emoji: "⚔️", name: "Conqueror", consts: [["MY_COLOUR", p.colour], ["ENEMY_COLOUR", p.enemy_colour]],
+  about: sentences(`Your colour is ${p.colour} and your enemy's is ${p.enemy_colour}. Each ${p.colour} cell `
+    + `scores points equal to its value. Each ${p.enemy_colour} cell loses points equal to its value.`, g.say.valueKey()),
+});
 const conqueror = gridFamily<ConqP>({
   id: "conqueror", name: "Conqueror", emoji: "⚔️", theme: "Your army against your enemy",
   analytic: solvedAnalytic("conqueror"),
   requires: { classes: ["Valued"] }, shape: SCALAR, tags: ["shortlist"],
-  params: () => ({
-    colour: colourParam("Your colour"), enemy_colour: colourParam("Your enemy's colour"),
-    weight: choiceParam("Each cell is worth", [["one", "1 point"], ["value", "its value"]]),
-  }),
+  params: () => ({ colour: colourParam("Your colour"), enemy_colour: colourParam("Your enemy's colour") }),
+  // Counting every cell as 1 point left far fewer scores to chase than counting its value (25 vs 79 top bits on 4×4): values it is (P10).
   legacy: (p, g) => (typeof p.A === "number"
-    ? { colour: g.colourNames[p.A], enemy_colour: g.colourNames[p.B as number], weight: p.weight as ConqP["weight"] } : null),
-  support: g => colourPairs(g).flatMap(([A, B]) =>
-    (["one", "value"] as const).map(weight => ({ colour: g.colourNames[A], enemy_colour: g.colourNames[B], weight }))),
+    ? { colour: g.colourNames[p.A], enemy_colour: g.colourNames[p.B as number] } : "weight" in p ? { colour: p.colour as string, enemy_colour: p.enemy_colour as string } : null),
+  support: g => colourPairs(g).map(([A, B]) => ({ colour: g.colourNames[A], enemy_colour: g.colourNames[B] })),
   canonical: (p, g) => recolourNames(g, p, ["colour", "enemy_colour"]),
   summary: (p, g) => conqText(p, g).about,
-  python: (p, g) => {
-    const pts = p.weight === "value" ? "cell.value" : "1";
-    return pyCard(conqText(p, g), `
-      def utility(grid):
-          points = 0
-          for cell in grid.cells:
-              if cell.colour == MY_COLOUR:
-                  points += ${pts}
-              elif cell.colour == ENEMY_COLOUR:
-                  points -= ${pts}
-          return points`);
-  },
-  typescript: (p, g) => {
-    const pts = p.weight === "value" ? "cell.value" : "1";
-    return tsCard(conqText(p, g), `
-      function utility(grid) {
-        let points = 0;
-        for (const cell of grid.cells) {
-          if (cell.colour === MY_COLOUR) points += ${pts};
-          else if (cell.colour === ENEMY_COLOUR) points -= ${pts};
-        }
-        return points;
-      }`);
-  },
+  python: (p, g) => pyCard(conqText(p, g), `
+    def utility(grid):
+        points = 0
+        for cell in grid.cells:
+            if cell.colour == MY_COLOUR:
+                points += cell.value
+            elif cell.colour == ENEMY_COLOUR:
+                points -= cell.value
+        return points`),
+  typescript: (p, g) => tsCard(conqText(p, g), `
+    function utility(grid) {
+      let points = 0;
+      for (const cell of grid.cells) {
+        if (cell.colour === MY_COLOUR) points += cell.value;
+        else if (cell.colour === ENEMY_COLOUR) points -= cell.value;
+      }
+      return points;
+    }`),
   exemplar: (p, g) => wire(g, full(g.N, symForValue(g, g.vmax)), full(g.N, colourAt(g, p.colour))),
 });
 
@@ -304,10 +293,10 @@ const parityPainter = gridFamily<ParityP>({
 });
 
 // --- Mirrormancer --------------------------------------------------------------------------------
-type MirrorP = { axis: "LR" | "TB"; layer: "colour" | "symbol" };
+type MirrorP = { axis: "LR" | "TB" };
 const mirrorText = (p: MirrorP, g: GridSpec): CardText => {
   const kind = p.axis === "LR" ? "row" : "column";
-  const shown = p.layer === "colour" ? "colours" : g.cards ? "ranks" : "numbers";
+  const shown = g.cards ? "ranks" : "numbers";
   return {
     emoji: "🪞", name: "Mirrormancer", consts: [],
     about: `A ${kind} is a mirror if its ${shown} read the same forwards and backwards. Each mirror ${kind} scores `
@@ -319,87 +308,77 @@ const mirrormancer = gridFamily<MirrorP>({
   id: "mirrormancer", name: "Mirrormancer", emoji: "🪞", theme: "Lines that read the same both ways",
   analytic: solvedAnalytic("mirrormancer"),
   shape: tuple(2), tags: ["shortlist"],
-  params: g => ({
-    axis: choiceParam("Mirror lines", [["LR", "rows (left to right)"], ["TB", "columns (top to bottom)"]]),
-    layer: choiceParam("What must match", [["colour", "colours"], ["symbol", g.cards ? "ranks" : "numbers"]]),
-  }),
-  support: () => product<MirrorP>({ axis: ["LR", "TB"], layer: ["colour", "symbol"] }),
-  canonical: p => ({ ...p, axis: "LR" }),
+  params: () => ({ axis: choiceParam("Mirror lines", [["LR", "rows (left to right)"], ["TB", "columns (top to bottom)"]]) }),
+  // Colours mirrored or numbers mirrored are two different ideas with top bits 2x apart (P10): numbers are left (colours: a split proposal).
+  legacy: p => ("layer" in p ? { axis: p.axis as MirrorP["axis"] } : null),
+  support: () => [{ axis: "LR" }, { axis: "TB" }],
+  canonical: () => ({ axis: "LR" }),
   summary: (p, g) => mirrorText(p, g).about,
-  python: (p, g) => {
-    const what = p.layer === "colour" ? "colour" : "value";
-    return pyCard(mirrorText(p, g), `
-      def utility(grid):
-          mirrors = 0
-          pairs = 0
-          for line in ${p.axis === "LR" ? "grid.rows" : "grid.columns"}:
-              half = len(line) // 2
-              matches = 0
-              for i in range(half):
-                  if line[i].${what} == line[len(line) - 1 - i].${what}:
-                      matches += 1
-              pairs += matches
-              if matches == half:
-                  mirrors += 1
-          return (mirrors, pairs)`);
-  },
-  typescript: (p, g) => {
-    const what = p.layer === "colour" ? "colour" : "value";
-    return tsCard(mirrorText(p, g), `
-      function utility(grid) {
-        let mirrors = 0;
-        let pairs = 0;
-        for (const line of ${p.axis === "LR" ? "grid.rows" : "grid.columns"}) {
-          const half = Math.floor(line.length / 2);
-          let matches = 0;
-          for (let i = 0; i < half; i++) {
-            if (line[i].${what} === line[line.length - 1 - i].${what}) matches += 1;
-          }
-          pairs += matches;
-          if (matches === half) mirrors += 1;
+  python: (p, g) => pyCard(mirrorText(p, g), `
+    def utility(grid):
+        mirrors = 0
+        pairs = 0
+        for line in ${p.axis === "LR" ? "grid.rows" : "grid.columns"}:
+            half = len(line) // 2
+            matches = 0
+            for i in range(half):
+                if line[i].value == line[len(line) - 1 - i].value:
+                    matches += 1
+            pairs += matches
+            if matches == half:
+                mirrors += 1
+        return (mirrors, pairs)`),
+  typescript: (p, g) => tsCard(mirrorText(p, g), `
+    function utility(grid) {
+      let mirrors = 0;
+      let pairs = 0;
+      for (const line of ${p.axis === "LR" ? "grid.rows" : "grid.columns"}) {
+        const half = Math.floor(line.length / 2);
+        let matches = 0;
+        for (let i = 0; i < half; i++) {
+          if (line[i].value === line[line.length - 1 - i].value) matches += 1;
         }
-        return [mirrors, pairs];
-      }`);
-  },
+        pairs += matches;
+        if (matches === half) mirrors += 1;
+      }
+      return [mirrors, pairs];
+    }`),
   exemplar: (_, g) => wire(g, full(g.N, 0), full(g.N, 0)),
 });
 
 // --- Homebody ------------------------------------------------------------------------------------
-type HomeP = { colour: string; zone: "core" | "rim" };
-const homeText = (p: HomeP, g: GridSpec): CardText => ({
+type HomeP = { colour: string };
+const homeText = (p: HomeP): CardText => ({
   emoji: "🏡", name: "Homebody", consts: [["MY_COLOUR", p.colour]],
-  about: `Your colour is ${p.colour}. It likes to stay home `
-    + `${p.zone === "rim" ? "on the edge (the outside ring of cells)" : "in the middle (every cell except the edge)"}. `
+  about: `Your colour is ${p.colour}. It likes to stay home on the edge (the outside ring of cells). `
     + `Each ${p.colour} cell at home scores 1 point. Each ${p.colour} cell away from home loses 1 point.`,
 });
 const homebody = gridFamily<HomeP>({
   id: "homebody", name: "Homebody", emoji: "🏡", theme: "Your colour belongs at home",
   analytic: solvedAnalytic("homebody"),
   shape: SCALAR, tags: ["shortlist"],
-  params: () => ({
-    colour: colourParam("Your colour"),
-    zone: choiceParam("Where it belongs", [["core", "in the middle"], ["rim", "on the edge"]]),
-  }),
-  legacy: (p, g) => (typeof p.X === "number" ? { colour: g.colourNames[p.X], zone: p.zone as HomeP["zone"] } : null),
-  support: g => product<HomeP>({ colour: g.colourNames, zone: ["core", "rim"] }),
+  params: () => ({ colour: colourParam("Your colour") }),
+  // The middle holds fewer cells than the edge (4 vs 12 on 4×4), so "where it belongs" scored differently (13 vs 21 top bits): the edge it is (P10).
+  legacy: (p, g) => (typeof p.X === "number" ? { colour: g.colourNames[p.X] } : "zone" in p ? { colour: p.colour as string } : null),
+  support: g => g.colourNames.map(colour => ({ colour })),
   canonical: (p, g) => recolourNames(g, p, ["colour"]),
-  summary: (p, g) => homeText(p, g).about,
-  python: (p, g) => pyCard(homeText(p, g), `
+  summary: p => homeText(p).about,
+  python: p => pyCard(homeText(p), `
     def utility(grid):
         points = 0
         for cell in grid.cells:
             if cell.colour == MY_COLOUR:
-                if ${p.zone === "rim" ? "cell.on_edge" : "not cell.on_edge"}:
+                if cell.on_edge:
                     points += 1
                 else:
                     points -= 1
         return points`),
-  typescript: (p, g) => tsCard(homeText(p, g), `
+  typescript: p => tsCard(homeText(p), `
     function utility(grid) {
       let points = 0;
       for (const cell of grid.cells) {
         if (cell.colour === MY_COLOUR) {
-          if (${p.zone === "rim" ? "cell.onEdge" : "!cell.onEdge"}) points += 1;
+          if (cell.onEdge) points += 1;
           else points -= 1;
         }
       }
@@ -407,7 +386,7 @@ const homebody = gridFamily<HomeP>({
     }`),
   exemplar: (p, g) => {
     const X = colourAt(g, p.colour);
-    return wire(g, full(g.N, 0), fromFn(g.N, (r, c) => (isRim(g.N, r, c) === (p.zone === "rim") ? X : (X + 1) % g.C)));
+    return wire(g, full(g.N, 0), fromFn(g.N, (r, c) => (isRim(g.N, r, c) ? X : (X + 1) % g.C)));
   },
 });
 

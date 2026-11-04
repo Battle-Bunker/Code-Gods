@@ -122,14 +122,7 @@ def cm_ord(g, p, gtype):
                 continue
             ns = [col[a][b] for a, b in nbrs4(N, r, c)]
             near += P1 in ns or P2 in ns
-            if p["strict"]:
-                ok = False
-                for (a, b), (x, y) in (((r, c - 1), (r, c + 1)), ((r - 1, c), (r + 1, c))):
-                    if 0 <= a < N and 0 <= b < N and 0 <= x < N and 0 <= y < N and {col[a][b], col[x][y]} == {P1, P2}:
-                        ok = True
-                s += ok
-            else:
-                s += P1 in ns and P2 in ns
+            s += P1 in ns and P2 in ns
     return tup(s, near)
 
 
@@ -137,27 +130,19 @@ def cm_batch(sym, col, p, gtype):
     P1, M, P2 = cis(gtype, p, "first_paint", "mixed_colour", "second_paint")
     isM = col == M
     h1, h2 = _nbr_has(col, P1), _nbr_has(col, P2)
-    if p["strict"]:
-        ok = np.zeros(col.shape, bool)
-        for d1, d2 in (((0, -1), (0, 1)), ((-1, 0), (1, 0))):
-            a, b = shift(col, *d1, 255), shift(col, *d2, 255)
-            ok |= ((a == P1) & (b == P2)) | ((a == P2) & (b == P1))
-    else:
-        ok = h1 & h2
+    ok = h1 & h2
     return tupb((isM & ok).sum((1, 2)), (isM & (h1 | h2)).sum((1, 2)))
 
 
 def cm_sample(rng, gtype):
     rec = _recipes(gtype)
     a, b, m = rec[int(rng.integers(len(rec)))]
-    return {"first_paint": cname(gtype, a), "mixed_colour": cname(gtype, m), "second_paint": cname(gtype, b),
-            "strict": bool(rng.random() < 0.5)}
+    return {"first_paint": cname(gtype, a), "mixed_colour": cname(gtype, m), "second_paint": cname(gtype, b)}
 
 
 def cm_canon(p, gtype):
     a, b, m = _recipes(gtype)[0]  # all distinct colour triples are equivalent under colour permutation
-    return {"first_paint": cname(gtype, a), "mixed_colour": cname(gtype, m), "second_paint": cname(gtype, b),
-            "strict": p["strict"]}
+    return {"first_paint": cname(gtype, a), "mixed_colour": cname(gtype, m), "second_paint": cname(gtype, b)}
 
 
 def cm_exemplar(p, gtype):
@@ -172,10 +157,9 @@ COLOUR_MIXER = mk(
     requires=req("Mixable"), layers={"colour", "position"}, camp="alternator",
     sample=cm_sample,
     summary=lambda p, gt: (f"{p['first_paint'].capitalize()} and {p['second_paint']} make {p['mixed_colour']}. Every "
-                           f"{p['mixed_colour']} cell " + ("with one parent on each side of it (left/right or above/below)"
-                                                           if p["strict"] else "touching both parents") + " is a perfect mix."),
+                           f"{p['mixed_colour']} cell touching both parents is a perfect mix."),
     ordinal=cm_ord, batch=cm_batch, canonical=cm_canon, exemplar=cm_exemplar,
-    source="catalog#19 (D12: col#5 recipe param, strict from geo#15); tie-breaker = mixes touching a parent",
+    source="catalog#19 (D12: col#5 recipe param; the strict opposite-sides mode scored a different thing, P10); tie-breaker = mixes touching a parent",
     tags={"shortlist"})
 
 
@@ -395,14 +379,17 @@ KINGDOM = mk(
 
 
 # --- Wallpaper Weaver --------------------------------------------------------------------------------------------------
+STEPS = 2  # 3 steps apart left far fewer pairs on a small board (P10)
+
+
 def ww_ord(g, p, gtype):
-    N, k = gtype.N, p["steps"]
+    N, k = gtype.N, STEPS
     a = (g.col if p["direction"] == "right" else g.col.T).tolist()
     return sum(a[r][c] == a[r][c + k] for r in range(N) for c in range(N - k))
 
 
 def ww_batch(sym, col, p, gtype):
-    k = p["steps"]
+    k = STEPS
     a = col if p["direction"] == "right" else np.swapaxes(col, 1, 2)
     return (a[:, :, :-k] == a[:, :, k:]).sum((1, 2))
 
@@ -410,13 +397,12 @@ def ww_batch(sym, col, p, gtype):
 WALLPAPER = mk(
     id="wallpaper_weaver", name="Wallpaper Weaver", theme="A repeating pattern",
     requires=req(), layers={"colour", "position"}, camp="neutral",
-    sample=lambda rng, gt: {"steps": int(rng.choice([2, 3] if gt.N >= 4 else [2])),
-                            "direction": str(rng.choice(["right", "down"]))},
-    summary=lambda p, gt: (f"Every cell whose colour matches the cell {p['steps']} steps "
+    sample=lambda rng, gt: {"direction": str(rng.choice(["right", "down"]))},
+    summary=lambda p, gt: (f"Every cell whose colour matches the cell {STEPS} steps "
                            f"{'to its right' if p['direction'] == 'right' else 'below it'} scores a point."),
-    ordinal=ww_ord, batch=ww_batch, canonical=lambda p, gt: {"steps": p["steps"], "direction": "right"},
+    ordinal=ww_ord, batch=ww_batch, canonical=lambda p, gt: {"direction": "right"},
     exemplar=lambda p, gt: grid(np.zeros((gt.N, gt.N)), np.zeros((gt.N, gt.N))),
-    source="col#13 (p=3 needs N>=4)")
+    source="col#13 (2 steps apart only since P10: 3 steps left far fewer pairs on a small board)")
 
 
 # --- Sunset Sky ----------------------------------------------------------------------------------------------------------

@@ -23,13 +23,9 @@ const TOP_RATIO = 1.15, MEAN_DELTA = 0.5;
 
 /** Families whose param classes still differ in opportunity (being fixed in batches). Only shrinks. */
 const VIOLATORS: ReadonlySet<string> = new Set([
-  "bit-sigil", "border_baron", "colour_mixer", "conqueror", "digit-devotee",
-  "divisibility_detective", "firstborn", "haiku-master", "homebody", "magic_accountant",
-  "magic_window", "mirrormancer", "number_bonds", "number_sandwich", "numerologist", "odds_evens",
-  "palette-keeper", "palindromist", "power-hoarder", "purist", "refrain",
-  "residue-oracle", "round_numbers", "scale-keeper", "seesaw", "smooth-operator", "stepping_stones",
-  "straight_shooter", "streaker", "tailwright", "tallykeeper",
-  "times_table_territory", "wallpaper_weaver",
+  "bit-sigil", "digit-devotee", "firstborn", "haiku-master", "numerologist", "palette-keeper", "palindromist",
+  "power-hoarder", "purist", "refrain", "residue-oracle", "scale-keeper", "smooth-operator", "streaker",
+  "tailwright", "tallykeeper",
 ]);
 
 function stats(t: CalibrationTable): { top: number; mean: number } {

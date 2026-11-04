@@ -95,9 +95,9 @@ const SOLVERS: Readonly<Record<string, Solver>> = {
     return binomial(pairs, matchProb(g, p.layer));
   },
   /** Pairs (c, c+p) in a row form chains (a forest): equality indicators on a forest are independent. */
-  wallpaper_weaver: (p, g) => binomial(g.N * Math.max(0, g.N - p.steps), 1 / g.C),
+  wallpaper_weaver: (_p, g) => binomial(g.N * Math.max(0, g.N - 2), 1 / g.C), // always 2 steps apart
   /** Each row: matches ~ Binomial(⌊N/2⌋, q); (mirrors, pairs) summed over iid rows. */
-  mirrormancer: (p, g) => wholeAndParts(binomial(Math.floor(g.N / 2), matchProb(g, p.layer)), Math.floor(g.N / 2), g.N),
+  mirrormancer: (_p, g) => wholeAndParts(binomial(Math.floor(g.N / 2), matchProb(g, "symbol")), Math.floor(g.N / 2), g.N),
   /** ⌊N²/4⌋ disjoint quarter-turn orbits of 4 iid keys (colour; symbol, or suit for cards): (full, most) = Σ ([max mult = 4], max mult). */
   pinwheel: (p, g) => power(map(maxOccupancy(4, p.layer === "colour" ? g.C : g.cards ? 4 : g.S), ([m]) => [m === 4 ? 1 : 0, m]), Math.floor(g.N * g.N / 4)),
   /** Next colour is cyclic, so each step indicator is Bernoulli(1/C), independent along and across rows. */
@@ -117,17 +117,13 @@ const SOLVERS: Readonly<Record<string, Solver>> = {
   full_house: (_p, g) => power(pairsInRow(g.N, keyCount(g, "symbol")), g.N),
   /** Rows only: row total = N-fold convolution of the value law; (exact, −Σ|total − T|). */
   magic_accountant: (p, g) => {
-    if (p.axis !== "rows") throw new NoSolution("rows and columns share cells");
     const total = power(valueLaw(g), g.N);
     return power(map(total, ([t]) => [t === p.target ? 1 : 0, -Math.abs(t - p.target)]), g.N);
   },
-  /** Rows only: lean = |left − right| with independent halves (or signed colour-weighted cells). */
-  seesaw: (p, g) => {
-    if (p.scope !== "rows") throw new NoSolution("rows and columns share cells");
+  /** Rows only (columns are the same law): lean = |left − right| with independent halves. */
+  seesaw: (_p, g) => {
     const h = Math.floor(g.N / 2), V = valueLaw(g);
-    const diff = p.mode === "halves"
-      ? combine(power(V, h), power(V, h), ([a], [b]) => [a - b])
-      : power(combine(V, colourLaw(g), ([v], [c]) => [g.colourNames[c] === p.left_colour ? v : g.colourNames[c] === p.right_colour ? -v : 0]), g.N);
+    const diff = combine(power(V, h), power(V, h), ([a], [b]) => [a - b]);
     return power(map(diff, ([d]) => [d === 0 ? 1 : 0, -Math.abs(d)]), g.N);
   },
   /**
@@ -248,15 +244,13 @@ const SOLVERS: Readonly<Record<string, Solver>> = {
     return power(row, N);
   },
   /** Rows only: line total mod base; (round lines, Σ closeness to a multiple of the base). */
-  round_numbers: (p, g) => {
-    if (p.axis !== "rows") throw new NoSolution("rows and columns share cells");
+  round_numbers: (_p, g) => {
     const B = g.base!, total = power(valueLaw(g), g.N);
     return power(map(total, ([t]) => { const left = t % B; return [left === 0 ? 1 : 0, Math.floor(B / 2) - Math.min(left, B - left)]; }), g.N);
   },
   /** Rows only: the row's base-B number mod m is a chain over digits; found ~ Binomial(N, P(≡ 0)). */
-  divisibility_detective: (p, g) => {
-    if (p.scope !== "rows") throw new NoSolution("rows and columns share cells");
-    const B = g.base!, res = chain(point([0]), valueLaw(g), g.N, ([r], [v]) => [(r * B + v) % p.divisor]);
+  divisibility_detective: (_p, g) => {
+    const B = g.base!, res = chain(point([0]), valueLaw(g), g.N, ([r], [v]) => [(r * B + v) % (B - 1)]); // divisor: base − 1
     return binomial(g.N, res.get("0")?.p ?? 0);
   },
   /**
@@ -377,10 +371,6 @@ const lineApprox = (solver: Solver, rowParams: (p: any) => any): Solver => (p, g
   return sum(rowsOnly, rowsOnly); // columns: the same law, assumed independent of the rows
 };
 const APPROX: Readonly<Record<string, Solver>> = {
-  magic_accountant: lineApprox(SOLVERS.magic_accountant, p => ({ ...p, axis: "rows" })),
-  seesaw: lineApprox(SOLVERS.seesaw, p => ({ ...p, scope: "rows" })),
-  round_numbers: lineApprox(SOLVERS.round_numbers, p => ({ ...p, axis: "rows" })),
-  divisibility_detective: lineApprox(SOLVERS.divisibility_detective, p => ({ ...p, scope: "rows" })),
   /** Knight-move twins: Binomial(#knight edges, p) as if the knight graph were a forest (it has cycles). */
   knight_riders: (p, g) => binomial(4 * (g.N - 1) * (g.N - 2), p.colour === "any" ? 1 / (g.S * g.C) : 1 / (g.S * g.C * g.C)),
 };
@@ -399,11 +389,7 @@ export function gridApproxLevels(familyId: string, params: Params, inst: Instant
 
 /** The draws a Grid solver declines (NoSolution) for, decided from the params and shape alone. */
 const DECLINES: Readonly<Record<string, (p: any, g: GridSpec) => boolean>> = {
-  magic_accountant: p => p.axis !== "rows",
-  seesaw: p => p.scope !== "rows",
   flag_bearer: p => p.axis !== "rows",
-  round_numbers: p => p.axis !== "rows",
-  divisibility_detective: p => p.scope !== "rows",
 };
 
 /**

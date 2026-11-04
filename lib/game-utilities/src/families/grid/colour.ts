@@ -148,16 +148,13 @@ const feudingFamilies = gridFamily<FeudP>({
 });
 
 // --- Colour Mixer ------------------------------------------------------------------------------------
-type MixP = { first_paint: string; mixed_colour: string; second_paint: string; strict: boolean };
+type MixP = { first_paint: string; mixed_colour: string; second_paint: string };
 const mixText = (p: MixP, g: GridSpec): CardText => {
   const P1 = p.first_paint, P2 = p.second_paint, M = p.mixed_colour;
   return {
     emoji: "🎨", name: "Colour Mixer", consts: [["PAINT_1", P1], ["PAINT_2", P2]],
     about: `${cap(P1)} and ${P2} paint mix to make ${M}. `
-      + (p.strict
-        ? `Each ${M} cell with ${P1} on one side and ${P2} on the opposite side (left and right, or above and below) `
-          + "scores 1 point. "
-        : `Each ${M} cell that touches both a ${P1} cell and a ${P2} cell scores 1 point. `)
+      + `Each ${M} cell that touches both a ${P1} cell and a ${P2} cell scores 1 point. `
       + `Most points wins. If that's a tie, more ${M} cells touching either paint wins.`,
   };
 };
@@ -166,20 +163,20 @@ const colourMixer = gridFamily<MixP>({
   requires: { classes: ["Mixable"] }, shape: tuple(2), tags: ["shortlist"],
   params: () => ({
     first_paint: colourParam("First paint"), mixed_colour: colourParam("Colour they mix to"), second_paint: colourParam("Second paint"),
-    strict: boolParam("Paints must sit on opposite sides"),
   }),
+  // "Paints must sit on opposite sides" scored a different, stricter thing, with top bits 20% apart (P10): touching both is the rule.
   legacy: (p, g) => (typeof p.P1 === "number"
-    ? { first_paint: g.colourNames[p.P1], mixed_colour: g.colourNames[p.M as number], second_paint: g.colourNames[p.P2 as number], strict: p.strict as boolean }
-    : null),
-  support: g => recipes(g).flatMap(([P1, P2, M]) => [false, true].map(strict =>
-    ({ first_paint: g.colourNames[P1], mixed_colour: g.colourNames[M], second_paint: g.colourNames[P2], strict }))),
+    ? { first_paint: g.colourNames[p.P1], mixed_colour: g.colourNames[p.M as number], second_paint: g.colourNames[p.P2 as number] }
+    : "strict" in p ? { first_paint: p.first_paint as string, mixed_colour: p.mixed_colour as string, second_paint: p.second_paint as string } : null),
+  support: g => recipes(g).map(([P1, P2, M]) =>
+    ({ first_paint: g.colourNames[P1], mixed_colour: g.colourNames[M], second_paint: g.colourNames[P2] })),
   sample: (rng, g) => {
     const [P1, P2, M] = pick(rng, recipes(g));
-    return { first_paint: g.colourNames[P1], mixed_colour: g.colourNames[M], second_paint: g.colourNames[P2], strict: chance(rng, 1, 2) };
+    return { first_paint: g.colourNames[P1], mixed_colour: g.colourNames[M], second_paint: g.colourNames[P2] };
   },
-  canonical: (p, g) => {
+  canonical: (_, g) => {
     const [P1, P2, M] = recipes(g)[0]; // all distinct colour triples are equivalent under colour permutation
-    return { first_paint: g.colourNames[P1], mixed_colour: g.colourNames[M], second_paint: g.colourNames[P2], strict: p.strict };
+    return { first_paint: g.colourNames[P1], mixed_colour: g.colourNames[M], second_paint: g.colourNames[P2] };
   },
   summary: (p, g) => mixText(p, g).about,
   python: (p, g) => pyCard(mixText(p, g), `
@@ -190,12 +187,7 @@ const colourMixer = gridFamily<MixP>({
             if other.colour == colour:
                 return True
         return False
-${p.strict ? `
-    def between(cell, a, b):
-        if a is None or b is None:
-            return False
-        return (a.colour == PAINT_1 and b.colour == PAINT_2) or (a.colour == PAINT_2 and b.colour == PAINT_1)
-` : ""}
+
     def utility(grid):
         mixes = 0
         near = 0
@@ -204,8 +196,7 @@ ${p.strict ? `
                 continue
             if touches(cell, PAINT_1) or touches(cell, PAINT_2):
                 near += 1
-            if ${p.strict ? "between(cell, cell.left, cell.right) or between(cell, cell.up, cell.down)"
-    : "touches(cell, PAINT_1) and touches(cell, PAINT_2)"}:
+            if touches(cell, PAINT_1) and touches(cell, PAINT_2):
                 mixes += 1
         return (mixes, near)`),
   typescript: (p, g) => tsCard(mixText(p, g), `
@@ -217,26 +208,20 @@ ${p.strict ? `
       }
       return false;
     }
-${p.strict ? `
-    function between(cell, a, b) {
-      if (a === null || b === null) return false;
-      return (a.colour === PAINT_1 && b.colour === PAINT_2) || (a.colour === PAINT_2 && b.colour === PAINT_1);
-    }
-` : ""}
+
     function utility(grid) {
       let mixes = 0;
       let near = 0;
       for (const cell of grid.cells) {
         if (cell.colour !== MIXED) continue;
         if (touches(cell, PAINT_1) || touches(cell, PAINT_2)) near += 1;
-        if (${p.strict ? "between(cell, cell.left, cell.right) || between(cell, cell.up, cell.down)"
-    : "touches(cell, PAINT_1) && touches(cell, PAINT_2)"}) mixes += 1;
+        if (touches(cell, PAINT_1) && touches(cell, PAINT_2)) mixes += 1;
       }
       return [mixes, near];
     }`),
   // The exact optimum of a max-plus transfer matrix over the letters P1/P2/M (src/analytic/maxima.ts): a proven maximum.
   exemplar: (p, g) => {
-    const rows = MIXER_OPTIMA[g.N]?.[p.strict ? "strict" : "loose"] ?? mixerOptimum(g.N, p.strict).rows; // tabulated for every GRID_SIZES
+    const rows = MIXER_OPTIMA[g.N]?.loose ?? mixerOptimum(g.N, false).rows; // tabulated for every GRID_SIZES
     const colour = { A: colourAt(g, p.first_paint), B: colourAt(g, p.second_paint), M: colourAt(g, p.mixed_colour) } as const;
     return wire(g, full(g.N, 0), fromFn(g.N, (r, c) => colour[rows[r][c] as "A" | "B" | "M"]));
   },
@@ -676,22 +661,22 @@ const kingdom = gridFamily<KingdomP>({
 });
 
 // --- Wallpaper Weaver -----------------------------------------------------------------------------------
-type PaperP = { steps: number; direction: "right" | "down" };
+/** How far apart the compared cells are: 3 steps leaves far fewer pairs on a small board than 2 (13 vs 6 bits on 4×4), so only 2 is left (P10). */
+const PAPER_STEPS = 2;
+type PaperP = { direction: "right" | "down" };
 const paperText = (p: PaperP): CardText => ({
-  emoji: "🧱", name: "Wallpaper Weaver", consts: [["STEPS", p.steps]],
-  about: `Compare each cell with the cell ${p.steps} steps ${p.direction === "right" ? "to its right" : "below it"}. `
+  emoji: "🧱", name: "Wallpaper Weaver", consts: [["STEPS", PAPER_STEPS]],
+  about: `Compare each cell with the cell ${PAPER_STEPS} steps ${p.direction === "right" ? "to its right" : "below it"}. `
     + "Each cell that has the same colour scores 1 point.",
 });
 const wallpaper = gridFamily<PaperP>({
   id: "wallpaper_weaver", name: "Wallpaper Weaver", emoji: "🧱", theme: "A repeating pattern", shape: SCALAR,
   analytic: solvedAnalytic("wallpaper_weaver"),
-  params: g => ({
-    steps: intParam("Steps apart", 2, g.N >= 4 ? 3 : 2),
-    direction: choiceParam("Compare with the cell", [["right", "to the right"], ["down", "below"]]),
-  }),
-  legacy: p => (typeof p.p === "number" ? { steps: p.p, direction: p.dir as PaperP["direction"] } : null),
-  support: g => product<PaperP>({ steps: g.N >= 4 ? [2, 3] : [2], direction: ["right", "down"] }),
-  canonical: p => ({ steps: p.steps, direction: "right" }),
+  params: () => ({ direction: choiceParam("Compare with the cell", [["right", "to the right"], ["down", "below"]]) }),
+  legacy: p => (typeof p.p === "number" || "steps" in p
+    ? { direction: (typeof p.p === "number" ? p.dir : p.direction) as PaperP["direction"] } : null),
+  support: () => [{ direction: "right" }, { direction: "down" }],
+  canonical: () => ({ direction: "right" }),
   summary: p => paperText(p).about,
   python: p => pyCard(paperText(p), `
     def utility(grid):
