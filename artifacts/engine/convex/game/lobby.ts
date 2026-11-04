@@ -170,6 +170,8 @@ export const commitStart = internalMutation({
     seasonCommitment: v.string(), noiseKey: v.string(), endAtWorld: v.number(), nextSpawn: v.number(), catalog: v.any(),
     deities: v.array(v.object({ godId: v.string(), utility: v.any(), card: v.any() })),
     objects: v.array(v.object({ value: wire, scores: v.array(scoreV), salience: v.number(), noise: v.optional(v.number()) })),
+    /** The deal's calibration tables, pinned by god (engine/pinned.ts): the game scores with these until it ends. */
+    tablesStorageId: v.optional(v.id("_storage")),
   },
   handler: async (ctx, args) => {
     const room = await requireRoom(ctx, args.roomId);
@@ -210,6 +212,7 @@ export const commitStart = internalMutation({
       ...(setupId ? { setupId, setupName } : {}),
       createdAt: now, planningEndsAt, pauseEndsAt: 0,
       endAtWorld: args.endAtWorld, noiseKey: args.noiseKey, executionEpoch: 0,
+      ...(args.tablesStorageId ? { tablesStorageId: args.tablesStorageId } : {}),
     });
     await putCatalog(ctx, `game:${gameId}`, args.catalog, 0);
     for (const [index, d] of args.deities.entries()) {

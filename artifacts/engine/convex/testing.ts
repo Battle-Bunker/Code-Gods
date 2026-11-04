@@ -518,3 +518,36 @@ export const setSandbox = internalMutation({
     return ctx.db.get(row._id);
   },
 });
+
+/** Point a game at a pinned-tables file (engine/pinned.ts), or unpin it (no `storageId`: its next tick pins again). */
+export const setGameTables = internalMutation({
+  args: { gameId: v.id("games"), storageId: v.optional(v.id("_storage")) },
+  handler: async (ctx, { gameId, storageId }) => {
+    dev();
+    const game = await ctx.db.get(gameId);
+    if (!game) return fail("NOT_FOUND", "no game");
+    await ctx.db.patch(gameId, { tablesStorageId: storageId });
+    return game.tablesStorageId ?? null;
+  },
+});
+
+/** A file that is not a pinned-tables file: a game pointed at it fails every tick (test/game-deploy-survival). */
+export const junkFile = internalAction({
+  args: {},
+  handler: async (ctx) => { dev(); return ctx.storage.store(new Blob(["{}"], { type: "application/json" })); },
+});
+
+/**
+ * Hide (or show again) an instantiation's shipped calibration file, as a deploy whose new code re-keys the tables
+ * finds it before upload-calibration: the row is renamed, the file kept. Engine processes notice within the index TTL.
+ */
+export const hideCalibration = internalMutation({
+  args: { instance: v.string(), hidden: v.boolean() },
+  handler: async (ctx, { instance, hidden }) => {
+    dev();
+    const from = hidden ? instance : `hidden:${instance}`, to = hidden ? `hidden:${instance}` : instance;
+    const row = await ctx.db.query("calibrationFiles").withIndex("by_instance", q => q.eq("instance", from)).unique();
+    if (row) await ctx.db.patch(row._id, { instance: to });
+    return !!row;
+  },
+});

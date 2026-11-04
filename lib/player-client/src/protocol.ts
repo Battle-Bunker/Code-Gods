@@ -86,6 +86,11 @@ export const observationSchema = z.object({
   version: z.literal(VERSION), roomId: id, revision: z.number().int().nonnegative(),
   gameId: id.optional(), planningEndsAt: finite.optional(), pauseEndsAt: finite.optional(),
   phase: z.enum(["lobby", "planning", "running", "paused", "ended"]),
+  // Why the game is not advancing on its own, when it is not: its engine retrying a failing tick, an idle park (any
+  // signed-in human's activity resumes it), a pause for safety (the owner resumes it), or its end. Absent while it runs.
+  notice: z.object({ kind: z.enum(["retrying", "idle", "safety", "ended"]), text: z.string().max(500) }).optional(),
+  // Why an ended game ended: it reached its lifetime, or the owner ended it.
+  endReason: z.enum(["lifetime", "owner"]).optional(),
   // The languages agents may be written in (each agent picks one; validate/summon carry it), and the default: the first.
   language, languages: z.array(language).min(1).max(LANGUAGES.length),
   // Each allowed language's agent sandbox. Validate and summon in a language wait for `ready` (they answer notReady

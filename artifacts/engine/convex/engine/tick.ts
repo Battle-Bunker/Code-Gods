@@ -18,11 +18,13 @@ import { v } from "convex/values";
 import { chargeAct, instantiationOf, isLanguage, poissonIntervalSeconds, type GameSettings, type ObjectValue } from "@workspace/game-core";
 import { actCharge, applyCalls, deriveSeed, objectType, type ActOutcome, type MutatorCallWire } from "@workspace/game-types";
 import type { UtilityDescriptor } from "@workspace/game-utilities";
+import type { Id } from "../_generated/dataModel";
+import type { ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import type { Doc } from "../_generated/dataModel";
 import { internalAction } from "../_generated/server";
 import { isIdle } from "../lib/rooms";
-import { gameTables } from "./calibration";
+import { gameScoringTables } from "./pinned";
 import { cryptoRng, disclosureNoise, openUniform, scoresOf, seasonSalt, uniform01, uniqueSpawn } from "./node";
 import { act, bindRuntime, ensureSandboxes, isAgentFault, runtimeVersion, WORKERS } from "./runtime";
 import { effectiveSandbox, planningEnd } from "../lib/sandboxes";
@@ -55,6 +57,18 @@ function actOutcome(settings: GameSettings, before: ObjectValue, result: ActResu
 export const run = internalAction({
   args: { gameId: v.id("games"), seq: v.number() },
   handler: async (ctx, { gameId, seq }): Promise<unknown> => {
+    try {
+      return await tick(ctx, gameId, seq);
+    } catch (error) {
+      // Never a silent stall: the game shows the failure and retries with backoff (engine/loop.ts tickFailed).
+      const message = error instanceof Error ? `${error.message}${error.stack ? `\n${error.stack.split("\n").slice(1, 4).join("\n")}` : ""}` : String(error);
+      await ctx.runMutation(internal.engine.loop.tickFailed, { gameId, seq, message: message.slice(0, 2000) });
+      return { result: "failed", message: message.slice(0, 300) };
+    }
+  },
+});
+
+async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<unknown> {
     await bindRuntime(ctx);
     const snap = await ctx.runQuery(internal.engine.loop.snapshot, { gameId, seq });
     if (!snap) return { result: "stale" };
@@ -84,11 +98,14 @@ export const run = internalAction({
         const failed = sandboxes.some(s => s.state === "failed");
         return ctx.runMutation(internal.engine.loop.commit, { ...base, kind: "wait", wakeAt: now + (failed ? HOLD_FAILED_POLL_MS : HOLD_POLL_MS) });
       }
-      phase = "running"; lastTick = Math.min(now, end.at);
+      // Not before lastTick: a game whose ticks failed past its deadline starts its world at the retry (loop.ts tickFailed).
+      phase = "running"; lastTick = Math.max(game.lastTick, Math.min(now, end.at));
       events.push({ t: "phase", phase: "running", world: game.worldSeconds });
     }
-    // The game's tables (only a simulating tick needs them): shipped, analytic or computed at the start; memory after the first.
-    const tables = await gameTables(ctx, settings, snap.deities.map(d => d.utility as UtilityDescriptor));
+    // The game's own tables (engine/pinned.ts), pinned at its start (or by its first simulating tick, for a game started
+    // before pinning): a deploy that re-keys the shipped tables never reaches a game in progress.
+    const deals = snap.deities.map(d => ({ godId: d.godId, utility: d.utility as UtilityDescriptor }));
+    const tables = await gameScoringTables(ctx, game, deals);
     const started = performance.now();
     const target = game.worldSeconds + Math.max(0, now - lastTick) / 1000;
     const until = Math.min(target, game.endAtWorld);
@@ -97,7 +114,6 @@ export const run = internalAction({
 
     // The in-memory world.
     const roster = snap.deities.map(d => d.godId);
-    const deals = snap.deities.map(d => ({ godId: d.godId, utility: d.utility as UtilityDescriptor }));
     const objects = snap.objects.map(o => ({ ...o, fromVersion: o.version, changed: false, noise: o.noise }));
     const occupied = new Set<ObjectValue>(objects.map(o => o.value));
     // Which object holds each value (a collision remembers its holder: lib/futility.ts), and each object's version.
@@ -269,6 +285,4 @@ export const run = internalAction({
     });
     lastCommitMs.set(gameId, Date.now() - commitStarted);
     return committed;
-  },
-});
-
+}

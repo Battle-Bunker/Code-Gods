@@ -69,9 +69,10 @@ function WorldTime({ game, now }: { game: GameHeader; now: number }) {
 
 /** "Running · world starts in 12 s" / "Paused · resumes in 8 s" / "Ended: time limit". */
 function statusLine(game: GameHeader, now: number) {
+  // The end, an idle park, a pause for safety or the engine retrying a failing tick (engine lib/engineErrors.ts gameNotice).
+  if (game.notice) return game.notice.text;
   if (game.status !== "active") return `Ended: ${endReasonLabel(game.endReason)}.`;
   const plan = secsLeft(game.planningEndsAt, now), pause = secsLeft(game.pauseEndsAt, now);
-  if (game.phase === "recovery") return `Paused for safety${game.recoveryReason ? `: ${game.recoveryReason.replace(/\.$/, "")}` : ""}.`;
   if (pause && pause > 0) return `Paused · resumes in ${fmt(pause, 0)} s.`;
   if (plan && plan > 0) return `Planning · world starts in ${fmt(plan, 0)} s.`;
   // Past its deadline, planning holds until every allowed language's agent sandbox is warm (the engine's tick).
@@ -82,7 +83,9 @@ function statusLine(game: GameHeader, now: number) {
 /** The prominent timer: planning's countdown, then the fixed game's exact remaining time or the half-life game's 90% range. */
 function SiteGameTimer({ game, now }: { game: GameHeader; now: number }) {
   const standings = useLive(api.games.standings, { gameId: game.id }).data;
-  if (game.status !== "active" || game.phase === "recovery") return null;
+  // Over: the timer stands at 0:00 ("ended" when the owner stopped it), so an ended game never looks stalled.
+  if (game.status !== "active") return <GameTimerView timer={gameTimer({ phase: "ended", endReason: game.endReason, world: standings?.world ?? 0, nowMs: now })} />;
+  if (game.phase === "recovery") return null;
   const paused = !!game.pauseEndsAt && toMs(game.pauseEndsAt) > now;
   const phase = game.phase === "planning" ? "planning" as const : paused || game.phase === "paused" ? "paused" as const : "running" as const;
   const world = worldSecondsAt(standings?.world != null && standings.at != null

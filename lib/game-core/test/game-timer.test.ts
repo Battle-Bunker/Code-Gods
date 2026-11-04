@@ -43,3 +43,8 @@ test("clock format: m:ss, h:mm:ss, rounding up when counting down", () => {
   assert.equal(formatClock(3725), "1:02:05");
   assert.equal(formatClock(22.2, "down"), "0:22");
 });
+
+test("an ended game's timer says it is over, with why and when", () => {
+  assert.deepEqual(gameTimer({ ...base, phase: "ended", endReason: "lifetime", world: 600 }), { kind: "ended", reason: "lifetime", world: 600 });
+  assert.deepEqual(gameTimer({ ...base, phase: "ended", world: 12 }), { kind: "ended", reason: null, world: 12 });
+});

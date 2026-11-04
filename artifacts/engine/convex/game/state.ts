@@ -21,7 +21,9 @@ export type ClockedGame = Doc<"games"> & Clock;
 export type LiveGame = ClockedGame & Engine;
 
 export const CLOCK_KEYS = ["worldSeconds", "lastTick", "objectCount", "agentCount", "scoreboard"] as const satisfies readonly (keyof Clock)[];
-export const ENGINE_KEYS = ["tick", "nextSpawn", "nextBatch", "stats"] as const satisfies readonly (keyof Engine)[];
+export const ENGINE_KEYS = ["tick", "nextSpawn", "nextBatch", "stats", "tickFailures"] as const satisfies readonly (keyof Engine)[];
+/** The hot fields a game stored before the split may still carry on `games` (`tickFailures` never lived there). */
+const LEGACY_KEYS = [...CLOCK_KEYS, "tick", "nextSpawn", "nextBatch", "stats"] as const;
 const HOT_KEYS = [...CLOCK_KEYS, ...ENGINE_KEYS] as const;
 
 const NO_STATS = { acts: 0, commits: 0, discarded: 0, opportunities: 0 };
@@ -36,7 +38,7 @@ export function clockFrom(game: Doc<"games">, doc: Doc<"gameClocks"> | null): Cl
 }
 /** The engine state of a game from its gameEngine doc, or (legacy) from its own fields. */
 export function engineFrom(game: Doc<"games">, doc: Doc<"gameEngine"> | null): Engine {
-  if (doc) return { tick: doc.tick, nextSpawn: doc.nextSpawn, nextBatch: doc.nextBatch, stats: doc.stats };
+  if (doc) return { tick: doc.tick, nextSpawn: doc.nextSpawn, nextBatch: doc.nextBatch, stats: doc.stats, ...(doc.tickFailures ? { tickFailures: doc.tickFailures } : {}) };
   return { tick: game.tick ?? { seq: 0, leaseUntil: 0 }, nextSpawn: game.nextSpawn ?? 0, nextBatch: game.nextBatch ?? 0, stats: game.stats ?? NO_STATS };
 }
 
@@ -58,7 +60,7 @@ export async function liveGame(ctx: QueryCtx, gameId: Id<"games">): Promise<Live
 }
 
 /** The legacy hot fields a stored game still carries (none once split). */
-export const legacyHotFields = (game: Doc<"games">) => HOT_KEYS.filter(k => game[k] !== undefined);
+export const legacyHotFields = (game: Doc<"games">) => LEGACY_KEYS.filter(k => game[k] !== undefined);
 
 /**
  * Create a game's gameClocks and gameEngine docs from `state` where missing, and clear any legacy hot fields left on
