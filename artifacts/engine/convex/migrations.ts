@@ -226,6 +226,9 @@ export const setSpotterGeometryPreparing = migrations.define({ table: "rooms", m
 /** Equal opportunity (P10), games.ts and geometry.ts: draws of a removed param class read as their nearest peer. */
 export const equalOpportunityGamesDeities = migrations.define({ table: "deities", migrateOne: typedDeity });
 export const equalOpportunityGamesPreparing = migrations.define({ table: "rooms", migrateOne: typedPreparing });
+/** Equal opportunity (P10), arithmetic.ts, colour.ts and strategy.ts. */
+export const equalOpportunityArithmeticDeities = migrations.define({ table: "deities", migrateOne: typedDeity });
+export const equalOpportunityArithmeticPreparing = migrations.define({ table: "rooms", migrateOne: typedPreparing });
 export const pictureFrameSymbolPreparing = migrations.define({ table: "rooms", migrateOne: typedPreparing });
 
 export const backfillObjectTimes = migrations.define({
@@ -302,6 +305,7 @@ const RUN_ALL: FunctionReference<"mutation", "internal">[] = [internal.migration
   internal.migrations.typedParamsBingoDeities, internal.migrations.typedParamsBingoPreparing,
   internal.migrations.setSpotterGeometryDeities, internal.migrations.setSpotterGeometryPreparing,
   internal.migrations.equalOpportunityGamesDeities, internal.migrations.equalOpportunityGamesPreparing,
+  internal.migrations.equalOpportunityArithmeticDeities, internal.migrations.equalOpportunityArithmeticPreparing,
   internal.migrations.assistantModeFromCredentials, internal.migrations.assistantPrefsMode, internal.migrations.assistantNoApprovalsTurns,
   internal.migrations.assistantNoApprovalsCalls];
 export const runAll = migrations.runner(RUN_ALL);
