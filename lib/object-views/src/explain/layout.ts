@@ -1,6 +1,6 @@
 /**
  * Geometry for drawing a goal annotation over a board (docs/annotations-design.md §3, §6.3): where cells sit, how each
- * piece is outlined, where its numbered badge goes, which order the callouts take and the arrows' curves. Pure and
+ * scoring unit is outlined, where its badge goes and the arrow's curve to its box. Pure and
  * framework-free, unit tested under Node; the React component (GoalBoard.tsx) only measures and draws.
  */
 import type { Cell, Part, PartShape, Tone, WhatIfEntry } from "@workspace/game-utilities";

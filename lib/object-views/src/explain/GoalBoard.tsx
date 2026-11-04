@@ -116,20 +116,26 @@ export function GoalBoard({ goal, value, grid, caption, changed, selected: chose
   const explanation = useMemo(() => (given !== undefined ? given : goal.explain(value)), [given, goal, value]);
   const rich = !!explanation?.verified;
   const units = useMemo(() => (rich && explanation ? sortUnits(explanation.parts) : []), [rich, explanation]);
-  const geometry = useMemo(() => (rich ? goal.hover(value) ?? defaultGeometry(units) : null), [rich, goal, value, units]);
-  const modes: readonly HoverMode[] = geometry?.modes ?? [];
+  const controlled = chosen !== undefined;
+  // The board's hover modes (none when the caller drives the selection), each kept only if some unit is of its kind.
+  const modes: readonly HoverMode[] = useMemo(() => {
+    if (!rich || controlled) return [];
+    const all = (goal.hover(value) ?? defaultGeometry(units)).modes;
+    return all.filter(m => units.some(u => m.groups.includes(groupOf(u))));
+  }, [rich, controlled, goal, value, units]);
   const [modeId, setModeId] = useState<string | null>(null);
   const mode = modes.find(m => m.id === modeId) ?? modes[0] ?? null;
-  const controlled = chosen !== undefined;
   const [own, setOwn] = useState<string | null>(null);
-  const selectedId = controlled ? chosen : own ?? units[0]?.id ?? null;
+  // A unit picked earlier that this board no longer has (the board changed) falls back to the first unit.
+  const selectedId = controlled ? chosen : (own !== null && units.some(u => u.id === own) ? own : units[0]?.id ?? null);
   const selected = units.find(u => u.id === selectedId) ?? null;
-  // A unit picked in the list switches the board's hover mode to its kind, so pointing next picks the same kind.
-  const pick = (u: Part, fromBoard: boolean) => {
+  // A unit picked in the list or by the keyboard switches the board's hover mode to its kind, so pointing next picks
+  // the same kind; one picked on the board (or by the keyboard) scrolls its box into view in the list.
+  const pick = (u: Part, from: "list" | "board" | "keys") => {
     if (controlled) return;
     setOwn(u.id);
-    if (!fromBoard) { const m = modes.find(x => x.groups.includes(groupOf(u))); if (m && m.id !== mode?.id) setModeId(m.id); }
-    else scrollTo.current = u.id;
+    if (from !== "board") { const m = modes.find(x => x.groups.includes(groupOf(u))); if (m && m.id !== mode?.id) setModeId(m.id); }
+    if (from !== "list") scrollTo.current = u.id;
   };
 
   const root = useRef<HTMLDivElement>(null), board = useRef<HTMLDivElement>(null), list = useRef<HTMLDivElement>(null);
@@ -144,10 +150,19 @@ export function GoalBoard({ goal, value, grid, caption, changed, selected: chose
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-  // The selected box scrolls into view when the board (or the caller) picked it; then the arrow is measured.
+  // A caller's selection scrolls its box into view once, when it changes (not on every scroll of the list).
+  const shown = useRef<string | null>(null);
+  if (controlled && chosen !== shown.current) { shown.current = chosen ?? null; scrollTo.current = chosen ?? null; }
+  // The selected box scrolls into view inside the list (positioned, so a box's offsetTop is within it; never the page, so the board stays under the pointer) when
+  // the board, the keyboard or the caller picked it; then the arrow is measured.
   useLayoutEffect(() => {
-    const box = selected ? boxes.current.get(selected.id) : null;
-    if (box && (scrollTo.current === selected!.id || controlled)) { box.scrollIntoView?.({ block: "nearest" }); scrollTo.current = null; }
+    const box = selected ? boxes.current.get(selected.id) : null, ul = list.current;
+    if (box && ul && scrollTo.current === selected!.id) {
+      const top = box.offsetTop, bottom = top + box.offsetHeight;
+      if (top < ul.scrollTop) ul.scrollTop = top;
+      else if (bottom > ul.scrollTop + ul.clientHeight) ul.scrollTop = bottom - ul.clientHeight;
+      scrollTo.current = null;
+    }
     const r = root.current?.getBoundingClientRect(), b = board.current?.getBoundingClientRect(), c = box?.getBoundingClientRect();
     const l = list.current?.getBoundingClientRect();
     if (!r || !b || !c || !selected || !l || c.bottom < l.top || c.top > l.bottom) { setArrow(null); return; }
@@ -155,7 +170,7 @@ export function GoalBoard({ goal, value, grid, caption, changed, selected: chose
     const from = { x: b.left - r.left + at.x, y: b.top - r.top + at.y };
     const to = below ? { x: c.left - r.left + 12, y: c.top - r.top - 3 } : { x: c.left - r.left - 3, y: Math.max(c.top, l.top) - r.top + 14 };
     setArrow(arrowPath(from, to, below));
-  }, [selected, geo, tick, controlled]);
+  }, [selected, geo, tick]);
 
   const workings = useMemo(() => (howItScores && rich ? goal.workings(value) : null), [howItScores, rich, goal, value]);
   if (!model) return null;
@@ -165,7 +180,7 @@ export function GoalBoard({ goal, value, grid, caption, changed, selected: chose
     if (controlled || !mode || !board.current) return;
     const b = board.current.getBoundingClientRect(), step = geo.cell + geo.gap;
     const hit = hitTest(units, mode, { x: (e.clientX - b.left) / step, y: (e.clientY - b.top) / step });
-    if (hit && hit.id !== selectedId) pick(hit, true);
+    if (hit && hit.id !== selectedId) pick(hit, "board");
   };
   const onMove = (e: PointerEvent<HTMLDivElement>) => { if (e.pointerType !== "touch") pointAt(e); };
   const onKey = (e: KeyboardEvent) => {
@@ -175,7 +190,7 @@ export function GoalBoard({ goal, value, grid, caption, changed, selected: chose
       : e.key === "ArrowLeft" || e.key === "ArrowUp" ? Math.max(0, i - 1) : e.key === "Home" ? 0 : e.key === "End" ? units.length - 1 : -1;
     if (next < 0) return;
     e.preventDefault();
-    pick(units[next], true);
+    pick(units[next], "keys");
   };
   const ord = explanation ? (typeof explanation.ordinal === "number" ? [explanation.ordinal] : explanation.ordinal) : null;
   const score = goal.score(value), scoreArr = score === null ? null : typeof score === "number" ? [score] : score;
@@ -190,6 +205,7 @@ export function GoalBoard({ goal, value, grid, caption, changed, selected: chose
       <div className="mb-2 text-xs leading-snug">
         {total && <p data-testid="goal-board-total">{total}</p>}
         {explanation && !explanation.verified && <p className="text-muted-foreground">Can't explain this board yet.</p>}
+        {rich && units.length === 0 && <p className="text-muted-foreground" data-testid="goal-no-units">Nothing on this board counts towards this goal yet.</p>}
       </div>
       {modes.length > 1 && !controlled && (
         <div role="radiogroup" aria-label="Point at" className="mb-2 flex flex-wrap items-center gap-1 text-xs" data-testid="goal-hover-modes">
@@ -228,11 +244,11 @@ export function GoalBoard({ goal, value, grid, caption, changed, selected: chose
             {selected && (() => { const at = badgePoint(geo, selected.cells); return <circle cx={at.x} cy={at.y} r={5} fill={TONE_COLOUR[tone]} stroke="white" strokeWidth={1.5} />; })()}
           </svg>
         </div>
-        {rich && (
-          <div ref={list} role="listbox" aria-label="Scoring units, gains first" className="min-w-[13rem] max-w-[22rem] flex-1 space-y-2 overflow-y-auto pr-1"
+        {rich && units.length > 0 && (
+          <div ref={list} role="listbox" aria-label="Scoring units, gains first" className="relative min-w-[13rem] max-w-[22rem] flex-1 space-y-2 overflow-y-auto pr-1"
             style={{ maxHeight: UNIT_LIST_MAX_HEIGHT }} onScroll={() => setTick(t => t + 1)} data-testid="goal-units">
             {units.map(u => (
-              <UnitBox key={u.id} part={u} selected={u.id === selectedId} model={model} onSelect={() => pick(u, false)}
+              <UnitBox key={u.id} part={u} selected={u.id === selectedId} model={model} onSelect={() => pick(u, "list")}
                 setRef={el => { if (el) boxes.current.set(u.id, el); else boxes.current.delete(u.id); }} />
             ))}
           </div>

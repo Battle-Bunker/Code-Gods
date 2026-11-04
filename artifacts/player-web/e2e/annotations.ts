@@ -71,7 +71,22 @@ try {
   await second.hover();
   const id = await second.getAttribute("data-part");
   assert.equal(await set.locator(`svg path[data-part="${id}"]`).count(), 1);
+  // Keyboard on Chessmaster: stepping onto a touching pair switches the hover toggle to pairs, as picking it in the list does.
+  {
+    const chess = page.locator("[data-testid=example-chessmaster]");
+    await page.mouse.move(0, 0); // keyboard only: no pointer resting on a board
+    await chess.locator("[data-testid=goal-board-grid]").focus();
+    await page.keyboard.press("Home");
+    for (let k = 0; k < 40; k++) {
+      const id = await chess.locator("[data-testid=goal-unit][data-selected]").getAttribute("data-part");
+      if (id!.startsWith("seam:")) break;
+      await page.keyboard.press("ArrowDown");
+    }
+    assert.match((await chess.locator("[data-testid=goal-unit][data-selected]").getAttribute("data-part"))!, /^seam:/);
+    assert.equal(await chess.locator("[data-testid=goal-hover-mode-pair]").getAttribute("aria-checked"), "true", "the toggle follows the keyboard");
+  }
   // Keyboard: the board steps through the units in list order.
+  await page.mouse.move(0, 0); // keyboard only: no pointer resting on a board
   await set.locator("[data-testid=goal-board-grid]").focus();
   await page.keyboard.press("Home");
   const first = await set.locator("[data-testid=goal-unit]").first().getAttribute("data-part");

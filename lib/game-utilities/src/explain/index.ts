@@ -124,9 +124,13 @@ export function explainer(stored: Draw, inst: Instantiation, options: ExplainerO
       return { familyId: draw.familyId, size: b.N, parts, components, ordinal, verified: addsUp(parts, components.length, ordinal) };
     },
     hover(value) {
-      const b = board(value), e = this.explain(value);
-      if (!l || !b || !e) return null;
-      try { return l.hover ? l.hover(p, b) : defaultGeometry(e.parts); } catch { return null; }
+      const b = board(value);
+      if (!l || !b) return null;
+      try {
+        if (l.hover) return l.hover(p, b);
+        const e = this.explain(value);
+        return e ? defaultGeometry(e.parts) : null;
+      } catch { return null; }
     },
     workings(value) {
       const e = this.explain(value), b = board(value);
