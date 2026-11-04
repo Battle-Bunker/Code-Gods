@@ -22,7 +22,7 @@ export const magicAccountant = lens<P>({
       const total = cells.reduce((s, x) => s + b.value(x), 0), gap = total - p.target;
       const sum = `${cells.map(x => b.glyph(x)).join(" + ")} = ${total}`;
       return {
-        id: `line:${name}`, shape: "line", cells, points: [gap === 0 ? 1 : 0, -Math.abs(gap)],
+        id: `line:${name}`, shape: "line", group: p.axis === "cols" ? "column" : "row", cells, points: [gap === 0 ? 1 : 0, -Math.abs(gap)],
         title: gap === 0 ? `${name} makes ${p.target}` : `${name}: ${Math.abs(gap)} ${gap < 0 ? "short" : "over"}`,
         facts: [{ text: gap === 0 ? sum : `${sum}, not ${p.target}`, ok: gap === 0 }],
       };

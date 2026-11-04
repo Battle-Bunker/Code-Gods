@@ -1,4 +1,4 @@
-/** 🔺 Set Spotter: trios in a line. The focus expands the trios that END at it (a middle cell is another cell's end). */
+/** 🔺 Set Spotter: trios in a line, one unit per trio; the hover toggle picks a direction (→ ↓ ↘ ↙). */
 import { lens, tally, count } from "../lens.ts";
 import type { Board } from "../board.ts";
 import type { Cell, Fact, Part } from "../model.ts";
