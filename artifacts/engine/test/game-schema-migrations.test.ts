@@ -222,7 +222,7 @@ test("typedParams: gods dealt before their family was typed get named, typed par
 test("agentPricesV2: an agent priced with a decision price and a floor keeps only its change estimate; a second run changes nothing", { timeout: 240_000 }, async () => {
   const [host, ada, bo] = await gods("Price Mig Host", "Price Mig Ada", "Price Mig Bo");
   await touch(host);
-  const { roomId } = await roomWith([host, ada, bo], { ...INT_TS, planningSeconds: 3600 });
+  const { roomId } = await roomWith([host, ada, bo], { ...INT_TS, planningSeconds: 3600, startingEnergy: 5000 });
   const game = await startGame(host, roomId);
   const summon = (source: string) => ada.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", name: "Priced", language: "typescript", source }, game.gameId) });
   assert.equal((await summon("function agent(n) { return [add(1)]; }")).accepted, true);

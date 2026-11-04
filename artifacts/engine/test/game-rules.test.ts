@@ -38,7 +38,7 @@ test("a summon needs a name (trimmed, up to 40) and takes an optional descriptio
   assert.deepEqual([observed.agents[0].name, observed.agents[0].description], ["Setter", "Sets everything to five."]);
 });
 
-test("objects stay unique: a constant transformation commits once, then collides once per other object (futile acts) and still pays decision + floor", { timeout: 120000 }, async () => {
+test("objects stay unique: a constant transformation commits once, then collides once per other object (futile acts) and pays only what it read (nothing, here)", { timeout: 120000 }, async () => {
   const { trio: [host, ada], roomId, game, send, run } = await runningGame({ startingObjectCount: 3, agentEnergyPerSecond: 1000, agentBatteryActs: 1000, interactionRateHz: 40 });
   assert.equal((await send(ada, { type: "summon", name: "Test agent", language: "typescript", source: "function agent(x) { return [setTo(5)]; }" })).accepted, true);
   await run();
@@ -53,8 +53,8 @@ test("objects stay unique: a constant transformation commits once, then collides
   const all = await events();
   assert.equal(all.filter((e: any) => e.t === "transform").length, 1);
   const failed = all.filter((e: any) => e.t === "fail");
-  const odd = failed.filter((e: any) => !(/already has this value|no change/.test(e.reason) && e.cost.erasure === 0 && e.cost.motion === 0 && e.cost.total === e.cost.decision + e.cost.floor));
-  assert.deepEqual(odd, [], "duplicates fail and pay decision + floor only");
+  const odd = failed.filter((e: any) => !(/already has this value|no change/.test(e.reason) && e.cost.change === 0 && e.cost.total === e.cost.read));
+  assert.deepEqual(odd, [], "duplicates fail and pay their reads only (no change, no fixed charge)");
   // One success, one collision on each other object, one "no change" on the holder: then nothing left to try.
   assert.equal(failed.filter((e: any) => /already has this value/.test(e.reason)).length, 2);
   assert.ok(failed.filter((e: any) => /no change/.test(e.reason)).length <= 1);
@@ -147,7 +147,7 @@ test("permissions: read/act/owner credentials are room-bound; spectators observe
   // Energy and the agent cap; spectators cannot act in the game.
   assert.equal((await send(ada, { type: "summon", name: "Test agent", language: "typescript", source: TS.Int })).accepted, true);
   assert.match((await send(ada, { type: "summon", name: "Test agent", language: "typescript", source: "function agent(x) { return [add(2)]; }" })).message, /1-agent resource limit|Insufficient energy/);
-  assert.match((await send(bo, { type: "summon", name: "Test agent", language: "typescript", source: "function agent(x) { const k = x % 7 + 1; return k > 3 ? [add(k), add(1), add(2)] : [add(k)]; }" })).message, /Insufficient energy/);
+  assert.match((await send(bo, { type: "summon", name: "Test agent", language: "typescript", source: "function agent(x) { const k = x.value % 7 + 1; return k > 3 ? [add(k), add(1), add(2)] : [add(k)]; }" })).message, /Insufficient energy/);
   const [late] = await gods("Late Larry");
   await late.c.mutation(api.rooms.join, { room: shortCode });
   assert.match((await send(late, { type: "summon", name: "Test agent", language: "typescript", source: TS.Int })).message, /observing until the next game/);
