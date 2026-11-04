@@ -47,8 +47,22 @@ P2. **Name colours exactly as the room names them** (the colour set's own names)
 P3. **Spell out values when a rule adds symbols up.** A sum rule on base 12 or 16 says "A counts 10, B counts 11"; on
    cards it says "A counts 1, J 11, Q 12, K 13" (or the rule's own values, as Twenty-One does).
 
-P4. **Spell out the points.** Every sentence that scores says how many points ("scores 1 point", "2 points"). A tuple
-   score (league-table order) says it in words: "First, more books wins. If that's a tie, more fish wins."
+P4. **Spell out the points, as a points tuple** (owner, 2026-11-03: "expose people to the concept of a points tuple
+   directly … talk about primary and secondary (and tertiary) points"). Every sentence that scores says how many
+   points. A rule whose score has several tiers names each tier: primary points, then secondary points (tertiary…).
+   Rule text never says "wins", "tie" or "tie-break"; tuples are explained once, by the glossary term "Points tuple"
+   (tuples compare primary points first, then secondary, and so on; your bits are how rare your tuple is). Every family
+   follows **one sentence pattern**:
+   1. **The goal first**, one sentence starting "Try to": "Try to make your rows add up to your magic number, 18."
+      Dealt params belong in it (or in one short sentence straight after: "Your colour is red.").
+   2. **One sentence per tier**, in tier order, each saying what scores and how much, signed by its verb ("scores" for
+      a gain, "deducts" or "loses" for a loss):
+      - one tier: "Each row that adds up to exactly 18 scores 1 point."
+      - several: "Each row that adds up to exactly 18 scores 1 primary point. Each row deducts as many secondary
+        points as its total is away from 18." Use `tierPoints(n, k, tiers)` (src/tuples.ts) for "1 primary point".
+   3. Definitions and the value key (`g.say.valueKey()`) after, as needed.
+   Score boxes show each tier's derivation on its own line and the unit's impact as a tuple, "(+1, 0)"; the board total
+   is a tuple, "(4, −10)"; single-tier rules show 1-tuples, "(+1)". `test/points-tuples.test.ts` checks the words.
 
 P5. **Never promise what the shape cannot give.** A count in the text ("all 4 different colours", "the 4 suits") is the
    count the program uses on this shape. If a rule adapts to a smaller shape, the text says the adapted count
@@ -225,7 +239,7 @@ nothing now; they keep a future 2-colour set honest.
 
 **Grammar.** best_friends, twin_friends: "a orange". Fix: `an()`.
 
-**Scoring words (P4).** Most summaries say "scores a point" but tuples rarely say how ties break (go_fish, ladder,
+**Scoring words (P4, superseded by points tuples, 2026-11-03).** Most summaries say "scores a point" but tuples rarely said how ties break (go_fish, ladder,
 young_tableau, colour_carousel, mountain_climb, sudoku_scholar). Fix: "First … If that's a tie, …".
 
 ## 7. Assistant

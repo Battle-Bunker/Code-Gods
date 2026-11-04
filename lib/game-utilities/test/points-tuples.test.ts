@@ -54,3 +54,13 @@ test("no rule text talks about winning or ties, and every multi-tier rule names 
   assert.deepEqual(bad, [], "rule text that talks about winning or ties");
   assert.deepEqual(unnamed, [], "multi-tier rules whose summary does not name every tier");
 });
+
+test("every rule states its goal first: its summary starts with \"Try to\"", () => {
+  const off = new Map<string, string>();
+  for (const { key, c } of cards()) {
+    const family = key.split(" ").pop()!;
+    if (!c.summary.startsWith("Try to") && !off.has(family)) off.set(family, `${key}: ${c.summary.slice(0, 60)}…`);
+    if (c.penalty && !c.penalty.summary.startsWith("Try to") && !off.has(c.penalty.familyId)) off.set(c.penalty.familyId, c.penalty.summary.slice(0, 60));
+  }
+  assert.deepEqual([...off.values()], []);
+});
