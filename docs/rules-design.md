@@ -76,6 +76,9 @@ P10. **Params make peer rules of equal opportunity** (owner, 2026-11-04: "Parame
    on or off, "rows | columns | both", a range of targets of different difficulty) is not allowed: fix it to one
    value, make the variants separate families, or redesign it into a symmetric choice. Set Spotter was the first fix
    (its "diagonals too" option gave 72 instead of 61 top bits on 4×4; diagonals now always count).
+   `test/equal-opportunity.test.ts` checks it on the shipped calibration: on every shape, a family's canonical tables
+   (one per param class that is not a symmetry of another) must agree on top achievable bits within 15% and on the mean
+   bits of a random board within 0.5. Families that still violate are an allowlist that only shrinks (42 at first).
 
 ## 3. Rendering descriptions for the instantiation
 
