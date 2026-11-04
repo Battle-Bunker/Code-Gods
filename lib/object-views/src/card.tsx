@@ -52,7 +52,7 @@ export function CardExample({ example, grid }: { example: NonNullable<UtilityCar
 
 /**
  * The goal card's worked example (docs/annotations-design.md §3): a board of the room's own shape, searched to show
- * scoring and non-scoring pieces, with its most illuminating cell focused and the annotations always shown.
+ * scoring and non-scoring units, listed beside it with the board linked to them both ways.
  */
 export function GoalExampleView({ goal, grid }: { goal: GoalExplainer; grid: GridSettings }) {
   const example = useMemo(() => goal.example(), [goal]);
@@ -60,7 +60,7 @@ export function GoalExampleView({ goal, grid }: { goal: GoalExplainer; grid: Gri
   return (
     <figure className="mt-3 border-t pt-3" data-testid="utility-card-goal-example">
       <figcaption className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Example</figcaption>
-      <GoalBoard goal={goal} value={example.value} grid={grid} initialFocus={example.focus} caption={example.caption} testId="goal-example-board" />
+      <GoalBoard goal={goal} value={example.value} grid={grid} caption={example.caption} testId="goal-example-board" />
     </figure>
   );
 }

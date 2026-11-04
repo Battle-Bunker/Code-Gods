@@ -54,7 +54,7 @@ function Family({ familyId, params }: { familyId: string; params: Record<string,
           {LIVE.map(v => <GridObject key={v} value={v} grid={GRID} renderer="digits" />)}
         </div>
       </GoalExplainerProvider>
-      {example && <GoalBoard goal={goal} value={example.value} grid={GRID} initialFocus={example.focus} caption={example.caption} testId={`example-${familyId}`} />}
+      {example && <GoalBoard goal={goal} value={example.value} grid={GRID} caption={example.caption} testId={`example-${familyId}`} />}
     </section>
   );
 }

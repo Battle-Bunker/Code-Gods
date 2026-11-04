@@ -55,3 +55,27 @@ test("cells and regions: the one containing the pointer", () => {
   assert.equal(hitTest(regions, mode(["region"]), { x: 1.5, y: 1.5 })!.id, "L");
   for (const p of regions) assert.equal(hitTest(regions, mode(["region"]), aimAt(p))!.id, p.id);
 });
+
+import { instantiate, seededRng, objectType } from "@workspace/game-types";
+import { LENSES, context, explainer, family } from "../src/index.ts";
+
+test("every annotated family: its hover geometry covers every scoring unit, and the board can point at each one", () => {
+  for (const args of [{ size: 4, symbols: "base10", colours: "rgb" }, { size: 5, symbols: "cards", colours: "rgby" }, { size: 6, symbols: "base16", colours: "rainbow6" }]) {
+    const inst = instantiate("Grid", args), ctx = context(inst), def = objectType("Grid"), rng = seededRng(`units:${inst.key}`);
+    for (const l of LENSES) {
+      const f = family(l.familyId);
+      if (!f.support(ctx).length) continue;
+      for (let k = 0; k < 4; k++) {
+        const params = f.sample(rng, ctx), goal = explainer({ familyId: l.familyId, params }, inst)!;
+        const value = def.codec(inst).encode(def.spawn(inst, rng)), e = goal.explain(value);
+        if (!e?.verified) continue;
+        const modes = goal.hover(value)!.modes, where = `${l.familyId} ${JSON.stringify(params)} on ${inst.key}`;
+        for (const u of e.parts) {
+          const m = modes.find(x => x.groups.includes(u.group ?? "unit"));
+          assert.ok(m, `${where}: unit ${u.id} (group ${u.group ?? "unit"}) is in no hover mode`);
+          assert.equal(hitTest(e.parts, m!, aimAt(u))?.id, u.id, `${where}: pointing at unit ${u.id} in mode ${m!.id} picks another unit`);
+        }
+      }
+    }
+  }
+});

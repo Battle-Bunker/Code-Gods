@@ -40,14 +40,16 @@ export function defaultGeometry(parts: readonly Part[]): HoverGeometry {
   return { modes: [{ id: "all", label: "All", groups: [...new Set(parts.map(groupOf))] }] };
 }
 
+/** The cells the board picks a unit by: its anchor when it has one, else all its cells. */
+const hotCells = (p: Part) => (p.anchor ? [p.anchor] : p.cells);
 const centre = (p: Part): BoardPoint => {
-  const n = p.cells.length || 1;
-  return { x: p.cells.reduce((s, c) => s + c.c + 0.5, 0) / n, y: p.cells.reduce((s, c) => s + c.r + 0.5, 0) / n };
+  const cells = hotCells(p), n = cells.length || 1;
+  return { x: cells.reduce((s, c) => s + c.c + 0.5, 0) / n, y: cells.reduce((s, c) => s + c.r + 0.5, 0) / n };
 };
 /** Distance from a point to the nearest cell of a part (0 inside one). */
 function cellDistance(p: Part, at: BoardPoint): number {
   let best = Infinity;
-  for (const c of p.cells) {
+  for (const c of hotCells(p)) {
     const dx = Math.max(c.c - at.x, 0, at.x - (c.c + 1)), dy = Math.max(c.r - at.y, 0, at.y - (c.r + 1));
     best = Math.min(best, Math.hypot(dx, dy));
   }
@@ -71,9 +73,9 @@ export function hitTest(parts: readonly Part[], mode: HoverMode, at: BoardPoint)
 
 /** A point that selects this part in its mode (its cell nearest its centre, nudged towards the centre). */
 export function aimAt(p: Part): BoardPoint {
-  const cc = centre(p);
-  let pick = p.cells[0], pd = Infinity;
-  for (const c of p.cells) {
+  const cc = centre(p), cells = hotCells(p);
+  let pick = cells[0], pd = Infinity;
+  for (const c of cells) {
     const d = Math.hypot(c.c + 0.5 - cc.x, c.r + 0.5 - cc.y);
     if (d < pd) { pick = c; pd = d; }
   }

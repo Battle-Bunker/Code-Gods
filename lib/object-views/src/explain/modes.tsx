@@ -10,7 +10,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { COLOUR_COMPONENTS, SYMBOL_COMPONENTS, type GridColourSet, type GridSymbolSet, type Instantiation } from "@workspace/game-types";
 import {
-  toneOf, whatIf, type Cell, type Draw, type FocusView, type GoalExplainer, type Part, type Story, type StoryRole, type WhatIfEntry,
+  toneOf, whatIf, type Cell, type Draw, type GoalExplainer, type Part, type Story, type StoryRole, type WhatIfEntry,
 } from "@workspace/game-utilities";
 import { gridModel } from "../grid-display.ts";
 import type { GridSettings } from "../registry.ts";
@@ -54,13 +54,12 @@ export function PartScrubber({ goal, value, grid, testId = "part-scrubber" }: { 
 
   const step = Math.min(index, parts.length - 1);
   const sofar = explanation.components.map((_, k) => parts.slice(0, step + 1).reduce((s, p) => s + p.points[k], 0));
-  const view: FocusView = { focus: part.cells[0], headline: `Piece ${step + 1} of ${parts.length}`, parts: [part] };
   return (
     <div className="space-y-2" data-testid={testId}>
       <Stepper index={step} count={parts.length} onIndex={setIndex}
         label={<>Counted so far: <b className="text-foreground" data-testid="scrubber-sofar">{sofar[0]} point{sofar[0] === 1 ? "" : "s"}</b>
           {sofar.length > 1 && <> · tie-break {signed(sofar[1])}</>}</>} />
-      <GoalBoard goal={goal} value={value} grid={grid} view={view} explanation={explanation} testId={`${testId}-board`} />
+      <GoalBoard goal={goal} value={value} grid={grid} selected={part.id} explanation={explanation} testId={`${testId}-board`} />
     </div>
   );
 }
