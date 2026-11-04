@@ -130,11 +130,11 @@ function layerBits(inst: Instantiation): Record<string, number> {
  * symbol. 1 bit names the op (2 elementary ops), log2 N² the cell, log2 C (S) the new value, and log2 C (S) the value it
  * overwrites (pointwise erasure).
  */
-export function gridElementaryCosts(inst: Instantiation): { colour: number; symbol: number } {
+export const gridElementaryCosts = memo((inst: Instantiation): { colour: number; symbol: number } => {
   const t = gridArgs(inst), cell = Math.log2(t.size * t.size);
   const C = COLOUR_COMPONENTS[t.colours].count, S = SYMBOL_COMPONENTS[t.symbols].count;
   return { colour: 1 + cell + 2 * Math.log2(C), symbol: 1 + cell + 2 * Math.log2(S) };
-}
+});
 
 /**
  * W of one Grid call: its net effect decomposed into elementary sets, which is exact here (a changed cell needs at least

@@ -1,7 +1,9 @@
 /**
  * Int mutators, designed on the Grid principles (lib/grid-lab/docs/mutators.md §1):
  *
- *   bijections erase nothing and pay only description + motion:
+ * Grid Lab's descriptors (D = description bits, E = pointwise erasure; summon pricing and the reference mixture use D).
+ * The act charge never reads these D and E terms: applyCalls prices each call by its elementary decomposition (docs/energy-model.md §4).
+ *   bijections erase nothing:
  *     add(k)            x → min + (x − min + k) mod W            W = max − min + 1; D = Elias-γ(|k|) + 1 sign bit
  *     reflect           x → min + max − x                        D = 0
  *     swap_digits(i,j)  swap two decimal places                  D = log2 C(P, 2)
@@ -16,8 +18,7 @@
  * charge prices each call by its elementary decomposition (int/index.ts callWork), not by these D and E terms.
  *
  * Places: P = max(2, decimal digits of max(|min|, |max|)), fixed width with leading zeros; place 0 is
- * the ones, place 1 the tens, ...; the sign is kept (a digit map never changes it). Motion is charged per act
- * by applyCalls on the type's "value" layer (Σ B² / B_tot of the act's net change).
+ * the ones, place 1 the tens, ...; the sign is kept (a digit map never changes it).
  * Every overwrite is idempotent; every bijection is injective. Int(v, v) offers no mutators.
  */
 import type { Instantiation, MutatorDef, MutatorKind, MutatorScope, Rng } from "../types.ts";
@@ -26,6 +27,8 @@ import { checkFields, fail, intParam, lg, mdoc, mod } from "../mutators.ts";
 type IP = Record<string, number>;
 
 interface IntCtx { readonly min: number; readonly max: number; readonly W: number; readonly P: number }
+/** Decimal places of the range: P = max(2, digits of max(|min|, |max|)). */
+export const placesOf = (inst: Instantiation): number => ctx(inst).P;
 function ctx(inst: Instantiation): IntCtx {
   const { min, max } = inst.args as { min: number; max: number };
   return { min, max, W: max - min + 1, P: Math.max(2, String(Math.max(Math.abs(min), Math.abs(max))).length) };

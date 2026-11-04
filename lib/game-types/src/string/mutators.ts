@@ -3,7 +3,8 @@
  * (lib/grid-lab/docs/mutators.md §1). M = maxLength. A span is [start, end) with 0 ≤ start < end ≤ M,
  * clipped to the text; a span starting at or past the end of the text cannot apply (the act fails).
  *
- *   bijections (injective; erase 0; pay description + motion):
+ * The act charge never reads these D and E terms: applyCalls prices each call by its elementary decomposition (docs/energy-model.md §4).
+ *   bijections (injective; erase 0):
  *     swap_chars(i, j)       swap two characters                    D = log2 C(M, 2)
  *     reverse(span?)         read a span (default: all) backwards   D = 1 + [log2 M + log2 (M − start)]
  *     rotate(k)              move the first k characters to the end D = log2 (M − 1)
@@ -18,9 +19,7 @@
  * A run (write, fill) names one position and its characters, so it is much cheaper than the same
  * characters set one by one (each paying log2 M for its own position). Overwrites are idempotent
  * except delete (it removes what is there now); the insert/delete pair are the only length changers
- * besides truncate. Motion is charged per act on the act's net change
- * (Σ B² / B_tot over "text"), so shifting the whole text along (insert or delete near the front,
- * rotate) moves a lot.
+ * besides truncate.
  */
 import type { Instantiation, MutatorDef, MutatorKind, MutatorScope, Rng } from "../types.ts";
 import { checkFields, fail, intParam, lg, mdoc } from "../mutators.ts";

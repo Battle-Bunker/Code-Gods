@@ -38,7 +38,7 @@ test("a summon needs a name (trimmed, up to 40) and takes an optional descriptio
   assert.deepEqual([observed.agents[0].name, observed.agents[0].description], ["Setter", "Sets everything to five."]);
 });
 
-test("objects stay unique: a constant transformation commits once, then collides once per other object (futile acts) and pays only what it read (nothing, here)", { timeout: 120000 }, async () => {
+test("objects stay unique: a constant transformation commits once, then collides once per other object (futile acts) and pays only what it read", { timeout: 120000 }, async () => {
   const { trio: [host, ada], roomId, game, send, run } = await runningGame({ startingObjectCount: 3, agentEnergyPerSecond: 1000, agentBatteryActs: 1000, interactionRateHz: 40 });
   assert.equal((await send(ada, { type: "summon", name: "Test agent", language: "typescript", source: "function agent(x) { return x.value === 5 ? [add(1), add(-1)] : [add(5 - x.value)]; }" })).accepted, true);
   await run();

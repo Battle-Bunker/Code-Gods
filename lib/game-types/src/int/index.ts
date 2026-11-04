@@ -3,7 +3,7 @@ import { CLASSES } from "../constraints.ts";
 import { assemblePrelude, availableOf, floatLit, fmtBits, helper, js as jsLit, memo } from "../prelude.ts";
 import type { Codec, Instantiation, InstanceInfo, ObjectTypeDef, ParamSchema, Rng, TypeArgs } from "../types.ts";
 import { draw } from "../util.ts";
-import { INT_MUTATORS } from "./mutators.ts";
+import { INT_MUTATORS, placesOf } from "./mutators.ts";
 
 export const INT32_MIN = -2147483648, INT32_MAX = 2147483647;
 
@@ -92,8 +92,6 @@ function propose(x: number, inst: Instantiation, rng: Rng): number {
   return next < span ? min + next : x;
 }
 
-/** Decimal places of the range: max(2, digits of max(|min|, |max|)) (as the digit mutators count them). */
-const placesOf = (inst: Instantiation) => { const { min, max } = intArgs(inst); return Math.max(2, String(Math.max(Math.abs(min), Math.abs(max))).length); };
 
 /**
  * The information cost w of Int's elementary mutators (docs/energy-model.md §4.1). One bit names the op (2 elementary ops).
@@ -131,8 +129,6 @@ export function signedDigits(n: number): number {
   }
   return Math.min(noCarry, carry + 1);
 }
-/** Multipliers up to this size are factored when a composite call turns out to be a multiplication. */
-const FACTOR_LIMIT = 2 ** 40;
 
 /**
  * W of one Int call: `multiply` (elementary) by its parameter; any other call by the cheaper decomposition of its net
@@ -144,7 +140,8 @@ function callWork(a: number, b: number, call: { readonly id: string; readonly pa
   const { min, max } = intArgs(inst), W = max - min + 1, d = b - a;
   const digits = Math.min(...[d, d - W, d + W].map(signedDigits)) * digitAddCost(inst);
   const m = a !== 0 ? b / a : 0;
-  const mult = Number.isInteger(m) && Math.abs(m) >= 2 && Math.abs(m) <= FACTOR_LIMIT ? multiplyCost(m) : Infinity;
+  // multiplyCost(m) ≥ 3 + log2 |m|: factor only when that bound can beat the digits.
+  const mult = Number.isInteger(m) && Math.abs(m) >= 2 && 3 + Math.log2(Math.abs(m)) < digits ? multiplyCost(m) : Infinity;
   return Math.min(digits, mult);
 }
 
