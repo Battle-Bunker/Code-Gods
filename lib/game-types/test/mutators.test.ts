@@ -91,7 +91,8 @@ test("string: set, insert and delete are elementary; an edit script prices the r
   const run = (calls: unknown, x = "hello") => act(calls, x, s16, STRING);
   close(run([["set_char", { i: 0, c: "j" }]]).cost.work, w.set, "one character");
   close(run([["insert", { i: 5, text: "!!" }]]).cost.work, 2 * w.insert, "two inserts");
-  close(run([["reverse", {}]]).cost.work, 4 * w.set, "hello → olleh: the middle l stays");
+  close(run([["reverse", {}]]).cost.work, 2 * w.set + w.insert + w.delete, "hello → olleh: the cheapest script, cheaper than four sets");
+  close(run([["rotate", { k: 1 }]]).cost.work, w.delete + w.insert, "a rotation is a delete and an insert, not a set per character");
 });
 
 test("a call that changes nothing adds nothing; a change undone in the same act still paid for both steps", () => {

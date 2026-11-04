@@ -13,7 +13,7 @@ test("a constant agent stops colliding: one act per object version, then a diagn
   await touch(host);
   const settings = {
     objectType: "Int", typeArgs: { min: -1000000, max: 1000000 }, languages: ["typescript"],
-    startingObjectCount: 5, spawnRateHz: 0, planningSeconds: 3600, agentEnergyPerSecond: 1000, agentBatteryActs: 50, interactionRateHz: 50,
+    startingObjectCount: 5, spawnRateHz: 0, planningSeconds: 3600, agentEnergyPerSecond: 1000, interactionRateHz: 50, startingEnergy: 1000,
   };
   const { roomId } = await roomWith([host, ada, bo], settings);
   const game = await startGame(host, roomId);

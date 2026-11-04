@@ -112,8 +112,9 @@ export function stringElementaryCosts(inst: Instantiation): { set: number; inser
 }
 
 /**
- * W of one string call: the edit script that keeps the common prefix and suffix, sets the differing characters of the
- * middle where the two overlap, and inserts or deletes the rest. An upper bound on the cheapest decomposition.
+ * W of one string call: the cheapest edit script from `a` to `b` in elementary sets, inserts and deletes (weighted edit
+ * distance, two-row DP over the middle left after the common prefix and suffix; at most 1,024² cells). Exact for the
+ * elementary mutators, and a rotation or shift costs its few inserts and deletes, not a set per character.
  */
 function callWork(a: string, b: string, _call: unknown, inst: Instantiation): number {
   const w = stringElementaryCosts(inst);
@@ -121,10 +122,18 @@ function callWork(a: string, b: string, _call: unknown, inst: Instantiation): nu
   while (i < a.length && i < b.length && a[i] === b[i]) i++;
   let ea = a.length, eb = b.length;
   while (ea > i && eb > i && a[ea - 1] === b[eb - 1]) { ea--; eb--; }
-  const la = ea - i, lb = eb - i, overlap = Math.min(la, lb);
-  let sets = 0;
-  for (let k = 0; k < overlap; k++) if (a[i + k] !== b[i + k]) sets++;
-  return sets * w.set + (lb > la ? (lb - la) * w.insert : (la - lb) * w.delete);
+  const x = a.slice(i, ea), y = b.slice(i, eb);
+  let prev = new Float64Array(y.length + 1), cur = new Float64Array(y.length + 1);
+  for (let k = 0; k <= y.length; k++) prev[k] = k * w.insert;
+  for (let r = 1; r <= x.length; r++) {
+    cur[0] = r * w.delete;
+    for (let k = 1; k <= y.length; k++) {
+      const keep = prev[k - 1] + (x[r - 1] === y[k - 1] ? 0 : w.set);
+      cur[k] = Math.min(keep, prev[k] + w.delete, cur[k - 1] + w.insert);
+    }
+    [prev, cur] = [cur, prev];
+  }
+  return prev[y.length];
 }
 
 /** log2 of the number of strings: 7(L+1) − log2 127 + log2(1 − 2^(−7(L+1))). */
