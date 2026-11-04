@@ -23,16 +23,19 @@ const agentName = z.string().trim().min(1).max(AGENT_NAME_MAX);
 const agentDescription = z.string().trim().max(AGENT_DESCRIPTION_MAX);
 export const commandSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("validate"), ...program }).strict(),
-  z.object({ type: z.literal("summon"), ...program, name: agentName, description: agentDescription.optional() }).strict(),
+  // powerShare: the share of your power the new agent earns (0–1; default half of what you have not allocated).
+  z.object({ type: z.literal("summon"), ...program, name: agentName, description: agentDescription.optional(), powerShare: z.number().min(0).max(1).optional() }).strict(),
   z.object({ type: z.literal("ready"), ready: z.boolean() }).strict(),
   z.object({ type: z.literal("pause") }).strict(),
   z.object({ type: z.literal("chat"), text: z.string().trim().min(1).max(2000) }).strict(),
   // Gods may destroy their own agents at any time, for free.
   z.object({ type: z.literal("destroy"), agentId: id }).strict(),
+  // Re-allocate your power (docs/energy-model.md §6): the agent's share from now on; your shares may total at most 1.
+  z.object({ type: z.literal("allocatePower"), agentId: id, share: z.number().min(0).max(1) }).strict(),
 ]);
 export type Command = z.infer<typeof commandSchema>;
 /** Commands that act on the current game and therefore need its gameId. */
-export const GAME_COMMANDS: readonly Command["type"][] = ["validate", "summon", "pause", "destroy"];
+export const GAME_COMMANDS: readonly Command["type"][] = ["validate", "summon", "pause", "destroy", "allocatePower"];
 /**
  * Validate and summon measure the agent on the server (a few hundred sandboxed runs; a few seconds,
  * longer for agents that use random), so they get a longer deadline than other commands.
@@ -100,17 +103,20 @@ export const observationSchema = z.object({
   roomShortCode: z.string().max(32).optional(), gameShortCode: z.string().max(32).optional(), seated: z.boolean().optional(),
   instance: instanceSchema.optional(),
   /**
-   * The game's energy rules. God energy pays summons (real time); each agent earns agentEnergyPerSecond per world second,
-   * with no cap. Each opportunity goes to an agent with probability proportional to its positive energy, at most
+   * The game's energy rules. Each god has powerPerSecond bits per world second (P), split into its agents' powerShare
+   * (income = share x P) and the unallocated rest, which is the god's own income and pays summons (it starts with
+   * startingEnergy). Agents' energy has no cap. Each opportunity goes to an agent with probability proportional to its positive energy, at most
    * maxAgentOpportunityHz times per world second per agent; an act pays the bits it read plus its change when it
    * changes the object (docs/energy-model.md).
    */
-  economy: z.object({ energyPerSecond: finite, agentEnergyPerSecond: finite, maxAgentOpportunityHz: finite.optional(),
+  economy: z.object({ powerPerSecond: finite, startingEnergy: finite, maxAgentOpportunityHz: finite.optional(),
     maxAgentsPerGod: z.number().int().nonnegative(), penaltyWeight: finite, worldSeconds: finite,
     /** How the game ends and its length in world seconds (the exact length when "fixed", else the half-life): the game timer. */
     durationMode: z.enum(["fixed", "halfLife"]).optional(), lengthSeconds: finite.optional(),
     commitClause: z.boolean().optional(), objectSelection: z.enum(["uniform", "shelter"]).optional() }).optional(),
   self: z.object({ godId: id, label: z.string().max(128), isAI: z.boolean(), energy: finite, ready: z.boolean(), pauseUsed: z.boolean().optional(),
+    // Power: the share (0–1) of economy.powerPerSecond given to your agents, and your own income (bits per world second) from the rest.
+    allocated: finite.optional(), income: finite.optional(),
     utility: utilityCardSchema.optional(),
     // Your own total payoff NOW (live), while the leaderboard is the scoreboard last published (leaderboardWorldSeconds).
     score: finite.optional() }),
@@ -123,7 +129,9 @@ export const observationSchema = z.object({
   // charged from it. `skips`: acts that returned no calls (they paid only what they read; not failures).
   agents: z.array(z.object({ id, name: agentName, description: agentDescription.optional(), source: z.string().max(16384), language: storedLanguage, summonCost: finite, expectedActCost: finite,
     breakdown: breakdownSchema, randomized: z.boolean(),
-    energy: finite, eligible: z.boolean(), acts: z.number().int().nonnegative(), spent: finite, skips: z.number().int().nonnegative().optional(),
+    energy: finite, eligible: z.boolean(),
+    // Its share (0–1) of your power and its income: share x economy.powerPerSecond bits per world second.
+    powerShare: finite.optional(), income: finite.optional(), acts: z.number().int().nonnegative(), spent: finite, skips: z.number().int().nonnegative().optional(),
     // How its acts ended (counted since the engine started counting: older agents' earlier acts are not in it): changed
     // the object, or failed by kind (collision: another object already had the value; noChange; commit: the commit
     // clause kept the object; invalid call; error: the code raised or timed out), with the last invalid call or error.

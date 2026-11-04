@@ -16,7 +16,7 @@ test("no player-facing result discloses another god's scores, descriptor, agent 
   const settings = {
     languages: ["typescript"], objectType: "Grid",
     typeArgs: { size: 5, symbols: "base10", colours: "rgby" }, startingObjectCount: 12, spawnRateHz: 2, planningSeconds: 3600,
-    agentEnergyPerSecond: 100, agentBatteryActs: 2, interactionRateHz: 40, startingEnergy: 1000,
+    powerPerSecond: 200, interactionRateHz: 40, startingEnergy: 1000,
   };
   const { roomId, shortCode } = await roomWith([host, ada, bo], settings);
   await admin.mutation(internal.aiTemplates.ensureSeeded, {});
@@ -172,7 +172,7 @@ test("other gods' scores move only when the scoreboard is published; the own sco
   await touch(host);
   const { roomId } = await roomWith([host, ada, bo], {
     languages: ["typescript"], objectType: "Int", typeArgs: { min: -2147483648, max: 2147483647 }, startingObjectCount: 6, spawnRateHz: 1,
-    interactionRateHz: 20, planningSeconds: 3600, halfLifeSeconds: 1e9, agentEnergyPerSecond: 100, startingEnergy: 1000, scoreIntervalSeconds: 60,
+    interactionRateHz: 20, planningSeconds: 3600, halfLifeSeconds: 1e9, powerPerSecond: 200, startingEnergy: 1000, scoreIntervalSeconds: 60,
   });
   const game = await startGame(host, roomId);
   const start = (await raw(game.gameId)).game.scoreboard;

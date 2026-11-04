@@ -217,7 +217,9 @@ export const commitStart = internalMutation({
     await putCatalog(ctx, `game:${gameId}`, args.catalog, 0);
     for (const [index, d] of args.deities.entries()) {
       const aiAgent = byGod.get(d.godId)!.aiAgent;
-      await ctx.db.insert("deities", { gameId, godId: d.godId, index, utility: d.utility, card: d.card, spent: 0, pauseUsed: false, ...(aiAgent ? { aiAgent } : {}) });
+      // Its own energy starts at startingEnergy on the world clock (0 at the start), with all its power unallocated.
+      await ctx.db.insert("deities", { gameId, godId: d.godId, index, utility: d.utility, card: d.card, spent: 0, pauseUsed: false, ...(aiAgent ? { aiAgent } : {}),
+        account: { balance: settings.startingEnergy, settledWorldSeconds: 0 }, allocated: 0 });
     }
     const events = [];
     for (const o of args.objects) {

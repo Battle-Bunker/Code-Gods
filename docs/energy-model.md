@@ -201,23 +201,25 @@ They are unit tests (`lib/game-types/test/mutators.test.ts`).
 
 ## 6. Power (PR 3)
 
-- `settings.powerPerSecond` (P, bits per world second) is each deity's fixed budget.
-- Each agent has a `powerShare` s ∈ [0, 1]. A deity's shares sum to at most 1.
-- An agent earns s·P per world second. The deity earns (1 − Σs)·P plus its `startingEnergy`, and pays summon prices
-  from that.
-- Summoning sets the new agent's share, which defaults to an equal split of what is unallocated. The agent starts with 0
-  energy.
-- `allocatePower(agentId, share)` settles the accounts at the current world time and then changes the share.
-  Destroying an agent returns its share to the deity.
+- `settings.powerPerSecond` (P, bits per world second) is each deity's fixed budget. Defaults: 8; Grid 64 (two agents
+  at the former 32 bits/s); the "Low income" seed 32.
+- Each agent has a `powerShare` s ∈ [0, 1]. A deity's shares sum to at most 1 (`deities.allocated`).
+- An agent earns s·P per world second. The deity earns (1 − Σs)·P into its own world-time account (`deities.account`),
+  which starts at `startingEnergy` (default 200) and pays summon prices.
+- A summon may name the new agent's share (`powerShare`); by default it gets half of what is unallocated
+  (`defaultShare`), so the deity keeps the other half for later summons. The agent starts with 0 energy.
+- `allocatePower(agentId, share)` (MCP `allocate_power`) settles both accounts at the current world time and then
+  changes the share. Destroying an agent returns its share to the deity. Every share is in the event log (schema 6:
+  the summon's `powerShare`, a `power` event per re-allocation).
 - Duplicate agents gain nothing, because they divide the same power.
 - Both incomes run on world time, so power is conserved: the deity's total income is P whatever the split. World
   time stops in planning and pauses, so planning summons are paid from `startingEnergy`.
 - Replaced settings: `energyPerSecond`, `agentEnergyPerSecond`, `agentBatteryActs` and `perActFloorBits` are removed,
-  and `powerPerSecond` is added. A game stored with the old settings is migrated as follows:
-  - P = energyPerSecond + maxAgentsPerGod · agentEnergyPerSecond;
-  - each existing agent's share = agentEnergyPerSecond / P.
-
-  This keeps every agent's income and the deity's own unchanged.
+  and `powerPerSecond` is added. `migrations.powerV1*` migrates stored data (agents and deities first, since they read
+  their game's old settings):
+  - P = energyPerSecond + 2 · agentEnergyPerSecond (the deity's old income plus two agents at the old rate);
+  - each existing agent's share = agentEnergyPerSecond / P, scaled down so an owner's shares total at most 1;
+  - each deity's account = its energy at the migration, and `allocated` = its agents' shares.
 
 ## 7. Selection (PR 1)
 

@@ -28,7 +28,7 @@ for (const spec of SPECS) for (const language of languages) {
     const other = language === "python" ? "typescript" : "python";
     const settings = {
       objectType: spec.objectType, typeArgs: spec.typeArgs, languages: [language],
-      startingObjectCount: 5, spawnRateHz: 0, planningSeconds: 3600, agentEnergyPerSecond: 100, agentBatteryActs: 2, interactionRateHz: 50,
+      startingObjectCount: 5, spawnRateHz: 0, planningSeconds: 3600, powerPerSecond: 200, interactionRateHz: 50,
       // Exact disclosure: this test checks the scoring arithmetic against the private scores (the noise is game-disclosure's).
       peerNoiseBits: 0,
     };

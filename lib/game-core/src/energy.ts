@@ -2,9 +2,11 @@
  * The two energy accounts (docs/clean-implementation-plan.md §4.3; reference: the "agent_energy"
  * economy of lib/grid-lab/gridlab/sim.py on branch claude/gridlab-agent-energy).
  *
- * God:   accrues `energyPerSecond` bits per REAL-TIME second from `startingEnergy`, pays the summon
- *        price (description bits). Never negative: a summon it cannot afford is refused.
- * Agent: starts at 0, accrues `agentEnergyPerSecond` bits per WORLD second, with no cap. Each mutation
+ * Power (docs/energy-model.md §6): each deity has a fixed budget of settings.powerPerSecond bits per WORLD second. It
+ *        gives each of its agents a share s (Σ s ≤ 1, re-allocated at will); the unallocated rest is its own income.
+ * Deity: starts at `startingEnergy`, accrues (1 − Σ s)·P per world second, pays summon prices (description bits).
+ *        Never negative: a summon it cannot afford is refused. World time stops in planning and pauses.
+ * Agent: starts at 0, accrues s·P bits per WORLD second, with no cap. Each mutation
  *        opportunity goes to an agent with probability proportional to its positive energy (pickByEnergy),
  *        at most MAX_AGENT_OPPORTUNITY_HZ times per world second per agent, and the agent pays what the
  *        act actually cost: the bits it read plus its change (docs/energy-model.md §2, §7). The balance may
@@ -22,42 +24,38 @@ function assertRate(value: number, what: string): void {
 }
 
 // ------------------------------------------------------------------------------------------------
-// god account (real time)
+// power (world time)
 // ------------------------------------------------------------------------------------------------
 
-export interface EnergyAccount {
-  balance: number;
-  settledAtMs: number;
-}
+/** Shares are kept to this many decimals, so Σ s ≤ 1 holds exactly where it should. */
+const SHARE_DECIMALS = 1e6;
+export const roundShare = (s: number): number => Math.round(s * SHARE_DECIMALS) / SHARE_DECIMALS;
 
-/** Real-time accrual: callers must NOT pass game-world time here. */
-export function settleEnergy(account: EnergyAccount, nowMs: number, perSecond: number): EnergyAccount {
-  if (
-    !Number.isFinite(nowMs) || !Number.isFinite(account.settledAtMs) ||
-    nowMs < account.settledAtMs || !Number.isFinite(perSecond) || perSecond < 0 ||
-    !Number.isFinite(account.balance) || account.balance < 0
-  ) throw new Error("Invalid energy clock/account");
-  const balance = account.balance + (nowMs - account.settledAtMs) / 1000 * perSecond;
-  if (!Number.isFinite(balance)) throw new Error("Energy overflow");
-  return { balance, settledAtMs: nowMs };
+/** A valid power share: a finite number in [0, 1]. */
+export function assertShare(share: number): void {
+  if (typeof share !== "number" || !Number.isFinite(share) || share < 0 || share > 1) throw new Error("A power share must be from 0 to 1");
 }
+/** An agent's income: its share of the deity's power. */
+export const agentIncome = (powerPerSecond: number, share: number): number => powerPerSecond * Math.max(0, share);
+/** A deity's own income: the power it has not allocated to its agents. */
+export const deityIncome = (powerPerSecond: number, allocated: number): number => powerPerSecond * Math.max(0, 1 - allocated);
+/** The share a new agent gets when its summon names none: half of what the deity has not allocated (it keeps the rest). */
+export const defaultShare = (allocated: number): number => roundShare(Math.max(0, 1 - allocated) / 2);
 
-/** Pay the summon price (bits). Throws, leaving the input untouched, if the god cannot afford it. */
-export function spendEnergy(
-  account: EnergyAccount, nowMs: number, perSecond: number, cost: number,
-): EnergyAccount {
+/** Pay a summon price (bits) from a deity's settled account. Throws, leaving the input untouched, if it cannot afford it. */
+export function spendDeityEnergy(account: AgentAccount, cost: number): AgentAccount {
   if (!Number.isFinite(cost) || cost < 0) throw new Error("Invalid complexity cost");
-  const settled = settleEnergy(account, nowMs, perSecond);
-  if (settled.balance < cost) throw new Error("Insufficient energy");
-  return { ...settled, balance: settled.balance - cost };
+  if (account.balance < cost) throw new Error("Insufficient energy");
+  return { ...account, balance: account.balance - cost };
 }
 
 // ------------------------------------------------------------------------------------------------
 // agent accounts (world time)
 // ------------------------------------------------------------------------------------------------
 
+/** An energy account on world time: an agent's, or a deity's own. */
 export interface AgentAccount {
-  /** Bits; negative while cooling down after an act that cost more than it had. */
+  /** Bits; an agent's is negative after an act that cost more than it had. A deity's is never negative. */
   balance: number;
   /** World time (seconds; negative during planning) the account was last accrued to. */
   settledWorldSeconds: number;

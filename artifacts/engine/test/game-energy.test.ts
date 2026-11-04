@@ -15,7 +15,7 @@ test("a skipper pays only what it read, never fails, is never futile, and is hel
   await touch(host);
   const settings = {
     objectType: "Int", typeArgs: { min: -1000000, max: 1000000 }, languages: ["typescript"],
-    startingObjectCount: 5, spawnRateHz: 0, planningSeconds: 3600, agentEnergyPerSecond: 1000, interactionRateHz: 50,
+    startingObjectCount: 5, spawnRateHz: 0, planningSeconds: 3600, powerPerSecond: 2000, interactionRateHz: 50,
   };
   const { roomId } = await roomWith([host, ada, bo], settings);
   const game = await startGame(host, roomId);

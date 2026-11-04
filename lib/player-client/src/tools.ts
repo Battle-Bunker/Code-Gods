@@ -175,10 +175,14 @@ export const ACT_TOOLS = [
     input: obj({ source, language: language.optional().describe("The agent's language, the one it was validated in: one the game allows. Default: the game's first allowed language."),
       name: z.string().trim().min(1).max(AGENT_NAME_MAX).describe("A short, meaningful name for the agent (required, up to 40 characters), e.g. \"Corner hoarder\". Shown in the player's My agents list."),
       description: z.string().trim().max(AGENT_DESCRIPTION_MAX).optional().describe("One or two sentences on what the agent does and why (optional, up to 500 characters). Shown on hover next to the name."),
+      powerShare: z.number().min(0).max(1).optional().describe("The share of the player's power the new agent earns, 0 to 1 (0.25 = a quarter of it). Default: half of the power the player has not yet given to agents. Shares of one player total at most 1."),
       commandId, gameId, waitMs }), output: result(receiptData) }),
   def({ name: "destroy_agent", short: "Destroy one of the player's agents (no refund).", title: "Destroy an agent", functions: ["commands.submit"], permission: "act", annotations: destructive,
-    about: "Destroy one of the player's own agents, for free (energy already spent is not refunded; the player confirms first).",
+    about: "Destroy one of the player's own agents, for free (energy already spent is not refunded; its power share goes back to the player; the player confirms first).",
     input: obj({ agentId: id.describe("The agent's id from get_observation (agents[].id); never a command id."), commandId, gameId }), output: result(receiptData) }),
+  def({ name: "allocate_power", short: "Change how much of the player's power one agent gets.", title: "Allocate power", functions: ["commands.submit"], permission: "act", annotations: acts,
+    about: "Set one agent's power share (0 to 1) from now on: it earns share x economy.powerPerSecond bits per world second, and the player's own income is the unallocated rest (self.income). The player's shares total at most 1; both accounts are settled first. Moving power between agents is two calls: lower one, then raise the other.",
+    input: obj({ agentId: id.describe("The agent's id from get_observation (agents[].id); never a command id."), share: z.number().min(0).max(1).describe("The agent's new share of the player's power, 0 to 1."), commandId, gameId }), output: result(receiptData) }),
   def({ name: "set_ready", short: "Mark the player ready (or not) in the lobby.", title: "Set ready", functions: ["commands.submit", "rooms.setReady"], permission: "act", annotations: acts,
     about: "Mark the player ready (or not) in the room lobby; advisory.",
     input: obj({ ready: z.boolean(), commandId: optionalCommandId }), output: result(receiptData) }),
@@ -427,13 +431,13 @@ export function toolJsonSchemas(): Record<string, { input: Record<string, unknow
 // Command tools → v3 envelopes
 // ---------------------------------------------------------------------------------------------
 
-export const COMMAND_TOOLS = ["validate_agent", "summon_agent", "destroy_agent", "set_ready", "send_chat", "pause_game"] as const;
+export const COMMAND_TOOLS = ["validate_agent", "summon_agent", "destroy_agent", "allocate_power", "set_ready", "send_chat", "pause_game"] as const;
 export type CommandToolName = (typeof COMMAND_TOOLS)[number];
 export const isCommandTool = (name: string): name is CommandToolName => (COMMAND_TOOLS as readonly string[]).includes(name);
 /** The command tool of each envelope command type (the CLI's `assistant command` alias). */
-export const TOOL_OF_COMMAND = { validate: "validate_agent", summon: "summon_agent", destroy: "destroy_agent", ready: "set_ready", chat: "send_chat", pause: "pause_game" } as const;
+export const TOOL_OF_COMMAND = { validate: "validate_agent", summon: "summon_agent", destroy: "destroy_agent", allocatePower: "allocate_power", ready: "set_ready", chat: "send_chat", pause: "pause_game" } as const;
 
-type CommandArgs = { commandId?: string; gameId?: string; source?: string; language?: Language; name?: string; description?: string; agentId?: string; ready?: boolean; text?: string };
+type CommandArgs = { commandId?: string; gameId?: string; source?: string; language?: Language; name?: string; description?: string; agentId?: string; share?: number; powerShare?: number; ready?: boolean; text?: string };
 
 /** Does buildEnvelope need the current game (its id or language) for these arguments? */
 export function envelopeNeedsGame(name: CommandToolName, args: CommandArgs): boolean {
@@ -459,8 +463,9 @@ export function buildEnvelope(name: CommandToolName, args: CommandArgs, game: { 
   };
   const command: Envelope["command"] =
     name === "validate_agent" ? { type: "validate", language: lang(), source: args.source! }
-    : name === "summon_agent" ? { type: "summon", language: lang(), source: args.source!, name: args.name!, ...(args.description ? { description: args.description } : {}) }
+    : name === "summon_agent" ? { type: "summon", language: lang(), source: args.source!, name: args.name!, ...(args.description ? { description: args.description } : {}), ...(args.powerShare !== undefined ? { powerShare: args.powerShare } : {}) }
     : name === "destroy_agent" ? { type: "destroy", agentId: args.agentId! }
+    : name === "allocate_power" ? { type: "allocatePower", agentId: args.agentId!, share: args.share! }
     : name === "set_ready" ? { type: "ready", ready: args.ready! }
     : name === "send_chat" ? { type: "chat", text: args.text! }
     : { type: "pause" };

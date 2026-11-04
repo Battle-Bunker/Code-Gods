@@ -21,7 +21,7 @@ export interface SkillEntry { name: string; description: string; reads: readonly
 export const SKILLS = [
   { name: "game-rules", description: "The room's full rules: scoring, agents, energy, timing, phases. Load when the briefing isn't enough.", reads: ["rules"], tools: [] },
   { name: "writing-agents", description: "Writing, validating, summoning agents: workflow, mutators, helpers, your utility's source.", reads: ["observation"],
-    tools: ["evaluate_value", "validate_agent", "summon_agent", "destroy_agent"] },
+    tools: ["evaluate_value", "validate_agent", "summon_agent", "destroy_agent", "allocate_power"] },
   { name: "screen", description: "The player's screen: panes, every built-in panel and its parameters; when to open, move or close one.", reads: ["layout"], tools: ["get_layout", "move_pane", "close_pane"] },
   { name: "game-setups", description: "Game setups and room settings: list, copy, save, switch (owners); what each choice does.", reads: [],
     tools: ["list_setups", "get_setup", "save_setup", "duplicate_setup", "get_room_state", "update_settings"] },

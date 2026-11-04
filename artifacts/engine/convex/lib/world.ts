@@ -2,6 +2,7 @@
  * The world clock and the two energy accounts as the engine and the projections read them (pure; ported
  * from api-server economy.ts / interaction-scheduler.ts). game-core holds the arithmetic.
  */
+import { agentIncomeOf, deityAccount, type DeityPower, type PowerClock } from "./power";
 import { DEFAULT_SCORE_INTERVAL_SECONDS, MAX_AGENT_OPPORTUNITY_HZ, leaderboard, offerable, personalView, settleAgentEnergy, type AgentAccount, type GameSettings } from "@workspace/game-core";
 
 /**
@@ -33,16 +34,17 @@ export const EVENTS_PER_BATCH = 400;
  * adds the live disclosure noise per spawn and transform (`noise`) and writes one objectEvents row per spawn and
  * transform. 5 is the energy model (docs/energy-model.md): an act's cost is {read, change, total} (no decision or floor),
  * summons carry no decisionBits or perActFloorBits, and an act that returned no calls is a `skip` event. Bump it whenever
- * an event's meaning or fields change.
+ * an event's meaning or fields change. 6 is the power budget (docs/energy-model.md §6): a summon carries the agent's
+ * `powerShare`, and a `power` event records each re-allocation.
  */
-export const EVENT_LOG_SCHEMA = 5;
+export const EVENT_LOG_SCHEMA = 6;
 
 export type Clock = {
   phase: "planning" | "running" | "paused" | "recovery" | "ended";
   worldSeconds: number; lastTick: number; endAtWorld: number;
   createdAt: number; settings: GameSettings;
 };
-export type AgentLike = { account: AgentAccount; lastOpportunityWorld?: number };
+export type AgentLike = { account: AgentAccount; lastOpportunityWorld?: number; powerShare?: number };
 
 /** The world clock now, without mutating the game (world time stops outside `running`). */
 export function worldNow(game: Clock, nowMs = Date.now()): number {
@@ -53,7 +55,7 @@ export function worldNow(game: Clock, nowMs = Date.now()): number {
 /** The agent's account accrued to `world`; a clock behind the account's own accrues nothing. */
 export function settledAccount(settings: GameSettings, agent: AgentLike, world: number): AgentAccount {
   if (!(world > agent.account.settledWorldSeconds)) return agent.account;
-  return settleAgentEnergy(agent.account, world, settings.agentEnergyPerSecond);
+  return settleAgentEnergy(agent.account, world, agentIncomeOf(agent, settings));
 }
 /**
  * The agent's energy at `world`, and whether it can be offered an opportunity then (docs/energy-model.md §7): positive
@@ -69,15 +71,14 @@ export function secondsUntilEligible(settings: GameSettings, agent: AgentLike, w
   if (eligible) return 0;
   const cap = agent.lastOpportunityWorld === undefined ? 0 : Math.max(0, agent.lastOpportunityWorld + 1 / MAX_AGENT_OPPORTUNITY_HZ - world);
   if (energy > 0) return cap;
-  if (!(settings.agentEnergyPerSecond > 0)) return Infinity;
-  return Math.max(cap, -energy / settings.agentEnergyPerSecond + 1e-6);
+  const income = agentIncomeOf(agent, settings);
+  if (!(income > 0)) return Infinity;
+  return Math.max(cap, -energy / income + 1e-6);
 }
 
-/** God energy: starting energy plus real-time income, minus summon prices paid. */
-export function godEnergy(game: Pick<Clock, "settings" | "createdAt"> & { endedAt?: number }, spent: number, nowMs = Date.now()): number {
-  // An ended game is frozen: its gods' energy stops accruing at the end.
-  const at = game.endedAt !== undefined ? Math.min(nowMs, game.endedAt) : nowMs;
-  return game.settings.startingEnergy + Math.max(0, at - game.createdAt) / 1000 * game.settings.energyPerSecond - spent;
+/** A deity's own energy at world time `world` (docs/energy-model.md §6; lib/power.ts deityAccount). */
+export function godEnergy(game: PowerClock, deity: DeityPower, world: number, nowMs = Date.now()): number {
+  return deityAccount(game, deity, world, nowMs).balance;
 }
 
 /**

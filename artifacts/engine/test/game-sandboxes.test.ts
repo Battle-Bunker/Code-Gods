@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 import { admin, api, envelope, gods, internal, raw, rejects, roomWith, sandboxesWarm, startGame, touch, PY, waitFor, makeAdmin } from "./game-helpers.ts";
 
 const INT = { languages: ["python"], objectType: "Int", typeArgs: { min: -2147483648, max: 2147483647 }, spawnRateHz: 0, planningSeconds: 3600,
-  startingObjectCount: 4, agentEnergyPerSecond: 1000, agentBatteryActs: 1000, interactionRateHz: 20, halfLifeSeconds: 1e9 };
+  startingObjectCount: 4, powerPerSecond: 2000, interactionRateHz: 20, halfLifeSeconds: 1e9 };
 
 const pythonRow = async () => (await admin.query(internal.testing.sandboxes, {})).find((r: any) => r.language === "python");
 let warmer: Awaited<ReturnType<typeof gods>>[number] | undefined;

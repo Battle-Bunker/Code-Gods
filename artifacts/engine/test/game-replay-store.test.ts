@@ -18,7 +18,7 @@ import { SITE_, URL_, api, envelope, gods, httpJwt as jwtFor, rejects, roomWith,
 const settings = {
   language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Int",
   typeArgs: { min: -2147483648, max: 2147483647 }, startingObjectCount: 4, spawnRateHz: 0, interactionRateHz: 20, planningSeconds: 3600,
-  halfLifeSeconds: 1e9, agentEnergyPerSecond: 100, startingEnergy: 1000,
+  halfLifeSeconds: 1e9, powerPerSecond: 200, startingEnergy: 1000,
 };
 
 async function pagedReplay(god: { c: ConvexHttpClient }, roomId: string, gameId: string): Promise<ReplayPage[]> {

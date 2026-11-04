@@ -1,19 +1,25 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  settleEnergy, spendEnergy, newAgentAccount, settleAgentEnergy, chargeAct, pickByEnergy, offerable, selectionWeight,
+  agentIncome, deityIncome, defaultShare, assertShare, spendDeityEnergy, newAgentAccount, settleAgentEnergy, chargeAct, pickByEnergy, offerable, selectionWeight,
   MAX_AGENT_OPPORTUNITY_HZ,
 } from "../src/energy.ts";
 
-test("god energy accrues in real time; exact balance succeeds; failed spend is immutable", () => {
-  const account = { balance: 100, settledAtMs: 0 };
-  assert.deepEqual(spendEnergy(account, 1000, 1, 101), { balance: 0, settledAtMs: 1000 });
-  assert.deepEqual(settleEnergy(account, 180000, 1), { balance: 280, settledAtMs: 180000 });
-  assert.throws(() => spendEnergy(account, 0, 1, 101), /Insufficient/);
+test("power: agents earn their share, the deity the unallocated rest; summons are paid from the deity's own energy", () => {
+  assert.equal(agentIncome(64, 0.25), 16);
+  assert.equal(deityIncome(64, 0.75), 16);
+  assert.equal(deityIncome(64, 1), 0);
+  assert.equal(agentIncome(64, 0.25) * 3 + deityIncome(64, 0.75), 64, "power is conserved whatever the split");
+  assert.equal(defaultShare(0), 0.5);
+  assert.equal(defaultShare(0.5), 0.25);
+  assert.equal(defaultShare(1), 0);
+  for (const bad of [-0.1, 1.1, NaN, Infinity]) assert.throws(() => assertShare(bad), /share/);
+  assert.doesNotThrow(() => assertShare(0));
+  const account = { balance: 100, settledWorldSeconds: 3 };
+  assert.deepEqual(spendDeityEnergy(account, 100), { balance: 0, settledWorldSeconds: 3 });
+  assert.throws(() => spendDeityEnergy(account, 101), /Insufficient/);
   assert.equal(account.balance, 100);
-  assert.throws(() => settleEnergy(account, -1, 1));
-  assert.throws(() => spendEnergy(account, 0, 1, -1), /Invalid/);
-  assert.throws(() => settleEnergy({ balance: -1, settledAtMs: 0 }, 0, 1)); // the god never goes negative
+  assert.throws(() => spendDeityEnergy(account, -1), /Invalid/);
 });
 
 test("agents start empty and accrue in world seconds at the agent rate, with no cap", () => {

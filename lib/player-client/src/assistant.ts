@@ -223,7 +223,8 @@ function toolArgs(envelope: Envelope): Record<string, unknown> {
   const base = { commandId: envelope.commandId, ...(envelope.gameId && GAME_COMMANDS.includes(c.type) ? { gameId: envelope.gameId } : {}) };
   switch (c.type) {
     case "validate": return { ...base, source: c.source, language: c.language };
-    case "summon": return { ...base, source: c.source, language: c.language, name: c.name, ...(c.description ? { description: c.description } : {}) };
+    case "summon": return { ...base, source: c.source, language: c.language, name: c.name, ...(c.description ? { description: c.description } : {}), ...(c.powerShare !== undefined ? { powerShare: c.powerShare } : {}) };
+    case "allocatePower": return { ...base, agentId: c.agentId, share: c.share };
     case "destroy": return { ...base, agentId: c.agentId };
     case "ready": return { ...base, ready: c.ready };
     case "chat": return { ...base, text: c.text };

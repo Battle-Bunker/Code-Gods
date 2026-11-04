@@ -31,6 +31,12 @@
  *    floor. An agent stored with the old price keeps only the change part of its estimate: `breakdown` becomes {read: 0,
  *    change: erasure + motion}, `expectedActCost` that change, and `decisionBits` / `perActFloorBits` are cleared. Narrowed
  *    later: the legacy breakdown leaves the union, and the two fields leave the validator.
+ *  - powerV1* (2026-11-05, docs/energy-model.md §6): each deity gets a power budget. Agents get `powerShare` (the old
+ *    agentEnergyPerSecond / P, scaled so an owner's shares total at most 1), deities their own world-time `account` (their
+ *    energy at the migration) and `allocated`, and stored settings (games, rooms, setups) get `powerPerSecond` = energyPerSecond
+ *    + 2 · agentEnergyPerSecond and lose energyPerSecond, agentEnergyPerSecond, agentBatteryActs and perActFloorBits.
+ *    Agents and deities run before the games' settings change. Narrowed later: the fields become required and
+ *    lib/power.ts's fallbacks go.
  *  - typedParams* (2026-11-03, docs/rules-design.md §9): families that now declare named, typed params store them as
  *    such (`{ X: 0 }` became `{ colour: "red" }`, game-utilities `upgradeDescriptor`). typedParamsDeities rewrites a
  *    dealt god's descriptor (`deities.utility`, utility and defence goal) and adds the typed params to its stored card
@@ -81,9 +87,10 @@
  * name; the room's chat, its games' rosters and its ended games' stored results follow, so history reads the same.
  * A room with a game in progress is left alone (names never change mid-game); a later deploy renames it.
  */
+import { deityAccount, powerSettingsV1, shareOf } from "./lib/power";
 import { agentPriceV2 } from "./lib/agentPrice";
 import { v } from "convex/values";
-import { instantiationOf, type GameSettings } from "@workspace/game-core";
+import { instantiationOf, roundShare, type GameSettings } from "@workspace/game-core";
 import { cardParams, context, family, paramsKey, upgradeDescriptor, type UtilityDescriptor } from "@workspace/game-utilities";
 import type { Doc } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
@@ -99,7 +106,8 @@ import { aiSeatName, renameInRecord } from "./lib/aiNames";
 import { migrateSettings } from "./lib/migrateSetups";
 import { DEFAULT_AI_QUOTA, DEFAULT_ASSISTANT_QUOTA } from "./lib/aiModels";
 import { freeName, setupSummary } from "./setups";
-import { clockDoc, clockFrom, splitHotFields } from "./game/state";
+import { clockDoc, clockFrom, splitHotFields, withEngine } from "./game/state";
+import { worldNow } from "./lib/world";
 import { hasStandings, publishStandings } from "./game/readModel";
 
 export const migrations = new Migrations(components.migrations, { schema });
@@ -299,6 +307,38 @@ export const assistantNoApprovalsCalls = migrations.define({
   },
 });
 export const agentPricesV2 = migrations.define({ table: "agents", migrateOne: (_ctx, row) => agentPriceV2(row) });
+
+// powerV1 (docs/energy-model.md §6, §9). Agents and deities first: they read their game's OLD settings (lib/power.ts
+// falls back to them), which powerV1Games then rewrites.
+export const powerV1Agents = migrations.define({
+  table: "agents",
+  migrateOne: async (ctx, agent) => {
+    if (agent.powerShare !== undefined) return;
+    const game = await ctx.db.get(agent.gameId);
+    if (!game) return { powerShare: 0 };
+    // The old share, scaled down when the owner's agents would hold more than all of its power.
+    const owned = await ctx.db.query("agents").withIndex("by_game_owner", q => q.eq("gameId", agent.gameId).eq("ownerId", agent.ownerId)).take(201);
+    const total = owned.reduce((sum, a) => sum + shareOf(a, game.settings as GameSettings), 0);
+    const share = shareOf(agent, game.settings as GameSettings);
+    return { powerShare: roundShare(total > 1 ? share / total : share) };
+  },
+});
+export const powerV1Deities = migrations.define({
+  table: "deities",
+  migrateOne: async (ctx, deity) => {
+    if (deity.account !== undefined && deity.allocated !== undefined) return;
+    const game = await ctx.db.get(deity.gameId);
+    if (!game) return { account: { balance: 0, settledWorldSeconds: 0 }, allocated: 0 };
+    const clocked = await withEngine(ctx, game);
+    const world = worldNow(clocked);
+    const owned = await ctx.db.query("agents").withIndex("by_game_owner", q => q.eq("gameId", deity.gameId).eq("ownerId", deity.godId)).take(201);
+    const allocated = roundShare(Math.min(1, owned.reduce((sum, a) => sum + shareOf(a, game.settings as GameSettings), 0)));
+    return { account: deityAccount(clocked, deity, world), allocated };
+  },
+});
+export const powerV1Games = migrations.define({ table: "games", migrateOne: (_ctx, row) => { const settings = powerSettingsV1(row.settings); return settings ? { settings } : undefined; } });
+export const powerV1Rooms = migrations.define({ table: "rooms", migrateOne: (_ctx, row) => { const settings = powerSettingsV1(row.settings); return settings ? { settings } : undefined; } });
+export const powerV1Setups = migrations.define({ table: "gameSetups", migrateOne: (_ctx, row) => { const settings = powerSettingsV1(row.settings); return settings ? { settings } : undefined; } });
 
 /** Every component migration, in order: run by the deploy workflow (`npx convex run migrations:runAll`). Append only. */
 // Annotated: this module's own `internal` references would otherwise make its exported types circular.

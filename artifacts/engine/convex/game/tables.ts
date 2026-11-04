@@ -80,11 +80,15 @@ export const eventV = v.union(
     t: v.literal("summon"), agentId: v.string(), ownerId: v.string(), world: v.number(), language: v.string(), source: v.string(),
     name: v.optional(v.string()), description: v.optional(v.string()),
     summonCost: v.number(), expectedActCost: v.number(),
+    /** Its share of the owner's power at the summon (schema 6; docs/energy-model.md §6). */
+    powerShare: v.optional(v.number()),
     /** LEGACY (schema ≤ 4 history): the decision price and the per-act floor, no longer charged. */
     decisionBits: v.optional(v.number()), perActFloorBits: v.optional(v.number()),
     breakdown, randomized: v.boolean(), account,
   }),
   v.object({ t: v.literal("destroy"), agentId: v.string(), ownerId: v.string(), world: v.number() }),
+  /** The owner re-allocated its power (schema 6): the agent's share from `world` on. */
+  v.object({ t: v.literal("power"), agentId: v.string(), ownerId: v.string(), world: v.number(), share: v.number() }),
 );
 
 /** An agent's failure breakdown (lib/futility.ts FAILURE_KINDS) and the last reason of the kinds the diagnosis quotes. */
@@ -281,7 +285,13 @@ export const gameTables = {
     utility: v.any(), card: v.any(),
     /** PRIVATE: an AI seat's library agent, snapshotted at start (lobby edits never change a running seat). */
     aiAgent: v.optional(aiAgentSnapshot),
+    /** Summon prices paid in total (history: the replay's per-god spending). */
     spent: v.number(), pauseUsed: v.boolean(),
+    /**
+     * PRIVATE: the deity's own energy on world time and the share of its power its agents hold (docs/energy-model.md §6).
+     * Absent until migrations.powerV1 (lib/power.ts deityAccount falls back to the old real-time energy).
+     */
+    account: v.optional(account), allocated: v.optional(v.number()),
   }).index("by_game", ["gameId"]).index("by_game_god", ["gameId", "godId"]),
 
   objects: defineTable({
@@ -319,6 +329,8 @@ export const gameTables = {
     /** The language the source is written in (one the game allows). Absent on agents from single-language games: lib/language agentLanguage. */
     language: v.optional(storedLanguageV),
     summonCost: v.number(), expectedActCost: v.number(),
+    /** Its share of the owner's power (docs/energy-model.md §6); absent until migrations.powerV1 (lib/power.ts shareOf). */
+    powerShare: v.optional(v.number()),
     /** LEGACY (cleared by migrations.agentPricesV2): the decision price and the per-act floor, no longer charged. */
     decisionBits: v.optional(v.number()), perActFloorBits: v.optional(v.number()),
     breakdown, randomized: v.boolean(), account, acts: v.number(), spent: v.number(),

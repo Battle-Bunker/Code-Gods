@@ -93,6 +93,7 @@ import type * as lib_http from "../lib/http.js";
 import type * as lib_language from "../lib/language.js";
 import type * as lib_load from "../lib/load.js";
 import type * as lib_migrateSetups from "../lib/migrateSetups.js";
+import type * as lib_power from "../lib/power.js";
 import type * as lib_programs from "../lib/programs.js";
 import type * as lib_projection from "../lib/projection.js";
 import type * as lib_rooms from "../lib/rooms.js";
@@ -223,6 +224,7 @@ declare const fullApi: ApiFromModules<{
   "lib/language": typeof lib_language;
   "lib/load": typeof lib_load;
   "lib/migrateSetups": typeof lib_migrateSetups;
+  "lib/power": typeof lib_power;
   "lib/programs": typeof lib_programs;
   "lib/projection": typeof lib_projection;
   "lib/rooms": typeof lib_rooms;

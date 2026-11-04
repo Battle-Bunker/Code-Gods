@@ -54,13 +54,17 @@ test("a spawn that finds no free value does not use up room, so it cannot fake a
   assert.equal(p.full, false);
 });
 
-test("an ended game is frozen: a god's energy stops accruing at the end", () => {
-  const settings = { startingEnergy: 100, energyPerSecond: 2 } as Parameters<typeof godEnergy>[0]["settings"];
-  const live = { settings, createdAt: 0 };
-  assert.equal(godEnergy(live, 10, 30_000), 100 + 60 - 10, "a live game accrues with wall time");
-  const ended = { ...live, endedAt: 20_000 };
-  assert.equal(godEnergy(ended, 10, 30_000), 100 + 40 - 10, "reading after the end gives the energy at the end");
-  assert.equal(godEnergy(ended, 10, 3_600_000), godEnergy(ended, 10, 20_000), "and it does not move however late it is read");
+test("a deity's own energy: its account at (1 − allocated)·P on world time; one from before the power budget keeps its real-time energy, frozen at the end", () => {
+  const settings = { startingEnergy: 100, powerPerSecond: 64 } as unknown as Parameters<typeof godEnergy>[0]["settings"];
+  const game = { settings, createdAt: 0 };
+  const deity = { spent: 10, account: { balance: 90, settledWorldSeconds: 0 }, allocated: 0.75 };
+  assert.equal(godEnergy(game, deity, 10), 90 + 10 * 16, "a quarter of 64 bits/s for 10 world seconds");
+  assert.equal(godEnergy(game, deity, 0), 90);
+  // Legacy (no account yet): startingEnergy + energyPerSecond · wall seconds − spent, frozen at the end.
+  const legacy = { settings: { startingEnergy: 100, energyPerSecond: 2 } as unknown as typeof settings, createdAt: 0 };
+  assert.equal(godEnergy(legacy, { spent: 10 }, 0, 30_000), 100 + 60 - 10, "a live game accrues with wall time");
+  const ended = { ...legacy, endedAt: 20_000 };
+  assert.equal(godEnergy(ended, { spent: 10 }, 0, 30_000), 100 + 40 - 10, "reading after the end gives the energy at the end");
 });
 
 test("the scoreboard publishes once per interval: at the first commit reaching the next multiple, never twice in one", async () => {
