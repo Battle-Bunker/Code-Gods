@@ -101,11 +101,39 @@ function propose(x: string, inst: Instantiation, rng: Rng): string {
   return spawn(inst, rng);
 }
 
-/** 7 bits per position (up to the longer length) whose character differs. */
-function changedBits(a: string, b: string): Record<string, number> {
-  let d = 0;
-  for (let i = 0; i < Math.max(a.length, b.length); i++) if (a.charCodeAt(i) !== b.charCodeAt(i)) d++;
-  return { text: 7 * d };
+/**
+ * The information cost w of string's elementary mutators (docs/energy-model.md §4.1): set, insert or delete one
+ * character. log2 3 names the op, log2(L + 1) the position, 7 bits the new character (ASCII); set and delete also
+ * erase the 7 bits of the character they overwrite or remove.
+ */
+export function stringElementaryCosts(inst: Instantiation): { set: number; insert: number; delete: number } {
+  const op = Math.log2(3), at = Math.log2(stringArgs(inst).maxLength + 1);
+  return { set: op + at + 14, insert: op + at + 7, delete: op + at + 7 };
+}
+
+/**
+ * W of one string call: the cheapest edit script from `a` to `b` in elementary sets, inserts and deletes (weighted edit
+ * distance, two-row DP over the middle left after the common prefix and suffix; at most 1,024² cells). Exact for the
+ * elementary mutators, and a rotation or shift costs its few inserts and deletes, not a set per character.
+ */
+function callWork(a: string, b: string, _call: unknown, inst: Instantiation): number {
+  const w = stringElementaryCosts(inst);
+  let i = 0;
+  while (i < a.length && i < b.length && a[i] === b[i]) i++;
+  let ea = a.length, eb = b.length;
+  while (ea > i && eb > i && a[ea - 1] === b[eb - 1]) { ea--; eb--; }
+  const x = a.slice(i, ea), y = b.slice(i, eb);
+  let prev = new Float64Array(y.length + 1), cur = new Float64Array(y.length + 1);
+  for (let k = 0; k <= y.length; k++) prev[k] = k * w.insert;
+  for (let r = 1; r <= x.length; r++) {
+    cur[0] = r * w.delete;
+    for (let k = 1; k <= y.length; k++) {
+      const keep = prev[k - 1] + (x[r - 1] === y[k - 1] ? 0 : w.set);
+      cur[k] = Math.min(keep, prev[k] + w.delete, cur[k - 1] + w.insert);
+    }
+    [prev, cur] = [cur, prev];
+  }
+  return prev[y.length];
 }
 
 /** log2 of the number of strings: 7(L+1) − log2 127 + log2(1 − 2^(−7(L+1))). */
@@ -345,7 +373,7 @@ export const STRING: ObjectTypeDef<string> = Object.freeze({
   codec,
   spawn,
   propose,
-  changedBits,
+  callWork,
   layerBits,
   get mutators() { return STRING_MUTATORS; },
   prelude,

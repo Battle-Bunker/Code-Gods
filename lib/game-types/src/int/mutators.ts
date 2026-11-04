@@ -1,7 +1,9 @@
 /**
  * Int mutators, designed on the Grid principles (lib/grid-lab/docs/mutators.md §1):
  *
- *   bijections erase nothing and pay only description + motion:
+ * Grid Lab's descriptors (D = description bits, E = pointwise erasure; summon pricing and the reference mixture use D).
+ * The act charge never reads these D and E terms: applyCalls prices each call by its elementary decomposition (docs/energy-model.md §4).
+ *   bijections erase nothing:
  *     add(k)            x → min + (x − min + k) mod W            W = max − min + 1; D = Elias-γ(|k|) + 1 sign bit
  *     reflect           x → min + max − x                        D = 0
  *     swap_digits(i,j)  swap two decimal places                  D = log2 C(P, 2)
@@ -11,12 +13,12 @@
  *   overwrites pay their pointwise erasure log2 |f⁻¹(f(x))|, counted exactly:
  *     set_digit(p, d)   one place becomes d                      E ≈ log2 10, D = log2 P + log2 10
  *     round(p)          to the nearest 10^p, halves away from 0  E ≈ p · log2 10, D = log2 P
- *     set(v)            x → v                                    E = log2 W, D = log2 W
- * so a structured partial edit (one place, the low places) is far cheaper than overwriting the number.
+ *   multiply(m)       x → x·m (fails out of range)               D = Elias-γ(|m|) + 1
+ * There is no "set the number" mutator (docs/energy-model.md §4.1): setting one means a sequence of digit adds. The act
+ * charge prices each call by its elementary decomposition (int/index.ts callWork), not by these D and E terms.
  *
  * Places: P = max(2, decimal digits of max(|min|, |max|)), fixed width with leading zeros; place 0 is
- * the ones, place 1 the tens, ...; the sign is kept (a digit map never changes it). Motion is charged per act
- * by applyCalls on the type's "value" layer (Σ B² / B_tot of the act's net change).
+ * the ones, place 1 the tens, ...; the sign is kept (a digit map never changes it).
  * Every overwrite is idempotent; every bijection is injective. Int(v, v) offers no mutators.
  */
 import type { Instantiation, MutatorDef, MutatorKind, MutatorScope, Rng } from "../types.ts";
@@ -25,6 +27,8 @@ import { checkFields, fail, intParam, lg, mdoc, mod } from "../mutators.ts";
 type IP = Record<string, number>;
 
 interface IntCtx { readonly min: number; readonly max: number; readonly W: number; readonly P: number }
+/** Decimal places of the range: P = max(2, digits of max(|min|, |max|)). */
+export const placesOf = (inst: Instantiation): number => ctx(inst).P;
 function ctx(inst: Instantiation): IntCtx {
   const { min, max } = inst.args as { min: number; max: number };
   return { min, max, W: max - min + 1, P: Math.max(2, String(Math.max(Math.abs(min), Math.abs(max))).length) };
@@ -284,27 +288,31 @@ const round = def({
   },
 });
 
-const set = def({
-  id: "set", name: "Set", emoji: "🎰", summary: "Replace the number with any number you choose.",
-  kind: "overwrite", scope: "global", fields: ["value"],
-  parse: (raw, c) => ({ value: intParam(raw, "value", c.min, c.max) }),
-  describe: (_p, c) => lg(c.W),
-  apply: (_x, p) => p.value,
-  erase: (_x, _p, c) => lg(c.W),
-  sample: (rng, c) => ({ value: c.min + rng.int(c.W) }),
+const multiply = def({
+  id: "multiply", name: "Multiply", emoji: "✖️", summary: "Multiply the number by a whole number (not 0, 1 or −1); out of range, nothing happens.",
+  kind: "bijective", scope: "global", fields: ["m"],
+  parse: (raw, c) => {
+    const big = Math.max(2, Math.abs(c.min), Math.abs(c.max));
+    const m = intParam(raw, "m", -big, big);
+    if (Math.abs(m) < 2) fail(`"m" must be at least 2 or at most −2`);
+    return { m };
+  },
+  describe: p => gamma(Math.abs(p.m)) + 1,
+  apply: (x, p, c) => { const y = x * p.m; return inDomain(c, y) ? y : null; },
+  sample: rng => ({ m: [2, 3, 5, 7][rng.int(4)] * (rng.int(2) ? 1 : -1) }),
   guest: {
-    py: `def set_to(value):
-    return _M_CALL("set", value=_M_INT(value, "value"))
+    py: `def multiply(m):
+    return _M_CALL("multiply", m=_M_INT(m, "m"))
 `,
-    js: `function setTo(value) {
-  return { __m: "set", value: __M_INT(value, "value") };
+    js: `function multiply(m) {
+  return { __m: "multiply", m: __M_INT(m, "m") };
 }
 `,
-    dts: `declare function setTo(value: number): MutatorCall;\n`,
-    doc: [["set_to(value)", "setTo(value)", "Replace the number with one you choose. It's the most expensive move: it wipes out every digit."]],
+    dts: `declare function multiply(m: number): MutatorCall;\n`,
+    doc: [["multiply(m)", "multiply(m)", "Multiply by m (×7 is cheap: it costs about the bits of 7, however many digits change). Out of range it fails."]],
   },
 });
 
 export const INT_MUTATORS: readonly MutatorDef<number, IP>[] = Object.freeze([
-  add, reflect, swap_digits, reverse_digits, rotate_digits, set_digit, round, set,
+  add, multiply, reflect, swap_digits, reverse_digits, rotate_digits, set_digit, round,
 ]);

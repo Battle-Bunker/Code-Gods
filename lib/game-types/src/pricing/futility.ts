@@ -11,7 +11,7 @@
  * `random`); a randomized one gets the success rate only. A deterministic agent runs once per distinct value. Pure:
  * the caller supplies the runner (the sandbox) and the sample (the game's objects first, then the reference mixture).
  */
-import { applyCalls, DEFAULT_COST_KNOBS } from "../mutators.ts";
+import { applyCalls } from "../mutators.ts";
 import { objectType } from "../registry.ts";
 import type { Instantiation, ObjectTypeDef, ObjectValue } from "../types.ts";
 import { isSkip, type AgentRun, type RunActs } from "./measure.ts";
@@ -59,7 +59,7 @@ export async function probeFutility(run: RunActs, inst: Instantiation, values: r
     if (r.usedRandom) randomized = true;
     if (r.error) return { ok: false, reason: r.error };
     if (isSkip(r.calls)) return { ok: false, reason: "skipped", skip: true };
-    const out = applyCalls(typeDef, inst, value, r.calls, DEFAULT_COST_KNOBS);
+    const out = applyCalls(typeDef, inst, value, r.calls);
     return out.ok ? { ok: true, value: out.value } : { ok: false, reason: out.reason };
   };
   // A deterministic agent's result on a value is reused (it is the same act).

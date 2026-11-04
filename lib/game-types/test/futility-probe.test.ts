@@ -13,7 +13,7 @@ const agent = (f: (x: number) => unknown, usedRandom = false): RunActs => value 
 const probe = (run: RunActs, values = SAMPLE) => probeFutility(run, inst, values, { salt: "test" });
 
 test("a constant agent: only one object can hold its value, every other act collides", async () => {
-  const p = await probe(agent(() => [["set", { value: 7 }]]));
+  const p = await probe(agent(x => [["add", { k: 7 - x }]]));
   assert.equal(p.constant, true);
   assert.equal(p.identity, false);
   // Pass one: one object takes 7, seven collide; pass two: the holder changes nothing, the others collide again.
@@ -57,7 +57,7 @@ test("a working agent: no warning, every act succeeds", async () => {
 });
 
 test("a randomized agent is not called constant or idempotent: its next act may differ", async () => {
-  const p = await probe(agent(() => [["set", { value: 7 }]], true));
+  const p = await probe(agent(x => [["add", { k: 7 - x }]], true));
   assert.equal(p.deterministic, false);
   assert.deepEqual([p.constant, p.idempotent], [false, false]);
   // The sample world still shows the collisions it will meet.

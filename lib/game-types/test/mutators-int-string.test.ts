@@ -83,10 +83,10 @@ test("Int availability and semantics", () => {
   assert.equal(ap("round", 145, { places: 1 }), 150);
   assert.equal(ap("round", -45, { places: 1 }), -50);
   assert.equal(ap("round", 4, { places: 1 }), 0);
-  assert.equal(ap("set", 7, { value: 42 }), 42);
+  assert.equal(ap("multiply", 7, { m: 3 }), 21);
+  assert.equal(ap("multiply", 75, { m: 3 }), null);                   // 225 leaves the domain
   const big = INT.instantiate({ min: -2147483648, max: 2147483647 });
   assert.equal(byId(M, "add").apply(2147483647, { k: 1 }, big), -2147483648);
-  assert.equal(byId(M, "set").erasureBits(0, { value: 1 }, big), 32);
   assert.equal(byId(M, "add").describeBits({ k: 1 }, big), 2);
   assert.equal(byId(M, "add").describeBits({ k: -5 }, big), 6);
 });
@@ -97,7 +97,7 @@ test("Int parse rejects junk", () => {
     ["add", { k: 0 }], ["add", { k: 201 }], ["add", { k: "1" }], ["add", { k: 1.5 }], ["add", {}], ["add", { k: 1, x: 2 }],
     ["reflect", { x: 1 }], ["swap_digits", { i: 1, j: 1 }], ["swap_digits", { i: 0, j: 3 }], ["rotate_digits", { k: 3 }],
     ["set_digit", { place: 3, digit: 1 }], ["set_digit", { place: 0, digit: 10 }], ["round", { places: 0 }],
-    ["set", { value: 151 }], ["set", { value: null }],
+    ["multiply", { m: 0 }], ["multiply", { m: 1 }], ["multiply", { m: -1 }], ["multiply", { m: 1.5 }], ["multiply", {}],
   ];
   for (const [id, raw] of bad) assert.throws(() => byId(INT_MUTATORS, id).parse(raw as never, i), /./, `${id} ${JSON.stringify(raw)}`);
 });
@@ -113,9 +113,10 @@ test("Int: partial edits are cheaper than overwrites, and erase what they should
   for (const places of [1, 2, 3]) assert.ok(Math.abs(mean("round", { places }) - places * Math.log2(10)) < 0.1, `round ${places}`);
   const v = INT.codec(i).encode(1234);
   const total = (calls: unknown) => { const o = applyCalls(INT, i, v, JSON.stringify(calls)); assert.ok(o.ok, JSON.stringify(o)); return o.cost.total; };
-  const digit = total([["set_digit", { place: 0, digit: 9 }]]), whole = total([["set", { value: 9999 }]]);
-  assert.ok(digit < whole / 2, `${digit} vs ${whole}`);
-  assert.ok(total([["add", { k: 1 }]]) < digit);
+  // 1234 → 1239 is one digit add; reaching 9999 takes four (there is no "set the number").
+  const digit = total([["set_digit", { place: 0, digit: 9 }]]), whole = total([["add", { k: 9999 - 1234 }]]);
+  assert.ok(digit < whole / 4, `${digit} vs ${whole}`);
+  assert.equal(total([["add", { k: 1 }]]), digit);
 });
 
 test("string semantics", () => {
@@ -156,16 +157,16 @@ test("string parse rejects junk", () => {
   for (const [id, raw] of bad) assert.throws(() => byId(STRING_MUTATORS, id).parse(raw as never, i), /./, `${id} ${JSON.stringify(raw)}`);
 });
 
-test("string: a run is cheaper than the same characters one by one", () => {
+test("string: a composite costs the same as the same characters one by one (its elementary decomposition)", () => {
   const i = STRING.instantiate({ maxLength: 128 }), v = STRING.codec(i).encode("a".repeat(100));
   const total = (calls: unknown) => { const o = applyCalls(STRING, i, v, JSON.stringify(calls)); assert.ok(o.ok, JSON.stringify(o)); return o.cost.total; };
   const run = total([["write", { i: 10, text: "hello" }]]);
   const scattered = total([..."hello"].map((c, k) => ["set_char", { i: 10 + k, c }]));
-  assert.ok(run < scattered, `${run} vs ${scattered}`);
+  assert.ok(Math.abs(run - scattered) < 1e-9, `${run} vs ${scattered}`);
   assert.ok(total([["shift_chars", { k: 1 }]]) > total([["shift_chars", { k: 1, range: [0, 5] }]]));
-  // truncation erases about 7 bits per character position thrown away
+  // truncating to 90 deletes ten characters
   const tr = applyCalls(STRING, i, v, JSON.stringify([["truncate", { n: 90 }]]));
-  assert.ok(tr.ok && Math.abs(tr.cost.erasure - 7 * 38) < 0.1, JSON.stringify(tr));
+  assert.ok(tr.ok && Math.abs(tr.cost.work - 10 * (Math.log2(3) + Math.log2(129) + 7)) < 1e-9, JSON.stringify(tr));
 });
 
 // ------------------------------------------------------------------------------------------------
@@ -185,8 +186,8 @@ function guestRoundTrip(def: typeof INT | typeof STRING, inst: Instantiation, js
 
 test("Int guest constructors (Python and JS agree, the engine accepts them)", () => {
   const out = guestRoundTrip(INT, INT.instantiate({ min: -999, max: 999 }),
-    `[add(-3), reflect(), swapDigits(2, 0), reverseDigits(), rotateDigits(2), setDigit(1, 7), roundOff(2), setTo(-12)]`,
-    `[add(-3), reflect(), swap_digits(2, 0), reverse_digits(), rotate_digits(2), set_digit(1, 7), round_off(2), set_to(-12)]`);
+    `[add(-3), reflect(), swapDigits(2, 0), reverseDigits(), rotateDigits(2), setDigit(1, 7), roundOff(2), multiply(-3)]`,
+    `[add(-3), reflect(), swap_digits(2, 0), reverse_digits(), rotate_digits(2), set_digit(1, 7), round_off(2), multiply(-3)]`);
   assert.deepEqual(out[2], ["swap_digits", { i: 0, j: 2 }]);
 });
 

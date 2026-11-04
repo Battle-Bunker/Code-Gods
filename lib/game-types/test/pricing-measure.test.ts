@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
-  GRID, INT, STRING, actCharge, applyCalls, gridFromHex, isSkip, measureAgent, mixtureFromHexFixture, readBound,
+  GRID, INT, STRING, actCharge, applyCalls, gridFromHex, isSkip, measureAgent, mixtureFromHexFixture, readBound, failedReadBits,
   referenceMixture, withComponents, type ObjectValue,
 } from "../src/index.ts";
 
@@ -98,7 +98,7 @@ test("a constant agent that reads nothing pays only its change, and only where i
   const changed = outs.filter(o => o.ok).length / small.values.length;
   assert.ok(changed > 0.8);
   close(p.diagnostics.changeRate, changed, 1e-12, "change rate");
-  close(p.expectedChange, outs.reduce((s, o) => s + (o.ok ? o.cost.erasure + o.cost.motion : 0), 0) / outs.length, 1e-9, "change");
+  close(p.expectedChange, outs.reduce((s, o) => s + (o.ok ? o.cost.total : 0), 0) / outs.length, 1e-9, "change");
   close(p.expectedActCost, p.expectedRead + p.expectedChange, 1e-12, "per act");
   assert.equal(p.diagnostics.skipRate, 0);
 });
@@ -149,7 +149,7 @@ test("actCharge has no fixed part: reads, plus the change only when it commits",
   const g = small.values[0];
   const ok = applyCalls(GRID, inst, g, PAINT_ROW_2);
   assert.ok(ok.ok);
-  const change = ok.cost.erasure + ok.cost.motion;
+  const change = ok.cost.total;
   assert.deepEqual(actCharge(ok, 2.5), { read: 2.5, change, total: 2.5 + change });
   assert.deepEqual(actCharge(ok, 0), { read: 0, change, total: change });
   // a collision or the commit clause: the change does not commit, the reads are still paid
@@ -171,4 +171,11 @@ test("isSkip: an empty call list, None/null, or a clause around no calls", () =>
 test("readBound: an unreadable meter is charged the whole object's information", () => {
   close(readBound(GRID.instantiate({ size: 4, symbols: "base10", colours: "rgb" })), 16 * (Math.log2(10) + Math.log2(3)), 1e-9, "4×4 grid");
   close(readBound(INT.instantiate({ min: -2147483648, max: 2147483647 })), 32, 1e-9, "Int32");
+});
+
+test("failedReadBits: the meter if it reported, the bound only for an act cut off while running, else nothing", () => {
+  assert.equal(failedReadBits({ readBits: 3, code: "EXECUTION" }, 100), 3);
+  assert.equal(failedReadBits({ code: "LIMIT" }, 100), 100);
+  assert.equal(failedReadBits({ code: "COMPILE" }, 100), 0, "a compile error never ran");
+  assert.equal(failedReadBits({}, 100), 0);
 });

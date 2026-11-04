@@ -13,12 +13,12 @@ test("a constant agent stops colliding: one act per object version, then a diagn
   await touch(host);
   const settings = {
     objectType: "Int", typeArgs: { min: -1000000, max: 1000000 }, languages: ["typescript"],
-    startingObjectCount: 5, spawnRateHz: 0, planningSeconds: 3600, agentEnergyPerSecond: 1000, agentBatteryActs: 50, interactionRateHz: 50,
+    startingObjectCount: 5, spawnRateHz: 0, planningSeconds: 3600, agentEnergyPerSecond: 1000, interactionRateHz: 50, startingEnergy: 1000,
   };
   const { roomId } = await roomWith([host, ada, bo], settings);
   const game = await startGame(host, roomId);
   const send = (god: typeof ada, command: Record<string, unknown>) => god.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
-  const summoned = await send(ada, { type: "summon", name: "Seven", language: "typescript", source: "function agent(x) { return [setTo(7)]; }" });
+  const summoned = await send(ada, { type: "summon", name: "Seven", language: "typescript", source: "function agent(x) { return x.value === 7 ? [add(1), add(-1)] : [add(7 - x.value)]; }" });
   assert.equal(summoned.accepted, true, summoned.message);
   await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 3600 }, kick: true });
 
@@ -60,7 +60,7 @@ test("validation warns before the summon: a constant agent, an idempotent one, a
   const game = await startGame(host, roomId);
   const send = (command: Record<string, unknown>) => ada.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
 
-  const constant = (await send({ type: "validate", language: "typescript", source: "function agent(x) { return [setTo(7)]; }" })).validation;
+  const constant = (await send({ type: "validate", language: "typescript", source: "function agent(x) { return x.value === 7 ? [add(1), add(-1)] : [add(7 - x.value)]; }" })).validation;
   assert.equal(constant.valid, true);
   assert.equal(constant.futility.constant, true);
   assert.ok(constant.expectedSuccessRate < 0.2, `${constant.expectedSuccessRate}`);
@@ -77,7 +77,7 @@ test("validation warns before the summon: a constant agent, an idempotent one, a
   assert.equal(working.expectedSuccessRate, 1);
 
   // The summon is never refused for a warning; the receipt carries it.
-  const summoned = await send({ type: "summon", name: "Seven", language: "typescript", source: "function agent(x) { return [setTo(7)]; }" });
+  const summoned = await send({ type: "summon", name: "Seven", language: "typescript", source: "function agent(x) { return x.value === 7 ? [add(1), add(-1)] : [add(7 - x.value)]; }" });
   assert.equal(summoned.accepted, true);
   assert.match(summoned.warnings.join(" "), /only one object can ever hold/);
   // Code the player already runs: a copies warning.

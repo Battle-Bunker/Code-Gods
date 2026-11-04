@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { test } from "node:test";
 import { GRID, availableOf, seededRng, type GridValue, type Instantiation, type TypeArgs } from "../src/index.ts";
-import { applyCalls, DEFAULT_COST_KNOBS, decisionBits } from "../src/mutators.ts";
+import { applyCalls, changeCost, decisionBits } from "../src/mutators.ts";
+import { gridElementaryCosts } from "../src/grid/index.ts";
 import { GRID_MUTATORS, type GridMutator } from "../src/grid/mutators.ts";
 
 const TYPES: Instantiation[] = GRID.representatives().map((a: TypeArgs) => GRID.instantiate(a));
@@ -136,28 +137,21 @@ test("expected pointwise erasure over spawns matches the analytic erasure", () =
   }
 });
 
-test("act costs reproduce the mutators.md cost table at Grid(5,base10,rgby)", () => {
-  const rng = seededRng("table"), g = GRID.codec(inst5).encode(GRID.spawn(inst5, rng));
-  const cost = (calls: unknown) => {
-    const out = applyCalls(GRID, inst5, g, JSON.stringify(calls));
-    assert.ok(out.ok, JSON.stringify(out));
-    return out.cost.total;
-  };
-  const near = (a: number, b: number, tol = 0.6) => assert.ok(Math.abs(a - b) <= tol, `${a} vs ${b}`);
-  const cell = cost([["paint", { kind: "cell", region: [2, 2], colour: 0 }]]);
-  const row = cost([["paint", { kind: "line", region: [0, 2], colour: 0 }]]);
-  const fill = cost([["paint", { kind: "all", colour: 0 }]]);
-  near(cell, 16.2); near(row, 23.2); near(fill, 69.4, 2);
-  near(cost([["turn_grid", { move: "rot90" }]]), 38.1, 6);   // motion is pointwise: d² of this grid, not E[d]²
-  near(cost([["swap_colours", { kind: "all", pair: [0, 1] }]]), 13.5, 1.5);
-  assert.ok(fill > 4 * cell && row < (5 * cell) / 2);
-  // a sum over calls
-  const two = applyCalls(GRID, inst5, g, JSON.stringify([["paint", { kind: "cell", region: [2, 2], colour: 0 }], ["turn_grid", { move: "rot90" }]]));
-  assert.ok(two.ok && two.cost.total > cell);
-  // the decision part is deterministic: base + D (+ M)
-  const base = Math.log2(23);
+test("act costs are the elementary decomposition of what changed, W + βW² (docs/energy-model.md §4)", () => {
+  const rng = seededRng("table"), v = GRID.spawn(inst5, rng), g = GRID.codec(inst5).encode(v);
+  const w = gridElementaryCosts(inst5);
+  for (const m of avail(inst5)) for (let s = 0; s < 4; s++) {
+    const p = m.sample(rng, inst5), out = applyCalls(GRID, inst5, g, JSON.stringify([[m.id, p]]));
+    if (!out.ok) continue;
+    const y = GRID.codec(inst5).decode(out.value);
+    let dc = 0, ds = 0;
+    for (let i = 0; i < 25; i++) { if (v.col[i] !== y.col[i]) dc++; if (v.sym[i] !== y.sym[i]) ds++; }
+    const W = dc * w.colour + ds * w.symbol;
+    assert.ok(Math.abs(out.cost.work - W) < 1e-9 && Math.abs(out.cost.total - changeCost(W)) < 1e-9, `${m.id} ${JSON.stringify(p)}`);
+  }
+  // the naming part of a literal move (summon price) is deterministic: log2 #available + D (+ M)
   const p = { kind: "line", region: [0, 2], colour: 0 };
-  assert.ok(Math.abs(decisionBits(byId("paint"), p, inst5, 23, DEFAULT_COST_KNOBS) - (base + Math.log2(8) + Math.log2(10) + 2)) < 1e-12);
+  assert.ok(Math.abs(decisionBits(byId("paint"), p, inst5, 23) - (Math.log2(23) + Math.log2(8) + Math.log2(10) + 2)) < 1e-12);
 });
 
 // ------------------------------------------------------------------------------------------------

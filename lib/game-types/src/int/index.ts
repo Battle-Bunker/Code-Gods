@@ -3,7 +3,7 @@ import { CLASSES } from "../constraints.ts";
 import { assemblePrelude, availableOf, floatLit, fmtBits, helper, js as jsLit, memo } from "../prelude.ts";
 import type { Codec, Instantiation, InstanceInfo, ObjectTypeDef, ParamSchema, Rng, TypeArgs } from "../types.ts";
 import { draw } from "../util.ts";
-import { INT_MUTATORS } from "./mutators.ts";
+import { INT_MUTATORS, placesOf } from "./mutators.ts";
 
 export const INT32_MIN = -2147483648, INT32_MAX = 2147483647;
 
@@ -92,12 +92,57 @@ function propose(x: number, inst: Instantiation, rng: Rng): number {
   return next < span ? min + next : x;
 }
 
-/** Bits of x − min that differ (XOR without 32-bit truncation). */
-function changedBits(a: number, b: number, inst: Instantiation): Record<string, number> {
-  const { min } = intArgs(inst);
-  let ya = a - min, yb = b - min, c = 0;
-  for (; ya > 0 || yb > 0; ya = Math.floor(ya / 2), yb = Math.floor(yb / 2)) c += (ya % 2) !== (yb % 2) ? 1 : 0;
-  return { value: c };
+
+/**
+ * The information cost w of Int's elementary mutators (docs/energy-model.md §4.1). One bit names the op (2 elementary ops).
+ * - add d·10ᵖ: + log2 P (the place) + log2 18 (the signed digit ±1…±9). A bijection (adds wrap), so it erases nothing.
+ * - multiply by m: + 1 (the sign) + Σ over m's prime factors p, with multiplicity, of (log2 p + 1). A prime is the
+ *   elementary step, so w(×ab) = w(×a) + w(×b) − 2. Out of range it fails, so it is injective and erases nothing.
+ */
+export const digitAddCost = (inst: Instantiation): number => 1 + Math.log2(placesOf(inst)) + Math.log2(18);
+export function multiplyCost(m: number): number {
+  let n = Math.abs(m), bits = 2;
+  for (let p = 2; p * p <= n; p += p === 2 ? 1 : 2) while (n % p === 0) { bits += Math.log2(p) + 1; n /= p; }
+  if (n > 1) bits += Math.log2(n) + 1;
+  return bits;
+}
+/**
+ * The fewest digit adds (d·10ᵖ, d ∈ ±1…±9) that sum to n: the minimal number of nonzero digits of a base-10 signed-digit
+ * representation. A carry helps only on runs of nines (999 = 1000 − 1); a DP over the digits with carry 0 or 1 finds it.
+ */
+export function signedDigits(n: number): number {
+  let x = Math.abs(n), noCarry = 0, carry = Infinity;   // fewest digits so far, without / with a carry into this place
+  while (x > 0) {
+    const v = x % 10;
+    x = (x - v) / 10;
+    // digit v + c here: emit it (v + c ≤ 9, no carry out; 10 emits 0 and carries), or emit v + c − 10 and carry 1.
+    const step = (c: number, prev: number, out: [number, number]) => {
+      const t = v + c;
+      if (t === 10) { out[1] = Math.min(out[1], prev); return; }
+      out[0] = Math.min(out[0], prev + (t === 0 ? 0 : 1));
+      if (t > 0) out[1] = Math.min(out[1], prev + 1);
+    };
+    const out: [number, number] = [Infinity, Infinity];
+    step(0, noCarry, out);
+    if (carry !== Infinity) step(1, carry, out);
+    [noCarry, carry] = out;
+  }
+  return Math.min(noCarry, carry + 1);
+}
+
+/**
+ * W of one Int call: `multiply` (elementary) by its parameter; any other call by the cheaper decomposition of its net
+ * effect: the fewest digit adds for Δ = after − before (or Δ ∓ W, since adds wrap), or, when after = before · m, the
+ * prime factors of m. An upper bound on the cheapest decomposition, exact for the elementary mutators.
+ */
+function callWork(a: number, b: number, call: { readonly id: string; readonly params: unknown }, inst: Instantiation): number {
+  if (call.id === "multiply") return multiplyCost((call.params as { m: number }).m);
+  const { min, max } = intArgs(inst), W = max - min + 1, d = b - a;
+  const digits = Math.min(...[d, d - W, d + W].map(signedDigits)) * digitAddCost(inst);
+  const m = a !== 0 ? b / a : 0;
+  // multiplyCost(m) ≥ 3 + log2 |m|: factor only when that bound can beat the digits.
+  const mult = Number.isInteger(m) && Math.abs(m) >= 2 && 3 + Math.log2(Math.abs(m)) < digits ? multiplyCost(m) : Infinity;
+  return Math.min(digits, mult);
 }
 
 /** Operators the Python Num view forwards to the int (each reads the whole number first). */
@@ -323,7 +368,7 @@ export const INT: ObjectTypeDef<number> = Object.freeze({
   codec,
   spawn,
   propose,
-  changedBits,
+  callWork,
   layerBits: (inst: Instantiation) => { const { min, max } = intArgs(inst); return { value: width(min, max) }; },
   get mutators() { return INT_MUTATORS; },
   prelude,

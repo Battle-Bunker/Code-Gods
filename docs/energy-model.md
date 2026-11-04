@@ -187,7 +187,7 @@ The owner's checks hold:
 - digit 3 costs less than ⅓ of digits 1, 3 and 5;
 - a row costs more than 4 × a cell.
 
-They are unit tests (`lib/game-types/test/change-cost.test.ts`).
+They are unit tests (`lib/game-types/test/mutators.test.ts`).
 
 ## 5. What the agent is told at summon
 

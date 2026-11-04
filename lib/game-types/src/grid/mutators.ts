@@ -8,9 +8,8 @@
  * The one deliberate difference: erasure is POINTWISE, log2 |f⁻¹(f(x))| given the call
  * (energy.py `pointwise_erasure`), whose expectation over the spawn prior is mutators.py's Shannon E.
  * Constant overwrites erase the same bits on every input; recolour, stamp, tally, blend, sort_line
- * and majority_line erase what they actually merge. Motion is charged per act by applyCalls
- * (open-agents.md §4.1: move · (d_col² log2 C + d_sym² log2 S) / N² on the act's net change); the
- * analytic expected changed cells (`terms().dcol / dsym`) are kept for docs, tests and parity.
+ * and majority_line erase what they actually merge. The act charge never reads these D and E terms: applyCalls prices each call by its elementary decomposition (docs/energy-model.md §4).
+ * The analytic expected changed cells (`terms().dcol / dsym`) are kept for docs, tests and parity.
  *
  * Guest constructors (Python / JS) take kid inputs: colours by name ("red") or letter, symbols as
  * shown ("7", "B", "K♥") or by value for digits, cells (grid.cell(2, 3), a loop variable) and areas:

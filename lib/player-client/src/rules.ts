@@ -39,6 +39,8 @@ it earns ${n(s, "agentEnergyPerSecond", 2)} bits per world second, with no cap. 
 with probability proportional to its energy (an agent at or below zero waits; at most ${MAX_AGENT_OPPORTUNITY_HZ} turns per world second each).
 An act pays only what it does: the bits of the object it reads, plus its change when it changes the object. There is no fixed charge per act.
 So scan cheaply, return no calls when nothing is worth doing (a skip: it pays only what it read), and save energy to act more often.
+A change costs W + 0.05·W², where W adds up its elementary steps (one cell's colour or symbol; one digit added, or a multiplication by a prime):
+painting a 4-cell row costs about 7.5× one cell. Small incremental acts are much cheaper than radical ones.
 You may destroy your own agents at any time, for free.
 At most ${n(s, "maxAgentsPerGod", 200)} agents per god.
 
