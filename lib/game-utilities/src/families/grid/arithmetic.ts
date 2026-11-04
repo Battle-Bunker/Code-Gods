@@ -2,7 +2,7 @@
 import type { Cand, CardText, GridSpec, Layer } from "./_util.ts";
 import { boolParam, choiceParam, colourParam, intParam } from "../../params.ts";
 import {
-  SCALAR, article, bestOf, cap, chance, climb, colourAt, fromFn, full, gridFamily, pick, product, pyCard, range, list, recolourNames, sentences, symForValue, thing, tsCard, tuple, wire,
+  SCALAR, article, bestOf, cap, chance, climb, colourAt, colourPairs, fromFn, full, gridFamily, pick, product, pyCard, range, list, recolourNames, sentences, symForValue, thing, tsCard, tuple, wire,
 } from "./_util.ts";
 import { solvedAnalytic } from "../../analytic/hook.ts";
 
@@ -1175,6 +1175,221 @@ const colourValueLadder = gridFamily<Record<string, never>>({
   exemplar: (_, g) => wire(g, full(g.N, 0), full(g.N, 0)),
 });
 
+// ================================================================================================
+// Splits (P10): variants dropped from a family because they changed what can score, as families of their own
+// ================================================================================================
+
+// --- Colour Bonds (split from Number Bonds: the pair must be the same colour) -------------------------------------
+// "Different colours" was tried as a param and is not a peer: its top bits are up to 18% off the same-colour rule's (P10).
+type ColourBondsP = Record<string, never>;
+const colourBondsText = (g: GridSpec): CardText => ({
+  emoji: "🎨", name: "Colour Bonds", consts: [["TARGET", g.vmax + 1]],
+  about: sentences(
+    `Two touching cells are best friends when their ${nums(g)} add up to ${g.vmax + 1} and they are the same colour.`,
+    g.say.valueKey(),
+    "Every pair of best friends scores 1 point.",
+  ),
+});
+const colourBonds = gridFamily<ColourBondsP>({
+  id: "colour_bonds", name: "Colour Bonds", emoji: "🎨", theme: "Neighbours that make the magic number and share a colour",
+  requires: { classes: ["Valued"] }, shape: SCALAR,
+  params: () => ({}),
+  support: () => [{}],
+  summary: (_, g) => colourBondsText(g).about,
+  python: (_, g) => pyCard(colourBondsText(g), `
+    def utility(grid):
+        bonds = 0
+        for cell in grid.cells:
+            for other in (cell.right, cell.down):
+                if other is not None and cell.value + other.value == TARGET and cell.colour == other.colour:
+                    bonds += 1
+        return bonds`),
+  typescript: (_, g) => tsCard(colourBondsText(g), `
+    function utility(grid) {
+      let bonds = 0;
+      for (const cell of grid.cells) {
+        for (const other of [cell.right, cell.down]) {
+          if (other !== null && cell.value + other.value === TARGET && cell.colour === other.colour) bonds += 1;
+        }
+      }
+      return bonds;
+    }`),
+  exemplar: (_, g) => wire(g, full(g.N, symForValue(g, Math.floor((g.vmax + 1) / 2))), full(g.N, 0)),
+});
+
+// --- Fibonacci Sandwich (split from Number Sandwich: the last number is the total) ---------------------------------
+const fibonacciText = (p: SandP, g: GridSpec): CardText => ({
+  emoji: "🐚", name: "Fibonacci Sandwich", consts: colourConst(p.colour),
+  about: sentences(
+    "Look at any 3 cells in a row, across or down.",
+    `If the last ${num(g)} is the first two ${nums(g)} added, that is a Fibonacci sandwich, like 2, 3, 5.`,
+    g.cards ? "" : "The first two numbers can't be 0.",
+    `The last cell must be ${p.colour}.`,
+    g.say.valueKey(),
+    "Each Fibonacci sandwich scores 1 point.",
+  ),
+});
+const fibonacciSandwich = gridFamily<SandP>({
+  id: "fibonacci_sandwich", name: "Fibonacci Sandwich", emoji: "🐚", theme: "The last number is the total of the two before",
+  requires: { classes: ["Valued"] }, shape: SCALAR,
+  params: () => ({ colour: colourParam("Colour of the total cell") }),
+  support: g => g.colourNames.map(colour => ({ colour })),
+  sample: (rng, g) => ({ colour: g.colourNames[rng.int(g.C)] }),
+  canonical: (p, g) => recolourNames(g, p, ["colour"]),
+  summary: (p, g) => fibonacciText(p, g).about,
+  python: (p, g) => pyCard(fibonacciText(p, g), `
+    def utility(grid):
+        points = 0
+        for line in grid.rows + grid.columns:
+            for i in range(len(line) - 2):
+                a, b, c = line[i], line[i + 1], line[i + 2]
+                if a.value > 0 and b.value > 0 and c.value == a.value + b.value and c.colour == MY_COLOUR:
+                    points += 1
+        return points`),
+  typescript: (p, g) => tsCard(fibonacciText(p, g), `
+    function utility(grid) {
+      let points = 0;
+      for (const line of [...grid.rows, ...grid.columns]) {
+        for (let i = 0; i < line.length - 2; i++) {
+          const a = line[i], b = line[i + 1], c = line[i + 2];
+          if (a.value > 0 && b.value > 0 && c.value === a.value + b.value && c.colour === MY_COLOUR) points += 1;
+        }
+      }
+      return points;
+    }`),
+  exemplar: (p, g, ctx) => {
+    const N = g.N, X = colourAt(g, p.colour), fib = [1, 1, 2, 3, 5, 8, 13];
+    const vs = [fromFn(N, (r, c) => ((r + c) % 2 === 0 ? 1 : 2)), fromFn(N, (r, c) => [1, 1, 2][(r + c) % 3]),
+      fromFn(N, (_, c) => [1, 1, 2][c % 3])];
+    if (g.vmax >= 8) vs.push(fromFn(N, (_, c) => fib[Math.min(c, g.vmax < 13 ? 5 : 6)]));
+    return bestOf("fibonacci_sandwich", p, ctx, vs.map(v => ({ sym: symGrid(g, v), col: full(N, X) })));
+  },
+});
+
+// --- Prime Territory (split from Times-Table Territory: the prime numbers) ----------------------------------------
+const PRIMES = [2, 3, 5, 7, 11, 13];
+const primeText = (p: SandP, g: GridSpec): CardText => ({
+  emoji: "🔢", name: "Prime Territory", consts: [["PRIMES", PRIMES], ...colourConst(p.colour)],
+  about: sentences(
+    `Find the biggest patch of touching cells that all show prime ${nums(g)}`
+      + `: ${g.say.values(range(g.vmax + 1).filter(v => v >= g.vmin && PRIMES.includes(v)), "or")}.`,
+    `Every cell in the patch must also be ${p.colour}.`,
+    g.say.valueKey(),
+    "Each cell in the patch scores 1 point.",
+  ),
+});
+const primeTerritory = gridFamily<SandP>({
+  id: "prime_territory", name: "Prime Territory", emoji: "🔢", theme: "The biggest patch of prime numbers",
+  requires: { classes: ["Valued"] }, shape: SCALAR,
+  params: () => ({ colour: colourParam("Colour of the patch") }),
+  support: g => g.colourNames.map(colour => ({ colour })),
+  sample: (rng, g) => ({ colour: g.colourNames[rng.int(g.C)] }),
+  canonical: (p, g) => recolourNames(g, p, ["colour"]),
+  summary: (p, g) => primeText(p, g).about,
+  python: (p, g) => pyCard(primeText(p, g), `
+    def good(cell):
+        return cell.value in PRIMES and cell.colour == MY_COLOUR
+
+    def both_good(a, b):
+        return good(a) and good(b)
+
+    def utility(grid):
+        best = 0
+        for patch in grid.regions(both_good):
+            if good(patch[0]):
+                best = max(best, len(patch))
+        return best`),
+  typescript: (p, g) => tsCard(primeText(p, g), `
+    function good(cell) {
+      return PRIMES.includes(cell.value) && cell.colour === MY_COLOUR;
+    }
+
+    function bothGood(a, b) {
+      return good(a) && good(b);
+    }
+
+    function utility(grid) {
+      let best = 0;
+      for (const patch of grid.regions(bothGood)) {
+        if (good(patch[0])) best = Math.max(best, patch.length);
+      }
+      return best;
+    }`),
+  exemplar: (p, g) => wire(g, full(g.N, symForValue(g, 2)), full(g.N, colourAt(g, p.colour))),
+});
+
+// --- Colour Seesaw (split from Seesaw: the two sides are two colours) ---------------------------------------------
+type ColourSeesawP = { scope: Axis; left_colour: string; right_colour: string };
+const colourSeesawText = (p: ColourSeesawP, g: GridSpec): CardText => ({
+  emoji: "🎚️", name: "Colour Seesaw", consts: [["LEFT_COLOUR", p.left_colour], ["RIGHT_COLOUR", p.right_colour]],
+  about: sentences(
+    `Treat ${everyLine(p.scope)} as a seesaw.`,
+    `Add up the ${nums(g)} on its ${p.left_colour} cells and on its ${p.right_colour} cells.`,
+    g.say.valueKey(),
+    "A seesaw balances when both sides match. Each balanced seesaw scores 1 point.",
+    "Most points wins. If that's a tie, the smaller total gap between the two sides wins.",
+  ),
+});
+const colourSeesaw = gridFamily<ColourSeesawP>({
+  id: "colour_seesaw", name: "Colour Seesaw", emoji: "🎚️", theme: "Lines whose two colours balance",
+  requires: { classes: ["Valued"] }, shape: tuple(2),
+  params: () => ({
+    scope: choiceParam("Lines that count", AXIS_OPTIONS),
+    left_colour: colourParam("Colour of the left side"),
+    right_colour: colourParam("Colour of the right side"),
+  }),
+  support: g => (["rows", "cols"] as const).flatMap(scope =>
+    colourPairs(g).map(([a, b]) => ({ scope, left_colour: g.colourNames[a], right_colour: g.colourNames[b] }))),
+  sample: (rng, g) => {
+    const [a, b] = pick(rng, colourPairs(g));
+    return { scope: pick(rng, ["rows", "cols"] as const), left_colour: g.colourNames[a], right_colour: g.colourNames[b] };
+  },
+  canonical: (p, g) => recolourNames(g, { ...p, scope: "rows" }, ["left_colour", "right_colour"]),
+  summary: (p, g) => colourSeesawText(p, g).about,
+  python: (p, g) => pyCard(colourSeesawText(p, g), `
+    def lean(line):
+        left = sum(cell.value for cell in line if cell.colour == LEFT_COLOUR)
+        right = sum(cell.value for cell in line if cell.colour == RIGHT_COLOUR)
+        return abs(left - right)
+
+    def utility(grid):
+        balanced = 0
+        wobble = 0
+        for line in ${PY_AXIS[p.scope][0]}:
+            off = lean(line)
+            if off == 0:
+                balanced += 1
+            wobble += off
+        return (balanced, -wobble)`),
+  typescript: (p, g) => tsCard(colourSeesawText(p, g), `
+    function total(cells) {
+      let sum = 0;
+      for (const cell of cells) sum += cell.value;
+      return sum;
+    }
+
+    function lean(line) {
+      const left = total(line.filter(cell => cell.colour === LEFT_COLOUR));
+      const right = total(line.filter(cell => cell.colour === RIGHT_COLOUR));
+      return Math.abs(left - right);
+    }
+
+    function utility(grid) {
+      let balanced = 0;
+      let wobble = 0;
+      for (const line of ${TS_AXIS[p.scope]}) {
+        const off = lean(line);
+        if (off === 0) balanced += 1;
+        wobble += off;
+      }
+      return [balanced, -wobble];
+    }`),
+  exemplar: (p, g) => {
+    const third = range(g.C).find(k => g.colourNames[k] !== p.left_colour && g.colourNames[k] !== p.right_colour)!;
+    return wire(g, full(g.N, symForValue(g, g.vmax)), full(g.N, third));
+  },
+});
+
 export const ARITHMETIC = [straightShooter, numberBonds, magicAccountant, roundNumbers, kingOfTheHill, divisibility,
   numberSandwich, magicWindow, timesTable, oddsEvens, numberPainter, robinHood, seesaw, steppingStones, columnAddition,
-  ladder, snap, youngTableau, fillomino, colourValueLadder];
+  ladder, snap, youngTableau, fillomino, colourValueLadder, colourBonds, fibonacciSandwich, primeTerritory, colourSeesaw];

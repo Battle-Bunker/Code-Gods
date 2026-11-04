@@ -869,6 +869,163 @@ COLOUR_VALUE_LADDER = mk(
     source="arith 'colour-value ladder' / col 'gradients by value' cross-lens ideas")
 
 
+# --- Splits (P10): variants dropped from a family because they changed what can score, as families of their own -----
+# --- Colour Bonds (split from Number Bonds: the pair must be the same colour) ---------------------------------------
+# "Different colours" was tried as a param and is not a peer: its top bits are up to 18% off the same-colour rule's (P10).
+def cb_ord(g, p, gtype):
+    N, T = gtype.N, vmax(gtype) + 1
+    v, col = gtype.value[g.sym].tolist(), g.col.tolist()
+    s = 0
+    for r in range(N):
+        for c in range(N):
+            for r2, c2 in ((r, c + 1), (r + 1, c)):
+                s += r2 < N and c2 < N and v[r][c] + v[r2][c2] == T and col[r][c] == col[r2][c2]
+    return s
+
+
+def cb_batch(sym, col, p, gtype):
+    T = vmax(gtype) + 1
+    v = vals(sym, gtype)
+    s = 0
+    for a, b, ca, cb in ((v[:, :, :-1], v[:, :, 1:], col[:, :, :-1], col[:, :, 1:]),
+                         (v[:, :-1, :], v[:, 1:, :], col[:, :-1, :], col[:, 1:, :])):
+        s = s + ((a + b == T) & (ca == cb)).sum((1, 2))
+    return s
+
+
+def cb_exemplar(p, gtype):
+    N = gtype.N
+    half = (vmax(gtype) + 1) // 2
+    return grid(np.full((N, N), sym_for_value(gtype, half)), np.zeros((N, N)))
+
+
+COLOUR_BONDS = mk(
+    id="colour_bonds", name="Colour Bonds", theme="Neighbours that make the magic number and share a colour",
+    requires=req("Valued"), layers={"symbol", "colour", "position"}, camp="clumper",
+    sample=lambda rng, gt: {},
+    summary=lambda p, gt: (f"Every pair of touching cells whose numbers add up to {vmax(gt) + 1} scores a point, "
+                           "but only if the two cells are the same colour."),
+    ordinal=cb_ord, batch=cb_batch, exemplar=cb_exemplar,
+    source="catalog#10 split (the same-colour mode of Number Bonds, which changed what can score, P10; different colours is not a peer)")
+
+
+# --- Fibonacci Sandwich (split from Number Sandwich) ---------------------------------------------------------------
+def fs_ord(g, p, gtype):
+    N = gtype.N
+    v, col = gtype.value[g.sym].tolist(), g.col.tolist()
+    s = 0
+    for lv, lc in zip(_lines_scalar(v, "both"), _lines_scalar(col, "both")):
+        for i in range(N - 2):
+            a, b, c = lv[i:i + 3]
+            s += a > 0 and b > 0 and c == a + b and lc[i + 2] == ci(gtype, p["colour"])
+    return s
+
+
+def fs_batch(sym, col, p, gtype):
+    L, C = lines_rc(vals(sym, gtype), "both"), lines_rc(col, "both")
+    a, b, c = L[:, :, :-2], L[:, :, 1:-1], L[:, :, 2:]
+    ok = (a > 0) & (b > 0) & (c == a + b) & (C[:, :, 2:] == ci(gtype, p["colour"]))
+    return ok.sum((1, 2))
+
+
+def fs_exemplar(p, gtype):
+    N = gtype.N
+    r, c = np.indices((N, N))
+    X = ci(gtype, p["colour"])
+    cands = [np.where((r + c) % 2 == 0, 1, 2), np.array([1, 1, 2])[(r + c) % 3], np.array([1, 1, 2])[c % 3]]
+    if vmax(gtype) >= 8:
+        fib = np.array([1, 1, 2, 3, 5, 8, 13])
+        cands.append(fib[np.minimum(c, 5 if vmax(gtype) < 13 else 6)])
+    gs = [grid(_sym_grid(gtype, v), np.full((N, N), X)) for v in cands]
+    return best_of(fs_ord, gs, p, gtype)
+
+
+FIBONACCI_SANDWICH = mk(
+    id="fibonacci_sandwich", name="Fibonacci Sandwich", theme="The last number is the total of the two before",
+    requires=req("Valued"), layers={"symbol", "colour", "position"}, camp="alternator",
+    sample=lambda rng, gt: {"colour": colour_name(rng, gt)},
+    summary=lambda p, gt: ("Three cells in a line where the last number is the first two added (like 2 3 5)"
+                           f" score a point (no zeros at the start); the last cell must be {p['colour']}."),
+    ordinal=fs_ord, batch=fs_batch, canonical=lambda p, gt: recolour_names(p, ["colour"], gt), exemplar=fs_exemplar,
+    source="arith#4 Sum Sandwich split (the last-is-the-total kind, which scored differently from the middle-is-the-total kind, P10)")
+
+
+# --- Prime Territory (split from Times-Table Territory) ------------------------------------------------------------
+PRIMES = [2, 3, 5, 7, 11, 13]
+
+
+def pt_ord(g, p, gtype):
+    v = gtype.value[g.sym]
+    ok = np.isin(v, PRIMES) & (g.col == ci(gtype, p["colour"]))
+    N = gtype.N
+    return max((len(c) for c in comps2d([[0] * N for _ in range(N)], ok.tolist())), default=0)
+
+
+def pt_batch(sym, col, p, gtype):
+    ok = np.isin(vals(sym, gtype), PRIMES) & (col == ci(gtype, p["colour"]))
+    lab = label_batch(np.zeros(sym.shape, np.int64), ok)
+    return comp_sum(lab, np.ones(sym.shape, np.int64), ok).reshape(len(sym), -1).max(1)
+
+
+def pt_exemplar(p, gtype):
+    N = gtype.N
+    return grid(np.full((N, N), sym_for_value(gtype, 2)), np.full((N, N), ci(gtype, p["colour"])))
+
+
+PRIME_TERRITORY = mk(
+    id="prime_territory", name="Prime Territory", theme="The biggest patch of prime numbers",
+    requires=req("Valued"), layers={"symbol", "position"}, camp="clumper",
+    sample=lambda rng, gt: {"colour": colour_name(rng, gt)},
+    summary=lambda p, gt: ("Find the biggest patch of touching cells whose numbers are all prime numbers "
+                           f"and all {p['colour']}. Its size is your score."),
+    ordinal=pt_ord, batch=pt_batch, canonical=lambda p, gt: recolour_names(p, ["colour"], gt), exemplar=pt_exemplar,
+    source="arith#6 split (the prime variant of Times-Table Territory, which scored differently from a times table, P10)")
+
+
+# --- Colour Seesaw (split from Seesaw) -----------------------------------------------------------------------------
+def cs_imb(lv, lc, X, Y):
+    return sum(a for a, c in zip(lv, lc) if c == X) - sum(a for a, c in zip(lv, lc) if c == Y)
+
+
+def cs_ord(g, p, gtype):
+    v, col = gtype.value[g.sym].tolist(), g.col.tolist()
+    X, Y = cis(gtype, p, "left_colour", "right_colour")
+    imb = [abs(cs_imb(a, b, X, Y)) for a, b in zip(_lines_scalar(v, p["scope"]), _lines_scalar(col, p["scope"]))]
+    return tup(sum(x == 0 for x in imb), -sum(imb))
+
+
+def cs_batch(sym, col, p, gtype):
+    L, C = lines_rc(vals(sym, gtype), p["scope"]), lines_rc(col, p["scope"])
+    X, Y = cis(gtype, p, "left_colour", "right_colour")
+    imb = np.abs((L * (C == X)).sum(2) - (L * (C == Y)).sum(2))
+    return tupb((imb == 0).sum(1), -imb.sum(1))
+
+
+def cs_sample(rng, gtype):
+    left, right = colour_names(rng, gtype, 2)
+    return {"scope": str(rng.choice(["rows", "cols"])), "left_colour": left, "right_colour": right}
+
+
+def cs_exemplar(p, gtype):
+    N = gtype.N
+    third = next(k for k in range(gtype.C) if k not in cis(gtype, p, "left_colour", "right_colour"))
+    return grid(np.full((N, N), sym_for_value(gtype, vmax(gtype))), np.full((N, N), third))
+
+
+COLOUR_SEESAW = mk(
+    id="colour_seesaw", name="Colour Seesaw", theme="Lines whose two colours balance",
+    requires=req("Valued"), layers={"symbol", "colour", "position"}, camp="clumper",
+    sample=cs_sample,
+    summary=lambda p, gt: ("Each " + {"rows": "row", "cols": "column"}[p["scope"]] + " is a seesaw. "
+                           f"Add up its {p['left_colour']} numbers and its {p['right_colour']} numbers: if they match it balances."
+                           " Score a point for each balanced one; nearly balanced is better than way off."),
+    ordinal=cs_ord, batch=cs_batch,
+    canonical=lambda p, gt: recolour_names(_axis_canon(p, "scope"), ["left_colour", "right_colour"], gt),
+    exemplar=cs_exemplar,
+    source="arith#11 split (the colourSeesaw mode of Seesaw, which changed what can score, P10); tie-breaker = total imbalance")
+
+
 FAMILIES = [STRAIGHT_SHOOTER, NUMBER_BONDS, MAGIC_ACCOUNTANT, ROUND_NUMBERS, KING_OF_THE_HILL, DIVISIBILITY,
             NUMBER_SANDWICH, MAGIC_WINDOW, TIMES_TABLE, ODDS_EVENS, NUMBER_PAINTER, ROBIN_HOOD, SEESAW,
-            STEPPING_STONES, COLUMN_ADDITION, LADDER, SNAP, YOUNG_TABLEAU, FILLOMINO, COLOUR_VALUE_LADDER]
+            STEPPING_STONES, COLUMN_ADDITION, LADDER, SNAP, YOUNG_TABLEAU, FILLOMINO, COLOUR_VALUE_LADDER,
+            COLOUR_BONDS, FIBONACCI_SANDWICH, PRIME_TERRITORY, COLOUR_SEESAW]

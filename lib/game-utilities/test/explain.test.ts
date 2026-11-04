@@ -147,6 +147,13 @@ test("Number Bonds: one unit per touching pair, picked on the board by the neare
   assert.ok(point(2, 1));
 });
 
+test("Colour Bonds: the pairs that make the target must also share a colour", () => {
+  const { e, unit } = look("colour_bonds", {});
+  assert.equal(e.ordinal, 1, "only 7B + 3B are the same colour");
+  assert.deepEqual(unit("pair:2,1:down").facts, [{ text: "3 + 7 = 10", ok: true }, { text: "different colours (green, blue)", ok: false }],
+    "3G + 7B: right sum, different colours");
+});
+
 test("Chessmaster: blocks score, touching pairs are the tie-break; two hover modes", () => {
   const { e, unit, point, modes } = look("chessmaster", { colour_a: "red", colour_b: "green" });
   // No 2×2 block alternates red and green; four red–green touches: 8R|1G, 4R|7G, 3G|9R, 2R over 4G.
