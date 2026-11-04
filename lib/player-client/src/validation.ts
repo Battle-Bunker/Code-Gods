@@ -48,14 +48,16 @@ export function assessValidation(receipt: CommandResult): ValidationAssessment {
     return { verdict: "rejected", summary: `Rejected: ${why}`, next: "It does not compile or was refused: fix the error and validate again." };
   }
   const money = { cost: v.cost, expectedActCost: v.expectedActCost, ...(v.energy !== undefined ? { energy: v.energy } : {}), ...(v.affordable !== undefined ? { affordable: v.affordable } : {}) };
-  const price = `Summon price ${bits(v.cost)}${v.energy !== undefined ? `; the player had ${bits(v.energy)} of energy when it was validated (${v.affordable ? "affordable" : "not affordable yet"})` : ""}. Each act costs about ${v.expectedActCost.toFixed(2)} bits.`;
+  const split = v.breakdown ? ` (reading ${v.breakdown.read.toFixed(2)} + changing ${v.breakdown.change.toFixed(2)})` : "";
+  const skips = v.skipRate !== undefined && v.skipRate > 0 ? ` It returns no calls (a skip, which pays only its reads) on ${pct(v.skipRate)} of reference objects.` : "";
+  const price = `Summon price ${bits(v.cost)}${v.energy !== undefined ? `; the player had ${bits(v.energy)} of energy when it was validated (${v.affordable ? "affordable" : "not affordable yet"})` : ""}. Each act costs about ${v.expectedActCost.toFixed(2)} bits${split}; it pays only what it does.${skips}`;
   const fixIt = "Do not summon it. Check the exact mutator and helper signatures (the writing-agents skill, or get_observation instance.helpers), fix the code, and validate again. After three failed attempts, show the player the draft and the error and ask how to go on.";
   if (v.invalidRate !== undefined && v.invalidRate >= FAILING_RATE) {
     const why = failureLine(v.diagnostics);
     return { verdict: "fails", summary: `Fails or is invalid on ${pct(v.invalidRate)} of reference objects${why ? `: ${why}` : ""}. ${price}`, next: fixIt, ...money };
   }
   if (v.changeRate !== undefined && v.changeRate === 0) {
-    return { verdict: "no_change", summary: `Never changes a reference object: every act would pay without effect. ${price}`, next: fixIt, ...money };
+    return { verdict: "no_change", summary: `Never changes a reference object: every act would pay for its reads without effect. ${price}`, next: fixIt, ...money };
   }
   const poor = v.affordable === false ? ` It is not affordable yet (${bits(v.energy ?? 0)} of ${bits(v.cost)}; energy grows over time).` : "";
   // Most of its acts would fail (constant, idempotent, identity, or a low rate): warn, never block.

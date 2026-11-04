@@ -197,8 +197,10 @@ player: replaying the identical envelope returns its receipt; reusing a `command
 payload is a `CONFLICT`. After an uncertain failure, retry the same envelope, never a new one.
 
 **Result** (`resultSchema`): `{commandId, accepted, message, validation?}`. A validation has `valid`,
-`cost` (the summon price in bits) and its `parts`, `decisionBits`, `expectedActCost` with its
-`breakdown` (decision, erasure, motion, floor), `randomized` and `diagnostics`.
+`cost` (the summon price in bits, paid once) and its `parts`, `expectedActCost` (an ESTIMATE per act; nothing is
+charged from it) with its `breakdown` (`{read, change}`), `skipRate` (the share of reference acts that return no calls),
+`randomized` and `diagnostics`. An act pays the bits it reads plus, only when it changes the object, its change; a
+skip pays only its reads (docs/energy-model.md).
 
 **Observation** (`observationSchema`, `player.observation`), the caller's own projection:
 
@@ -207,15 +209,17 @@ payload is a `CONFLICT`. After an uncertain failure, retry the same envelope, ne
   (false: a spectator of this game, or joined after it launched; plays in the next game unless a spectator);
 - `instance`: the game's instantiation (key, label, badges, display tables, codec, mutators and the
   prelude helpers with Python and TypeScript signatures);
-- `economy`: `energyPerSecond`, `agentEnergyPerSecond`, `agentBatteryActs`, `maxAgentsPerGod`,
-  `penaltyWeight`, `worldSeconds`, `perActFloorBits`, `commitClause`, `objectSelection`;
+- `economy`: `energyPerSecond`, `agentEnergyPerSecond` (no cap), `maxAgentOpportunityHz` (the most turns a
+  single agent gets per world second), `maxAgentsPerGod`, `penaltyWeight`, `worldSeconds`, `commitClause`,
+  `objectSelection`;
 - `self`: `godId`, `label`, `isAI`, `energy`, `ready`, `pauseUsed`, and `utility`, the kid card
   (familyId, emoji, name, theme, summary, language, source, shape, optional `penalty` defence goal);
 - `objects`: `{id, value, own: {ordinal, rewardBits, penaltyBits?, netBits}, peerNetBits, peerCare,
   payoff}` (`peerCare = max(0, peerNetBits)`, `payoff = own.netBits × peerCare`, all in bits);
-- `agents` (own only): source, language, `summonCost`, `decisionBits`, `expectedActCost`, `breakdown`,
-  `randomized`, `energy`, `eligible`, `acts`, `spent`. An agent acts only while eligible; negative
-  energy is a cooldown;
+- `agents` (own only): source, language, `summonCost`, `expectedActCost`, `breakdown` (`{read, change}`),
+  `randomized`, `energy`, `eligible`, `acts`, `skips`, `spent`. A turn goes to an agent with probability
+  proportional to its positive energy; `eligible` means it can get the next one now (energy above 0, under the
+  per-agent turn cap). Energy may go negative: the agent waits until its income lifts it above 0;
 - `transformations` (own agents only), `leaderboard` (`totalPayoff`, AI seats labelled), public `chat`.
 
 The parse strips unknown fields at every level. Arrays are bounded windows. Only the player's own

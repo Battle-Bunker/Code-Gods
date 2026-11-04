@@ -1,7 +1,7 @@
 /**
  * The replay reducer (src/replay.ts) on hand-built pages of a transparent (ended-game) replay. What would break: a
  * transform that does not replace the object's contribution to every god's total, an agent account that is not
- * settled before an act's charge (or is settled past its battery), keyframe seeking that disagrees with applying the
+ * settled before an act's charge (or is capped by a battery: there is none), keyframe seeking that disagrees with applying the
  * log from the start, seeking by world time on a log whose world times step back across batches, god energy that
  * keeps running after the end, attribution lost on an act.
  */
@@ -11,12 +11,12 @@ import type { GameSettings } from "@workspace/game-core";
 import { observationSchema } from "../src/protocol.ts";
 import { KEYFRAME_EVERY, REPLAY_VERSION, buildReplay, cursorAtWorld, godEnergyAt, keyMoments, replayEvents, replayMyUtility, replayObservation, replayTrajectories, scoreSeries, stateAt, viewOf, type ReplayBatch, type ReplayPage } from "../src/replay.ts";
 
-const settings = { agentEnergyPerSecond: 1, agentBatteryActs: 2, startingEnergy: 100, energyPerSecond: 2 } as unknown as GameSettings;
-const charge = (total: number) => ({ decision: total, erasure: 0, motion: 0, floor: 0, total, naming: 0 });
+const settings = { agentEnergyPerSecond: 1, startingEnergy: 100, energyPerSecond: 2 } as unknown as GameSettings;
+const charge = (total: number) => ({ read: total, change: 0, total });
 const account = { balance: 0, settledWorldSeconds: 0 };
 const summon = (agentId: string, ownerId: string, summonCost = 30) => ({
-  type: "agent.summoned" as const, agentId, ownerId, worldSeconds: 0, language: "typescript", source: `src of ${agentId}`, summonCost, decisionBits: 4,
-  expectedActCost: 4, perActFloorBits: 0, breakdown: { decision: 4, erasure: 0, motion: 0, floor: 0 }, randomized: false, account,
+  type: "agent.summoned" as const, agentId, ownerId, worldSeconds: 0, language: "typescript", source: `src of ${agentId}`, summonCost,
+  expectedActCost: 4, breakdown: { read: 2, change: 2 }, randomized: false, account,
 });
 const T0 = 1_000_000;
 const page = (batches: ReplayBatch[], extra: Partial<ReplayPage> = {}): ReplayPage => ({
@@ -40,7 +40,7 @@ test("every god's totals, every agent with its owner and source, and exact accou
     { seq: 1, at: T0 + 1000, worldFrom: 0, worldTo: 0, events: [summon("a1", "me"), summon("b1", "you", 50)] },
     { seq: 2, at: T0 + 12_000, worldFrom: 0, worldTo: 10, events: [
       { type: "phase", phase: "running", worldSeconds: 0 },
-      // 10 s at 1/s from 0 is capped by the battery 2 × 4 = 8; the act costs 5: 3 left. me: −1 × 1; you: 1 × max(0, −1) = 0.
+      // 10 s at 1/s from 0 is 10 (no cap); the act costs 5: 5 left. me: −1 × 1; you: 1 × max(0, −1) = 0.
       { type: "object.transformed", objectId: "o1", value: 2, before: 1, version: 1, worldSeconds: 10, agentId: "a1", ownerId: "me", calls: [], cost: charge(5), net: [-1, 1], seed: "42" },
       // you: 4 × 2 = 8; me: 2 × 4 = 8.
       { type: "object.transformed", objectId: "o1", value: 3, before: 2, version: 2, worldSeconds: 10, agentId: "b1", ownerId: "you", calls: [], cost: charge(1), net: [2, 4] },
@@ -58,13 +58,23 @@ test("every god's totals, every agent with its owner and source, and exact accou
   assert.deepEqual(viewOf(s.objects.get("o1")!.net, 1), { netBits: 4, peerNetBits: 2, peerCare: 2, payoff: 8 });
   const a1 = s.agents.get("a1")!, b1 = s.agents.get("b1")!;
   assert.deepEqual([a1.ownerId, a1.source, a1.acts, a1.transforms, a1.failures, a1.spent, a1.alive, a1.destroyedAt], ["me", "src of a1", 2, 1, 1, 7, false, 11]);
-  assert.deepEqual(stateAt(replay, replay.log.length - 2).agents.get("a1")!.account, { balance: 3, settledWorldSeconds: 10 });
-  assert.deepEqual(a1.account, { balance: 2, settledWorldSeconds: 11 });
+  assert.deepEqual(stateAt(replay, replay.log.length - 2).agents.get("a1")!.account, { balance: 5, settledWorldSeconds: 10 });
+  assert.deepEqual(a1.account, { balance: 4, settledWorldSeconds: 11 });
   assert.deepEqual([b1.ownerId, b1.source, b1.transforms], ["you", "src of b1", 1], "another god's agent in full: its owner and its code");
   assert.equal(s.phase, "running");
   assert.deepEqual(s.spent, [30, 50]);
   // God energy: 100 + 2/s of wall time − spending; at the last batch (12 s in).
   assert.deepEqual([godEnergyAt(replay, s, 0), godEnergyAt(replay, s, 1)], [94, 74]);
+});
+
+test("a skipped act pays its reads, counts as a skip and not as a failure; energy is not capped", () => {
+  const replay = buildReplay([page([{ seq: 0, at: T0, worldFrom: 0, worldTo: 20, events: [
+    { type: "phase", phase: "running", worldSeconds: 0 }, summon("a1", "me"),
+    { type: "agent.skipped", objectId: "o1", agentId: "a1", ownerId: "me", worldSeconds: 20, cost: { read: 1.5, change: 0, total: 1.5 } },
+  ] }])]);
+  const a1 = stateAt(replay, replay.log.length).agents.get("a1")!;
+  assert.deepEqual([a1.acts, a1.skips, a1.transforms, a1.failures, a1.spent], [1, 1, 0, 0, 1.5]);
+  assert.deepEqual(a1.account, { balance: 20 - 1.5, settledWorldSeconds: 20 }, "20 s of income at 1/s, with no battery cap, less the reads");
 });
 
 test("god energy stops at the end of the game", () => {
@@ -198,7 +208,7 @@ test("a leader who is tied and then pulls ahead again has not changed: one lead 
 
 test("the SDK's answers at a playhead, for any god: the observation, the event window, trajectories and the utility", () => {
   const full = { ...settings, languages: ["typescript"], objectType: "Int", typeArgs: { min: 0, max: 9 }, priorId: "uniform", penaltyWeight: 0,
-    energyPerSecond: 2, agentBatteryActs: 2, maxAgentsPerGod: 4 } as unknown as GameSettings;
+    energyPerSecond: 2, maxAgentsPerGod: 4 } as unknown as GameSettings;
   const replay = buildReplay([page([
     { seq: 0, at: T0, worldFrom: 0, worldTo: 0, events: [
       { type: "phase", phase: "running", worldSeconds: 0 },

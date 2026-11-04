@@ -16,7 +16,7 @@ export const GLOSSARY = {
   agent: { term: "Agent", gloss: "Your small program, agent(obj), which returns up to 16 moves when the world picks it." },
   summon: { term: "Summon", gloss: "Paying energy to put an agent into the world; the price is the program's description bits (shorter is cheaper)." },
   energy: { term: "Energy", gloss: "Your god's bits for summoning; it refills every real second, even during planning and pauses." },
-  "agent-energy": { term: "Agent energy", gloss: "Each agent's own battery; it charges in world time and pays for every move it tries." },
+  "agent-energy": { term: "Agent energy", gloss: "Each agent's own bits: it earns them every world second (no cap) and pays for what each act reads and changes. More energy means more turns." },
   pause: { term: "Pause", gloss: "Each god may stop the world once per game (3 minutes by default) to negotiate." },
   palette: { term: "Command palette", gloss: "The search box (Ctrl/Cmd+K) that runs every command you have: the same repertoire your assistant has." },
   panel: { term: "Panel", gloss: "A view of the game in a pane: a built-in one you pick (your assistant sets its parameters) or one of your own." },
