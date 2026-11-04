@@ -91,11 +91,11 @@ test("trackStart: one requestId per click, idempotent retries reuse it, failures
   assert.equal(t2.get("room1"), null, "the control is restored");
 });
 
-test("an assistant's start_game call drives the same pending state: running starts it, ok hands over to the room, error or denial restores", () => {
+test("an assistant's start_game call drives the same pending state: running starts it, ok hands over to the room, error restores", () => {
   const clock = fakeClock();
   const tracker = createStartTracker(clock);
-  tracker.follow("room1", "call1", "awaiting_confirmation");
-  assert.equal(tracker.get("room1"), null, "nothing is starting until the owner approves");
+  tracker.follow("room1", "call1", "pending");
+  assert.equal(tracker.get("room1"), null, "nothing is starting until the call runs");
   tracker.follow("room1", "call1", "running");
   assert.deepEqual(startView(tracker.get("room1"), lobby, clock.now()), { phase: "starting", source: "assistant" });
   tracker.follow("room1", "call1", "running");
@@ -105,7 +105,7 @@ test("an assistant's start_game call drives the same pending state: running star
   clock.advance(START_LAG_MS);
   tracker.follow("room1", "call1", "ok");
   assert.equal(startView(tracker.get("room1"), lobby, clock.now()).phase, "idle", "an old finished call never revives the pending state");
-  tracker.follow("room1", "call2", "awaiting_confirmation");
+  tracker.follow("room1", "call2", "pending");
   tracker.follow("room1", "call2", "running");
   assert.equal(startView(tracker.get("room1"), lobby, clock.now()).phase, "starting");
   tracker.follow("room1", "call2", "error");

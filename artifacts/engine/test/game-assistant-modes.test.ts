@@ -116,13 +116,13 @@ test("Autopilot: turns open on their own in the game's thread, labelled, paid fr
   // The player's message comes first: sent while an autopilot turn runs, it stops that turn and starts its own.
   const slow = await admin.mutation(internal.testing.openAutopilotTurn, { roomId, subject: ann.subject, text: mock([{ text: ["a", "b", "c", "d", "e", "f"], delayMs: 1500 }]) });
   await waitFor(async () => (await turnOf(ann, slow.threadId, slow.turnId)).messages.some((m: any) => m.role === "assistant"), "the autopilot turn streams", 30_000, 100);
-  const sent = await ann.c.mutation(api.assistant.send, { roomId, text: mock([{ text: "Your answer." }]) });
-  assert.equal(sent.queued, true);
+  const sent = await ann.c.mutation(api.assistant.send, { roomId, threadId: slow.threadId, text: mock([{ text: "Your answer." }]) });
+  assert.deepEqual([sent.queued, sent.threadId], [true, slow.threadId], "in the conversation on the player's screen");
   const stopped = await until(ann, slow, DONE, "the autopilot turn stops");
   assert.equal(stopped.turn.status, "cancelled");
   assert.equal(stopped.turn.error?.code, "PREEMPTED");
   const mine = await waitFor(async () => {
-    const view = await thread(ann, slow.threadId);
+    const view = await thread(ann, sent.threadId);
     return view.turns.find((x: any) => x.trigger === null && x.createdAt > stopped.turn.createdAt && DONE.includes(x.status)) ?? null;
   }, "the player's message runs next", 60_000, 200);
   assert.equal(mine.status, "done");
@@ -180,4 +180,37 @@ test("migration: a turn waiting on an approval card ends, its call is denied, ap
   const next = await ann.c.mutation(api.assistant.send, { roomId, threadId: sent.threadId, text: mock([{ text: "back" }]) });
   assert.equal(next.queued, false);
   assert.equal((await until(ann, next, DONE, "the next turn")).turn.status, "done");
+});
+
+test("a message from another conversation, or with new rights, still preempts autopilot and runs in its own conversation", { timeout: 240_000 }, async () => {
+  const { members: [ann], roomId } = await modeRoom(["Pre Ann", "Pre Bob", "Pre Cyd"]);
+  const older = await ann.c.mutation(api.assistant.send, { roomId, text: mock([{ text: "older" }]) });
+  await until(ann, older, DONE, "the older conversation's turn");
+  const latest = await ann.c.mutation(api.assistant.send, { roomId, text: mock([{ text: "latest" }]) });
+  await until(ann, latest, DONE, "the latest conversation's turn");
+  assert.notEqual(older.threadId, latest.threadId);
+  const slow = await admin.mutation(internal.testing.openAutopilotTurn, { roomId, subject: ann.subject, text: mock([{ text: ["a", "b", "c", "d", "e", "f"], delayMs: 1500 }]) });
+  assert.equal(slow.threadId, latest.threadId, "autopilot plays in the latest conversation");
+  await waitFor(async () => (await turnOf(ann, slow.threadId, slow.turnId)).messages.some((m: any) => m.role === "assistant"), "the autopilot turn streams", 30_000, 100);
+  // Catches: CONFLICT ("answering in another conversation", or "working with act rights") leaving autopilot running.
+  const sent = await ann.c.mutation(api.assistant.send, { roomId, threadId: older.threadId, permission: "owner", ownerConsent: true, text: mock([{ text: "Mine." }]) });
+  assert.deepEqual([sent.queued, sent.threadId], [true, older.threadId]);
+  const stopped = await until(ann, slow, DONE, "the autopilot turn stops");
+  assert.equal(stopped.turn.error?.code, "PREEMPTED");
+  const mine = await waitFor(async () => (await thread(ann, older.threadId)).turns.find((x: any) => x.createdAt > stopped.turn.createdAt && DONE.includes(x.status)) ?? null,
+    "the player's message runs in its conversation", 60_000, 200);
+  assert.equal(mine.status, "done");
+  assert.ok(mine.tools.includes("start_game"), "with the rights the player chose");
+});
+
+test("a message sent from a replay runs read-only, whatever the mode: nothing lands in the live room", { timeout: 180_000 }, async () => {
+  const { members: [ann, bob], roomId, game } = await modeRoom(["Rep Ann", "Rep Bob", "Rep Cyd"]);
+  await ann.c.mutation(api.rooms.endActiveGame, { roomId });
+  const at = { gameId: game!.gameId, cursor: 1, events: 10, worldSeconds: 1, povGodId: bob.subject };
+  const sent = await ann.c.mutation(api.assistant.send, { roomId, replay: at, text: mock([{ tools: [{ name: "send_chat", input: { text: "from the replay" } }] }, { text: "ok" }]) });
+  const t = await until(ann, sent, DONE, "the replay turn ends");
+  assert.equal((await ann.c.query(api.assistant.status, { roomId })).mode, "onRequest");
+  assert.equal(t.calls[0].status, "error");
+  assert.match(t.calls[0].resultJson, /READ_ONLY/);
+  assert.ok(!t.turn.tools.includes("send_chat"), "only read tools were offered");
 });

@@ -550,6 +550,8 @@ export const hideCalibration = internalMutation({
     const row = await ctx.db.query("calibrationFiles").withIndex("by_instance", q => q.eq("instance", from)).unique();
     if (row) await ctx.db.patch(row._id, { instance: to });
     return !!row;
+  },
+});
 
 /**
  * One human's assistant rows as they were under per-action approvals (the assistant-mode migrations' input): a prefs
