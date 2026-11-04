@@ -2,7 +2,7 @@
 import { lens, tally, count } from "../lens.ts";
 import type { Cell, Part } from "../model.ts";
 
-type P = { axis: "rows" | "cols" | "both"; target: number };
+type P = { axis: "rows" | "cols"; target: number };
 
 export const magicAccountant = lens<P>({
   familyId: "magic_accountant",
@@ -16,8 +16,8 @@ export const magicAccountant = lens<P>({
   }),
   parts: (p, b) => {
     const lines: [string, Cell[]][] = [];
-    if (p.axis !== "cols") for (let r = 0; r < b.N; r++) lines.push([`row ${r + 1}`, b.row(r)]);
-    if (p.axis !== "rows") for (let c = 0; c < b.N; c++) lines.push([`column ${c + 1}`, b.column(c)]);
+    if (p.axis === "cols") for (let c = 0; c < b.N; c++) lines.push([`column ${c + 1}`, b.column(c)]);
+    else for (let r = 0; r < b.N; r++) lines.push([`row ${r + 1}`, b.row(r)]);
     return lines.map(([name, cells]): Part => {
       const total = cells.reduce((s, x) => s + b.value(x), 0), gap = total - p.target;
       const sum = `${cells.map(x => b.glyph(x)).join(" + ")} = ${total}`;

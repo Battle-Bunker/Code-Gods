@@ -150,7 +150,7 @@ test("Set Spotter: a focus expands the trios that END at it, never ones where it
 });
 
 test("Number Bonds: the pairs touching the focus, with their sums", () => {
-  const { e, at } = look("number_bonds", { mode: "any" });
+  const { e, at } = look("number_bonds", {});
   // 7 + 3 (row 4), 4 + 6 (column 1), 3 + 7 (column 2) make 10.
   assert.equal(e.ordinal, 3);
   const v = at(2, 1); // 3G touches 6B (left), 9R (right), 4B (up), 7B (down)
@@ -158,9 +158,6 @@ test("Number Bonds: the pairs touching the focus, with their sums", () => {
     "the bond first, then the others in reading order");
   assert.deepEqual(v.parts[0].facts, [{ text: "3 + 7 = 10", ok: true }]);
   assert.deepEqual(v.parts[3].facts, [{ text: "3 + 9 = 12, not 10", ok: false }]);
-  const same = look("number_bonds", { mode: "same" });
-  assert.equal(same.e.ordinal, 1, "only 7B + 3B are the same colour");
-  assert.deepEqual(same.at(2, 1).parts.find(p => p.id === "pair:2,1:down")!.facts.map(f => f.ok), [true, false], "3G + 7B: right sum, different colours");
 });
 
 test("Chessmaster: blocks score, seams are the tie-break", () => {
@@ -199,7 +196,7 @@ test("Magic Accountant: the focus's row against the magic number, with the tie-b
   assert.deepEqual(e.ordinal, [2, -5]);
   assert.deepEqual(at(1, 3).parts.map(p => [p.title, p.points]), [["row 2: 3 over", [0, -3]]]);
   assert.deepEqual(at(1, 3).parts[0].facts, [{ text: "4 + 4 + 4 + 7 = 19, not 16", ok: false }]);
-  assert.deepEqual(look("magic_accountant", { axis: "both", target: 16 }).at(0, 0).parts.map(p => p.id), ["line:row 1", "line:column 1"]);
+  assert.deepEqual(look("magic_accountant", { axis: "cols", target: 16 }).at(0, 0).parts.map(p => p.id), ["line:column 1"], "columns are the transposed peer: the focus's column only");
 });
 
 test("Kingdom: the focus's patch, and the biggest patch, which alone scores", () => {
@@ -247,14 +244,14 @@ test("Picture Frame: one piece per cell; an edge cell gains +1 for the colour or
 });
 
 test("Mirrormancer: the focus's row folded onto itself, pairs as ✓/✗ arcs", () => {
-  const { e, at } = look("mirrormancer", { axis: "LR", layer: "colour" });
-  // Rows: R R R G (1st/last R,G ✗; 2nd/3rd R,R ✓), G B R G (✓, ✗), B G R B (✓, ✗), R B B G (✗, ✓). No mirror; 4 pairs.
-  assert.deepEqual(e.ordinal, [0, 4]);
+  const { e, at } = look("mirrormancer", { axis: "LR" });
+  // Rows (numbers): 2 5 8 1 (✗, ✗), 4 4 4 7 (1st/last 4,7 ✗; 2nd/3rd 4,4 ✓), 6 3 9 0 (✗, ✗), 1 7 3 5 (✗, ✗). No mirror; 1 pair.
+  assert.deepEqual(e.ordinal, [0, 1]);
   const v = at(1, 2);
   assert.deepEqual(v.parts.map(p => p.id), ["line:row:1"]);
-  assert.deepEqual(v.parts[0].facts, [{ text: "1st and last: green, green", ok: true }, { text: "2nd and 2nd-last: blue, red", ok: false }]);
-  assert.deepEqual(v.parts[0].links!.map(l => [l.from.c, l.to.c, l.ok]), [[0, 3, true], [1, 2, false]]);
-  assert.deepEqual(look("mirrormancer", { axis: "TB", layer: "symbol" }).at(0, 0).parts[0].id, "line:column:0");
+  assert.deepEqual(v.parts[0].facts, [{ text: "1st and last: 4, 7", ok: false }, { text: "2nd and 2nd-last: 4, 4", ok: true }]);
+  assert.deepEqual(v.parts[0].links!.map(l => [l.from.c, l.to.c, l.ok]), [[0, 3, false], [1, 2, true]]);
+  assert.deepEqual(look("mirrormancer", { axis: "TB" }).at(0, 0).parts[0].id, "line:column:0");
 });
 
 test("goal examples: deterministic, in the room's own shape, verified, and they teach both sides", () => {

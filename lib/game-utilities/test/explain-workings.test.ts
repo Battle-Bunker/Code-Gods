@@ -66,10 +66,10 @@ test("every lens's breakdown adds up to the ordinal and its bits are the engine'
 });
 
 test("Number Bonds on a hand-counted First Steps board", () => {
-  // 4×4, base 10 (vmax 9, so friends make 10), rgb, mode "any". Rows: 3 7 5 5 / 1 9 2 8 / 4 6 0 0 / 9 1 5 5 (all red).
+  // 4×4, base 10 (vmax 9, so friends make 10), rgb. Rows: 3 7 5 5 / 1 9 2 8 / 4 6 0 0 / 9 1 5 5 (all red).
   // Touching pairs adding to 10. Right: row 1 has 3+7 and 5+5 (2), row 2 has 1+9 and 2+8 (2), row 3 has 4+6 (1), row 4 has
   // 9+1 and 5+5 (2). Down: no column has two neighbours adding to 10. So 7 best-friend pairs.
-  const inst = FIRST_STEPS, p = { mode: "any" } as Params;
+  const inst = FIRST_STEPS, p = {} as Params;
   const reward = tableFor(shippedTables(inst.key), { familyId: "number_bonds", params: p }, inst)!;
   const goal = explainer({ familyId: "number_bonds", params: p }, inst, { tables: { reward } })!;
   const value = "3R,7R,5R,5R/1R,9R,2R,8R/4R,6R,0R,0R/9R,1R,5R,5R";

@@ -6,7 +6,7 @@ import { lens, tally, count } from "../lens.ts";
 import type { Board } from "../board.ts";
 import type { Cell, Part } from "../model.ts";
 
-type P = { axis: "LR" | "TB"; layer: "colour" | "symbol" };
+type P = { axis: "LR" | "TB" };
 
 const ORDINAL = ["1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th"];
 
@@ -26,8 +26,8 @@ export const mirrormancer = lens<P>({
   parts: (p, b) => {
     const kind = p.axis === "LR" ? "row" : "column";
     const lines = Array.from({ length: b.N }, (_, i) => (p.axis === "LR" ? b.row(i) : b.column(i)));
-    const show = (x: Cell) => (p.layer === "colour" ? b.colour(x) : b.glyph(x));
-    const same = (x: Cell, y: Cell) => (p.layer === "colour" ? b.col(x) === b.col(y) : b.value(x) === b.value(y));
+    const show = (x: Cell) => b.glyph(x);
+    const same = (x: Cell, y: Cell) => b.value(x) === b.value(y);
     return lines.map((cells, i): Part => {
       const half = Math.floor(cells.length / 2);
       const pairs = Array.from({ length: half }, (_, k) => [cells[k], cells[cells.length - 1 - k]] as const);

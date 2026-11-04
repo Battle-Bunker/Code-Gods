@@ -57,7 +57,8 @@ RAINBOW_ROAD = mk(
 
 # --- Border Baron ---------------------------------------------------------------------------
 def bb_ord(g, p, gtype):
-    N, K = gtype.N, p["country_size"]
+    N = gtype.N
+    K = N  # a country is big at N cells (the sizes N-1, N and 2N-2 scored differently, P10)
     col = g.col.tolist()
     rid = [[0] * N for _ in range(N)]
     size = []
@@ -77,7 +78,7 @@ def bb_ord(g, p, gtype):
 
 
 def bb_batch(sym, col, p, gtype):
-    K = p["country_size"]
+    K = gtype.N  # a country is big at N cells (P10)
     allm = np.ones(col.shape, bool)
     lab = label_batch(col.astype(np.int64), allm)
     size = comp_sum(lab, np.ones(col.shape, np.int64), allm)
@@ -103,56 +104,48 @@ def bb_exemplar(p, gtype):
 BORDER_BARON = mk(
     id="border_baron", name="Border Baron", theme="Long borders between big countries",
     requires=req(), layers={"colour", "position"}, camp="clumper",
-    sample=lambda rng, gt: {"country_size": int(rng.choice([gt.N - 1, gt.N, 2 * gt.N - 2]))},
-    summary=lambda p, gt: (f"A country is a patch of touching cells of one colour. Countries of {p['country_size']} or more cells "
+    sample=lambda rng, gt: {},
+    summary=lambda p, gt: (f"A country is a patch of touching cells of one colour. Countries of {gt.N} or more cells "
                            "are big. Score a point for every edge where two big countries touch."),
     ordinal=bb_ord, batch=bb_batch, exemplar=bb_exemplar,
     source="catalog#2 (strat#1); tie-breaker = Σ min(size_a, size_b, K) over country borders", tags={"shortlist"})
 
 
 # --- Conqueror (and Colour Tug-of-War weight) ------------------------------------------------
-def cq_w(sym, gtype, weight):
-    return vals(sym, gtype) if weight == "value" else np.ones(sym.shape, np.int64)
-
-
 def cq_ord(g, p, gtype):
-    w = gtype.value[g.sym].ravel().tolist() if p["weight"] == "value" else [1] * gtype.N ** 2
+    w = gtype.value[g.sym].ravel().tolist()  # every cell is worth its value (counting each as 1 left far fewer scores, P10)
     A, B = cis(gtype, p, "colour", "enemy_colour")
     return sum(x * ((c == A) - (c == B)) for x, c in zip(w, g.col.ravel().tolist()))
 
 
 def cq_batch(sym, col, p, gtype):
-    w = cq_w(sym, gtype, p["weight"])
+    w = vals(sym, gtype)
     A, B = cis(gtype, p, "colour", "enemy_colour")
     return (w * ((col == A).astype(np.int64) - (col == B))).sum((1, 2))
 
 
 @lru_cache(maxsize=None)
-def _cq_dist(weight, gtype):
+def _cq_dist(gtype):
     C = gtype.C
     cell: dict[int, float] = {}
-    if weight == "value":
-        vs, cnt = np.unique(gtype.value, return_counts=True)
-        for v, k in zip(vs.tolist(), cnt.tolist()):
-            q = k / gtype.S
-            for s, pr in ((v, q / C), (-v, q / C), (0, q * (1 - 2 / C))):
-                cell[s] = cell.get(s, 0.0) + pr
-    else:
-        cell = {1: 1 / C, -1: 1 / C, 0: 1 - 2 / C}
+    vs, cnt = np.unique(gtype.value, return_counts=True)
+    for v, k in zip(vs.tolist(), cnt.tolist()):
+        q = k / gtype.S
+        for s, pr in ((v, q / C), (-v, q / C), (0, q * (1 - 2 / C))):
+            cell[s] = cell.get(s, 0.0) + pr
     return dist_conv([cell] * gtype.N ** 2)
 
 
 CONQUEROR = mk(
     id="conqueror", name="Conqueror", theme="Your army against your enemy",
     requires=req("Valued"), layers={"colour", "symbol"}, camp="clumper",
-    sample=lambda rng, gt: dict(zip(("colour", "enemy_colour"), colour_names(rng, gt, 2)), weight=str(rng.choice(["one", "value"]))),
+    sample=lambda rng, gt: dict(zip(("colour", "enemy_colour"), colour_names(rng, gt, 2))),
     summary=lambda p, gt: (f"{p['colour'].capitalize()} is your army and {p['enemy_colour']} your enemy. Score = "
-                           + ("how many army cells minus how many enemy cells." if p["weight"] == "one" else
-                              "the total of the army's numbers minus the total of the enemy's numbers.")),
+                           "the total of the army's numbers minus the total of the enemy's numbers."),
     ordinal=cq_ord, batch=cq_batch, canonical=lambda p, gt: recolour_names(p, ["colour", "enemy_colour"], gt),
-    exact_log2_tail=lambda t, p, gt: log2_dist_tail(*_cq_dist(p["weight"], gt), int(t)),
+    exact_log2_tail=lambda t, p, gt: log2_dist_tail(*_cq_dist(gt), int(t)),
     exemplar=lambda p, gt: grid(np.full((gt.N, gt.N), sym_for_value(gt, vmax(gt))), np.full((gt.N, gt.N), ci(gt, p["colour"]))),
-    source="catalog#5 (D6: strat#3 + arith#9 Tug-of-War as weight=value)", tags={"shortlist"})
+    source="catalog#5 (D6: strat#3 + arith#9 Tug-of-War, weight = value; the weight=one mode scored far fewer, P10)", tags={"shortlist"})
 
 
 # --- Parity Painter ---------------------------------------------------------------------------
@@ -213,13 +206,9 @@ PARITY_PAINTER = mk(
 
 
 # --- Mirrormancer --------------------------------------------------------------------------------
-def _layer(g_sym, g_col, gtype, layer):
-    return g_col.astype(np.int64) if layer == "colour" else rank_key(g_sym, gtype)
-
-
 def mm_ord(g, p, gtype):
     N = gtype.N
-    a = _layer(g.sym, g.col, gtype, p["layer"])
+    a = rank_key(g.sym, gtype)
     a = (a if p["axis"] == "LR" else a.T).tolist()
     lines = pairs = 0
     for row in a:
@@ -231,7 +220,7 @@ def mm_ord(g, p, gtype):
 
 def mm_batch(sym, col, p, gtype):
     N = gtype.N
-    a = _layer(sym, col, gtype, p["layer"])
+    a = rank_key(sym, gtype)
     if p["axis"] == "TB":
         a = np.swapaxes(a, 1, 2)
     m = a[:, :, :N // 2] == a[:, :, ::-1][:, :, :N // 2]
@@ -241,28 +230,28 @@ def mm_batch(sym, col, p, gtype):
 MIRRORMANCER = mk(
     id="mirrormancer", name="Mirrormancer", theme="Lines that read the same both ways",
     requires=req(), layers={"colour", "symbol", "position"}, camp="neutral",
-    sample=lambda rng, gt: {"axis": str(rng.choice(["LR", "TB"])), "layer": str(rng.choice(["colour", "symbol"]))},
+    sample=lambda rng, gt: {"axis": str(rng.choice(["LR", "TB"]))},
     summary=lambda p, gt: (f"Count the {'rows' if p['axis'] == 'LR' else 'columns'} whose "
-                           f"{'colours' if p['layer'] == 'colour' else 'symbols'} read the same forwards and backwards."),
+                           "symbols read the same forwards and backwards."),
     ordinal=mm_ord, batch=mm_batch, canonical=lambda p, gt: _dir_canon(p, "axis", "LR"),
     exemplar=lambda p, gt: grid(np.zeros((gt.N, gt.N)), np.zeros((gt.N, gt.N))),
-    source="catalog#15 (D9 lines; cards compare rank); tie-breaker = matching mirror pairs", tags={"shortlist"})
+    source="catalog#15 (D9 lines; cards compare rank; symbols only since P10, the colour layer is a split proposal); tie-breaker = matching mirror pairs", tags={"shortlist"})
 
 
 # --- Homebody ------------------------------------------------------------------------------------
-def _zone(N, z):
-    rim = rim_mask(N)
-    return rim if z == "rim" else ~rim
+def _zone(N):
+    """The edge: the middle holds far fewer cells than the edge, so only "on the edge" is left (P10)."""
+    return rim_mask(N)
 
 
 def hb_ord(g, p, gtype):
-    Z = _zone(gtype.N, p["zone"]).ravel().tolist()
+    Z = _zone(gtype.N).ravel().tolist()
     X = ci(gtype, p["colour"])
     return sum((1 if z else -1) for z, c in zip(Z, g.col.ravel().tolist()) if c == X)
 
 
 def hb_batch(sym, col, p, gtype):
-    Z = _zone(gtype.N, p["zone"])
+    Z = _zone(gtype.N)
     X = col == ci(gtype, p["colour"])
     return (X & Z).sum((1, 2)) - (X & ~Z).sum((1, 2))
 
@@ -274,20 +263,19 @@ def _hb_dist(n_in, n_out, C):
 
 
 def hb_tail(t, p, gtype):
-    Z = _zone(gtype.N, p["zone"])
+    Z = _zone(gtype.N)
     return log2_dist_tail(*_hb_dist(int(Z.sum()), int((~Z).sum()), gtype.C), int(t))
 
 
 HOMEBODY = mk(
     id="homebody", name="Homebody", theme="Your colour belongs at home",
     requires=req(), layers={"colour", "position"}, camp="neutral",
-    sample=lambda rng, gt: {"colour": colour_name(rng, gt), "zone": str(rng.choice(["core", "rim"]))},
-    summary=lambda p, gt: (f"{p['colour'].capitalize()} belongs "
-                           f"{'on the outside edge' if p['zone'] == 'rim' else 'in the middle (away from the edge)'}. "
+    sample=lambda rng, gt: {"colour": colour_name(rng, gt)},
+    summary=lambda p, gt: (f"{p['colour'].capitalize()} belongs on the outside edge. "
                            f"+1 for each {p['colour']} cell at home, -1 for each one that wandered off."),
     ordinal=hb_ord, batch=hb_batch, canonical=lambda p, gt: recolour_names(p, ["colour"], gt), exact_log2_tail=hb_tail,
     exemplar=lambda p, gt: grid(np.zeros((gt.N, gt.N)),
-                                np.where(_zone(gt.N, p["zone"]), ci(gt, p["colour"]), (ci(gt, p["colour"]) + 1) % gt.C)),
+                                np.where(_zone(gt.N), ci(gt, p["colour"]), (ci(gt, p["colour"]) + 1) % gt.C)),
     source="catalog#16 (D5: strat#2; Fence Painter = zone rim)", tags={"shortlist"})
 
 

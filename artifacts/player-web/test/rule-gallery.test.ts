@@ -47,7 +47,7 @@ test("a tile's fields are the family's named, typed params with the values its s
   assert.ok(inSupport("parity_painter", inst, next));
   const magic = paramFields("magic_accountant", inst);
   assert.deepEqual(magic.map(f => [f.key, f.kind, f.label]), [["axis", "choice", "Lines that count"], ["target", "int", "Magic number"]]);
-  assert.deepEqual(magic[0].options.map(o => o.label), ["rows", "columns", "rows and columns"]);
+  assert.deepEqual(magic[0].options.map(o => o.label), ["rows", "columns"]);
   assert.deepEqual(withParam("magic_accountant", inst, { axis: "rows", target: 18 }, "axis", "cols").axis, "cols");
   for (const id of galleryFamilies(inst)) assert.ok(inSupport(id, inst, randomParams(id, inst, 7)), `${id}: random params are in the support`);
   for (const id of galleryFamilies(inst)) for (const f of paramFields(id, inst)) assert.ok(f.label && f.options.length, `${id}.${f.key}`);
