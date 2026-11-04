@@ -9,6 +9,7 @@ import {
   binomial, combine, distOf, exactSurvival, iidSum, lazySurvival, lineChainCount, logFactorial, mapDist, type AnalyticSurvival, type Dist,
 } from "../../analytic.ts";
 import { solvedAnalytic } from "../../analytic/hook.ts";
+import { tierPoints } from "../../tuples.ts";
 
 const DIRS4 = ["→", "←", "↓", "↑"] as const;
 type Dir4 = (typeof DIRS4)[number];
@@ -36,9 +37,9 @@ const roadText = (p: RoadP, g: GridSpec): CardText => {
   const order = [...g.colourNames, g.colourNames[0]].join(" → ");
   return {
     emoji: "🌈", name: "Rainbow Road", consts: [],
-    about: `Look along ${READ_LINES[p.direction]}. A step is good if the next cell has the next colour in rainbow order `
-      + `(${order}). Each ${kind} where every step is good scores 1 point. Most points wins. If that's a tie, `
-      + "more good steps in total wins.",
+    about: `Try to make every ${kind} follow the rainbow. Look along ${READ_LINES[p.direction]}. A step is good if the next cell has the next colour in rainbow order `
+      + `(${order}). Each ${kind} where every step is good scores ${tierPoints(1, 0, 2)}. `
+      + `Each good step in total scores ${tierPoints(1, 1, 2)}.`,
   };
 };
 const rainbowRoad = gridFamily<RoadP>({
@@ -99,9 +100,9 @@ const rainbowRoad = gridFamily<RoadP>({
 type BaronP = Record<string, never>;
 const baronText = (g: GridSpec): CardText => ({
   emoji: "🏰", name: "Border Baron", consts: [["BIG", g.N]],
-  about: "A country is a group of touching cells of one colour. A border is a place where two countries touch. "
-    + `Each border scores 1 point if both countries have at least ${g.N} cells. Most points wins. If that's a tie, `
-    + `add up, for every border, the size of its smaller country (counting at most ${g.N}).`,
+  about: "Try to make long borders between big countries. A country is a group of touching cells of one colour. A border is a place where two countries touch. "
+    + `Each border scores ${tierPoints(1, 0, 2)} if both countries have at least ${g.N} cells. `
+    + `Each border also scores as many secondary points as the size of its smaller country (counting at most ${g.N}).`,
 });
 const borderBaron = gridFamily<BaronP>({
   id: "border_baron", name: "Border Baron", emoji: "🏰", theme: "Long borders between big countries",
@@ -208,12 +209,12 @@ const parityText = (p: ParityP, g: GridSpec): CardText => {
   return p.split === "suit"
     ? {
       emoji: "🎭", name: "Parity Painter", consts: [["RED_SUIT_COLOUR", P], ["BLACK_SUIT_COLOUR", Q]],
-      about: `Hearts and diamonds (♥ ♦) should be ${P}. Spades and clubs (♠ ♣) should be ${Q}. A card in its right `
+      about: `Try to dress each card in its suit's colour. Hearts and diamonds (♥ ♦) should be ${P}. Spades and clubs (♠ ♣) should be ${Q}. A card in its right `
         + "colour scores 1 point. A card in the other suits' colour loses 1 point.",
     }
     : {
       emoji: "🎭", name: "Parity Painter", consts: [["EVEN_COLOUR", P], ["ODD_COLOUR", Q]],
-      about: sentences(`Even ${thing(g)}s should be ${P} and odd ones ${Q}. A cell in its right colour scores 1 point. A cell in `
+      about: sentences(`Try to dress each cell in the colour of its kind. Even ${thing(g)}s should be ${P} and odd ones ${Q}. A cell in its right colour scores 1 point. A cell in `
         + "the other kind's colour loses 1 point.", g.say.valueKey()),
     };
 };
@@ -299,9 +300,9 @@ const mirrorText = (p: MirrorP, g: GridSpec): CardText => {
   const shown = g.cards ? "ranks" : "numbers";
   return {
     emoji: "🪞", name: "Mirrormancer", consts: [],
-    about: `A ${kind} is a mirror if its ${shown} read the same forwards and backwards. Each mirror ${kind} scores `
-      + "1 point. Most points wins. If that's a tie, more matching pairs wins (first and last, second and "
-      + "second-last, and so on).",
+    about: `Try to make mirror ${kind}s. A ${kind} is a mirror if its ${shown} read the same forwards and backwards. Each mirror ${kind} scores `
+      + `${tierPoints(1, 0, 2)}. Each matching pair (first and last, second and second-last, and so on) in any ${kind} scores `
+      + `${tierPoints(1, 1, 2)}.`,
   };
 };
 const mirrormancer = gridFamily<MirrorP>({
@@ -350,7 +351,7 @@ const mirrormancer = gridFamily<MirrorP>({
 type HomeP = { colour: string };
 const homeText = (p: HomeP): CardText => ({
   emoji: "🏡", name: "Homebody", consts: [["MY_COLOUR", p.colour]],
-  about: `Your colour is ${p.colour}. It likes to stay home on the edge (the outside ring of cells). `
+  about: `Try to keep your ${p.colour} cells at home, on the edge (the outside ring of cells). `
     + `Each ${p.colour} cell at home scores 1 point. Each ${p.colour} cell away from home loses 1 point.`,
 });
 const homebody = gridFamily<HomeP>({
@@ -394,10 +395,10 @@ const homebody = gridFamily<HomeP>({
 type PeakP = { colour: string };
 const peakText = (p: PeakP, g: GridSpec): CardText => ({
   emoji: "🏔️", name: "Lone Peak", consts: [["MY_COLOUR", p.colour]],
-  about: sentences(`The highest ${g.cards ? "rank" : "number"} on the board is the peak.`, g.say.valueKey(),
+  about: sentences(`Try to make the one highest ${g.cards ? "rank" : "number"} on the board, the peak, ${p.colour}.`, g.say.valueKey(),
     `If exactly one cell shows the peak and it is ${p.colour}, you score the gap down to the next highest, `
-    + "1 point per step. Otherwise you score 0.",
-    `If that's a tie, having ${article(p.colour)} cell among the peaks wins.`),
+    + `1 primary point per step. Otherwise you score 0 primary points.`,
+    `Having ${article(p.colour)} cell among the peaks scores ${tierPoints(1, 1, 2)}.`),
 });
 const lonePeak = gridFamily<PeakP>({
   id: "lone_peak", name: "Lone Peak", emoji: "🏔️", theme: "One mountain towering over everything",
@@ -471,9 +472,9 @@ const colourOnly = () => ({ colour: colourParam("Your colour") });
 const colourOnlyLegacy = (p: Params, g: GridSpec): ColourP | null => (typeof p.X === "number" ? { colour: g.colourNames[p.X] } : null);
 const islanderText = (p: ColourP, g: GridSpec): CardText => ({
   emoji: "🏝️", name: "Islander", consts: [["MY_COLOUR", p.colour]],
-  about: `${cap(article(p.colour))} cell is an island if every cell touching it is the same other colour. `
-    + `Each island scores 1 point. Most points wins. If that's a tie, more ${p.colour} cells with no `
-    + `${p.colour} cell touching them wins.`,
+  about: `Try to make ${p.colour} islands. ${cap(article(p.colour))} cell is an island if every cell touching it is the same other colour. `
+    + `Each island scores ${tierPoints(1, 0, 2)}. Each ${p.colour} cell with no `
+    + `${p.colour} cell touching it scores ${tierPoints(1, 1, 2)}.`,
 });
 const islander = gridFamily<ColourP>({
   id: "islander", name: "Islander", emoji: "🏝️", theme: "Polka dots in a one-colour sea", shape: tuple(2),
@@ -522,8 +523,8 @@ const tokenLegacy = (p: Params, g: GridSpec): TokenP | null =>
 const tokenSupport = (g: GridSpec) => product<TokenP>({ symbol: range(g.S).map(s => glyph(g, s)), colour: g.colourNames });
 const rookText = (p: TokenP, g: GridSpec): CardText => ({
   emoji: "🏰", name: "Rook's Watch", consts: [["MY_SYMBOL", p.symbol], ["MY_COLOUR", p.colour]],
-  about: `Your token is ${g.say.symbol(symbolAt(g, p.symbol))} in ${p.colour}. Each row and each column that holds a token scores `
-    + "1 point. Most points wins. If that's a tie, more rows and columns holding a half-token wins: a cell with the "
+  about: `Try to put your token in every row and column. Your token is ${g.say.symbol(symbolAt(g, p.symbol))} in ${p.colour}. Each row and each column that holds a token scores `
+    + `${tierPoints(1, 0, 2)}. Each row and column holding a half-token scores ${tierPoints(1, 1, 2)}: a cell with the `
     + "right symbol or the right colour, but not both.",
 });
 const rooksWatch = gridFamily<TokenP>({
@@ -595,7 +596,7 @@ const frameText = (p: FrameP, g: GridSpec): CardText => {
     emoji: "🖼️", name: "Picture Frame",
     consts: [["MY_COLOUR", X], ["MY_SYMBOL", p.symbol], ["EDGE_ONE", E.one], ["EDGE_BOTH", E.both], ["MIDDLE_ONE", M.one], ["MIDDLE_BOTH", M.both]],
     about: sentences(
-      `Your colour is ${X} and your symbol is ${g.say.symbol(symbolAt(g, p.symbol))}.`,
+      `Try to put ${X} cells and ${S} on the edge and keep the middle clear. Your colour is ${X} and your symbol is ${g.say.symbol(symbolAt(g, p.symbol))}.`,
       "The edge is the outside ring of cells. The middle is every cell inside it.",
       `An edge cell that is ${X} or shows ${S} scores ${points(E.one)}; one that is both scores ${points(E.both)}.`,
       `A middle cell that is ${X} or shows ${S} loses ${points(-M.one)}; one that is both loses ${points(-M.both)}.`,
@@ -660,7 +661,7 @@ const pictureFrame = gridFamily<FrameP>({
 type StairP = { direction: "→" | "↓" };
 const stairText = (p: StairP, g: GridSpec): CardText => ({
   emoji: "🪜", name: "Staircase Climber", consts: [],
-  about: sentences(`Score 1 point every time a ${thing(g)} is exactly one more than the ${thing(g)} `
+  about: sentences(`Try to climb in single steps. Score 1 point every time a ${thing(g)} is exactly one more than the ${thing(g)} `
     + `${p.direction === "→" ? "to its left" : "above it"}.`, g.say.valueKey()),
 });
 const staircase = gridFamily<StairP>({
@@ -702,8 +703,8 @@ const staircase = gridFamily<StairP>({
 // --- Lucky Token -------------------------------------------------------------------------------------
 const luckyText = (p: TokenP, g: GridSpec): CardText => ({
   emoji: "🧿", name: "Lucky Token", consts: [["MY_SYMBOL", p.symbol], ["MY_COLOUR", p.colour]],
-  about: `Your token is ${g.say.symbol(symbolAt(g, p.symbol))} in ${p.colour}. Each cell showing it scores 1 point. Most points wins. `
-    + "If that's a tie, more halfway cells wins: a cell with the right symbol or the right colour, but not both.",
+  about: `Try to collect your token, ${g.say.symbol(symbolAt(g, p.symbol))} in ${p.colour}. Each cell showing it scores ${tierPoints(1, 0, 2)}. `
+    + `Each halfway cell scores ${tierPoints(1, 1, 2)}: a cell with the right symbol or the right colour, but not both.`,
 });
 const luckyToken = gridFamily<TokenP>({
   id: "lucky_token", name: "Lucky Token", emoji: "🧿", theme: "Collect your lucky token", shape: tuple(2),
@@ -742,7 +743,7 @@ const luckyToken = gridFamily<TokenP>({
 // --- Neighbourhood Vote --------------------------------------------------------------------------------
 const voteText = (p: ColourP, g: GridSpec): CardText => ({
   emoji: "🗳️", name: "Neighbourhood Vote", consts: [["MY_COLOUR", p.colour]],
-  about: "Each cell looks at the cells touching it and votes for the colour it sees most often. If two colours tie "
+  about: `Try to make your neighbours vote ${p.colour}. ` + "Each cell looks at the cells touching it and votes for the colour it sees most often. If two colours are level "
     + `for most, it doesn't vote. Each cell that votes ${p.colour} scores 1 point.`,
 });
 const neighbourhoodVote = gridFamily<ColourP>({
@@ -793,9 +794,9 @@ const neighbourhoodVote = gridFamily<ColourP>({
 type PairP = { first_colour: string; second_colour: string };
 const farText = (p: PairP, g: GridSpec): CardText => ({
   emoji: "↔️", name: "Far Apart", consts: [["COLOUR_A", p.first_colour], ["COLOUR_B", p.second_colour]],
-  about: `Find the middle of all the ${p.first_colour} cells and the middle of all the ${p.second_colour} cells. `
-    + "Count the steps across plus the steps down between the two middles. The further apart, the better, and part-steps "
-    + "count too (each full step is worth 64 points). If either colour is missing, you score 0.",
+  about: `Try to keep ${p.first_colour} and ${p.second_colour} far apart. Find the middle of all the ${p.first_colour} cells and the middle of all the ${p.second_colour} cells. `
+    + "Count the steps across plus the steps down between the two middles. Each full step scores 64 points, and part-steps "
+    + "count too. If either colour is missing, you score 0.",
 });
 const farApart = gridFamily<PairP>({
   id: "far_apart", name: "Far Apart", emoji: "↔️", theme: "Keep two colours as far apart as possible", shape: SCALAR,
