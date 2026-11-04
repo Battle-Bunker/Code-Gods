@@ -616,5 +616,68 @@ FAR_APART = mk(
     source="strat cross-lens idea 'Distance between centroids' (Manhattan, ×64 floored to an int)")
 
 
+# --- Head Count (a split of Conqueror: every cell is worth 1, not its value) ---------------------
+def hc_ord(g, p, gtype):
+    A, B = cis(gtype, p, "colour", "enemy_colour")
+    return sum((c == A) - (c == B) for c in g.col.ravel().tolist())
+
+
+def hc_batch(sym, col, p, gtype):
+    A, B = cis(gtype, p, "colour", "enemy_colour")
+    return ((col == A).astype(np.int64) - (col == B)).sum((1, 2))
+
+
+@lru_cache(maxsize=None)
+def _hc_dist(gtype):
+    C = gtype.C
+    return dist_conv([{1: 1 / C, -1: 1 / C, 0: 1 - 2 / C}] * gtype.N ** 2)
+
+
+HEAD_COUNT = mk(
+    id="head_count", name="Head Count", theme="More soldiers than your enemy",
+    requires=req(), layers={"colour"}, camp="clumper",
+    sample=lambda rng, gt: dict(zip(("colour", "enemy_colour"), colour_names(rng, gt, 2))),
+    summary=lambda p, gt: (f"{p['colour'].capitalize()} is your army and {p['enemy_colour']} your enemy. Score = "
+                           "how many army cells minus how many enemy cells."),
+    ordinal=hc_ord, batch=hc_batch, canonical=lambda p, gt: recolour_names(p, ["colour", "enemy_colour"], gt),
+    exact_log2_tail=lambda t, p, gt: log2_dist_tail(*_hc_dist(gt), int(t)),
+    exemplar=lambda p, gt: grid(np.zeros((gt.N, gt.N)), np.full((gt.N, gt.N), ci(gt, p["colour"]))),
+    source="split from Conqueror's weight=one mode (P10: counting cells and adding values are different rules)", tags={"shortlist"})
+
+
+# --- Colour Mirror (a split of Mirrormancer: colours, not numbers, read the same both ways) ----------
+def cmr_ord(g, p, gtype):
+    N = gtype.N
+    a = g.col.astype(np.int64)
+    a = (a if p["axis"] == "LR" else a.T).tolist()
+    lines = pairs = 0
+    for row in a:
+        m = [row[i] == row[N - 1 - i] for i in range(N // 2)]
+        lines += all(m)
+        pairs += sum(m)
+    return tup(lines, pairs)
+
+
+def cmr_batch(sym, col, p, gtype):
+    N = gtype.N
+    a = col.astype(np.int64)
+    if p["axis"] == "TB":
+        a = np.swapaxes(a, 1, 2)
+    m = a[:, :, :N // 2] == a[:, :, ::-1][:, :, :N // 2]
+    return tupb(m.all(2).sum(1), m.sum((1, 2)))
+
+
+COLOUR_MIRROR = mk(
+    id="colour_mirror", name="Colour Mirror", theme="Colours that read the same both ways",
+    requires=req(), layers={"colour", "position"}, camp="neutral",
+    sample=lambda rng, gt: {"axis": str(rng.choice(["LR", "TB"]))},
+    summary=lambda p, gt: (f"Count the {'rows' if p['axis'] == 'LR' else 'columns'} whose "
+                           "colours read the same forwards and backwards."),
+    ordinal=cmr_ord, batch=cmr_batch, canonical=lambda p, gt: _dir_canon(p, "axis", "LR"),
+    exemplar=lambda p, gt: grid(np.zeros((gt.N, gt.N)), np.zeros((gt.N, gt.N))),
+    source="split from Mirrormancer's colour layer (P10: mirrored colours and mirrored numbers are different rules); tie-breaker = matching mirror pairs",
+    tags={"shortlist"})
+
+
 FAMILIES = [RAINBOW_ROAD, BORDER_BARON, CONQUEROR, PARITY_PAINTER, MIRRORMANCER, HOMEBODY, LONE_PEAK, ISLANDER,
-            ROOKS_WATCH, PICTURE_FRAME, STAIRCASE, LUCKY_TOKEN, NEIGHBOURHOOD_VOTE, FAR_APART]
+            ROOKS_WATCH, PICTURE_FRAME, STAIRCASE, LUCKY_TOKEN, NEIGHBOURHOOD_VOTE, FAR_APART, HEAD_COUNT, COLOUR_MIRROR]

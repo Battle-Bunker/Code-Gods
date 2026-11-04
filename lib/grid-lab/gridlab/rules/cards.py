@@ -857,7 +857,44 @@ def full_house(p, gt):
         """)
 
 
+def head_count(p, gt):
+    return card("🪖", "Head Count", f"""Your colour against your enemy's. Each {p['colour']} cell adds
+        1 point, and each {p['enemy_colour']} cell takes 1 point away.""",
+                [("MY_COLOUR", p["colour"]), ("ENEMY_COLOUR", p["enemy_colour"])], """
+        def utility(grid):
+            points = 0
+            for cell in grid.cells:
+                if cell.colour == MY_COLOUR:
+                    points += 1
+                elif cell.colour == ENEMY_COLOUR:
+                    points -= 1
+            return points
+        """)
+
+
+def colour_mirror(p, gt):
+    lines, kind = ("grid.rows", "row") if p["axis"] == "LR" else ("grid.columns", "column")
+    return card("🪞", "Colour Mirror", f"""A {kind} is a mirror when its colours read the same forwards and
+        backwards. Count mirror {kind}s; if that's a tie, count matching pairs (first and last, second and
+        second-last, ...).""", [], f"""
+        def utility(grid):
+            mirrors = 0
+            pairs = 0
+            for line in {lines}:
+                half = len(line) // 2
+                matches = 0
+                for i in range(half):
+                    if line[i].colour == line[len(line) - 1 - i].colour:
+                        matches += 1
+                pairs += matches
+                if matches == half:
+                    mirrors += 1
+            return (mirrors, pairs)
+        """)
+
+
 CARDS = {
+    "head_count": head_count, "colour_mirror": colour_mirror,
     "seed1_line_painter": line_painter, "seed2_patchwork": patchwork, "seed3_green_ones": green_ones,
     "rainbow_road": rainbow_road, "border_baron": border_baron, "conqueror": conqueror,
     "parity_painter": parity_painter, "mirrormancer": mirrormancer, "homebody": homebody, "lone_peak": lone_peak,

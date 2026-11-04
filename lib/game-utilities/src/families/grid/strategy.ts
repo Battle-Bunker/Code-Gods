@@ -835,5 +835,91 @@ const farApart = gridFamily<PairP>({
   },
 });
 
+// --- Head Count (a split of Conqueror: every cell is worth 1, not its value) -----------------------------------
+type HeadP = { colour: string; enemy_colour: string };
+const headText = (p: HeadP): CardText => ({
+  emoji: "🪖", name: "Head Count", consts: [["MY_COLOUR", p.colour], ["ENEMY_COLOUR", p.enemy_colour]],
+  about: `Your colour is ${p.colour} and your enemy's is ${p.enemy_colour}. Each ${p.colour} cell scores 1 point. `
+    + `Each ${p.enemy_colour} cell loses 1 point.`,
+});
+const headCount = gridFamily<HeadP>({
+  id: "head_count", name: "Head Count", emoji: "🪖", theme: "More soldiers than your enemy",
+  analytic: solvedAnalytic("head_count"),
+  shape: SCALAR, tags: ["shortlist"],
+  params: () => ({ colour: colourParam("Your colour"), enemy_colour: colourParam("Your enemy's colour") }),
+  support: g => colourPairs(g).map(([A, B]) => ({ colour: g.colourNames[A], enemy_colour: g.colourNames[B] })),
+  canonical: (p, g) => recolourNames(g, p, ["colour", "enemy_colour"]),
+  summary: p => headText(p).about,
+  python: p => pyCard(headText(p), `
+    def utility(grid):
+        points = 0
+        for cell in grid.cells:
+            if cell.colour == MY_COLOUR:
+                points += 1
+            elif cell.colour == ENEMY_COLOUR:
+                points -= 1
+        return points`),
+  typescript: p => tsCard(headText(p), `
+    function utility(grid) {
+      let points = 0;
+      for (const cell of grid.cells) {
+        if (cell.colour === MY_COLOUR) points += 1;
+        else if (cell.colour === ENEMY_COLOUR) points -= 1;
+      }
+      return points;
+    }`),
+  exemplar: (p, g) => wire(g, full(g.N, 0), full(g.N, colourAt(g, p.colour))),
+});
+
+// --- Colour Mirror (a split of Mirrormancer: the colours, not the numbers, read the same both ways) -------------
+type ColourMirrorP = { axis: "LR" | "TB" };
+const colourMirrorText = (p: ColourMirrorP): CardText => {
+  const kind = p.axis === "LR" ? "row" : "column";
+  return {
+    emoji: "🪞", name: "Colour Mirror", consts: [],
+    about: `A ${kind} is a mirror if its colours read the same forwards and backwards. Each mirror ${kind} scores `
+      + "1 point. Most points wins. If that's a tie, more matching pairs wins (first and last, second and second-last, and so on).",
+  };
+};
+const colourMirror = gridFamily<ColourMirrorP>({
+  id: "colour_mirror", name: "Colour Mirror", emoji: "🪞", theme: "Colours that read the same both ways",
+  analytic: solvedAnalytic("colour_mirror"),
+  shape: tuple(2), tags: ["shortlist"],
+  params: () => ({ axis: choiceParam("Mirror lines", [["LR", "rows (left to right)"], ["TB", "columns (top to bottom)"]]) }),
+  support: () => [{ axis: "LR" }, { axis: "TB" }],
+  canonical: () => ({ axis: "LR" }),
+  summary: p => colourMirrorText(p).about,
+  python: p => pyCard(colourMirrorText(p), `
+    def utility(grid):
+        mirrors = 0
+        pairs = 0
+        for line in ${p.axis === "LR" ? "grid.rows" : "grid.columns"}:
+            half = len(line) // 2
+            matches = 0
+            for i in range(half):
+                if line[i].colour == line[len(line) - 1 - i].colour:
+                    matches += 1
+            pairs += matches
+            if matches == half:
+                mirrors += 1
+        return (mirrors, pairs)`),
+  typescript: p => tsCard(colourMirrorText(p), `
+    function utility(grid) {
+      let mirrors = 0;
+      let pairs = 0;
+      for (const line of ${p.axis === "LR" ? "grid.rows" : "grid.columns"}) {
+        const half = Math.floor(line.length / 2);
+        let matches = 0;
+        for (let i = 0; i < half; i++) {
+          if (line[i].colour === line[line.length - 1 - i].colour) matches += 1;
+        }
+        pairs += matches;
+        if (matches === half) mirrors += 1;
+      }
+      return [mirrors, pairs];
+    }`),
+  exemplar: (_, g) => wire(g, full(g.N, 0), full(g.N, 0)),
+});
+
 export const STRATEGY = [rainbowRoad, borderBaron, conqueror, parityPainter, mirrormancer, homebody, lonePeak,
-  islander, rooksWatch, pictureFrame, staircase, luckyToken, neighbourhoodVote, farApart];
+  islander, rooksWatch, pictureFrame, staircase, luckyToken, neighbourhoodVote, farApart, headCount, colourMirror];

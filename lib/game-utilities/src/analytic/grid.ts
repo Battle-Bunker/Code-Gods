@@ -94,6 +94,8 @@ const SOLVERS: Readonly<Record<string, Solver>> = {
     const N = g.N, pairs = p.axis === "V" ? N * Math.floor(N / 2) : p.axis === "D" ? N * (N - 1) / 2 : Math.floor(N * N / 2);
     return binomial(pairs, matchProb(g, p.layer));
   },
+  /** Colour layer of the Mirrormancer law: each mirror pair matches with probability 1/C. */
+  colour_mirror: (_p, g) => wholeAndParts(binomial(Math.floor(g.N / 2), matchProb(g, "colour")), Math.floor(g.N / 2), g.N),
   /** Pairs (c, c+p) in a row form chains (a forest): equality indicators on a forest are independent. */
   wallpaper_weaver: (_p, g) => binomial(g.N * Math.max(0, g.N - 2), 1 / g.C), // always 2 steps apart
   /** Each row: matches ~ Binomial(⌊N/2⌋, q); (mirrors, pairs) summed over iid rows. */
@@ -290,7 +292,7 @@ const SOLVERS: Readonly<Record<string, Solver>> = {
 
 /** Cell-additive families solved by `cellAdditive` (the evaluator supplies the per-cell contributions). */
 export const CELL_ADDITIVE: readonly string[] = [
-  "conqueror", "parity_painter", "homebody", "number_painter", "colour_by_number", "treasure_map",
+  "conqueror", "head_count", "parity_painter", "homebody", "number_painter", "colour_by_number", "treasure_map",
   "lucky_token", "seed3_green_ones", "hate_colour", "hate_value",
 ];
 
