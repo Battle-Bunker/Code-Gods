@@ -134,7 +134,7 @@ const SOLVERS: Readonly<Record<string, Solver>> = {
   }, ([, , best]) => [best])),
   /** [head digits…, pos, repeats, alive]: ds[P + i] = ds[i] from the start. */
   refrain: (p, a, b) => {
-    const P = p.period;
+    const P = p.period ?? 2; // the family fixed the period (families/int.ts); tables built before still carry it
     // Once a comparison fails nothing changes: dead states forget the head (canonical form keeps the memo small).
     return absDigitCounts(a, b, {
       start: { head: [] as number[], rep: 0, alive: 1, pos: 0 },

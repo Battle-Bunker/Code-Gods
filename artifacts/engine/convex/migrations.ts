@@ -235,6 +235,9 @@ export const equalOpportunityGamesPreparing = migrations.define({ table: "rooms"
 export const equalOpportunityArithmeticDeities = migrations.define({ table: "deities", migrateOne: typedDeity });
 export const equalOpportunityArithmeticPreparing = migrations.define({ table: "rooms", migrateOne: typedPreparing });
 export const pictureFrameSymbolPreparing = migrations.define({ table: "rooms", migrateOne: typedPreparing });
+/** Equal opportunity (P10), the Int and string families (int.ts, string.ts). */
+export const equalOpportunityIntStringDeities = migrations.define({ table: "deities", migrateOne: typedDeity });
+export const equalOpportunityIntStringPreparing = migrations.define({ table: "rooms", migrateOne: typedPreparing });
 
 export const backfillObjectTimes = migrations.define({
   table: "objects",
@@ -313,7 +316,8 @@ const RUN_ALL: FunctionReference<"mutation", "internal">[] = [internal.migration
   internal.migrations.equalOpportunityGamesDeities, internal.migrations.equalOpportunityGamesPreparing,
   internal.migrations.equalOpportunityArithmeticDeities, internal.migrations.equalOpportunityArithmeticPreparing,
   internal.migrations.assistantModeFromCredentials, internal.migrations.assistantPrefsMode, internal.migrations.assistantNoApprovalsTurns,
-  internal.migrations.assistantNoApprovalsCalls, internal.migrations.agentPricesV2];
+  internal.migrations.assistantNoApprovalsCalls, internal.migrations.agentPricesV2,
+  internal.migrations.equalOpportunityIntStringDeities, internal.migrations.equalOpportunityIntStringPreparing];
 export const runAll = migrations.runner(RUN_ALL);
 /** The state of each of runAll's migrations (scripts/run-migrations.mjs waits for all of them to succeed). */
 export const status = internalQuery({
