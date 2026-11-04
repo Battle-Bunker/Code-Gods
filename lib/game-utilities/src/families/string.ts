@@ -326,6 +326,9 @@ const HAIKU_LENGTHS = [5, 7, 10, 12, 17, 20, 24, 32, 40, 48, 64, 100];
  * character the cap lies above it (string(16): n = 5, 7, 10, 12 take 75, 66, 43 and 27 bits), so no band of three
  * lengths is equal (P10); the same share of the cap gives every shape a comparable chance.
  */
+/** The legacy reader of a param fixed to one value per shape: a stored other value reads as it (none when the shape has none). */
+const fixedTo = <K extends string>(p: Record<string, unknown>, key: K, only: readonly number[]) =>
+  (typeof p[key] === "number" && only.length === 1 && p[key] !== only[0] ? ({ [key]: only[0] } as Record<K, number>) : null);
 const haikuLengths = (s: StringSpec): number[] => {
   const fit = HAIKU_LENGTHS.filter(n => n <= s.L);
   const one = fit.filter(n => n <= 0.6 * s.L).pop() ?? fit[0];
@@ -339,7 +342,7 @@ const haikuMaster = stringFamily<LengthP>({
   id: "haiku-master", name: "Haiku Master", emoji: "🌸", theme: "Wants x to have one exact length.", shape: SCALAR,
   requires: minLength(5),
   params: s => ({ length: valuesParam("Length", haikuLengths(s)) }),
-  legacy: (p, s) => (typeof p.length === "number" && p.length !== haikuLengths(s)[0] ? { length: haikuLengths(s)[0] } : null),
+  legacy: (p, s) => fixedTo(p, "length", haikuLengths(s)),
   support: s => haikuLengths(s).map(length => ({ length })),
   summary: p => `You want x to be exactly ${p.length} characters long; content doesn't matter, closer is better.`,
   python: p => pyCard(haikuText(p), `
@@ -401,9 +404,9 @@ const TALLIES = [9, 27, 45, 81, 100, 123, 150, 180, 234, 300, 365, 512];
  * are digits, 4.5 on average: 0.35 per character). Targets far from it are rare (string(128): 5 to 199 bits across the
  * twelve; string(16): 4 to 78), so no band of three is equal (P10).
  */
-const tallyTotal = (s: StringSpec) => {
+const tallyTotal = (s: StringSpec): number[] => {
   const fit = TALLIES.filter(t => t <= 9 * s.L), typical = 0.3516 * s.L;
-  return fit.reduce((best, t) => (Math.abs(t - typical) < Math.abs(best - typical) ? t : best), fit[0]);
+  return fit.length ? [fit.reduce((best, t) => (Math.abs(t - typical) < Math.abs(best - typical) ? t : best))] : [];
 };
 type TallyP = { total: number };
 const tallyText = (p: TallyP) => card("🧾", "Tallykeeper",
@@ -414,9 +417,9 @@ const tallykeeper = stringFamily<TallyP>({
   analytic: solvedAnalytic("tallykeeper"),
   requires: minLength(1),
   shape: SCALAR,
-  params: s => ({ total: valuesParam("Digit total", [tallyTotal(s)]) }),
-  legacy: (p, s) => (typeof p.total === "number" && p.total !== tallyTotal(s) ? { total: tallyTotal(s) } : null),
-  support: s => [{ total: tallyTotal(s) }],
+  params: s => ({ total: valuesParam("Digit total", tallyTotal(s)) }),
+  legacy: (p, s) => fixedTo(p, "total", tallyTotal(s)),
+  support: s => tallyTotal(s).map(total => ({ total })),
   summary: p => `Your sacred number is ${p.total}. Add up every digit character 0–9 in x; the closer to ${p.total}, the `
     + "better, and every digit anyone else adds or removes moves your tally.",
   python: p => pyCard(tallyText(p), `
@@ -480,9 +483,10 @@ const WEIGHTS = [100, 250, 500, 777, 1000, 1500, 2024, 3000, 4096, 5000, 6000, 8
  * (64 per character) are rare, and the top bits swing with the target (string(16): 8.5 to 73 bits, string(128): 10 to
  * 74), so no band of three is equal (P10).
  */
-const scaleWeight = (s: StringSpec) => {
+const scaleWeight = (s: StringSpec): number[] => {
   const fit = WEIGHTS.filter(w => w <= 127 * s.L);
-  return fit.filter(w => w <= 32 * s.L).pop() ?? fit[0];
+  const one = fit.filter(w => w <= 32 * s.L).pop() ?? fit[0];
+  return one === undefined ? [] : [one];
 };
 type WeightP = { weight: number };
 const scaleText = (p: WeightP) => card("⚖️", "Scale Keeper",
@@ -492,9 +496,9 @@ const scaleKeeper = stringFamily<WeightP>({
   id: "scale-keeper", name: "Scale Keeper", emoji: "⚖️", theme: "Wants the ASCII codes of x to weigh an exact amount.",
   requires: minLength(1),
   shape: SCALAR,
-  params: s => ({ weight: valuesParam("Weight", [scaleWeight(s)]) }),
-  legacy: (p, s) => (typeof p.weight === "number" && p.weight !== scaleWeight(s) ? { weight: scaleWeight(s) } : null),
-  support: s => [{ weight: scaleWeight(s) }],
+  params: s => ({ weight: valuesParam("Weight", scaleWeight(s)) }),
+  legacy: (p, s) => fixedTo(p, "weight", scaleWeight(s)),
+  support: s => scaleWeight(s).map(weight => ({ weight })),
   summary: p => `You weigh strings by adding up their ASCII codes. You want a weight of exactly ${p.weight}; closer is `
     + "better, and every edit anyone makes shifts the scale.",
   python: p => pyCard(scaleText(p), `
