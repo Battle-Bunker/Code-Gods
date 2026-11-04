@@ -494,7 +494,7 @@ const ANNOTATED_BASICS_EXCLUDED: readonly string[] = Object.freeze([
   "colour_value_ladder", "stripe_painter", "feuding_families", "fair_weaver", "lantern_lighter", "best_friends",
   "rainbow_steps", "quilt_maker", "flag_bearer", "colour_by_number", "wallpaper_weaver", "sunset_sky",
   "twin_friends", "rummy_melder", "othello_sandwich", "bingo_caller", "sudoku_scholar", "full_house", "flush_royale",
-  "twenty_one", "go_fish_books", "knight_riders", "uno_snake", "kings_court", "connect_four",
+  "twenty_one", "go_fish_books", "knight_riders", "uno_snake", "kings_court", "connect_four", "head_count",
 ]);
 
 const seed = (seedId: string, name: string, summary: string, objectType: string, typeArgs: TypeArgs, patch: Partial<GameSettings>): SeedSetup =>
