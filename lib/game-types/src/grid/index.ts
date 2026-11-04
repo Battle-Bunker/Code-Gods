@@ -125,11 +125,27 @@ function layerBits(inst: Instantiation): Record<string, number> {
   return { symbol: cells * Math.log2(SYMBOL_COMPONENTS[t.symbols].count), colour: cells * Math.log2(COLOUR_COMPONENTS[t.colours].count) };
 }
 
-function changedBits(a: GridValue, b: GridValue, inst: Instantiation): Record<string, number> {
-  const t = gridArgs(inst);
+/**
+ * The information cost w of Grid's elementary mutators (docs/energy-model.md §4.1): set one cell's colour, or its
+ * symbol. 1 bit names the op (2 elementary ops), log2 N² the cell, log2 C (S) the new value, and log2 C (S) the value it
+ * overwrites (pointwise erasure).
+ */
+export function gridElementaryCosts(inst: Instantiation): { colour: number; symbol: number } {
+  const t = gridArgs(inst), cell = Math.log2(t.size * t.size);
+  const C = COLOUR_COMPONENTS[t.colours].count, S = SYMBOL_COMPONENTS[t.symbols].count;
+  return { colour: 1 + cell + 2 * Math.log2(C), symbol: 1 + cell + 2 * Math.log2(S) };
+}
+
+/**
+ * W of one Grid call: its net effect decomposed into elementary sets, which is exact here (a changed cell needs at least
+ * one set per changed layer, and one suffices): w_colour per cell whose colour changed plus w_symbol per cell whose
+ * symbol changed, whatever mutator did it.
+ */
+function callWork(a: GridValue, b: GridValue, _call: unknown, inst: Instantiation): number {
+  const w = gridElementaryCosts(inst);
   let ds = 0, dc = 0;
   for (let i = 0; i < a.sym.length; i++) { if (a.sym[i] !== b.sym[i]) ds++; if (a.col[i] !== b.col[i]) dc++; }
-  return { symbol: ds * Math.log2(SYMBOL_COMPONENTS[t.symbols].count), colour: dc * Math.log2(COLOUR_COMPONENTS[t.colours].count) };
+  return dc * w.colour + ds * w.symbol;
 }
 
 const prelude = memo(inst => {
@@ -180,7 +196,7 @@ export const GRID: ObjectTypeDef<GridValue> = Object.freeze({
   codec,
   spawn: spawnGrid,
   propose: proposeGrid,
-  changedBits,
+  callWork,
   layerBits,
   // A getter, so mutator modules may import grid helpers without an evaluation-order cycle.
   get mutators() { return GRID_MUTATORS; },

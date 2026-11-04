@@ -213,35 +213,23 @@ export class MutatorError extends Error {
   constructor(message: string) { super(message); this.name = "MutatorError"; }
 }
 
-/** Bits charged for one act; all terms already carry the scope/kind multipliers and knobs. */
+/**
+ * The change cost of one act (docs/energy-model.md §4): W = Σ the elementary-mutator costs of its calls (each call
+ * priced by the decomposition of its net effect into the type's elementary mutators: ObjectTypeDef.callWork), and
+ * total = W + CHANGE_BETA · W².
+ */
 export interface ActCost {
-  /** Naming the tools and their parameters at run time (step_base·log2 #available + D). */
-  readonly decision: number;
-  /** Landauer: bits destroyed (pointwise). */
-  readonly erasure: number;
-  /** Thermodynamic length: how much of the object moved. */
-  readonly motion: number;
+  /** W: the act's description length in elementary mutators, bits. */
+  readonly work: number;
+  /** W + β·W²: what the act pays for its change when that change commits. */
   readonly total: number;
 }
 
 export type ActOutcome =
   /** `commit`: the act carries the commit clause (commit only if it raises the owner's payoff). */
   | { readonly ok: true; readonly value: ObjectValue; readonly cost: ActCost; readonly calls: readonly MutatorCallWire[]; readonly commit?: "if-improves" }
-  /** Failed acts pay decision bits only (at least MIN_FAILED_ACT_BITS). */
+  /** A failed act changes nothing, so its change cost is 0 (it still pays its reads: pricing/measure.ts actCharge). */
   | { readonly ok: false; readonly reason: string; readonly cost: ActCost };
-export const MIN_FAILED_ACT_BITS = 1;
-
-/** Cost-model weights (lib/grid-lab/gridlab/mutators.py COST_KNOBS). */
-export interface CostKnobs {
-  readonly stepBase: number;
-  readonly describe: number;
-  readonly erase: number;
-  readonly move: number;
-  /** × M (relative-targeting selection bits), part of the decision. */
-  readonly measure: number;
-  readonly scope: Readonly<Record<MutatorScope, number>>;
-  readonly kind: Readonly<Record<MutatorKind, number>>;
-}
 
 // ------------------------------------------------------------------------------------------------
 // the object type itself
@@ -283,9 +271,13 @@ export interface ObjectTypeDef<V = unknown> {
    * "accept iff u stays ≥ level" (e.g. resample one cell, swap two cells, change one digit).
    */
   propose(value: V, inst: Instantiation, rng: Rng): V;
-  /** Information content of the value per layer, for the motion term: changed bits between two values. */
-  changedBits(before: V, after: V, inst: Instantiation): Readonly<Record<string, number>>;
-  /** Total bits per layer of a uniform value (log2 alphabet × cells), the motion term's denominator. */
+  /**
+   * W of one call (docs/energy-model.md §4.1–4.2): the cost of the cheapest decomposition the type knows of the call's
+   * net effect (`before` → `after`, which differ) into its elementary mutators. `call` is the mutator id and its parsed
+   * params, for an elementary mutator priced by its parameters (Int's multiply).
+   */
+  callWork(before: V, after: V, call: { readonly id: string; readonly params: unknown }, inst: Instantiation): number;
+  /** Total bits per layer of a uniform value (log2 alphabet × cells): the most an act can read (pricing readBound). */
   layerBits(inst: Instantiation): Readonly<Record<string, number>>;
   readonly mutators: readonly MutatorDef<V, any>[];
   prelude(inst: Instantiation): PreludeParts;

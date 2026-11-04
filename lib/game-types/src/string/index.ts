@@ -101,11 +101,30 @@ function propose(x: string, inst: Instantiation, rng: Rng): string {
   return spawn(inst, rng);
 }
 
-/** 7 bits per position (up to the longer length) whose character differs. */
-function changedBits(a: string, b: string): Record<string, number> {
-  let d = 0;
-  for (let i = 0; i < Math.max(a.length, b.length); i++) if (a.charCodeAt(i) !== b.charCodeAt(i)) d++;
-  return { text: 7 * d };
+/**
+ * The information cost w of string's elementary mutators (docs/energy-model.md §4.1): set, insert or delete one
+ * character. log2 3 names the op, log2(L + 1) the position, 7 bits the new character (ASCII); set and delete also
+ * erase the 7 bits of the character they overwrite or remove.
+ */
+export function stringElementaryCosts(inst: Instantiation): { set: number; insert: number; delete: number } {
+  const op = Math.log2(3), at = Math.log2(stringArgs(inst).maxLength + 1);
+  return { set: op + at + 14, insert: op + at + 7, delete: op + at + 7 };
+}
+
+/**
+ * W of one string call: the edit script that keeps the common prefix and suffix, sets the differing characters of the
+ * middle where the two overlap, and inserts or deletes the rest. An upper bound on the cheapest decomposition.
+ */
+function callWork(a: string, b: string, _call: unknown, inst: Instantiation): number {
+  const w = stringElementaryCosts(inst);
+  let i = 0;
+  while (i < a.length && i < b.length && a[i] === b[i]) i++;
+  let ea = a.length, eb = b.length;
+  while (ea > i && eb > i && a[ea - 1] === b[eb - 1]) { ea--; eb--; }
+  const la = ea - i, lb = eb - i, overlap = Math.min(la, lb);
+  let sets = 0;
+  for (let k = 0; k < overlap; k++) if (a[i + k] !== b[i + k]) sets++;
+  return sets * w.set + (lb > la ? (lb - la) * w.insert : (la - lb) * w.delete);
 }
 
 /** log2 of the number of strings: 7(L+1) − log2 127 + log2(1 − 2^(−7(L+1))). */
@@ -345,7 +364,7 @@ export const STRING: ObjectTypeDef<string> = Object.freeze({
   codec,
   spawn,
   propose,
-  changedBits,
+  callWork,
   layerBits,
   get mutators() { return STRING_MUTATORS; },
   prelude,

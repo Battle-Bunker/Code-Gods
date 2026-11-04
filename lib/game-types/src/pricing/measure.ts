@@ -4,7 +4,7 @@
  *   summon price = ast-bits-v1 description of the source       paid once, by the god (Runtime)
  *   act charge   = R + (the change commits ? C : 0)             paid by the agent, per act
  *     R = the bits the act read (the prelude's read meter, §3)
- *     C = the change cost of the act's calls (applyCalls: erasure + motion)
+ *     C = the change cost of the act's calls (applyCalls: W + β·W², docs/energy-model.md §4)
  *
  * There is no fixed per-act component: an act that reads nothing and returns no calls costs 0. The agent's code is
  * priced once, at summon. A change that does not commit (no change, an invalid call, a collision, the commit clause)
@@ -14,9 +14,9 @@
  * deriveSeed(salt, ["measure", inst.key, i, 0]), and reports the expected charge per act and its read/change split, for
  * the UI and the assistant. Nothing is charged or scheduled from the estimate.
  */
-import { applyCalls, DEFAULT_COST_KNOBS } from "../mutators.ts";
+import { applyCalls } from "../mutators.ts";
 import { objectType } from "../registry.ts";
-import type { ActOutcome, CostKnobs, Instantiation, ObjectTypeDef, ObjectValue } from "../types.ts";
+import type { ActOutcome, Instantiation, ObjectTypeDef, ObjectValue } from "../types.ts";
 import type { ReferenceMixture } from "./mixture.ts";
 import { deriveSeed } from "./rng.ts";
 
@@ -48,7 +48,6 @@ export type RunActs = (value: ObjectValue, seed: bigint, at: RunContext) => Prom
 export interface MeasureOptions {
   /** The SECRET season salt for the run seeds (the same one play seeds use). Required. */
   readonly salt: string | Uint8Array;
-  readonly knobs?: CostKnobs;
   /** Runs in flight at once. Default 1 (results never depend on it). */
   readonly concurrency?: number;
 }
@@ -132,7 +131,6 @@ export async function measureAgent(runActs: RunActs, inst: Instantiation, mixtur
   if (opts.salt === undefined || opts.salt === null || opts.salt.length === 0) throw new Error("measureAgent needs the season salt");
   if (mixture.instKey !== inst.key) throw new Error(`mixture is for ${mixture.instKey}, not ${inst.key}`);
   const o = { ...MEASURE_DEFAULTS, ...opts };
-  const knobs = opts.knobs ?? DEFAULT_COST_KNOBS;
   const typeDef = objectType(inst.objectType) as ObjectTypeDef<unknown>;
   const n = mixture.values.length;
   if (n === 0) throw new Error("empty reference mixture");
@@ -150,7 +148,7 @@ export async function measureAgent(runActs: RunActs, inst: Instantiation, mixtur
     const usedRandom = !!run.usedRandom, read = readCharge(run.readBits);
     if (run.error) return { read, change: 0, changed: false, skipped: false, mutators: [], usedRandom, error: run.error, steps: run.steps };
     if (isSkip(run.calls)) return { read, change: 0, changed: false, skipped: true, mutators: [], usedRandom, steps: run.steps };
-    const out: ActOutcome = applyCalls(typeDef, inst, value, run.calls, knobs);
+    const out: ActOutcome = applyCalls(typeDef, inst, value, run.calls);
     if (!out.ok) return { read, change: 0, changed: false, skipped: false, mutators: [], usedRandom, error: out.reason, steps: run.steps };
     return { read, change: actCharge(out, read).change, changed: true, skipped: false, mutators: out.calls.map(c => c[0]), usedRandom, steps: run.steps };
   };
@@ -189,6 +187,6 @@ export interface ActCharge {
  */
 export function actCharge(outcome: ActOutcome | null, readBits: number, opts: { commits?: boolean } = {}): ActCharge {
   const read = readCharge(readBits);
-  const change = outcome?.ok && (opts.commits ?? true) ? outcome.cost.erasure + outcome.cost.motion : 0;
+  const change = outcome?.ok && (opts.commits ?? true) ? outcome.cost.total : 0;
   return { read, change, total: read + change };
 }

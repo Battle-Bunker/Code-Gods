@@ -11,8 +11,9 @@
  *   overwrites pay their pointwise erasure log2 |f⁻¹(f(x))|, counted exactly:
  *     set_digit(p, d)   one place becomes d                      E ≈ log2 10, D = log2 P + log2 10
  *     round(p)          to the nearest 10^p, halves away from 0  E ≈ p · log2 10, D = log2 P
- *     set(v)            x → v                                    E = log2 W, D = log2 W
- * so a structured partial edit (one place, the low places) is far cheaper than overwriting the number.
+ *   multiply(m)       x → x·m (fails out of range)               D = Elias-γ(|m|) + 1
+ * There is no "set the number" mutator (docs/energy-model.md §4.1): setting one means a sequence of digit adds. The act
+ * charge prices each call by its elementary decomposition (int/index.ts callWork), not by these D and E terms.
  *
  * Places: P = max(2, decimal digits of max(|min|, |max|)), fixed width with leading zeros; place 0 is
  * the ones, place 1 the tens, ...; the sign is kept (a digit map never changes it). Motion is charged per act
@@ -284,27 +285,31 @@ const round = def({
   },
 });
 
-const set = def({
-  id: "set", name: "Set", emoji: "🎰", summary: "Replace the number with any number you choose.",
-  kind: "overwrite", scope: "global", fields: ["value"],
-  parse: (raw, c) => ({ value: intParam(raw, "value", c.min, c.max) }),
-  describe: (_p, c) => lg(c.W),
-  apply: (_x, p) => p.value,
-  erase: (_x, _p, c) => lg(c.W),
-  sample: (rng, c) => ({ value: c.min + rng.int(c.W) }),
+const multiply = def({
+  id: "multiply", name: "Multiply", emoji: "✖️", summary: "Multiply the number by a whole number (not 0, 1 or −1); out of range, nothing happens.",
+  kind: "bijective", scope: "global", fields: ["m"],
+  parse: (raw, c) => {
+    const big = Math.max(2, Math.abs(c.min), Math.abs(c.max));
+    const m = intParam(raw, "m", -big, big);
+    if (Math.abs(m) < 2) fail(`"m" must be at least 2 or at most −2`);
+    return { m };
+  },
+  describe: p => gamma(Math.abs(p.m)) + 1,
+  apply: (x, p, c) => { const y = x * p.m; return inDomain(c, y) ? y : null; },
+  sample: rng => ({ m: [2, 3, 5, 7][rng.int(4)] * (rng.int(2) ? 1 : -1) }),
   guest: {
-    py: `def set_to(value):
-    return _M_CALL("set", value=_M_INT(value, "value"))
+    py: `def multiply(m):
+    return _M_CALL("multiply", m=_M_INT(m, "m"))
 `,
-    js: `function setTo(value) {
-  return { __m: "set", value: __M_INT(value, "value") };
+    js: `function multiply(m) {
+  return { __m: "multiply", m: __M_INT(m, "m") };
 }
 `,
-    dts: `declare function setTo(value: number): MutatorCall;\n`,
-    doc: [["set_to(value)", "setTo(value)", "Replace the number with one you choose. It's the most expensive move: it wipes out every digit."]],
+    dts: `declare function multiply(m: number): MutatorCall;\n`,
+    doc: [["multiply(m)", "multiply(m)", "Multiply by m (×7 is cheap: it costs about the bits of 7, however many digits change). Out of range it fails."]],
   },
 });
 
 export const INT_MUTATORS: readonly MutatorDef<number, IP>[] = Object.freeze([
-  add, reflect, swap_digits, reverse_digits, rotate_digits, set_digit, round, set,
+  add, multiply, reflect, swap_digits, reverse_digits, rotate_digits, set_digit, round,
 ]);

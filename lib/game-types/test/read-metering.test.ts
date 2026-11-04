@@ -315,8 +315,8 @@ test("the commit clause still follows the view", () => {
 });
 
 test("mutator constructors take the metered views themselves, reading them in full", { skip: skipPy }, () => {
-  // Python: set_to(max(n, 0)) passes the Num itself; write(0, s) passes the Text.
-  const num = trace(int32, 12345, [["c = set_to(max(v, 0))", "const c = setTo(v)"], both("c")]);
+  // Python: add(max(n, 0)) passes the Num itself; write(0, s) passes the Text.
+  const num = trace(int32, 12345, [["c = add(max(v, 0))", "const c = add(v)"], both("c")]);
   near(num, [32, 32]);
   const txt = trace(str16, "hello", [["c = write(0, v)", "const c = write(0, v)"]]);
   near(txt, [lg(17) + 5 * 7]);

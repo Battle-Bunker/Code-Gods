@@ -52,7 +52,7 @@ const net = (scores: readonly Score[], roster: readonly string[]) => roster.map(
 
 /** The outcome of one act on `before`: applyCalls, or a failure when the runtime refused it (the agent's fault). */
 function actOutcome(settings: GameSettings, before: ObjectValue, result: ActResult): ActOutcome {
-  if ("error" in result) return { ok: false, reason: result.error, cost: { decision: 0, erasure: 0, motion: 0, total: 0 } };
+  if ("error" in result) return { ok: false, reason: result.error, cost: { work: 0, total: 0 } };
   const inst = instantiationOf(settings);
   return applyCalls(objectType(inst.objectType), inst, before, result.calls);
 }
