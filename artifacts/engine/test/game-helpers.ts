@@ -167,17 +167,20 @@ export type Started = { gameId: string; shortCode: string; guid: string };
  * begins by itself once the tables land, so wait for it. Never read `.gameId` off `api.owner.start` directly
  * (test/unit/start-result-guard.test.ts enforces this).
  */
-export async function startGame(owner: God, roomId: string, args: { requestId?: string } = {}, ms = 120_000): Promise<Started> {
-  return startedGame(owner, roomId, await owner.c.action(api.owner.start, { roomId, ...args }), ms);
+export async function startGame(owner: God, roomId: string, args: { requestId?: string; holdSettled?: boolean } = {}, ms = 120_000): Promise<Started> {
+  const { holdSettled, ...start } = args;
+  return startedGame(owner, roomId, await owner.c.action(api.owner.start, { roomId, ...start }), ms, holdSettled);
 }
 
 /**
  * The game a start result (from `api.owner.start` or the MCP `start_game` tool) begins, waiting out `preparing` and
  * then hold rarity's corrections (engine/hold.ts): they re-score the starting objects once during planning, so a test
- * reading scores right after the start would otherwise race them. game-hold.test.ts tests the computing state itself.
+ * reading scores right after the start would otherwise race them. `holdSettled: false` returns without waiting
+ * (game-hold.test.ts watches the computing state itself).
  */
-export async function startedGame(owner: God, roomId: string, started: any, ms = 120_000): Promise<Started> {
+export async function startedGame(owner: God, roomId: string, started: any, ms = 120_000, holdSettled = true): Promise<Started> {
   const settled = async (g: Started) => {
+    if (!holdSettled) return g;
     await waitFor(async () => (await admin.query(internal.testing.rawGameDoc, { gameId: g.gameId }))?.holdState !== "computing" || undefined,
       "hold rarity's corrections are in", ms, 100);
     return g;
