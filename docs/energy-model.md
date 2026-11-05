@@ -239,14 +239,37 @@ They are unit tests (`lib/game-types/test/mutators.test.ts`).
 - A cheap skipper therefore runs more often than an expensive actor with the same income: its balance stays high.
   This is a unit test (`lib/game-core/test/energy.test.ts`).
 
-## 8. Hold rarity (PR 5, last)
+## 8. Hold rarity (PR 5)
 
-- Payoff bits = −log2 P(U(x) ≥ u ∧ U(x′) ≥ u). Here x ~ prior, and x′ is x after m = (number of other players) random
-  mutations, each drawn with weight 2^−C from §4.
-- One player gives m = 0, which is static rarity. Calibration tables are keyed by player count, with MCMC for high
-  levels.
-- Checked against the geometric average over m and a small contest simulation on a few families: a check, not a gate.
-- This runs after the rules session's calibration changes land. Calibration JSON is never hand-merged.
+- Payoff bits = −log2 P(U(x) ≥ u ∧ U(x′) ≥ u) = static(u) + hold(u, m). Here x ~ prior, and x′ is x after m = (number
+  of other players) random mutations. One player gives m = 0: static rarity, no correction.
+- **The noise** (`lib/game-types/src/noise.ts`, `NOISE_VERSION`): one mutation is drawn with probability ∝ 2^−C over
+  the type's single calls, C the change cost of §4. Only the elementary mutators, and every Int multiplier up to 1024,
+  are enumerated. A composite call costs far more (a two-cell call 29.7 bits against one cell's 11.5: 2^−18 per call), so
+  its mass is negligible. A mutation that cannot apply leaves the value as it is.
+- **The estimator** (`lib/game-utilities/scripts/hold.ts`, `hold-ams` v1): adaptive multilevel splitting over U with
+  the calibration kernel. After each stage the particles are draws from μ | U ≥ ℓ, and the share whose m-mutation noise
+  still scores ≥ ℓ is P(hold | ≥ ℓ) at that level (floored at 1/(2N)). A hold table is [level, hold bits] for one draw
+  and one m. The lookup interpolates between levels, is 0 below the lowest and flat above the top.
+- **Where tables come from** (owner, 5 Nov: option A): on demand. They are computed during planning, alongside the
+  sandbox warm-up, for the dealt families at the game's m, and cached by (static table key, m, NOISE_VERSION). Planning
+  waits for them as it waits for sandboxes, and a post-deploy job warms the Annotated basics families on the default
+  shape for m = 1..3. The shipped static tables are untouched.
+- **The check** (`scripts/hold-check.ts`; a check, not a gate). On 4×4 base10 rgb, with 120 particles, at matched static
+  rarity:
+
+  | Family | static | hold, n = 2 | n = 3 | n = 4 | geometric average over m (q = 1/n), n = 2 / 3 / 4 |
+  |---|---|---|---|---|---|
+  | Line Painter (one colour's lines) | ≈ 16 bits | 1.4 | 2.4 | 2.8 | 0.7 / 1.1 / 1.4 |
+  | Chessmaster (2×2 chessboards, a lattice) | ≈ 16.5 bits | 2.4 | 3.3 | 5.6 | 0.8 / 1.3 / 1.7 |
+  | Head Count (more of yours than the enemy's) | ≈ 15.5–18 bits | 2.7 | 2.7 | 4.1 | 0.9 / 1.3 / 1.6 |
+
+  - The lattice gets about one more bit than the line at the same static rarity, which is the brittleness the owner
+    saw in play-tests.
+  - The geometric average is about half the m = n − 1 figure, because it gives the owner's own turns (m = 0, sure to
+    hold) probability q. That is expected; the owner decided on m = n − 1.
+  - The small contest simulation (40 events, owner's best single edit with probability 1/n, else one noise mutation) is
+    too noisy at this size to rank the rules, but it shows the same order on average.
 
 ## 9. Stored data (widen → migrate → narrow)
 
