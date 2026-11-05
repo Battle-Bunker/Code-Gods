@@ -6,7 +6,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { observationSchema } from "@workspace/player-client";
-import { admin, api, gods, internal, raw, roomWith, touch, waitFor } from "./game-helpers.ts";
+import { admin, api, gods, internal, raw, roomWith, startGame, touch, waitFor } from "./game-helpers.ts";
 
 const GRID = { languages: ["typescript"], startingObjectCount: 3, spawnRateHz: 0, planningSeconds: 3600 };
 
@@ -14,9 +14,8 @@ test("three players: planning holds until the hold corrections are in; the start
   const [host, ada, bo] = await gods("Hold Host", "Hold Ada", "Hold Bo");
   await touch(host);
   const { roomId } = await roomWith([host, ada, bo], GRID);
-  // Not startGame: it waits for the corrections, and this test watches them arrive.
-  const game = await host.c.action(api.owner.start, { roomId });
-  assert.ok(game.gameId, `the default setup's tables are shipped: the start does not prepare (${JSON.stringify(game)})`);
+  // Without waiting for the corrections: this test watches them arrive.
+  const game = await startGame(host, roomId, { holdSettled: false });
   const first = await raw(game.gameId);
   const staticScores = new Map<string, any[]>(first.objects.map((o: any) => [o._id, o.scores]));
 
