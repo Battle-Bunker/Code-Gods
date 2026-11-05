@@ -267,7 +267,7 @@ test("goal examples: deterministic, in the room's own shape, verified, and they 
       const tones = new Set(e.parts.map(x => toneOf(x.points)));
       assert.ok(tones.has("gain"), `${l.familyId} ${paramsKey(p)}: the example scores something (${a.value})`);
       assert.ok(tones.size >= 2, `${l.familyId} ${paramsKey(p)}: the example shows a piece that doesn't score too`);
-      assert.match(a.caption, /^This board scores \d+ points?/);
+      assert.match(a.caption, /^This board scores (\d+ points?|the points tuple \(\d+(, −?\d+)+\))\./, `${l.familyId}: the caption states the score, as a tuple when the rule has several tiers`);
     }
   }
 });

@@ -11,7 +11,7 @@ export const magicAccountant = lens<P>({
     unit: ["line", "lines"],
     items: tally(parts, [
       { of: t => t.points[0] > 0, text: n => `${count(n, "line")} adding up to ${p.target}` },
-      { of: () => true, text: (n, pts) => `${count(n, "line")} that miss ${p.target}, ${-pts[1]} away in all` },
+      { of: () => true, text: (n, pts) => `${count(n, "line")} that ${n === 1 ? "misses" : "miss"} ${p.target}, ${-pts[1]} away in all` },
     ]),
   }),
   parts: (p, b) => {

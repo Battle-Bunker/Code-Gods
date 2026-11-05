@@ -61,7 +61,7 @@ try {
   // Points tuples: a two-tier rule's boxes show each tier's derivation, the impact as a tuple, and the total names each tier.
   {
     const chess = page.locator("[data-testid=example-chessmaster]");
-    assert.match(await chess.locator("[data-testid=goal-board-total]").innerText(), /^This board: \(\d+, \d+\) points — primary chessboards \d+ · secondary places where/);
+    assert.match(await chess.locator("[data-testid=goal-board-total]").innerText(), /^This board: \(\d+, \d+\) points — primary: chessboards, \d+ · secondary: places where/);
     const impacts = await chess.locator("[data-testid=goal-unit-impact]").allInnerTexts();
     assert.ok(impacts.every(t => /^\([+−]?\d+, [+−]?\d+\)$/.test(t)), `every impact is a 2-tuple (${impacts.slice(0, 3)})`);
     const seam = chess.locator('[data-testid=goal-unit][data-part^="seam:"]').first();
