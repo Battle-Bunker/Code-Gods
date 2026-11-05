@@ -164,57 +164,6 @@ test("typedParams: gods dealt before their family was typed get named, typed par
   assert.equal(await storageOf(), rebuilt, "and keeps the rebuilt file");
 });
 
-test("agentPricesV2: an agent priced with a decision price and a floor keeps only its change estimate; a second run changes nothing", { timeout: 240_000 }, async () => {
-  const [host, ada, bo] = await gods("Price Mig Host", "Price Mig Ada", "Price Mig Bo");
-  await touch(host);
-  const { roomId } = await roomWith([host, ada, bo], { ...INT_TS, planningSeconds: 3600, startingEnergy: 5000 });
-  const game = await startGame(host, roomId);
-  const summon = (source: string) => ada.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", name: "Priced", language: "typescript", source }, game.gameId) });
-  assert.equal((await summon("function agent(n) { return [add(1)]; }")).accepted, true);
-  assert.equal((await summon("function agent(n) { return n.digit(0) ? [] : [add(1)]; }")).accepted, true);
-  const [legacy, fresh] = (await raw(game.gameId)).agents;
-  const freshBefore = { breakdown: fresh.breakdown, expectedActCost: fresh.expectedActCost };
-  await admin.mutation(internal.testing.legacyAgentPrice, { agentId: legacy._id, decisionBits: 2.5, perActFloorBits: 2, erasure: 4, motion: 0.5 });
-  for (const run of [1, 2]) {
-    await runAll(true);
-    const agents = (await raw(game.gameId)).agents;
-    const a = agents.find((x: any) => x._id === legacy._id), b = agents.find((x: any) => x._id === fresh._id);
-    assert.deepEqual(a.breakdown, { read: 0, change: 4.5 }, `run ${run}`);
-    assert.equal(a.expectedActCost, 4.5, `run ${run}`);
-    assert.equal("decisionBits" in a || "perActFloorBits" in a, false, `run ${run}: legacy fields cleared`);
-    assert.deepEqual({ breakdown: b.breakdown, expectedActCost: b.expectedActCost }, freshBefore, `run ${run}: an agent already in the new shape is left alone`);
-  }
-  await host.c.mutation(api.rooms.endActiveGame, { roomId });
-});
-
-test("powerV1: a game stored before the power budget gets powerPerSecond, agents their shares, deities their accounts; a second run changes nothing", { timeout: 240_000 }, async () => {
-  const [host, ada, bo] = await gods("Power Mig Host", "Power Mig Ada", "Power Mig Bo");
-  await touch(host);
-  const { roomId } = await roomWith([host, ada, bo], { ...INT_TS, planningSeconds: 3600, startingEnergy: 5000 });
-  const game = await startGame(host, roomId);
-  const summon = (source: string) => ada.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", name: "Old", language: "typescript", source }, game.gameId) });
-  for (const k of [1, 2, 3]) assert.equal((await summon(`function agent(n) { return [add(${k})]; }`)).accepted, true);
-  // 1 + 2·2 = 5 bits/s of power; each agent's old 2 bits/s is 40%: three would hold 120%, so they are scaled to 1/3 each.
-  await admin.mutation(internal.testing.legacyPower, { gameId: game.gameId, energyPerSecond: 1, agentEnergyPerSecond: 2 });
-  const spentBefore = (await raw(game.gameId)).deities.find((d: any) => d.godId === ada.subject).spent;
-  for (const run of [1, 2]) {
-    await runAll(true);
-    const state = await raw(game.gameId);
-    const settings = state.game.settings;
-    assert.equal(settings.powerPerSecond, 5, `run ${run}`);
-    for (const k of ["energyPerSecond", "agentEnergyPerSecond", "agentBatteryActs", "perActFloorBits"]) assert.equal(k in settings, false, `run ${run}: ${k} dropped`);
-    for (const a of state.agents) assert.ok(Math.abs(a.powerShare - 1 / 3) < 1e-6, `run ${run}: ${a.powerShare}`);
-    const deity = state.deities.find((d: any) => d.godId === ada.subject);
-    assert.ok(Math.abs(deity.allocated - 1) < 1e-5, `run ${run}: ${deity.allocated}`);
-    assert.ok(deity.account && deity.account.balance > 0 && deity.spent === spentBefore, `run ${run}: ${JSON.stringify(deity)} spent before ${spentBefore}`);
-    const other = state.deities.find((d: any) => d.godId === bo.subject);
-    assert.equal(other.allocated, 0, `run ${run}`);
-  }
-  const room = (await admin.query(internal.testing.rawRoom, { roomId })).room;
-  assert.equal(typeof room.settings.powerPerSecond, "number");
-  await host.c.mutation(api.rooms.endActiveGame, { roomId });
-});
-
 test("backfillObjectViews: a game stored before the per-god read model gets every god's rows and totals; a second run changes nothing", { timeout: 300_000 }, async () => {
   const [host, ada, bo] = await gods("Views Mig Host", "Views Mig Ada", "Views Mig Bo");
   await touch(host);

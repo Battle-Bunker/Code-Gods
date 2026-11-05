@@ -250,15 +250,3 @@ test("Annotated basics starts with 10 objects, spawns 0.1 per second and plans f
   assert.deepEqual([s.startingObjectCount, s.spawnRateHz, s.planningSeconds], [10, 0.1, 300]);
   assert.doesNotThrow(() => validateSettings(s));
 });
-
-test("stored settings from before the power budget are widened: powerPerSecond from the old incomes, the retired keys dropped", async () => {
-  const { upgradeStoredSettings, upgradeLegacyPower } = await import("../src/settings.ts");
-  const legacy = { ...DEFAULT_SETTINGS, powerPerSecond: undefined, energyPerSecond: 1, agentEnergyPerSecond: 32, agentBatteryActs: 2, perActFloorBits: 2 } as Record<string, unknown>;
-  delete legacy.powerPerSecond;
-  const up = upgradeStoredSettings(legacy)!;
-  assert.equal(up.powerPerSecond, 65);
-  for (const k of ["energyPerSecond", "agentEnergyPerSecond", "agentBatteryActs", "perActFloorBits"]) assert.equal(k in up, false, k);
-  assert.doesNotThrow(() => validateSettings(up as never));
-  assert.equal(upgradeLegacyPower(up), null, "idempotent");
-  assert.equal(upgradeLegacyPower({ ...DEFAULT_SETTINGS }), null);
-});

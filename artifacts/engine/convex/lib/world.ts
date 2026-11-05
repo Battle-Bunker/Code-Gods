@@ -2,7 +2,7 @@
  * The world clock and the two energy accounts as the engine and the projections read them (pure; ported
  * from api-server economy.ts / interaction-scheduler.ts). game-core holds the arithmetic.
  */
-import { agentIncomeOf, deityAccount, type DeityPower, type PowerClock } from "./power.ts";
+import { agentIncomeOf, deityAccount, type DeityPower } from "./power.ts";
 import { DEFAULT_SCORE_INTERVAL_SECONDS, MAX_AGENT_OPPORTUNITY_HZ, leaderboard, offerable, personalView, settleAgentEnergy, type AgentAccount, type GameSettings } from "@workspace/game-core";
 
 /**
@@ -45,7 +45,7 @@ export type Clock = {
   worldSeconds: number; lastTick: number; endAtWorld: number;
   createdAt: number; settings: GameSettings;
 };
-export type AgentLike = { account: AgentAccount; lastOpportunityWorld?: number; powerShare?: number };
+export type AgentLike = { account: AgentAccount; lastOpportunityWorld?: number; powerShare: number };
 
 /** The world clock now, without mutating the game (world time stops outside `running`). */
 export function worldNow(game: Clock, nowMs = Date.now()): number {
@@ -78,8 +78,8 @@ export function secondsUntilEligible(settings: GameSettings, agent: AgentLike, w
 }
 
 /** A deity's own energy at world time `world` (docs/energy-model.md §6; lib/power.ts deityAccount). */
-export function godEnergy(game: PowerClock, deity: DeityPower, world: number, nowMs = Date.now()): number {
-  return deityAccount(game, deity, world, nowMs).balance;
+export function godEnergy(game: { settings: GameSettings }, deity: DeityPower, world: number): number {
+  return deityAccount(game, deity, world).balance;
 }
 
 /**

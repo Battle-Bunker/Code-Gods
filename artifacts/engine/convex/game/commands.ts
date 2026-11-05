@@ -16,7 +16,7 @@ import { withEngine, writeGame } from "./state";
 import { fail, messageOf } from "../lib/errors";
 import { memberOf, principalV, requireMemberAs, requireRoom, viewerOf, type Principal } from "../lib/rooms";
 import { godEnergy, settledAccount, worldNow } from "../lib/world";
-import { deityAccount, shareOf } from "../lib/power";
+import { deityAccount } from "../lib/power";
 import { agentLanguage, languageV } from "../lib/language";
 
 const CHAT_INTERVAL_MS = 1000;
@@ -156,11 +156,6 @@ type Examined = { gameId: string; source: string; language: Language; error?: st
   breakdown: { read: number; change: number }; randomized: boolean; diagnostics: string[];
   changeRate?: number; invalidRate?: number; skipRate?: number; futility?: Futility; warnings?: string[] } };
 
-/** The share of a deity's power its agents hold: stored, or (a deity from before the power budget) the sum of their shares. */
-function allocatedOf(deity: Doc<"deities">, owned: readonly Doc<"agents">[], settings: GameSettings): number {
-  return deity.allocated ?? roundShare(owned.reduce((sum, a) => sum + shareOf(a, settings), 0));
-}
-
 async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">, envelope: Envelope, examined: Examined | undefined): Promise<unknown> {
   const command = envelope.command, now = Date.now();
   const stored = room.currentGameId ? await ctx.db.get(room.currentGameId) : null;
@@ -215,7 +210,7 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     const warnings = [...(e.warnings ?? []), ...(twins ? [copiesWarning(twins, e.futility)] : [])];
     const findings = { ...(e.futility ? { futility: e.futility, expectedSuccessRate: e.futility.successRate } : {}), ...(warnings.length ? { warnings } : {}) };
     if (command.type === "validate") {
-      const energy = godEnergy(game, deity, worldNow(game, now), now);
+      const energy = godEnergy(game, deity, worldNow(game, now));
       return { valid: true, cost: e.cost, parts: e.parts, expectedActCost: e.expectedActCost,
         breakdown: e.breakdown, randomized: e.randomized, diagnostics: e.diagnostics.slice(0, 30).map(d => d.slice(0, 1000)),
         ...(e.changeRate !== undefined ? { changeRate: e.changeRate } : {}), ...(e.invalidRate !== undefined ? { invalidRate: e.invalidRate } : {}),
@@ -223,12 +218,12 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
         ...findings, energy, affordable: energy >= e.cost };
     }
     const world = worldNow(game, now);
-    const own = deityAccount(game, deity, world, now);
+    const own = deityAccount(game, deity, world);
     if (own.balance < e.cost) fail("CONFLICT", "Insufficient energy");
     const owned = await ctx.db.query("agents").withIndex("by_game_owner", q => q.eq("gameId", game._id).eq("ownerId", member.godId)).take(settings.maxAgentsPerGod + 1);
     if (owned.length >= settings.maxAgentsPerGod) fail("CONFLICT", `This god has reached the ${settings.maxAgentsPerGod}-agent resource limit`);
     // Power (docs/energy-model.md §6): the new agent's share comes out of what the deity has not allocated.
-    const allocated = allocatedOf(deity, owned, settings);
+    const allocated = deity.allocated;
     if (command.powerShare === undefined && allocated >= 1 - 1e-9) fail("BAD_REQUEST", "All your power is given to your agents, so a new agent would never act: take some from another agent first (allocatePower), or summon with a powerShare");
     const powerShare = roundShare(command.powerShare ?? defaultShare(allocated));
     if (allocated + powerShare > 1 + 1e-9) fail("BAD_REQUEST", `Only ${(100 * Math.max(0, 1 - allocated)).toFixed(0)}% of your power is unallocated: give the new agent at most that, or take some from another agent first`);
@@ -251,9 +246,7 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     if (!agent || agent.gameId !== game._id || agent.ownerId !== member.godId) fail("NOT_FOUND", "You have no agent with that ID");
     const world = worldNow(game, now);
     // Its power share returns to the deity (settled first: the deity's income changes from now).
-    const owned = await ctx.db.query("agents").withIndex("by_game_owner", q => q.eq("gameId", game._id).eq("ownerId", member.godId)).take(settings.maxAgentsPerGod + 1);
-    const allocated = allocatedOf(deity, owned, settings);
-    await ctx.db.patch(deity._id, { account: deityAccount(game, deity, world, now), allocated: roundShare(Math.max(0, allocated - shareOf(agent, settings))) });
+    await ctx.db.patch(deity._id, { account: deityAccount(game, deity, world), allocated: roundShare(Math.max(0, deity.allocated - agent.powerShare)) });
     await ctx.db.delete(agent._id);
     const memo = await ctx.db.query("futileActs").withIndex("by_agent", q => q.eq("agentId", agent._id)).unique();
     if (memo) await ctx.db.delete(memo._id);
@@ -269,11 +262,10 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     const share = roundShare(command.share);
     assertShare(share);
     const world = worldNow(game, now);
-    const owned = await ctx.db.query("agents").withIndex("by_game_owner", q => q.eq("gameId", game._id).eq("ownerId", member.godId)).take(settings.maxAgentsPerGod + 1);
-    const allocated = allocatedOf(deity, owned, settings), others = allocated - shareOf(agent, settings);
+    const others = deity.allocated - agent.powerShare;
     if (others + share > 1 + 1e-9) fail("BAD_REQUEST", `Your other agents hold ${(100 * others).toFixed(0)}% of your power: this one can have at most ${(100 * Math.max(0, 1 - others)).toFixed(0)}%`);
     await ctx.db.patch(agent._id, { account: settledAccount(settings, agent, world), powerShare: share });
-    await ctx.db.patch(deity._id, { account: deityAccount(game, deity, world, now), allocated: roundShare(others + share) });
+    await ctx.db.patch(deity._id, { account: deityAccount(game, deity, world), allocated: roundShare(others + share) });
     const nextBatch = await appendEvents(ctx, game, [{ t: "power", agentId: agent._id, ownerId: member.godId, world, share }], world, world);
     // Bumping the epoch discards a window in flight (simulated at the old share), as a pause does: its commit would
     // overwrite the account settled here.

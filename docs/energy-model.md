@@ -299,7 +299,11 @@ They are unit tests (`lib/game-types/test/mutators.test.ts`).
 | 1 | agents: `decisionBits`, `perActFloorBits` optional; `breakdown` a union with {read, change}; `lastOpportunityWorld`, `skips` optional; events: `skip`, charge a union with {read, change, total} | `agentPricesV2`: drop decision/floor from `expectedActCost` and `breakdown` | require the new fields; drop the old ones. `perActFloorBits` and `agentBatteryActs` stay in settings (unused) until PR 3's settings migration |
 | 3 | games: `settings.powerPerSecond` optional; agents: `powerShare` optional; deities: `account` optional | `powerV1`: as §6 | drop the old settings fields |
 
-- Readers use the new shape with `??` fallbacks until the narrowing.
+- **Narrowed** (5 Nov, after dev and production reported both done): agents' `powerShare` and `breakdown` {read, change}
+  and deities' `account` and `allocated` are required; `decisionBits` and `perActFloorBits` left the agents validator;
+  lib/power.ts's fallbacks, game-core's `upgradeLegacyPower` and the two migrations are gone. The event log keeps the
+  older shapes (summons' legacy `breakdown`, `decisionBits`, `perActFloorBits`, optional `powerShare`) as history.
+- Until then, readers used the new shape with `??` fallbacks.
 - A live game keeps ticking across each deploy. The tick reads only fields that exist in both shapes, and the
   migration runs after `convex deploy`.
 - The event log bumps `EVENT_LOG_SCHEMA` to 5 for the new cost shape (`{read, change, total}`) and the `skip` event.
