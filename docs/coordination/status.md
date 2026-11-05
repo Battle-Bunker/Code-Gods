@@ -330,3 +330,6 @@ Owner, verbatim (abridged only where marked):
   retired. Pre-release check: prod objectEvents rows with index unset (blocked for me by the classifier; the migration
   processed 17,940 rows and skips only rows from the dev-only clone fixture; a refusal fails the deploy without
   changing data).
+- 21:45: #239 energy narrowing merged (2e7eecea): agents.powerShare/breakdown and deities.account/allocated required;
+  decisionBits/perActFloorBits dropped; lib/agentPrice.ts and upgradeLegacyPower gone; agentPricesV2/powerV1* retired.
+  Energy session archived (task list empty).
