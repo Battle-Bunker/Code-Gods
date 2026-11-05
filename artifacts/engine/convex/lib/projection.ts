@@ -334,6 +334,12 @@ export type ObservationInput = {
   chat: readonly Chat[]; nowMs?: number;
   /** The allowed languages' sandbox readiness (runtime/readiness.ts sandboxViews). */
   sandboxes?: readonly { language: string; state: string; reason?: string }[];
+  /**
+   * A narrow observation (lib/load.ts NarrowObjects): the god's objects as its objectViews rows show them and its
+   * godTotals score, in place of `objects` (then empty: the leaderboard is the published scoreboard).
+   */
+  views?: readonly { id: string; value: number | string; own: { ordinal: number; rewardBits: number; penaltyBits?: number; netBits: number }; peerNetBits: number; peerCare: number; payoff: number }[];
+  score?: number;
 };
 
 /** Protocol v3 observation: own scores and peer aggregates, own agents, the instance and the kid card. */
@@ -371,9 +377,9 @@ export function observation(input: ObservationInput): Observation {
       })() : {}),
       // The own score is live; the leaderboard below is the scoreboard last published.
       // Live, it is the sum of the payoffs as disclosed (from the noisy peers' sums), consistent with the scoreboard.
-      ...(game && deity ? { score: (game.phase === "ended" ? totalsOf : disclosedTotalsOf)(game.roster.map(m => m.id), input.objects)[game.roster.findIndex(m => m.id === self.godId)] } : {}),
+      ...(game && deity ? { score: input.score ?? (game.phase === "ended" ? totalsOf : disclosedTotalsOf)(game.roster.map(m => m.id), input.objects)[game.roster.findIndex(m => m.id === self.godId)] } : {}),
     },
-    objects: game && deity ? input.objects.flatMap(o => {
+    objects: game && deity ? input.views?.map(o => ({ id: o.id, value: o.value, own: o.own, peerNetBits: o.peerNetBits, peerCare: o.peerCare, payoff: o.payoff })) ?? input.objects.flatMap(o => {
       const view = personalObject(o, self.godId, game.phase !== "ended");
       return view ? [{ id: view.id, value: view.value, own: view.own, peerNetBits: view.peerNetBits, peerCare: view.peerCare, payoff: view.payoff }] : [];
     }) : [],
