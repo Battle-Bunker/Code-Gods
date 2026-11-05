@@ -73,6 +73,11 @@ test("no player-facing result discloses another god's scores, descriptor, agent 
       objectsByOthers: await client.query(api.player.objectsPage, { roomId, sort: "othersCare", limit: 2100 }),
       // The per-god read model (game/objectViews.ts): the viewer's own rows and totals only.
       ...await readModel(client),
+      // The dock's narrow queries (convex/dock.ts).
+      dockState: await client.query(api.dock.state, { roomId }),
+      dockAgents: await client.query(api.dock.agents, { roomId }),
+      dockTransformations: await client.query(api.dock.transformations, { roomId }),
+      dockAgentSeries: await client.query(api.dock.agentSeries, { gameId: game.gameId }),
       myUtility: await client.query(api.player.myUtility, { roomId }),
       room: await client.query(api.rooms.get, { room: shortCode }),
       ...await spectator(client),

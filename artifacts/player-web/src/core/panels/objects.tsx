@@ -19,7 +19,7 @@ import { OBJECT_SORTS, OBJECT_SORT_LABELS, mutationLine, type ObjectSort } from 
 import {
   ScoreBreakdown, dimensionVar, objectRowHeight, rampVar, relativeStrength,
 } from "@workspace/object-views";
-import { ObjectGrid, ObjectView, formatBits, useMyCard, useObjectContext, useObservation, type LiveObject } from "@/sdk";
+import { ObjectGrid, ObjectView, formatBits, useMyCard, useObjectContext, useDockState, type LiveObject } from "@/sdk";
 import { useGameId, useMyObject, useMyTotals, useObjectRank, useObjectSkeleton, useObjectsPage, type MyObject, type MyTotals } from "@/sdk/hooks";
 import { VirtualRows } from "@/components/virtual-rows";
 import { useDockActions } from "@/dock/actions";
@@ -193,7 +193,7 @@ export default function Objects({ paneId, params, phase }: PanelProps<"objects">
   useEffect(() => { if (skeleton.loaded && skeleton.lastEmpty) loadMore(); }, [skeleton.loaded, skeleton.lastEmpty, loadMore]);
   const card = useMyCard();
   // The world time the ages are measured from: the live clock, or a replay's playhead (both answer the observation).
-  const world = useObservation({ hz: 1 })?.economy?.worldSeconds ?? 0;
+  const world = useDockState({ hz: 1 })?.economy?.worldSeconds ?? 0;
   const { ctx, noun } = useObjectContext();
   const [open, setOpen] = useState<string | null>(null);
   const toggle = useCallback((id: string) => setOpen(o => (o === id ? null : id)), []);

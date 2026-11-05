@@ -6,7 +6,7 @@
  */
 import { useMemo } from "react";
 import type { Language } from "@workspace/game-core";
-import { useObservation } from "@/sdk";
+import { useDockState } from "@/sdk";
 import { useRoom } from "@/sdk/context";
 import { useReplaySource } from "@/sdk/replay-source";
 import { useRunner } from "@/core/game/runner";
@@ -18,7 +18,7 @@ export function useAffordances({ language }: { language?: Language } = {}): Affo
   const { permission } = useRoom();
   const replay = useReplaySource();
   const controller = useReplayController();
-  const obs = useObservation({ hz: 1 });
+  const obs = useDockState({ hz: 1 });
   const { busy, unknown } = useRunner();
   const sandbox = language ? forgeSandbox(obs, language) : undefined;
   const sandboxKey = sandbox ? `${sandbox.ready}|${sandbox.text ?? ""}` : "";

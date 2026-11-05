@@ -10,8 +10,8 @@
  */
 import { isLanguage } from "@workspace/game-core";
 import { Term } from "@workspace/ui-kit";
-import { useEffect, useState, type ReactNode } from "react";
-import { Sparkline, Timeline, TimelineLegend, useGame, useMyAgents, useObservation, type MyAgent } from "@/sdk";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { Sparkline, Timeline, TimelineLegend, useAgentSeries, useDockState, useGame, useMyAgents, type MyAgent } from "@/sdk";
 import { useDockActions } from "@/dock/actions";
 import { useGameCommands } from "@/core/game/runner";
 import { useAffordances } from "@/core/use-affordances";
@@ -27,7 +27,6 @@ import { PanelEmpty, TextButton, type PanelProps } from "./kit";
 import { maxShareFor, parseSharePercent, shareProblem } from "./power-share";
 
 export type Sample = { at: number; energy: number; eligible: boolean };
-const history = new Map<string, Sample[]>();
 
 /** A sentence whose glossary words are hover terms. */
 function Say({ segs }: { segs: readonly Seg[] }) {
@@ -191,23 +190,20 @@ export function AgentsView({ agents, self, powerPerSecond, world, samples, windo
 export default function Agents({ params, phase }: PanelProps<"agents">) {
   const { agents: all, economy, secondsUntilEligible } = useMyAgents({ hz: 1 });
   const game = useGame({ hz: 1 });
-  const self = useObservation({ hz: 1 })?.self;
+  const self = useDockState({ hz: 1 })?.self;
+  // Each agent's energy at every scoreboard publication, kept by the server (dock.agentSeries), and its energy now.
+  const series = useAgentSeries(game?.gameId);
   const dock = useDockActions();
   const commands = useGameCommands();
   const can = useAffordances();
-  const [, redraw] = useState(0);
   const world = game?.worldSeconds ?? 0;
-  useEffect(() => {
-    // Only live agents keep a history: a destroyed agent's (or a past game's) samples go.
-    for (const id of [...history.keys()]) if (!all.some(a => a.id === id)) history.delete(id);
-    pruneSourceOpen(all.map(a => a.id));
-    for (const a of all) {
-      const list = history.get(a.id) ?? [];
-      if (list.at(-1)?.at !== world) list.push({ at: world, energy: a.energy, eligible: a.eligible });
-      history.set(a.id, list.filter(s => s.at >= world - 600));
-    }
-    redraw(n => n + 1);
-  }, [all, world]);
+  useEffect(() => { pruneSourceOpen(all.map(a => a.id)); }, [all]);
+  const history = useMemo(() => {
+    const out = new Map<string, Sample[]>();
+    for (const row of series) for (const a of row.agents) out.set(a.id, [...(out.get(a.id) ?? []), { at: row.world, energy: a.energy, eligible: a.energy > 0 }]);
+    for (const a of all) out.set(a.id, [...(out.get(a.id) ?? []).filter(s => s.at < world), { at: world, energy: a.energy, eligible: a.eligible }]);
+    return out;
+  }, [series, all, world]);
 
   const agents = params.agentIds.length ? all.filter(a => params.agentIds.includes(a.id)) : all;
   const ended = phase === "ended";

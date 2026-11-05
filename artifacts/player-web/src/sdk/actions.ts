@@ -11,7 +11,7 @@ import { useCallback, useMemo } from "react";
 import { useSdkSubmit } from "@sdk-transport";
 import { GAME_COMMANDS, VERSION, type Command, type CommandResult, type Envelope } from "@workspace/player-client";
 import { useRoom } from "./context";
-import { useObservation } from "./hooks";
+import { useDockState } from "./hooks";
 import { useReplaySource } from "./replay-source";
 
 export type Language = "python" | "typescript";
@@ -20,7 +20,7 @@ export function useActions() {
   const { roomId, permission } = useRoom();
   // A replay refuses every command (sdk/replay-source.ts), so nothing can act in one either.
   const replay = !!useReplaySource();
-  const gameId = useObservation({ hz: 1 })?.gameId;
+  const gameId = useDockState({ hz: 1 })?.gameId;
   const submit = useSdkSubmit();
   const send = useCallback(async (envelope: Envelope): Promise<CommandResult> =>
     await submit(roomId, envelope), [submit, roomId]);

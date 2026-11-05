@@ -21,6 +21,13 @@ export const QUERY_REFS: Record<QueryName, FunctionReference<"query">> = {
   "player.objectsTop": api.player.objectsTop,
   "player.objectRank": api.player.objectRank,
   "player.totals": api.player.totals,
+  "dock.state": api.dock.state,
+  "dock.agents": api.dock.agents,
+  "dock.transformations": api.dock.transformations,
+  "dock.agentSeries": api.dock.agentSeries,
+  "games.standings": api.games.standings,
+  "games.standingsHistory": api.games.standingsHistory,
+  "rooms.chat": api.rooms.chat,
   "rooms.get": api.rooms.get,
 };
 

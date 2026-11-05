@@ -20,6 +20,13 @@ export type QueryReturns = {
   "player.objectsTop": FunctionReturnType<typeof api.player.objectsTop>;
   "player.objectRank": FunctionReturnType<typeof api.player.objectRank>;
   "player.totals": FunctionReturnType<typeof api.player.totals>;
+  "dock.state": FunctionReturnType<typeof api.dock.state>;
+  "dock.agents": FunctionReturnType<typeof api.dock.agents>;
+  "dock.transformations": FunctionReturnType<typeof api.dock.transformations>;
+  "dock.agentSeries": FunctionReturnType<typeof api.dock.agentSeries>;
+  "games.standings": FunctionReturnType<typeof api.games.standings>;
+  "games.standingsHistory": FunctionReturnType<typeof api.games.standingsHistory>;
+  "rooms.chat": FunctionReturnType<typeof api.rooms.chat>;
   "rooms.get": FunctionReturnType<typeof api.rooms.get>;
 };
 

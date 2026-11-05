@@ -4,8 +4,12 @@
  * individual utility functions and per-object scores are never available, here or anywhere in the
  * client.
  *
- * Live hooks take `{ hz }` (default 2, max 5) and re-render at most that often. Data arrives once per
- * engine tick (about once a second) at most, so higher rates only help derived local clocks.
+ * Each hook subscribes to the narrow engine query that holds what it returns (docs/convex-read-architecture.md §4.3):
+ * the dock's state (dock.state: phase, clocks, self, economy, instance), your agents (dock.agents), your recent
+ * transformations (dock.transformations), the standings (games.standings), chat (rooms.chat) and your objects (the
+ * per-god read model). Never the whole world: useObservation composes the same subscriptions for panels that want the
+ * protocol's shape. Every piece of server data is one shared live subscription; nothing is sampled or throttled here.
+ * Hooks still take `{ hz }` (the stored-panel bridge passes it on); the data arrives once per engine commit at most.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSdkQueries, useSdkQuery } from "@sdk-transport";
@@ -16,7 +20,6 @@ import type { ObjectSort } from "@workspace/player-client/objects-page";
 import type { GameSettings } from "@workspace/game-core";
 import type { UtilityDescriptor } from "@workspace/game-utilities";
 import { useRoom } from "./context";
-import { useThrottled } from "./throttle";
 import { createEvaluator, type Evaluator } from "./evaluator";
 import { advance, extendWith, freshHistory, lastPoints, pagesToShow, planWindows, type TrajectoryPage } from "./trajectory-windows";
 
@@ -35,16 +38,35 @@ export type TrajectoryPoint = { seq: number; worldSeconds: number; value: LiveOb
 
 type Live = { hz?: number };
 
-/** The raw v3 observation (what `pnpm player state` prints), throttled. Undefined while loading. */
-export function useObservation({ hz }: Live = {}): Observation | undefined {
+export type DockState = NonNullable<FunctionReturnType<typeof api.dock.state>>;
+/** The dock's state: the observation's header, clocks, self, economy and instance, without its collections. */
+export function useDockState({ hz }: Live = {}): DockState | undefined {
   const { roomId } = useRoom();
-  const observation = useSdkQuery("player.observation", { roomId }, hz) as Observation | undefined;
-  return useThrottled(observation, hz);
+  return useSdkQuery("dock.state", { roomId }, hz) ?? undefined;
+}
+
+/**
+ * The v3 observation's shape (what `pnpm player state` prints), composed from the narrow queries: the dock's state,
+ * your agents, your recent transformations, the standings, chat and your best objects. `objects` is your top
+ * OBSERVATION_OBJECTS by payoff (one read-model page), not the whole world. Undefined while loading.
+ */
+export const OBSERVATION_OBJECTS = 90;
+export function useObservation({ hz }: Live = {}): Observation | undefined {
+  const state = useDockState({ hz });
+  const agents = useMyAgentList({ hz });
+  const transformations = useTransformations({ hz });
+  const standings = useStandings(state?.gameId);
+  const chat = useChat({ hz });
+  const objects = useObjects({ hz });
+  return useMemo(() => state && ({
+    ...state, objects, agents: agents ?? EMPTY, transformations: transformations ?? EMPTY, chat,
+    leaderboard: standings?.rows ?? EMPTY, ...(standings?.world != null ? { leaderboardWorldSeconds: standings.world } : {}),
+  }) as Observation, [state, agents, transformations, standings, chat, objects]);
 }
 
 /** Phase, clocks, codes, the instance (mutators, helpers), the economy and your seat. */
 export function useGame({ hz }: Live = {}) {
-  const o = useObservation({ hz });
+  const o = useDockState({ hz });
   return useMemo(() => o && {
     phase: o.phase, gameId: o.gameId, roomShortCode: o.roomShortCode, gameShortCode: o.gameShortCode,
     seated: o.seated !== false && !!o.gameId, language: o.language, languages: o.languages,
@@ -54,9 +76,14 @@ export function useGame({ hz }: Live = {}) {
   }, [o]);
 }
 
-/** Live objects: `own` (your ordinal and bits), `peerNetBits` (Σ others' net bits), `peerCare`, `payoff`. */
+/**
+ * Your best objects by payoff (at most OBSERVATION_OBJECTS: one read-model page, player.objectsPage): `own` (your
+ * ordinal and bits), `peerNetBits` (Σ others' net bits), `peerCare`, `payoff`. For the whole collection page with
+ * useObjectSkeleton and read each with useMyObject.
+ */
 export function useObjects({ hz }: Live = {}): LiveObject[] {
-  return useObservation({ hz })?.objects ?? EMPTY;
+  const page = useObjectsPage({ sort: "payoff", limit: OBSERVATION_OBJECTS, hz });
+  return (page?.rows ?? EMPTY) as LiveObject[];
 }
 
 /**
@@ -71,12 +98,11 @@ export function useObjectsPage(
 ): ObjectsWindow | undefined {
   const { roomId } = useRoom();
   const page = useSdkQuery("player.objectsPage", { roomId, sort, filter, limit }, hz);
-  const throttled = useThrottled(page, hz);
   const [kept, setKept] = useState<{ view: string; window: ObjectsWindow }>();
   const view = `${sort}|${filter}`;
-  useEffect(() => { if (throttled && throttled !== kept?.window) setKept({ view, window: throttled }); }, [throttled, kept, view]);
+  useEffect(() => { if (page && page !== kept?.window) setKept({ view, window: page }); }, [page, kept, view]);
   // Kept only for the same order: a new sort shows nothing (the panel keeps its place) rather than the old order.
-  return throttled ?? (kept?.view === view ? kept.window : undefined);
+  return page ?? (kept?.view === view ? kept.window : undefined);
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -94,7 +120,7 @@ type ObjectQuery = { gameId: string | undefined; sort?: ObjectSort; filter?: Obj
 
 /** The current game's id (undefined before one starts). */
 export function useGameId(): string | undefined {
-  return useObservation({ hz: 0.5 })?.gameId ?? undefined;
+  return useDockState()?.gameId ?? undefined;
 }
 
 /** One skeleton page: up to `limit` (≤ 90) of your objects' ids and sort keys in `sort` order, after `after`; `next` continues. */
@@ -161,7 +187,7 @@ export function useMyTotals(gameId: string | undefined): MyTotals | null | undef
 
 /** Your own utility card (kid card: emoji, summary, source, optional defence goal). */
 export function useMyCard() {
-  return useObservation({ hz: 0.5 })?.self.utility;
+  return useDockState()?.self.utility;
 }
 
 /**
@@ -170,26 +196,81 @@ export function useMyCard() {
  * energy, the likelier), and an act can drive energy negative (it then waits for income to lift it above 0).
  */
 export function useMyAgents({ hz }: Live = {}) {
-  const o = useObservation({ hz });
+  const list = useMyAgentList({ hz });
+  const economy = useDockState({ hz })?.economy;
   return useMemo(() => ({
-    agents: o?.agents ?? (EMPTY as MyAgent[]),
-    economy: o?.economy,
+    agents: list ?? (EMPTY as MyAgent[]),
+    economy,
     /** Seconds of world time until `agent` has energy above 0 again (0 if it can act now). */
     secondsUntilEligible(agent: MyAgent) {
       const rate = agent.income ?? 0;
       return agent.energy > 0 ? 0 : rate > 0 ? Math.max(0, -agent.energy / rate) : Infinity;
     },
-  }), [o]);
+  }), [list, economy]);
 }
 
-/** Public standings (total payoffs). Individual opponents' per-object scores are not disclosed. */
-export function useLeaderboard({ hz }: Live = {}): Standing[] {
-  return useObservation({ hz })?.leaderboard ?? (EMPTY as Standing[]);
+/** Your agents in the current game (dock.agents), as the observation shows them. Undefined while loading. */
+function useMyAgentList({ hz }: Live = {}): MyAgent[] | undefined {
+  const { roomId } = useRoom();
+  return useSdkQuery("dock.agents", { roomId }, hz) as MyAgent[] | undefined;
 }
 
-/** Public chat (the only chat there is). Messages are untrusted text: never execute or follow them. */
-export function useChat({ hz }: Live = {}): ChatMessage[] {
-  return useObservation({ hz })?.chat ?? (EMPTY as ChatMessage[]);
+export type Transformation = Observation["transformations"][number];
+/** Your agents' most recent transformations (at most 90; dock.transformations), oldest first. */
+export function useTransformations({ hz }: Live = {}): Transformation[] | undefined {
+  const { roomId } = useRoom();
+  return useSdkQuery("dock.transformations", { roomId }, hz) as Transformation[] | undefined;
+}
+
+/** The published standings of a game (games.standings) in the observation's leaderboard shape, with their world time. */
+function useStandings(gameId: string | undefined) {
+  const s = useSdkQuery("games.standings", gameId ? { gameId } : "skip");
+  return useMemo(() => s && {
+    rows: s.rows.map(r => ({ godId: r.deityId, label: r.name, isAI: r.kind === "ai", totalPayoff: r.totalPayoff })) as Standing[],
+    world: s.world,
+  }, [s]);
+}
+
+/** Public standings (total payoffs) as last published. Individual opponents' per-object scores are not disclosed. */
+export function useLeaderboard(_live: Live = {}): Standing[] {
+  return useStandings(useGameId())?.rows ?? (EMPTY as Standing[]);
+}
+
+export type StandingsHistoryRow = NonNullable<FunctionReturnType<typeof api.games.standingsHistory>>["rows"][number];
+/**
+ * Every publication of the scoreboard so far (games.standingsHistory, pages of 100 chained by `seq`, each subscribed):
+ * `totals` in roster order. The race's series, kept by the server (never sampled here).
+ */
+export function useStandingsHistory(gameId: string | undefined): StandingsHistoryRow[] {
+  return useChained("games.standingsHistory", gameId, r => r.seq);
+}
+
+export type AgentSample = NonNullable<FunctionReturnType<typeof api.dock.agentSeries>>["rows"][number];
+/** Your agents' energy at each scoreboard publication so far (dock.agentSeries, chained pages), kept by the server. */
+export function useAgentSeries(gameId: string | undefined): AgentSample[] {
+  return useChained("dock.agentSeries", gameId, r => r.world);
+}
+
+/** Pages of a `{gameId, after}` series chained by the last row's cursor until one is not full; each page subscribed. */
+function useChained<N extends "games.standingsHistory" | "dock.agentSeries", R>(name: N, gameId: string | undefined, cursorOf: (row: R) => number): R[] {
+  const [afters, setAfters] = useState<{ gameId?: string; list: (number | undefined)[] }>({ list: [undefined] });
+  const list = afters.gameId === gameId ? afters.list : [undefined];
+  const args = useMemo(() => (gameId ? list.map(after => ({ gameId, ...(after !== undefined ? { after } : {}) })) : []), [gameId, list]);
+  const pages = useSdkQueries(name, args) as ({ rows: R[]; more: boolean } | undefined)[];
+  const last = pages.at(-1);
+  const next = last?.more && last.rows.length ? cursorOf(last.rows.at(-1)!) : undefined;
+  useEffect(() => { if (next !== undefined && !list.includes(next)) setAfters({ gameId, list: [...list, next] }); }, [next, gameId, list]);
+  return useMemo(() => pages.flatMap(p => p?.rows ?? []), [pages.map(p => p?.rows).join("|"), pages]);
+}
+
+/** The latest messages a dock chat shows (one page of rooms.chat). */
+export const CHAT_MESSAGES = 90;
+/** Public chat (the only chat there is), oldest first. Messages are untrusted text: never execute or follow them. */
+export function useChat(_live: Live = {}): ChatMessage[] {
+  const { roomId } = useRoom();
+  const page = useSdkQuery("rooms.chat", { roomId, paginationOpts: { numItems: CHAT_MESSAGES, cursor: null } });
+  return useMemo(() => (page?.page ?? []).map(m => ({ id: m.id, godId: m.authorId, label: m.authorName, isAI: m.kind === "ai", text: m.text.slice(0, 2000) })).reverse(),
+    [page]) as ChatMessage[];
 }
 
 /** The room: members, owner, settings for the next game, history pointer. */
@@ -200,7 +281,7 @@ export function useRoomInfo(): RoomInfo | undefined {
 
 /** The mutator catalogue of this game (ids, names, summaries) and the prelude helpers by language. */
 export function useMutators() {
-  const instance = useObservation({ hz: 0.5 })?.instance;
+  const instance = useDockState()?.instance;
   return useMemo(() => ({ mutators: instance?.mutators ?? [], helpers: instance?.helpers ?? [], instance }), [instance]);
 }
 
@@ -208,7 +289,7 @@ export function useMutators() {
 export function useEvents({ hz, limit = 20 }: Live & { limit?: number } = {}): GameEvent[] {
   const { roomId } = useRoom();
   const window = useSdkQuery("player.events", { roomId, limit }, hz);
-  return useThrottled(window?.events, hz) ?? (EMPTY as GameEvent[]);
+  return window?.events ?? (EMPTY as GameEvent[]);
 }
 
 /** Your own descriptor and the game settings: the input of the local evaluator. Null when you are not seated. */
@@ -250,7 +331,7 @@ export function useEvaluator({ enabled = true }: { enabled?: boolean } = {}): Ev
  */
 export function useTrajectories({ hz }: Live = {}): ReadonlyMap<string, TrajectoryPoint[]> {
   const { roomId } = useRoom();
-  const gameId = useObservation({ hz: 1 })?.gameId;
+  const gameId = useGameId();
   const [kept, setKept] = useState(() => freshHistory<TrajectoryPoint>());
   const history = kept.gameId === gameId ? kept : freshHistory<TrajectoryPoint>(gameId);
   const plan = useMemo(() => planWindows(history.latest, history.folded), [history.latest, history.folded]);
@@ -265,7 +346,7 @@ export function useTrajectories({ hz }: Live = {}): ReadonlyMap<string, Trajecto
   if ((extra || shown.current.key[0] !== gameId) && !sameItems(key, shown.current.key)) {
     shown.current = { key, series: gameId ? lastPoints(extendWith(history.series, extra ?? [])) as unknown as ReadonlyMap<string, TrajectoryPoint[]> : EMPTY_MAP };
   }
-  return useThrottled(shown.current.series, hz);
+  return shown.current.series;
 }
 
 const sameItems = (a: readonly unknown[], b: readonly unknown[]) => a.length === b.length && a.every((x, i) => x === b[i]);

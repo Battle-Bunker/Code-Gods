@@ -1,6 +1,7 @@
 /** My points over time: one line per object (payoff, your bits or the others'), for the objects that matter most to you now. */
-import { LineChart, Obj, fmtBits, useObjects, useTrajectories, type TrajectoryPoint } from "@/sdk";
-import { PanelEmpty, referObject, useObjectRanks, type PanelProps } from "./kit";
+import { useMemo } from "react";
+import { LineChart, Obj, fmtBits, useGameId, useObjects, useObjectsTop, useTrajectories, type TrajectoryPoint } from "@/sdk";
+import { PanelEmpty, referObject, ranksOf, type PanelProps } from "./kit";
 
 const VALUE: Record<string, (p: TrajectoryPoint) => number> = { payoff: p => p.payoff, mine: p => p.ownNetBits, others: p => p.peerNetBits };
 const NAME = { payoff: "payoff", mine: "your net bits", others: "others' net bits" } as const;
@@ -8,10 +9,13 @@ const NAME = { payoff: "payoff", mine: "your net bits", others: "others' net bit
 export default function BitsOverTime({ params }: PanelProps<"bits-over-time">) {
   const objects = useObjects({ hz: 1 });
   const trajectories = useTrajectories({ hz: 1 });
-  const ranks = useObjectRanks(objects);
-  const ranked = [...objects].sort((a, b) => b.payoff - a.payoff);
-  const chosen = params.objects === "ids" ? ranked.filter(o => params.ids.includes(o.id))
-    : (params.objects === "top" ? ranked : [...ranked].reverse()).slice(0, params.count);
+  const ranks = useMemo(() => ranksOf(objects), [objects]);
+  // Top or bottom by payoff, ranked by the server (player.objectsTop); chosen ids among your best objects.
+  const gameId = useGameId();
+  const n = Math.min(20, params.count);
+  const top = useObjectsTop({ gameId, n, dir: params.objects === "bottom" ? "asc" : "desc" }) ?? [];
+  const chosen = params.objects === "ids" ? objects.filter(o => params.ids.includes(o.id)) : top;
+  for (const o of top) if (!ranks.has(o.id) && params.objects === "top") ranks.set(o.id, o.rank);
   if (!chosen.length) return <PanelEmpty>{objects.length ? "None of the chosen objects is alive any more." : "No objects yet: lines appear once the world runs."}</PanelEmpty>;
   const latest = Math.max(0, ...chosen.flatMap(o => (trajectories.get(o.id) ?? []).map(p => p.worldSeconds)));
   const from = params.window > 0 ? latest - params.window : -Infinity;

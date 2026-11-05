@@ -106,6 +106,22 @@ test("the read model's queries are answered from the replay at the playhead, exa
   assert.deepEqual(c.answer("player.objectIds", { gameId: "g" }), { rows: [], next: null }, "nothing before the first spawn");
 });
 
+// What would break: a dock hook in a replay getting nothing (the engine is not asked in replay mode), or the race's
+// series running past the playhead.
+test("the dock's queries are answered from the replay at the playhead", () => {
+  const c = controller(5);
+  const state = c.answer("dock.state", { roomId: "r" }) as { phase: string; roster: string[]; objects?: unknown };
+  assert.deepEqual([state.phase, state.roster, "objects" in state], ["ended", ["a", "b"], false]);
+  assert.ok(Array.isArray(c.answer("dock.agents", { roomId: "r" })));
+  const standings = c.answer("games.standings", { gameId: "g" }) as { rows: { deityId: string; rank: number }[] };
+  assert.deepEqual(standings.rows.map(r => r.rank), [1, 2]);
+  const all = (c.answer("games.standingsHistory", { gameId: "g" }) as { rows: { world: number }[] }).rows;
+  c.seek(2);
+  const early = (c.answer("games.standingsHistory", { gameId: "g" }) as { rows: { world: number }[] }).rows;
+  assert.ok(early.length < all.length, "the series stops at the playhead");
+  assert.deepEqual((c.answer("rooms.chat", { roomId: "r", paginationOpts: { numItems: 50, cursor: null } }) as { page: unknown[] }).page, []);
+});
+
 // ----- the clock: a continuous playhead in world time (events at world 0, 0, 2, 3 and 5) -----
 // No browser frames here: play() asks for one if it can, and advance(ms) moves the clock as a frame would.
 (globalThis as { requestAnimationFrame?: unknown }).requestAnimationFrame ??= () => 0;
