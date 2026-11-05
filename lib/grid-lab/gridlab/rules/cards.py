@@ -330,6 +330,65 @@ def castle_keeper(p, gt):
         """)
 
 
+def treasure_castle(p, gt):
+    W = p["wall"]
+    return card("💎", "Treasure Castle", f"""Build {W} walls. Every {p['treasure']} treasure cell that the walls shut off from
+        the edge of the grid scores a point. If that's a tie, more {W} wall on the edge is better.""",
+                [("WALL", W), ("TREASURE", p["treasure"])], """
+        def not_wall(cell):
+            return cell.colour != WALL
+
+        def inside(cell, outside):
+            return not_wall(cell) and cell not in outside
+
+        def walls_on_edge(grid):
+            walls = 0
+            for cell in grid.edge_cells:
+                if cell.colour == WALL:
+                    walls += 1
+            return walls
+
+        def utility(grid):
+            outside = grid.reachable(grid.edge_cells, through=not_wall)  # cells you can walk to from the edge
+            treasure = 0
+            for cell in grid.cells:
+                if inside(cell, outside) and cell.colour == TREASURE:
+                    treasure += 1
+            return (treasure, walls_on_edge(grid))
+        """)
+
+
+def castle_pockets(p, gt):
+    W = p["wall"]
+    return card("👀", "Castle Pockets", f"""Build {W} walls. Every cell the walls shut off from the edge of the grid scores a
+        point, and every separate pocket of them scores 3 more. If that's a tie, more {W} wall on the
+        edge is better.""", [("WALL", W)], """
+        def not_wall(cell):
+            return cell.colour != WALL
+
+        def inside(cell, outside):
+            return not_wall(cell) and cell not in outside
+
+        def walls_on_edge(grid):
+            walls = 0
+            for cell in grid.edge_cells:
+                if cell.colour == WALL:
+                    walls += 1
+            return walls
+
+        def same_side(a, b):
+            return not_wall(a) == not_wall(b)
+
+        def utility(grid):
+            outside = grid.reachable(grid.edge_cells, through=not_wall)  # cells you can walk to from the edge
+            points = 0
+            for pocket in grid.regions(same_side):
+                if inside(pocket[0], outside):
+                    points += len(pocket) + 3
+            return (points, walls_on_edge(grid))
+        """)
+
+
 def chessmaster(p, gt):
     A, B = p["colour_a"], p["colour_b"]
     return card("♟️", "Chessmaster", f"""Every 2×2 square coloured like a chessboard in {A} and {B}
@@ -416,6 +475,33 @@ def royal_court(p, gt):
         edge. If that's a tie, count those picture cards that are off the edge.""", consts, f"""
         def royal(cell):
             return {test}
+
+        def utility(grid):
+            middle = grid.cell(grid.size // 2, grid.size // 2)
+            court_size = 0
+            if royal(middle):
+                court = grid.reachable(middle, through=royal)
+                court_size = len(court)
+                safe = True
+                for cell in court:
+                    if cell.on_edge:
+                        safe = False
+                if safe:
+                    court_size *= 2
+            off_edge = 0
+            for cell in grid.cells:
+                if royal(cell) and not cell.on_edge:
+                    off_edge += 1
+            return (court_size, off_edge)
+        """)
+
+
+def any_suit_court(p, gt):
+    return card("🏰", "Any-Suit Court", """Put a picture card (J, Q, K) of any suit in the very middle. Your court is it
+        plus every picture card joined to it through touching cells: score its size, doubled if none of it is on
+        the edge. If that's a tie, count those picture cards that are off the edge.""", [], """
+        def royal(cell):
+            return cell.is_picture
 
         def utility(grid):
             middle = grid.cell(grid.size // 2, grid.size // 2)
@@ -906,6 +992,7 @@ CARDS = {
     "lantern_lighter": lantern_lighter, "rummy_melder": rummy_melder, "othello_sandwich": othello_sandwich,
     "honest_minesweeper": honest_minesweeper, "bingo_caller": bingo_caller, "sudoku_scholar": sudoku_scholar,
     "full_house": full_house,
+    "treasure_castle": treasure_castle, "castle_pockets": castle_pockets, "any_suit_court": any_suit_court,
 }
 
 

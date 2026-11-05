@@ -1036,5 +1036,73 @@ const connectFour = gridFamily<FourP>({
   exemplar: (p, g) => wire(g, full(g.N, 0), full(g.N, colourAt(g, p.colour))),
 });
 
+// --- Any-Suit Parade (Court Parade of any one suit) ---------------------------------------------------------------------
+/** Court Parade where the Jack, Queen and King may be of any one suit (all in one colour). A split of Court Parade (rules-design.md P10): no params. */
+type AnyParadeP = Record<string, never>;
+const anyParadeText = (_p: AnyParadeP, _g: GridSpec): CardText => ({
+  emoji: "🎪", name: "Any-Suit Parade", consts: [],
+  about: "A parade is a Jack, Queen and King of any one suit, side by side in that order "
+    + "along a row or column, all in one colour. A parade scores 1 point. "
+    + "With the Ace of that suit just before the Jack, it scores 2 points. Most points wins. "
+    + "If that's a tie, count side-by-side Jack-Queen and Queen-King pairs of one suit.",
+});
+const anySuitParade = gridFamily<AnyParadeP>({
+  id: "any_suit_parade", name: "Any-Suit Parade", emoji: "🎪", theme: "J, Q, K of any one suit marching in a line",
+  requires: { classes: ["Suited", "Faced"], minFaces: 3 }, shape: tuple(2),
+  params: () => ({}),
+  support: () => [{}],
+  summary: (p, g) => anyParadeText(p, g).about,
+  python: (p, g) => pyCard(anyParadeText(p, g), `
+    def one_suit(cells):
+        for cell in cells:
+            if cell.suit != cells[0].suit:
+                return False
+        return True
+
+    def utility(grid):
+        parades = 0
+        pairs = 0
+        for line in grid.rows + grid.columns:
+            for i in range(len(line) - 1):
+                a, b = line[i], line[i + 1]
+                if one_suit([a, b]) and ((a.value == 11 and b.value == 12) or (a.value == 12 and b.value == 13)):
+                    pairs += 1
+            for i in range(len(line) - 2):
+                jack, queen, king = line[i], line[i + 1], line[i + 2]
+                if jack.value == 11 and queen.value == 12 and king.value == 13 and one_suit([jack, queen, king]):
+                    if jack.colour != queen.colour or queen.colour != king.colour:
+                        continue
+                    parades += 1
+                    if i > 0 and line[i - 1].value == 1 and line[i - 1].suit == jack.suit:
+                        parades += 1
+        return (parades, pairs)`),
+  typescript: (p, g) => tsCard(anyParadeText(p, g), `
+    function oneSuit(cells) {
+      return cells.every(cell => cell.suit === cells[0].suit);
+    }
+
+    function utility(grid) {
+      let parades = 0;
+      let pairs = 0;
+      for (const line of [...grid.rows, ...grid.columns]) {
+        for (let i = 0; i < line.length - 1; i++) {
+          const a = line[i], b = line[i + 1];
+          const courtly = (a.value === 11 && b.value === 12) || (a.value === 12 && b.value === 13);
+          if (oneSuit([a, b]) && courtly) pairs += 1;
+        }
+        for (let i = 0; i < line.length - 2; i++) {
+          const jack = line[i], queen = line[i + 1], king = line[i + 2];
+          if (jack.value === 11 && queen.value === 12 && king.value === 13 && oneSuit([jack, queen, king])) {
+            if (jack.colour !== queen.colour || queen.colour !== king.colour) continue;
+            parades += 1;
+            if (i > 0 && line[i - 1].value === 1 && line[i - 1].suit === jack.suit) parades += 1;
+          }
+        }
+      }
+      return [parades, pairs];
+    }`),
+  exemplar: (_, g) => wire(g, fromFn(g.N, (r, c) => [0, 10, 11, 12][(r + c) % 4]), full(g.N, 0)),
+});
+
 export const GAMES = [rummyMelder, othello, minesweeper, bingoCaller, sudoku, fullHouse, flushRoyale, twentyOne, goFish,
-  setSpotter, knightRiders, unoSnake, courtParade, kingsCourt, connectFour];
+  setSpotter, knightRiders, unoSnake, courtParade, kingsCourt, connectFour, anySuitParade];
