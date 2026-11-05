@@ -111,7 +111,7 @@ occurrence is classified as (a) a legitimate one-off read, (b) a local clock, or
 
 | Where | What | Why it is wrong |
 |---|---|---|
-| `site/lib/convex.tsx` `useLive`, `lib/live-retry.ts` | On a query error, it drops the subscription and resubscribes with backoff (1–30 s, 5 tries), showing the last answer meanwhile | A reload policy the client manages itself. It exists because queries hit the 1 s limit. Convex already resubscribes every query on reconnect. Remove it once the queries fit (§6, PR 8). |
+| `site/lib/convex.tsx` `useLive`, `lib/live-retry.ts` | On a query error, it drops the subscription and resubscribes with backoff (1–30 s, 5 tries), showing the last answer meanwhile | A reload policy the client manages itself. It exists because queries hit the 1 s limit. Convex already resubscribes every query on reconnect. **Removed** (2026-11-03): `useLive` returns the subscription's current value, an error as a value, and `no-one-off-reads.test.ts` forbids a retry. |
 | `core/core-boundary.tsx` | Remounts the whole dock every 3 s after an error, which tears down and recreates every subscription | Same problem |
 | `core/replay/replay-game.tsx` | Loads every replay page in a sequential one-off loop with its own retry | A one-off read is right (an ended game never changes). The loop and retry are a workaround for page size. Precompute the replay once (§4.4). |
 | `sdk/throttle.ts` `useThrottled`, under every SDK hook | About 20 dock components read the whole-world `player.observation`. Each samples it at 0.5–2 Hz so that ten panels "never cost ten renders per tick". | Sampling that hides an over-wide query. With narrow queries, React re-renders only what changed. |
@@ -695,7 +695,7 @@ PR 1's gate) re-measures before and after each PR, and the PR description quotes
    - The manifest and the calibration tables' index become queries over stored documents (no action calls, no
      module caches).
    - The trajectories module store becomes a subscription per cursor window.
-   - Remove `live-retry.ts`, `useLive`'s retry and kept answer, `CoreBoundary`'s remount loop, and the `owner.ts`
+   - Remove `live-retry.ts`, `useLive`'s retry and kept answer (done 2026-11-03), `CoreBoundary`'s remount loop, and the `owner.ts`
      one-off revision read.
    - A grep check in the app's unit tests fails on `convex.query(`, `useConvex().query` or `setInterval` around a
      Convex read in `artifacts/player-web/src`.

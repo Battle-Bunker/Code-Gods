@@ -69,7 +69,7 @@ export function usePage(): PageApi {
 /** The live dot: the Convex socket (live data arrives by subscription; the link itself is the only state worth showing). */
 function ConnDot({ ok, label = "live" }: { ok: boolean; label?: string }) {
   const connected = useConvexConnectionState().isWebSocketConnected;
-  const text = !ok ? "Updates are failing; retrying." : connected ? (label === "live" ? "Live: changes appear as they happen." : "Final: this game has ended.") : "Reconnecting…";
+  const text = !ok ? "Updates are failing; they resume when the engine answers again." : connected ? (label === "live" ? "Live: changes appear as they happen." : "Final: this game has ended.") : "Reconnecting…";
   return (
     <Tip text={text}>
       <span className="inline-flex items-center" data-testid="status-connection" aria-label={text} tabIndex={0}>

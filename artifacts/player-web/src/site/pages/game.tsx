@@ -32,7 +32,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Skeleton } from "@/components/ui/skeleton";
 import { gameStep } from "@/site/lib/next-step";
 import { gamePath, roomPath } from "@/site/lib/routes";
-import { errMsg, fmt } from "@/site/lib/errors";
+import { errMsg, fmt, reload, transient } from "@/site/lib/errors";
 import { endReasonLabel, fmtDuration, fmtWhen, secsLeft, toMs, worldSecondsAt } from "@/site/lib/time";
 import type { FunctionReturnType } from "convex/server";
 import { DEFAULT_SCORE_INTERVAL_SECONDS, gameTimer } from "@workspace/game-core";
@@ -210,6 +210,9 @@ export default function Game() {
   // The object type and utility catalog (static for the game), for the spectator view and the page's rules text.
   // Only the spectator view reads it: wait for the room (or its absence) to know whether the dock takes the page.
   const roomKnown = !game?.roomId || !!room.data || !!room.error;
+  // A refusal (ConvexError: not a member, deleted) leaves the spectator view without the room; any other failure (a
+  // timeout) is shown, since Convex re-runs a failed query only when its data changes or it reconnects (no client retry).
+  const roomFailed = transient(room.error) ? room.error : null;
   const docked = isAuthenticated && !!game && !!room.data && (!active || seated);
   const instance = useLive(api.games.instance, game && roomKnown && !docked ? { gameId: game.id } : "skip").data;
   const view = useMemo(() => (game ? { ...game, objectInstance: instance?.objectInstance } : null), [game, instance]);
@@ -240,9 +243,11 @@ export default function Game() {
       ) : !game ? (
         <div className="mx-auto max-w-lg px-4 py-20 space-y-4">
           <h1 className="font-display text-5xl" data-testid="text-game-code">{code}</h1>
-          <ErrorLine message={q.error ? errMsg(q.error) : "Game not found. Check the code, or open it from its room."} />
+          <ErrorLine message={q.error ? errMsg(q.error) : "Game not found. Check the code, or open it from its room."} onRetry={transient(q.error) ? reload : undefined} />
           <Link href="/" className="underline underline-offset-4" data-testid="link-game-home">Your rooms</Link>
         </div>
+      ) : roomFailed ? (
+        <div className="mx-auto max-w-lg px-4 py-20"><ErrorLine message={`Could not load this game's room: ${errMsg(roomFailed)}`} onRetry={reload} /></div>
       ) : <SpectatorView game={game} instance={instance} room={room.data} />}
     </Page>
   );
