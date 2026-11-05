@@ -325,3 +325,8 @@ Owner, verbatim (abridged only where marked):
   energy session (agentPricesV2/powerV1), assistant-modes session (mode required, approvals dropped, plus aiQuotas),
   read-architecture session (objectEvents index/cost, load.ts fallback, setupListing). All touch schema.ts: each rebases
   onto develop right before merging. Then one more release, on the owner's call, with no game running.
+- 21:25: #237 read-architecture narrowing merged (edf4c033): objectEvents.index required (cost stays optional),
+  gameSetups order/nameKey/searchText required, load.ts and dock.ts fallbacks gone, objectEventPlaces and setupListing
+  retired. Pre-release check: prod objectEvents rows with index unset (blocked for me by the classifier; the migration
+  processed 17,940 rows and skips only rows from the dev-only clone fixture; a refusal fails the deploy without
+  changing data).
