@@ -304,13 +304,29 @@ test("disclosure: every read tool, as one of three players, reveals no other god
   const check = disclosureChecker(game.gameId, ada.subject, [SECRET_BO, SECRET_HOST], { live: true });
   const { token } = await credential(ada, roomId, "act");
   const objects = (await call(token, "get_observation", { objectsLimit: 200 })).data.objects;
+  // The observation's objects are paged on the server (objectViews, payoff first). The game runs, so payoffs move
+  // between pages: each page is checked on its own (sorted, at most the limit), and the walk ends.
+  assert.ok(objects.length <= 90 && objects.every((o: any, i: number) => i === 0 || objects[i - 1].payoff >= o.payoff), "payoff first, at most 90");
+  const first = (await call(token, "get_observation", { objectsLimit: 3 })) as any;
+  assert.equal(first.data.caps.objects, 3);
+  assert.ok(first.data.objects.length === 3 && first.data.objectCount >= 12 && typeof first.nextCursor === "string", JSON.stringify(first).slice(0, 300));
+  let pages = 1;
+  for (let cursor = first.nextCursor; cursor !== null; pages++) {
+    assert.ok(pages < 200, "the pages end");
+    const page = (await call(token, "get_observation", { objectsLimit: 3, objectsCursor: cursor })) as any;
+    assert.ok(page.data.objects.length <= 3 && page.data.objects.every((o: any, i: number) => i === 0 || page.data.objects[i - 1].payoff >= o.payoff));
+    cursor = page.nextCursor;
+  }
+  assert.ok(pages >= 4, "12 objects or more in pages of 3");
+  const bySort = (await call(token, "get_observation", { objectsLimit: 90, objectsSort: "mine" })).data.objects as any[];
+  assert.ok(bySort.every((o, i) => i === 0 || bySort[i - 1].own.netBits >= o.own.netBits), "objectsSort: mine orders by own bits");
   const reads: [string, Record<string, unknown>][] = [
-    ["whoami", {}], ["get_rules", {}], ["get_observation", {}], ["get_observation", { objectsLimit: 3, objectsCursor: 3 }], ["get_events", {}],
+    ["whoami", {}], ["get_rules", {}], ["get_observation", {}], ["get_observation", { objectsLimit: 3, objectsCursor: first.nextCursor }], ["get_events", {}],
     ["get_events", { after: -1, limit: 50 }], ["get_trajectories", { afterSeq: -1, limit: 200 }], ["list_games", {}],
     ["get_game_history", { gameId: game.gameId, afterSeq: -1, limit: 50 }], ["get_my_utility", {}], ["get_chat", {}],
     ["evaluate_value", { value: objects[0].value }], ["get_receipt", { commandId: randomUUID() }], ["list_setups", {}],
     // Rival inference (docs/public-log-design.md §4): the public log with own and others' summed bits, and the fit.
-    ["get_utility_series", {}], ["get_board_at", {}], ["get_board_at", { world: 0 }], ["list_utility_candidates", { paramsPerFamily: 2 }],
+    ["get_utility_series", {}], ["get_board_at", {}], ["get_board_at", { world: 0 }], ["get_board_at", { world: 1, limit: 2 }], ["list_utility_candidates", { paramsPerFamily: 2 }],
     ["fit_utility_mixture", { maxObservations: 60, hints: [{ familyId: "bullseye", probability: 0.6 }] }],
   ];
   // These enumerate (or rank) the public candidate rules, so any god's parameters can appear in them by design.
@@ -394,6 +410,16 @@ test("disclosure: every read tool, as one of three players, reveals no other god
   const atStart = (await call(token, "get_board_at", { world: 0 })).data;
   assert.equal(atStart.objects.length, 12, "the board at world 0 is the starting objects");
   assert.ok(atStart.objects.every((o: any) => o.version === 0));
+  // The board is paged: pages of 5 give the same starting objects, each once.
+  const pagedStart: any[] = [];
+  for (let cursor: string | undefined, n = 0; n < 10; n++) {
+    const page: any = await call(token, "get_board_at", { world: 0, limit: 5, ...(cursor ? { cursor } : {}) });
+    assert.ok(page.data.objects.length <= 5);
+    pagedStart.push(...page.data.objects);
+    if (page.nextCursor === null) break;
+    cursor = page.nextCursor;
+  }
+  assert.deepEqual(pagedStart.map(o => o.objectId).sort(), atStart.objects.map((o: any) => o.objectId).sort());
   const fitted = (await call(token, "fit_utility_mixture", { maxObservations: 200 })).data;
   assert.ok(fitted.observations >= 12 && fitted.hypotheses.length > 0 && fitted.hypotheses[0].draws.length === 2, JSON.stringify(fitted).slice(0, 400));
   // With exact observations the true pair of the other gods' rules explains them: it is in the fit (as a class).

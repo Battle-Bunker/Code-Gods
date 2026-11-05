@@ -28,6 +28,7 @@ import { PANEL_IDS } from "./panels.ts";
 import { SKILLS, SKILL_NAMES } from "./skills.ts";
 import { placeSchema } from "./layout.ts";
 import { DATASET_NAMES } from "./datasets.ts";
+import { OBJECT_SORTS } from "./objects-page.ts";
 import { AGENT_DESCRIPTION_MAX, AGENT_NAME_MAX, VERSION, type Envelope, type Permission } from "./protocol.ts";
 
 const RANK: Record<Permission, number> = { read: 0, act: 1, owner: 2 };
@@ -123,10 +124,11 @@ export const READ_TOOLS = [
     about: "The rules of Code Gods for this room as text (scoring, agents, energy, timing), with the room's settings and object type.",
     input: obj({}), output: result(anyData) }),
   def({ name: "get_observation", short: "The live game: phase, energy, utility, objects (paged), agents, leaderboard, recent chat.", title: "Observation", functions: ["player.observation"], permission: "read", annotations: read,
-    note: "Objects are paged (objectsLimit, objectsCursor); agents are capped at 20 with sources cut to 4 KB.",
+    note: "Objects are paged on the server (objectsLimit, objectsSort, objectsCursor; objectCount is the total); agents are capped at 20 with sources cut to 4 KB, chat at 20, recent transformations at 50.",
     input: obj({
-      objectsLimit: z.number().int().min(1).max(200).default(50).describe("Objects per page (sorted as the engine sends them)."),
-      objectsCursor: z.number().int().min(0).default(0).describe("Offset of the first object (nextCursor of the previous page)."),
+      objectsLimit: z.number().int().min(1).max(200).default(50).describe("Objects per page, at most 90 (a larger value is cut to 90)."),
+      objectsSort: z.enum(OBJECT_SORTS).default("payoff").describe("Object order: payoff (highest first), mine (own bits), othersCare, mutations, newest, oldest, recentlyMutated."),
+      objectsCursor: z.union([z.string().max(200), z.literal(0)]).optional().describe("The previous page's nextCursor (omit, or 0, for the first page)."),
     }), output: result(anyData) }),
   def({ name: "get_events", short: "The player's projected event log of a game, by batch cursor.", title: "Event log", functions: ["player.events"], permission: "read", annotations: read,
     note: "Omit `after` for the latest batches.",
@@ -365,7 +367,10 @@ export const INFERENCE_TOOLS = [
       offset: z.number().int().min(0).default(0).describe("Rows to skip (nextCursor)."), limit: z.number().int().min(1).max(20000).default(500) }),
     output: result(anyData) }),
   def({ name: "get_board_at", short: "The board at a world time, with own and others' summed bits.", functions: ["player.board"], permission: "read", annotations: read,
-    input: obj({ gameId, world: z.number().min(0).optional().describe("World seconds (default: now).") }), output: result(anyData) }),
+    note: "Paged in spawn order, at most 40 objects a page: pass nextCursor back as cursor.",
+    input: obj({ gameId, world: z.number().min(0).optional().describe("World seconds (default: now)."),
+      cursor: z.string().max(2000).optional().describe("The previous page's nextCursor (omit for the first page)."),
+      limit: z.number().int().min(1).max(40).default(40).describe("Objects per page.") }), output: result(anyData) }),
   def({ name: "list_utility_candidates", short: "Every rule another god might hold here, with its parameter sets.", title: "Candidate rules", functions: [], permission: "read", annotations: read,
     about: "The public candidates for the OTHER gods' utility functions in the current game: every family the dealer could deal here (theme, tags, "
       + "role: reward or defence goal) with every parameter set it can draw, and how many other gods there are. Use the ids and params in "

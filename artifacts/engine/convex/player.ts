@@ -518,8 +518,12 @@ export async function myUtilityFor(ctx: QueryCtx, viewer: Viewer, { roomId }: { 
 // the utility series (docs/public-log-design.md §2, §4): every spawn and transform of a game, per viewer
 // ------------------------------------------------------------------------------------------------
 
-/** A page of the series holds at most this many rows (default and maximum). */
-export const SERIES_PAGE = 1000, SERIES_PAGE_MAX = 4000;
+/**
+ * A page of the series holds at most this many rows (default and maximum). The public query's pages are R2-sized
+ * (SERIES_PUBLIC_PAGE rows and at most as many earlier rows); the agent tools' internal twin reads larger pages inside
+ * Convex (agent/series.ts gatherSeries).
+ */
+export const SERIES_PAGE = 1000, SERIES_PAGE_MAX = 4000, SERIES_PUBLIC_PAGE = 40;
 type Wire = number | string;
 
 /** The viewer's own bits, the others' sum and own payoff from a stored per-deity vector (never the vector itself). */
@@ -554,14 +558,14 @@ const seriesArgs = {
   roomId: v.string(), gameId: v.optional(v.string()), objectId: v.optional(v.string()), fromWorld: v.optional(v.number()),
   cursor: v.optional(v.union(v.string(), v.null())), limit: v.optional(v.number()),
 };
-export const series = query({ args: seriesArgs, handler: async (ctx, args) => seriesFor(ctx, await requireViewer(ctx), args) });
+export const series = query({ args: seriesArgs, handler: async (ctx, args) => seriesFor(ctx, await requireViewer(ctx), args, SERIES_PUBLIC_PAGE) });
 export const seriesAs = internalQuery({
   args: { principal: principalV, ...seriesArgs },
   handler: async (ctx, { principal, ...args }) => seriesFor(ctx, await viewerOf(ctx, principal), args),
 });
-export async function seriesFor(ctx: QueryCtx, caller: Viewer, args: { roomId: string; gameId?: string; objectId?: string; fromWorld?: number; cursor?: string | null; limit?: number }) {
+export async function seriesFor(ctx: QueryCtx, caller: Viewer, args: { roomId: string; gameId?: string; objectId?: string; fromWorld?: number; cursor?: string | null; limit?: number }, max = SERIES_PAGE_MAX) {
   const { game, index, viewer } = await seatedGame(ctx, caller, args.roomId, args.gameId);
-  const limit = Math.max(1, Math.min(SERIES_PAGE_MAX, Math.floor(args.limit ?? SERIES_PAGE)));
+  const limit = Math.max(1, Math.min(max, Math.floor(args.limit ?? SERIES_PAGE)));
   const objectId = args.objectId ? ctx.db.normalizeId("objects", args.objectId) : null;
   if (args.objectId && !objectId) return fail("BAD_REQUEST", "Not an object id");
   const from = args.fromWorld ?? -Infinity;

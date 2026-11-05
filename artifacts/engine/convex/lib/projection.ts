@@ -338,7 +338,7 @@ export type ObservationInput = {
    * A narrow observation (lib/load.ts NarrowObjects): the god's objects as its objectViews rows show them and its
    * godTotals score, in place of `objects` (then empty: the leaderboard is the published scoreboard).
    */
-  views?: readonly { id: string; value: number | string; own: { ordinal: number; rewardBits: number; penaltyBits?: number; netBits: number }; peerNetBits: number; peerCare: number; payoff: number }[];
+  views?: readonly { id: string; value: number | string; own: { ordinal: number | number[]; rewardBits: number; penaltyBits?: number; netBits: number }; peerNetBits: number; peerCare: number; payoff: number }[];
   score?: number;
 };
 
