@@ -7,7 +7,7 @@
  */
 import { agentDisplayName } from "./agentName";
 import { gameNotice } from "./engineErrors";
-import { MAX_AGENT_OPPORTUNITY_HZ, allowedLanguages, instantiationOf, leaderboard, rankTotals, type GameSettings } from "@workspace/game-core";
+import { MAX_AGENT_OPPORTUNITY_HZ, allowedLanguages, deityIncome, roundShare, instantiationOf, leaderboard, rankTotals, type GameSettings } from "@workspace/game-core";
 import { COMMIT_CLAUSE_HELPER, instanceInfo, type InstanceInfo } from "@workspace/game-types";
 import { VERSION, observationSchema, type Observation } from "@workspace/player-client";
 import type { Doc } from "../_generated/dataModel";
@@ -15,6 +15,7 @@ import type { ClockedGame, Scoreboard } from "../game/state";
 import { DEFAULT_AGENT_MODEL } from "./aiModels";
 import { aiQuotaOf, assistantQuotaOf } from "./aiAccess";
 import { NO_FAILURES, diagnoseAgent } from "./futility";
+import { agentIncomeOf, powerOf, shareOf } from "./power";
 import { agentStatus, disclosedTotalsOf, godEnergy, totalsOf, viewOf, viewOfNet, worldNow } from "./world";
 import { agentLanguage } from "./language";
 
@@ -177,6 +178,7 @@ export function agentView(game: ClockedGame, agent: Doc<"agents">, nowMs = Date.
     id: agent._id as string, name: agentDisplayName(agent.name, ordinal), ...(agent.description ? { description: agent.description } : {}), source: agent.source, language: agentLanguage(agent, game.settings as GameSettings), createdAt: agent.createdAt,
     summonCost: agent.summonCost, expectedActCost: agent.expectedActCost,
     breakdown: costBreakdown(agent.breakdown), randomized: agent.randomized, energy: status.energy, eligible: status.eligible,
+    powerShare: shareOf(agent, game.settings), income: agentIncomeOf(agent, game.settings),
     acts: agent.acts, spent: agent.spent, skips: agent.skips ?? 0,
     ...agentOutcomes(agent),
   };
@@ -215,6 +217,7 @@ export function projectEvent(ev: Ev, godId: string, index: number, live = true) 
       type: "agent.summoned" as const, agentId: ev.agentId, mine, worldSeconds: ev.world,
       ...(mine ? {
         name: ev.name, ...(ev.description ? { description: ev.description } : {}), language: ev.language, source: ev.source, summonCost: ev.summonCost, expectedActCost: ev.expectedActCost,
+        ...(ev.powerShare !== undefined ? { powerShare: ev.powerShare } : {}),
         breakdown: costBreakdown(ev.breakdown), randomized: ev.randomized, account: ev.account,
       } : {}),
     };
@@ -222,6 +225,10 @@ export function projectEvent(ev: Ev, godId: string, index: number, live = true) 
   if (ev.t === "destroy") {
     const mine = ev.ownerId === godId;
     return live && !mine ? null : { type: "agent.destroyed" as const, agentId: ev.agentId, mine, worldSeconds: ev.world };
+  }
+  if (ev.t === "power") {
+    if (ev.ownerId !== godId) return null;
+    return { type: "agent.power" as const, agentId: ev.agentId, worldSeconds: ev.world, share: ev.share };
   }
   if (ev.t === "fail") {
     if (ev.ownerId !== godId) return null;
@@ -281,10 +288,11 @@ export function replayEvent(ev: Ev) {
     case "summon": return {
       type: "agent.summoned" as const, agentId: ev.agentId, ownerId: ev.ownerId, worldSeconds: ev.world, language: ev.language, source: ev.source,
       ...(ev.name ? { name: ev.name } : {}), ...(ev.description ? { description: ev.description } : {}),
-      summonCost: ev.summonCost, expectedActCost: ev.expectedActCost,
+      summonCost: ev.summonCost, expectedActCost: ev.expectedActCost, ...(ev.powerShare !== undefined ? { powerShare: ev.powerShare } : {}),
       breakdown: costBreakdown(ev.breakdown), randomized: ev.randomized, account: ev.account,
     };
     case "destroy": return { type: "agent.destroyed" as const, agentId: ev.agentId, ownerId: ev.ownerId, worldSeconds: ev.world };
+    case "power": return { type: "agent.power" as const, agentId: ev.agentId, ownerId: ev.ownerId, worldSeconds: ev.world, share: ev.share };
   }
 }
 export type ReplayEventOut = ReturnType<typeof replayEvent>;
@@ -340,7 +348,7 @@ export function observation(input: ObservationInput): Observation {
     ...(input.sandboxes ? { sandboxes: input.sandboxes.map(s => ({ language: s.language, state: s.state, ...(s.reason ? { reason: s.reason } : {}) })) } : {}),
     instance: objectInstance(settings),
     economy: {
-      energyPerSecond: settings.energyPerSecond, agentEnergyPerSecond: settings.agentEnergyPerSecond,
+      powerPerSecond: powerOf(settings), startingEnergy: settings.startingEnergy,
       maxAgentOpportunityHz: MAX_AGENT_OPPORTUNITY_HZ, maxAgentsPerGod: settings.maxAgentsPerGod,
       penaltyWeight: settings.penaltyWeight, worldSeconds: game ? worldNow(game, now) : 0,
       durationMode: settings.durationMode, lengthSeconds: settings.halfLifeSeconds,
@@ -349,7 +357,12 @@ export function observation(input: ObservationInput): Observation {
     self: {
       godId: self.godId, label: self.name, isAI: self.kind === "ai", ready: self.ready,
       utility: game && deity ? deity.card : undefined, pauseUsed: deity?.pauseUsed ?? false,
-      energy: game && deity ? godEnergy(game, deity.spent, now) : 0,
+      energy: game && deity ? godEnergy(game, deity, worldNow(game, now), now) : 0,
+      // Power (docs/energy-model.md §6): the share its agents hold, and its own income from the rest.
+      ...(game && deity ? (() => {
+        const allocated = deity.allocated ?? roundShare(Math.min(1, input.agents.reduce((sum, a) => sum + shareOf(a, settings), 0)));
+        return { allocated, income: deityIncome(powerOf(settings), allocated) };
+      })() : {}),
       // The own score is live; the leaderboard below is the scoreboard last published.
       // Live, it is the sum of the payoffs as disclosed (from the noisy peers' sums), consistent with the scoreboard.
       ...(game && deity ? { score: (game.phase === "ended" ? totalsOf : disclosedTotalsOf)(game.roster.map(m => m.id), input.objects)[game.roster.findIndex(m => m.id === self.godId)] } : {}),

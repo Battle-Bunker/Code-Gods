@@ -15,14 +15,12 @@ test("defaults: timing as before, plus agent economy and scoring knobs", () => {
   assert.equal(DEFAULT_SETTINGS.planningSeconds, 60);
   assert.equal(DEFAULT_SETTINGS.halfLifeSeconds, 300);
   assert.equal(DEFAULT_SETTINGS.pauseSeconds, 180);
-  assert.equal(DEFAULT_SETTINGS.startingEnergy, 100);
-  assert.equal(DEFAULT_SETTINGS.energyPerSecond, 1);
+  assert.equal(DEFAULT_SETTINGS.startingEnergy, 200);
+  assert.equal(DEFAULT_SETTINGS.powerPerSecond, 8);
   assert.equal(DEFAULT_SETTINGS.startingObjectCount, 10);
   assert.equal(DEFAULT_SETTINGS.spawnRateHz, 0.1);
   assert.equal(DEFAULT_SETTINGS.interactionRateHz, 100);
   assert.equal(DEFAULT_SETTINGS.interactionComputeMs, 1000);
-  assert.equal(DEFAULT_SETTINGS.agentEnergyPerSecond, 2);
-  assert.equal(DEFAULT_SETTINGS.agentBatteryActs, 2);
   assert.equal(DEFAULT_SETTINGS.maxAgentsPerGod, 200);
   assert.equal(MAX_AGENTS_PER_GOD, 200);
   assert.equal(DEFAULT_SETTINGS.penaltyWeight, 1);
@@ -32,7 +30,6 @@ test("defaults: timing as before, plus agent economy and scoring knobs", () => {
   assert.deepEqual(DEFAULT_SETTINGS.languages, ["python"]);
   for (const legacy of ["language", "grammarId", "complexityFunctionId"]) assert.ok(!(legacy in DEFAULT_SETTINGS), `${legacy} is derived from each agent's language`);
   assert.equal(DEFAULT_SETTINGS.stepBudget, 500000);
-  assert.equal(DEFAULT_SETTINGS.perActFloorBits, 2);
   assert.equal(DEFAULT_SETTINGS.commitClause, false);
   assert.equal(DEFAULT_SETTINGS.objectSelection, "uniform");
   assert.throws(() => validateSettings({ ...DEFAULT_SETTINGS, objectSelection: "salient" as never }), /objectSelection/);
@@ -46,8 +43,8 @@ test("defaults: timing as before, plus agent economy and scoring knobs", () => {
 test("numeric settings are validated", () => {
   for (const patch of [
     { halfLifeSeconds: 0 }, { spawnRateHz: NaN }, { pauseSeconds: 0 }, { startingEnergy: -1 },
-    { startingObjectCount: 1.5 }, { agentEnergyPerSecond: -1 }, { agentEnergyPerSecond: Infinity },
-    { agentBatteryActs: 0.5 }, { agentBatteryActs: NaN }, { maxAgentsPerGod: 0 }, { maxAgentsPerGod: 201 },
+    { startingObjectCount: 1.5 }, { powerPerSecond: -1 }, { powerPerSecond: Infinity },
+    { powerPerSecond: NaN }, { maxAgentsPerGod: 0 }, { maxAgentsPerGod: 201 },
     { maxAgentsPerGod: 2.5 }, { penaltyWeight: -0.1 }, { penaltyWeight: NaN }, { defenceGoals: 1 as never },
     { defenceGoals: "yes" as never }, { excludedDefenceFamilies: ["Bad Id"] }, { excludedDefenceFamilies: "hate_red" as never },
     { spawnFunctionId: "biased" as "uniform" },
@@ -55,7 +52,7 @@ test("numeric settings are validated", () => {
     assert.throws(() => validateSettings(settings(patch)), JSON.stringify(patch));
   }
   for (const patch of [
-    { agentEnergyPerSecond: 0 }, { agentBatteryActs: 1 }, { maxAgentsPerGod: 1 }, { penaltyWeight: 0 },
+    { powerPerSecond: 0 }, { maxAgentsPerGod: 1 }, { penaltyWeight: 0 },
     { penaltyWeight: 0.25 }, { defenceGoals: true }, { defenceGoals: true, excludedDefenceFamilies: ["hate_red"] },
   ] as Partial<GameSettings>[]) {
     assert.doesNotThrow(() => validateSettings(settings(patch)), JSON.stringify(patch));
@@ -135,7 +132,7 @@ test("unknown identifiers are rejected", () => {
     assert.throws(() => validateSettings(settings({ [key]: "custom-arbitrary-id" })), /Unsupported/);
   }
   assert.throws(() => validateSettings(settings({ stepBudget: 0 })), /stepBudget/);
-  assert.throws(() => validateSettings(settings({ perActFloorBits: -1 })), /perActFloorBits/);
+  assert.throws(() => validateSettings(settings({ powerPerSecond: -1 })), /powerPerSecond/);
   assert.deepEqual(SETTINGS_OPTIONS.spawnFunctionId.map(o => o.id), ["uniform"]);
 });
 
@@ -188,10 +185,9 @@ test("defaultSettingsFor gives valid settings for every type and language", () =
   assert.equal(classic.excludedFamilies.length, 11); // weak families, every Grid board
   for (const attractor of ["snap", "full_house", "bullseye", "flush_royale", "pinwheel", "stripe_painter"])
     assert.ok(!classic.excludedFamilies.includes(attractor));
-  assert.equal(grid.agentEnergyPerSecond, 32); // measured Grid income (grid-lab PR #14 §4.9)
-  assert.equal(grid.perActFloorBits, 2);
-  assert.equal(defaultSettingsFor("Grid", ["python"], { size: 7, symbols: "cards", colours: "rainbow6" }).agentEnergyPerSecond, 32);
-  assert.equal(defaultSettingsFor("Int").agentEnergyPerSecond, 2);
+  assert.equal(grid.powerPerSecond, 64); // two agents at the measured Grid income (grid-lab PR #14 §4.9)
+  assert.equal(defaultSettingsFor("Grid", ["python"], { size: 7, symbols: "cards", colours: "rainbow6" }).powerPerSecond, 64);
+  assert.equal(defaultSettingsFor("Int").powerPerSecond, 8);
   for (const s of SEED_SETUPS) { validateSettings(s.settings); assert.ok(s.name.length <= SETUP_NAME_MAX, s.name); }
   assert.deepEqual(SEED_SETUPS.map(s => s.seedId), ["grid-first-steps", "grid-annotated-basics", "grid-classic", "grid-low-income", "grid-big", "grid-master"]);
   assert.equal(seedSetupSettings("grid-first-steps").interactionRateHz, 25);
@@ -253,4 +249,16 @@ test("Annotated basics starts with 10 objects, spawns 0.1 per second and plans f
   const s = seedSetupSettings(ANNOTATED_BASICS_SEED_ID);
   assert.deepEqual([s.startingObjectCount, s.spawnRateHz, s.planningSeconds], [10, 0.1, 300]);
   assert.doesNotThrow(() => validateSettings(s));
+});
+
+test("stored settings from before the power budget are widened: powerPerSecond from the old incomes, the retired keys dropped", async () => {
+  const { upgradeStoredSettings, upgradeLegacyPower } = await import("../src/settings.ts");
+  const legacy = { ...DEFAULT_SETTINGS, powerPerSecond: undefined, energyPerSecond: 1, agentEnergyPerSecond: 32, agentBatteryActs: 2, perActFloorBits: 2 } as Record<string, unknown>;
+  delete legacy.powerPerSecond;
+  const up = upgradeStoredSettings(legacy)!;
+  assert.equal(up.powerPerSecond, 65);
+  for (const k of ["energyPerSecond", "agentEnergyPerSecond", "agentBatteryActs", "perActFloorBits"]) assert.equal(k in up, false, k);
+  assert.doesNotThrow(() => validateSettings(up as never));
+  assert.equal(upgradeLegacyPower(up), null, "idempotent");
+  assert.equal(upgradeLegacyPower({ ...DEFAULT_SETTINGS }), null);
 });

@@ -15,7 +15,7 @@ test("a skipper pays only what it read, never fails, is never futile, and is hel
   await touch(host);
   const settings = {
     objectType: "Int", typeArgs: { min: -1000000, max: 1000000 }, languages: ["typescript"],
-    startingObjectCount: 5, spawnRateHz: 0, planningSeconds: 3600, agentEnergyPerSecond: 1000, interactionRateHz: 50,
+    startingObjectCount: 5, spawnRateHz: 0, planningSeconds: 3600, powerPerSecond: 2000, interactionRateHz: 50,
   };
   const { roomId } = await roomWith([host, ada, bo], settings);
   const game = await startGame(host, roomId);
@@ -52,7 +52,7 @@ test("a skipper pays only what it read, never fails, is never futile, and is hel
   const transforms = events.filter((e: any) => e.t === "transform");
   assert.ok(transforms.length > 0);
   for (const e of transforms) { assert.equal(e.cost.read, 0); assert.ok(e.cost.change > 0); assert.equal(e.cost.total, e.cost.change); }
-  assert.equal(state.batches.at(-1).schema, 5);
+  assert.equal(state.batches.at(-1).schema, 6);
 
   // The owner sees the skips, and the estimate split into reading and changing (no decision bits, no floor).
   const obs = observationSchema.parse(await ada.c.query(api.player.observation, { roomId }));

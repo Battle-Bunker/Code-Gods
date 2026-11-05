@@ -241,3 +241,31 @@ test("agentPricesV2: an agent priced with a decision price and a floor keeps onl
   }
   await host.c.mutation(api.rooms.endActiveGame, { roomId });
 });
+
+test("powerV1: a game stored before the power budget gets powerPerSecond, agents their shares, deities their accounts; a second run changes nothing", { timeout: 240_000 }, async () => {
+  const [host, ada, bo] = await gods("Power Mig Host", "Power Mig Ada", "Power Mig Bo");
+  await touch(host);
+  const { roomId } = await roomWith([host, ada, bo], { ...INT_TS, planningSeconds: 3600, startingEnergy: 5000 });
+  const game = await startGame(host, roomId);
+  const summon = (source: string) => ada.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", name: "Old", language: "typescript", source }, game.gameId) });
+  for (const k of [1, 2, 3]) assert.equal((await summon(`function agent(n) { return [add(${k})]; }`)).accepted, true);
+  // 1 + 2·2 = 5 bits/s of power; each agent's old 2 bits/s is 40%: three would hold 120%, so they are scaled to 1/3 each.
+  await admin.mutation(internal.testing.legacyPower, { gameId: game.gameId, energyPerSecond: 1, agentEnergyPerSecond: 2 });
+  const spentBefore = (await raw(game.gameId)).deities.find((d: any) => d.godId === ada.subject).spent;
+  for (const run of [1, 2]) {
+    await runAll(true);
+    const state = await raw(game.gameId);
+    const settings = state.game.settings;
+    assert.equal(settings.powerPerSecond, 5, `run ${run}`);
+    for (const k of ["energyPerSecond", "agentEnergyPerSecond", "agentBatteryActs", "perActFloorBits"]) assert.equal(k in settings, false, `run ${run}: ${k} dropped`);
+    for (const a of state.agents) assert.ok(Math.abs(a.powerShare - 1 / 3) < 1e-6, `run ${run}: ${a.powerShare}`);
+    const deity = state.deities.find((d: any) => d.godId === ada.subject);
+    assert.ok(Math.abs(deity.allocated - 1) < 1e-5, `run ${run}: ${deity.allocated}`);
+    assert.ok(deity.account && deity.account.balance > 0 && deity.spent === spentBefore, `run ${run}: ${JSON.stringify(deity)} spent before ${spentBefore}`);
+    const other = state.deities.find((d: any) => d.godId === bo.subject);
+    assert.equal(other.allocated, 0, `run ${run}`);
+  }
+  const room = (await admin.query(internal.testing.rawRoom, { roomId })).room;
+  assert.equal(typeof room.settings.powerPerSecond, "number");
+  await host.c.mutation(api.rooms.endActiveGame, { roomId });
+});

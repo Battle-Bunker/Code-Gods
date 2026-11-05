@@ -129,7 +129,7 @@ test("load_tools puts index tools in context for the rest of the thread; load_sk
   assert.ok(skill.body.includes("validate_agent") && skill.body.includes("Mutators") && skill.body.includes(mineObs.self.utility.source.slice(0, 30)), "guidance, helpers and the player's own utility source");
   const echoed = JSON.parse(finalText(t));
   assert.deepEqual(echoed.tools, ["load_tools", "get_observation", "load_skill", "send_chat", "open_panel", "set_panel_params", "validate_agent", "move_pane",
-    "evaluate_value", "summon_agent", "destroy_agent"], "load_tools' tools, then the skill's own (where the adapter manages context)");
+    "evaluate_value", "summon_agent", "destroy_agent", "allocate_power"], "load_tools' tools, then the skill's own (where the adapter manages context)");
   assert.equal(echoed.maxOutputTokens, 8192, "a code-writing tool is loaded: the full ceiling");
   // The next turn of the thread keeps them (the load is in its history).
   const again = await ann.c.mutation(api.assistant.send, { roomId, threadId: sent.threadId, text: mock([{ echo: true }]) });

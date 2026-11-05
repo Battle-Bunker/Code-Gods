@@ -9,7 +9,7 @@ import { api, gods, rejects, roomWith, startGame, touch, waitFor } from "./game-
 
 const settings = {
   languages: ["typescript"], objectType: "Int", typeArgs: { min: -2147483648, max: 2147483647 }, startingObjectCount: 10, spawnRateHz: 1,
-  interactionRateHz: 20, planningSeconds: 3600, halfLifeSeconds: 1e9, agentEnergyPerSecond: 100, startingEnergy: 1000, scoreIntervalSeconds: 2,
+  interactionRateHz: 20, planningSeconds: 3600, halfLifeSeconds: 1e9, powerPerSecond: 200, startingEnergy: 1000, scoreIntervalSeconds: 2,
 };
 
 test("the owner starts the world during planning; a non-owner cannot; it works once", { timeout: 120_000 }, async () => {

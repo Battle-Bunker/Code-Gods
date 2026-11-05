@@ -81,17 +81,14 @@ export interface GameSettings {
   interactionComputeMs: number;
   /** Deterministic step budget per act (lib/game-runtime): the same agent, input and seed always fit or never do. */
   stepBudget: number;
-  /** UNUSED since acts pay only what they do (docs/energy-model.md §2); removed with the power budget (§6). */
-  perActFloorBits: number;
   pauseSeconds: number;
-  /** God energy (bits) at the start of planning; accrues in real time. */
+  /** A deity's own energy (bits) at the start of planning, for its first summons (world time stops in planning). */
   startingEnergy: number;
-  /** God income, bits per real-time second. */
-  energyPerSecond: number;
-  /** Each agent's income, bits per second of world time (grid-lab `agent_income`). */
-  agentEnergyPerSecond: number;
-  /** UNUSED since agents have no battery (docs/energy-model.md §7); removed with the power budget (§6). */
-  agentBatteryActs: number;
+  /**
+   * Each deity's fixed power budget, bits per WORLD second (docs/energy-model.md §6): split into shares for its agents
+   * (agents.powerShare), and what it leaves unallocated is its own income, which pays for summons.
+   */
+  powerPerSecond: number;
   maxAgentsPerGod: number;
   /** w in n = s⁺ − w(h − E_μh): the weight of a defence-goal bit against a reward bit. */
   penaltyWeight: number;
@@ -167,12 +164,9 @@ export const DEFAULT_SETTINGS: Readonly<GameSettings> = Object.freeze({
   interactionRateHz: 100,
   interactionComputeMs: 1000,
   stepBudget: 500000,
-  perActFloorBits: 2,
   pauseSeconds: 180,
-  startingEnergy: 100,
-  energyPerSecond: 1,
-  agentEnergyPerSecond: 2,
-  agentBatteryActs: 2,
+  startingEnergy: 200,
+  powerPerSecond: 8,
   maxAgentsPerGod: MAX_AGENTS_PER_GOD,
   penaltyWeight: 1,
   defenceGoals: false,
@@ -217,7 +211,25 @@ export function upgradeStoredSettings(settings: unknown): Record<string, unknown
     ...(!("durationMode" in s) ? { durationMode: "halfLife" } : {}),
     ...(!("peerNoiseBits" in s) ? { peerNoiseBits: DEFAULT_PEER_NOISE_BITS } : {}),
   };
+  const power = upgradeLegacyPower(s);
+  if (power) return { ...power, ...filled };
   return Object.keys(filled).length ? { ...s, ...filled } : languages;
+}
+
+/** Settings keys retired by the power budget (docs/energy-model.md §6). */
+export const RETIRED_POWER_SETTINGS = ["energyPerSecond", "agentEnergyPerSecond", "agentBatteryActs", "perActFloorBits"] as const;
+/**
+ * Stored settings from before the power budget: powerPerSecond = energyPerSecond + 2 · agentEnergyPerSecond (the deity's
+ * old income plus two agents at the old rate), the retired keys dropped. Null when there is nothing to convert.
+ */
+export function upgradeLegacyPower(settings: Record<string, unknown>): Record<string, unknown> | null {
+  if (typeof settings.powerPerSecond === "number" && RETIRED_POWER_SETTINGS.every(k => !(k in settings))) return null;
+  if (typeof settings.powerPerSecond !== "number" && RETIRED_POWER_SETTINGS.every(k => !(k in settings))) return null;
+  const num = (k: string, d: number) => (typeof settings[k] === "number" ? settings[k] as number : d);
+  const out: Record<string, unknown> = { ...settings,
+    powerPerSecond: typeof settings.powerPerSecond === "number" ? settings.powerPerSecond : num("energyPerSecond", 1) + 2 * num("agentEnergyPerSecond", 2) };
+  for (const k of RETIRED_POWER_SETTINGS) delete out[k];
+  return out;
 }
 
 /**
@@ -308,8 +320,7 @@ export function validateSettings(settings: GameSettings, domain?: FamilyDomain):
   }
   finiteNonnegative(settings, [
     "planningSeconds", "halfLifeSeconds", "spawnRateHz", "interactionRateHz", "pauseSeconds",
-    "startingEnergy", "energyPerSecond", "agentEnergyPerSecond", "agentBatteryActs",
-    "penaltyWeight", "perActFloorBits",
+    "startingEnergy", "powerPerSecond", "penaltyWeight",
   ]);
   if (!Number.isInteger(settings.stepBudget) || settings.stepBudget < 1 || settings.stepBudget > 10_000_000) {
     throw new Error("stepBudget must be an integer from 1 to 10,000,000 steps");
@@ -323,8 +334,6 @@ export function validateSettings(settings: GameSettings, domain?: FamilyDomain):
       settings.interactionComputeMs < 1 || settings.interactionComputeMs > 1000) {
     throw new Error("interactionComputeMs must be an integer from 1 to 1000 milliseconds");
   }
-  // A battery smaller than one expected act could never reach eligibility.
-  if (settings.agentBatteryActs < 1) throw new Error("agentBatteryActs must be at least 1");
   if (!Number.isInteger(settings.maxAgentsPerGod) ||
       settings.maxAgentsPerGod < 1 || settings.maxAgentsPerGod > MAX_AGENTS_PER_GOD) {
     throw new Error(`maxAgentsPerGod must be an integer from 1 to ${MAX_AGENTS_PER_GOD}`);
@@ -421,11 +430,11 @@ export const TYPE_DEFAULTS: Readonly<Record<string, {
   readonly byKey?: Readonly<Record<string, Partial<GameSettings>>>;
 }>> = {
   Grid: {
-    // Agent income 32 bits/s with the 2-bit floor (perActFloorBits, a global default): the measured value of
+    // Power 64 bits/s per deity (docs/energy-model.md §6): two agents at the former 32 bits/s each. The 32 was the measured value of
     // grid-lab PR #14 §4.9 (held out) for the 80-object world: 0.46 hits per object, dynamism +0.056. The global
     // interaction cap binds in about 75% of snapshots, and the study predates defence goals. The documented
-    // alternative is the "grid-low-income" seed setup (16 bits/s, floor 1).
-    all: { spawnRateHz: 0.5, startingObjectCount: 80, agentEnergyPerSecond: 32, excludedFamilies: WEAK_GRID_FAMILIES },
+    // alternative is the "grid-low-income" seed setup (half the power: 32 bits/s).
+    all: { spawnRateHz: 0.5, startingObjectCount: 80, powerPerSecond: 64, excludedFamilies: WEAK_GRID_FAMILIES },
     byKey: {
       "Grid(4,base10,rgb)": { excludedFamilies: [...WEAK_GRID_FAMILIES, "fair_weaver"] },
       // Ladder of numbers needs numerals (Numeral), so it cannot be dealt on playing cards: excluding it there means nothing.
@@ -512,8 +521,8 @@ export const SEED_SETUPS: readonly SeedSetup[] = Object.freeze([
   seed("grid-classic", "Classic", "5×5 with four colours: the standard game",
     "Grid", { size: 5, symbols: "base10", colours: "rgby" }, {}),
   // grid-lab PR #14 §4.9's alternative economy: half the income, half the floor (see TYPE_DEFAULTS.Grid).
-  seed("grid-low-income", "Low income", "Classic 5×5, but agents earn half as fast and acts cost a little less",
-    "Grid", { size: 5, symbols: "base10", colours: "rgby" }, { agentEnergyPerSecond: 16, perActFloorBits: 1 }),
+  seed("grid-low-income", "Low income", "Classic 5×5 with half the power: agents act about half as often",
+    "Grid", { size: 5, symbols: "base10", colours: "rgby" }, { powerPerSecond: 32 }),
   seed("grid-big", "Big board", "6×6 in hex digits and six colours",
     "Grid", { size: 6, symbols: "base16", colours: "rainbow6" }, {}),
   seed("grid-master", "Master", "7×7 playing cards in rainbow colours",
@@ -637,25 +646,10 @@ export const SETTINGS_DOCS = {
     meaning: "The energy, in bits, each player holds for summoning agents when planning begins.",
     consequence: "Raising it allows bigger or more first agents and a faster start.",
   },
-  energyPerSecond: {
-    question: "How fast does a player's energy refill?", section: "energy", tier: "ask", control: "number", unit: "bits/s", suggested: [0.5, 1, 2, 4],
-    meaning: "The bits each player's energy gains per real-time second, including planning and pauses.",
-    consequence: "Raising it allows more summons and a busier world.",
-  },
-  agentEnergyPerSecond: {
-    question: "How fast do agents charge?", section: "energy", tier: "ask", control: "number", unit: "bits/s", suggested: [2, 8, 16, 32, 64],
-    meaning: "The bits each agent's own energy gains per second of world time, which pay for what its acts read and change.",
-    consequence: "Raising it makes agents act more often (an agent with more energy is likelier to get the next turn), so objects change faster.",
-  },
-  agentBatteryActs: {
-    question: "How many acts can an agent save up?", section: "energy", tier: "more", control: "number", unit: "acts", suggested: [1, 2, 4, 8],
-    meaning: "Not used any more: agents keep all the energy they save, and richer agents are offered more acts.",
-    consequence: "Changing it does nothing; it goes away when players get a power budget to share between their agents.",
-  },
-  perActFloorBits: {
-    question: "What is the minimum price of an attempted act?", section: "energy", tier: "more", control: "number", unit: "bits", suggested: [0, 1, 2, 4],
-    meaning: "Not used any more: an act pays only for the bits it reads and the change it makes.",
-    consequence: "Changing it does nothing; it goes away when players get a power budget to share between their agents.",
+  powerPerSecond: {
+    question: "How much power does each player have?", section: "energy", tier: "ask", control: "number", unit: "bits/s", suggested: [8, 16, 32, 64, 128],
+    meaning: "Each player's fixed energy income per second of world time, shared between their agents as they choose; the unshared rest refills their own energy for summoning.",
+    consequence: "Raising it makes every player's agents act more often, so objects change faster.",
   },
   startingObjectCount: {
     question: "How many objects does the world start with?", section: "population", tier: "ask", control: "number", suggested: [10, 40, 80, 160],

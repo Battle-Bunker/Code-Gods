@@ -21,7 +21,7 @@ import { executionsOf } from "./execution-log.ts";
 const settings = {
   language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Int",
   typeArgs: { min: -2147483648, max: 2147483647 }, startingObjectCount: 6, spawnRateHz: 1, interactionRateHz: 20, planningSeconds: 3600,
-  halfLifeSeconds: 1e9, agentEnergyPerSecond: 100, startingEnergy: 1000,
+  halfLifeSeconds: 1e9, powerPerSecond: 200, startingEnergy: 1000,
 };
 
 /** Each hot query of a player's client, once, as `god` in `roomId` (a fresh room and args: never a cached result). */

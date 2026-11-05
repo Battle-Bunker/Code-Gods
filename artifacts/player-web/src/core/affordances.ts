@@ -28,11 +28,11 @@ export type AffordanceContext = {
 export type Affordance = { ok: true } | { ok: false; hidden: boolean; reason: string };
 
 /**
- * editCode: open the forge's editor (Write an agent, Edit a copy, Edit). validate/summon/destroy/chat: the game commands.
+ * editCode: open the forge's editor (Write an agent, Edit a copy, Edit). validate/summon/destroy/allocatePower/chat: the game commands.
  * roomStep: a next step that acts on the room (start the game, a
  * palette command, the forge) rather than only opening a panel.
  */
-export type Action = "editCode" | "validate" | "summon" | "destroy" | "chat" | "roomStep";
+export type Action = "editCode" | "validate" | "summon" | "destroy" | "allocatePower" | "chat" | "roomStep";
 
 export type Affordances = { readOnly: boolean; readOnlyReason: string | null; can: Record<Action, Affordance> };
 
@@ -69,6 +69,13 @@ export function deriveAffordances(c: AffordanceContext): Affordances {
       destroy: first(
         ro,
         c.phase === "ended" ? hide("The game is over: its agents can no longer be destroyed.") : null,
+        c.hasObservation && !live(c.phase) ? hide("No game is running.") : null,
+        c.hasObservation && !c.seated ? hide("You're watching this game.") : null,
+        transient,
+      ),
+      allocatePower: first(
+        ro,
+        c.phase === "ended" ? hide("The game is over: power can no longer be re-allocated.") : null,
         c.hasObservation && !live(c.phase) ? hide("No game is running.") : null,
         c.hasObservation && !c.seated ? hide("You're watching this game.") : null,
         transient,

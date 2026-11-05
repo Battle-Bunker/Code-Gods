@@ -16,7 +16,7 @@ import { admin, api, envelope, gods, internal, raw, rejects, roomWith, startGame
 
 const settings = {
   languages: ["typescript"], objectType: "Int", typeArgs: { min: -2147483648, max: 2147483647 }, startingObjectCount: 30, spawnRateHz: 1,
-  interactionRateHz: 20, planningSeconds: 3600, halfLifeSeconds: 1e9, agentEnergyPerSecond: 100, startingEnergy: 1000, scoreIntervalSeconds: 2,
+  interactionRateHz: 20, planningSeconds: 3600, halfLifeSeconds: 1e9, powerPerSecond: 200, startingEnergy: 1000, scoreIntervalSeconds: 2,
 };
 const close = (a: number, b: number) => Math.abs(a - b) < 1e-9;
 

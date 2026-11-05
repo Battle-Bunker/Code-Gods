@@ -28,8 +28,7 @@ const MCP = `${SITE}/mcp`;
 const MODERN = "2026-07-28";
 const LEGACY = "2025-06-18";
 const TS_INT = { objectType: "Int", typeArgs: { min: -2147483648, max: 2147483647 }, languages: ["typescript"],
-  startingObjectCount: 5, spawnRateHz: 0, planningSeconds: 3600, agentEnergyPerSecond: 100,
-  agentBatteryActs: 2, interactionRateHz: 20, startingEnergy: 1000 };
+  startingObjectCount: 5, spawnRateHz: 0, planningSeconds: 3600, powerPerSecond: 200, interactionRateHz: 20, startingEnergy: 1000 };
 const AGENT = "function agent(x) { return [add(1)]; }";
 
 const sha256 = (s: string) => createHash("sha256").update(s).digest("hex");

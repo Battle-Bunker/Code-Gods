@@ -165,7 +165,7 @@ export const snapshot = internalQuery({
       objects: objects.map(o => ({ id: o._id as string, value: o.value, version: o.version, scores: o.scores, salience: o.salience, noise: o.noise })),
       agents: agents.map(a => ({
         id: a._id as string, ownerId: a.ownerId, source: a.source, language: agentLanguage(a, game.settings as GameSettings), 
-        account: a.account, acts: a.acts, spent: a.spent, lastOpportunityWorld: a.lastOpportunityWorld,
+        account: a.account, acts: a.acts, spent: a.spent, lastOpportunityWorld: a.lastOpportunityWorld, powerShare: a.powerShare,
         transforms: a.transforms ?? 0, skips: a.skips ?? 0, failures: a.failures ?? NO_FAILURES, lastFailures: a.lastFailures ?? {},
       })),
       futile: futile.map(f => ({ agentId: f.agentId as string, entries: f.entries as Futile[] })),

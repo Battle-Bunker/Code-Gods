@@ -43,6 +43,14 @@ test("per-god projection strips hidden data, rejects foreign identity, chat neve
   await new AIController({roomId:"room",godId:"ai",provider:model,budget:budget(),transport:{observe:async()=>projected,send:async()=>{throw Error("not expected");}},onEvent:()=>{}}).step();
   assert.match(requestData,/Ignore system/);
 });
+test("the seat can re-allocate its power: the controller sends allocatePower with the game id",async()=>{
+  const sent:Envelope[]=[];
+  const transport:PlayerTransport={observe:async()=>({...observation,gameId:"g1"}),send:async env=>{sent.push(env);return {commandId:env.commandId,accepted:true,message:"ok"};}};
+  await new AIController({roomId:"room",godId:"ai",provider:provider([{type:"allocatePower",agentId:"a1",share:0.4}]),budget:budget(),transport,onEvent:()=>{}}).step();
+  assert.equal(sent.length,1);
+  assert.deepEqual(sent[0].command,{type:"allocatePower",agentId:"a1",share:0.4});
+  assert.equal(sent[0].gameId,"g1","a game command carries its game");
+});
 test("autonomous summon is runtime-validated and within fresh energy",async()=>{
   const sent:Envelope[]=[];
   const events:AIEvent[]=[];
@@ -99,11 +107,13 @@ test("malicious model commands fail closed and contexts remain separate",async()
 });
 test("prompt explains the v3 agent contract, energy and bits; destroy is an allowed command",()=>{
   const { SYSTEM } = require_policy;
-  for(const phrase of ["def agent(grid)","paint(row(2), \"red\")","instance.helpers","expectedActCost","skip","ast-bits-v1","frozen","seeded","agentEnergyPerSecond","only_if_better","peerCare","payoff","netBits","destroy"])
+  for(const phrase of ["def agent(grid)","paint(row(2), \"red\")","instance.helpers","expectedActCost","skip","ast-bits-v1","frozen","seeded","powerPerSecond","allocatePower","only_if_better","peerCare","payoff","netBits","destroy"])
     assert.ok(SYSTEM.includes(phrase),phrase);
   assert.equal(SYSTEM.includes("lambda"),false);
   assert.equal(SYSTEM.toLowerCase().includes("value function"),false);
   assert.deepEqual(decisionSchema.parse({actions:[{type:"destroy",agentId:"agent-1"}]}).actions[0],{type:"destroy",agentId:"agent-1"});
+  assert.deepEqual(decisionSchema.parse({actions:[{type:"allocatePower",agentId:"agent-1",share:0.25}]}).actions[0],{type:"allocatePower",agentId:"agent-1",share:0.25});
+  assert.throws(()=>decisionSchema.parse({actions:[{type:"allocatePower",agentId:"agent-1",share:1.5}]}));
   const ranked=modelObservation({...observation,objects:[{...observation.objects[0],id:"low",payoff:1},{...observation.objects[0],id:"high",payoff:9}]},"room","ai");
   assert.deepEqual(ranked.objects.map(o=>o.id),["high","low"]);
 });
@@ -126,7 +136,7 @@ test("the provider is asked for the decision schema in the game's agent language
   assert.equal(schema.additionalProperties,false);
   assert.deepEqual(schema.required,["actions"]);
   const variants=schema.properties.actions.items.anyOf;
-  assert.deepEqual(variants.map((v:any)=>v.properties.type.const).sort(),["chat","destroy","pause","ready","summon","validate"]);
+  assert.deepEqual(variants.map((v:any)=>v.properties.type.const).sort(),["allocatePower","chat","destroy","pause","ready","summon","validate"]);
   for(const v of variants) { assert.equal(v.additionalProperties,false); assert.deepEqual([...v.required].sort(),Object.keys(v.properties).sort()); }
   const summon=variants.find((v:any)=>v.properties.type.const==="summon");
   assert.deepEqual(summon.properties.language.enum,["python","typescript"]);

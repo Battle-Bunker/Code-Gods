@@ -19,7 +19,7 @@
  *
  * Pure: no React, no Convex; browser-safe.
  */
-import { MAX_AGENT_OPPORTUNITY_HZ, allowedLanguages, chargeAct, instantiationOf, settleAgentEnergy, type AgentAccount, type GameSettings } from "@workspace/game-core";
+import { MAX_AGENT_OPPORTUNITY_HZ, agentIncome, allowedLanguages, chargeAct, deityIncome, instantiationOf, roundShare, settleAgentEnergy, type AgentAccount, type GameSettings } from "@workspace/game-core";
 
 /** The replay API version this reducer reads (player.replay's `version`). */
 export const REPLAY_VERSION = 2;
@@ -43,7 +43,11 @@ export type ReplayEvent =
   /** An act that returned no calls: it paid its reads; not a failure. */
   | { type: "agent.skipped"; objectId: string; agentId: string; ownerId: string; worldSeconds: number; cost: Charge; seed?: string }
   | { type: "agent.summoned"; agentId: string; ownerId: string; worldSeconds: number; language: string; source: string; name?: string; description?: string; summonCost: number;
-    expectedActCost: number; breakdown: Breakdown; randomized: boolean; account: AgentAccount }
+    expectedActCost: number; breakdown: Breakdown; randomized: boolean; account: AgentAccount;
+    /** The share of its owner's power the agent was given (log schema 6); absent in older logs, which replay as share 0. */
+    powerShare?: number }
+  /** The owner re-allocated power: the agent's share from then on (log schema 6). */
+  | { type: "agent.power"; agentId: string; ownerId: string; worldSeconds: number; share: number }
   | { type: "agent.destroyed"; agentId: string; ownerId: string; worldSeconds: number };
 
 /** `from`: the index in its batch of the first event served (a batch larger than a page is split across pages). */
@@ -75,7 +79,11 @@ export type ReplayAgent = {
   /** From the summon (absent for an agent whose summon predates schema 2). */
   name?: string; description?: string; language?: string; source?: string; summonCost?: number; expectedActCost?: number; breakdown?: Breakdown; randomized?: boolean;
   acts: number; transforms: number; failures: number; skips: number; spent: number; account?: AgentAccount;
+  /** Its share of its owner's power now (0 for an agent logged before the power budget). */
+  share: number;
 };
+/** A god's own energy account on world time (docs/energy-model.md §6): `allocated` is the sum of its agents' shares. */
+export type ReplayDeity = { balance: number; world: number; allocated: number };
 export type ReplayState = {
   /** Events applied (the cursor): 0 is before the first event. */
   cursor: number;
@@ -87,6 +95,8 @@ export type ReplayState = {
   agents: Map<string, ReplayAgent>;
   /** Per god (roster order): summon prices paid so far. */
   spent: number[];
+  /** Per god (roster order): its own energy account: startingEnergy, plus (1 − allocated)·P per world second, less summon prices. */
+  deities: ReplayDeity[];
   /** Per god (roster order): total payoff (the leaderboard), exact after every event. */
   totals: number[];
 };
@@ -118,21 +128,32 @@ export function viewOf(net: readonly number[], index: number) {
 /** God `index`'s payoff on an object: own net bits × the others' care (their summed net bits, floored at 0). */
 export const payoffOf = (net: readonly number[], index: number): number => viewOf(net, index).payoff;
 
-const emptyState = (gods: number): ReplayState => ({
+const emptyState = (gods: number, startingEnergy: number): ReplayState => ({
   cursor: 0, phase: "planning", world: 0, at: 0, objects: new Map(), agents: new Map(), spent: new Array(gods).fill(0), totals: new Array(gods).fill(0),
+  deities: Array.from({ length: gods }, () => ({ balance: startingEnergy, world: 0, allocated: 0 })),
 });
 const cloneState = (s: ReplayState): ReplayState => ({
   ...s, objects: new Map([...s.objects].map(([k, o]) => [k, { ...o }])), agents: new Map([...s.agents].map(([k, a]) => [k, { ...a }])),
-  spent: [...s.spent], totals: [...s.totals],
+  spent: [...s.spent], totals: [...s.totals], deities: s.deities.map(d => ({ ...d })),
 });
 
+/** The power a game gives each god, bits per world second (0 for settings that carry none). */
+const powerOf = (settings: GameSettings): number => settings.powerPerSecond ?? 0;
+
 /**
- * The agent's account accrued to `world` (as the engine's lib/world settledAccount): never backwards, no cap. A game
- * logged before the energy model (schema ≤ 4) capped income at a battery; its replay shows the uncapped balance.
+ * The agent's account accrued to `world` at its share of the power (as the engine's lib/world settledAccount): never
+ * backwards, no cap. A game logged before the energy model (schema ≤ 4) capped income at a battery; its replay shows the
+ * uncapped balance.
  */
-export function settleAccount(settings: GameSettings, account: AgentAccount, world: number): AgentAccount {
+export function settleAccount(settings: GameSettings, account: AgentAccount, world: number, share: number): AgentAccount {
   if (!(world > account.settledWorldSeconds)) return account;
-  return settleAgentEnergy(account, world, settings.agentEnergyPerSecond);
+  return settleAgentEnergy(account, world, agentIncome(powerOf(settings), share));
+}
+
+/** A god's own account accrued to `world` at its unallocated power. */
+function settleDeity(settings: GameSettings, d: ReplayDeity, world: number): ReplayDeity {
+  if (!(world > d.world)) return d;
+  return { ...d, balance: d.balance + (world - d.world) * deityIncome(powerOf(settings), d.allocated), world };
 }
 
 function setObject(state: ReplayState, o: ReplayObject) {
@@ -152,13 +173,13 @@ export function applyEntry(state: ReplayState, entry: LogEntry, settings: GameSe
   const agentOf = (agentId: string, ownerId: string) => {
     // A log from before summons were recorded (schema 1) still shows every agent, from its acts, without its record.
     let agent = state.agents.get(agentId);
-    if (!agent) state.agents.set(agentId, agent = { id: agentId, ownerId, alive: true, summonedAt: entry.world, acts: 0, transforms: 0, failures: 0, skips: 0, spent: 0 });
+    if (!agent) state.agents.set(agentId, agent = { id: agentId, ownerId, alive: true, summonedAt: entry.world, acts: 0, transforms: 0, failures: 0, skips: 0, spent: 0, share: 0 });
     return agent;
   };
   const charge = (agent: ReplayAgent, cost: Charge, outcome: "transform" | "failure" | "skip") => {
     agent.acts++; agent.spent += cost.total;
     if (outcome === "transform") agent.transforms++; else if (outcome === "skip") agent.skips++; else agent.failures++;
-    if (agent.account) agent.account = chargeAct(settleAccount(settings, agent.account, entry.world), cost.total);
+    if (agent.account) agent.account = chargeAct(settleAccount(settings, agent.account, entry.world, agent.share), cost.total);
   };
   switch (ev.type) {
     case "phase": state.phase = ev.phase; break;
@@ -178,15 +199,40 @@ export function applyEntry(state: ReplayState, entry: LogEntry, settings: GameSe
       state.agents.set(ev.agentId, {
         id: ev.agentId, ownerId: ev.ownerId, alive: true, summonedAt: entry.world, acts: 0, transforms: 0, failures: 0, skips: 0, spent: 0,
         name: ev.name, description: ev.description, language: ev.language, source: ev.source, summonCost: ev.summonCost, expectedActCost: ev.expectedActCost, account: ev.account,
-        breakdown: ev.breakdown, randomized: ev.randomized,
+        breakdown: ev.breakdown, randomized: ev.randomized, share: ev.powerShare ?? 0,
       });
       const i = roster.get(ev.ownerId);
-      if (i !== undefined) state.spent[i] += ev.summonCost;
+      if (i !== undefined) {
+        state.spent[i] += ev.summonCost;
+        const d = settleDeity(settings, state.deities[i], entry.world);
+        state.deities[i] = { balance: d.balance - ev.summonCost, world: d.world, allocated: roundShare(d.allocated + (ev.powerShare ?? 0)) };
+      }
+      break;
+    }
+    case "agent.power": {
+      const agent = state.agents.get(ev.agentId), i = roster.get(ev.ownerId);
+      if (!agent || !agent.alive) break;
+      // Both accounts are settled at the old rates, then the share changes.
+      if (agent.account) agent.account = settleAccount(settings, agent.account, entry.world, agent.share);
+      if (i !== undefined) {
+        const d = settleDeity(settings, state.deities[i], entry.world);
+        state.deities[i] = { ...d, allocated: Math.max(0, roundShare(d.allocated - agent.share + ev.share)) };
+      }
+      agent.share = ev.share;
       break;
     }
     case "agent.destroyed": {
       const agent = state.agents.get(ev.agentId);
-      if (agent) { agent.alive = false; agent.destroyedAt = entry.world; }
+      if (agent) {
+        agent.alive = false; agent.destroyedAt = entry.world;
+        // Its share returns to its owner, whose income changes from now.
+        const i = roster.get(agent.ownerId);
+        if (i !== undefined && agent.share > 0) {
+          const d = settleDeity(settings, state.deities[i], entry.world);
+          state.deities[i] = { ...d, allocated: Math.max(0, roundShare(d.allocated - agent.share)) };
+        }
+        agent.share = 0;
+      }
       break;
     }
   }
@@ -207,8 +253,8 @@ export function buildReplay(pages: readonly ReplayPage[]): Replay {
   let max = 0;
   log.forEach((e, i) => { max = Math.max(max, e.world); worldMax[i] = max; });
   const keyframeEvery = Math.max(KEYFRAME_EVERY, Math.ceil(log.length / MAX_KEYFRAMES));
-  const keyframes: ReplayState[] = [emptyState(roster.size)];
-  const state = emptyState(roster.size);
+  const keyframes: ReplayState[] = [emptyState(roster.size, settings.startingEnergy)];
+  const state = emptyState(roster.size, settings.startingEnergy);
   log.forEach((entry, i) => {
     applyEntry(state, entry, settings, roster);
     if ((i + 1) % keyframeEvery === 0) keyframes.push(cloneState(state));
@@ -244,11 +290,17 @@ export function cursorAtWorld(replay: Replay, world: number): number {
   return lo;
 }
 
-/** God `index`'s energy at a state: starting energy plus real-time income to its wall time (frozen at the end), less summons. */
+/**
+ * God `index`'s own energy at a state: startingEnergy plus its unallocated power, (1 − Σ shares)·P per world second
+ * (a destroyed agent's share comes back to it), less the summon prices.
+ */
 export function godEnergyAt(replay: Replay, state: ReplayState, index: number): number {
-  const s = replay.game.settings, end = replay.game.endedAt ?? Infinity;
-  const at = Math.min(Math.max(state.at, replay.game.startedAt), end);
-  return s.startingEnergy + (at - replay.game.startedAt) / 1000 * s.energyPerSecond - state.spent[index];
+  return settleDeity(replay.game.settings, state.deities[index], state.world).balance;
+}
+/** God `index`'s share of power given to its agents at a state (Σ of their shares), and its own income from the rest. */
+export function godPowerAt(replay: Replay, state: ReplayState, index: number): { allocated: number; income: number } {
+  const allocated = state.deities[index].allocated;
+  return { allocated, income: deityIncome(powerOf(replay.game.settings), allocated) };
 }
 
 /**
@@ -261,7 +313,7 @@ export function scoreSeries(replay: Replay, maxPoints = 2000) {
   const step = Math.max(1, Math.ceil(n / (Math.max(2, maxPoints) - 1)));
   const cursor: number[] = [], world: number[] = [], totals: number[][] = Array.from({ length: gods }, () => []);
   const push = (c: number, w: number, t: readonly number[]) => { cursor.push(c); world.push(w); t.forEach((v, i) => totals[i].push(v)); };
-  const state = emptyState(gods);
+  const state = emptyState(gods, replay.game.settings.startingEnergy);
   push(0, 0, state.totals);
   replay.log.forEach((entry, i) => {
     applyEntry(state, entry, replay.game.settings, replay.roster);
@@ -287,7 +339,7 @@ export type KeyMoment = {
  */
 export function keyMoments(replay: Replay, swings = 8): KeyMoment[] {
   const out: KeyMoment[] = [], changes: KeyMoment[] = [];
-  const state = emptyState(replay.game.roster.length);
+  const state = emptyState(replay.game.roster.length, replay.game.settings.startingEnergy);
   const summoned = new Set<string>();
   // The last SOLE leader: a tie does not reset it, so retaking the lead after a tie is not a change.
   let leader = -1;
@@ -348,12 +400,12 @@ export function replayObservation(replay: Replay, at: ReplayAt, state: ReplaySta
     phase: (state.phase === "recovery" ? "paused" : state.phase) as "planning" | "running" | "paused" | "ended",
     language: languages[0], languages, instance: game.objectInstance,
     economy: {
-      energyPerSecond: settings.energyPerSecond, agentEnergyPerSecond: settings.agentEnergyPerSecond, maxAgentOpportunityHz: MAX_AGENT_OPPORTUNITY_HZ,
+      powerPerSecond: powerOf(settings), startingEnergy: settings.startingEnergy, maxAgentOpportunityHz: MAX_AGENT_OPPORTUNITY_HZ,
       maxAgentsPerGod: settings.maxAgentsPerGod, penaltyWeight: settings.penaltyWeight, worldSeconds: state.world,
       commitClause: settings.commitClause, objectSelection: settings.objectSelection,
     },
     self: {
-      godId: god?.id ?? "", label: god?.name ?? "", isAI: god?.kind === "ai", energy: godEnergyAt(replay, state, at.pov), ready: false,
+      godId: god?.id ?? "", label: god?.name ?? "", isAI: god?.kind === "ai", energy: godEnergyAt(replay, state, at.pov), ...godPowerAt(replay, state, at.pov), ready: false,
       pauseUsed: dealt?.pauseUsed ?? false, ...(dealt?.card ? { utility: dealt.card } : {}),
     },
     objects: [...state.objects.values()].map(o => {
@@ -363,11 +415,11 @@ export function replayObservation(replay: Replay, at: ReplayAt, state: ReplaySta
         mutations: o.version, createdAt: o.spawnedAt, lastMutatedAt: o.version > 0 ? o.changedAt : null };
     }),
     agents: [...state.agents.values()].filter(a => a.alive && a.ownerId === god?.id).map(a => {
-      const account = a.account ? settleAccount(settings, a.account, state.world) : undefined;
+      const account = a.account ? settleAccount(settings, a.account, state.world, a.share) : undefined;
       return {
         id: a.id, source: a.source ?? "", language: a.language ?? languages[0], summonCost: a.summonCost ?? 0,
         expectedActCost: a.expectedActCost ?? 0, breakdown: a.breakdown ?? { read: 0, change: 0 }, randomized: a.randomized ?? false,
-        energy: account?.balance ?? 0, eligible: (account?.balance ?? 0) > 0, acts: a.acts, spent: a.spent, skips: a.skips,
+        energy: account?.balance ?? 0, eligible: (account?.balance ?? 0) > 0, acts: a.acts, spent: a.spent, skips: a.skips, powerShare: a.share, income: agentIncome(powerOf(settings), a.share),
       };
     }),
     transformations,
@@ -392,7 +444,9 @@ function projected(ev: ReplayEvent, seq: number, pov: number, roster: Replay["ga
     case "agent.summoned": return {
       type: "agent.summoned" as const, seq, agentId: ev.agentId, mine, worldSeconds: ev.worldSeconds, language: ev.language, source: ev.source, summonCost: ev.summonCost,
       expectedActCost: ev.expectedActCost, breakdown: ev.breakdown, randomized: ev.randomized, account: ev.account,
+      ...(ev.powerShare !== undefined ? { powerShare: ev.powerShare } : {}),
     };
+    case "agent.power": return mine ? { type: "agent.power" as const, seq, agentId: ev.agentId, worldSeconds: ev.worldSeconds, share: ev.share } : null;
     case "agent.destroyed": return { type: "agent.destroyed" as const, seq, agentId: ev.agentId, mine, worldSeconds: ev.worldSeconds };
   }
 }
@@ -409,7 +463,7 @@ export function replayEvents(replay: Replay, at: ReplayAt, limit = 20) {
     if (s !== seq) { if (seen === batches) break; seen++; seq = s; }
     i--;
   }
-  const events = replay.log.slice(i, upto).map(e => projected(e.event, e.seq, at.pov, replay.game.roster));
+  const events = replay.log.slice(i, upto).map(e => projected(e.event, e.seq, at.pov, replay.game.roster)).filter(e => e !== null);
   return { gameId: replay.game.id, events, nextCursor: lastSeq, latestCursor: lastSeq, gap: false };
 }
 

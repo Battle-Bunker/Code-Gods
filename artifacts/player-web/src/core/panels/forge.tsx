@@ -10,7 +10,7 @@ import { AGENT_DESCRIPTION_MAX, AGENT_NAME_MAX } from "@workspace/player-client"
 import { Loader2, Sparkles, Wand2 } from "lucide-react";
 import { AgentCost, HelpersDrawer, type ActCostBreakdown } from "@workspace/object-views";
 import { useMyAgents, useMutators, useObservation } from "@/sdk";
-import { LANGUAGE_SPECS, isLanguage } from "@workspace/game-core";
+import { LANGUAGE_SPECS, defaultShare, isLanguage } from "@workspace/game-core";
 import { runner, useGameCommands, useRunner, type Lang } from "@/core/game/runner";
 import { forgeLanguage, forgeLanguages, forgeSandbox } from "@/core/game/language";
 import { useAffordances } from "@/core/use-affordances";
@@ -55,6 +55,8 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended }: { lan
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const obs = useObservation({ hz: 2 });
+  // A summon from here takes the default share: half of the power you have not given to agents yet.
+  const newShare = obs?.self.allocated !== undefined ? defaultShare(obs.self.allocated) : undefined;
   const { instance } = useMutators();
   const commands = useGameCommands();
   const { draft, validation, busy, notice } = useRunner();
@@ -126,7 +128,7 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended }: { lan
           <div className={`border-l-4 py-1 pl-3 ${current.valid ? "border-[hsl(var(--accent))]" : "border-destructive"}`}>
             <p className="font-mono text-xs"><strong>{current.valid ? "VALID" : "INVALID"}</strong></p>
             <div className="mt-1"><AgentCost summonCost={current.cost} expectedActCost={current.expectedActCost} breakdown={current.breakdown as ActCostBreakdown | undefined}
-              agentEnergyPerSecond={obs?.economy?.agentEnergyPerSecond} godEnergy={obs?.self.energy} /></div>
+              powerShare={newShare} income={newShare !== undefined ? newShare * (obs?.economy?.powerPerSecond ?? 0) : undefined} godEnergy={obs?.self.energy} /></div>
             {current.warnings?.length ? (
               // The examination's warnings (docs/rules-design.md §11): shown before the summon, which they never block.
               <div data-testid="text-validation-warnings" className="mt-1 space-y-0.5 text-xs">

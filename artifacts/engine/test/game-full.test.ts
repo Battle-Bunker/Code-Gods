@@ -28,7 +28,7 @@ for (const spec of SPECS) for (const language of languages) {
     const other = language === "python" ? "typescript" : "python";
     const settings = {
       objectType: spec.objectType, typeArgs: spec.typeArgs, languages: [language],
-      startingObjectCount: 5, spawnRateHz: 0, planningSeconds: 3600, agentEnergyPerSecond: 100, agentBatteryActs: 2, interactionRateHz: 50,
+      startingObjectCount: 5, spawnRateHz: 0, planningSeconds: 3600, powerPerSecond: 200, interactionRateHz: 50,
       // Exact disclosure: this test checks the scoring arithmetic against the private scores (the noise is game-disclosure's).
       peerNoiseBits: 0,
     };
@@ -52,7 +52,7 @@ for (const spec of SPECS) for (const language of languages) {
     assert.equal(obs.phase, "planning");
     assert.equal(obs.instance!.objectType, spec.objectType);
     assert.ok(obs.instance!.helpers.some(h => h.group === "mutator"));
-    assert.equal(obs.economy!.agentEnergyPerSecond, 100);
+    assert.equal(obs.economy!.powerPerSecond, 200);
     assert.ok(obs.self.utility!.familyId && obs.self.utility!.emoji && obs.self.utility!.summary);
     assert.match(obs.self.utility!.source, language === "python" ? /def utility\(/ : /function utility\(/);
     let secret = await raw(game.gameId);

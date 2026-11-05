@@ -38,7 +38,7 @@ const domain: SettingsDomain = {
 /** A Python Int room with some fields away from their defaults, so "nothing else moves" is visible. */
 const start: GameSettings = {
   ...DEFAULT_SETTINGS, typeArgs: INT_WIDE, excludedFamilies: ["digits"], utilitySelectorId: "divine-lottery",
-  planningSeconds: 30, startingObjectCount: 12, agentEnergyPerSecond: 3, defenceGoals: false, penaltyWeight: 2, commitClause: true,
+  planningSeconds: 30, startingObjectCount: 12, powerPerSecond: 3, defenceGoals: false, penaltyWeight: 2, commitClause: true,
 };
 
 test("a change of allowed languages moves nothing else", () => {
@@ -139,8 +139,8 @@ test("the room's settings sent back with one field edited: the stale dependent f
 test("every numeric field, the commit clause and act targeting are free: only that field changes, bounds are validateSettings' job", () => {
   for (const [field, value] of [
     ["planningSeconds", 300], ["halfLifeSeconds", 1200], ["startingObjectCount", 0], ["spawnRateHz", 0.75], ["interactionRateHz", 7],
-    ["interactionComputeMs", 5], ["stepBudget", 100_000], ["perActFloorBits", 0], ["pauseSeconds", 60], ["startingEnergy", 400],
-    ["energyPerSecond", 4], ["agentEnergyPerSecond", 64], ["agentBatteryActs", 8], ["maxAgentsPerGod", 5], ["defenceGoals", true],
+    ["interactionComputeMs", 5], ["stepBudget", 100_000], ["pauseSeconds", 60], ["startingEnergy", 400],
+    ["powerPerSecond", 64], ["maxAgentsPerGod", 5], ["defenceGoals", true],
     ["penaltyWeight", 0.5], ["commitClause", false], ["objectSelection", "shelter"], ["startingEnergy", -1], ["priorId", "uniform"],
   ] as [keyof GameSettings, unknown][]) {
     assert.deepEqual(applySettingsChange(start, { [field]: value }, domain), { ...start, [field]: value }, `${field} = ${String(value)}`);

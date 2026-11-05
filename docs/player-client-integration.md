@@ -209,10 +209,10 @@ skip pays only its reads (docs/energy-model.md).
   (false: a spectator of this game, or joined after it launched; plays in the next game unless a spectator);
 - `instance`: the game's instantiation (key, label, badges, display tables, codec, mutators and the
   prelude helpers with Python and TypeScript signatures);
-- `economy`: `energyPerSecond`, `agentEnergyPerSecond` (no cap), `maxAgentOpportunityHz` (the most turns a
+- `economy`: `powerPerSecond` (each god's power, bits per world second, shared out as agents' `powerShare`), `startingEnergy`, `maxAgentOpportunityHz` (the most turns a
   single agent gets per world second), `maxAgentsPerGod`, `penaltyWeight`, `worldSeconds`, `commitClause`,
   `objectSelection`;
-- `self`: `godId`, `label`, `isAI`, `energy`, `ready`, `pauseUsed`, and `utility`, the kid card
+- `self`: `godId`, `label`, `isAI`, `energy`, `allocated` (the share of power given to agents), `income` (its own bits per world second), `ready`, `pauseUsed`, and `utility`, the kid card
   (familyId, emoji, name, theme, summary, language, source, shape, optional `penalty` defence goal);
 - `objects`: `{id, value, own: {ordinal, rewardBits, penaltyBits?, netBits}, peerNetBits, peerCare,
   payoff}` (`peerCare = max(0, peerNetBits)`, `payoff = own.netBits × peerCare`, all in bits);

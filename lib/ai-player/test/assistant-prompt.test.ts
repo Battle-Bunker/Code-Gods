@@ -66,7 +66,7 @@ const observation = {
     name: "Power Hoarder", emoji: "🏺", summary: "You hoard factors of 3.", theme: "Wants x divisible by a high power of one prime.",
     source: "function utility(x) { return 1; }", penalty: { name: "Odd Hater", summary: "Odd numbers hurt you.", source: "function penalty(x) { return x % 2; }" },
   } },
-  economy: { energyPerSecond: 1, agentEnergyPerSecond: 2, commitClause: false, maxAgentsPerGod: 200 },
+  economy: { powerPerSecond: 8, startingEnergy: 200, commitClause: false, maxAgentsPerGod: 200 },
   instance: { helpers: [
     { group: "read", name: { python: "digits", typescript: "digits" }, signature: { python: "digits(x) -> list[int]", typescript: "digits(x: number): number[]" }, kid: "The digits of a number" },
     { group: "mutator", name: { python: "swap_digits", typescript: "swapDigits" }, signature: { python: "swap_digits(i, j)", typescript: "swapDigits(i, j)" }, kid: "Swap two digits" },

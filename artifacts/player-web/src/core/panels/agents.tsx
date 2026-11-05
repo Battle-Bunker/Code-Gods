@@ -7,7 +7,7 @@
 import { isLanguage } from "@workspace/game-core";
 import { useEffect, useState } from "react";
 import { AgentCost, formatBits, type ActCostBreakdown } from "@workspace/object-views";
-import { Sparkline, Timeline, useGame, useMyAgents } from "@/sdk";
+import { Sparkline, Timeline, useGame, useMyAgents, useObservation } from "@/sdk";
 import { useDockActions } from "@/dock/actions";
 import { useGameCommands } from "@/core/game/runner";
 import { useAffordances } from "@/core/use-affordances";
@@ -15,13 +15,38 @@ import { AgentName } from "./agent-name";
 import { AgentSource } from "./agent-source";
 import { pruneSourceOpen } from "./agent-source-state";
 import { PanelEmpty, TextButton, type PanelProps } from "./kit";
+import { maxShareFor, parseSharePercent, shareProblem, unallocatedLine } from "./power-share";
 
 type Sample = { at: number; energy: number; eligible: boolean };
 const history = new Map<string, Sample[]>();
 
+/** One agent's power share as a percentage box (0 to 100): Set sends allocatePower, as Destroy sends destroy. */
+function PowerShareControl({ id, share, allocated, onSet, disabled, reason }: {
+  id: string; share: number; allocated: number; onSet: (share: number) => void; disabled: boolean; reason?: string;
+}) {
+  const shown = String(Math.round(share * 1000) / 10);
+  const [draft, setDraft] = useState<string | null>(null);
+  const text = draft ?? shown;
+  const problem = draft === null ? null : shareProblem(draft, share, allocated);
+  const parsed = parseSharePercent(text);
+  // Only an edit counts: the box shows the share rounded to 0.1%, so an untouched box never re-sends it.
+  const changed = draft !== null && parsed !== null && parsed !== share;
+  return (
+    <div className="flex flex-wrap items-center gap-x-2 text-xs" data-testid={`power-share-${id}`}>
+      <label className="text-muted-foreground" htmlFor={`input-power-share-${id}`}>power share</label>
+      <input id={`input-power-share-${id}`} data-testid={`input-power-share-${id}`} inputMode="decimal" className="w-16 border border-border bg-background px-1.5 py-0.5 font-mono"
+        value={text} disabled={disabled} title={disabled ? reason : `0 to ${Math.round(maxShareFor(share, allocated) * 1000) / 10}%`} onChange={e => setDraft(e.target.value)} />
+      <span className="text-muted-foreground">%</span>
+      <TextButton testId={`button-set-power-${id}`} disabled={disabled || !changed || !!problem} onClick={() => { if (parsed !== null) { onSet(parsed); setDraft(null); } }}>Set</TextButton>
+      {problem && <span data-testid={`text-power-problem-${id}`} className="text-destructive">{problem}</span>}
+    </div>
+  );
+}
+
 export default function Agents({ params, phase }: PanelProps<"agents">) {
-  const { agents: all, economy, secondsUntilEligible } = useMyAgents({ hz: 1 });
+  const { agents: all, secondsUntilEligible } = useMyAgents({ hz: 1 });
   const game = useGame({ hz: 1 });
+  const self = useObservation({ hz: 1 })?.self;
   const dock = useDockActions();
   const commands = useGameCommands();
   const can = useAffordances();
@@ -43,7 +68,7 @@ export default function Agents({ params, phase }: PanelProps<"agents">) {
   const agents = params.agentIds.length ? all.filter(a => params.agentIds.includes(a.id)) : all;
   const ended = phase === "ended";
   // Edit a copy and Destroy appear only where they work (core/affordances.ts): never in a replay or read-only.
-  const { editCode, destroy } = can.can;
+  const { editCode, destroy, allocatePower } = can.can;
   const showDestroy = destroy.ok || !destroy.hidden;
   const owner = can.seenAs ? <p data-testid="text-agents-owner" className="text-xs text-muted-foreground">Seen as {can.seenAs}: these are {can.whose} agents.</p> : null;
   if (!all.length) {
@@ -59,6 +84,9 @@ export default function Agents({ params, phase }: PanelProps<"agents">) {
   return (
     <div className="space-y-4">
       {owner}
+      {self?.allocated !== undefined && self.income !== undefined && (
+        <p data-testid="text-unallocated-power" className="font-mono text-xs text-muted-foreground">{unallocatedLine(self.allocated, self.income)}</p>
+      )}
       <ul className="space-y-4">
         {agents.map((a, i) => {
           // Frozen at the final tick: what the agent was doing when the game ended, and no countdown.
@@ -88,7 +116,12 @@ export default function Agents({ params, phase }: PanelProps<"agents">) {
                   {a.diagnosis.hint && <p className="text-muted-foreground">{a.diagnosis.hint}</p>}
                 </div>
               )}
-              {params.showCosts && <AgentCost summonCost={a.summonCost} expectedActCost={a.expectedActCost} breakdown={a.breakdown as ActCostBreakdown | undefined} agentEnergyPerSecond={economy?.agentEnergyPerSecond} acts={a.acts} spent={a.spent} />}
+              {params.showCosts && <AgentCost summonCost={a.summonCost} expectedActCost={a.expectedActCost} breakdown={a.breakdown as ActCostBreakdown | undefined} powerShare={a.powerShare} income={a.income} acts={a.acts} spent={a.spent} />}
+              {a.powerShare !== undefined && (allocatePower.ok || !allocatePower.hidden) && (
+                <PowerShareControl key={`${a.id}:${a.powerShare}`} id={a.id} share={a.powerShare} allocated={self?.allocated ?? a.powerShare}
+                  disabled={!allocatePower.ok} reason={allocatePower.ok ? undefined : allocatePower.reason}
+                  onSet={share => void commands.run({ type: "allocatePower", agentId: a.id, share })} />
+              )}
               <AgentSource id={a.id} source={a.source} language={a.language} defaultOpen={params.showSource} />
               {(editCode.ok || showDestroy) && (
                 <div className="flex flex-wrap gap-4">

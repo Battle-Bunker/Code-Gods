@@ -39,7 +39,7 @@ test("a summon needs a name (trimmed, up to 40) and takes an optional descriptio
 });
 
 test("objects stay unique: a constant transformation commits once, then collides once per other object (futile acts) and pays only what it read", { timeout: 120000 }, async () => {
-  const { trio: [host, ada], roomId, game, send, run } = await runningGame({ startingObjectCount: 3, startingEnergy: 1000, agentEnergyPerSecond: 1000, agentBatteryActs: 1000, interactionRateHz: 40 });
+  const { trio: [host, ada], roomId, game, send, run } = await runningGame({ startingObjectCount: 3, startingEnergy: 1000, powerPerSecond: 2000, interactionRateHz: 40 });
   assert.equal((await send(ada, { type: "summon", name: "Test agent", language: "typescript", source: "function agent(x) { return x.value === 5 ? [add(1), add(-1)] : [add(5 - x.value)]; }" })).accepted, true);
   await run();
   const events = async () => (await raw(game.gameId)).batches.flatMap((b: any) => b.events);
@@ -62,8 +62,8 @@ test("objects stay unique: a constant transformation commits once, then collides
   assert.equal(agent.acts, all.filter((e: any) => e.t === "transform" || e.t === "fail").length, "every act is charged, successful or not");
 });
 
-test("pause: once per god, freezes world time, discards in-flight windows, god energy keeps accruing; resumes at its end", { timeout: 120000 }, async () => {
-  const { trio: [host, ada, bo], game, send, run } = await runningGame({ startingObjectCount: 4, agentEnergyPerSecond: 1000, agentBatteryActs: 1000, pauseSeconds: 60, energyPerSecond: 5 });
+test("pause: once per god, freezes world time and with it every energy account, discards in-flight windows; resumes at its end", { timeout: 120000 }, async () => {
+  const { trio: [host, ada, bo], game, send, run } = await runningGame({ startingObjectCount: 4, powerPerSecond: 2000, pauseSeconds: 60 });
   assert.equal((await send(ada, { type: "pause" })).accepted, false, "no pause during planning");
   assert.equal((await send(host, { type: "summon", name: "Test agent", language: "typescript", source: TS.Int })).accepted, true);
   await run();
@@ -81,7 +81,7 @@ test("pause: once per god, freezes world time, discards in-flight windows, god e
   assert.equal(secret.agents[0].acts, frozen.acts, "no act commits while paused (in-flight windows are discarded)");
   const obs = await bo.c.query(api.player.observation, { roomId: secret.game.roomId, at: Date.now() });
   assert.equal(obs.phase, "paused");
-  assert.ok(obs.self.energy >= energy0 + 5, "god energy accrues on the wall clock even while paused");
+  assert.ok(Math.abs(obs.self.energy - energy0) < 1e-6, "a deity's energy runs on world time (docs/energy-model.md §6): frozen while paused");
   assert.ok(secret.batches.some((b: any) => b.events.some((e: any) => e.t === "phase" && e.phase === "paused")));
   // The pause ends at its deadline and the loop resumes by itself.
   await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { pauseEndsAt: Date.now() }, kick: true });

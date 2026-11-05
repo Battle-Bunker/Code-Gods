@@ -16,7 +16,7 @@ test("pages chained by cursor equal one window, under each sort, with stable ord
   await touch(host);
   const { roomId } = await roomWith([host, ada, bo], {
     languages: ["typescript"], objectType: "Grid", typeArgs: { size: 5, symbols: "base10", colours: "rgby" },
-    startingObjectCount: 14, spawnRateHz: 0, planningSeconds: 3600, agentEnergyPerSecond: 100, startingEnergy: 1000,
+    startingObjectCount: 14, spawnRateHz: 0, planningSeconds: 3600, powerPerSecond: 200, startingEnergy: 1000,
   });
   const game = await startGame(host, roomId);
   await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now() }, kick: true });

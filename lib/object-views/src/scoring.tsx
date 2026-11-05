@@ -4,7 +4,7 @@
  * bits and the floored peer care), never individually.
  */
 import { dimensionVar } from "./dimensions.ts";
-import { formatBits, penaltyLine, penaltyPercent, rarityText } from "./rarity.ts";
+import { formatBits, penaltyLine, powerLine, penaltyPercent, rarityText } from "./rarity.ts";
 
 /** Your bits and the others' care wear their dimension colours (dimensions.ts) wherever they appear. */
 const YOURS = { color: dimensionVar("yours") }, OTHERS = { color: dimensionVar("others") };
@@ -107,12 +107,14 @@ export function HowScoringWorks({ noun = "object", open = false, id = "how-scori
 export type ActCostBreakdown = { read?: number; change?: number };
 
 /**
- * An agent's price. The summon price is paid once, from god energy. An act then pays only what it does (the bits it
+ * An agent's price. The summon price is paid once, from your own energy. An act then pays only what it does (the bits it
  * reads, plus its change when it changes the object), so the per-act figure is an ESTIMATE made at summon, split into
  * reading and changing; an ongoing agent also shows what its acts really cost on average (spent / acts).
  */
-export function AgentCost({ summonCost, expectedActCost, breakdown, agentEnergyPerSecond, godEnergy, acts, spent }: {
-  summonCost: number; expectedActCost: number; breakdown?: ActCostBreakdown; agentEnergyPerSecond?: number; godEnergy?: number;
+export function AgentCost({ summonCost, expectedActCost, breakdown, powerShare, income, godEnergy, acts, spent }: {
+  summonCost: number; expectedActCost: number; breakdown?: ActCostBreakdown; godEnergy?: number;
+  /** The agent's share (0 to 1) of the god's power, and its income in bits per world second (share x power). */
+  powerShare?: number; income?: number;
   /** An ongoing agent: how many acts it has had and the bits they cost in all, for the actual average. */
   acts?: number; spent?: number;
 }) {
@@ -130,9 +132,9 @@ export function AgentCost({ summonCost, expectedActCost, breakdown, agentEnergyP
         <dt className="text-muted-foreground">actual per act</dt>
         <dd data-testid="text-actual-act-cost">{f(spent / acts)} bits on average, over {acts} acts</dd>
       </>)}
-      {agentEnergyPerSecond !== undefined && agentEnergyPerSecond > 0 && (<>
-        <dt className="text-muted-foreground">earns</dt>
-        <dd data-testid="text-agent-income">{f(agentEnergyPerSecond)} bits per world second; richer agents get more turns</dd>
+      {finite(income) && finite(powerShare) && (<>
+        <dt className="text-muted-foreground">power</dt>
+        <dd data-testid="text-agent-income">{powerLine(income, powerShare)} per world second; richer agents get more turns</dd>
       </>)}
     </dl>
   );
