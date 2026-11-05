@@ -367,10 +367,10 @@ export const INFERENCE_TOOLS = [
       offset: z.number().int().min(0).default(0).describe("Rows to skip (nextCursor)."), limit: z.number().int().min(1).max(20000).default(500) }),
     output: result(anyData) }),
   def({ name: "get_board_at", short: "The board at a world time, with own and others' summed bits.", functions: ["player.board"], permission: "read", annotations: read,
-    note: "Paged in spawn order, at most 40 objects a page: pass nextCursor back as cursor.",
+    note: "Paged in spawn order, at most 100 objects a page (and what fits in one result): pass nextCursor back as cursor; it keeps the first page's world.",
     input: obj({ gameId, world: z.number().min(0).optional().describe("World seconds (default: now)."),
       cursor: z.string().max(2000).optional().describe("The previous page's nextCursor (omit for the first page)."),
-      limit: z.number().int().min(1).max(40).default(40).describe("Objects per page.") }), output: result(anyData) }),
+      limit: z.number().int().min(1).max(100).default(50).describe("Objects per page.") }), output: result(anyData) }),
   def({ name: "list_utility_candidates", short: "Every rule another god might hold here, with its parameter sets.", title: "Candidate rules", functions: [], permission: "read", annotations: read,
     about: "The public candidates for the OTHER gods' utility functions in the current game: every family the dealer could deal here (theme, tags, "
       + "role: reward or defence goal) with every parameter set it can draw, and how many other gods there are. Use the ids and params in "

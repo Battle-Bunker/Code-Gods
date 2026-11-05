@@ -4086,10 +4086,10 @@
         },
         "limit": {
           "description": "Objects per page.",
-          "default": 40,
+          "default": 50,
           "type": "integer",
           "minimum": 1,
-          "maximum": 40
+          "maximum": 100
         }
       },
       "additionalProperties": false

@@ -522,11 +522,12 @@ export async function myUtilityFor(ctx: QueryCtx, viewer: Viewer, { roomId }: { 
 // ------------------------------------------------------------------------------------------------
 
 /**
- * A page of the series holds at most this many rows (default and maximum). The public query's pages are R2-sized
- * (SERIES_PUBLIC_PAGE rows and at most as many earlier rows); the agent tools' internal twin reads larger pages inside
- * Convex (agent/series.ts gatherSeries).
+ * A page of the series holds at most this many rows (default and maximum). The public query's pages fit R2's 64 KiB
+ * (SERIES_PUBLIC_PAGE rows and at most as many earlier rows: an objectEvents row is about 4 KiB in a 1,000-object game,
+ * measured by the query-cost gate); the agent tools' internal twin reads larger pages inside Convex (agent/series.ts
+ * gatherSeries).
  */
-export const SERIES_PAGE = 1000, SERIES_PAGE_MAX = 4000, SERIES_PUBLIC_PAGE = 40;
+export const SERIES_PAGE = 1000, SERIES_PAGE_MAX = 4000, SERIES_PUBLIC_PAGE = 6;
 type Wire = number | string;
 
 /** The viewer's own bits, the others' sum and own payoff from a stored per-deity vector (never the vector itself). */
@@ -606,13 +607,16 @@ export async function seriesFor(ctx: QueryCtx, caller: Viewer, args: { roomId: s
   };
 }
 
-/** A board page holds at most this many objects (default and maximum): with one objectEvents read each, R2's 100 documents. */
-export const BOARD_PAGE = 40;
+/**
+ * A public board page holds at most BOARD_PAGE objects (default and maximum): with one objectEvents read each (about
+ * 4 KiB), within R2's 64 KiB. The agent tools' internal twin reads up to BOARD_PAGE_INTERNAL inside Convex.
+ */
+export const BOARD_PAGE = 10, BOARD_PAGE_INTERNAL = 100;
 
 /**
  * One page of the board at world time `world` (default: now) as the caller saw it: the objects that existed then, in
  * spawn order, each with its value, version and the caller's own bits, the others' sum and own payoff. The page walks
- * the caller's objectViews rows by spawn time up to `world` (by_game_god_created), at most `limit` ≤ BOARD_PAGE; now
+ * the caller's objectViews rows by spawn time up to `world` (by_game_god_created), at most `limit` ≤ `max`; now
  * (no `world`, or `world` at or past the clock), each row is the object as it stands; earlier, each object's last
  * objectEvents row at or before `world` (one indexed read per object). Page with `cursor` (the previous page's
  * `cursor`, which keeps the first page's world: `world` may be omitted) until `done`. Now is as the read model last
@@ -623,9 +627,9 @@ const boardArgs = { roomId: v.string(), gameId: v.optional(v.string()), world: v
 export const board = query({ args: boardArgs, handler: async (ctx, args) => boardFor(ctx, await requireViewer(ctx), args) });
 export const boardAs = internalQuery({
   args: { principal: principalV, ...boardArgs },
-  handler: async (ctx, { principal, ...args }) => boardFor(ctx, await viewerOf(ctx, principal), args),
+  handler: async (ctx, { principal, ...args }) => boardFor(ctx, await viewerOf(ctx, principal), args, BOARD_PAGE_INTERNAL),
 });
-export async function boardFor(ctx: QueryCtx, caller: Viewer, args: { roomId: string; gameId?: string; world?: number; cursor?: string | null; limit?: number }) {
+export async function boardFor(ctx: QueryCtx, caller: Viewer, args: { roomId: string; gameId?: string; world?: number; cursor?: string | null; limit?: number }, max = BOARD_PAGE) {
   const { game, index, viewer } = await seatedGame(ctx, caller, args.roomId, args.gameId);
   const nowWorld = (await withClock(ctx, game)).worldSeconds;
   // A cursor carries the world its first page was read at ("<world>|<Convex cursor>"): the pages of one board are of one moment.
@@ -634,7 +638,7 @@ export async function boardFor(ctx: QueryCtx, caller: Viewer, args: { roomId: st
   if (args.cursor && (atCursor === undefined || !Number.isFinite(atCursor))) return fail("BAD_REQUEST", "Not a board cursor: pass the previous page's cursor");
   if (atCursor !== undefined && args.world !== undefined && args.world !== atCursor) return fail("BAD_REQUEST", "This cursor is of the board at another world time");
   const world = atCursor ?? args.world ?? nowWorld, current = world >= nowWorld;
-  const limit = Math.max(1, Math.min(BOARD_PAGE, Math.floor(args.limit ?? BOARD_PAGE)));
+  const limit = Math.max(1, Math.min(max, Math.floor(args.limit ?? max)));
   const page = await ctx.db.query("objectViews")
     .withIndex("by_game_god_created", q => q.eq("gameId", game._id).eq("godId", viewer.subject).lte("createdAt", world))
     .paginate({ cursor: atCursor !== undefined ? args.cursor!.slice(split + 1) : null, numItems: limit });
