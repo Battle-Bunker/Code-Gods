@@ -337,3 +337,6 @@ Owner, verbatim (abridged only where marked):
   and 22 typedParams*/pictureFrameSymbol*/setSpotterGeometry*/equalOpportunity* migrations removed; params required
   of every family. No schema.ts change. FOLLOW-UP: delete replays.rebuildAfterMigration after 2026-11-06 (kept for any
   backed-off replay rebuild jobs from the prod migration run).
+- 22:16: #240's develop deploy is green. Rules and read-architecture sessions archived. Only the assistant-modes
+  narrowing (plus aiQuotas) remains; it is running its suites and merging on green. Then the narrowing release, on the
+  owner's call.
