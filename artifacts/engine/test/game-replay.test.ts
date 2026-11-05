@@ -95,7 +95,9 @@ test("an ended game's replay, cut at any snapshot, rebuilds the whole engine sta
   for (const e of logged) {
     const row = final.objectEvents.find((r: any) => r.objectId === e.objectId && r.version === e.version);
     assert.ok(row, `a row for ${e.objectId} v${e.version}`);
-    assert.deepEqual([row.kind, row.value, row.world, row.seq, row.net, row.before, row.agentId], [e.t, e.value, e.world, e.seq, e.net, e.before, e.agentId]);
+    // The rows are the state index: a version re-scored during planning (hold rarity) holds its rescore's bits.
+    const rescored = final.batches.flatMap((b: any) => b.events).filter((r: any) => r.t === "rescore" && r.objectId === e.objectId && r.version === e.version).at(-1);
+    assert.deepEqual([row.kind, row.value, row.world, row.seq, row.net, row.before, row.agentId], [e.t, e.value, e.world, e.seq, rescored?.net ?? e.net, e.before, e.agentId]);
   }
   const roster: string[] = final.game.roster.map((m: any) => m.id);
   const [hostPages, adaPages, boPages] = [await pagesOf(host), await pagesOf(ada), await pagesOf(bo)];
@@ -106,7 +108,7 @@ test("an ended game's replay, cut at any snapshot, rebuilds the whole engine sta
   const pages = adaPages;
   assert.ok(pages.length > 1, "the replay pages");
   assert.ok(pages.some(p => p.eventOffset !== undefined), "a batch larger than a page is split across pages");
-  assert.equal(pages[0].game.logSchema, 6);
+  assert.equal(pages[0].game.logSchema, 7);
   // Fully revealed: every god's dealt utility and card, the end deadline, every agent's source (Bo's marker too), every act's seed.
   assert.equal(pages[0].game.endAtWorld, final.game.endAtWorld);
   assert.deepEqual(pages[0].gods!.map(g => [g.godId, g.utility, g.card]), [...final.deities].sort((a: any, b: any) => a.index - b.index).map((d: any) => [d.godId, d.utility, d.card]));
