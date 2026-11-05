@@ -136,6 +136,17 @@ export async function roomWith(members: God[], settings?: Record<string, unknown
   return { roomId: roomId as string, shortCode: shortCode as string };
 }
 
+/** The whole setup catalogue as the app pages it (setups.page, 30 a page): entries {id, name, summary, system, seedId?, mine}. */
+export async function setupEntries(c: { query(ref: any, args: any): Promise<any> }, search?: string): Promise<any[]> {
+  const out: any[] = [];
+  for (let cursor: string | null = null; ;) {
+    const page: any = await c.query(api.setups.page, { paginationOpts: { numItems: 50, cursor }, ...(search ? { search } : {}) });
+    out.push(...page.page);
+    if (page.isDone) return out;
+    cursor = page.continueCursor;
+  }
+}
+
 export const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 export async function waitFor<T>(check: () => Promise<T | undefined | false | null>, label: string, ms = 60000, every = 200): Promise<T> {
   const deadline = Date.now() + ms;

@@ -236,7 +236,7 @@ export const OWNER_TOOLS = [
  */
 const setupId = id.describe("A setup's id from list_setups.");
 export const SETUP_TOOLS = [
-  def({ name: "list_setups", short: "Search the shared game setups (the system's and everyone's).", title: "List game setups", functions: ["setups.list"], permission: "read", annotations: read,
+  def({ name: "list_setups", short: "Search the shared game setups (the system's and everyone's).", title: "List game setups", functions: ["setups.page"], permission: "read", annotations: read,
     note: "Rows without settings ({setups, total}); query narrows by name, owner or summary words; get_setup has one setup's settings.",
     input: obj({ query: z.string().trim().max(100).optional().describe("Words that must all appear in the name, the owner's name or the summary."),
       limit: z.number().int().min(1).max(200).optional().describe("At most this many rows (default 100); total says how many match.") }),

@@ -14,9 +14,14 @@ export type PaletteSection = "suggested" | "actions" | "views" | "goto" | "setti
 
 /**
  * A pick page's list as a live subscription holds it now: `options` undefined while it loads, `error` when it failed.
- * `useOptions` is a React hook the page calls while it is shown, so the subscription lives exactly that long.
+ * `useOptions` is a React hook the page calls while it is shown (with the query typed, for a list the server searches),
+ * so the subscription lives exactly that long.
  */
-export type LiveOptions = { options: readonly PickOption[] | undefined; error?: string | null };
+export type LiveOptions = {
+  options: readonly PickOption[] | undefined; error?: string | null;
+  /** The options are the server's answer to the query typed (a search index): shown in its order, not filtered again. */
+  searched?: boolean;
+};
 
 /**
  * A nested palette page: pick one option from a list, fill one validated field, or read a short text (a gloss, the
@@ -26,7 +31,7 @@ export type LiveOptions = { options: readonly PickOption[] | undefined; error?: 
  */
 export type PaletteFormPage =
   | ({ kind: "pick"; title: string; onPick: (id: string) => Promise<unknown> | unknown; empty?: string }
-    & ({ options: () => Promise<readonly PickOption[]> | readonly PickOption[]; useOptions?: undefined } | { useOptions: () => LiveOptions; options?: undefined }))
+    & ({ options: () => Promise<readonly PickOption[]> | readonly PickOption[]; useOptions?: undefined } | { useOptions: (query: string) => LiveOptions; options?: undefined }))
   | { kind: "field"; title: string; label: string; placeholder?: string; initial?: string; validate?: (value: string) => string | null; consequence?: (value: string) => string; onSubmit: (value: string) => Promise<unknown> | unknown }
   | ({ kind: "info"; title: string; copy?: { label: string; text: string } }
     & ({ lines: readonly string[]; useLines?: undefined } | { useLines: () => readonly string[]; lines?: undefined }));

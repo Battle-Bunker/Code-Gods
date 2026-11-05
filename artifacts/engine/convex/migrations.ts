@@ -68,6 +68,9 @@
  *    position in its tickBatches doc) and `cost` (a transform's charge) gets both from its batch, the data lib/load.ts's
  *    old scan reads (each batch read once, its rows found by by_game_object_version). Narrowed later, once dev and production report it done: `index` becomes required (`cost` stays optional:
  *    spawns have none) and lib/load.ts's batch-scan fallback goes.
+ *  - setupListing (gameSetups; 2026-11-05, read-architecture R1/R2): a setup gets its catalogue fields (setups.ts
+ *    listingOf: `order` and `nameKey` for the by_order index the Setup list pages, `searchText` for its search index).
+ *    Narrowed later: the three become required once dev and production report it done.
  *
  * Older hand-rolled steps, idempotent and run by their own deploy-workflow steps (kept as they are: they predate the
  * component, and porting the Node action setupsV2 buys nothing):
@@ -106,7 +109,7 @@ import { PLAYER_PARTITION, PLAYER_PREFIX, RUNS_PREFIX, codeEpoch } from "./code/
 import { aiSeatName, renameInRecord } from "./lib/aiNames";
 import { migrateSettings } from "./lib/migrateSetups";
 import { DEFAULT_AI_QUOTA, DEFAULT_ASSISTANT_QUOTA } from "./lib/aiModels";
-import { freeName, setupSummary } from "./setups";
+import { freeName, listed, listingFor, setupSummary } from "./setups";
 import { clockDoc, clockOf, withEngine } from "./game/state";
 import { worldNow } from "./lib/world";
 import { hasStandings, publishStandings } from "./game/readModel";
@@ -361,6 +364,11 @@ export const objectEventPlaces = migrations.define({
   },
 });
 
+export const setupListing = migrations.define({
+  table: "gameSetups",
+  migrateOne: async (ctx, row) => { const listing = await listingFor(ctx, row); return listed(row, listing) ? undefined : listing; },
+});
+
 /** Every component migration, in order: run by the deploy workflow (`npx convex run migrations:runAll`). Append only. */
 // Annotated: this module's own `internal` references would otherwise make its exported types circular.
 const RUN_ALL: FunctionReference<"mutation", "internal">[] = [internal.migrations.dropHaskellFromSetups, internal.migrations.dropHaskellFromRooms,
@@ -380,7 +388,8 @@ const RUN_ALL: FunctionReference<"mutation", "internal">[] = [internal.migration
   internal.migrations.assistantNoApprovalsCalls, internal.migrations.agentPricesV2,
   internal.migrations.equalOpportunityIntStringDeities, internal.migrations.equalOpportunityIntStringPreparing,
   internal.migrations.powerV1Agents, internal.migrations.powerV1Deities, internal.migrations.powerV1Games, internal.migrations.powerV1Rooms, internal.migrations.powerV1Setups,
-  internal.migrations.objectEventPlaces];
+  internal.migrations.objectEventPlaces,
+  internal.migrations.setupListing];
 export const runAll = migrations.runner(RUN_ALL);
 /** The state of each of runAll's migrations (scripts/run-migrations.mjs waits for all of them to succeed). */
 export const status = internalQuery({
@@ -412,7 +421,8 @@ async function migrateRoom(ctx: MutationCtx, room: Doc<"rooms">, defence: Readon
     const own = await ctx.db.query("gameSetups").withIndex("by_owner", q => q.eq("ownerId", room.ownerId)).collect();
     const name = freeName(`Room ${room.shortCode}`, "'s setup", new Set(own.map(s => s.name.toLowerCase())));
     const now = Date.now();
-    const id = await ctx.db.insert("gameSetups", { ownerId: room.ownerId, name, settings, summary: setupSummary(settings), createdAt: now, updatedAt: now });
+    const summary = setupSummary(settings);
+    const id = await ctx.db.insert("gameSetups", { ownerId: room.ownerId, name, settings, summary, createdAt: now, updatedAt: now, ...await listingFor(ctx, { ownerId: room.ownerId, name, summary }) });
     setup = (await ctx.db.get(id))!;
   }
   await ctx.db.patch(room._id, { settings, setupId: setup._id, setupName: setup.name, settingsOrigin: undefined });

@@ -69,7 +69,6 @@ export function usePlayerCommands(scopePaneId: string | null): { commands: Comma
   const game = useGameCommands();
   const owner = useOwnerActions();
   const status = useQuery(api.assistant.status, { roomId: room });
-  const setups = useQuery(api.setups.list, s.isOwner ? {} : "skip");
   const cancel = useMutation(api.assistant.cancel);
   const setMode = useMutation(api.assistant.setMode);
   const join = useMutation(api.rooms.join);
@@ -99,12 +98,11 @@ export function usePlayerCommands(scopePaneId: string | null): { commands: Comma
       panes, scopePaneId, safeMode: SAFE_MODE,
       storedPanels: (panels.stored ?? []).map(p => ({ slug: p.slug, title: p.title, enabled: p.enabled, currentVersion: p.currentVersion })),
       filePanels: panels.fileIds ?? [],
-      setups: (setups ?? []).map(x => ({ id: x.id, label: x.name, detail: x.summary })),
       aiSeats: (s.room?.members ?? []).filter(m => m.kind === "ai").map(m => ({ id: m.id, label: m.name })),
       gridRenderer,
       ...(replay ? { replay } : {}),
     };
-  }, [dock.layout, s, permission, runner.unknown, runner.busy, status?.enabled, status?.available, scopePaneId, panels.stored, panels.fileIds, gridRenderer, setups, starting, replay]);
+  }, [dock.layout, s, permission, runner.unknown, runner.busy, status?.enabled, status?.available, scopePaneId, panels.stored, panels.fileIds, gridRenderer, starting, replay]);
 
   const paletteActions = useMemo((): PaletteActions => ({
     submit: command => game.run(command),

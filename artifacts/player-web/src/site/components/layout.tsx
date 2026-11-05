@@ -20,7 +20,8 @@ import { useToast } from "@/hooks/use-toast";
 import { api, useLive } from "@/site/lib/convex";
 import { codeCommands, engineCommands, paletteContextFor, type EngineActions, type EngineScope, type Live, type Template } from "@/site/lib/commands";
 import { errMsg } from "@/site/lib/errors";
-import type { GameRecord, GameView, Manifest, RoomState, Setup } from "@/site/lib/types";
+import type { GameRecord, GameView, Manifest, RoomState } from "@/site/lib/types";
+import { useSetupEntries } from "@/site/hooks/use-setups";
 import { rulesFor } from "@/site/components/game-rules";
 import { Tip } from "@/site/components/action";
 import { AiQuotasSheet, ConnectedAppsSheet, PastGamesSheet, ScoringSheet } from "@/site/components/sheets";
@@ -53,8 +54,6 @@ interface PageApi {
   openSheet(sheet: Sheet): void;
   ctx: PaletteContext;
   manifest?: Manifest;
-  /** The game setups the viewer can use (setups.list), undefined while loading or signed out. */
-  setups?: Setup[];
   /** The actions behind the commands, for controls that pass their own argument (the Setup select, an AI row's Remove). */
   act: EngineActions;
   /** This room's pending start (@workspace/player-client/start): the Start button and the next step show it at once. */
@@ -155,10 +154,9 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
     } catch (e) { fail("Creating the room", e); } finally { creating.current = false; }
   }, [create, navigate, fail]);
 
-  const setups = useLive(api.setups.list, user ? {} : "skip").data;
   const scope: EngineScope = {
     user, room: room ?? null, game: game ? { shortCode: game.shortCode, status: game.status, roomShortCode: game.roomShortCode, roster: game.roster, ownerId: game.ownerId } : null,
-    aiConfigured: manifest?.aiFunding.configured, setups: setups ?? [],
+    aiConfigured: manifest?.aiFunding.configured,
     currentSetup: room?.setup && !room.setup.deleted ? room.setup.id : undefined,
     minPlayers: manifest?.minimumPlayers ?? 3, maxPlayers: manifest?.maximumPlayers ?? 8,
     gridRenderer, starting, siteSession: kind === "site",
@@ -186,7 +184,7 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
       // Undo puts the room back on the setup it ran (unless that setup was deleted since).
       const was = r.setup && !r.setup.deleted ? r.setup.id : null;
       const saved = await saveSettings({ roomId: r.id, revision: r.revision, setupId: id });
-      const name = setups?.find(s => s.id === id)?.name ?? "the chosen setup";
+      const name = saved.setup?.name ?? "the chosen setup";
       toast({ title: `Next game: ${name}`, action: was && was !== id ? (
         <ToastAction altText="Undo" data-testid="button-undo-setup" onClick={() => {
           saveSettings({ roomId: r.id, revision: saved.revision, setupId: was }).catch(e => fail("Undo", e));
@@ -206,24 +204,26 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
     revoke: credentialId => revoke({ credentialId }),
     openSheet: s => setSheet(s),
     rulesText: () => (room ? rulesFor(room.settings, room.shortCode, null, room.objectInstance) : game ? rulesFor(game.settings, game.roomShortCode, game.shortCode, game.objectInstance) : null),
-    serverInfo: () => manifest ? [
+    useSetups: query => useSetupEntries(query),
+    // A hook (the info page calls it while shown): the system setups are the catalogue's first entries.
+    useServerInfo: () => { const setups = useSetupEntries("").data; return manifest ? [
       `Players per game: ${manifest.minimumPlayers} to ${manifest.maximumPlayers}; AI players count.`,
       `Agent languages: ${manifest.runtimes.join(", ") || "none available right now"}.`,
-      `System setups: ${(setups ?? []).filter(s => s.system).map(s => s.name).join(", ") || "none"}.`,
+      `System setups: ${setups ? setups.filter(s => s.system).map(s => s.name).join(", ") || "none" : "loading"}.`,
       manifest.aiFunding.configured ? `AI players and assistants: available${manifest.aiFunding.mock ? " (development: scripted, nothing billed)" : ""}.` : "AI players and assistants: not set up on this server.",
-    ] : ["Loading server info…"],
+    ] : ["Loading server info…"]; },
     whoAmI: () => user ? [`Signed in as ${user.name}.`, `Your player id: ${user.id}.`, ...(user.isAdmin ? ["You can manage the AI library."] : [])] : ["You are not signed in."],
     setGridRenderer: id => { setObjectRenderer("Grid", id); },
     origin: window.location.origin,
   };
   // Rebuilt only when what the commands read changes (not on every chat message or tick); the actions read the same.
-  const commands = useMemo(() => engineCommands(scope, act), [user, room, game, manifest, history, gridRenderer, setups, starting]); // eslint-disable-line react-hooks/exhaustive-deps
+  const commands = useMemo(() => engineCommands(scope, act), [user, room, game, manifest, history, gridRenderer, starting]); // eslint-disable-line react-hooks/exhaustive-deps
   const ctx = useMemo(() => paletteContextFor(scope), [user, room, game]); // eslint-disable-line react-hooks/exhaustive-deps
   const byId = useMemo(() => new Map(commands.map(c => [c.id, c])), [commands]);
 
   const openPalette = (init?: PaletteOpenInit) => setPalette({ open: true, init });
   const api_: PageApi = {
-    ctx, manifest, setups, openPalette, openSheet: setSheet, act, start: start_,
+    ctx, manifest, openPalette, openSheet: setSheet, act, start: start_,
     command: id => byId.get(id),
     unavailable: id => { const c = byId.get(id); if (!c) return "Not available here."; const a = c.available(ctx); return a.ok ? null : a.reason; },
     run: id => {

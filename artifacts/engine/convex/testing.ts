@@ -261,6 +261,16 @@ export const replayFile = internalAction({
   },
 });
 
+/** A setup as stored before its catalogue fields (migrations setupListing), and the stored row. */
+export const legacySetupListing = internalMutation({
+  args: { setupId: v.id("gameSetups") },
+  handler: async (ctx, { setupId }) => { dev(); await ctx.db.patch(setupId, { order: undefined, nameKey: undefined, searchText: undefined }); },
+});
+export const rawSetupDoc = internalQuery({
+  args: { setupId: v.id("gameSetups") },
+  handler: async (ctx, { setupId }) => { dev(); return await ctx.db.get(setupId); },
+});
+
 /** The games row as stored (no clock or engine merged in). */
 export const rawGameDoc = internalQuery({
   args: { gameId: v.id("games") },
