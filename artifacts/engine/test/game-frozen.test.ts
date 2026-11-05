@@ -66,6 +66,18 @@ test("an ended game keeps and serves everything the panels and the assistant rea
   assert.equal(utility?.gameId, game.gameId);
   const trajectories = await ann.c.query(api.player.trajectories, { roomId });
   assert.ok(trajectories.objects.length >= 1 && trajectories.objects.every((o: any) => o.points.length >= 1), "bits-over-time to the end");
+  // Bits-over-time reads the log as closed windows (`upTo`) of 3 batches here: together they are the whole read, each
+  // only its own range (sdk/trajectory-windows.ts; a window that read past `upTo` would follow the ticks).
+  const whole = await ann.c.query(api.player.trajectories, { roomId, afterSeq: -1, limit: 200 });
+  const flat = (t: any) => t.objects.flatMap((o: any) => o.points.map((p: any) => ({ objectId: o.objectId, ...p }))).sort((a: any, b: any) => a.seq - b.seq || a.objectId.localeCompare(b.objectId));
+  const windowed: any[] = [];
+  for (let from = 0; from <= whole.latestCursor; from += 3) {
+    const w = await ann.c.query(api.player.trajectories, { roomId, gameId: game.gameId, afterSeq: from - 1, upTo: from + 2, limit: 200 });
+    assert.ok(flat(w).every((p: any) => p.seq >= from && p.seq <= from + 2), `window ${from}..${from + 2} stays in its range`);
+    assert.ok(w.nextCursor <= from + 2 && w.latestCursor === w.nextCursor, "a closed window reports its own end, not the log's");
+    windowed.push(...flat(w));
+  }
+  assert.deepEqual(windowed.sort((a, b) => a.seq - b.seq || a.objectId.localeCompare(b.objectId)), flat(whole), "the windows partition the log");
   const events = await ann.c.query(api.player.events, { roomId, limit: 50 });
   assert.equal(events.gameId, game.gameId);
   assert.ok(events.events.some((e: any) => e.type === "phase" && e.phase === "ended"), "the log runs to the end");

@@ -20,6 +20,11 @@ export type QueryReturns = {
 
 /** A live query (undefined while loading); `hz` is the rate the frame transport asks the host for. */
 export type UseSdkQuery = <N extends QueryName>(name: N, args: Record<string, unknown> | "skip", hz?: number) => QueryReturns[N] | undefined;
+/**
+ * Several live queries of one name from one hook (a list of windows, say): one subscription per args, kept while those
+ * args stay in the list and dropped when they leave it; each answer is undefined while it loads.
+ */
+export type UseSdkQueries = <N extends QueryName>(name: N, args: readonly Record<string, unknown>[], hz?: number) => (QueryReturns[N] | undefined)[];
 /** Submit a v3 envelope for this room through the one command path. */
 export type UseSdkSubmit = () => (roomId: string, envelope: Envelope) => Promise<CommandResult>;
 /** Where your tables are: your seat in a room's current game (player.myUtility's gameId and godId). */

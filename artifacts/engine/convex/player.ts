@@ -245,20 +245,31 @@ export async function replayPage(ctx: QueryCtx, room: Doc<"rooms">, stored: Doc<
  * Per-object series of the caller's own net bits, the peer aggregate and payoff over seq / world time, for
  * the Panel SDK: [{objectId, points: [{seq, worldSeconds, value, ownNetBits, peerNetBits, payoff}]}], from
  * batches after `afterSeq` (at most `limit` batches, default 100, max 200). Spectators get no points.
+ * With `upTo`, a closed window: only batches up to `upTo`, and the log's latest batch is not read (`latestCursor` is
+ * the window's own last batch), so a window of batches already written never re-runs on a tick (the dock's
+ * bits-over-time history, sdk/trajectory-windows.ts; read-architecture R6).
  */
-const trajectoriesArgs = { roomId: v.string(), gameId: v.optional(v.string()), afterSeq: v.optional(v.number()), limit: v.optional(v.number()) };
+const trajectoriesArgs = { roomId: v.string(), gameId: v.optional(v.string()), afterSeq: v.optional(v.number()), upTo: v.optional(v.number()), limit: v.optional(v.number()) };
 export const trajectories = query({ args: trajectoriesArgs, handler: async (ctx, args) => trajectoriesFor(ctx, await requireViewer(ctx), args) });
 export const trajectoriesAs = internalQuery({
   args: { principal: principalV, ...trajectoriesArgs },
   handler: async (ctx, { principal, ...args }) => trajectoriesFor(ctx, await viewerOf(ctx, principal), args),
 });
-export const trajectoriesFor = async (ctx: QueryCtx, viewer: Viewer, args: { roomId: string; gameId?: string; afterSeq?: number; limit?: number }) => {
+export const trajectoriesFor = async (ctx: QueryCtx, viewer: Viewer, args: { roomId: string; gameId?: string; afterSeq?: number; upTo?: number; limit?: number }) => {
     const { game, index } = await gameFor(ctx, viewer, args.roomId, args.gameId);
-    if (!game || index < 0) return { gameId: game?._id ?? null, objects: [], nextCursor: args.afterSeq ?? -1, latestCursor: game ? await latestBatchSeq(ctx, game._id) : -1 };
+    const after = args.afterSeq ?? -1, closed = args.upTo !== undefined;
+    const latest = async () => closed ? undefined : game ? await latestBatchSeq(ctx, game._id) : -1;
+    if (!game || index < 0) {
+      const latestCursor = await latest();
+      return { gameId: game?._id ?? null, objects: [], nextCursor: after, latestCursor: latestCursor ?? after };
+    }
     const limit = Math.max(1, Math.min(200, Math.floor(args.limit ?? 100)));
-    const after = args.afterSeq ?? -1;
-    const batches = await ctx.db.query("tickBatches").withIndex("by_game_seq", q => q.eq("gameId", game._id).gt("seq", after)).take(limit);
-    return { gameId: game._id, objects: trajectoriesOf(batches, index, game.phase !== "ended"), nextCursor: batches.at(-1)?.seq ?? after, latestCursor: await latestBatchSeq(ctx, game._id) };
+    const batches = await ctx.db.query("tickBatches").withIndex("by_game_seq", q => {
+      const range = q.eq("gameId", game._id).gt("seq", after);
+      return closed ? range.lte("seq", args.upTo!) : range;
+    }).take(limit);
+    const nextCursor = batches.at(-1)?.seq ?? after;
+    return { gameId: game._id, objects: trajectoriesOf(batches, index, game.phase !== "ended"), nextCursor, latestCursor: (await latest()) ?? nextCursor };
 };
 
 /**

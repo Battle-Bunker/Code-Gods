@@ -304,4 +304,9 @@ test("the event window is the last `limit` batches up to the playhead (at most 5
   const t = replayTrajectories(replay, at(5), 2);
   assert.deepEqual(t.objects.map(o => o.objectId), ["d", "e"], "after seq 2");
   assert.equal(t.epoch, "pov:0");
+  // A closed window (`upTo`), as live: only its own batches, and it reports its own end, not the playhead's.
+  const w = replayTrajectories(replay, at(5), -1, 2);
+  assert.deepEqual(w.objects.map(o => o.objectId), ["a", "b", "c"], "seq 0..2");
+  assert.deepEqual([w.nextCursor, w.latestCursor], [2, 2]);
+  assert.deepEqual(replayTrajectories(replay, at(5), 2, 4).objects, [], "no batch in 3..4");
 });

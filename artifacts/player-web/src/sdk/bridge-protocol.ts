@@ -23,7 +23,8 @@ export const BRIDGE_QUERIES: Record<QueryName, (args: Record<string, unknown>, r
   "player.events": (args, roomId) => ({ roomId, limit: int(args.limit, 1, 50, 20) }),
   "player.myUtility": (_args, roomId) => ({ roomId }),
   "player.trajectories": (args, roomId) => typeof args.gameId === "string" && args.gameId.length <= 64
-    ? { roomId, gameId: args.gameId, afterSeq: int(args.afterSeq, -1, Number.MAX_SAFE_INTEGER, -1), limit: int(args.limit, 1, 200, 200) }
+    ? { roomId, gameId: args.gameId, afterSeq: int(args.afterSeq, -1, Number.MAX_SAFE_INTEGER, -1), limit: int(args.limit, 1, 200, 200),
+      ...(typeof args.upTo === "number" && Number.isFinite(args.upTo) ? { upTo: int(args.upTo, -1, Number.MAX_SAFE_INTEGER, -1) } : {}) }
     : null,
   "player.objectsPage": (args, roomId) => {
     const after = args.after as { key?: unknown; id?: unknown } | null | undefined;

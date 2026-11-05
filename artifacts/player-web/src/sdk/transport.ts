@@ -1,6 +1,6 @@
 /** The host transport of the SDK (see transport-types.ts): Convex directly, in the player client. */
-import { useCallback, useSyncExternalStore } from "react";
-import { useAction, useQuery } from "convex/react";
+import { useCallback, useMemo, useRef, useSyncExternalStore } from "react";
+import { useAction, useQueries, useQuery } from "convex/react";
 import type { FunctionReference } from "convex/server";
 import { api } from "@workspace/engine/convex/_generated/api";
 import type { CommandResult } from "@workspace/player-client";
@@ -8,7 +8,7 @@ import type { UtilityDescriptor } from "@workspace/game-utilities";
 import { appAccessToken, engineSite } from "../core/connection";
 import type { QueryName } from "./bridge-protocol";
 import { useReplaySource } from "./replay-source";
-import type { LoadTables, UseSdkQuery, UseSdkSubmit } from "./transport-types";
+import type { LoadTables, UseSdkQueries, UseSdkQuery, UseSdkSubmit } from "./transport-types";
 
 export const QUERY_REFS: Record<QueryName, FunctionReference<"query">> = {
   "player.observation": api.player.observation,
@@ -32,6 +32,31 @@ export const useSdkQuery: UseSdkQuery = (name, args) => {
   const fromReplay = useSyncExternalStore(served ? replay!.subscribe : noSubscription,
     () => (served ? replay!.answer(name, args as Record<string, unknown>) : undefined));
   return (served ? fromReplay : live) as never;
+};
+
+/** Several live queries of one name (useQueries); in replay mode the replay answers each. A failed one throws, like useQuery. */
+export const useSdkQueries: UseSdkQueries = (name, argsList) => {
+  const replay = useReplaySource();
+  const served = !!replay && replay.serves(name);
+  const key = JSON.stringify(argsList);
+  const request = useMemo(() => (served ? {} : Object.fromEntries(argsList.map((args, i) => [String(i), { query: QUERY_REFS[name], args }]))),
+    // `key` covers argsList.
+    [served, name, key]);
+  const live = useQueries(request as Parameters<typeof useQueries>[0]);
+  // The replay's answers as one snapshot: the same array while every answer is the same object.
+  const answers = useRef<unknown[]>([]);
+  const fromReplay = useSyncExternalStore(served ? replay!.subscribe : noSubscription, () => {
+    if (!served) return answers.current;
+    const next = argsList.map(args => replay!.answer(name, args));
+    if (next.length !== answers.current.length || next.some((a, i) => a !== answers.current[i])) answers.current = next;
+    return answers.current;
+  });
+  return argsList.map((_args, i) => {
+    if (served) return fromReplay[i];
+    const result = live[String(i)];
+    if (result instanceof Error) throw result;
+    return result;
+  }) as never;
 };
 
 export const useSdkSubmit: UseSdkSubmit = () => {

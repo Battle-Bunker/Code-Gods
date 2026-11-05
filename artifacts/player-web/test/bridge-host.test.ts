@@ -148,3 +148,13 @@ test("a stored panel's objects page is clamped and its cursor validated; the roo
   assert.deepEqual(ask({ sort: "mine", filter: "chips", limit: 0, after: { key: 2.5, id: "o7" }, roomId: "elsewhere" }, "room-1"),
     { roomId: "room-1", sort: "mine", filter: "chips", limit: 1, after: { key: 2.5, id: "o7" } });
 });
+
+// What would break: a stored panel's closed trajectory window losing `upTo` on its way through the host, so it reads
+// the live log and re-runs on every tick (sdk/trajectory-windows.ts).
+test("a stored panel's trajectory window keeps its closed range; the room is the host's", async () => {
+  const { BRIDGE_QUERIES } = await import("../src/sdk/bridge-protocol.ts");
+  const ask = BRIDGE_QUERIES["player.trajectories"];
+  assert.deepEqual(ask({ gameId: "g1", afterSeq: 9, upTo: 19, limit: 10, roomId: "elsewhere" }, "room-1"), { roomId: "room-1", gameId: "g1", afterSeq: 9, upTo: 19, limit: 10 });
+  assert.deepEqual(ask({ gameId: "g1", afterSeq: 9, upTo: "19" }, "room-1"), { roomId: "room-1", gameId: "g1", afterSeq: 9, limit: 200 }, "the tail: no range");
+  assert.equal(ask({ afterSeq: 9 }, "room-1"), null);
+});
