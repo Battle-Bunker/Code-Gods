@@ -308,7 +308,10 @@ Owner, verbatim (abridged only where marked):
 - Thursday afternoon merges: #216 annotations by unit, #217 mutator costs, #218/#219/#222 splits (17 families),
   #220 power, #221 agents panel, #223/#225 hold rarity, #224 points tuples, #226 N1 narrowing, #227 trajectory
   windows, #228/#230 test fixes, #229 N2, #231 setups paging, #232 e2e fix, #233 per-player object rankings.
-- In progress (read architecture): the dock move off player.observation; SDK/MCP narrowing; then #171.
+- 17:50 AEDT: #235 dock off the observation (new dock.ts, agentSamples table; observation objects = top 90 by
+  payoff) and #234 SDK/MCP narrowing (get_observation ≤90 objects with cursor, agents ≤50; paged board/series).
+  Develop deploy green. No new migrations.
+- In progress (read architecture): #171 (remove useLive's retry).
 - The next prod release carries many migrations, among them backfillObjectViews and objectEventPlaces. Release only
   when no game is running. After prod reports migrations:status done, the narrowings: typed params (rules session),
   agentPricesV2/powerV1 (energy session), assistant modes, objectEvents index/cost, aiQuotas, etc.
