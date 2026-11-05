@@ -19,7 +19,7 @@ export default definePanel({
       const last = new Map<string, { mine: number; peers: number }>();
       const out: Point[] = [];
       for (const e of events) {
-        if (e.type !== "object.spawned" && e.type !== "object.transformed") continue;
+        if (e.type !== "object.spawned" && e.type !== "object.rescored" && e.type !== "object.transformed") continue;
         if (!("own" in e) || !e.own) continue;
         const now = { mine: e.own.netBits, peers: e.peerNetBits! };
         const before = last.get(e.objectId);

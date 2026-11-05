@@ -52,7 +52,7 @@ test("a skipper pays only what it read, never fails, is never futile, and is hel
   const transforms = events.filter((e: any) => e.t === "transform");
   assert.ok(transforms.length > 0);
   for (const e of transforms) { assert.equal(e.cost.read, 0); assert.ok(e.cost.change > 0); assert.equal(e.cost.total, e.cost.change); }
-  assert.equal(state.batches.at(-1).schema, 6);
+  assert.equal(state.batches.at(-1).schema, 7);
 
   // The owner sees the skips, and the estimate split into reading and changing (no decision bits, no floor).
   const obs = observationSchema.parse(await ada.c.query(api.player.observation, { roomId }));

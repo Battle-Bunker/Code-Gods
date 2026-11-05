@@ -38,13 +38,14 @@ export const start = internalAction({
     try {
       if (!input.tablesStorageId) throw new Error("the game has no pinned tables");
       const settings = input.settings as GameSettings, inst = instantiationOf(settings), m = input.deities.length - 1;
-      const missing = new Map<string, { familyId: string; params: Record<string, unknown> }>();
+      const draws = new Map<string, { familyId: string; params: Record<string, unknown> }>();
       for (const d of input.deities) {
-        const u = d.utility as UtilityDescriptor, key = holdCacheKey(u, inst, settings, m);
-        if (!missing.has(key) && !await ctx.runQuery(internal.engine.holdData.cached, { key })) missing.set(key, { familyId: u.familyId, params: u.params as Record<string, unknown> });
+        const u = d.utility as UtilityDescriptor;
+        draws.set(holdCacheKey(u, inst, settings, m), { familyId: u.familyId, params: u.params as Record<string, unknown> });
       }
-      await ctx.runMutation(internal.engine.holdData.begin, { gameId, pending: [...missing.keys()] });
-      for (const [key, draw] of missing) await ctx.scheduler.runAfter(0, internal.engine.hold.computeOne, { gameId, key, draw, m });
+      const missing = await ctx.runQuery(internal.engine.holdData.missing, { keys: [...draws.keys()] });
+      await ctx.runMutation(internal.engine.holdData.begin, { gameId, pending: missing });
+      for (const key of missing) await ctx.scheduler.runAfter(0, internal.engine.hold.computeOne, { gameId, key, draw: draws.get(key)!, m });
     } catch (error) {
       await ctx.runMutation(internal.engine.holdData.failed, { gameId, message: (error as Error).message });
     }
@@ -54,9 +55,9 @@ export const start = internalAction({
 export const computeOne = internalAction({
   args: { gameId: v.id("games"), key: v.string(), draw: v.object({ familyId: v.string(), params: v.any() }), m: v.number() },
   handler: async (ctx, { gameId, key, draw, m }) => {
-    const input = await ctx.runQuery(internal.engine.holdData.inputs, { gameId });
-    if (!input || input.holdState !== "computing") return;
-    try { await compute(ctx, key, draw, instantiationOf(input.settings as GameSettings), m, gameId); }
+    const game = await ctx.runQuery(internal.engine.holdData.status, { gameId });
+    if (!game || game.holdState !== "computing") return;
+    try { await compute(ctx, key, draw, instantiationOf(game.settings as GameSettings), m, gameId); }
     catch (error) { await ctx.runMutation(internal.engine.holdData.failed, { gameId, message: `hold table ${draw.familyId}: ${(error as Error).message}` }); }
   },
 });
@@ -85,11 +86,28 @@ export const finish = internalAction({
       const objects = input.objects.map(o => ({ id: o.id, version: o.version, scores: scoresOf(pinned, settings, deals, o.value) }));
       const storageId = await storePinned(ctx, pinned);
       const old: Id<"_storage"> | null = await ctx.runMutation(internal.engine.holdData.apply, { gameId, storageId, objects });
-      if (old) await ctx.storage.delete(old).catch(() => undefined);
-      else await ctx.storage.delete(storageId).catch(() => undefined);   // the game moved on (not planning any more)
+      // The replaced file outlives readers that loaded the game before the swap (engine/pinned.ts loads by id).
+      if (old) await ctx.scheduler.runAfter(OLD_FILE_GRACE_MS, internal.engine.hold.dropFile, { storageId: old });
+      else await ctx.storage.delete(storageId);   // the game moved on: the new file was never used
     } catch (error) {
       await ctx.runMutation(internal.engine.holdData.failed, { gameId, message: (error as Error).message });
     }
+  },
+});
+
+/** How long a replaced pinned file is kept for readers that loaded the game before the swap. */
+const OLD_FILE_GRACE_MS = 10 * 60_000;
+export const dropFile = internalAction({
+  args: { storageId: v.id("_storage") },
+  handler: async (ctx, { storageId }) => { await ctx.storage.delete(storageId); },
+});
+
+/** One cached table (the seat's calibration download, calibration/mine.ts): the reward draw's at m, or null. */
+export const cachedFor = internalAction({
+  args: { settings: v.any(), draw: v.object({ familyId: v.string(), params: v.any() }), m: v.number() },
+  handler: async (ctx, { settings, draw, m }): Promise<HoldTable | null> => {
+    const s = settings as GameSettings;
+    return await ctx.runQuery(internal.engine.holdData.cached, { key: holdCacheKey(draw as never, instantiationOf(s), s, m) }) as HoldTable | null;
   },
 });
 
@@ -99,22 +117,23 @@ export const warm = internalAction({
   handler: async ctx => {
     const settings = seedSetupSettings(DEFAULT_SETUP_SEED_ID) as GameSettings, inst = instantiationOf(settings);
     const excluded = new Set(settings.excludedFamilies);
-    let scheduled = 0;
+    const draws = new Map<string, { draw: { familyId: string; params: Record<string, unknown> }; m: number }>();
     for (const { id } of familiesFor(inst.objectType, "reward")) {
       if (excluded.has(id)) continue;
       for (const params of family(id).support(context(inst))) for (const m of [1, 2, 3]) {
-        const key = holdCacheKey({ familyId: id, params }, inst, settings, m);
-        if (await ctx.runQuery(internal.engine.holdData.cached, { key })) continue;
-        await ctx.scheduler.runAfter(scheduled++ * 2000, internal.engine.hold.warmOne, { key, draw: { familyId: id, params }, m });
+        draws.set(holdCacheKey({ familyId: id, params }, inst, settings, m), { draw: { familyId: id, params: params as Record<string, unknown> }, m });
       }
     }
+    const missing = await ctx.runQuery(internal.engine.holdData.missing, { keys: [...draws.keys()] });
+    let scheduled = 0;
+    for (const key of missing) await ctx.scheduler.runAfter(scheduled++ * 2000, internal.engine.hold.warmOne, { key, ...draws.get(key)! });
     console.log(`hold warm-up: ${scheduled} tables scheduled for ${inst.key}`);
   },
 });
 export const warmOne = internalAction({
   args: { key: v.string(), draw: v.object({ familyId: v.string(), params: v.any() }), m: v.number() },
   handler: async (ctx, { key, draw, m }) => {
-    if (await ctx.runQuery(internal.engine.holdData.cached, { key })) return;
+    if (!(await ctx.runQuery(internal.engine.holdData.missing, { keys: [key] })).length) return;
     const settings = seedSetupSettings(DEFAULT_SETUP_SEED_ID) as GameSettings;
     await compute(ctx, key, draw, instantiationOf(settings), m);
   },

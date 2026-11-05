@@ -14,11 +14,11 @@
  */
 import { NOISE_VERSION, noise, objectType, seededRng, type Instantiation, type Rng } from "@workspace/game-types";
 import { evaluator } from "../src/catalog.ts";
-import { cmpOrdinal, surprisal, type CalibrationTable } from "../src/calibration.ts";
+import { cmpOrdinal } from "../src/calibration.ts";
+import { HOLD_ESTIMATOR, type HoldTable } from "../src/hold.ts";
+export { HOLD_ESTIMATOR, holdBits, type HoldTable } from "../src/hold.ts";
 import type { Ordinal, Params } from "../src/types.ts";
 import { budgetFor, kernelSize } from "./estimator.ts";
-
-export const HOLD_ESTIMATOR = { id: "hold-ams", version: 1 } as const;
 
 export interface HoldBudget {
   readonly particles: number;
@@ -33,23 +33,8 @@ export interface HoldBudget {
 export const DEFAULT_HOLD_BUDGET: HoldBudget = Object.freeze({ particles: 400, targetBits: 40, p0: 0.5, maxStages: 80, maxStuck: 3, draws: 2 });
 export const SMOKE_HOLD_BUDGET: HoldBudget = Object.freeze({ particles: 60, targetBits: 12, p0: 0.5, maxStages: 20, maxStuck: 2, draws: 1 });
 
-/** A hold correction table for one draw and one m: [level, hold bits] with levels strictly increasing. */
-export interface HoldTable {
-  readonly m: number;
-  readonly levels: readonly (readonly [Ordinal, number])[];
-  readonly noise: string;
-  readonly estimator: typeof HOLD_ESTIMATOR & { readonly seed: string; readonly particles: number };
-}
-
 /** The cache key part a hold table adds to its static table's key (the noise version invalidates it). */
 export const holdKeyPart = (m: number) => `hold:${HOLD_ESTIMATOR.id}@${HOLD_ESTIMATOR.version}:m=${m}:${NOISE_VERSION}`;
-
-/** Hold bits at `ordinal`: interpolated between levels, 0 below the lowest, the top level's above it (never extrapolated). */
-export function holdBits(table: HoldTable | null | undefined, ordinal: Ordinal): number {
-  if (!table || table.m === 0 || !table.levels.length) return 0;
-  if (cmpOrdinal(ordinal, table.levels[0][0]) < 0) return 0;
-  return Math.max(0, surprisal({ levels: table.levels, slope: 0 } as unknown as CalibrationTable, ordinal));
-}
 
 /** Estimate the hold table of one draw at one m (m ≥ 1). Deterministic in `seed`. */
 export function buildHoldTable(familyId: string, params: Params, inst: Instantiation, m: number, seed: string,

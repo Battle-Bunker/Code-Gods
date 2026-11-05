@@ -350,6 +350,7 @@ export function observation(input: ObservationInput): Observation {
     ...(notice ? { notice } : {}),
     ...(game?.phase === "ended" && game.endReason ? { endReason: game.endReason } : {}),
     language: allowedLanguages(settings)[0], languages: allowedLanguages(settings),
+    ...(game?.holdState ? { holdRarity: { state: game.holdState, ...(game.holdState === "failed" && game.holdError ? { reason: game.holdError } : {}) } } : {}),
     ...(input.sandboxes ? { sandboxes: input.sandboxes.map(s => ({ language: s.language, state: s.state, ...(s.reason ? { reason: s.reason } : {}) })) } : {}),
     instance: objectInstance(settings),
     economy: {

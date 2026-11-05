@@ -13,10 +13,12 @@
  */
 import type { CalibrationTable } from "../calibration.ts";
 import { cmpOrdinal, penaltyMeanBits, softHinge, surprisal } from "../calibration.ts";
+import { holdBits, type HoldTable } from "../hold.ts";
 import type { Ordinal } from "../types.ts";
 import type { Breakdown } from "./model.ts";
 
-export interface WorkingsTables { readonly reward: CalibrationTable; readonly penalty?: CalibrationTable }
+/** `hold`: the game's hold correction (docs/energy-model.md §8), added to the reward's bits as the engine does. */
+export interface WorkingsTables { readonly reward: CalibrationTable; readonly penalty?: CalibrationTable; readonly hold?: HoldTable }
 
 /** How the table gave this ordinal's bits: at one of its steps, interpolated between two, or beyond either end. */
 export type TableSpot = "step" | "between" | "below" | "above";
@@ -82,7 +84,7 @@ export interface WorkingsInput {
 }
 
 export function scoreWorkings(x: WorkingsInput): ScoreWorkings {
-  const bits = bits0(surprisal(x.tables.reward, x.ordinal));
+  const bits = bits0(surprisal(x.tables.reward, x.ordinal) + holdBits(x.tables.hold, x.ordinal));
   const rarity: RarityWorkings = {
     ordinal: arr(x.ordinal), bits, probability: 2 ** -bits, spot: spotOf(x.tables.reward, x.ordinal), curve: curveOf(x.tables.reward),
   };

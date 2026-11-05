@@ -44,11 +44,12 @@ export const useSdkSubmit: UseSdkSubmit = () => {
 };
 
 /** Requests in flight per path (two panels mounting together ask once); dropped when answered: no result cache. */
-const inFlight = new Map<string, Promise<{ reward: unknown; penalty?: unknown }>>();
+const inFlight = new Map<string, Promise<{ reward: unknown; penalty?: unknown; hold?: unknown }>>();
 /**
  * A seat's tables from the engine (GET /api/calibration/<roomId>/<gameId>/<godId>, with your Convex JWT; the engine
- * loads them from its file storage; no table data is bundled into the client). The answer for a seat never changes,
- * so the browser caches it per path (`Cache-Control: private, immutable`).
+ * loads them from its file storage; no table data is bundled into the client). With the game's hold correction once
+ * computed (`hold`, docs/energy-model.md §8); from then on the answer never changes and the browser caches it per path
+ * (`Cache-Control: private, immutable`); while it is computing the answer is not cached.
  */
 export const loadTables: LoadTables = (_settings, descriptor, seat) => {
   const path = [seat.roomId, seat.gameId, seat.godId].map(encodeURIComponent).join("/");
@@ -59,10 +60,10 @@ export const loadTables: LoadTables = (_settings, descriptor, seat) => {
       if (!token) throw new Error("Not signed in");
       const response = await fetch(`${engineSite().replace(/\/$/, "")}/api/calibration/${path}`, { headers: { authorization: `Bearer ${token}` } });
       if (!response.ok) throw new Error(`The calibration tables did not load (HTTP ${response.status}).`);
-      return await response.json() as { reward: unknown; penalty?: unknown };
+      return await response.json() as { reward: unknown; penalty?: unknown; hold?: unknown };
     })();
     inFlight.set(path, request);
     void request.finally(() => inFlight.delete(path)).catch(() => {});
   }
-  return request.then(({ reward, penalty }) => ({ reward, ...((descriptor as UtilityDescriptor).penalty ? { penalty } : {}) }));
+  return request.then(({ reward, penalty, hold }) => ({ reward, ...((descriptor as UtilityDescriptor).penalty ? { penalty } : {}), ...(hold ? { hold } : {}) }));
 };

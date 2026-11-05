@@ -44,6 +44,8 @@ const lastCommitMs = new Map<string, number>();
 /** How often a planning phase held for a warming (or failed: its retries back off) sandbox checks again. */
 const HOLD_POLL_MS = 1000;
 const HOLD_FAILED_POLL_MS = 5000;
+/** The longest planning waits for hold rarity's corrections (docs/energy-model.md §8), from the start. */
+const HOLD_MAX_MS = 10 * 60_000;
 
 /** Wall-clock budget for one window's simulation: opportunities past it are dropped (no debt). */
 const MAX_SIMULATE_MS = 4000;
@@ -96,7 +98,13 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
     if (phase === "planning" || phase === "paused") {
       const deadline = phase === "planning" ? game.planningEndsAt : game.pauseEndsAt;
       if (now < deadline) return ctx.runMutation(internal.engine.loop.commit, { ...base, kind: "wait" });
-      // Hold rarity's corrections (engine/hold.ts) hold planning the same way, until computed (or failed).
+      // Hold rarity's corrections (engine/hold.ts) hold planning the same way, until computed (or failed). Actions run at
+      // most once: one that died without a word (a timeout, a restart) would hold planning for ever, so past
+      // HOLD_MAX_MS from the start the game plays on static rarity.
+      if (phase === "planning" && game.holdState === "computing" && now - game.createdAt > HOLD_MAX_MS) {
+        await ctx.runMutation(internal.engine.holdData.failed, { gameId, message: `Not computed within ${HOLD_MAX_MS / 60_000} minutes of the start` });
+        return ctx.runMutation(internal.engine.loop.commit, { ...base, kind: "wait", wakeAt: now + HOLD_POLL_MS });
+      }
       const hold = game.holdState === undefined ? [] : [{ state: game.holdState === "computing" ? "warming" as const : "ready" as const, readyAt: game.holdReadyAt }];
       const end = phase === "planning" ? planningEnd(deadline, [...sandboxes, ...hold]) : { at: deadline };
       if ("hold" in end) {

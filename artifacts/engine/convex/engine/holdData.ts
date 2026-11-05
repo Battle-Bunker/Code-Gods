@@ -9,7 +9,7 @@ import { internalMutation, internalQuery } from "../_generated/server";
 import { publicSalienceOf } from "../game/readModel";
 import { liveGame, writeGame } from "../game/state";
 import { scoreV } from "../game/tables";
-import { salienceOf } from "../lib/world";
+import { disclosedTotalsOf, salienceOf, totalsOf } from "../lib/world";
 import { appendEvents } from "./loop";
 
 /** What engine/hold.ts needs of a game: its settings, deal (roster order), pinned file and starting objects. */
@@ -25,6 +25,25 @@ export const inputs = internalQuery({
       deities: deities.map(d => ({ godId: d.godId, utility: d.utility })),
       objects: objects.map(o => ({ id: o._id, value: o.value, version: o.version, noise: o.noise })),
     };
+  },
+});
+
+/** Just what a hold action checks before working: the game's hold state and settings (the game doc only). */
+export const status = internalQuery({
+  args: { gameId: v.id("games") },
+  handler: async (ctx, { gameId }) => {
+    const game = await ctx.db.get(gameId);
+    return game ? { phase: game.phase, holdState: game.holdState, settings: game.settings } : null;
+  },
+});
+
+/** Which of these keys the cache lacks (an existence check: no table is read back). */
+export const missing = internalQuery({
+  args: { keys: v.array(v.string()) },
+  handler: async (ctx, { keys }) => {
+    const out: string[] = [];
+    for (const key of new Set(keys)) if (!await ctx.db.query("holdTables").withIndex("by_key", q => q.eq("key", key)).first()) out.push(key);
+    return out;
   },
 });
 
@@ -71,7 +90,12 @@ export const apply = internalMutation({
   },
   handler: async (ctx, { gameId, storageId, objects }): Promise<Id<"_storage"> | null> => {
     const game = await liveGame(ctx, gameId);
-    if (!game || game.holdState !== "computing" || game.phase !== "planning") return null;
+    if (!game || game.holdState !== "computing") return null;
+    // The game moved on (ended, or the world started on static rarity): nothing to apply; stop computing.
+    if (game.phase !== "planning") {
+      await ctx.db.patch(gameId, { holdState: "failed", holdError: "The game left planning before the corrections were in", holdPending: [], holdReadyAt: Date.now() });
+      return null;
+    }
     const roster = game.roster.map(m => m.id);
     const events = [];
     for (const o of objects) {
@@ -87,9 +111,13 @@ export const apply = internalMutation({
       events.push({ t: "rescore" as const, objectId: o.id as string, value: doc.value, version: doc.version, world: game.worldSeconds,
         net, ...(doc.noise !== undefined ? { noise: doc.noise } : {}) });
     }
-    const nextBatch = await appendEvents(ctx, game, events, game.worldSeconds, game.worldSeconds);
+    // The totals and the published scoreboard follow the new scores at once (the start published the static ones).
+    const all = await ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", gameId)).take(2100);
+    const totals = totalsOf(roster, all), disclosed = disclosedTotalsOf(roster, all);
+    const nextBatch = await appendEvents(ctx, game, events, game.worldSeconds, game.worldSeconds, undefined, totals, disclosed);
     const old = game.tablesStorageId ?? null;
-    await writeGame(ctx, game, { tablesStorageId: storageId, holdState: "ready", holdPending: [], holdReadyAt: Date.now(), nextBatch });
+    await writeGame(ctx, game, { tablesStorageId: storageId, holdState: "ready", holdPending: [], holdReadyAt: Date.now(), nextBatch,
+      scoreboard: { totals: disclosed, world: game.worldSeconds, at: Date.now() } });
     return old;
   },
 });
