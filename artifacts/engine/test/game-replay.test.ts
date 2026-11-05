@@ -78,8 +78,12 @@ test("an ended game's replay, cut at any snapshot, rebuilds the whole engine sta
   // exact on every scoring batch, so this ended game's replay below steps per event.
   const published = final.batches.filter((b: any) => b.scoreboard);
   assert.equal(published[0].seq, 0, "the starting scoreboard");
+  // …and, still at world 0, the one hold rarity's re-scoring publishes (docs/energy-model.md §8).
+  const starting = published.filter((b: any) => b.worldTo === 0);
+  assert.equal(starting.length, 2, "the start's scoreboard and the re-scored one");
+  assert.ok(starting[1].events.every((e: any) => e.t === "rescore"));
   assert.ok(published.at(-1).events.some((e: any) => e.t === "phase" && e.phase === "ended"), "the final scoreboard comes with the end");
-  const periodic = published.slice(1, -1);
+  const periodic = published.slice(starting.length, -1);
   periodic.forEach((b: any, i: number) => {
     const previous = i === 0 ? 0 : periodic[i - 1].worldTo;
     assert.ok(Math.floor(b.worldTo / 10) > Math.floor(previous / 10), `batch ${b.seq} at ${b.worldTo} s publishes only past the next 10 s mark after ${previous} s`);
