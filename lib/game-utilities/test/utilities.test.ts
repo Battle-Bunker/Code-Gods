@@ -14,10 +14,10 @@ const ALL: Instantiation[] = [...allGrids(), ...intInsts(), ...stringInsts()];
 const MAX_CANONICAL = 24;
 const MAX_LINES = 60, MAX_WIDTH = 110;
 
-test("catalog: unique ids, 31 shortlisted grid families, 8 penalties, Int and string families", () => {
+test("catalog: unique ids, 33 shortlisted grid families, 8 penalties, Int and string families", () => {
   assert.equal(new Set(FAMILIES.map(f => f.id)).size, FAMILIES.length);
   const grid = familiesFor("Grid");
-  assert.equal(grid.filter(f => f.tags.includes("shortlist")).length, 31);
+  assert.equal(grid.filter(f => f.tags.includes("shortlist")).length, 33);
   assert.equal(familiesFor("Grid", "penalty").length, 8);
   assert.ok(familiesFor("Int").length >= 14 && familiesFor("string").length >= 14);
   assert.equal(Object.values(GRID_LENSES).flat().length, grid.length);

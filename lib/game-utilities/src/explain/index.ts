@@ -24,6 +24,7 @@ import { defaultGeometry, type HoverGeometry } from "./units.ts";
 import { parityPainter } from "./lenses/parity-painter.ts";
 import { setSpotter } from "./lenses/set-spotter.ts";
 import { numberBonds } from "./lenses/number-bonds.ts";
+import { colourBonds } from "./lenses/colour-bonds.ts";
 import { chessmaster } from "./lenses/chessmaster.ts";
 import { honestMinesweeper } from "./lenses/honest-minesweeper.ts";
 import { magicAccountant } from "./lenses/magic-accountant.ts";
@@ -41,7 +42,7 @@ export { STORY_FAMILIES, compareOrdinal, story, whatIf, type Story, type StoryFr
 
 /** The families with a lens (a rich annotation). */
 export const LENSES: readonly Lens[] = Object.freeze([
-  parityPainter, setSpotter, numberBonds, chessmaster, honestMinesweeper, magicAccountant, kingdom, pictureFrame, mirrormancer, colourMirror,
+  parityPainter, setSpotter, numberBonds, colourBonds, chessmaster, honestMinesweeper, magicAccountant, kingdom, pictureFrame, mirrormancer, colourMirror,
 ]);
 const byFamily = new Map(LENSES.map(l => [l.familyId, l]));
 export const lensFor = (familyId: string): Lens | undefined => byFamily.get(familyId);
