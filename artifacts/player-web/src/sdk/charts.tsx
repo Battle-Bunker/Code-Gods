@@ -173,20 +173,49 @@ export function Heatmap({ rows, cell = 14, format = fmtBits, rowLabels, colLabel
   );
 }
 
+const TIMELINE_COLOR = { ok: SERIES[3], cool: SERIES[6], idle: GRID } as const;
+
+/**
+ * The key to a Timeline: a swatch and a label for each kind of span (green `ok`, dashed `cool`, grey `idle`), and the
+ * dashed "now" line. Pass the words that fit your lanes.
+ */
+export function TimelineLegend({ items, now = "now" }: { items: readonly { kind: "ok" | "cool" | "idle"; label: string }[]; now?: string | false }) {
+  return (
+    <ul className="m-0 flex list-none flex-wrap gap-x-3 gap-y-1 p-0 text-[11px] text-muted-foreground" data-testid="timeline-legend">
+      {items.map(i => (
+        <li key={i.kind} className="flex items-center gap-1.5">
+          <svg width={14} height={10} aria-hidden="true">
+            <rect x={0.5} y={0.5} width={13} height={9} fill={TIMELINE_COLOR[i.kind]} fillOpacity={i.kind === "idle" ? 0.4 : 0.8}
+              stroke={i.kind === "cool" ? INK : "none"} strokeWidth={0.5} strokeDasharray={i.kind === "cool" ? "2 1" : undefined} />
+          </svg>
+          {i.label}
+        </li>
+      ))}
+      {now !== false && (
+        <li className="flex items-center gap-1.5">
+          <svg width={14} height={10} aria-hidden="true"><line x1={7} x2={7} y1={0} y2={10} stroke={INK} strokeDasharray="2 2" /></svg>
+          {now}
+        </li>
+      )}
+    </ul>
+  );
+}
+
 /** Lanes of spans over time: one lane per row (e.g. an agent), spans coloured by kind, plus point markers. */
 export function Timeline({ lanes, from, to, width = 320, laneHeight = 14, now }: {
   lanes: readonly { label: string; spans: readonly { start: number; end: number; kind: "ok" | "cool" | "idle"; title?: string }[]; marks?: readonly { at: number; title?: string }[] }[];
   from: number; to: number; width?: number; laneHeight?: number; now?: number;
 }) {
   const left = 64, x = scale([from, Math.max(from + 1e-9, to)], [left, width - 4]);
-  const color = { ok: SERIES[3], cool: SERIES[6], idle: GRID } as const;
+  const color = TIMELINE_COLOR;
   return (
     <svg width={width} height={lanes.length * (laneHeight + 4) + 4} role="img" aria-label="timeline">
       {lanes.map((lane, i) => {
         const y = 4 + i * (laneHeight + 4);
+        const shown = lane.label.length > 11 ? `${lane.label.slice(0, 10)}…` : lane.label;
         return (
-          <g key={lane.label}>
-            <text x={left - 4} y={y + laneHeight / 2} textAnchor="end" dominantBaseline="middle" fontSize={9} fill={MUTED}>{lane.label}</text>
+          <g key={i}>
+            <text x={left - 4} y={y + laneHeight / 2} textAnchor="end" dominantBaseline="middle" fontSize={9} fill={MUTED}>{shown}<title>{lane.label}</title></text>
             {lane.spans.map((s, j) => (
               <rect key={j} x={x(s.start)} y={y} width={Math.max(1, x(s.end) - x(s.start))} height={laneHeight}
                 fill={color[s.kind]} fillOpacity={s.kind === "idle" ? 0.4 : 0.8} strokeDasharray={s.kind === "cool" ? "2 1" : undefined} stroke={s.kind === "cool" ? INK : "none"} strokeWidth={0.5}>
