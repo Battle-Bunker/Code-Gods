@@ -333,3 +333,7 @@ Owner, verbatim (abridged only where marked):
 - 21:45: #239 energy narrowing merged (2e7eecea): agents.powerShare/breakdown and deities.account/allocated required;
   decisionBits/perActFloorBits dropped; lib/agentPrice.ts and upgradeLegacyPower gone; agentPricesV2/powerV1* retired.
   Energy session archived (task list empty).
+- 22:13: #240 rules narrowing merged (285c5002): 91 legacy readers, upgrade paths, UNTYPED_FAMILIES, the rekey script
+  and 22 typedParams*/pictureFrameSymbol*/setSpotterGeometry*/equalOpportunity* migrations removed; params required
+  of every family. No schema.ts change. FOLLOW-UP: delete replays.rebuildAfterMigration after 2026-11-06 (kept for any
+  backed-off replay rebuild jobs from the prod migration run).
