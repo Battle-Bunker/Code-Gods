@@ -206,13 +206,13 @@ export function Timeline({ lanes, from, to, width = 320, laneHeight = 14, now }:
   lanes: readonly { label: string; spans: readonly { start: number; end: number; kind: "ok" | "cool" | "idle"; title?: string }[]; marks?: readonly { at: number; title?: string }[] }[];
   from: number; to: number; width?: number; laneHeight?: number; now?: number;
 }) {
-  const left = 64, x = scale([from, Math.max(from + 1e-9, to)], [left, width - 4]);
+  const left = 88, x = scale([from, Math.max(from + 1e-9, to)], [left, width - 4]);
   const color = TIMELINE_COLOR;
   return (
     <svg width={width} height={lanes.length * (laneHeight + 4) + 4} role="img" aria-label="timeline">
       {lanes.map((lane, i) => {
         const y = 4 + i * (laneHeight + 4);
-        const shown = lane.label.length > 11 ? `${lane.label.slice(0, 10)}…` : lane.label;
+        const shown = lane.label.length > 16 ? `${lane.label.slice(0, 15)}…` : lane.label;
         return (
           <g key={i}>
             <text x={left - 4} y={y + laneHeight / 2} textAnchor="end" dominantBaseline="middle" fontSize={9} fill={MUTED}>{shown}<title>{lane.label}</title></text>

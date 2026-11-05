@@ -122,19 +122,19 @@ export function AgentCost({ summonCost, expectedActCost, breakdown, powerShare, 
   const finite = (x: number | undefined): x is number => typeof x === "number" && Number.isFinite(x);
   return (
     <dl className="grid grid-cols-[auto_1fr] gap-x-3 font-mono text-xs" data-testid="validation-costs">
-      <dt className="text-muted-foreground">summon price</dt>
+      <dt className="text-muted-foreground">Summon price</dt>
       <dd data-testid="text-summon-cost">{f(summonCost)} bits from your energy, paid once{godEnergy !== undefined && summonCost > godEnergy ? ` (you have ${f(godEnergy)})` : ""}</dd>
-      <dt className="text-muted-foreground">est. per act</dt>
-      <dd data-testid="text-expected-act-cost">{f(expectedActCost)} bits (an estimate: an act pays only what it does)</dd>
-      {finite(breakdown?.read) && <div className="contents" data-testid="cost-part-read"><dt className="text-muted-foreground pl-3">· reading</dt><dd>{f(breakdown.read)} bits</dd></div>}
-      {finite(breakdown?.change) && <div className="contents" data-testid="cost-part-change"><dt className="text-muted-foreground pl-3">· changing</dt><dd>{f(breakdown.change)} bits</dd></div>}
+      <dt className="text-muted-foreground">Estimate per act</dt>
+      <dd data-testid="text-expected-act-cost">{f(expectedActCost)} bits (an estimate: an act pays what it reads, plus a change cost only when it changes the object)</dd>
+      {finite(breakdown?.read) && <div className="contents" data-testid="cost-part-read"><dt className="text-muted-foreground pl-3">· Reading</dt><dd>{f(breakdown.read)} bits (looking at the object)</dd></div>}
+      {finite(breakdown?.change) && <div className="contents" data-testid="cost-part-change"><dt className="text-muted-foreground pl-3">· Changing</dt><dd>{f(breakdown.change)} bits (only when it changes it)</dd></div>}
       {finite(acts) && acts > 0 && finite(spent) && (<>
-        <dt className="text-muted-foreground">actual per act</dt>
-        <dd data-testid="text-actual-act-cost">{f(spent / acts)} bits on average, over {acts} acts</dd>
+        <dt className="text-muted-foreground">Actual average</dt>
+        <dd data-testid="text-actual-act-cost">{f(spent / acts)} bits per act, over {acts} acts (estimate was {f(expectedActCost)})</dd>
       </>)}
       {finite(income) && finite(powerShare) && (<>
-        <dt className="text-muted-foreground">power</dt>
-        <dd data-testid="text-agent-income">{powerLine(income, powerShare)} per world second; richer agents get more turns</dd>
+        <dt className="text-muted-foreground">Power share</dt>
+        <dd data-testid="text-agent-income">{powerLine(income, powerShare)}; more energy means more turns</dd>
       </>)}
     </dl>
   );

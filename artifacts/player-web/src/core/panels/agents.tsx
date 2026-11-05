@@ -40,7 +40,7 @@ function EnergyMeter({ energy, income }: { energy: number; income: number }) {
   const text = runwayText(energy, income);
   return (
     <span className="inline-flex items-center gap-1.5" title={text} data-testid="meter-agent-energy">
-      <span role="meter" aria-label={text} aria-valuemin={0} aria-valuemax={10} aria-valuenow={Math.min(10, secs ?? 0)} className="inline-block h-1.5 w-20 bg-secondary">
+      <span role="meter" aria-label={text} aria-valuemin={0} aria-valuemax={10} aria-valuenow={Math.min(10, secs ?? 0)} className="inline-block h-1.5 w-20 bg-muted">
         <span className={`block h-full ${energy <= 0 ? "bg-destructive" : "bg-[hsl(var(--accent))]"}`} style={{ width: `${Math.round(runwayFraction(secs ?? 0) * 100)}%` }} />
       </span>
       <span className="text-muted-foreground">{secs === null ? "no income" : `${num(secs)} s of its income`}</span>
@@ -138,6 +138,8 @@ export function AgentsView({ agents, self, powerPerSecond, world, samples, windo
                 {a.powerShare !== undefined && a.income !== undefined && <p data-testid={`text-agent-share-${a.id}`}><Say segs={shareLine(a.powerShare, a.income)} /></p>}
                 <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
                   <span className={a.energy <= 0 ? "font-semibold text-destructive" : "text-foreground"}><Say segs={energyLine(a.energy)} /></span>
+                </p>
+                <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
                   <EnergyMeter energy={a.energy} income={a.income ?? 0} />
                   <span title="Energy over the last minutes of this game: the dashed line is 0" className="inline-flex items-center"><Sparkline values={history} zero width={90} height={18} label={`${label}: energy over time`} /></span>
                 </p>
