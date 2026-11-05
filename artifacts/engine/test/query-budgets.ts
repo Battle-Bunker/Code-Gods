@@ -69,7 +69,7 @@ export const BUDGETS: Budget[] = [
   { query: "rooms:list", subscribedBy: "site/pages/home.tsx", args: () => ({}), cold: true },
   { query: "manifest:get", subscribedBy: "site/hooks/use-manifest.ts (layout.tsx, room.tsx, configure.tsx)", args: () => ({}), cold: true },
   { query: "setups:page", subscribedBy: "site/components/setup-picker.tsx, site/lib/use-setups.ts (the palettes' setup picks, server info)",
-    args: () => ({ paginationOpts: { numItems: 50, cursor: null } }), cold: true },
+    args: () => ({ paginationOpts: { numItems: 30, cursor: null } }), cold: true },
   { query: "setups:row", subscribedBy: "site/components/setup-picker.tsx (one row), site/pages/room.tsx (the room's setup)", args: f => ({ setupId: f.setupId }), cold: true },
   { query: "setups:get", subscribedBy: "site/pages/configure.tsx", args: f => ({ setupId: f.setupId }), cold: true },
   { query: "aiTemplates:catalog", subscribedBy: "site/hooks/use-agents.ts", args: () => ({}), cold: true },
@@ -115,7 +115,7 @@ export const BUDGETS: Budget[] = [
     debt: { bytes: 2048 * KiB, ms: 150, why: "PR 5/6: pages of tickBatches (≤ 50 per call, the query's clamp). Bytes depend on how busy the game was (measured 26 docs, 320–650 KiB under load), so the ceiling is the structural bound, not a measurement; a document-count regression still fails at R8's 100" } },
   { query: "player:trajectories", subscribedBy: "sdk useTrajectories (closed windows of the log plus a live tail, sdk/trajectory-windows.ts)",
     args: f => ({ roomId: f.roomId, gameId: f.gameId, afterSeq: -1, upTo: 9, limit: 10 }), cold: true,
-    debt: { bytes: 512 * KiB, why: "PR 8: one window reads at most 10 tickBatches (a closed window is cached across ticks; the tail follows them), and a batch carries every god's events, so bytes depend on how busy the game was: measured 15 docs, 173 KiB, 33 ms (before windows: up to 50 batches a call, 331–650 KiB, ceiling 2048 KiB). The ceiling is 10 full batches; paid off by a per-tick trajectory row" } },
+    debt: { bytes: 512 * KiB, ms: 100, why: "PR 8: one window reads at most 10 tickBatches (a closed window is cached across ticks; the tail follows them), and a batch carries every god's events, so bytes depend on how busy the game was: measured 15 docs, 173 KiB, 31–54 ms (decoding 10 batches; before windows: up to 50 batches a call, 331–650 KiB, ceiling 2048 KiB). The ceiling is 10 full batches; paid off by a per-tick trajectory row" } },
   { query: "player:objectsPage", subscribedBy: "sdk useObjectsPage", args: f => ({ roomId: f.roomId, sort: "recentlyMutated" }), cold: false,
     debt: { docs: 1200, bytes: 800 * KiB, ms: 200, why: "PR 4: reads and sorts every object to return one page, by any of the seven sorts (the three public ones are indexed for the objectViews redesign, but the rank and footer totals still read the whole world; measured 1,034 docs, 572 KiB, 73 ms)" } },
 ];

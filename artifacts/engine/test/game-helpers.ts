@@ -136,7 +136,7 @@ export async function roomWith(members: God[], settings?: Record<string, unknown
   return { roomId: roomId as string, shortCode: shortCode as string };
 }
 
-/** The whole setup catalogue as the app pages it (setups.page, 50 a page): entries {id, name, summary, system, seedId?, mine}. */
+/** The whole setup catalogue as the app pages it (setups.page, 30 a page): entries {id, name, summary, system, seedId?, mine}. */
 export async function setupEntries(c: { query(ref: any, args: any): Promise<any> }, search?: string): Promise<any[]> {
   const out: any[] = [];
   for (let cursor: string | null = null; ;) {

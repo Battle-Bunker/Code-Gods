@@ -7,9 +7,9 @@
  * setup").
  *
  * Reads (read-architecture R1): the list is the catalogue's paged skeleton (setups.page, loaded while the popover is
- * open, a page more as it scrolls), and each row subscribes to its own setup (setups.row) while it is shown.
+ * open, a page more as it scrolls), and each row subscribes to its own setup (setups.row) only while it is on screen.
  */
-import { useState, type UIEvent } from "react";
+import { useRef, useState, type UIEvent } from "react";
 import { useLocation } from "wouter";
 import { Command as Cmdk } from "cmdk";
 import { ChevronsUpDown, Copy, Pencil, Plus, Search } from "lucide-react";
@@ -18,7 +18,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tip } from "@/site/components/action";
 import { useRun } from "@/site/hooks/use-run";
 import { usePage } from "@/site/components/layout";
-import { PICKER_PAGE, useSetupPages, useSetupRow } from "@/site/hooks/use-setups";
+import { PICKER_PAGE, useInView, useSetupPages, useSetupRow } from "@/site/hooks/use-setups";
 import { editBlocker, ownerLabel } from "@/site/lib/setup-words";
 
 export function setupTitle(room: Pick<RoomState, "setup">): string {
@@ -74,7 +74,7 @@ export function SetupPicker({ room }: { room: RoomState }) {
           </div>
           {frozen && <p className="border-b px-3 py-2 text-xs text-muted-foreground">A game is running: you can pick a setup after game {frozen.shortCode} ends.</p>}
           <Cmdk.List id="setup-picker-list" className="max-h-[min(60vh,26rem)] overflow-y-auto p-1" onScroll={more}>
-            {pages.status === "LoadingFirstPage"
+            {pages.loading
               ? <Cmdk.Loading><p className="px-3 py-6 text-center text-sm text-muted-foreground">Loading setups…</p></Cmdk.Loading>
               : <Cmdk.Empty className="px-3 py-6 text-center text-sm text-muted-foreground">{query.trim() ? `No setup matches “${query}”.` : "No setups yet."}</Cmdk.Empty>}
             {pages.results.map(entry => (
@@ -96,13 +96,14 @@ export function SetupPicker({ room }: { room: RoomState }) {
   );
 }
 
-/** One row: the skeleton's entry at once, its owner from its own subscription (setups.row) while it is shown. */
+/** One row: the skeleton's entry at once, its owner from its own subscription (setups.row) while it is on screen. */
 function SetupRow({ entry, current, onPick, onEdit, onDuplicate }: { entry: SetupEntry; current: boolean; onPick: () => void; onEdit: () => void; onDuplicate: () => void }) {
-  const row = useSetupRow(entry.id).data;
+  const ref = useRef<HTMLDivElement>(null);
+  const row = useSetupRow(useInView(ref) ? entry.id : undefined).data;
   const who = row ? ownerLabel(row) : entry.system ? "System" : entry.mine ? "You" : "…";
   const blocked = row ? editBlocker(row) : entry.mine ? null : entry.system ? "System setups cannot be edited: duplicate it" : "Only its owner can edit this setup";
   return (
-    <Cmdk.Item value={entry.id} onSelect={onPick} data-testid={`row-setup-${entry.id}`}
+    <Cmdk.Item ref={ref} value={entry.id} onSelect={onPick} data-testid={`row-setup-${entry.id}`}
       className="flex items-start gap-2 px-2 py-2 text-sm cursor-pointer aria-selected:bg-muted data-[selected=true]:bg-muted">
       <span className="min-w-0 flex-1">
         <span className="block truncate">

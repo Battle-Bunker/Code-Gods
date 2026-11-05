@@ -145,9 +145,9 @@ const entry = (d: Doc<"gameSetups">, viewer: Viewer) => ({
 });
 export type SetupEntry = ReturnType<typeof entry>;
 /** The most setups one page of the catalogue holds (read-architecture R2). */
-export const PAGE_MAX = 50;
-/** The longest search the catalogue takes (characters). */
-const SEARCH_MAX = 100;
+export const PAGE_MAX = 30;
+/** The longest search the catalogue takes: characters, and words (Convex's search takes at most 16 terms). */
+const SEARCH_MAX = 100, SEARCH_TERMS = 16;
 
 /**
  * One page of the shared catalogue, the skeleton of a setup list (read-architecture R1; `row` is one setup with its
@@ -159,7 +159,7 @@ export const page = query({
   handler: async (ctx, { paginationOpts, search }) => {
     const viewer = await viewerOf(ctx);
     const opts = { ...paginationOpts, numItems: Math.max(1, Math.min(PAGE_MAX, Math.floor(paginationOpts.numItems))) };
-    const text = search?.trim().slice(0, SEARCH_MAX);
+    const text = search?.trim().slice(0, SEARCH_MAX).split(/\s+/).slice(0, SEARCH_TERMS).join(" ");
     const result = text
       ? await ctx.db.query("gameSetups").withSearchIndex("search", q => q.search("searchText", text)).paginate(opts)
       : await ctx.db.query("gameSetups").withIndex("by_order").paginate(opts);

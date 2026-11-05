@@ -23,8 +23,12 @@ async function adminGod(name: string): Promise<God> {
 }
 type Setup = { id: string; name: string; summary: string; settings: Record<string, unknown>; system: boolean; seedId?: string; ownerName: string; mine: boolean; editable: boolean };
 /** The catalogue as the Setup list shows it: every page (setups.page), each entry's row (setups.row); no settings (`get` has them). */
-const list = async (g: God): Promise<Omit<Setup, "settings">[]> =>
-  Promise.all((await setupEntries(g.c)).map(e => g.c.query(api.setups.row, { setupId: e.id })));
+async function list(g: God): Promise<Omit<Setup, "settings">[]> {
+  const entries = await setupEntries(g.c), rows: Omit<Setup, "settings">[] = [];
+  // Ten at a time, as a list's visible rows would: a shared local backend times out on hundreds at once.
+  for (let i = 0; i < entries.length; i += 10) rows.push(...await Promise.all(entries.slice(i, i + 10).map(e => g.c.query(api.setups.row, { setupId: e.id }))));
+  return rows;
+}
 const get = (g: God, setupId: string): Promise<Setup> => g.c.query(api.setups.get, { setupId });
 const classic = () => seedSetupSettings("grid-classic");
 
@@ -137,14 +141,14 @@ test("everyone sees every setup with its owner; only the owner changes or delete
 // What would break: the Setup list reading the whole catalogue (a page is at most 50), losing its order across pages (the
 // system's first in seed order, then everyone's by name, case and accents folded), a search missing a setup by its name,
 // owner or summary, or a row without its owner's name.
-test("the catalogue pages in order, at most 50 a page; search finds by name, owner and summary; a row has its owner", { timeout: 60_000 }, async () => {
+test("the catalogue pages in order, at most 30 a page; search finds by name, owner and summary; a row has its owner", { timeout: 60_000 }, async () => {
   const [ann, bob] = await gods("Pager Ann", `Pager Bob ${randomUUID().slice(0, 6)}`);
   const tag = randomUUID().slice(0, 8);
   const names = [`zz ${tag} b`, `ZZ ${tag} a`, `zz ${tag} Äc`];
   const made: Setup[] = [];
   for (const name of names) made.push(await bob.c.action(api.setups.save, { name, settings: classic(), summary: `Pager summary ${tag}` }));
   const first = await ann.c.query(api.setups.page, { paginationOpts: { numItems: 500, cursor: null } });
-  assert.ok(first.page.length <= 50, "a page holds at most 50");
+  assert.ok(first.page.length <= 30, "a page holds at most 30 (a page of setups with their settings stays within 64 KiB)");
   const all = await setupEntries(ann.c);
   assert.deepEqual(all.slice(0, SEED_SETUPS.length).map(e => e.seedId), SEED_SETUPS.map(s => s.seedId), "the system's first, in seed order");
   const others = all.slice(SEED_SETUPS.length);

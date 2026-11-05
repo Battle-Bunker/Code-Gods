@@ -261,7 +261,6 @@ export const replayFile = internalAction({
   },
 });
 
-/** The games row as stored (no clock or engine merged in). */
 /** A setup as stored before its catalogue fields (migrations setupListing), and the stored row. */
 export const legacySetupListing = internalMutation({
   args: { setupId: v.id("gameSetups") },
@@ -272,6 +271,7 @@ export const rawSetupDoc = internalQuery({
   handler: async (ctx, { setupId }) => { dev(); return await ctx.db.get(setupId); },
 });
 
+/** The games row as stored (no clock or engine merged in). */
 export const rawGameDoc = internalQuery({
   args: { gameId: v.id("games") },
   handler: async (ctx, { gameId }) => { dev(); return await ctx.db.get(gameId); },
