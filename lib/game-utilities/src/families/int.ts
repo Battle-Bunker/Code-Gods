@@ -32,7 +32,7 @@ const repeatNum = (digits: string, n: number) => Number(digits.repeat(Math.ceil(
 // --- Digit Devotee ---------------------------------------------------------------------------------
 type DigitP = { digit: number };
 const digitText = (p: DigitP) => card("🔢", "Digit Devotee",
-  `You adore the digit ${p.digit}. Count the ${p.digit}s in x (the minus sign doesn't count). More is better.`, [["MY_DIGIT", p.digit]]);
+  `You adore the digit ${p.digit}. Count the ${p.digit}s in x (the minus sign doesn't count). Each one scores 1 point.`, [["MY_DIGIT", p.digit]]);
 const digitDevotee = intFamily<DigitP>({
   id: "digit-devotee", name: "Digit Devotee", emoji: "🔢", theme: "Loves one particular decimal digit.", shape: SCALAR,
   analytic: solvedAnalytic("digit-devotee"),
@@ -43,7 +43,7 @@ const digitDevotee = intFamily<DigitP>({
     return d === null || (typeof p.d !== "number" && d !== 0) ? null : { digit: Math.max(1, d) };
   },
   support: () => range(1, 9).map(digit => ({ digit })),
-  summary: p => `You adore the digit ${p.digit}: the more ${p.digit}s in the decimal digits of x, the better.`,
+  summary: p => `Try to fill the decimal digits of x with the digit ${p.digit}. Each ${p.digit} scores 1 point.`,
   python: p => pyCard(digitText(p), `
     def utility(x):
         count = 0
@@ -77,8 +77,8 @@ const tailwright = intFamily<TailP>({
   params: () => ({ tail: valuesParam("Wanted ending digits", TAILS) }),
   legacy: p => (typeof p.tail === "string" && !TAILS.includes(p.tail) ? { tail: nearestOf(TAILS, p.tail) } : null),
   support: () => TAILS.map(tail => ({ tail })),
-  summary: p => `You want the decimal digits of x to end in ${p.tail}. The more trailing digits match, counting from `
-    + "the end, the better. Everything before the tail is yours to trade.",
+  summary: p => `Try to make the decimal digits of x end in ${p.tail}. Each trailing digit that matches, counting from `
+    + "the end and stopping at the first that doesn't, scores 1 point. Everything before the tail is yours to trade.",
   python: p => pyCard(tailText(p), `
     def utility(x):
         ds = digits(x)
@@ -112,7 +112,7 @@ const firstborn = intFamily<HeadP>({
   params: () => ({ head: valuesParam("Wanted leading digits", HEADS) }),
   legacy: p => (typeof p.head === "string" && !HEADS.includes(p.head) ? { head: nearestOf(HEADS, p.head) } : null),
   support: () => HEADS.map(head => ({ head })),
-  summary: p => `You want the decimal digits of x to begin with ${p.head}. The more leading digits match, the better. `
+  summary: p => `Try to make the decimal digits of x begin with ${p.head}. Each leading digit that matches, stopping at the first that doesn't, scores 1 point. `
     + "Whatever follows the head is negotiable.",
   python: p => pyCard(headText(p), `
     def utility(x):
@@ -149,7 +149,7 @@ const powerHoarder = intFamily<PowerP>({
     return q === null || (typeof p.p !== "number" && PRIMES.includes(q)) ? null : { prime: nearestOf(PRIMES, q) };
   },
   support: () => PRIMES.map(prime => ({ prime })),
-  summary: p => `You hoard factors of ${p.prime}: the more times ${p.prime} divides x, the better. Zero is worthless.`,
+  summary: p => `Try to hoard factors of ${p.prime}. Each time ${p.prime} divides x scores 1 point. Zero scores nothing.`,
   python: p => pyCard(powerText(p), `
     def utility(x):
         if x == 0:
@@ -181,7 +181,7 @@ const manyFaced = intFamily<Record<string, never>>({
   shape: SCALAR,
   params: () => ({}),
   support: () => [{}],
-  summary: () => "You want x to have many distinct prime factors: 2·3·5·7·11·13·17·19·23 = 223092870 has nine.",
+  summary: () => "Try to give x many distinct prime factors. Each one scores 1 point: 2·3·5·7·11·13·17·19·23 = 223092870 has nine.",
   python: () => pyCard(manyText, `
     def utility(x):
         n = abs(x)
@@ -217,7 +217,7 @@ const SMOOTH = [[3, 5, 7, 11], [3, 5, 7, 11, 13], [3, 5, 7, 11, 13, 17]];
 type SmoothP = { primes: readonly number[] };
 const smoothText = (p: SmoothP) => card("🧈", "Smooth Operator",
   `You collect the odd primes ${p.primes.join(", ")}. Multiply together every one of them hiding in x (as many times `
-  + "as each divides it). The bigger that product, the better.", [["MY_PRIMES", p.primes]]);
+  + "as each divides it). Your score is that product.", [["MY_PRIMES", p.primes]]);
 const smoothOperator = intFamily<SmoothP>({
   id: "smooth-operator", name: "Smooth Operator", emoji: "🧈", theme: "Wants x to be a big product of small odd primes.",
   shape: SCALAR,
@@ -225,8 +225,8 @@ const smoothOperator = intFamily<SmoothP>({
   // [3, 5, 7] reads as the nearest set that is allowed now (the one it grew into).
   legacy: p => (Array.isArray(p.primes) && p.primes.length === 3 ? { primes: SMOOTH[0] } : null),
   support: () => SMOOTH.map(primes => ({ primes })),
-  summary: p => `You want x built from the odd primes ${p.primes.join(", ")}. Only the part of x made of those primes `
-    + "counts, and bigger is better; factors of 2 or any other prime are dead weight.",
+  summary: p => `Try to build x from the odd primes ${p.primes.join(", ")}. Only the part of x made of those primes `
+    + "counts: it scores that many points. Factors of 2 or any other prime score nothing.",
   python: p => pyCard(smoothText(p), `
     def utility(x):
         n = abs(x)
@@ -270,8 +270,8 @@ const truncationSaint = intFamily<Record<string, never>>({
   shape: SCALAR,
   params: () => ({}),
   support: () => [{}],
-  summary: () => "Read x one more leading digit at a time (7, 73, 739, …) and count how many of those prefixes are prime. "
-    + "Numbers like 73939133, where every prefix is prime, are sacred and very rare.",
+  summary: () => "Try to make the leading digits of x keep forming primes. Read x one more digit at a time (7, 73, 739, …): "
+    + "each prefix that is prime scores 1 point. Numbers like 73939133, where every prefix is prime, are sacred and very rare.",
   python: () => pyCard(truncText, `
     def is_prime(n):
         if n < 2:
@@ -324,8 +324,8 @@ const palindromist = intFamily<BaseP>({
   params: () => ({ base: valuesParam("Base", BASES) }),
   legacy: p => (typeof p.base === "number" && !BASES.includes(p.base) ? { base: nearestOf(BASES, p.base) } : null),
   support: () => BASES.map(base => ({ base })),
-  summary: p => `You want x to read the same forwards and backwards in base ${p.base}. The more digit pairs match from `
-    + "the outside in, the better.",
+  summary: p => `Try to make x read the same forwards and backwards in base ${p.base}. Each pair of digits that matches, `
+    + "counting from the outside in and stopping at the first that doesn't, scores 1 point.",
   python: p => pyCard(palText(p), `
     def utility(x):
         n = abs(x)
@@ -364,8 +364,8 @@ const stairwalker = intFamily<StepP>({
   shape: SCALAR,
   params: () => ({ step: choiceParam("Direction", [[1, "up"], [-1, "down"]]) }),
   support: () => [{ step: 1 }, { step: -1 }],
-  summary: p => `You want a staircase in the decimal digits of x: each digit exactly one ${p.step > 0 ? "more" : "less"} `
-    + `than the one before. The longer the staircase, the better: ${p.step > 0 ? "123456789" : "9876543210"} is perfect.`,
+  summary: p => `Try to build a staircase in the decimal digits of x: each digit exactly one ${p.step > 0 ? "more" : "less"} `
+    + `than the one before. Each digit of your longest staircase scores 1 point: ${p.step > 0 ? "123456789" : "9876543210"} is perfect.`,
   python: p => pyCard(stairText(p), `
     def utility(x):
         ds = digits(x)
@@ -423,8 +423,8 @@ const residueOracle = intFamily<OmenP>({
     return { omens: OMENS.reduce((best, a) => (shared(a) > shared(best) ? a : best), OMENS[0]) };
   },
   support: () => OMENS.map(omens => ({ omens })),
-  summary: p => `You have ${p.omens.length} omens. ${p.omens.map(([m, r], i) => `Omen ${i + 1}: x mod ${m} = ${r}.`).join(" ")} `
-    + "Here mod means the remainder after dividing, never negative. Each omen that comes true scores 1 point. "
+  summary: p => `Try to make your ${p.omens.length} omens come true. ${p.omens.map(([m, r], i) => `Omen ${i + 1}: x mod ${m} = ${r}.`).join(" ")} `
+    + "Each omen that comes true scores 1 point. Here mod means the remainder after dividing, never negative. "
     + `All ${p.omens.length} at once needs the Chinese remainder theorem.`,
   python: p => pyCard(omenText(p), `
     def utility(x):
@@ -484,8 +484,8 @@ const bitSigil = intFamily<SigilP>({
   params: () => ({ sigil: valuesParam("Sigil", SIGILS) }),
   legacy: p => (typeof p.sigil === "string" && !SIGILS.includes(p.sigil) ? { sigil: nearestSigil(p.sigil) } : null),
   support: () => SIGILS.map(sigil => ({ sigil })),
-  summary: p => `You want your sigil stamped into x's 32 two's-complement bits. From bit 31 (the sign) down to bit 0 it `
-    + `reads ${p.sigil}: 1s and 0s are required, dots are free. The more bits match, the better.`,
+  summary: p => `Try to stamp your sigil into x's 32 two's-complement bits. From bit 31 (the sign) down to bit 0 it `
+    + `reads ${p.sigil}: 1s and 0s are required, dots are free. Each required bit that matches scores 1 point.`,
   python: p => pyCard(sigilText(p), `
     def utility(x):
         hits = 0
@@ -518,7 +518,7 @@ const zebra = intFamily<Record<string, never>>({
   analytic: solvedAnalytic("zebra"),
   params: () => ({}),
   support: () => [{}],
-  summary: () => "Write x as 32 two's-complement bits: the longer the stretch of alternating bits, the better. "
+  summary: () => "Try to make the 32 two's-complement bits of x alternate. Each bit of your longest alternating stretch scores 1 point. "
     + "0x55555555 = 1431655765 is a perfect zebra.",
   python: () => pyCard(zebraText, `
     def bit(x, i):
@@ -565,7 +565,7 @@ const SACRED_TOTAL = 27;
 const smallestWithDigitSum = (t: number) => Number(String(t % 9 || "") + "9".repeat(Math.floor(t / 9))) || 0;
 type SumP = { total: number };
 const sumText = (p: SumP) => card("🔯", "Numerologist",
-  `Your sacred number is ${p.total}. Add up the digits of x: the closer the total is to ${p.total}, the better.`,
+  `Your sacred number is ${p.total}. Add up the digits of x: you lose 1 point for each unit the total is away from ${p.total}.`,
   [["SACRED", p.total]]);
 /** The sacred number, or on a domain too small to reach it the digit sum of the top bound (which always qualifies). */
 function numerologistTotals(s: IntSpec): number[] {
@@ -580,7 +580,7 @@ const numerologist = intFamily<SumP>({
   // Any other stored total reads as this domain's one sacred number.
   legacy: (p, s) => (typeof p.total === "number" && p.total !== numerologistTotals(s)[0] ? { total: numerologistTotals(s)[0] } : null),
   support: s => numerologistTotals(s).map(total => ({ total })),
-  summary: p => `Your sacred number is ${p.total}. Add up the decimal digits of x; the closer to ${p.total}, the better.`,
+  summary: p => `Try to make the decimal digits of x add up to your sacred number, ${p.total}. You lose 1 point for each unit the total is away from it.`,
   python: p => pyCard(sumText(p), `
     def utility(x):
         total = 0
@@ -614,8 +614,7 @@ const refrain = intFamily<Record<string, never>>({
   // LEGACY (equal-opportunity fix): `{ period }` from before the period was fixed reads as today's rule.
   legacy: p => ("period" in p ? {} : null),
   support: () => [{}],
-  summary: () => `You want the decimal digits of x to repeat every ${PERIOD} digits: the longer the repeat holds from `
-    + "the front, the better.",
+  summary: () => `Try to make the decimal digits of x repeat every ${PERIOD} digits. From the front, each digit that repeats the one ${PERIOD} places earlier scores 1 point, stopping at the first that doesn't.`,
   python: () => pyCard(refrainText, `
     def utility(x):
         ds = digits(x)

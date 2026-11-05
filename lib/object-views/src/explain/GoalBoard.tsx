@@ -9,15 +9,16 @@
  * the list's boxes are reachable in order with Tab.
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
-import { hitTest, sortUnits, defaultGeometry, groupOf, toneOf, type Explanation, type GoalExplainer, type HoverMode, type Part } from "@workspace/game-utilities";
+import { hitTest, sortUnits, defaultGeometry, groupOf, impactText, minusText, signedPoints, tierName, toneOf, tupleText, type Explanation, type GoalExplainer, type HoverMode, type Part } from "@workspace/game-utilities";
 import { getColourCue, gridModel, subscribeColourCue, type ColourCue, type GridCellModel } from "../grid-display.ts";
 import type { GridSettings } from "../registry.ts";
 import {
   TONE_COLOUR, TONE_DASH, TONE_MARK, arrowPath, badgePoint, boardPx, cellX, cellY, centre, isStroke, litCells, linkPath, outlinePath,
-  pillPath, signed, type BoardGeometry,
+  pillPath, type BoardGeometry,
 } from "./layout.ts";
 import { CellGlyph } from "../glyph.tsx";
 import { HowThisScores } from "./HowThisScores.tsx";
+import { Term } from "@workspace/ui-kit";
 
 export interface GoalBoardProps {
   goal: GoalExplainer;
@@ -41,9 +42,11 @@ export interface GoalBoardProps {
   testId?: string;
 }
 
-const pointsText = (points: readonly number[]) => {
-  const chips = points.map((p, k) => (p === 0 ? null : k === 0 ? `${signed(p)} point${Math.abs(p) === 1 ? "" : "s"}` : `${signed(p)} tie-break`)).filter(Boolean);
-  return chips.length ? chips.join(" · ") : "0 points";
+/** A unit's checks by points tier, in tier order (src/tuples.ts): each tier's derivation is its own group of lines. */
+const byTier = (part: Part) => {
+  const tiers = new Map<number, Part["facts"][number][]>();
+  for (const f of part.facts) tiers.set(f.tier ?? 0, [...(tiers.get(f.tier ?? 0) ?? []), f]);
+  return [...tiers].sort(([a], [b]) => a - b);
 };
 
 /** The viewer's colour cue (colour only or letter), live. */
@@ -69,6 +72,7 @@ function Tile({ cell, px, dim, cue = "colour", changed }: { cell: GridCellModel;
 function UnitBox({ part, selected, model, onSelect, setRef }: {
   part: Part; selected: boolean; model: ReturnType<typeof gridModel>; onSelect: () => void; setRef: (el: HTMLDivElement | null) => void;
 }) {
+  const multi = part.points.length > 1;
   const tone = toneOf(part.points);
   const small = part.cells.length <= 4 && part.shape !== "region" && part.shape !== "ring" && part.shape !== "window";
   return (
@@ -79,7 +83,7 @@ function UnitBox({ part, selected, model, onSelect, setRef }: {
       data-testid="goal-unit" data-tone={tone} data-part={part.id} data-selected={selected || undefined}>
       <div className="flex items-center gap-1.5">
         <span className="font-semibold">{part.title}</span>
-        <span className="ml-auto whitespace-nowrap font-mono font-semibold" style={{ color: TONE_COLOUR[tone] }}>{pointsText(part.points)}</span>
+        <span className="ml-auto whitespace-nowrap font-mono font-semibold" style={{ color: TONE_COLOUR[tone] }} data-testid="goal-unit-impact">{impactText(part.points)}</span>
       </div>
       {small && model && (
         <div className="mt-1 flex gap-0.5" aria-hidden>
@@ -88,14 +92,22 @@ function UnitBox({ part, selected, model, onSelect, setRef }: {
             : part.cells.map((x, i) => <Tile key={i} cell={model.rows[x.r][x.c]} px={18} />)}
         </div>
       )}
-      {part.facts.length > 0 && (
-        <ul className="mt-1 space-y-0.5">
-          {part.facts.map((f, i) => (
-            <li key={i} className="flex gap-1"><span aria-hidden className="font-bold" style={{ color: f.ok ? TONE_COLOUR.gain : TONE_COLOUR.loss }}>{f.ok ? "✓" : "✗"}</span>
-              <span><span className="sr-only">{f.ok ? "yes: " : "no: "}</span>{f.text}</span></li>
-          ))}
-        </ul>
-      )}
+      {byTier(part).map(([k, facts]) => (
+        <div key={k} className="mt-1" data-testid="goal-unit-tier" data-tier={k}>
+          {multi && (
+            <div className="flex text-[11px] text-muted-foreground">
+              <span>{tierName(k)} points</span>
+              <span className="ml-auto font-mono">{signedPoints(part.points[k] ?? 0)}</span>
+            </div>
+          )}
+          <ul className="space-y-0.5">
+            {facts.map((f, i) => (
+              <li key={i} className="flex gap-1"><span aria-hidden className="font-bold" style={{ color: f.ok ? TONE_COLOUR.gain : TONE_COLOUR.loss }}>{f.ok ? "✓" : "✗"}</span>
+                <span><span className="sr-only">{f.ok ? "yes: " : "no: "}</span>{f.text}</span></li>
+            ))}
+          </ul>
+        </div>
+      ))}
     </div>
   );
 }
@@ -194,9 +206,12 @@ export function GoalBoard({ goal, value, grid, caption, changed, selected: chose
   };
   const ord = explanation ? (typeof explanation.ordinal === "number" ? [explanation.ordinal] : explanation.ordinal) : null;
   const score = goal.score(value), scoreArr = score === null ? null : typeof score === "number" ? [score] : score;
-  const total: ReactNode = rich && ord && explanation
-    ? <>This board: <b>{ord[0]} point{ord[0] === 1 ? "" : "s"}</b>{explanation.components.slice(1).map((name, k) => <span key={k} className="text-muted-foreground"> · {name.replace(/^tie-break: /, "tie-break (")}{name.startsWith("tie-break: ") ? ")" : ""} {signed(ord[k + 1])}</span>)}</>
-    : scoreArr ? <>This board: <b>{scoreArr[0]} point{scoreArr[0] === 1 ? "" : "s"}</b></> : null;
+  // The board's score is its points tuple; with a lens, each tier says what it counts.
+  const tuple = rich && ord ? ord : scoreArr;
+  const total: ReactNode = tuple
+    ? <>This board: <b>{tupleText(tuple)}</b> <Term id="points-tuple">points</Term>
+      {rich && explanation && <span className="text-muted-foreground"> — {explanation.components.map((name, k) => `${explanation.components.length > 1 ? `${tierName(k)}: ` : ""}${name}, ${minusText(tuple[k])}`).join(" · ")}</span>}</>
+    : null;
   const tone = selected ? toneOf(selected.points) : "zero";
 
   return (
@@ -265,7 +280,7 @@ export function GoalBoard({ goal, value, grid, caption, changed, selected: chose
         </defs>
         {arrow && <path d={arrow} fill="none" stroke={TONE_COLOUR[tone]} strokeOpacity={0.8} strokeWidth={1.75} markerEnd={`url(#goal-arrow-${tone})`} data-testid="goal-unit-arrow" />}
       </svg>
-      <span aria-live="polite" className="sr-only">{selected ? `${selected.title}, ${pointsText(selected.points)}. ${selected.facts.map(f => `${f.ok ? TONE_MARK.gain : TONE_MARK.loss} ${f.text}`).join(". ")}` : ""}</span>
+      <span aria-live="polite" className="sr-only">{selected ? `${selected.title}, ${impactText(selected.points)}. ${byTier(selected).map(([k, fs]) => `${selected.points.length > 1 ? `${tierName(k)} points ${signedPoints(selected.points[k] ?? 0)}: ` : ""}${fs.map(f => `${f.ok ? TONE_MARK.gain : TONE_MARK.loss} ${f.text}`).join(". ")}`).join(". ")}` : ""}</span>
     </div>
   );
 }

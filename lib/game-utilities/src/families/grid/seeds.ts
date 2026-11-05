@@ -1,6 +1,7 @@
 /** The three seed rules (lib/grid-lab/gridlab/rules/seeds.py, cards from rules/cards.py). */
 import type { GridSpec } from "./_util.ts";
 import { exactSurvival, multinomial } from "../../analytic.ts";
+import { tierPoints } from "../../tuples.ts";
 import { boolParam, colourParam, intParam } from "../../params.ts";
 import {
   SCALAR, article, chance, cap, colourAt, fromFn, full, gridFamily, product, pyCard, recolourNames, symForValue,
@@ -60,7 +61,7 @@ function text(p: LineP, g: GridSpec) {
   return {
     emoji: "🖍️", name: "Line Painter", consts: [["MY_COLOUR", c]] as const,
     about: [
-      `Your colour is ${c}. ${cap(article(c))} cell scores its value in points once for each direction in which it touches another ${c} cell.`,
+      `Try to line up your ${c} cells. ${cap(article(c))} cell scores its value in points once for each direction in which it touches another ${c} cell.`,
       `The directions are ${dirs}.`, g.say.valueKey(),
     ].filter(Boolean).join(" "),
   };
@@ -117,9 +118,9 @@ const patchwork = gridFamily<Record<string, never>>({
 const patchText = (g: GridSpec) => ({
   emoji: "🧩", name: "Patchwork", consts: [],
   about: [
-    `A patch is a group of 2 or more touching cells showing the same ${g.cards ? "rank (any suit)" : "number"}.`,
-    "A patch only counts if no two touching cells inside it share a colour.",
-    `A patch that counts scores its size times its ${g.cards ? "value" : "number"}, in points: 3 cells showing 4 score 12.`,
+    `Try to make colourful patches: groups of 2 or more touching cells showing the same ${g.cards ? "rank (any suit)" : "number"}, `
+      + "with no two touching cells inside a patch sharing a colour.",
+    `Each such patch scores its size times its ${g.cards ? "value" : "number"}, in points: 3 cells showing 4 score 12.`,
     g.say.valueKey(),
   ].filter(Boolean).join(" "),
 });
@@ -176,8 +177,9 @@ function greenText(p: GreenP, g: GridSpec) {
   return {
     emoji: "🍀", name: "Green Ones",
     consts: [["MY_COLOUR", p.colour], ["MY_VALUE", p.value, valueNote(g, p.value)]] as const,
-    about: `Count the ${p.colour} cells showing ${g.say.value(p.value)}. Most of those wins. `
-      + "If that's a tie, count the cells that are halfway there: "
+    about: `Try to fill the board with ${p.colour} cells showing ${g.say.value(p.value)}. `
+      + `Each ${p.colour} cell showing ${g.say.value(p.value)} scores ${tierPoints(1, 0, 2)}. `
+      + `Each cell that is halfway there scores ${tierPoints(1, 1, 2)}: `
       + `the right colour or the right ${g.cards ? "rank" : "number"}, but not both.`,
   };
 }

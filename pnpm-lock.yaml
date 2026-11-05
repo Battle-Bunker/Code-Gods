@@ -497,6 +497,9 @@ importers:
       '@workspace/game-utilities':
         specifier: workspace:*
         version: link:../game-utilities
+      '@workspace/ui-kit':
+        specifier: workspace:*
+        version: link:../ui-kit
     devDependencies:
       '@types/react':
         specifier: 'catalog:'

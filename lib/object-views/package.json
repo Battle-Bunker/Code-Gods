@@ -13,7 +13,8 @@
   "dependencies": {
     "@radix-ui/react-popover": "^1.1.7",
     "@workspace/game-utilities": "workspace:*",
-    "@workspace/game-types": "workspace:*"
+    "@workspace/game-types": "workspace:*",
+    "@workspace/ui-kit": "workspace:*"
   },
   "peerDependencies": {
     "react": ">=18"

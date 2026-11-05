@@ -5,6 +5,7 @@ import {
   SCALAR, article, bestOf, cap, chance, climb, colourAt, colourPairs, fromFn, full, gridFamily, pick, product, pyCard, range, list, recolourNames, sentences, symForValue, thing, tsCard, tuple, wire,
 } from "./_util.ts";
 import { solvedAnalytic } from "../../analytic/hook.ts";
+import { tierPoints } from "../../tuples.ts";
 
 /** Which lines a rule scores: rows or columns, which are transposes of each other (canonically rows). "Both" was an option until P10. */
 type Axis = "rows" | "cols";
@@ -35,11 +36,12 @@ type ShootP = { direction: "up" | "down"; ace_high: boolean };
 const shootText = (p: ShootP, g: GridSpec): CardText => ({
   emoji: "🎯", name: "Straight Shooter", consts: [["STEP", p.direction === "up" ? 1 : -1, p.direction === "up" ? "count up" : "count down"]],
   about: sentences(
+    `Try to make runs of ${thing(g)}s that count ${p.direction} by one.`,
     `A run is 3 or more ${thing(g)}s in a row that count ${p.direction} by one, like ${p.direction === "up" ? "4, 5, 6" : "6, 5, 4"}.`,
     "Runs go left to right along rows, or top to bottom down columns.",
     p.ace_high ? `Aces count as 14, so a run can go ${p.direction === "up" ? "Q, K, A" : "A, K, Q"}. Here J counts 11, Q counts 12 and K counts 13.` : g.say.valueKey(),
-    "A run scores its length times itself, so 3 in a row is 9 points. Double that if the whole run is one colour.",
-    "Most points wins. If that's a tie, the most single steps wins: each pair of neighbours in a line that count by one.",
+    "Each run scores its length times itself in primary points, so 3 in a row is 9 primary points. Double that if the whole run is one colour.",
+    `Each single step scores ${tierPoints(1, 1, 2)}: a pair of neighbours in a line that count by one.`,
   ),
 });
 const straightShooter = gridFamily<ShootP>({
@@ -145,9 +147,10 @@ type BondsP = Record<string, never>;
 const bondsText = (g: GridSpec): CardText => ({
   emoji: "🤝", name: "Number Bonds", consts: [["TARGET", g.vmax + 1]],
   about: sentences(
+    `Try to make touching cells whose ${nums(g)} add up to ${g.vmax + 1}.`,
     `Two touching cells are best friends when their ${nums(g)} add up to ${g.vmax + 1}.`,
     g.say.valueKey(),
-    "Every pair of best friends scores 1 point.",
+    "Each pair of best friends scores 1 point.",
   ),
 });
 const numberBonds = gridFamily<BondsP>({
@@ -196,10 +199,10 @@ function magicTargets(g: GridSpec): number[] {
 const magicText = (p: MagicP, g: GridSpec): CardText => ({
   emoji: "🧮", name: "Magic Accountant", consts: [["TARGET", p.target]],
   about: sentences(
-    `Your magic number is ${p.target}.`,
-    `${cap(everyLine(p.axis))} whose ${nums(g)} add up to exactly ${p.target} scores 1 point.`,
+    `Try to make ${everyLine(p.axis)} add up to your magic number, ${p.target}.`,
+    `Each ${AXIS_WORD[p.axis]} that adds up to exactly ${p.target} scores ${tierPoints(1, 0, 2)}.`,
+    `Each ${AXIS_WORD[p.axis]} deducts as many secondary points as its total is away from ${p.target}.`,
     g.say.valueKey(),
-    `Most points wins. If that's a tie, the totals that are closest to ${p.target} overall win.`,
   ),
 });
 const magicAccountant = gridFamily<MagicP>({
@@ -262,6 +265,7 @@ const kingText = (p: KingP, g: GridSpec): CardText => ({
   emoji: p.valley ? "🕳️" : "⛰️", name: p.valley ? "King of the Valley" : "King of the Hill",
   consts: [["MY_COLOUR", p.colour]],
   about: sentences(
+    `Try to make ${p.colour} cells with ${p.valley ? "smaller" : "bigger"} ${nums(g)} than all their neighbours.`,
     `${cap(article(p.colour))} cell is ${p.valley ? "in a valley" : "a king"} when its ${num(g)} is `
       + `${p.valley ? "smaller" : "bigger"} than every cell touching it.`,
     g.say.valueKey(),
@@ -308,6 +312,7 @@ const divisorOf = (g: GridSpec) => g.base! - 1;
 const divText = (p: DivP, g: GridSpec): CardText => ({
   emoji: "🔍", name: "Divisibility Detective", consts: [["BASE", g.base!], ["DIVIDE_BY", divisorOf(g)]],
   about: sentences(
+    `Try to make ${p.scope === "cols" ? "columns" : "rows"} that divide exactly by ${divisorOf(g)}.`,
     `Read ${p.scope === "cols" ? "each column from top to bottom" : "each row"} as one big number in base ${g.base}.`,
     digitNote(g),
     `Each one that divides exactly by ${divisorOf(g)}${g.base !== 10 && divisorOf(g) >= 10 ? " (counting the normal way)" : ""} scores 1 point.`,
@@ -360,10 +365,11 @@ type RoundP = { axis: Axis };
 const roundText = (p: RoundP, g: GridSpec): CardText => ({
   emoji: "⭕", name: "Round Numbers", consts: [["BASE", g.base!]],
   about: sentences(
-    `Add up the numbers in ${everyLine(p.axis)}.`,
+    `Try to make ${everyLine(p.axis)} add up to a multiple of ${g.base}.`,
     g.say.valueKey(),
-    `A total that is a multiple of ${g.base} is a round number (it ends in 0 in base ${g.base}) and scores 1 point.`,
-    `Most points wins. If that's a tie, totals nearer to a multiple of ${g.base} win.`,
+    `A total that is a multiple of ${g.base} is a round number (it ends in 0 in base ${g.base}). `
+      + `Each ${AXIS_WORD[p.axis]} with a round total scores ${tierPoints(1, 0, 2)}.`,
+    `Each ${AXIS_WORD[p.axis]} also scores ${Math.floor(g.base! / 2)} secondary points, minus as many as its total is away from the nearest multiple of ${g.base}.`,
   ),
 });
 const roundNumbers = gridFamily<RoundP>({
@@ -410,6 +416,7 @@ type SandP = { colour: string };
 const sandText = (p: SandP, g: GridSpec): CardText => ({
   emoji: "🥙", name: "Number Sandwich", consts: colourConst(p.colour),
   about: sentences(
+    "Try to make number sandwiches.",
     "Look at any 3 cells in a row, across or down.",
     `If the middle ${num(g)} is the two outside ${nums(g)} added, that is a sandwich, like 2, 5, 3.`,
     g.cards ? "" : "The outside numbers can't be 0.",
@@ -462,11 +469,13 @@ type WindowP = { colour: string };
 const windowText = (p: WindowP, g: GridSpec): CardText => ({
   emoji: "🪟", name: "Magic Window", consts: colourConst(p.colour),
   about: sentences(
+    "Try to make a 3×3 window full of magic lines.",
     "Look at every 3×3 window. In each one, a line is a row, column or diagonal of 3 cells.",
-    `A line scores 1 point when its ${nums(g)} add up to 3 times the middle cell's ${num(g)}, unless all 3 are the same.`,
+    `A line is magic when its ${nums(g)} add up to 3 times the middle cell's ${num(g)}, unless all 3 are the same.`,
     `A window only counts if its middle cell is ${p.colour}.`,
     g.say.valueKey(),
-    "The window with the most scoring lines wins (8 is a perfect magic square). If that's a tie, the most scoring lines over all windows wins.",
+    `Your best window scores 1 primary point for each of its magic lines (8 is a perfect magic square).`,
+    `Each magic line in any window scores ${tierPoints(1, 1, 2)}.`,
   ),
 });
 const magicWindow = gridFamily<WindowP>({
@@ -552,7 +561,7 @@ const timesText = (p: TimesP, g: GridSpec): CardText => ({
   emoji: "✖️", name: "Times-Table Territory",
   consts: [["TIMES", TIMES], ...colourConst(p.colour)],
   about: sentences(
-    `Find the biggest patch of touching cells that all show ${nums(g)} in the ${TIMES} times table`
+    `Try to grow the biggest patch of touching cells that all show ${nums(g)} in the ${TIMES} times table`
       + `: ${g.say.values(range(g.vmax + 1).filter(v => v >= g.vmin && v % TIMES === 0), "or")}.`,
     `Every cell in the patch must also be ${p.colour}.`,
     g.say.valueKey(),
@@ -606,6 +615,7 @@ type OddP = { colour: string };
 const oddText = (p: OddP, g: GridSpec): CardText => ({
   emoji: "🏁", name: "Odds & Evens", consts: colourConst(p.colour),
   about: sentences(
+    `Try to make 2×2 chessboards of odd and even ${nums(g)}.`,
     `Look at every 2×2 square. It is a chessboard when odd and even ${nums(g)} alternate: odd, even on top and even, odd below, or the other way round.`,
     g.say.valueKey(),
     `Each chessboard scores 1 point, as long as all its odd ${nums(g)} are on ${p.colour} cells.`,
@@ -665,9 +675,10 @@ const firstNumbers = (g: GridSpec) => range(g.vmax - g.C + 2 - g.vmin).map(k => 
 const paintText = (p: PaintP, g: GridSpec): CardText => ({
   emoji: "🖍️", name: "Number Painter", consts: [["FIRST", p.first_number, `${g.colourNames[0]} is worth this, the next colour one more, ...`]],
   about: sentences(
+    `Try to give every cell the ${num(g)} that matches its colour.`,
     "Each colour has a number: " + g.colourNames.map((n, i) => `${n} = ${valueTile(g, i + p.first_number)}`).join(", ") + ".",
     g.say.valueKey(),
-    `Every cell whose ${num(g)} matches its colour scores 1 point.`,
+    `Each cell whose ${num(g)} matches its colour scores 1 point.`,
   ),
 });
 const numberPainter = gridFamily<PaintP>({
@@ -701,10 +712,11 @@ const numberPainter = gridFamily<PaintP>({
 const robinText = (g: GridSpec): CardText => ({
   emoji: "🏹", name: "Robin Hood", consts: [],
   about: sentences(
+    `Try to give every colour a fair share of the ${nums(g)}.`,
     `Add up the ${nums(g)} of each colour.`,
     g.say.valueKey(),
     "The poorest colour has the smallest total and the richest has the biggest.",
-    "Your score in points is the poorest total, minus how far the richest total is ahead of it.",
+    "You score as many points as the poorest total, and lose as many points as the richest total is ahead of it.",
   ),
 });
 const robinHood = gridFamily<Record<string, never>>({
@@ -756,11 +768,11 @@ type SeesawP = { scope: Axis };
 const seesawText = (p: SeesawP, g: GridSpec): CardText => ({
   emoji: "⚖️", name: "Seesaw", consts: [],
   about: sentences(
-    `Treat ${everyLine(p.scope)} as a seesaw.`,
-    `Add up the ${nums(g)} in its left half and its right half, skipping the middle cell if there is one.`,
+    `Try to make ${everyLine(p.scope)} balance like a seesaw.`,
+    `Its two sides are its left half and its right half (skipping the middle cell if there is one): add up the ${nums(g)} on each.`,
     g.say.valueKey(),
-    "A seesaw balances when both sides match. Each balanced seesaw scores 1 point.",
-    "Most points wins. If that's a tie, the smaller total gap between the two sides wins.",
+    `A seesaw balances when both sides match. Each balanced seesaw scores ${tierPoints(1, 0, 2)}.`,
+    "Each seesaw deducts as many secondary points as the gap between its two sides.",
   ),
 });
 const seesaw = gridFamily<SeesawP>({
@@ -821,10 +833,11 @@ type HopP = Record<string, never>;
 const hopText = (g: GridSpec): CardText => ({
   emoji: "🪨", name: "Stepping Stones", consts: [["HOP", HOP]],
   about: sentences(
+    "Try to make the biggest group of cells you can hop between.",
     `You can hop between touching cells whose ${nums(g)} differ by exactly ${HOP}.`,
     g.say.valueKey(),
     "A group is every cell you can reach by hopping from one cell.",
-    "Your score is the size of the biggest group, 1 point per cell.",
+    "Each cell in your biggest group scores 1 point.",
   ),
 });
 const steppingStones = gridFamily<HopP>({
@@ -862,10 +875,12 @@ type SumP = { top_row: number };
 const sumText = (p: SumP, g: GridSpec): CardText => ({
   emoji: "➕", name: "Column Addition", consts: [["TOP", p.top_row, "rows count from 0 at the top"], ["BASE", g.base!]],
   about: sentences(
+    `Try to make row ${p.top_row + 3} the sum of rows ${p.top_row + 1} and ${p.top_row + 2}.`,
     `Rows ${p.top_row + 1} and ${p.top_row + 2} are added together, like a written sum in base ${g.base}, and row ${p.top_row + 3} is the answer.`,
     digitNote(g),
-    `Work from the right-hand end, and carry 1 whenever a column adds up to ${g.base} or more.`,
-    "Most columns right in a row from the right-hand end wins. If that's a tie, the most right columns anywhere wins.",
+    `Work from the right-hand end, and carry 1 whenever a column adds up to ${g.base} or more. A column is right when the answer row shows the correct digit.`,
+    `Each column in the run of right columns from the right-hand end scores ${tierPoints(1, 0, 2)}.`,
+    `Each right column anywhere scores ${tierPoints(1, 1, 2)}.`,
     "The top row of the sum can't be all zeros.",
   ),
 });
@@ -923,11 +938,11 @@ type LadderP = { direction: "down" | "up" };
 const ladderText = (p: LadderP, g: GridSpec): CardText => ({
   emoji: "🪜", name: "Ladder of Numbers", consts: [["BASE", g.base!]],
   about: sentences(
+    `Try to make each row a bigger number than the row before it, going ${p.direction} the page.`,
     `Read each row as one big number in base ${g.base}.`,
     digitNote(g),
-    `Going ${p.direction} the page, each row should be bigger than the row before it.`,
-    "The longest unbroken climb wins: the most rows in a row that each beat the row before.",
-    "If that's a tie, the most rows that beat the row before wins.",
+    `Each row in your longest unbroken climb, the most rows in a row that each beat the row before, scores ${tierPoints(1, 0, 2)}.`,
+    `Each row that beats the row before it scores ${tierPoints(1, 1, 2)}.`,
   ),
 });
 const ladder = gridFamily<LadderP>({
@@ -987,7 +1002,8 @@ const ladder = gridFamily<LadderP>({
 // --- Snap! ---------------------------------------------------------------------------------------------------
 const snapText = (g: GridSpec): CardText => ({
   emoji: "🫰", name: "Snap!", consts: [],
-  about: `Shout Snap! for every pair of touching cells showing the same ${g.cards ? "rank (any suit)" : "number"}. Each pair scores 1 point.`,
+  about: `Try to put cells showing the same ${g.cards ? "rank (any suit)" : "number"} side by side, and shout Snap! for each pair. `
+    + "Each pair of touching cells showing the same " + (g.cards ? "rank" : "number") + " scores 1 point.",
 });
 const snap = gridFamily<Record<string, never>>({
   id: "snap", name: "Snap!", emoji: "🫰", theme: "Touching twins", shape: SCALAR,
@@ -1020,11 +1036,11 @@ type CornerP = { corner: "TL" | "TR" | "BL" | "BR" };
 const uphillText = (p: CornerP, g: GridSpec): CardText => ({
   emoji: "⛷️", name: "Uphill", consts: [],
   about: sentences(
-    `Walk toward the ${p.corner[0] === "T" ? "top" : "bottom"}-${p.corner[1] === "L" ? "left" : "right"} corner along every row and column.`,
-    `Each step should reach a bigger ${num(g)}, never the same or a smaller one.`,
+    `Try to make every row and column climb toward the ${p.corner[0] === "T" ? "top" : "bottom"}-${p.corner[1] === "L" ? "left" : "right"} corner.`,
+    `Walk toward that corner along every row and column. Each step should reach a bigger ${num(g)}, never the same or a smaller one.`,
     g.say.valueKey(),
-    "A line is whole when every step in it gets bigger.",
-    "Most whole lines wins. If that's a tie, the most single bigger steps wins.",
+    `A line is whole when every step in it gets bigger. Each whole line scores ${tierPoints(1, 0, 2)}.`,
+    `Each single bigger step scores ${tierPoints(1, 1, 2)}.`,
   ),
 });
 const uphillLines = (p: CornerP, lang: "py" | "ts") => {
@@ -1082,10 +1098,11 @@ const youngTableau = gridFamily<CornerP>({
 const fillText = (g: GridSpec): CardText => ({
   emoji: "🧩", name: "Fillomino", consts: [],
   about: sentences(
+    "Try to make every group of touching equal cells the right size.",
     `A group is a patch of touching cells showing the same ${g.cards ? "rank (any suit)" : "number"}.`,
     g.say.valueKey(),
     `A group is right when it has exactly as many cells as its ${num(g)}: a group of 3 cells showing 3 is right.`,
-    "Every cell in a right group scores 1 point.",
+    "Each cell in a right group scores 1 point.",
   ),
 });
 const fillomino = gridFamily<Record<string, never>>({
@@ -1127,6 +1144,7 @@ const fillomino = gridFamily<Record<string, never>>({
 const ladderColourText = (g: GridSpec): CardText => ({
   emoji: "🎚️", name: "Colour Ladder", consts: [],
   about: sentences(
+    `Try to make bigger ${nums(g)} wear later rainbow colours.`,
     `The rainbow order of the colours is ${g.say.colours(range(g.C))}.`,
     "Look at every pair of touching cells.",
     `If one ${num(g)} is bigger, its colour should come later in the rainbow order. If the ${nums(g)} are equal, the colours should match.`,
@@ -1185,9 +1203,10 @@ type ColourBondsP = Record<string, never>;
 const colourBondsText = (g: GridSpec): CardText => ({
   emoji: "🎨", name: "Colour Bonds", consts: [["TARGET", g.vmax + 1]],
   about: sentences(
+    `Try to make touching cells of one colour whose ${nums(g)} add up to ${g.vmax + 1}.`,
     `Two touching cells are best friends when their ${nums(g)} add up to ${g.vmax + 1} and they are the same colour.`,
     g.say.valueKey(),
-    "Every pair of best friends scores 1 point.",
+    "Each pair of best friends scores 1 point.",
   ),
 });
 const colourBonds = gridFamily<ColourBondsP>({
@@ -1221,6 +1240,7 @@ const colourBonds = gridFamily<ColourBondsP>({
 const fibonacciText = (p: SandP, g: GridSpec): CardText => ({
   emoji: "🐚", name: "Fibonacci Sandwich", consts: colourConst(p.colour),
   about: sentences(
+    "Try to make Fibonacci sandwiches.",
     "Look at any 3 cells in a row, across or down.",
     `If the last ${num(g)} is the first two ${nums(g)} added, that is a Fibonacci sandwich, like 2, 3, 5.`,
     g.cards ? "" : "The first two numbers can't be 0.",
@@ -1271,7 +1291,7 @@ const PRIMES = [2, 3, 5, 7, 11, 13];
 const primeText = (p: SandP, g: GridSpec): CardText => ({
   emoji: "🔢", name: "Prime Territory", consts: [["PRIMES", PRIMES], ...colourConst(p.colour)],
   about: sentences(
-    `Find the biggest patch of touching cells that all show prime ${nums(g)}`
+    `Try to grow the biggest patch of touching cells that all show prime ${nums(g)}`
       + `: ${g.say.values(range(g.vmax + 1).filter(v => v >= g.vmin && PRIMES.includes(v)), "or")}.`,
     `Every cell in the patch must also be ${p.colour}.`,
     g.say.valueKey(),
@@ -1323,11 +1343,11 @@ type ColourSeesawP = { scope: Axis; left_colour: string; right_colour: string };
 const colourSeesawText = (p: ColourSeesawP, g: GridSpec): CardText => ({
   emoji: "🎚️", name: "Colour Seesaw", consts: [["LEFT_COLOUR", p.left_colour], ["RIGHT_COLOUR", p.right_colour]],
   about: sentences(
-    `Treat ${everyLine(p.scope)} as a seesaw.`,
-    `Add up the ${nums(g)} on its ${p.left_colour} cells and on its ${p.right_colour} cells.`,
+    `Try to make ${everyLine(p.scope)} balance its ${p.left_colour} cells against its ${p.right_colour} cells.`,
+    `Treat ${everyLine(p.scope)} as a seesaw. Add up the ${nums(g)} on its ${p.left_colour} cells and on its ${p.right_colour} cells.`,
     g.say.valueKey(),
-    "A seesaw balances when both sides match. Each balanced seesaw scores 1 point.",
-    "Most points wins. If that's a tie, the smaller total gap between the two sides wins.",
+    `A seesaw balances when both sides match. Each balanced seesaw scores ${tierPoints(1, 0, 2)}.`,
+    "Each seesaw deducts as many secondary points as the gap between its two sides.",
   ),
 });
 const colourSeesaw = gridFamily<ColourSeesawP>({

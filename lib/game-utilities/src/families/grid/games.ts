@@ -7,6 +7,7 @@ import {
   RANK_NAMES, SCALAR, SUIT_NAMES, bestOf, cap, chance, choose, climb, fromFn, full, glyph, gridFamily, pyCard, range, sentences, symForValue, thing, tsCard, tuple, wire, colourAt, recolourNames,
 } from "./_util.ts";
 import { solvedAnalytic } from "../../analytic/hook.ts";
+import { tierPoints } from "../../tuples.ts";
 
 const LINE_OPTIONS = [["rows", "rows"], ["cols", "columns"]] as const;
 const lineWord = (dir: "rows" | "cols") => (dir === "rows" ? "row" : "column");
@@ -39,11 +40,11 @@ const rummyText = (p: RummyP, g: GridSpec): CardText => {
   const suit = g.cards ? "suit" : "colour", three = g.cards ? g.say.distinctSuits(3) : g.say.distinctColours(3);
   return {
     emoji: "🃏", name: "Rummy Melder", consts: [],
-    about: sentences(`Look at every 3 touching cells in a ${lineWord(p.axis)}.`,
+    about: sentences(`Try to make sets and runs, like rummy. Look at every 3 touching cells in a ${lineWord(p.axis)}.`,
       `A set has the same ${g.cards ? "rank" : "number"} in ${three}.`,
       `A run counts up by 1, all in one ${suit}.`,
-      "Every cell in a set or run scores its value in points, once.", g.say.valueKey(),
-      "Most points wins. If that's a tie, count touching pairs that could grow into a set or run."),
+      "Every cell in a set or run scores its value in primary points, once.", g.say.valueKey(),
+      `Each touching pair that could grow into a set or run scores ${tierPoints(1, 1, 2)}.`),
   };
 };
 const rummyMelder = gridFamily<RummyP>({
@@ -136,7 +137,7 @@ const rummyMelder = gridFamily<RummyP>({
 type SandP = { colour: string };
 const sandText = (p: SandP, _g: GridSpec): CardText => ({
   emoji: "🥪", name: "Sandwich Maker", consts: [["MY_COLOUR", p.colour]],
-  about: `A cell is sandwiched when ${p.colour} cells are on both sides of it, and it isn't ${p.colour} itself. `
+  about: `Try to sandwich cells between your ${p.colour} cells. A cell is sandwiched when ${p.colour} cells are on both sides of it, and it isn't ${p.colour} itself. `
     + "Both sides means left and right, above and below, or opposite corners. Each sandwich scores 1 point.",
 });
 const othello = gridFamily<SandP>({
@@ -199,7 +200,7 @@ const othello = gridFamily<SandP>({
 type MineP = { mine: string };
 const mineText = (p: MineP, g: GridSpec): CardText => ({
   emoji: "💣", name: "Honest Minesweeper", consts: [["MINE", p.mine]],
-  about: sentences(`${cap(p.mine)} cells are mines.`,
+  about: sentences(`Try to make honest cells. ${cap(p.mine)} cells are mines.`,
     `Any other cell is honest when its ${g.cards ? "value" : "number"} equals how many mines touch it (corners count).`,
     "Each honest cell scores its value in points.", g.say.valueKey()),
 });
@@ -276,7 +277,7 @@ const bingoText = (p: BingoP, g: GridSpec): CardText => {
   return {
     emoji: "🎱", name: "Bingo Caller",
     consts: [["CALLED", called, g.cards ? called.map(v => RANK_NAMES[v] ?? String(v)).join(", ") : ""]],
-    about: sentences(`Your called ${thing(g)}s are ${g.say.values(called)}.`, "Dab every cell showing one of them.",
+    about: sentences(`Try to fill lines with your called ${thing(g)}s, ${g.say.values(called)}.`, "Dab every cell showing one of them.",
       free ? "The middle cell is a free space." : "", "Each dab scores 1 point.",
       `A complete row, column or long diagonal is BINGO and scores ${g.N} more points.`),
   };
@@ -337,9 +338,9 @@ const sudokuText = (_p: SudokuP, g: GridSpec): CardText => {
   return {
     emoji: "🔢", name: "Sudoku Scholar", consts: [],
     about: sentences(g.N <= 4
-      ? `All or nothing: you score 1 point only if no ${word} appears twice in any row, column or long diagonal.`
-      : `Every row and column where no ${word} appears twice scores 1 point. Most points wins. `
-        + `If that's a tie, add up the different ${word}s in each of those lines: more is better.`,
+      ? `Try to repeat no ${word} in any row, column or long diagonal. All or nothing: you score 1 point only if none does.`
+      : `Try to repeat no ${word} in your rows and columns. Every row and column where no ${word} appears twice scores 1 primary point. `
+        + `In every row and column, each different ${word} scores 1 secondary point (a repeat counts once).`,
       g.cards ? "Cards compare rank only, so suits don't matter." : ""),
   };
 };
@@ -428,7 +429,7 @@ const sudoku = gridFamily<SudokuP>({
 type HouseP = { axis: "rows" | "cols" };
 const houseText = (p: HouseP, g: GridSpec): CardText => ({
   emoji: "🏠", name: "Full House", consts: [],
-  about: `Look along each ${lineWord(p.axis)}. Every pair of cells showing the same ${g.cards ? "rank" : "number"} scores 1 point. `
+  about: `Try to make poker hands. Look along each ${lineWord(p.axis)}. Every pair of cells showing the same ${g.cards ? "rank" : "number"} scores 1 point. `
     + "Three of a kind makes 3 pairs, and four of a kind makes 6.",
 });
 const fullHouse = gridFamily<HouseP>({
@@ -475,10 +476,10 @@ const suitOf = (g: GridSpec) => (g.cards ? "cell.suit" : "cell.colour");
 // --- Flush Royale -------------------------------------------------------------------------------------
 const flushText = (g: GridSpec): CardText => ({
   emoji: "♣️", name: "Flush Royale", consts: [],
-  about: sentences(`A row or column that is all one ${suitWord(g)} is a flush.`,
-    "A flush scores its total value in points.", g.say.valueKey(),
+  about: sentences(`Try to make flushes. A row or column that is all one ${suitWord(g)} is a flush.`,
+    "A flush scores its total value in primary points.", g.say.valueKey(),
     "If its values are also a straight (all different, counting up in any order), it scores triple.",
-    `Most points wins. If that's a tie, add up the cells of the commonest ${suitWord(g)} in each row and column.`),
+    `In each row and column, the cells of the commonest ${suitWord(g)} score 1 secondary point each.`),
 });
 const flushRoyale = gridFamily<Record<string, never>>({
   id: "flush_royale", name: "Flush Royale", emoji: "♣️", theme: "Lines all in one suit",
@@ -559,7 +560,7 @@ function targets(g: GridSpec): number[] {
 }
 const twentyText = (p: TwentyP, g: GridSpec): CardText => ({
   emoji: "🃏", name: "Twenty-One", consts: [["TARGET", p.target]],
-  about: sentences("Each row and column is a blackjack hand: add it up"
+  about: sentences(`Try to get close to ${p.target} without going bust. Each row and column is a blackjack hand: add it up`
     + (g.cards ? " (J, Q and K count 10; an ace counts 11 unless that would go bust)." : "."), g.cards ? "" : g.say.valueKey(),
     `A hand of ${p.target} or less scores its total in points. Exactly ${p.target} scores ${p.target} more. Going over scores nothing.`),
 });
@@ -622,9 +623,9 @@ const fishText = (p: FishP, g: GridSpec): CardText => {
     emoji: "🐟", name: "Go Fish Books",
     consts: [["MY_FISH", rankValue(g, r), g.cards ? `${RANK_NAMES[rankValue(g, r)] ?? rankValue(g, r)} of any suit` : g.say.tile(r)],
       ["PERFECT", perfect, `different ${g.cards ? "suits" : "colours"} for a perfect book`]],
-    about: `Your fish is ${fish}. A book is a 2×2 block of four cells that all show your fish. Each book scores `
-      + `1 point. A perfect book scores 2 points instead: its four cells use ${g.cards ? g.say.distinctSuits(perfect) : g.say.distinctColours(perfect)}. `
-      + "Most points wins. If that's a tie, count your fish in every 2×2 block (a fish in two blocks counts twice).",
+    about: `Try to collect books of ${fish}, your fish. A book is a 2×2 block of four cells that all show your fish. Each book scores `
+      + `1 primary point. A perfect book scores 2 primary points instead: its four cells use ${g.cards ? g.say.distinctSuits(perfect) : g.say.distinctColours(perfect)}. `
+      + "Each fish in a 2×2 block scores 1 secondary point (a fish in two blocks counts twice).",
   };
 };
 const goFish = gridFamily<FishP>({
@@ -690,7 +691,7 @@ const goFish = gridFamily<FishP>({
 type SetP = Record<string, never>;
 const setText = (_p: SetP, g: GridSpec): CardText => ({
   emoji: "🔺", name: "Set Spotter", consts: [],
-  about: sentences("Look at 3 cells in a line (across, down or diagonally).",
+  about: sentences("Try to spot SETs. Look at 3 cells in a line (across, down or diagonally).",
     `They are a SET when both of these are true. Their colours are all the same, or ${g.say.distinctColours(3)} are used.`,
     `Their ${g.cards ? "values" : "numbers"} are all the same or evenly spaced (like 2, 5, 8).`, g.say.valueKey(),
     "Each SET scores 1 point."),
@@ -746,7 +747,7 @@ const setSpotter = gridFamily<SetP>({
 type KnightP = { colour: string };
 const knightText = (p: KnightP, g: GridSpec): CardText => ({
   emoji: "🐴", name: "Knight Riders", consts: p.colour === "any" ? [] : [["MY_COLOUR", p.colour]],
-  about: "A chess knight jumps 2 cells one way and 1 cell the other. Two cells a knight's jump apart are twins when they show "
+  about: "Try to make twins a knight's jump apart. A chess knight jumps 2 cells one way and 1 cell the other. Two cells a knight's jump apart are twins when they show "
     + `the same ${g.cards ? "card (rank and suit)" : "number"} in the same colour${p.colour === "any" ? "" : `, and that colour is ${p.colour}`}. `
     + "Each pair of twins scores 1 point.",
 });
@@ -795,7 +796,7 @@ const knightRiders = gridFamily<KnightP>({
 type UnoP = { axis: "rows" | "cols" };
 const unoText = (p: UnoP, g: GridSpec): CardText => ({
   emoji: "🐍", name: "Uno Snake", consts: [],
-  about: "Walk the grid like a Snakes & Ladders board ("
+  about: "Try to make a long walk where every step matches. Walk the grid like a Snakes & Ladders board ("
     + (p.axis === "rows" ? "along the first row, back along the next, and so on" : "down the first column, back up the next, and so on")
     + `). A step is good when the two cells match in colour or ${g.cards ? "rank" : "number"}, like Uno. `
     + "Your longest unbroken walk of good steps scores 1 point per cell.",
@@ -860,10 +861,10 @@ const unoSnake = gridFamily<UnoP>({
 type ParadeP = { suit: string };
 const paradeText = (p: ParadeP, g: GridSpec): CardText => ({
   emoji: "🎺", name: "Court Parade", consts: [["MY_SUIT", p.suit]],
-  about: `A parade is a Jack, Queen and King of ${g.say.suit(SUIT_NAMES.indexOf(p.suit as never))}, side by side in that order `
-    + "along a row or column, all in one colour. A parade scores 1 point. "
-    + "With your Ace just before the Jack, it scores 2 points. Most points wins. "
-    + "If that's a tie, count side-by-side Jack-Queen and Queen-King pairs of your suit.",
+  about: `Try to march a parade of your suit. A parade is a Jack, Queen and King of ${g.say.suit(SUIT_NAMES.indexOf(p.suit as never))}, side by side in that order `
+    + "along a row or column, all in one colour. A parade scores 1 primary point. "
+    + "With your Ace just before the Jack, it scores 2 primary points. "
+    + "Each side-by-side Jack-Queen or Queen-King pair of your suit scores 1 secondary point.",
 });
 const courtParade = gridFamily<ParadeP>({
   id: "court_parade", name: "Court Parade", emoji: "🎺", theme: "J, Q, K of one suit marching in a line",
@@ -937,7 +938,7 @@ type CourtRankP = { target: string };
 const kingsText = (p: CourtRankP, g: GridSpec): CardText => ({
   emoji: "🤴", name: "King's Court",
   consts: [["MY_VALUE", rankValue(g, rankAt(g, p.target)), g.cards ? RANK_NAMES[rankValue(g, rankAt(g, p.target))] ?? "" : ""]],
-  about: `Your target is ${g.say.rank(rankAt(g, p.target))}. Each cell showing it scores 1 point for every cell around it `
+  about: `Try to surround your target, ${g.say.rank(rankAt(g, p.target))}, with other colours. Each cell showing it scores 1 point for every cell around it `
     + "(corners too) that is a different colour from it.",
 });
 const kingsCourt = gridFamily<CourtRankP>({
@@ -980,9 +981,9 @@ const kingsCourt = gridFamily<CourtRankP>({
 type FourP = { colour: string };
 const fourText = (p: FourP, g: GridSpec): CardText => ({
   emoji: "🔴", name: "Connect Four", consts: [["MY_COLOUR", p.colour]],
-  about: `Your counters are ${p.colour}. They fall to the bottom, so a counter only stands if every cell below it is `
-    + `${p.colour} too. Every group of 4 standing counters in a row (across, down or diagonal) scores 1 point. A longer line `
-    + "counts every group of 4 in it. Most points wins. If that's a tie, more standing counters wins.",
+  about: `Try to connect four of your ${p.colour} counters. They fall to the bottom, so a counter only stands if every cell below it is `
+    + `${p.colour} too. Every group of 4 standing counters in a row (across, down or diagonal) scores 1 primary point. A longer line `
+    + "counts every group of 4 in it. Each standing counter scores 1 secondary point.",
 });
 const connectFour = gridFamily<FourP>({
   id: "connect_four", name: "Connect Four", emoji: "🔴", theme: "Four in a row, stacked from the bottom",
@@ -1041,10 +1042,10 @@ const connectFour = gridFamily<FourP>({
 type AnyParadeP = Record<string, never>;
 const anyParadeText = (_p: AnyParadeP, _g: GridSpec): CardText => ({
   emoji: "🎪", name: "Any-Suit Parade", consts: [],
-  about: "A parade is a Jack, Queen and King of any one suit, side by side in that order "
-    + "along a row or column, all in one colour. A parade scores 1 point. "
-    + "With the Ace of that suit just before the Jack, it scores 2 points. Most points wins. "
-    + "If that's a tie, count side-by-side Jack-Queen and Queen-King pairs of one suit.",
+  about: "Try to march a parade of any one suit. A parade is a Jack, Queen and King of one suit, side by side in that order "
+    + "along a row or column, all in one colour. A parade scores 1 primary point. "
+    + "With the Ace of that suit just before the Jack, it scores 2 primary points. "
+    + "Each side-by-side Jack-Queen or Queen-King pair of one suit scores 1 secondary point.",
 });
 const anySuitParade = gridFamily<AnyParadeP>({
   id: "any_suit_parade", name: "Any-Suit Parade", emoji: "🎪", theme: "J, Q, K of any one suit marching in a line",

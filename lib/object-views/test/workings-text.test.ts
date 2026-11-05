@@ -23,21 +23,23 @@ test("probability and percent keep three significant digits and no exponent", ()
 
 test("Number Bonds: pairs, then the share of boards, then −log₂ with the same numbers", () => {
   const t = workingsText(bonds());
-  assert.equal(t.rawTotal, "Total: 4 best-friend pairs");
+  assert.equal(t.rawTotal, "Total: (4), 4 best-friend pairs");
   assert.match(t.rarityLines[0], /^Out of all possible boards, dealt at random, 17\.2% have at least 4 best-friend pairs\.$/);
   assert.equal(t.rarityLines[1], "As a chance: P = 0.172.");
   assert.equal(t.bitsLines[0], "bits = −log₂(P) = −log₂(0.172) = 2.54 bits");
   assert.match(t.bitsLines[1], /^That is 1 in 5\.8: /);
-  assert.deepEqual(t.rawLines.map(l => l.points), ["+4", "0"]);
+  assert.deepEqual(t.rawLines.map(l => l.points), ["(+4)", "(0)"]);
 });
 
-test("a tie-break score says it counts them; a defence goal shows s⁻, h, E h and the net sum", () => {
+test("a points tuple names each tier and compares them in order; a defence goal shows s⁻, h, E h and the net sum", () => {
   const w = bonds({
-    components: ["lines", "tie-break: how far"], breakdown: { unit: ["line", "lines"], items: [], total: [1, -2] },
+    components: ["lines", "how far"], breakdown: { unit: ["line", "lines"], items: [], total: [1, -2] },
     defence: { ordinal: [3], badnessBits: 2, penaltyBits: 0.5, meanBits: 0.25, weight: 2 }, netBits: 2.54 - 2 * (0.5 - 0.25),
   });
   const t = workingsText(w);
-  assert.match(t.rarityLines[0], /at least this score \(1 line, counting tie-breaks\)/);
+  assert.equal(t.rawTotal, "Total: (1, −2): primary points 1 (lines), secondary points −2 (how far)");
+  assert.match(t.rarityLines[0], /a points tuple at least \(1, −2\) \(primary points first, then secondary…\)/);
+  for (const line of [t.rawTotal, ...t.rarityLines]) assert.doesNotMatch(line, /\bwins?\b|\btie/i);
   assert.match(t.defenceLines[0], /as bad as or worse than 25% of random boards/);
   assert.equal(t.netLines[0], "net bits = ✨ 2.54 − 2 × (0.50 − 0.25) = 2.04");
   assert.equal(t.rawLines[0].text, "Nothing on this board scores");

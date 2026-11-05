@@ -1,4 +1,4 @@
-/** ♟️ Chessmaster: 2×2 blocks that alternate like a chessboard (points); every A–B touch is the tie-break. */
+/** ♟️ Chessmaster: 2×2 blocks that alternate like a chessboard (primary points); every A–B touch (secondary points). */
 import { lens, tally, count } from "../lens.ts";
 import type { Cell, Part } from "../model.ts";
 
@@ -7,13 +7,13 @@ type P = { colour_a: string; colour_b: string };
 
 export const chessmaster = lens<P>({
   familyId: "chessmaster",
-  components: (p, b) => ["chessboards", `tie-break: places where ${p.colour_a} touches ${p.colour_b}`],
+  components: (p, b) => ["chessboards", `places where ${p.colour_a} touches ${p.colour_b}`],
   breakdown: (p, b, parts) => ({
     unit: ["chessboard", "chessboards"],
     items: tally(parts, [
       { of: t => t.shape === "block" && t.points[0] > 0, text: n => `${count(n, "little chessboard")} (2×2 blocks that alternate)` },
       { of: t => t.shape === "block", text: n => `${count(n, "2×2 block")} that ${n === 1 ? "is" : "are"} not a chessboard` },
-      { of: () => true, text: n => `${count(n, "place")} where ${p.colour_a} touches ${p.colour_b} (tie-break)` },
+      { of: () => true, text: n => `${count(n, "place")} where ${p.colour_a} touches ${p.colour_b}` },
     ]),
   }),
   parts: (p, b) => {
@@ -23,7 +23,7 @@ export const chessmaster = lens<P>({
     for (const x of b.cells) {
       for (const [name, y] of [["right", { r: x.r, c: x.c + 1 }], ["down", { r: x.r + 1, c: x.c }]] as const) {
         if (b.inside(y.r, y.c) && opposite(x, y)) {
-          seams.push({ id: `seam:${x.r},${x.c}:${name}`, shape: "pair", cells: [x, y], points: [0, 1], title: `${A} touches ${B}`, facts: [{ text: `${b.colour(x)} next to ${b.colour(y)}`, ok: true }], group: "pair" });
+          seams.push({ id: `seam:${x.r},${x.c}:${name}`, shape: "pair", cells: [x, y], points: [0, 1], title: `${A} touches ${B}`, facts: [{ text: `${b.colour(x)} next to ${b.colour(y)}`, ok: true, tier: 1 }], group: "pair" });
         }
       }
       if (x.r === b.N - 1 || x.c === b.N - 1) continue;
@@ -38,6 +38,6 @@ export const chessmaster = lens<P>({
     }
     return [...blocks, ...seams];
   },
-  // The board is carved by 2×2 block centres; the touching pairs (the second component) by their shared edges.
+  // The board is carved by 2×2 block centres; the touching pairs (secondary points) by their shared edges.
   hover: p => ({ modes: [{ id: "block", label: "2×2 blocks", groups: ["block"] }, { id: "pair", label: `${p.colour_a}–${p.colour_b} touches`, groups: ["pair"] }] }),
 });
