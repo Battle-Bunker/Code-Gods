@@ -32,7 +32,7 @@ test("availability follows the audience; search ranks titles first and hides wha
 });
 
 test("the glossary has the 15 game terms plus the client's own words", () => {
-  assert.equal(GLOSSARY_IDS.length, 18);
+  assert.equal(GLOSSARY_IDS.length, 24);
   for (const id of GLOSSARY_IDS) assert.ok(GLOSSARY[id].gloss.length > 20 && GLOSSARY[id].gloss.length <= 160, id);
   assert.ok(GLOSSARY_IDS.includes("payoff") && GLOSSARY_IDS.includes("panel") && GLOSSARY_IDS.includes("pane") && GLOSSARY_IDS.includes("palette"));
 });

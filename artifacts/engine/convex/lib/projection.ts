@@ -179,7 +179,7 @@ export function agentView(game: ClockedGame, agent: Doc<"agents">, nowMs = Date.
     summonCost: agent.summonCost, expectedActCost: agent.expectedActCost,
     breakdown: costBreakdown(agent.breakdown), randomized: agent.randomized, energy: status.energy, eligible: status.eligible,
     powerShare: shareOf(agent, game.settings), income: agentIncomeOf(agent, game.settings),
-    acts: agent.acts, spent: agent.spent, skips: agent.skips ?? 0,
+    acts: agent.acts, spent: agent.spent, ...(agent.spentRead !== undefined ? { spentRead: agent.spentRead } : {}), skips: agent.skips ?? 0,
     ...agentOutcomes(agent),
   };
 }

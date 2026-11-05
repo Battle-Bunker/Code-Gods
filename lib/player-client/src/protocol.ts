@@ -132,6 +132,8 @@ export const observationSchema = z.object({
     energy: finite, eligible: z.boolean(),
     // Its share (0–1) of your power and its income: share x economy.powerPerSecond bits per world second.
     powerShare: finite.optional(), income: finite.optional(), acts: z.number().int().nonnegative(), spent: finite, skips: z.number().int().nonnegative().optional(),
+    // Of `spent`: the bits its acts read (the rest paid for the changes they made).
+    spentRead: finite.optional(),
     // How its acts ended (counted since the engine started counting: older agents' earlier acts are not in it): changed
     // the object, or failed by kind (collision: another object already had the value; noChange; commit: the commit
     // clause kept the object; invalid call; error: the code raised or timed out), with the last invalid call or error.

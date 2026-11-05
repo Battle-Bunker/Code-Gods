@@ -20,3 +20,8 @@ export function AgentName({ id, name, description }: { id: string; name: string;
       className: `absolute left-0 top-full z-10 mt-1 w-64 max-w-[80vw] whitespace-pre-wrap break-words border bg-popover p-2 text-xs font-normal text-popover-foreground shadow ${open ? "block" : "hidden group-hover:block group-focus-within:block"}`,
     }, text) : null);
 }
+
+/** The name to show for an agent: its own, or "Agent 1", "Agent 2"… by its place in the list when it has none. */
+export function agentLabel(name: string | undefined, index: number): string {
+  return name?.trim() || `Agent ${index + 1}`;
+}

@@ -334,6 +334,8 @@ export const gameTables = {
     /** LEGACY (cleared by migrations.agentPricesV2): the decision price and the per-act floor, no longer charged. */
     decisionBits: v.optional(v.number()), perActFloorBits: v.optional(v.number()),
     breakdown, randomized: v.boolean(), account, acts: v.number(), spent: v.number(),
+    /** Of `spent`, the bits its acts read (the rest paid for changes), counted since this field existed; absent: none yet. */
+    spentRead: v.optional(v.number()),
     /** Acts that returned no calls (docs/energy-model.md §2), counted since the energy model; absent: none yet. */
     skips: v.optional(v.number()),
     /** World time of its last opportunity: the per-agent cap (game-core MAX_AGENT_OPPORTUNITY_HZ); absent: none yet. */
