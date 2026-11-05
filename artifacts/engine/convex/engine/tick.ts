@@ -96,7 +96,9 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
     if (phase === "planning" || phase === "paused") {
       const deadline = phase === "planning" ? game.planningEndsAt : game.pauseEndsAt;
       if (now < deadline) return ctx.runMutation(internal.engine.loop.commit, { ...base, kind: "wait" });
-      const end = phase === "planning" ? planningEnd(deadline, sandboxes) : { at: deadline };
+      // Hold rarity's corrections (engine/hold.ts) hold planning the same way, until computed (or failed).
+      const hold = game.holdState === undefined ? [] : [{ state: game.holdState === "computing" ? "warming" as const : "ready" as const, readyAt: game.holdReadyAt }];
+      const end = phase === "planning" ? planningEnd(deadline, [...sandboxes, ...hold]) : { at: deadline };
       if ("hold" in end) {
         const failed = sandboxes.some(s => s.state === "failed");
         return ctx.runMutation(internal.engine.loop.commit, { ...base, kind: "wait", wakeAt: now + (failed ? HOLD_FAILED_POLL_MS : HOLD_POLL_MS) });

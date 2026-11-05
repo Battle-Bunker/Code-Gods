@@ -87,6 +87,8 @@ export const eventV = v.union(
     breakdown, randomized: v.boolean(), account,
   }),
   v.object({ t: v.literal("destroy"), agentId: v.string(), ownerId: v.string(), world: v.number() }),
+  /** The hold corrections arrived during planning (schema 7): the object re-scored with them, before the world ran. */
+  v.object({ t: v.literal("rescore"), objectId: v.string(), value: wire, version: v.number(), world: v.number(), net: v.array(v.number()), noise: v.optional(v.number()) }),
   /** The owner re-allocated its power (schema 6): the agent's share from `world` on. */
   v.object({ t: v.literal("power"), agentId: v.string(), ownerId: v.string(), world: v.number(), share: v.number() }),
 );
@@ -98,6 +100,12 @@ export const lastFailuresV = v.object({ invalid: v.optional(v.string()), error: 
 export const futileEntriesV = v.array(v.object({ o: v.id("objects"), v: v.number(), by: v.optional(v.id("objects")), bv: v.optional(v.number()) }));
 
 export const gameTables = {
+  /**
+   * Hold-rarity correction tables (docs/energy-model.md §8), computed on demand and kept: one per (static table key, m,
+   * noise version) in `key` (engine/hold.ts holdCacheKey). Engine only, never projected.
+   */
+  holdTables: defineTable({ key: v.string(), table: v.any(), computedAt: v.number() }).index("by_key", ["key"]),
+
   rooms: defineTable({
     /** Short code from the room GUID (Crockford base32 prefix); `encoded` is the full 26-digit encoding. */
     shortCode: v.string(), guid: v.string(), encoded: v.string(),
@@ -203,6 +211,15 @@ export const gameTables = {
      * first tick of a game started before pinning (no migration: an unpinned game pins itself).
      */
     tablesStorageId: v.optional(v.id("_storage")),
+    /**
+     * Hold rarity (docs/energy-model.md §8): the hold corrections of a game with more than one player are computed
+     * during planning (engine/hold.ts); planning waits while `computing`. Absent: none needed (one player, or a game
+     * from before hold rarity). `failed` plays on static rarity, `holdError` says why.
+     */
+    holdState: v.optional(v.union(v.literal("computing"), v.literal("ready"), v.literal("failed"))),
+    holdPending: v.optional(v.array(v.string())), holdError: v.optional(v.string()),
+    /** Wall ms the hold state left `computing` (ready or failed): planning ends no earlier, like a sandbox's readyAt. */
+    holdReadyAt: v.optional(v.number()),
     /**
      * Public: the engine's ticks for this game are failing and being retried with backoff (engine/loop.ts tickFailed);
      * cleared by the next tick that succeeds. Written when the failures start (or their reason changes), never per retry

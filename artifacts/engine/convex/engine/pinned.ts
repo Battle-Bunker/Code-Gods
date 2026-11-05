@@ -12,6 +12,7 @@
  */
 import { instantiationOf, type GameSettings } from "@workspace/game-core";
 import type { CalibrationTable, UtilityDescriptor } from "@workspace/game-utilities";
+import type { HoldTable } from "@workspace/game-utilities/hold";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import type { ActionCtx } from "../_generated/server";
@@ -19,15 +20,15 @@ import { gameTables } from "./calibration";
 import { pinTables, type Deal, type PinnedTables, type ScoringTables } from "./node";
 
 export const PINNED_FORMAT = "code-gods.pinned-tables.v1";
-type PinnedFile = { format: string; instance: string; gods: { godId: string; reward: CalibrationTable; penalty?: CalibrationTable }[] };
+type PinnedFile = { format: string; instance: string; gods: { godId: string; reward: CalibrationTable; penalty?: CalibrationTable; hold?: HoldTable }[] };
 
 export function pinnedFile(p: PinnedTables): PinnedFile {
-  return { format: PINNED_FORMAT, instance: p.instance, gods: [...p.byGod].map(([godId, t]) => ({ godId, reward: t.reward, ...(t.penalty ? { penalty: t.penalty } : {}) })) };
+  return { format: PINNED_FORMAT, instance: p.instance, gods: [...p.byGod].map(([godId, t]) => ({ godId, reward: t.reward, ...(t.penalty ? { penalty: t.penalty } : {}), ...(t.hold ? { hold: t.hold } : {}) })) };
 }
 export function fromPinnedFile(file: PinnedFile, instance: string): PinnedTables {
   if (file?.format !== PINNED_FORMAT) throw new Error(`The game's pinned tables have format ${String(file?.format)}, expected ${PINNED_FORMAT}`);
   if (file.instance !== instance) throw new Error(`The game's pinned tables are for ${file.instance}, not ${instance}`);
-  return { pinned: true, instance, byGod: new Map(file.gods.map(g => [g.godId, { reward: g.reward, ...(g.penalty ? { penalty: g.penalty } : {}) }])) };
+  return { pinned: true, instance, byGod: new Map(file.gods.map(g => [g.godId, { reward: g.reward, ...(g.penalty ? { penalty: g.penalty } : {}), ...(g.hold ? { hold: g.hold } : {}) }])) };
 }
 
 /** Store a deal's pinned tables as one file; returns its storage id. */

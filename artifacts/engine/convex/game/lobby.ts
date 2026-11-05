@@ -213,6 +213,8 @@ export const commitStart = internalMutation({
       createdAt: now, planningEndsAt, pauseEndsAt: 0,
       endAtWorld: args.endAtWorld, noiseKey: args.noiseKey, executionEpoch: 0,
       ...(args.tablesStorageId ? { tablesStorageId: args.tablesStorageId } : {}),
+      // Hold rarity (docs/energy-model.md §8): more than one player needs its corrections, computed during planning.
+      ...(args.deities.length > 1 ? { holdState: "computing" as const, holdPending: [] } : {}),
     });
     await putCatalog(ctx, `game:${gameId}`, args.catalog, 0);
     for (const [index, d] of args.deities.entries()) {
@@ -253,6 +255,7 @@ export const commitStart = internalMutation({
     });
     await ctx.scheduler.runAt(nextDeadline({ phase: "planning", planningEndsAt, pauseEndsAt: 0 }, now)!, internal.engine.tick.run, { gameId, seq: 0 });
     await ctx.scheduler.runAfter(0, internal.ai.seats.startAll, { gameId });
+    if (args.deities.length > 1) await ctx.scheduler.runAfter(0, internal.engine.hold.start, { gameId });
     const result = { gameId, shortCode, guid };
     if (args.requestId) {
       await ctx.db.insert("receipts", { roomId: room._id, actorId, requestId: `start:${args.requestId}`, hash: "start", result, createdAt: now });
