@@ -12,7 +12,8 @@ export const TIER_NAMES = ["primary", "secondary", "tertiary", "quaternary"] as 
 export const tierName = (k: number): string => TIER_NAMES[k] ?? `tier ${k + 1}`;
 
 /** A number with a real minus sign ("−3"). */
-const minus = (n: number) => (n < 0 ? `−${-n}` : String(n));
+export const minusText = (n: number) => (n < 0 ? `−${-n}` : String(n));
+const minus = minusText;
 /** A change with its sign ("+1", "−3", "0"). */
 export const signedPoints = (n: number) => (n > 0 ? `+${n}` : minus(n));
 

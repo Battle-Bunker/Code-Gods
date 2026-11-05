@@ -9,12 +9,12 @@
  * the list's boxes are reachable in order with Tab.
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
-import { hitTest, sortUnits, defaultGeometry, groupOf, impactText, tierName, toneOf, tupleText, type Explanation, type GoalExplainer, type HoverMode, type Part } from "@workspace/game-utilities";
+import { hitTest, sortUnits, defaultGeometry, groupOf, impactText, minusText, signedPoints, tierName, toneOf, tupleText, type Explanation, type GoalExplainer, type HoverMode, type Part } from "@workspace/game-utilities";
 import { getColourCue, gridModel, subscribeColourCue, type ColourCue, type GridCellModel } from "../grid-display.ts";
 import type { GridSettings } from "../registry.ts";
 import {
   TONE_COLOUR, TONE_DASH, TONE_MARK, arrowPath, badgePoint, boardPx, cellX, cellY, centre, isStroke, litCells, linkPath, outlinePath,
-  pillPath, signed, type BoardGeometry,
+  pillPath, type BoardGeometry,
 } from "./layout.ts";
 import { CellGlyph } from "../glyph.tsx";
 import { HowThisScores } from "./HowThisScores.tsx";
@@ -97,7 +97,7 @@ function UnitBox({ part, selected, model, onSelect, setRef }: {
           {multi && (
             <div className="flex text-[11px] text-muted-foreground">
               <span>{tierName(k)} points</span>
-              <span className="ml-auto font-mono">{signed(part.points[k] ?? 0)}</span>
+              <span className="ml-auto font-mono">{signedPoints(part.points[k] ?? 0)}</span>
             </div>
           )}
           <ul className="space-y-0.5">
@@ -210,7 +210,7 @@ export function GoalBoard({ goal, value, grid, caption, changed, selected: chose
   const tuple = rich && ord ? ord : scoreArr;
   const total: ReactNode = tuple
     ? <>This board: <b>{tupleText(tuple)}</b> <Term id="points-tuple">points</Term>
-      {rich && explanation && <span className="text-muted-foreground"> — {explanation.components.map((name, k) => `${explanation.components.length > 1 ? `${tierName(k)}: ` : ""}${name}, ${tupleText([tuple[k]]).slice(1, -1)}`).join(" · ")}</span>}</>
+      {rich && explanation && <span className="text-muted-foreground"> — {explanation.components.map((name, k) => `${explanation.components.length > 1 ? `${tierName(k)}: ` : ""}${name}, ${minusText(tuple[k])}`).join(" · ")}</span>}</>
     : null;
   const tone = selected ? toneOf(selected.points) : "zero";
 
@@ -280,7 +280,7 @@ export function GoalBoard({ goal, value, grid, caption, changed, selected: chose
         </defs>
         {arrow && <path d={arrow} fill="none" stroke={TONE_COLOUR[tone]} strokeOpacity={0.8} strokeWidth={1.75} markerEnd={`url(#goal-arrow-${tone})`} data-testid="goal-unit-arrow" />}
       </svg>
-      <span aria-live="polite" className="sr-only">{selected ? `${selected.title}, ${impactText(selected.points)}. ${selected.facts.map(f => `${f.ok ? TONE_MARK.gain : TONE_MARK.loss} ${f.text}`).join(". ")}` : ""}</span>
+      <span aria-live="polite" className="sr-only">{selected ? `${selected.title}, ${impactText(selected.points)}. ${byTier(selected).map(([k, fs]) => `${selected.points.length > 1 ? `${tierName(k)} points ${signedPoints(selected.points[k] ?? 0)}: ` : ""}${fs.map(f => `${f.ok ? TONE_MARK.gain : TONE_MARK.loss} ${f.text}`).join(". ")}`).join(". ")}` : ""}</span>
     </div>
   );
 }

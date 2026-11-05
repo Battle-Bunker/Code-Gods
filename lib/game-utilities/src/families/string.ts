@@ -173,7 +173,7 @@ const lastWord = stringFamily<EndP>({
   support: () => ENDINGS.map(ending => ({ ending })),
   canonical: () => ({ ending: ENDINGS[0] }),
   summary: p => `Try to have the last word: make x end with "${p.ending}". Each character that matches, counting from `
-    + "the end, scores 1 point.",
+    + "the end and stopping at the first that doesn't, scores 1 point.",
   python: p => pyCard(endText(p), `
     def utility(x):
         n = 0
@@ -197,7 +197,7 @@ const mirror = stringFamily<Record<string, never>>({
   id: "mirror", name: "Mirror", emoji: "🪞", theme: "Wants x to be a palindrome.", shape: SCALAR,
   params: () => ({}),
   support: () => [{}],
-  summary: () => "Try to make x read the same backwards. Each pair of characters that matches, from the outside in, scores 1 point.",
+  summary: () => "Try to make x read the same backwards. Each pair of characters that matches, from the outside in and stopping at the first that doesn't, scores 1 point.",
   python: () => pyCard(mirrorText, `
     def utility(x):
         pairs = 0
@@ -265,7 +265,7 @@ const echo = stringFamily<PeriodP>({
   params: () => ({ period: intParam("Period", 2, 6) }),
   support: () => range(2, 6).map(period => ({ period })),
   summary: p => `Try to make x repeat itself every ${p.period} characters. From the start, each character equal to the one `
-    + `${p.period} places earlier scores 1 point.`,
+    + `${p.period} places earlier scores 1 point, stopping at the first that isn't.`,
   python: p => pyCard(echoText(p), `
     def utility(x):
         echoes = 0

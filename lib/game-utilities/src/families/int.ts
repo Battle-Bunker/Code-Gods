@@ -78,7 +78,7 @@ const tailwright = intFamily<TailP>({
   legacy: p => (typeof p.tail === "string" && !TAILS.includes(p.tail) ? { tail: nearestOf(TAILS, p.tail) } : null),
   support: () => TAILS.map(tail => ({ tail })),
   summary: p => `Try to make the decimal digits of x end in ${p.tail}. Each trailing digit that matches, counting from `
-    + "the end, scores 1 point. Everything before the tail is yours to trade.",
+    + "the end and stopping at the first that doesn't, scores 1 point. Everything before the tail is yours to trade.",
   python: p => pyCard(tailText(p), `
     def utility(x):
         ds = digits(x)
@@ -112,7 +112,7 @@ const firstborn = intFamily<HeadP>({
   params: () => ({ head: valuesParam("Wanted leading digits", HEADS) }),
   legacy: p => (typeof p.head === "string" && !HEADS.includes(p.head) ? { head: nearestOf(HEADS, p.head) } : null),
   support: () => HEADS.map(head => ({ head })),
-  summary: p => `Try to make the decimal digits of x begin with ${p.head}. Each leading digit that matches scores 1 point. `
+  summary: p => `Try to make the decimal digits of x begin with ${p.head}. Each leading digit that matches, stopping at the first that doesn't, scores 1 point. `
     + "Whatever follows the head is negotiable.",
   python: p => pyCard(headText(p), `
     def utility(x):
@@ -325,7 +325,7 @@ const palindromist = intFamily<BaseP>({
   legacy: p => (typeof p.base === "number" && !BASES.includes(p.base) ? { base: nearestOf(BASES, p.base) } : null),
   support: () => BASES.map(base => ({ base })),
   summary: p => `Try to make x read the same forwards and backwards in base ${p.base}. Each pair of digits that matches, `
-    + "counting from the outside in, scores 1 point.",
+    + "counting from the outside in and stopping at the first that doesn't, scores 1 point.",
   python: p => pyCard(palText(p), `
     def utility(x):
         n = abs(x)
@@ -614,7 +614,7 @@ const refrain = intFamily<Record<string, never>>({
   // LEGACY (equal-opportunity fix): `{ period }` from before the period was fixed reads as today's rule.
   legacy: p => ("period" in p ? {} : null),
   support: () => [{}],
-  summary: () => `Try to make the decimal digits of x repeat every ${PERIOD} digits. From the front, each digit that repeats the one ${PERIOD} places earlier scores 1 point.`,
+  summary: () => `Try to make the decimal digits of x repeat every ${PERIOD} digits. From the front, each digit that repeats the one ${PERIOD} places earlier scores 1 point, stopping at the first that doesn't.`,
   python: () => pyCard(refrainText, `
     def utility(x):
         ds = digits(x)

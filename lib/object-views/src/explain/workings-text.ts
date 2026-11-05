@@ -2,7 +2,7 @@
  * Kid wording for "How this scores" (game-utilities explain/workings.ts): one idea per line, the real numbers shown.
  * Pure text, so it is unit tested under Node; HowThisScores.tsx only lays it out.
  */
-import { impactText, tierName, tupleText, type ScoreWorkings } from "@workspace/game-utilities";
+import { impactText, minusText, tierName, tupleText, type ScoreWorkings } from "@workspace/game-utilities";
 import { formatCount, oneInN } from "../rarity.ts";
 
 /** 0.172 → "0.172"; 0.0004213 → "0.000421"; 1 → "1": three significant digits, no exponent. */
@@ -44,8 +44,8 @@ export function workingsText(w: ScoreWorkings, noun = "board"): WorkingsText {
   const multi = w.components.length > 1, tuple = tupleText(w.breakdown.total);
   // The raw score is the points tuple; a rule with several tiers says what each counts.
   const rawTotal = multi
-    ? `Total: ${tuple}: ${w.components.map((name, k) => `${tierName(k)} points ${String(w.breakdown.total[k]).replace("-", "−")} (${name})`).join(", ")}`
-    : `Total: ${tuple}, ${first} ${unit}`;
+    ? `Total: ${tuple}: ${w.components.map((name, k) => `${tierName(k)} points ${minusText(w.breakdown.total[k])} (${name})`).join(", ")}`
+    : `Total: ${tuple}, ${minusText(first)} ${unit}`;
   const r = w.rarity, p = formatProbability(r.probability);
   const atLeast = multi ? `a points tuple at least ${tuple} (primary points first, then secondary…)` : `at least ${first} ${unit}`;
   const rarityLines = [

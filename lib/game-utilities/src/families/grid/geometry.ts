@@ -302,7 +302,7 @@ const courtText = (p: CourtP, g: GridSpec): CardText => {
     consts: [["MY_SUIT", p.suit]],
     about: `Try to build a court of picture cards around the middle. The middle cell must be ${royal}. Your court is it plus every such card joined to it by touching cells. `
       + "Each card in your court scores 1 primary point, doubled if none of the court is on the edge. "
-      + "Each such card off the edge scores 1 secondary point.",
+      + "Each such card off the edge, anywhere on the board, scores 1 secondary point.",
   };
 };
 const royalCourt = gridFamily<CourtP>({
