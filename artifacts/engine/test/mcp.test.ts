@@ -420,6 +420,13 @@ test("disclosure: every read tool, as one of three players, reveals no other god
     cursor = page.nextCursor;
   }
   assert.deepEqual(pagedStart.map(o => o.objectId).sort(), atStart.objects.map((o: any) => o.objectId).sort());
+  // A board read now keeps its moment across pages: the next page is of the first page's world.
+  const nowFirst: any = await call(token, "get_board_at", { limit: 5 });
+  const nowNext: any = await call(token, "get_board_at", { limit: 5, cursor: nowFirst.nextCursor });
+  assert.ok(!nowNext.error && nowNext.data.world === nowFirst.data.world, JSON.stringify(nowNext).slice(0, 300));
+  // An observation cursor is of one sort.
+  const wrongSort = await call(token, "get_observation", { objectsLimit: 3, objectsSort: "mutations", objectsCursor: first.nextCursor });
+  assert.equal(wrongSort.error?.code, "BAD_REQUEST");
   const fitted = (await call(token, "fit_utility_mixture", { maxObservations: 200 })).data;
   assert.ok(fitted.observations >= 12 && fitted.hypotheses.length > 0 && fitted.hypotheses[0].draws.length === 2, JSON.stringify(fitted).slice(0, 400));
   // With exact observations the true pair of the other gods' rules explains them: it is in the fit (as a class).

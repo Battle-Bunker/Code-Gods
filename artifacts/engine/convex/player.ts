@@ -39,32 +39,35 @@ import { publicGameView } from "./games";
  * `objectsNext`); `self.score` and `objectCount` come from the caller's godTotals; agents, chat and recent
  * transformations are capped (NARROW_CAPS). Without it, the whole world as before (the dock, until it moves off).
  */
-export const NARROW_CAPS = { agents: 20, chat: 20, transformations: 50 } as const;
+export const NARROW_CAPS = { agents: 50, chat: 20, transformations: 50 } as const;
 export async function observationFor(ctx: QueryCtx, viewer: Viewer, args: { roomId: string; objectsLimit?: number; objectsSort?: ObjectSort; objectsCursor?: string }) {
   const room = await requireRoom(ctx, args.roomId);
   await requireMemberAs(ctx, viewer, room, "read");
   if (args.objectsLimit === undefined) return (await buildObservation(ctx, room, viewer.subject))!;
   let next: string | null = null, objectCount = 0;
+  const sort = args.objectsSort ?? "payoff";
   const observation = (await buildObservation(ctx, room, viewer.subject, {
     ...NARROW_CAPS,
     objects: async game => {
       const [page, t] = await Promise.all([
-        viewPage(ctx, game._id, viewer.subject, { sort: args.objectsSort, limit: args.objectsLimit, after: decodeCursor(args.objectsCursor) }),
+        viewPage(ctx, game._id, viewer.subject, { sort, limit: args.objectsLimit, after: decodeCursor(args.objectsCursor, sort) }),
         totalsDoc(ctx, game._id, viewer.subject),
       ]);
-      next = page.next && encodeCursor(page.next); objectCount = t?.objectCount ?? 0;
+      next = page.next && encodeCursor(sort, page.next); objectCount = t?.objectCount ?? 0;
       return { views: page.rows.map(objectViewOf), score: t?.score ?? 0 };
     },
   }))!;
   return { ...observation, objectCount, objectsNext: next };
 }
-/** An objectViews cursor as one opaque string ("<key>|<creation time>", key "null" for a never-mutated row). */
-const encodeCursor = (c: { key: number | null; at: number }) => `${c.key}|${c.at}`;
-function decodeCursor(s?: string) {
+/** An objectViews cursor as one opaque string ("<sort>|<key>|<creation time>", key "null" for a never-mutated row). */
+const encodeCursor = (sort: ObjectSort, c: { key: number | null; at: number }) => `${sort}|${c.key}|${c.at}`;
+function decodeCursor(s: string | undefined, sort: ObjectSort) {
   if (!s) return undefined;
-  const [key, at] = s.split("|");
+  const [from, key, at] = s.split("|");
   const k = key === "null" ? null : Number(key), t = Number(at);
-  if ((k !== null && !Number.isFinite(k)) || !Number.isFinite(t)) fail("BAD_REQUEST", "Not an objects cursor: pass the previous page's objectsNext");
+  if (from !== sort || (k !== null && !Number.isFinite(k)) || !Number.isFinite(t)) {
+    return fail("BAD_REQUEST", "Not an objects cursor of this sort: pass the previous page's objectsNext with the same objectsSort");
+  }
   return { key: k, at: t };
 }
 const observationArgs = {
@@ -612,7 +615,8 @@ export const BOARD_PAGE = 40;
  * the caller's objectViews rows by spawn time up to `world` (by_game_god_created), at most `limit` ≤ BOARD_PAGE; now
  * (no `world`, or `world` at or past the clock), each row is the object as it stands; earlier, each object's last
  * objectEvents row at or before `world` (one indexed read per object). Page with `cursor` (the previous page's
- * `cursor`) until `done`. `partial`: the game predates the per-object history, so a past board misses objects
+ * `cursor`, which keeps the first page's world: `world` may be omitted) until `done`. Now is as the read model last
+ * synced the objects (about a tick behind the commit). `partial`: the game predates the per-object history, so a past board misses objects
  * untouched since then.
  */
 const boardArgs = { roomId: v.string(), gameId: v.optional(v.string()), world: v.optional(v.number()), cursor: v.optional(v.union(v.string(), v.null())), limit: v.optional(v.number()) };
@@ -624,11 +628,16 @@ export const boardAs = internalQuery({
 export async function boardFor(ctx: QueryCtx, caller: Viewer, args: { roomId: string; gameId?: string; world?: number; cursor?: string | null; limit?: number }) {
   const { game, index, viewer } = await seatedGame(ctx, caller, args.roomId, args.gameId);
   const nowWorld = (await withClock(ctx, game)).worldSeconds;
-  const world = args.world ?? nowWorld, current = world >= nowWorld;
+  // A cursor carries the world its first page was read at ("<world>|<Convex cursor>"): the pages of one board are of one moment.
+  const split = args.cursor ? args.cursor.indexOf("|") : -1;
+  const atCursor = split > 0 ? Number(args.cursor!.slice(0, split)) : undefined;
+  if (args.cursor && (atCursor === undefined || !Number.isFinite(atCursor))) return fail("BAD_REQUEST", "Not a board cursor: pass the previous page's cursor");
+  if (atCursor !== undefined && args.world !== undefined && args.world !== atCursor) return fail("BAD_REQUEST", "This cursor is of the board at another world time");
+  const world = atCursor ?? args.world ?? nowWorld, current = world >= nowWorld;
   const limit = Math.max(1, Math.min(BOARD_PAGE, Math.floor(args.limit ?? BOARD_PAGE)));
   const page = await ctx.db.query("objectViews")
     .withIndex("by_game_god_created", q => q.eq("gameId", game._id).eq("godId", viewer.subject).lte("createdAt", world))
-    .paginate({ cursor: args.cursor ?? null, numItems: limit });
+    .paginate({ cursor: atCursor !== undefined ? args.cursor!.slice(split + 1) : null, numItems: limit });
   const live = game.phase !== "ended";
   const objects = current
     ? page.page.map(r => ({ objectId: r.objectId as string, value: r.value, version: r.version, changedAt: r.lastMutatedAt ?? r.createdAt,
@@ -638,6 +647,6 @@ export async function boardFor(ctx: QueryCtx, caller: Viewer, args: { roomId: st
       .flatMap(e => (e ? [{ objectId: e.objectId as string, value: e.value, version: e.version, changedAt: e.world, ...viewAt(e.net, index, live ? e.noise ?? 0 : 0) }] : []));
   return {
     gameId: game._id, world, partial: !current && await partialSeries(ctx, game._id),
-    objects, cursor: page.continueCursor, done: page.isDone,
+    objects, cursor: `${world}|${page.continueCursor}`, done: page.isDone,
   };
 }

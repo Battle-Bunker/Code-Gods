@@ -611,7 +611,7 @@ The CLI's output throttle stays; it limits printing, not reading.
 - A full-world read stays available, explicitly, as a paged tool (`list_objects` with a cursor), never as one query.
 - Done (PR 6): `player.observation` with `objectsLimit` (lib/load.ts `buildObservation` with `NarrowObjects`) reads
   one page of the caller's `objectViews` rows (`objectsSort`, opaque `objectsCursor`), the score and object count from
-  `godTotals`, the leaderboard from the clock's published scoreboard, and caps agents (20), chat (20) and recent
+  `godTotals`, the leaderboard from the clock's published scoreboard, and caps agents (50), chat (20) and recent
   transformations (50). `get_observation`, the command tools' game lookup, `load_skill` and the assistant's briefing
   read it; the page is the tool's paging (`nextCursor`), so no tool reads the world for the observation.
 - `observation` is versioned. The narrow v3 is wire-compatible, with the object list now capped. If the cap changes

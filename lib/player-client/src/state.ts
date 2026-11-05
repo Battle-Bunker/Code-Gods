@@ -41,7 +41,9 @@ export async function playerState(engine: Engine, options: StateOptions = {}) {
     engine.query(api.player.events, { roomId, limit }),
     engine.query(api.player.myUtility, { roomId }),
   ]);
-  const observation = capObjects(observationSchema.parse(raw), options.objects);
+  const parsed = observationSchema.parse(raw);
+  const objectCount = narrow ? (raw as { objectCount?: number }).objectCount ?? 0 : parsed.objects.length;
+  const observation = capObjects(parsed, options.objects);
   const trajectories = events.gameId
     ? await engine.query(api.player.trajectories, { roomId, afterSeq: Math.max(-1, events.latestCursor - limit), limit })
     : null;
@@ -49,7 +51,7 @@ export async function playerState(engine: Engine, options: StateOptions = {}) {
     const kept = new Set(observation.objects.map(o => o.id));
     trajectories.objects = trajectories.objects.filter(o => kept.has(o.objectId));
   }
-  return { roomId, at: Date.now(), untrustedContent: UNTRUSTED_GAME_DATA, observation, events, myUtility, trajectories };
+  return { roomId, at: Date.now(), untrustedContent: UNTRUSTED_GAME_DATA, observation, objectCount, events, myUtility, trajectories };
 }
 
 export interface WatchOptions extends StateOptions {
@@ -142,6 +144,7 @@ export async function watchState(engine: Engine, options: WatchOptions) {
 
   /** Follow the listed objects: one player.object subscription each, dropped when the object leaves the list. */
   const follow = (ids: string[]) => {
+    if (stopped) return;
     latest.ids = ids;
     const keep = new Set(ids);
     for (const [id, r] of rows) if (!keep.has(id)) { r.unsubscribe(); rows.delete(id); }
@@ -159,7 +162,7 @@ export async function watchState(engine: Engine, options: WatchOptions) {
   /** The current game's subscriptions, (re)made when the room's game changes. */
   const onGame = (gameId: string | undefined, seated: boolean) => {
     const id = gameId && seated ? gameId : undefined;
-    if (game?.id === id) return;
+    if (stopped || game?.id === id) return;
     dropGame();
     if (!id) return;
     const g = id as never;

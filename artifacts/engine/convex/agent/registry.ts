@@ -221,7 +221,8 @@ export const EXECUTORS: Executors = {
       note: "Settings are the room's next game; a running game keeps the settings it started with (get_my_utility). `preparing`: the next game is computing its rule tables (first game on this shape on this server) and starts by itself when they are ready." } };
   },
   get_observation: async (ctx, { principal, who }, { objectsLimit, objectsSort, objectsCursor }) => {
-    // Narrow (player.observationFor): one page of the player's objectViews rows, never the world.
+    // Narrow (player.observationFor): one page of the player's objectViews rows, never the world; agentCount counts up
+    // to the narrow read's cap (player.ts NARROW_CAPS.agents, 50).
     const limit = Math.min(OBJECTS_PAGE_MAX, objectsLimit);
     const { objectsNext, ...o }: NarrowObservation = await ctx.runQuery(internal.player.observationAs, {
       principal, roomId: who.roomId, objectsLimit: limit, objectsSort, ...(typeof objectsCursor === "string" ? { objectsCursor } : {}),
