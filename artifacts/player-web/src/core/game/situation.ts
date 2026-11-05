@@ -4,11 +4,12 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import type { Phase } from "@workspace/player-client/panels";
-import { useObservation, useRoomInfo } from "@/sdk";
+import { useDockState, useMyAgents, useRoomInfo } from "@/sdk";
 
 export function useSituation() {
-  const obs = useObservation({ hz: 1 });
+  const obs = useDockState({ hz: 1 });
   const room = useRoomInfo();
+  const agentList = useMyAgents().agents;
   return useMemo(() => {
     const phase: Phase = obs?.phase ?? "lobby";
     return {
@@ -17,11 +18,11 @@ export function useSituation() {
       isOwner: !!room && !!obs && room.ownerId === obs.self.godId,
       // Players of the next game: spectators watch (docs/unify-apps-plan.md §2).
       players: room?.members.filter(m => !m.spectator).length ?? 0,
-      agents: obs?.agents.length ?? 0,
+      agents: agentList.length, agentList,
       ready: obs?.self.ready ?? false,
       pauseUsed: !!obs?.self.pauseUsed,
     };
-  }, [obs, room]);
+  }, [obs, room, agentList]);
 }
 export type Situation = ReturnType<typeof useSituation>;
 

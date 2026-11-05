@@ -294,6 +294,12 @@ jobs:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
         run: node scripts/run-migrations.mjs
 
+      - name: Warm the hold-rarity cache (scheduled in the background; never blocks the deploy)
+        working-directory: artifacts/engine
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+        run: npx convex run engine/holdData:scheduleWarm
+
       - name: Upload the runtime bundle (Python)
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
@@ -320,3 +326,9 @@ jobs:
           # Lazy load from storage round-trips: the Grid default's tables serve a fresh table.
           npx convex run calibration/node:probe '{"settings":{"objectType":"Grid","typeArgs":{"size":4,"symbols":"base10","colours":"rgb"},"priorId":"uniform"},"draw":{"familyId":"seed3_green_ones","params":{"colour":0,"value":0}},"refresh":true}' \
             | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const r=JSON.parse(s);console.log(JSON.stringify(r));if(!r.key||!r.tables)process.exit(1)})'
+
+      - name: Games in progress are still ticking   # last, read-only (engine/loop:liveProgress): fails loudly if a running game stalled
+        working-directory: artifacts/engine
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+        run: node scripts/check-live-games.mjs

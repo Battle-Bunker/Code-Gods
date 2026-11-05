@@ -9,14 +9,14 @@
 import { v } from "convex/values";
 import type { GameSettings } from "@workspace/game-core";
 import { allowedLanguages, instantiationOf } from "@workspace/game-core";
-import type { Doc } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { internalQuery, query, type QueryCtx } from "./_generated/server";
 import { requireRoomPermission, requireViewer, type Viewer } from "./auth/access";
 import { fail } from "./lib/errors";
 import { buildObservation, currentGame, deityOf, latestBatchSeq, objectsOf } from "./lib/load";
 import { withClock } from "./game/state";
 import { objectInstance, personalObject, projectBatches, replayBatches, trajectories as trajectoriesOf } from "./lib/projection";
-import { pageObjects } from "@workspace/player-client/objects-page";
+import { OBJECT_SORTS, type ObjectSort } from "@workspace/player-client/objects-page";
 import { EVENT_LOG_SCHEMA, viewOfNet } from "./lib/world";
 import { findGame, isHistoric, principalV, requireHistoricReaderAs, requireMemberAs, requireRoom, viewerOf } from "./lib/rooms";
 import { publicGameView } from "./games";
@@ -32,13 +32,48 @@ import { publicGameView } from "./games";
  * query runs. Convex re-runs a subscribed query whenever its data changes (each engine commit), but not
  * merely because time passes: a poller that needs fresh clocks while nothing changes (planning, pause)
  * passes `at` (e.g. its wall clock, rounded to the second). `at` is only a cache key; its value is not used.
+ *
+ * With `objectsLimit` the observation is NARROW (docs/convex-read-architecture.md §4.5; the agent tools' read): no
+ * object document is read. `objects` is one page of the caller's objectViews rows in `objectsSort` order (default
+ * payoff, highest first), at most OBJECT_VIEW_PAGE_MAX, after the opaque `objectsCursor` (the previous page's
+ * `objectsNext`); `self.score` and `objectCount` come from the caller's godTotals; agents, chat and recent
+ * transformations are capped (NARROW_CAPS). Without it, the whole world as before (the dock, until it moves off).
  */
-export async function observationFor(ctx: QueryCtx, viewer: Viewer, { roomId }: { roomId: string }) {
-  const room = await requireRoom(ctx, roomId);
+export const NARROW_CAPS = { agents: 50, chat: 20, transformations: 50 } as const;
+export async function observationFor(ctx: QueryCtx, viewer: Viewer, args: { roomId: string; objectsLimit?: number; objectsSort?: ObjectSort; objectsCursor?: string }) {
+  const room = await requireRoom(ctx, args.roomId);
   await requireMemberAs(ctx, viewer, room, "read");
-  return (await buildObservation(ctx, room, viewer.subject))!;
+  if (args.objectsLimit === undefined) return (await buildObservation(ctx, room, viewer.subject))!;
+  let next: string | null = null, objectCount = 0;
+  const sort = args.objectsSort ?? "payoff";
+  const observation = (await buildObservation(ctx, room, viewer.subject, {
+    ...NARROW_CAPS,
+    objects: async game => {
+      const [page, t] = await Promise.all([
+        viewPage(ctx, game._id, viewer.subject, { sort, limit: args.objectsLimit, after: decodeCursor(args.objectsCursor, sort) }),
+        totalsDoc(ctx, game._id, viewer.subject),
+      ]);
+      next = page.next && encodeCursor(sort, page.next); objectCount = t?.objectCount ?? 0;
+      return { views: page.rows.map(objectViewOf), score: t?.score ?? 0 };
+    },
+  }))!;
+  return { ...observation, objectCount, objectsNext: next };
 }
-const observationArgs = { roomId: v.string(), at: v.optional(v.number()) };
+/** An objectViews cursor as one opaque string ("<sort>|<key>|<creation time>", key "null" for a never-mutated row). */
+const encodeCursor = (sort: ObjectSort, c: { key: number | null; at: number }) => `${sort}|${c.key}|${c.at}`;
+function decodeCursor(s: string | undefined, sort: ObjectSort) {
+  if (!s) return undefined;
+  const [from, key, at] = s.split("|");
+  const k = key === "null" ? null : Number(key), t = Number(at);
+  if (from !== sort || (k !== null && !Number.isFinite(k)) || !Number.isFinite(t)) {
+    return fail("BAD_REQUEST", "Not an objects cursor of this sort: pass the previous page's objectsNext with the same objectsSort");
+  }
+  return { key: k, at: t };
+}
+const observationArgs = {
+  roomId: v.string(), at: v.optional(v.number()),
+  objectsLimit: v.optional(v.number()), objectsSort: v.optional(v.union(...OBJECT_SORTS.map(s => v.literal(s)))), objectsCursor: v.optional(v.string()),
+};
 export const observation = query({ args: observationArgs, handler: async (ctx, args) => observationFor(ctx, await requireViewer(ctx), args) });
 export const observationAs = internalQuery({
   args: { principal: principalV, ...observationArgs },
@@ -245,52 +280,208 @@ export async function replayPage(ctx: QueryCtx, room: Doc<"rooms">, stored: Doc<
  * Per-object series of the caller's own net bits, the peer aggregate and payoff over seq / world time, for
  * the Panel SDK: [{objectId, points: [{seq, worldSeconds, value, ownNetBits, peerNetBits, payoff}]}], from
  * batches after `afterSeq` (at most `limit` batches, default 100, max 200). Spectators get no points.
+ * With `upTo`, a closed window: only batches up to `upTo`, and the log's latest batch is not read (`latestCursor` is
+ * the window's own last batch), so a window of batches already written never re-runs on a tick (the dock's
+ * bits-over-time history, sdk/trajectory-windows.ts; read-architecture R6).
  */
-const trajectoriesArgs = { roomId: v.string(), gameId: v.optional(v.string()), afterSeq: v.optional(v.number()), limit: v.optional(v.number()) };
+const trajectoriesArgs = { roomId: v.string(), gameId: v.optional(v.string()), afterSeq: v.optional(v.number()), upTo: v.optional(v.number()), limit: v.optional(v.number()) };
 export const trajectories = query({ args: trajectoriesArgs, handler: async (ctx, args) => trajectoriesFor(ctx, await requireViewer(ctx), args) });
 export const trajectoriesAs = internalQuery({
   args: { principal: principalV, ...trajectoriesArgs },
   handler: async (ctx, { principal, ...args }) => trajectoriesFor(ctx, await viewerOf(ctx, principal), args),
 });
-export const trajectoriesFor = async (ctx: QueryCtx, viewer: Viewer, args: { roomId: string; gameId?: string; afterSeq?: number; limit?: number }) => {
+export const trajectoriesFor = async (ctx: QueryCtx, viewer: Viewer, args: { roomId: string; gameId?: string; afterSeq?: number; upTo?: number; limit?: number }) => {
     const { game, index } = await gameFor(ctx, viewer, args.roomId, args.gameId);
-    if (!game || index < 0) return { gameId: game?._id ?? null, objects: [], nextCursor: args.afterSeq ?? -1, latestCursor: game ? await latestBatchSeq(ctx, game._id) : -1 };
+    const after = args.afterSeq ?? -1, closed = args.upTo !== undefined;
+    const latest = async () => closed ? undefined : game ? await latestBatchSeq(ctx, game._id) : -1;
+    if (!game || index < 0) {
+      const latestCursor = await latest();
+      return { gameId: game?._id ?? null, objects: [], nextCursor: after, latestCursor: latestCursor ?? after };
+    }
     const limit = Math.max(1, Math.min(200, Math.floor(args.limit ?? 100)));
-    const after = args.afterSeq ?? -1;
-    const batches = await ctx.db.query("tickBatches").withIndex("by_game_seq", q => q.eq("gameId", game._id).gt("seq", after)).take(limit);
-    return { gameId: game._id, objects: trajectoriesOf(batches, index, game.phase !== "ended"), nextCursor: batches.at(-1)?.seq ?? after, latestCursor: await latestBatchSeq(ctx, game._id) };
+    const batches = await ctx.db.query("tickBatches").withIndex("by_game_seq", q => {
+      const range = q.eq("gameId", game._id).gt("seq", after);
+      return closed ? range.lte("seq", args.upTo!) : range;
+    }).take(limit);
+    const nextCursor = batches.at(-1)?.seq ?? after;
+    return { gameId: game._id, objects: trajectoriesOf(batches, index, game.phase !== "ended"), nextCursor, latestCursor: (await latest()) ?? nextCursor };
 };
 
+// ------------------------------------------------------------------------------------------------
+// The per-god object read model (docs/convex-read-architecture.md §4.3): the viewer's OWN objectViews rows and
+// godTotals doc (game/objectViews.ts), one index page or one document per query; never another god's row, never the
+// world. A viewer without a seat in the game has no rows: an empty page, null.
+// ------------------------------------------------------------------------------------------------
+
+type ObjectFilter = "all" | "positive" | "contested" | "chips";
+const sortV = v.union(...OBJECT_SORTS.map(s => v.literal(s)));
+const filterV = v.union(v.literal("all"), v.literal("positive"), v.literal("contested"), v.literal("chips"));
+/** A position in one sort: the row's sort key (null: never mutated) and its creation time (the index's tie order). */
+const cursorV = v.object({ key: v.union(v.number(), v.null()), at: v.number() });
+type Cursor = { key: number | null; at: number };
+/** The most rows one page returns (R2: at most 100 documents a query: these, the one past them, the viewer, room and totals). */
+export const OBJECT_VIEW_PAGE_MAX = 90;
+
+/** Each sort's index and field, and its direction (high first; "oldest" is the creation time ascending). */
+const SORTS = {
+  payoff: { index: "by_game_god_payoff", field: "payoff", order: "desc" },
+  mine: { index: "by_game_god_netBits", field: "netBits", order: "desc" },
+  othersCare: { index: "by_game_god_peer", field: "peerCare", order: "desc" },
+  mutations: { index: "by_game_god_version", field: "version", order: "desc" },
+  newest: { index: "by_game_god_created", field: "createdAt", order: "desc" },
+  oldest: { index: "by_game_god_created", field: "createdAt", order: "asc" },
+  recentlyMutated: { index: "by_game_god_mutated", field: "lastMutatedAt", order: "desc" },
+} as const satisfies Record<ObjectSort, { index: string; field: keyof Doc<"objectViews">; order: "asc" | "desc" }>;
+
+const matches = (r: Doc<"objectViews">, filter: ObjectFilter) =>
+  filter === "positive" || filter === "contested" ? r.payoff > 0 : filter === "chips" ? r.peerCare > 0 && r.netBits <= 0 : true;
+const keyOf = (r: Doc<"objectViews">, sort: ObjectSort): number | null => (r[SORTS[sort].field] as number | undefined) ?? null;
+
 /**
- * One page of the caller's objects in the current game, ordered by `sort` (payoff, your bits, others' care) with the
- * object id as tie-break, starting strictly after the cursor `after` ({key, id} of the previous page's `next`); with the
- * footer totals over every object. The keys are what the caller is shown: live, the others' sum carries its disclosure
- * noise (settings.peerNoiseBits), so no sort ever orders by an exact peer value; an ended game is exact.
- * The panel asks for a growing window (limit = pages shown) so one subscription serves the whole list.
+ * Up to `limit` + 1 of `godId`'s rows in `sort` order, strictly after `after`: the rest of the cursor's key (by creation
+ * time, the index's own tie order), then the keys past it. At most limit + 1 documents read.
+ */
+async function rowsAfter(ctx: QueryCtx, gameId: Id<"games">, godId: string, sort: ObjectSort, after: Cursor | undefined, limit: number) {
+  const { index, field, order } = SORTS[sort];
+  // The index builders are typed per index; the seven share one shape (gameId, godId, field), so one untyped builder serves.
+  const range = (bound: (q: any) => any) => ctx.db.query("objectViews").withIndex(index, q => bound((q as any).eq("gameId", gameId).eq("godId", godId))).order(order);
+  if (!after) return await range(q => q).take(limit + 1);
+  const key = after.key ?? undefined;
+  const rows = await range(q => (order === "desc" ? q.eq(field, key).lt("_creationTime", after.at) : q.eq(field, key).gt("_creationTime", after.at))).take(limit + 1);
+  if (rows.length <= limit && key !== undefined) rows.push(...await range(q => (order === "desc" ? q.lt(field, key) : q.gt(field, key))).take(limit + 1 - rows.length));
+  return rows as Doc<"objectViews">[];
+}
+
+/**
+ * One skeleton page: up to `limit` rows matching `filter`, and the cursor after the last row it consumed (null at the
+ * end). A filtered page reads up to OBJECT_VIEW_PAGE_MAX rows to find them, so it may hold fewer, even none.
+ */
+async function viewPage(ctx: QueryCtx, gameId: Id<"games">, godId: string, q: { sort?: ObjectSort; filter?: ObjectFilter; after?: Cursor; limit?: number }) {
+  const sort = q.sort ?? "payoff", filter = q.filter ?? "all";
+  const limit = Math.max(1, Math.min(OBJECT_VIEW_PAGE_MAX, Math.floor(q.limit ?? 30)));
+  const scan = filter === "all" ? limit : OBJECT_VIEW_PAGE_MAX;
+  const read = await rowsAfter(ctx, gameId, godId, sort, q.after, scan);
+  const rows: Doc<"objectViews">[] = [];
+  let last: Doc<"objectViews"> | undefined, consumed = 0;
+  for (const r of read.slice(0, scan)) {
+    if (rows.length === limit) break;
+    consumed++; last = r;
+    if (matches(r, filter)) rows.push(r);
+  }
+  const more = consumed < read.length;
+  return { rows, next: last && more ? { key: keyOf(last, sort), at: last._creationTime } : null, sort };
+}
+
+/** One row as its god sees the object: the observation's object shape (lib/projection.ts personalObject). */
+function objectViewOf(r: Doc<"objectViews">) {
+  return {
+    id: r.objectId as string, value: r.value, version: r.version,
+    mutations: r.version, createdAt: r.createdAt, lastMutatedAt: r.lastMutatedAt ?? null,
+    own: { ordinal: r.ordinal, rewardBits: r.rewardBits, ...(r.penaltyBits !== undefined ? { penaltyBits: r.penaltyBits } : {}), netBits: r.netBits },
+    peerNetBits: r.peerNetBits, peerCare: r.peerCare, payoff: r.payoff,
+  };
+}
+
+const totalsDoc = (ctx: QueryCtx, gameId: Id<"games">, godId: string) =>
+  ctx.db.query("godTotals").withIndex("by_game_god", q => q.eq("gameId", gameId).eq("godId", godId)).first();
+
+/**
+ * The objects panel's skeleton: one page of the viewer's objects in `sort` order (`filter` narrows), as ids and sort
+ * keys, after the cursor `after` (the previous page's `next`). Each visible row reads its object with player.object.
+ */
+export const objectIds = query({
+  args: { gameId: v.id("games"), sort: v.optional(sortV), filter: v.optional(filterV), after: v.optional(cursorV), limit: v.optional(v.number()) },
+  handler: async (ctx, { gameId, ...q }) => {
+    const viewer = await requireViewer(ctx);
+    const page = await viewPage(ctx, gameId, viewer.subject, q);
+    return { rows: page.rows.map(r => ({ id: r.objectId as string, key: keyOf(r, page.sort) })), next: page.next };
+  },
+});
+
+/** One object as the viewer sees it (the viewer's own row): null when the viewer holds no score on it. */
+export const object = query({
+  args: { objectId: v.string() },
+  handler: async (ctx, { objectId }) => {
+    const viewer = await requireViewer(ctx);
+    const id = ctx.db.normalizeId("objects", objectId);
+    const row = id && await ctx.db.query("objectViews").withIndex("by_object_god", q => q.eq("objectId", id).eq("godId", viewer.subject)).first();
+    return row ? objectViewOf(row) : null;
+  },
+});
+
+/** The viewer's top `n` ≤ 20 objects by `by` (the bottom with `dir: "asc"`), each with its position as `rank`. */
+export const objectsTop = query({
+  args: { gameId: v.id("games"), by: v.optional(sortV), n: v.optional(v.number()), dir: v.optional(v.union(v.literal("desc"), v.literal("asc"))) },
+  handler: async (ctx, { gameId, by = "payoff", n = 10, dir }) => {
+    const viewer = await requireViewer(ctx);
+    const { index, order } = SORTS[by];
+    const rows = await ctx.db.query("objectViews").withIndex(index, q => (q as any).eq("gameId", gameId).eq("godId", viewer.subject))
+      .order(dir ?? order).take(Math.max(1, Math.min(20, Math.floor(n)))) as Doc<"objectViews">[];
+    return rows.map((r, i) => ({ ...objectViewOf(r), rank: i + 1 }));
+  },
+});
+
+/** The most objects a rank counts past: a rank beyond it is shown as unknown (null). */
+export const RANK_MAX = 90;
+
+/** One object's rank by the viewer's payoff (1 = best): null beyond RANK_MAX, or when the viewer holds no score on it. */
+export const objectRank = query({
+  args: { objectId: v.string() },
+  handler: async (ctx, { objectId }) => {
+    const viewer = await requireViewer(ctx);
+    const id = ctx.db.normalizeId("objects", objectId);
+    const row = id && await ctx.db.query("objectViews").withIndex("by_object_god", q => q.eq("objectId", id).eq("godId", viewer.subject)).first();
+    if (!row) return null;
+    const above = await ctx.db.query("objectViews")
+      .withIndex("by_game_god_payoff", q => q.eq("gameId", row.gameId).eq("godId", viewer.subject).gt("payoff", row.payoff)).take(RANK_MAX);
+    return above.length < RANK_MAX ? { rank: above.length + 1 } : { rank: null };
+  },
+});
+
+/** The viewer's totals over every object, as disclosed (lib/views.ts GodTotals): null without a seat (or before the first fill). */
+export const totals = query({
+  args: { gameId: v.id("games") },
+  handler: async (ctx, { gameId }) => {
+    const viewer = await requireViewer(ctx);
+    const t = await totalsDoc(ctx, gameId, viewer.subject);
+    return t && { world: t.world, objectCount: t.objectCount, score: t.score, sumOwnNetBits: t.sumOwnNetBits, sumPeerNetBits: t.sumPeerNetBits,
+      contested: t.contested, chips: t.chips, maxOwn: t.maxOwn, maxCare: t.maxCare, maxPayoff: t.maxPayoff, minPayoff: t.minPayoff };
+  },
+});
+
+/**
+ * COMPATIBILITY (stored panels and the bridge): one window of the caller's objects in the room's current game, ordered by
+ * `sort` (`filter` narrows), after the cursor `after` (the previous window's `next`), with the footer totals. Served by
+ * the read model: one index page of at most OBJECT_VIEW_PAGE_MAX rows and the totals doc, never the world. `rank` is the
+ * row's position: by payoff from the top in the first unfiltered payoff window, else within this window. `next.id` is
+ * an opaque cursor, to be handed back as it is.
  */
 const objectsPageArgs = {
-  roomId: v.string(),
-  sort: v.optional(v.union(v.literal("payoff"), v.literal("mine"), v.literal("othersCare"))),
-  filter: v.optional(v.union(v.literal("all"), v.literal("positive"), v.literal("contested"), v.literal("chips"))),
-  after: v.optional(v.object({ key: v.number(), id: v.string() })),
-  limit: v.optional(v.number()),
+  roomId: v.string(), sort: v.optional(sortV), filter: v.optional(filterV),
+  after: v.optional(v.object({ key: v.number(), id: v.string() })), limit: v.optional(v.number()),
 };
-export const objectsPage = query({ args: objectsPageArgs, handler: async (ctx, args) => objectsPageFor(ctx, await requireViewer(ctx), args) });
-export const objectsPageAs = internalQuery({
-  args: { principal: principalV, ...objectsPageArgs },
-  handler: async (ctx, { principal, ...args }) => objectsPageFor(ctx, await viewerOf(ctx, principal), args),
+export const objectsPage = query({
+  args: objectsPageArgs,
+  handler: async (ctx, { roomId, after, ...q }) => {
+    const viewer = await requireViewer(ctx);
+    const room = await requireRoom(ctx, roomId);
+    await requireMemberAs(ctx, viewer, room, "read");
+    const game = await currentGame(ctx, room);
+    const empty = { rows: [], next: null, matching: 0, total: 0, sumOwnNetBits: 0, sumPeerNetBits: 0 };
+    if (!game) return empty;
+    // The cursor's creation time (and a null key: never mutated) travel in `id` as "<at>|<null?>".
+    const [at, isNull] = after ? after.id.split("|") : [];
+    const cursor = after && Number.isFinite(Number(at)) ? { key: isNull === "null" ? null : after.key, at: Number(at) } : undefined;
+    const [page, t] = await Promise.all([viewPage(ctx, game._id, viewer.subject, { ...q, after: cursor }), totalsDoc(ctx, game._id, viewer.subject)]);
+    const filter = q.filter ?? "all", total = t?.objectCount ?? 0;
+    return {
+      rows: page.rows.map((r, i) => ({ ...objectViewOf(r), rank: i + 1 })),
+      next: page.next ? { key: page.next.key ?? 0, id: `${page.next.at}|${page.next.key === null ? "null" : ""}` } : null,
+      matching: filter === "all" ? total : filter === "chips" ? t?.chips ?? 0 : t?.contested ?? 0,
+      total, sumOwnNetBits: t?.sumOwnNetBits ?? 0, sumPeerNetBits: t?.sumPeerNetBits ?? 0,
+    };
+  },
 });
-export async function objectsPageFor(ctx: QueryCtx, viewer: Viewer, { roomId, ...q }: {
-  roomId: string; sort?: "payoff" | "mine" | "othersCare"; filter?: "all" | "positive" | "contested" | "chips"; after?: { key: number; id: string }; limit?: number;
-}) {
-  const room = await requireRoom(ctx, roomId);
-  await requireMemberAs(ctx, viewer, room, "read");
-  const game = await currentGame(ctx, room);
-  const deity = game ? await deityOf(ctx, game._id, viewer.subject) : null;
-  const live = game?.phase !== "ended";
-  const mine = game && deity ? (await objectsOf(ctx, game._id)).map(o => personalObject(o, viewer.subject, live)).filter(o => o !== null) : [];
-  return pageObjects(mine, q);
-}
 
 /**
  * The caller's OWN utility descriptor for the current game, with what a client needs to run
@@ -330,8 +521,12 @@ export async function myUtilityFor(ctx: QueryCtx, viewer: Viewer, { roomId }: { 
 // the utility series (docs/public-log-design.md §2, §4): every spawn and transform of a game, per viewer
 // ------------------------------------------------------------------------------------------------
 
-/** A page of the series holds at most this many rows (default and maximum). */
-export const SERIES_PAGE = 1000, SERIES_PAGE_MAX = 4000;
+/**
+ * A page of the series holds at most this many rows (default and maximum). The public query's pages fit R2
+ * (SERIES_PUBLIC_PAGE rows and at most as many earlier rows, under 100 documents and 64 KiB); the agent tools' internal
+ * twin reads larger pages inside Convex (agent/series.ts gatherSeries).
+ */
+export const SERIES_PAGE = 1000, SERIES_PAGE_MAX = 4000, SERIES_PUBLIC_PAGE = 40;
 type Wire = number | string;
 
 /** The viewer's own bits, the others' sum and own payoff from a stored per-deity vector (never the vector itself). */
@@ -347,11 +542,14 @@ async function seatedGame(ctx: QueryCtx, caller: Viewer, roomId: string, gameRef
 
 /**
  * Whether the game's per-object history is incomplete: it started before objectEvents rows were written (event log
- * schema 3), so its early spawns and transformations have no rows. One read (the game's first batch).
+ * schema 3), so its early spawns and transformations have no rows. Every object's history starts with its spawn
+ * (version 0), so a complete history's earliest row is a spawn; a game whose rows began mid-game starts with a
+ * transformation of an object spawned before. One small read (the earliest row; the game's first tickBatches doc,
+ * which holds every starting spawn, is far over R2's 64 KiB in a large game).
  */
 async function partialSeries(ctx: QueryCtx, gameId: Doc<"games">["_id"]) {
-  const first = await ctx.db.query("tickBatches").withIndex("by_game_seq", q => q.eq("gameId", gameId)).first();
-  return !first || (first.schema ?? 1) < 3;
+  const first = await ctx.db.query("objectEvents").withIndex("by_game_world", q => q.eq("gameId", gameId)).first();
+  return !first || first.version > 0;
 }
 
 /**
@@ -366,14 +564,14 @@ const seriesArgs = {
   roomId: v.string(), gameId: v.optional(v.string()), objectId: v.optional(v.string()), fromWorld: v.optional(v.number()),
   cursor: v.optional(v.union(v.string(), v.null())), limit: v.optional(v.number()),
 };
-export const series = query({ args: seriesArgs, handler: async (ctx, args) => seriesFor(ctx, await requireViewer(ctx), args) });
+export const series = query({ args: seriesArgs, handler: async (ctx, args) => seriesFor(ctx, await requireViewer(ctx), args, SERIES_PUBLIC_PAGE) });
 export const seriesAs = internalQuery({
   args: { principal: principalV, ...seriesArgs },
   handler: async (ctx, { principal, ...args }) => seriesFor(ctx, await viewerOf(ctx, principal), args),
 });
-export async function seriesFor(ctx: QueryCtx, caller: Viewer, args: { roomId: string; gameId?: string; objectId?: string; fromWorld?: number; cursor?: string | null; limit?: number }) {
+export async function seriesFor(ctx: QueryCtx, caller: Viewer, args: { roomId: string; gameId?: string; objectId?: string; fromWorld?: number; cursor?: string | null; limit?: number }, max = SERIES_PAGE_MAX) {
   const { game, index, viewer } = await seatedGame(ctx, caller, args.roomId, args.gameId);
-  const limit = Math.max(1, Math.min(SERIES_PAGE_MAX, Math.floor(args.limit ?? SERIES_PAGE)));
+  const limit = Math.max(1, Math.min(max, Math.floor(args.limit ?? SERIES_PAGE)));
   const objectId = args.objectId ? ctx.db.normalizeId("objects", args.objectId) : null;
   if (args.objectId && !objectId) return fail("BAD_REQUEST", "Not an object id");
   const from = args.fromWorld ?? -Infinity;
@@ -412,25 +610,49 @@ export async function seriesFor(ctx: QueryCtx, caller: Viewer, args: { roomId: s
 }
 
 /**
- * The board at world time `world` (default: now) as the caller saw it: every object that existed then, with its value,
- * version and the caller's own bits, the others' sum and own payoff, from each object's last row at or before `world`
- * (one indexed read per object). `partial`: the game predates the per-object history, so objects untouched since then are
- * missing.
+ * A public board page holds at most BOARD_PAGE objects (default and maximum): with one objectEvents read each, within
+ * R2's 100 documents. The agent tools' internal twin reads up to BOARD_PAGE_INTERNAL inside Convex.
  */
-const boardArgs = { roomId: v.string(), gameId: v.optional(v.string()), world: v.optional(v.number()) };
+export const BOARD_PAGE = 40, BOARD_PAGE_INTERNAL = 100;
+
+/**
+ * One page of the board at world time `world` (default: now) as the caller saw it: the objects that existed then, in
+ * spawn order, each with its value, version and the caller's own bits, the others' sum and own payoff. The page walks
+ * the caller's objectViews rows by spawn time up to `world` (by_game_god_created), at most `limit` ≤ `max`; now
+ * (no `world`, or `world` at or past the clock), each row is the object as it stands; earlier, each object's last
+ * objectEvents row at or before `world` (one indexed read per object). Page with `cursor` (the previous page's
+ * `cursor`, which keeps the first page's world: `world` may be omitted) until `done`. Now is as the read model last
+ * synced the objects (about a tick behind the commit). `partial`: the game predates the per-object history, so a past board misses objects
+ * untouched since then.
+ */
+const boardArgs = { roomId: v.string(), gameId: v.optional(v.string()), world: v.optional(v.number()), cursor: v.optional(v.union(v.string(), v.null())), limit: v.optional(v.number()) };
 export const board = query({ args: boardArgs, handler: async (ctx, args) => boardFor(ctx, await requireViewer(ctx), args) });
 export const boardAs = internalQuery({
   args: { principal: principalV, ...boardArgs },
-  handler: async (ctx, { principal, ...args }) => boardFor(ctx, await viewerOf(ctx, principal), args),
+  handler: async (ctx, { principal, ...args }) => boardFor(ctx, await viewerOf(ctx, principal), args, BOARD_PAGE_INTERNAL),
 });
-export async function boardFor(ctx: QueryCtx, caller: Viewer, args: { roomId: string; gameId?: string; world?: number }) {
-  const { game, index } = await seatedGame(ctx, caller, args.roomId, args.gameId);
-  const world = args.world ?? (await withClock(ctx, game)).worldSeconds;
-  const objects = await ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", game._id)).take(2100);
-  const rows = await Promise.all(objects.map(o => ctx.db.query("objectEvents")
-    .withIndex("by_game_object_world", q => q.eq("gameId", game._id).eq("objectId", o._id).lte("world", world)).order("desc").first()));
+export async function boardFor(ctx: QueryCtx, caller: Viewer, args: { roomId: string; gameId?: string; world?: number; cursor?: string | null; limit?: number }, max = BOARD_PAGE) {
+  const { game, index, viewer } = await seatedGame(ctx, caller, args.roomId, args.gameId);
+  const nowWorld = (await withClock(ctx, game)).worldSeconds;
+  // A cursor carries the world its first page was read at ("<world>|<Convex cursor>"): the pages of one board are of one moment.
+  const split = args.cursor ? args.cursor.indexOf("|") : -1;
+  const atCursor = split > 0 ? Number(args.cursor!.slice(0, split)) : undefined;
+  if (args.cursor && (atCursor === undefined || !Number.isFinite(atCursor))) return fail("BAD_REQUEST", "Not a board cursor: pass the previous page's cursor");
+  if (atCursor !== undefined && args.world !== undefined && args.world !== atCursor) return fail("BAD_REQUEST", "This cursor is of the board at another world time");
+  const world = atCursor ?? args.world ?? nowWorld, current = world >= nowWorld;
+  const limit = Math.max(1, Math.min(max, Math.floor(args.limit ?? max)));
+  const page = await ctx.db.query("objectViews")
+    .withIndex("by_game_god_created", q => q.eq("gameId", game._id).eq("godId", viewer.subject).lte("createdAt", world))
+    .paginate({ cursor: atCursor !== undefined ? args.cursor!.slice(split + 1) : null, numItems: limit });
+  const live = game.phase !== "ended";
+  const objects = current
+    ? page.page.map(r => ({ objectId: r.objectId as string, value: r.value, version: r.version, changedAt: r.lastMutatedAt ?? r.createdAt,
+      own: r.netBits, others: r.peerNetBits, payoff: r.payoff }))
+    : (await Promise.all(page.page.map(r => ctx.db.query("objectEvents")
+      .withIndex("by_game_object_world", q => q.eq("gameId", game._id).eq("objectId", r.objectId).lte("world", world)).order("desc").first())))
+      .flatMap(e => (e ? [{ objectId: e.objectId as string, value: e.value, version: e.version, changedAt: e.world, ...viewAt(e.net, index, live ? e.noise ?? 0 : 0) }] : []));
   return {
-    gameId: game._id, world, partial: await partialSeries(ctx, game._id),
-    objects: rows.flatMap(r => (r ? [{ objectId: r.objectId as string, value: r.value, version: r.version, changedAt: r.world, ...viewAt(r.net, index, game.phase !== "ended" ? r.noise ?? 0 : 0) }] : [])),
+    gameId: game._id, world, partial: !current && await partialSeries(ctx, game._id),
+    objects, cursor: `${world}|${page.continueCursor}`, done: page.isDone,
   };
 }

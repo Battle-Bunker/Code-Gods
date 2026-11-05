@@ -6,7 +6,7 @@
 import { useMemo, type ReactNode } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import { PANELS, type PanelId, type PanelParams, type Phase } from "@workspace/player-client/panels";
-import type { LiveObject } from "@/sdk";
+import { useObjectRank, type LiveObject } from "@/sdk";
 import { composer } from "@/core/chat/composer";
 
 export type PanelProps<K extends PanelId> = {
@@ -77,8 +77,17 @@ export function GhostButton({ children, onClick, disabled, testId, type = "butto
 }
 
 /** "#3" for every object: its rank by payoff, the same number in every panel and in the chat. */
-export function useObjectRanks(objects: readonly LiveObject[]) {
-  return useMemo(() => new Map([...objects].sort((a, b) => b.payoff - a.payoff).map((o, i) => [o.id, i + 1])), [objects]);
+/**
+ * The payoff ranks of objects as the server ranked them (useObjects: your best by payoff, each with its `rank`): no sort
+ * of the world here. An object outside that page has none (useObjectRank asks for one).
+ */
+export const ranksOf = (objects: readonly LiveObject[]) =>
+  new Map(objects.map((o, i) => [o.id, (o as LiveObject & { rank?: number }).rank ?? i + 1]));
+
+/** "#N" for one object by your payoff (player.objectRank), clickable to refer to it; "#–" past the first 90 or gone. */
+export function ObjectRef({ objectId }: { objectId: string }) {
+  const rank = useObjectRank(objectId);
+  return <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => referObject(rank ?? undefined)}>{rank ? `#${rank}` : "#–"}</button>;
 }
 /** Clicking an object puts a reference into the assistant's composer: point, then ask. */
 export const referObject = (rank: number | undefined) => { if (rank) composer.fill(`object #${rank}`); };

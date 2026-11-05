@@ -27,3 +27,9 @@ test("paused and planning states", () => {
   assert.match(html({ kind: "planning", seconds: 0, held: true }), /sandboxes are warming up/);
   assert.equal(html(null), "");
 });
+
+test("an ended game stands at 0:00 (or 'ended' when its owner stopped it): never mistaken for a stall", () => {
+  const lifetime = html({ kind: "ended", reason: "lifetime", world: 600 });
+  assert.match(lifetime, /Game over.*>0:00<.*time is up \(10:00 of world time\)/);
+  assert.match(html({ kind: "ended", reason: "owner", world: 75 }), /Game over.*>ended<.*the owner ended it at 1:15/);
+});

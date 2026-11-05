@@ -1,96 +1,170 @@
 /**
- * My agents: each agent's status (ready / charging / cooldown), its energy against the cost of one act, an energy
- * sparkline and a timeline lane. Its actions: "Edit a copy" (into the forge) and destroy, with an inline confirm,
- * through the same command path as everything else. Each appears only where it works (core/affordances.ts): neither does in
+ * My agents: every number is written as a sentence a newcomer can read (core/panels/agent-labels.ts), with the key words
+ * as hover glossary terms. The player's own line (their power, how it is split, their energy for summoning) comes first;
+ * then, per agent: its status, power share and income, energy (with a meter of how many seconds of its income that
+ * holds), what it spent (reading and changing), the actual average per act against the summon-time estimate, how often it
+ * skipped, how its acts ended when some failed (the engine's diagnosis, with a fix when most fail), the power-share
+ * control (slider, percentage box and Set: allocatePower) and "Edit a copy" / Destroy (inline confirm). Last, a timeline
+ * with a legend and one named row per agent. Each action appears only where it works (core/affordances.ts): none does in
  * a read-only replay, and Destroy goes after the end. In a replay seen as another god, the panel says whose agents these are.
  */
 import { isLanguage } from "@workspace/game-core";
-import { useEffect, useState } from "react";
-import { AgentCost, formatBits, type ActCostBreakdown } from "@workspace/object-views";
-import { Sparkline, Timeline, useGame, useMyAgents } from "@/sdk";
+import { Term } from "@workspace/ui-kit";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { Sparkline, Timeline, TimelineLegend, useAgentSeries, useDockState, useGame, useMyAgents, type MyAgent } from "@/sdk";
 import { useDockActions } from "@/dock/actions";
 import { useGameCommands } from "@/core/game/runner";
 import { useAffordances } from "@/core/use-affordances";
-import { AgentName } from "./agent-name";
+import type { Affordances } from "@/core/affordances";
+import { AgentName, agentLabel } from "./agent-name";
 import { AgentSource } from "./agent-source";
 import { pruneSourceOpen } from "./agent-source-state";
+import {
+  STATE_LEGEND, actualLine, afterShareLine, agentState, energyLine, estimateLine, laneKind, num, perSecond, plain, runwayFraction, runwaySeconds, runwayText,
+  shareLine, skipLine, spentLine, statusText, summonLine, yourPowerLine, type Seg,
+} from "./agent-labels";
 import { PanelEmpty, TextButton, type PanelProps } from "./kit";
+import { maxShareFor, parseSharePercent, shareProblem } from "./power-share";
 
-type Sample = { at: number; energy: number; eligible: boolean };
-const history = new Map<string, Sample[]>();
+export type Sample = { at: number; energy: number; eligible: boolean };
 
-export default function Agents({ params, phase }: PanelProps<"agents">) {
-  const { agents: all, economy, secondsUntilEligible } = useMyAgents({ hz: 1 });
-  const game = useGame({ hz: 1 });
-  const dock = useDockActions();
-  const commands = useGameCommands();
-  const can = useAffordances();
+/** A sentence whose glossary words are hover terms. */
+function Say({ segs }: { segs: readonly Seg[] }) {
+  return <>{segs.map((s, i) => (typeof s === "string" ? <span key={i}>{s}</span> : <Term key={i} id={s.term}>{s.text}</Term>))}</>;
+}
+
+/** The energy as a bar: how many seconds of the agent's income it holds (full at 10 s), explained by its tooltip. */
+function EnergyMeter({ energy, income }: { energy: number; income: number }) {
+  const secs = runwaySeconds(energy, income);
+  const text = runwayText(energy, income);
+  return (
+    <span className="inline-flex items-center gap-1.5" title={text} data-testid="meter-agent-energy">
+      <span role="meter" aria-label={text} aria-valuemin={0} aria-valuemax={10} aria-valuenow={Math.min(10, secs ?? 0)} className="inline-block h-1.5 w-20 bg-muted">
+        <span className={`block h-full ${energy <= 0 ? "bg-destructive" : "bg-[hsl(var(--accent))]"}`} style={{ width: `${Math.round(runwayFraction(secs ?? 0) * 100)}%` }} />
+      </span>
+      <span className="text-muted-foreground">{secs === null ? "no income" : `${num(secs)} s of its income`}</span>
+    </span>
+  );
+}
+
+/**
+ * One agent's power share: a slider and a percentage box (each moves the other), what that means in bits per second and
+ * for you, and Set, which sends allocatePower as Destroy sends destroy. The slider stops at what your other agents leave.
+ */
+function PowerShareControl({ id, share, allocated, total, onSet, disabled, reason }: {
+  id: string; share: number; allocated: number; total: number; onSet: (share: number) => void; disabled: boolean; reason?: string;
+}) {
+  const shown = String(Math.round(share * 1000) / 10);
+  const [draft, setDraft] = useState<string | null>(null);
+  const text = draft ?? shown;
+  const problem = draft === null ? null : shareProblem(draft, share, allocated);
+  const parsed = parseSharePercent(text);
+  const max = maxShareFor(share, allocated);
+  // Only an edit counts: the box shows the share rounded to 0.1%, so an untouched box never re-sends it.
+  const changed = draft !== null && parsed !== null && parsed !== share;
+  return (
+    <div className="space-y-1 text-xs" data-testid={`power-share-${id}`}>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <label className="text-muted-foreground" htmlFor={`input-power-share-${id}`}><Term id="power-share">Change power share</Term></label>
+        <input type="range" data-testid={`input-power-slider-${id}`} aria-label="Power share slider" min={0} max={Math.floor(max * 100)} step={1} className="w-28 accent-[hsl(var(--accent))]"
+          value={Math.min(Math.floor(max * 100), Math.round((parsed ?? share) * 100))} disabled={disabled} title={disabled ? reason : `Drag to give this agent 0 to ${num(max * 100)}% of your power`}
+          onChange={e => setDraft(e.target.value)} />
+        <input id={`input-power-share-${id}`} data-testid={`input-power-share-${id}`} inputMode="decimal" className="w-14 border border-border bg-background px-1.5 py-0.5 font-mono"
+          value={text} disabled={disabled} title={disabled ? reason : `0 to ${num(max * 100)}%`} onChange={e => setDraft(e.target.value)} />
+        <span className="text-muted-foreground">%{parsed !== null && <> = {perSecond(parsed * total)}</>}</span>
+        <TextButton testId={`button-set-power-${id}`} disabled={disabled || !changed || !!problem} onClick={() => { if (parsed !== null) { onSet(parsed); setDraft(null); } }}>Set</TextButton>
+      </div>
+      {problem
+        ? <p data-testid={`text-power-problem-${id}`} className="text-destructive">{problem}</p>
+        : changed && parsed !== null && <p data-testid={`text-power-preview-${id}`} className="text-muted-foreground">{afterShareLine(parsed, share, allocated, total)}</p>}
+    </div>
+  );
+}
+
+export type AgentsViewProps = {
+  agents: readonly MyAgent[];
+  /** Your own power line: the whole budget (bits per world second), the share given to agents, your income and energy. */
+  self?: { allocated?: number; income?: number; energy?: number };
+  powerPerSecond?: number;
+  world: number;
+  samples: ReadonlyMap<string, readonly Sample[]>;
+  window: number;
+  ended: boolean;
+  showCosts: boolean;
+  showSource: boolean;
+  can: Affordances["can"];
+  wait: (a: MyAgent) => number;
+  onEdit: (a: MyAgent) => void;
+  onSetShare: (a: MyAgent, share: number) => void;
+  onDestroy: (a: MyAgent) => void;
+  footer?: ReactNode;
+};
+
+/** The panel without its data hooks, so the gallery (src/gallery/agents.tsx) can draw it from fixtures. */
+export function AgentsView({ agents, self, powerPerSecond, world, samples, window: windowS, ended, showCosts, showSource, can, wait, onEdit, onSetShare, onDestroy, footer }: AgentsViewProps) {
   const [confirm, setConfirm] = useState<string | null>(null);
-  const [, redraw] = useState(0);
-  const world = game?.worldSeconds ?? 0;
-  useEffect(() => {
-    // Only live agents keep a history: a destroyed agent's (or a past game's) samples go.
-    for (const id of [...history.keys()]) if (!all.some(a => a.id === id)) history.delete(id);
-    pruneSourceOpen(all.map(a => a.id));
-    for (const a of all) {
-      const list = history.get(a.id) ?? [];
-      if (list.at(-1)?.at !== world) list.push({ at: world, energy: a.energy, eligible: a.eligible });
-      history.set(a.id, list.filter(s => s.at >= world - 600));
-    }
-    redraw(n => n + 1);
-  }, [all, world]);
-
-  const agents = params.agentIds.length ? all.filter(a => params.agentIds.includes(a.id)) : all;
-  const ended = phase === "ended";
-  // Edit a copy and Destroy appear only where they work (core/affordances.ts): never in a replay or read-only.
-  const { editCode, destroy } = can.can;
+  const { editCode, destroy, allocatePower } = can;
   const showDestroy = destroy.ok || !destroy.hidden;
-  const owner = can.seenAs ? <p data-testid="text-agents-owner" className="text-xs text-muted-foreground">Seen as {can.seenAs}: these are {can.whose} agents.</p> : null;
-  if (!all.length) {
-    return <PanelEmpty action={(phase === "planning" || phase === "running") && editCode.ok ? <TextButton onClick={() => dock.forgeEdit()}>Write an agent</TextButton> : undefined}>
-      {can.seenAs ? `${can.seenAs} has no agents ${ended ? "at the end of this game" : "at this moment"}.`
-        : can.readOnly && !ended ? "No agents at this moment." : ended ? "You summoned no agents in this game." : "No agents summoned yet. An agent is a small program that changes objects your way when the world picks it."}
-    </PanelEmpty>;
-  }
+  const total = powerPerSecond ?? ((self?.income ?? 0) + agents.reduce((n, a) => n + (a.income ?? 0), 0));
   const lanes = agents.map((a, i) => {
-    const samples = (history.get(a.id) ?? []).filter(s => s.at >= world - params.window);
-    return { label: a.name, spans: samples.slice(1).map((s, j) => ({ start: samples[j].at, end: s.at, kind: samples[j].energy < 0 ? "cool" as const : samples[j].eligible ? "ok" as const : "idle" as const })) };
+    const list = (samples.get(a.id) ?? []).filter(s => s.at >= world - windowS);
+    return { label: agentLabel(a.name, i), spans: list.slice(1).map((s, j) => ({ start: list[j].at, end: s.at, kind: laneKind(list[j]) })) };
   });
   return (
     <div className="space-y-4">
-      {owner}
+      {self?.allocated !== undefined && self.income !== undefined && (
+        <div className="space-y-1 text-xs" data-testid="text-unallocated-power">
+          <p className="font-medium text-foreground"><Say segs={yourPowerLine({ total, allocated: self.allocated, income: self.income, energy: self.energy ?? 0 })} /></p>
+          <p className="text-muted-foreground">
+            The world hands out <Term id="turn">turns</Term> at random: the more energy an agent has, the more turns it gets. An act pays what it
+            looks at (<Term id="read-bits">read bits</Term>) plus, if it changes the object, the <Term id="change-cost">change cost</Term>.
+          </p>
+        </div>
+      )}
       <ul className="space-y-4">
         {agents.map((a, i) => {
-          const cap = Math.max(a.expectedActCost * (economy?.agentBatteryActs ?? 2), 1e-9);
-          // Frozen at the final tick: what the agent was doing when the game ended, and no countdown.
-          const status = (ended ? "at the end: " : "") + (a.energy < 0 ? "cooldown" : a.eligible ? (ended ? "ready" : "ready to act") : "charging");
-          const wait = a.eligible || ended ? 0 : secondsUntilEligible(a);
+          const state = agentState(a);
+          const label = agentLabel(a.name, i);
+          const history = (samples.get(a.id) ?? []).filter(s => s.at >= world - windowS).map(s => s.energy);
+          const statusColour = state === "waiting" ? "text-destructive" : state === "can" ? "text-[hsl(var(--accent))]" : "text-muted-foreground";
           return (
             <li key={a.id} data-testid={`row-agent-${a.id}`} className="min-w-0 space-y-1.5">
               <div className="flex flex-wrap items-baseline justify-between gap-x-3 text-sm">
-                <span className="flex flex-wrap items-baseline gap-x-2"><AgentName id={a.id} name={a.name} description={a.description} /> <span className="font-mono text-xs font-normal text-muted-foreground">{a.language} · summoned for {formatBits(a.summonCost)} bits</span></span>
-                <span data-testid={`text-agent-status-${a.id}`} className={`text-xs font-semibold ${a.energy < 0 ? "text-destructive" : a.eligible ? "text-[hsl(var(--accent))]" : "text-muted-foreground"}`}>
-                  {status}{!a.eligible && Number.isFinite(wait) && wait > 0 ? ` · ~${formatBits(wait)} s` : ""}
-                </span>
+                <span className="flex flex-wrap items-baseline gap-x-2"><AgentName id={a.id} name={label} description={a.description} /> <span className="text-xs font-normal text-muted-foreground">{a.language} · <span data-testid={`text-agent-summon-${a.id}`}><Say segs={summonLine(a.summonCost)} /></span></span></span>
+                <span data-testid={`text-agent-status-${a.id}`} className={`text-xs font-semibold ${statusColour}`}>{statusText(state, ended, ended ? 0 : wait(a))}</span>
               </div>
-              <div data-testid={`text-agent-energy-${a.id}`} className="space-y-1">
-                <div className="relative h-1.5 overflow-hidden bg-muted" aria-hidden>
-                  <div className={`h-full ${a.energy < 0 ? "bg-destructive" : "bg-[hsl(var(--accent))]"}`} style={{ width: `${Math.min(100, (100 * Math.abs(a.energy)) / cap)}%` }} />
-                  <div className="absolute inset-y-0 w-px bg-foreground" style={{ left: `${Math.min(100, (100 * a.expectedActCost) / cap)}%` }} title="cost of one act" />
-                </div>
-                <p className="flex flex-wrap items-center gap-x-3 font-mono text-[11px] text-muted-foreground">
-                  <span>⚡ {formatBits(a.energy)} bits · {formatBits(a.expectedActCost)} per act</span>
-                  <span>{a.acts} acts · {formatBits(a.spent)} bits spent</span>
-                  <Sparkline values={(history.get(a.id) ?? []).filter(s => s.at >= world - params.window).map(s => s.energy)} zero width={90} height={18} label={`agent ${i + 1} energy`} />
+              <div data-testid={`text-agent-energy-${a.id}`} className="space-y-0.5 text-xs text-muted-foreground">
+                {a.powerShare !== undefined && a.income !== undefined && <p data-testid={`text-agent-share-${a.id}`}><Say segs={shareLine(a.powerShare, a.income)} /></p>}
+                <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <span className={a.energy <= 0 ? "font-semibold text-destructive" : "text-foreground"}><Say segs={energyLine(a.energy)} /></span>
                 </p>
+                <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <EnergyMeter energy={a.energy} income={a.income ?? 0} />
+                  <span title="Energy over the last minutes of this game: the dashed line is 0" className="inline-flex items-center"><Sparkline values={history} zero width={90} height={18} label={`${label}: energy over time`} /></span>
+                </p>
+                <p data-testid={`text-agent-spent-${a.id}`}><Say segs={spentLine(a.spent, a.spentRead, a.acts)} /></p>
+                <p data-testid={`text-actual-act-cost-${a.id}`}><Say segs={actualLine(a.spent, a.acts, a.expectedActCost)} /></p>
+                <p data-testid={`text-agent-skips-${a.id}`}><Say segs={skipLine(a.skips ?? 0)} /></p>
+                {showCosts && <p data-testid={`text-expected-act-cost-${a.id}`}><Say segs={estimateLine(a.expectedActCost, a.breakdown)} /></p>}
               </div>
-              {params.showCosts && <AgentCost summonCost={a.summonCost} expectedActCost={a.expectedActCost} breakdown={a.breakdown as ActCostBreakdown | undefined} agentEnergyPerSecond={economy?.agentEnergyPerSecond} />}
-              <AgentSource id={a.id} source={a.source} language={a.language} defaultOpen={params.showSource} />
+              {a.diagnosis && (
+                // How its acts ended (engine-counted) and, when most fail, why and what to change.
+                <div data-testid={`text-agent-diagnosis-${a.id}`} className="space-y-0.5 text-xs">
+                  <p className={a.diagnosis.hint ? "font-semibold text-destructive" : "text-muted-foreground"}>{a.diagnosis.summary}</p>
+                  {a.diagnosis.hint && <p className="text-muted-foreground">{a.diagnosis.hint}</p>}
+                </div>
+              )}
+              {a.powerShare !== undefined && (allocatePower.ok || !allocatePower.hidden) && (
+                <PowerShareControl key={`${a.id}:${a.powerShare}`} id={a.id} share={a.powerShare} allocated={self?.allocated ?? a.powerShare} total={total}
+                  disabled={!allocatePower.ok} reason={allocatePower.ok ? undefined : allocatePower.reason}
+                  onSet={share => onSetShare(a, share)} />
+              )}
+              <AgentSource id={a.id} source={a.source} language={a.language} defaultOpen={showSource} />
               {(editCode.ok || showDestroy) && (
                 <div className="flex flex-wrap gap-4">
-                  {editCode.ok && <TextButton testId={`button-load-agent-${a.id}`} onClick={() => dock.forgeEdit(a.source, isLanguage(a.language) ? a.language : undefined)}>Edit a copy</TextButton>}
+                  {editCode.ok && <TextButton testId={`button-load-agent-${a.id}`} onClick={() => onEdit(a)}>Edit a copy</TextButton>}
                   {showDestroy && (confirm === a.id ? (<>
-                    <TextButton tone="danger" testId={`button-confirm-destroy-${a.id}`} disabled={!destroy.ok} title={destroy.ok ? undefined : destroy.reason} onClick={() => { setConfirm(null); void commands.run({ type: "destroy", agentId: a.id }); }}>Destroy it (free, cannot be undone)</TextButton>
+                    <TextButton tone="danger" testId={`button-confirm-destroy-${a.id}`} disabled={!destroy.ok} title={destroy.ok ? undefined : destroy.reason} onClick={() => { setConfirm(null); onDestroy(a); }}>Destroy it (free, cannot be undone)</TextButton>
                     <TextButton onClick={() => setConfirm(null)}>Keep</TextButton>
                   </>) : (
                     <TextButton testId={`button-destroy-agent-${a.id}`} disabled={!destroy.ok} onClick={() => setConfirm(a.id)} title={destroy.ok ? "Free. It can't be undone." : destroy.reason}>Destroy</TextButton>
@@ -101,10 +175,63 @@ export default function Agents({ params, phase }: PanelProps<"agents">) {
           );
         })}
       </ul>
-      {ended && <p data-testid="text-agents-ended" className="text-xs text-muted-foreground">
-        {can.readOnly ? `These are ${can.whose} agents as they ended the game.` : "The game is over: these are your agents as they ended it. Edit a copy keeps the code for the next game."}
-      </p>}
-      {lanes.some(l => l.spans.length) && <Timeline lanes={lanes} from={Math.max(0, world - params.window)} to={world} now={world} width={380} />}
+      {footer}
+      {lanes.some(l => l.spans.length) && (
+        <div className="space-y-1" data-testid="agents-timeline">
+          <p className="text-xs font-medium">What each agent could do, over the last {Math.min(windowS, Math.round(world))} world seconds</p>
+          <Timeline lanes={lanes} from={Math.max(0, world - windowS)} to={world} now={world} width={380} />
+          <TimelineLegend items={STATE_LEGEND} now="now" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function Agents({ params, phase }: PanelProps<"agents">) {
+  const { agents: all, economy, secondsUntilEligible } = useMyAgents({ hz: 1 });
+  const game = useGame({ hz: 1 });
+  const self = useDockState({ hz: 1 })?.self;
+  // Each agent's energy at every scoreboard publication, kept by the server (dock.agentSeries), and its energy now.
+  const series = useAgentSeries(game?.gameId);
+  const dock = useDockActions();
+  const commands = useGameCommands();
+  const can = useAffordances();
+  const world = game?.worldSeconds ?? 0;
+  useEffect(() => { pruneSourceOpen(all.map(a => a.id)); }, [all]);
+  // The published samples change only with the series; the point now is added per render.
+  const published = useMemo(() => {
+    const out = new Map<string, Sample[]>();
+    for (const row of series) for (const a of row.agents) {
+      const list = out.get(a.id) ?? [];
+      list.push({ at: row.world, energy: a.energy, eligible: a.energy > 0 });
+      out.set(a.id, list);
+    }
+    return out;
+  }, [series]);
+  const history = useMemo(() => new Map(all.map(a => [a.id, [...(published.get(a.id) ?? []).filter(s => s.at < world), { at: world, energy: a.energy, eligible: a.eligible }]])),
+    [published, all, world]);
+
+  const agents = params.agentIds.length ? all.filter(a => params.agentIds.includes(a.id)) : all;
+  const ended = phase === "ended";
+  const { editCode } = can.can;
+  const owner = can.seenAs ? <p data-testid="text-agents-owner" className="text-xs text-muted-foreground">Seen as {can.seenAs}: these are {can.whose} agents.</p> : null;
+  if (!all.length) {
+    return <PanelEmpty action={(phase === "planning" || phase === "running") && editCode.ok ? <TextButton onClick={() => dock.forgeEdit()}>Write an agent</TextButton> : undefined}>
+      {can.seenAs ? `${can.seenAs} has no agents ${ended ? "at the end of this game" : "at this moment"}.`
+        : can.readOnly && !ended ? "No agents at this moment." : ended ? "You summoned no agents in this game." : "No agents summoned yet. An agent is a small program that changes objects your way when the world picks it."}
+    </PanelEmpty>;
+  }
+  return (
+    <div className="space-y-4">
+      {owner}
+      <AgentsView agents={agents} self={self} powerPerSecond={economy?.powerPerSecond} world={world} samples={history} window={params.window} ended={ended}
+        showCosts={params.showCosts} showSource={params.showSource} can={can.can} wait={secondsUntilEligible}
+        onEdit={a => dock.forgeEdit(a.source, isLanguage(a.language) ? a.language : undefined)}
+        onSetShare={(a, share) => void commands.run({ type: "allocatePower", agentId: a.id, share })}
+        onDestroy={a => void commands.run({ type: "destroy", agentId: a.id })}
+        footer={ended && <p data-testid="text-agents-ended" className="text-xs text-muted-foreground">
+          {can.readOnly ? `These are ${can.whose} agents as they ended the game.` : "The game is over: these are your agents as they ended it. Edit a copy keeps the code for the next game."}
+        </p>} />
     </div>
   );
 }

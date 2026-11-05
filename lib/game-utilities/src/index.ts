@@ -5,6 +5,7 @@ export {
   type CatalogEntry, type Draw,
 } from "./catalog.ts";
 export * from "./params.ts";
+export * from "./tuples.ts";
 export {
   SELECTORS, selector, divineLottery, fairAligned, registerSynergy, synergyFor, availableFamilies,
   type UtilitySelector, type SelectOptions, type SynergyMatrix,
@@ -32,3 +33,4 @@ export {
   type Candidate, type DrawClass, type FitInput, type FitResult, type Hint, type Hypothesis, type Role,
 } from "./inference.ts";
 export * from "./explain/index.ts";
+export { HOLD_ESTIMATOR, holdBits, type HoldTable } from "./hold.ts";

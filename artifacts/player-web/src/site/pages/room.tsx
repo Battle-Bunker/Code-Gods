@@ -11,6 +11,7 @@ import { useRun } from "@/site/hooks/use-run";
 import { useSendChat } from "@/site/hooks/use-chat";
 import { useAuth } from "@/site/hooks/use-auth";
 import { useManifest } from "@/site/hooks/use-manifest";
+import { useSetupRow } from "@/site/hooks/use-setups";
 import { Page, usePage } from "@/site/components/layout";
 import { Action, Tip } from "@/site/components/action";
 import { StepAction } from "@/site/components/step-action";
@@ -21,7 +22,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { nextStep } from "@/site/lib/next-step";
 import { SetupPicker, setupTitle } from "@/site/components/setup-picker";
-import { errMsg, fmt } from "@/site/lib/errors";
+import { errMsg, fmt, reload, transient } from "@/site/lib/errors";
 import { fmtWhen, isoWhen } from "@/site/lib/time";
 import { Bot, Copy, Crown, MoreHorizontal, User } from "lucide-react";
 import type { GameRecord } from "@/site/lib/types";
@@ -84,8 +85,8 @@ function Players({ room, meId, isOwner, minPlayers }: { room: RoomState; meId?: 
 }
 
 function NextGame({ room, isOwner }: { room: RoomState; isOwner: boolean }) {
-  const { manifest, setups, openSheet } = usePage();
-  const current = setups?.find(s => s.id === room.setup?.id);
+  const { manifest, openSheet } = usePage();
+  const current = useSetupRow(room.setup?.id).data ?? undefined;
   const frozen = room.activeGame;
   const configure = `/rooms/${room.shortCode}/configure`;
   const used = (room.aiInputTokens ?? 0) + (room.aiOutputTokens ?? 0);
@@ -245,7 +246,7 @@ export default function Room() {
         <div className="mx-auto max-w-[1200px] px-6 py-8 space-y-4"><Skeleton className="h-20 w-1/2" /><div className="grid lg:grid-cols-2 gap-4"><Skeleton className="h-72" /><Skeleton className="h-72" /></div></div>
       ) : !room ? (
         <div className="mx-auto max-w-lg px-4 py-20 space-y-4">
-          <ErrorLine message={q.error ? errMsg(q.error) : "Room not found. Check the code, or ask the owner for the link."} />
+          <ErrorLine message={q.error ? errMsg(q.error) : "Room not found. Check the code, or ask the owner for the link."} onRetry={transient(q.error) ? reload : undefined} />
           <Link href="/" className="underline underline-offset-4" data-testid="link-back">Your rooms</Link>
         </div>
       ) : <RoomBody room={room} games={games} />}

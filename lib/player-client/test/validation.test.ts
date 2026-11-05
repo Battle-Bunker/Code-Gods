@@ -40,9 +40,14 @@ test("an agent that never changes an object is not a working agent", () => {
 test("a working, affordable agent: the price against the energy, and stop validating", () => {
   const a = assessValidation(receipt({ changeRate: 0.67, invalidRate: 0, energy: 565.1, affordable: true }));
   assert.equal(a.verdict, "works");
-  assert.equal(a.summary, "Works: changes 67% of reference objects. Summon price 147.7 bits; the player had 565.1 bits of energy when it was validated (affordable). Each act costs about 3.48 bits.");
+  assert.equal(a.summary, "Works: changes 67% of reference objects. Summon price 147.7 bits; the player had 565.1 bits of energy when it was validated (affordable). Each act costs about 3.48 bits; it pays only what it does.");
   assert.match(a.next, /^Stop validating/);
   assert.deepEqual([a.cost, a.energy, a.affordable], [147.74, 565.1, true]);
+});
+
+test("the price line splits an act into reading and changing and names the skip rate", () => {
+  const a = assessValidation(receipt({ changeRate: 0.5, invalidRate: 0, skipRate: 0.25, breakdown: { read: 1.5, change: 1.9786 } }));
+  assert.match(a.summary, /Each act costs about 3\.48 bits \(reading 1\.50 \+ changing 1\.98\); it pays only what it does\. It returns no calls \(a skip, which pays only its reads\) on 25% of reference objects\./);
 });
 
 test("a working agent the player cannot afford yet says so and suggests a cheaper version", () => {
@@ -65,4 +70,41 @@ test("a validate answered while the sandbox warms is not a rejection: nothing ra
   assert.match(a.summary, /warming up/);
   assert.match(a.next, /1\.5 s/);
   assert.doesNotMatch(a.next, /fix/i, "the code is not at fault");
+});
+
+test("a constant agent warns: the success rate and the warning come first, and the player hears them before any summon", () => {
+  const warning = "It gives every object the same result, so only one object can ever hold this value; every other act will collide (in a sample world of 16 objects, 3% of its acts succeed). Make the result depend on the object.";
+  const a = assessValidation(receipt({ changeRate: 0.99, invalidRate: 0, expectedSuccessRate: 1 / 32, energy: 500, affordable: true,
+    futility: { deterministic: true, constant: true, idempotent: true, identity: false, firstPass: 1 / 16, secondPass: 0, successRate: 1 / 32 },
+    warnings: [warning] }));
+  assert.equal(a.verdict, "warns");
+  assert.match(a.summary, /^About 3% of its acts would succeed: It gives every object the same result/);
+  assert.deepEqual(a.warnings, [warning]);
+  assert.match(a.next, /^Tell the player/);
+  assert.match(a.next, /depends on the object it is given/);
+});
+
+test("copies of a working agent warn without changing a works verdict's advice to summon", () => {
+  const copies = "You already have an agent with this exact code: a copy acts the same way on the objects it is given, so it adds speed only when they cannot keep up.";
+  const a = assessValidation(receipt({ changeRate: 1, invalidRate: 0, expectedSuccessRate: 1, energy: 500, affordable: true, warnings: [copies] }));
+  assert.equal(a.verdict, "works");
+  assert.match(a.summary, /You already have an agent/);
+  assert.match(a.next, /^Stop validating/);
+  assert.match(a.next, /Tell them first: You already have an agent/);
+  assert.doesNotMatch(a.next, /depends on the object/);
+});
+
+test("a warning on an agent the player cannot afford yet says so", () => {
+  const a = assessValidation(receipt({ changeRate: 1, invalidRate: 0, expectedSuccessRate: 0.1, energy: 20, affordable: false, warnings: ["Most of its acts fail."] }));
+  assert.equal(a.verdict, "warns");
+  assert.match(a.next, /not affordable yet/);
+});
+
+test("an agent that skips every reference object is waiting, not broken: a warning, never 'do not summon'", () => {
+  const a = assessValidation(receipt({ changeRate: 0, invalidRate: 0, skipRate: 1, breakdown: { read: 1.58, change: 0 }, expectedActCost: 1.58 }));
+  assert.equal(a.verdict, "warns");
+  assert.match(a.summary, /skipped every reference object/);
+  assert.doesNotMatch(a.next, /Do not summon/);
+  // Never changing anything without skipping is still a broken agent.
+  assert.equal(assessValidation(receipt({ changeRate: 0, invalidRate: 0 })).verdict, "no_change");
 });

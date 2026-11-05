@@ -137,7 +137,8 @@ optimistic-concurrency conflicts.
    debt"). For each opportunity it runs the existing semantics, **sequentially against the in-memory
    copy**:
    - pick the target object (`uniform` or `shelter`) and an *eligible* agent (energy ≥ expected
-     cost, settled to the opportunity's world time), using a CSPRNG;
+     cost, settled to the opportunity's world time), using a CSPRNG, never one whose deterministic act on that object
+     version is known to fail (futile acts, docs/rules-design.md §10);
    - run the agent in the sandbox with the HMAC-derived seed `deriveSeed(salt, ["play", gameId, agentId, actIndex])`
      and a frozen clock;
    - `applyCalls`; enforce **uniqueness** against the in-memory world (onto any existing value,

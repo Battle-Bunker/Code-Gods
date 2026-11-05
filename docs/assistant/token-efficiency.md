@@ -156,11 +156,11 @@ hash of the stable prefix (system prompt and tool names), so every thread of a p
 - **Always on** (full schemas, the cached prefix): the tools nearly every question uses, plus the two loaders:
   - `get_observation`;
   - `open_panel` and `set_panel_params`;
-  - `send_chat` (confirmed by the player);
+  - `send_chat`;
   - `load_tools`;
   - `load_skill`.
-- **Index**: every other tool the grant may use is one line in the system prompt, `name: short description`, with
-  "(confirmed)" where a card asks the player. The short description is a required `short` field of every tool
+- **Index**: every other tool the grant may use in the assistant's mode (Read-only: only read-only tools) is one line
+  in the system prompt, `name: short description`. The short description is a required `short` field of every tool
   definition (≤ 100 characters, enforced by the type and the tools test).
 - **`load_tools {names}`** loads full schemas for the rest of the thread (while the call stays in the history):
   - Anthropic: the request carries every tool. The non-core ones are `defer_loading: true`, and `load_tools` answers
@@ -212,7 +212,7 @@ A future `run_code` (a sandboxed analytics runtime, a separate task) needs no ne
 - an executor;
 - an `analytics-code` skill with the API it exposes and examples.
 
-The index, `load_tools`, `load_skill`, MCP and the confirmation rules pick it up unchanged.
+The index, `load_tools`, `load_skill`, MCP and the modes pick it up unchanged.
 
 ## 4. Results
 

@@ -35,7 +35,7 @@ import { BUDGETS, LIMITS, refOf, type Budget, type Fixture } from "./query-budge
 const settings = {
   language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Int",
   typeArgs: { min: -2147483648, max: 2147483647 }, startingObjectCount: 1000, spawnRateHz: 1, interactionRateHz: 20, planningSeconds: 0,
-  halfLifeSeconds: 1e9, agentEnergyPerSecond: 100, startingEnergy: 1000,
+  halfLifeSeconds: 1e9, powerPerSecond: 200, startingEnergy: 1000,
 };
 const RUNS = 10;
 const COMMITS = 5;

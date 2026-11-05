@@ -80,7 +80,7 @@ export function createStartTracker(clock: Clock = realClock) {
     },
     /**
      * Follow an assistant's start_game tool call (its id is the request id): running starts the pending state, ok
-     * hands over to the room, error or denial restores the control. Other statuses (awaiting the owner) change nothing.
+     * hands over to the room, error or denial restores the control. Other statuses (pending) change nothing.
      * A call already running when this page first sees it (a reload, or a turn cancelled mid-call) is left to the room.
      */
     follow(roomId: string, callId: string, status: string) {

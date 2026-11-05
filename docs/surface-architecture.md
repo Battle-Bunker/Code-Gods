@@ -151,18 +151,20 @@ through the agent registry. API: `docs/engine-api.md` "In-client assistant"; bil
 **Data** (`convex/assistant/tables.ts`):
 - `assistantThreads {roomId, subject, title, epoch, createdAt, updatedAt, activeTurnId?}`: one human's conversation in a
   room during one game (`epoch`: the room's current game id when it started, or `lobby`; the allowance's key).
-- `assistantTurns {threadId, roomId, subject, gameId?, credentialId, status, gen, step, maxSteps (12), deadline (start + 10 min), usage, tools, lastStop?, error?}`;
-  status is `running | awaiting_confirmation | cancelling | done | failed | cancelled | budget_exhausted`.
+- `assistantTurns {threadId, roomId, subject, gameId?, credentialId, status, gen, step, maxSteps (12; 6 for autopilot), deadline (start + 10 min), usage, tools, lastStop?, error?, trigger?}`;
+  status is `running | cancelling | done | failed | cancelled | budget_exhausted`; `trigger: "autopilot"` for a turn the
+  autopilot opened.
 - `assistantMessages {threadId, turnId, seq, role, text (≤ 32 KB), status: streaming|done|error|cancelled, reservedTokens?, inputTokens?, outputTokens?,
-  cacheReadTokens?, cacheWriteTokens?, billedTokens?, inputEstimate?, usageEstimated?, contentJson?}`: the user's message, then one assistant message
-  per model step (`usageEstimated`: a cancelled step billed from what was known).
-- `assistantToolCalls {turnId, messageId, callId, index, tool, argsJson, status: pending|awaiting_confirmation|running|ok|error|denied, summary, resultJson (≤ 8 KB), commandId?, confirmDeadline?, approved?}`.
+  cacheReadTokens?, cacheWriteTokens?, billedTokens?, inputEstimate?, usageEstimated?, contentJson?, autopilot?}`: the user's message (or, `autopilot`,
+  the engine's prompt of an autopilot turn), then one assistant message per model step (`usageEstimated`: a cancelled step billed from what was known).
+- `assistantToolCalls {turnId, messageId, callId, index, tool, argsJson, status: pending|running|ok|error|denied, summary, resultJson (≤ 8 KB), commandId?}`
+  (`denied`: never ran, its turn ended first).
   `argsJson` is ≤ 8 KB, except agent sources (validate/summon, 20 KB) and stored panels (`save_panel`, 70 KB).
 - `assistantAllowances {roomId, subject, epoch, usedTokens, calls}` (epoch: the room's current game id, or `lobby`) and
-  `assistantPrefs {roomId, subject, autoApproveSummonBits}`.
+  `assistantPrefs {roomId, subject, mode, autopilotChain?}` (the mode, below; kept across the room's games).
 
 **Principal.** The first `assistant.send` in a room creates (or reuses) the human's `kind: "assistant"` credential for
-that room: permission as chosen in the drawer (default `act`; never above the caller's own; `owner` only for the current
+that room: permission as chosen in the pane (default `act`, or `owner` with "Owner powers"; never above the caller's own; `owner` only for the current
 owner with explicit consent; a different choice revokes the old one and creates a new one), 30 days, never longer than a
 player credential that created it. It is listed and revocable under Connected apps like any other credential; it is never a
 bearer token. Every tool runs through `registry.runTool(ctx, {credentialId}, …)`: there is no other path to game state.
@@ -177,15 +179,14 @@ bearer token. Every tool runs through `registry.runTool(ctx, {credentialId}, …
   settles the usage → records the tool calls → runs them → schedules the next step, or finishes (model stop, 12 steps,
   10-minute deadline, budget refusal). A rate-limited step waits and retries.
 - `cancel` marks the turn `cancelling` and bumps `gen`: the step aborts the stream at its next flush, or stops between
-  tool calls. A turn waiting for a confirmation is cancelled at once.
-- Command and request ids of tool calls are UUIDv5 of (turnId, callId), replacing any id the model wrote, so a replayed
-  approval or a re-run step never applies a command twice.
-- A cron (`assistant sweeper`, every minute) fails turns past their deadline, finishes cancellations whose step died
-  and denies unanswered confirmations.
+  tool calls.
+- Command and request ids of tool calls are UUIDv5 of (turnId, callId), replacing any id the model wrote, so a re-run
+  step never applies a command twice.
+- A cron (`assistant sweeper`, every minute) fails turns past their deadline and finishes cancellations whose step died.
 
 **Queued messages** (`assistantQueue {roomId, subject, epoch, threadId, clientId?, text, status: queued|delivered|removed, held?, turnId?, messageId?}`,
 keyed by (player, game) like the threads). The composer stays usable while the assistant works:
-- A `send` while the turn is running, waiting on a card or stopping is queued for that turn's conversation (at most 5,
+- A `send` while the turn is running or stopping is queued for that turn's conversation (at most 5,
   each ≤ 4,000 characters; CONFLICT for another conversation of the game, or with a change of the assistant's rights,
   which waits until it is idle: a queued message runs with the busy turn's credential). The pane shows it as queued, editable
   (`editQueued`) and removable (`removeQueued`) until delivered. The queue is in Convex, so it survives reloads and
@@ -202,10 +203,9 @@ keyed by (player, game) like the threads). The composer stays usable while the a
 - **Exactly once.** Delivery marks each row `delivered` in the same mutation that inserts its message, so of two racing
   deliveries one finds nothing (Convex mutations are serializable). `clientId` (the pane sends a UUID) makes a retried
   send return the same row, queued or delivered, never a second message.
-- **Cards.** A queued message never approves anything. It declines a card that is waiting (the result tells the model
-  the player sent a message instead and to ask again if still wanted), and while a message is queued a call that would
-  need a card is declined the same way rather than shown, so the player's latest words decide before any card. The
-  model then reads the message beside the declined result.
+- **Autopilot comes second.** A message sent while an autopilot turn runs stops that turn (`cancelling`, error
+  `PREEMPTED`, whose history note tells the model the player interrupted it) and starts the player's turn as soon as the
+  cancellation lands; the autopilot opens no turn while one of the player's runs or a message of theirs waits.
 - **Stop** keeps the messages queued so far, marked `held`: they never go into the stopped turn and start nothing
   by themselves. They go first in the player's next message's turn, or now with `sendQueued` (the conversation on
   screen); the pane says so. A
@@ -216,13 +216,27 @@ keyed by (player, game) like the threads). The composer stays usable while the a
   that step's reservation estimate (made after delivery) includes it and settles to what the step cost, as for any
   message.
 
-**Confirmation.** `summon_agent` (unless the player set "auto-approve summons up to N bits" and this turn validated the
-same source at most at N), `send_chat`, `pause_game`, `destroy_agent`, `delete_panel`, `delete_setup` and every owner tool wait for a card:
-the call goes `awaiting_confirmation`, the turn pauses with no action open, the pane shows the exact payload, and
-`assistant.confirm(toolCallId, approve|deny)` resumes it (a new `gen`). Unanswered after 2 minutes, the call is denied.
-Reads, `validate_agent`, `set_ready`, `wake_engine`, panel saves (`save_panel`, `rollback_panel`) and the layout tools
-(at most two layout changes per step) run automatically and show as activity chips. A tool the grant does not allow is
-refused at once (FORBIDDEN), with no card.
+**Modes** (`convex/assistant/mode.ts`; per player per room, `assistant.setMode`, the pane's selector or Ctrl+K "Assistant
+mode…"). No call waits for an approval: the mode says what the assistant may do, and when.
+- **Autopilot**: plays on its own, without being prompted. `assistant/autopilot.ts` runs a chain of scheduled ticks per
+  (room, player), like an AI seat's (`ai/seats.ts`), with a generation (`autopilotChain`) so a stale tick exits; choosing
+  Autopilot starts it, and a game's start or resume (`ai/seats.ts startAll`) restarts every autopilot of the room. Each
+  tick, while the game is in planning or running, opens one turn (at most 6 steps) in the player's latest conversation of
+  the game (or a new "Autopilot" one), whose message is the engine's prompt, shown as "(autopilot)": at the game's start
+  and then every 60 s, never while a turn of the player's runs or a message of theirs waits. Its turns draw on the
+  player's per-game assistant quota; the chain stops when the mode changes, the game ends or is parked (idle parking or a
+  failure; a resume restarts it), the engine is idle, AI is unavailable in the room, or the player's allowance is down
+  to its last tenth (kept for their own questions). It cannot call `wake_engine`, so only the player's own activity
+  keeps the engine awake. It needs a credential that may act (a read-only connection cannot choose it).
+- **On request** (the default): acts, mutations included, only in response to the player's messages. Every tool of the
+  grant runs at once, public chat, summons and owner actions included.
+- **Read-only**: answers questions with read-only tools (`readOnlyHint`: reads, free validation, analytics code, the
+  owner's reads); never mutates. Enforced in the tool dispatch (`assistant/step.ts`, `rules.ts allowedInMode`), read at
+  every step: a call that would change anything is refused with `READ_ONLY` and an engine note, whatever the model was
+  offered. The model is offered and indexed only those tools.
+
+Owner powers stay the credential's grant (`read | act | owner`), orthogonal to the mode. A tool the grant does not allow
+is refused at once (FORBIDDEN). Layout tools run at most two per step and show as activity chips like every call.
 
 **Models and quotas.** `lib/ai-player`'s `ChatProvider` (`stream({system, messages, tools, maxOutputTokens, signal,
 onText})`) has Anthropic Messages and OpenAI chat-completions adapters (direct endpoints, catalog prices, no retries;
@@ -248,25 +262,25 @@ to 8 KB starts with a `TRUNCATED` field naming what was kept of what, and the pr
 **Safety.**
 - Tool results reach the model as the registry's untrusted JSON (`{untrusted: true, notice, data}`); the system prompt
   says only the player's messages are instructions.
-- Public chat is never sent without the player's confirmation.
+- Public chat is sent only when the player asks for it (On request) or on Autopilot, never in Read-only.
 - Logs record ids, tools, outcomes and usage, never message text or tool arguments.
 - Threads, messages and tool calls are readable only by their human (`assistant.thread(s)` check `subject`, and a
   player credential reaches its own room only); stored tool results are the human's own projections.
 - **Per (player, game).** Everything the assistant works from is keyed by human and game: threads (with their turns,
-  briefings, history window, messages, tool calls and cards), the allowance, code runs and the stored objects other
-  than saved scripts (`docs/assistant/code-execution.md` §5). Starting a game ends the room's active turns (a waiting
-  card is denied), `assistant.threads` lists only the current game's, and `assistant.send` refuses an earlier game's
+  briefings, history window, messages and tool calls), the allowance, code runs and the stored objects other
+  than saved scripts (`docs/assistant/code-execution.md` §5). Starting a game ends the room's active turns, `assistant.threads` lists only the current game's, and `assistant.send` refuses an earlier game's
   thread (CONFLICT), so a new game begins with an empty context. An earlier game's threads stay readable by their human
   (`assistant.threads {gameId}`, `assistant.thread`); the assistant's own tools never reach that game's runs or
-  objects. The player's choices stay: the summon auto-approve preference, the assistant credential, panels and layout.
+  objects. The player's choices stay: the assistant's mode, the assistant credential, panels and layout.
   The pane follows the game reactively: `assistant.status` names the current `game`, and the pane renders one
   conversation component keyed by it, whose transcript is the query `assistant.transcript {roomId, gameId, threadId?}`
   (that game's thread only, whatever id the client names) and whose `send` names the game (CONFLICT once another is
   current). When the game changes, the query arguments change and the old game's state is gone, without a reload.
 
 **UI** (`artifacts/player-web/src/core/chat/`): the dock's assistant pane, in every mode of the app, for a seated player
-(spectators have no assistant): streaming messages, tool chips (expandable to the exact arguments and the outcome),
-confirmation cards with a countdown, Stop, the quota meter, the permission choice on first use, and an explanation
+(spectators have no assistant): the mode selector (Autopilot, On request, Read-only, each with its line), streaming
+messages, tool chips (expandable to the exact arguments and the outcome), Stop, the quota meter, owner powers for the
+room owner, and an explanation
 while AI is unavailable in the room (not run by an administrator, or the quota is 0). The owner sets the assistant quota on the room's configure
 page.
 

@@ -23,14 +23,14 @@ const withTables = (draw: { familyId: string; params: never }) => {
 
 export const SHOWCASE = [
   { familyId: "parity_painter", params: { even_or_red: "red", odd_or_black: "green", split: "parity" } },
-  { familyId: "set_spotter", params: { diag: false } },
-  { familyId: "number_bonds", params: { mode: "any" } },
+  { familyId: "set_spotter", params: {} },
+  { familyId: "number_bonds", params: {} },
   { familyId: "chessmaster", params: { colour_a: "red", colour_b: "green" } },
   { familyId: "honest_minesweeper", params: { mine: "red" } },
   { familyId: "magic_accountant", params: { axis: "rows", target: 16 } },
   { familyId: "kingdom", params: { colour: "red" } },
-  { familyId: "picture_frame", params: { colour: "red" } },
-  { familyId: "mirrormancer", params: { axis: "LR", layer: "colour" } },
+  { familyId: "picture_frame", params: { colour: "red", symbol: "7" } },
+  { familyId: "mirrormancer", params: { axis: "LR" } },
 ] as const;
 
 /** A family without a lens: its example board shows the score only (no breakdown). */
@@ -54,7 +54,7 @@ function Family({ familyId, params }: { familyId: string; params: Record<string,
           {LIVE.map(v => <GridObject key={v} value={v} grid={GRID} renderer="digits" />)}
         </div>
       </GoalExplainerProvider>
-      {example && <GoalBoard goal={goal} value={example.value} grid={GRID} initialFocus={example.focus} caption={example.caption} testId={`example-${familyId}`} />}
+      {example && <GoalBoard goal={goal} value={example.value} grid={GRID} caption={example.caption} testId={`example-${familyId}`} />}
     </section>
   );
 }
@@ -75,11 +75,11 @@ function PlainFamily() {
 // alternative modes for hard rules (docs/annotations-design.md §11)
 // ------------------------------------------------------------------------------------------------
 
-const CASTLE = { familyId: "castle_keeper", params: { W: 0, mode: "plain", T: null } };
+const CASTLE = { familyId: "castle_keeper", params: { wall: "red" } };
 const CASTLE_BOARD = "1G,0R,0R,0R/2B,3G,0R,5B/0R,0R,4G,0R/2B,0R,0R,3G";
-const FAR = { familyId: "far_apart", params: { A: 0, B: 1 } };
+const FAR = { familyId: "far_apart", params: { first_colour: "red", second_colour: "green" } };
 const FAR_BOARD = "3R,1R,0B,2G/4R,7B,5G,1B/0B,2R,6B,8G/9G,1B,3R,7G";
-const MIRROR = { familyId: "mirrormancer", params: { axis: "LR", layer: "colour" } };
+const MIRROR = { familyId: "mirrormancer", params: { axis: "LR" } };
 
 function Mode({ id, title, blurb, children }: { id: string; title: string; blurb: string; children: React.ReactNode }) {
   return (

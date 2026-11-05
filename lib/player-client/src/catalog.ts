@@ -149,26 +149,20 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   },
   "assistant.cancel": {
     kind: "mutation", audience: "player",
-    human: { title: "Stop the assistant", tooltip: "Stops the current answer and cancels a waiting card; messages you queued stay held until you send." },
+    human: { title: "Stop the assistant", tooltip: "Stops the current answer; messages you queued stay held until you send." },
     ai: { description: "Cancel the human's active assistant turn: the running step stops at its next flush or between tool calls." },
     tools: [], palette: { label: "Stop the assistant", group: "help", keywords: ["stop", "cancel", "assistant"], surfaces: DOCK }, why: NO_SELF_DRIVE,
   },
-  "assistant.confirm": {
+  "assistant.setMode": {
     kind: "mutation", audience: "player",
-    human: { title: "Decide a confirmation", tooltip: "Approves or denies an action the assistant asked permission for." },
-    ai: { description: "Approve or deny one tool call waiting on a confirmation card (public chat, summons, destroys, pauses, panel deletion, owner actions). Unanswered cards are denied after 2 minutes." },
-    tools: [], palette: null, why: "Decided on the confirmation card in the assistant pane, never elsewhere.",
-  },
-  "assistant.setPrefs": {
-    kind: "mutation", audience: "player",
-    human: { title: "Set assistant preferences", tooltip: "Lets summons the assistant validated run without a card up to this many bits (0 asks every time)." },
-    ai: { description: "Set the human's assistant preference for a room: auto-approve summons up to N bits when the same turn validated the source at that cost (0 = always ask)." },
-    tools: [], palette: { label: "Auto-approve summons up to…", group: "help", keywords: ["assistant", "summon", "approve", "preferences"], surfaces: DOCK }, why: NO_SELF_DRIVE,
+    human: { title: "Set the assistant's mode", tooltip: "Autopilot plays on its own; On request acts only when you ask; Read-only only answers questions." },
+    ai: { description: "Set the human's assistant mode for a room: autopilot (plays without being prompted, within the game's assistant quota), onRequest (acts only in response to the human's messages) or readOnly (read-only tools only, enforced server-side)." },
+    tools: [], palette: { label: "Assistant mode…", group: "help", keywords: ["assistant", "mode", "autopilot", "on request", "read-only"], surfaces: DOCK }, why: NO_SELF_DRIVE,
   },
   "assistant.status": {
     kind: "query", audience: "player",
     human: { title: "Show assistant status", tooltip: "Whether the assistant is on, its allowance, model, credential and active turn." },
-    ai: { description: "The assistant pane's status subscription: enabled, allowance used, model, credential, active turn and preferences." },
+    ai: { description: "The assistant pane's status subscription: enabled, allowance used, model, credential, active turn and mode." },
     tools: [], palette: null, why: SUBSCRIPTION,
   },
   "assistant.threads": {
@@ -185,7 +179,7 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   },
   "assistant.thread": {
     kind: "query", audience: "player",
-    human: { title: "Show a conversation", tooltip: "One conversation's messages, tool calls and confirmation cards." },
+    human: { title: "Show a conversation", tooltip: "One conversation's messages and tool calls." },
     ai: { description: "One assistant thread's turns, messages and tool calls, readable by its human only." },
     tools: [], palette: null, why: SUBSCRIPTION,
   },
@@ -254,10 +248,10 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   // ----- commands -----
   "commands.submit": {
     kind: "action", audience: "player",
-    human: { title: "Send a game command", tooltip: "Validate, summon or destroy an agent, mark yourself ready, chat publicly or use your pause." },
-    ai: { description: "Submit one v3 command envelope as the human: validate, summon, destroy, ready, chat or pause. The engine checks permission, phase, energy and idempotency and returns a receipt {accepted, message, validation?}. Replaying an identical envelope returns its receipt; a reused commandId with other content is CONFLICT." },
-    tools: ["validate_agent", "summon_agent", "destroy_agent", "set_ready", "send_chat", "pause_game"],
-    palette: { label: "Send a game command…", group: "play", keywords: ["validate", "summon", "destroy", "ready", "chat", "pause"], surfaces: DOCK },
+    human: { title: "Send a game command", tooltip: "Validate, summon or destroy an agent, share out your power, mark yourself ready, chat publicly or use your pause." },
+    ai: { description: "Submit one v3 command envelope as the human: validate, summon, destroy, allocatePower, ready, chat or pause. The engine checks permission, phase, energy and idempotency and returns a receipt {accepted, message, validation?}. Replaying an identical envelope returns its receipt; a reused commandId with other content is CONFLICT." },
+    tools: ["validate_agent", "summon_agent", "destroy_agent", "allocate_power", "set_ready", "send_chat", "pause_game"],
+    palette: { label: "Send a game command…", group: "play", keywords: ["validate", "summon", "destroy", "power", "ready", "chat", "pause"], surfaces: DOCK },
   },
   // ----- games -----
   "games.resolve": {
@@ -440,9 +434,63 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   },
   "player.objectsPage": {
     kind: "query", audience: "player",
-    human: { title: "Scroll the objects", tooltip: "Your objects a page at a time, by payoff, your bits or the others' care." },
-    ai: { description: "A page of the human's objects ordered by payoff, their bits or the others' care (the disclosed, noisy sum while the game is live), with footer totals; the Objects panel's infinite scroll." },
-    tools: [], palette: null, why: "The Objects by payoff panel's infinite scroll; the assistant reads the same numbers through the observation and sets the panel's sort with show_panel.",
+    human: { title: "Scroll the objects", tooltip: "Your objects a page at a time, by payoff, your bits, the others' care, mutations, creation time or last mutation." },
+    ai: { description: "A page of the human's objects ordered by payoff, their bits, the others' care (the disclosed, noisy sum while the game is live), how many times they have been mutated, when they were created or when last mutated (all public), with footer totals; the Objects panel's infinite scroll." },
+    tools: [], palette: null, why: "The Objects panel's infinite scroll; the assistant reads the same numbers through the observation and sets the panel's sort with show_panel.",
+  },
+  "dock.state": {
+    kind: "query", audience: "player",
+    human: { title: "My game's state", tooltip: "Phase, clocks, your energy, power and score, the rules: what the dock's header shows." },
+    ai: { description: "The human's view of the room's current game without its collections: phase, codes, clocks, languages, sandboxes, the instance, the economy and the human's own state (energy, power, score, card)." },
+    tools: [], palette: null, why: "The dock's header and every panel's phase; the assistant reads the observation.",
+  },
+  "dock.agents": {
+    kind: "query", audience: "player",
+    human: { title: "My agents", tooltip: "Your agents with their energy, power share and how their acts went." },
+    ai: { description: "The human's own agents in the current game, as the observation lists them." },
+    tools: [], palette: null, why: "The agents panel and the forge; the assistant reads the observation.",
+  },
+  "dock.transformations": {
+    kind: "query", audience: "player",
+    human: { title: "My recent transformations", tooltip: "What your agents changed lately, with what each act cost." },
+    ai: { description: "The human's agents' most recent transformations (at most 90), as the observation lists them." },
+    tools: [], palette: null, why: "The feed's own transformations; the assistant reads the observation and the event log.",
+  },
+  "dock.agentSeries": {
+    kind: "query", audience: "player",
+    human: { title: "My agents' energy over time", tooltip: "Each of your agents' energy at every scoreboard publication." },
+    ai: { description: "The human's agents' energy over the game, one sample per scoreboard publication, paged by world time." },
+    tools: [], palette: null, why: "The agents panel's sparklines; kept by the server instead of sampled by the client.",
+  },
+  "player.objectIds": {
+    kind: "query", audience: "player",
+    human: { title: "List my objects", tooltip: "Your objects' ids in one sort order, a page at a time." },
+    ai: { description: "One page of the human's object ids in a sort order (payoff, their bits, the others' care, mutations, creation or last mutation; a filter narrows), with the cursor of the next page: the Objects panel's skeleton." },
+    tools: [], palette: null, why: "The Objects panel's skeleton; each visible row then reads player.object.",
+  },
+  "player.object": {
+    kind: "query", audience: "player",
+    human: { title: "One of my objects", tooltip: "One object with your bits, the others' care and your payoff." },
+    ai: { description: "One object as the human sees it: value, mutations, their own score, the others' summed bits (noisy while live) and their payoff." },
+    tools: [], palette: null, why: "One row of the Objects panel; panels read it per visible object.",
+  },
+  "player.objectsTop": {
+    kind: "query", audience: "player",
+    human: { title: "My best objects", tooltip: "Your top (or bottom) objects by payoff or another sort, with their ranks." },
+    ai: { description: "The human's top or bottom n (at most 20) objects in a sort order, each with its rank." },
+    tools: [], palette: null, why: "Small top-N lists in panels (my card, results); the assistant reads the observation.",
+  },
+  "player.objectRank": {
+    kind: "query", audience: "player",
+    human: { title: "An object's rank", tooltip: "Where one object stands by your payoff (#1 is your best)." },
+    ai: { description: "One object's rank by the human's payoff (1 is best), or null beyond the first 90." },
+    tools: [], palette: null, why: "The #rank badge of one object in a panel.",
+  },
+  "player.totals": {
+    kind: "query", audience: "player",
+    human: { title: "My totals", tooltip: "Your score and sums over every object, and how many are contested or chips." },
+    ai: { description: "The human's totals over every object as disclosed: object count, score (sum of payoffs), sums of their bits and of the others', the contested and chip counts, and the extremes." },
+    tools: [], palette: null, why: "The Objects panel's footer and the overview's figures.",
   },
   "player.series": {
     kind: "query", audience: "player",
@@ -453,7 +501,7 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   "player.board": {
     kind: "query", audience: "player",
     human: { title: "Board at a moment", tooltip: "Every object as it was at a world time, with your bits and the others' total." },
-    ai: { description: "The board at a world time (default now): every object that existed then with its value, version, the human's own bits, the others' summed bits and the human's payoff, from each object's last change at or before that time." },
+    ai: { description: "The board at a world time (default now), a page at a time in spawn order: every object that existed then with its value, version, the human's own bits, the others' summed bits and the human's payoff, from each object's last change at or before that time." },
     tools: ["get_board_at"], palette: null, why: "Takes a world time chosen during analysis; panels and the assistant call it.",
   },
   "player.myUtility": {
@@ -571,11 +619,17 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
     tools: ["resume_game"], palette: { label: "Resume the game", group: "owner", keywords: ["recovery", "unpause", "resume"] },
   },
   // ----- setups -----
-  "setups.list": {
+  "setups.page": {
     kind: "query", audience: "player",
-    human: { title: "Browse game setups", tooltip: "Every game setup: the system's, then everyone's by name, each with its owner." },
-    ai: { description: "Every game setup (one shared collection): the system's (system: true, nobody may edit them), then everyone's by name, each with id, name, ownerName, mine, editable (= mine) and summary; get_setup has one's settings. update_settings with a setupId puts the next game on any of them; duplicate_setup copies one to edit." },
-    tools: ["list_setups"], palette: null, why: "The Setup combobox and Choose the next game's setup list them; there is nothing to run on its own.",
+    human: { title: "Browse game setups", tooltip: "The game setups a page at a time: the system's, then everyone's by name, or those matching a search." },
+    ai: { description: "Every game setup (one shared collection), a page at a time: the system's (system: true, nobody may edit them), then everyone's by name, each with id, name, summary, system and mine; with a search, the setups whose name, owner or summary match it. get_setup has one's settings. update_settings with a setupId puts the next game on any of them; duplicate_setup copies one to edit." },
+    tools: ["list_setups"], palette: null, why: "The Setup combobox and Choose the next game's setup page through them; there is nothing to run on its own.",
+  },
+  "setups.row": {
+    kind: "query", audience: "player",
+    human: { title: "Show a setup's row", tooltip: "One setup as the Setup list shows it: its name, summary and owner." },
+    ai: { description: "One game setup as a list shows it: id, name, summary, system, ownerName, mine, editable (= mine); null once it is deleted." },
+    tools: [], palette: null, why: "Each row of the Setup combobox and the room's current setup read it; list_setups and get_setup cover it for the assistant.",
   },
   "setups.get": {
     kind: "query", audience: "player",

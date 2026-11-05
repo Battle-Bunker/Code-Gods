@@ -50,6 +50,15 @@ Attribution channels, and what each does while live (`projectEvent(…, live)`, 
 | Salience on the public game view (Σ net bits per object) | public, exact | with the version's disclosure noise (§5.2), the same draw as every seated player's others' sum |
 | The others' sum itself, and everything built on it (care, payoff, own live score, scoreboard) | exact | the exact value plus the version's disclosure noise, σ = `peerNoiseBits` (default 8 bits, §5.2) |
 
+**Per-object public figures (the owner's disclosure decision, 2026-11-03).** Everyone who can read the game, seated
+players, spectators and replays alike, sees for each object how many times it has been transformed (its `version`:
+the "mutation count"), the world time it was spawned (`createdAt`) and the world time of its last transformation
+(`lastMutatedAt`). They are stored on the `objects` doc, kept by the tick in the commit that writes the transformation,
+and drive the Objects panel's "Most mutated", "Newest", "Oldest" and "Recently mutated" sorts. They are aggregates of
+facts the public log already states (every transformation's object and world time is public, §1), so they add no
+attribution: nothing in them says who mutated an object, and the log stays unattributed. test/game-object-times.test.ts
+asserts every seated god reads the same figures, and that they match the log's own events.
+
 After the end, the projections show what they showed before this change (others' agent ids and summons, every
 batch's totals); the replay work extends that to full transparency.
 

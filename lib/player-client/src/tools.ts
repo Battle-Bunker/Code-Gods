@@ -28,6 +28,7 @@ import { PANEL_IDS } from "./panels.ts";
 import { SKILLS, SKILL_NAMES } from "./skills.ts";
 import { placeSchema } from "./layout.ts";
 import { DATASET_NAMES } from "./datasets.ts";
+import { OBJECT_SORTS } from "./objects-page.ts";
 import { AGENT_DESCRIPTION_MAX, AGENT_NAME_MAX, VERSION, type Envelope, type Permission } from "./protocol.ts";
 
 const RANK: Record<Permission, number> = { read: 0, act: 1, owner: 2 };
@@ -66,8 +67,8 @@ const receiptData = z.object({
   status: z.enum(["received", "pending", "failed", "not_found"]),
   commandId: uuid,
   receipt: z.unknown().optional().describe("The engine's CommandResult: accepted, message, validation details."),
-  assessment: z.object({ verdict: z.enum(["works", "fails", "no_change", "rejected", "not_ready"]), summary: z.string(), next: z.string() }).passthrough().optional()
-    .describe("A validation's meaning: works, fails (on the reference objects), no_change or rejected (does not compile); the price against the player's energy, and the next step."),
+  assessment: z.object({ verdict: z.enum(["works", "warns", "fails", "no_change", "rejected", "not_ready"]), summary: z.string(), next: z.string() }).passthrough().optional()
+    .describe("A validation's meaning: works, warns (works, but most acts would fail or the player already runs this code: tell them the warnings before any summon), fails (on the reference objects), no_change or rejected (does not compile); the price against the player's energy, and the next step."),
   error: z.object({ code: z.string(), message: z.string() }).optional(),
   message: z.string().optional(),
 });
@@ -123,10 +124,11 @@ export const READ_TOOLS = [
     about: "The rules of Code Gods for this room as text (scoring, agents, energy, timing), with the room's settings and object type.",
     input: obj({}), output: result(anyData) }),
   def({ name: "get_observation", short: "The live game: phase, energy, utility, objects (paged), agents, leaderboard, recent chat.", title: "Observation", functions: ["player.observation"], permission: "read", annotations: read,
-    note: "Objects are paged (objectsLimit, objectsCursor); agents are capped at 20 with sources cut to 4 KB.",
+    note: "Objects are paged on the server (objectsLimit, objectsSort, objectsCursor; objectCount is the total); agents are capped at 20 with sources cut to 4 KB, chat at 20, recent transformations at 50.",
     input: obj({
-      objectsLimit: z.number().int().min(1).max(200).default(50).describe("Objects per page (sorted as the engine sends them)."),
-      objectsCursor: z.number().int().min(0).default(0).describe("Offset of the first object (nextCursor of the previous page)."),
+      objectsLimit: z.number().int().min(1).max(200).default(50).describe("Objects per page, at most 90 (a larger value is cut to 90)."),
+      objectsSort: z.enum(OBJECT_SORTS).default("payoff").describe("Object order: payoff (highest first), mine (own bits), othersCare, mutations, newest, oldest, recentlyMutated."),
+      objectsCursor: z.union([z.string().max(200), z.literal(0)]).optional().describe("The previous page's nextCursor (omit, or 0, for the first page)."),
     }), output: result(anyData) }),
   def({ name: "get_events", short: "The player's projected event log of a game, by batch cursor.", title: "Event log", functions: ["player.events"], permission: "read", annotations: read,
     note: "Omit `after` for the latest batches.",
@@ -166,8 +168,8 @@ export const READ_TOOLS = [
 ] as const;
 
 export const ACT_TOOLS = [
-  def({ name: "validate_agent", short: "Check an agent's source without summoning it (free): compiles, summon cost, act cost.", title: "Validate an agent", functions: ["commands.submit"], permission: "act", annotations: read,
-    about: "Measure an agent without summoning it (free): whether it compiles, its summon cost, decision bits and expected cost per act, with sample moves. Takes a few seconds. Always validate before summoning.",
+  def({ name: "validate_agent", short: "Check an agent's source without summoning it (free): compiles, summon price, estimated cost per act.", title: "Validate an agent", functions: ["commands.submit"], permission: "act", annotations: read,
+    about: "Measure an agent without summoning it (free): whether it compiles, its summon price (paid once), the estimated cost per act split into reading and changing (an act pays only the bits it reads plus, when it changes the object, its change; a skip pays only its reads), and the share of skips, with sample moves. Takes a few seconds. Always validate before summoning.",
     input: obj({ source, language: language.optional().describe("The agent's language: one the game allows (get_observation languages). Default: the game's first allowed language."), commandId: optionalCommandId, gameId, waitMs }),
     output: result(receiptData) }),
   def({ name: "summon_agent", short: "Summon an agent into the game, paying its cost from the player's energy.", title: "Summon an agent", functions: ["commands.submit"], permission: "act", annotations: acts,
@@ -175,10 +177,14 @@ export const ACT_TOOLS = [
     input: obj({ source, language: language.optional().describe("The agent's language, the one it was validated in: one the game allows. Default: the game's first allowed language."),
       name: z.string().trim().min(1).max(AGENT_NAME_MAX).describe("A short, meaningful name for the agent (required, up to 40 characters), e.g. \"Corner hoarder\". Shown in the player's My agents list."),
       description: z.string().trim().max(AGENT_DESCRIPTION_MAX).optional().describe("One or two sentences on what the agent does and why (optional, up to 500 characters). Shown on hover next to the name."),
+      powerShare: z.number().min(0).max(1).optional().describe("The share of the player's power the new agent earns, 0 to 1 (0.25 = a quarter of it). Default: half of the power the player has not yet given to agents. Shares of one player total at most 1."),
       commandId, gameId, waitMs }), output: result(receiptData) }),
   def({ name: "destroy_agent", short: "Destroy one of the player's agents (no refund).", title: "Destroy an agent", functions: ["commands.submit"], permission: "act", annotations: destructive,
-    about: "Destroy one of the player's own agents, for free (energy already spent is not refunded; the player confirms first).",
+    about: "Destroy one of the player's own agents, for free (energy already spent is not refunded; its power share goes back to the player; the player confirms first).",
     input: obj({ agentId: id.describe("The agent's id from get_observation (agents[].id); never a command id."), commandId, gameId }), output: result(receiptData) }),
+  def({ name: "allocate_power", short: "Change how much of the player's power one agent gets.", title: "Allocate power", functions: ["commands.submit"], permission: "act", annotations: acts,
+    about: "Set one agent's power share (0 to 1) from now on: it earns share x economy.powerPerSecond bits per world second, and the player's own income is the unallocated rest (self.income). The player's shares total at most 1; both accounts are settled first. Moving power between agents is two calls: lower one, then raise the other.",
+    input: obj({ agentId: id.describe("The agent's id from get_observation (agents[].id); never a command id."), share: z.number().min(0).max(1).describe("The agent's new share of the player's power, 0 to 1."), commandId, gameId }), output: result(receiptData) }),
   def({ name: "set_ready", short: "Mark the player ready (or not) in the lobby.", title: "Set ready", functions: ["commands.submit", "rooms.setReady"], permission: "act", annotations: acts,
     about: "Mark the player ready (or not) in the room lobby; advisory.",
     input: obj({ ready: z.boolean(), commandId: optionalCommandId }), output: result(receiptData) }),
@@ -232,7 +238,7 @@ export const OWNER_TOOLS = [
  */
 const setupId = id.describe("A setup's id from list_setups.");
 export const SETUP_TOOLS = [
-  def({ name: "list_setups", short: "Search the shared game setups (the system's and everyone's).", title: "List game setups", functions: ["setups.list"], permission: "read", annotations: read,
+  def({ name: "list_setups", short: "Search the shared game setups (the system's and everyone's).", title: "List game setups", functions: ["setups.page"], permission: "read", annotations: read,
     note: "Rows without settings ({setups, total}); query narrows by name, owner or summary words; get_setup has one setup's settings.",
     input: obj({ query: z.string().trim().max(100).optional().describe("Words that must all appear in the name, the owner's name or the summary."),
       limit: z.number().int().min(1).max(200).optional().describe("At most this many rows (default 100); total says how many match.") }),
@@ -361,7 +367,10 @@ export const INFERENCE_TOOLS = [
       offset: z.number().int().min(0).default(0).describe("Rows to skip (nextCursor)."), limit: z.number().int().min(1).max(20000).default(500) }),
     output: result(anyData) }),
   def({ name: "get_board_at", short: "The board at a world time, with own and others' summed bits.", functions: ["player.board"], permission: "read", annotations: read,
-    input: obj({ gameId, world: z.number().min(0).optional().describe("World seconds (default: now).") }), output: result(anyData) }),
+    note: "Paged in spawn order, at most 100 objects a page (and what fits in one result): pass nextCursor back as cursor; it keeps the first page's world.",
+    input: obj({ gameId, world: z.number().min(0).optional().describe("World seconds (default: now)."),
+      cursor: z.string().max(2000).optional().describe("The previous page's nextCursor (omit for the first page)."),
+      limit: z.number().int().min(1).max(100).default(50).describe("Objects per page.") }), output: result(anyData) }),
   def({ name: "list_utility_candidates", short: "Every rule another god might hold here, with its parameter sets.", title: "Candidate rules", functions: [], permission: "read", annotations: read,
     about: "The public candidates for the OTHER gods' utility functions in the current game: every family the dealer could deal here (theme, tags, "
       + "role: reward or defence goal) with every parameter set it can draw, and how many other gods there are. Use the ids and params in "
@@ -427,13 +436,13 @@ export function toolJsonSchemas(): Record<string, { input: Record<string, unknow
 // Command tools → v3 envelopes
 // ---------------------------------------------------------------------------------------------
 
-export const COMMAND_TOOLS = ["validate_agent", "summon_agent", "destroy_agent", "set_ready", "send_chat", "pause_game"] as const;
+export const COMMAND_TOOLS = ["validate_agent", "summon_agent", "destroy_agent", "allocate_power", "set_ready", "send_chat", "pause_game"] as const;
 export type CommandToolName = (typeof COMMAND_TOOLS)[number];
 export const isCommandTool = (name: string): name is CommandToolName => (COMMAND_TOOLS as readonly string[]).includes(name);
 /** The command tool of each envelope command type (the CLI's `assistant command` alias). */
-export const TOOL_OF_COMMAND = { validate: "validate_agent", summon: "summon_agent", destroy: "destroy_agent", ready: "set_ready", chat: "send_chat", pause: "pause_game" } as const;
+export const TOOL_OF_COMMAND = { validate: "validate_agent", summon: "summon_agent", destroy: "destroy_agent", allocatePower: "allocate_power", ready: "set_ready", chat: "send_chat", pause: "pause_game" } as const;
 
-type CommandArgs = { commandId?: string; gameId?: string; source?: string; language?: Language; name?: string; description?: string; agentId?: string; ready?: boolean; text?: string };
+type CommandArgs = { commandId?: string; gameId?: string; source?: string; language?: Language; name?: string; description?: string; agentId?: string; share?: number; powerShare?: number; ready?: boolean; text?: string };
 
 /** Does buildEnvelope need the current game (its id or language) for these arguments? */
 export function envelopeNeedsGame(name: CommandToolName, args: CommandArgs): boolean {
@@ -459,8 +468,9 @@ export function buildEnvelope(name: CommandToolName, args: CommandArgs, game: { 
   };
   const command: Envelope["command"] =
     name === "validate_agent" ? { type: "validate", language: lang(), source: args.source! }
-    : name === "summon_agent" ? { type: "summon", language: lang(), source: args.source!, name: args.name!, ...(args.description ? { description: args.description } : {}) }
+    : name === "summon_agent" ? { type: "summon", language: lang(), source: args.source!, name: args.name!, ...(args.description ? { description: args.description } : {}), ...(args.powerShare !== undefined ? { powerShare: args.powerShare } : {}) }
     : name === "destroy_agent" ? { type: "destroy", agentId: args.agentId! }
+    : name === "allocate_power" ? { type: "allocatePower", agentId: args.agentId!, share: args.share! }
     : name === "set_ready" ? { type: "ready", ready: args.ready! }
     : name === "send_chat" ? { type: "chat", text: args.text! }
     : { type: "pause" };

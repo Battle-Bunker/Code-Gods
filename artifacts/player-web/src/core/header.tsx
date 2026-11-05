@@ -32,10 +32,16 @@ function phasePill(s: Situation, now: number): string {
       const left = countdown(obs.planningEndsAt);
       if (left) return `Planning · starts in ${left}`;
       // Past the deadline, planning holds until every allowed language's agent sandbox is warm.
-      return obs.sandboxes?.some(sb => sb.state !== "ready") ? "Planning · agent sandboxes warming up" : "Planning";
+      if (obs.sandboxes?.some(sb => sb.state !== "ready")) return "Planning · agent sandboxes warming up";
+      // …and until hold rarity's corrections for this player count are computed (docs/energy-model.md §8).
+      return obs.holdRarity?.state === "computing" ? "Planning · computing scoring for this many players" : "Planning";
     }
     case "running": return `Running · ${clock(obs.economy?.worldSeconds ?? 0)}`;
-    case "paused": { const left = countdown(obs.pauseEndsAt); return left ? `Paused · resumes ${left}` : "Paused"; }
+    case "paused": {
+      if (obs.notice?.kind === "idle") return "Paused · idle";
+      if (obs.notice?.kind === "safety") return "Paused for safety";
+      const left = countdown(obs.pauseEndsAt); return left ? `Paused · resumes ${left}` : "Paused";
+    }
     case "ended": return "Ended · game over";
   }
 }
@@ -94,8 +100,16 @@ export function HeaderBanners() {
   const { unknown, busy } = useRunner();
   const commands = useGameCommands();
   const notices = useNotices();
+  const gameNotice = useSituation().obs?.notice;
   return (
     <>
+      {gameNotice && (
+        // Why the game is not moving (an idle park, a pause for safety, or the engine retrying): never mistaken for a crash.
+        <div data-testid="banner-game-notice" data-kind={gameNotice.kind} role="status"
+          className={`border-b border-[hsl(var(--card-border))] px-4 py-1.5 text-sm ${gameNotice.kind === "retrying" ? "bg-[hsl(var(--destructive)/0.15)]" : "bg-[hsl(var(--chart-4)/0.25)]"}`}>
+          {gameNotice.text}
+        </div>
+      )}
       {unknown && (
         <div data-testid="banner-unknown" role="alert" className="flex flex-wrap items-center gap-3 border-b border-[hsl(var(--card-border))] bg-[hsl(var(--chart-4)/0.25)] px-4 py-1.5 text-sm">
           <span>Your <strong>{unknown.envelope.command.type}</strong> may not have arrived: {unknown.error}</span>

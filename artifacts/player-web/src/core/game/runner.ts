@@ -10,7 +10,7 @@
 import { useCallback, useMemo, useSyncExternalStore } from "react";
 import type { Language } from "@workspace/game-core";
 import { GAME_COMMANDS, VERSION, type Command, type CommandResult, type Envelope } from "@workspace/player-client";
-import { useActions, useObservation } from "@/sdk";
+import { useActions, useDockState } from "@/sdk";
 import { errorText, noticeStore } from "@/core/notices";
 
 export type Lang = Language;
@@ -52,7 +52,7 @@ export function useRunner(): RunnerState {
 /** Run game commands: `run` builds a fresh envelope; `retry` resends the unknown one unchanged. */
 export function useGameCommands() {
   const actions = useActions();
-  const gameId = useObservation({ hz: 1 })?.gameId;
+  const gameId = useDockState({ hz: 1 })?.gameId;
   const send = useCallback(async (envelope: Envelope): Promise<CommandResult | undefined> => {
     const command = envelope.command;
     set({ busy: command.type, notice: null });

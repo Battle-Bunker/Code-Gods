@@ -14,9 +14,10 @@ import {
 import { objectType, type Rng } from "@workspace/game-types";
 import {
   card, context, divineLottery, evaluator, fairAligned, familiesFor, penaltyMeanBits, publicCatalog, selector, synergyFor,
-  coverage, isPlayableInstantiation, priorKey, shippedPriors, surprisal, tableFor, UNIFORM_PRIOR, type CalibrationManifest, type GodScore, type InstanceTables, type PriorRef,
+  coverage, isPlayableInstantiation, priorKey, shippedPriors, surprisal, tableFor, UNIFORM_PRIOR, type CalibrationManifest, type CalibrationTable, type GodScore, type InstanceTables, type PriorRef,
   type UtilityDescriptor,
 } from "@workspace/game-utilities";
+import { holdBits, type HoldTable } from "@workspace/game-utilities/hold";
 import { fail } from "../lib/errors";
 import { settingsDomain } from "./settingsDomain";
 
@@ -110,13 +111,51 @@ function table(tables: InstanceTables, draw: { familyId: string; params: Utility
   if (!found) throw new Error(`No calibration table for ${draw.familyId} in ${instantiationOf(settings).key}`);
   return found;
 }
-/** One god's private score of one value: ordinal, surprisal bits and net bits (`tables`: the game's instantiation's). */
-export function score(tables: InstanceTables, settings: GameSettings, descriptor: UtilityDescriptor, value: ObjectValue): GodScore {
+
+/**
+ * A started game's own tables, one reward table (and its defence goal's) per god, pinned when the game began (or at
+ * its first tick, for a game started before pinning): engine/pinned.ts. Looked up by god, never by key, so a deploy that
+ * re-keys the shipped tables (a family's params or card text changed: every table key hashes both) or migrates the
+ * gods' stored params cannot leave a game in progress without its tables.
+ */
+export interface PinnedTables {
+  readonly pinned: true;
+  readonly instance: string;
+  /** `hold`: the reward's hold correction at this game's m (docs/energy-model.md §8); absent for one player or until computed. */
+  readonly byGod: ReadonlyMap<string, { readonly reward: CalibrationTable; readonly penalty?: CalibrationTable; readonly hold?: HoldTable }>;
+}
+export type ScoringTables = InstanceTables | PinnedTables;
+const isPinned = (t: ScoringTables): t is PinnedTables => (t as PinnedTables).pinned === true;
+
+/** The tables one god scores with: its pinned ones, or the instantiation's by the descriptor's current key. */
+function godTables(tables: ScoringTables, settings: GameSettings, descriptor: UtilityDescriptor, godId?: string) {
+  if (isPinned(tables)) {
+    const mine = godId === undefined ? undefined : tables.byGod.get(godId);
+    if (!mine) throw new Error(`No pinned calibration table for god ${godId ?? "(none)"}`);
+    if (descriptor.penalty && !mine.penalty) throw new Error(`No pinned defence-goal table for god ${godId}`);
+    return mine;
+  }
+  return { reward: table(tables, descriptor, settings), ...(descriptor.penalty ? { penalty: table(tables, descriptor.penalty, settings) } : {}) };
+}
+
+/** Pin a deal's tables (resolved by today's keys) by god: what engine/pinned.ts stores for the game. Throws when one is missing. */
+export function pinTables(tables: InstanceTables, settings: GameSettings, deals: readonly Deal[]): PinnedTables {
+  const byGod = new Map(deals.map(d => [d.godId, godTables(tables, settings, d.utility)] as const));
+  return { pinned: true, instance: tables.instance, byGod };
+}
+
+/**
+ * One god's private score of one value: ordinal, surprisal bits and net bits (`tables`: the game's instantiation's, or
+ * the game's pinned tables, which need the god's id).
+ */
+export function score(tables: ScoringTables, settings: GameSettings, descriptor: UtilityDescriptor, value: ObjectValue, godId?: string): GodScore {
   const inst = instantiationOf(settings);
+  const t = godTables(tables, settings, descriptor, godId);
   const ordinal = evaluator(descriptor, inst)(value);
-  const rewardBits = bits(surprisal(table(tables, descriptor, settings), ordinal));
+  // Hold rarity (docs/energy-model.md §8): static rarity plus the hold correction of the game's player count.
+  const rewardBits = bits(surprisal(t.reward, ordinal) + holdBits((t as { hold?: HoldTable }).hold, ordinal));
   if (!descriptor.penalty) return { ordinal, rewardBits, netBits: bits(netBits({ rewardBits }, settings.penaltyWeight)) };
-  const penaltyTable = table(tables, descriptor.penalty, settings);
+  const penaltyTable = t.penalty!;
   const penaltyOrdinal = evaluator(descriptor.penalty, inst)(value);
   const penaltyBits = bits(softHinge(surprisal(penaltyTable, penaltyOrdinal)));
   return {
@@ -126,9 +165,9 @@ export function score(tables: InstanceTables, settings: GameSettings, descriptor
 }
 export type Deal = { godId: string; utility: UtilityDescriptor };
 /** Every roster god's score of a value, in the stored form. */
-export function scoresOf(tables: InstanceTables, settings: GameSettings, deities: readonly Deal[], value: ObjectValue) {
+export function scoresOf(tables: ScoringTables, settings: GameSettings, deities: readonly Deal[], value: ObjectValue) {
   return deities.map(d => {
-    const s = score(tables, settings, d.utility, value);
+    const s = score(tables, settings, d.utility, value, d.godId);
     return {
       god: d.godId, ordinal: s.ordinal as number | number[], rewardBits: s.rewardBits, netBits: s.netBits,
       ...(s.penaltyOrdinal !== undefined ? { penaltyOrdinal: s.penaltyOrdinal as number | number[] } : {}),

@@ -1,16 +1,20 @@
 /** Strategy-lens rules (lib/grid-lab/gridlab/rules/strategy.py, cards from rules/cards.py). */
 import type { CardText, GridSpec } from "./_util.ts";
-import { colourParam, choiceParam } from "../../params.ts";
+import { colourParam, choiceParam, symbolParam } from "../../params.ts";
+import type { Params } from "../../types.ts";
 import {
-  SCALAR, article, cap, chance, climb, cname, colourPairs, fromFn, full, glyph, gridFamily, isRim, pick, product, pyCard, range, recolour, sentences, symForValue, thing, tsCard, tuple, valueLaw, wire, colourAt, recolourNames,
+  SCALAR, article, cap, chance, climb, cname, colourPairs, fromFn, full, glyph, gridFamily, isRim, pick, product, pyCard, range, recolour, sentences, symForValue, thing, tsCard, tuple, valueLaw, wire, colourAt, recolourNames, symbolAt, points,
 } from "./_util.ts";
 import {
   binomial, combine, distOf, exactSurvival, iidSum, lazySurvival, lineChainCount, logFactorial, mapDist, type AnalyticSurvival, type Dist,
 } from "../../analytic.ts";
 import { solvedAnalytic } from "../../analytic/hook.ts";
+import { tierPoints } from "../../tuples.ts";
 
 const DIRS4 = ["→", "←", "↓", "↑"] as const;
 type Dir4 = (typeof DIRS4)[number];
+const DIR_CHOICES = [["→", "rows, left to right"], ["←", "rows, right to left"], ["↓", "columns, top to bottom"], ["↑", "columns, bottom to top"]] as const;
+const dirLegacy = (p: Params): { direction: Dir4 } | null => (typeof p.dir === "string" ? { direction: p.dir as Dir4 } : null);
 /** "every row, left to right": the lines a direction reads, in plain words. */
 const READ_LINES: Record<Dir4, string> = {
   "→": "every row, left to right", "←": "every row, right to left",
@@ -27,28 +31,29 @@ const TS_LINES: Record<Dir4, string> = {
 };
 
 // --- Rainbow Road ------------------------------------------------------------------------------
-type RoadP = { dir: Dir4 };
+type RoadP = { direction: Dir4 };
 const roadText = (p: RoadP, g: GridSpec): CardText => {
-  const kind = p.dir === "→" || p.dir === "←" ? "row" : "column";
+  const kind = p.direction === "→" || p.direction === "←" ? "row" : "column";
   const order = [...g.colourNames, g.colourNames[0]].join(" → ");
   return {
     emoji: "🌈", name: "Rainbow Road", consts: [],
-    about: `Look along ${READ_LINES[p.dir]}. A step is good if the next cell has the next colour in rainbow order `
-      + `(${order}). Each ${kind} where every step is good scores 1 point. Most points wins. If that's a tie, `
-      + "more good steps in total wins.",
+    about: `Try to make every ${kind} follow the rainbow. Look along ${READ_LINES[p.direction]}. A step is good if the next cell has the next colour in rainbow order `
+      + `(${order}). Each ${kind} where every step is good scores ${tierPoints(1, 0, 2)}. `
+      + `Each good step anywhere scores ${tierPoints(1, 1, 2)}.`,
   };
 };
 const rainbowRoad = gridFamily<RoadP>({
   id: "rainbow_road", name: "Rainbow Road", emoji: "🌈", theme: "Rows that march round the rainbow",
   requires: { classes: ["Spectral"] }, shape: tuple(2), tags: ["shortlist"],
-  support: () => DIRS4.map(dir => ({ dir })),
-  canonical: () => ({ dir: "→" }),
+  params: () => ({ direction: choiceParam("Read the lines", DIR_CHOICES) }), legacy: dirLegacy,
+  support: () => DIRS4.map(direction => ({ direction })),
+  canonical: () => ({ direction: "→" }),
   summary: (p, g) => roadText(p, g).about,
   python: (p, g) => pyCard(roadText(p, g), `
     def utility(grid):
         whole_lines = 0
         steps = 0
-        for line in ${PY_LINES[p.dir]}:
+        for line in ${PY_LINES[p.direction]}:
             good = 0
             for i in range(len(line) - 1):
                 if line[i + 1].colour == next_colour(line[i].colour):
@@ -61,7 +66,7 @@ const rainbowRoad = gridFamily<RoadP>({
     function utility(grid) {
       let wholeLines = 0;
       let steps = 0;
-      for (const line of ${TS_LINES[p.dir]}) {
+      for (const line of ${TS_LINES[p.direction]}) {
         let good = 0;
         for (let i = 0; i < line.length - 1; i++) {
           if (line[i + 1].colour === nextColour(line[i].colour)) good += 1;
@@ -74,8 +79,8 @@ const rainbowRoad = gridFamily<RoadP>({
   exemplar: (p, g) => {
     const N = g.N, k = (i: number) => i % g.C;
     // unorient((r + c) % C, dir): lines read in `dir` step round the rainbow.
-    const col = fromFn(N, (r, c) => p.dir === "→" ? k(r + c) : p.dir === "←" ? k(r + N - 1 - c)
-      : p.dir === "↓" ? k(c + r) : k(c + N - 1 - r));
+    const col = fromFn(N, (r, c) => p.direction === "→" ? k(r + c) : p.direction === "←" ? k(r + N - 1 - c)
+      : p.direction === "↓" ? k(c + r) : k(c + N - 1 - r));
     return wire(g, full(N, 0), col);
   },
   /**
@@ -91,19 +96,22 @@ const rainbowRoad = gridFamily<RoadP>({
 });
 
 // --- Border Baron ------------------------------------------------------------------------------
-type BaronP = { K: number };
-const baronText = (p: BaronP): CardText => ({
-  emoji: "🏰", name: "Border Baron", consts: [["BIG", p.K]],
-  about: "A country is a group of touching cells of one colour. A border is a place where two countries touch. "
-    + `Each border scores 1 point if both countries have at least ${p.K} cells. Most points wins. If that's a tie, `
-    + `add up, for every border, the size of its smaller country (counting at most ${p.K}).`,
+/** A country is big at N cells (a row's worth): the sizes N−1, N and 2N−2 had top bits up to 60% apart (P10). */
+type BaronP = Record<string, never>;
+const baronText = (g: GridSpec): CardText => ({
+  emoji: "🏰", name: "Border Baron", consts: [["BIG", g.N]],
+  about: "Try to make long borders between big countries. A country is a group of touching cells of one colour. A border is a place where two countries touch. "
+    + `Each border scores ${tierPoints(1, 0, 2)} if both countries have at least ${g.N} cells. `
+    + `Each border also scores as many secondary points as the size of its smaller country (counting at most ${g.N}).`,
 });
 const borderBaron = gridFamily<BaronP>({
   id: "border_baron", name: "Border Baron", emoji: "🏰", theme: "Long borders between big countries",
   shape: tuple(2), tags: ["shortlist"],
-  support: g => [g.N - 1, g.N, 2 * g.N - 2].map(K => ({ K })),
-  summary: p => baronText(p).about,
-  python: p => pyCard(baronText(p), `
+  params: () => ({}),
+  legacy: p => (Object.keys(p).length ? {} : null),
+  support: () => [{}],
+  summary: (_, g) => baronText(g).about,
+  python: (_, g) => pyCard(baronText(g), `
     def same_colour(a, b):
         return a.colour == b.colour
 
@@ -122,7 +130,7 @@ const borderBaron = gridFamily<BaronP>({
                     if smaller == BIG:
                         big_borders += 1
         return (big_borders, progress)`),
-  typescript: p => tsCard(baronText(p), `
+  typescript: (_, g) => tsCard(baronText(g), `
     function sameColour(a, b) {
       return a.colour === b.colour;
     }
@@ -156,47 +164,42 @@ const borderBaron = gridFamily<BaronP>({
 });
 
 // --- Conqueror -----------------------------------------------------------------------------------
-type ConqP = { A: number; B: number; weight: "one" | "value" };
-const conqText = (p: ConqP, g: GridSpec): CardText => {
-  const worth = p.weight === "value" ? "points equal to its value" : "1 point";
-  return {
-    emoji: "⚔️", name: "Conqueror", consts: [["MY_COLOUR", cname(g, p.A)], ["ENEMY_COLOUR", cname(g, p.B)]],
-    about: sentences(`Your colour is ${cname(g, p.A)} and your enemy's is ${cname(g, p.B)}. Each ${cname(g, p.A)} cell `
-      + `scores ${worth}. Each ${cname(g, p.B)} cell loses ${worth}.`, p.weight === "value" ? g.say.valueKey() : ""),
-  };
-};
+type ConqP = { colour: string; enemy_colour: string };
+const conqText = (p: ConqP, g: GridSpec): CardText => ({
+  emoji: "⚔️", name: "Conqueror", consts: [["MY_COLOUR", p.colour], ["ENEMY_COLOUR", p.enemy_colour]],
+  about: sentences(`Try to outweigh your enemy, ${p.enemy_colour}, with your ${p.colour} cells. Each ${p.colour} cell `
+    + `scores points equal to its value. Each ${p.enemy_colour} cell loses points equal to its value.`, g.say.valueKey()),
+});
 const conqueror = gridFamily<ConqP>({
   id: "conqueror", name: "Conqueror", emoji: "⚔️", theme: "Your army against your enemy",
   analytic: solvedAnalytic("conqueror"),
   requires: { classes: ["Valued"] }, shape: SCALAR, tags: ["shortlist"],
-  support: g => colourPairs(g).flatMap(([A, B]) => (["one", "value"] as const).map(weight => ({ A, B, weight }))),
-  canonical: p => recolour(p, ["A", "B"]),
+  params: () => ({ colour: colourParam("Your colour"), enemy_colour: colourParam("Your enemy's colour") }),
+  // Counting every cell as 1 point left far fewer scores to chase than counting its value (25 vs 79 top bits on 4×4): values it is (P10).
+  legacy: (p, g) => (typeof p.A === "number"
+    ? { colour: g.colourNames[p.A], enemy_colour: g.colourNames[p.B as number] } : "weight" in p ? { colour: p.colour as string, enemy_colour: p.enemy_colour as string } : null),
+  support: g => colourPairs(g).map(([A, B]) => ({ colour: g.colourNames[A], enemy_colour: g.colourNames[B] })),
+  canonical: (p, g) => recolourNames(g, p, ["colour", "enemy_colour"]),
   summary: (p, g) => conqText(p, g).about,
-  python: (p, g) => {
-    const pts = p.weight === "value" ? "cell.value" : "1";
-    return pyCard(conqText(p, g), `
-      def utility(grid):
-          points = 0
-          for cell in grid.cells:
-              if cell.colour == MY_COLOUR:
-                  points += ${pts}
-              elif cell.colour == ENEMY_COLOUR:
-                  points -= ${pts}
-          return points`);
-  },
-  typescript: (p, g) => {
-    const pts = p.weight === "value" ? "cell.value" : "1";
-    return tsCard(conqText(p, g), `
-      function utility(grid) {
-        let points = 0;
-        for (const cell of grid.cells) {
-          if (cell.colour === MY_COLOUR) points += ${pts};
-          else if (cell.colour === ENEMY_COLOUR) points -= ${pts};
-        }
-        return points;
-      }`);
-  },
-  exemplar: (p, g) => wire(g, full(g.N, symForValue(g, g.vmax)), full(g.N, p.A)),
+  python: (p, g) => pyCard(conqText(p, g), `
+    def utility(grid):
+        points = 0
+        for cell in grid.cells:
+            if cell.colour == MY_COLOUR:
+                points += cell.value
+            elif cell.colour == ENEMY_COLOUR:
+                points -= cell.value
+        return points`),
+  typescript: (p, g) => tsCard(conqText(p, g), `
+    function utility(grid) {
+      let points = 0;
+      for (const cell of grid.cells) {
+        if (cell.colour === MY_COLOUR) points += cell.value;
+        else if (cell.colour === ENEMY_COLOUR) points -= cell.value;
+      }
+      return points;
+    }`),
+  exemplar: (p, g) => wire(g, full(g.N, symForValue(g, g.vmax)), full(g.N, colourAt(g, p.colour))),
 });
 
 // --- Parity Painter ------------------------------------------------------------------------------
@@ -206,12 +209,12 @@ const parityText = (p: ParityP, g: GridSpec): CardText => {
   return p.split === "suit"
     ? {
       emoji: "🎭", name: "Parity Painter", consts: [["RED_SUIT_COLOUR", P], ["BLACK_SUIT_COLOUR", Q]],
-      about: `Hearts and diamonds (♥ ♦) should be ${P}. Spades and clubs (♠ ♣) should be ${Q}. A card in its right `
+      about: `Try to dress each card in its suit's colour. Hearts and diamonds (♥ ♦) should be ${P}. Spades and clubs (♠ ♣) should be ${Q}. A card in its right `
         + "colour scores 1 point. A card in the other suits' colour loses 1 point.",
     }
     : {
       emoji: "🎭", name: "Parity Painter", consts: [["EVEN_COLOUR", P], ["ODD_COLOUR", Q]],
-      about: sentences(`Even ${thing(g)}s should be ${P} and odd ones ${Q}. A cell in its right colour scores 1 point. A cell in `
+      about: sentences(`Try to dress each cell in the colour of its kind. Even ${thing(g)}s should be ${P} and odd ones ${Q}. A cell in its right colour scores 1 point. A cell in `
         + "the other kind's colour loses 1 point.", g.say.valueKey()),
     };
 };
@@ -291,120 +294,119 @@ const parityPainter = gridFamily<ParityP>({
 });
 
 // --- Mirrormancer --------------------------------------------------------------------------------
-type MirrorP = { axis: "LR" | "TB"; layer: "colour" | "symbol" };
+type MirrorP = { axis: "LR" | "TB" };
 const mirrorText = (p: MirrorP, g: GridSpec): CardText => {
   const kind = p.axis === "LR" ? "row" : "column";
-  const shown = p.layer === "colour" ? "colours" : g.cards ? "ranks" : "numbers";
+  const shown = g.cards ? "ranks" : "numbers";
   return {
     emoji: "🪞", name: "Mirrormancer", consts: [],
-    about: `A ${kind} is a mirror if its ${shown} read the same forwards and backwards. Each mirror ${kind} scores `
-      + "1 point. Most points wins. If that's a tie, more matching pairs wins (first and last, second and "
-      + "second-last, and so on).",
+    about: `Try to make mirror ${kind}s. A ${kind} is a mirror if its ${shown} read the same forwards and backwards. Each mirror ${kind} scores `
+      + `${tierPoints(1, 0, 2)}. Each matching pair (first and last, second and second-last, and so on) in any ${kind} scores `
+      + `${tierPoints(1, 1, 2)}.`,
   };
 };
 const mirrormancer = gridFamily<MirrorP>({
   id: "mirrormancer", name: "Mirrormancer", emoji: "🪞", theme: "Lines that read the same both ways",
   analytic: solvedAnalytic("mirrormancer"),
   shape: tuple(2), tags: ["shortlist"],
-  params: g => ({
-    axis: choiceParam("Mirror lines", [["LR", "rows (left to right)"], ["TB", "columns (top to bottom)"]]),
-    layer: choiceParam("What must match", [["colour", "colours"], ["symbol", g.cards ? "ranks" : "numbers"]]),
-  }),
-  support: () => product<MirrorP>({ axis: ["LR", "TB"], layer: ["colour", "symbol"] }),
-  canonical: p => ({ ...p, axis: "LR" }),
+  params: () => ({ axis: choiceParam("Mirror lines", [["LR", "rows (left to right)"], ["TB", "columns (top to bottom)"]]) }),
+  // Colours mirrored or numbers mirrored are two different ideas with top bits 2x apart (P10): numbers are left (colours: a split proposal).
+  legacy: p => ("layer" in p ? { axis: p.axis as MirrorP["axis"] } : null),
+  support: () => [{ axis: "LR" }, { axis: "TB" }],
+  canonical: () => ({ axis: "LR" }),
   summary: (p, g) => mirrorText(p, g).about,
-  python: (p, g) => {
-    const what = p.layer === "colour" ? "colour" : "value";
-    return pyCard(mirrorText(p, g), `
-      def utility(grid):
-          mirrors = 0
-          pairs = 0
-          for line in ${p.axis === "LR" ? "grid.rows" : "grid.columns"}:
-              half = len(line) // 2
-              matches = 0
-              for i in range(half):
-                  if line[i].${what} == line[len(line) - 1 - i].${what}:
-                      matches += 1
-              pairs += matches
-              if matches == half:
-                  mirrors += 1
-          return (mirrors, pairs)`);
-  },
-  typescript: (p, g) => {
-    const what = p.layer === "colour" ? "colour" : "value";
-    return tsCard(mirrorText(p, g), `
-      function utility(grid) {
-        let mirrors = 0;
-        let pairs = 0;
-        for (const line of ${p.axis === "LR" ? "grid.rows" : "grid.columns"}) {
-          const half = Math.floor(line.length / 2);
-          let matches = 0;
-          for (let i = 0; i < half; i++) {
-            if (line[i].${what} === line[line.length - 1 - i].${what}) matches += 1;
-          }
-          pairs += matches;
-          if (matches === half) mirrors += 1;
+  python: (p, g) => pyCard(mirrorText(p, g), `
+    def utility(grid):
+        mirrors = 0
+        pairs = 0
+        for line in ${p.axis === "LR" ? "grid.rows" : "grid.columns"}:
+            half = len(line) // 2
+            matches = 0
+            for i in range(half):
+                if line[i].value == line[len(line) - 1 - i].value:
+                    matches += 1
+            pairs += matches
+            if matches == half:
+                mirrors += 1
+        return (mirrors, pairs)`),
+  typescript: (p, g) => tsCard(mirrorText(p, g), `
+    function utility(grid) {
+      let mirrors = 0;
+      let pairs = 0;
+      for (const line of ${p.axis === "LR" ? "grid.rows" : "grid.columns"}) {
+        const half = Math.floor(line.length / 2);
+        let matches = 0;
+        for (let i = 0; i < half; i++) {
+          if (line[i].value === line[line.length - 1 - i].value) matches += 1;
         }
-        return [mirrors, pairs];
-      }`);
-  },
+        pairs += matches;
+        if (matches === half) mirrors += 1;
+      }
+      return [mirrors, pairs];
+    }`),
   exemplar: (_, g) => wire(g, full(g.N, 0), full(g.N, 0)),
 });
 
 // --- Homebody ------------------------------------------------------------------------------------
-type HomeP = { X: number; zone: "core" | "rim" };
-const homeText = (p: HomeP, g: GridSpec): CardText => ({
-  emoji: "🏡", name: "Homebody", consts: [["MY_COLOUR", cname(g, p.X)]],
-  about: `Your colour is ${cname(g, p.X)}. It likes to stay home `
-    + `${p.zone === "rim" ? "on the edge (the outside ring of cells)" : "in the middle (every cell except the edge)"}. `
-    + `Each ${cname(g, p.X)} cell at home scores 1 point. Each ${cname(g, p.X)} cell away from home loses 1 point.`,
+type HomeP = { colour: string };
+const homeText = (p: HomeP): CardText => ({
+  emoji: "🏡", name: "Homebody", consts: [["MY_COLOUR", p.colour]],
+  about: `Try to keep your ${p.colour} cells at home, on the edge (the outside ring of cells). `
+    + `Each ${p.colour} cell at home scores 1 point. Each ${p.colour} cell away from home loses 1 point.`,
 });
 const homebody = gridFamily<HomeP>({
   id: "homebody", name: "Homebody", emoji: "🏡", theme: "Your colour belongs at home",
   analytic: solvedAnalytic("homebody"),
   shape: SCALAR, tags: ["shortlist"],
-  support: g => product<HomeP>({ X: range(g.C), zone: ["core", "rim"] }),
-  canonical: p => recolour(p, ["X"]),
-  summary: (p, g) => homeText(p, g).about,
-  python: (p, g) => pyCard(homeText(p, g), `
+  params: () => ({ colour: colourParam("Your colour") }),
+  // The middle holds fewer cells than the edge (4 vs 12 on 4×4), so "where it belongs" scored differently (13 vs 21 top bits): the edge it is (P10).
+  legacy: (p, g) => (typeof p.X === "number" ? { colour: g.colourNames[p.X] } : "zone" in p ? { colour: p.colour as string } : null),
+  support: g => g.colourNames.map(colour => ({ colour })),
+  canonical: (p, g) => recolourNames(g, p, ["colour"]),
+  summary: p => homeText(p).about,
+  python: p => pyCard(homeText(p), `
     def utility(grid):
         points = 0
         for cell in grid.cells:
             if cell.colour == MY_COLOUR:
-                if ${p.zone === "rim" ? "cell.on_edge" : "not cell.on_edge"}:
+                if cell.on_edge:
                     points += 1
                 else:
                     points -= 1
         return points`),
-  typescript: (p, g) => tsCard(homeText(p, g), `
+  typescript: p => tsCard(homeText(p), `
     function utility(grid) {
       let points = 0;
       for (const cell of grid.cells) {
         if (cell.colour === MY_COLOUR) {
-          if (${p.zone === "rim" ? "cell.onEdge" : "!cell.onEdge"}) points += 1;
+          if (cell.onEdge) points += 1;
           else points -= 1;
         }
       }
       return points;
     }`),
-  exemplar: (p, g) => wire(g, full(g.N, 0),
-    fromFn(g.N, (r, c) => (isRim(g.N, r, c) === (p.zone === "rim") ? p.X : (p.X + 1) % g.C))),
+  exemplar: (p, g) => {
+    const X = colourAt(g, p.colour);
+    return wire(g, full(g.N, 0), fromFn(g.N, (r, c) => (isRim(g.N, r, c) ? X : (X + 1) % g.C)));
+  },
 });
 
 // --- Lone Peak -----------------------------------------------------------------------------------
-type PeakP = { X: number };
+type PeakP = { colour: string };
 const peakText = (p: PeakP, g: GridSpec): CardText => ({
-  emoji: "🏔️", name: "Lone Peak", consts: [["MY_COLOUR", cname(g, p.X)]],
-  about: sentences(`The highest ${g.cards ? "rank" : "number"} on the board is the peak.`, g.say.valueKey(),
-    `If exactly one cell shows the peak and it is ${cname(g, p.X)}, you score the gap down to the next highest, `
-    + "1 point per step. Otherwise you score 0.",
-    `If that's a tie, having ${article(cname(g, p.X))} cell among the peaks wins.`),
+  emoji: "🏔️", name: "Lone Peak", consts: [["MY_COLOUR", p.colour]],
+  about: sentences(`Try to make the one highest ${g.cards ? "rank" : "number"} on the board, the peak, ${p.colour}.`, g.say.valueKey(),
+    `If exactly one cell shows the peak and it is ${p.colour}, you score the gap down to the next highest, `
+    + `1 primary point per step. Otherwise you score 0 primary points.`,
+    `Having ${article(p.colour)} cell among the peaks scores ${tierPoints(1, 1, 2)}.`),
 });
 const lonePeak = gridFamily<PeakP>({
   id: "lone_peak", name: "Lone Peak", emoji: "🏔️", theme: "One mountain towering over everything",
   requires: { classes: ["Valued"] }, shape: tuple(2), tags: ["shortlist"],
-  support: g => range(g.C).map(X => ({ X })),
-  canonical: p => recolour(p, ["X"]),
+  params: () => ({ colour: colourParam("Your colour") }),
+  legacy: (p, g) => (typeof p.X === "number" ? { colour: g.colourNames[p.X] } : null),
+  support: g => g.colourNames.map(colour => ({ colour })),
+  canonical: (p, g) => recolourNames(g, p, ["colour"]),
   summary: (p, g) => peakText(p, g).about,
   python: (p, g) => pyCard(peakText(p, g), `
     def utility(grid):
@@ -435,9 +437,9 @@ const lonePeak = gridFamily<PeakP>({
       return [gap, mine];
     }`),
   exemplar: (p, g) => {
-    const N = g.N, m = Math.floor(N / 2);
+    const N = g.N, m = Math.floor(N / 2), X = colourAt(g, p.colour);
     const sym = fromFn(N, (r, c) => symForValue(g, r === m && c === m ? g.vmax : g.vmin));
-    return wire(g, sym, fromFn(N, (r, c) => (r === m && c === m ? p.X : (p.X + 1) % g.C)));
+    return wire(g, sym, fromFn(N, (r, c) => (r === m && c === m ? X : (X + 1) % g.C)));
   },
   /**
    * (gap, mine), with F the value cdf, q = 1/C and p_m the mass of value m (tail-toolkit.md §1, exact maxima):
@@ -465,17 +467,20 @@ const lonePeak = gridFamily<PeakP>({
 // ================================================================================================
 
 // --- Islander ------------------------------------------------------------------------------------
-type ColourP = { X: number };
+type ColourP = { colour: string };
+const colourOnly = () => ({ colour: colourParam("Your colour") });
+const colourOnlyLegacy = (p: Params, g: GridSpec): ColourP | null => (typeof p.X === "number" ? { colour: g.colourNames[p.X] } : null);
 const islanderText = (p: ColourP, g: GridSpec): CardText => ({
-  emoji: "🏝️", name: "Islander", consts: [["MY_COLOUR", cname(g, p.X)]],
-  about: `${cap(article(cname(g, p.X)))} cell is an island if every cell touching it is the same other colour. `
-    + `Each island scores 1 point. Most points wins. If that's a tie, more ${cname(g, p.X)} cells with no `
-    + `${cname(g, p.X)} cell touching them wins.`,
+  emoji: "🏝️", name: "Islander", consts: [["MY_COLOUR", p.colour]],
+  about: `Try to make ${p.colour} islands. ${cap(article(p.colour))} cell is an island if every cell touching it is the same other colour. `
+    + `Each island scores ${tierPoints(1, 0, 2)}. Each ${p.colour} cell with no `
+    + `${p.colour} cell touching it scores ${tierPoints(1, 1, 2)}.`,
 });
 const islander = gridFamily<ColourP>({
   id: "islander", name: "Islander", emoji: "🏝️", theme: "Polka dots in a one-colour sea", shape: tuple(2),
-  support: g => range(g.C).map(X => ({ X })),
-  canonical: p => recolour(p, ["X"]),
+  params: colourOnly, legacy: colourOnlyLegacy,
+  support: g => g.colourNames.map(colour => ({ colour })),
+  canonical: (p, g) => recolourNames(g, p, ["colour"]),
   summary: (p, g) => islanderText(p, g).about,
   python: (p, g) => pyCard(islanderText(p, g), `
     def utility(grid):
@@ -504,21 +509,28 @@ const islander = gridFamily<ColourP>({
       }
       return [islands, alone];
     }`),
-  exemplar: (p, g) => wire(g, full(g.N, 0), fromFn(g.N, (r, c) => ((r + c) % 2 === 0 ? p.X : (p.X + 1) % g.C))),
+  exemplar: (p, g) => {
+    const X = colourAt(g, p.colour);
+    return wire(g, full(g.N, 0), fromFn(g.N, (r, c) => ((r + c) % 2 === 0 ? X : (X + 1) % g.C)));
+  },
 });
 
 // --- Rook's Watch --------------------------------------------------------------------------------
-type TokenP = { S: number; X: number };
+type TokenP = { symbol: string; colour: string };
+const tokenParams = (g: GridSpec) => ({ symbol: symbolParam(g.cards ? "Your card" : "Your number"), colour: colourParam("Your colour") });
+const tokenLegacy = (p: Params, g: GridSpec): TokenP | null =>
+  (typeof p.S === "number" ? { symbol: glyph(g, p.S), colour: g.colourNames[p.X as number] } : null);
+const tokenSupport = (g: GridSpec) => product<TokenP>({ symbol: range(g.S).map(s => glyph(g, s)), colour: g.colourNames });
 const rookText = (p: TokenP, g: GridSpec): CardText => ({
-  emoji: "🏰", name: "Rook's Watch", consts: [["MY_SYMBOL", glyph(g, p.S)], ["MY_COLOUR", cname(g, p.X)]],
-  about: `Your token is ${g.say.symbol(p.S)} in ${cname(g, p.X)}. Each row and each column that holds a token scores `
-    + "1 point. Most points wins. If that's a tie, more rows and columns holding a half-token wins: a cell with the "
+  emoji: "🏰", name: "Rook's Watch", consts: [["MY_SYMBOL", p.symbol], ["MY_COLOUR", p.colour]],
+  about: `Try to put your token in every row and column. Your token is ${g.say.symbol(symbolAt(g, p.symbol))} in ${p.colour}. Each row and each column that holds a token scores `
+    + `${tierPoints(1, 0, 2)}. Each row and column holding a half-token scores ${tierPoints(1, 1, 2)}: a cell with the `
     + "right symbol or the right colour, but not both.",
 });
 const rooksWatch = gridFamily<TokenP>({
   id: "rooks_watch", name: "Rook's Watch", emoji: "🏰", theme: "One token watching every row and column", shape: tuple(2),
-  support: g => product<TokenP>({ S: range(g.S), X: range(g.C) }),
-  canonical: () => ({ S: 0, X: 0 }),
+  params: tokenParams, legacy: tokenLegacy, support: tokenSupport,
+  canonical: (_p, g) => ({ symbol: glyph(g, 0), colour: g.colourNames[0] }),
   summary: (p, g) => rookText(p, g).about,
   python: (p, g) => pyCard(rookText(p, g), `
     def watched(lines, check):
@@ -558,144 +570,113 @@ const rooksWatch = gridFamily<TokenP>({
       const lines = [...grid.rows, ...grid.columns];
       return [watched(lines, token), watched(lines, halfToken)];
     }`),
-  exemplar: (p, g) => wire(g, fromFn(g.N, (r, c) => (r === c ? p.S : (p.S + 1) % g.S)), full(g.N, p.X)),
+  exemplar: (p, g) => {
+    const S = symbolAt(g, p.symbol);
+    return wire(g, fromFn(g.N, (r, c) => (r === c ? S : (S + 1) % g.S)), full(g.N, colourAt(g, p.colour)));
+  },
 });
 
 // --- Picture Frame -----------------------------------------------------------------------------------
 /**
- * Two halves, added: your colour, and the best symbol on the edge. Each counts +1 for every edge cell that has it and
- * −1 for every middle cell that has it. The top, 2·(4N−4), is every edge cell the same symbol in your colour with
- * neither in the middle; every score from the bottom up to it is reachable, each step rarer than the last.
+ * Owner's redesign (2026-11-03): a dealt colour and a dealt symbol (both params, nothing inferred from the board). An
+ * edge cell with either scores FRAME_POINTS.edge.one and with both FRAME_POINTS.edge.both; a middle cell with either or
+ * both loses the same (the family's "clear middle", kept symmetric: an ASSUMPTION the owner has not restated, so it is
+ * this one table to change). The score is a sum of independent per-cell terms, so every level from the bottom to the
+ * top, 4·(4N−4), is reachable and each is rarer than the last.
  */
-type FrameP = { colour: string };
+export const FRAME_POINTS = Object.freeze({
+  edge: Object.freeze({ none: 0, one: 1, both: 4 }),
+  middle: Object.freeze({ none: 0, one: -1, both: -4 }),
+});
+type FrameP = { colour: string; symbol: string };
 const frameText = (p: FrameP, g: GridSpec): CardText => {
-  const X = p.colour, kind = g.cards ? "card" : "symbol";
+  const X = p.colour, S = g.say.tile(symbolAt(g, p.symbol));
+  const E = FRAME_POINTS.edge, M = FRAME_POINTS.middle;
   return {
-    emoji: "🖼️", name: "Picture Frame", consts: [["MY_COLOUR", X]],
+    emoji: "🖼️", name: "Picture Frame",
+    consts: [["MY_COLOUR", X], ["MY_SYMBOL", p.symbol], ["EDGE_ONE", E.one], ["EDGE_BOTH", E.both], ["MIDDLE_ONE", M.one], ["MIDDLE_BOTH", M.both]],
     about: sentences(
+      `Try to put ${X} cells and ${S} on the edge and keep the middle clear. Your colour is ${X} and your symbol is ${g.say.symbol(symbolAt(g, p.symbol))}.`,
       "The edge is the outside ring of cells. The middle is every cell inside it.",
-      `Each ${X} edge cell scores 1 point, and each ${X} middle cell loses 1 point.`,
-      `Then take the ${kind} on the edge that does best: each edge cell showing it scores 1 point, and each middle cell `
-        + "showing it loses 1 point.",
-      `Best of all: every edge cell the same ${X} ${kind}, and no ${X} and no such ${kind} in the middle.`,
+      `An edge cell that is ${X} or shows ${S} scores ${points(E.one)}; one that is both scores ${points(E.both)}.`,
+      `A middle cell that is ${X} or shows ${S} loses ${points(-M.one)}; one that is both loses ${points(-M.both)}.`,
     ),
   };
 };
-/** P(max over edge symbols of (edge count − middle count) = k), B edge cells and M middle cells, S equally likely symbols. */
-function frameSymbolLaw(B: number, M: number, S: number): Dist {
-  const lf = logFactorial, out: [number, number][] = [];
-  const half = Math.floor(B / 2);
-  const W = Array.from({ length: B + 1 }, (_, a) => Array.from({ length: M + 1 }, (_, b) => Math.exp(-lf(a) - lf(b))));
-  // Normaliser of the multinomial: B!·M!/S^(B+M), in logs.
-  const norm = lf(B) + lf(M) - (B + M) * Math.log(S);
-  // k ≤ B/2: symbols are interchangeable, so a dynamic programme over symbols, state (edge cells used, middle cells used,
-  // whether some edge symbol nets exactly k), each symbol with a ≥ 1 needing a − b ≤ k. Positive terms only: no cancellation.
-  for (let k = Math.min(0, B - M); k <= half; k++) {
-    let dp = [new Float64Array((B + 1) * (M + 1)), new Float64Array((B + 1) * (M + 1))];
-    dp[0][0] = 1;
-    for (let s = 0; s < S; s++) {
-      const next = [new Float64Array((B + 1) * (M + 1)), new Float64Array((B + 1) * (M + 1))];
-      for (let f = 0; f < 2; f++) for (let e = 0; e <= B; e++) for (let i = 0; i <= M; i++) {
-        const cur = dp[f][e * (M + 1) + i];
-        if (!cur) continue;
-        for (let a = 0; a + e <= B; a++) for (let b = 0; b + i <= M; b++) {
-          if (a > 0 && a - b > k) continue;
-          const g = a > 0 && a - b === k ? 1 : f;
-          next[g][(e + a) * (M + 1) + i + b] += cur * W[a][b];
-        }
-      }
-      dp = next;
-    }
-    out.push([k, dp[1][B * (M + 1) + M] * Math.exp(norm)]);
-  }
-  // k > B/2: only one symbol can have more than half the edge, so P(max = k) = S·P(edge count − middle count = k) for one
-  // symbol, whose counts are Binomial(B, 1/S) and Binomial(M, 1/S).
-  const bin = (n: number, j: number) => Math.exp(lf(n) - lf(j) - lf(n - j) + j * Math.log(1 / S) + (n - j) * Math.log(1 - 1 / S));
-  for (let k = half + 1; k <= B; k++) {
-    let p = 0;
-    for (let b = 0; b <= M && k + b <= B; b++) p += bin(B, k + b) * bin(M, b);
-    out.push([k, S * p]);
-  }
-  return distOf(out);
+/** One cell's law: neither, exactly one, or both of (colour, symbol), each independently with probability 1/C and 1/S. */
+function frameCellLaw(g: GridSpec, pts: { none: number; one: number; both: number }): Dist {
+  const pc = 1 / g.C, ps = 1 / g.S;
+  return distOf([[pts.none, (1 - pc) * (1 - ps)], [pts.one, pc * (1 - ps) + ps * (1 - pc)], [pts.both, pc * ps]]);
 }
 const pictureFrame = gridFamily<FrameP>({
-  id: "picture_frame", name: "Picture Frame", emoji: "🖼️", theme: "One colour and one symbol around a clear middle", shape: SCALAR,
-  params: () => ({ colour: colourParam("Your colour") }),
-  legacy: (p, g) => (typeof p.X === "number" ? { colour: g.colourNames[p.X] } : null),
-  support: g => g.colourNames.map(colour => ({ colour })),
-  canonical: (p, g) => recolourNames(g, p, ["colour"]),
+  id: "picture_frame", name: "Picture Frame", emoji: "🖼️", theme: "Your colour and your symbol around a clear middle", shape: SCALAR,
+  params: g => ({ colour: colourParam("Your colour"), symbol: symbolParam(g.cards ? "Your card" : "Your number") }),
+  // LEGACY (typed-params widen step): `{ X }` (an index) and `{ colour }` (before the symbol was dealt) read with the first symbol.
+  legacy: (p, g) => {
+    if (typeof p.X === "number") return { colour: g.colourNames[p.X], symbol: glyph(g, 0) };
+    if (typeof p.colour === "string" && typeof p.symbol !== "string") return { colour: p.colour, symbol: glyph(g, 0) };
+    return null;
+  },
+  support: g => g.colourNames.flatMap(colour => range(g.S).map(s => ({ colour, symbol: glyph(g, s) }))),
+  // Colours and symbols are each exchangeable under the uniform prior and the rule only tests equality with them.
+  canonical: (_p, g) => ({ colour: g.colourNames[0], symbol: glyph(g, 0) }),
   summary: (p, g) => frameText(p, g).about,
   python: (p, g) => pyCard(frameText(p, g), `
-    def frame_score(cells):
-        score = 0
-        for cell in cells:
-            if cell.on_edge:
-                score += 1
-            else:
-                score -= 1
-        return score
-
     def utility(grid):
-        colour_score = frame_score([cell for cell in grid.cells if cell.colour == MY_COLOUR])
-        best_symbol_score = None
-        for edge_cell in grid.edge_cells:
-            score = frame_score([cell for cell in grid.cells if cell.symbol == edge_cell.symbol])
-            if best_symbol_score is None or score > best_symbol_score:
-                best_symbol_score = score
-        return colour_score + best_symbol_score`),
+        score = 0
+        for cell in grid.cells:
+            hits = (cell.colour == MY_COLOUR) + (cell.symbol == MY_SYMBOL)
+            if hits == 0:
+                continue
+            if cell.on_edge:
+                score += EDGE_BOTH if hits == 2 else EDGE_ONE
+            else:
+                score += MIDDLE_BOTH if hits == 2 else MIDDLE_ONE
+        return score`),
   typescript: (p, g) => tsCard(frameText(p, g), `
-    function frameScore(cells) {
+    function utility(grid) {
       let score = 0;
-      for (const cell of cells) {
-        if (cell.onEdge) score += 1;
-        else score -= 1;
+      for (const cell of grid.cells) {
+        const hits = (cell.colour === MY_COLOUR ? 1 : 0) + (cell.symbol === MY_SYMBOL ? 1 : 0);
+        if (hits === 0) continue;
+        if (cell.onEdge) score += hits === 2 ? EDGE_BOTH : EDGE_ONE;
+        else score += hits === 2 ? MIDDLE_BOTH : MIDDLE_ONE;
       }
       return score;
-    }
-
-    function utility(grid) {
-      const colourScore = frameScore(grid.cells.filter(cell => cell.colour === MY_COLOUR));
-      let bestSymbolScore = null;
-      for (const edgeCell of grid.edgeCells) {
-        const score = frameScore(grid.cells.filter(cell => cell.symbol === edgeCell.symbol));
-        if (bestSymbolScore === null || score > bestSymbolScore) bestSymbolScore = score;
-      }
-      return colourScore + bestSymbolScore;
     }`),
   exemplar: (p, g) => {
-    const X = colourAt(g, p.colour);
-    return wire(g, fromFn(g.N, (r, c) => (isRim(g.N, r, c) ? 0 : 1)), fromFn(g.N, (r, c) => (isRim(g.N, r, c) ? X : (X + 1) % g.C)));
+    const X = colourAt(g, p.colour), S = symbolAt(g, p.symbol);
+    return wire(g, fromFn(g.N, (r, c) => (isRim(g.N, r, c) ? S : (S + 1) % g.S)), fromFn(g.N, (r, c) => (isRim(g.N, r, c) ? X : (X + 1) % g.C)));
   },
-  top: (_p, g) => 2 * (4 * g.N - 4),
-  /**
-   * Exact (tail-toolkit.md §1): colour and symbol are independent per cell, so u = (E − I) + D with E ~ Bin(4N−4, 1/C),
-   * I ~ Bin((N−2)², 1/C) and D the best edge symbol's net count (frameSymbolLaw), all independent.
-   */
-  analytic: (_p, g): AnalyticSurvival => lazySurvival("picture-frame@2", () => {
+  top: (_p, g) => FRAME_POINTS.edge.both * (4 * g.N - 4),
+  /** Exact: independent cells, so u is the sum of 4N−4 iid edge terms and (N−2)² iid middle terms (frameCellLaw). */
+  analytic: (_p, g): AnalyticSurvival => lazySurvival("picture-frame@3", () => {
     const B = 4 * g.N - 4, M = (g.N - 2) ** 2;
-    const colour = combine(binomial(B, 1 / g.C), binomial(M, 1 / g.C), (e, i) => (e as number) - (i as number));
-    return combine(colour, frameSymbolLaw(B, M, g.S), (x, y) => (x as number) + (y as number));
+    return combine(iidSum(frameCellLaw(g, FRAME_POINTS.edge), B), iidSum(frameCellLaw(g, FRAME_POINTS.middle), M),
+      (x, y) => (x as number) + (y as number));
   }),
 });
 
 // --- Staircase Climber -------------------------------------------------------------------------------
-type StairP = { dir: "→" | "↓" };
+type StairP = { direction: "→" | "↓" };
 const stairText = (p: StairP, g: GridSpec): CardText => ({
   emoji: "🪜", name: "Staircase Climber", consts: [],
-  about: sentences(`Score 1 point every time a ${thing(g)} is exactly one more than the ${thing(g)} `
-    + `${p.dir === "→" ? "to its left" : "above it"}.`, g.say.valueKey()),
+  about: sentences(`Try to climb in single steps. Score 1 point every time a ${thing(g)} is exactly one more than the ${thing(g)} `
+    + `${p.direction === "→" ? "to its left" : "above it"}.`, g.say.valueKey()),
 });
 const staircase = gridFamily<StairP>({
   id: "staircase_climber", name: "Staircase Climber", emoji: "🪜", theme: "Numbers that go up one step at a time",
   requires: { classes: ["Valued", "Ranked"] }, shape: SCALAR,
-  support: () => [{ dir: "→" }, { dir: "↓" }],
-  canonical: () => ({ dir: "→" }),
+  params: () => ({ direction: choiceParam("Look for a step up", [["→", "from left to right"], ["↓", "from top to bottom"]]) }),
+  legacy: dirLegacy as (p: Params) => StairP | null,
+  support: () => [{ direction: "→" }, { direction: "↓" }],
+  canonical: () => ({ direction: "→" }),
   summary: (p, g) => stairText(p, g).about,
   python: (p, g) => pyCard(stairText(p, g), `
     def utility(grid):
         steps = 0
         for cell in grid.cells:
-            before = cell.${p.dir === "→" ? "left" : "up"}
+            before = cell.${p.direction === "→" ? "left" : "up"}
             if before is not None and cell.value == before.value + 1:
                 steps += 1
         return steps`),
@@ -703,12 +684,12 @@ const staircase = gridFamily<StairP>({
     function utility(grid) {
       let steps = 0;
       for (const cell of grid.cells) {
-        const before = cell.${p.dir === "→" ? "left" : "up"};
+        const before = cell.${p.direction === "→" ? "left" : "up"};
         if (before !== null && cell.value === before.value + 1) steps += 1;
       }
       return steps;
     }`),
-  exemplar: (p, g) => wire(g, fromFn(g.N, (r, c) => symForValue(g, g.vmin + (p.dir === "→" ? c : r))), full(g.N, 0)),
+  exemplar: (p, g) => wire(g, fromFn(g.N, (r, c) => symForValue(g, g.vmin + (p.direction === "→" ? c : r))), full(g.N, 0)),
   /**
    * Rows (or columns) are independent; within a line the count of "+1 steps" is a functional of the Markov chain of
    * iid values: a dynamic programme over (last value, count), then the N-fold iid sum over lines (tail-toolkit.md §4).
@@ -721,16 +702,16 @@ const staircase = gridFamily<StairP>({
 
 // --- Lucky Token -------------------------------------------------------------------------------------
 const luckyText = (p: TokenP, g: GridSpec): CardText => ({
-  emoji: "🧿", name: "Lucky Token", consts: [["MY_SYMBOL", glyph(g, p.S)], ["MY_COLOUR", cname(g, p.X)]],
-  about: `Your token is ${g.say.symbol(p.S)} in ${cname(g, p.X)}. Each cell showing it scores 1 point. Most points wins. `
-    + "If that's a tie, more halfway cells wins: a cell with the right symbol or the right colour, but not both.",
+  emoji: "🧿", name: "Lucky Token", consts: [["MY_SYMBOL", p.symbol], ["MY_COLOUR", p.colour]],
+  about: `Try to collect your token, ${g.say.symbol(symbolAt(g, p.symbol))} in ${p.colour}. Each cell showing it scores ${tierPoints(1, 0, 2)}. `
+    + `Each halfway cell scores ${tierPoints(1, 1, 2)}: a cell with the right symbol or the right colour, but not both.`,
 });
 const luckyToken = gridFamily<TokenP>({
   id: "lucky_token", name: "Lucky Token", emoji: "🧿", theme: "Collect your lucky token", shape: tuple(2),
   analytic: solvedAnalytic("lucky_token"),
   tags: ["generalised-seed"],
-  support: g => product<TokenP>({ S: range(g.S), X: range(g.C) }),
-  canonical: () => ({ S: 0, X: 0 }),
+  params: tokenParams, legacy: tokenLegacy, support: tokenSupport,
+  canonical: (_p, g) => ({ symbol: glyph(g, 0), colour: g.colourNames[0] }),
   summary: (p, g) => luckyText(p, g).about,
   python: (p, g) => pyCard(luckyText(p, g), `
     def utility(grid):
@@ -756,20 +737,21 @@ const luckyToken = gridFamily<TokenP>({
       }
       return [tokens, halfway];
     }`),
-  exemplar: (p, g) => wire(g, full(g.N, p.S), full(g.N, p.X)),
+  exemplar: (p, g) => wire(g, full(g.N, symbolAt(g, p.symbol)), full(g.N, colourAt(g, p.colour))),
 });
 
 // --- Neighbourhood Vote --------------------------------------------------------------------------------
 const voteText = (p: ColourP, g: GridSpec): CardText => ({
-  emoji: "🗳️", name: "Neighbourhood Vote", consts: [["MY_COLOUR", cname(g, p.X)]],
-  about: "Each cell looks at the cells touching it and votes for the colour it sees most often. If two colours tie "
-    + `for most, it doesn't vote. Each cell that votes ${cname(g, p.X)} scores 1 point.`,
+  emoji: "🗳️", name: "Neighbourhood Vote", consts: [["MY_COLOUR", p.colour]],
+  about: `Try to make your neighbours vote ${p.colour}. ` + "Each cell looks at the cells touching it and votes for the colour it sees most often. If two colours are level "
+    + `for most, it doesn't vote. Each cell that votes ${p.colour} scores 1 point.`,
 });
 const neighbourhoodVote = gridFamily<ColourP>({
   id: "neighbourhood_vote", name: "Neighbourhood Vote", emoji: "🗳️", theme: "Every cell votes with its neighbours",
   shape: SCALAR,
-  support: g => range(g.C).map(X => ({ X })),
-  canonical: p => recolour(p, ["X"]),
+  params: colourOnly, legacy: colourOnlyLegacy,
+  support: g => g.colourNames.map(colour => ({ colour })),
+  canonical: (p, g) => recolourNames(g, p, ["colour"]),
   summary: (p, g) => voteText(p, g).about,
   python: (p, g) => pyCard(voteText(p, g), `
     def seen(cell, colour):
@@ -805,21 +787,23 @@ const neighbourhoodVote = gridFamily<ColourP>({
       }
       return votes;
     }`),
-  exemplar: (p, g) => wire(g, full(g.N, 0), full(g.N, p.X)),
+  exemplar: (p, g) => wire(g, full(g.N, 0), full(g.N, colourAt(g, p.colour))),
 });
 
 // --- Far Apart -------------------------------------------------------------------------------------------
-type PairP = { A: number; B: number };
+type PairP = { first_colour: string; second_colour: string };
 const farText = (p: PairP, g: GridSpec): CardText => ({
-  emoji: "↔️", name: "Far Apart", consts: [["COLOUR_A", cname(g, p.A)], ["COLOUR_B", cname(g, p.B)]],
-  about: `Find the middle of all the ${cname(g, p.A)} cells and the middle of all the ${cname(g, p.B)} cells. `
-    + "Count the steps across plus the steps down between the two middles. The further apart, the better, and part-steps "
-    + "count too (each full step is worth 64 points). If either colour is missing, you score 0.",
+  emoji: "↔️", name: "Far Apart", consts: [["COLOUR_A", p.first_colour], ["COLOUR_B", p.second_colour]],
+  about: `Try to keep ${p.first_colour} and ${p.second_colour} far apart. Find the middle of all the ${p.first_colour} cells and the middle of all the ${p.second_colour} cells. `
+    + "Count the steps across plus the steps down between the two middles. Each full step scores 64 points, and part-steps "
+    + "count too. If either colour is missing, you score 0.",
 });
 const farApart = gridFamily<PairP>({
   id: "far_apart", name: "Far Apart", emoji: "↔️", theme: "Keep two colours as far apart as possible", shape: SCALAR,
-  support: g => colourPairs(g).map(([A, B]) => ({ A, B })),
-  canonical: p => recolour(p, ["A", "B"]),
+  params: () => ({ first_colour: colourParam("First colour"), second_colour: colourParam("Second colour") }),
+  legacy: (p, g) => (typeof p.A === "number" ? { first_colour: g.colourNames[p.A], second_colour: g.colourNames[p.B as number] } : null),
+  support: g => colourPairs(g).map(([A, B]) => ({ first_colour: g.colourNames[A], second_colour: g.colourNames[B] })),
+  canonical: (p, g) => recolourNames(g, p, ["first_colour", "second_colour"]),
   summary: (p, g) => farText(p, g).about,
   python: (p, g) => pyCard(farText(p, g), `
     def utility(grid):
@@ -846,10 +830,97 @@ const farApart = gridFamily<PairP>({
       return Math.floor(((down + across) * 64) / (a.length * b.length));
     }`),
   exemplar: (p, g) => {
-    const other = range(g.C).find(k => k !== p.A && k !== p.B)!, N = g.N;
-    return wire(g, full(N, 0), fromFn(N, (r, c) => (r === 0 && c === 0 ? p.A : r === N - 1 && c === N - 1 ? p.B : other)));
+    const A = colourAt(g, p.first_colour), B = colourAt(g, p.second_colour);
+    const other = range(g.C).find(k => k !== A && k !== B)!, N = g.N;
+    return wire(g, full(N, 0), fromFn(N, (r, c) => (r === 0 && c === 0 ? A : r === N - 1 && c === N - 1 ? B : other)));
   },
 });
 
+// --- Head Count (a split of Conqueror: every cell is worth 1, not its value) -----------------------------------
+type HeadP = { colour: string; enemy_colour: string };
+const headText = (p: HeadP): CardText => ({
+  emoji: "🪖", name: "Head Count", consts: [["MY_COLOUR", p.colour], ["ENEMY_COLOUR", p.enemy_colour]],
+  about: `Try to outnumber your enemy, ${p.enemy_colour}, with your ${p.colour} cells. Each ${p.colour} cell scores 1 point. `
+    + `Each ${p.enemy_colour} cell loses 1 point.`,
+});
+const headCount = gridFamily<HeadP>({
+  id: "head_count", name: "Head Count", emoji: "🪖", theme: "More soldiers than your enemy",
+  analytic: solvedAnalytic("head_count"),
+  shape: SCALAR, tags: ["shortlist"],
+  params: () => ({ colour: colourParam("Your colour"), enemy_colour: colourParam("Your enemy's colour") }),
+  support: g => colourPairs(g).map(([A, B]) => ({ colour: g.colourNames[A], enemy_colour: g.colourNames[B] })),
+  canonical: (p, g) => recolourNames(g, p, ["colour", "enemy_colour"]),
+  summary: p => headText(p).about,
+  python: p => pyCard(headText(p), `
+    def utility(grid):
+        points = 0
+        for cell in grid.cells:
+            if cell.colour == MY_COLOUR:
+                points += 1
+            elif cell.colour == ENEMY_COLOUR:
+                points -= 1
+        return points`),
+  typescript: p => tsCard(headText(p), `
+    function utility(grid) {
+      let points = 0;
+      for (const cell of grid.cells) {
+        if (cell.colour === MY_COLOUR) points += 1;
+        else if (cell.colour === ENEMY_COLOUR) points -= 1;
+      }
+      return points;
+    }`),
+  exemplar: (p, g) => wire(g, full(g.N, 0), full(g.N, colourAt(g, p.colour))),
+});
+
+// --- Colour Mirror (a split of Mirrormancer: the colours, not the numbers, read the same both ways) -------------
+type ColourMirrorP = { axis: "LR" | "TB" };
+const colourMirrorText = (p: ColourMirrorP): CardText => {
+  const kind = p.axis === "LR" ? "row" : "column";
+  return {
+    emoji: "🪞", name: "Colour Mirror", consts: [],
+    about: `Try to make mirror ${kind}s of colour. A ${kind} is a mirror if its colours read the same forwards and backwards. Each mirror ${kind} scores `
+      + `1 primary point. Each matching pair (first and last, second and second-last, and so on) in any ${kind} scores 1 secondary point.`,
+  };
+};
+const colourMirror = gridFamily<ColourMirrorP>({
+  id: "colour_mirror", name: "Colour Mirror", emoji: "🪞", theme: "Colours that read the same both ways",
+  analytic: solvedAnalytic("colour_mirror"),
+  shape: tuple(2), tags: ["shortlist"],
+  params: () => ({ axis: choiceParam("Mirror lines", [["LR", "rows (left to right)"], ["TB", "columns (top to bottom)"]]) }),
+  support: () => [{ axis: "LR" }, { axis: "TB" }],
+  canonical: () => ({ axis: "LR" }),
+  summary: p => colourMirrorText(p).about,
+  python: p => pyCard(colourMirrorText(p), `
+    def utility(grid):
+        mirrors = 0
+        pairs = 0
+        for line in ${p.axis === "LR" ? "grid.rows" : "grid.columns"}:
+            half = len(line) // 2
+            matches = 0
+            for i in range(half):
+                if line[i].colour == line[len(line) - 1 - i].colour:
+                    matches += 1
+            pairs += matches
+            if matches == half:
+                mirrors += 1
+        return (mirrors, pairs)`),
+  typescript: p => tsCard(colourMirrorText(p), `
+    function utility(grid) {
+      let mirrors = 0;
+      let pairs = 0;
+      for (const line of ${p.axis === "LR" ? "grid.rows" : "grid.columns"}) {
+        const half = Math.floor(line.length / 2);
+        let matches = 0;
+        for (let i = 0; i < half; i++) {
+          if (line[i].colour === line[line.length - 1 - i].colour) matches += 1;
+        }
+        pairs += matches;
+        if (matches === half) mirrors += 1;
+      }
+      return [mirrors, pairs];
+    }`),
+  exemplar: (_, g) => wire(g, full(g.N, 0), full(g.N, 0)),
+});
+
 export const STRATEGY = [rainbowRoad, borderBaron, conqueror, parityPainter, mirrormancer, homebody, lonePeak,
-  islander, rooksWatch, pictureFrame, staircase, luckyToken, neighbourhoodVote, farApart];
+  islander, rooksWatch, pictureFrame, staircase, luckyToken, neighbourhoodVote, farApart, headCount, colourMirror];

@@ -30,7 +30,11 @@ test("idle parking freezes running games; a human touch resumes them; safety sto
     assert.equal(secret.game.autoResume, true);
     const frozen = secret.game.worldSeconds, seq = secret.game.tick.seq;
     assert.match(secret.game.recoveryReason, /idle/);
-    assert.equal((await ada.c.query(api.player.observation, { roomId })).phase, "paused", "recovery shows as paused to players");
+    const parkedObs = await ada.c.query(api.player.observation, { roomId });
+    assert.equal(parkedObs.phase, "paused", "recovery shows as paused to players");
+    // Catches: a park mistaken for a crash (the player app and the game page say why, and how to resume).
+    assert.deepEqual(parkedObs.notice, { kind: "idle", text: "Paused: no human activity for 30 min — click anywhere to resume." });
+    assert.deepEqual((await ada.c.query(api.games.header, { code: game.shortCode })).notice, parkedObs.notice);
     await sleep(2500);
     secret = await raw(game.gameId);
     assert.equal(secret.game.worldSeconds, frozen, "parked world time stays frozen");
@@ -51,6 +55,7 @@ test("idle parking freezes running games; a human touch resumes them; safety sto
     await admin.mutation(internal.testing.setActivity, { at: Date.now() - 31 * 60 * 1000 });
     await touch(ada);
     assert.equal((await raw(game.gameId)).game.phase, "recovery", "only idle recoveries resume themselves");
+    assert.equal((await ada.c.query(api.player.observation, { roomId })).notice?.kind, "safety");
     assert.match(await rejects(ada.c.mutation(api.rooms.resume, { roomId })), /owner/i);
     await host.c.mutation(api.rooms.resume, { roomId });
     assert.equal((await raw(game.gameId)).game.phase, "running");

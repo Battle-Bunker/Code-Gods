@@ -8,9 +8,11 @@ import { ConvexError, v } from "convex/values";
 import { instantiationOf, type GameSettings, type ObjectValue } from "@workspace/game-core";
 import { candidateColumn, candidatesFor, family, fitMixture, type UtilityDescriptor } from "@workspace/game-utilities";
 import { internal } from "../_generated/api";
+import type { Id } from "../_generated/dataModel";
 import { internalAction } from "../_generated/server";
 import { runEnvelope } from "../commands";
-import { gameTables, tablesFor } from "../engine/calibration";
+import { tablesFor } from "../engine/calibration";
+import { ownScoringTables } from "../engine/pinned";
 import { priorOf, score } from "../engine/node";
 import { gatherSeries } from "./series";
 import { bindRuntime } from "../engine/runtime";
@@ -46,12 +48,12 @@ export const evaluate = internalAction({
     const mine: Awaited<ReturnType<typeof myUtilityFor>> = await ctx.runQuery(internal.player.myUtilityAs, { principal, roomId });
     if (!mine) return fail("CONFLICT", "You are not seated in a current game");
     let tables;
-    try { tables = await gameTables(ctx, mine.settings as GameSettings, [mine.utility as UtilityDescriptor]); } catch (error) {
+    try { tables = await ownScoringTables(ctx, mine.gameId as Id<"games">, mine.settings as GameSettings, mine.utility as UtilityDescriptor); } catch (error) {
       return fail("UNAVAILABLE", `The calibration tables could not be loaded: ${messageOf(error).slice(0, 300)}`);
     }
     let s;
     try {
-      s = score(tables, mine.settings as GameSettings, mine.utility as UtilityDescriptor, value as ObjectValue);
+      s = score(tables, mine.settings as GameSettings, mine.utility as UtilityDescriptor, value as ObjectValue, mine.godId);
     } catch (error) {
       return fail("BAD_REQUEST", `Not a value of this game's object type: ${messageOf(error).slice(0, 300)}`);
     }

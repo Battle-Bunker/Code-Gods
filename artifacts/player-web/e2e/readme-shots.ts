@@ -96,26 +96,22 @@ await setLayout({ version: 1, root: { type: "split", direction: "row", sizes: [5
 await page.goto(url);
 await page.waitForSelector("[data-testid=dock]", { timeout: 60_000 });
 
-// The assistant: the mock provider speaks the script below, and its tools (get_observation, open_panel, send_chat) run for real.
+// The assistant: the mock provider speaks the script below, and its tools (get_observation, open_panel) run for real.
 const script = { steps: [
   { text: "Let me look at the board and at what the others seem to care about.", tools: [{ name: "get_observation", input: { objectsLimit: 8 } }] },
   { text: "I've put your objects in order of payoff on the left.", tools: [{ name: "open_panel", input: { panelId: "objects" } }] },
   { text: "Your best objects pay because the others care about them too, so you win while they stay as they are. "
     + "Your Python agent keeps sliding the top row, and Alice just asked for that row to settle down. "
-    + "That's a bargaining chip: offer to stop it if she leaves column 1 alone. Shall I post the offer?",
-    tools: [{ name: "send_chat", input: { text: "Offer: I'll stop moving the top row if column 1 is left alone. Deal?" } }] },
+    + "That's a bargaining chip: offer to stop it if she leaves column 1 alone. Shall I post the offer?", tools: [] },
 ] };
 await page.fill("[data-testid=input-assistant]", `/mock ${JSON.stringify(script)}`);
 await page.press("[data-testid=input-assistant]", "Enter");
-await page.waitForSelector("[data-testid=button-confirm-approve]", { timeout: 60_000 });
+await page.locator("[data-testid=assistant-message]", { hasText: "Shall I post the offer?" }).waitFor({ timeout: 60_000 });
 // The mock is driven by a script in the player's message; show the question the script answers instead of the script.
 await page.evaluate(() => { const m = document.querySelector("[data-testid=assistant-user-message]"); if (m) m.textContent = "What should I do next?"; });
 await sleep(15_000);
 await page.evaluate(() => { const m = document.querySelector("[data-testid=assistant-user-message]"); if (m) m.textContent = "What should I do next?"; });
 await page.screenshot({ path: `${OUT}/hero.png` });
-// Bob approves the offer: it goes to the public chat.
-await page.click("[data-testid=button-confirm-approve]");
-await sleep(1500);
 
 // The goal card, with the annotation of one cell of its example board under the pointer.
 await setLayout(beside("my-card", [66, 34]));

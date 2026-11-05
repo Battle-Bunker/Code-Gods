@@ -365,9 +365,9 @@ function PickPage({ page, ...rest }: PickProps & { page: PickForm }) {
 }
 
 /** Server data: the page's hook holds its subscription while the page is shown, and the list follows every change. */
-function LivePickPage({ useOptions, empty, ...rest }: PickProps & { useOptions: () => LiveOptions; empty?: string }) {
-  const { options, error } = useOptions();
-  return <PickList options={options ?? null} loadError={error ?? null} empty={empty} {...rest} />;
+function LivePickPage({ useOptions, empty, ...rest }: PickProps & { useOptions: (query: string) => LiveOptions; empty?: string }) {
+  const { options, error, searched } = useOptions(rest.query.trim());
+  return <PickList options={options ?? null} loadError={error ?? null} empty={empty} searched={searched} {...rest} />;
 }
 
 /** What the client already holds (a list in hand, the glossary). */
@@ -382,13 +382,13 @@ function HeldPickPage({ page, ...rest }: PickProps & { page: PickForm }) {
   return <PickList options={options} loadError={loadError} empty={page.empty} {...rest} />;
 }
 
-function PickList({ options, loadError, empty, query, armedId, busy, error, onPick }: PickProps & { options: readonly PickOption[] | null; loadError: string | null; empty?: string }) {
+function PickList({ options, loadError, empty, searched, query, armedId, busy, error, onPick }: PickProps & { options: readonly PickOption[] | null; loadError: string | null; empty?: string; searched?: boolean }) {
   if (loadError) return <p className="px-3 py-4 text-sm text-destructive">{loadError}</p>;
   if (!options) return <Cmdk.Loading><p className="px-3 py-4 text-sm text-muted-foreground">Loading…</p></Cmdk.Loading>;
   const q = query.trim().toLowerCase();
-  const shown = !q ? options : options.map(o => ({ o, s: Math.max(matchScore(o.label, q), ...(o.keywords ?? []).map(k => matchScore(k, q) * 0.9), o.detail?.toLowerCase().includes(q) ? 20 : 0) }))
+  const shown = !q || searched ? options : options.map(o => ({ o, s: Math.max(matchScore(o.label, q), ...(o.keywords ?? []).map(k => matchScore(k, q) * 0.9), o.detail?.toLowerCase().includes(q) ? 20 : 0) }))
     .filter(x => x.s > 0).sort((a, b) => b.s - a.s).map(x => x.o);
-  if (!shown.length) return <p className="px-3 py-4 text-sm text-muted-foreground" data-testid="text-palette-empty">{options.length ? "Nothing matches." : empty ?? "Nothing to choose from."}</p>;
+  if (!shown.length) return <p className="px-3 py-4 text-sm text-muted-foreground" data-testid="text-palette-empty">{options.length || (searched && q) ? "Nothing matches." : empty ?? "Nothing to choose from."}</p>;
   return (<>
     {shown.map(o => {
       const armed = !!armedId && armedId.endsWith(`:${o.id}`);

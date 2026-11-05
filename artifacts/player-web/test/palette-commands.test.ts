@@ -23,9 +23,9 @@ const rec = (name: string) => (...args: unknown[]) => { calls.push(`${name}${arg
 const actions: Actions = {
   submit: rec("submit"), wake: rec("wake"), join: rec("join"), whoami: rec("whoami"), useReceipt: id => receipts.get(id) ?? ["Loading…"], copyObservation: rec("copyObservation"),
   owner: { start: rec("start"), resume: rec("resume"), startWorldNow: rec("startWorldNow"), endGame: rec("endGame"), addAi: rec("addAi"), removeAi: rec("removeAi"), setup: rec("setup"),
-    useAiCatalog: () => ({ options: [{ id: "sonnet", label: "Sonnet" }] }) },
+    useAiCatalog: () => ({ options: [{ id: "sonnet", label: "Sonnet" }] }), useSetupCatalog: () => ({ options: [{ id: "setup-classic", label: "Classic" }] }) },
   panels: { open: rec("openPanel"), openFile: rec("openFile"), setEnabled: rec("setEnabled"), remove: rec("removePanel"), rollback: rec("rollback") },
-  assistant: { cancel: rec("cancel"), setAutoApprove: rec("autoApprove"), useThreads: () => ({ options: [{ id: "t1", label: "Earlier" }] }), openThread: rec("openThread"),
+  assistant: { cancel: rec("cancel"), setMode: rec("setMode"), useThreads: () => ({ options: [{ id: "t1", label: "Earlier" }] }), openThread: rec("openThread"),
     newThread: rec("newThread"), setPermission: rec("setPermission"), focus: rec("focusAssistant"), handoff: rec("handoff") },
   dock: { show: rec("show"), change: rec("change"), close: rec("close"), dockAssistant: rec("dockAssistant"), openAssistant: rec("openAssistant"), preset: rec("layoutPreset"), reset: rec("reset"),
     maximise: rec("maximise"), forgeEdit: rec("forgeEdit") },
@@ -39,7 +39,7 @@ const state = (over: Partial<State> = {}): State => ({
   agents: [{ id: "agent-1", label: "agent-1 · python" }], unknownOutcome: false, busy: false, assistantOn: true, assistantAvailable: true, roomCode: "ABCD", gameCode: "WXYZ",
   panes: [{ id: "p1", kind: "panel", label: "Where am I", closable: false }, { id: "p2", kind: "assistant", label: "Your assistant", closable: true }],
   scopePaneId: "p1", storedPanels: [{ slug: "race-plus", title: "Race plus", enabled: true, currentVersion: 2 }], filePanels: [], safeMode: false,
-  setups: [{ id: "setup-classic", label: "Classic" }], aiSeats: [{ id: "ai-1", label: "Sonnet" }], gridRenderer: "digits", ...over,
+  aiSeats: [{ id: "ai-1", label: "Sonnet" }], gridRenderer: "digits", ...over,
 });
 const ctx = (over: Partial<PaletteContext> = {}): PaletteContext => ({ role: "seated", admin: false, permission: "act", phase: "running", assistantOn: true, scope: { paneId: "p1" }, ...over });
 const find = (commands: Command[], id: string) => { const c = commands.find(x => x.id === id); assert.ok(c, `no command ${id}`); return c; };
@@ -67,7 +67,7 @@ test("the dock commands: add any panel, change this pane's panel, close it, move
   const commands = playerCommands(state(), actions);
   for (const id of PANEL_IDS) assert.ok(commands.some(c => c.id === `ui.panel.add.${id}`), id);
   for (const id of ["ui.pane.change", "ui.pane.close", "ui.assistant.right", "ui.assistant.bottom", "ui.assistant.left", "ui.layout.stacked", "ui.layout.side-by-side",
-    "ui.layout.two-panels", "ui.layout.reset", "ui.assistant.focus", "ui.pane.maximise", "ui.assistant.new", "ui.assistant.settings", "ui.room.copy-link",
+    "ui.layout.two-panels", "ui.layout.reset", "ui.assistant.focus", "ui.pane.maximise", "ui.assistant.new", "ui.room.copy-link",
     "ui.room.open", "ui.safe-mode", "ui.glossary", "ui.forge.edit"]) find(commands, id);
   assert.equal(find(commands, "ui.assistant.focus").shortcut, "Ctrl+`");
   assert.equal(find(commands, "ui.panel.add.race").human.title, "Add panel: Leaderboard race");
@@ -150,7 +150,7 @@ test("hand-offs only pre-fill the composer, and need the assistant", async () =>
 
 test("in a room with no assistant (its owner is not an admin) every assistant and AI-seat affordance is hidden, not dimmed", () => {
   const commands = playerCommands(state({ assistantOn: false, assistantAvailable: false, aiEnabled: false, isOwner: true }), actions);
-  for (const id of ["assistant.send", "panels.save", "ui.assistant.open", "ui.assistant.right", "ui.assistant.focus", "ui.assistant.new", "ui.assistant.settings", "rooms.addAi"]) {
+  for (const id of ["assistant.send", "panels.save", "ui.assistant.open", "ui.assistant.right", "ui.assistant.focus", "ui.assistant.new", "ui.assistant.owner", "assistant.setMode", "rooms.addAi"]) {
     const a = find(commands, id).available(ctx({ assistantOn: false, role: "owner" }));
     assert.equal(a.ok, false, `${id} is unavailable`);
     assert.equal((a as { hidden?: boolean }).hidden, true, `${id} is hidden`);
@@ -197,15 +197,23 @@ test("grids switch between coloured digits and tiles, for this viewer, from the 
   assert.deepEqual(calls, ['gridRenderer ["tiles"]', 'gridRenderer ["digits"]']);
 });
 
-test("assistant settings offer owner powers only to an owner holding an owner connection (the engine caps the assistant at it)", async () => {
-  const choices = async (over: Partial<State>) => {
-    const p = find(playerCommands(state(over), actions), "ui.assistant.settings").performer;
+test("Ctrl+K sets the assistant's mode (Autopilot only for a connection that may act); owner powers only for an owner on an owner connection", async () => {
+  calls.length = 0;
+  const modes = async (over: Partial<State>) => {
+    const p = find(playerCommands(state(over), actions), "assistant.setMode").performer;
     assert.ok(p.kind === "form" && p.page.kind === "pick");
-    return (await p.page.options()).map(o => o.id);
+    return p.page;
   };
-  assert.deepEqual(await choices({ isOwner: true, permission: "owner" }), ["act", "read", "owner"]);
-  assert.deepEqual(await choices({ isOwner: true, permission: "act" }), ["act", "read"], "an owner on an act connection");
-  assert.deepEqual(await choices({ isOwner: false, permission: "owner" }), ["act", "read"]);
+  const page = await modes({});
+  assert.deepEqual((await page.options()).map(o => [o.id, o.label]), [["autopilot", "Autopilot"], ["onRequest", "On request"], ["readOnly", "Read-only"]]);
+  assert.ok((await page.options()).every(o => o.detail), "each with its line");
+  await page.onPick("readOnly");
+  assert.deepEqual(calls, ['setMode ["readOnly"]']);
+  assert.deepEqual((await (await modes({ permission: "read" })).options()).map(o => o.id), ["onRequest", "readOnly"]);
+  const owner = (over: Partial<State>) => find(playerCommands(state(over), actions), "ui.assistant.owner").available(ctx({ role: over.isOwner ? "owner" : "member" }));
+  assert.equal(owner({ isOwner: true, permission: "owner" }).ok, true);
+  assert.equal((owner({ isOwner: true, permission: "act" }) as { hidden?: boolean }).hidden, true, "an owner on an act connection");
+  assert.equal((owner({ isOwner: false, permission: "owner" }) as { hidden?: boolean }).hidden, true);
 });
 
 test("a completed game: the room page offers its replay; in the replay, play/pause and jump to the start or the end", async () => {

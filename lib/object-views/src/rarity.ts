@@ -48,6 +48,11 @@ export function rarerThanPerMille(bits: number): number {
   return Math.min(999, Math.max(0, Math.floor(1000 * (1 - 2 ** -b) + 1e-9)));
 }
 
+/** "earns 4.0 bits/s (25% of your power)": an agent's income and its share of the god's power (share 0 to 1). */
+export function powerLine(income: number, share: number): string {
+  const pct = Math.round(share * 1000) / 10;
+  return `earns ${formatBits(income)} bits/s (${pct}% of your power)`;
+}
 /** One decimal, no "-0". */
 export function formatBits(bits: number): string {
   const v = Math.round(finite(bits) * 10) / 10;

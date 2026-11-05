@@ -15,7 +15,8 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { firstUseSeconds, type InstanceTables, type UtilityDescriptor } from "@workspace/game-utilities";
 import { calibrationManifest, drawsOf, resolveTables } from "./engine/calibration";
-import { assertShape, catalogFor, deal, dealerOf, disclosureNoise, newNoiseKey, nextSettings, openUniform, priorOf, scoresOf, seasonCommitment, uniqueSpawn, utilityCard } from "./engine/node";
+import { assertShape, catalogFor, deal, dealerOf, disclosureNoise, newNoiseKey, nextSettings, openUniform, pinTables, priorOf, scoresOf, seasonCommitment, uniqueSpawn, utilityCard } from "./engine/node";
+import { storePinned } from "./engine/pinned";
 import { ensureSandboxes } from "./engine/runtime";
 import { settingsDomain } from "./engine/settingsDomain";
 import { fail } from "./lib/errors";
@@ -103,13 +104,22 @@ async function launch(ctx: ActionCtx, settings: GameSettings, deals: readonly De
     objects.push({ value: value as number | string, scores, salience: salienceOf(scores), noise: disclosureNoise(settings, noiseKey, value) });
   }
   const next = poissonIntervalSeconds(settings.spawnRateHz, openUniform());
-  return ctx.runMutation(internal.game.lobby.commitStart, {
+  const args = {
     ...commit,
     seasonCommitment: seasonCommitment(), noiseKey, endAtWorld: gameEndSeconds(settings.durationMode, settings.halfLifeSeconds, openUniform),
     nextSpawn: Number.isFinite(next) ? next : Number.MAX_VALUE, catalog: catalogFor(settings),
     deities: deals.map(d => ({ godId: d.godId, utility: d.utility, card: utilityCard(settings, d.utility) })),
     objects,
-  });
+  };
+  // The game scores with these tables until it ends, whatever later deploys do to the shipped ones (engine/pinned.ts).
+  const tablesStorageId = await storePinned(ctx, pinTables(tables, settings, deals));
+  let started: Started | null = null;
+  try {
+    return started = await ctx.runMutation(internal.game.lobby.commitStart, { ...args, tablesStorageId });
+  } finally {
+    // Not started (a refused or stale start): no game holds the file. Never let the cleanup hide the start's own error.
+    if (!started) await ctx.storage.delete(tablesStorageId).catch(error => console.warn(`pinned tables ${tablesStorageId} not deleted: ${String(error)}`));
+  }
 }
 
 function preparingResult(p: NonNullable<Doc<"rooms">["preparing"]>): Preparing {

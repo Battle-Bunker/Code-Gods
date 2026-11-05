@@ -71,17 +71,17 @@ def rank_value(gt: GridType, rank: int) -> int:
 
 # --- seeds --------------------------------------------------------------------------------------------
 def line_painter(p, gt):
-    diag = p["diag"]
+    diag = p["diagonals"]
     dirs = "across, down and along both diagonals" if diag else "across and down"
     extra = """
                 if is_mine(cell.up_left) or is_mine(cell.down_right):
                     points += cell.value
                 if is_mine(cell.up_right) or is_mine(cell.down_left):
                     points += cell.value""" if diag else ""
-    return card("🖍️", "Line Painter", f"""Your colour scores when it lines up. Each {col(gt, p['colour'])} cell that
-        touches another {col(gt, p['colour'])} cell in a straight line ({dirs}) earns its value, once for
+    return card("🖍️", "Line Painter", f"""Your colour scores when it lines up. Each {p['colour']} cell that
+        touches another {p['colour']} cell in a straight line ({dirs}) earns its value, once for
         every direction it lines up in.""",
-                [("MY_COLOUR", col(gt, p["colour"]))], f"""
+                [("MY_COLOUR", p["colour"])], f"""
         def is_mine(cell):
             return cell is not None and cell.colour == MY_COLOUR
 
@@ -124,9 +124,9 @@ def patchwork(p, gt):
 def green_ones(p, gt):
     v = p["value"]
     what = "aces" if gt.symbols == "cards" and v == 1 else f"{v}s"
-    return card("🍀", "Green Ones", f"""Count the {col(gt, p['colour'])} {what}. If that's a tie, count the
+    return card("🍀", "Green Ones", f"""Count the {p['colour']} {what}. If that's a tie, count the
         cells that are halfway there: the right colour or the right {thing(gt)}, but not both.""",
-                [("MY_COLOUR", col(gt, p["colour"])), ("MY_VALUE", v, value_note(gt, v))], """
+                [("MY_COLOUR", p["colour"]), ("MY_VALUE", v, value_note(gt, v))], """
         def utility(grid):
             perfect = 0
             halfway = 0
@@ -147,8 +147,8 @@ _READ = {"→": ("left to right", "grid.rows"), "←": ("right to left", "[list(
 
 
 def rainbow_road(p, gt):
-    how, lines = _READ[p["dir"]]
-    kind = "row" if p["dir"] in "→←" else "column"
+    how, lines = _READ[p["direction"]]
+    kind = "row" if p["direction"] in "→←" else "column"
     order = " → ".join(gt.colour_names + (gt.colour_names[0],))
     return card("🌈", "Rainbow Road", f"""Read every {kind} {how}. A step scores when the next colour is
         the next one round the rainbow ({order}). A whole {kind} of rainbow steps beats any number of
@@ -170,9 +170,9 @@ def rainbow_road(p, gt):
 
 def border_baron(p, gt):
     return card("🏰", "Border Baron", f"""Touching cells of one colour form a country. Every place where
-        two countries touch is a border, and it scores when both countries have at least {p['K']} cells.
-        If that's a tie, each border counts the size of its smaller country (up to {p['K']}).""",
-                [("BIG", p["K"])], """
+        two countries touch is a border, and it scores when both countries have at least {gt.N} cells.
+        If that's a tie, each border counts the size of its smaller country (up to {gt.N}).""",
+                [("BIG", gt.N)], """
         def same_colour(a, b):
             return a.colour == b.colour
 
@@ -195,19 +195,16 @@ def border_baron(p, gt):
 
 
 def conqueror(p, gt):
-    by_value = p["weight"] == "value"
-    worth = "its value" if by_value else "1 point"
-    pts = "cell.value" if by_value else "1"
-    return card("⚔️", "Conqueror", f"""Your colour against your enemy's. Each {col(gt, p['A'])} cell adds
-        {worth}, and each {col(gt, p['B'])} cell takes {worth} away.""",
-                [("MY_COLOUR", col(gt, p["A"])), ("ENEMY_COLOUR", col(gt, p["B"]))], f"""
+    return card("⚔️", "Conqueror", f"""Your colour against your enemy's. Each {p['colour']} cell adds
+        its value, and each {p['enemy_colour']} cell takes its value away.""",
+                [("MY_COLOUR", p["colour"]), ("ENEMY_COLOUR", p["enemy_colour"])], """
         def utility(grid):
             points = 0
             for cell in grid.cells:
                 if cell.colour == MY_COLOUR:
-                    points += {pts}
+                    points += cell.value
                 elif cell.colour == ENEMY_COLOUR:
-                    points -= {pts}
+                    points -= cell.value
             return points
         """)
 
@@ -251,8 +248,7 @@ def parity_painter(p, gt):
 
 def mirrormancer(p, gt):
     lines, kind = ("grid.rows", "row") if p["axis"] == "LR" else ("grid.columns", "column")
-    what = "colour" if p["layer"] == "colour" else "value"
-    shown = "colours" if p["layer"] == "colour" else ("ranks" if gt.symbols == "cards" else "numbers")
+    shown = "ranks" if gt.symbols == "cards" else "numbers"
     return card("🪞", "Mirrormancer", f"""A {kind} is a mirror when its {shown} read the same forwards and
         backwards. Count mirror {kind}s; if that's a tie, count matching pairs (first and last, second and
         second-last, ...).""", [], f"""
@@ -263,7 +259,7 @@ def mirrormancer(p, gt):
                 half = len(line) // 2
                 matches = 0
                 for i in range(half):
-                    if line[i].{what} == line[len(line) - 1 - i].{what}:
+                    if line[i].value == line[len(line) - 1 - i].value:
                         matches += 1
                 pairs += matches
                 if matches == half:
@@ -273,16 +269,13 @@ def mirrormancer(p, gt):
 
 
 def homebody(p, gt):
-    rim = p["zone"] == "rim"
-    home = "the edge (the outside ring)" if rim else "the middle (everything off the edge)"
-    test = "cell.on_edge" if rim else "not cell.on_edge"
-    return card("🏡", "Homebody", f"""Your colour likes to stay home in {home}. Each {col(gt, p['X'])}
-        cell at home is +1, and each one away from home is −1.""", [("MY_COLOUR", col(gt, p["X"]))], f"""
+    return card("🏡", "Homebody", f"""Your colour likes to stay home on the edge (the outside ring). Each {p['colour']}
+        cell at home is +1, and each one away from home is −1.""", [("MY_COLOUR", p["colour"])], """
         def utility(grid):
             points = 0
             for cell in grid.cells:
                 if cell.colour == MY_COLOUR:
-                    if {test}:
+                    if cell.on_edge:
                         points += 1
                     else:
                         points -= 1
@@ -292,8 +285,8 @@ def homebody(p, gt):
 
 def lone_peak(p, gt):
     return card("🏔️", "Lone Peak", f"""The highest {thing(gt)} on the grid is the peak. If there is just one
-        peak and it is {col(gt, p['X'])}, score how far it stands above the next highest. If that's a tie,
-        it helps if one of the peaks is {col(gt, p['X'])}.""", [("MY_COLOUR", col(gt, p["X"]))], """
+        peak and it is {p['colour']}, score how far it stands above the next highest. If that's a tie,
+        it helps if one of the peaks is {p['colour']}.""", [("MY_COLOUR", p["colour"])], """
         def utility(grid):
             top = max(cell.value for cell in grid.cells)
             peaks = [cell for cell in grid.cells if cell.value == top]
@@ -311,43 +304,9 @@ def lone_peak(p, gt):
 
 # --- geometry -------------------------------------------------------------------------------------------
 def castle_keeper(p, gt):
-    W = col(gt, p["W"])
-    mode = p["mode"]
-    consts = [("WALL", W)]
-    if mode == "treasure":
-        consts.append(("TREASURE", col(gt, p["T"])))
-        about = f"""Build {W} walls. Every {col(gt, p['T'])} treasure cell that the walls shut off from
-            the edge of the grid scores a point. If that's a tie, more {W} wall on the edge is better."""
-        count = """
-            treasure = 0
-            for cell in grid.cells:
-                if inside(cell, outside) and cell.colour == TREASURE:
-                    treasure += 1
-            return (treasure, walls_on_edge(grid))"""
-    elif mode == "eyes":
-        about = f"""Build {W} walls. Every cell the walls shut off from the edge of the grid scores a
-            point, and every separate pocket of them scores 3 more. If that's a tie, more {W} wall on the
-            edge is better."""
-        count = """
-            points = 0
-            for pocket in grid.regions(same_side):
-                if inside(pocket[0], outside):
-                    points += len(pocket) + 3
-            return (points, walls_on_edge(grid))"""
-    else:
-        about = f"""Build {W} walls. Every cell that the walls shut off from the edge of the grid scores a
-            point. If that's a tie, more {W} wall on the edge is better."""
-        count = """
-            shut_in = 0
-            for cell in grid.cells:
-                if inside(cell, outside):
-                    shut_in += 1
-            return (shut_in, walls_on_edge(grid))"""
-    pockets = """
-        def same_side(a, b):
-            return not_wall(a) == not_wall(b)
-        """ if mode == "eyes" else ""
-    return card("🏯", "Castle Keeper", about, consts, f"""
+    W = p["wall"]
+    return card("🏯", "Castle Keeper", f"""Build {W} walls. Every cell that the walls shut off from the edge of the
+        grid scores a point. If that's a tie, more {W} wall on the edge is better.""", [("WALL", W)], """
         def not_wall(cell):
             return cell.colour != WALL
 
@@ -360,9 +319,73 @@ def castle_keeper(p, gt):
                 if cell.colour == WALL:
                     walls += 1
             return walls
-        {pockets}
+
         def utility(grid):
-            outside = grid.reachable(grid.edge_cells, through=not_wall)  # cells you can walk to from the edge{count}
+            outside = grid.reachable(grid.edge_cells, through=not_wall)  # cells you can walk to from the edge
+            shut_in = 0
+            for cell in grid.cells:
+                if inside(cell, outside):
+                    shut_in += 1
+            return (shut_in, walls_on_edge(grid))
+        """)
+
+
+def treasure_castle(p, gt):
+    W = p["wall"]
+    return card("💎", "Treasure Castle", f"""Build {W} walls. Every {p['treasure']} treasure cell that the walls shut off from
+        the edge of the grid scores a point. If that's a tie, more {W} wall on the edge is better.""",
+                [("WALL", W), ("TREASURE", p["treasure"])], """
+        def not_wall(cell):
+            return cell.colour != WALL
+
+        def inside(cell, outside):
+            return not_wall(cell) and cell not in outside
+
+        def walls_on_edge(grid):
+            walls = 0
+            for cell in grid.edge_cells:
+                if cell.colour == WALL:
+                    walls += 1
+            return walls
+
+        def utility(grid):
+            outside = grid.reachable(grid.edge_cells, through=not_wall)  # cells you can walk to from the edge
+            treasure = 0
+            for cell in grid.cells:
+                if inside(cell, outside) and cell.colour == TREASURE:
+                    treasure += 1
+            return (treasure, walls_on_edge(grid))
+        """)
+
+
+def castle_pockets(p, gt):
+    W = p["wall"]
+    return card("👀", "Castle Pockets", f"""Build {W} walls. Every cell the walls shut off from the edge of the grid scores a
+        point, and every separate pocket of them scores 3 more. If that's a tie, more {W} wall on the
+        edge is better.""", [("WALL", W)], """
+        def not_wall(cell):
+            return cell.colour != WALL
+
+        def inside(cell, outside):
+            return not_wall(cell) and cell not in outside
+
+        def walls_on_edge(grid):
+            walls = 0
+            for cell in grid.edge_cells:
+                if cell.colour == WALL:
+                    walls += 1
+            return walls
+
+        def same_side(a, b):
+            return not_wall(a) == not_wall(b)
+
+        def utility(grid):
+            outside = grid.reachable(grid.edge_cells, through=not_wall)  # cells you can walk to from the edge
+            points = 0
+            for pocket in grid.regions(same_side):
+                if inside(pocket[0], outside):
+                    points += len(pocket) + 3
+            return (points, walls_on_edge(grid))
         """)
 
 
@@ -390,8 +413,8 @@ def chessmaster(p, gt):
 
 
 def bridge_builder(p, gt):
-    C = col(gt, p["C"])
-    lr = p["D"] == "LR"
+    C = p["colour"]
+    lr = p["direction"] == "LR"
     across, attr = ("columns", "col") if lr else ("rows", "row")
     goal = "from the left edge to the right edge" if lr else "from the top edge to the bottom edge"
     return card("🌉", "Bridge Builder", f"""Build a bridge of touching {C} cells {goal}. Score how many
@@ -444,9 +467,9 @@ def card_windmill(p, gt):
 
 def royal_court(p, gt):
     s = p["suit"]
-    who = "picture card (J, Q, K)" if s is None else f"picture card (J, Q, K) of {SUIT_NAMES[s]}"
-    consts = [] if s is None else [("MY_SUIT", SUIT_NAMES[s])]
-    test = "cell.is_picture" if s is None else "cell.is_picture and cell.suit == MY_SUIT"
+    who = f"picture card (J, Q, K) of {s}"
+    consts = [("MY_SUIT", s)]
+    test = "cell.is_picture and cell.suit == MY_SUIT"
     return card("👑", "Royal Court", f"""Put a {who} in the very middle. Your court is it plus every
         such card joined to it through touching cells: score its size, doubled if none of it is on the
         edge. If that's a tie, count those picture cards that are off the edge.""", consts, f"""
@@ -473,37 +496,57 @@ def royal_court(p, gt):
         """)
 
 
+def any_suit_court(p, gt):
+    return card("🏰", "Any-Suit Court", """Put a picture card (J, Q, K) of any suit in the very middle. Your court is it
+        plus every picture card joined to it through touching cells: score its size, doubled if none of it is on
+        the edge. If that's a tie, count those picture cards that are off the edge.""", [], """
+        def royal(cell):
+            return cell.is_picture
+
+        def utility(grid):
+            middle = grid.cell(grid.size // 2, grid.size // 2)
+            court_size = 0
+            if royal(middle):
+                court = grid.reachable(middle, through=royal)
+                court_size = len(court)
+                safe = True
+                for cell in court:
+                    if cell.on_edge:
+                        safe = False
+                if safe:
+                    court_size *= 2
+            off_edge = 0
+            for cell in grid.cells:
+                if royal(cell) and not cell.on_edge:
+                    off_edge += 1
+            return (court_size, off_edge)
+        """)
+
+
 # --- arithmetic -----------------------------------------------------------------------------------------
 def straight_shooter(p, gt):
-    up = p["step"] == 1
-    consts = [("STEP", p["step"], "count up" if up else "count down")]
+    up = p["direction"] == "up"
+    consts = [("STEP", 1 if up else -1, "count up" if up else "count down")]
     number = "cell.value"
     if p["ace_high"]:
         number = "14 if cell.value == 1 else cell.value"
-    flush = p["flush"]
-    if flush:
-        score = """
+    score = """
                     if len(run) >= 3:
                         points = len(run) * len(run)
                         if one_colour(run):
                             points *= 2
                         score += points"""
-        helper = """
+    helper = """
         def one_colour(run):
             for cell in run:
                 if cell.colour != run[0].colour:
                     return False
             return True
         """
-    else:
-        score = """
-                    if len(run) >= 3:
-                        score += len(run) * len(run)"""
-        helper = ""
     aces = " Aces count as 14." if p["ace_high"] else ""
     return card("🎯", "Straight Shooter", f"""Find runs of 3 or more {thing(gt)}s that count
         {'up' if up else 'down'} by one, reading rows left to right and columns top to bottom. A run
-        scores its length × its length{', doubled if it is all one colour' if flush else ''}.{aces} If
+        scores its length × its length, doubled if it is all one colour.{aces} If
         that's a tie, count single counting steps.""", consts, f"""
         def number(cell):
             return {number}
@@ -529,23 +572,19 @@ def straight_shooter(p, gt):
 
 def number_bonds(p, gt):
     T = vmax(gt) + 1
-    mode = p["mode"]
-    cond = {"any": "", "same": " and cell.colour == other.colour", "different": " and cell.colour != other.colour"}[mode]
-    extra = {"any": "", "same": " and are the same colour", "different": " and are different colours"}[mode]
     return card("🤝", "Number Bonds", f"""Two touching cells are best friends when their {thing(gt)}s add
-        up to {T}{extra}. Every pair of best friends scores a point.""", [("TARGET", T)], f"""
+        up to {T}. Every pair of best friends scores a point.""", [("TARGET", T)], """
         def utility(grid):
             bonds = 0
             for cell in grid.cells:
                 for other in (cell.right, cell.down):
-                    if other is not None and cell.value + other.value == TARGET{cond}:
+                    if other is not None and cell.value + other.value == TARGET:
                         bonds += 1
             return bonds
         """)
 
 
-_AXIS = {"rows": ("grid.rows", "row"), "cols": ("grid.columns", "column"),
-         "both": ("grid.rows + grid.columns", "row and column")}
+_AXIS = {"rows": ("grid.rows", "row"), "cols": ("grid.columns", "column")}
 
 
 def magic_accountant(p, gt):
@@ -569,7 +608,7 @@ def magic_accountant(p, gt):
 
 def king_of_the_hill(p, gt):
     valley = p["valley"]
-    X = col(gt, p["X"])
+    X = p["colour"]
     word, cmp = ("lower", "<") if valley else ("higher", ">")
     return card("⛰️" if not valley else "🕳️", "King of the Hill" if not valley else "King of the Valley",
                 f"""{an(X).capitalize()} cell is {'in a valley' if valley else 'a king'} when its {thing(gt)} is {word}
@@ -586,7 +625,7 @@ def king_of_the_hill(p, gt):
 
 
 def divisibility_detective(p, gt):
-    b, m = gt.base, p["m"]
+    b, m = gt.base, gt.base - 1
     lines, kind = _AXIS[p["scope"]]
     base_note = "" if b == 10 else f" (base {b}: the digits go 0-9 then A, B, ...)"
     return card("🔍", "Divisibility Detective", f"""Read each {kind} as one big number{base_note}. Every
@@ -638,7 +677,7 @@ def stripe_painter(p, gt):
 
 
 def feuding_families(p, gt):
-    X, Y = col(gt, p["X"]), col(gt, p["Y"])
+    X, Y = p["first_family"], p["second_family"]
     return card("😤", "Feuding Families", f"""{X.capitalize()} and {Y} cells are feuding. A cell is
         safe when it doesn't touch the other family. Score the safe cells of whichever family has fewer;
         if that's a tie, count all safe cells.""", [("FAMILY_1", X), ("FAMILY_2", Y)], """
@@ -661,34 +700,19 @@ def feuding_families(p, gt):
 
 
 def colour_mixer(p, gt):
-    P1, P2, M = col(gt, p["P1"]), col(gt, p["P2"]), col(gt, p["M"])
+    P1, P2, M = p["first_paint"], p["second_paint"], p["mixed_colour"]
     consts = [("PAINT_1", P1), ("PAINT_2", P2)]
-    if p["strict"]:
-        about = f"""{P1.capitalize()} + {P2} = {M}. A {M} cell scores when it sits between its two
-            paints: {P1} on one side and {P2} on the opposite side. If that's a tie, count {M} cells
-            touching either paint."""
-        check = """
-        def between(cell, a, b):
-            if a is None or b is None:
-                return False
-            return (a.colour == PAINT_1 and b.colour == PAINT_2) or (a.colour == PAINT_2 and b.colour == PAINT_1)
+    about = f"""{P1.capitalize()} + {P2} = {M}. A {M} cell scores when it touches both of its
+        paints. If that's a tie, count {M} cells touching either paint."""
+    return card("🎨", "Colour Mixer", about, consts, """
+        MIXED = mix(PAINT_1, PAINT_2)
 
-        def utility(grid):
-            mixes = 0
-            near = 0
-            for cell in grid.cells:
-                if cell.colour != MIXED:
-                    continue
-                if touches(cell, PAINT_1) or touches(cell, PAINT_2):
-                    near += 1
-                if between(cell, cell.left, cell.right) or between(cell, cell.up, cell.down):
-                    mixes += 1
-            return (mixes, near)
-        """
-    else:
-        about = f"""{P1.capitalize()} + {P2} = {M}. A {M} cell scores when it touches both of its
-            paints. If that's a tie, count {M} cells touching either paint."""
-        check = """
+        def touches(cell, colour):
+            for other in cell.neighbours:
+                if other.colour == colour:
+                    return True
+            return False
+
         def utility(grid):
             mixes = 0
             near = 0
@@ -700,16 +724,7 @@ def colour_mixer(p, gt):
                 if touches(cell, PAINT_1) and touches(cell, PAINT_2):
                     mixes += 1
             return (mixes, near)
-        """
-    return card("🎨", "Colour Mixer", about, consts, """
-        MIXED = mix(PAINT_1, PAINT_2)
-
-        def touches(cell, colour):
-            for other in cell.neighbours:
-                if other.colour == colour:
-                    return True
-            return False
-        """ + check)
+        """)
 
 
 def fair_weaver(p, gt):
@@ -739,7 +754,7 @@ def fair_weaver(p, gt):
 
 
 def lantern_lighter(p, gt):
-    X = col(gt, p["X"])
+    X = p["colour"]
     return card("🏮", "Lantern Lighter", f"""{an(X).capitalize()} cell is a lantern when it is the only {X} cell in its
         row and the only one in its column. Each lantern scores a point.""", [("MY_COLOUR", X)], """
         def count_mine(line):
@@ -762,7 +777,7 @@ def lantern_lighter(p, gt):
 
 # --- games ----------------------------------------------------------------------------------------------
 def rummy_melder(p, gt):
-    lines, kind = ("grid.rows", "row") if p["dir"] == "rows" else ("grid.columns", "column")
+    lines, kind = ("grid.rows", "row") if p["axis"] == "rows" else ("grid.columns", "column")
     cards = gt.symbols == "cards"
     suit = "cell.suit" if cards else "cell.colour"
     suit_word = "suit" if cards else "colour"
@@ -801,15 +816,13 @@ def rummy_melder(p, gt):
 
 
 def othello_sandwich(p, gt):
-    X = col(gt, p["X"])
-    diag = p["diag"]
-    sides = "left and right, or above and below, or the two corners on either diagonal" if diag else \
-        "left and right, or above and below"
+    X = p["colour"]
+    sides = "left and right, or above and below, or the two corners on either diagonal"
     extra = """
                 if is_mine(cell.up_left) and is_mine(cell.down_right):
                     sandwiches += 1
                 if is_mine(cell.up_right) and is_mine(cell.down_left):
-                    sandwiches += 1""" if diag else ""
+                    sandwiches += 1"""
     return card("🥪", "Sandwich Maker", f"""A cell is sandwiched when the cells on both sides of it
         ({sides}) are {X} and it isn't. Each sandwich is a point.""", [("MY_COLOUR", X)], f"""
         def is_mine(cell):
@@ -849,7 +862,8 @@ def honest_minesweeper(p, gt):
 
 
 def bingo_caller(p, gt):
-    called = [rank_value(gt, r) for r in p["called"]]
+    from .games import rank_at
+    called = [rank_value(gt, rank_at(gt, r)) for r in p["called"]]
     free = gt.N % 2 == 1
     any_suit = " (any suit)" if gt.symbols == "cards" else ""
     free_space = " The middle cell is a free space." if free else ""
@@ -891,7 +905,7 @@ def sudoku_scholar(p, gt):
                         return 0
                 return 1
             """)
-    lines, kind = _AXIS[p["dir"]]
+    lines, kind = _AXIS["both"]
     return card("🔢", "Sudoku Scholar", f"""Every {kind} where no {word} appears twice scores a point. If
         that's a tie, more different {word}s in each line is better.""", [], f"""
         def different(line):
@@ -914,7 +928,7 @@ def sudoku_scholar(p, gt):
 
 
 def full_house(p, gt):
-    lines, kind = ("grid.rows", "row") if p["dir"] == "rows" else ("grid.columns", "column")
+    lines, kind = ("grid.rows", "row") if p["axis"] == "rows" else ("grid.columns", "column")
     word = "rank" if gt.symbols == "cards" else "number"
     return card("🏠", "Full House", f"""In each {kind}, every pair of cells showing the same {word} scores
         a point (three of a kind makes 3 pairs, four makes 6).""", [], f"""
@@ -929,7 +943,44 @@ def full_house(p, gt):
         """)
 
 
+def head_count(p, gt):
+    return card("🪖", "Head Count", f"""Your colour against your enemy's. Each {p['colour']} cell adds
+        1 point, and each {p['enemy_colour']} cell takes 1 point away.""",
+                [("MY_COLOUR", p["colour"]), ("ENEMY_COLOUR", p["enemy_colour"])], """
+        def utility(grid):
+            points = 0
+            for cell in grid.cells:
+                if cell.colour == MY_COLOUR:
+                    points += 1
+                elif cell.colour == ENEMY_COLOUR:
+                    points -= 1
+            return points
+        """)
+
+
+def colour_mirror(p, gt):
+    lines, kind = ("grid.rows", "row") if p["axis"] == "LR" else ("grid.columns", "column")
+    return card("🪞", "Colour Mirror", f"""A {kind} is a mirror when its colours read the same forwards and
+        backwards. Count mirror {kind}s; if that's a tie, count matching pairs (first and last, second and
+        second-last, ...).""", [], f"""
+        def utility(grid):
+            mirrors = 0
+            pairs = 0
+            for line in {lines}:
+                half = len(line) // 2
+                matches = 0
+                for i in range(half):
+                    if line[i].colour == line[len(line) - 1 - i].colour:
+                        matches += 1
+                pairs += matches
+                if matches == half:
+                    mirrors += 1
+            return (mirrors, pairs)
+        """)
+
+
 CARDS = {
+    "head_count": head_count, "colour_mirror": colour_mirror,
     "seed1_line_painter": line_painter, "seed2_patchwork": patchwork, "seed3_green_ones": green_ones,
     "rainbow_road": rainbow_road, "border_baron": border_baron, "conqueror": conqueror,
     "parity_painter": parity_painter, "mirrormancer": mirrormancer, "homebody": homebody, "lone_peak": lone_peak,
@@ -941,6 +992,7 @@ CARDS = {
     "lantern_lighter": lantern_lighter, "rummy_melder": rummy_melder, "othello_sandwich": othello_sandwich,
     "honest_minesweeper": honest_minesweeper, "bingo_caller": bingo_caller, "sudoku_scholar": sudoku_scholar,
     "full_house": full_house,
+    "treasure_castle": treasure_castle, "castle_pockets": castle_pockets, "any_suit_court": any_suit_court,
 }
 
 

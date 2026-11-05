@@ -205,3 +205,25 @@ def _instrument(code):
         c = todo.pop()
         _MON.set_local_events(_TOOL, c, _MON.events.LINE | _MON.events.JUMP)
         todo.extend(k for k in c.co_consts if isinstance(k, types.CodeType))
+
+
+_METER = None      # the prelude's __read_bits, captured by the host before the agent's module runs
+_BITS = "0"
+
+
+def _measure():
+    """The read meter's reading as text (finite, >= 0; anything else, or no meter: 0). Trusted; never raises."""
+    global _BITS
+    _BITS = "0"
+    try:
+        f = _METER
+        if f is None:
+            return
+        v = f()
+        if isinstance(v, bool) or not isinstance(v, (int, float)):
+            return
+        v = float(v)
+        if v == v and 0 <= v < float("inf"):
+            _BITS = repr(v)
+    except BaseException:
+        _BITS = "0"

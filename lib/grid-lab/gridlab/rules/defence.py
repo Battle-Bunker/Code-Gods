@@ -403,12 +403,12 @@ def _other_colour(key, named=True):
 
 V = dict(tags={"variant"})
 VARIANTS = [
-    with_defence(seeds.SEED3, HATE_COLOUR, sample_penalty=_other_colour("colour", named=False),
+    with_defence(seeds.SEED3, HATE_COLOUR, sample_penalty=_other_colour("colour"),
                  name="Green Ones, hates a colour", **V),
-    with_defence(seeds.SEED1, HATE_BLOB, sample_penalty=_other_colour("colour", named=False),
+    with_defence(seeds.SEED1, HATE_BLOB, sample_penalty=_other_colour("colour"),
                  name="Line Painter, hates a patch", **V),
     with_defence(seeds.SEED2, HATE_TAKEOVER, name="Patchwork, hates takeovers", **V),
-    with_defence(strategy.LUCKY_TOKEN, HATE_COLOUR, sample_penalty=_other_colour("X", named=False),
+    with_defence(strategy.LUCKY_TOKEN, HATE_COLOUR, sample_penalty=_other_colour("colour"),
                  name="Lucky Token, hates a colour", **V),
     with_defence(colour_lens.KINGDOM, HATE_VALUE, name="Kingdom, hates a number", **V),
     with_defence(strategy.RAINBOW_ROAD, HATE_BIG_BLOB, name="Rainbow Road, hates blobs", **V),

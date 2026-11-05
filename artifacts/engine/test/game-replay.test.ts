@@ -20,7 +20,7 @@ import { admin, api, envelope, gods, internal, raw, rejects, roomWith, startGame
 const settings = {
   language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Int",
   typeArgs: { min: -2147483648, max: 2147483647 }, startingObjectCount: 6, spawnRateHz: 1, interactionRateHz: 20, planningSeconds: 3600,
-  halfLifeSeconds: 1e9, agentEnergyPerSecond: 100, startingEnergy: 1000,
+  halfLifeSeconds: 1e9, powerPerSecond: 200, startingEnergy: 1000,
 };
 const close = (a: number, b: number, what: string) => assert.ok(Math.abs(a - b) < 1e-9 * Math.max(1, Math.abs(b)), `${what}: ${a} vs ${b}`);
 
@@ -72,14 +72,18 @@ test("an ended game's replay, cut at any snapshot, rebuilds the whole engine sta
   };
   assert.equal((await ada.c.query(api.games.resolve, { code: game.shortCode })).ended, true, "the client opens an ended game as its replay");
   const final = snapshots.at(-1);
-  assert.ok(final.batches.every((b: any) => b.schema === 4), "every batch carries the event schema");
+  assert.ok(final.batches.every((b: any) => b.schema === 7), "every batch carries the event schema");
   // The live scoreboard's publications (docs/public-log-design.md §3) are marked in the log: the start, then only
   // batches reaching the next 10 s multiple of world time (the default interval), then the end. Stored totals stay
   // exact on every scoring batch, so this ended game's replay below steps per event.
   const published = final.batches.filter((b: any) => b.scoreboard);
   assert.equal(published[0].seq, 0, "the starting scoreboard");
+  // …and, still at world 0, the one hold rarity's re-scoring publishes (docs/energy-model.md §8).
+  const starting = published.filter((b: any) => b.worldTo === 0);
+  assert.equal(starting.length, 2, "the start's scoreboard and the re-scored one");
+  assert.ok(starting[1].events.every((e: any) => e.t === "rescore"));
   assert.ok(published.at(-1).events.some((e: any) => e.t === "phase" && e.phase === "ended"), "the final scoreboard comes with the end");
-  const periodic = published.slice(1, -1);
+  const periodic = published.slice(starting.length, -1);
   periodic.forEach((b: any, i: number) => {
     const previous = i === 0 ? 0 : periodic[i - 1].worldTo;
     assert.ok(Math.floor(b.worldTo / 10) > Math.floor(previous / 10), `batch ${b.seq} at ${b.worldTo} s publishes only past the next 10 s mark after ${previous} s`);
@@ -91,7 +95,9 @@ test("an ended game's replay, cut at any snapshot, rebuilds the whole engine sta
   for (const e of logged) {
     const row = final.objectEvents.find((r: any) => r.objectId === e.objectId && r.version === e.version);
     assert.ok(row, `a row for ${e.objectId} v${e.version}`);
-    assert.deepEqual([row.kind, row.value, row.world, row.seq, row.net, row.before, row.agentId], [e.t, e.value, e.world, e.seq, e.net, e.before, e.agentId]);
+    // The rows are the state index: a version re-scored during planning (hold rarity) holds its rescore's bits.
+    const rescored = final.batches.flatMap((b: any) => b.events).filter((r: any) => r.t === "rescore" && r.objectId === e.objectId && r.version === e.version).at(-1);
+    assert.deepEqual([row.kind, row.value, row.world, row.seq, row.net, row.before, row.agentId], [e.t, e.value, e.world, e.seq, rescored?.net ?? e.net, e.before, e.agentId]);
   }
   const roster: string[] = final.game.roster.map((m: any) => m.id);
   const [hostPages, adaPages, boPages] = [await pagesOf(host), await pagesOf(ada), await pagesOf(bo)];
@@ -102,7 +108,7 @@ test("an ended game's replay, cut at any snapshot, rebuilds the whole engine sta
   const pages = adaPages;
   assert.ok(pages.length > 1, "the replay pages");
   assert.ok(pages.some(p => p.eventOffset !== undefined), "a batch larger than a page is split across pages");
-  assert.equal(pages[0].game.logSchema, 4);
+  assert.equal(pages[0].game.logSchema, 7);
   // Fully revealed: every god's dealt utility and card, the end deadline, every agent's source (Bo's marker too), every act's seed.
   assert.equal(pages[0].game.endAtWorld, final.game.endAtWorld);
   assert.deepEqual(pages[0].gods!.map(g => [g.godId, g.utility, g.card]), [...final.deities].sort((a: any, b: any) => a.index - b.index).map((d: any) => [d.godId, d.utility, d.card]));

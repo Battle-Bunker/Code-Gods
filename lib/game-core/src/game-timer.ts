@@ -27,10 +27,14 @@ export function advanceWorld(world: number, atMs: number, nowMs: number, running
 export type GameTimer =
   | { kind: "planning"; seconds: number; held: boolean }
   | { kind: "fixed"; seconds: number; paused: boolean }
-  | { kind: "halfLife"; lo: number; hi: number; halfLifeSeconds: number; paused: boolean };
+  | { kind: "halfLife"; lo: number; hi: number; halfLifeSeconds: number; paused: boolean }
+  /** The game is over: it reached its lifetime, or its owner ended it (`reason` null when unknown). */
+  | { kind: "ended"; reason: "lifetime" | "owner" | null; world: number };
 
 export interface GameTimerInput {
-  phase: "planning" | "running" | "paused";
+  phase: "planning" | "running" | "paused" | "ended";
+  /** Why an ended game ended (games.endReason). */
+  endReason?: "lifetime" | "owner" | null;
   durationMode?: DurationMode;
   /** The game's length in world seconds: the exact length in "fixed" mode, the half-life otherwise. */
   lengthSeconds?: number;
@@ -43,6 +47,7 @@ export interface GameTimerInput {
 
 /** What the timer shows, or null when there is nothing to count (no length known, or not a live phase). */
 export function gameTimer(i: GameTimerInput): GameTimer | null {
+  if (i.phase === "ended") return { kind: "ended", reason: i.endReason ?? null, world: i.world };
   if (i.phase === "planning") {
     if (!i.planningEndsAt) return null;
     const end = i.planningEndsAt > 1e11 ? i.planningEndsAt : i.planningEndsAt * 1000;

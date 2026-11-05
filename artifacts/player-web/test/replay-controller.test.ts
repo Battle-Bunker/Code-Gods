@@ -9,8 +9,8 @@ import assert from "node:assert/strict";
 import { REPLAY_VERSION, buildReplay, type ReplayPage } from "@workspace/player-client/replay";
 import { ReplayController } from "../src/core/replay/controller.ts";
 
-const charge = (total: number) => ({ decision: total, erasure: 0, motion: 0, floor: 0, total, naming: 0 });
-const settings = { languages: ["python"], agentEnergyPerSecond: 1, agentBatteryActs: 2, startingEnergy: 100, energyPerSecond: 1, maxAgentsPerGod: 4,
+const charge = (total: number) => ({ read: total, change: 0, total });
+const settings = { languages: ["python"], powerPerSecond: 2, startingEnergy: 100, maxAgentsPerGod: 4,
   penaltyWeight: 0, objectType: "Int", typeArgs: {}, priorId: "uniform" };
 const page: ReplayPage = {
   version: REPLAY_VERSION,
@@ -84,6 +84,42 @@ test("player.objectsPage is answered from the replay at the playhead, exactly, i
   assert.deepEqual([page({ sort: "othersCare" }).rows[0].own.netBits, page({ sort: "othersCare" }).sumPeerNetBits], [1, 4], "Bo sees his own bits and Ada's as the others'");
   c.seek(0);
   assert.equal(page().total, 0, "before the first spawn there is nothing to scroll");
+});
+
+// What would break: a panel reading the per-god read model in a replay getting nothing (the engine is not asked in
+// replay mode), another god's numbers, or a skeleton cursor that repeats or skips an object.
+test("the read model's queries are answered from the replay at the playhead, exactly, and follow the point of view", () => {
+  const c = controller(5);
+  // At the end o1 is net [4, 1] (exact): Ada own 4, others 1, payoff 4; Bo own 1, others 4, payoff 4.
+  const row = c.answer("player.object", { objectId: "o1" }) as { own: { netBits: number }; peerNetBits: number; payoff: number; mutations: number };
+  assert.deepEqual([row.own.netBits, row.peerNetBits, row.payoff, row.mutations], [4, 1, 4, 2]);
+  assert.equal(c.answer("player.object", { objectId: "nope" }), null);
+  assert.deepEqual(c.answer("player.objectIds", { gameId: "g", sort: "mine", limit: 5 }), { rows: [{ id: "o1", key: 4 }], next: null });
+  assert.deepEqual(c.answer("player.objectIds", { gameId: "g", filter: "chips" }), { rows: [], next: null }, "o1 is contested, not a chip");
+  assert.deepEqual(c.answer("player.objectRank", { objectId: "o1" }), { rank: 1 });
+  assert.deepEqual((c.answer("player.objectsTop", { gameId: "g", n: 3 }) as { id: string; rank: number }[]).map(o => [o.id, o.rank]), [["o1", 1]]);
+  const totals = c.answer("player.totals", { gameId: "g" }) as { objectCount: number; score: number; contested: number; chips: number; maxOwn: number };
+  assert.deepEqual([totals.objectCount, totals.score, totals.contested, totals.chips, totals.maxOwn], [1, 4, 1, 0, 4]);
+  c.setPov(1);
+  assert.equal((c.answer("player.object", { objectId: "o1" }) as { own: { netBits: number } }).own.netBits, 1, "Bo's own bits");
+  c.seek(0);
+  assert.deepEqual(c.answer("player.objectIds", { gameId: "g" }), { rows: [], next: null }, "nothing before the first spawn");
+});
+
+// What would break: a dock hook in a replay getting nothing (the engine is not asked in replay mode), or the race's
+// series running past the playhead.
+test("the dock's queries are answered from the replay at the playhead", () => {
+  const c = controller(5);
+  const state = c.answer("dock.state", { roomId: "r" }) as { phase: string; roster: string[]; objects?: unknown };
+  assert.deepEqual([state.phase, state.roster, "objects" in state], ["ended", ["a", "b"], false]);
+  assert.ok(Array.isArray(c.answer("dock.agents", { roomId: "r" })));
+  const standings = c.answer("games.standings", { gameId: "g" }) as { rows: { deityId: string; rank: number }[] };
+  assert.deepEqual(standings.rows.map(r => r.rank), [1, 2]);
+  const all = (c.answer("games.standingsHistory", { gameId: "g" }) as { rows: { world: number }[] }).rows;
+  c.seek(2);
+  const early = (c.answer("games.standingsHistory", { gameId: "g" }) as { rows: { world: number }[] }).rows;
+  assert.ok(early.length < all.length, "the series stops at the playhead");
+  assert.deepEqual((c.answer("rooms.chat", { roomId: "r", paginationOpts: { numItems: 50, cursor: null } }) as { page: unknown[] }).page, []);
 });
 
 // ----- the clock: a continuous playhead in world time (events at world 0, 0, 2, 3 and 5) -----

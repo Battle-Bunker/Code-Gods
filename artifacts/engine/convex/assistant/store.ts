@@ -1,6 +1,6 @@
 /**
  * The transactional half of the assistant's turn loop (docs/surface-architecture.md §6): the context a step needs,
- * streaming flushes, step results, tool-call state, confirmations, finishing, and the deadline sweeper. The model
+ * streaming flushes, step results, tool-call state, finishing, and the deadline sweeper. The model
  * calls and tool executions run in assistant/step.ts ("use node"); every write here checks the turn's generation
  * (`gen`) and status, so a stale or cancelled step changes nothing and learns it should stop.
  */
@@ -11,7 +11,8 @@ import { internalMutation, internalQuery, type QueryCtx } from "../_generated/se
 import type { ChatMessage } from "@workspace/ai-player";
 import { buildHistory, historyStart, turnEnding, turnSizes } from "./rules";
 import { LIMITS, isActive } from "./limits";
-import { CANCEL_GRACE_MS, INTERRUPTED, callsOf, deliverInto, denyCall, finishTurn, log, queuedIn, resume, type Ctx, type Turn } from "./turns";
+import { DEFAULT_MODE } from "./mode";
+import { CANCEL_GRACE_MS, INTERRUPTED, PREEMPTED, callsOf, deliverInto, finishTurn, queuedIn, stopTurn, type Ctx, type Turn } from "./turns";
 
 const clipText = (text: string) => text.length > LIMITS.textChars ? text.slice(0, LIMITS.textChars) : text;
 
@@ -54,7 +55,12 @@ async function windowOf(ctx: QueryCtx, turn: Turn, fromSeq: number | undefined) 
   const turnIds = [...new Set(rows.map(m => m.turnId))];
   const calls = (await Promise.all(turnIds.map(id => callsOf(ctx, id)))).flat();
   const earlier = await Promise.all(turnIds.filter(id => id !== turn._id).map(id => ctx.db.get(id)));
-  const endings = Object.fromEntries(earlier.flatMap(t => t ? [[t._id, turnEnding(t.status, t.error?.code)]] : []));
+  // An autopilot turn answered no player message: it gets a note only when the player interrupted or stopped it.
+  const endingOf = (t: Turn) => {
+    const ending = turnEnding(t.status, t.error?.code);
+    return t.trigger === "autopilot" && ending !== "preempted" && ending !== "cancelled" ? "done" : ending;
+  };
+  const endings = Object.fromEntries(earlier.flatMap(t => t ? [[t._id, endingOf(t)]] : []));
   return {
     rows: rows.map(m => ({ id: m._id, seq: m.seq, turnId: m.turnId, role: m.role, text: m.text, contentJson: m.contentJson ?? null })),
     calls: calls.map(c => ({ messageId: c.messageId, callId: c.callId, index: c.index, tool: c.tool, argsJson: c.argsJson, status: c.status, resultJson: c.resultJson ?? null })),
@@ -84,13 +90,15 @@ export const context = internalQuery({
     const calls = await callsOf(ctx, turnId);
     return {
       turn: { id: turn._id, step: turn.step, maxSteps: turn.maxSteps, deadline: turn.deadline, lastStop: turn.lastStop ?? null, credentialId: turn.credentialId, subject: turn.subject,
-        outputCeiling: turn.outputCeiling ?? null, replay: turn.replay ?? null },
+        outputCeiling: turn.outputCeiling ?? null, replay: turn.replay ?? null, trigger: turn.trigger ?? null },
       roomId: turn.roomId, threadId: turn.threadId, roomCode: room?.shortCode ?? null, model: room?.assistantModel ?? null, playerName: user?.name ?? "the player",
-      autoApproveSummonBits: prefs?.autoApproveSummonBits ?? 0,
-      calls: calls.map(c => ({ id: c._id, callId: c.callId, index: c.index, tool: c.tool, argsJson: c.argsJson, status: c.status, approved: c.approved ?? false, resultJson: c.resultJson ?? null,
+      /** The mode now (the player may change it mid-turn; Read-only applies from the next call on). */
+      // A turn sent from a replay is read-only whatever the mode: "here" is an ended game, and an action would land in the live room.
+      mode: turn.replay ? "readOnly" as const : prefs?.mode ?? DEFAULT_MODE,
+      calls: calls.map(c => ({ id: c._id, callId: c.callId, index: c.index, tool: c.tool, argsJson: c.argsJson, status: c.status, resultJson: c.resultJson ?? null,
         createdAt: c.createdAt })),
       hasBriefing: turn.briefing !== undefined,
-      /** Messages the player queued in this thread (not held): a confirmation card is declined rather than shown. */
+      /** Messages the player queued in this thread (not held), delivered at the next step boundary. */
       queued: (await queuedIn(ctx, turn.threadId, { held: false })).length,
       historyJson: JSON.stringify(await historyOf(ctx, turn)),
     };
@@ -242,47 +250,10 @@ export const endCall = internalMutation({
   handler: async (ctx, { turnId, gen, callDocId, ...outcome }) => {
     const call = await ctx.db.get(callDocId);
     if (call && (call.status === "running" || (call.status === "error" && call.summary === INTERRUPTED))) await ctx.db.patch(call._id, { ...outcome, updatedAt: Date.now() });
-    return { cancelled: !await liveTurn(ctx, turnId, gen) };
-  },
-});
-
-/** Pause the turn on a call that needs the player's confirmation; no action stays open while it waits. */
-export const awaitConfirmation = internalMutation({
-  args: { turnId: v.id("assistantTurns"), gen: v.number(), callDocId: v.id("assistantToolCalls") },
-  handler: async (ctx, { turnId, gen, callDocId }) => {
     const turn = await liveTurn(ctx, turnId, gen);
-    if (!turn) return { cancelled: true };
-    const deadline = Date.now() + LIMITS.confirmMs;
-    await ctx.db.patch(callDocId, { status: "awaiting_confirmation", confirmDeadline: deadline, updatedAt: Date.now() });
-    await ctx.db.patch(turn._id, { status: "awaiting_confirmation", updatedAt: Date.now() });
-    await ctx.scheduler.runAt(deadline + 500, internal.assistant.store.expireConfirmation, { callDocId });
-    log("confirm.wait", { turnId, callDocId });
-    return { cancelled: false };
-  },
-});
-
-/** A call that would wait for a card while the player has a message queued: declined (never approved), and the turn goes on. */
-export const declineForMessage = internalMutation({
-  args: { turnId: v.id("assistantTurns"), gen: v.number(), callDocId: v.id("assistantToolCalls") },
-  handler: async (ctx, { turnId, gen, callDocId }) => {
-    const turn = await liveTurn(ctx, turnId, gen);
-    if (!turn) return { cancelled: true, declined: false };
-    // The message may have been removed since the step read the queue: then the card is shown as usual.
-    if (!(await queuedIn(ctx, turn.threadId, { held: false })).length) return { cancelled: false, declined: false };
-    const call = await ctx.db.get(callDocId);
-    if (call && (call.status === "pending" || call.status === "awaiting_confirmation")) await denyCall(ctx, call, "message");
-    return { cancelled: false, declined: true };
-  },
-});
-
-export const expireConfirmation = internalMutation({
-  args: { callDocId: v.id("assistantToolCalls") },
-  handler: async (ctx, { callDocId }) => {
-    const call = await ctx.db.get(callDocId);
-    if (!call || call.status !== "awaiting_confirmation" || (call.confirmDeadline ?? 0) > Date.now()) return;
-    await denyCall(ctx, call, "timeout");
-    const turn = await ctx.db.get(call.turnId);
-    if (turn?.status === "awaiting_confirmation") await resume(ctx, turn);
+    // A player's message preempted this autopilot turn while the call ran: it stops now that the call has its outcome.
+    if (turn?.preempt) { await stopTurn(ctx, turn, PREEMPTED); return { cancelled: true }; }
+    return { cancelled: !turn };
   },
 });
 
@@ -319,8 +290,7 @@ export const finish = internalMutation({
 });
 
 /**
- * The cron sweeper (crons.ts, every minute): fail turns past their deadline, finish cancellations whose step died,
- * and deny confirmations nobody answered.
+ * The cron sweeper (crons.ts, every minute): fail turns past their deadline and finish cancellations whose step died.
  */
 export const sweep = internalMutation({
   args: {},
@@ -333,11 +303,6 @@ export const sweep = internalMutation({
     }
     for (const turn of await ctx.db.query("assistantTurns").withIndex("by_status_deadline", q => q.eq("status", "cancelling")).take(50)) {
       if (turn.updatedAt < now - CANCEL_GRACE_MS) await finishTurn(ctx, turn, "cancelled");
-    }
-    for (const call of await ctx.db.query("assistantToolCalls").withIndex("by_status_deadline", q => q.eq("status", "awaiting_confirmation").lt("confirmDeadline", now)).take(50)) {
-      await denyCall(ctx, call, "timeout");
-      const turn = await ctx.db.get(call.turnId);
-      if (turn?.status === "awaiting_confirmation") await resume(ctx, turn);
     }
   },
 });

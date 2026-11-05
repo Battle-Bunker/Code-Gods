@@ -33,8 +33,22 @@ const leaseV = v.object({ seq: v.number(), leaseUntil: v.number() });
 const statsV = v.object({ acts: v.number(), commits: v.number(), discarded: v.number(), opportunities: v.number() });
 const scoreboardV = v.object({ totals: v.array(v.number()), world: v.number(), at: v.number() });
 const account = v.object({ balance: v.number(), settledWorldSeconds: v.number() });
-const breakdown = v.object({ decision: v.number(), erasure: v.number(), motion: v.number(), floor: v.number() });
-const charge = v.object({ decision: v.number(), erasure: v.number(), motion: v.number(), floor: v.number(), total: v.number(), naming: v.number() });
+/**
+ * An agent's estimated cost per act, split (docs/energy-model.md §5): the bits it reads and its change. LEGACY (agents
+ * summoned before the energy model; migrations.agentPricesV2 converts them): the decision/erasure/motion/floor split.
+ */
+const breakdown = v.union(
+  v.object({ read: v.number(), change: v.number() }),
+  v.object({ decision: v.number(), erasure: v.number(), motion: v.number(), floor: v.number() }),
+);
+/**
+ * One act's charge (docs/energy-model.md §2): what it read plus its change when that committed. Event-log schema ≤ 4
+ * (history) carries the older split, which stays readable by schema.
+ */
+const charge = v.union(
+  v.object({ read: v.number(), change: v.number(), total: v.number() }),
+  v.object({ decision: v.number(), erasure: v.number(), motion: v.number(), floor: v.number(), total: v.number(), naming: v.number() }),
+);
 
 /**
  * One entry of the event log (schema EVENT_LOG_SCHEMA, lib/world.ts; docs/replay-design.md §2). `net` is every roster
@@ -57,17 +71,41 @@ export const eventV = v.union(
     t: v.literal("fail"), objectId: v.string(), world: v.number(), agentId: v.string(), ownerId: v.string(),
     reason: v.string(), cost: charge, seed: v.optional(v.string()),
   }),
+  /** An act that returned no calls (schema 5): it paid its reads; not a failure (docs/energy-model.md §2). */
+  v.object({
+    t: v.literal("skip"), objectId: v.string(), world: v.number(), agentId: v.string(), ownerId: v.string(), cost: charge, seed: v.optional(v.string()),
+  }),
   v.object({ t: v.literal("phase"), phase, world: v.number(), reason: v.optional(v.string()) }),
   v.object({
     t: v.literal("summon"), agentId: v.string(), ownerId: v.string(), world: v.number(), language: v.string(), source: v.string(),
     name: v.optional(v.string()), description: v.optional(v.string()),
-    summonCost: v.number(), decisionBits: v.number(), expectedActCost: v.number(), perActFloorBits: v.number(),
+    summonCost: v.number(), expectedActCost: v.number(),
+    /** Its share of the owner's power at the summon (schema 6; docs/energy-model.md §6). */
+    powerShare: v.optional(v.number()),
+    /** LEGACY (schema ≤ 4 history): the decision price and the per-act floor, no longer charged. */
+    decisionBits: v.optional(v.number()), perActFloorBits: v.optional(v.number()),
     breakdown, randomized: v.boolean(), account,
   }),
   v.object({ t: v.literal("destroy"), agentId: v.string(), ownerId: v.string(), world: v.number() }),
+  /** The hold corrections arrived during planning (schema 7): the object re-scored with them, before the world ran. */
+  v.object({ t: v.literal("rescore"), objectId: v.string(), value: wire, version: v.number(), world: v.number(), net: v.array(v.number()), noise: v.optional(v.number()) }),
+  /** The owner re-allocated its power (schema 6): the agent's share from `world` on. */
+  v.object({ t: v.literal("power"), agentId: v.string(), ownerId: v.string(), world: v.number(), share: v.number() }),
 );
 
+/** An agent's failure breakdown (lib/futility.ts FAILURE_KINDS) and the last reason of the kinds the diagnosis quotes. */
+export const failuresV = v.object({ collision: v.number(), noChange: v.number(), commit: v.number(), invalid: v.number(), error: v.number() });
+export const lastFailuresV = v.object({ invalid: v.optional(v.string()), error: v.optional(v.string()) });
+/** One agent's futile pairs (lib/futility.ts Futile). */
+export const futileEntriesV = v.array(v.object({ o: v.id("objects"), v: v.number(), by: v.optional(v.id("objects")), bv: v.optional(v.number()) }));
+
 export const gameTables = {
+  /**
+   * Hold-rarity correction tables (docs/energy-model.md §8), computed on demand and kept: one per (static table key, m,
+   * noise version) in `key` (engine/hold.ts holdCacheKey). Engine only, never projected.
+   */
+  holdTables: defineTable({ key: v.string(), table: v.any(), computedAt: v.number() }).index("by_key", ["key"]),
+
   rooms: defineTable({
     /** Short code from the room GUID (Crockford base32 prefix); `encoded` is the full 26-digit encoding. */
     shortCode: v.string(), guid: v.string(), encoded: v.string(),
@@ -145,31 +183,35 @@ export const gameTables = {
     /** LEGACY (pre setups-v2; cleared by the migration). */
     settingsOrigin: v.optional(settingsOriginV),
     createdAt: v.number(), planningEndsAt: v.number(), pauseEndsAt: v.number(),
-    /**
-     * LEGACY hot fields (read-architecture R3): every tick commit wrote them here, so every query that read the game
-     * re-ran once a second. They live in gameClocks (worldSeconds, lastTick, objectCount, agentCount, scoreboard) and
-     * gameEngine (tick, nextSpawn, nextBatch, stats) now; migrations:splitGameHotFields moves a stored game's values
-     * there and clears them here (game/state.ts reads either shape). Removed from this validator once every deployment
-     * reports it done (CLAUDE.md "Schema migrations").
-     */
-    worldSeconds: v.optional(v.number()), lastTick: v.optional(v.number()), nextSpawn: v.optional(v.number()),
     /** PRIVATE: the sampled lifetime in world seconds. Never projected. */
     endAtWorld: v.number(),
     /** PRIVATE: the key of the live disclosure noise per object value (engine/node.ts disclosureNoise). Never projected. */
     noiseKey: v.optional(v.string()),
     executionEpoch: v.number(),
-    /** LEGACY (gameEngine.tick). */
-    tick: v.optional(leaseV),
-    /** LEGACY (gameEngine.nextBatch). */
-    nextBatch: v.optional(v.number()),
-    /** LEGACY (gameClocks.objectCount). */
-    objectCount: v.optional(v.number()),
-    /** LEGACY (gameClocks.agentCount). */
-    agentCount: v.optional(v.number()),
     autoResume: v.optional(v.boolean()), recoveryReason: v.optional(v.string()),
+    /**
+     * PRIVATE: the deal's calibration tables pinned by god in file storage (engine/pinned.ts), so a deploy that re-keys
+     * the shipped tables never leaves this game without them. Never projected. Optional: written at the start, or by the
+     * first tick of a game started before pinning (no migration: an unpinned game pins itself).
+     */
+    tablesStorageId: v.optional(v.id("_storage")),
+    /**
+     * Hold rarity (docs/energy-model.md §8): the hold corrections of a game with more than one player are computed
+     * during planning (engine/hold.ts); planning waits while `computing`. Absent: none needed (one player, or a game
+     * from before hold rarity). `failed` plays on static rarity, `holdError` says why.
+     */
+    holdState: v.optional(v.union(v.literal("computing"), v.literal("ready"), v.literal("failed"))),
+    holdPending: v.optional(v.array(v.string())), holdError: v.optional(v.string()),
+    /** Wall ms the hold state left `computing` (ready or failed): planning ends no earlier, like a sandbox's readyAt. */
+    holdReadyAt: v.optional(v.number()),
+    /**
+     * Public: the engine's ticks for this game are failing and being retried with backoff (engine/loop.ts tickFailed);
+     * cleared by the next tick that succeeds. Written when the failures start (or their reason changes), never per retry
+     * (the count lives on gameEngine). `reason` is a fixed, non-revealing phrase (never the raw error, which may name a
+     * god's family); the raw error goes to the deployment's logs.
+     */
+    engineError: v.optional(v.object({ reason: v.string(), since: v.number() })),
     endedAt: v.optional(v.number()), endReason: v.optional(v.union(v.literal("lifetime"), v.literal("owner"))),
-    /** LEGACY (gameClocks.scoreboard: published every scoreIntervalSeconds, a hot field too). */
-    scoreboard: v.optional(scoreboardV),
     /** Public result, written in the commit that ends the game. */
     summary: v.optional(v.any()),
     /**
@@ -178,8 +220,6 @@ export const gameTables = {
      * and a game whose build failed keeps the paged replay (player.replay).
      */
     replayStorageId: v.optional(v.id("_storage")),
-    /** LEGACY (gameEngine.stats). */
-    stats: v.optional(statsV),
   }).index("by_room", ["roomId"]).index("by_short_code", ["shortCode"]).index("by_encoded", ["encoded"])
     .index("by_guid", ["guid"]).index("by_phase", ["phase"]),
 
@@ -210,6 +250,8 @@ export const gameTables = {
     /** Next tickBatches sequence number. */
     nextBatch: v.number(),
     stats: statsV,
+    /** Ticks failed in a row (engine/loop.ts tickFailed: the retry backoff); 0 or absent while the loop is healthy. */
+    tickFailures: v.optional(v.number()),
   }).index("by_game", ["gameId"]),
 
   /**
@@ -234,13 +276,27 @@ export const gameTables = {
     agentCount: v.number(), objectCount: v.number(),
   }).index("by_game_seq", ["gameId", "seq"]),
 
+  /**
+   * PRIVATE to `godId`: its agents' energy at world time `world`, one row per god with agents per scoreboard publication
+   * (game/agentSeries.ts): the agents panel's series, paged by player.agentSeries.
+   */
+  agentSamples: defineTable({
+    gameId: v.id("games"), godId: v.string(), world: v.number(), agents: v.array(v.object({ id: v.string(), energy: v.number() })),
+  }).index("by_game_god_world", ["gameId", "godId", "world"]),
+
   deities: defineTable({
     gameId: v.id("games"), godId: v.string(), index: v.number(),
     /** PRIVATE: the dealt utility descriptor and its kid card (shown to its own god only). */
     utility: v.any(), card: v.any(),
     /** PRIVATE: an AI seat's library agent, snapshotted at start (lobby edits never change a running seat). */
     aiAgent: v.optional(aiAgentSnapshot),
+    /** Summon prices paid in total (history: the replay's per-god spending). */
     spent: v.number(), pauseUsed: v.boolean(),
+    /**
+     * PRIVATE: the deity's own energy on world time and the share of its power its agents hold (docs/energy-model.md §6).
+     * Absent until migrations.powerV1 (lib/power.ts deityAccount falls back to the old real-time energy).
+     */
+    account: v.optional(account), allocated: v.optional(v.number()),
   }).index("by_game", ["gameId"]).index("by_game_god", ["gameId", "godId"]),
 
   objects: defineTable({
@@ -257,7 +313,51 @@ export const gameTables = {
      * row shows it, so neither ever reads `noise`.
      */
     publicSalience: v.number(),
+    /**
+     * Public (the owner's disclosure decision, docs/public-log-design.md §2): when the object was spawned, in world
+     * seconds. The tick and the game start write it. Optional while backfillObjectTimes runs; absent reads as 0.
+     */
+    createdAt: v.optional(v.number()),
+    /**
+     * Public: the world time (seconds) of the object's last transformation; absent until it has one. How many it has
+     * had is `version` (the tick adds one per transformation), so there is no separate counter. Nothing here says who.
+     */
+    lastMutatedAt: v.optional(v.number()),
   }).index("by_game", ["gameId"]).index("by_game_value", ["gameId", "value"]).index("by_game_salience", ["gameId", "publicSalience"]),
+
+  /**
+   * PRIVATE to `godId`: one object as that god sees it (read-architecture §4.1, §4.3), one row per roster god per object,
+   * so the objects panel's skeletons, its rows, the top N and a rank each read one index page or one document, never the
+   * world. Only the owning god's queries read a row: other gods' scores never leave the server. The numbers are the
+   * observation's (lib/views.ts viewRowOf): live, the others' sum carries the value's disclosure noise; once ended, exact.
+   * The public figures (version = mutations, createdAt, lastMutatedAt) are copied so every sort is one index.
+   * Written off the tick's commit by game/objectViews.ts (a scheduled sync of the objects the commit changed, which
+   * reads the objects as they are then), filled at the start and after hold rescoring, and made exact at the end.
+   */
+  objectViews: defineTable({
+    gameId: v.id("games"), godId: v.string(), objectId: v.id("objects"), value: wire, version: v.number(),
+    createdAt: v.number(), lastMutatedAt: v.optional(v.number()),
+    ordinal, rewardBits: v.number(), penaltyBits: v.optional(v.number()), netBits: v.number(),
+    peerNetBits: v.number(), peerCare: v.number(), payoff: v.number(),
+  }).index("by_object_god", ["objectId", "godId"])
+    .index("by_game_god_payoff", ["gameId", "godId", "payoff"])
+    .index("by_game_god_netBits", ["gameId", "godId", "netBits"])
+    .index("by_game_god_peer", ["gameId", "godId", "peerCare"])
+    .index("by_game_god_version", ["gameId", "godId", "version"])
+    .index("by_game_god_created", ["gameId", "godId", "createdAt"])
+    .index("by_game_god_mutated", ["gameId", "godId", "lastMutatedAt"]),
+
+  /**
+   * PRIVATE to `godId`: that god's totals over every object as disclosed (lib/views.ts GodTotals): the objects panel's
+   * footer and counts, the overview's score. Computed by the tick from its snapshot (or from every object at the start,
+   * after rescoring and at the end) and written with the read-model sync; `world` orders the writes (an older one never
+   * replaces a newer).
+   */
+  godTotals: defineTable({
+    gameId: v.id("games"), godId: v.string(), world: v.number(), objectCount: v.number(), score: v.number(),
+    sumOwnNetBits: v.number(), sumPeerNetBits: v.number(), contested: v.number(), chips: v.number(),
+    maxOwn: v.number(), maxCare: v.number(), maxPayoff: v.number(), minPayoff: v.number(),
+  }).index("by_game_god", ["gameId", "godId"]),
 
   agents: defineTable({
     gameId: v.id("games"), ownerId: v.string(),
@@ -267,9 +367,36 @@ export const gameTables = {
     name: v.optional(v.string()), description: v.optional(v.string()),
     /** The language the source is written in (one the game allows). Absent on agents from single-language games: lib/language agentLanguage. */
     language: v.optional(storedLanguageV),
-    summonCost: v.number(), decisionBits: v.number(), perActFloorBits: v.number(), expectedActCost: v.number(),
+    summonCost: v.number(), expectedActCost: v.number(),
+    /** Its share of the owner's power (docs/energy-model.md §6); absent until migrations.powerV1 (lib/power.ts shareOf). */
+    powerShare: v.optional(v.number()),
+    /** LEGACY (cleared by migrations.agentPricesV2): the decision price and the per-act floor, no longer charged. */
+    decisionBits: v.optional(v.number()), perActFloorBits: v.optional(v.number()),
     breakdown, randomized: v.boolean(), account, acts: v.number(), spent: v.number(),
+    /** Of `spent`, the bits its acts read (the rest paid for changes), counted since this field existed; absent: none yet. */
+    spentRead: v.optional(v.number()),
+    /** Acts that returned no calls (docs/energy-model.md §2), counted since the energy model; absent: none yet. */
+    skips: v.optional(v.number()),
+    /** World time of its last opportunity: the per-agent cap (game-core MAX_AGENT_OPPORTUNITY_HZ); absent: none yet. */
+    lastOpportunityWorld: v.optional(v.number()),
+    /**
+     * PRIVATE to the owner: how its acts ended (lib/futility.ts FAILURE_KINDS), counted by the tick since this field
+     * existed (an older agent's earlier acts are not in it), and the last invalid call's and runtime error's reasons. lib/projection agentView
+     * turns them into the owner's diagnosis.
+     */
+    transforms: v.optional(v.number()),
+    failures: v.optional(failuresV),
+    lastFailures: v.optional(lastFailuresV),
   }).index("by_game", ["gameId"]).index("by_game_owner", ["gameId", "ownerId"]),
+
+  /**
+   * Engine only (the tick's snapshot and commit; no query reads it): one agent's futile pairs (lib/futility.ts), the
+   * objects its deterministic act can only fail on until they (or a colliding value's holder) change version.
+   */
+  futileActs: defineTable({
+    gameId: v.id("games"), agentId: v.id("agents"),
+    entries: futileEntriesV,
+  }).index("by_game", ["gameId"]).index("by_agent", ["agentId"]),
 
   /** The event log: one doc per committed tick (a large tick is split over several docs). */
   tickBatches: defineTable({
@@ -364,7 +491,16 @@ export const gameTables = {
     createdAt: v.number(), updatedAt: v.number(),
     /** LEGACY: a tombstone an admin's removal of a seed left before setups-v2; the seed sync clears it. */
     deleted: v.optional(v.boolean()),
-  }).index("by_owner", ["ownerId"]).index("by_seed", ["seedId"]),
+    /**
+     * The catalogue's order and search (setups.ts listingOf; read-architecture R1/R2): `order` is a system setup's seed
+     * position, else OTHERS_ORDER; `nameKey` the name with case and accents folded; `searchText` name, owner and summary.
+     * Optional while the setupListing migration fills older rows; required once dev and production report it done.
+     */
+    order: v.optional(v.number()), nameKey: v.optional(v.string()), searchText: v.optional(v.string()),
+  }).index("by_owner", ["ownerId"]).index("by_seed", ["seedId"])
+    /** The catalogue's order: the system's in seed order, then everyone's by name (setups.page). */
+    .index("by_order", ["order", "nameKey"])
+    .searchIndex("search", { searchField: "searchText" }),
 
   /** Host-wide AI spend per UTC day (the $5/day ceiling across rooms for seats; the assistant's own ceiling). */
   aiUsage: defineTable({

@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { admin, api, envelope, gods, internal, PY, raw, roomWith, startGame, touch, TS, waitFor } from "./game-helpers.ts";
 
 const INT = { objectType: "Int", typeArgs: { min: -2147483648, max: 2147483647 }, spawnRateHz: 0, planningSeconds: 3600, startingObjectCount: 4,
-  agentEnergyPerSecond: 1000, agentBatteryActs: 1000, interactionRateHz: 40, halfLifeSeconds: 1e9 };
+  powerPerSecond: 2000, interactionRateHz: 40, halfLifeSeconds: 1e9 };
 
 test("each agent is written in one of the game's languages, priced and run in its own", { timeout: 180_000 }, async () => {
   const [host, ada, bo] = await gods("Lang Host", "Lang Ada", "Lang Bo");

@@ -33,6 +33,12 @@ export async function publishStandings(ctx: MutationCtx, game: { _id: Id<"games"
     else await ctx.db.insert("standings", row);
   }
   const last = await ctx.db.query("standingsHistory").withIndex("by_game_seq", q => q.eq("gameId", game._id)).order("desc").first();
+  // A second publication at the same world time (hold rarity's re-scoring during planning, docs/energy-model.md §8)
+  // replaces that moment's row: the history has one row per world time.
+  if (last && last.world === board.world) {
+    await ctx.db.patch(last._id, { at: board.at, totals: board.totals, agentCount: counts.agentCount, objectCount: counts.objectCount });
+    return;
+  }
   await ctx.db.insert("standingsHistory", {
     gameId: game._id, seq: last ? last.seq + 1 : 0, world: board.world, at: board.at, totals: board.totals,
     agentCount: counts.agentCount, objectCount: counts.objectCount,

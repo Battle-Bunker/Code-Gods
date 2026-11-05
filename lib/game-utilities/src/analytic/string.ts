@@ -59,8 +59,8 @@ type Solver = (p: any, L: number) => Dist;
 
 const SOLVERS: Readonly<Record<string, Solver>> = {
   "glyph-glutton": (_p, L) => sweep(L, point([0]), member(1), ([k], [c]) => [k + c], s => s),
-  purist: (p, L) => sweep(L, point([0]), member(CLASSES[p.kind].length), ([k], [c]) => [k + (c ? 1 : -1)], s => s),
-  streaker: (p, L) => sweep(L, point([0, 0]), member(CLASSES[p.kind].length),
+  purist: (p, L) => sweep(L, point([0]), member(CLASSES[p.kind ?? "lowercase"].length), ([k], [c]) => [k + (c ? 1 : -1)], s => s),
+  streaker: (p, L) => sweep(L, point([0, 0]), member(CLASSES[p.kind ?? "lowercase"].length),
     ([best, run], [c]) => { const r = c ? run + 1 : 0; return [Math.max(best, r), r]; }, ([best]) => [best]),
   /** Ending matched from the back: ≥ k iff n ≥ k and the last k characters agree. */
   "last-word": (p, L) => geometricMatch(L, n => Math.min(n, String(p.ending).length)),
@@ -97,7 +97,7 @@ const SOLVERS: Readonly<Record<string, Solver>> = {
   tallykeeper: (p, L) => sweep(L, point([0]), dist([...Array.from({ length: 10 }, (_, d) => [[d], 1 / A] as const), [[0], 118 / A] as const]),
     ([s], [d]) => [s + d], ([s]) => [-Math.abs(s - p.total)]),
   /** (−|distinct − K|, min(n, 32)): distinct characters ~ occupancy of n draws over 128. */
-  "palette-keeper": (p, L) => mixture(L, n => map(occupancy(n, A), ([k]) => [-Math.abs(k - p.colours), Math.min(n, 32)])),
+  "palette-keeper": (p, L) => mixture(L, n => map(occupancy(n, A), ([k]) => [-Math.abs(k - (p.distinct_chars ?? 3)), Math.min(n, 32)])),
   /** Σ char codes: n-fold convolution of uniform{0..127}; −|weight − W|. */
   "scale-keeper": (p, L) => {
     const w = lengthLaw(L), res: Dist = new Map();

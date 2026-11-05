@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { pageObjects, type ObjectSort, type PageRow } from "../src/objects-page.ts";
+import { OBJECT_SORTS, OBJECT_SORT_LABELS, mutationLine, pageObjects, type ObjectSort, type PageRow } from "../src/objects-page.ts";
 
 const row = (id: string, own: number, care: number): PageRow => ({ id, own: { netBits: own }, peerNetBits: care, peerCare: Math.max(0, care), payoff: care <= 0 ? 0 : own * care });
 const world = [row("a", 2, 3), row("b", 3, 2), row("c", -1, 5), row("d", 6, 0), row("e", 0, 6), row("f", 1, 1)];
@@ -51,4 +51,30 @@ test("rank is the payoff rank among all objects whatever the sort or filter", ()
 test("the limit is clamped and an empty world pages to nothing", () => {
   assert.equal(pageObjects(world, { limit: 0 }).rows.length, 1);
   assert.deepEqual(pageObjects([], {}), { rows: [], next: null, matching: 0, total: 0, sumOwnNetBits: 0, sumPeerNetBits: 0 });
+});
+
+const times = (id: string, mutations: number, createdAt: number, lastMutatedAt: number | null): PageRow => ({ ...row(id, 1, 1), id, mutations, createdAt, lastMutatedAt });
+const aged = [times("a", 3, 10, 50), times("b", 0, 20, null), times("c", 7, 5, 30), times("d", 3, 40, 90), times("e", 0, 20, null)];
+
+test("the public sorts: most mutated, newest, oldest, recently mutated (never mutated last), ties by id", () => {
+  assert.deepEqual(ids(pageObjects(aged, { sort: "mutations", limit: 10 }).rows), ["c", "a", "d", "b", "e"]);
+  assert.deepEqual(ids(pageObjects(aged, { sort: "newest", limit: 10 }).rows), ["d", "b", "e", "a", "c"]);
+  assert.deepEqual(ids(pageObjects(aged, { sort: "oldest", limit: 10 }).rows), ["c", "a", "b", "e", "d"]);
+  assert.deepEqual(ids(pageObjects(aged, { sort: "recentlyMutated", limit: 10 }).rows), ["d", "a", "c", "b", "e"]);
+});
+
+test("the public sorts page by cursor without skipping or repeating, even across ties", () => {
+  for (const sort of ["mutations", "newest", "oldest", "recentlyMutated"] as const) {
+    const seen: string[] = [];
+    let after = null as ReturnType<typeof pageObjects>["next"];
+    do { const page = pageObjects(aged, { sort, limit: 2, after }); seen.push(...ids(page.rows)); after = page.next; } while (after);
+    assert.deepEqual(seen, ids(pageObjects(aged, { sort, limit: 10 }).rows), sort);
+  }
+});
+
+test("every sort has a label, and the line states the public figures", () => {
+  assert.deepEqual(Object.keys(OBJECT_SORT_LABELS), [...OBJECT_SORTS]);
+  assert.equal(mutationLine(times("a", 12, 100, 218), 260), "12 mutations · last 0:42 ago · spawned 2:40 ago");
+  assert.equal(mutationLine(times("a", 1, 0, 5), 65), "1 mutation · last 1:00 ago · spawned 1:05 ago");
+  assert.equal(mutationLine(times("a", 0, 30, null), 65), "0 mutations · spawned 0:35 ago");
 });

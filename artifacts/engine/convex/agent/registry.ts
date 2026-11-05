@@ -37,6 +37,7 @@ import type { Who } from "./store";
 // Explicit result types break Convex's api ⇄ module type cycle (this module calls `internal`).
 type R<F extends (...args: never[]) => unknown> = Awaited<ReturnType<F>>;
 type Observation = R<typeof observationFor>;
+type NarrowObservation = Extract<Observation, { objectsNext: unknown }>;
 type RoomState = R<typeof roomFor>;
 type Job = { status: "running" | "failed"; error: { code: string; message: string } | null } | null;
 type ReceiptStatus =
@@ -50,10 +51,13 @@ type Exec<N extends ToolName> = (ctx: ActionCtx, p: { principal: Principal; who:
 type Executors = { [N in ToolName]: Exec<N> };
 
 const OBSERVATION_CAPS = { agents: 20, sourceChars: 4096, transformations: 50, chat: 20 };
+/** The most objects one observation page holds (player.ts OBJECT_VIEW_PAGE_MAX): a larger objectsLimit is cut to it. */
+const OBJECTS_PAGE_MAX = 90;
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+/** A one-object narrow observation: the current game and its languages, without reading the world. */
 const observe = async (ctx: ActionCtx, principal: Principal, roomId: string): Promise<Observation> =>
-  ctx.runQuery(internal.player.observationAs, { principal, roomId });
+  ctx.runQuery(internal.player.observationAs, { principal, roomId, objectsLimit: 1 });
 /** The current game and its default agent language (the first allowed one: validate and summon without a language use it). */
 const gameOf = async (ctx: ActionCtx, principal: Principal, roomId: string): Promise<{ gameId?: string; language?: Language }> => {
   const o = await observe(ctx, principal, roomId);
@@ -216,15 +220,18 @@ export const EXECUTORS: Executors = {
       activeGame: room.activeGame, preparing: room.preparing,
       note: "Settings are the room's next game; a running game keeps the settings it started with (get_my_utility). `preparing`: the next game is computing its rule tables (first game on this shape on this server) and starts by itself when they are ready." } };
   },
-  get_observation: async (ctx, { principal, who }, { objectsLimit, objectsCursor }) => {
-    const o = await observe(ctx, principal, who.roomId);
-    const C = OBSERVATION_CAPS;
-    const end = objectsCursor + objectsLimit;
+  get_observation: async (ctx, { principal, who }, { objectsLimit, objectsSort, objectsCursor }) => {
+    // Narrow (player.observationFor): one page of the player's objectViews rows, never the world; agentCount counts up
+    // to the narrow read's cap (player.ts NARROW_CAPS.agents, 50).
+    const limit = Math.min(OBJECTS_PAGE_MAX, objectsLimit);
+    const { objectsNext, ...o }: NarrowObservation = await ctx.runQuery(internal.player.observationAs, {
+      principal, roomId: who.roomId, objectsLimit: limit, objectsSort, ...(typeof objectsCursor === "string" ? { objectsCursor } : {}),
+    }) as NarrowObservation;
+    const C = { ...OBSERVATION_CAPS, objects: limit };
     return {
-      data: { ...o, objectCount: o.objects.length, objects: o.objects.slice(objectsCursor, end),
-        agentCount: o.agents.length, agents: o.agents.slice(0, C.agents).map(a => ({ ...a, source: a.source.slice(0, C.sourceChars) })),
+      data: { ...o, agentCount: o.agents.length, agents: o.agents.slice(0, C.agents).map(a => ({ ...a, source: a.source.slice(0, C.sourceChars) })),
         transformations: o.transformations.slice(-C.transformations), chat: o.chat.slice(-C.chat), caps: C },
-      nextCursor: end < o.objects.length ? end : null,
+      nextCursor: objectsNext,
     };
   },
   get_events: async (ctx, { principal, who }, args) => {
@@ -266,7 +273,8 @@ export const EXECUTORS: Executors = {
   },
   get_board_at: async (ctx, { principal, who }, args) => {
     const board: R<typeof boardFor> = await ctx.runQuery(internal.player.boardAs, { principal, roomId: who.roomId, ...args });
-    return { data: board };
+    const { cursor, done, ...data } = board;
+    return { data, nextCursor: done ? null : cursor };
   },
   list_utility_candidates: async (ctx, { principal, who }, { family, paramsPerFamily }) => {
     const list: unknown = await ctx.runAction(internal.agent.node.candidates, { principal, roomId: who.roomId, ...(family ? { family } : {}), paramsPerFamily });
@@ -297,7 +305,7 @@ export const EXECUTORS: Executors = {
       if (!reads.includes(part)) return undefined;
       try {
         const page = part === "rules" ? await EXECUTORS.get_rules(ctx, p, {})
-          : part === "observation" ? await EXECUTORS.get_observation(ctx, p, { objectsLimit: 1, objectsCursor: 0 })
+          : part === "observation" ? await EXECUTORS.get_observation(ctx, p, { objectsLimit: 1, objectsSort: "payoff" })
           : await EXECUTORS.get_layout(ctx, p, {});
         return page.data;
       } catch { return undefined; }
@@ -309,6 +317,7 @@ export const EXECUTORS: Executors = {
   validate_agent: (ctx, p, args) => command(ctx, p, "validate_agent", args),
   summon_agent: (ctx, p, args) => command(ctx, p, "summon_agent", args),
   destroy_agent: (ctx, p, args) => command(ctx, p, "destroy_agent", args),
+  allocate_power: (ctx, p, args) => command(ctx, p, "allocate_power", args),
   set_ready: (ctx, p, args) => command(ctx, p, "set_ready", args),
   set_spectator: async (ctx, { principal, who }, args) => ({
     data: await ctx.runMutation(internal.rooms.setSpectatorAs, { principal, roomId: who.roomId, spectator: args.spectator, ...(args.deityId ? { godId: args.deityId } : {}) }),

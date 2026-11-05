@@ -13,7 +13,7 @@ const helpers = [
   { group: "read", name: { python: "digits", typescript: "digits" }, signature: { python: "digits(x) -> list[int]", typescript: "digits(x): number[]" } },
 ];
 const observation = { phase: "planning", language: "typescript", instance: { helpers }, self: { utility: { name: "Power Hoarder", summary: "Factors of 3.", source: "def u(x): return x % 3", penalty: { name: "Odd", source: "def p(x): return x % 2" } } } };
-const layout = { panels: [{ id: "objects", title: "Objects by payoff", blurb: "Ranked objects", phases: ["running"], paramsSchema: { properties: { sortBy: { enum: ["payoff", "mine"] }, limit: {} } } }], storedPanels: [{ slug: "mine" }] };
+const layout = { panels: [{ id: "objects", title: "Objects", blurb: "Ranked objects", phases: ["running"], paramsSchema: { properties: { sortBy: { enum: ["payoff", "mine"] }, limit: {} } } }], storedPanels: [{ slug: "mine" }] };
 
 test("the index: kebab-case names, one-line descriptions, every skill loadable by load_skill", () => {
   for (const s of SKILLS) {
@@ -37,7 +37,7 @@ test("bodies carry their guidance and live parts, within the limit, and survive 
   assert.ok(both.includes("Allowed languages: typescript, python"), "every language the game allows");
   assert.ok(both.includes("swapDigits(i, j)") && both.includes("swap_digits(i, j)"), "with each allowed language's helper names");
   const screen = skillBody("screen", { layout });
-  assert.ok(screen.includes("objects — Objects by payoff (Ranked objects): params sortBy(payoff|mine), limit; phases running"), screen);
+  assert.ok(screen.includes("objects — Objects (Ranked objects): params sortBy(payoff|mine), limit; phases running"), screen);
   assert.ok(screen.includes("Stored panels of the player (open_panel {slug}): mine"));
   assert.match(skillBody("game-rules", { rules: { rules: "# Code Gods rules" } }), /# Code Gods rules/);
   assert.match(skillBody("game-setups", {}), /update_settings/);

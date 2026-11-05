@@ -20,7 +20,7 @@
  * creates a room in one click (no dialog) and sees its AI quotas (300,000 tokens per game by default) on the room page; the page's one primary follows nextStep
  * (Copy invite link, then Start game). Bob and carol open the room by code from the command palette and
  * join; alice searches the Setup combobox (a system setup's Edit is unavailable, with the reason), duplicates the
- * room's First steps and edits the copy on /rooms/:code/configure (its name "First steps's copy" first; the board as
+ * room's setup (put on First steps through the combobox: a new room runs Annotated basics) and edits the copy on /rooms/:code/configure (its name "First steps's copy" first; the board as
  * three controls with every playable value enabled; defence goals switched on with one unticked; goal
  * dealing, prior, act targeting, then Int(0,2147483647) / TypeScript, a range with no shipped tables whose first-use
  * note shows, with TypeScript ticked and Python unticked in the languages multi-select, 1 s planning), saves it for
@@ -40,7 +40,8 @@ import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import path from "node:path";
-import { canonicalSupport, context, familiesFor, instantiateKey, paramsKey, tableKey } from "@workspace/game-utilities";
+import { instantiate, objectType } from "@workspace/game-types";
+import { LENSES, applicable, canonicalSupport, context, familiesFor, family as familyOf, instantiateKey, paramsKey, tableKey } from "@workspace/game-utilities";
 
 const require = createRequire(import.meta.url);
 const { chromium } = require("playwright");
@@ -282,6 +283,11 @@ try {
 
     let copyId = "", copyName = "";
     await check(`${name}: the Setup combobox searches every setup; a system setup's Edit is unavailable; Duplicate opens the copy`, async () => {
+      // A new room runs Annotated basics; alice puts it on First steps through the combobox first (searched on the engine).
+      await a.getByTestId("text-current-setup").filter({ hasText: /^Annotated basics$/ }).waitFor();
+      await a.getByTestId("select-setup").click();
+      await a.getByTestId("input-setup-search").fill("first steps");
+      await a.locator('[data-testid^="row-setup-"]', { hasText: /^First steps · System/ }).click();
       await a.getByTestId("text-current-setup").filter({ hasText: /^First steps$/ }).waitFor();
       await a.getByTestId("select-setup").click();
       await a.getByTestId("popover-setups").waitFor();
@@ -619,22 +625,29 @@ try {
     const p = alice.page;
     await p.getByTestId("link-rule-gallery").click();
     await p.getByTestId("list-rule-families").waitFor();
-    assert.equal(await p.locator('[data-testid^="tile-"]').count(), 9, "the nine families with a lens");
+    // Every family with a lens (the registry) that the gallery's default board can deal, in registry order.
+    const defaultBoard = instantiate("Grid", objectType("Grid").defaults);
+    const annotated = LENSES.map(l => l.familyId).filter(id => familyOf(id).role === "reward" && applicable(familyOf(id), defaultBoard).ok);
+    assert.ok(annotated.length >= 9, `the lens registry has the annotated families (${annotated.length})`);
+    assert.deepEqual(await p.locator('[data-testid^="tile-"]').evaluateAll(els => els.map(e => e.getAttribute("data-testid")!.slice("tile-".length))),
+      annotated, "one tile per family with a lens, in the registry's order");
     assert.equal(await p.getByTestId("source-picture_frame").getAttribute("open"), null, "source starts collapsed");
     await p.getByTestId("select-setup-size").selectOption("6");
     await p.waitForURL(/size=6/);
     // A labelled colour picker (named swatches), never "X: 0/1/2".
     await p.getByTestId("colour-param-picture_frame-colour").getByText("Your colour").waitFor();
     await p.getByTestId("colour-picture_frame-colour-green").click();
-    assert.match(await p.getByTestId("text-summary-picture_frame").innerText(), /green/, "the description follows the param");
+    await p.getByTestId("select-param-picture_frame-symbol").selectOption("7");
+    assert.match(await p.getByTestId("text-summary-picture_frame").innerText(), /green and your symbol is the number 7/, "the description follows both params");
     const link = p.getByTestId("link-family-picture_frame");
     assert.equal(await link.getAttribute("target"), "_blank");
-    assert.equal(await link.getAttribute("href"), "/rule-gallery/picture_frame?size=6&symbols=base10&colours=rgb&colour=green");
+    assert.equal(await link.getAttribute("href"), "/rule-gallery/picture_frame?size=6&symbols=base10&colours=rgb&colour=green&symbol=7");
     await shot(p, "rule-gallery-desktop");
     const [family] = await Promise.all([alice.context.waitForEvent("page"), link.click()]);
     await family.getByTestId("goal-card").waitFor();
     assert.equal(await family.getByTestId("select-setup-size").inputValue(), "6");
     assert.equal(await family.getByTestId("colour-picture_frame-colour-green").getAttribute("aria-checked"), "true");
+    assert.equal(await family.getByTestId("select-param-picture_frame-symbol").inputValue(), "7");
     await family.getByTestId("example-object").waitFor();
     await shot(family, "rule-family-desktop");
     assert.deepEqual(alice.errors, []);

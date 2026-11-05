@@ -24,8 +24,10 @@ export type DeviceRequest = NonNullable<FunctionReturnType<typeof api.auth.devic
 export type AdminAgents = FunctionReturnType<typeof api.aiTemplates.adminList>;
 export type AiAgent = AdminAgents["agents"][number];
 export type AiModel = AdminAgents["models"][number];
-/** A row of the shared setup collection (setups.list): no settings; `SetupFull` (setups.get) has them. */
-export type Setup = FunctionReturnType<typeof api.setups.list>[number];
+/** A setup as a page of the shared catalogue lists it (setups.page): no owner, no settings. */
+export type SetupEntry = FunctionReturnType<typeof api.setups.page>["page"][number];
+/** One setup as a list row shows it, with its owner (setups.row): no settings; `SetupFull` (setups.get) has them. */
+export type Setup = NonNullable<FunctionReturnType<typeof api.setups.row>>;
 export type SetupFull = FunctionReturnType<typeof api.setups.get>;
 
 /** The engine stores the public catalog untyped (`catalogs.catalog`); entries follow object-views' shape. */

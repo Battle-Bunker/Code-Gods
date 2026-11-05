@@ -47,10 +47,15 @@ test("a tile's fields are the family's named, typed params with the values its s
   assert.ok(inSupport("parity_painter", inst, next));
   const magic = paramFields("magic_accountant", inst);
   assert.deepEqual(magic.map(f => [f.key, f.kind, f.label]), [["axis", "choice", "Lines that count"], ["target", "int", "Magic number"]]);
-  assert.deepEqual(magic[0].options.map(o => o.label), ["rows", "columns", "rows and columns"]);
+  assert.deepEqual(magic[0].options.map(o => o.label), ["rows", "columns"]);
   assert.deepEqual(withParam("magic_accountant", inst, { axis: "rows", target: 18 }, "axis", "cols").axis, "cols");
   for (const id of galleryFamilies(inst)) assert.ok(inSupport(id, inst, randomParams(id, inst, 7)), `${id}: random params are in the support`);
   for (const id of galleryFamilies(inst)) for (const f of paramFields(id, inst)) assert.ok(f.label && f.options.length, `${id}.${f.key}`);
+  // Picture Frame: a labelled colour picker and a labelled symbol picker (cards name the card), both dealt.
+  const frame = paramFields("picture_frame", instantiate("Grid", { size: 5, symbols: "cards", colours: "rgby" }));
+  assert.deepEqual(frame.map(f => [f.key, f.kind, f.label]), [["colour", "colour", "Your colour"], ["symbol", "symbol", "Your card"]]);
+  assert.equal(frame[1].options.length, 52);
+  assert.equal(frame[1].options.find(o => o.value === "10♥")!.label, "10♥ (ten of hearts)");
 });
 
 test("a tile's link carries the board and every param, and the family page reads them back exactly", () => {
@@ -73,7 +78,7 @@ test("params missing or outside the support on a family page are completed from 
   assert.equal(p.axis, "cols");
   assert.ok(inSupport("magic_accountant", inst, p));
   assert.ok(inSupport("magic_accountant", inst, paramsFromSearch("magic_accountant", inst, "?target=99999")));
-  assert.deepEqual(paramsFromSearch("set_spotter", inst, "?diag=true"), { diag: true });
+  assert.deepEqual(paramsFromSearch("set_spotter", inst, "?diag=true"), {}, "a param the family no longer has is ignored");
 });
 
 test("no annotated family has a param named like a board arg or the language, so links never overwrite the board", () => {

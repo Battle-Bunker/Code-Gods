@@ -18,7 +18,7 @@ test("compareOrdinal: lexicographic, numbers as one-tuples", () => {
 
 test("what if: every symbol × colour of the focus cell, scored by the card", () => {
   // Far Apart, red vs green: the middles of the red and green cells, as far apart as possible.
-  const draw = { familyId: "far_apart", params: { A: 0, B: 1 } };
+  const draw = { familyId: "far_apart", params: { first_colour: "red", second_colour: "green" } };
   // One red cell top-left, one green cell bottom-right, the rest blue: middles 3 + 3 = 6 steps apart → 6 × 64 = 384.
   const value = "0R,0B,0B,0B/0B,0B,0B,0B/0B,0B,0B,0B/0B,0B,0B,0G";
   const w = whatIf(draw, FS, value, { r: 0, c: 1 })!;
@@ -36,7 +36,7 @@ test("what if: every symbol × colour of the focus cell, scored by the card", ()
 });
 
 test("Castle Keeper's story: walls, water spreading from the edge, and the shut-in cells it can't reach", () => {
-  const draw = { familyId: "castle_keeper", params: { W: 0, mode: "plain", T: null } };
+  const draw = { familyId: "castle_keeper", params: { wall: "red" } };
   // On 4×4 a red ring round the middle 2×2 is the whole edge: 12 walls, no water gets in, 4 shut-in cells.
   const ring = story(draw, FS, "0R,0R,0R,0R/0R,0B,0G,0R/0R,0B,0B,0R/0R,0R,0R,0R")!;
   assert.equal(ring.frames.at(-1)!.points, 4);
@@ -45,11 +45,12 @@ test("Castle Keeper's story: walls, water spreading from the edge, and the shut-
   const open = story(draw, FS, "0G,0G,0G,0G/0G,0R,0R,0G/0G,0R,0B,0G/0G,0G,0G,0G")!;
   assert.equal(open.frames.at(-1)!.points, 0);
   assert.deepEqual(open.frames.map(f => f.marks.filter(m => m.role === "new-water").length), [0, 12, 1, 0], "12 edge cells, then (2,2)");
-  assert.equal(story({ familyId: "castle_keeper", params: { W: 0, mode: "eyes", T: null } }, FS, "0R,0R,0R,0R/0R,0B,0G,0R/0R,0B,0B,0R/0R,0R,0R,0R"), null, "other modes have no story");
+  // A stored draw from before the mode was fixed ({ mode: "eyes" | "treasure" }) reads as today's rule and tells the same story.
+  assert.equal(story({ familyId: "castle_keeper", params: { wall: "red", mode: "eyes", treasure: "none" } }, FS, "0R,0R,0R,0R/0R,0B,0G,0R/0R,0B,0B,0R/0R,0R,0R,0R")!.frames.at(-1)!.points, 4);
 });
 
 test("Castle Keeper's story always ends on the card's score (seeded boards)", () => {
-  const draw = { familyId: "castle_keeper", params: { W: 1, mode: "plain", T: null } };
+  const draw = { familyId: "castle_keeper", params: { wall: "green" } };
   const rng = seededRng("castle-story"), letters = "RGB";
   for (let k = 0; k < 300; k++) {
     // Green walls about half the time, so some boards enclose cells and some don't.

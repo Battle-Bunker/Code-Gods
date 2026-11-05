@@ -65,8 +65,8 @@ function fakeApi(script: Step[]) {
 /** The engine's turn loop in memory: steps until the model ends the turn, storing what step.ts stores (briefings too). */
 const briefings: Record<string, string> = {};
 async function runTurn(api: ReturnType<typeof fakeApi>, rows: HistoryRow[], calls: HistoryCall[], turnId: string, text: string) {
-  const system = assistantSystemPrompt({ playerName: "Ann", roomCode: "ABCD", permission: "act" });
-  const tools = modelTools("act");
+  const system = assistantSystemPrompt({ playerName: "Ann", roomCode: "ABCD", permission: "act", mode: "onRequest" });
+  const tools = modelTools("act", "onRequest");
   const briefing = assistantBriefing({ observation: { phase: "planning", language: "python", self: { energy: 100, utility: { name: "Power Hoarder", summary: "Factors of 3." } } } });
   briefings[turnId] = briefing;
   rows.push({ id: `${turnId}-u`, turnId, role: "user", text });

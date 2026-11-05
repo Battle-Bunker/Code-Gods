@@ -47,8 +47,22 @@ P2. **Name colours exactly as the room names them** (the colour set's own names)
 P3. **Spell out values when a rule adds symbols up.** A sum rule on base 12 or 16 says "A counts 10, B counts 11"; on
    cards it says "A counts 1, J 11, Q 12, K 13" (or the rule's own values, as Twenty-One does).
 
-P4. **Spell out the points.** Every sentence that scores says how many points ("scores 1 point", "2 points"). A tuple
-   score (league-table order) says it in words: "First, more books wins. If that's a tie, more fish wins."
+P4. **Spell out the points, as a points tuple** (owner, 2026-11-03: "expose people to the concept of a points tuple
+   directly … talk about primary and secondary (and tertiary) points"). Every sentence that scores says how many
+   points. A rule whose score has several tiers names each tier: primary points, then secondary points (tertiary…).
+   Rule text never says "wins", "tie" or "tie-break"; tuples are explained once, by the glossary term "Points tuple"
+   (tuples compare primary points first, then secondary, and so on; your bits are how rare your tuple is). Every family
+   follows **one sentence pattern**:
+   1. **The goal first**, one sentence starting "Try to": "Try to make your rows add up to your magic number, 18."
+      Dealt params belong in it (or in one short sentence straight after: "Your colour is red.").
+   2. **One sentence per tier**, in tier order, each saying what scores and how much, signed by its verb ("scores" for
+      a gain, "deducts" or "loses" for a loss):
+      - one tier: "Each row that adds up to exactly 18 scores 1 point."
+      - several: "Each row that adds up to exactly 18 scores 1 primary point. Each row deducts as many secondary
+        points as its total is away from 18." Use `tierPoints(n, k, tiers)` (src/tuples.ts) for "1 primary point".
+   3. Definitions and the value key (`g.say.valueKey()`) after, as needed.
+   Score boxes show each tier's derivation on its own line and the unit's impact as a tuple, "(+1, 0)"; the board total
+   is a tuple, "(4, −10)"; single-tier rules show 1-tuples, "(+1)". `test/points-tuples.test.ts` checks the words.
 
 P5. **Never promise what the shape cannot give.** A count in the text ("all 4 different colours", "the 4 suits") is the
    count the program uses on this shape. If a rule adapts to a smaller shape, the text says the adapted count
@@ -65,7 +79,20 @@ P8. **Same words in the summary, the card comment, the assistant briefing.** The
 P9. **A continuous landscape of points** (owner, 2026-11-03). The score has many attainable levels, each rarer than the
    last, so every improvement earns something and the last steps are the hardest (the calibration turns rarity into
    bits, so a count or a signed per-cell sum gives a curve whose steps grow). Never all or nothing: Picture Frame was,
-   and now sums +1 per edge cell and −1 per middle cell of your colour and of the best edge symbol.
+   and now (owner's redesign, 2026-11-03) deals a colour and a symbol and sums, per cell, +1 on the edge for either and +4
+   for both, −1 / −4 in the middle (`FRAME_POINTS`).
+
+P10. **Params make peer rules of equal opportunity** (owner, 2026-11-04: "Parameters should create peer variations
+   within a rule family without any unfair asymmetry in scoring opportunity between them"). Different values of a
+   family's params must be related by a symmetry of the object space (permuting colours or symbols, rotating or
+   reflecting the board, swapping rows and columns), so every god dealt the family faces the same score distribution
+   under the prior and the same top achievable bits. A param that only adds or removes scoring opportunity (diagonals
+   on or off, "rows | columns | both", a range of targets of different difficulty) is not allowed: fix it to one
+   value, make the variants separate families, or redesign it into a symmetric choice. Set Spotter was the first fix
+   (its "diagonals too" option gave 72 instead of 61 top bits on 4×4; diagonals now always count).
+   `test/equal-opportunity.test.ts` checks it on the shipped calibration: on every shape, a family's canonical tables
+   (one per param class that is not a symmetry of another) must agree on top achievable bits within 15% and on the mean
+   bits of a random board within 0.5. Families that still violate are an allowlist that only shrinks (42 at first).
 
 ## 3. Rendering descriptions for the instantiation
 
@@ -212,7 +239,7 @@ nothing now; they keep a future 2-colour set honest.
 
 **Grammar.** best_friends, twin_friends: "a orange". Fix: `an()`.
 
-**Scoring words (P4).** Most summaries say "scores a point" but tuples rarely say how ties break (go_fish, ladder,
+**Scoring words (P4, superseded by points tuples, 2026-11-03).** Most summaries say "scores a point" but tuples rarely said how ties break (go_fish, ladder,
 young_tableau, colour_carousel, mountain_climb, sudoku_scholar). Fix: "First … If that's a tie, …".
 
 ## 7. Assistant
@@ -282,10 +309,65 @@ drops and rebuilds the stored replay file of each ended game it touches (the fil
 `migrations:typedParamsPreparing` rewrites `rooms.preparing.deals`. Narrow (a later PR, once dev and production report
 both done): delete the `legacy` readers, `upgrade`, `upgradeParams`/`upgradeDescriptor` and the rekey script.
 
-**Typed so far:** every family with a lens (the Annotated basics set: Parity Painter, Set Spotter, Number Bonds,
-Chessmaster, Honest Minesweeper, Magic Accountant, Kingdom, Picture Frame, Mirrormancer) and all 8 defence goals.
-**Still untyped** (`UNTYPED_FAMILIES`, which only shrinks): the other 89 Grid families and the 28 Int and string
-families. Most Int/string families already have word names and plain values (`d`, `tail`, `period`), so typing them is a
-declaration each; the Grid ones with colour or symbol indices (about 45) need the same treatment as above: rename, store
-names, `legacy` reader, Python port, rekey. Estimate: about a day of agent time for all of them (four batches of about
-25 families, each a TS + Python + lens-free change verified by `params.test.ts`, the parity test and the rekey).
+**Every family is typed** (2026-11-04): the annotated families and defence goals (#184), Picture Frame's redesign
+(#191), then the Int and string families (#202), games and geometry (#203), colour and strategy (#204), arithmetic and
+seeds (#207) and Bingo Caller, whose called ranks are a `set` param (a fixed number of distinct ranks, stored by name in
+rank order). `UNTYPED_FAMILIES` is empty; `test/params.test.ts` requires every family to declare its params. Each batch
+added its own `typedParams*` migration pair (the same `typedDeity` / `typedPreparing` rewrites).
+
+## 10. Futile acts (2026-11-03)
+
+**The problem.** Production game k972kgwq…: of 804 acts in 30 tick batches, 793 failed. 438 were collisions ("another
+object already has this value") by a dozen copies of `return [write(everything(), 0), paint(everything(), "green")]`,
+which maps every object to the same grid: once one object holds it, every other act collides, forever. 355 were
+"no change" from idempotent agents (`mirror_grid("top", what="colour")`), which change an object once and then nothing.
+Each failed act still paid its floor, and the engine kept offering the same agents the same object versions.
+
+**The rule.** The runtime freezes the clock and reports whether an act read `random` (`usedRandom`). An act that did
+not is a pure function of the agent's source and the object's value (settings and the god's utility table are fixed for
+the game), so when it fails, the same agent on the same object version fails again, identically. The tick remembers
+those pairs (`convex/lib/futility.ts`, table `futileActs`, one row per agent, written by the commit) and never offers
+the agent that object again until a retry could differ:
+
+| The act | Remembered until |
+|---|---|
+| failed by the rules: no change, an invalid call, the commit clause kept the object | the object changes version |
+| collided with a value another object (or the object itself) holds | the object changes version, or the holder does (it may have freed the value) |
+| read `random` | never remembered: the next act has another seed |
+| raised or timed out (a runtime error) | never remembered: a timeout is not reproducible |
+| changed the object | nothing to remember (the version changed; any entry for the pair goes) |
+
+**Opportunities stay fair.** An opportunity picks its object as before (uniform or shelter), then a uniformly random
+eligible agent among those whose act on it is not futile. When every eligible agent is futile on that object, the
+opportunity tries another object (up to 8); when none has a taker it passes, and nobody is charged. A futile pair is
+never an opportunity, so an agent pays only for acts that could do something, and it does not take opportunities from
+agents that can act. Randomized agents keep their retries: their next act on the same object may differ.
+
+**The owner sees why.** The tick counts every act's outcome on the agent (`transforms`, `failures` by kind:
+collision, noChange, commit, invalid, error; `lastFailures`: the last invalid call's and runtime error's reasons). `agentView` turns
+them into a diagnosis, "38 of 38 acts failed: another object already has this value", with a one-line fix when at least
+half fail. My Agents shows it; the assistant reads it in `get_observation` (`agents[].outcomes`, `agents[].diagnosis`).
+Summon-time validation warns before the summon (§11).
+
+## 11. Summon-time futility warnings (2026-11-03)
+
+Validate and summon examine the agent (`engine/pricing.ts` examineAgent). Besides the price, the examination now runs
+`probeFutility` (`lib/game-types/src/pricing/futility.ts`): two passes over a sample world of up to 16 objects (the
+game's live objects first, then the season's reference mixture), applying each result with the engine's uniqueness rule.
+It reports the share of acts that succeed (`expectedSuccessRate`) and, for a deterministic agent (no run read `random`):
+
+| Flag | Means | The warning |
+|---|---|---|
+| identity | no sample object changed | it never changes an object; every act would fail and still cost energy |
+| constant | at least two objects changed, all to one value | only one object can ever hold this value; every other act will collide |
+| idempotent | acting again on any of its own results changes nothing | it acts once per object, then wastes acts |
+| (any agent) | under half its acts succeed in the sample world | most of its acts fail, with the rate |
+
+A validate or summon of code the player already runs as a live agent adds a copies warning (a copy gives each object
+the same result; for a constant, idempotent or identity agent it only adds failures).
+
+Warnings never block. They reach the player before the summon: the forge's validation box, the assistant's
+`validate_agent` assessment (verdict `warns`, its `next` says to tell the player and offer a fix), and the summon
+confirmation card, which shows the warnings of the latest validation of the identical code in the conversation. A
+summon's receipt carries them too (`warnings`). A deterministic agent runs once per distinct value (at most two runs per
+sample object); a randomized one runs twice per object.

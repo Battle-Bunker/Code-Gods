@@ -23,7 +23,7 @@ function* sources(dir: string): Generator<string> {
 function subscribedQueries(text: string): string[] {
   const refs = new Set<string>();
   const patterns = [
-    /\b(?:useQuery|useLive|watchQuery|onUpdate|useSdkQuery)\(\s*(api\.[\w.]+)/g,
+    /\b(?:useQuery|useLive|useLivePages|usePaginatedQuery|watchQuery|onUpdate|useSdkQuery)\(\s*(api\.[\w.]+)/g,
     /\bquery:\s*(api\.[\w.]+)/g,                       // useQueries({ k: { query: api.x.y, args } })
   ];
   for (const re of patterns) for (const m of text.matchAll(re)) refs.add(m[1]);
@@ -36,6 +36,7 @@ function subscribedQueries(text: string): string[] {
 test("the scan finds each subscription form", () => {
   assert.deepEqual(subscribedQueries(`const a = useLive(api.rooms.get, x); const b = useQuery(api.code.runs.get, {});`), ["api.rooms.get", "api.code.runs.get"]);
   assert.deepEqual(subscribedQueries(`({ game: { query: api.player.game, args } })`), ["api.player.game"]);
+  assert.deepEqual(subscribedQueries(`useLivePages(api.setups.page, args, o); usePaginatedQuery(api.rooms.chat, a, o)`), ["api.setups.page", "api.rooms.chat"], "a paged skeleton");
   assert.deepEqual(subscribedQueries(`export const QUERY_REFS: Record<QueryName, Ref> = {\n  "player.events": api.player.events,\n};`), ["api.player.events"]);
   assert.deepEqual(subscribedQueries(`const MUTATIONS = {\n  "rooms.join": api.rooms.join,\n};`), [], "another map of references is not QUERY_REFS");
   assert.deepEqual(subscribedQueries(`client.onUpdate(api.version.current, args, cb)`), ["api.version.current"]);

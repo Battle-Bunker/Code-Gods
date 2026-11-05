@@ -11,12 +11,14 @@ const nothing = async () => undefined;
 const act: EngineActions = {
   navigate() {}, openTab() {}, copy() {}, login() {}, logout() {}, createRoom() {}, join: nothing, leave: nothing, setReady: nothing, start: nothing,
   resume: nothing, startWorldNow: nothing, endGame: nothing, addAi: nothing, removeAi: nothing, applySetup: async id => { applied.push(id); }, duplicateSetup: async id => { duplicated.push(id); },
-  useTemplates: () => lists.templates, useAdminTemplates: () => lists.adminTemplates, usePastGames: () => lists.pastGames, useCredentials: () => lists.credentials, revoke: nothing, openSheet() {}, rulesText: () => "rules", serverInfo: () => [], whoAmI: () => [], origin: "https://cg.test",
+  useTemplates: () => lists.templates, useAdminTemplates: () => lists.adminTemplates, usePastGames: () => lists.pastGames, useCredentials: () => lists.credentials, revoke: nothing, openSheet() {}, rulesText: () => "rules", useServerInfo: () => [], useSetups: query => { searched.push(query); return lists.setups; }, whoAmI: () => [], origin: "https://cg.test",
   setGridRenderer: id => { gridCalls.push(id); },
 };
 const gridCalls: string[] = [];
 // What each palette list's subscription holds right now (the stubs stand in for the shared useLive hook).
-const lists: Record<"templates" | "adminTemplates" | "pastGames" | "credentials", { data: any; error: Error | null }> = {
+const searched: string[] = [];
+const lists: Record<"templates" | "adminTemplates" | "pastGames" | "credentials" | "setups", { data: any; error: Error | null }> = {
+  setups: { data: [], error: null },
   templates: { data: [], error: null }, adminTemplates: { data: [], error: null }, pastGames: { data: [], error: null }, credentials: { data: [], error: null },
 };
 const applied: string[] = [], duplicated: string[] = [];
@@ -25,7 +27,7 @@ const room = (members: string[], activeGame: NonNullable<EngineScope["room"]>["a
   id: "r1", shortCode: "K7QX", ownerId: "ada", ownerName: "Ada Lovelace", aiEnabled: true, aiQuota: 300_000, assistantQuota: 300_000, activeGame,
   members: members.map(id => ({ id, name: id, kind: id.startsWith("ai:") ? "ai" : "human", ready: false })),
 });
-const scope = (s: Partial<EngineScope>): EngineScope => ({ user: ada, setups: [], minPlayers: 3, maxPlayers: 8, aiConfigured: true, ...s });
+const scope = (s: Partial<EngineScope>): EngineScope => ({ user: ada, minPlayers: 3, maxPlayers: 8, aiConfigured: true, ...s });
 const find = (s: EngineScope, id: string) => engineCommands(s, act).find(c => c.id === id)!;
 const avail = (s: EngineScope, id: string) => find(s, id).available(paletteContextFor(s));
 
@@ -117,16 +119,21 @@ test("grids switch between coloured digits and tiles for this viewer, anywhere, 
   assert.deepEqual(gridCalls, ["tiles", "digits"]);
 });
 
-test("Choose the next game's setup lists every setup with its owner, marks the current one and applies a pick", async () => {
-  const setups = [{ id: "s1", name: "First steps", summary: "A small board", system: true, mine: false, ownerName: "System" },
-    { id: "s2", name: "My big one", summary: "Grid 7×7", system: false, mine: true, ownerName: "Ada Lovelace" },
-    { id: "s3", name: "Bo's board", summary: "Grid 5×5", system: false, mine: false, ownerName: "Bo Diddley" }];
-  const c = find(scope({ room: room(["ada"]), setups, currentSetup: "s2" }), "owner.settings");
+// What would break: the pick reading a whole catalogue it was handed instead of the server's page, filtering the
+// server's search answer again (dropping a setup found by its owner or summary), or losing whose setup a row is.
+test("Choose the next game's setup shows the catalogue's first page (the server searches what is typed), marks the current one and applies a pick", async () => {
+  lists.setups = { data: [{ id: "s1", name: "First steps", summary: "A small board", system: true, mine: false },
+    { id: "s2", name: "My big one", summary: "Grid 7×7", system: false, mine: true },
+    { id: "s3", name: "Bo's board", summary: "Grid 5×5", system: false, mine: false }], error: null };
+  const c = find(scope({ room: room(["ada"]), currentSetup: "s2" }), "owner.settings");
   assert.equal(c.performer.kind, "form");
-  if (c.performer.kind !== "form" || c.performer.page.kind !== "pick") return;
-  const options = await c.performer.page.options();
-  assert.deepEqual(options.map(o => [o.id, o.label, o.detail]), [["s1", "First steps", "System · A small board"], ["s2", "My big one (current)", "You · Grid 7×7"],
-    ["s3", "Bo's board", "Bo Diddley · Grid 5×5"]]);
+  if (c.performer.kind !== "form" || c.performer.page.kind !== "pick" || !c.performer.page.useOptions) return assert.fail("a live pick");
+  const listed = c.performer.page.useOptions("");
+  assert.deepEqual(listed.options!.map(o => [o.id, o.label, o.detail]), [["s1", "First steps", "System · A small board"], ["s2", "My big one (current)", "You · Grid 7×7"],
+    ["s3", "Bo's board", "Grid 5×5"]]);
+  assert.equal(listed.searched, false);
+  assert.equal(c.performer.page.useOptions("diddley").searched, true, "the server's search answer is shown as it is");
+  assert.deepEqual(searched.slice(-2), ["", "diddley"]);
   await c.performer.page.onPick("s1");
   assert.deepEqual(applied, ["s1"]);
 });

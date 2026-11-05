@@ -9,8 +9,14 @@ import { formatClock, type GameTimer } from "@workspace/game-core";
 export interface TimerText { label: string; value: string; note: string; paused: boolean; tip: string }
 
 export function timerText(t: GameTimer): TimerText {
-  const paused = t.kind !== "planning" && t.paused;
+  const paused = (t.kind === "fixed" || t.kind === "halfLife") && t.paused;
   switch (t.kind) {
+    case "ended":
+      // Never mistaken for a stall: an ended game says so, with the clock at zero when its time ran out.
+      return t.reason === "owner"
+        ? { label: "Game over", value: "ended", note: `the owner ended it at ${formatClock(t.world, "down")}`, paused: false, tip: "The room's owner ended this game. Nothing changes any more: open the replay to watch it again." }
+        : { label: "Game over", value: "0:00", note: t.reason === "lifetime" ? `time is up (${formatClock(t.world, "down")} of world time)` : "ended", paused: false,
+          tip: "This game reached the end of its lifetime. Nothing changes any more: open the replay to watch it again." };
     case "planning":
       return t.held
         ? { label: "Planning", value: "waiting", note: "agent sandboxes are warming up", paused: false, tip: "Planning is over; the world starts as soon as every agent sandbox is ready." }

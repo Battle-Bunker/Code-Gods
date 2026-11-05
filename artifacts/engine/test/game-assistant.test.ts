@@ -4,7 +4,7 @@
  * A `/mock {json}` message scripts the model's steps (lib/ai-player chat-mock.ts).
  *
  * What would break: tools running outside the human's assistant credential, a second concurrent turn, cancellation
- * or confirmation leaking calls, command ids chosen by the model (double summons), the assistant pool spilling into
+ * leaking calls, command ids chosen by the model (double summons), the assistant pool spilling into
  * other players or the AI seats' pool, threads readable by another human, and disclosure through stored tool results.
  */
 import test from "node:test";
@@ -129,7 +129,7 @@ test("load_tools puts index tools in context for the rest of the thread; load_sk
   assert.ok(skill.body.includes("validate_agent") && skill.body.includes("Mutators") && skill.body.includes(mineObs.self.utility.source.slice(0, 30)), "guidance, helpers and the player's own utility source");
   const echoed = JSON.parse(finalText(t));
   assert.deepEqual(echoed.tools, ["load_tools", "get_observation", "load_skill", "send_chat", "open_panel", "set_panel_params", "validate_agent", "move_pane",
-    "evaluate_value", "summon_agent", "destroy_agent"], "load_tools' tools, then the skill's own (where the adapter manages context)");
+    "evaluate_value", "summon_agent", "destroy_agent", "allocate_power"], "load_tools' tools, then the skill's own (where the adapter manages context)");
   assert.equal(echoed.maxOutputTokens, 8192, "a code-writing tool is loaded: the full ceiling");
   // The next turn of the thread keeps them (the load is in its history).
   const again = await ann.c.mutation(api.assistant.send, { roomId, threadId: sent.threadId, text: mock([{ echo: true }]) });
@@ -290,7 +290,7 @@ test("permissions: a read assistant cannot summon; act has no owner tools; owner
   const sent = await bob.c.mutation(api.assistant.send, { roomId, permission: "read", text: mock([{ tools: [{ name: "summon_agent", input: { source: TS.Int } }] }, { text: "ok" }]) });
   const t = await until(bob, sent, DONE, "the read turn ends");
   assert.equal(t.calls.length, 1);
-  assert.equal(t.calls[0].status, "error", "refused at once, no confirmation card");
+  assert.equal(t.calls[0].status, "error", "refused at once");
   assert.match(t.calls[0].resultJson, /FORBIDDEN/);
   assert.equal(await bob.c.query(api.receipts.get, { roomId, commandId: derived(sent.turnId, "mock_0_0") }), null, "no receipt");
   assert.ok(t.turn.tools.includes("get_observation") && !t.turn.tools.includes("summon_agent"), "the model was offered read tools only");
@@ -336,38 +336,25 @@ test("revoking the assistant credential mid-turn fails its next call and ends th
   assert.ok(!finalText(t).includes("after"));
 });
 
-test("confirmation: a summon waits for the player; approve runs it once with the derived id; deny never sends chat", { timeout: 240_000 }, async () => {
-  const { members: [ann, bob], roomId, game } = await assistantRoom(["Ann Alpha", "Bob Bravo", "Cyd Charl"]);
+test("a summon runs at once with the derived id, exactly once; public chat the player asked for is sent", { timeout: 240_000 }, async () => {
+  const { members: [ann], roomId, game } = await assistantRoom(["Ann Alpha", "Bob Bravo", "Cyd Charl"]);
   const sent = await ann.c.mutation(api.assistant.send, { roomId, text: mock([{ tools: [{ name: "summon_agent", input: { source: TS.Int, name: "Test agent" } }] }, { text: "Summoned." }]) });
-  const waiting = await until(ann, sent, ["awaiting_confirmation"], "the turn waits for confirmation");
-  const call = waiting.calls[0];
-  assert.equal(call.status, "awaiting_confirmation");
-  const commandId = derived(sent.turnId, "mock_0_0");
-  assert.equal(JSON.parse(call.argsJson).commandId, commandId, "the card shows the exact payload, with the derived id");
-  assert.equal((await raw(game!.gameId)).agents.length, 0, "nothing ran yet");
-  assert.equal(await errorCode(bob.c.mutation(api.assistant.confirm, { toolCallId: call._id, decision: "approve" })), "NOT_FOUND", "only Ann decides");
-
-  await ann.c.mutation(api.assistant.confirm, { toolCallId: call._id, decision: "approve" });
   const t = await until(ann, sent, DONE, "the turn finishes");
   assert.equal(t.turn.status, "done");
+  const commandId = derived(sent.turnId, "mock_0_0");
+  assert.equal(JSON.parse(t.calls[0].argsJson).commandId, commandId, "the stored payload carries the derived id");
   assert.equal(t.calls[0].status, "ok");
   assert.equal(t.calls[0].commandId, commandId);
   const receipt = await ann.c.query(api.receipts.get, { roomId, commandId });
   assert.ok(receipt?.accepted, receipt?.message);
   assert.equal(finalText(t), "Summoned.");
-  // A replayed approval changes nothing.
-  await ann.c.mutation(api.assistant.confirm, { toolCallId: call._id, decision: "approve" });
-  await sleep(1500);
   assert.equal((await raw(game!.gameId)).agents.filter((a: any) => a.ownerId === ann.subject).length, 1, "summoned exactly once");
 
-  const chat = await ann.c.mutation(api.assistant.send, { roomId, threadId: sent.threadId, text: mock([{ tools: [{ name: "send_chat", input: { text: "assistant hello" } }] }, { text: "Not sent." }]) });
-  const card = await until(ann, chat, ["awaiting_confirmation"], "the chat waits");
-  await ann.c.mutation(api.assistant.confirm, { toolCallId: card.calls[0]._id, decision: "deny" });
-  const denied = await until(ann, chat, DONE, "the chat turn ends");
-  assert.equal(denied.calls[0].status, "denied");
-  assert.equal(denied.turn.status, "done");
+  const chat = await ann.c.mutation(api.assistant.send, { roomId, threadId: sent.threadId, text: mock([{ tools: [{ name: "send_chat", input: { text: "assistant hello" } }] }, { text: "Sent." }]) });
+  const said = await until(ann, chat, DONE, "the chat turn ends");
+  assert.equal(said.calls[0].status, "ok", said.calls[0].resultJson);
   const obs = await ann.c.query(api.player.observation, { roomId });
-  assert.ok(!obs.chat.some((m: any) => m.text === "assistant hello"), "public chat was never sent");
+  assert.ok(obs.chat.some((m: any) => m.text === "assistant hello"), "public chat was sent");
 });
 
 test("budget: the assistant pool is per human and game, separate from seats; 0 means off", { timeout: 180_000 }, async () => {
@@ -477,9 +464,9 @@ test("the transcript is a query of (room, game): a new game's has no thread, wha
   assert.equal(await errorCode(ann.c.query(api.assistant.transcript, { roomId, gameId: "not-a-game" })), "NOT_FOUND");
 });
 
-test("a new game starts the assistant afresh: no thread, card, run, note or allowance of the last game; that game's stay readable by its player only", { timeout: 300_000 }, async () => {
+test("a new game starts the assistant afresh: no thread, run, note or allowance of the last game; that game's stay readable by its player only", { timeout: 300_000 }, async () => {
   const { members: [ann, bob], roomId, game } = await assistantRoom(["Ann Fresh", "Bob Fresh", "Cyd Fresh"]);
-  // Game 1: a conversation that runs code keeping a note and saving the script, then a summon card left waiting.
+  // Game 1: a conversation that runs code keeping a note and saving the script, then a turn left streaming.
   const first = await ann.c.mutation(api.assistant.send, { roomId, text: mock([
     { tools: [{ name: "run_code", input: { language: "typescript", source: "function main(d) { store.put('notes/plan', 'game one plan'); return 1; }", datasets: [], saveAs: "plan" } }] },
     { text: "game one answer" },
@@ -488,17 +475,16 @@ test("a new game starts the assistant afresh: no thread, card, run, note or allo
   assert.equal(one.turn.status, "done", JSON.stringify(one.turn.error));
   const run1 = JSON.parse(one.calls[0].resultJson).data;
   assert.deepEqual(run1.store, { written: ["notes/plan", "scripts/plan"], deleted: [] }, JSON.stringify(run1));
-  const waiting = await ann.c.mutation(api.assistant.send, { roomId, threadId: first.threadId, text: mock([{ tools: [{ name: "summon_agent", input: { source: TS.Int, name: "Test agent" } }] }, { text: "never" }]) });
-  const card = await until(ann, waiting, ["awaiting_confirmation"], "the card waits");
+  const waiting = await ann.c.mutation(api.assistant.send, { roomId, threadId: first.threadId, text: mock([{ text: ["a", "b", "c", "d"], delayMs: 2000, tools: [{ name: "summon_agent", input: { source: TS.Int, name: "Test agent" } }] }, { text: "never" }]) });
+  await waitFor(async () => (await turnOf(ann, first.threadId, waiting.turnId)).messages.some((m: any) => m.role === "assistant"), "the turn streams", 30_000, 100);
   assert.ok((await ann.c.query(api.assistant.status, { roomId })).allowance.used > 0);
 
-  // Game 2 in the same room: the waiting turn ends with game 1, its card denied; an approval afterwards runs nothing.
+  // Game 2 in the same room: the streaming turn ends with game 1, its summon never run.
   await ann.c.mutation(api.rooms.endActiveGame, { roomId });
   const game2 = await startGame(ann, roomId);
-  const ended = await until(ann, waiting, DONE, "the waiting turn ends when the next game starts");
+  const ended = await until(ann, waiting, DONE, "the streaming turn ends when the next game starts");
   assert.equal(ended.turn.status, "cancelled");
-  assert.equal(ended.calls[0].status, "denied");
-  assert.equal((await ann.c.mutation(api.assistant.confirm, { toolCallId: card.calls[0]._id, decision: "approve" })).status, "denied");
+  assert.ok(ended.calls.every((c: any) => c.status !== "ok"), "its summon never ran");
   assert.equal((await raw(game2.gameId)).agents.length, 0, "nothing was summoned");
   const status = await ann.c.query(api.assistant.status, { roomId });
   assert.equal(status.activeTurn, null);

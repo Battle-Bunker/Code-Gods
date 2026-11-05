@@ -10,7 +10,7 @@
  *   actions                         useActions → validate, summon, destroy, chat, pause, ready, retry
  *   rate limits                     useThrottled, useSnapshot (every live hook takes { hz }, max 5)
  *   rendering                       Obj, ObjectGrid, ObjectView, TransformationView, useObjectContext,
- *                                   Sparkline, LineChart, BarList, ScatterPlot, Heatmap, Timeline, Table, Legend
+ *                                   Sparkline, LineChart, BarList, ScatterPlot, Heatmap, Timeline, TimelineLegend, Table, Legend
  */
 export { definePanel } from "../shell/panel-types";
 export type { PanelDefinition, Placement, PanelSize } from "../shell/panel-types";

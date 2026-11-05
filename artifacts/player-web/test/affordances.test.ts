@@ -1,7 +1,7 @@
 /**
  * What the viewer can do (src/core/affordances.ts), the one source every panel reads before it renders a control.
  * What would break: a read-only replay (or a read-only credential) still showing Edit a copy, Destroy, Summon, the chat
- * box or an assistant approval; an ended game still offering Destroy; a disabled control with no reason; a replay seen
+ * box; an ended game still offering Destroy; a disabled control with no reason; a replay seen
  * as another god labelling that god's agents as "yours".
  */
 import test from "node:test";
@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { deriveAffordances, ownerPhrase, type AffordanceContext } from "../src/core/affordances.ts";
 
 const live: AffordanceContext = { replay: false, permission: "act", phase: "running", seated: true, hasObservation: true, unknownOutcome: false, busy: false };
-const MUTATING = ["editCode", "validate", "summon", "destroy", "chat", "approve", "roomStep"] as const;
+const MUTATING = ["editCode", "validate", "summon", "destroy", "allocatePower", "chat", "roomStep"] as const;
 
 test("a read-only replay hides every mutating control, with the replay as the reason", () => {
   for (const phase of ["planning", "running", "paused", "ended"] as const) {
@@ -27,7 +27,7 @@ test("a read-only replay hides every mutating control, with the replay as the re
 test("a read-only credential hides the same controls, saying the connection is read-only", () => {
   const a = deriveAffordances({ ...live, permission: "read" });
   assert.equal(a.readOnly, true);
-  for (const action of MUTATING.filter(x => x !== "approve")) {
+  for (const action of MUTATING) {
     const c = a.can[action];
     assert.ok(!c.ok && c.hidden, action);
     assert.match(!c.ok ? c.reason : "", /read-only/);

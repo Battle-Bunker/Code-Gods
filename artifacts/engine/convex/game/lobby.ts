@@ -20,6 +20,7 @@ import { EVENT_LOG_SCHEMA, LEASE_MS, disclosedTotalsOf, totalsOf } from "../lib/
 import { roomSetupWrite, type RoomSetupChange } from "../setups";
 import { scoreV } from "./tables";
 import { publicSalienceOf, publishStandings } from "./readModel";
+import { scheduleFill } from "./objectViews";
 
 /** The second half's watchdog period while tables compute (owner.ts completeStart; finished() normally launches at once). */
 export const PREPARING_WATCHDOG_MS = 60_000;
@@ -170,6 +171,8 @@ export const commitStart = internalMutation({
     seasonCommitment: v.string(), noiseKey: v.string(), endAtWorld: v.number(), nextSpawn: v.number(), catalog: v.any(),
     deities: v.array(v.object({ godId: v.string(), utility: v.any(), card: v.any() })),
     objects: v.array(v.object({ value: wire, scores: v.array(scoreV), salience: v.number(), noise: v.optional(v.number()) })),
+    /** The deal's calibration tables, pinned by god (engine/pinned.ts): the game scores with these until it ends. */
+    tablesStorageId: v.optional(v.id("_storage")),
   },
   handler: async (ctx, args) => {
     const room = await requireRoom(ctx, args.roomId);
@@ -210,16 +213,21 @@ export const commitStart = internalMutation({
       ...(setupId ? { setupId, setupName } : {}),
       createdAt: now, planningEndsAt, pauseEndsAt: 0,
       endAtWorld: args.endAtWorld, noiseKey: args.noiseKey, executionEpoch: 0,
+      ...(args.tablesStorageId ? { tablesStorageId: args.tablesStorageId } : {}),
+      // Hold rarity (docs/energy-model.md §8): more than one player needs its corrections, computed during planning.
+      ...(args.deities.length > 1 ? { holdState: "computing" as const, holdPending: [] } : {}),
     });
     await putCatalog(ctx, `game:${gameId}`, args.catalog, 0);
     for (const [index, d] of args.deities.entries()) {
       const aiAgent = byGod.get(d.godId)!.aiAgent;
-      await ctx.db.insert("deities", { gameId, godId: d.godId, index, utility: d.utility, card: d.card, spent: 0, pauseUsed: false, ...(aiAgent ? { aiAgent } : {}) });
+      // Its own energy starts at startingEnergy on the world clock (0 at the start), with all its power unallocated.
+      await ctx.db.insert("deities", { gameId, godId: d.godId, index, utility: d.utility, card: d.card, spent: 0, pauseUsed: false, ...(aiAgent ? { aiAgent } : {}),
+        account: { balance: settings.startingEnergy, settledWorldSeconds: 0 }, allocated: 0 });
     }
     const events = [];
     for (const o of args.objects) {
       const objectId = await ctx.db.insert("objects", { gameId, value: o.value, version: 0, scores: o.scores, salience: o.salience, ...(o.noise !== undefined ? { noise: o.noise } : {}),
-        publicSalience: publicSalienceOf(o, true) });
+        publicSalience: publicSalienceOf(o, true), createdAt: 0 });
       events.push({ t: "spawn" as const, objectId, value: o.value, version: 0, world: 0, net: args.deities.map(d => o.scores.find(s => s.god === d.godId)!.netBits),
         ...(o.noise !== undefined ? { noise: o.noise } : {}) });
     }
@@ -248,6 +256,9 @@ export const commitStart = internalMutation({
     });
     await ctx.scheduler.runAt(nextDeadline({ phase: "planning", planningEndsAt, pauseEndsAt: 0 }, now)!, internal.engine.tick.run, { gameId, seq: 0 });
     await ctx.scheduler.runAfter(0, internal.ai.seats.startAll, { gameId });
+    // Each god's object rows and totals (game/objectViews.ts), paged off the start's own transaction.
+    await scheduleFill(ctx, gameId);
+    if (args.deities.length > 1) await ctx.scheduler.runAfter(0, internal.engine.hold.start, { gameId });
     const result = { gameId, shortCode, guid };
     if (args.requestId) {
       await ctx.db.insert("receipts", { roomId: room._id, actorId, requestId: `start:${args.requestId}`, hash: "start", result, createdAt: now });

@@ -32,7 +32,7 @@ A3. **Say the check, not the code.** A callout lists the rule's conditions as fa
     own words, with the actual symbols: "✓ colours all the same (green, green, green)", "✗ numbers not evenly spaced
     (2, 5, 9)". When a piece nearly scores, say what is missing ("one more red would close it").
 
-A4. **Points are always explicit and always add up.** Every piece shows its points (+1, −1, 0, "+4 tie-break"). The
+A4. **Points are always explicit and always add up.** Every piece shows its points as a tuple ("(+1)", "(0, −3)": primary, secondary… points; rules-design.md P4). The
     pieces of the whole board add up to the card's score, and the panel says so ("This board: 5 points"). The model is
     computed from the board, and checked against the card's own program (§6.4), so it cannot disagree with the score.
 
@@ -49,28 +49,43 @@ A7. **Quiet everything else.** Cells outside the focus pieces are dimmed, not hi
 A8. **Examples teach both sides.** The goal card's example board is searched (§6.5) so the default focus shows a piece
     that scores *and* one that doesn't, using only the room's symbols and colours.
 
-## 3. The focus-cell interaction model
+## 3. The interaction model: scoring units (2026-11-04)
 
-- **Focus.** Exactly one cell is the focus. Its pieces are drawn on the board and listed as callouts.
-- **Default focus.** In the compact-to-rich hover popover: the top-left cell (the owner's spec), so opening is
-  predictable. In the goal card's permanent example: the cell the example search chose as most illuminating (A8).
-- **Hover** (mouse/pen) over a cell moves the focus there. The focus stays where it was left when the pointer leaves the
-  board (it does not snap back), so a player can read the callouts.
-- **Tap** (touch) on a cell moves the focus. Touch never opens a hover state.
-- **Keyboard.** The board is one focusable `role="grid"` element; arrow keys move the focus, Home goes to the top-left.
-  The headline and callouts sit in an `aria-live="polite"` region, so each move is read out.
-- **Layout without clutter.**
-  - The board is drawn at detail size with an SVG overlay: pieces as capsules (lines, pairs), rounded blocks (2×2
-    windows), outlines (regions, the frame), and a ring around the focus cell.
-  - Each piece has a numbered badge at its end nearest the callout column.
-  - Callouts sit in a column beside the board (below it when the container is narrower than ~30rem), sorted by the
-    vertical position of their piece so arrows rarely cross. Arrows are drawn from the badge to the callout's edge as
-    gentle curves in the piece's tone.
-  - An outcome table, when the lens has one, is drawn under the callouts with an arrow from the focus cell.
-  - A one-line headline above: the focus cell in words ("Row 2, column 3: a green 7") and the board's total.
-- **Where it appears.** (1) The goal card (`UtilityCardView`) shows the example board with its annotations
-  permanently. (2) The grid popover (hover a compact grid anywhere in the player app) shows the hovered grid annotated
-  with the player's *own* goal when the app provides it (§7). Both use the same component, so replays can reuse it.
+The owner (2026-11-03): *"forcing annotations into the mould of orienting around a single selected cell is too limiting.
+We need the fundamental unit around which we construct the annotation to be each scoring unit."* The focus-cell model
+(one cell at a time, the pieces containing it, a per-cell outcome table, a note) is gone; this section replaces it.
+§10 and §11 keep the history of why.
+
+- **The unit is a scoring unit**: one box per part of the lens's decomposition (a row and its total, a 2×2 block that is
+  or is not a chessboard, an edge cell with the right colour…), each linked to its board region.
+- **The list**: every unit of the board, in a box each, sorted by what it scores: gains first (highest first), then losses
+  (most negative first), then units worth nothing (`sortUnits`, by the points tuple). It scrolls inside a fixed maximum
+  height (`UNIT_LIST_MAX_HEIGHT`, 22rem), so a busy board never grows the page.
+- **Two-way linking**: hovering or keyboard-focusing a box selects its unit: its cells light up (the rest dim), its shape
+  is drawn and an arrow joins it to its box. Hovering the board selects the unit under the pointer and marks its box,
+  scrolling it into view. Touch: a tap selects. The board is one keyboard stop (arrow keys step through the units in list
+  order); the boxes are reachable with Tab, in list order, with a visible focus ring.
+- **Board hover is data, per lens** (`Lens.hover`, game-utilities `src/explain/units.ts`): each part carries a `group`
+  and the lens offers hover modes over groups. Within a mode, the unit under the pointer is the one whose cells are
+  nearest it, ties broken by its centre: the board is carved into a Voronoi-like map of unit centres. A lens whose units
+  overlap offers one mode per kind, shown as an auxiliary toggle above the board. A unit whose cells overlap its
+  neighbours' (a minesweeper window) names an `anchor` cell to be picked by. `test/units.test.ts` checks, for every lens
+  on several shapes, that every unit is in some mode and that pointing at it picks it.
+
+| Family | Units | Board hover affordance |
+|---|---|---|
+| 🎭 Parity Painter | one per cell | the cell under the pointer |
+| 🔺 Set Spotter | one per trio in a line | toggle [→ ↓ ↘ ↙]; the trio of that direction centred nearest the pointer |
+| 🤝 Number Bonds | one per touching pair | the shared edge nearest the pointer |
+| ♟️ Chessmaster | 2×2 blocks (points) and touching pairs (second component) | toggle [2×2 blocks / touches]; the block whose centre is nearest, or the nearest shared edge |
+| 💣 Honest Minesweeper | one per non-mine cell (its 3×3 window) | the number's own cell (its anchor) |
+| 🧮 Magic Accountant | one per counted line | toggle [Row / Column] when both count; the line containing the pointer |
+| 🏰 Kingdom | one per patch of your colour | the patch containing the pointer |
+| 🖼️ Picture Frame | one per cell | the cell under the pointer |
+| 🪞 Mirrormancer | one per row (or column) | the line containing the pointer |
+
+The what-if mode (§11) stays cell-based by nature (it asks what one cell's change would do); the part scrubber steps
+through the units (`GoalBoard selected=`).
 
 ## 4. The annotation model
 
@@ -96,7 +111,7 @@ interface Part {                     // one piece of the rule: what the card loo
 interface Explanation {              // the whole board, independent of focus
   familyId: string; size: number;
   parts: Part[];
-  components: string[];              // names of the explained ordinal components: ["points", "tie-break: …"]
+  components: string[];              // names of the explained ordinal components: ["chessboards", "places where red touches green"]: one name per points tier
   ordinal: Ordinal;                  // the card's own score of this board (evaluated by the card program)
   verified: boolean;                 // Σ part.points[k] === ordinal[k] for every explained component k
 }
@@ -115,7 +130,7 @@ A piece's tone is derived from its points (positive, negative, zero), never stat
 
 Ranked by how well the rule fits a focus-cell annotation. **Tier A**: every point comes from small local pieces that
 contain the cell; the annotation is complete and obvious. **Tier B**: local pieces, but the score takes a max, a
-threshold or a tie-break over them; still very good with one extra line. **Tier C**: the score is a property of long
+threshold or a secondary tier over them; still very good with one extra line. **Tier C**: the score is a property of long
 lines or big regions; a focus cell can select the line or region, but the "why" is spread out (§10 modes help).
 **Tier D**: whole-board or process rules where a cell's role is indirect (a global count, a centroid, a flood); the
 focus cell alone teaches little and needs another mode (§11). ★ = annotated in phase 2.
@@ -125,12 +140,12 @@ focus cell alone teaches little and needs another mode (§11). ★ = annotated i
 | Family | Pieces (what the focus selects) | Sketch |
 |---|---|---|
 | ★ 🎭 Parity Painter | the cell | Outcome table: kind (even, odd) × colour, +1 / −1 / 0, focus entry ringed. |
-| ★ 🔺 Set Spotter | trios with an end at the focus (across, down, diagonals when dealt) | Green capsule SET, grey not-a-SET; facts "colours all the same / all different" and "numbers evenly spaced". |
+| ★ 🔺 Set Spotter | trios with an end at the focus (across, down and both diagonals) | Green capsule SET, grey not-a-SET; facts "colours all the same / all different" and "numbers evenly spaced". |
 | ★ 🤝 Number Bonds | the pairs (right, down) containing the focus | "3 + 7 = 10 ✓", colour condition when the mode has one. |
-| ★ ♟️ Chessmaster | 2×2 blocks containing the focus (points), seams touching it (tie-break) | Block: alternating ✓/✗ per side; seams as thin pairs. |
+| ★ ♟️ Chessmaster | 2×2 blocks containing the focus (primary points), seams touching it (secondary points) | Block: alternating ✓/✗ per side; seams as thin pairs. |
 | ★ 💣 Honest Minesweeper | the focus's 3×3 neighbourhood | Mines spotted inside it; "shows 2, touches 2 mines ✓ → +2". A mine shows the honest cells it is counted by. |
 | 🏁 Odds & Evens | 2×2 blocks containing the focus | As Chessmaster, odd/even instead of colours. |
-| 🍀 Green Ones, 🧿 Lucky Token | the cell | Outcome table: right colour × right symbol, score and halfway tie-break. |
+| 🍀 Green Ones, 🧿 Lucky Token | the cell | Outcome table: right colour × right symbol, score and the halfway secondary points. |
 | 🖍️ Number Painter, 🔢 Colour-by-Number | the cell | Outcome table: symbol class × colour. |
 | ⚔️ Conqueror, 🏡 Homebody | the cell | Outcome table (colour × zone for Homebody). |
 | 🫰 Snap!, 🤗 Best Friends, 👯 Twin Friends | pairs containing the focus | Pair capsules with the matching condition. |
@@ -141,11 +156,11 @@ focus cell alone teaches little and needs another mode (§11). ★ = annotated i
 | 🥪 Othello Sandwich | the two lines through the focus | Bread ✓/✗ on each side. |
 | 🎚️ Colour Ladder | pairs containing the focus | "7 > 3 so green should come after blue ✗". |
 
-### Tier B: local pieces combined by max, threshold or tie-break
+### Tier B: local pieces combined by max, threshold or a secondary tier
 
 | Family | Pieces | Sketch |
 |---|---|---|
-| ★ 🧮 Magic Accountant | the focus's row (or column) | Running sum with "= 14 ✓" or "13, 1 short"; tie-break distance shown on every row. |
+| ★ 🧮 Magic Accountant | the focus's row (or column) | Running sum with "= 14 ✓" or "13, 1 short"; the distance (secondary points) shown on every row. |
 | ★ 🏰 Kingdom | the focus's patch; the biggest patch | Region outline; "your patch: 3 cells, biggest: 5 (scores)". |
 | 🗺️ Archipelago, ✨ Constellation, ✖️ Times-Table Territory, 🪨 Stepping Stones, 🧩 Fillomino, 🧩 Patchwork | the focus's patch/group | Region outline with size facts. |
 | 🏝️ Islander, 🏮 Lantern Lighter, ⛰️ King of the Hill | the cell plus its row/column/neighbours | Rays or neighbour ring with ✓/✗. |
@@ -165,7 +180,7 @@ focus cell alone teaches little and needs another mode (§11). ★ = annotated i
 | 🧱 Tetromino Tamer, 🏰 Border Baron, 🧀 Swiss Cheese | regions of regions (shapes, borders, holes) | Region outline plus shape/size facts. |
 | 🔍 Looking-Glass, 🎡 Pinwheel, 🎯 Bullseye, 🌈 Rainbow Bands | symmetry orbits, rings, diagonals | The focus's orbit / ring as connectors. Bullseye stops at the first failing ring: needs a step-through. |
 | ➕ Column Addition | carries flow right to left | Step-through narration of the written sum (§11 M3). |
-| 🖼️ Picture Frame (★) | per cell: your colour and the best edge symbol, +1 on the edge, −1 in the middle | One piece per cell (+2 to −2) with ✓/✗ for colour and symbol; the note names the best edge symbol and both counts. Was all-or-nothing until 2026-11. |
+| 🖼️ Picture Frame (★) | per cell: your dealt colour and symbol, +1 on the edge for either and +4 for both, −1 / −4 in the middle | One piece per cell (+4 to −4) titled "+1 right colour", "+1 right symbol" or "+4 both", with ✓/✗ for colour and symbol. Was all-or-nothing until 2026-11; the symbol was the best edge symbol until the owner's redesign (2026-11-03). |
 
 ### Tier D: global counts and processes
 
@@ -268,12 +283,12 @@ Steps (4×4, base 10, rgb):
 | 🎭 Parity Painter | cell | outcome table |
 | 🔺 Set Spotter | trio (line of 3) | custom selection (ends only), facts |
 | 🤝 Number Bonds | pair | arithmetic facts, colour modes |
-| ♟️ Chessmaster | 2×2 block + seams | tuple score: points and tie-break parts |
+| ♟️ Chessmaster | 2×2 block + seams | points tuple: primary and secondary parts |
 | 💣 Honest Minesweeper | 3×3 neighbourhood | spots (mines), reverse selection for mines |
-| 🧮 Magic Accountant | row / column | line sums, tuple with a negative tie-break |
+| 🧮 Magic Accountant | row / column | line sums, a tuple with negative secondary points |
 | 🏰 Kingdom | region | max over regions |
-| 🖼️ Picture Frame | cell (one per cell) | a sum over every cell; the note explains the best edge symbol (was all-or-nothing: a ring and its breakers) |
-| 🪞 Mirrormancer | row / column with pair arcs | connectors (`links`), tuple tie-break |
+| 🖼️ Picture Frame | cell (one per cell) | a sum over every cell; the note restates the points table (was all-or-nothing: a ring and its breakers) |
+| 🪞 Mirrormancer | row / column with pair arcs | connectors (`links`), secondary points per pair |
 
 Where to look: the gallery page `artifacts/player-web/annotations.html` (dev server: `pnpm --filter @workspace/player-web
 dev`, then `/annotations.html`; `?family=<id>` for one) and its browser check `pnpm --filter @workspace/player-web
@@ -286,7 +301,7 @@ Building nine lenses and reviewing the rest of the catalogue (§5) showed five k
 explains poorly. Each kind comes with the evidence that shows it and what helps.
 
 1. **Global counts and totals.** These are rules whose score is a count over the whole board (Magic Accountant's
-   tie-break distance, Chessmaster's seams, Kingdom's "biggest", Robin Hood's per-colour sums). A focus cell shows
+   secondary-point distance, Chessmaster's seams, Kingdom's "biggest", Robin Hood's per-colour sums). A focus cell shows
    its own pieces, but the *total* is the sum of pieces the kid is not looking at. The headline's "This board: 5
    points" states the total but does not *build* it. Chessmaster's focus can expand up to 4 blocks and 4 seams, and we
    cap it at 6 pieces (A1), so a busy cell already hides part of its own story. **Helps:** the part scrubber (M1)
@@ -360,9 +375,9 @@ a live grid and explores the rich view, which starts on the top-left cell.
 | [parity_painter.webm](videos/annotations/parity_painter.webm) | 🎭 one piece per cell; the outcome table rings the focus's kind × colour |
 | [set_spotter.webm](videos/annotations/set_spotter.webm) | 🔺 trios that end at the focus, SET ✓ / not a SET ✗ with the colour and number checks |
 | [number_bonds.webm](videos/annotations/number_bonds.webm) | 🤝 pairs touching the focus with their sums |
-| [chessmaster.webm](videos/annotations/chessmaster.webm) | ♟️ 2×2 blocks (points) and red–green seams (tie-break) |
+| [chessmaster.webm](videos/annotations/chessmaster.webm) | ♟️ 2×2 blocks (points) and red–green seams (secondary points) |
 | [honest_minesweeper.webm](videos/annotations/honest_minesweeper.webm) | 💣 the 3×3 window with its mines circled; a mine shows the cells that count it |
-| [magic_accountant.webm](videos/annotations/magic_accountant.webm) | 🧮 the focus's row against the magic number, the tie-break distance |
+| [magic_accountant.webm](videos/annotations/magic_accountant.webm) | 🧮 the focus's row against the magic number, the distance in secondary points |
 | [kingdom.webm](videos/annotations/kingdom.webm) | 🏰 the focus's patch and the biggest patch |
 | [picture_frame.webm](videos/annotations/picture_frame.webm) | 🖼️ the whole frame, its breakers, and the inside cells that never matter |
 | [mirrormancer.webm](videos/annotations/mirrormancer.webm) | 🪞 the row folded onto itself, pairs as ✓ / ✗ arcs |
