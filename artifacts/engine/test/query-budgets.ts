@@ -128,6 +128,11 @@ export const BUDGETS: Budget[] = [
   { query: "dock:agents", subscribedBy: "sdk useMyAgents (agents, forge, overview)", args: f => ({ roomId: f.roomId }), cold: false },
   { query: "dock:transformations", subscribedBy: "sdk useTransformations (feed)", args: f => ({ roomId: f.roomId }), cold: false },
   { query: "dock:agentSeries", subscribedBy: "sdk useAgentSeries (agents panel)", args: f => ({ gameId: f.gameId }), cold: false },
+  // ---- external clients and agent tools (point-in-time pages; docs/convex-read-architecture.md §4.5) ------------------
+  { query: "player:board", subscribedBy: "MCP get_board_at, external clients (one page; a past world: one objectEvents read per object)",
+    args: f => ({ roomId: f.roomId, gameId: f.gameId, world: 1 }), cold: false },
+  { query: "player:series", subscribedBy: "external clients (one R2-sized page; MCP get_utility_series reads the internal twin)",
+    args: f => ({ roomId: f.roomId, gameId: f.gameId }), cold: false },
 ];
 
 /** The client reference of a logged identifier: "auth/credentials:list" → api.auth.credentials.list (of `api`). */

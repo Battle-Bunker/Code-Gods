@@ -34,7 +34,9 @@ const USAGE = `Usage: pnpm player <command>
       Engine reachable, credential valid, room, permission, expiry and the current user.
   state [--pretty] [--objects N] [--events N] [--watch HZ [--count N]]
       The player-visible state as JSON: observation, recent events, myUtility, latest trajectories.
-      --watch prints one JSON line per change, at most HZ (0.1-5) per second.
+      --objects N (≤ 90) reads only the N best objects by payoff (the engine's narrow observation).
+      --watch prints one JSON line per change, at most HZ (0.1-5) per second, from the engine's narrow
+      queries (state, agents, transformations, standings, chat, the N best objects: default 20, at most 90).
   tools [--pretty]
       The agent tools this credential may use (the engine's MCP server at <engine>/mcp).
   call TOOL ['JSON' | -] [--pretty]

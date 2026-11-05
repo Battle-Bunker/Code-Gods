@@ -589,7 +589,9 @@ is removed, except for replay playback.
 ### 4.5 External player SDK (`lib/player-client`) and MCP
 
 **Live clients (`watchState`, `pnpm player state --watch`).** They subscribe with `onUpdate` to the same narrow
-queries the dock uses:
+queries the dock uses (done, PR 6: `dock.state`, `dock.agents`, `dock.transformations`, `games.standings`,
+`rooms.chat`, `player.totals`, `player.objectIds` + `player.object`, `player.events`, `player.myUtility`; each line is
+the v3 observation put together from them, with the N best objects):
 - header + clock;
 - self;
 - agents;
@@ -607,6 +609,11 @@ The CLI's output throttle stays; it limits printing, not reading.
   - objects from `objectViews` with a **server-side** cap (`objectsLimit`, default 50, sorted by the agent's chosen
     key) instead of `take(2100)` followed by `capObjects` on the client.
 - A full-world read stays available, explicitly, as a paged tool (`list_objects` with a cursor), never as one query.
+- Done (PR 6): `player.observation` with `objectsLimit` (lib/load.ts `buildObservation` with `NarrowObjects`) reads
+  one page of the caller's `objectViews` rows (`objectsSort`, opaque `objectsCursor`), the score and object count from
+  `godTotals`, the leaderboard from the clock's published scoreboard, and caps agents (50), chat (20) and recent
+  transformations (50). `get_observation`, the command tools' game lookup, `load_skill` and the assistant's briefing
+  read it; the page is the tool's paging (`nextCursor`), so no tool reads the world for the observation.
 - `observation` is versioned. The narrow v3 is wire-compatible, with the object list now capped. If the cap changes
   agents' behaviour it becomes v4, and the change is documented in `docs/engine-api.md`.
 
@@ -615,6 +622,11 @@ The CLI's output throttle stays; it limits printing, not reading.
 - Rebuild it as a paged read over `objectViews`, using the current version when `world` is now. Historical worlds
   read `objectEvents` pages.
 - Each page obeys R2.
+- Done (PR 6): `player.board` pages the caller's `objectViews` by spawn time up to `world` (≤ 40 a page, ≤ 100 for the agent tool; now, each row
+  as it stands; earlier, one `objectEvents` read per object), with `cursor`/`done`; `player.series`'s public pages are
+  ≤ 40 rows (the agent tools' internal twin keeps 4,000-row pages inside Convex). Both learn whether the history is
+  partial from the game's earliest `objectEvents` row instead of its first `tickBatches` doc (about 140 KiB at 1,000
+  objects: every starting spawn).
 
 ---
 
