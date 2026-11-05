@@ -21,8 +21,6 @@ import { requireViewer } from "./auth/access";
 import { BEARER_CORS } from "./auth/routes";
 import { json, pathSegments, refusal } from "./lib/http";
 import { replayPage, replayableGame } from "./player";
-import { instantiationOf, type GameSettings } from "@workspace/game-core";
-import { paramsKey, upgradeDescriptor, type UtilityDescriptor } from "@workspace/game-utilities";
 
 /** The stored file's shape (written in the file); a page that reads another version pages the log instead. */
 export const STORED_REPLAY_VERSION = 1;
@@ -92,26 +90,15 @@ export const build = internalAction({
 });
 
 /**
- * After migrations:typedParamsDeities dropped a game's file: build it again once every god of the game has today's
- * params (a god still waiting for its batch reschedules the build), so the new file never embeds a legacy descriptor.
+ * Build an ended game's file again after a migration dropped it (the typed-params migrations, 2026-11-03..05, scheduled
+ * this with a back-off; kept so jobs still queued when they were narrowed find their function). Idempotent.
  */
 export const rebuildAfterMigration = internalMutation({
   args: { gameId: v.id("games"), attempt: v.optional(v.number()) },
-  handler: async (ctx, { gameId, attempt = 0 }) => {
+  handler: async (ctx, { gameId }) => {
     const game = await ctx.db.get(gameId);
     if (!game || game.phase !== "ended" || game.replayStorageId) return;
-    const deities = await ctx.db.query("deities").withIndex("by_game", q => q.eq("gameId", gameId)).take(16);
-    let inst;
-    try { inst = instantiationOf(game.settings as GameSettings); } catch { inst = null; }
-    const pending = inst && deities.some(d => {
-      const u = d.utility as UtilityDescriptor | null;
-      try {
-        return !!u && paramsKey(upgradeDescriptor(u, inst)) !== paramsKey({ familyId: u.familyId, params: u.params, ...(u.penalty ? { penalty: u.penalty } : {}) });
-      } catch { return false; }
-    });
-    // Wait (backing off up to 10 minutes) until the migration reaches this game's last god, however long that takes.
-    if (pending) await ctx.scheduler.runAfter(Math.min(600_000, 20_000 * 2 ** Math.min(attempt, 5)), internal.replays.rebuildAfterMigration, { gameId, attempt: attempt + 1 });
-    else await ctx.scheduler.runAfter(0, internal.replays.build, { gameId });
+    await ctx.scheduler.runAfter(0, internal.replays.build, { gameId });
   },
 });
 

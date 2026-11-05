@@ -3,8 +3,7 @@
  *
  * Typed families (src/params.ts) store a colour param as the colour's name and a symbol param as the glyph the board
  * prints, and declare every param by name and type (`params`); the code below converts a name to the carrier index it
- * works with (`colourAt`, `symbolAt`) where it needs one. Families not yet typed (catalog.ts `UNTYPED_FAMILIES`) still
- * use grid-lab's carrier *indices* (colour index in rainbow order, symbol index = digit, or suit * 13 + rank).
+ * works with (`colourAt`, `symbolAt`) where it needs one.
  */
 import { COLOUR_COMPONENTS, type Constraint, type GridColourSet, type ObjectValue, type Rng } from "@workspace/game-types";
 import type { CardExample, FamilyContext, Ordinal, Params, ScoreShape, UtilityFamily } from "../../types.ts";
@@ -223,13 +222,8 @@ export interface GridFamilyDef<P extends Params> {
   readonly shape: ScoreShape | ((g: GridSpec) => ScoreShape);
   readonly role?: "reward" | "penalty";
   readonly tags?: readonly string[];
-  /** Every param by name and type (src/params.ts); required of every family not in `UNTYPED_FAMILIES`. */
-  readonly params?: (g: GridSpec) => ParamDecls<P>;
-  /**
-   * LEGACY (typed-params migration, widen step): params stored before this family was typed, as today's params, or
-   * null when `p` already has today's shape. Removed when the migration is narrowed.
-   */
-  readonly legacy?: (p: Params, g: GridSpec) => P | null;
+  /** Every param by name and type (src/params.ts). */
+  readonly params: (g: GridSpec) => ParamDecls<P>;
   /** Every param the sampler can return. */
   readonly support: (g: GridSpec) => readonly P[];
   /** Grid-lab's sampling distribution (defaults to uniform over the support). */
@@ -251,9 +245,7 @@ export interface GridFamilyDef<P extends Params> {
 
 export function gridFamily<P extends Params>(d: GridFamilyDef<P>): UtilityFamily<P> {
   const shape = d.shape;
-  // Every method accepts params stored before the family was typed (`legacy`), so old rows keep working until migrated.
-  const up = (p: Params, g: GridSpec): P => (d.legacy ? d.legacy(p, g) ?? p : p) as P;
-  const at = <R>(f: (p: P, g: GridSpec) => R) => (p: P, ctx: FamilyContext): R => { const g = gridSpec(ctx); return f(up(p, g), g); };
+  const at = <R>(f: (p: P, g: GridSpec) => R) => (p: P, ctx: FamilyContext): R => f(p, gridSpec(ctx));
   return {
     id: d.id, name: d.name, emoji: d.emoji, objectType: "Grid", theme: d.theme,
     requires: req(d.requires), role: d.role ?? "reward", tags: d.tags ?? [],
@@ -263,9 +255,8 @@ export function gridFamily<P extends Params>(d: GridFamilyDef<P>): UtilityFamily
     canonical: at((p, g) => (d.canonical ? d.canonical(p, g) : p)),
     summary: at(d.summary),
     card: { python: at(d.python), typescript: at(d.typescript) },
-    ...(d.params ? { params: (ctx: FamilyContext) => resolveParams(d.params!(gridSpec(ctx)), ctx.inst) } : {}),
-    ...(d.legacy ? { upgrade: (p: Params, ctx: FamilyContext) => up(p, gridSpec(ctx)) } : {}),
-    ...(d.exemplar ? { exemplar: (p: P, ctx: FamilyContext) => { const g = gridSpec(ctx); return d.exemplar!(up(p, g), g, ctx); } } : {}),
+    params: (ctx: FamilyContext) => resolveParams(d.params(gridSpec(ctx)), ctx.inst),
+    ...(d.exemplar ? { exemplar: (p: P, ctx: FamilyContext) => d.exemplar!(p, gridSpec(ctx), ctx) } : {}),
     ...(d.needs ? { needs: at((p, g) => req(d.needs!(p, g))) } : {}),
     ...(d.top ? { top: at(d.top) } : {}),
     ...(d.example ? { example: at((p, g): CardExample => {
@@ -273,7 +264,7 @@ export function gridFamily<P extends Params>(d: GridFamilyDef<P>): UtilityFamily
       return { value: wire(g, e.sym, e.col), size: e.sym.length, caption: e.caption };
     }) } : {}),
     ...(d.comparative ? { comparative: at(d.comparative) } : {}),
-    ...(d.analytic ? { analytic: (p: P, ctx: FamilyContext) => { const g = gridSpec(ctx); return d.analytic!(up(p, g), g, ctx); } } : {}),
+    ...(d.analytic ? { analytic: (p: P, ctx: FamilyContext) => d.analytic!(p, gridSpec(ctx), ctx) } : {}),
   };
 }
 

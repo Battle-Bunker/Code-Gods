@@ -202,29 +202,13 @@ export const forgetReplay = internalMutation({
   },
 });
 
-/**
- * Give a game's gods utilities stored before their family was typed (e.g. `{ familyId: "kingdom", params: { C: 0 } }`,
- * one per god in roster order) and cards without typed params, for migrations:typedParamsDeities' test.
- */
-export const legacyUtilities = internalMutation({
+/** Give a game's gods these utilities (one per god in roster order, repeating), as if dealt so. */
+export const dealUtilities = internalMutation({
   args: { gameId: v.id("games"), utilities: v.array(v.any()) },
   handler: async (ctx, { gameId, utilities }) => {
     dev();
     const deities = (await ctx.db.query("deities").withIndex("by_game", q => q.eq("gameId", gameId)).take(16)).sort((a, b) => a.index - b.index);
-    for (const [i, d] of deities.entries()) {
-      const { params: _typed, ...card } = d.card as { params?: unknown };
-      await ctx.db.patch(d._id, { utility: utilities[i % utilities.length], card });
-    }
-  },
-});
-
-/** A game's gods as stored (descriptor and card). */
-export const rawDeities = internalQuery({
-  args: { gameId: v.id("games") },
-  handler: async (ctx, { gameId }) => {
-    dev();
-    return (await ctx.db.query("deities").withIndex("by_game", q => q.eq("gameId", gameId)).take(16)).sort((a, b) => a.index - b.index)
-      .map(d => ({ utility: d.utility, card: d.card }));
+    for (const [i, d] of deities.entries()) await ctx.db.patch(d._id, { utility: utilities[i % utilities.length] });
   },
 });
 

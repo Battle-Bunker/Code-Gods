@@ -1,66 +1,14 @@
 /**
- * Typed params for the Games-kids-know and Geometry families (docs/rules-design.md §9): params stored before these
- * families were typed (`{ X: 0 }`, `{ dir: "rows" }`, `{ suit: null, match: false }`) upgrade to named, typed params
- * and every method reads either shape, so an old row's card is today's card.
+ * Typed params for the Games-kids-know and Geometry families (docs/rules-design.md §9): their cards' constants hold
+ * names and values (a colour name, a target, a suit), never carrier indices.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { instantiate } from "@workspace/game-types";
-import { card, context, upgradeParams } from "../src/index.ts";
+import { card, context } from "../src/index.ts";
 
 const rgb = instantiate("Grid", { size: 5, symbols: "base16", colours: "rainbow6" });
 const deck = instantiate("Grid", { size: 5, symbols: "cards", colours: "rgby" });
-
-const CASES: [family: string, inst: typeof rgb, old: object, now: object][] = [
-  ["rummy_melder", rgb, { dir: "cols" }, { axis: "cols" }],
-  ["othello_sandwich", rgb, { X: 2, diag: true }, { colour: "yellow" }],
-  ["othello_sandwich", rgb, { colour: "blue", diag: false }, { colour: "blue" }],
-  ["sudoku_scholar", rgb, { dir: "both" }, {}],
-  ["sudoku_scholar", rgb, { axis: "rows" }, {}],
-  ["full_house", rgb, { dir: "rows" }, { axis: "rows" }],
-  ["twenty_one", rgb, { T: 38 }, { target: 38 }],
-  ["twenty_one", rgb, { T: 52 }, { target: 41 }],
-  ["twenty_one", rgb, { target: 10 }, { target: 27 }],
-  ["twenty_one", rgb, { T: 8 }, { target: 27 }],
-  ["go_fish_books", rgb, { r: 11 }, { fish: "B" }],
-  ["go_fish_books", deck, { r: 9 }, { fish: "10" }],
-  ["knight_riders", rgb, { X: null }, { colour: "any" }],
-  ["knight_riders", rgb, { X: 3 }, { colour: "green" }],
-  ["court_parade", deck, { suit: null, match: true }, { suit: "spades" }],
-  ["court_parade", deck, { suit: 2, match: false }, { suit: "diamonds" }],
-  ["kings_court", deck, { r: 12 }, { target: "K" }],
-  ["connect_four", rgb, { X: 5 }, { colour: "violet" }],
-  ["castle_keeper", rgb, { W: 1, mode: "treasure", T: 4 }, { wall: "orange" }],
-  ["castle_keeper", rgb, { W: 0, mode: "plain", T: null }, { wall: "red" }],
-  ["bridge_builder", rgb, { C: 2, D: "TB" }, { colour: "yellow", direction: "TB" }],
-  ["royal_court", deck, { suit: null }, { suit: "spades" }],
-  ["royal_court", deck, { suit: "any" }, { suit: "spades" }],
-  ["royal_court", deck, { suit: 3 }, { suit: "clubs" }],
-  ["archipelago", rgb, { C: 1 }, { colour: "orange" }],
-  ["pinwheel", rgb, { attr: "symbol" }, {}],
-  ["pinwheel", rgb, { layer: "colour" }, {}],
-  ["snake_charmer", rgb, { C: 4 }, { colour: "blue" }],
-  ["tetromino_tamer", rgb, { C: 0, P: "L" }, { colour: "red" }],
-  ["looking_glass", rgb, { axis: "D", layer: "colour" }, { axis: "V" }],
-  ["looking_glass", rgb, { axis: "A", layer: "symbol" }, { axis: "H" }],
-  ["rainbow_bands", rgb, { K: "BR" }, { corner: "BR" }],
-  ["constellation", rgb, { S: 15 }, { star: "F" }],
-  ["colour_carousel", rgb, { dir: "ccw" }, { direction: "ccw" }],
-  ["gravity", rgb, { X: 2 }, { colour: "yellow" }],
-  ["swiss_cheese", rgb, { X: 3 }, { colour: "green" }],
-  ["treasure_map", rgb, { X: 5 }, { colour: "violet" }],
-];
-
-test("legacy params of the Games and Geometry families upgrade to named, typed params, idempotently", () => {
-  for (const [id, inst, old, now] of CASES) {
-    assert.deepEqual(upgradeParams(id, old as never, inst), now, `${id} ${JSON.stringify(old)}`);
-    assert.deepEqual(upgradeParams(id, now as never, inst), now, `${id}: today's params are left alone`);
-    // The widen step: the old row's card is today's card, constants and programs included.
-    const a = card({ familyId: id, params: old as never }, context(inst)), b = card({ familyId: id, params: now as never }, context(inst));
-    assert.deepEqual(a.summary, b.summary, id);
-    assert.deepEqual(a.source, b.source, id);
-  }
-});
 
 test("the card constants of the retyped families still hold names and values, not indices", () => {
   const consts = (id: string, params: object, inst = rgb) => card({ familyId: id, params: params as never }, context(inst)).source.python;

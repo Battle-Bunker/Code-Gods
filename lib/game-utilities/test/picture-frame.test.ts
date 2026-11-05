@@ -58,10 +58,3 @@ test("the lens explains each cell: +1 right colour, +1 right symbol, +4 both, an
   assert.match(title(1, 1), /−4 both/);
   assert.match(title(1, 2), /−1 right colour/);
 });
-
-test("legacy params (before the symbol was dealt) read as today's", () => {
-  const f = family("picture_frame"), ctx = context(rgb);
-  assert.deepEqual(f.upgrade!({ X: 1 }, ctx), { colour: "green", symbol: "0" });
-  assert.deepEqual(f.upgrade!({ colour: "blue" }, ctx), { colour: "blue", symbol: "0" });
-  assert.deepEqual(f.upgrade!({ colour: "blue", symbol: "4" }, ctx), { colour: "blue", symbol: "4" });
-});

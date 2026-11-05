@@ -51,7 +51,6 @@ const rummyMelder = gridFamily<RummyP>({
   id: "rummy_melder", name: "Rummy Melder", emoji: "🃏", theme: "Sets and runs, like rummy",
   requires: { classes: ["Valued", "Ranked"], minColours: 3 }, shape: tuple(2), tags: ["shortlist"],
   params: () => ({ axis: choiceParam("Lines to look along", LINE_OPTIONS) }),
-  legacy: p => (typeof p.dir === "string" ? { axis: p.dir as RummyP["axis"] } : null),
   support: () => [{ axis: "rows" }, { axis: "cols" }],
   canonical: () => ({ axis: "rows" }),
   summary: (p, g) => rummyText(p, g).about,
@@ -145,8 +144,6 @@ const othello = gridFamily<SandP>({
   shape: SCALAR, tags: ["shortlist"],
   params: () => ({ colour: colourParam("Sandwiching colour") }),
   // LEGACY: `{ X, diag }` (indices, before typing) and `{ colour, diag }` (before the geometry was fixed) read as today's rule.
-  legacy: (p, g) => (typeof p.X === "number" || "diag" in p
-    ? { colour: typeof p.X === "number" ? g.colourNames[p.X] : (p.colour as string) } : null),
   support: g => g.colourNames.map(colour => ({ colour })),
   sample: (rng, g) => ({ colour: g.colourNames[rng.int(g.C)] }),
   canonical: (p, g) => recolourNames(g, p, ["colour"]),
@@ -218,7 +215,6 @@ const minesweeper = gridFamily<MineP>({
   id: "honest_minesweeper", name: "Honest Minesweeper", emoji: "💣", theme: "Numbers that count the mines around them",
   requires: { classes: ["Valued"] }, shape: SCALAR, tags: ["shortlist"],
   params: () => ({ mine: colourParam("Mine colour") }),
-  legacy: (p, g) => (typeof p.X === "number" ? { mine: g.colourNames[p.X] } : null),
   support: g => g.colourNames.map(mine => ({ mine })),
   canonical: (p, g) => recolourNames(g, p, ["mine"]),
   summary: (p, g) => mineText(p, g).about,
@@ -288,7 +284,6 @@ const bingoCaller = gridFamily<BingoP>({
   shape: SCALAR, tags: ["shortlist"],
   params: g => ({ called: setParam(g.cards ? "Called ranks (any suit)" : "Called numbers", calledCount(g), rankOptions(g)) }),
   // LEGACY (typed-params widen step): ranks stored as indices.
-  legacy: (p, g) => (Array.isArray(p.called) && typeof p.called[0] === "number" ? { called: (p.called as number[]).map(r => rankName(g, r)) } : null),
   support: g => [...combinations(g.ranks, calledCount(g))].map(called => ({ called: called.map(r => rankName(g, r)) })),
   sample: (rng, g) => ({ called: choose(rng, range(g.ranks), calledCount(g)).sort((a, b) => a - b).map(r => rankName(g, r)) }),
   canonical: (p, g) => ({ called: range(p.called.length).map(r => rankName(g, r)) }),
@@ -348,7 +343,6 @@ const sudoku = gridFamily<SudokuP>({
   id: "sudoku_scholar", name: "Sudoku Scholar", emoji: "🔢", theme: "No number twice in a line",
   params: () => ({}),
   // LEGACY: `{ dir }` (before typing) and `{ axis }` (rows | cols | both, before the geometry was fixed) read as today's rule.
-  legacy: p => ("dir" in p || "axis" in p ? {} : null),
   // All or nothing at N <= 4: grid-lab pads the tuple with a constant 0, the card returns 0 or 1.
   shape: g => (g.N <= 4 ? SCALAR : tuple(2)), tags: ["shortlist"],
   support: () => [{}],
@@ -436,7 +430,6 @@ const fullHouse = gridFamily<HouseP>({
   id: "full_house", name: "Full House", emoji: "🏠", theme: "Rows read like poker hands",
   analytic: solvedAnalytic("full_house"),
   params: () => ({ axis: choiceParam("Lines to read", LINE_OPTIONS) }),
-  legacy: p => (typeof p.dir === "string" ? { axis: p.dir as HouseP["axis"] } : null),
   shape: SCALAR, tags: ["shortlist"],
   support: () => [{ axis: "rows" }, { axis: "cols" }],
   canonical: () => ({ axis: "rows" }),
@@ -569,11 +562,6 @@ const twentyOne = gridFamily<TwentyP>({
   requires: { classes: ["Valued"] }, shape: SCALAR,
   params: g => ({ target: intParam("Target total", targets(g)[0], targets(g)[targets(g).length - 1]) }),
   // LEGACY: `{ T }` (before typing), and a target outside the band of peers reads as the nearest target of the band.
-  legacy: (p, g) => {
-    const old = typeof p.T === "number" ? p.T : (p.target as number), band = targets(g);
-    if (typeof p.T !== "number" && band.includes(old)) return null;
-    return { target: band.reduce((best, t) => (Math.abs(t - old) < Math.abs(best - old) ? t : best)) };
-  },
   support: g => targets(g).map(target => ({ target })),
   summary: (p, g) => twentyText(p, g).about,
   python: (p, g) => pyCard(twentyText(p, g), `
@@ -631,7 +619,6 @@ const fishText = (p: FishP, g: GridSpec): CardText => {
 const goFish = gridFamily<FishP>({
   id: "go_fish_books", name: "Go Fish Books", emoji: "🐟", theme: "2×2 blocks of your fish", shape: tuple(2),
   params: g => ({ fish: choiceParam("Your fish", rankOptions(g)) }),
-  legacy: (p, g) => (typeof p.r === "number" ? { fish: rankName(g, p.r) } : null),
   support: g => range(g.ranks).map(r => ({ fish: rankName(g, r) })),
   canonical: (_, g) => ({ fish: rankName(g, 0) }),
   summary: (p, g) => fishText(p, g).about,
@@ -701,7 +688,6 @@ const setSpotter = gridFamily<SetP>({
   requires: { classes: ["Valued"], minColours: 3 }, shape: SCALAR,
   params: () => ({}),
   // LEGACY (equal-opportunity fix): `{ diag }` from before the geometry was fixed reads as today's rule.
-  legacy: p => ("diag" in p ? {} : null),
   support: () => [{}],
   summary: (p, g) => setText(p, g).about,
   python: (p, g) => pyCard(setText(p, g), `
@@ -754,7 +740,6 @@ const knightText = (p: KnightP, g: GridSpec): CardText => ({
 const knightRiders = gridFamily<KnightP>({
   id: "knight_riders", name: "Knight Riders", emoji: "🐴", theme: "Twins a knight's jump apart", shape: SCALAR,
   params: g => ({ colour: choiceParam("Twins' colour", colourOrNone(g, ["any", "any colour"])) }),
-  legacy: (p, g) => (p.X === null || typeof p.X === "number" ? { colour: p.X === null ? "any" : g.colourNames[p.X] } : null),
   support: g => ["any", ...g.colourNames].map(colour => ({ colour })),
   sample: (rng, g) => ({ colour: chance(rng, 1, 2) ? g.colourNames[rng.int(g.C)] : "any" }),
   canonical: (p, g) => recolourSome(g, p, ["colour"]),
@@ -872,11 +857,6 @@ const courtParade = gridFamily<ParadeP>({
   params: () => ({ suit: choiceParam("Suit of the parade", suitOptions()) }),
   // LEGACY: `{ suit: index | null, match }` (before typing) and `{ suit: name | "any", one_colour }` (before the options were
   // fixed) read as the named suit ("any" as the first suit) with the parade always in one colour.
-  legacy: p => {
-    if (!("match" in p) && !("one_colour" in p) && p.suit !== "any") return null;
-    const s = p.suit;
-    return { suit: typeof s === "number" ? SUIT_NAMES[s] : typeof s === "string" && s !== "any" ? s : SUIT_NAMES[0] };
-  },
   support: () => SUIT_NAMES.map(suit => ({ suit })),
   sample: rng => ({ suit: SUIT_NAMES[rng.int(4)] }),
   canonical: () => ({ suit: SUIT_NAMES[0] }),
@@ -945,7 +925,6 @@ const kingsCourt = gridFamily<CourtRankP>({
   id: "kings_court", name: "King's Court", emoji: "🤴", theme: "Your symbol surrounded by every other colour",
   shape: SCALAR,
   params: g => ({ target: choiceParam("Your target", rankOptions(g)) }),
-  legacy: (p, g) => (typeof p.r === "number" ? { target: rankName(g, p.r) } : null),
   support: g => range(g.ranks).map(r => ({ target: rankName(g, r) })),
   canonical: (_, g) => ({ target: rankName(g, 0) }),
   summary: (p, g) => kingsText(p, g).about,
@@ -990,7 +969,6 @@ const connectFour = gridFamily<FourP>({
   analytic: solvedAnalytic("connect_four"),
   requires: { minSize: 4 }, shape: tuple(2),
   params: () => ({ colour: colourParam("Your counters") }),
-  legacy: (p, g) => (typeof p.X === "number" ? { colour: g.colourNames[p.X] } : null),
   support: g => g.colourNames.map(colour => ({ colour })),
   canonical: (p, g) => recolourNames(g, p, ["colour"]),
   summary: (p, g) => fourText(p, g).about,

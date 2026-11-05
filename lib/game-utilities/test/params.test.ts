@@ -7,7 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { COLOUR_COMPONENTS, SYMBOL_COMPONENTS, instantiate } from "@workspace/game-types";
 import {
-  FAMILIES, LENSES, UNTYPED_FAMILIES, card, context, family, paramOptions, paramsInDomain, upgradeDescriptor, upgradeParams,
+  FAMILIES, card, context, family, paramOptions, paramsInDomain,
 } from "../src/index.ts";
 import { allGrids, familiesOf, intInsts, stringInsts } from "./support.ts";
 
@@ -38,8 +38,6 @@ test("every typed family × every shape: named params, exact domains, support in
   for (const inst of [...allGrids(), ...intInsts(), ...stringInsts()]) {
     const ctx = context(inst);
     for (const f of familiesOf(inst)) {
-      if (UNTYPED_FAMILIES.has(f.id)) { assert.equal(f.params, undefined, `${f.id} is listed untyped but declares params`); continue; }
-      assert.ok(f.params, `${f.id}: declares no params (type them, or list it in UNTYPED_FAMILIES)`);
       const fields = f.params(ctx), where = `${f.id} ${inst.key}`;
       for (const field of fields) {
         // Names say what the param is: a word, never a letter (X, T, C).
@@ -57,15 +55,9 @@ test("every typed family × every shape: named params, exact domains, support in
         for (const x of fields.filter(y => y.kind === "colour" || y.kind === "symbol")) {
           assert.ok(x.options.some(o => o.value === canon[x.key]), `${where}: canonical ${x.key} ${String(canon[x.key])} is not one of the shape's`);
         }
-        assert.deepEqual(upgradeParams(f.id, p, inst), p, `${where}: today's params upgrade to themselves`);
       }
     }
   }
-});
-
-test("the annotated families (every lens) and the defence goals are typed", () => {
-  for (const l of LENSES) assert.ok(!UNTYPED_FAMILIES.has(l.familyId) && family(l.familyId).params, l.familyId);
-  for (const f of FAMILIES.filter(x => x.objectType === "Grid" && x.role === "penalty")) assert.ok(!UNTYPED_FAMILIES.has(f.id), f.id);
 });
 
 test("goal cards carry the typed params with how each value reads", () => {
@@ -76,46 +68,11 @@ test("goal cards carry the typed params with how each value reads", () => {
   assert.deepEqual(withGoal.penalty?.params, [{ key: "colour", label: "Hated colour", kind: "colour", value: "blue", text: "blue" }]);
 });
 
-test("legacy params (stored before typing) upgrade to today's shape, idempotently", () => {
-  const cases: [string, object, object][] = [
-    ["picture_frame", { X: 1 }, { colour: "green", symbol: "0" }],
-    ["kingdom", { C: 2 }, { colour: "blue" }],
-    ["honest_minesweeper", { X: 0 }, { mine: "red" }],
-    ["chessmaster", { A: 2, B: 0 }, { colour_a: "blue", colour_b: "red" }],
-    ["parity_painter", { P: 0, Q: 1, key: "parity" }, { even_or_red: "red", odd_or_black: "green", split: "parity" }],
-    ["magic_accountant", { axis: "rows", T: 18 }, { axis: "rows", target: 18 }],
-    ["magic_accountant", { axis: "both", target: 18 }, { axis: "rows", target: 18 }],
-    ["hate_colour", { colour: 1 }, { colour: "green" }],
-    ["feuding_families", { X: 0, Y: 1 }, { first_family: "red", second_family: "green" }],
-    ["flag_bearer", { C: 2, axis: "cols" }, { colour: "blue", axis: "cols" }],
-    ["colour_by_number", { t: 1 }, { shift: 1 }],
-    ["wallpaper_weaver", { p: 2, dir: "down" }, { direction: "down" }],
-    ["wallpaper_weaver", { steps: 3, direction: "right" }, { direction: "right" }],
-    ["rainbow_road", { dir: "↓" }, { direction: "↓" }],
-    ["border_baron", { K: 4 }, {}],
-    ["conqueror", { A: 0, B: 2, weight: "value" }, { colour: "red", enemy_colour: "blue" }],
-    ["rooks_watch", { S: 7, X: 1 }, { symbol: "7", colour: "green" }],
-  ];
-  for (const [id, old, now] of cases) {
-    assert.deepEqual(upgradeParams(id, old as never, rgb), now, id);
-    assert.deepEqual(upgradeParams(id, now as never, rgb), now, `${id}: idempotent`);
-    // Every method reads either shape (the widen step): the old row's card is today's card.
-    assert.deepEqual(card({ familyId: id === "hate_colour" ? "kingdom" : id, params: (id === "hate_colour" ? { C: 0 } : old) as never }, context(rgb)).summary,
-      card({ familyId: id === "hate_colour" ? "kingdom" : id, params: (id === "hate_colour" ? { colour: "red" } : now) as never }, context(rgb)).summary, id);
-  }
-  const int = instantiate("Int", {}), str = instantiate("string", { maxLength: 16 });
-  assert.deepEqual(upgradeParams("digit-devotee", { d: 7 }, int), { digit: 7 });
-  assert.deepEqual(upgradeParams("power-hoarder", { p: 5 }, int), { prime: 5 });
-  assert.deepEqual(upgradeParams("glyph-glutton", { c: "q" }, str), { char: "q" });
-  assert.deepEqual(upgradeParams("palette-keeper", { colours: 4 }, str), {}); // the count was fixed (P10)
-  // A set param: Bingo Caller's called ranks, stored by name in rank order (was rank indices).
-  assert.deepEqual(upgradeParams("bingo_caller", { called: [0, 4, 9, 12] }, cards), { called: ["A", "5", "10", "K"] });
-  const bingo = family("bingo_caller").params!(context(b12))[0];
+test("a set param: Bingo Caller's called ranks, by name in rank order, no repeats", () => {
+  const bingo = family("bingo_caller").params(context(b12))[0];
   assert.equal(bingo.kind, "set");
   assert.equal(bingo.size, 4);
   assert.equal(paramsInDomain([bingo], { called: ["0", "3", "A", "B"] }), true);
   assert.equal(paramsInDomain([bingo], { called: ["3", "0", "A", "B"] }), false, "out of order");
   assert.equal(paramsInDomain([bingo], { called: ["0", "0", "A", "B"] }), false, "repeated");
-  assert.deepEqual(upgradeDescriptor({ familyId: "kingdom", params: { C: 0 }, penalty: { familyId: "hate_colour", params: { colour: 2 } } }, rgb),
-    { familyId: "kingdom", params: { colour: "red" }, penalty: { familyId: "hate_colour", params: { colour: "blue" } } });
 });

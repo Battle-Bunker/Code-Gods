@@ -26,12 +26,6 @@ export function family(id: string): UtilityFamily<any> {
   return found;
 }
 
-/**
- * Families whose params are not yet declared by name and type (src/params.ts). Empty since 2026-11-04 (every family
- * is typed, docs/rules-design.md §9) and it stays empty: test/params.test.ts requires every family to declare `params`.
- */
-export const UNTYPED_FAMILIES: ReadonlySet<string> = new Set<string>([]);
-
 /** Families of one object type, optionally of one role. */
 export const familiesFor = (objectType: string, role?: "reward" | "penalty") =>
   FAMILIES.filter(f => f.objectType === objectType && (role === undefined || f.role === role));
@@ -60,29 +54,10 @@ export function applicable(f: UtilityFamily<any>, inst: Instantiation, params?: 
 /** Whether a family can be dealt in this instantiation at all: `applicable` without params. */
 export const available = (f: UtilityFamily<any>, inst: Instantiation): Resolution => applicable(f, inst);
 
-/**
- * A draw's params in today's shape. LEGACY (typed-params widen step): params stored before the family was typed are
- * rewritten (`UtilityFamily.upgrade`); today's come back unchanged. Used by the migration and by readers that hand
- * params to code outside the family (lenses). Removed with `upgrade` when the migration is narrowed.
- */
-export function upgradeParams(familyId: string, params: Params, inst: Instantiation): Params {
-  const f = family(familyId);
-  return f.upgrade ? f.upgrade(params, context(inst)) : params;
-}
-/** A descriptor (utility and defence goal) with today's params (see `upgradeParams`). */
-export function upgradeDescriptor(d: UtilityDescriptor, inst: Instantiation): UtilityDescriptor {
-  return {
-    familyId: d.familyId, params: upgradeParams(d.familyId, d.params, inst),
-    ...(d.penalty ? { penalty: { familyId: d.penalty.familyId, params: upgradeParams(d.penalty.familyId, d.penalty.params, inst) } } : {}),
-  };
-}
-
 /** The dealt params of a typed family as a goal card shows them (name, label, type, value and how it reads). */
-export function cardParams(f: UtilityFamily<any>, params: Params, ctx: FamilyContext): CardParam[] | undefined {
-  if (!f.params) return undefined;
-  const p = f.upgrade ? f.upgrade(params, ctx) : params;
+export function cardParams(f: UtilityFamily<any>, params: Params, ctx: FamilyContext): CardParam[] {
   return f.params(ctx).map(field => ({
-    key: field.key, label: field.label, kind: field.kind, value: p[field.key] as ParamJson, text: paramLabel(field, p[field.key]),
+    key: field.key, label: field.label, kind: field.kind, value: params[field.key] as ParamJson, text: paramLabel(field, params[field.key]),
   }));
 }
 
@@ -149,11 +124,11 @@ export function card(descriptor: UtilityDescriptor, ctx: FamilyContext): Utility
     familyId: f.id, emoji: f.emoji, name: f.name, theme: f.theme, summary: f.summary(p, ctx), shape: f.shape(ctx),
     source: { python: f.card.python(p, ctx), typescript: f.card.typescript(p, ctx) },
     ...(f.example ? { example: f.example(p, ctx) } : {}),
-    ...(typed ? { params: typed } : {}),
+    params: typed,
     ...(pen && pf ? {
       penalty: {
         familyId: pf.id, emoji: pf.emoji, name: pf.name, summary: pf.summary(pen.params, ctx),
-        ...(pf.params ? { params: cardParams(pf, pen.params, ctx)! } : {}),
+        params: cardParams(pf, pen.params, ctx),
         comparative: pf.comparative?.(pen.params, ctx) ?? "worse", shape: pf.shape(ctx),
         source: { python: pf.card.python(pen.params, ctx), typescript: pf.card.typescript(pen.params, ctx) },
       },

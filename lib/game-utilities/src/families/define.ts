@@ -44,9 +44,7 @@ export interface FamilyDef<P extends Params, S> {
   readonly role?: "reward" | "penalty";
   readonly tags?: readonly string[];
   /** Every param by name and type (src/params.ts). */
-  readonly params?: (s: S) => ParamDecls<P>;
-  /** LEGACY (typed-params widen step): params stored before the family was typed, as today's, or null when already today's. */
-  readonly legacy?: (p: Params, s: S) => P | null;
+  readonly params: (s: S) => ParamDecls<P>;
   readonly support: (s: S) => readonly P[];
   /** Defaults to uniform over the support. */
   readonly sample?: (rng: Rng, s: S) => P;
@@ -61,9 +59,7 @@ export interface FamilyDef<P extends Params, S> {
 
 export function defineFamilies<S>(objectType: string, spec: (ctx: FamilyContext) => S) {
   return <P extends Params>(d: FamilyDef<P, S>): UtilityFamily<P> => {
-    // Every method accepts params stored before the family was typed (`legacy`), so old rows keep working until migrated.
-    const up = (p: Params, s: S): P => (d.legacy ? d.legacy(p, s) ?? p : p) as P;
-    const at = <R>(f: (p: P, s: S) => R) => (p: P, ctx: FamilyContext): R => { const s = spec(ctx); return f(up(p, s), s); };
+    const at = <R>(f: (p: P, s: S) => R) => (p: P, ctx: FamilyContext): R => f(p, spec(ctx));
     return {
       id: d.id, name: d.name, emoji: d.emoji, objectType, theme: d.theme,
       requires: d.requires ?? [], role: d.role ?? "reward", tags: d.tags ?? [],
@@ -73,10 +69,9 @@ export function defineFamilies<S>(objectType: string, spec: (ctx: FamilyContext)
       canonical: at((p, s) => (d.canonical ? d.canonical(p, s) : p)),
       summary: at(d.summary),
       card: { python: at(d.python), typescript: at(d.typescript) },
-      ...(d.params ? { params: (ctx: FamilyContext) => resolveParams(d.params!(spec(ctx)), ctx.inst) } : {}),
-      ...(d.legacy ? { upgrade: (p: Params, ctx: FamilyContext) => up(p, spec(ctx)) } : {}),
-      ...(d.exemplar ? { exemplar: (p: P, ctx: FamilyContext) => { const s = spec(ctx); return d.exemplar!(up(p, s), s, ctx); } } : {}),
-      ...(d.analytic ? { analytic: (p: P, ctx: FamilyContext) => { const s = spec(ctx); return d.analytic!(up(p, s), s, ctx); } } : {}),
+      params: (ctx: FamilyContext) => resolveParams(d.params(spec(ctx)), ctx.inst),
+      ...(d.exemplar ? { exemplar: (p: P, ctx: FamilyContext) => d.exemplar!(p, spec(ctx), ctx) } : {}),
+      ...(d.analytic ? { analytic: (p: P, ctx: FamilyContext) => d.analytic!(p, spec(ctx), ctx) } : {}),
     };
   };
 }

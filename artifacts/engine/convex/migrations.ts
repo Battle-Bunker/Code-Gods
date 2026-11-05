@@ -27,29 +27,13 @@
  *  - (agentPricesV2 and powerV1*, 2026-11-05, docs/energy-model.md §6, §9: the legacy agent prices lost their decision and
  *    floor parts, and agents, deities and stored settings got the power budget's fields. Retired, and the agents and
  *    deities validators narrowed, once dev and production reported them done.)
- *  - typedParams* (2026-11-03, docs/rules-design.md §9): families that now declare named, typed params store them as
- *    such (`{ X: 0 }` became `{ colour: "red" }`, game-utilities `upgradeDescriptor`). typedParamsDeities rewrites a
- *    dealt god's descriptor (`deities.utility`, utility and defence goal) and adds the typed params to its stored card
- *    (`deities.card.params`; the card's text is kept as dealt); when that god's game has ended with a stored replay
- *    file (which embeds the descriptors), the file is dropped and rebuilt (replays.ts rebuildAfterMigration).
- *    typedParamsPreparing rewrites the fixed deal of a room waiting for calibration (`rooms.preparing.deals`).
- *    Narrowed later (no schema change: both are v.any()): game-utilities' `upgrade`/`legacy` readers go.
+ *  - (typedParams*, pictureFrameSymbol*, setSpotterGeometry*, equalOpportunity*, 2026-11-03..04, docs/rules-design.md
+ *    §9 and P10: rewrote stored draws to named, typed peer params. Retired, and game-utilities' legacy readers removed,
+ *    once dev and production reported them done.)
  *  - backfillObjectTimes (objects; 2026-11-03, the Objects panel's public sorts): an object gets `createdAt` and
  *    `lastMutatedAt` (world seconds) from its objectEvents rows; its mutation count is its `version`. Narrowed later:
  *    `createdAt` becomes required and the `?? 0` fallbacks go (lib/projection.ts personalObject), once dev and
  *    production report it done.
- *  - pictureFrameSymbol* (2026-11-03): Picture Frame's redesign deals a symbol too; the same two rewrites again, for
- *    rows the typedParams* steps already left as `{ colour }` (deployments that ran them before the redesign).
- *  - typedParamsIntString* (2026-11-03): the Int and string families typed; the same rewrites for their stored draws.
- *  - typedParamsGames* (2026-11-03): the games.ts and geometry.ts families typed; the same rewrites for their stored draws.
- *  - typedParamsArithmetic* (2026-11-03): the arithmetic.ts and seeds.ts families typed; the same rewrites for their stored draws.
- *  - equalOpportunity<Group>* (2026-11-04, rules-design.md P10): families whose params made unequal rules keep only
- *    peer values; a stored draw of a removed value reads as its nearest peer (the family's `legacy`), rewritten by the
- *    same typedDeity / typedPreparing.
- *  - setSpotterGeometry* (2026-11-04, rules-design.md P10): Set Spotter's `diag` param is gone (diagonals always count);
- *    stored `{ diag }` draws become `{}` through the same rewrites.
- *  - typedParamsBingo* (2026-11-03): Bingo Caller typed (a set param); the same rewrites for its stored draws.
- *  - typedParamsColour* (2026-11-03): the colour.ts and strategy.ts families typed; the same rewrites for their stored draws.
  *  - assistant modes (2026-11-03, per-action approvals removed; assistant/mode.ts): assistantModeFromCredentials gives a
  *    player who had chosen "Only look" (a live read assistant credential in a room) the Read-only mode there;
  *    assistantPrefsMode gives every other prefs row On request and clears `autoApproveSummonBits`;
@@ -83,8 +67,7 @@
  * A room with a game in progress is left alone (names never change mid-game); a later deploy renames it.
  */
 import { v } from "convex/values";
-import { instantiationOf, type GameSettings } from "@workspace/game-core";
-import { cardParams, context, family, paramsKey, upgradeDescriptor, type UtilityDescriptor } from "@workspace/game-utilities";
+import type { GameSettings } from "@workspace/game-core";
 import type { Doc } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { internalAction, internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
@@ -161,80 +144,6 @@ export const aiQuotas = migrations.define({
   },
 });
 
-/** A stored descriptor with today's params, or null when it already has them (or cannot be read on this game's board). */
-function typedDescriptor(utility: unknown, settings: unknown): UtilityDescriptor | null {
-  const d = utility as UtilityDescriptor | null;
-  if (!d || typeof d.familyId !== "string" || !d.params) return null;
-  let inst, next;
-  // A row this cannot read (a retired family, a malformed descriptor) is left as it is rather than failing the deploy.
-  try { inst = instantiationOf(settings as GameSettings); next = upgradeDescriptor(d, inst); } catch { return null; }
-  return paramsKey(next) === paramsKey({ familyId: d.familyId, params: d.params, ...(d.penalty ? { penalty: d.penalty } : {}) }) ? null : next;
-}
-
-/** A god's stored descriptor (and card) with today's params; its game's replay file rebuilt when it changes. */
-async function typedDeity(ctx: MutationCtx, deity: Doc<"deities">): Promise<void> {
-  const game = await ctx.db.get(deity.gameId);
-  if (!game) return;
-  const utility = typedDescriptor(deity.utility, game.settings);
-  if (!utility) return;
-  const ctx2 = context(instantiationOf(game.settings as GameSettings));
-  const stored = deity.card as { penalty?: object } | null, typed = cardParams(family(utility.familyId), utility.params, ctx2);
-  const penaltyTyped = utility.penalty && stored?.penalty ? cardParams(family(utility.penalty.familyId), utility.penalty.params, ctx2) : undefined;
-  await ctx.db.patch(deity._id, { utility, card: {
-    ...stored, ...(typed ? { params: typed } : {}),
-    ...(penaltyTyped && stored?.penalty ? { penalty: { ...stored.penalty, params: penaltyTyped } } : {}),
-  } });
-  // The stored replay embeds the old descriptor: drop it and build it again once this game's gods are migrated.
-  if (game.phase === "ended" && game.replayStorageId) {
-    await ctx.storage.delete(game.replayStorageId);
-    await ctx.db.patch(game._id, { replayStorageId: undefined });
-    await ctx.scheduler.runAfter(5_000 + Math.floor(Math.random() * 5_000), internal.replays.rebuildAfterMigration, { gameId: game._id });
-  }
-}
-
-export const typedParamsDeities = migrations.define({ table: "deities", migrateOne: typedDeity });
-
-/**
- * Picture Frame's redesign (2026-11-03) added a dealt symbol: the same rewrite again, for rows typedParams* already
- * migrated to `{ colour }` (they read with the first symbol, game-utilities picture_frame `legacy`).
- */
-export const pictureFrameSymbolDeities = migrations.define({ table: "deities", migrateOne: typedDeity });
-
-function typedPreparing(_ctx: MutationCtx, room: Doc<"rooms">) {
-  if (!room.preparing) return;
-  const deals = room.preparing.deals.map(d => ({ godId: d.godId, utility: typedDescriptor(d.utility, room.settings) ?? d.utility }));
-  if (deals.every((d, i) => d.utility === room.preparing!.deals[i].utility)) return;
-  return { preparing: { ...room.preparing, deals } };
-}
-export const typedParamsPreparing = migrations.define({ table: "rooms", migrateOne: typedPreparing });
-/** PR 5 (Int and string families typed): the same two rewrites for their stored draws (`{ d: 7 }` → `{ digit: 7 }` …). */
-export const typedParamsIntStringDeities = migrations.define({ table: "deities", migrateOne: typedDeity });
-export const typedParamsIntStringPreparing = migrations.define({ table: "rooms", migrateOne: typedPreparing });
-/** PR 5 (games.ts and geometry.ts families typed): the same two rewrites for their stored draws. */
-export const typedParamsGamesDeities = migrations.define({ table: "deities", migrateOne: typedDeity });
-export const typedParamsGamesPreparing = migrations.define({ table: "rooms", migrateOne: typedPreparing });
-/** PR 5 (colour.ts and strategy.ts families typed): the same two rewrites for their stored draws. */
-export const typedParamsColourDeities = migrations.define({ table: "deities", migrateOne: typedDeity });
-export const typedParamsColourPreparing = migrations.define({ table: "rooms", migrateOne: typedPreparing });
-/** PR 5 (arithmetic.ts and seeds.ts families typed): the same two rewrites for their stored draws. */
-export const typedParamsArithmeticDeities = migrations.define({ table: "deities", migrateOne: typedDeity });
-export const typedParamsArithmeticPreparing = migrations.define({ table: "rooms", migrateOne: typedPreparing });
-/** PR 5 (Bingo Caller typed: its called ranks by name): the same two rewrites for its stored draws. */
-export const typedParamsBingoDeities = migrations.define({ table: "deities", migrateOne: typedDeity });
-export const typedParamsBingoPreparing = migrations.define({ table: "rooms", migrateOne: typedPreparing });
-/** Set Spotter's one geometry (equal opportunity, rules-design.md P10): `{ diag }` draws become `{}`. */
-export const setSpotterGeometryDeities = migrations.define({ table: "deities", migrateOne: typedDeity });
-export const setSpotterGeometryPreparing = migrations.define({ table: "rooms", migrateOne: typedPreparing });
-/** Equal opportunity (P10), games.ts and geometry.ts: draws of a removed param class read as their nearest peer. */
-export const equalOpportunityGamesDeities = migrations.define({ table: "deities", migrateOne: typedDeity });
-export const equalOpportunityGamesPreparing = migrations.define({ table: "rooms", migrateOne: typedPreparing });
-/** Equal opportunity (P10), arithmetic.ts, colour.ts and strategy.ts. */
-export const equalOpportunityArithmeticDeities = migrations.define({ table: "deities", migrateOne: typedDeity });
-export const equalOpportunityArithmeticPreparing = migrations.define({ table: "rooms", migrateOne: typedPreparing });
-export const pictureFrameSymbolPreparing = migrations.define({ table: "rooms", migrateOne: typedPreparing });
-/** Equal opportunity (P10), the Int and string families (int.ts, string.ts). */
-export const equalOpportunityIntStringDeities = migrations.define({ table: "deities", migrateOne: typedDeity });
-export const equalOpportunityIntStringPreparing = migrations.define({ table: "rooms", migrateOne: typedPreparing });
 
 export const backfillObjectTimes = migrations.define({
   table: "objects",
@@ -308,19 +217,8 @@ export const backfillObjectViews = migrations.define({
 const RUN_ALL: FunctionReference<"mutation", "internal">[] = [internal.migrations.dropHaskellFromSetups, internal.migrations.dropHaskellFromRooms,
   internal.migrations.dropHaskellFromGames, internal.migrations.dropHaskellBundle, internal.migrations.dropHaskellCompiledPrograms,
   internal.migrations.backfillReplays, internal.migrations.backfillStandings, internal.migrations.aiQuotas,
-  internal.migrations.typedParamsDeities, internal.migrations.typedParamsPreparing,
-  internal.migrations.backfillObjectTimes, internal.migrations.pictureFrameSymbolDeities, internal.migrations.pictureFrameSymbolPreparing,
-  internal.migrations.typedParamsIntStringDeities, internal.migrations.typedParamsIntStringPreparing,
-  internal.migrations.typedParamsGamesDeities, internal.migrations.typedParamsGamesPreparing,
-  internal.migrations.typedParamsColourDeities, internal.migrations.typedParamsColourPreparing,
-  internal.migrations.typedParamsArithmeticDeities, internal.migrations.typedParamsArithmeticPreparing,
-  internal.migrations.typedParamsBingoDeities, internal.migrations.typedParamsBingoPreparing,
-  internal.migrations.setSpotterGeometryDeities, internal.migrations.setSpotterGeometryPreparing,
-  internal.migrations.equalOpportunityGamesDeities, internal.migrations.equalOpportunityGamesPreparing,
-  internal.migrations.equalOpportunityArithmeticDeities, internal.migrations.equalOpportunityArithmeticPreparing,
-  internal.migrations.assistantModeFromCredentials, internal.migrations.assistantPrefsMode, internal.migrations.assistantNoApprovalsTurns,
+  internal.migrations.backfillObjectTimes, internal.migrations.assistantModeFromCredentials, internal.migrations.assistantPrefsMode, internal.migrations.assistantNoApprovalsTurns,
   internal.migrations.assistantNoApprovalsCalls,
-  internal.migrations.equalOpportunityIntStringDeities, internal.migrations.equalOpportunityIntStringPreparing,
   internal.migrations.backfillObjectViews];
 export const runAll = migrations.runner(RUN_ALL);
 /** The state of each of runAll's migrations (scripts/run-migrations.mjs waits for all of them to succeed). */

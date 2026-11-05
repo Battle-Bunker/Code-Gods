@@ -50,25 +50,25 @@ test("determinism: the same key gives a byte-identical table", () => {
 
 test("keys change with the card program, the prelude, the estimator, the params and the instance", () => {
   const inst = instantiate("Grid", { size: 5, symbols: "base10", colours: "rgby" });
-  const parts = tableKeyParts("seed3_green_ones", { colour: 0, value: 0 }, inst);
+  const parts = tableKeyParts("seed3_green_ones", { colour: "red", value: 0 }, inst);
   const k = keyFromParts(parts);
-  assert.equal(k, tableKey("seed3_green_ones", { colour: 0, value: 0 }, inst));
+  assert.equal(k, tableKey("seed3_green_ones", { colour: "red", value: 0 }, inst));
   assert.match(k, /^[0-9a-f]{64}$/);
   const variants = [
     { ...parts, card: parts.card.replace(/^./, c => (c === "0" ? "1" : "0")) },
     { ...parts, prelude: parts.prelude.replace(/^./, c => (c === "0" ? "1" : "0")) },
     { ...parts, estimator: { ...parts.estimator, version: ESTIMATOR.version + 1 } },
     { ...parts, estimator: { ...parts.estimator, id: "other" } },
-    { ...parts, params: { colour: 1, value: 0 } },
+    { ...parts, params: { colour: "green", value: 0 } },
     { ...parts, instance: "Grid(5,base10,rgb)" },
     { ...parts, entry: "penalty" },
   ];
   const keys = new Set([k, ...variants.map(keyFromParts)]);
   assert.equal(keys.size, variants.length + 1);
   // The card hash really is the evaluated body: different params render a different card.
-  assert.notEqual(tableKeyParts("seed3_green_ones", { colour: 1, value: 0 }, inst).card, parts.card);
+  assert.notEqual(tableKeyParts("seed3_green_ones", { colour: "green", value: 0 }, inst).card, parts.card);
   // And the prelude hash differs between instantiations.
-  assert.notEqual(tableKeyParts("seed3_green_ones", { colour: 0, value: 0 }, instantiate("Grid", { size: 4, symbols: "base12", colours: "rgby" })).prelude, parts.prelude);
+  assert.notEqual(tableKeyParts("seed3_green_ones", { colour: "red", value: 0 }, instantiate("Grid", { size: 4, symbols: "base12", colours: "rgby" })).prelude, parts.prelude);
 });
 
 test("cardProgram: prose and notes never reach the key; code, strings and constants do", () => {
@@ -321,7 +321,7 @@ test("tableFor canonicalises raw draws and serves fresh tables only", () => {
   assert.equal(tableFor(tables, { familyId: "digit-devotee", params: { digit: 3 } }, inst), undefined);
   // Nothing shipped for an instantiation: an empty set, every lookup misses.
   const none = instantiate("Grid", { size: 3, symbols: "cards", colours: "rgb" });
-  assert.equal(hasTable(instanceTables(none.key, null), { familyId: "seed3_green_ones", params: { colour: 0, value: 0 } }, none), false);
+  assert.equal(hasTable(instanceTables(none.key, null), { familyId: "seed3_green_ones", params: { colour: "red", value: 0 } }, none), false);
   // A stale table (its key no longer the current code's) is never served.
   const p0 = f.canonical(f.support(ctx)[0], ctx), fresh = tableFor(tables, { familyId: f.id, params: p0 }, inst)!;
   const staleFile: CalibrationFile = { format: "v1", instance: inst.key, tables: [{ ...fresh, key: fresh.key.replace(/^./, c => (c === "0" ? "1" : "0")) }] };
@@ -351,7 +351,7 @@ test("mixture prior: G_ρ = ½·G_uniform + ½·(pool share) exactly at every le
   const { mixtureTable, poolPrior, MIXTURE_DISPLAY_SCALE } = await import("../scripts/mixture.ts");
   const { UNIFORM_PRIOR, displayScale } = await import("../src/calibration.ts");
   const inst = instantiate("Int", { min: 0, max: 9999 });
-  const uniform = buildTable("digit-devotee", { d: 7 }, inst).table; // exact enumeration: G_uniform is exact
+  const uniform = buildTable("digit-devotee", { digit: 7 }, inst).table; // exact enumeration: G_uniform is exact
   assert.match(String(uniform.estimator.budget), /^exact(:|$)/); // exact enumeration or digit-devotee's exact analytic
   const pool = { id: "synthetic", instance: inst.key, wires: [7777, 7770, 1234, 7, 0, 77] };
   const mix = mixtureTable(uniform, pool, inst);
@@ -374,10 +374,10 @@ test("mixture prior: G_ρ = ½·G_uniform + ½·(pool share) exactly at every le
   // Keys: the prior is part of the key, and the pool's content is part of the prior.
   const prior = poolPrior(pool);
   assert.notEqual(mix.key, uniform.key);
-  assert.equal(mix.key, tableKey("digit-devotee", { d: 7 }, inst, prior));
-  assert.equal(uniform.key, tableKey("digit-devotee", { d: 7 }, inst, UNIFORM_PRIOR));
+  assert.equal(mix.key, tableKey("digit-devotee", { digit: 7 }, inst, prior));
+  assert.equal(uniform.key, tableKey("digit-devotee", { digit: 7 }, inst, UNIFORM_PRIOR));
   assert.notEqual(poolPrior({ ...pool, wires: [...pool.wires, 1] }).version, prior.version);
-  assert.notEqual(tableKey("digit-devotee", { d: 7 }, inst, poolPrior({ ...pool, wires: [1] })), mix.key);
+  assert.notEqual(tableKey("digit-devotee", { digit: 7 }, inst, poolPrior({ ...pool, wires: [1] })), mix.key);
   // Byte-identical, and strictly increasing.
   assert.equal(tableJson(mixtureTable(uniform, pool, inst)), tableJson(mix));
   for (let i = 1; i < mix.levels.length; i++) assert.ok(mix.levels[i][1] > mix.levels[i - 1][1]);

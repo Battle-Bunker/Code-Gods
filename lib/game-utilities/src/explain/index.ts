@@ -12,7 +12,7 @@
  * score, and the renderer then draws no breakdown.
  */
 import { seededRng, type Instantiation, type ObjectValue, type Rng } from "@workspace/game-types";
-import { context, evaluator, family, paramsKey, upgradeParams, type Draw } from "../catalog.ts";
+import { context, evaluator, family, paramsKey, type Draw } from "../catalog.ts";
 import { points as pointsWord } from "../families/say.ts";
 import { tupleText } from "../tuples.ts";
 import { gridSpec, wire, type GridSpec } from "../families/grid/_util.ts";
@@ -91,10 +91,8 @@ export interface ExplainerOptions {
 }
 
 /** An explainer for one draw on one Grid instantiation, or null when the object type is not Grid. */
-export function explainer(stored: Draw, inst: Instantiation, options: ExplainerOptions = {}): GoalExplainer | null {
+export function explainer(draw: Draw, inst: Instantiation, options: ExplainerOptions = {}): GoalExplainer | null {
   if (inst.objectType !== "Grid") return null;
-  // LEGACY (typed-params widen step): a draw stored before its family was typed (an old replay file) reads as today's.
-  const draw: Draw = { familyId: stored.familyId, params: upgradeParams(stored.familyId, stored.params, inst) };
   const l = lensFor(draw.familyId), p = draw.params;
   let card: ((wire: ObjectValue) => Ordinal) | null | undefined;
   const score = (value: ObjectValue): Ordinal | null => {

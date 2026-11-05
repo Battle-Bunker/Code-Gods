@@ -29,13 +29,10 @@ const hateColourText = (p: ColourP): CardText => ({
   emoji: "🚫", name: "Hated colour", consts: [["HATED_COLOUR", p.colour]],
   about: `Try to avoid ${p.colour} cells. Each ${p.colour} cell adds 1 point of badness.`,
 });
-/** LEGACY (typed-params widen step): a colour stored as its index. */
-const colourByIndex = (key: string) => (p: Record<string, unknown>, g: GridSpec) => (typeof p[key] === "number" ? { colour: g.colourNames[p[key] as number] } : null);
 const hateColour = gridFamily<ColourP>({
   id: "hate_colour", name: "Hated colour", emoji: "🚫", theme: "Hates one colour", ...PENALTY, shape: SCALAR,
   comparative: p => COMPARATIVE_COLOUR[p.colour] ?? `more ${p.colour}`,
   params: () => ({ colour: colourParam("Hated colour") }),
-  legacy: colourByIndex("colour"),
   support: g => g.colourNames.map(colour => ({ colour })),
   canonical: (_, g) => ({ colour: g.colourNames[0] }),
   summary: p => hateColourText(p).about,
@@ -102,7 +99,6 @@ const hateBlob = gridFamily<BlobP>({
   id: "hate_blob", name: "Hated patch", emoji: "🫧", theme: "Hates a big patch of one colour", ...PENALTY, shape: SCALAR,
   comparative: p => `with a bigger ${p.colour} patch`,
   params: () => ({ colour: colourParam("Hated colour") }),
-  legacy: colourByIndex("C"),
   support: g => g.colourNames.map(colour => ({ colour })),
   canonical: (_, g) => ({ colour: g.colourNames[0] }),
   summary: p => hateBlobText(p).about,

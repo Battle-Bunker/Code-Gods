@@ -100,7 +100,6 @@ const feudingFamilies = gridFamily<FeudP>({
   id: "feuding_families", name: "Feuding Families", emoji: "😤", theme: "Two big families that must never touch",
   shape: tuple(2), tags: ["shortlist"],
   params: () => ({ first_family: colourParam("First family"), second_family: colourParam("Second family") }),
-  legacy: (p, g) => (typeof p.X === "number" ? { first_family: g.colourNames[p.X], second_family: g.colourNames[p.Y as number] } : null),
   support: g => colourPairs(g).map(([X, Y]) => ({ first_family: g.colourNames[X], second_family: g.colourNames[Y] })),
   canonical: (p, g) => recolourNames(g, p, ["first_family", "second_family"]),
   summary: (p, g) => feudText(p, g).about,
@@ -165,9 +164,6 @@ const colourMixer = gridFamily<MixP>({
     first_paint: colourParam("First paint"), mixed_colour: colourParam("Colour they mix to"), second_paint: colourParam("Second paint"),
   }),
   // "Paints must sit on opposite sides" scored a different, stricter thing, with top bits 20% apart (P10): touching both is the rule.
-  legacy: (p, g) => (typeof p.P1 === "number"
-    ? { first_paint: g.colourNames[p.P1], mixed_colour: g.colourNames[p.M as number], second_paint: g.colourNames[p.P2 as number] }
-    : "strict" in p ? { first_paint: p.first_paint as string, mixed_colour: p.mixed_colour as string, second_paint: p.second_paint as string } : null),
   support: g => recipes(g).map(([P1, P2, M]) =>
     ({ first_paint: g.colourNames[P1], mixed_colour: g.colourNames[M], second_paint: g.colourNames[P2] })),
   sample: (rng, g) => {
@@ -297,7 +293,6 @@ const lanternLighter = gridFamily<LanternP>({
   id: "lantern_lighter", name: "Lantern Lighter", emoji: "🏮", theme: "One lantern per row and column",
   shape: SCALAR, tags: ["shortlist"],
   params: () => ({ colour: colourParam("Your colour") }),
-  legacy: (p, g) => (typeof p.X === "number" ? { colour: g.colourNames[p.X] } : null),
   support: g => g.colourNames.map(colour => ({ colour })),
   canonical: (p, g) => recolourNames(g, p, ["colour"]),
   summary: (p, g) => lanternText(p, g).about,
@@ -366,8 +361,6 @@ const READ_LINES: Record<Dir4, string> = {
 type PairP = { first_colour: string; second_colour: string };
 const pairConsts = (p: PairP) => [["COLOUR_A", p.first_colour], ["COLOUR_B", p.second_colour]] as const;
 const pairParams = () => ({ first_colour: colourParam("First colour"), second_colour: colourParam("Second colour") });
-const pairLegacy = (p: Params, g: GridSpec): PairP | null =>
-  (typeof p.A === "number" ? { first_colour: g.colourNames[p.A], second_colour: g.colourNames[p.B as number] } : null);
 const pairSupport = (g: GridSpec): PairP[] =>
   colourPairs(g).map(([A, B]) => ({ first_colour: g.colourNames[A], second_colour: g.colourNames[B] }));
 const checker = (p: PairP, g: GridSpec) => {
@@ -394,7 +387,7 @@ const OPPOSITE_TS = `
 const TRANSFER_STATES = 1300;
 const bestFriends = gridFamily<PairP>({
   id: "best_friends", name: "Best Friends", emoji: "🤗", theme: "Your two colours side by side", shape: SCALAR,
-  params: pairParams, legacy: pairLegacy, support: pairSupport,
+  params: pairParams, support: pairSupport,
   canonical: (p, g) => recolourNames(g, p, ["first_colour", "second_colour"]),
   summary: (p, g) => friendsText(p).about,
   python: (p, g) => pyCard(friendsText(p), `${OPPOSITE_PY}
@@ -439,7 +432,6 @@ const bestFriends = gridFamily<PairP>({
 type DirP = { direction: Dir4 };
 const DIR_CHOICES = [["→", "rows, left to right"], ["←", "rows, right to left"], ["↓", "columns, top to bottom"], ["↑", "columns, bottom to top"]] as const;
 const dirParams = () => ({ direction: choiceParam("Read the lines", DIR_CHOICES) });
-const dirLegacy = (p: Params): DirP | null => (typeof p.dir === "string" ? { direction: p.dir as Dir4 } : null);
 const stepsText = (p: DirP, g: GridSpec): CardText => ({
   emoji: "👣", name: "Rainbow Steps", consts: [],
   about: `Try to follow the rainbow. Look along ${READ_LINES[p.direction]}. Each time a cell is followed by the next colour in rainbow order `
@@ -449,8 +441,7 @@ const rainbowSteps = gridFamily<DirP>({
   id: "rainbow_steps", name: "Rainbow Steps", emoji: "👣", theme: "Next-door colours step round the rainbow",
   analytic: solvedAnalytic("rainbow_steps"),
   requires: { classes: ["Spectral"] }, shape: SCALAR,
-  params: dirParams, legacy: dirLegacy,
-  support: () => DIRS4.map(direction => ({ direction })),
+  params: dirParams, support: () => DIRS4.map(direction => ({ direction })),
   canonical: () => ({ direction: "→" }),
   summary: (p, g) => stepsText(p, g).about,
   python: (p, g) => pyCard(stepsText(p, g), `
@@ -537,7 +528,6 @@ const flagBearer = gridFamily<FlagP>({
     colour: colourParam("Your colour"),
     axis: choiceParam("Lines that count", [["rows", "rows"], ["cols", "columns"]]),
   }),
-  legacy: (p, g) => (typeof p.C === "number" ? { colour: g.colourNames[p.C], axis: p.axis as FlagP["axis"] } : null),
   support: g => product<FlagP>({ colour: g.colourNames, axis: ["rows", "cols"] }),
   canonical: (_p, g) => ({ colour: g.colourNames[0], axis: "rows" }),
   summary: (p, g) => flagText(p, g).about,
@@ -599,7 +589,6 @@ const colourByNumber = gridFamily<ShiftP>({
   analytic: solvedAnalytic("colour_by_number"),
   requires: { classes: ["Valued"] }, shape: SCALAR,
   params: g => ({ shift: intParam("Colour shift (0 paints the first number in the first colour)", 0, g.C - 1) }),
-  legacy: p => (typeof p.t === "number" ? { shift: p.t } : null),
   support: g => range(g.C).map(shift => ({ shift })),
   canonical: () => ({ shift: 0 }), // cyclic colour relabelling shifts the shift
   summary: (p, g) => keyText(p, g).about,
@@ -631,7 +620,6 @@ const kingdomText = (p: KingdomP): CardText => ({
 const kingdom = gridFamily<KingdomP>({
   id: "kingdom", name: "Kingdom", emoji: "🏰", theme: "The biggest patch of your colour", shape: SCALAR,
   params: () => ({ colour: colourParam("Your colour") }),
-  legacy: (p, g) => (typeof p.C === "number" ? { colour: g.colourNames[p.C] } : null),
   support: g => g.colourNames.map(colour => ({ colour })),
   canonical: (p, g) => recolourNames(g, p, ["colour"]),
   summary: p => kingdomText(p).about,
@@ -673,8 +661,6 @@ const wallpaper = gridFamily<PaperP>({
   id: "wallpaper_weaver", name: "Wallpaper Weaver", emoji: "🧱", theme: "A repeating pattern", shape: SCALAR,
   analytic: solvedAnalytic("wallpaper_weaver"),
   params: () => ({ direction: choiceParam("Compare with the cell", [["right", "to the right"], ["down", "below"]]) }),
-  legacy: p => (typeof p.p === "number" || "steps" in p
-    ? { direction: (typeof p.p === "number" ? p.dir : p.direction) as PaperP["direction"] } : null),
   support: () => [{ direction: "right" }, { direction: "down" }],
   canonical: () => ({ direction: "right" }),
   summary: p => paperText(p).about,
@@ -712,8 +698,7 @@ const sunsetSky = gridFamily<DirP>({
   id: "sunset_sky", name: "Sunset Sky", emoji: "🌅", theme: "Lines that fade smoothly along the rainbow",
   analytic: solvedAnalytic("sunset_sky"),
   requires: { classes: ["Spectral"], minColours: 3 }, shape: tuple(2),
-  params: dirParams, legacy: dirLegacy,
-  support: () => DIRS4.map(direction => ({ direction })),
+  params: dirParams, support: () => DIRS4.map(direction => ({ direction })),
   canonical: () => ({ direction: "↓" }),
   summary: (p, g) => sunsetText(p, g).about,
   python: (p, g) => pyCard(sunsetText(p, g), `
@@ -766,7 +751,6 @@ const harmony = gridFamily<HarmonyP>({
   params: g => ({
     favourite: choiceParam("Favourite colour (its pairs score double)", [["any", "no favourite"], ...g.colourNames.slice(0, Math.floor(g.C / 2)).map(n => [n, n] as const)]),
   }),
-  legacy: (p, g) => (p.fav !== undefined ? { favourite: p.fav === null ? "any" : g.colourNames[p.fav as number] } : null),
   support: g => ["any", ...g.colourNames.slice(0, Math.floor(g.C / 2))].map(favourite => ({ favourite })),
   sample: (rng, g) => ({ favourite: chance(rng, 1, 2) ? "any" : g.colourNames[rng.int(Math.floor(g.C / 2))] }),
   canonical: (p, g) => ({ favourite: p.favourite === "any" ? "any" : g.colourNames[0] }),
@@ -877,7 +861,7 @@ const twinText = (p: PairP, g: GridSpec): CardText => ({
 const twinFriends = gridFamily<PairP>({
   id: "twin_friends", name: "Twin Friends", emoji: "👯", theme: "Your two colours side by side on matching symbols",
   shape: tuple(2),
-  params: pairParams, legacy: pairLegacy, support: pairSupport,
+  params: pairParams, support: pairSupport,
   canonical: (p, g) => recolourNames(g, p, ["first_colour", "second_colour"]),
   summary: (p, g) => twinText(p, g).about,
   python: (p, g) => pyCard(twinText(p, g), `${OPPOSITE_PY}
