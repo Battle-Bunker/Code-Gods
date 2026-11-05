@@ -279,7 +279,7 @@ export const rawGame = internalQuery({
   handler: async (ctx, { gameId }) => {
     dev();
     return {
-      // With its clock and engine state (game/state.ts), whichever shape it is stored in.
+      // With its clock and engine state (game/state.ts).
       game: await liveGame(ctx, gameId),
       deities: await ctx.db.query("deities").withIndex("by_game", q => q.eq("gameId", gameId)).collect(),
       objects: await ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", gameId)).collect(),
@@ -434,12 +434,13 @@ export const cloneEndedGame = internalMutation({
     const history = all(await ctx.db.query("standingsHistory").withIndex("by_game_seq", q => q.eq("gameId", gameId)).take(1001), 1000, "scoreboard publications");
     const strip = <D extends { _id: unknown; _creationTime: number }>({ _id, _creationTime, ...rest }: D) => rest;
     const [clock, engine] = [await clockDoc(ctx, gameId), await engineDoc(ctx, gameId)];
+    if (!clock || !engine) fail("CONFLICT", "the game has no clock or engine document");
     for (let i = 0; i < copies; i++) {
       const guid = crypto.randomUUID();
       // A clone has no stored replay of its own (the source's file names the source game).
       const id = await ctx.db.insert("games", { ...strip(game), replayStorageId: undefined, guid, ...await shortCodeFor(ctx, "games", guid) });
-      if (clock) await ctx.db.insert("gameClocks", { ...strip(clock), gameId: id });
-      if (engine) await ctx.db.insert("gameEngine", { ...strip(engine), gameId: id });
+      await ctx.db.insert("gameClocks", { ...strip(clock!), gameId: id });
+      await ctx.db.insert("gameEngine", { ...strip(engine!), gameId: id });
       for (const d of deities) await ctx.db.insert("deities", { ...strip(d), gameId: id });
       for (const a of agents) await ctx.db.insert("agents", { ...strip(a), gameId: id });
       const objectIds = new Map<string, Doc<"objects">["_id"]>();
