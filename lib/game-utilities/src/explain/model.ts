@@ -19,6 +19,8 @@ export type Tone = "gain" | "loss" | "zero";
 export interface Fact {
   readonly text: string;
   readonly ok: boolean;
+  /** The points tier this check derives (0 primary, 1 secondary…; src/tuples.ts). Default 0. */
+  readonly tier?: number;
 }
 
 /** A cell inside a piece worth pointing at (a mine, a frame breaker), with a short label. */
@@ -66,7 +68,10 @@ export interface Explanation {
   readonly familyId: string;
   readonly size: number;
   readonly parts: readonly Part[];
-  /** Names of the ordinal components the parts explain, in order: ["points"] or ["points", "tie-break: …"]. */
+  /**
+   * What each tier of the points tuple counts, in order (a prefix of the card's ordinal): ["SETs"], or
+   * ["lines adding up to 16", "how far the totals are from 16"]. Shown as "primary points: …", "secondary points: …".
+   */
   readonly components: readonly string[];
   /** The card's own score of this board, evaluated by the card program. */
   readonly ordinal: Ordinal;

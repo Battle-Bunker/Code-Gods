@@ -23,8 +23,8 @@ function castleText(p: CastleP, _g: GridSpec): CardText {
   const W = p.wall;
   return {
     emoji: "🏯", name: "Castle Keeper", consts: [["WALL", W]],
-    about: `Build walls of ${W}. Water flows in from the edge and can't cross ${W} cells. A cell is shut in when the water can't reach it. `
-      + `Each shut-in cell scores 1 point. Most points wins. If that's a tie, more ${W} cells on the edge wins.`,
+    about: `Try to keep the water out with walls of ${W}. Water flows in from the edge and can't cross ${W} cells. A cell is shut in when the water can't reach it. `
+      + `Each shut-in cell scores 1 primary point. Each ${W} cell on the edge scores 1 secondary point.`,
   };
 }
 const castleKeeper = gridFamily<CastleP>({
@@ -95,8 +95,8 @@ const chessText = (p: ChessP): CardText => {
   const A = p.colour_a, B = p.colour_b;
   return {
     emoji: "♟️", name: "Chessmaster", consts: [["COLOUR_A", A], ["COLOUR_B", B]],
-    about: `Look at every 2×2 block. It is a little chessboard when ${A} and ${B} cells alternate, like a chessboard. `
-      + `Each one scores 1 point. Most points wins. If that's a tie, count the places where ${an(A)} cell touches ${an(B)} cell.`,
+    about: `Try to make little chessboards of ${A} and ${B}. Each 2×2 block whose colours alternate ${A} and ${B} like a chessboard scores 1 primary point. `
+      + `Each place where ${an(A)} cell touches ${an(B)} cell scores 1 secondary point.`,
   };
 };
 const chessmaster = gridFamily<ChessP>({
@@ -151,7 +151,7 @@ const bridgeText = (p: BridgeP, g: GridSpec): CardText => {
   const C = p.colour, lr = p.direction === "LR";
   return {
     emoji: "🌉", name: "Bridge Builder", consts: [["MY_COLOUR", C]],
-    about: `Build a bridge of touching ${C} cells ${lr ? "from the left edge to the right edge" : "from the top edge to the bottom edge"}. `
+    about: `Try to build a bridge of touching ${C} cells ${lr ? "from the left edge to the right edge" : "from the top edge to the bottom edge"}. `
       + `Each ${lr ? "column" : "row"} that your widest ${C} bridge reaches scores 1 point.`,
   };
 };
@@ -210,9 +210,9 @@ const bridgeBuilder = gridFamily<BridgeP>({
 // --- Card Windmill ---------------------------------------------------------------------------------
 const windmillText = (g: GridSpec): CardText => ({
   emoji: "🌀", name: "Card Windmill", consts: [],
-  about: "Turn the grid a quarter turn clockwise, so every card lands on another spot. "
+  about: "Try to make suits spin round a quarter turn. Turn the grid a quarter turn clockwise, so every card lands on another spot. "
     + `A turn is good when the card there is the next suit. ${cap(g.say.distinctSuits(4))} go round in order: ♠ → ♥ → ♦ → ♣ → ♠. `
-    + "A card scores 1 point when all four of its turns are good. Most points wins. If that's a tie, more good turns wins.",
+    + "A card whose four turns are all good scores 1 primary point. Each good turn scores 1 secondary point.",
 });
 /** Grid-lab orbits(N): the 4-cycles of a quarter turn, as [r, c] per member. */
 function orbits(N: number): [number, number][][] {
@@ -300,9 +300,9 @@ const courtText = (p: CourtP, g: GridSpec): CardText => {
   return {
     emoji: "👑", name: "Royal Court",
     consts: [["MY_SUIT", p.suit]],
-    about: `The middle cell must be ${royal}. Your court is it plus every such card joined to it by touching cells. `
-      + "Each card in your court scores 1 point, doubled if none of the court is on the edge. "
-      + "Most points wins. If that's a tie, count such cards that are off the edge.",
+    about: `Try to build a court of picture cards around the middle. The middle cell must be ${royal}. Your court is it plus every such card joined to it by touching cells. `
+      + "Each card in your court scores 1 primary point, doubled if none of the court is on the edge. "
+      + "Each such card off the edge, anywhere on the board, scores 1 secondary point.",
   };
 };
 const royalCourt = gridFamily<CourtP>({
@@ -391,7 +391,7 @@ const SAME_COLOUR_TS = `
 type IslandsP = ColourP;
 const archText = (p: IslandsP, g: GridSpec): CardText => ({
   emoji: "🗺️", name: "Archipelago", consts: [["MY_COLOUR", p.colour]],
-  about: `An island is a patch of touching ${p.colour} cells. Cells that only touch at a corner are not joined. `
+  about: `Try to make many separate ${p.colour} islands. An island is a patch of touching ${p.colour} cells. Cells that only touch at a corner are not joined. `
     + "Each island scores 1 point.",
 });
 const archipelago = gridFamily<IslandsP>({
@@ -436,7 +436,7 @@ const TWIN: Record<GlassP["axis"], [string, string]> = {
 };
 const glassText = (p: GlassP, g: GridSpec): CardText => ({
   emoji: "🔍", name: "Looking-Glass", consts: [],
-  about: `${TWIN[p.axis][0]}: every cell lands on a twin. Each pair of twins with the same `
+  about: `Try to make every cell match its mirror twin. ${TWIN[p.axis][0]}: every cell lands on a twin. Each pair of twins with the same `
     + `${g.cards ? "rank" : "number"} scores 1 point. A cell that lands on itself scores nothing.`,
 });
 const lookingGlass = gridFamily<GlassP>({
@@ -497,9 +497,9 @@ const pinKey = (g: GridSpec) => (g.cards ? "suit" : "symbol");
 const pinWord = (g: GridSpec) => (g.cards ? "suit" : "number");
 const pinText = (_p: PinP, g: GridSpec): CardText => ({
   emoji: "🎡", name: "Pinwheel", consts: [],
-  about: "Turn the grid a quarter turn: cells swap places in sets of 4, and the middle cell stays put. "
-    + `A set of 4 that all share the same ${pinWord(g)} scores 1 point. Most points wins. `
-    + `If that's a tie, in each set count the most cells sharing a ${pinWord(g)}, and add those up.`,
+  about: `Try to make a quarter turn leave the grid looking the same. Turn the grid a quarter turn: cells swap places in sets of 4, and the middle cell stays put. `
+    + `A set of 4 that all share the same ${pinWord(g)} scores 1 primary point. `
+    + `In each set, every cell of the commonest ${pinWord(g)} scores 1 secondary point.`,
 });
 const pinwheel = gridFamily<PinP>({
   id: "pinwheel", name: "Pinwheel", emoji: "🎡", theme: "Looks the same after a quarter turn", shape: tuple(2),
@@ -562,9 +562,9 @@ const pinwheel = gridFamily<PinP>({
 // --- Bullseye ------------------------------------------------------------------------------------
 const bullText: CardText = {
   emoji: "🎯", name: "Bullseye", consts: [],
-  about: "The grid is made of square rings, like an archery target. Start at the outside ring and move inwards. "
-    + "A ring scores 1 point if it is all one colour and a different colour from the ring outside it. "
-    + "Stop at the first ring that fails. Most points wins. If that's a tie, in each ring count the cells of its commonest colour, and add those up.",
+  about: "Try to make rings like an archery target. The grid is made of square rings. Start at the outside ring and move inwards. "
+    + "A ring scores 1 primary point if it is all one colour and a different colour from the ring outside it. "
+    + "Stop at the first ring that fails. In each ring, every cell of its commonest colour scores 1 secondary point.",
 };
 const bullseye = gridFamily<Record<string, never>>({
   id: "bullseye", name: "Bullseye", emoji: "🎯", theme: "Rings like an archery target", shape: tuple(2),
@@ -622,7 +622,7 @@ const bullseye = gridFamily<Record<string, never>>({
 // --- Snake Charmer ---------------------------------------------------------------------------------
 const snakeText = (p: IslandsP, g: GridSpec): CardText => ({
   emoji: "🐍", name: "Snake Charmer", consts: [["MY_COLOUR", p.colour]],
-  about: `Build the longest snake of ${p.colour}. A snake is a patch of touching cells one cell wide, with no branches `
+  about: `Try to build the longest snake of ${p.colour}. A snake is a patch of touching cells one cell wide, with no branches `
     + "and no loops. Each cell of your longest snake scores 1 point.",
 });
 const snakeCharmer = gridFamily<IslandsP>({
@@ -774,9 +774,8 @@ const PIECE = "O" satisfies PieceP["piece"];
 type TetP = { colour: string };
 const tetText = (p: TetP, _g: GridSpec): CardText => ({
   emoji: "🧱", name: "Tetromino Tamer", consts: [["MY_COLOUR", p.colour], ["MY_PIECE", PIECE]],
-  about: `An island is a patch of touching ${p.colour} cells. Each island of exactly 4 cells shaped like a Tetris ${PIECE} piece `
-    + `(${PIECE_LOOK[PIECE]}) scores 1 point. Most points wins. `
-    + "If that's a tie, more islands of exactly 4 cells, of any shape, wins.",
+  about: `Try to make ${p.colour} islands shaped like a Tetris ${PIECE} piece. An island is a patch of touching ${p.colour} cells. Each island of exactly 4 cells shaped like one `
+    + `(${PIECE_LOOK[PIECE]}) scores 1 primary point. Each island of exactly 4 cells, of any shape, scores 1 secondary point.`,
 });
 const TET_PY = `${SAME_COLOUR_PY}
     def inside(cell, piece):
@@ -864,9 +863,9 @@ const BAND_PY: Record<BandP["corner"], string> = {
 };
 const bandText = (p: BandP, g: GridSpec): CardText => ({
   emoji: "🌈", name: "Rainbow Bands", consts: [],
-  about: `Paint slanted stripes starting from the ${p.corner[0] === "T" ? "top" : "bottom"}-${p.corner[1] === "L" ? "left" : "right"} `
-    + `corner in rainbow order (${g.colourNames.join(", ")}, then again). A stripe with every cell in its right colour scores 1 point `
-    + "per cell. Most points wins. If that's a tie, more cells in their right colour wins.",
+  about: `Try to paint slanted stripes starting from the ${p.corner[0] === "T" ? "top" : "bottom"}-${p.corner[1] === "L" ? "left" : "right"} `
+    + `corner in rainbow order (${g.colourNames.join(", ")}, then again). Each cell of a stripe that is all in its right colour scores 1 primary point. `
+    + "Each cell in its right colour, in any stripe, scores 1 secondary point.",
 });
 const rainbowBands = gridFamily<BandP>({
   id: "rainbow_bands", name: "Rainbow Bands", emoji: "🌈", theme: "Slanted rainbow stripes from your corner",
@@ -916,7 +915,7 @@ type RankP = { star: string };
 const rankValue = (g: GridSpec, rank: number) => (g.cards ? rank + 1 : rank);
 const starText = (p: RankP, g: GridSpec): CardText => ({
   emoji: "✨", name: "Constellation", consts: [["MY_VALUE", rankValue(g, rankAt(g, p.star)), g.cards ? ({ 1: "Ace", 11: "Jack", 12: "Queen", 13: "King" } as Record<number, string>)[rankValue(g, rankAt(g, p.star))] ?? "" : ""]],
-  about: `Your stars are the cells showing ${g.say.rank(rankAt(g, p.star))}. Stars that touch, even at a corner, form a cluster. `
+  about: `Try to make one big cluster of stars, the cells showing ${g.say.rank(rankAt(g, p.star))}. Stars that touch, even at a corner, form a cluster. `
     + "Each star in your biggest cluster scores 1 point.",
 });
 const constellation = gridFamily<RankP>({
@@ -968,7 +967,7 @@ const constellation = gridFamily<RankP>({
 // --- Rainbow Roads -------------------------------------------------------------------------------------
 const roadsText = (g: GridSpec): CardText => ({
   emoji: "🛣️", name: "Rainbow Roads", consts: [],
-  about: `A road walks from cell to touching cell through the colours in order: ${g.colourNames.join(" → ")}. `
+  about: `Try to make many rainbow roads. A road walks from cell to touching cell through the colours in order: ${g.colourNames.join(" → ")}. `
     + "Each different complete road scores 1 point.",
 });
 const rainbowRoads = gridFamily<Record<string, never>>({
@@ -1022,9 +1021,9 @@ const rainbowRoads = gridFamily<Record<string, never>>({
 // --- Paint Mixer -----------------------------------------------------------------------------------------
 const mixerText = (g: GridSpec): CardText => ({
   emoji: "🖌️", name: "Paint Mixer", consts: [],
-  about: `Paints mix like this: ${recipes(g).map(([a, b, m]) => `${cname(g, a)} + ${cname(g, b)} = ${cname(g, m)}`).join(", ")}. `
-    + "A mixed cell scores 1 point when its two paints sit left and right of it, and 1 more when they sit above and below. "
-    + "Most points wins. If that's a tie, more mixed cells touching one of their paints wins.",
+  about: `Try to sandwich each mixed colour between its two paints. Paints mix like this: ${recipes(g).map(([a, b, m]) => `${cname(g, a)} + ${cname(g, b)} = ${cname(g, m)}`).join(", ")}. `
+    + "A mixed cell scores 1 primary point when its two paints sit left and right of it, and 1 more when they sit above and below. "
+    + "Each mixed cell touching one of its paints scores 1 secondary point.",
 });
 const paintMixer = gridFamily<Record<string, never>>({
   id: "paint_mixer", name: "Paint Mixer", emoji: "🖌️", theme: "Mixed colours sandwiched between their parents",
@@ -1102,10 +1101,10 @@ const ringCells = (N: number): [number, number][] => [
 ];
 const carouselText = (p: TurnP, g: GridSpec): CardText => ({
   emoji: "🎠", name: "Colour Carousel", consts: [],
-  about: `Walk round the edge ${p.direction === "cw" ? "clockwise" : "anticlockwise"}. The colour wheel goes ${g.colourNames.join(" → ")} → back to ${g.colourNames[0]}. `
+  about: `Try to make the border go round the colour wheel. Walk round the edge ${p.direction === "cw" ? "clockwise" : "anticlockwise"}. The colour wheel goes ${g.colourNames.join(" → ")} → back to ${g.colourNames[0]}. `
     + "A step is fine if it keeps the colour or moves to the next colour on the wheel. "
-    + "Best is a lap: every step fine, going right round the wheel at least once. "
-    + "If that's a tie, more steps that move on wins. If that's still a tie, more fine steps wins.",
+    + "A lap, with every step fine and the walk going right round the wheel at least once, scores 1 primary point. "
+    + "Each step that moves on scores 1 secondary point. Each fine step scores 1 tertiary point.",
 });
 const carousel = gridFamily<TurnP>({
   id: "colour_carousel", name: "Colour Carousel", emoji: "🎠", theme: "The border goes round the colour wheel",
@@ -1172,7 +1171,7 @@ const carousel = gridFamily<TurnP>({
 // --- Falling Sand (gravity) -------------------------------------------------------------------------------
 const sandText = (p: ColourP, g: GridSpec): CardText => ({
   emoji: "⏳", name: "Falling Sand", consts: [["MY_COLOUR", p.colour]],
-  about: `${cap(p.colour)} is sand that sinks. Each ${p.colour} cell that has only ${p.colour} cells below it, `
+  about: `Try to sink your ${p.colour} sand to the bottom. Each ${p.colour} cell that has only ${p.colour} cells below it, `
     + "all the way to the bottom, scores 1 point.",
 });
 const gravity = gridFamily<ColourP>({
@@ -1209,8 +1208,8 @@ const gravity = gridFamily<ColourP>({
 // --- Swiss Cheese ----------------------------------------------------------------------------------------
 const cheeseText = (p: ColourP, g: GridSpec): CardText => ({
   emoji: "🧀", name: "Swiss Cheese", consts: [["MY_COLOUR", p.colour]],
-  about: `Your cheese is ${p.colour}. A hole is a patch of touching cells of other colours, with ${p.colour} all round it, `
-    + `not touching the edge. Each hole scores 1 point. Most points wins. If that's a tie, more ${p.colour} cells on the edge wins.`,
+  about: `Try to make holes in your ${p.colour} cheese. A hole is a patch of touching cells of other colours, with ${p.colour} all round it, `
+    + `not touching the edge. Each hole scores 1 primary point. Each ${p.colour} cell on the edge scores 1 secondary point.`,
 });
 const swissCheese = gridFamily<ColourP>({
   id: "swiss_cheese", name: "Swiss Cheese", emoji: "🧀", theme: "As many holes as possible",
@@ -1266,9 +1265,9 @@ const swissCheese = gridFamily<ColourP>({
 // --- Mountain Climb --------------------------------------------------------------------------------------
 const climbText = (g: GridSpec): CardText => ({
   emoji: "🧗", name: "Mountain Climb", consts: [],
-  about: sentences(`Start at the top-left cell. Step to a touching cell whose ${g.cards ? "value" : "number"} is exactly 1 bigger, again and again.`,
+  about: sentences(`Try to climb from the top-left cell to the bottom-right corner. Step to a touching cell whose ${g.cards ? "value" : "number"} is exactly 1 bigger, again and again.`,
     g.say.valueKey(),
-    "Best is a climb that reaches the bottom-right corner. If that's a tie, the climb with more cells wins."),
+    "A climb that reaches the bottom-right corner scores 1 primary point. Each cell of your longest climb scores 1 secondary point."),
 });
 const mountainClimb = gridFamily<Record<string, never>>({
   id: "mountain_climb", name: "Mountain Climb", emoji: "🧗", theme: "Climb one step at a time to the far corner",
@@ -1323,7 +1322,7 @@ const mountainClimb = gridFamily<Record<string, never>>({
 // --- Treasure Map ---------------------------------------------------------------------------------------
 const mapText = (p: ColourP, g: GridSpec): CardText => ({
   emoji: "🗝️", name: "Treasure Map", consts: [["MY_COLOUR", p.colour]],
-  about: sentences(`Each ${p.colour} cell scores its ${g.cards ? "value" : "number"} times its closeness, in points.`, g.say.valueKey(),
+  about: sentences(`Try to put big ${g.cards ? "values" : "numbers"} of ${p.colour} near the middle. Each ${p.colour} cell scores its ${g.cards ? "value" : "number"} times its closeness, in points.`, g.say.valueKey(),
     "Closeness is 0 in a corner and grows towards the middle."),
 });
 const treasureMap = gridFamily<ColourP>({
@@ -1371,7 +1370,7 @@ const treasureMap = gridFamily<ColourP>({
 /** Looking-Glass's colour layer: fold left onto right or top onto bottom (a transpose swaps them), and the colours must match. */
 const mirrorText = (p: GlassP, _g: GridSpec): CardText => ({
   emoji: "🪞", name: "Mirror Quilt", consts: [],
-  about: `${TWIN[p.axis][0]}: every cell lands on a twin. Each pair of twins with the same colour scores 1 point. `
+  about: `Try to make every cell match its mirror twin in colour. ${TWIN[p.axis][0]}: every cell lands on a twin. Each pair of twins with the same colour scores 1 point. `
     + "A cell that lands on itself scores nothing.",
 });
 const mirrorQuilt = gridFamily<GlassP>({
@@ -1419,9 +1418,9 @@ const mirrorQuilt = gridFamily<GlassP>({
 // --- Colour Pinwheel (Pinwheel on colours) ---------------------------------------------------------
 const colourPinText = (_p: PinP, _g: GridSpec): CardText => ({
   emoji: "🌀", name: "Colour Pinwheel", consts: [],
-  about: "Turn the grid a quarter turn: cells swap places in sets of 4, and the middle cell stays put. "
-    + "A set of 4 that all share the same colour scores 1 point. Most points wins. "
-    + "If that's a tie, in each set count the most cells sharing a colour, and add those up.",
+  about: "Try to make a quarter turn leave the colours the same. Turn the grid a quarter turn: cells swap places in sets of 4, and the middle cell stays put. "
+    + "A set of 4 that all share the same colour scores 1 primary point. "
+    + "In each set, every cell of the commonest colour scores 1 secondary point.",
 });
 const colourPinwheel = gridFamily<PinP>({
   id: "colour_pinwheel", name: "Colour Pinwheel", emoji: "🌀", theme: "The same colour all the way round a quarter turn", shape: tuple(2),
@@ -1484,9 +1483,8 @@ const colourPinwheel = gridFamily<PinP>({
 function pieceTamer(piece: "I" | "T" | "L" | "S", id: string, name: string, theme: string, minSize?: number) {
   const text = (p: TetP, _g: GridSpec): CardText => ({
     emoji: "🧱", name, consts: [["MY_COLOUR", p.colour], ["MY_PIECE", piece]],
-    about: `An island is a patch of touching ${p.colour} cells. Each island of exactly 4 cells shaped like a Tetris ${piece} piece `
-      + `(${PIECE_LOOK[piece]}, turned or flipped is fine) scores 1 point. Most points wins. `
-      + "If that's a tie, more islands of exactly 4 cells, of any shape, wins.",
+    about: `Try to make ${p.colour} islands shaped like a Tetris ${piece} piece. An island is a patch of touching ${p.colour} cells. Each island of exactly 4 cells shaped like one `
+      + `(${PIECE_LOOK[piece]}, turned or flipped is fine) scores 1 primary point. Each island of exactly 4 cells, of any shape, scores 1 secondary point.`,
   });
   return gridFamily<TetP>({
     id, name, emoji: "🧱", theme, shape: tuple(2), ...(minSize ? { requires: { minSize } } : {}),
@@ -1510,7 +1508,7 @@ const sPieceTamer = pieceTamer("S", "s_piece_tamer", "S-Piece Tamer", "Islands s
 
 // --- Treasure Castle and Castle Pockets (Castle Keeper's treasure and eyes modes) ---------------------
 const castleFlood = (W: string) =>
-  `Build walls of ${W}. Water flows in from the edge and can't cross ${W} cells. A cell is shut in when the water can't reach it.`;
+  `Try to keep the water out with walls of ${W}. Water flows in from the edge and can't cross ${W} cells. A cell is shut in when the water can't reach it.`;
 const CASTLE_BASE_PY = `
     def not_wall(cell):
         return cell.colour != WALL
@@ -1547,7 +1545,7 @@ const CASTLE_BASE_TS = `
 type TreasureP = { wall: string; treasure: string };
 const treasureText = (p: TreasureP, _g: GridSpec): CardText => ({
   emoji: "💎", name: "Treasure Castle", consts: [["WALL", p.wall], ["TREASURE", p.treasure]],
-  about: `${castleFlood(p.wall)} Each shut-in ${p.treasure} cell scores 1 point. Most points wins. If that's a tie, more ${p.wall} cells on the edge wins.`,
+  about: `${castleFlood(p.wall)} Each shut-in ${p.treasure} cell scores 1 primary point. Each ${p.wall} cell on the edge scores 1 secondary point.`,
 });
 const treasureCastle = gridFamily<TreasureP>({
   id: "treasure_castle", name: "Treasure Castle", emoji: "💎", theme: "Walls that keep your treasure dry",
@@ -1583,8 +1581,8 @@ const treasureCastle = gridFamily<TreasureP>({
 /** Castle Keeper where each separate pocket of shut-in cells is worth 3 more (like eyes in Go). */
 const pocketsText = (p: CastleP, _g: GridSpec): CardText => ({
   emoji: "👀", name: "Castle Pockets", consts: [["WALL", p.wall]],
-  about: `${castleFlood(p.wall)} Each shut-in cell scores 1 point. Each separate pocket of shut-in cells scores 3 more. `
-    + `Most points wins. If that's a tie, more ${p.wall} cells on the edge wins.`,
+  about: `${castleFlood(p.wall)} Each shut-in cell scores 1 primary point. Each separate pocket of shut-in cells scores 3 more primary points. `
+    + `Each ${p.wall} cell on the edge scores 1 secondary point.`,
 });
 const castlePockets = gridFamily<CastleP>({
   id: "castle_pockets", name: "Castle Pockets", emoji: "👀", theme: "Walls that shut in separate pockets, like eyes in Go",
@@ -1630,9 +1628,9 @@ const castlePockets = gridFamily<CastleP>({
 type AnyCourtP = Record<string, never>;
 const anyCourtText = (_p: AnyCourtP, _g: GridSpec): CardText => ({
   emoji: "🏰", name: "Any-Suit Court", consts: [],
-  about: "The middle cell must be a picture card (J, Q or K) of any suit. Your court is it plus every picture card joined to it by touching cells. "
-    + "Each card in your court scores 1 point, doubled if none of the court is on the edge. "
-    + "Most points wins. If that's a tie, count picture cards that are off the edge.",
+  about: "Try to build a court of picture cards around the middle. The middle cell must be a picture card (J, Q or K) of any suit. Your court is it plus every picture card joined to it by touching cells. "
+    + "Each card in your court scores 1 primary point, doubled if none of the court is on the edge. "
+    + "Each picture card off the edge scores 1 secondary point.",
 });
 const anySuitCourt = gridFamily<AnyCourtP>({
   id: "any_suit_court", name: "Any-Suit Court", emoji: "🏰", theme: "A palace of any picture cards around the centre",

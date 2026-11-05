@@ -6,6 +6,7 @@ import type { GridSettings } from "./registry.ts";
 import type { GoalExplainer } from "@workspace/game-utilities";
 import { GridObject } from "./views.tsx";
 import { GoalBoard } from "./explain/GoalBoard.tsx";
+import { Term } from "@workspace/ui-kit";
 
 export interface UtilityCardLike {
   familyId: string;
@@ -86,7 +87,8 @@ export function UtilityCardView({ card, uses, grid, goal, sourceOpen = false }: 
       <div>
         <p className="text-xl font-semibold leading-tight" data-testid="utility-card-name"><span aria-hidden>{card.emoji} </span>{card.name}</p>
         {card.theme && <p className="text-xs text-muted-foreground">{card.theme}</p>}
-        <p className="mt-2 text-sm leading-relaxed" data-testid="text-utility-summary">{card.summary}</p>
+        <p className="mt-2 text-sm leading-relaxed" data-testid="text-utility-summary">{card.summary}
+          {/\bprimary points?\b/.test(card.summary) && <> <span className="text-muted-foreground">(<Term id="points-tuple">how points tuples compare</Term>)</span></>}</p>
         {goal && grid && (goal.rich || !card.example) ? <GoalExampleView goal={goal} grid={grid} /> : card.example && <CardExample example={card.example} grid={grid} />}
         <p className="mt-2 text-xs flex flex-wrap items-center gap-1.5"><span className="text-muted-foreground">uses:</span><BadgeChips badges={badges} testId="utility-card-uses" /></p>
         <Source text={card.source} language={card.language} testId="text-utility-source" open={sourceOpen} />

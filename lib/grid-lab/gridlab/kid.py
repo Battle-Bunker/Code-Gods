@@ -11,7 +11,7 @@ A god's utility function is one plain Python function, written for a 12-year-old
                 points += 1
         return points            # bigger is better; only "which grid is better" matters
 
-It may return a number, or a tuple for tie-breaks, read like a league table: `(points, goal_difference)`
+It may return a number, or a points tuple (primary points, then secondary…), compared like a league table: `(points, goal_difference)`
 compares points first and only looks at goal difference when the points are tied. Negative numbers
 are fine and there is no maximum: the game turns "better than how many random grids" into rarity.
 

@@ -14,6 +14,7 @@
 import { seededRng, type Instantiation, type ObjectValue, type Rng } from "@workspace/game-types";
 import { context, evaluator, family, paramsKey, upgradeParams, type Draw } from "../catalog.ts";
 import { points as pointsWord } from "../families/say.ts";
+import { tupleText } from "../tuples.ts";
 import { gridSpec, wire, type GridSpec } from "../families/grid/_util.ts";
 import type { Ordinal } from "../types.ts";
 import { boardOf, readBoard, type Board } from "./board.ts";
@@ -195,7 +196,8 @@ function illumination(l: Lens, p: Draw["params"], b: Board): number {
 
 function caption(ordinal: Ordinal | null, rich: boolean): string {
   const ord = ordinal === null ? null : asArray(ordinal);
-  const head = ord ? `This board scores ${pointsWord(ord[0])}.` : "An example board.";
+  // A rule with several tiers states the whole points tuple; a one-tier rule its points.
+  const head = !ord ? "An example board." : ord.length > 1 ? `This board scores the points tuple ${tupleText(ord)}.` : `This board scores ${pointsWord(ord[0])}.`;
   return rich ? `${head} Point at a scoring unit, in the list or on the board, to see how it counts.` : head;
 }
 

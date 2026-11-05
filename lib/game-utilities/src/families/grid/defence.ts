@@ -27,7 +27,7 @@ const PENALTY = { role: "penalty" as const, tags: ["penalty"] };
 type ColourP = { colour: string };
 const hateColourText = (p: ColourP): CardText => ({
   emoji: "🚫", name: "Hated colour", consts: [["HATED_COLOUR", p.colour]],
-  about: `−1 for each ${p.colour} cell`,
+  about: `Try to avoid ${p.colour} cells. Each ${p.colour} cell adds 1 point of badness.`,
 });
 /** LEGACY (typed-params widen step): a colour stored as its index. */
 const colourByIndex = (key: string) => (p: Record<string, unknown>, g: GridSpec) => (typeof p[key] === "number" ? { colour: g.colourNames[p[key] as number] } : null);
@@ -63,7 +63,7 @@ const hateColour = gridFamily<ColourP>({
 type ValueP = { value: number };
 const hateValueText = (p: ValueP, g: GridSpec): CardText => ({
   emoji: "🙅", name: "Hated number", consts: [["HATED_VALUE", p.value, valueNote(g, p.value)]],
-  about: `−1 for each ${hatedValue(g, p.value)}`,
+  about: `Try to avoid ${hatedValue(g, p.value)}. Each cell showing it adds 1 point of badness.`,
 });
 const hateValue = gridFamily<ValueP>({
   id: "hate_value", name: "Hated number", emoji: "🙅", theme: "Hates one number", ...PENALTY, shape: SCALAR,
@@ -96,7 +96,7 @@ const hateValue = gridFamily<ValueP>({
 type BlobP = { colour: string };
 const hateBlobText = (p: BlobP): CardText => ({
   emoji: "🫧", name: "Hated patch", consts: [["HATED_COLOUR", p.colour]],
-  about: `−1 for each cell in the biggest joined-up ${p.colour} patch`,
+  about: `Try to avoid a big joined-up ${p.colour} patch. Each cell in the biggest ${p.colour} patch adds 1 point of badness.`,
 });
 const hateBlob = gridFamily<BlobP>({
   id: "hate_blob", name: "Hated patch", emoji: "🫧", theme: "Hates a big patch of one colour", ...PENALTY, shape: SCALAR,
@@ -134,7 +134,7 @@ const hateBlob = gridFamily<BlobP>({
 // --- Takeover ---------------------------------------------------------------------------------------
 const takeoverText: CardText = {
   emoji: "🏴", name: "Takeover", consts: [],
-  about: "−1 for each cell of whichever colour is commonest",
+  about: "Try to avoid one colour taking over. Each cell of whichever colour is commonest adds 1 point of badness.",
 };
 const hateTakeover = gridFamily<Record<string, never>>({
   id: "hate_takeover", name: "Takeover", emoji: "🏴", theme: "Hates one colour taking over", ...PENALTY, shape: SCALAR,
@@ -172,7 +172,7 @@ const hateTakeover = gridFamily<Record<string, never>>({
 // --- Big blobs ----------------------------------------------------------------------------------------
 const bigBlobText: CardText = {
   emoji: "🫠", name: "Big blobs", consts: [],
-  about: "−1 for each cell in the biggest joined-up patch of one colour (any colour)",
+  about: "Try to avoid big blobs. Each cell in the biggest joined-up patch of one colour (any colour) adds 1 point of badness.",
 };
 const hateBigBlob = gridFamily<Record<string, never>>({
   id: "hate_big_blob", name: "Big blobs", emoji: "🫠", theme: "Hates big blobs of any colour", ...PENALTY, shape: SCALAR,
@@ -205,8 +205,8 @@ const hateBigBlob = gridFamily<Record<string, never>>({
 // --- Matching corners ---------------------------------------------------------------------------------
 const cornersText = (g: GridSpec): CardText => ({
   emoji: "📐", name: "Matching corners", consts: [],
-  about: "−1 for each corner that shares the commonest corner colour. If that's a tie, −1 for each corner that "
-    + `shares the commonest ${g.cards ? "rank" : "number"}.`,
+  about: "Try to avoid matching corners. Each corner that shares the commonest corner colour adds 1 primary point of badness. "
+    + `Each corner that shares the commonest ${g.cards ? "rank" : "number"} adds 1 secondary point of badness.`,
 });
 const hateSameCorners = gridFamily<Record<string, never>>({
   id: "hate_same_corners", name: "Matching corners", emoji: "📐", theme: "Hates matching corners", ...PENALTY,
@@ -250,8 +250,8 @@ const hateSameCorners = gridFamily<Record<string, never>>({
 type RowP = { row: number };
 const repeatText = (p: RowP): CardText => ({
   emoji: "🔁", name: "Repeats in the row", consts: [["MY_ROW", p.row, "rows count from 0 at the top"]],
-  about: `−1 for each repeated colour in row ${p.row + 1}. If that's a tie, −1 for each pair of side-by-side cells `
-    + "in that row with the same colour.",
+  about: `Try to avoid repeats in row ${p.row + 1}. Each repeated colour in that row adds 1 primary point of badness. `
+    + "Each pair of side-by-side cells in it with the same colour adds 1 secondary point of badness.",
 });
 const hateRepeatRow = gridFamily<RowP>({
   id: "hate_repeat_row", name: "Repeats in the row", emoji: "🔁", theme: "Hates repeats in one row", ...PENALTY,
@@ -293,7 +293,7 @@ const hateRepeatRow = gridFamily<RowP>({
 // --- Number crowd -------------------------------------------------------------------------------------
 const crowdText = (g: GridSpec): CardText => ({
   emoji: "👥", name: "Number crowd", consts: [],
-  about: `−1 for each copy of whichever ${g.cards ? "rank (any suit)" : "number"} is commonest`,
+  about: `Try to avoid one ${g.cards ? "rank" : "number"} taking over. Each copy of whichever ${g.cards ? "rank (any suit)" : "number"} is commonest adds 1 point of badness.`,
 });
 const hateSymbolTakeover = gridFamily<Record<string, never>>({
   id: "hate_symbol_takeover", name: "Number crowd", emoji: "👥", theme: "Hates one number taking over", ...PENALTY,

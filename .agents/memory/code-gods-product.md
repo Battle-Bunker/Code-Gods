@@ -252,7 +252,7 @@ A room member is a player or a spectator of the next game. The owner starts as a
 ## Every rule offers a continuous landscape of points (2026-11-03)
 
 **Rule:** a rule's score has many attainable levels, each harder (rarer, so worth more bits) than the last: no
-all-or-nothing scores. Counts, signed per-cell sums and tie-breaks that measure closeness all qualify; a single 0/1 does
+all-or-nothing scores. Counts, signed per-cell sums and secondary points that measure closeness all qualify; a single 0/1 does
 not. The annotated set (Annotated basics) was audited: Picture Frame was the only all-or-nothing rule and is now a
 per-cell sum. Since the owner's redesign (2026-11-03) both a colour and a symbol are dealt (typed params, nothing
 inferred from the board): an edge cell scores +1 with either and +4 with both; a middle cell loses the same (the middle
@@ -289,3 +289,17 @@ scoring opportunity between them."
 **How to apply:** docs/rules-design.md P10. Set Spotter now always counts diagonals. The audit test compares each
 family's calibration tables across its param classes (top bits, bits under the prior); current violators are an
 allowlist that only shrinks.
+
+## Scores are points tuples, said that way to players (2026-11-03)
+
+**Rule:** a rule scores a board as a points tuple: primary points, then secondary (tertiary…). Players see the tuple
+directly: rule texts name each tier ("scores 1 primary point", "deducts as many secondary points as …"), never "wins",
+"tie" or "tie-break"; every rule's text starts with its goal ("Try to …") and has one sentence per tier; score boxes
+show each tier's derivation on its own line and the impact as a tuple "(+1, 0)"; the board total is a tuple "(4, −10)";
+single-tier rules show 1-tuples "(+1)". The glossary term "Points tuple" explains the comparison once.
+
+**Why:** the owner (2026-11-03): "Let's just expose people to the concept of a points tuple directly … talk about
+primary and secondary (and tertiary) points in explaining the rule."
+
+**How to apply:** use `src/tuples.ts` (tierName, tierPoints, impactText, tupleText) and docs/rules-design.md P4's
+sentence pattern; `test/points-tuples.test.ts` enforces it for every family on every shape.

@@ -3,7 +3,7 @@
  * scoring unit is outlined, where its badge goes and the arrow's curve to its box. Pure and
  * framework-free, unit tested under Node; the React component (GoalBoard.tsx) only measures and draws.
  */
-import type { Cell, Part, PartShape, Tone, WhatIfEntry } from "@workspace/game-utilities";
+import { signedPoints, type Cell, type Part, type PartShape, type Tone, type WhatIfEntry } from "@workspace/game-utilities";
 
 export interface BoardGeometry {
   /** Cell edge in px. */
@@ -24,7 +24,7 @@ export const TONE_DASH: Readonly<Record<Tone, string | undefined>> = Object.free
 export const TONE_MARK: Readonly<Record<Tone, string>> = Object.freeze({ gain: "✓", loss: "✗", zero: "·" });
 
 /** Points as a kid reads them: "+1", "−2", "0". */
-export const signed = (n: number) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : "0");
+export const signed = signedPoints;
 
 /** Pieces drawn as a stroke through cell centres (pairs and lines, diagonals included); the rest are outlines. */
 export const isStroke = (shape: PartShape) => shape === "pair" || shape === "line";
