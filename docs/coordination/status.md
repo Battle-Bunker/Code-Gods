@@ -340,3 +340,9 @@ Owner, verbatim (abridged only where marked):
 - 22:16: #240's develop deploy is green. Rules and read-architecture sessions archived. Only the assistant-modes
   narrowing (plus aiQuotas) remains; it is running its suites and merging on green. Then the narrowing release, on the
   owner's call.
+- 22:30: #238 assistant-modes + aiQuotas narrowing merged (cfc33ad): assistantPrefs.mode and rooms.aiQuota/
+  assistantQuota required; approval fields, awaiting_confirmation and aiBudget/assistantBudget dropped. Develop deploy
+  green 22:33. Assistant-modes session archived. All narrowings done; no worker sessions active.
+- NEXT: the narrowing release (develop cfc33ad → main), on the owner's call, only when no game is running. It adds no
+  migrations. Pre-check: prod objectEvents rows with index unset (#237 made index required).
+- FOLLOW-UP after 2026-11-06: delete replays.rebuildAfterMigration (#240).
