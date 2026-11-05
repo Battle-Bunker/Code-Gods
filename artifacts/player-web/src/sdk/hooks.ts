@@ -7,8 +7,8 @@
  * Live hooks take `{ hz }` (default 2, max 5) and re-render at most that often. Data arrives once per
  * engine tick (about once a second) at most, so higher rates only help derived local clocks.
  */
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { useSdkQuery } from "@sdk-transport";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSdkQueries, useSdkQuery } from "@sdk-transport";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@workspace/engine/convex/_generated/api";
 import type { Observation } from "@workspace/player-client";
@@ -18,6 +18,7 @@ import type { UtilityDescriptor } from "@workspace/game-utilities";
 import { useRoom } from "./context";
 import { useThrottled } from "./throttle";
 import { createEvaluator, type Evaluator } from "./evaluator";
+import { extendWith, lastPoints, mergePages, trajectoryWindows, type TrajectoryPage } from "./trajectory-windows";
 
 export type { Observation };
 export type LiveObject = Observation["objects"][number];
@@ -158,56 +159,41 @@ export function useEvaluator({ enabled = true }: { enabled?: boolean } = {}): Ev
 }
 
 // ------------------------------------------------------------------------------------------------
-// trajectories: one shared, cursor-paged store per game, however many panels read it
+// trajectories: fixed windows of the log, each its own subscription, plus one live tail (trajectory-windows.ts)
 // ------------------------------------------------------------------------------------------------
-
-const MAX_POINTS = 600;
-type Series = { gameId: string; cursor: number; latest: number; byObject: Map<string, TrajectoryPoint[]>; version: number; epoch?: string };
-const stores = new Map<string, Series>();
-const listeners = new Set<() => void>();
-
-function merge(series: Series, page: { objects: { objectId: string; points: TrajectoryPoint[] }[]; nextCursor: number; latestCursor: number; epoch?: string }) {
-  // A replay (core/replay) moves its playhead back or switches its point of view (`epoch`): start over from the
-  // beginning (this page was asked from the old cursor, so it is dropped and the next one asks from -1).
-  if (page.epoch !== series.epoch || page.latestCursor < series.latest) {
-    stores.set(series.gameId, { gameId: series.gameId, cursor: -1, latest: -1, byObject: new Map(), version: series.version + 1, epoch: page.epoch });
-    for (const listener of listeners) listener();
-    return;
-  }
-  if (page.nextCursor <= series.cursor && page.latestCursor === series.latest) return;
-  const byObject = new Map(series.byObject);
-  for (const { objectId, points } of page.objects) {
-    const known = byObject.get(objectId) ?? [];
-    const last = known.at(-1)?.seq ?? -Infinity;
-    const fresh = points.filter(p => p.seq > last);
-    if (fresh.length) byObject.set(objectId, [...known, ...fresh].slice(-MAX_POINTS));
-  }
-  stores.set(series.gameId, { ...series, byObject, cursor: Math.max(series.cursor, page.nextCursor), latest: page.latestCursor, version: series.version + 1 });
-  for (const listener of listeners) listener();
-}
 
 /**
  * Per-object series of your bits over the whole current game: `{seq, worldSeconds, value, ownNetBits,
- * peerNetBits, payoff}` points (the last 600 per object). Pages through history once, then follows
- * new ticks.
+ * peerNetBits, payoff}` points (the last 600 per object). The history is closed windows of the log (each read once:
+ * a window of batches already written never changes) and the tail follows new ticks; while a window loads (the tail
+ * moving on), the series shown stays the last whole one.
  */
 export function useTrajectories({ hz }: Live = {}): ReadonlyMap<string, TrajectoryPoint[]> {
   const { roomId } = useRoom();
   const gameId = useObservation({ hz: 1 })?.gameId;
-  const series = useSyncExternalStore(
-    listener => { listeners.add(listener); return () => { listeners.delete(listener); }; },
-    () => (gameId ? stores.get(gameId) : undefined),
-  );
-  const cursor = series?.cursor ?? -1;
-  const page = useSdkQuery("player.trajectories", gameId ? { roomId, gameId, afterSeq: cursor, limit: 200 } : "skip", 5);
+  // The latest batch the tail has reported, for this game: where the windows end.
+  const [known, setKnown] = useState<{ gameId?: string; latest: number }>({ latest: -1 });
+  const latest = known.gameId === gameId ? known.latest : -1;
+  const windows = useMemo(() => (gameId ? trajectoryWindows(latest).map(w => ({ roomId, gameId, ...w })) : []), [roomId, gameId, latest]);
+  const pages = useSdkQueries("player.trajectories", windows, 5) as (TrajectoryPage | undefined)[];
+  const tail = pages.at(-1);
   useEffect(() => {
-    if (!gameId || !page || page.gameId !== gameId) return;
-    const current = stores.get(gameId) ?? { gameId, cursor: -1, latest: -1, byObject: new Map(), version: 0 };
-    if (!stores.has(gameId)) stores.set(gameId, current);
-    merge(current, page as Parameters<typeof merge>[1]);
-  }, [page, gameId]);
-  return useThrottled(series?.byObject, hz) ?? EMPTY_MAP;
+    if (gameId && tail?.gameId === gameId && tail.latestCursor !== latest) setKnown({ gameId, latest: tail.latestCursor });
+  }, [gameId, tail, latest]);
+  // The closed windows' merge is redone only when one of them changes (they do not, once loaded); the tail extends it.
+  const prefix = useRef<Merged>({ pages: [], series: EMPTY_MAP });
+  const shown = useRef<Merged & { gameId?: string }>({ pages: [], series: EMPTY_MAP });
+  const closed = pages.slice(0, -1);
+  if (!sameItems(closed, prefix.current.pages)) prefix.current = { pages: closed, series: lastPoints(mergePages(closed)) };
+  const held = pages.some(p => !p) && shown.current.gameId === gameId && shown.current.series.size > 0;
+  if (gameId !== shown.current.gameId || (!held && !sameItems(pages, shown.current.pages))) {
+    shown.current = { gameId, pages, series: gameId ? lastPoints(extendWith(prefix.current.series, tail)) : EMPTY_MAP };
+  }
+  return useThrottled(shown.current.series, hz);
 }
+
+type Merged = { pages: readonly (TrajectoryPage | undefined)[]; series: ReadonlyMap<string, TrajectoryPoint[]> };
+const sameItems = <T,>(a: readonly T[], b: readonly T[]) => a.length === b.length && a.every((x, i) => x === b[i]);
 
 /** One object's series (see useTrajectories). */
 export function useObjectHistory(objectId: string, { hz }: Live = {}): TrajectoryPoint[] {

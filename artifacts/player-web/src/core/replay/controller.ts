@@ -186,7 +186,7 @@ export class ReplayController {
     const at = { room: this.room, cursor: p.cursor, pov: p.pov };
     const value = name === "player.observation" ? replayObservation(this.replay, at, p.state)
       : name === "player.events" ? replayEvents(this.replay, at, typeof args.limit === "number" ? args.limit : 20)
-      : name === "player.trajectories" ? replayTrajectories(this.replay, at, typeof args.afterSeq === "number" ? args.afterSeq : -1)
+      : name === "player.trajectories" ? replayTrajectories(this.replay, at, typeof args.afterSeq === "number" ? args.afterSeq : -1, typeof args.upTo === "number" ? args.upTo : undefined)
       : name === "player.objectsPage" ? replayObjectsPage(this.replay, at, p.state, args)
       : name === "player.myUtility" ? replayMyUtility(this.replay, p.pov)
       : undefined;

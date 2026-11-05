@@ -738,7 +738,7 @@ the cache across 5 tick commits.
 | Item | Status |
 |---|---|
 | Removing `useLive`'s retry (#171) | Ready, but held. Without the retry, a query over 1 s on a loaded backend leaves the page on an error until reconnect. Merge it after the dock leaves the observation. |
-| Trajectory windows plus a live tail (PR 8's trajectories item) | Not started |
+| Trajectory windows plus a live tail (PR 8's trajectories item) | Landed: closed windows of 10 batches (cached across ticks) plus a live tail; no module store (`sdk/trajectory-windows.ts`) |
 | Per-god object read model (PR 4, branch `c2-object-views`) | Built, but the per-object row sync doubled tick commit time (298 → 667 ms at 1,000 objects, 100 Hz). Needs a cheaper write before it can merge. |
 | The dock off the observation (PR 5); the SDK and MCP (PR 6); `setups.list` paging | Not started |
 | Narrowing `games`' hot fields and their fallbacks | Done (2026-11-05): the fields left the validator, `game/state.ts`'s fallbacks and `splitGameHotFields` are gone. |

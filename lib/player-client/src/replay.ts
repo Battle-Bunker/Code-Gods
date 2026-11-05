@@ -477,22 +477,30 @@ export function replayEvents(replay: Replay, at: ReplayAt, limit = 20) {
 
 /**
  * player.trajectories' shape at the playhead: every object's series of god `pov`'s bits, the others' and the payoff,
- * from batches after `afterSeq`. `epoch` names the point of view: a client's incremental store starts over when it (or
- * the playhead, going back) changes.
+ * from batches after `afterSeq` (up to `upTo`: a closed window, which, as live, reports its own last batch as
+ * `latestCursor`). `epoch` names the point of view.
  */
-export function replayTrajectories(replay: Replay, at: ReplayAt, afterSeq = -1) {
+export function replayTrajectories(replay: Replay, at: ReplayAt, afterSeq = -1, upTo?: number) {
   const upto = Math.min(at.cursor, replay.log.length);
   const series = new Map<string, { seq: number; worldSeconds: number; value: Wire; ownNetBits: number; peerNetBits: number; payoff: number }[]>();
   for (let i = 0; i < upto; i++) {
     const { seq, event: ev } = replay.log[i];
+    if (upTo !== undefined && seq > upTo) break;
     if (seq <= afterSeq || (ev.type !== "object.spawned" && ev.type !== "object.transformed" && ev.type !== "object.rescored")) continue;
     const v = viewOf(ev.net, at.pov);
     let points = series.get(ev.objectId);
     if (!points) series.set(ev.objectId, points = []);
     points.push({ seq, worldSeconds: ev.worldSeconds, value: ev.value, ownNetBits: v.netBits, peerNetBits: v.peerNetBits, payoff: v.payoff });
   }
+  const objects = [...series].map(([objectId, points]) => ({ objectId, points }));
+  if (upTo !== undefined) {
+    // The window's last batch at the playhead (none: it ends where it starts).
+    let end = afterSeq;
+    for (let i = upto - 1; i >= 0; i--) if (replay.log[i].seq <= upTo) { end = Math.max(afterSeq, replay.log[i].seq); break; }
+    return { gameId: replay.game.id, objects, nextCursor: end, latestCursor: end, epoch: `pov:${at.pov}` };
+  }
   const lastSeq = upto ? replay.log[upto - 1].seq : -1;
-  return { gameId: replay.game.id, objects: [...series].map(([objectId, points]) => ({ objectId, points })), nextCursor: lastSeq, latestCursor: lastSeq, epoch: `pov:${at.pov}` };
+  return { gameId: replay.game.id, objects, nextCursor: lastSeq, latestCursor: lastSeq, epoch: `pov:${at.pov}` };
 }
 
 /** player.myUtility's shape for god `pov`: its dealt descriptor and what the client's evaluator needs. */
