@@ -8,6 +8,7 @@ import type { Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery } from "../_generated/server";
 import { publicSalienceOf } from "../game/readModel";
 import { liveGame, writeGame } from "../game/state";
+import { scheduleFill } from "../game/objectViews";
 import { scoreV } from "../game/tables";
 import { disclosedTotalsOf, salienceOf, totalsOf } from "../lib/world";
 import { appendEvents } from "./loop";
@@ -118,6 +119,8 @@ export const apply = internalMutation({
     const old = game.tablesStorageId ?? null;
     await writeGame(ctx, game, { tablesStorageId: storageId, holdState: "ready", holdPending: [], holdReadyAt: Date.now(), nextBatch,
       scoreboard: { totals: disclosed, world: game.worldSeconds, at: Date.now() } });
+    // Each god's object rows and totals follow the new scores (game/objectViews.ts), paged off this transaction.
+    await scheduleFill(ctx, gameId);
     return old;
   },
 });

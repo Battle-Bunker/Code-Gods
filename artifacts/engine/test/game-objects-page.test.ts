@@ -1,7 +1,8 @@
 /**
- * player.objectsPage: the panel's infinite scroll over the whole collection. Pages chained by their cursor are the
- * single big window in the same order under every sort (key descending, object id ascending), carry the viewer's
- * disclosed numbers and the same payoff rank as everywhere, and report footer totals over every object.
+ * player.objectsPage: the stored panels' window onto the whole collection, served by the per-god read model
+ * (game/objectViews.ts). Pages chained by their cursor are the single big window in the same order under every sort
+ * (key descending; ties in the index's own order), carry the viewer's disclosed numbers and, by payoff, the payoff rank,
+ * and report footer totals over every object.
  * (Ordering by the disclosed, noisy others-sum, never an exact one, is asserted in game-disclosure.test.ts.)
  */
 import test from "node:test";
@@ -25,16 +26,20 @@ test("pages chained by cursor equal one window, under each sort, with stable ord
     return o.objects.length >= 14 ? o : null;
   }, "the world's objects", 90000);
 
+  // The read model follows the start's fill (and the hold rescoring's) off the start's transaction.
+  const shown = new Map(observed.objects.map(o => [o.id, o]));
+  await waitFor(async () => {
+    const w: { total: number; rows: Row[] } = await ada.c.query(api.player.objectsPage, { roomId, limit: 90 });
+    return w.total === observed.objects.length && w.rows.every(r => shown.get(r.id)?.payoff === r.payoff) || null;
+  }, "the read model's rows", 30000, 200);
   for (const sort of ["payoff", "mine", "othersCare"] as const) {
     const big: { total: number; rows: Row[]; next: unknown } = await ada.c.query(api.player.objectsPage, { roomId, sort, limit: 2100 });
     assert.equal(big.total, observed.objects.length);
     assert.equal(big.rows.length, big.total);
     assert.equal(big.next, null, "the whole window leaves no next page");
     const key = (r: Row) => (sort === "payoff" ? r.payoff : sort === "mine" ? r.own.netBits : r.peerCare);
-    big.rows.slice(1).forEach((r, i) => {
-      const p = big.rows[i];
-      assert.ok(key(p) > key(r) || (key(p) === key(r) && p.id < r.id), `${sort}: ${p.id} then ${r.id} is in order`);
-    });
+    big.rows.slice(1).forEach((r, i) => assert.ok(key(big.rows[i]) >= key(r), `${sort}: ${big.rows[i].id} then ${r.id} is in order`));
+    assert.equal(new Set(big.rows.map(r => r.id)).size, big.rows.length, `${sort}: every object once`);
 
     const chained: string[] = [];
     let after: { key: number; id: string } | undefined, pages = 0;

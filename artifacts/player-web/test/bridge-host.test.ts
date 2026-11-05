@@ -149,6 +149,22 @@ test("a stored panel's objects page is clamped and its cursor validated; the roo
     { roomId: "room-1", sort: "mine", filter: "chips", limit: 1, after: { key: 2.5, id: "o7" } });
 });
 
+// What would break: a stored panel naming a malformed id or cursor (the engine would refuse the whole subscription), or
+// an unbounded page (R2: one index page of at most 99 rows).
+test("a stored panel's read-model queries are clamped and their ids and cursors validated", async () => {
+  const { BRIDGE_QUERIES } = await import("../src/sdk/bridge-protocol.ts");
+  assert.deepEqual(BRIDGE_QUERIES["player.objectIds"]({ gameId: "g1", sort: "nope", filter: "x", limit: 5000, after: { key: "1", at: 2 } }, "room-1"),
+    { gameId: "g1", sort: "payoff", filter: "all", limit: 90 });
+  assert.deepEqual(BRIDGE_QUERIES["player.objectIds"]({ gameId: "g1", sort: "recentlyMutated", filter: "chips", limit: 0, after: { key: null, at: 7.5 } }, "room-1"),
+    { gameId: "g1", sort: "recentlyMutated", filter: "chips", limit: 1, after: { key: null, at: 7.5 } });
+  assert.equal(BRIDGE_QUERIES["player.objectIds"]({}, "room-1"), null);
+  assert.deepEqual(BRIDGE_QUERIES["player.object"]({ objectId: "o1", gameId: "x" }, "room-1"), { objectId: "o1" });
+  assert.equal(BRIDGE_QUERIES["player.object"]({ objectId: "x".repeat(65) }, "room-1"), null);
+  assert.deepEqual(BRIDGE_QUERIES["player.objectsTop"]({ gameId: "g1", by: "mine", n: 500, dir: "asc" }, "room-1"), { gameId: "g1", by: "mine", n: 20, dir: "asc" });
+  assert.deepEqual(BRIDGE_QUERIES["player.objectRank"]({ objectId: "o1" }, "room-1"), { objectId: "o1" });
+  assert.deepEqual(BRIDGE_QUERIES["player.totals"]({ gameId: "g1" }, "room-1"), { gameId: "g1" });
+});
+
 // What would break: a stored panel's closed trajectory window losing `upTo` on its way through the host, so it reads
 // the live log and re-runs on every tick (sdk/trajectory-windows.ts).
 test("a stored panel's trajectory window keeps its closed range; the room is the host's", async () => {

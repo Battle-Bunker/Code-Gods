@@ -20,6 +20,7 @@ import { EVENT_LOG_SCHEMA, LEASE_MS, disclosedTotalsOf, totalsOf } from "../lib/
 import { roomSetupWrite, type RoomSetupChange } from "../setups";
 import { scoreV } from "./tables";
 import { publicSalienceOf, publishStandings } from "./readModel";
+import { scheduleFill } from "./objectViews";
 
 /** The second half's watchdog period while tables compute (owner.ts completeStart; finished() normally launches at once). */
 export const PREPARING_WATCHDOG_MS = 60_000;
@@ -255,6 +256,8 @@ export const commitStart = internalMutation({
     });
     await ctx.scheduler.runAt(nextDeadline({ phase: "planning", planningEndsAt, pauseEndsAt: 0 }, now)!, internal.engine.tick.run, { gameId, seq: 0 });
     await ctx.scheduler.runAfter(0, internal.ai.seats.startAll, { gameId });
+    // Each god's object rows and totals (game/objectViews.ts), paged off the start's own transaction.
+    await scheduleFill(ctx, gameId);
     if (args.deities.length > 1) await ctx.scheduler.runAfter(0, internal.engine.hold.start, { gameId });
     const result = { gameId, shortCode, guid };
     if (args.requestId) {

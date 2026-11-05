@@ -12,10 +12,20 @@
  */
 import { OBJECT_FILTERS, OBJECT_PAGE_MAX, OBJECT_SORTS } from "@workspace/player-client/objects-page";
 
-export type QueryName = "player.observation" | "player.events" | "player.myUtility" | "player.trajectories" | "player.objectsPage" | "rooms.get";
+export type QueryName = "player.observation" | "player.events" | "player.myUtility" | "player.trajectories" | "player.objectsPage" | "rooms.get"
+  | "player.objectIds" | "player.object" | "player.objectsTop" | "player.objectRank" | "player.totals";
 
 const int = (value: unknown, min: number, max: number, fallback: number) =>
   typeof value === "number" && Number.isFinite(value) ? Math.min(max, Math.max(min, Math.trunc(value))) : fallback;
+/** An id argument (a game's or an object's): a short string, else the query is refused. */
+const id = (value: unknown) => (typeof value === "string" && value.length > 0 && value.length <= 64 ? value : null);
+const sortOf = (value: unknown) => OBJECT_SORTS.find(s => s === value) ?? "payoff";
+/** The per-god read model's queries read only the viewer's own rows (engine player.ts), whatever game or object is named. */
+const objectCursor = (after: unknown) => {
+  const a = after as { key?: unknown; at?: unknown } | null | undefined;
+  return a && (a.key === null || (typeof a.key === "number" && Number.isFinite(a.key))) && typeof a.at === "number" && Number.isFinite(a.at)
+    ? { after: { key: a.key as number | null, at: a.at } } : {};
+};
 
 /** Allowed queries → the arguments the host actually sends (null: refused). The room is always the host's. */
 export const BRIDGE_QUERIES: Record<QueryName, (args: Record<string, unknown>, roomId: string) => Record<string, unknown> | null> = {
@@ -35,6 +45,17 @@ export const BRIDGE_QUERIES: Record<QueryName, (args: Record<string, unknown>, r
     };
   },
   "rooms.get": (_args, roomId) => ({ room: roomId }),
+  "player.objectIds": args => {
+    const gameId = id(args.gameId);
+    return gameId ? { gameId, sort: sortOf(args.sort), filter: OBJECT_FILTERS.find(f => f === args.filter) ?? "all", limit: int(args.limit, 1, 90, 30), ...objectCursor(args.after) } : null;
+  },
+  "player.object": args => { const objectId = id(args.objectId); return objectId ? { objectId } : null; },
+  "player.objectsTop": args => {
+    const gameId = id(args.gameId);
+    return gameId ? { gameId, by: sortOf(args.by), n: int(args.n, 1, 20, 10), ...(args.dir === "asc" ? { dir: "asc" } : {}) } : null;
+  },
+  "player.objectRank": args => { const objectId = id(args.objectId); return objectId ? { objectId } : null; },
+  "player.totals": args => { const gameId = id(args.gameId); return gameId ? { gameId } : null; },
 };
 export const isQueryName = (name: unknown): name is QueryName => typeof name === "string" && Object.hasOwn(BRIDGE_QUERIES, name);
 

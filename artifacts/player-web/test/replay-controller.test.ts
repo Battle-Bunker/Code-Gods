@@ -86,6 +86,26 @@ test("player.objectsPage is answered from the replay at the playhead, exactly, i
   assert.equal(page().total, 0, "before the first spawn there is nothing to scroll");
 });
 
+// What would break: a panel reading the per-god read model in a replay getting nothing (the engine is not asked in
+// replay mode), another god's numbers, or a skeleton cursor that repeats or skips an object.
+test("the read model's queries are answered from the replay at the playhead, exactly, and follow the point of view", () => {
+  const c = controller(5);
+  // At the end o1 is net [4, 1] (exact): Ada own 4, others 1, payoff 4; Bo own 1, others 4, payoff 4.
+  const row = c.answer("player.object", { objectId: "o1" }) as { own: { netBits: number }; peerNetBits: number; payoff: number; mutations: number };
+  assert.deepEqual([row.own.netBits, row.peerNetBits, row.payoff, row.mutations], [4, 1, 4, 2]);
+  assert.equal(c.answer("player.object", { objectId: "nope" }), null);
+  assert.deepEqual(c.answer("player.objectIds", { gameId: "g", sort: "mine", limit: 5 }), { rows: [{ id: "o1", key: 4 }], next: null });
+  assert.deepEqual(c.answer("player.objectIds", { gameId: "g", filter: "chips" }), { rows: [], next: null }, "o1 is contested, not a chip");
+  assert.deepEqual(c.answer("player.objectRank", { objectId: "o1" }), { rank: 1 });
+  assert.deepEqual((c.answer("player.objectsTop", { gameId: "g", n: 3 }) as { id: string; rank: number }[]).map(o => [o.id, o.rank]), [["o1", 1]]);
+  const totals = c.answer("player.totals", { gameId: "g" }) as { objectCount: number; score: number; contested: number; chips: number; maxOwn: number };
+  assert.deepEqual([totals.objectCount, totals.score, totals.contested, totals.chips, totals.maxOwn], [1, 4, 1, 0, 4]);
+  c.setPov(1);
+  assert.equal((c.answer("player.object", { objectId: "o1" }) as { own: { netBits: number } }).own.netBits, 1, "Bo's own bits");
+  c.seek(0);
+  assert.deepEqual(c.answer("player.objectIds", { gameId: "g" }), { rows: [], next: null }, "nothing before the first spawn");
+});
+
 // ----- the clock: a continuous playhead in world time (events at world 0, 0, 2, 3 and 5) -----
 // No browser frames here: play() asks for one if it can, and advance(ms) moves the clock as a frame would.
 (globalThis as { requestAnimationFrame?: unknown }).requestAnimationFrame ??= () => 0;

@@ -311,6 +311,11 @@ Every public function above has an entry in `lib/player-client/src/catalog.ts` (
 | `player.game` | query | player | Open a game of this room | One game of this room, live or as it ended; past games open for their players, spectators and the owner. | — (The app's game page (/rooms/:room/games/:game); the assistant reads past games through list_games and get_game_history.) |
 | `player.trajectories` | query | player | Open my points over time | Per-object series of your bits, the others' total and your payoff. | `get_trajectories` |
 | `player.objectsPage` | query | player | Scroll the objects | Your objects a page at a time, by payoff, your bits, the others' care, mutations, creation time or last mutation. | — (The Objects panel's infinite scroll; the assistant reads the same numbers through the observation and sets the panel's sort with show_panel.) |
+| `player.objectIds` | query | player | List my objects | Your objects' ids in one sort order, a page at a time. | — (The Objects panel's skeleton; each visible row then reads player.object.) |
+| `player.object` | query | player | One of my objects | One object with your bits, the others' care and your payoff. | — (One row of the Objects panel; panels read it per visible object.) |
+| `player.objectsTop` | query | player | My best objects | Your top (or bottom) objects by payoff or another sort, with their ranks. | — (Small top-N lists in panels (my card, results); the assistant reads the observation.) |
+| `player.objectRank` | query | player | An object's rank | Where one object stands by your payoff (#1 is your best). | — (The #rank badge of one object in a panel.) |
+| `player.totals` | query | player | My totals | Your score and sums over every object, and how many are contested or chips. | — (The Objects panel's footer and the overview's figures.) |
 | `player.series` | query | player | Open the utility series | Every change to every object this game, with your bits and the others' total before and after. | `get_utility_series` |
 | `player.board` | query | player | Board at a moment | Every object as it was at a world time, with your bits and the others' total. | `get_board_at` |
 | `player.myUtility` | query | player | Open my secret goal | Your own utility descriptor and the settings to evaluate it; nobody else's. | `get_my_utility` |
