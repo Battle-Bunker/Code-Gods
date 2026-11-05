@@ -622,10 +622,11 @@ The CLI's output throttle stays; it limits printing, not reading.
 - Rebuild it as a paged read over `objectViews`, using the current version when `world` is now. Historical worlds
   read `objectEvents` pages.
 - Each page obeys R2.
-- Done (PR 6): `player.board` pages the caller's `objectViews` by spawn time up to `world` (≤ 10 a page, ≤ 100 for the agent tool; now, each row
+- Done (PR 6): `player.board` pages the caller's `objectViews` by spawn time up to `world` (≤ 40 a page, ≤ 100 for the agent tool; now, each row
   as it stands; earlier, one `objectEvents` read per object), with `cursor`/`done`; `player.series`'s public pages are
-  ≤ 6 rows (an objectEvents row is about 4 KiB at 1,000 objects; the agent tools' internal twin keeps 4,000-row pages
-  inside Convex).
+  ≤ 40 rows (the agent tools' internal twin keeps 4,000-row pages inside Convex). Both learn whether the history is
+  partial from the game's earliest `objectEvents` row instead of its first `tickBatches` doc (about 140 KiB at 1,000
+  objects: every starting spawn).
 
 ---
 

@@ -522,12 +522,11 @@ export async function myUtilityFor(ctx: QueryCtx, viewer: Viewer, { roomId }: { 
 // ------------------------------------------------------------------------------------------------
 
 /**
- * A page of the series holds at most this many rows (default and maximum). The public query's pages fit R2's 64 KiB
- * (SERIES_PUBLIC_PAGE rows and at most as many earlier rows: an objectEvents row is about 4 KiB in a 1,000-object game,
- * measured by the query-cost gate); the agent tools' internal twin reads larger pages inside Convex (agent/series.ts
- * gatherSeries).
+ * A page of the series holds at most this many rows (default and maximum). The public query's pages fit R2
+ * (SERIES_PUBLIC_PAGE rows and at most as many earlier rows, under 100 documents and 64 KiB); the agent tools' internal
+ * twin reads larger pages inside Convex (agent/series.ts gatherSeries).
  */
-export const SERIES_PAGE = 1000, SERIES_PAGE_MAX = 4000, SERIES_PUBLIC_PAGE = 6;
+export const SERIES_PAGE = 1000, SERIES_PAGE_MAX = 4000, SERIES_PUBLIC_PAGE = 40;
 type Wire = number | string;
 
 /** The viewer's own bits, the others' sum and own payoff from a stored per-deity vector (never the vector itself). */
@@ -543,11 +542,14 @@ async function seatedGame(ctx: QueryCtx, caller: Viewer, roomId: string, gameRef
 
 /**
  * Whether the game's per-object history is incomplete: it started before objectEvents rows were written (event log
- * schema 3), so its early spawns and transformations have no rows. One read (the game's first batch).
+ * schema 3), so its early spawns and transformations have no rows. Every object's history starts with its spawn
+ * (version 0), so a complete history's earliest row is a spawn; a game whose rows began mid-game starts with a
+ * transformation of an object spawned before. One small read (the earliest row; the game's first tickBatches doc,
+ * which holds every starting spawn, is far over R2's 64 KiB in a large game).
  */
 async function partialSeries(ctx: QueryCtx, gameId: Doc<"games">["_id"]) {
-  const first = await ctx.db.query("tickBatches").withIndex("by_game_seq", q => q.eq("gameId", gameId)).first();
-  return !first || (first.schema ?? 1) < 3;
+  const first = await ctx.db.query("objectEvents").withIndex("by_game_world", q => q.eq("gameId", gameId)).first();
+  return !first || first.version > 0;
 }
 
 /**
@@ -608,10 +610,10 @@ export async function seriesFor(ctx: QueryCtx, caller: Viewer, args: { roomId: s
 }
 
 /**
- * A public board page holds at most BOARD_PAGE objects (default and maximum): with one objectEvents read each (about
- * 4 KiB), within R2's 64 KiB. The agent tools' internal twin reads up to BOARD_PAGE_INTERNAL inside Convex.
+ * A public board page holds at most BOARD_PAGE objects (default and maximum): with one objectEvents read each, within
+ * R2's 100 documents. The agent tools' internal twin reads up to BOARD_PAGE_INTERNAL inside Convex.
  */
-export const BOARD_PAGE = 10, BOARD_PAGE_INTERNAL = 100;
+export const BOARD_PAGE = 40, BOARD_PAGE_INTERNAL = 100;
 
 /**
  * One page of the board at world time `world` (default: now) as the caller saw it: the objects that existed then, in
