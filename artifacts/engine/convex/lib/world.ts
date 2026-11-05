@@ -35,9 +35,10 @@ export const EVENTS_PER_BATCH = 400;
  * transform. 5 is the energy model (docs/energy-model.md): an act's cost is {read, change, total} (no decision or floor),
  * summons carry no decisionBits or perActFloorBits, and an act that returned no calls is a `skip` event. Bump it whenever
  * an event's meaning or fields change. 6 is the power budget (docs/energy-model.md §6): a summon carries the agent's
- * `powerShare`, and a `power` event records each re-allocation.
+ * `powerShare`, and a `power` event records each re-allocation. 7 is hold rarity (docs/energy-model.md §8): a `rescore` event
+ * per object when the hold corrections arrive during planning.
  */
-export const EVENT_LOG_SCHEMA = 6;
+export const EVENT_LOG_SCHEMA = 7;
 
 export type Clock = {
   phase: "planning" | "running" | "paused" | "recovery" | "ended";

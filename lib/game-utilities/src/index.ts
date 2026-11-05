@@ -33,3 +33,4 @@ export {
   type Candidate, type DrawClass, type FitInput, type FitResult, type Hint, type Hypothesis, type Role,
 } from "./inference.ts";
 export * from "./explain/index.ts";
+export { HOLD_ESTIMATOR, holdBits, type HoldTable } from "./hold.ts";

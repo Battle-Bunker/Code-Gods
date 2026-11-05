@@ -36,6 +36,8 @@ type Breakdown = { read: number; change: number };
 export type ReplayEvent =
   | { type: "phase"; phase: "planning" | "running" | "paused" | "recovery" | "ended"; worldSeconds: number; reason?: string }
   | { type: "object.spawned"; objectId: string; value: Wire; version: number; worldSeconds: number; net: number[] }
+  /** Hold rarity applied during planning (log schema 7, docs/energy-model.md §8): the same version, re-scored. */
+  | { type: "object.rescored"; objectId: string; value: Wire; version: number; worldSeconds: number; net: number[] }
   // agentId/ownerId are always present in an ended game's replay; a client folding other (live, unattributed) pages may lack them.
   | { type: "object.transformed"; objectId: string; before: Wire; value: Wire; version: number; worldSeconds: number; agentId?: string; ownerId?: string;
     calls: unknown; cost: Charge; net: number[]; seed?: string }
@@ -186,6 +188,11 @@ export function applyEntry(state: ReplayState, entry: LogEntry, settings: GameSe
     case "object.spawned":
       setObject(state, { id: ev.objectId, value: ev.value, version: ev.version, net: ev.net, spawnedAt: entry.world, changedAt: entry.world });
       break;
+    case "object.rescored": {
+      const prior = state.objects.get(ev.objectId);
+      if (prior) setObject(state, { ...prior, net: ev.net });
+      break;
+    }
     case "object.transformed": {
       const prior = state.objects.get(ev.objectId);
       setObject(state, { id: ev.objectId, value: ev.value, version: ev.version, net: ev.net, spawnedAt: prior?.spawnedAt ?? entry.world, changedAt: entry.world,
@@ -353,7 +360,7 @@ export function keyMoments(replay: Replay, swings = 8): KeyMoment[] {
       const god = replay.roster.get(ev.ownerId);
       if (god !== undefined) out.push({ cursor, world, kind: "summon", god });
     }
-    if (ev.type !== "object.spawned" && ev.type !== "object.transformed") return;
+    if (ev.type !== "object.spawned" && ev.type !== "object.transformed" && ev.type !== "object.rescored") return;
     state.totals.forEach((t, god) => { if (t !== before[god]) changes.push({ cursor, world, kind: "swing", god, delta: t - before[god] }); });
     const best = Math.max(...state.totals);
     const leaders = state.totals.flatMap((t, god) => (t === best ? [god] : []));
@@ -435,6 +442,7 @@ function projected(ev: ReplayEvent, seq: number, pov: number, roster: Replay["ga
   switch (ev.type) {
     case "phase": return { type: "phase" as const, seq, phase: ev.phase, worldSeconds: ev.worldSeconds, ...(ev.reason ? { reason: ev.reason } : {}) };
     case "object.spawned": return { type: "object.spawned" as const, seq, objectId: ev.objectId, value: ev.value, version: ev.version, worldSeconds: ev.worldSeconds, ...scored(ev.net) };
+    case "object.rescored": return { type: "object.rescored" as const, seq, objectId: ev.objectId, value: ev.value, version: ev.version, worldSeconds: ev.worldSeconds, ...scored(ev.net) };
     case "object.transformed": return {
       type: "object.transformed" as const, seq, objectId: ev.objectId, value: ev.value, before: ev.before, version: ev.version, worldSeconds: ev.worldSeconds,
       agentId: ev.agentId ?? "", mine, calls: ev.calls, cost: ev.cost, ...scored(ev.net),
@@ -477,7 +485,7 @@ export function replayTrajectories(replay: Replay, at: ReplayAt, afterSeq = -1) 
   const series = new Map<string, { seq: number; worldSeconds: number; value: Wire; ownNetBits: number; peerNetBits: number; payoff: number }[]>();
   for (let i = 0; i < upto; i++) {
     const { seq, event: ev } = replay.log[i];
-    if (seq <= afterSeq || (ev.type !== "object.spawned" && ev.type !== "object.transformed")) continue;
+    if (seq <= afterSeq || (ev.type !== "object.spawned" && ev.type !== "object.transformed" && ev.type !== "object.rescored")) continue;
     const v = viewOf(ev.net, at.pov);
     let points = series.get(ev.objectId);
     if (!points) series.set(ev.objectId, points = []);

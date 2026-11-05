@@ -171,11 +171,20 @@ export async function startGame(owner: God, roomId: string, args: { requestId?: 
   return startedGame(owner, roomId, await owner.c.action(api.owner.start, { roomId, ...args }), ms);
 }
 
-/** The game a start result (from `api.owner.start` or the MCP `start_game` tool) begins, waiting out `preparing`. */
+/**
+ * The game a start result (from `api.owner.start` or the MCP `start_game` tool) begins, waiting out `preparing` and
+ * then hold rarity's corrections (engine/hold.ts): they re-score the starting objects once during planning, so a test
+ * reading scores right after the start would otherwise race them. game-hold.test.ts tests the computing state itself.
+ */
 export async function startedGame(owner: God, roomId: string, started: any, ms = 120_000): Promise<Started> {
+  const settled = async (g: Started) => {
+    await waitFor(async () => (await admin.query(internal.testing.rawGameDoc, { gameId: g.gameId }))?.holdState !== "computing" || undefined,
+      "hold rarity's corrections are in", ms, 100);
+    return g;
+  };
   if (started?.status !== "preparing") {
     assert.ok(started?.gameId, `the start began a game: ${JSON.stringify(started)}`);
-    return { gameId: started.gameId, shortCode: started.shortCode, guid: started.guid };
+    return settled({ gameId: started.gameId, shortCode: started.shortCode, guid: started.guid });
   }
   const game = await waitFor(async () => {
     const room = await owner.c.query(api.rooms.get, { room: roomId });
@@ -183,7 +192,7 @@ export async function startedGame(owner: God, roomId: string, started: any, ms =
     return room.activeGame;
   }, `the prepared game in ${roomId} starts`, ms, 500);
   const { guid } = await owner.c.query(api.games.header, { code: game.shortCode });
-  return { gameId: game.id, shortCode: game.shortCode, guid };
+  return settled({ gameId: game.id, shortCode: game.shortCode, guid });
 }
 
 export const TS = {

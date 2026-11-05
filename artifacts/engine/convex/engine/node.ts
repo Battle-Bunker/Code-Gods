@@ -17,6 +17,7 @@ import {
   coverage, isPlayableInstantiation, priorKey, shippedPriors, surprisal, tableFor, UNIFORM_PRIOR, type CalibrationManifest, type CalibrationTable, type GodScore, type InstanceTables, type PriorRef,
   type UtilityDescriptor,
 } from "@workspace/game-utilities";
+import { holdBits, type HoldTable } from "@workspace/game-utilities/hold";
 import { fail } from "../lib/errors";
 import { settingsDomain } from "./settingsDomain";
 
@@ -120,7 +121,8 @@ function table(tables: InstanceTables, draw: { familyId: string; params: Utility
 export interface PinnedTables {
   readonly pinned: true;
   readonly instance: string;
-  readonly byGod: ReadonlyMap<string, { readonly reward: CalibrationTable; readonly penalty?: CalibrationTable }>;
+  /** `hold`: the reward's hold correction at this game's m (docs/energy-model.md §8); absent for one player or until computed. */
+  readonly byGod: ReadonlyMap<string, { readonly reward: CalibrationTable; readonly penalty?: CalibrationTable; readonly hold?: HoldTable }>;
 }
 export type ScoringTables = InstanceTables | PinnedTables;
 const isPinned = (t: ScoringTables): t is PinnedTables => (t as PinnedTables).pinned === true;
@@ -150,7 +152,8 @@ export function score(tables: ScoringTables, settings: GameSettings, descriptor:
   const inst = instantiationOf(settings);
   const t = godTables(tables, settings, descriptor, godId);
   const ordinal = evaluator(descriptor, inst)(value);
-  const rewardBits = bits(surprisal(t.reward, ordinal));
+  // Hold rarity (docs/energy-model.md §8): static rarity plus the hold correction of the game's player count.
+  const rewardBits = bits(surprisal(t.reward, ordinal) + holdBits((t as { hold?: HoldTable }).hold, ordinal));
   if (!descriptor.penalty) return { ordinal, rewardBits, netBits: bits(netBits({ rewardBits }, settings.penaltyWeight)) };
   const penaltyTable = t.penalty!;
   const penaltyOrdinal = evaluator(descriptor.penalty, inst)(value);

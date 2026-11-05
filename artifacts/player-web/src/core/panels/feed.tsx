@@ -31,7 +31,7 @@ export default function Feed({ params }: PanelProps<"feed">) {
     const last = new Map<string, { mine: number; others: number }>();
     const out: Change[] = [];
     for (const e of events as (GameEvent & { seq?: number })[]) {
-      if (e.type !== "object.spawned" && e.type !== "object.transformed") continue;
+      if (e.type !== "object.spawned" && e.type !== "object.rescored" && e.type !== "object.transformed") continue;
       const scored = "own" in e && e.own ? { mine: e.own.netBits, others: e.peerNetBits ?? 0 } : null;
       const before = last.get(e.objectId);
       if (scored) last.set(e.objectId, scored);

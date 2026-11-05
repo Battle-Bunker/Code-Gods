@@ -75,8 +75,9 @@ function statusLine(game: GameHeader, now: number) {
   const plan = secsLeft(game.planningEndsAt, now), pause = secsLeft(game.pauseEndsAt, now);
   if (pause && pause > 0) return `Paused · resumes in ${fmt(pause, 0)} s.`;
   if (plan && plan > 0) return `Planning · world starts in ${fmt(plan, 0)} s.`;
-  // Past its deadline, planning holds until every allowed language's agent sandbox is warm (the engine's tick).
-  if (game.phase === "planning") return "Planning · agent sandboxes warming up; the world starts when they are ready.";
+  // Past its deadline, planning holds until every allowed language's agent sandbox is warm and hold rarity's scoring
+  // corrections are computed (the engine's tick).
+  if (game.phase === "planning") return "Planning · getting ready (agent sandboxes, scoring); the world starts when they are ready.";
   return "Running.";
 }
 

@@ -99,6 +99,9 @@ export const observationSchema = z.object({
   // Each allowed language's agent sandbox. Validate and summon in a language wait for `ready` (they answer notReady
   // before); while any is not ready after planning's deadline, planning holds: world time starts for everyone at once.
   sandboxes: z.array(sandboxSchema).max(LANGUAGES.length).optional(),
+  // Hold rarity's corrections for this player count (docs/energy-model.md §8), computed during planning: planning holds
+  // for them like a sandbox. `failed`: the game scores on static rarity. Absent for one player.
+  holdRarity: z.object({ state: z.enum(["computing", "ready", "failed"]), reason: z.string().max(500).optional() }).optional(),
   // `seated` is false for a member who joined after this game launched: they spectate and play in the next one.
   roomShortCode: z.string().max(32).optional(), gameShortCode: z.string().max(32).optional(), seated: z.boolean().optional(),
   instance: instanceSchema.optional(),

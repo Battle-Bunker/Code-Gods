@@ -244,6 +244,10 @@ export function projectEvent(ev: Ev, godId: string, index: number, live = true) 
   if (ev.t === "spawn") {
     return { type: "object.spawned" as const, objectId: ev.objectId, value: ev.value, version: ev.version, worldSeconds: ev.world, ...scored };
   }
+  // Hold rarity applied during planning (docs/energy-model.md §8): the same version, re-scored.
+  if (ev.t === "rescore") {
+    return { type: "object.rescored" as const, objectId: ev.objectId, value: ev.value, version: ev.version, worldSeconds: ev.world, ...scored };
+  }
   // Every transformation is public; while the game is live it is unattributed (docs/public-log-design.md §1): another
   // god's carries no agent id, owner, calls or charge. Only the viewer's own carry its agent, calls and cost.
   const mine = ev.ownerId === godId;
@@ -273,6 +277,7 @@ export function replayEvent(ev: Ev) {
   switch (ev.t) {
     case "phase": return { type: "phase" as const, phase: ev.phase, worldSeconds: ev.world, ...(ev.reason ? { reason: ev.reason } : {}) };
     case "spawn": return { type: "object.spawned" as const, objectId: ev.objectId, value: ev.value, version: ev.version, worldSeconds: ev.world, net: ev.net };
+    case "rescore": return { type: "object.rescored" as const, objectId: ev.objectId, value: ev.value, version: ev.version, worldSeconds: ev.world, net: ev.net };
     case "transform": return {
       type: "object.transformed" as const, objectId: ev.objectId, before: ev.before, value: ev.value, version: ev.version, worldSeconds: ev.world,
       agentId: ev.agentId, ownerId: ev.ownerId, calls: ev.calls, cost: actCost(ev.cost), net: ev.net, ...(ev.seed ? { seed: ev.seed } : {}),
@@ -309,7 +314,7 @@ export function replayBatches(batches: readonly (Batch & { from?: number })[]) {
 export function trajectories(batches: readonly Batch[], index: number, live: boolean) {
   const series = new Map<string, { seq: number; worldSeconds: number; value: number | string; ownNetBits: number; peerNetBits: number; payoff: number }[]>();
   for (const batch of batches) for (const ev of batch.events) {
-    if (ev.t !== "spawn" && ev.t !== "transform") continue;
+    if (ev.t !== "spawn" && ev.t !== "transform" && ev.t !== "rescore") continue;
     const view = viewOfNet(ev.net, index, live ? ev.noise ?? 0 : 0);
     let points = series.get(ev.objectId);
     if (!points) series.set(ev.objectId, points = []);
@@ -345,6 +350,7 @@ export function observation(input: ObservationInput): Observation {
     ...(notice ? { notice } : {}),
     ...(game?.phase === "ended" && game.endReason ? { endReason: game.endReason } : {}),
     language: allowedLanguages(settings)[0], languages: allowedLanguages(settings),
+    ...(game?.holdState ? { holdRarity: { state: game.holdState, ...(game.holdState === "failed" && game.holdError ? { reason: game.holdError } : {}) } } : {}),
     ...(input.sandboxes ? { sandboxes: input.sandboxes.map(s => ({ language: s.language, state: s.state, ...(s.reason ? { reason: s.reason } : {}) })) } : {}),
     instance: objectInstance(settings),
     economy: {

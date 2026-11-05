@@ -255,6 +255,27 @@ They are unit tests (`lib/game-types/test/mutators.test.ts`).
   sandbox warm-up, for the dealt families at the game's m, and cached by (static table key, m, NOISE_VERSION). Planning
   waits for them as it waits for sandboxes, and a post-deploy job warms the Annotated basics families on the default
   shape for m = 1..3. The shipped static tables are untouched.
+- **In the engine** (PR 5b). A game with more than one player needs its corrections (rooms start with at least three
+  players today, so in practice m ≥ 2; the engine and the warm-up also cover m = 1).
+  - The start (`game/lobby.ts commitStart`) sets `games.holdState = "computing"` and schedules `engine/hold.ts start`.
+    It looks up each god's table in `holdTables` (key = sha256(static table key, `holdKeyPart(m)`)) and fans out one
+    action per missing one; each stores its table and, the last, schedules `finish`.
+  - `finish` adds the tables to the game's pinned file (`engine/pinned.ts`, per god `hold`), re-scores the starting
+    objects with it, and `holdData.apply` writes the objects, the per-object history rows (same version: the state
+    index) and one `rescore` event per object (log schema 7; projected as `object.rescored`). `holdState` is then
+    `ready`; on any error `failed` (`holdError`), and the game scores on static rarity.
+  - The tick (`engine/tick.ts`) holds planning while `holdState` is `computing`, as for a warming sandbox, and world time
+    starts no earlier than `holdReadyAt`. Actions run at most once, so a computation that died silently would hold
+    planning for ever: ten minutes after the start the tick marks it `failed`. The observation's `holdRarity` is the
+    readiness item the header shows.
+  - `apply` also republishes the totals and the scoreboard (and so the standings) from the re-scored objects. The
+    replaced pinned file is deleted ten minutes later, for readers that loaded the game before the swap.
+  - The client scores the same way: the seat's calibration download (`calibration/mine.ts`) carries the `hold` table once
+    it is in (not cached while it is computing), and the SDK evaluator and the score workings add `holdBits` (the
+    lookup lives in `game-utilities/src/hold.ts`).
+  - Scoring (`engine/node.ts score`) adds `holdBits(table, ordinal)` to the reward's surprisal.
+  - The deploy workflow runs `engine/holdData:scheduleWarm` (one scheduled action per table, two seconds apart; about
+    264 tables of about 2 s each for the default board).
 - **The check** (`scripts/hold-check.ts`; a check, not a gate). On 4×4 base10 rgb, with 120 particles, at matched static
   rarity:
 
