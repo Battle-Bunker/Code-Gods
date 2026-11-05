@@ -147,7 +147,7 @@ type BondsP = Record<string, never>;
 const bondsText = (g: GridSpec): CardText => ({
   emoji: "🤝", name: "Number Bonds", consts: [["TARGET", g.vmax + 1]],
   about: sentences(
-    `Try to put touching cells whose ${nums(g)} add up to ${g.vmax + 1} side by side.`,
+    `Try to make touching cells whose ${nums(g)} add up to ${g.vmax + 1}.`,
     `Two touching cells are best friends when their ${nums(g)} add up to ${g.vmax + 1}.`,
     g.say.valueKey(),
     "Each pair of best friends scores 1 point.",
@@ -769,7 +769,7 @@ const seesawText = (p: SeesawP, g: GridSpec): CardText => ({
   emoji: "⚖️", name: "Seesaw", consts: [],
   about: sentences(
     `Try to make ${everyLine(p.scope)} balance like a seesaw.`,
-    `Treat ${everyLine(p.scope)} as a seesaw. Add up the ${nums(g)} in its left half and its right half, skipping the middle cell if there is one.`,
+    `Its two sides are its left half and its right half (skipping the middle cell if there is one): add up the ${nums(g)} on each.`,
     g.say.valueKey(),
     `A seesaw balances when both sides match. Each balanced seesaw scores ${tierPoints(1, 0, 2)}.`,
     "Each seesaw deducts as many secondary points as the gap between its two sides.",
@@ -1203,7 +1203,7 @@ type ColourBondsP = Record<string, never>;
 const colourBondsText = (g: GridSpec): CardText => ({
   emoji: "🎨", name: "Colour Bonds", consts: [["TARGET", g.vmax + 1]],
   about: sentences(
-    `Try to put touching cells of one colour whose ${nums(g)} add up to ${g.vmax + 1} side by side.`,
+    `Try to make touching cells of one colour whose ${nums(g)} add up to ${g.vmax + 1}.`,
     `Two touching cells are best friends when their ${nums(g)} add up to ${g.vmax + 1} and they are the same colour.`,
     g.say.valueKey(),
     "Each pair of best friends scores 1 point.",
