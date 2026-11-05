@@ -18,7 +18,7 @@ import { query, type QueryCtx } from "./_generated/server";
 import { requireViewer } from "./auth/access";
 import { currentGame, deityOf } from "./lib/load";
 import { agentView, observation } from "./lib/projection";
-import { membersOf, requireMemberAs, requireRoom } from "./lib/rooms";
+import { requireMemberAs, requireRoom } from "./lib/rooms";
 import { withClock } from "./game/state";
 import { sandboxViews } from "./runtime/readiness";
 
@@ -26,10 +26,10 @@ import { sandboxViews } from "./runtime/readiness";
 async function seat(ctx: QueryCtx, roomId: string) {
   const viewer = await requireViewer(ctx);
   const room = await requireRoom(ctx, roomId);
-  await requireMemberAs(ctx, viewer, room, "read");
+  const { member } = await requireMemberAs(ctx, viewer, room, "read");
   const header = await currentGame(ctx, room);
   const game = header && await withClock(ctx, header);
-  return { viewer, room, game };
+  return { viewer, room, member, game };
 }
 
 /**
@@ -40,10 +40,7 @@ async function seat(ctx: QueryCtx, roomId: string) {
 export const state = query({
   args: { roomId: v.string() },
   handler: async (ctx, { roomId }) => {
-    const { viewer, room, game } = await seat(ctx, roomId);
-    // bounded: a room's ≤ 16 members.
-    const member = (await membersOf(ctx, room._id)).find(m => m.godId === viewer.subject);
-    if (!member) return null;
+    const { viewer, room, member, game } = await seat(ctx, roomId);
     const deity = game ? await deityOf(ctx, game._id, viewer.subject) : null;
     const [sandboxes, totals] = await Promise.all([
       sandboxViews(ctx, allowedLanguages((game?.settings ?? room.settings) as GameSettings)),
@@ -64,8 +61,8 @@ export const agents = query({
   handler: async (ctx, { roomId }) => {
     const { viewer, game } = await seat(ctx, roomId);
     if (!game) return [];
-    // bounded: one god's agents (maxAgentsPerGod).
-    const own = await ctx.db.query("agents").withIndex("by_game_owner", q => q.eq("gameId", game._id).eq("ownerId", viewer.subject)).take(50);
+    // bounded: one god's agents (game-core MAX_AGENTS_PER_GOD, 200; as the observation reads them). A game's usual few.
+    const own = await ctx.db.query("agents").withIndex("by_game_owner", q => q.eq("gameId", game._id).eq("ownerId", viewer.subject)).take(200);
     const now = Date.now();
     return own.map((a, i) => agentView(game, a, now, i));
   },

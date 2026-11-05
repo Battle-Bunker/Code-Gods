@@ -12,10 +12,9 @@ import { agentStatus } from "../lib/world";
 
 /** Write every roster god's agents' energy at world time `world` (one row per god with agents). */
 export async function writeAgentSamples(ctx: MutationCtx, game: { _id: Id<"games">; settings: unknown; roster: readonly { id: string }[] }, world: number) {
-  // bounded: a game's agents (the summon limit keeps them to maxAgentsPerGod per god, at most 8 gods).
-  const agents = await ctx.db.query("agents").withIndex("by_game", q => q.eq("gameId", game._id)).take(200);
   for (const { id: godId } of game.roster) {
-    const own = agents.filter(a => a.ownerId === godId);
+    // bounded: one god's agents (game-core MAX_AGENTS_PER_GOD, 200).
+    const own = await ctx.db.query("agents").withIndex("by_game_owner", q => q.eq("gameId", game._id).eq("ownerId", godId)).take(200);
     if (!own.length) continue;
     const energies = own.map(a => ({ id: a._id as string, energy: agentStatus(game.settings as GameSettings, a, world).energy }));
     await ctx.db.insert("agentSamples", { gameId: game._id, godId, world, agents: energies });

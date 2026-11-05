@@ -194,12 +194,18 @@ export class ReplayController {
         ? replayReadModel(name, replayObservation(this.replay, at, p.state).objects, p.state.world, args)
       : name === "player.myUtility" ? replayMyUtility(this.replay, p.pov)
       : name.startsWith("dock.") || name === "games.standings" || name === "games.standingsHistory" || name === "rooms.chat"
-        ? replayDock(name, replayObservation(this.replay, at, p.state), this.series, p.cursor, this.replay.game.roster, args)
+        ? replayDock(name, this.observationAt(at, p.state), this.series, p.cursor, this.replay.game.roster, args)
       : undefined;
     this.answers.set(key, value);
     return value;
   }
   refusal = "This is a replay of an ended game: nothing can be done in it. Go back to the room to play.";
+  /** The observation at the playhead, built once per published state: the dock's several queries all read it. */
+  private observed?: { state: ReplayState; pov: number; value: ReturnType<typeof replayObservation> };
+  private observationAt(at: Parameters<typeof replayObservation>[1], state: ReplayState) {
+    if (this.observed?.state !== state || this.observed.pov !== at.pov) this.observed = { state, pov: at.pov, value: replayObservation(this.replay, at, state) };
+    return this.observed.value;
+  }
 }
 
 /** player.objectsPage at the playhead: the replay's objects (exact, a replay is of an ended game) paged like the engine pages them. */
@@ -264,7 +270,7 @@ type ReplayObservation = ReturnType<typeof replayObservation>;
 export function replayDock(name: QueryName, o: ReplayObservation, series: ReturnType<typeof scoreSeries>, cursor: number,
   roster: readonly { id: string; name: string; kind: string }[], args: Record<string, unknown>): unknown {
   if (name === "dock.state") {
-    const { objects: _o, agents: _a, transformations: _t, chat: _c, leaderboard: _l, ...rest } = o as ReplayObservation & { leaderboardWorldSeconds?: number };
+    const { objects: _o, agents: _a, transformations: _t, chat: _c, leaderboard: _l, leaderboardWorldSeconds: _w, ...rest } = o as ReplayObservation & { leaderboardWorldSeconds?: number };
     return { ...rest, roster: roster.map(m => m.id) };
   }
   if (name === "dock.agents") return o.agents;

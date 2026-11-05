@@ -198,12 +198,18 @@ export default function Agents({ params, phase }: PanelProps<"agents">) {
   const can = useAffordances();
   const world = game?.worldSeconds ?? 0;
   useEffect(() => { pruneSourceOpen(all.map(a => a.id)); }, [all]);
-  const history = useMemo(() => {
+  // The published samples change only with the series; the point now is added per render.
+  const published = useMemo(() => {
     const out = new Map<string, Sample[]>();
-    for (const row of series) for (const a of row.agents) out.set(a.id, [...(out.get(a.id) ?? []), { at: row.world, energy: a.energy, eligible: a.energy > 0 }]);
-    for (const a of all) out.set(a.id, [...(out.get(a.id) ?? []).filter(s => s.at < world), { at: world, energy: a.energy, eligible: a.eligible }]);
+    for (const row of series) for (const a of row.agents) {
+      const list = out.get(a.id) ?? [];
+      list.push({ at: row.world, energy: a.energy, eligible: a.energy > 0 });
+      out.set(a.id, list);
+    }
     return out;
-  }, [series, all, world]);
+  }, [series]);
+  const history = useMemo(() => new Map(all.map(a => [a.id, [...(published.get(a.id) ?? []).filter(s => s.at < world), { at: world, energy: a.energy, eligible: a.eligible }]])),
+    [published, all, world]);
 
   const agents = params.agentIds.length ? all.filter(a => params.agentIds.includes(a.id)) : all;
   const ended = phase === "ended";

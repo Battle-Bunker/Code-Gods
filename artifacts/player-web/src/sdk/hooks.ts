@@ -169,6 +169,13 @@ export function useMyObject(objectId: string | undefined): MyObject | null | und
   return useSdkQuery("player.object", objectId ? { objectId } : "skip");
 }
 
+/** Several of your objects by id (one player.object subscription each), those you hold a score on, in the order asked. */
+export function useMyObjects(objectIds: readonly string[]): MyObject[] {
+  const args = useMemo(() => objectIds.map(objectId => ({ objectId })), [objectIds.join("|")]);
+  const rows = useSdkQueries("player.object", args) as (MyObject | null | undefined)[];
+  return rows.filter((o): o is MyObject => !!o);
+}
+
 /** Your top `n` (≤ 20) objects by `by`, or the bottom with `dir: "asc"`, each with its `rank`. */
 export function useObjectsTop({ gameId, by = "payoff", n = 10, dir }: { gameId: string | undefined; by?: ObjectSort; n?: number; dir?: "asc" | "desc" }): RankedObject[] | undefined {
   return useSdkQuery("player.objectsTop", gameId ? { gameId, by, n, ...(dir === "asc" ? { dir } : {}) } : "skip");
@@ -260,7 +267,11 @@ function useChained<N extends "games.standingsHistory" | "dock.agentSeries", R>(
   const last = pages.at(-1);
   const next = last?.more && last.rows.length ? cursorOf(last.rows.at(-1)!) : undefined;
   useEffect(() => { if (next !== undefined && !list.includes(next)) setAfters({ gameId, list: [...list, next] }); }, [next, gameId, list]);
-  return useMemo(() => pages.flatMap(p => p?.rows ?? []), [pages.map(p => p?.rows).join("|"), pages]);
+  // A new array only when a page's rows change (each page's answer keeps its identity while it does not).
+  const kept = useRef<{ rows: (R[] | undefined)[]; all: R[] }>({ rows: [], all: [] });
+  const rows = pages.map(p => p?.rows);
+  if (rows.length !== kept.current.rows.length || rows.some((r, i) => r !== kept.current.rows[i])) kept.current = { rows, all: rows.flatMap(r => r ?? []) };
+  return kept.current.all;
 }
 
 /** The latest messages a dock chat shows (one page of rooms.chat). */
