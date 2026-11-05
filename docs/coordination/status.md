@@ -311,7 +311,9 @@ Owner, verbatim (abridged only where marked):
 - 17:50 AEDT: #235 dock off the observation (new dock.ts, agentSamples table; observation objects = top 90 by
   payoff) and #234 SDK/MCP narrowing (get_observation ≤90 objects with cursor, agents ≤50; paged board/series).
   Develop deploy green. No new migrations.
-- In progress (read architecture): #171 (remove useLive's retry).
+- 18:10 AEDT: #171 removed useLive's client retry (ee5505ff); no migration. Read-architecture track's Thursday
+  list is done. That session idles until the prod release; then it narrows objectEvents.index/cost and the
+  setupListing fields.
 - The next prod release carries many migrations, among them backfillObjectViews and objectEventPlaces. Release only
   when no game is running. After prod reports migrations:status done, the narrowings: typed params (rules session),
   agentPricesV2/powerV1 (energy session), assistant modes, objectEvents index/cost, aiQuotas, etc.
