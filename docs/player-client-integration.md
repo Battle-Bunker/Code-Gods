@@ -165,7 +165,7 @@ Run from the repository root (`pnpm -s player …` keeps pnpm's banner out of JS
 |---|---|
 | `connect [--engine URL] --room CODE [--permission …] [--label …] [--write-env FILE]` | the device flow above |
 | `status [--pretty]` | engine reachable, credential valid, room, permission, expiry, the current user |
-| `state [--pretty] [--objects N] [--events N] [--watch HZ [--count N]]` | the player-visible state as JSON: observation, recent events, own utility descriptor, latest trajectories; `--watch` prints one JSON line per change, at most HZ (0.1–5) per second |
+| `state [--pretty] [--objects N] [--events N] [--watch HZ [--count N]]` | the player-visible state as JSON: observation, recent events, own utility descriptor, latest trajectories; `--objects N` ≤ 90 reads only the N best objects by payoff (the narrow observation); `--watch` prints one JSON line per change, at most HZ (0.1–5) per second, put together from the narrow queries (`dock.state`, `dock.agents`, `dock.transformations`, `games.standings`, `rooms.chat`, `player.totals`, `player.objectIds` + one `player.object` per listed object, `player.events`, `player.myUtility`): its `observation` holds the N best objects by payoff (default 20, at most 90) and the line adds `objectCount` |
 | `assistant status \| observation \| events [--after SEQ] [--limit N] \| receipt ID \| wake \| disconnect` | the room assistant ([`room-assistant.md`](room-assistant.md)) |
 | `assistant command [--retry-unknown] < envelope.json` | a v3 envelope (act or owner credential) |
 | `assistant room-state \| ai-catalog \| room-command < action.json` | owner credential only |
