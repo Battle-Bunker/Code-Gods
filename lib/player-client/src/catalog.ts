@@ -438,6 +438,30 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
     ai: { description: "A page of the human's objects ordered by payoff, their bits, the others' care (the disclosed, noisy sum while the game is live), how many times they have been mutated, when they were created or when last mutated (all public), with footer totals; the Objects panel's infinite scroll." },
     tools: [], palette: null, why: "The Objects panel's infinite scroll; the assistant reads the same numbers through the observation and sets the panel's sort with show_panel.",
   },
+  "dock.state": {
+    kind: "query", audience: "player",
+    human: { title: "My game's state", tooltip: "Phase, clocks, your energy, power and score, the rules: what the dock's header shows." },
+    ai: { description: "The human's view of the room's current game without its collections: phase, codes, clocks, languages, sandboxes, the instance, the economy and the human's own state (energy, power, score, card)." },
+    tools: [], palette: null, why: "The dock's header and every panel's phase; the assistant reads the observation.",
+  },
+  "dock.agents": {
+    kind: "query", audience: "player",
+    human: { title: "My agents", tooltip: "Your agents with their energy, power share and how their acts went." },
+    ai: { description: "The human's own agents in the current game, as the observation lists them." },
+    tools: [], palette: null, why: "The agents panel and the forge; the assistant reads the observation.",
+  },
+  "dock.transformations": {
+    kind: "query", audience: "player",
+    human: { title: "My recent transformations", tooltip: "What your agents changed lately, with what each act cost." },
+    ai: { description: "The human's agents' most recent transformations (at most 90), as the observation lists them." },
+    tools: [], palette: null, why: "The feed's own transformations; the assistant reads the observation and the event log.",
+  },
+  "dock.agentSeries": {
+    kind: "query", audience: "player",
+    human: { title: "My agents' energy over time", tooltip: "Each of your agents' energy at every scoreboard publication." },
+    ai: { description: "The human's agents' energy over the game, one sample per scoreboard publication, paged by world time." },
+    tools: [], palette: null, why: "The agents panel's sparklines; kept by the server instead of sampled by the client.",
+  },
   "player.objectIds": {
     kind: "query", audience: "player",
     human: { title: "List my objects", tooltip: "Your objects' ids in one sort order, a page at a time." },

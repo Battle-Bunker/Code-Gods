@@ -715,6 +715,7 @@ the cache across 5 tick commits.
 | #169 | Gate reliability | — |
 | #173 | The observation reads its own transformations through an index | R2 |
 | (O) | Per-god object read model: `objectViews` rows and `godTotals`, synced off the tick's commit; the objects panel as skeleton + virtualised rows; `objectsPage` over the model | R1, R2, R4 |
+| (Dock) | The dock off the observation: `dock.state` / `agents` / `transformations` / `agentSeries` (`agentSamples`, written with each scoreboard publication), standings, chat and the object read model; the race and agents histories from the server; `useThrottled` and `useObjectRanks` gone from the SDK hooks | R1, R6 |
 
 **Measured before and after:**
 
@@ -728,7 +729,7 @@ the cache across 5 tick commits.
 | `manifest.get` | Action, cached by hand in the browser | Live query: 5 docs, 56 KiB |
 
 **Still debt** (listed in `test/query-budgets.ts`, ratcheting down):
-- `player.observation`: whole world. The fix is moving the dock off it (PR 5).
+- `player.observation`: whole world, now read only by agents, MCP tools and the CLI (the dock no longer subscribes to it). The fix is PR 6's narrowed observation.
 - `player.game`: an ended game's final state; static once ended.
 - `player.events` and `player.trajectories`: up to 50 `tickBatches` per call, 300–650 KiB depending on load.
 - (`setups.list` was paged: `setups.page` skeleton + `setups.row` items, within R8.)
@@ -740,7 +741,8 @@ the cache across 5 tick commits.
 | Removing `useLive`'s retry (#171) | Ready, but held. Without the retry, a query over 1 s on a loaded backend leaves the page on an error until reconnect. Merge it after the dock leaves the observation. |
 | Trajectory windows plus a live tail (PR 8's trajectories item) | Landed: closed windows of 10 batches (cached across ticks) plus a live tail; no module store (`sdk/trajectory-windows.ts`) |
 | Per-god object read model (PR 4) | Landed, rebuilt: the commit schedules one `game/objectViews.ts` sync (the changed objects' ids and the tick's totals) instead of writing rows. Probe (`test/probe-commit-time.ts`, 1,000 objects, 3 gods × 8 agents, 100 Hz, about 90 acts a commit): commit 135 → 147 ms median (+9%); the sync runs about 210 ms per commit beside the next simulate. `objectDigests` (the scatter) is not built yet. |
-| The dock off the observation (PR 5); the SDK and MCP (PR 6) | Not started (`setups.list` paging: landed, `setups.page` + `setups.row`) |
+| The dock off the observation (PR 5) | Landed (see above). The others-care scatter still plots your best 90 objects until `objectDigests` exists. |
+| The SDK and MCP (PR 6) | In progress (`setups.list` paging: landed, `setups.page` + `setups.row`) |
 | Narrowing `games`' hot fields and their fallbacks | Done (2026-11-05): the fields left the validator, `game/state.ts`'s fallbacks and `splitGameHotFields` are gone. |
 | Narrowing `objects.publicSalience` | Done (required, no fallbacks). |
 | Narrowing `objectEvents.index` and `cost`, and removing the old-scan fallback (#173) | Waits for the same. |

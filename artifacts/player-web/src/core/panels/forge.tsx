@@ -9,7 +9,7 @@ import { useRef, useState } from "react";
 import { AGENT_DESCRIPTION_MAX, AGENT_NAME_MAX } from "@workspace/player-client";
 import { Loader2, Sparkles, Wand2 } from "lucide-react";
 import { AgentCost, HelpersDrawer, type ActCostBreakdown } from "@workspace/object-views";
-import { useMyAgents, useMutators, useObservation } from "@/sdk";
+import { useMyAgents, useMutators, useDockState } from "@/sdk";
 import { LANGUAGE_SPECS, defaultShare, isLanguage } from "@workspace/game-core";
 import { runner, useGameCommands, useRunner, type Lang } from "@/core/game/runner";
 import { forgeLanguage, forgeLanguages, forgeSandbox } from "@/core/game/language";
@@ -20,7 +20,7 @@ const fmt = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(3));
 const bytes = (s: string) => new TextEncoder().encode(s).length;
 
 export default function Forge({ params, phase }: PanelProps<"forge">) {
-  const obs = useObservation({ hz: 2 });
+  const obs = useDockState({ hz: 2 });
   const { agents } = useMyAgents({ hz: 1 });
   const state = useRunner();
   const live = params.agentId ? agents.find(a => a.id === params.agentId) : undefined;
@@ -54,7 +54,7 @@ export default function Forge({ params, phase }: PanelProps<"forge">) {
 function Editor({ language, allowed, assistantDraft, showHelpers, ended }: { language: Lang; allowed: readonly Lang[]; assistantDraft?: string; showHelpers: boolean; ended: boolean }) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const obs = useObservation({ hz: 2 });
+  const obs = useDockState({ hz: 2 });
   // A summon from here takes the default share: half of the power you have not given to agents yet.
   const newShare = obs?.self.allocated !== undefined ? defaultShare(obs.self.allocated) : undefined;
   const { instance } = useMutators();

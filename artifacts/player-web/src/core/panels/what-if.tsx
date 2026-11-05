@@ -6,7 +6,7 @@
 import { useMemo } from "react";
 import type { MutatorCallWire } from "@workspace/game-types";
 import { dimensionVar } from "@workspace/object-views";
-import { Obj, fmtBits, useEvaluator, useObjects, type Evaluator, type LiveObject } from "@/sdk";
+import { Obj, fmtBits, useEvaluator, useMyObject, type Evaluator, type LiveObject } from "@/sdk";
 import { composer } from "@/core/chat/composer";
 import { PanelEmpty, Section, TextButton, type PanelProps } from "./kit";
 
@@ -37,9 +37,8 @@ function Result({ label, target, outcome }: { label: string; target: LiveObject;
 }
 
 export default function WhatIf({ params }: PanelProps<"what-if">) {
-  const objects = useObjects({ hz: 0.5 });
   const evaluator = useEvaluator();
-  const target = objects.find(o => o.id === params?.objectId);
+  const target = useMyObject(params?.objectId) ?? undefined;
   const main = useMemo(() => (evaluator && target && params ? tryMove(evaluator, target, params.calls) : undefined), [evaluator, target, params]);
   const alt = useMemo(() => (evaluator && target && params?.compare ? tryMove(evaluator, target, params.compare) : undefined), [evaluator, target, params]);
   const raw = useMemo(() => {

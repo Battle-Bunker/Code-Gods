@@ -95,7 +95,8 @@ test("objectViews: the start fills each god's rows; the sync keeps them, the ord
     const ids = await waitFor(async () => {
       const objects = await source(), got = await allIds(ada.c, game.gameId, sort);
       const want = objects.map(key).sort((a, b) => (b ?? -Infinity) - (a ?? -Infinity));
-      return JSON.stringify(got.map(r => r.key)) === JSON.stringify(want) && got;
+      // The game runs while the pages are read: an object moving between two page reads is retried, as a list re-reads it.
+      return JSON.stringify(got.map(r => r.key)) === JSON.stringify(want) && new Set(got.map(r => r.id)).size === got.length && got;
     }, `the ${sort} order`, 20_000, 100);
     assert.equal(new Set(ids.map(r => r.id)).size, ids.length, `${sort}: no object twice`);
   }

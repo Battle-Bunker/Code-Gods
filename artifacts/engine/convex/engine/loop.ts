@@ -14,6 +14,7 @@ import { eventV, failuresV, futileEntriesV, lastFailuresV, scoreV } from "../gam
 import { liveGame, withEngine, writeGame, type LiveGame } from "../game/state";
 import { publicSalienceOf } from "../game/readModel";
 import { godTotalsV, scheduleFill } from "../game/objectViews";
+import { writeAgentSamples } from "../game/agentSeries";
 /** World seconds between sweeps of the per-god read model (game/objectViews.ts). */
 const SWEEP_SECONDS = 60;
 import { gameRecord } from "../lib/projection";
@@ -312,6 +313,8 @@ export const commit = internalMutation({
     const publish = !!game.scoreboard && !!args.disclosedTotals && clock.phase !== "ended" &&
       scoreboardDue(game.scoreboard.world, clock.worldSeconds, scoreIntervalOf(game));
     const scoreboard = publish ? { totals: args.disclosedTotals!, world: clock.worldSeconds, at: now } : undefined;
+    // With each publication, every god's agents' energy (the agents panel's series; game/agentSeries.ts).
+    if (publish) await writeAgentSamples(ctx, game, clock.worldSeconds);
     // Once a world minute, a sweep of every god's rows and totals (game/objectViews.ts fill, paged, off this commit): a
     // sync that failed leaves no row stale for longer.
     if (clock.phase === "running" && Math.floor(clock.worldSeconds / SWEEP_SECONDS) > Math.floor(game.worldSeconds / SWEEP_SECONDS)) await scheduleFill(ctx, game._id, true);

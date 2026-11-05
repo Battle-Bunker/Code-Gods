@@ -165,6 +165,19 @@ test("a stored panel's read-model queries are clamped and their ids and cursors 
   assert.deepEqual(BRIDGE_QUERIES["player.totals"]({ gameId: "g1" }, "room-1"), { gameId: "g1" });
 });
 
+// What would break: a stored panel reading another room's dock, or an unbounded chat page through the host.
+test("a stored panel's dock queries are the host's room's, bounded, their cursors validated", async () => {
+  const { BRIDGE_QUERIES } = await import("../src/sdk/bridge-protocol.ts");
+  assert.deepEqual(BRIDGE_QUERIES["dock.state"]({ roomId: "elsewhere" }, "room-1"), { roomId: "room-1" });
+  assert.deepEqual(BRIDGE_QUERIES["dock.agents"]({ roomId: "elsewhere" }, "room-1"), { roomId: "room-1" });
+  assert.deepEqual(BRIDGE_QUERIES["dock.transformations"]({ limit: 5000 }, "room-1"), { roomId: "room-1", limit: 90 });
+  assert.deepEqual(BRIDGE_QUERIES["dock.agentSeries"]({ gameId: "g1", after: "3" }, "room-1"), { gameId: "g1" });
+  assert.deepEqual(BRIDGE_QUERIES["games.standingsHistory"]({ gameId: "g1", after: 12 }, "room-1"), { gameId: "g1", after: 12 });
+  assert.equal(BRIDGE_QUERIES["games.standings"]({}, "room-1"), null);
+  assert.deepEqual(BRIDGE_QUERIES["rooms.chat"]({ roomId: "elsewhere", paginationOpts: { numItems: 999, cursor: "c" } }, "room-1"),
+    { roomId: "room-1", paginationOpts: { numItems: 90, cursor: null } });
+});
+
 // What would break: a stored panel's closed trajectory window losing `upTo` on its way through the host, so it reads
 // the live log and re-runs on every tick (sdk/trajectory-windows.ts).
 test("a stored panel's trajectory window keeps its closed range; the room is the host's", async () => {

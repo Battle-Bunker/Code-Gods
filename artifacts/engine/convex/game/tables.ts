@@ -276,6 +276,14 @@ export const gameTables = {
     agentCount: v.number(), objectCount: v.number(),
   }).index("by_game_seq", ["gameId", "seq"]),
 
+  /**
+   * PRIVATE to `godId`: its agents' energy at world time `world`, one row per god with agents per scoreboard publication
+   * (game/agentSeries.ts): the agents panel's series, paged by player.agentSeries.
+   */
+  agentSamples: defineTable({
+    gameId: v.id("games"), godId: v.string(), world: v.number(), agents: v.array(v.object({ id: v.string(), energy: v.number() })),
+  }).index("by_game_god_world", ["gameId", "godId", "world"]),
+
   deities: defineTable({
     gameId: v.id("games"), godId: v.string(), index: v.number(),
     /** PRIVATE: the dealt utility descriptor and its kid card (shown to its own god only). */

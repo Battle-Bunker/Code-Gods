@@ -193,11 +193,19 @@ export class ReplayController {
       : name === "player.objectIds" || name === "player.object" || name === "player.objectsTop" || name === "player.objectRank" || name === "player.totals"
         ? replayReadModel(name, replayObservation(this.replay, at, p.state).objects, p.state.world, args)
       : name === "player.myUtility" ? replayMyUtility(this.replay, p.pov)
+      : name.startsWith("dock.") || name === "games.standings" || name === "games.standingsHistory" || name === "rooms.chat"
+        ? replayDock(name, this.observationAt(at, p.state), this.series, p.cursor, this.replay.game.roster, args)
       : undefined;
     this.answers.set(key, value);
     return value;
   }
   refusal = "This is a replay of an ended game: nothing can be done in it. Go back to the room to play.";
+  /** The observation at the playhead, built once per published state: the dock's several queries all read it. */
+  private observed?: { state: ReplayState; pov: number; value: ReturnType<typeof replayObservation> };
+  private observationAt(at: Parameters<typeof replayObservation>[1], state: ReplayState) {
+    if (this.observed?.state !== state || this.observed.pov !== at.pov) this.observed = { state, pov: at.pov, value: replayObservation(this.replay, at, state) };
+    return this.observed.value;
+  }
 }
 
 /** player.objectsPage at the playhead: the replay's objects (exact, a replay is of an ended game) paged like the engine pages them. */
@@ -252,6 +260,38 @@ export function replayReadModel(name: QueryName, objects: readonly ReplayObject[
     rows: read.filter(o => matchesFilter(o, filter)).map(o => ({ id: o.id, key: fieldOf(o, sort) })),
     next: last && from + limit < all.length ? { key: fieldOf(last, sort), at: from + limit - 1 } : null,
   };
+}
+
+type ReplayObservation = ReturnType<typeof replayObservation>;
+/**
+ * The dock's narrow queries (engine dock.ts, games.standings / standingsHistory, rooms.chat) at the playhead, from the
+ * replay's observation: the same shapes the engine returns, so every hook reads a replay as it reads a live game.
+ */
+export function replayDock(name: QueryName, o: ReplayObservation, series: ReturnType<typeof scoreSeries>, cursor: number,
+  roster: readonly { id: string; name: string; kind: string }[], args: Record<string, unknown>): unknown {
+  if (name === "dock.state") {
+    const { objects: _o, agents: _a, transformations: _t, chat: _c, leaderboard: _l, leaderboardWorldSeconds: _w, ...rest } = o as ReplayObservation & { leaderboardWorldSeconds?: number };
+    return { ...rest, roster: roster.map(m => m.id) };
+  }
+  if (name === "dock.agents") return o.agents;
+  if (name === "dock.transformations") return o.transformations.slice(-90);
+  // The replay keeps no energy samples; the agents panel shows the energy at the playhead.
+  if (name === "dock.agentSeries") return { rows: [], more: false };
+  if (name === "games.standings") {
+    const ranked = [...o.leaderboard].sort((x, y) => y.totalPayoff - x.totalPayoff);
+    return {
+      rows: ranked.map((r, i) => ({ deityId: r.godId, name: r.label, kind: r.isAI ? "ai" : "human", totalPayoff: r.totalPayoff, rank: i + 1 })),
+      world: o.economy?.worldSeconds ?? null, at: null, agentCount: null, objectCount: null,
+    };
+  }
+  if (name === "games.standingsHistory") {
+    const from = typeof args.after === "number" ? args.after : -1;
+    const rows = series.cursor.flatMap((c, i) => (c <= cursor && i > from
+      ? [{ seq: i, world: series.world[i], at: 0, totals: roster.map((_, g) => series.totals[g][i]), agentCount: 0, objectCount: 0 }] : []));
+    return { rows: rows.slice(0, 100), more: rows.length > 100 };
+  }
+  // rooms.chat: one page, newest first (as the engine pages it).
+  return { page: [...o.chat].reverse().map(m => ({ id: m.id, authorId: m.godId, authorName: m.label, kind: m.isAI ? "ai" : "human", text: m.text, timestamp: 0 })), isDone: true, continueCursor: "" };
 }
 
 /** The controller as the SDK's replay source: answers move with the playhead and the point of view only. */
