@@ -111,29 +111,6 @@ export const legacyAiBudget = internalMutation({
   },
 });
 
-/** Store a game as it was before the power budget: old income settings, agents without shares, deities without accounts. */
-export const legacyPower = internalMutation({
-  args: { gameId: v.id("games"), energyPerSecond: v.number(), agentEnergyPerSecond: v.number() },
-  handler: async (ctx, { gameId, energyPerSecond, agentEnergyPerSecond }) => {
-    dev();
-    const game = (await ctx.db.get(gameId))!;
-    const { powerPerSecond: _p, ...settings } = game.settings as Record<string, unknown>;
-    await ctx.db.patch(gameId, { settings: { ...settings, energyPerSecond, agentEnergyPerSecond, agentBatteryActs: 2, perActFloorBits: 2 } });
-    for (const a of await ctx.db.query("agents").withIndex("by_game", q => q.eq("gameId", gameId)).collect()) await ctx.db.patch(a._id, { powerShare: undefined });
-    for (const d of await ctx.db.query("deities").withIndex("by_game", q => q.eq("gameId", gameId)).collect()) await ctx.db.patch(d._id, { account: undefined, allocated: undefined });
-  },
-});
-
-/** Store an agent's price as it was before the energy model: a decision price, a per-act floor, the old breakdown. */
-export const legacyAgentPrice = internalMutation({
-  args: { agentId: v.id("agents"), decisionBits: v.number(), perActFloorBits: v.number(), erasure: v.number(), motion: v.number() },
-  handler: async (ctx, { agentId, decisionBits, perActFloorBits, erasure, motion }) => {
-    dev();
-    await ctx.db.patch(agentId, { decisionBits, perActFloorBits, breakdown: { decision: decisionBits, erasure, motion, floor: perActFloorBits },
-      expectedActCost: decisionBits + erasure + motion + perActFloorBits });
-  },
-});
-
 /** Give an agent a stored language (e.g. a retired one, as a past game's agent may carry). */
 export const patchAgentLanguage = internalMutation({
   args: { agentId: v.id("agents"), language: storedLanguageV },

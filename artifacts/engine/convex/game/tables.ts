@@ -33,14 +33,10 @@ const leaseV = v.object({ seq: v.number(), leaseUntil: v.number() });
 const statsV = v.object({ acts: v.number(), commits: v.number(), discarded: v.number(), opportunities: v.number() });
 const scoreboardV = v.object({ totals: v.array(v.number()), world: v.number(), at: v.number() });
 const account = v.object({ balance: v.number(), settledWorldSeconds: v.number() });
-/**
- * An agent's estimated cost per act, split (docs/energy-model.md §5): the bits it reads and its change. LEGACY (agents
- * summoned before the energy model; migrations.agentPricesV2 converts them): the decision/erasure/motion/floor split.
- */
-const breakdown = v.union(
-  v.object({ read: v.number(), change: v.number() }),
-  v.object({ decision: v.number(), erasure: v.number(), motion: v.number(), floor: v.number() }),
-);
+/** An agent's estimated cost per act, split (docs/energy-model.md §5): the bits it reads and its change. */
+const agentBreakdown = v.object({ read: v.number(), change: v.number() });
+/** A summon event's estimate: an agent's, or (event-log schema ≤ 4 history) the decision/erasure/motion/floor split. */
+const breakdown = v.union(agentBreakdown, v.object({ decision: v.number(), erasure: v.number(), motion: v.number(), floor: v.number() }));
 /**
  * One act's charge (docs/energy-model.md §2): what it read plus its change when that committed. Event-log schema ≤ 4
  * (history) carries the older split, which stays readable by schema.
@@ -292,11 +288,8 @@ export const gameTables = {
     aiAgent: v.optional(aiAgentSnapshot),
     /** Summon prices paid in total (history: the replay's per-god spending). */
     spent: v.number(), pauseUsed: v.boolean(),
-    /**
-     * PRIVATE: the deity's own energy on world time and the share of its power its agents hold (docs/energy-model.md §6).
-     * Absent until migrations.powerV1 (lib/power.ts deityAccount falls back to the old real-time energy).
-     */
-    account: v.optional(account), allocated: v.optional(v.number()),
+    /** PRIVATE: the deity's own energy on world time and the share of its power its agents hold (docs/energy-model.md §6). */
+    account, allocated: v.number(),
   }).index("by_game", ["gameId"]).index("by_game_god", ["gameId", "godId"]),
 
   objects: defineTable({
@@ -368,11 +361,9 @@ export const gameTables = {
     /** The language the source is written in (one the game allows). Absent on agents from single-language games: lib/language agentLanguage. */
     language: v.optional(storedLanguageV),
     summonCost: v.number(), expectedActCost: v.number(),
-    /** Its share of the owner's power (docs/energy-model.md §6); absent until migrations.powerV1 (lib/power.ts shareOf). */
-    powerShare: v.optional(v.number()),
-    /** LEGACY (cleared by migrations.agentPricesV2): the decision price and the per-act floor, no longer charged. */
-    decisionBits: v.optional(v.number()), perActFloorBits: v.optional(v.number()),
-    breakdown, randomized: v.boolean(), account, acts: v.number(), spent: v.number(),
+    /** Its share of the owner's power (docs/energy-model.md §6). */
+    powerShare: v.number(),
+    breakdown: agentBreakdown, randomized: v.boolean(), account, acts: v.number(), spent: v.number(),
     /** Of `spent`, the bits its acts read (the rest paid for changes), counted since this field existed; absent: none yet. */
     spentRead: v.optional(v.number()),
     /** Acts that returned no calls (docs/energy-model.md §2), counted since the energy model; absent: none yet. */
