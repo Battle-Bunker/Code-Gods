@@ -65,3 +65,40 @@ export function loadedRun(pages: readonly (TrajectoryPage | undefined)[]): numbe
   const i = pages.findIndex(p => !p);
   return i < 0 ? pages.length : i;
 }
+
+/** What a reader holds: the game's latest batch it has seen, and its history folded up to `folded`. */
+export type TrajectoryHistory<P extends Point = Point> = { gameId?: string; epoch?: string; latest: number; folded: number; series: Series<P> };
+export const freshHistory = <P extends Point>(gameId?: string): TrajectoryHistory<P> => ({ gameId, latest: -1, folded: -1, series: new Map() });
+
+type Plan = ReturnType<typeof planWindows>;
+/** A page answered for this game and point of view (a replay's answers all change together when either moves). */
+const current = (history: TrajectoryHistory, page: TrajectoryPage | undefined): page is TrajectoryPage =>
+  !!page && page.gameId === history.gameId && page.epoch === history.epoch;
+const loadedOf = (history: TrajectoryHistory, closed: readonly (TrajectoryPage | undefined)[]) => loadedRun(closed.map(p => (current(history, p) ? p : undefined)));
+
+/**
+ * The reader's next history once `pages` (the plan's closed windows, then the tail) answered: started over on a new
+ * point of view or a latest batch behind the history (a replay's playhead going back); else the closed windows loaded
+ * from the first folded in (they then leave the plan, so their subscriptions end) and the latest batch learnt from the
+ * tail. The same object when nothing changes.
+ */
+export function advance<P extends Point>(history: TrajectoryHistory<P>, plan: Plan, pages: readonly (TrajectoryPage<P> | undefined)[]): TrajectoryHistory<P> {
+  const tail = pages[plan.closed.length];
+  if (!tail || tail.gameId !== history.gameId) return history;
+  if (tail.epoch !== history.epoch || tail.latestCursor < history.folded) return { ...freshHistory<P>(history.gameId), epoch: tail.epoch, latest: tail.latestCursor };
+  const closed = pages.slice(0, plan.closed.length);
+  const run = loadedOf(history, closed);
+  if (run > 0) return { ...history, latest: tail.latestCursor, folded: plan.closed[run - 1].upTo!, series: lastPoints(extendWith(history.series, closed.slice(0, run))) };
+  return tail.latestCursor === history.latest ? history : { ...history, latest: tail.latestCursor };
+}
+
+/**
+ * The pages to show on top of the history: every closed window and the tail once all have answered and none is left
+ * out; while the history is still loading, the closed windows loaded from the first; null while a window or the tail
+ * of a whole history loads (the tail moving on to the next slice): keep showing what was shown.
+ */
+export function pagesToShow<P extends Point>(history: TrajectoryHistory<P>, plan: Plan, pages: readonly (TrajectoryPage<P> | undefined)[]): readonly TrajectoryPage<P>[] | null {
+  const closed = pages.slice(0, plan.closed.length) as TrajectoryPage<P>[];
+  if (plan.complete) return pages.every(p => current(history, p)) ? pages as TrajectoryPage<P>[] : null;
+  return closed.slice(0, loadedOf(history, closed));
+}

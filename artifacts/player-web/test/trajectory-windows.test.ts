@@ -4,7 +4,7 @@
 // subscription per slice of a long game, or a merge that repeats a point, drops one, or changes the history's arrays.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { KEEP, MAX_POINTS, SLICE, extendWith, lastPoints, loadedRun, planWindows, type TrajectoryPage } from "../src/sdk/trajectory-windows.ts";
+import { KEEP, MAX_POINTS, SLICE, advance, extendWith, freshHistory, lastPoints, loadedRun, pagesToShow, planWindows, type TrajectoryPage, type TrajectoryWindow } from "../src/sdk/trajectory-windows.ts";
 
 const closed = (from: number) => ({ afterSeq: from - 1, upTo: from + SLICE - 1, limit: SLICE });
 
@@ -43,6 +43,71 @@ test("extend: pages in log order, each object's points once, a missing page skip
   assert.deepEqual(a.map(p => p.seq), [0, 5], "base unchanged");
   assert.equal(out.get("b"), b, "an object the pages leave alone keeps its array");
   assert.deepEqual(extendWith(base, []), base);
+});
+
+/**
+ * A reader against a log that grows a batch a tick (each batch: a point for object `o<seq % 3>`), as useTrajectories
+ * runs it: plan, subscribe (a window new to the reader answers one render later), show, advance, until it settles.
+ */
+function reader(log: () => number, epoch = () => undefined as string | undefined) {
+  let history = freshHistory("g");
+  let shown: ReadonlyMap<string, readonly { seq: number }[]> = new Map();
+  const known = new Set<string>();
+  let subscriptions = 0, closedPastLatest = 0;
+  const answer = (w: TrajectoryWindow): TrajectoryPage => {
+    const latest = log(), end = Math.min(latest, w.upTo ?? Infinity, w.afterSeq + w.limit);
+    if (w.upTo !== undefined && w.upTo >= latest) closedPastLatest++;
+    const objects = new Map<string, { seq: number }[]>();
+    for (let seq = w.afterSeq + 1; seq <= end; seq++) objects.set(`o${seq % 3}`, [...(objects.get(`o${seq % 3}`) ?? []), { seq }]);
+    return { gameId: "g", objects: [...objects].map(([objectId, points]) => ({ objectId, points })), nextCursor: Math.max(w.afterSeq, end), latestCursor: w.upTo !== undefined ? Math.max(w.afterSeq, end) : latest, epoch: epoch() };
+  };
+  return {
+    settle() {
+      for (let round = 0; round < 50; round++) {
+        const plan = planWindows(history.latest, history.folded);
+        const windows = [...plan.closed, plan.tail];
+        subscriptions = Math.max(subscriptions, windows.length);
+        const pages = windows.map(w => { const k = JSON.stringify(w); if (known.has(k)) return answer(w); known.add(k); return undefined; });
+        const extra = pagesToShow(history, plan, pages);
+        if (extra) shown = lastPoints(extendWith(history.series, extra));
+        const next = advance(history, plan, pages);
+        if (next === history && pages.every(Boolean)) return;
+        history = next;
+      }
+      assert.fail("the reader does not settle");
+    },
+    get shown() { return shown; }, get history() { return history; }, get subscriptions() { return subscriptions; }, get closedPastLatest() { return closedPastLatest; },
+  };
+}
+const expected = (latest: number) => Object.fromEntries([0, 1, 2].filter(i => i <= latest).map(i => [`o${i}`, Array.from({ length: latest + 1 }, (_, s) => s).filter(s => s % 3 === i)]));
+const asObject = (series: ReadonlyMap<string, readonly { seq: number }[]>) => Object.fromEntries([...series].map(([id, ps]) => [id, ps.map(p => p.seq)]));
+
+test("a reader following a live game: every point once, closed windows only behind the latest batch, KEEP windows plus the tail at most", () => {
+  let latest = -1;
+  const r = reader(() => latest);
+  for (latest = 0; latest < 95; latest++) {
+    r.settle();
+    assert.deepEqual(asObject(r.shown), expected(latest), `after batch ${latest}`);
+  }
+  assert.equal(r.closedPastLatest, 0, "no closed window reaches the latest batch");
+  assert.equal(r.history.folded, 89, "the history holds every whole slice before the latest batch");
+  assert.ok(r.subscriptions <= 2, "one closed window at a time, then the tail");
+});
+
+test("a reader joining a long game loads its history KEEP windows at a time; a replay's playhead going back or a new point of view starts over", () => {
+  let latest = 1234, epoch = "pov:0";
+  const r = reader(() => latest, () => epoch);
+  r.settle();
+  assert.deepEqual(asObject(r.shown), expected(1234));
+  assert.equal(r.subscriptions, KEEP + 1);
+  latest = 25;
+  r.settle();
+  assert.deepEqual(asObject(r.shown), expected(25), "back behind the history: from the start");
+  assert.equal(r.history.folded, 19);
+  epoch = "pov:1";
+  r.settle();
+  assert.equal(r.history.epoch, "pov:1");
+  assert.deepEqual(asObject(r.shown), expected(25));
 });
 
 test("the newest MAX_POINTS of each series; the closed pages that fold together", () => {

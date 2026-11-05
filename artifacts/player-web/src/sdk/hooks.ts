@@ -18,7 +18,7 @@ import type { UtilityDescriptor } from "@workspace/game-utilities";
 import { useRoom } from "./context";
 import { useThrottled } from "./throttle";
 import { createEvaluator, type Evaluator } from "./evaluator";
-import { extendWith, lastPoints, loadedRun, planWindows, type Series, type TrajectoryPage } from "./trajectory-windows";
+import { advance, extendWith, freshHistory, lastPoints, pagesToShow, planWindows, type TrajectoryPage } from "./trajectory-windows";
 
 export type { Observation };
 export type LiveObject = Observation["objects"][number];
@@ -162,9 +162,6 @@ export function useEvaluator({ enabled = true }: { enabled?: boolean } = {}): Ev
 // trajectories: closed windows of the log, each subscribed until folded in, plus one live tail (trajectory-windows.ts)
 // ------------------------------------------------------------------------------------------------
 
-type TrajectoryHistory = { gameId?: string; epoch?: string; latest: number; folded: number; series: Series<TrajectoryPoint> };
-const FRESH: TrajectoryHistory = { latest: -1, folded: -1, series: new Map() };
-
 /**
  * Per-object series of your bits over the whole current game: `{seq, worldSeconds, value, ownNetBits,
  * peerNetBits, payoff}` points (the last 600 per object). The history loads as closed windows of the log, each
@@ -174,37 +171,19 @@ const FRESH: TrajectoryHistory = { latest: -1, folded: -1, series: new Map() };
 export function useTrajectories({ hz }: Live = {}): ReadonlyMap<string, TrajectoryPoint[]> {
   const { roomId } = useRoom();
   const gameId = useObservation({ hz: 1 })?.gameId;
-  const [kept, setKept] = useState<TrajectoryHistory>(FRESH);
-  const history = kept.gameId === gameId ? kept : { ...FRESH, gameId };
+  const [kept, setKept] = useState(() => freshHistory<TrajectoryPoint>());
+  const history = kept.gameId === gameId ? kept : freshHistory<TrajectoryPoint>(gameId);
   const plan = useMemo(() => planWindows(history.latest, history.folded), [history.latest, history.folded]);
   const args = useMemo(() => (gameId ? [...plan.closed, plan.tail].map(w => ({ roomId, gameId, ...w })) : []), [roomId, gameId, plan]);
   const pages = useSdkQueries("player.trajectories", args, 5) as (TrajectoryPage<TrajectoryPoint> | undefined)[];
-  const closed = pages.slice(0, -1), tail = pages.at(-1);
-  const current = (p: TrajectoryPage | undefined) => !!p && p.gameId === gameId && p.epoch === history.epoch;
-  const run = loadedRun(closed.map(p => (current(p) ? p : undefined)));
+  const next = advance(history, plan, pages);
+  useEffect(() => { if (next !== history) setKept(next); });
 
-  // Learn the latest batch from the tail (start over on a new point of view, or a playhead behind the history), and fold
-  // the closed windows that have loaded into the history: they drop out of the plan, so their subscriptions end.
-  useEffect(() => {
-    if (!gameId || !tail || tail.gameId !== gameId) return;
-    if (tail.epoch !== history.epoch || tail.latestCursor < history.folded) {
-      setKept({ ...FRESH, gameId, epoch: tail.epoch, latest: tail.latestCursor });
-    } else if (run > 0) {
-      setKept({ ...history, latest: tail.latestCursor, folded: plan.closed[run - 1].upTo!, series: lastPoints(extendWith(history.series, closed.slice(0, run))) });
-    } else if (tail.latestCursor !== history.latest) {
-      setKept({ ...history, latest: tail.latestCursor });
-    }
-  });
-
-  // What is shown: the history plus every loaded window and, once no window is left out, the tail. While a window or the
-  // tail loads after the history was whole, the last whole series stays.
   const shown = useRef<{ key: readonly unknown[]; series: ReadonlyMap<string, TrajectoryPoint[]> }>({ key: [], series: EMPTY_MAP });
-  const whole = plan.complete && closed.every(current) && current(tail);
-  const key = [gameId, history.series, ...(whole ? pages : closed.slice(0, run))];
-  const holding = !whole && plan.complete && shown.current.key[0] === gameId && shown.current.key.length > 0;
-  if (!holding && !sameItems(key, shown.current.key)) {
-    const pagesShown = whole ? pages : closed.slice(0, run);
-    shown.current = { key, series: gameId ? lastPoints(extendWith(history.series, pagesShown)) as unknown as ReadonlyMap<string, TrajectoryPoint[]> : EMPTY_MAP };
+  const extra = pagesToShow(history, plan, pages);
+  const key = [gameId, history.series, ...(extra ?? [])];
+  if ((extra || shown.current.key[0] !== gameId) && !sameItems(key, shown.current.key)) {
+    shown.current = { key, series: gameId ? lastPoints(extendWith(history.series, extra ?? [])) as unknown as ReadonlyMap<string, TrajectoryPoint[]> : EMPTY_MAP };
   }
   return useThrottled(shown.current.series, hz);
 }
