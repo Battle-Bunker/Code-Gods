@@ -623,3 +623,39 @@ export const rawAssistantCall = internalQuery({
     return ctx.db.get(callId);
   },
 });
+
+/** One god's object rows and totals as stored (game/objectViews.ts; test/game-object-views.test.ts). */
+export const rawObjectViews = internalQuery({
+  args: { gameId: v.id("games"), godId: v.string() },
+  handler: async (ctx, { gameId, godId }) => {
+    dev();
+    return {
+      rows: await ctx.db.query("objectViews").withIndex("by_game_god_payoff", q => q.eq("gameId", gameId).eq("godId", godId)).collect(),
+      totals: await ctx.db.query("godTotals").withIndex("by_game_god", q => q.eq("gameId", gameId).eq("godId", godId)).first(),
+    };
+  },
+});
+
+/** Store a game as it was before the per-god read model (migrations.backfillObjectViews): no rows, no totals. */
+export const forgetObjectViews = internalMutation({
+  args: { gameId: v.id("games") },
+  handler: async (ctx, { gameId }) => {
+    dev();
+    const game = await ctx.db.get(gameId) ?? fail("NOT_FOUND", "no game");
+    for (const { id } of game.roster) {
+      for (const r of await ctx.db.query("objectViews").withIndex("by_game_god_payoff", q => q.eq("gameId", gameId).eq("godId", id)).collect()) await ctx.db.delete(r._id);
+      for (const t of await ctx.db.query("godTotals").withIndex("by_game_god", q => q.eq("gameId", gameId).eq("godId", id)).collect()) await ctx.db.delete(t._id);
+    }
+  },
+});
+
+/** Make one god's row of one object stale, as a lost sync would leave it. */
+export const staleObjectView = internalMutation({
+  args: { objectId: v.id("objects"), godId: v.string(), payoff: v.number() },
+  handler: async (ctx, { objectId, godId, payoff }) => {
+    dev();
+    const row = await ctx.db.query("objectViews").withIndex("by_object_god", q => q.eq("objectId", objectId).eq("godId", godId)).first()
+      ?? fail("NOT_FOUND", "no row");
+    await ctx.db.patch(row._id, { payoff });
+  },
+});

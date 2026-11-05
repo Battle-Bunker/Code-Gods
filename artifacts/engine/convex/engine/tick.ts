@@ -32,6 +32,7 @@ import { act, bindRuntime, ensureSandboxes, isAgentFault, runtimeVersion, WORKER
 import { effectiveSandbox, planningEnd } from "../lib/sandboxes";
 import { FutileMemo, failureKind, futileAfter, pickPair, type ActKind } from "../lib/futility";
 import { MAX_OBJECTS, MIN_TICK_MS, TICK_SECONDS, planSpawns, agentStatus, pickObject, salienceOf, secondsUntilEligible, settledAccount, commitRaises, disclosedTotalsOf, scoreIntervalOf, scoreboardDue, totalsOf } from "../lib/world";
+import { godTotalsOf } from "../lib/views";
 
 type Score = Doc<"objects">["scores"][number];
 type Ev = Doc<"tickBatches">["events"][number];
@@ -315,6 +316,8 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
       // re-checks), so an ordinary tick does not pay for them.
       ...(changed.length || spawns.length || due ? { totals: totalsOf(roster, [...objects, ...spawns]) } : {}),
       ...(due ? { disclosedTotals: disclosedTotalsOf(roster, [...objects, ...spawns]) } : {}),
+      // Each god's totals as disclosed, from the snapshot that already holds every object (game/objectViews.ts).
+      ...(changed.length || spawns.length ? { godTotals: godTotalsOf(roster, [...objects, ...spawns], true) } : {}),
     });
     lastCommitMs.set(gameId, Date.now() - commitStarted);
     return committed;

@@ -438,6 +438,36 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
     ai: { description: "A page of the human's objects ordered by payoff, their bits, the others' care (the disclosed, noisy sum while the game is live), how many times they have been mutated, when they were created or when last mutated (all public), with footer totals; the Objects panel's infinite scroll." },
     tools: [], palette: null, why: "The Objects panel's infinite scroll; the assistant reads the same numbers through the observation and sets the panel's sort with show_panel.",
   },
+  "player.objectIds": {
+    kind: "query", audience: "player",
+    human: { title: "List my objects", tooltip: "Your objects' ids in one sort order, a page at a time." },
+    ai: { description: "One page of the human's object ids in a sort order (payoff, their bits, the others' care, mutations, creation or last mutation; a filter narrows), with the cursor of the next page: the Objects panel's skeleton." },
+    tools: [], palette: null, why: "The Objects panel's skeleton; each visible row then reads player.object.",
+  },
+  "player.object": {
+    kind: "query", audience: "player",
+    human: { title: "One of my objects", tooltip: "One object with your bits, the others' care and your payoff." },
+    ai: { description: "One object as the human sees it: value, mutations, their own score, the others' summed bits (noisy while live) and their payoff." },
+    tools: [], palette: null, why: "One row of the Objects panel; panels read it per visible object.",
+  },
+  "player.objectsTop": {
+    kind: "query", audience: "player",
+    human: { title: "My best objects", tooltip: "Your top (or bottom) objects by payoff or another sort, with their ranks." },
+    ai: { description: "The human's top or bottom n (at most 20) objects in a sort order, each with its rank." },
+    tools: [], palette: null, why: "Small top-N lists in panels (my card, results); the assistant reads the observation.",
+  },
+  "player.objectRank": {
+    kind: "query", audience: "player",
+    human: { title: "An object's rank", tooltip: "Where one object stands by your payoff (#1 is your best)." },
+    ai: { description: "One object's rank by the human's payoff (1 is best), or null beyond the first 90." },
+    tools: [], palette: null, why: "The #rank badge of one object in a panel.",
+  },
+  "player.totals": {
+    kind: "query", audience: "player",
+    human: { title: "My totals", tooltip: "Your score and sums over every object, and how many are contested or chips." },
+    ai: { description: "The human's totals over every object as disclosed: object count, score (sum of payoffs), sums of their bits and of the others', the contested and chip counts, and the extremes." },
+    tools: [], palette: null, why: "The Objects panel's footer and the overview's figures.",
+  },
   "player.series": {
     kind: "query", audience: "player",
     human: { title: "Open the utility series", tooltip: "Every change to every object this game, with your bits and the others' total before and after." },

@@ -71,6 +71,8 @@
  *  - setupListing (gameSetups; 2026-11-05, read-architecture R1/R2): a setup gets its catalogue fields (setups.ts
  *    listingOf: `order` and `nameKey` for the by_order index the Setup list pages, `searchText` for its search index).
  *    Narrowed later: the three become required once dev and production report it done.
+ *  - backfillObjectViews (games; 2026-11-05, read-architecture §4.3): a game stored before the per-god object read model
+ *    gets its objectViews rows and godTotals (game/objectViews.ts fill, scheduled). Nothing to narrow (read models).
  *
  * Older hand-rolled steps, idempotent and run by their own deploy-workflow steps (kept as they are: they predate the
  * component, and porting the Node action setupsV2 buys nothing):
@@ -113,6 +115,7 @@ import { freeName, listed, listingFor, setupSummary } from "./setups";
 import { clockDoc, clockOf, withEngine } from "./game/state";
 import { worldNow } from "./lib/world";
 import { hasStandings, publishStandings } from "./game/readModel";
+import { hasObjectViews, scheduleFill } from "./game/objectViews";
 
 export const migrations = new Migrations(components.migrations, { schema });
 
@@ -342,20 +345,20 @@ export const powerV1Setups = migrations.define({ table: "gameSetups", migrateOne
 
 export const objectEventPlaces = migrations.define({
   table: "tickBatches",
-  // One batch holds up to EVENTS_PER_BATCH events (and as many rows to look up): a few batches per transaction.
-  batchSize: 2,
-  // Each batch is read once: every spawn and transform in it is its object's row at that version (by_game_object_version),
-  // whose place is the event's position here and whose charge (a transform's) is the event's cost.total, what
-  // lib/load.ts's old scan read. A row already placed, or one of another batch, is left alone; an event without a row
-  // (the clone fixture's copies name the source game's objects) changes nothing.
+  // One batch holds up to EVENTS_PER_BATCH events and its rows: a few batches per transaction.
+  batchSize: 8,
+  // Each batch is read once, with its rows (one range of by_game_world over the batch's window, kept to this batch's
+  // seq): every spawn and transform in it is its object's row at that version, whose place is the event's position here
+  // and whose charge (a transform's) is the event's cost.total, what lib/load.ts's old scan read. A row already placed
+  // is left alone; an event without a row (the clone fixture's copies name the source game's objects) changes nothing.
   migrateOne: async (ctx, batch) => {
+    const rows = new Map((await ctx.db.query("objectEvents")
+      .withIndex("by_game_world", q => q.eq("gameId", batch.gameId).gte("world", batch.worldFrom).lte("world", batch.worldTo)).collect())
+      .filter(r => r.seq === batch.seq).map(r => [`${r.objectId}:${r.version}:${r.kind}`, r]));
     for (const [index, e] of batch.events.entries()) {
       if (e.t !== "spawn" && e.t !== "transform") continue;
-      const objectId = ctx.db.normalizeId("objects", e.objectId);
-      if (!objectId) continue;
-      const row = await ctx.db.query("objectEvents")
-        .withIndex("by_game_object_version", q => q.eq("gameId", batch.gameId).eq("objectId", objectId).eq("version", e.version)).first();
-      if (!row || row.seq !== batch.seq || row.kind !== e.t) continue;
+      const row = rows.get(`${e.objectId}:${e.version}:${e.t}`);
+      if (!row) continue;
       const needsCost = e.t === "transform" && row.cost === undefined;
       if (row.index === undefined || needsCost) {
         await ctx.db.patch(row._id, { ...(row.index === undefined ? { index } : {}), ...(needsCost ? { cost: e.cost.total } : {}) });
@@ -367,6 +370,13 @@ export const objectEventPlaces = migrations.define({
 export const setupListing = migrations.define({
   table: "gameSetups",
   migrateOne: async (ctx, row) => { const listing = await listingFor(ctx, row); return listed(row, listing) ? undefined : listing; },
+});
+
+export const backfillObjectViews = migrations.define({
+  table: "games",
+  // A game stored before the per-god read model gets its rows and totals (game/objectViews.ts fill, paged, scheduled:
+  // its success means scheduled). A game that has them (started since, or filled) is left alone.
+  migrateOne: async (ctx, game) => { if (!await hasObjectViews(ctx, game)) await scheduleFill(ctx, game._id); },
 });
 
 /** Every component migration, in order: run by the deploy workflow (`npx convex run migrations:runAll`). Append only. */
@@ -389,7 +399,7 @@ const RUN_ALL: FunctionReference<"mutation", "internal">[] = [internal.migration
   internal.migrations.equalOpportunityIntStringDeities, internal.migrations.equalOpportunityIntStringPreparing,
   internal.migrations.powerV1Agents, internal.migrations.powerV1Deities, internal.migrations.powerV1Games, internal.migrations.powerV1Rooms, internal.migrations.powerV1Setups,
   internal.migrations.objectEventPlaces,
-  internal.migrations.setupListing];
+  internal.migrations.setupListing, internal.migrations.backfillObjectViews];
 export const runAll = migrations.runner(RUN_ALL);
 /** The state of each of runAll's migrations (scripts/run-migrations.mjs waits for all of them to succeed). */
 export const status = internalQuery({

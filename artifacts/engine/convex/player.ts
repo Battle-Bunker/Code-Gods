@@ -9,14 +9,14 @@
 import { v } from "convex/values";
 import type { GameSettings } from "@workspace/game-core";
 import { allowedLanguages, instantiationOf } from "@workspace/game-core";
-import type { Doc } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { internalQuery, query, type QueryCtx } from "./_generated/server";
 import { requireRoomPermission, requireViewer, type Viewer } from "./auth/access";
 import { fail } from "./lib/errors";
 import { buildObservation, currentGame, deityOf, latestBatchSeq, objectsOf } from "./lib/load";
 import { withClock } from "./game/state";
 import { objectInstance, personalObject, projectBatches, replayBatches, trajectories as trajectoriesOf } from "./lib/projection";
-import { OBJECT_SORTS, pageObjects, type ObjectSort } from "@workspace/player-client/objects-page";
+import { OBJECT_SORTS, type ObjectSort } from "@workspace/player-client/objects-page";
 import { EVENT_LOG_SCHEMA, viewOfNet } from "./lib/world";
 import { findGame, isHistoric, principalV, requireHistoricReaderAs, requireMemberAs, requireRoom, viewerOf } from "./lib/rooms";
 import { publicGameView } from "./games";
@@ -272,36 +272,173 @@ export const trajectoriesFor = async (ctx: QueryCtx, viewer: Viewer, args: { roo
     return { gameId: game._id, objects: trajectoriesOf(batches, index, game.phase !== "ended"), nextCursor, latestCursor: (await latest()) ?? nextCursor };
 };
 
+// ------------------------------------------------------------------------------------------------
+// The per-god object read model (docs/convex-read-architecture.md §4.3): the viewer's OWN objectViews rows and
+// godTotals doc (game/objectViews.ts), one index page or one document per query; never another god's row, never the
+// world. A viewer without a seat in the game has no rows: an empty page, null.
+// ------------------------------------------------------------------------------------------------
+
+type ObjectFilter = "all" | "positive" | "contested" | "chips";
+const sortV = v.union(...OBJECT_SORTS.map(s => v.literal(s)));
+const filterV = v.union(v.literal("all"), v.literal("positive"), v.literal("contested"), v.literal("chips"));
+/** A position in one sort: the row's sort key (null: never mutated) and its creation time (the index's tie order). */
+const cursorV = v.object({ key: v.union(v.number(), v.null()), at: v.number() });
+type Cursor = { key: number | null; at: number };
+/** The most rows one page returns (R2: at most 100 documents a query: these, the one past them, the viewer, room and totals). */
+export const OBJECT_VIEW_PAGE_MAX = 90;
+
+/** Each sort's index and field, and its direction (high first; "oldest" is the creation time ascending). */
+const SORTS = {
+  payoff: { index: "by_game_god_payoff", field: "payoff", order: "desc" },
+  mine: { index: "by_game_god_netBits", field: "netBits", order: "desc" },
+  othersCare: { index: "by_game_god_peer", field: "peerCare", order: "desc" },
+  mutations: { index: "by_game_god_version", field: "version", order: "desc" },
+  newest: { index: "by_game_god_created", field: "createdAt", order: "desc" },
+  oldest: { index: "by_game_god_created", field: "createdAt", order: "asc" },
+  recentlyMutated: { index: "by_game_god_mutated", field: "lastMutatedAt", order: "desc" },
+} as const satisfies Record<ObjectSort, { index: string; field: keyof Doc<"objectViews">; order: "asc" | "desc" }>;
+
+const matches = (r: Doc<"objectViews">, filter: ObjectFilter) =>
+  filter === "positive" || filter === "contested" ? r.payoff > 0 : filter === "chips" ? r.peerCare > 0 && r.netBits <= 0 : true;
+const keyOf = (r: Doc<"objectViews">, sort: ObjectSort): number | null => (r[SORTS[sort].field] as number | undefined) ?? null;
+
 /**
- * One page of the caller's objects in the current game, ordered by `sort` (payoff, your bits, others' care) with the
- * object id as tie-break, starting strictly after the cursor `after` ({key, id} of the previous page's `next`); with the
- * footer totals over every object. The keys are what the caller is shown: live, the others' sum carries its disclosure
- * noise (settings.peerNoiseBits), so no sort ever orders by an exact peer value; an ended game is exact.
- * The panel asks for a growing window (limit = pages shown) so one subscription serves the whole list.
+ * Up to `limit` + 1 of `godId`'s rows in `sort` order, strictly after `after`: the rest of the cursor's key (by creation
+ * time, the index's own tie order), then the keys past it. At most limit + 1 documents read.
+ */
+async function rowsAfter(ctx: QueryCtx, gameId: Id<"games">, godId: string, sort: ObjectSort, after: Cursor | undefined, limit: number) {
+  const { index, field, order } = SORTS[sort];
+  // The index builders are typed per index; the seven share one shape (gameId, godId, field), so one untyped builder serves.
+  const range = (bound: (q: any) => any) => ctx.db.query("objectViews").withIndex(index, q => bound((q as any).eq("gameId", gameId).eq("godId", godId))).order(order);
+  if (!after) return await range(q => q).take(limit + 1);
+  const key = after.key ?? undefined;
+  const rows = await range(q => (order === "desc" ? q.eq(field, key).lt("_creationTime", after.at) : q.eq(field, key).gt("_creationTime", after.at))).take(limit + 1);
+  if (rows.length <= limit && key !== undefined) rows.push(...await range(q => (order === "desc" ? q.lt(field, key) : q.gt(field, key))).take(limit + 1 - rows.length));
+  return rows as Doc<"objectViews">[];
+}
+
+/**
+ * One skeleton page: the rows read (at most `limit`), those matching `filter` (a filtered page may hold fewer, even
+ * none), and the cursor after the last row read (null at the end).
+ */
+async function viewPage(ctx: QueryCtx, gameId: Id<"games">, godId: string, q: { sort?: ObjectSort; filter?: ObjectFilter; after?: Cursor; limit?: number }) {
+  const sort = q.sort ?? "payoff", filter = q.filter ?? "all";
+  const limit = Math.max(1, Math.min(OBJECT_VIEW_PAGE_MAX, Math.floor(q.limit ?? 30)));
+  const read = await rowsAfter(ctx, gameId, godId, sort, q.after, limit);
+  const page = read.slice(0, limit), last = page.at(-1);
+  return { rows: page.filter(r => matches(r, filter)), next: last && read.length > limit ? { key: keyOf(last, sort), at: last._creationTime } : null, sort };
+}
+
+/** One row as its god sees the object: the observation's object shape (lib/projection.ts personalObject). */
+function objectViewOf(r: Doc<"objectViews">) {
+  return {
+    id: r.objectId as string, value: r.value, version: r.version,
+    mutations: r.version, createdAt: r.createdAt, lastMutatedAt: r.lastMutatedAt ?? null,
+    own: { ordinal: r.ordinal, rewardBits: r.rewardBits, ...(r.penaltyBits !== undefined ? { penaltyBits: r.penaltyBits } : {}), netBits: r.netBits },
+    peerNetBits: r.peerNetBits, peerCare: r.peerCare, payoff: r.payoff,
+  };
+}
+
+const totalsDoc = (ctx: QueryCtx, gameId: Id<"games">, godId: string) =>
+  ctx.db.query("godTotals").withIndex("by_game_god", q => q.eq("gameId", gameId).eq("godId", godId)).first();
+
+/**
+ * The objects panel's skeleton: one page of the viewer's objects in `sort` order (`filter` narrows), as ids and sort
+ * keys, after the cursor `after` (the previous page's `next`). Each visible row reads its object with player.object.
+ */
+export const objectIds = query({
+  args: { gameId: v.id("games"), sort: v.optional(sortV), filter: v.optional(filterV), after: v.optional(cursorV), limit: v.optional(v.number()) },
+  handler: async (ctx, { gameId, ...q }) => {
+    const viewer = await requireViewer(ctx);
+    const page = await viewPage(ctx, gameId, viewer.subject, q);
+    return { rows: page.rows.map(r => ({ id: r.objectId as string, key: keyOf(r, page.sort) })), next: page.next };
+  },
+});
+
+/** One object as the viewer sees it (the viewer's own row): null when the viewer holds no score on it. */
+export const object = query({
+  args: { objectId: v.string() },
+  handler: async (ctx, { objectId }) => {
+    const viewer = await requireViewer(ctx);
+    const id = ctx.db.normalizeId("objects", objectId);
+    const row = id && await ctx.db.query("objectViews").withIndex("by_object_god", q => q.eq("objectId", id).eq("godId", viewer.subject)).first();
+    return row ? objectViewOf(row) : null;
+  },
+});
+
+/** The viewer's top `n` ≤ 20 objects by `by` (the bottom with `dir: "asc"`), each with its position as `rank`. */
+export const objectsTop = query({
+  args: { gameId: v.id("games"), by: v.optional(sortV), n: v.optional(v.number()), dir: v.optional(v.union(v.literal("desc"), v.literal("asc"))) },
+  handler: async (ctx, { gameId, by = "payoff", n = 10, dir }) => {
+    const viewer = await requireViewer(ctx);
+    const { index, order } = SORTS[by];
+    const rows = await ctx.db.query("objectViews").withIndex(index, q => (q as any).eq("gameId", gameId).eq("godId", viewer.subject))
+      .order(dir ?? order).take(Math.max(1, Math.min(20, Math.floor(n)))) as Doc<"objectViews">[];
+    return rows.map((r, i) => ({ ...objectViewOf(r), rank: i + 1 }));
+  },
+});
+
+/** The most objects a rank counts past: a rank beyond it is shown as unknown (null). */
+export const RANK_MAX = 90;
+
+/** One object's rank by the viewer's payoff (1 = best): null beyond RANK_MAX, or when the viewer holds no score on it. */
+export const objectRank = query({
+  args: { objectId: v.string() },
+  handler: async (ctx, { objectId }) => {
+    const viewer = await requireViewer(ctx);
+    const id = ctx.db.normalizeId("objects", objectId);
+    const row = id && await ctx.db.query("objectViews").withIndex("by_object_god", q => q.eq("objectId", id).eq("godId", viewer.subject)).first();
+    if (!row) return null;
+    const above = await ctx.db.query("objectViews")
+      .withIndex("by_game_god_payoff", q => q.eq("gameId", row.gameId).eq("godId", viewer.subject).gt("payoff", row.payoff)).take(RANK_MAX);
+    return above.length < RANK_MAX ? { rank: above.length + 1 } : { rank: null };
+  },
+});
+
+/** The viewer's totals over every object, as disclosed (lib/views.ts GodTotals): null without a seat (or before the first fill). */
+export const totals = query({
+  args: { gameId: v.id("games") },
+  handler: async (ctx, { gameId }) => {
+    const viewer = await requireViewer(ctx);
+    const t = await totalsDoc(ctx, gameId, viewer.subject);
+    return t && { world: t.world, objectCount: t.objectCount, score: t.score, sumOwnNetBits: t.sumOwnNetBits, sumPeerNetBits: t.sumPeerNetBits,
+      contested: t.contested, chips: t.chips, maxOwn: t.maxOwn, maxCare: t.maxCare, maxPayoff: t.maxPayoff, minPayoff: t.minPayoff };
+  },
+});
+
+/**
+ * COMPATIBILITY (stored panels and the bridge): one window of the caller's objects in the room's current game, ordered by
+ * `sort` (`filter` narrows), after the cursor `after` (the previous window's `next`), with the footer totals. Served by
+ * the read model: one index page of at most OBJECT_VIEW_PAGE_MAX rows and the totals doc, never the world. `rank` is the
+ * row's position: by payoff from the top in the first unfiltered payoff window, else within this window. `next.id` is
+ * an opaque cursor, to be handed back as it is.
  */
 const objectsPageArgs = {
-  roomId: v.string(),
-  sort: v.optional(v.union(...OBJECT_SORTS.map(s => v.literal(s)))),
-  filter: v.optional(v.union(v.literal("all"), v.literal("positive"), v.literal("contested"), v.literal("chips"))),
-  after: v.optional(v.object({ key: v.number(), id: v.string() })),
-  limit: v.optional(v.number()),
+  roomId: v.string(), sort: v.optional(sortV), filter: v.optional(filterV),
+  after: v.optional(v.object({ key: v.number(), id: v.string() })), limit: v.optional(v.number()),
 };
-export const objectsPage = query({ args: objectsPageArgs, handler: async (ctx, args) => objectsPageFor(ctx, await requireViewer(ctx), args) });
-export const objectsPageAs = internalQuery({
-  args: { principal: principalV, ...objectsPageArgs },
-  handler: async (ctx, { principal, ...args }) => objectsPageFor(ctx, await viewerOf(ctx, principal), args),
+export const objectsPage = query({
+  args: objectsPageArgs,
+  handler: async (ctx, { roomId, after, ...q }) => {
+    const viewer = await requireViewer(ctx);
+    const room = await requireRoom(ctx, roomId);
+    await requireMemberAs(ctx, viewer, room, "read");
+    const game = await currentGame(ctx, room);
+    const empty = { rows: [], next: null, matching: 0, total: 0, sumOwnNetBits: 0, sumPeerNetBits: 0 };
+    if (!game) return empty;
+    // The cursor's creation time (and a null key: never mutated) travel in `id` as "<at>|<null?>".
+    const [at, isNull] = after ? after.id.split("|") : [];
+    const cursor = after && Number.isFinite(Number(at)) ? { key: isNull === "null" ? null : after.key, at: Number(at) } : undefined;
+    const [page, t] = await Promise.all([viewPage(ctx, game._id, viewer.subject, { ...q, after: cursor }), totalsDoc(ctx, game._id, viewer.subject)]);
+    const filter = q.filter ?? "all", total = t?.objectCount ?? 0;
+    return {
+      rows: page.rows.map((r, i) => ({ ...objectViewOf(r), rank: i + 1 })),
+      next: page.next ? { key: page.next.key ?? 0, id: `${page.next.at}|${page.next.key === null ? "null" : ""}` } : null,
+      matching: filter === "all" ? total : filter === "chips" ? t?.chips ?? 0 : t?.contested ?? 0,
+      total, sumOwnNetBits: t?.sumOwnNetBits ?? 0, sumPeerNetBits: t?.sumPeerNetBits ?? 0,
+    };
+  },
 });
-export async function objectsPageFor(ctx: QueryCtx, viewer: Viewer, { roomId, ...q }: {
-  roomId: string; sort?: ObjectSort; filter?: "all" | "positive" | "contested" | "chips"; after?: { key: number; id: string }; limit?: number;
-}) {
-  const room = await requireRoom(ctx, roomId);
-  await requireMemberAs(ctx, viewer, room, "read");
-  const game = await currentGame(ctx, room);
-  const deity = game ? await deityOf(ctx, game._id, viewer.subject) : null;
-  const live = game?.phase !== "ended";
-  const mine = game && deity ? (await objectsOf(ctx, game._id)).map(o => personalObject(o, viewer.subject, live)).filter(o => o !== null) : [];
-  return pageObjects(mine, q);
-}
 
 /**
  * The caller's OWN utility descriptor for the current game, with what a client needs to run

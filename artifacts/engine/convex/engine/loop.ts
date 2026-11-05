@@ -13,6 +13,9 @@ import { internalMutation, internalQuery, type MutationCtx } from "../_generated
 import { eventV, failuresV, futileEntriesV, lastFailuresV, scoreV } from "../game/tables";
 import { liveGame, withEngine, writeGame, type LiveGame } from "../game/state";
 import { publicSalienceOf } from "../game/readModel";
+import { godTotalsV, scheduleFill } from "../game/objectViews";
+/** World seconds between sweeps of the per-god read model (game/objectViews.ts). */
+const SWEEP_SECONDS = 60;
 import { gameRecord } from "../lib/projection";
 import { AI_LOBBY_STATUS, isIdle, lastHumanActivity, membersOf } from "../lib/rooms";
 import { EVENT_LOG_SCHEMA, EVENTS_PER_BATCH, LEASE_MS, MIN_TICK_MS, scoreIntervalOf, scoreboardDue, totalsOf } from "../lib/world";
@@ -113,8 +116,10 @@ export async function endGame(ctx: MutationCtx, game: LiveGame, reason: "lifetim
   }
   // The ended game never changes again: its whole replay is stored once, after this commit (convex/replays.ts).
   await ctx.scheduler.runAfter(0, internal.replays.build, { gameId: game._id });
-  // Its disclosure is exact from now on: the public salience loses the live noise (paged, off this commit).
+  // Its disclosure is exact from now on: the public salience and each god's object rows and totals lose the live noise
+  // (paged, off this commit).
   await ctx.scheduler.runAfter(0, internal.game.readModel.finalizeObjects, { gameId: game._id, cursor: null });
+  await scheduleFill(ctx, game._id);
   const room = await ctx.db.get(game.roomId);
   if (room && room.activeGameId === game._id) {
     await ctx.db.patch(room._id, { activeGameId: undefined, seq: room.seq + 1 });
@@ -209,6 +214,8 @@ export const commit = internalMutation({
     totals: v.optional(v.array(v.number())),
     /** The same as disclosed live (payoffs from the noisy peers' sums): the scoreboard, published when due. */
     disclosedTotals: v.optional(v.array(v.number())),
+    /** Each roster god's totals after the window as disclosed (lib/views.ts godTotalsOf), when objects changed. */
+    godTotals: v.optional(v.array(godTotalsV)),
     wakeAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
@@ -292,6 +299,11 @@ export const commit = internalMutation({
     }));
     const resolved = events.map(e => (e.t === "spawn" && ids.has(e.objectId) ? { ...e, objectId: ids.get(e.objectId)! } : e));
     const clock = args.clock!;
+    // Each god's object rows and totals (game/objectViews.ts), written off this commit: one scheduled call.
+    const touched = [...args.objects.map(c => c.id), ...[...ids.values()] as Id<"objects">[]];
+    if (touched.length || args.godTotals) {
+      await ctx.scheduler.runAfter(0, internal.game.objectViews.sync, { gameId: game._id, objectIds: touched, world: clock.worldSeconds, ...(args.godTotals ? { totals: args.godTotals } : {}) });
+    }
     const acts = events.filter(e => e.t === "transform" || e.t === "fail" || e.t === "skip").length;
     const perf = { acts, window: clock.worldSeconds - game.worldSeconds, simulateMs: args.stats.simulateMs, ...(args.stats.prevCommitMs !== undefined ? { commitMs: args.stats.prevCommitMs } : {}) };
     // The scoreboard is published for everyone at once when the window reaches the next multiple of the interval
@@ -300,6 +312,9 @@ export const commit = internalMutation({
     const publish = !!game.scoreboard && !!args.disclosedTotals && clock.phase !== "ended" &&
       scoreboardDue(game.scoreboard.world, clock.worldSeconds, scoreIntervalOf(game));
     const scoreboard = publish ? { totals: args.disclosedTotals!, world: clock.worldSeconds, at: now } : undefined;
+    // Once a world minute, a sweep of every god's rows and totals (game/objectViews.ts fill, paged, off this commit): a
+    // sync that failed leaves no row stale for longer.
+    if (clock.phase === "running" && Math.floor(clock.worldSeconds / SWEEP_SECONDS) > Math.floor(game.worldSeconds / SWEEP_SECONDS)) await scheduleFill(ctx, game._id);
     // The stored totals stay exact on every scoring batch (the replay of an ended game steps per event); the live
     // projection shows only the disclosed scoreboard, on the batch that published it.
     const scored = resolved.some(e => e.t === "spawn" || e.t === "transform");

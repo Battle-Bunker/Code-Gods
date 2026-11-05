@@ -317,6 +317,40 @@ export const gameTables = {
     lastMutatedAt: v.optional(v.number()),
   }).index("by_game", ["gameId"]).index("by_game_value", ["gameId", "value"]).index("by_game_salience", ["gameId", "publicSalience"]),
 
+  /**
+   * PRIVATE to `godId`: one object as that god sees it (read-architecture §4.1, §4.3), one row per roster god per object,
+   * so the objects panel's skeletons, its rows, the top N and a rank each read one index page or one document, never the
+   * world. Only the owning god's queries read a row: other gods' scores never leave the server. The numbers are the
+   * observation's (lib/views.ts viewRowOf): live, the others' sum carries the value's disclosure noise; once ended, exact.
+   * The public figures (version = mutations, createdAt, lastMutatedAt) are copied so every sort is one index.
+   * Written off the tick's commit by game/objectViews.ts (a scheduled sync of the objects the commit changed, which
+   * reads the objects as they are then), filled at the start and after hold rescoring, and made exact at the end.
+   */
+  objectViews: defineTable({
+    gameId: v.id("games"), godId: v.string(), objectId: v.id("objects"), value: wire, version: v.number(),
+    createdAt: v.number(), lastMutatedAt: v.optional(v.number()),
+    ordinal, rewardBits: v.number(), penaltyBits: v.optional(v.number()), netBits: v.number(),
+    peerNetBits: v.number(), peerCare: v.number(), payoff: v.number(),
+  }).index("by_object_god", ["objectId", "godId"])
+    .index("by_game_god_payoff", ["gameId", "godId", "payoff"])
+    .index("by_game_god_netBits", ["gameId", "godId", "netBits"])
+    .index("by_game_god_peer", ["gameId", "godId", "peerCare"])
+    .index("by_game_god_version", ["gameId", "godId", "version"])
+    .index("by_game_god_created", ["gameId", "godId", "createdAt"])
+    .index("by_game_god_mutated", ["gameId", "godId", "lastMutatedAt"]),
+
+  /**
+   * PRIVATE to `godId`: that god's totals over every object as disclosed (lib/views.ts GodTotals): the objects panel's
+   * footer and counts, the overview's score. Computed by the tick from its snapshot (or from every object at the start,
+   * after rescoring and at the end) and written with the read-model sync; `world` orders the writes (an older one never
+   * replaces a newer).
+   */
+  godTotals: defineTable({
+    gameId: v.id("games"), godId: v.string(), world: v.number(), objectCount: v.number(), score: v.number(),
+    sumOwnNetBits: v.number(), sumPeerNetBits: v.number(), contested: v.number(), chips: v.number(),
+    maxOwn: v.number(), maxCare: v.number(), maxPayoff: v.number(), minPayoff: v.number(),
+  }).index("by_game_god", ["gameId", "godId"]),
+
   agents: defineTable({
     gameId: v.id("games"), ownerId: v.string(),
     /** PRIVATE to the owner (and shown to everyone in the ended game's replay). */

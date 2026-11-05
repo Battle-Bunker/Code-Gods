@@ -79,6 +79,86 @@ export function useObjectsPage(
   return throttled ?? (kept?.view === view ? kept.window : undefined);
 }
 
+// ------------------------------------------------------------------------------------------------
+// The per-god object read model (engine player.ts): one index page, one object, the top N, one rank, your totals.
+// Every answer is your own (another god's numbers never leave the server); live, the others' sum is the noisy one.
+// ------------------------------------------------------------------------------------------------
+
+export type ObjectFilter = "all" | "positive" | "contested" | "chips";
+export type ObjectIdsPage = NonNullable<FunctionReturnType<typeof api.player.objectIds>>;
+export type ObjectIdsCursor = NonNullable<ObjectIdsPage["next"]>;
+export type MyObject = NonNullable<FunctionReturnType<typeof api.player.object>>;
+export type MyTotals = NonNullable<FunctionReturnType<typeof api.player.totals>>;
+export type RankedObject = FunctionReturnType<typeof api.player.objectsTop>[number];
+type ObjectQuery = { gameId: string | undefined; sort?: ObjectSort; filter?: ObjectFilter };
+
+/** The current game's id (undefined before one starts). */
+export function useGameId(): string | undefined {
+  return useObservation({ hz: 0.5 })?.gameId ?? undefined;
+}
+
+/** One skeleton page: up to `limit` (≤ 90) of your objects' ids and sort keys in `sort` order, after `after`; `next` continues. */
+export function useObjectIds({ gameId, sort = "payoff", filter = "all", after, limit = 30 }: ObjectQuery & { after?: ObjectIdsCursor | null; limit?: number }): ObjectIdsPage | undefined {
+  return useSdkQuery("player.objectIds", gameId ? { gameId, sort, filter, limit, ...(after ? { after } : {}) } : "skip");
+}
+
+/**
+ * The whole skeleton as far as `pages` pages of `limit`: each page starts after the previous one's last row (pages are
+ * chained, so an object moving between them is never lost), all subscribed. `more`: another page exists.
+ */
+export function useObjectSkeleton({ gameId, sort = "payoff", filter = "all", limit = 30, pages = 1 }: ObjectQuery & { limit?: number; pages?: number }) {
+  const view = `${gameId}|${sort}|${filter}|${limit}`;
+  const [kept, setKept] = useState<{ view: string; cursors: (ObjectIdsCursor | null)[] }>({ view, cursors: [null] });
+  const cursors = kept.view === view ? kept.cursors : [null];
+  const args = useMemo(() => (gameId ? cursors.slice(0, pages).map(after => ({ gameId, sort, filter, limit, ...(after ? { after } : {}) })) : []),
+    [gameId, sort, filter, limit, pages, cursors]);
+  const results = useSdkQueries("player.objectIds", args) as (ObjectIdsPage | undefined)[];
+  // The chain as the pages stand now: page k + 1 starts at page k's `next` (a page still loading keeps its successor's).
+  const chain: (ObjectIdsCursor | null)[] = [null];
+  for (let k = 0; k < results.length; k++) {
+    const next = results[k] === undefined ? cursors[k + 1] : results[k]!.next;
+    if (!next) break;
+    chain.push(next);
+  }
+  const key = JSON.stringify(chain);
+  useEffect(() => { if (key !== JSON.stringify(cursors)) setKept({ view, cursors: chain }); });
+  const rows = useMemo(() => {
+    const seen = new Set<string>(), out: { id: string; key: number | null }[] = [];
+    for (const r of results) for (const row of r?.rows ?? []) if (!seen.has(row.id)) { seen.add(row.id); out.push(row); }
+    return out;
+    // `results` is a new array each render; the rows change only with its pages.
+  }, [JSON.stringify(results.map(r => r?.rows))]);
+  const last = results.at(-1);
+  return {
+    rows, loaded: results.length > 0 && results.every(r => r !== undefined),
+    /** Another page exists past the ones asked for. */
+    more: chain.length > results.length,
+    /** The last page read rows but none matched the filter: ask for the next one without waiting for a scroll. */
+    lastEmpty: !!last && last.rows.length === 0 && !!last.next,
+  };
+}
+
+/** One of your objects as you see it (value, mutations, your score, the others' sum, payoff); null when you hold no score on it. */
+export function useMyObject(objectId: string | undefined): MyObject | null | undefined {
+  return useSdkQuery("player.object", objectId ? { objectId } : "skip");
+}
+
+/** Your top `n` (≤ 20) objects by `by`, or the bottom with `dir: "asc"`, each with its `rank`. */
+export function useObjectsTop({ gameId, by = "payoff", n = 10, dir }: { gameId: string | undefined; by?: ObjectSort; n?: number; dir?: "asc" | "desc" }): RankedObject[] | undefined {
+  return useSdkQuery("player.objectsTop", gameId ? { gameId, by, n, ...(dir === "asc" ? { dir } : {}) } : "skip");
+}
+
+/** One object's rank by your payoff (1 = best): null beyond the first 90. */
+export function useObjectRank(objectId: string | undefined): number | null | undefined {
+  const r = useSdkQuery("player.objectRank", objectId ? { objectId } : "skip");
+  return r === undefined ? undefined : r?.rank ?? null;
+}
+
+/** Your totals over every object as disclosed: count, score, Σ your bits and the others', contested and chips, extremes. */
+export function useMyTotals(gameId: string | undefined): MyTotals | null | undefined {
+  return useSdkQuery("player.totals", gameId ? { gameId } : "skip");
+}
+
 /** Your own utility card (kid card: emoji, summary, source, optional defence goal). */
 export function useMyCard() {
   return useObservation({ hz: 0.5 })?.self.utility;

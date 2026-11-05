@@ -116,8 +116,14 @@ export const BUDGETS: Budget[] = [
   { query: "player:trajectories", subscribedBy: "sdk useTrajectories (closed windows of the log plus a live tail, sdk/trajectory-windows.ts)",
     args: f => ({ roomId: f.roomId, gameId: f.gameId, afterSeq: -1, upTo: 9, limit: 10 }), cold: true,
     debt: { bytes: 512 * KiB, ms: 100, why: "PR 8: one window reads at most 10 tickBatches (a closed window is cached across ticks; the tail follows them), and a batch carries every god's events, so bytes depend on how busy the game was: measured 15 docs, 173 KiB, 31–54 ms (decoding 10 batches; before windows: up to 50 batches a call, 331–650 KiB, ceiling 2048 KiB). The ceiling is 10 full batches; paid off by a per-tick trajectory row" } },
-  { query: "player:objectsPage", subscribedBy: "sdk useObjectsPage", args: f => ({ roomId: f.roomId, sort: "recentlyMutated" }), cold: false,
-    debt: { docs: 1200, bytes: 800 * KiB, ms: 200, why: "PR 4: reads and sorts every object to return one page, by any of the seven sorts (the three public ones are indexed for the objectViews redesign, but the rank and footer totals still read the whole world; measured 1,034 docs, 572 KiB, 73 ms)" } },
+  { query: "player:objectsPage", subscribedBy: "sdk useObjectsPage (stored panels' compatibility shape, the grid layout)",
+    args: f => ({ roomId: f.roomId, sort: "recentlyMutated", limit: 90 }), cold: false },
+  { query: "player:objectIds", subscribedBy: "core/panels/objects.tsx (skeleton), sdk useObjectIds",
+    args: f => ({ gameId: f.gameId, sort: "payoff", limit: 90 }), cold: false },
+  { query: "player:object", subscribedBy: "core/panels/objects.tsx (one per visible row), sdk useObject", args: f => ({ objectId: f.objectId }), cold: false },
+  { query: "player:objectsTop", subscribedBy: "sdk useObjectsTop", args: f => ({ gameId: f.gameId, n: 20 }), cold: false },
+  { query: "player:objectRank", subscribedBy: "sdk useObjectRank", args: f => ({ objectId: f.objectId }), cold: false },
+  { query: "player:totals", subscribedBy: "core/panels/objects.tsx (footer), sdk useTotals", args: f => ({ gameId: f.gameId }), cold: false },
 ];
 
 /** The client reference of a logged identifier: "auth/credentials:list" → api.auth.credentials.list (of `api`). */

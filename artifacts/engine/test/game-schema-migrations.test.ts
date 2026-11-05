@@ -262,3 +262,30 @@ test("setupListing: setups stored before the catalogue's index get their order, 
   assert.ok((await setupEntries(ann.c, tag)).some(e => e.id === own.id), "found by the search index");
   await ann.c.mutation(api.setups.remove, { setupId: own.id });
 });
+
+test("backfillObjectViews: a game stored before the per-god read model gets every god's rows and totals; a second run changes nothing", { timeout: 300_000 }, async () => {
+  const [host, ada, bo] = await gods("Views Mig Host", "Views Mig Ada", "Views Mig Bo");
+  await touch(host);
+  const { roomId } = await roomWith([host, ada, bo], { ...INT_TS, startingObjectCount: 5 });
+  const game = await startGame(host, roomId);
+  await host.c.mutation(api.rooms.endActiveGame, { roomId });
+  const views = (godId: string) => admin.query(internal.testing.rawObjectViews, { gameId: game.gameId, godId });
+  const strip = (v: any) => ({ rows: v.rows.map(({ _id, _creationTime, ...r }: any) => r).sort((a: any, b: any) => (a.objectId < b.objectId ? -1 : 1)), totals: v.totals && (({ _id, _creationTime, ...t }: any) => t)(v.totals) });
+  // The end's fill: every row exact (the others' sum without the live noise).
+  const { objects } = await raw(game.gameId);
+  const exact = (v: any) => v.rows.length === 5 && v.totals?.objectCount === 5 && v.rows.every((r: any) => {
+    const o = objects.find((x: any) => x._id === r.objectId);
+    return Math.abs(r.peerNetBits - o.scores.filter((s: any) => s.god !== ada.subject).reduce((n: number, s: any) => n + s.netBits, 0)) < 1e-9;
+  });
+  const before = await waitFor(async () => { const v = await views(ada.subject); return exact(v) && v; }, "the end's fill");
+  await admin.mutation(internal.testing.forgetObjectViews, { gameId: game.gameId });
+  assert.deepEqual((await views(ada.subject)).rows, [], "the fixture is legacy");
+
+  await runAll(true);
+  // Catches: a game left without rows (its objects panel would be empty), rows that differ from what the start wrote.
+  const after = await waitFor(async () => { const v = await views(ada.subject); return v.rows.length === 5 && v.totals && v; }, "the backfilled fill", 60_000, 250);
+  assert.deepEqual({ ...strip(after), totals: { ...strip(after).totals, world: 0 } }, { ...strip(before), totals: { ...strip(before).totals, world: 0 } });
+  assert.equal((await views(bo.subject)).rows.length, 5, "every god's rows");
+  await runAll(true);
+  assert.deepEqual(strip(await views(ada.subject)), strip(after), "a second run changes nothing");
+});
