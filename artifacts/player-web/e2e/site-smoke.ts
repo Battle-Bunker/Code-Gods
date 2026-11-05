@@ -20,7 +20,7 @@
  * creates a room in one click (no dialog) and sees its AI quotas (300,000 tokens per game by default) on the room page; the page's one primary follows nextStep
  * (Copy invite link, then Start game). Bob and carol open the room by code from the command palette and
  * join; alice searches the Setup combobox (a system setup's Edit is unavailable, with the reason), duplicates the
- * room's First steps and edits the copy on /rooms/:code/configure (its name "First steps's copy" first; the board as
+ * room's setup (put on First steps through the combobox: a new room runs Annotated basics) and edits the copy on /rooms/:code/configure (its name "First steps's copy" first; the board as
  * three controls with every playable value enabled; defence goals switched on with one unticked; goal
  * dealing, prior, act targeting, then Int(0,2147483647) / TypeScript, a range with no shipped tables whose first-use
  * note shows, with TypeScript ticked and Python unticked in the languages multi-select, 1 s planning), saves it for
@@ -282,6 +282,11 @@ try {
 
     let copyId = "", copyName = "";
     await check(`${name}: the Setup combobox searches every setup; a system setup's Edit is unavailable; Duplicate opens the copy`, async () => {
+      // A new room runs Annotated basics; alice puts it on First steps through the combobox first (searched on the engine).
+      await a.getByTestId("text-current-setup").filter({ hasText: /^Annotated basics$/ }).waitFor();
+      await a.getByTestId("select-setup").click();
+      await a.getByTestId("input-setup-search").fill("first steps");
+      await a.locator('[data-testid^="row-setup-"]', { hasText: /^First steps · System/ }).click();
       await a.getByTestId("text-current-setup").filter({ hasText: /^First steps$/ }).waitFor();
       await a.getByTestId("select-setup").click();
       await a.getByTestId("popover-setups").waitFor();
