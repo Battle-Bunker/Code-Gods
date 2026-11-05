@@ -11,11 +11,8 @@
  *    setups, rooms and games (["typescript"] if nothing is left), and Haskell's runtime assets go: its bundle (row and
  *    stored file) and its compiled programs. Agents keep `language: "haskell"` as history (game-core RETIRED_LANGUAGES);
  *    a game's Haskell agent sits out (engine/tick.ts).
- *  - splitGameHotFields (games; docs/convex-read-architecture.md R3, §5): a game's clock (worldSeconds, lastTick,
- *    objectCount, agentCount, scoreboard) moves to its gameClocks doc and its engine state (tick, nextSpawn, nextBatch,
- *    stats) to its gameEngine doc, created from its fields where missing, and the fields are cleared on `games`. A game
- *    the new code already wrote (game/state.ts writeGame splits on its first write) only gets what it lacks. Narrowed
- *    later: the hot fields leave the games validator, and game/state.ts's legacy fallbacks go.
+ *  - (splitGameHotFields, games: the hot fields moved to gameClocks and gameEngine; retired, and the fields left the
+ *    games validator, once dev and production reported it done.)
  *  - backfillReplays (games; read-architecture §4.4): an ended game without a stored replay gets its build scheduled
  *    (convex/replays.ts build, which endGame schedules for every game ending since). Its success means scheduled, not
  *    built: nothing to narrow in the schema, and the replay page's paging fallback goes only once no ended game on dev
@@ -106,7 +103,7 @@ import { aiSeatName, renameInRecord } from "./lib/aiNames";
 import { migrateSettings } from "./lib/migrateSetups";
 import { DEFAULT_AI_QUOTA, DEFAULT_ASSISTANT_QUOTA } from "./lib/aiModels";
 import { freeName, setupSummary } from "./setups";
-import { clockDoc, clockFrom, splitHotFields, withEngine } from "./game/state";
+import { clockDoc, clockOf, withEngine } from "./game/state";
 import { worldNow } from "./lib/world";
 import { hasStandings, publishStandings } from "./game/readModel";
 
@@ -135,11 +132,6 @@ export const dropHaskellCompiledPrograms = migrations.define({
   migrateOne: async (ctx, row) => { if (row.language === "haskell") await ctx.db.delete(row._id); },
 });
 
-export const splitGameHotFields = migrations.define({
-  table: "games",
-  migrateOne: async (ctx, game) => { await splitHotFields(ctx, game); },
-});
-
 export const backfillReplays = migrations.define({
   table: "games",
   // Only schedules: the build (an action) pages the log and stores the file; it leaves a game that has one alone. The
@@ -151,12 +143,13 @@ export const backfillReplays = migrations.define({
 
 export const backfillStandings = migrations.define({
   table: "games",
-  // A game stored before the standings read model gets its last published scoreboard (from its clock, or its legacy
-  // fields) as standings and one history row. A game that has standings (new, or published since) is left alone.
+  // A game stored before the standings read model gets its last published scoreboard (from its clock) as standings
+  // and one history row. A game that has standings (new, or published since) is left alone.
   migrateOne: async (ctx, game) => {
     if (await hasStandings(ctx, game._id)) return;
-    const clock = clockFrom(game, await clockDoc(ctx, game._id));
-    if (!clock.scoreboard) return;
+    const stored = await clockDoc(ctx, game._id);
+    const clock = stored && clockOf(stored);
+    if (!clock?.scoreboard) return;
     await publishStandings(ctx, game, clock.scoreboard, { agentCount: clock.agentCount, objectCount: clock.objectCount });
   },
 });
@@ -344,7 +337,7 @@ export const powerV1Setups = migrations.define({ table: "gameSetups", migrateOne
 // Annotated: this module's own `internal` references would otherwise make its exported types circular.
 const RUN_ALL: FunctionReference<"mutation", "internal">[] = [internal.migrations.dropHaskellFromSetups, internal.migrations.dropHaskellFromRooms,
   internal.migrations.dropHaskellFromGames, internal.migrations.dropHaskellBundle, internal.migrations.dropHaskellCompiledPrograms,
-  internal.migrations.splitGameHotFields, internal.migrations.backfillReplays, internal.migrations.backfillStandings, internal.migrations.aiQuotas,
+  internal.migrations.backfillReplays, internal.migrations.backfillStandings, internal.migrations.aiQuotas,
   internal.migrations.typedParamsDeities, internal.migrations.typedParamsPreparing,
   internal.migrations.backfillObjectTimes, internal.migrations.pictureFrameSymbolDeities, internal.migrations.pictureFrameSymbolPreparing,
   internal.migrations.typedParamsIntStringDeities, internal.migrations.typedParamsIntStringPreparing,

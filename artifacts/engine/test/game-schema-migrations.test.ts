@@ -38,61 +38,6 @@ test("Haskell retired: stored settings drop it (TypeScript when nothing is left)
   }
 });
 
-const HOT = ["worldSeconds", "lastTick", "objectCount", "agentCount", "scoreboard", "tick", "nextSpawn", "nextBatch", "stats"] as const;
-const docs = (gameId: string) => admin.query(internal.testing.rawGameDocs, { gameId });
-const strip = (d: any) => d && Object.fromEntries(Object.entries(d).filter(([k]) => !["_id", "_creationTime"].includes(k)));
-
-test("games split: a stored game's clock and engine state move to gameClocks/gameEngine; a second run changes nothing", { timeout: 240_000 }, async () => {
-  const [host, ada, bo] = await gods("Split Host", "Split Ada", "Split Bo");
-  await touch(host);
-  const { roomId } = await roomWith([host, ada, bo], INT_TS);
-  const ended = await startGame(host, roomId);
-  await host.c.mutation(api.rooms.endActiveGame, { roomId });
-  const before = await docs(ended.gameId);
-  assert.ok(before.clock && before.engine, "a new game is stored split");
-  assert.ok(HOT.every(k => before.game[k] === undefined), `a new game's header holds no hot field: ${HOT.filter(k => before.game[k] !== undefined)}`);
-
-  // Stored as before the split: the hot fields on the games doc, no clock or engine doc.
-  await admin.mutation(internal.testing.legacyGameHotFields, { gameId: ended.gameId });
-  const legacy = await docs(ended.gameId);
-  assert.equal(legacy.clock, null);
-  assert.equal(legacy.engine, null);
-  assert.deepEqual(legacy.game.stats, before.engine.stats, "the fixture is the legacy shape of the same game");
-
-  await runAll(true);
-  // Catches: a hot field left on the header (the narrowing would fail to deploy), a value lost or changed in the move.
-  const after = await docs(ended.gameId);
-  assert.deepEqual(HOT.filter(k => after.game[k] !== undefined), []);
-  assert.deepEqual(strip(after.clock), strip(before.clock));
-  assert.deepEqual(strip(after.engine), strip(before.engine));
-  // Readers see the same game: its final scoreboard and world time.
-  const standings = await host.c.query(api.games.standings, { gameId: ended.gameId });
-  assert.equal(standings.world, before.clock.scoreboard.world);
-
-  // Idempotent: a second run leaves every document as it is.
-  await runAll(true);
-  const again = await docs(ended.gameId);
-  assert.deepEqual([again.game, again.clock, again.engine], [after.game, after.clock, after.engine]);
-});
-
-test("games split: a legacy game still running keeps running, and its next tick commit moves its hot fields off the header", { timeout: 240_000 }, async () => {
-  const [host, ada, bo] = await gods("Split Live Host", "Split Live Ada", "Split Live Bo");
-  await touch(host);
-  const { roomId } = await roomWith([host, ada, bo], { ...INT_TS, planningSeconds: 0 });
-  const game = await startGame(host, roomId);
-  await waitFor(async () => (await raw(game.gameId)).game.phase === "running" || undefined, "the game runs");
-  await admin.mutation(internal.testing.legacyGameHotFields, { gameId: game.gameId });
-  const legacy = await docs(game.gameId);
-  assert.equal(legacy.clock, null);
-  // Catches: the loop failing on (or never splitting) a game stored before the split, as one running at the deploy is.
-  const split = await waitFor(async () => { const d = await docs(game.gameId); return d.clock && d.engine && d; }, "the next commit splits the game");
-  assert.deepEqual(HOT.filter(k => split.game[k] !== undefined), []);
-  assert.ok(split.engine.stats.commits >= legacy.game.stats.commits, "the commit counter carries on");
-  const world = split.clock.worldSeconds;
-  await waitFor(async () => ((await docs(game.gameId)).clock.worldSeconds > world) || undefined, "world time moves on");
-  await host.c.mutation(api.rooms.endActiveGame, { roomId });
-});
-
 test("backfillReplays: ended games stored before stored replays get one; a second run builds nothing again", { timeout: 360_000 }, async () => {
   const [host, ada, bo] = await gods("Replay Mig Host", "Replay Mig Ada", "Replay Mig Bo");
   await touch(host);

@@ -183,27 +183,11 @@ export const gameTables = {
     /** LEGACY (pre setups-v2; cleared by the migration). */
     settingsOrigin: v.optional(settingsOriginV),
     createdAt: v.number(), planningEndsAt: v.number(), pauseEndsAt: v.number(),
-    /**
-     * LEGACY hot fields (read-architecture R3): every tick commit wrote them here, so every query that read the game
-     * re-ran once a second. They live in gameClocks (worldSeconds, lastTick, objectCount, agentCount, scoreboard) and
-     * gameEngine (tick, nextSpawn, nextBatch, stats) now; migrations:splitGameHotFields moves a stored game's values
-     * there and clears them here (game/state.ts reads either shape). Removed from this validator once every deployment
-     * reports it done (CLAUDE.md "Schema migrations").
-     */
-    worldSeconds: v.optional(v.number()), lastTick: v.optional(v.number()), nextSpawn: v.optional(v.number()),
     /** PRIVATE: the sampled lifetime in world seconds. Never projected. */
     endAtWorld: v.number(),
     /** PRIVATE: the key of the live disclosure noise per object value (engine/node.ts disclosureNoise). Never projected. */
     noiseKey: v.optional(v.string()),
     executionEpoch: v.number(),
-    /** LEGACY (gameEngine.tick). */
-    tick: v.optional(leaseV),
-    /** LEGACY (gameEngine.nextBatch). */
-    nextBatch: v.optional(v.number()),
-    /** LEGACY (gameClocks.objectCount). */
-    objectCount: v.optional(v.number()),
-    /** LEGACY (gameClocks.agentCount). */
-    agentCount: v.optional(v.number()),
     autoResume: v.optional(v.boolean()), recoveryReason: v.optional(v.string()),
     /**
      * PRIVATE: the deal's calibration tables pinned by god in file storage (engine/pinned.ts), so a deploy that re-keys
@@ -228,8 +212,6 @@ export const gameTables = {
      */
     engineError: v.optional(v.object({ reason: v.string(), since: v.number() })),
     endedAt: v.optional(v.number()), endReason: v.optional(v.union(v.literal("lifetime"), v.literal("owner"))),
-    /** LEGACY (gameClocks.scoreboard: published every scoreIntervalSeconds, a hot field too). */
-    scoreboard: v.optional(scoreboardV),
     /** Public result, written in the commit that ends the game. */
     summary: v.optional(v.any()),
     /**
@@ -238,8 +220,6 @@ export const gameTables = {
      * and a game whose build failed keeps the paged replay (player.replay).
      */
     replayStorageId: v.optional(v.id("_storage")),
-    /** LEGACY (gameEngine.stats). */
-    stats: v.optional(statsV),
   }).index("by_room", ["roomId"]).index("by_short_code", ["shortCode"]).index("by_encoded", ["encoded"])
     .index("by_guid", ["guid"]).index("by_phase", ["phase"]),
 

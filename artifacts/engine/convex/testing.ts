@@ -322,36 +322,6 @@ export const gameCounters = internalQuery({
   },
 });
 
-/** A game's three documents as stored (games, gameClocks, gameEngine): the split-migration test's view. */
-export const rawGameDocs = internalQuery({
-  args: { gameId: v.id("games") },
-  handler: async (ctx, { gameId }) => {
-    dev();
-    return { game: await ctx.db.get(gameId), clock: await clockDoc(ctx, gameId), engine: await engineDoc(ctx, gameId) };
-  },
-});
-
-/**
- * Store a game as it was before the split (migrations:splitGameHotFields): its clock and engine state back on the games
- * doc and no gameClocks/gameEngine docs.
- */
-export const legacyGameHotFields = internalMutation({
-  args: { gameId: v.id("games") },
-  handler: async (ctx, { gameId }) => {
-    dev();
-    const live = await liveGame(ctx, gameId);
-    if (!live) return fail("NOT_FOUND", "no game");
-    const [clock, engine] = [await clockDoc(ctx, gameId), await engineDoc(ctx, gameId)];
-    await ctx.db.patch(gameId, {
-      worldSeconds: live.worldSeconds, lastTick: live.lastTick, objectCount: live.objectCount, agentCount: live.agentCount,
-      ...(live.scoreboard ? { scoreboard: live.scoreboard } : {}),
-      tick: live.tick, nextSpawn: live.nextSpawn, nextBatch: live.nextBatch, stats: live.stats,
-    });
-    if (clock) await ctx.db.delete(clock._id);
-    if (engine) await ctx.db.delete(engine._id);
-  },
-});
-
 /**
  * Store a game as it was before the standings read model (migrations:backfillStandings): no standings or history rows.
  */

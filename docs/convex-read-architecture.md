@@ -624,7 +624,7 @@ Each step follows CLAUDE.md "Schema migrations" with `@convex-dev/migrations`.
 
 | Change | Widen (PR that introduces it) | Migrate | Narrow (a later PR, after dev and prod report `success`) |
 |---|---|---|---|
-| Hot fields out of `games` | Add `gameClocks` and `gameEngine`. Add `games.instance` as optional. The loop writes the new docs and **stops writing** the hot fields on `games`. Readers read the clock doc, falling back to `games.*`. | `splitGameHotFields`: for every game, create `gameClocks`/`gameEngine` from its fields if missing, store `instance`, and unset the hot fields (`undefined`). Idempotent. | Remove the hot fields from the `games` validator. Make `instance` required. Remove the fallbacks. |
+| Hot fields out of `games` | Add `gameClocks` and `gameEngine`. Add `games.instance` as optional. The loop writes the new docs and **stops writing** the hot fields on `games`. Readers read the clock doc, falling back to `games.*`. | `splitGameHotFields`: for every game, create `gameClocks`/`gameEngine` from its fields if missing, store `instance`, and unset the hot fields (`undefined`). Idempotent. | Remove the hot fields from the `games` validator. Make `instance` required. Remove the fallbacks. (Hot fields and fallbacks: done, the migration is removed.) |
 | `standings`, `standingsHistory` | New tables. The tick writes them when the scoreboard is due. Readers fall back to `games.scoreboard`. | `backfillStandings`: from `games.scoreboard` / `summary`, for every game | Drop `games.scoreboard` (widen it to optional first) |
 | `objectViews`, `godTotals`, `objectDigests` | New tables. The tick maintains them for changed objects. A game without rows (started before the deploy) is filled by the migration. | `backfillObjectViews`: per game (paged per object), write every god's row from `objects.scores` | None (read models; `objects.scores` stays as the engine's truth) |
 | `objects.publicSalience` + index | Optional field. The tick writes it. | `backfillPublicSalience` | Make required (done; the migration is removed) |
@@ -741,8 +741,8 @@ the cache across 5 tick commits.
 | Trajectory windows plus a live tail (PR 8's trajectories item) | Not started |
 | Per-god object read model (PR 4, branch `c2-object-views`) | Built, but the per-object row sync doubled tick commit time (298 → 667 ms at 1,000 objects, 100 Hz). Needs a cheaper write before it can merge. |
 | The dock off the observation (PR 5); the SDK and MCP (PR 6); `setups.list` paging | Not started |
-| Narrowing `games`' hot fields and their fallbacks | Waits for the migration to succeed on dev and production. |
-| Narrowing `objects.publicSalience` | Waits for the same. |
+| Narrowing `games`' hot fields and their fallbacks | Done (2026-11-05): the fields left the validator, `game/state.ts`'s fallbacks and `splitGameHotFields` are gone. |
+| Narrowing `objects.publicSalience` | Done (required, no fallbacks). |
 | Narrowing `objectEvents.index` and `cost`, and removing the old-scan fallback (#173) | Waits for the same. |
 
 **Process rule added on the way** (`.claude/skills/selective-testing`): each change runs its own selective set of
