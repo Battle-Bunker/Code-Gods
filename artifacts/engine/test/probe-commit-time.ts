@@ -75,7 +75,9 @@ console.log(JSON.stringify({
   syncs: syncs.length, syncMedianMs: syncs.length ? Math.round(median(syncs)) : null,
   // Everything the read model costs per commit: the syncs and the sweeps (fill pages), over the commits measured.
   readModelMsPerCommit: Math.round((syncs.reduce((s, t) => s + t, 0) + fills.reduce((s, t) => s + t, 0)) / Math.max(1, times.length)),
-  fills: fills.length, errors: Object.fromEntries(errors),
+  syncMsPerCommit: Math.round(syncs.reduce((s, t) => s + t, 0) / Math.max(1, times.length)),
+  sweepMsPerCommit: Math.round(fills.reduce((s, t) => s + t, 0) / Math.max(1, times.length)),
+  fills: fills.length, fillMedianMs: fills.length ? Math.round(median(fills)) : null, errors: Object.fromEntries(errors),
   roundTripMedianMs: trips.length ? Math.round(median(trips)) : null,
   actsPerCommit: Math.round(perf.reduce((s, p) => s + p.acts, 0) / Math.max(1, perf.length)), counters,
 }));

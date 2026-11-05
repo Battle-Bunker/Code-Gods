@@ -69,13 +69,17 @@ test("the tick keeps count, creation and last mutation time; the four sorts orde
   const keyOf: Record<string, (r: Row) => number> = {
     mutations: r => r.mutations, newest: r => r.createdAt, oldest: r => -r.createdAt, recentlyMutated: r => r.lastMutatedAt ?? -1,
   };
+  // The read model's rows (game/objectViews.ts) follow the end's fill.
+  await waitFor(async () => {
+    const w: { rows: Row[] } = await ann.c.query(api.player.objectsPage, { roomId, sort: "mutations", limit: 90 });
+    return w.rows.length === objects.length && w.rows.every(r => r.mutations === expected.get(r.id)!.mutations && r.lastMutatedAt === expected.get(r.id)!.lastMutatedAt) || null;
+  }, "the read model's rows", 30000, 200);
   for (const sort of ["mutations", "newest", "oldest", "recentlyMutated"] as const) {
     const big: { rows: Row[]; total: number } = await ann.c.query(api.player.objectsPage, { roomId, sort, limit: 2100 });
     assert.equal(big.rows.length, objects.length);
-    big.rows.slice(1).forEach((r, i) => {
-      const p = big.rows[i];
-      assert.ok(keyOf[sort](p) > keyOf[sort](r) || (keyOf[sort](p) === keyOf[sort](r) && p.id < r.id), `${sort}: ${p.id} then ${r.id}`);
-    });
+    // Key descending; ties in the index's own order.
+    big.rows.slice(1).forEach((r, i) => assert.ok(keyOf[sort](big.rows[i]) >= keyOf[sort](r), `${sort}: ${big.rows[i].id} then ${r.id}`));
+    assert.equal(new Set(big.rows.map(r => r.id)).size, big.rows.length, `${sort}: every object once`);
     for (const r of big.rows) assert.deepEqual({ m: r.mutations, c: r.createdAt, l: r.lastMutatedAt }, { m: expected.get(r.id)!.mutations, c: expected.get(r.id)!.createdAt, l: expected.get(r.id)!.lastMutatedAt });
     if (sort === "recentlyMutated") {
       const firstNever = big.rows.findIndex(r => r.lastMutatedAt === null);
@@ -94,7 +98,8 @@ test("the tick keeps count, creation and last mutation time; the four sorts orde
 
   // The same figures for a spectator-grade reader of another seat: public, equal for every god.
   const other: { rows: Row[] } = await bob.c.query(api.player.objectsPage, { roomId, sort: "mutations", limit: 2100 });
-  assert.deepEqual(other.rows.map(r => [r.id, r.mutations]), (await ann.c.query(api.player.objectsPage, { roomId, sort: "mutations", limit: 2100 })).rows.map((r: Row) => [r.id, r.mutations]));
+  const byId = (rows: Row[]) => rows.map(r => [r.id, r.mutations]).sort();
+  assert.deepEqual(byId(other.rows), byId((await ann.c.query(api.player.objectsPage, { roomId, sort: "mutations", limit: 2100 })).rows));
 
   // Objects stored without the times: the migration restores them, and a second run changes nothing.
   assert.equal(await admin.mutation(internal.testing.legacyObjectTimes, { gameId: game.gameId }), objects.length);

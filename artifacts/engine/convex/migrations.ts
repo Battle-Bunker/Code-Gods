@@ -64,9 +64,9 @@
  *    assistantNoApprovalsCalls denies a call left waiting on one and clears `approved` / `confirmDeadline`. Narrowed
  *    later: `mode` becomes required, the `awaiting_confirmation` statuses and the three retired fields leave the
  *    validators, and the `?? DEFAULT_MODE` fallbacks go.
- *  - objectEventPlaces (tickBatches; 2026-11-05, #173): an objectEvents row written before it carried `index` (its
- *    position in its tickBatches doc) and `cost` (a transform's charge) gets both from its batch, the data lib/load.ts's
- *    old scan reads (each batch read once, its rows found by by_game_object_version). Narrowed later, once dev and production report it done: `index` becomes required (`cost` stays optional:
+ *  - objectEventPlaces (objectEvents; 2026-11-05, #173): a row written before objectEvents carried `index` (its position
+ *    in its tickBatches doc) and `cost` (a transform's charge) gets both from its batch, the data lib/load.ts's old scan
+ *    reads (only such a row reads its batch: a placed one costs nothing). Narrowed later, once dev and production report it done: `index` becomes required (`cost` stays optional:
  *    spawns have none) and lib/load.ts's batch-scan fallback goes.
  *  - setupListing (gameSetups; 2026-11-05, read-architecture R1/R2): a setup gets its catalogue fields (setups.ts
  *    listingOf: `order` and `nameKey` for the by_order index the Setup list pages, `searchText` for its search index).
@@ -344,27 +344,22 @@ export const powerV1Rooms = migrations.define({ table: "rooms", migrateOne: (_ct
 export const powerV1Setups = migrations.define({ table: "gameSetups", migrateOne: (_ctx, row) => { const settings = powerSettingsV1(row.settings); return settings ? { settings } : undefined; } });
 
 export const objectEventPlaces = migrations.define({
-  table: "tickBatches",
-  // One batch holds up to EVENTS_PER_BATCH events, and a window split over several batches has all their rows in its
-  // range: two batches per transaction keep the reads well under the limits.
-  batchSize: 2,
-  // Each batch is read once, with its rows (one range of by_game_world over the batch's window, kept to this batch's
-  // seq): every spawn and transform in it is its object's row at that version, whose place is the event's position here
-  // and whose charge (a transform's) is the event's cost.total, what lib/load.ts's old scan read. A row already placed
-  // is left alone; an event without a row (the clone fixture's copies name the source game's objects) changes nothing.
-  migrateOne: async (ctx, batch) => {
-    const rows = new Map((await ctx.db.query("objectEvents")
-      .withIndex("by_game_world", q => q.eq("gameId", batch.gameId).gte("world", batch.worldFrom).lte("world", batch.worldTo)).collect())
-      .filter(r => r.seq === batch.seq).map(r => [`${r.objectId}:${r.version}:${r.kind}`, r]));
-    for (const [index, e] of batch.events.entries()) {
-      if (e.t !== "spawn" && e.t !== "transform") continue;
-      const row = rows.get(`${e.objectId}:${e.version}:${e.t}`);
-      if (!row) continue;
-      const needsCost = e.t === "transform" && row.cost === undefined;
-      if (row.index === undefined || needsCost) {
-        await ctx.db.patch(row._id, { ...(row.index === undefined ? { index } : {}), ...(needsCost ? { cost: e.cost.total } : {}) });
-      }
-    }
+  table: "objectEvents",
+  // A placed row (every row written since #173) costs nothing beyond itself; an unplaced one reads its tick batch, which
+  // the rows next to it (written by the same commit) share, so a transaction reads few batches.
+  // A row's place is its event's position in the tickBatches doc of its `seq` (the same spawn or transform: the same
+  // object at the same version), and a transform's charge is that event's cost.total: what lib/load.ts's old scan read.
+  // A row already placed is left alone; one whose batch does not hold its event (the clone fixture's copies name the
+  // source game's objects) is left as it is.
+  migrateOne: async (ctx, row) => {
+    const needsCost = row.kind === "transform" && row.cost === undefined;
+    if (row.index !== undefined && !needsCost) return;
+    const batch = await ctx.db.query("tickBatches").withIndex("by_game_seq", q => q.eq("gameId", row.gameId).eq("seq", row.seq)).first();
+    if (!batch) return;
+    const index = batch.events.findIndex(e => e.t === row.kind && e.objectId === row.objectId && e.version === row.version);
+    const event = batch.events[index];
+    if (!event) return;
+    return { ...(row.index === undefined ? { index } : {}), ...(needsCost && event.t === "transform" ? { cost: event.cost.total } : {}) };
   },
 });
 
