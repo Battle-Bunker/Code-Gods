@@ -64,6 +64,10 @@
  *    assistantNoApprovalsCalls denies a call left waiting on one and clears `approved` / `confirmDeadline`. Narrowed
  *    later: `mode` becomes required, the `awaiting_confirmation` statuses and the three retired fields leave the
  *    validators, and the `?? DEFAULT_MODE` fallbacks go.
+ *  - objectEventPlaces (objectEvents; 2026-11-05, #173): a row written before objectEvents carried `index` (its position
+ *    in its tickBatches doc) and `cost` (a transform's charge) gets both from its batch, the data lib/load.ts's old scan
+ *    reads. Narrowed later, once dev and production report it done: `index` becomes required (`cost` stays optional:
+ *    spawns have none) and lib/load.ts's batch-scan fallback goes.
  *
  * Older hand-rolled steps, idempotent and run by their own deploy-workflow steps (kept as they are: they predate the
  * component, and porting the Node action setupsV2 buys nothing):
@@ -333,6 +337,27 @@ export const powerV1Games = migrations.define({ table: "games", migrateOne: (_ct
 export const powerV1Rooms = migrations.define({ table: "rooms", migrateOne: (_ctx, row) => { const settings = powerSettingsV1(row.settings); return settings ? { settings } : undefined; } });
 export const powerV1Setups = migrations.define({ table: "gameSetups", migrateOne: (_ctx, row) => { const settings = powerSettingsV1(row.settings); return settings ? { settings } : undefined; } });
 
+export const objectEventPlaces = migrations.define({
+  table: "objectEvents",
+  // Each row reads its tick batch (up to EVENTS_PER_BATCH events): smaller batches keep one transaction's reads small.
+  batchSize: 25,
+  // A row's place is its event's position in the tickBatches doc of its `seq` (the same spawn or transform: the same
+  // object at the same version), and a transform's charge is that event's cost.total: what lib/load.ts's old scan read.
+  // A row already placed is left alone; one whose batch no longer holds the event is left as it is.
+  migrateOne: async (ctx, row) => {
+    const needsCost = row.kind === "transform" && row.cost === undefined;
+    if (row.index !== undefined && !needsCost) return;
+    const batch = await ctx.db.query("tickBatches").withIndex("by_game_seq", q => q.eq("gameId", row.gameId).eq("seq", row.seq)).first();
+    const index = batch ? batch.events.findIndex(e => e.t === row.kind && e.objectId === row.objectId && e.version === row.version) : -1;
+    if (index < 0) return;
+    const event = batch!.events[index];
+    return {
+      ...(row.index === undefined ? { index } : {}),
+      ...(needsCost && event.t === "transform" ? { cost: event.cost.total } : {}),
+    };
+  },
+});
+
 /** Every component migration, in order: run by the deploy workflow (`npx convex run migrations:runAll`). Append only. */
 // Annotated: this module's own `internal` references would otherwise make its exported types circular.
 const RUN_ALL: FunctionReference<"mutation", "internal">[] = [internal.migrations.dropHaskellFromSetups, internal.migrations.dropHaskellFromRooms,
@@ -351,7 +376,8 @@ const RUN_ALL: FunctionReference<"mutation", "internal">[] = [internal.migration
   internal.migrations.assistantModeFromCredentials, internal.migrations.assistantPrefsMode, internal.migrations.assistantNoApprovalsTurns,
   internal.migrations.assistantNoApprovalsCalls, internal.migrations.agentPricesV2,
   internal.migrations.equalOpportunityIntStringDeities, internal.migrations.equalOpportunityIntStringPreparing,
-  internal.migrations.powerV1Agents, internal.migrations.powerV1Deities, internal.migrations.powerV1Games, internal.migrations.powerV1Rooms, internal.migrations.powerV1Setups];
+  internal.migrations.powerV1Agents, internal.migrations.powerV1Deities, internal.migrations.powerV1Games, internal.migrations.powerV1Rooms, internal.migrations.powerV1Setups,
+  internal.migrations.objectEventPlaces];
 export const runAll = migrations.runner(RUN_ALL);
 /** The state of each of runAll's migrations (scripts/run-migrations.mjs waits for all of them to succeed). */
 export const status = internalQuery({
