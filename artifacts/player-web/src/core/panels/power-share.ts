@@ -1,6 +1,6 @@
 /**
  * The agents panel's power controls (docs/energy-model.md §6), kept pure so they can be tested: reading the percentage a
- * player types, the most one agent can be given, and the plain-words line for what is left over.
+ * player types, and the most one agent can be given.
  */
 import { roundShare } from "@workspace/game-core";
 
@@ -18,10 +18,6 @@ export function maxShareFor(agentShare: number, allocated: number): number {
 }
 
 const pct = (share: number) => `${Math.round(share * 1000) / 10}%`;
-/** "your unallocated power: 40% (3.2 bits/s to you)". */
-export function unallocatedLine(allocated: number, income: number): string {
-  return `your unallocated power: ${pct(Math.max(0, 1 - allocated))} (${Math.round(income * 10) / 10} bits/s to you)`;
-}
 /** Why a typed share was not sent, or null when it can be. */
 export function shareProblem(text: string, agentShare: number, allocated: number): string | null {
   const share = parseSharePercent(text);
