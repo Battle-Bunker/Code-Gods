@@ -123,46 +123,6 @@ test("AI quotas: a room stored with an approved budget (or none) gets the 300k q
   }
 });
 
-const GRID_4 = { language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Grid",
-  typeArgs: { size: 4, symbols: "base10", colours: "rgb" }, spawnRateHz: 0, startingObjectCount: 3, halfLifeSeconds: 100000 };
-
-test("typedParams: gods dealt before their family was typed get named, typed params, and their game's replay file is rebuilt; a second run changes nothing", { timeout: 300_000 }, async () => {
-  const [host, ada, bo, cy] = await gods("Typed Mig Host", "Typed Mig Ada", "Typed Mig Bo", "Typed Mig Cy");
-  await touch(host);
-  const { roomId } = await roomWith([host, ada, bo, cy], GRID_4);
-  const { gameId } = await startGame(host, roomId);
-  await host.c.mutation(api.rooms.endActiveGame, { roomId });
-  const storageOf = async () => (await admin.query(internal.testing.rawGameDoc, { gameId }))?.replayStorageId as string | undefined;
-  const built = await waitFor(storageOf, "endGame's build", 60_000, 250);
-  // Dealt as stored before typing: colours as indices under one-letter names, Magic Accountant's T, a typed defence goal.
-  const legacy = [
-    { familyId: "kingdom", params: { C: 2 } },
-    { familyId: "picture_frame", params: { X: 1 }, penalty: { familyId: "hate_colour", params: { colour: 0 } } },
-    { familyId: "magic_accountant", params: { axis: "rows", T: 18 } },
-    { familyId: "set_spotter", params: { diag: false } },
-  ];
-  await admin.mutation(internal.testing.legacyUtilities, { gameId, utilities: legacy });
-
-  await runAll(true);
-  const deities = await admin.query(internal.testing.rawDeities, { gameId });
-  // Catches: a legacy descriptor left (the readers' fallbacks could then never be removed), or a value changed in the move.
-  assert.deepEqual(deities.map((d: any) => d.utility), [
-    { familyId: "kingdom", params: { colour: "blue" } },
-    { familyId: "picture_frame", params: { colour: "green", symbol: "0" }, penalty: { familyId: "hate_colour", params: { colour: "red" } } },
-    { familyId: "magic_accountant", params: { axis: "rows", target: 18 } },
-    { familyId: "set_spotter", params: {} },
-  ]);
-  assert.deepEqual(deities[0].card.params, [{ key: "colour", label: "Your colour", kind: "colour", value: "blue", text: "blue" }]);
-  assert.deepEqual(deities[2].card.params.map((p: any) => [p.key, p.value]), [["axis", "rows"], ["target", 18]]);
-  // The stored replay embedded the old descriptors: it is rebuilt from the migrated gods.
-  const rebuilt = await waitFor(async () => { const s = await storageOf(); return s && s !== built && s; }, "the rebuilt replay", 150_000, 500);
-  const file = await admin.action(internal.testing.replayFile, { storageId: rebuilt });
-  assert.deepEqual(file.pages[0].gods.map((g: any) => g.utility), deities.map((d: any) => d.utility));
-
-  await runAll(true);
-  assert.deepEqual(await admin.query(internal.testing.rawDeities, { gameId }), deities, "a second run changes nothing");
-  assert.equal(await storageOf(), rebuilt, "and keeps the rebuilt file");
-});
 
 test("backfillObjectViews: a game stored before the per-god read model gets every god's rows and totals; a second run changes nothing", { timeout: 300_000 }, async () => {
   const [host, ada, bo] = await gods("Views Mig Host", "Views Mig Ada", "Views Mig Bo");

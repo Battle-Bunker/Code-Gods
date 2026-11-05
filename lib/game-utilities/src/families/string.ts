@@ -31,7 +31,6 @@ const glyphText = (p: CharP) => card("🍬", "Glyph Glutton", `You hoard the cha
 const glyphGlutton = stringFamily<CharP>({
   id: "glyph-glutton", name: "Glyph Glutton", emoji: "🍬", theme: "Hoards copies of one character.", shape: SCALAR,
   params: () => ({ char: valuesParam("Favourite character", [...ALNUM]) }),
-  legacy: p => (typeof p.c === "string" ? { char: p.c } : null),
   support: () => [...ALNUM].map(char => ({ char })),
   canonical: () => ({ char: "a" }),
   summary: p => `Try to hoard the character "${p.char}". Each copy of it in x scores 1 point. Only the count matters, so the `
@@ -68,7 +67,6 @@ const purist = stringFamily<Record<string, never>>({
   id: "purist", name: "Purist", emoji: "🧼", theme: "Wants x made purely of one class of characters.", shape: SCALAR,
   analytic: solvedAnalytic("purist"),
   params: () => ({}),
-  legacy: p => ("kind" in p ? {} : null),
   support: () => [{}],
   summary: () => `Try to make x pure ${KIND} (${CLASSES[KIND]}). Each of them scores 1 point; any other character deducts 1 point.`,
   python: () => pyCard(puristText, `
@@ -100,7 +98,6 @@ const streaker = stringFamily<Record<string, never>>({
   analytic: solvedAnalytic("streaker"),
   shape: SCALAR,
   params: () => ({}),
-  legacy: p => ("kind" in p ? {} : null),
   support: () => [{}],
   summary: () => `Try to make one long unbroken streak of ${KIND} (${CLASSES[KIND]}) somewhere in x. Each character of your `
     + "longest streak scores 1 point. The rest of the string is irrelevant to you.",
@@ -321,14 +318,6 @@ const nestBuilder = stringFamily<Record<string, never>>({
 
 // --- Haiku Master ------------------------------------------------------------------------------------------
 const HAIKU_LENGTHS = [5, 7, 10, 12, 17, 20, 24, 32, 40, 48, 64, 100];
-/**
- * One length per shape: the largest listed one up to 0.6 of the cap. Hitting length n exactly costs about 7 bits per
- * character the cap lies above it (string(16): n = 5, 7, 10, 12 take 75, 66, 43 and 27 bits), so no band of three
- * lengths is equal (P10); the same share of the cap gives every shape a comparable chance.
- */
-/** The legacy reader of a param fixed to one value per shape: a stored other value reads as it (none when the shape has none). */
-const fixedTo = <K extends string>(p: Record<string, unknown>, key: K, only: readonly number[]) =>
-  (typeof p[key] === "number" && only.length === 1 && p[key] !== only[0] ? ({ [key]: only[0] } as Record<K, number>) : null);
 const haikuLengths = (s: StringSpec): number[] => {
   const fit = HAIKU_LENGTHS.filter(n => n <= s.L);
   const one = fit.filter(n => n <= 0.6 * s.L).pop() ?? fit[0];
@@ -342,7 +331,6 @@ const haikuMaster = stringFamily<LengthP>({
   id: "haiku-master", name: "Haiku Master", emoji: "🌸", theme: "Wants x to have one exact length.", shape: SCALAR,
   requires: minLength(5),
   params: s => ({ length: valuesParam("Length", haikuLengths(s)) }),
-  legacy: (p, s) => fixedTo(p, "length", haikuLengths(s)),
   support: s => haikuLengths(s).map(length => ({ length })),
   summary: p => `Try to make x exactly ${p.length} characters long; content doesn't matter. You lose 1 point for each character it is away from that.`,
   python: p => pyCard(haikuText(p), `
@@ -418,7 +406,6 @@ const tallykeeper = stringFamily<TallyP>({
   requires: minLength(1),
   shape: SCALAR,
   params: s => ({ total: valuesParam("Digit total", tallyTotal(s)) }),
-  legacy: (p, s) => fixedTo(p, "total", tallyTotal(s)),
   support: s => tallyTotal(s).map(total => ({ total })),
   summary: p => `Try to make every digit character 0–9 in x add up to your sacred number, ${p.total}. You lose 1 point for each unit the `
     + "total is away from it. Every digit anyone else adds or removes moves your tally.",
@@ -454,7 +441,6 @@ const paletteKeeper = stringFamily<Record<string, never>>({
   requires: minLength(3),
   shape: tuple(2),
   params: () => ({}),
-  legacy: p => ("colours" in p || "distinct_chars" in p ? {} : null),
   support: () => [{}],
   summary: () => `Try to make x use exactly ${PALETTE} distinct characters, any ${PALETTE}. Each distinct character more or fewer `
     + `than ${PALETTE} deducts 1 primary point. Each character of x, up to 32, scores 1 secondary point. `
@@ -498,7 +484,6 @@ const scaleKeeper = stringFamily<WeightP>({
   requires: minLength(1),
   shape: SCALAR,
   params: s => ({ weight: valuesParam("Weight", scaleWeight(s)) }),
-  legacy: (p, s) => fixedTo(p, "weight", scaleWeight(s)),
   support: s => scaleWeight(s).map(weight => ({ weight })),
   summary: p => `Try to make x weigh exactly ${p.weight}, adding up the ASCII codes of its characters. You lose 1 point for each unit `
     + "it is away from that. Every edit anyone makes shifts the scale.",

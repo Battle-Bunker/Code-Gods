@@ -273,9 +273,10 @@ letters (`X`, `T`).
 **Why:** the owner (2026-11-03): "Make sure that all rules have appropriately named and typed parameters instead of
 abstruse parameters like x: int that get converted into a colour. That's terrible architecture."
 **How to apply:** every consumer reads `UtilityFamily.params` (gallery pickers, goal card `params`, `myUtility.typedParams`,
-lenses, the Python reference rules). A new family declares `params`; `UNTYPED_FAMILIES` only shrinks (test/params.test.ts).
-Typing an existing family renames stored params: give it a `legacy` reader, migrate the stored rows (typedParams*) and
-re-key its tables (scripts/rekey-typed-params.ts). docs/rules-design.md §9.
+lenses, the Python reference rules). Every family declares `params` (required by the type). Changing a family's stored
+params later is a schema migration (CLAUDE.md): widen with a reader for the old shape, migrate the stored deities and
+preparing deals, re-key its calibration tables, then narrow. The typed-params round did exactly that and was narrowed on
+2026-11-05. docs/rules-design.md §9.
 
 ## Params make peer rules of equal opportunity (2026-11-04)
 

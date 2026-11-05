@@ -171,7 +171,7 @@ test("availability and the public catalog follow the constraints", () => {
 
 test("cards: summary, both sources, shape, and the defence goal", () => {
   const inst = instantiate("Grid", { size: 5, symbols: "base10", colours: "rainbow6" }), ctx = context(inst);
-  const d = readDescriptor({ familyId: "seed3_green_ones", params: { colour: 3, value: 1 }, penalty: { familyId: "hate_colour", params: { colour: "red" } } });
+  const d = readDescriptor({ familyId: "seed3_green_ones", params: { colour: "green", value: 1 }, penalty: { familyId: "hate_colour", params: { colour: "red" } } });
   const c = card(d, ctx);
   assert.equal(c.name, "Green Ones");
   assert.deepEqual(c.shape, { kind: "tuple", arity: 2 });
@@ -181,7 +181,7 @@ test("cards: summary, both sources, shape, and the defence goal", () => {
   assert.match(c.penalty!.source.python, /def penalty\(grid\):/);
   assert.throws(() => readDescriptor({ familyId: "hate_colour", params: {} }));
   assert.throws(() => readDescriptor({ familyId: "nope", params: {} }));
-  assert.equal(evaluator(d, inst), evaluator({ familyId: d.familyId, params: { value: 1, colour: 3 } }, inst), "cached by params");
+  assert.equal(evaluator(d, inst), evaluator({ familyId: d.familyId, params: { value: 1, colour: "green" } }, inst), "cached by params");
   assert.deepEqual(evaluator(d, inst)("1G,1G,1G,1G,1G/1G,1G,1G,1G,1G/1G,1G,1G,1G,1G/1G,1G,1G,1G,1G/1G,1G,1G,1G,1R"), [24, 1]);
 });
 

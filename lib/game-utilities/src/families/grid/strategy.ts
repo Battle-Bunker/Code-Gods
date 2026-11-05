@@ -14,7 +14,6 @@ import { tierPoints } from "../../tuples.ts";
 const DIRS4 = ["→", "←", "↓", "↑"] as const;
 type Dir4 = (typeof DIRS4)[number];
 const DIR_CHOICES = [["→", "rows, left to right"], ["←", "rows, right to left"], ["↓", "columns, top to bottom"], ["↑", "columns, bottom to top"]] as const;
-const dirLegacy = (p: Params): { direction: Dir4 } | null => (typeof p.dir === "string" ? { direction: p.dir as Dir4 } : null);
 /** "every row, left to right": the lines a direction reads, in plain words. */
 const READ_LINES: Record<Dir4, string> = {
   "→": "every row, left to right", "←": "every row, right to left",
@@ -45,8 +44,7 @@ const roadText = (p: RoadP, g: GridSpec): CardText => {
 const rainbowRoad = gridFamily<RoadP>({
   id: "rainbow_road", name: "Rainbow Road", emoji: "🌈", theme: "Rows that march round the rainbow",
   requires: { classes: ["Spectral"] }, shape: tuple(2), tags: ["shortlist"],
-  params: () => ({ direction: choiceParam("Read the lines", DIR_CHOICES) }), legacy: dirLegacy,
-  support: () => DIRS4.map(direction => ({ direction })),
+  params: () => ({ direction: choiceParam("Read the lines", DIR_CHOICES) }), support: () => DIRS4.map(direction => ({ direction })),
   canonical: () => ({ direction: "→" }),
   summary: (p, g) => roadText(p, g).about,
   python: (p, g) => pyCard(roadText(p, g), `
@@ -108,7 +106,6 @@ const borderBaron = gridFamily<BaronP>({
   id: "border_baron", name: "Border Baron", emoji: "🏰", theme: "Long borders between big countries",
   shape: tuple(2), tags: ["shortlist"],
   params: () => ({}),
-  legacy: p => (Object.keys(p).length ? {} : null),
   support: () => [{}],
   summary: (_, g) => baronText(g).about,
   python: (_, g) => pyCard(baronText(g), `
@@ -176,8 +173,6 @@ const conqueror = gridFamily<ConqP>({
   requires: { classes: ["Valued"] }, shape: SCALAR, tags: ["shortlist"],
   params: () => ({ colour: colourParam("Your colour"), enemy_colour: colourParam("Your enemy's colour") }),
   // Counting every cell as 1 point left far fewer scores to chase than counting its value (25 vs 79 top bits on 4×4): values it is (P10).
-  legacy: (p, g) => (typeof p.A === "number"
-    ? { colour: g.colourNames[p.A], enemy_colour: g.colourNames[p.B as number] } : "weight" in p ? { colour: p.colour as string, enemy_colour: p.enemy_colour as string } : null),
   support: g => colourPairs(g).map(([A, B]) => ({ colour: g.colourNames[A], enemy_colour: g.colourNames[B] })),
   canonical: (p, g) => recolourNames(g, p, ["colour", "enemy_colour"]),
   summary: (p, g) => conqText(p, g).about,
@@ -227,8 +222,6 @@ const parityPainter = gridFamily<ParityP>({
     odd_or_black: colourParam(g.cards ? "Colour for odd values (or black suits)" : "Colour for odd numbers"),
     split: choiceParam("Sort cells by", g.cards ? [["parity", "even or odd"], ["suit", "red or black suit"]] : [["parity", "even or odd"]]),
   }),
-  legacy: (p, g) => (typeof p.P === "number" && typeof p.Q === "number"
-    ? { even_or_red: g.colourNames[p.P], odd_or_black: g.colourNames[p.Q], split: p.key as ParityP["split"] } : null),
   support: g => colourPairs(g).flatMap(([P, Q]) =>
     (g.cards ? ["parity", "suit"] as const : ["parity"] as const).map(split => ({ even_or_red: g.colourNames[P], odd_or_black: g.colourNames[Q], split }))),
   sample: (rng, g) => {
@@ -311,7 +304,6 @@ const mirrormancer = gridFamily<MirrorP>({
   shape: tuple(2), tags: ["shortlist"],
   params: () => ({ axis: choiceParam("Mirror lines", [["LR", "rows (left to right)"], ["TB", "columns (top to bottom)"]]) }),
   // Colours mirrored or numbers mirrored are two different ideas with top bits 2x apart (P10): numbers are left (colours: a split proposal).
-  legacy: p => ("layer" in p ? { axis: p.axis as MirrorP["axis"] } : null),
   support: () => [{ axis: "LR" }, { axis: "TB" }],
   canonical: () => ({ axis: "LR" }),
   summary: (p, g) => mirrorText(p, g).about,
@@ -360,7 +352,6 @@ const homebody = gridFamily<HomeP>({
   shape: SCALAR, tags: ["shortlist"],
   params: () => ({ colour: colourParam("Your colour") }),
   // The middle holds fewer cells than the edge (4 vs 12 on 4×4), so "where it belongs" scored differently (13 vs 21 top bits): the edge it is (P10).
-  legacy: (p, g) => (typeof p.X === "number" ? { colour: g.colourNames[p.X] } : "zone" in p ? { colour: p.colour as string } : null),
   support: g => g.colourNames.map(colour => ({ colour })),
   canonical: (p, g) => recolourNames(g, p, ["colour"]),
   summary: p => homeText(p).about,
@@ -404,7 +395,6 @@ const lonePeak = gridFamily<PeakP>({
   id: "lone_peak", name: "Lone Peak", emoji: "🏔️", theme: "One mountain towering over everything",
   requires: { classes: ["Valued"] }, shape: tuple(2), tags: ["shortlist"],
   params: () => ({ colour: colourParam("Your colour") }),
-  legacy: (p, g) => (typeof p.X === "number" ? { colour: g.colourNames[p.X] } : null),
   support: g => g.colourNames.map(colour => ({ colour })),
   canonical: (p, g) => recolourNames(g, p, ["colour"]),
   summary: (p, g) => peakText(p, g).about,
@@ -469,7 +459,6 @@ const lonePeak = gridFamily<PeakP>({
 // --- Islander ------------------------------------------------------------------------------------
 type ColourP = { colour: string };
 const colourOnly = () => ({ colour: colourParam("Your colour") });
-const colourOnlyLegacy = (p: Params, g: GridSpec): ColourP | null => (typeof p.X === "number" ? { colour: g.colourNames[p.X] } : null);
 const islanderText = (p: ColourP, g: GridSpec): CardText => ({
   emoji: "🏝️", name: "Islander", consts: [["MY_COLOUR", p.colour]],
   about: `Try to make ${p.colour} islands. ${cap(article(p.colour))} cell is an island if every cell touching it is the same other colour. `
@@ -478,8 +467,7 @@ const islanderText = (p: ColourP, g: GridSpec): CardText => ({
 });
 const islander = gridFamily<ColourP>({
   id: "islander", name: "Islander", emoji: "🏝️", theme: "Polka dots in a one-colour sea", shape: tuple(2),
-  params: colourOnly, legacy: colourOnlyLegacy,
-  support: g => g.colourNames.map(colour => ({ colour })),
+  params: colourOnly, support: g => g.colourNames.map(colour => ({ colour })),
   canonical: (p, g) => recolourNames(g, p, ["colour"]),
   summary: (p, g) => islanderText(p, g).about,
   python: (p, g) => pyCard(islanderText(p, g), `
@@ -518,8 +506,6 @@ const islander = gridFamily<ColourP>({
 // --- Rook's Watch --------------------------------------------------------------------------------
 type TokenP = { symbol: string; colour: string };
 const tokenParams = (g: GridSpec) => ({ symbol: symbolParam(g.cards ? "Your card" : "Your number"), colour: colourParam("Your colour") });
-const tokenLegacy = (p: Params, g: GridSpec): TokenP | null =>
-  (typeof p.S === "number" ? { symbol: glyph(g, p.S), colour: g.colourNames[p.X as number] } : null);
 const tokenSupport = (g: GridSpec) => product<TokenP>({ symbol: range(g.S).map(s => glyph(g, s)), colour: g.colourNames });
 const rookText = (p: TokenP, g: GridSpec): CardText => ({
   emoji: "🏰", name: "Rook's Watch", consts: [["MY_SYMBOL", p.symbol], ["MY_COLOUR", p.colour]],
@@ -529,7 +515,7 @@ const rookText = (p: TokenP, g: GridSpec): CardText => ({
 });
 const rooksWatch = gridFamily<TokenP>({
   id: "rooks_watch", name: "Rook's Watch", emoji: "🏰", theme: "One token watching every row and column", shape: tuple(2),
-  params: tokenParams, legacy: tokenLegacy, support: tokenSupport,
+  params: tokenParams, support: tokenSupport,
   canonical: (_p, g) => ({ symbol: glyph(g, 0), colour: g.colourNames[0] }),
   summary: (p, g) => rookText(p, g).about,
   python: (p, g) => pyCard(rookText(p, g), `
@@ -611,12 +597,6 @@ function frameCellLaw(g: GridSpec, pts: { none: number; one: number; both: numbe
 const pictureFrame = gridFamily<FrameP>({
   id: "picture_frame", name: "Picture Frame", emoji: "🖼️", theme: "Your colour and your symbol around a clear middle", shape: SCALAR,
   params: g => ({ colour: colourParam("Your colour"), symbol: symbolParam(g.cards ? "Your card" : "Your number") }),
-  // LEGACY (typed-params widen step): `{ X }` (an index) and `{ colour }` (before the symbol was dealt) read with the first symbol.
-  legacy: (p, g) => {
-    if (typeof p.X === "number") return { colour: g.colourNames[p.X], symbol: glyph(g, 0) };
-    if (typeof p.colour === "string" && typeof p.symbol !== "string") return { colour: p.colour, symbol: glyph(g, 0) };
-    return null;
-  },
   support: g => g.colourNames.flatMap(colour => range(g.S).map(s => ({ colour, symbol: glyph(g, s) }))),
   // Colours and symbols are each exchangeable under the uniform prior and the rule only tests equality with them.
   canonical: (_p, g) => ({ colour: g.colourNames[0], symbol: glyph(g, 0) }),
@@ -668,7 +648,6 @@ const staircase = gridFamily<StairP>({
   id: "staircase_climber", name: "Staircase Climber", emoji: "🪜", theme: "Numbers that go up one step at a time",
   requires: { classes: ["Valued", "Ranked"] }, shape: SCALAR,
   params: () => ({ direction: choiceParam("Look for a step up", [["→", "from left to right"], ["↓", "from top to bottom"]]) }),
-  legacy: dirLegacy as (p: Params) => StairP | null,
   support: () => [{ direction: "→" }, { direction: "↓" }],
   canonical: () => ({ direction: "→" }),
   summary: (p, g) => stairText(p, g).about,
@@ -710,7 +689,7 @@ const luckyToken = gridFamily<TokenP>({
   id: "lucky_token", name: "Lucky Token", emoji: "🧿", theme: "Collect your lucky token", shape: tuple(2),
   analytic: solvedAnalytic("lucky_token"),
   tags: ["generalised-seed"],
-  params: tokenParams, legacy: tokenLegacy, support: tokenSupport,
+  params: tokenParams, support: tokenSupport,
   canonical: (_p, g) => ({ symbol: glyph(g, 0), colour: g.colourNames[0] }),
   summary: (p, g) => luckyText(p, g).about,
   python: (p, g) => pyCard(luckyText(p, g), `
@@ -749,8 +728,7 @@ const voteText = (p: ColourP, g: GridSpec): CardText => ({
 const neighbourhoodVote = gridFamily<ColourP>({
   id: "neighbourhood_vote", name: "Neighbourhood Vote", emoji: "🗳️", theme: "Every cell votes with its neighbours",
   shape: SCALAR,
-  params: colourOnly, legacy: colourOnlyLegacy,
-  support: g => g.colourNames.map(colour => ({ colour })),
+  params: colourOnly, support: g => g.colourNames.map(colour => ({ colour })),
   canonical: (p, g) => recolourNames(g, p, ["colour"]),
   summary: (p, g) => voteText(p, g).about,
   python: (p, g) => pyCard(voteText(p, g), `
@@ -801,7 +779,6 @@ const farText = (p: PairP, g: GridSpec): CardText => ({
 const farApart = gridFamily<PairP>({
   id: "far_apart", name: "Far Apart", emoji: "↔️", theme: "Keep two colours as far apart as possible", shape: SCALAR,
   params: () => ({ first_colour: colourParam("First colour"), second_colour: colourParam("Second colour") }),
-  legacy: (p, g) => (typeof p.A === "number" ? { first_colour: g.colourNames[p.A], second_colour: g.colourNames[p.B as number] } : null),
   support: g => colourPairs(g).map(([A, B]) => ({ first_colour: g.colourNames[A], second_colour: g.colourNames[B] })),
   canonical: (p, g) => recolourNames(g, p, ["first_colour", "second_colour"]),
   summary: (p, g) => farText(p, g).about,

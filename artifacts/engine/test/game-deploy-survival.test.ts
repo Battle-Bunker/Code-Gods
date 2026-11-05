@@ -15,16 +15,16 @@ import { admin, api, gods, internal, raw, roomWith, startGame, touch, waitFor } 
 const INSTANCE = "Grid(4,base10,rgb)";
 const GRID_4 = { language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Grid",
   typeArgs: { size: 4, symbols: "base10", colours: "rgb" }, spawnRateHz: 0.5, startingObjectCount: 3, halfLifeSeconds: 100000, defenceGoals: true };
-/** One god each: today's params, and the same utilities as stored before their families were typed (#184). */
-const TYPED = [
+/** One god each, then the same gods with other rules (so no table is found under the first deal's keys). */
+const DEALT = [
   { familyId: "kingdom", params: { colour: "blue" } },
-  { familyId: "picture_frame", params: { colour: "green" }, penalty: { familyId: "hate_colour", params: { colour: "red" } } },
+  { familyId: "picture_frame", params: { colour: "green", symbol: "0" }, penalty: { familyId: "hate_colour", params: { colour: "red" } } },
   { familyId: "magic_accountant", params: { axis: "rows", target: 18 } },
 ];
-const LEGACY = [
-  { familyId: "kingdom", params: { C: 2 } },
-  { familyId: "picture_frame", params: { X: 1 }, penalty: { familyId: "hate_colour", params: { colour: 0 } } },
-  { familyId: "magic_accountant", params: { axis: "rows", T: 18 } },
+const REKEYED = [
+  { familyId: "number_bonds", params: {} },
+  { familyId: "set_spotter", params: {}, penalty: { familyId: "hate_colour", params: { colour: "green" } } },
+  { familyId: "honest_minesweeper", params: { mine: "red" } },
 ];
 
 async function runningGame(prefix: string) {
@@ -47,16 +47,16 @@ test("a game in progress keeps scoring with its pinned tables when a deploy re-k
     const atStart = (await gameDoc(gameId))?.tablesStorageId;
     assert.ok(atStart, "the start pins the deal's tables");
     // Deal known utilities and let the next tick pin them (as a game started before pinning does).
-    await admin.mutation(internal.testing.legacyUtilities, { gameId, utilities: TYPED });
+    await admin.mutation(internal.testing.dealUtilities, { gameId, utilities: DEALT });
     assert.equal(await admin.mutation(internal.testing.setGameTables, { gameId }), atStart);
     const repinned = await waitFor(async () => (await gameDoc(gameId))?.tablesStorageId, "an unpinned game pins itself on its next tick", 30_000, 250);
     const scored = (await raw(gameId)).objects.map((o: any) => o.scores);
 
     // The deploy: the shipped file goes (every engine process sees it within the index TTL), then the gods' stored params
-    // change shape (a re-key: no table is found under today's key for them, and no per-process memo has them).
+    // change (a re-key: no table is found under today's key for them, and no per-process memo has them).
     assert.equal(await admin.mutation(internal.testing.hideCalibration, { instance: INSTANCE, hidden: true }), true);
     await new Promise(r => setTimeout(r, 62_000));
-    await admin.mutation(internal.testing.legacyUtilities, { gameId, utilities: LEGACY });
+    await admin.mutation(internal.testing.dealUtilities, { gameId, utilities: REKEYED });
     const before = await commits(gameId);
     await touch(host);
     // Catches: a tick that resolves tables by key (it throws "No calibration table" and the game stops).

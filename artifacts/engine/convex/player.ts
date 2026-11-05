@@ -500,8 +500,8 @@ export async function myUtilityFor(ctx: QueryCtx, viewer: Viewer, { roomId }: { 
     const deity = game ? await deityOf(ctx, game._id, viewer.subject) : null;
     if (!game || !deity) return null;
     const settings = game.settings as GameSettings;
-    // The typed params come from the dealt card (catalog.ts deals them; migrations.ts typedParamsDeities fills older
-    // gods), so this hot query never loads the families library (test/unit/hot-query-bundles.test.ts).
+    // The typed params come from the dealt card (catalog.ts deals them), so this hot query never loads the families
+    // library (test/unit/hot-query-bundles.test.ts).
     type Descriptor = { familyId: string; params: unknown; penalty?: { familyId: string; params: unknown } };
     const utility = deity.utility as Descriptor;
     const card = deity.card as { params?: unknown; penalty?: { params?: unknown } } | null;
