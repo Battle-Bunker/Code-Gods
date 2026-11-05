@@ -4,8 +4,7 @@
  * from objectEvents (index by_game_owner_seq), not by scanning every god's batches; the output must not change.
  *
  * What would break: another god's transform in the feed, a transform missing or out of order, an id that no longer
- * names the event's place in the log, a lost cost or calls field, a window that is not the latest 16 batches, or rows
- * stored before objectEvents carried `index` and `cost` (a running game at deploy) reading differently.
+ * names the event's place in the log, a lost cost or calls field, or a window that is not the latest 16 batches.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -47,7 +46,7 @@ test("the observation's transformations are each god's own, from the latest 16 b
   // Frozen at the end, so the observation and the raw log are the same world.
   await host.c.mutation(api.rooms.endActiveGame, { roomId });
 
-  const { batches, objectEvents } = await raw(game.gameId);
+  const { batches } = await raw(game.gameId);
   const transforms = batches.flatMap((b: any) => b.events.filter((e: any) => e.t === "transform"));
   assert.ok(new Set(transforms.map((e: any) => e.ownerId)).size === 3, "three gods' agents transform");
   assert.ok(fromBatches(batches, ann.subject).length < transforms.filter((e: any) => e.ownerId === ann.subject).length,
@@ -57,9 +56,4 @@ test("the observation's transformations are each god's own, from the latest 16 b
     [g.name, (await g.c.query(api.player.observation, { roomId })).transformations] as const)));
   const expected = Object.fromEntries(players.map(g => [g.name, fromBatches(batches, g.subject)]));
   assert.deepEqual(await observed(), expected);
-
-  // Rows stored before objectEvents carried `index` and `cost` (a game running at the deploy): read the same.
-  const stripped = await admin.mutation(internal.testing.stripObjectEventPlaces, { gameId: game.gameId });
-  assert.equal(stripped, objectEvents.length);
-  assert.deepEqual(await observed(), expected, "legacy objectEvents rows");
 });

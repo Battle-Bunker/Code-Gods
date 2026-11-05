@@ -64,13 +64,9 @@
  *    assistantNoApprovalsCalls denies a call left waiting on one and clears `approved` / `confirmDeadline`. Narrowed
  *    later: `mode` becomes required, the `awaiting_confirmation` statuses and the three retired fields leave the
  *    validators, and the `?? DEFAULT_MODE` fallbacks go.
- *  - objectEventPlaces (objectEvents; 2026-11-05, #173): a row written before objectEvents carried `index` (its position
- *    in its tickBatches doc) and `cost` (a transform's charge) gets both from its batch, the data lib/load.ts's old scan
- *    reads (only such a row reads its batch: a placed one costs nothing). Narrowed later, once dev and production report it done: `index` becomes required (`cost` stays optional:
- *    spawns have none) and lib/load.ts's batch-scan fallback goes.
- *  - setupListing (gameSetups; 2026-11-05, read-architecture R1/R2): a setup gets its catalogue fields (setups.ts
- *    listingOf: `order` and `nameKey` for the by_order index the Setup list pages, `searchText` for its search index).
- *    Narrowed later: the three become required once dev and production report it done.
+ *  - (objectEventPlaces, objectEvents: older rows got `index` and `cost` from their batch; setupListing, gameSetups: a
+ *    setup got its catalogue fields `order`, `nameKey`, `searchText`. Both retired once dev and production reported them
+ *    done: `index` and the three catalogue fields became required and lib/load.ts's batch-scan fallback went.)
  *  - backfillObjectViews (games; 2026-11-05, read-architecture §4.3): a game stored before the per-god object read model
  *    gets its objectViews rows and godTotals (game/objectViews.ts fill, scheduled). Nothing to narrow (read models).
  *
@@ -111,7 +107,7 @@ import { PLAYER_PARTITION, PLAYER_PREFIX, RUNS_PREFIX, codeEpoch } from "./code/
 import { aiSeatName, renameInRecord } from "./lib/aiNames";
 import { migrateSettings } from "./lib/migrateSetups";
 import { DEFAULT_AI_QUOTA, DEFAULT_ASSISTANT_QUOTA } from "./lib/aiModels";
-import { freeName, listed, listingFor, setupSummary } from "./setups";
+import { freeName, listingFor, setupSummary } from "./setups";
 import { clockDoc, clockOf, withEngine } from "./game/state";
 import { worldNow } from "./lib/world";
 import { hasStandings, publishStandings } from "./game/readModel";
@@ -343,31 +339,6 @@ export const powerV1Games = migrations.define({ table: "games", migrateOne: (_ct
 export const powerV1Rooms = migrations.define({ table: "rooms", migrateOne: (_ctx, row) => { const settings = powerSettingsV1(row.settings); return settings ? { settings } : undefined; } });
 export const powerV1Setups = migrations.define({ table: "gameSetups", migrateOne: (_ctx, row) => { const settings = powerSettingsV1(row.settings); return settings ? { settings } : undefined; } });
 
-export const objectEventPlaces = migrations.define({
-  table: "objectEvents",
-  // A placed row (every row written since #173) costs nothing beyond itself; an unplaced one reads its tick batch, which
-  // the rows next to it (written by the same commit) share, so a transaction reads few batches.
-  // A row's place is its event's position in the tickBatches doc of its `seq` (the same spawn or transform: the same
-  // object at the same version), and a transform's charge is that event's cost.total: what lib/load.ts's old scan read.
-  // A row already placed is left alone; one whose batch does not hold its event (the clone fixture's copies name the
-  // source game's objects) is left as it is.
-  migrateOne: async (ctx, row) => {
-    const needsCost = row.kind === "transform" && row.cost === undefined;
-    if (row.index !== undefined && !needsCost) return;
-    const batch = await ctx.db.query("tickBatches").withIndex("by_game_seq", q => q.eq("gameId", row.gameId).eq("seq", row.seq)).first();
-    if (!batch) return;
-    const index = batch.events.findIndex(e => e.t === row.kind && e.objectId === row.objectId && e.version === row.version);
-    const event = batch.events[index];
-    if (!event) return;
-    return { ...(row.index === undefined ? { index } : {}), ...(needsCost && event.t === "transform" ? { cost: event.cost.total } : {}) };
-  },
-});
-
-export const setupListing = migrations.define({
-  table: "gameSetups",
-  migrateOne: async (ctx, row) => { const listing = await listingFor(ctx, row); return listed(row, listing) ? undefined : listing; },
-});
-
 export const backfillObjectViews = migrations.define({
   table: "games",
   // A game stored before the per-god read model gets its rows and totals (game/objectViews.ts fill, paged, scheduled:
@@ -394,8 +365,7 @@ const RUN_ALL: FunctionReference<"mutation", "internal">[] = [internal.migration
   internal.migrations.assistantNoApprovalsCalls, internal.migrations.agentPricesV2,
   internal.migrations.equalOpportunityIntStringDeities, internal.migrations.equalOpportunityIntStringPreparing,
   internal.migrations.powerV1Agents, internal.migrations.powerV1Deities, internal.migrations.powerV1Games, internal.migrations.powerV1Rooms, internal.migrations.powerV1Setups,
-  internal.migrations.objectEventPlaces,
-  internal.migrations.setupListing, internal.migrations.backfillObjectViews];
+  internal.migrations.backfillObjectViews];
 export const runAll = migrations.runner(RUN_ALL);
 /** The state of each of runAll's migrations (scripts/run-migrations.mjs waits for all of them to succeed). */
 export const status = internalQuery({

@@ -261,11 +261,7 @@ export const replayFile = internalAction({
   },
 });
 
-/** A setup as stored before its catalogue fields (migrations setupListing), and the stored row. */
-export const legacySetupListing = internalMutation({
-  args: { setupId: v.id("gameSetups") },
-  handler: async (ctx, { setupId }) => { dev(); await ctx.db.patch(setupId, { order: undefined, nameKey: undefined, searchText: undefined }); },
-});
+/** A setup as stored. */
 export const rawSetupDoc = internalQuery({
   args: { setupId: v.id("gameSetups") },
   handler: async (ctx, { setupId }) => { dev(); return await ctx.db.get(setupId); },
@@ -297,17 +293,6 @@ export const rawGame = internalQuery({
       batches: await ctx.db.query("tickBatches").withIndex("by_game_seq", q => q.eq("gameId", gameId)).collect(),
       objectEvents: await ctx.db.query("objectEvents").withIndex("by_game_world", q => q.eq("gameId", gameId)).collect(),
     };
-  },
-});
-
-/** A game's objectEvents rows as stored before they carried `index` and `cost` (test/game-observation-transformations). */
-export const stripObjectEventPlaces = internalMutation({
-  args: { gameId: v.id("games") },
-  handler: async (ctx, { gameId }) => {
-    dev();
-    const rows = await ctx.db.query("objectEvents").withIndex("by_game_world", q => q.eq("gameId", gameId)).take(5000);
-    for (const r of rows) await ctx.db.patch(r._id, { index: undefined, cost: undefined });
-    return rows.length;
   },
 });
 

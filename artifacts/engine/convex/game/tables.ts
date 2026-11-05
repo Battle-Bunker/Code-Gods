@@ -436,9 +436,10 @@ export const gameTables = {
     noise: v.optional(v.number()),
     /**
      * The event's position in its tickBatches doc (`seq`), and a transform's charge (cost.total): the observation's
-     * recent own transformations read these rows instead of the batches. Absent on rows written before 2026-11-03.
+     * recent own transformations read these rows instead of the batches. `cost` is absent on spawns (rows written before
+     * 2026-11-03 were placed by the objectEventPlaces migration).
      */
-    index: v.optional(v.number()), cost: v.optional(v.number()),
+    index: v.number(), cost: v.optional(v.number()),
   }).index("by_game_world", ["gameId", "world"]).index("by_game_object_world", ["gameId", "objectId", "world"])
     .index("by_game_object_version", ["gameId", "objectId", "version"])
     /** A god's transformations in log order (spawns have no owner): the observation's recent own transformations. */
@@ -494,9 +495,8 @@ export const gameTables = {
     /**
      * The catalogue's order and search (setups.ts listingOf; read-architecture R1/R2): `order` is a system setup's seed
      * position, else OTHERS_ORDER; `nameKey` the name with case and accents folded; `searchText` name, owner and summary.
-     * Optional while the setupListing migration fills older rows; required once dev and production report it done.
      */
-    order: v.optional(v.number()), nameKey: v.optional(v.string()), searchText: v.optional(v.string()),
+    order: v.number(), nameKey: v.string(), searchText: v.string(),
   }).index("by_owner", ["ownerId"]).index("by_seed", ["seedId"])
     /** The catalogue's order: the system's in seed order, then everyone's by name (setups.page). */
     .index("by_order", ["order", "nameKey"])
