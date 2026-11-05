@@ -167,7 +167,7 @@ const borderBaron = gridFamily<BaronP>({
 type ConqP = { colour: string; enemy_colour: string };
 const conqText = (p: ConqP, g: GridSpec): CardText => ({
   emoji: "⚔️", name: "Conqueror", consts: [["MY_COLOUR", p.colour], ["ENEMY_COLOUR", p.enemy_colour]],
-  about: sentences(`Your colour is ${p.colour} and your enemy's is ${p.enemy_colour}. Each ${p.colour} cell `
+  about: sentences(`Try to outweigh your enemy, ${p.enemy_colour}, with your ${p.colour} cells. Each ${p.colour} cell `
     + `scores points equal to its value. Each ${p.enemy_colour} cell loses points equal to its value.`, g.say.valueKey()),
 });
 const conqueror = gridFamily<ConqP>({
@@ -840,7 +840,7 @@ const farApart = gridFamily<PairP>({
 type HeadP = { colour: string; enemy_colour: string };
 const headText = (p: HeadP): CardText => ({
   emoji: "🪖", name: "Head Count", consts: [["MY_COLOUR", p.colour], ["ENEMY_COLOUR", p.enemy_colour]],
-  about: `Your colour is ${p.colour} and your enemy's is ${p.enemy_colour}. Each ${p.colour} cell scores 1 point. `
+  about: `Try to outnumber your enemy, ${p.enemy_colour}, with your ${p.colour} cells. Each ${p.colour} cell scores 1 point. `
     + `Each ${p.enemy_colour} cell loses 1 point.`,
 });
 const headCount = gridFamily<HeadP>({
@@ -878,8 +878,8 @@ const colourMirrorText = (p: ColourMirrorP): CardText => {
   const kind = p.axis === "LR" ? "row" : "column";
   return {
     emoji: "🪞", name: "Colour Mirror", consts: [],
-    about: `A ${kind} is a mirror if its colours read the same forwards and backwards. Each mirror ${kind} scores `
-      + "1 point. Most points wins. If that's a tie, more matching pairs wins (first and last, second and second-last, and so on).",
+    about: `Try to make mirror ${kind}s of colour. A ${kind} is a mirror if its colours read the same forwards and backwards. Each mirror ${kind} scores `
+      + `1 primary point. Each matching pair (first and last, second and second-last, and so on) in any ${kind} scores 1 secondary point.`,
   };
 };
 const colourMirror = gridFamily<ColourMirrorP>({
