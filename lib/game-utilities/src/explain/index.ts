@@ -15,6 +15,7 @@ import { seededRng, type Instantiation, type ObjectValue, type Rng } from "@work
 import { context, evaluator, family, paramsKey, type Draw } from "../catalog.ts";
 import { points as pointsWord } from "../families/say.ts";
 import { tupleText } from "../tuples.ts";
+import { paramsInDomain } from "../params.ts";
 import { gridSpec, wire, type GridSpec } from "../families/grid/_util.ts";
 import type { Ordinal } from "../types.ts";
 import { boardOf, readBoard, type Board } from "./board.ts";
@@ -93,6 +94,9 @@ export interface ExplainerOptions {
 /** An explainer for one draw on one Grid instantiation, or null when the object type is not Grid. */
 export function explainer(draw: Draw, inst: Instantiation, options: ExplainerOptions = {}): GoalExplainer | null {
   if (inst.objectType !== "Grid") return null;
+  // A draw whose params are not today's (e.g. a replay file written while the typed-params migration ran) is not
+  // explained: no annotation rather than a wrong one.
+  if (!paramsInDomain(family(draw.familyId).params(context(inst)), draw.params)) return null;
   const l = lensFor(draw.familyId), p = draw.params;
   let card: ((wire: ObjectValue) => Ordinal) | null | undefined;
   const score = (value: ObjectValue): Ordinal | null => {

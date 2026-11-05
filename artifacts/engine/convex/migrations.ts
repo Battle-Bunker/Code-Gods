@@ -212,7 +212,10 @@ export const backfillObjectViews = migrations.define({
   migrateOne: async (ctx, game) => { if (!await hasObjectViews(ctx, game)) await scheduleFill(ctx, game._id); },
 });
 
-/** Every component migration, in order: run by the deploy workflow (`npx convex run migrations:runAll`). Append only. */
+/**
+ * Every component migration, in order: run by the deploy workflow (`npx convex run migrations:runAll`). Append new ones
+ * at the end. A migration leaves only when it is narrowed, after dev and production both report it done.
+ */
 // Annotated: this module's own `internal` references would otherwise make its exported types circular.
 const RUN_ALL: FunctionReference<"mutation", "internal">[] = [internal.migrations.dropHaskellFromSetups, internal.migrations.dropHaskellFromRooms,
   internal.migrations.dropHaskellFromGames, internal.migrations.dropHaskellBundle, internal.migrations.dropHaskellCompiledPrograms,

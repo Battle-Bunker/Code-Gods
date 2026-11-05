@@ -1,7 +1,7 @@
 /**
  * Named, typed params (src/params.ts): every typed family declares each param by name and type, each type resolves to
  * an exact domain on every shape, every support value lies in it, colours are stored by name and symbols as the board
- * prints them (never an index), and params stored before a family was typed are upgraded (the widen step).
+ * prints them (never an index).
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";

@@ -15,16 +15,16 @@ import { admin, api, gods, internal, raw, roomWith, startGame, touch, waitFor } 
 const INSTANCE = "Grid(4,base10,rgb)";
 const GRID_4 = { language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Grid",
   typeArgs: { size: 4, symbols: "base10", colours: "rgb" }, spawnRateHz: 0.5, startingObjectCount: 3, halfLifeSeconds: 100000, defenceGoals: true };
-/** One god each, then the same gods with other params (so no table is found under the first deal's keys). */
+/** One god each, then the same gods with other rules (so no table is found under the first deal's keys). */
 const DEALT = [
   { familyId: "kingdom", params: { colour: "blue" } },
   { familyId: "picture_frame", params: { colour: "green", symbol: "0" }, penalty: { familyId: "hate_colour", params: { colour: "red" } } },
   { familyId: "magic_accountant", params: { axis: "rows", target: 18 } },
 ];
 const REKEYED = [
-  { familyId: "kingdom", params: { colour: "red" } },
-  { familyId: "picture_frame", params: { colour: "blue", symbol: "3" }, penalty: { familyId: "hate_colour", params: { colour: "green" } } },
-  { familyId: "magic_accountant", params: { axis: "cols", target: 18 } },
+  { familyId: "number_bonds", params: {} },
+  { familyId: "set_spotter", params: {}, penalty: { familyId: "hate_colour", params: { colour: "green" } } },
+  { familyId: "honest_minesweeper", params: { mine: "red" } },
 ];
 
 async function runningGame(prefix: string) {

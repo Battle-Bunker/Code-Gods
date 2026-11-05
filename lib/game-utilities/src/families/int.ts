@@ -583,7 +583,6 @@ const refrain = intFamily<Record<string, never>>({
   id: "refrain", name: "Refrain", emoji: "🎵", theme: "Wants the decimal digits of x to repeat a short motif.", shape: SCALAR,
   analytic: solvedAnalytic("refrain"),
   params: () => ({}),
-  // LEGACY (equal-opportunity fix): `{ period }` from before the period was fixed reads as today's rule.
   support: () => [{}],
   summary: () => `Try to make the decimal digits of x repeat every ${PERIOD} digits. From the front, each digit that repeats the one ${PERIOD} places earlier scores 1 point, stopping at the first that doesn't.`,
   python: () => pyCard(refrainText, `

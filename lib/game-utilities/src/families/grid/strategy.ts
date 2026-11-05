@@ -597,7 +597,6 @@ function frameCellLaw(g: GridSpec, pts: { none: number; one: number; both: numbe
 const pictureFrame = gridFamily<FrameP>({
   id: "picture_frame", name: "Picture Frame", emoji: "🖼️", theme: "Your colour and your symbol around a clear middle", shape: SCALAR,
   params: g => ({ colour: colourParam("Your colour"), symbol: symbolParam(g.cards ? "Your card" : "Your number") }),
-  // LEGACY (typed-params widen step): `{ X }` (an index) and `{ colour }` (before the symbol was dealt) read with the first symbol.
   support: g => g.colourNames.flatMap(colour => range(g.S).map(s => ({ colour, symbol: glyph(g, s) }))),
   // Colours and symbols are each exchangeable under the uniform prior and the rule only tests equality with them.
   canonical: (_p, g) => ({ colour: g.colourNames[0], symbol: glyph(g, 0) }),

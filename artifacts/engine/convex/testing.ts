@@ -202,13 +202,19 @@ export const forgetReplay = internalMutation({
   },
 });
 
-/** Give a game's gods these utilities (one per god in roster order, repeating), as if dealt so. */
+/**
+ * Give a game's gods these utilities (one per god in roster order, repeating). Their stored cards lose their typed
+ * params, which described the previous deal (the cards' text is left as it was).
+ */
 export const dealUtilities = internalMutation({
   args: { gameId: v.id("games"), utilities: v.array(v.any()) },
   handler: async (ctx, { gameId, utilities }) => {
     dev();
     const deities = (await ctx.db.query("deities").withIndex("by_game", q => q.eq("gameId", gameId)).take(16)).sort((a, b) => a.index - b.index);
-    for (const [i, d] of deities.entries()) await ctx.db.patch(d._id, { utility: utilities[i % utilities.length] });
+    for (const [i, d] of deities.entries()) {
+      const { params: _previous, ...card } = (d.card ?? {}) as { params?: unknown };
+      await ctx.db.patch(d._id, { utility: utilities[i % utilities.length], card });
+    }
   },
 });
 

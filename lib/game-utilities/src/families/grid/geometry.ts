@@ -31,7 +31,6 @@ const castleKeeper = gridFamily<CastleP>({
   id: "castle_keeper", name: "Castle Keeper", emoji: "🏯", theme: "Walls that keep the water out",
   requires: { minSize: 4 }, shape: tuple(2), tags: ["shortlist"],
   params: () => ({ wall: colourParam("Wall colour") }),
-  // LEGACY: `{ W, mode, T }` (indices, before typing) and `{ wall, mode, treasure }` (before the mode was fixed) read as the wall colour alone.
   support: g => g.colourNames.map(wall => ({ wall })),
   sample: (rng, g) => ({ wall: g.colourNames[rng.int(g.C)] }),
   canonical: (p, g) => recolourNames(g, p, ["wall"]),
@@ -306,8 +305,6 @@ const royalCourt = gridFamily<CourtP>({
   id: "royal_court", name: "Royal Court", emoji: "👑", theme: "A palace of picture cards around the centre",
   requires: { classes: ["Faced"], parity: "odd" }, shape: tuple(2), tags: ["shortlist"],
   params: () => ({ suit: choiceParam("Suit of the court", suitOptions()) }),
-  // LEGACY: `{ suit: index | null }` (before typing) and `{ suit: "any" }` (before the option was removed) read as a named suit
-  // ("any" as the first suit).
   support: () => SUIT_NAMES.map(suit => ({ suit })),
   sample: rng => ({ suit: SUIT_NAMES[rng.int(4)] }),
   canonical: () => ({ suit: SUIT_NAMES[0] }),
@@ -436,7 +433,6 @@ const glassText = (p: GlassP, g: GridSpec): CardText => ({
 const lookingGlass = gridFamily<GlassP>({
   id: "looking_glass", name: "Looking-Glass", emoji: "🔍", theme: "Every cell matches its mirror twin", shape: SCALAR,
   params: () => ({ axis: choiceParam("Fold the grid", [["V", "left onto right"], ["H", "top onto bottom"]]) }),
-  // LEGACY: `{ axis: V | H | D | A | half, layer }` read as a straight fold of the numbers (a diagonal or the half-turn as the nearest one).
   support: () => [{ axis: "V" }, { axis: "H" }],
   canonical: () => ({ axis: "V" }),
   summary: (p, g) => glassText(p, g).about,
@@ -494,7 +490,6 @@ const pinText = (_p: PinP, g: GridSpec): CardText => ({
 const pinwheel = gridFamily<PinP>({
   id: "pinwheel", name: "Pinwheel", emoji: "🎡", theme: "Looks the same after a quarter turn", shape: tuple(2),
   params: () => ({}),
-  // LEGACY: `{ attr }` (before typing) and `{ layer }` (colour | symbol, before the layer was fixed) read as today's rule.
   support: () => [{}],
   summary: (p, g) => pinText(p, g).about,
   python: (p, g) => pyCard(pinText(p, g), `
@@ -828,7 +823,6 @@ const tetrominoTamer = gridFamily<TetP>({
   id: "tetromino_tamer", name: "Tetromino Tamer", emoji: "🧱", theme: "Islands shaped like a Tetris square",
   shape: tuple(2),
   params: () => ({ colour: colourParam("Island colour") }),
-  // LEGACY: `{ C, P }` (indices, before typing) and `{ colour, piece }` (before the piece was fixed) read as the colour alone.
   support: g => g.colourNames.map(colour => ({ colour })),
   sample: (rng, g) => ({ colour: g.colourNames[rng.int(g.C)] }),
   canonical: (p, g) => recolourNames(g, p, ["colour"]),

@@ -91,7 +91,8 @@ export const build = internalAction({
 
 /**
  * Build an ended game's file again after a migration dropped it (the typed-params migrations, 2026-11-03..05, scheduled
- * this with a back-off; kept so jobs still queued when they were narrowed find their function). Idempotent.
+ * this with a back-off; kept so jobs still queued when they were narrowed find their function: `attempt` stays in the
+ * validator for them). Idempotent. Nothing schedules it now; delete it in any PR after 2026-11-06.
  */
 export const rebuildAfterMigration = internalMutation({
   args: { gameId: v.id("games"), attempt: v.optional(v.number()) },
