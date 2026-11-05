@@ -11,6 +11,7 @@ import { useRun } from "@/site/hooks/use-run";
 import { useSendChat } from "@/site/hooks/use-chat";
 import { useAuth } from "@/site/hooks/use-auth";
 import { useManifest } from "@/site/hooks/use-manifest";
+import { useSetupRow } from "@/site/hooks/use-setups";
 import { Page, usePage } from "@/site/components/layout";
 import { Action, Tip } from "@/site/components/action";
 import { StepAction } from "@/site/components/step-action";
@@ -84,8 +85,8 @@ function Players({ room, meId, isOwner, minPlayers }: { room: RoomState; meId?: 
 }
 
 function NextGame({ room, isOwner }: { room: RoomState; isOwner: boolean }) {
-  const { manifest, setups, openSheet } = usePage();
-  const current = setups?.find(s => s.id === room.setup?.id);
+  const { manifest, openSheet } = usePage();
+  const current = useSetupRow(room.setup?.id).data ?? undefined;
   const frozen = room.activeGame;
   const configure = `/rooms/${room.shortCode}/configure`;
   const used = (room.aiInputTokens ?? 0) + (room.aiOutputTokens ?? 0);

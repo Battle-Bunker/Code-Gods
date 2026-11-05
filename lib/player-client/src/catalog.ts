@@ -565,11 +565,17 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
     tools: ["resume_game"], palette: { label: "Resume the game", group: "owner", keywords: ["recovery", "unpause", "resume"] },
   },
   // ----- setups -----
-  "setups.list": {
+  "setups.page": {
     kind: "query", audience: "player",
-    human: { title: "Browse game setups", tooltip: "Every game setup: the system's, then everyone's by name, each with its owner." },
-    ai: { description: "Every game setup (one shared collection): the system's (system: true, nobody may edit them), then everyone's by name, each with id, name, ownerName, mine, editable (= mine) and summary; get_setup has one's settings. update_settings with a setupId puts the next game on any of them; duplicate_setup copies one to edit." },
-    tools: ["list_setups"], palette: null, why: "The Setup combobox and Choose the next game's setup list them; there is nothing to run on its own.",
+    human: { title: "Browse game setups", tooltip: "The game setups a page at a time: the system's, then everyone's by name, or those matching a search." },
+    ai: { description: "Every game setup (one shared collection), a page at a time: the system's (system: true, nobody may edit them), then everyone's by name, each with id, name, summary, system and mine; with a search, the setups whose name, owner or summary match it. get_setup has one's settings. update_settings with a setupId puts the next game on any of them; duplicate_setup copies one to edit." },
+    tools: ["list_setups"], palette: null, why: "The Setup combobox and Choose the next game's setup page through them; there is nothing to run on its own.",
+  },
+  "setups.row": {
+    kind: "query", audience: "player",
+    human: { title: "Show a setup's row", tooltip: "One setup as the Setup list shows it: its name, summary and owner." },
+    ai: { description: "One game setup as a list shows it: id, name, summary, system, ownerName, mine, editable (= mine); null once it is deleted." },
+    tools: [], palette: null, why: "Each row of the Setup combobox and the room's current setup read it; list_setups and get_setup cover it for the assistant.",
   },
   "setups.get": {
     kind: "query", audience: "player",

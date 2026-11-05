@@ -12,7 +12,6 @@ import {
 } from "@workspace/ui-kit/core";
 import type { GridRendererId } from "@workspace/object-views";
 import { firstName } from "./next-step.ts";
-import { ownerLabel } from "./setup-words.ts";
 export { STEP_IDS } from "./next-step.ts";
 
 /** Client-only commands: the human text every button and palette row of these actions uses. */
@@ -63,7 +62,8 @@ export interface CmdGame { shortCode: string; status: string; roomShortCode?: st
 export interface Template { id: string; name: string; provider: string; model: string }
 /** A subscription's current state, as the shared query hook reports it: no data while it loads. */
 export type Live<T> = { data: T | undefined; error: Error | null };
-export interface SetupLike { id: string; name: string; summary: string; system: boolean; mine: boolean; ownerName: string }
+/** A setup as a page of the catalogue lists it (setups.page): no owner's name (setups.row has it) and no settings. */
+export interface SetupLike { id: string; name: string; summary: string; system: boolean; mine: boolean }
 
 export interface EngineScope {
   user: { id: string; name: string; isAdmin: boolean } | null;
@@ -71,8 +71,6 @@ export interface EngineScope {
   game?: CmdGame | null;
   /** manifest.aiFunding.configured; undefined while the manifest loads. */
   aiConfigured?: boolean;
-  /** Every game setup (setups.list): the system's, then everyone's by name. */
-  setups: readonly SetupLike[];
   /** The setup the room runs (room.setup.id), unless it was deleted. */
   currentSetup?: string;
   minPlayers: number;
@@ -116,10 +114,13 @@ export interface EngineActions {
   useAdminTemplates(): Live<readonly Template[]>;
   usePastGames(): Live<readonly { shortCode: string; startedAt: number; winners: readonly { name: string }[] }[]>;
   useCredentials(): Live<readonly { credentialId: string; label?: string | null; kind?: string; permission: string; roomCode?: string | null }[]>;
+  /** The first page of the setup catalogue (setups.page): the system's, then everyone's by name; with a query, the server's search. */
+  useSetups(query: string): Live<readonly SetupLike[]>;
   revoke(credentialId: string): Promise<unknown>;
   openSheet(sheet: "ai-quotas" | "connected-apps" | "scoring" | "past-games"): void;
   rulesText(): string | null;
-  serverInfo(): readonly string[];
+  /** The server's facts (a hook: the system setups' names are a subscription). */
+  useServerInfo(): readonly string[];
   whoAmI(): readonly string[];
   /** setObjectRenderer("Grid", id): every grid this viewer sees redraws. */
   setGridRenderer(id: GridRendererId): void;
@@ -200,10 +201,11 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
       useOptions: () => liveOptions(act.useCredentials(), (c): PickOption => ({ id: c.credentialId, label: c.label || "Unlabelled app", detail: `${c.permission} · room ${c.roomCode ?? "gone"}` })),
       onPick: id => act.revoke(id) } },
     "auth.user.me": { kind: "form", page: { kind: "info", title: "Who am I", lines: act.whoAmI() } },
-    "manifest.get": { kind: "form", page: { kind: "info", title: "Server info", lines: act.serverInfo() } },
+    "manifest.get": { kind: "form", page: { kind: "info", title: "Server info", useLines: () => act.useServerInfo() } },
     "owner.settings": { kind: "form", page: { kind: "pick", title: "Choose the next game's setup", empty: "No setups yet.",
-      options: () => scope.setups.map((s): PickOption => ({ id: s.id, label: `${s.name}${s.id === scope.currentSetup ? " (current)" : ""}`,
-        detail: `${ownerLabel(s)} · ${s.summary}`, keywords: [s.ownerName] })),
+      // The server searches name, owner and summary (setups.page's search index); the list shows its answer as given.
+      useOptions: query => ({ ...liveOptions(act.useSetups(query), (s): PickOption => ({ id: s.id, label: `${s.name}${s.id === scope.currentSetup ? " (current)" : ""}`,
+        detail: s.system ? `System · ${s.summary}` : s.mine ? `You · ${s.summary}` : s.summary })), searched: !!query }),
       onPick: id => act.applySetup(id) } },
     "owner.start": { kind: "submit", run: act.start },
     "rooms.create": { kind: "local", run: act.createRoom },

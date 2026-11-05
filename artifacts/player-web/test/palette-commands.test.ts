@@ -23,7 +23,7 @@ const rec = (name: string) => (...args: unknown[]) => { calls.push(`${name}${arg
 const actions: Actions = {
   submit: rec("submit"), wake: rec("wake"), join: rec("join"), whoami: rec("whoami"), useReceipt: id => receipts.get(id) ?? ["Loading…"], copyObservation: rec("copyObservation"),
   owner: { start: rec("start"), resume: rec("resume"), startWorldNow: rec("startWorldNow"), endGame: rec("endGame"), addAi: rec("addAi"), removeAi: rec("removeAi"), setup: rec("setup"),
-    useAiCatalog: () => ({ options: [{ id: "sonnet", label: "Sonnet" }] }) },
+    useAiCatalog: () => ({ options: [{ id: "sonnet", label: "Sonnet" }] }), useSetupCatalog: () => ({ options: [{ id: "setup-classic", label: "Classic" }] }) },
   panels: { open: rec("openPanel"), openFile: rec("openFile"), setEnabled: rec("setEnabled"), remove: rec("removePanel"), rollback: rec("rollback") },
   assistant: { cancel: rec("cancel"), setMode: rec("setMode"), useThreads: () => ({ options: [{ id: "t1", label: "Earlier" }] }), openThread: rec("openThread"),
     newThread: rec("newThread"), setPermission: rec("setPermission"), focus: rec("focusAssistant"), handoff: rec("handoff") },
@@ -39,7 +39,7 @@ const state = (over: Partial<State> = {}): State => ({
   agents: [{ id: "agent-1", label: "agent-1 · python" }], unknownOutcome: false, busy: false, assistantOn: true, assistantAvailable: true, roomCode: "ABCD", gameCode: "WXYZ",
   panes: [{ id: "p1", kind: "panel", label: "Where am I", closable: false }, { id: "p2", kind: "assistant", label: "Your assistant", closable: true }],
   scopePaneId: "p1", storedPanels: [{ slug: "race-plus", title: "Race plus", enabled: true, currentVersion: 2 }], filePanels: [], safeMode: false,
-  setups: [{ id: "setup-classic", label: "Classic" }], aiSeats: [{ id: "ai-1", label: "Sonnet" }], gridRenderer: "digits", ...over,
+  aiSeats: [{ id: "ai-1", label: "Sonnet" }], gridRenderer: "digits", ...over,
 });
 const ctx = (over: Partial<PaletteContext> = {}): PaletteContext => ({ role: "seated", admin: false, permission: "act", phase: "running", assistantOn: true, scope: { paneId: "p1" }, ...over });
 const find = (commands: Command[], id: string) => { const c = commands.find(x => x.id === id); assert.ok(c, `no command ${id}`); return c; };

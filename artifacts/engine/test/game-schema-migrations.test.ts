@@ -5,8 +5,8 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { rankTotals } from "@workspace/game-core";
-import { admin, api, envelope, internal, raw, roomWith, gods, startGame, touch, TS, waitFor } from "./game-helpers.ts";
+import { rankTotals, seedSetupSettings } from "@workspace/game-core";
+import { admin, api, envelope, internal, raw, roomWith, gods, setupEntries, startGame, touch, TS, waitFor } from "./game-helpers.ts";
 
 const INT_TS = { language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Int", spawnRateHz: 0, startingObjectCount: 3, halfLifeSeconds: 100000 };
 
@@ -243,4 +243,22 @@ test("objectEventPlaces: rows stored before objectEvents carried index and cost 
   assert.deepEqual(places(after), before);
   await runAll(true);
   assert.deepEqual((await raw(game.gameId)).objectEvents, after, "a second run changes nothing");
+});
+
+test("setupListing: setups stored before the catalogue's index get their order, name key and search text; a second run changes nothing", { timeout: 240_000 }, async () => {
+  const [ann] = await gods(`Listing Ann ${Date.now() % 100000}`);
+  const tag = `Ünlisted ${Date.now()}`;
+  const own = await ann.c.action(api.setups.save, { name: tag, settings: seedSetupSettings("grid-classic") });
+  const classic = (await setupEntries(ann.c)).find(e => e.seedId === "grid-classic")!;
+  for (const setupId of [own.id, classic.id]) await admin.mutation(internal.testing.legacySetupListing, { setupId });
+  const stored = (setupId: string) => admin.query(internal.testing.rawSetupDoc, { setupId });
+  assert.equal((await stored(own.id)).order, undefined, "the legacy shape");
+  for (const run of [1, 2]) {
+    await runAll(true);
+    const [mine, seed] = [await stored(own.id), await stored(classic.id)];
+    assert.deepEqual([mine.order, mine.nameKey, mine.searchText], [1_000_000, tag.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase(), `${tag} ${ann.name} ${mine.summary}`], `run ${run}: everyone's`);
+    assert.deepEqual([seed.order, seed.nameKey, seed.searchText], [2, "classic", `Classic System ${seed.summary}`], `run ${run}: the system's (Classic is the third seed)`);
+  }
+  assert.ok((await setupEntries(ann.c, tag)).some(e => e.id === own.id), "found by the search index");
+  await ann.c.mutation(api.setups.remove, { setupId: own.id });
 });

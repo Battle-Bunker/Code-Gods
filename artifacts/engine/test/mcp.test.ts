@@ -18,7 +18,7 @@ import { Client } from "@modelcontextprotocol/client";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 import { Client as LegacyClient } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport as LegacyTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { admin, api, envelope, gods, makeAdmin, internal, raw, roomWith, startedGame, startGame, touch, waitFor, type God } from "./game-helpers.ts";
+import { admin, api, envelope, gods, makeAdmin, internal, raw, roomWith, setupEntries, startedGame, startGame, touch, waitFor, type God } from "./game-helpers.ts";
 import { disclosureChecker } from "./disclosure.ts";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
@@ -172,7 +172,7 @@ test("permissions: a read grant never lists or runs act or owner tools; revoked 
     const r = await call(reader.token, name, name === "send_chat" ? { text: "should never post" } : name === "save_setup" ? { name: "Never saved", settings: someSettings } : {});
     assert.ok(r.error || r.rpcError, `read grant ran ${name}: ${JSON.stringify(r)}`);
   }
-  assert.ok(!(await host.c.query(api.setups.list, {})).some((s: any) => s.name === "Never saved") && !(await ada.c.query(api.setups.list, {})).some((s: any) => s.name === "Never saved"));
+  assert.ok(!(await setupEntries(host.c)).some((s: any) => s.name === "Never saved") && !(await setupEntries(ada.c)).some((s: any) => s.name === "Never saved"));
   const chat = await host.c.query(api.rooms.chatHistory, { roomId });
   assert.ok(!chat.some((m: any) => m.text === "should never post"));
   const actor = await credential(ada, roomId, "act");

@@ -50,8 +50,6 @@ export type PaletteState = {
   storedPanels: readonly { slug: string; title: string; enabled: boolean; currentVersion: number }[];
   filePanels: readonly string[];
   safeMode: boolean;
-  /** The game setups the owner can put the next game on (setups.list). */
-  setups: readonly PickOption[];
   aiSeats: readonly PickOption[];
   /** How this viewer sees grids (lib/object-views' Grid renderer, remembered per browser). */
   gridRenderer: GridRendererId;
@@ -73,6 +71,8 @@ export type PaletteActions = {
     addAi(templateId: string): Promise<unknown>; removeAi(godId: string): Promise<unknown>; setup(setupId: string): Promise<unknown>;
     /** A hook: the AI templates an owner can seat (aiTemplates.catalog), live while the pick page is open. */
     useAiCatalog(): LiveOptions;
+    /** The setups the next game can run (setups.page; typing searches on the server). */
+    useSetupCatalog(query: string): LiveOptions;
   };
   panels: { open(slug: string): void; openFile(id: string): void; setEnabled(slug: string, enabled: boolean): Promise<unknown>; remove(slug: string): Promise<unknown>; rollback(slug: string): Promise<unknown> };
   assistant: {
@@ -107,7 +107,7 @@ const both = (...checks: Availability[]): Availability => checks.find(c => !c.ok
 const pick = (title: string, options: readonly PickOption[] | (() => Promise<readonly PickOption[]> | readonly PickOption[]), onPick: (id: string) => unknown): Performer =>
   ({ kind: "form", page: { kind: "pick", title, options: typeof options === "function" ? options : () => options, onPick } });
 /** A pick over server data: `useOptions` holds its subscription while the page is shown. */
-const livePick = (title: string, useOptions: () => LiveOptions, onPick: (id: string) => unknown): Performer =>
+const livePick = (title: string, useOptions: (query: string) => LiveOptions, onPick: (id: string) => unknown): Performer =>
   ({ kind: "form", page: { kind: "pick", title, useOptions, onPick } });
 const local = (run: () => void): Performer => ({ kind: "local", run });
 const submit = (run: () => Promise<unknown>): Performer => ({ kind: "submit", run });
@@ -172,7 +172,7 @@ export function playerCommands(s: PaletteState, a: PaletteActions): Command[] {
         { id: "two-panels", label: "Two panels and the assistant" }, { id: "reset", label: "Reset layout" },
       ], id => (id === "reset" ? a.dock.reset() : a.dock.preset(id as "stacked"))),
     },
-    "owner.settings": { performer: pick("Next game's setup", () => s.setups, id => a.owner.setup(id)), available: () => betweenGames(s) },
+    "owner.settings": { performer: livePick("Next game's setup", query => a.owner.useSetupCatalog(query), id => a.owner.setup(id)), available: () => betweenGames(s) },
     "owner.start": {
       performer: submit(() => a.owner.start()),
       available: () => (s.starting === "starting" ? no("The game is already starting.")

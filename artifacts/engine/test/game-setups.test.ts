@@ -8,7 +8,7 @@ import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { SEED_SETUPS, SETUP_NAME_MAX, seedSetupSettings } from "@workspace/game-core";
-import { admin, api, clientFor, gods, internal, playerClient, roomWith, touch, type God } from "./game-helpers.ts";
+import { admin, api, clientFor, gods, internal, playerClient, roomWith, setupEntries, touch, type God } from "./game-helpers.ts";
 
 async function errorOf(promise: Promise<unknown>): Promise<{ code?: string; message?: string }> {
   try { await promise; } catch (error) { return (error as { data?: { code?: string; message?: string } }).data ?? { message: (error as Error).message }; }
@@ -22,8 +22,9 @@ async function adminGod(name: string): Promise<God> {
   return { subject, name, sid, c: clientFor(subject, "browser", { sessionId: sid }) };
 }
 type Setup = { id: string; name: string; summary: string; settings: Record<string, unknown>; system: boolean; seedId?: string; ownerName: string; mine: boolean; editable: boolean };
-/** The list rows carry no settings (the catalogue is shared and may be long); `get` has them. */
-const list = (g: God): Promise<Omit<Setup, "settings">[]> => g.c.query(api.setups.list, {});
+/** The catalogue as the Setup list shows it: every page (setups.page), each entry's row (setups.row); no settings (`get` has them). */
+const list = async (g: God): Promise<Omit<Setup, "settings">[]> =>
+  Promise.all((await setupEntries(g.c)).map(e => g.c.query(api.setups.row, { setupId: e.id })));
 const get = (g: God, setupId: string): Promise<Setup> => g.c.query(api.setups.get, { setupId });
 const classic = () => seedSetupSettings("grid-classic");
 
@@ -118,7 +119,7 @@ test("everyone sees every setup with its owner; only the owner changes or delete
   // Credentials: read lists only; act may save, duplicate and remove (setups belong to the human, across rooms).
   const { roomId } = await roomWith([ann]);
   const reader = await playerClient(ann, roomId, "read");
-  assert.ok((await reader.query(api.setups.list, {})).some((r: Setup) => r.id === saved.id));
+  assert.ok((await setupEntries(reader)).some((r: Setup) => r.id === saved.id));
   assert.equal(await errorCode(reader.action(api.setups.save, { name: "From a reader", settings: quick })), "FORBIDDEN");
   assert.equal(await errorCode(reader.mutation(api.setups.duplicate, { setupId: saved.id })), "FORBIDDEN");
   assert.equal(await errorCode(reader.mutation(api.setups.remove, { setupId: saved.id })), "FORBIDDEN");
@@ -131,6 +132,44 @@ test("everyone sees every setup with its owner; only the owner changes or delete
   await bob.c.mutation(api.setups.remove, { setupId: bobs.id });
   assert.equal(await errorCode(ann.c.mutation(api.setups.remove, { setupId: saved.id })), "NOT_FOUND", "gone");
   assert.ok(!(await list(bob)).some(r => r.id === saved.id), "gone for everyone");
+});
+
+// What would break: the Setup list reading the whole catalogue (a page is at most 50), losing its order across pages (the
+// system's first in seed order, then everyone's by name, case and accents folded), a search missing a setup by its name,
+// owner or summary, or a row without its owner's name.
+test("the catalogue pages in order, at most 50 a page; search finds by name, owner and summary; a row has its owner", { timeout: 60_000 }, async () => {
+  const [ann, bob] = await gods("Pager Ann", `Pager Bob ${randomUUID().slice(0, 6)}`);
+  const tag = randomUUID().slice(0, 8);
+  const names = [`zz ${tag} b`, `ZZ ${tag} a`, `zz ${tag} Äc`];
+  const made: Setup[] = [];
+  for (const name of names) made.push(await bob.c.action(api.setups.save, { name, settings: classic(), summary: `Pager summary ${tag}` }));
+  const first = await ann.c.query(api.setups.page, { paginationOpts: { numItems: 500, cursor: null } });
+  assert.ok(first.page.length <= 50, "a page holds at most 50");
+  const all = await setupEntries(ann.c);
+  assert.deepEqual(all.slice(0, SEED_SETUPS.length).map(e => e.seedId), SEED_SETUPS.map(s => s.seedId), "the system's first, in seed order");
+  const others = all.slice(SEED_SETUPS.length);
+  assert.ok(others.every(e => !e.system), "then everyone's");
+  const fold = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+  others.forEach((e, i) => { if (i) assert.ok(fold(others[i - 1].name) <= fold(e.name), `by name: ${others[i - 1].name} before ${e.name}`); });
+  assert.deepEqual(others.filter(e => e.name.includes(tag)).map(e => e.name), [`ZZ ${tag} a`, `zz ${tag} Äc`, `zz ${tag} b`], "case and accents folded");
+  assert.ok(all.every(e => !("settings" in e) && !("ownerName" in e)), "an entry carries no settings and no owner: its row has the owner");
+  // Search: by a word of the name, of the owner's name or of the summary.
+  const found = async (q: string) => (await setupEntries(ann.c, q)).filter(e => e.name.includes(tag)).length;
+  assert.equal(await found(tag), 3, "by name");
+  assert.equal(await found(bob.name.split(" ").at(-1)!), 3, "by owner");
+  assert.equal(await found(`Pager summary ${tag}`), 3, "by summary");
+  assert.deepEqual((await setupEntries(ann.c, "Annotated basics")).map(e => e.seedId)[0], "grid-annotated-basics", "a system setup by name, best first");
+  // A row: what the list shows, with the owner's name; null once deleted.
+  const row = await ann.c.query(api.setups.row, { setupId: made[0].id });
+  assert.deepEqual([row.name, row.ownerName, row.mine, row.editable, row.system], [names[0], bob.name, false, false, false]);
+  for (const s of made) await bob.c.mutation(api.setups.remove, { setupId: s.id });
+  assert.equal(await ann.c.query(api.setups.row, { setupId: made[0].id }), null);
+  assert.equal(await ann.c.query(api.setups.row, { setupId: "nope" }), null);
+  // uniqueName: a new setup takes the first free name instead of CONFLICT.
+  const kept: Setup = await bob.c.action(api.setups.save, { name: `Kept ${tag}`, settings: classic() });
+  const again: Setup = await bob.c.action(api.setups.save, { name: `Kept ${tag}`, settings: classic(), uniqueName: true });
+  assert.equal(again.name, `Kept ${tag} 2`);
+  for (const s of [kept, again]) await bob.c.mutation(api.setups.remove, { setupId: s.id });
 });
 
 test("duplicate: any setup becomes the duplicator's own \"<name>'s copy\", deduplicated among theirs and within 40 characters", { timeout: 60_000 }, async () => {

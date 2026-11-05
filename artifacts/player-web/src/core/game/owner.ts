@@ -7,9 +7,10 @@ import { useAction, useMutation } from "convex/react";
 import { api } from "@workspace/engine/convex/_generated/api";
 import type { Id } from "@workspace/engine/convex/_generated/dataModel";
 import { START_TIMEOUT_MS, startTracker, trackStart } from "@workspace/player-client/start";
-import { liveOptions } from "@workspace/ui-kit";
+import { liveOptions, type LiveOptions } from "@workspace/ui-kit";
 import { useRoom, useRoomInfo } from "@/sdk";
 import { useAgentOptions } from "@/site/hooks/use-agents";
+import { useSetupEntries } from "@/site/hooks/use-setups";
 import { noticeStore, notify, notifyError } from "@/core/notices";
 import { saveSetup } from "./save-setup";
 
@@ -17,6 +18,11 @@ import { saveSetup } from "./save-setup";
 function useAiCatalog() {
   const catalog = useAgentOptions();
   return liveOptions({ data: catalog.data?.agents, error: catalog.error }, r => ({ id: r.id, label: r.name, detail: [r.provider, r.model].filter(Boolean).join(" · ") }));
+}
+
+/** The setups an owner can put the next game on: the catalogue's first page, or the server's search for `query`. */
+function useSetupCatalog(query: string): LiveOptions {
+  return { ...liveOptions(useSetupEntries(query), s => ({ id: s.id, label: s.name, detail: s.summary })), searched: !!query };
 }
 
 export function useOwnerActions() {
@@ -63,6 +69,7 @@ export function useOwnerActions() {
         } catch (error) { notifyError(error); }
       },
       useAiCatalog,
+      useSetupCatalog,
     };
   }, [roomId, seen, start, settings, addAi, removeAi, end, resume, startWorldNow]);
 }

@@ -8,13 +8,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { seedSetupSettings } from "@workspace/game-core";
-import { api, gods, roomWith, startGame, touch, adminGods } from "./game-helpers.ts";
+import { api, gods, roomWith, setupEntries, startGame, touch, adminGods } from "./game-helpers.ts";
 
 async function errorCode(promise: Promise<unknown>): Promise<string> {
   try { await promise; } catch (error) { return (error as { data?: { code?: string } }).data?.code ?? `untyped: ${(error as Error).message}`; }
   return "no error";
 }
-const setupId = async (c: any, seedId: string): Promise<string> => (await c.query(api.setups.list, {})).find((s: any) => s.seedId === seedId).id;
+const setupId = async (c: any, seedId: string): Promise<string> => (await setupEntries(c)).find((s: any) => s.seedId === seedId).id;
 
 test("a new room runs Annotated basics and can set its AI quotas in the same call", async () => {
   const [host] = await adminGods("Origin Host");
@@ -91,7 +91,7 @@ test("a change edits the room's setup when the owner owns it, else their copy, w
   const { roomId } = await roomWith([host, ada, bo]);
   const first = await setupId(host.c, "grid-annotated-basics");
   const revision = async () => (await host.c.query(api.rooms.get, { room: roomId })).revision;
-  const mine = async () => Promise.all((await host.c.query(api.setups.list, {})).filter((s: any) => s.mine).map((s: any) => host.c.query(api.setups.get, { setupId: s.id })));
+  const mine = async () => Promise.all((await setupEntries(host.c)).filter((s: any) => s.mine).map((s: any) => host.c.query(api.setups.get, { setupId: s.id })));
 
   // On the system's Annotated basics: the change goes to a new setup of the owner's, and the room runs it.
   const copied = await host.c.action(api.owner.settings, { roomId, revision: await revision(), settings: { interactionRateHz: 10 } });
@@ -154,7 +154,7 @@ test("a change edits the owner's setup as it is now, not the room's older snapsh
   assert.deepEqual((await host.c.query(api.rooms.get, { room: a.roomId })).settings, stored);
 
   // At the cap of own setups, explicit saves and copies are refused, but changing a room on a system setup still works.
-  const own = (await host.c.query(api.setups.list, {})).filter((s: any) => s.mine).length;
+  const own = (await setupEntries(host.c)).filter((s: any) => s.mine).length;
   const classic = await setupId(host.c, "grid-classic");
   for (let i = own; i < 50; i++) await host.c.mutation(api.setups.duplicate, { setupId: classic });
   assert.equal(await errorCode(host.c.mutation(api.setups.duplicate, { setupId: classic })), "BAD_REQUEST", "the cap");

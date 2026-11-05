@@ -1,8 +1,9 @@
 /**
  * Game setups: one shared catalogue of complete, named next-game settings (docs/engine-api.md "setups").
  *
- *   list        read: EVERY setup, the system's (seed order) then everyone's (by name), each with its owner's name and
- *               summary but not its settings (the catalogue is shared and may be long)
+ *   page        read: one page of the catalogue (the system's in seed order, then everyone's by name; or a search over
+ *               name, owner and summary): ids, names and summaries, the skeleton of a list (read-architecture R1)
+ *   row         read: one setup as a list shows it, with its owner's name (one list row's own subscription)
  *   get         read: one setup with its complete settings
  *   save        write: a new setup of your own, or a change to one you own
  *   duplicate   write: a copy of any setup as a new one of your own, named "<name>'s copy"
@@ -19,6 +20,7 @@
  * Every function has an internal twin `<fn>As` taking `principal: {credentialId}` for the agent registry.
  */
 import { v } from "convex/values";
+import { paginationOptsValidator } from "convex/server";
 import { DEFAULT_SETUP_SEED_ID, LANGUAGE_SPECS, SEED_SETUPS, allowedLanguages, SETUP_NAME_MAX, instantiationOf, sameSettings, seedSetupSettings, type GameSettings } from "@workspace/game-core";
 import { instanceInfo } from "@workspace/game-types";
 import { internal } from "./_generated/api";
@@ -31,7 +33,7 @@ import { displayName, principalV, viewerOf, type Principal } from "./lib/rooms";
 type Ctx = QueryCtx | MutationCtx;
 /** A human's own setups, at most. */
 export const MAX_OWN_SETUPS = 50;
-/** The most setups `list` returns (the client searches them all; see listImpl for which). */
+/** The most setups the agents' list_setups returns (listAs; see listImpl for which). */
 export const LIST_CAP = 500;
 const SUMMARY_MAX = 160;
 const SYSTEM = "System";
@@ -52,10 +54,13 @@ export async function seed(ctx: MutationCtx) {
     const [existing, ...extra] = await ctx.db.query("gameSetups").withIndex("by_seed", q => q.eq("seedId", s.seedId)).collect();
     // One row per seed: a duplicate (two first-ever seedings racing) would be a system setup nobody could fix.
     for (const row of extra) await ctx.db.delete(row._id);
+    const listing = listingOf({ ownerId: null, name: s.name, summary: s.summary, seedId: s.seedId }, SYSTEM);
     if (!existing) {
-      await ctx.db.insert("gameSetups", { ownerId: null, name: s.name, settings, summary: s.summary, seedId: s.seedId, createdAt: now, updatedAt: now });
+      await ctx.db.insert("gameSetups", { ownerId: null, name: s.name, settings, summary: s.summary, seedId: s.seedId, createdAt: now, updatedAt: now, ...listing });
     } else if (existing.ownerId !== null || existing.name !== s.name || existing.summary !== s.summary || existing.deleted || !sameSettings(existing.settings, settings)) {
-      await ctx.db.patch(existing._id, { ownerId: null, name: s.name, summary: s.summary, settings, deleted: undefined, updatedAt: now });
+      await ctx.db.patch(existing._id, { ownerId: null, name: s.name, summary: s.summary, settings, deleted: undefined, updatedAt: now, ...listing });
+    } else if (!listed(existing, listing)) {
+      await ctx.db.patch(existing._id, listing);
     }
   }
 }
@@ -73,11 +78,29 @@ export async function defaultSetup(ctx: MutationCtx): Promise<Doc<"gameSetups">>
 // reads
 // ------------------------------------------------------------------------------------------------
 
-const seedOrder = (d: Doc<"gameSetups">) => { const i = SEED_SETUPS.findIndex(s => s.seedId === d.seedId); return i < 0 ? SEED_SETUPS.length : i; };
+const seedOrder = (d: Pick<Doc<"gameSetups">, "seedId">) => { const i = SEED_SETUPS.findIndex(s => s.seedId === d.seedId); return i < 0 ? SEED_SETUPS.length : i; };
 const ownerNameOf = (ctx: Ctx, ownerId: string | null) => (ownerId === null ? Promise.resolve(SYSTEM) : displayName(ctx, ownerId));
 
-/** A setup as `list` shows it: who owns it and what it is, without its settings. */
-function row(d: Doc<"gameSetups">, viewer: Viewer, ownerName: string) {
+/** Where everyone's setups start in the catalogue's order (the system's take their seed position before it). */
+export const OTHERS_ORDER = 1_000_000;
+/** A name as the catalogue sorts it: case and accents folded (as the old in-memory sort's base-sensitivity compare). */
+export const nameKeyOf = (name: string) => name.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+/**
+ * A setup's catalogue fields: `order` and `nameKey` (the by_order index: the system's in seed order, then everyone's by
+ * name) and `searchText` (the search index: name, owner and summary; the owner's name as it was when the setup was last
+ * written). Every writer sets them; the setupListing migration fills older rows.
+ */
+export function listingOf(d: Pick<Doc<"gameSetups">, "ownerId" | "name" | "summary" | "seedId">, ownerName: string) {
+  return { order: d.ownerId === null ? seedOrder(d) : OTHERS_ORDER, nameKey: nameKeyOf(d.name), searchText: `${d.name} ${ownerName} ${d.summary}` };
+}
+/** Whether a row's catalogue fields are what `listingOf` gives. */
+export const listed = (d: Doc<"gameSetups">, want: ReturnType<typeof listingOf>) =>
+  d.order === want.order && d.nameKey === want.nameKey && d.searchText === want.searchText;
+/** `listingOf` with the owner's current name. */
+export const listingFor = async (ctx: Ctx, d: Pick<Doc<"gameSetups">, "ownerId" | "name" | "summary" | "seedId">) => listingOf(d, await ownerNameOf(ctx, d.ownerId));
+
+/** A setup as a list row shows it: who owns it and what it is, without its settings. */
+function rowOf(d: Doc<"gameSetups">, viewer: Viewer, ownerName: string) {
   const mine = d.ownerId !== null && d.ownerId === viewer.subject;
   return {
     id: d._id, name: d.name, summary: d.summary,
@@ -86,9 +109,9 @@ function row(d: Doc<"gameSetups">, viewer: Viewer, ownerName: string) {
     ownerName, mine, editable: mine, updatedAt: d.updatedAt,
   };
 }
-export type SetupRow = ReturnType<typeof row>;
+export type SetupRow = ReturnType<typeof rowOf>;
 /** A setup with its complete settings (get, and every write's result). */
-const view = (d: Doc<"gameSetups">, viewer: Viewer, ownerName: string) => ({ ...row(d, viewer, ownerName), settings: d.settings as GameSettings });
+const view = (d: Doc<"gameSetups">, viewer: Viewer, ownerName: string) => ({ ...rowOf(d, viewer, ownerName), settings: d.settings as GameSettings });
 export type SetupView = ReturnType<typeof view>;
 
 /**
@@ -106,13 +129,54 @@ async function listImpl(ctx: Ctx, viewer: Viewer): Promise<SetupRow[]> {
   const system = rows.filter(d => d.ownerId === null).sort((a, b) => seedOrder(a) - seedOrder(b) || a.createdAt - b.createdAt);
   const owned = rows.filter(d => d.ownerId !== null)
     .sort((a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" }) || a.createdAt - b.createdAt);
-  return [...system, ...owned].map(d => row(d, viewer, names.get(d.ownerId)!));
+  return [...system, ...owned].map(d => rowOf(d, viewer, names.get(d.ownerId)!));
 }
 
-/** Every setup: the system's in seed order, then everyone's by name, each with its owner's name and whether it is the caller's. */
-export const list = query({ args: {}, handler: async (ctx): Promise<SetupRow[]> => listImpl(ctx, await viewerOf(ctx)) });
-/** Internal twin of `list` for a principal (the registry's list_setups). */
+/**
+ * The catalogue for an agent's list_setups (one point-in-time read inside Convex, read-architecture R7): the system's
+ * in seed order, then everyone's by name, each with its owner's name. The app pages it instead (`page` and `row`).
+ */
 export const listAs = internalQuery({ args: { principal: principalV }, handler: async (ctx, { principal }): Promise<SetupRow[]> => listImpl(ctx, await viewerOf(ctx, principal)) });
+
+/** A setup as a list's skeleton has it: its own small fields (no owner: `row` has it; no settings: `get`). */
+const entry = (d: Doc<"gameSetups">, viewer: Viewer) => ({
+  id: d._id, name: d.name, summary: d.summary, system: d.ownerId === null, ...(d.seedId ? { seedId: d.seedId } : {}),
+  mine: d.ownerId !== null && d.ownerId === viewer.subject,
+});
+export type SetupEntry = ReturnType<typeof entry>;
+/** The most setups one page of the catalogue holds (read-architecture R2). */
+export const PAGE_MAX = 50;
+/** The longest search the catalogue takes (characters). */
+const SEARCH_MAX = 100;
+
+/**
+ * One page of the shared catalogue, the skeleton of a setup list (read-architecture R1; `row` is one setup with its
+ * owner's name): the system's in seed order, then everyone's by name (the by_order index); with `search`, the setups
+ * whose name, owner or summary match it, best first (the search index). At most PAGE_MAX a page.
+ */
+export const page = query({
+  args: { paginationOpts: paginationOptsValidator, search: v.optional(v.string()) },
+  handler: async (ctx, { paginationOpts, search }) => {
+    const viewer = await viewerOf(ctx);
+    const opts = { ...paginationOpts, numItems: Math.max(1, Math.min(PAGE_MAX, Math.floor(paginationOpts.numItems))) };
+    const text = search?.trim().slice(0, SEARCH_MAX);
+    const result = text
+      ? await ctx.db.query("gameSetups").withSearchIndex("search", q => q.search("searchText", text)).paginate(opts)
+      : await ctx.db.query("gameSetups").withIndex("by_order").paginate(opts);
+    return { ...result, page: result.page.filter(d => !d.deleted).map(d => entry(d, viewer)) };
+  },
+});
+
+/** One setup as a list row shows it, with its owner's name; null once it is deleted (or for an unknown id). */
+export const row = query({
+  args: { setupId: v.string() },
+  handler: async (ctx, { setupId }): Promise<SetupRow | null> => {
+    const viewer = await viewerOf(ctx);
+    const id = ctx.db.normalizeId("gameSetups", setupId);
+    const doc = id ? await ctx.db.get(id) : null;
+    return doc && !doc.deleted ? rowOf(doc, viewer, await ownerNameOf(ctx, doc.ownerId)) : null;
+  },
+});
 
 /** A setup by id (every setup is visible to everyone), else NOT_FOUND. */
 async function setupById(ctx: Ctx, setupId: string): Promise<Doc<"gameSetups">> {
@@ -208,15 +272,16 @@ export function setupSummary(s: GameSettings): string {
 async function insertOwn(ctx: MutationCtx, ownerId: string, name: string, settings: GameSettings, summary: string, capped = true): Promise<Doc<"gameSetups">> {
   if (capped && (await ownSetups(ctx, ownerId)).length >= MAX_OWN_SETUPS) fail("BAD_REQUEST", `At most ${MAX_OWN_SETUPS} setups each; delete one first`);
   const now = Date.now();
-  const doc = { ownerId, name, settings, summary, createdAt: now, updatedAt: now };
+  const doc = { ownerId, name, settings, summary, createdAt: now, updatedAt: now, ...await listingFor(ctx, { ownerId, name, summary }) };
   const id = await ctx.db.insert("gameSetups", doc);
   return { _id: id, _creationTime: now, ...doc };
 }
 const takenNames = async (ctx: Ctx, ownerId: string, except?: Id<"gameSetups">) =>
   new Set((await ownSetups(ctx, ownerId)).filter(s => s._id !== except).map(s => s.name.toLowerCase()));
 
-const saveArgs = { setupId: v.optional(v.string()), name: v.string(), settings: v.any(), summary: v.optional(v.string()) };
-type SaveArgs = { setupId?: string; name: string; settings: unknown; summary?: string };
+/** `uniqueName`: a new setup takes the first of `name`, `name 2`, `name 3`… free among the caller's own, instead of CONFLICT. */
+const saveArgs = { setupId: v.optional(v.string()), name: v.string(), settings: v.any(), summary: v.optional(v.string()), uniqueName: v.optional(v.boolean()) };
+type SaveArgs = { setupId?: string; name: string; settings: unknown; summary?: string; uniqueName?: boolean };
 
 /** Before the Node validation: who may write which setup (re-checked by the commit). */
 export const preflight = internalQuery({
@@ -230,8 +295,8 @@ export const preflight = internalQuery({
 });
 
 export const commitSave = internalMutation({
-  args: { principal: v.optional(principalV), setupId: v.optional(v.string()), name: v.string(), settings: v.any(), summary: v.optional(v.string()) },
-  handler: async (ctx, { principal, setupId, name: rawName, settings, summary: rawSummary }): Promise<SetupView> => {
+  args: { principal: v.optional(principalV), ...saveArgs },
+  handler: async (ctx, { principal, setupId, name: rawName, settings, summary: rawSummary, uniqueName }): Promise<SetupView> => {
     const viewer = await viewerOf(ctx, principal);
     requireWriter(viewer);
     const name = checkName(rawName);
@@ -242,10 +307,13 @@ export const commitSave = internalMutation({
       const doc = await ownSetup(ctx, viewer, setupId);
       if ((await takenNames(ctx, viewer.subject, doc._id)).has(name.toLowerCase())) fail("CONFLICT", `You already have a setup named "${name}"`);
       const updatedAt = Date.now();
-      await ctx.db.patch(doc._id, { name, settings, summary, updatedAt });
-      return view({ ...doc, name, settings, summary, updatedAt }, viewer, viewer.name);
+      const listing = await listingFor(ctx, { ...doc, name, summary });
+      await ctx.db.patch(doc._id, { name, settings, summary, updatedAt, ...listing });
+      return view({ ...doc, name, settings, summary, updatedAt, ...listing }, viewer, viewer.name);
     }
-    if ((await takenNames(ctx, viewer.subject)).has(name.toLowerCase())) fail("CONFLICT", `You already have a setup named "${name}": edit that one instead`);
+    const taken = await takenNames(ctx, viewer.subject);
+    if (uniqueName) return view(await insertOwn(ctx, viewer.subject, freeName(name, "", taken), settings as GameSettings, summary), viewer, viewer.name);
+    if (taken.has(name.toLowerCase())) fail("CONFLICT", `You already have a setup named "${name}": edit that one instead`);
     return view(await insertOwn(ctx, viewer.subject, name, settings as GameSettings, summary), viewer, viewer.name);
   },
 });
@@ -313,7 +381,8 @@ export async function roomSetupWrite(ctx: MutationCtx, room: Doc<"rooms">, owner
   if (live && live.ownerId === ownerId) {
     // The change was computed from this setup's settings at `baseUpdatedAt` (ownedBase): saved since, it would revert that save.
     if (baseUpdatedAt !== undefined && live.updatedAt !== baseUpdatedAt) fail("CONFLICT", `"${live.name}" was changed meanwhile; try again`);
-    await ctx.db.patch(live._id, { settings, summary: setupSummary(settings), updatedAt: Date.now() });
+    const summary = setupSummary(settings);
+    await ctx.db.patch(live._id, { settings, summary, updatedAt: Date.now(), ...await listingFor(ctx, { ...live, summary }) });
     return { id: live._id, name: live.name, created: false, note: `Saved the change to your setup "${live.name}"` };
   }
   const taken = await takenNames(ctx, ownerId);

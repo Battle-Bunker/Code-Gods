@@ -305,7 +305,6 @@ function ConfigureForm({ room, setup, roomOwner }: { room: RoomState; setup: Set
  * setup of theirs ("<name>'s copy"), which the room then runs and which opens here for editing.
  */
 function DeletedSetup({ room, roomOwner }: { room: RoomState; roomOwner: boolean }) {
-  const { setups } = usePage();
   const [, navigate] = useLocation();
   const save = useAction(api.setups.save);
   const apply = useAction(api.owner.settings);
@@ -315,8 +314,8 @@ function DeletedSetup({ room, roomOwner }: { room: RoomState; roomOwner: boolean
   const keep = async () => {
     setPending(true); setError(null);
     try {
-      const mine = (setups ?? []).filter(s => s.mine).map(s => s.name);
-      const copy = await save({ name: freeName(name, "'s copy", mine), settings: room.settings });
+      // The engine takes the first free name among the owner's own ("<name>'s copy", then " 2"…).
+      const copy = await save({ name: freeName(name, "'s copy", []), settings: room.settings, uniqueName: true });
       if (!room.activeGame) await apply({ roomId: room.id, revision: room.revision, setupId: copy.id });
       navigate(`/rooms/${room.shortCode}/configure?setup=${encodeURIComponent(copy.id)}`);
     } catch (e) { setError(errMsg(e)); } finally { setPending(false); }

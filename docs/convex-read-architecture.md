@@ -731,7 +731,7 @@ the cache across 5 tick commits.
 - `player.objectsPage`: whole world. The fix is the per-god read model (PR 4).
 - `player.game`: an ended game's final state; static once ended.
 - `player.events` and `player.trajectories`: up to 50 `tickBatches` per call, 300–650 KiB depending on load.
-- `setups.list`: the whole shared setup catalogue.
+- (`setups.list` was paged: `setups.page` skeleton + `setups.row` items, within R8.)
 
 **Held or postponed to Thursday 2026-11-05** (owner's decision, to protect the evening release):
 
@@ -740,7 +740,7 @@ the cache across 5 tick commits.
 | Removing `useLive`'s retry (#171) | Ready, but held. Without the retry, a query over 1 s on a loaded backend leaves the page on an error until reconnect. Merge it after the dock leaves the observation. |
 | Trajectory windows plus a live tail (PR 8's trajectories item) | Landed: closed windows of 10 batches (cached across ticks) plus a live tail; no module store (`sdk/trajectory-windows.ts`) |
 | Per-god object read model (PR 4, branch `c2-object-views`) | Built, but the per-object row sync doubled tick commit time (298 → 667 ms at 1,000 objects, 100 Hz). Needs a cheaper write before it can merge. |
-| The dock off the observation (PR 5); the SDK and MCP (PR 6); `setups.list` paging | Not started |
+| The dock off the observation (PR 5); the SDK and MCP (PR 6) | Not started (`setups.list` paging: landed, `setups.page` + `setups.row`) |
 | Narrowing `games`' hot fields and their fallbacks | Done (2026-11-05): the fields left the validator, `game/state.ts`'s fallbacks and `splitGameHotFields` are gone. |
 | Narrowing `objects.publicSalience` | Done (required, no fallbacks). |
 | Narrowing `objectEvents.index` and `cost`, and removing the old-scan fallback (#173) | Waits for the same. |

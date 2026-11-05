@@ -449,7 +449,16 @@ export const gameTables = {
     createdAt: v.number(), updatedAt: v.number(),
     /** LEGACY: a tombstone an admin's removal of a seed left before setups-v2; the seed sync clears it. */
     deleted: v.optional(v.boolean()),
-  }).index("by_owner", ["ownerId"]).index("by_seed", ["seedId"]),
+    /**
+     * The catalogue's order and search (setups.ts listingOf; read-architecture R1/R2): `order` is a system setup's seed
+     * position, else OTHERS_ORDER; `nameKey` the name with case and accents folded; `searchText` name, owner and summary.
+     * Optional while the setupListing migration fills older rows; required once dev and production report it done.
+     */
+    order: v.optional(v.number()), nameKey: v.optional(v.string()), searchText: v.optional(v.string()),
+  }).index("by_owner", ["ownerId"]).index("by_seed", ["seedId"])
+    /** The catalogue's order: the system's in seed order, then everyone's by name (setups.page). */
+    .index("by_order", ["order", "nameKey"])
+    .searchIndex("search", { searchField: "searchText" }),
 
   /** Host-wide AI spend per UTC day (the $5/day ceiling across rooms for seats; the assistant's own ceiling). */
   aiUsage: defineTable({
