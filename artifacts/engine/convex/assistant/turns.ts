@@ -46,7 +46,7 @@ export async function callsOf(ctx: Ctx, turnId: Id<"assistantTurns">) {
  * End a turn: its status and error, the thread freed, streaming messages closed, and calls that never ran marked
  * denied (a call interrupted while running is an error: its outcome is in its receipt, if any).
  */
-export async function finishTurn(ctx: MutationCtx, turn: Turn, status: Exclude<TurnStatus, "running" | "awaiting_confirmation" | "cancelling">, error?: { code: string; message: string }) {
+export async function finishTurn(ctx: MutationCtx, turn: Turn, status: Exclude<TurnStatus, "running" | "cancelling">, error?: { code: string; message: string }) {
   const now = Date.now();
   await ctx.db.patch(turn._id, { status, finishedAt: now, updatedAt: now, gen: turn.gen + 1, ...(error ? { error } : {}) });
   const thread = await ctx.db.get(turn.threadId);
@@ -193,7 +193,7 @@ export async function stopTurn(ctx: MutationCtx, turn: Turn, error?: { code: str
 /**
  * A new game starts in the room (game/lobby.ts launch): every assistant turn still active there ends, so no step or
  * tool call of the previous game's conversation runs in the new one. A running step is cancelled like the player's own
- * stop (stopTurn). (A turn left waiting on the retired approval card ends now, until the migration has ended them all.)
+ * stop (stopTurn).
  */
 export async function endTurnsForNewGame(ctx: MutationCtx, roomId: Id<"rooms">) {
   const now = Date.now();
@@ -201,11 +201,8 @@ export async function endTurnsForNewGame(ctx: MutationCtx, roomId: Id<"rooms">) 
   for (const row of await ctx.db.query("assistantQueue").withIndex("by_room_status", q => q.eq("roomId", roomId).eq("status", "queued")).take(200)) {
     await ctx.db.patch(row._id, { status: "removed", updatedAt: now });
   }
-  for (const status of ["running", "awaiting_confirmation"] as const) {
-    for (const turn of await ctx.db.query("assistantTurns").withIndex("by_room_status", q => q.eq("roomId", roomId).eq("status", status)).take(200)) {
-      if (status === "awaiting_confirmation") { await finishTurn(ctx, turn, "cancelled"); continue; }
-      await stopTurn(ctx, turn);
-      log("cancel.newGame", { turnId: turn._id });
-    }
+  for (const turn of await ctx.db.query("assistantTurns").withIndex("by_room_status", q => q.eq("roomId", roomId).eq("status", "running")).take(200)) {
+    await stopTurn(ctx, turn);
+    log("cancel.newGame", { turnId: turn._id });
   }
 }

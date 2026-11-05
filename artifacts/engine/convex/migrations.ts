@@ -20,10 +20,8 @@
  *  - backfillStandings (games; read-architecture §4.1): a game stored before the standings read model gets its last
  *    published scoreboard as `standings` rows and one `standingsHistory` row (game/readModel.ts). Nothing to narrow:
  *    games.standings' fallback to the clock's scoreboard goes once dev and production report it done.
- *  - aiQuotas (rooms; 2026-11-03, AI budget approvals removed): every room gets the default per-game quotas
- *    (DEFAULT_AI_QUOTA for its AI players, DEFAULT_ASSISTANT_QUOTA per player's assistant) where it has none, whatever
- *    it had approved before, and its legacy `aiBudget` / `assistantBudget` are cleared. Narrowed later: `aiQuota` and
- *    `assistantQuota` become required, the legacy fields leave the validator, and lib/aiAccess.ts's `??` defaults go.
+ *  - (aiQuotas, rooms: every room got the default per-game quotas and lost its approved budgets; retired, and `aiQuota` /
+ *    `assistantQuota` became required, once dev and production reported it done.)
  *  - (agentPricesV2 and powerV1*, 2026-11-05, docs/energy-model.md §6, §9: the legacy agent prices lost their decision and
  *    floor parts, and agents, deities and stored settings got the power budget's fields. Retired, and the agents and
  *    deities validators narrowed, once dev and production reported them done.)
@@ -34,13 +32,9 @@
  *    `lastMutatedAt` (world seconds) from its objectEvents rows; its mutation count is its `version`. Narrowed later:
  *    `createdAt` becomes required and the `?? 0` fallbacks go (lib/projection.ts personalObject), once dev and
  *    production report it done.
- *  - assistant modes (2026-11-03, per-action approvals removed; assistant/mode.ts): assistantModeFromCredentials gives a
- *    player who had chosen "Only look" (a live read assistant credential in a room) the Read-only mode there;
- *    assistantPrefsMode gives every other prefs row On request and clears `autoApproveSummonBits`;
- *    assistantNoApprovalsTurns ends a turn left waiting on an approval card (cancelled, its thread freed) and
- *    assistantNoApprovalsCalls denies a call left waiting on one and clears `approved` / `confirmDeadline`. Narrowed
- *    later: `mode` becomes required, the `awaiting_confirmation` statuses and the three retired fields leave the
- *    validators, and the `?? DEFAULT_MODE` fallbacks go.
+ *  - (assistantModeFromCredentials, assistantPrefsMode, assistantNoApprovalsTurns, assistantNoApprovalsCalls: the
+ *    assistant's modes replaced per-action approvals; retired, and `assistantPrefs.mode` became required and the
+ *    approval fields and statuses left the validators, once dev and production reported them done.)
  *  - (objectEventPlaces, objectEvents: older rows got `index` and `cost` from their batch; setupListing, gameSetups: a
  *    setup got its catalogue fields `order`, `nameKey`, `searchText`. Both retired once dev and production reported them
  *    done: `index` and the three catalogue fields became required and lib/load.ts's batch-scan fallback went.)
@@ -76,11 +70,9 @@ import type { FunctionReference } from "convex/server";
 import { components } from "./_generated/api";
 import schema from "./schema";
 import { ASSISTANT_LOBBY } from "./ai/seats";
-import { finishTurn } from "./assistant/turns";
 import { PLAYER_PARTITION, PLAYER_PREFIX, RUNS_PREFIX, codeEpoch } from "./code/keys";
 import { aiSeatName, renameInRecord } from "./lib/aiNames";
 import { migrateSettings } from "./lib/migrateSetups";
-import { DEFAULT_AI_QUOTA, DEFAULT_ASSISTANT_QUOTA } from "./lib/aiModels";
 import { freeName, listingFor, setupSummary } from "./setups";
 import { clockDoc, clockOf } from "./game/state";
 import { hasStandings, publishStandings } from "./game/readModel";
@@ -133,17 +125,6 @@ export const backfillStandings = migrations.define({
   },
 });
 
-export const aiQuotas = migrations.define({
-  table: "rooms",
-  migrateOne: (_ctx, room) => {
-    if (room.aiQuota !== undefined && room.assistantQuota !== undefined && room.aiBudget === undefined && room.assistantBudget === undefined) return;
-    return {
-      aiQuota: room.aiQuota ?? DEFAULT_AI_QUOTA, assistantQuota: room.assistantQuota ?? DEFAULT_ASSISTANT_QUOTA,
-      aiBudget: undefined, assistantBudget: undefined,
-    };
-  },
-});
-
 
 export const backfillObjectTimes = migrations.define({
   table: "objects",
@@ -157,51 +138,6 @@ export const backfillObjectTimes = migrations.define({
       : await ctx.db.query("objectEvents").withIndex("by_game_object_world", q => q.eq("gameId", o.gameId).eq("objectId", o._id)).order("desc")
         .filter(q => q.eq(q.field("kind"), "transform")).first();
     return { createdAt: spawn?.world ?? 0, ...(last ? { lastMutatedAt: last.world } : {}) };
-  },
-});
-
-export const assistantModeFromCredentials = migrations.define({
-  table: "credentials",
-  migrateOne: async (ctx, cred) => {
-    if (cred.kind !== "assistant" || cred.permission !== "read" || !cred.roomId || cred.revokedAt !== undefined || cred.expiresAt <= Date.now()) return;
-    const roomId = ctx.db.normalizeId("rooms", cred.roomId);
-    if (!roomId) return;
-    const prefs = await ctx.db.query("assistantPrefs").withIndex("by_key", q => q.eq("roomId", roomId).eq("subject", cred.subject)).unique();
-    // A mode already set (by the player, or a run before this one) is left alone.
-    if (prefs?.mode !== undefined) return;
-    if (prefs) await ctx.db.patch(prefs._id, { mode: "readOnly" });
-    else await ctx.db.insert("assistantPrefs", { roomId, subject: cred.subject, mode: "readOnly" });
-  },
-});
-
-export const assistantPrefsMode = migrations.define({
-  table: "assistantPrefs",
-  migrateOne: (_ctx, prefs) => {
-    if (prefs.mode !== undefined && prefs.autoApproveSummonBits === undefined) return;
-    return { mode: prefs.mode ?? "onRequest", autoApproveSummonBits: undefined };
-  },
-});
-
-export const assistantNoApprovalsTurns = migrations.define({
-  table: "assistantTurns",
-  // Ended as a cancellation ends a turn (its thread freed, streaming messages closed, unrun calls denied, the
-  // thread's queued messages started).
-  migrateOne: async (ctx, turn) => {
-    if (turn.status === "awaiting_confirmation") await finishTurn(ctx, turn, "cancelled");
-  },
-});
-
-export const assistantNoApprovalsCalls = migrations.define({
-  table: "assistantToolCalls",
-  migrateOne: (_ctx, call) => {
-    if (call.status !== "awaiting_confirmation" && call.approved === undefined && call.confirmDeadline === undefined) return;
-    return {
-      approved: undefined, confirmDeadline: undefined,
-      ...(call.status === "awaiting_confirmation" ? {
-        status: "denied" as const, summary: "Not run: approvals were retired", updatedAt: Date.now(),
-        resultJson: JSON.stringify({ error: { code: "NOT_RUN", message: "This call waited for an approval card, which no longer exists; it did not run." } }),
-      } : {}),
-    };
   },
 });
 
@@ -219,10 +155,8 @@ export const backfillObjectViews = migrations.define({
 // Annotated: this module's own `internal` references would otherwise make its exported types circular.
 const RUN_ALL: FunctionReference<"mutation", "internal">[] = [internal.migrations.dropHaskellFromSetups, internal.migrations.dropHaskellFromRooms,
   internal.migrations.dropHaskellFromGames, internal.migrations.dropHaskellBundle, internal.migrations.dropHaskellCompiledPrograms,
-  internal.migrations.backfillReplays, internal.migrations.backfillStandings, internal.migrations.aiQuotas,
-  internal.migrations.backfillObjectTimes, internal.migrations.assistantModeFromCredentials, internal.migrations.assistantPrefsMode, internal.migrations.assistantNoApprovalsTurns,
-  internal.migrations.assistantNoApprovalsCalls,
-  internal.migrations.backfillObjectViews];
+  internal.migrations.backfillReplays, internal.migrations.backfillStandings,
+  internal.migrations.backfillObjectTimes, internal.migrations.backfillObjectViews];
 export const runAll = migrations.runner(RUN_ALL);
 /** The state of each of runAll's migrations (scripts/run-migrations.mjs waits for all of them to succeed). */
 export const status = internalQuery({

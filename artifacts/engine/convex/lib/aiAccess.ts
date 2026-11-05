@@ -8,7 +8,6 @@ import type { Doc } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import { isAdminUser } from "../auth/identity";
 import { fail } from "./errors";
-import { DEFAULT_AI_QUOTA, DEFAULT_ASSISTANT_QUOTA } from "./aiModels";
 
 export const AI_ADMIN_ONLY = "AI is only available in rooms run by an administrator for now";
 
@@ -20,6 +19,6 @@ export async function requireAiEnabled(ctx: QueryCtx, room: Pick<Doc<"rooms">, "
   if (!(await aiEnabledFor(ctx, room))) fail("FORBIDDEN", AI_ADMIN_ONLY);
 }
 
-/** The room's quotas (tokens per game): rooms the aiQuotas migration has not reached yet have the defaults. */
-export const aiQuotaOf = (room: Pick<Doc<"rooms">, "aiQuota">) => room.aiQuota ?? DEFAULT_AI_QUOTA;
-export const assistantQuotaOf = (room: Pick<Doc<"rooms">, "assistantQuota">) => room.assistantQuota ?? DEFAULT_ASSISTANT_QUOTA;
+/** The room's quotas (tokens per game; 0 = none). */
+export const aiQuotaOf = (room: Pick<Doc<"rooms">, "aiQuota">) => room.aiQuota;
+export const assistantQuotaOf = (room: Pick<Doc<"rooms">, "assistantQuota">) => room.assistantQuota;

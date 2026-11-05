@@ -119,19 +119,15 @@ export const gameTables = {
     settingsOrigin: v.optional(settingsOriginV),
     /**
      * The AI players' per-game token quota (all AI seats of one game together; 0 = none) and this game's counters.
-     * Optional only until the aiQuotas migration has reached every room (absent = DEFAULT_AI_QUOTA, lib/aiAccess.ts).
      */
-    aiQuota: v.optional(v.number()),
+    aiQuota: v.number(),
     aiUsed: v.number(), aiReservedUsd: v.number(), aiInputTokens: v.number(), aiOutputTokens: v.number(),
     aiCalls: v.array(v.number()),
     /**
-     * The in-client assistant (assistant/*): each player's per-game token quota (0 = none; optional until the aiQuotas
-     * migration is done, absent = DEFAULT_ASSISTANT_QUOTA) and the model's catalog id. Its usage counters live in
-     * assistantAllowances, off this hot document.
+     * The in-client assistant (assistant/*): each player's per-game token quota (0 = none) and the model's catalog id.
+     * Its usage counters live in assistantAllowances, off this hot document.
      */
-    assistantQuota: v.optional(v.number()), assistantModel: v.optional(v.string()),
-    /** LEGACY approved budgets (before quotas; cleared by the aiQuotas migration, then removed from the schema). */
-    aiBudget: v.optional(v.number()), assistantBudget: v.optional(v.number()),
+    assistantQuota: v.number(), assistantModel: v.optional(v.string()),
     /** The active game (not ended), and the room's current game slot (active, or the latest until the next launch). */
     activeGameId: v.optional(v.id("games")), currentGameId: v.optional(v.id("games")),
     /**

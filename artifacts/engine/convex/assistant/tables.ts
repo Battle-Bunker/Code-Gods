@@ -13,16 +13,12 @@ import { modeV } from "./mode";
  * Message text, tool arguments and results are private to the thread's human: only assistant.thread(s), which check
  * `subject`, read them, and logs never carry them.
  */
-/**
- * `awaiting_confirmation` (turns and calls) is the retired per-action approval's: kept in the unions until the
- * assistantNoApprovals* migrations (convex/migrations.ts) have ended every such row on dev and production; nothing writes it.
- */
 const turnStatus = v.union(
-  v.literal("running"), v.literal("awaiting_confirmation"), v.literal("cancelling"),
+  v.literal("running"), v.literal("cancelling"),
   v.literal("done"), v.literal("failed"), v.literal("cancelled"), v.literal("budget_exhausted"),
 );
 const callStatus = v.union(
-  v.literal("pending"), v.literal("awaiting_confirmation"), v.literal("running"), v.literal("ok"), v.literal("error"), v.literal("denied"),
+  v.literal("pending"), v.literal("running"), v.literal("ok"), v.literal("error"), v.literal("denied"),
 );
 /**
  * A turn's usage: provider input and output tokens, the reservations, and `billedTokens`, the allowance tokens its
@@ -105,8 +101,6 @@ export const assistantTables = {
     /** The tool result as the model sees it ({untrusted: true, …} or {error}), ≤ 8 KB. */
     resultJson: v.optional(v.string()),
     commandId: v.optional(v.string()),
-    /** The retired per-action approval's card deadline and decision: cleared by assistantNoApprovalsCalls, then dropped. */
-    confirmDeadline: v.optional(v.number()), approved: v.optional(v.boolean()),
     createdAt: v.number(), updatedAt: v.number(),
   }).index("by_turn", ["turnId", "index"]).index("by_thread", ["threadId"]),
 
@@ -138,14 +132,11 @@ export const assistantTables = {
     .index("by_client", ["subject", "clientId"]),
 
   /**
-   * A player's assistant preferences per room: its `mode` (assistant/mode.ts; absent reads as onRequest until the
-   * assistantPrefsMode migration fills it). A choice of the player's, like their layout, not the assistant's working
+   * A player's assistant preferences per room: its `mode` (assistant/mode.ts; a player with no row is On request). A choice of the player's, like their layout, not the assistant's working
    * state, so it is kept across the room's games. `autopilotChain`: the generation of the autopilot's scheduled ticks
    * (assistant/autopilot.ts), bumped when autopilot is chosen and when a game starts or resumes, so a stale tick exits.
-   * `autoApproveSummonBits` is the retired per-action approval's, cleared by assistantPrefsMode, then dropped.
    */
   assistantPrefs: defineTable({
-    roomId: v.id("rooms"), subject: v.string(), mode: v.optional(modeV), autopilotChain: v.optional(v.number()),
-    autoApproveSummonBits: v.optional(v.number()),
+    roomId: v.id("rooms"), subject: v.string(), mode: modeV, autopilotChain: v.optional(v.number()),
   }).index("by_key", ["roomId", "subject"]),
 };

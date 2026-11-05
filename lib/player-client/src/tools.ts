@@ -173,14 +173,14 @@ export const ACT_TOOLS = [
     input: obj({ source, language: language.optional().describe("The agent's language: one the game allows (get_observation languages). Default: the game's first allowed language."), commandId: optionalCommandId, gameId, waitMs }),
     output: result(receiptData) }),
   def({ name: "summon_agent", short: "Summon an agent into the game, paying its cost from the player's energy.", title: "Summon an agent", functions: ["commands.submit"], permission: "act", annotations: acts,
-    about: "Summon an agent into the current game, paying its description bits from the player's god energy (the player confirms first). Requires a commandId; resend the identical call to retry. The receipt does not name the new agent: its id is in get_observation (agents[].id).",
+    about: "Summon an agent into the current game, paying its description bits from the player's god energy. Requires a commandId; resend the identical call to retry. The receipt does not name the new agent: its id is in get_observation (agents[].id).",
     input: obj({ source, language: language.optional().describe("The agent's language, the one it was validated in: one the game allows. Default: the game's first allowed language."),
       name: z.string().trim().min(1).max(AGENT_NAME_MAX).describe("A short, meaningful name for the agent (required, up to 40 characters), e.g. \"Corner hoarder\". Shown in the player's My agents list."),
       description: z.string().trim().max(AGENT_DESCRIPTION_MAX).optional().describe("One or two sentences on what the agent does and why (optional, up to 500 characters). Shown on hover next to the name."),
       powerShare: z.number().min(0).max(1).optional().describe("The share of the player's power the new agent earns, 0 to 1 (0.25 = a quarter of it). Default: half of the power the player has not yet given to agents. Shares of one player total at most 1."),
       commandId, gameId, waitMs }), output: result(receiptData) }),
   def({ name: "destroy_agent", short: "Destroy one of the player's agents (no refund).", title: "Destroy an agent", functions: ["commands.submit"], permission: "act", annotations: destructive,
-    about: "Destroy one of the player's own agents, for free (energy already spent is not refunded; its power share goes back to the player; the player confirms first).",
+    about: "Destroy one of the player's own agents, for free (energy already spent is not refunded; its power share goes back to the player).",
     input: obj({ agentId: id.describe("The agent's id from get_observation (agents[].id); never a command id."), commandId, gameId }), output: result(receiptData) }),
   def({ name: "allocate_power", short: "Change how much of the player's power one agent gets.", title: "Allocate power", functions: ["commands.submit"], permission: "act", annotations: acts,
     about: "Set one agent's power share (0 to 1) from now on: it earns share x economy.powerPerSecond bits per world second, and the player's own income is the unallocated rest (self.income). The player's shares total at most 1; both accounts are settled first. Moving power between agents is two calls: lower one, then raise the other.",
@@ -193,10 +193,10 @@ export const ACT_TOOLS = [
     input: obj({ spectator: z.boolean().describe("true to watch the next game, false to play it."),
       deityId: id.optional().describe("Another human member's id (owner only); omit for the player themselves.") }), output: result(anyData) }),
   def({ name: "send_chat", short: "Post a public chat message to the room as the player.", title: "Send chat", functions: ["commands.submit"], permission: "act", annotations: acts,
-    about: "Post a PUBLIC chat message to the room as the human you act for; everyone in the room reads it (the player confirms first).",
+    about: "Post a PUBLIC chat message to the room as the human you act for; everyone in the room reads it.",
     input: obj({ text: z.string().trim().min(1).max(2000), commandId: optionalCommandId }), output: result(receiptData) }),
   def({ name: "pause_game", short: "Use the player's one pause of this game.", title: "Pause the game", functions: ["commands.submit"], permission: "act", annotations: acts,
-    about: "Use the player's one pause of this game (world time stops for the game's pause length; the player confirms first). Requires a commandId.",
+    about: "Use the player's one pause of this game (world time stops for the game's pause length). Requires a commandId.",
     input: obj({ commandId, gameId }), output: result(receiptData) }),
   def({ name: "wake_engine", short: "Wake games parked for lack of human activity.", title: "Wake the engine", functions: ["activity.touch"], permission: "act", annotations: acts,
     input: obj({}), output: result(anyData) }),
@@ -209,32 +209,31 @@ export const OWNER_TOOLS = [
   def({ name: "get_ai_catalog", short: "The AI players that can be seated (ids for add_ai).", title: "AI catalog", functions: ["aiTemplates.catalog"], permission: "owner", annotations: read,
     input: obj({}), output: result(anyData) }),
   def({ name: "update_settings", short: "Put the room on a setup or change its settings (next game).", title: "Update settings", functions: ["owner.settings", "owner.command"], permission: "owner", annotations: acts,
-    note: "Give a setupId (list_setups) or settings (only the fields to change), with the room's current revision (get_room_state). Confirmed by the player first.",
+    note: "Give a setupId (list_setups) or settings (only the fields to change), with the room's current revision (get_room_state).",
     input: obj({ requestId, revision: z.number().int().min(0),
       settings: z.record(z.string(), z.unknown()).optional().describe("The settings fields to change; languages is the non-empty list of languages agents may be written in (each agent's grammar and summon price follow its own language), an object type change moves its default instantiation. Not with setupId."),
       setupId: id.optional().describe("Any game setup's id (list_setups): the room runs it and the next game takes its complete settings. Not with settings.") }), output: result(ownerData) }),
   def({ name: "set_ai_quotas", short: "Set the room's per-game AI token quotas (AI players, assistants).", title: "Set AI quotas", functions: ["rooms.setAiQuotas", "owner.command"], permission: "owner", annotations: acts,
-    note: "Any of the three; 0 = none; also during a game. Only in rooms run by an administrator. Confirmed by the player first.",
+    note: "Any of the three; 0 = none; also during a game. Only in rooms run by an administrator.",
     input: obj({ requestId,
       aiQuota: z.number().int().min(0).max(1_000_000).optional().describe("Tokens all AI players together may use per game (default 300,000)."),
       assistantQuota: z.number().int().min(0).max(2_000_000).optional().describe("Tokens each player's assistant may use per game (default 300,000)."),
       assistantModel: z.string().max(64).optional().describe("The assistant's model id (manifest aiFunding.models).") }), output: result(ownerData) }),
   def({ name: "start_game", short: "Start the next game.", title: "Start a game", functions: ["owner.start", "owner.command"], permission: "owner", annotations: acts,
-    note: "Confirmed by the player first.", input: obj({ requestId }), output: result(ownerData) }),
+    input: obj({ requestId }), output: result(ownerData) }),
   def({ name: "resume_game", short: "Resume a game stopped in recovery.", title: "Resume the game", functions: ["rooms.resume", "owner.command"], permission: "owner", annotations: acts,
-    note: "Confirmed by the player first.", input: obj({ requestId }), output: result(ownerData) }),
+    input: obj({ requestId }), output: result(ownerData) }),
   def({ name: "end_game", short: "End the active game now.", title: "End the game", functions: ["rooms.endActiveGame", "owner.command"], permission: "owner", annotations: destructive,
-    note: "Confirmed by the player first.", input: obj({ requestId }), output: result(ownerData) }),
+    input: obj({ requestId }), output: result(ownerData) }),
   def({ name: "add_ai", short: "Seat an AI player from the catalogue, between games.", title: "Add an AI seat", functions: ["rooms.addAi", "owner.command"], permission: "owner", annotations: acts,
-    note: "aiAgentId from get_ai_catalog. Confirmed by the player first.", input: obj({ requestId, aiAgentId: id }), output: result(ownerData) }),
+    note: "aiAgentId from get_ai_catalog.", input: obj({ requestId, aiAgentId: id }), output: result(ownerData) }),
   def({ name: "remove_ai", short: "Remove an AI seat, between games.", title: "Remove an AI seat", functions: ["rooms.removeAi", "owner.command"], permission: "owner", annotations: destructive,
-    note: "deityId is the seat's member id from get_room_state. Confirmed by the player first.", input: obj({ requestId, deityId: id }), output: result(ownerData) }),
+    note: "deityId is the seat's member id from get_room_state.", input: obj({ requestId, deityId: id }), output: result(ownerData) }),
 ] as const;
 
 /**
  * Game setups (convex/setups.ts): one shared collection of named complete settings, each owned by the human who made it
- * or by the system. Saving or duplicating one changes no room (update_settings with its setupId does), so neither needs
- * a confirmation card.
+ * or by the system. Saving or duplicating one changes no room (update_settings with its setupId does).
  */
 const setupId = id.describe("A setup's id from list_setups.");
 export const SETUP_TOOLS = [
@@ -254,7 +253,7 @@ export const SETUP_TOOLS = [
     note: "Copies any setup as the human's own, named \"<name>'s copy\" unless a name is given; edit the copy with save_setup.",
     input: obj({ setupId, name: z.string().trim().min(1).max(SETUP_NAME_MAX).optional() }), output: result(anyData) }),
   def({ name: "delete_setup", short: "Delete one of the player's setups.", title: "Delete a game setup", functions: ["setups.remove"], permission: "act", annotations: destructive,
-    note: "Confirmed by the player first.", input: obj({ setupId }), output: result(anyData) }),
+    input: obj({ setupId }), output: result(anyData) }),
 ] as const;
 
 /** Stored panels (docs/panels.md "Stored panels"): the human's own UI panels, across all their rooms; every open client re-renders them live. */
@@ -273,13 +272,13 @@ export const PANEL_TOOLS = [
   def({ name: "rollback_panel", short: "Make an older version of a stored panel current.", title: "Roll back a stored panel", functions: ["panels.rollback"], permission: "act", annotations: acts,
     input: obj({ slug, version: z.number().int().min(1) }), output: result(anyData) }),
   def({ name: "delete_panel", short: "Delete a stored panel and all its versions.", title: "Delete a stored panel", functions: ["panels.remove"], permission: "act", annotations: destructive,
-    note: "Confirmed by the player first.", input: obj({ slug }), output: result(anyData) }),
+    input: obj({ slug }), output: result(anyData) }),
 ] as const;
 
 /**
  * The dock layout (docs/ui-redesign.md §2.3–2.4): the panes the player sees. A pane's built-in panel is chosen by the
- * player from a menu; its PARAMETERS are set only through these tools. No confirmation card: view changes touch no game
- * state and are reversible; a chip in the chat names every change. At most two layout tools run per assistant step.
+ * player from a menu; its PARAMETERS are set only through these tools. View changes touch no game state and are
+ * reversible; a chip in the chat names every change. At most two layout tools run per assistant step.
  */
 const paneId = z.string().min(1).max(64).describe("A pane id from get_layout (e.g. p1).");
 const panelId = z.enum(PANEL_IDS).describe("A built-in panel id (get_layout lists them with their parameter schemas). Give this or slug, not both.");
@@ -308,7 +307,7 @@ export const LAYOUT_TOOLS = [
 
 /**
  * Code execution (docs/assistant/code-execution.md): analytics scripts over datasets the engine resolves as the player,
- * in the agents' sandbox (convex/code). Reads only: a script cannot act in the game, so no confirmation card; a
+ * in the agents' sandbox (convex/code). Reads only: a script cannot act in the game (Read-only mode runs it too); a
  * per-player budget of runs and CPU per game applies. The analytics-code skill (skills.ts; load_skill) has the dataset
  * shapes, libraries, conventions and examples. All three tools sit in the index, loaded on demand.
  */
