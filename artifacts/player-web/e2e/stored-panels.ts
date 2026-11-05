@@ -598,7 +598,7 @@ await check("a Grid game's objects panel at phone size: no ✓/✗ glyphs, recta
   await phone.waitForSelector("[data-testid^=row-object-]", { timeout: 90_000 });
   const panel = await phone.evaluate(() => {
     const rows = [...document.querySelectorAll("[data-testid^=row-object-]")];
-    const list = rows[0].closest("ol")!.parentElement!;
+    const list = rows[0].closest("[data-testid=list-objects]")!;
     return {
       text: list.textContent ?? "",
       rects: [...list.querySelectorAll("svg[data-testid^=payoff-rect-]")].map(r => ({

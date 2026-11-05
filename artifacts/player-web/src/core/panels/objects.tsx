@@ -134,7 +134,7 @@ function ObjectRow({ objectId, position, byPayoff, scales, world, highlighted, o
   const ranked = useObjectRank(byPayoff ? undefined : objectId);
   const rank = byPayoff ? position : ranked ?? undefined;
   const label = rank === undefined ? "#–" : `#${rank}`;
-  if (!o) return <div className="h-full py-2 font-mono text-xs text-muted-foreground" data-testid={`row-object-${objectId}`}>{label} …</div>;
+  if (!o) return <div className="h-full py-2 font-mono text-xs text-muted-foreground" data-testid={`object-row-loading-${objectId}`}>{label} …</div>;
   // A replay's playhead just changed it (docs/replay-design.md §6): it flashes, once per version reached.
   const change = changed.get(o.id), lit = !!change && change.after === o.value;
   const strength = relativeStrength(o.payoff, scales.best);
