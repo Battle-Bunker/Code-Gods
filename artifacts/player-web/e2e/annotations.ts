@@ -55,8 +55,21 @@ try {
   // A family without a lens: the board and its score, no breakdown, no crash.
   const plain = page.locator("[data-testid=example-plain]");
   assert.equal(await plain.getAttribute("data-rich"), null);
-  assert.match(await plain.locator("[data-testid=goal-board-total]").innerText(), /^This board: \d+ points?/);
+  assert.match(await plain.locator("[data-testid=goal-board-total]").innerText(), /^This board: \(\d+\) points/, "the total is a points tuple, (n) for one tier");
   assert.equal(await plain.locator("[data-testid=goal-unit]").count(), 0);
+
+  // Points tuples: a two-tier rule's boxes show each tier's derivation, the impact as a tuple, and the total names each tier.
+  {
+    const chess = page.locator("[data-testid=example-chessmaster]");
+    assert.match(await chess.locator("[data-testid=goal-board-total]").innerText(), /^This board: \(\d+, \d+\) points — primary chessboards \d+ · secondary places where/);
+    const impacts = await chess.locator("[data-testid=goal-unit-impact]").allInnerTexts();
+    assert.ok(impacts.every(t => /^\([+−]?\d+, [+−]?\d+\)$/.test(t)), `every impact is a 2-tuple (${impacts.slice(0, 3)})`);
+    const seam = chess.locator('[data-testid=goal-unit][data-part^="seam:"]').first();
+    assert.equal(await seam.locator("[data-testid=goal-unit-tier]").getAttribute("data-tier"), "1", "a touching pair derives secondary points");
+    assert.match(await seam.locator("[data-testid=goal-unit-tier]").innerText(), /^secondary points\s*\+1/);
+    const text = await page.locator("body").innerText();
+    assert.doesNotMatch(text, /\bwins?\b|\btie/i, "no player-facing text talks about winning or ties");
+  }
 
   // Set Spotter: four hover modes, one per direction; the board picks the trio centred under the pointer.
   const set = page.locator("[data-testid=example-set_spotter]");
