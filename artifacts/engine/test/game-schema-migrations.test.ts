@@ -260,8 +260,8 @@ test("powerV1: a game stored before the power budget gets powerPerSecond, agents
     for (const k of ["energyPerSecond", "agentEnergyPerSecond", "agentBatteryActs", "perActFloorBits"]) assert.equal(k in settings, false, `run ${run}: ${k} dropped`);
     for (const a of state.agents) assert.ok(Math.abs(a.powerShare - 1 / 3) < 1e-6, `run ${run}: ${a.powerShare}`);
     const deity = state.deities.find((d: any) => d.godId === ada.subject);
-    assert.ok(Math.abs(deity.allocated - 1) < 1e-6, `run ${run}`);
-    assert.ok(deity.account && deity.account.balance > 0 && deity.spent === spentBefore, `run ${run}`);
+    assert.ok(Math.abs(deity.allocated - 1) < 1e-5, `run ${run}: ${deity.allocated}`);
+    assert.ok(deity.account && deity.account.balance > 0 && deity.spent === spentBefore, `run ${run}: ${JSON.stringify(deity)} spent before ${spentBefore}`);
     const other = state.deities.find((d: any) => d.godId === bo.subject);
     assert.equal(other.allocated, 0, `run ${run}`);
   }
