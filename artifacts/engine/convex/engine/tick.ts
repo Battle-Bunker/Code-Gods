@@ -146,7 +146,7 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
         // Skipped (docs/energy-model.md §2): it read, chose not to act, and pays its reads; not a failure, never futile.
         const cost = actCharge(null, result.readBits);
         agent.account = chargeAct(settledAccount(settings, agent, p.world), cost.total);
-        agent.acts++; agent.skips++; agent.spent += cost.total; agent.touched = true; acts++;
+        agent.acts++; agent.skips++; agent.spent += cost.total; agent.spentRead += cost.read; agent.touched = true; acts++;
         events.push({ t: "skip", objectId: object.id, world: p.world, agentId: agent.id, ownerId: agent.ownerId, cost, seed: p.seed.toString() });
         return;
       }
@@ -166,7 +166,7 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
       const duplicate = outcome.ok && occupied.has(outcome.value); // includes the object's own value
       const cost = actCharge(outcome, result.readBits, { commits: !duplicate });
       agent.account = chargeAct(settledAccount(settings, agent, p.world), cost.total);
-      agent.acts++; agent.spent += cost.total; agent.touched = true; acts++;
+      agent.acts++; agent.spent += cost.total; agent.spentRead += cost.read; agent.touched = true; acts++;
       const kind: ActKind = "error" in result ? "error" : !outcome.ok ? failureKind(outcome.reason) : duplicate ? "collision" : "transform";
       if (kind === "transform") agent.transforms++;
       else {
@@ -294,7 +294,7 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
       objects: changed.map(o => ({ id: o.id as Doc<"objects">["_id"], fromVersion: o.fromVersion, value: o.value as number | string, version: o.version, scores: o.scores, salience: o.salience,
         ...(o.noise !== undefined ? { noise: o.noise } : {}) })),
       spawns: spawns.map(s => ({ ...s, value: s.value as number | string })),
-      agents: agents.filter(a => a.touched).map(a => ({ id: a.id as Doc<"agents">["_id"], fromActs: a.fromActs, acts: a.acts, spent: a.spent, account: a.account,
+      agents: agents.filter(a => a.touched).map(a => ({ id: a.id as Doc<"agents">["_id"], fromActs: a.fromActs, acts: a.acts, spent: a.spent, spentRead: a.spentRead, account: a.account,
         transforms: a.transforms, skips: a.skips, failures: a.failures, lastFailures: a.lastFailures,
         ...(a.lastOpportunityWorld !== undefined ? { lastOpportunityWorld: a.lastOpportunityWorld } : {}) })),
       futile: futile.changedRows(versionOf).map(m => ({ agentId: m.agentId as Doc<"agents">["_id"],
