@@ -18,7 +18,7 @@ import type { UtilityDescriptor } from "@workspace/game-utilities";
 import { useRoom } from "./context";
 import { useThrottled } from "./throttle";
 import { createEvaluator, type Evaluator } from "./evaluator";
-import { extendWith, lastPoints, mergePages, trajectoryWindows, type TrajectoryPage } from "./trajectory-windows";
+import { extendWith, lastPoints, loadedRun, planWindows, type Series, type TrajectoryPage } from "./trajectory-windows";
 
 export type { Observation };
 export type LiveObject = Observation["objects"][number];
@@ -159,41 +159,57 @@ export function useEvaluator({ enabled = true }: { enabled?: boolean } = {}): Ev
 }
 
 // ------------------------------------------------------------------------------------------------
-// trajectories: fixed windows of the log, each its own subscription, plus one live tail (trajectory-windows.ts)
+// trajectories: closed windows of the log, each subscribed until folded in, plus one live tail (trajectory-windows.ts)
 // ------------------------------------------------------------------------------------------------
+
+type TrajectoryHistory = { gameId?: string; epoch?: string; latest: number; folded: number; series: Series<TrajectoryPoint> };
+const FRESH: TrajectoryHistory = { latest: -1, folded: -1, series: new Map() };
 
 /**
  * Per-object series of your bits over the whole current game: `{seq, worldSeconds, value, ownNetBits,
- * peerNetBits, payoff}` points (the last 600 per object). The history is closed windows of the log (each read once:
- * a window of batches already written never changes) and the tail follows new ticks; while a window loads (the tail
- * moving on), the series shown stays the last whole one.
+ * peerNetBits, payoff}` points (the last 600 per object). The history loads as closed windows of the log, each
+ * subscribed until it has loaded and then folded in (its points never change); the tail follows new ticks. While the
+ * tail moves on to the next slice, the series shown stays the last whole one.
  */
 export function useTrajectories({ hz }: Live = {}): ReadonlyMap<string, TrajectoryPoint[]> {
   const { roomId } = useRoom();
   const gameId = useObservation({ hz: 1 })?.gameId;
-  // The latest batch the tail has reported, for this game: where the windows end.
-  const [known, setKnown] = useState<{ gameId?: string; latest: number }>({ latest: -1 });
-  const latest = known.gameId === gameId ? known.latest : -1;
-  const windows = useMemo(() => (gameId ? trajectoryWindows(latest).map(w => ({ roomId, gameId, ...w })) : []), [roomId, gameId, latest]);
-  const pages = useSdkQueries("player.trajectories", windows, 5) as (TrajectoryPage | undefined)[];
-  const tail = pages.at(-1);
+  const [kept, setKept] = useState<TrajectoryHistory>(FRESH);
+  const history = kept.gameId === gameId ? kept : { ...FRESH, gameId };
+  const plan = useMemo(() => planWindows(history.latest, history.folded), [history.latest, history.folded]);
+  const args = useMemo(() => (gameId ? [...plan.closed, plan.tail].map(w => ({ roomId, gameId, ...w })) : []), [roomId, gameId, plan]);
+  const pages = useSdkQueries("player.trajectories", args, 5) as (TrajectoryPage<TrajectoryPoint> | undefined)[];
+  const closed = pages.slice(0, -1), tail = pages.at(-1);
+  const current = (p: TrajectoryPage | undefined) => !!p && p.gameId === gameId && p.epoch === history.epoch;
+  const run = loadedRun(closed.map(p => (current(p) ? p : undefined)));
+
+  // Learn the latest batch from the tail (start over on a new point of view, or a playhead behind the history), and fold
+  // the closed windows that have loaded into the history: they drop out of the plan, so their subscriptions end.
   useEffect(() => {
-    if (gameId && tail?.gameId === gameId && tail.latestCursor !== latest) setKnown({ gameId, latest: tail.latestCursor });
-  }, [gameId, tail, latest]);
-  // The closed windows' merge is redone only when one of them changes (they do not, once loaded); the tail extends it.
-  const prefix = useRef<Merged>({ pages: [], series: EMPTY_MAP });
-  const shown = useRef<Merged & { gameId?: string }>({ pages: [], series: EMPTY_MAP });
-  const closed = pages.slice(0, -1);
-  if (!sameItems(closed, prefix.current.pages)) prefix.current = { pages: closed, series: lastPoints(mergePages(closed)) };
-  const held = pages.some(p => !p) && shown.current.gameId === gameId && shown.current.series.size > 0;
-  if (gameId !== shown.current.gameId || (!held && !sameItems(pages, shown.current.pages))) {
-    shown.current = { gameId, pages, series: gameId ? lastPoints(extendWith(prefix.current.series, tail)) : EMPTY_MAP };
+    if (!gameId || !tail || tail.gameId !== gameId) return;
+    if (tail.epoch !== history.epoch || tail.latestCursor < history.folded) {
+      setKept({ ...FRESH, gameId, epoch: tail.epoch, latest: tail.latestCursor });
+    } else if (run > 0) {
+      setKept({ ...history, latest: tail.latestCursor, folded: plan.closed[run - 1].upTo!, series: lastPoints(extendWith(history.series, closed.slice(0, run))) });
+    } else if (tail.latestCursor !== history.latest) {
+      setKept({ ...history, latest: tail.latestCursor });
+    }
+  });
+
+  // What is shown: the history plus every loaded window and, once no window is left out, the tail. While a window or the
+  // tail loads after the history was whole, the last whole series stays.
+  const shown = useRef<{ key: readonly unknown[]; series: ReadonlyMap<string, TrajectoryPoint[]> }>({ key: [], series: EMPTY_MAP });
+  const whole = plan.complete && closed.every(current) && current(tail);
+  const key = [gameId, history.series, ...(whole ? pages : closed.slice(0, run))];
+  const holding = !whole && plan.complete && shown.current.key[0] === gameId && shown.current.key.length > 0;
+  if (!holding && !sameItems(key, shown.current.key)) {
+    const pagesShown = whole ? pages : closed.slice(0, run);
+    shown.current = { key, series: gameId ? lastPoints(extendWith(history.series, pagesShown)) as unknown as ReadonlyMap<string, TrajectoryPoint[]> : EMPTY_MAP };
   }
   return useThrottled(shown.current.series, hz);
 }
 
-type Merged = { pages: readonly (TrajectoryPage | undefined)[]; series: ReadonlyMap<string, TrajectoryPoint[]> };
-const sameItems = <T,>(a: readonly T[], b: readonly T[]) => a.length === b.length && a.every((x, i) => x === b[i]);
+const sameItems = (a: readonly unknown[], b: readonly unknown[]) => a.length === b.length && a.every((x, i) => x === b[i]);
 
 /** One object's series (see useTrajectories). */
 export function useObjectHistory(objectId: string, { hz }: Live = {}): TrajectoryPoint[] {

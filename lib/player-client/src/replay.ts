@@ -483,22 +483,23 @@ export function replayEvents(replay: Replay, at: ReplayAt, limit = 20) {
 export function replayTrajectories(replay: Replay, at: ReplayAt, afterSeq = -1, upTo?: number) {
   const upto = Math.min(at.cursor, replay.log.length);
   const series = new Map<string, { seq: number; worldSeconds: number; value: Wire; ownNetBits: number; peerNetBits: number; payoff: number }[]>();
-  for (let i = 0; i < upto; i++) {
+  // The log is in seq order: start at its first entry after `afterSeq` (a window reads only its own range).
+  let i = 0;
+  for (let hi = upto; i < hi;) { const mid = (i + hi) >> 1; if (replay.log[mid].seq <= afterSeq) i = mid + 1; else hi = mid; }
+  let end = afterSeq;
+  for (; i < upto; i++) {
     const { seq, event: ev } = replay.log[i];
     if (upTo !== undefined && seq > upTo) break;
-    if (seq <= afterSeq || (ev.type !== "object.spawned" && ev.type !== "object.transformed" && ev.type !== "object.rescored")) continue;
+    end = seq;
+    if (ev.type !== "object.spawned" && ev.type !== "object.transformed" && ev.type !== "object.rescored") continue;
     const v = viewOf(ev.net, at.pov);
     let points = series.get(ev.objectId);
     if (!points) series.set(ev.objectId, points = []);
     points.push({ seq, worldSeconds: ev.worldSeconds, value: ev.value, ownNetBits: v.netBits, peerNetBits: v.peerNetBits, payoff: v.payoff });
   }
   const objects = [...series].map(([objectId, points]) => ({ objectId, points }));
-  if (upTo !== undefined) {
-    // The window's last batch at the playhead (none: it ends where it starts).
-    let end = afterSeq;
-    for (let i = upto - 1; i >= 0; i--) if (replay.log[i].seq <= upTo) { end = Math.max(afterSeq, replay.log[i].seq); break; }
-    return { gameId: replay.game.id, objects, nextCursor: end, latestCursor: end, epoch: `pov:${at.pov}` };
-  }
+  // A closed window reports its own last batch at the playhead (none: it ends where it starts).
+  if (upTo !== undefined) return { gameId: replay.game.id, objects, nextCursor: end, latestCursor: end, epoch: `pov:${at.pov}` };
   const lastSeq = upto ? replay.log[upto - 1].seq : -1;
   return { gameId: replay.game.id, objects, nextCursor: lastSeq, latestCursor: lastSeq, epoch: `pov:${at.pov}` };
 }

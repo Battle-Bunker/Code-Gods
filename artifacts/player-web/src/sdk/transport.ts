@@ -1,5 +1,5 @@
 /** The host transport of the SDK (see transport-types.ts): Convex directly, in the player client. */
-import { useCallback, useEffect, useMemo, useReducer, useSyncExternalStore } from "react";
+import { useCallback, useMemo, useRef, useSyncExternalStore } from "react";
 import { useAction, useQueries, useQuery } from "convex/react";
 import type { FunctionReference } from "convex/server";
 import { api } from "@workspace/engine/convex/_generated/api";
@@ -43,10 +43,16 @@ export const useSdkQueries: UseSdkQueries = (name, argsList) => {
     // `key` covers argsList.
     [served, name, key]);
   const live = useQueries(request as Parameters<typeof useQueries>[0]);
-  const [, answered] = useReducer((n: number) => n + 1, 0);
-  useEffect(() => (served ? replay!.subscribe(answered) : undefined), [served, replay]);
-  return argsList.map((args, i) => {
-    if (served) return replay!.answer(name, args);
+  // The replay's answers as one snapshot: the same array while every answer is the same object.
+  const answers = useRef<unknown[]>([]);
+  const fromReplay = useSyncExternalStore(served ? replay!.subscribe : noSubscription, () => {
+    if (!served) return answers.current;
+    const next = argsList.map(args => replay!.answer(name, args));
+    if (next.length !== answers.current.length || next.some((a, i) => a !== answers.current[i])) answers.current = next;
+    return answers.current;
+  });
+  return argsList.map((_args, i) => {
+    if (served) return fromReplay[i];
     const result = live[String(i)];
     if (result instanceof Error) throw result;
     return result;

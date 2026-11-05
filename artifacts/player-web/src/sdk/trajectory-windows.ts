@@ -1,59 +1,67 @@
 /**
- * The bits-over-time history as fixed windows of the event log (docs/convex-read-architecture.md R6, §6 PR 8): every
- * whole SLICE of batches already written is a closed window (`afterSeq`, `upTo`), an immutable subscription that
- * never re-runs; after the last whole slice, one live tail of at most SLICE batches follows the ticks. A window is
- * dropped when the latest batch moves back (a replay's playhead) or the game changes; the tail moves on once a slice
- * fills, and the slice becomes a closed window. No module store: the panels hold the subscriptions they render.
+ * The bits-over-time history as fixed windows of the event log (docs/convex-read-architecture.md R6, §6 PR 8).
+ *
+ * Every whole SLICE of batches before the latest batch is a closed window (`afterSeq`, `upTo`): its answer never changes, so
+ * its subscription never re-runs on a tick. After the last whole slice, one live tail of at most SLICE batches follows
+ * the ticks. A closed window is subscribed until it has loaded, then folded into the reader's history (immutable: a
+ * closed window's points never change) and dropped, so a reader holds at most KEEP windows plus the tail however long
+ * the game. The history starts over when the game, the point of view (a replay's `epoch`) changes or the latest batch
+ * moves back behind it (a replay's playhead). No module store: each reader holds what it renders.
  */
 
 /** Batches per window (a closed one and the tail alike): one execution reads at most this many tickBatches. */
 export const SLICE = 10;
+/** Closed windows subscribed at once while the history loads. */
+export const KEEP = 10;
 /** Points kept per object (the newest). */
 export const MAX_POINTS = 600;
 
-export type TrajectoryPoint = { seq: number; worldSeconds: number; value: number | string; ownNetBits: number; peerNetBits: number; payoff: number };
-export type TrajectoryPage = { gameId: string | null; objects: readonly { objectId: string; points: readonly TrajectoryPoint[] }[]; nextCursor: number; latestCursor: number };
+type Point = { seq: number };
+export type TrajectoryPage<P extends Point = Point> = {
+  gameId: string | null; objects: readonly { objectId: string; points: readonly P[] }[]; nextCursor: number; latestCursor: number; epoch?: string;
+};
 export type TrajectoryWindow = { afterSeq: number; upTo?: number; limit: number };
+export type Series<P extends Point = Point> = ReadonlyMap<string, readonly P[]>;
 
 /**
- * The windows of a game whose latest batch is `latest` (-1: none known yet): a closed window per whole slice of
- * batches up to `latest`, then the tail (no `upTo`) from the first batch after them.
+ * The windows to subscribe for a game whose latest batch is `latest` (-1: none known yet), with the history folded up
+ * to batch `folded` (-1: none; always the end of a slice): the next closed windows after it (at most `keep`), each of
+ * a whole slice before the latest batch, then the tail. `complete`: no closed window is left out, so the tail continues the closed ones.
  */
-export function trajectoryWindows(latest: number): TrajectoryWindow[] {
-  const whole = Math.floor((Math.max(-1, latest) + 1) / SLICE) * SLICE;
-  const out: TrajectoryWindow[] = [];
-  for (let from = 0; from < whole; from += SLICE) out.push({ afterSeq: from - 1, upTo: from + SLICE - 1, limit: SLICE });
-  out.push({ afterSeq: whole - 1, limit: SLICE });
-  return out;
+export function planWindows(latest: number, folded = -1, keep = KEEP): { closed: TrajectoryWindow[]; tail: TrajectoryWindow; complete: boolean } {
+  // A slice closes once a later batch exists (a replay's playhead may stop inside its latest batch).
+  const whole = Math.floor(Math.max(0, latest) / SLICE) * SLICE;
+  const closed: TrajectoryWindow[] = [];
+  for (let from = folded + 1; from < whole && closed.length < keep; from += SLICE) closed.push({ afterSeq: from - 1, upTo: from + SLICE - 1, limit: SLICE });
+  const end = closed.at(-1)?.upTo ?? folded;
+  return { closed, tail: { afterSeq: Math.max(whole - 1, folded), limit: SLICE }, complete: end >= whole - 1 };
 }
 
-/** Each object's points from `pages` in log order (a page's points after the last seq already taken), unbounded. */
-export function mergePages(pages: readonly (TrajectoryPage | undefined)[]): Map<string, TrajectoryPoint[]> {
-  const out = new Map<string, TrajectoryPoint[]>();
-  for (const page of pages) if (page) for (const { objectId, points } of page.objects) {
-    const known = out.get(objectId);
-    if (!known) { out.set(objectId, [...points]); continue; }
-    const last = known.at(-1)?.seq ?? -Infinity;
-    for (const p of points) if (p.seq > last) known.push(p);
-  }
-  return out;
-}
-
-/** `base` with `page`'s newer points appended: a new map, sharing the arrays of the objects the page leaves alone. */
-export function extendWith(base: ReadonlyMap<string, TrajectoryPoint[]>, page: TrajectoryPage | undefined): Map<string, TrajectoryPoint[]> {
+/** `base` with `pages`' newer points appended, in order: a new map, sharing the arrays of the objects they leave alone. */
+export function extendWith<P extends Point>(base: Series<P>, pages: readonly (TrajectoryPage<P> | undefined)[]): Map<string, readonly P[]> {
   const out = new Map(base);
-  if (page) for (const { objectId, points } of page.objects) {
-    const known = out.get(objectId) ?? [];
-    const last = known.at(-1)?.seq ?? -Infinity;
+  const grown = new Map<string, P[]>();
+  for (const page of pages) if (page) for (const { objectId, points } of page.objects) {
+    let mine = grown.get(objectId);
+    const last = (mine ?? out.get(objectId))?.at(-1)?.seq ?? -Infinity;
     const fresh = points.filter(p => p.seq > last);
-    if (fresh.length) out.set(objectId, [...known, ...fresh]);
+    if (!fresh.length) continue;
+    if (!mine) grown.set(objectId, mine = [...(out.get(objectId) ?? [])]);
+    mine.push(...fresh);
+    out.set(objectId, mine);
   }
   return out;
 }
 
-/** The newest MAX_POINTS points of each object's series (the arrays are not changed). */
-export function lastPoints(series: ReadonlyMap<string, TrajectoryPoint[]>): Map<string, TrajectoryPoint[]> {
-  const out = new Map<string, TrajectoryPoint[]>();
+/** The newest MAX_POINTS points of each series (the arrays are not changed). */
+export function lastPoints<P extends Point>(series: Series<P>): Map<string, readonly P[]> {
+  const out = new Map<string, readonly P[]>();
   for (const [id, points] of series) out.set(id, points.length > MAX_POINTS ? points.slice(-MAX_POINTS) : points);
   return out;
+}
+
+/** How many closed pages, from the first, have loaded (they fold into the history together). */
+export function loadedRun(pages: readonly (TrajectoryPage | undefined)[]): number {
+  const i = pages.findIndex(p => !p);
+  return i < 0 ? pages.length : i;
 }
