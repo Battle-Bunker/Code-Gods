@@ -634,20 +634,25 @@ UNO_SNAKE = mk(
 
 
 # --- Court Parade -------------------------------------------------------------------------------------------------
+def _cp_suit(p):
+    """The parade's suit index, or None for Any-Suit Parade (no suit param)."""
+    return suit_at(p["suit"]) if "suit" in p else None
+
+
 def cp_ord(g, p, gtype):
     N = gtype.N
-    suit = suit_at(p["suit"])
+    suit = _cp_suit(p)
     rk, su, col = gtype.rank[g.sym], gtype.suit[g.sym], g.col
     score = pairs = 0
     for R, S, C in ((rk.tolist(), su.tolist(), col.tolist()), (rk.T.tolist(), su.T.tolist(), col.T.tolist())):
         for r in range(N):
             for i in range(N - 1):
-                okp = S[r][i] == S[r][i + 1] and S[r][i] == suit \
+                okp = S[r][i] == S[r][i + 1] and (suit is None or S[r][i] == suit) \
                     and (R[r][i], R[r][i + 1]) in ((10, 11), (11, 12))
                 pairs += okp
             for i in range(N - 2):
                 ok = (R[r][i], R[r][i + 1], R[r][i + 2]) == (10, 11, 12) and S[r][i] == S[r][i + 1] == S[r][i + 2] \
-                    and S[r][i] == suit \
+                    and (suit is None or S[r][i] == suit) \
                     and C[r][i] == C[r][i + 1] == C[r][i + 2]
                 if ok:
                     score += 1
@@ -658,9 +663,9 @@ def cp_ord(g, p, gtype):
 
 def cp_batch(sym, col, p, gtype):
     N = gtype.N
-    suit = suit_at(p["suit"])
+    suit = _cp_suit(p)
     rk, su, c = (lines_rc(x.astype(np.int64), "both") for x in (gtype.rank[sym], gtype.suit[sym], col))
-    sp = lambda x: x == suit  # noqa: E731
+    sp = (lambda x: x == suit) if suit is not None else (lambda x: np.ones(x.shape, bool))
     pr = (su[:, :, 1:] == su[:, :, :-1]) & sp(su[:, :, :-1]) & (
         ((rk[:, :, :-1] == 10) & (rk[:, :, 1:] == 11)) | ((rk[:, :, :-1] == 11) & (rk[:, :, 1:] == 12)))
     a, b, d = slice(0, N - 2), slice(1, N - 1), slice(2, N)
@@ -675,7 +680,7 @@ def cp_batch(sym, col, p, gtype):
 def cp_exemplar(p, gtype):
     N = gtype.N
     r, c = np.indices((N, N))
-    s = suit_at(p["suit"]) or 0
+    s = _cp_suit(p) or 0
     return grid(s * 13 + np.array([0, 10, 11, 12])[(r + c) % 4], np.zeros((N, N)))
 
 
@@ -691,6 +696,18 @@ COURT_PARADE = mk(
     exemplar=cp_exemplar,
     source="games#15 (+5 units rescaled to counts); tie-breaker = J→Q / Q→K pairs; your suit, always one colour since "
            "2026-11-04 (any-suit and colour-optional were unequal-opportunity params)")
+
+ANY_SUIT_PARADE = mk(
+    id="any_suit_parade", name="Any-Suit Parade", theme="J, Q, K of any one suit marching in a line",
+    requires=req("Suited", "Faced"), layers={"symbol", "colour", "position"}, camp="neutral",
+    sample=lambda rng, gt: {},
+    summary=lambda p, gt: ("A Jack, Queen and King of any one suit standing in that order "
+                           "(left to right or top to bottom) and all one colour"
+                           " is a parade; with its Ace just before the Jack it's a grand parade worth double."),
+    ordinal=cp_ord, batch=cp_batch,
+    exemplar=cp_exemplar,
+    source="games#15 with any suit, its own family since 2026-11-04 (the suit option was an unequal-opportunity param "
+           "of court_parade); tie-breaker = J→Q / Q→K pairs")
 
 
 # --- King's Court (games idea) ----------------------------------------------------------------------------------
@@ -768,4 +785,4 @@ CONNECT_FOUR = mk(
 
 
 FAMILIES = [RUMMY_MELDER, OTHELLO, MINESWEEPER, BINGO, SUDOKU, FULL_HOUSE, FLUSH_ROYALE, TWENTY_ONE, GO_FISH,
-            SET_SPOTTER, KNIGHT_RIDERS, UNO_SNAKE, COURT_PARADE, KINGS_COURT, CONNECT_FOUR]
+            SET_SPOTTER, KNIGHT_RIDERS, UNO_SNAKE, COURT_PARADE, KINGS_COURT, CONNECT_FOUR, ANY_SUIT_PARADE]
