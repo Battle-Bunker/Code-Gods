@@ -317,3 +317,11 @@ Owner, verbatim (abridged only where marked):
 - The next prod release carries many migrations, among them backfillObjectViews and objectEventPlaces. Release only
   when no game is running. After prod reports migrations:status done, the narrowings: typed params (rules session),
   agentPricesV2/powerV1 (energy session), assistant modes, objectEvents index/cost, aiQuotas, etc.
+
+## Thursday evening release
+- 20:58 AEDT: released develop ee5505ff to production via #236 (main 9ed32cb0); no game was running. Deploy green at
+  21:01; site 200; prod migrations:status shows all 44 succeeded.
+- 21:07: narrowings started: rules session (typed params, equal-opportunity, Set Spotter, Picture Frame leftovers),
+  energy session (agentPricesV2/powerV1), assistant-modes session (mode required, approvals dropped, plus aiQuotas),
+  read-architecture session (objectEvents index/cost, load.ts fallback, setupListing). All touch schema.ts: each rebases
+  onto develop right before merging. Then one more release, on the owner's call, with no game running.
