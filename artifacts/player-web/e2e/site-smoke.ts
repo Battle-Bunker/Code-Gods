@@ -40,7 +40,8 @@ import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import path from "node:path";
-import { canonicalSupport, context, familiesFor, instantiateKey, paramsKey, tableKey } from "@workspace/game-utilities";
+import { instantiate, objectType } from "@workspace/game-types";
+import { LENSES, applicable, canonicalSupport, context, familiesFor, family as familyOf, instantiateKey, paramsKey, tableKey } from "@workspace/game-utilities";
 
 const require = createRequire(import.meta.url);
 const { chromium } = require("playwright");
@@ -624,7 +625,12 @@ try {
     const p = alice.page;
     await p.getByTestId("link-rule-gallery").click();
     await p.getByTestId("list-rule-families").waitFor();
-    assert.equal(await p.locator('[data-testid^="tile-"]').count(), 9, "the nine families with a lens");
+    // Every family with a lens (the registry) that the gallery's default board can deal, in registry order.
+    const defaultBoard = instantiate("Grid", objectType("Grid").defaults);
+    const annotated = LENSES.map(l => l.familyId).filter(id => familyOf(id).role === "reward" && applicable(familyOf(id), defaultBoard).ok);
+    assert.ok(annotated.length >= 9, `the lens registry has the annotated families (${annotated.length})`);
+    assert.deepEqual(await p.locator('[data-testid^="tile-"]').evaluateAll(els => els.map(e => e.getAttribute("data-testid")!.slice("tile-".length))),
+      annotated, "one tile per family with a lens, in the registry's order");
     assert.equal(await p.getByTestId("source-picture_frame").getAttribute("open"), null, "source starts collapsed");
     await p.getByTestId("select-setup-size").selectOption("6");
     await p.waitForURL(/size=6/);
