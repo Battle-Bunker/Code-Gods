@@ -20,7 +20,7 @@ from ..core import Grid, GridType, Requires, req
 from ..family import Family
 
 __all__ = ["np", "math", "Grid", "GridType", "Requires", "req", "Family", "tup", "tupb", "mk",
-           "vmax", "vmin", "vals", "rank_key", "suits", "colour", "colours", "cname", "sglyph",
+           "vmax", "vmin", "vals", "rank_key", "suits", "colour", "colours", "colour_name", "colour_names", "ci", "cis", "cname", "recolour_names", "sglyph",
            "recolour", "shift", "valid", "orient", "label_batch", "label_links", "comp_sum", "comps2d",
            "log2_binom_tail", "log2_dist_tail", "dist_conv", "grid", "best_of", "DIRS4",
            "D4_DIR_NAMES", "nbrs4", "nbrs8", "lines_rc", "LINE_AXES"]
@@ -71,6 +71,30 @@ def colours(rng, gtype: GridType, k: int) -> list[int]:
     return [int(x) for x in rng.choice(gtype.C, k, replace=False)]
 
 
+def colour_name(rng, gtype: GridType) -> str:
+    """A colour param, stored as its NAME; drawn exactly like `colour` (same rng stream)."""
+    return gtype.colour_names[colour(rng, gtype)]
+
+
+def colour_names(rng, gtype: GridType, k: int) -> list[str]:
+    """k distinct colour names, drawn exactly like `colours`."""
+    return [gtype.colour_names[c] for c in colours(rng, gtype, k)]
+
+
+def ci(gtype: GridType, name: str) -> int:
+    """A colour param (name) -> the colour index numpy code compares against."""
+    return gtype.colour_names.index(name)
+
+
+def si(gtype: GridType, glyph: str) -> int:
+    """A symbol param (the glyph as the board prints it) -> the symbol index numpy code compares against."""
+    return next(s for s in range(gtype.S) if gtype.glyph(s) == glyph)
+
+
+def cis(gtype: GridType, p: dict, *keys: str) -> tuple[int, ...]:
+    return tuple(ci(gtype, p[k]) for k in keys)
+
+
 def cname(gtype: GridType, c: int) -> str:
     return gtype.colour_names[c]
 
@@ -90,6 +114,20 @@ def recolour(params: dict, keys: Iterable[str]) -> dict:
             continue
         if v not in m:
             m[v] = len(m)
+        p[k] = m[v]
+    return p
+
+
+def recolour_names(params: dict, keys: Iterable[str], gtype: GridType) -> dict:
+    """`recolour` for name-valued colour params: first appearance -> the shape's first colour names."""
+    p = dict(params)
+    m: dict[str, str] = {}
+    for k in keys:
+        v = p.get(k)
+        if v is None:
+            continue
+        if v not in m:
+            m[v] = gtype.colour_names[len(m)]
         p[k] = m[v]
     return p
 

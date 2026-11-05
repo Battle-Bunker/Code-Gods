@@ -1,8 +1,9 @@
 /**
  * Goal annotations in a browser (docs/annotations-design.md): the gallery page (annotations.html) on a Vite dev server
- * this script starts. Checks what only a browser shows: each annotated family's goal-card example draws a verified
- * breakdown; hovering a cell moves the focus and its pieces (Set Spotter: only trios ENDING at the focus); a compact
- * grid's hover view starts on the top-left cell; arrow keys move the focus.
+ * this script starts. Checks what only a browser shows: each annotated family's goal-card example lists its scoring
+ * units (gains first, a list that scrolls inside a fixed height); hovering a unit's box draws its region on the board
+ * and an arrow; hovering the board picks the unit under the pointer in the chosen hover mode and marks its box; arrow
+ * keys step through the units; a compact grid's hover view explains it the same way.
  *
  *   node --experimental-transform-types e2e/annotations.ts
  */
@@ -34,8 +35,13 @@ try {
   for (const f of families) {
     const board = page.locator(`[data-testid=example-${f}]`);
     assert.equal(await board.getAttribute("data-rich"), "true", `${f}: the example's breakdown adds up to the card's score`);
-    assert.match(await board.locator("[data-testid=goal-board-headline]").innerText(), /^Row \d, column \d: /);
-    assert.ok(await board.locator("[data-testid=goal-callout], [data-testid=goal-outcome-table]").count() > 0, `${f}: the default focus expands something`);
+    const units = board.locator("[data-testid=goal-units]");
+    const tones = await units.locator("[data-testid=goal-unit]").evaluateAll(els => els.map(e => e.getAttribute("data-tone")!));
+    assert.ok(tones.length > 0, `${f}: the units are listed`);
+    const rank = (t: string) => ({ gain: 0, loss: 1, zero: 2 } as Record<string, number>)[t];
+    assert.deepEqual(tones, [...tones].sort((x, y) => rank(x) - rank(y)), `${f}: gains first, then losses, then zeros`);
+    assert.equal(await units.evaluate(el => getComputedStyle(el).overflowY), "auto", `${f}: the list scrolls inside`);
+    assert.ok((await units.boundingBox())!.height <= 22 * 16 + 1, `${f}: the list keeps its maximum height`);
     // Every annotated family explains its bits: raw parts, the share of boards, then −log₂(P) with the same P.
     const how = board.locator("[data-testid=how-this-scores]");
     assert.equal(await how.count(), 1, `${f}: "How this scores" is shown`);
@@ -49,42 +55,65 @@ try {
   // A family without a lens: the board and its score, no breakdown, no crash.
   const plain = page.locator("[data-testid=example-plain]");
   assert.equal(await plain.getAttribute("data-rich"), null);
-  assert.match(await plain.locator("[data-testid=goal-board-total]").innerText(), /^This board: \d+ points?/);
-  await plain.locator('[data-cell="1,1"]').hover();
-  assert.equal(await plain.locator("[data-testid=goal-callout]").count(), 0);
+  assert.match(await plain.locator("[data-testid=goal-board-total]").innerText(), /^This board: \(\d+\) points/, "the total is a points tuple, (n) for one tier");
+  assert.equal(await plain.locator("[data-testid=goal-unit]").count(), 0);
 
-  // Set Spotter: hover each cell; every trio shown has the hovered cell at one END.
-  const set = page.locator("[data-testid=example-set_spotter]");
-  for (const [r, c] of [[0, 0], [1, 1], [2, 3], [3, 2]]) {
-    await set.locator(`[data-cell="${r},${c}"]`).hover();
-    assert.ok((await set.locator("[data-testid=goal-board-headline]").innerText()).startsWith(`Row ${r + 1}, column ${c + 1}:`));
-    const ids = await set.locator("[data-testid=goal-callout]").evaluateAll(els => els.map(e => e.getAttribute("data-part")!));
-    assert.ok(ids.length > 0);
-    for (const id of ids) {
-      const [, at, dir] = id.split(":"), [r0, c0] = at.split(",").map(Number);
-      const step = ({ right: [0, 1], down: [1, 0], "down-right": [1, 1], "down-left": [1, -1] } as Record<string, number[]>)[dir];
-      const ends = [[r0, c0], [r0 + 2 * step[0], c0 + 2 * step[1]]];
-      assert.ok(ends.some(([y, x]) => y === r && x === c), `${id} ends at ${r},${c}`);
-    }
+  // Points tuples: a two-tier rule's boxes show each tier's derivation, the impact as a tuple, and the total names each tier.
+  {
+    const chess = page.locator("[data-testid=example-chessmaster]");
+    assert.match(await chess.locator("[data-testid=goal-board-total]").innerText(), /^This board: \(\d+, \d+\) points — primary: chessboards, \d+ · secondary: places where/);
+    const impacts = await chess.locator("[data-testid=goal-unit-impact]").allInnerTexts();
+    assert.ok(impacts.every(t => /^\([+−]?\d+, [+−]?\d+\)$/.test(t)), `every impact is a 2-tuple (${impacts.slice(0, 3)})`);
+    const seam = chess.locator('[data-testid=goal-unit][data-part^="seam:"]').first();
+    assert.equal(await seam.locator("[data-testid=goal-unit-tier]").getAttribute("data-tier"), "1", "a touching pair derives secondary points");
+    assert.match(await seam.locator("[data-testid=goal-unit-tier]").innerText(), /^secondary points\s*\+1/);
+    const text = await page.locator("body").innerText();
+    assert.doesNotMatch(text, /\bwins?\b|\btie/i, "no player-facing text talks about winning or ties");
   }
-  // The focus stays where the pointer left it.
-  await page.mouse.move(5, 5);
-  assert.match(await set.locator("[data-testid=goal-board-headline]").innerText(), /^Row 4, column 3:/);
 
-  // Keyboard: arrow keys move the focus.
+  // Set Spotter: four hover modes, one per direction; the board picks the trio centred under the pointer.
+  const set = page.locator("[data-testid=example-set_spotter]");
+  assert.deepEqual(await set.locator("[data-testid=goal-hover-modes] button").allInnerTexts(), ["→", "↓", "↘", "↙"]);
+  await set.locator("[data-testid=goal-hover-mode-down]").click();
+  await set.locator('[data-cell="1,1"]').hover();
+  assert.equal(await set.locator("[data-testid=goal-unit][data-selected]").getAttribute("data-part"), "trio:0,1:down", "the ↓ trio centred on (1,1)");
+  assert.equal(await set.locator('svg path[data-part="trio:0,1:down"]').count(), 1, "its region is drawn on the board");
+  assert.equal(await set.locator("[data-testid=goal-unit-arrow]").count(), 1, "an arrow joins it to its box");
+  // Hovering a box selects its unit: the board draws that unit.
+  const second = set.locator("[data-testid=goal-unit]").nth(1);
+  await second.hover();
+  const id = await second.getAttribute("data-part");
+  assert.equal(await set.locator(`svg path[data-part="${id}"]`).count(), 1);
+  // Keyboard on Chessmaster: stepping onto a touching pair switches the hover toggle to pairs, as picking it in the list does.
+  {
+    const chess = page.locator("[data-testid=example-chessmaster]");
+    await page.mouse.move(0, 0); // keyboard only: no pointer resting on a board
+    await chess.locator("[data-testid=goal-board-grid]").focus();
+    await page.keyboard.press("Home");
+    for (let k = 0; k < 40; k++) {
+      const id = await chess.locator("[data-testid=goal-unit][data-selected]").getAttribute("data-part");
+      if (id!.startsWith("seam:")) break;
+      await page.keyboard.press("ArrowDown");
+    }
+    assert.match((await chess.locator("[data-testid=goal-unit][data-selected]").getAttribute("data-part"))!, /^seam:/);
+    assert.equal(await chess.locator("[data-testid=goal-hover-mode-pair]").getAttribute("aria-checked"), "true", "the toggle follows the keyboard");
+  }
+  // Keyboard: the board steps through the units in list order.
+  await page.mouse.move(0, 0); // keyboard only: no pointer resting on a board
   await set.locator("[data-testid=goal-board-grid]").focus();
   await page.keyboard.press("Home");
-  await page.keyboard.press("ArrowRight");
-  assert.match(await set.locator("[data-testid=goal-board-headline]").innerText(), /^Row 1, column 2:/);
+  const first = await set.locator("[data-testid=goal-unit]").first().getAttribute("data-part");
+  assert.equal(await set.locator("[data-testid=goal-unit][data-selected]").getAttribute("data-part"), first);
+  await page.keyboard.press("ArrowDown");
+  assert.equal(await set.locator("[data-testid=goal-unit][data-selected]").getAttribute("data-part"), await set.locator("[data-testid=goal-unit]").nth(1).getAttribute("data-part"));
 
-  // A compact grid's hover view explains it, starting on the top-left cell; hovering inside moves the focus.
+  // A compact grid's hover view explains it by unit too; hovering inside picks the cell's unit.
   await page.locator("[data-testid=live-parity_painter] [data-testid=grid-object]").first().hover();
   const pop = page.locator("[data-testid=grid-object-goal]");
   await pop.waitFor({ timeout: 5000 });
-  assert.match(await pop.locator("[data-testid=goal-board-headline]").innerText(), /^Row 1, column 1:/);
-  assert.equal(await pop.locator("[data-testid=goal-outcome-table] [data-here]").count(), 1, "the focus's outcome is ringed");
+  assert.ok(await pop.locator("[data-testid=goal-unit]").count() > 0);
   await pop.locator('[data-cell="2,2"]').hover();
-  assert.match(await pop.locator("[data-testid=goal-board-headline]").innerText(), /^Row 3, column 3:/);
+  assert.equal(await pop.locator("[data-testid=goal-unit][data-selected]").getAttribute("data-part"), "cell:2,2");
   // Mode 1, the part scrubber: stepping to the last piece counts the board's whole score.
   const scrub = page.locator("[data-mode=scrubber]");
   const total = await scrub.locator("[data-testid=goal-board-total] b").innerText();

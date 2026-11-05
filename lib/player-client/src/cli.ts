@@ -34,7 +34,9 @@ const USAGE = `Usage: pnpm player <command>
       Engine reachable, credential valid, room, permission, expiry and the current user.
   state [--pretty] [--objects N] [--events N] [--watch HZ [--count N]]
       The player-visible state as JSON: observation, recent events, myUtility, latest trajectories.
-      --watch prints one JSON line per change, at most HZ (0.1-5) per second.
+      --objects N (≤ 90) reads only the N best objects by payoff (the engine's narrow observation).
+      --watch prints one JSON line per change, at most HZ (0.1-5) per second, from the engine's narrow
+      queries (state, agents, transformations, standings, chat, the N best objects: default 20, at most 90).
   tools [--pretty]
       The agent tools this credential may use (the engine's MCP server at <engine>/mcp).
   call TOOL ['JSON' | -] [--pretty]
@@ -118,7 +120,7 @@ async function connect(args: string[]) {
       "Open this page in the browser where you are signed in to the engine, and approve:",
       `  ${p.verificationUrl}`,
       `Comparison code: ${p.userCode}`,
-      `Check that the page shows this code, room ${p.roomCode} and permission ${p.permission}${p.permission === "owner" ? " (full owner control: settings, AI budget, start/end, playing as you)" : ""}.`,
+      `Check that the page shows this code, room ${p.roomCode} and permission ${p.permission}${p.permission === "owner" ? " (full owner control: settings, AI quotas, start/end, playing as you)" : ""}.`,
       `The label "${p.label}" is self-reported, not a verified identity.`,
       `Waiting for approval (expires ${new Date(p.expiresAt).toISOString()})...`,
     ].join("\n")),

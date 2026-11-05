@@ -589,7 +589,9 @@ is removed, except for replay playback.
 ### 4.5 External player SDK (`lib/player-client`) and MCP
 
 **Live clients (`watchState`, `pnpm player state --watch`).** They subscribe with `onUpdate` to the same narrow
-queries the dock uses:
+queries the dock uses (done, PR 6: `dock.state`, `dock.agents`, `dock.transformations`, `games.standings`,
+`rooms.chat`, `player.totals`, `player.objectIds` + `player.object`, `player.events`, `player.myUtility`; each line is
+the v3 observation put together from them, with the N best objects):
 - header + clock;
 - self;
 - agents;
@@ -607,6 +609,11 @@ The CLI's output throttle stays; it limits printing, not reading.
   - objects from `objectViews` with a **server-side** cap (`objectsLimit`, default 50, sorted by the agent's chosen
     key) instead of `take(2100)` followed by `capObjects` on the client.
 - A full-world read stays available, explicitly, as a paged tool (`list_objects` with a cursor), never as one query.
+- Done (PR 6): `player.observation` with `objectsLimit` (lib/load.ts `buildObservation` with `NarrowObjects`) reads
+  one page of the caller's `objectViews` rows (`objectsSort`, opaque `objectsCursor`), the score and object count from
+  `godTotals`, the leaderboard from the clock's published scoreboard, and caps agents (50), chat (20) and recent
+  transformations (50). `get_observation`, the command tools' game lookup, `load_skill` and the assistant's briefing
+  read it; the page is the tool's paging (`nextCursor`), so no tool reads the world for the observation.
 - `observation` is versioned. The narrow v3 is wire-compatible, with the object list now capped. If the cap changes
   agents' behaviour it becomes v4, and the change is documented in `docs/engine-api.md`.
 
@@ -615,6 +622,11 @@ The CLI's output throttle stays; it limits printing, not reading.
 - Rebuild it as a paged read over `objectViews`, using the current version when `world` is now. Historical worlds
   read `objectEvents` pages.
 - Each page obeys R2.
+- Done (PR 6): `player.board` pages the caller's `objectViews` by spawn time up to `world` (≤ 40 a page, ≤ 100 for the agent tool; now, each row
+  as it stands; earlier, one `objectEvents` read per object), with `cursor`/`done`; `player.series`'s public pages are
+  ≤ 40 rows (the agent tools' internal twin keeps 4,000-row pages inside Convex). Both learn whether the history is
+  partial from the game's earliest `objectEvents` row instead of its first `tickBatches` doc (about 140 KiB at 1,000
+  objects: every starting spawn).
 
 ---
 
@@ -624,10 +636,10 @@ Each step follows CLAUDE.md "Schema migrations" with `@convex-dev/migrations`.
 
 | Change | Widen (PR that introduces it) | Migrate | Narrow (a later PR, after dev and prod report `success`) |
 |---|---|---|---|
-| Hot fields out of `games` | Add `gameClocks` and `gameEngine`. Add `games.instance` as optional. The loop writes the new docs and **stops writing** the hot fields on `games`. Readers read the clock doc, falling back to `games.*`. | `splitGameHotFields`: for every game, create `gameClocks`/`gameEngine` from its fields if missing, store `instance`, and unset the hot fields (`undefined`). Idempotent. | Remove the hot fields from the `games` validator. Make `instance` required. Remove the fallbacks. |
-| `standings`, `standingsHistory` | New tables. The tick writes them when the scoreboard is due. Readers fall back to `games.scoreboard`. | `backfillStandings`: from `games.scoreboard` / `summary`, for every game | Drop `games.scoreboard` (widen it to optional first) |
+| Hot fields out of `games` | Add `gameClocks` and `gameEngine`. Add `games.instance` as optional. The loop writes the new docs and **stops writing** the hot fields on `games`. Readers read the clock doc, falling back to `games.*`. | `splitGameHotFields`: for every game, create `gameClocks`/`gameEngine` from its fields if missing, store `instance`, and unset the hot fields (`undefined`). Idempotent. | Remove the hot fields from the `games` validator. Make `instance` required. Remove the fallbacks. (Hot fields and fallbacks: done, the migration is removed.) |
+| `standings`, `standingsHistory` | New tables. The tick writes them when the scoreboard is due. Readers fall back to the clock's scoreboard. | `backfillStandings`: from the clock's scoreboard, for every game | `games.scoreboard` dropped with the hot fields; the clock fallback in `games.standings` goes later |
 | `objectViews`, `godTotals`, `objectDigests` | New tables. The tick maintains them for changed objects. A game without rows (started before the deploy) is filled by the migration. | `backfillObjectViews`: per game (paged per object), write every god's row from `objects.scores` | None (read models; `objects.scores` stays as the engine's truth) |
-| `objects.publicSalience` + index | Optional field. The tick writes it. | `backfillPublicSalience` | Make required |
+| `objects.publicSalience` + index | Optional field. The tick writes it. | `backfillPublicSalience` | Make required (done; the migration is removed) |
 | `objectEvents.by_game_owner_seq`, `games.by_room_phase` | Indexes only | None | None |
 | `replays` | Optional `games.replayStorageId`. `endGame` writes it. | `backfillReplays`: for ended games, schedule the writer action (bounded batches) | None (the replay page falls back to paging only until the backfill is done; then the fallback is removed) |
 
@@ -694,6 +706,61 @@ PR 1's gate) re-measures before and after each PR, and the PR description quotes
 PRs 2 and 3 deliver most of the relief: every per-tick re-run of cold queries goes away, and the spectator page
 becomes shared. PR 4 is the largest; it needs the tick's extra writes measured (≤ 800 row patches per tick) against
 the commit's time budget, using the existing `probe:concurrent`.
+
+### 6.1 Results so far (2026-11-03; released to production at 15:51 AEDT)
+
+The figures below were measured by the query-cost gate in each PR, in a running game with 1,000 objects on the local
+backend: documents and KiB read per execution, and median user-code ms. "Cached" means the query was answered from
+the cache across 5 tick commits.
+
+**Landed:**
+
+| PR | Change | Rule |
+|---|---|---|
+| #155 | Query-cost gate and budget table | R8 |
+| #158 | `games` split into `gameClocks` and `gameEngine`, with a migration | R3 |
+| #161 | Sign-in required everywhere | — |
+| #154, #156, #157 | Palette lists as subscriptions; no dock remount loop; guard against one-off reads | R6 |
+| #159, #160, #162 | Stored replays, served behind sign-in | R7 |
+| #163 | Spectator read model, with tick-written standings | R1, R4 |
+| #166 | Manifest and calibration as subscriptions | R6 |
+| #169 | Gate reliability | — |
+| #173 | The observation reads its own transformations through an index | R2 |
+| (O) | Per-god object read model: `objectViews` rows and `godTotals`, synced off the tick's commit; the objects panel as skeleton + virtualised rows; `objectsPage` over the model | R1, R2, R4 |
+| (Dock) | The dock off the observation: `dock.state` / `agents` / `transformations` / `agentSeries` (`agentSamples`, written with each scoreboard publication), standings, chat and the object read model; the race and agents histories from the server; `useThrottled` and `useObjectRanks` gone from the SDK hooks | R1, R6 |
+
+**Measured before and after:**
+
+| Query | Before | After |
+|---|---|---|
+| `games.view` (spectator page; the query that hit the 1 s limit) | 1,019 docs, 566 KiB, 56 ms, every tick for every viewer | **Removed**, replaced by 8 small queries |
+| Spectator queries (#163): `games.header`, `standings`, `standingsHistory`, `instance`, `object`, `rooms.chat` | — | 4–8 docs, 3–6 KiB, about 10 ms each; header, instance and chat cached |
+| `games.objectIds` (spectator skeleton page) | — | 54 docs, 32 KiB, 9 ms |
+| Metadata queries (#158): `rooms.get`, `rooms.list`, `rooms.history`, `games.resolve`, `layout.current`, `myUtility`, `assistant.*` | Re-executed on every tick commit, for every viewer | **Cached across ticks** (all 22 cold queries); 4–9 docs, ≤ 7.5 KiB, 16–35 ms when they do run |
+| `player.observation` (the dock) | 1,062 docs, 792 KiB, 126 ms | 1,185 docs, 688 KiB, 119 ms (#173: −104 KiB per player per tick; small index rows replace 15 large batches) |
+| `manifest.get` | Action, cached by hand in the browser | Live query: 5 docs, 56 KiB |
+
+**Still debt** (listed in `test/query-budgets.ts`, ratcheting down):
+- `player.observation`: whole world, now read only by agents, MCP tools and the CLI (the dock no longer subscribes to it). The fix is PR 6's narrowed observation.
+- `player.game`: an ended game's final state; static once ended.
+- `player.events` and `player.trajectories`: up to 50 `tickBatches` per call, 300–650 KiB depending on load.
+- (`setups.list` was paged: `setups.page` skeleton + `setups.row` items, within R8.)
+
+**Held or postponed to Thursday 2026-11-05** (owner's decision, to protect the evening release):
+
+| Item | Status |
+|---|---|
+| Removing `useLive`'s retry (#171) | Ready, but held. Without the retry, a query over 1 s on a loaded backend leaves the page on an error until reconnect. Merge it after the dock leaves the observation. |
+| Trajectory windows plus a live tail (PR 8's trajectories item) | Landed: closed windows of 10 batches (cached across ticks) plus a live tail; no module store (`sdk/trajectory-windows.ts`) |
+| Per-god object read model (PR 4) | Landed, rebuilt: the commit schedules one `game/objectViews.ts` sync (the changed objects' ids and the tick's totals) instead of writing rows. Probe (`test/probe-commit-time.ts`, 1,000 objects, 3 gods × 8 agents, 100 Hz, about 90 acts a commit): commit 135 → 147 ms median (+9%); the sync runs about 210 ms per commit beside the next simulate. `objectDigests` (the scatter) is not built yet. |
+| The dock off the observation (PR 5) | Landed (see above). The others-care scatter still plots your best 90 objects until `objectDigests` exists. |
+| The SDK and MCP (PR 6) | In progress (`setups.list` paging: landed, `setups.page` + `setups.row`) |
+| Narrowing `games`' hot fields and their fallbacks | Done (2026-11-05): the fields left the validator, `game/state.ts`'s fallbacks and `splitGameHotFields` are gone. |
+| Narrowing `objects.publicSalience` | Done (required, no fallbacks). |
+| Narrowing `objectEvents.index` and `cost`, and removing the old-scan fallback (#173) | Waits for the same. |
+
+**Process rule added on the way** (`.claude/skills/selective-testing`): each change runs its own selective set of
+suites, once, when it is ready to merge. CI on `develop` is the full net.
 
 ---
 

@@ -20,7 +20,7 @@ const { makeFunctionReference } = await import("convex/server");
 const fn = { q: (n: string) => makeFunctionReference<"query">(n), m: (n: string) => makeFunctionReference<"mutation">(n), a: (n: string) => makeFunctionReference<"action">(n) };
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
-const { session } = await login("alice");
+const { session } = await login("admin");
 const me = new ConvexHttpClient(CLOUD);
 me.setAuth(await browserJwt(session));
 const { roomId, shortCode } = await me.mutation(fn.m("rooms:create"), {}) as { roomId: string; shortCode: string };
@@ -28,7 +28,7 @@ await me.mutation(fn.m("rooms:setSpectator"), { roomId: roomId, spectator: false
 const owner = (action: string, extra: Record<string, unknown> = {}) => me.action(fn.a("owner:command"), { roomId, action, requestId: crypto.randomUUID(), ...extra });
 await owner("addAi", { aiAgentId: "sonnet-strategist" });
 await owner("addAi", { aiAgentId: "sonnet-strategist" });
-await me.mutation(fn.m("rooms:approveAiBudget"), { roomId, aiBudget: 50_000, assistantBudget: 200_000 });
+await me.mutation(fn.m("rooms:setAiQuotas"), { roomId, aiQuota: 50_000, assistantQuota: 200_000 });
 await owner("start");
 for (let i = 0; i < 120; i++) {
   const o = await me.query(fn.q("player:observation"), { roomId }) as { phase: string; objects: unknown[] };
@@ -60,7 +60,7 @@ async function ask(text: string) {
   for (let i = 0; i < 120; i++) {
     const t = await me.query(fn.q("assistant:thread"), { threadId: sent.threadId }) as { turns: { _id: string; status: string }[] };
     const turn = t.turns.find(x => x._id === sent.turnId);
-    if (turn && !["running", "awaiting_confirmation", "cancelling"].includes(turn.status)) return turn.status;
+    if (turn && !["running", "cancelling"].includes(turn.status)) return turn.status;
     await sleep(500);
   }
   throw new Error("turn did not finish");

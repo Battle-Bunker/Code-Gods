@@ -7,28 +7,25 @@ import { SKILL_LIMITS, findSkill } from "@workspace/player-client/skills";
 import { LOAD_TOOLS, loadedToolNames, type ChatAssistantBlock, type ChatMessage, type ChatToolResult } from "@workspace/ai-player/chat";
 import { bound } from "../agent/bound.ts";
 import { ENGINE_NOTES, LIMITS, withEngineNote, type TurnStatus } from "./limits.ts";
+import type { AssistantMode } from "./mode.ts";
 
 const OWNER = new Set<string>(OWNER_TOOLS.map(t => t.name));
-/** The owner's actions (not their reads: get_room_state and get_ai_catalog change nothing). */
-const OWNER_ACTIONS = new Set<string>(OWNER_TOOLS.filter(t => !t.annotations.readOnlyHint).map(t => t.name));
 const LAYOUT = new Set<string>(LAYOUT_TOOLS.filter(t => !t.annotations.readOnlyHint).map(t => t.name));
-const ALWAYS_CONFIRM = new Set(["send_chat", "pause_game", "destroy_agent", "delete_panel", "delete_setup"]);
 /** A layout tool that changes the player's screen (get_layout only reads it). */
 export const isLayoutChange = (tool: string) => LAYOUT.has(tool);
 
 /**
- * Does this call wait for the player's confirmation card? Public chat, pauses, destroying an agent, panel and setup deletion
- * and every owner action (not the owner's reads, and set_spectator for another member) always do. A summon does unless the player set "auto-approve summons up to N bits" (N > 0) and
- * this turn already validated the same source at a cost of at most N. Layout (dock) tools never do: a view change
- * touches no game state and is reversible; the chat chip names it.
+ * May the assistant call this tool in this mode? Read-only runs only tools that change nothing (readOnlyHint: reads,
+ * free validation, analytics code), whatever the credential's grant; Autopilot every tool of the grant but wake_engine;
+ * On request every tool of the grant (the engine checks the grant on every call). Enforced in the tool dispatch (step.ts resolveCalls), not only in
+ * what the model is offered.
  */
-export function needsConfirmation(tool: string, args: Record<string, unknown>, ctx: { autoApproveSummonBits?: number; validatedCost?: number }): boolean {
-  if (OWNER_ACTIONS.has(tool) || ALWAYS_CONFIRM.has(tool)) return true;
-  // Watching or playing: the player's own choice runs at once; setting another member's is an owner action.
-  if (tool === "set_spectator") return args.deityId !== undefined;
-  if (tool !== "summon_agent") return false;
-  const limit = ctx.autoApproveSummonBits ?? 0;
-  return !(limit > 0 && ctx.validatedCost !== undefined && ctx.validatedCost <= limit);
+export function allowedInMode(tool: string, mode: AssistantMode): boolean {
+  // Autopilot respects idle parking: only the player's own activity keeps the engine awake.
+  if (mode === "autopilot") return tool !== "wake_engine";
+  if (mode !== "readOnly") return true;
+  if (tool === LOAD_TOOLS) return true;
+  return !!findTool(tool)?.annotations.readOnlyHint;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -91,48 +88,50 @@ const ENGINE_IDS = ["commandId", "requestId"];
 const CORE = new Set<string>(CORE_TOOLS);
 type Permission = "read" | "act" | "owner";
 
-/** The index tools a grant may load: every tool it may use beyond the core set. */
-export const loadableTools = (permission: Permission) => toolsFor(permission).filter(t => !CORE.has(t.name)).map(t => t.name);
+/** The registry tools a grant may use in a mode (read-only: those that change nothing). */
+export const toolsForMode = (permission: Permission, mode: AssistantMode) => toolsFor(permission).filter(t => allowedInMode(t.name, mode));
+/** The index tools a grant may load in a mode: every tool it may use beyond the core set. */
+export const loadableTools = (permission: Permission, mode: AssistantMode) => toolsForMode(permission, mode).filter(t => !CORE.has(t.name)).map(t => t.name);
 
 /** The engine's tool loader (not a registry tool: it changes the model's context, not the game). */
-function loadToolsDefinition(permission: Permission): ModelTool {
+function loadToolsDefinition(permission: Permission, mode: AssistantMode): ModelTool {
   return {
     name: LOAD_TOOLS,
     description: "Load the full definitions of tools from the INDEX by name; call them from your next step on. Load every tool the task needs in one call.",
     inputSchema: { type: "object", additionalProperties: false, required: ["names"], properties: {
-      names: { type: "array", minItems: 1, maxItems: LIMITS.loadTools, uniqueItems: true, items: { type: "string", enum: loadableTools(permission) } },
+      names: { type: "array", minItems: 1, maxItems: LIMITS.loadTools, uniqueItems: true, items: { type: "string", enum: loadableTools(permission, mode) } },
     } },
   };
 }
 
 /**
- * What the model is offered at every step of every turn (a stable list, so it stays in the prompt cache): the tool
- * loader, then the registry's tools a grant may use, all but the core set deferred (in context only once loaded);
- * the ids the engine derives are removed.
+ * What the model is offered at every step of every turn (a stable list per grant and mode, so it stays in the prompt
+ * cache): the tool loader, then the registry's tools the grant may use in the mode, all but the core set deferred (in
+ * context only once loaded); the ids the engine derives are removed.
  */
-export function modelTools(permission: Permission): ModelTool[] {
+export function modelTools(permission: Permission, mode: AssistantMode): ModelTool[] {
   schemas ??= toolJsonSchemas();
-  const registry = toolsFor(permission).map(t => {
+  const registry = toolsForMode(permission, mode).map(t => {
     const { $schema: _, ...schema } = schemas![t.name].input as Record<string, unknown> & { properties?: Record<string, unknown>; required?: string[] };
     const properties = Object.fromEntries(Object.entries((schema.properties ?? {}) as Record<string, unknown>).filter(([k]) => !ENGINE_IDS.includes(k)));
     const required = ((schema.required ?? []) as string[]).filter(k => !ENGINE_IDS.includes(k));
     return { name: t.name, description: `${t.title}. ${t.description}`, inputSchema: { ...schema, properties, ...(required.length ? { required } : { required: undefined }) },
       ...(CORE.has(t.name) ? {} : { deferred: true }) };
   }).map(t => ({ ...t, inputSchema: JSON.parse(JSON.stringify(t.inputSchema)) as Record<string, unknown> }));
-  return [loadToolsDefinition(permission), ...registry];
+  return [loadToolsDefinition(permission, mode), ...registry];
 }
 
 /**
  * A load_tools call's outcome: the tools it loads (the history turns them into tool references), or an error naming
  * what may be loaded. Core tools are already loaded and are skipped.
  */
-export function loadTools(permission: Permission, args: Record<string, unknown>): { status: "ok" | "error"; summary: string; resultJson: string } {
+export function loadTools(permission: Permission, mode: AssistantMode, args: Record<string, unknown>): { status: "ok" | "error"; summary: string; resultJson: string } {
   const names = Array.isArray(args.names) ? args.names.filter((n): n is string => typeof n === "string") : [];
-  const loadable = loadableTools(permission);
+  const loadable = loadableTools(permission, mode);
   const unknown = names.filter(n => !loadable.includes(n) && !CORE.has(n));
   if (!names.length || unknown.length || names.length > LIMITS.loadTools) {
     const message = !names.length ? "Give the names of the tools to load (names: [...])"
-      : unknown.length ? `Not in this grant's index: ${unknown.join(", ")}. Loadable: ${loadable.join(", ")}.`
+      : unknown.length ? `Not in this grant's index${mode === "readOnly" ? " in Read-only mode" : ""}: ${unknown.join(", ")}. Loadable: ${loadable.join(", ")}.`
       : `At most ${LIMITS.loadTools} tools per call`;
     return { status: "error", summary: "Nothing loaded", resultJson: JSON.stringify({ error: { code: "BAD_REQUEST", message } }) };
   }
@@ -271,21 +270,23 @@ function storedBlocks(json: string | null | undefined): ChatAssistantBlock[] | n
 }
 
 /** How an earlier turn ended, for its note: its status, or why a "done" or "failed" turn stopped short. */
-export type TurnEnding = TurnStatus | "step_limit" | "deadline" | "repeating";
+export type TurnEnding = TurnStatus | "step_limit" | "deadline" | "repeating" | "preempted";
 export const turnEnding = (status: TurnStatus, errorCode?: string | null): TurnEnding =>
-  errorCode === "STEP_LIMIT" ? "step_limit" : errorCode === "DEADLINE" ? "deadline" : errorCode === "REPEATING" ? "repeating" : status;
+  errorCode === "STEP_LIMIT" ? "step_limit" : errorCode === "DEADLINE" ? "deadline" : errorCode === "REPEATING" ? "repeating"
+    : errorCode === "PREEMPTED" ? "preempted" : status;
 
 /**
  * The note closing an earlier turn that ended before its answer, so the model neither takes the player's message as
  * answered nor answers it unasked. Keyed by how the turn ended; a finished ("done") turn gets none.
  */
 export const UNANSWERED_NOTES: Partial<Record<TurnEnding, string>> = {
-  budget_exhausted: "Engine note (not from the player): the turn above stopped before you answered it, because the player's assistant allowance ran out. The player's message above is UNANSWERED. If their next message does not make it moot, say in one short sentence that it was not answered and offer to answer it now.",
+  budget_exhausted: "Engine note (not from the player): the turn above stopped before you answered it, because it reached a limit (the player's assistant quota for this game, a spending ceiling, or AI not being available in this room). The player's message above is UNANSWERED. If their next message does not make it moot, say in one short sentence that it was not answered and offer to answer it now.",
   step_limit: "Engine note (not from the player): the turn above stopped at the step limit, possibly before you finished. If the player's next message does not make it moot, say briefly where you stopped.",
   repeating: "Engine note (not from the player): the engine stopped the turn above because you repeated the same tool call with the same result. Do not repeat it; if the player's next message does not make it moot, say briefly where you got stuck.",
   deadline: "Engine note (not from the player): the turn above ran past its time limit before you finished. Treat the player's message above as unanswered unless their next message makes it moot.",
   failed: "Engine note (not from the player): the turn above failed before you finished answering it (a provider or tool error). Treat the player's message above as unanswered unless their next message makes it moot.",
   cancelled: "Engine note (not from the player): the player stopped the turn above before you finished. Do not resume it unless they ask.",
+  preempted: "Engine note (not from the player): the player's message interrupted your autopilot turn above. Answer the player first; autopilot carries on later.",
 };
 
 /** The note in front of messages the player queued while the turn worked, delivered after a step's tool results. */

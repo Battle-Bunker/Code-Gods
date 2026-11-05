@@ -34,7 +34,7 @@ const admin = new ConvexHttpClient(CLOUD);
 
 // ---- a real game ----------------------------------------------------------------------------------------------
 const as = async (who: string) => { const { session } = await login(who); const c = new ConvexHttpClient(CLOUD); c.setAuth(await browserJwt(session)); return { c, session }; };
-const bob = await as("bob"), alice = await as("alice");
+const bob = await as("admin"), alice = await as("alice");
 const { roomId, shortCode } = await bob.c.mutation(fn.m("rooms:create"), {}) as { roomId: string; shortCode: string };
 await bob.c.mutation(fn.m("rooms:setSpectator"), { roomId: roomId, spectator: false });   // owners start as spectators; this one plays
 await alice.c.mutation(fn.m("rooms:join"), { room: roomId });
@@ -48,7 +48,7 @@ const { FAMILIES, LENSES } = await import("@workspace/game-utilities");
 const annotated = new Set(LENSES.map(l => l.familyId));
 const excludedFamilies = FAMILIES.filter(f => f.objectType === "Grid" && f.role === "reward" && !annotated.has(f.familyId ?? f.id)).map(f => f.id);
 await owner("settings", { revision: room.revision, settings: { languages: ["python", "typescript"], planningSeconds: 600, halfLifeSeconds: 3600, excludedFamilies } });
-await bob.c.mutation(fn.m("rooms:approveAiBudget"), { roomId, aiBudget: 20_000, assistantBudget: 200_000 });
+await bob.c.mutation(fn.m("rooms:setAiQuotas"), { roomId, aiQuota: 20_000, assistantQuota: 200_000 });
 await owner("start");
 let gameId = "", gameCode = "";
 for (let i = 0; i < 180 && !gameId; i++, await sleep(1000)) {
@@ -96,26 +96,22 @@ await setLayout({ version: 1, root: { type: "split", direction: "row", sizes: [5
 await page.goto(url);
 await page.waitForSelector("[data-testid=dock]", { timeout: 60_000 });
 
-// The assistant: the mock provider speaks the script below, and its tools (get_observation, open_panel, send_chat) run for real.
+// The assistant: the mock provider speaks the script below, and its tools (get_observation, open_panel) run for real.
 const script = { steps: [
   { text: "Let me look at the board and at what the others seem to care about.", tools: [{ name: "get_observation", input: { objectsLimit: 8 } }] },
   { text: "I've put your objects in order of payoff on the left.", tools: [{ name: "open_panel", input: { panelId: "objects" } }] },
   { text: "Your best objects pay because the others care about them too, so you win while they stay as they are. "
     + "Your Python agent keeps sliding the top row, and Alice just asked for that row to settle down. "
-    + "That's a bargaining chip: offer to stop it if she leaves column 1 alone. Shall I post the offer?",
-    tools: [{ name: "send_chat", input: { text: "Offer: I'll stop moving the top row if column 1 is left alone. Deal?" } }] },
+    + "That's a bargaining chip: offer to stop it if she leaves column 1 alone. Shall I post the offer?", tools: [] },
 ] };
 await page.fill("[data-testid=input-assistant]", `/mock ${JSON.stringify(script)}`);
 await page.press("[data-testid=input-assistant]", "Enter");
-await page.waitForSelector("[data-testid=button-confirm-approve]", { timeout: 60_000 });
+await page.locator("[data-testid=assistant-message]", { hasText: "Shall I post the offer?" }).waitFor({ timeout: 60_000 });
 // The mock is driven by a script in the player's message; show the question the script answers instead of the script.
 await page.evaluate(() => { const m = document.querySelector("[data-testid=assistant-user-message]"); if (m) m.textContent = "What should I do next?"; });
 await sleep(15_000);
 await page.evaluate(() => { const m = document.querySelector("[data-testid=assistant-user-message]"); if (m) m.textContent = "What should I do next?"; });
 await page.screenshot({ path: `${OUT}/hero.png` });
-// Bob approves the offer: it goes to the public chat.
-await page.click("[data-testid=button-confirm-approve]");
-await sleep(1500);
 
 // The goal card, with the annotation of one cell of its example board under the pointer.
 await setLayout(beside("my-card", [66, 34]));

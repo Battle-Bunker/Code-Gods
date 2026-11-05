@@ -15,6 +15,7 @@ import {
   ASSISTANT_CALLS_PER_MINUTE, ASSISTANT_GAME_USD, ASSISTANT_ROOM_CALLS_PER_MINUTE, CALLS_PER_MINUTE, DAILY_ASSISTANT_USD, DAILY_HOST_USD, GAME_USD,
 } from "../lib/aiModels";
 import { fail } from "../lib/errors";
+import { AI_ADMIN_ONLY, aiEnabledFor, aiQuotaOf, assistantQuotaOf } from "../lib/aiAccess";
 import { isIdle, lastHumanActivity, membersOf } from "../lib/rooms";
 import { utcDay } from "../lib/world";
 import { LANGUAGE_SPECS, allowedLanguages, type GameSettings } from "@workspace/game-core";
@@ -27,12 +28,13 @@ export const MAX_FAILURES = 5;
 const SANDBOX_WARMING_WAIT_MS = 1_500;
 const SANDBOX_FAILED_WAIT_MS = 10_000;
 
-/** (Re)start every AI seat's chain of a game: on start and on resume. */
+/** (Re)start every AI seat's chain of a game, and its players' autopilots (assistant/autopilot.ts): on start and on resume. */
 export const startAll = internalMutation({
   args: { gameId: v.id("games") },
   handler: async (ctx, { gameId }) => {
     const game = await ctx.db.get(gameId);
     if (!game || game.phase === "ended" || game.phase === "recovery") return;
+    await ctx.scheduler.runAfter(0, internal.assistant.autopilot.startRoom, { roomId: game.roomId });
     const members = await membersOf(ctx, game.roomId);
     let i = 0;
     for (const member of members) {
@@ -97,12 +99,16 @@ const pool = v.optional(v.union(v.literal("seats"), v.literal("assistant")));
 
 export type Reservation =
   | { ok: true; reservedTokens: number; reservedUsd: number; epoch: string }
-  | { ok: false; reason: "off" | "allowance" | "usd" | "daily" | "rate"; message: string; retryAfterMs?: number };
+  | { ok: false; reason: "admin" | "off" | "quota" | "usd" | "daily" | "rate"; message: string; retryAfterMs?: number };
+
+const n = (x: number) => Math.max(0, x).toLocaleString("en");
 
 /**
- * Reserve a provider call before making it. `pool: "seats"` (default) throws RATE_LIMITED past the room's token
- * budget, $2 per game, $5 per day or 6 calls a minute. `pool: "assistant"` (assistant/step.ts) answers
- * {ok: false, reason, message} instead, so the turn can end with a clear reason or wait out a rate limit.
+ * Reserve a provider call before making it, or answer {ok: false, reason, message} naming the limit it would pass.
+ * `pool: "seats"` (default, ai/turn.ts) draws on the room's AI players' quota for the game, within $2 per game, $5 per
+ * day and 6 calls a minute; `pool: "assistant"` (assistant/step.ts) on the human's assistant quota and the
+ * assistant's own ceilings, and the turn may wait out a rate limit. Both are refused in a room whose owner is not an
+ * administrator (lib/aiAccess.ts), checked here at every call.
  */
 export const reserve = internalMutation({
   args: { pool, roomId: v.id("rooms"), gameId: v.optional(v.id("games")), subject: v.optional(v.string()), tokens: v.number(), usd: v.number() },
@@ -112,17 +118,28 @@ export const reserve = internalMutation({
     const room = await ctx.db.get(roomId);
     const game = gameId ? await ctx.db.get(gameId) : null;
     if (!room || !game || room.currentGameId !== gameId || game.phase === "ended" || game.phase === "recovery") fail("CONFLICT", "AI game inactive");
+    if (!(await aiEnabledFor(ctx, room))) return { ok: false, reason: "admin", message: AI_ADMIN_ONLY };
+    const quota = aiQuotaOf(room);
+    if (room.aiUsed + tokens > quota) {
+      return { ok: false, reason: "quota", message: `The room's AI players' quota for this game is reached: ${n(room.aiUsed)} of ${n(quota)} tokens used, and the next turn may need up to ${n(tokens)}. The room owner can raise it.` };
+    }
+    if (room.aiReservedUsd + usd > GAME_USD + 1e-12) return { ok: false, reason: "usd", message: `The AI players' spending ceiling for this game (USD ${GAME_USD}) is reached.` };
     const now = Date.now(), day = utcDay(now);
     const daily = await ctx.db.query("aiUsage").withIndex("by_day", q => q.eq("day", day)).unique();
+    if ((daily?.usd ?? 0) + usd > DAILY_HOST_USD + 1e-12) {
+      return { ok: false, reason: "daily", message: `This deployment's daily AI players' ceiling (USD ${DAILY_HOST_USD}) is reached; it resets at 00:00 UTC.` };
+    }
     const calls = room.aiCalls.filter(t => now - t < 60_000);
-    if (room.aiUsed + tokens > room.aiBudget || room.aiReservedUsd + usd > GAME_USD + 1e-12 ||
-        (daily?.usd ?? 0) + usd > DAILY_HOST_USD + 1e-12 || calls.length >= CALLS_PER_MINUTE) fail("RATE_LIMITED", "AI budget or rate limit reached");
+    if (calls.length >= CALLS_PER_MINUTE) return { ok: false, reason: "rate", message: `The AI players' rate limit (${CALLS_PER_MINUTE} calls a minute) is reached.` };
     await ctx.db.patch(room._id, { aiUsed: room.aiUsed + tokens, aiReservedUsd: room.aiReservedUsd + usd, aiCalls: [...calls, now] });
     if (daily) await ctx.db.patch(daily._id, { usd: daily.usd + usd, calls: daily.calls + 1 });
     else await ctx.db.insert("aiUsage", { day, usd, calls: 1 });
     return { ok: true, reservedTokens: tokens, reservedUsd: usd, epoch: String(gameId) };
   },
 });
+
+/** What the assistant says in a room whose assistant quota is set to 0. */
+export const ASSISTANT_QUOTA_ZERO = "The room's assistant quota is 0 tokens per player per game, so the assistant is off here; the room owner can raise it.";
 
 /** The assistant allowance's epoch: the room's current game (active, or the latest until the next launch), else "lobby". */
 export const assistantEpoch = (room: Doc<"rooms">) => room.currentGameId ? String(room.currentGameId) : ASSISTANT_LOBBY;
@@ -136,23 +153,23 @@ export const ROOM_POOL = "";
 async function poolRow(ctx: QueryCtx, roomId: Id<"rooms">, subject: string, epoch: string) {
   return ctx.db.query("assistantAllowances").withIndex("by_key", q => q.eq("roomId", roomId).eq("subject", subject).eq("epoch", epoch)).unique();
 }
-/** A human's assistant allowance in this room's current epoch. */
+/** A human's assistant usage in this room's current epoch, against the room's assistant quota (tokens per player per game). */
 export async function allowanceOf(ctx: QueryCtx, room: Doc<"rooms">, subject: string) {
   const epoch = assistantEpoch(room);
   const doc = await poolRow(ctx, room._id, subject, epoch);
-  return { epoch, doc, limit: room.assistantBudget ?? 0, used: doc?.usedTokens ?? 0 };
+  return { epoch, doc, limit: assistantQuotaOf(room), used: doc?.usedTokens ?? 0 };
 }
 
 async function reserveAssistant(ctx: MutationCtx, roomId: Id<"rooms">, subject: string, tokens: number, usd: number): Promise<Reservation> {
   const room = await ctx.db.get(roomId) ?? fail("NOT_FOUND", "Room not found");
+  if (!(await aiEnabledFor(ctx, room))) return { ok: false, reason: "admin", message: AI_ADMIN_ONLY };
   const { epoch, doc, limit, used } = await allowanceOf(ctx, room, subject);
-  if (limit <= 0) return { ok: false, reason: "off", message: "The room owner has not enabled the assistant (its allowance is 0 tokens)." };
+  if (limit <= 0) return { ok: false, reason: "off", message: ASSISTANT_QUOTA_ZERO };
   if (tokens > limit) {
-    return { ok: false, reason: "allowance", message: `The room's assistant allowance (${limit} tokens per player per game) is smaller than one step may need (${tokens}); ask the owner to raise it.` };
+    return { ok: false, reason: "quota", message: `The room's assistant quota (${n(limit)} tokens per player per game) is smaller than one step may need (${n(tokens)}); the room owner can raise it.` };
   }
   if (used + tokens > limit) {
-    const n = (x: number) => Math.max(0, x).toLocaleString("en");
-    return { ok: false, reason: "allowance", message: `Your assistant allowance for this game is too low for another step: ${n(used)} of ${n(limit)} tokens used (${n(limit - used)} left), and the next step may need up to ${n(tokens)}. The room owner can raise it.` };
+    return { ok: false, reason: "quota", message: `Your assistant quota for this game is too low for another step: ${n(used)} of ${n(limit)} tokens used (${n(limit - used)} left), and the next step may need up to ${n(tokens)}. The room owner can raise it.` };
   }
   const shared = await poolRow(ctx, roomId, ROOM_POOL, epoch);
   if ((shared?.reservedUsd ?? 0) + usd > ASSISTANT_GAME_USD + 1e-12) {

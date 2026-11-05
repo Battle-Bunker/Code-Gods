@@ -14,6 +14,7 @@
  *   object          one object as disclosed
  */
 import { v } from "convex/values";
+import { gameNotice } from "./lib/engineErrors";
 import { paginationOptsValidator } from "convex/server";
 import { rankTotals, type GameSettings } from "@workspace/game-core";
 import type { Doc } from "./_generated/dataModel";
@@ -22,7 +23,7 @@ import { actsAsHuman, requireViewer } from "./auth/access";
 import { fail } from "./lib/errors";
 import { objectsOf } from "./lib/load";
 import { activeGameRef, gameRecord, gameSetup, objectInstance, publicGame, rosterEntry, type Standing } from "./lib/projection";
-import { clockDoc, clockFrom, withClock } from "./game/state";
+import { withClock } from "./game/state";
 import { publicSalienceOf } from "./game/readModel";
 import { findGame, getCatalog, isHistoric, recentChat, requireHistoricReaderAs } from "./lib/rooms";
 
@@ -91,7 +92,8 @@ export const header = query({
       phase: game.phase, status: ended ? "ended" as const : "active" as const,
       startedAt: game.createdAt, planningEndsAt: game.planningEndsAt, pauseEndsAt: game.pauseEndsAt,
       endedAt: game.endedAt ?? null, endReason: game.endReason ?? null, recoveryReason: game.recoveryReason ?? null,
-      settings: game.settings as GameSettings, setup: gameSetup(game), roster: game.roster.map(rosterEntry), spectators: game.spectators ?? [],
+      notice: gameNotice(game) ?? null,
+      settings: game.settings as GameSettings, setup: gameSetup(game), roster: game.roster.map(rosterEntry), spectators: game.spectators,
       seasonCommitment: game.seasonCommitment,
       // The ended game's result was stored by the commit that ended it.
       winners: ended ? ((game.summary as { winners?: Winner[] } | undefined)?.winners ?? []) : [],
@@ -121,7 +123,7 @@ export const standings = query({
       return { rows: named(rows), world: rows[0].world, at: rows[0].at, agentCount: latest?.agentCount ?? null, objectCount: latest?.objectCount ?? null };
     }
     // A game stored before standings (until migrations:backfillStandings has run): its clock's scoreboard.
-    const clock = clockFrom(game, await clockDoc(ctx, gameId));
+    const clock = await withClock(ctx, game);
     if (!clock.scoreboard) return { rows: [], world: null, at: null, agentCount: clock.agentCount, objectCount: clock.objectCount };
     const ranked = rankTotals(game.roster.map(m => m.id), clock.scoreboard.totals).map(r => ({ godId: r.godId, rank: r.rank, total: r.totalPayoff }));
     return { rows: named(ranked), world: clock.scoreboard.world, at: clock.scoreboard.at, agentCount: clock.agentCount, objectCount: clock.objectCount };
@@ -169,7 +171,7 @@ export const objectIds = query({
     await readable(ctx, gameId);
     const page = await ctx.db.query("objects").withIndex("by_game_salience", q => q.eq("gameId", gameId)).order("desc")
       .paginate({ ...paginationOpts, numItems: Math.max(1, Math.min(OBJECT_PAGE_MAX, Math.floor(paginationOpts.numItems))) });
-    return { ...page, page: page.page.map(o => ({ id: o._id, salience: o.publicSalience ?? null })) };
+    return { ...page, page: page.page.map(o => ({ id: o._id, salience: o.publicSalience })) };
   },
 });
 
@@ -181,9 +183,8 @@ export const object = query({
     const o = id ? await ctx.db.get(id) : null;
     if (!o) { await requireViewer(ctx); return null; }
     const { game } = await readable(ctx, o.gameId);
-    // Exact once the game has ended (before game/readModel.ts finalizeObjects reaches this object too); an object stored
-    // before publicSalience (until migrations:backfillPublicSalience has run) is computed the same way.
+    // Exact once the game has ended, before game/readModel.ts finalizeObjects reaches this object too.
     const live = game.phase !== "ended";
-    return { id: o._id, value: o.value, version: o.version, salience: live ? o.publicSalience ?? publicSalienceOf(o, true) : publicSalienceOf(o, false) };
+    return { id: o._id, value: o.value, version: o.version, salience: live ? o.publicSalience : publicSalienceOf(o, false) };
   },
 });

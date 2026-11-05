@@ -1,9 +1,9 @@
 /**
  * Geometry for drawing a goal annotation over a board (docs/annotations-design.md §3, §6.3): where cells sit, how each
- * piece is outlined, where its numbered badge goes, which order the callouts take and the arrows' curves. Pure and
+ * scoring unit is outlined, where its badge goes and the arrow's curve to its box. Pure and
  * framework-free, unit tested under Node; the React component (GoalBoard.tsx) only measures and draws.
  */
-import type { Cell, Part, PartShape, Tone, WhatIfEntry } from "@workspace/game-utilities";
+import { signedPoints, type Cell, type Part, type PartShape, type Tone, type WhatIfEntry } from "@workspace/game-utilities";
 
 export interface BoardGeometry {
   /** Cell edge in px. */
@@ -24,7 +24,7 @@ export const TONE_DASH: Readonly<Record<Tone, string | undefined>> = Object.free
 export const TONE_MARK: Readonly<Record<Tone, string>> = Object.freeze({ gain: "✓", loss: "✗", zero: "·" });
 
 /** Points as a kid reads them: "+1", "−2", "0". */
-export const signed = (n: number) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : "0");
+export const signed = signedPoints;
 
 /** Pieces drawn as a stroke through cell centres (pairs and lines, diagonals included); the rest are outlines. */
 export const isStroke = (shape: PartShape) => shape === "pair" || shape === "line";
@@ -68,21 +68,10 @@ export function outlinePath(g: BoardGeometry, cells: readonly Cell[], inset = 2)
   return out.join(" ");
 }
 
-/**
- * Where a piece's numbered badge sits: at the top-right corner of one of its cells, preferring a cell that is not the
- * focus (the focus has its own ring) and has no badge yet, then the cell nearest the callout column (the right edge),
- * then the top. Badges that still share a cell are stacked so they never overlap.
- */
-export function badgePoints(g: BoardGeometry, parts: readonly Pick<Part, "cells">[], focus?: Cell): { x: number; y: number }[] {
-  const used = new Map<string, number>(), key = (x: Cell) => `${x.r},${x.c}`;
-  const isFocus = (x: Cell) => !!focus && x.r === focus.r && x.c === focus.c;
-  return parts.map(p => {
-    const best = [...p.cells].sort((a, b) =>
-      Number(isFocus(a)) - Number(isFocus(b)) || (used.get(key(a)) ?? 0) - (used.get(key(b)) ?? 0) || b.c - a.c || a.r - b.r)[0];
-    const n = used.get(key(best)) ?? 0;
-    used.set(key(best), n + 1);
-    return { x: round(cellX(g, best.c) + g.cell - 7), y: round(cellY(g, best.r) + 7 + n * 13) };
-  });
+/** Where a unit's badge sits on the board: the top-right corner of its cell nearest the list (the right edge), then the top. */
+export function badgePoint(g: BoardGeometry, cells: readonly Cell[]): { x: number; y: number } {
+  const best = [...cells].sort((a, b) => b.c - a.c || a.r - b.r)[0];
+  return { x: round(cellX(g, best.c) + g.cell - 7), y: round(cellY(g, best.r) + 7) };
 }
 
 /**
@@ -94,11 +83,6 @@ export function linkPath(g: BoardGeometry, from: Cell, to: Cell): string {
   const dx = b.x - a.x, dy = b.y - a.y, bow = 0.34;
   const mx = (a.x + b.x) / 2 + dy * bow, my = (a.y + b.y) / 2 - dx * bow;
   return `M${round(a.x)} ${round(a.y)} Q${round(mx)} ${round(my)} ${round(b.x)} ${round(b.y)}`;
-}
-
-/** Callout order: by the badge's height on the board, so arrows to a column beside it rarely cross. Stable. */
-export function calloutOrder(points: readonly { y: number }[]): number[] {
-  return points.map((p, i) => [p.y, i] as const).sort((a, b) => a[0] - b[0] || a[1] - b[1]).map(([, i]) => i);
 }
 
 /**
@@ -128,11 +112,11 @@ export function moveFocus(focus: Cell, key: string, size: number): Cell | null {
   }
 }
 
-/** Cells drawn at full strength: the focus and every cell of a selected piece (the rest are dimmed, A7). */
-export function litCells(focus: Cell, parts: readonly Pick<Part, "cells">[], size: number): boolean[][] {
+/** Cells drawn at full strength: every cell of the selected unit (the rest are dimmed), or all of them without one. */
+export function litCells(part: Pick<Part, "cells"> | null, size: number): boolean[][] | null {
+  if (!part) return null;
   const lit = Array.from({ length: size }, () => Array<boolean>(size).fill(false));
-  lit[focus.r][focus.c] = true;
-  for (const p of parts) for (const x of p.cells) if (x.r >= 0 && x.c >= 0 && x.r < size && x.c < size) lit[x.r][x.c] = true;
+  for (const x of part.cells) if (x.r >= 0 && x.c >= 0 && x.r < size && x.c < size) lit[x.r][x.c] = true;
   return lit;
 }
 

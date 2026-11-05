@@ -17,7 +17,7 @@ const convex = convexRunner();
 const quiet = { log: () => {} };
 const INSTANCE = "Int(0,9999)";
 const settings = { objectType: "Int", typeArgs: { min: 0, max: 9999 }, priorId: "uniform" };
-const draw = { familyId: "digit-devotee", params: { d: 7 } };
+const draw = { familyId: "digit-devotee", params: { digit: 7 } };
 
 test("upload skips unchanged files, replaces a changed one, and the engine then loads the new bytes from storage", { timeout: 180_000 }, async () => {
   // The dev script uploaded the repository's files: nothing to do.

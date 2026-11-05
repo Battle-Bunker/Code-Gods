@@ -63,7 +63,7 @@ def test_shared_reward_tables():
 
 def test_prior_mean_exact():
     """E_μ[max(0, s - c)] from the table equals the analytic value for the exact binomial tail."""
-    pd = Draw(rd.HATE_COLOUR, {"colour": 1})
+    pd = Draw(rd.HATE_COLOUR, {"colour": GT.colour_names[1]})
     T = cal.survival(pd, GT)
     n, q = GT.N ** 2, 1.0 / GT.C
     pk = np.array([math.comb(n, k) * q ** k * (1 - q) ** (n - k) for k in range(n + 1)])
@@ -99,7 +99,7 @@ def test_damage_costs_bits():
     """Painting a typical grid's row in the hated colour costs a red-hater bits; a combined ordinal floors."""
     rng = np.random.default_rng(2)
     S, C = spawn_batch(GT, rng, 4000)
-    pd = Draw(rd.HATE_COLOUR, {"colour": 0})
+    pd = Draw(rd.HATE_COLOUR, {"colour": GT.colour_names[0]})
     T = cal.survival(pd, GT)
     h0 = hinge(T.surprisal(rd.HATE_COLOUR.evaluate_batch(S, C, pd.params, GT)))
     C1 = C.copy()
@@ -139,7 +139,7 @@ def test_monotone_theorem():
     better net score; strictly, wherever the calibration is strict. Checked on real tables."""
     rng = np.random.default_rng(4)
     S_, C_ = spawn_batch(GT, rng, 3000)
-    d = Draw(by_id("seed3_green_ones+hate_colour"), {"colour": 2, "value": 1, "defence": {"colour": 0}})
+    d = Draw(by_id("seed3_green_ones+hate_colour"), {"colour": GT.colour_names[2], "value": 1, "defence": {"colour": GT.colour_names[0]}})
     T, PT = cal.survival(d, GT), cal.survival(d.penalty_draw(), GT)
     r = d.reward_draw().family.evaluate_batch(S_, C_, d.reward_draw().params, GT)
     q = d.penalty_draw().family.evaluate_batch(S_, C_, d.penalty_draw().params, GT)
@@ -253,8 +253,8 @@ def test_repair_valued_only_when_scored():
         cfg = small(score_penalties=scored, fixed_families=["lucky_token+hate_colour", "kingdom", "islands",
                                                             "magic_accountant"])
         draws = draws_for(cfg)
-        hated = draws[0].params["defence"]["colour"]
-        fav = draws[0].params["X"]
+        hated = GT.colour_names.index(draws[0].params["defence"]["colour"])
+        fav = GT.colour_names.index(draws[0].params["colour"])
         tables = [cal.survival(d, GT) for d in draws]
         w = World(cfg, draws, tables, np.random.default_rng(0))
         rng = np.random.default_rng(1)
@@ -271,7 +271,7 @@ def test_repair_valued_only_when_scored():
 
 def test_card():
     v = by_id("seed3_green_ones+hate_colour")
-    d = Draw(v, {"colour": 2, "value": 1, "defence": {"colour": 0}})
+    d = Draw(v, {"colour": GT.colour_names[2], "value": 1, "defence": {"colour": GT.colour_names[0]}})
     txt = card(d, GT, K=4.3)
     assert "✨" in txt and "⚠️" in txt and "−1 for each red cell" in txt and "about 4 points" in txt
     T, PT = cal.survival(d, GT), cal.survival(d.penalty_draw(), GT)
@@ -280,13 +280,13 @@ def test_card():
     assert "redder than 99% of grids" in line and "rarer than" in line, line
     calm = Grid(np.ones((5, 5)), np.arange(25).reshape(5, 5) % 3 + 1)   # no red at all
     assert "fine" in object_line(d, T, PT, calm, GT)
-    assert "⚠️" not in card(Draw(by_id("kingdom"), {"C": 0}), GT)
+    assert "⚠️" not in card(Draw(by_id("kingdom"), {"colour": GT.colour_names[0]}), GT)
 
 
 def test_constants():
-    tabs = [cal.survival(Draw(by_id("seed3_green_ones"), {"colour": 0, "value": 1}), GT),
-            cal.survival(Draw(by_id("kingdom"), {"C": 0}), GT)]
-    pt = [cal.survival(Draw(rd.HATE_COLOUR, {"colour": 1}), GT), None]
+    tabs = [cal.survival(Draw(by_id("seed3_green_ones"), {"colour": GT.colour_names[0], "value": 1}), GT),
+            cal.survival(Draw(by_id("kingdom"), {"colour": GT.colour_names[0]}), GT)]
+    pt = [cal.survival(Draw(rd.HATE_COLOUR, {"colour": GT.colour_names[1]}), GT), None]
     dc = constants(tabs, pt)
     assert dc.has.tolist() == [True, False]
     assert abs(dc.K[0] - tabs[1].prior_mean_bits()) < 1e-12 and dc.K[1] == 0 and dc.mode == "floored"

@@ -2,15 +2,15 @@
 /**
  * Open-agent pricing (ported from api-server pricing.ts):
  *   summon price   = description bits (ast-bits-v1 / ts-ast-bits-v1-uniform) + each literal move   (god pays once)
- *   per-act charge = decisionBits (measured I(X; A)) + erasure + motion + floor                  (agent pays)
- *                    (a failed or duplicate act: decisionBits + floor)
- * decisionBits and expectedActCost are measured by RUNNING the agent on the season's reference mixture
- * plus up to 16 live objects; randomized agents are replicated. The agent is never read.
+ *   act charge     = the bits the act read + its change when that commits                        (agent pays, per act)
+ * (docs/energy-model.md §2). expectedActCost, the estimate shown at validation and summon, is measured by RUNNING the
+ * agent on the season's reference mixture plus up to 16 live objects; nothing is charged or scheduled from it.
  */
 import { instantiationOf, type GameSettings, type Language, type ObjectValue } from "@workspace/game-core";
 import type { Inspection } from "@workspace/game-runtime";
 import {
-  availableMutators, measureAgent, parseAct, referenceMixture, withComponents, type Instantiation, type ReferenceMixture,
+  availableMutators, futilityWarnings, failedReadBits, measureAgent, readBound, parseAct, probeFutility, referenceMixture, withComponents, type FutilityProfile, type Instantiation,
+  type ReferenceMixture,
 } from "@workspace/game-types";
 import type { ActionCtx } from "../_generated/server";
 import { act, inspect, isAgentFault } from "./runtime";
@@ -23,13 +23,16 @@ export const GAME_COMPONENT = 16;
 const MOVE_FLAG_BITS = 3;
 const CONCURRENCY = 4;
 
-export type CostBreakdown = { decision: number; erasure: number; motion: number; floor: number };
+/** The estimated cost per act, split: the bits it reads and its change (docs/energy-model.md §5). */
+export type CostBreakdown = { read: number; change: number };
 export type SummonParts = { structure: number; names: number; literals: number; moveFlags: number; literalMoves: number; commitClause: number };
 export type Examination = {
   cost: number; parts: SummonParts; complexityFunctionId: string;
-  decisionBits: number; expectedActCost: number; breakdown: CostBreakdown; randomized: boolean;
-  /** Measured on the reference objects: the share of acts that change the object, and that fail or are invalid. */
-  changeRate: number; invalidRate: number;
+  expectedActCost: number; breakdown: CostBreakdown; randomized: boolean;
+  /** Measured on the reference objects: the share of acts that change the object, that fail or are invalid, and that skip. */
+  changeRate: number; invalidRate: number; skipRate: number;
+  /** Two passes over a sample world (the game's objects first): the expected success rate and why acts would fail. */
+  futility: Omit<FutilityProfile, "warnings" | "n">; warnings: string[];
   diagnostics: string[]; runs: number; measureMs: number;
 };
 
@@ -80,39 +83,56 @@ export async function examineAgent(ctx: ActionCtx, settings: GameSettings, langu
   let hostFailure: unknown, runs = 0, usesClause = false;
   const sample = { value: undefined as ObjectValue | undefined, calls: undefined as string | undefined, error: undefined as string | undefined };
   const started = performance.now();
+  // The measurement and the futility probe (docs/rules-design.md §11: the game's objects first, then the reference
+  // mixture) run side by side; after a host failure neither runs anything more.
+  const probing = probeFutility(async (value, seed) => {
+    if (hostFailure) throw hostFailure;
+    runs++;
+    try { const result = await act(ctx, source, language, value, settings, seed); return { calls: result.calls, usedRandom: result.usedRandom, steps: result.steps, readBits: result.readBits }; }
+    catch (error) {
+      if (!isAgentFault(error)) { hostFailure ??= error; throw error; }
+      return { calls: "[]", error: (error as Error).message.slice(0, 200) };
+    }
+  }, inst, [...game, ...mixture.values], { salt: seasonSalt(), concurrency: CONCURRENCY });
   const measured = await measureAgent(async (value, seed, at) => {
+    if (hostFailure) throw hostFailure;
     runs++;
     try {
       const result = await act(ctx, source, language, value, settings, seed);
       if (settings.commitClause && !usesClause) { try { usesClause = parseAct(result.calls).commit !== undefined; } catch { /* invalid act */ } }
       if (at.component === "game" && at.replicate === 0 && sample.value === undefined) Object.assign(sample, { value, calls: result.calls });
-      return { calls: result.calls, usedRandom: result.usedRandom, steps: result.steps };
+      return { calls: result.calls, usedRandom: result.usedRandom, steps: result.steps, readBits: result.readBits };
     } catch (error) {
       if (!isAgentFault(error)) { hostFailure ??= error; throw error; }
       if (at.component === "game" && at.replicate === 0 && sample.value === undefined) Object.assign(sample, { value, error: (error as Error).message });
-      return { calls: "[]", error: (error as Error).message.slice(0, 200) };
+      return { calls: "[]", error: (error as Error).message.slice(0, 200), readBits: failedReadBits(error as { readBits?: number; code?: string }, readBound(inst)) };
     }
-  }, inst, mixture, { salt: seasonSalt(), perActFloorBits: settings.perActFloorBits, concurrency: CONCURRENCY, byComponent: false });
+  }, inst, mixture, { salt: seasonSalt(), concurrency: CONCURRENCY });
+  const probed = await probing;
   // A capacity or configuration failure is not the agent's price: never charge from a partial measurement.
   if (hostFailure) throw hostFailure;
+  // An agent the measurement saw read `random` (on inputs the probe's sample may have missed) makes no deterministic claims.
+  const { warnings: _w, ...profile } = measured.randomized ? { ...probed, deterministic: false, constant: false, idempotent: false } : probed;
+  const warnings = futilityWarnings(profile);
+  const { n: probedCount, ...futility } = profile;
   const measureMs = performance.now() - started;
   if (usesClause) { price.parts.commitClause = COMMIT_CLAUSE_BITS; price.cost += COMMIT_CLAUSE_BITS; }
-  const breakdown: CostBreakdown = { decision: measured.decisionBits, erasure: measured.expectedErasure,
-    motion: measured.expectedMotion, floor: measured.perActFloorBits };
+  const breakdown: CostBreakdown = { read: measured.expectedRead, change: measured.expectedChange };
   const d = measured.diagnostics;
   const diagnostics = [
     `Summon price ${price.cost.toFixed(1)} bits (${inspection.complexityFunctionId}: structure ${inspection.parts.structure.toFixed(1)}, names ${inspection.parts.names.toFixed(1)}, literals ${inspection.parts.literals.toFixed(1)}, literal moves ${price.parts.literalMoves.toFixed(1)}${usesClause ? `, commit clause ${COMMIT_CLAUSE_BITS.toFixed(2)}` : ""}).`,
-    `Each act: ${measured.expectedActCost.toFixed(2)} bits expected = decision ${measured.decisionBits.toFixed(2)} + erasure ${measured.expectedErasure.toFixed(2)} + motion ${measured.expectedMotion.toFixed(2)}${measured.perActFloorBits ? ` + floor ${measured.perActFloorBits}` : ""}.`,
-    `Measured on ${d.n} reference objects${measured.randomized ? ` × ${d.replicates} seeds (it uses random)` : ""}: changes ${(100 * d.changeRate).toFixed(0)}%, invalid or failing ${(100 * d.invalidRate).toFixed(0)}%${d.errors.length ? ` (${d.errors.map(([e, n]) => `${e} ×${n}`).join(", ")})` : ""}; mutators ${d.mutators.join(", ") || "none"}.`,
+    `Each act: about ${measured.expectedActCost.toFixed(2)} bits = reading ${measured.expectedRead.toFixed(2)} + changing ${measured.expectedChange.toFixed(2)} (an act pays what it reads, plus its change only when it changes the object; there is no fixed charge).`,
+    `Measured on ${d.n} reference objects${measured.randomized ? " (it uses random)" : ""}: changes ${(100 * d.changeRate).toFixed(0)}%, skips ${(100 * d.skipRate).toFixed(0)}%, invalid or failing ${(100 * d.invalidRate).toFixed(0)}%${d.errors.length ? ` (${d.errors.map(([e, n]) => `${e} ×${n}`).join(", ")})` : ""}; mutators ${d.mutators.join(", ") || "none"}.`,
   ];
+  diagnostics.push(`Two passes over a sample world of ${probedCount} objects: ${(100 * futility.successRate).toFixed(0)}% of its acts succeed (first pass ${(100 * futility.firstPass).toFixed(0)}%, second ${(100 * futility.secondPass).toFixed(0)}%).`);
   if (sample.value !== undefined) {
     diagnostics.push(sample.error ? `On object 1 it fails: ${sample.error.slice(0, 300)}`
       : `On object 1 it returns ${sample.calls!.length > 300 ? `${sample.calls!.slice(0, 300)}…` : sample.calls}.`);
   }
   return {
     cost: price.cost, parts: price.parts, complexityFunctionId: inspection.complexityFunctionId,
-    decisionBits: measured.decisionBits, expectedActCost: measured.expectedActCost, breakdown, randomized: measured.randomized,
-    changeRate: d.changeRate, invalidRate: d.invalidRate,
+    expectedActCost: measured.expectedActCost, breakdown, randomized: measured.randomized,
+    changeRate: d.changeRate, invalidRate: d.invalidRate, skipRate: d.skipRate, futility, warnings: [...warnings],
     diagnostics, runs, measureMs,
   };
 }

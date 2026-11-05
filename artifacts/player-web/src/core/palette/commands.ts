@@ -15,6 +15,7 @@ import type { Pane } from "@workspace/player-client/layout";
 import type { Command as GameCommand } from "@workspace/player-client";
 import type { GridRendererId } from "@workspace/object-views";
 import { endedGameReplay } from "../replay/model.ts";
+import { MODE_OPTIONS, type AssistantMode } from "../chat/state.ts";
 import { GLOSSARY, GLOSSARY_IDS, availabilityFor, commandsFromCatalog, type Availability, type Command, type LiveOptions, type PaletteContext, type Performer, type PickOption } from "@workspace/ui-kit";
 
 export type PaletteState = {
@@ -36,6 +37,11 @@ export type PaletteState = {
   /** A game command is in flight. */
   busy: boolean;
   assistantOn: boolean;
+  /** The room's owner is an administrator, so the assistant exists here at all (assistant.status `available`); otherwise no assistant affordance is offered. */
+  /** AI is available in the room (its owner is an administrator): assistant.status `available` (true until it loads). */
+  assistantAvailable: boolean;
+  /** The room's `aiEnabled` (true until the room loads): AI players may be seated. */
+  aiEnabled?: boolean;
   roomCode?: string;
   gameCode?: string;
   panes: readonly { id: string; kind: Pane["kind"]; label: string; closable: boolean }[];
@@ -44,8 +50,6 @@ export type PaletteState = {
   storedPanels: readonly { slug: string; title: string; enabled: boolean; currentVersion: number }[];
   filePanels: readonly string[];
   safeMode: boolean;
-  /** The game setups the owner can put the next game on (setups.list). */
-  setups: readonly PickOption[];
   aiSeats: readonly PickOption[];
   /** How this viewer sees grids (lib/object-views' Grid renderer, remembered per browser). */
   gridRenderer: GridRendererId;
@@ -63,15 +67,17 @@ export type PaletteActions = {
   useReceipt(commandId: string): readonly string[];
   copyObservation(): void;
   owner: {
-    start(): Promise<unknown>; resume(): Promise<unknown>; endGame(): Promise<unknown>;
+    start(): Promise<unknown>; resume(): Promise<unknown>; startWorldNow(): Promise<unknown>; endGame(): Promise<unknown>;
     addAi(templateId: string): Promise<unknown>; removeAi(godId: string): Promise<unknown>; setup(setupId: string): Promise<unknown>;
     /** A hook: the AI templates an owner can seat (aiTemplates.catalog), live while the pick page is open. */
     useAiCatalog(): LiveOptions;
+    /** The setups the next game can run (setups.page; typing searches on the server). */
+    useSetupCatalog(query: string): LiveOptions;
   };
   panels: { open(slug: string): void; openFile(id: string): void; setEnabled(slug: string, enabled: boolean): Promise<unknown>; remove(slug: string): Promise<unknown>; rollback(slug: string): Promise<unknown> };
   assistant: {
-    cancel(): Promise<unknown>; setAutoApprove(bits: number): Promise<unknown>; useThreads(): LiveOptions; openThread(id: string): void;
-    newThread(): void; setPermission(permission: "read" | "act" | "owner"): void; focus(): void; handoff(draft: string): void;
+    cancel(): Promise<unknown>; setMode(mode: "autopilot" | "onRequest" | "readOnly"): Promise<unknown>; useThreads(): LiveOptions; openThread(id: string): void;
+    newThread(): void; setPermission(permission: "act" | "owner"): void; focus(): void; handoff(draft: string): void;
   };
   dock: {
     /** Show a panel: activate an open pane of it, else add one by the placement rule. */
@@ -101,7 +107,7 @@ const both = (...checks: Availability[]): Availability => checks.find(c => !c.ok
 const pick = (title: string, options: readonly PickOption[] | (() => Promise<readonly PickOption[]> | readonly PickOption[]), onPick: (id: string) => unknown): Performer =>
   ({ kind: "form", page: { kind: "pick", title, options: typeof options === "function" ? options : () => options, onPick } });
 /** A pick over server data: `useOptions` holds its subscription while the page is shown. */
-const livePick = (title: string, useOptions: () => LiveOptions, onPick: (id: string) => unknown): Performer =>
+const livePick = (title: string, useOptions: (query: string) => LiveOptions, onPick: (id: string) => unknown): Performer =>
   ({ kind: "form", page: { kind: "pick", title, useOptions, onPick } });
 const local = (run: () => void): Performer => ({ kind: "local", run });
 const submit = (run: () => Promise<unknown>): Performer => ({ kind: "submit", run });
@@ -115,8 +121,13 @@ function gameplay(s: PaletteState): Availability {
   if (s.busy) return no("Another command is still running.");
   return OK;
 }
+/** The engine's refusal (convex/lib/aiAccess.ts AI_ADMIN_ONLY), as the palette says it. */
+const AI_ADMIN_ONLY = "AI is only available in rooms run by an administrator for now.";
 const assistantOn = (s: PaletteState): Availability =>
-  s.assistantOn ? OK : no("Your assistant is off in this room.", "The room owner turns it on in the room's AI budget.");
+  !s.assistantAvailable ? no(AI_ADMIN_ONLY, undefined, true)
+  : s.assistantOn ? OK : no("Your assistant is off in this room.", "The room owner turns it on in the room's AI quotas.");
+/** Pane and layout rows of the assistant: offered wherever it exists, on or off. */
+const assistantHere = (s: PaletteState): Availability => (s.assistantAvailable ? OK : no(AI_ADMIN_ONLY, undefined, true));
 const betweenGames = (s: PaletteState): Availability => (live(s.phase) ? no("Only between games.", "End the current game first.") : OK);
 
 export function playerCommands(s: PaletteState, a: PaletteActions): Command[] {
@@ -146,9 +157,10 @@ export function playerCommands(s: PaletteState, a: PaletteActions): Command[] {
     "activity.touch": { performer: submit(() => a.wake()) },
     "assistant.send": { performer: { kind: "handoff", draft: "" }, available: () => assistantOn(s) },
     "assistant.cancel": { performer: submit(() => a.assistant.cancel()), available: () => assistantOn(s) },
-    "assistant.setPrefs": {
-      performer: field("Auto-approve summons", "Up to how many bits (0 asks every time)", v => a.assistant.setAutoApprove(Number(v)),
-        v => (/^\d+(\.\d+)?$/.test(v.trim()) ? null : "A number of bits, 0 or more."), "0"),
+    "assistant.setMode": {
+      // Autopilot acts for you: not offered to a read-only connection (the engine refuses it too).
+      performer: pick("Your assistant", () => MODE_OPTIONS.filter(m => m.id !== "autopilot" || s.permission !== "read").map(m => ({ id: m.id, label: m.label, detail: m.detail })),
+        id => a.assistant.setMode(id as AssistantMode)),
       available: () => assistantOn(s),
     },
     "assistant.threads": { performer: livePick("Past conversations", () => a.assistant.useThreads(), id => a.assistant.openThread(id)), available: () => assistantOn(s) },
@@ -160,7 +172,7 @@ export function playerCommands(s: PaletteState, a: PaletteActions): Command[] {
         { id: "two-panels", label: "Two panels and the assistant" }, { id: "reset", label: "Reset layout" },
       ], id => (id === "reset" ? a.dock.reset() : a.dock.preset(id as "stacked"))),
     },
-    "owner.settings": { performer: pick("Next game's setup", () => s.setups, id => a.owner.setup(id)), available: () => betweenGames(s) },
+    "owner.settings": { performer: livePick("Next game's setup", query => a.owner.useSetupCatalog(query), id => a.owner.setup(id)), available: () => betweenGames(s) },
     "owner.start": {
       performer: submit(() => a.owner.start()),
       available: () => (s.starting === "starting" ? no("The game is already starting.")
@@ -199,13 +211,14 @@ export function playerCommands(s: PaletteState, a: PaletteActions): Command[] {
     "rooms.join": { performer: submit(() => a.join()), available: () => no("You're already in this room.", undefined, true) },
     "rooms.chatHistory": { performer: local(() => a.dock.show("public-chat")) },
     "rooms.history": { performer: local(() => a.dock.show("results")) },
-    "rooms.addAi": { performer: livePick("Add an AI player", () => a.owner.useAiCatalog(), id => a.owner.addAi(id)), available: () => betweenGames(s) },
+    "rooms.addAi": { performer: livePick("Add an AI player", () => a.owner.useAiCatalog(), id => a.owner.addAi(id)), available: () => both(s.aiEnabled === false ? no(AI_ADMIN_ONLY, undefined, true) : OK, betweenGames(s)) },
     "rooms.removeAi": {
       performer: pick("Remove which AI player?", () => s.aiSeats, id => a.owner.removeAi(id)),
       available: () => both(betweenGames(s), s.aiSeats.length ? OK : no("No AI player is seated.")),
     },
     // With no game running it ends a preparation (the next game computing its rule tables).
     "rooms.endActiveGame": { performer: submit(() => a.owner.endGame()), available: () => (live(s.phase) || s.preparing ? OK : no("No game is running.")) },
+    "rooms.startWorldNow": { performer: submit(() => a.owner.startWorldNow()), available: () => (s.phase === "planning" ? OK : no("The world has started.")) },
     "rooms.resume": { performer: submit(() => a.owner.resume()), available: () => (s.phase === "paused" ? OK : no("The game is not stopped.")) },
   };
   const fromCatalog = commandsFromCatalog(CATALOG, (path: PublicFunctionPath, _entry: CatalogEntry) => BIND[path]?.performer ?? null, "dock")
@@ -240,10 +253,10 @@ export function playerCommands(s: PaletteState, a: PaletteActions): Command[] {
     }),
     ui("ui.pane.maximise", "Maximise or restore this pane", "Gives this pane the whole dock, or puts it back.", "view", local(() => { if (s.scopePaneId) a.dock.maximise(s.scopePaneId); }),
       { keywords: ["zoom", "full screen", "maximize"], available: ctx => (scope(ctx) ? OK : no("Open the palette from a pane.", undefined, true)) }),
-    ui("ui.assistant.open", "Open assistant", "Your assistant, in its own pane: it comes back at the bottom if you closed it.", "view", local(() => a.dock.openAssistant()), { keywords: ["chat", "ask", "reopen", "show"] }),
-    ui("ui.assistant.right", "Move assistant right", "Your assistant beside the panels, on the right.", "view", local(() => a.dock.dockAssistant("right")), { keywords: ["layout", "side"] }),
-    ui("ui.assistant.bottom", "Move assistant to the bottom", "Your assistant below the panels.", "view", local(() => a.dock.dockAssistant("bottom")), { keywords: ["layout", "below"] }),
-    ui("ui.assistant.left", "Move assistant left", "Your assistant beside the panels, on the left.", "view", local(() => a.dock.dockAssistant("left")), { keywords: ["layout", "side"] }),
+    ui("ui.assistant.open", "Open assistant", "Your assistant, in its own pane: it comes back at the bottom if you closed it.", "view", local(() => a.dock.openAssistant()), { keywords: ["chat", "ask", "reopen", "show"], ...always(() => assistantHere(s)) }),
+    ui("ui.assistant.right", "Move assistant right", "Your assistant beside the panels, on the right.", "view", local(() => a.dock.dockAssistant("right")), { keywords: ["layout", "side"], ...always(() => assistantHere(s)) }),
+    ui("ui.assistant.bottom", "Move assistant to the bottom", "Your assistant below the panels.", "view", local(() => a.dock.dockAssistant("bottom")), { keywords: ["layout", "below"], ...always(() => assistantHere(s)) }),
+    ui("ui.assistant.left", "Move assistant left", "Your assistant beside the panels, on the left.", "view", local(() => a.dock.dockAssistant("left")), { keywords: ["layout", "side"], ...always(() => assistantHere(s)) }),
     ui("ui.layout.stacked", "Layout: Stacked", "Panels on top, your assistant below.", "view", local(() => a.dock.preset("stacked")), { keywords: ["preset", "default"] }),
     ui("ui.layout.side-by-side", "Layout: Side by side", "Panels on the left, your assistant on the right.", "view", local(() => a.dock.preset("side-by-side")), { keywords: ["preset"] }),
     ui("ui.layout.two-panels", "Layout: Two panels", "Two panels stacked on the left, your assistant on the right.", "view", local(() => a.dock.preset("two-panels")), { keywords: ["preset"] }),
@@ -256,16 +269,15 @@ export function playerCommands(s: PaletteState, a: PaletteActions): Command[] {
   ];
 
   const assistantRows: Command[] = [
-    ui("ui.assistant.focus", "Focus assistant", "Puts the cursor in your assistant's message box.", "help", local(() => a.assistant.focus()), { shortcut: "Ctrl+`", keywords: ["chat", "ask"] }),
+    ui("ui.assistant.focus", "Focus assistant", "Puts the cursor in your assistant's message box.", "help", local(() => a.assistant.focus()), { shortcut: "Ctrl+`", keywords: ["chat", "ask"], ...always(() => assistantHere(s)) }),
     ui("ui.assistant.new", "New conversation", "Starts a fresh conversation with your assistant.", "help", local(() => a.assistant.newThread()), { keywords: ["thread", "clear"], ...always(() => assistantOn(s)) }),
-    ui("ui.assistant.settings", "Assistant settings…", "What your assistant may do as you; it asks before anything public or costly.", "help",
+    ui("ui.assistant.owner", "Assistant owner powers…", "Whether your assistant may also use the room owner's powers, from your next message.", "help",
       pick("Your assistant may", [
-        { id: "act", label: "Play for me", detail: "Asks before anything public or costly." },
-        { id: "read", label: "Only look" },
+        { id: "act", label: "Play as a player", detail: "No owner powers." },
         // The engine caps the assistant at this client's own permission (assistant.ts maxPermission).
-        ...(s.isOwner && s.permission === "owner" ? [{ id: "owner", label: "Play for me, with owner powers", detail: "Each owner action still asks you." }] : []),
-      ], id => a.assistant.setPermission(id as "read" | "act" | "owner")),
-      { keywords: ["permission", "rights", "assistant"], ...always(() => assistantOn(s)) }),
+        { id: "owner", label: "Use owner powers too", detail: "Settings, starting and ending games, AI seats." },
+      ], id => a.assistant.setPermission(id as "act" | "owner")),
+      { keywords: ["permission", "rights", "assistant", "owner"], ...always(() => both(assistantOn(s), s.isOwner && s.permission === "owner" ? OK : no("Only the room's owner.", undefined, true))) }),
   ];
 
   const gameRows: Command[] = [

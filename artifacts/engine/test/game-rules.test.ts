@@ -25,8 +25,8 @@ async function runningGame(settings: Record<string, unknown> = {}) {
 }
 
 test("a summon needs a name (trimmed, up to 40) and takes an optional description (up to 500); both are stored on the agent", { timeout: 120000 }, async () => {
-  const { trio: [, ada], roomId, game, send } = await runningGame({ startingObjectCount: 3 });
-  const src = { language: "typescript", source: "function agent(x) { return [setTo(5)]; }" };
+  const { trio: [, ada], roomId, game, send } = await runningGame({ startingObjectCount: 3, startingEnergy: 1000 });
+  const src = { language: "typescript", source: "function agent(x) { return x.value === 5 ? [add(1), add(-1)] : [add(5 - x.value)]; }" };
   for (const bad of [{}, { name: "   " }, { name: "x".repeat(41) }, { name: "N", description: "d".repeat(501) }]) {
     assert.match(await rejects(send(ada, { type: "summon", ...src, ...bad })), /Invalid command envelope/, JSON.stringify(bad).slice(0, 40));
   }
@@ -38,12 +38,13 @@ test("a summon needs a name (trimmed, up to 40) and takes an optional descriptio
   assert.deepEqual([observed.agents[0].name, observed.agents[0].description], ["Setter", "Sets everything to five."]);
 });
 
-test("objects stay unique: a constant transformation commits once, then collides and still pays decision + floor", { timeout: 120000 }, async () => {
-  const { trio: [host, ada], roomId, game, send, run } = await runningGame({ startingObjectCount: 3, agentEnergyPerSecond: 1000, agentBatteryActs: 1000, interactionRateHz: 40 });
-  assert.equal((await send(ada, { type: "summon", name: "Test agent", language: "typescript", source: "function agent(x) { return [setTo(5)]; }" })).accepted, true);
+test("objects stay unique: a constant transformation commits once, then collides once per other object (futile acts) and pays only what it read", { timeout: 120000 }, async () => {
+  const { trio: [host, ada], roomId, game, send, run } = await runningGame({ startingObjectCount: 3, startingEnergy: 1000, powerPerSecond: 2000, interactionRateHz: 40 });
+  assert.equal((await send(ada, { type: "summon", name: "Test agent", language: "typescript", source: "function agent(x) { return x.value === 5 ? [add(1), add(-1)] : [add(5 - x.value)]; }" })).accepted, true);
   await run();
   const events = async () => (await raw(game.gameId)).batches.flatMap((b: any) => b.events);
-  await waitFor(async () => (await events()).filter((e: any) => e.t === "fail" && /already has this value/.test(e.reason)).length >= 3, "later constant acts collide", 60000);
+  await waitFor(async () => (await events()).filter((e: any) => e.t === "fail" && /already has this value/.test(e.reason)).length >= 2, "later constant acts collide", 60000);
+  await sleep(3000); // 40 opportunities a second: a deterministic act is never retried on an object version it failed on
   await host.c.mutation(api.rooms.endActiveGame, { roomId });
   const secret = await raw(game.gameId);
   const values = secret.objects.map((o: any) => o.value);
@@ -52,14 +53,17 @@ test("objects stay unique: a constant transformation commits once, then collides
   const all = await events();
   assert.equal(all.filter((e: any) => e.t === "transform").length, 1);
   const failed = all.filter((e: any) => e.t === "fail");
-  const odd = failed.filter((e: any) => !(/already has this value|no change/.test(e.reason) && e.cost.erasure === 0 && e.cost.motion === 0 && e.cost.total === e.cost.decision + e.cost.floor));
-  assert.deepEqual(odd, [], "duplicates fail and pay decision + floor only");
+  const odd = failed.filter((e: any) => !(/already has this value|no change/.test(e.reason) && e.cost.change === 0 && e.cost.total === e.cost.read));
+  assert.deepEqual(odd, [], "duplicates fail and pay their reads only (no change, no fixed charge)");
+  // One success, one collision on each other object, one "no change" on the holder: then nothing left to try.
+  assert.equal(failed.filter((e: any) => /already has this value/.test(e.reason)).length, 2);
+  assert.ok(failed.filter((e: any) => /no change/.test(e.reason)).length <= 1);
   const agent = secret.agents[0];
   assert.equal(agent.acts, all.filter((e: any) => e.t === "transform" || e.t === "fail").length, "every act is charged, successful or not");
 });
 
-test("pause: once per god, freezes world time, discards in-flight windows, god energy keeps accruing; resumes at its end", { timeout: 120000 }, async () => {
-  const { trio: [host, ada, bo], game, send, run } = await runningGame({ startingObjectCount: 4, agentEnergyPerSecond: 1000, agentBatteryActs: 1000, pauseSeconds: 60, energyPerSecond: 5 });
+test("pause: once per god, freezes world time and with it every energy account, discards in-flight windows; resumes at its end", { timeout: 120000 }, async () => {
+  const { trio: [host, ada, bo], game, send, run } = await runningGame({ startingObjectCount: 4, powerPerSecond: 2000, pauseSeconds: 60 });
   assert.equal((await send(ada, { type: "pause" })).accepted, false, "no pause during planning");
   assert.equal((await send(host, { type: "summon", name: "Test agent", language: "typescript", source: TS.Int })).accepted, true);
   await run();
@@ -77,7 +81,7 @@ test("pause: once per god, freezes world time, discards in-flight windows, god e
   assert.equal(secret.agents[0].acts, frozen.acts, "no act commits while paused (in-flight windows are discarded)");
   const obs = await bo.c.query(api.player.observation, { roomId: secret.game.roomId, at: Date.now() });
   assert.equal(obs.phase, "paused");
-  assert.ok(obs.self.energy >= energy0 + 5, "god energy accrues on the wall clock even while paused");
+  assert.ok(Math.abs(obs.self.energy - energy0) < 1e-6, "a deity's energy runs on world time (docs/energy-model.md §6): frozen while paused");
   assert.ok(secret.batches.some((b: any) => b.events.some((e: any) => e.t === "phase" && e.phase === "paused")));
   // The pause ends at its deadline and the loop resumes by itself.
   await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { pauseEndsAt: Date.now() }, kick: true });
@@ -143,7 +147,7 @@ test("permissions: read/act/owner credentials are room-bound; spectators observe
   // Energy and the agent cap; spectators cannot act in the game.
   assert.equal((await send(ada, { type: "summon", name: "Test agent", language: "typescript", source: TS.Int })).accepted, true);
   assert.match((await send(ada, { type: "summon", name: "Test agent", language: "typescript", source: "function agent(x) { return [add(2)]; }" })).message, /1-agent resource limit|Insufficient energy/);
-  assert.match((await send(bo, { type: "summon", name: "Test agent", language: "typescript", source: "function agent(x) { const k = x % 7 + 1; return k > 3 ? [add(k), add(1), add(2)] : [add(k)]; }" })).message, /Insufficient energy/);
+  assert.match((await send(bo, { type: "summon", name: "Test agent", language: "typescript", source: "function agent(x) { const k = x.value % 7 + 1; return k > 3 ? [add(k), add(1), add(2)] : [add(k)]; }" })).message, /Insufficient energy/);
   const [late] = await gods("Late Larry");
   await late.c.mutation(api.rooms.join, { room: shortCode });
   assert.match((await send(late, { type: "summon", name: "Test agent", language: "typescript", source: TS.Int })).message, /observing until the next game/);

@@ -8,7 +8,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { complexityFor, grammarFor, seedSetupSettings, type GameSettings } from "@workspace/game-core";
-import { admin, api, gods, internal, roomWith, startGame, touch, waitFor, type God } from "./game-helpers.ts";
+import { admin, api, gods, internal, roomWith, setupEntries, startGame, touch, waitFor, type God, makeAdmin } from "./game-helpers.ts";
 
 /**
  * The pre-setups-v2 shape of some settings: a defence rate, defence ids among the excluded families, and one language
@@ -25,7 +25,7 @@ const migrate = (): Promise<Record<string, number>> => admin.action(internal.mig
 test("legacy rooms, games and setups are migrated once: every room runs a setup holding its settings", { timeout: 300_000 }, async () => {
   const [host, ada, bo] = await gods("Legacy Host", "Legacy Ada", "Legacy Bo");
   await touch(host);
-  const setups = await host.c.query(api.setups.list, {});
+  const setups = await setupEntries(host.c);
   const classic = setups.find((s: any) => s.seedId === "grid-classic");
   const room = async (roomId: string) => host.c.query(api.rooms.get, { room: roomId });
 
@@ -91,7 +91,8 @@ test("assistant-per-game: legacy threads and stored objects join the game they b
     languages: ["typescript"], objectType: "Int",
     typeArgs: { min: -2147483648, max: 2147483647 }, startingObjectCount: 3, spawnRateHz: 0, planningSeconds: 3600, halfLifeSeconds: 1e9,
   });
-  await ann.c.mutation(api.rooms.approveAiBudget, { roomId, aiBudget: 0, assistantBudget: 500_000 });
+  await makeAdmin(ann);
+  await ann.c.mutation(api.rooms.setAiQuotas, { roomId, assistantQuota: 500_000 });
   const say = async (god: God, text: string) => {
     const sent = await god.c.mutation(api.assistant.send, { roomId, text: `/mock ${JSON.stringify({ steps: [{ text }] })}` });
     await waitFor(async () => (await god.c.query(api.assistant.thread, { threadId: sent.threadId })).turns.every((t: any) => t.status === "done") || null, text, 60_000, 150);

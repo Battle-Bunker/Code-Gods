@@ -1,11 +1,11 @@
 /**
  * Pure UI state of the assistant pane (src/core/chat/state.ts): the timeline built from a thread's messages and
- * tool calls, the optimistic user message, the confirmation-card state machine, the allowance meter and chip labels.
+ * tool calls, the optimistic user message, the modes, the allowance meter and chip labels.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  allowanceMeter, allowanceNote, buildTimeline, queueNote, cardReducer, chipView, confirmSentence, initialCard, prettyArgs, stepView, withPending, withSteps, type CallRow, type MessageRow,
+  MODE_OPTIONS, allowanceMeter, allowanceNote, buildTimeline, modeLabel, queueNote, chipView, prettyArgs, stepView, summonWarnings, userCount, withPending, withSteps, type CallRow, type MessageRow,
 } from "../src/core/chat/state.ts";
 
 const msg = (seq: number, role: "user" | "assistant", text: string, over: Partial<MessageRow> = {}): MessageRow =>
@@ -16,7 +16,7 @@ const call = (index: number, messageId: string, tool: string, status: CallRow["s
 test("the timeline orders messages by seq and puts each step's tool calls after its text, in call order", () => {
   const timeline = buildTimeline(
     [msg(3, "assistant", "", { _id: "m3" }), msg(1, "user", "hi"), msg(2, "assistant", "Looking", { _id: "m2" }), msg(4, "assistant", "Done", { _id: "m4" })],
-    [call(1, "m2", "get_chat", "ok"), call(0, "m2", "get_observation", "ok"), call(0, "m3", "summon_agent", "awaiting_confirmation")],
+    [call(1, "m2", "get_chat", "ok"), call(0, "m2", "get_observation", "ok"), call(0, "m3", "summon_agent", "running")],
   );
   assert.deepEqual(timeline.map(i => i.kind === "call" ? `call:${i.call.tool}` : `${i.kind}:${i.text}`), [
     "user:hi", "assistant:Looking", "call:get_observation", "call:get_chat", "call:summon_agent", "assistant:Done",
@@ -37,19 +37,19 @@ test("the optimistic message shows until the server has it", () => {
   assert.equal(withPending(buildTimeline(server, []), null).length, 2);
 });
 
-test("a confirmation card submits one decision at a time, settles when the server moves on, and can retry after an error", () => {
-  let s = initialCard;
-  s = cardReducer(s, { type: "submit", decision: "approve" });
-  assert.deepEqual(s, { phase: "submitting", decision: "approve" });
-  assert.deepEqual(cardReducer(s, { type: "submit", decision: "deny" }), s, "no second decision while one is in flight");
-  const failed = cardReducer(s, { type: "failed", message: "network" });
-  assert.deepEqual(failed, { phase: "error", decision: "approve", message: "network" });
-  assert.deepEqual(cardReducer(failed, { type: "submit", decision: "deny" }), { phase: "submitting", decision: "deny" });
-  const sent = cardReducer(s, { type: "sent" });
-  assert.deepEqual(sent, { phase: "sent", decision: "approve" });
-  assert.deepEqual(cardReducer(sent, { type: "server", status: "running" }), { phase: "settled", status: "running" });
-  assert.deepEqual(cardReducer(initialCard, { type: "server", status: "awaiting_confirmation" }), initialCard, "still waiting");
-  assert.deepEqual(cardReducer(initialCard, { type: "server", status: "denied" }), { phase: "settled", status: "denied" }, "timed out on the server");
+test("an autopilot turn's prompt is a labelled user item, not the player's words: it counts for no optimistic message", () => {
+  const timeline = buildTimeline([msg(1, "user", "hi"), msg(2, "assistant", "ok"), msg(3, "user", "(autopilot) Engine prompt", { autopilot: true }), msg(4, "assistant", "Summoned one.")], []);
+  const prompt = timeline.find(i => i.kind === "user" && i.autopilot);
+  assert.ok(prompt, "kept, flagged autopilot");
+  assert.equal(userCount(timeline), 1, "only the player's own messages count");
+  assert.equal(withPending(timeline, "next", 1).at(-1)?.kind === "user" && (withPending(timeline, "next", 1).at(-1) as any).pending, true,
+    "a message sent after an autopilot turn still shows as pending until the server has it");
+});
+
+test("the three modes, in order, each with a one-line description", () => {
+  assert.deepEqual(MODE_OPTIONS.map(m => m.label), ["Autopilot", "On request", "Read-only"]);
+  for (const m of MODE_OPTIONS) assert.ok(m.detail.length > 0 && m.detail.length <= 60 && !m.detail.includes("\n"), m.id);
+  assert.equal(modeLabel("onRequest"), "On request");
 });
 
 test("the allowance meter: fraction, label, exhausted and off", () => {
@@ -77,11 +77,9 @@ test("step lines: one line per model step in human verbs, present tense while ru
   assert.deepEqual(items.map(i => i.kind), ["user", "step", "assistant", "step"], "each step's calls fold into one line, after its text");
   const [first, second] = items.filter(i => i.kind === "step");
   assert.deepEqual(stepView(first.calls), { text: "looked at the game · tested agent code · showed Agent code", tone: "ok", open: false });
-  assert.deepEqual(stepView(second.calls), { text: "you declined: post to everyone", tone: "muted", open: false });
+  assert.deepEqual(stepView(second.calls), { text: "not run: post to everyone", tone: "muted", open: false });
   assert.deepEqual(stepView([call(0, "m", "validate_agent", "running")]), { text: "testing agent code…", tone: "busy", open: false });
-  assert.equal(stepView([call(0, "m", "summon_agent", "awaiting_confirmation")]).text, "waiting for you: summon an agent");
   assert.equal(stepView([call(0, "m", "load_tools", "ok"), call(1, "m", "load_skill", "ok")]).text, "got tools ready · read up on it", "the loaders read as plain steps, not tool names");
-  assert.equal(stepView([call(0, "m", "summon_agent", "awaiting_confirmation")]).tone, "ask");
   const failed = stepView([call(0, "m", "get_observation", "ok"), call(1, "m", "summon_agent", "error")]);
   assert.deepEqual(failed, { text: "looked at the game · couldn't summon an agent", tone: "error", open: true }, "an error stays open");
 });
@@ -90,18 +88,6 @@ test("step lines truncate past three verbs and never repeat one", () => {
   const calls = ["get_observation", "get_observation", "get_chat", "get_events", "get_rules", "list_games"].map((tool, i) => call(i, "m", tool, "ok"));
   assert.equal(stepView(calls).text, "looked at the game · read the public chat · read the event log · +2");
   assert.equal(stepView([call(0, "m", "brand_new_tool", "ok")]).text, "ran brand new tool", "an unknown tool still reads as a verb");
-});
-
-test("confirmation cards lead with a plain sentence", () => {
-  assert.equal(confirmSentence(call(0, "m", "send_chat", "awaiting_confirmation", { argsJson: '{"text":"Let\'s leave the blue grids alone"}' })),
-    "Post to everyone: \"Let's leave the blue grids alone\"");
-  assert.equal(confirmSentence(call(0, "m", "summon_agent", "awaiting_confirmation"), { energy: 412 }), "Summon this agent: it pays from your 412 bits of energy");
-  const named = { ...call(0, "m", "summon_agent", "awaiting_confirmation"), argsJson: JSON.stringify({ name: "Corner hoarder", description: "Hoards the corner." }) };
-  assert.equal(confirmSentence(named, { energy: 412 }), 'Summon "Corner hoarder" (Hoards the corner.): it pays from your 412 bits of energy');
-  assert.equal(confirmSentence(call(0, "m", "pause_game", "awaiting_confirmation"), { pauseSeconds: 180 }), "Use your one pause: it stops the world for everyone for 180 s");
-  assert.match(confirmSentence(call(0, "m", "destroy_agent", "awaiting_confirmation", { argsJson: '{"agentId":"abc"}' })), /^Destroy your agent abc/);
-  assert.equal(confirmSentence(call(0, "m", "end_game", "awaiting_confirmation")), "End the game now for everyone");
-  assert.equal(confirmSentence(call(0, "m", "send_chat", "awaiting_confirmation", { argsJson: "not json" })), "Post to everyone: \"\"");
 });
 
 test("the optimistic message also shows when the same text is sent again (counted against the user messages before it)", () => {
@@ -115,15 +101,28 @@ test("the optimistic message also shows when the same text is sent again (counte
 
 test("the allowance note is silent below 80 % and speaks after", () => {
   assert.equal(allowanceNote(500, 1000), null);
-  assert.equal(allowanceNote(850, 1000), "15 % of this game's assistant allowance left");
-  assert.match(allowanceNote(1000, 1000)!, /^Allowance used up/);
+  assert.equal(allowanceNote(850, 1000), "15 % of this game's assistant quota left");
+  assert.match(allowanceNote(1000, 1000)!, /^Assistant quota used up/);
   assert.equal(allowanceNote(0, 0), null, "off is said elsewhere");
 });
 
-test("the queue line says when queued messages reach the assistant: next step, a declined card, held while idle", () => {
-  assert.equal(queueNote({ count: 0, active: true, card: false }), null);
-  assert.equal(queueNote({ count: 1, active: true, card: false }), "Queued · your assistant reads it after its current step");
-  assert.equal(queueNote({ count: 2, active: true, card: false }), "2 queued · your assistant reads them after its current step");
-  assert.equal(queueNote({ count: 1, active: true, card: true }), "Queued · this declines the card above; your assistant reads it next");
-  assert.equal(queueNote({ count: 1, active: false, card: false }), "Held · your assistant stopped; send it now or with your next message");
+test("the queue line says when queued messages reach the assistant: next step, after autopilot stops, held while idle", () => {
+  assert.equal(queueNote({ count: 0, active: true }), null);
+  assert.equal(queueNote({ count: 1, active: true }), "Queued · your assistant reads it after its current step");
+  assert.equal(queueNote({ count: 2, active: true }), "2 queued · your assistant reads them after its current step");
+  assert.equal(queueNote({ count: 1, active: true, autopilot: true }), "Queued · autopilot stops; your assistant answers it next");
+  assert.equal(queueNote({ count: 1, active: false }), "Held · your assistant stopped; send it now or with your next message");
+});
+
+test("a summon's step line carries the warnings of the latest validation of the identical code", () => {
+  const source = "def agent(grid):\n    return [write(everything(), 0)]";
+  const validated = (src: string, warnings: string[], rate = 0.03) => call(0, "m1", "validate_agent", "ok", { argsJson: JSON.stringify({ source: src, language: "python" }),
+    resultJson: JSON.stringify({ data: { status: "received", receipt: { accepted: true, validation: { valid: true, expectedSuccessRate: rate, warnings } } } }) });
+  const summon = call(0, "m2", "summon_agent", "ok", { argsJson: JSON.stringify({ source, language: "python", name: "Zero" }) });
+  const constant = "It gives every object the same result, so only one object can ever hold this value; every other act will collide.";
+  assert.deepEqual(summonWarnings(summon, [validated(source, [constant]), summon]), { successRate: 0.03, warnings: [constant] });
+  // Another source's validation, or a clean one, says nothing.
+  assert.equal(summonWarnings(summon, [validated("def agent(g):\n    return []", [constant]), summon]), null);
+  assert.equal(summonWarnings(summon, [validated(source, [constant]), validated(source, []), summon]), null);
+  assert.equal(summonWarnings(call(0, "m", "send_chat", "ok"), []), null);
 });

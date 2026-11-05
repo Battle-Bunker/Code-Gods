@@ -1,7 +1,7 @@
 /**
  * Every site page's frame (palette-and-pages.md §3.0): the header (wordmark, breadcrumb with the live dot, the
  * palette trigger, the avatar menu) and the one command palette, plus the secondary surfaces the palette opens
- * (AI spending, connected apps, scoring, past games) and the AI-budget dialog.
+ * (AI quotas, connected apps, scoring, past games).
  *
  * A page passes what it shows (its room, its game); the commands are built from that once, and the page's own
  * buttons run them by id through `usePage().run`, so a button and its palette row do the same thing.
@@ -20,10 +20,11 @@ import { useToast } from "@/hooks/use-toast";
 import { api, useLive } from "@/site/lib/convex";
 import { codeCommands, engineCommands, paletteContextFor, type EngineActions, type EngineScope, type Live, type Template } from "@/site/lib/commands";
 import { errMsg } from "@/site/lib/errors";
-import type { GameRecord, GameView, Manifest, RoomState, Setup } from "@/site/lib/types";
+import type { GameRecord, GameView, Manifest, RoomState } from "@/site/lib/types";
+import { useSetupEntries } from "@/site/hooks/use-setups";
 import { rulesFor } from "@/site/components/game-rules";
 import { Tip } from "@/site/components/action";
-import { AiBudgetDialog, AiSpendingSheet, ConnectedAppsSheet, PastGamesSheet, ScoringSheet } from "@/site/components/sheets";
+import { AiQuotasSheet, ConnectedAppsSheet, PastGamesSheet, ScoringSheet } from "@/site/components/sheets";
 import { ToastAction } from "@/components/ui/toast";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
@@ -40,7 +41,7 @@ export function Sigil({ size = 28, animate = true }: { size?: number; animate?: 
   );
 }
 
-type Sheet = "ai-spending" | "connected-apps" | "scoring" | "past-games";
+type Sheet = "ai-quotas" | "connected-apps" | "scoring" | "past-games";
 export interface Crumb { label: string; href?: string }
 
 interface PageApi {
@@ -53,8 +54,6 @@ interface PageApi {
   openSheet(sheet: Sheet): void;
   ctx: PaletteContext;
   manifest?: Manifest;
-  /** The game setups the viewer can use (setups.list), undefined while loading or signed out. */
-  setups?: Setup[];
   /** The actions behind the commands, for controls that pass their own argument (the Setup select, an AI row's Remove). */
   act: EngineActions;
   /** This room's pending start (@workspace/player-client/start): the Start button and the next step show it at once. */
@@ -117,9 +116,6 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
   const [palette, setPalette] = useState<{ open: boolean; init?: PaletteOpenInit }>({ open: false });
   const [sheet, setSheet] = useState<Sheet | null>(null);
   const creating = useRef(false);
-  const [pendingAi, setPendingAi] = useState<{ templateId: string; busy?: boolean } | null>(null);
-  // The approval dialog names the template from the same catalog subscription the palette's pick page holds.
-  const pendingTemplate = useAgentOptions(!!pendingAi).data?.agents.find(a => a.id === pendingAi?.templateId);
 
   const create = useMutation(api.rooms.create);
   const join = useMutation(api.rooms.join);
@@ -128,10 +124,10 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
   const setSpectator = useMutation(api.rooms.setSpectator);
   const start = useAction(api.owner.start);
   const resume = useMutation(api.rooms.resume);
+  const startWorldNow = useMutation(api.rooms.startWorldNow);
   const end = useMutation(api.rooms.endActiveGame);
   const addAi = useMutation(api.rooms.addAi);
   const removeAi = useMutation(api.rooms.removeAi);
-  const approve = useMutation(api.rooms.approveAiBudget);
   const saveSettings = useAction(api.owner.settings);
   const duplicate = useMutation(api.setups.duplicate);
   const revoke = useMutation(api.auth.credentials.revoke);
@@ -146,7 +142,7 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
   const need = <T,>(v: T | null | undefined): T => { if (v === null || v === undefined) throw new Error("Open a room first."); return v; };
 
   /**
-   * Create a room in one step, on the First steps setup, and open it: its invite link is the owner's first next step.
+   * Create a room in one step, on the default (Annotated basics) setup, and open it: its invite link is the owner's first next step.
    * Nothing is asked first; the assistant is turned on later from the room page (Assistant: off · Turn on…).
    */
   const doCreate = useCallback(async () => {
@@ -158,10 +154,9 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
     } catch (e) { fail("Creating the room", e); } finally { creating.current = false; }
   }, [create, navigate, fail]);
 
-  const setups = useLive(api.setups.list, user ? {} : "skip").data;
   const scope: EngineScope = {
     user, room: room ?? null, game: game ? { shortCode: game.shortCode, status: game.status, roomShortCode: game.roomShortCode, roster: game.roster, ownerId: game.ownerId } : null,
-    aiConfigured: manifest?.aiFunding.configured, setups: setups ?? [],
+    aiConfigured: manifest?.aiFunding.configured,
     currentSetup: room?.setup && !room.setup.deleted ? room.setup.id : undefined,
     minPlayers: manifest?.minimumPlayers ?? 3, maxPlayers: manifest?.maximumPlayers ?? 8,
     gridRenderer, starting, siteSession: kind === "site",
@@ -180,18 +175,16 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
     // One click is one requestId; a second click while it is pending sends nothing (the button shows "Starting…").
     start: () => trackStart(startTracker, need(roomId), requestId => start({ roomId: need(roomId), requestId })),
     resume: () => resume({ roomId: need(roomId) }),
+    startWorldNow: () => startWorldNow({ roomId: need(roomId) }),
     endGame: () => end({ roomId: need(roomId) }),
-    addAi: async templateId => {
-      if (need(room).aiBudget <= 0) { setPendingAi({ templateId }); return; }
-      await addAi({ roomId: need(roomId), templateId });
-    },
+    addAi: templateId => addAi({ roomId: need(roomId), templateId }),
     removeAi: godId => removeAi({ roomId: need(roomId), godId }),
     applySetup: async id => {
       const r = need(room);
       // Undo puts the room back on the setup it ran (unless that setup was deleted since).
       const was = r.setup && !r.setup.deleted ? r.setup.id : null;
       const saved = await saveSettings({ roomId: r.id, revision: r.revision, setupId: id });
-      const name = setups?.find(s => s.id === id)?.name ?? "the chosen setup";
+      const name = saved.setup?.name ?? "the chosen setup";
       toast({ title: `Next game: ${name}`, action: was && was !== id ? (
         <ToastAction altText="Undo" data-testid="button-undo-setup" onClick={() => {
           saveSettings({ roomId: r.id, revision: saved.revision, setupId: was }).catch(e => fail("Undo", e));
@@ -211,24 +204,26 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
     revoke: credentialId => revoke({ credentialId }),
     openSheet: s => setSheet(s),
     rulesText: () => (room ? rulesFor(room.settings, room.shortCode, null, room.objectInstance) : game ? rulesFor(game.settings, game.roomShortCode, game.shortCode, game.objectInstance) : null),
-    serverInfo: () => manifest ? [
+    useSetups: query => useSetupEntries(query),
+    // A hook (the info page calls it while shown): the system setups are the catalogue's first entries.
+    useServerInfo: () => { const setups = useSetupEntries("").data; return manifest ? [
       `Players per game: ${manifest.minimumPlayers} to ${manifest.maximumPlayers}; AI players count.`,
       `Agent languages: ${manifest.runtimes.join(", ") || "none available right now"}.`,
-      `System setups: ${(setups ?? []).filter(s => s.system).map(s => s.name).join(", ") || "none"}.`,
+      `System setups: ${setups ? setups.filter(s => s.system).map(s => s.name).join(", ") || "none" : "loading"}.`,
       manifest.aiFunding.configured ? `AI players and assistants: available${manifest.aiFunding.mock ? " (development: scripted, nothing billed)" : ""}.` : "AI players and assistants: not set up on this server.",
-    ] : ["Loading server info…"],
+    ] : ["Loading server info…"]; },
     whoAmI: () => user ? [`Signed in as ${user.name}.`, `Your player id: ${user.id}.`, ...(user.isAdmin ? ["You can manage the AI library."] : [])] : ["You are not signed in."],
     setGridRenderer: id => { setObjectRenderer("Grid", id); },
     origin: window.location.origin,
   };
   // Rebuilt only when what the commands read changes (not on every chat message or tick); the actions read the same.
-  const commands = useMemo(() => engineCommands(scope, act), [user, room, game, manifest, history, gridRenderer, setups, starting]); // eslint-disable-line react-hooks/exhaustive-deps
+  const commands = useMemo(() => engineCommands(scope, act), [user, room, game, manifest, history, gridRenderer, starting]); // eslint-disable-line react-hooks/exhaustive-deps
   const ctx = useMemo(() => paletteContextFor(scope), [user, room, game]); // eslint-disable-line react-hooks/exhaustive-deps
   const byId = useMemo(() => new Map(commands.map(c => [c.id, c])), [commands]);
 
   const openPalette = (init?: PaletteOpenInit) => setPalette({ open: true, init });
   const api_: PageApi = {
-    ctx, manifest, setups, openPalette, openSheet: setSheet, act, start: start_,
+    ctx, manifest, openPalette, openSheet: setSheet, act, start: start_,
     command: id => byId.get(id),
     unavailable: id => { const c = byId.get(id); if (!c) return "Not available here."; const a = c.available(ctx); return a.ok ? null : a.reason; },
     run: id => {
@@ -291,21 +286,11 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
       <CommandPalette commands={commands} context={ctx} open={palette.open} init={palette.init} onOpenChange={o => setPalette(p => ({ open: o, init: o ? p.init : undefined }))}
         placeholder={placeholder} suggested={suggested} recentKey={user ? `code-gods:palette-recent:${user.id}` : undefined} chip={chip}
         dynamic={q => (user ? codeCommands(q, act) : [])} onNavigate={to => navigate(to)} onError={(e, c) => fail(c.human.title, e)} />
-      {room && <AiSpendingSheet key={`${room.id}-${room.aiBudget}-${room.assistantBudget}-${room.assistantModel}`} room={room} manifest={manifest} open={sheet === "ai-spending"} onOpenChange={o => setSheet(o ? "ai-spending" : null)} />}
+      {room && <AiQuotasSheet key={`${room.id}-${room.aiQuota}-${room.assistantQuota}-${room.assistantModel}`} room={room} manifest={manifest} open={sheet === "ai-quotas"} onOpenChange={o => setSheet(o ? "ai-quotas" : null)} />}
       <ConnectedAppsSheet open={sheet === "connected-apps"} onOpenChange={o => setSheet(o ? "connected-apps" : null)} roomCode={room?.shortCode} />
       <ScoringSheet open={sheet === "scoring"} onOpenChange={o => setSheet(o ? "scoring" : null)} objectType={room?.settings.objectType ?? game?.settings.objectType} />
       <PastGamesSheet open={sheet === "past-games"} onOpenChange={o => setSheet(o ? "past-games" : null)} games={history} roomCode={room?.shortCode ?? game?.roomShortCode}
         viewer={{ meId: user?.id, ownerId: room?.ownerId ?? game?.ownerId ?? undefined, roomLive: room ? !!room.activeGame : !!(game && (game.status === "active" || game.roomActiveGame)) }} />
-      {room && (
-        <AiBudgetDialog open={!!pendingAi} templateName={pendingTemplate?.name} pending={!!pendingAi?.busy} onOpenChange={o => { if (!o) setPendingAi(null); }}
-          onApprove={tokens => {
-            const p = pendingAi!;
-            setPendingAi({ ...p, busy: true });
-            approve({ roomId: room.id, aiBudget: tokens })
-              .then(() => addAi({ roomId: room.id, templateId: p.templateId }))
-              .then(() => setPendingAi(null), e => { setPendingAi({ ...p, busy: false }); fail("Adding the AI player", e); });
-          }} />
-      )}
     </PageCtx.Provider>
   );
 }

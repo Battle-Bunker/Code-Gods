@@ -4,9 +4,9 @@
  * older one.
  */
 import { dimensionVar } from "@workspace/object-views";
-import { LineChart, Obj, Table, useGame, useLeaderboard, useObjects, useRoomInfo, useTrajectories } from "@/sdk";
+import { LineChart, Obj, Table, useGame, useLeaderboard, useObjectsTop, useRoomInfo, useTrajectories } from "@/sdk";
 import { usePastGames } from "@/core/game/past-games";
-import { PanelEmpty, PreparingNote, Section, fmt, ordinal, referObject, useObjectRanks, type PanelProps } from "./kit";
+import { ObjectRef, PanelEmpty, PreparingNote, Section, fmt, ordinal, referObject, type PanelProps } from "./kit";
 
 /** Your bits × the others' care, in the dimension colours every panel uses. */
 const YOURS = dimensionVar("yours"), OTHERS = dimensionVar("others");
@@ -17,8 +17,9 @@ export default function Results({ params, phase }: PanelProps<"results">) {
   const game = useGame({ hz: 1 });
   const board = useLeaderboard({ hz: 1 });
   const past = usePastGames();
-  const objects = useObjects({ hz: 1 });
-  const ranks = useObjectRanks(objects);
+  // Your best and worst objects by payoff, ranked by the server (player.objectsTop): never the whole world.
+  const top = useObjectsTop({ gameId: game?.gameId, n: 3 }) ?? [];
+  const bottom = useObjectsTop({ gameId: game?.gameId, n: 3, dir: "asc" }) ?? [];
   const trajectories = useTrajectories({ hz: 0.5 });
   const me = game?.self.godId;
   const room = useRoomInfo();
@@ -39,8 +40,8 @@ export default function Results({ params, phase }: PanelProps<"results">) {
     );
   }
   const mine = rows.find(r => r.id === me);
-  const sorted = [...objects].sort((a, b) => b.payoff - a.payoff);
-  const best = sorted.slice(0, 3), worst = sorted.slice(-3).reverse().filter(o => !best.includes(o));
+  const best = top, worst = bottom.filter(o => !best.some(b => b.id === o.id));
+  const ranks = new Map(best.map(o => [o.id, o.rank]));
   const why = mine
     ? `You finished ${ordinal(mine.rank)} of ${rows.length} with ${fmt(mine.total)} bits of payoff.${live && best[0] ? ` Your best object paid ${fmt(best[0].payoff)}${worst[0] && worst[0].payoff < 0 ? `; your worst cost ${fmt(-worst[0].payoff)}` : ""}.` : ""}`
     : "You didn't play in this game.";
@@ -64,7 +65,9 @@ export default function Results({ params, phase }: PanelProps<"results">) {
           <ul className="space-y-1 text-xs">
             {[...best, ...worst].map(o => (
               <li key={o.id} className="flex items-center gap-2">
-                <button type="button" className="w-7 text-left font-mono text-muted-foreground hover:text-foreground" onClick={() => referObject(ranks.get(o.id))}>#{ranks.get(o.id)}</button>
+                {ranks.has(o.id)
+                  ? <button type="button" className="w-7 text-left font-mono text-muted-foreground hover:text-foreground" onClick={() => referObject(ranks.get(o.id))}>#{ranks.get(o.id)}</button>
+                  : <span className="w-7 font-mono"><ObjectRef objectId={o.id} /></span>}
                 <Obj value={o.value} />
                 <span className="tabular-nums" data-testid={`text-result-payoff-${o.id}`}>
                   <span style={{ color: YOURS }}>{fmt(o.own.netBits)}</span> × <span style={{ color: OTHERS }}>{fmt(o.peerCare)}</span> ={" "}

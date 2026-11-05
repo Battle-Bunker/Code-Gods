@@ -8,7 +8,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { admin, api, envelope, gods, internal, raw, roomWith, startGame, touch, waitFor, type God } from "./game-helpers.ts";
+import { admin, api, envelope, gods, internal, raw, roomWith, startGame, touch, waitFor, type God, makeAdmin } from "./game-helpers.ts";
 import { disclosureChecker } from "./disclosure.ts";
 import { CODE_LIMITS } from "../convex/code/limits.ts";
 
@@ -166,7 +166,8 @@ test("run_code: before a room's first game the budget is that room's own", { tim
 
 test("the assistant loads the skill, runs code and shows the result in a code-output pane", { timeout: 240_000 }, async () => {
   const { members: [dee], roomId } = await startedRoom(["Dee Coder", "Dee Two", "Dee Three"]);
-  await dee.c.mutation(api.rooms.approveAiBudget, { roomId, aiBudget: 0, assistantBudget: 500_000 });
+  await makeAdmin(dee);
+  await dee.c.mutation(api.rooms.setAiQuotas, { roomId, assistantQuota: 500_000 });
   const script = { steps: [
     { tools: [{ name: "load_skill", input: { name: "analytics-code" } }] },
     { tools: [{ name: "run_code", input: { language: "python", source: RANK_PY, datasets: ["objects"], title: "Top 5 by payoff" } }] },

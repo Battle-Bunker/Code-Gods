@@ -11,7 +11,7 @@ import { toMs } from "@/site/lib/time";
 import { allowedLanguages } from "@workspace/game-core";
 import { formatValue, LABELS, lengthLine, paceWord, type SettingsKey } from "@/site/lib/settings-form";
 import { Bot, Crown, Send, User } from "lucide-react";
-import { BadgeChips, ObjectView, RuleShelf, objectContext } from "@workspace/object-views";
+import { BadgeChips, ObjectView, RuleShelf, objectContext, objectRowHeight } from "@workspace/object-views";
 import { Term } from "@workspace/ui-kit";
 
 /** Standings and roster in one list: rank, name, AI or human, score, the owner's crown. Public totals only. */
@@ -56,7 +56,6 @@ export function GameStandings({ gameId, roster, meId, ownerId, emptyBody }: {
   return <Leaderboard rows={standings?.rows ?? []} roster={roster} meId={meId} ownerId={ownerId} agentCount={standings?.agentCount ?? undefined} emptyBody={emptyBody} />;
 }
 
-const OBJECT_ROW_PX = 36;
 const OBJECT_PAGE = 50;
 
 /**
@@ -82,6 +81,7 @@ function ObjectList({ gameId, instance, emptyBody = "Objects appear once the wor
   const rows = useMemo(() => { const seen = new Set<string>(); return skeleton.results.filter(r => !seen.has(r.id) && !!seen.add(r.id)); }, [skeleton.results]);
   const max = Math.max(1, ...rows.slice(0, 1).map(r => Math.abs(r.salience ?? 0)));
   const ctx = objectContext(instance);
+  const rowHeight = objectRowHeight(ctx);
   const more = useCallback(() => { if (status === "CanLoadMore") loadMore(OBJECT_PAGE); }, [status, loadMore]);
   return (
     <Section title="Objects" count={status === "Exhausted" ? rows.length : undefined}>
@@ -91,7 +91,7 @@ function ObjectList({ gameId, instance, emptyBody = "Objects appear once the wor
         <div className="grid grid-cols-[3rem_minmax(0,1fr)_auto] text-xs text-muted-foreground border-b">
           <span className="px-4 py-2">#</span><span className="py-2">Object</span><span className="px-4 py-2 text-right">🔥</span>
         </div>
-        <VirtualRows rows={rows} rowHeight={OBJECT_ROW_PX} maxHeight={560} keyOf={r => r.id} onNearEnd={more} testId="list-objects"
+        <VirtualRows rows={rows} rowHeight={rowHeight} maxHeight={560} keyOf={r => r.id} onNearEnd={more} testId="list-objects"
           render={(r, i) => <ObjectRow objectId={r.id} rank={i + 1} max={max} ctx={ctx} />} />
       </>)}
     </Section>
@@ -104,7 +104,7 @@ function ObjectRow({ objectId, rank, max, ctx }: { objectId: string; rank: numbe
   return (
     <div className="grid grid-cols-[3rem_minmax(0,1fr)_auto] items-center h-full border-t text-sm" data-testid={`row-object-${objectId}`}>
       <span className="px-4 font-mono text-muted-foreground">{rank}</span>
-      <span className="font-mono truncate">{o ? <ObjectView value={o.value} {...ctx} showTitle /> : <span className="text-muted-foreground">…</span>}</span>
+      <span className="font-mono min-w-0">{o ? <ObjectView value={o.value} {...ctx} showTitle /> : <span className="text-muted-foreground">…</span>}</span>
       <span className="px-4 flex items-center justify-end gap-2">
         <span className="w-12 sm:w-16 h-1.5 bg-muted overflow-hidden"><span className="block h-full bg-accent origin-left" style={{ transform: `scaleX(${o ? Math.min(1, Math.max(0, o.salience) / max) : 0})` }} /></span>
         <span className="font-mono tabular-nums w-14 text-right">{o ? fmt(o.salience, 1) : ""}</span>
@@ -178,7 +178,7 @@ export function Chat({ messages, canPost, placeholder, pending, onSend, title = 
 /** The settings a newcomer asks about, as key/values (the full list is the configuration page). */
 const SHOWN: readonly SettingsKey[] = [
   "languages", "planningSeconds", "halfLifeSeconds", "interactionRateHz", "startingObjectCount", "spawnRateHz",
-  "startingEnergy", "energyPerSecond", "agentEnergyPerSecond", "maxAgentsPerGod", "defenceGoals", "utilitySelectorId",
+  "startingEnergy", "powerPerSecond", "maxAgentsPerGod", "defenceGoals", "utilitySelectorId",
 ];
 
 /** "Python · Grid 5×5 base10 rgby · ~6 min (often 3–13) · normal pace". */

@@ -22,6 +22,7 @@ import {
   MAX_RMS_Z_BELOW_32, assertAnalyticAgainstSpawns, compareWithEnumeration, compareWithTable, nominalSe, keyOfOrdinal, tableViolations,
 } from "../src/analytic-verify.ts";
 import { DEFAULT_BUDGET, buildTable, mcTableKey } from "../scripts/estimator.ts";
+import { shardCount, shardOf } from "./shard.ts";   // CG_SHARD="k/n": the families loop below is split across CI jobs
 
 export const REFERENCE_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "data", "analytic-reference");
 export const REFERENCE_COMMAND = "node --experimental-strip-types lib/game-utilities/scripts/analytic-reference.ts <family>";
@@ -123,7 +124,7 @@ test("harness: compareWithTable reports Δ, z, unattainable levels and the top; 
 });
 
 test("harness: enumeration agrees with itself on Int(0,9999) and catches a wrong level; spawns catch a wrong formula", () => {
-  const inst = instantiate("Int", { min: 0, max: 9999 }), draw = { familyId: "digit-devotee", params: { d: 7 } };
+  const inst = instantiate("Int", { min: 0, max: 9999 }), draw = { familyId: "digit-devotee", params: { digit: 7 } };
   const ev = evaluator(draw, inst), counts = new Map<number, number>();
   for (let x = 0; x <= 9999; x++) { const o = ev(x) as number; counts.set(o, (counts.get(o) ?? 0) + 1); }
   const d = distOf([...counts].map(([o, c]) => [o, c / 10000] as const));
@@ -147,7 +148,7 @@ test("harness: enumeration agrees with itself on Int(0,9999) and catches a wrong
 test("every family analytic is well formed, lists every spawned ordinal, matches spawn frequencies and puts the exemplar on top", () => {
   assert.ok(ANALYTIC_FAMILIES.length >= 2, "picture_frame and lone_peak have analytics");
   let checked = 0;
-  for (const f of ANALYTIC_FAMILIES) {
+  for (const f of shardOf(ANALYTIC_FAMILIES)) {
     for (const instKey of shippedInstanceKeys()) {
       const inst = instOf(instKey);
       if (!available(f, inst).ok) continue;
@@ -167,7 +168,7 @@ test("every family analytic is well formed, lists every spawned ordinal, matches
       }
     }
   }
-  assert.ok(checked >= 10, `only ${checked} analytic draws checked`);
+  assert.ok(checked >= Math.floor(10 / shardCount), `only ${checked} analytic draws checked`);
 });
 
 test("hand-derived pins: exact tops and body values of the wired analytics", () => {
@@ -176,11 +177,11 @@ test("hand-derived pins: exact tops and body values of the wired analytics", () 
   const at = (a: AnalyticSurvival, o: Ordinal) => a.levels.find(([l]) => cmpOrdinal(l, o) === 0)![1];
   const g4 = instantiate("Grid", { size: 4, symbols: "base10", colours: "rgb" }), g5 = instantiate("Grid", { size: 5, symbols: "base10", colours: "rgby" });
   // Best Friends: the maximum 2N(N−1) seams needs one of the two A/B checkerboards: G = 2 / C^n
-  const bf = analyticFor("best_friends", { A: 0, B: 1 }, g4)!;
+  const bf = analyticFor("best_friends", { first_colour: "red", second_colour: "green" }, g4)!;
   assert.deepEqual(last(bf)[0], 24);
   close(last(bf)[1], 1 - 16 * Math.log2(3));
   // Hated colour: all cells my colour; Hated takeover: all cells one colour (C ways); first level ceil(n/C) has G = 1
-  close(last(analyticFor("hate_colour", { colour: 0 }, g5)!)[1], -25 * 2);
+  close(last(analyticFor("hate_colour", { colour: "red" }, g5)!)[1], -25 * 2);
   const tk = analyticFor("hate_takeover", {}, g5)!;
   assert.deepEqual(tk.levels[0], [7, 0]);
   close(last(tk)[1], 2 - 25 * 2);
@@ -189,24 +190,39 @@ test("hand-derived pins: exact tops and body values of the wired analytics", () 
   assert.deepEqual(last(go)[0], [25, 0]);
   close(last(go)[1], 25 * Math.log2(1 / 40));
   // Rainbow Road: P(at least one whole row) = 1 − (1 − C^(1−N))^N, and the top is every row a whole rainbow line
-  const rr = analyticFor("rainbow_road", { dir: "→" }, g5)!;
+  const rr = analyticFor("rainbow_road", { direction: "→" }, g5)!;
   close(at(rr, [1, 4]), Math.log2(1 - (1 - 4 ** -4) ** 5), 1e-12);
   close(last(rr)[1], 5 * 4 * Math.log2(1 / 4));
+  // Picture Frame on 4×4, base 10, rgb, red and 7: 12 edge cells, 4 middle cells. Per cell, both with probability 1/30,
+  // exactly one with 1/3·9/10 + 1/10·2/3 = 11/30, neither with 2/3·9/10 = 18/30. Edge both +4, one +1; middle −4, −1.
+  //   top 48: every edge cell both ((1/30)^12), every middle cell neither ((18/30)^4).
+  //   47: the top with exactly one middle cell "one" (4 · 11/30 · (18/30)^3).
+  //   lowest −16: every middle cell both; always reached, so its survival is 1 (0 bits).
+  const pf = analyticFor("picture_frame", { colour: "red", symbol: "7" }, g4)!;
+  const top = 30 ** -12 * (18 / 30) ** 4, next = 30 ** -12 * 4 * (11 / 30) * (18 / 30) ** 3;
+  assert.equal(pf.id, "picture-frame@3");
+  assert.deepEqual(pf.levels[0], [-16, 0]);
+  assert.deepEqual(last(pf)[0], 48);
+  close(last(pf)[1], Math.log2(top), 1e-9);
+  close(at(pf, 47), Math.log2(top + next), 1e-9);
   // Staircase Climber: all N−1 steps in every row needs a run of N consecutive values from S−N+1 starts
-  const sc = analyticFor("staircase_climber", { dir: "→" }, g4)!;
+  const sc = analyticFor("staircase_climber", { direction: "→" }, g4)!;
   assert.deepEqual(last(sc)[0], 12);
   close(last(sc)[1], 4 * Math.log2(7 / 10 ** 4), 1e-9);
 });
 
 test("tables built from an analytic carry its id in the key and the budget label; the estimator's key differs", () => {
   const inst = instantiate("Grid", { size: 4, symbols: "base10", colours: "rgb" });
-  const r = buildTable("picture_frame", { X: 0 }, inst);
-  assert.equal(r.table.estimator.budget, "exact:picture-frame@1");
-  assert.equal(r.table.key, tableKey("picture_frame", { X: 0 }, inst));
-  assert.equal(tableKeyParts("picture_frame", { X: 0 }, inst).exact, "picture-frame@1");
-  assert.notEqual(mcTableKey("picture_frame", { X: 0 }, inst), r.table.key);
+  const pf = { colour: "red", symbol: "0" };
+  const r = buildTable("picture_frame", pf, inst);
+  assert.equal(r.table.estimator.budget, "exact:picture-frame@3");
+  assert.equal(r.table.key, tableKey("picture_frame", pf, inst));
+  assert.equal(tableKeyParts("picture_frame", pf, inst).exact, "picture-frame@3");
+  assert.notEqual(mcTableKey("picture_frame", pf, inst), r.table.key);
   assert.equal(tableKeyParts("snap", {}, inst).exact, undefined, "a family without an analytic has no id in its key");
-  assert.deepEqual(r.table.levels, [[0, 1e-6], [1, 12 * Math.log2(3)]].map(([o, b]) => [o, Math.round(b * 1e9) / 1e9]));
+  // Every score from −16 to 48 is a level (see the pins below); the lowest is 1e-6 (calibration's floor), the top is rare.
+  assert.deepEqual(r.table.levels.map(([o]) => o), Array.from({ length: 65 }, (_, i) => i - 16));
+  assert.equal(r.table.levels[0][1], 1e-6);
   assert.equal(r.evaluations, 0, "no sampling");
 });
 

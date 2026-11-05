@@ -83,7 +83,7 @@ Every table has the indexes its queries need. No query does a full scan over gro
 | Table | Key fields | Notes |
 |---|---|---|
 | `users` | `subject` (Better Auth user id = god id), `name` (full name from Google), `email`, `emailVerified`, `provider`, `googleSub` | kept by Better Auth triggers; Better Auth's own users, sessions and accounts live in its component (§5) |
-| `rooms` | `shortCode`, `ownerId`, `createdAt`, `revision`, `settings`, `aiBudget`, AI usage counters, `activeGameId` | the lobby; no name |
+| `rooms` | `shortCode`, `ownerId`, `createdAt`, `revision`, `settings`, `aiQuota`, `assistantQuota`, AI usage counters, `activeGameId` | the lobby; no name |
 | `members` | `roomId`, `userId \| aiSeat`, `name`, `kind`, `ready`, `aiAgent` | one doc per seat |
 | `games` | `roomId`, `shortCode`, `phase`, clocks (`worldSeconds`, `lastTick`, `endAtWorld`, `nextSpawn`, `planningEndsAt`, `pauseEndsAt`), `settings` snapshot, `roster`, `executionEpoch`, `tick` lease, `seasonCommitment`, `summary` (when ended) | `endAtWorld` is never projected |
 | `deities` | `gameId`, `userId`, `utility` (descriptor, **private**), `spent`, `pauseUsed` | never returned raw |
@@ -137,7 +137,8 @@ optimistic-concurrency conflicts.
    debt"). For each opportunity it runs the existing semantics, **sequentially against the in-memory
    copy**:
    - pick the target object (`uniform` or `shelter`) and an *eligible* agent (energy ≥ expected
-     cost, settled to the opportunity's world time), using a CSPRNG;
+     cost, settled to the opportunity's world time), using a CSPRNG, never one whose deterministic act on that object
+     version is known to fail (futile acts, docs/rules-design.md §10);
    - run the agent in the sandbox with the HMAC-derived seed `deriveSeed(salt, ["play", gameId, agentId, actIndex])`
      and a frozen clock;
    - `applyCalls`; enforce **uniqueness** against the in-memory world (onto any existing value,
@@ -204,7 +205,7 @@ exactly as the user specified ("an upper limit").**
 ### 3.3 Commands and phases
 
 Commands are mutations: validate, summon, destroy, ready, pause, chat, plus owner actions (settings,
-start, end, resume, add or remove AI seats, the AI budget). Summon and validate need the sandbox
+start, end, resume, add or remove AI seats, the AI quotas). Summon and validate need the sandbox
 (examination runs the agent on the reference mixture), so they run as an **action**: examine, then
 call an internal mutation that checks energy, the agent cap and the phase, writes the agent and
 stores the receipt. The idempotency key is per (room, god, requestId). A reused id with a different
@@ -452,7 +453,7 @@ paused. The test provider `mock` is enabled only when the env var `AI_MOCK=1`.
   the ported game integration (Int, string, Grid lifecycles; uniqueness; energy and cooldown; the
   floor; scoring parity with game-core), lifecycle (lobby → start → pause → end → history), the
   runtime parity suites (Python ≡ TS ≡ grid-lab), the disclosure tests, auth and device flow,
-  receipts and idempotency, AI budgets with the mock provider.
+  receipts and idempotency, AI quotas with the mock provider.
 - **Multi-client E2E (Playwright):** the engine plus **three player-web dev servers on different
   ports**, each with its own identity, credential and panels directory (separate checkouts of
   `artifacts/player-web` to simulate separate player apps). Humans are driven by Playwright, plus one

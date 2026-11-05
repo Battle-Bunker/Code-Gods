@@ -16,7 +16,7 @@ import { envelopeHash, journalPath } from "../src/assistant.ts";
 import { SITE, api, appDir, cli, connectAndApprove, parse, signIn, type Browser } from "./helpers.ts";
 
 const TS_INT = { objectType: "Int", typeArgs: { min: -2147483648, max: 2147483647 }, language: "typescript", grammarId: "typescript-agent-v1",
-  complexityFunctionId: "ts-ast-bits-v1-uniform", startingObjectCount: 5, spawnRateHz: 0, planningSeconds: 1, agentEnergyPerSecond: 100, agentBatteryActs: 2, interactionRateHz: 20 };
+  complexityFunctionId: "ts-ast-bits-v1-uniform", startingObjectCount: 5, spawnRateHz: 0, planningSeconds: 1, powerPerSecond: 200, interactionRateHz: 20 };
 const AGENT = "function agent(x) { return [add(1)]; }";
 const envelope = (command: Record<string, unknown>, gameId?: string) => ({ version: VERSION, commandId: randomUUID(), ...(gameId ? { gameId } : {}), command });
 const noSecrets = (text: string) => assert.ok(!/cgc_|cgd_|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\./.test(text), `a secret leaked: ${text.slice(0, 200)}`);

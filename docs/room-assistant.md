@@ -45,7 +45,7 @@ Permissions, weakest first:
   wants analysis.
 - `act` (the default): also play as the human: commands (validate, summon, destroy, chat, ready,
   pause) and `wake`. The player app's own UI needs `act` to play.
-- `owner`: also run the room: settings, AI budget and seats (potential provider spending),
+- `owner`: also run the room: settings, AI quotas and seats (potential provider spending),
   start, resume and end games. Only the room's **current owner** can approve it, and the approval page
   asks for an extra owner consent. Use it only when the human explicitly asks for full control.
 
@@ -192,7 +192,7 @@ cat room-action.json | pnpm -s player assistant room-command
 
 The action JSON is `{"action": settings|start|resume|endGame|addAi|removeAi, "requestId": "NEW_UUID", …}`
 with `revision`, `setupId` or `settings` (the fields to change; a language change moves its grammar and
-summon price, an object type its default instantiation, and nothing else moves) and `aiBudget` for settings,
+summon price, an object type its default instantiation, and nothing else moves) for settings, `aiQuota`/`assistantQuota`/`assistantModel` for quotas,
 `aiAgentId` for addAi (from `ai-catalog`), and `deityId` for removeAi. For settings, read `room-state` first and
 send its `revision`. Use ordinary `command` envelopes to play as the owner.
 

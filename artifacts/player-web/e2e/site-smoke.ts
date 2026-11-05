@@ -16,16 +16,16 @@
  * If the site does not answer, the script starts the engine itself (same port variables:
  * CONVEX_LOCAL_CLOUD_PORT, CONVEX_LOCAL_SITE_PORT, FAKE_OIDC_PORT) and stops it at the end.
  *
- * Scenario, at desktop and phone widths: alice, bob and carol sign in (three browser contexts). Alice
- * creates a room in one click (no dialog) and turns the assistant on from the room page; the page's one primary follows nextStep
+ * Scenario, at desktop and phone widths: alice (an administrator: AI is only available in rooms an administrator owns), bob and carol sign in (three browser contexts). Alice
+ * creates a room in one click (no dialog) and sees its AI quotas (300,000 tokens per game by default) on the room page; the page's one primary follows nextStep
  * (Copy invite link, then Start game). Bob and carol open the room by code from the command palette and
  * join; alice searches the Setup combobox (a system setup's Edit is unavailable, with the reason), duplicates the
- * room's First steps and edits the copy on /rooms/:code/configure (its name "First steps's copy" first; the board as
+ * room's setup (put on First steps through the combobox: a new room runs Annotated basics) and edits the copy on /rooms/:code/configure (its name "First steps's copy" first; the board as
  * three controls with every playable value enabled; defence goals switched on with one unticked; goal
  * dealing, prior, act targeting, then Int(0,2147483647) / TypeScript, a range with no shipped tables whose first-use
  * note shows, with TypeScript ticked and Python unticked in the languages multi-select, 1 s planning), saves it for
- * the next game, and bob reads it under Details and as a read-only page offering "Duplicate and edit"; alice adds a mock AI player, which asks for the AI budget in the
- * same step, and changes the budget in the AI spending sheet; bob chats; the palette explains connecting a player
+ * the next game, and bob reads it under Details and as a read-only page offering "Duplicate and edit"; alice adds a mock AI player and changes the AI quotas in the
+ * AI quotas sheet; bob chats; the palette explains connecting a player
  * app and shows owner commands dimmed to members; alice starts the game, the room shows its rule tables being
  * prepared (the computed cache of that range is forgotten first), and every viewer is then taken to the game page,
  * which updates live; alice ends it from the owner menu; the room's past games show it and the Setup combobox puts
@@ -40,7 +40,8 @@ import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import path from "node:path";
-import { canonicalSupport, context, familiesFor, instantiateKey, paramsKey, tableKey } from "@workspace/game-utilities";
+import { instantiate, objectType } from "@workspace/game-types";
+import { LENSES, applicable, canonicalSupport, context, familiesFor, family as familyOf, instantiateKey, paramsKey, tableKey } from "@workspace/game-utilities";
 
 const require = createRequire(import.meta.url);
 const { chromium } = require("playwright");
@@ -222,31 +223,30 @@ const browser = await chromium.launch();
 let failed = false;
 try {
   for (const [name, viewport] of VIEWPORTS) {
-    const alice = await signIn(browser, "alice", viewport);
+    const alice = await signIn(browser, "admin", viewport);   // AI is only available in rooms an administrator owns
     const bob = await signIn(browser, "bob", viewport);
     const carol = await signIn(browser, "carol", viewport);
     const a = alice.page, b = bob.page, c = carol.page;
     let code = "";
 
-    await check(`${name}: alice creates a room in one click, then turns the assistant on; it shows its code, owner and creation date (no name)`, async () => {
+    await check(`${name}: alice creates a room in one click, then changes the assistant quota; it shows its code, owner and creation date (no name)`, async () => {
       // One click makes the room and opens it, ready to share: nothing is asked first, even with AI configured (mock).
       await a.getByTestId("button-create-room").click();
       await a.waitForURL(/\/rooms\/[0-9A-Z]+$/);
       await a.getByTestId("button-copy-link").waitFor();
-      // The assistant is off until the owner turns it on from the room page (pre-filled, with consent).
-      await a.getByTestId("text-ai-spending").filter({ hasText: /Assistant: off/ }).waitFor();
-      await a.getByTestId("button-ai-spending").filter({ hasText: "Turn on…" }).click();
-      await a.getByTestId("sheet-ai-spending").waitFor();
-      assert.equal(await a.getByTestId("input-assistant-budget").inputValue(), "200000");
-      assert.ok(await a.getByTestId("button-save-assistant-budget").isDisabled(), "consent first");
-      await a.getByTestId("checkbox-approve-assistant").check();
-      await a.getByTestId("button-save-assistant-budget").click();
-      await a.getByTestId("text-ai-spending").filter({ hasText: /Assistant: 200,000 per player/ }).waitFor();
+      // The room's AI quotas start at 300,000 tokens per game for the AI players and for each player's assistant; the owner changes them in a sheet.
+      await a.getByTestId("text-ai-quotas").filter({ hasText: /Assistant: 300,000 per player/ }).waitFor();
+      await a.getByTestId("button-ai-quotas").click();
+      await a.getByTestId("sheet-ai-quotas").waitFor();
+      assert.equal(await a.getByTestId("input-assistant-quota").inputValue(), "300000");
+      await a.getByTestId("input-assistant-quota").fill("200000");
+      await a.getByTestId("button-save-ai-quotas").click();
+      await a.getByTestId("text-ai-quotas").filter({ hasText: /Assistant: 200,000 per player/ }).waitFor();
       await a.keyboard.press("Escape");
-      await a.getByTestId("sheet-ai-spending").waitFor({ state: "hidden" });
+      await a.getByTestId("sheet-ai-quotas").waitFor({ state: "hidden" });
       code = (await a.getByTestId("text-room-code").innerText()).trim();
       assert.match(code, /^[0-9A-Z]{4,}$/);
-      assert.match(await a.getByTestId("text-room-owner").innerText(), /Alice Liddell/);
+      assert.match(await a.getByTestId("text-room-owner").innerText(), /Ada Admin/);
       assert.match(await a.getByTestId("text-room-created").innerText(), /\d{4}/);
       // nextStep: alone, the owner's one primary is the invite link; AI players count. The owner starts as a spectator
       // (not one of the three) and chooses to play.
@@ -257,7 +257,7 @@ try {
       await a.goto(`${SITE}/`);
       const row = a.locator('[data-testid^="row-room-"]', { hasText: code });
       await row.waitFor();
-      assert.match(await row.innerText(), /Owner: Alice Liddell \(you\)/);
+      assert.match(await row.innerText(), /Owner: Ada Admin \(you\)/);
       assert.match(await row.innerText(), /Created: .*\d{4}/);
       await shot(a, `home-${name}`);
       await noHorizontalScroll(a, `${name} home`);
@@ -283,6 +283,11 @@ try {
 
     let copyId = "", copyName = "";
     await check(`${name}: the Setup combobox searches every setup; a system setup's Edit is unavailable; Duplicate opens the copy`, async () => {
+      // A new room runs Annotated basics; alice puts it on First steps through the combobox first (searched on the engine).
+      await a.getByTestId("text-current-setup").filter({ hasText: /^Annotated basics$/ }).waitFor();
+      await a.getByTestId("select-setup").click();
+      await a.getByTestId("input-setup-search").fill("first steps");
+      await a.locator('[data-testid^="row-setup-"]', { hasText: /^First steps · System/ }).click();
       await a.getByTestId("text-current-setup").filter({ hasText: /^First steps$/ }).waitFor();
       await a.getByTestId("select-setup").click();
       await a.getByTestId("popover-setups").waitFor();
@@ -386,18 +391,14 @@ try {
       assert.equal(await b.getByTestId("input-setup-name").isDisabled(), true);
       assert.equal(await b.getByTestId("button-save-settings").count(), 0, "read-only for anyone but its owner");
       await b.getByTestId("button-duplicate-and-edit").waitFor();
-      assert.match(await b.getByTestId("text-setup-owner").innerText(), /Alice Liddell's setup: only Alice Liddell can edit it/);
+      assert.match(await b.getByTestId("text-setup-owner").innerText(), /Ada Admin's setup: only Ada Admin can edit it/);
       await b.goto(`${SITE}/rooms/${code}`);
       await b.getByTestId("text-room-code").waitFor();
     });
 
-    await check(`${name}: alice adds a mock AI player; the first one asks for the AI budget in the same step`, async () => {
+    await check(`${name}: alice adds a mock AI player with no approval step`, async () => {
       await a.getByTestId("button-add-ai").click();   // opens the palette on its pick list
       await a.locator('[data-testid^="row-palette-option-"]').first().click();
-      await a.getByTestId("dialog-ai-budget").waitFor();
-      assert.equal(await a.getByTestId("input-dialog-ai-budget").inputValue(), "300000");
-      await a.getByTestId("checkbox-dialog-ai-budget").check();
-      await a.getByTestId("button-dialog-approve-ai").click();
       await a.locator('[data-testid^="row-member-ai:"]').waitFor();
       await b.locator('[data-testid^="row-member-ai:"]').waitFor();
       // The seat has its own name (lib/aiNames.ts), not its template's; its row menu's tooltip stays on-screen.
@@ -406,13 +407,11 @@ try {
       const tip = await a.locator('[data-radix-popper-content-wrapper]:has([role="tooltip"])').first().boundingBox();
       assert.ok(tip && tip.x >= 0 && tip.x + tip.width <= viewport.width, `the remove tooltip fits the viewport: ${JSON.stringify(tip)}`);
       await a.mouse.move(0, 0);
-      // AI spending lives in a sheet reached from Details.
-      await expand(a, "details-next-game");
-      await a.getByTestId("button-ai-spending").click();
+      // The AI quotas live in a sheet reached from the room page.
+      await a.getByTestId("button-ai-quotas").click();
       await a.getByTestId("text-ai-mock").waitFor();
-      await a.getByTestId("input-ai-budget").fill("50000");
-      await a.getByTestId("checkbox-approve-budget").check();
-      await a.getByTestId("button-save-budget").click();
+      await a.getByTestId("input-ai-quota").fill("50000");
+      await a.getByTestId("button-save-ai-quotas").click();
       await a.getByTestId("text-ai-usage").filter({ hasText: /\/ 50,000 used/ }).waitFor();
       await a.keyboard.press("Escape");
     });
@@ -619,6 +618,40 @@ try {
     await alice.page.goto(`${SITE}/admin/agents`);
     await alice.page.getByText("Admins only").waitFor();
     for (const who of [admin, alice]) { assert.deepEqual(who.errors, []); await who.context.close(); }
+  });
+
+  await check("rule gallery: a board's annotated families as tiles; a tile's link opens its family page with the board and params", async () => {
+    const alice = await signIn(browser, "alice", { width: 1280, height: 900 });
+    const p = alice.page;
+    await p.getByTestId("link-rule-gallery").click();
+    await p.getByTestId("list-rule-families").waitFor();
+    // Every family with a lens (the registry) that the gallery's default board can deal, in registry order.
+    const defaultBoard = instantiate("Grid", objectType("Grid").defaults);
+    const annotated = LENSES.map(l => l.familyId).filter(id => familyOf(id).role === "reward" && applicable(familyOf(id), defaultBoard).ok);
+    assert.ok(annotated.length >= 9, `the lens registry has the annotated families (${annotated.length})`);
+    assert.deepEqual(await p.locator('[data-testid^="tile-"]').evaluateAll(els => els.map(e => e.getAttribute("data-testid")!.slice("tile-".length))),
+      annotated, "one tile per family with a lens, in the registry's order");
+    assert.equal(await p.getByTestId("source-picture_frame").getAttribute("open"), null, "source starts collapsed");
+    await p.getByTestId("select-setup-size").selectOption("6");
+    await p.waitForURL(/size=6/);
+    // A labelled colour picker (named swatches), never "X: 0/1/2".
+    await p.getByTestId("colour-param-picture_frame-colour").getByText("Your colour").waitFor();
+    await p.getByTestId("colour-picture_frame-colour-green").click();
+    await p.getByTestId("select-param-picture_frame-symbol").selectOption("7");
+    assert.match(await p.getByTestId("text-summary-picture_frame").innerText(), /green and your symbol is the number 7/, "the description follows both params");
+    const link = p.getByTestId("link-family-picture_frame");
+    assert.equal(await link.getAttribute("target"), "_blank");
+    assert.equal(await link.getAttribute("href"), "/rule-gallery/picture_frame?size=6&symbols=base10&colours=rgb&colour=green&symbol=7");
+    await shot(p, "rule-gallery-desktop");
+    const [family] = await Promise.all([alice.context.waitForEvent("page"), link.click()]);
+    await family.getByTestId("goal-card").waitFor();
+    assert.equal(await family.getByTestId("select-setup-size").inputValue(), "6");
+    assert.equal(await family.getByTestId("colour-picture_frame-colour-green").getAttribute("aria-checked"), "true");
+    assert.equal(await family.getByTestId("select-param-picture_frame-symbol").inputValue(), "7");
+    await family.getByTestId("example-object").waitFor();
+    await shot(family, "rule-family-desktop");
+    assert.deepEqual(alice.errors, []);
+    await alice.context.close();
   });
 
   await check("sign-in goes to Google; sign-out (avatar menu) returns to the landing page", async () => {

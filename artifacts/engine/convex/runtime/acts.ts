@@ -12,15 +12,20 @@ import type { ActResult, Inspection } from "@workspace/game-runtime";
 import { actHere, bindRuntime, inspectHere } from "../engine/runtime";
 import { ACT_BATCH } from "../lib/programs";
 import { languageV } from "../lib/language";
+import { memoryOf, rssNow, type Memory } from "./memory";
 
-export type ActReply = ({ ok: true } & ActResult) | { ok: false; code: string; message: string };
-const failure = (error: unknown) =>
-  ({ ok: false as const, code: String((error as { code?: unknown })?.code ?? "UNAVAILABLE"), message: String((error as Error)?.message ?? error) });
-const rssMiB = () => Math.round(process.memoryUsage().rss / 1048576);
+/** A failed act still carries the bits it read before it stopped (docs/energy-model.md §3.4), when the runtime said. */
+export type ActReply = ({ ok: true } & ActResult) | { ok: false; code: string; message: string; readBits?: number };
+const failure = (error: unknown) => {
+  const readBits = (error as { readBits?: unknown })?.readBits;
+  return { ok: false as const, code: String((error as { code?: unknown })?.code ?? "UNAVAILABLE"), message: String((error as Error)?.message ?? error),
+    ...(typeof readBits === "number" ? { readBits } : {}) };
+};
 
 export const run = internalAction({
   args: { language: languageV, settings: v.any(), requests: v.array(v.object({ source: v.string(), input: v.union(v.string(), v.number()), seed: v.string() })) },
-  handler: async (ctx, { language, settings, requests }): Promise<{ replies: ActReply[]; rssMiB: number }> => {
+  handler: async (ctx, { language, settings, requests }): Promise<{ replies: ActReply[] } & Memory> => {
+    const startMiB = rssNow();
     if (requests.length > ACT_BATCH) throw new Error(`At most ${ACT_BATCH} acts per call`);
     if (language === "python") await bindRuntime(ctx);
     // One after another: the pool has one worker, and a queued act's wait is bounded (startupMs + deadlineMs), so a
@@ -30,15 +35,16 @@ export const run = internalAction({
       try { replies.push({ ok: true, ...await actHere(ctx, source, language, input, settings, seed) }); }
       catch (error) { replies.push(failure(error)); }
     }
-    return { replies, rssMiB: rssMiB() };
+    return { replies, ...memoryOf(startMiB) };
   },
 });
 
 export const inspect = internalAction({
   args: { source: v.string(), settings: v.any() },
-  handler: async (ctx, { source, settings }): Promise<({ ok: true; inspection: Inspection } | { ok: false; code: string; message: string }) & { rssMiB: number }> => {
+  handler: async (ctx, { source, settings }): Promise<({ ok: true; inspection: Inspection } | { ok: false; code: string; message: string }) & Memory> => {
+    const startMiB = rssNow();
     await bindRuntime(ctx);
-    try { return { ok: true, inspection: await inspectHere(source, settings), rssMiB: rssMiB() }; }
-    catch (error) { return { ...failure(error), rssMiB: rssMiB() }; }
+    try { return { ok: true, inspection: await inspectHere(source, settings), ...memoryOf(startMiB) }; }
+    catch (error) { return { ...failure(error), ...memoryOf(startMiB) }; }
   },
 });

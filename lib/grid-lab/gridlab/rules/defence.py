@@ -39,13 +39,13 @@ def _value_name(gt, v):
 HATE_COLOUR = mk(
     id="hate_colour", name="Hated colour", theme="worse",
     requires=req(), layers={"colour"}, camp="neutral",
-    sample=lambda rng, gt: {"colour": colour(rng, gt)},
-    summary=lambda p, gt: f"−1 for each {cname(gt, p['colour'])} cell",
-    ordinal=lambda g, p, gt: sum(1 for x in g.col.ravel().tolist() if x == p["colour"]),
-    batch=lambda s, c, p, gt: (c == p["colour"]).sum((1, 2)),
-    canonical=lambda p, gt: {"colour": 0},
+    sample=lambda rng, gt: {"colour": colour_name(rng, gt)},
+    summary=lambda p, gt: f"−1 for each {p['colour']} cell",
+    ordinal=lambda g, p, gt: sum(1 for x in g.col.ravel().tolist() if x == ci(gt, p["colour"])),
+    batch=lambda s, c, p, gt: (c == ci(gt, p["colour"])).sum((1, 2)),
+    canonical=lambda p, gt: {"colour": gt.colour_names[0]},
     exact_log2_tail=lambda t, p, gt: log2_binom_tail(gt.N ** 2, 1.0 / gt.C, int(t)),
-    exemplar=lambda p, gt: grid(np.zeros((gt.N, gt.N)), np.full((gt.N, gt.N), p["colour"])),
+    exemplar=lambda p, gt: grid(np.zeros((gt.N, gt.N)), np.full((gt.N, gt.N), ci(gt, p["colour"]))),
     source="defence goal: the user's 'penalised for the presence of red cells'", tags={"penalty"})
 
 
@@ -72,10 +72,10 @@ HATE_VALUE = mk(
 HATE_BLOB = mk(
     id="hate_blob", name="Hated patch", theme="worse",
     requires=req(), layers={"colour", "position"}, camp="neutral",
-    sample=lambda rng, gt: {"C": colour(rng, gt)},
-    summary=lambda p, gt: f"−1 for each cell in the biggest joined-up {cname(gt, p['C'])} patch",
-    ordinal=colour_lens.kg_ord, batch=colour_lens.kg_batch, canonical=lambda p, gt: {"C": 0},
-    exemplar=lambda p, gt: grid(np.zeros((gt.N, gt.N)), np.full((gt.N, gt.N), p["C"])),
+    sample=lambda rng, gt: {"colour": colour_name(rng, gt)},
+    summary=lambda p, gt: f"−1 for each cell in the biggest joined-up {p['colour']} patch",
+    ordinal=colour_lens.kg_ord, batch=colour_lens.kg_batch, canonical=lambda p, gt: {"colour": gt.colour_names[0]},
+    exemplar=lambda p, gt: grid(np.zeros((gt.N, gt.N)), np.full((gt.N, gt.N), ci(gt, p["colour"]))),
     source="defence goal: Kingdom's ordinal, hated", tags={"penalty"})
 
 
@@ -203,12 +203,12 @@ def comparative(pdraw, gtype) -> str:
     """The word before 'than 90% of grids' on the ⚠️ line."""
     f, p = pdraw.family, pdraw.params
     if f.id == "hate_colour":
-        n = cname(gtype, p["colour"])
+        n = p["colour"]
         return COMPARATIVE_COLOUR.get(n, f"more {n}")
     if f.id == "hate_value":
         return f"fuller of {_value_name(gtype, p['value'])}s"
     if f.id == "hate_blob":
-        return f"with a bigger {cname(gtype, p['C'])} patch"
+        return f"with a bigger {p['colour']} patch"
     return f.theme
 
 
@@ -392,18 +392,12 @@ REWARDS = [RAREST_COLOUR, CORNER_VARIETY, RAINBOW_ROW, ISLANDS, SYMBOL_VARIETY]
 # ================================================================================================
 # Dealt families
 # ================================================================================================
-def _other_colour(key):
-    """sample_penalty: hate a colour other than the base's `key` colour."""
+def _other_colour(key, named=True):
+    """sample_penalty: hate a colour other than the base's `key` colour (a name when `named`, else an index)."""
     def sp(rng, gt, p):
-        opts = [k for k in range(gt.C) if k != p[key]]
-        return {"colour": int(rng.choice(opts))}
-    return sp
-
-
-def _other_blob(key):
-    def sp(rng, gt, p):
-        opts = [k for k in range(gt.C) if k != p[key]]
-        return {"C": int(rng.choice(opts))}
+        base = ci(gt, p[key]) if named else p[key]
+        opts = [k for k in range(gt.C) if k != base]
+        return {"colour": gt.colour_names[int(rng.choice(opts))]}
     return sp
 
 
@@ -411,10 +405,10 @@ V = dict(tags={"variant"})
 VARIANTS = [
     with_defence(seeds.SEED3, HATE_COLOUR, sample_penalty=_other_colour("colour"),
                  name="Green Ones, hates a colour", **V),
-    with_defence(seeds.SEED1, HATE_BLOB, sample_penalty=_other_blob("colour"),
+    with_defence(seeds.SEED1, HATE_BLOB, sample_penalty=_other_colour("colour"),
                  name="Line Painter, hates a patch", **V),
     with_defence(seeds.SEED2, HATE_TAKEOVER, name="Patchwork, hates takeovers", **V),
-    with_defence(strategy.LUCKY_TOKEN, HATE_COLOUR, sample_penalty=_other_colour("X"),
+    with_defence(strategy.LUCKY_TOKEN, HATE_COLOUR, sample_penalty=_other_colour("colour"),
                  name="Lucky Token, hates a colour", **V),
     with_defence(colour_lens.KINGDOM, HATE_VALUE, name="Kingdom, hates a number", **V),
     with_defence(strategy.RAINBOW_ROAD, HATE_BIG_BLOB, name="Rainbow Road, hates blobs", **V),

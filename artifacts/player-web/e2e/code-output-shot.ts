@@ -19,7 +19,7 @@ const { makeFunctionReference } = await import("convex/server");
 const fn = { q: (n: string) => makeFunctionReference<"query">(n), m: (n: string) => makeFunctionReference<"mutation">(n), a: (n: string) => makeFunctionReference<"action">(n) };
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
-const { session } = await login("bob");
+const { session } = await login("admin");
 const dana = new ConvexHttpClient(CLOUD);
 dana.setAuth(await browserJwt(session));
 const { roomId, shortCode } = await dana.mutation(fn.m("rooms:create"), {}) as { roomId: string; shortCode: string };
@@ -27,7 +27,7 @@ await dana.mutation(fn.m("rooms:setSpectator"), { roomId: roomId, spectator: fal
 const owner = (action: string, extra: Record<string, unknown> = {}) => dana.action(fn.a("owner:command"), { roomId, action, requestId: crypto.randomUUID(), ...extra });
 await owner("addAi", { aiAgentId: "sonnet-strategist" });
 await owner("addAi", { aiAgentId: "sonnet-strategist" });
-await dana.mutation(fn.m("rooms:approveAiBudget"), { roomId, aiBudget: 50_000, assistantBudget: 200_000, assistantModel: MODEL });
+await dana.mutation(fn.m("rooms:setAiQuotas"), { roomId, aiQuota: 50_000, assistantQuota: 200_000, assistantModel: MODEL });
 await owner("start");
 // Wait for a world with objects (planning ends on its own; the default is short).
 for (let i = 0; i < 120; i++) {

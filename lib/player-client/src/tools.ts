@@ -28,6 +28,7 @@ import { PANEL_IDS } from "./panels.ts";
 import { SKILLS, SKILL_NAMES } from "./skills.ts";
 import { placeSchema } from "./layout.ts";
 import { DATASET_NAMES } from "./datasets.ts";
+import { OBJECT_SORTS } from "./objects-page.ts";
 import { AGENT_DESCRIPTION_MAX, AGENT_NAME_MAX, VERSION, type Envelope, type Permission } from "./protocol.ts";
 
 const RANK: Record<Permission, number> = { read: 0, act: 1, owner: 2 };
@@ -66,8 +67,8 @@ const receiptData = z.object({
   status: z.enum(["received", "pending", "failed", "not_found"]),
   commandId: uuid,
   receipt: z.unknown().optional().describe("The engine's CommandResult: accepted, message, validation details."),
-  assessment: z.object({ verdict: z.enum(["works", "fails", "no_change", "rejected", "not_ready"]), summary: z.string(), next: z.string() }).passthrough().optional()
-    .describe("A validation's meaning: works, fails (on the reference objects), no_change or rejected (does not compile); the price against the player's energy, and the next step."),
+  assessment: z.object({ verdict: z.enum(["works", "warns", "fails", "no_change", "rejected", "not_ready"]), summary: z.string(), next: z.string() }).passthrough().optional()
+    .describe("A validation's meaning: works, warns (works, but most acts would fail or the player already runs this code: tell them the warnings before any summon), fails (on the reference objects), no_change or rejected (does not compile); the price against the player's energy, and the next step."),
   error: z.object({ code: z.string(), message: z.string() }).optional(),
   message: z.string().optional(),
 });
@@ -116,38 +117,39 @@ function def<const N extends string, I extends z.ZodType, O extends z.ZodType, c
 }
 
 export const READ_TOOLS = [
-  def({ name: "whoami", short: "Who this connection acts for: the human, room, permission and expiry.", title: "Who am I", functions: ["auth.user.me"], permission: "read", annotations: read,
+  def({ name: "whoami", short: "Who this connection acts for: human, room, permission, expiry.", title: "Who am I", functions: ["auth.user.me"], permission: "read", annotations: read,
     about: "This connection: the human it acts for, its room, permission (read < act < owner) and credential expiry.",
     input: obj({}), output: result(anyData) }),
   def({ name: "get_rules", short: "The room's rules as text, with its settings and object type.", title: "Game rules", functions: ["rooms.get", "manifest.get"], permission: "read", annotations: read,
     about: "The rules of Code Gods for this room as text (scoring, agents, energy, timing), with the room's settings and object type.",
     input: obj({}), output: result(anyData) }),
   def({ name: "get_observation", short: "The live game: phase, energy, utility, objects (paged), agents, leaderboard, recent chat.", title: "Observation", functions: ["player.observation"], permission: "read", annotations: read,
-    note: "Objects are paged (objectsLimit, objectsCursor); agents are capped at 20 with sources cut to 4 KB.",
+    note: "Objects are paged on the server (objectsLimit, objectsSort, objectsCursor; objectCount is the total); agents are capped at 20 with sources cut to 4 KB, chat at 20, recent transformations at 50.",
     input: obj({
-      objectsLimit: z.number().int().min(1).max(200).default(50).describe("Objects per page (sorted as the engine sends them)."),
-      objectsCursor: z.number().int().min(0).default(0).describe("Offset of the first object (nextCursor of the previous page)."),
+      objectsLimit: z.number().int().min(1).max(200).default(50).describe("Objects per page, at most 90 (a larger value is cut to 90)."),
+      objectsSort: z.enum(OBJECT_SORTS).default("payoff").describe("Object order: payoff (highest first), mine (own bits), othersCare, mutations, newest, oldest, recentlyMutated."),
+      objectsCursor: z.union([z.string().max(200), z.literal(0)]).optional().describe("The previous page's nextCursor (omit, or 0, for the first page)."),
     }), output: result(anyData) }),
   def({ name: "get_events", short: "The player's projected event log of a game, by batch cursor.", title: "Event log", functions: ["player.events"], permission: "read", annotations: read,
     note: "Omit `after` for the latest batches.",
     input: obj({ gameId, after: cursor.optional().describe("The last seq you have (nextCursor)."), limit: z.number().int().min(1).max(50).default(20) }),
     output: result(anyData) }),
-  def({ name: "get_trajectories", short: "Per-object series of the player's net bits, the peers' aggregate and payoff.", title: "Trajectories", functions: ["player.trajectories"], permission: "read", annotations: read,
+  def({ name: "get_trajectories", short: "Per-object series of the player's net bits, the peers' aggregate, payoff.", title: "Trajectories", functions: ["player.trajectories"], permission: "read", annotations: read,
     note: "Pages by afterSeq.",
     input: obj({ gameId, afterSeq: cursor.optional(), limit: z.number().int().min(1).max(200).default(100) }), output: result(anyData) }),
   def({ name: "list_games", short: "The room's finished games with their public results.", title: "Finished games", functions: ["rooms.history"], permission: "read", annotations: read,
     note: "Paged by offset.",
     input: obj({ cursor: z.number().int().min(0).default(0).describe("Offset (nextCursor)."), limit: z.number().int().min(1).max(20).default(5) }),
     output: result(anyData) }),
-  def({ name: "get_game_history", short: "The event log of a game of the room; past games only for their players and the owner.", title: "Game history", functions: ["player.history"], permission: "read", annotations: read,
+  def({ name: "get_game_history", short: "A game's event log; past games only for its players and the owner.", title: "Game history", functions: ["player.history"], permission: "read", annotations: read,
     note: "Takes the gameId (list_games) and pages by afterSeq.",
     input: obj({ gameId: id, afterSeq: cursor.optional(), limit: z.number().int().min(1).max(50).default(20) }), output: result(anyData) }),
-  def({ name: "get_replay", short: "An ended game the player played in, fully revealed: every utility, agent's code and act.", title: "Replay of an ended game", functions: ["player.replay"], permission: "read", annotations: read,
+  def({ name: "get_replay", short: "An ended game the player played in, fully revealed (utilities, agents' code, acts).", title: "Replay of an ended game", functions: ["player.replay"], permission: "read", annotations: read,
     note: "Takes the gameId (list_games); pass nextCursor back as cursor. For whole-game analysis use run_code's replay dataset.",
     input: obj({ gameId: id, cursor: z.string().max(200).optional().describe("The previous page's nextCursor (omit for the first page).") }),
     output: result(anyData) }),
-  def({ name: "get_my_utility", short: "The player's utility descriptor (family, parameters, defence goal) and game settings.", title: "My utility", functions: ["player.myUtility"], permission: "read", annotations: read,
-    note: "The observation's self.utility has the readable name, summary and source.",
+  def({ name: "get_my_utility", short: "The player's utility (family, parameters, defence goal) and game settings.", title: "My utility", functions: ["player.myUtility"], permission: "read", annotations: read,
+    note: "The observation's self.utility has the readable name, summary and source. typedParams lists each param by name and type (colour, symbol, int, choice, bool) with its value and how it reads.",
     input: obj({}), output: result(anyData) }),
   def({ name: "evaluate_value", short: "Score a hypothetical object value with the player's own utility.", title: "Evaluate a value", functions: [], permission: "read", annotations: read,
     about: "Score a hypothetical object value with YOUR OWN utility in the current game: ordinal, reward bits, penalty bits and net bits. Other gods' utilities are never evaluated. Use it to check what an agent should aim for before writing it.",
@@ -157,7 +159,7 @@ export const READ_TOOLS = [
     note: "Newest last; nextCursor gives the next older page.",
     input: obj({ cursor: z.string().max(2000).optional().describe("The previous page's nextCursor (omit for the newest page)."), limit: z.number().int().min(1).max(100).default(50) }),
     output: result(anyData) }),
-  def({ name: "get_receipt", short: "A command's receipt by commandId: received, pending, failed or not found.", title: "Command receipt", functions: ["receipts.get"], permission: "read", annotations: read,
+  def({ name: "get_receipt", short: "A command's receipt by commandId: received, pending, failed, not found.", title: "Command receipt", functions: ["receipts.get"], permission: "read", annotations: read,
     note: "Status received (with the engine's result), pending (still running), failed (not applied: resend the identical call) or not_found.",
     input: obj({ commandId: uuid }), output: result(receiptData) }),
   def({ name: "load_skill", short: "Load a skill (domain guidance with live data) by name from the skills index.", title: "Load a skill", functions: ["rooms.get", "player.observation", "layout.current"], permission: "read", annotations: read,
@@ -166,8 +168,8 @@ export const READ_TOOLS = [
 ] as const;
 
 export const ACT_TOOLS = [
-  def({ name: "validate_agent", short: "Measure an agent's source without summoning it (free): compiles, summon cost, cost per act.", title: "Validate an agent", functions: ["commands.submit"], permission: "act", annotations: read,
-    about: "Measure an agent without summoning it (free): whether it compiles, its summon cost, decision bits and expected cost per act, with sample moves. Takes a few seconds. Always validate before summoning.",
+  def({ name: "validate_agent", short: "Check an agent's source without summoning it (free): compiles, summon price, estimated cost per act.", title: "Validate an agent", functions: ["commands.submit"], permission: "act", annotations: read,
+    about: "Measure an agent without summoning it (free): whether it compiles, its summon price (paid once), the estimated cost per act split into reading and changing (an act pays only the bits it reads plus, when it changes the object, its change; a skip pays only its reads), and the share of skips, with sample moves. Takes a few seconds. Always validate before summoning.",
     input: obj({ source, language: language.optional().describe("The agent's language: one the game allows (get_observation languages). Default: the game's first allowed language."), commandId: optionalCommandId, gameId, waitMs }),
     output: result(receiptData) }),
   def({ name: "summon_agent", short: "Summon an agent into the game, paying its cost from the player's energy.", title: "Summon an agent", functions: ["commands.submit"], permission: "act", annotations: acts,
@@ -175,10 +177,14 @@ export const ACT_TOOLS = [
     input: obj({ source, language: language.optional().describe("The agent's language, the one it was validated in: one the game allows. Default: the game's first allowed language."),
       name: z.string().trim().min(1).max(AGENT_NAME_MAX).describe("A short, meaningful name for the agent (required, up to 40 characters), e.g. \"Corner hoarder\". Shown in the player's My agents list."),
       description: z.string().trim().max(AGENT_DESCRIPTION_MAX).optional().describe("One or two sentences on what the agent does and why (optional, up to 500 characters). Shown on hover next to the name."),
+      powerShare: z.number().min(0).max(1).optional().describe("The share of the player's power the new agent earns, 0 to 1 (0.25 = a quarter of it). Default: half of the power the player has not yet given to agents. Shares of one player total at most 1."),
       commandId, gameId, waitMs }), output: result(receiptData) }),
   def({ name: "destroy_agent", short: "Destroy one of the player's agents (no refund).", title: "Destroy an agent", functions: ["commands.submit"], permission: "act", annotations: destructive,
-    about: "Destroy one of the player's own agents, for free (energy already spent is not refunded; the player confirms first).",
+    about: "Destroy one of the player's own agents, for free (energy already spent is not refunded; its power share goes back to the player; the player confirms first).",
     input: obj({ agentId: id.describe("The agent's id from get_observation (agents[].id); never a command id."), commandId, gameId }), output: result(receiptData) }),
+  def({ name: "allocate_power", short: "Change how much of the player's power one agent gets.", title: "Allocate power", functions: ["commands.submit"], permission: "act", annotations: acts,
+    about: "Set one agent's power share (0 to 1) from now on: it earns share x economy.powerPerSecond bits per world second, and the player's own income is the unallocated rest (self.income). The player's shares total at most 1; both accounts are settled first. Moving power between agents is two calls: lower one, then raise the other.",
+    input: obj({ agentId: id.describe("The agent's id from get_observation (agents[].id); never a command id."), share: z.number().min(0).max(1).describe("The agent's new share of the player's power, 0 to 1."), commandId, gameId }), output: result(receiptData) }),
   def({ name: "set_ready", short: "Mark the player ready (or not) in the lobby.", title: "Set ready", functions: ["commands.submit", "rooms.setReady"], permission: "act", annotations: acts,
     about: "Mark the player ready (or not) in the room lobby; advisory.",
     input: obj({ ready: z.boolean(), commandId: optionalCommandId }), output: result(receiptData) }),
@@ -197,17 +203,22 @@ export const ACT_TOOLS = [
 ] as const;
 
 export const OWNER_TOOLS = [
-  def({ name: "get_room_state", short: "The room's full state for its owner, with the revision update_settings needs.", title: "Room state", functions: ["rooms.get"], permission: "owner", annotations: read,
+  def({ name: "get_room_state", short: "Full room state for its owner, with the revision update_settings needs.", title: "Room state", functions: ["rooms.get"], permission: "owner", annotations: read,
     about: "The room's full state for its owner, revision included (needed by update_settings).",
     input: obj({}), output: result(anyData) }),
   def({ name: "get_ai_catalog", short: "The AI players that can be seated (ids for add_ai).", title: "AI catalog", functions: ["aiTemplates.catalog"], permission: "owner", annotations: read,
     input: obj({}), output: result(anyData) }),
-  def({ name: "update_settings", short: "Put the room on a setup, change its settings, or set its AI budget (next game).", title: "Update settings", functions: ["owner.settings", "owner.command", "rooms.approveAiBudget"], permission: "owner", annotations: acts,
-    note: "Give a setupId (list_setups) or settings (only the fields to change), and/or the AI budget, with the room's current revision (get_room_state). Confirmed by the player first.",
+  def({ name: "update_settings", short: "Put the room on a setup or change its settings (next game).", title: "Update settings", functions: ["owner.settings", "owner.command"], permission: "owner", annotations: acts,
+    note: "Give a setupId (list_setups) or settings (only the fields to change), with the room's current revision (get_room_state). Confirmed by the player first.",
     input: obj({ requestId, revision: z.number().int().min(0),
       settings: z.record(z.string(), z.unknown()).optional().describe("The settings fields to change; languages is the non-empty list of languages agents may be written in (each agent's grammar and summon price follow its own language), an object type change moves its default instantiation. Not with setupId."),
-      setupId: id.optional().describe("Any game setup's id (list_setups): the room runs it and the next game takes its complete settings. Not with settings."),
-      aiBudget: z.number().int().min(0).max(1_000_000).optional() }), output: result(ownerData) }),
+      setupId: id.optional().describe("Any game setup's id (list_setups): the room runs it and the next game takes its complete settings. Not with settings.") }), output: result(ownerData) }),
+  def({ name: "set_ai_quotas", short: "Set the room's per-game AI token quotas (AI players, assistants).", title: "Set AI quotas", functions: ["rooms.setAiQuotas", "owner.command"], permission: "owner", annotations: acts,
+    note: "Any of the three; 0 = none; also during a game. Only in rooms run by an administrator. Confirmed by the player first.",
+    input: obj({ requestId,
+      aiQuota: z.number().int().min(0).max(1_000_000).optional().describe("Tokens all AI players together may use per game (default 300,000)."),
+      assistantQuota: z.number().int().min(0).max(2_000_000).optional().describe("Tokens each player's assistant may use per game (default 300,000)."),
+      assistantModel: z.string().max(64).optional().describe("The assistant's model id (manifest aiFunding.models).") }), output: result(ownerData) }),
   def({ name: "start_game", short: "Start the next game.", title: "Start a game", functions: ["owner.start", "owner.command"], permission: "owner", annotations: acts,
     note: "Confirmed by the player first.", input: obj({ requestId }), output: result(ownerData) }),
   def({ name: "resume_game", short: "Resume a game stopped in recovery.", title: "Resume the game", functions: ["rooms.resume", "owner.command"], permission: "owner", annotations: acts,
@@ -227,7 +238,7 @@ export const OWNER_TOOLS = [
  */
 const setupId = id.describe("A setup's id from list_setups.");
 export const SETUP_TOOLS = [
-  def({ name: "list_setups", short: "Search the shared game setups (the system's and everyone's).", title: "List game setups", functions: ["setups.list"], permission: "read", annotations: read,
+  def({ name: "list_setups", short: "Search the shared game setups (the system's and everyone's).", title: "List game setups", functions: ["setups.page"], permission: "read", annotations: read,
     note: "Rows without settings ({setups, total}); query narrows by name, owner or summary words; get_setup has one setup's settings.",
     input: obj({ query: z.string().trim().max(100).optional().describe("Words that must all appear in the name, the owner's name or the summary."),
       limit: z.number().int().min(1).max(200).optional().describe("At most this many rows (default 100); total says how many match.") }),
@@ -309,7 +320,7 @@ const datasetRequest = z.union([datasetName, obj({
 })]);
 const runId = id.describe("A run's id (run_code's runId, or list_code_runs).");
 export const CODE_TOOLS = [
-  def({ name: "run_code", short: "Run a Python or TypeScript analytics script server-side over named datasets (reads only).", title: "Run analytics code", functions: [], permission: "read", annotations: read,
+  def({ name: "run_code", short: "Run a Python or TypeScript analytics script over named datasets (reads only).", title: "Run analytics code", functions: [], permission: "read", annotations: read,
     about: "Run a short Python or TypeScript analytics script server-side in the sandbox: it defines main(data), where data holds the datasets you name "
       + "(fetched by the engine as the player; they never pass through this conversation) plus params. Returns main's JSON result and printed text, "
       + "clipped (TRUNCATED; get_code_run has the rest), and a runId; open_panel {panelId: code-output, params: {runId}} shows it to the player as a table. "
@@ -330,10 +341,10 @@ export const CODE_TOOLS = [
     note: "A slice of a run's full result JSON, printed output or source, from offset (nextOffset pages on); or its summary without part.",
     input: obj({ runId, part: z.enum(["result", "output", "source"]).optional(), offset: z.number().int().min(0).default(0),
       length: z.number().int().min(100).max(6000).default(4000) }), output: result(anyData) }),
-  def({ name: "list_code_objects", short: "The player's stored objects (keys and sizes) and the object store's quota.", title: "List stored objects", functions: ["code.objects.list"], permission: "read", annotations: read,
+  def({ name: "list_code_objects", short: "The player's stored objects (keys, sizes) and the store's quota.", title: "List stored objects", functions: ["code.objects.list"], permission: "read", annotations: read,
     note: "Values are read by a script (run_code load); runs/<runId> keys hold past run results, scripts/<name> saved scripts.",
     input: obj({ prefix: z.string().max(128).optional(), limit: z.number().int().min(1).max(500).default(100) }), output: result(anyData) }),
-  def({ name: "list_code_runs", short: "The player's recent code runs in this room and the game's run budget left.", title: "List code runs", functions: ["code.runs.list"], permission: "read", annotations: read,
+  def({ name: "list_code_runs", short: "The player's recent code runs here and the run budget left.", title: "List code runs", functions: ["code.runs.list"], permission: "read", annotations: read,
     note: "Your recent runs in this room, newest first, with this game's budget left.",
     input: obj({ limit: z.number().int().min(1).max(50).default(10) }), output: result(anyData) }),
 ] as const;
@@ -356,7 +367,10 @@ export const INFERENCE_TOOLS = [
       offset: z.number().int().min(0).default(0).describe("Rows to skip (nextCursor)."), limit: z.number().int().min(1).max(20000).default(500) }),
     output: result(anyData) }),
   def({ name: "get_board_at", short: "The board at a world time, with own and others' summed bits.", functions: ["player.board"], permission: "read", annotations: read,
-    input: obj({ gameId, world: z.number().min(0).optional().describe("World seconds (default: now).") }), output: result(anyData) }),
+    note: "Paged in spawn order, at most 100 objects a page (and what fits in one result): pass nextCursor back as cursor; it keeps the first page's world.",
+    input: obj({ gameId, world: z.number().min(0).optional().describe("World seconds (default: now)."),
+      cursor: z.string().max(2000).optional().describe("The previous page's nextCursor (omit for the first page)."),
+      limit: z.number().int().min(1).max(100).default(50).describe("Objects per page.") }), output: result(anyData) }),
   def({ name: "list_utility_candidates", short: "Every rule another god might hold here, with its parameter sets.", title: "Candidate rules", functions: [], permission: "read", annotations: read,
     about: "The public candidates for the OTHER gods' utility functions in the current game: every family the dealer could deal here (theme, tags, "
       + "role: reward or defence goal) with every parameter set it can draw, and how many other gods there are. Use the ids and params in "
@@ -422,13 +436,13 @@ export function toolJsonSchemas(): Record<string, { input: Record<string, unknow
 // Command tools → v3 envelopes
 // ---------------------------------------------------------------------------------------------
 
-export const COMMAND_TOOLS = ["validate_agent", "summon_agent", "destroy_agent", "set_ready", "send_chat", "pause_game"] as const;
+export const COMMAND_TOOLS = ["validate_agent", "summon_agent", "destroy_agent", "allocate_power", "set_ready", "send_chat", "pause_game"] as const;
 export type CommandToolName = (typeof COMMAND_TOOLS)[number];
 export const isCommandTool = (name: string): name is CommandToolName => (COMMAND_TOOLS as readonly string[]).includes(name);
 /** The command tool of each envelope command type (the CLI's `assistant command` alias). */
-export const TOOL_OF_COMMAND = { validate: "validate_agent", summon: "summon_agent", destroy: "destroy_agent", ready: "set_ready", chat: "send_chat", pause: "pause_game" } as const;
+export const TOOL_OF_COMMAND = { validate: "validate_agent", summon: "summon_agent", destroy: "destroy_agent", allocatePower: "allocate_power", ready: "set_ready", chat: "send_chat", pause: "pause_game" } as const;
 
-type CommandArgs = { commandId?: string; gameId?: string; source?: string; language?: Language; name?: string; description?: string; agentId?: string; ready?: boolean; text?: string };
+type CommandArgs = { commandId?: string; gameId?: string; source?: string; language?: Language; name?: string; description?: string; agentId?: string; share?: number; powerShare?: number; ready?: boolean; text?: string };
 
 /** Does buildEnvelope need the current game (its id or language) for these arguments? */
 export function envelopeNeedsGame(name: CommandToolName, args: CommandArgs): boolean {
@@ -454,8 +468,9 @@ export function buildEnvelope(name: CommandToolName, args: CommandArgs, game: { 
   };
   const command: Envelope["command"] =
     name === "validate_agent" ? { type: "validate", language: lang(), source: args.source! }
-    : name === "summon_agent" ? { type: "summon", language: lang(), source: args.source!, name: args.name!, ...(args.description ? { description: args.description } : {}) }
+    : name === "summon_agent" ? { type: "summon", language: lang(), source: args.source!, name: args.name!, ...(args.description ? { description: args.description } : {}), ...(args.powerShare !== undefined ? { powerShare: args.powerShare } : {}) }
     : name === "destroy_agent" ? { type: "destroy", agentId: args.agentId! }
+    : name === "allocate_power" ? { type: "allocatePower", agentId: args.agentId!, share: args.share! }
     : name === "set_ready" ? { type: "ready", ready: args.ready! }
     : name === "send_chat" ? { type: "chat", text: args.text! }
     : { type: "pause" };

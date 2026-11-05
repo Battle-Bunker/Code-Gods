@@ -7,16 +7,17 @@ import {
 } from "../src/index.ts";
 import { packTetrominoes } from "../src/families/grid/geometry.ts";
 import type { Ordinal } from "../src/types.ts";
+import { shardOf } from "./shard.ts";   // CG_SHARD="k/n": the two instantiation loops below are split across CI jobs
 import { allGrids, coveringGrids, familiesOf, intInsts, sampleObjects, seededRng, stringInsts } from "./support.ts";
 
 const ALL: Instantiation[] = [...allGrids(), ...intInsts(), ...stringInsts()];
 const MAX_CANONICAL = 24;
 const MAX_LINES = 60, MAX_WIDTH = 110;
 
-test("catalog: unique ids, 31 shortlisted grid families, 8 penalties, Int and string families", () => {
+test("catalog: unique ids, 33 shortlisted grid families, 8 penalties, Int and string families", () => {
   assert.equal(new Set(FAMILIES.map(f => f.id)).size, FAMILIES.length);
   const grid = familiesFor("Grid");
-  assert.equal(grid.filter(f => f.tags.includes("shortlist")).length, 31);
+  assert.equal(grid.filter(f => f.tags.includes("shortlist")).length, 33);
   assert.equal(familiesFor("Grid", "penalty").length, 8);
   assert.ok(familiesFor("Int").length >= 14 && familiesFor("string").length >= 14);
   assert.equal(Object.values(GRID_LENSES).flat().length, grid.length);
@@ -51,7 +52,7 @@ function lint(src: string, lang: "python" | "typescript", f: UtilityFamily<any>,
 
 test("every family × every instantiation: support, sample ∈ support, canonical idempotent and small, cards, shape, determinism", () => {
   let largest = { n: 0, at: "" };
-  for (const inst of ALL) {
+  for (const inst of shardOf(ALL)) {
     const ctx = context(inst), rng = seededRng(`laws:${inst.key}`), def = objectType(inst.objectType);
     const objs = Array.from({ length: 4 }, () => def.codec(inst).encode(def.spawn(inst, rng)));
     for (const f of familiesOf(inst)) {
@@ -86,7 +87,7 @@ test("every family × every instantiation: support, sample ∈ support, canonica
 });
 
 test("exemplars are legal and reach the top of every sampled ordinal", () => {
-  for (const inst of [...coveringGrids(), ...intInsts(), ...stringInsts()]) {
+  for (const inst of shardOf([...coveringGrids(), ...intInsts(), ...stringInsts()])) {
     const ctx = context(inst), rng = seededRng(`exemplar:${inst.key}`), codec = objectType(inst.objectType).codec(inst);
     const objs = sampleObjects(inst, rng, 60);
     for (const f of familiesOf(inst)) {
@@ -120,7 +121,7 @@ test("tetromino_tamer: the exemplar is the true maximum (exhaustive on 3×3 and 
     const smallest = (m: number) => perms.every(p => cells.reduce((t, i) => t | (((m >> i) & 1) << p[i]), 0) >= m);
     const boards = Array.from({ length: 2 ** (size * size) }, (_, m) => m).filter(smallest)
       .map(m => cells.map(i => (i === 0 ? "" : i % size === 0 ? "/" : ",") + ((m >> i) & 1 ? "0R" : "0G")).join(""));
-    const pieces = f.support(ctx).filter(p => p.C === 0)
+    const pieces = f.support(ctx).filter(p => p.colour === "red")
       .map(p => ({ p, u: evaluator({ familyId: f.id, params: p }, inst), best: [0, 0] as Ordinal }));
     for (const w of boards) for (const x of pieces) {
       const v = x.u(w);
@@ -130,8 +131,8 @@ test("tetromino_tamer: the exemplar is the true maximum (exhaustive on 3×3 and 
   }
   for (const size of [5, 6, 7]) {
     const inst = instantiate("Grid", { size, symbols: "base10", colours: "rgb" }), ctx = context(inst);
-    for (const p of f.support(ctx).filter(p => p.C === 0)) {
-      assert.deepEqual(evaluator({ familyId: f.id, params: p }, inst)(f.exemplar!(p, ctx)), packTetrominoes(size, p.P, size * size).value,
+    for (const p of f.support(ctx).filter(p => p.colour === "red")) {
+      assert.deepEqual(evaluator({ familyId: f.id, params: p }, inst)(f.exemplar!(p, ctx)), packTetrominoes(size, "O", size * size).value,
         `${size}×${size} ${paramsKey(p)}: the exemplar (memo window 4N) is not the maximum of the full-state search`);
     }
   }
@@ -170,7 +171,7 @@ test("availability and the public catalog follow the constraints", () => {
 
 test("cards: summary, both sources, shape, and the defence goal", () => {
   const inst = instantiate("Grid", { size: 5, symbols: "base10", colours: "rainbow6" }), ctx = context(inst);
-  const d = readDescriptor({ familyId: "seed3_green_ones", params: { colour: 3, value: 1 }, penalty: { familyId: "hate_colour", params: { colour: 0 } } });
+  const d = readDescriptor({ familyId: "seed3_green_ones", params: { colour: 3, value: 1 }, penalty: { familyId: "hate_colour", params: { colour: "red" } } });
   const c = card(d, ctx);
   assert.equal(c.name, "Green Ones");
   assert.deepEqual(c.shape, { kind: "tuple", arity: 2 });

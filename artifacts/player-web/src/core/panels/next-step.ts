@@ -13,7 +13,8 @@ export type NextStepAction =
 /** `busy`: a start is pending; the button shows a spinner and does nothing (no second start). */
 export type NextStep = { label: string; why: string; action: NextStepAction; busy?: true };
 /** `start`: the pending start (@workspace/player-client/start), so the click shows at once and progress follows. */
-export type NextStepContext = { phase: Phase; seated: boolean; isOwner: boolean; players: number; agents: number; start?: StartView };
+export type NextStepContext = { phase: Phase; seated: boolean; isOwner: boolean; players: number; agents: number; start?: StartView;
+  /** AI seats exist in this room (its owner is an administrator); absent means yes. */ aiEnabled?: boolean };
 
 export function nextStep(s: NextStepContext): NextStep {
   const live = s.phase === "planning" || s.phase === "running" || s.phase === "paused";
@@ -26,6 +27,7 @@ export function nextStep(s: NextStepContext): NextStep {
       return { label: "Preparing the game…", why: `its rule tables are computing (${s.start.ready} of ${s.start.total} ready); it starts by itself.`, action: { kind: "start" }, busy: true };
     }
     if (s.isOwner && s.players >= 3) return { label: "Start the game", why: `${s.players} players are in (spectators watch); planning begins at once.`, action: { kind: "start" } };
+    if (s.isOwner && s.aiEnabled === false) return { label: "Invite players", why: `a game needs 3 players and the room has ${s.players} (spectators don't count).`, action: { kind: "palette", command: "ui.room.copy-link" } };
     if (s.isOwner) return { label: "Add an AI player", why: `a game needs 3 players and the room has ${s.players} (spectators don't count).`, action: { kind: "palette", command: "rooms.addAi" } };
     return { label: "Read how to play", why: "the owner starts the game; until then, learn the 90-second version.", action: { kind: "panel", panelId: "rules" } };
   }

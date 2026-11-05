@@ -23,6 +23,10 @@ export type Node =
 export type DockLayout = { version: 1; root: Node; panes: Record<string, Pane> };
 export type Place = { relativeTo?: string; direction: "left" | "right" | "above" | "below" };
 
+/**
+ * Limits on a SAVED layout (parseLayout, the layout operations, `layout:set`). A layout derived for display and never
+ * saved is exempt: the replay's Timeline (player-web dock/layout-sync.ts withTimeline) is shown even in a full dock.
+ */
 export const LAYOUT_LIMITS = { panes: 12, panelPanes: 4, depth: 6, bytes: 32 * 1024, writesPerMinute: 12 } as const;
 
 /** A refused operation; the engine maps `code` to its ConvexError codes. */
@@ -174,7 +178,7 @@ const leaf = (id: string): Node => ({ type: "pane", id });
 const split = (direction: Direction, sizes: number[], children: Node[]): Node => ({ type: "split", direction, sizes, children });
 
 /**
- * Two columns over a full-width assistant row: your secret goal (3 best examples) on the left, objects by payoff (top 12)
+ * Two columns over a full-width assistant row: your secret goal on the left, objects by payoff (top 12)
  * above my agents (all, last 120 s) on the right. The goal panel is marked "human" so it does not follow the phase's
  * default panel (followPhase only moves the first panel nobody chose); the others are the panels' default parameters.
  */

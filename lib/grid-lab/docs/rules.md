@@ -43,9 +43,9 @@ An ordinal utility is an `int`, or a fixed-length tuple of ints compared lexicog
      Windmill counts suit steps, Tetromino counts 4-cell blobs, Royal Court counts faces off the rim, and Go Fish
      counts fish cells per window.
 
-   **No tie-breaker on deliberate all-or-nothing temperaments.** These are Picture Frame and Sudoku at N ≤ 4. A
-   progress tie-breaker would turn them back into linear rules (Picture Frame plus rim count is *exactly* the order
-   of "count X on the rim"), and that would erase the holdout temperament the catalog wants (§4.5). No tie-breaker
+   **No tie-breaker on deliberate all-or-nothing temperaments.** This is Sudoku at N ≤ 4. A progress tie-breaker
+   would turn it back into a linear rule, and that would erase the holdout temperament the catalog wants (§4.5).
+   (Picture Frame was one too until 2026-11: it is now a continuous score, rules-design.md P9.) No tie-breaker
    was added to rules that are already fine-grained (Low/Med in §2b). That covers Seeds 1–2, Conqueror, Parity
    Painter, Homebody, Number Bonds, Full House, Bingo, Lantern, KotH, Othello, Minesweeper and similar rules.
 4. **Name the symmetry.** `canonical(params)` maps params to an orbit representative. Two draws can then share a
@@ -74,7 +74,6 @@ Exact tails (`exact_log2_tail`) exist for Lone Peak (order statistics: a unique 
 the rest) and:
 - Seed 3 and Lucky Token: the multinomial of tokens and half-tokens, so the tuple order is handled exactly;
 - Conqueror (both weights), Homebody and Parity Painter: exact convolution of the per-cell laws;
-- Picture Frame: `−(4N−4)·log₂K`;
 - Number Painter and Colour-by-Number: binomial.
 
 The tests check each one against the empirical tail.
@@ -125,7 +124,7 @@ and `canon` (canonical params). Every family has `batch` and `exemplar`.
 | `lone_peak` ★ | Lone Peak | C+S | neutral | Valued | m1 − m2 if the max value is unique and coloured X, else 0 | some max-valued cell is X | S_k colours; exact order-statistic tail | exact, canon | catalog#27 (strat#9); tie-breaker = some top cell is your colour |
 | `islander` | Islander | C+P | alternator | generic | #X cells whose in-grid neighbours all share one colour ≠ X | #X cells with no X neighbour | S_k colours | canon | strat#6 (catalog D2 'dots'); tie-breaker = your cells with no same-colour neighbour |
 | `rooks_watch` | Rook's Watch | C+S+P | neutral | generic | #rows + #cols containing token (S, X) | #rows + #cols containing a half-token | S_symbols × S_k (→ (0,0)) | canon | strat#11 (catalog D8 coverage temperament); tie-breaker = lines holding a half-token |
-| `picture_frame` | Picture Frame | C+P | clumper | generic | 1 if every rim cell is X else 0 (all-or-nothing) | none (deliberate holdout) | S_k colours; exact tail | exact, canon | strat#12 (catalog D5 all-or-nothing temperament; holdout, so no tie-breaker) |
+| `picture_frame` | Picture Frame | C+S+P | clumper | generic | per cell, hits = [colour = X] + [symbol = Y]; rim cell +1 (one hit) / +4 (both), middle cell −1 / −4; top 4·(4N−4) | none (continuous already) | S_k colours × S_S symbols | canon (exact analytic on the TS side) | strat#12 (was all-or-nothing until 2026-11; redesigned 2026-11-03: colour and symbol both chosen) |
 | `staircase_climber` | Staircase Climber | S+P | alternator | Ranked, Valued | #adjacent pairs (→ or ↓) with value(next) = value + 1 | — | D4 (dir→→) | canon | strat#8 (catalog D11 'pairs' temperament) |
 | `lucky_token` | Lucky Token | C+S | clumper | generic | #cells equal to token (S, X) (full card identity) | #half-tokens | S_symbols × S_k; exact multinomial tail | exact, canon | catalog D8 / strat 'sample your colour and your symbol'; tie-breaker = half-tokens |
 | `neighbourhood_vote` | Neighbourhood Vote | C+P | clumper | generic | #cells whose strict-plurality 4-neighbour colour is X | — | S_k colours | canon | strat cross-lens idea 'Neighbourhood vote' |
@@ -136,16 +135,25 @@ and `canon` (canonical params). Every family has `batch` and `exemplar`.
 | id | name | layers | camp | requires | ordinal (higher = better) | tie-breaker (2nd tuple component) | invariance → canonical | extras | source |
 |---|---|---|---|---|---|---|---|---|---|
 | `castle_keeper` ★ | Castle Keeper | C+P | clumper | N>=4 | non-W cells the border flood can't reach: count (plain) / count of T cells (treasure) / count + 3·pockets (eyes) | #W cells on the rim | S_k colours ((W,T)→(0,1)) | canon | catalog#4 (D4: geo#5 + games#8 Go Territory; treasure and eyes variants; MinSize 4); tie-breaker = wall cells on the rim |
+| `treasure_castle` | Treasure Castle | C+P | clumper | N>=4 | #T cells the border flood of non-W cells can't reach (split from Castle Keeper, 2026-11-04) | #W cells on the rim | S_k colours ((W,T)→(0,1)) | canon | Castle Keeper's treasure mode as its own family (P10 split) |
+| `castle_pockets` | Castle Pockets | C+P | clumper | N>=4 | non-W cells the border flood can't reach + 3·pockets (split from Castle Keeper, 2026-11-04) | #W cells on the rim | S_k colours | canon | Castle Keeper's eyes mode as its own family (P10 split) |
 | `chessmaster` ★ | Chessmaster | C+P | alternator | generic | #2×2 windows that are A/B checkerboards | #A–B seams | S_k colours | canon | catalog#6 (D2 windows, geo#8); tie-breaker = A–B seams (Best Friends) |
 | `archipelago` | Archipelago | C+P | alternator | generic | #4-components of colour C | — | S_k colours | canon | geo#4 (catalog D2 'islands') |
 | `bridge_builder` ★ | Bridge Builder | C+P | clumper | generic | max #distinct columns (LR) or rows (TB) touched by one C blob (2N bonus is monotone, dropped) | — | S_k × D4 (→ C=0, LR) | canon | catalog#11 (geo#1; the 2N full-crossing bonus is monotone, so the ordinal is the span) |
 | `looking_glass` | Looking-Glass | C+S+P | neutral | generic | #mirror pairs (V, H, D, A or half-turn) equal in colour or rank | — | D4 (H→V, A→D) | canon | geo#2 + col#9 Mirror Quilt (catalog D9 'pairs'; half-turn axis from col) |
+| `mirror_quilt` | Mirror Quilt | C+P | neutral | generic | #mirror pairs (V or H fold) equal in colour (split from Looking-Glass, 2026-11-04) | — | D4 (H→V) | canon | col#9 Mirror Quilt; Looking-Glass's colour layer as its own family (P10 split) |
 | `pinwheel` | Pinwheel | C+S+P | clumper | generic | #90° orbits whose 4 cells share colour (or symbol; cards: suit) | Σ per-orbit plurality | — | — | geo#3 (cards use suit); tie-breaker = Σ per-orbit plurality |
+| `colour_pinwheel` | Colour Pinwheel | C+P | clumper | generic | #90° orbits whose 4 cells share a colour (split from Pinwheel, 2026-11-04) | Σ per-orbit plurality | — | — | geo#3 on the colour layer (P10 split) |
 | `card_windmill` ★ | Card Windmill | S+P | alternator | Suited | #90° orbits whose suits step ♠→♥→♦→♣ cyclically in rotation order | #correct quarter-turn suit steps, all 4 per orbit (was 3 before the kid cards) | (no params) | — | catalog#30 (geo#17); tie-breaker = correct suit steps inside orbits |
 | `royal_court` ★ | Royal Court | S+P | clumper | Faced, N odd | if centre is a face card (of suit): size of its face 4-region, ×2 if it avoids the rim | #face cards off the rim | S_4 suits (suit→0) | canon | catalog#31 (geo#16; HasCentre = odd N only); tie-breaker = picture cards off the edge |
+| `any_suit_court` | Any-Suit Court | S+P | clumper | Faced, N odd | royal_court with a face card of any suit (split from Royal Court, 2026-11-04) | #face cards off the rim | — | — | catalog#31 with any suit (P10 split) |
 | `bullseye` | Bullseye | C+P | neutral | generic | #consecutive rings from the outside that are monochrome and differ from the ring outside | Σ per-ring plurality | — | — | geo#6 (all-or-nothing from outside in); tie-breaker = Σ per-ring plurality |
 | `snake_charmer` | Snake Charmer | C+P | neutral | generic | size of the largest C blob that is a simple path | — | S_k colours | canon | geo#9 |
 | `tetromino_tamer` | Tetromino Tamer | C+P | neutral | generic | #C blobs exactly shaped like piece P (8 symmetries) | #C blobs of size 4 | S_k colours | canon | geo#10 (I only for N>=4); tie-breaker = 4-cell islands of any shape |
+| `i_piece_tamer` | I-Piece Tamer | C+P | neutral | N>=4 | #C blobs exactly shaped like the Tetris I piece (8 symmetries) (split from Tetromino Tamer, 2026-11-04) | #C blobs of size 4 | S_k colours | canon | geo#10, the I piece as its own family (P10 split) |
+| `t_piece_tamer` | T-Piece Tamer | C+P | neutral | generic | #C blobs exactly shaped like the Tetris T piece (8 symmetries) (split from Tetromino Tamer, 2026-11-04) | #C blobs of size 4 | S_k colours | canon | geo#10, the T piece as its own family (P10 split) |
+| `l_piece_tamer` | L-Piece Tamer | C+P | neutral | generic | #C blobs exactly shaped like the Tetris L piece (8 symmetries) (split from Tetromino Tamer, 2026-11-04) | #C blobs of size 4 | S_k colours | canon | geo#10, the L piece as its own family (P10 split) |
+| `s_piece_tamer` | S-Piece Tamer | C+P | neutral | generic | #C blobs exactly shaped like the Tetris S piece (8 symmetries) (split from Tetromino Tamer, 2026-11-04) | #C blobs of size 4 | S_k colours | canon | geo#10, the S piece as its own family (P10 split) |
 | `rainbow_bands` | Rainbow Bands | C+P | alternator | Spectral | #cells on anti-diagonals from corner K whose every cell has colour d mod K | #cells with colour d mod K | D4 (corner→TL) | canon | geo#11; tie-breaker = individually correct cells |
 | `constellation` | Constellation | S+P | clumper | generic | size of the largest 8-connected cluster of rank S | — | S_ranks (→0) | canon | geo#13 (8-connectivity; cards sample a rank) |
 | `rainbow_roads` | Rainbow Roads | C+P | alternator | Spectral, colours>=4 | #complete 4-connected roads colour 0→1→…→K−1 (DP, no wrap) | — | — | — | geo#14 (catalog D1 'roads'; NEW MinColours 4) |
@@ -219,6 +227,7 @@ and `canon` (canonical params). Every family has `batch` and `exemplar`.
 | `knight_riders` | Knight Riders | C+S+P | clumper | generic | #knight-move pairs with identical symbol and colour (colour X if set) | — | S_k colours | canon | games#13 (full card identity) |
 | `uno_snake` | Uno Snake | C+S+P | clumper | generic | longest boustrophedon stretch where each step matches colour or rank | — | D4 (cols→rows) | canon | games#14 |
 | `court_parade` | Court Parade | C+S+P | neutral | Faced, Suited | #J-Q-K same-suit windows (L→R, T→B) + #those led by their ace | #J→Q / Q→K same-suit pairs | S_4 suits | canon | games#15 (+5 units rescaled to counts); tie-breaker = J→Q / Q→K pairs |
+| `any_suit_parade` | Any-Suit Parade | C+S+P | neutral | Faced, Suited | court_parade with a J-Q-K of any one suit (split from Court Parade, 2026-11-04) | #J→Q / Q→K same-suit pairs | — | — | games#15 with any suit (P10 split) |
 | `kings_court` | King's Court | C+S+P | alternator | generic | Σ over cells of rank r of #8-neighbours with a different colour | — | S_ranks (r→0) | canon | games cross-lens idea 'King's court' (a diagonal-inclusive Seed 2 cousin) |
 | `connect_four` | Connect Four | C+P | clumper | N>=4 | #4-in-a-row windows (any direction) of 'standing' X cells (all X below) | #standing X cells | S_k colours | canon | games cross-lens idea 'Connect Four with gravity'; tie-breaker = standing counters |
 
@@ -251,7 +260,7 @@ All pass the same checks as every family (`tests.test_defence` runs `tests.test_
 requirements or kid story is distinct):
 - Best Friends (seams), Islander (dots) and Archipelago (islands), from the Chessmaster family;
 - Rook's Watch (coverage), from Seed 3;
-- Picture Frame (all-or-nothing), from Homebody;
+- Picture Frame (frame of colour and symbol), from Homebody;
 - Looking-Glass (pairs), from Mirrormancer;
 - Staircase Climber (pairs), from Straight Shooter;
 - Paint Mixer (strict, both axes, no param), from Colour Mixer;
@@ -272,7 +281,7 @@ Court, Connect Four (gravity).
 |---|---|
 | Grudge (strat) | Equals Conqueror(A, next(A)). It is a dealer constraint on Conqueror's draw, not a new order. |
 | Dominoes pair target (games) | This is Number Bonds with a sampled T. |
-| Suit politics, suit warm/cool overlay, "♥ cells must be red" (strat, col, games) | These are Warm Hearts, or Parity Painter `key="suit"`. |
+| Suit politics, suit warm/cool overlay, "♥ cells must be red" (strat, col, games) | These are Warm Hearts, or Parity Painter `split="suit"`. |
 | Rainbow-order paths (geo) | This is Rainbow Roads. |
 | Colour-weighted sums (col) | This is Seed 1 with a per-colour weight, a parameter rather than a rule. |
 | Diagonal Best Friends / Rainbow Road (col) | These are adjacency variants. Seed 1, Othello, Set Spotter and Constellation already cover diagonals. |

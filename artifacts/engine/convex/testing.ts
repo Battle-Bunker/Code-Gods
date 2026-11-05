@@ -7,12 +7,13 @@ import { storedLanguageV } from "./lib/language";
 import { v } from "convex/values";
 import { components } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
-import { internalMutation, internalQuery } from "./_generated/server";
+import { internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { endGame, nextDeadline, scheduleTick } from "./engine/loop";
 import { clockDoc, engineDoc, liveGame, withEngine, writeGame, type LiveGame } from "./game/state";
 import { fail } from "./lib/errors";
 import { shortCodeFor } from "./lib/rooms";
 import { seed as seedSetups } from "./setups";
+import { openTurn } from "./assistant/turns";
 
 const dev = () => {
   if (process.env.DEV !== "1" && process.env.TEST_FIXTURES !== "1") fail("FORBIDDEN", "Testing functions need DEV=1 or TEST_FIXTURES=1");
@@ -92,12 +93,44 @@ export const patchGame = internalMutation({
 
 /** Patch a room's settings directly (bypassing the offered-instantiation check). */
 export const patchRoom = internalMutation({
-  args: { roomId: v.id("rooms"), settings: v.optional(v.any()), aiBudget: v.optional(v.number()) },
-  handler: async (ctx, { roomId, settings, aiBudget }) => {
+  args: { roomId: v.id("rooms"), settings: v.optional(v.any()) },
+  handler: async (ctx, { roomId, settings }) => {
     dev();
     const room = await ctx.db.get(roomId);
     if (!room) fail("NOT_FOUND", "no room");
-    await ctx.db.patch(roomId, { ...(settings ? { settings: { ...room.settings, ...settings }, revision: room.revision + 1 } : {}), ...(aiBudget !== undefined ? { aiBudget } : {}) });
+    await ctx.db.patch(roomId, { ...(settings ? { settings: { ...room.settings, ...settings }, revision: room.revision + 1 } : {}) });
+  },
+});
+
+/** Put a room back into its shape before AI quotas: an approved `aiBudget` (and optional `assistantBudget`), no quotas. */
+export const legacyAiBudget = internalMutation({
+  args: { roomId: v.id("rooms"), aiBudget: v.number(), assistantBudget: v.optional(v.number()) },
+  handler: async (ctx, { roomId, aiBudget, assistantBudget }) => {
+    dev();
+    await ctx.db.patch(roomId, { aiQuota: undefined, assistantQuota: undefined, aiBudget, assistantBudget });
+  },
+});
+
+/** Store a game as it was before the power budget: old income settings, agents without shares, deities without accounts. */
+export const legacyPower = internalMutation({
+  args: { gameId: v.id("games"), energyPerSecond: v.number(), agentEnergyPerSecond: v.number() },
+  handler: async (ctx, { gameId, energyPerSecond, agentEnergyPerSecond }) => {
+    dev();
+    const game = (await ctx.db.get(gameId))!;
+    const { powerPerSecond: _p, ...settings } = game.settings as Record<string, unknown>;
+    await ctx.db.patch(gameId, { settings: { ...settings, energyPerSecond, agentEnergyPerSecond, agentBatteryActs: 2, perActFloorBits: 2 } });
+    for (const a of await ctx.db.query("agents").withIndex("by_game", q => q.eq("gameId", gameId)).collect()) await ctx.db.patch(a._id, { powerShare: undefined });
+    for (const d of await ctx.db.query("deities").withIndex("by_game", q => q.eq("gameId", gameId)).collect()) await ctx.db.patch(d._id, { account: undefined, allocated: undefined });
+  },
+});
+
+/** Store an agent's price as it was before the energy model: a decision price, a per-act floor, the old breakdown. */
+export const legacyAgentPrice = internalMutation({
+  args: { agentId: v.id("agents"), decisionBits: v.number(), perActFloorBits: v.number(), erasure: v.number(), motion: v.number() },
+  handler: async (ctx, { agentId, decisionBits, perActFloorBits, erasure, motion }) => {
+    dev();
+    await ctx.db.patch(agentId, { decisionBits, perActFloorBits, breakdown: { decision: decisionBits, erasure, motion, floor: perActFloorBits },
+      expectedActCost: decisionBits + erasure + motion + perActFloorBits });
   },
 });
 
@@ -192,10 +225,62 @@ export const forgetReplay = internalMutation({
   },
 });
 
+/**
+ * Give a game's gods utilities stored before their family was typed (e.g. `{ familyId: "kingdom", params: { C: 0 } }`,
+ * one per god in roster order) and cards without typed params, for migrations:typedParamsDeities' test.
+ */
+export const legacyUtilities = internalMutation({
+  args: { gameId: v.id("games"), utilities: v.array(v.any()) },
+  handler: async (ctx, { gameId, utilities }) => {
+    dev();
+    const deities = (await ctx.db.query("deities").withIndex("by_game", q => q.eq("gameId", gameId)).take(16)).sort((a, b) => a.index - b.index);
+    for (const [i, d] of deities.entries()) {
+      const { params: _typed, ...card } = d.card as { params?: unknown };
+      await ctx.db.patch(d._id, { utility: utilities[i % utilities.length], card });
+    }
+  },
+});
+
+/** A game's gods as stored (descriptor and card). */
+export const rawDeities = internalQuery({
+  args: { gameId: v.id("games") },
+  handler: async (ctx, { gameId }) => {
+    dev();
+    return (await ctx.db.query("deities").withIndex("by_game", q => q.eq("gameId", gameId)).take(16)).sort((a, b) => a.index - b.index)
+      .map(d => ({ utility: d.utility, card: d.card }));
+  },
+});
+
+/** An ended game's stored replay file, parsed (null when it has none). */
+export const replayFile = internalAction({
+  args: { storageId: v.id("_storage") },
+  handler: async (ctx, { storageId }) => {
+    dev();
+    const blob = await ctx.storage.get(storageId);
+    return blob ? JSON.parse(await blob.text()) : null;
+  },
+});
+
+/** A setup as stored before its catalogue fields (migrations setupListing), and the stored row. */
+export const legacySetupListing = internalMutation({
+  args: { setupId: v.id("gameSetups") },
+  handler: async (ctx, { setupId }) => { dev(); await ctx.db.patch(setupId, { order: undefined, nameKey: undefined, searchText: undefined }); },
+});
+export const rawSetupDoc = internalQuery({
+  args: { setupId: v.id("gameSetups") },
+  handler: async (ctx, { setupId }) => { dev(); return await ctx.db.get(setupId); },
+});
+
 /** The games row as stored (no clock or engine merged in). */
 export const rawGameDoc = internalQuery({
   args: { gameId: v.id("games") },
   handler: async (ctx, { gameId }) => { dev(); return await ctx.db.get(gameId); },
+});
+
+/** A game's futile-pair memos (engine only, lib/futility.ts). */
+export const futileActs = internalQuery({
+  args: { gameId: v.id("games") },
+  handler: async (ctx, { gameId }) => { dev(); return await ctx.db.query("futileActs").withIndex("by_game", q => q.eq("gameId", gameId)).collect(); },
 });
 
 /** Raw private state of a game (scores, descriptors, sources, endAtWorld) for parity checks. */
@@ -204,7 +289,7 @@ export const rawGame = internalQuery({
   handler: async (ctx, { gameId }) => {
     dev();
     return {
-      // With its clock and engine state (game/state.ts), whichever shape it is stored in.
+      // With its clock and engine state (game/state.ts).
       game: await liveGame(ctx, gameId),
       deities: await ctx.db.query("deities").withIndex("by_game", q => q.eq("gameId", gameId)).collect(),
       objects: await ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", gameId)).collect(),
@@ -212,6 +297,28 @@ export const rawGame = internalQuery({
       batches: await ctx.db.query("tickBatches").withIndex("by_game_seq", q => q.eq("gameId", gameId)).collect(),
       objectEvents: await ctx.db.query("objectEvents").withIndex("by_game_world", q => q.eq("gameId", gameId)).collect(),
     };
+  },
+});
+
+/** A game's objectEvents rows as stored before they carried `index` and `cost` (test/game-observation-transformations). */
+export const stripObjectEventPlaces = internalMutation({
+  args: { gameId: v.id("games") },
+  handler: async (ctx, { gameId }) => {
+    dev();
+    const rows = await ctx.db.query("objectEvents").withIndex("by_game_world", q => q.eq("gameId", gameId)).take(5000);
+    for (const r of rows) await ctx.db.patch(r._id, { index: undefined, cost: undefined });
+    return rows.length;
+  },
+});
+
+/** A game's objects as stored before they carried createdAt and lastMutatedAt (test/game-object-times.test.ts). */
+export const legacyObjectTimes = internalMutation({
+  args: { gameId: v.id("games") },
+  handler: async (ctx, { gameId }) => {
+    dev();
+    const rows = await ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", gameId)).take(2100);
+    for (const o of rows) await ctx.db.patch(o._id, { createdAt: undefined, lastMutatedAt: undefined });
+    return rows.length;
   },
 });
 
@@ -225,39 +332,8 @@ export const gameCounters = internalQuery({
   },
 });
 
-/** A game's three documents as stored (games, gameClocks, gameEngine): the split-migration test's view. */
-export const rawGameDocs = internalQuery({
-  args: { gameId: v.id("games") },
-  handler: async (ctx, { gameId }) => {
-    dev();
-    return { game: await ctx.db.get(gameId), clock: await clockDoc(ctx, gameId), engine: await engineDoc(ctx, gameId) };
-  },
-});
-
 /**
- * Store a game as it was before the split (migrations:splitGameHotFields): its clock and engine state back on the games
- * doc and no gameClocks/gameEngine docs.
- */
-export const legacyGameHotFields = internalMutation({
-  args: { gameId: v.id("games") },
-  handler: async (ctx, { gameId }) => {
-    dev();
-    const live = await liveGame(ctx, gameId);
-    if (!live) return fail("NOT_FOUND", "no game");
-    const [clock, engine] = [await clockDoc(ctx, gameId), await engineDoc(ctx, gameId)];
-    await ctx.db.patch(gameId, {
-      worldSeconds: live.worldSeconds, lastTick: live.lastTick, objectCount: live.objectCount, agentCount: live.agentCount,
-      ...(live.scoreboard ? { scoreboard: live.scoreboard } : {}),
-      tick: live.tick, nextSpawn: live.nextSpawn, nextBatch: live.nextBatch, stats: live.stats,
-    });
-    if (clock) await ctx.db.delete(clock._id);
-    if (engine) await ctx.db.delete(engine._id);
-  },
-});
-
-/**
- * Store a game as it was before the spectator read model (migrations:backfillStandings, backfillPublicSalience): no
- * standings or history rows, and objects without publicSalience.
+ * Store a game as it was before the standings read model (migrations:backfillStandings): no standings or history rows.
  */
 export const legacyReadModels = internalMutation({
   args: { gameId: v.id("games") },
@@ -265,7 +341,6 @@ export const legacyReadModels = internalMutation({
     dev();
     for (const r of await ctx.db.query("standings").withIndex("by_game", q => q.eq("gameId", gameId)).collect()) await ctx.db.delete(r._id);
     for (const r of await ctx.db.query("standingsHistory").withIndex("by_game_seq", q => q.eq("gameId", gameId)).collect()) await ctx.db.delete(r._id);
-    for (const o of await ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", gameId)).collect()) await ctx.db.patch(o._id, { publicSalience: undefined });
   },
 });
 
@@ -369,12 +444,13 @@ export const cloneEndedGame = internalMutation({
     const history = all(await ctx.db.query("standingsHistory").withIndex("by_game_seq", q => q.eq("gameId", gameId)).take(1001), 1000, "scoreboard publications");
     const strip = <D extends { _id: unknown; _creationTime: number }>({ _id, _creationTime, ...rest }: D) => rest;
     const [clock, engine] = [await clockDoc(ctx, gameId), await engineDoc(ctx, gameId)];
+    if (!clock || !engine) fail("CONFLICT", "the game has no clock or engine document");
     for (let i = 0; i < copies; i++) {
       const guid = crypto.randomUUID();
       // A clone has no stored replay of its own (the source's file names the source game).
       const id = await ctx.db.insert("games", { ...strip(game), replayStorageId: undefined, guid, ...await shortCodeFor(ctx, "games", guid) });
-      if (clock) await ctx.db.insert("gameClocks", { ...strip(clock), gameId: id });
-      if (engine) await ctx.db.insert("gameEngine", { ...strip(engine), gameId: id });
+      await ctx.db.insert("gameClocks", { ...strip(clock!), gameId: id });
+      await ctx.db.insert("gameEngine", { ...strip(engine!), gameId: id });
       for (const d of deities) await ctx.db.insert("deities", { ...strip(d), gameId: id });
       for (const a of agents) await ctx.db.insert("agents", { ...strip(a), gameId: id });
       const objectIds = new Map<string, Doc<"objects">["_id"]>();
@@ -398,16 +474,6 @@ export const legacyAiSeat = internalMutation({
     if (!seat?.aiAgent) fail("NOT_FOUND", "no AI seat");
     await ctx.db.patch(seat._id, { name: seat.aiAgent.name });
     if (chat) await ctx.db.insert("chat", { roomId, authorId: godId, authorName: seat.aiAgent.name, kind: "ai", text: chat, timestamp: Date.now() });
-  },
-});
-
-/** Make a room and its games look as they did before spectators (no `members.spectator`, no `games.spectators`). */
-export const legacySpectators = internalMutation({
-  args: { roomId: v.id("rooms") },
-  handler: async (ctx, { roomId }) => {
-    dev();
-    for (const m of await ctx.db.query("members").withIndex("by_room", q => q.eq("roomId", roomId)).collect()) await ctx.db.patch(m._id, { spectator: undefined });
-    for (const g of await ctx.db.query("games").withIndex("by_room", q => q.eq("roomId", roomId)).collect()) await ctx.db.patch(g._id, { spectators: undefined });
   },
 });
 
@@ -458,20 +524,138 @@ export const setSandbox = internalMutation({
   },
 });
 
-/** A build row of a retired site ("engine", "player"), as deployments before the one app stored them. */
-export const retiredSiteBuild = internalMutation({
-  args: { site: v.union(v.literal("engine"), v.literal("player")), build: v.string() },
-  handler: async (ctx, { site, build }) => { dev(); await ctx.db.insert("siteBuilds", { site, build, deployedAt: Date.now() }); },
-});
-
-/** How many build rows each site has, as stored. */
-export const siteBuildCounts = internalQuery({
-  args: {},
-  handler: async (ctx) => {
+/** Point a game at a pinned-tables file (engine/pinned.ts), or unpin it (no `storageId`: its next tick pins again). */
+export const setGameTables = internalMutation({
+  args: { gameId: v.id("games"), storageId: v.optional(v.id("_storage")) },
+  handler: async (ctx, { gameId, storageId }) => {
     dev();
-    const counts: Record<string, number> = {};
-    for (const row of await ctx.db.query("siteBuilds").collect()) counts[row.site] = (counts[row.site] ?? 0) + 1;
-    return counts;
+    const game = await ctx.db.get(gameId);
+    if (!game) return fail("NOT_FOUND", "no game");
+    await ctx.db.patch(gameId, { tablesStorageId: storageId });
+    return game.tablesStorageId ?? null;
   },
 });
 
+/** A file that is not a pinned-tables file: a game pointed at it fails every tick (test/game-deploy-survival). */
+export const junkFile = internalAction({
+  args: {},
+  handler: async (ctx) => { dev(); return ctx.storage.store(new Blob(["{}"], { type: "application/json" })); },
+});
+
+/**
+ * Hide (or show again) an instantiation's shipped calibration file, as a deploy whose new code re-keys the tables
+ * finds it before upload-calibration: the row is renamed, the file kept. Engine processes notice within the index TTL.
+ */
+export const hideCalibration = internalMutation({
+  args: { instance: v.string(), hidden: v.boolean() },
+  handler: async (ctx, { instance, hidden }) => {
+    dev();
+    const from = hidden ? instance : `hidden:${instance}`, to = hidden ? `hidden:${instance}` : instance;
+    const row = await ctx.db.query("calibrationFiles").withIndex("by_instance", q => q.eq("instance", from)).unique();
+    if (row) await ctx.db.patch(row._id, { instance: to });
+    return !!row;
+  },
+});
+
+/**
+ * One human's assistant rows as they were under per-action approvals (the assistant-mode migrations' input): a prefs
+ * row with `autoApproveSummonBits` and no mode, and the given turn waiting on the given call's approval card.
+ */
+export const legacyAssistantApprovals = internalMutation({
+  args: { roomId: v.id("rooms"), subject: v.string(), turnId: v.id("assistantTurns"), callId: v.id("assistantToolCalls") },
+  handler: async (ctx, { roomId, subject, turnId, callId }) => {
+    dev();
+    for (const p of await ctx.db.query("assistantPrefs").withIndex("by_key", q => q.eq("roomId", roomId).eq("subject", subject)).collect()) await ctx.db.delete(p._id);
+    await ctx.db.insert("assistantPrefs", { roomId, subject, autoApproveSummonBits: 25 });
+    const turn = await ctx.db.get(turnId);
+    await ctx.db.patch(turnId, { status: "awaiting_confirmation", finishedAt: undefined });
+    if (turn) await ctx.db.patch(turn.threadId, { activeTurnId: turnId });
+    await ctx.db.patch(callId, { status: "awaiting_confirmation", confirmDeadline: Date.now() + 120_000, approved: false });
+  },
+});
+
+/** A human's raw assistant prefs row in a room (its mode and autopilot chain), or null. */
+export const rawAssistantPrefs = internalQuery({
+  args: { roomId: v.id("rooms"), subject: v.string() },
+  handler: async (ctx, { roomId, subject }) => {
+    dev();
+    return ctx.db.query("assistantPrefs").withIndex("by_key", q => q.eq("roomId", roomId).eq("subject", subject)).unique();
+  },
+});
+
+/** Set a human's assistant usage in the room's current game (the autopilot's budget stop). */
+export const setAssistantUsed = internalMutation({
+  args: { roomId: v.id("rooms"), subject: v.string(), usedTokens: v.number() },
+  handler: async (ctx, { roomId, subject, usedTokens }) => {
+    dev();
+    const room = await ctx.db.get(roomId);
+    const epoch = room?.currentGameId ? String(room.currentGameId) : "lobby";
+    const row = await ctx.db.query("assistantAllowances").withIndex("by_key", q => q.eq("roomId", roomId).eq("subject", subject).eq("epoch", epoch)).unique();
+    if (row) await ctx.db.patch(row._id, { usedTokens });
+    else await ctx.db.insert("assistantAllowances", { roomId, subject, epoch, usedTokens, calls: [] });
+  },
+});
+
+/**
+ * Open an autopilot turn whose engine prompt is `text` (a `/mock` script, so a test can make it slow) in the human's
+ * latest thread of the game, as assistant/autopilot.ts tick does with its fixed prompt.
+ */
+export const openAutopilotTurn = internalMutation({
+  args: { roomId: v.id("rooms"), subject: v.string(), text: v.string() },
+  handler: async (ctx, { roomId, subject, text }) => {
+    dev();
+    const room = await ctx.db.get(roomId) ?? fail("NOT_FOUND", "Room not found");
+    const epoch = room.currentGameId ? String(room.currentGameId) : "lobby";
+    const thread = await ctx.db.query("assistantThreads").withIndex("by_room_subject_epoch", q => q.eq("roomId", roomId).eq("subject", subject).eq("epoch", epoch)).order("desc").first()
+      ?? fail("NOT_FOUND", "No thread in this game");
+    const cred = (await ctx.db.query("credentials").withIndex("by_subject", q => q.eq("subject", subject)).order("desc").collect())
+      .find(c => c.kind === "assistant" && c.roomId === roomId && c.revokedAt === undefined) ?? fail("NOT_FOUND", "No assistant credential");
+    const turnId = await openTurn(ctx, { room, threadId: thread._id, subject, credentialId: cred._id, trigger: "autopilot" }, [{ text, autopilot: true }]);
+    return { threadId: thread._id, turnId };
+  },
+});
+
+/** An assistant tool call's raw row (the retired approval fields included). */
+export const rawAssistantCall = internalQuery({
+  args: { callId: v.id("assistantToolCalls") },
+  handler: async (ctx, { callId }) => {
+    dev();
+    return ctx.db.get(callId);
+  },
+});
+
+/** One god's object rows and totals as stored (game/objectViews.ts; test/game-object-views.test.ts). */
+export const rawObjectViews = internalQuery({
+  args: { gameId: v.id("games"), godId: v.string() },
+  handler: async (ctx, { gameId, godId }) => {
+    dev();
+    return {
+      rows: await ctx.db.query("objectViews").withIndex("by_game_god_payoff", q => q.eq("gameId", gameId).eq("godId", godId)).collect(),
+      totals: await ctx.db.query("godTotals").withIndex("by_game_god", q => q.eq("gameId", gameId).eq("godId", godId)).first(),
+    };
+  },
+});
+
+/** Store a game as it was before the per-god read model (migrations.backfillObjectViews): no rows, no totals. */
+export const forgetObjectViews = internalMutation({
+  args: { gameId: v.id("games") },
+  handler: async (ctx, { gameId }) => {
+    dev();
+    const game = await ctx.db.get(gameId) ?? fail("NOT_FOUND", "no game");
+    for (const { id } of game.roster) {
+      for (const r of await ctx.db.query("objectViews").withIndex("by_game_god_payoff", q => q.eq("gameId", gameId).eq("godId", id)).collect()) await ctx.db.delete(r._id);
+      for (const t of await ctx.db.query("godTotals").withIndex("by_game_god", q => q.eq("gameId", gameId).eq("godId", id)).collect()) await ctx.db.delete(t._id);
+    }
+  },
+});
+
+/** Make one god's row of one object stale, as a lost sync would leave it. */
+export const staleObjectView = internalMutation({
+  args: { objectId: v.id("objects"), godId: v.string(), payoff: v.number() },
+  handler: async (ctx, { objectId, godId, payoff }) => {
+    dev();
+    const row = await ctx.db.query("objectViews").withIndex("by_object_god", q => q.eq("objectId", objectId).eq("godId", godId)).first()
+      ?? fail("NOT_FOUND", "no row");
+    await ctx.db.patch(row._id, { payoff });
+  },
+});

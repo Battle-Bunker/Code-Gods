@@ -119,7 +119,7 @@ const auto = <S>(start: S, step: (s: S, d: number) => S, out: (s: S) => Vec): Au
 type Solver = (p: any, min: number, max: number) => Counts;
 
 const SOLVERS: Readonly<Record<string, Solver>> = {
-  "digit-devotee": (p, a, b) => absDigitCounts(a, b, auto(0, (n, d) => n + (d === p.d ? 1 : 0), n => [n])),
+  "digit-devotee": (p, a, b) => absDigitCounts(a, b, auto(0, (n, d) => n + (d === p.digit ? 1 : 0), n => [n])),
   /** [matched, alive]: the head is matched while every digit so far agrees. */
   firstborn: (p, a, b) => {
     const H = String(p.head).split("").map(Number);
@@ -134,7 +134,7 @@ const SOLVERS: Readonly<Record<string, Solver>> = {
   }, ([, , best]) => [best])),
   /** [head digits…, pos, repeats, alive]: ds[P + i] = ds[i] from the start. */
   refrain: (p, a, b) => {
-    const P = p.period;
+    const P = p.period ?? 2; // the family fixed the period (families/int.ts); tables built before still carry it
     // Once a comparison fails nothing changes: dead states forget the head (canonical form keeps the memo small).
     return absDigitCounts(a, b, {
       start: { head: [] as number[], rep: 0, alive: 1, pos: 0 },
@@ -163,7 +163,7 @@ const SOLVERS: Readonly<Record<string, Solver>> = {
     const r: Counts = new Map(), top = Math.max(Math.abs(a), Math.abs(b));
     let prev = b - a + 1;
     for (let k = 1; prev > 0; k++) {
-      const m = p.p ** k, atLeast = m <= top ? nonzeroMultiples(a, b, m) : 0;
+      const m = p.prime ** k, atLeast = m <= top ? nonzeroMultiples(a, b, m) : 0;
       addC(r, [k - 1], prev - atLeast);
       prev = atLeast;
     }

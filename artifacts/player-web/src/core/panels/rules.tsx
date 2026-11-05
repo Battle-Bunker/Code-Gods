@@ -30,7 +30,7 @@ export default function Rules({ params }: PanelProps<"rules">) {
   const all = params.section === "all";
   const rows: [string, unknown][] = [
     ["Objects", objectType], ["Languages", allowedLanguages(settings).map(l => LANGUAGE_SPECS[l].label).join(", ") || undefined], ["Planning", settings.planningSeconds !== undefined ? `${settings.planningSeconds} s` : undefined],
-    ["Starting energy", settings.startingEnergy !== undefined ? `${settings.startingEnergy} bits` : undefined], ["Energy per second", settings.energyPerSecond],
+    ["Starting energy", settings.startingEnergy !== undefined ? `${settings.startingEnergy} bits` : undefined], ["Power per second", settings.powerPerSecond !== undefined ? `${settings.powerPerSecond} bits` : undefined],
     ["Pause length", settings.pauseSeconds !== undefined ? `${settings.pauseSeconds} s` : undefined], [settings.durationMode === "fixed" ? "Game length (fixed)" : "Game half-life", settings.halfLifeSeconds !== undefined ? `${settings.halfLifeSeconds} world s` : undefined],
   ];
   return (

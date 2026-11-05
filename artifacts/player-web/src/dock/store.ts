@@ -11,7 +11,7 @@ import { createContext, useContext, useSyncExternalStore } from "react";
 import type { DockviewApi } from "dockview-react";
 import { DEFAULT_LAYOUT, parseLayout, panesOf, type DockLayout, type Pane } from "@workspace/player-client/layout";
 import type { Phase } from "@workspace/player-client/panels";
-import { PUSH_DELAY_MS, PUSH_SOON_MS, RETRY_MS, effectiveLayout, initialSync, pushPlan, sameLayout, syncReducer, withTimeline, type SyncEvent, type SyncState } from "./layout-sync";
+import { PUSH_DELAY_MS, PUSH_SOON_MS, RETRY_MS, effectiveLayout, initialSync, pushPlan, sameLayout, syncReducer, keepAssistantPane, withTimeline, withoutAssistant, type SyncEvent, type SyncState } from "./layout-sync";
 import { back, emptyHistory, observe, resetView, type History } from "./history";
 
 export type Pusher = (layout: DockLayout, ifUpdatedAt: number | undefined) => Promise<{ layout: unknown; updatedAt: number }>;
@@ -19,6 +19,8 @@ export type DockSnapshot = {
   /** The layout as shown (phase rule applied). */
   layout: DockLayout;
   history: History;
+  /** This room has an assistant (its owner is an administrator); when not, its pane is not in `layout` and no menu offers it. */
+  assistantAvailable: boolean;
   focused: string | null;
   phase: Phase;
   loaded: boolean;
@@ -40,6 +42,7 @@ export class DockStore {
   private editedInGesture = false;
   private replayTimeline = false;
   private timelineClosed = false;
+  private assistantAvailable = true;
   private timer: ReturnType<typeof setTimeout> | undefined;
   private pusher: Pusher | undefined;
   private listeners = new Set<() => void>();
@@ -66,11 +69,12 @@ export class DockStore {
 
   private build(): DockSnapshot {
     const shown = effectiveLayout(this.sync.local, this.phase);
-    return { layout: this.replayTimeline && !this.timelineClosed ? withTimeline(shown) : shown, history: this.history, focused: this.focused, phase: this.phase, loaded: this.sync.latest !== null, canWrite: this.options.canWrite };
+    const withT = this.replayTimeline && !this.timelineClosed ? withTimeline(shown) : shown;
+    return { layout: this.assistantAvailable ? withT : withoutAssistant(withT), history: this.history, assistantAvailable: this.assistantAvailable, focused: this.focused, phase: this.phase, loaded: this.sync.latest !== null, canWrite: this.options.canWrite };
   }
   private emit() {
     const next = this.build();
-    const same = sameLayout(next.layout, this.snapshot.layout, 0) && next.history === this.snapshot.history && next.focused === this.snapshot.focused
+    const same = sameLayout(next.layout, this.snapshot.layout, 0) && next.history === this.snapshot.history && next.assistantAvailable === this.snapshot.assistantAvailable && next.focused === this.snapshot.focused
       && next.phase === this.snapshot.phase && next.loaded === this.snapshot.loaded;
     if (same) return;
     this.snapshot = next;
@@ -110,6 +114,14 @@ export class DockStore {
   }
   /** A replay shows its Timeline over every layout (layout-sync.ts withTimeline) until the human closes it. */
   setReplayTimeline(on: boolean) { if (on !== this.replayTimeline) { this.replayTimeline = on; this.emit(); } }
+  /** Rooms run by a non-admin have no assistant (assistant.status `available`): its pane is not shown. */
+  setAssistantAvailable(on: boolean) { if (on !== this.assistantAvailable) { this.assistantAvailable = on; this.emit(); } }
+  /**
+   * While the assistant is hidden (withoutAssistant), a change starts from the shown layout, which lacks its pane: put
+   * the stored pane back, so the saved layout keeps it for when AI is available in the room again.
+   */
+  private keepAssistant(next: DockLayout): DockLayout { return this.assistantAvailable ? next : keepAssistantPane(next, this.sync.local); }
+  private shownOf(layout: DockLayout) { return this.assistantAvailable ? layout : withoutAssistant(layout); }
   /** A change that removes the shown Timeline closes it for this page. */
   private noteTimeline(next: DockLayout) {
     const has = (l: DockLayout) => Object.values(l.panes).some(p => p.kind === "panel" && p.panelId === "timeline");
@@ -119,7 +131,7 @@ export class DockStore {
 
   /** A human's change (menu, palette, a drag's result): shown at once, pushed soon (a drag: after PUSH_DELAY_MS). */
   edit(change: (layout: DockLayout) => DockLayout, delay = PUSH_SOON_MS) {
-    const next = this.parse(change(this.snapshot.layout));
+    const next = this.keepAssistant(this.parse(change(this.snapshot.layout)));
     this.noteTimeline(next);
     if (this.sync.gesture) this.editedInGesture = true;
     this.dispatch({ type: "edit", layout: next });
@@ -130,9 +142,9 @@ export class DockStore {
   gestureEnd(result?: DockLayout) {
     if (!this.sync.gesture) return;
     if (result && !this.editedInGesture) {
-      const next = this.parse(result);
+      const next = this.keepAssistant(this.parse(result));
       this.noteTimeline(next);
-      if (!sameLayout(next, this.snapshot.layout)) this.dispatch({ type: "edit", layout: next });
+      if (!sameLayout(this.shownOf(next), this.snapshot.layout)) this.dispatch({ type: "edit", layout: next });
     }
     this.dispatch({ type: "gesture-end" });
     this.schedule(PUSH_DELAY_MS);
@@ -140,8 +152,8 @@ export class DockStore {
   get gesture() { return this.sync.gesture; }
   /** Dockview changed its structure outside a gesture we saw (a touch drag): adopt it like a drag's result. */
   dockChanged(result: DockLayout) {
-    const next = this.parse(result);
-    if (sameLayout(next, this.snapshot.layout)) return;
+    const next = this.keepAssistant(this.parse(result));
+    if (sameLayout(this.shownOf(next), this.snapshot.layout)) return;
     this.noteTimeline(next);
     this.dispatch({ type: "edit", layout: next });
     this.schedule(PUSH_DELAY_MS);

@@ -82,7 +82,7 @@ const { ConvexHttpClient } = await import("convex/browser");
 const { makeFunctionReference } = await import("convex/server");
 const fn = { q: (n: string) => makeFunctionReference<"query">(n), m: (n: string) => makeFunctionReference<"mutation">(n), a: (n: string) => makeFunctionReference<"action">(n) };
 
-const { session } = await login("carol");
+const { session } = await login("admin");
 /** carol's Better Auth cookies (login's `session` is the cookie header her sign-in produced). */
 const sessionCookies = (header: string) => header.split("; ").map(pair => ({ name: pair.slice(0, pair.indexOf("=")), value: pair.slice(pair.indexOf("=") + 1), url: SITE }));
 const carol = new ConvexHttpClient(CLOUD);
@@ -109,7 +109,7 @@ const LONG_GAME = { objectType: "Int", languages: ["typescript"], spawnRateHz: 0
 async function startGame(room: string, settings: Record<string, unknown>) {
   const owner = (action: string, extra: Record<string, unknown> = {}) => carol.action(fn.a("owner:command"), { roomId: room, action, requestId: crypto.randomUUID(), ...extra });
   const { revision } = await carol.query(fn.q("rooms:get"), { room }) as { revision: number };
-  await owner("settings", { revision, settings, aiBudget: 50_000 });
+  await owner("settings", { revision, settings });
   const started = await owner("start") as { status?: string; message?: string; ok?: boolean };
   return until(async () => {
     const r = await carol.query(fn.q("rooms:get"), { room }) as { activeGame: { shortCode: string } | null; preparing?: { error?: string } | null };
@@ -469,7 +469,7 @@ await check("after the game ends its page turns into the replay without a reload
   assert(PANEL_IDS.length === 15 && PANEL_IDS.every(id => CONTENT[id]), "a content selector for each built-in panel");
   // Code results show carol's latest analytics run: one through the assistant (mock provider) over the frozen objects.
   // The AI seats keep the budget startGame gave them (a later check starts another game with them).
-  await carol.mutation(fn.m("rooms:approveAiBudget"), { roomId, aiBudget: 50_000, assistantBudget: 400_000 });
+  await carol.mutation(fn.m("rooms:setAiQuotas"), { roomId, aiQuota: 50_000, assistantQuota: 400_000 });
   const rank = "def main(data):\n    rows = sorted(data['objects'], key=lambda o: -o['payoff'])[:5]\n    return [{'object': o['id'], 'payoff': round(o['payoff'], 2)} for o in rows]\n";
   const sent = await carol.mutation(fn.m("assistant:send"), { roomId, text: `/mock ${JSON.stringify({ steps: [
     { tools: [{ name: "run_code", input: { language: "python", source: rank, datasets: ["objects"], title: "Top 5 by payoff" } }] }, { text: "Done." }] })}` }) as { threadId: string; turnId: string };
@@ -598,7 +598,7 @@ await check("a Grid game's objects panel at phone size: no ✓/✗ glyphs, recta
   await phone.waitForSelector("[data-testid^=row-object-]", { timeout: 90_000 });
   const panel = await phone.evaluate(() => {
     const rows = [...document.querySelectorAll("[data-testid^=row-object-]")];
-    const list = rows[0].closest("ol")!.parentElement!;
+    const list = rows[0].closest("[data-testid=list-objects]")!;
     return {
       text: list.textContent ?? "",
       rects: [...list.querySelectorAll("svg[data-testid^=payoff-rect-]")].map(r => ({
@@ -663,9 +663,9 @@ await check("a signed-out visit to a game's page shows the sign-in screen there,
 
 await check("the assistant timeline stays at the bottom when the suggestion chips appear under a long answer (mock provider)", async () => {
   // Real-provider testing hid the end of an answer under the chips: the timeline shrank without scrolling.
-  const other = await carol.mutation(fn.m("rooms:create"), { assistantBudget: 400_000 }) as { roomId: string; shortCode: string };
+  const other = await carol.mutation(fn.m("rooms:create"), { assistantQuota: 400_000 }) as { roomId: string; shortCode: string };
   await carol.mutation(fn.m("rooms:setSpectator"), { roomId: other.roomId, spectator: false });   // owners start as spectators; this one plays
-  await carol.mutation(fn.m("rooms:approveAiBudget"), { roomId: other.roomId, aiBudget: 50_000, assistantBudget: 400_000 });
+  await carol.mutation(fn.m("rooms:setAiQuotas"), { roomId: other.roomId, aiQuota: 50_000, assistantQuota: 400_000 });
   // The assistant pane is in the dock, which a live game has: carol and two (mock) AI seats play one.
   for (let i = 0; i < 2; i++) await carol.action(fn.a("owner:command"), { roomId: other.roomId, action: "addAi", aiAgentId: "sonnet-strategist", requestId: crypto.randomUUID() });
   const otherGame = await startGame(other.roomId, { objectType: "Grid", languages: ["typescript"], planningSeconds: 3600, halfLifeSeconds: 100_000 });

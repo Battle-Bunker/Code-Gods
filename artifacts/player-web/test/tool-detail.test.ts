@@ -18,8 +18,8 @@ const SOURCE = "def agent(grid):\n    return [paint(cell_at(0, 0), \"red\")]";
 test("validate_agent: the code it validated, the language, price, energy, verdict, diagnostics and the next step", () => {
   const sections = toolDetail(call("validate_agent", { source: SOURCE, language: "python", commandId: "767ff8f9-b58a-5972-898f-4d863f412ec0", waitMs: 60000 }, envelope({
     status: "received", commandId: "767ff8f9-b58a-5972-898f-4d863f412ec0",
-    receipt: { accepted: true, message: "Accepted", validation: { valid: true, cost: 74.21714531772501, expectedActCost: 2, decisionBits: 0, randomized: false,
-      changeRate: 0, invalidRate: 1, energy: 565.119, affordable: true, breakdown: { decision: 0, erasure: 0, floor: 2, motion: 0 },
+    receipt: { accepted: true, message: "Accepted", validation: { valid: true, cost: 74.21714531772501, expectedActCost: 2, randomized: false, skipRate: 0.25,
+      changeRate: 0, invalidRate: 1, energy: 565.119, affordable: true, breakdown: { read: 1.5, change: 0.5 },
       diagnostics: ["Summon price 74.2 bits.", "On object 1 it fails: agent raised an error: NameError: name 'cell_at' is not defined (line 2)"] } },
     assessment: { verdict: "fails", summary: "Fails or is invalid on 100% of reference objects: NameError.", next: "Do not summon it." },
   }, { ENGINE_NOTE: "Engine note: you already called validate_agent with these exact arguments once." })));
@@ -30,7 +30,11 @@ test("validate_agent: the code it validated, the language, price, energy, verdic
   assert.equal(facts["Summon price"], "74.2 bits");
   assert.equal(facts["Your energy"], "565.1 bits");
   assert.equal(facts.Affordable, "yes");
-  assert.equal(facts["Cost per act"], "2 bits expected");
+  assert.equal(facts["Est. cost per act"], "2 bits (an estimate: an act pays only what it does)");
+  assert.equal(facts["Reading per act"], "1.5 bits");
+  assert.equal(facts["Changing per act"], "0.5 bits");
+  assert.equal(facts["Skips (no calls)"], "25%");
+  assert.ok(!("Decision bits" in facts), "there is no per-act decision charge any more");
   assert.equal(facts["Invalid or failing"], "100%");
   assert.equal(facts.Engine, "accepted: Accepted");
   assert.equal(find(sections, "text", "What it means")!.text, "Fails or is invalid on 100% of reference objects: NameError.");
@@ -39,7 +43,7 @@ test("validate_agent: the code it validated, the language, price, energy, verdic
   // Everything sent: the derived command id and the wait are shown too.
   const sent = find(sections, "tree", "Sent")!.node;
   assert.deepEqual(sent, { kind: "map", entries: [["Language", { kind: "value", text: "python" }], ["Command ID", { kind: "value", text: "767ff8f9-b58a-5972-898f-4d863f412ec0" }], ["Wait ms", { kind: "value", text: "60,000" }]] });
-  assert.ok(find(sections, "tree", "Price details"), "the breakdown is not dropped");
+  assert.ok(!find(sections, "tree", "Price details"), "every known price field has its own row, none is left to a raw tree");
   assert.ok(!JSON.stringify(sections).includes('"untrusted"'), "the envelope is opened, not shown");
 });
 

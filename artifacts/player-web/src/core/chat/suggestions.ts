@@ -9,6 +9,8 @@ import type { Phase } from "@workspace/player-client/panels";
 export type Suggestion = { label: string; prompt?: string; command?: string };
 export type SuggestionContext = {
   phase: Phase; seated: boolean; isOwner: boolean; agents: number; ready: boolean; players: number; assistantOn: boolean;
+  /** AI seats exist in this room (its owner is an administrator); absent means yes. */
+  aiEnabled?: boolean;
 };
 
 /** One chip in both forms: the question for the assistant, and the command that answers it without one. */
@@ -21,7 +23,7 @@ const CHIPS: Record<Phase, Chip[]> = {
   lobby: [RULES, chip("Who's in the room?", "Who's here", panel("overview")), chip("I'm ready", "Mark me ready", "ui.ready", "I'm ready for the next game.")],
   planning: [chip("Explain my goal simply", "Show my secret goal", panel("my-card")), chip("Write me a first agent", "Open the agent editor", "ui.forge.edit"),
     chip("What should my agent do?", "How to play", panel("rules"))],
-  running: [chip("What should I do next?", "Where am I", panel("overview")), chip("Which objects matter to me?", "Objects by payoff", panel("objects")),
+  running: [chip("What should I do next?", "Where am I", panel("overview")), chip("Which objects matter to me?", "Objects", panel("objects")),
     chip("What do the others want?", "What others care about", panel("others-care"))],
   paused: [chip("What changed?", "What just changed", panel("feed")), chip("Draft a public proposal", "Public chat", panel("public-chat")),
     chip("Should I change my agents?", "My agents", panel("agents"))],
@@ -45,7 +47,7 @@ function chipsFor(ctx: SuggestionContext): Chip[] {
 export function suggestionsFor(ctx: SuggestionContext): Suggestion[] {
   const out: Suggestion[] = chipsFor(ctx).map(c => (ctx.assistantOn ? { label: c.ask, prompt: c.prompt ?? c.ask } : { label: c.off, command: c.command }));
   // An owner short of players needs seats before anything else; seating an AI is a form, never a prompt.
-  if (ctx.phase === "lobby" && ctx.isOwner && ctx.players < 3) out.unshift({ label: "Add an AI player", command: "rooms.addAi" });
+  if (ctx.phase === "lobby" && ctx.isOwner && ctx.players < 3 && ctx.aiEnabled !== false) out.unshift({ label: "Add an AI player", command: "rooms.addAi" });
   return out.slice(0, 3);
 }
 
@@ -60,7 +62,7 @@ const COPY: Record<Phase, { greeting: string; body: string }> = {
 /** The empty state of the assistant pane: a greeting and one paragraph (under 40 words). */
 export function emptyStateFor(phase: Phase, assistantOn: boolean): { greeting: string; body: string } {
   if (!assistantOn) {
-    return { greeting: "Your assistant is off in this room.", body: "The room owner turns it on in the room's AI budget. Everything works without it: pick a panel above, or search every command." };
+    return { greeting: "Your assistant is off in this room.", body: "The room owner can give it a quota in the room's AI quotas. Everything works without it: pick a panel above, or search every command." };
   }
   return COPY[phase];
 }

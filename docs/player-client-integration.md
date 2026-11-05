@@ -165,7 +165,7 @@ Run from the repository root (`pnpm -s player …` keeps pnpm's banner out of JS
 |---|---|
 | `connect [--engine URL] --room CODE [--permission …] [--label …] [--write-env FILE]` | the device flow above |
 | `status [--pretty]` | engine reachable, credential valid, room, permission, expiry, the current user |
-| `state [--pretty] [--objects N] [--events N] [--watch HZ [--count N]]` | the player-visible state as JSON: observation, recent events, own utility descriptor, latest trajectories; `--watch` prints one JSON line per change, at most HZ (0.1–5) per second |
+| `state [--pretty] [--objects N] [--events N] [--watch HZ [--count N]]` | the player-visible state as JSON: observation, recent events, own utility descriptor, latest trajectories; `--objects N` ≤ 90 reads only the N best objects by payoff (the narrow observation); `--watch` prints one JSON line per change, at most HZ (0.1–5) per second, put together from the narrow queries (`dock.state`, `dock.agents`, `dock.transformations`, `games.standings`, `rooms.chat`, `player.totals`, `player.objectIds` + one `player.object` per listed object, `player.events`, `player.myUtility`): its `observation` holds the N best objects by payoff (default 20, at most 90) and the line adds `objectCount` |
 | `assistant status \| observation \| events [--after SEQ] [--limit N] \| receipt ID \| wake \| disconnect` | the room assistant ([`room-assistant.md`](room-assistant.md)) |
 | `assistant command [--retry-unknown] < envelope.json` | a v3 envelope (act or owner credential) |
 | `assistant room-state \| ai-catalog \| room-command < action.json` | owner credential only |
@@ -197,8 +197,10 @@ player: replaying the identical envelope returns its receipt; reusing a `command
 payload is a `CONFLICT`. After an uncertain failure, retry the same envelope, never a new one.
 
 **Result** (`resultSchema`): `{commandId, accepted, message, validation?}`. A validation has `valid`,
-`cost` (the summon price in bits) and its `parts`, `decisionBits`, `expectedActCost` with its
-`breakdown` (decision, erasure, motion, floor), `randomized` and `diagnostics`.
+`cost` (the summon price in bits, paid once) and its `parts`, `expectedActCost` (an ESTIMATE per act; nothing is
+charged from it) with its `breakdown` (`{read, change}`), `skipRate` (the share of reference acts that return no calls),
+`randomized` and `diagnostics`. An act pays the bits it reads plus, only when it changes the object, its change; a
+skip pays only its reads (docs/energy-model.md).
 
 **Observation** (`observationSchema`, `player.observation`), the caller's own projection:
 
@@ -207,15 +209,17 @@ payload is a `CONFLICT`. After an uncertain failure, retry the same envelope, ne
   (false: a spectator of this game, or joined after it launched; plays in the next game unless a spectator);
 - `instance`: the game's instantiation (key, label, badges, display tables, codec, mutators and the
   prelude helpers with Python and TypeScript signatures);
-- `economy`: `energyPerSecond`, `agentEnergyPerSecond`, `agentBatteryActs`, `maxAgentsPerGod`,
-  `penaltyWeight`, `worldSeconds`, `perActFloorBits`, `commitClause`, `objectSelection`;
-- `self`: `godId`, `label`, `isAI`, `energy`, `ready`, `pauseUsed`, and `utility`, the kid card
+- `economy`: `powerPerSecond` (each god's power, bits per world second, shared out as agents' `powerShare`), `startingEnergy`, `maxAgentOpportunityHz` (the most turns a
+  single agent gets per world second), `maxAgentsPerGod`, `penaltyWeight`, `worldSeconds`, `commitClause`,
+  `objectSelection`;
+- `self`: `godId`, `label`, `isAI`, `energy`, `allocated` (the share of power given to agents), `income` (its own bits per world second), `ready`, `pauseUsed`, and `utility`, the kid card
   (familyId, emoji, name, theme, summary, language, source, shape, optional `penalty` defence goal);
 - `objects`: `{id, value, own: {ordinal, rewardBits, penaltyBits?, netBits}, peerNetBits, peerCare,
   payoff}` (`peerCare = max(0, peerNetBits)`, `payoff = own.netBits × peerCare`, all in bits);
-- `agents` (own only): source, language, `summonCost`, `decisionBits`, `expectedActCost`, `breakdown`,
-  `randomized`, `energy`, `eligible`, `acts`, `spent`. An agent acts only while eligible; negative
-  energy is a cooldown;
+- `agents` (own only): source, language, `summonCost`, `expectedActCost`, `breakdown` (`{read, change}`),
+  `randomized`, `energy`, `eligible`, `acts`, `skips`, `spent`. A turn goes to an agent with probability
+  proportional to its positive energy; `eligible` means it can get the next one now (energy above 0, under the
+  per-agent turn cap). Energy may go negative: the agent waits until its income lifts it above 0;
 - `transformations` (own agents only), `leaderboard` (`totalPayoff`, AI seats labelled), public `chat`.
 
 The parse strips unknown fields at every level. Arrays are bounded windows. Only the player's own
@@ -239,11 +243,11 @@ is `instance.objectType` / `instance.args`.
 ## AI seats run inside the engine
 
 AI players are not player apps. The room owner adds an AI seat from the admin-edited template library
-(`rooms.addAi`), approves a token budget, and the engine runs each seat as a scheduled Convex action
+(`rooms.addAi`), and (AI is only enabled in rooms owned by an administrator; the room's `aiQuota`, default 300,000 tokens per game, bounds it) the engine runs each seat as a scheduled Convex action
 chain (`artifacts/engine/convex/ai/turn.ts`, `ai/seats.ts`):
 
 1. build the seat's observation with the same projection as a human's (`self.isAI = true`);
-2. reserve budget in a mutation **before** the call (room token budget, $2 per game, $5 per UTC day
+2. reserve budget in a mutation **before** the call (room token quota, $2 per game, $5 per UTC day
    across the deployment, 6 calls per minute per room);
 3. run `lib/ai-player`'s `AIController` with the provider (Anthropic or OpenAI, keys only in the
    deployment's env vars `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`; the offline `mock` provider only with

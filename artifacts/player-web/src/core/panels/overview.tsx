@@ -4,7 +4,7 @@
  * when the game starts, and its rule tables' progress while a first game on a new shape prepares them. `focus` (set by the assistant) chooses what the middle sentence is about.
  */
 import { useMemo } from "react";
-import { useLeaderboard, useObjects } from "@/sdk";
+import { useLeaderboard } from "@/sdk";
 import { useNow, useSituation } from "@/core/game/situation";
 import type { nextStep } from "./next-step";
 import { useNextStep } from "./use-next-step";
@@ -12,14 +12,14 @@ import { BigNumber, PreparingNote, PrimaryButton, clock, fmt, ordinal, type Pane
 
 export default function Overview({ paneId, params, phase }: PanelProps<"overview">) {
   const { step, go, offered, situation: s, agents } = useNextStep(paneId, phase);
-  const objects = useObjects({ hz: 1 });
   const board = useLeaderboard({ hz: 1 });
   const now = useNow();
   const standing = useMemo(() => {
     const ranked = [...board].sort((a, b) => b.totalPayoff - a.totalPayoff);
     const index = ranked.findIndex(r => r.godId === s.obs?.self.godId);
-    return { rank: index >= 0 ? index + 1 : null, of: ranked.length, total: objects.reduce((sum, o) => sum + o.payoff, 0) };
-  }, [board, objects, s.obs?.self.godId]);
+    // Your own score is live (the read model's total of your disclosed payoffs); the others' is the published scoreboard.
+    return { rank: index >= 0 ? index + 1 : null, of: ranked.length, total: s.obs?.self.score ?? 0 };
+  }, [board, s.obs?.self.godId, s.obs?.self.score]);
   const acting = agents.filter(a => a.eligible).length;
 
   if (phase === "lobby") return <Lobby next={step} onNext={go} offered={offered} />;

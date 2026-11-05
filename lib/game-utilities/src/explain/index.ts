@@ -1,43 +1,49 @@
 /**
- * Goal annotations (docs/annotations-design.md): explain a utility on a board, piece by piece, for a focus cell.
+ * Goal annotations (docs/annotations-design.md): explain a utility on a board, scoring unit by scoring unit.
  *
  *   const goal = explainer(descriptor, inst);          // null for an unsupported object type
  *   const e = goal.explain(value);                     // the whole board: parts, the card's ordinal, verified
- *   const view = goal.focus(value, e, { r: 0, c: 0 }); // what to draw for one focus cell
- *   const ex = goal.example();                          // the goal card's example board and default focus
+ *   const units = sortUnits(e.parts);                   // the units to list, gains first (units.ts)
+ *   const hover = goal.hover(value);                    // how the board picks a unit under the pointer
+ *   const ex = goal.example();                          // the goal card's example board
  *
  * Explanations are computed by the family's lens from the board and checked against the card program itself
  * (`evaluator`, the program the engine scores with): `verified` is false when the parts do not add up to the card's
  * score, and the renderer then draws no breakdown.
  */
 import { seededRng, type Instantiation, type ObjectValue, type Rng } from "@workspace/game-types";
-import { context, evaluator, family, paramsKey, type Draw } from "../catalog.ts";
+import { context, evaluator, family, paramsKey, upgradeParams, type Draw } from "../catalog.ts";
 import { points as pointsWord } from "../families/say.ts";
+import { tupleText } from "../tuples.ts";
 import { gridSpec, wire, type GridSpec } from "../families/grid/_util.ts";
 import type { Ordinal } from "../types.ts";
 import { boardOf, readBoard, type Board } from "./board.ts";
 import { scoreWorkings, type ScoreWorkings, type WorkingsInput, type WorkingsTables } from "./workings.ts";
-import { containing, type Lens } from "./lens.ts";
-import { toneOf, type Cell, type Explanation, type FocusView, type GoalExample, type Part } from "./model.ts";
+import type { Lens } from "./lens.ts";
+import { toneOf, type Explanation, type GoalExample, type Part } from "./model.ts";
+import { defaultGeometry, type HoverGeometry } from "./units.ts";
 import { parityPainter } from "./lenses/parity-painter.ts";
 import { setSpotter } from "./lenses/set-spotter.ts";
 import { numberBonds } from "./lenses/number-bonds.ts";
+import { colourBonds } from "./lenses/colour-bonds.ts";
 import { chessmaster } from "./lenses/chessmaster.ts";
 import { honestMinesweeper } from "./lenses/honest-minesweeper.ts";
 import { magicAccountant } from "./lenses/magic-accountant.ts";
 import { kingdom } from "./lenses/kingdom.ts";
 import { pictureFrame } from "./lenses/picture-frame.ts";
 import { mirrormancer } from "./lenses/mirrormancer.ts";
+import { colourMirror } from "./lenses/colour-mirror.ts";
 
 export * from "./model.ts";
-export { MAX_FOCUS_PARTS, containing, orderParts, type Lens } from "./lens.ts";
+export { type Lens } from "./lens.ts";
+export * from "./units.ts";
 export { boardOf, readBoard, type Board } from "./board.ts";
 export { scoreWorkings, curveOf, type ScoreWorkings, type RarityWorkings, type DefenceWorkings, type TableSpot, type WorkingsTables } from "./workings.ts";
 export { STORY_FAMILIES, compareOrdinal, story, whatIf, type Story, type StoryFrame, type StoryRole, type WhatIfEntry } from "./modes.ts";
 
 /** The families with a lens (a rich annotation). */
 export const LENSES: readonly Lens[] = Object.freeze([
-  parityPainter, setSpotter, numberBonds, chessmaster, honestMinesweeper, magicAccountant, kingdom, pictureFrame, mirrormancer,
+  parityPainter, setSpotter, numberBonds, colourBonds, chessmaster, honestMinesweeper, magicAccountant, kingdom, pictureFrame, mirrormancer, colourMirror,
 ]);
 const byFamily = new Map(LENSES.map(l => [l.familyId, l]));
 export const lensFor = (familyId: string): Lens | undefined => byFamily.get(familyId);
@@ -64,7 +70,8 @@ export interface GoalExplainer {
   /** Whether the family has a rich annotation (a lens); without one, only the example board and its score are shown. */
   readonly rich: boolean;
   explain(value: ObjectValue): Explanation | null;
-  focus(value: ObjectValue, explanation: Explanation, cell: Cell): FocusView | null;
+  /** How the board picks a scoring unit under the pointer (the lens's hover modes), or null without an explanation. */
+  hover(value: ObjectValue): HoverGeometry | null;
   /** The card's ordinal of a value (the card program), or null when it cannot be scored. */
   score(value: ObjectValue): Ordinal | null;
   example(): GoalExample | null;
@@ -84,8 +91,10 @@ export interface ExplainerOptions {
 }
 
 /** An explainer for one draw on one Grid instantiation, or null when the object type is not Grid. */
-export function explainer(draw: Draw, inst: Instantiation, options: ExplainerOptions = {}): GoalExplainer | null {
+export function explainer(stored: Draw, inst: Instantiation, options: ExplainerOptions = {}): GoalExplainer | null {
   if (inst.objectType !== "Grid") return null;
+  // LEGACY (typed-params widen step): a draw stored before its family was typed (an old replay file) reads as today's.
+  const draw: Draw = { familyId: stored.familyId, params: upgradeParams(stored.familyId, stored.params, inst) };
   const l = lensFor(draw.familyId), p = draw.params;
   let card: ((wire: ObjectValue) => Ordinal) | null | undefined;
   const score = (value: ObjectValue): Ordinal | null => {
@@ -117,18 +126,13 @@ export function explainer(draw: Draw, inst: Instantiation, options: ExplainerOpt
       if (ordinal === null) return null;
       return { familyId: draw.familyId, size: b.N, parts, components, ordinal, verified: addsUp(parts, components.length, ordinal) };
     },
-    focus(value, explanation, cell) {
+    hover(value) {
       const b = board(value);
-      if (!l || !b || !b.inside(cell.r, cell.c)) return null;
-      const focus = b.cells[cell.r * b.N + cell.c];
+      if (!l || !b) return null;
       try {
-        const parts = l.select ? l.select(explanation.parts, focus, p, b) : containing(explanation.parts, focus);
-        const table = l.table?.(p, b, focus) ?? undefined;
-        const note = l.note?.(explanation.parts, focus, p, b) ?? undefined;
-        return {
-          focus, headline: `${b.where(focus)}: ${b.describe(focus)}`, parts,
-          ...(table ? { table } : {}), ...(note ? { note } : {}),
-        };
+        if (l.hover) return l.hover(p, b);
+        const e = this.explain(value);
+        return e ? defaultGeometry(e.parts) : null;
       } catch { return null; }
     },
     workings(value) {
@@ -177,39 +181,24 @@ function fromWire(g: GridSpec, inst: Instantiation, value: ObjectValue): Candida
   return b ? { sym: b.cells.map(x => b.sym(x)), col: b.cells.map(x => b.col(x)) } : null;
 }
 
-/** How well a focus cell teaches: pieces of both kinds beat pieces of one kind; a few pieces beat none or many. */
-function focusScore(sel: readonly Part[]): number {
-  const tones = new Set(sel.map(s => toneOf(s.points)));
-  return tones.size * 10 + Math.min(sel.length, 4) + (tones.has("gain") ? 5 : 0) - Math.max(0, sel.length - 4) * 4;
-}
-
-/** How well a board teaches: its best focus, scoring and non-scoring pieces both present, not too busy. */
-function illumination(l: Lens, p: Draw["params"], b: Board): { score: number; focus: Cell } {
+/** How well a board teaches: scoring and non-scoring units both present, a fair score, not too busy, varied tiles. */
+function illumination(l: Lens, p: Draw["params"], b: Board): number {
   const parts = l.parts(p, b);
-  let best = -1, focus = b.cells[0];
-  const tableBonus = l.table ? new Set(parts.map(t => toneOf(t.points))).size : 0;
-  for (const x of b.cells) {
-    const sel = l.select ? l.select(parts, x, p, b) : containing(parts, x);
-    const s = focusScore(sel) + tableBonus;
-    if (s > best) { best = s; focus = x; }
-  }
   const gains = parts.filter(t => toneOf(t.points) === "gain").length, rest = parts.length - gains;
   const tones = new Set(parts.map(t => toneOf(t.points))).size;
   // The first component's points: a board that scores a fair amount in total reads better than one that barely does.
   const total = parts.reduce((s, t) => s + t.points[0], 0), won = parts.reduce((s, t) => s + Math.max(0, t.points[0]), 0);
   // A varied board (several numbers, every colour) looks like a real game, not a test pattern.
   const variety = Math.min(new Set(b.cells.map(x => b.sym(x))).size, 8) + 2 * new Set(b.cells.map(x => b.col(x))).size;
-  return {
-    score: best * 4 + Math.min(gains, 4) * 3 + Math.min(rest, 4) * 2 + tones * 5 + Math.min(won, 5) * 2 + variety * 2
-      - (gains === 0 ? 40 : 0) - (total <= 0 ? 20 : 0),
-    focus,
-  };
+  return Math.min(gains, 6) * 3 + Math.min(rest, 6) * 2 + tones * 8 + Math.min(won, 6) * 2 + variety * 2
+    - Math.max(0, parts.length - 24) - (gains === 0 ? 40 : 0) - (total <= 0 ? 20 : 0);
 }
 
 function caption(ordinal: Ordinal | null, rich: boolean): string {
   const ord = ordinal === null ? null : asArray(ordinal);
-  const head = ord ? `This board scores ${pointsWord(ord[0])}.` : "An example board.";
-  return rich ? `${head} Point at a cell to see how it counts.` : head;
+  // A rule with several tiers states the whole points tuple; a one-tier rule its points.
+  const head = !ord ? "An example board." : ord.length > 1 ? `This board scores the points tuple ${tupleText(ord)}.` : `This board scores ${pointsWord(ord[0])}.`;
+  return rich ? `${head} Point at a scoring unit, in the list or on the board, to see how it counts.` : head;
 }
 
 function searchExample(draw: Draw, inst: Instantiation, l: Lens | undefined, score: (v: ObjectValue) => Ordinal | null): GoalExample | null {
@@ -233,26 +222,26 @@ function searchExample(draw: Draw, inst: Instantiation, l: Lens | undefined, sco
     if (!scored.length) return null;
     scored.sort((a, b) => compare(a.o, b.o));
     const pick = scored[Math.floor(scored.length * 0.85)];
-    return { value: toWire(g, pick.x), size: g.N, focus: { r: 0, c: 0 }, caption: caption(pick.o, false) };
+    return { value: toWire(g, pick.x), size: g.N, caption: caption(pick.o, false) };
   }
 
   const rate = (x: Candidate) => illumination(l, p, boardOf(g, x.sym, x.col));
-  const ranked = pool.map(x => ({ x, r: rate(x) })).sort((a, b) => b.r.score - a.r.score);
+  const ranked = pool.map(x => ({ x, r: rate(x) })).sort((a, b) => b.r - a.r);
   // Hill-climb the best few: single-cell changes that do not make the board teach worse.
   const climbed = ranked.slice(0, g.N <= 5 ? 4 : 2).map(({ x, r }) => {
     let cur = x, curR = r;
     for (let k = 0; k < (g.N <= 5 ? 120 : 60); k++) {
       const next = mutate(rng, g, cur, 1), nr = rate(next);
-      if (nr.score >= curR.score) { cur = next; curR = nr; }
+      if (nr >= curR) { cur = next; curR = nr; }
     }
     return { x: cur, r: curR };
-  }).sort((a, b) => b.r.score - a.r.score);
-  for (const { x, r } of [...climbed, ...ranked]) {
+  }).sort((a, b) => b.r - a.r);
+  for (const { x } of [...climbed, ...ranked]) {
     const value = toWire(g, x), o = score(value);
     if (o === null) continue;
     const b = boardOf(g, x.sym, x.col), parts = l.parts(p, b), components = l.components(p, b);
     if (!addsUp(parts, components.length, o)) continue;
-    return { value, size: g.N, focus: r.focus, caption: caption(o, true) };
+    return { value, size: g.N, caption: caption(o, true) };
   }
   return null;
 }

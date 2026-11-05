@@ -37,9 +37,15 @@ Three habits make a formula trustworthy:
 the number of boards. `G(max) = (#boards attaining the max) / (S·C)^n`. This is also the first thing to check against a
 table's `meta.topReached` and its top level.
 
-**Picture Frame** (`picture_frame`, `strategy.ts`): `u = 1` iff all 4N−4 edge cells have my colour.
-`G(1) = C^−(4N−4)`; the only other level is `G(0) = 1`. Wired as `picture-frame@1`. No sampling estimator can climb an
-all-or-nothing rule (there is no intermediate level to split on), which is why this family was exact from the start.
+**Picture Frame** (`picture_frame`, `strategy.ts`): with B = 4N−4 edge cells and M = (N−2)² middle cells,
+`u = (E − I) + D`: E and I count my colour on the edge and in the middle (Binomial(B, 1/C), Binomial(M, 1/C)), and D is
+the best edge symbol's net count, max over symbols s on the edge of (edge count of s − middle count of s). Colour and
+symbol are independent, so the law of u is the law of E − I convolved with the law of D. D's law: for k > B/2 only one
+symbol can reach it, so P(D = k) = S·P(Bin(B, 1/S) − Bin(M, 1/S) = k); for k ≤ B/2 a dynamic programme over the S
+interchangeable symbols with state (edge cells used, middle cells used, whether some edge symbol nets exactly k), every
+symbol on the edge netting at most k, which sums positive multinomial terms only (no 1 − F cancellation in the tail).
+Wired as `picture-frame@2` (about 1 s on a 7×7 card grid, milliseconds on digits). `@1` was the all-or-nothing rule
+(`G(1) = C^−(4N−4)`), replaced in 2026-11 because it offered no intermediate score.
 
 **Lone Peak** (`lone_peak`): `(gap, mine)`. With F the value cdf and q = 1/C,
 `μ{≥ (0,1)} = Σ_m [(F(m−1) + p_m)^n − (F(m−1) + p_m (1−q))^n]` (the top value is m and at least one of its cells is
@@ -253,8 +259,8 @@ in the scratch run, 13 families (about 36,000 levels) gives the same picture:
 
 ### 8.2 When the table is the one in error
 
-- **All-or-nothing and near-rigid rules** (Picture Frame; Lone Peak's gap): no intermediate levels, the kernel cannot
-  climb; the tables were exact from the start.
+- **All-or-nothing and near-rigid rules** (the old Picture Frame; Lone Peak's gap): no intermediate levels, the kernel
+  cannot climb; the tables were exact from the start.
 - **Tuple ordinals whose first component is a rare rigid event.** Rainbow Road's `(wholeLines, steps)`: completing a
   line fixes N cells; the kernel's single-cell moves rarely complete a second line while keeping the first, so the
   particle population under-represents the next level and the table **over-estimates bits by +0.5 at 32–48, +1.1 at

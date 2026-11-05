@@ -13,12 +13,14 @@ import { touchActivity } from "../activity";
 import { endTurnsForNewGame } from "../assistant/turns";
 import { insertObjectEvents, nextDeadline } from "../engine/loop";
 import { fail } from "../lib/errors";
+import { aiEnabledFor } from "../lib/aiAccess";
 import { putCatalog } from "../lib/rooms";
 import { membersOf, principalV, requireOwnerAs, requireRoom, shortCodeFor, viewerOf } from "../lib/rooms";
 import { EVENT_LOG_SCHEMA, LEASE_MS, disclosedTotalsOf, totalsOf } from "../lib/world";
 import { roomSetupWrite, type RoomSetupChange } from "../setups";
 import { scoreV } from "./tables";
 import { publicSalienceOf, publishStandings } from "./readModel";
+import { scheduleFill } from "./objectViews";
 
 /** The second half's watchdog period while tables compute (owner.ts completeStart; finished() normally launches at once). */
 export const PREPARING_WATCHDOG_MS = 60_000;
@@ -39,6 +41,8 @@ export const ownerContext = internalQuery({
     return {
       room, ownerId: viewer.subject, members: members.map(m => ({ godId: m.godId, name: m.name, kind: m.kind, spectator: m.spectator, aiAgent: m.aiAgent })),
       activeGame: active && active.phase !== "ended" ? { id: active._id, phase: active.phase } : null,
+      /** AI may be used in this room: its owner is an administrator (lib/aiAccess.ts). */
+      aiEnabled: await aiEnabledFor(ctx, room),
       receipt: null as unknown,
     };
   },
@@ -53,7 +57,7 @@ export const receiptFor = internalQuery({
 });
 
 export const commitSettings = internalMutation({
-  args: { roomId: v.id("rooms"), principal: v.optional(principalV), revision: v.number(), settings: v.any(), setup: v.optional(setupChangeV), catalog: v.any(), aiBudget: v.optional(v.number()) },
+  args: { roomId: v.id("rooms"), principal: v.optional(principalV), revision: v.number(), settings: v.any(), setup: v.optional(setupChangeV), catalog: v.any() },
   handler: async (ctx, args): Promise<{ revision: number; setup?: RoomSetupChange }> => {
     const room = await requireRoom(ctx, args.roomId);
     const { viewer } = await requireOwnerAs(ctx, await viewerOf(ctx, args.principal), room);
@@ -61,9 +65,6 @@ export const commitSettings = internalMutation({
     const active = room.activeGameId ? await ctx.db.get(room.activeGameId) : null;
     if (active && active.phase !== "ended") fail("CONFLICT", "Settings and seats are frozen during games");
     if (room.preparing && !room.preparing.error) fail("CONFLICT", "The next game is preparing its rule tables; settings are frozen until it starts (or end the preparation)");
-    if (args.aiBudget !== undefined && (!Number.isSafeInteger(args.aiBudget) || args.aiBudget < 0 || args.aiBudget > 1_000_000)) {
-      fail("BAD_REQUEST", "The AI budget is a whole number of tokens from 0 to 1,000,000");
-    }
     const settings = args.settings as GameSettings;
     validateSettings(settings);
     // The room always runs a setup: applying one names it; an edit changes the room's own setup or a copy of it.
@@ -79,7 +80,6 @@ export const commitSettings = internalMutation({
     await ctx.db.patch(room._id, {
       settings, revision: room.revision + 1, seq: room.seq + 1,
       ...(setup ? { setupId: setup.id, setupName: setup.name } : {}),
-      ...(args.aiBudget !== undefined ? { aiBudget: args.aiBudget } : {}),
     });
     return { revision: room.revision + 1, ...(setup ? { setup } : {}) };
   },
@@ -171,6 +171,8 @@ export const commitStart = internalMutation({
     seasonCommitment: v.string(), noiseKey: v.string(), endAtWorld: v.number(), nextSpawn: v.number(), catalog: v.any(),
     deities: v.array(v.object({ godId: v.string(), utility: v.any(), card: v.any() })),
     objects: v.array(v.object({ value: wire, scores: v.array(scoreV), salience: v.number(), noise: v.optional(v.number()) })),
+    /** The deal's calibration tables, pinned by god (engine/pinned.ts): the game scores with these until it ends. */
+    tablesStorageId: v.optional(v.id("_storage")),
   },
   handler: async (ctx, args) => {
     const room = await requireRoom(ctx, args.roomId);
@@ -211,16 +213,21 @@ export const commitStart = internalMutation({
       ...(setupId ? { setupId, setupName } : {}),
       createdAt: now, planningEndsAt, pauseEndsAt: 0,
       endAtWorld: args.endAtWorld, noiseKey: args.noiseKey, executionEpoch: 0,
+      ...(args.tablesStorageId ? { tablesStorageId: args.tablesStorageId } : {}),
+      // Hold rarity (docs/energy-model.md §8): more than one player needs its corrections, computed during planning.
+      ...(args.deities.length > 1 ? { holdState: "computing" as const, holdPending: [] } : {}),
     });
     await putCatalog(ctx, `game:${gameId}`, args.catalog, 0);
     for (const [index, d] of args.deities.entries()) {
       const aiAgent = byGod.get(d.godId)!.aiAgent;
-      await ctx.db.insert("deities", { gameId, godId: d.godId, index, utility: d.utility, card: d.card, spent: 0, pauseUsed: false, ...(aiAgent ? { aiAgent } : {}) });
+      // Its own energy starts at startingEnergy on the world clock (0 at the start), with all its power unallocated.
+      await ctx.db.insert("deities", { gameId, godId: d.godId, index, utility: d.utility, card: d.card, spent: 0, pauseUsed: false, ...(aiAgent ? { aiAgent } : {}),
+        account: { balance: settings.startingEnergy, settledWorldSeconds: 0 }, allocated: 0 });
     }
     const events = [];
     for (const o of args.objects) {
       const objectId = await ctx.db.insert("objects", { gameId, value: o.value, version: 0, scores: o.scores, salience: o.salience, ...(o.noise !== undefined ? { noise: o.noise } : {}),
-        publicSalience: publicSalienceOf(o, true) });
+        publicSalience: publicSalienceOf(o, true), createdAt: 0 });
       events.push({ t: "spawn" as const, objectId, value: o.value, version: 0, world: 0, net: args.deities.map(d => o.scores.find(s => s.god === d.godId)!.netBits),
         ...(o.noise !== undefined ? { noise: o.noise } : {}) });
     }
@@ -231,7 +238,7 @@ export const commitStart = internalMutation({
     await ctx.db.insert("tickBatches", {
       gameId, seq: 0, at: now, worldFrom: 0, worldTo: 0, schema: EVENT_LOG_SCHEMA, events: [{ t: "phase", phase: "planning", world: 0 }, ...events], totals, scoreboard: disclosed,
     });
-    await insertObjectEvents(ctx, gameId, 0, events);
+    await insertObjectEvents(ctx, gameId, 0, events, 1);
     // The hot state lives off the games doc (game/state.ts): the clock every reader of world time reads, and the loop's own.
     const scoreboard = { totals: disclosed, world: 0, at: now };
     await ctx.db.insert("gameClocks", { gameId, worldSeconds: 0, lastTick: now, objectCount: args.objects.length, agentCount: 0, scoreboard });
@@ -249,6 +256,9 @@ export const commitStart = internalMutation({
     });
     await ctx.scheduler.runAt(nextDeadline({ phase: "planning", planningEndsAt, pauseEndsAt: 0 }, now)!, internal.engine.tick.run, { gameId, seq: 0 });
     await ctx.scheduler.runAfter(0, internal.ai.seats.startAll, { gameId });
+    // Each god's object rows and totals (game/objectViews.ts), paged off the start's own transaction.
+    await scheduleFill(ctx, gameId);
+    if (args.deities.length > 1) await ctx.scheduler.runAfter(0, internal.engine.hold.start, { gameId });
     const result = { gameId, shortCode, guid };
     if (args.requestId) {
       await ctx.db.insert("receipts", { roomId: room._id, actorId, requestId: `start:${args.requestId}`, hash: "start", result, createdAt: now });

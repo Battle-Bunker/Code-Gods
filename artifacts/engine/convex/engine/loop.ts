@@ -10,14 +10,20 @@ import { allowedLanguages, type GameSettings } from "@workspace/game-core";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
-import { eventV, scoreV } from "../game/tables";
+import { eventV, failuresV, futileEntriesV, lastFailuresV, scoreV } from "../game/tables";
 import { liveGame, withEngine, writeGame, type LiveGame } from "../game/state";
 import { publicSalienceOf } from "../game/readModel";
+import { godTotalsV, scheduleFill } from "../game/objectViews";
+import { writeAgentSamples } from "../game/agentSeries";
+/** World seconds between sweeps of the per-god read model (game/objectViews.ts). */
+const SWEEP_SECONDS = 60;
 import { gameRecord } from "../lib/projection";
 import { AI_LOBBY_STATUS, isIdle, lastHumanActivity, membersOf } from "../lib/rooms";
 import { EVENT_LOG_SCHEMA, EVENTS_PER_BATCH, LEASE_MS, MIN_TICK_MS, scoreIntervalOf, scoreboardDue, totalsOf } from "../lib/world";
 import { agentLanguage } from "../lib/language";
 import { readinessRows } from "../runtime/readiness";
+import { engineErrorReason, retryDelayMs } from "../lib/engineErrors";
+import { NO_FAILURES, type Futile } from "../lib/futility";
 
 type Ev = Doc<"tickBatches">["events"][number];
 
@@ -66,15 +72,19 @@ export async function appendEvents(ctx: MutationCtx, game: Pick<LiveGame, "_id" 
   return next;
 }
 
-/** One objectEvents row per spawn and transform (the indexed per-object history, docs/public-log-design.md §2). */
-export async function insertObjectEvents(ctx: MutationCtx, gameId: Id<"games">, seq: number, events: readonly Ev[]) {
-  for (const e of events) {
+/**
+ * One objectEvents row per spawn and transform (the indexed per-object history, docs/public-log-design.md §2). `first`:
+ * the position of `events[0]` in the batch doc `seq` (the batch may begin with other events).
+ */
+export async function insertObjectEvents(ctx: MutationCtx, gameId: Id<"games">, seq: number, events: readonly Ev[], first = 0) {
+  for (const [i, e] of events.entries()) {
+    const index = first + i;
     if (e.t === "spawn") {
-      await ctx.db.insert("objectEvents", { gameId, objectId: e.objectId as Id<"objects">, seq, world: e.world, kind: "spawn", value: e.value, version: e.version, net: e.net, ...(e.noise !== undefined ? { noise: e.noise } : {}) });
+      await ctx.db.insert("objectEvents", { gameId, objectId: e.objectId as Id<"objects">, seq, index, world: e.world, kind: "spawn", value: e.value, version: e.version, net: e.net, ...(e.noise !== undefined ? { noise: e.noise } : {}) });
     } else if (e.t === "transform") {
       await ctx.db.insert("objectEvents", {
-        gameId, objectId: e.objectId as Id<"objects">, seq, world: e.world, kind: "transform", before: e.before, value: e.value, version: e.version,
-        calls: e.calls, agentId: e.agentId, ownerId: e.ownerId, net: e.net, ...(e.noise !== undefined ? { noise: e.noise } : {}),
+        gameId, objectId: e.objectId as Id<"objects">, seq, index, world: e.world, kind: "transform", before: e.before, value: e.value, version: e.version,
+        calls: e.calls, agentId: e.agentId, ownerId: e.ownerId, cost: e.cost.total, net: e.net, ...(e.noise !== undefined ? { noise: e.noise } : {}),
       });
     }
   }
@@ -97,13 +107,20 @@ export async function endGame(ctx: MutationCtx, game: LiveGame, reason: "lifetim
   const nextBatch = await appendEvents(ctx, ended, [{ t: "phase", phase: "ended", world: ended.worldSeconds, reason }], ended.worldSeconds, ended.worldSeconds,
     undefined, scoreboard.totals, scoreboard.totals);
   await writeGame(ctx, game, {
-    ...patch, phase: "ended", endedAt: now, endReason: reason, executionEpoch: ended.executionEpoch, autoResume: undefined,
+    ...patch, phase: "ended", endedAt: now, endReason: reason, executionEpoch: ended.executionEpoch, autoResume: undefined, engineError: undefined, ...(game.tickFailures ? { tickFailures: 0 } : {}),
     summary, nextBatch, scoreboard, tick: { seq: game.tick.seq + 1, leaseUntil: 0 },
   });
+  // Its pinned tables (engine/pinned.ts) are no longer needed: nothing scores an ended game.
+  if (game.tablesStorageId) {
+    if (await ctx.db.system.get(game.tablesStorageId)) await ctx.storage.delete(game.tablesStorageId);
+    await ctx.db.patch(game._id, { tablesStorageId: undefined });
+  }
   // The ended game never changes again: its whole replay is stored once, after this commit (convex/replays.ts).
   await ctx.scheduler.runAfter(0, internal.replays.build, { gameId: game._id });
-  // Its disclosure is exact from now on: the public salience loses the live noise (paged, off this commit).
+  // Its disclosure is exact from now on: the public salience and each god's object rows and totals lose the live noise
+  // (paged, off this commit).
   await ctx.scheduler.runAfter(0, internal.game.readModel.finalizeObjects, { gameId: game._id, cursor: null });
+  await scheduleFill(ctx, game._id);
   const room = await ctx.db.get(game.roomId);
   if (room && room.activeGameId === game._id) {
     await ctx.db.patch(room._id, { activeGameId: undefined, seq: room.seq + 1 });
@@ -116,7 +133,7 @@ export async function endGame(ctx: MutationCtx, game: LiveGame, reason: "lifetim
 export async function parkGame(ctx: MutationCtx, game: LiveGame, reason: string, autoResume: boolean) {
   const nextBatch = await appendEvents(ctx, game, [{ t: "phase", phase: "recovery", world: game.worldSeconds, reason }], game.worldSeconds, game.worldSeconds);
   await writeGame(ctx, game, {
-    phase: "recovery", recoveryReason: reason, autoResume: autoResume || undefined, executionEpoch: game.executionEpoch + 1,
+    phase: "recovery", recoveryReason: reason, autoResume: autoResume || undefined, executionEpoch: game.executionEpoch + 1, engineError: undefined, ...(game.tickFailures ? { tickFailures: 0 } : {}),
     nextBatch, tick: { seq: game.tick.seq + 1, leaseUntil: 0 },
   });
 }
@@ -143,18 +160,21 @@ export const snapshot = internalQuery({
   handler: async (ctx, { gameId, seq }) => {
     const game = await liveGame(ctx, gameId);
     if (!game || game.tick.seq !== seq) return null;
-    const [objects, agents, deities] = await Promise.all([
+    const [objects, agents, deities, futile] = await Promise.all([
       ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", gameId)).take(2100),
       ctx.db.query("agents").withIndex("by_game", q => q.eq("gameId", gameId)).take(2000),
       ctx.db.query("deities").withIndex("by_game", q => q.eq("gameId", gameId)).take(16),
+      ctx.db.query("futileActs").withIndex("by_game", q => q.eq("gameId", gameId)).take(2000),
     ]);
     return {
       game, lastActivity: await lastHumanActivity(ctx),
       objects: objects.map(o => ({ id: o._id as string, value: o.value, version: o.version, scores: o.scores, salience: o.salience, noise: o.noise })),
       agents: agents.map(a => ({
-        id: a._id as string, ownerId: a.ownerId, source: a.source, language: agentLanguage(a, game.settings as GameSettings), decisionBits: a.decisionBits, perActFloorBits: a.perActFloorBits,
-        expectedActCost: a.expectedActCost, account: a.account, acts: a.acts, spent: a.spent,
+        id: a._id as string, ownerId: a.ownerId, source: a.source, language: agentLanguage(a, game.settings as GameSettings), 
+        account: a.account, acts: a.acts, spent: a.spent, spentRead: a.spentRead ?? 0, lastOpportunityWorld: a.lastOpportunityWorld, powerShare: a.powerShare,
+        transforms: a.transforms ?? 0, skips: a.skips ?? 0, failures: a.failures ?? NO_FAILURES, lastFailures: a.lastFailures ?? {},
       })),
+      futile: futile.map(f => ({ agentId: f.agentId as string, entries: f.entries as Futile[] })),
       deities: deities.sort((a, b) => a.index - b.index).map(d => ({ godId: d.godId, utility: d.utility })),
       sandboxes: await readinessRows(ctx, allowedLanguages(game.settings as GameSettings)),
     };
@@ -184,13 +204,19 @@ export const commit = internalMutation({
     clock: v.optional(clockV),
     objects: v.array(v.object({ id: v.id("objects"), fromVersion: v.number(), value: wire, version: v.number(), scores: v.array(scoreV), salience: v.number(), noise: v.optional(v.number()) })),
     spawns: v.array(v.object({ tmp: v.string(), value: wire, scores: v.array(scoreV), salience: v.number(), noise: v.optional(v.number()) })),
-    agents: v.array(v.object({ id: v.id("agents"), fromActs: v.number(), acts: v.number(), spent: v.number(), account: v.object({ balance: v.number(), settledWorldSeconds: v.number() }) })),
+    agents: v.array(v.object({ id: v.id("agents"), fromActs: v.number(), acts: v.number(), spent: v.number(), spentRead: v.optional(v.number()), account: v.object({ balance: v.number(), settledWorldSeconds: v.number() }),
+      transforms: v.number(), skips: v.optional(v.number()), failures: failuresV, lastFailures: lastFailuresV,
+      lastOpportunityWorld: v.optional(v.number()) })),
+    /** The futile-pair memos that changed in the window (lib/futility.ts), each agent's whole memo. */
+    futile: v.optional(v.array(v.object({ agentId: v.id("agents"), entries: futileEntriesV }))),
     events: v.array(eventV),
     stats: v.object({ opportunities: v.number(), acts: v.number(), simulateMs: v.number(), prevCommitMs: v.optional(v.number()) }),
     /** The leaderboard after the window (every roster god's exact total payoff, roster order), stored on scoring batches. */
     totals: v.optional(v.array(v.number())),
     /** The same as disclosed live (payoffs from the noisy peers' sums): the scoreboard, published when due. */
     disclosedTotals: v.optional(v.array(v.number())),
+    /** Each roster god's totals after the window as disclosed (lib/views.ts godTotalsOf), when objects changed. */
+    godTotals: v.optional(v.array(godTotalsV)),
     wakeAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
@@ -210,9 +236,10 @@ export const commit = internalMutation({
       await parkGame(ctx, game, "The engine went idle after 30 minutes without human activity. The game resumes when a player returns.", true);
       return { result: "parked" as const };
     }
+    const recovered: Partial<LiveGame> = game.engineError || game.tickFailures ? { engineError: undefined, tickFailures: 0 } : {};
     if (args.kind === "wait") {
       // wakeAt: planning held past its deadline for a warming sandbox polls instead of spinning.
-      await scheduleTick(ctx, game, args.wakeAt ?? nextDeadline(game, now));
+      await scheduleTick(ctx, game, args.wakeAt ?? nextDeadline(game, now), recovered);
       return { result: "waited" as const };
     }
 
@@ -230,7 +257,7 @@ export const commit = internalMutation({
       if (doc.acts !== state.fromActs) return discard(`agent ${state.id} moved on`);
       live.add(state.id);
     }
-    const events = args.events.filter(e => e.t !== "fail" || live.has(e.agentId));
+    const events = args.events.filter(e => (e.t !== "fail" && e.t !== "skip") || live.has(e.agentId));
     if (events.some(e => e.t === "transform" && !live.has(e.agentId))) return discard("a destroyed agent changed an object");
     const finalValue = new Map(args.objects.map(c => [c.id as string, c.value]));
     const check = async (value: number | string, self?: string) => {
@@ -243,21 +270,42 @@ export const commit = internalMutation({
     if (game.objectCount + args.spawns.length > 2000) return discard("object limit");
 
     // Apply.
+    // The world time of each object's last transformation in this window (public: games/tables.ts objects.lastMutatedAt).
+    const mutatedAt = new Map<string, number>();
+    for (const e of events) if (e.t === "transform") mutatedAt.set(e.objectId, Math.max(mutatedAt.get(e.objectId) ?? 0, e.world));
     for (const change of args.objects) {
+      const at = mutatedAt.get(change.id);
       await ctx.db.patch(change.id, { value: change.value, version: change.version, scores: change.scores, salience: change.salience, noise: change.noise,
-        publicSalience: publicSalienceOf(change, true) });
+        publicSalience: publicSalienceOf(change, true), ...(at !== undefined ? { lastMutatedAt: at } : {}) });
     }
+    const spawnedAt = new Map<string, number>();
+    for (const e of events) if (e.t === "spawn") spawnedAt.set(e.objectId, e.world);
     const ids = new Map<string, string>();
     for (const spawn of args.spawns) {
       ids.set(spawn.tmp, await ctx.db.insert("objects", { gameId: game._id, value: spawn.value, version: 0, scores: spawn.scores, salience: spawn.salience, ...(spawn.noise !== undefined ? { noise: spawn.noise } : {}),
-        publicSalience: publicSalienceOf(spawn, true) }));
+        publicSalience: publicSalienceOf(spawn, true), createdAt: spawnedAt.get(spawn.tmp) ?? args.clock!.worldSeconds }));
     }
     for (const state of args.agents) {
-      if (live.has(state.id)) await ctx.db.patch(state.id, { acts: state.acts, spent: state.spent, account: state.account });
+      if (live.has(state.id)) {
+        await ctx.db.patch(state.id, { acts: state.acts, spent: state.spent, ...(state.spentRead !== undefined ? { spentRead: state.spentRead } : {}), account: state.account, transforms: state.transforms, failures: state.failures,
+          lastFailures: state.lastFailures, ...(state.skips !== undefined ? { skips: state.skips } : {}),
+          ...(state.lastOpportunityWorld !== undefined ? { lastOpportunityWorld: state.lastOpportunityWorld } : {}) });
+      }
     }
+    // Only an agent that acted changes its memo; a destroyed one's is never written (destroy deletes it).
+    await Promise.all((args.futile ?? []).filter(memo => live.has(memo.agentId)).map(async memo => {
+      const row = await ctx.db.query("futileActs").withIndex("by_agent", q => q.eq("agentId", memo.agentId)).unique();
+      if (row) await (memo.entries.length ? ctx.db.patch(row._id, { entries: memo.entries }) : ctx.db.delete(row._id));
+      else if (memo.entries.length) await ctx.db.insert("futileActs", { gameId: game._id, agentId: memo.agentId, entries: memo.entries });
+    }));
     const resolved = events.map(e => (e.t === "spawn" && ids.has(e.objectId) ? { ...e, objectId: ids.get(e.objectId)! } : e));
     const clock = args.clock!;
-    const acts = events.filter(e => e.t === "transform" || e.t === "fail").length;
+    // Each god's object rows and totals (game/objectViews.ts), written off this commit: one scheduled call.
+    const touched = [...args.objects.map(c => c.id), ...[...ids.values()] as Id<"objects">[]];
+    if (touched.length || args.godTotals) {
+      await ctx.scheduler.runAfter(0, internal.game.objectViews.sync, { gameId: game._id, objectIds: touched, world: clock.worldSeconds, ...(args.godTotals ? { totals: args.godTotals } : {}) });
+    }
+    const acts = events.filter(e => e.t === "transform" || e.t === "fail" || e.t === "skip").length;
     const perf = { acts, window: clock.worldSeconds - game.worldSeconds, simulateMs: args.stats.simulateMs, ...(args.stats.prevCommitMs !== undefined ? { commitMs: args.stats.prevCommitMs } : {}) };
     // The scoreboard is published for everyone at once when the window reaches the next multiple of the interval
     // (docs/public-log-design.md §3); the end publishes its own (endGame). A game without one (started before
@@ -265,12 +313,18 @@ export const commit = internalMutation({
     const publish = !!game.scoreboard && !!args.disclosedTotals && clock.phase !== "ended" &&
       scoreboardDue(game.scoreboard.world, clock.worldSeconds, scoreIntervalOf(game));
     const scoreboard = publish ? { totals: args.disclosedTotals!, world: clock.worldSeconds, at: now } : undefined;
+    // With each publication, every god's agents' energy (the agents panel's series; game/agentSeries.ts).
+    if (publish) await writeAgentSamples(ctx, game, clock.worldSeconds);
+    // Once a world minute, a sweep of every god's rows and totals (game/objectViews.ts fill, paged, off this commit): a
+    // sync that failed leaves no row stale for longer.
+    if (clock.phase === "running" && Math.floor(clock.worldSeconds / SWEEP_SECONDS) > Math.floor(game.worldSeconds / SWEEP_SECONDS)) await scheduleFill(ctx, game._id, true);
     // The stored totals stay exact on every scoring batch (the replay of an ended game steps per event); the live
     // projection shows only the disclosed scoreboard, on the batch that published it.
     const scored = resolved.some(e => e.t === "spawn" || e.t === "transform");
     const nextBatch = await appendEvents(ctx, game, resolved, game.worldSeconds, clock.worldSeconds, acts > 0 ? perf : undefined,
       scored || publish ? args.totals : undefined, scoreboard?.totals);
     const patch: Partial<LiveGame> = {
+      ...recovered,
       ...(scoreboard ? { scoreboard } : {}),
       worldSeconds: clock.worldSeconds, lastTick: clock.lastTick, nextSpawn: clock.nextSpawn, nextBatch,
       objectCount: game.objectCount + args.spawns.length,
@@ -288,6 +342,46 @@ export const commit = internalMutation({
     const at = clock.phase === "running" ? Math.max(now, args.wakeAt ?? now + MIN_TICK_MS) : nextDeadline(updated, now);
     await scheduleTick(ctx, updated, at, { ...patch, phase: clock.phase });
     return { result: "committed" as const, acts };
+  },
+});
+
+/**
+ * A tick action failed (engine/tick.ts run catches everything but a stale lease): record it on the game for everyone
+ * watching (`engineError`, a fixed public phrase; the raw error is logged) and retry with backoff under the next lease,
+ * so a failing game is never a silent stall and recovers by itself once the cause is gone (a deploy finishing, a file
+ * uploaded). A running game's downtime is not simulated: its wall clock restarts at the retry, as the watchdog's does.
+ */
+export const tickFailed = internalMutation({
+  args: { gameId: v.id("games"), seq: v.number(), message: v.string() },
+  handler: async (ctx, { gameId, seq, message }) => {
+    const game = await liveGame(ctx, gameId);
+    if (!game || game.tick.seq !== seq || !["planning", "running", "paused"].includes(game.phase)) return { result: "stale" as const };
+    const now = Date.now(), failures = (game.tickFailures ?? 0) + 1, retryAt = now + retryDelayMs(failures);
+    console.error(`tick ${gameId}#${seq} failed (${failures} in a row; retrying in ${retryAt - now} ms): ${message}`);
+    // The public notice changes only when the failures start or their reason changes (games is the cold header).
+    const reason = engineErrorReason(message);
+    const engineError = game.engineError?.reason === reason ? game.engineError : { reason, since: game.engineError?.since ?? now };
+    // lastTick: the retry is where world time resumes (engine/tick.ts never starts it before lastTick), in every phase.
+    await scheduleTick(ctx, game, Math.max(retryAt, nextDeadline(game, now) ?? retryAt), { engineError, tickFailures: failures, lastTick: retryAt });
+    return { result: "retrying" as const, failures, retryAt };
+  },
+});
+
+/** A game's pinned tables file, if any (engine/pinned.ts; internal: the file holds every god's tables). */
+export const pinnedTablesOf = internalQuery({
+  args: { gameId: v.id("games") },
+  handler: async (ctx, { gameId }) => (await ctx.db.get(gameId))?.tablesStorageId ?? null,
+});
+
+/** Keep a game's pinned tables (engine/pinned.ts): the first file wins. Returns the kept file (null: the game is gone). */
+export const pinTables = internalMutation({
+  args: { gameId: v.id("games"), storageId: v.id("_storage") },
+  handler: async (ctx, { gameId, storageId }) => {
+    const game = await ctx.db.get(gameId);
+    if (!game || game.phase === "ended") return null;   // ended meanwhile: endGame deletes only a file it can see
+    if (game.tablesStorageId) return game.tablesStorageId;
+    await ctx.db.patch(gameId, { tablesStorageId: storageId });
+    return storageId;
   },
 });
 
@@ -318,6 +412,25 @@ export const watchdog = internalMutation({
     }
     if (restarted || parked) console.log(`watchdog: restarted ${restarted}, parked ${parked}`);
     return { restarted, parked };
+  },
+});
+
+/**
+ * Read-only: every live game's loop progress (scripts/check-live-games.mjs, the deploy's last check: each running game's
+ * tick must advance after a deploy). Bounded like the watchdog; returns no game data beyond the loop's own counters.
+ */
+export const liveProgress = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const out = [];
+    for (const phase of ["planning", "running", "paused", "recovery"] as const) {
+      const games = await ctx.db.query("games").withIndex("by_phase", q => q.eq("phase", phase)).take(200);
+      for (const game of await Promise.all(games.map(g => withEngine(ctx, g)))) {
+        out.push({ id: game._id, shortCode: game.shortCode, phase: game.phase, seq: game.tick.seq, commits: game.stats.commits,
+          worldSeconds: game.worldSeconds, idleParked: !!game.autoResume, engineError: game.engineError ? { ...game.engineError, failures: game.tickFailures ?? 0 } : null });
+      }
+    }
+    return { now: Date.now(), idle: isIdle(await lastHumanActivity(ctx)), games: out };
   },
 });
 

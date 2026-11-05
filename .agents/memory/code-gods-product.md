@@ -198,7 +198,7 @@ The assistant's state is per (player, game): starting a new game in the same roo
 
 **Why:** The owner asked that all state associated with an assistant be scoped to a player and game combo (2026-11-01).
 
-**How to apply:** Threads (turns, briefings, messages, tool calls, cards), the allowance, code runs and stored objects carry the game's epoch (the room's current game, or the lobby before the first); launching a game ends the room's active assistant turns. An earlier game's conversation stays readable by its human for that game (replays) but is never listed, continued or loaded in the next. The player's own choices are not assistant state and stay: layout and panels, saved scripts (`scripts/`), the auto-approve preference, the room credential. New assistant state gets the same key.
+**How to apply:** Threads (turns, briefings, messages, tool calls), the allowance, code runs and stored objects carry the game's epoch (the room's current game, or the lobby before the first); launching a game ends the room's active assistant turns. An earlier game's conversation stays readable by its human for that game (replays) but is never listed, continued or loaded in the next. The player's own choices are not assistant state and stay: layout and panels, saved scripts (`scripts/`), the assistant's mode, the room credential. New assistant state gets the same key.
 
 There is one app (artifacts/player-web), served by the engine at `/` and runnable by a player on any other origin (a dev server or a build); every page is calibrated to the signed-in human. `/rooms/:room` is the room only (its active game and a link to it, members and their roles, chat, next game, past games) and never a game; `/rooms/:room/games/:game` is the game: the player view (the dock) for a god dealt into it while it is live, the spectator view for a member who is not, and its replay once it has ended.
 
@@ -222,7 +222,7 @@ The player can keep typing while their assistant works: messages queue in Convex
 
 **Why:** The owner asked (2026-11-01) for message queuing, with queued user messages inserted as soon as the current (tool call) turn completes.
 
-**How to apply:** A queued message joins the running turn after the current step's tool results (in that user message, after the results, for both providers), or starts the next turn when the turn ends without a tool step. It never approves a card: it declines a waiting one. Stop keeps queued messages held until the player sends again. Delivery is exactly once (status change in the delivering mutation, clientId for retries); the queue is keyed by (player, game). Details: docs/surface-architecture.md §6 "Queued messages".
+**How to apply:** A queued message joins the running turn after the current step's tool results (in that user message, after the results, for both providers), or starts the next turn when the turn ends without a tool step. Sent while an autopilot turn runs, it preempts that turn. Stop keeps queued messages held until the player sends again. Delivery is exactly once (status change in the delivering mutation, clientId for retries); the queue is keyed by (player, game). Details: docs/surface-architecture.md §6 "Queued messages".
 
 ## Game duration mode (2026-11)
 `durationMode` is `"halfLife"` (default; today's hidden random end, half of games ending within `halfLifeSeconds`) or `"fixed"` (the game ends exactly `halfLifeSeconds` of world time after it starts). The field keeps its old name `halfLifeSeconds` and holds the length in both modes. A fixed game's end is public, since the setting is; `endAtWorld` stays out of every live projection regardless. Stored settings migrate to `halfLife` with their value (`upgradeStoredSettings`). First steps and Annotated basics are 10 min fixed; Annotated basics also starts with 10 objects, spawns 0.1 per second and plans for 5 minutes. Every time setting takes a custom value within `TIME_LIMITS` (game-core), enforced by `validateSettings`.
@@ -248,3 +248,58 @@ A room member is a player or a spectator of the next game. The owner starts as a
 **Why:** The owner (2026-11-02): "Allow room members to be spectators (owner or the member themselves can configure this) and default the room owner to a spectator." Spectators see the public view of a live game, never per-god secrets.
 
 **How to apply:** `members.spectator` is a preference for the next game (`rooms.setSpectator`, tool `set_spectator`); a running game's roster never changes. `games.spectators` lists everyone not dealt in at launch plus whoever joins while it runs, and they may open the game once it is past (`requireHistoricReaderAs`). A spectator's live reads are the unseated projection (roster index -1). docs/unify-apps-plan.md §2.
+
+## Every rule offers a continuous landscape of points (2026-11-03)
+
+**Rule:** a rule's score has many attainable levels, each harder (rarer, so worth more bits) than the last: no
+all-or-nothing scores. Counts, signed per-cell sums and secondary points that measure closeness all qualify; a single 0/1 does
+not. The annotated set (Annotated basics) was audited: Picture Frame was the only all-or-nothing rule and is now a
+per-cell sum. Since the owner's redesign (2026-11-03) both a colour and a symbol are dealt (typed params, nothing
+inferred from the board): an edge cell scores +1 with either and +4 with both; a middle cell loses the same (the middle
+half is an assumption awaiting the owner's confirmation; `FRAME_POINTS` in families/grid/strategy.ts); top 4·(4N−4).
+
+**Why:** the owner (2026-11-03): "a smooth distribution of points available to be earned of logarithmically increasing
+difficulty … Ensure that all annotated rules have such a continuous landscape of scoring opportunity."
+
+**How to apply:** a new or changed rule shows its calibration curve (levels and bits) in its PR; a curve with a jump
+from 0 to its top, or long flat runs, needs a finer score. docs/rules-design.md P9.
+
+## Rule params are named and typed (2026-11-03)
+
+**Rule:** a family declares every param by name with a type (`colour`, `symbol`, `int` with a range, `choice`, `bool`;
+lib/game-utilities/src/params.ts) resolved against the shape into an exact domain. A colour is stored by its name and a
+symbol as the board prints it, never as an index decoded later; names are words (`colour`, `mine`, `target`), never
+letters (`X`, `T`).
+**Why:** the owner (2026-11-03): "Make sure that all rules have appropriately named and typed parameters instead of
+abstruse parameters like x: int that get converted into a colour. That's terrible architecture."
+**How to apply:** every consumer reads `UtilityFamily.params` (gallery pickers, goal card `params`, `myUtility.typedParams`,
+lenses, the Python reference rules). A new family declares `params`; `UNTYPED_FAMILIES` only shrinks (test/params.test.ts).
+Typing an existing family renames stored params: give it a `legacy` reader, migrate the stored rows (typedParams*) and
+re-key its tables (scripts/rekey-typed-params.ts). docs/rules-design.md §9.
+
+## Params make peer rules of equal opportunity (2026-11-04)
+
+**Rule:** a family's param values must be related by a symmetry of the object space (colour or symbol permutation,
+rotation or reflection, transpose), so every god dealt the family has the same score distribution and top achievable
+bits. A param that only adds or removes scoring opportunity (diagonals on/off, rows|cols|both, targets of different
+difficulty) is not allowed: fix it, split the family, or make the choice symmetric.
+**Why:** the owner (2026-11-04): "Set Spotter's parameter is binary and can purely advantage a player that gets
+diagonals as well … Parameters should create peer variations within a rule family without any unfair asymmetry in
+scoring opportunity between them."
+**How to apply:** docs/rules-design.md P10. Set Spotter now always counts diagonals. The audit test compares each
+family's calibration tables across its param classes (top bits, bits under the prior); current violators are an
+allowlist that only shrinks.
+
+## Scores are points tuples, said that way to players (2026-11-03)
+
+**Rule:** a rule scores a board as a points tuple: primary points, then secondary (tertiary…). Players see the tuple
+directly: rule texts name each tier ("scores 1 primary point", "deducts as many secondary points as …"), never "wins",
+"tie" or "tie-break"; every rule's text starts with its goal ("Try to …") and has one sentence per tier; score boxes
+show each tier's derivation on its own line and the impact as a tuple "(+1, 0)"; the board total is a tuple "(4, −10)";
+single-tier rules show 1-tuples "(+1)". The glossary term "Points tuple" explains the comparison once.
+
+**Why:** the owner (2026-11-03): "Let's just expose people to the concept of a points tuple directly … talk about
+primary and secondary (and tertiary) points in explaining the rule."
+
+**How to apply:** use `src/tuples.ts` (tierName, tierPoints, impactText, tupleText) and docs/rules-design.md P4's
+sentence pattern; `test/points-tuples.test.ts` enforces it for every family on every shape.

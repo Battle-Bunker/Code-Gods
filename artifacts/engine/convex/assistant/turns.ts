@@ -1,6 +1,6 @@
 /**
  * The assistant's turn lifecycle shared by its mutations (assistant.ts), its turn loop (assistant/store.ts) and a game
- * launch (game/lobby.ts): opening, resuming and finishing turns, the message queue, denied calls. Kept apart from
+ * launch (game/lobby.ts) and the autopilot (assistant/autopilot.ts): opening and finishing turns, the message queue. Kept apart from
  * store.ts so the hot reactive queries of assistant.ts and rooms.ts never load rules.ts and the tool registry it needs
  * (test/unit/hot-query-bundles.test.ts).
  */
@@ -8,7 +8,10 @@ import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { assistantEpoch } from "../ai/seats";
-import { ENGINE_NOTES, LIMITS, withEngineNote, type TurnStatus } from "./limits";
+import { aiEnabledFor, assistantQuotaOf } from "../lib/aiAccess";
+import { credentialProblem } from "../auth/principal";
+import type { Permission } from "../auth/access";
+import { LIMITS, type TurnStatus } from "./limits";
 
 export type Ctx = QueryCtx | MutationCtx;
 export type Turn = Doc<"assistantTurns">;
@@ -23,6 +26,17 @@ export const CANCEL_GRACE_MS = LIMITS.waitMs + 30_000;
 export function log(event: string, fields: Record<string, string | number | boolean | undefined>) {
   console.log(JSON.stringify({ event: `assistant.${event}`, ...fields }));
 }
+
+/** The human's live assistant credentials for the room, newest first (assistant.ts, the autopilot). */
+export async function activeAssistantCredentials(ctx: Ctx, subject: string, room: Doc<"rooms">) {
+  const now = Date.now();
+  const rows = await ctx.db.query("credentials").withIndex("by_subject", q => q.eq("subject", subject)).order("desc").take(200);
+  return rows.filter((r): r is typeof r & { permission: Permission } => r.kind === "assistant" && r.permission !== "account" && r.roomId === room._id && !credentialProblem(r, room, now));
+}
+
+/** The human's latest assistant turn in the room (any game). */
+export const latestTurnOf = (ctx: Ctx, roomId: Id<"rooms">, subject: string) =>
+  ctx.db.query("assistantTurns").withIndex("by_room_subject", q => q.eq("roomId", roomId).eq("subject", subject)).order("desc").first();
 
 export async function callsOf(ctx: Ctx, turnId: Id<"assistantTurns">) {
   return ctx.db.query("assistantToolCalls").withIndex("by_turn", q => q.eq("turnId", turnId)).take(200);
@@ -76,24 +90,31 @@ export async function queuedIn(ctx: Ctx, threadId: Id<"assistantThreads">, { hel
  * (with the message they became). Run in one mutation, so a row is delivered exactly once: a racing delivery reads
  * it as no longer queued (Convex mutations are serializable).
  */
-export async function appendUserMessages(ctx: MutationCtx, turn: { _id: Id<"assistantTurns">; threadId: Id<"assistantThreads"> }, items: { text: string; row?: QueueRow }[]) {
+export async function appendUserMessages(ctx: MutationCtx, turn: { _id: Id<"assistantTurns">; threadId: Id<"assistantThreads"> }, items: { text: string; row?: QueueRow; autopilot?: boolean }[]) {
   const now = Date.now();
   const last = await ctx.db.query("assistantMessages").withIndex("by_thread_seq", q => q.eq("threadId", turn.threadId)).order("desc").first();
   let seq = last?.seq ?? 0;
-  for (const { text, row } of items) {
-    const messageId = await ctx.db.insert("assistantMessages", { threadId: turn.threadId, turnId: turn._id, seq: ++seq, role: "user", text, status: "done", createdAt: now, updatedAt: now });
+  for (const { text, row, autopilot } of items) {
+    const messageId = await ctx.db.insert("assistantMessages", {
+      threadId: turn.threadId, turnId: turn._id, seq: ++seq, role: "user", text, status: "done", ...(autopilot ? { autopilot: true } : {}), createdAt: now, updatedAt: now,
+    });
     if (row) await ctx.db.patch(row._id, { status: "delivered", turnId: turn._id, messageId, updatedAt: now });
   }
 }
 
-/** Start a turn in a thread with these user messages (assistant.send, and the queue's next turn). */
-export async function openTurn(ctx: MutationCtx, at: { room: Doc<"rooms">; threadId: Id<"assistantThreads">; subject: string; credentialId: Id<"credentials">; replay?: Doc<"assistantTurns">["replay"] }, items: { text: string; row?: QueueRow }[]) {
+/**
+ * Start a turn in a thread with these user messages (assistant.send, the queue's next turn, and an autopilot turn,
+ * whose one message is the engine's prompt and which takes at most LIMITS.autopilotSteps steps).
+ */
+export async function openTurn(ctx: MutationCtx, at: {
+  room: Doc<"rooms">; threadId: Id<"assistantThreads">; subject: string; credentialId: Id<"credentials">; replay?: Doc<"assistantTurns">["replay"]; trigger?: "autopilot";
+}, items: { text: string; row?: QueueRow; autopilot?: boolean }[]) {
   const now = Date.now();
   const turnId = await ctx.db.insert("assistantTurns", {
     threadId: at.threadId, roomId: at.room._id, subject: at.subject, ...(at.room.activeGameId ? { gameId: at.room.activeGameId } : {}), credentialId: at.credentialId,
-    status: "running", gen: 0, step: 0, maxSteps: LIMITS.maxSteps, deadline: now + LIMITS.turnMs,
+    status: "running", gen: 0, step: 0, maxSteps: at.trigger === "autopilot" ? LIMITS.autopilotSteps : LIMITS.maxSteps, deadline: now + LIMITS.turnMs,
     usage: { inputTokens: 0, outputTokens: 0, reservedTokens: 0, reservedUsd: 0, billedTokens: 0 }, tools: [], createdAt: now, updatedAt: now,
-    ...(at.replay ? { replay: at.replay } : {}),
+    ...(at.replay ? { replay: at.replay } : {}), ...(at.trigger ? { trigger: at.trigger } : {}),
   });
   await appendUserMessages(ctx, { _id: turnId, threadId: at.threadId }, items);
   await ctx.db.patch(at.threadId, { activeTurnId: turnId, updatedAt: now });
@@ -104,18 +125,44 @@ export async function openTurn(ctx: MutationCtx, at: { room: Doc<"rooms">; threa
 /**
  * After a turn ends done (or cancelled: messages sent while it stopped): the thread's queued messages that a Stop did
  * not hold start the next turn at once, in order (a turn that ended with no tool step had no boundary to take them).
- * Not when the thread is an earlier game's or the owner has turned the assistant off: they stay queued, visible,
+ * After an autopilot turn, the player's messages may wait in any conversation of the game (they preempted it from the
+ * one on their screen): the oldest one's conversation goes next, with the player's current credential (they may have
+ * changed its rights when they wrote).
+ * Not when the thread is an earlier game's, the assistant quota is 0 or AI is not available in the room: they stay queued, visible,
  * until the player sends or removes them.
  */
 async function startQueuedTurn(ctx: MutationCtx, turn: Turn) {
-  const rows = await queuedIn(ctx, turn.threadId, { held: false });
-  if (!rows.length) return;
   const room = await ctx.db.get(turn.roomId);
-  const thread = await ctx.db.get(turn.threadId);
-  if (!room || !thread || thread.epoch !== assistantEpoch(room) || !(room.assistantBudget ?? 0)) return;
-  const turnId = await openTurn(ctx, { room, threadId: turn.threadId, subject: turn.subject, credentialId: turn.credentialId }, rows.map(row => ({ text: row.text, row })));
+  if (!room) return;
+  const autopilot = turn.trigger === "autopilot";
+  const waiting = autopilot
+    ? (await ctx.db.query("assistantQueue").withIndex("by_key_status", q => q.eq("roomId", room._id).eq("subject", turn.subject).eq("epoch", assistantEpoch(room)).eq("status", "queued")).take(LIMITS.queued * 4))
+      .filter(r => !(r.held ?? false))
+    : await queuedIn(ctx, turn.threadId, { held: false });
+  if (!waiting.length) return;
+  const threadId = waiting[0].threadId;
+  const rows = waiting.filter(r => r.threadId === threadId);
+  const thread = await ctx.db.get(threadId);
+  if (!thread || thread.epoch !== assistantEpoch(room) || assistantQuotaOf(room) <= 0 || !(await aiEnabledFor(ctx, room))) return;
+  const credentialId = autopilot ? (await activeAssistantCredentials(ctx, turn.subject, room))[0]?._id ?? turn.credentialId : turn.credentialId;
+  const turnId = await openTurn(ctx, { room, threadId, subject: turn.subject, credentialId }, rows.map(row => ({ text: row.text, row })));
   log("queue.turn", { turnId, after: turn._id, messages: rows.length });
 }
+
+/**
+ * A player's message preempts an autopilot turn (assistant.send): stopped now, unless one of its tool calls is running,
+ * which is let finish (its command may already be applied: stopping it would record it as interrupted, and a later turn
+ * might repeat it); the turn then stops when that call ends (store.endCall). PREEMPTED is the history's note.
+ */
+export async function preemptAutopilot(ctx: MutationCtx, turn: Turn) {
+  if (turn.trigger !== "autopilot" || turn.status !== "running") return;
+  if ((await callsOf(ctx, turn._id)).some(c => c.status === "running")) {
+    await ctx.db.patch(turn._id, { preempt: true, updatedAt: Date.now() });
+    return;
+  }
+  await stopTurn(ctx, turn, PREEMPTED);
+}
+export const PREEMPTED = { code: "PREEMPTED", message: "Interrupted by your message." };
 
 /**
  * Deliver the thread's queued messages into a live turn at a step boundary (the step's tool calls are resolved and
@@ -133,36 +180,20 @@ export async function deliverInto(ctx: MutationCtx, turn: Turn): Promise<number>
   return rows.length;
 }
 
-/** Resume a turn on a new generation (after a confirmation decision), with a fresh step action. */
-export async function resume(ctx: MutationCtx, turn: Turn) {
-  const gen = turn.gen + 1;
-  await ctx.db.patch(turn._id, { status: "running", gen, updatedAt: Date.now() });
-  await ctx.scheduler.runAfter(0, internal.assistant.step.run, { turnId: turn._id, gen });
-}
-
-/** Deny a call (by the player, or when its card timed out) and let the turn continue. */
-export async function denyCall(ctx: MutationCtx, call: Call, reason: "player" | "timeout" | "message") {
-  const message = reason === "player" ? "The player declined this call."
-    : reason === "message" ? "The player sent a message instead of answering this confirmation, so the call was declined (not run). Their message follows these results: read it, and ask again if the action is still wanted."
-    : "The player did not confirm this call within two minutes.";
-  let resultJson = JSON.stringify({ error: { code: "DENIED", message } });
-  // The step's last call, before the turn's final model step: the note step.ts resolveCalls gives a call it runs.
-  const turn = await ctx.db.get(call.turnId);
-  if (turn && turn.step >= turn.maxSteps - 1) {
-    const siblings = await ctx.db.query("assistantToolCalls").withIndex("by_turn", q => q.eq("turnId", call.turnId).gt("index", call.index)).take(LIMITS.callsPerStep + 1);
-    if (!siblings.some(c => c.messageId === call.messageId)) resultJson = withEngineNote(resultJson, ENGINE_NOTES.lastStep);
-  }
-  await ctx.db.patch(call._id, {
-    status: "denied", approved: false, updatedAt: Date.now(), summary: reason === "player" ? "Declined" : reason === "message" ? "Declined: you sent a message" : "Not confirmed in time", resultJson,
-  });
-  log("confirm.deny", { turnId: call.turnId, callDocId: call._id, tool: call.tool, reason });
+/**
+ * Stop a running turn (the player's Stop, a player's message preempting an autopilot turn, leaving autopilot, a new
+ * game): its step exits at its next check and acknowledges (store.finish), else finalizeCancel ends it after the grace.
+ * `error` records why on the turn (PREEMPTED: the history's note, rules.ts UNANSWERED_NOTES).
+ */
+export async function stopTurn(ctx: MutationCtx, turn: Turn, error?: { code: string; message: string }) {
+  await ctx.db.patch(turn._id, { status: "cancelling", gen: turn.gen + 1, updatedAt: Date.now(), ...(error ? { error } : {}) });
+  await ctx.scheduler.runAfter(CANCEL_GRACE_MS, internal.assistant.store.finalizeCancel, { turnId: turn._id });
 }
 
 /**
- * A new game starts in the room (game/lobby.ts launch): every assistant turn still active there ends, so no step, tool
- * call or confirmation card of the previous game's conversation runs in the new one. A running step is cancelled like
- * the player's own stop (it exits at its next check, finalizeCancel after the grace); a turn waiting on a card ends
- * now, its card denied.
+ * A new game starts in the room (game/lobby.ts launch): every assistant turn still active there ends, so no step or
+ * tool call of the previous game's conversation runs in the new one. A running step is cancelled like the player's own
+ * stop (stopTurn). (A turn left waiting on the retired approval card ends now, until the migration has ended them all.)
  */
 export async function endTurnsForNewGame(ctx: MutationCtx, roomId: Id<"rooms">) {
   const now = Date.now();
@@ -173,8 +204,7 @@ export async function endTurnsForNewGame(ctx: MutationCtx, roomId: Id<"rooms">) 
   for (const status of ["running", "awaiting_confirmation"] as const) {
     for (const turn of await ctx.db.query("assistantTurns").withIndex("by_room_status", q => q.eq("roomId", roomId).eq("status", status)).take(200)) {
       if (status === "awaiting_confirmation") { await finishTurn(ctx, turn, "cancelled"); continue; }
-      await ctx.db.patch(turn._id, { status: "cancelling", gen: turn.gen + 1, updatedAt: now });
-      await ctx.scheduler.runAfter(CANCEL_GRACE_MS, internal.assistant.store.finalizeCancel, { turnId: turn._id });
+      await stopTurn(ctx, turn);
       log("cancel.newGame", { turnId: turn._id });
     }
   }

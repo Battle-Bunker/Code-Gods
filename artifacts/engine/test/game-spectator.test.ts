@@ -16,7 +16,7 @@ import { admin, api, envelope, gods, internal, raw, rejects, roomWith, startGame
 
 const settings = {
   languages: ["typescript"], objectType: "Int", typeArgs: { min: -2147483648, max: 2147483647 }, startingObjectCount: 30, spawnRateHz: 1,
-  interactionRateHz: 20, planningSeconds: 3600, halfLifeSeconds: 1e9, agentEnergyPerSecond: 100, startingEnergy: 1000, scoreIntervalSeconds: 2,
+  interactionRateHz: 20, planningSeconds: 3600, halfLifeSeconds: 1e9, powerPerSecond: 200, startingEnergy: 1000, scoreIntervalSeconds: 2,
 };
 const close = (a: number, b: number) => Math.abs(a - b) < 1e-9;
 
@@ -62,7 +62,7 @@ test("spectator read model: header, standings and their history, the salience sk
     "the standings are the published scoreboard, ranked (hand: rankTotals of the scoreboard's totals)");
   assert.ok(s0.rows.every((r: any) => typeof r.name === "string" && (r.kind === "human" || r.kind === "ai")));
   const h0 = await watcher.c.query(api.games.standingsHistory, { gameId: game.gameId });
-  assert.deepEqual(h0.rows.map((r: any) => [r.world, r.totals]), [[0, first.totals]], "one history row per publication: the start's");
+  assert.deepEqual(h0.rows.map((r: any) => [r.world, r.totals]), [[0, first.totals]], "one history row per world time: the start's, as re-scored");
 
   // ---- run the world: publications every 2 world seconds ---------------------------------------------------------
   for (const god of [ada, bo]) {

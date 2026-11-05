@@ -118,8 +118,8 @@ async function sendActs(ctx: ActionCtx, language: Language, settings: GameSettin
   }
   batch.forEach((request, i) => {
     const reply = replies[i];
-    if (reply.ok) return request.resolve({ calls: reply.calls, usedRandom: reply.usedRandom, steps: reply.steps });
-    try { serverBug(Object.assign(new Error(reply.message), { code: reply.code })); }
+    if (reply.ok) return request.resolve({ calls: reply.calls, usedRandom: reply.usedRandom, steps: reply.steps, readBits: reply.readBits ?? 0 });
+    try { serverBug(Object.assign(new Error(reply.message), { code: reply.code, ...(reply.readBits !== undefined ? { readBits: reply.readBits } : {}) })); }
     catch (error) { request.reject(error); }
   });
 }

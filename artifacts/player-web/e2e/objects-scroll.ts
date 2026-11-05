@@ -1,5 +1,5 @@
 /**
- * Browser check of "Objects by payoff" infinite scroll on a REAL local game (docs/panels.md): the first screen holds
+ * Browser check of "Objects" infinite scroll on a REAL local game (docs/panels.md): the first screen holds
  * one page, scrolling to the end loads more rows (the footer's "N of M" grows), the sort selector reorders the whole
  * collection (and persists as the pane's `sortBy`), and a reload keeps the sort. Screenshots and a video go to <out-dir>.
  * Bob plays the game in the app on the engine's site (his site session), at the game's page /rooms/:room/games/:game.
@@ -25,7 +25,7 @@ const config = JSON.parse(readFileSync(new URL("../../engine/.convex/local/defau
 const admin = new ConvexHttpClient(CLOUD);
 (admin as unknown as { setAdminAuth(key: string): void }).setAdminAuth(config.adminKey);
 
-const { session } = await login("bob");
+const { session } = await login("admin");
 const bob = new ConvexHttpClient(CLOUD);
 bob.setAuth(await browserJwt(session));
 const { roomId, shortCode } = await bob.mutation(fn.m("rooms:create"), {}) as { roomId: string; shortCode: string };
@@ -36,7 +36,7 @@ await owner("addAi", { aiAgentId: "sonnet-strategist" });
 await owner("addAi", { aiAgentId: "sonnet-strategist" });
 const room = await bob.query(fn.q("rooms:get"), { room: roomId }) as { revision: number };
 await owner("settings", { revision: room.revision, settings: { startingObjectCount: 40, planningSeconds: 600, halfLifeSeconds: 3600 } });
-await bob.mutation(fn.m("rooms:approveAiBudget"), { roomId, aiBudget: 20_000, assistantBudget: 0 });
+await bob.mutation(fn.m("rooms:setAiQuotas"), { roomId, aiQuota: 20_000, assistantQuota: 0 });
 await owner("start");
 let gameId = "", gameCode = "";
 for (let i = 0; i < 180 && !gameId; i++, await sleep(1000)) {

@@ -6,7 +6,7 @@
 import { useMemo } from "react";
 import { dimensionVar } from "@workspace/object-views";
 import { BarList, Obj, ScatterPlot, Table, fmtBits, useEvents, useObjects, type LiveObject } from "@/sdk";
-import { PanelEmpty, Section, referObject, useObjectRanks, type PanelProps } from "./kit";
+import { PanelEmpty, Section, referObject, ranksOf, type PanelProps } from "./kit";
 
 type Quadrant = "chips" | "conflict" | "shared";
 const IN: Record<Quadrant, (mine: number, others: number) => boolean> = {
@@ -19,14 +19,14 @@ const LABEL: Record<Quadrant, string> = { chips: "Others care, you don't: bargai
 
 export default function OthersCare({ params }: PanelProps<"others-care">) {
   const objects = useObjects({ hz: 1 });
-  const ranks = useObjectRanks(objects);
+  const ranks = useMemo(() => ranksOf(objects), [objects]);
   const events = useEvents({ hz: 1, limit: params.window });
   const quadrant = params.quadrant === "none" ? null : params.quadrant;
   const moves = useMemo(() => {
     const last = new Map<string, { mine: number; peers: number }>();
     const out: { objectId: string; dMine: number; dPeers: number; mine: boolean }[] = [];
     for (const e of events) {
-      if ((e.type !== "object.spawned" && e.type !== "object.transformed") || !("own" in e) || !e.own) continue;
+      if ((e.type !== "object.spawned" && e.type !== "object.rescored" && e.type !== "object.transformed") || !("own" in e) || !e.own) continue;
       const now = { mine: e.own.netBits, peers: e.peerNetBits! };
       const before = last.get(e.objectId);
       if (before && e.type === "object.transformed") out.push({ objectId: e.objectId, dMine: now.mine - before.mine, dPeers: now.peers - before.peers, mine: e.mine });

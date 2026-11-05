@@ -19,7 +19,7 @@ export default definePanel({
       const last = new Map<string, { mine: number; payoff: number }>();
       const stats = new Map<string, Row>(mutators.map(m => [m.id, { id: m.id, name: m.name, emoji: m.emoji, acts: 0, cost: 0, dMine: 0, dPayoff: 0 }]));
       for (const e of events) {
-        if ((e.type !== "object.spawned" && e.type !== "object.transformed") || !("own" in e) || !e.own) continue;
+        if ((e.type !== "object.spawned" && e.type !== "object.rescored" && e.type !== "object.transformed") || !("own" in e) || !e.own) continue;
         const now = { mine: e.own.netBits, payoff: e.payoff! };
         const before = last.get(e.objectId);
         last.set(e.objectId, now);

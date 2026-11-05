@@ -1,7 +1,7 @@
 /** The goal annotation's drawing geometry (src/explain/layout.ts), with expectations worked out by hand. */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { arrowPath, badgePoints, boardPx, calloutOrder, litCells, moveFocus, groupRows, linkPath, outlinePath, pillPath, signed, strokePath } from "../src/explain/layout.ts";
+import { arrowPath, badgePoint, boardPx, litCells, moveFocus, groupRows, linkPath, outlinePath, pillPath, signed, strokePath } from "../src/explain/layout.ts";
 
 const g = { cell: 40, gap: 2, size: 4 };
 
@@ -35,19 +35,10 @@ test("an outline goes round the set, bridging the gap between its cells", () => 
   assert.equal(two.split("M").length - 1, 6, "top and bottom of each cell, plus the two outer ends");
 });
 
-test("badges avoid the focus and each other, then sit on the piece's rightmost cell, then its top", () => {
-  const pts = badgePoints(g, [
-    { cells: [{ r: 1, c: 0 }, { r: 1, c: 1 }, { r: 1, c: 2 }] },
-    { cells: [{ r: 0, c: 2 }, { r: 1, c: 2 }, { r: 2, c: 2 }] },
-    { cells: [{ r: 1, c: 2 }, { r: 2, c: 2 }] },
-  ]);
-  // Line 1 takes (1,2); line 2 then prefers an unbadged cell: (0,2); the pair's (1,2) is taken, so (2,2).
-  assert.deepEqual(pts, [{ x: 117, y: 49 }, { x: 117, y: 7 }, { x: 117, y: 91 }]);
-  assert.deepEqual(calloutOrder(pts), [1, 0, 2], "callouts follow the badges top to bottom");
-  // With the focus on (1,2), the pair's badge goes to its other cell.
-  assert.deepEqual(badgePoints(g, [{ cells: [{ r: 1, c: 2 }, { r: 1, c: 1 }] }], { r: 1, c: 2 }), [{ x: 75, y: 49 }]);
-  const crowded = badgePoints(g, [{ cells: [{ r: 0, c: 0 }] }, { cells: [{ r: 0, c: 0 }] }]);
-  assert.equal(crowded[1].y - crowded[0].y, 13, "badges on one cell stack");
+test("a unit's badge sits on its rightmost cell (nearest the list), then its top", () => {
+  // A line across row 1: its rightmost cell (1,2); a column: its top cell (0,2).
+  assert.deepEqual(badgePoint(g, [{ r: 1, c: 0 }, { r: 1, c: 1 }, { r: 1, c: 2 }]), { x: 117, y: 49 });
+  assert.deepEqual(badgePoint(g, [{ r: 2, c: 2 }, { r: 0, c: 2 }, { r: 1, c: 2 }]), { x: 117, y: 7 });
 });
 
 test("arrows leave sideways to a column beside the board, downwards to callouts below it", () => {
@@ -65,11 +56,12 @@ test("keyboard focus moves by arrows and stays on the board", () => {
   assert.equal(moveFocus({ r: 0, c: 0 }, "a", 4), null);
 });
 
-test("lit cells: the focus and its pieces' cells; everything else is dimmed", () => {
-  const lit = litCells({ r: 3, c: 3 }, [{ cells: [{ r: 0, c: 0 }, { r: 0, c: 1 }] }], 4);
-  assert.deepEqual(lit.flat().filter(Boolean).length, 3);
-  assert.equal(lit[3][3], true);
+test("lit cells: the selected unit's cells; everything else is dimmed; nothing dimmed with no unit selected", () => {
+  const lit = litCells({ cells: [{ r: 0, c: 0 }, { r: 0, c: 1 }] }, 4)!;
+  assert.equal(lit.flat().filter(Boolean).length, 2);
+  assert.equal(lit[0][1], true);
   assert.equal(lit[1][1], false);
+  assert.equal(litCells(null, 4), null);
 });
 
 test("points read with a sign and a real minus", () => {

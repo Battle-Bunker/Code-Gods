@@ -69,18 +69,33 @@ success, else the deploy fails; CLAUDE.md "Schema migrations"),
 `upload-runtime` (skipped when the bundle is already there), `upload-calibration` (uploads only the calibration files
 whose bytes changed and removes instances no longer in git, right after the push; the engine loads them lazily, and a
 new shape is offered within a minute; a push that changes table keys, e.g. an edited card, leaves the affected tables
-stale for the seconds until this step lands), `deploy-static --if-changed` (the app's
+stale for new starts until this step lands, while a game in progress scores with the tables pinned at its start,
+`engine/pinned.ts`), `deploy-static --if-changed` (the app's
 one site, `app`; a build that hashes to the deployment's env var `STATIC_SHA256_APP`, recorded at its last upload,
 isn't uploaded again), and a smoke test
 (`/api/health`, `/mcp` answers 401, `runtime/probe:smoke`, and `calibration/node:probe` loading the Grid default's
-tables from storage).
+tables from storage), and last a read-only check that every game running on the deployment still ticks
+(`scripts/check-live-games.mjs`: each must commit again within 90 s; it fails the deploy loudly, naming the game, and
+never touches game data).
 
-**The gate differs by branch.** The root typecheck, `pnpm run test:offline` (every offline unit suite), `calibrate --check`
-and the `game-runtime` sandbox tests run before every **production** deploy, inside the deploy job. On
-**`develop`** they run in the parallel `checks` job instead, so a change reaches dev in about 1½–2 minutes.
-A failure there marks the commit red but doesn't hold back the dev deploy, so fix or revert it before
-merging `develop` into `main`. A newer push to `develop` cancels the dev deploy still running; production
-deploys never cancel. Pushes that only change `*.md`, `docs/`, `.agents/` or `.claude/` don't deploy.
+**A game whose ticks fail** is never a silent stall: the tick records it (`games.engineError`, a fixed public phrase;
+the raw error is in the deployment's logs as `tick … failed`), retries with backoff (2 s doubling to 60 s), and clears
+it on the next success. Players and spectators see "The engine hit an error and is retrying: …"; an idle park reads
+"Paused: no human activity for 30 min — click anywhere to resume".
+
+**The gate** is the `checks` job: the root typecheck, the offline unit suites (`game-utilities`, which holds nearly all
+the test time, is split over 8 parallel shards by `CG_SHARD=k/8`, `lib/game-utilities/test/shard.ts`; every other
+suite plus `calibrate --check` runs in a ninth job), and the `game-runtime` sandbox tests. Its parts run as parallel jobs
+and `checks` succeeds only when all did (about 3–4 minutes). On **`develop`** it runs beside the deploy and never holds it
+back: a failure marks the commit red but the dev deploy proceeds (about 1½–2 minutes), so fix or revert it before
+merging `develop` into `main`. On **`main`** the production deploy does its install and bundle build while the gate runs,
+then waits for `checks` before anything ships. When the release is a merge of `develop` the tree is identical, so the
+`lookup` job (`.github/scripts/previous-gate.mjs`, using the workflow token's `actions: read`) looks for a Deploy run on
+`develop` whose head commit has the same tree and whose `checks` job succeeded; if one exists the gate is not re-run
+(a production deploy then takes about the deploy job's own 1½–2 minutes). No match, a red or cancelled run, or any API
+error means the gate runs in full: a lookup problem can only cost time. A newer push to `develop` cancels the dev deploy
+and gate still running; production never cancels. Pushes that only change `*.md`, `docs/`, `.agents/` or `.claude/`
+don't deploy. Locally `pnpm run test:offline` runs everything unsharded.
 
 Re-run a failed run from the Actions tab; a manual run ("Run workflow") works on `develop` and `main` only.
 Release `develop` → `main` with a pull request whose head is a short-lived branch cut from `develop`, never

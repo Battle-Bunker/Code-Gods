@@ -6,6 +6,7 @@ import type { GridSettings } from "./registry.ts";
 import type { GoalExplainer } from "@workspace/game-utilities";
 import { GridObject } from "./views.tsx";
 import { GoalBoard } from "./explain/GoalBoard.tsx";
+import { Term } from "@workspace/ui-kit";
 
 export interface UtilityCardLike {
   familyId: string;
@@ -31,9 +32,9 @@ export function BadgeChips({ badges, empty = "🌍 Works everywhere", testId }: 
   );
 }
 
-function Source({ text, language, testId }: { text: string; language: string; testId: string }) {
+function Source({ text, language, testId, open }: { text: string; language: string; testId: string; open: boolean }) {
   return (
-    <details className="mt-2" open>
+    <details className="mt-2" open={open} data-testid={`${testId}-section`}>
       <summary className="cursor-pointer text-xs text-muted-foreground">{language} source</summary>
       <pre data-testid={testId} className="mt-1 font-mono text-[11px] leading-snug whitespace-pre-wrap break-words max-h-72 overflow-auto bg-muted p-2">{text}</pre>
     </details>
@@ -52,7 +53,7 @@ export function CardExample({ example, grid }: { example: NonNullable<UtilityCar
 
 /**
  * The goal card's worked example (docs/annotations-design.md §3): a board of the room's own shape, searched to show
- * scoring and non-scoring pieces, with its most illuminating cell focused and the annotations always shown.
+ * scoring and non-scoring units, listed beside it with the board linked to them both ways.
  */
 export function GoalExampleView({ goal, grid }: { goal: GoalExplainer; grid: GridSettings }) {
   const example = useMemo(() => goal.example(), [goal]);
@@ -60,17 +61,19 @@ export function GoalExampleView({ goal, grid }: { goal: GoalExplainer; grid: Gri
   return (
     <figure className="mt-3 border-t pt-3" data-testid="utility-card-goal-example">
       <figcaption className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Example</figcaption>
-      <GoalBoard goal={goal} value={example.value} grid={grid} initialFocus={example.focus} caption={example.caption} testId="goal-example-board" />
+      <GoalBoard goal={goal} value={example.value} grid={grid} caption={example.caption} testId="goal-example-board" />
     </figure>
   );
 }
 
 /**
  * Emoji and name, plain summary, an example board (the annotated one with `goal`, else the card's tiny one when the rule
- * has one), a "uses" chip row, then the source; a defence goal follows as its own card. `grid` (the room's Grid settings) draws the example with the room's colour shades.
+ * has one), a "uses" chip row, then the source (collapsed unless `sourceOpen`); a defence goal follows as its own card. `grid` (the room's Grid settings) draws the example with the room's colour shades.
  */
-export function UtilityCardView({ card, uses, grid, goal }: {
+export function UtilityCardView({ card, uses, grid, goal, sourceOpen = false }: {
   card: UtilityCardLike; uses?: readonly BadgeLike[]; grid?: GridSettings;
+  /** Whether the source sections start expanded (they are collapsed by default). */
+  sourceOpen?: boolean;
   /**
    * The player's own goal explainer: the card then shows its annotated example board (a family without a lens keeps its
    * hand-made tiny example when it has one, else shows a searched example board with its score).
@@ -84,10 +87,11 @@ export function UtilityCardView({ card, uses, grid, goal }: {
       <div>
         <p className="text-xl font-semibold leading-tight" data-testid="utility-card-name"><span aria-hidden>{card.emoji} </span>{card.name}</p>
         {card.theme && <p className="text-xs text-muted-foreground">{card.theme}</p>}
-        <p className="mt-2 text-sm leading-relaxed" data-testid="text-utility-summary">{card.summary}</p>
+        <p className="mt-2 text-sm leading-relaxed" data-testid="text-utility-summary">{card.summary}
+          {/\bprimary points?\b/.test(card.summary) && <> <span className="text-muted-foreground">(<Term id="points-tuple">how points tuples compare</Term>)</span></>}</p>
         {goal && grid && (goal.rich || !card.example) ? <GoalExampleView goal={goal} grid={grid} /> : card.example && <CardExample example={card.example} grid={grid} />}
         <p className="mt-2 text-xs flex flex-wrap items-center gap-1.5"><span className="text-muted-foreground">uses:</span><BadgeChips badges={badges} testId="utility-card-uses" /></p>
-        <Source text={card.source} language={card.language} testId="text-utility-source" />
+        <Source text={card.source} language={card.language} testId="text-utility-source" open={sourceOpen} />
       </div>
       {card.penalty && (
         <div className="border-l-4 border-destructive pl-3 py-1" data-testid="utility-card-penalty">
@@ -95,7 +99,7 @@ export function UtilityCardView({ card, uses, grid, goal }: {
           <p className="mt-1 text-sm">{card.penalty.summary}</p>
           <p className="mt-1 text-xs text-muted-foreground">Only counts when an object is {card.penalty.comparative} than usual. Then you see “⚠️ {card.penalty.comparative} than 90% of …”.</p>
           {penaltyUses.length > 0 && <p className="mt-1 text-xs flex flex-wrap items-center gap-1.5"><span className="text-muted-foreground">uses:</span><BadgeChips badges={penaltyUses} /></p>}
-          <Source text={card.penalty.source} language={card.language} testId="text-penalty-source" />
+          <Source text={card.penalty.source} language={card.language} testId="text-penalty-source" open={sourceOpen} />
         </div>
       )}
     </div>

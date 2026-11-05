@@ -7,6 +7,7 @@
 import type { CardText } from "./card.ts";
 import { pyCard, tsCard } from "./card.ts";
 import { SCALAR, defineFamilies, tuple } from "./define.ts";
+import { choiceParam, intParam, valuesParam } from "../params.ts";
 import type { FamilyContext } from "../types.ts";
 import { solvedAnalytic } from "../analytic/hook.ts";
 
@@ -21,19 +22,19 @@ const CLASSES: Readonly<Record<string, string>> = {
   vowels: "aeiouAEIOU", digits: "0123456789", lowercase: "abcdefghijklmnopqrstuvwxyz",
   uppercase: "ABCDEFGHIJKLMNOPQRSTUVWXYZ", hex: "0123456789abcdef",
 };
-/** Character classes of the same size are one orbit. */
-const CLASS_CANON: Readonly<Record<string, string>> = { vowels: "vowels", digits: "vowels", lowercase: "lowercase", uppercase: "lowercase", hex: "hex" };
 const ALNUM = CLASSES.lowercase + CLASSES.uppercase + CLASSES.digits;
 
 // --- Glyph Glutton ---------------------------------------------------------------------------------
-type CharP = { c: string };
-const glyphText = (p: CharP) => card("🍬", "Glyph Glutton", `You hoard the character "${p.c}". Count its copies in x.`,
-  [["MY_CHAR", p.c]]);
+type CharP = { char: string };
+const glyphText = (p: CharP) => card("🍬", "Glyph Glutton", `You hoard the character "${p.char}". Each copy in x scores 1 point.`,
+  [["MY_CHAR", p.char]]);
 const glyphGlutton = stringFamily<CharP>({
   id: "glyph-glutton", name: "Glyph Glutton", emoji: "🍬", theme: "Hoards copies of one character.", shape: SCALAR,
-  support: () => [...ALNUM].map(c => ({ c })),
-  canonical: () => ({ c: "a" }),
-  summary: p => `You hoard the character "${p.c}": the more copies in x, the better. Only the count matters, so the `
+  params: () => ({ char: valuesParam("Favourite character", [...ALNUM]) }),
+  legacy: p => (typeof p.c === "string" ? { char: p.c } : null),
+  support: () => [...ALNUM].map(char => ({ char })),
+  canonical: () => ({ char: "a" }),
+  summary: p => `Try to hoard the character "${p.char}". Each copy of it in x scores 1 point. Only the count matters, so the `
     + "other characters can serve someone else.",
   python: p => pyCard(glyphText(p), `
     def utility(x):
@@ -50,22 +51,27 @@ const glyphGlutton = stringFamily<CharP>({
       }
       return copies;
     }`),
-  exemplar: (p, s) => p.c.repeat(s.L),
+  exemplar: (p, s) => p.char.repeat(s.L),
 });
 
 // --- Purist ------------------------------------------------------------------------------------------
-type KindP = { kind: string };
-const kindConsts = (p: KindP): CardText["consts"] => [["MEMBERS", CLASSES[p.kind], p.kind]];
-const puristText = (p: KindP) => card("🧼", "Purist",
-  `You want x made purely of ${p.kind}. Every ${p.kind.replace(/s$/, "")} character is +1 and every other character is −1.`,
-  kindConsts(p));
-const purist = stringFamily<KindP>({
+/**
+ * One class, lowercase letters. The classes are different sizes (10, 16 and 26 of the 128 characters), so their top bits
+ * differ by up to 1.6x (294 to 471 on 128, 37 to 59 on 16) and are not related by a symmetry (P10).
+ */
+const KIND = "lowercase";
+const kindConsts: CardText["consts"] = [["MEMBERS", CLASSES[KIND], KIND]];
+const puristText = card("🧼", "Purist",
+  `You want x made purely of ${KIND}. Every ${KIND.replace(/s$/, "")} character scores 1 point and every other character deducts 1 point.`,
+  kindConsts);
+const purist = stringFamily<Record<string, never>>({
   id: "purist", name: "Purist", emoji: "🧼", theme: "Wants x made purely of one class of characters.", shape: SCALAR,
   analytic: solvedAnalytic("purist"),
-  support: () => Object.keys(CLASSES).map(kind => ({ kind })),
-  canonical: p => ({ kind: CLASS_CANON[p.kind] }),
-  summary: p => `You want x to be pure ${p.kind} (${CLASSES[p.kind]}): +1 for each of them, −1 for anything else.`,
-  python: p => pyCard(puristText(p), `
+  params: () => ({}),
+  legacy: p => ("kind" in p ? {} : null),
+  support: () => [{}],
+  summary: () => `Try to make x pure ${KIND} (${CLASSES[KIND]}). Each of them scores 1 point; any other character deducts 1 point.`,
+  python: () => pyCard(puristText, `
     def utility(x):
         points = 0
         for ch in x:
@@ -74,7 +80,7 @@ const purist = stringFamily<KindP>({
             else:
                 points -= 1
         return points`),
-  typescript: p => tsCard(puristText(p), `
+  typescript: () => tsCard(puristText, `
     function utility(x) {
       let points = 0;
       for (const ch of x) {
@@ -83,21 +89,22 @@ const purist = stringFamily<KindP>({
       }
       return points;
     }`),
-  exemplar: (p, s) => CLASSES[p.kind].repeat(s.L).slice(0, s.L),
+  exemplar: (_p, s) => CLASSES[KIND].repeat(s.L).slice(0, s.L),
 });
 
 // --- Streaker ------------------------------------------------------------------------------------------
-const streakText = (p: KindP) => card("🏃", "Streaker",
-  `You want one long unbroken streak of ${p.kind} somewhere in x. Score the longest streak.`, kindConsts(p));
-const streaker = stringFamily<KindP>({
+const streakText = card("🏃", "Streaker",
+  `You want one long unbroken streak of ${KIND} somewhere in x. Score the longest streak.`, kindConsts);
+const streaker = stringFamily<Record<string, never>>({
   id: "streaker", name: "Streaker", emoji: "🏃", theme: "Wants one long unbroken streak of a class of characters.",
   analytic: solvedAnalytic("streaker"),
   shape: SCALAR,
-  support: () => Object.keys(CLASSES).map(kind => ({ kind })),
-  canonical: p => ({ kind: CLASS_CANON[p.kind] }),
-  summary: p => `You want one long unbroken streak of ${p.kind} (${CLASSES[p.kind]}) somewhere in x: the longer the `
-    + "better. The rest of the string is irrelevant to you.",
-  python: p => pyCard(streakText(p), `
+  params: () => ({}),
+  legacy: p => ("kind" in p ? {} : null),
+  support: () => [{}],
+  summary: () => `Try to make one long unbroken streak of ${KIND} (${CLASSES[KIND]}) somewhere in x. Each character of your `
+    + "longest streak scores 1 point. The rest of the string is irrelevant to you.",
+  python: () => pyCard(streakText, `
     def utility(x):
         best = 0
         run = 0
@@ -108,7 +115,7 @@ const streaker = stringFamily<KindP>({
                 run = 0
             best = max(best, run)
         return best`),
-  typescript: p => tsCard(streakText(p), `
+  typescript: () => tsCard(streakText, `
     function utility(x) {
       let best = 0;
       let run = 0;
@@ -119,7 +126,7 @@ const streaker = stringFamily<KindP>({
       }
       return best;
     }`),
-  exemplar: (p, s) => CLASSES[p.kind].repeat(s.L).slice(0, s.L),
+  exemplar: (_p, s) => CLASSES[KIND].repeat(s.L).slice(0, s.L),
 });
 
 // --- Incantor ------------------------------------------------------------------------------------------
@@ -133,9 +140,10 @@ const spellText = (p: SpellP) => card("🪄", "Incantor",
 const incantor = stringFamily<SpellP>({
   id: "incantor", name: "Incantor", emoji: "🪄", theme: "Wants a secret word spelled out somewhere in x.", shape: SCALAR,
   requires: minLength(8),
+  params: () => ({ spell: valuesParam("Spell", SPELLS) }),
   support: () => SPELLS.map(spell => ({ spell })),
   canonical: () => ({ spell: SPELLS[0] }),
-  summary: p => `Your secret word is "${p.spell}". The longer the beginning of it that appears anywhere in x, the better.`,
+  summary: p => `Try to fit the beginning of your secret word, "${p.spell}", anywhere in x. Each character of the longest beginning that appears scores 1 point.`,
   python: p => pyCard(spellText(p), `
     def utility(x):
         n = 0
@@ -161,10 +169,11 @@ const endText = (p: EndP) => card("🔚", "Last Word",
 const lastWord = stringFamily<EndP>({
   id: "last-word", name: "Last Word", emoji: "🔚", theme: "Wants x to end with a secret word.", shape: SCALAR,
   requires: minLength(6),
+  params: () => ({ ending: valuesParam("Ending", ENDINGS) }),
   support: () => ENDINGS.map(ending => ({ ending })),
   canonical: () => ({ ending: ENDINGS[0] }),
-  summary: p => `You insist on having the last word: x should end with "${p.ending}". The more characters match from `
-    + "the end, the better.",
+  summary: p => `Try to have the last word: make x end with "${p.ending}". Each character that matches, counting from `
+    + "the end and stopping at the first that doesn't, scores 1 point.",
   python: p => pyCard(endText(p), `
     def utility(x):
         n = 0
@@ -186,8 +195,9 @@ const mirrorText = card("🪞", "Mirror",
   + "so on: count the matching pairs until the first mismatch.");
 const mirror = stringFamily<Record<string, never>>({
   id: "mirror", name: "Mirror", emoji: "🪞", theme: "Wants x to be a palindrome.", shape: SCALAR,
+  params: () => ({}),
   support: () => [{}],
-  summary: () => "You want x to read the same backwards: the more pairs match from the outside in, the better.",
+  summary: () => "Try to make x read the same backwards. Each pair of characters that matches, from the outside in and stopping at the first that doesn't, scores 1 point.",
   python: () => pyCard(mirrorText, `
     def utility(x):
         pairs = 0
@@ -211,10 +221,11 @@ const ascText = (p: StepP) => card(p.step > 0 ? "📈" : "📉", "Ascender",
 const ascender = stringFamily<StepP>({
   id: "ascender", name: "Ascender", emoji: "📈", theme: "Wants a long run of characters sorted by ASCII code.", shape: SCALAR,
   analytic: solvedAnalytic("ascender"),
+  params: () => ({ step: choiceParam("Direction", [[1, "rising"], [-1, "falling"]]) }),
   support: () => [{ step: 1 }, { step: -1 }],
   canonical: () => ({ step: 1 }), // reversing the character order maps falling runs to rising ones
-  summary: p => `You want a long run of characters whose ASCII codes strictly ${p.step > 0 ? "rise" : "fall"}: the `
-    + "longer, the better.",
+  summary: p => `Try to make a long run of characters whose ASCII codes strictly ${p.step > 0 ? "rise" : "fall"}. `
+    + "Each character of your longest run scores 1 point.",
   python: p => pyCard(ascText(p), `
     def utility(x):
         best = 0
@@ -251,9 +262,10 @@ const echoText = (p: PeriodP) => card("🔁", "Echo",
   [["PERIOD", p.period]]);
 const echo = stringFamily<PeriodP>({
   id: "echo", name: "Echo", emoji: "🔁", theme: "Wants x to repeat a short motif.", shape: SCALAR,
+  params: () => ({ period: intParam("Period", 2, 6) }),
   support: () => range(2, 6).map(period => ({ period })),
-  summary: p => `You want x to repeat itself every ${p.period} characters: the longer the echo holds from the start, `
-    + "the better.",
+  summary: p => `Try to make x repeat itself every ${p.period} characters. From the start, each character equal to the one `
+    + `${p.period} places earlier scores 1 point, stopping at the first that isn't.`,
   python: p => pyCard(echoText(p), `
     def utility(x):
         echoes = 0
@@ -276,8 +288,9 @@ const nestText = card("🪺", "Nest Builder",
 const nestBuilder = stringFamily<Record<string, never>>({
   id: "nest-builder", name: "Nest Builder", emoji: "🪺", theme: "Wants deeply nested parentheses.", shape: SCALAR,
   analytic: solvedAnalytic("nest-builder"),
+  params: () => ({}),
   support: () => [{}],
-  summary: () => "You build nests of parentheses: the deeper a \")\" closes, the better.",
+  summary: () => "Try to build nests of parentheses. The deepest level at which a \")\" closes scores 1 point per level.",
   python: () => pyCard(nestText, `
     def utility(x):
         depth = 0
@@ -308,15 +321,30 @@ const nestBuilder = stringFamily<Record<string, never>>({
 
 // --- Haiku Master ------------------------------------------------------------------------------------------
 const HAIKU_LENGTHS = [5, 7, 10, 12, 17, 20, 24, 32, 40, 48, 64, 100];
+/**
+ * One length per shape: the largest listed one up to 0.6 of the cap. Hitting length n exactly costs about 7 bits per
+ * character the cap lies above it (string(16): n = 5, 7, 10, 12 take 75, 66, 43 and 27 bits), so no band of three
+ * lengths is equal (P10); the same share of the cap gives every shape a comparable chance.
+ */
+/** The legacy reader of a param fixed to one value per shape: a stored other value reads as it (none when the shape has none). */
+const fixedTo = <K extends string>(p: Record<string, unknown>, key: K, only: readonly number[]) =>
+  (typeof p[key] === "number" && only.length === 1 && p[key] !== only[0] ? ({ [key]: only[0] } as Record<K, number>) : null);
+const haikuLengths = (s: StringSpec): number[] => {
+  const fit = HAIKU_LENGTHS.filter(n => n <= s.L);
+  const one = fit.filter(n => n <= 0.6 * s.L).pop() ?? fit[0];
+  return one === undefined ? [] : [one];
+};
 type LengthP = { length: number };
 const haikuText = (p: LengthP) => card("🌸", "Haiku Master",
-  `You want x to be exactly ${p.length} characters long. The closer its length is to ${p.length}, the better.`,
+  `You want x to be exactly ${p.length} characters long. You lose 1 point for each character it is away from ${p.length}.`,
   [["MY_LENGTH", p.length]]);
 const haikuMaster = stringFamily<LengthP>({
   id: "haiku-master", name: "Haiku Master", emoji: "🌸", theme: "Wants x to have one exact length.", shape: SCALAR,
   requires: minLength(5),
-  support: s => HAIKU_LENGTHS.filter(n => n <= s.L).map(length => ({ length })),
-  summary: p => `You want x to be exactly ${p.length} characters long; content doesn't matter, closer is better.`,
+  params: s => ({ length: valuesParam("Length", haikuLengths(s)) }),
+  legacy: (p, s) => fixedTo(p, "length", haikuLengths(s)),
+  support: s => haikuLengths(s).map(length => ({ length })),
+  summary: p => `Try to make x exactly ${p.length} characters long; content doesn't matter. You lose 1 point for each character it is away from that.`,
   python: p => pyCard(haikuText(p), `
     def utility(x):
         return -abs(len(x) - MY_LENGTH)`),
@@ -332,8 +360,9 @@ const wordText = card("✍️", "Wordsmith",
   "You want prose. Split x at every single space and count the pieces that are words: 2 to 10 lowercase letters a to z.");
 const wordsmith = stringFamily<Record<string, never>>({
   id: "wordsmith", name: "Wordsmith", emoji: "✍️", theme: "Wants x to look like lowercase prose.", shape: SCALAR,
+  params: () => ({}),
   support: () => [{}],
-  summary: () => "You want prose: the more pieces between single spaces are 2–10 lowercase letters, the better.",
+  summary: () => "Try to write prose. Each piece between single spaces that is 2–10 lowercase letters scores 1 point.",
   python: () => pyCard(wordText, `
     def is_word(piece):
         if len(piece) < 2 or len(piece) > 10:
@@ -370,18 +399,29 @@ const wordsmith = stringFamily<Record<string, never>>({
 
 // --- Tallykeeper ---------------------------------------------------------------------------------------------
 const TALLIES = [9, 27, 45, 81, 100, 123, 150, 180, 234, 300, 365, 512];
+/**
+ * One sacred number per shape: the listed one nearest the typical digit total of a random string (10 of the 128 characters
+ * are digits, 4.5 on average: 0.35 per character). Targets far from it are rare (string(128): 5 to 199 bits across the
+ * twelve; string(16): 4 to 78), so no band of three is equal (P10).
+ */
+const tallyTotal = (s: StringSpec): number[] => {
+  const fit = TALLIES.filter(t => t <= 9 * s.L), typical = 0.3516 * s.L;
+  return fit.length ? [fit.reduce((best, t) => (Math.abs(t - typical) < Math.abs(best - typical) ? t : best))] : [];
+};
 type TallyP = { total: number };
 const tallyText = (p: TallyP) => card("🧾", "Tallykeeper",
-  `Your sacred number is ${p.total}. Add up every digit character 0 to 9 in x: the closer the total is to ${p.total}, `
-  + "the better.", [["SACRED", p.total]]);
+  `Your sacred number is ${p.total}. Add up every digit character 0 to 9 in x: you lose 1 point `
+  + "for each unit the total is away from it.", [["SACRED", p.total]]);
 const tallykeeper = stringFamily<TallyP>({
   id: "tallykeeper", name: "Tallykeeper", emoji: "🧾", theme: "Wants the digit characters in x to add up to a sacred number.",
   analytic: solvedAnalytic("tallykeeper"),
   requires: minLength(1),
   shape: SCALAR,
-  support: s => TALLIES.filter(t => t <= 9 * s.L).map(total => ({ total })),
-  summary: p => `Your sacred number is ${p.total}. Add up every digit character 0–9 in x; the closer to ${p.total}, the `
-    + "better, and every digit anyone else adds or removes moves your tally.",
+  params: s => ({ total: valuesParam("Digit total", tallyTotal(s)) }),
+  legacy: (p, s) => fixedTo(p, "total", tallyTotal(s)),
+  support: s => tallyTotal(s).map(total => ({ total })),
+  summary: p => `Try to make every digit character 0–9 in x add up to your sacred number, ${p.total}. You lose 1 point for each unit the `
+    + "total is away from it. Every digit anyone else adds or removes moves your tally.",
   python: p => pyCard(tallyText(p), `
     def utility(x):
         total = 0
@@ -401,25 +441,32 @@ const tallykeeper = stringFamily<TallyP>({
 });
 
 // --- Palette Keeper --------------------------------------------------------------------------------------------
-type PaletteP = { colours: number };
-const paletteText = (p: PaletteP) => card("🎨", "Palette Keeper",
-  `You want x to use exactly ${p.colours} different characters (any ${p.colours}). The closer, the better; if that's a `
-  + "tie, longer is better, up to 32 characters.", [["MY_COUNT", p.colours]]);
-const paletteKeeper = stringFamily<PaletteP>({
+/**
+ * Three distinct characters. The top bits fall with the count on short strings (string(16): 3 to 8 take 57, 62, 49, 41, 31
+ * and 26 bits), so no band of three counts is equal (P10); 3 fits every length the family accepts.
+ */
+const PALETTE = 3;
+const paletteText = card("🎨", "Palette Keeper",
+  `You want x to use exactly ${PALETTE} different characters (any ${PALETTE}). Each different character more or fewer than ${PALETTE} deducts 1 primary point. `
+  + "Each character of x, up to 32, scores 1 secondary point.", [["MY_COUNT", PALETTE]]);
+const paletteKeeper = stringFamily<Record<string, never>>({
   id: "palette-keeper", name: "Palette Keeper", emoji: "🎨", theme: "Wants a long string drawn from a tiny palette of distinct characters.",
   requires: minLength(3),
   shape: tuple(2),
-  support: s => range(3, 8).filter(k => k <= s.L).map(colours => ({ colours })),
-  summary: p => `You want x to use exactly ${p.colours} distinct characters, any ${p.colours}, and be at least 32 long. `
+  params: () => ({}),
+  legacy: p => ("colours" in p || "distinct_chars" in p ? {} : null),
+  support: () => [{}],
+  summary: () => `Try to make x use exactly ${PALETTE} distinct characters, any ${PALETTE}. Each distinct character more or fewer `
+    + `than ${PALETTE} deducts 1 primary point. Each character of x, up to 32, scores 1 secondary point. `
     + "Random noise uses about 80 distinct characters.",
-  python: p => pyCard(paletteText(p), `
+  python: () => pyCard(paletteText, `
     def utility(x):
         different = []
         for ch in x:
             if ch not in different:
                 different.append(ch)
         return (-abs(len(different) - MY_COUNT), min(len(x), 32))`),
-  typescript: p => tsCard(paletteText(p), `
+  typescript: () => tsCard(paletteText, `
     function utility(x) {
       const different = [];
       for (const ch of x) {
@@ -427,22 +474,34 @@ const paletteKeeper = stringFamily<PaletteP>({
       }
       return [-Math.abs(different.length - MY_COUNT), Math.min(x.length, 32)];
     }`),
-  exemplar: (p, s) => "abcdefgh".slice(0, p.colours).repeat(s.L).slice(0, Math.max(p.colours, Math.min(s.L, 32))),
+  exemplar: (_p, s) => "abc".repeat(s.L).slice(0, Math.max(PALETTE, Math.min(s.L, 32))),
 });
 
 // --- Scale Keeper ------------------------------------------------------------------------------------------------
 const WEIGHTS = [100, 250, 500, 777, 1000, 1500, 2024, 3000, 4096, 5000, 6000, 8128];
+/**
+ * One weight per shape: the largest listed one up to 32 per character of the cap. Weights far from the typical total
+ * (64 per character) are rare, and the top bits swing with the target (string(16): 8.5 to 73 bits, string(128): 10 to
+ * 74), so no band of three is equal (P10).
+ */
+const scaleWeight = (s: StringSpec): number[] => {
+  const fit = WEIGHTS.filter(w => w <= 127 * s.L);
+  const one = fit.filter(w => w <= 32 * s.L).pop() ?? fit[0];
+  return one === undefined ? [] : [one];
+};
 type WeightP = { weight: number };
 const scaleText = (p: WeightP) => card("⚖️", "Scale Keeper",
-  `You weigh strings: add up the ASCII codes of every character in x. You want a weight of exactly ${p.weight}: the `
-  + "closer, the better.", [["MY_WEIGHT", p.weight]]);
+  `You weigh strings: add up the ASCII codes of every character in x. You want a weight of exactly ${p.weight}: you `
+  + "lose 1 point for each unit away from it.", [["MY_WEIGHT", p.weight]]);
 const scaleKeeper = stringFamily<WeightP>({
   id: "scale-keeper", name: "Scale Keeper", emoji: "⚖️", theme: "Wants the ASCII codes of x to weigh an exact amount.",
   requires: minLength(1),
   shape: SCALAR,
-  support: s => WEIGHTS.filter(w => w <= 127 * s.L).map(weight => ({ weight })),
-  summary: p => `You weigh strings by adding up their ASCII codes. You want a weight of exactly ${p.weight}; closer is `
-    + "better, and every edit anyone makes shifts the scale.",
+  params: s => ({ weight: valuesParam("Weight", scaleWeight(s)) }),
+  legacy: (p, s) => fixedTo(p, "weight", scaleWeight(s)),
+  support: s => scaleWeight(s).map(weight => ({ weight })),
+  summary: p => `Try to make x weigh exactly ${p.weight}, adding up the ASCII codes of its characters. You lose 1 point for each unit `
+    + "it is away from that. Every edit anyone makes shifts the scale.",
   python: p => pyCard(scaleText(p), `
     def utility(x):
         weight = 0

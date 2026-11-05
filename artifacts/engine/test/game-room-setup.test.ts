@@ -8,32 +8,32 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { seedSetupSettings } from "@workspace/game-core";
-import { api, gods, roomWith, startGame, touch } from "./game-helpers.ts";
+import { api, gods, roomWith, setupEntries, startGame, touch, adminGods } from "./game-helpers.ts";
 
 async function errorCode(promise: Promise<unknown>): Promise<string> {
   try { await promise; } catch (error) { return (error as { data?: { code?: string } }).data?.code ?? `untyped: ${(error as Error).message}`; }
   return "no error";
 }
-const setupId = async (c: any, seedId: string): Promise<string> => (await c.query(api.setups.list, {})).find((s: any) => s.seedId === seedId).id;
+const setupId = async (c: any, seedId: string): Promise<string> => (await setupEntries(c)).find((s: any) => s.seedId === seedId).id;
 
-test("a new room runs First steps and can turn the assistant on in the same call", async () => {
-  const [host] = await gods("Origin Host");
+test("a new room runs Annotated basics and can set its AI quotas in the same call", async () => {
+  const [host] = await adminGods("Origin Host");
   await touch(host);
-  const { roomId } = await host.c.mutation(api.rooms.create, { assistantBudget: 150_000, assistantModel: "claude-sonnet-5-5" });
+  const { roomId } = await host.c.mutation(api.rooms.create, { assistantQuota: 150_000, aiQuota: 40_000, assistantModel: "claude-sonnet-5-5" });
   const room = await host.c.query(api.rooms.get, { room: roomId });
-  const first = await setupId(host.c, "grid-first-steps");
-  assert.deepEqual(room.settings, seedSetupSettings("grid-first-steps"));
-  assert.deepEqual(room.setup, { id: first, name: "First steps", deleted: false });
-  assert.equal(room.assistantBudget, 150_000);
+  const first = await setupId(host.c, "grid-annotated-basics");
+  assert.deepEqual(room.settings, seedSetupSettings("grid-annotated-basics"));
+  assert.deepEqual(room.setup, { id: first, name: "Annotated basics", deleted: false });
+  assert.deepEqual([room.assistantQuota, room.aiQuota], [150_000, 40_000]);
   assert.equal(room.assistantModel, "claude-sonnet-5-5");
   assert.equal((await host.c.query(api.assistant.status, { roomId })).enabled, true, "the assistant is on from the start");
-  assert.equal(await errorCode(host.c.mutation(api.rooms.create, { assistantBudget: -1 })), "BAD_REQUEST");
-  assert.equal(await errorCode(host.c.mutation(api.rooms.create, { assistantBudget: 1.5 })), "BAD_REQUEST");
+  assert.equal(await errorCode(host.c.mutation(api.rooms.create, { assistantQuota: -1 })), "BAD_REQUEST");
+  assert.equal(await errorCode(host.c.mutation(api.rooms.create, { aiQuota: 1.5 })), "BAD_REQUEST");
   assert.equal(await errorCode(host.c.mutation(api.rooms.create, { assistantModel: "gpt-nope" })), "BAD_REQUEST");
   const plain = await host.c.mutation(api.rooms.create, {});
-  assert.equal((await host.c.query(api.rooms.get, { room: plain.roomId })).assistantBudget, 0, "off unless asked");
+  assert.equal((await host.c.query(api.rooms.get, { room: plain.roomId })).assistantQuota, 300_000, "the default quota");
   const rows = await host.c.query(api.rooms.list, {});
-  assert.equal(rows.find((r: any) => r.id === roomId)?.setupName, "First steps");
+  assert.equal(rows.find((r: any) => r.id === roomId)?.setupName, "Annotated basics");
 });
 
 test("a setup saved on a stale view of the room is refused with CONFLICT and leaves the newer change", { timeout: 60_000 }, async () => {
@@ -56,7 +56,7 @@ test("a settings change moves only what the game ties to it: no retuning on a ne
   await touch(host);
   const { roomId } = await roomWith([host]);
   const revision = async () => (await host.c.query(api.rooms.get, { room: roomId })).revision;
-  const before = seedSetupSettings("grid-first-steps");
+  const before = seedSetupSettings("grid-annotated-basics");
   await host.c.action(api.owner.settings, { roomId, revision: await revision(), settings: { objectType: "Int" } });
   let room = await host.c.query(api.rooms.get, { room: roomId });
   // Hand-derived: Int's default instantiation, the Grid families no longer exist, every tuned Grid value stays the owner's.
@@ -89,26 +89,26 @@ test("a change edits the room's setup when the owner owns it, else their copy, w
   const [host, ada, bo] = await gods("Change Owner", "Change Ada", "Change Bo");
   await touch(host);
   const { roomId } = await roomWith([host, ada, bo]);
-  const first = await setupId(host.c, "grid-first-steps");
+  const first = await setupId(host.c, "grid-annotated-basics");
   const revision = async () => (await host.c.query(api.rooms.get, { room: roomId })).revision;
-  const mine = async () => Promise.all((await host.c.query(api.setups.list, {})).filter((s: any) => s.mine).map((s: any) => host.c.query(api.setups.get, { setupId: s.id })));
+  const mine = async () => Promise.all((await setupEntries(host.c)).filter((s: any) => s.mine).map((s: any) => host.c.query(api.setups.get, { setupId: s.id })));
 
-  // On the system's First steps: the change goes to a new setup of the owner's, and the room runs it.
+  // On the system's Annotated basics: the change goes to a new setup of the owner's, and the room runs it.
   const copied = await host.c.action(api.owner.settings, { roomId, revision: await revision(), settings: { interactionRateHz: 10 } });
-  assert.deepEqual([copied.setup.name, copied.setup.created], ["First steps's copy", true]);
-  assert.match(copied.setup.note, /"First steps" is a system setup/);
+  assert.deepEqual([copied.setup.name, copied.setup.created], ["Annotated basics's copy", true]);
+  assert.match(copied.setup.note, /"Annotated basics" is a system setup/);
   let room = await host.c.query(api.rooms.get, { room: roomId });
-  assert.deepEqual(room.setup, { id: copied.setup.id, name: "First steps's copy", deleted: false });
-  assert.deepEqual(room.settings, { ...seedSetupSettings("grid-first-steps"), interactionRateHz: 10 });
-  assert.deepEqual((await host.c.query(api.setups.get, { setupId: first })).settings, seedSetupSettings("grid-first-steps"), "the system's is untouched");
+  assert.deepEqual(room.setup, { id: copied.setup.id, name: "Annotated basics's copy", deleted: false });
+  assert.deepEqual(room.settings, { ...seedSetupSettings("grid-annotated-basics"), interactionRateHz: 10 });
+  assert.deepEqual((await host.c.query(api.setups.get, { setupId: first })).settings, seedSetupSettings("grid-annotated-basics"), "the system's is untouched");
   // Now the owner's own: the next change edits it in place, no new copy.
   const edited = await host.c.action(api.owner.settings, { roomId, revision: await revision(), settings: { planningSeconds: 120 } });
   assert.deepEqual([edited.setup.id, edited.setup.created], [copied.setup.id, false]);
-  assert.deepEqual((await mine()).map((s: any) => [s.name, s.settings.interactionRateHz, s.settings.planningSeconds]), [["First steps's copy", 10, 120]]);
-  // The same settings again change nothing (no copy, no edit); only the AI budget leaves the setup alone.
+  assert.deepEqual((await mine()).map((s: any) => [s.name, s.settings.interactionRateHz, s.settings.planningSeconds]), [["Annotated basics's copy", 10, 120]]);
+  // The same settings again change nothing (no copy, no edit); nor does a commit with no settings at all.
   const same = await host.c.action(api.owner.settings, { roomId, revision: await revision(), settings: { planningSeconds: 120 } });
   assert.equal(same.setup, undefined);
-  await host.c.action(api.owner.settings, { roomId, revision: await revision(), aiBudget: 1000 });
+  await host.c.action(api.owner.settings, { roomId, revision: await revision() });
   assert.deepEqual((await host.c.query(api.rooms.get, { room: roomId })).setup.id, copied.setup.id);
   assert.equal((await mine()).length, 1);
 
@@ -146,7 +146,7 @@ test("a change edits the owner's setup as it is now, not the room's older snapsh
   for (const roomId of [a.roomId, b.roomId]) await host.c.action(api.owner.settings, { roomId, revision: await revision(roomId), setupId: mine.id });
   // Edited elsewhere (here: saved directly); room A's snapshot still has the old energy.
   await host.c.action(api.setups.save, { setupId: mine.id, name: "Shared board", settings: { ...seedSetupSettings("grid-classic"), startingEnergy: 400 } });
-  assert.equal((await host.c.query(api.rooms.get, { room: a.roomId })).settings.startingEnergy, 100);
+  assert.equal((await host.c.query(api.rooms.get, { room: a.roomId })).settings.startingEnergy, 200);
   const changed = await host.c.action(api.owner.settings, { roomId: a.roomId, revision: await revision(a.roomId), settings: { planningSeconds: 120 } });
   assert.deepEqual([changed.setup.id, changed.setup.created], [mine.id, false]);
   const stored = (await host.c.query(api.setups.get, { setupId: mine.id })).settings;
@@ -154,7 +154,7 @@ test("a change edits the owner's setup as it is now, not the room's older snapsh
   assert.deepEqual((await host.c.query(api.rooms.get, { room: a.roomId })).settings, stored);
 
   // At the cap of own setups, explicit saves and copies are refused, but changing a room on a system setup still works.
-  const own = (await host.c.query(api.setups.list, {})).filter((s: any) => s.mine).length;
+  const own = (await setupEntries(host.c)).filter((s: any) => s.mine).length;
   const classic = await setupId(host.c, "grid-classic");
   for (let i = own; i < 50; i++) await host.c.mutation(api.setups.duplicate, { setupId: classic });
   assert.equal(await errorCode(host.c.mutation(api.setups.duplicate, { setupId: classic })), "BAD_REQUEST", "the cap");

@@ -1,11 +1,13 @@
 /** Colour & visual-pattern lens rules (lib/grid-lab/gridlab/rules/colour.py, cards from rules/cards.py). */
 import type { CardText, GridSpec } from "./_util.ts";
+import type { Params } from "../../types.ts";
+import { boolParam, choiceParam, colourParam, intParam } from "../../params.ts";
 import { lazySurvival, rowTransferCount, type AnalyticSurvival } from "../../analytic.ts";
 import {
-  SCALAR, article, cap, chance, climb, cname, colourPairs, fromFn, full, gridFamily, list, pick, product, pyCard, range,
-  recipes, recolour, tsCard, tuple, wire,
+  SCALAR, article, cap, chance, climb, cname, colourPairs, fromFn, full, gridFamily, list, pick, product, pyCard, range, recipes, recolour, tsCard, tuple, wire, colourAt, recolourNames,
 } from "./_util.ts";
 import { solvedAnalytic } from "../../analytic/hook.ts";
+import { tierPoints } from "../../tuples.ts";
 import { MIXER_OPTIMA, mixerOptimum } from "../../analytic/maxima.ts";
 
 // --- Stripe Painter --------------------------------------------------------------------------------
@@ -14,15 +16,15 @@ const stripeText = (p: StripeP): CardText => {
   const kind = p.axis === "rows" ? "row" : "column";
   return {
     emoji: "🦓", name: "Stripe Painter", consts: [],
-    about: `A stripe is a ${kind} that is all one colour. Each stripe scores 1 point, unless the ${kind} just before it `
-      + `is a stripe of the same colour. Most points wins. If that's a tie, add up how many cells in each ${kind} `
-      + "match that line's most common colour.",
+    about: `Try to paint ${kind}s in single colours. A stripe is a ${kind} that is all one colour. Each stripe scores ${tierPoints(1, 0, 2)}, unless the ${kind} just before it `
+      + `is a stripe of the same colour. Each ${kind} also scores as many secondary points as it has cells in its most common colour.`,
   };
 };
 const stripePainter = gridFamily<StripeP>({
   id: "stripe_painter", name: "Stripe Painter", emoji: "🦓", theme: "A striped flag",
   analytic: solvedAnalytic("stripe_painter"),
   shape: tuple(2), tags: ["shortlist"],
+  params: () => ({ axis: choiceParam("Stripes run along", [["rows", "rows"], ["cols", "columns"]]) }),
   support: () => [{ axis: "rows" }, { axis: "cols" }],
   canonical: () => ({ axis: "rows" }),
   summary: p => stripeText(p).about,
@@ -84,21 +86,23 @@ const stripePainter = gridFamily<StripeP>({
 });
 
 // --- Feuding Families --------------------------------------------------------------------------------
-type FeudP = { X: number; Y: number };
+type FeudP = { first_family: string; second_family: string };
 const feudText = (p: FeudP, g: GridSpec): CardText => {
-  const X = cname(g, p.X), Y = cname(g, p.Y);
+  const X = p.first_family, Y = p.second_family;
   return {
     emoji: "😤", name: "Feuding Families", consts: [["FAMILY_1", X], ["FAMILY_2", Y]],
-    about: `${cap(X)} cells and ${Y} cells are two feuding families. A cell is safe if it doesn't touch a cell of the `
-      + "other family. Count the safe cells in each family. Your score is the smaller count, 1 point per cell. "
-      + "If that's a tie, more safe cells in total wins.",
+    about: `Try to keep ${X} cells and ${Y} cells apart. They are two feuding families. A cell is safe if it doesn't touch a cell of the `
+      + "other family. Count the safe cells in each family. "
+      + `The family with fewer safe cells scores ${tierPoints("1", 0, 2)} for each of its safe cells. Every safe cell also scores ${tierPoints(1, 1, 2)}.`,
   };
 };
 const feudingFamilies = gridFamily<FeudP>({
   id: "feuding_families", name: "Feuding Families", emoji: "😤", theme: "Two big families that must never touch",
   shape: tuple(2), tags: ["shortlist"],
-  support: g => colourPairs(g).map(([X, Y]) => ({ X, Y })),
-  canonical: p => recolour(p, ["X", "Y"]),
+  params: () => ({ first_family: colourParam("First family"), second_family: colourParam("Second family") }),
+  legacy: (p, g) => (typeof p.X === "number" ? { first_family: g.colourNames[p.X], second_family: g.colourNames[p.Y as number] } : null),
+  support: g => colourPairs(g).map(([X, Y]) => ({ first_family: g.colourNames[X], second_family: g.colourNames[Y] })),
+  canonical: (p, g) => recolourNames(g, p, ["first_family", "second_family"]),
   summary: (p, g) => feudText(p, g).about,
   python: (p, g) => pyCard(feudText(p, g), `
     def safe(cell, enemy):
@@ -134,39 +138,45 @@ const feudingFamilies = gridFamily<FeudP>({
       return [Math.min(safe1, safe2), safe1 + safe2];
     }`),
   exemplar: (p, g, ctx) => {
-    const N = g.N, Z = range(g.C).find(k => k !== p.X && k !== p.Y)!, h = Math.floor((N - 1) / 2), z = full(N, 0);
+    const N = g.N, X = colourAt(g, p.first_family), Y = colourAt(g, p.second_family);
+    const Z = range(g.C).find(k => k !== X && k !== Y)!, h = Math.floor((N - 1) / 2), z = full(N, 0);
     return climb("feuding_families", p, ctx, [
-      { sym: z, col: fromFn(N, r => (r < h ? p.X : r === h ? Z : p.Y)) },
-      { sym: z, col: fromFn(N, (r, c) => (r + c < N - 1 ? p.X : r + c === N - 1 ? Z : p.Y)) },
+      { sym: z, col: fromFn(N, r => (r < h ? X : r === h ? Z : Y)) },
+      { sym: z, col: fromFn(N, (r, c) => (r + c < N - 1 ? X : r + c === N - 1 ? Z : Y)) },
     ], 0);
   },
 });
 
 // --- Colour Mixer ------------------------------------------------------------------------------------
-type MixP = { P1: number; M: number; P2: number; strict: boolean };
+type MixP = { first_paint: string; mixed_colour: string; second_paint: string };
 const mixText = (p: MixP, g: GridSpec): CardText => {
-  const P1 = cname(g, p.P1), P2 = cname(g, p.P2), M = cname(g, p.M);
+  const P1 = p.first_paint, P2 = p.second_paint, M = p.mixed_colour;
   return {
     emoji: "🎨", name: "Colour Mixer", consts: [["PAINT_1", P1], ["PAINT_2", P2]],
-    about: `${cap(P1)} and ${P2} paint mix to make ${M}. `
-      + (p.strict
-        ? `Each ${M} cell with ${P1} on one side and ${P2} on the opposite side (left and right, or above and below) `
-          + "scores 1 point. "
-        : `Each ${M} cell that touches both a ${P1} cell and a ${P2} cell scores 1 point. `)
-      + `Most points wins. If that's a tie, more ${M} cells touching either paint wins.`,
+    about: `Try to put ${M} cells between ${P1} and ${P2}. ${cap(P1)} and ${P2} paint mix to make ${M}. `
+      + `Each ${M} cell that touches both a ${P1} cell and a ${P2} cell scores ${tierPoints(1, 0, 2)}. `
+      + `Each ${M} cell that touches either paint scores ${tierPoints(1, 1, 2)}.`,
   };
 };
 const colourMixer = gridFamily<MixP>({
   id: "colour_mixer", name: "Colour Mixer", emoji: "🎨", theme: "A mixed colour touching both its parents",
   requires: { classes: ["Mixable"] }, shape: tuple(2), tags: ["shortlist"],
-  support: g => recipes(g).flatMap(([P1, P2, M]) => [false, true].map(strict => ({ P1, M, P2, strict }))),
+  params: () => ({
+    first_paint: colourParam("First paint"), mixed_colour: colourParam("Colour they mix to"), second_paint: colourParam("Second paint"),
+  }),
+  // "Paints must sit on opposite sides" scored a different, stricter thing, with top bits 20% apart (P10): touching both is the rule.
+  legacy: (p, g) => (typeof p.P1 === "number"
+    ? { first_paint: g.colourNames[p.P1], mixed_colour: g.colourNames[p.M as number], second_paint: g.colourNames[p.P2 as number] }
+    : "strict" in p ? { first_paint: p.first_paint as string, mixed_colour: p.mixed_colour as string, second_paint: p.second_paint as string } : null),
+  support: g => recipes(g).map(([P1, P2, M]) =>
+    ({ first_paint: g.colourNames[P1], mixed_colour: g.colourNames[M], second_paint: g.colourNames[P2] })),
   sample: (rng, g) => {
     const [P1, P2, M] = pick(rng, recipes(g));
-    return { P1, M, P2, strict: chance(rng, 1, 2) };
+    return { first_paint: g.colourNames[P1], mixed_colour: g.colourNames[M], second_paint: g.colourNames[P2] };
   },
-  canonical: (p, g) => {
+  canonical: (_, g) => {
     const [P1, P2, M] = recipes(g)[0]; // all distinct colour triples are equivalent under colour permutation
-    return { P1, M, P2, strict: p.strict };
+    return { first_paint: g.colourNames[P1], mixed_colour: g.colourNames[M], second_paint: g.colourNames[P2] };
   },
   summary: (p, g) => mixText(p, g).about,
   python: (p, g) => pyCard(mixText(p, g), `
@@ -177,12 +187,7 @@ const colourMixer = gridFamily<MixP>({
             if other.colour == colour:
                 return True
         return False
-${p.strict ? `
-    def between(cell, a, b):
-        if a is None or b is None:
-            return False
-        return (a.colour == PAINT_1 and b.colour == PAINT_2) or (a.colour == PAINT_2 and b.colour == PAINT_1)
-` : ""}
+
     def utility(grid):
         mixes = 0
         near = 0
@@ -191,8 +196,7 @@ ${p.strict ? `
                 continue
             if touches(cell, PAINT_1) or touches(cell, PAINT_2):
                 near += 1
-            if ${p.strict ? "between(cell, cell.left, cell.right) or between(cell, cell.up, cell.down)"
-    : "touches(cell, PAINT_1) and touches(cell, PAINT_2)"}:
+            if touches(cell, PAINT_1) and touches(cell, PAINT_2):
                 mixes += 1
         return (mixes, near)`),
   typescript: (p, g) => tsCard(mixText(p, g), `
@@ -204,27 +208,21 @@ ${p.strict ? `
       }
       return false;
     }
-${p.strict ? `
-    function between(cell, a, b) {
-      if (a === null || b === null) return false;
-      return (a.colour === PAINT_1 && b.colour === PAINT_2) || (a.colour === PAINT_2 && b.colour === PAINT_1);
-    }
-` : ""}
+
     function utility(grid) {
       let mixes = 0;
       let near = 0;
       for (const cell of grid.cells) {
         if (cell.colour !== MIXED) continue;
         if (touches(cell, PAINT_1) || touches(cell, PAINT_2)) near += 1;
-        if (${p.strict ? "between(cell, cell.left, cell.right) || between(cell, cell.up, cell.down)"
-    : "touches(cell, PAINT_1) && touches(cell, PAINT_2)"}) mixes += 1;
+        if (touches(cell, PAINT_1) && touches(cell, PAINT_2)) mixes += 1;
       }
       return [mixes, near];
     }`),
   // The exact optimum of a max-plus transfer matrix over the letters P1/P2/M (src/analytic/maxima.ts): a proven maximum.
   exemplar: (p, g) => {
-    const rows = MIXER_OPTIMA[g.N]?.[p.strict ? "strict" : "loose"] ?? mixerOptimum(g.N, p.strict).rows; // tabulated for every GRID_SIZES
-    const colour = { A: p.P1, B: p.P2, M: p.M } as const;
+    const rows = MIXER_OPTIMA[g.N]?.loose ?? mixerOptimum(g.N, false).rows; // tabulated for every GRID_SIZES
+    const colour = { A: colourAt(g, p.first_paint), B: colourAt(g, p.second_paint), M: colourAt(g, p.mixed_colour) } as const;
     return wire(g, full(g.N, 0), fromFn(g.N, (r, c) => colour[rows[r][c] as "A" | "B" | "M"]));
   },
 });
@@ -232,13 +230,14 @@ ${p.strict ? `
 // --- Fair Weaver ---------------------------------------------------------------------------------------
 const weaverText = (g: GridSpec): CardText => ({
   emoji: "🧶", name: "Fair Weaver", consts: [],
-  about: `A row or column is fair if every colour (${g.say.colours(range(g.C))}) appears almost equally often. `
-    + "Its most common and least common colour may differ by at most 1. Each fair line scores 1 point. "
-    + "Most points wins. If that's a tie, a smaller gap between most and least common, added up over all lines, wins.",
+  about: `Try to use every colour (${g.say.colours(range(g.C))}) almost equally often in every row and column. `
+    + `A row or column is fair if its most common and least common colour differ by at most 1. Each fair line scores ${tierPoints(1, 0, 2)}. `
+    + "Each line deducts as many secondary points as the gap between its most common and least common colour.",
 });
 const fairWeaver = gridFamily<Record<string, never>>({
   id: "fair_weaver", name: "Fair Weaver", emoji: "🧶", theme: "Every colour gets a fair share of each line",
   shape: tuple(2), tags: ["shortlist"],
+  params: () => ({}),
   support: () => [{}],
   summary: (_, g) => weaverText(g).about,
   python: (_, g) => pyCard(weaverText(g), `
@@ -288,17 +287,19 @@ const fairWeaver = gridFamily<Record<string, never>>({
 });
 
 // --- Lantern Lighter -----------------------------------------------------------------------------------
-type LanternP = { X: number };
+type LanternP = { colour: string };
 const lanternText = (p: LanternP, g: GridSpec): CardText => ({
-  emoji: "🏮", name: "Lantern Lighter", consts: [["MY_COLOUR", cname(g, p.X)]],
-  about: `${cap(article(cname(g, p.X)))} cell is a lantern if it is the only ${cname(g, p.X)} cell in its row and the `
+  emoji: "🏮", name: "Lantern Lighter", consts: [["MY_COLOUR", p.colour]],
+  about: `Try to make lone ${p.colour} cells. ${cap(article(p.colour))} cell is a lantern if it is the only ${p.colour} cell in its row and the `
     + "only one in its column. Each lantern scores 1 point.",
 });
 const lanternLighter = gridFamily<LanternP>({
   id: "lantern_lighter", name: "Lantern Lighter", emoji: "🏮", theme: "One lantern per row and column",
   shape: SCALAR, tags: ["shortlist"],
-  support: g => range(g.C).map(X => ({ X })),
-  canonical: p => recolour(p, ["X"]),
+  params: () => ({ colour: colourParam("Your colour") }),
+  legacy: (p, g) => (typeof p.X === "number" ? { colour: g.colourNames[p.X] } : null),
+  support: g => g.colourNames.map(colour => ({ colour })),
+  canonical: (p, g) => recolourNames(g, p, ["colour"]),
   summary: (p, g) => lanternText(p, g).about,
   python: (p, g) => pyCard(lanternText(p, g), `
     def count_mine(line):
@@ -333,7 +334,10 @@ const lanternLighter = gridFamily<LanternP>({
       }
       return lanterns;
     }`),
-  exemplar: (p, g) => wire(g, full(g.N, 0), fromFn(g.N, (r, c) => (r === c ? p.X : (p.X + 1) % g.C))),
+  exemplar: (p, g) => {
+    const X = colourAt(g, p.colour);
+    return wire(g, full(g.N, 0), fromFn(g.N, (r, c) => (r === c ? X : (X + 1) % g.C)));
+  },
 });
 
 
@@ -359,13 +363,22 @@ const READ_LINES: Record<Dir4, string> = {
   "→": "every row, left to right", "←": "every row, right to left",
   "↓": "every column, top to bottom", "↑": "every column, bottom to top",
 };
-type PairP = { A: number; B: number };
-const pairConsts = (p: PairP, g: GridSpec) => [["COLOUR_A", cname(g, p.A)], ["COLOUR_B", cname(g, p.B)]] as const;
+type PairP = { first_colour: string; second_colour: string };
+const pairConsts = (p: PairP) => [["COLOUR_A", p.first_colour], ["COLOUR_B", p.second_colour]] as const;
+const pairParams = () => ({ first_colour: colourParam("First colour"), second_colour: colourParam("Second colour") });
+const pairLegacy = (p: Params, g: GridSpec): PairP | null =>
+  (typeof p.A === "number" ? { first_colour: g.colourNames[p.A], second_colour: g.colourNames[p.B as number] } : null);
+const pairSupport = (g: GridSpec): PairP[] =>
+  colourPairs(g).map(([A, B]) => ({ first_colour: g.colourNames[A], second_colour: g.colourNames[B] }));
+const checker = (p: PairP, g: GridSpec) => {
+  const A = colourAt(g, p.first_colour), B = colourAt(g, p.second_colour);
+  return wire(g, full(g.N, 0), fromFn(g.N, (r, c) => ((r + c) % 2 === 0 ? A : B)));
+};
 
 // --- Best Friends ----------------------------------------------------------------------------------
-const friendsText = (p: PairP, g: GridSpec): CardText => ({
-  emoji: "🤗", name: "Best Friends", consts: pairConsts(p, g),
-  about: `Each time ${article(cname(g, p.A))} cell touches ${article(cname(g, p.B))} cell, that scores 1 point. `
+const friendsText = (p: PairP): CardText => ({
+  emoji: "🤗", name: "Best Friends", consts: pairConsts(p),
+  about: `Try to touch ${article(p.first_colour)} cell with ${article(p.second_colour)} cell. Each time they touch, that scores 1 point. `
     + "Two cells touch when they share a side.",
 });
 const OPPOSITE_PY = `
@@ -381,10 +394,10 @@ const OPPOSITE_TS = `
 const TRANSFER_STATES = 1300;
 const bestFriends = gridFamily<PairP>({
   id: "best_friends", name: "Best Friends", emoji: "🤗", theme: "Your two colours side by side", shape: SCALAR,
-  support: g => colourPairs(g).map(([A, B]) => ({ A, B })),
-  canonical: p => recolour(p, ["A", "B"]),
-  summary: (p, g) => friendsText(p, g).about,
-  python: (p, g) => pyCard(friendsText(p, g), `${OPPOSITE_PY}
+  params: pairParams, legacy: pairLegacy, support: pairSupport,
+  canonical: (p, g) => recolourNames(g, p, ["first_colour", "second_colour"]),
+  summary: (p, g) => friendsText(p).about,
+  python: (p, g) => pyCard(friendsText(p), `${OPPOSITE_PY}
     def utility(grid):
         seams = 0
         for cell in grid.cells:
@@ -392,7 +405,7 @@ const bestFriends = gridFamily<PairP>({
                 if other is not None and friends(cell, other):
                     seams += 1
         return seams`),
-  typescript: (p, g) => tsCard(friendsText(p, g), `${OPPOSITE_TS}
+  typescript: (p, g) => tsCard(friendsText(p), `${OPPOSITE_TS}
     function utility(grid) {
       let seams = 0;
       for (const cell of grid.cells) {
@@ -402,7 +415,7 @@ const bestFriends = gridFamily<PairP>({
       }
       return seams;
     }`),
-  exemplar: (p, g) => wire(g, full(g.N, 0), fromFn(g.N, (r, c) => ((r + c) % 2 === 0 ? p.A : p.B))),
+  exemplar: checker,
   /**
    * Seams between the two colours are a 2-D pattern count: exact by a row-to-row transfer matrix whose state is a whole
    * row colouring (C^N states; tail-toolkit.md §6). Shapes with more than TRANSFER_STATES states fall back to sampling.
@@ -423,23 +436,27 @@ const bestFriends = gridFamily<PairP>({
 });
 
 // --- Rainbow Steps ----------------------------------------------------------------------------------
-type DirP = { dir: Dir4 };
+type DirP = { direction: Dir4 };
+const DIR_CHOICES = [["→", "rows, left to right"], ["←", "rows, right to left"], ["↓", "columns, top to bottom"], ["↑", "columns, bottom to top"]] as const;
+const dirParams = () => ({ direction: choiceParam("Read the lines", DIR_CHOICES) });
+const dirLegacy = (p: Params): DirP | null => (typeof p.dir === "string" ? { direction: p.dir as Dir4 } : null);
 const stepsText = (p: DirP, g: GridSpec): CardText => ({
   emoji: "👣", name: "Rainbow Steps", consts: [],
-  about: `Look along ${READ_LINES[p.dir]}. Each time a cell is followed by the next colour in rainbow order `
-    + `(${[...g.colourNames, g.colourNames[0]].join(" → ")}), score 1 point.`,
+  about: `Try to follow the rainbow. Look along ${READ_LINES[p.direction]}. Each time a cell is followed by the next colour in rainbow order `
+    + `(${[...g.colourNames, g.colourNames[0]].join(" → ")}), that scores 1 point.`,
 });
 const rainbowSteps = gridFamily<DirP>({
   id: "rainbow_steps", name: "Rainbow Steps", emoji: "👣", theme: "Next-door colours step round the rainbow",
   analytic: solvedAnalytic("rainbow_steps"),
   requires: { classes: ["Spectral"] }, shape: SCALAR,
-  support: () => DIRS4.map(dir => ({ dir })),
-  canonical: () => ({ dir: "→" }),
+  params: dirParams, legacy: dirLegacy,
+  support: () => DIRS4.map(direction => ({ direction })),
+  canonical: () => ({ direction: "→" }),
   summary: (p, g) => stepsText(p, g).about,
   python: (p, g) => pyCard(stepsText(p, g), `
     def utility(grid):
         steps = 0
-        for line in ${PY_LINES[p.dir]}:
+        for line in ${PY_LINES[p.direction]}:
             for i in range(len(line) - 1):
                 if line[i + 1].colour == next_colour(line[i].colour):
                     steps += 1
@@ -447,27 +464,28 @@ const rainbowSteps = gridFamily<DirP>({
   typescript: (p, g) => tsCard(stepsText(p, g), `
     function utility(grid) {
       let steps = 0;
-      for (const line of ${TS_LINES[p.dir]}) {
+      for (const line of ${TS_LINES[p.direction]}) {
         for (let i = 0; i < line.length - 1; i++) {
           if (line[i + 1].colour === nextColour(line[i].colour)) steps += 1;
         }
       }
       return steps;
     }`),
-  exemplar: (p, g) => wire(g, full(g.N, 0), unorient(g.N, p.dir, i => i % g.C)),
+  exemplar: (p, g) => wire(g, full(g.N, 0), unorient(g.N, p.direction, i => i % g.C)),
 });
 
 // --- Quilt Maker -------------------------------------------------------------------------------------
 const quiltText = (g: GridSpec): CardText => ({
   emoji: "🧵", name: "Quilt Maker", consts: [],
   about: g.C >= 4
-    ? `Each 2×2 square that shows ${g.say.distinctColours(4)} scores 1 point.`
-    : `Each 2×2 square that uses ${g.say.distinctColours(3)} scores 1 point, as long as no two cells sharing a side `
+    ? `Try to make 2×2 squares with every colour different. Each 2×2 square that shows ${g.say.distinctColours(4)} scores 1 point.`
+    : `Try to make 2×2 squares with no neighbours alike. Each 2×2 square that uses ${g.say.distinctColours(3)} scores 1 point, as long as no two cells sharing a side `
       + "match.",
 });
 const quiltMaker = gridFamily<Record<string, never>>({
   id: "quilt_maker", name: "Quilt Maker", emoji: "🧵", theme: "Patchwork squares with no two patches alike", shape: SCALAR,
   requires: { minColours: 3 },
+  params: () => ({}),
   support: () => [{}],
   summary: (_, g) => quiltText(g).about,
   python: (_, g) => pyCard(quiltText(g), `
@@ -504,19 +522,24 @@ const quiltMaker = gridFamily<Record<string, never>>({
 });
 
 // --- Flag Bearer -------------------------------------------------------------------------------------
-type FlagP = { C: number; axis: "rows" | "cols" };
+type FlagP = { colour: string; axis: "rows" | "cols" };
 const flagText = (p: FlagP, g: GridSpec): CardText => ({
-  emoji: "🚩", name: "Flag Bearer", consts: [["MY_COLOUR", cname(g, p.C)]],
-  about: `Your colour is ${cname(g, p.C)}. A ${p.axis === "rows" ? "row" : "column"} is yours if it has more `
-    + `${cname(g, p.C)} cells than cells of any other single colour. Each of your ${p.axis === "rows" ? "rows" : "columns"} `
-    + "scores 1 point. Most points wins. If that's a tie, a bigger lead wins: your cells minus the best other "
-    + "colour's cells, added up over all lines.",
+  emoji: "🚩", name: "Flag Bearer", consts: [["MY_COLOUR", p.colour]],
+  about: `Try to make ${p.colour}, your colour, the most common colour in every ${p.axis === "rows" ? "row" : "column"}. A ${p.axis === "rows" ? "row" : "column"} is yours if it has more `
+    + `${p.colour} cells than cells of any other single colour. Each of your ${p.axis === "rows" ? "rows" : "columns"} `
+    + `scores ${tierPoints(1, 0, 2)}. Each ${p.axis === "rows" ? "row" : "column"} also scores as many secondary points as your cells minus the best other `
+    + `colour's cells, plus ${g.N}.`,
 });
 const flagBearer = gridFamily<FlagP>({
-  id: "flag_bearer", name: "Flag Bearer", emoji: "🚩", theme: "Your colour wins the vote in every row", shape: tuple(2),
+  id: "flag_bearer", name: "Flag Bearer", emoji: "🚩", theme: "Your colour is the most common in every row", shape: tuple(2),
   analytic: solvedAnalytic("flag_bearer"),
-  support: g => product<FlagP>({ C: range(g.C), axis: ["rows", "cols"] }),
-  canonical: () => ({ C: 0, axis: "rows" }),
+  params: () => ({
+    colour: colourParam("Your colour"),
+    axis: choiceParam("Lines that count", [["rows", "rows"], ["cols", "columns"]]),
+  }),
+  legacy: (p, g) => (typeof p.C === "number" ? { colour: g.colourNames[p.C], axis: p.axis as FlagP["axis"] } : null),
+  support: g => product<FlagP>({ colour: g.colourNames, axis: ["rows", "cols"] }),
+  canonical: (_p, g) => ({ colour: g.colourNames[0], axis: "rows" }),
   summary: (p, g) => flagText(p, g).about,
   python: (p, g) => pyCard(flagText(p, g), `
     def count(line, colour):
@@ -553,30 +576,32 @@ const flagBearer = gridFamily<FlagP>({
       }
       return [won, lead];
     }`),
-  exemplar: (p, g) => wire(g, full(g.N, 0), full(g.N, p.C)),
+  exemplar: (p, g) => wire(g, full(g.N, 0), full(g.N, colourAt(g, p.colour))),
 });
 
 // --- Colour-by-Number ----------------------------------------------------------------------------------
-type ShiftP = { t: number };
+type ShiftP = { shift: number };
 /** The colouring key, one short sentence per colour, with the values named as the board shows them. */
 const keySentences = (p: ShiftP, g: GridSpec): string => {
   const values = [...new Set(g.value)].sort((a, b) => a - b);
   return [g.say.valueKey(), ...range(g.C).map(k => {
-    const vs = values.filter(v => (v + p.t) % g.C === k);
+    const vs = values.filter(v => (v + p.shift) % g.C === k);
     return vs.length ? `${cap(cname(g, k))} is for ${g.say.values(vs)}.` : "";
   })].filter(Boolean).join(" ");
 };
 const keyText = (p: ShiftP, g: GridSpec): CardText => ({
-  emoji: "🔢", name: "Colour-by-Number", consts: [["SHIFT", p.t]],
-  about: `Every ${g.cards ? "rank" : "number"} has its own colour. ` + keySentences(p, g)
+  emoji: "🔢", name: "Colour-by-Number", consts: [["SHIFT", p.shift]],
+  about: `Try to paint every cell the colour of its ${g.cards ? "rank" : "number"}. Every ${g.cards ? "rank" : "number"} has its own colour. ` + keySentences(p, g)
     + ` Each cell painted the right colour for its ${g.cards ? "rank" : "number"} scores 1 point.`,
 });
 const colourByNumber = gridFamily<ShiftP>({
   id: "colour_by_number", name: "Colour-by-Number", emoji: "🔢", theme: "Every number has its own colour",
   analytic: solvedAnalytic("colour_by_number"),
   requires: { classes: ["Valued"] }, shape: SCALAR,
-  support: g => range(g.C).map(t => ({ t })),
-  canonical: () => ({ t: 0 }), // cyclic colour relabelling shifts t
+  params: g => ({ shift: intParam("Colour shift (0 paints the first number in the first colour)", 0, g.C - 1) }),
+  legacy: p => (typeof p.t === "number" ? { shift: p.t } : null),
+  support: g => range(g.C).map(shift => ({ shift })),
+  canonical: () => ({ shift: 0 }), // cyclic colour relabelling shifts the shift
   summary: (p, g) => keyText(p, g).about,
   python: (p, g) => pyCard(keyText(p, g), `
     def utility(grid):
@@ -593,22 +618,24 @@ const colourByNumber = gridFamily<ShiftP>({
       }
       return right;
     }`),
-  exemplar: (p, g) => wire(g, fromFn(g.N, (_, c) => c % g.S), fromFn(g.N, (_, c) => (g.value[c % g.S] + p.t) % g.C)),
+  exemplar: (p, g) => wire(g, fromFn(g.N, (_, c) => c % g.S), fromFn(g.N, (_, c) => (g.value[c % g.S] + p.shift) % g.C)),
 });
 
 // --- Kingdom ------------------------------------------------------------------------------------------
-type KingdomP = { C: number };
-const kingdomText = (p: KingdomP, g: GridSpec): CardText => ({
-  emoji: "🏰", name: "Kingdom", consts: [["MY_COLOUR", cname(g, p.C)]],
-  about: `Your colour is ${cname(g, p.C)}. A patch is a group of ${cname(g, p.C)} cells joined side to side. `
-    + "Score 1 point for each cell in your biggest patch.",
+type KingdomP = { colour: string };
+const kingdomText = (p: KingdomP): CardText => ({
+  emoji: "🏰", name: "Kingdom", consts: [["MY_COLOUR", p.colour]],
+  about: `Try to grow the biggest patch of ${p.colour}, your colour. A patch is a group of ${p.colour} cells joined side to side. `
+    + "Each cell in your biggest patch scores 1 point.",
 });
 const kingdom = gridFamily<KingdomP>({
   id: "kingdom", name: "Kingdom", emoji: "🏰", theme: "The biggest patch of your colour", shape: SCALAR,
-  support: g => range(g.C).map(C => ({ C })),
-  canonical: p => recolour(p, ["C"]),
-  summary: (p, g) => kingdomText(p, g).about,
-  python: (p, g) => pyCard(kingdomText(p, g), `
+  params: () => ({ colour: colourParam("Your colour") }),
+  legacy: (p, g) => (typeof p.C === "number" ? { colour: g.colourNames[p.C] } : null),
+  support: g => g.colourNames.map(colour => ({ colour })),
+  canonical: (p, g) => recolourNames(g, p, ["colour"]),
+  summary: p => kingdomText(p).about,
+  python: p => pyCard(kingdomText(p), `
     def same_colour(a, b):
         return a.colour == b.colour
 
@@ -618,7 +645,7 @@ const kingdom = gridFamily<KingdomP>({
             if patch[0].colour == MY_COLOUR:
                 biggest = max(biggest, len(patch))
         return biggest`),
-  typescript: (p, g) => tsCard(kingdomText(p, g), `
+  typescript: p => tsCard(kingdomText(p), `
     function sameColour(a, b) {
       return a.colour === b.colour;
     }
@@ -630,28 +657,33 @@ const kingdom = gridFamily<KingdomP>({
       }
       return biggest;
     }`),
-  exemplar: (p, g) => wire(g, full(g.N, 0), full(g.N, p.C)),
+  exemplar: (p, g) => wire(g, full(g.N, 0), full(g.N, colourAt(g, p.colour))),
 });
 
 // --- Wallpaper Weaver -----------------------------------------------------------------------------------
-type PaperP = { p: number; dir: "right" | "down" };
+/** How far apart the compared cells are: 3 steps leaves far fewer pairs on a small board than 2 (13 vs 6 bits on 4×4), so only 2 is left (P10). */
+const PAPER_STEPS = 2;
+type PaperP = { direction: "right" | "down" };
 const paperText = (p: PaperP): CardText => ({
-  emoji: "🧱", name: "Wallpaper Weaver", consts: [["STEPS", p.p]],
-  about: `Compare each cell with the cell ${p.p} steps ${p.dir === "right" ? "to its right" : "below it"}. `
+  emoji: "🧱", name: "Wallpaper Weaver", consts: [["STEPS", PAPER_STEPS]],
+  about: `Try to repeat the pattern every ${PAPER_STEPS} steps. Compare each cell with the cell ${PAPER_STEPS} steps ${p.direction === "right" ? "to its right" : "below it"}. `
     + "Each cell that has the same colour scores 1 point.",
 });
 const wallpaper = gridFamily<PaperP>({
   id: "wallpaper_weaver", name: "Wallpaper Weaver", emoji: "🧱", theme: "A repeating pattern", shape: SCALAR,
   analytic: solvedAnalytic("wallpaper_weaver"),
-  support: g => product<PaperP>({ p: g.N >= 4 ? [2, 3] : [2], dir: ["right", "down"] }),
-  canonical: p => ({ p: p.p, dir: "right" }),
+  params: () => ({ direction: choiceParam("Compare with the cell", [["right", "to the right"], ["down", "below"]]) }),
+  legacy: p => (typeof p.p === "number" || "steps" in p
+    ? { direction: (typeof p.p === "number" ? p.dir : p.direction) as PaperP["direction"] } : null),
+  support: () => [{ direction: "right" }, { direction: "down" }],
+  canonical: () => ({ direction: "right" }),
   summary: p => paperText(p).about,
   python: p => pyCard(paperText(p), `
     def utility(grid):
         repeats = 0
         for cell in grid.cells:
-            if cell.${p.dir === "right" ? "col" : "row"} + STEPS < grid.size:
-                other = grid.cell(${p.dir === "right" ? "cell.row, cell.col + STEPS" : "cell.row + STEPS, cell.col"})
+            if cell.${p.direction === "right" ? "col" : "row"} + STEPS < grid.size:
+                other = grid.cell(${p.direction === "right" ? "cell.row, cell.col + STEPS" : "cell.row + STEPS, cell.col"})
                 if other.colour == cell.colour:
                     repeats += 1
         return repeats`),
@@ -659,8 +691,8 @@ const wallpaper = gridFamily<PaperP>({
     function utility(grid) {
       let repeats = 0;
       for (const cell of grid.cells) {
-        if (cell.${p.dir === "right" ? "col" : "row"} + STEPS < grid.size) {
-          const other = grid.cell(${p.dir === "right" ? "cell.row, cell.col + STEPS" : "cell.row + STEPS, cell.col"});
+        if (cell.${p.direction === "right" ? "col" : "row"} + STEPS < grid.size) {
+          const other = grid.cell(${p.direction === "right" ? "cell.row, cell.col + STEPS" : "cell.row + STEPS, cell.col"});
           if (other.colour === cell.colour) repeats += 1;
         }
       }
@@ -672,22 +704,23 @@ const wallpaper = gridFamily<PaperP>({
 // --- Sunset Sky --------------------------------------------------------------------------------------------
 const sunsetText = (p: DirP, g: GridSpec): CardText => ({
   emoji: "🌅", name: "Sunset Sky", consts: [],
-  about: `Look along ${READ_LINES[p.dir]}. A good step stays on the same colour or moves one step along the rainbow `
+  about: `Try to make lines that fade through the rainbow like a sunset. Look along ${READ_LINES[p.direction]}. A good step stays on the same colour or moves one step along the rainbow `
     + `(${g.colourNames.join(" → ")}), never back. A line is a sunset if every step is good and it uses at least 3 colours. `
-    + "Each sunset scores 1 point. Most sunsets wins. If that's a tie, more good steps wins.",
+    + `Each sunset scores ${tierPoints(1, 0, 2)}. Each good step anywhere scores ${tierPoints(1, 1, 2)}.`,
 });
 const sunsetSky = gridFamily<DirP>({
   id: "sunset_sky", name: "Sunset Sky", emoji: "🌅", theme: "Lines that fade smoothly along the rainbow",
   analytic: solvedAnalytic("sunset_sky"),
   requires: { classes: ["Spectral"], minColours: 3 }, shape: tuple(2),
-  support: () => DIRS4.map(dir => ({ dir })),
-  canonical: () => ({ dir: "↓" }),
+  params: dirParams, legacy: dirLegacy,
+  support: () => DIRS4.map(direction => ({ direction })),
+  canonical: () => ({ direction: "↓" }),
   summary: (p, g) => sunsetText(p, g).about,
   python: (p, g) => pyCard(sunsetText(p, g), `
     def utility(grid):
         sunsets = 0
         good = 0
-        for line in ${PY_LINES[p.dir]}:
+        for line in ${PY_LINES[p.direction]}:
             places = [grid.palette.index(cell.colour) for cell in line]
             smooth = 0
             for i in range(len(places) - 1):
@@ -701,7 +734,7 @@ const sunsetSky = gridFamily<DirP>({
     function utility(grid) {
       let sunsets = 0;
       let good = 0;
-      for (const line of ${TS_LINES[p.dir]}) {
+      for (const line of ${TS_LINES[p.direction]}) {
         const places = line.map(cell => grid.palette.indexOf(cell.colour));
         let smooth = 0;
         for (let i = 0; i < places.length - 1; i++) {
@@ -713,26 +746,30 @@ const sunsetSky = gridFamily<DirP>({
       }
       return [sunsets, good];
     }`),
-  exemplar: (p, g) => wire(g, full(g.N, 0), unorient(g.N, p.dir, i => Math.min(i, g.C - 1))),
+  exemplar: (p, g) => wire(g, full(g.N, 0), unorient(g.N, p.direction, i => Math.min(i, g.C - 1))),
 });
 
 // --- Colour Wheel Harmony -------------------------------------------------------------------------------------
-type HarmonyP = { fav: number | null };
+type HarmonyP = { favourite: string };
 const harmonyText = (p: HarmonyP, g: GridSpec): CardText => {
   const h = g.C / 2;
   return {
-    emoji: "☯️", name: "Colour Wheel Harmony", consts: p.fav === null ? [] : [["FAVOURITE", cname(g, p.fav)]],
-    about: "Opposite colours on the colour wheel are "
+    emoji: "☯️", name: "Colour Wheel Harmony", consts: p.favourite === "any" ? [] : [["FAVOURITE", p.favourite]],
+    about: "Try to touch opposite colours. Opposite colours on the colour wheel are "
       + list(range(h).map(i => `${cname(g, i)}–${cname(g, i + h)}`)) + ". Each time two opposite colours touch, "
-      + (p.fav === null ? "score 1 point." : `score 1 point, or 2 points if one of them is ${cname(g, p.fav)}.`),
+      + (p.favourite === "any" ? "score 1 point." : `score 1 point, or 2 points if one of them is ${p.favourite}.`),
   };
 };
 const harmony = gridFamily<HarmonyP>({
   id: "colour_wheel_harmony", name: "Colour Wheel Harmony", emoji: "☯️", theme: "Opposite colours that make each other pop",
   requires: { classes: ["Wheel"], evenColours: true }, shape: SCALAR,
-  support: g => [null, ...range(Math.floor(g.C / 2))].map(fav => ({ fav })),
-  sample: (rng, g) => ({ fav: chance(rng, 1, 2) ? null : rng.int(Math.floor(g.C / 2)) }),
-  canonical: p => ({ fav: p.fav === null ? null : 0 }),
+  params: g => ({
+    favourite: choiceParam("Favourite colour (its pairs score double)", [["any", "no favourite"], ...g.colourNames.slice(0, Math.floor(g.C / 2)).map(n => [n, n] as const)]),
+  }),
+  legacy: (p, g) => (p.fav !== undefined ? { favourite: p.fav === null ? "any" : g.colourNames[p.fav as number] } : null),
+  support: g => ["any", ...g.colourNames.slice(0, Math.floor(g.C / 2))].map(favourite => ({ favourite })),
+  sample: (rng, g) => ({ favourite: chance(rng, 1, 2) ? "any" : g.colourNames[rng.int(Math.floor(g.C / 2))] }),
+  canonical: (p, g) => ({ favourite: p.favourite === "any" ? "any" : g.colourNames[0] }),
   summary: (p, g) => harmonyText(p, g).about,
   python: (p, g) => pyCard(harmonyText(p, g), `
     def opposite(grid, a, b):
@@ -742,7 +779,7 @@ const harmony = gridFamily<HarmonyP>({
         points = 0
         for cell in grid.cells:
             for other in (cell.right, cell.down):
-                if other is not None and opposite(grid, cell, other):${p.fav === null ? `
+                if other is not None and opposite(grid, cell, other):${p.favourite === "any" ? `
                     points += 1` : `
                     if cell.colour == FAVOURITE or other.colour == FAVOURITE:
                         points += 2
@@ -760,14 +797,14 @@ const harmony = gridFamily<HarmonyP>({
       for (const cell of grid.cells) {
         for (const other of [cell.right, cell.down]) {
           if (other !== null && opposite(grid, cell, other)) {
-            ${p.fav === null ? "points += 1;" : "points += cell.colour === FAVOURITE || other.colour === FAVOURITE ? 2 : 1;"}
+            ${p.favourite === "any" ? "points += 1;" : "points += cell.colour === FAVOURITE || other.colour === FAVOURITE ? 2 : 1;"}
           }
         }
       }
       return points;
     }`),
   exemplar: (p, g) => {
-    const a = p.fav ?? 0, b = a + Math.floor(g.C / 2);
+    const a = p.favourite === "any" ? 0 : colourAt(g, p.favourite), b = (a + Math.floor(g.C / 2)) % g.C;
     return wire(g, full(g.N, 0), fromFn(g.N, (r, c) => ((r + c) % 2 === 0 ? a : b)));
   },
 });
@@ -779,7 +816,7 @@ const warmText = (p: WarmP, g: GridSpec): CardText => {
   const [a, b] = p.flip ? ["Spades and clubs", "hearts and diamonds"] : ["Hearts and diamonds", "spades and clubs"];
   return {
     emoji: "❤️‍🔥", name: "Warm Hearts", consts: [],
-    about: `${a} should wear ${g.say.colours(first, "or")}. ${cap(b)} should wear ${g.say.colours(second, "or")}. `
+    about: `Try to dress each card for its suit. ${a} should wear ${g.say.colours(first, "or")}. ${cap(b)} should wear ${g.say.colours(second, "or")}. `
       + "Each card dressed that way scores 1 point. Each pair of touching dressed cards with the same suit and the "
       + "same colour scores 1 more.",
   };
@@ -787,6 +824,7 @@ const warmText = (p: WarmP, g: GridSpec): CardText => {
 const warmHearts = gridFamily<WarmP>({
   id: "warm_hearts", name: "Warm Hearts", emoji: "❤️‍🔥", theme: "Suits dressed in matching colours",
   requires: { classes: ["Suited", "Spectral"] }, shape: SCALAR,
+  params: () => ({ flip: boolParam("Swap which suits wear which colours") }),
   support: () => [{ flip: false }, { flip: true }],
   canonical: () => ({ flip: false }), // swapping red and black suits maps flip
   summary: (p, g) => warmText(p, g).about,
@@ -831,16 +869,16 @@ const warmHearts = gridFamily<WarmP>({
 
 // --- Twin Friends ------------------------------------------------------------------------------------------------------
 const twinText = (p: PairP, g: GridSpec): CardText => ({
-  emoji: "👯", name: "Twin Friends", consts: pairConsts(p, g),
-  about: `Each time ${article(cname(g, p.A))} cell touches ${article(cname(g, p.B))} cell, that is a touch. A touch `
-    + `where both cells show the same ${g.cards ? "rank" : "number"} scores 1 point. Most points wins. If that's a tie, `
-    + "more touches of any kind wins.",
+  emoji: "👯", name: "Twin Friends", consts: pairConsts(p),
+  about: `Try to touch ${article(p.first_colour)} cell with ${article(p.second_colour)} cell showing the same ${g.cards ? "rank" : "number"}. `
+    + `Each time they touch, that is a touch. A touch where both cells show the same ${g.cards ? "rank" : "number"} scores ${tierPoints(1, 0, 2)}. `
+    + `Every touch of any kind scores ${tierPoints(1, 1, 2)}.`,
 });
 const twinFriends = gridFamily<PairP>({
   id: "twin_friends", name: "Twin Friends", emoji: "👯", theme: "Your two colours side by side on matching symbols",
   shape: tuple(2),
-  support: g => colourPairs(g).map(([A, B]) => ({ A, B })),
-  canonical: p => recolour(p, ["A", "B"]),
+  params: pairParams, legacy: pairLegacy, support: pairSupport,
+  canonical: (p, g) => recolourNames(g, p, ["first_colour", "second_colour"]),
   summary: (p, g) => twinText(p, g).about,
   python: (p, g) => pyCard(twinText(p, g), `${OPPOSITE_PY}
     def utility(grid):
@@ -867,7 +905,7 @@ const twinFriends = gridFamily<PairP>({
       }
       return [twins, seams];
     }`),
-  exemplar: (p, g) => wire(g, full(g.N, 0), fromFn(g.N, (r, c) => ((r + c) % 2 === 0 ? p.A : p.B))),
+  exemplar: checker,
 });
 
 export const COLOUR = [stripePainter, feudingFamilies, colourMixer, fairWeaver, lanternLighter, bestFriends, rainbowSteps,

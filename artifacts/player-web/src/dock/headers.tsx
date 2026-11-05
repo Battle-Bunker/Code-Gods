@@ -96,7 +96,7 @@ function BuiltInPanelHeader({ pane, desktop }: { pane: Extract<Pane, { kind: "pa
  * changes this pane's panel; the player's own panels and the assistant open in their own pane.
  */
 function PanelMenu({ pane }: { pane: Extract<Pane, { kind: "panel" }> }) {
-  const { phase, history, layout } = useDock();
+  const { phase, history, layout, assistantAvailable } = useDock();
   const actions = useDockActions();
   const panels = usePanels();
   const [open, setOpen] = useState(false);
@@ -108,12 +108,12 @@ function PanelMenu({ pane }: { pane: Extract<Pane, { kind: "panel" }> }) {
       disabled: id === "what-if" && !lastParams(history, pane.id, id), detail: PANELS[id].blurb,
     }));
     const own: PickerChoice[] = [
-      { key: "assistant", title: assistantOpen ? "Your assistant" : "Your assistant (closed)", section: "mine", keywords: ["chat", "ask", "ai"], detail: assistantOpen ? "Your assistant is open" : "Opens in its own pane" },
+      ...(assistantAvailable ? [{ key: "assistant", title: assistantOpen ? "Your assistant" : "Your assistant (closed)", section: "mine" as const, keywords: ["chat", "ask", "ai"], detail: assistantOpen ? "Your assistant is open" : "Opens in its own pane" }] : []),
       ...panels.entries.filter(e => e.origin === "stored").map(e => ({ key: `stored:${e.id}`, title: e.stored?.title ?? e.id, section: "mine" as const, detail: "Opens in its own pane" })),
       ...panels.entries.filter(e => e.origin === "file").map(e => ({ key: `file:${e.id}`, title: panelTitle(e, panels.statuses, e.id), section: "mine" as const, detail: "Opens in its own pane" })),
     ];
     return [...built, ...own];
-  }, [phase, history, pane.id, panels.entries, panels.statuses, assistantOpen]);
+  }, [phase, history, pane.id, panels.entries, panels.statuses, assistantOpen, assistantAvailable]);
   const groups = useMemo(() => filterChoices(choices, query), [choices, query]);
   const testId = (key: string) => key === "assistant" ? "menu-assistant" : key.startsWith("stored:") ? `menu-stored-panel-${key.slice(7)}` : key.startsWith("file:") ? `menu-file-panel-${key.slice(5)}` : `menu-panel-item-${key}`;
   const choose = (key: string) => {

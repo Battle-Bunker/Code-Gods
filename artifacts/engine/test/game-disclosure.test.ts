@@ -6,7 +6,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { observationSchema } from "@workspace/player-client";
-import { admin, api, envelope, gods, internal, playerClient, raw, rejects, roomWith, startGame, touch, waitFor } from "./game-helpers.ts";
+import { admin, api, envelope, gods, internal, playerClient, raw, rejects, roomWith, startGame, touch, waitFor, makeAdmin } from "./game-helpers.ts";
 import { disclosureChecker } from "./disclosure.ts";
 
 
@@ -16,12 +16,13 @@ test("no player-facing result discloses another god's scores, descriptor, agent 
   const settings = {
     languages: ["typescript"], objectType: "Grid",
     typeArgs: { size: 5, symbols: "base10", colours: "rgby" }, startingObjectCount: 12, spawnRateHz: 2, planningSeconds: 3600,
-    agentEnergyPerSecond: 100, agentBatteryActs: 2, interactionRateHz: 40, startingEnergy: 1000,
+    powerPerSecond: 200, interactionRateHz: 40, startingEnergy: 1000,
   };
   const { roomId, shortCode } = await roomWith([host, ada, bo], settings);
   await admin.mutation(internal.aiTemplates.ensureSeeded, {});
+  await makeAdmin(host);
   await host.c.mutation(api.rooms.addAi, { roomId, templateId: "sonnet-strategist" });
-  await host.c.mutation(api.rooms.approveAiBudget, { roomId, aiBudget: 200_000 });
+  await host.c.mutation(api.rooms.setAiQuotas, { roomId, aiQuota: 200_000 });
   const game = await startGame(host, roomId);
   const send = (god: typeof ada, command: Record<string, unknown>) => god.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
   const SECRET_BO = "bo_private_marker", SECRET_HOST = "host_private_marker";
@@ -50,6 +51,16 @@ test("no player-facing result discloses another god's scores, descriptor, agent 
       chat: await client.query(api.rooms.chat, { roomId, gameId: game.gameId, paginationOpts: { numItems: 50, cursor: null } }),
     };
   };
+  const readModel = async (client: typeof ada.c) => {
+    const objectIds = await client.query(api.player.objectIds, { gameId: game.gameId, sort: "othersCare", limit: 20 });
+    return {
+      objectIds,
+      objectViews: await Promise.all(objectIds.rows.map((r: any) => client.query(api.player.object, { objectId: r.id }))),
+      objectRanks: await Promise.all(objectIds.rows.slice(0, 3).map((r: any) => client.query(api.player.objectRank, { objectId: r.id }))),
+      objectsTop: await client.query(api.player.objectsTop, { gameId: game.gameId, by: "othersCare", n: 20 }),
+      totals: await client.query(api.player.totals, { gameId: game.gameId }),
+    };
+  };
   const collect = async (viewer: typeof ada, client = viewer.c) => {
     const observation = observationSchema.parse(await client.query(api.player.observation, { roomId }));
     return {
@@ -60,6 +71,13 @@ test("no player-facing result discloses another god's scores, descriptor, agent 
       trajectories: await client.query(api.player.trajectories, { roomId, afterSeq: -1, limit: 200 }),
       objectsByPayoff: await client.query(api.player.objectsPage, { roomId, sort: "payoff", limit: 2100 }),
       objectsByOthers: await client.query(api.player.objectsPage, { roomId, sort: "othersCare", limit: 2100 }),
+      // The per-god read model (game/objectViews.ts): the viewer's own rows and totals only.
+      ...await readModel(client),
+      // The dock's narrow queries (convex/dock.ts).
+      dockState: await client.query(api.dock.state, { roomId }),
+      dockAgents: await client.query(api.dock.agents, { roomId }),
+      dockTransformations: await client.query(api.dock.transformations, { roomId }),
+      dockAgentSeries: await client.query(api.dock.agentSeries, { gameId: game.gameId }),
       myUtility: await client.query(api.player.myUtility, { roomId }),
       room: await client.query(api.rooms.get, { room: shortCode }),
       ...await spectator(client),
@@ -71,20 +89,24 @@ test("no player-facing result discloses another god's scores, descriptor, agent 
   const summonsOf = (c: any) => c.eventsFromStart.events.concat(c.history.events).filter((e: any) => e.type === "agent.summoned");
   const live = await collect(ada);
   for (const [label, result] of Object.entries(live)) await check(`live ${label}`, result);
-  {
-    // The paginated objects carry the same disclosed numbers as the observation (the others' sum with its noise), and
-    // every sort orders by them: never by an exact peer value, which the viewer is not shown.
-    const shown = new Map(live.observation.objects.map(o => [o.id, o]));
-    for (const [sort, page] of [["payoff", live.objectsByPayoff], ["othersCare", live.objectsByOthers]] as const) {
-      assert.equal(page.total, live.observation.objects.length);
+  // The paginated objects (the read model's rows, synced after each commit: read until they match one observation) carry
+  // the same disclosed numbers as the observation (the others' sum with its noise), and every sort orders by them: never
+  // by an exact peer value, which the viewer is not shown.
+  await waitFor(async () => {
+    const observation = await ada.c.query(api.player.observation, { roomId });
+    const shown = new Map(observation.objects.map((o: any) => [o.id, o]));
+    for (const sort of ["payoff", "othersCare"] as const) {
+      const page = await ada.c.query(api.player.objectsPage, { roomId, sort, limit: 90 });
+      if (page.total !== observation.objects.length) return false;
       for (const row of page.rows) {
-        const o = shown.get(row.id)!;
-        assert.deepEqual([row.peerNetBits, row.peerCare, row.payoff], [o.peerNetBits, o.peerCare, o.payoff], `${sort} page row ${row.id} = the observation's disclosed values`);
+        const o: any = shown.get(row.id);
+        if (!o || JSON.stringify([row.peerNetBits, row.peerCare, row.payoff]) !== JSON.stringify([o.peerNetBits, o.peerCare, o.payoff])) return false;
       }
       const keys = (page.rows as { payoff: number; peerCare: number }[]).map(r => (sort === "payoff" ? r.payoff : r.peerCare));
       assert.deepEqual(keys, [...keys].sort((a, b) => b - a), `${sort} orders by the disclosed key`);
     }
-  }
+    return true;
+  }, "objectsPage rows = the observation's disclosed values", 30000, 100);
   // The viewer's own data is there: own descriptor, own agents with source, own and aggregate bits.
   const secret = await raw(game.gameId);
   const own = secret.deities.find((d: any) => d.godId === ada.subject);
@@ -171,7 +193,7 @@ test("other gods' scores move only when the scoreboard is published; the own sco
   await touch(host);
   const { roomId } = await roomWith([host, ada, bo], {
     languages: ["typescript"], objectType: "Int", typeArgs: { min: -2147483648, max: 2147483647 }, startingObjectCount: 6, spawnRateHz: 1,
-    interactionRateHz: 20, planningSeconds: 3600, halfLifeSeconds: 1e9, agentEnergyPerSecond: 100, startingEnergy: 1000, scoreIntervalSeconds: 60,
+    interactionRateHz: 20, planningSeconds: 3600, halfLifeSeconds: 1e9, powerPerSecond: 200, startingEnergy: 1000, scoreIntervalSeconds: 60,
   });
   const game = await startGame(host, roomId);
   const start = (await raw(game.gameId)).game.scoreboard;

@@ -12,7 +12,7 @@ import {
   SECTIONS, argChoices, choiceLabel, formatValue, toggleLanguage, dealerNote, formatSeconds, defenceBlocker, draftErrors, fieldError, fieldsOf, firstUseNote, isHidden, lengthLine, paceWord,
   settingsDomain, shelfEntries, stepChoices,
 } from "../src/site/lib/settings-form.ts";
-import { editBlocker, freeName, ownerLabel, searchSetups } from "../src/site/lib/setup-words.ts";
+import { editBlocker, freeName, ownerLabel } from "../src/site/lib/setup-words.ts";
 
 const GRID5 = { size: 5, symbols: "base10", colours: "rgby" };
 const GRID7 = { size: 7, symbols: "cards", colours: "rainbow6" };
@@ -39,7 +39,9 @@ test("limits mirror validateSettings and the engine's resource limits, with the 
   assert.equal(fieldError("pauseSeconds", 3601), "Must be between 1 and 3,600 seconds.");
   assert.equal(fieldError("scoreIntervalSeconds", 2.5), "Must be a whole number.");
   assert.equal(fieldError("scoreIntervalSeconds", 45), null, "any whole number of seconds, not only the presets");
-  assert.equal(fieldError("agentBatteryActs", 0.5), "Must be at least 1 acts.");
+  assert.equal(fieldError("powerPerSecond", -1), "Must be at least 0 bits per second.");
+  assert.ok(fieldsOf("energy").includes("powerPerSecond"), "each player's power is on the form");
+  assert.ok(!fieldsOf("energy").some(k => ["energyPerSecond", "agentEnergyPerSecond", "agentBatteryActs", "perActFloorBits"].includes(k)), "the old income, battery and floor settings are gone");
   assert.equal(fieldError("planningSeconds", NaN), "Enter a number.");
   const grid = seedSetupSettings("grid-classic");
   assert.deepEqual(draftErrors(grid), {});
@@ -121,18 +123,12 @@ test("a shape whose first game computes tables says so with the measured time; t
   assert.deepEqual([35, 89.6, 119.6, 120, 260].map(formatSeconds), ["35 s", "1 min 30 s", "2 min", "2 min", "4 min 20 s"], "rounded once, never \"1 min 60 s\"");
 });
 
-test("the setup combobox: search by name, owner or summary; whose it is; why Edit is unavailable", () => {
+test("the setup combobox: whose it is; why Edit is unavailable (the search is the engine's, test/game-setups.test.ts)", () => {
   const setups = [
     { id: "1", name: "Classic", summary: "5×5 with four colours", ownerName: "System", system: true, mine: false, editable: false },
     { id: "2", name: "Classic's copy", summary: "5×5 with four colours", ownerName: "Ada Lovelace", system: false, mine: true, editable: true },
     { id: "3", name: "Big cards", summary: "Grid 7×7 · Playing cards", ownerName: "Bo Diddley", system: false, mine: false, editable: false },
   ];
-  assert.deepEqual(searchSetups(setups, "").map(s => s.id), ["1", "2", "3"]);
-  assert.deepEqual(searchSetups(setups, "classic").map(s => s.id), ["1", "2"], "by name");
-  assert.deepEqual(searchSetups(setups, "bo").map(s => s.id), ["3"], "by owner");
-  assert.deepEqual(searchSetups(setups, "system").map(s => s.id), ["1"]);
-  assert.deepEqual(searchSetups(setups, "you").map(s => s.id), ["2"], "the viewer's own as \"You\"");
-  assert.deepEqual(searchSetups(setups, "7×7 cards").map(s => s.id), ["3"], "every word, from the summary too");
   assert.deepEqual(setups.map(ownerLabel), ["System", "You", "Bo Diddley"]);
   assert.deepEqual(setups.map(editBlocker), ["System setups cannot be edited: duplicate it", null, "Only Bo Diddley can edit this setup"]);
   // A copy's name, as the engine makes it: "<name>'s copy", then " 2"…, shortened to 40 characters.

@@ -6,11 +6,11 @@
  *
  * What would break: a message sent while the assistant works being refused, lost, delivered twice, delivered out of
  * order or in the wrong place (before the tool results, or as a new turn while the turn still has steps); a queue that
- * lives only in one tab; Stop sending held messages anyway; a queued message approving a confirmation card.
+ * lives only in one tab; Stop sending held messages anyway.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { admin, api, gods, internal, playerClient, roomWith, sleep, startGame, touch, waitFor, type God } from "./game-helpers.ts";
+import { admin, api, gods, internal, playerClient, roomWith, sleep, startGame, touch, waitFor, type God, makeAdmin } from "./game-helpers.ts";
 import { QUEUED_NOTE } from "../convex/assistant/rules.ts";
 
 const settings = {
@@ -31,7 +31,8 @@ async function assistantRoom(names: [string, string, string]) {
   const members = await gods(...names);
   await touch(members[0]);
   const { roomId } = await roomWith(members, settings);
-  await members[0].c.mutation(api.rooms.approveAiBudget, { roomId, aiBudget: 0, assistantBudget: 500_000 });
+  await makeAdmin(members[0]);
+  await members[0].c.mutation(api.rooms.setAiQuotas, { roomId, assistantQuota: 500_000 });
   await startGame(members[0], roomId);
   return { members, roomId };
 }
@@ -168,23 +169,6 @@ test("Stop keeps queued messages, held: nothing starts until the player sends; a
     return last && last._id !== again.turnId && DONE.includes(last.status) ? th.messages.filter((m: any) => m.turnId === last._id) : null;
   }, "the message sent while stopping runs", 60_000, 150);
   assert.equal(started.find((m: any) => m.role === "assistant")?.text, "after stop");
-});
-
-test("a queued message never approves a waiting card: it declines it, and the model reads the message with the declined result", { timeout: 180_000 }, async () => {
-  const { members: [ann], roomId } = await assistantRoom(["Ann Card", "Bob Card", "Cyd Card"]);
-  const sent = await ann.c.mutation(api.assistant.send, { roomId, text: mock([
-    { tools: [{ name: "send_chat", input: { text: "hello everyone" } }] },
-    { echo: true },
-  ]) });
-  const card = await waitFor(async () => (await turnOf(ann, sent.threadId, sent.turnId)).calls.find((c: any) => c.status === "awaiting_confirmation"), "the card waits", 30_000, 150);
-  await ann.c.mutation(api.assistant.send, { roomId, threadId: sent.threadId, text: "don't post that, ask me first" });
-  const t = await until(ann, sent, DONE, "the turn finishes");
-  const call = t.calls.find((c: any) => c._id === card._id);
-  assert.equal(call.status, "denied");
-  assert.match(JSON.parse(call.resultJson).error.message, /sent a message instead/);
-  assert.deepEqual(echoes(t)[0].later, [QUEUED_NOTE, "don't post that, ask me first"], "with the declined result, before the next step");
-  const chat = await ann.c.query(api.player.observation, { roomId });
-  assert.ok(!JSON.stringify(chat).includes("hello everyone"), "nothing was posted");
 });
 
 test("the queue is bounded and needs the assistant on; an earlier conversation of the game is not where a busy assistant reads", { timeout: 180_000 }, async () => {

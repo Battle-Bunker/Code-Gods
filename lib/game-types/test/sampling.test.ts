@@ -88,23 +88,20 @@ test("random walks stay legal and never mutate their input", () => {
         const before = codec.encode(v), next = type.propose(v, inst, rng);
         assert.equal(codec.encode(v), before);
         assert.ok(codec.isValid(codec.encode(next)), `${inst.key} step ${i}`);
-        const bits = type.changedBits(v, next, inst), total = type.layerBits(inst);
-        for (const layer of Object.keys(bits)) assert.ok(bits[layer] >= 0 && bits[layer] <= total[layer] + 1e-9, `${inst.key} ${layer}`);
+        if (codec.encode(next) !== before) {
+          const w = type.callWork(v, next, { id: "propose", params: {} }, inst);
+          assert.ok(Number.isFinite(w) && w > 0, `${inst.key} step ${i}: a change has a positive elementary cost (${w})`);
+        }
         v = next;
       }
     }
   }
 });
 
-test("changedBits and layerBits", () => {
-  const inst = GRID.instantiate({ size: 3, symbols: "cards", colours: "rgby" }), rng = seededRng(1);
-  const g = GRID.spawn(inst, rng), h = { ...g, sym: g.sym.slice(), col: g.col.slice() };
-  h.sym[0] = (h.sym[0] + 1) % 52; h.col[4] = (h.col[4] + 1) % 4; h.col[5] = (h.col[5] + 1) % 4;
-  assert.deepEqual(GRID.changedBits(g, h, inst), { symbol: Math.log2(52), colour: 4 });
+test("layerBits: the whole object's information (the read bound)", () => {
+  const inst = GRID.instantiate({ size: 3, symbols: "cards", colours: "rgby" });
   assert.deepEqual(GRID.layerBits(inst), { symbol: 9 * Math.log2(52), colour: 18 });
-  const i = INT.instantiate({ min: 0, max: 9999 });
-  assert.deepEqual(INT.changedBits(5, 6, i), { value: 2 });
-  assert.deepEqual(INT.layerBits(i), { value: 14 });
+  assert.deepEqual(INT.layerBits(INT.instantiate({ min: 0, max: 9999 })), { value: 14 });
   assert.ok(Math.abs(STRING.layerBits(STRING.instantiate({ maxLength: 0 })).text) < 1e-9);
   assert.ok(Math.abs(STRING.layerBits(STRING.instantiate({ maxLength: 1 })).text - Math.log2(129)) < 1e-9);
 });

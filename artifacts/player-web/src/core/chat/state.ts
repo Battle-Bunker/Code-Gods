@@ -1,19 +1,20 @@
 /**
  * Pure UI state of the assistant pane (no React, no Convex): the timeline of a thread, the optimistic user message,
- * one step line per model step, the confirmation-card state machine and its plain sentence, the allowance meter and
- * tool-chip views. Unit-tested in test/assistant-state.test.ts.
+ * one step line per model step, the assistant's modes, the allowance meter and tool-chip views. Unit-tested in test/assistant-state.test.ts.
  */
 import { PANELS, isPanelId } from "@workspace/player-client/panels";
 import type { ToolName } from "@workspace/player-client/tools";
 
-export type MessageRow = { _id: string; turnId: string; seq: number; role: "user" | "assistant"; text: string; status: "streaming" | "done" | "error" | "cancelled" };
-export type CallStatus = "pending" | "awaiting_confirmation" | "running" | "ok" | "error" | "denied";
+/** `autopilot`: a user message the engine wrote to open an autopilot turn (shown as a label, never as the player's words). */
+export type MessageRow = { _id: string; turnId: string; seq: number; role: "user" | "assistant"; text: string; status: "streaming" | "done" | "error" | "cancelled"; autopilot?: boolean };
+/** `denied`: a call that never ran (its turn ended first). */
+export type CallStatus = "pending" | "running" | "ok" | "error" | "denied";
 export type CallRow = {
   _id: string; turnId: string; messageId: string; index: number; tool: string; status: CallStatus;
-  argsJson: string; summary: string; resultJson: string | null; confirmDeadline?: number | null;
+  argsJson: string; summary: string; resultJson: string | null;
 };
 export type TimelineItem =
-  | { kind: "user"; key: string; text: string; pending?: boolean }
+  | { kind: "user"; key: string; text: string; pending?: boolean; autopilot?: boolean }
   | { kind: "assistant"; key: string; text: string; status: MessageRow["status"] }
   | { kind: "call"; key: string; call: CallRow };
 
@@ -23,7 +24,7 @@ export function buildTimeline(messages: readonly MessageRow[], calls: readonly C
   for (const c of calls) byMessage.set(c.messageId, [...(byMessage.get(c.messageId) ?? []), c]);
   const out: TimelineItem[] = [];
   for (const m of [...messages].sort((a, b) => a.seq - b.seq)) {
-    if (m.role === "user") { out.push({ kind: "user", key: m._id, text: m.text }); continue; }
+    if (m.role === "user") { out.push({ kind: "user", key: m._id, text: m.text, ...(m.autopilot ? { autopilot: true } : {}) }); continue; }
     if (m.text || m.status === "streaming") out.push({ kind: "assistant", key: m._id, text: m.text, status: m.status });
     for (const c of (byMessage.get(m._id) ?? []).sort((a, b) => a.index - b.index)) out.push({ kind: "call", key: c._id, call: c });
   }
@@ -33,43 +34,29 @@ export function buildTimeline(messages: readonly MessageRow[], calls: readonly C
 /** The user's just-sent message, shown until the server's copy arrives (the newest user message has the same text). */
 export function withPending(timeline: TimelineItem[], pending: string | null, usersBefore?: number): TimelineItem[] {
   if (!pending) return timeline;
-  const users = timeline.filter(i => i.kind === "user");
+  // The player's own messages (an autopilot turn's prompt is the engine's).
+  const users = timeline.filter(i => i.kind === "user" && !i.autopilot);
   // Known how many user messages there were when it was sent: shown until one more arrives (the same text twice too).
   if (usersBefore !== undefined) return users.length > usersBefore ? timeline : [...timeline, { kind: "user", key: "pending", text: pending.trim(), pending: true }];
   const lastUser = users.at(-1);
   if (lastUser?.kind === "user" && lastUser.text === pending.trim()) return timeline;
   return [...timeline, { kind: "user", key: "pending", text: pending.trim(), pending: true }];
 }
-/** User messages in a timeline (what withPending counts against). */
-export const userCount = (timeline: readonly TimelineItem[]) => timeline.filter(i => i.kind === "user" && !i.pending).length;
+/** User messages in a timeline (what withPending counts against): the player's own, not the autopilot's prompts. */
+export const userCount = (timeline: readonly TimelineItem[]) => timeline.filter(i => i.kind === "user" && !i.pending && !i.autopilot).length;
 
 // ---------------------------------------------------------------------------------------------
-// Confirmation cards
+// Modes (engine convex/assistant/mode.ts)
 // ---------------------------------------------------------------------------------------------
 
-export type Decision = "approve" | "deny";
-export type CardState =
-  | { phase: "idle" }
-  | { phase: "submitting"; decision: Decision }
-  | { phase: "sent"; decision: Decision }
-  | { phase: "error"; decision: Decision; message: string }
-  | { phase: "settled"; status: CallStatus };
-export type CardEvent =
-  | { type: "submit"; decision: Decision }
-  | { type: "sent" }
-  | { type: "failed"; message: string }
-  | { type: "server"; status: CallStatus };
-export const initialCard: CardState = { phase: "idle" };
-
-/** One decision at a time; the card settles once the server's call is no longer awaiting confirmation. */
-export function cardReducer(state: CardState, event: CardEvent): CardState {
-  switch (event.type) {
-    case "submit": return state.phase === "idle" || state.phase === "error" ? { phase: "submitting", decision: event.decision } : state;
-    case "sent": return state.phase === "submitting" ? { phase: "sent", decision: state.decision } : state;
-    case "failed": return state.phase === "submitting" ? { phase: "error", decision: state.decision, message: event.message } : state;
-    case "server": return event.status === "awaiting_confirmation" ? state : { phase: "settled", status: event.status };
-  }
-}
+export type AssistantMode = "autopilot" | "onRequest" | "readOnly";
+/** The pane's and the palette's choices, in order, each with its one line. */
+export const MODE_OPTIONS: readonly { id: AssistantMode; label: string; detail: string }[] = [
+  { id: "autopilot", label: "Autopilot", detail: "Plays on its own, without being asked." },
+  { id: "onRequest", label: "On request", detail: "Acts for you only when you ask." },
+  { id: "readOnly", label: "Read-only", detail: "Answers questions; never changes anything." },
+];
+export const modeLabel = (mode: AssistantMode) => MODE_OPTIONS.find(m => m.id === mode)?.label ?? mode;
 
 // ---------------------------------------------------------------------------------------------
 // Meter and chips
@@ -81,18 +68,17 @@ export function allowanceMeter(used: number, limit: number) {
   return { fraction: Math.min(1, used / limit), label: `${n(used)} / ${n(limit)} tokens`, exhausted: used >= limit, off: false };
 }
 
-/** The composer's top-edge meter: silent below 80 % of the allowance, then one sentence. */
+/** The composer's top-edge meter: silent below 80 % of the quota, then one sentence. */
 export function allowanceNote(used: number, limit: number): string | null {
   if (limit <= 0) return null;
-  if (used >= limit) return "Allowance used up for this game · do it yourself from the command palette";
+  if (used >= limit) return "Assistant quota used up for this game · do it yourself from the command palette";
   const left = 1 - used / limit;
-  return left <= 0.2 ? `${Math.max(0, Math.round(left * 100))} % of this game's assistant allowance left` : null;
+  return left <= 0.2 ? `${Math.max(0, Math.round(left * 100))} % of this game's assistant quota left` : null;
 }
 
-export type ChipTone = "ok" | "error" | "muted" | "busy" | "ask";
+export type ChipTone = "ok" | "error" | "muted" | "busy";
 export function chipView(call: CallRow): { label: string; tone: ChipTone; detail: string } {
-  const tone: ChipTone = call.status === "ok" ? "ok" : call.status === "error" ? "error" : call.status === "denied" ? "muted"
-    : call.status === "awaiting_confirmation" ? "ask" : "busy";
+  const tone: ChipTone = call.status === "ok" ? "ok" : call.status === "error" ? "error" : call.status === "denied" ? "muted" : "busy";
   return { label: call.tool.replace(/_/g, " "), tone, detail: call.summary };
 }
 
@@ -100,7 +86,7 @@ export function chipView(call: CallRow): { label: string; tone: ChipTone; detail
 // Step lines: one per model step, in human verbs
 // ---------------------------------------------------------------------------------------------
 
-/** [past, present, imperative] per tool: "tested agent code" · "testing agent code…" · "you declined: test agent code". */
+/** [past, present, imperative] per tool: "tested agent code" · "testing agent code…" · "not run: test agent code". */
 export const STEP_VERBS = {
   whoami: ["looked up who you are", "looking up who you are", "look up who you are"],
   get_rules: ["read the rules", "reading the rules", "read the rules"],
@@ -117,6 +103,7 @@ export const STEP_VERBS = {
   validate_agent: ["tested agent code", "testing agent code", "test agent code"],
   summon_agent: ["summoned an agent", "summoning an agent", "summon an agent"],
   destroy_agent: ["destroyed an agent", "destroying an agent", "destroy an agent"],
+  allocate_power: ["shared out power", "sharing out power", "share out power"],
   set_ready: ["marked you ready", "marking you ready", "mark you ready"],
   set_spectator: ["changed whether you play", "changing whether you play", "change whether you play"],
   send_chat: ["posted to everyone", "posting to everyone", "post to everyone"],
@@ -128,6 +115,7 @@ export const STEP_VERBS = {
   start_game: ["started the game", "starting the game", "start the game"],
   resume_game: ["resumed the game", "resuming the game", "resume the game"],
   end_game: ["ended the game", "ending the game", "end the game"],
+  set_ai_quotas: ["set the room's AI quotas", "setting the room's AI quotas", "set the room's AI quotas"],
   add_ai: ["added an AI player", "adding an AI player", "add an AI player"],
   remove_ai: ["removed an AI player", "removing an AI player", "remove an AI player"],
   list_panels: ["listed your panels", "listing your panels", "list your panels"],
@@ -172,20 +160,19 @@ function verbs(call: CallRow): readonly [string, string, string] {
   return [`ran ${name}`, `running ${name}`, `run ${name}`];
 }
 
-export type StepTone = "ok" | "error" | "muted" | "busy" | "ask";
+export type StepTone = "ok" | "error" | "muted" | "busy";
 /** One model step's tool calls as one line: "looked at the game · tested agent code · showed Agent code". */
 export function stepView(calls: readonly CallRow[]): { text: string; tone: StepTone; open: boolean } {
   const ordered = [...calls].sort((a, b) => a.index - b.index);
   const parts: string[] = [];
   for (const call of ordered) {
     const [past, present, imperative] = verbs(call);
-    const part = call.status === "ok" ? past : call.status === "denied" ? `you declined: ${imperative}`
-      : call.status === "awaiting_confirmation" ? `waiting for you: ${imperative}` : call.status === "error" ? `couldn't ${imperative}` : `${present}…`;
+    const part = call.status === "ok" ? past : call.status === "denied" ? `not run: ${imperative}` : call.status === "error" ? `couldn't ${imperative}` : `${present}…`;
     if (!parts.includes(part)) parts.push(part);
   }
   const shown = parts.length > 3 ? [...parts.slice(0, 3), `+${parts.length - 3}`] : parts;
   const has = (status: CallStatus) => ordered.some(c => c.status === status);
-  const tone: StepTone = has("awaiting_confirmation") ? "ask" : has("running") || has("pending") ? "busy" : has("error") ? "error"
+  const tone: StepTone = has("running") || has("pending") ? "busy" : has("error") ? "error"
     : ordered.length > 0 && ordered.every(c => c.status === "denied") ? "muted" : "ok";
   // An error leaves the line open, so the player sees what failed.
   return { text: shown.join(" · "), tone, open: tone === "error" };
@@ -206,52 +193,46 @@ export function withSteps(timeline: readonly TimelineItem[]): ChatItem[] {
   return out;
 }
 
-const quote = (text: unknown, max = 160) => {
-  const t = typeof text === "string" ? text.trim() : "";
-  return `"${t.length > max ? `${t.slice(0, max - 1)}…` : t}"`;
-};
-const bitsText = (x: number) => (Number.isInteger(x) ? String(x) : x.toFixed(1));
-
-/** The confirmation card's first line: what will happen, in plain words, before any JSON. */
-export function confirmSentence(call: CallRow, ctx: { energy?: number; pauseSeconds?: number } = {}): string {
-  const args = argsOf(call);
-  switch (call.tool) {
-    case "send_chat": return `Post to everyone: ${quote(args.text)}`;
-    case "summon_agent": {
-      const what = typeof args.name === "string" && args.name.trim() ? `Summon ${quote(args.name, 40)}` : "Summon this agent";
-      const desc = typeof args.description === "string" && args.description.trim() ? ` (${args.description.trim().slice(0, 200)})` : "";
-      return `${what}${desc}: it pays from ${ctx.energy !== undefined ? `your ${bitsText(ctx.energy)} bits of` : "your"} energy`;
-    }
-    case "pause_game": return ctx.pauseSeconds ? `Use your one pause: it stops the world for everyone for ${ctx.pauseSeconds} s` : "Use your one pause: it stops the world for everyone";
-    case "destroy_agent": return typeof args.agentId === "string" ? `Destroy your agent ${args.agentId.slice(0, 12)} (free, cannot be undone)` : "Destroy one of your agents (free, cannot be undone)";
-    case "delete_panel": return `Delete your panel ${quote(args.slug, 64)} and all its versions`;
-    case "start_game": return "Start the game for everyone in the room";
-    case "end_game": return "End the game now for everyone";
-    case "resume_game": return "Resume the game";
-    case "add_ai": return `Seat the AI player ${quote(args.aiAgentId, 64)} (it spends the room's AI budget)`;
-    case "remove_ai": return "Remove an AI player from the room";
-    case "delete_setup": return "Delete one of your game setups (rooms keep their settings)";
-    case "update_settings": return typeof args.setupId === "string" ? "Put the next game on one of the game setups"
-      : "Change the room's setup (yours is edited; anyone else's is copied as yours first)";
-    default: return `Let your assistant ${verbs(call)[2]}`;
-  }
-}
-
 export function prettyArgs(json: string): string {
   try { return JSON.stringify(JSON.parse(json), null, 2); } catch { return json; }
 }
 
-export const TURN_ACTIVE = ["running", "awaiting_confirmation", "cancelling"];
+export const TURN_ACTIVE = ["running", "cancelling"];
 
 /**
  * The line over the player's queued messages (convex/assistant.ts send while a turn is active): when the assistant
  * will read them. With no turn running they are held (a Stop, or a turn that failed) until the player sends. Null
  * with none queued.
  */
-export function queueNote({ count, active, card }: { count: number; active: boolean; card: boolean }): string | null {
+export function queueNote({ count, active, autopilot = false }: { count: number; active: boolean; autopilot?: boolean }): string | null {
   if (!count) return null;
   const it = count === 1 ? "it" : "them";
   if (!active) return `Held · your assistant stopped; send ${it} now or with your next message`;
   const label = count === 1 ? "Queued" : `${count} queued`;
-  return card ? `${label} · this declines the card above; your assistant reads ${it} next` : `${label} · your assistant reads ${it} after its current step`;
+  return autopilot ? `${label} · autopilot stops; your assistant answers ${it} next` : `${label} · your assistant reads ${it} after its current step`;
+}
+
+/**
+ * What a summon's validation warned about, shown under its step line: the latest validation in this conversation of
+ * the identical source and language (docs/rules-design.md §11), its expected success rate and warnings. Null when there
+ * is none or it warned of nothing.
+ */
+export function summonWarnings(summon: CallRow, calls: readonly CallRow[]): { successRate?: number; warnings: string[] } | null {
+  if (summon.tool !== "summon_agent") return null;
+  const want = argsOf(summon);
+  const same = (call: CallRow) => {
+    const args = argsOf(call);
+    return call.tool === "validate_agent" && call.resultJson !== null && args.source === want.source && (args.language ?? null) === (want.language ?? null);
+  };
+  const latest = [...calls].reverse().find(same);
+  if (!latest) return null;
+  let validation: Record<string, unknown> | undefined;
+  try {
+    const parsed = JSON.parse(latest.resultJson!) as { data?: { receipt?: { validation?: Record<string, unknown> } }; receipt?: { validation?: Record<string, unknown> } };
+    validation = (parsed.data ?? parsed).receipt?.validation;
+  } catch { return null; }
+  const warnings = Array.isArray(validation?.warnings) ? (validation.warnings as unknown[]).filter((w): w is string => typeof w === "string") : [];
+  if (!warnings.length) return null;
+  const rate = validation?.expectedSuccessRate;
+  return { ...(typeof rate === "number" ? { successRate: rate } : {}), warnings };
 }

@@ -126,7 +126,7 @@ export const approve = mutation({
   handler: async (ctx, { userCode, ownerConsent }) => {
     const { viewer, device } = await decide(ctx, userCode, true);
     if (device.permission === "owner" && ownerConsent !== true) {
-      fail("OWNER_CONSENT_REQUIRED", "An owner grant needs explicit consent: it can configure the room, spend its AI budget, start and end games and play as you");
+      fail("OWNER_CONSENT_REQUIRED", "An owner grant needs explicit consent: it can configure the room and its AI quotas, start and end games and play as you");
     }
     await ctx.db.patch(device._id, { status: "approved", subject: viewer.subject });
     return { status: "approved" as const };

@@ -19,6 +19,8 @@ export type Tone = "gain" | "loss" | "zero";
 export interface Fact {
   readonly text: string;
   readonly ok: boolean;
+  /** The points tier this check derives (0 primary, 1 secondary…; src/tuples.ts). Default 0. */
+  readonly tier?: number;
 }
 
 /** A cell inside a piece worth pointing at (a mine, a frame breaker), with a short label. */
@@ -52,31 +54,24 @@ export interface Part {
   readonly facts: readonly Fact[];
   readonly spots?: readonly Spot[];
   readonly links?: readonly Link[];
+  /**
+   * Which hover mode picks this unit on the board ("row", "column", "block", "pair", "cell"…): see units.ts. Units of
+   * one group never share a centre, so the board can point at each of them.
+   */
+  readonly group?: string;
+  /** The cell the board picks this unit by, when its cells overlap other units' (a minesweeper number's 3×3 window). */
+  readonly anchor?: Cell;
 }
 
-/**
- * Per-cell rules: every kind of cell the rule distinguishes, as a table of sample tiles with their points. `at` is the
- * focus cell's entry. Samples are (symbol index, colour index) of the room's own symbols and colours.
- */
-export interface OutcomeTable {
-  readonly title: string;
-  readonly rows: readonly string[];
-  readonly cols: readonly string[];
-  readonly entries: readonly (readonly OutcomeEntry[])[];
-  readonly at: readonly [row: number, col: number] | null;
-}
-export interface OutcomeEntry {
-  readonly points: number;
-  /** A tile that falls in this entry: symbol and colour indices of the room. */
-  readonly sample: { readonly sym: number; readonly col: number };
-}
-
-/** The whole board's explanation, independent of the focus. */
+/** The whole board's explanation: its scoring units and what they add up to. */
 export interface Explanation {
   readonly familyId: string;
   readonly size: number;
   readonly parts: readonly Part[];
-  /** Names of the ordinal components the parts explain, in order: ["points"] or ["points", "tie-break: …"]. */
+  /**
+   * What each tier of the points tuple counts, in order (a prefix of the card's ordinal): ["SETs"], or
+   * ["lines adding up to 16", "how far the totals are from 16"]. Shown as "primary points: …", "secondary points: …".
+   */
   readonly components: readonly string[];
   /** The card's own score of this board, evaluated by the card program. */
   readonly ordinal: Ordinal;
@@ -102,23 +97,10 @@ export interface Breakdown {
   readonly items: readonly BreakdownItem[];
 }
 
-/** What the renderer draws for one focus cell. */
-export interface FocusView {
-  readonly focus: Cell;
-  /** The focus cell in words: "Row 2, column 3: a green 7". */
-  readonly headline: string;
-  /** The selected pieces, in display order. */
-  readonly parts: readonly Part[];
-  readonly table?: OutcomeTable;
-  /** A sentence about the focus when no piece says it ("This cell is not on the edge: it never changes your score."). */
-  readonly note?: string;
-}
-
-/** A goal card's example board: a board of the room's own size, symbols and colours, its default focus and a caption. */
+/** A goal card's example board: a board of the room's own size, symbols and colours, and a caption. */
 export interface GoalExample {
   readonly value: string;
   readonly size: number;
-  readonly focus: Cell;
   readonly caption: string;
 }
 

@@ -131,10 +131,11 @@ const refusal = (error: unknown, extra: Record<string, unknown> = {}) =>
   error instanceof ToolError ? new AssistantError(error.code, error.message, extra) : error;
 
 /** Owner actions → owner tools (`room-command`). */
-const OWNER_TOOL = { settings: "update_settings", start: "start_game", resume: "resume_game", endGame: "end_game", addAi: "add_ai", removeAi: "remove_ai" } as const;
+const OWNER_TOOL = { settings: "update_settings", quotas: "set_ai_quotas", start: "start_game", resume: "resume_game", endGame: "end_game", addAi: "add_ai", removeAi: "remove_ai" } as const;
 function ownerArgs(a: OwnerAction): Record<string, unknown> {
   const pick = (keys: (keyof OwnerAction)[]) => Object.fromEntries(keys.filter(k => a[k] !== undefined).map(k => [k, a[k]]));
-  return a.action === "settings" ? pick(["requestId", "revision", "settings", "setupId", "aiBudget"])
+  return a.action === "settings" ? pick(["requestId", "revision", "settings", "setupId"])
+    : a.action === "quotas" ? pick(["requestId", "aiQuota", "assistantQuota", "assistantModel"])
     : a.action === "addAi" ? pick(["requestId", "aiAgentId"]) : a.action === "removeAi" ? pick(["requestId", "deityId"]) : pick(["requestId"]);
 }
 
@@ -222,7 +223,8 @@ function toolArgs(envelope: Envelope): Record<string, unknown> {
   const base = { commandId: envelope.commandId, ...(envelope.gameId && GAME_COMMANDS.includes(c.type) ? { gameId: envelope.gameId } : {}) };
   switch (c.type) {
     case "validate": return { ...base, source: c.source, language: c.language };
-    case "summon": return { ...base, source: c.source, language: c.language, name: c.name, ...(c.description ? { description: c.description } : {}) };
+    case "summon": return { ...base, source: c.source, language: c.language, name: c.name, ...(c.description ? { description: c.description } : {}), ...(c.powerShare !== undefined ? { powerShare: c.powerShare } : {}) };
+    case "allocatePower": return { ...base, agentId: c.agentId, share: c.share };
     case "destroy": return { ...base, agentId: c.agentId };
     case "ready": return { ...base, ready: c.ready };
     case "chat": return { ...base, text: c.text };

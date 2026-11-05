@@ -3,7 +3,7 @@
  * settings. The app's "rules for an AI assistant" copy (artifacts/player-web/src/site/components/game-rules.tsx) says the
  * same at more length.
  */
-import { LANGUAGE_SPECS, SETTINGS_DOCS, allowedLanguages, type FieldDoc } from "@workspace/game-core";
+import { LANGUAGE_SPECS, SETTINGS_DOCS, allowedLanguages, type FieldDoc, MAX_AGENT_OPPORTUNITY_HZ } from "@workspace/game-core";
 
 type Settings = Record<string, unknown>;
 
@@ -34,13 +34,19 @@ If, overall, the others do not care about an object, nobody scores from it.
 ## Agents
 An agent is code in one of this game's languages (${allowed.map(l => LANGUAGE_SPECS[l].label).join(", ") || "?"}), chosen per agent, defining ${shapes.join(" or ")} that returns mutator calls, against the room's helper prelude (see the observation's instance: mutators and helpers). Its summon price is counted in its own language.
 It returns at most 16 mutator calls; objects change only through mutators. All object values are unique.
-Summoning costs the agent's description bits from your god energy (validate first: it is free). Each agent has its own energy:
-it earns ${n(s, "agentEnergyPerSecond", 2)} bits per world second (up to ${n(s, "agentBatteryActs", 2)} acts' worth) and acts only while it can pay its expected act cost.
-At each interaction a random eligible agent acts on a random object. You may destroy your own agents at any time, for free.
+Summoning costs the agent's description bits from your own energy (validate first: it is free). You have ${n(s, "powerPerSecond", 8)} bits of power per world second to share out:
+each agent gets a share of it (powerShare, 0 to 100%; a summon without one gets half of your unallocated power, and allocatePower changes it later).
+An agent's energy gains share × ${n(s, "powerPerSecond", 8)} bits per world second, with no cap. More agents do not add power: they divide it. At each interaction a random object is picked, then an agent,
+with probability proportional to its energy (an agent at or below zero waits; at most ${MAX_AGENT_OPPORTUNITY_HZ} turns per world second each).
+An act pays only what it does: the bits of the object it reads, plus its change when it changes the object. There is no fixed charge per act.
+So scan cheaply, return no calls when nothing is worth doing (a skip: it pays only what it read), and save energy to act more often.
+A change costs W + 0.05·W², where W adds up its elementary steps (one cell's colour or symbol; one digit added, or a multiplication by a prime):
+painting a 4-cell row costs about 7.5× one cell. Small incremental acts are much cheaper than radical ones.
+You may destroy your own agents at any time, for free (their power share comes back to you).
 At most ${n(s, "maxAgentsPerGod", 200)} agents per god.
 
 ## Energy and timing
-God energy starts at ${n(s, "startingEnergy")} bits and earns ${n(s, "energyPerSecond")} bits per real second.
+Your own energy starts at ${n(s, "startingEnergy")} bits and earns the power you have not given to agents (${n(s, "powerPerSecond", 8)} bits per world second in all), so it also stops while the world does.
 Planning lasts ${n(s, "planningSeconds")} s (the world does not move). Each god may pause a running game once, for ${n(s, "pauseSeconds")} s.
 ${s.durationMode === "fixed" ? `The game lasts exactly ${n(s, "halfLifeSeconds")} world seconds after planning: the end time is public.` : `The game's lifetime is random (half-life ${n(s, "halfLifeSeconds")} world seconds); the end is hidden.`}
 Starting objects: ${n(s, "startingObjectCount")}; spawning: ${n(s, "spawnRateHz")} objects per world second; interaction cap ${n(s, "interactionRateHz")}/s.

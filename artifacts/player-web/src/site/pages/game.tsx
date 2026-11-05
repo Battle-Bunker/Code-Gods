@@ -35,7 +35,8 @@ import { gamePath, roomPath } from "@/site/lib/routes";
 import { errMsg, fmt, reload, transient } from "@/site/lib/errors";
 import { endReasonLabel, fmtDuration, fmtWhen, secsLeft, toMs, worldSecondsAt } from "@/site/lib/time";
 import type { FunctionReturnType } from "convex/server";
-import { DEFAULT_SCORE_INTERVAL_SECONDS } from "@workspace/game-core";
+import { DEFAULT_SCORE_INTERVAL_SECONDS, gameTimer } from "@workspace/game-core";
+import { GameTimerView } from "@/core/game-timer-view";
 
 type GameInstance = FunctionReturnType<typeof api.games.instance>;
 import { MoreHorizontal } from "lucide-react";
@@ -68,14 +69,30 @@ function WorldTime({ game, now }: { game: GameHeader; now: number }) {
 
 /** "Running · world starts in 12 s" / "Paused · resumes in 8 s" / "Ended: time limit". */
 function statusLine(game: GameHeader, now: number) {
+  // The end, an idle park, a pause for safety or the engine retrying a failing tick (engine lib/engineErrors.ts gameNotice).
+  if (game.notice) return game.notice.text;
   if (game.status !== "active") return `Ended: ${endReasonLabel(game.endReason)}.`;
   const plan = secsLeft(game.planningEndsAt, now), pause = secsLeft(game.pauseEndsAt, now);
-  if (game.phase === "recovery") return `Paused for safety${game.recoveryReason ? `: ${game.recoveryReason.replace(/\.$/, "")}` : ""}.`;
   if (pause && pause > 0) return `Paused · resumes in ${fmt(pause, 0)} s.`;
   if (plan && plan > 0) return `Planning · world starts in ${fmt(plan, 0)} s.`;
-  // Past its deadline, planning holds until every allowed language's agent sandbox is warm (the engine's tick).
-  if (game.phase === "planning") return "Planning · agent sandboxes warming up; the world starts when they are ready.";
+  // Past its deadline, planning holds until every allowed language's agent sandbox is warm and hold rarity's scoring
+  // corrections are computed (the engine's tick).
+  if (game.phase === "planning") return "Planning · getting ready (agent sandboxes, scoring); the world starts when they are ready.";
   return "Running.";
+}
+
+/** The prominent timer: planning's countdown, then the fixed game's exact remaining time or the half-life game's 90% range. */
+function SiteGameTimer({ game, now }: { game: GameHeader; now: number }) {
+  const standings = useLive(api.games.standings, { gameId: game.id }).data;
+  // Over: the timer stands at 0:00 ("ended" when the owner stopped it), so an ended game never looks stalled.
+  if (game.status !== "active") return <GameTimerView timer={gameTimer({ phase: "ended", endReason: game.endReason, world: standings?.world ?? 0, nowMs: now })} />;
+  if (game.phase === "recovery") return null;
+  const paused = !!game.pauseEndsAt && toMs(game.pauseEndsAt) > now;
+  const phase = game.phase === "planning" ? "planning" as const : paused || game.phase === "paused" ? "paused" as const : "running" as const;
+  const world = worldSecondsAt(standings?.world != null && standings.at != null
+    ? { world: standings.world, at: standings.at, running: phase === "running", resumedAt: Math.max(game.planningEndsAt ?? 0, game.pauseEndsAt ?? 0),
+      interval: game.settings.scoreIntervalSeconds ?? DEFAULT_SCORE_INTERVAL_SECONDS } : null, now) ?? 0;
+  return <GameTimerView timer={gameTimer({ phase, durationMode: game.settings.durationMode, lengthSeconds: game.settings.halfLifeSeconds, world, planningEndsAt: game.planningEndsAt, nowMs: now })} />;
 }
 
 function OwnerMenu({ game }: { game: GameHeader }) {
@@ -90,6 +107,7 @@ function OwnerMenu({ game }: { game: GameHeader }) {
       </DropdownMenuTrigger></Tip>
       <DropdownMenuContent align="end">
         {recovery && <DropdownMenuItem onSelect={() => run("rooms.resume")} data-testid="menu-resume">Resume game</DropdownMenuItem>}
+        {game.status === "active" && game.phase === "planning" && !unavailable("rooms.startWorldNow") && <DropdownMenuItem onSelect={() => run("rooms.startWorldNow")} data-testid="menu-start-world-now">Start the world now</DropdownMenuItem>}
         <DropdownMenuItem onSelect={() => setConfirm(true)} disabled={!!unavailable("rooms.endActiveGame")} className="text-destructive" data-testid="button-end-game">End game…</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -129,6 +147,7 @@ function SpectatorView({ game, instance, room }: { game: GameHeader; instance?: 
   const step = gameStep(user?.id, game);
   return (
     <div className="mx-auto max-w-[1440px] px-4 md:px-6 py-8 space-y-6">
+      {active && <SiteGameTimer game={game} now={now} />}
       <header className="flex flex-wrap items-start justify-between gap-4 rise">
         <div className="space-y-3 min-w-0">
           <h1 className="font-display text-4xl md:text-5xl leading-none">

@@ -10,7 +10,7 @@
  * The scoring libraries load lazily, on first use; the tables come from the engine, once per game.
  */
 import type { GameSettings, ObjectValue } from "@workspace/game-core";
-import type { CalibrationTable, UtilityDescriptor } from "@workspace/game-utilities";
+import type { CalibrationTable, HoldTable, UtilityDescriptor } from "@workspace/game-utilities";
 import type { ActOutcome, MutatorCallWire } from "@workspace/game-types";
 import { loadTables } from "@sdk-transport";
 import type { TableSeat } from "./transport-types";
@@ -38,6 +38,8 @@ export async function createEvaluator(settings: GameSettings, descriptor: Utilit
   ]);
   const inst = core.instantiationOf(settings);
   const rewardTable = tables.reward as CalibrationTable;
+  // The game's hold correction (docs/energy-model.md §8), as the engine adds it; absent until computed.
+  const holdTable = tables.hold as HoldTable | undefined;
   const reward = utilities.evaluator(descriptor, inst);
   const penalty = descriptor.penalty ? { fn: utilities.evaluator(descriptor.penalty, inst), table: tables.penalty as CalibrationTable } : undefined;
   if (descriptor.penalty && !tables.penalty) throw new Error("No calibration table for the defence goal");
@@ -46,7 +48,7 @@ export async function createEvaluator(settings: GameSettings, descriptor: Utilit
     // Mirrors the engine's scoring (createUtilitiesAdapter.score in the engine): keep the two in step.
     score(value) {
       const ordinal = reward(value);
-      const rewardBits = bits(utilities.surprisal(rewardTable, ordinal));
+      const rewardBits = bits(utilities.surprisal(rewardTable, ordinal) + utilities.holdBits(holdTable, ordinal));
       if (!penalty) return { ordinal, rewardBits, netBits: bits(core.netBits({ rewardBits }, settings.penaltyWeight)) };
       const penaltyBits = bits(core.softHinge(utilities.surprisal(penalty.table, penalty.fn(value))));
       return {

@@ -5,32 +5,39 @@
  *
  * Opportunities run at most interactionRateHz × Δt (stochastically rounded, never accumulated: no
  * interaction debt), each sequentially against an in-memory copy of the world, exactly as the Express
- * engine's semantics: pick the target object (uniform/shelter) and an eligible agent (energy ≥ expected act
- * cost, settled to the opportunity's world time) with a CSPRNG, run the act with the season-salted seed
+ * engine's semantics: pick the target object (uniform/shelter), then an agent with probability proportional to
+ * its positive energy (settled to the opportunity's world time; at most MAX_AGENT_OPPORTUNITY_HZ per agent,
+ * docs/energy-model.md §7) with a CSPRNG, run the act with the season-salted seed
  * deriveSeed(salt, ["play", gameId, agentId, actIndex]), applyCalls, enforce uniqueness (onto any existing
- * value, the object's own included, fails), apply the commit clause, charge the act, and score the result.
+ * value, the object's own included, fails), apply the commit clause, charge the act (the bits it read, plus its
+ * change when that commits: §2) and score the result. An act that returns no calls is skipped: not a failure.
  *
  * Throughput: up to WORKERS acts run concurrently in a "wave", but a wave never holds the same object or
  * agent twice (as the Express engine reserved them), and results are applied strictly in opportunity order,
  * so the outcome is the sequential one.
  */
 import { v } from "convex/values";
-import { chargeAct, instantiationOf, isLanguage, poissonIntervalSeconds, type GameSettings, type ObjectValue } from "@workspace/game-core";
-import { actCharge, applyCalls, deriveSeed, objectType, type ActOutcome, type MutatorCallWire } from "@workspace/game-types";
+import { chargeAct, instantiationOf, isLanguage, pickByEnergy, poissonIntervalSeconds, type GameSettings, type ObjectValue } from "@workspace/game-core";
+import { actCharge, applyCalls, deriveSeed, failedReadBits, isSkip, objectType, readBound, type ActOutcome, type MutatorCallWire } from "@workspace/game-types";
 import type { UtilityDescriptor } from "@workspace/game-utilities";
+import type { Id } from "../_generated/dataModel";
+import type { ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import type { Doc } from "../_generated/dataModel";
 import { internalAction } from "../_generated/server";
 import { isIdle } from "../lib/rooms";
-import { gameTables } from "./calibration";
-import { cryptoRng, disclosureNoise, openUniform, scoresOf, seasonSalt, uniform01, uniqueSpawn } from "./node";
+import { gameScoringTables } from "./pinned";
+import { disclosureNoise, openUniform, scoresOf, seasonSalt, uniform01, uniqueSpawn } from "./node";
 import { act, bindRuntime, ensureSandboxes, isAgentFault, runtimeVersion, WORKERS } from "./runtime";
 import { effectiveSandbox, planningEnd } from "../lib/sandboxes";
+import { FutileMemo, failureKind, futileAfter, pickPair, type ActKind } from "../lib/futility";
 import { MAX_OBJECTS, MIN_TICK_MS, TICK_SECONDS, planSpawns, agentStatus, pickObject, salienceOf, secondsUntilEligible, settledAccount, commitRaises, disclosedTotalsOf, scoreIntervalOf, scoreboardDue, totalsOf } from "../lib/world";
+import { godTotalsOf } from "../lib/views";
 
 type Score = Doc<"objects">["scores"][number];
 type Ev = Doc<"tickBatches">["events"][number];
-type ActResult = { calls: string } | { error: string };
+/** One act's runtime result: its calls, or the agent's own error; either way the bits it read (docs/energy-model.md §3.4). */
+type ActResult = ({ calls: string; usedRandom: boolean } | { error: string }) & { readBits: number };
 
 /** The previous commit's round trip per game (module scope: a warm instance reports it with the next commit). */
 const lastCommitMs = new Map<string, number>();
@@ -38,6 +45,8 @@ const lastCommitMs = new Map<string, number>();
 /** How often a planning phase held for a warming (or failed: its retries back off) sandbox checks again. */
 const HOLD_POLL_MS = 1000;
 const HOLD_FAILED_POLL_MS = 5000;
+/** The longest planning waits for hold rarity's corrections (docs/energy-model.md §8), from the start. */
+const HOLD_MAX_MS = 10 * 60_000;
 
 /** Wall-clock budget for one window's simulation: opportunities past it are dropped (no debt). */
 const MAX_SIMULATE_MS = 4000;
@@ -46,7 +55,7 @@ const net = (scores: readonly Score[], roster: readonly string[]) => roster.map(
 
 /** The outcome of one act on `before`: applyCalls, or a failure when the runtime refused it (the agent's fault). */
 function actOutcome(settings: GameSettings, before: ObjectValue, result: ActResult): ActOutcome {
-  if ("error" in result) return { ok: false, reason: result.error, cost: { decision: 0, erasure: 0, motion: 0, total: 0 } };
+  if ("error" in result) return { ok: false, reason: result.error, cost: { work: 0, total: 0 } };
   const inst = instantiationOf(settings);
   return applyCalls(objectType(inst.objectType), inst, before, result.calls);
 }
@@ -54,6 +63,18 @@ function actOutcome(settings: GameSettings, before: ObjectValue, result: ActResu
 export const run = internalAction({
   args: { gameId: v.id("games"), seq: v.number() },
   handler: async (ctx, { gameId, seq }): Promise<unknown> => {
+    try {
+      return await tick(ctx, gameId, seq);
+    } catch (error) {
+      // Never a silent stall: the game shows the failure and retries with backoff (engine/loop.ts tickFailed).
+      const message = error instanceof Error ? `${error.message}${error.stack ? `\n${error.stack.split("\n").slice(1, 4).join("\n")}` : ""}` : String(error);
+      await ctx.runMutation(internal.engine.loop.tickFailed, { gameId, seq, message: message.slice(0, 2000) });
+      return { result: "failed", message: message.slice(0, 300) };
+    }
+  },
+});
+
+async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<unknown> {
     await bindRuntime(ctx);
     const snap = await ctx.runQuery(internal.engine.loop.snapshot, { gameId, seq });
     if (!snap) return { result: "stale" };
@@ -78,16 +99,27 @@ export const run = internalAction({
     if (phase === "planning" || phase === "paused") {
       const deadline = phase === "planning" ? game.planningEndsAt : game.pauseEndsAt;
       if (now < deadline) return ctx.runMutation(internal.engine.loop.commit, { ...base, kind: "wait" });
-      const end = phase === "planning" ? planningEnd(deadline, sandboxes) : { at: deadline };
+      // Hold rarity's corrections (engine/hold.ts) hold planning the same way, until computed (or failed). Actions run at
+      // most once: one that died without a word (a timeout, a restart) would hold planning for ever, so past
+      // HOLD_MAX_MS from the start the game plays on static rarity.
+      if (phase === "planning" && game.holdState === "computing" && now - game.createdAt > HOLD_MAX_MS) {
+        await ctx.runMutation(internal.engine.holdData.failed, { gameId, message: `Not computed within ${HOLD_MAX_MS / 60_000} minutes of the start` });
+        return ctx.runMutation(internal.engine.loop.commit, { ...base, kind: "wait", wakeAt: now + HOLD_POLL_MS });
+      }
+      const hold = game.holdState === undefined ? [] : [{ state: game.holdState === "computing" ? "warming" as const : "ready" as const, readyAt: game.holdReadyAt }];
+      const end = phase === "planning" ? planningEnd(deadline, [...sandboxes, ...hold]) : { at: deadline };
       if ("hold" in end) {
         const failed = sandboxes.some(s => s.state === "failed");
         return ctx.runMutation(internal.engine.loop.commit, { ...base, kind: "wait", wakeAt: now + (failed ? HOLD_FAILED_POLL_MS : HOLD_POLL_MS) });
       }
-      phase = "running"; lastTick = Math.min(now, end.at);
+      // Not before lastTick: a game whose ticks failed past its deadline starts its world at the retry (loop.ts tickFailed).
+      phase = "running"; lastTick = Math.max(game.lastTick, Math.min(now, end.at));
       events.push({ t: "phase", phase: "running", world: game.worldSeconds });
     }
-    // The game's tables (only a simulating tick needs them): shipped, analytic or computed at the start; memory after the first.
-    const tables = await gameTables(ctx, settings, snap.deities.map(d => d.utility as UtilityDescriptor));
+    // The game's own tables (engine/pinned.ts), pinned at its start (or by its first simulating tick, for a game started
+    // before pinning): a deploy that re-keys the shipped tables never reaches a game in progress.
+    const deals = snap.deities.map(d => ({ godId: d.godId, utility: d.utility as UtilityDescriptor }));
+    const tables = await gameScoringTables(ctx, game, deals);
     const started = performance.now();
     const target = game.worldSeconds + Math.max(0, now - lastTick) / 1000;
     const until = Math.min(target, game.endAtWorld);
@@ -96,24 +128,39 @@ export const run = internalAction({
 
     // The in-memory world.
     const roster = snap.deities.map(d => d.godId);
-    const deals = snap.deities.map(d => ({ godId: d.godId, utility: d.utility as UtilityDescriptor }));
     const objects = snap.objects.map(o => ({ ...o, fromVersion: o.version, changed: false, noise: o.noise }));
     const occupied = new Set<ObjectValue>(objects.map(o => o.value));
+    // Which object holds each value (a collision remembers its holder: lib/futility.ts), and each object's version.
+    const holders = new Map<ObjectValue, typeof objects[number]>(objects.map(o => [o.value, o]));
+    const byId = new Map(objects.map(o => [o.id, o]));
+    const versionOf = (id: string) => byId.get(id)?.version;
+    // The futile pairs: an agent is never offered an object its deterministic act can only fail on.
+    const futile = new FutileMemo(snap.futile);
     // An agent whose sandbox is not ready sits the window out: never picked, never charged, its energy still accrues.
     // A past game's agent in a retired language (game-core RETIRED_LANGUAGES) sits out too: it can no longer act.
-    const agents = snap.agents.filter(a => isLanguage(a.language) && !unready.has(a.language)).map(a => ({ ...a, fromActs: a.acts, touched: false }));
+    const agents = snap.agents.filter(a => isLanguage(a.language) && !unready.has(a.language)).map(a => ({ ...a, failures: { ...a.failures }, lastFailures: { ...a.lastFailures }, fromActs: a.acts, touched: false }));
     const salt = seasonSalt();
+    const readCap = readBound(instantiationOf(settings));
 
     // Opportunities: rate × Δt, stochastically rounded; spread evenly over the window.
     const expected = settings.interactionRateHz * windowLength;
     const count = agents.length && objects.length ? Math.floor(expected) + (uniform01() < expected - Math.floor(expected) ? 1 : 0) : 0;
     type Pending = { object: typeof objects[number]; agent: typeof agents[number]; world: number; before: ObjectValue; seed: bigint };
     let wave: Pending[] = [];
-    let acts = 0, opportunities = 0;
+    let acts = 0, opportunities = 0, applied = 0, exhausted: string | null = null;
 
     const apply = (p: Pending, result: ActResult | null) => {
       if (!result) return; // a host failure (capacity, unavailable): not the agent's fault, nothing is charged
+      applied++;
       const { object, agent } = p;
+      if ("calls" in result && isSkip(result.calls)) {
+        // Skipped (docs/energy-model.md §2): it read, chose not to act, and pays its reads; not a failure, never futile.
+        const cost = actCharge(null, result.readBits);
+        agent.account = chargeAct(settledAccount(settings, agent, p.world), cost.total);
+        agent.acts++; agent.skips++; agent.spent += cost.total; agent.spentRead += cost.read; agent.touched = true; acts++;
+        events.push({ t: "skip", objectId: object.id, world: p.world, agentId: agent.id, ownerId: agent.ownerId, cost, seed: p.seed.toString() });
+        return;
+      }
       let outcome = actOutcome(settings, p.before, result);
       let next: Score[] | undefined;
       if (outcome.ok && outcome.commit) {
@@ -128,11 +175,22 @@ export const run = internalAction({
         }
       }
       const duplicate = outcome.ok && occupied.has(outcome.value); // includes the object's own value
-      const cost = { ...actCharge(agent, outcome, { duplicate }), naming: outcome.cost.decision };
+      const cost = actCharge(outcome, result.readBits, { commits: !duplicate });
       agent.account = chargeAct(settledAccount(settings, agent, p.world), cost.total);
-      agent.acts++; agent.spent += cost.total; agent.touched = true; acts++;
+      agent.acts++; agent.spent += cost.total; agent.spentRead += cost.read; agent.touched = true; acts++;
+      const kind: ActKind = "error" in result ? "error" : !outcome.ok ? failureKind(outcome.reason) : duplicate ? "collision" : "transform";
+      if (kind === "transform") agent.transforms++;
+      else {
+        agent.failures[kind]++;
+        // The last invalid call or runtime error, verbatim (the other kinds say all there is): the diagnosis quotes it.
+        if (kind === "invalid" || kind === "error") agent.lastFailures[kind] = ("error" in result ? result.error : outcome.ok ? "" : outcome.reason).slice(0, 300);
+      }
+      const holder = outcome.ok && duplicate ? holders.get(outcome.value) : undefined;
+      futile.record(agent.id, object.id, futileAfter({ object, deterministic: "calls" in result && !result.usedRandom, kind,
+        ...(holder ? { holder: { id: holder.id, version: holder.version } } : {}) }));
       if (outcome.ok && !duplicate) {
         occupied.delete(object.value); occupied.add(outcome.value);
+        holders.delete(object.value); holders.set(outcome.value, object);
         object.value = outcome.value; object.version++; object.changed = true;
         object.scores = next ?? scoresOf(tables, settings, deals, outcome.value);
         object.salience = salienceOf(object.scores);
@@ -147,9 +205,13 @@ export const run = internalAction({
     };
     const flush = async () => {
       const results = await Promise.all(wave.map(async (p): Promise<ActResult | null> => {
-        try { return { calls: (await act(ctx, p.agent.source, p.agent.language, p.before, settings, p.seed)).calls }; }
+        try {
+          const { calls, usedRandom, readBits } = await act(ctx, p.agent.source, p.agent.language, p.before, settings, p.seed);
+          return { calls, usedRandom, readBits: readBits ?? 0 };
+        }
         catch (error) {
-          if (isAgentFault(error)) return { error: (error as Error).message.slice(0, 300) };
+          // An unreadable meter (a trap, the hard wall) is charged the whole object's information; a compile error read nothing.
+          if (isAgentFault(error)) return { error: (error as Error).message.slice(0, 300), readBits: failedReadBits(error as { readBits?: number; code?: string }, readCap) };
           console.warn(`act skipped (host): ${(error as Error).message}`);
           return null;
         }
@@ -165,13 +227,33 @@ export const run = internalAction({
       for (let attempt = 0; attempt < 2; attempt++) {
         const busyObjects = new Set(wave.map(p => p.object.id)), busyAgents = new Set(wave.map(p => p.agent.id));
         const freeObjects = objects.filter(o => !busyObjects.has(o.id));
-        const eligible = agents.filter(a => !busyAgents.has(a.id) && agentStatus(settings, a, world).eligible);
+        // Each candidate's energy at this opportunity, settled once: the filter and the energy-weighted draw share it.
+        const energy = new Map<string, number>();
+        const eligible = agents.filter(a => {
+          if (busyAgents.has(a.id)) return false;
+          const status = agentStatus(settings, a, world);
+          energy.set(a.id, status.energy);
+          return status.eligible;
+        });
+        const energyAt = (a: typeof agents[number]) => energy.get(a.id) ?? 0;
         if (!freeObjects.length || !eligible.length) {
           if (wave.length) { await flush(); continue; }
           break;
         }
-        const object = pickObject(freeObjects, settings.objectSelection, uniform01);
-        const agent = eligible[cryptoRng.int(eligible.length)];
+        // A world known to have no workable pair (same applied acts, same eligible agents, nothing in flight) is not
+        // searched again: pickPair's fallback scans every object × agent.
+        const key = wave.length ? null : `${applied}:${eligible.map(a => a.id).join()}`;
+        const pair = key !== null && key === exhausted ? null
+          : pickPair(freeObjects, eligible, os => pickObject(os, settings.objectSelection, uniform01), able => pickByEnergy(able, energyAt, uniform01),
+            (a, o) => futile.isFutile(a.id, o, versionOf));
+        if (!pair) {
+          // Every free object is futile for every eligible agent: the acts in flight may change that; else it passes.
+          if (wave.length) { await flush(); continue; }
+          exhausted = key;
+          break;
+        }
+        const { object, agent } = pair;
+        agent.lastOpportunityWorld = world; agent.touched = true;
         wave.push({ object, agent, world, before: object.value, seed: deriveSeed(salt, ["play", game._id, agent.id, agent.acts]) });
         if (wave.length >= WORKERS) await flush();
         break;
@@ -204,7 +286,7 @@ export const run = internalAction({
     }
     if (phase === "running" && target >= game.endAtWorld) phase = "ended";
 
-    // Next wake: soon if an agent will be eligible, else at the next spawn, the end, or eligibility (≤ 5 s).
+    // Next wake: soon if an agent can be offered an opportunity, else at the next spawn, the end, or then (≤ 5 s).
     let wakeAt: number | undefined;
     if (phase === "running") {
       const soonest = Math.min(
@@ -223,16 +305,20 @@ export const run = internalAction({
       objects: changed.map(o => ({ id: o.id as Doc<"objects">["_id"], fromVersion: o.fromVersion, value: o.value as number | string, version: o.version, scores: o.scores, salience: o.salience,
         ...(o.noise !== undefined ? { noise: o.noise } : {}) })),
       spawns: spawns.map(s => ({ ...s, value: s.value as number | string })),
-      agents: agents.filter(a => a.touched).map(a => ({ id: a.id as Doc<"agents">["_id"], fromActs: a.fromActs, acts: a.acts, spent: a.spent, account: a.account })),
+      agents: agents.filter(a => a.touched).map(a => ({ id: a.id as Doc<"agents">["_id"], fromActs: a.fromActs, acts: a.acts, spent: a.spent, spentRead: a.spentRead, account: a.account,
+        transforms: a.transforms, skips: a.skips, failures: a.failures, lastFailures: a.lastFailures,
+        ...(a.lastOpportunityWorld !== undefined ? { lastOpportunityWorld: a.lastOpportunityWorld } : {}) })),
+      futile: futile.changedRows(versionOf).map(m => ({ agentId: m.agentId as Doc<"agents">["_id"],
+        entries: m.entries as { o: Doc<"objects">["_id"]; v: number; by?: Doc<"objects">["_id"]; bv?: number }[] })),
       events, stats: { opportunities, acts, simulateMs, prevCommitMs: lastCommitMs.get(gameId) }, wakeAt,
       // The leaderboard after the window: the commit publishes it only when the scoreboard is due (scoreIntervalSeconds).
       // Exact totals for the log when scores changed; the disclosed ones only when the scoreboard is due (the commit
       // re-checks), so an ordinary tick does not pay for them.
       ...(changed.length || spawns.length || due ? { totals: totalsOf(roster, [...objects, ...spawns]) } : {}),
       ...(due ? { disclosedTotals: disclosedTotalsOf(roster, [...objects, ...spawns]) } : {}),
+      // Each god's totals as disclosed, from the snapshot that already holds every object (game/objectViews.ts).
+      ...(changed.length || spawns.length ? { godTotals: godTotalsOf(roster, [...objects, ...spawns], true) } : {}),
     });
     lastCommitMs.set(gameId, Date.now() - commitStarted);
     return committed;
-  },
-});
-
+}

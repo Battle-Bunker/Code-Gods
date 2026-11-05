@@ -15,7 +15,7 @@
  *     whose own edits stay on screen until the next server layout.
  */
 import type { Phase } from "@workspace/player-client/panels";
-import { LAYOUT_LIMITS, closePane, followPhase, openPane, panelPanesOf, type DockLayout, type Node } from "@workspace/player-client/layout";
+import { closePane, followPhase, nextPaneId, openPane, panelPanesOf, type DockLayout, type Node, type Pane } from "@workspace/player-client/layout";
 
 export const PUSH_DELAY_MS = 800;
 /** A discrete action (menu, palette): pushed almost at once, coalescing a burst. */
@@ -132,13 +132,43 @@ export function effectiveLayout(layout: DockLayout, phase: Phase): DockLayout {
 }
 
 /**
- * A replay's layout: the human's (or the assistant's) layout from the engine with a Timeline pane over it when it has
- * none and has room for one, never a change pushed anywhere (dock/store.ts shows it until the human closes it).
+ * A replay's layout (derived for display, never pushed; dock/store.ts shows it until the human closes it): the human's
+ * layout from the engine with the Timeline in the assistant's place (the assistant's pane becomes the Timeline, so
+ * the bottom half shows the replay), or, with no assistant pane, added as a full-width bottom half. A layout that
+ * already has a Timeline is the human's own arrangement and is left alone. The assistant stays reachable from the panel
+ * menu and Ctrl+K (opening it puts it back).
  */
 export function withTimeline(layout: DockLayout): DockLayout {
   const panels = panelPanesOf(layout);
-  if (panels.some(p => p.panelId === "timeline") || panels.length >= LAYOUT_LIMITS.panelPanes) return layout;
-  return openPane(layout, { id: "", kind: "panel", panelId: "timeline", params: {}, setBy: "human" }).layout;
+  // Exempt from LAYOUT_LIMITS (panes, panelPanes): they bound what is saved (parseLayout, layout:set), and this layout is
+  // derived for display and never saved, so a full dock still opens an ended game with its Timeline.
+  if (panels.some(p => p.panelId === "timeline")) return layout;
+  const timeline = (id: string): Pane => ({ id, kind: "panel", panelId: "timeline", params: {}, setBy: "human" });
+  const assistant = Object.values(layout.panes).find(p => p.kind === "assistant");
+  if (assistant) return { ...layout, panes: { ...layout.panes, [assistant.id]: timeline(assistant.id) } };
+  const id = nextPaneId(layout);
+  const root: Node = { type: "split", direction: "column", sizes: [50, 50], children: [layout.root, { type: "pane", id }] };
+  return { ...layout, root, panes: { ...layout.panes, [id]: timeline(id) } };
+}
+
+/**
+ * A room with no assistant (its owner is not an administrator) shows its layout without the assistant pane: derived for
+ * display like the replay's Timeline, so the stored layout keeps it for rooms where it exists.
+ */
+export function withoutAssistant(layout: DockLayout): DockLayout {
+  const pane = Object.values(layout.panes).find(p => p.kind === "assistant");
+  if (!pane) return layout;
+  try { return closePane(layout, pane.id); } catch { return layout; }
+}
+
+/**
+ * A change made from the shown layout while the assistant is hidden (withoutAssistant) lacks its pane: put the
+ * `stored` layout's assistant pane back, so the saved layout keeps it for when AI is available in the room again.
+ */
+export function keepAssistantPane(next: DockLayout, stored: DockLayout): DockLayout {
+  const pane = Object.values(stored.panes).find(p => p.kind === "assistant");
+  if (!pane || Object.values(next.panes).some(p => p.kind === "assistant")) return next;
+  try { return openPane(next, pane).layout; } catch { return next; }
 }
 
 /** A stable JSON text (sorted keys), for comparing panes. */

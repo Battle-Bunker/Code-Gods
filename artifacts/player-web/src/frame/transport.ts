@@ -3,10 +3,10 @@
  * host serves (allowlisted, for the current room, throttled to `hz`); commands go through the host, which may ask
  * the player first; calibration tables arrive once per game.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { CommandResult, Envelope } from "@workspace/player-client";
 import type { CalibrationReply } from "../sdk/bridge-protocol";
-import type { LoadTables, QueryReturns, UseSdkQuery, UseSdkSubmit } from "../sdk/transport-types";
+import type { LoadTables, QueryReturns, UseSdkQueries, UseSdkQuery, UseSdkSubmit } from "../sdk/transport-types";
 import { bridge } from "./bridge-client";
 
 type Seen = { key: string; value?: unknown; error?: string };
@@ -25,6 +25,31 @@ export const useSdkQuery: UseSdkQuery = (name, args, hz) => {
   return seen.value as QueryReturns[typeof name];
 };
 
+/** Several bridge subscriptions of one name: one per args, kept while those args stay in the list. */
+export const useSdkQueries: UseSdkQueries = (name, argsList, hz) => {
+  const keys = argsList.map(args => JSON.stringify([name, args, hz]));
+  const [seen, setSeen] = useState<Record<string, Seen>>({});
+  const subs = useRef(new Map<string, () => void>());
+  useEffect(() => {
+    const wanted = new Set(keys);
+    for (const [key, stop] of subs.current) if (!wanted.has(key)) { stop(); subs.current.delete(key); }
+    argsList.forEach((args, i) => {
+      const key = keys[i];
+      if (subs.current.has(key)) return;
+      subs.current.set(key, bridge().subscribe(name, args, hz,
+        value => setSeen(s => ({ ...s, [key]: { key, value } })), error => setSeen(s => ({ ...s, [key]: { key, error } }))));
+    });
+    setSeen(s => (Object.keys(s).every(k => wanted.has(k)) ? s : Object.fromEntries(Object.entries(s).filter(([k]) => wanted.has(k)))));
+    // `keys` covers name, args and hz.
+  }, [keys.join("\n")]);
+  useEffect(() => () => { for (const stop of subs.current.values()) stop(); subs.current.clear(); }, []);
+  return keys.map(key => {
+    const s = seen[key];
+    if (s?.error !== undefined) throw new Error(s.error);
+    return s?.value;
+  }) as never;
+};
+
 export const useSdkSubmit: UseSdkSubmit = () =>
   useCallback((_roomId: string, envelope: Envelope) => bridge().request<CommandResult>({ type: "command", envelope }), []);
 
@@ -38,5 +63,5 @@ export const loadTables: LoadTables = async (_settings, descriptor) => {
     calibration = bridge().request<CalibrationReply>({ type: "calibration" }).catch(error => { calibration = undefined; throw error; });
   }
   const reply = await calibration;
-  return { reward: reply.reward, ...(reply.penalty ? { penalty: reply.penalty } : {}) };
+  return { reward: reply.reward, ...(reply.penalty ? { penalty: reply.penalty } : {}), ...(reply.hold ? { hold: reply.hold } : {}) };
 };

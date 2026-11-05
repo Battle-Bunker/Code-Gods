@@ -5,19 +5,19 @@
  * button and its palette row never disagree. Pure: the app passes its state and actions in.
  */
 import { CATALOG, paletteEntries, type PublicFunctionPath } from "@workspace/player-client/catalog";
-import { gamePath, roomPath } from "./routes.ts";
+import { gamePath, roomPath, ruleGalleryPath } from "./routes.ts";
 import {
   commandsFromCatalog, explainTermCommand, glossaryCommands, liveOptions, shortcutsCommand,
   type Availability, type Command, type PaletteContext, type PaletteGroup, type PaletteSection, type Performer, type PickOption,
 } from "@workspace/ui-kit/core";
 import type { GridRendererId } from "@workspace/object-views";
 import { firstName } from "./next-step.ts";
-import { ownerLabel } from "./setup-words.ts";
 export { STEP_IDS } from "./next-step.ts";
 
 /** Client-only commands: the human text every button and palette row of these actions uses. */
 export const UI_COMMANDS = {
   "ui.nav.home": { title: "Your rooms", tooltip: "Every room you created or joined, with its owner and creation date.", group: "room", section: "goto", keywords: ["home", "rooms", "list"] },
+  "ui.nav.ruleGallery": { title: "Rule gallery", tooltip: "Every rule with picture-by-picture explanations, for a board you pick: try their settings and read their code.", group: "help", section: "goto", keywords: ["rules", "gallery", "families", "utility", "goals", "browse"] },
   "ui.nav.room": { title: "Room page", tooltip: "The room this game belongs to: its players, chat and next game.", group: "room", section: "goto", keywords: ["lobby", "back"] },
   "ui.nav.game": { title: "Watch live game", tooltip: "The shared view of the running game: leaderboard, objects and chat.", group: "room", section: "goto", keywords: ["arena", "spectate", "live"] },
   "ui.nav.pastGame": { title: "Open a past game…", tooltip: "The final results of a finished game of this room.", group: "room", section: "goto", keywords: ["results", "history"] },
@@ -30,7 +30,6 @@ export const UI_COMMANDS = {
   "ui.copyRules": { title: "Copy game rules for an AI", tooltip: "Copies this room's rules as text you can paste into any AI assistant.", group: "help", section: "help", keywords: ["rules", "prompt", "copy"] },
   "ui.help.scoring": { title: "How scoring works", tooltip: "Rarity bits, defence goals and why others' care decides your points.", group: "help", section: "help", keywords: ["points", "bits", "payoff", "score"] },
   "ui.help.howToPlay": { title: "How to play", tooltip: "The game in 90 seconds.", group: "help", section: "help", keywords: ["rules", "intro", "tutorial"] },
-  "ui.aiSpending": { title: "AI spending…", tooltip: "The AI players' token budget and every player's assistant allowance.", group: "owner", section: "settings", keywords: ["budget", "tokens", "billing", "assistant"] },
   "ui.auth.signIn": { title: "Sign in with Google", tooltip: "Sign in with your Google account to create or join rooms.", group: "account", section: "settings", keywords: ["login", "log in"] },
   "ui.auth.signOut": { title: "Sign out", tooltip: "Signs you out of this browser.", group: "account", section: "settings", keywords: ["logout", "log out"] },
   "ui.objects.renderer": { title: "Show grids as tiles", tooltip: "Draws every grid as coloured tiles with a pattern or letter per colour. Remembered in this browser.", group: "view", section: "views", keywords: ["grid", "tiles", "digits", "display", "compact", "colour"] },
@@ -54,7 +53,8 @@ export interface CmdRoom {
   id: string; shortCode: string; ownerId: string; ownerName: string;
   members: readonly { id: string; name: string; kind: string; ready: boolean; spectator?: boolean }[];
   activeGame: { shortCode: string; phase: string; roster: readonly { id: string }[] } | null;
-  aiBudget: number; assistantBudget: number;
+  /** The room's owner is an administrator: AI seats, the assistant and the quotas are available (rooms.get `aiEnabled`). */
+  aiEnabled: boolean; aiQuota: number; assistantQuota: number;
   /** The next game is preparing its rule tables (rooms.get `preparing`). */
   preparing?: { error?: string } | null;
 }
@@ -62,7 +62,8 @@ export interface CmdGame { shortCode: string; status: string; roomShortCode?: st
 export interface Template { id: string; name: string; provider: string; model: string }
 /** A subscription's current state, as the shared query hook reports it: no data while it loads. */
 export type Live<T> = { data: T | undefined; error: Error | null };
-export interface SetupLike { id: string; name: string; summary: string; system: boolean; mine: boolean; ownerName: string }
+/** A setup as a page of the catalogue lists it (setups.page): no owner's name (setups.row has it) and no settings. */
+export interface SetupLike { id: string; name: string; summary: string; system: boolean; mine: boolean }
 
 export interface EngineScope {
   user: { id: string; name: string; isAdmin: boolean } | null;
@@ -70,8 +71,6 @@ export interface EngineScope {
   game?: CmdGame | null;
   /** manifest.aiFunding.configured; undefined while the manifest loads. */
   aiConfigured?: boolean;
-  /** Every game setup (setups.list): the system's, then everyone's by name. */
-  setups: readonly SetupLike[];
   /** The setup the room runs (room.setup.id), unless it was deleted. */
   currentSetup?: string;
   minPlayers: number;
@@ -98,8 +97,9 @@ export interface EngineActions {
   setSpectator(spectator: boolean, godId?: string): Promise<unknown>;
   start(): Promise<unknown>;
   resume(): Promise<unknown>;
+  startWorldNow(): Promise<unknown>;
   endGame(): Promise<unknown>;
-  /** Seat an AI player (the app asks for the AI budget first when it is 0). */
+  /** Seat an AI player. */
   addAi(templateId: string): Promise<unknown>;
   removeAi(godId: string): Promise<unknown>;
   /** Put the next game on a setup at once (the app offers Undo). */
@@ -114,10 +114,13 @@ export interface EngineActions {
   useAdminTemplates(): Live<readonly Template[]>;
   usePastGames(): Live<readonly { shortCode: string; startedAt: number; winners: readonly { name: string }[] }[]>;
   useCredentials(): Live<readonly { credentialId: string; label?: string | null; kind?: string; permission: string; roomCode?: string | null }[]>;
+  /** The first page of the setup catalogue (setups.page): the system's, then everyone's by name; with a query, the server's search. */
+  useSetups(query: string): Live<readonly SetupLike[]>;
   revoke(credentialId: string): Promise<unknown>;
-  openSheet(sheet: "ai-spending" | "connected-apps" | "scoring" | "past-games"): void;
+  openSheet(sheet: "ai-quotas" | "connected-apps" | "scoring" | "past-games"): void;
   rulesText(): string | null;
-  serverInfo(): readonly string[];
+  /** The server's facts (a hook: the system setups' names are a subscription). */
+  useServerInfo(): readonly string[];
   whoAmI(): readonly string[];
   /** setObjectRenderer("Grid", id): every grid this viewer sees redraws. */
   setGridRenderer(id: GridRendererId): void;
@@ -146,6 +149,8 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
   const seated = !!user && !!running?.roster.some(r => r.id === user.id);
   const roomCode = room?.shortCode ?? game?.roomShortCode ?? null;
   const aiOff = scope.aiConfigured === false;
+  const notAdminRoom = !!room && !room.aiEnabled;
+  const adminOnly = "AI is only available in rooms run by an administrator for now.";
   const ais = room?.members.filter(m => m.kind === "ai") ?? [];
   const players = room?.members.filter(m => !m.spectator).length ?? 0;
 
@@ -159,16 +164,19 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
     "owner.start": () => ownerOnly(() => running ? no(`Game ${running.shortCode} is already running.`)
       : scope.starting ? no("The game is already starting.")
       : room!.preparing && !room!.preparing.error ? no("The game is preparing its rule tables; it starts by itself.")
-      : players < scope.minPlayers ? no(`Needs ${scope.minPlayers} players; ${players} ${players === 1 ? "plays" : "play"} (spectators don't count).`, aiOff ? {} : { fix: "rooms.addAi" }) : ok),
+      : notAdminRoom && ais.some(a => !a.spectator) ? no(`${adminOnly} Remove the AI players to start.`, { fix: "rooms.removeAi" })
+      : players < scope.minPlayers ? no(`Needs ${scope.minPlayers} players; ${players} ${players === 1 ? "plays" : "play"} (spectators don't count).`, aiOff || notAdminRoom ? {} : { fix: "rooms.addAi" }) : ok),
     "owner.settings": () => ownerOnly(() => lobby(ok)),
     "rooms.addAi": () => (aiOff ? no("AI players are not set up on this server.", { hidden: true })
+      : notAdminRoom ? no(adminOnly, { hidden: true })
       : ownerOnly(() => lobby(players >= scope.maxPlayers ? no(`The next game is full (${scope.maxPlayers} players).`) : ok))),
     "rooms.removeAi": () => (aiOff && !ais.length ? no("AI players are not set up on this server.", { hidden: true })
       : ownerOnly(() => lobby(ais.length ? ok : no("No AI players are seated.")))),
     // With no game running it ends a preparation (the next game computing its rule tables).
     "rooms.endActiveGame": () => ownerOnly(() => running || room!.preparing ? ok : no("No game is running.")),
+    "rooms.startWorldNow": () => ownerOnly(() => running?.phase === "planning" ? ok : no(running ? "The world has started." : "No game is running.")),
     "rooms.resume": () => ownerOnly(() => running?.phase === "recovery" ? ok : no(running ? "The game is not paused for safety." : "No game is running.")),
-    "rooms.approveAiBudget": () => ownerOnly(() => ok),
+    "rooms.setAiQuotas": () => (aiOff ? no("AI players are not set up on this server.", { hidden: true }) : notAdminRoom ? no(adminOnly, { hidden: true }) : ownerOnly(() => ok)),
     "rooms.join": () => (!user ? no("Sign in first.") : needRoom(me ? no("You are already in this room.", { hidden: true }) : ok)),
     "rooms.leave": () => (!room || !me ? no("You are not in this room.", { hidden: true }) : isOwner ? no("The owner cannot leave their room.", { hidden: true })
       : seated ? no(`You are playing in game ${running!.shortCode}; leave after it ends.`) : ok),
@@ -193,10 +201,11 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
       useOptions: () => liveOptions(act.useCredentials(), (c): PickOption => ({ id: c.credentialId, label: c.label || "Unlabelled app", detail: `${c.permission} · room ${c.roomCode ?? "gone"}` })),
       onPick: id => act.revoke(id) } },
     "auth.user.me": { kind: "form", page: { kind: "info", title: "Who am I", lines: act.whoAmI() } },
-    "manifest.get": { kind: "form", page: { kind: "info", title: "Server info", lines: act.serverInfo() } },
+    "manifest.get": { kind: "form", page: { kind: "info", title: "Server info", useLines: () => act.useServerInfo() } },
     "owner.settings": { kind: "form", page: { kind: "pick", title: "Choose the next game's setup", empty: "No setups yet.",
-      options: () => scope.setups.map((s): PickOption => ({ id: s.id, label: `${s.name}${s.id === scope.currentSetup ? " (current)" : ""}`,
-        detail: `${ownerLabel(s)} · ${s.summary}`, keywords: [s.ownerName] })),
+      // The server searches name, owner and summary (setups.page's search index); the list shows its answer as given.
+      useOptions: query => ({ ...liveOptions(act.useSetups(query), (s): PickOption => ({ id: s.id, label: `${s.name}${s.id === scope.currentSetup ? " (current)" : ""}`,
+        detail: s.system ? `System · ${s.summary}` : s.mine ? `You · ${s.summary}` : s.summary })), searched: !!query }),
       onPick: id => act.applySetup(id) } },
     "owner.start": { kind: "submit", run: act.start },
     "rooms.create": { kind: "local", run: act.createRoom },
@@ -205,14 +214,15 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
     "rooms.setReady": { kind: "submit", run: () => act.setReady(!me?.ready) },
     "rooms.setSpectator": { kind: "submit", run: () => act.setSpectator(!me?.spectator) },
     "rooms.history": { kind: "local", run: () => act.openSheet("past-games") },
-    "rooms.approveAiBudget": { kind: "local", run: () => act.openSheet("ai-spending") },
+    "rooms.setAiQuotas": { kind: "local", run: () => act.openSheet("ai-quotas") },
     "rooms.addAi": { kind: "form", page: { kind: "pick", title: "Add an AI player", empty: "The AI library is empty; an admin adds AI players.",
-      useOptions: () => liveOptions(act.useTemplates(), t => ({ id: t.id, label: t.name, detail: `${t.model} · uses the room's AI budget`, keywords: [t.provider, t.model] })),
+      useOptions: () => liveOptions(act.useTemplates(), t => ({ id: t.id, label: t.name, detail: `${t.model} · uses the room's AI players' quota`, keywords: [t.provider, t.model] })),
       onPick: id => act.addAi(id) } },
     "rooms.removeAi": { kind: "form", page: { kind: "pick", title: "Remove an AI player", empty: "No AI players are seated.",
       options: () => ais.map(m => ({ id: m.id, label: m.name, detail: "Press ↵ twice to remove" })), onPick: id => act.removeAi(id) } },
     "rooms.endActiveGame": { kind: "submit", run: act.endGame },
     "rooms.resume": { kind: "submit", run: act.resume },
+    "rooms.startWorldNow": { kind: "submit", run: act.startWorldNow },
   };
 
   const fromCatalog = commandsFromCatalog(CATALOG, path => (path in EXCLUDED ? null : binds[path] ?? null), "site").map(c => {
@@ -220,7 +230,7 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
     const extra: Partial<Command> = {};
     if (c.id === "rooms.setSpectator") extra.human = { title: me?.spectator ? "Play the next game" : "Watch the next game", tooltip: c.human.tooltip };
     if (c.id === "rooms.setReady") extra.human = { title: me?.ready ? "Mark me not ready" : "Mark me ready", tooltip: c.human.tooltip };
-    if (c.id === "rooms.approveAiBudget") extra.confirm = "none"; // the sheet carries the consent
+    if (c.id === "rooms.setAiQuotas") extra.confirm = "none"; // the sheet is the form and its Save the confirmation
     if (c.id === "owner.start" && room) extra.summary = () => `${players} players (${ais.length} AI) start now; each gets a secret goal. Spectators watch.`;
     if (c.id === "rooms.endActiveGame" && running) { extra.confirmLabel = `End game ${running.shortCode}`; extra.summary = () => `The current leaderboard becomes the final result of game ${running.shortCode}.`; }
     // A state check replaces the audience rule: it knows the room (the owner's name, who is seated, what runs).
@@ -237,6 +247,7 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
 
   const uiCommands: Command[] = [
     ui("ui.nav.home", { kind: "navigate", to: "/" }, signedIn),
+    ui("ui.nav.ruleGallery", { kind: "navigate", to: ruleGalleryPath() }, signedIn),
     ui("ui.nav.room", { kind: "navigate", to: `/rooms/${roomCode ?? ""}` }, () => (game && roomCode ? ok : no("No room here.", { hidden: true }))),
     ui("ui.nav.game", { kind: "navigate", to: gamePath(roomCode ?? "", running?.shortCode ?? "") }, () => (!room ? no("Open a room first.", { hidden: true }) : running ? ok : no("No game is running."))),
     ui("ui.nav.pastGame", { kind: "form", page: { kind: "pick", title: "Open a past game", empty: "No games have finished in this room yet.",
@@ -256,7 +267,6 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
     ui("ui.copyRules", { kind: "local", run: () => { const t = act.rulesText(); if (t) act.copy(t, "Game rules"); } }, () => (room || game ? ok : no("Open a room or game first.", { hidden: true }))),
     ui("ui.help.scoring", { kind: "local", run: () => act.openSheet("scoring") }, () => ok, { defaultScore: 1 }),
     ui("ui.help.howToPlay", { kind: "form", page: { kind: "info", title: "How to play", lines: HOW_TO_PLAY } }, () => ok, { defaultScore: 2 }),
-    ui("ui.aiSpending", { kind: "local", run: () => act.openSheet("ai-spending") }, () => (!room ? no("Open a room first.", { hidden: true }) : isOwner ? ok : no(`Only the owner, ${room.ownerName}, can change spending.`))),
     ui("ui.auth.signIn", { kind: "local", run: act.login }, () => (user ? no("You are signed in.", { hidden: true }) : ok)),
     ui("ui.auth.signOut", { kind: "local", run: act.logout }, signedIn),
     scope.gridRenderer === "tiles"

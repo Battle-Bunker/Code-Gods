@@ -6,12 +6,16 @@
  * (endAtWorld) never leave. Every public query builds its result through these functions.
  */
 import { agentDisplayName } from "./agentName";
-import { allowedLanguages, instantiationOf, leaderboard, rankTotals, type GameSettings } from "@workspace/game-core";
+import { gameNotice } from "./engineErrors";
+import { MAX_AGENT_OPPORTUNITY_HZ, allowedLanguages, deityIncome, roundShare, instantiationOf, leaderboard, rankTotals, type GameSettings } from "@workspace/game-core";
 import { COMMIT_CLAUSE_HELPER, instanceInfo, type InstanceInfo } from "@workspace/game-types";
 import { VERSION, observationSchema, type Observation } from "@workspace/player-client";
 import type { Doc } from "../_generated/dataModel";
 import type { ClockedGame, Scoreboard } from "../game/state";
 import { DEFAULT_AGENT_MODEL } from "./aiModels";
+import { aiQuotaOf, assistantQuotaOf } from "./aiAccess";
+import { NO_FAILURES, diagnoseAgent } from "./futility";
+import { agentIncomeOf, powerOf, shareOf } from "./power";
 import { agentStatus, disclosedTotalsOf, godEnergy, totalsOf, viewOf, viewOfNet, worldNow } from "./world";
 import { agentLanguage } from "./language";
 
@@ -60,7 +64,7 @@ export function gameRecord(game: ClockedGame, objects: readonly Obj[]) {
     id: game._id, guid: game.guid, shortCode: game.shortCode, roomId: game.roomId,
     startedAt: game.createdAt, endedAt: game.endedAt ?? null, endReason: game.endReason ?? null,
     settings: game.settings as GameSettings, setup: gameSetup(game), roster: game.roster.map(rosterEntry), leaderboard: board,
-    spectators: game.spectators ?? [],
+    spectators: game.spectators,
     winners: board.filter(row => row.rank === 1).map(({ deityId, name, kind }) => ({ deityId, name, kind })),
     worldSeconds: game.worldSeconds, objectCount: objects.length,
     scoring: SCORING, seasonCommitment: game.seasonCommitment,
@@ -78,8 +82,8 @@ export function publicGame(game: ClockedGame, objects: readonly Obj[]) {
     // others = salience still holds for each of them and nothing can be averaged); ended, it is exact.
     objects: objects.map(o => ({ id: o._id, value: o.value, version: o.version, salience: o.salience + (game.phase !== "ended" ? o.noise ?? 0 : 0) })),
     startedAt: game.createdAt, endedAt: game.endedAt ?? null, endReason: game.endReason ?? null,
-    recoveryReason: game.recoveryReason ?? null,
-    settings: game.settings as GameSettings, setup: gameSetup(game), roster: game.roster.map(rosterEntry), spectators: game.spectators ?? [],
+    recoveryReason: game.recoveryReason ?? null, notice: gameNotice(game) ?? null,
+    settings: game.settings as GameSettings, setup: gameSetup(game), roster: game.roster.map(rosterEntry), spectators: game.spectators,
     objectInstance: objectInstance(game.settings as GameSettings),
     seasonCommitment: game.seasonCommitment,
   };
@@ -92,7 +96,7 @@ export const chatView = (m: Chat) => ({ id: m._id, authorId: m.authorId, authorN
 export type RoomSetup = { id: string; name: string; deleted: boolean };
 
 export function publicRoom(room: Doc<"rooms">, members: readonly Doc<"members">[], chat: readonly Chat[], active: Game | null, ownerName: string, catalog: unknown,
-  setup: RoomSetup | null) {
+  setup: RoomSetup | null, aiEnabled: boolean) {
   const settings = room.settings as GameSettings;
   return {
     id: room._id, guid: room.guid, shortCode: room.shortCode, ownerId: room.ownerId, ownerName, createdAt: room.createdAt,
@@ -100,15 +104,18 @@ export function publicRoom(room: Doc<"rooms">, members: readonly Doc<"members">[
     // The game setup the room runs; `settings` is its snapshot from when it was applied (null only before setups-v2).
     setup,
     members: members.map(m => ({
-      id: m.godId, name: m.name, kind: m.kind, ready: m.ready, spectator: m.spectator ?? false, ...(m.status ? { status: m.status } : {}),
+      id: m.godId, name: m.name, kind: m.kind, ready: m.ready, spectator: m.spectator, ...(m.status ? { status: m.status } : {}),
       // The seat's library agent is public by name, provider and model; its strategy prompt is not.
       ...(m.aiAgent ? { aiAgentId: m.aiAgent.id, aiAgentRevision: m.aiAgent.revision, provider: m.aiAgent.provider, model: m.aiAgent.model } : {}),
     })),
     chat: chat.map(chatView),
-    aiBudget: room.aiBudget, aiUsed: room.aiUsed, aiReservedUsd: room.aiReservedUsd,
+    // AI (seats and the assistant) is available only in rooms whose owner is an administrator (lib/aiAccess.ts).
+    aiEnabled,
+    // The AI players' per-game token quota (all seats together; 0 = none) and this game's usage.
+    aiQuota: aiQuotaOf(room), aiUsed: room.aiUsed, aiReservedUsd: room.aiReservedUsd,
     aiInputTokens: room.aiInputTokens, aiOutputTokens: room.aiOutputTokens,
-    // The in-client assistant's pool: tokens per human per game (0 = off) and its model.
-    assistantBudget: room.assistantBudget ?? 0, assistantModel: room.assistantModel ?? DEFAULT_AGENT_MODEL,
+    // The in-client assistant: each player's per-game token quota (0 = none) and its model.
+    assistantQuota: assistantQuotaOf(room), assistantModel: room.assistantModel ?? DEFAULT_AGENT_MODEL,
     // The lobby describes the NEXT game: its object type and the families its gods might draw, never who drew which.
     objectInstance: objectInstance(settings),
     utilityCatalog: catalog ?? null,
@@ -141,9 +148,27 @@ export function personalObject(o: Obj, godId: string, live: boolean) {
   const view = viewOf(o.scores, godId, live ? o.noise ?? 0 : 0);
   return {
     id: o._id as string, value: o.value, version: o.version,
+    // Public figures (docs/public-log-design.md §2): the transformation count, the spawn time and the last transformation time.
+    mutations: o.version, createdAt: o.createdAt ?? 0, lastMutatedAt: o.lastMutatedAt ?? null,
     own: { ordinal: own.ordinal, rewardBits: own.rewardBits, ...(own.penaltyBits !== undefined ? { penaltyBits: own.penaltyBits } : {}), netBits: own.netBits },
     peerNetBits: view.peerNetBits, peerCare: view.peerCare, payoff: view.payoff,
   };
+}
+
+/**
+ * An agent's estimated cost per act as {read, change} (docs/energy-model.md §5). A price stored before the energy model
+ * (until migrations.agentPricesV2 has run) shows its change part only: its decision and floor are no longer charged.
+ */
+export function costBreakdown(b: Doc<"agents">["breakdown"]): { read: number; change: number } {
+  return "read" in b ? { read: b.read, change: b.change } : { read: 0, change: b.erasure + b.motion };
+}
+/**
+ * One act's charge as {read, change, total}. An event-log schema ≤ 4 charge (history) keeps its exact total, and its
+ * erasure and motion as the change; its decision and floor were a fixed price, not reading, so `read` is 0 and the total
+ * is more than the parts.
+ */
+export function actCost(c: { read: number; change: number; total: number } | { decision: number; erasure: number; motion: number; floor: number; total: number }) {
+  return "read" in c ? { read: c.read, change: c.change, total: c.total } : { read: 0, change: c.erasure + c.motion, total: c.total };
 }
 
 /** An agent as its owner sees it. */
@@ -151,10 +176,20 @@ export function agentView(game: ClockedGame, agent: Doc<"agents">, nowMs = Date.
   const status = agentStatus(game.settings, agent, worldNow(game, nowMs));
   return {
     id: agent._id as string, name: agentDisplayName(agent.name, ordinal), ...(agent.description ? { description: agent.description } : {}), source: agent.source, language: agentLanguage(agent, game.settings as GameSettings), createdAt: agent.createdAt,
-    summonCost: agent.summonCost, decisionBits: agent.decisionBits, expectedActCost: agent.expectedActCost,
-    breakdown: agent.breakdown, randomized: agent.randomized, energy: status.energy, eligible: status.eligible,
-    acts: agent.acts, spent: agent.spent,
+    summonCost: agent.summonCost, expectedActCost: agent.expectedActCost,
+    breakdown: costBreakdown(agent.breakdown), randomized: agent.randomized, energy: status.energy, eligible: status.eligible,
+    powerShare: shareOf(agent, game.settings), income: agentIncomeOf(agent, game.settings),
+    acts: agent.acts, spent: agent.spent, ...(agent.spentRead !== undefined ? { spentRead: agent.spentRead } : {}), skips: agent.skips ?? 0,
+    ...agentOutcomes(agent),
   };
+}
+
+/** The owner's breakdown of how the agent's acts ended (counted by the tick) and its diagnosis (lib/futility.ts). */
+export function agentOutcomes(agent: Pick<Doc<"agents">, "transforms" | "failures" | "lastFailures">) {
+  if (agent.failures === undefined && agent.transforms === undefined) return {};
+  const outcomes = { transforms: agent.transforms ?? 0, failures: agent.failures ?? NO_FAILURES, ...(agent.lastFailures ? { lastFailures: agent.lastFailures } : {}) };
+  const diagnosis = diagnoseAgent(outcomes);
+  return { outcomes, ...(diagnosis ? { diagnosis } : {}) };
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -181,8 +216,9 @@ export function projectEvent(ev: Ev, godId: string, index: number, live = true) 
     return {
       type: "agent.summoned" as const, agentId: ev.agentId, mine, worldSeconds: ev.world,
       ...(mine ? {
-        name: ev.name, ...(ev.description ? { description: ev.description } : {}), language: ev.language, source: ev.source, summonCost: ev.summonCost, decisionBits: ev.decisionBits, expectedActCost: ev.expectedActCost,
-        perActFloorBits: ev.perActFloorBits, breakdown: ev.breakdown, randomized: ev.randomized, account: ev.account,
+        name: ev.name, ...(ev.description ? { description: ev.description } : {}), language: ev.language, source: ev.source, summonCost: ev.summonCost, expectedActCost: ev.expectedActCost,
+        ...(ev.powerShare !== undefined ? { powerShare: ev.powerShare } : {}),
+        breakdown: costBreakdown(ev.breakdown), randomized: ev.randomized, account: ev.account,
       } : {}),
     };
   }
@@ -190,9 +226,17 @@ export function projectEvent(ev: Ev, godId: string, index: number, live = true) 
     const mine = ev.ownerId === godId;
     return live && !mine ? null : { type: "agent.destroyed" as const, agentId: ev.agentId, mine, worldSeconds: ev.world };
   }
+  if (ev.t === "power") {
+    if (ev.ownerId !== godId) return null;
+    return { type: "agent.power" as const, agentId: ev.agentId, worldSeconds: ev.world, share: ev.share };
+  }
   if (ev.t === "fail") {
     if (ev.ownerId !== godId) return null;
-    return { type: "agent.failed" as const, objectId: ev.objectId, agentId: ev.agentId, worldSeconds: ev.world, reason: ev.reason, cost: ev.cost };
+    return { type: "agent.failed" as const, objectId: ev.objectId, agentId: ev.agentId, worldSeconds: ev.world, reason: ev.reason, cost: actCost(ev.cost) };
+  }
+  if (ev.t === "skip") {
+    if (ev.ownerId !== godId) return null;
+    return { type: "agent.skipped" as const, objectId: ev.objectId, agentId: ev.agentId, worldSeconds: ev.world, cost: actCost(ev.cost) };
   }
   // Live, the peers' sum carries the version's disclosure noise (settings.peerNoiseBits); ended, it is exact.
   const own = index >= 0 ? viewOfNet(ev.net, index, live ? ev.noise ?? 0 : 0) : null;
@@ -200,12 +244,16 @@ export function projectEvent(ev: Ev, godId: string, index: number, live = true) 
   if (ev.t === "spawn") {
     return { type: "object.spawned" as const, objectId: ev.objectId, value: ev.value, version: ev.version, worldSeconds: ev.world, ...scored };
   }
+  // Hold rarity applied during planning (docs/energy-model.md §8): the same version, re-scored.
+  if (ev.t === "rescore") {
+    return { type: "object.rescored" as const, objectId: ev.objectId, value: ev.value, version: ev.version, worldSeconds: ev.world, ...scored };
+  }
   // Every transformation is public; while the game is live it is unattributed (docs/public-log-design.md §1): another
   // god's carries no agent id, owner, calls or charge. Only the viewer's own carry its agent, calls and cost.
   const mine = ev.ownerId === godId;
   return {
     type: "object.transformed" as const, objectId: ev.objectId, value: ev.value, before: ev.before, version: ev.version,
-    worldSeconds: ev.world, mine, ...(mine || !live ? { agentId: ev.agentId } : {}), ...(mine ? { calls: ev.calls, cost: ev.cost } : {}), ...scored,
+    worldSeconds: ev.world, mine, ...(mine || !live ? { agentId: ev.agentId } : {}), ...(mine ? { calls: ev.calls, cost: actCost(ev.cost) } : {}), ...scored,
   };
 }
 export type ProjectedEvent = NonNullable<ReturnType<typeof projectEvent>>;
@@ -229,21 +277,27 @@ export function replayEvent(ev: Ev) {
   switch (ev.t) {
     case "phase": return { type: "phase" as const, phase: ev.phase, worldSeconds: ev.world, ...(ev.reason ? { reason: ev.reason } : {}) };
     case "spawn": return { type: "object.spawned" as const, objectId: ev.objectId, value: ev.value, version: ev.version, worldSeconds: ev.world, net: ev.net };
+    case "rescore": return { type: "object.rescored" as const, objectId: ev.objectId, value: ev.value, version: ev.version, worldSeconds: ev.world, net: ev.net };
     case "transform": return {
       type: "object.transformed" as const, objectId: ev.objectId, before: ev.before, value: ev.value, version: ev.version, worldSeconds: ev.world,
-      agentId: ev.agentId, ownerId: ev.ownerId, calls: ev.calls, cost: ev.cost, net: ev.net, ...(ev.seed ? { seed: ev.seed } : {}),
+      agentId: ev.agentId, ownerId: ev.ownerId, calls: ev.calls, cost: actCost(ev.cost), net: ev.net, ...(ev.seed ? { seed: ev.seed } : {}),
     };
     case "fail": return {
-      type: "agent.failed" as const, objectId: ev.objectId, worldSeconds: ev.world, agentId: ev.agentId, ownerId: ev.ownerId, reason: ev.reason, cost: ev.cost,
+      type: "agent.failed" as const, objectId: ev.objectId, worldSeconds: ev.world, agentId: ev.agentId, ownerId: ev.ownerId, reason: ev.reason, cost: actCost(ev.cost),
+      ...(ev.seed ? { seed: ev.seed } : {}),
+    };
+    case "skip": return {
+      type: "agent.skipped" as const, objectId: ev.objectId, worldSeconds: ev.world, agentId: ev.agentId, ownerId: ev.ownerId, cost: actCost(ev.cost),
       ...(ev.seed ? { seed: ev.seed } : {}),
     };
     case "summon": return {
       type: "agent.summoned" as const, agentId: ev.agentId, ownerId: ev.ownerId, worldSeconds: ev.world, language: ev.language, source: ev.source,
       ...(ev.name ? { name: ev.name } : {}), ...(ev.description ? { description: ev.description } : {}),
-      summonCost: ev.summonCost, decisionBits: ev.decisionBits, expectedActCost: ev.expectedActCost, perActFloorBits: ev.perActFloorBits,
-      breakdown: ev.breakdown, randomized: ev.randomized, account: ev.account,
+      summonCost: ev.summonCost, expectedActCost: ev.expectedActCost, ...(ev.powerShare !== undefined ? { powerShare: ev.powerShare } : {}),
+      breakdown: costBreakdown(ev.breakdown), randomized: ev.randomized, account: ev.account,
     };
     case "destroy": return { type: "agent.destroyed" as const, agentId: ev.agentId, ownerId: ev.ownerId, worldSeconds: ev.world };
+    case "power": return { type: "agent.power" as const, agentId: ev.agentId, ownerId: ev.ownerId, worldSeconds: ev.world, share: ev.share };
   }
 }
 export type ReplayEventOut = ReturnType<typeof replayEvent>;
@@ -260,7 +314,7 @@ export function replayBatches(batches: readonly (Batch & { from?: number })[]) {
 export function trajectories(batches: readonly Batch[], index: number, live: boolean) {
   const series = new Map<string, { seq: number; worldSeconds: number; value: number | string; ownNetBits: number; peerNetBits: number; payoff: number }[]>();
   for (const batch of batches) for (const ev of batch.events) {
-    if (ev.t !== "spawn" && ev.t !== "transform") continue;
+    if (ev.t !== "spawn" && ev.t !== "transform" && ev.t !== "rescore") continue;
     const view = viewOfNet(ev.net, index, live ? ev.noise ?? 0 : 0);
     let points = series.get(ev.objectId);
     if (!points) series.set(ev.objectId, points = []);
@@ -280,36 +334,52 @@ export type ObservationInput = {
   chat: readonly Chat[]; nowMs?: number;
   /** The allowed languages' sandbox readiness (runtime/readiness.ts sandboxViews). */
   sandboxes?: readonly { language: string; state: string; reason?: string }[];
+  /**
+   * A narrow observation (lib/load.ts NarrowObjects): the god's objects as its objectViews rows show them and its
+   * godTotals score, in place of `objects` (then empty: the leaderboard is the published scoreboard).
+   */
+  views?: readonly { id: string; value: number | string; own: { ordinal: number | number[]; rewardBits: number; penaltyBits?: number; netBits: number }; peerNetBits: number; peerCare: number; payoff: number }[];
+  score?: number;
 };
 
 /** Protocol v3 observation: own scores and peer aggregates, own agents, the instance and the kid card. */
 export function observation(input: ObservationInput): Observation {
   const { room, game, self, deity } = input, now = input.nowMs ?? Date.now();
   const settings = (game?.settings ?? room.settings) as GameSettings;
+  const notice = game ? gameNotice(game) : undefined;
   return observationSchema.parse({
     // Grows with every room change and every commit that moves the world (the world clock, in ms).
     version: VERSION, roomId: room._id, revision: room.seq + Math.round((game?.worldSeconds ?? 0) * 1000),
     roomShortCode: room.shortCode, gameShortCode: game?.shortCode, seated: !!deity,
     gameId: game?._id, planningEndsAt: game?.planningEndsAt, pauseEndsAt: game?.pauseEndsAt,
     phase: game?.phase === "recovery" ? "paused" : game?.phase ?? "lobby",
+    ...(notice ? { notice } : {}),
+    ...(game?.phase === "ended" && game.endReason ? { endReason: game.endReason } : {}),
     language: allowedLanguages(settings)[0], languages: allowedLanguages(settings),
+    ...(game?.holdState ? { holdRarity: { state: game.holdState, ...(game.holdState === "failed" && game.holdError ? { reason: game.holdError } : {}) } } : {}),
     ...(input.sandboxes ? { sandboxes: input.sandboxes.map(s => ({ language: s.language, state: s.state, ...(s.reason ? { reason: s.reason } : {}) })) } : {}),
     instance: objectInstance(settings),
     economy: {
-      energyPerSecond: settings.energyPerSecond, agentEnergyPerSecond: settings.agentEnergyPerSecond,
-      agentBatteryActs: settings.agentBatteryActs, maxAgentsPerGod: settings.maxAgentsPerGod,
+      powerPerSecond: powerOf(settings), startingEnergy: settings.startingEnergy,
+      maxAgentOpportunityHz: MAX_AGENT_OPPORTUNITY_HZ, maxAgentsPerGod: settings.maxAgentsPerGod,
       penaltyWeight: settings.penaltyWeight, worldSeconds: game ? worldNow(game, now) : 0,
-      perActFloorBits: settings.perActFloorBits, commitClause: settings.commitClause, objectSelection: settings.objectSelection,
+      durationMode: settings.durationMode, lengthSeconds: settings.halfLifeSeconds,
+      commitClause: settings.commitClause, objectSelection: settings.objectSelection,
     },
     self: {
       godId: self.godId, label: self.name, isAI: self.kind === "ai", ready: self.ready,
       utility: game && deity ? deity.card : undefined, pauseUsed: deity?.pauseUsed ?? false,
-      energy: game && deity ? godEnergy(game, deity.spent, now) : 0,
+      energy: game && deity ? godEnergy(game, deity, worldNow(game, now), now) : 0,
+      // Power (docs/energy-model.md §6): the share its agents hold, and its own income from the rest.
+      ...(game && deity ? (() => {
+        const allocated = deity.allocated ?? roundShare(Math.min(1, input.agents.reduce((sum, a) => sum + shareOf(a, settings), 0)));
+        return { allocated, income: deityIncome(powerOf(settings), allocated) };
+      })() : {}),
       // The own score is live; the leaderboard below is the scoreboard last published.
       // Live, it is the sum of the payoffs as disclosed (from the noisy peers' sums), consistent with the scoreboard.
-      ...(game && deity ? { score: (game.phase === "ended" ? totalsOf : disclosedTotalsOf)(game.roster.map(m => m.id), input.objects)[game.roster.findIndex(m => m.id === self.godId)] } : {}),
+      ...(game && deity ? { score: input.score ?? (game.phase === "ended" ? totalsOf : disclosedTotalsOf)(game.roster.map(m => m.id), input.objects)[game.roster.findIndex(m => m.id === self.godId)] } : {}),
     },
-    objects: game && deity ? input.objects.flatMap(o => {
+    objects: game && deity ? input.views?.map(o => ({ id: o.id, value: o.value, own: o.own, peerNetBits: o.peerNetBits, peerCare: o.peerCare, payoff: o.payoff })) ?? input.objects.flatMap(o => {
       const view = personalObject(o, self.godId, game.phase !== "ended");
       return view ? [{ id: view.id, value: view.value, own: view.own, peerNetBits: view.peerNetBits, peerCare: view.peerCare, payoff: view.payoff }] : [];
     }) : [],
