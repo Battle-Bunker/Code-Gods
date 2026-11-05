@@ -501,7 +501,7 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   "player.board": {
     kind: "query", audience: "player",
     human: { title: "Board at a moment", tooltip: "Every object as it was at a world time, with your bits and the others' total." },
-    ai: { description: "The board at a world time (default now): every object that existed then with its value, version, the human's own bits, the others' summed bits and the human's payoff, from each object's last change at or before that time." },
+    ai: { description: "The board at a world time (default now), a page at a time in spawn order: every object that existed then with its value, version, the human's own bits, the others' summed bits and the human's payoff, from each object's last change at or before that time." },
     tools: ["get_board_at"], palette: null, why: "Takes a world time chosen during analysis; panels and the assistant call it.",
   },
   "player.myUtility": {
