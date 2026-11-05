@@ -102,15 +102,6 @@ export const patchRoom = internalMutation({
   },
 });
 
-/** Put a room back into its shape before AI quotas: an approved `aiBudget` (and optional `assistantBudget`), no quotas. */
-export const legacyAiBudget = internalMutation({
-  args: { roomId: v.id("rooms"), aiBudget: v.number(), assistantBudget: v.optional(v.number()) },
-  handler: async (ctx, { roomId, aiBudget, assistantBudget }) => {
-    dev();
-    await ctx.db.patch(roomId, { aiQuota: undefined, assistantQuota: undefined, aiBudget, assistantBudget });
-  },
-});
-
 /** Give an agent a stored language (e.g. a retired one, as a past game's agent may carry). */
 export const patchAgentLanguage = internalMutation({
   args: { agentId: v.id("agents"), language: storedLanguageV },
@@ -509,23 +500,6 @@ export const hideCalibration = internalMutation({
   },
 });
 
-/**
- * One human's assistant rows as they were under per-action approvals (the assistant-mode migrations' input): a prefs
- * row with `autoApproveSummonBits` and no mode, and the given turn waiting on the given call's approval card.
- */
-export const legacyAssistantApprovals = internalMutation({
-  args: { roomId: v.id("rooms"), subject: v.string(), turnId: v.id("assistantTurns"), callId: v.id("assistantToolCalls") },
-  handler: async (ctx, { roomId, subject, turnId, callId }) => {
-    dev();
-    for (const p of await ctx.db.query("assistantPrefs").withIndex("by_key", q => q.eq("roomId", roomId).eq("subject", subject)).collect()) await ctx.db.delete(p._id);
-    await ctx.db.insert("assistantPrefs", { roomId, subject, autoApproveSummonBits: 25 });
-    const turn = await ctx.db.get(turnId);
-    await ctx.db.patch(turnId, { status: "awaiting_confirmation", finishedAt: undefined });
-    if (turn) await ctx.db.patch(turn.threadId, { activeTurnId: turnId });
-    await ctx.db.patch(callId, { status: "awaiting_confirmation", confirmDeadline: Date.now() + 120_000, approved: false });
-  },
-});
-
 /** A human's raw assistant prefs row in a room (its mode and autopilot chain), or null. */
 export const rawAssistantPrefs = internalQuery({
   args: { roomId: v.id("rooms"), subject: v.string() },
@@ -564,15 +538,6 @@ export const openAutopilotTurn = internalMutation({
       .find(c => c.kind === "assistant" && c.roomId === roomId && c.revokedAt === undefined) ?? fail("NOT_FOUND", "No assistant credential");
     const turnId = await openTurn(ctx, { room, threadId: thread._id, subject, credentialId: cred._id, trigger: "autopilot" }, [{ text, autopilot: true }]);
     return { threadId: thread._id, turnId };
-  },
-});
-
-/** An assistant tool call's raw row (the retired approval fields included). */
-export const rawAssistantCall = internalQuery({
-  args: { callId: v.id("assistantToolCalls") },
-  handler: async (ctx, { callId }) => {
-    dev();
-    return ctx.db.get(callId);
   },
 });
 

@@ -85,8 +85,8 @@ test("errors, declined calls and calls waiting for the player say so", () => {
   assert.deepEqual(failed[0], { kind: "note", tone: "error", text: "NOT_FOUND: No such command" });
   const failedRun = toolDetail(call("summon_agent", { source: SOURCE }, envelope({ status: "failed", commandId: "c", error: { code: "UNAVAILABLE", message: "Runtime down" }, message: "Not applied." })));
   assert.deepEqual(failedRun[0], { kind: "note", tone: "error", text: "UNAVAILABLE: Runtime down" }, "an error inside the envelope's data");
-  assert.match((toolDetail(call("summon_agent", { source: SOURCE }, null, { status: "awaiting_confirmation" }))[0] as { text: string }).text, /Waiting for your confirmation/);
-  assert.match((toolDetail(call("send_chat", { text: "hi" }, null, { status: "denied" }))[0] as { text: string }).text, /You declined/);
+  assert.match((toolDetail(call("summon_agent", { source: SOURCE }, null, { status: "running" }))[0] as { text: string }).text, /No result yet/);
+  assert.match((toolDetail(call("send_chat", { text: "hi" }, null, { status: "denied" }))[0] as { text: string }).text, /Not run: its turn ended first/);
 });
 
 test("labels, numbers and the envelope", () => {

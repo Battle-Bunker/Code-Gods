@@ -4,7 +4,7 @@
  *
  * What would break: a Read-only assistant changing anything because the model asked for a tool (enforcement only in the
  * prompt), On request acting without a message, Autopilot not running on its own, running past its game, its budget or
- * its mode, a player's message waiting behind an autopilot turn, and the approval migration leaving a turn waiting.
+ * its mode, and a player's message waiting behind an autopilot turn.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -143,43 +143,6 @@ test("Autopilot needs a connection that may act, and an assistant that is on", {
   const { members: [, bob], roomId } = await modeRoom(["Apr Ann", "Apr Bob", "Apr Cyd"], { start: false });
   const readApp = await playerClient(bob, roomId, "read");
   assert.equal(await errorCode(readApp.mutation(api.assistant.setMode, { roomId, mode: "autopilot" })), "FORBIDDEN");
-});
-
-test("migration: a turn waiting on an approval card ends, its call is denied, approval fields go; Only look becomes Read-only, the rest On request; a second run changes nothing", { timeout: 240_000 }, async () => {
-  const { members: [ann, bob], roomId } = await modeRoom(["Mig Ann", "Mig Bob", "Mig Cyd"]);
-  const sent = await ann.c.mutation(api.assistant.send, { roomId, text: mock([{ tools: [{ name: "whoami" }] }, { text: "ok" }]) });
-  const done = await until(ann, sent, DONE, "a turn to make legacy");
-  await admin.mutation(internal.testing.legacyAssistantApprovals, { roomId, subject: ann.subject, turnId: sent.turnId, callId: done.calls[0]._id });
-  // Bob chose "Only look" (a read assistant credential) and has no prefs row.
-  const look = await bob.c.mutation(api.assistant.send, { roomId, permission: "read", text: mock([{ text: "ok" }]) });
-  await until(bob, look, DONE, "Bob's read turn");
-  assert.equal((await prefsOf(roomId, bob)), null);
-
-  const runAll = async () => {
-    const since = Date.now();
-    await admin.mutation(internal.migrations.runAll, { reset: true });
-    await waitFor(async () => {
-      const statuses = await admin.query(internal.migrations.status, {}) as { state: string; latestStart?: number }[];
-      assert.ok(!statuses.some(s => s.state === "failed" || s.state === "canceled"), JSON.stringify(statuses));
-      return statuses.every(s => s.state === "success" && (s.latestStart ?? 0) >= since);
-    }, "every migration reports success", 120_000, 250);
-  };
-  for (const run of [1, 2]) {
-    await runAll();
-    const t = await turnOf(ann, sent.threadId, sent.turnId);
-    assert.equal(t.turn.status, "cancelled", `run ${run}: the waiting turn ended`);
-    assert.equal(t.calls[0].status, "denied", `run ${run}`);
-    assert.equal(t.thread.activeTurnId, undefined, `run ${run}: its thread is free`);
-    const prefs = await prefsOf(roomId, ann);
-    assert.deepEqual([prefs?.mode, prefs?.autoApproveSummonBits], ["onRequest", undefined], `run ${run}`);
-    assert.equal((await prefsOf(roomId, bob))?.mode, "readOnly", `run ${run}: Only look became Read-only`);
-    const raw = await admin.query(internal.testing.rawAssistantCall, { callId: done.calls[0]._id });
-    assert.deepEqual([raw?.approved, raw?.confirmDeadline], [undefined, undefined], `run ${run}`);
-  }
-  // The player is free to talk again.
-  const next = await ann.c.mutation(api.assistant.send, { roomId, threadId: sent.threadId, text: mock([{ text: "back" }]) });
-  assert.equal(next.queued, false);
-  assert.equal((await until(ann, next, DONE, "the next turn")).turn.status, "done");
 });
 
 test("a message from another conversation, or with new rights, still preempts autopilot and runs in its own conversation", { timeout: 240_000 }, async () => {

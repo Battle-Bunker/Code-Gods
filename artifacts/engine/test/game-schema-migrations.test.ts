@@ -103,27 +103,6 @@ test("backfillStandings: games stored before the standings read model get it; a 
   await host.c.mutation(api.rooms.endActiveGame, { roomId: liveRoom });
 });
 
-test("AI quotas: a room stored with an approved budget (or none) gets the 300k quotas and loses the budget fields; a second run changes nothing", { timeout: 240_000 }, async () => {
-  const [host, ada, bo] = await gods("Quota Mig Host", "Quota Mig Ada", "Quota Mig Bo");
-  await touch(host);
-  const approved = await roomWith([host, ada, bo], INT_TS);
-  const never = await roomWith([host, ada, bo], INT_TS);
-  const fresh = await roomWith([host, ada, bo], INT_TS);
-  await admin.mutation(internal.testing.legacyAiBudget, { roomId: approved.roomId, aiBudget: 50_000, assistantBudget: 20_000 });
-  await admin.mutation(internal.testing.legacyAiBudget, { roomId: never.roomId, aiBudget: 0 });
-  const stored = async (roomId: string) => (await admin.query(internal.testing.rawRoom, { roomId })).room;
-  for (const run of [1, 2]) {
-    await runAll(true);
-    for (const roomId of [approved.roomId, never.roomId, fresh.roomId]) {
-      const room = await stored(roomId);
-      assert.equal(room.aiQuota, 300_000, `run ${run}`);
-      assert.equal(room.assistantQuota, 300_000, `run ${run}`);
-      assert.equal("aiBudget" in room || "assistantBudget" in room, false, `run ${run}: legacy fields cleared`);
-    }
-  }
-});
-
-
 test("backfillObjectViews: a game stored before the per-god read model gets every god's rows and totals; a second run changes nothing", { timeout: 300_000 }, async () => {
   const [host, ada, bo] = await gods("Views Mig Host", "Views Mig Ada", "Views Mig Bo");
   await touch(host);
