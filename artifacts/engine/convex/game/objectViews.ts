@@ -66,8 +66,9 @@ async function writeTotals(ctx: MutationCtx, gameId: Id<"games">, world: number,
   for (const t of totals) {
     const old = await ctx.db.query("godTotals").withIndex("by_game_god", q => q.eq("gameId", gameId).eq("godId", t.godId)).first();
     const row = { gameId, world, ...t };
+    // Only numbers that changed are written (not the world alone): every viewer's footer re-runs on a write.
     if (!old) await ctx.db.insert("godTotals", row);
-    else if ((force || world >= old.world) && (Object.keys(row) as (keyof typeof row)[]).some(k => old[k] !== row[k])) await ctx.db.replace(old._id, row);
+    else if ((force || world >= old.world) && (Object.keys(t) as (keyof GodTotals)[]).some(k => old[k] !== t[k])) await ctx.db.replace(old._id, row);
   }
 }
 
@@ -89,14 +90,15 @@ const FILL_PAGE = 25;
 
 /** A game's rows from every object, a page at a time; the last page schedules its totals (fillTotals). */
 export const fill = internalMutation({
-  args: { gameId: v.id("games"), cursor: v.union(v.string(), v.null()) },
-  handler: async (ctx, { gameId, cursor }) => {
+  /** `rowsOnly`: the running game's sweep (every commit's sync writes the totals). */
+  args: { gameId: v.id("games"), cursor: v.union(v.string(), v.null()), rowsOnly: v.optional(v.boolean()) },
+  handler: async (ctx, { gameId, cursor, rowsOnly }) => {
     const game = await ctx.db.get(gameId);
     if (!game) return;
     const page = await ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", gameId)).paginate({ cursor, numItems: FILL_PAGE });
     await syncRows(ctx, page.page, game.phase !== "ended");
-    if (!page.isDone) await ctx.scheduler.runAfter(0, internal.game.objectViews.fill, { gameId, cursor: page.continueCursor });
-    else await ctx.scheduler.runAfter(0, internal.game.objectViews.fillTotals, { gameId });
+    if (!page.isDone) await ctx.scheduler.runAfter(0, internal.game.objectViews.fill, { gameId, cursor: page.continueCursor, ...(rowsOnly ? { rowsOnly } : {}) });
+    else if (!rowsOnly) await ctx.scheduler.runAfter(0, internal.game.objectViews.fillTotals, { gameId });
   },
 });
 
@@ -112,8 +114,9 @@ export const fillTotals = internalMutation({
   },
 });
 
-/** Schedule a whole game's fill (the start, the hold rescoring, the end, the backfill). */
-export const scheduleFill = (ctx: MutationCtx, gameId: Id<"games">) => ctx.scheduler.runAfter(0, internal.game.objectViews.fill, { gameId, cursor: null });
+/** Schedule a whole game's fill (the start, the hold rescoring, the end, the backfill; `rowsOnly`: the sweep). */
+export const scheduleFill = (ctx: MutationCtx, gameId: Id<"games">, rowsOnly = false) =>
+  ctx.scheduler.runAfter(0, internal.game.objectViews.fill, { gameId, cursor: null, ...(rowsOnly ? { rowsOnly } : {}) });
 
 /** Whether a game has any read-model row (one stored before them has none until migrations.backfillObjectViews). */
 export async function hasObjectViews(ctx: MutationCtx, game: Doc<"games">) {

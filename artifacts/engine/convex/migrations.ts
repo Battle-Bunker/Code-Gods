@@ -345,8 +345,9 @@ export const powerV1Setups = migrations.define({ table: "gameSetups", migrateOne
 
 export const objectEventPlaces = migrations.define({
   table: "tickBatches",
-  // One batch holds up to EVENTS_PER_BATCH events and its rows: a few batches per transaction.
-  batchSize: 8,
+  // One batch holds up to EVENTS_PER_BATCH events, and a window split over several batches has all their rows in its
+  // range: two batches per transaction keep the reads well under the limits.
+  batchSize: 2,
   // Each batch is read once, with its rows (one range of by_game_world over the batch's window, kept to this batch's
   // seq): every spawn and transform in it is its object's row at that version, whose place is the event's position here
   // and whose charge (a transform's) is the event's cost.total, what lib/load.ts's old scan read. A row already placed

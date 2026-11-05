@@ -318,15 +318,23 @@ async function rowsAfter(ctx: QueryCtx, gameId: Id<"games">, godId: string, sort
 }
 
 /**
- * One skeleton page: the rows read (at most `limit`), those matching `filter` (a filtered page may hold fewer, even
- * none), and the cursor after the last row read (null at the end).
+ * One skeleton page: up to `limit` rows matching `filter`, and the cursor after the last row it consumed (null at the
+ * end). A filtered page reads up to OBJECT_VIEW_PAGE_MAX rows to find them, so it may hold fewer, even none.
  */
 async function viewPage(ctx: QueryCtx, gameId: Id<"games">, godId: string, q: { sort?: ObjectSort; filter?: ObjectFilter; after?: Cursor; limit?: number }) {
   const sort = q.sort ?? "payoff", filter = q.filter ?? "all";
   const limit = Math.max(1, Math.min(OBJECT_VIEW_PAGE_MAX, Math.floor(q.limit ?? 30)));
-  const read = await rowsAfter(ctx, gameId, godId, sort, q.after, limit);
-  const page = read.slice(0, limit), last = page.at(-1);
-  return { rows: page.filter(r => matches(r, filter)), next: last && read.length > limit ? { key: keyOf(last, sort), at: last._creationTime } : null, sort };
+  const scan = filter === "all" ? limit : OBJECT_VIEW_PAGE_MAX;
+  const read = await rowsAfter(ctx, gameId, godId, sort, q.after, scan);
+  const rows: Doc<"objectViews">[] = [];
+  let last: Doc<"objectViews"> | undefined, consumed = 0;
+  for (const r of read.slice(0, scan)) {
+    if (rows.length === limit) break;
+    consumed++; last = r;
+    if (matches(r, filter)) rows.push(r);
+  }
+  const more = consumed < read.length;
+  return { rows, next: last && more ? { key: keyOf(last, sort), at: last._creationTime } : null, sort };
 }
 
 /** One row as its god sees the object: the observation's object shape (lib/projection.ts personalObject). */

@@ -314,7 +314,7 @@ export const commit = internalMutation({
     const scoreboard = publish ? { totals: args.disclosedTotals!, world: clock.worldSeconds, at: now } : undefined;
     // Once a world minute, a sweep of every god's rows and totals (game/objectViews.ts fill, paged, off this commit): a
     // sync that failed leaves no row stale for longer.
-    if (clock.phase === "running" && Math.floor(clock.worldSeconds / SWEEP_SECONDS) > Math.floor(game.worldSeconds / SWEEP_SECONDS)) await scheduleFill(ctx, game._id);
+    if (clock.phase === "running" && Math.floor(clock.worldSeconds / SWEEP_SECONDS) > Math.floor(game.worldSeconds / SWEEP_SECONDS)) await scheduleFill(ctx, game._id, true);
     // The stored totals stay exact on every scoring batch (the replay of an ended game steps per event); the live
     // projection shows only the disclosed scoreboard, on the batch that published it.
     const scored = resolved.some(e => e.t === "spawn" || e.t === "transform");
