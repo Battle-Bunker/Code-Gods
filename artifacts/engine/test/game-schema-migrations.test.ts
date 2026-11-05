@@ -6,7 +6,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { rankTotals } from "@workspace/game-core";
-import { admin, api, envelope, internal, raw, roomWith, gods, startGame, touch, waitFor } from "./game-helpers.ts";
+import { admin, api, envelope, internal, raw, roomWith, gods, startGame, touch, TS, waitFor } from "./game-helpers.ts";
 
 const INT_TS = { language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Int", spawnRateHz: 0, startingObjectCount: 3, halfLifeSeconds: 100000 };
 
@@ -213,4 +213,34 @@ test("powerV1: a game stored before the power budget gets powerPerSecond, agents
   const room = (await admin.query(internal.testing.rawRoom, { roomId })).room;
   assert.equal(typeof room.settings.powerPerSecond, "number");
   await host.c.mutation(api.rooms.endActiveGame, { roomId });
+});
+
+test("objectEventPlaces: rows stored before objectEvents carried index and cost get them from their batch; a second run changes nothing", { timeout: 300_000 }, async () => {
+  const [host, ada, bo] = await gods("Places Mig Host", "Places Mig Ada", "Places Mig Bo");
+  await touch(host);
+  const { roomId } = await roomWith([host, ada, bo], { ...INT_TS, powerPerSecond: 200, startingEnergy: 1000 });
+  const game = await startGame(host, roomId);
+  for (const god of [ada, bo]) {
+    const r = await god.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", name: "Test agent", language: "typescript", source: TS.Int }, game.gameId) });
+    assert.equal(r.accepted, true, JSON.stringify(r));
+  }
+  await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now() }, kick: true });
+  await waitFor(async () => (await raw(game.gameId)).objectEvents.filter((e: any) => e.kind === "transform").length >= 6, "six transformations", 120_000, 500);
+  await host.c.mutation(api.rooms.endActiveGame, { roomId });
+  const places = (rows: any[]) => rows.map(r => ({ id: r._id, kind: r.kind, index: r.index, cost: r.cost })).sort((a, b) => (a.id < b.id ? -1 : 1));
+  const before = places((await raw(game.gameId)).objectEvents);
+  assert.ok(before.every(r => r.index !== undefined) && before.some(r => r.kind === "spawn") && before.some(r => r.kind === "transform"));
+  assert.ok(before.filter(r => r.kind === "transform").every(r => typeof r.cost === "number"), "a new transform row carries its cost");
+
+  // Stored as before 2026-11-03: no index, no cost.
+  await admin.mutation(internal.testing.stripObjectEventPlaces, { gameId: game.gameId });
+  assert.ok(places((await raw(game.gameId)).objectEvents).every(r => r.index === undefined && r.cost === undefined), "the fixture is legacy");
+
+  await runAll(true);
+  // Catches: a row left without its place (lib/load.ts would keep its batch-scan fallback forever), a wrong position
+  // (the observation's transformation ids `<seq>:<index>` would change), a cost on a spawn.
+  const after = (await raw(game.gameId)).objectEvents;
+  assert.deepEqual(places(after), before);
+  await runAll(true);
+  assert.deepEqual((await raw(game.gameId)).objectEvents, after, "a second run changes nothing");
 });
