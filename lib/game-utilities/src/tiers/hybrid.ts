@@ -41,8 +41,9 @@ export interface HybridOptions {
   /** Particles per base level; the top base level gets `topParticles`. */
   readonly particles?: number;
   readonly topParticles?: number;
-  /** Kernel moves per particle per stage, in units of the number of units. */
+  /** Kernel moves per particle per stage, in units of the number of units; the top base level gets `topSweeps`. */
   readonly sweeps?: number;
+  readonly topSweeps?: number;
 }
 
 export interface HybridLaw {
@@ -310,7 +311,11 @@ export function conditionalTier(base: DisjointBase, b: readonly number[], tier: 
 
 export function hybridLaw(base: DisjointBase, options: HybridOptions): HybridLaw {
   const law = baseLaw(base), rand = mulberry32(options.seed);
-  const particles = options.particles ?? 256, topParticles = options.topParticles ?? 1024, sweeps = options.sweeps ?? 2;
+  // The top base level carries the table's rare end, so it gets the budget: measured against the exact count of
+  // Opposite Nines' 10^8 top boards, 1,024 particles and 2 sweeps are off by up to 2 bits at 15 bits; 8,192 and 4 are
+  // within 0.3 bits (docs/layered-rules-measurements/opposite-nines.md). Lower levels are bounded by the next base level.
+  const particles = options.particles ?? 256, topParticles = options.topParticles ?? 8192;
+  const sweeps = options.sweeps ?? 2, topSweeps = options.topSweeps ?? 4;
   const zeros = new Array<number>(options.tierArity).fill(0);
   // above[i] = P(B > law[i].ordinal), summed from the rare end to keep relative precision.
   const above = new Array<number>(law.length).fill(0);
@@ -321,7 +326,7 @@ export function hybridLaw(base: DisjointBase, options: HybridOptions): HybridLaw
   law.forEach((l, i) => {
     const top = i === law.length - 1;
     if (l.ordinal[0] < options.gate) { levels.push([[...l.ordinal, ...zeros], Math.log2(above[i] + l.p)]); return; }
-    const c = conditionalTier(base, l.ordinal, options.tier, { particles: top ? topParticles : particles, sweeps, rand });
+    const c = conditionalTier(base, l.ordinal, options.tier, { particles: top ? topParticles : particles, sweeps: top ? topSweeps : sweeps, rand });
     evaluations += c.evaluations;
     for (const [v, q] of c.survival) levels.push([[...l.ordinal, ...v], Math.log2(above[i] + l.p * q)]);
     if (top) { topTier = c.survival.map(([v, q]) => [options.tierArity === 1 ? v[0] : v, q] as const); best = c.best; }
@@ -390,7 +395,16 @@ export function degenerateBoards(N: number, symbols: number): Uint8Array[] {
  * vary, must not be maxed by most of them, must add between 6 and 20 bits, and no uniform or two-digit board may reach
  * the best ordinal. `ordinalOf` scores a whole board with the full rule (base and tier).
  */
-export function liveness(law: HybridLaw, N: number, symbols: number, ordinalOf: (board: Uint8Array) => readonly number[],
+/** What `liveness` reads of a law, rebuilt from a table's levels (`[ordinal, bits]`): the tier's law at the base's top. */
+export function topTierOf(levels: readonly (readonly [Ordinal, number])[], baseArity: number): Pick<HybridLaw, "levels" | "topTier"> {
+  const all = levels.map(([o, bits]) => [tupleOf(o), -Math.abs(bits)] as const);
+  const top = all[all.length - 1][0].slice(0, baseArity);
+  const at = all.filter(([o]) => cmp(o.slice(0, baseArity), top) === 0);
+  const topTier = at.map(([o, l]) => [o.length - baseArity === 1 ? o[baseArity] : o.slice(baseArity), 2 ** (l - at[0][1])] as const);
+  return { levels: all, topTier };
+}
+
+export function liveness(law: Pick<HybridLaw, "levels" | "topTier">, N: number, symbols: number, ordinalOf: (board: Uint8Array) => readonly number[],
   band: { readonly min: number; readonly max: number } = { min: TIER_MIN_ADDED_BITS, max: TIER_MAX_ADDED_BITS }): Liveness {
   const t = law.topTier, tierTop = t[t.length - 1][0], tierMin = t[0][0], shareAtTop = t[t.length - 1][1];
   const addedBits = -Math.log2(shareAtTop);

@@ -15,7 +15,7 @@ import { shippedInstanceKeys, shippedManifest, shippedTables } from "../src/cali
 import { paramsInDomain } from "../src/params.ts";
 import { baseParams, isTiered, tiersOf } from "../src/families/grid/tiers.ts";
 import { hybridLawOf, tierLiveness } from "../src/families/grid/tiers-hybrid.ts";
-import { baseLaw, TIER_MAX_ADDED_BITS, TIER_MIN_ADDED_BITS } from "../src/tiers/hybrid.ts";
+import { baseLaw, liveness, topTierOf, TIER_MAX_ADDED_BITS, TIER_MIN_ADDED_BITS } from "../src/tiers/hybrid.ts";
 import { ninesTiers } from "../src/families/grid/beginner/opposite_nines.ts";
 import type { GridTiers } from "../src/families/grid/tiers.ts";
 import { gridSpec } from "../src/families/grid/_util.ts";
@@ -28,7 +28,7 @@ const beginner = instantiate("Grid", { size: 4, symbols: "base10", colours: "mon
 const tup = (o: Ordinal) => (typeof o === "number" ? [o] : [...o]);
 const spawn = (n: number, seed: string) => {
   const rng = seededRng(seed), T = objectType("Grid");
-  return Array.from({ length: n }, () => T.codec(beginner).encode(T.spawn(beginner, rng)));
+  return Array.from({ length: n }, () => String(T.codec(beginner).encode(T.spawn(beginner, rng))));
 };
 
 test("families with tiers exist, and every one has its spec listed here", () => {
@@ -139,31 +139,49 @@ test("below the gate a tiered table is the base's exact law, level for level", (
   }
 });
 
-test("liveness: every dealt tier varies at the base's top, adds 6 to 20 bits, and no uniform or two-digit board maxes it", { timeout: 600_000 }, () => {
-  const ctx = context(beginner);
-  const tops: number[] = [];
+test("liveness: every dealt tier varies at the base's top, adds 6 to 20 bits, and no uniform or two-digit board maxes it", () => {
+  // Read off the shipped tables (the hybrid law's levels), so the check covers exactly what scores.
+  const ctx = context(beginner), g = gridSpec(ctx), tables = shippedTables(beginner.key);
+  const tops: number[] = [], letter = spawn(1, "letter")[0].split(",")[0].slice(1);   // the board's one colour, as the wire writes it
+  const check = (f: (typeof TIERED)[number], c: Params, band?: { min: number; max: number }) => {
+    const t = tableFor(tables, { familyId: f.id, params: c }, beginner);
+    assert.ok(t, `${f.id} ${paramsKey(c)}: no shipped table`);
+    const baseShape = f.shape(ctx), baseArity = baseShape.kind === "scalar" ? 1 : baseShape.arity;
+    const score = evaluator({ familyId: f.id, params: c }, beginner);
+    const wire = (b: Uint8Array) => Array.from({ length: g.N }, (_, r) => Array.from(b.slice(r * g.N, (r + 1) * g.N), x => "0123456789ABCDEF"[x] + letter).join(",")).join("/");
+    const live = liveness(topTierOf(t.levels, baseArity), g.N, g.S, b => tup(score(wire(b))), band);
+    assert.deepEqual(live.problems, [], `${f.id} ${paramsKey(c)}: ${live.problems.join("; ")}`);
+    return t.meta.maxBits;
+  };
   for (const f of TIERED) {
     const seen = new Set<string>();
     for (const p of f.tiered!(ctx, 1)) {
-      const c = f.canonical(p, ctx), k = paramsKey(c);
-      if (seen.has(k)) continue;
-      seen.add(k);
-      const live = tierLiveness(f.id, SPECS[f.id], c, ctx)!, law = hybridLawOf(f.id, SPECS[f.id], c, ctx)!;
-      assert.deepEqual(live.problems, [], `${f.id} ${k}: ${live.problems.join("; ")}`);
-      assert.ok(live.addedBits >= TIER_MIN_ADDED_BITS && live.addedBits <= TIER_MAX_ADDED_BITS);
-      tops.push(-law.levels[law.levels.length - 1][1]);
+      const c = f.canonical(p, ctx);
+      if (seen.has(paramsKey(c))) continue;
+      seen.add(paramsKey(c));
+      tops.push(check(f, c));
     }
     // Lab values are alive too; only the band is waived.
     for (const p of f.tiered!(ctx, 1, "uncapped")) {
       const c = f.canonical(p, ctx);
       if (seen.has(paramsKey(c))) continue;
       seen.add(paramsKey(c));
-      const live = tierLiveness(f.id, SPECS[f.id], c, ctx, { min: 0, max: 99 })!;
-      assert.deepEqual(live.problems, [], `${f.id} ${paramsKey(c)} (lab): ${live.problems.join("; ")}`);
+      check(f, c, { min: 0, max: 99 });
     }
   }
   // The pool of tiered rules: tops within 2.5× of each other (docs/layered-rules-design.md §8.3).
   assert.ok(Math.max(...tops) / Math.min(...tops) <= 2.5, `tops ${Math.min(...tops).toFixed(1)}..${Math.max(...tops).toFixed(1)}`);
+});
+
+test("the shipped table of a tiered draw is the hybrid law, rebuilt bit for bit (one draw per family)", { timeout: 120_000 }, () => {
+  const ctx = context(beginner), tables = shippedTables(beginner.key);
+  for (const f of TIERED) {
+    const c = f.canonical(f.tiered!(ctx, 1)[0], ctx), t = tableFor(tables, { familyId: f.id, params: c }, beginner)!;
+    const law = hybridLawOf(f.id, SPECS[f.id], c, ctx)!, live = tierLiveness(f.id, SPECS[f.id], c, ctx)!;
+    assert.equal(t.levels.length, law.levels.length);
+    t.levels.forEach(([o, bits], i) => { assert.deepEqual(tup(o), [...law.levels[i][0]]); assert.ok(Math.abs(bits + law.levels[i][1]) < 1e-6 + 1e-6 * i, `level ${i}`); });
+    assert.ok(live.addedBits >= TIER_MIN_ADDED_BITS && live.addedBits <= TIER_MAX_ADDED_BITS && live.problems.length === 0);
+  }
 });
 
 test("shipped tiered tables: fresh on every shape that deals them, labelled hybrid, and a tier point never scores below its base level", () => {
