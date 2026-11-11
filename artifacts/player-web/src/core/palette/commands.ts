@@ -225,7 +225,10 @@ export function playerCommands(s: PaletteState, a: PaletteActions): Command[] {
     .map(command => {
       const extra = BIND[command.id as PublicFunctionPath]?.available;
       const entry = CATALOG[command.id as PublicFunctionPath] as CatalogEntry;
-      return extra ? { ...command, available: (ctx: PaletteContext) => both(availabilityFor(entry, ctx), extra()) } : command;
+      // Ending asks first (a modal, focus on Cancel): it says who it affects, and its button differs from the row's words.
+      const asks: Partial<Command> = command.id === "rooms.endActiveGame"
+        ? { confirmLabel: "End the game", summary: () => "This ends the game for everyone now. The scores as they stand become the final result." } : {};
+      return extra ? { ...command, ...asks, available: (ctx: PaletteContext) => both(availabilityFor(entry, ctx), extra()) } : { ...command, ...asks };
     });
 
   // ----- ui.* rows -----

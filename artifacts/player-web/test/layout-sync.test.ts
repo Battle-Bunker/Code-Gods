@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { DEFAULT_LAYOUT, assistantSide, closePane, panelPanesOf, paneOrder, panesOf, movePane, openPane, parseLayout, setPanePanel, setPaneParams, type DockLayout } from "@workspace/player-client/layout";
 import { SINGLE_LAYOUT } from "./single-layout.ts";
 import {
-  effectiveLayout, initialSync, keepAssistantPane, pushPlan, sameLayout, syncReducer, withTimeline, withoutAssistant, type SyncState,
+  effectiveLayout, initialSync, keepAssistantPane, pushPlan, sameLayout, syncReducer, withResultsFirst, withTimeline, withoutAssistant, type SyncState,
 } from "../src/dock/layout-sync.ts";
 import { back, canUndo, lastParams, observe, emptyHistory, resetView } from "../src/dock/history.ts";
 import { dockAssistant, showPanel } from "../src/dock/operations.ts";
@@ -314,4 +314,28 @@ test("the agent editor in the full default dock takes the largest panel nobody c
     assert.equal(r.paneId, "p2", `objects, top right (focused ${focused})`);
   }
   assert.equal(showPanel(dock, "forge", undefined, "p5").paneId, "p5", "the focused panel, as before");
+});
+
+test("an ended game shows its results first: the results pane across the top, everything else below", () => {
+  const ended = withTimeline(DEFAULT_LAYOUT("ended"));
+  const shown = withResultsFirst(ended);
+  const first = panesOf(shown)[0];
+  assert.ok(first.kind === "panel" && first.panelId === "results", "the results come first in reading order (the phone stacks panes in this order)");
+  assert.ok(shown.root.type === "split" && shown.root.direction === "column" && shown.root.children[0].type === "pane", "a full-width top row");
+  assert.ok(shown.root.type === "split" && shown.root.sizes[0] >= 45, "about half the dock, so the headline and the standings need no scrolling");
+  assert.deepEqual(Object.keys(shown.panes).sort(), Object.keys(ended.panes).sort(), "the same panes: nothing added or lost");
+  assert.equal(panelPanesOf(shown).filter(p => p.panelId === "results").length, 1);
+  assert.equal(withResultsFirst(shown), shown, "already first: unchanged");
+  assert.ok(shown.root.type === "split" && shown.root.children.every(c => c.type !== "split" || c.direction === "row"), "no column inside the column");
+  assert.ok(shown.root.type === "split" && Math.abs(shown.root.sizes.reduce((a, b) => a + b, 0) - 100) < 1e-9, "the weights sum to 100");
+  assert.equal(parseLayout(shown, { phase: "ended", storedSlugs: [], fileIds: [] }).warnings.filter(w => /reset/.test(w)).length, 0, "a valid layout");
+  // A layout with no results pane gets one (derived for display, like the Timeline).
+  const none = withTimeline(setPanePanel(DEFAULT_LAYOUT("ended"), "p2", "objects", "human"));
+  const added = withResultsFirst(none);
+  const top = panesOf(added)[0];
+  assert.ok(top.kind === "panel" && top.panelId === "results");
+  assert.equal(Object.keys(added.panes).length, Object.keys(none.panes).length + 1);
+  // A dock that only shows the results is left alone.
+  const only: DockLayout = { version: 1, root: { type: "pane", id: "p1" }, panes: { p1: { id: "p1", kind: "panel", panelId: "results", params: {}, setBy: "human" } } };
+  assert.equal(withResultsFirst(only), only);
 });

@@ -14,7 +14,7 @@
  *   - Nothing is pushed before the first server layout arrives, or ever in a read-only dock (safe mode, a replay),
  *     whose own edits stay on screen until the next server layout.
  */
-import type { Phase } from "@workspace/player-client/panels";
+import { defaultPanelParams, type Phase } from "@workspace/player-client/panels";
 import { closePane, followPhase, nextPaneId, openPane, paneOrder, panelPanesOf, type DockLayout, type Node, type Pane, type Place } from "@workspace/player-client/layout";
 
 export const PUSH_DELAY_MS = 800;
@@ -149,6 +149,39 @@ export function withTimeline(layout: DockLayout): DockLayout {
   const id = nextPaneId(layout);
   const root: Node = { type: "split", direction: "column", sizes: [50, 50], children: [layout.root, { type: "pane", id }] };
   return { ...layout, root, panes: { ...layout.panes, [id]: timeline(id) } };
+}
+
+/** The share of the dock's height the results take when a game has ended (the rest: the replay). */
+export const RESULTS_SHARE = 48;
+
+/**
+ * An ended game shows how it went first (derived for display like the Timeline, never pushed; dock/store.ts shows it
+ * until the human rearranges the replay): the results pane across the top, about half the dock, so the headline
+ * ("You finished 1st of 3 …") and the final standings need no scrolling; everything else, the Timeline included, below
+ * it. First in reading order too, so the phone's stacked layout opens on it. A layout with no results pane gets one.
+ */
+export function withResultsFirst(layout: DockLayout): DockLayout {
+  const isResults = (p: Pane | undefined) => !!p && p.kind === "panel" && p.panelId === "results";
+  const root = layout.root;
+  if (root.type === "pane") return layout; // one pane: nothing to arrange
+  if (root.direction === "column" && root.children[0]?.type === "pane" && isResults(layout.panes[root.children[0].id])) return layout;
+  const existing = panelPanesOf(layout).find(isResults);
+  let rest = layout, pane: Pane;
+  if (existing) {
+    try { rest = closePane(layout, existing.id); } catch { return layout; }
+    pane = existing;
+  } else {
+    pane = { id: nextPaneId(layout), kind: "panel", panelId: "results", params: defaultPanelParams("results") ?? {}, setBy: "default" };
+  }
+  // Rows under the results join the same column (a column inside a column is one column to the dock).
+  const below = rest.root.type === "split" && rest.root.direction === "column" ? rest.root : { sizes: [100], children: [rest.root] };
+  const total = below.sizes.reduce((sum, size) => sum + size, 0) || 1;
+  const sizes = [RESULTS_SHARE, ...below.sizes.map(size => (size / total) * (100 - RESULTS_SHARE))];
+  return {
+    ...rest,
+    root: { type: "split", direction: "column", sizes, children: [{ type: "pane", id: pane.id }, ...below.children] },
+    panes: { ...rest.panes, [pane.id]: pane },
+  };
 }
 
 /**

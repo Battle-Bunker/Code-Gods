@@ -33,6 +33,8 @@ export type Examination = {
   changeRate: number; invalidRate: number; skipRate: number;
   /** Two passes over a sample world (the game's objects first): the expected success rate and why acts would fail. */
   futility: Omit<FutilityProfile, "warnings" | "n">; warnings: string[];
+  /** The first failure of the dry run, as the sandbox reported it (the validation verdict, lib/dryRun.ts). */
+  firstError?: string;
   diagnostics: string[]; runs: number; measureMs: number;
 };
 
@@ -80,7 +82,7 @@ export async function examineAgent(ctx: ActionCtx, settings: GameSettings, langu
   const price = summonPrice(inspection, inst);
   const game = live.slice(0, GAME_COMPONENT);
   const mixture = game.length ? withComponents(seasonMixture(inst), { game }) : seasonMixture(inst);
-  let hostFailure: unknown, runs = 0, usesClause = false;
+  let hostFailure: unknown, runs = 0, usesClause = false, firstFault: string | undefined;
   const sample = { value: undefined as ObjectValue | undefined, calls: undefined as string | undefined, error: undefined as string | undefined };
   const started = performance.now();
   // The measurement and the futility probe (docs/rules-design.md §11: the game's objects first, then the reference
@@ -104,6 +106,7 @@ export async function examineAgent(ctx: ActionCtx, settings: GameSettings, langu
       return { calls: result.calls, usedRandom: result.usedRandom, steps: result.steps, readBits: result.readBits };
     } catch (error) {
       if (!isAgentFault(error)) { hostFailure ??= error; throw error; }
+      firstFault ??= (error as Error).message;
       if (at.component === "game" && at.replicate === 0 && sample.value === undefined) Object.assign(sample, { value, error: (error as Error).message });
       return { calls: "[]", error: (error as Error).message.slice(0, 200), readBits: failedReadBits(error as { readBits?: number; code?: string }, readBound(inst)) };
     }
@@ -129,7 +132,10 @@ export async function examineAgent(ctx: ActionCtx, settings: GameSettings, langu
     diagnostics.push(sample.error ? `On object 1 it fails: ${sample.error.slice(0, 300)}`
       : `On object 1 it returns ${sample.calls!.length > 300 ? `${sample.calls!.slice(0, 300)}…` : sample.calls}.`);
   }
+  // The error the player reads when the dry run fails: object 1's, else the first raised, else the commonest invalid call.
+  const firstError = (sample.error ?? firstFault ?? d.errors[0]?.[0])?.slice(0, 300);
   return {
+    ...(firstError ? { firstError } : {}),
     cost: price.cost, parts: price.parts, complexityFunctionId: inspection.complexityFunctionId,
     expectedActCost: measured.expectedActCost, breakdown, randomized: measured.randomized,
     changeRate: d.changeRate, invalidRate: d.invalidRate, skipRate: d.skipRate, futility, warnings: [...warnings],

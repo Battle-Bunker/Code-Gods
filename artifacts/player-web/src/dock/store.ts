@@ -11,7 +11,7 @@ import { createContext, useContext, useSyncExternalStore } from "react";
 import type { DockviewApi } from "dockview-react";
 import { DEFAULT_LAYOUT, parseLayout, panesOf, type DockLayout, type Pane } from "@workspace/player-client/layout";
 import type { Phase } from "@workspace/player-client/panels";
-import { PUSH_DELAY_MS, PUSH_SOON_MS, RETRY_MS, effectiveLayout, initialSync, pushPlan, sameLayout, syncReducer, keepAssistantPane, withTimeline, withoutAssistant, type SyncEvent, type SyncState } from "./layout-sync";
+import { PUSH_DELAY_MS, PUSH_SOON_MS, RETRY_MS, effectiveLayout, initialSync, pushPlan, sameLayout, syncReducer, keepAssistantPane, withResultsFirst, withTimeline, withoutAssistant, type SyncEvent, type SyncState } from "./layout-sync";
 import { back, emptyHistory, observe, resetView, type History } from "./history";
 
 export type Pusher = (layout: DockLayout, ifUpdatedAt: number | undefined) => Promise<{ layout: unknown; updatedAt: number }>;
@@ -42,6 +42,8 @@ export class DockStore {
   private editedInGesture = false;
   private replayTimeline = false;
   private timelineClosed = false;
+  /** The human rearranged the replay's dock: their arrangement stays (the results are no longer moved to the top). */
+  private replayArranged = false;
   private assistantAvailable = true;
   private timer: ReturnType<typeof setTimeout> | undefined;
   private pusher: Pusher | undefined;
@@ -69,7 +71,9 @@ export class DockStore {
 
   private build(): DockSnapshot {
     const shown = effectiveLayout(this.sync.local, this.phase);
-    const withT = this.replayTimeline && !this.timelineClosed ? withTimeline(shown) : shown;
+    const timeline = this.replayTimeline && !this.timelineClosed ? withTimeline(shown) : shown;
+    // An ended game opens on how it went: the results across the top (layout-sync.ts withResultsFirst).
+    const withT = this.replayTimeline && !this.replayArranged ? withResultsFirst(timeline) : timeline;
     return { layout: this.assistantAvailable ? withT : withoutAssistant(withT), history: this.history, assistantAvailable: this.assistantAvailable, focused: this.focused, phase: this.phase, loaded: this.sync.latest !== null, canWrite: this.options.canWrite };
   }
   private emit() {
@@ -127,12 +131,15 @@ export class DockStore {
     const has = (l: DockLayout) => Object.values(l.panes).some(p => p.kind === "panel" && p.panelId === "timeline");
     if (this.replayTimeline && !this.timelineClosed && has(this.snapshot.layout) && !has(next)) this.timelineClosed = true;
   }
+  /** A change of the human's in a replay starts from the shown arrangement and is kept in `local`: it is theirs from now on. */
+  private noteArranged() { if (this.replayTimeline) this.replayArranged = true; }
   setFocused(paneId: string | null) { if (paneId !== this.focused) { this.focused = paneId; this.emit(); } }
 
   /** A human's change (menu, palette, a drag's result): shown at once, pushed soon (a drag: after PUSH_DELAY_MS). */
   edit(change: (layout: DockLayout) => DockLayout, delay = PUSH_SOON_MS) {
     const next = this.keepAssistant(this.parse(change(this.snapshot.layout)));
     this.noteTimeline(next);
+    this.noteArranged();
     if (this.sync.gesture) this.editedInGesture = true;
     this.dispatch({ type: "edit", layout: next });
     this.schedule(delay);
@@ -144,7 +151,7 @@ export class DockStore {
     if (result && !this.editedInGesture) {
       const next = this.keepAssistant(this.parse(result));
       this.noteTimeline(next);
-      if (!sameLayout(this.shownOf(next), this.snapshot.layout)) this.dispatch({ type: "edit", layout: next });
+      if (!sameLayout(this.shownOf(next), this.snapshot.layout)) { this.noteArranged(); this.dispatch({ type: "edit", layout: next }); }
     }
     this.dispatch({ type: "gesture-end" });
     this.schedule(PUSH_DELAY_MS);
@@ -155,6 +162,7 @@ export class DockStore {
     const next = this.keepAssistant(this.parse(result));
     if (sameLayout(this.shownOf(next), this.snapshot.layout)) return;
     this.noteTimeline(next);
+    this.noteArranged();
     this.dispatch({ type: "edit", layout: next });
     this.schedule(PUSH_DELAY_MS);
   }
@@ -181,7 +189,13 @@ export class DockStore {
     if (!panel) return;
     if (panel.api.isMaximized()) panel.api.exitMaximized(); else panel.api.maximize();
   }
-  activate(paneId: string) { this.api?.getPanel(paneId)?.api.setActive(); }
+  /** Bring a pane to the player: dockview activates it; the phone's stacked layout scrolls to it (onReveal). */
+  activate(paneId: string) {
+    this.api?.getPanel(paneId)?.api.setActive();
+    for (const listener of this.revealListeners) listener(paneId);
+  }
+  private revealListeners = new Set<(paneId: string) => void>();
+  onReveal = (listener: (paneId: string) => void) => { this.revealListeners.add(listener); return () => { this.revealListeners.delete(listener); }; };
 
   // ----- sync machinery -----
   private dispatch(event: SyncEvent, quiet = false) {
