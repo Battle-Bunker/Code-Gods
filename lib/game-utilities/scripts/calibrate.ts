@@ -21,7 +21,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Worker, isMainThread, parentPort } from "node:worker_threads";
 import { INT_PRESETS, STRING_PRESETS, instantiate, type Instantiation, type TypeArgs } from "@workspace/game-types";
-import { available, canonicalSupport, context, familiesFor, paramsKey } from "../src/catalog.ts";
+import { available, canonicalSupport, context, familiesFor, paramsKey, tieredCanonicalSupport } from "../src/catalog.ts";
 import {
   CALIBRATION_FORMAT, instantiateKey, manifestEntry, manifestOf, priorKey, tableKey, tableOrder, type CalibrationBudget,
   type CalibrationFile, type CalibrationTable,
@@ -63,7 +63,8 @@ export function jobsFor(inst: Instantiation, families?: ReadonlySet<string>): Jo
   const ctx = context(inst), out: Job[] = [];
   for (const f of familiesFor(inst.objectType)) {
     if (!available(f, inst).ok || (families && !families.has(f.id))) continue;
-    for (const p of canonicalSupport(f, ctx)) {
+    // Tiered draws (docs/layered-rules-design.md) are not in the support; their tables ship where the family deals them.
+    for (const p of [...canonicalSupport(f, ctx), ...tieredCanonicalSupport(f, ctx)]) {
       out.push({ instance: inst.key, args: inst.args, objectType: inst.objectType, familyId: f.id, params: p, key: tableKey(f.id, p, inst) });
     }
   }

@@ -51,7 +51,7 @@ export interface UtilityFamily<P extends Params = Params> {
    * Optional: the tiered draws of this family here (docs/layered-rules-design.md): params carrying `tiers`, a list of
    * `depth` interactions on top of the base, each of which passed the liveness check on this shape. They are never in
    * `support` (so every pool that deals the base is unchanged); a setup deals them by asking for a tier depth
-   * (`SelectOptions.tiers`). `compose` picks the composition: "gated" (the default), "plain" or "unlock".
+   * (`SelectOptions.tiers`). `compose` picks the variant (`TierCompose`; default "gated").
    */
   tiered?(ctx: FamilyContext, depth: number, compose?: TierCompose): readonly P[];
   /** Optional: the ★ blocks of a tiered draw's goal card, in the order of the ordinal's tier components (none: a base draw). */
@@ -92,8 +92,12 @@ export interface UtilityFamily<P extends Params = Params> {
   analytic?(params: P, ctx: FamilyContext): AnalyticSurvival | null;
 }
 
-/** How a tier combines with its base: [...base, base ≥ gate ? tier : 0], [...base, tier] or [min(base, gate), tier, ...base]. */
-export type TierCompose = "gated" | "plain" | "unlock";
+/**
+ * Which tiered draws to deal. "gated" (the default): [...base, base ≥ gate ? tier : 0], values inside the balance band.
+ * The others are Lab variants: "plain" is [...base, tier] (no gate), "unlock" is [min(base, gate), tier, ...base], and
+ * "uncapped" is gated with the values outside the balance band added (deliberately unequal reach).
+ */
+export type TierCompose = "gated" | "plain" | "unlock" | "uncapped";
 
 /** One dealt interaction: which one, its own params (x, y, k) and the base level at which it starts to count. */
 export interface TierParams {

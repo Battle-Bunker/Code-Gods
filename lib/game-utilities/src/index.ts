@@ -1,6 +1,6 @@
 export * from "./types.ts";
 export {
-  FAMILIES, family, familiesFor, context, applicable, available, canonicalSupport, tieredCanonicalSupport, paramsKey, publicCatalog, readDescriptor, card,
+=======
   compareOrdinals, assertOrdinal, evaluator, ordinal, entryPoint, cardParams,
   type CatalogEntry, type Draw,
 } from "./catalog.ts";
@@ -35,3 +35,6 @@ export {
 } from "./inference.ts";
 export * from "./explain/index.ts";
 export { HOLD_ESTIMATOR, holdBits, type HoldTable } from "./hold.ts";
+export { baseLaw, conditionalTier, degenerateBoards, drawGiven, hybridLaw, liveness, TIER_MIN_ADDED_BITS, TIER_MAX_ADDED_BITS, type DisjointBase, type HybridLaw, type Liveness } from "./tiers/hybrid.ts";
+export { isTiered, tiersOf, baseParams, type GridTiers, type Interaction, type TierValue } from "./families/grid/tiers.ts";
+export { hybridLawOf, tierLiveness, HYBRID_VERSION } from "./families/grid/tiers-hybrid.ts";

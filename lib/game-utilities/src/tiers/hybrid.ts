@@ -317,7 +317,7 @@ export function hybridLaw(base: DisjointBase, options: HybridOptions): HybridLaw
   for (let i = law.length - 2; i >= 0; i--) above[i] = above[i + 1] + law[i + 1].p;
   const levels: [readonly number[], number][] = [];
   const baseLevels = law.map((l, i) => [l.ordinal, Math.log2(above[i] + l.p)] as const);
-  let topTier: (readonly [Ordinal, number])[] = [], best = new Uint8Array(base.cells), evaluations = 0;
+  let topTier: (readonly [Ordinal, number])[] = [], best: Uint8Array = new Uint8Array(base.cells), evaluations = 0;
   law.forEach((l, i) => {
     const top = i === law.length - 1;
     if (l.ordinal[0] < options.gate) { levels.push([[...l.ordinal, ...zeros], Math.log2(above[i] + l.p)]); return; }

@@ -11,7 +11,7 @@ import { phrasebook, type Phrasebook } from "../say.ts";
 export { RuleTextError, an as article, count, list, points, type Phrasebook } from "../say.ts";
 import type { AnalyticSurvival } from "../../analytic.ts";
 import { choiceParam, resolveParams, type ParamDecl, type ParamDecls } from "../../params.ts";
-import { baseParams, canonicalTiers, cardTiers, isTiered, tierArity, tieredAbout, tieredCard, tieredSupport, tiersOf, withTiers, type GridTiers, type TierValue } from "./tiers.ts";
+import { baseParams, canonicalTiers, cardTiers, isTiered, tierArity, tieredAbout, tieredCard, tieredSupport, tierValue, tiersOf, type GridTiers } from "./tiers.ts";
 import { hybridAnalytic, hybridBest } from "./tiers-hybrid.ts";
 
 // ------------------------------------------------------------------------------------------------
@@ -268,33 +268,33 @@ function tieredGridFamily<P extends Params>(f: UtilityFamily<P>, d: GridFamilyDe
     if (!isTiered(p)) return f.card[lang](p, ctx);
     return tieredCard(lang, d[lang](p, gridSpec(ctx)), spec, p, gridSpec(ctx), about(p, ctx), baseShape(ctx).kind === "scalar");
   };
-  const everyValue = (g: GridSpec): (readonly TierValue[])[] =>
-    [...spec.dealt(g).map(v => [v]), ...(spec.lab?.(g) ?? []).map(v => [v]), ...(spec.dealtPairs?.(g) ?? []).map(pair => [...pair])];
-  const tiersDecl = (g: GridSpec): ParamDecl => {
-    const options: [ParamJson, string][] = [];
-    for (const vs of everyValue(g)) for (const compose of ["gated", "plain", "unlock"] as const) {
-      const t = tiersOf(withTiers(spec, {} as P, vs, g, compose));
-      const label = vs.map(v => spec.interactions.find(i => i.id === v.id)!.label(v, g)).join(" and ");
-      options.push([t as unknown as ParamJson, compose === "gated" ? label : `${label} (${compose})`]);
+  const every = (ctx: FamilyContext): P[] => {
+    const g = gridSpec(ctx), bases = f.support(ctx).filter(b => spec.base(b, g) !== null);
+    return (["gated", "plain", "unlock", "uncapped"] as const).flatMap(compose => [1, 2].flatMap(depth => tieredSupport(spec, bases, g, depth, compose)));
+  };
+  const tiersDecl = (ctx: FamilyContext): ParamDecl | null => {
+    const g = gridSpec(ctx), options = new Map<string, [ParamJson, string]>();
+    for (const p of every(ctx)) {
+      const t = tiersOf(p), how = t[0].compose ?? (t[0].gate === 0 ? "plain" : "");
+      const label = t.map(x => spec.interactions.find(i => i.id === x.id)!.label(tierValue(x), g)).join(" and ");
+      options.set(JSON.stringify(t), [t as unknown as ParamJson, how ? `${label} (${how})` : label]);
     }
-    return { ...choiceParam("To score even higher", options), optional: true };
+    return options.size ? { ...choiceParam("To score even higher", [...options.values()]), optional: true } : null;
   };
   return {
     ...f,
     shape: (ctx, p) => (p && isTiered(p) ? tuple(baseArity(ctx) + tierArity(spec, p)) : baseShape(ctx)),
     tiered: (ctx, depth, compose = "gated") => {
       const g = gridSpec(ctx);
-      const bases = f.support(ctx).filter(b => spec.base(b, g) !== null);
-      const sets = depth === 1 && compose !== "gated" && spec.lab ? [...spec.dealt(g), ...spec.lab(g)] : null;
-      return sets ? bases.flatMap(b => sets.map(v => withTiers(spec, b, [v], g, compose))) : tieredSupport(spec, bases, g, depth, compose);
+      return tieredSupport(spec, f.support(ctx).filter(b => spec.base(b, g) !== null), g, depth, compose);
     },
     cardTiers: (p, ctx) => (isTiered(p) ? blocks(p, ctx) : []),
     canonical: (p, ctx) => (isTiered(p) ? { ...f.canonical(baseParams(p), ctx), tiers: canonicalTiers(spec, p, gridSpec(ctx)) } as unknown as P : f.canonical(p, ctx)),
     summary: (p, ctx) => (isTiered(p) ? about(p, ctx) : f.summary(p, ctx)),
     card: { python: source("python"), typescript: source("typescript") },
     params: ctx => {
-      const g = gridSpec(ctx);
-      return everyValue(g).length ? [...f.params(ctx), ...resolveParams({ tiers: tiersDecl(g) }, ctx.inst)] : f.params(ctx);
+      const decl = tiersDecl(ctx);
+      return decl ? [...f.params(ctx), ...resolveParams({ tiers: decl }, ctx.inst)] : f.params(ctx);
     },
     ...(f.needs ? { needs: (p: P, ctx: FamilyContext) => f.needs!(baseParams(p), ctx) } : {}),
     // A tiered draw's best board is the best the hybrid law found (base at its top, the best tier seen there).
