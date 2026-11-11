@@ -251,8 +251,9 @@ export interface RuleReport {
   cardBits: number;
   /** Whether the score ignores colours (measured on random recolourings). */
   colourBlind: boolean;
-  /** Climb: mean bits after 4 / 8 / 16 one-cell greedy moves, and the mean bits per move over the first 8. */
-  greedy4: number; greedy8: number; greedy16: number; rate8: number;
+  /** Climb: mean bits after 4 / 8 / 16 one-cell greedy moves, and the mean bits per move over the first 4 and 8 moves.
+   * rate4 is the balance column: it ranks the Annotated basics greedy win shares with Spearman 0.78 (docs). */
+  greedy4: number; greedy8: number; greedy16: number; rate4: number; rate8: number;
   /** Greedy reach as a share of top bits after 16 moves, and at its local optimum. */
   reach16: number; reachEnd: number;
   /** Median moves for greedy to reach 50% / 90% of top (Infinity: not within longSteps). */
@@ -365,7 +366,7 @@ export function measureRule(rule: Rule, ctx: Context): RuleReport {
   return {
     id: rule.id, calibration: rule.calibration, topBits: top, cardBits: cardBits(rule.source, inst), colourBlind: colourBlind(rule, sp),
     greedy4: mean(climbs.map(c => at(c, 4))), greedy8: mean(climbs.map(c => at(c, 8))), greedy16: g16,
-    rate8: mean(climbs.map(c => (at(c, 8) - at(c, 0)) / 8)),
+    rate4: mean(climbs.map(c => (at(c, 4) - at(c, 0)) / 4)), rate8: mean(climbs.map(c => (at(c, 8) - at(c, 0)) / 8)),
     reach16: g16 / top, reachEnd: mean(end) / top,
     movesTo50: median(climbs.map(c => first(c, 0.5))), movesTo90: median(climbs.map(c => first(c, 0.9))),
     beam16: bm, gap,
@@ -492,22 +493,23 @@ export interface PoolReport {
   summary: PoolSummary;
 }
 export interface PoolSummary {
-  /** max / min of the climb rate (bits per move) and of reach16 across the pool, and the CV of the rate. */
+  /** max / min of the early climb rate rate4 (bits per move) and of reach16 across the pool, and the CV of rate4. */
   rateRatio: number; rateCv: number; reachRatio: number;
   /** Spread of the headline difficulty (max − min) and its maximum. */
   difficultySpread: number; difficultyMax: number;
   /** Worst (highest) pair synergy difficulty and the lowest joint ceiling. */
   worstPair: string; worstPairDifficulty: number; minCeiling: number;
-  /** Rules that are worse than another on climb rate, reach and difficulty at once (dominated: never a fair pick). */
+  /** Dominated rules: another rule climbs at least 25% faster (rate4), reaches at least as far (reach16) and is at least
+   * 10 points easier (DIFF). */
   dominated: string[];
   cardBitsRatio: number;
 }
 
 export function summarise(rules: readonly RuleReport[], pairs: readonly PairReport[]): PoolSummary {
-  const rate = rules.map(r => r.rate8), reach = rules.map(r => r.reach16), diff = rules.map(r => r.difficulty), card = rules.map(r => r.cardBits).filter(x => x > 0);
+  const rate = rules.map(r => r.rate4), reach = rules.map(r => r.reach16), diff = rules.map(r => r.difficulty), card = rules.map(r => r.cardBits).filter(x => x > 0);
   const m = mean(rate), sd = Math.sqrt(mean(rate.map(x => (x - m) ** 2)));
   const worst = pairs.reduce<PairReport | null>((w, p) => (!w || p.difficulty > w.difficulty ? p : w), null);
-  const dominated = rules.filter(r => rules.some(o => o !== r && o.rate8 > r.rate8 && o.reach16 > r.reach16 && o.difficulty < r.difficulty)).map(r => r.id);
+  const dominated = rules.filter(r => rules.some(o => o !== r && o.rate4 > 0 && o.rate4 >= 1.25 * r.rate4 && o.reach16 >= r.reach16 && o.difficulty <= r.difficulty - 10)).map(r => r.id);
   const ratio = (a: number[]) => (a.length ? Math.max(...a) / Math.max(1e-9, Math.min(...a)) : NaN);
   return {
     rateRatio: ratio(rate), rateCv: m > 0 ? sd / m : NaN, reachRatio: ratio(reach),
@@ -526,4 +528,42 @@ export function measurePool(rules: readonly Rule[], ctx: Context, opts: { pairs?
     return { id: r.id, synergy: mean(mine.map(p => p.difficulty)), conflict: mean(mine.map(p => p.conflict)), ceiling: mean(mine.map(p => p.ceiling)) };
   });
   return { rules: reports, pairs, partners, summary: summarise(reports, pairs) };
+}
+
+/**
+ * Proposed thresholds for a balanced ("comparably simple") beginner pool, set from where the current families fall
+ * (docs/rule-difficulty.md "Thresholds"). Every rule greedy-solvable and local, climb rates and card sizes within a
+ * factor, every pair with a board good for both, and no rule another rule beats on both climb and difficulty.
+ */
+export const SYMMETRIC_POOL = Object.freeze({
+  /** Per rule. */
+  difficultyMax: 10, entangleMax: 3.5, cardBitsMax: 800,
+  /** Across the pool. */
+  rateRatioMax: 1.6, cardRatioMax: 2.5, synergySpreadMax: 15,
+  /** Per pair. */
+  pairSynergyMax: 75, ceilingMin: 0.5,
+});
+export type Thresholds = typeof SYMMETRIC_POOL;
+
+/** The thresholds a pool fails, one line each (empty: it passes). */
+export function verdict(r: PoolReport, t: Thresholds = SYMMETRIC_POOL): string[] {
+  const out: string[] = [], s = r.summary, f = (x: number) => (Number.isFinite(x) ? x.toFixed(2) : String(x));
+  for (const x of r.rules) {
+    if (x.difficulty > t.difficultyMax) out.push(`${x.id}: DIFF ${f(x.difficulty)} > ${t.difficultyMax} (greedy is trapped or a cleverer search earns more)`);
+    if (x.entangle > t.entangleMax) out.push(`${x.id}: K ${f(x.entangle)} > ${t.entangleMax} (a move's effect depends on too many cells)`);
+    if (x.cardBits > t.cardBitsMax) out.push(`${x.id}: card ${f(x.cardBits)} bits > ${t.cardBitsMax}`);
+  }
+  if (s.rateRatio > t.rateRatioMax) out.push(`climb rate4 max/min ${f(s.rateRatio)} > ${t.rateRatioMax}`);
+  if (s.cardBitsRatio > t.cardRatioMax) out.push(`card bits max/min ${f(s.cardBitsRatio)} > ${t.cardRatioMax}`);
+  const syn = r.partners.map(p => p.synergy).filter(Number.isFinite);
+  if (syn.length && Math.max(...syn) - Math.min(...syn) > t.synergySpreadMax) {
+    out.push(`per-rule synergy spread ${f(Math.max(...syn) - Math.min(...syn))} > ${t.synergySpreadMax}`);
+  }
+  for (const p of r.pairs) {
+    if (p.difficulty > t.pairSynergyMax) out.push(`${p.a} × ${p.b}: SYN ${f(p.difficulty)} > ${t.pairSynergyMax}`);
+    if (p.ceiling < t.ceilingMin) out.push(`${p.a} × ${p.b}: best joint board found ${f(p.ceiling)} < ${t.ceilingMin}`);
+  }
+  for (const id of s.dominated) out.push(`${id}: dominated (another rule climbs ≥ 25% faster, reaches as far and is ≥ 10 points easier)`);
+  if (!r.pairs.length && r.rules.length > 1) out.push("pair thresholds not checked (no pairs measured)");
+  return out;
 }

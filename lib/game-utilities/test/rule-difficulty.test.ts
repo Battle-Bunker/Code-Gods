@@ -7,7 +7,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { instantiate, type GridValue } from "@workspace/game-types";
 import {
-  QUICK_BUDGET, adHocRule, compileSource, familyParams, familyRule, givenRule, measurePair, measureRule, space, type Budget, type Rule,
+  QUICK_BUDGET, adHocRule, compileSource, familyParams, familyRule, givenRule, measurePair, measureRule, space, summarise, verdict,
+  type Budget, type Rule,
 } from "../scripts/rule-difficulty-lib.ts";
 import { rules as exampleRules } from "../scripts/rule-difficulty-example.mjs";
 
@@ -75,4 +76,20 @@ test("anchor: honest_minesweeper is clearly harder to write an algorithm for, an
   const syn = (r: Rule) => partners.reduce((s, p) => s + measurePair(r, p, ctx).difficulty, 0) / partners.length;
   const sMine = syn(rule("honest_minesweeper")), sMirror = syn(rule("mirrormancer"));
   assert.ok(sMine >= sMirror + 10, `synergy difficulty ${sMine} vs ${sMirror}`);
+});
+
+test("rate4 is the mean bits per move over the first four moves; the pool verdict flags a slow, hard rule", () => {
+  const ctx = { sp: numbers, budget: TINY };
+  const s7 = measureRule(sevens(), ctx);
+  assert.equal(s7.rate4, 1);
+  // A rule whose bits come only at the very end: one point for a full board of 7s. Greedy is blind on it.
+  const late = measureRule(givenRule("all_sevens", g => (g.sym.every(s => s === 7) ? 1 : 0), o => o as number, 1), ctx);
+  assert.equal(late.rate4, 0);
+  assert.equal(late.plateau, 1);
+  assert.equal(late.trap, 1);
+  const fails = verdict({ rules: [s7, late], pairs: [], partners: [], summary: summarise([s7, late], []) });
+  assert.ok(fails.some(x => x.startsWith("all_sevens: DIFF")), fails.join("\n"));
+  assert.ok(fails.some(x => x.startsWith("all_sevens: dominated")), fails.join("\n"));
+  assert.ok(fails.includes("pair thresholds not checked (no pairs measured)"));
+  assert.ok(!fails.some(x => x.startsWith("sevens:")), "count of 7s passes every per-rule threshold");
 });

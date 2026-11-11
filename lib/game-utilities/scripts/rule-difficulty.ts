@@ -16,6 +16,7 @@
  *   --no-pairs                      skip the synergy matrix
  *   --calibrate                     calibrate families here even when a shipped table exists
  *   --json FILE                     also write the full report as JSON
+ *   --markdown FILE                 also write the tables as Markdown (docs/rule-difficulty.md)
  *
  * Ad-hoc module (.mjs, .js or .ts): `export const rules = [{ id, utility, top? }]`, where `utility` is the card's
  * `function utility(grid) { ... }` (a function or its source text), written against the room's prelude exactly like a
@@ -29,14 +30,19 @@ import { writeFileSync } from "node:fs";
 import { instantiate, type Instantiation } from "@workspace/game-types";
 import { SEED_SETUPS } from "../../game-core/src/settings.ts";
 import {
-  DEFAULT_BUDGET, QUICK_BUDGET, adHocRule, colourBlind, familyParams, familyRule, measurePool, poolFamilies, space,
+  DEFAULT_BUDGET, QUICK_BUDGET, adHocRule, verdict, colourBlind, familyParams, familyRule, measurePool, poolFamilies, space,
   type MoveSet, type PoolReport, type Rule,
 } from "./rule-difficulty-lib.ts";
 import type { Ordinal } from "../src/index.ts";
 
 const argv = process.argv.slice(2);
 const flag = (name: string) => argv.includes(`--${name}`);
-const opt = (name: string) => { const i = argv.indexOf(`--${name}`); return i >= 0 ? argv[i + 1] : undefined; };
+const opt = (name: string) => {
+  const i = argv.indexOf(`--${name}`);
+  if (i < 0) return undefined;
+  if (argv[i + 1] === undefined || argv[i + 1].startsWith("--")) throw new Error(`--${name} needs a value`);
+  return argv[i + 1];
+};
 
 const setupId = opt("setup") === "first-steps" ? "grid-first-steps" : "grid-annotated-basics";
 const setup = SEED_SETUPS.find(s => s.seedId === setupId)!;
@@ -80,11 +86,37 @@ log(`measured in ${((performance.now() - t0) / 1000).toFixed(1)}s`);
 print(report);
 if (opt("json")) writeFileSync(opt("json")!, JSON.stringify({ shape: inst.key, moves: moveSet, budget, ...report }, (_, v) => (v === Infinity ? "inf" : v), 2) + "\n");
 
+if (opt("markdown")) writeFileSync(opt("markdown")!, markdown(report));
+
+function markdown(r: PoolReport): string {
+  const f = (x: number, d = 2) => (Number.isFinite(x) ? x.toFixed(d) : x === Infinity ? "∞" : "–");
+  const syn = new Map(r.partners.map(p => [p.id, p]));
+  const lines = [
+    `${inst.key}, moves: ${moveSet}, budget: ${opt("budget") ?? "default"}`, "",
+    "| rule | reads | card | top | rate4 | rate8 | reach16 | to90 | plat | trap | esc2 | gap | K | **DIFF** | **SYN** | confl |",
+    "|---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|",
+    ...[...r.rules].sort((a, b) => a.difficulty - b.difficulty || b.rate4 - a.rate4).map(x => `| ${x.id} | ${x.colourBlind ? "numbers" : "colours"} | ${f(x.cardBits, 0)} | ${f(x.topBits, 1)} | ${f(x.rate4)} | ${f(x.rate8)} | ${f(x.reach16)} | ${f(x.movesTo90, 0)} | ${f(x.plateau)} | ${f(x.trap)} | ${f(x.escape2)} | ${f(x.gap)} | ${f(x.entangle, 1)} | **${f(x.difficulty, 1)}** | **${f(syn.get(x.id)?.synergy ?? NaN, 1)}** | ${f(syn.get(x.id)?.conflict ?? NaN)} |`),
+  ];
+  if (r.pairs.length) {
+    const ids = r.rules.map(x => x.id), at = new Map(r.pairs.flatMap(p => [[`${p.a}|${p.b}`, p], [`${p.b}|${p.a}`, p]]));
+    lines.push("", "Synergy difficulty SYN per pair (100 × (1 − considerate)); the joint ceiling found is in brackets.", "",
+      `| | ${ids.map(i => `\`${i}\``).join(" | ")} |`, `|---|${ids.map(() => "--:").join("|")}|`,
+      ...ids.map(a => `| \`${a}\` | ${ids.map(b => { const p = at.get(`${a}|${b}`); return p ? `${f(p.difficulty, 0)} (${f(p.ceiling, 1)})` : "·"; }).join(" | ")} |`));
+  }
+  const s = r.summary;
+  lines.push("", `Pool: rate4 max/min ${f(s.rateRatio)} (CV ${f(s.rateCv)}); reach16 max/min ${f(s.reachRatio)}; card max/min ${f(s.cardBitsRatio)}; `
+    + `DIFF max ${f(s.difficultyMax, 1)}, spread ${f(s.difficultySpread, 1)}; worst pair ${s.worstPair || "–"} (${f(s.worstPairDifficulty, 1)}); `
+    + `lowest ceiling ${f(s.minCeiling)}; dominated: ${s.dominated.join(", ") || "none"}.`, "");
+  const fails = verdict(r);
+  lines.push(fails.length ? `Symmetric beginner pool thresholds: fails ${fails.length} (${fails.slice(0, 6).join("; ")}${fails.length > 6 ? "; …" : ""}).` : "Symmetric beginner pool thresholds: passes.", "");
+  return lines.join("\n");
+}
+
 function print(r: PoolReport) {
   const f = (x: number, d = 2) => (Number.isFinite(x) ? x.toFixed(d) : x === Infinity ? "inf" : "-");
   const cols: [string, number, (x: PoolReport["rules"][number]) => string][] = [
     ["rule", 24, x => x.id], ["card", 6, x => f(x.cardBits, 0)], ["top", 6, x => f(x.topBits, 1)],
-    ["rate8", 6, x => f(x.rate8)], ["g8", 6, x => f(x.greedy8, 1)], ["reach16", 8, x => f(x.reach16)], ["to90", 5, x => f(x.movesTo90, 0)],
+    ["rate4", 6, x => f(x.rate4)], ["rate8", 6, x => f(x.rate8)], ["reach16", 8, x => f(x.reach16)], ["to90", 5, x => f(x.movesTo90, 0)],
     ["plat", 5, x => f(x.plateau)], ["trap", 5, x => f(x.trap)], ["esc2", 5, x => f(x.escape2)], ["gap", 5, x => f(x.gap)],
     ["K", 5, x => f(x.entangle, 1)], ["DIFF", 6, x => f(x.difficulty, 1)],
   ];
@@ -93,7 +125,7 @@ function print(r: PoolReport) {
     ["SYN", 6, id => f(partners.get(id)?.synergy ?? NaN, 1)], ["confl", 6, id => f(partners.get(id)?.conflict ?? NaN)],
   ];
   console.log(cols.map(([h, w], i) => (i ? h.padStart(w) : h.padEnd(w))).join("") + pcols.map(([h, w]) => h.padStart(w)).join("") + "  reads");
-  for (const x of [...r.rules].sort((a, b) => a.difficulty - b.difficulty || b.rate8 - a.rate8)) {
+  for (const x of [...r.rules].sort((a, b) => a.difficulty - b.difficulty || b.rate4 - a.rate4)) {
     console.log(cols.map(([, w, g], i) => (i ? g(x).padStart(w) : g(x).slice(0, w - 1).padEnd(w))).join("")
       + pcols.map(([, w, g]) => g(x.id).padStart(w)).join("") + (x.colourBlind ? "  numbers" : "  colours"));
   }
@@ -110,4 +142,6 @@ function print(r: PoolReport) {
   console.log(`\npool: rate max/min ${f(s.rateRatio)} (cv ${f(s.rateCv)}), reach16 max/min ${f(s.reachRatio)}, card max/min ${f(s.cardBitsRatio)}, `
     + `difficulty max ${f(s.difficultyMax, 1)} spread ${f(s.difficultySpread, 1)}, worst pair ${s.worstPair || "-"} ${f(s.worstPairDifficulty, 1)}, `
     + `min ceiling ${f(s.minCeiling)}, dominated: ${s.dominated.join(", ") || "none"}`);
+  const fails = verdict(r);
+  console.log(fails.length ? `\nsymmetric beginner pool (SYMMETRIC_POOL): FAILS ${fails.length}\n  ${fails.join("\n  ")}` : "\nsymmetric beginner pool (SYMMETRIC_POOL): passes");
 }
