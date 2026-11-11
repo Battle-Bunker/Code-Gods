@@ -90,6 +90,8 @@ export type AgentsViewProps = {
   changeReadRatio?: number;
   /** economy.costModel: how the room prices a changed cell (absent: set-v1). */
   costModel?: CostModel;
+  /** The room's object type (instance.objectType): an Int or a string has its own words under distance-v1 (absent: a Grid). */
+  objectType?: string;
   world: number;
   samples: ReadonlyMap<string, readonly Sample[]>;
   window: number;
@@ -105,7 +107,7 @@ export type AgentsViewProps = {
 };
 
 /** The panel without its data hooks, so the gallery (src/gallery/agents.tsx) can draw it from fixtures. */
-export function AgentsView({ agents, self, powerPerSecond, changeReadRatio, costModel, world, samples, window: windowS, ended, showCosts, showSource, can, wait, onEdit, onSetShare, onDestroy, footer }: AgentsViewProps) {
+export function AgentsView({ agents, self, powerPerSecond, changeReadRatio, costModel, objectType, world, samples, window: windowS, ended, showCosts, showSource, can, wait, onEdit, onSetShare, onDestroy, footer }: AgentsViewProps) {
   const [confirm, setConfirm] = useState<string | null>(null);
   const { editCode, destroy, allocatePower } = can;
   const showDestroy = destroy.ok || !destroy.hidden;
@@ -121,7 +123,7 @@ export function AgentsView({ agents, self, powerPerSecond, changeReadRatio, cost
           <p className="font-medium text-foreground"><Say segs={yourPowerLine({ total, allocated: self.allocated, income: self.income, energy: self.energy ?? 0 })} /></p>
           <p className="text-muted-foreground">
             The world hands out <Term id="turn">turns</Term> at random: the more energy an agent has, the more turns it gets. An act pays what it
-            looks at (<Term id="read-bits">read bits</Term>{changeReadRatio !== undefined && changeReadRatio > 1 ? `, 1/${changeReadRatio} bit of energy per bit: looking is ${changeReadRatio}× cheaper than changing` : ""}) plus, if it changes the object, the <Term id="change-cost">change cost</Term>. <span data-testid="text-change-cost-rule">{changeCostKid(costModelOf(costModel))}</span>
+            looks at (<Term id="read-bits">read bits</Term>{changeReadRatio !== undefined && changeReadRatio > 1 ? `, 1/${changeReadRatio} bit of energy per bit: looking is ${changeReadRatio}× cheaper than changing` : ""}) plus, if it changes the object, the <Term id="change-cost">change cost</Term>. <span data-testid="text-change-cost-rule">{changeCostKid(costModelOf(costModel), objectType)}</span>
           </p>
         </div>
       )}
@@ -194,7 +196,7 @@ export function AgentsView({ agents, self, powerPerSecond, changeReadRatio, cost
 export default function Agents({ params, phase }: PanelProps<"agents">) {
   const { agents: all, economy, secondsUntilEligible } = useMyAgents({ hz: 1 });
   const game = useGame({ hz: 1 });
-  const self = useDockState({ hz: 1 })?.self;
+  const dockState = useDockState({ hz: 1 }), self = dockState?.self;
   // Each agent's energy at every scoreboard publication, kept by the server (dock.agentSeries), and its energy now.
   const series = useAgentSeries(game?.gameId);
   const dock = useDockActions();
@@ -228,7 +230,7 @@ export default function Agents({ params, phase }: PanelProps<"agents">) {
   return (
     <div className="space-y-4">
       {owner}
-      <AgentsView agents={agents} self={self} powerPerSecond={economy?.powerPerSecond} changeReadRatio={economy?.changeReadRatio} costModel={costModelOf(economy)} world={world} samples={history} window={params.window} ended={ended}
+      <AgentsView agents={agents} self={self} powerPerSecond={economy?.powerPerSecond} changeReadRatio={economy?.changeReadRatio} costModel={costModelOf(economy)} objectType={dockState?.instance?.objectType} world={world} samples={history} window={params.window} ended={ended}
         showCosts={params.showCosts} showSource={params.showSource} can={can.can} wait={secondsUntilEligible}
         onEdit={a => dock.forgeEdit(a.source, isLanguage(a.language) ? a.language : undefined)}
         onSetShare={(a, share) => void commands.run({ type: "allocatePower", agentId: a.id, share })}

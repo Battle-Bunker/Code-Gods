@@ -131,10 +131,11 @@ export interface GameSettings {
   /**
    * How a change is priced (game-types structure/index.ts; docs/mutation-cost-design.md §11 stage 1): "set-v1" charges
    * every changed cell the same; "distance-v1" (and the other models of game-types COST_MODELS) charges a number by how
-   * far it moved and a colour for having changed.
+   * far it moved and a colour for having changed; on an Int, a digit place by the size of the digit added and a
+   * multiplier by its size; on a string, a substituted character without the erasure set-v1 charges.
    * OPTIONAL: absent means "set-v1" (read it with `costModelOf`), so settings stored before cost models existed need no
    * migration, and the settings model never stores the default (applySettingsChange). Only the models the object type
-   * supports (`supportedCostModels`: every model on Grid, "set-v1" alone elsewhere).
+   * supports (`supportedCostModels`: every model on Grid, "set-v1" and "distance-v1" on Int and string).
    */
   costModel?: CostModel;
 }
@@ -749,7 +750,7 @@ export const SETTINGS_DOCS = {
   },
   costModel: {
     question: "How is a change priced?", section: "energy", tier: "more", control: "segmented", suggested: COST_MODELS, dependsOn: ["objectType", "typeArgs"],
-    meaning: "How a change is priced: set charges every changed cell the same, while distance (like its variants dial and log) charges a number by how far it moved and a colour for having changed.",
+    meaning: "How a change is priced: set charges every changed cell, digit place or character alike; distance (like its variants dial and log) charges a number, or a digit place, by how far it moved.",
     consequence: "Under distance, adding 1 to a number is the cheapest change and a far jump costs more, so small careful steps are rewarded.",
   },
   startingObjectCount: {

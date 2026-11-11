@@ -292,14 +292,20 @@ test("the cost model is optional: absent reads as set-v1, and distance-v1 is off
       else assert.throws(() => validateSettings({ ...g, costModel: model }), /is not offered for Grid\(/, model);
     }
   }
-  for (const type of ["Int", "string"]) assert.deepEqual(supportedCostModels(defaultSettingsFor(type)), ["set-v1"], type);
-  for (const ok of [grid, { ...grid, costModel: "set-v1" }, { ...grid, costModel: "distance-v1" }, { ...DEFAULT_SETTINGS, costModel: "set-v1" }] as GameSettings[]) {
+  // Int and string have the flat price and the distance price, and none of the Grid's other models.
+  for (const type of ["Int", "string"]) {
+    const s = defaultSettingsFor(type);
+    assert.deepEqual(supportedCostModels(s), ["set-v1", "distance-v1"], type);
+    assert.doesNotThrow(() => validateSettings({ ...s, costModel: "distance-v1" }), type);
+    for (const model of ["dial-v1", "log-v1", "multiply-v1"] as const) assert.throws(() => validateSettings({ ...s, costModel: model }), new RegExp(`costModel ${model} is not offered for ${type}\\(`), `${type} ${model}`);
+  }
+  for (const ok of [grid, { ...grid, costModel: "set-v1" }, { ...grid, costModel: "distance-v1" }, { ...DEFAULT_SETTINGS, costModel: "set-v1" }, { ...DEFAULT_SETTINGS, costModel: "distance-v1" }] as GameSettings[]) {
     assert.doesNotThrow(() => validateSettings(ok), JSON.stringify(ok.costModel));
   }
   assert.throws(() => validateSettings({ ...grid, costModel: "free" as never }), /costModel must be one of set-v1, distance-v1/);
   assert.throws(() => validateSettings({ ...grid, costModel: null as never }), /costModel must be one of/);
-  assert.throws(() => validateSettings({ ...DEFAULT_SETTINGS, costModel: "distance-v1" }), /costModel distance-v1 is not offered for Int\(/);
-  assert.throws(() => validateSettings({ ...defaultSettingsFor("string"), costModel: "distance-v1" }), /not offered for string\(/);
+  assert.throws(() => validateSettings({ ...DEFAULT_SETTINGS, costModel: "dial-v1" }), /costModel dial-v1 is not offered for Int\(/);
+  assert.throws(() => validateSettings({ ...defaultSettingsFor("string"), costModel: "multiply-v1" }), /not offered for string\(/);
 });
 
 test("only the default setup (Annotated basics) prices changes by distance; every other ordinary seed keeps the default model unspelled", () => {

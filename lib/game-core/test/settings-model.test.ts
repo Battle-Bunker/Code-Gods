@@ -172,12 +172,20 @@ test("the cost model: one of the instantiation's models, the default never store
   assert.deepEqual(applySettingsChange(grid, { costModel: "set-v1" }, domain), grid, "choosing the default where it already holds is no change");
   assert.deepEqual(applySettingsChange(distance, { planningSeconds: 99 }, domain), { ...distance, planningSeconds: 99 }, "another field leaves it alone");
   assert.deepEqual(applySettingsChange(distance, { typeArgs: GRID7 }, domain), { ...distance, typeArgs: GRID7, excludedFamilies: [] }, "every Grid supports it");
-  // A world that has only the default model: the field goes with the change of world, and cannot be chosen there.
+  // A cost model prices one object type's moves, so it goes with a change of object type, even to a type that offers a
+  // model of the same name: an Int made from a distance-priced Grid starts on the default.
   const int = applySettingsChange(distance, { objectType: "Int" }, domain);
   assert.ok(!("costModel" in int));
   assert.deepEqual(int, { ...start, excludedFamilies: [] });
   assert.deepEqual(applySettingsChange(distance, { ...distance, objectType: "Int" }, domain), int, "the whole settings sent back with the world edited");
-  for (const [base, bad, message] of [[start, "distance-v1", /Unsupported costModel for Int\(/], [grid, "free", /costModel must be one of set-v1, distance-v1/], [grid, 7, /costModel must be one of/]] as const) {
+  // Int offers set-v1 and distance-v1 (game-types supportsCostModel): chosen there like on a Grid, kept across its ranges,
+  // named together with the change of type, and no other model.
+  const intDistance = applySettingsChange(start, { costModel: "distance-v1" }, domain);
+  assert.deepEqual(intDistance, { ...start, costModel: "distance-v1" });
+  assert.deepEqual(applySettingsChange(intDistance, { costModel: "set-v1" }, domain), start);
+  assert.deepEqual(applySettingsChange(grid, { objectType: "Int", costModel: "distance-v1" }, domain), { ...int, costModel: "distance-v1" }, "the change names the new world's model");
+  assert.ok(!("costModel" in applySettingsChange(intDistance, { objectType: "Grid" }, domain)), "and back to a Grid: the default again");
+  for (const [base, bad, message] of [[start, "dial-v1", /Unsupported costModel for Int\(/], [start, "multiply-v1", /Unsupported costModel for Int\(/], [grid, "free", /costModel must be one of set-v1, distance-v1/], [grid, 7, /costModel must be one of/]] as const) {
     assert.throws(() => applySettingsChange(base, { costModel: bad as never }, domain),
       (e: unknown) => e instanceof SettingsChangeError && e.field === "costModel" && message.test(e.message), String(bad));
   }
@@ -186,6 +194,6 @@ test("the cost model: one of the instantiation's models, the default never store
   assert.deepEqual(canonicalCostModel({ ...grid, costModel: "set-v1" }), grid);
   assert.equal(canonicalCostModel(distance), distance);
   assert.equal(canonicalCostModel(grid), grid);
-  const refused = { ...start, costModel: "distance-v1" as const };
+  const refused = { ...start, costModel: "dial-v1" as const };
   assert.equal(canonicalCostModel(refused), refused, "only the default's spelling is touched: validateSettings refuses the rest");
 });

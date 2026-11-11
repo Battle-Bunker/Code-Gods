@@ -184,10 +184,16 @@ test("the cost model: a choice under Energy › More, offered where the world ha
   for (const v of COST_MODELS) assert.match(choiceLabel("costModel", v), /^[A-Z][a-z]+: /, `${v} has a label in plain words`);
   assert.equal(choiceLabel("costModel", "future-v2"), "Future", "a model without words yet shows its name, not its id");
   assert.equal(isHidden("costModel", classic), false);
+  // An Int or a string world offers the flat price and the distance price, so the choice shows there with those two.
   for (const s of [DEFAULT_SETTINGS, { ...DEFAULT_SETTINGS, objectType: "string", typeArgs: { maxLength: 128 } }]) {
-    assert.deepEqual(costModelChoices(s), ["set-v1"]);
-    assert.equal(isHidden("costModel", s), true, `${s.objectType} has one model: nothing to choose`);
+    assert.deepEqual(costModelChoices(s), ["set-v1", "distance-v1"], s.objectType);
+    assert.deepEqual(costModelChoices(s).map(v => choiceLabel("costModel", v)), ["Set: every change alike", "Distance: further costs more"]);
+    assert.equal(isHidden("costModel", s), false, `${s.objectType} has two models to choose from`);
+    assert.equal(formatValue("costModel", s.costModel), "Set: every change alike", "and starts on the default");
   }
+  // A world that cannot be instantiated has only the default: nothing to choose.
+  assert.deepEqual(costModelChoices({ objectType: "Nope", typeArgs: {} }), ["set-v1"]);
+  assert.equal(isHidden("costModel", { ...DEFAULT_SETTINGS, objectType: "Nope", typeArgs: {} }), true);
   assert.equal(formatValue("costModel", classic.costModel), "Set: every change alike", "absent is the default");
   assert.equal(formatValue("costModel", basics.costModel), "Distance: further costs more", "the default setup prices by distance");
   // A pick goes through the settings model: the default is the field's absence, so picking it back leaves no unsaved change.
@@ -195,6 +201,10 @@ test("the cost model: a choice under Energy › More, offered where the world ha
   const picked = applySettingsChange(classic, { costModel: "distance-v1" }, domain);
   assert.deepEqual(draftErrors(picked, domain), {});
   assert.deepEqual(applySettingsChange(picked, { costModel: "set-v1" }, domain), classic);
-  assert.ok(!("costModel" in applySettingsChange(picked, { objectType: "Int" }, domain)), "a world without the model drops it");
-  assert.match(draftErrors({ ...DEFAULT_SETTINGS, costModel: "distance-v1" }, domain)._form ?? "", /costModel distance-v1 is not offered/);
+  assert.ok(!("costModel" in applySettingsChange(picked, { objectType: "Int" }, domain)), "the model goes with the object type: an Int starts on the default");
+  const intPicked = applySettingsChange(DEFAULT_SETTINGS, { costModel: "distance-v1" }, domain);
+  assert.equal(intPicked.costModel, "distance-v1");
+  assert.deepEqual(draftErrors(intPicked, domain), {}, "an Int may price by distance");
+  assert.deepEqual(applySettingsChange(intPicked, { costModel: "set-v1" }, domain), DEFAULT_SETTINGS);
+  assert.match(draftErrors({ ...DEFAULT_SETTINGS, costModel: "dial-v1" }, domain)._form ?? "", /costModel dial-v1 is not offered/);
 });

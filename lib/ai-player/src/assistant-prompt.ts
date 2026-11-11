@@ -159,11 +159,15 @@ function preparingLines(value: unknown): string[] {
   return [`The game is preparing its rule tables, ${ready ?? "?"} of ${total ?? "?"} ready (the first game on ${str(p.instance) ?? "this shape"} on this server, about ${num(p.estimateSeconds) ?? "?"} s in all). It starts by itself, then planning begins; nobody needs to do anything.`];
 }
 
-/** The room's cost model in words (docs/energy-model.md §4): absent or unknown reads as set-v1. */
-function costModelLine(model: unknown): string {
-  return typeof model === "string" && model !== "set-v1" && /^[a-z0-9-]{1,24}$/.test(model)
-    ? `Change cost model: ${model} (a number pays for how it moves, a small step is cheap: get_rules has the price list; a colour or suit pays a flat price).`
-    : "Change cost model: set-v1 (every changed cell costs the same, however far its value moves).";
+/**
+ * The room's cost model in words (docs/energy-model.md §4): absent or unknown reads as set-v1. `objectType` is the
+ * room's (instance.objectType): an Int and a string have their own words under a distance model.
+ */
+function costModelLine(model: unknown, objectType?: unknown): string {
+  if (!(typeof model === "string" && model !== "set-v1" && /^[a-z0-9-]{1,24}$/.test(model))) return "Change cost model: set-v1 (every changed cell costs the same, however far its value moves).";
+  if (objectType === "Int") return `Change cost model: ${model} (a digit place pays for the size of the digit added to it, one step at one place is the cheapest add; a multiplication pays for the size of its multiplier: get_rules has the price list).`;
+  if (objectType === "string") return `Change cost model: ${model} (changing, inserting or deleting one character cost about the same: get_rules has the price list).`;
+  return `Change cost model: ${model} (a number pays for how it moves, a small step is cheap: get_rules has the price list; a colour or suit pays a flat price).`;
 }
 
 /**
@@ -191,7 +195,7 @@ export function assistantBriefing({ observation, layout, preparing }: { observat
       `Game ${str(o.gameShortCode) ?? ""} — phase: ${str(o.phase)}; agent languages: ${languages}; objects: ${str(o.objectCount) ?? "?"}; your ${live}agents: ${agents === undefined ? "?" : `${agents} ${live}agent${agents === 1 ? "" : "s"}`}${ended ? " (at the end)" : ""}.`,
       `Your energy${ended ? " at the end" : ""}: ${num(self.energy) ?? "?"} bits${self.pauseUsed ? "; your pause is used" : ""}. Economy: ${cut(JSON.stringify(rec(o.economy)), 400)}.`,
       // Stated outside the JSON, which is cut: what one changed cell costs depends on it (docs/energy-model.md §4).
-      costModelLine(rec(o.economy).costModel),
+      costModelLine(rec(o.economy).costModel, rec(o.instance).objectType),
       ...utilityLine("Your utility (private; its source is in the writing-agents skill)", utility),
       ...utilityLine("Your defence goal (penalty)", rec(utility.penalty)),
       ...boardKeyLine(o.instance),

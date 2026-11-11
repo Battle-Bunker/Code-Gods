@@ -146,7 +146,12 @@ export function applySettingsChange(settings: GameSettings, patch: Partial<GameS
   let next: GameSettings = { ...settings };
   const changed = (key: keyof GameSettings) => given[key] !== undefined && !sameSettings(given[key], settings[key]);
 
-  if (changed("objectType")) next = withObjectType(next, given.objectType, domain);
+  if (changed("objectType")) {
+    next = withObjectType(next, given.objectType, domain);
+    // A cost model prices one object type's moves (a Grid's cells, an Int's digit places, a string's characters), so it
+    // does not carry to another type: the new world starts on the default unless this change names a model for it.
+    if (!changed("costModel")) next = { ...next, costModel: DEFAULT_COST_MODEL };
+  }
   if (changed("typeArgs")) {
     const args = given.typeArgs;
     if (!args || typeof args !== "object" || Array.isArray(args)) throw new SettingsChangeError("typeArgs", "typeArgs must be an object of type arguments");
