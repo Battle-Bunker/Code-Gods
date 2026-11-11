@@ -72,6 +72,8 @@ const open = async (width: number, height: number, scale = 2) => {
 };
 const BAR = "[data-testid=objects-paid-observation]";
 const shot = async (page: Page, name: string) => {
+  await page.mouse.move(700, 100);   // off the boards: a hovered board opens its scoring popover over the rows
+  await sleep(400);
   await page.screenshot({ path: `${OUT}/${name}.png` });
   // The Objects pane on its own, larger in the report.
   const pane = page.locator(".cg-pane", { has: page.locator(BAR) }).first();
@@ -117,7 +119,28 @@ await step("3 running", async () => {
   log("3 phase", o.phase); log("3 self", selfOf(o)); log("3 agents", o.agents.map(a => ({ name: a.name, powerShare: a.powerShare, acts: (a as { acts?: number }).acts })));
   await page.waitForSelector("[data-testid^=text-seen-]", { timeout: 30_000 });
   await shot(page, "03-running");
+  const stale = page.locator("[data-testid^=badge-stale-]").first();
+  if (await stale.count()) { await stale.scrollIntoViewIfNeeded(); await sleep(300); await shot(page, "03b-running-stale-row"); }
   log("3 running panel", await panelText(page));
+});
+
+await step("3c consistency", async () => {
+  // Every object as the admin's row tells it, for 20 s: a row whose object was last changed after the row was seen
+  // must count that change (changesSince > 0), or the panel says "unchanged since" of a changed object.
+  type Row = { id: string; knownAt?: number; changesSince?: number; lastMutatedAt?: number | null; mutations?: number };
+  const odd = new Map<string, unknown>();
+  let rowsSeen = 0, staleSeen = 0;
+  for (let i = 0; i < 10; i++, await sleep(2000)) {
+    const { rows } = await me.query(fn.q("player:objectIds"), { gameId, limit: 60 }) as { rows: { id: string }[] };
+    for (const { id } of rows) {
+      const o = await me.query(fn.q("player:object"), { objectId: id }) as Row | null;
+      if (!o || o.knownAt === undefined) continue;
+      rowsSeen++; if (o.changesSince) staleSeen++;
+      if (o.lastMutatedAt != null && o.lastMutatedAt > o.knownAt + 0.5 && !o.changesSince) odd.set(`${id}@${o.mutations}`, { knownAt: o.knownAt, lastMutatedAt: o.lastMutatedAt, changesSince: o.changesSince, mutations: o.mutations });
+    }
+  }
+  log("3c rows read / stale / changed-after-seen-but-unchanged-since", { rowsSeen, staleSeen, odd: odd.size });
+  log("3c examples", [...odd.values()].slice(0, 5));
 });
 
 await step("4 one look", async () => {
@@ -130,6 +153,7 @@ await step("4 one look", async () => {
   await button.waitFor({ timeout: 60_000 });
   const id = (await button.getAttribute("data-testid"))!.replace("button-look-", "");
   log("4 look button", { label: await button.innerText(), title: await button.getAttribute("title") });
+  await button.scrollIntoViewIfNeeded();
   const before = await observe();
   await shot(page, "04a-before-look");
   log("4 row before", await page.locator(`[data-testid=text-seen-${id}]`).innerText());
@@ -158,15 +182,32 @@ await step("5 look at all", async () => {
   log("5 panel after", await panelText(page));
 });
 
+await step("7 assistant look", async () => {
+  // The in-app assistant looking, with the scripted mock model (AI_MOCK=1 on local deployments): one look tool call.
+  const before = await observe();
+  await page.fill("[data-testid=input-assistant]", `/mock ${JSON.stringify({ steps: [{ tools: [{ name: "look", input: {} }] }, { text: "I looked at every object for you." }] })}`);
+  await page.press("[data-testid=input-assistant]", "Enter");
+  await sleep(12_000);
+  await shot(page, "07-assistant-look");
+  const after = await observe();
+  log("7 energy", { before: before.self.energy, after: after.self.energy, drop: before.self.energy - after.self.energy, objectCount: after.objectCount });
+  const threads = await me.query(fn.q("assistant:threads"), { roomId }) as { _id: string }[];
+  for (const t of threads) log("7 thread", JSON.stringify(await me.query(fn.q("assistant:thread"), { threadId: t._id })).slice(-1500));
+});
+
 await step("6 unaffordable", async () => {
   const o = await observe();
+  // No observer any more (its stored energy would keep every row fresh), all power to the changer: income 0.
+  for (const a of [...o.agents].sort((x, y) => Number(y.name === "Observer") - Number(x.name === "Observer"))) log("6 command", (await submit(a.name === "Observer" ? { type: "destroy", agentId: a.id ?? a.agentId } : { type: "allocatePower", agentId: a.id ?? a.agentId, share: 1 })).message);
   await admin.mutation(fn.m("testing:setGodEnergy"), { gameId, godId: o.self.godId, balance: 0 });
-  await sleep(6000);   // let bob's changers make rows stale again
+  await page.waitForSelector("[data-testid^=badge-stale-]", { timeout: 60_000 });   // bob's changers make rows stale again
+  await page.locator("[data-testid^=badge-stale-]").first().scrollIntoViewIfNeeded();
   log("6 self", selfOf(await observe()));
   await page.waitForSelector("[data-testid=text-look-reason]", { timeout: 20_000 });
   await shot(page, "06-unaffordable");
   log("6 panel", await panelText(page));
   const row = page.locator("[data-testid^=button-look-]:not([data-testid=button-look-all])").first();
+  if (await row.count()) await shot(page, "06b-unaffordable-row");
   if (await row.count()) log("6 row look", { disabled: await row.isDisabled(), title: await row.getAttribute("title"), label: await row.innerText() });
   else log("6 row look", "no stale row on screen");
   log("6 look-all", { disabled: await page.locator("[data-testid=button-look-all]").isDisabled(), reason: await page.locator("[data-testid=text-look-reason]").innerText() });

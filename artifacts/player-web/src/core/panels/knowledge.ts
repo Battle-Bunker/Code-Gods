@@ -44,7 +44,6 @@ export function staleness(o: { knownAt?: number; changesSince?: number }, world:
 /** The small hint other panels put beside an object they show as last seen ("seen 42s ago"); null in a free game. */
 export const seenHint = (o: { knownAt?: number }, world: number): string | null => staleness(o, world)?.seen ?? null;
 
-const price1 = (v: number) => (Math.round(v * 10) / 10).toFixed(1);
 /** A balance as the engine's refusal writes it: two decimals, a debt as nothing to spend. */
 const exact = (v: number) => Math.max(0, v).toFixed(2);
 
@@ -58,7 +57,7 @@ export type LookOffer = { total: number; label: string; ok: boolean; reason: str
 export function lookOffer({ price, energy, count }: { price: number; energy: number; count?: number }): LookOffer {
   const all = count !== undefined;
   const total = Math.round(price * (count ?? 1) * 100) / 100;
-  const label = all ? `Look at all ${count} · ${price1(total)}` : `Look · ${price1(total)}`;
+  const label = all ? `Look at all ${count} · ${total.toFixed(2)} energy` : `Look · ${total.toFixed(2)} energy`;
   if (all && count <= 0) return { total, label, ok: false, reason: "There are no objects to look at yet" };
   // The engine compares the exact price (game/commands.ts), so the cents shown are not what decides.
   if (energy >= price * (count ?? 1)) return { total, label, ok: true, reason: null };

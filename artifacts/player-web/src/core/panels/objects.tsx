@@ -140,6 +140,7 @@ export function LookBar({ price, energy, count, can, onLookAll, boards, stale }:
 }) {
   const [confirm, setConfirm] = useState(false);
   const all = lookOffer({ price: price ?? 0, energy, count });
+  const single = lookOffer({ price: price ?? 0, energy });
   const shown = price !== undefined && (can.ok || !can.hidden);
   // Why the look at all is off: its own total against the balance first, else what stops any look (the phase, a command in flight).
   const reason = all.reason ?? (can.ok ? null : can.reason);
@@ -158,14 +159,15 @@ export function LookBar({ price, energy, count, can, onLookAll, boards, stale }:
       {shown && (
         <p className="flex flex-wrap items-center gap-x-4 gap-y-1">
           {confirm ? (<>
-            <TextButton tone="danger" testId="button-confirm-look-all" disabled={disabled} title={reason ?? undefined} onClick={() => { setConfirm(false); onLookAll(); }}>
+            <TextButton boxed tone="danger" testId="button-confirm-look-all" disabled={disabled} title={reason ?? undefined} onClick={() => { setConfirm(false); onLookAll(); }}>
               Pay {all.total.toFixed(2)} energy to look at all {count}
             </TextButton>
             <TextButton testId="button-cancel-look-all" onClick={() => setConfirm(false)}>Keep my energy</TextButton>
           </>) : (
-            <TextButton testId="button-look-all" disabled={disabled} title={reason ?? `${all.total.toFixed(2)} energy for ${count} objects, from your own energy`} onClick={() => setConfirm(true)}>{all.label}</TextButton>
+            <TextButton boxed testId="button-look-all" disabled={disabled} title={reason ?? `${all.total.toFixed(2)} energy for ${count} objects, from your own energy`} onClick={() => setConfirm(true)}>{all.label}</TextButton>
           )}
-          {disabled && reason && <span data-testid="text-look-reason" className="min-w-0 break-words">{reason}</span>}
+          {/* Why no look can be paid for, said once and in sight (a row's own button carries it only as a title). */}
+          {disabled && (single.reason ?? reason) && <span data-testid="text-look-reason" className="min-w-0 break-words">{single.reason ?? reason}</span>}
         </p>
       )}
     </div>
@@ -242,7 +244,7 @@ function ObjectRow({ objectId, position, byPayoff, scales, world, highlighted, o
           </span>
           {seen.stale && look && (
             <span className="ml-auto shrink-0 font-sans">
-              <TextButton testId={`button-look-${o.id}`} disabled={look.disabled} title={look.reason ?? "Pay this much of your own energy to see it as it is now"} onClick={() => look.onLook(o.id)}>{look.label}</TextButton>
+              <TextButton boxed testId={`button-look-${o.id}`} disabled={look.disabled} title={look.reason ?? "Pay this much of your own energy to see it as it is now"} onClick={() => look.onLook(o.id)}>{look.label}</TextButton>
             </span>
           )}
         </div>

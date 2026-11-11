@@ -35,7 +35,7 @@ test("an unchanged row is fresh however old; a changed one is stale and says how
 });
 
 test("one look: the price on the button, affordable or the reason with price and balance", () => {
-  assert.deepEqual(lookOffer({ price: 1.66, energy: 5 }), { total: 1.66, label: "Look · 1.7", ok: true, reason: null });
+  assert.deepEqual(lookOffer({ price: 1.66, energy: 5 }), { total: 1.66, label: "Look · 1.66 energy", ok: true, reason: null });
   const poor = lookOffer({ price: 1.66, energy: 0.4 });
   assert.equal(poor.ok, false);
   assert.equal(poor.reason, "A look costs 1.66 energy; you have 0.40");
@@ -45,7 +45,7 @@ test("one look: the price on the button, affordable or the reason with price and
 
 test("a look at all: the price times the object count, said before paying", () => {
   const all = lookOffer({ price: 1.66, energy: 100, count: 40 });
-  assert.deepEqual(all, { total: 66.4, label: "Look at all 40 · 66.4", ok: true, reason: null });
+  assert.deepEqual(all, { total: 66.4, label: "Look at all 40 · 66.40 energy", ok: true, reason: null });
   const poor = lookOffer({ price: 1.66, energy: 12.5, count: 40 });
   assert.equal(poor.ok, false);
   assert.equal(poor.reason, "A look at all 40 objects costs 66.40 energy; you have 12.50");
