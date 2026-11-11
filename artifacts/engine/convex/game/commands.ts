@@ -190,9 +190,12 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
   const settings = game.settings as GameSettings;
 
   if (command.type === "pause") {
-    if (game.phase !== "running" || deity.pauseUsed) fail("CONFLICT", "Pause is unavailable");
+    // Say why, so a player (or an agent) knows whether to wait or give up.
+    if (deity.pauseUsed) fail("CONFLICT", "You have used your one pause this game");
+    if (game.phase === "paused") fail("CONFLICT", "The game is already paused");
+    if (game.phase !== "running") fail("CONFLICT", `Pausing works only while the game is running (it is ${game.phase})`);
     const world = worldNow(game, now);
-    if (world >= game.endAtWorld) fail("CONFLICT", "Pause is unavailable");
+    if (world >= game.endAtWorld) fail("CONFLICT", "The game is ending and can no longer be paused");
     const pauseEndsAt = now + settings.pauseSeconds * 1000;
     const paused = { ...game, worldSeconds: world };
     const nextBatch = await appendEvents(ctx, paused, [{ t: "phase", phase: "paused", world, reason: `paused by ${member.name}` }], world, world);

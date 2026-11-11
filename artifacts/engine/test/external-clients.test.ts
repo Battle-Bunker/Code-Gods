@@ -88,6 +88,9 @@ test("CORS: every bearer endpoint answers any origin without credentials; the co
     const refused = await fetch(`${SITE}/api/device/token`, from(origin, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }));
     assert.equal(refused.status, 400);
     assertCors(refused, "an error is readable too");
+    // A credential that is there but malformed is an unknown one (401: reconnect), not a missing one (400).
+    const mangled = await fetch(`${SITE}/api/device/token`, from(origin, { method: "POST", headers: { authorization: "Bearer cgc_garbage" } }));
+    assert.equal(mangled.status, 401);
     // Better Auth's cookie routes stay same-origin: a foreign page may not read the human's session.
     const session = await fetch(`${SITE}/api/auth/get-session`, from(origin));
     assert.notEqual(session.headers.get("access-control-allow-origin"), "*", "get-session");
