@@ -163,6 +163,15 @@ export function pickByEnergy<T>(candidates: readonly T[], energy: (c: T) => numb
   return undefined;
 }
 
+/**
+ * Debt within capacity (docs/energy-model.md §7.2): an account may owe at most what it can hold, so its balance stays
+ * within ±capacity. True when an act costing `cost` leaves the settled `balance` at or above −capacity. With no capacity
+ * (Infinity: a game from before the setting) every act is affordable, as before.
+ */
+export function affordable(balance: number, cost: number, capacity: number): boolean {
+  return balance - cost >= -capacity - 1e-9;
+}
+
 /** Deduct one act's actual cost. The balance may go negative (a cooldown). */
 export function chargeAct(account: AgentAccount, cost: number): AgentAccount {
   assertClock(account.balance, "agent balance");

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  agentIncome, deityIncome, defaultShare, assertShare, spendDeityEnergy, newAgentAccount, settleAgentEnergy, chargeAct, pickByEnergy, selectionWeight, offerReadBits,
+  agentIncome, deityIncome, defaultShare, assertShare, spendDeityEnergy, newAgentAccount, settleAgentEnergy, chargeAct, pickByEnergy, selectionWeight, offerReadBits, affordable,
   energyCapacity, secondsToFull, settleDeityEnergy, chargeDeityAccount,
 } from "../src/energy.ts";
 
@@ -242,4 +242,15 @@ test("an offer is a read of which object the agent was given: log2 of the live o
   assert.equal(offerReadBits(NaN), 0);
   // At the read price (1/32) that is 0.198 energy bits on a Grid seed: under 2% of the cheapest change there (11.5).
   assert.ok(Math.abs(offerReadBits(80) / 32 - 0.1976) < 1e-4);
+});
+
+test("debt within capacity: an act may leave an account owing at most what it can hold", () => {
+  // A quarter of 64 bits/s for 30 s holds 480 bits: from a full store an act may cost up to 960, from empty up to 480.
+  assert.equal(affordable(480, 960, 480), true);
+  assert.equal(affordable(480, 961, 480), false);
+  assert.equal(affordable(0.1, 480, 480), true);
+  assert.equal(affordable(0.1, 985, 480), false, "a whole-grid repaint on a nearly empty quarter-share agent");
+  assert.equal(affordable(0.1, 985, 0), false, "no power, no credit");
+  assert.equal(affordable(0.1, 0.05, 0), true, "what it holds, it may spend");
+  assert.equal(affordable(0.1, 1e9, Infinity), true, "no capacity: no bound, as before the setting");
 });

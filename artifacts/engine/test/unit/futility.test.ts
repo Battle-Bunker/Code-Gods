@@ -127,3 +127,12 @@ test("the memo keeps at most MAX_FUTILE_PER_AGENT pairs per agent, forgetting th
   assert.equal(row.entries.length, MAX_FUTILE_PER_AGENT);
   assert.equal(row.entries[0].o, "o1", "the oldest went");
 });
+
+test("a change the agent could not afford is its own failure kind, never remembered as futile (docs/energy-model.md §7.2)", async () => {
+  const { DEBT_REASON, failureKind, futileAfter, diagnoseAgent, NO_FAILURES } = await import("../../convex/lib/futility.ts");
+  assert.equal(failureKind(DEBT_REASON), "debt");
+  assert.equal(futileAfter({ object: { id: "o", version: 3 }, deterministic: true, kind: "debt" }), null, "it commits once the agent holds more");
+  const d = diagnoseAgent({ transforms: 1, failures: { ...NO_FAILURES, debt: 9 } })!;
+  assert.match(d.summary, /9 of 10 acts failed: it could not afford the change/);
+  assert.match(d.hint!, /bigger power share/);
+});
