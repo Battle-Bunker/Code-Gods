@@ -24,7 +24,7 @@ export function useAffordances({ language }: { language?: Language } = {}): Affo
   const sandboxKey = sandbox ? `${sandbox.ready}|${sandbox.text ?? ""}` : "";
   // Paid observation: one look's price and the viewer's energy. The energy moves every tick; the affordance changes only
   // when it crosses the price (and, while short, with the balance its reason states).
-  const look = obs?.economy?.observation === "paid" && obs.economy.lookPrice !== undefined ? { price: obs.economy.lookPrice, energy: obs.self.energy ?? 0 } : undefined;
+  const look = obs?.economy?.observation !== undefined && obs.economy.observation !== "free" && obs.economy.lookPrice !== undefined ? { price: obs.economy.lookPrice, energy: obs.self.energy ?? 0 } : undefined;
   const lookKey = !look ? "" : look.energy >= look.price ? `${look.price}` : `${look.price}|${look.energy.toFixed(2)}`;
   const seenAs = controller && obs && obs.self.godId !== controller.replay.viewer.godId ? obs.self.label : null;
   return useMemo(() => ({

@@ -341,7 +341,16 @@ export const gameTables = {
      * object as it was then. Absent in a free game and once the game has ended (the row is the object as it is).
      */
     learnedAt: v.optional(v.number()),
+    /** "boards" mode only: the object's version when the god was last told the others' sum (the row's board is live). */
+    toldVersion: v.optional(v.number()),
+    /**
+     * Paid observation: the object has changed since the god was last told it (set once, by the sync of the commit that
+     * first changed it; cleared by the next telling). That an object changed is public; this row only counts it for its
+     * god (player.staleCount, by_game_god_stale).
+     */
+    stale: v.optional(v.boolean()),
   }).index("by_object_god", ["objectId", "godId"])
+    .index("by_game_god_stale", ["gameId", "godId", "stale"])
     .index("by_game_god_payoff", ["gameId", "godId", "payoff"])
     .index("by_game_god_netBits", ["gameId", "godId", "netBits"])
     .index("by_game_god_peer", ["gameId", "godId", "peerCare"])

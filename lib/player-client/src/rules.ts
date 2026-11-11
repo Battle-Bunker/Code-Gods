@@ -17,6 +17,10 @@ const lookText = (s: Settings): string => {
 const lookPrice = (s: Settings): string => {
   try { return fullReadCharge(s as Parameters<typeof fullReadCharge>[0]).toFixed(2); } catch { return "?"; }
 };
+/** ", up to a full store..." when these settings give accounts a capacity (fullChargeSeconds), else "." (a game from before it). */
+const capacityText = (s: Settings): string => typeof s.fullChargeSeconds === "number"
+  ? `, until it is full: an agent holds at most ${n(s, "fullChargeSeconds")} seconds of its income (a 25% share: ${(0.25 * Number(s.powerPerSecond ?? 8) * s.fullChargeSeconds).toFixed(0)} bits), and your own energy at most ${n(s, "fullChargeSeconds")} seconds of your unallocated power. Energy fills up in ${n(s, "fullChargeSeconds")} seconds and then stops: use it or re-allocate it. Taking power from an agent lowers what it can hold, and what it holds above that is lost.`
+  : ".";
 
 /** Every setting with its value and the same meaning and consequence the configuration page shows (lib/game-core SETTINGS_DOCS). */
 export function settingsExplained(s: Settings): string {
@@ -45,7 +49,7 @@ An agent is code in one of this game's languages (${allowed.map(l => LANGUAGE_SP
 It returns at most 16 mutator calls; objects change only through mutators. All object values are unique.
 Summoning costs the agent's description bits from your own energy (validate first: it is free). You have ${n(s, "powerPerSecond", 8)} bits of power per world second to share out:
 each agent gets a share of it (powerShare, 0 to 100%; a summon without one gets half of your unallocated power, and allocatePower changes it later).
-An agent's energy gains share × ${n(s, "powerPerSecond", 8)} bits per world second, with no cap. More agents do not add power: they divide it. At each interaction a random object is picked, then an agent,
+An agent's energy gains share × ${n(s, "powerPerSecond", 8)} bits per world second${capacityText(s)} More agents do not add power: they divide it. At each interaction a random object is picked, then an agent,
 with probability proportional to its energy (an agent at or below zero waits; at most ${MAX_AGENT_OPPORTUNITY_HZ} turns per world second each).
 An act pays only what it does: what it reads, plus its change when it changes the object. There is no fixed charge per act.
 Looking is ${CHANGE_READ_RATIO}× cheaper than changing: each bit of the object an act reads costs 1/${CHANGE_READ_RATIO} bit of energy (${lookText(s)}computing is free).

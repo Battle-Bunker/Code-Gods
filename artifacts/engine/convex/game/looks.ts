@@ -6,7 +6,7 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { internalMutation } from "../_generated/server";
-import { paidLive } from "../lib/knowledge";
+import { boardsLive, paidLive } from "../lib/knowledge";
 import { syncRows } from "./objectViews";
 
 const PAGE = 25;
@@ -19,7 +19,7 @@ export const page = internalMutation({
     if (!game || !paidLive(game)) return;
     const objects = await ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", gameId)).paginate({ cursor, numItems: PAGE });
     const me: ReadonlySet<string> = new Set([godId]);
-    await syncRows(ctx, objects.page, true, { world, told: () => me });
+    await syncRows(ctx, objects.page, true, { world, told: () => me, boards: boardsLive(game) });
     if (!objects.isDone) await ctx.scheduler.runAfter(0, internal.game.looks.page, { gameId, godId, world, cursor: objects.continueCursor });
   },
 });

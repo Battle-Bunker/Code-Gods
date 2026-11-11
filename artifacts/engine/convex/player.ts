@@ -426,7 +426,7 @@ export const object = query({
     const current = await ctx.db.get(row.objectId);
     return {
       ...objectViewOf(row),
-      ...(current ? { mutations: current.version, lastMutatedAt: current.lastMutatedAt ?? null, changesSince: Math.max(0, current.version - row.version) } : {}),
+      ...(current ? { mutations: current.version, lastMutatedAt: current.lastMutatedAt ?? null, changesSince: Math.max(0, current.version - (row.toldVersion ?? row.version)) } : {}),
     };
   },
 });
@@ -440,6 +440,22 @@ export const objectsTop = query({
     const rows = await ctx.db.query("objectViews").withIndex(index, q => (q as any).eq("gameId", gameId).eq("godId", viewer.subject))
       .order(dir ?? order).take(Math.max(1, Math.min(20, Math.floor(n)))) as Doc<"objectViews">[];
     return rows.map((r, i) => ({ ...objectViewOf(r), rank: i + 1 }));
+  },
+});
+
+/** The most stale objects counted: past it the count reads "99+". */
+export const STALE_MAX = 99;
+
+/**
+ * Paid observation: how many objects have changed since the viewer was last told them (at most STALE_MAX, then `more`):
+ * why to look. One index page of the viewer's own rows; that an object changed is public (lib/knowledge.ts).
+ */
+export const staleCount = query({
+  args: { gameId: v.id("games") },
+  handler: async (ctx, { gameId }) => {
+    const viewer = await requireViewer(ctx);
+    const rows = await ctx.db.query("objectViews").withIndex("by_game_god_stale", q => q.eq("gameId", gameId).eq("godId", viewer.subject).eq("stale", true)).take(STALE_MAX + 1);
+    return { count: Math.min(rows.length, STALE_MAX), more: rows.length > STALE_MAX };
   },
 });
 

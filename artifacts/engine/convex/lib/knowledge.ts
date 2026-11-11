@@ -11,7 +11,12 @@
  * time of last change (activity is public; content is paid). An ended game is open, as before.
  * Pure: the tick, the read-model sync and the projections share these.
  */
-import { fullReadCharge, paidObservation, type GameSettings } from "@workspace/game-core";
+import { boardsFree, fullReadCharge, paidObservation, type GameSettings } from "@workspace/game-core";
+
+export { godLooks } from "@workspace/game-core";
+
+/** "boards" (a paid live game whose boards are free): the value and own bits of every row follow the object; the others' sum is as last told. */
+export const boardsLive = (game: { settings: unknown; phase: string }): boolean => paidLive(game) && boardsFree(game.settings as { observation?: unknown });
 
 /** Whether this game's seated gods see only what they were told: paid observation, and the game has not ended. */
 export const paidLive = (game: { settings: unknown; phase: string }): boolean =>

@@ -26,7 +26,7 @@ import {
   ScoreBreakdown, dimensionVar, objectRowHeight, rampVar, relativeStrength,
 } from "@workspace/object-views";
 import { ObjectGrid, ObjectView, formatBits, useMyCard, useObjectContext, useDockState, type LiveObject } from "@/sdk";
-import { useGameId, useMyObject, useMyTotals, useObjectRank, useObjectSkeleton, useObjectsPage, type MyObject, type MyTotals } from "@/sdk/hooks";
+import { useGameId, useMyObject, useMyTotals, useStaleCount, useObjectRank, useObjectSkeleton, useObjectsPage, type MyObject, type MyTotals } from "@/sdk/hooks";
 import { VirtualRows } from "@/components/virtual-rows";
 import { useDockActions } from "@/dock/actions";
 import { useGameCommands } from "@/core/game/runner";
@@ -130,18 +130,30 @@ type RowLook = { label: string; disabled: boolean; reason?: string; onLook: (obj
  * every object, in two steps (the total price first, then pay). `can` is the look affordance (hidden for a viewer who
  * cannot act: the sentence stays, the button goes).
  */
-export function LookBar({ price, energy, count, can, onLookAll }: { price: number; energy: number; count: number; can: Affordance; onLookAll: () => void }) {
+export function LookBar({ price, energy, count, can, onLookAll, boards, stale }: {
+  /** Absent in a game that offers the god no look ("agents" mode): the sentence says so and no button shows. */
+  price?: number; energy: number; count: number; can: Affordance; onLookAll: () => void;
+  /** "boards" mode: every board is live; only the others' interest ages. */
+  boards?: boolean;
+  /** How many objects have changed since the god last saw them (player.staleCount). */
+  stale?: { count: number; more: boolean };
+}) {
   const [confirm, setConfirm] = useState(false);
-  const all = lookOffer({ price, energy, count });
-  const shown = can.ok || !can.hidden;
+  const all = lookOffer({ price: price ?? 0, energy, count });
+  const shown = price !== undefined && (can.ok || !can.hidden);
   // Why the look at all is off: its own total against the balance first, else what stops any look (the phase, a command in flight).
   const reason = all.reason ?? (can.ok ? null : can.reason);
   const disabled = !can.ok || !all.ok;
   return (
     <div className="space-y-1 text-xs text-muted-foreground" data-testid="objects-paid-observation">
       <p data-testid="text-paid-observation" className="max-w-[70ch]">
-        You see each object as you <Term id="last-seen">last saw it</Term>. Your agents' changes and complete reads refresh it;
-        a <Term id="look">look</Term> costs {price.toFixed(2)} energy.
+        {boards
+          ? <>Every board is shown as it is. The other players' interest in it, and so your payoff, is as you <Term id="last-seen">last saw it</Term>.</>
+          : <>You see each object as you <Term id="last-seen">last saw it</Term>.</>}{" "}
+        Your agents' changes and complete reads refresh it
+        {price !== undefined ? <>; a <Term id="look">look</Term> costs {price.toFixed(2)} energy.</>
+          : <>, and nothing else does: to watch the world, summon an agent that reads the whole object and returns no calls.</>}
+        {stale && stale.count > 0 && <> <span className="font-semibold text-destructive" data-testid="text-stale-count">{stale.count}{stale.more ? "+" : ""} of {count} {stale.count === 1 && !stale.more ? "has" : "have"} changed since you last saw {stale.count === 1 && !stale.more ? "it" : "them"}.</span></>}
       </p>
       {shown && (
         <p className="flex flex-wrap items-center gap-x-4 gap-y-1">
@@ -175,6 +187,8 @@ const SEEN_LINE = 20;
 type RowProps = {
   objectId: string; position: number; byPayoff: boolean; scales: Scales; world: number; highlighted: boolean; open: boolean; onOpen: (id: string) => void;
   ctx: ReturnType<typeof useObjectContext>["ctx"]; noun: string; comparative: string | undefined; changed: ReturnType<typeof useReplayChanged>;
+  /** "boards" mode: the board is live; only the others' interest (and the payoff) is as last seen. */
+  boards?: boolean;
   /** Paid observation, for a viewer who may look: the row's Look button. */
   look?: RowLook;
 };
@@ -184,7 +198,7 @@ type RowProps = {
  * rank by your payoff (what the assistant means by "object #N"): its position when the list is by payoff and
  * unfiltered, else its own player.objectRank.
  */
-function ObjectRow({ objectId, position, byPayoff, scales, world, highlighted, open, onOpen, ctx, noun, comparative, changed, look }: RowProps) {
+function ObjectRow({ objectId, position, byPayoff, scales, world, highlighted, open, onOpen, ctx, noun, comparative, changed, look, boards }: RowProps) {
   const o = useMyObject(objectId);
   const ranked = useObjectRank(byPayoff ? undefined : objectId);
   const rank = byPayoff ? position : ranked ?? undefined;
@@ -201,7 +215,7 @@ function ObjectRow({ objectId, position, byPayoff, scales, world, highlighted, o
       <div className="flex min-w-0 items-start gap-3">
         <button type="button" onClick={() => referObject(rank)} title="Ask your assistant about this object"
           className="w-7 shrink-0 pt-0.5 text-left font-mono text-xs text-muted-foreground hover:text-foreground">{label}</button>
-        <span className={`max-w-[40%] shrink-0 truncate font-mono text-xs ${dim}`.trimEnd()} data-stale={seen?.stale || undefined} data-testid={seen ? `object-seen-${o.id}` : undefined}><ObjectView value={o.value} compareTo={lit ? change!.before as never : undefined} {...ctx} showTitle /></span>
+        <span className={`max-w-[40%] shrink-0 truncate font-mono text-xs ${boards ? "" : dim}`.trimEnd()} data-stale={seen?.stale || undefined} data-testid={seen ? `object-seen-${o.id}` : undefined}><ObjectView value={o.value} compareTo={lit ? change!.before as never : undefined} {...ctx} showTitle /></span>
         <PayoffRectangle o={o} scale={scales.scale} strength={strength} dim={dim} />
         <span className="min-w-0 flex-1 space-y-1">
           <span className="block font-mono text-[12px] leading-snug text-muted-foreground" data-testid={`text-payoff-${o.id}`}>
@@ -222,8 +236,9 @@ function ObjectRow({ objectId, position, byPayoff, scales, world, highlighted, o
         // the badge, when it was seen and whether it has changed since (truncated when narrow), and the look.
         <div className="absolute inset-x-0 bottom-1.5 flex h-[18px] min-w-0 items-center gap-2 pl-10 font-mono text-[11px] text-muted-foreground" data-testid={`text-seen-${o.id}`} data-stale={seen.stale || undefined}>
           {seen.stale && <span className="shrink-0 border border-destructive px-1 text-[10px] font-semibold uppercase leading-[14px] tracking-wide text-destructive" data-testid={`badge-stale-${o.id}`}>stale</span>}
-          <span className="min-w-0 truncate" title={seen.stale ? "It has changed since you last saw it: what is shown here may no longer be so." : "Nothing has changed it since you last saw it: this is how it is now."}>
-            {seen.seen}{seen.note && <> · <span className={seen.stale ? "font-semibold text-destructive" : "text-[hsl(var(--accent))]"}>{seen.note}</span></>}
+          <span className="min-w-0 truncate" title={boards ? (seen.stale ? "It has changed since you last saw the others' interest in it: the payoff shown may no longer be so." : "Nothing has changed it since you last saw the others' interest: the payoff is as it is now.")
+            : seen.stale ? "It has changed since you last saw it: what is shown here may no longer be so." : "Nothing has changed it since you last saw it: this is how it is now."}>
+            {boards ? "others' interest " : ""}{seen.seen}{seen.note && <> · <span className={seen.stale ? "font-semibold text-destructive" : "text-[hsl(var(--accent))]"}>{seen.note}</span></>}
           </span>
           {seen.stale && look && (
             <span className="ml-auto shrink-0 font-sans">
@@ -282,8 +297,11 @@ export default function Objects({ paneId, params, phase }: PanelProps<"objects">
   // Paid observation (a live game whose looking costs energy): the rows are each object as this god last saw it. A
   // replay and an ended game show every object as it was.
   const replay = useReplaySource();
-  const lookPrice = dockState?.economy?.observation === "paid" && phase !== "ended" && !replay ? dockState.economy.lookPrice : undefined;
-  const paid = lookPrice !== undefined;
+  const mode = dockState?.economy?.observation;
+  const paid = mode !== undefined && mode !== "free" && phase !== "ended" && !replay;
+  const boards = mode === "boards";
+  const lookPrice = paid ? dockState?.economy?.lookPrice : undefined;
+  const staleCount = useStaleCount(paid ? gameId : undefined);
   const energy = dockState?.self.energy ?? 0;
   const { can } = useAffordances();
   const commands = useGameCommands();
@@ -305,13 +323,13 @@ export default function Objects({ paneId, params, phase }: PanelProps<"objects">
   if (skeleton.loaded && !skeleton.rows.length && !skeleton.more) return <PanelEmpty>No {noun} matches this view right now ({total} in the world).</PanelEmpty>;
   const header = (
     <header className="space-y-1.5">
-      {paid && <LookBar price={lookPrice} energy={energy} count={(dockState as { objectCount?: number } | undefined)?.objectCount ?? total} can={can.look} onLookAll={lookAll} />}
+      {paid && <LookBar price={lookPrice} energy={energy} count={(dockState as { objectCount?: number } | undefined)?.objectCount ?? total} can={can.look} onLookAll={lookAll} boards={boards} stale={staleCount} />}
       <SortSelector paneId={paneId} value={params.sortBy} paid={paid} />
       <PayoffKey />
     </header>
   );
   // One look at one object: the same button on every stale row (hidden for a viewer who cannot act).
-  const one = paid ? lookOffer({ price: lookPrice, energy }) : null;
+  const one = lookPrice !== undefined ? lookOffer({ price: lookPrice, energy }) : null;
   const look: RowLook | undefined = one && (can.look.ok || !can.look.hidden)
     ? { label: one.label, disabled: !can.look.ok, ...(can.look.ok ? {} : { reason: can.look.reason }), onLook: lookAt } : undefined;
   if (params.layout === "grid") return <div className="space-y-3">{header}<ObjectsGrid params={params} world={world} /></div>;
@@ -319,7 +337,7 @@ export default function Objects({ paneId, params, phase }: PanelProps<"objects">
     <div className="space-y-3">
       {header}
       <VirtualRows rows={skeleton.rows} rowHeight={rowHeightFor(ctx) + (paid ? SEEN_LINE : 0)} maxHeight={640} keyOf={r => r.id} onNearEnd={loadMore} testId="list-objects"
-        render={(r, i) => <ObjectRow objectId={r.id} position={i + 1} byPayoff={params.sortBy === "payoff" && params.filter === "all"} scales={scales} world={world}
+        render={(r, i) => <ObjectRow objectId={r.id} position={i + 1} byPayoff={params.sortBy === "payoff" && params.filter === "all"} scales={scales} world={world} boards={boards}
           highlighted={highlight.has(r.id)} open={open === r.id} onOpen={toggle} ctx={ctx} noun={noun} comparative={comparative} changed={changed} look={look} />} />
       {skeleton.more && <TextButton onClick={loadMore} testId="button-objects-more">Load more ({skeleton.rows.length} of {matching})</TextButton>}
       {open && <ObjectDetail objectId={open} noun={noun} comparative={comparative} world={world} />}

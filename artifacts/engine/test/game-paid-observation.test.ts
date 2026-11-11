@@ -32,6 +32,9 @@ test("paid observation: a god sees what it was told, and pays its own energy to 
   assert.equal(start.objects.length, 12, "the starting world is known");
   assert.ok(start.objects.every(o => o.knownAt === 0), "each object is known as of its birth");
 
+  // Before the world runs a look buys nothing, and is refused.
+  assert.match((await send(host, { type: "look" })).message, /has not started/);
+
   // Host's agent changes objects without reading them; Bo's too; Ada's observer reads the whole object and changes nothing.
   ok(await send(host, { type: "summon", name: "Host slider", language: "typescript", source: "function agent(grid) { return [slide(row(1), 2)]; }" }));
   ok(await send(bo, { type: "summon", name: "Bo slider", language: "typescript", source: "function agent(grid) { return [slide(column(0), 1)]; }" }));
@@ -105,6 +108,9 @@ test("paid observation: a god sees what it was told, and pays its own energy to 
   assert.ok(totals.world <= board.world + 1e-9, "the god's totals are no newer than the scoreboard");
   assert.equal(dock.self.score, totals.score);
 
+  // Why to look: how many objects have changed since Host was told them (public activity, counted on Host's own rows).
+  const staleBefore = await waitFor(async () => { const n = await host.c.query(api.player.staleCount, { gameId: game.gameId }); return n.count > 0 && n; }, "Host has stale objects");
+
   // A look: Host pays its own energy and is told the object as it is now.
   const before = (await raw(game.gameId)).deities.find((d: any) => d.godId === host.subject);
   const looked = ok(await send(host, { type: "look", objectId: untouched.id }));
@@ -127,18 +133,20 @@ test("paid observation: a god sees what it was told, and pays its own energy to 
   assert.ok(mineLog.events.some((e: any) => e.type === "god.looked" && e.objectId === untouched.id && e.price === price));
   assert.ok(!adaLog.events.some((e: any) => e.type === "god.looked"), "a god's looks are private while the game is live");
 
+  assert.ok(staleBefore.count >= 1 && !staleBefore.more);
+  assert.equal((await ada.c.query(api.player.staleCount, { gameId: game.gameId })).count >= 0, true);
   // Unaffordable: refused, with the price and the balance; nothing is charged.
   ok(await send(bo, { type: "allocatePower", agentId: (await bo.c.query(api.dock.agents, { roomId }))[0].id, share: 1 }));   // no own income
   await admin.mutation(internal.testing.setGodEnergy, { gameId: game.gameId, godId: bo.subject, balance: 0 });
   const refused = await send(bo, { type: "look", objectId: untouched.id });
   assert.equal(refused.accepted, false);
   assert.match(refused.message, /costs \d+\.\d\d and you have \d+\.\d\d/);
+  assert.match(refused.message, /keep some power for yourself to look/, "a god whose power is all with its agents is told why it cannot look");
   // A look at everything: the price times the object count, then every row is as of the look.
-  await admin.mutation(internal.testing.setGodEnergy, { gameId: game.gameId, godId: bo.subject, balance: 10_000 });
-  const all = ok(await send(bo, { type: "look" }));
+  const all = ok(await send(ada, { type: "look" }));
   assert.ok(Math.abs(all.look.price - price * all.look.looked) < 1e-9 && all.look.looked >= 12);
   await waitFor(async () => {
-    const page = await bo.c.query(api.player.objectsPage, { roomId, sort: "newest", limit: 90 });
+    const page = await ada.c.query(api.player.objectsPage, { roomId, sort: "newest", limit: 90 });
     return page.rows.filter((r: any) => r.knownAt >= all.look.worldSeconds - 1e-9).length >= all.look.looked;
   }, "every row is as of the look", 30000);
 
@@ -157,4 +165,53 @@ test("paid observation: a god sees what it was told, and pays its own energy to 
   }, "the ended game's rows are the objects as they are", 30000);
   const ended = await host.c.query(api.player.events, { roomId, gameId: game.gameId, after: -1, limit: 50 });
   assert.ok(ended.events.some((e: any) => e.type === "object.transformed" && !e.mine), "the ended game's log is whole");
+});
+
+test("observation modes: boards keeps every board live and ages only the others' interest; agents allows no paid look", { timeout: 240000 }, async () => {
+  const [host, ada, bo] = await gods("Modes Host", "Modes Ada", "Modes Bo");
+  await touch(host);
+  const base = {
+    languages: ["typescript"], objectType: "Grid", typeArgs: { size: 5, symbols: "base10", colours: "rgby" },
+    startingObjectCount: 8, spawnRateHz: 0, planningSeconds: 3600, powerPerSecond: 200, interactionRateHz: 40, startingEnergy: 1000,
+  };
+  const play = async (observation: string) => {
+    const { roomId } = await roomWith([host, ada, bo], { ...base, observation });
+    const game = await startGame(host, roomId);
+    const send = (god: typeof ada, command: Record<string, unknown>) => god.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
+    const summoned = await send(bo, { type: "summon", name: "Bo slider", language: "typescript", source: "function agent(grid) { return [slide(column(0), 1)]; }" });
+    assert.equal(summoned.accepted, true, summoned.message);
+    await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 3517.8173 }, kick: true });
+    const changed = await waitFor(async () => (await raw(game.gameId)).objects.find((o: any) => o.version > 0), "Bo changed an object", 90000);
+    return { roomId, game, send, changed };
+  };
+
+  // boards: Host, told nothing since the births, sees the board as it is, the others' interest as at its birth.
+  const boards = await play("boards");
+  const born = (await host.c.query(api.player.series, { roomId: boards.roomId, objectId: boards.changed._id, limit: 5 })).columns;
+  const row = await waitFor(async () => {
+    const r = await host.c.query(api.player.object, { objectId: boards.changed._id });
+    const o = (await raw(boards.game.gameId)).objects.find((x: any) => x._id === boards.changed._id);
+    return r.value === o.value && r.changesSince > 0 && r;
+  }, "the board is live for a god who was not told", 30000);
+  assert.equal(row.knownAt, 0, "the others' interest is as of the birth");
+  assert.equal(row.peerNetBits, born.others[0], "and is the number told then, not the one now");
+  assert.equal((await host.c.query(api.dock.state, { roomId: boards.roomId })).economy.observation, "boards");
+  assert.ok((await host.c.query(api.player.staleCount, { gameId: boards.game.gameId })).count >= 1);
+  const looked = await boards.send(host, { type: "look", objectId: boards.changed._id });
+  assert.equal(looked.accepted, true, looked.message);
+  await waitFor(async () => { const r = await host.c.query(api.player.object, { objectId: boards.changed._id }); return r.knownAt > 0 && r.peerNetBits === looked.look.object.peerNetBits || r.version > looked.look.object.version; }, "a look tells the others' interest", 30000);
+  const log = await host.c.query(api.player.events, { roomId: boards.roomId, after: -1, limit: 50 });
+  assert.ok(!log.events.some((e: any) => e.type === "object.transformed" && !e.mine), "the history is paid in boards mode too");
+  await admin.mutation(internal.testing.endGames, { gameIds: [boards.game.gameId] });
+
+  // agents: as paid, and a god cannot pay to look.
+  const agents = await play("agents");
+  const dock = await host.c.query(api.dock.state, { roomId: agents.roomId });
+  assert.equal(dock.economy.observation, "agents");
+  assert.equal(dock.economy.lookPrice, undefined, "no look is offered, so none is priced");
+  const refused = await agents.send(host, { type: "look", objectId: agents.changed._id });
+  assert.equal(refused.accepted, false);
+  assert.match(refused.message, /cannot look in this game/);
+  const unseen = await host.c.query(api.player.object, { objectId: agents.changed._id });
+  assert.ok(unseen.version === 0 && unseen.changesSince > 0, "the row is the birth, and says it has changed");
 });

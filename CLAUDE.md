@@ -39,6 +39,8 @@ query needs an entry in the query-cost gate (R8).
 - API: `docs/engine-api.md`.
 - Pilot and deploy: `PILOT.md`. A push to `develop` deploys the dev Convex deployment and a push to `main` deploys
   production (`.github/workflows/deploy.yml`, PILOT.md "Automatic deploys").
+- Preview deployments (a branch on its own Convex preview, label `preview` on its pull request): `docs/preview-deployments.md`;
+  the index of design variants to try: `docs/design-explorations.md`.
 - Running locally (no Convex account needed): `pnpm --filter @workspace/engine dev`. It starts the official
   CLI's local Convex backend plus a stand-in OIDC provider, which Better Auth offers as the test-only provider "fake" beside Google.
 

@@ -41,12 +41,12 @@ await admin.mutation(fn.m("aiTemplates:ensureSeeded"), {});
 await owner("addAi", { aiAgentId: "sonnet-strategist" });
 await me.mutation(fn.m("rooms:setAiQuotas"), { roomId, aiQuota: 20_000, assistantQuota: 200_000 });
 await owner("start");
-type Obs = { gameId?: string; language: string; phase: string; self: { godId: string; energy: number }; economy: Record<string, unknown>; agents: { id?: string; agentId?: string; name: string; powerShare?: number }[]; objectCount?: number };
+type Obs = { gameId?: string; gameShortCode?: string; language: string; phase: string; self: { godId: string; energy: number }; economy: Record<string, unknown>; agents: { id?: string; agentId?: string; name: string; powerShare?: number }[]; objectCount?: number };
 const observe = (c = me) => c.query(fn.q("player:observation"), { roomId }) as Promise<Obs>;
-let gameId = "", language = "python";
+let gameId = "", gameCode = "", language = "python";
 for (let i = 0; i < 180 && !gameId; i++, await sleep(1000)) {
   const o = await observe();
-  if (o.gameId) ({ gameId, language } = { gameId: o.gameId, language: o.language });
+  if (o.gameId) ({ gameId, gameCode, language } = { gameId: o.gameId, gameCode: o.gameShortCode ?? "", language: o.language });
 }
 if (!gameId) throw new Error("the game did not start");
 await admin.mutation(fn.m("testing:patchGame"), { gameId, patch: { endAtWorld: 5000 } });
@@ -56,7 +56,8 @@ const { DEFAULT_LAYOUT } = await import("@workspace/player-client/layout");
 await me.mutation(fn.m("layout:set"), { roomId, layout: DEFAULT_LAYOUT("running") });
 const first = await observe();
 log("economy", first.economy);
-log("self at start", first.self);
+const selfOf = (o: Obs) => ({ ...o.self, utility: undefined });
+log("self at start", selfOf(first));
 
 const { chromium } = createRequire(import.meta.url)("playwright") as typeof import("playwright");
 const browser = await chromium.launch().catch(() => chromium.launch({ executablePath: "/opt/pw-browsers/chromium" }));
@@ -66,7 +67,7 @@ const open = async (width: number, height: number, scale = 2) => {
   await context.addCookies(session.split("; ").map(pair => ({ name: pair.slice(0, pair.indexOf("=")), value: pair.slice(pair.indexOf("=") + 1), url: SITE })));
   const page = await context.newPage();
   page.on("pageerror", e => log("pageerror", String(e)));
-  await page.goto(`${SITE}/rooms/${shortCode}`);
+  await page.goto(`${SITE}/rooms/${shortCode}/games/${gameCode}`);
   return { page, context };
 };
 const BAR = "[data-testid=objects-paid-observation]";
@@ -84,7 +85,7 @@ const panelText = async (page: Page) => ({
   rows: await page.locator("[data-testid^=text-seen-]").evaluateAll(els => els.map(e => `${e.getAttribute("data-stale") ? "STALE " : ""}${(e as HTMLElement).innerText.replace(/\s+/g, " ")}`)),
   overflow: await page.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, innerWidth: window.innerWidth })),
 });
-const step = async (name: string, run: () => Promise<void>) => { try { await run(); } catch (e) { log(`FAILED ${name}`, String((e as Error).stack ?? e).slice(0, 1500)); } };
+const step = async (name: string, run: () => Promise<void>) => { try { await run(); } catch (e) { log(`FAILED ${name}`, String((e as Error).stack ?? e).slice(0, 800)); await page.screenshot({ path: `${OUT}/failed-${name.replace(/\W+/g, "-")}.png` }).catch(() => {}); } };
 
 const { page } = await open(1440, 900);
 
@@ -113,13 +114,18 @@ await step("2 summon", async () => {
 await step("3 running", async () => {
   await auth();
   const o = await observe();
-  log("3 phase", o.phase); log("3 self", o.self); log("3 agents", o.agents);
+  log("3 phase", o.phase); log("3 self", selfOf(o)); log("3 agents", o.agents.map(a => ({ name: a.name, powerShare: a.powerShare, acts: (a as { acts?: number }).acts })));
   await page.waitForSelector("[data-testid^=text-seen-]", { timeout: 30_000 });
   await shot(page, "03-running");
   log("3 running panel", await panelText(page));
 });
 
 await step("4 one look", async () => {
+  // All power to the agents first, so the god's own balance stands still and the look's price is the only change.
+  const mine = [...(await observe()).agents].sort((a, b) => Number(b.name === "Observer") - Number(a.name === "Observer"));   // lower the observer first
+  for (const [i, a] of mine.entries()) log("4 allocatePower", (await submit({ type: "allocatePower", agentId: a.id ?? a.agentId, share: a.name === "Observer" ? 0.02 : 0.98 / (mine.length - 1) })).message);
+  await sleep(8000);   // the observer now looks rarely: the other god's changes leave rows stale
+  log("4 self", selfOf(await observe()));
   const button = page.locator("[data-testid^=button-look-]:not([data-testid=button-look-all])").first();
   await button.waitFor({ timeout: 60_000 });
   const id = (await button.getAttribute("data-testid"))!.replace("button-look-", "");
@@ -154,15 +160,9 @@ await step("5 look at all", async () => {
 
 await step("6 unaffordable", async () => {
   const o = await observe();
-  const mine = o.agents;
-  const share = Math.floor(1000 / mine.length) / 1000;
-  for (const [i, a] of mine.entries()) {
-    const r = await submit({ type: "allocatePower", agentId: a.id ?? a.agentId, share: i === mine.length - 1 ? Math.round((1 - share * (mine.length - 1)) * 1000) / 1000 : share });
-    log("6 allocatePower", r);
-  }
   await admin.mutation(fn.m("testing:setGodEnergy"), { gameId, godId: o.self.godId, balance: 0 });
   await sleep(6000);   // let bob's changers make rows stale again
-  log("6 self", (await observe()).self);
+  log("6 self", selfOf(await observe()));
   await page.waitForSelector("[data-testid=text-look-reason]", { timeout: 20_000 });
   await shot(page, "06-unaffordable");
   log("6 panel", await panelText(page));
@@ -201,6 +201,8 @@ await step("8 phone", async () => {
   await context.close();
 });
 
+await auth();
+await me.mutation(fn.m("rooms:endActiveGame"), { roomId }).catch(() => {});
 console.log(JSON.stringify({ out: OUT, room: shortCode, gameId }));
 await browser.close();
 process.exit(0);

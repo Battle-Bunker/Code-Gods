@@ -81,12 +81,15 @@ export const setActivity = internalMutation({
 
 /** Patch a game (clocks, settings snapshot) and optionally restart its loop now. */
 export const patchGame = internalMutation({
-  args: { gameId: v.id("games"), patch: v.any(), kick: v.optional(v.boolean()) },
-  handler: async (ctx, { gameId, patch, kick }) => {
+  args: { gameId: v.id("games"), patch: v.any(), kick: v.optional(v.boolean()), unsetSettings: v.optional(v.array(v.string())) },
+  handler: async (ctx, { gameId, patch, kick, unsetSettings }) => {
     dev();
     const game = await liveGame(ctx, gameId);
     if (!game) return fail("NOT_FOUND", "no game");
-    const next = await writeGame(ctx, game, { ...(patch as Partial<LiveGame>), settings: { ...game.settings, ...(patch.settings ?? {}) } });
+    // `unsetSettings` removes fields, to stage a game stored before a setting existed (settings merge, so a patch cannot).
+    const settings = { ...game.settings, ...(patch.settings ?? {}) } as Record<string, unknown>;
+    for (const key of unsetSettings ?? []) delete settings[key];
+    const next = await writeGame(ctx, game, { ...(patch as Partial<LiveGame>), settings: settings as LiveGame["settings"] });
     if (kick) await scheduleTick(ctx, { ...next, tick: game.tick }, nextDeadline(next, Date.now()));
   },
 });

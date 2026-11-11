@@ -97,6 +97,9 @@ error means the gate runs in full: a lookup problem can only cost time. A newer 
 and gate still running; production never cancels. Pushes that only change `*.md`, `docs/`, `.agents/` or `.claude/`
 don't deploy. Locally `pnpm run test:offline` runs everything unsharded.
 
+**Preview deployments** (one per branch, for trying design variants) are a separate workflow, `.github/workflows/preview.yml`,
+which does nothing until the secret `CONVEX_PREVIEW_DEPLOY_KEY` exists: `docs/preview-deployments.md`.
+
 Re-run a failed run from the Actions tab; a manual run ("Run workflow") works on `develop` and `main` only.
 Release `develop` → `main` with a pull request whose head is a short-lived branch cut from `develop`, never
 `develop` itself: merging deletes the head branch.

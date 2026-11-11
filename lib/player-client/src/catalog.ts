@@ -492,6 +492,12 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
     ai: { description: "The human's totals over every object as disclosed: object count, score (sum of payoffs), sums of their bits and of the others', the contested and chip counts, and the extremes." },
     tools: [], palette: null, why: "The Objects panel's footer and the overview's figures.",
   },
+  "player.staleCount": {
+    kind: "query", audience: "player",
+    human: { title: "Changed since I looked", tooltip: "How many objects have changed since you last saw them, in a game where looking costs energy." },
+    ai: { description: "In a game with paid observation: how many objects have changed since the human was last told them ({count, more}: more when over 99). That an object changed is public; what it changed to is not." },
+    tools: [], palette: null, why: "The Objects panel's look bar: why a look is worth its price.",
+  },
   "player.series": {
     kind: "query", audience: "player",
     human: { title: "Open the utility series", tooltip: "Every change to every object this game, with your bits and the others' total before and after." },

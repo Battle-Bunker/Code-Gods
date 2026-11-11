@@ -6,7 +6,7 @@
  * action (commands.ts), and are re-checked here: game, phase, seat, energy and the agent cap.
  */
 import { ConvexError, v } from "convex/values";
-import { lookPriceOf, paidLive } from "../lib/knowledge";
+import { boardsLive, godLooks, lookPriceOf, paidLive } from "../lib/knowledge";
 import { viewRowOf } from "../lib/views";
 import { syncRows } from "./objectViews";
 import { allowedLanguages, assertShare, defaultShare, newAgentAccount, roundShare, spendDeityEnergy, upgradeStoredSettings, type GameSettings, type Language } from "@workspace/game-core";
@@ -20,7 +20,7 @@ import { withEngine, writeGame } from "./state";
 import { fail, messageOf } from "../lib/errors";
 import { memberOf, principalV, requireMemberAs, requireRoom, viewerOf, type Principal } from "../lib/rooms";
 import { godEnergy, settledAccount, worldNow } from "../lib/world";
-import { deityAccount } from "../lib/power";
+import { chargeGod, deityAccount, deityCapacityOf } from "../lib/power";
 import { agentLanguage, languageV } from "../lib/language";
 
 const CHAT_INTERVAL_MS = 1000;
@@ -63,11 +63,11 @@ export const prepare = internalQuery({
         game.roster.some(m => m.id === member.godId)) {
       // The sample world the agent is examined on: the game's objects, or, under paid observation, the same objects as
       // this god was last told them (an examination is free, so it must not report on boards the god has not paid to see).
-      const live = paidLive(game)
+      const live = paidLive(game) && !boardsLive(game)
         ? await ctx.db.query("objectViews").withIndex("by_game_god_created", q => q.eq("gameId", game._id).eq("godId", member.godId)).take(16)
         : await ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", game._id)).take(16);
       // A game the single-language migration has not reached yet is examined as its one language (validateSettings needs the set).
-      const settings = (upgradeStoredSettings(game.settings) ?? game.settings) as GameSettings;
+      const settings = (upgradeStoredSettings(game.settings, true) ?? game.settings) as GameSettings;
       // The player's live agents running this exact code (the copies warning), read here, off the mutation's read set.
       const own = await ctx.db.query("agents").withIndex("by_game_owner", q => q.eq("gameId", game._id).eq("ownerId", member.godId)).take(settings.maxAgentsPerGod + 1);
       const twins = own.filter(a => a.source === command.source && agentLanguage(a, settings) === command.language).length;
@@ -233,7 +233,13 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     }
     const world = worldNow(game, now);
     const own = deityAccount(game, deity, world);
-    if (own.balance < e.cost) fail("CONFLICT", "Insufficient energy");
+    if (own.balance < e.cost) {
+      // Capacity (docs/energy-model.md §6.1): a price above what the unallocated power can ever store needs more power kept.
+      const capacity = deityCapacityOf(deity, settings);
+      fail("CONFLICT", e.cost > capacity
+        ? `Insufficient energy: this agent costs ${e.cost.toFixed(0)} bits, but your own energy holds at most ${capacity.toFixed(0)} bits with ${(100 * Math.max(0, 1 - deity.allocated)).toFixed(0)}% of your power unallocated. Take power back from an agent first (allocatePower), or write a smaller agent`
+        : "Insufficient energy");
+    }
     const owned = await ctx.db.query("agents").withIndex("by_game_owner", q => q.eq("gameId", game._id).eq("ownerId", member.godId)).take(settings.maxAgentsPerGod + 1);
     if (owned.length >= settings.maxAgentsPerGod) fail("CONFLICT", `This god has reached the ${settings.maxAgentsPerGod}-agent resource limit`);
     // Power (docs/energy-model.md §6): the new agent's share comes out of what the deity has not allocated.
@@ -290,6 +296,8 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     // Paid observation (lib/knowledge.ts, docs/energy-model.md §11): the god pays its own energy to be told one object
     // as it is now, or all of them. Refused, with the price and the balance, when it cannot pay.
     if (!paidLive(game)) fail("BAD_REQUEST", "Looking is free in this game: every object is already shown as it is");
+    // "agents": a god never looks for itself; its agents' changes and complete reads are its only eyes.
+    if (!godLooks(settings)) fail("BAD_REQUEST", "A god cannot look in this game: only your agents see the world. Summon an agent that reads the whole object and returns no calls to watch it.");
     // Before the world runs nothing has changed: every object is as its god was told at its birth, so a look buys nothing.
     if (game.phase === "planning") fail("CONFLICT", "The world has not started: every object is still exactly as you see it, so there is nothing to pay for");
     const world = worldNow(game, now), each = lookPriceOf(settings);
@@ -298,29 +306,22 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     if (command.objectId !== undefined && (!object || object.gameId !== game._id)) fail("NOT_FOUND", "This game has no object with that ID");
     const count = object ? 1 : game.objectCount, cost = each * count;
     const own = deityAccount(game, deity, world);
-    if (own.balance < cost) {
-      fail("CONFLICT", `Not enough energy to look: ${object ? "a look at one object" : `a look at all ${count} objects`} costs ${cost.toFixed(2)} and you have ${Math.max(0, own.balance).toFixed(2)}`);
+    // The shared charge (lib/power.ts chargeGod): settled within the account's capacity, never into debt.
+    const left = own.balance < cost ? null : await chargeGod(ctx, game, deity, cost, now);
+    if (left === null) {
+      fail("CONFLICT", `Not enough energy to look: ${object ? "a look at one object" : `a look at all ${count} objects`} costs ${cost.toFixed(2)} and you have ${Math.max(0, own.balance).toFixed(2)}`
+        + (deity.allocated >= 1 - 1e-9 ? ". All your power is with your agents, so your own energy holds nothing: keep some power for yourself to look" : ""));
     }
-    await chargeGod(ctx, deity, own, cost);
     const me: ReadonlySet<string> = new Set([member.godId]);
-    if (object) await syncRows(ctx, [object], true, { world, told: () => me });
+    if (object) await syncRows(ctx, [object], true, { world, told: () => me, boards: boardsLive(game) });
     else await ctx.scheduler.runAfter(0, internal.game.looks.page, { gameId: game._id, godId: member.godId, world, cursor: null });
     const nextBatch = await appendEvents(ctx, game, [{ t: "look", ownerId: member.godId, world, cost, count, ...(object ? { objectId: object._id } : {}) }], world, world);
     await writeGame(ctx, game, { nextBatch });
     const view = object ? viewRowOf(object, member.godId, true) : null;
     return {
-      looked: count, price: cost, energy: own.balance - cost, worldSeconds: world,
+      looked: count, price: cost, energy: left as number, worldSeconds: world,
       ...(object && view ? { object: { id: object._id, value: object.value, version: object.version, own: { netBits: view.netBits }, peerNetBits: view.peerNetBits, peerCare: view.peerCare, payoff: view.payoff } } : {}),
     };
   }
   return fail("BAD_REQUEST", "Unknown command");
 }
-
-/**
- * Charge a god's own account (already settled to now: `own`). LOCAL until the energy-capacity work lands its helper for
- * charging a deity's account; swap this for it then (one call site: the look command).
- */
-async function chargeGod(ctx: MutationCtx, deity: Doc<"deities">, own: Doc<"deities">["account"], cost: number) {
-  await ctx.db.patch(deity._id, { spent: deity.spent + cost, account: spendDeityEnergy(own, cost) });
-}
-

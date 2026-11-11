@@ -19,7 +19,7 @@ import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx } from "../_generated/server";
 import { godTotalsOf, viewRowOf, type GodTotals } from "../lib/views";
-import { paidLive } from "../lib/knowledge";
+import { boardsLive, paidLive } from "../lib/knowledge";
 import { clockDoc } from "./state";
 
 const NOBODY: ReadonlySet<string> = new Set();
@@ -36,14 +36,14 @@ type ObjectState = Pick<Doc<"objects">, "_id" | "gameId" | "value" | "version" |
 
 
 /** Every roster god's row of one object as disclosed now (`learnedAt`: paid observation, the world time of this telling). */
-function rowsOf(o: ObjectState, live: boolean, learnedAt?: number): Row[] {
+function rowsOf(o: ObjectState, live: boolean, learnedAt?: number, boards = false): Row[] {
   const rows: Row[] = [];
   for (const { god } of o.scores) {
     const view = viewRowOf(o, god, live)!;
     rows.push({
       gameId: o.gameId, godId: god, objectId: o._id, value: o.value, version: o.version, createdAt: o.createdAt ?? 0,
       ...(o.lastMutatedAt !== undefined ? { lastMutatedAt: o.lastMutatedAt } : {}), ...view,
-      ...(learnedAt !== undefined ? { learnedAt } : {}),
+      ...(learnedAt !== undefined ? { learnedAt, ...(boards ? { toldVersion: o.version } : {}) } : {}),
     });
   }
   return rows;
@@ -53,7 +53,11 @@ function rowsOf(o: ObjectState, live: boolean, learnedAt?: number): Row[] {
  * Paid observation (lib/knowledge.ts): which gods a write tells, and when. A row that does not exist yet is always
  * written (the object's birth is public); an existing one only for a god in `told(objectId)` ("all": everyone).
  */
-export type Telling = { world: number; told: (objectId: string) => ReadonlySet<string> | "all" };
+export type Telling = {
+  world: number; told: (objectId: string) => ReadonlySet<string> | "all";
+  /** "boards" mode (lib/knowledge.ts boardsLive): an untold god's row still follows the board and its own bits. */
+  boards?: boolean;
+};
 
 /**
  * Write each roster god's row of these objects where it differs from the stored one (insert the missing), never over a
@@ -64,7 +68,7 @@ export async function syncRows(ctx: MutationCtx, objects: readonly ObjectState[]
     // bounded: one row per roster god (≤ 8).
     const have = new Map((await ctx.db.query("objectViews").withIndex("by_object_god", q => q.eq("objectId", o._id)).take(16)).map(r => [r.godId, r]));
     const told = telling?.told(o._id);
-    for (const fresh of rowsOf(o, live, telling?.world)) {
+    for (const fresh of rowsOf(o, live, telling?.world, telling?.boards)) {
       const old = have.get(fresh.godId);
       // A telling never moves a row's time back (a tick's sync may run after a look made later in world time).
       const row = telling && old?.learnedAt !== undefined && old.learnedAt > telling.world ? { ...fresh, learnedAt: old.learnedAt } : fresh;
@@ -82,10 +86,21 @@ export async function syncRows(ctx: MutationCtx, objects: readonly ObjectState[]
       const news = !old || old.version !== row.version || old.peerNetBits !== row.peerNetBits || old.netBits !== row.netBits;
       if (!old) { await ctx.db.insert("objectViews", row); if (telling) await log(); }
       else if (told !== undefined && told !== "all" && !told.has(row.godId)) {
+        const toldVersion = old.toldVersion ?? old.version;
+        if (telling?.boards) {
+          // "boards": the board and the god's own bits follow the object; the others' sum (and so the payoff) stays as
+          // last told, with the time and the version of that telling. Stale once the object is past that version.
+          const kept: Row = { ...row, peerNetBits: old.peerNetBits, peerCare: old.peerCare, payoff: old.peerCare === 0 ? 0 : row.netBits * old.peerCare,
+            learnedAt: old.learnedAt ?? row.learnedAt, toldVersion, ...(row.version > toldVersion ? { stale: true } : {}) };
+          if (old.version <= kept.version && JSON.stringify(stored(old)) !== JSON.stringify(kept)) await ctx.db.replace(old._id, kept);
+          continue;
+        }
         // Not told: the row stays. Only the same version re-scored (the hold corrections of planning, whose fill may
         // finish after the world starts) follows, keeping its time: the object is the one the god already knows.
         const same = { ...row, ...(old.learnedAt !== undefined ? { learnedAt: old.learnedAt } : {}) };
         if (old.version === row.version && JSON.stringify(stored(old)) !== JSON.stringify(same)) { await ctx.db.replace(old._id, same); if (news) await log(); }
+        // The object moved past what the god was told: marked once (the count of changed objects, player.staleCount).
+        else if (old.version < row.version && !old.stale) await ctx.db.patch(old._id, { stale: true });
       }
       else if (old.version <= row.version && JSON.stringify(stored(old)) !== JSON.stringify(row)) { await ctx.db.replace(old._id, row); if (telling && news) await log(); }
     }
@@ -120,7 +135,7 @@ export const sync = internalMutation({
     const objects = (await Promise.all(objectIds.map(id => ctx.db.get(id)))).filter((o): o is Doc<"objects"> => !!o && o.gameId === gameId);
     const gods = new Map((told ?? []).map(t => [t.id as string, new Set(t.gods)]));
     const none: ReadonlySet<string> = new Set();
-    await syncRows(ctx, objects, true, paidLive(game) ? { world, told: id => gods.get(id) ?? none } : undefined);
+    await syncRows(ctx, objects, true, paidLive(game) ? { world, told: id => gods.get(id) ?? none, boards: boardsLive(game) } : undefined);
     if (totals) await writeTotals(ctx, gameId, world, totals, false);
   },
 });
@@ -141,7 +156,7 @@ export const fill = internalMutation({
     // (The clock is read only then: every commit writes it, and a free game's fill must not conflict with commits.)
     const paid = paidLive(game);
     const world = paid ? (await clockDoc(ctx, gameId))?.worldSeconds ?? 0 : 0;
-    await syncRows(ctx, page.page, game.phase !== "ended", paid ? { world, told: () => (game.phase === "planning" ? "all" : NOBODY) } : undefined);
+    await syncRows(ctx, page.page, game.phase !== "ended", paid ? { world, told: () => (game.phase === "planning" ? "all" : NOBODY), boards: boardsLive(game) } : undefined);
     if (!page.isDone) await ctx.scheduler.runAfter(0, internal.game.objectViews.fill, { gameId, cursor: page.continueCursor, ...(rowsOnly ? { rowsOnly } : {}) });
     else if (!rowsOnly) await ctx.scheduler.runAfter(0, internal.game.objectViews.fillTotals, { gameId });
   },
