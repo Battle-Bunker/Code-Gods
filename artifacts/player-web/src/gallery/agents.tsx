@@ -10,7 +10,7 @@ import type { MyAgent } from "@/sdk";
 import "../index.css";
 
 const ok = { ok: true } as const;
-const can = { editCode: ok, validate: ok, summon: ok, destroy: ok, allocatePower: ok, chat: ok, roomStep: ok };
+const can = { editCode: ok, validate: ok, summon: ok, destroy: ok, allocatePower: ok, look: ok, chat: ok, roomStep: ok };
 const base = { source: "def agent(obj):\n    return []", language: "python", randomized: false, outcomes: undefined };
 const agents = [
   { ...base, id: "a1", name: "Corner hoarder", description: "Moves big values to the corner.", summonCost: 84, expectedActCost: 10.1, breakdown: { read: 6, change: 4.1 }, energy: 42, eligible: true, powerShare: 0.25, income: 16, acts: 25, spent: 310, spentRead: 120, skips: 3 },

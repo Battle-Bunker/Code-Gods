@@ -164,6 +164,10 @@ test("penalty weight and the defence checklist hide while defence goals are off;
   assert.equal(lengthLine({ planningSeconds: 60, halfLifeSeconds: 300 }), "~6 min (often 3–13)");
   assert.equal(lengthLine({ planningSeconds: 60, halfLifeSeconds: 600, durationMode: "fixed" }), "11 min", "a fixed game's length is exact");
   assert.deepEqual(stepChoices("durationMode", "fixed").map(v => choiceLabel("durationMode", v)), ["Fixed duration", "Half-life"]);
+  // Paid observation: two worded choices, and the same words in the review and in a diff.
+  assert.deepEqual(stepChoices("observation", "free").map(v => choiceLabel("observation", v)), ["Free", "Paid"]);
+  assert.equal(formatValue("observation", "paid"), "Paid");
+  assert.ok(fieldsOf("energy").includes("observation"), "whether looking costs energy is asked with the energy settings");
   assert.deepEqual(stepChoices("scoreIntervalSeconds", 45), [5, 10, 20, 30, 45, 60], "a custom value joins the presets");
   assert.deepEqual(stepChoices("interactionRateHz", 25).map(v => choiceLabel("interactionRateHz", v)), ["Slow (25/s)", "Normal (100/s)", "Fast (300/s)", "Max (1,000/s)"]);
   assert.deepEqual([30, 60, 90].map(v => choiceLabel("planningSeconds", v)), ["30 s", "1 min", "90 s"]);

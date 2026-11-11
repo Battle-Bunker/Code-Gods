@@ -11,15 +11,14 @@
  * time of last change (activity is public; content is paid). An ended game is open, as before.
  * Pure: the tick, the read-model sync and the projections share these.
  */
-import { instantiationOf, paidObservation, type GameSettings } from "@workspace/game-core";
-import { readBound, readCharge } from "@workspace/game-types";
+import { fullReadCharge, paidObservation, type GameSettings } from "@workspace/game-core";
 
 /** Whether this game's seated gods see only what they were told: paid observation, and the game has not ended. */
 export const paidLive = (game: { settings: unknown; phase: string }): boolean =>
   paidObservation(game.settings as { observation?: unknown }) && game.phase !== "ended";
 
 /** What one look at one object costs, in energy: the object type's full read (bits) at the read price. */
-export const lookPriceOf = (settings: GameSettings): number => readCharge(readBound(instantiationOf(settings)));
+export const lookPriceOf = (settings: GameSettings): number => fullReadCharge(settings);
 
 /** Whether an act that read `readBits` read the whole object (the meter never exceeds the bound; float slack). */
 export const readWhole = (readBits: number, bound: number): boolean => bound > 0 && readBits >= bound - 1e-6;

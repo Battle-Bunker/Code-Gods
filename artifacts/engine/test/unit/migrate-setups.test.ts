@@ -13,7 +13,7 @@ const legacy = { language: "python", penaltyWeight: 2, excludedFamilies: ["sudok
 test("a positive defence rate turns defence goals on for everyone; excluded defence ids move to their own list", () => {
   assert.deepEqual(migrateSettings({ ...legacy, defenceRate: 0.25 }, DEFENCE), {
     languages: ["python"], penaltyWeight: 2, defenceGoals: true,
-    excludedFamilies: ["sudoku_scholar", "odds_evens"], excludedDefenceFamilies: ["hate_red"], scoreIntervalSeconds: 10, peerNoiseBits: 8, durationMode: "halfLife",
+    excludedFamilies: ["sudoku_scholar", "odds_evens"], excludedDefenceFamilies: ["hate_red"], scoreIntervalSeconds: 10, peerNoiseBits: 8, durationMode: "halfLife", observation: "free",
   });
   assert.equal(migrateSettings({ ...legacy, defenceRate: 1 }, DEFENCE)!.defenceGoals, true);
 });
@@ -27,9 +27,9 @@ test("a zero rate is off; the conversion is idempotent", () => {
 });
 
 test("a single stored language becomes the allowed set of that one language; its derived grammar and price ids go", () => {
-  const current = { languages: ["python"], defenceGoals: false, excludedFamilies: [], excludedDefenceFamilies: [], scoreIntervalSeconds: 10, peerNoiseBits: 8, durationMode: "halfLife" };
+  const current = { languages: ["python"], defenceGoals: false, excludedFamilies: [], excludedDefenceFamilies: [], scoreIntervalSeconds: 10, peerNoiseBits: 8, durationMode: "halfLife", observation: "free" };
   const single = { language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform",
-    defenceGoals: false, excludedFamilies: [], excludedDefenceFamilies: [], scoreIntervalSeconds: 10, peerNoiseBits: 8, durationMode: "halfLife" };
+    defenceGoals: false, excludedFamilies: [], excludedDefenceFamilies: [], scoreIntervalSeconds: 10, peerNoiseBits: 8, durationMode: "halfLife", observation: "free" };
   const migrated = migrateSettings(single, DEFENCE)!;
   assert.deepEqual(migrated, { ...current, languages: ["typescript"] });
   assert.equal(migrateSettings(migrated, DEFENCE), null, "idempotent");
@@ -38,7 +38,7 @@ test("a single stored language becomes the allowed set of that one language; its
 
 test("settings stored before the scoreboard interval and disclosure noise existed get their defaults; chosen values are kept", () => {
   const current = { languages: ["python"], defenceGoals: false, excludedFamilies: [], excludedDefenceFamilies: [] };
-  assert.deepEqual(migrateSettings(current, DEFENCE), { ...current, scoreIntervalSeconds: 10, peerNoiseBits: 8, durationMode: "halfLife" });
-  assert.deepEqual(migrateSettings({ ...current, scoreIntervalSeconds: 30 }, DEFENCE), { ...current, scoreIntervalSeconds: 30, peerNoiseBits: 8, durationMode: "halfLife" });
-  assert.equal(migrateSettings({ ...current, scoreIntervalSeconds: 30, peerNoiseBits: 0, durationMode: "fixed" }, DEFENCE), null, "nothing to change: idempotent");
+  assert.deepEqual(migrateSettings(current, DEFENCE), { ...current, scoreIntervalSeconds: 10, peerNoiseBits: 8, durationMode: "halfLife", observation: "free" });
+  assert.deepEqual(migrateSettings({ ...current, scoreIntervalSeconds: 30 }, DEFENCE), { ...current, scoreIntervalSeconds: 30, peerNoiseBits: 8, durationMode: "halfLife", observation: "free" });
+  assert.equal(migrateSettings({ ...current, scoreIntervalSeconds: 30, peerNoiseBits: 0, durationMode: "fixed", observation: "paid" }, DEFENCE), null, "nothing to change: idempotent");
 });

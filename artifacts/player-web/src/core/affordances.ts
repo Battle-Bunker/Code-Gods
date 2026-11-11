@@ -6,8 +6,11 @@
  * credential; validate, summon and destroy need a seat in a live game (not after the end); chat goes on after a game.
  * A control the viewer can never use in this context is `hidden` (not rendered at all); one that is off only for now
  * (a command in flight, an outcome unknown, the sandbox warming, the game over) stays visible, disabled, with `reason`.
+ * look (paid observation, game/commands.ts "look"): only a seated god of a game whose looking costs energy has it; it is
+ * off, with the price and the balance, while their own energy does not pay for one look.
  */
 import type { Phase } from "@workspace/player-client/panels";
+import { lookOffer } from "./panels/knowledge.ts";
 
 export type AffordanceContext = {
   /** The dock shows an ended game's replay (sdk/replay-source.ts): nothing can act. */
@@ -23,6 +26,11 @@ export type AffordanceContext = {
   busy: boolean;
   /** The current language's agent sandbox (core/game/language.ts forgeSandbox); absent means ready. */
   sandbox?: { ready: boolean; text?: string };
+  /**
+   * Paid observation only (dock.state economy.observation "paid"): what one look at one object costs (economy.lookPrice)
+   * and the viewer's own energy (self.energy). Absent where looking is free.
+   */
+  look?: { price: number; energy: number };
 };
 
 export type Affordance = { ok: true } | { ok: false; hidden: boolean; reason: string };
@@ -30,9 +38,10 @@ export type Affordance = { ok: true } | { ok: false; hidden: boolean; reason: st
 /**
  * editCode: open the forge's editor (Write an agent, Edit a copy, Edit). validate/summon/destroy/allocatePower/chat: the game commands.
  * roomStep: a next step that acts on the room (start the game, a
- * palette command, the forge) rather than only opening a panel.
+ * palette command, the forge) rather than only opening a panel. look: pay energy to see one object as it is now (a look
+ * at all of them costs the price times their number: the panel checks that total itself, core/panels/knowledge.ts).
  */
-export type Action = "editCode" | "validate" | "summon" | "destroy" | "allocatePower" | "chat" | "roomStep";
+export type Action = "editCode" | "validate" | "summon" | "destroy" | "allocatePower" | "look" | "chat" | "roomStep";
 
 export type Affordances = { readOnly: boolean; readOnlyReason: string | null; can: Record<Action, Affordance> };
 
@@ -79,6 +88,15 @@ export function deriveAffordances(c: AffordanceContext): Affordances {
         c.hasObservation && !live(c.phase) ? hide("No game is running.") : null,
         c.hasObservation && !c.seated ? hide("You're watching this game.") : null,
         transient,
+      ),
+      look: first(
+        !c.look ? hide("Looking is free in this game: every object is shown as it is.") : null,
+        ro,
+        c.hasObservation && !c.seated ? hide("You're watching this game.") : null,
+        c.phase === "ended" ? off("The game is over: every object is shown as it ended.") : null,
+        c.phase === "lobby" ? off("The game hasn't started yet.") : null,
+        transient,
+        c.look ? (o => (o.ok ? null : off(o.reason!)))(lookOffer(c.look)) : null,
       ),
       // Not off while another command runs: typing goes on (the send button waits for the runner).
       chat: first(ro, loading, unknown),

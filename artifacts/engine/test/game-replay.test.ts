@@ -75,7 +75,7 @@ test("an ended game's replay, cut at any snapshot, rebuilds the whole engine sta
   };
   assert.equal((await ada.c.query(api.games.resolve, { code: game.shortCode })).ended, true, "the client opens an ended game as its replay");
   const final = snapshots.at(-1);
-  assert.ok(final.batches.every((b: any) => b.schema === 9), "every batch carries the event schema");
+  assert.ok(final.batches.every((b: any) => b.schema === 10), "every batch carries the event schema");
   // The live scoreboard's publications (docs/public-log-design.md §3) are marked in the log: the start, then only
   // batches reaching the next 10 s multiple of world time (the default interval), then the end. Stored totals stay
   // exact on every scoring batch, so this ended game's replay below steps per event.

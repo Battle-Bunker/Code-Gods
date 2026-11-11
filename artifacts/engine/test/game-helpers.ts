@@ -129,10 +129,10 @@ export async function roomWith(members: God[], settings?: Record<string, unknown
   // The owner starts as a spectator (docs/unify-apps-plan.md §2); these rooms seat every member given.
   await owner.c.mutation(api.rooms.setSpectator, { roomId, spectator: false });
   for (const m of rest) await m.c.mutation(api.rooms.join, { room: shortCode });
-  if (settings) {
-    const room = await owner.c.query(api.rooms.get, { room: roomId });
-    await owner.c.action(api.owner.settings, { roomId, revision: room.revision, settings });
-  }
+  // The default setup charges for looking (paid observation, convex/lib/knowledge.ts); these rooms see the world for
+  // free, as every suite written before it assumes, unless the test asks for "paid" (game-paid-observation).
+  const room = await owner.c.query(api.rooms.get, { room: roomId });
+  await owner.c.action(api.owner.settings, { roomId, revision: room.revision, settings: { observation: "free", ...settings } });
   return { roomId: roomId as string, shortCode: shortCode as string };
 }
 
