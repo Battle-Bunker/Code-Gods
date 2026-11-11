@@ -83,3 +83,20 @@ test("no Add an AI player chip in a room without AI seats", () => {
   assert.ok(suggestionsFor(ctx(lobby)).some(c => c.command === "rooms.addAi"));
   assert.ok(suggestionsFor(ctx({ ...lobby, aiEnabled: false })).every(c => c.command !== "rooms.addAi"));
 });
+
+test("a chip that asks the assistant sends the shared text, and the two first-game chips carry an intent the assistant's answer is tested against", async () => {
+  const { CHIP_TEXT, chipIntent } = await import("@workspace/player-client/chips");
+  const shared = new Set<string>(Object.values(CHIP_TEXT));
+  for (const phase of PHASES) {
+    for (const agents of [0, 1]) {
+      for (const seated of [true, false]) {
+        for (const chip of suggestionsFor(ctx({ phase, agents, seated }))) if (chip.prompt) assert.ok(shared.has(chip.prompt), `${chip.prompt} is not in the shared chip texts`);
+      }
+    }
+  }
+  const planning = suggestionsFor(ctx({ phase: "planning", agents: 0 }));
+  assert.deepEqual(planning.map(c => chipIntent(c.prompt!)), ["explainGoal", "writeAgent", null]);
+  assert.equal(chipIntent(suggestionsFor(ctx({ phase: "running", agents: 0 }))[0].prompt!), "writeAgent");
+  assert.equal(chipIntent("Summon it"), "summon");
+  assert.equal(chipIntent("Write me a poem"), null);
+});

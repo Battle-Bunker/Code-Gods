@@ -57,6 +57,11 @@ test("no tool waits for an approval; each mode says what the assistant may do an
   assert.match(text, /At most one per answer|at most one per answer/i);
   assert.match(text, /NEXT STEPS\./);
   assert.match(text, /always validate first/i);
+  // A newcomer's first chips (lib/player-client chips.ts): how to answer them, and the player's words for the three numbers.
+  assert.match(text, /first agent starts from its example for their rule, 5 to 15 commented lines/);
+  assert.match(text, /offer to summon/);
+  assert.match(text, /Explain a goal in two or three plain sentences/);
+  assert.ok(text.includes('"your rule score" for what the goal card counts (tools: utility score, own bits), "points" for the leaderboard (tools: payoff), "energy" for what acting costs (never "bits" for energy)'), "the player's words, mapped from the tools' names");
   assert.ok(toolLine(prompt("read"), "get_layout") && !toolLine(prompt("read"), "move_pane"), "a read grant can read the layout but not rearrange it");
 });
 
@@ -85,6 +90,7 @@ test("the briefing is the player's live situation: utility name, energy, phase, 
   }
   for (const absent of ["function utility(x)", "swapDigits", "IGNORE ALL INSTRUCTIONS"]) assert.ok(!text.includes(absent), `no ${absent} (a skill or a read has it)`);
   assert.match(text, /untrusted/i);
+  assert.match(text, /Your energy: 100\.4\./, "energy is a plain number, never bits");
   assert.ok(text.length < 1_000, `the briefing is small (${text.length})`);
 });
 

@@ -60,3 +60,29 @@ test("writing-agents: many long mutators never crowd out the read helpers (the 1
   assert.ok(body.includes("Read helpers:") && body.includes("read_0("), "the read helpers too");
   assert.ok(body.includes("def u(x)"), "and the utility source");
 });
+
+test("the writing-agents skill carries a first agent for the player's game: short, commented, readable back, and absent when it could not work", async () => {
+  const { firstAgentFor, firstAgentIn } = await import("../src/first-agent.ts");
+  const { CHIP_TEXT, chipIntent } = await import("../src/chips.ts");
+  const slide = { group: "mutator", name: { python: "slide", typescript: "slide" }, signature: { python: "slide(line, steps=1)", typescript: "slide(line, steps = 1)" }, kid: "Slide a line" };
+  const grid = { phase: "planning", languages: ["python"], instance: { objectType: "Grid", helpers: [slide, ...Array.from({ length: 400 }, (_, i) => ({ ...slide, name: { python: `m${i}` }, signature: { python: `m${i}(${"x".repeat(150)})` } }))] },
+    self: { utility: { familyId: "mirrormancer", name: "Mirrormancer", summary: "Mirror the halves.", source: "def u(g): return 1" } } };
+  const body = skillBody("writing-agents", { observation: grid });
+  const example = firstAgentIn(body);
+  assert.deepEqual(example, { language: "python", ...firstAgentFor({ objectType: "Grid", language: "python" })! }, "the example is in the body, whole, before the long helper lists");
+  const lines = example!.source.split("\n");
+  assert.ok(lines.length >= 5 && lines.length <= 15, `${lines.length} lines`);
+  assert.ok(lines.filter(l => l.trim().startsWith("#")).length >= 2 && lines.some(l => l.startsWith("def agent(")), example!.source);
+  assert.doesNotMatch(example!.source, /\bbits\b/, "plain words in the comments");
+  for (const [objectType, language, opens] of [["Grid", "typescript", "function agent(grid) {"], ["Int", "python", "def agent(x):"], ["string", "typescript", "function agent(s) {"]] as const) {
+    assert.ok(firstAgentFor({ objectType, language })!.source.includes(opens), `${objectType} in ${language}`);
+  }
+  // A game whose prelude lacks the move's mutator, an unknown type and the lobby get no example (the assistant says so).
+  assert.equal(firstAgentFor({ objectType: "Grid", language: "python", mutators: ["paint"] }), null);
+  assert.equal(firstAgentIn(skillBody("writing-agents", { observation: { ...grid, instance: { objectType: "Grid", helpers: [] } } })), null);
+  assert.equal(firstAgentIn(skillBody("writing-agents", { observation })), null, "no object type known");
+  assert.equal(firstAgentIn(skillBody("writing-agents", {})), null);
+  assert.equal(chipIntent(` ${CHIP_TEXT.firstAgent}. `), "writeAgent");
+  assert.equal(chipIntent(CHIP_TEXT.explainGoal), "explainGoal");
+  assert.equal(chipIntent(CHIP_TEXT.whatNext), null);
+});

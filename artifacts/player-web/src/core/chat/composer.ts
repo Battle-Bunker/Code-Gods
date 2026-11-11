@@ -13,6 +13,8 @@ export type ComposerState = {
   /** Bumped to ask the composer to take focus / the pane to shrink to its composer. */
   focusTick: number;
   collapseTick: number;
+  /** Bumped when a message is sent: a phone's sheet at its peek opens far enough to show the answer. */
+  expandTick: number;
   /** The conversation chosen in each game (assistant.status game → a thread id, or "new" for a fresh one); a game
    * without an entry shows its latest. */
   threads: Readonly<Record<string, string>>;
@@ -23,7 +25,7 @@ export type ComposerState = {
   status: string;
 };
 
-let state: ComposerState = { draft: "", focusTick: 0, collapseTick: 0, threads: {}, permission: null, ownerConsent: false, status: "" };
+let state: ComposerState = { draft: "", focusTick: 0, collapseTick: 0, expandTick: 0, threads: {}, permission: null, ownerConsent: false, status: "" };
 const listeners = new Set<() => void>();
 /** Brings the assistant pane back when the player closed it (the dock registers this); a hand-off to the chat reopens it. */
 let reopen: (() => void) | undefined;
@@ -37,6 +39,7 @@ export const composer = {
   fill(text: string) { reopen?.(); set({ draft: state.draft.trim() ? `${state.draft.trimEnd()} ${text}` : text, focusTick: state.focusTick + 1 }); },
   focus() { reopen?.(); set({ focusTick: state.focusTick + 1 }); },
   collapse() { set({ collapseTick: state.collapseTick + 1 }); },
+  expand() { set({ expandTick: state.expandTick + 1 }); },
   /** Choose the conversation shown in `game` (null: its latest). */
   /** The dock's way to reopen a closed assistant pane; returns the unregister function. */
   setReopen(fn: () => void) { reopen = fn; return () => { if (reopen === fn) reopen = undefined; }; },

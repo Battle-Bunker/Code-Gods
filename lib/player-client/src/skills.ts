@@ -11,6 +11,7 @@
  */
 import { CHANGE_READ_RATIO, allowedLanguages, fullReadCharge, seedSetupSettings } from "@workspace/game-core";
 import { PRIMER_AGENTS, PRIMER_SCORING } from "./primer.ts";
+import { firstAgentFor, firstAgentSection, type FirstAgent } from "./first-agent.ts";
 import { ANALYTICS_CODE_SKILL } from "./skills/analytics-code.ts";
 import { RIVAL_INFERENCE_SKILL } from "./skills/rival-inference.ts";
 
@@ -116,9 +117,10 @@ const SETUPS = `GAME SETUPS. A room always runs one game setup: a named, complet
 
 /**
  * A skill's body: its guidance, then the live parts it reads (missing reads say so instead of failing). Player-written
- * strings (chat, others' labels) never appear here; the utility source is the player's own.
+ * strings (chat, others' labels) never appear here; the utility source is the player's own. `firstAgent`: the example
+ * agent for the player's rule (the engine passes game-utilities' example-agents.ts); without it, first-agent.ts's generic move.
  */
-export function skillBody(name: SkillName, data: { rules?: unknown; observation?: unknown; layout?: unknown }): string {
+export function skillBody(name: SkillName, data: { rules?: unknown; observation?: unknown; layout?: unknown; firstAgent?: FirstAgent | null }): string {
   const parts: string[] = [];
   if (name === "game-rules") {
     const rules = str(rec(data.rules).rules);
@@ -130,6 +132,11 @@ export function skillBody(name: SkillName, data: { rules?: unknown; observation?
     const allowed = allowedLanguages(o).length ? allowedLanguages(o) : ["python"];
     const utility = rec(rec(o.self).utility);
     parts.push(WRITING_AGENTS, PRIMER_AGENTS, `Allowed languages: ${allowed.join(", ")} (pass the agent's language to validate_agent and summon_agent; default ${allowed[0]}). agent(obj) receives the object's value itself (a number for Int, a string for string, a grid for Grid), never a wrapper with fields.`);
+    // A first agent to start from (first-agent.ts), before the long helper lists so the body's limit never cuts it.
+    const helpers = Array.isArray(rec(o.instance).helpers) ? (rec(o.instance).helpers as unknown[]).map(rec) : [];
+    const mutators = helpers.filter(h => h.group === "mutator").flatMap(h => str(rec(h.name)[allowed[0]!]) ?? []);
+    const first = data.firstAgent ?? firstAgentFor({ familyId: str(utility.familyId), objectType: str(rec(o.instance).objectType), language: allowed[0]!, mutators });
+    if (first) parts.push(firstAgentSection(first, allowed[0]!));
     // Each allowed language's helper names, sharing the helpers budget.
     const share = { ...SKILL_LIMITS, helpers: Math.floor(SKILL_LIMITS.helpers / allowed.length) };
     for (const language of allowed) parts.push(`Helpers in ${language}:`, ...helperLines(o.instance, language, share));
