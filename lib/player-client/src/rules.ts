@@ -3,7 +3,7 @@
  * settings. The app's "rules for an AI assistant" copy (artifacts/player-web/src/site/components/game-rules.tsx) says the
  * same at more length.
  */
-import { CHANGE_READ_RATIO, fullReadCharge, LANGUAGE_SPECS, SETTINGS_DOCS, allowedLanguages, type FieldDoc, MAX_AGENT_OPPORTUNITY_HZ } from "@workspace/game-core";
+import { CHANGE_READ_RATIO, changeCostExplained, costModelOf, fullReadCharge, LANGUAGE_SPECS, SETTINGS_DOCS, allowedLanguages, type FieldDoc, MAX_AGENT_OPPORTUNITY_HZ } from "@workspace/game-core";
 
 type Settings = Record<string, unknown>;
 
@@ -16,7 +16,7 @@ const lookText = (s: Settings): string => {
 /** Every setting with its value and the same meaning and consequence the configuration page shows (lib/game-core SETTINGS_DOCS). */
 export function settingsExplained(s: Settings): string {
   return Object.entries(SETTINGS_DOCS as Record<string, FieldDoc>).map(([key, doc]) => {
-    const value = s[key];
+    const value = key === "costModel" ? costModelOf(s) : s[key];   // optional: absent means the default model
     const shown = value === undefined ? "?" : Array.isArray(value) ? (value.length ? value.join(", ") : "none") : typeof value === "object" ? JSON.stringify(value) : String(value);
     return `- ${key} = ${shown}${doc.unit ? ` ${doc.unit}` : ""}: ${doc.meaning} ${doc.consequence}`;
   }).join("\n");
@@ -45,8 +45,7 @@ with probability proportional to its energy (an agent at or below zero waits; at
 An act pays only what it does: what it reads, plus its change when it changes the object. There is no fixed charge per act.
 Looking is ${CHANGE_READ_RATIO}× cheaper than changing: each bit of the object an act reads costs 1/${CHANGE_READ_RATIO} bit of energy (${lookText(s)}computing is free).
 So look before you change, return no calls when nothing is worth doing (a skip: it pays only what it read), and save energy to act more often.
-A change costs W + 0.05·W², where W adds up its elementary steps (one cell's colour or symbol; one digit added, or a multiplication by a prime):
-painting a 4-cell row costs about 7.5× one cell. Small incremental acts are much cheaper than radical ones.
+${changeCostExplained(s as Parameters<typeof changeCostExplained>[0], costModelOf(s))}
 You may destroy your own agents at any time, for free (their power share comes back to you).
 At most ${n(s, "maxAgentsPerGod", 200)} agents per god.
 

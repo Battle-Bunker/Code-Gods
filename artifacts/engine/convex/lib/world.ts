@@ -40,9 +40,13 @@ export const EVENTS_PER_BATCH = 400;
  * cost.read is the energy its reads cost (bits read × READ_PRICE, 1/32 when 8 was introduced); in schemas 5–7 reads were
  * priced at one energy bit per bit read, so cost.read there is also the bits read. Replay reads recorded costs either way.
  * 9 marks a failed act whose code raised or ran out of time (`error: true` on a fail event), so a replay tells a runtime
- * error from an invalid call, as the live failure breakdown (agents.failures) does.
+ * error from an invalid call, as the live failure breakdown (agents.failures) does. 10 is cost models
+ * (docs/mutation-cost-design.md §11): an act's cost.change (and cost.work) is priced under the game's settings.costModel
+ * ("distance-v1" charges a number by how far it moved); in every batch below 10 it is priced under "set-v1", whatever
+ * the settings say. A game without the setting (every game started before 10) is "set-v1" too, so a game that was
+ * running across the deploy changes its stamp and nothing else. Replay reads recorded costs and never re-prices.
  */
-export const EVENT_LOG_SCHEMA = 9;
+export const EVENT_LOG_SCHEMA = 10;
 
 export type Clock = {
   phase: "planning" | "running" | "paused" | "recovery" | "ended";

@@ -16,7 +16,7 @@
  */
 import { CHANGE_BETA, changeCost } from "./mutators.ts";
 import { gridArgs, gridElementaryCosts, gridFamilies } from "./grid/index.ts";
-import { DEFAULT_COST_MODEL, layerSize, siteWork, type CostModel } from "./structure/index.ts";
+import { DEFAULT_COST_MODEL, locationBits, type CostModel } from "./structure/index.ts";
 import type { GridValue } from "./grid/codec.ts";
 import { COLOUR_COMPONENTS, SYMBOL_COMPONENTS } from "./grid/components.ts";
 import { digitAddCost, multiplyCost } from "./int/index.ts";
@@ -41,7 +41,7 @@ const weight = (C: number) => 2 ** -C;
 export type NoiseStep<V> = (value: V, rng: Rng) => V;
 
 function gridNoise(inst: Instantiation, model: CostModel): NoiseStep<GridValue> {
-  if (model !== "set-v1") return gridDistanceNoise(inst, model);
+  if (model !== "set-v1") return gridGeneratorNoise(inst, model);
   const t = gridArgs(inst);
   const C = COLOUR_COMPONENTS[t.colours].count, S = SYMBOL_COMPONENTS[t.symbols].count, w = gridElementaryCosts(inst);
   const colourMass = (C - 1) * weight(changeCost(w.colour)), symbolMass = (S - 1) * weight(changeCost(w.symbol));
@@ -55,39 +55,28 @@ function gridNoise(inst: Instantiation, model: CostModel): NoiseStep<GridValue> 
 }
 
 /**
- * Grid noise under a distance model: a uniform cell, then one generator argument drawn ∝ 2^(−C(w)) over every family's
- * argument space (structure/index.ts): the number by ±k, the suit or the colour to one of the others. A number move
- * that leaves the range cannot apply and leaves the board as it is, like the `add` mutator it stands for.
+ * Grid noise under every other model: a uniform cell, then one argument of one family's generator drawn ∝ 2^(−C(w))
+ * over the declared argument spaces (structure/index.ts Generator.args): the number by ±k (or ×m), the suit or the
+ * colour to one of the others. An argument that cannot apply (9 + 1 on a slider) leaves the board as it is, like the
+ * call it stands for.
  */
-function gridDistanceNoise(inst: Instantiation, model: CostModel): NoiseStep<GridValue> {
-  const t = gridArgs(inst), s = SYMBOL_COMPONENTS[t.symbols], fams = gridFamilies(inst, model);
-  const kinds: { family: string; arg: number; w: number }[] = [];
-  for (const f of fams) {
-    const n = layerSize(f.generator.layer);
-    // An argument is the offset it adds; on a slider both signs, on a categorical layer the n − 1 relabellings.
-    const args = f.generator.id === "add" ? Array.from({ length: n - 1 }, (_, i) => [i + 1, -(i + 1)]).flat() : Array.from({ length: n - 1 }, (_, i) => i + 1);
-    for (const arg of args) kinds.push({ family: f.id, arg, w: weight(changeCost(siteWork(f, fams.length, 0, Math.abs(arg)))) });
-  }
+function gridGeneratorNoise(inst: Instantiation, model: CostModel): NoiseStep<GridValue> {
+  const fams = gridFamilies(inst, model);
+  const kinds = fams.flatMap(f => f.generator.args.map(arg =>
+    ({ family: f, arg, w: weight(changeCost(locationBits(f, fams.length) + (arg.bits + arg.erased))) })));
   const cum: number[] = [];
   let total = 0;
   for (const k of kinds) cum.push(total += k.w);
-  const R = s.rankCount, suits = s.suitNames?.length ?? 1, C = COLOUR_COMPONENTS[t.colours].count;
   return (g, rng) => {
     const i = rng.int(g.size * g.size), u = unit(rng) * total;
     let lo = 0, hi = cum.length - 1;
     while (lo < hi) { const mid = (lo + hi) >> 1; if (cum[mid] > u) hi = mid; else lo = mid + 1; }
-    const k = kinds[lo], sym = g.sym.slice(), col = g.col.slice();
-    if (k.family === "colour") col[i] = (col[i] + k.arg) % C;
-    else {
-      const rank = s.ranks[sym[i]], suit = (sym[i] - rank) / R;
-      if (k.family === "suit") sym[i] = ((suit + k.arg) % suits) * R + rank;
-      else if (rank + k.arg >= 0 && rank + k.arg < R) sym[i] += k.arg;
-      else if (f_cyclic(fams)) sym[i] = suit * R + (((rank + k.arg) % R) + R) % R;
-    }
-    return { size: g.size, sym, col };
+    const k = kinds[lo], out = { size: g.size, sym: g.sym.slice(), col: g.col.slice() };
+    const to = k.arg.apply(k.family.get(g, i));
+    if (to !== null) k.family.set(out, i, to);
+    return out;
   };
 }
-const f_cyclic = (fams: readonly { id: string; generator: { id: string } }[]) => fams.some(f => f.id === "rank" && f.generator.id === "turn");
 
 function intNoise(inst: Instantiation): NoiseStep<number> {
   const { min, max } = inst.args as { min: number; max: number }, W = max - min + 1, P = placesOf(inst);

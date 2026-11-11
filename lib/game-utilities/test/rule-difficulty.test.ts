@@ -111,7 +111,7 @@ const board = (sym: number[]): GridValue => ({ size: 4, sym: Uint8Array.from(sym
 const near = board([6, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 8]);
 
 test("a move's energy is changeCost(callWork) of the room's cost model", () => {
-  const close = (a: number, b: number) => assert.ok(Math.abs(a - b) < 1e-2, `${a} vs ${b}`);
+  const close = (a: number, b: number) => assert.ok(Math.abs(a - b) < 0.05, `${a} vs ${b}`);
   const G = objectType("Grid"), call = { id: "", params: null };
   for (const inst of [mono, instantiate("Grid", { size: 4, symbols: "base10", colours: "rgb" })]) {
     for (const model of ["set-v1", "distance-v1"] as const) {

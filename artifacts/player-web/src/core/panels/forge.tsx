@@ -5,12 +5,12 @@
  * helpers drawer with insert, a byte count, Validate (free) and Summon (pays from your energy). The same command
  * path as everything else; an uncertain summon keeps its envelope for the identical retry under the header.
  */
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { AGENT_DESCRIPTION_MAX, AGENT_NAME_MAX } from "@workspace/player-client";
 import { Loader2, Sparkles, Wand2 } from "lucide-react";
 import { AgentCost, HelpersDrawer, type ActCostBreakdown } from "@workspace/object-views";
 import { useMyAgents, useMutators, useDockState } from "@/sdk";
-import { LANGUAGE_SPECS, defaultShare, isLanguage } from "@workspace/game-core";
+import { LANGUAGE_SPECS, changeCostHint, costModelOf, defaultShare, isLanguage } from "@workspace/game-core";
 import { runner, useGameCommands, useRunner, type Lang } from "@/core/game/runner";
 import { forgeLanguage, forgeLanguages, forgeSandbox } from "@/core/game/language";
 import { useAffordances } from "@/core/use-affordances";
@@ -77,6 +77,9 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended }: { lan
   const canSummon = gameplay && !!validation?.result.accepted && !!current?.valid && current.cost <= (obs?.self.energy ?? 0) && allowed.includes(language) && source.trim().length > 0;
   const arg = instance?.objectType === "Grid" ? "grid" : "x";
   const noun = instance?.objectType === "Grid" ? "grid" : "object";
+  // What a change costs in this room, with its own numbers (game-core change-cost.ts; the room's cost model).
+  const costModel = costModelOf(obs?.economy);
+  const costHint = useMemo(() => (instance ? changeCostHint({ objectType: instance.objectType, typeArgs: instance.args }, costModel) : ""), [instance, costModel]);
   return (
     <div className="space-y-3" data-testid="panel-forge">
       <div className="flex flex-wrap items-center gap-2">
@@ -98,7 +101,7 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended }: { lan
         placeholder={language === "python" ? `def agent(${arg}):\n    # return a list of moves, e.g. [swap(...)]\n    return []`
           : `function agent(${arg}) {\n  // return a list of moves, e.g. [swap(...)]\n  return [];\n}`}
         className="h-56 w-full resize-y border-l-4 border-[hsl(var(--input))] bg-secondary p-3 font-mono text-[13px] leading-relaxed text-secondary-foreground caret-[hsl(var(--primary))] outline-none focus:border-primary" />
-      <p className="text-xs text-muted-foreground">Write <code>{language === "python" ? `def agent(${arg}):` : `function agent(${arg})`}</code>. It reads the {noun} and returns at most 16 moves from the room's helpers; each act costs bits from the agent's own energy.</p>
+      <p className="text-xs text-muted-foreground">Write <code>{language === "python" ? `def agent(${arg}):` : `function agent(${arg})`}</code>. It reads the {noun} and returns at most 16 moves from the room's helpers; each act costs bits from the agent's own energy.{costHint && <> <span data-testid="text-forge-change-cost">{costHint}</span></>}</p>
       {obs?.instance && <HelpersDrawer helpers={obs.instance.helpers} language={language} onInsert={insert} open={showHelpers} />}
       <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
         <label className="space-y-0.5 text-xs text-muted-foreground">

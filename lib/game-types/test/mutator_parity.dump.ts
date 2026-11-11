@@ -21,9 +21,16 @@ function special(inst: Instantiation): GridValue[] {
   return [flat, two];
 }
 
+/**
+ * Mutators with no gridlab twin, left out of this parity (and of `base`, log2 of the number available, so that it stays
+ * gridlab's count): `add`, the slider move of the distance cost model (docs/mutation-cost-design.md), which postdates
+ * Grid Lab. Its behaviour and prices are tested in test/cost-models.test.ts.
+ */
+const TS_ONLY = new Set(["add"]);
+
 // gridlab/mutators.py models the coloured sets only (mono is TS-only: test/mono.test.ts).
 const types = GRID.representatives().filter((a: TypeArgs) => a.colours !== "mono").map((a: TypeArgs) => {
-  const inst = GRID.instantiate(a), ms = availableOf(GRID_MUTATORS, inst) as GridMutator[];
+  const inst = GRID.instantiate(a), ms = (availableOf(GRID_MUTATORS, inst) as GridMutator[]).filter(m => !TS_ONLY.has(m.id));
   const grids = [GRID.spawn(inst, rng), GRID.spawn(inst, rng), ...special(inst)];
   const cases = ms.flatMap(m => Array.from({ length: 6 }, () => m.sample(rng, inst)).flatMap(p => grids.map(g => {
     const y = m.apply(g, p, inst), t = m.terms(p, inst);

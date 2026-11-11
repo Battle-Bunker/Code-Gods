@@ -159,6 +159,13 @@ function preparingLines(value: unknown): string[] {
   return [`The game is preparing its rule tables, ${ready ?? "?"} of ${total ?? "?"} ready (the first game on ${str(p.instance) ?? "this shape"} on this server, about ${num(p.estimateSeconds) ?? "?"} s in all). It starts by itself, then planning begins; nobody needs to do anything.`];
 }
 
+/** The room's cost model in words (docs/energy-model.md §4): absent or unknown reads as set-v1. */
+function costModelLine(model: unknown): string {
+  return typeof model === "string" && model !== "set-v1" && /^[a-z0-9-]{1,24}$/.test(model)
+    ? `Change cost model: ${model} (a number pays for how far it moves: adding 1 is the cheapest change; a colour or suit pays a flat price).`
+    : "Change cost model: set-v1 (every changed cell costs the same, however far its value moves).";
+}
+
 /**
  * The player's live situation as text, from the data of get_observation and get_layout (either may be missing: no
  * game, a failed read), plus the room's `preparing` (get_rules) while no game runs. Player-written strings (chat, labels of others) are left out; the whole block is marked
@@ -183,6 +190,8 @@ export function assistantBriefing({ observation, layout, preparing }: { observat
     lines.push(
       `Game ${str(o.gameShortCode) ?? ""} — phase: ${str(o.phase)}; agent languages: ${languages}; objects: ${str(o.objectCount) ?? "?"}; your ${live}agents: ${agents === undefined ? "?" : `${agents} ${live}agent${agents === 1 ? "" : "s"}`}${ended ? " (at the end)" : ""}.`,
       `Your energy${ended ? " at the end" : ""}: ${num(self.energy) ?? "?"} bits${self.pauseUsed ? "; your pause is used" : ""}. Economy: ${cut(JSON.stringify(rec(o.economy)), 400)}.`,
+      // Stated outside the JSON, which is cut: what one changed cell costs depends on it (docs/energy-model.md §4).
+      costModelLine(rec(o.economy).costModel),
       ...utilityLine("Your utility (private; its source is in the writing-agents skill)", utility),
       ...utilityLine("Your defence goal (penalty)", rec(utility.penalty)),
       ...boardKeyLine(o.instance),

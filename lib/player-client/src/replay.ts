@@ -20,7 +20,7 @@
  * Pure: no React, no Convex; browser-safe.
  */
 import { NO_FAILURES, diagnoseAgent, failureKind, type FailureKind } from "@workspace/engine/convex/lib/futility.ts";
-import { CHANGE_READ_RATIO, DEFAULT_SCORE_INTERVAL_SECONDS, MAX_AGENT_OPPORTUNITY_HZ, agentIncome, allowedLanguages, chargeAct, deityIncome, instantiationOf, roundShare, settleAgentEnergy, type AgentAccount, type GameSettings } from "@workspace/game-core";
+import { CHANGE_READ_RATIO, DEFAULT_SCORE_INTERVAL_SECONDS, MAX_AGENT_OPPORTUNITY_HZ, agentIncome, allowedLanguages, chargeAct, costModelOf, deityIncome, instantiationOf, roundShare, settleAgentEnergy, type AgentAccount, type GameSettings } from "@workspace/game-core";
 
 /** The replay API version this reducer reads (player.replay's `version`). */
 export const REPLAY_VERSION = 2;
@@ -462,7 +462,8 @@ export function replayObservation(replay: Replay, at: ReplayAt, state: ReplaySta
       // The read price the log was charged at: event-log schema 8 introduced κ (docs/energy-model.md §2.1); before it, 1.
       changeReadRatio: (game.logSchema ?? 1) >= 8 ? CHANGE_READ_RATIO : 1,
       maxAgentsPerGod: settings.maxAgentsPerGod, penaltyWeight: settings.penaltyWeight, worldSeconds: state.world,
-      commitClause: settings.commitClause, objectSelection: settings.objectSelection,
+      // The model the recorded change costs were priced under (the game's settings; a game from before cost models: set-v1).
+      commitClause: settings.commitClause, objectSelection: settings.objectSelection, costModel: costModelOf(settings),
     },
     self: {
       godId: god?.id ?? "", label: god?.name ?? "", isAI: god?.kind === "ai", energy: godEnergyAt(replay, state, at.pov), ...godPowerAt(replay, state, at.pov), ready: false,

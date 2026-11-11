@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { COST_MODELS } from "@workspace/game-types";
 import {
   DEFAULT_SETTINGS, SETTINGS_OPTIONS, MAX_AGENTS_PER_GOD, settingsOptionsFor, validateSettings, LANGUAGES, LANGUAGE_SPECS,
   grammarFor, complexityFor, allowedLanguages, upgradeLegacyLanguage,
   upgradeStoredSettings, FIRST_STEPS_SEED_ID, ANNOTATED_BASICS_SEED_ID, DEFAULT_SETUP_SEED_ID,
+  costModelOf, supportedCostModels, OPTIONAL_SETTINGS_FIELDS,
   instantiationOf, codecOf, assertObjectValue, defaultSettingsFor, SEED_SETUPS, SETUP_NAME_MAX, seedSetupSettings, ENERGY_LIMITS, type GameSettings,
 } from "../src/settings.ts";
 import { gameEndSeconds } from "../src/random.ts";
@@ -268,4 +270,34 @@ test("the default setup (Annotated basics) is the numbers-only 4×4 board; First
   assert.deepEqual(s.typeArgs, { size: 4, symbols: "base10", colours: "mono" });
   assert.doesNotThrow(() => validateSettings(s));
   assert.deepEqual(seedSetupSettings(FIRST_STEPS_SEED_ID).typeArgs, { size: 4, symbols: "base10", colours: "rgb" });
+});
+
+test("the cost model is optional: absent reads as set-v1, and distance-v1 is offered only where the object type supports it", () => {
+  assert.ok(!("costModel" in DEFAULT_SETTINGS), "stored settings need no migration: the default is never spelled out");
+  assert.deepEqual([...OPTIONAL_SETTINGS_FIELDS], ["costModel"]);
+  assert.equal(costModelOf(DEFAULT_SETTINGS), "set-v1");
+  assert.equal(costModelOf({ costModel: "distance-v1" }), "distance-v1");
+  for (const odd of [null, undefined, {}, { costModel: "free" }, { costModel: 1 }]) assert.equal(costModelOf(odd as never), "set-v1");
+  const grid = defaultSettingsFor("Grid", ["python"], { size: 4, symbols: "base10", colours: "mono" });
+  assert.deepEqual(COST_MODELS.slice(0, 2), ["set-v1", "distance-v1"]);
+  assert.deepEqual(supportedCostModels(grid), COST_MODELS, "a Grid offers every model, the default first");
+  assert.deepEqual(supportedCostModels(defaultSettingsFor("Grid", ["python"], { size: 7, symbols: "cards", colours: "rainbow6" })), COST_MODELS);
+  for (const type of ["Int", "string"]) assert.deepEqual(supportedCostModels(defaultSettingsFor(type)), ["set-v1"], type);
+  for (const ok of [grid, { ...grid, costModel: "set-v1" }, { ...grid, costModel: "distance-v1" }, { ...DEFAULT_SETTINGS, costModel: "set-v1" }] as GameSettings[]) {
+    assert.doesNotThrow(() => validateSettings(ok), JSON.stringify(ok.costModel));
+  }
+  for (const model of COST_MODELS) assert.doesNotThrow(() => validateSettings({ ...grid, costModel: model }), model);
+  assert.throws(() => validateSettings({ ...grid, costModel: "free" as never }), /costModel must be one of set-v1, distance-v1/);
+  assert.throws(() => validateSettings({ ...grid, costModel: null as never }), /costModel must be one of/);
+  assert.throws(() => validateSettings({ ...DEFAULT_SETTINGS, costModel: "distance-v1" }), /costModel distance-v1 is not offered for Int\(/);
+  assert.throws(() => validateSettings({ ...defaultSettingsFor("string"), costModel: "distance-v1" }), /not offered for string\(/);
+});
+
+test("only the default setup (Annotated basics) prices changes by distance; every other seed keeps the default model unspelled", () => {
+  for (const s of SEED_SETUPS) {
+    validateSettings(s.settings);
+    if (s.seedId === DEFAULT_SETUP_SEED_ID) assert.equal(s.settings.costModel, "distance-v1");
+    else assert.ok(!("costModel" in s.settings), `${s.seedId} is untouched`);
+  }
+  assert.equal(seedSetupSettings(DEFAULT_SETUP_SEED_ID).costModel, "distance-v1");
 });

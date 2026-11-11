@@ -207,6 +207,11 @@ export interface MutatorDef<V = unknown, P = unknown> {
   measureBits?(params: P, inst: Instantiation): number;
   /** Uniform draw of params (field by field), used by reference agents, tests and the AI prompt examples. */
   sample(rng: Rng, inst: Instantiation): P;
+  /**
+   * Offered only in rooms whose cost model is one of these (absent: in every room). A room's cost model may add
+   * generators (multiply-v1 adds multiply and divide), never change what an existing mutator does.
+   */
+  readonly costModels?: readonly CostModel[];
   /** Guest constructor(s) and their docs, emitted into the prelude by the type's prelude generator. */
   readonly guest: { readonly python: string; readonly js: string; readonly dts: string; readonly docs: readonly HelperDoc[] };
 }
@@ -287,6 +292,7 @@ export interface ObjectTypeDef<V = unknown> {
   /** Total bits per layer of a uniform value (log2 alphabet × cells): the most an act can read (pricing readBound). */
   layerBits(inst: Instantiation): Readonly<Record<string, number>>;
   readonly mutators: readonly MutatorDef<V, any>[];
-  prelude(inst: Instantiation): PreludeParts;
-  describe(inst: Instantiation): InstanceInfo;
+  /** `model`: the room's cost model, for the mutators only some models offer (MutatorDef.costModels). */
+  prelude(inst: Instantiation, model?: CostModel): PreludeParts;
+  describe(inst: Instantiation, model?: CostModel): InstanceInfo;
 }

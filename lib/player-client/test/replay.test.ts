@@ -115,6 +115,10 @@ test("a re-allocation settles both accounts and then changes the rates; a destro
   const p8 = page([{ seq: 0, at: T0, worldFrom: 0, worldTo: 1, events: [{ type: "phase", phase: "running", worldSeconds: 0 }] }]);
   const priced = buildReplay([{ ...p8, game: { ...p8.game, logSchema: 8 } }]);
   assert.equal(replayObservation(priced, { room: { roomId: "r", roomShortCode: "R" }, cursor: 1, pov: 0 }).economy!.changeReadRatio, CHANGE_READ_RATIO);
+  // The cost model the recorded change costs were priced under: the game's settings; a game from before cost models is set-v1.
+  assert.equal(obs.economy!.costModel, "set-v1");
+  const byDistance = buildReplay([{ ...p8, game: { ...p8.game, logSchema: 10, settings: { ...p8.game.settings, costModel: "distance-v1" } } }]);
+  assert.equal(replayObservation(byDistance, { room: { roomId: "r", roomShortCode: "R" }, cursor: 1, pov: 0 }).economy!.costModel, "distance-v1");
   // The event window carries the god's own re-allocations.
   assert.equal(replayEvents(replay, { room: { roomId: "r", roomShortCode: "R" }, cursor: replay.log.length, pov: 0 }).events.filter(e => e.type === "agent.power").length, 2);
   assert.equal(replayEvents(replay, { room: { roomId: "r", roomShortCode: "R" }, cursor: replay.log.length, pov: 1 }).events.filter(e => e.type === "agent.power").length, 0, "another god's are not shown");

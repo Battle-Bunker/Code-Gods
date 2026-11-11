@@ -21,7 +21,7 @@ export const GLOSSARY = {
   power: { term: "Power", gloss: "Your fixed income in bits per second. You split it: a share to each agent, and the rest refills your own energy." },
   "power-share": { term: "Power share", gloss: "The slice of your power one agent gets (0 to 100%). That slice is its income; all your agents' shares add up to at most 100%." },
   "read-bits": { term: "Read bits", gloss: "What an act pays for looking at the object: a small fraction of a bit per bit read, since looking is much cheaper than changing. Never free." },
-  "change-cost": { term: "Change cost", gloss: "The extra bits an act pays when it really changes the object, on top of reading it. No change, no change cost." },
+  "change-cost": { term: "Change cost", gloss: "What an act pays for really changing the object, cell by cell; many at once cost much more. Where distance is priced, a number's small steps cost least." },
   skip: { term: "Skip", gloss: "A turn where the agent looked and changed nothing. It pays only for reading, so skipping is cheap." },
   turn: { term: "Turn", gloss: "A chance to act on one object. The world hands turns out at random: more energy means more turns, at most 4 a second each." },
   pause: { term: "Pause", gloss: "Each god may stop the world once per game (3 minutes by default) to negotiate." },

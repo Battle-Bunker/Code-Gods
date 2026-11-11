@@ -212,7 +212,8 @@ agent's `spentRead` and an event's `cost.read` are energy, not bits read.
   prelude helpers with Python and TypeScript signatures);
 - `economy`: `powerPerSecond` (each god's power, bits per world second, shared out as agents' `powerShare`), `startingEnergy`, `maxAgentOpportunityHz` (the most turns a
   single agent gets per world second), `maxAgentsPerGod`, `penaltyWeight`, `worldSeconds`, `commitClause`,
-  `objectSelection`;
+  `objectSelection`, `costModel` (how a change is priced: `"set-v1"` charges every changed cell the same, `"distance-v1"`
+  charges a number by how far it moved; absent on older servers means `"set-v1"`);
 - `self`: `godId`, `label`, `isAI`, `energy`, `allocated` (the share of power given to agents), `income` (its own bits per world second), `ready`, `pauseUsed`, and `utility`, the kid card
   (familyId, emoji, name, theme, summary, language, source, shape, optional `penalty` defence goal);
 - `objects`: `{id, value, own: {ordinal, rewardBits, penaltyBits?, netBits}, peerNetBits, peerCare,

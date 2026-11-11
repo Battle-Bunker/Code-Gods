@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { LANGUAGES, RETIRED_LANGUAGES, type Language, type StoredLanguage } from "@workspace/game-core";
+import { COST_MODELS, LANGUAGES, RETIRED_LANGUAGES, type CostModel, type Language, type StoredLanguage } from "@workspace/game-core";
 
 /**
  * Player protocol v3 (docs/player-client-integration.md has the migration note from v2).
@@ -117,7 +117,9 @@ export const observationSchema = z.object({
     maxAgentsPerGod: z.number().int().nonnegative(), penaltyWeight: finite, worldSeconds: finite,
     /** How the game ends and its length in world seconds (the exact length when "fixed", else the half-life): the game timer. */
     durationMode: z.enum(["fixed", "halfLife"]).optional(), lengthSeconds: finite.optional(),
-    commitClause: z.boolean().optional(), objectSelection: z.enum(["uniform", "shelter"]).optional() }).optional(),
+    commitClause: z.boolean().optional(), objectSelection: z.enum(["uniform", "shelter"]).optional(),
+    /** How a change is priced (game-core settings.costModel; absent on older servers: "set-v1"). */
+    costModel: z.enum(COST_MODELS as readonly [CostModel, ...CostModel[]]).optional() }).optional(),
   self: z.object({ godId: id, label: z.string().max(128), isAI: z.boolean(), energy: finite, ready: z.boolean(), pauseUsed: z.boolean().optional(),
     // Power: the share (0–1) of economy.powerPerSecond given to your agents, and your own income (bits per world second) from the rest.
     allocated: finite.optional(), income: finite.optional(),

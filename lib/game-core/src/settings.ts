@@ -9,7 +9,7 @@
 import { COST_MODELS, DEFAULT_COST_MODEL, READ_PRICE, instantiate, isCostModel, objectType as objectTypeDef, readBound } from "@workspace/game-types";
 import type { Codec, CostModel, Instantiation, ObjectValue, TypeArgs } from "@workspace/game-types";
 
-export type { CostModel, ObjectValue, TypeArgs } from "@workspace/game-types";
+export type { ObjectValue, TypeArgs } from "@workspace/game-types";
 
 /**
  * The agent languages, ONE entry each. A game allows a non-empty set of them (`GameSettings.languages`), and each
@@ -130,7 +130,8 @@ export interface GameSettings {
   peerNoiseBits: number;
   /**
    * How a change is priced (game-types structure/index.ts; docs/mutation-cost-design.md §11 stage 1): "set-v1" charges
-   * every changed cell the same; "distance-v1" charges a number by how far it moved and a colour for having changed.
+   * every changed cell the same; "distance-v1" (and the other models of game-types COST_MODELS) charges a number by how
+   * far it moved and a colour for having changed.
    * OPTIONAL: absent means "set-v1" (read it with `costModelOf`), so settings stored before cost models existed need no
    * migration, and the settings model never stores the default (applySettingsChange). Only the models the object type
    * supports (`supportedCostModels`: every model on Grid, "set-v1" alone elsewhere).
@@ -141,9 +142,14 @@ export interface GameSettings {
 /** The fields a settings object may leave out (each has a reader that supplies its default): not in DEFAULT_SETTINGS. */
 export const OPTIONAL_SETTINGS_FIELDS = Object.freeze(["costModel"] as const);
 
-/** The cost model these settings price changes with: `settings.costModel`, or "set-v1" when absent (or unknown). */
-export function costModelOf(settings: { readonly costModel?: unknown } | null | undefined): CostModel {
-  return isCostModel(settings?.costModel) ? settings.costModel : DEFAULT_COST_MODEL;
+/**
+ * A room's cost model: from its settings or the observation's economy (their `costModel`), or the value itself.
+ * Anything else (absent, an older game, an unknown id) is "set-v1".
+ */
+export function costModelOf(from: unknown): CostModel {
+  if (isCostModel(from)) return from;
+  const model = from && typeof from === "object" ? (from as { costModel?: unknown }).costModel : undefined;
+  return isCostModel(model) ? model : DEFAULT_COST_MODEL;
 }
 
 /** The cost models rooms of this instantiation may use, the default first ([] never: "set-v1" is always offered). */
@@ -679,7 +685,7 @@ export const SETTINGS_DOCS = {
   },
   costModel: {
     question: "How is a change priced?", section: "energy", tier: "more", control: "segmented", suggested: COST_MODELS, dependsOn: ["objectType", "typeArgs"],
-    meaning: "How a change is priced: set charges every changed cell the same, while distance charges a number by how far it moved and a colour for having changed.",
+    meaning: "How a change is priced: set charges every changed cell the same, while distance (like its variants dial and log) charges a number by how far it moved and a colour for having changed.",
     consequence: "Under distance, adding 1 to a number is the cheapest change and a far jump costs more, so small careful steps are rewarded.",
   },
   startingObjectCount: {

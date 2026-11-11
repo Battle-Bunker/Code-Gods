@@ -148,7 +148,7 @@ const NOTHING: ActCost = Object.freeze({ work: 0, total: 0 });
  */
 export function applyCalls<V>(typeDef: ObjectTypeDef<V>, inst: Instantiation, value: ObjectValue, wire: unknown,
   model: CostModel = DEFAULT_COST_MODEL): ActOutcome {
-  const avail = availableOf(typeDef.mutators, inst);
+  const avail = availableOf(typeDef.mutators, inst, model);
   const byId = new Map(avail.map(m => [m.id, m]));
   const codec = typeDef.codec(inst);
   let work = 0;

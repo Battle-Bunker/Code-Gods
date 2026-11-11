@@ -11,9 +11,11 @@
  *   combination the type refuses (or a retired one, 3×3) is disabled. Calibration is never a condition: a shape whose
  *   tables are not shipped prepares them on its first game, which `firstUseNote` says (with the measured time);
  * - the family shelves of an instantiation (reward rules and defence goals);
- * - stepped choices that always contain the current value; the length and pace lines of the summary.
+ * - stepped choices that always contain the current value; the length and pace lines of the summary;
+ * - the cost model (an optional setting: absent means "set-v1"): its choices are the models the draft's world supports
+ *   (`costModelChoices`), its value is read with game-core `costModelOf`, and it hides in a world with only one model.
  */
-import { ENERGY_LIMITS, LANGUAGES, TIME_LIMITS, LANGUAGE_SPECS, SETTINGS_DOCS, sameSettings, validateSettings, type FamilyRole, type FieldDoc, type GameSettings, type Language, type SettingsDomain, type SettingsSection } from "@workspace/game-core";
+import { ENERGY_LIMITS, LANGUAGES, TIME_LIMITS, LANGUAGE_SPECS, SETTINGS_DOCS, costModelOf, sameSettings, supportedCostModels, validateSettings, type CostModel, type FamilyRole, type FieldDoc, type GameSettings, type Language, type SettingsDomain, type SettingsSection } from "@workspace/game-core";
 import { instanceInfo, instantiate, type ParamSchema, type TypeArgs } from "@workspace/game-types";
 import { familiesFor, firstUseSeconds, isPlayableInstantiation, publicCatalog, type CatalogEntry } from "@workspace/game-utilities";
 
@@ -48,6 +50,7 @@ export const LABELS: Readonly<Record<SettingsKey, string>> = {
   penaltyWeight: "Defence weight", defenceGoals: "Defence goals", excludedFamilies: "Rules never dealt", excludedDefenceFamilies: "Defence goals never dealt",
   priorId: "Rarity reference",
   commitClause: "Conditional moves", objectSelection: "Act targeting", scoreIntervalSeconds: "Score updates", peerNoiseBits: "Blur on others' interest",
+  costModel: "Change pricing",
 };
 
 type Limit = { min: number; max?: number; int?: boolean; above?: boolean; unit: string };
@@ -111,8 +114,17 @@ export function toggleLanguage(current: readonly Language[], language: Language,
   return next.length ? next : [...current];
 }
 
-/** Fields with no effect in these settings (penalty weight and the defence checklist while defence goals are off). */
+/** The cost models the draft's world offers, the default first (one for Int and string, which have no other). */
+export function costModelChoices(s: Pick<Settings, "objectType" | "typeArgs">): CostModel[] {
+  try { return supportedCostModels(s); } catch { return [costModelOf(undefined)]; }
+}
+
+/**
+ * Fields with no effect in these settings (penalty weight and the defence checklist while defence goals are off), and
+ * the cost model in a world that has only one.
+ */
 export function isHidden(key: SettingsKey, s: Settings): boolean {
+  if (key === "costModel") return costModelChoices(s).length < 2;
   const when = (SETTINGS_DOCS[key] as FieldDoc).hiddenWhen;
   return !!when && Object.entries(when).every(([k, v]) => s[k as SettingsKey] === v);
 }
@@ -246,6 +258,7 @@ export function formatValue(key: SettingsKey, v: unknown): string {
   if (key === "commitClause") return v ? "offered" : "off";
   if (key === "defenceGoals") return v ? "every player" : "off";
   if (key === "languages" && Array.isArray(v)) return v.map(l => choiceLabel(key, l)).join(", ") || "none";
+  if (key === "costModel") return choiceLabel(key, costModelOf(v));   // optional: absent is the default model
   if ((key === "utilitySelectorId" || key === "objectSelection" || key === "durationMode") && typeof v === "string") return choiceLabel(key, v);
   const unit = (SETTINGS_DOCS[key] as FieldDoc).unit;
   return typeof v === "number" ? `${n(v)}${unit ? ` ${unit}` : ""}` : String(v);
@@ -256,6 +269,10 @@ const NAMED: Partial<Record<SettingsKey, Record<string, string>>> = {
   halfLifeSeconds: { 120: "Short", 300: "Normal", 600: "Long", 1200: "Marathon" },
   utilitySelectorId: { "fair-aligned": "Aligned Lottery", "divine-lottery": "Divine Lottery" },
   objectSelection: { uniform: "Uniform", shelter: "Shelter" },
+  costModel: {
+    "set-v1": "Set: every change alike", "distance-v1": "Distance: further costs more",
+    "dial-v1": "Dial: distance, 9 next to 0", "log-v1": "Log: a far move costs little more",
+  } satisfies Record<CostModel, string>,
   languages: Object.fromEntries(LANGUAGES.map(l => [l, LANGUAGE_SPECS[l].label])),
 };
 const duration = (s: number) => (s >= 60 && s % 60 === 0 ? `${s / 60} min` : `${n(s)} s`);

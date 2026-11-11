@@ -3,11 +3,11 @@
  * colours) is a type constructor; Grid(5,base10,rgby) is an instantiation, never a "room".
  */
 import { CLASSES, closure, resolve } from "../constraints.ts";
-import { assemblePrelude, availableOf, memo } from "../prelude.ts";
-import type { Codec, Instantiation, InstanceInfo, ObjectTypeDef, ParamSchema, Rng, TypeArgs } from "../types.ts";
+import { assemblePrelude, availableOf, memo, offerKey } from "../prelude.ts";
+import type { Codec, Instantiation, InstanceInfo, ObjectTypeDef, ParamSchema, PreludeParts, Rng, TypeArgs } from "../types.ts";
 import { draw } from "../util.ts";
 import {
-  DEFAULT_COST_MODEL, effectWork, generatorOf, layerSize, siteWork,
+  DEFAULT_COST_MODEL, effectWork, generatorOf, layerSize, numberLayerKind, siteWork,
   type CostModel, type CostRow, type Family, type Layer,
 } from "../structure/index.ts";
 import { decodeGrid, encodeGrid, gridMaxLength, gridTypeKey, type GridTypeArgs, type GridValue } from "./codec.ts";
@@ -133,8 +133,8 @@ function layerBits(inst: Instantiation): Record<string, number> {
  * Grid's generator families under a cost model (structure/index.ts; docs/energy-model.md §4.1). Every cell is a site of
  * each family. A layer with one value (a mono board's colour) is no family: there is nothing to move.
  *   set-v1:       "symbol" (the whole symbol set, overwritten) and "colour" (overwritten).
- *   distance-v1:  "rank" (the counting order, a slider: digits 0–9, cards A–K), "suit" (cards only, categorical) and
- *                 "colour" (categorical).
+ *   the others:   "rank" (the counting order: digits 0–9, cards A–K; a slider, or a dial under dial-v1), "suit" (cards
+ *                 only, categorical) and "colour" (categorical).
  */
 export function gridFamilies(inst: Instantiation, model: CostModel = DEFAULT_COST_MODEL): readonly Family<GridValue>[] {
   const key = `${inst.key}|${model}`;
@@ -142,22 +142,22 @@ export function gridFamilies(inst: Instantiation, model: CostModel = DEFAULT_COS
   if (fams) return fams;
   const t = gridArgs(inst), sites = t.size * t.size, s = SYMBOL_COMPONENTS[t.symbols], C = COLOUR_COMPONENTS[t.colours].count;
   const suits = s.suitNames?.length ?? 1;
-  const layers: [string, Layer, (v: GridValue, i: number) => number][] = model === "set-v1"
-    ? [["symbol", { kind: "categorical", n: s.count }, (v, i) => v.sym[i]], ["colour", { kind: "categorical", n: C }, (v, i) => v.col[i]]]
-    : [["rank", { kind: DIGIT_STRUCTURE, n: s.rankCount }, (v, i) => s.ranks[v.sym[i]]],
-      ["suit", { kind: "categorical", n: suits }, (v, i) => v.sym[i] - s.ranks[v.sym[i]]],
-      ["colour", { kind: "categorical", n: C }, (v, i) => v.col[i]]];
-  fams = Object.freeze(layers.flatMap(([id, layer, get]) => {
+  const R = s.rankCount;
+  type Site = [string, Layer, (v: GridValue, i: number) => number, (v: GridValue, i: number, x: number) => void];
+  const layers: Site[] = model === "set-v1"
+    ? [["symbol", { kind: "categorical", n: s.count }, (v, i) => v.sym[i], (v, i, x) => { v.sym[i] = x; }],
+      ["colour", { kind: "categorical", n: C }, (v, i) => v.col[i], (v, i, x) => { v.col[i] = x; }]]
+    : [["rank", { kind: numberLayerKind(model), n: R }, (v, i) => s.ranks[v.sym[i]], (v, i, x) => { v.sym[i] += x - s.ranks[v.sym[i]]; }],
+      ["suit", { kind: "categorical", n: suits }, (v, i) => (v.sym[i] - s.ranks[v.sym[i]]) / R, (v, i, x) => { v.sym[i] = x * R + s.ranks[v.sym[i]]; }],
+      ["colour", { kind: "categorical", n: C }, (v, i) => v.col[i], (v, i, x) => { v.col[i] = x; }]];
+  fams = Object.freeze(layers.flatMap(([id, layer, get, set]) => {
     const generator = generatorOf(layer, model);
-    return generator ? [Object.freeze({ id, generator, sites, get })] : [];
+    return generator ? [Object.freeze({ id, generator, sites, get, set })] : [];
   }));
   familiesCache.set(key, fams);
   return fams;
 }
 const familiesCache = new Map<string, readonly Family<GridValue>[]>();
-/** How the counting order is walked under distance-v1: a slider (9 + 1 is out of range), not a dial. */
-const DIGIT_STRUCTURE = "ordinal" as const;
-
 /**
  * The information cost w of Grid's elementary mutators under set-v1 (docs/energy-model.md §4.1): set one cell's colour,
  * or its symbol. The op-choice bits are log2 of how many families the type has (2: 1 bit), log2 N² the cell, log2 C (S)
@@ -195,10 +195,17 @@ export function gridCostTable(inst: Instantiation, model: CostModel = DEFAULT_CO
   return rows;
 }
 
-const prelude = memo(inst => {
-  const t = gridArgs(inst);
-  return assemblePrelude(inst, gridPrelude(t.size, SYMBOL_COMPONENTS[t.symbols], COLOUR_COMPONENTS[t.colours], inst.classes), GRID_MUTATORS);
-});
+const preludes = new Map<string, PreludeParts>();
+function prelude(inst: Instantiation, model: CostModel = DEFAULT_COST_MODEL): PreludeParts {
+  const key = `${inst.key}|${offerKey(GRID_MUTATORS, model)}`;
+  let parts = preludes.get(key);
+  if (!parts) {
+    const t = gridArgs(inst);
+    parts = assemblePrelude(inst, gridPrelude(t.size, SYMBOL_COMPONENTS[t.symbols], COLOUR_COMPONENTS[t.colours], inst.classes), GRID_MUTATORS, model);
+    preludes.set(key, parts);
+  }
+  return parts;
+}
 
 /** Display tables for renderers (both UIs) and the manifest. */
 export function gridDisplay(inst: Instantiation) {
@@ -217,20 +224,25 @@ export function gridDisplay(inst: Instantiation) {
   };
 }
 
-const describe = memo((inst): InstanceInfo => {
+const infos = new Map<string, InstanceInfo>();
+function describe(inst: Instantiation, model: CostModel = DEFAULT_COST_MODEL): InstanceInfo {
+  const key = `${inst.key}|${offerKey(GRID_MUTATORS, model)}`, known = infos.get(key);
+  if (known) return known;
   const t = gridArgs(inst), s = SYMBOL_COMPONENTS[t.symbols], c = COLOUR_COMPONENTS[t.colours];
   const badges = resolve(inst.classes.map(id => ({ has: id })), inst);
-  return Object.freeze({
+  const info: InstanceInfo = Object.freeze({
     objectType: "Grid", args: inst.args, key: inst.key,
     label: `Grid ${t.size}×${t.size} · ${s.label} · ${c.label}`,
     badges: badges.ok ? badges.badges : [],
     terms: inst.terms,
     display: gridDisplay(inst),
     codec: { format: "grid-ascii-v1", maxLength: gridMaxLength(t) },
-    mutators: availableOf(GRID_MUTATORS, inst).map(m => ({ id: m.id, name: m.name, emoji: m.emoji, summary: m.summary })),
-    helpers: prelude(inst).helpers,
+    mutators: availableOf(GRID_MUTATORS, inst, model).map(m => ({ id: m.id, name: m.name, emoji: m.emoji, summary: m.summary })),
+    helpers: prelude(inst, model).helpers,
   });
-});
+  infos.set(key, info);
+  return info;
+}
 
 export const GRID: ObjectTypeDef<GridValue> = Object.freeze({
   id: "Grid", label: "Grid", emoji: "🟥", kid: "A square board of cells, each with a symbol on it (and a colour, unless it is numbers only)",
@@ -244,7 +256,8 @@ export const GRID: ObjectTypeDef<GridValue> = Object.freeze({
   spawn: spawnGrid,
   propose: proposeGrid,
   callWork,
-  supportsCostModel: () => true,
+  // Multiply needs digits (a number base); every other model fits every Grid.
+  supportsCostModel: (inst: Instantiation, model: CostModel) => model !== "multiply-v1" || inst.classes.includes("Numeral"),
   costTable: gridCostTable,
   layerBits,
   // A getter, so mutator modules may import grid helpers without an evaluation-order cycle.

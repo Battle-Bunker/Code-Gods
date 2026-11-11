@@ -12,7 +12,7 @@
  * μ | U ≥ ℓ, so the share of them whose m-mutation noise still scores ≥ ℓ estimates P(hold | ≥ ℓ) at that level. A share
  * of 0 is floored at 1/(2N) (N particles), so hold bits are at most log2(2N).
  */
-import { NOISE_VERSION, noise, objectType, seededRng, type Instantiation, type Rng } from "@workspace/game-types";
+import { DEFAULT_COST_MODEL, noise, noiseVersion, objectType, seededRng, type CostModel, type Instantiation, type Rng } from "@workspace/game-types";
 import { evaluator } from "../src/catalog.ts";
 import { cmpOrdinal } from "../src/calibration.ts";
 import { HOLD_ESTIMATOR, type HoldTable } from "../src/hold.ts";
@@ -33,12 +33,16 @@ export interface HoldBudget {
 export const DEFAULT_HOLD_BUDGET: HoldBudget = Object.freeze({ particles: 400, targetBits: 40, p0: 0.5, maxStages: 80, maxStuck: 3, draws: 2 });
 export const SMOKE_HOLD_BUDGET: HoldBudget = Object.freeze({ particles: 60, targetBits: 12, p0: 0.5, maxStages: 20, maxStuck: 2, draws: 1 });
 
-/** The cache key part a hold table adds to its static table's key (the noise version invalidates it). */
-export const holdKeyPart = (m: number) => `hold:${HOLD_ESTIMATOR.id}@${HOLD_ESTIMATOR.version}:m=${m}:${NOISE_VERSION}`;
+/**
+ * The cache key part a hold table adds to its static table's key: the noise version of the game's cost model
+ * invalidates it (the mutation noise is drawn ∝ 2^(−C), and C is the model's). "set-v1" keeps the key it had before
+ * cost models existed (game-types noiseVersion), so tables cached then stay valid.
+ */
+export const holdKeyPart = (m: number, model: CostModel = DEFAULT_COST_MODEL) => `hold:${HOLD_ESTIMATOR.id}@${HOLD_ESTIMATOR.version}:m=${m}:${noiseVersion(model)}`;
 
-/** Estimate the hold table of one draw at one m (m ≥ 1). Deterministic in `seed`. */
+/** Estimate the hold table of one draw at one m (m ≥ 1) under the game's cost model. Deterministic in `seed`. */
 export function buildHoldTable(familyId: string, params: Params, inst: Instantiation, m: number, seed: string,
-  budget: HoldBudget = DEFAULT_HOLD_BUDGET): HoldTable {
+  budget: HoldBudget = DEFAULT_HOLD_BUDGET, model: CostModel = DEFAULT_COST_MODEL): HoldTable {
   if (!(Number.isInteger(m) && m >= 1)) throw new Error("hold tables are for m ≥ 1 (one player needs none)");
   const T = objectType(inst.objectType), codec = T.codec(inst), ev = evaluator({ familyId, params }, inst);
   const score = (v: unknown): Ordinal => ev(codec.encode(v));
@@ -53,7 +57,7 @@ export function buildHoldTable(familyId: string, params: Params, inst: Instantia
   };
   const holdAt = (level: Ordinal) => {
     let held = 0;
-    for (const p of parts) for (let d = 0; d < budget.draws; d++) if (cmpOrdinal(score(noise(inst, p.v, m, nrng)), level) >= 0) held++;
+    for (const p of parts) for (let d = 0; d < budget.draws; d++) if (cmpOrdinal(score(noise(inst, p.v, m, nrng, model)), level) >= 0) held++;
     const frac = held / (N * budget.draws);
     return -Math.log2(Math.max(frac, 1 / (2 * N * budget.draws)));
   };
@@ -81,5 +85,5 @@ export function buildHoldTable(familyId: string, params: Params, inst: Instantia
     mcmc(level, steps);
     push(level, holdAt(level));
   }
-  return { m, levels: out, noise: NOISE_VERSION, estimator: { ...HOLD_ESTIMATOR, seed, particles: N } };
+  return { m, levels: out, noise: noiseVersion(model), estimator: { ...HOLD_ESTIMATOR, seed, particles: N } };
 }

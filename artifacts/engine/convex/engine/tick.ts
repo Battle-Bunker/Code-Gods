@@ -17,7 +17,7 @@
  * so the outcome is the sequential one.
  */
 import { v } from "convex/values";
-import { chargeAct, instantiationOf, isLanguage, pickByEnergy, poissonIntervalSeconds, type GameSettings, type ObjectValue } from "@workspace/game-core";
+import { chargeAct, costModelOf, instantiationOf, isLanguage, pickByEnergy, poissonIntervalSeconds, type GameSettings, type ObjectValue } from "@workspace/game-core";
 import { actCharge, applyCalls, deriveSeed, failedReadBits, isSkip, objectType, readBound, type ActOutcome, type MutatorCallWire } from "@workspace/game-types";
 import type { UtilityDescriptor } from "@workspace/game-utilities";
 import type { Id } from "../_generated/dataModel";
@@ -53,11 +53,11 @@ const MAX_SIMULATE_MS = 4000;
 
 const net = (scores: readonly Score[], roster: readonly string[]) => roster.map(id => scores.find(s => s.god === id)?.netBits ?? 0);
 
-/** The outcome of one act on `before`: applyCalls, or a failure when the runtime refused it (the agent's fault). */
+/** The outcome of one act on `before`: applyCalls priced under the game's cost model, or a failure when the runtime refused it (the agent's fault). */
 function actOutcome(settings: GameSettings, before: ObjectValue, result: ActResult): ActOutcome {
   if ("error" in result) return { ok: false, reason: result.error, cost: { work: 0, total: 0 } };
   const inst = instantiationOf(settings);
-  return applyCalls(objectType(inst.objectType), inst, before, result.calls);
+  return applyCalls(objectType(inst.objectType), inst, before, result.calls, costModelOf(settings));
 }
 
 export const run = internalAction({

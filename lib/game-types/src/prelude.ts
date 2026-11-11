@@ -8,6 +8,7 @@
  * keys sorted, no spaces, non-ASCII escaped as \uXXXX, numbers must be whole and safe. Python and JS
  * emit byte-identical text for the same calls.
  */
+import { DEFAULT_COST_MODEL, type CostModel } from "./structure/index.ts";
 import { satisfied } from "./constraints.ts";
 import { MAX_CALLS, type HelperDoc, type Instantiation, type MutatorDef, type PreludeParts, type PricingVocab } from "./types.ts";
 import { sha256 } from "./util.ts";
@@ -191,13 +192,18 @@ export function helper(python: string, pySig: string, tsSig: string, kid: string
   });
 }
 
-export function availableOf<V>(mutators: readonly MutatorDef<V, any>[], inst: Instantiation): MutatorDef<V, any>[] {
-  return mutators.filter(m => m.requires.every(c => satisfied(c, inst)));   // = resolve(m.requires, inst).ok
+export function availableOf<V>(mutators: readonly MutatorDef<V, any>[], inst: Instantiation, model: CostModel = DEFAULT_COST_MODEL): MutatorDef<V, any>[] {
+  return mutators.filter(m => (!m.costModels || m.costModels.includes(model))
+    && m.requires.every(c => satisfied(c, inst)));   // = resolve(m.requires, inst).ok
 }
+/** Memo key part for what depends on the room's cost model only through the mutators it offers. */
+export const offerKey = (mutators: readonly MutatorDef<any, any>[], model: CostModel = DEFAULT_COST_MODEL): string =>
+  (mutators.some(m => m.costModels?.includes(model)) ? model : "");
 
 /** base prelude + call encoder + every available mutator's guest constructors. */
-export function assemblePrelude(inst: Instantiation, base: BasePrelude, mutators: readonly MutatorDef<any, any>[]): PreludeParts {
-  const avail = availableOf(mutators, inst);
+export function assemblePrelude(inst: Instantiation, base: BasePrelude, mutators: readonly MutatorDef<any, any>[],
+  model: CostModel = DEFAULT_COST_MODEL): PreludeParts {
+  const avail = availableOf(mutators, inst, model);
   const header = (c: string) => `${c} Room helpers for ${inst.key}. Generated; do not edit.\n`;
   const python = header("#") + base.python + ENCODE_CALLS_PY + (base.agentPython ?? "") + avail.map(m => m.guest.python).join("\n");
   const jsText = header("//") + base.js + ENCODE_CALLS_JS + (base.agentJs ?? "") + avail.map(m => m.guest.js).join("\n");

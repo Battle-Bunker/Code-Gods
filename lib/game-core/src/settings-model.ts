@@ -179,16 +179,17 @@ export function applySettingsChange(settings: GameSettings, patch: Partial<GameS
   for (const key of Object.keys(given) as (keyof GameSettings)[]) {
     if (!handled.has(key) && changed(key)) next = { ...next, [key]: given[key] };
   }
+  // A model the instantiation does not support (the world changed under it) goes back to the default.
+  if (next.costModel !== undefined && !(isCostModel(next.costModel) && supportedCostModels(next).includes(next.costModel))) next = { ...next, costModel: DEFAULT_COST_MODEL };
   return canonicalCostModel(next);
 }
 
 /**
  * Settings with the cost model in its one stored spelling: the default ("set-v1") is never stored, so equal settings
- * compare equal, and a model the instantiation does not support (the world changed under it) falls back to the default.
+ * compare equal whether or not they name it. Any other value is left for `validateSettings` to judge.
  */
-export function canonicalCostModel<S extends Pick<GameSettings, "objectType" | "typeArgs" | "costModel">>(settings: S): S {
-  if (settings.costModel === undefined) return settings;
-  if (settings.costModel !== DEFAULT_COST_MODEL && isCostModel(settings.costModel) && supportedCostModels(settings).includes(settings.costModel)) return settings;
-  const { costModel: _dropped, ...rest } = settings;
+export function canonicalCostModel<S extends { readonly costModel?: unknown }>(settings: S): S {
+  if (settings.costModel !== DEFAULT_COST_MODEL) return settings;
+  const { costModel: _default, ...rest } = settings;
   return rest as S;
 }

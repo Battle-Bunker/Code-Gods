@@ -172,6 +172,36 @@ round.
 
 The thresholds are in §5.
 
+### 2.6 Energy: `rateE`, `e32`, `e64` and the cost-aware greedy (2026-11-11)
+
+**Why.** `rate4` counts moves, as if every one-cell change cost the same. That is true of today's cost model
+(`set-v1`). Under `distance-v1` (docs/mutation-cost-design.md) a digit moved by Δ costs log2(cells) + log2(families) +
+1.585·|Δ| bits, so the currency is **bits gained per energy bit**, and a rule fixed by ±1 nudges is cheaper to pursue
+than one fixed by jumps.
+
+**The price.** One act that takes a board g to h costs `changeCost(W)` = W + 0.05·W², where W is
+`objectType("Grid").callWork(g, h, …, inst, model)`: the shipped cost functions of `@workspace/game-types`, not a copy
+(`moveEnergy` in the library).
+
+**The agents.** Both make one-cell moves, one move per act, from the same start boards as the other columns, and never
+spend more than 128 energy bits (`energyClimb`):
+- *steepest* is §2.2's greedy. It takes the best strictly higher ordinal and ignores the cost, but pays it.
+- *per-energy* is the **cost-aware greedy**: of the strictly improving moves it takes the one with the most bits
+  gained per energy bit. Under `set-v1` on a numbers-only board every change costs the same, so it is the steepest
+  greedy up to ties (unit-tested).
+
+**The columns** (per-energy agent, under the room's cost model):
+- `rateE`: the mean bits gained per energy bit over the first 64 energy bits, (bits at 64 − bits at the start) / 64.
+- `e32` and `e64`: the share of the rule's top held after 32 and 64 energy bits. Under `set-v1` on the numbers-only
+  4×4 board, 32 energy is one change (16.3 each) and 64 is three.
+
+The **energy table** printed under the main one gives the bits both agents hold at 32 and 64, and the pool's
+share-of-top mean, max/min and CV for each agent. The pool line adds **`rateE` max/min** (and its CV). It is the check
+the mutation-cost design proposed ("`rateE` max/min ≤ 1.6"). It is **reported, not a threshold**: `verdict` does not
+fail a pool on it until the cost model is chosen and the beginner rules are measured (§6.4).
+
+Only these columns depend on `--cost-model`. Every other column is unchanged by it.
+
 ## 3. Running it
 
 ```
@@ -184,6 +214,9 @@ pnpm --filter @workspace/game-utilities difficulty [options]
   --moves cell|symbol             one-cell number and colour changes (default), or numbers only
   --shape "Grid(4,base10,rgb)"    the board, overriding the setup's (the mono palette, once it lands)
   --budget default|quick          sample sizes
+  --starts N                      start boards per rule, overriding the budget's
+  --cost-model set-v1|distance-v1 the room's cost model (any of game-types COST_MODELS), for rateE, e32, e64 and the
+                                  energy table (default set-v1)
   --params N                      distinct canonical params per family (default 1)
   --no-pairs                      skip the synergy matrix
   --calibrate                     calibrate families here even when a shipped table exists
@@ -286,6 +319,7 @@ The tables:
 - §6.1, Annotated basics: the full pool with full moves, plus the three example ad-hoc rules.
 - §6.2, number-only families of First steps: measured on symbols only, with the pair matrix.
 - §6.3, every First steps family: per rule, full moves.
+- §6.4, energy: the Annotated basics pool and the beginner stand-ins under both cost models and both agents.
 
 ### 6.1 Annotated basics (full moves) plus the example ad-hoc rules
 
@@ -483,6 +517,84 @@ Pool: rate4 max/min 7.19 (CV 0.37); reach16 max/min 6.17; card max/min 7.94; DIF
 
 Symmetric beginner pool thresholds: fails 110 (seed2_patchwork: DIFF 41.95 > 10 (greedy is trapped or a cleverer search earns more); seed2_patchwork: K 3.93 > 3.5 (a move's effect depends on too many cells); rainbow_road: DIFF 18.99 > 10 (greedy is trapped or a cleverer search earns more); border_baron: DIFF 25.90 > 10 (greedy is trapped or a cleverer search earns more); border_baron: card 926.18 bits > 800; conqueror: DIFF 13.64 > 10 (greedy is trapped or a cleverer search earns more); …).
 
+### 6.4 Energy under `set-v1` and `distance-v1` (measured 2026-11-11)
+
+Grid(4,base10,mono), the Annotated basics board (numbers only, so every one-cell move is a digit change), 16 shared
+start boards, no pairs. Each cell is the mean bits held after **32 / 64** energy bits. One run per cost model:
+
+```
+pnpm --filter @workspace/game-utilities difficulty --no-pairs --starts 16 --cost-model set-v1        # and distance-v1
+pnpm --filter @workspace/game-utilities difficulty --no-pairs --starts 16 --cost-model distance-v1 \
+  --shape "Grid(4,base10,mono)" --only-adhoc --adhoc lib/game-utilities/scripts/mutation-cost-beginner-rules.mjs
+```
+
+A digit change costs 16.3 energy under `set-v1` whatever the distance. Under `distance-v1` it costs 7.1 for ±1, 9.7
+for ±2, 12.6 for ±3, 15.7 for ±4, 19.0 for ±5 and 34.9 for ±9.
+
+**The Annotated basics pool as seeded today** (three families; the "beginner eight" are not in this tree):
+
+| rule (top bits) | set-v1, steepest | set-v1, per-energy | distance-v1, steepest | distance-v1, per-energy | `rateE` set-v1 | `rateE` distance-v1 |
+|---|--:|--:|--:|--:|--:|--:|
+| mirrormancer (26.6) | 3.4 / 9.1 | 3.4 / 9.1 | 5.1 / 11.6 | 6.8 / 14.0 | 0.131 | 0.208 |
+| number_bonds (50.6) | 3.0 / 9.8 | 3.0 / 9.8 | 5.9 / 14.5 | 9.2 / 17.7 | 0.137 | 0.261 |
+| magic_accountant (16.3) | 4.2 / 11.6 | 4.2 / 11.6 | 5.7 / 12.5 | 7.7 / 12.3 | 0.158 | 0.170 |
+| **share of top at 32: mean; max/min; CV** | 0.15; 4.31; 0.56 | 0.15; 4.31; 0.56 | 0.22; 3.00; 0.44 | 0.30; 2.59; 0.40 | | |
+| **share of top at 64: mean; max/min; CV** | 0.42; 3.69; 0.52 | 0.42; 3.69; 0.52 | 0.50; 2.66; 0.40 | 0.54; 2.16; 0.30 | | |
+| **`rateE` max/min (CV)** | | | | | 1.21 (0.08) | 1.54 (0.18) |
+
+**The beginner stand-ins** of docs/mutation-cost-design.md §8 (`scripts/mutation-cost-beginner-rules.mjs`, calibrated
+on the spot):
+
+| rule (top bits) | set-v1, steepest | set-v1, per-energy | distance-v1, steepest | distance-v1, per-energy | `rateE` set-v1 | `rateE` distance-v1 |
+|---|--:|--:|--:|--:|--:|--:|
+| half_turn_nine (29.8) | 2.1 / 6.8 | 2.1 / 6.8 | 3.5 / 9.7 | 6.6 / 14.4 | 0.095 | 0.214 |
+| row_partners_one_apart (19.1) | 1.8 / 5.7 | 1.8 / 5.7 | 2.7 / 7.8 | 6.7 / 12.8 | 0.077 | 0.189 |
+| corner_box_two_pairs (21.9) | 3.1 / 8.7 | 3.1 / 8.7 | 5.2 / 9.2 | 5.7 / 9.2 | 0.133 | 0.141 |
+| window_spread_3 (23.0) | 4.1 / 9.6 | 4.1 / 9.6 | 5.3 / 10.1 | 7.1 / 14.1 | 0.130 | 0.201 |
+| column_mirror_equal (27.6) | 1.6 / 6.1 | 1.6 / 6.1 | 3.5 / 8.0 | 5.8 / 12.9 | 0.090 | 0.196 |
+| checker_parity (15.8) | 1.7 / 3.7 | 1.7 / 3.7 | 2.5 / 4.5 | 5.2 / 12.4 | 0.041 | 0.177 |
+| row_sum_18 (15.4) | 4.4 / 12.0 | 4.4 / 12.0 | 5.3 / 12.5 | 6.4 / 12.5 | 0.165 | 0.172 |
+| diagonal_steps (20.1) | 3.7 / 10.2 | 3.7 / 10.2 | 6.9 / 12.8 | 8.3 / 14.2 | 0.145 | 0.208 |
+| **share of top at 32: mean; max/min; CV** | 0.14; 4.87; 0.50 | 0.14; 4.87; 0.50 | 0.21; 2.95; 0.41 | 0.31; 1.98; 0.24 | | |
+| **share of top at 64: mean; max/min; CV** | 0.39; 3.49; 0.46 | 0.39; 3.49; 0.46 | 0.45; 2.80; 0.38 | 0.62; 1.92; 0.22 | | |
+| **`rateE` max/min (CV)** | | | | | 4.01 (0.35) | 1.52 (0.12) |
+
+What it shows:
+- **Under `set-v1` the two agents are the same agent**, in every row.
+- **Distance pricing with the cost-aware greedy halves the stand-ins' spread**: the CV of the share of top falls from
+  0.50 to 0.24 at 32 energy and from 0.46 to 0.22 at 64, and `rateE` max/min from 4.0 to 1.5. The mean share doubles
+  at 32 (0.14 to 0.31).
+- **The blind agent gets a third of that**: 0.50 to 0.41 at 32. Most of the evening-out is the agent choosing near
+  fixes, not the price list alone.
+- **Who gains.** At 64 energy checker_parity gains most (share of top 0.24 to 0.79: every fix is a nudge), then
+  row_partners_one_apart (0.30 to 0.67), column_mirror_equal (0.22 to 0.47) and half_turn_nine (0.23 to 0.48).
+  corner_box_two_pairs (0.40 to 0.42) and row_sum_18 (0.78 to 0.81) gain least: the first is trapped (`DIFF` 58), the
+  second is already near its top after three changes. No rule loses more than noise with the cost-aware agent
+  (row_sum_18 and magic_accountant move by ±0.7 bits at 64, and by −0.2 with 64 starts).
+- **The seeded pool of three is still uneven** (CV 0.56 to 0.40 at 32). Its spread is the spread of the tops
+  (16 to 51 bits), which no price changes: the three rules gain bits at similar rates (`rateE` max/min 1.2 under
+  `set-v1`), and distance pricing widens that to 1.5 because number_bonds speeds up most and magic_accountant
+  least.
+
+**Against the prototype's figure.** docs/mutation-cost-design.md §8 measured CV 0.39 to 0.17 at 32. With the shipped
+cost functions in the prototype's exact setup, the figure is reproduced digit for digit: the prototype's slider and
+set models now delegate to `@workspace/game-types` (unit-tested equal to `callWork` on the numbers-only board), and
+`mutation-cost --balance --starts 16` prints the same table as before. The table above differs from it in three ways,
+none of them the price:
+- the start boards: both use 16 seeded random boards, but under a different seed label and board key
+  (`rule-difficulty|starts|Grid(4,base10,mono)` here, `rule-difficulty|mutation-cost|Grid(4,base10,rgb)` there);
+- the calibration: ad-hoc rules are calibrated per board key, so the bits differ a little (half_turn_nine tops at 29.8
+  here and 25.6 there);
+- the sample: 16 starts and one or two moves at 32 energy make the CV noisy. With 64 starts this framework gives 0.42
+  to 0.20 at 32 and 0.42 to 0.22 at 64 (`rateE` max/min 3.7 to 1.7); the prototype's setup with 200 starts gives 0.45
+  to 0.20 at 32.
+
+So the claim holds and is, if anything, understated: the spread roughly halves. On the First steps board
+(Grid(4,base10,rgb), `--moves symbol`), where naming the family adds 1 bit to every move (18.4 energy for a set, 8.8 for
+±1), the stand-ins go from 0.49 to 0.29 at 32 and from 0.43 to 0.20 at 64. There row_sum_18 is the one rule that
+holds less at 64 under distance pricing (11.9 to 10.8 bits): the myopic per-energy agent takes cheap nudges toward a
+row total where one set would finish the row.
+
 ## 7. Anchor check
 
 The owner's anchors are honest_minesweeper versus mirrormancer, from §6.1 with full moves.
@@ -540,5 +652,7 @@ The brainstorm proposed "an improving move on at least 99% of random boards". It
 - **Synergy and win share.** Across the 11 Annotated families, a higher per-rule `SYN` goes with a slightly *higher*
   greedy win share (Spearman 0.32). A rule that is hard to combine with is also hard for its partners to help or harm.
   SYN is a design-difficulty measure, not a balance one.
+- **The energy columns are one agent, alone, on one object.** They do not price reads or summons, and they are noisy
+  at 32 energy (one to four moves): compare pools on `e64` and `rateE`, with `--starts 64` when the difference matters.
 - **No agent-ladder estimate yet.** The cheapest template agent that reaches X% of the top, priced in ast-bits, was
   proposed but not built. Card bits plus `DIFF` and `esc2` stand in for it.
