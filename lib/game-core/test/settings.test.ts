@@ -5,7 +5,7 @@ import {
   DEFAULT_SETTINGS, SETTINGS_OPTIONS, MAX_AGENTS_PER_GOD, settingsOptionsFor, validateSettings, LANGUAGES, LANGUAGE_SPECS,
   grammarFor, complexityFor, allowedLanguages, upgradeLegacyLanguage,
   upgradeStoredSettings, FIRST_STEPS_SEED_ID, ANNOTATED_BASICS_SEED_ID, DEFAULT_SETUP_SEED_ID,
-  costModelOf, supportedCostModels, OPTIONAL_SETTINGS_FIELDS,
+  costModelOf, supportedCostModels, OPTIONAL_SETTINGS_FIELDS, isLabSeedId,
   instantiationOf, codecOf, assertObjectValue, defaultSettingsFor, SEED_SETUPS, SETUP_NAME_MAX, seedSetupSettings, ENERGY_LIMITS, type GameSettings,
 } from "../src/settings.ts";
 import { gameEndSeconds } from "../src/random.ts";
@@ -191,7 +191,8 @@ test("defaultSettingsFor gives valid settings for every type and language", () =
   assert.equal(defaultSettingsFor("Grid", ["python"], { size: 7, symbols: "cards", colours: "rainbow6" }).powerPerSecond, 64);
   assert.equal(defaultSettingsFor("Int").powerPerSecond, 8);
   for (const s of SEED_SETUPS) { validateSettings(s.settings); assert.ok(s.name.length <= SETUP_NAME_MAX, s.name); }
-  assert.deepEqual(SEED_SETUPS.map(s => s.seedId), ["grid-first-steps", "grid-annotated-basics", "grid-annotated-colours", "grid-classic", "grid-low-income", "grid-big", "grid-master"]);
+  assert.deepEqual(SEED_SETUPS.map(s => s.seedId), ["grid-first-steps", "grid-annotated-basics", "grid-annotated-colours", "grid-classic", "grid-low-income", "grid-big", "grid-master",
+    "lab-cost-set", "lab-cost-dial", "lab-cost-log", "lab-cost-multiply"], "the ordinary seeds, then the Lab ones");
   assert.equal(seedSetupSettings("grid-first-steps").interactionRateHz, 25);
   assert.deepEqual(seedSetupSettings("grid-classic"), { ...classic, interactionRateHz: 100 }, "Classic is the tuned 5×5 board, complete");
   assert.ok(!seedSetupSettings("grid-master").excludedFamilies.includes("ladder_of_numbers"), "cards cannot deal it, so it is not listed");
@@ -301,11 +302,37 @@ test("the cost model is optional: absent reads as set-v1, and distance-v1 is off
   assert.throws(() => validateSettings({ ...defaultSettingsFor("string"), costModel: "distance-v1" }), /not offered for string\(/);
 });
 
-test("only the default setup (Annotated basics) prices changes by distance; every other seed keeps the default model unspelled", () => {
-  for (const s of SEED_SETUPS) {
+test("only the default setup (Annotated basics) prices changes by distance; every other ordinary seed keeps the default model unspelled", () => {
+  for (const s of SEED_SETUPS.filter(s => !isLabSeedId(s.seedId))) {
     validateSettings(s.settings);
     if (s.seedId === DEFAULT_SETUP_SEED_ID) assert.equal(s.settings.costModel, "distance-v1");
     else assert.ok(!("costModel" in s.settings), `${s.seedId} is untouched`);
   }
   assert.equal(seedSetupSettings(DEFAULT_SETUP_SEED_ID).costModel, "distance-v1");
+});
+
+test("the Lab setups are Annotated basics under each other cost model, after the ordinary seeds", () => {
+  assert.ok(isLabSeedId("lab-cost-set") && !isLabSeedId("grid-classic") && !isLabSeedId(undefined) && !isLabSeedId("my-lab-x"));
+  const lab = SEED_SETUPS.filter(s => isLabSeedId(s.seedId));
+  assert.deepEqual(lab.map(s => [s.seedId, s.name, s.summary, s.settings.costModel]), [
+    ["lab-cost-set", "Lab: flat price", "Annotated basics with today's pricing: every changed number costs the same", undefined],
+    ["lab-cost-dial", "Lab: dial numbers", "Numbers are a dial: 9 and 0 are one step apart, and a step either way costs the same", "dial-v1"],
+    ["lab-cost-log", "Lab: gentle distance", "A far move costs only a little more than a middling one", "log-v1"],
+    ["lab-cost-multiply", "Lab: multiply and divide", "Adds, plus multiply and divide by the last digit; a number's move costs the cheaper of the two", "multiply-v1"],
+  ]);
+  assert.deepEqual(SEED_SETUPS.slice(-lab.length), lab, "placed last");
+  // Everything but the cost model is Annotated basics (the board, the rule pool, the pacing): the pool cannot drift.
+  const { costModel: _basics, ...basics } = seedSetupSettings(ANNOTATED_BASICS_SEED_ID);
+  for (const s of lab) {
+    const { costModel, ...rest } = seedSetupSettings(s.seedId);
+    assert.deepEqual(rest, basics, s.seedId);
+    assert.equal("costModel" in s.settings, s.seedId !== "lab-cost-set", `${s.seedId}: set-v1 stays unspelled`);
+    assert.equal(costModelOf(s.settings), costModel ?? "set-v1");
+    assert.ok(supportedCostModels(s.settings).includes(costModelOf(s.settings)));
+    assert.ok(s.name.length <= SETUP_NAME_MAX && s.summary.length <= 160, s.seedId);
+    validateSettings(s.settings);
+  }
+  // Each model of COST_MODELS is tried by exactly one system setup on this board.
+  const tried = [ANNOTATED_BASICS_SEED_ID, ...lab.map(s => s.seedId)].map(id => costModelOf(seedSetupSettings(id))).sort();
+  assert.deepEqual(tried, ["dial-v1", "distance-v1", "log-v1", "multiply-v1", "set-v1"]);
 });
