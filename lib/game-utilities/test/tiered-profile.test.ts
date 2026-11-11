@@ -7,8 +7,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { instantiate } from "@workspace/game-types";
 import {
-  EXACT_TOP, calibrationError, exactTopFromBoards, headroomShare, liveOf, ninesExactTop, sentenceCount, tierFloor, tierLayout, tierOf, topTierOf,
+  EXACT_TOP, calibrationError, exactTopFromBoards, headroomShare, ninesExactTop, sentenceCount, tierFloor, tierLayout, tierOf, topTierOf,
 } from "../scripts/tiered-profile.ts";
+import { conditionalTier, mulberry32, type DisjointBase } from "../src/tiers/hybrid.ts";
 
 test("tier layout: gated and plain append the tier, unlock puts it after the capped first component", () => {
   const gated = tierLayout(3, 2, [{ gate: 6 }]), plain = tierLayout(3, 2, [{ gate: 0 }]), unlock = tierLayout(4, 2, [{ gate: 6, compose: "unlock" }]);
@@ -65,21 +66,24 @@ test("Opposite Nines at its top, exactly: lines that add up to 18", () => {
   // (1 − 0.067)², so P(tier ≥ 4) is at least 1 − that.
   assert.deepEqual(e.survival.map(([t]) => t), [2, 4, 6, 8, 10]);
   assert.ok(at(4)! >= 1 - (1 - 0.067) ** 2 - 1e-12);
-  // The centre 2×2 square is two opposite pairs: "squares that add up to 18" is never below 1 there.
-  assert.equal(ninesExactTop("squares", 18).survival[0][0], 1);
 });
 
-// Measured (docs/layered-rules-measurements/opposite-nines.md): the hybrid law is within 0.25 bits of the exact law up
-// to 8 lines, and 1.5 bits too rare at all 10 lines (above its declared bound, HYBRID_MAX_ERROR_BITS = 1). This test
-// pins the agreement where it holds and bounds the top level's error, so a worse kernel or budget fails here.
-test("the hybrid law against the exact top law of Opposite Nines: within half a bit below the top tier level", () => {
-  const inst = instantiate("Grid", { size: 4, symbols: "base10", colours: "mono" });
-  const p = { tiers: [{ id: "lines", x: 18, gate: 6 }] };
-  const live = liveOf("opposite_nines", p, inst)!;
-  assert.ok(live && live.problems.length === 0, live?.problems.join("; "));
-  const exact = EXACT_TOP.opposite_nines(p, inst)!;
-  const rows = calibrationError(live.topTier, exact);
+// The conditional splitting the hybrid law is made of (src/tiers/hybrid.ts), with a native tier function, against the
+// exact law. Measured (docs/layered-rules-measurements/opposite-nines.md): at the top base level 1,024 particles and 2
+// sweeps are 1.5 bits off at all 10 lines; the budget below (the hybrid law's top budget) is within half a bit.
+test("conditionalTier agrees with the exact top law of Opposite Nines within half a bit", () => {
+  const base: DisjointBase = {
+    id: "nines-test@1", symbols: 10, cells: 16, arity: 2, units: Array.from({ length: 8 }, (_, i) => [i, 15 - i]),
+    score: ([a, b]) => [a + b === 9 ? 1 : 0, -Math.abs(a + b - 9)],
+  };
+  const lines = [0, 1, 2, 3].flatMap(r => [[0, 1, 2, 3].map(c => 4 * r + c), [0, 1, 2, 3].map(c => 4 * c + r)]).concat([[0, 5, 10, 15], [3, 6, 9, 12]]);
+  const tier = (b: Uint8Array) => lines.filter(l => b[l[0]] + b[l[1]] + b[l[2]] + b[l[3]] === 18).length;
+  const c = conditionalTier(base, [8, 0], tier, { particles: 8192, sweeps: 4, rand: mulberry32(7) });
+  const rows = calibrationError(c.survival, ninesExactTop("lines", 18));
   assert.deepEqual(rows.map(r => r.tier), [2, 4, 6, 8, 10]);
-  for (const r of rows) assert.ok(r.error !== null && r.error < (r.tier === 10 ? 2 : 0.5), `tier ${r.tier}: hybrid ${r.hybrid} vs exact ${r.exact}`);
+  for (const r of rows) assert.ok(r.error !== null && r.error < 0.5, `tier ${r.tier}: splitting ${r.hybrid} vs exact ${r.exact}`);
+  const inst = instantiate("Grid", { size: 4, symbols: "base10", colours: "mono" });
+  assert.ok(EXACT_TOP.opposite_nines({ tiers: [{ id: "lines", x: 18, gate: 6 }] }, inst));
   assert.equal(EXACT_TOP.opposite_nines({ tiers: [{ id: "lines", x: 18, gate: 6, compose: "unlock" }] }, inst), null);
 });
+

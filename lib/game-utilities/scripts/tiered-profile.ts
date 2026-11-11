@@ -218,10 +218,13 @@ export function realRule(familyId: string, params: Params, inst: Instantiation, 
   }
   const budget = table!.estimator.budget, kind = typeof budget === "string" ? budget.split(":")[0] : "sampled";
   let topBits = table!.levels[table!.levels.length - 1][1];
+  // A hybrid draw's exemplar is the best board of its law, so this is where the law is first computed: time it here.
+  const t0 = performance.now();
   try {
     const top = f.top?.(canon, ctx) ?? (f.exemplar ? ev(f.exemplar(canon, ctx)) : undefined);
     if (top !== undefined) topBits = Math.max(topBits, surprisal(table!, top));
   } catch { /* no closed-form top here */ }
+  if (Number.isNaN(seconds) && kind === "hybrid") seconds = (performance.now() - t0) / 1000;
   const rule: Rule = {
     id: `${familyId}.${label(canon)}`, source: f.card.typescript(canon, ctx), score, calibration: shipped ? "shipped" : "calibrated", topBits,
     bits: o => Math.min(rule.topBits, surprisal(table!, o)),
@@ -432,7 +435,7 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
       }
       for (const [k, xs] of seen) {
         const p = JSON.parse(k) as Params;
-        const status = dealt.some(d => key(d) === k) ? "dealt" : lab.some(d => key(d) === k) ? "lab" : "refused";
+        const status = dealt.some(d => key(d) === k) ? "dealt" : lab.some(d => key(d) === k) ? "lab" : "not dealt";
         let live: LiveReport | null = null, error = "";
         try { live = liveOf(f.id, p, inst); } catch (e) { error = String((e as Error).message ?? e); }
         const exact = live && !flag("no-exact") ? exactOf(f.id, p, inst, live) : null;
