@@ -581,11 +581,11 @@ const keySentences = (p: ShiftP, g: GridSpec): string => {
 };
 const keyText = (p: ShiftP, g: GridSpec): CardText => ({
   emoji: "🔢", name: "Colour-by-Number", consts: [["SHIFT", p.shift]],
-  about: `Try to paint every cell the colour of its ${g.cards ? "rank" : "number"}. Every ${g.cards ? "rank" : "number"} has its own colour. ` + keySentences(p, g)
+  about: `Try to paint every cell the colour of its ${g.cards ? "rank" : "number"}. Every ${g.cards ? "rank" : "number"} has a colour, and some ${g.cards ? "ranks" : "numbers"} share one. ` + keySentences(p, g)
     + ` Each cell painted the right colour for its ${g.cards ? "rank" : "number"} scores 1 point.`,
 });
 const colourByNumber = gridFamily<ShiftP>({
-  id: "colour_by_number", name: "Colour-by-Number", emoji: "🔢", theme: "Every number has its own colour",
+  id: "colour_by_number", name: "Colour-by-Number", emoji: "🔢", theme: "Every number has a colour to match",
   analytic: solvedAnalytic("colour_by_number"),
   requires: { classes: ["Valued"] }, shape: SCALAR,
   params: g => ({ shift: intParam("Colour shift (0 paints the first number in the first colour)", 0, g.C - 1) }),
