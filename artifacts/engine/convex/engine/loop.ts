@@ -171,7 +171,7 @@ export const snapshot = internalQuery({
       objects: objects.map(o => ({ id: o._id as string, value: o.value, version: o.version, scores: o.scores, salience: o.salience, noise: o.noise })),
       agents: agents.map(a => ({
         id: a._id as string, ownerId: a.ownerId, source: a.source, language: agentLanguage(a, game.settings as GameSettings), 
-        account: a.account, acts: a.acts, spent: a.spent, spentRead: a.spentRead ?? 0, lastOpportunityWorld: a.lastOpportunityWorld, powerShare: a.powerShare,
+        account: a.account, acts: a.acts, spent: a.spent, spentRead: a.spentRead ?? 0, powerShare: a.powerShare,
         transforms: a.transforms ?? 0, skips: a.skips ?? 0, failures: a.failures ?? NO_FAILURES, lastFailures: a.lastFailures ?? {},
       })),
       futile: futile.map(f => ({ agentId: f.agentId as string, entries: f.entries as Futile[] })),
@@ -206,6 +206,7 @@ export const commit = internalMutation({
     spawns: v.array(v.object({ tmp: v.string(), value: wire, scores: v.array(scoreV), salience: v.number(), noise: v.optional(v.number()) })),
     agents: v.array(v.object({ id: v.id("agents"), fromActs: v.number(), acts: v.number(), spent: v.number(), spentRead: v.optional(v.number()), account: v.object({ balance: v.number(), settledWorldSeconds: v.number() }),
       transforms: v.number(), skips: v.optional(v.number()), failures: failuresV, lastFailures: lastFailuresV,
+      // Unused since the per-agent rate cap went (docs/energy-model.md §7); accepted so a window simulated before the deploy still commits.
       lastOpportunityWorld: v.optional(v.number()) })),
     /** The futile-pair memos that changed in the window (lib/futility.ts), each agent's whole memo. */
     futile: v.optional(v.array(v.object({ agentId: v.id("agents"), entries: futileEntriesV }))),
@@ -288,8 +289,7 @@ export const commit = internalMutation({
     for (const state of args.agents) {
       if (live.has(state.id)) {
         await ctx.db.patch(state.id, { acts: state.acts, spent: state.spent, ...(state.spentRead !== undefined ? { spentRead: state.spentRead } : {}), account: state.account, transforms: state.transforms, failures: state.failures,
-          lastFailures: state.lastFailures, ...(state.skips !== undefined ? { skips: state.skips } : {}),
-          ...(state.lastOpportunityWorld !== undefined ? { lastOpportunityWorld: state.lastOpportunityWorld } : {}) });
+          lastFailures: state.lastFailures, ...(state.skips !== undefined ? { skips: state.skips } : {}) });
       }
     }
     // Only an agent that acted changes its memo; a destroyed one's is never written (destroy deletes it).

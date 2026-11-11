@@ -89,6 +89,12 @@ export interface GameSettings {
    * (agents.powerShare), and what it leaves unallocated is its own income, which pays for summons.
    */
   powerPerSecond: number;
+  /**
+   * World seconds an empty account that spends nothing takes to fill (docs/energy-model.md §6.1): every account holds at
+   * most its power × this (an agent's share·P·T, the deity's own (1 − Σ shares)·P·T). Income above it is not stored.
+   * A game stored before the setting existed has none (no capacity): read it through game-core `energyCapacity`.
+   */
+  fullChargeSeconds: number;
   maxAgentsPerGod: number;
   /** w in n = s⁺ − w(h − E_μh): the weight of a defence-goal bit against a reward bit. */
   penaltyWeight: number;
@@ -168,6 +174,7 @@ export const TIME_LIMITS = Object.freeze({
   interactionRateHz: Object.freeze({ min: 0, max: 1000 }),
   scoreIntervalSeconds: Object.freeze({ min: 1, max: 3600 }),
   pauseSeconds: Object.freeze({ min: 1, max: 3600 }),
+  fullChargeSeconds: Object.freeze({ min: 1, max: 1_000_000 }),
 });
 
 /**
@@ -183,6 +190,11 @@ export const ENERGY_LIMITS = Object.freeze({
 /** The pre-authored choices of scoreIntervalSeconds (world seconds). */
 export const SCORE_INTERVALS: readonly number[] = Object.freeze([5, 10, 20, 30, 60]);
 export const DEFAULT_SCORE_INTERVAL_SECONDS = 10;
+/**
+ * The default time to a full energy store (docs/energy-model.md §6.1): chosen so that the largest program a deity can
+ * ever afford (retained power × this) makes code size matter, by the sweep in lib/game-core/scripts/balance-settings.ts.
+ */
+export const DEFAULT_FULL_CHARGE_SECONDS = 30;
 /** The pre-authored choices of peerNoiseBits (σ in bits) and the default, chosen from the inference experiment. */
 export const PEER_NOISE_OPTIONS: readonly number[] = Object.freeze([0, 2, 4, 8, 16]);
 export const DEFAULT_PEER_NOISE_BITS = 8;
@@ -205,6 +217,7 @@ export const DEFAULT_SETTINGS: Readonly<GameSettings> = Object.freeze({
   pauseSeconds: 180,
   startingEnergy: 200,
   powerPerSecond: 8,
+  fullChargeSeconds: DEFAULT_FULL_CHARGE_SECONDS,
   maxAgentsPerGod: MAX_AGENTS_PER_GOD,
   penaltyWeight: 1,
   defenceGoals: false,
@@ -234,11 +247,13 @@ export function allowedLanguages(settings: Pick<GameSettings, "languages"> | { l
 /**
  * Stored settings in today's shape, or null when they already are (idempotent): the single-language shape converted
  * (see upgradeLegacyLanguage), the removed Haskell language dropped from `languages` (TypeScript when none is left:
- * 2026-11), and fields added since filled with their defaults (scoreIntervalSeconds, peerNoiseBits, durationMode:
- * 2026-11).
- * Use it wherever stored settings (rooms, setups, games) are read.
+ * 2026-11), and fields added since filled with their defaults (scoreIntervalSeconds, peerNoiseBits, durationMode,
+ * fullChargeSeconds: 2026-11).
+ * Use it wherever stored settings (rooms, setups, games) are read. With `played` (the settings of a game already
+ * started, live or ended) the economy is history and is left as it was charged: `fullChargeSeconds` is not filled, so a
+ * game started before the setting existed keeps having no capacity (game-core energyCapacity), live and in its replay.
  */
-export function upgradeStoredSettings(settings: unknown): Record<string, unknown> | null {
+export function upgradeStoredSettings(settings: unknown, played = false): Record<string, unknown> | null {
   const languages = upgradeLegacyLanguage(settings);
   const s = (languages ?? settings) as Record<string, unknown> | null;
   if (!s || typeof s !== "object" || Array.isArray(s)) return languages;
@@ -248,6 +263,7 @@ export function upgradeStoredSettings(settings: unknown): Record<string, unknown
     ...(!("scoreIntervalSeconds" in s) ? { scoreIntervalSeconds: DEFAULT_SCORE_INTERVAL_SECONDS } : {}),
     ...(!("durationMode" in s) ? { durationMode: "halfLife" } : {}),
     ...(!("peerNoiseBits" in s) ? { peerNoiseBits: DEFAULT_PEER_NOISE_BITS } : {}),
+    ...(!played && !("fullChargeSeconds" in s) ? { fullChargeSeconds: DEFAULT_FULL_CHARGE_SECONDS } : {}),
   };
   return Object.keys(filled).length ? { ...s, ...filled } : languages;
 }
@@ -349,6 +365,12 @@ export function validateSettings(settings: GameSettings, domain?: FamilyDomain):
   inRange("planningSeconds", settings.planningSeconds);
   inRange("halfLifeSeconds", settings.halfLifeSeconds);
   inRange("pauseSeconds", settings.pauseSeconds);
+  // Absent only in the settings of a game started before the setting existed (no capacity: upgradeStoredSettings
+  // `played`); a setup or a room always has it (assertCompleteSettings, the upgrade's default).
+  if (settings.fullChargeSeconds !== undefined) {
+    if (typeof settings.fullChargeSeconds !== "number" || !Number.isFinite(settings.fullChargeSeconds)) throw new Error("fullChargeSeconds must be a number of seconds");
+    inRange("fullChargeSeconds", settings.fullChargeSeconds);
+  }
   for (const key of ["powerPerSecond", "startingEnergy", "penaltyWeight"] as const) {
     if (settings[key] > ENERGY_LIMITS[key].max) throw new Error(`${key} must be from 0 to ${ENERGY_LIMITS[key].max}`);
   }
@@ -516,6 +538,11 @@ export interface SeedSetup {
   /** One plain sentence for the setup menu. */
   readonly summary: string;
   readonly settings: Readonly<GameSettings>;
+  /**
+   * Experimental ("Lab"): listed only for administrators, under "Lab" in the setup picker; never offered to anyone
+   * else and never a new room's default. Set by declaring the setup in LAB_SETUPS (below), never by hand.
+   */
+  readonly lab?: true;
 }
 /** The longest setup name. */
 export const SETUP_NAME_MAX = 40;
@@ -571,21 +598,7 @@ const ANNOTATED_COLOURS_EXCLUDED: readonly string[] = Object.freeze([
 const seed = (seedId: string, name: string, summary: string, objectType: string, typeArgs: TypeArgs, patch: Partial<GameSettings>): SeedSetup =>
   Object.freeze({ seedId, name, summary, settings: Object.freeze({ ...defaultSettingsFor(objectType, ["python"], typeArgs), ...patch }) });
 
-/** Seed ids of the Lab setups start with this: system setups only administrators see (the engine's setups.ts). */
-export const LAB_SEED_PREFIX = "lab-";
-/** Whether a seed id names a Lab setup: an experiment shipped to every deployment, listed for administrators only. */
-export const isLabSeedId = (seedId: string | undefined | null): boolean => typeof seedId === "string" && seedId.startsWith(LAB_SEED_PREFIX);
-
-/**
- * A Lab setup: `base` (a seed) with another cost model, name and summary; everything else is the base's own settings,
- * so its board, rule pool and pacing cannot drift from it. "set-v1" stays unspelled, as in every stored setup.
- */
-function labCostSeed(base: SeedSetup, seedId: string, name: string, summary: string, costModel: CostModel): SeedSetup {
-  const { costModel: _replaced, ...rest } = base.settings;
-  return Object.freeze({ seedId, name, summary, settings: Object.freeze({ ...rest, ...(costModel === DEFAULT_COST_MODEL ? {} : { costModel }) }) });
-}
-
-const ORDINARY_SEED_SETUPS: readonly SeedSetup[] = [
+export const SEED_SETUPS: readonly SeedSetup[] = Object.freeze([
   seed(FIRST_STEPS_SEED_ID, "First steps", "A small 4×4 board, slowed down so you can watch your score",
     "Grid", { size: 4, symbols: "base10", colours: "rgb" }, { interactionRateHz: 25, durationMode: "fixed", halfLifeSeconds: 600 }),
   // The default setup's board is numbers only (owner, 2026-11-11: "the most basic game mode … just a grid of numbers").
@@ -609,25 +622,48 @@ const ORDINARY_SEED_SETUPS: readonly SeedSetup[] = [
     "Grid", { size: 6, symbols: "base16", colours: "rainbow6" }, {}),
   seed("grid-master", "Master", "7×7 playing cards in rainbow colours",
     "Grid", { size: 7, symbols: "cards", colours: "rainbow6" }, {}),
-];
-
-/**
- * The system setups, in catalogue order: the ordinary ones, then the Lab ones (the owner, 2026-11-11: the alternative
- * cost models, to try on Annotated basics' board and rules without ordinary players seeing them).
- */
-export const SEED_SETUPS: readonly SeedSetup[] = Object.freeze([
-  ...ORDINARY_SEED_SETUPS,
-  ...((basics: SeedSetup) => [
-    labCostSeed(basics, "lab-cost-set", "Lab: flat price", "Annotated basics with today's pricing: every changed number costs the same", "set-v1"),
-    labCostSeed(basics, "lab-cost-dial", "Lab: dial numbers", "Numbers are a dial: 9 and 0 are one step apart, and a step either way costs the same", "dial-v1"),
-    labCostSeed(basics, "lab-cost-log", "Lab: gentle distance", "A far move costs only a little more than a middling one", "log-v1"),
-    labCostSeed(basics, "lab-cost-multiply", "Lab: multiply and divide", "Adds, plus multiply and divide by the last digit; a number's move costs the cheaper of the two", "multiply-v1"),
-  ])(ORDINARY_SEED_SETUPS.find(s => s.seedId === ANNOTATED_BASICS_SEED_ID)!),
 ]);
 
-/** A seed setup's complete settings (a fresh copy). */
+/** An experimental setup: `seed(...)` marked `lab` (see LAB_SETUPS). */
+const lab = (...args: Parameters<typeof seed>): SeedSetup => Object.freeze({ ...seed(...args), lab: true as const });
+
+/**
+ * A Lab setup that is Annotated basics under another cost model: everything else is that seed's own settings, so its
+ * board, rule pool and pacing cannot drift from it. "set-v1" stays unspelled, as in every stored setup.
+ */
+function labCostSeed(seedId: string, name: string, summary: string, costModel: CostModel): SeedSetup {
+  const { costModel: _replaced, ...rest } = SEED_SETUPS.find(s => s.seedId === ANNOTATED_BASICS_SEED_ID)!.settings;
+  return Object.freeze({ seedId, name, summary, lab: true as const, settings: Object.freeze({ ...rest, ...(costModel === DEFAULT_COST_MODEL ? {} : { costModel }) }) });
+}
+
+/**
+ * The LAB setups: experimental alternatives the owner can try on a deployment without offering them to players.
+ * The engine seeds them like the system setups (setups:ensureSeeded, on every deploy), but lists them only for
+ * administrators (ADMIN_EMAILS), under "Lab" in the setup picker; nobody else can see, open, apply or copy one, and a
+ * new room never starts on one. A room whose administrator owner applied one runs it like any setup.
+ *
+ * To declare one, add an entry here with `lab(...)`, exactly as `seed(...)` above: a NEW stable seed id (prefix
+ * "lab-"), a name of at most SETUP_NAME_MAX characters, a one-sentence summary saying what is different, the
+ * instantiation, and the patch over that instantiation's defaults. Example:
+ *   lab("lab-free-observation", "Lab: free observation", "Annotated basics, but looking at the world costs nothing",
+ *     "Grid", { size: 4, symbols: "base10", colours: "mono" }, { ...the Annotated basics patch, observationMode: "free" }),
+ * SEED_SETUPS (the ordinary system setups, and every test and script that pins or walks them) never includes these.
+ * To retire one, delete its entry: the next deploy's seed sync removes the stored row (rooms that ran it keep their settings).
+ */
+export const LAB_SETUPS: readonly SeedSetup[] = Object.freeze([
+  // The alternative cost models (docs/energy-model.md §4.5), each on Annotated basics' board, rules and pacing.
+  labCostSeed("lab-cost-set", "Lab: flat price", "Annotated basics with the flat price: every changed number costs the same", "set-v1"),
+  labCostSeed("lab-cost-dial", "Lab: dial numbers", "Numbers are a dial: 9 and 0 are one step apart, and a step either way costs the same", "dial-v1"),
+  labCostSeed("lab-cost-log", "Lab: gentle distance", "A far move costs only a little more than a middling one", "log-v1"),
+  labCostSeed("lab-cost-multiply", "Lab: multiply and divide", "Adds, plus multiply and divide by the last digit; a number's move costs the cheaper of the two", "multiply-v1"),
+]);
+
+/** Every setup the engine seeds: the system's, then the Lab's. */
+export const ALL_SEED_SETUPS: readonly SeedSetup[] = Object.freeze([...SEED_SETUPS, ...LAB_SETUPS]);
+
+/** A seed setup's complete settings (a fresh copy); Lab setups included. */
 export function seedSetupSettings(seedId: string): GameSettings {
-  const found = SEED_SETUPS.find(s => s.seedId === seedId);
+  const found = ALL_SEED_SETUPS.find(s => s.seedId === seedId);
   if (!found) throw new Error(`Unknown seed setup: ${seedId}`);
   return { ...found.settings, languages: [...found.settings.languages], typeArgs: { ...found.settings.typeArgs }, excludedFamilies: [...found.settings.excludedFamilies] };
 }
@@ -746,6 +782,11 @@ export const SETTINGS_DOCS = {
     question: "How much power does each player have?", section: "energy", tier: "ask", control: "number", unit: "bits/s", suggested: [8, 16, 32, 64, 128],
     meaning: "Each player's fixed energy income per second of world time, shared between their agents as they choose; the unshared rest refills their own energy for summoning.",
     consequence: "Raising it makes every player's agents act more often, so objects change faster.",
+  },
+  fullChargeSeconds: {
+    question: "How long does an empty energy store take to fill?", section: "energy", tier: "ask", control: "number", unit: "s", suggested: [10, 30, 60, 120, 300],
+    meaning: "Every agent, and each player's own energy, stores at most this many seconds of its power, and income past a full store is lost.",
+    consequence: "Shortening it stops energy piling up, so players must spend or re-allocate it, and big agents and big changes need more power kept for them.",
   },
   costModel: {
     question: "How is a change priced?", section: "energy", tier: "more", control: "segmented", suggested: COST_MODELS, dependsOn: ["objectType", "typeArgs"],

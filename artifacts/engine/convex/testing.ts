@@ -12,7 +12,7 @@ import { endGame, nextDeadline, scheduleTick } from "./engine/loop";
 import { clockDoc, engineDoc, liveGame, withEngine, writeGame, type LiveGame } from "./game/state";
 import { fail } from "./lib/errors";
 import { shortCodeFor } from "./lib/rooms";
-import { seed as seedSetups } from "./setups";
+import { listingOf, seed as seedSetups } from "./setups";
 import { openTurn } from "./assistant/turns";
 
 const dev = () => {
@@ -81,12 +81,15 @@ export const setActivity = internalMutation({
 
 /** Patch a game (clocks, settings snapshot) and optionally restart its loop now. */
 export const patchGame = internalMutation({
-  args: { gameId: v.id("games"), patch: v.any(), kick: v.optional(v.boolean()) },
-  handler: async (ctx, { gameId, patch, kick }) => {
+  args: { gameId: v.id("games"), patch: v.any(), kick: v.optional(v.boolean()), unsetSettings: v.optional(v.array(v.string())) },
+  handler: async (ctx, { gameId, patch, kick, unsetSettings }) => {
     dev();
     const game = await liveGame(ctx, gameId);
     if (!game) return fail("NOT_FOUND", "no game");
-    const next = await writeGame(ctx, game, { ...(patch as Partial<LiveGame>), settings: { ...game.settings, ...(patch.settings ?? {}) } });
+    // `unsetSettings` removes fields, to stage a game stored before a setting existed (settings merge, so a patch cannot).
+    const settings = { ...game.settings, ...(patch.settings ?? {}) } as Record<string, unknown>;
+    for (const key of unsetSettings ?? []) delete settings[key];
+    const next = await writeGame(ctx, game, { ...(patch as Partial<LiveGame>), settings: settings as LiveGame["settings"] });
     if (kick) await scheduleTick(ctx, { ...next, tick: game.tick }, nextDeadline(next, Date.now()));
   },
 });
@@ -108,6 +111,29 @@ export const patchAgentLanguage = internalMutation({
   handler: async (ctx, { agentId, language }) => {
     dev();
     await ctx.db.patch(agentId, { language });
+  },
+});
+
+/** An agent as the tick stored it while agents had a rate cap of their own: with `lastOpportunityWorld` (test/game-schema-migrations.test.ts). */
+export const legacyAgentOpportunity = internalMutation({
+  args: { agentId: v.id("agents"), world: v.number() },
+  handler: async (ctx, { agentId, world }) => {
+    dev();
+    await ctx.db.patch(agentId, { lastOpportunityWorld: world });
+  },
+});
+
+/**
+ * A system Lab setup as the seed sync would store one declared in game-core LAB_SETUPS (which may be empty), so the
+ * tests of who may see one never depend on which experiments are shipped today. The next seed sync removes it.
+ */
+export const seedLabSetup = internalMutation({
+  args: { seedId: v.string(), name: v.string(), settings: v.any() },
+  handler: async (ctx, { seedId, name, settings }) => {
+    dev();
+    const now = Date.now(), summary = "An experiment for the tests";
+    const fields = { ownerId: null, name, summary, seedId, lab: true };
+    return await ctx.db.insert("gameSetups", { ...fields, settings, createdAt: now, updatedAt: now, ...listingOf(fields, "System") });
   },
 });
 

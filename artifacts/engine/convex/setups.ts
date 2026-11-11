@@ -12,9 +12,10 @@
  * Every setup is owned: by the human who created it, or by the system (`ownerId` null: game-core SEED_SETUPS). Only
  * the owner may change or delete one; system setups nobody can (admins included): the seed sync keeps them equal to
  * the code, and players duplicate one instead. Everyone sees every setup (intended: setups are shared), except the
- * Lab setups (system setups whose seedId starts "lab-", game-core isLabSeedId: experiments shipped to every
- * deployment): only administrators find them in the catalogue (page, its search, list_setups), duplicate one or put a
- * room on one. `row` and `get` by id stay open, so the members of an administrator's room on a Lab setup see its name.
+ * LAB setups (game-core LAB_SETUPS; `lab` on the row): experimental ones only administrators (ADMIN_EMAILS,
+ * `viewer.isAdmin`) can list, read, apply or copy (`visibleTo`). To anyone else a Lab setup does not exist
+ * (NOT_FOUND, never FORBIDDEN). An administrator's copy of one stays Lab. A room an administrator put on one runs it
+ * like any setup: the room carries the settings and the setup's name, which its members see.
  * `owner.settings({setupId})` applies a setup to a room; `owner.settings({settings})` edits the room's setup through
  * `roomSetupWrite` below (convex/owner.ts).
  *
@@ -24,14 +25,14 @@
  */
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
-import { DEFAULT_SETUP_SEED_ID, LANGUAGE_SPECS, SEED_SETUPS, allowedLanguages, SETUP_NAME_MAX, instantiationOf, isLabSeedId, sameSettings, seedSetupSettings, type GameSettings } from "@workspace/game-core";
+import { ALL_SEED_SETUPS, DEFAULT_SETUP_SEED_ID, LAB_SETUPS, LANGUAGE_SPECS, SEED_SETUPS, allowedLanguages, SETUP_NAME_MAX, instantiationOf, sameSettings, seedSetupSettings, type GameSettings } from "@workspace/game-core";
 import { instanceInfo } from "@workspace/game-types";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { action, internalAction, internalMutation, internalQuery, mutation, query, type ActionCtx, type MutationCtx, type QueryCtx } from "./_generated/server";
-import { actsAsHuman, humanIsAdmin, type Viewer } from "./auth/access";
+import { actsAsHuman, type Viewer } from "./auth/access";
 import { fail } from "./lib/errors";
-import { displayName, principalV, viewerOf, type Principal } from "./lib/rooms";
+import { displayName, findRoom, principalV, requireReaderAs, viewerOf, type Principal } from "./lib/rooms";
 
 type Ctx = QueryCtx | MutationCtx;
 /** A human's own setups, at most. */
@@ -52,19 +53,26 @@ const SYSTEM = "System";
  */
 export async function seed(ctx: MutationCtx) {
   const now = Date.now();
-  for (const s of SEED_SETUPS) {
+  for (const s of ALL_SEED_SETUPS) {
     const settings = seedSetupSettings(s.seedId);
+    const lab = s.lab ? true : undefined;
     const [existing, ...extra] = await ctx.db.query("gameSetups").withIndex("by_seed", q => q.eq("seedId", s.seedId)).collect();
     // One row per seed: a duplicate (two first-ever seedings racing) would be a system setup nobody could fix.
     for (const row of extra) await ctx.db.delete(row._id);
-    const listing = listingOf({ ownerId: null, name: s.name, summary: s.summary, seedId: s.seedId }, SYSTEM);
+    const listing = listingOf({ ownerId: null, name: s.name, summary: s.summary, seedId: s.seedId, lab }, SYSTEM);
     if (!existing) {
-      await ctx.db.insert("gameSetups", { ownerId: null, name: s.name, settings, summary: s.summary, seedId: s.seedId, createdAt: now, updatedAt: now, ...listing });
+      await ctx.db.insert("gameSetups", { ownerId: null, name: s.name, settings, summary: s.summary, seedId: s.seedId, createdAt: now, updatedAt: now, ...listing, ...(lab ? { lab } : {}) });
     } else if (existing.ownerId !== null || existing.name !== s.name || existing.summary !== s.summary || existing.deleted || !sameSettings(existing.settings, settings)) {
-      await ctx.db.patch(existing._id, { ownerId: null, name: s.name, summary: s.summary, settings, deleted: undefined, updatedAt: now, ...listing });
-    } else if (!listed(existing, listing)) {
-      await ctx.db.patch(existing._id, listing);
+      await ctx.db.patch(existing._id, { ownerId: null, name: s.name, summary: s.summary, settings, deleted: undefined, updatedAt: now, ...listing, lab });
+    } else if (!listed(existing, listing) || (existing.lab ?? undefined) !== lab) {
+      await ctx.db.patch(existing._id, { ...listing, lab });
     }
+  }
+  // A Lab setup taken out of the code is removed (experiments come and go); rooms that ran it keep their settings and
+  // its name. Ordinary system setups are never deleted here.
+  const labIds = new Set(LAB_SETUPS.map(s => s.seedId));
+  for await (const row of ctx.db.query("gameSetups").withIndex("by_order", q => q.gte("order", LAB_ORDER).lt("order", LAB_ORDER + OTHERS_ORDER))) {
+    if (row.ownerId === null && row.lab && !(row.seedId && labIds.has(row.seedId))) await ctx.db.delete(row._id);
   }
 }
 export const ensureSeeded = internalMutation({ args: {}, handler: async (ctx) => { await seed(ctx); } });
@@ -81,11 +89,20 @@ export async function defaultSetup(ctx: MutationCtx): Promise<Doc<"gameSetups">>
 // reads
 // ------------------------------------------------------------------------------------------------
 
-const seedOrder = (d: Pick<Doc<"gameSetups">, "seedId">) => { const i = SEED_SETUPS.findIndex(s => s.seedId === d.seedId); return i < 0 ? SEED_SETUPS.length : i; };
+const seedOrder = (d: Pick<Doc<"gameSetups">, "seedId">) => { const i = ALL_SEED_SETUPS.findIndex(s => s.seedId === d.seedId); return i < 0 ? ALL_SEED_SETUPS.length : i; };
 const ownerNameOf = (ctx: Ctx, ownerId: string | null) => (ownerId === null ? Promise.resolve(SYSTEM) : displayName(ctx, ownerId));
 
 /** Where everyone's setups start in the catalogue's order (the system's take their seed position before it). */
 export const OTHERS_ORDER = 1_000_000;
+/**
+ * Where the Lab setups start: after every ordinary setup, so the page of a viewer who is not an administrator is the
+ * index range below it (never a filter over rows they may not see). The system's Lab setups in seed order, then
+ * administrators' copies of them.
+ */
+export const LAB_ORDER = 2_000_000;
+/** Whether `viewer` may know of this setup: every ordinary one; a Lab one for administrators, and for its owner. */
+export const visibleTo = (d: Pick<Doc<"gameSetups">, "lab" | "ownerId">, viewer: Pick<Viewer, "isAdmin" | "subject">) =>
+  !d.lab || viewer.isAdmin || (d.ownerId !== null && d.ownerId === viewer.subject);
 /** A name as the catalogue sorts it: case and accents folded (as the old in-memory sort's base-sensitivity compare). */
 export const nameKeyOf = (name: string) => name.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 /**
@@ -93,30 +110,16 @@ export const nameKeyOf = (name: string) => name.normalize("NFD").replace(/\p{M}/
  * name) and `searchText` (the search index: name, owner and summary; the owner's name as it was when the setup was last
  * written). Every writer sets them; the setupListing migration fills older rows.
  */
-export function listingOf(d: Pick<Doc<"gameSetups">, "ownerId" | "name" | "summary" | "seedId">, ownerName: string) {
-  return { order: d.ownerId === null ? seedOrder(d) : OTHERS_ORDER, nameKey: nameKeyOf(d.name), searchText: `${d.name} ${ownerName} ${d.summary}` };
+export function listingOf(d: Pick<Doc<"gameSetups">, "ownerId" | "name" | "summary" | "seedId" | "lab">, ownerName: string) {
+  const order = d.ownerId === null ? seedOrder(d) : OTHERS_ORDER;
+  // A Lab setup is also found by the word "Lab" (they come last in the catalogue: searching is the quick way to them).
+  return { order: d.lab ? LAB_ORDER + order : order, nameKey: nameKeyOf(d.name), searchText: `${d.lab ? "Lab " : ""}${d.name} ${ownerName} ${d.summary}` };
 }
 /** Whether a row's catalogue fields are what `listingOf` gives. */
 export const listed = (d: Doc<"gameSetups">, want: ReturnType<typeof listingOf>) =>
   d.order === want.order && d.nameKey === want.nameKey && d.searchText === want.searchText;
 /** `listingOf` with the owner's current name. */
-export const listingFor = async (ctx: Ctx, d: Pick<Doc<"gameSetups">, "ownerId" | "name" | "summary" | "seedId">) => listingOf(d, await ownerNameOf(ctx, d.ownerId));
-
-/** A Lab setup: a system setup of a "lab-" seed (no stored field: the seed id says it). */
-export const isLab = (d: Pick<Doc<"gameSetups">, "ownerId" | "seedId">) => d.ownerId === null && isLabSeedId(d.seedId);
-export const LAB_ADMIN_ONLY = "Lab setups are for administrators";
-/**
- * `rows` as the viewer's catalogue lists them: without the Lab setups unless their human is an administrator. The
- * administrator check runs only when a Lab row is among them (free for a browser session; one `users` row for a
- * credential: auth/access.ts humanIsAdmin), so a page of everyone's setups reads nothing more.
- */
-async function withoutHiddenLab<T extends Pick<Doc<"gameSetups">, "ownerId" | "seedId">>(ctx: Ctx, viewer: Viewer, rows: T[]): Promise<T[]> {
-  return rows.some(isLab) && !(await humanIsAdmin(ctx, viewer)) ? rows.filter(d => !isLab(d)) : rows;
-}
-/** Refuse a Lab setup to anyone but an administrator (duplicating it, putting a room on it). */
-export async function requireLabAccess(ctx: Ctx, viewer: Viewer, doc: Pick<Doc<"gameSetups">, "ownerId" | "seedId">): Promise<void> {
-  if (isLab(doc) && !(await humanIsAdmin(ctx, viewer))) fail("FORBIDDEN", LAB_ADMIN_ONLY);
-}
+export const listingFor = async (ctx: Ctx, d: Pick<Doc<"gameSetups">, "ownerId" | "name" | "summary" | "seedId" | "lab">) => listingOf(d, await ownerNameOf(ctx, d.ownerId));
 
 /** A setup as a list row shows it: who owns it and what it is, without its settings. */
 function rowOf(d: Doc<"gameSetups">, viewer: Viewer, ownerName: string) {
@@ -125,6 +128,8 @@ function rowOf(d: Doc<"gameSetups">, viewer: Viewer, ownerName: string) {
     id: d._id, name: d.name, summary: d.summary,
     /** Owned by the system (a seed setup): nobody may change it. */
     system: d.ownerId === null, ...(d.seedId ? { seedId: d.seedId } : {}),
+    /** Experimental: only administrators see it (the picker's "Lab" group). */
+    ...(d.lab ? { lab: true as const } : {}),
     ownerName, mine, editable: mine, updatedAt: d.updatedAt,
   };
 }
@@ -135,18 +140,17 @@ export type SetupView = ReturnType<typeof view>;
 
 /**
  * The system's setups and the viewer's own always; everyone else's, most recently created first, up to LIST_CAP in all
- * (so a large catalogue drops the oldest strangers' setups, never the viewer's or the system's). The Lab setups only
- * for an administrator.
+ * (so a large catalogue drops the oldest strangers' setups, never the viewer's or the system's).
  */
 async function listImpl(ctx: Ctx, viewer: Viewer): Promise<SetupRow[]> {
   const byOwner = (ownerId: string | null) => ctx.db.query("gameSetups").withIndex("by_owner", q => q.eq("ownerId", ownerId)).take(MAX_OWN_SETUPS + 200);
-  const fixed = [...await withoutHiddenLab(ctx, viewer, await byOwner(null)), ...await byOwner(viewer.subject)];
+  const fixed = [...await byOwner(null), ...await byOwner(viewer.subject)];
   const others = (await ctx.db.query("gameSetups").order("desc").take(LIST_CAP + fixed.length))
     .filter(d => d.ownerId !== null && d.ownerId !== viewer.subject).slice(0, Math.max(0, LIST_CAP - fixed.length));
-  const rows = [...fixed, ...others].filter(d => !d.deleted);
+  const rows = [...fixed, ...others].filter(d => !d.deleted && visibleTo(d, viewer));
   const owners = [...new Set(rows.map(d => d.ownerId))];
   const names = new Map(await Promise.all(owners.map(async o => [o, await ownerNameOf(ctx, o)] as const)));
-  const system = rows.filter(d => d.ownerId === null).sort((a, b) => seedOrder(a) - seedOrder(b) || a.createdAt - b.createdAt);
+  const system = rows.filter(d => d.ownerId === null).sort((a, b) => a.order - b.order || a.createdAt - b.createdAt);
   const owned = rows.filter(d => d.ownerId !== null)
     .sort((a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" }) || a.createdAt - b.createdAt);
   return [...system, ...owned].map(d => rowOf(d, viewer, names.get(d.ownerId)!));
@@ -161,6 +165,7 @@ export const listAs = internalQuery({ args: { principal: principalV }, handler: 
 /** A setup as a list's skeleton has it: its own small fields (no owner: `row` has it; no settings: `get`). */
 const entry = (d: Doc<"gameSetups">, viewer: Viewer) => ({
   id: d._id, name: d.name, summary: d.summary, system: d.ownerId === null, ...(d.seedId ? { seedId: d.seedId } : {}),
+  ...(d.lab ? { lab: true as const } : {}),
   mine: d.ownerId !== null && d.ownerId === viewer.subject,
 });
 export type SetupEntry = ReturnType<typeof entry>;
@@ -172,8 +177,8 @@ const SEARCH_MAX = 100, SEARCH_TERMS = 16;
 /**
  * One page of the shared catalogue, the skeleton of a setup list (read-architecture R1; `row` is one setup with its
  * owner's name): the system's in seed order, then everyone's by name (the by_order index); with `search`, the setups
- * whose name, owner or summary match it, best first (the search index). At most PAGE_MAX a page; a page that holds
- * Lab setups is that much shorter for everyone but an administrator (its cursor is the index's, unchanged).
+ * whose name, owner or summary match it, best first (the search index). At most PAGE_MAX a page. The Lab setups come
+ * last, and only for an administrator: anyone else's page is the index range below LAB_ORDER.
  */
 export const page = query({
   args: { paginationOpts: paginationOptsValidator, search: v.optional(v.string()) },
@@ -183,8 +188,10 @@ export const page = query({
     const text = search?.trim().slice(0, SEARCH_MAX).split(/\s+/).slice(0, SEARCH_TERMS).join(" ");
     const result = text
       ? await ctx.db.query("gameSetups").withSearchIndex("search", q => q.search("searchText", text)).paginate(opts)
-      : await ctx.db.query("gameSetups").withIndex("by_order").paginate(opts);
-    return { ...result, page: (await withoutHiddenLab(ctx, viewer, result.page)).filter(d => !d.deleted).map(d => entry(d, viewer)) };
+      : viewer.isAdmin ? await ctx.db.query("gameSetups").withIndex("by_order").paginate(opts)
+        : await ctx.db.query("gameSetups").withIndex("by_order", q => q.lt("order", LAB_ORDER)).paginate(opts);
+    // The search index cannot leave the Lab setups out by itself: they are dropped here (a short page, never a leak).
+    return { ...result, page: result.page.filter(d => !d.deleted && visibleTo(d, viewer)).map(d => entry(d, viewer)) };
   },
 });
 
@@ -195,24 +202,41 @@ export const row = query({
     const viewer = await viewerOf(ctx);
     const id = ctx.db.normalizeId("gameSetups", setupId);
     const doc = id ? await ctx.db.get(id) : null;
-    return doc && !doc.deleted ? rowOf(doc, viewer, await ownerNameOf(ctx, doc.ownerId)) : null;
+    return doc && !doc.deleted && visibleTo(doc, viewer) ? rowOf(doc, viewer, await ownerNameOf(ctx, doc.ownerId)) : null;
   },
 });
 
-/** A setup by id (every setup is visible to everyone), else NOT_FOUND. */
-async function setupById(ctx: Ctx, setupId: string): Promise<Doc<"gameSetups">> {
+/** A setup by id that `viewer` may know of (every ordinary one; a Lab one for an administrator), else NOT_FOUND. */
+async function setupById(ctx: Ctx, viewer: Viewer, setupId: string): Promise<Doc<"gameSetups">> {
   const id = ctx.db.normalizeId("gameSetups", setupId);
   const doc = id ? await ctx.db.get(id) : null;
-  if (!doc || doc.deleted) return fail("NOT_FOUND", "No such setup: list_setups names them all");
+  if (!doc || doc.deleted || !visibleTo(doc, viewer)) return fail("NOT_FOUND", "No such setup: list_setups names them all");
   return doc;
 }
 
 async function getImpl(ctx: Ctx, viewer: Viewer, setupId: string): Promise<SetupView> {
-  const doc = await setupById(ctx, setupId);
+  const doc = await setupById(ctx, viewer, setupId);
   return view(doc, viewer, await ownerNameOf(ctx, doc.ownerId));
 }
-/** One setup with its complete settings (any setup: they are shared), else NOT_FOUND. */
-export const get = query({ args: { setupId: v.string() }, handler: async (ctx, { setupId }): Promise<SetupView> => getImpl(ctx, await viewerOf(ctx), setupId) });
+/**
+ * One setup with its complete settings (any setup: they are shared), else NOT_FOUND. A Lab setup: for an administrator;
+ * and, with `room`, for a reader of that room while the room runs it (the room's public state already carries those
+ * settings and the setup's name: a player may read the setup of the game they are in, and nothing else of the Lab).
+ */
+export const get = query({
+  args: { setupId: v.string(), room: v.optional(v.string()) },
+  handler: async (ctx, { setupId, room: ref }): Promise<SetupView> => {
+    const viewer = await viewerOf(ctx);
+    const id = ctx.db.normalizeId("gameSetups", setupId);
+    const room = ref && id ? await findRoom(ctx, ref) : null;
+    if (room && room.setupId === id) {
+      requireReaderAs(viewer, room);
+      const doc = await ctx.db.get(id!);
+      if (doc && !doc.deleted) return view(doc, viewer, await ownerNameOf(ctx, doc.ownerId));
+    }
+    return getImpl(ctx, viewer, setupId);
+  },
+});
 /** Internal twin of `get` for a principal (the registry's get_setup). */
 export const getAs = internalQuery({
   args: { principal: principalV, setupId: v.string() },
@@ -232,11 +256,11 @@ export const ownedBase = internalQuery({
   },
 });
 
-/** owner.settings({setupId}): the setup's complete settings. */
+/** owner.settings({setupId}): the setup's complete settings, for a caller who may know of it (a Lab setup: an administrator). */
 export const resolve = internalQuery({
-  args: { setupId: v.string() },
-  handler: async (ctx, { setupId }): Promise<{ id: Id<"gameSetups">; name: string; settings: GameSettings }> => {
-    const doc = await setupById(ctx, setupId);
+  args: { setupId: v.string(), principal: v.optional(principalV) },
+  handler: async (ctx, { setupId, principal }): Promise<{ id: Id<"gameSetups">; name: string; settings: GameSettings }> => {
+    const doc = await setupById(ctx, await viewerOf(ctx, principal), setupId);
     return { id: doc._id, name: doc.name, settings: doc.settings as GameSettings };
   },
 });
@@ -254,7 +278,7 @@ export const notYours = (ownerName: string) => (ownerName === SYSTEM
   ? "System setups cannot be edited: duplicate it" : `Only ${ownerName} can edit this setup: duplicate it`);
 /** A setup the viewer owns, else FORBIDDEN naming its owner. */
 async function ownSetup(ctx: Ctx, viewer: Viewer, setupId: string): Promise<Doc<"gameSetups">> {
-  const doc = await setupById(ctx, setupId);
+  const doc = await setupById(ctx, viewer, setupId);
   if (doc.ownerId === null || doc.ownerId !== viewer.subject) fail("FORBIDDEN", notYours(await ownerNameOf(ctx, doc.ownerId)));
   return doc;
 }
@@ -290,10 +314,11 @@ export function setupSummary(s: GameSettings): string {
  * Insert a new setup of `ownerId`'s; `name` must already be free among theirs. The cap applies to setups a human
  * makes on purpose (save, duplicate), not to the copy a room's change needs (that would block changing the room).
  */
-async function insertOwn(ctx: MutationCtx, ownerId: string, name: string, settings: GameSettings, summary: string, capped = true): Promise<Doc<"gameSetups">> {
+async function insertOwn(ctx: MutationCtx, ownerId: string, name: string, settings: GameSettings, summary: string, capped = true, lab = false): Promise<Doc<"gameSetups">> {
   if (capped && (await ownSetups(ctx, ownerId)).length >= MAX_OWN_SETUPS) fail("BAD_REQUEST", `At most ${MAX_OWN_SETUPS} setups each; delete one first`);
   const now = Date.now();
-  const doc = { ownerId, name, settings, summary, createdAt: now, updatedAt: now, ...await listingFor(ctx, { ownerId, name, summary }) };
+  // A copy of a Lab setup stays Lab: an experiment never reaches the shared catalogue through someone's copy.
+  const doc = { ownerId, name, settings, summary, createdAt: now, updatedAt: now, ...await listingFor(ctx, { ownerId, name, summary, ...(lab ? { lab } : {}) }), ...(lab ? { lab } : {}) };
   const id = await ctx.db.insert("gameSetups", doc);
   return { _id: id, _creationTime: now, ...doc };
 }
@@ -354,13 +379,12 @@ export const saveAs = internalAction({
 
 async function duplicateImpl(ctx: MutationCtx, viewer: Viewer, setupId: string, rawName?: string): Promise<SetupView> {
   requireWriter(viewer);
-  const source = await setupById(ctx, setupId);
-  await requireLabAccess(ctx, viewer, source);
+  const source = await setupById(ctx, viewer, setupId);
   const taken = await takenNames(ctx, viewer.subject);
   const name = rawName === undefined ? copyName(source.name, taken) : freeName(checkName(rawName), "", taken);
-  return view(await insertOwn(ctx, viewer.subject, name, source.settings as GameSettings, source.summary), viewer, viewer.name);
+  return view(await insertOwn(ctx, viewer.subject, name, source.settings as GameSettings, source.summary, true, !!source.lab), viewer, viewer.name);
 }
-/** Copy any setup (the system's, anyone's, yours; a Lab one only as an administrator) as a new one of yours: "<name>'s copy" (then " 2", " 3"…), or `name`. */
+/** Copy any setup (the system's, anyone's, yours) as a new one of yours: "<name>'s copy" (then " 2", " 3"…), or `name`. */
 export const duplicate = mutation({
   args: { setupId: v.string(), name: v.optional(v.string()) },
   handler: async (ctx, { setupId, name }) => duplicateImpl(ctx, await viewerOf(ctx), setupId, name),
@@ -410,7 +434,7 @@ export async function roomSetupWrite(ctx: MutationCtx, room: Doc<"rooms">, owner
   const taken = await takenNames(ctx, ownerId);
   const sourceName = live?.name ?? room.setupName;
   const name = sourceName ? copyName(sourceName, taken) : freeName(`Room ${room.shortCode}`, "'s setup", taken);
-  const doc = await insertOwn(ctx, ownerId, name, settings, setupSummary(settings), false);
+  const doc = await insertOwn(ctx, ownerId, name, settings, setupSummary(settings), false, !!live?.lab);
   const why = !sourceName ? "the room had no setup" : !live ? `"${sourceName}" was deleted`
     : live.ownerId === null ? `"${sourceName}" is a system setup` : `"${sourceName}" belongs to ${await ownerNameOf(ctx, live.ownerId)}`;
   return { id: doc._id, name, created: true, note: `Created your setup "${name}" with the change, because ${why}; the room now runs it` };

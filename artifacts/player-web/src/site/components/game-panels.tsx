@@ -182,7 +182,7 @@ export function Chat({ messages, canPost, placeholder, pending, onSend, title = 
  */
 const SHOWN: readonly SettingsKey[] = [
   "languages", "planningSeconds", "halfLifeSeconds", "interactionRateHz", "startingObjectCount", "spawnRateHz",
-  "startingEnergy", "powerPerSecond", "costModel", "maxAgentsPerGod", "defenceGoals", "utilitySelectorId",
+  "startingEnergy", "powerPerSecond", "fullChargeSeconds", "costModel", "maxAgentsPerGod", "defenceGoals", "utilitySelectorId",
 ];
 
 /** "Python · Grid 5×5 base10 rgby · ~6 min (often 3–13) · normal pace". */

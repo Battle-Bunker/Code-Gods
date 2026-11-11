@@ -5,8 +5,8 @@ import {
   DEFAULT_SETTINGS, SETTINGS_OPTIONS, MAX_AGENTS_PER_GOD, settingsOptionsFor, validateSettings, LANGUAGES, LANGUAGE_SPECS,
   grammarFor, complexityFor, allowedLanguages, upgradeLegacyLanguage,
   upgradeStoredSettings, FIRST_STEPS_SEED_ID, ANNOTATED_BASICS_SEED_ID, DEFAULT_SETUP_SEED_ID,
-  costModelOf, supportedCostModels, OPTIONAL_SETTINGS_FIELDS, isLabSeedId,
-  instantiationOf, codecOf, assertObjectValue, defaultSettingsFor, SEED_SETUPS, SETUP_NAME_MAX, seedSetupSettings, ENERGY_LIMITS, type GameSettings,
+  costModelOf, supportedCostModels, OPTIONAL_SETTINGS_FIELDS,
+  instantiationOf, codecOf, assertObjectValue, defaultSettingsFor, SEED_SETUPS, SETUP_NAME_MAX, seedSetupSettings, ALL_SEED_SETUPS, LAB_SETUPS, ENERGY_LIMITS, type GameSettings,
 } from "../src/settings.ts";
 import { gameEndSeconds } from "../src/random.ts";
 
@@ -191,8 +191,7 @@ test("defaultSettingsFor gives valid settings for every type and language", () =
   assert.equal(defaultSettingsFor("Grid", ["python"], { size: 7, symbols: "cards", colours: "rainbow6" }).powerPerSecond, 64);
   assert.equal(defaultSettingsFor("Int").powerPerSecond, 8);
   for (const s of SEED_SETUPS) { validateSettings(s.settings); assert.ok(s.name.length <= SETUP_NAME_MAX, s.name); }
-  assert.deepEqual(SEED_SETUPS.map(s => s.seedId), ["grid-first-steps", "grid-annotated-basics", "grid-annotated-colours", "grid-classic", "grid-low-income", "grid-big", "grid-master",
-    "lab-cost-set", "lab-cost-dial", "lab-cost-log", "lab-cost-multiply"], "the ordinary seeds, then the Lab ones");
+  assert.deepEqual(SEED_SETUPS.map(s => s.seedId), ["grid-first-steps", "grid-annotated-basics", "grid-annotated-colours", "grid-classic", "grid-low-income", "grid-big", "grid-master"]);
   assert.equal(seedSetupSettings("grid-first-steps").interactionRateHz, 25);
   assert.deepEqual(seedSetupSettings("grid-classic"), { ...classic, interactionRateHz: 100 }, "Classic is the tuned 5×5 board, complete");
   assert.ok(!seedSetupSettings("grid-master").excludedFamilies.includes("ladder_of_numbers"), "cards cannot deal it, so it is not listed");
@@ -303,7 +302,7 @@ test("the cost model is optional: absent reads as set-v1, and distance-v1 is off
 });
 
 test("only the default setup (Annotated basics) prices changes by distance; every other ordinary seed keeps the default model unspelled", () => {
-  for (const s of SEED_SETUPS.filter(s => !isLabSeedId(s.seedId))) {
+  for (const s of SEED_SETUPS) {
     validateSettings(s.settings);
     if (s.seedId === DEFAULT_SETUP_SEED_ID) assert.equal(s.settings.costModel, "distance-v1");
     else assert.ok(!("costModel" in s.settings), `${s.seedId} is untouched`);
@@ -312,15 +311,14 @@ test("only the default setup (Annotated basics) prices changes by distance; ever
 });
 
 test("the Lab setups are Annotated basics under each other cost model, after the ordinary seeds", () => {
-  assert.ok(isLabSeedId("lab-cost-set") && !isLabSeedId("grid-classic") && !isLabSeedId(undefined) && !isLabSeedId("my-lab-x"));
-  const lab = SEED_SETUPS.filter(s => isLabSeedId(s.seedId));
+  const lab = LAB_SETUPS.filter(s => s.seedId.startsWith("lab-cost-"));
+  assert.ok(lab.every(s => s.lab === true) && !SEED_SETUPS.some(s => s.seedId.startsWith("lab-")), "Lab setups are never among the ordinary seeds");
   assert.deepEqual(lab.map(s => [s.seedId, s.name, s.summary, s.settings.costModel]), [
-    ["lab-cost-set", "Lab: flat price", "Annotated basics with today's pricing: every changed number costs the same", undefined],
+    ["lab-cost-set", "Lab: flat price", "Annotated basics with the flat price: every changed number costs the same", undefined],
     ["lab-cost-dial", "Lab: dial numbers", "Numbers are a dial: 9 and 0 are one step apart, and a step either way costs the same", "dial-v1"],
     ["lab-cost-log", "Lab: gentle distance", "A far move costs only a little more than a middling one", "log-v1"],
     ["lab-cost-multiply", "Lab: multiply and divide", "Adds, plus multiply and divide by the last digit; a number's move costs the cheaper of the two", "multiply-v1"],
   ]);
-  assert.deepEqual(SEED_SETUPS.slice(-lab.length), lab, "placed last");
   // Everything but the cost model is Annotated basics (the board, the rule pool, the pacing): the pool cannot drift.
   const { costModel: _basics, ...basics } = seedSetupSettings(ANNOTATED_BASICS_SEED_ID);
   for (const s of lab) {
@@ -335,4 +333,45 @@ test("the Lab setups are Annotated basics under each other cost model, after the
   // Each model of COST_MODELS is tried by exactly one system setup on this board.
   const tried = [ANNOTATED_BASICS_SEED_ID, ...lab.map(s => s.seedId)].map(id => costModelOf(seedSetupSettings(id))).sort();
   assert.deepEqual(tried, ["dial-v1", "distance-v1", "log-v1", "multiply-v1", "set-v1"]);
+});
+
+test("fullChargeSeconds: a default, validated bounds, and stored room/setup settings without it get the default", () => {
+  assert.equal(DEFAULT_SETTINGS.fullChargeSeconds, 30);
+  for (const seed of SEED_SETUPS) assert.equal(seed.settings.fullChargeSeconds, 30, seed.seedId);
+  for (const bad of [0, 0.5, -1, NaN, Infinity, 1_000_001, "30"]) {
+    assert.throws(() => validateSettings({ ...DEFAULT_SETTINGS, fullChargeSeconds: bad as number }), /fullChargeSeconds/, String(bad));
+  }
+  assert.doesNotThrow(() => validateSettings({ ...DEFAULT_SETTINGS, fullChargeSeconds: 1 }));
+  assert.doesNotThrow(() => validateSettings({ ...DEFAULT_SETTINGS, fullChargeSeconds: 12.5 }));
+  const { fullChargeSeconds: _, ...old } = DEFAULT_SETTINGS;
+  assert.equal(upgradeStoredSettings(old)?.fullChargeSeconds, 30);
+  assert.equal(upgradeStoredSettings({ ...old, fullChargeSeconds: 120 }), null, "a chosen value is kept");
+});
+
+test("upgradeStoredSettings leaves a started game's economy alone: no capacity is added to a game that had none", () => {
+  const { fullChargeSeconds: _, ...old } = DEFAULT_SETTINGS;
+  assert.equal(upgradeStoredSettings(old, true), null);
+  const { scoreIntervalSeconds: __, ...older } = old;
+  assert.deepEqual(upgradeStoredSettings(older, true), old, "its other fields are still filled");
+});
+
+test("the settings of a game started before fullChargeSeconds existed still validate (it is examined and summoned into)", () => {
+  const { fullChargeSeconds: _, ...old } = DEFAULT_SETTINGS;
+  assert.doesNotThrow(() => validateSettings(old as GameSettings));
+});
+
+test("Lab setups: complete, valid, marked, with ids and names of their own, and never the default or among the system setups", () => {
+  const ids = ALL_SEED_SETUPS.map(s => s.seedId), names = ALL_SEED_SETUPS.map(s => s.name.toLowerCase());
+  assert.equal(new Set(ids).size, ids.length, "seed ids are unique across the system and Lab setups");
+  assert.equal(new Set(names).size, names.length, "and so are names (the picker shows both to an administrator)");
+  assert.deepEqual(ALL_SEED_SETUPS, [...SEED_SETUPS, ...LAB_SETUPS], "the system's first: Lab setups never shift a system setup's position");
+  assert.ok(SEED_SETUPS.every(s => !s.lab), "no system setup is marked Lab");
+  for (const s of LAB_SETUPS) {
+    assert.equal(s.lab, true, s.seedId);
+    assert.match(s.seedId, /^lab-[a-z0-9-]+$/, `${s.seedId}: a Lab seed id starts with "lab-"`);
+    assert.ok(s.name.length <= SETUP_NAME_MAX && s.summary.length > 0 && s.summary.length <= 160, s.seedId);
+    assert.doesNotThrow(() => validateSettings(s.settings), s.seedId);
+    assert.deepEqual(seedSetupSettings(s.seedId), { ...s.settings }, s.seedId);
+  }
+  assert.ok(!LAB_SETUPS.some(s => s.seedId === DEFAULT_SETUP_SEED_ID), "a new room never starts on a Lab setup");
 });

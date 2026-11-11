@@ -115,12 +115,16 @@ export const observationSchema = z.object({
   /**
    * The game's energy rules. Each god has powerPerSecond bits per world second (P), split into its agents' powerShare
    * (income = share x P) and the unallocated rest, which is the god's own income and pays summons (it starts with
-   * startingEnergy). Agents' energy has no cap. Each opportunity goes to an agent with probability proportional to its positive energy, at most
-   * maxAgentOpportunityHz times per world second per agent; an act pays the bits it read divided by changeReadRatio,
+   * startingEnergy). Every account holds at most its power x fullChargeSeconds (an agent's `capacity`, self.capacity):
+   * energy fills up in that many seconds and then stops, and income past a full store is lost (absent: a game from before
+   * capacities, which has none). Each opportunity goes to an agent with probability proportional to its positive energy: one draw
+   * over every agent in the room, so a god's turns follow the energy its agents hold together, however many they are
+   * (maxAgentOpportunityHz appears only on replays of games from before 11 Nov 2026, which limited each agent's turns
+   * per world second); an act pays the bits it read divided by changeReadRatio,
    * plus its change when it changes the object (docs/energy-model.md §2). changeReadRatio (κ, absent on replays of
    * older games) is how many bits an agent may read for the price of one bit of change: looking is κ× cheaper.
    */
-  economy: z.object({ powerPerSecond: finite, startingEnergy: finite, maxAgentOpportunityHz: finite.optional(), changeReadRatio: finite.optional(),
+  economy: z.object({ powerPerSecond: finite, startingEnergy: finite, fullChargeSeconds: finite.optional(), maxAgentOpportunityHz: finite.optional(), changeReadRatio: finite.optional(),
     maxAgentsPerGod: z.number().int().nonnegative(), penaltyWeight: finite, worldSeconds: finite,
     /** How the game ends and its length in world seconds (the exact length when "fixed", else the half-life): the game timer. */
     durationMode: z.enum(["fixed", "halfLife"]).optional(), lengthSeconds: finite.optional(),
@@ -129,7 +133,8 @@ export const observationSchema = z.object({
     costModel: z.enum(COST_MODELS as readonly [CostModel, ...CostModel[]]).optional() }).optional(),
   self: z.object({ godId: id, label: z.string().max(128), isAI: z.boolean(), energy: finite, ready: z.boolean(), pauseUsed: z.boolean().optional(),
     // Power: the share (0–1) of economy.powerPerSecond given to your agents, and your own income (bits per world second) from the rest.
-    allocated: finite.optional(), income: finite.optional(),
+    // capacity: the most your own energy can hold, income x economy.fullChargeSeconds (absent: no capacity).
+    allocated: finite.optional(), income: finite.optional(), capacity: finite.optional(),
     utility: utilityCardSchema.optional(),
     // Your own total payoff NOW (live), while the leaderboard is the scoreboard last published (leaderboardWorldSeconds).
     score: finite.optional() }),
@@ -137,14 +142,15 @@ export const observationSchema = z.object({
   objects: z.array(z.object({ id, value: wire,
     own: z.object({ ordinal, rewardBits: finite, penaltyBits: finite.optional(), netBits: finite }),
     peerNetBits: finite, peerCare: finite, payoff: finite })).max(2000),
-  // Your agents. `eligible`: it can be offered the next opportunity now (positive energy, under the per-agent cap); the
+  // Your agents. `eligible`: it can be offered the next opportunity now (positive energy); the
   // more energy, the likelier. expectedActCost is the summon-time estimate per act (reading + changing); nothing is
   // charged from it. `skips`: acts that returned no calls (they paid only what they read; not failures).
   agents: z.array(z.object({ id, name: agentName, description: agentDescription.optional(), source: z.string().max(16384), language: storedLanguage, summonCost: finite, expectedActCost: finite,
     breakdown: breakdownSchema, randomized: z.boolean(),
     energy: finite, eligible: z.boolean(),
     // Its share (0–1) of your power and its income: share x economy.powerPerSecond bits per world second.
-    powerShare: finite.optional(), income: finite.optional(), acts: z.number().int().nonnegative(), spent: finite, skips: z.number().int().nonnegative().optional(),
+    // capacity: the most energy it can hold, income x economy.fullChargeSeconds; a full store wastes its income (absent: none).
+    powerShare: finite.optional(), income: finite.optional(), capacity: finite.optional(), acts: z.number().int().nonnegative(), spent: finite, skips: z.number().int().nonnegative().optional(),
     // Of `spent`: the energy its acts paid for reading (bits read / economy.changeReadRatio; the rest paid for the changes they made).
     spentRead: finite.optional(),
     // How its acts ended (counted since the engine started counting: older agents' earlier acts are not in it): changed

@@ -2,8 +2,8 @@
  * The world clock and the two energy accounts as the engine and the projections read them (pure; ported
  * from api-server economy.ts / interaction-scheduler.ts). game-core holds the arithmetic.
  */
-import { agentIncomeOf, deityAccount, type DeityPower } from "./power.ts";
-import { DEFAULT_SCORE_INTERVAL_SECONDS, MAX_AGENT_OPPORTUNITY_HZ, leaderboard, offerable, personalView, settleAgentEnergy, type AgentAccount, type GameSettings } from "@workspace/game-core";
+import { agentCapacityOf, agentIncomeOf, deityAccount, type DeityPower } from "./power.ts";
+import { DEFAULT_SCORE_INTERVAL_SECONDS, leaderboard, personalView, settleAgentEnergy, type AgentAccount, type GameSettings } from "@workspace/game-core";
 
 /**
  * Engine constants (plan §3.1). The tick window is a constant, not a setting: game-core's settings carry no
@@ -40,20 +40,24 @@ export const EVENTS_PER_BATCH = 400;
  * cost.read is the energy its reads cost (bits read × READ_PRICE, 1/32 when 8 was introduced); in schemas 5–7 reads were
  * priced at one energy bit per bit read, so cost.read there is also the bits read. Replay reads recorded costs either way.
  * 9 marks a failed act whose code raised or ran out of time (`error: true` on a fail event), so a replay tells a runtime
- * error from an invalid call, as the live failure breakdown (agents.failures) does. 10 is cost models
- * (docs/mutation-cost-design.md §11): an act's cost.change (and cost.work) is priced under the game's settings.costModel
- * ("distance-v1" charges a number by how far it moved); in every batch below 10 it is priced under "set-v1", whatever
- * the settings say. A game without the setting (every game started before 10) is "set-v1" too, so a game that was
- * running across the deploy changes its stamp and nothing else. Replay reads recorded costs and never re-prices.
+ * error from an invalid call, as the live failure breakdown (agents.failures) does.
+ * 10 marks the selection and exposure rules of 11 Nov 2026 (docs/energy-model.md §7): no rate limit per agent (before it,
+ * each agent was offered at most 4 opportunities per world second), and every offer is charged as a read of which object
+ * the agent was given (log2 of the live objects, inside cost.read). Replay reads recorded costs either way.
+ * 11 is cost models (docs/mutation-cost-design.md §11): an act's cost.change (and cost.work) is priced under the game's
+ * settings.costModel ("distance-v1" charges a number by how far it moved); in every batch below 11 it is priced under
+ * "set-v1", whatever the settings say. A game without the setting (every game started before 11) is "set-v1" too, so a
+ * game that was running across the deploy changes its stamp and nothing else. Replay reads recorded costs and never
+ * re-prices.
  */
-export const EVENT_LOG_SCHEMA = 10;
+export const EVENT_LOG_SCHEMA = 11;
 
 export type Clock = {
   phase: "planning" | "running" | "paused" | "recovery" | "ended";
   worldSeconds: number; lastTick: number; endAtWorld: number;
   createdAt: number; settings: GameSettings;
 };
-export type AgentLike = { account: AgentAccount; lastOpportunityWorld?: number; powerShare: number };
+export type AgentLike = { account: AgentAccount; powerShare: number };
 
 /** The world clock now, without mutating the game (world time stops outside `running`). */
 export function worldNow(game: Clock, nowMs = Date.now()): number {
@@ -61,28 +65,28 @@ export function worldNow(game: Clock, nowMs = Date.now()): number {
   return Math.min(game.endAtWorld, game.worldSeconds + running);
 }
 
-/** The agent's account accrued to `world`; a clock behind the account's own accrues nothing. */
+/**
+ * The agent's account accrued to `world` within its capacity (share·P·fullChargeSeconds: docs/energy-model.md §6.1); a
+ * clock behind the account's own accrues nothing, but the capacity still holds (its share may just have been lowered).
+ */
 export function settledAccount(settings: GameSettings, agent: AgentLike, world: number): AgentAccount {
-  if (!(world > agent.account.settledWorldSeconds)) return agent.account;
-  return settleAgentEnergy(agent.account, world, agentIncomeOf(agent, settings));
+  return settleAgentEnergy(agent.account, Math.max(world, agent.account.settledWorldSeconds), agentIncomeOf(agent, settings), agentCapacityOf(agent, settings));
 }
 /**
  * The agent's energy at `world`, and whether it can be offered an opportunity then (docs/energy-model.md §7): positive
- * energy (its weight in the draw) and the per-agent cap allows it.
+ * energy, which is also its weight in the draw. Nothing else limits it: no rate per agent.
  */
 export function agentStatus(settings: GameSettings, agent: AgentLike, world: number) {
   const account = settledAccount(settings, agent, world);
-  return { energy: account.balance, eligible: account.balance > 0 && offerable(agent.lastOpportunityWorld, world) };
+  return { energy: account.balance, eligible: account.balance > 0 };
 }
 /** World seconds until the agent can be offered an opportunity (0 if it can now), or Infinity if it never earns. */
 export function secondsUntilEligible(settings: GameSettings, agent: AgentLike, world: number): number {
   const { energy, eligible } = agentStatus(settings, agent, world);
   if (eligible) return 0;
-  const cap = agent.lastOpportunityWorld === undefined ? 0 : Math.max(0, agent.lastOpportunityWorld + 1 / MAX_AGENT_OPPORTUNITY_HZ - world);
-  if (energy > 0) return cap;
   const income = agentIncomeOf(agent, settings);
   if (!(income > 0)) return Infinity;
-  return Math.max(cap, -energy / income + 1e-6);
+  return -energy / income + 1e-6;
 }
 
 /** A deity's own energy at world time `world` (docs/energy-model.md §6; lib/power.ts deityAccount). */

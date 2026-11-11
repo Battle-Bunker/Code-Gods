@@ -10,10 +10,12 @@ import { upgradeStoredSettings } from "@workspace/game-core";
  * It also converts the single-language shape ({language, grammarId, complexityFunctionId}) to the allowed set
  * {languages: [language]} (game-core upgradeStoredSettings): each agent's grammar and price now follow its own language,
  * and fills fields added since (scoreIntervalSeconds) with their defaults.
+ * `played`: the settings of a game already started (and its summary): its economy is left as it was charged, so
+ * `fullChargeSeconds` is not filled (docs/energy-model.md §6.1).
  * Returns null when the settings are already in the new shape (so the migration is idempotent).
  */
-export function migrateSettings(settings: unknown, defenceIds: ReadonlySet<string>): Record<string, unknown> | null {
-  const languages = upgradeStoredSettings(settings);
+export function migrateSettings(settings: unknown, defenceIds: ReadonlySet<string>, played = false): Record<string, unknown> | null {
+  const languages = upgradeStoredSettings(settings, played);
   const defence = migrateDefence(languages ?? settings, defenceIds);
   return defence ?? languages;
 }

@@ -377,3 +377,30 @@ test("My agents' energy series: each agent's energy at every scoreboard interval
   assert.deepEqual(series[0], [{ world: 10, agents: [{ id: "a1", energy: 10 }] }, { world: 20, agents: [{ id: "a1", energy: 16 }] }]);
   assert.deepEqual(series[1].map(r => [r.world, r.agents[0].energy]), [[10, 20], [20, 40], [30, 60]], "each god's own agents");
 });
+
+test("a game with fullChargeSeconds replays its accounts within their capacity; one without it has none", () => {
+  // P = 4 bits/s, T = 20 s. Hand-derived: nothing allocated holds 80, half 40, three quarters 60.
+  const events: ReplayEvent[] = [
+    { type: "phase", phase: "running", worldSeconds: 0 },
+    summon("a1", "me", 30, 0.5),               // me: min(100, 80) − 30 = 50, held to 40 (half unallocated); a1 earns 2/s, holds 40
+    { type: "agent.power", agentId: "a1", ownerId: "me", worldSeconds: 30, share: 0.25 },   // a1 was full at 20 s: 40, now holds 20
+    { type: "agent.destroyed", agentId: "a1", ownerId: "me", worldSeconds: 50 },
+  ];
+  const capped = buildReplay([page([{ seq: 0, at: T0, worldFrom: 0, worldTo: 60, events }])]);
+  capped.game.settings = { ...capped.game.settings, fullChargeSeconds: 20 };
+  const upto = (n: number) => stateAt(capped, n);
+  assert.equal(godEnergyAt(capped, upto(1), 0), 80, "startingEnergy above the capacity is not held");
+  assert.equal(godEnergyAt(capped, upto(2), 0), 40, "after the summon: 50 left, but half the power holds 40");
+  const lowered = upto(3);
+  assert.deepEqual(lowered.agents.get("a1")!.account, { balance: 40, settledWorldSeconds: 30 }, "full after 20 s: 10 s of income were not stored");
+  assert.equal(godEnergyAt(capped, lowered, 0), 40, "the god's own store was full too");
+  const obs = replayObservation(capped, { room: { roomId: "r", roomShortCode: "R" }, cursor: 3, pov: 0 });
+  assert.deepEqual([obs.economy!.fullChargeSeconds, obs.self.capacity, obs.agents[0].capacity, obs.agents[0].energy], [20, 60, 20, 20],
+    "the lowered share holds 20: the other 20 are lost at once; the god now holds up to 60");
+  assert.equal(godEnergyAt(capped, upto(4), 0), 60, "20 s at 3/s from 40 would be 100: held to 60");
+  // The same log without the setting: no capacity anywhere.
+  const legacy = buildReplay([page([{ seq: 0, at: T0, worldFrom: 0, worldTo: 60, events }])]);
+  assert.equal(godEnergyAt(legacy, stateAt(legacy, 4), 0), 100 - 30 + 30 * 2 + 20 * 3);
+  const old = replayObservation(legacy, { room: { roomId: "r", roomShortCode: "R" }, cursor: 3, pov: 0 });
+  assert.deepEqual([old.economy!.fullChargeSeconds, old.self.capacity, old.agents[0].capacity, old.agents[0].energy], [undefined, undefined, undefined, 60]);
+});

@@ -46,6 +46,10 @@ test("limits mirror validateSettings and the engine's resource limits, with the 
   assert.equal(fieldError("scoreIntervalSeconds", 45), null, "any whole number of seconds, not only the presets");
   assert.equal(fieldError("powerPerSecond", -1), "Must be between 0 and 1,000,000 bits per second.");
   assert.ok(fieldsOf("energy").includes("powerPerSecond"), "each player's power is on the form");
+  // The time an empty energy store takes to fill: asked in the energy section, in seconds, 1 to 1,000,000.
+  assert.ok(fieldsOf("energy").includes("fullChargeSeconds"));
+  assert.equal(fieldError("fullChargeSeconds", 0), "Must be between 1 and 1,000,000 seconds.");
+  assert.equal(fieldError("fullChargeSeconds", 30), null);
   assert.ok(!fieldsOf("energy").some(k => ["energyPerSecond", "agentEnergyPerSecond", "agentBatteryActs", "perActFloorBits"].includes(k)), "the old income, battery and floor settings are gone");
   assert.equal(fieldError("planningSeconds", NaN), "Enter a number.");
   const grid = seedSetupSettings("grid-classic");
@@ -160,6 +164,9 @@ test("penalty weight and the defence checklist hide while defence goals are off;
     assert.equal(isHidden(key, { ...DEFAULT_SETTINGS, defenceGoals: true }), false, key);
   }
   assert.deepEqual(stepChoices("pauseSeconds", 180), [60, 180, 300]);
+  assert.deepEqual(stepChoices("fullChargeSeconds", 30), [10, 30, 60, 120, 300], "the suggested steps come from SETTINGS_DOCS");
+  assert.deepEqual(stepChoices("fullChargeSeconds", 45), [10, 30, 45, 60, 120, 300]);
+  assert.equal(formatValue("fullChargeSeconds", 30), "30 s");
   assert.deepEqual(stepChoices("pauseSeconds", 240), [60, 180, 240, 300]);
   assert.equal(lengthLine({ planningSeconds: 60, halfLifeSeconds: 300 }), "~6 min (often 3–13)");
   assert.equal(lengthLine({ planningSeconds: 60, halfLifeSeconds: 600, durationMode: "fixed" }), "11 min", "a fixed game's length is exact");
@@ -175,7 +182,7 @@ test("penalty weight and the defence checklist hide while defence goals are off;
 });
 
 test("the cost model: a choice under Energy › More, offered where the world has more than one, read as set-v1 when absent", () => {
-  assert.deepEqual(fieldsOf("energy"), ["startingEnergy", "powerPerSecond", "costModel"], "asked, then more");
+  assert.deepEqual(fieldsOf("energy"), ["startingEnergy", "powerPerSecond", "fullChargeSeconds", "costModel"], "asked, then more");
   assert.equal(LABELS.costModel, "Change pricing");
   const classic = seedSetupSettings("grid-classic"), basics = seedSetupSettings("grid-annotated-basics");
   assert.deepEqual(costModelChoices(classic), supportedCostModels(classic), "the models the world offers (game-core), the default first");
@@ -197,4 +204,13 @@ test("the cost model: a choice under Energy › More, offered where the world ha
   assert.deepEqual(applySettingsChange(picked, { costModel: "set-v1" }, domain), classic);
   assert.ok(!("costModel" in applySettingsChange(picked, { objectType: "Int" }, domain)), "a world without the model drops it");
   assert.match(draftErrors({ ...DEFAULT_SETTINGS, costModel: "distance-v1" }, domain)._form ?? "", /costModel distance-v1 is not offered/);
+});
+
+test("the picker's Lab heading goes before the first Lab setup, and before each one that follows an ordinary setup in a search", async () => {
+  const { labStartsAt } = await import("../src/site/lib/setup-words.ts");
+  const list = [{}, {}, { lab: true }, { lab: true }];
+  assert.deepEqual(list.map((_, i) => labStartsAt(list, i)), [false, false, true, false], "one heading for the catalogue's Lab tail");
+  const found = [{ lab: true }, {}, { lab: true }];
+  assert.deepEqual(found.map((_, i) => labStartsAt(found, i)), [true, false, true]);
+  assert.deepEqual([{}, {}].map((_, i, all) => labStartsAt(all, i)), [false, false], "no heading for anyone who is sent no Lab setup");
 });
