@@ -35,7 +35,7 @@ import { pictureFrame } from "./lenses/picture-frame.ts";
 import { mirrormancer } from "./lenses/mirrormancer.ts";
 import { colourMirror } from "./lenses/colour-mirror.ts";
 import { oppositeNines } from "./lenses/opposite-nines.ts";
-import { stepStool } from "./lenses/step-stool.ts";
+import { leapfrog } from "./lenses/leapfrog.ts";
 import { strangers } from "./lenses/strangers.ts";
 import { steppingStones } from "./lenses/stepping-stones.ts";
 import { twoPair } from "./lenses/two-pair.ts";
@@ -53,7 +53,7 @@ export { STORY_FAMILIES, compareOrdinal, story, whatIf, type Story, type StoryFr
 /** The families with a lens (a rich annotation). */
 export const LENSES: readonly Lens[] = Object.freeze([
   parityPainter, setSpotter, numberBonds, colourBonds, chessmaster, honestMinesweeper, magicAccountant, kingdom, pictureFrame, mirrormancer, colourMirror,
-  oppositeNines, stepStool,
+  oppositeNines, leapfrog,
   strangers, steppingStones,
   twoPair, spreadThree,
   crosswiseThrees, magicEighteen,

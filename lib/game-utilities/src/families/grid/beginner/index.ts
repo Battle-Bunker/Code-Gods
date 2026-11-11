@@ -3,8 +3,8 @@ import { crosswiseThrees } from "./crosswise_threes.ts";
 import { magicEighteen } from "./magic_eighteen.ts";
 import { oppositeNines } from "./opposite_nines.ts";
 import { spreadThree } from "./spread_three.ts";
-import { stepStool } from "./step_stool.ts";
+import { leapfrog } from "./leapfrog.ts";
 import { strangers } from "./strangers.ts";
 import { twoPair } from "./two_pair.ts";
 
-export const BEGINNER = [oppositeNines, stepStool, twoPair, spreadThree, strangers, crosswiseThrees, magicEighteen];
+export const BEGINNER = [oppositeNines, leapfrog, twoPair, spreadThree, strangers, crosswiseThrees, magicEighteen];

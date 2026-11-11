@@ -32,7 +32,7 @@ export const SHOWCASE = [
   { familyId: "picture_frame", params: { colour: "red", symbol: "7" } },
   { familyId: "mirrormancer", params: { axis: "LR" } },
   { familyId: "opposite_nines", params: {} },
-  { familyId: "step_stool", params: {} },
+  { familyId: "leapfrog", params: {} },
   { familyId: "strangers", params: {} },
   { familyId: "stepping_stones", params: {} },
   { familyId: "two_pair", params: {} },

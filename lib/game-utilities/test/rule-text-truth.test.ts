@@ -92,62 +92,77 @@ test("opposite nines: a cell's opposite is where a half turn takes it; pairs mak
   assert.deepEqual(pairScore("opposite_nines", pairs12)("AR,5R,5R,5R/5R,5R,5R,5R/6R,6R,6R,6R/6R,6R,6R,1R"), [8, 0]);
 });
 
-test("step-stool mirror: folding top onto bottom pairs each cell with the one in the same column of the mirrored row", () => {
-  const text = say("step_stool", {});
-  assert.match(text, /^Try to fold the board top onto bottom so each number lands on a number one apart from it, like 4 and 5\./);
-  assert.match(text, /Each pair one apart scores 1 primary point\./);
-  assert.match(text, /so 4 and 4 deduct 1 and 2 and 6 deduct 3\./);
-  assert.match(text, /the top row on the bottom row, the second row on the second-last row/);
-  const u = pairScore("step_stool");
-  // 4 lands on 5: one apart. Every other pair is 0 on 0, the same number: 1 away from one apart.
-  assert.deepEqual(u("4R,0R,0R,0R/0R,0R,0R,0R/0R,0R,0R,0R/5R,0R,0R,0R"), [1, -7]);
-  // 2 lands on 6: 4 apart deducts 3; every other pair is 0 on 1.
-  assert.deepEqual(u("2R,0R,0R,0R/0R,0R,0R,0R/1R,1R,1R,1R/6R,1R,1R,1R"), [7, -3]);
-  // Side by side does not count: rows stepping 4, 5, 4, 5 fold onto equal rows, so every pair deducts 1.
-  assert.deepEqual(u("4R,5R,4R,5R/4R,5R,4R,5R/4R,5R,4R,5R/4R,5R,4R,5R"), [0, -8]);
-  // Base 12: A (10) and B (11) are one apart.
-  assert.match(say("step_stool", {}, pairs12), /Here A counts 10 and B counts 11\./);
-  assert.deepEqual(pairScore("step_stool", pairs12)("AR,0R,0R,0R/0R,0R,0R,0R/0R,0R,0R,0R/BR,0R,0R,0R"), [1, -7]);
+test("leapfrog: each number against the one two cells along its row, one apart scores a point", () => {
+  const text = say("leapfrog", {});
+  assert.match(text, /^Try to make every number one away from the number two cells along its row, like 4 _ 5: leap over the cell between\./);
+  assert.match(text, /Each such pair scores 1 point\./);
+  const u = pairScore("leapfrog");
+  // 4 _ 5 in the top row: one apart. Every other pair is 0 and 0, the same number.
+  assert.equal(u("4R,9R,5R,0R/0R,0R,0R,0R/0R,0R,0R,0R/0R,0R,0R,0R"), 1);
+  // One less counts too: 5 _ 4, and 9 _ 8 two cells along from the 9.
+  assert.equal(u("5R,9R,4R,8R/0R,0R,0R,0R/0R,0R,0R,0R/0R,0R,0R,0R"), 2);
+  // Side by side does not count: 4 5 7 8 has 4 _ 7 and 5 _ 8, both 3 apart.
+  assert.equal(u("4R,5R,7R,8R/0R,0R,0R,0R/0R,0R,0R,0R/0R,0R,0R,0R"), 0);
+  // Along its row, not its column: 4 two cells above 5 does not count.
+  assert.equal(u("4R,0R,0R,0R/0R,0R,0R,0R/5R,0R,0R,0R/0R,0R,0R,0R"), 0);
+  // Every pair of every row: 4 4 5 5 has 4 _ 5 and 4 _ 5; 8 pairs on 4×4.
+  assert.equal(u("4R,4R,5R,5R/4R,4R,5R,5R/4R,4R,5R,5R/4R,4R,5R,5R"), 8);
+  // Base 12: A (10) and B (11) are one apart, and the value key says so.
+  assert.match(say("leapfrog", {}, pairs12), /Here A counts 10 and B counts 11\./);
+  assert.equal(pairScore("leapfrog", pairs12)("AR,0R,BR,0R/0R,0R,0R,0R/0R,0R,0R,0R/0R,0R,0R,0R"), 1);
+  // 6×6: 4 pairs in each row (columns 1–3, 2–4, 3–5, 4–6), 24 in all.
+  const six = evaluator({ familyId: "leapfrog", params: {} }, instantiate("Grid", { size: 6, symbols: "base12", colours: "rgby" }));
+  assert.equal(six(Array(6).fill("4R,4R,5R,5R,4R,4R").join("/")), 24);
 });
 
-test("strangers: the card's definition, its 1 rule and its 0 rule are what the program scores", () => {
+test("strangers: only touching numbers in the same 2×2 box; the definition, the next-door rule and the 1 rule", () => {
   const u = evaluator({ familyId: "strangers", params: {} }, even.inst);
   const text = say("strangers", {});
-  // A board of 0s scores nothing ("A 0 never scores"); each case puts two numbers side by side (or one above the other) into it.
-  const board = (a: string, b: string, down = false) => {
+  // A board of 0s scores nothing; each case puts two numbers into the top-left box, side by side (or one above the other).
+  const two = (a: string, b: string, down = false) => {
     const cells = Array.from({ length: 16 }, () => "0R");
-    cells[5] = `${a}R`;
-    cells[down ? 9 : 6] = `${b}G`;
+    cells[0] = `${a}R`;
+    cells[down ? 4 : 1] = `${b}G`;
     return Array.from({ length: 4 }, (_, r) => cells.slice(4 * r, 4 * r + 4).join(",")).join("/");
   };
-  assert.match(text, /^Try to make touching numbers strangers \(cells touch when they share a side\)\./);
-  assert.match(text, /Two numbers are strangers when no number bigger than 1 divides both: 4 and 9 are strangers, 4 and 6 are not \(2 divides both\)\./);
-  assert.deepEqual(u(board("4", "9")), [1, 0], "4 and 9 are strangers");
-  assert.deepEqual(u(board("4", "6")), [0, 0], "4 and 6 are not (2 divides both)");
-  assert.match(text, /So keep even numbers apart\./);
-  assert.deepEqual(u(board("2", "8")), [0, 0], "two even numbers");
-  assert.deepEqual(u(board("3", "9", true)), [0, 0], "a 3 above a 9");
-  assert.match(text, /Each pair of touching strangers scores 1 primary point when both are bigger than 1\./);
-  assert.deepEqual(u(board("2", "3")), [1, 0]);
-  assert.deepEqual(u(board("4", "9", true)), [1, 0], "one above the other touches too");
-  assert.match(text, /Each 1 scores 1 secondary point for every number bigger than 1 it touches\./);
-  assert.deepEqual(u(board("1", "7")), [0, 1]);
-  assert.deepEqual(u(board("8", "1", true)), [0, 1]);
-  assert.deepEqual(u("0R,0R,0R,0R/0R,0R,2R,0R/0R,3R,1R,5R/0R,0R,7R,0R"), [0, 4], "a 1 touching four numbers bigger than 1: 4 secondary points, and 2 3 5 7 never touch");
-  assert.match(text, /A 0 never scores, nor do two equal numbers\./);
-  assert.deepEqual(u(board("0", "5")), [0, 0], "0 beside 5: 5 divides both");
-  assert.deepEqual(u(board("0", "1")), [0, 0], "0 beside 1: a 0 never scores");
-  assert.deepEqual(u(board("1", "1")), [0, 0], "1 beside 1: equal numbers never score");
-  assert.deepEqual(u(board("7", "7")), [0, 0], "7 beside 7: 7 divides both");
-  assert.deepEqual(u("0R,0R,0R,0R/0R,4R,0R,0R/0R,0R,9R,0R/0R,0R,0R,0R"), [0, 0], "corners do not touch");
-  // Every pair of a 2-and-3 chessboard is a pair of strangers: 2 × 4 × 3 = 24 touching pairs.
-  assert.deepEqual(u("2R,3R,2R,3R/3R,2R,3R,2R/2R,3R,2R,3R/3R,2R,3R,2R"), [24, 0]);
-  // Base 12: A (10) and B (11) are strangers; A and 5 share 5; the value key says what A and B count.
+  assert.match(text, /^Try to make touching numbers in the same corner box strangers\./);
+  assert.match(text, /Two numbers are strangers when no number bigger than 1 divides both and they are not next to each other when counting\./);
+  assert.match(text, /So 4 and 9 are strangers; 4 and 6 share 2; 4 and 5 are next-door\./);
+  assert.deepEqual(u(two("4", "9")), [1, 0], "4 and 9 are strangers");
+  assert.deepEqual(u(two("4", "6")), [0, 0], "4 and 6 share 2");
+  assert.deepEqual(u(two("4", "5")), [0, 0], "4 and 5 are next-door");
+  assert.deepEqual(u(two("3", "2", true)), [0, 0], "3 and 2 are next-door");
+  assert.deepEqual(u(two("3", "9", true)), [0, 0], "a 3 above a 9 share 3");
+  assert.deepEqual(u(two("7", "7")), [0, 0], "7 and 7 share 7");
+  assert.match(text, /Each pair of strangers scores 1 primary point when both are bigger than 1\./);
+  assert.deepEqual(u(two("5", "2", true)), [1, 0], "one above the other touches too");
+  assert.deepEqual(u(two("0", "5")), [0, 0], "0 is not bigger than 1 (and 5 divides both)");
+  assert.match(text, /Each 1 scores 1 secondary point for every bigger number it touches in its box\./);
+  assert.deepEqual(u(two("1", "7")), [0, 1]);
+  assert.deepEqual(u(two("1", "2", true)), [0, 1], "1 beside 2: next-door, but a 1 scores for any bigger number");
+  assert.deepEqual(u(two("1", "1")), [0, 0], "1 beside 1: no bigger number");
+  assert.deepEqual(u(two("1", "0")), [0, 0], "0 is not bigger");
+  // The corner boxes: rows 1–2 and 3–4, columns 1–2 and 3–4. A pair that crosses from one box to the next never scores.
+  assert.deepEqual(u("0R,4R,9R,0R/0R,0R,0R,0R/0R,0R,0R,0R/0R,0R,0R,0R"), [0, 0], "4 and 9 side by side across two boxes");
+  assert.deepEqual(u("0R,0R,0R,0R/0R,4R,0R,0R/0R,9R,0R,0R/0R,0R,0R,0R"), [0, 0], "4 above 9 across two boxes");
+  assert.deepEqual(u("0R,0R,0R,0R/0R,1R,7R,0R/0R,7R,0R,0R/0R,0R,0R,0R"), [0, 0], "a 1 beside 7s in the next boxes");
+  assert.deepEqual(u("7R,7R,0R,0R/7R,1R,7R,0R/0R,7R,0R,0R/0R,0R,0R,0R"), [0, 2], "the same 1 touches the 7s above it and to its left");
+  assert.deepEqual(u("4R,0R,0R,0R/0R,9R,0R,0R/0R,0R,0R,0R/0R,0R,0R,0R"), [0, 0], "corners do not touch");
+  // Every touching pair inside every box: a chessboard of 2s and 5s, 4 pairs in each of the 4 boxes.
+  assert.deepEqual(u("2R,5R,2R,5R/5R,2R,5R,2R/2R,5R,2R,5R/5R,2R,5R,2R"), [16, 0]);
+  // Base 12: A (10) and B (11) are next-door; A and 7 are strangers; A and 5 share 5.
   const b12 = context(instantiate("Grid", { size: 4, symbols: "base12", colours: "rgb" }));
   const u12 = evaluator({ familyId: "strangers", params: {} }, b12.inst);
-  assert.deepEqual(u12(board("A", "B")), [1, 0]);
-  assert.deepEqual(u12(board("A", "5")), [0, 0]);
+  assert.deepEqual(u12(two("A", "B")), [0, 0]);
+  assert.deepEqual(u12(two("A", "7")), [1, 0]);
+  assert.deepEqual(u12(two("A", "5")), [0, 0]);
   assert.match(say("strangers", {}, b12), /A counts 10 and B counts 11/);
+  // 6×6: 9 boxes of 2×2, 3 across and 3 down; the chessboard scores 4 × 9.
+  const big = context(instantiate("Grid", { size: 6, symbols: "base12", colours: "rgby" }));
+  assert.match(say("strangers", {}, big), /^Try to make touching numbers in the same 2×2 box strangers\./);
+  assert.match(say("strangers", {}, big), /The board is cut into 9 boxes of 2×2 cells, 3 across and 3 down\./);
+  const chess6 = Array.from({ length: 6 }, (_, r) => Array.from({ length: 6 }, (_, c) => ((r + c) % 2 ? "5R" : "2R")).join(",")).join("/");
+  assert.deepEqual(evaluator({ familyId: "strangers", params: {} }, big.inst)(chess6), [36, 0]);
 });
 
 // --- beginner families: each sentence's claims, scored by the card program on concrete boards ---------------------------
