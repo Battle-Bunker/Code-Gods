@@ -6,7 +6,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_LAYOUT, assistantSide, closePane, panelPanesOf, movePane, openPane, parseLayout, setPanePanel, setPaneParams, type DockLayout } from "@workspace/player-client/layout";
+import { DEFAULT_LAYOUT, assistantSide, closePane, panelPanesOf, paneOrder, panesOf, movePane, openPane, parseLayout, setPanePanel, setPaneParams, type DockLayout } from "@workspace/player-client/layout";
 import { SINGLE_LAYOUT } from "./single-layout.ts";
 import {
   effectiveLayout, initialSync, keepAssistantPane, pushPlan, sameLayout, syncReducer, withTimeline, withoutAssistant, type SyncState,
@@ -154,8 +154,8 @@ test("the first panel nobody chose follows the phase", () => {
   assert.deepEqual(panelPanesOf(followed).map(p => p.kind === "panel" && p.panelId), ["results", "overview"], "only the first of them");
   // The default dock (the goal card is the player's): objects become the results at the end, and back in a replay.
   const dock = DEFAULT_LAYOUT("running");
-  assert.deepEqual(panelPanesOf(effectiveLayout(dock, "ended")).map(p => p.kind === "panel" && p.panelId), ["my-card", "results", "agents"]);
-  assert.deepEqual(panelPanesOf(effectiveLayout(effectiveLayout(dock, "ended"), "running")).map(p => p.kind === "panel" && p.panelId), ["my-card", "objects", "agents"]);
+  assert.deepEqual(panelPanesOf(effectiveLayout(dock, "ended")).map(p => p.kind === "panel" && p.panelId), ["my-card", "results", "agents", "race"]);
+  assert.deepEqual(panelPanesOf(effectiveLayout(effectiveLayout(dock, "ended"), "running")).map(p => p.kind === "panel" && p.panelId), ["my-card", "objects", "agents", "race"]);
 });
 
 test("sameLayout ignores sub-pixel size drift but not structure, panels or a real resize", () => {
@@ -280,4 +280,38 @@ test("an edit made while the assistant is hidden keeps its stored pane in the sa
   assert.deepEqual(assistant(edited), assistant(stored), "the assistant pane is back");
   assert.equal(panelPanesOf(edited).find(p => p.id === pane.id)?.panelId, "rules", "the edit is kept");
   assert.equal(keepAssistantPane(hidden, hidden), hidden, "no stored assistant: unchanged");
+});
+
+test("the default dock without an assistant: my agents and the race share the bottom row, their divider under the top row's", () => {
+  const shown = withoutAssistant(DEFAULT_LAYOUT("running"));
+  assert.deepEqual(shown.root, { type: "split", direction: "column", sizes: [53, 47], children: [
+    { type: "split", direction: "row", sizes: [50, 50], children: [{ type: "pane", id: "p1" }, { type: "pane", id: "p2" }] },
+    { type: "split", direction: "row", sizes: [50, 50], children: [{ type: "pane", id: "p3" }, { type: "pane", id: "p5" }] },
+  ] });
+});
+
+test("the default dock's replay: the Timeline bottom left in the assistant's place, the results top right", () => {
+  const shown = withTimeline(effectiveLayout(DEFAULT_LAYOUT("ended"), "ended"));
+  assert.deepEqual(paneOrder(shown.root), ["p1", "p2", "p4", "p3", "p5"]);
+  assert.deepEqual(panesOf(shown).map(p => p.kind === "panel" ? p.panelId : p.kind), ["my-card", "results", "timeline", "agents", "race"]);
+  const none = withTimeline(withoutAssistant(effectiveLayout(DEFAULT_LAYOUT("ended"), "ended")));
+  assert.equal(panelPanesOf(none).filter(p => p.panelId === "timeline").length, 1, "no assistant: still one Timeline");
+});
+
+test("an edit in a room without an assistant puts its stored pane back where it was, not beside the last panel", () => {
+  const stored = DEFAULT_LAYOUT("running");
+  const edited = keepAssistantPane(setPanePanel(withoutAssistant(stored), "p2", "feed", "human"), stored);
+  assert.deepEqual(paneOrder(edited.root), ["p1", "p2", "p4", "p3", "p5"], "bottom left again");
+  const bottom = edited.root.type === "split" ? edited.root.children[1] : null;
+  assert.ok(bottom?.type === "split" && bottom.direction === "row" && bottom.children.length === 3, "in the bottom row");
+});
+
+test("the agent editor in the full default dock takes the largest panel nobody chose (objects), unless a panel is focused", () => {
+  const dock = DEFAULT_LAYOUT("running");
+  for (const focused of [null, "p4"]) {
+    const r = showPanel(dock, "forge", undefined, focused);
+    assert.ok(r.replaced);
+    assert.equal(r.paneId, "p2", `objects, top right (focused ${focused})`);
+  }
+  assert.equal(showPanel(dock, "forge", undefined, "p5").paneId, "p5", "the focused panel, as before");
 });

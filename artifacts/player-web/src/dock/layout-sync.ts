@@ -15,7 +15,7 @@
  *     whose own edits stay on screen until the next server layout.
  */
 import type { Phase } from "@workspace/player-client/panels";
-import { closePane, followPhase, nextPaneId, openPane, panelPanesOf, type DockLayout, type Node, type Pane } from "@workspace/player-client/layout";
+import { closePane, followPhase, nextPaneId, openPane, paneOrder, panelPanesOf, type DockLayout, type Node, type Pane, type Place } from "@workspace/player-client/layout";
 
 export const PUSH_DELAY_MS = 800;
 /** A discrete action (menu, palette): pushed almost at once, coalescing a burst. */
@@ -163,12 +163,27 @@ export function withoutAssistant(layout: DockLayout): DockLayout {
 
 /**
  * A change made from the shown layout while the assistant is hidden (withoutAssistant) lacks its pane: put the
- * `stored` layout's assistant pane back, so the saved layout keeps it for when AI is available in the room again.
+ * `stored` layout's assistant pane back where it was (beside the neighbour it had, on the same side), so the saved
+ * layout keeps it for when AI is available in the room again.
  */
 export function keepAssistantPane(next: DockLayout, stored: DockLayout): DockLayout {
   const pane = Object.values(stored.panes).find(p => p.kind === "assistant");
   if (!pane || Object.values(next.panes).some(p => p.kind === "assistant")) return next;
-  try { return openPane(next, pane).layout; } catch { return next; }
+  const place = placeOf(stored.root, pane.id);
+  try { return openPane(next, pane, place && next.panes[place.relativeTo] ? place : undefined).layout; }
+  catch { try { return openPane(next, pane).layout; } catch { return next; } }
+}
+
+/** Where a pane sits relative to its nearest sibling: the first pane of the sibling after it, else the last before it. */
+function placeOf(node: Node, id: string): { relativeTo: string; direction: Place["direction"] } | null {
+  if (node.type === "pane") return null;
+  const i = node.children.findIndex(c => c.type === "pane" && c.id === id);
+  if (i < 0) { for (const child of node.children) { const found = placeOf(child, id); if (found) return found; } return null; }
+  const row = node.direction === "row";
+  const after = node.children[i + 1], before = node.children[i - 1];
+  if (after) return { relativeTo: paneOrder(after)[0], direction: row ? "left" : "above" };
+  if (before) return { relativeTo: paneOrder(before).at(-1)!, direction: row ? "right" : "below" };
+  return null;
 }
 
 /** A stable JSON text (sorted keys), for comparing panes. */

@@ -215,17 +215,17 @@ await check("dragging a panel onto the centre of another replaces it: no tabs, n
   await setLayoutPatiently(roomId, DEFAULT());
   await page.waitForSelector("[data-testid=tab-p3]", { timeout: 15_000 });
   const panesNow = async () => Object.keys((await carol.query(fn.q("layout:current"), { roomId }) as { layout: Layout }).layout.panes).sort();
-  assert((await panesNow()).join() === "p1,p2,p3,p4", "the default layout has four panes");
+  assert((await panesNow()).join() === "p1,p2,p3,p4,p5", "the default layout has five panes");
   const goal = await page.locator("[data-testid=tab-p1]").textContent();
   // The drag ghost is the dragged header; it must be gone once the drop is done.
   await page.locator("[data-testid=tab-p1]").dragTo(page.locator("[data-testid=pane-p3]"), { targetPosition: { x: 200, y: 120 } });
-  await until(async () => (await panesNow()).join() === "p1,p2,p4" ? true : undefined, "the replaced pane (p3) is gone and the dragged one (p1) stays", 20_000);
+  await until(async () => (await panesNow()).join() === "p1,p2,p4,p5" ? true : undefined, "the replaced pane (p3) is gone and the dragged one (p1) stays", 20_000);
   await sleep(1200);
   await page.screenshot({ path: process.env.CG_E2E_SHOT ?? "/tmp/replace-drop.png" });
   assert(await page.locator("[data-testid=tab-p3]").count() === 0, "the replaced pane still has a header");
   assert(await page.locator("[data-testid=tab-p1]").count() === 1, "the dragged pane has one header");
   const tabCount = await page.locator(".dv-tab").count();
-  assert(tabCount === 3, `a header per pane and no second tab in a group (${tabCount} .dv-tab: ${await page.evaluate(() => [...document.querySelectorAll(".dv-tab")].map(el => `${el.parentElement?.className}>${el.className}@${Math.round(el.getBoundingClientRect().top)}:${(el.textContent ?? "").slice(0, 30)}`).join(" | "))})`);
+  assert(tabCount === 4, `a header per pane and no second tab in a group (${tabCount} .dv-tab: ${await page.evaluate(() => [...document.querySelectorAll(".dv-tab")].map(el => `${el.parentElement?.className}>${el.className}@${Math.round(el.getBoundingClientRect().top)}:${(el.textContent ?? "").slice(0, 30)}`).join(" | "))})`);
   const stray = await page.evaluate(text => [...document.querySelectorAll("body *")].filter(el => el.children.length === 0 && el.textContent?.trim() === text && !el.closest("[data-testid^=tab-]")).length, (goal ?? "").trim().split("\n")[0]);
   assert(stray === 0, `${stray} stray copies of the dragged header's text outside the pane headers`);
   await setLayoutPatiently(roomId, DEFAULT());

@@ -4,12 +4,14 @@
  */
 import { PANELS, defaultPanelParams, type PanelId, type Phase } from "@workspace/player-client/panels";
 import {
-  LAYOUT_LIMITS, assistantPaneOf, openAssistant, assistantSide, panelPanesOf, openPane, panesOf, setPanePanel, type DockLayout, type Node, type Pane, type Place,
+  LAYOUT_LIMITS, assistantPaneOf, paneAreas, openAssistant, assistantSide, panelPanesOf, openPane, panesOf, setPanePanel, type DockLayout, type Node, type Pane, type Place,
 } from "@workspace/player-client/layout";
 
 /**
  * Show a panel: reuse an open pane of it (one pane per panel, like the assistant's open_panel), else add one. With
- * the most built-in panels already open (parseLayout keeps four), the focused one (else the last) shows it instead.
+ * the most built-in panels already open (parseLayout keeps four, as the default dock does), the focused one shows it
+ * instead, else the largest panel nobody chose (in the default dock, the objects top right: room for the agent editor),
+ * else the largest.
  */
 export function showPanel(layout: DockLayout, panelId: PanelId, params?: Record<string, unknown>, focused?: string | null): { layout: DockLayout; paneId: string; replaced?: boolean } {
   const panels = panelPanesOf(layout);
@@ -18,7 +20,9 @@ export function showPanel(layout: DockLayout, panelId: PanelId, params?: Record<
   const values = params ?? defaultPanelParams(panelId);
   if (!values) throw new Error(`${PANELS[panelId].title} needs your assistant to set it up`);
   if (panels.length >= LAYOUT_LIMITS.panelPanes) {
-    const target = panels.find(p => p.id === focused) ?? panels[panels.length - 1];
+    const area = paneAreas(layout.root);
+    const largest = (list: typeof panels) => list.reduce<(typeof panels)[number] | undefined>((best, p) => (!best || (area[p.id] ?? 0) > (area[best.id] ?? 0) ? p : best), undefined);
+    const target = panels.find(p => p.id === focused) ?? largest(panels.filter(p => p.setBy === "default")) ?? largest(panels)!;
     return { layout: setPanePanel(layout, target.id, panelId, "human", values), paneId: target.id, replaced: true };
   }
   return openPane(layout, { id: "", kind: "panel", panelId, params: values, setBy: "human" });

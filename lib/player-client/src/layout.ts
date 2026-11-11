@@ -86,6 +86,14 @@ export const panesOf = (layout: DockLayout): Pane[] => paneOrder(layout.root).ma
 export const panelPanesOf = (layout: DockLayout) => panesOf(layout).filter((p): p is Extract<Pane, { kind: "panel" }> => p.kind === "panel");
 export const assistantPaneOf = (layout: DockLayout) => panesOf(layout).find(p => p.kind === "assistant");
 
+/** Each pane's share of the dock's area (0–1), from the split weights: how much room it has, without pixels. */
+export function paneAreas(root: Node, share = 1, out: Record<string, number> = {}): Record<string, number> {
+  if (root.type === "pane") { out[root.id] = share; return out; }
+  const total = root.sizes.reduce((a, b) => a + b, 0) || 1;
+  root.children.forEach((child, i) => paneAreas(child, (share * (root.sizes[i] ?? 0)) / total, out));
+  return out;
+}
+
 function depthOf(node: Node): number {
   return node.type === "pane" ? 1 : 1 + Math.max(0, ...node.children.map(depthOf));
 }
@@ -178,21 +186,25 @@ const leaf = (id: string): Node => ({ type: "pane", id });
 const split = (direction: Direction, sizes: number[], children: Node[]): Node => ({ type: "split", direction, sizes, children });
 
 /**
- * Two columns over a full-width assistant row: your secret goal on the left, objects by payoff (top 12)
- * above my agents (all, last 120 s) on the right. The goal panel is marked "human" so it does not follow the phase's
- * default panel (followPhase only moves the first panel nobody chose); the others are the panels' default parameters.
+ * The owner's arrangement (2026-11-11): two rows whose column divider lines up at the middle. On top (53 %), your secret
+ * goal beside objects by payoff (top 12); below, the assistant (half the width) beside my agents (all, last 120 s) and
+ * the leaderboard race (everyone, total payoff, last 300 s), a quarter each. The goal panel is marked "human" so it does
+ * not follow the phase's default panel (followPhase only moves the first panel nobody chose, here the objects, which
+ * become the results when the game ends); the others are the panels' default parameters. It uses all four built-in panel
+ * slots, so showing another panel swaps one (player-web dock/operations.ts showPanel).
  */
 export const DEFAULT_LAYOUT = (phase: Phase): DockLayout => ({
   version: 1,
-  root: split("column", [76, 24], [
-    split("row", [50, 50], [leaf("p1"), split("column", [58, 42], [leaf("p2"), leaf("p3")])]),
-    leaf("p4"),
+  root: split("column", [53, 47], [
+    split("row", [50, 50], [leaf("p1"), leaf("p2")]),
+    split("row", [50, 25, 25], [leaf("p4"), leaf("p3"), leaf("p5")]),
   ]),
   panes: {
     p1: panelPane("p1", "my-card", "human"),
     p2: panelPane("p2", phase === "ended" ? "results" : "objects"),
     p3: panelPane("p3", "agents"),
     p4: { id: "p4", kind: "assistant" },
+    p5: panelPane("p5", "race"),
   },
 });
 
@@ -350,7 +362,9 @@ function insertNode(node: Node, target: string, fresh: string, direction: Place[
 /** The tree without the pane (an emptied split is left for normaliseLayout to collapse). */
 function removeNode(node: Node, id: string): Node | null {
   if (node.type === "pane") return node.id === id ? null : node;
-  return { ...node, children: node.children.map(c => removeNode(c, id)).filter((c): c is Node => !!c) };
+  // Each child keeps its own weight: dropping a child drops its weight too (normaliseLayout rescales what is left).
+  const kept = node.children.map((c, i) => ({ node: removeNode(c, id), size: node.sizes[i] ?? 0 })).filter((k): k is { node: Node; size: number } => !!k.node);
+  return { ...node, sizes: kept.map(k => k.size), children: kept.map(k => k.node) };
 }
 
 /** Where a new pane goes when the caller gives no place (docs/ui-redesign.md §2.3). */

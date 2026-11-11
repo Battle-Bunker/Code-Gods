@@ -29,8 +29,9 @@ identity, whichever copy of the app they use (`src/core/connection.ts`: site, ac
   hard-coded prefix. A dev-server app plays only in its credential's room.
 - **The screen:** a header (who, the phase, the command palette: Cmd/Ctrl+K) over a dock of panes
   (`src/dock/`, dockview on desktop, a stacked layout with the assistant as a bottom sheet on phones). By
-  default one built-in **panel** (`src/core/panels/<id>.tsx`, metadata in `lib/player-client/src/panels.ts`) on top
-  and the player's **assistant** below. The player picks a pane's panel from its header menu; only the assistant
+  default the secret goal and the objects side by side on top, and the player's **assistant**, My agents and the
+  Leaderboard race below (`DEFAULT_LAYOUT` in `lib/player-client/src/layout.ts`; built-in **panels** are
+  `src/core/panels/<id>.tsx`, metadata in `lib/player-client/src/panels.ts`). The player picks a pane's panel from its header menu; only the assistant
   sets a panel's parameters. The arrangement is stored per human per room (`layout.current` / `layout.set`) and
   follows the player to every open copy of the app.
 - **Custom views and tools the player asks for:** first check whether a built-in panel shows it (the assistant

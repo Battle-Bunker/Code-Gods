@@ -32,7 +32,8 @@ yours). This page is about your panels; check first whether a built-in panel alr
   your panels. Your panel opens as a pane from a built-in panel's menu ("Your panels"), the command palette or
   your assistant (`open_panel {slug}` for a stored panel); you drag panes anywhere, split and tab them. The arrangement follows you across devices
   and rooms (`layout.current`/`layout.set`). A panel's manifest `placement` and `size` are only hints for
-  where a new pane opens.
+  where a new pane opens. The default dock already has five panes (goal and objects on top; the assistant, My agents
+  and the race below), so a new pane splits the last panel's: drag it somewhere roomier, or drop it on a pane to replace it.
 - **The core console** (`src/core/`) is the protected game UI: the forge, agents, utility card,
   objects, chat and leaderboard. **Never edit `src/core/`, `src/shell/` or `src/sdk/` to add a
   feature;** write a panel. Panels import only from `@sdk` (and React).
