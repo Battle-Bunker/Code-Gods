@@ -26,8 +26,8 @@ deleted the moment its pull request closes).
 - **Any branch:** GitHub → Actions → **Preview** → **Run workflow** → type the branch name. The URL is in the run's
   summary (and on the branch's pull request, if it has one).
 
-**Sign in:** press Sign in on the preview, type the passphrase, pick a player. **Ada Admin** is an admin (sees the
-admin-only setups); Alice, Bob, Carol, Dan and Erin are ordinary players. To play several seats, use a private
+**Sign in:** press Sign in on the preview, type the passphrase, pick a player. **Ada Admin** is an admin (sees
+admin-only setups, when a branch has any); Alice, Bob, Carol, Dan and Erin are ordinary players. To play several seats, use a private
 window or another browser profile per player.
 
 **Remove it:** take the `preview` label off, or close or merge the pull request (or Run workflow with "remove"
