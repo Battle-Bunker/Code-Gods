@@ -14,6 +14,7 @@ import type { Board } from "./board.ts";
 import { count, type Lens } from "./lens.ts";
 import type { BreakdownItem, Cell, Part, TierStatus } from "./model.ts";
 import { defaultGeometry, type HoverMode } from "./units.ts";
+import { courtScore, courtSquares, noKingPenalty } from "../families/grid/layered/royal_court.ts";
 
 /** One interaction's annotation: its units on a board, each scoring the tier's own components. */
 export interface TierLens {
@@ -21,13 +22,14 @@ export interface TierLens {
   components(v: TierValue, b: Board): string[];
   /** The tier's unit, for the raw-score breakdown: [one, many]. */
   readonly unit: readonly [one: string, many: string];
-  /** What a scoring unit does, after its count: "adding up to 18". */
+  /** What a scoring unit does, after its count: "adding up to 18" ("" when the unit's name says it all). */
   hit(v: TierValue, b: Board): string;
   /**
    * Every unit the tier looks at, scoring or not (a near miss says how far it is). `points` are the tier's own
-   * components; `group` is one of the modes' groups; ids are unique within the tier.
+   * components; `group` is one of the modes' groups; ids are unique within the tier. `base` is the draw's base params
+   * (the base's vocabulary: which lines can be mirrors, which boxes hold a king).
    */
-  parts(v: TierValue, b: Board): Part[];
+  parts(v: TierValue, b: Board, base: Params): Part[];
   /** How the board picks the tier's units: one mode per kind of unit that overlaps another kind. */
   readonly modes: readonly HoverMode[];
 }
@@ -82,8 +84,147 @@ const squares: TierLens = {
   modes: [{ id: "square", label: "2×2 squares", groups: ["square"] }],
 };
 
+// ---- 🪞 Mirrormancer's tiers (families/grid/layered/mirror-tiers.ts) ----
+
+/**
+ * One unit per line that can be a mirror (the base's rows or columns). A mirror that passes `test` scores 1 the first
+ * time its reading appears and 0 when an earlier line reads the same (the card counts different mirrors).
+ */
+function mirrorUnits(b: Board, base: Params, test: (numbers: number[]) => { ok: boolean; fact: string; miss?: string }, hit: string): Part[] {
+  const rows = base.axis !== "TB", kind = rows ? "Row" : "Column", seen = new Map<string, number>();
+  return Array.from({ length: b.N }, (_, i): Part => {
+    const cells = rows ? b.row(i) : b.column(i), numbers = cells.map(c => b.value(c)), read = cells.map(c => b.glyph(c)).join(" ");
+    const unit = { id: `mirror:${i}`, group: "mirror", shape: "line" as const, cells };
+    if (numbers.some((n, k) => n !== numbers[numbers.length - 1 - k])) {
+      return { ...unit, points: [0], title: `${kind} ${i + 1} is not a mirror`, facts: [{ text: `${read} does not read the same both ways`, ok: false }] };
+    }
+    const { ok, fact, miss } = test(numbers), key = numbers.join(" "), first = seen.get(key);
+    if (!ok) return { ...unit, points: [0], title: `${kind} ${i + 1}: a mirror, but ${miss}`, facts: [{ text: fact, ok: false }] };
+    if (first !== undefined) {
+      return { ...unit, points: [0], title: `${kind} ${i + 1} repeats ${kind.toLowerCase()} ${first + 1}`, facts: [{ text: fact, ok: true }, { text: `${read} is already counted: the same mirror counts once`, ok: false }] };
+    }
+    seen.set(key, i);
+    return { ...unit, points: [1], title: `${kind} ${i + 1}: a mirror ${hit}`, facts: [{ text: fact, ok: true }] };
+  });
+}
+const MIRROR_MODES: readonly HoverMode[] = [{ id: "mirror", label: "Mirrors", groups: ["mirror"] }];
+
+/** "holding": each different mirror holding exactly two ys. */
+const holding: TierLens = {
+  components: v => [`different mirrors holding exactly two ${num(v, "y")}s`],
+  unit: ["different mirror", "different mirrors"],
+  hit: v => `holding exactly two ${num(v, "y")}s`,
+  parts: (v, b, base) => {
+    const y = num(v, "y");
+    return mirrorUnits(b, base, numbers => {
+      const held = numbers.filter(n => n === y).length;
+      return { ok: held === 2, fact: held === 2 ? `holds exactly two ${y}s` : `holds ${held === 0 ? "no" : held} ${y}${held === 1 ? "" : "s"}, not two`, miss: `without exactly two ${y}s` };
+    }, `holding exactly two ${y}s`);
+  },
+  modes: MIRROR_MODES,
+};
+
+/** "halves": each different mirror whose half adds up to x with two different numbers. */
+const halves: TierLens = {
+  components: v => [`different mirrors whose half adds up to ${num(v, "x")}`],
+  unit: ["different mirror", "different mirrors"],
+  hit: v => `whose half adds up to ${num(v, "x")}`,
+  parts: (v, b, base) => {
+    const x = num(v, "x");
+    return mirrorUnits(b, base, numbers => {
+      const half = numbers.slice(0, Math.floor(numbers.length / 2)), total = half.reduce((s, n) => s + n, 0);
+      const sum = `${half.join(" + ")} = ${total}`, different = half.some(n => n !== half[0]);
+      if (total !== x) return { ok: false, fact: `its half: ${sum}, not ${x}`, miss: `its half does not add up to ${x}` };
+      return different ? { ok: true, fact: `its half: ${sum}` } : { ok: false, fact: `its half: ${sum}, but the numbers are not different`, miss: "its half is one number repeated" };
+    }, `whose half adds up to ${x}`);
+  },
+  modes: MIRROR_MODES,
+};
+
+// ---- 🫅 Kings and Subjects' tiers (families/grid/layered/court-tiers.ts) ----
+
+/** The base's vocabulary on a board: the king of each court and the courts' other cells, in the card's order. */
+function courts(b: Board): { kings: Cell[]; subjects: Cell[] } {
+  const kings: Cell[] = [], subjects: Cell[] = [], noKing = noKingPenalty(b.spec);
+  for (const { r, c } of courtSquares(b.N, "corners")) {
+    const cells = [b.cells[r * b.N + c], b.cells[r * b.N + c + 1], b.cells[(r + 1) * b.N + c], b.cells[(r + 1) * b.N + c + 1]];
+    const { score, king } = courtScore(cells.map(x => b.value(x)), noKing);
+    if (score[0] !== 1) continue;
+    kings.push(cells[king]);
+    subjects.push(...cells.filter((_, i) => i !== king));
+  }
+  return { kings, subjects };
+}
+
+/** Every path from `from` to `to` that moves side by side and always gets closer, both ends included. */
+function walks(b: Board, from: Cell, to: Cell): Cell[][] {
+  if (from.r === to.r && from.c === to.c) return [[from]];
+  const out: Cell[][] = [], at = (r: number, c: number) => b.cells[r * b.N + c];
+  if (from.r !== to.r) for (const rest of walks(b, at(from.r + Math.sign(to.r - from.r), from.c), to)) out.push([from, ...rest]);
+  if (from.c !== to.c) for (const rest of walks(b, at(from.r, from.c + Math.sign(to.c - from.c)), to)) out.push([from, ...rest]);
+  return out;
+}
+
+/**
+ * "pairs": each pair of kings joined by a path whose numbers in between add up to x. One unit per pair of kings that
+ * do not touch, drawn as the path that counts (or the one that comes nearest). Paths cross, so each unit is picked on
+ * the board by one cell of its own (`anchor`): a cell between its kings where one is free.
+ */
+const pairs: TierLens = {
+  components: v => [`pairs of kings with ${num(v, "x")} between them`],
+  unit: ["pair of kings", "pairs of kings"],
+  hit: v => `with a path adding up to ${num(v, "x")} between them`,
+  parts: (v, b) => {
+    const x = num(v, "x"), { kings } = courts(b), out: Part[] = [], taken = new Set<Cell>();
+    for (let i = 0; i < kings.length; i++) for (let j = i + 1; j < kings.length; j++) {
+      const a = kings[i], z = kings[j];
+      if (Math.abs(a.r - z.r) + Math.abs(a.c - z.c) < 2) continue; // touching kings have nothing in between
+      const between = (path: Cell[]) => path.slice(1, -1).reduce((s, c) => s + b.value(c), 0);
+      const all = walks(b, a, z), good = all.filter(path => between(path) === x);
+      const path = good[0] ?? all.reduce((best, p) => (Math.abs(between(p) - x) < Math.abs(between(best) - x) ? p : best));
+      const inner = path.slice(1, -1), total = between(path), ok = good.length > 0;
+      const anchor = [...inner, a, z, ...b.cells].find(c => !taken.has(c))!;
+      taken.add(anchor);
+      const names = `kings ${b.glyph(a)} and ${b.glyph(z)}`, sum = `${inner.map(c => b.glyph(c)).join(" + ")} = ${total}`;
+      out.push({
+        id: `pair:${a.r},${a.c}-${z.r},${z.c}`, group: "pair", shape: "region", cells: path, anchor, points: [ok ? 1 : 0],
+        title: ok ? `${names}: ${x} between them` : `${names}: no path with ${x} between them`,
+        facts: [{ text: ok ? `in between: ${sum}` : `the nearest path: ${sum}, not ${x}`, ok }],
+        spots: [{ cell: a, label: "king", tone: ok ? "gain" : "zero" }, { cell: z, label: "king", tone: ok ? "gain" : "zero" }],
+      });
+    }
+    return out;
+  },
+  modes: [{ id: "pair", label: "Pairs of kings", groups: ["pair"] }],
+};
+
+/**
+ * "sameRoads": each road of subjects showing one number, of exactly y subjects. One unit per road of two or more
+ * subjects, and per lone subject when y is 1 (a road that is too short or too long says so).
+ */
+const sameRoads: TierLens = {
+  components: v => [`same-number roads of exactly ${num(v, "y")} subjects`],
+  unit: ["same-number road", "same-number roads"],
+  hit: v => `of exactly ${num(v, "y")} subjects`,
+  parts: (v, b) => {
+    const y = num(v, "y"), subjects = new Set(courts(b).subjects), out: Part[] = [];
+    const roads = b.regions((p, q) => subjects.has(p) && subjects.has(q) && b.value(p) === b.value(q));
+    for (const road of roads) {
+      if (!subjects.has(road[0]) || (road.length < 2 && y !== 1)) continue;
+      const ok = road.length === y, shows = b.glyph(road[0]);
+      out.push({
+        id: `road:${road[0].r},${road[0].c}`, group: "road", shape: "region", cells: road, points: [ok ? 1 : 0],
+        title: ok ? `a road of ${y} subjects showing ${shows}` : `a road of ${road.length} subjects showing ${shows}: not ${y}`,
+        facts: [{ text: `${count(road.length, "subject")} showing ${shows} ${road.length === 1 ? "stands alone" : "touch side by side"}`, ok }],
+      });
+    }
+    return out;
+  },
+  modes: [{ id: "road", label: "Roads", groups: ["road"] }],
+};
+
 /** The tier lenses, by interaction id. */
-export const TIER_LENSES: Readonly<Record<string, TierLens>> = Object.freeze({ lines, squares });
+export const TIER_LENSES: Readonly<Record<string, TierLens>> = Object.freeze({ lines, squares, holding, halves, pairs, sameRoads });
 
 // ------------------------------------------------------------------------------------------------
 // a tiered draw's lens: its base's lens and its tiers'
@@ -120,7 +261,7 @@ export function tieredLens(base: Lens, blocksOf: (p: Params) => readonly CardTie
   const pad = (points: readonly number[], at: number, arity: number) => { const out = new Array<number>(arity).fill(0); points.forEach((x, k) => { out[at + k] = x; }); return out; };
   const reached = (parts: readonly Part[]) => parts.reduce((s, part) => s + part.points[0], 0);
   /** A tier's units as parts of the whole explanation. */
-  const tierParts = (t: PlannedTier, b: Board, arity: number): Part[] => t.lens.parts(t.value, b).map(part => ({
+  const tierParts = (t: PlannedTier, b: Board, arity: number, bp: Params): Part[] => t.lens.parts(t.value, b, bp).map(part => ({
     ...part, id: `${t.key}:${part.id}`, group: `${t.key}:${part.group ?? "unit"}`, points: pad(part.points, t.block.index, arity),
     facts: part.facts.map(f => ({ ...f, tier: t.block.index + (f.tier ?? 0) })),
   }));
@@ -138,7 +279,7 @@ export function tieredLens(base: Lens, blocksOf: (p: Params) => readonly CardTie
       const got = reached(baseParts);
       return [
         ...baseParts.map(part => ({ ...part, points: pad(part.points, 0, pl.arity) })),
-        ...pl.tiers.filter(t => got >= t.block.gate).flatMap(t => tierParts(t, b, pl.arity)),
+        ...pl.tiers.filter(t => got >= t.block.gate).flatMap(t => tierParts(t, b, pl.arity, baseParams(p))),
       ];
     },
     breakdown(p, b, parts) {
