@@ -111,7 +111,7 @@ test("an ended game's replay, cut at any snapshot, rebuilds the whole engine sta
   const pages = adaPages;
   assert.ok(pages.length > 1, "the replay pages");
   assert.ok(pages.some(p => p.eventOffset !== undefined), "a batch larger than a page is split across pages");
-  assert.equal(pages[0].game.logSchema, 9);
+  assert.equal(pages[0].game.logSchema, 10);
   // Fully revealed: every god's dealt utility and card, the end deadline, every agent's source (Bo's marker too), every act's seed.
   assert.equal(pages[0].game.endAtWorld, final.game.endAtWorld);
   assert.deepEqual(pages[0].gods!.map(g => [g.godId, g.utility, g.card]), [...final.deities].sort((a: any, b: any) => a.index - b.index).map((d: any) => [d.godId, d.utility, d.card]));

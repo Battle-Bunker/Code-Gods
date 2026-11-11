@@ -64,11 +64,30 @@ export async function syncRows(ctx: MutationCtx, objects: readonly ObjectState[]
     // bounded: one row per roster god (≤ 8).
     const have = new Map((await ctx.db.query("objectViews").withIndex("by_object_god", q => q.eq("objectId", o._id)).take(16)).map(r => [r.godId, r]));
     const told = telling?.told(o._id);
-    for (const row of rowsOf(o, live, telling?.world)) {
-      const old = have.get(row.godId);
-      if (!old) await ctx.db.insert("objectViews", row);
-      else if (told !== undefined && told !== "all" && !told.has(row.godId)) continue;
-      else if (old.version <= row.version && JSON.stringify(stored(old)) !== JSON.stringify(row)) await ctx.db.replace(old._id, row);
+    for (const fresh of rowsOf(o, live, telling?.world)) {
+      const old = have.get(fresh.godId);
+      // A telling never moves a row's time back (a tick's sync may run after a look made later in world time).
+      const row = telling && old?.learnedAt !== undefined && old.learnedAt > telling.world ? { ...fresh, learnedAt: old.learnedAt } : fresh;
+      // The god's knowledge over time (knowledgeLog): a telling that brings something new is one row of its series.
+      // (The same version re-scored corrects its row; it is not a second observation.)
+      const log = async () => {
+        const entry = { gameId: row.gameId, godId: row.godId, objectId: row.objectId, world: row.learnedAt ?? 0, version: row.version, value: row.value,
+          own: row.netBits, others: row.peerNetBits, payoff: row.payoff };
+        const last = old && old.version === row.version
+          ? await ctx.db.query("knowledgeLog").withIndex("by_game_god_object_world", q => q.eq("gameId", row.gameId).eq("godId", row.godId).eq("objectId", row.objectId)).order("desc").first()
+          : null;
+        if (last && last.version === row.version) await ctx.db.patch(last._id, { own: entry.own, others: entry.others, payoff: entry.payoff });
+        else await ctx.db.insert("knowledgeLog", entry);
+      };
+      const news = !old || old.version !== row.version || old.peerNetBits !== row.peerNetBits || old.netBits !== row.netBits;
+      if (!old) { await ctx.db.insert("objectViews", row); if (telling) await log(); }
+      else if (told !== undefined && told !== "all" && !told.has(row.godId)) {
+        // Not told: the row stays. Only the same version re-scored (the hold corrections of planning, whose fill may
+        // finish after the world starts) follows, keeping its time: the object is the one the god already knows.
+        const same = { ...row, ...(old.learnedAt !== undefined ? { learnedAt: old.learnedAt } : {}) };
+        if (old.version === row.version && JSON.stringify(stored(old)) !== JSON.stringify(same)) { await ctx.db.replace(old._id, same); if (news) await log(); }
+      }
+      else if (old.version <= row.version && JSON.stringify(stored(old)) !== JSON.stringify(row)) { await ctx.db.replace(old._id, row); if (telling && news) await log(); }
     }
   }
 }
@@ -119,8 +138,10 @@ export const fill = internalMutation({
     const page = await ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", gameId)).paginate({ cursor, numItems: FILL_PAGE });
     // Paid observation: before the world runs (the start, the hold rescoring) every god is told every object as it is
     // born; once it runs, a fill only adds a missing row (a birth), and the running game's sweep has nothing to repair.
-    const world = (await clockDoc(ctx, gameId))?.worldSeconds ?? 0;
-    await syncRows(ctx, page.page, game.phase !== "ended", paidLive(game) ? { world, told: () => (game.phase === "planning" ? "all" : NOBODY) } : undefined);
+    // (The clock is read only then: every commit writes it, and a free game's fill must not conflict with commits.)
+    const paid = paidLive(game);
+    const world = paid ? (await clockDoc(ctx, gameId))?.worldSeconds ?? 0 : 0;
+    await syncRows(ctx, page.page, game.phase !== "ended", paid ? { world, told: () => (game.phase === "planning" ? "all" : NOBODY) } : undefined);
     if (!page.isDone) await ctx.scheduler.runAfter(0, internal.game.objectViews.fill, { gameId, cursor: page.continueCursor, ...(rowsOnly ? { rowsOnly } : {}) });
     else if (!rowsOnly) await ctx.scheduler.runAfter(0, internal.game.objectViews.fillTotals, { gameId });
   },

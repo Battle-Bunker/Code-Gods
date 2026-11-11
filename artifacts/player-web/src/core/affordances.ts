@@ -95,6 +95,7 @@ export function deriveAffordances(c: AffordanceContext): Affordances {
         c.hasObservation && !c.seated ? hide("You're watching this game.") : null,
         c.phase === "ended" ? off("The game is over: every object is shown as it ended.") : null,
         c.phase === "lobby" ? off("The game hasn't started yet.") : null,
+        c.phase === "planning" ? off("The world has not started: every object is still exactly as you see it.") : null,
         transient,
         c.look ? (o => (o.ok ? null : off(o.reason!)))(lookOffer(c.look)) : null,
       ),

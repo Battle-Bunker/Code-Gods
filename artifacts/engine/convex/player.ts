@@ -597,6 +597,7 @@ export async function seriesFor(ctx: QueryCtx, caller: Viewer, args: { roomId: s
   const objectId = args.objectId ? ctx.db.normalizeId("objects", args.objectId) : null;
   if (args.objectId && !objectId) return fail("BAD_REQUEST", "Not an object id");
   const from = args.fromWorld ?? -Infinity;
+  if (paidLive(game)) return knownSeries(ctx, game, index, viewer.subject, { objectId, from, cursor: args.cursor ?? null, limit });
   const rowsOf = objectId
     ? ctx.db.query("objectEvents").withIndex("by_game_object_world", q => q.eq("gameId", game._id).eq("objectId", objectId).gte("world", from))
     : ctx.db.query("objectEvents").withIndex("by_game_world", q => q.eq("gameId", game._id).gte("world", from));
@@ -605,21 +606,14 @@ export async function seriesFor(ctx: QueryCtx, caller: Viewer, args: { roomId: s
   const live = game.phase !== "ended";
   // A row as the caller sees it: live, the others' sum with that version's disclosure noise (settings.peerNoiseBits).
   const seen = (r: Pick<Doc<"objectEvents">, "net" | "noise">) => viewAt(r.net, index, live ? r.noise ?? 0 : 0);
-  const last = new Map<string, Pick<Doc<"objectEvents">, "net" | "noise" | "kind" | "ownerId">>();
+  const last = new Map<string, Pick<Doc<"objectEvents">, "net" | "noise">>();
   // The rows before this page of each object first seen here, read in parallel (one indexed read each).
   const firstSeen = new Map<string, Doc<"objectEvents">>();
   for (const row of page.page) if (!firstSeen.has(row.objectId)) firstSeen.set(row.objectId, row);
   const priors = new Map((await Promise.all([...firstSeen.values()].filter(r => r.version > 0).map(r =>
     ctx.db.query("objectEvents").withIndex("by_game_object_version", q => q.eq("gameId", game._id).eq("objectId", r.objectId).eq("version", r.version - 1)).first(),
   ))).flatMap(r => (r ? [[r.objectId as string, r] as const] : [])));
-  // Paid observation (lib/knowledge.ts): a seated god of a live game is told only births and its own agents' changes,
-  // and the others' sum before a change only when that earlier row was told too.
-  const paid = paidLive(game);
-  const told = (r: Pick<Doc<"objectEvents">, "kind" | "ownerId">) => !paid || r.kind === "spawn" || r.ownerId === viewer.subject;
-  const previous = async (row: Doc<"objectEvents">) => {
-    const before = row.version === 0 ? null : last.get(row.objectId) ?? priors.get(row.objectId) ?? null;
-    return before && told(before) ? before : null;
-  };
+  const previous = async (row: Doc<"objectEvents">) => (row.version === 0 ? null : last.get(row.objectId) ?? priors.get(row.objectId) ?? null);
   const c = {
     world: [] as number[], seq: [] as number[], objectId: [] as string[], kind: [] as ("spawn" | "transform")[], version: [] as number[],
     before: [] as (Wire | null)[], value: [] as Wire[], ownBefore: [] as (number | null)[], othersBefore: [] as (number | null)[],
@@ -628,14 +622,45 @@ export async function seriesFor(ctx: QueryCtx, caller: Viewer, args: { roomId: s
   for (const row of page.page) {
     const before = await previous(row), after = seen(row), was = before ? seen(before) : null;
     last.set(row.objectId, row);
-    if (!told(row)) continue;
     c.world.push(row.world); c.seq.push(row.seq); c.objectId.push(row.objectId); c.kind.push(row.kind); c.version.push(row.version);
     c.before.push(row.before ?? null); c.value.push(row.value); c.ownBefore.push(was?.own ?? null); c.othersBefore.push(was?.others ?? null);
     c.own.push(after.own); c.others.push(after.others); c.payoff.push(after.payoff); c.mine.push(row.ownerId === viewer.subject);
   }
   return {
     gameId: game._id, phase: game.phase, live: game.phase !== "ended", self: { godId: viewer.subject, index }, others: game.roster.length - 1,
-    partial: await partialSeries(ctx, game._id), rows: c.world.length, columns: c, cursor: page.continueCursor, done: page.isDone && game.phase === "ended", pageDone: page.isDone,
+    partial: await partialSeries(ctx, game._id), rows: page.page.length, columns: c, cursor: page.continueCursor, done: page.isDone && game.phase === "ended", pageDone: page.isDone,
+  };
+}
+
+/**
+ * Paid observation (lib/knowledge.ts): a seated god's series of a live game is its own knowledge over time (knowledgeLog:
+ * one row per telling that brought something new), in the series' columns: the object as told at `world`, its own bits,
+ * the others' sum as disclosed and the payoff. "Before" is the god's previous telling of the object when that was the
+ * version just before (in this page), else unknown (null); `seq` is 0 and `mine` false (a telling is not an event).
+ * One index page of the god's own rows: what it paid to learn is what its analysis has.
+ */
+async function knownSeries(ctx: QueryCtx, game: Doc<"games">, index: number, godId: string, q: { objectId: Id<"objects"> | null; from: number; cursor: string | null; limit: number }) {
+  const { objectId } = q;
+  const rowsOf = objectId
+    ? ctx.db.query("knowledgeLog").withIndex("by_game_god_object_world", r => r.eq("gameId", game._id).eq("godId", godId).eq("objectId", objectId).gte("world", q.from))
+    : ctx.db.query("knowledgeLog").withIndex("by_game_god_world", r => r.eq("gameId", game._id).eq("godId", godId).gte("world", q.from));
+  const page = await rowsOf.paginate({ cursor: q.cursor, numItems: q.limit });
+  const last = new Map<string, Doc<"knowledgeLog">>();
+  const c = {
+    world: [] as number[], seq: [] as number[], objectId: [] as string[], kind: [] as ("spawn" | "transform")[], version: [] as number[],
+    before: [] as (Wire | null)[], value: [] as Wire[], ownBefore: [] as (number | null)[], othersBefore: [] as (number | null)[],
+    own: [] as number[], others: [] as number[], payoff: [] as number[], mine: [] as boolean[],
+  };
+  for (const row of page.page) {
+    const prior = last.get(row.objectId), was = prior && prior.version === row.version - 1 ? prior : null;
+    last.set(row.objectId, row);
+    c.world.push(row.world); c.seq.push(0); c.objectId.push(row.objectId); c.kind.push(row.version === 0 ? "spawn" : "transform"); c.version.push(row.version);
+    c.before.push(was?.value ?? null); c.value.push(row.value); c.ownBefore.push(was?.own ?? null); c.othersBefore.push(was?.others ?? null);
+    c.own.push(row.own); c.others.push(row.others); c.payoff.push(row.payoff); c.mine.push(false);
+  }
+  return {
+    gameId: game._id, phase: game.phase, live: true, self: { godId, index }, others: game.roster.length - 1,
+    partial: false, rows: page.page.length, columns: c, cursor: page.continueCursor, done: false, pageDone: page.isDone,
   };
 }
 
@@ -672,20 +697,22 @@ export async function boardFor(ctx: QueryCtx, caller: Viewer, args: { roomId: st
   const world = atCursor ?? args.world ?? nowWorld, current = world >= nowWorld;
   // Paid observation: the board now is the caller's knowledge (each object as last told); a past board would be a look
   // at every object then, which is paid for (lib/knowledge.ts).
-  if (!current && paidLive(game)) return fail("FORBIDDEN", "This game charges for looking: a past board is not free while the game is live. The board now (no world) is what you have been told; look to refresh it.");
+  // (A later page of the board "now" carries its first page's world, by then just past: it is still the knowledge.)
+  const known = paidLive(game);
+  if (known && args.world !== undefined && args.world < nowWorld) return fail("FORBIDDEN", "This game charges for looking: a past board is not free while the game is live. The board now (no world) is what you have been told; look to refresh it.");
   const limit = Math.max(1, Math.min(max, Math.floor(args.limit ?? max)));
   const page = await ctx.db.query("objectViews")
     .withIndex("by_game_god_created", q => q.eq("gameId", game._id).eq("godId", viewer.subject).lte("createdAt", world))
     .paginate({ cursor: atCursor !== undefined ? args.cursor!.slice(split + 1) : null, numItems: limit });
   const live = game.phase !== "ended";
-  const objects = current
+  const objects = current || known
     ? page.page.map(r => ({ objectId: r.objectId as string, value: r.value, version: r.version, changedAt: r.lastMutatedAt ?? r.createdAt, ...(r.learnedAt !== undefined ? { knownAt: r.learnedAt } : {}),
       own: r.netBits, others: r.peerNetBits, payoff: r.payoff }))
     : (await Promise.all(page.page.map(r => ctx.db.query("objectEvents")
       .withIndex("by_game_object_world", q => q.eq("gameId", game._id).eq("objectId", r.objectId).lte("world", world)).order("desc").first())))
       .flatMap(e => (e ? [{ objectId: e.objectId as string, value: e.value, version: e.version, changedAt: e.world, ...viewAt(e.net, index, live ? e.noise ?? 0 : 0) }] : []));
   return {
-    gameId: game._id, world, partial: !current && await partialSeries(ctx, game._id),
+    gameId: game._id, world, partial: !current && !known && await partialSeries(ctx, game._id),
     objects, cursor: `${world}|${page.continueCursor}`, done: page.isDone,
   };
 }

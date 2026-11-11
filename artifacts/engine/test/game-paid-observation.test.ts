@@ -82,8 +82,12 @@ test("paid observation: a god sees what it was told, and pays its own energy to 
   assert.ok(!events.events.some((e: any) => e.type === "object.transformed" && !e.mine), "others' transformations are not");
   const history = await host.c.query(api.player.history, { roomId, gameId: game.gameId, afterSeq: -1, limit: 50 });
   assert.ok(!history.events.some((e: any) => e.type === "object.transformed" && !e.mine));
-  const series = await host.c.query(api.player.series, { roomId, limit: 40 });
-  assert.ok(series.columns.kind.every((k: string, i: number) => k === "spawn" || series.columns.mine[i]), "the series is births and own changes");
+  // The utility series is the god's knowledge over time: one row per telling. Of the object only Bo changed, its birth.
+  const seriesOf = (god: typeof ada, objectId: string) => god.c.query(api.player.series, { roomId, objectId, limit: 40 });
+  if (stale.version === 0) {
+    const known = await seriesOf(host, untouched.id);
+    assert.deepEqual([known.columns.version, known.columns.value, known.columns.world], [[0], [untouched.born.value], [0]], "Host's series of it is its birth alone");
+  }
   const trajectories = await host.c.query(api.player.trajectories, { roomId, afterSeq: -1, limit: 200 });
   const versions = new Map((await raw(game.gameId)).objectEvents.filter((e: any) => e.kind === "spawn" || e.ownerId === host.subject).map((e: any) => [`${e.objectId}:${e.world}`, true]));
   for (const o of trajectories.objects) for (const p of o.points) assert.ok(versions.has(`${o.objectId}:${p.worldSeconds}`), "a trajectory point is a birth or an own change");
@@ -92,8 +96,8 @@ test("paid observation: a god sees what it was told, and pays its own energy to 
   assert.equal((await host.c.query(api.games.objectIds, { gameId: game.gameId, paginationOpts: { numItems: 50, cursor: null } })).page.length, 0);
   assert.equal((await host.c.query(api.player.game, { roomId, gameId: game.gameId })).objects.length, 0);
   // The whole-world observation (AI seats, stored panels) is the god's knowledge too.
-  const whole = observationSchema.parse(await host.c.query(api.player.observation, { roomId }));
-  assert.ok(whole.objects.length >= 12 && whole.objects.every(o => o.knownAt !== undefined));
+  const world = observationSchema.parse(await host.c.query(api.player.observation, { roomId }));
+  assert.ok(world.objects.length >= 12 && world.objects.every(o => o.knownAt !== undefined));
   // The own score moves with the published scoreboard only.
   const dock = await host.c.query(api.dock.state, { roomId });
   const board = await host.c.query(api.games.standings, { gameId: game.gameId });
@@ -110,10 +114,17 @@ test("paid observation: a god sees what it was told, and pays its own energy to 
   assert.ok(Math.abs(paid.spent - before.spent - price) < 1e-9, "the look is charged to the god's own account");
   const fresh = await waitFor(async () => { const row = await rowOf(host, untouched.id); return row.knownAt > 0 && row.version > 0 && row; }, "the look refreshed the row");
   assert.ok(fresh.version >= looked.look.object.version);
+  // What the look told is a row of Host's series: the object then, with the others' sum as disclosed (the data of the
+  // rival inference). Ada, who did not look, has no such row unless her observer read it.
+  const told = await seriesOf(host, untouched.id);
+  const at = told.columns.version.lastIndexOf(fresh.version);
+  assert.ok(at > 0 && told.columns.value[at] === fresh.value && told.columns.others[at] === fresh.peerNetBits && told.columns.world[at] === fresh.knownAt, "the look is in the looker's series");
+  const whole = await host.c.query(api.player.series, { roomId, limit: 40 });
+  assert.ok(whole.rows >= 12 && whole.columns.world.every((w: number, i: number) => i === 0 || w >= whole.columns.world[i - 1]), "the series is in the order it was learned");
   // The look is in the god's own log, and nobody else's.
   const mineLog = await host.c.query(api.player.events, { roomId });
   const adaLog = await ada.c.query(api.player.events, { roomId, after: -1, limit: 50 });
-  assert.ok(mineLog.events.some((e: any) => e.type === "god.looked" && e.objectId === untouched.id && e.cost === price));
+  assert.ok(mineLog.events.some((e: any) => e.type === "god.looked" && e.objectId === untouched.id && e.price === price));
   assert.ok(!adaLog.events.some((e: any) => e.type === "god.looked"), "a god's looks are private while the game is live");
 
   // Unaffordable: refused, with the price and the balance; nothing is charged.

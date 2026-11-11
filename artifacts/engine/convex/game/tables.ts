@@ -350,6 +350,18 @@ export const gameTables = {
     .index("by_game_god_mutated", ["gameId", "godId", "lastMutatedAt"]),
 
   /**
+   * PRIVATE to `godId`, paid observation only (lib/knowledge.ts): the god's knowledge over time, one row per telling
+   * that brought something new (an object's birth, a version the god had not been told, or the same version re-scored):
+   * the object as told at world time `world`, with the god's own bits, the others' sum as disclosed and the payoff.
+   * Written with the god's objectViews row (game/objectViews.ts syncRows), so only for objects the god was told. It is
+   * the god's utility series while the game is live (player.series): what the analytics and the rival inference read.
+   */
+  knowledgeLog: defineTable({
+    gameId: v.id("games"), godId: v.string(), objectId: v.id("objects"), world: v.number(), version: v.number(), value: wire,
+    own: v.number(), others: v.number(), payoff: v.number(),
+  }).index("by_game_god_world", ["gameId", "godId", "world"]).index("by_game_god_object_world", ["gameId", "godId", "objectId", "world"]),
+
+  /**
    * PRIVATE to `godId`: that god's totals over every object as disclosed (lib/views.ts GodTotals): the objects panel's
    * footer and counts, the overview's score. Computed by the tick from its snapshot (or from every object at the start,
    * after rescoring and at the end) and written with the read-model sync; `world` orders the writes (an older one never

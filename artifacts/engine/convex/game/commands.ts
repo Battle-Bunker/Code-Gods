@@ -290,6 +290,8 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     // Paid observation (lib/knowledge.ts, docs/energy-model.md §11): the god pays its own energy to be told one object
     // as it is now, or all of them. Refused, with the price and the balance, when it cannot pay.
     if (!paidLive(game)) fail("BAD_REQUEST", "Looking is free in this game: every object is already shown as it is");
+    // Before the world runs nothing has changed: every object is as its god was told at its birth, so a look buys nothing.
+    if (game.phase === "planning") fail("CONFLICT", "The world has not started: every object is still exactly as you see it, so there is nothing to pay for");
     const world = worldNow(game, now), each = lookPriceOf(settings);
     const id = command.objectId === undefined ? null : ctx.db.normalizeId("objects", command.objectId);
     const object = id ? await ctx.db.get(id) : null;

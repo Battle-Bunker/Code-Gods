@@ -60,6 +60,7 @@ export function lookOffer({ price, energy, count }: { price: number; energy: num
   const total = Math.round(price * (count ?? 1) * 100) / 100;
   const label = all ? `Look at all ${count} · ${price1(total)}` : `Look · ${price1(total)}`;
   if (all && count <= 0) return { total, label, ok: false, reason: "There are no objects to look at yet" };
-  if (energy >= total) return { total, label, ok: true, reason: null };
+  // The engine compares the exact price (game/commands.ts), so the cents shown are not what decides.
+  if (energy >= price * (count ?? 1)) return { total, label, ok: true, reason: null };
   return { total, label, ok: false, reason: `${all ? `A look at all ${count} objects` : "A look"} costs ${total.toFixed(2)} energy; you have ${exact(energy)}` };
 }

@@ -234,7 +234,7 @@ export function projectEvent(ev: Ev, godId: string, index: number, live = true) 
   if (ev.t === "look") {
     // A god's looks are its own while the game is live (what it chose to watch says what it cares about).
     if (live && ev.ownerId !== godId) return null;
-    return { type: "god.looked" as const, mine: ev.ownerId === godId, worldSeconds: ev.world, cost: ev.cost, count: ev.count, ...(ev.objectId ? { objectId: ev.objectId } : {}) };
+    return { type: "god.looked" as const, mine: ev.ownerId === godId, worldSeconds: ev.world, price: ev.cost, count: ev.count, ...(ev.objectId ? { objectId: ev.objectId } : {}) };
   }
   if (ev.t === "fail") {
     if (ev.ownerId !== godId) return null;
@@ -304,7 +304,7 @@ export function replayEvent(ev: Ev) {
     };
     case "destroy": return { type: "agent.destroyed" as const, agentId: ev.agentId, ownerId: ev.ownerId, worldSeconds: ev.world };
     case "power": return { type: "agent.power" as const, agentId: ev.agentId, ownerId: ev.ownerId, worldSeconds: ev.world, share: ev.share };
-    case "look": return { type: "god.looked" as const, ownerId: ev.ownerId, worldSeconds: ev.world, cost: ev.cost, count: ev.count, ...(ev.objectId ? { objectId: ev.objectId } : {}) };
+    case "look": return { type: "god.looked" as const, ownerId: ev.ownerId, worldSeconds: ev.world, price: ev.cost, count: ev.count, ...(ev.objectId ? { objectId: ev.objectId } : {}) };
   }
 }
 export type ReplayEventOut = ReturnType<typeof replayEvent>;

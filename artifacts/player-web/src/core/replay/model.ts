@@ -67,7 +67,7 @@ export function describeEvent(ev: ReplayEvent, names: ReadonlyMap<string, string
     case "agent.skipped": return `${god(ev.ownerId)}'s agent ${shortId(ev.agentId)} looked at object ${shortId(ev.objectId)} and did nothing (paid ${bits(ev.cost.read)} bits to look)`;
     case "agent.summoned": return `${god(ev.ownerId)} summoned agent ${shortId(ev.agentId)} (${ev.language}, ${bits(ev.summonCost)} bits${ev.powerShare !== undefined ? `, ${Math.round(ev.powerShare * 1000) / 10}% of its owner's power` : ""})`;
     case "agent.destroyed": return `${god(ev.ownerId)} destroyed agent ${shortId(ev.agentId)}`;
-    case "god.looked": return `${god(ev.ownerId)} paid ${bits(ev.cost)} bits to look at ${ev.objectId ? `object ${shortId(ev.objectId)}` : `all ${ev.count} objects`}`;
+    case "god.looked": return `${god(ev.ownerId)} paid ${bits(ev.price)} bits to look at ${ev.objectId ? `object ${shortId(ev.objectId)}` : `all ${ev.count} objects`}`;
     case "agent.power": return `${god(ev.ownerId)} set agent ${shortId(ev.agentId)} to ${Math.round(ev.share * 1000) / 10}% of their power`;
   }
 }

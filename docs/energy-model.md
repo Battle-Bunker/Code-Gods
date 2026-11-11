@@ -473,7 +473,8 @@ everything once a second costs 16.6 bits/s, a quarter of a god's power.
 |---|---|---|
 | `player.object`, `objectIds`, `objectsTop`, `objectRank`, `objectsPage`, `board` (now), the observation's objects | the object as it is | the object as last told (`knownAt`); `player.object` adds the public `changesSince` |
 | `player.totals`, `dock.state` `self.score` | live | as of the last published scoreboard |
-| `player.events`, `history`, `trajectories`, `series` | every spawn and transformation | births and the god's own agents' acts (and its own looks) |
+| `player.events`, `history`, `trajectories` | every spawn and transformation | births and the god's own agents' acts (and its own looks) |
+| `player.series` (`get_utility_series`, `fit_utility_mixture`, the `utility_series` dataset) | every spawn and transformation, with the others' sum | the god's knowledge over time: one row per telling (11.7) |
 | `player.board` at a past world time | the board then | refused (it is a look at every object then) |
 | `games.object`, `games.objectIds`, `player.game` objects (the spectator's queries) | the world | nothing for a seated god |
 | validate / summon's sample world | 16 live objects | the same objects as the god was last told them |
@@ -492,7 +493,7 @@ holds; for a competitive room, close it.
 
 ### 11.6 Reads and stored data
 
-- No new table and no new page query. `objectViews` gains an optional `learnedAt` (absent in a free game and after the
+- No new page query; one new table (`knowledgeLog`, 11.7), private to its god, written only with a telling. `objectViews` gains an optional `learnedAt` (absent in a free game and after the
   end: no migration; rows of a paid game are written with it).
 - The tick tells the commit which gods it told which objects (`told`); the read-model sync rewrites only those rows, and
   inserts rows for spawns. Nothing is read or written for an object nobody was told about, and the once-a-minute sweep
@@ -503,3 +504,31 @@ holds; for a competitive room, close it.
   god while live; the replay subtracts it from the god's energy).
 - The observation reports `economy.observation` and `economy.lookPrice`.
 
+
+### 11.7 History and analysis at a price
+
+"We could allow higher time resolution data to be accessible in principle but at a high cost, meaning one valid use of
+energy would be detailed analysis that could expensively derive the goals of other gods."
+
+- Every telling that brings a god something new (a birth, a version it had not been told, a re-score) is one row of
+  that god's `knowledgeLog`: the world time, the object's value, the god's own bits, the others' sum as disclosed and the
+  payoff. It is written with the god's row, by the same sync.
+- While a paid game is live, the god's utility series (`player.series`, and so `get_utility_series`, the `utility_series`
+  dataset and `fit_utility_mixture`) is that log. The rival inference fits the other gods' rules to (value, others' sum)
+  pairs; in a paid game it has exactly the pairs the god paid for. The time resolution of the history is the rate the
+  god samples at, and each sample costs one look.
+- There is no purchase of the past: a state nobody paid to see at the time is not for sale later. (It would be a second
+  mechanism; the price would be the same, one look per row.)
+- What an inference costs on the default setup (look 1.66; cheapest change 16.3; a small agent's summon price is tens of
+  bits; a god's power is 64 bits/s and its account starts at 200):
+
+  | Sampling | Looks | Energy | In cheapest changes |
+  |---|---|---|---|
+  | One look at every object (10) | 10 | 16.6 | 1 |
+  | Every object every 10 s for a 10-minute game | 600 | 996 | 61 |
+  | Every object once a second for one minute | 600 | 996 | 61 |
+  | One object once a second for the whole game | 600 | 996 | 61 |
+  | An observer agent with a 10% power share (6.4 bits/s) | about 3.9 objects/s | 6.4/s | 0.4/s |
+
+  The births are free samples (one per object), which is too few to tell rules apart; `fit_utility_mixture` needs tens
+  to hundreds of distinct values.
