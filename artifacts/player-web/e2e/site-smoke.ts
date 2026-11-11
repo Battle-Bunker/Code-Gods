@@ -255,6 +255,7 @@ try {
       assert.match(await a.getByTestId(`text-member-seat-${alice.subject}`).innerText(), /owner · player/);
       await a.getByTestId(`button-spectator-${alice.subject}`).click();
       await a.getByTestId("text-viewer-seat").filter({ hasText: /3 more players needed; you're watching\. AI players count\./ }).waitFor();
+      await a.waitForTimeout(400);   // the play/watch toggle drops the second click of a double click (click-once.ts)
       await a.getByTestId(`button-spectator-${alice.subject}`).click();
       await a.getByTestId("text-viewer-seat").filter({ hasText: /A game needs three players/ }).waitFor();
       await a.goto(`${SITE}/`);

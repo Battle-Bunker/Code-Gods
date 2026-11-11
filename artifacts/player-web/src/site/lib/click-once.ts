@@ -11,7 +11,7 @@
  * A dropped call resolves to undefined.
  */
 export function oncePerKey<A extends unknown[], R>(fn: (...args: A) => Promise<R>, keyOf: (...args: A) => string,
-  valueOf: (...args: A) => unknown = () => "", quietMs = 800, now: () => number = Date.now) {
+  valueOf: (...args: A) => unknown = () => "", quietMs = 300, now: () => number = Date.now) {
   /** Per key: the last click sent (its value and when), and the values with a call in flight. */
   const last = new Map<string, { value: unknown; at: number }>(), busy = new Map<string, Set<unknown>>();
   return (...args: A): Promise<R | undefined> => {
