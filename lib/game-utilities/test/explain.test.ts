@@ -254,6 +254,44 @@ test("Mirrormancer: one unit per row, folded onto itself, pairs as ✓/✗ arcs"
   assert.equal(look("mirrormancer", { axis: "TB" }).point(0, 0)!.id, "line:column:0");
 });
 
+test("Opposite Nines: one unit per half-turn pair, linked through the middle; the pair under the pointer", () => {
+  // The literal board with 9R → 5R and 5G → 7G, so two pairs make 9:
+  //   2 5 8 1 / 4 4 4 7 / 6 3 5 0 / 1 7 3 7. Reading order i pairs with 15 − i:
+  //   2+7=9 ✓, 5+3=8 (1), 8+7=15 (6), 1+1=2 (7), 4+0=4 (5), 4+5=9 ✓, 4+3=7 (2), 7+6=13 (4): (2, −25).
+  const board = "2R,5R,8R,1G/4G,4B,4R,7G/6B,3G,5R,0B/1R,7B,3B,7G";
+  const { e, unit, point } = look("opposite_nines", {}, board);
+  assert.deepEqual(e.ordinal, [2, -25]);
+  assert.equal(e.parts.length, 8);
+  assert.deepEqual(sortUnits(e.parts).slice(0, 2).map(u => u.id), ["pair:0,0", "pair:1,1"], "the two nines lead the list");
+  assert.deepEqual(unit("pair:0,0").facts, [{ text: "2 + 7 = 9", ok: true }, { text: "right on 9", ok: true, tier: 1 }]);
+  assert.deepEqual(unit("pair:0,2").facts, [{ text: "8 + 7 = 15, not 9", ok: false }, { text: "6 too many", ok: false, tier: 1 }]);
+  assert.deepEqual(unit("pair:0,3").facts[1], { text: "7 too few", ok: false, tier: 1 });
+  assert.deepEqual(unit("pair:0,2").points, [0, -6]);
+  assert.deepEqual(unit("pair:0,2").links, [{ from: { r: 0, c: 2 }, to: { r: 3, c: 1 }, ok: false }], "a link through the middle");
+  assert.equal(point(3, 3)!.id, "pair:0,0", "the bottom-right corner picks its pair with the top-left");
+  assert.equal(point(2, 2)!.id, "pair:1,1");
+  const bd = lensFor("opposite_nines")!.breakdown({}, readBoard(FIRST_STEPS, board)!, e.parts);
+  assert.deepEqual(bd.items.map(i => [i.text, i.points]), [["2 opposite pairs adding up to 9", [2, 0]], ["6 opposite pairs that miss 9, 25 away in all", [0, -25]]]);
+});
+
+test("Step-Stool Mirror: one unit per folded pair (top onto bottom), a vertical link; the pair under the pointer", () => {
+  const { e, unit, point } = look("step_stool", {});
+  // Columns folded: 2/1 ✓, 4/6 (1); 5/7 (1), 4/3 ✓; 8/3 (4), 4/9 (4); 1/5 (3), 7/0 (6): (2, −19).
+  assert.deepEqual(e.ordinal, [2, -19]);
+  assert.equal(e.parts.length, 8);
+  assert.deepEqual(unit("pair:0,0").facts, [{ text: "2 and 1 are one apart", ok: true }, { text: "exactly one apart", ok: true, tier: 1 }]);
+  assert.deepEqual(unit("pair:1,0").facts, [{ text: "4 and 6 are 2 apart, not one", ok: false }, { text: "1 too far", ok: false, tier: 1 }]);
+  assert.deepEqual(unit("pair:1,3").points, [0, -6]);
+  assert.deepEqual(unit("pair:1,0").links, [{ from: { r: 1, c: 0 }, to: { r: 2, c: 0 }, ok: false }]);
+  assert.equal(point(3, 0)!.id, "pair:0,0", "the bottom-left cell picks the outer pair of its column");
+  assert.equal(point(2, 0)!.id, "pair:1,0", "the cell above it, the inner pair");
+  const same = look("step_stool", {}, "4R,4R,4R,4R/4R,4R,4R,4R/4R,4R,4R,4R/4R,4R,4R,4R");
+  assert.deepEqual(same.e.ordinal, [0, -8]);
+  assert.deepEqual(same.unit("pair:0,0").facts, [{ text: "4 and 4 are the same, not one apart", ok: false }, { text: "1 too close", ok: false, tier: 1 }]);
+  const bd = lensFor("step_stool")!.breakdown({}, readBoard(FIRST_STEPS, BOARD)!, e.parts);
+  assert.deepEqual(bd.items.map(i => [i.text, i.points]), [["2 pairs one apart", [2, 0]], ["6 pairs not one apart, 19 away in all", [0, -19]]]);
+});
+
 test("goal examples: deterministic, in the room's own shape, verified, and they teach both sides", () => {
   for (const l of LENSES) {
     for (const p of paramsFor(l.familyId, FIRST_STEPS)) {
