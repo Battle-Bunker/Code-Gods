@@ -237,10 +237,10 @@ export interface Budget {
   annealEvals: number;
 }
 export const DEFAULT_BUDGET: Budget = {
-  starts: 12, steps: 16, longSteps: 48, beamWidth: 6, entangleBoards: 24, entangleMoves: 3, pairStarts: 4, annealRuns: 4, annealEvals: 12000,
+  starts: 12, steps: 16, longSteps: 48, beamWidth: 6, entangleBoards: 24, entangleMoves: 3, pairStarts: 4, annealRuns: 3, annealEvals: 8000,
 };
 export const QUICK_BUDGET: Budget = {
-  starts: 6, steps: 12, longSteps: 32, beamWidth: 4, entangleBoards: 12, entangleMoves: 2, pairStarts: 2, annealRuns: 2, annealEvals: 6000,
+  starts: 6, steps: 12, longSteps: 32, beamWidth: 4, entangleBoards: 12, entangleMoves: 2, pairStarts: 2, annealRuns: 2, annealEvals: 4000,
 };
 
 export interface RuleReport {
@@ -281,7 +281,7 @@ export function starts(sp: Space, n: number, label = "starts"): GridValue[] {
   return Array.from({ length: n }, () => sp.spawn(rng));
 }
 
-const mean = (a: readonly number[]) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
+const mean = (a: readonly number[]) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : NaN);
 const median = (a: readonly number[]) => { const s = [...a].sort((x, y) => x - y); return s.length ? s[Math.floor((s.length - 1) / 2)] : NaN; };
 
 let tsBits: ReturnType<typeof makeTsAstBits>["tsAstBits"] | null = null;
@@ -446,9 +446,8 @@ export function measurePair(A: Rule, B: Rule, ctx: Context): PairReport {
   }
   const conflict = mean([upA ? upAdownB / upA : 0, upB ? upBdownA / upB : 0]);
   // Two naive agents taking turns, one move each, until neither can improve its own rule (or 2 × longSteps moves).
-  const naiveEnds = S.map(g0 => turns(g0, false));
-  // Two considerate agents: the same, but neither takes a move that lowers the other's ordinal.
-  const considerate = mean(S.map(g0 => jointValue(turns(g0, true))));
+  const naiveEnds = S.map(g0 => turns(g0, false)), kindEnds = S.map(g0 => turns(g0, true));
+  const naive = mean(naiveEnds.map(jointValue)), considerate = mean(kindEnds.map(jointValue));
   function turns(g0: GridValue, kind: boolean): GridValue {
     let g = g0, idle = 0;
     for (let s = 0; s < 2 * steps && idle < 2; s++) {
@@ -464,10 +463,9 @@ export function measurePair(A: Rule, B: Rule, ctx: Context): PairReport {
     }
     return g;
   }
-  const naive = mean(naiveEnds.map(jointValue));
   // Pair-aware search: greedy on the joint value from the naive ends, from each rule's own greedy optimum, and from the
   // starts. The best value found anywhere is the ceiling (a lower bound on the true joint optimum).
-  const seeds = [...naiveEnds, ...S.map(g0 => turns(g0, true)), ...S.slice(0, 2).flatMap(g => [greedy(A, sp, g, steps).boards[steps], greedy(B, sp, g, steps).boards[steps]])];
+  const seeds = [...naiveEnds.slice(0, 2), ...kindEnds.slice(0, 2), ...S.slice(0, 1).flatMap(g => [greedy(A, sp, g, steps).boards[steps], greedy(B, sp, g, steps).boards[steps]])];
   const rng = seededRng(`rule-difficulty|anneal|${A.id}|${B.id}`);
   const ceiling = Math.max(naive, considerate, ...seeds.map(g => climbValue(jointValue, sp, g, steps).v),
     ...seeds.slice(0, b.annealRuns).map(g => anneal(jointValue, sp, g, b.annealEvals, rng)));
