@@ -45,3 +45,20 @@ test("a castle's own wall cells are never shut in", () => {
   // All-red 4×4 scores [0, 12] for castle_keeper {wall: red}: walls are not counted as shut-in cells.
   for (const id of ["castle_keeper", "castle_pockets"]) assert.match(say(id, { wall: "red" }), /A cell that isn't red is shut in/);
 });
+
+test("a border is every touching pair of cells of two colours, so a long border counts many times", () => {
+  // 0R,0R,0G,0G ×4 rows scores [4, 16]: two 8-cell countries meet along 4 cell edges.
+  const text = say("border_baron", {});
+  assert.match(text, /A border is each place where a cell touches a cell of another colour/);
+  assert.match(text, /A long border counts many times\./);
+});
+
+test("a magic window's lines add up to 3 times the window's middle cell", () => {
+  // 1G,2G,3G,0G/4G,5R,6G,0G/7G,8G,9G,0G/0G,0G,0G,0G scores [4, 4]: row 1,2,3 is not magic (6 ≠ 3×5).
+  assert.match(say("magic_window", { colour: "red" }), /3 times the number in the window's middle cell/);
+});
+
+test("a ladder's starting row does not score", () => {
+  // Rows 0001 < 0002 < 0003 < 0004 score [3, 3].
+  assert.match(say("ladder_of_numbers", { direction: "down" }), /the row it starts from doesn't score/);
+});

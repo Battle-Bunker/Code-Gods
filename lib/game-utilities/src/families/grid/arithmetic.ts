@@ -458,7 +458,7 @@ const windowText = (p: WindowP, g: GridSpec): CardText => ({
   about: sentences(
     "Try to make a 3×3 window full of magic lines.",
     "Look at every 3×3 window. In each one, a line is a row, column or diagonal of 3 cells.",
-    `A line is magic when its ${nums(g)} add up to 3 times the middle cell's ${num(g)}, unless all 3 are the same.`,
+    `A line is magic when its ${nums(g)} add up to 3 times the ${num(g)} in the window's middle cell, unless all 3 are the same.`,
     `A window only counts if its middle cell is ${p.colour}.`,
     g.say.valueKey(),
     `Your best window scores 1 primary point for each of its magic lines (8 is a perfect magic square).`,
@@ -921,7 +921,7 @@ const ladderText = (p: LadderP, g: GridSpec): CardText => ({
     `Try to make each row a bigger number than the row before it, going ${p.direction} the page.`,
     `Read each row as one big number in base ${g.base}.`,
     digitNote(g),
-    `Each row in your longest unbroken climb, the most rows in a row that each beat the row before, scores ${tierPoints(1, 0, 2)}.`,
+    `Find your longest unbroken climb of rows that each beat the row before. Each of those rows scores ${tierPoints(1, 0, 2)} (the row it starts from doesn't score).`,
     `Each row that beats the row before it scores ${tierPoints(1, 1, 2)}.`,
   ),
 });
