@@ -406,7 +406,8 @@ try {
       // One plain button seats the default AI player; which AI is a choice behind "Choose a model" (the palette's pick list).
       await a.getByTestId("button-choose-ai").click();
       await a.locator('[data-testid^="row-palette-option-"]').first().waitFor();
-      await a.keyboard.press("Escape");
+      // Escape leaves the pick list for the palette's first page, then closes the palette.
+      for (let i = 0; i < 3 && await a.getByTestId("dialog-palette").isVisible(); i++) { await a.keyboard.press("Escape"); await a.waitForTimeout(200); }
       await a.getByTestId("dialog-palette").waitFor({ state: "hidden" });
       await a.getByTestId("button-add-ai").click();
       await a.locator('[data-testid^="row-member-ai:"]').waitFor();
