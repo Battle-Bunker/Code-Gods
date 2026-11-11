@@ -6,7 +6,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ANNOTATED_BASICS_SEED_ID, SEED_SETUPS, applySettingsChange, validateSettings } from "@workspace/game-core";
+import { ANNOTATED_BASICS_SEED_ID, ANNOTATED_COLOURS_SEED_ID, BEGINNER_POOL, SEED_SETUPS, applySettingsChange, validateSettings } from "@workspace/game-core";
 import { offeredInstantiations, playableInstantiations } from "@workspace/game-utilities";
 import { shippedManifest } from "@workspace/game-utilities/calibration-data";
 import { settingsDomain } from "../../convex/engine/settingsDomain.ts";
@@ -49,30 +49,38 @@ test("the server domain lists every playable shape, shipped tables or not, and t
   assert.ok(typeDefence.every(id => id.startsWith("hate_")) && !SETTINGS_DOMAIN.typeFamilies("Grid", "reward").some(id => id.startsWith("hate_")));
 });
 
-test("Annotated basics deals only the families that have a lens, derived from the lens registry", async () => {
+test("Annotated basics deals exactly the beginner pool on a numbers-only board; Annotated colours deals every family with a lens", async () => {
   const { LENSES, availableFamilies, selector, applicable, family, context } = await import("@workspace/game-utilities");
   const { instantiate, seededRng } = await import("@workspace/game-types");
   const { seedSetupSettings } = await import("@workspace/game-core");
-  const s = seedSetupSettings(ANNOTATED_BASICS_SEED_ID);
-  assert.ok(SEED_SETUPS.some(x => x.seedId === ANNOTATED_BASICS_SEED_ID && x.summary.length <= 160), "listed among the system setups");
-  const inst = instantiate(s.objectType, s.typeArgs);
-  // The board is numbers only (mono), so the annotated families that read colour cannot be dealt on it.
-  assert.deepEqual(s.typeArgs, { size: 4, symbols: "base10", colours: "mono" });
-  const annotated = new Set(LENSES.map(l => l.familyId).filter(id => availableFamilies(inst, "reward", []).some(f => f.id === id)));
-  assert.deepEqual([...annotated].sort(), ["magic_accountant", "mirrormancer", "number_bonds"]);
-  // Every annotated family the board can deal is dealable; nothing else is (a new family must be added to the exclusions).
-  const dealable = availableFamilies(inst, "reward", s.excludedFamilies).map(f => f.id).sort();
-  assert.deepEqual(dealable, [...annotated].sort());
-  for (const id of annotated) {
-    const f = family(id)!;
-    assert.ok(!f.needs || applicable(f, inst, f.sample(seededRng(1), context(inst))).ok, `${id} applicable`);
-  }
-  // Dealing with either selector never yields anything else.
-  for (const id of ["fair-aligned", "divine-lottery"]) {
-    for (let seed = 1; seed <= 20; seed++) {
-      for (const d of selector(id).select(inst, 4, seededRng(seed), { exclude: s.excludedFamilies })) {
-        assert.ok(annotated.has(d.familyId), `${id}: ${d.familyId}`);
+  const annotated = new Set(LENSES.map(l => l.familyId));
+  const cases = [
+    { seedId: ANNOTATED_BASICS_SEED_ID, pool: new Set(BEGINNER_POOL), colours: "mono" },
+    { seedId: ANNOTATED_COLOURS_SEED_ID, pool: null, colours: "rgb" },
+  ];
+  for (const { seedId, pool, colours } of cases) {
+    const s = seedSetupSettings(seedId);
+    assert.ok(SEED_SETUPS.some(x => x.seedId === seedId && x.summary.length <= 160), `${seedId}: listed among the system setups`);
+    assert.equal(s.typeArgs.colours, colours, `${seedId}: board`);
+    const inst = instantiate(s.objectType, s.typeArgs);
+    // Every family of the pool is dealable on this shape and annotated; nothing else is (a new family must be excluded).
+    const expected = pool ?? new Set([...annotated].filter(id => availableFamilies(inst, "reward").some(f => f.id === id)));
+    for (const id of expected) assert.ok(annotated.has(id), `${seedId}: ${id} has a lens`);
+    const dealable = availableFamilies(inst, "reward", s.excludedFamilies).map(f => f.id).sort();
+    assert.deepEqual(dealable, [...expected].sort(), seedId);
+    for (const id of expected) {
+      const f = family(id)!;
+      assert.ok(!f.needs || applicable(f, inst, f.sample(seededRng(1), context(inst))).ok, `${id} applicable`);
+    }
+    // Dealing with either selector never yields anything else.
+    for (const sel of ["fair-aligned", "divine-lottery"]) {
+      for (let seed = 1; seed <= 20; seed++) {
+        for (const d of selector(sel).select(inst, 4, seededRng(seed), { exclude: s.excludedFamilies })) {
+          assert.ok(expected.has(d.familyId), `${seedId} ${sel}: ${d.familyId}`);
+        }
       }
     }
   }
+  // The colour set must be the only thing between the two: every beginner rule is annotated on the coloured board too.
+  assert.equal(BEGINNER_POOL.length, 8);
 });
