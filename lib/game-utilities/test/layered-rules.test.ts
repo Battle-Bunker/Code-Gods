@@ -7,7 +7,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { instantiate, type GridValue } from "@workspace/game-types";
 import { QUICK_BUDGET, compileSource, givenRule, space, type Budget } from "../scripts/rule-difficulty-lib.ts";
-import { fastCompile, tierColumns } from "../scripts/layered-profile.ts";
+import { fastCompile, liveness, tierColumns } from "../scripts/layered-profile.ts";
 import { FAMILIES, layeredSource, variants } from "../scripts/rule-difficulty-layered.mjs";
 
 const inst = instantiate("Grid", { size: 4, symbols: "base10", colours: "rgb" });
@@ -101,4 +101,20 @@ test("tier columns: a base-only agent leaves the tier's headroom, a tier-aware o
   const c = tierColumns(full, base, sp, TINY);
   assert.ok(c.tierShare > c.accidental, `tier-aware ${c.tierShare} > base-only ${c.accidental}`);
   assert.equal(c.addedTop, 2);
+});
+
+test("liveness: on the boards that max the 18-line mirror base, 'exactly two symmetries' is constant 0 and 'holding two 5s' is not", () => {
+  const sp = space(inst, "symbol");
+  const rule = (interaction: string, params: object) => {
+    const f = score("hall_of_mirrors", "all", interaction, params);
+    return givenRule(interaction, f, () => 0, 1);
+  };
+  const tops = [MIRROR_TOP, board([[1, 5, 5, 1], [5, 2, 2, 5], [5, 2, 2, 5], [1, 5, 5, 1]])];
+  const twice = liveness(rule("twice", { n: 2, y: 5 }), sp, tops);
+  assert.deepEqual([twice.tierMin, twice.tierMax], [0, 0]);
+  const holding = liveness(rule("pairOf", { k: 2, y: 5 }), sp, tops);
+  assert.equal(holding.tierMax, 16);
+  assert.equal(holding.uniformAtTierMax, false, "the all-5 board holds two 5s only on the 2-cell diagonals");
+  // Halves of 4-cell lines adding up to 10: the all-5 board maxes it (the degenerate maximum the red team found).
+  assert.equal(liveness(rule("halves4", { x: 10, half: true, length: 4 }), sp, tops).uniformAtTierMax, true);
 });

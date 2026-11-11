@@ -127,13 +127,16 @@ export interface TierReport {
   priorMean: number;
   /** The share of the tier's headroom (same base, tier 0 → full top) the tier-aware greedy end holds. */
   tierShare: number;
+  /** The tier's range on the best-base boards the climbs found (see tierColumns). */
+  live?: Liveness;
 }
 
 const mean = (a: readonly number[]) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : NaN);
 const boardText = (g: GridValue) => Array.from({ length: g.size }, (_, r) => Array.from(g.sym.slice(r * g.size, (r + 1) * g.size)).join("")).join("/");
 
 /** The extra columns for a layered variant given its base rule (both already measured, sharing the starts). */
-export function tierColumns(full: Rule, base: Rule, sp: Space, b: Budget, lex = true): { baseAgent: number; tierAgent: number; accidental: number; addedTop: number; tierShare: number } {
+export interface Liveness { boards: number; tierMin: number; tierMax: number; uniformAtTierMax: boolean }
+export function tierColumns(full: Rule, base: Rule, sp: Space, b: Budget, lex = true): { baseAgent: number; tierAgent: number; accidental: number; addedTop: number; tierShare: number; live?: Liveness } {
   const S = starts(sp, b.starts);
   const baseEnds = S.map(g => greedy(base, sp, g, b.longSteps).boards.at(-1)!);
   const fullEnds = S.map(g => greedy(full, sp, g, b.longSteps).boards.at(-1)!);
@@ -144,11 +147,29 @@ export function tierColumns(full: Rule, base: Rule, sp: Space, b: Budget, lex = 
     const o = full.score(g) as number[], at = full.bits(o), floor = full.bits([...o.slice(0, -1), 0]);
     return top - floor > 1e-6 ? Math.max(0, (at - floor) / (top - floor)) : 1;
   };
+  const live = lex ? liveness(full, sp, [...baseEnds, ...fullEnds]) : undefined;
   return {
+    live,
     baseAgent: mean(baseEnds.map(g => full.bits(full.score(g)))), tierAgent: mean(fullEnds.map(g => full.bits(full.score(g)))),
     addedTop: top - base.topBits,
     accidental: lex ? mean(baseEnds.map(headroom)) : NaN, tierShare: lex ? mean(fullEnds.map(headroom)) : NaN,
   };
+}
+
+/**
+ * Liveness of a lexicographic tier ([...base, tier]): on the best-base boards among `found` (plus the uniform boards),
+ * the tier's range. A tier that is constant there adds nothing (dead at the top); one a uniform board maxes there keeps
+ * the degenerate maximum. A lower bound on the truth: only the boards the climbs found.
+ */
+export function liveness(full: Rule, sp: Space, found: readonly GridValue[]): Liveness {
+  const uniform = Array.from({ length: sp.S }, (_, d) => ({ size: Math.sqrt(sp.cells), sym: new Uint8Array(sp.cells).fill(d), col: new Uint8Array(sp.cells) }));
+  const pool = [...found, ...uniform].map(g => ({ g, o: full.score(g) as number[] }));
+  const headOf = (o: number[]) => o.slice(0, -1), tierOf = (o: number[]) => o[o.length - 1];
+  const bestHead = pool.reduce((m, x) => (compareOrdinals(headOf(x.o), m) > 0 ? headOf(x.o) : m), headOf(pool[0].o));
+  const atTop = pool.filter(x => compareOrdinals(headOf(x.o), bestHead) === 0);
+  const tierMax = Math.max(...atTop.map(x => tierOf(x.o))), tierMin = Math.min(...atTop.map(x => tierOf(x.o)));
+  const uniformAtTierMax = atTop.some(x => tierOf(x.o) === tierMax && pool.indexOf(x) >= found.length);
+  return { boards: atTop.length, tierMin, tierMax, uniformAtTierMax };
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -274,11 +295,11 @@ async function main() {
 function markdown(tiers: TierReport[], pairs: PairReport[], gameReports: GameReport[], beginner: string[]): string {
   const f = (x: number, d = 1) => (Number.isFinite(x) ? x.toFixed(d) : x === Infinity ? "∞" : "–");
   const out = [
-    "| variant | card | top | +top | rate4 | g10 | g20 | trap | gap | K | **DIFF** | plat | unif | base agent | accidental | tier agent | tier share | prior mean | best board (ordinal) |",
-    "|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|---|",
+    "| variant | card | top | +top | rate4 | g10 | g20 | trap | gap | K | **DIFF** | plat | unif | base agent | accidental | tier agent | tier share | prior mean | tier at best base (n) | best board (ordinal) |",
+    "|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|---|",
     ...tiers.map(t => {
       const r = t.report;
-      return `| ${t.id} | ${f(r.cardBits, 0)} | ${f(r.topBits)} | ${t.interaction ? f(t.addedTop) : ""} | ${f(r.rate4, 2)} | ${f(r.greedy10)} | ${f(r.greedy20)} | ${f(r.trap, 2)} | ${f(r.gap, 2)} | ${f(r.entangle)} | **${f(r.difficulty)}** | ${f(r.plateau, 2)} | ${r.uniformTop.join("") || "–"} | ${f(t.baseAgent)} | ${f(t.accidental, 2)} | ${f(t.tierAgent)} | ${f(t.tierShare, 2)} | ${f(t.priorMean, 2)} | ${t.best.board} ${JSON.stringify(t.best.ordinal)} |`;
+      return `| ${t.id} | ${f(r.cardBits, 0)} | ${f(r.topBits)} | ${t.interaction ? f(t.addedTop) : ""} | ${f(r.rate4, 2)} | ${f(r.greedy10)} | ${f(r.greedy20)} | ${f(r.trap, 2)} | ${f(r.gap, 2)} | ${f(r.entangle)} | **${f(r.difficulty)}** | ${f(r.plateau, 2)} | ${r.uniformTop.join("") || "–"} | ${f(t.baseAgent)} | ${f(t.accidental, 2)} | ${f(t.tierAgent)} | ${f(t.tierShare, 2)} | ${f(t.priorMean, 2)} | ${t.live ? `${t.live.tierMin}–${t.live.tierMax}${t.live.uniformAtTierMax ? " U" : ""} (${t.live.boards})` : ""} | ${t.best.board} ${JSON.stringify(t.best.ordinal)} |`;
     }),
     "",
     "Upper tail of each calibration (the last levels: ordinal → bits) and calibration seconds at the small budget:",
