@@ -19,7 +19,7 @@ test("the setting: absent is free, the default setup is paid, an ended game is o
 
 test("a look costs the object's full read at the read price: less than the cheapest change on every seed setup", () => {
   const price = Object.fromEntries(SEED_SETUPS.map(s => [s.name, Math.round(lookPriceOf(s.settings) * 100) / 100]));
-  assert.deepEqual(price, { "First steps": 2.45, "Annotated basics": 1.66, Classic: 4.16, "Low income": 4.16, "Big board": 7.41, Master: 12.69 });
+  assert.deepEqual(price, { "First steps": 2.45, "Annotated basics": 1.66, "Annotated colours": 2.45, Classic: 4.16, "Low income": 4.16, "Big board": 7.41, Master: 12.69 });
 });
 
 test("an act tells its god the object only when it read all of it", () => {
