@@ -12,7 +12,7 @@ import { endGame, nextDeadline, scheduleTick } from "./engine/loop";
 import { clockDoc, engineDoc, liveGame, withEngine, writeGame, type LiveGame } from "./game/state";
 import { fail } from "./lib/errors";
 import { shortCodeFor } from "./lib/rooms";
-import { seed as seedSetups } from "./setups";
+import { listingOf, seed as seedSetups } from "./setups";
 import { openTurn } from "./assistant/turns";
 
 const dev = () => {
@@ -120,6 +120,20 @@ export const legacyAgentOpportunity = internalMutation({
   handler: async (ctx, { agentId, world }) => {
     dev();
     await ctx.db.patch(agentId, { lastOpportunityWorld: world });
+  },
+});
+
+/**
+ * A system Lab setup as the seed sync would store one declared in game-core LAB_SETUPS (which may be empty), so the
+ * tests of who may see one never depend on which experiments are shipped today. The next seed sync removes it.
+ */
+export const seedLabSetup = internalMutation({
+  args: { seedId: v.string(), name: v.string(), settings: v.any() },
+  handler: async (ctx, { seedId, name, settings }) => {
+    dev();
+    const now = Date.now(), summary = "An experiment for the tests";
+    const fields = { ownerId: null, name, summary, seedId, lab: true };
+    return await ctx.db.insert("gameSetups", { ...fields, settings, createdAt: now, updatedAt: now, ...listingOf(fields, "System") });
   },
 });
 
