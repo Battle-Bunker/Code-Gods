@@ -21,16 +21,18 @@ function Rooms() {
   const rooms = useLive(api.rooms.list, {});
   const empty = rooms.data?.length === 0;
   const create = <Action k="rooms.create" label="Create room" tone="primary" onClick={() => run("rooms.create")} testId="button-create-room" />;
+  // Joining a friend's room is a first-minutes task: a visible button (phones have no shortcut), beside Create room.
+  const join = <button type="button" onClick={() => openPalette()} className="border px-4 py-2 text-sm font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" data-testid="button-join-by-code">Join with a code</button>;
   return (
     <div className="mx-auto max-w-[1100px] px-4 md:px-6 py-10 rise">
       <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
         <h1 className="font-display text-5xl">Your rooms</h1>
-        {!empty && create}
+        {!empty && <div className="flex flex-wrap gap-3">{join}{create}</div>}
       </div>
       <section className="border bg-card">
         {rooms.isLoading && <div className="p-4 space-y-2">{[0, 1, 2].map(i => <Skeleton key={i} className="h-14 w-full" />)}</div>}
         {rooms.error && <div className="p-4"><ErrorLine message={errMsg(rooms.error)} /></div>}
-        {empty && <EmptyState title="No rooms yet" body="Create one and share its link. A game needs 3 players, and AI players count." action={create} testId="empty-rooms" />}
+        {empty && <EmptyState title="No rooms yet" body="Create one and share its link. A game needs 3 players, and AI players count." action={<div className="flex flex-wrap justify-center gap-3">{create}{join}</div>} testId="empty-rooms" />}
         {!!rooms.data?.length && (
           <ul className="divide-y">
             {rooms.data.map(r => (
@@ -49,9 +51,6 @@ function Rooms() {
         )}
       </section>
       <p className="mt-4 text-sm text-muted-foreground">
-        Have a code? <button type="button" onClick={() => openPalette()} className="underline underline-offset-4" data-testid="button-open-by-code">Type it in search</button> (Ctrl K or ⌘K).
-      </p>
-      <p className="mt-2 text-sm text-muted-foreground">
         Curious what goals the gods can have? <Link href={ruleGalleryPath()} className="underline underline-offset-4" data-testid="link-rule-gallery">Browse the rule gallery</Link>.
       </p>
     </div>
