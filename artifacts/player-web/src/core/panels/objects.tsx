@@ -213,8 +213,8 @@ function ObjectRow({ objectId, position, byPayoff, scales, world, highlighted, o
   const seen = staleness(o, world);
   const dim = seen?.stale ? "opacity-50 grayscale" : "";
   return (
-    <div key={lit ? `${o.id}:${change!.version}` : o.id} data-testid={`row-object-${o.id}`} className={`relative h-full min-w-0 overflow-hidden border-t border-[hsl(var(--card-border))] pt-2 ${seen ? "pb-7" : "pb-2"} ${highlighted ? "bg-[hsl(var(--primary)/0.06)]" : ""} ${lit ? "replay-changed" : ""}`}>
-      <div className="flex min-w-0 items-start gap-3">
+    <div key={lit ? `${o.id}:${change!.version}` : o.id} data-testid={`row-object-${o.id}`} className={`relative h-full min-w-0 overflow-hidden border-t border-[hsl(var(--card-border))] pt-2 pb-2 ${highlighted ? "bg-[hsl(var(--primary)/0.06)]" : ""} ${lit ? "replay-changed" : ""}`}>
+      <div className={`flex min-w-0 items-start gap-3 ${seen ? "mt-5" : ""}`.trimEnd()}>
         <button type="button" onClick={() => referObject(rank)} title="Ask your assistant about this object"
           className="w-7 shrink-0 pt-0.5 text-left font-mono text-xs text-muted-foreground hover:text-foreground">{label}</button>
         <span className={`max-w-[40%] shrink-0 truncate font-mono text-xs ${boards ? "" : dim}`.trimEnd()} data-stale={seen?.stale || undefined} data-testid={seen ? `object-seen-${o.id}` : undefined}><ObjectView value={o.value} compareTo={lit ? change!.before as never : undefined} {...ctx} showTitle /></span>
@@ -234,9 +234,10 @@ function ObjectRow({ objectId, position, byPayoff, scales, world, highlighted, o
         </span>
       </div>
       {seen && (
-        // Paid observation: one line across the row's foot (its own SEEN_LINE of height, so nothing above pushes it out):
+        // Paid observation: one line across the row's head, above its board (its own SEEN_LINE of height; at the foot it read
+        // as the next row's):
         // the badge, when it was seen and whether it has changed since (truncated when narrow), and the look.
-        <div className="absolute inset-x-0 bottom-1.5 flex h-[18px] min-w-0 items-center gap-2 pl-10 font-mono text-[11px] text-muted-foreground" data-testid={`text-seen-${o.id}`} data-stale={seen.stale || undefined}>
+        <div className="absolute inset-x-0 top-1.5 flex h-[18px] min-w-0 items-center gap-2 pl-10 font-mono text-[11px] text-muted-foreground" data-testid={`text-seen-${o.id}`} data-stale={seen.stale || undefined}>
           {seen.stale && <span className="shrink-0 border border-destructive px-1 text-[10px] font-semibold uppercase leading-[14px] tracking-wide text-destructive" data-testid={`badge-stale-${o.id}`}>stale</span>}
           <span className="min-w-0 truncate" title={boards ? (seen.stale ? "It has changed since you last saw the others' interest in it: the payoff shown may no longer be so." : "Nothing has changed it since you last saw the others' interest: the payoff is as it is now.")
             : seen.stale ? "It has changed since you last saw it: what is shown here may no longer be so." : "Nothing has changed it since you last saw it: this is how it is now."}>
