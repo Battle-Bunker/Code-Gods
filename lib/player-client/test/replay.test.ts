@@ -348,7 +348,7 @@ test("My agents at a playhead: the spend split into reading and changing, and ho
   // At the end: 5 read of 15 spent; one collision and one runtime error of three counted acts (skips are not counted).
   const end = at(9, events.length);
   assert.deepEqual([end.acts, end.spent, end.spentRead], [4, 15, 5]);
-  assert.deepEqual(end.outcomes, { transforms: 1, failures: { collision: 1, noChange: 0, commit: 0, invalid: 0, error: 1 }, lastFailures: { error: "TypeError: x is undefined" } });
+  assert.deepEqual(end.outcomes, { transforms: 1, failures: { collision: 1, noChange: 0, commit: 0, invalid: 0, error: 1, unaffordable: 0 }, lastFailures: { error: "TypeError: x is undefined" } });
   assert.match(end.diagnosis!.summary, /^2 of 3 acts failed: another object already has this value ×1, its code raised or ran out of time ×1$/);
   assert.match(end.diagnosis!.hint!, /only one object can hold a value/, "most acts failed: the fix for the first of the tied kinds");
   // A log from before the {read, change, total} cost (schema ≤ 4): the total only, never a made-up split.

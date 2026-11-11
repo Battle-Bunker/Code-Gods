@@ -52,6 +52,7 @@ Looking is ${CHANGE_READ_RATIO}× cheaper than changing: each bit of the object 
 So look before you change, return no calls when nothing is worth doing (a skip: it pays only what it read), and save energy to act more often.
 A change costs W + 0.05·W², where W adds up its elementary steps (one cell's colour or symbol; one digit added, or a multiplication by a prime):
 painting a 4-cell row costs about 7.5× one cell. Small incremental acts are much cheaper than radical ones.
+A change happens only if the agent holds enough energy to pay for the whole act; if not, the act fails ("could not afford this change") and pays only what it read. So an agent's biggest possible change costs what it can hold: big changes need a big power share.
 You may destroy your own agents at any time, for free (their power share comes back to you).
 At most ${n(s, "maxAgentsPerGod", 200)} agents per god.
 

@@ -163,7 +163,19 @@ export function pickByEnergy<T>(candidates: readonly T[], energy: (c: T) => numb
   return undefined;
 }
 
-/** Deduct one act's actual cost. The balance may go negative (a cooldown). */
+/**
+ * No credit (docs/energy-model.md §7.2): a change commits only if the account can pay for the whole act. The credit an
+ * account has: none in a game with capacity; unbounded (as before) in a game stored without `fullChargeSeconds`, which
+ * keeps the economy it started with.
+ */
+export const actCredit = (capacity: number): number => (Number.isFinite(capacity) ? 0 : Infinity);
+
+/** True when an act costing `cost` leaves the settled `balance` at or above −`credit`: the change may commit. */
+export function affordable(balance: number, cost: number, credit: number): boolean {
+  return balance - cost >= -credit - 1e-9;
+}
+
+/** Deduct one act's actual cost. The balance may go below zero only by what the act read (its change was affordable). */
 export function chargeAct(account: AgentAccount, cost: number): AgentAccount {
   assertClock(account.balance, "agent balance");
   assertRate(cost, "act cost");

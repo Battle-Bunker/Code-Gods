@@ -142,3 +142,58 @@ test("capacity: accounts fill to power × fullChargeSeconds and stop; lowering a
   assert.equal(checked.accepted, true, checked.message);
   await host.c.mutation(api.rooms.endActiveGame, { roomId });
 });
+
+/**
+ * No credit (docs/energy-model.md §7.2): a change commits only if the agent can pay for the whole act. P = 40 bits/s,
+ * T = 10 s. "Small" has 5% of the power (2 bits/s: holds 20 bits); "Big" has 50% (holds 200). Both add 11111: five
+ * digit adds, costing more than 20 bits and less than 200. Small can never hold enough: each try fails as
+ * "unaffordable" and pays only its reads. Big commits it once it holds enough, and is never left owing its change.
+ */
+test("no credit: a change the agent cannot pay for does not commit; no account owes more than its reads", { timeout: 240000 }, async () => {
+  const [host, ada, bo] = await gods("Credit Host", "Credit Ada", "Credit Bo");
+  await touch(host);
+  const { roomId } = await roomWith([host, ada, bo], {
+    objectType: "Int", typeArgs: { min: -1000000, max: 1000000 }, languages: ["typescript"],
+    startingObjectCount: 6, spawnRateHz: 0, planningSeconds: 3600, powerPerSecond: 40, startingEnergy: 5000, interactionRateHz: 20, fullChargeSeconds: 10,
+  });
+  const game = await startGame(host, roomId);
+  const send = (god: typeof ada, command: Record<string, unknown>) => god.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
+  const source = "function agent(n) { return [add(11111)]; }";
+  const small = await send(ada, { type: "summon", name: "Small", language: "typescript", source, powerShare: 0.05 });
+  assert.equal(small.accepted, true, small.message);
+  const big = await send(bo, { type: "summon", name: "Big", language: "typescript", source, powerShare: 0.5 });
+  assert.equal(big.accepted, true, big.message);
+  await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 3600 }, kick: true });
+  const agentOf = async (god: typeof ada) => (await raw(game.gameId)).agents.find((a: any) => a.ownerId === god.subject);
+  await waitFor(async () => (await agentOf(bo))?.transforms >= 2 && ((await agentOf(ada))?.failures?.unaffordable ?? 0) >= 3, "Big commits and Small is refused", 120000, 250);
+
+  const state = await raw(game.gameId);
+  const events = state.batches.flatMap((b: any) => b.events);
+  const offer = Math.log2(6) / 32;   // each turn's own read: which of the 6 objects
+  const transforms = events.filter((e: any) => e.t === "transform");
+  for (const e of transforms) assert.ok(e.cost.change > 20 && e.cost.change < 200, `the change costs ${e.cost.change}: more than Small can hold, less than Big can`);
+  const smallAgent = state.agents.find((a: any) => a.ownerId === ada.subject), bigAgent = state.agents.find((a: any) => a.ownerId === bo.subject);
+  assert.equal(smallAgent.transforms ?? 0, 0, "Small never commits: it can never hold the price");
+  const refused = events.filter((e: any) => e.t === "fail" && e.agentId === smallAgent._id);
+  assert.ok(refused.length >= 3);
+  for (const e of refused) {
+    assert.match(e.reason, /^could not afford this change: needed \d+\.\d bits, had \d+\.\d$/);
+    assert.ok(e.cost.change === 0 && Math.abs(e.cost.total - offer) < 1e-9, `a refusal pays its reads only: ${JSON.stringify(e.cost)}`);
+  }
+  assert.ok(Math.abs(smallAgent.spent - smallAgent.acts * offer) < 1e-6, "Small has paid for its turns and nothing else");
+  const memo = await admin.query(internal.testing.futileActs, { gameId: game.gameId });
+  assert.ok(memo.every((m: any) => m.agentId !== smallAgent._id || m.entries.length === 0), "a refusal is not remembered as futile: it commits once the agent holds more");
+  // Nobody owes its change: a balance is below zero by at most one turn's reads.
+  for (const a of state.agents) assert.ok(a.account.balance >= -offer - 1e-9, `${a.name}: ${a.account.balance}`);
+  // Big's refusals (turns that came before it held the price) are counted too, and it paid every change it made.
+  assert.ok(bigAgent.transforms >= 2 && bigAgent.spent >= transforms.length * 20);
+
+  // The owner sees why, and what to do.
+  const obs = observationSchema.parse(await ada.c.query(api.player.observation, { roomId }));
+  assert.ok((obs.agents[0].outcomes?.failures.unaffordable ?? 0) >= 3);
+  assert.match(obs.agents[0].diagnosis!.summary, /could not afford the change/);
+  assert.match(obs.agents[0].diagnosis!.hint!, /bigger power share/);
+  // Nothing is owed, so an agent can be destroyed at any time, as before.
+  assert.equal((await send(ada, { type: "destroy", agentId: smallAgent._id })).accepted, true);
+  await host.c.mutation(api.rooms.endActiveGame, { roomId });
+});
