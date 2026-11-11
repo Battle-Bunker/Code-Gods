@@ -19,7 +19,7 @@ import { useAdminAgents, useAgentOptions } from "@/site/hooks/use-agents";
 import { useToast } from "@/hooks/use-toast";
 import { api, useLive } from "@/site/lib/convex";
 import { codeCommands, engineCommands, paletteContextFor, type EngineActions, type EngineScope, type Live, type Template } from "@/site/lib/commands";
-import { errMsg } from "@/site/lib/errors";
+import { errMsg, startRaced } from "@/site/lib/errors";
 import type { GameRecord, GameView, Manifest, RoomState } from "@/site/lib/types";
 import { useSetupEntries } from "@/site/hooks/use-setups";
 import { rulesFor } from "@/site/components/game-rules";
@@ -173,7 +173,8 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
     setReady: ready => setReady({ roomId: need(roomId), ready }),
     setSpectator: (spectator, godId) => setSpectator({ roomId: need(roomId), spectator, ...(godId ? { godId } : {}) }),
     // One click is one requestId; a second click while it is pending sends nothing (the button shows "Starting…").
-    start: () => trackStart(startTracker, need(roomId), requestId => start({ roomId: need(roomId), requestId })),
+    start: () => trackStart(startTracker, need(roomId), requestId => start({ roomId: need(roomId), requestId })
+      .catch(e => { if (startRaced(e)) return null; throw e; })),
     resume: () => resume({ roomId: need(roomId) }),
     startWorldNow: () => startWorldNow({ roomId: need(roomId) }),
     endGame: () => end({ roomId: need(roomId) }),

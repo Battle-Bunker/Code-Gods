@@ -17,6 +17,11 @@ export function errMsg(e: unknown): string {
 export function errCode(e: unknown): string | undefined {
   return e instanceof ConvexError ? (e.data as { code?: string } | undefined)?.code : undefined;
 }
+/**
+ * A start that found its own game already live (a retried or concurrent start of the same click): the game exists, so
+ * the page keeps "Starting…" until the room's subscription shows it instead of restoring the button with no message.
+ */
+export const startRaced = (e: unknown): boolean => errCode(e) === "CONFLICT" && /already a live game/i.test(errMsg(e));
 /** The page's own guidance when the engine answers NOT_FOUND (its messages speak to agents: "list_setups names them all"). */
 export const notFoundMsg = (e: unknown, fallback: string): string => !e || errCode(e) === "NOT_FOUND" ? fallback : errMsg(e);
 /**
