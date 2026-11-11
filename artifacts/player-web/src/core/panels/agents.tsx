@@ -176,7 +176,7 @@ export function AgentsView({ agents, self, powerPerSecond, fullChargeSeconds, ch
                   <span className={a.energy <= 0 ? "font-semibold text-destructive" : "text-foreground"}><Say segs={capped ? storedLine(a.energy, a.capacity!) : energyLine(a.energy)} /></span>
                 </p>
                 <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                  {capped ? <CapacityMeter testId="meter-agent-capacity" energy={a.energy} income={a.income ?? 0} capacity={a.capacity!} /> : <EnergyMeter energy={a.energy} income={a.income ?? 0} />}
+                  {capped ? <CapacityMeter testId={`meter-agent-capacity-${a.id}`} energy={a.energy} income={a.income ?? 0} capacity={a.capacity!} /> : <EnergyMeter energy={a.energy} income={a.income ?? 0} />}
                   <span title="Energy over the last minutes of this game: the dashed line is 0" className="inline-flex items-center"><Sparkline values={history} zero width={90} height={18} label={`${label}: energy over time`} /></span>
                 </p>
                 <p data-testid={`text-agent-spent-${a.id}`}><Say segs={spentLine(a.spent, a.spentRead, a.acts)} /></p>

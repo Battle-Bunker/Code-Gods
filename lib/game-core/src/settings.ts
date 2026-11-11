@@ -337,8 +337,12 @@ export function validateSettings(settings: GameSettings, domain?: FamilyDomain):
   inRange("planningSeconds", settings.planningSeconds);
   inRange("halfLifeSeconds", settings.halfLifeSeconds);
   inRange("pauseSeconds", settings.pauseSeconds);
-  if (typeof settings.fullChargeSeconds !== "number" || !Number.isFinite(settings.fullChargeSeconds)) throw new Error("fullChargeSeconds must be a number of seconds");
-  inRange("fullChargeSeconds", settings.fullChargeSeconds);
+  // Absent only in the settings of a game started before the setting existed (no capacity: upgradeStoredSettings
+  // `played`); a setup or a room always has it (assertCompleteSettings, the upgrade's default).
+  if (settings.fullChargeSeconds !== undefined) {
+    if (typeof settings.fullChargeSeconds !== "number" || !Number.isFinite(settings.fullChargeSeconds)) throw new Error("fullChargeSeconds must be a number of seconds");
+    inRange("fullChargeSeconds", settings.fullChargeSeconds);
+  }
   for (const key of ["powerPerSecond", "startingEnergy", "penaltyWeight"] as const) {
     if (settings[key] > ENERGY_LIMITS[key].max) throw new Error(`${key} must be from 0 to ${ENERGY_LIMITS[key].max}`);
   }

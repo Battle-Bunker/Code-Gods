@@ -4,7 +4,7 @@
  * loses what it holds above its new limit. The panel only calls these when the observation carries a capacity (a game
  * started before the rule has none, and looks as it did).
  */
-import { energyCapacity, secondsToFull } from "@workspace/game-core";
+import { energyCapacity, roundShare, secondsToFull } from "@workspace/game-core";
 import { bits, num, type Seg } from "./agent-labels.ts";
 
 /** A store that is this close to its limit counts as full (settled balances are floats). */
@@ -56,7 +56,7 @@ export function shareCapacityLines({ newShare, agentShare, allocated, total, ful
   if (fullChargeSeconds === undefined) return [];
   const cap = (share: number) => energyCapacity(Math.max(0, share) * total, fullChargeSeconds);
   const agentNow = cap(agentShare), agentNext = cap(newShare);
-  const ownNow = cap(1 - allocated), ownNext = cap(1 - (allocated - agentShare + newShare));
+  const ownNow = cap(1 - allocated), ownNext = cap(roundShare(1 - (allocated - agentShare + newShare)));   // rounded as the engine does: a full allocation is exactly 0
   const agentLoss = lost(agentEnergy, agentNext), ownLoss = lost(ownEnergy, ownNext);
   const agent = `This agent will hold ${holds(agentNext, agentNow)}${agentLoss > 0 ? `: ${bits(agentLoss)} it holds above that will be lost` : ""}.`;
   const own = ownNext > 0

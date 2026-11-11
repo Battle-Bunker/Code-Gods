@@ -289,3 +289,8 @@ test("upgradeStoredSettings leaves a started game's economy alone: no capacity i
   const { scoreIntervalSeconds: __, ...older } = old;
   assert.deepEqual(upgradeStoredSettings(older, true), old, "its other fields are still filled");
 });
+
+test("the settings of a game started before fullChargeSeconds existed still validate (it is examined and summoned into)", () => {
+  const { fullChargeSeconds: _, ...old } = DEFAULT_SETTINGS;
+  assert.doesNotThrow(() => validateSettings(old as GameSettings));
+});

@@ -71,3 +71,10 @@ test("your own energy: fills and then stops; full; or holds nothing when all pow
   assert.equal(plain(ownEnergyLine({ energy: 0, income: 0, capacity: 0 })), "Your energy can hold nothing: all your power is with your agents. You cannot summon until you take some power back.");
   assert.deepEqual(ownEnergyLine({ energy: 230, income: 16, capacity: 480 }).flatMap(s => (typeof s === "string" ? [] : [s.term])), ["energy"]);
 });
+
+test("a share change that allocates everything says the player's own energy holds nothing, whatever the float rounding", () => {
+  // 2% and 92% allocated; the 2% agent is raised to 8%: 1 − (0.94 − 0.02 + 0.08) is 1.1e-16 in floats, 0 as shares.
+  const [, own] = shareCapacityLines({ newShare: 0.08, agentShare: 0.02, allocated: 0.94, total: 64, fullChargeSeconds: 30, agentEnergy: 0, ownEnergy: 0 });
+  assert.match(own, /will hold nothing/);
+  assert.match(own, /cannot summon/);
+});

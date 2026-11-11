@@ -20,7 +20,7 @@
  * Pure: no React, no Convex; browser-safe.
  */
 import { NO_FAILURES, diagnoseAgent, failureKind, type FailureKind } from "@workspace/engine/convex/lib/futility.ts";
-import { CHANGE_READ_RATIO, DEFAULT_SCORE_INTERVAL_SECONDS, MAX_AGENT_OPPORTUNITY_HZ, agentIncome, allowedLanguages, chargeAct, deityIncome, energyCapacity, settleDeityEnergy, instantiationOf, roundShare, settleAgentEnergy, type AgentAccount, type GameSettings } from "@workspace/game-core";
+import { CHANGE_READ_RATIO, DEFAULT_SCORE_INTERVAL_SECONDS, MAX_AGENT_OPPORTUNITY_HZ, agentIncome, allowedLanguages, chargeAct, deityIncome, energyCapacity, fullChargeOf, settleDeityEnergy, instantiationOf, roundShare, settleAgentEnergy, type AgentAccount, type GameSettings } from "@workspace/game-core";
 
 /** The replay API version this reducer reads (player.replay's `version`). */
 export const REPLAY_VERSION = 2;
@@ -161,8 +161,6 @@ export function settleAccount(settings: GameSettings, account: AgentAccount, wor
   const income = agentIncome(powerOf(settings), share);
   return settleAgentEnergy(account, Math.max(world, account.settledWorldSeconds), income, energyCapacity(income, fullChargeOf(settings)));
 }
-/** The game's time to a full store, or undefined when it has no capacity. */
-const fullChargeOf = (settings: GameSettings): number | undefined => (settings as Partial<GameSettings>).fullChargeSeconds;
 
 /** A god's own account accrued to `world` at its unallocated power, within that power's capacity. */
 function settleDeity(settings: GameSettings, d: ReplayDeity, world: number): ReplayDeity {

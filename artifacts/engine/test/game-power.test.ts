@@ -137,5 +137,8 @@ test("capacity: accounts fill to power × fullChargeSeconds and stop; lowering a
   assert.equal(obs.economy!.fullChargeSeconds, undefined);
   assert.equal(obs.agents.find(a => a.id === saver.id)!.capacity, undefined);
   assert.ok(obs.self.energy > 360 + 2 * 36, `no capacity: ${obs.self.energy}`);
+  // Such a game is still examined and summoned into: its settings validate without the field.
+  const checked = await send({ type: "validate", language: "typescript", source: "function agent(n) { return [add(3)]; }" });
+  assert.equal(checked.accepted, true, checked.message);
   await host.c.mutation(api.rooms.endActiveGame, { roomId });
 });

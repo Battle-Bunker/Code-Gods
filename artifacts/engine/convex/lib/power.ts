@@ -7,14 +7,13 @@
  * (game-core settleAgentEnergy), so every reader of an account goes through agentAccount/deityAccount and nothing is
  * written when an account fills. A game stored before the setting existed has no capacity.
  */
-import { agentIncome, deityIncome, energyCapacity, settleDeityEnergy, spendDeityEnergy, type AgentAccount, type DeityPowerTerms, type GameSettings } from "@workspace/game-core";
+import { agentIncome, deityIncome, energyCapacity, fullChargeOf, settleDeityEnergy, spendDeityEnergy, type AgentAccount, type DeityPowerTerms, type GameSettings } from "@workspace/game-core";
 import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { worldNow, type Clock } from "./world.ts";
 
 export const powerOf = (settings: GameSettings): number => settings.powerPerSecond;
-/** The game's time to a full store, or undefined when it has no capacity (a game started before the setting). */
-export const fullChargeOf = (settings: GameSettings): number | undefined => (settings as Partial<GameSettings>).fullChargeSeconds;
+export { fullChargeOf };
 /** An agent's income, bits per world second. */
 export const agentIncomeOf = (agent: { powerShare: number }, settings: GameSettings) => agentIncome(powerOf(settings), agent.powerShare);
 /** What an agent's account can hold: its income × fullChargeSeconds (Infinity: no capacity). */

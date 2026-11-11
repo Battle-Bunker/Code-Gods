@@ -57,6 +57,9 @@ export function energyCapacity(perSecond: number, fullChargeSeconds: number | un
   return perSecond * fullChargeSeconds;
 }
 
+/** A game's time to a full store (settings.fullChargeSeconds), or undefined when it has no capacity: a game started before the setting. */
+export const fullChargeOf = (settings: { fullChargeSeconds?: number }): number | undefined => settings.fullChargeSeconds;
+
 /** World seconds until an account earning `perSecond` is full (0 when it is; Infinity when it never fills). */
 export function secondsToFull(balance: number, perSecond: number, capacity: number): number {
   if (balance >= capacity) return 0;
