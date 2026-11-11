@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   agentIncome, deityIncome, defaultShare, assertShare, spendDeityEnergy, newAgentAccount, settleAgentEnergy, chargeAct, pickByEnergy, offerable, selectionWeight,
-  MAX_AGENT_OPPORTUNITY_HZ,
+  MAX_AGENT_OPPORTUNITY_HZ, energyCapacity, secondsToFull, settleDeityEnergy, chargeDeityAccount,
 } from "../src/energy.ts";
 
 test("power: agents earn their share, the deity the unallocated rest; summons are paid from the deity's own energy", () => {
@@ -22,7 +22,7 @@ test("power: agents earn their share, the deity the unallocated rest; summons ar
   assert.throws(() => spendDeityEnergy(account, -1), /Invalid/);
 });
 
-test("agents start empty and accrue in world seconds at the agent rate, with no cap", () => {
+test("agents start empty and accrue in world seconds at the agent rate; without a capacity, saved energy is kept", () => {
   const fresh = newAgentAccount(-30); // summoned during planning
   assert.deepEqual(fresh, { balance: 0, settledWorldSeconds: -30 });
   const later = settleAgentEnergy(fresh, -28, 2);
@@ -98,4 +98,65 @@ test("a cheap skipper gets more opportunities than an expensive actor with the s
   const free = simulate(0, 12, 50, 100);
   assert.ok(free.skipper <= MAX_AGENT_OPPORTUNITY_HZ * 100 + 1, JSON.stringify(free));
   assert.ok(free.actor > 0, JSON.stringify(free));
+});
+
+// ------------------------------------------------------------------------------------------------ capacity (§6.1)
+
+test("capacity is power × fullChargeSeconds; a game without the setting has none", () => {
+  assert.equal(energyCapacity(16, 30), 480);          // an agent with a quarter of 64 bits/s
+  assert.equal(energyCapacity(0, 30), 0);             // no power, nothing stored
+  assert.equal(energyCapacity(16, undefined), Infinity);
+  assert.throws(() => energyCapacity(16, -1));
+  assert.throws(() => energyCapacity(NaN, 30));
+});
+
+test("an empty account that spends nothing is full after fullChargeSeconds, and income past that is not stored", () => {
+  const capacity = energyCapacity(16, 30);
+  assert.equal(settleAgentEnergy(newAgentAccount(0), 10, 16, capacity).balance, 160);
+  assert.equal(settleAgentEnergy(newAgentAccount(0), 30, 16, capacity).balance, 480);   // full exactly at T
+  assert.deepEqual(settleAgentEnergy(newAgentAccount(0), 100, 16, capacity), { balance: 480, settledWorldSeconds: 100 });
+  // settling in steps or at once is the same: the lazily settled account needs no write at the moment it fills
+  const stepped = settleAgentEnergy(settleAgentEnergy(newAgentAccount(0), 29, 16, capacity), 100, 16, capacity);
+  assert.equal(stepped.balance, 480);
+  assert.equal(secondsToFull(160, 16, capacity), 20);
+  assert.equal(secondsToFull(480, 16, capacity), 0);
+  assert.equal(secondsToFull(0, 0, 0), 0);
+  assert.equal(secondsToFull(-16, 16, capacity), 31);  // debt is repaid first
+  assert.equal(secondsToFull(5, 16, Infinity), Infinity);
+});
+
+test("an account whose power was lowered falls to its new capacity, even with no time passed; debt is untouched", () => {
+  const held = { balance: 400, settledWorldSeconds: 50 };
+  // share lowered from 1/4 to 1/8 of 64 bits/s: capacity 480 → 240
+  assert.deepEqual(settleAgentEnergy(held, 50, 8, energyCapacity(8, 30)), { balance: 240, settledWorldSeconds: 50 });
+  assert.equal(settleAgentEnergy(held, 60, 8, energyCapacity(8, 30)).balance, 240);
+  // all power taken away: nothing can be held
+  assert.equal(settleAgentEnergy(held, 50, 0, energyCapacity(0, 30)).balance, 0);
+  const owing = { balance: -30, settledWorldSeconds: 50 };
+  assert.equal(settleAgentEnergy(owing, 50, 0, 0).balance, -30);
+  assert.equal(settleAgentEnergy(owing, 52, 8, 240).balance, -14);
+  assert.throws(() => settleAgentEnergy(held, 50, 8, -1), /capacity/);
+  assert.throws(() => settleAgentEnergy(held, 50, 8, NaN), /capacity/);
+});
+
+test("a deity's own account: income and capacity both follow its unallocated power", () => {
+  const terms = { powerPerSecond: 64, allocated: 0.75, fullChargeSeconds: 30 };   // keeps 16 bits/s: capacity 480
+  assert.equal(settleDeityEnergy({ balance: 200, settledWorldSeconds: 0 }, 10, terms).balance, 360);
+  assert.equal(settleDeityEnergy({ balance: 200, settledWorldSeconds: 0 }, 1000, terms).balance, 480);
+  // everything allocated: no income, no capacity, so nothing left to summon with
+  assert.equal(settleDeityEnergy({ balance: 200, settledWorldSeconds: 0 }, 0, { ...terms, allocated: 1 }).balance, 0);
+  // no setting (a game started before it): unbounded, as before
+  assert.equal(settleDeityEnergy({ balance: 200, settledWorldSeconds: 0 }, 1000, { powerPerSecond: 64, allocated: 0.75 }).balance, 16200);
+  // a clock behind the account's own (planning) accrues nothing but still respects the capacity
+  assert.deepEqual(settleDeityEnergy({ balance: 600, settledWorldSeconds: 5 }, 0, terms), { balance: 480, settledWorldSeconds: 5 });
+});
+
+test("chargeDeityAccount settles within the capacity, then deducts; it refuses what the settled balance cannot pay", () => {
+  const terms = { powerPerSecond: 64, allocated: 0.5, fullChargeSeconds: 30 };    // 32 bits/s, capacity 960
+  const account = { balance: 100, settledWorldSeconds: 0 };
+  assert.deepEqual(chargeDeityAccount(account, 60, 5, terms), { balance: 200, settledWorldSeconds: 5 });   // 100 + 160 − 60
+  assert.deepEqual(chargeDeityAccount(account, 960, 1000, terms), { balance: 0, settledWorldSeconds: 1000 });
+  assert.throws(() => chargeDeityAccount(account, 961, 1000, terms), /Insufficient/);   // never more than a full store
+  assert.throws(() => chargeDeityAccount(account, -1, 5, terms), /Invalid/);
+  assert.equal(account.balance, 100, "the input is untouched");
 });
