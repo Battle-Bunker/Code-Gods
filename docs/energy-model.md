@@ -461,8 +461,9 @@ agents with the same power:
 The cap was built for the agent that reads nothing and skips ("it would keep all its energy and take nearly every
 opportunity"); the capacity now bounds that store in proportion to power instead. The tick still never runs one agent
 twice in a wave: an agent in the wave stays in the draw at the energy it had before its act in flight; when it is drawn
-again the wave is applied first (so that act is charged), the offer stays with it if it still has energy, and otherwise
-the draw is repeated on the settled world. The room's sandbox work is bounded by `interactionRateHz`, as before.
+again the wave is applied first (so that act is charged), the offer stays with it with probability (its energy now) ÷
+(the energy it was drawn at), and otherwise the draw is repeated on the settled world: each agent's chance is its
+settled energy over the room's, exactly as if acts ran one at a time. The room's sandbox work is bounded by `interactionRateHz`, as before.
 `agents.lastOpportunityWorld` stays in the schema as history (no longer read or written); the observation no longer
 reports `economy.maxAgentOpportunityHz` (a replay of an older game still does). `EVENT_LOG_SCHEMA` 10 marks the change.
 

@@ -14,7 +14,6 @@ const nameOf = (name: string | undefined, i: number) => name?.trim() || `Agent $
 const LEGEND = [
   { kind: "ok", label: "can act now (energy above 0)" },
   { kind: "cool", label: "waiting for income (energy 0 or below)" },
-  { kind: "idle", label: "at its turn limit (games before 11 Nov 2026 limited each agent's turns)" },
 ] as const;
 
 export default definePanel({

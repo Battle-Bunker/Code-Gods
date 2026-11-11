@@ -100,9 +100,10 @@ test("agent-count neutrality: one agent with 80% of the power gets the turns of 
   const state = await raw(game.gameId);
   const total = (god: typeof ada, key: "acts" | "spent") => state.agents.filter((a: any) => a.ownerId === god.subject).reduce((sum: number, a: any) => sum + a[key], 0);
   const solo = total(ada, "acts"), quad = total(bo, "acts");
-  // About 900 turns in all: each god's share of them has a standard error of about 15 (binomial), so 15% is many of them.
-  assert.ok(solo + quad > 500, `the room's turns were offered: ${solo} + ${quad}`);
-  assert.ok(Math.abs(solo - quad) <= 0.15 * (solo + quad) / 2, `one agent got ${solo} turns, four agents with the same power ${quad}`);
+  // About 900 turns in all, split by a fair coin: solo − quad has a standard deviation of √900 = 30, and the tolerance
+  // (25% of a god's 450) is 112, nearly four of them. A limit per agent would give 180 against 720.
+  assert.ok(solo + quad > 700, `the room's turns were offered: ${solo} + ${quad}`);
+  assert.ok(Math.abs(solo - quad) <= 0.25 * (solo + quad) / 2, `one agent got ${solo} turns, four agents with the same power ${quad}`);
   // Each offer cost log2(5)/32 bits, so the two gods also spent alike: exposure is priced per offer, not per agent.
   const offer = Math.log2(5) * READ_PRICE;
   assert.ok(Math.abs(total(ada, "spent") - solo * offer) < 1e-6 && Math.abs(total(bo, "spent") - quad * offer) < 1e-6, `${total(ada, "spent")} and ${total(bo, "spent")}`);

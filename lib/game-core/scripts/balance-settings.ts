@@ -30,7 +30,7 @@
  */
 import {
   DEFAULT_SETTINGS, SEED_SETUPS, validateSettings, type GameSettings, type AgentAccount,
-  newAgentAccount, settleAgentEnergy, chargeAct, pickByEnergy, defaultShare, energyCapacity,
+  newAgentAccount, settleAgentEnergy, chargeAct, pickByEnergy, offerReadBits, defaultShare, energyCapacity,
   settleDeityEnergy, chargeDeityAccount,
   netBits, softHinge, rankTotals, gameEndSeconds, poissonIntervalSeconds, CHANGE_READ_RATIO, CHANGE_BETA,
 } from "../src/index.ts";
@@ -172,7 +172,7 @@ export function play(c: Config, seed: number): Result {
         a.last = t;
         const g = gods[a.god]; g.offers++;
         const pay = (cost: number) => { a.acct = chargeAct(a.acct, cost); g.spent += cost; };
-        if (c.offerPrice) { const offer = Math.log2(objs.length) / KAPPA; pay(offer); g.offerSpent += offer; offerSpent += offer; readSpent += offer; }
+        if (c.offerPrice) { const offer = offerReadBits(objs.length) / KAPPA; pay(offer); g.offerSpent += offer; offerSpent += offer; readSpent += offer; }
         // R4: the change commits only if it leaves the balance at or above −capacity (reads are paid first).
         const affordable = (reads: number) => !c.debtBound || a.acct.balance - reads - changeBits >= -capacityOf(a);
         const oi = Math.floor(u() * objs.length), o = objs[oi], pol = c.policies[a.god];

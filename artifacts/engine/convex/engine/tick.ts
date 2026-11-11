@@ -16,8 +16,8 @@
  * Throughput: up to WORKERS acts run concurrently in a "wave", but a wave never holds the same object or
  * agent twice (as the Express engine reserved them), and results are applied strictly in opportunity order,
  * so the outcome is the sequential one. An agent in the wave stays in the draw (its weight does not depend on how many
- * agents its god runs): when it is drawn again the wave is applied first, and the offer stays with it if it still has
- * energy, else the draw is repeated.
+ * agents its god runs): when it is drawn again the wave is applied first, and the offer stays with it with probability
+ * (its energy after that act) ÷ (the energy it was drawn at), else the draw is repeated: the sequential draw exactly.
  */
 import { v } from "convex/values";
 import { chargeAct, instantiationOf, isLanguage, offerReadBits, pickByEnergy, poissonIntervalSeconds, type GameSettings, type ObjectValue } from "@workspace/game-core";
@@ -261,10 +261,14 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
         }
         const { object, agent } = pair;
         if (busyAgents.has(agent.id)) {
-          // Its act in flight is applied (and charged) first. The offer stays with it if it can still take it; if that
-          // act left it without energy (or made this pair futile), the draw is repeated on the settled world.
+          // It was drawn at its energy before its act in flight was charged. That act is applied first; the offer then
+          // stays with it with probability (its energy now) ÷ (the energy it was drawn at), and otherwise the draw is
+          // repeated on the settled world. That is exactly the sequential draw: an agent's chance is its settled energy
+          // over the room's, in a wave or not.
+          const drawnAt = energyAt(agent);
           await flush();
-          if (!agentStatus(settings, agent, world).eligible || futile.isFutile(agent.id, object, versionOf)) continue;
+          const settled = agentStatus(settings, agent, world);
+          if (!settled.eligible || uniform01() * drawnAt >= settled.energy || futile.isFutile(agent.id, object, versionOf)) continue;
         }
         wave.push({ object, agent, world, before: object.value, seed: deriveSeed(salt, ["play", game._id, agent.id, agent.acts]), offerBits: offerReadBits(objects.length) });
         if (wave.length >= WORKERS) await flush();
