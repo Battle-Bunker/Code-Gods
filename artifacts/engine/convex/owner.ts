@@ -52,7 +52,7 @@ async function updateSettings(ctx: ActionCtx, args: SettingsArgs): Promise<Setti
       ...(setup ? { setup } : {}),
     });
   if (args.setupId) {
-    const setup: { id: Id<"gameSetups">; settings: GameSettings } = await ctx.runQuery(internal.setups.resolve, { setupId: args.setupId });
+    const setup: { id: Id<"gameSetups">; settings: GameSettings } = await ctx.runQuery(internal.setups.resolve, { setupId: args.setupId, principal: args.principal });
     return commit(nextSettings(await calibrationManifest(ctx), previous, { setup: setup.settings }), { kind: "apply", setupId: setup.id });
   }
   if (args.settings) {

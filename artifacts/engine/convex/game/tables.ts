@@ -487,6 +487,12 @@ export const gameTables = {
      * position, else OTHERS_ORDER; `nameKey` the name with case and accents folded; `searchText` name, owner and summary.
      */
     order: v.number(), nameKey: v.string(), searchText: v.string(),
+    /**
+     * Experimental ("Lab", game-core LAB_SETUPS): visible only to administrators (and to its owner, for an
+     * administrator's copy of one). Absent on every ordinary setup. Lab setups sort from LAB_ORDER up, so the
+     * catalogue page of everyone else stops before them (setups.ts page).
+     */
+    lab: v.optional(v.boolean()),
   }).index("by_owner", ["ownerId"]).index("by_seed", ["seedId"])
     /** The catalogue's order: the system's in seed order, then everyone's by name (setups.page). */
     .index("by_order", ["order", "nameKey"])
