@@ -39,10 +39,6 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: preview-${{ github.event.pull_request.head.ref || inputs.branch }}
-  cancel-in-progress: true   # a newer push to the same branch supersedes
-
 jobs:
   # Decides what this run does. Skipped entirely for pull request events that are not about the `preview` label,
   # and for pull requests from forks (which get no secrets anyway).
@@ -83,6 +79,11 @@ jobs:
   deploy:
     needs: gate
     if: needs.gate.outputs.mode == 'deploy'
+    # Per preview, and only for runs that really deploy or remove: a run that `gate` skips (another label, a fork)
+    # never cancels a deploy in progress. A newer push to the same branch supersedes.
+    concurrency:
+      group: preview-${{ needs.gate.outputs.name }}
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     timeout-minutes: 40
     permissions:
@@ -100,7 +101,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.branch || '' }}
-          fetch-depth: ${{ github.event_name == 'workflow_dispatch' && 0 || 1 }}
+          fetch-depth: 0   # the manual run's merge with develop needs the history
       - name: Merge the latest develop into the branch (manual runs)
         if: github.event_name == 'workflow_dispatch'
         run: |
@@ -172,12 +173,17 @@ jobs:
             console.log(commentBody({ siteUrl: e.SITE_URL, name: e.NAME, sha: process.argv[1], branch: e.BRANCH, signIn: e.SIGN_IN === "true" }));' "$sha")
           echo "$COMMENT_BODY" >> "$GITHUB_STEP_SUMMARY"
           # A manual run: the branch's open pull request, when it has one.
-          export PR_NUMBER=${PR_FROM_EVENT:-$(gh api "repos/$GITHUB_REPOSITORY/pulls?state=open&head=${GITHUB_REPOSITORY_OWNER}:${BRANCH}" --jq '.[0].number // empty' || true)}
+          export PR_NUMBER=${PR_FROM_EVENT:-$(gh api -X GET "repos/$GITHUB_REPOSITORY/pulls" -f state=open -f "head=${GITHUB_REPOSITORY_OWNER}:${BRANCH}" --jq '.[0].number // empty' || true)}
           if [ -n "$PR_NUMBER" ]; then node .github/scripts/preview.mjs comment; else echo "No open pull request for $BRANCH: the URL is in this run's summary."; fi
 
   remove:
     needs: gate
     if: needs.gate.outputs.mode == 'remove'
+    # Per preview, and only for runs that really deploy or remove: a run that `gate` skips (another label, a fork)
+    # never cancels a deploy in progress. A newer push to the same branch supersedes.
+    concurrency:
+      group: preview-${{ needs.gate.outputs.name }}
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -204,7 +210,7 @@ jobs:
           DELETED: ${{ steps.delete.outputs.deleted }}
           PR_FROM_EVENT: ${{ github.event.pull_request.number }}
         run: |
-          export PR_NUMBER=${PR_FROM_EVENT:-$(gh api "repos/$GITHUB_REPOSITORY/pulls?state=all&head=${GITHUB_REPOSITORY_OWNER}:${BRANCH}" --jq '.[0].number // empty' || true)}
+          export PR_NUMBER=${PR_FROM_EVENT:-$(gh api -X GET "repos/$GITHUB_REPOSITORY/pulls" -f state=all -f "head=${GITHUB_REPOSITORY_OWNER}:${BRANCH}" --jq '.[0].number // empty' || true)}
           [ -n "$PR_NUMBER" ] || exit 0
           if [ "$DELETED" = true ]; then note="The preview \`$NAME\` has been deleted."
           else note="The preview \`$NAME\` is no longer updated. Convex deletes it by itself (5 days after it was created on the free plan, 14 on paid plans); to delete it now: Convex dashboard → the preview deployment → Settings → Delete deployment."; fi

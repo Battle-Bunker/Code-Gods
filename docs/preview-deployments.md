@@ -67,7 +67,7 @@ hostname. The options:
 
 **Risk of the built option, plainly:** the passphrase is the only lock on a preview. Keep it out of pull requests
 and chat. If it leaks, change the `PREVIEW_SIGN_IN_CODE` secret; each preview picks the new one up at its next
-deploy. The passphrase sign-in cannot be switched on for dev or production: their deploy stops if the variable
+deploy (sessions already open on a preview last up to a day). Guessing is not rate-limited, so make it long. The passphrase sign-in cannot be switched on for dev or production: their deploy stops if the variable
 `PREVIEW_SIGN_IN_CODE` is ever set on them, and without that variable the sign-in pages do not exist.
 
 ## How it works (for whoever maintains it)
