@@ -18,13 +18,14 @@ import { hybridLawOf, tierLiveness } from "../src/families/grid/tiers-hybrid.ts"
 import { baseLaw, liveness, topTierOf, TIER_MAX_ADDED_BITS, TIER_MIN_ADDED_BITS } from "../src/tiers/hybrid.ts";
 import { ninesTiers } from "../src/families/grid/beginner/opposite_nines.ts";
 import { mirrorTiers } from "../src/families/grid/layered/mirror-tiers.ts";
+import { courtTiers } from "../src/families/grid/layered/royal_court.ts";
 import type { GridTiers } from "../src/families/grid/tiers.ts";
 import { gridSpec } from "../src/families/grid/_util.ts";
 import type { Ordinal, Params } from "../src/types.ts";
 
 const TIERED = FAMILIES.filter(f => f.tiered);
 /** The tier specs by family id (each family exports its own). */
-const SPECS: Record<string, GridTiers<any>> = { opposite_nines: ninesTiers, mirrormancer: mirrorTiers };
+const SPECS: Record<string, GridTiers<any>> = { opposite_nines: ninesTiers, mirrormancer: mirrorTiers, kings_and_subjects: courtTiers };
 const beginner = instantiate("Grid", { size: 4, symbols: "base10", colours: "mono" });
 const tup = (o: Ordinal) => (typeof o === "number" ? [o] : [...o]);
 const spawn = (n: number, seed: string) => {

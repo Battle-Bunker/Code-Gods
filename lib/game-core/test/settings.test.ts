@@ -304,6 +304,8 @@ test("tiered rules are one optional setting: absent everywhere but the tiered se
   assert.throws(() => validateSettings({ ...DEFAULT_SETTINGS, ruleTiers: { depth: 1 }, excludedFamilies: ["a"] }, domain(["a"])), /Tiered rules need at least one allowed rule with one tier/);
   assert.doesNotThrow(() => validateSettings({ ...DEFAULT_SETTINGS, ruleTiers: { depth: 1 }, excludedFamilies: ["a"] }, domain(["a", "b"])));
   assert.doesNotThrow(() => validateSettings(DEFAULT_SETTINGS, domain([])), "an ordinary game asks nothing of tiers");
+});
+
 test("fullChargeSeconds: a default, validated bounds, and stored room/setup settings without it get the default", () => {
   assert.equal(DEFAULT_SETTINGS.fullChargeSeconds, 30);
   for (const seed of SEED_SETUPS) assert.equal(seed.settings.fullChargeSeconds, 30, seed.seedId);

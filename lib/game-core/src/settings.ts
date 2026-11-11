@@ -505,7 +505,7 @@ export const TYPE_DEFAULTS: Readonly<Record<string, {
     of: inst => (inst.terms["colours.count"] === 1
       ? { excludedFamilies: ["sudoku_scholar", ...(inst.classes.includes("Numeral") ? ["ladder_of_numbers"] : [])] } : {}),
     byKey: {
-      "Grid(4,base10,rgb)": { excludedFamilies: [...WEAK_GRID_FAMILIES, "fair_weaver"] },
+      "Grid(4,base10,rgb)": { excludedFamilies: [...WEAK_GRID_FAMILIES, "fair_weaver", "kings_and_subjects"] },
       // Ladder of numbers needs numerals (Numeral), so it cannot be dealt on playing cards: excluding it there means nothing.
       "Grid(7,cards,rainbow6)": { excludedFamilies: WEAK_GRID_FAMILIES.filter(id => id !== "ladder_of_numbers") },
     },
@@ -579,6 +579,7 @@ const ANNOTATED_BASICS_EXCLUDED: readonly string[] = Object.freeze([
   "staircase_climber", "looking_glass", "pinwheel", "constellation", "mountain_climb", "round_numbers",
   "divisibility_detective", "seesaw", "stepping_stones", "column_addition", "ladder_of_numbers", "snap", "young_tableau",
   "fillomino", "bingo_caller", "full_house", "twenty_one", "sudoku_scholar", "magic_accountant", "number_bonds",
+  "kings_and_subjects",
 ]);
 
 /** The coloured annotated setup: every family with a rich annotation (a lens), on the coloured 4×4 board. */

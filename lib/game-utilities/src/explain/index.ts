@@ -44,6 +44,7 @@ import { crosswiseThrees } from "./lenses/crosswise-threes.ts";
 import { magicEighteen } from "./lenses/magic-eighteen.ts";
 import { tieredLens } from "./tier-lenses.ts";
 import { baseParams } from "../families/grid/tiers.ts";
+import { kingsAndSubjects } from "./lenses/royal-court.ts";
 
 export * from "./model.ts";
 export { type Lens } from "./lens.ts";
@@ -60,6 +61,7 @@ export const LENSES: readonly Lens[] = Object.freeze([
   strangers, steppingStones,
   twoPair, spreadThree,
   crosswiseThrees, magicEighteen,
+  kingsAndSubjects,
 ]);
 const byFamily = new Map(LENSES.map(l => [l.familyId, l]));
 export const lensFor = (familyId: string): Lens | undefined => byFamily.get(familyId);

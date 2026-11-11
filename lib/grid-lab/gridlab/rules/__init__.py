@@ -9,14 +9,14 @@ from dataclasses import replace
 
 from ..family import Family
 from . import seeds, geometry, arithmetic, colour, games, strategy
-from . import beginner
+from . import beginner, layered
 from .cards import CARDS
 
 # Kid-readable cards (rules/cards.py) are attached here so each rule module stays about the maths.
 FAMILIES: list[Family] = [replace(f, card_source=CARDS[f.id]) if f.id in CARDS else f
                           for f in (*seeds.FAMILIES, *strategy.FAMILIES, *geometry.FAMILIES, *arithmetic.FAMILIES,
                                     *colour.FAMILIES, *games.FAMILIES,
-                                    *beginner.FAMILIES)]
+                                    *beginner.FAMILIES, *layered.FAMILIES)]
 
 _BY_ID = {f.id: f for f in FAMILIES}
 assert len(_BY_ID) == len(FAMILIES), "duplicate family id"
@@ -31,7 +31,7 @@ for _f in [*DEFENCE_FAMILIES, *PENALTIES, *defence.REWARDS]:
     _BY_ID[_f.id] = _f
 
 LENS = {f.id: mod.__name__.rsplit(".", 1)[-1]
-        for mod in (seeds, geometry, arithmetic, colour, games, strategy, beginner) for f in mod.FAMILIES}
+        for mod in (seeds, geometry, arithmetic, colour, games, strategy, beginner, layered) for f in mod.FAMILIES}
 
 
 def by_id(id: str) -> Family:
