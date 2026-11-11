@@ -93,9 +93,9 @@ function markdown(r: PoolReport): string {
   const syn = new Map(r.partners.map(p => [p.id, p]));
   const lines = [
     `${inst.key}, moves: ${moveSet}, budget: ${opt("budget") ?? "default"}`, "",
-    "| rule | reads | card | top | rate4 | rate8 | reach16 | to90 | plat | trap | esc2 | gap | K | **DIFF** | **SYN** | confl |",
-    "|---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|",
-    ...[...r.rules].sort((a, b) => a.difficulty - b.difficulty || b.rate4 - a.rate4).map(x => `| ${x.id} | ${x.colourBlind ? "numbers" : "colours"} | ${f(x.cardBits, 0)} | ${f(x.topBits, 1)} | ${f(x.rate4)} | ${f(x.rate8)} | ${f(x.reach16)} | ${f(x.movesTo90, 0)} | ${f(x.plateau)} | ${f(x.trap)} | ${f(x.escape2)} | ${f(x.gap)} | ${f(x.entangle, 1)} | **${f(x.difficulty, 1)}** | **${f(syn.get(x.id)?.synergy ?? NaN, 1)}** | ${f(syn.get(x.id)?.conflict ?? NaN)} |`),
+    "| rule | reads | card | top | rate4 | rate8 | g10 | g20 | uniform max | reach16 | to90 | plat | trap | esc2 | gap | K | **DIFF** | **SYN** | confl |",
+    "|---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|",
+    ...[...r.rules].sort((a, b) => a.difficulty - b.difficulty || b.rate4 - a.rate4).map(x => `| ${x.id} | ${x.colourBlind ? "numbers" : "colours"} | ${f(x.cardBits, 0)} | ${f(x.topBits, 1)} | ${f(x.rate4)} | ${f(x.rate8)} | ${f(x.greedy10, 1)} | ${f(x.greedy20, 1)} | ${x.uniformTop.length ? x.uniformTop.join(", ") : "–"} | ${f(x.reach16)} | ${f(x.movesTo90, 0)} | ${f(x.plateau)} | ${f(x.trap)} | ${f(x.escape2)} | ${f(x.gap)} | ${f(x.entangle, 1)} | **${f(x.difficulty, 1)}** | **${f(syn.get(x.id)?.synergy ?? NaN, 1)}** | ${f(syn.get(x.id)?.conflict ?? NaN)} |`),
   ];
   if (r.pairs.length) {
     const ids = r.rules.map(x => x.id), at = new Map(r.pairs.flatMap(p => [[`${p.a}|${p.b}`, p], [`${p.b}|${p.a}`, p]]));
@@ -116,7 +116,7 @@ function print(r: PoolReport) {
   const f = (x: number, d = 2) => (Number.isFinite(x) ? x.toFixed(d) : x === Infinity ? "inf" : "-");
   const cols: [string, number, (x: PoolReport["rules"][number]) => string][] = [
     ["rule", 24, x => x.id], ["card", 6, x => f(x.cardBits, 0)], ["top", 6, x => f(x.topBits, 1)],
-    ["rate4", 6, x => f(x.rate4)], ["rate8", 6, x => f(x.rate8)], ["reach16", 8, x => f(x.reach16)], ["to90", 5, x => f(x.movesTo90, 0)],
+    ["rate4", 6, x => f(x.rate4)], ["rate8", 6, x => f(x.rate8)], ["g10", 6, x => f(x.greedy10, 1)], ["g20", 6, x => f(x.greedy20, 1)], ["unif", 6, x => (x.uniformTop.length === sp.S ? "all" : x.uniformTop.length > 4 ? `${x.uniformTop.length}` : x.uniformTop.join("") || "-")], ["reach16", 8, x => f(x.reach16)], ["to90", 5, x => f(x.movesTo90, 0)],
     ["plat", 5, x => f(x.plateau)], ["trap", 5, x => f(x.trap)], ["esc2", 5, x => f(x.escape2)], ["gap", 5, x => f(x.gap)],
     ["K", 5, x => f(x.entangle, 1)], ["DIFF", 6, x => f(x.difficulty, 1)],
   ];

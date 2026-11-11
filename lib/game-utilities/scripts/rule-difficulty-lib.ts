@@ -251,6 +251,10 @@ export interface RuleReport {
   cardBits: number;
   /** Whether the score ignores colours (measured on random recolourings). */
   colourBlind: boolean;
+  /** Mean bits greedy holds after 10 and 20 moves (the quantity to equalise across a pool, beginner-rules brainstorm). */
+  greedy10: number; greedy20: number;
+  /** The digits d for which the uniform board (every cell d, every colour) reaches 99% of top bits: a degenerate maximum. */
+  uniformTop: number[];
   /** Climb: mean bits after 4 / 8 / 16 one-cell greedy moves, and the mean bits per move over the first 4 and 8 moves.
    * rate4 is the balance column: it ranks the Annotated basics greedy win shares with Spearman 0.78 (docs). */
   greedy4: number; greedy8: number; greedy16: number; rate4: number; rate8: number;
@@ -344,6 +348,18 @@ export function escape2(rule: Rule, sp: Space, stuck: readonly GridValue[], max 
   }));
 }
 
+/** Symbols whose uniform board (every cell that symbol, for some single colour) scores at least 99% of the top bits. */
+export function uniformTop(rule: Rule, sp: Space): number[] {
+  const out: number[] = [];
+  for (let v = 0; v < sp.S; v++) {
+    for (let c = 0; c < sp.C; c++) {
+      const g: GridValue = { size: Math.sqrt(sp.cells), sym: new Uint8Array(sp.cells).fill(v), col: new Uint8Array(sp.cells).fill(c) };
+      if (rule.bits(rule.score(g)) >= 0.99 * rule.topBits) { out.push(v); break; }
+    }
+  }
+  return out;
+}
+
 export function measureRule(rule: Rule, ctx: Context): RuleReport {
   const { sp, budget: b } = ctx, inst = sp.inst;
   const S = starts(sp, b.starts);
@@ -365,6 +381,7 @@ export function measureRule(rule: Rule, ctx: Context): RuleReport {
   const trap = mean(end.map(e => (top - e) / top));
   return {
     id: rule.id, calibration: rule.calibration, topBits: top, cardBits: cardBits(rule.source, inst), colourBlind: colourBlind(rule, sp),
+    greedy10: mean(climbs.map(c => at(c, 10))), greedy20: mean(climbs.map(c => at(c, 20))), uniformTop: uniformTop(rule, sp),
     greedy4: mean(climbs.map(c => at(c, 4))), greedy8: mean(climbs.map(c => at(c, 8))), greedy16: g16,
     rate4: mean(climbs.map(c => (at(c, 4) - at(c, 0)) / 4)), rate8: mean(climbs.map(c => (at(c, 8) - at(c, 0)) / 8)),
     reach16: g16 / top, reachEnd: mean(end) / top,
@@ -540,6 +557,10 @@ export const SYMMETRIC_POOL = Object.freeze({
   difficultyMax: 10, entangleMax: 3.5, cardBitsMax: 800,
   /** Across the pool. */
   rateRatioMax: 1.6, cardRatioMax: 2.5, synergySpreadMax: 15,
+  /** Rules with a uniform-board maximum (all cells one digit tops the rule): at most this many per pool. */
+  uniformTopMax: 1,
+  /** Bits greedy holds at 10 and 20 moves: every rule within this fraction of the pool median. */
+  greedyBitsBand: 0.25,
   /** Per pair. */
   pairSynergyMax: 75, ceilingMin: 0.5,
 });
@@ -552,6 +573,12 @@ export function verdict(r: PoolReport, t: Thresholds = SYMMETRIC_POOL): string[]
     if (x.difficulty > t.difficultyMax) out.push(`${x.id}: DIFF ${f(x.difficulty)} > ${t.difficultyMax} (greedy is trapped or a cleverer search earns more)`);
     if (x.entangle > t.entangleMax) out.push(`${x.id}: K ${f(x.entangle)} > ${t.entangleMax} (a move's effect depends on too many cells)`);
     if (x.cardBits > t.cardBitsMax) out.push(`${x.id}: card ${f(x.cardBits)} bits > ${t.cardBitsMax}`);
+  }
+  const uni = r.rules.filter(x => x.uniformTop.length);
+  if (uni.length > t.uniformTopMax) out.push(`${uni.length} rules have a uniform-board maximum (> ${t.uniformTopMax}): ${uni.map(x => x.id).join(", ")}`);
+  for (const k of ["greedy10", "greedy20"] as const) {
+    const vals = r.rules.map(x => x[k]).sort((a, b) => a - b), med = vals[Math.floor((vals.length - 1) / 2)];
+    for (const x of r.rules) if (r.rules.length > 1 && Math.abs(x[k] - med) > t.greedyBitsBand * med) out.push(`${x.id}: ${k} ${f(x[k])} bits outside ±${t.greedyBitsBand * 100}% of the pool median ${f(med)}`);
   }
   if (s.rateRatio > t.rateRatioMax) out.push(`climb rate4 max/min ${f(s.rateRatio)} > ${t.rateRatioMax}`);
   if (s.cardBitsRatio > t.cardRatioMax) out.push(`card bits max/min ${f(s.cardBitsRatio)} > ${t.cardRatioMax}`);

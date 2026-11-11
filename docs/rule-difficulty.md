@@ -93,6 +93,13 @@ Kingdom, the last at 4%, has the lowest `rate4` among the families.
 The order is not fully explained. colour_bonds, the top winner, climbs only middling fast at 4 moves. Its win share also
 depends on what its partners do to it, which §2.4 measures.
 
+Two more climb columns follow the beginner-rules brainstorm:
+- `g10` and `g20` are the bits greedy holds after 10 and 20 moves. The brainstorm found that, in three-player all-greedy
+  games, win share tracked the bits at greedy's endpoint, so these are the quantities to equalise across a pool.
+- `uniform max` lists the digits whose uniform board (every cell that digit) reaches 99% of the rule's top. Such a
+  maximum is degenerate: an agent can top the rule without understanding it, and every rule with one pulls toward the
+  same boring board.
+
 ### 2.3 Algorithmic difficulty: `DIFF`, the headline
 
 `DIFF` = 100 × (trap + gap) / 2, from 0 (greedy solves it) to 100.
@@ -255,6 +262,8 @@ from where the current families fall (§6).
 | `SYN` per pair | ≤ 75 | Number-only rules all compete for the same digits, so most pairs are 40–70. Above 75, a pair is mostly lost unless both players plan. |
 | ceiling per pair | ≥ 0.5 | Some board gives both rules at least half their top on the geometric mean. |
 | dominated rules | none | No rule is both slower and harder than another. |
+| uniform-board maximum | at most 1 rule per pool | A rule an agent can top by filling the board with one digit is degenerate, and several such rules converge on the same board. |
+| `g10`, `g20` | within ±25% of the pool median | These are the bits greedy holds after 10 and 20 moves, which the brainstorm's all-greedy games found to track win share. |
 
 **Can existing families pass?** No 8-rule set of existing number-only families passes all the thresholds (§6.2, checked
 exhaustively over every 8-subset of the 10 families that pass the per-rule thresholds).
@@ -496,6 +505,19 @@ minesweeper built, and the reverse.
 
 Mirrormancer's synergy cost against digit-hungry partners such as magic_accountant is real, but it comes from
 compatibility (one board must satisfy both). It is not from entanglement.
+
+### 7.1 Relation to the beginner-rules brainstorm's measures
+
+| Brainstorm measure | Here | Status |
+|---|---|---|
+| top@40 (greedy reaches the best from a random start) | `trap`, plus `stall` in the JSON | Adopted. It reads as a share of bits rather than a share of starts. |
+| deps (cells that can change a move's gain) | `K` | Adopted. `K` counts cells that flip the gain's *sign*, which is what an agent acts on. It runs a little lower than deps. |
+| share of A-improving moves that lower B | `conflict` | Agreed that it does not discriminate: it is 0.2–0.6 for almost every pair. It is reported but not used in the headline. |
+| joint reach (the best board for both) | `ceiling`, and `SYN` | Adopted. `SYN` adds what two considerate simple agents actually reach. |
+| uniform-board maximum | `uniform max` | Adopted. |
+| greedy bits at N moves | `g10`, `g20` | Adopted. `rate4` is kept beside them; it gives Spearman 0.78 against the Annotated basics win shares. |
+
+The brainstorm proposed "an improving move on at least 99% of random boards". It corresponds to `plat` ≤ 0.01.
 
 ## 8. What this does not measure, and known limits
 

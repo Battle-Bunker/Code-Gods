@@ -91,5 +91,12 @@ test("rate4 is the mean bits per move over the first four moves; the pool verdic
   assert.ok(fails.some(x => x.startsWith("all_sevens: DIFF")), fails.join("\n"));
   assert.ok(fails.some(x => x.startsWith("all_sevens: dominated")), fails.join("\n"));
   assert.ok(fails.includes("pair thresholds not checked (no pairs measured)"));
-  assert.ok(!fails.some(x => x.startsWith("sevens:")), "count of 7s passes every per-rule threshold");
+  assert.ok(!fails.some(x => /^sevens: (DIFF|K|card|dominated)/.test(x)), "count of 7s passes the difficulty, locality and size thresholds");
+});
+
+test("uniform-board maximum: all 7s tops count-of-7s; the corner pair is topped by every uniform board", () => {
+  const ctx = { sp: numbers, budget: TINY };
+  assert.deepEqual(measureRule(sevens(), ctx).uniformTop, [7]);
+  assert.deepEqual(measureRule(cornerPair(), ctx).uniformTop, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  assert.deepEqual(measureRule(parity(), ctx).uniformTop, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], "16 equal digits always add to an even total");
 });
