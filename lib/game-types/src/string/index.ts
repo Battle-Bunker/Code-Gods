@@ -2,6 +2,9 @@
 import { assemblePrelude, availableOf, floatLit, fmtBits, helper, js as jsLit, memo } from "../prelude.ts";
 import type { Codec, Instantiation, InstanceInfo, ObjectTypeDef, ParamSchema, Rng, TypeArgs } from "../types.ts";
 import { draw, drawBig } from "../util.ts";
+import {
+  DEFAULT_COST_MODEL, generatorOf, layerSize, locationBits, siteWork, type CostModel, type CostRow, type Layer,
+} from "../structure/index.ts";
 import { STRING_MUTATORS } from "./mutators.ts";
 
 /** Longest string a room may use: the protocol's wire cap. */
@@ -101,23 +104,56 @@ function propose(x: string, inst: Instantiation, rng: Rng): string {
   return spawn(inst, rng);
 }
 
+/** One character: 128 values with no order the rules see ('a' → 'z' is no bigger a change than 'a' → 'b'). */
+const CHARACTER: Layer = { kind: "categorical", n: 128 };
+/** string's generator families: substitute (set), insert, delete. ℓ_which = log2 3. */
+const STRING_FAMILIES = 3;
+
 /**
- * The information cost w of string's elementary mutators (docs/energy-model.md §4.1): set, insert or delete one
- * character. log2 3 names the op, log2(L + 1) the position, 7 bits the new character (ASCII); set and delete also
- * erase the 7 bits of the character they overwrite or remove.
+ * The information cost w of string's elementary mutators (docs/energy-model.md §4.1; docs/mutation-cost-design.md
+ * §5.2): set (substitute), insert or delete one character. Every one is ℓ_which + ℓ_where + argument bits + erased bits
+ * (structure/index.ts), with ℓ_which = log2 3 and L = maxLength.
+ *
+ * set-v1 (today's prices, bit for bit the old closed forms log2 3 + log2(L + 1) + 14, + 7 and + 7): every op names one
+ * of L + 1 positions.
+ *   set     the character layer is overwritten: 7 bits name the new character, 7 are erased (the old one).
+ *   insert  7 bits name the new character; nothing is erased.
+ *   delete  no argument; the 7 bits of the removed character are erased.
+ *
+ * distance-v1: the sites are counted as they are, and a substitution is a bijection.
+ *   set     ℓ_where = log2 L (the places that can hold a character). The argument is one of the 127 other characters,
+ *           each one step away: log2 127 bits (the categorical layer's Kraft-tight code). A relabelling erases nothing.
+ *   insert  ℓ_where = log2(L + 1) (the gaps 0 … L a character can go into). The argument is the new character, one of
+ *           128 with no identity among them: log2 128 = 7 bits. Injective: nothing is erased.
+ *   delete  ℓ_where = log2 L. No argument. It is not injective: 128 texts give the same result, one per character that
+ *           stood there, so it erases log2 128 = 7 bits.
+ * On maxLength 32: 13.57, 13.63 and 13.58 bits.
  */
-export function stringElementaryCosts(inst: Instantiation): { set: number; insert: number; delete: number } {
-  const op = Math.log2(3), at = Math.log2(stringArgs(inst).maxLength + 1);
-  return { set: op + at + 14, insert: op + at + 7, delete: op + at + 7 };
+export function stringElementaryCosts(inst: Instantiation, model: CostModel = DEFAULT_COST_MODEL): { set: number; insert: number; delete: number } {
+  const L = stringArgs(inst).maxLength, distance = model === "distance-v1", character = Math.log2(layerSize(CHARACTER));
+  const gaps = L + 1, held = distance ? Math.max(1, L) : L + 1;
+  return {
+    set: siteWork({ generator: generatorOf(CHARACTER, distance ? model : "set-v1")!, sites: held }, STRING_FAMILIES, 0, 1),
+    insert: locationBits({ sites: gaps }, STRING_FAMILIES) + character,
+    delete: locationBits({ sites: held }, STRING_FAMILIES) + character,
+  };
+}
+
+/** string's cost table under a model: its three elementary moves (the texts that explain change cost). */
+export function stringCostTable(inst: Instantiation, model: CostModel = DEFAULT_COST_MODEL): readonly CostRow[] {
+  if (stringArgs(inst).maxLength === 0) return [];
+  const w = stringElementaryCosts(inst, model);
+  return [{ move: "change one character", work: w.set }, { move: "insert one character", work: w.insert }, { move: "delete one character", work: w.delete }];
 }
 
 /**
  * W of one string call: the cheapest edit script from `a` to `b` in elementary sets, inserts and deletes (weighted edit
- * distance, two-row DP over the middle left after the common prefix and suffix; at most 1,024² cells). Exact for the
- * elementary mutators, and a rotation or shift costs its few inserts and deletes, not a set per character.
+ * distance, two-row DP over the middle left after the common prefix and suffix; at most 1,024² cells), at the model's
+ * elementary prices. Exact for the elementary mutators, and a rotation or shift costs its few inserts and deletes, not
+ * a set per character. A model string does not offer (supportsCostModel) is priced as set-v1.
  */
-function callWork(a: string, b: string, _call: unknown, inst: Instantiation): number {
-  const w = stringElementaryCosts(inst);
+function callWork(a: string, b: string, _call: unknown, inst: Instantiation, model: CostModel = DEFAULT_COST_MODEL): number {
+  const w = stringElementaryCosts(inst, model);
   let i = 0;
   while (i < a.length && i < b.length && a[i] === b[i]) i++;
   let ea = a.length, eb = b.length;
@@ -374,6 +410,9 @@ export const STRING: ObjectTypeDef<string> = Object.freeze({
   spawn,
   propose,
   callWork,
+  // Characters are categorical under every model, so the dial, the logarithm and multiply have nothing to price here.
+  supportsCostModel: (_inst: Instantiation, model: CostModel) => model === "set-v1" || model === "distance-v1",
+  costTable: stringCostTable,
   layerBits,
   get mutators() { return STRING_MUTATORS; },
   prelude,

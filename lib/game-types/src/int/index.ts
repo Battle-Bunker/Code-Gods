@@ -3,6 +3,10 @@ import { CLASSES } from "../constraints.ts";
 import { assemblePrelude, availableOf, floatLit, fmtBits, helper, js as jsLit, memo } from "../prelude.ts";
 import type { Codec, Instantiation, InstanceInfo, ObjectTypeDef, ParamSchema, Rng, TypeArgs } from "../types.ts";
 import { draw } from "../util.ts";
+import {
+  DEFAULT_COST_MODEL, flatGenerator, generatorOf, locationBits, magnitudeBits, siteWork,
+  type CostModel, type CostRow, type Generator, type Layer,
+} from "../structure/index.ts";
 import { INT_MUTATORS, placesOf } from "./mutators.ts";
 
 export const INT32_MIN = -2147483648, INT32_MAX = 2147483647;
@@ -94,18 +98,50 @@ function propose(x: number, inst: Instantiation, rng: Rng): number {
 
 
 /**
- * The information cost w of Int's elementary mutators (docs/energy-model.md §4.1). One bit names the op (2 elementary ops).
+ * Int's structure (structure/index.ts; docs/mutation-cost-design.md §4.3, §5.2). Two generator families, so ℓ_which =
+ * log2 2 = 1 bit:
+ *   add       a site is a decimal place (P of them, ℓ_where = log2 P); the argument is a signed digit ±1 … ±9, the
+ *             argument space of a slider of ten values (the same one a Grid digit's `add` has). Adds wrap in the range,
+ *             so every add is a bijection and erases nothing.
+ *   multiply  one site (the number); the argument is ±m, m ≥ 2. Out of range it fails, so it is injective.
+ * What a cost model decides is the argument code:
+ *   set-v1       every signed digit costs log2 18 (a flat code); ×m costs 1 (the sign) + Σ over its prime factors p of
+ *                (log2 p + 1). That multiply code is NOT a prefix code: Σ over ±m of 2^(−w) diverges (Σ 1/p does). It
+ *                stays as it is, because stored games were charged by it.
+ *   distance-v1  a signed digit d costs λ·|d|, λ = 1.5849 the slider's Kraft-tight rate, so a net change of Δ costs
+ *                its cheapest signed-digit representation (the positional norm: +999 = +1000 − 1 is two one-step
+ *                digits); ×m costs λ×·log2 |m|, λ× = 2.1853 (structure MAGNITUDE_RATE), additive in the factors and a
+ *                prefix code.
+ */
+const DIGIT: Layer = { kind: "ordinal", n: 10 };
+const FLAT_DIGIT = flatGenerator(DIGIT);
+const INT_FAMILIES = 2;
+/** The generator of one decimal place under a model: its arguments are the signed digits ±1 … ±9. */
+export const intDigitGenerator = (model: CostModel = DEFAULT_COST_MODEL): Generator =>
+  (model === "distance-v1" ? generatorOf(DIGIT, model)! : FLAT_DIGIT);
+
+/** W of the elementary add d·10ᵖ (d = ±1 … ±9): ℓ_which + ℓ_where + the signed digit's bits. */
+export const digitWork = (inst: Instantiation, d: number, model: CostModel = DEFAULT_COST_MODEL): number =>
+  siteWork({ generator: intDigitGenerator(model), sites: placesOf(inst) }, INT_FAMILIES, 0, Math.abs(d));
+
+/**
+ * The information cost w of Int's elementary mutators under set-v1 (docs/energy-model.md §4.1). One bit names the op (2
+ * elementary ops).
  * - add d·10ᵖ: + log2 P (the place) + log2 18 (the signed digit ±1…±9). A bijection (adds wrap), so it erases nothing.
+ *   Through the structure this is, bit for bit, the old closed form 1 + log2 P + log2 18 (test/cost-models-int-string).
  * - multiply by m: + 1 (the sign) + Σ over m's prime factors p, with multiplicity, of (log2 p + 1). A prime is the
  *   elementary step, so w(×ab) = w(×a) + w(×b) − 2. Out of range it fails, so it is injective and erases nothing.
  */
-export const digitAddCost = (inst: Instantiation): number => 1 + Math.log2(placesOf(inst)) + Math.log2(18);
+export const digitAddCost = (inst: Instantiation): number => digitWork(inst, 1, "set-v1");
 export function multiplyCost(m: number): number {
   let n = Math.abs(m), bits = 2;
   for (let p = 2; p * p <= n; p += p === 2 ? 1 : 2) while (n % p === 0) { bits += Math.log2(p) + 1; n /= p; }
   if (n > 1) bits += Math.log2(n) + 1;
   return bits;
 }
+/** W of ×m (|m| ≥ 2) under a model: set-v1's per-prime code, or distance-v1's ℓ_which + λ×·log2 |m|. */
+export const multiplyWork = (m: number, model: CostModel = DEFAULT_COST_MODEL): number =>
+  (model === "distance-v1" ? locationBits({ sites: 1 }, INT_FAMILIES) + magnitudeBits(m) : multiplyCost(m));
 /**
  * The fewest digit adds (d·10ᵖ, d ∈ ±1…±9) that sum to n: the minimal number of nonzero digits of a base-10 signed-digit
  * representation. A carry helps only on runs of nines (999 = 1000 − 1); a DP over the digits with carry 0 or 1 finds it.
@@ -131,18 +167,90 @@ export function signedDigits(n: number): number {
 }
 
 /**
- * W of one Int call: `multiply` (elementary) by its parameter; any other call by the cheaper decomposition of its net
- * effect: the fewest digit adds for Δ = after − before (or Δ ∓ W, since adds wrap), or, when after = before · m, the
- * prime factors of m. An upper bound on the cheapest decomposition, exact for the elementary mutators.
+ * The cheapest signed-digit representation of n when a digit of size t costs price[t] (t = 1 … 9): the least
+ * Σ price[|digit|] over the base-10 representations of n with digits −9 … 9. `signedDigits` is the case price ≡ 1. The
+ * same DP over the places, lowest first, with a carry of 0 or 1 into each: the place's digit v plus the carry c is
+ * written as it is (t = v + c), or as t − 10 with a carry of 1 into the next place.
  */
-function callWork(a: number, b: number, call: { readonly id: string; readonly params: unknown }, inst: Instantiation): number {
+export function signedDigitWork(n: number, price: readonly number[]): number {
+  let x = Math.abs(n), noCarry = 0, carry = Infinity;
+  while (x > 0) {
+    const v = x % 10;
+    x = (x - v) / 10;
+    let out0 = Infinity, out1 = Infinity;
+    for (const [c, prev] of [[0, noCarry], [1, carry]] as const) {
+      if (prev === Infinity) continue;
+      const t = v + c;
+      if (t === 10) { out1 = Math.min(out1, prev); continue; }
+      out0 = Math.min(out0, t === 0 ? prev : prev + price[t]);
+      if (t > 0) out1 = Math.min(out1, prev + price[10 - t]);
+    }
+    noCarry = out0;
+    carry = out1;
+  }
+  return Math.min(noCarry, carry + price[1]);
+}
+
+const digitPrices = new Map<string, readonly number[]>();
+/** price[t], t = 1 … 9, of this instantiation's digit add under distance-v1 (price[0] is 0, unused). */
+function distancePrices(inst: Instantiation): readonly number[] {
+  let p = digitPrices.get(inst.key);
+  if (!p) digitPrices.set(inst.key, p = Object.freeze(Array.from({ length: 10 }, (_, t) => digitWork(inst, t, "distance-v1"))));
+  return p;
+}
+
+/**
+ * W of a net change of `delta` made by digit adds alone: the cheapest signed-digit representation of delta, or of
+ * delta ∓ W (adds wrap in the range). set-v1: the fewest digits × one digit add. distance-v1: each digit also pays for
+ * its size, so 7 at a place is cheaper as the next place up less 3.
+ */
+export function addWork(delta: number, inst: Instantiation, model: CostModel = DEFAULT_COST_MODEL): number {
+  const { min, max } = intArgs(inst), W = max - min + 1, ds = [delta, delta - W, delta + W];
+  if (model !== "distance-v1") return Math.min(...ds.map(signedDigits)) * digitAddCost(inst);
+  const price = distancePrices(inst);
+  return Math.min(...ds.map(d => signedDigitWork(d, price)));
+}
+
+/**
+ * W of one Int call.
+ * set-v1: `multiply` (elementary) by its parameter; any other call by the cheaper decomposition of its net effect: the
+ * fewest digit adds for Δ = after − before (or Δ ∓ W, since adds wrap), or, when after = before · m, the prime factors
+ * of m.
+ * distance-v1: every call, `multiply` too, by its net effect: the cheaper of the digit adds for Δ and, when
+ * after = before · m with |m| ≥ 2, the multiplication.
+ * An upper bound on the cheapest decomposition, exact for the elementary mutators. A model Int does not offer
+ * (supportsCostModel) is priced as set-v1; settings validation never lets a room have one.
+ */
+function callWork(a: number, b: number, call: { readonly id: string; readonly params: unknown }, inst: Instantiation,
+  model: CostModel = DEFAULT_COST_MODEL): number {
+  const m = a !== 0 ? b / a : 0, product = Number.isInteger(m) && Math.abs(m) >= 2;
+  if (model === "distance-v1") {
+    const adds = addWork(b - a, inst, model);
+    return product ? Math.min(adds, multiplyWork(m, model)) : adds;
+  }
   if (call.id === "multiply") return multiplyCost((call.params as { m: number }).m);
-  const { min, max } = intArgs(inst), W = max - min + 1, d = b - a;
-  const digits = Math.min(...[d, d - W, d + W].map(signedDigits)) * digitAddCost(inst);
-  const m = a !== 0 ? b / a : 0;
+  const digits = addWork(b - a, inst, "set-v1");
   // multiplyCost(m) ≥ 3 + log2 |m|: factor only when that bound can beat the digits.
-  const mult = Number.isInteger(m) && Math.abs(m) >= 2 && 3 + Math.log2(Math.abs(m)) < digits ? multiplyCost(m) : Infinity;
+  const mult = product && 3 + Math.log2(Math.abs(m)) < digits ? multiplyCost(m) : Infinity;
   return Math.min(digits, mult);
+}
+
+/** The multipliers a cost table lists (those the range allows). */
+const TABLE_MULTIPLIERS = [2, 3, 5, 7, 10];
+/**
+ * Int's cost table under a model (the texts that explain change cost): W of one digit add of each size, and of a few
+ * multipliers. Under distance-v1 a digit of 7, 8 or 9 is listed at its net-effect price, which is the next place up
+ * less 3, 2 or 1.
+ */
+export function intCostTable(inst: Instantiation, model: CostModel = DEFAULT_COST_MODEL): readonly CostRow[] {
+  const { min, max } = intArgs(inst), big = Math.max(2, Math.abs(min), Math.abs(max)), rows: CostRow[] = [];
+  if (min === max) return rows;
+  if (model === "distance-v1") {
+    const price = distancePrices(inst);
+    for (let k = 1; k <= 9; k++) rows.push({ move: `move one digit place by ${k}`, work: signedDigitWork(k, price) });
+  } else rows.push({ move: "change one digit place", work: digitAddCost(inst) });
+  for (const m of TABLE_MULTIPLIERS) if (m <= big) rows.push({ move: `multiply by ${m}`, work: multiplyWork(m, model) });
+  return rows;
 }
 
 /** Operators the Python Num view forwards to the int (each reads the whole number first). */
@@ -369,6 +477,9 @@ export const INT: ObjectTypeDef<number> = Object.freeze({
   spawn,
   propose,
   callWork,
+  // Int's digits and multipliers have the two codes above; the other models are Grid's (a dial, a logarithm, modulo 10).
+  supportsCostModel: (_inst: Instantiation, model: CostModel) => model === "set-v1" || model === "distance-v1",
+  costTable: intCostTable,
   layerBits: (inst: Instantiation) => { const { min, max } = intArgs(inst); return { value: width(min, max) }; },
   get mutators() { return INT_MUTATORS; },
   prelude,

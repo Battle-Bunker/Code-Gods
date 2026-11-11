@@ -150,6 +150,49 @@ function distanceGenerator(id: Generator["id"], layer: Layer, code: "linear" | "
   });
 }
 
+/**
+ * A generator whose arguments are all equally likely: each argument of the layer's ±1 walk costs log2(how many there
+ * are), whatever its distance, and nothing is erased. A complete code (count · 2^(−log2 count) = 1). This is set-v1's
+ * Int digit add: the signed digit ±1 … ±9 is one of 18, log2 18 bits.
+ */
+export function flatGenerator(layer: Layer): Generator {
+  const moves = shifts(layer), bits = Math.log2(moves.length);
+  return Object.freeze({
+    id: "add" as const, layer, argDistances: Object.freeze(moves.map(() => 1)), rate: 0,
+    args: Object.freeze(moves.map(m => ({ label: m.label, bits, erased: 0, apply: m.apply }))),
+    distance: (a: number, b: number) => (a === b ? 0 : 1),
+    argBits: (a: number, b: number) => (a === b ? 0 : bits),
+    erasedBits: () => 0,
+  });
+}
+
+/**
+ * Riemann's ζ(s) for s > 1: the first N − 1 terms, then the Euler–Maclaurin tail from N,
+ *   Σ_{m ≥ N} m^(−s) = N^(1−s)/(s − 1) + N^(−s)/2 + s·N^(−s−1)/12 − s(s+1)(s+2)·N^(−s−3)/720 + R.
+ * |R| is below the next term, s(s+1)(s+2)(s+3)(s+4)·N^(−s−5)/30240: under 1e-14 for N = 64 and s ≥ 2.
+ */
+export function zeta(s: number): number {
+  const N = 64;
+  let sum = 0;
+  for (let m = N - 1; m >= 1; m--) sum += m ** -s;
+  return sum + N ** (1 - s) / (s - 1) + N ** -s / 2 + s * N ** (-s - 1) / 12 - s * (s + 1) * (s + 2) * N ** (-s - 3) / 720;
+}
+
+/**
+ * The magnitude code of an unbounded multiplier (docs/mutation-cost-design.md §4.3): the arguments are ±m for every
+ * whole m ≥ 2, and the distance of ×m from the identity is log2 m, so the code is additive in the factors
+ * (bits(ab) = bits(a) + bits(b)). `MAGNITUDE_RATE` is its Kraft-tight rate, the λ with
+ *   Σ_{±m, m ≥ 2} 2^(−λ·log2 m) = 2·(ζ(λ) − 1) = 1,   i.e. ζ(λ) = 3/2:   λ = 2.1853.
+ * A bounded range offers fewer multipliers, so there the code claims less than 1: a prefix code on every Int.
+ */
+export const MAGNITUDE_RATE: number = (() => {
+  let lo = 2, hi = 4;       // 2(ζ − 1) is 1.29 at 2 and 0.16 at 4, and falls between
+  for (let i = 0; i < 60; i++) { const mid = (lo + hi) / 2; if (2 * (zeta(mid) - 1) > 1) lo = mid; else hi = mid; }
+  return (lo + hi) / 2;
+})();
+/** Bits to name the multiplier ±m (|m| ≥ 2) against doing nothing: λ·log2 |m|. */
+export const magnitudeBits = (m: number): number => MAGNITUDE_RATE * Math.log2(Math.abs(m));
+
 const gcd = (a: number, b: number): number => (b === 0 ? Math.abs(a) : gcd(b, a % b));
 
 /** A generator given by its arguments alone: moving a to b costs the cheapest argument that does it (Infinity if none). */
