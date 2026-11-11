@@ -15,6 +15,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { buildReplay, stateAt, type ReplayPage } from "@workspace/player-client/replay";
+import { NO_FAILURES } from "../convex/lib/futility.ts";
 import { admin, api, envelope, gods, internal, raw, rejects, roomWith, startGame, touch, TS, waitFor } from "./game-helpers.ts";
 
 const settings = {
@@ -37,6 +38,8 @@ test("an ended game's replay, cut at any snapshot, rebuilds the whole engine sta
   const doomed = { id: (await raw(game.gameId)).agents.find((a: any) => a.source.includes("add(2)"))._id as string };
   await ok(send(bo, { type: "summon", name: "Bo hoarder", description: "Bo secret until the end.", language: "typescript", source: `function agent(x) { const ${SECRET_BO} = 3; return [add(${SECRET_BO})]; }` }));
   await ok(send(host, { type: "summon", name: "Test agent", language: "typescript", source: "function agent(x) { return [add(-1)]; }" }));
+  // A runtime error on every act: its failures are marked in the log, so the replay counts them as errors, not invalid calls.
+  await ok(send(bo, { type: "summon", name: "Thrower", language: "typescript", source: "function agent(x) { if (x !== null) throw new Error('boom'); return []; }" }));
   await ok(send(ada, { type: "chat", text: "planning-chat" }));
   await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 3517.8173 }, kick: true });
   // Live: nothing is revealed, to anyone.
@@ -72,7 +75,7 @@ test("an ended game's replay, cut at any snapshot, rebuilds the whole engine sta
   };
   assert.equal((await ada.c.query(api.games.resolve, { code: game.shortCode })).ended, true, "the client opens an ended game as its replay");
   const final = snapshots.at(-1);
-  assert.ok(final.batches.every((b: any) => b.schema === 8), "every batch carries the event schema");
+  assert.ok(final.batches.every((b: any) => b.schema === 9), "every batch carries the event schema");
   // The live scoreboard's publications (docs/public-log-design.md §3) are marked in the log: the start, then only
   // batches reaching the next 10 s multiple of world time (the default interval), then the end. Stored totals stay
   // exact on every scoring batch, so this ended game's replay below steps per event.
@@ -108,7 +111,7 @@ test("an ended game's replay, cut at any snapshot, rebuilds the whole engine sta
   const pages = adaPages;
   assert.ok(pages.length > 1, "the replay pages");
   assert.ok(pages.some(p => p.eventOffset !== undefined), "a batch larger than a page is split across pages");
-  assert.equal(pages[0].game.logSchema, 8);
+  assert.equal(pages[0].game.logSchema, 9);
   // Fully revealed: every god's dealt utility and card, the end deadline, every agent's source (Bo's marker too), every act's seed.
   assert.equal(pages[0].game.endAtWorld, final.game.endAtWorld);
   assert.deepEqual(pages[0].gods!.map(g => [g.godId, g.utility, g.card]), [...final.deities].sort((a: any, b: any) => a.index - b.index).map((d: any) => [d.godId, d.utility, d.card]));
@@ -118,6 +121,7 @@ test("an ended game's replay, cut at any snapshot, rebuilds the whole engine sta
   assert.deepEqual([named(bo.subject).name, named(bo.subject).description], ["Bo hoarder", "Bo secret until the end."], "the ended game's replay shows every god's agent names and descriptions");
   assert.equal(named(ada.subject).name, "Ada first");
   assert.ok(events.filter(e => e.type === "object.transformed" || e.type === "agent.failed").every(e => /^\d+$/.test((e as any).seed)), "every act's seed");
+  assert.ok(events.some(e => e.type === "agent.failed" && e.error === true && /boom/.test(e.reason)), "a runtime error is marked in the log");
   for (const [n, snap] of snapshots.entries()) {
     const label = `snapshot ${n}`;
     const lastSeq = Math.max(...snap.batches.map((b: any) => b.seq));
@@ -136,6 +140,10 @@ test("an ended game's replay, cut at any snapshot, rebuilds the whole engine sta
       const r = state.agents.get(a._id)!;
       assert.deepEqual([r.ownerId, r.source, r.acts, r.account], [a.ownerId, a.source, a.acts, a.account], `${label}: agent ${a._id}`);
       close(r.spent, a.spent, `${label}: agent spending`);
+      // My agents' spend split and failure breakdown, as the live panel reads them (agentView): the replay derives them
+      // from the log, a runtime error told from an invalid call by its mark (schema 9).
+      close(r.spentRead, a.spentRead ?? 0, `${label}: agent reading spend`);
+      assert.deepEqual([r.transforms, r.skips, r.failureKinds, r.lastFailures], [a.transforms ?? 0, a.skips ?? 0, a.failures ?? NO_FAILURES, a.lastFailures ?? {}], `${label}: agent ${a._id} outcomes`);
     }
     roster.forEach((id, i) => {
       assert.equal(state.spent[i], snap.deities.find((d: any) => d.godId === id).spent, `${label}: ${id}'s summon spending`);

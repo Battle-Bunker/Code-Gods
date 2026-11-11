@@ -147,7 +147,9 @@ over a whole game, through `run_code`'s `replay` dataset (the game flattened: he
   - `nextCursor`, `eventOffset?`, `chatCursor`, `latestCursor`, `done`.
 - **Mixed logs.** `logSchema` is the first batch's schema. Below 2 the log has no summons, totals or chat stamps (for
   the part recorded before the deploy): agents appear from their acts, attributed but without their source; below 3
-  acts have no seed.
+  acts have no seed; below 5 an act's cost has no read part, so My agents shows the spend's total without the reading /
+  changing split; below 9 a failure from a runtime error is not marked (`error: true`) and reads like an invalid call,
+  so an agent with such a failure shows no outcomes or diagnosis rather than a guessed one.
 
 **Tests of the boundary.** `test/game-disclosure.test.ts`: every live read and every ended-game read other than the
 replay stays aggregate-only for the viewer; the live replay is refused; the ended replay contains every other god's
