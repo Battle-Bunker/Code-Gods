@@ -276,6 +276,24 @@ export const gameCounters = internalQuery({
 });
 
 /**
+ * The loop's own counters of several games in one read (test/load-harness.ts polls it each second): the phase, the
+ * lease, commits and discards, world time and the wall times the lateness measures need. Read-only.
+ */
+export const loadProbe = internalQuery({
+  args: { gameIds: v.array(v.id("games")) },
+  handler: async (ctx, { gameIds }) => {
+    dev();
+    const games = await Promise.all(gameIds.map(id => liveGame(ctx, id)));
+    return { now: Date.now(), games: games.map(g => g && {
+      id: g._id, phase: g.phase, seq: g.tick.seq, leaseUntil: g.tick.leaseUntil, commits: g.stats.commits, discarded: g.stats.discarded,
+      acts: g.stats.acts, tickFailures: g.tickFailures ?? 0, worldSeconds: g.worldSeconds, lastTick: g.lastTick, endAtWorld: g.endAtWorld,
+      createdAt: g.createdAt, planningEndsAt: g.planningEndsAt, endedAt: g.endedAt ?? null, endReason: g.endReason ?? null,
+      holdState: g.holdState ?? null, engineError: g.engineError ?? null, agentCount: g.agentCount, objectCount: g.objectCount,
+    }) };
+  },
+});
+
+/**
  * Store a game as it was before the standings read model (migrations:backfillStandings): no standings or history rows.
  */
 export const legacyReadModels = internalMutation({
