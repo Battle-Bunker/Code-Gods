@@ -314,7 +314,9 @@ moved (log2 cells + log2 families + 1.585·|k|; λ = 1.585 is the Kraft root of 
 colour or suit pays a flat log2(n − 1), nothing for erasure; every mutator is priced by its net effect per cell
 (`write(cell, 7)` on a 5 costs what `add(cell, 2)` costs). Every Ranked Grid has `add(where, amount=1)` in both
 models; it never wraps and fails out of range. Reads and summons stay priced. Variants in code: "dial-v1" (numbers
-wrap: 9 and 0 are one step apart) and "log-v1" (price grows with log2 of the distance).
+wrap: 9 and 0 are one step apart), "log-v1" (price grows with log2 of the distance) and "multiply-v1" (digits only:
+adds plus multiply/divide modulo the base, a number pays the cheaper, plus 1 bit). The Lab setups (administrators only)
+run the beginner pool under each.
 
 **Why:** the owner (2026-11-11) wants adding a small number to cost less than setting a cell, with the cost following
 the argument, and dislikes rules that grow more complicated.

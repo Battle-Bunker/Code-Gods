@@ -54,6 +54,7 @@ const MODEL_RULE: Readonly<Partial<Record<CostModel, string>>> = Object.freeze({
   "distance-v1": `A number pays for how far it moved: adding 1 is the cheapest change and each further step costs 1.585 bits of W more. ${NET_EFFECT} A count_on that wraps 9 round to 0 pays 9 steps. ${FLAT}`,
   "dial-v1": `A number pays for how far it moved round the dial, the shorter way (9 and 0 are one step apart): one step is the cheapest change and each further step costs about 1.58 bits of W more. ${NET_EFFECT} A count_on that wraps 9 round to 0 pays one step. ${FLAT}`,
   "log-v1": `A number pays for how far it moved, by the logarithm of the distance: one step is the cheapest change and each doubling of the distance costs 2 bits of W more, so a far move costs little more than a middling one. ${NET_EFFECT} A count_on that wraps 9 round to 0 pays 9 steps. ${FLAT}`,
+  "multiply-v1": `A number can move two ways and pays the cheaper, plus 1 bit of W to say which: by adding (each step costs 1.585 bits of W) or by multiplying and keeping the last digit (a bigger multiplier costs more, and a multiplier that merges numbers, such as ×0, ×2 or ×5 on digits, also pays for what it erases). So turning a 3 into a 9 is priced as ×3, not as +6. ${NET_EFFECT} multiply(where, by) and divide(where, by) exist only here; divide undoes a multiply and works only by 3, 7 or 9 on digits. ${FLAT}`,
 });
 
 /**
@@ -69,6 +70,7 @@ const KID: Readonly<Partial<Record<CostModel, string>>> = Object.freeze({
   "distance-v1": "A move costs the changes it makes, cell by cell. Adding 1 to a number is the cheapest change; the further a number moves, the more it costs. Writing a 7 over a 5 costs the same as adding 2.",
   "dial-v1": "A move costs the changes it makes, cell by cell. Adding 1 to a number is the cheapest change; the further a number moves round the dial (9 is next to 0), the more it costs. Writing a 7 over a 5 costs the same as adding 2.",
   "log-v1": "A move costs the changes it makes, cell by cell. Adding 1 to a number is the cheapest change; a number that moves further costs more, but each extra step adds less. Writing a 7 over a 5 costs the same as adding 2.",
+  "multiply-v1": "A move costs the changes it makes, cell by cell. A number can change by adding or by multiplying (keeping the last digit), and pays whichever is cheaper: adding 1 is cheap, multiplying by 3 is cheap, a big jump by adding is dear.",
 });
 
 export const changeCostKid = (model: CostModel = DEFAULT_COST_MODEL): string =>
