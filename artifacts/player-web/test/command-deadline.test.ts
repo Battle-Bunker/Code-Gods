@@ -6,7 +6,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { EXAMINATION_DEADLINE_MS } from "@workspace/player-client";
-import { COMMAND_DEADLINE_MS, busyMessage, createAttempts, deadlineFor, receiptNotice, type Timers } from "../src/core/game/command-deadline.ts";
+import { BUSY_ATTEMPTS, COMMAND_DEADLINE_MS, busyMessage, isBusy, progressLine, createAttempts, deadlineFor, receiptNotice, type Timers } from "../src/core/game/command-deadline.ts";
 
 /** Timers fired by hand, in the order of their deadlines. */
 function manualTimers() {
@@ -41,9 +41,8 @@ test("the client waits a little longer than the engine's own examination bound, 
 });
 
 test("the message names what was slow, for how long, and that it can be tried again", () => {
-  assert.equal(busyMessage("validate", 25_000), "The sandbox is busy: validating took longer than 25 seconds. Try again.");
-  assert.equal(busyMessage("summon", 25_000), "The sandbox is busy: summoning took longer than 25 seconds. Try again.");
-  assert.equal(busyMessage("validate", 1_000), "The sandbox is busy: validating took longer than 1 second. Try again.");
+  assert.doesNotMatch(busyMessage("validate"), /\d|command|sandbox/, "no number to disagree with the engine's, no jargon");
+  assert.match(busyMessage("summon"), /not summoned and nothing was spent/);
 });
 
 test("an answer inside the deadline is the outcome, and its timer is cancelled", async () => {
@@ -133,4 +132,19 @@ test("the forge shows the engine's own answer: a warming sandbox and a refusal a
   // Its diagnostics are listed in the forge's validation box already.
   assert.equal(receiptNotice("validate", { commandId, accepted: true, message: "Invalid", validation: { valid: false, cost: 0, expectedActCost: 0, diagnostics: ["SyntaxError"] } }), null);
   assert.deepEqual(receiptNotice("validate", { commandId, accepted: true, message: "Valid", validation: { valid: true, cost: 1, expectedActCost: 1, diagnostics: [] } }), { ok: true, text: "Valid" });
+});
+
+test("a busy sandbox is retried by itself: a timeout or the engine's UNAVAILABLE, never a refusal or another error", () => {
+  assert.ok(isBusy({ status: "timeout" }));
+  assert.ok(isBusy({ status: "failed", error: { data: { code: "UNAVAILABLE", message: "The agent sandbox is busy" } } }));
+  assert.ok(!isBusy({ status: "failed", error: new Error("network") }));
+  assert.ok(!isBusy({ status: "failed", error: { data: { code: "CONFLICT" } } }));
+  assert.ok(!isBusy({ status: "done" }));
+  assert.equal(BUSY_ATTEMPTS, 4);
+});
+
+test("the waiting line is plain: what is happening, then which try this is", () => {
+  assert.equal(progressLine("validate"), "Checking your agent… this can take up to 20 seconds.");
+  assert.equal(progressLine("summon", { attempt: 1, of: 4 }), "Summoning…");
+  assert.equal(progressLine("summon", { attempt: 2, of: 4 }), "The game is busy checking agents. Trying again (2 of 4)…");
 });

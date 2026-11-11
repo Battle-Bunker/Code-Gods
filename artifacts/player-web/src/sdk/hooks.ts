@@ -208,6 +208,8 @@ export function useMyAgents({ hz }: Live = {}) {
   const economy = useDockState({ hz })?.economy;
   return useMemo(() => ({
     agents: list ?? (EMPTY as MyAgent[]),
+    /** The list has not arrived yet: `agents` is empty, which does not mean you have none. */
+    loading: list === undefined,
     economy,
     /** Seconds of world time until `agent` has energy above 0 again (0 if it can act now). */
     secondsUntilEligible(agent: MyAgent) {

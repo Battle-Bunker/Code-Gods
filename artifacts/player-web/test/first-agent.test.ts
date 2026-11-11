@@ -7,7 +7,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  FIRST_AGENT_HINT, STARTER_AGENT_HINT, armedStep, armedText, energyHint, firstAgentFill, firstAgentHint, untouchedExample, validatesExample, type ArmedSummon, type Examples, type FirstAgentState,
+  FIRST_AGENT_HINT, STARTER_AGENT_HINT, armedStep, armedText, energyHint, firstAgentFill, firstAgentHint, untouchedExample, lacksEnergy, readyText, summonReady, summonedText, type ArmedSummon, type Examples, type FirstAgentState,
 } from "../src/core/panels/first-agent.ts";
 
 const py = { name: "Mirror maker", source: "# My goal: mirrors\ndef agent(grid):\n    return []\n", specific: true };
@@ -58,14 +58,27 @@ test("the hint shows only above the untouched example, and says so honestly for 
   assert.equal(firstAgentHint(starter.source, "python", { python: starter }), STARTER_AGENT_HINT);
 });
 
-test("the untouched example validates by itself once, when validation can run", () => {
-  const ok = { untouched: true, validated: false, busy: false, ready: true, tried: false };
-  assert.equal(validatesExample(ok), true);
-  assert.equal(validatesExample({ ...ok, untouched: false }), false, "the player's own code waits for their click");
-  assert.equal(validatesExample({ ...ok, validated: true }), false);
-  assert.equal(validatesExample({ ...ok, busy: true }), false);
-  assert.equal(validatesExample({ ...ok, ready: false }), false, "sandbox warming, game ended, read-only");
-  assert.equal(validatesExample({ ...ok, tried: true }), false, "never in a loop");
+test("Summon is ready at once for the untouched example; the player's own code is validated first and must be payable", () => {
+  assert.equal(summonReady({ untouched: true, valid: false, price: undefined, energy: 200 }), true, "no validation needed: the summon examines it");
+  assert.equal(summonReady({ untouched: false, valid: false, price: undefined, energy: 200 }), false, "own code: validate first");
+  assert.equal(summonReady({ untouched: false, valid: true, price: 150, energy: 200 }), true);
+  assert.equal(summonReady({ untouched: true, valid: true, price: 365, energy: 200 }), false, "a known price above the energy: armed instead");
+  assert.equal(summonReady({ untouched: true, valid: false, price: 0, energy: 200 }), false, "validated and found invalid");
+});
+
+test("a summon refused for lack of energy is recognised from the engine's message", () => {
+  assert.ok(lacksEnergy("Insufficient energy"));
+  assert.ok(!lacksEnergy("You already have 8 agents"));
+  assert.ok(!lacksEnergy(undefined));
+});
+
+test("after a summon the next step is said; My agents in planning says the agent is ready", () => {
+  assert.equal(summonedText("Mirror maker", true), "Summoned: Mirror maker is in the game. It acts when the world starts. Watch 'My agents' for what it does. Then try the change suggested in the code and summon again.");
+  assert.match(summonedText("Mirror maker", false), /It acts whenever it gets a turn\./);
+  assert.equal(readyText([]), null);
+  assert.equal(readyText(["Mirror maker"]), "Mirror maker is ready. It acts when the world starts.");
+  assert.equal(readyText(["Mirror maker", "B"]), "Mirror maker and 1 more agent are ready. They act when the world starts.");
+  assert.equal(readyText([undefined]), "Your agent is ready. It acts when the world starts.");
 });
 
 test("an agent the player cannot pay for yet: the hint gives both numbers and says when it will be payable", () => {
@@ -100,4 +113,10 @@ test("an armed summon waits for the energy, fires once it is there, and is dropp
     "Armed: Three apart will be summoned about 3 s after the world starts. Keep this pane open.");
   assert.equal(armedText(armed, { energy: 200, income: 8, planning: false }), "Armed: Three apart will be summoned in about 25 s. Keep this pane open.");
   assert.equal(armedText(armed, { energy: 200, planning: true }), "Armed: Three apart will be summoned as soon as you have the energy. Keep this pane open.");
+});
+
+test("an armed summon is dropped when the game has ended or gameplay is off", () => {
+  const armed: ArmedSummon = { name: "A", language: "python", source: "x", cost: 300 };
+  assert.equal(armedStep(armed, { source: "x", language: "python", energy: 400, busy: false, canSummon: false, over: true }), "disarm");
+  assert.equal(armedStep(armed, { source: "x", language: "python", energy: 400, busy: false, canSummon: false }), "wait", "a warming sandbox only waits");
 });

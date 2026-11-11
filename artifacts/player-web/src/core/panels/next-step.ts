@@ -34,7 +34,7 @@ export function nextStep(s: NextStepContext): NextStep {
   if (live && !s.seated) return { label: "Watch the race", why: "you are not dealt into this game; you watch it.", action: { kind: "panel", panelId: "race" } };
   if (s.phase === "planning") {
     return s.agents === 0
-      ? { label: "Write your first agent", why: "agents are how you change the world; testing one is free.", action: { kind: "forge" } }
+      ? { label: "Summon your first agent", why: "agents are how you change the world; testing one is free.", action: { kind: "forge" } }
       : { label: "Read your secret goal", why: "check your agent aims at what you score for before the world starts.", action: { kind: "panel", panelId: "my-card" } };
   }
   if (s.phase === "running") {

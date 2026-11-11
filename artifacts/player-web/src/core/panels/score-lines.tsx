@@ -7,7 +7,7 @@
  */
 import { useMemo } from "react";
 import { useGoalExplainer } from "@workspace/object-views";
-import { SCORE_LINES, Term } from "@workspace/ui-kit";
+import { SCORE_LINES, scoreMovesLine, Term } from "@workspace/ui-kit";
 import { useDockState, useEvents, useGameId, useMyTotals, useObjectContext } from "@/sdk";
 import { agentLabel } from "./agent-name";
 import { actLine, asOfText, latestOwnActs, pointsNowText, type OwnAct } from "./score-line";
@@ -22,17 +22,27 @@ export function PointsNow({ className = "" }: { className?: string }) {
   const totals = useMyTotals(useGameId());
   const score = totals?.score ?? dock?.self.score;
   const age = dock?.phase === "ended" ? null : asOfText(dock?.economy?.worldSeconds, totals?.world);
-  return typeof score === "number" ? <PointsNowView score={score} age={age} className={className} /> : null;
+  const { noun } = useObjectContext();
+  return typeof score === "number" ? <PointsNowView score={score} age={age} noun={noun} className={className} /> : null;
 }
 
-/** The figure without its data hooks (the gallery draws it from fixtures). */
-export function PointsNowView({ score, age, className = "" }: { score: number; age?: string | null; className?: string }) {
+/**
+ * The figure without its data hooks (the gallery draws it from fixtures). Two lines at most on a wide screen: the figure
+ * with its age, then why it moves while you do nothing (SCORE_LINES.moves: two first-time players asked "why do I
+ * already have points?"). On a phone the second line is left to the "points" help (its gloss says the same), so the
+ * goal card stays on the first screen.
+ */
+export function PointsNowView({ score, age, noun = "object", className = "" }: { score: number; age?: string | null; noun?: string; className?: string }) {
+  const why = scoreMovesLine(noun);
   return (
-    <p className={`flex flex-wrap items-baseline gap-x-2 ${className}`} title={`${SCORE_LINES.points} ${SCORE_LINES.total}`} data-testid="text-points-now">
-      <span className="text-sm font-semibold">Your <Term id="payoff">points</Term> now:</span>
-      <span className={`font-mono text-2xl font-semibold leading-none tabular-nums ${score < 0 ? "text-destructive" : ""}`} data-testid="value-points-now">{pointsNowText(score)}</span>
-      <span className="text-xs text-muted-foreground">every object's points added up{age ? `, ${age}` : ""}; this is what the leaderboard ranks</span>
-    </p>
+    <div className={className} title={`${why} ${SCORE_LINES.total}`} data-testid="text-points-now">
+      <p className="flex flex-wrap items-baseline gap-x-2">
+        <span className="text-sm font-semibold">Your <Term id="payoff">points</Term> now:</span>
+        <span className={`font-mono text-2xl font-semibold leading-none tabular-nums ${score < 0 ? "text-destructive" : ""}`} data-testid="value-points-now">{pointsNowText(score)}</span>
+        <span className="text-xs text-muted-foreground">an estimate{age ? `, ${age}` : ""}; what the leaderboard ranks</span>
+      </p>
+      <p className="hidden text-xs leading-snug text-muted-foreground sm:block" data-testid="text-points-why">{why}</p>
+    </div>
   );
 }
 
@@ -43,8 +53,11 @@ export interface OwnActLines {
   latest?: string;
 }
 
-/** The latest act of each of `agents` as a sentence. Empty before any of them has changed an object. */
-export function useOwnActLines(agents: readonly { id: string; name?: string }[]): OwnActLines {
+/**
+ * The latest act of each of `agents` as a sentence. Empty before any of them has changed an object. `third`: the panel is
+ * seen as another player (a replay), so the sentences say "Their agent … their rule score".
+ */
+export function useOwnActLines(agents: readonly { id: string; name?: string }[], { third = false }: { third?: boolean } = {}): OwnActLines {
   const events = useEvents({ hz: 1, limit: 50 });
   const goal = useGoalExplainer();
   const { noun } = useObjectContext();
@@ -54,14 +67,16 @@ export function useOwnActLines(agents: readonly { id: string; name?: string }[])
       const index = agents.findIndex(a => a.id === act.agentId);
       const score = (value: OwnAct["before"]) => { try { return goal?.score(value) ?? null; } catch { return null; } };
       return actLine({
-        agent: agentLabel(agents[index]?.name, Math.max(0, index)), before: act.before, after: act.after, noun,
+        // An act by an agent no longer in the list is never told as a live agent's.
+        agent: index < 0 ? "(now destroyed)" : agentLabel(agents[index]?.name, index), before: act.before, after: act.after, noun,
         ruleBefore: score(act.before), ruleAfter: score(act.after), pointsBefore: act.pointsBefore, pointsAfter: act.pointsAfter,
+        ownAfter: act.ownAfter, othersAfter: act.othersAfter, third,
       });
     };
     const byAgent = new Map<string, string>();
     for (const [id, act] of acts) byAgent.set(id, say(act));
     return { byAgent, latest: acts.latest ? say(acts.latest) : undefined };
-  }, [events, goal, noun, agents]);
+  }, [events, goal, noun, agents, third]);
 }
 
 /** The latest act of any of your agents, under "Your points now". */

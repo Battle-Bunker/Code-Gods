@@ -1,6 +1,6 @@
 /**
  * The forge's first agent: a player with no agents opens the editor and finds a working example for their own goal
- * already in it (lib/game-utilities/src/example-agents.ts), named, so Summon needs no typing. Pure decisions, so they
+ * already in it (lib/game-utilities/src/example-agents.ts), named, so Summon needs no typing and no validation first. Pure decisions, so they
  * are unit-tested without a DOM (test/first-agent.test.ts):
  * - an empty editor is filled once per opening (a player who clears it keeps their empty editor);
  * - switching the language swaps the example while it is untouched;
@@ -49,11 +49,29 @@ export function firstAgentHint(source: string, language: string, examples: Examp
 }
 
 /**
- * Whether to validate the untouched example by itself (validation is free), so its cost shows and Summon is ready
- * without a click: once per text, only when validation can run and nothing else is in flight.
+ * Whether Summon is one click away. The untouched example needs no validation first: the summon examines the agent
+ * itself, so that is one pass through the sandbox, not two (a busy sandbox once kept Summon off until planning ran
+ * out). The player's own code is validated first, and the price must be covered. `price` is the current validation's,
+ * when there is one for exactly this code.
  */
-export function validatesExample(s: { untouched: boolean; validated: boolean; busy: boolean; ready: boolean; tried: boolean }): boolean {
-  return s.untouched && !s.validated && !s.busy && s.ready && !s.tried;
+export function summonReady(s: { untouched: boolean; valid: boolean; price: number | undefined; energy: number }): boolean {
+  if (s.price !== undefined) return s.valid && s.price <= s.energy;
+  return s.untouched;
+}
+
+/** The engine refused a summon for lack of energy (its receipt's message): the forge then waits for the energy instead. */
+export const lacksEnergy = (message: string | undefined): boolean => /insufficient energy|not enough energy/i.test(message ?? "");
+
+/** Said once an agent is summoned: where it is, when it acts, and the next thing to try. */
+export function summonedText(name: string, planning: boolean): string {
+  return `Summoned: ${name} is in the game. ${planning ? "It acts when the world starts." : "It acts whenever it gets a turn."} Watch 'My agents' for what it does. Then try the change suggested in the code and summon again.`;
+}
+
+/** My agents during planning, once the player has an agent: nothing left to write, only to wait for the world. */
+export function readyText(names: readonly (string | undefined)[]): string | null {
+  if (!names.length) return null;
+  const first = names[0]?.trim() || "Your agent";
+  return names.length === 1 ? `${first} is ready. It acts when the world starts.` : `${first} and ${names.length - 1} more ${names.length === 2 ? "agent are" : "agents are"} ready. They act when the world starts.`;
 }
 
 /** How long until the player's own energy covers a price: "about 4 s after the world starts", "in about 25 s", or null when unknown. */
@@ -85,10 +103,11 @@ export function energyHint(s: { cost: number; energy: number; income?: number; p
  */
 export interface ArmedSummon { readonly name: string; readonly description?: string; readonly language: string; readonly source: string; readonly cost: number }
 export type ArmedStep = "idle" | "wait" | "fire" | "disarm";
-export function armedStep(armed: ArmedSummon | null, s: { source: string; language: string; energy: number | undefined; busy: boolean; canSummon: boolean }): ArmedStep {
+export function armedStep(armed: ArmedSummon | null, s: { source: string; language: string; energy: number | undefined; busy: boolean; canSummon: boolean; /** The game has ended, or gameplay is off for this player: nothing will ever fire. */ over?: boolean }): ArmedStep {
   if (!armed) return "idle";
   // An edit (or another language) is a different agent: the price no longer holds.
   if (armed.source !== s.source || armed.language !== s.language) return "disarm";
+  if (s.over) return "disarm";
   if (s.energy === undefined || s.energy < armed.cost || s.busy || !s.canSummon) return "wait";
   return "fire";
 }

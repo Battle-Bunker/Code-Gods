@@ -25,7 +25,7 @@ export default function StackedDock() {
   useEffect(() => { if (collapseTick) setSnap("peek"); }, [collapseTick]);
   // A message sent from the peek (a starter chip): open halfway, so its answer is not hidden under the composer.
   useEffect(() => { if (expandTick) setSnap(s => (s === "peek" ? "half" : s)); }, [expandTick]);
-  // Opening a panel (the menu's "Write agent code…", "Write my first agent") brings it to the player: the sheet shrinks
+  // Opening a panel (the menu's "Write agent code…", "Summon my first agent") brings it to the player: the sheet shrinks
   // to its peek so it cannot cover the pane, and the pane scrolls to the top of the screen.
   const store = useDockStore();
   const scroller = useRef<HTMLDivElement>(null);

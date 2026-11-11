@@ -13,6 +13,7 @@
 import { isLanguage } from "@workspace/game-core";
 import { SCORE_LINES, Term } from "@workspace/ui-kit";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { SUMMON_FIRST } from "@/core/planning-line";
 import { Sparkline, Timeline, TimelineLegend, useAgentSeries, useDockState, useGame, useMyAgents, type MyAgent } from "@/sdk";
 import { useDockActions } from "@/dock/actions";
 import { useGameCommands } from "@/core/game/runner";
@@ -209,7 +210,7 @@ export default function Agents({ params, phase }: PanelProps<"agents">) {
   const commands = useGameCommands();
   const can = useAffordances();
   const world = game?.worldSeconds ?? 0;
-  const acts = useOwnActLines(all);
+  const acts = useOwnActLines(all, { third: !!can.seenAs });
   useEffect(() => { pruneSourceOpen(all.map(a => a.id)); }, [all]);
   // The published samples change only with the series; the point now is added per render.
   const published = useMemo(() => {
@@ -229,7 +230,7 @@ export default function Agents({ params, phase }: PanelProps<"agents">) {
   const { editCode } = can.can;
   const owner = can.seenAs ? <p data-testid="text-agents-owner" className="text-xs text-muted-foreground">Seen as {can.seenAs}: these are {can.whose} agents.</p> : null;
   if (!all.length) {
-    return <PanelEmpty action={(phase === "planning" || phase === "running") && editCode.ok ? <TextButton onClick={() => dock.forgeEdit()}>Write an agent</TextButton> : undefined}>
+    return <PanelEmpty action={(phase === "planning" || phase === "running") && editCode.ok ? <TextButton onClick={() => dock.forgeEdit()}>{SUMMON_FIRST}</TextButton> : undefined}>
       {can.seenAs ? `${can.seenAs} has no agents ${ended ? "at the end of this game" : "at this moment"}.`
         : can.readOnly && !ended ? "No agents at this moment." : ended ? "You summoned no agents in this game." : "No agents summoned yet. An agent is a small program that changes objects your way when the world picks it."}
     </PanelEmpty>;

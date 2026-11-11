@@ -5,8 +5,10 @@
  * helpers drawer with insert, a byte count, Validate (free) and Summon (pays from your energy). The same command
  * path as everything else; an uncertain summon keeps its envelope for the identical retry under the header.
  *
- * A player with no agents finds a working example for their own goal already in the editor, named and validated
- * (./first-agent.ts decides when; lib/game-utilities/src/example-agents.ts writes it from the goal card).
+ * A player with no agents finds a working example for their own goal already in the editor, named, with Summon ready
+ * at once: the summon examines the agent itself, so nothing waits for a validation (./first-agent.ts decides when;
+ * lib/game-utilities/src/example-agents.ts writes it from the goal card). While the game is busy checking agents the
+ * same command is sent again by itself and the pane says so; after the last try there is one "Try again".
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AGENT_DESCRIPTION_MAX, AGENT_NAME_MAX } from "@workspace/player-client";
@@ -20,7 +22,8 @@ import { forgeLanguage, forgeLanguages, forgeSandbox } from "@/core/game/languag
 import { useAffordances } from "@/core/use-affordances";
 import { useDockActions } from "@/dock/actions";
 import { summonNeeds } from "./summon-needs";
-import { armedStep, armedText, energyHint, firstAgentFill, firstAgentHint, untouchedExample, validatesExample, type ArmedSummon, type Example } from "./first-agent";
+import { armedStep, armedText, energyHint, firstAgentFill, firstAgentHint, lacksEnergy, summonReady, summonedText, untouchedExample, type ArmedSummon, type Example } from "./first-agent";
+import { progressLine } from "@/core/game/command-deadline";
 import { GhostButton, PanelEmpty, PrimaryButton, TextButton, type PanelProps } from "./kit";
 
 const fmt = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(3));
@@ -69,14 +72,14 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
   const newShare = obs?.self.allocated !== undefined ? defaultShare(obs.self.allocated) : undefined;
   const { instance } = useMutators();
   const commands = useGameCommands();
-  const { draft, validation, busy, notice } = useRunner();
+  const { draft, validation, busy, notice, retrying, failed } = useRunner();
   const { can } = useAffordances({ language });
   const editor = useRef<HTMLTextAreaElement>(null);
   const source = draft.source;
   // The first agent: the example for the player's own goal per allowed language, from the goal card and the board
   // this pane already subscribes to (no extra read).
   const card = useMyCard();
-  const { agents } = useMyAgents({ hz: 1 });
+  const { agents, loading: agentsLoading } = useMyAgents({ hz: 1 });
   const board = obs?.instance;
   const languageKey = allowed.join(",");
   const examples = useMemo(() => {
@@ -89,8 +92,9 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [card?.familyId, card?.summary, card?.source, board?.key, languageKey]);
   const offered = useRef(false);
-  // A share above zero means an agent holds it, even before the agent list has arrived.
-  const agentCount = obs ? ((obs.self.allocated ?? 0) > 0 ? Math.max(1, agents.length) : agents.length) : undefined;
+  // Not known while the agent list is loading (an empty list then is not "no agents"), unless a share above zero
+  // already says an agent holds it.
+  const agentCount = !obs ? undefined : (obs.self.allocated ?? 0) > 0 ? Math.max(1, agents.length) : agentsLoading ? undefined : agents.length;
   const fill = firstAgentFill({ editable: !ended, agents: agentCount, source, language, examples, offered: offered.current });
   useEffect(() => {
     if (!fill) return;
@@ -111,30 +115,40 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
   const sandbox = forgeSandbox(obs, language);
   const gameplay = can.validate.ok;
   const current = validation && validation.source === source && validation.language === language ? validation.result.validation : undefined;
-  const canSummon = gameplay && !!validation?.result.accepted && !!current?.valid && current.cost <= (obs?.self.energy ?? 0) && allowed.includes(language) && source.trim().length > 0;
+  const energy = obs?.self.energy ?? 0;
+  const untouched = untouchedExample(source, examples) === language;
+  const summonable = gameplay && allowed.includes(language) && source.trim().length > 0;
+  const checked = !!validation?.result.accepted && !!current;
+  // The untouched example is summoned without a validation first (one pass through the sandbox, not two).
+  const canSummon = summonable && summonReady({ untouched, valid: checked && !!current?.valid, price: checked ? current!.cost : undefined, energy });
   // "Summon as soon as I have the energy": armed for a validated agent the player cannot pay for yet, fired once
-  // when their live energy reaches the price (while this pane is open), dropped by an edit.
+  // when their live energy reaches the price (while this pane is open), dropped by an edit or the game's end.
   const [armed, setArmed] = useState<ArmedSummon | null>(null);
+  // An armed summon the engine refused: its message stays beside "Try again", which arms it again.
+  const [refused, setRefused] = useState<{ armed: ArmedSummon; message: string } | null>(null);
   const fired = useRef<ArmedSummon | null>(null);
-  const canArm = gameplay && !canSummon && !armed && !!validation?.result.accepted && !!current?.valid && current.cost > (obs?.self.energy ?? 0) && allowed.includes(language) && source.trim().length > 0;
+  const canArm = summonable && !canSummon && !armed && checked && !!current?.valid && current.cost > energy;
+  const summon = (agent: Omit<ArmedSummon, "cost">, wasArmed?: ArmedSummon) => {
+    setRefused(null);
+    void commands.run({ type: "summon", language: agent.language as Lang, source: agent.source, name: agent.name, ...(agent.description ? { description: agent.description } : {}) }).then(async result => {
+      if (!result) return;
+      if (result.accepted) { setSummoned(agent.name); return; }
+      if (wasArmed) { setRefused({ armed: wasArmed, message: result.message || "The game refused this summon." }); return; }
+      // Not enough energy for an agent summoned without a validation: learn its price (free), then wait for the energy.
+      if (!lacksEnergy(result.message)) return;
+      const price = (await commands.run({ type: "validate", language: agent.language as Lang, source: agent.source }))?.validation;
+      if (price?.valid) setArmed({ ...agent, cost: price.cost });
+    });
+  };
   useEffect(() => {
-    const step = armedStep(armed, { source, language, energy: obs?.self.energy, busy: !!busy, canSummon: gameplay && sandbox.ready && allowed.includes(language) });
+    const over = ended || (!gameplay && sandbox.ready && !busy);
+    const step = armedStep(armed, { source, language, energy: obs?.self.energy, busy: !!busy, canSummon: gameplay && sandbox.ready && allowed.includes(language), over });
     if (step === "disarm") setArmed(null);
+    if (refused && (over || refused.armed.source !== source || refused.armed.language !== language)) setRefused(null);
     if (step !== "fire" || !armed || fired.current === armed) return;
     fired.current = armed;
     setArmed(null);
-    void commands.run({ type: "summon", language: armed.language as Lang, source: armed.source, name: armed.name, ...(armed.description ? { description: armed.description } : {}) })
-      .then(result => { if (result?.accepted) setSummoned(armed.name); });
-  });
-  // The untouched example validates by itself (free), so its cost shows and Summon is one click away.
-  const autoValidated = useRef("");
-  useEffect(() => {
-    const key = `${language}\0${source}`;
-    const untouched = untouchedExample(source, examples) === language;
-    const validated = !!validation && validation.source === source && validation.language === language;
-    if (!validatesExample({ untouched, validated, busy: !!busy, ready: gameplay && sandbox.ready && allowed.includes(language), tried: autoValidated.current === key })) return;
-    autoValidated.current = key;
-    void commands.run({ type: "validate", language, source });
+    summon(armed, armed);
   });
   const arg = instance?.objectType === "Grid" ? "grid" : "x";
   const noun = instance?.objectType === "Grid" ? "grid" : "object";
@@ -170,29 +184,34 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <GhostButton testId="button-validate" disabled={!gameplay || !!busy || !allowed.includes(language) || !source.trim()} onClick={() => void commands.run({ type: "validate", language, source })}>
-          <Wand2 size={14} /> {busy === "validate" ? "Validating" : "Validate (free)"}
+          <Wand2 size={14} /> {busy === "validate" ? "Checking" : "Validate (free)"}
         </GhostButton>
-        <PrimaryButton testId="button-summon" disabled={!(canSummon || canArm) || !name.trim()} onClick={() => {
-          const summonedName = name.trim(), about = description.trim();
+        <PrimaryButton testId="button-summon" disabled={!!busy || !(canSummon || canArm) || !name.trim()} onClick={() => {
+          const agent = { name: name.trim(), ...(description.trim() ? { description: description.trim() } : {}), language, source };
           // Not payable yet: arm a one-shot that summons when the energy is there (the effect above fires it).
-          if (!canSummon) { if (current) setArmed({ name: summonedName, ...(about ? { description: about } : {}), language, source, cost: current.cost }); return; }
-          void commands.run({ type: "summon", language, source, name: summonedName, ...(about ? { description: about } : {}) })
-            .then(result => { if (result?.accepted) setSummoned(summonedName); });
+          if (!canSummon) { if (current) { setRefused(null); setArmed({ ...agent, cost: current.cost }); } return; }
+          summon(agent);
         }}>
           <Sparkles size={14} /> {busy === "summon" ? "Summoning" : canArm ? "Summon as soon as I have the energy" : current ? `Summon · cost ${fmt(current.cost)}` : "Summon"}
         </PrimaryButton>
         {/* With no code view to go back to, Done goes to My agents (leaving edit mode alone would change nothing). */}
         <TextButton onClick={() => { runner.setEditing(false); if (onlyEditor) dock.show("agents"); }}>Done</TextButton>
       </div>
-      {summoned && <p data-testid="text-summoned" className="text-sm font-semibold text-[hsl(var(--accent))]">Summoned: {summoned} is in the game. {obs?.phase === "planning" ? "It acts when the world starts." : "It acts whenever it gets a turn."} Find it in My agents.</p>}
+      {(busy === "validate" || busy === "summon") && <p data-testid="text-forge-progress" role="status" className="flex items-center gap-1.5 text-sm font-semibold text-foreground"><Loader2 size={14} className="shrink-0 animate-spin" />{progressLine(busy, retrying)}</p>}
+      {summoned && !busy && <p data-testid="text-summoned" className="text-sm font-semibold text-[hsl(var(--accent))]">{summonedText(summoned, obs?.phase === "planning")}</p>}
+      {refused && !busy && !armed && <p data-testid="text-armed-refused" className="text-sm font-semibold text-destructive">{refused.armed.name} was not summoned: {refused.message} <TextButton onClick={() => { const again = { ...refused.armed }; setRefused(null); setArmed(again); }}>Try again</TextButton></p>}
       {armed && <p data-testid="text-armed" className="text-sm font-semibold text-foreground">{armedText(armed, { energy: obs?.self.energy ?? 0, income: obs?.self.income, planning: obs?.phase === "planning" })} <TextButton onClick={() => setArmed(null)}>Cancel</TextButton></p>}
-      {gameplay && !busy && !armed && !(canSummon && name.trim()) && source.trim() && (() => {
+      {gameplay && !busy && !armed && !refused && !(canSummon && name.trim()) && source.trim() && (() => {
         // Too dear for now: say both numbers and when it will be payable, not only that it is.
         const short = current?.valid && name.trim() ? energyHint({ cost: current.cost, energy: obs?.self.energy ?? 0, income: obs?.self.income, planning: obs?.phase === "planning" }) : null;
-        const needs = short ?? summonNeeds(!!current?.valid, !!name.trim(), !!current && current.cost <= (obs?.self.energy ?? 0));
+        const needs = short ?? summonNeeds(!!current?.valid || (untouched && !current), !!name.trim(), !current || current.cost <= energy);
         return needs && <p data-testid="text-summon-needs" className="text-xs text-muted-foreground">{needs}</p>;
       })()}
-      {notice && <p data-testid="text-notice" className={`text-sm ${notice.ok ? "text-[hsl(var(--accent))]" : "text-destructive"}`}>{notice.text}</p>}
+      {notice && !(refused && !notice.ok) && <p data-testid="text-notice" className={`text-sm ${notice.ok ? "text-[hsl(var(--accent))]" : "text-destructive"}`}>
+        {notice.text}
+      </p>}
+      {/* Still busy after every try: one button, the same command again (it can never apply twice). */}
+      {failed && !busy && <GhostButton testId="button-try-again" onClick={() => void commands.retry(failed).then(result => { if (failed.command.type === "summon" && result?.accepted) setSummoned(failed.command.name); })}>Try again</GhostButton>}
       <textarea ref={editor} data-testid="input-source" value={source} onChange={e => runner.setDraft({ source: e.target.value })} maxLength={16384} spellCheck={false}
         aria-label="Agent source"
         placeholder={language === "python" ? `def agent(${arg}):\n    # return a list of moves, e.g. [swap(...)]\n    return []`
@@ -220,7 +239,7 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
               ? <ul className="mt-1 space-y-0.5 font-mono text-xs text-muted-foreground">{current.diagnostics.map((d, i) => <li key={i} className="whitespace-pre-wrap break-words">{d}</li>)}</ul>
               : <p className="mt-1 font-mono text-xs text-muted-foreground">no diagnostics</p>}
           </div>
-        ) : <p className="text-xs text-muted-foreground">{validation ? "The code changed since it was validated. Validate again." : "Validate before summoning: it is free."}</p>}
+        ) : <p className="text-xs text-muted-foreground">{validation ? "The code changed since it was validated. Validate again." : untouched ? "This agent is ready to summon. Validate (free) shows what it costs first." : "Validate before summoning: it is free."}</p>}
       </div>
     </div>
   );

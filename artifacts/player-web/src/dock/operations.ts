@@ -4,28 +4,83 @@
  */
 import { PANELS, defaultPanelParams, type PanelId, type Phase } from "@workspace/player-client/panels";
 import {
-  LAYOUT_LIMITS, assistantPaneOf, paneAreas, openAssistant, assistantSide, panelPanesOf, openPane, panesOf, setPanePanel, type DockLayout, type Node, type Pane, type Place,
+  LAYOUT_LIMITS, assistantPaneOf, paneAreas, paneExtents, openAssistant, assistantSide, panelPanesOf, openPane, panesOf, setPanePanel, type DockLayout, type Node, type Pane, type Place,
 } from "@workspace/player-client/layout";
+
+/**
+ * The least room the agent editor needs, as shares of the dock: about 480 by 360 px of a 1440 by 900 screen (the dock
+ * is what the header and the planning line leave, about 1440 by 800).
+ */
+export const EDITOR_MIN = { width: 1 / 3, height: 0.44 };
+const ROOMY: ReadonlySet<PanelId> = new Set<PanelId>(["forge"]);
 
 /**
  * Show a panel: reuse an open pane of it (one pane per panel, like the assistant's open_panel), else add one. With
  * the most built-in panels already open (parseLayout keeps four, as the default dock does), the focused one shows it
  * instead, else the largest panel nobody chose (in the default dock, the objects top right: room for the agent editor),
  * else the largest.
+ *
+ * The agent editor needs room (EDITOR_MIN), and the player needs their goal beside it: it never takes the goal card's
+ * pane, takes the focused pane only when that is big enough (and not My agents, while another pane has the room), else
+ * the largest other pane, and a pane is split for it only when both halves stay big enough.
  */
 export function showPanel(layout: DockLayout, panelId: PanelId, params?: Record<string, unknown>, focused?: string | null): { layout: DockLayout; paneId: string; replaced?: boolean } {
   const panels = panelPanesOf(layout);
   const open = panels.find(p => p.panelId === panelId);
-  if (open) return { layout: layout, paneId: open.id };
+  // An editor left as a sliver (an arrangement carried from another room) is given room where it is.
+  if (open) return { layout: ROOMY.has(panelId) ? withRoom(layout, open.id) : layout, paneId: open.id };
   const values = params ?? defaultPanelParams(panelId);
   if (!values) throw new Error(`${PANELS[panelId].title} needs your assistant to set it up`);
+  const area = paneAreas(layout.root);
+  const largest = (list: typeof panels) => list.reduce<(typeof panels)[number] | undefined>((best, p) => (!best || (area[p.id] ?? 0) > (area[best.id] ?? 0) ? p : best), undefined);
+  if (ROOMY.has(panelId) && panels.length) {
+    const extent = paneExtents(layout.root);
+    const fits = (id: string, across = 1, down = 1) => (extent[id]?.width ?? 0) * across >= EDITOR_MIN.width && (extent[id]?.height ?? 0) * down >= EDITOR_MIN.height;
+    const others = panels.filter(p => p.panelId !== "my-card");
+    if (panels.length < LAYOUT_LIMITS.panelPanes) {
+      // A new pane beside the largest pane that leaves both halves usable.
+      const side = largest(panels.filter(p => fits(p.id, 0.5))), stack = largest(panels.filter(p => fits(p.id, 1, 0.5)));
+      const target = side && stack ? ((area[side.id] ?? 0) >= (area[stack.id] ?? 0) ? side : stack) : side ?? stack;
+      if (target) return openPane(layout, { id: "", kind: "panel", panelId, params: values, setBy: "human" }, { relativeTo: target.id, direction: target === side ? "right" : "below" });
+    }
+    // My agents is where the new agent's moves are told, so it is kept while another pane has the room.
+    const candidates = others.length ? others : panels;
+    const spare = candidates.filter(p => p.panelId !== "agents" && fits(p.id));
+    const target = spare.find(p => p.id === focused) ?? largest(spare) ?? largest(candidates.filter(p => fits(p.id))) ?? largest(candidates)!;
+    return { layout: withRoom(setPanePanel(layout, target.id, panelId, "human", values), target.id), paneId: target.id, replaced: true };
+  }
   if (panels.length >= LAYOUT_LIMITS.panelPanes) {
-    const area = paneAreas(layout.root);
-    const largest = (list: typeof panels) => list.reduce<(typeof panels)[number] | undefined>((best, p) => (!best || (area[p.id] ?? 0) > (area[best.id] ?? 0) ? p : best), undefined);
     const target = panels.find(p => p.id === focused) ?? largest(panels.filter(p => p.setBy === "default")) ?? largest(panels)!;
     return { layout: setPanePanel(layout, target.id, panelId, "human", values), paneId: target.id, replaced: true };
   }
   return openPane(layout, { id: "", kind: "panel", panelId, params: values, setBy: "human" });
+}
+
+/**
+ * The layout with `paneId` at least EDITOR_MIN wide and tall: unchanged when it already is; otherwise the pane's
+ * branch gets at least half of every split that is too tight for it, its siblings sharing the rest in proportion.
+ */
+export function withRoom(layout: DockLayout, paneId: string): DockLayout {
+  const extent = paneExtents(layout.root)[paneId];
+  if (!extent) return layout;
+  const narrow = extent.width < EDITOR_MIN.width, low = extent.height < EDITOR_MIN.height;
+  if (!narrow && !low) return layout;
+  const holds = (node: Node): boolean => (node.type === "pane" ? node.id === paneId : node.children.some(holds));
+  const count = (node: Node, direction: "row" | "column"): number => (node.type === "pane" ? 0 : (node.direction === direction ? 1 : 0) + count(node.children.find(holds)!, direction));
+  const rows = count(layout.root, "row"), columns = count(layout.root, "column");
+  const grow = (node: Node): Node => {
+    if (node.type === "pane") return node;
+    const i = node.children.findIndex(holds);
+    const children = node.children.map((child, j) => (j === i ? grow(child) : child));
+    const tight = node.direction === "row" ? narrow : low;
+    if (!tight) return { ...node, children };
+    const least = Math.min(0.8, Math.max(0.5, Math.pow(node.direction === "row" ? EDITOR_MIN.width : EDITOR_MIN.height, 1 / (node.direction === "row" ? rows : columns))));
+    const total = node.sizes.reduce((a, b) => a + b, 0) || 1, mine = (node.sizes[i] ?? 0) / total;
+    if (mine >= least) return { ...node, children };
+    const rest = total - (node.sizes[i] ?? 0) || 1;
+    return { ...node, children, sizes: node.sizes.map((size, j) => (j === i ? least * 100 : (size / rest) * (1 - least) * 100)) };
+  };
+  return { ...layout, root: grow(layout.root) };
 }
 
 /** The panel menu: change a pane's panel (parameters as last used there, else defaults), chosen by the human. */

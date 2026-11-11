@@ -203,19 +203,43 @@ export function keepAssistantPane(next: DockLayout, stored: DockLayout): DockLay
   const pane = Object.values(stored.panes).find(p => p.kind === "assistant");
   if (!pane || Object.values(next.panes).some(p => p.kind === "assistant")) return next;
   const place = placeOf(stored.root, pane.id);
-  try { return openPane(next, pane, place && next.panes[place.relativeTo] ? place : undefined).layout; }
-  catch { try { return openPane(next, pane).layout; } catch { return next; } }
+  try {
+    const opened = openPane(next, pane, place && next.panes[place.relativeTo] ? place : undefined);
+    if (!place || !next.panes[place.relativeTo]) return opened.layout;
+    // openPane halves the neighbour to make room. Hidden again, the assistant would give that half to the whole row,
+    // so the neighbour would shrink with every change (the editor ended as a sliver). Give the assistant the share it
+    // had and leave the others their proportions: hiding it then shows exactly `next` again.
+    return { ...opened.layout, root: withShare(opened.layout.root, opened.paneId, place.share, place.direction === "left" || place.direction === "above") };
+  } catch { try { return openPane(next, pane).layout; } catch { return next; } }
 }
 
-/** Where a pane sits relative to its nearest sibling: the first pane of the sibling after it, else the last before it. */
-function placeOf(node: Node, id: string): { relativeTo: string; direction: Place["direction"] } | null {
+/**
+ * `id`, just opened beside a neighbour, gets `share` (0–1) of its split; the others keep their proportions among
+ * themselves. `before`: it was put before its neighbour (left or above), else after.
+ */
+function withShare(node: Node, id: string, share: number, before: boolean): Node {
+  if (node.type === "pane") return node;
+  const i = node.children.findIndex(c => c.type === "pane" && c.id === id);
+  if (i < 0) return { ...node, children: node.children.map(c => withShare(c, id, share, before)) };
+  const sizes = [...node.sizes];
+  // Joined to a longer row or column, the neighbour was halved to make room: it gets its half back first.
+  const neighbour = before ? i + 1 : i - 1;
+  if (sizes.length > 2 && sizes[neighbour] !== undefined) sizes[neighbour] *= 2;
+  const rest = sizes.reduce((sum, size, j) => (j === i ? sum : sum + size), 0) || 1;
+  const mine = Math.min(0.9, Math.max(0.1, share));
+  return { ...node, sizes: sizes.map((size, j) => (j === i ? mine * 100 : (size / rest) * (1 - mine) * 100)) };
+}
+
+/** Where a pane sits relative to its nearest sibling (the first pane of the sibling after it, else the last before it), and its share of their split. */
+function placeOf(node: Node, id: string): { relativeTo: string; direction: Place["direction"]; share: number } | null {
   if (node.type === "pane") return null;
   const i = node.children.findIndex(c => c.type === "pane" && c.id === id);
   if (i < 0) { for (const child of node.children) { const found = placeOf(child, id); if (found) return found; } return null; }
   const row = node.direction === "row";
+  const share = (node.sizes[i] ?? 0) / (node.sizes.reduce((a, b) => a + b, 0) || 1);
   const after = node.children[i + 1], before = node.children[i - 1];
-  if (after) return { relativeTo: paneOrder(after)[0], direction: row ? "left" : "above" };
-  if (before) return { relativeTo: paneOrder(before).at(-1)!, direction: row ? "right" : "below" };
+  if (after) return { relativeTo: paneOrder(after)[0], direction: row ? "left" : "above", share };
+  if (before) return { relativeTo: paneOrder(before).at(-1)!, direction: row ? "right" : "below", share };
   return null;
 }
 

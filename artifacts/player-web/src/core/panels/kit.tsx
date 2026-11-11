@@ -97,11 +97,11 @@ const PHASE_WORD: Record<Phase, string> = { lobby: "in the lobby", planning: "du
 export const phasesText = (panelId: PanelId) => PANELS[panelId].phases.map(p => PHASE_WORD[p]).join(", ").replace(/, ([^,]*)$/, " or $1");
 
 /** A panel opened outside its phases: say when it fills, and the next step now. */
-export function outOfPhase(panelId: PanelId, phase: Phase): string {
+export function outOfPhase(panelId: PanelId, phase: Phase, /** Planning, with an agent already summoned: "NAME is ready. It acts when the world starts." */ ready?: string | null): string {
   const when = `${PANELS[panelId].title} shows data ${phasesText(panelId)}.`;
   const next: Record<Phase, string> = {
     lobby: "The game hasn't started: the owner starts it from the room.",
-    planning: "Planning is on: write your first agent before the world starts.",
+    planning: ready ?? "Planning is on: summon your first agent before the world starts.",
     running: "The world is running now.",
     paused: "The world is paused: a good moment to negotiate in public chat.",
     ended: "This game is over: see how it went in How the game went.",
