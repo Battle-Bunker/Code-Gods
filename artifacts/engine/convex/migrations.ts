@@ -149,16 +149,6 @@ export const backfillObjectViews = migrations.define({
 });
 
 /**
- * The per-agent rate cap went on 11 Nov 2026 (docs/energy-model.md §7), and with it `agents.lastOpportunityWorld`: the
- * field is optional and no longer read or written, and this removes what the tick stored there. Once dev and production
- * report it done, a later PR drops the field from the agents validator (and the commit's argument).
- */
-export const dropLastOpportunityWorld = migrations.define({
-  table: "agents",
-  migrateOne: (_ctx, agent) => (agent.lastOpportunityWorld === undefined ? undefined : { lastOpportunityWorld: undefined }),
-});
-
-/**
  * Every component migration, in order: run by the deploy workflow (`npx convex run migrations:runAll`). Append new ones
  * at the end. A migration leaves only when it is narrowed, after dev and production both report it done.
  */
@@ -166,7 +156,7 @@ export const dropLastOpportunityWorld = migrations.define({
 const RUN_ALL: FunctionReference<"mutation", "internal">[] = [internal.migrations.dropHaskellFromSetups, internal.migrations.dropHaskellFromRooms,
   internal.migrations.dropHaskellFromGames, internal.migrations.dropHaskellBundle, internal.migrations.dropHaskellCompiledPrograms,
   internal.migrations.backfillReplays, internal.migrations.backfillStandings,
-  internal.migrations.backfillObjectTimes, internal.migrations.backfillObjectViews, internal.migrations.dropLastOpportunityWorld];
+  internal.migrations.backfillObjectTimes, internal.migrations.backfillObjectViews];
 export const runAll = migrations.runner(RUN_ALL);
 /** The state of each of runAll's migrations (scripts/run-migrations.mjs waits for all of them to succeed). */
 export const status = internalQuery({

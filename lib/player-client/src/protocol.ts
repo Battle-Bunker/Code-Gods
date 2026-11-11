@@ -117,10 +117,8 @@ export const observationSchema = z.object({
    * (income = share x P) and the unallocated rest, which is the god's own income and pays summons (it starts with
    * startingEnergy). Every account holds at most its power x fullChargeSeconds (an agent's `capacity`, self.capacity):
    * energy fills up in that many seconds and then stops, and income past a full store is lost (absent: a game from before
-   * capacities, which has none). Each opportunity goes to an agent with probability proportional to its positive energy: one draw
-   * over every agent in the room, so a god's turns follow the energy its agents hold together, however many they are
-   * (maxAgentOpportunityHz appears only on replays of games from before 11 Nov 2026, which limited each agent's turns
-   * per world second); an act pays the bits it read divided by changeReadRatio,
+   * capacities, which has none). Each opportunity goes to an agent with probability proportional to its positive energy, at most
+   * maxAgentOpportunityHz times per world second per agent; an act pays the bits it read divided by changeReadRatio,
    * plus its change when it changes the object (docs/energy-model.md §2). changeReadRatio (κ, absent on replays of
    * older games) is how many bits an agent may read for the price of one bit of change: looking is κ× cheaper.
    */
@@ -140,7 +138,7 @@ export const observationSchema = z.object({
   objects: z.array(z.object({ id, value: wire,
     own: z.object({ ordinal, rewardBits: finite, penaltyBits: finite.optional(), netBits: finite }),
     peerNetBits: finite, peerCare: finite, payoff: finite })).max(2000),
-  // Your agents. `eligible`: it can be offered the next opportunity now (positive energy); the
+  // Your agents. `eligible`: it can be offered the next opportunity now (positive energy, under the per-agent cap); the
   // more energy, the likelier. expectedActCost is the summon-time estimate per act (reading + changing); nothing is
   // charged from it. `skips`: acts that returned no calls (they paid only what they read; not failures).
   agents: z.array(z.object({ id, name: agentName, description: agentDescription.optional(), source: z.string().max(16384), language: storedLanguage, summonCost: finite, expectedActCost: finite,

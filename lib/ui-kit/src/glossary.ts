@@ -23,7 +23,7 @@ export const GLOSSARY = {
   "read-bits": { term: "Read bits", gloss: "What an act pays for looking at the object: a small fraction of a bit per bit read, since looking is much cheaper than changing. Never free." },
   "change-cost": { term: "Change cost", gloss: "The extra bits an act pays when it really changes the object, on top of reading it. No change, no change cost." },
   skip: { term: "Skip", gloss: "A turn where the agent looked and changed nothing. It pays only for reading (and a little for the turn itself), so skipping is cheap." },
-  turn: { term: "Turn", gloss: "A chance to act on one object. The world hands turns out at random: more energy means more turns, however many agents hold it." },
+  turn: { term: "Turn", gloss: "A chance to act on one object. The world hands turns out at random: more energy means more turns, at most 4 a second each." },
   pause: { term: "Pause", gloss: "Each god may stop the world once per game (3 minutes by default) to negotiate." },
   palette: { term: "Command palette", gloss: "The search box (Ctrl/Cmd+K) that runs every command you have: the same repertoire your assistant has." },
   panel: { term: "Panel", gloss: "A view of the game in a pane: a built-in one you pick (your assistant sets its parameters) or one of your own." },

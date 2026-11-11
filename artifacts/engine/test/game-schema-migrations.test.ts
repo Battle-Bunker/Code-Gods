@@ -129,24 +129,3 @@ test("backfillObjectViews: a game stored before the per-god read model gets ever
   await runAll(true);
   assert.deepEqual(strip(await views(ada.subject)), strip(after), "a second run changes nothing");
 });
-
-test("the per-agent rate cap's field leaves stored agents; a second run changes nothing", { timeout: 240_000 }, async () => {
-  const [host, ada, bo] = await gods("Cap Mig Host", "Cap Mig Ada", "Cap Mig Bo");
-  await touch(host);
-  const { roomId } = await roomWith([host, ada, bo], { objectType: "Int", languages: ["typescript"], spawnRateHz: 0, startingObjectCount: 3, planningSeconds: 3600 });
-  const game = await startGame(host, roomId);
-  const summoned = await ada.c.action(api.commands.submit, { roomId, envelope: envelope({ type: "summon", name: "Old", language: "typescript", source: "function agent(n) { return [add(1)]; }" }, game.gameId) });
-  assert.equal(summoned.accepted, true, summoned.message);
-  const agentOf = async () => (await raw(game.gameId)).agents.find((a: any) => a.ownerId === ada.subject);
-  const before = await agentOf();
-  // As the tick stored it before 11 Nov 2026.
-  await admin.mutation(internal.testing.legacyAgentOpportunity, { agentId: before._id, world: 12.5 });
-  assert.equal((await agentOf()).lastOpportunityWorld, 12.5);
-  for (const run of [1, 2]) {
-    await runAll(true);
-    const after = await agentOf();
-    assert.equal("lastOpportunityWorld" in after, false, `run ${run}`);
-    assert.deepEqual({ ...after, _creationTime: 0 }, { ...before, _creationTime: 0 }, `run ${run}: nothing else changed`);
-  }
-  await host.c.mutation(api.rooms.endActiveGame, { roomId });
-});

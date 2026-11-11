@@ -367,7 +367,7 @@ export const gameTables = {
     spentRead: v.optional(v.number()),
     /** Acts that returned no calls (docs/energy-model.md §2), counted since the energy model; absent: none yet. */
     skips: v.optional(v.number()),
-    /** HISTORY: world time of its last opportunity, for the per-agent rate cap removed on 11 Nov 2026 (docs/energy-model.md §7). No longer read or written. */
+    /** World time of its last opportunity: the per-agent cap (game-core MAX_AGENT_OPPORTUNITY_HZ); absent: none yet. */
     lastOpportunityWorld: v.optional(v.number()),
     /**
      * PRIVATE to the owner: how its acts ended (lib/futility.ts FAILURE_KINDS), counted by the tick since this field

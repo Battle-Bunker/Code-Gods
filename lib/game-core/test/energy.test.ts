@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  agentIncome, deityIncome, defaultShare, assertShare, spendDeityEnergy, newAgentAccount, settleAgentEnergy, chargeAct, pickByEnergy, selectionWeight, offerReadBits,
-  energyCapacity, secondsToFull, settleDeityEnergy, chargeDeityAccount,
+  agentIncome, deityIncome, defaultShare, assertShare, spendDeityEnergy, newAgentAccount, settleAgentEnergy, chargeAct, pickByEnergy, offerable, selectionWeight, offerReadBits,
+  MAX_AGENT_OPPORTUNITY_HZ, energyCapacity, secondsToFull, settleDeityEnergy, chargeDeityAccount,
 } from "../src/energy.ts";
 
 test("power: agents earn their share, the deity the unallocated rest; summons are paid from the deity's own energy", () => {
@@ -61,116 +61,69 @@ test("selection is proportional to positive energy; none positive picks nobody",
   assert.ok(Math.abs(counts.b / counts.a - 3) < 0.15, JSON.stringify(counts));
 });
 
+test("the cap: at most MAX_AGENT_OPPORTUNITY_HZ opportunities per world second per agent", () => {
+  assert.equal(MAX_AGENT_OPPORTUNITY_HZ, 4);
+  assert.equal(offerable(undefined, 0), true);
+  assert.equal(offerable(10, 10.2), false);
+  assert.equal(offerable(10, 10.25), true);
+  assert.equal(offerable(10, 10.1, 0), true);   // a non-positive cap is off
+});
+
 /**
  * docs/energy-model.md §7: two agents with the same income on a busy world; one reads a little and usually skips
  * (1 bit per act), the other always acts (12 bits per act). The skipper keeps its energy, so it is offered more.
  */
-test("a cheap skipper gets more opportunities than an expensive actor with the same income", () => {
-  const agents = [{ id: "skipper", cost: 1, account: newAgentAccount(0), n: 0 }, { id: "actor", cost: 12, account: newAgentAccount(0), n: 0 }];
-  let seed = 7;
-  const rand = () => (seed = (seed * 48271) % 2147483647) / 2147483647;
-  for (let k = 1; k <= 20 * 300; k++) {
-    const world = k / 20;
-    for (const a of agents) a.account = settleAgentEnergy(a.account, world, 4);
-    const pick = pickByEnergy(agents, a => a.account.balance, rand);
-    if (!pick) continue;
-    pick.account = chargeAct(pick.account, pick.cost);
-    pick.n++;
-  }
-  const n = Object.fromEntries(agents.map(a => [a.id, a.n]));
+test("a cheap skipper gets more opportunities than an expensive actor with the same income; the cap bounds it", () => {
+  const simulate = (skipCost: number, actCost: number, rate: number, seconds: number) => {
+    const agents = [{ id: "skipper", cost: skipCost, account: newAgentAccount(0), last: undefined as number | undefined, n: 0 },
+      { id: "actor", cost: actCost, account: newAgentAccount(0), last: undefined as number | undefined, n: 0 }];
+    let seed = 7;
+    const rand = () => (seed = (seed * 48271) % 2147483647) / 2147483647;
+    const steps = rate * seconds;
+    for (let k = 1; k <= steps; k++) {
+      const world = k / rate;
+      for (const a of agents) a.account = settleAgentEnergy(a.account, world, 4);
+      const pick = pickByEnergy(agents.filter(a => offerable(a.last, world)), a => a.account.balance, rand);
+      if (!pick) continue;
+      pick.account = chargeAct(pick.account, pick.cost);
+      pick.last = world; pick.n++;
+    }
+    return Object.fromEntries(agents.map(a => [a.id, a.n]));
+  };
+  const n = simulate(1, 12, 20, 300);
   assert.ok(n.skipper > 3 * n.actor, JSON.stringify(n));
   // the actor still acts about as often as its income allows (4 bits/s ÷ 12 bits)
   assert.ok(n.actor > 0.25 * 300 && n.actor < 0.4 * 300, JSON.stringify(n));
+  // a skipper that pays nothing at all is held to the cap, not every opportunity
+  const free = simulate(0, 12, 50, 100);
+  assert.ok(free.skipper <= MAX_AGENT_OPPORTUNITY_HZ * 100 + 1, JSON.stringify(free));
+  assert.ok(free.actor > 0, JSON.stringify(free));
 });
-
-// ------------------------------------------------------------------------------------------------ agent-count neutrality (§7)
 
 /**
- * The invariant (owner, 11 Nov 2026): "agent impact [is] a function of power assigned to that agent and … the discrete
- * quantity of agents [offers] no opportunity for advantage". One god's power budget is split over n agents running the
- * same program, against a fixed opponent; its offers, acts and energy spent must not depend on n or on how uneven the
- * split is. Real selection code (pickByEnergy, settleAgentEnergy with the capacity, chargeAct), seeded.
- *
- * What would break it: any limit or allowance per agent (a rate cap per agent, a store or a price per agent).
+ * Known non-neutrality of the cap (docs/energy-model.md §7): it is per agent, so the same power split over n skippers
+ * can take 4n offers a second. Capacity (T = 30) bounds each store but not the number of agents.
  */
-function playSplit(shares: readonly number[], program: { offer: number; act: number; actProbability: number }, room: { rateHz: number; seconds: number; fullChargeSeconds?: number }, seed: number) {
-  const P = 64;
-  let state = seed;
-  const rand = () => (state = (state * 48271) % 2147483647) / 2147483647;
-  // God 0: the split under test. God 1: two agents with half the same budget each, always acting at 12 bits.
-  const agents = [
-    ...shares.map(share => ({ god: 0, income: P * share, cost: program, account: newAgentAccount(0) })),
-    ...[0.45, 0.45].map(share => ({ god: 1, income: P * share, cost: { offer: 0, act: 12, actProbability: 1 }, account: newAgentAccount(0) })),
-  ];
-  const out = { offers: 0, acts: 0, spent: 0 };
-  for (let k = 1; k <= room.rateHz * room.seconds; k++) {
-    const world = k / room.rateHz;
-    for (const a of agents) a.account = settleAgentEnergy(a.account, world, a.income, energyCapacity(a.income, room.fullChargeSeconds));
-    const pick = pickByEnergy(agents, a => a.account.balance, rand);
-    if (!pick) continue;
-    const acts = rand() < pick.cost.actProbability, cost = pick.cost.offer + (acts ? pick.cost.act : 0);
-    pick.account = chargeAct(pick.account, cost);
-    if (pick.god === 0) { out.offers++; out.spent += cost; if (acts) out.acts++; }
-  }
-  return out;
-}
-
-test("agent-count neutrality: a power budget split over n agents gets the offers, acts and spend of one agent", () => {
-  const programs = {
-    skipper: { offer: 0.2, act: 0, actProbability: 0 },      // never acts: pays only for being offered
-    actor: { offer: 0.2, act: 12, actProbability: 1 },       // always changes one cell
-    looker: { offer: 2.5, act: 12, actProbability: 0.3 },    // reads the board, acts on 3 offers in 10
-  };
-  const rooms = {
-    "offers scarce, stores full (capped)": { rateHz: 5, seconds: 600, fullChargeSeconds: 30 },
-    "offers plentiful (energy-limited)": { rateHz: 50, seconds: 300, fullChargeSeconds: 30 },
-    "no capacity": { rateHz: 5, seconds: 600 },
-  };
-  const splits: Record<string, number[]> = {
-    "1 agent": [0.9], "2 equal": [0.45, 0.45], "5 equal": [0.18, 0.18, 0.18, 0.18, 0.18], "10 equal": new Array(10).fill(0.09),
-    "3 uneven": [0.6, 0.25, 0.05], "6 uneven": [0.4, 0.2, 0.1, 0.1, 0.07, 0.03],
-  };
-  const SEEDS = 6;
-  for (const [roomName, room] of Object.entries(rooms)) {
-    for (const [programName, program] of Object.entries(programs)) {
-      const mean = (shares: number[]) => {
-        const sum = { offers: 0, acts: 0, spent: 0 };
-        for (let i = 0; i < SEEDS; i++) { const r = playSplit(shares, program, room, 101 + i); sum.offers += r.offers; sum.acts += r.acts; sum.spent += r.spent; }
-        return { offers: sum.offers / SEEDS, acts: sum.acts / SEEDS, spent: sum.spent / SEEDS };
-      };
-      const one = mean(splits["1 agent"]);
-      assert.ok(one.offers > 100, `${roomName} / ${programName}: the god is offered turns (${one.offers})`);
-      for (const [splitName, shares] of Object.entries(splits)) {
-        const got = mean(shares);
-        for (const key of ["offers", "acts", "spent"] as const) {
-          // Sampling error: the counts are in the hundreds to thousands over 6 seeds; 8% (or 8 events) is several standard errors.
-          const tolerance = Math.max(8, 0.08 * one[key]);
-          assert.ok(Math.abs(got[key] - one[key]) <= tolerance, `${roomName} / ${programName} / ${splitName}: ${key} ${got[key].toFixed(1)} vs ${one[key].toFixed(1)} with one agent`);
-        }
-      }
-    }
-  }
-});
-
-test("a rate limit per agent would break neutrality: this test's own check sees it", () => {
-  // The rule removed on 11 Nov 2026 (each agent offered at most 4 times a second), re-created here: ten skippers then
-  // take far more offers than one with the same total power. The neutrality test above must be able to see that.
+test("the cap is per agent: ten skippers with the same total power are offered far more than one", () => {
   const play = (shares: number[]) => {
     let state = 11;
     const rand = () => (state = (state * 48271) % 2147483647) / 2147483647;
-    const agents = [...shares.map(s => ({ god: 0, income: 64 * s, last: -1, account: newAgentAccount(0) })), { god: 1, income: 57.6, last: -1, account: newAgentAccount(0) }];
+    const agents = [...shares.map(s => ({ god: 0, income: 64 * s, last: undefined as number | undefined, account: newAgentAccount(0) })),
+      { god: 1, income: 57.6, last: undefined as number | undefined, account: newAgentAccount(0) }];
     let offers = 0;
     for (let k = 1; k <= 25 * 200; k++) {
       const world = k / 25;
       for (const a of agents) a.account = settleAgentEnergy(a.account, world, a.income, energyCapacity(a.income, 30));
-      const pick = pickByEnergy(agents.filter(a => world - a.last >= 0.25 - 1e-9), a => a.account.balance, rand);
+      const pick = pickByEnergy(agents.filter(a => offerable(a.last, world)), a => a.account.balance, rand);
       if (!pick) continue;
       pick.last = world;
       if (pick.god === 0) offers++; else pick.account = chargeAct(pick.account, 12);
     }
     return offers;
   };
-  assert.ok(play(new Array(10).fill(0.09)) > 2 * play([0.9]), "with a per-agent cap, ten agents out-draw one");
+  const one = play([0.9]), ten = play(new Array(10).fill(0.09));
+  assert.ok(one <= MAX_AGENT_OPPORTUNITY_HZ * 200 + 1, `one skipper is held to the cap: ${one}`);
+  assert.ok(ten > 2 * one, `ten skippers ${ten} offers, one ${one}`);
 });
 
 // ------------------------------------------------------------------------------------------------ capacity (§6.1)
