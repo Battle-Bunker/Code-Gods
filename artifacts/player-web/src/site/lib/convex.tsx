@@ -71,6 +71,9 @@ function useEngineSession(auth: EngineAuth): Session {
         .catch((e: unknown) => toast({ title: "Sign-in failed", description: e instanceof Error ? e.message : String(e), variant: "destructive" }));
       return;
     }
+    // A preview deployment's build (VITE_PREVIEW_SIGN_IN=1, set only by .github/workflows/preview.yml): Google cannot
+    // redirect to a preview's hostname, so sign-in is the preview's own passphrase page (docs/preview-deployments.md).
+    if (import.meta.env.VITE_PREVIEW_SIGN_IN === "1") { window.location.assign(`/api/preview-auth/start?returnTo=${encodeURIComponent(returnTo)}`); return; }
     // Better Auth resolves with {error} rather than throwing; without a redirect the button would look dead.
     void authClient.signIn.social({ provider: "google", callbackURL: returnTo }).then(
       r => { if (r.error) toast({ title: "Sign-in failed", description: r.error.message ?? `HTTP ${r.error.status}`, variant: "destructive" }); },

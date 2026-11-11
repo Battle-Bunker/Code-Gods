@@ -8,6 +8,8 @@
  *   Convex JWTs at GET /api/auth/convex/token (issuer = CONVEX_SITE_URL, audience "convex").
  *   LOCAL TESTS ONLY: a generic OAuth provider "fake" (scripts/fake-oidc.mjs) exists while test fixtures are
  *   on and FAKE_OIDC_URL is set (identity.ts fakeProvider); production sets neither.
+ *   PREVIEW DEPLOYMENTS ONLY: a generic OAuth provider "preview" (auth/preview.ts) exists while
+ *   PREVIEW_SIGN_IN_CODE is set; dev and production never set it (their deploy refuses to run if it is).
  *
  * Environment (Convex deployment env vars):
  *   GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET   the Google Cloud "Web application" OAuth client (PILOT.md)
@@ -26,7 +28,8 @@ import type { DataModel } from "../_generated/dataModel";
 import { internalAction, type MutationCtx } from "../_generated/server";
 import authConfig from "../auth.config";
 import { SESSION_TTL_MS, siteUrl } from "./config";
-import { fakeProvider } from "./identity";
+import { fakeProvider, previewSignInCode } from "./identity";
+import { PREVIEW_CLIENT_ID, PREVIEW_PROVIDER_ID, isPreviewIdentity, previewProfile, redeemTicket, ticketSecret } from "./preview";
 import { profileName } from "./profileName";
 
 const authFunctions: AuthFunctions = internal.auth.betterAuth;
@@ -100,6 +103,27 @@ const profileToUser = (profile: Record<string, unknown>) => ({ name: profileName
 export function createAuth(ctx: GenericCtx<DataModel>, { optionsOnly = false, rotating = false } = {}) {
   const base = siteUrl();
   const fake = fakeProvider(process.env);
+  const previewCode = previewSignInCode(process.env);
+  const previewSecret = previewCode ? ticketSecret(process.env.BETTER_AUTH_SECRET ?? "", previewCode) : null;
+  const generic = [
+    ...(fake ? [{
+      ...fake, clientSecret: "fake-oidc-local", scopes: ["openid", "profile", "email"], pkce: true, overrideUserInfo: true,
+      mapProfileToUser: (profile: Record<string, unknown>) => profileToUser(profile),
+    }] : []),
+    // The preview's own sign-in page is the "provider" (auth/previewRoutes.ts): no endpoint is ever fetched. The page
+    // hands back a signed ticket as the code; getToken checks it and names the player in the access token.
+    ...(previewSecret ? [{
+      providerId: PREVIEW_PROVIDER_ID, clientId: PREVIEW_CLIENT_ID, clientSecret: "unused", pkce: true, overrideUserInfo: true,
+      authorizationUrl: `${base}/api/preview-auth/authorize`, tokenUrl: `${base}/api/preview-auth/unused`,
+      getToken: async ({ code, redirectURI, codeVerifier }: { code: string; redirectURI: string; codeVerifier?: string }) => {
+        const id = await redeemTicket(previewSecret, code, { redirectURI, codeVerifier });
+        if (!id) throw new Error("preview sign-in: invalid or expired ticket");
+        return { accessToken: id, tokenType: "Bearer" };
+      },
+      getUserInfo: async (tokens: { accessToken?: string }) => isPreviewIdentity(tokens.accessToken) ? previewProfile(tokens.accessToken) : null,
+      mapProfileToUser: (profile: Record<string, unknown>) => profileToUser(profile),
+    }] : []),
+  ];
   const options = {
     logger: { disabled: optionsOnly },
     baseURL: base,
@@ -121,12 +145,7 @@ export function createAuth(ctx: GenericCtx<DataModel>, { optionsOnly = false, ro
     plugins: [
       // Rotating ignores a static JWKS, so the plugin can write a new key to its table and return it.
       convex({ authConfig: rotating ? dynamicAuthConfig : authConfig, jwks: rotating ? undefined : staticJwks(), jwt: { expirationSeconds: 600, definePayload: () => ({}) } }),
-      ...(fake ? [genericOAuth({
-        config: [{
-          ...fake, clientSecret: "fake-oidc-local", scopes: ["openid", "profile", "email"], pkce: true, overrideUserInfo: true,
-          mapProfileToUser: profile => profileToUser(profile as Record<string, unknown>),
-        }],
-      })] : []),
+      ...(generic.length ? [genericOAuth({ config: generic })] : []),
     ],
   } satisfies BetterAuthOptions;
   return betterAuth(options);

@@ -1,0 +1,206 @@
+# Preview deployments: one Convex preview deployment per branch, with the app served from it.
+# Owner guide: docs/preview-deployments.md.
+#
+#   a pull request gets (or loses) the label `preview`   → its preview is created / updated (or removed)
+#   a push to a pull request that carries the label      → its preview is updated (same URL, data kept)
+#   a labelled pull request closes                       → its preview is removed (or left to expire: see `remove`)
+#   Actions → Preview → Run workflow, with a branch name → the same for any branch, pull request or not
+#
+# WITHOUT the repository secret CONVEX_PREVIEW_DEPLOY_KEY this workflow does nothing: `gate` reports mode "none" and
+# neither other job starts. It never reads the dev or production deploy keys (they live in the GitHub Environments
+# "development" and "production", which no job here names), and .github/scripts/preview.mjs and
+# artifacts/engine/scripts/preview-setup.mjs both refuse a deployment that is not a preview.
+#
+# A preview is built from the branch MERGED WITH THE LATEST develop (for a pull request, GitHub's own merge commit),
+# so an older branch still gets the preview sign-in and the current deploy scripts. A branch that conflicts with
+# develop cannot be previewed until it is updated.
+#
+# Secrets (repository level): CONVEX_PREVIEW_DEPLOY_KEY (required), PREVIEW_SIGN_IN_CODE (the sign-in passphrase;
+# without it a preview is deployed but nobody can sign in), and optionally PREVIEW_ANTHROPIC_API_KEY /
+# PREVIEW_OPENAI_API_KEY (AI players and the assistant) and CONVEX_TEAM_ACCESS_TOKEN (delete a preview at once
+# instead of waiting for Convex to expire it).
+name: Preview
+
+on:
+  pull_request:
+    types: [labeled, unlabeled, synchronize, reopened, closed]
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Branch to preview (for example variant/energy-capacity)
+        required: true
+        type: string
+      remove:
+        description: Remove this branch's preview instead of deploying it
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: preview-${{ github.event.pull_request.head.ref || inputs.branch }}
+  cancel-in-progress: true   # a newer push to the same branch supersedes
+
+jobs:
+  # Decides what this run does. Skipped entirely for pull request events that are not about the `preview` label,
+  # and for pull requests from forks (which get no secrets anyway).
+  gate:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.head.repo.full_name == github.repository && (
+        ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name == 'preview') ||
+        ((github.event.action == 'synchronize' || github.event.action == 'reopened' || github.event.action == 'closed') &&
+          contains(github.event.pull_request.labels.*.name, 'preview'))))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      mode: ${{ steps.decide.outputs.mode }}       # deploy | remove | none
+      branch: ${{ steps.decide.outputs.branch }}
+      name: ${{ steps.decide.outputs.name }}       # the preview's name in Convex
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop   # the helper script as it is on develop, whatever the event
+          sparse-checkout: .github/scripts
+      - id: decide
+        env:
+          HAS_KEY: ${{ secrets.CONVEX_PREVIEW_DEPLOY_KEY != '' }}
+          ACTION: ${{ github.event.action }}
+          REMOVE_INPUT: ${{ inputs.remove }}
+          BRANCH: ${{ github.event.pull_request.head.ref || inputs.branch }}
+        run: |
+          mode=deploy
+          if [ "$ACTION" = closed ] || [ "$ACTION" = unlabeled ] || [ "$REMOVE_INPUT" = true ]; then mode=remove; fi
+          if [ "$HAS_KEY" != true ]; then
+            mode=none
+            echo "::notice::The repository secret CONVEX_PREVIEW_DEPLOY_KEY is not set: no preview was deployed (docs/preview-deployments.md)."
+          fi
+          name=$(node .github/scripts/preview.mjs name "$BRANCH")
+          { echo "mode=$mode"; echo "branch=$BRANCH"; echo "name=$name"; } | tee -a "$GITHUB_OUTPUT"
+
+  deploy:
+    needs: gate
+    if: needs.gate.outputs.mode == 'deploy'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      pull-requests: write   # the comment with the preview's URL
+    defaults:
+      run:
+        shell: bash
+    env:
+      BRANCH: ${{ needs.gate.outputs.branch }}
+      NAME: ${{ needs.gate.outputs.name }}
+    steps:
+      # A pull request: GitHub's merge commit of the branch and its base (the default ref). A manual run: the branch,
+      # then merged with develop below.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.branch || '' }}
+          fetch-depth: ${{ github.event_name == 'workflow_dispatch' && 0 || 1 }}
+      - name: Merge the latest develop into the branch (manual runs)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          git config user.name "preview-workflow"
+          git config user.email "preview-workflow@users.noreply.github.com"
+          git fetch origin develop
+          git merge --no-edit origin/develop || { echo "::error::$BRANCH conflicts with develop: update the branch, then run the preview again"; exit 1; }
+
+      - uses: pnpm/action-setup@v4   # version from package.json "packageManager"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      # ---- the pinned runtime bundle (Python), as in deploy.yml ----
+      - uses: actions/cache@v4
+        id: cpython
+        with:
+          path: .cache/code-gods
+          key: cpython-wasi-${{ hashFiles('lib/game-runtime/python/setup.py') }}
+      - if: steps.cpython.outputs.cache-hit != 'true'
+        run: pnpm --filter @workspace/game-runtime setup:python
+      - run: pnpm --filter @workspace/game-runtime build:python
+      - name: Worker build is current
+        working-directory: lib/game-runtime
+        run: node scripts/build-worker.mjs --check
+
+      # ---- the preview (the only two steps that see the preview deploy key) ----
+      - name: Create or update the preview and push the functions
+        working-directory: artifacts/engine
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_PREVIEW_DEPLOY_KEY }}
+        run: npx convex deploy --preview-name "$NAME" --typecheck enable   # --preview-name reuses an existing preview and its data
+      - name: Point the following steps at the preview
+        id: target
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_PREVIEW_DEPLOY_KEY }}
+        run: node .github/scripts/preview.mjs credentials "$NAME"   # → CONVEX_SELF_HOSTED_URL / _ADMIN_KEY for the steps below
+
+      - name: Set up the preview (keys, migrations, runtime, calibration tables, setups, static site, health check)
+        id: setup
+        working-directory: artifacts/engine
+        env:
+          PREVIEW_SIGN_IN_CODE: ${{ secrets.PREVIEW_SIGN_IN_CODE }}
+          PREVIEW_ANTHROPIC_API_KEY: ${{ secrets.PREVIEW_ANTHROPIC_API_KEY }}
+          PREVIEW_OPENAI_API_KEY: ${{ secrets.PREVIEW_OPENAI_API_KEY }}
+          PREVIEW_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: node scripts/preview-setup.mjs
+
+      - name: Say where the preview is
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SITE_URL: ${{ steps.setup.outputs.site_url }}
+          SIGN_IN: ${{ steps.setup.outputs.sign_in }}
+          PR_FROM_EVENT: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          sha=${HEAD_SHA:-$(git rev-parse "origin/$BRANCH" 2>/dev/null || git rev-parse HEAD)}
+          export COMMENT_BODY=$(node --input-type=module -e '
+            import { commentBody } from "./.github/scripts/preview.mjs";
+            const e = process.env;
+            console.log(commentBody({ siteUrl: e.SITE_URL, name: e.NAME, sha: process.argv[1], branch: e.BRANCH, signIn: e.SIGN_IN === "true" }));' "$sha")
+          echo "$COMMENT_BODY" >> "$GITHUB_STEP_SUMMARY"
+          # A manual run: the branch's open pull request, when it has one.
+          export PR_NUMBER=${PR_FROM_EVENT:-$(gh api "repos/$GITHUB_REPOSITORY/pulls?state=open&head=${GITHUB_REPOSITORY_OWNER}:${BRANCH}" --jq '.[0].number // empty' || true)}
+          if [ -n "$PR_NUMBER" ]; then node .github/scripts/preview.mjs comment; else echo "No open pull request for $BRANCH: the URL is in this run's summary."; fi
+
+  remove:
+    needs: gate
+    if: needs.gate.outputs.mode == 'remove'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      BRANCH: ${{ needs.gate.outputs.branch }}
+      NAME: ${{ needs.gate.outputs.name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+          sparse-checkout: .github/scripts
+      # Convex offers no way to delete a preview with a preview deploy key. With a team access token it is deleted now;
+      # without one Convex deletes it by itself (5 days after creation on the free plan, 14 on paid plans).
+      - id: delete
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_PREVIEW_DEPLOY_KEY }}
+          CONVEX_TEAM_ACCESS_TOKEN: ${{ secrets.CONVEX_TEAM_ACCESS_TOKEN }}
+        run: node .github/scripts/preview.mjs delete "$NAME" || echo "::warning::The preview \"$NAME\" could not be deleted (it may not exist any more); Convex removes previews by itself."
+      - name: Update the pull request's comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DELETED: ${{ steps.delete.outputs.deleted }}
+          PR_FROM_EVENT: ${{ github.event.pull_request.number }}
+        run: |
+          export PR_NUMBER=${PR_FROM_EVENT:-$(gh api "repos/$GITHUB_REPOSITORY/pulls?state=all&head=${GITHUB_REPOSITORY_OWNER}:${BRANCH}" --jq '.[0].number // empty' || true)}
+          [ -n "$PR_NUMBER" ] || exit 0
+          if [ "$DELETED" = true ]; then note="The preview \`$NAME\` has been deleted."
+          else note="The preview \`$NAME\` is no longer updated. Convex deletes it by itself (5 days after it was created on the free plan, 14 on paid plans); to delete it now: Convex dashboard → the preview deployment → Settings → Delete deployment."; fi
+          export COMMENT_BODY=$(printf '%s\n%s\n' '<!-- code-gods-preview -->' "$note")
+          node .github/scripts/preview.mjs comment
