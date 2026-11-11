@@ -31,9 +31,11 @@ function orbitReturns(m: GridMutator, p: unknown, g: GridValue, inst: Instantiat
  */
 const PARTIAL: Record<string, (p: any) => unknown> = { add: p => ({ ...p, k: -p.k }) };
 
-test("26 mutators (mutators.py order, no flatten, plus add); 23 to 25 available per GridType", () => {
-  assert.equal(GRID_MUTATORS.length, 26);
-  assert.equal(new Set(GRID_MUTATORS.map(m => m.id)).size, 26);
+test("26 mutators (mutators.py order, no flatten, plus add) and two only multiply-v1 offers; 23 to 25 available per GridType", () => {
+  const gated = GRID_MUTATORS.filter(m => m.costModels);
+  assert.deepEqual(gated.map(m => [m.id, m.costModels]), [["multiply", ["multiply-v1"]], ["divide", ["multiply-v1"]]]);
+  assert.equal(GRID_MUTATORS.length - gated.length, 26);
+  assert.equal(new Set(GRID_MUTATORS.map(m => m.id)).size, 28);
   // add comes straight after step_rank, the wrapping move it mirrors
   assert.equal(GRID_MUTATORS[GRID_MUTATORS.findIndex(m => m.id === "step_rank") + 1].id, "add");
   assert.ok(!GRID_MUTATORS.some(m => m.id === "flatten"));
