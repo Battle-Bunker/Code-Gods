@@ -1,12 +1,11 @@
 /**
- * The energy model's engine pieces (docs/energy-model.md): an agent's status for selection (lib/world.ts) and the
- * agentPricesV2 migration of stored prices (lib/agentPrice.ts). Pure, no backend.
+ * The energy model's engine pieces (docs/energy-model.md): an agent's status for selection (lib/world.ts). Pure, no
+ * backend.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { MAX_AGENT_OPPORTUNITY_HZ, type GameSettings } from "@workspace/game-core";
 import { agentStatus, secondsUntilEligible } from "../../convex/lib/world.ts";
-import { agentPriceV2 } from "../../convex/lib/agentPrice.ts";
 
 /** Power 8 bits/s; the agents below hold a quarter of it: 2 bits/s each. */
 const settings = { powerPerSecond: 8 } as unknown as GameSettings;
@@ -29,12 +28,3 @@ test("an agent can be offered an opportunity while its energy is positive and th
   assert.equal(secondsUntilEligible(settings, { ...owing, powerShare: 0 }, 10), Infinity, "no share, no income");
 });
 
-test("agentPricesV2: a legacy price keeps only its change estimate; the new shape is left alone", () => {
-  const legacy = { breakdown: { decision: 2.5, erasure: 4, motion: 0.5, floor: 2 }, decisionBits: 2.5, perActFloorBits: 2, expectedActCost: 9 };
-  const patch = agentPriceV2(legacy)!;
-  assert.deepEqual(patch, { breakdown: { read: 0, change: 4.5 }, expectedActCost: 4.5, decisionBits: undefined, perActFloorBits: undefined });
-  assert.equal(agentPriceV2({ ...legacy, ...patch }), undefined);
-  // A new-shape breakdown that still carries a legacy field: the field goes, the estimate stays.
-  assert.deepEqual(agentPriceV2({ breakdown: { read: 1, change: 3 }, decisionBits: 0 }),
-    { breakdown: { read: 1, change: 3 }, expectedActCost: 4, decisionBits: undefined, perActFloorBits: undefined });
-});

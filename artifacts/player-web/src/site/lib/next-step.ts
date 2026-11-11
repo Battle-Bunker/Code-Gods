@@ -80,6 +80,8 @@ export function nextStep(viewerId: string | null | undefined, room: StepRoom, op
   if (!owner) {
     if (watching) return n >= max ? { status: "The next game is full; you'll watch it.", primary: null, secondary: [] }
       : { status: "You'll watch the next game.", primary: "rooms.setSpectator", secondary: [] };
+    // Below the minimum nobody can start: say what is missing; inviting is the one thing that helps (ready gates nothing).
+    if (n < min) return { status: `${plural(min - n, "more player")} needed; then ${firstName(room.ownerName)} can start.`, primary: "ui.copyInviteLink", secondary: ["rooms.setReady", "rooms.setSpectator"] };
     return { status: `Waiting for ${firstName(room.ownerName)} to start the game.`, primary: "rooms.setReady", secondary: ["rooms.setSpectator"] };
   }
   // The owner may switch between watching and playing, beside the AI seats.

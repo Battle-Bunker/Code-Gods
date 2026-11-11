@@ -301,19 +301,18 @@ reference archive after checking each stored key equals today's derivation with 
 (1,392 tables, none rebuilt). Tables computed on demand in Convex (`calibrationComputed`) are keyed the old way and are
 recomputed once, on the first game of such a shape.
 
-**Stored data** (CLAUDE.md "Schema migrations"). Widen: every method of a typed family accepts the old shape through
-its `legacy` reader (`UtilityFamily.upgrade`, `upgradeDescriptor`), and the explainer upgrades a draw it is handed, so
-a live game, an old replay file or a stored deal keeps working. Migrate: `migrations:typedParamsDeities` rewrites
-`deities.utility` (utility and defence goal) and adds `deities.card.params` (the card's text is kept as dealt), and
-drops and rebuilds the stored replay file of each ended game it touches (the file embeds the descriptors);
-`migrations:typedParamsPreparing` rewrites `rooms.preparing.deals`. Narrow (a later PR, once dev and production report
-both done): delete the `legacy` readers, `upgrade`, `upgradeParams`/`upgradeDescriptor` and the rekey script.
+**Stored data** (CLAUDE.md "Schema migrations"). Widen: every method of a typed family accepted the old shape through
+its `legacy` reader. Migrate: `migrations:typedParamsDeities` rewrote `deities.utility` (utility and defence goal) and
+added `deities.card.params`, dropping and rebuilding the stored replay file of each ended game it touched;
+`migrations:typedParamsPreparing` rewrote `rooms.preparing.deals`. Narrowed (2026-11-05, once dev and production
+reported every typedParams*, pictureFrameSymbol*, setSpotterGeometry* and equalOpportunity* migration done): the
+`legacy` readers, `UtilityFamily.upgrade`, `upgradeParams`/`upgradeDescriptor`, `UNTYPED_FAMILIES`, the migrations and
+the rekey script are gone, and `params` is required of every family.
 
 **Every family is typed** (2026-11-04): the annotated families and defence goals (#184), Picture Frame's redesign
 (#191), then the Int and string families (#202), games and geometry (#203), colour and strategy (#204), arithmetic and
 seeds (#207) and Bingo Caller, whose called ranks are a `set` param (a fixed number of distinct ranks, stored by name in
-rank order). `UNTYPED_FAMILIES` is empty; `test/params.test.ts` requires every family to declare its params. Each batch
-added its own `typedParams*` migration pair (the same `typedDeity` / `typedPreparing` rewrites).
+rank order). Every family must declare its params (`UtilityFamily.params` is required).
 
 ## 10. Futile acts (2026-11-03)
 

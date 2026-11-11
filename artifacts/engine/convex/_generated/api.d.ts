@@ -87,7 +87,6 @@ import type * as http from "../http.js";
 import type * as layout from "../layout.js";
 import type * as layout_tables from "../layout/tables.js";
 import type * as lib_agentName from "../lib/agentName.js";
-import type * as lib_agentPrice from "../lib/agentPrice.js";
 import type * as lib_aiAccess from "../lib/aiAccess.js";
 import type * as lib_aiModels from "../lib/aiModels.js";
 import type * as lib_aiNames from "../lib/aiNames.js";
@@ -224,7 +223,6 @@ declare const fullApi: ApiFromModules<{
   layout: typeof layout;
   "layout/tables": typeof layout_tables;
   "lib/agentName": typeof lib_agentName;
-  "lib/agentPrice": typeof lib_agentPrice;
   "lib/aiAccess": typeof lib_aiAccess;
   "lib/aiModels": typeof lib_aiModels;
   "lib/aiNames": typeof lib_aiNames;

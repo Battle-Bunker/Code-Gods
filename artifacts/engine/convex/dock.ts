@@ -84,7 +84,7 @@ export const transformations = query({
     const rows = await ctx.db.query("objectEvents").withIndex("by_game_owner_seq", q => q.eq("gameId", game._id as Id<"games">).eq("ownerId", viewer.subject))
       .order("desc").take(n);
     return rows.reverse().map(r => ({
-      id: `${r.seq}:${r.index ?? 0}`, agentId: r.agentId!, before: r.before!, after: r.value,
+      id: `${r.seq}:${r.index}`, agentId: r.agentId!, before: r.before!, after: r.value,
       ...(Array.isArray(r.calls) ? { calls: (r.calls as unknown[]).slice(0, 16) } : {}), ...(r.cost !== undefined ? { cost: r.cost } : {}),
     }));
   },

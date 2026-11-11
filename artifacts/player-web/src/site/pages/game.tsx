@@ -32,7 +32,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Skeleton } from "@/components/ui/skeleton";
 import { gameStep } from "@/site/lib/next-step";
 import { gamePath, roomPath } from "@/site/lib/routes";
-import { errMsg, fmt, reload, transient } from "@/site/lib/errors";
+import { errMsg, fmt, notFoundMsg, reload, transient } from "@/site/lib/errors";
 import { endReasonLabel, fmtDuration, fmtWhen, secsLeft, toMs, worldSecondsAt } from "@/site/lib/time";
 import type { FunctionReturnType } from "convex/server";
 import { DEFAULT_SCORE_INTERVAL_SECONDS, gameTimer } from "@workspace/game-core";
@@ -167,7 +167,7 @@ function SpectatorView({ game, instance, room }: { game: GameHeader; instance?: 
       </header>
       <div className="grid gap-6 grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] items-start">
         <div className="space-y-6 min-w-0">
-          <GameStandings gameId={game.id} roster={game.roster} meId={user?.id} ownerId={game.ownerId}
+          <GameStandings gameId={game.id} roster={game.roster} meId={user?.id} ownerId={game.ownerId} planning={active && game.phase === "planning"}
             emptyBody={active ? "Scores appear once the world begins to run." : "No standings were recorded."} />
           {game.roomId ? (
             <GameChat roomId={game.roomId} gameId={game.id} canPost={canPost} pending={act.pending}
@@ -242,9 +242,12 @@ export default function Game() {
         <div className="mx-auto max-w-[1440px] px-6 py-8 space-y-4"><Skeleton className="h-20 w-1/2" /><div className="grid lg:grid-cols-2 gap-4"><Skeleton className="h-80" /><Skeleton className="h-80" /></div></div>
       ) : !game ? (
         <div className="mx-auto max-w-lg px-4 py-20 space-y-4">
-          <h1 className="font-display text-5xl" data-testid="text-game-code">{code}</h1>
-          <ErrorLine message={q.error ? errMsg(q.error) : "Game not found. Check the code, or open it from its room."} onRetry={transient(q.error) ? reload : undefined} />
-          <Link href="/" className="underline underline-offset-4" data-testid="link-game-home">Your rooms</Link>
+          <h1 className="font-display text-5xl" data-testid="text-game-code">{code.toUpperCase()}</h1>
+          <ErrorLine message={notFoundMsg(q.error, "Game not found. Check the code, or open it from its room.")} onRetry={transient(q.error) ? reload : undefined} />
+          <div className="flex gap-4">
+            {roomCode && <Link href={roomPath(roomCode)} className="underline underline-offset-4" data-testid="link-game-room">Back to room {roomCode.toUpperCase()}</Link>}
+            <Link href="/" className="underline underline-offset-4" data-testid="link-game-home">Your rooms</Link>
+          </div>
         </div>
       ) : roomFailed ? (
         <div className="mx-auto max-w-lg px-4 py-20"><ErrorLine message={`Could not load this game's room: ${errMsg(roomFailed)}`} onRetry={reload} /></div>

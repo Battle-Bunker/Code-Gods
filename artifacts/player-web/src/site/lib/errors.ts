@@ -18,6 +18,13 @@ export function errCode(e: unknown): string | undefined {
   return e instanceof ConvexError ? (e.data as { code?: string } | undefined)?.code : undefined;
 }
 /**
+ * A start that found its own game already live (a retried or concurrent start of the same click): the game exists, so
+ * the page keeps "Starting…" until the room's subscription shows it instead of restoring the button with no message.
+ */
+export const startRaced = (e: unknown): boolean => errCode(e) === "CONFLICT" && /already a live game/i.test(errMsg(e));
+/** The page's own guidance when the engine answers NOT_FOUND (its messages speak to agents: "list_setups names them all"). */
+export const notFoundMsg = (e: unknown, fallback: string): string => !e || errCode(e) === "NOT_FOUND" ? fallback : errMsg(e);
+/**
  * A failure that is not the engine's answer (a timeout, a server error): it can pass. Convex re-runs a failed query
  * only when its data changes or the socket reconnects (no client retry, read-architecture R6), so the page offers a
  * reload for it.

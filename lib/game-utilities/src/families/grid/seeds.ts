@@ -14,7 +14,6 @@ const linePainter = gridFamily<LineP>({
   id: "seed1_line_painter", name: "Line Painter", emoji: "🖍️", theme: "Straight lines of one colour",
   requires: { classes: ["Valued"] }, shape: SCALAR, tags: ["seed", "shortlist"],
   params: () => ({ colour: colourParam("Your colour"), diagonals: boolParam("Diagonals count too") }),
-  legacy: (p, g) => (typeof p.colour === "number" ? { colour: g.colourNames[p.colour], diagonals: p.diag as boolean } : null),
   support: g => product<LineP>({ colour: g.colourNames, diagonals: [false, true] }),
   sample: (rng, g) => ({ colour: g.colourNames[rng.int(g.C)], diagonals: chance(rng, 1, 4) }),
   canonical: (p, g) => recolourNames(g, p, ["colour"]),
@@ -131,7 +130,6 @@ const greenOnes = gridFamily<GreenP>({
   id: "seed3_green_ones", name: "Green Ones", emoji: "🍀", theme: "Lucky green ones",
   shape: tuple(2), tags: ["seed", "shortlist"],
   params: g => ({ colour: colourParam("Your colour"), value: intParam(g.cards ? "Rank (1 is the ace)" : "Number", g.vmin, g.vmax) }),
-  legacy: (p, g) => (typeof p.colour === "number" ? { colour: g.colourNames[p.colour], value: p.value as number } : null),
   // grid-lab's sampler always deals green (every colour set has it) and 1 (every symbol set has it).
   support: () => [{ colour: "green", value: 1 }],
   canonical: (_, g) => ({ colour: g.colourNames[0], value: g.vmin }),

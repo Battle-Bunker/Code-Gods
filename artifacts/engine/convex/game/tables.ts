@@ -33,14 +33,10 @@ const leaseV = v.object({ seq: v.number(), leaseUntil: v.number() });
 const statsV = v.object({ acts: v.number(), commits: v.number(), discarded: v.number(), opportunities: v.number() });
 const scoreboardV = v.object({ totals: v.array(v.number()), world: v.number(), at: v.number() });
 const account = v.object({ balance: v.number(), settledWorldSeconds: v.number() });
-/**
- * An agent's estimated cost per act, split (docs/energy-model.md §5): the bits it reads and its change. LEGACY (agents
- * summoned before the energy model; migrations.agentPricesV2 converts them): the decision/erasure/motion/floor split.
- */
-const breakdown = v.union(
-  v.object({ read: v.number(), change: v.number() }),
-  v.object({ decision: v.number(), erasure: v.number(), motion: v.number(), floor: v.number() }),
-);
+/** An agent's estimated cost per act, split (docs/energy-model.md §5): the bits it reads and its change. */
+const agentBreakdown = v.object({ read: v.number(), change: v.number() });
+/** A summon event's estimate: an agent's, or (event-log schema ≤ 4 history) the decision/erasure/motion/floor split. */
+const breakdown = v.union(agentBreakdown, v.object({ decision: v.number(), erasure: v.number(), motion: v.number(), floor: v.number() }));
 /**
  * One act's charge (docs/energy-model.md §2): what it read plus its change when that committed. Event-log schema ≤ 4
  * (history) carries the older split, which stays readable by schema.
@@ -123,19 +119,15 @@ export const gameTables = {
     settingsOrigin: v.optional(settingsOriginV),
     /**
      * The AI players' per-game token quota (all AI seats of one game together; 0 = none) and this game's counters.
-     * Optional only until the aiQuotas migration has reached every room (absent = DEFAULT_AI_QUOTA, lib/aiAccess.ts).
      */
-    aiQuota: v.optional(v.number()),
+    aiQuota: v.number(),
     aiUsed: v.number(), aiReservedUsd: v.number(), aiInputTokens: v.number(), aiOutputTokens: v.number(),
     aiCalls: v.array(v.number()),
     /**
-     * The in-client assistant (assistant/*): each player's per-game token quota (0 = none; optional until the aiQuotas
-     * migration is done, absent = DEFAULT_ASSISTANT_QUOTA) and the model's catalog id. Its usage counters live in
-     * assistantAllowances, off this hot document.
+     * The in-client assistant (assistant/*): each player's per-game token quota (0 = none) and the model's catalog id.
+     * Its usage counters live in assistantAllowances, off this hot document.
      */
-    assistantQuota: v.optional(v.number()), assistantModel: v.optional(v.string()),
-    /** LEGACY approved budgets (before quotas; cleared by the aiQuotas migration, then removed from the schema). */
-    aiBudget: v.optional(v.number()), assistantBudget: v.optional(v.number()),
+    assistantQuota: v.number(), assistantModel: v.optional(v.string()),
     /** The active game (not ended), and the room's current game slot (active, or the latest until the next launch). */
     activeGameId: v.optional(v.id("games")), currentGameId: v.optional(v.id("games")),
     /**
@@ -292,11 +284,8 @@ export const gameTables = {
     aiAgent: v.optional(aiAgentSnapshot),
     /** Summon prices paid in total (history: the replay's per-god spending). */
     spent: v.number(), pauseUsed: v.boolean(),
-    /**
-     * PRIVATE: the deity's own energy on world time and the share of its power its agents hold (docs/energy-model.md §6).
-     * Absent until migrations.powerV1 (lib/power.ts deityAccount falls back to the old real-time energy).
-     */
-    account: v.optional(account), allocated: v.optional(v.number()),
+    /** PRIVATE: the deity's own energy on world time and the share of its power its agents hold (docs/energy-model.md §6). */
+    account, allocated: v.number(),
   }).index("by_game", ["gameId"]).index("by_game_god", ["gameId", "godId"]),
 
   objects: defineTable({
@@ -368,11 +357,9 @@ export const gameTables = {
     /** The language the source is written in (one the game allows). Absent on agents from single-language games: lib/language agentLanguage. */
     language: v.optional(storedLanguageV),
     summonCost: v.number(), expectedActCost: v.number(),
-    /** Its share of the owner's power (docs/energy-model.md §6); absent until migrations.powerV1 (lib/power.ts shareOf). */
-    powerShare: v.optional(v.number()),
-    /** LEGACY (cleared by migrations.agentPricesV2): the decision price and the per-act floor, no longer charged. */
-    decisionBits: v.optional(v.number()), perActFloorBits: v.optional(v.number()),
-    breakdown, randomized: v.boolean(), account, acts: v.number(), spent: v.number(),
+    /** Its share of the owner's power (docs/energy-model.md §6). */
+    powerShare: v.number(),
+    breakdown: agentBreakdown, randomized: v.boolean(), account, acts: v.number(), spent: v.number(),
     /** Of `spent`, the bits its acts read (the rest paid for changes), counted since this field existed; absent: none yet. */
     spentRead: v.optional(v.number()),
     /** Acts that returned no calls (docs/energy-model.md §2), counted since the energy model; absent: none yet. */
@@ -436,9 +423,10 @@ export const gameTables = {
     noise: v.optional(v.number()),
     /**
      * The event's position in its tickBatches doc (`seq`), and a transform's charge (cost.total): the observation's
-     * recent own transformations read these rows instead of the batches. Absent on rows written before 2026-11-03.
+     * recent own transformations read these rows instead of the batches. `cost` is absent on spawns (rows written before
+     * 2026-11-03 were placed by the objectEventPlaces migration).
      */
-    index: v.optional(v.number()), cost: v.optional(v.number()),
+    index: v.number(), cost: v.optional(v.number()),
   }).index("by_game_world", ["gameId", "world"]).index("by_game_object_world", ["gameId", "objectId", "world"])
     .index("by_game_object_version", ["gameId", "objectId", "version"])
     /** A god's transformations in log order (spawns have no owner): the observation's recent own transformations. */
@@ -494,9 +482,8 @@ export const gameTables = {
     /**
      * The catalogue's order and search (setups.ts listingOf; read-architecture R1/R2): `order` is a system setup's seed
      * position, else OTHERS_ORDER; `nameKey` the name with case and accents folded; `searchText` name, owner and summary.
-     * Optional while the setupListing migration fills older rows; required once dev and production report it done.
      */
-    order: v.optional(v.number()), nameKey: v.optional(v.string()), searchText: v.optional(v.string()),
+    order: v.number(), nameKey: v.string(), searchText: v.string(),
   }).index("by_owner", ["ownerId"]).index("by_seed", ["seedId"])
     /** The catalogue's order: the system's in seed order, then everyone's by name (setups.page). */
     .index("by_order", ["order", "nameKey"])

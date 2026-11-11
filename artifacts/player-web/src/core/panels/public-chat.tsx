@@ -43,7 +43,7 @@ export default function PublicChat({ params }: PanelProps<"public-chat">) {
           <li key={c.id} data-testid={`row-chat-${c.id}`} className={`text-sm ${mentionsMe(c.text) && c.godId !== me?.godId ? "border-l-2 border-[hsl(var(--chart-4))] pl-2" : ""}`}>
             <span className={`font-semibold ${c.godId === me?.godId ? "text-primary" : ""}`}>{c.godId === me?.godId ? "You" : c.label}</span>
             {c.isAI && <span className="label ml-1.5">AI</span>}
-            <p className="whitespace-pre-wrap break-words">{marked(c.text, params.highlight)}</p>
+            <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{marked(c.text, params.highlight)}</p>
           </li>
         ))}
       </ul>
@@ -51,7 +51,7 @@ export default function PublicChat({ params }: PanelProps<"public-chat">) {
       <form className="flex items-center gap-2 border-t-2 border-primary pt-2" onSubmit={e => { e.preventDefault(); void send(); }}>
         <Globe size={14} className="shrink-0 text-muted-foreground" aria-hidden />
         <input data-testid="input-chat" value={text} onChange={e => setText(e.target.value)} maxLength={2000} disabled={!canSend} placeholder="Say to everyone…"
-          aria-label="Say to everyone (public)" className="min-w-0 flex-1 bg-transparent py-1.5 text-sm outline-none disabled:opacity-40" />
+          aria-label="Say to everyone (public)" className="min-w-0 flex-1 bg-transparent py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40" />
         <button type="submit" data-testid="button-send-chat" disabled={!canSend || !text.trim() || !!busy} aria-label="Send to everyone"
           className="inline-flex items-center bg-primary px-3 py-1.5 text-primary-foreground disabled:opacity-35"><Send size={14} /></button>
       </form>)}

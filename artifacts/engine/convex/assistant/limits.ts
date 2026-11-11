@@ -49,9 +49,8 @@ export const LIMITS = {
   queued: 5,
 } as const;
 
-/** `awaiting_confirmation`: the retired per-action approval's, until the assistantNoApprovals* migrations end such turns. */
-export type TurnStatus = "running" | "awaiting_confirmation" | "cancelling" | "done" | "failed" | "cancelled" | "budget_exhausted";
-export const ACTIVE: readonly TurnStatus[] = ["running", "awaiting_confirmation", "cancelling"];
+export type TurnStatus = "running" | "cancelling" | "done" | "failed" | "cancelled" | "budget_exhausted";
+export const ACTIVE: readonly TurnStatus[] = ["running", "cancelling"];
 export const isActive = (status: TurnStatus) => ACTIVE.includes(status);
 
 /**

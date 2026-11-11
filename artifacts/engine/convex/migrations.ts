@@ -20,57 +20,24 @@
  *  - backfillStandings (games; read-architecture §4.1): a game stored before the standings read model gets its last
  *    published scoreboard as `standings` rows and one `standingsHistory` row (game/readModel.ts). Nothing to narrow:
  *    games.standings' fallback to the clock's scoreboard goes once dev and production report it done.
- *  - aiQuotas (rooms; 2026-11-03, AI budget approvals removed): every room gets the default per-game quotas
- *    (DEFAULT_AI_QUOTA for its AI players, DEFAULT_ASSISTANT_QUOTA per player's assistant) where it has none, whatever
- *    it had approved before, and its legacy `aiBudget` / `assistantBudget` are cleared. Narrowed later: `aiQuota` and
- *    `assistantQuota` become required, the legacy fields leave the validator, and lib/aiAccess.ts's `??` defaults go.
- *  - agentPricesV2 (agents; 2026-11-05, docs/energy-model.md §2, §9): acts no longer pay a decision price or a per-act
- *    floor. An agent stored with the old price keeps only the change part of its estimate: `breakdown` becomes {read: 0,
- *    change: erasure + motion}, `expectedActCost` that change, and `decisionBits` / `perActFloorBits` are cleared. Narrowed
- *    later: the legacy breakdown leaves the union, and the two fields leave the validator.
- *  - powerV1* (2026-11-05, docs/energy-model.md §6): each deity gets a power budget. Agents get `powerShare` (the old
- *    agentEnergyPerSecond / P, scaled so an owner's shares total at most 1), deities their own world-time `account` (their
- *    energy at the migration) and `allocated`, and stored settings (games, rooms, setups) get `powerPerSecond` = energyPerSecond
- *    + 2 · agentEnergyPerSecond and lose energyPerSecond, agentEnergyPerSecond, agentBatteryActs and perActFloorBits.
- *    Agents and deities run before the games' settings change. Narrowed later: the fields become required and
- *    lib/power.ts's fallbacks go.
- *  - typedParams* (2026-11-03, docs/rules-design.md §9): families that now declare named, typed params store them as
- *    such (`{ X: 0 }` became `{ colour: "red" }`, game-utilities `upgradeDescriptor`). typedParamsDeities rewrites a
- *    dealt god's descriptor (`deities.utility`, utility and defence goal) and adds the typed params to its stored card
- *    (`deities.card.params`; the card's text is kept as dealt); when that god's game has ended with a stored replay
- *    file (which embeds the descriptors), the file is dropped and rebuilt (replays.ts rebuildAfterMigration).
- *    typedParamsPreparing rewrites the fixed deal of a room waiting for calibration (`rooms.preparing.deals`).
- *    Narrowed later (no schema change: both are v.any()): game-utilities' `upgrade`/`legacy` readers go.
+ *  - (aiQuotas, rooms: every room got the default per-game quotas and lost its approved budgets; retired, and `aiQuota` /
+ *    `assistantQuota` became required, once dev and production reported it done.)
+ *  - (agentPricesV2 and powerV1*, 2026-11-05, docs/energy-model.md §6, §9: the legacy agent prices lost their decision and
+ *    floor parts, and agents, deities and stored settings got the power budget's fields. Retired, and the agents and
+ *    deities validators narrowed, once dev and production reported them done.)
+ *  - (typedParams*, pictureFrameSymbol*, setSpotterGeometry*, equalOpportunity*, 2026-11-03..04, docs/rules-design.md
+ *    §9 and P10: rewrote stored draws to named, typed peer params. Retired, and game-utilities' legacy readers removed,
+ *    once dev and production reported them done.)
  *  - backfillObjectTimes (objects; 2026-11-03, the Objects panel's public sorts): an object gets `createdAt` and
  *    `lastMutatedAt` (world seconds) from its objectEvents rows; its mutation count is its `version`. Narrowed later:
  *    `createdAt` becomes required and the `?? 0` fallbacks go (lib/projection.ts personalObject), once dev and
  *    production report it done.
- *  - pictureFrameSymbol* (2026-11-03): Picture Frame's redesign deals a symbol too; the same two rewrites again, for
- *    rows the typedParams* steps already left as `{ colour }` (deployments that ran them before the redesign).
- *  - typedParamsIntString* (2026-11-03): the Int and string families typed; the same rewrites for their stored draws.
- *  - typedParamsGames* (2026-11-03): the games.ts and geometry.ts families typed; the same rewrites for their stored draws.
- *  - typedParamsArithmetic* (2026-11-03): the arithmetic.ts and seeds.ts families typed; the same rewrites for their stored draws.
- *  - equalOpportunity<Group>* (2026-11-04, rules-design.md P10): families whose params made unequal rules keep only
- *    peer values; a stored draw of a removed value reads as its nearest peer (the family's `legacy`), rewritten by the
- *    same typedDeity / typedPreparing.
- *  - setSpotterGeometry* (2026-11-04, rules-design.md P10): Set Spotter's `diag` param is gone (diagonals always count);
- *    stored `{ diag }` draws become `{}` through the same rewrites.
- *  - typedParamsBingo* (2026-11-03): Bingo Caller typed (a set param); the same rewrites for its stored draws.
- *  - typedParamsColour* (2026-11-03): the colour.ts and strategy.ts families typed; the same rewrites for their stored draws.
- *  - assistant modes (2026-11-03, per-action approvals removed; assistant/mode.ts): assistantModeFromCredentials gives a
- *    player who had chosen "Only look" (a live read assistant credential in a room) the Read-only mode there;
- *    assistantPrefsMode gives every other prefs row On request and clears `autoApproveSummonBits`;
- *    assistantNoApprovalsTurns ends a turn left waiting on an approval card (cancelled, its thread freed) and
- *    assistantNoApprovalsCalls denies a call left waiting on one and clears `approved` / `confirmDeadline`. Narrowed
- *    later: `mode` becomes required, the `awaiting_confirmation` statuses and the three retired fields leave the
- *    validators, and the `?? DEFAULT_MODE` fallbacks go.
- *  - objectEventPlaces (objectEvents; 2026-11-05, #173): a row written before objectEvents carried `index` (its position
- *    in its tickBatches doc) and `cost` (a transform's charge) gets both from its batch, the data lib/load.ts's old scan
- *    reads (only such a row reads its batch: a placed one costs nothing). Narrowed later, once dev and production report it done: `index` becomes required (`cost` stays optional:
- *    spawns have none) and lib/load.ts's batch-scan fallback goes.
- *  - setupListing (gameSetups; 2026-11-05, read-architecture R1/R2): a setup gets its catalogue fields (setups.ts
- *    listingOf: `order` and `nameKey` for the by_order index the Setup list pages, `searchText` for its search index).
- *    Narrowed later: the three become required once dev and production report it done.
+ *  - (assistantModeFromCredentials, assistantPrefsMode, assistantNoApprovalsTurns, assistantNoApprovalsCalls: the
+ *    assistant's modes replaced per-action approvals; retired, and `assistantPrefs.mode` became required and the
+ *    approval fields and statuses left the validators, once dev and production reported them done.)
+ *  - (objectEventPlaces, objectEvents: older rows got `index` and `cost` from their batch; setupListing, gameSetups: a
+ *    setup got its catalogue fields `order`, `nameKey`, `searchText`. Both retired once dev and production reported them
+ *    done: `index` and the three catalogue fields became required and lib/load.ts's batch-scan fallback went.)
  *  - backfillObjectViews (games; 2026-11-05, read-architecture §4.3): a game stored before the per-god object read model
  *    gets its objectViews rows and godTotals (game/objectViews.ts fill, scheduled). Nothing to narrow (read models).
  *
@@ -93,11 +60,8 @@
  * name; the room's chat, its games' rosters and its ended games' stored results follow, so history reads the same.
  * A room with a game in progress is left alone (names never change mid-game); a later deploy renames it.
  */
-import { deityAccount, powerSettingsV1, shareOf } from "./lib/power";
-import { agentPriceV2 } from "./lib/agentPrice";
 import { v } from "convex/values";
-import { instantiationOf, roundShare, type GameSettings } from "@workspace/game-core";
-import { cardParams, context, family, paramsKey, upgradeDescriptor, type UtilityDescriptor } from "@workspace/game-utilities";
+import type { GameSettings } from "@workspace/game-core";
 import type { Doc } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { internalAction, internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
@@ -106,14 +70,11 @@ import type { FunctionReference } from "convex/server";
 import { components } from "./_generated/api";
 import schema from "./schema";
 import { ASSISTANT_LOBBY } from "./ai/seats";
-import { finishTurn } from "./assistant/turns";
 import { PLAYER_PARTITION, PLAYER_PREFIX, RUNS_PREFIX, codeEpoch } from "./code/keys";
 import { aiSeatName, renameInRecord } from "./lib/aiNames";
 import { migrateSettings } from "./lib/migrateSetups";
-import { DEFAULT_AI_QUOTA, DEFAULT_ASSISTANT_QUOTA } from "./lib/aiModels";
-import { freeName, listed, listingFor, setupSummary } from "./setups";
-import { clockDoc, clockOf, withEngine } from "./game/state";
-import { worldNow } from "./lib/world";
+import { freeName, listingFor, setupSummary } from "./setups";
+import { clockDoc, clockOf } from "./game/state";
 import { hasStandings, publishStandings } from "./game/readModel";
 import { hasObjectViews, scheduleFill } from "./game/objectViews";
 
@@ -164,91 +125,6 @@ export const backfillStandings = migrations.define({
   },
 });
 
-export const aiQuotas = migrations.define({
-  table: "rooms",
-  migrateOne: (_ctx, room) => {
-    if (room.aiQuota !== undefined && room.assistantQuota !== undefined && room.aiBudget === undefined && room.assistantBudget === undefined) return;
-    return {
-      aiQuota: room.aiQuota ?? DEFAULT_AI_QUOTA, assistantQuota: room.assistantQuota ?? DEFAULT_ASSISTANT_QUOTA,
-      aiBudget: undefined, assistantBudget: undefined,
-    };
-  },
-});
-
-/** A stored descriptor with today's params, or null when it already has them (or cannot be read on this game's board). */
-function typedDescriptor(utility: unknown, settings: unknown): UtilityDescriptor | null {
-  const d = utility as UtilityDescriptor | null;
-  if (!d || typeof d.familyId !== "string" || !d.params) return null;
-  let inst, next;
-  // A row this cannot read (a retired family, a malformed descriptor) is left as it is rather than failing the deploy.
-  try { inst = instantiationOf(settings as GameSettings); next = upgradeDescriptor(d, inst); } catch { return null; }
-  return paramsKey(next) === paramsKey({ familyId: d.familyId, params: d.params, ...(d.penalty ? { penalty: d.penalty } : {}) }) ? null : next;
-}
-
-/** A god's stored descriptor (and card) with today's params; its game's replay file rebuilt when it changes. */
-async function typedDeity(ctx: MutationCtx, deity: Doc<"deities">): Promise<void> {
-  const game = await ctx.db.get(deity.gameId);
-  if (!game) return;
-  const utility = typedDescriptor(deity.utility, game.settings);
-  if (!utility) return;
-  const ctx2 = context(instantiationOf(game.settings as GameSettings));
-  const stored = deity.card as { penalty?: object } | null, typed = cardParams(family(utility.familyId), utility.params, ctx2);
-  const penaltyTyped = utility.penalty && stored?.penalty ? cardParams(family(utility.penalty.familyId), utility.penalty.params, ctx2) : undefined;
-  await ctx.db.patch(deity._id, { utility, card: {
-    ...stored, ...(typed ? { params: typed } : {}),
-    ...(penaltyTyped && stored?.penalty ? { penalty: { ...stored.penalty, params: penaltyTyped } } : {}),
-  } });
-  // The stored replay embeds the old descriptor: drop it and build it again once this game's gods are migrated.
-  if (game.phase === "ended" && game.replayStorageId) {
-    await ctx.storage.delete(game.replayStorageId);
-    await ctx.db.patch(game._id, { replayStorageId: undefined });
-    await ctx.scheduler.runAfter(5_000 + Math.floor(Math.random() * 5_000), internal.replays.rebuildAfterMigration, { gameId: game._id });
-  }
-}
-
-export const typedParamsDeities = migrations.define({ table: "deities", migrateOne: typedDeity });
-
-/**
- * Picture Frame's redesign (2026-11-03) added a dealt symbol: the same rewrite again, for rows typedParams* already
- * migrated to `{ colour }` (they read with the first symbol, game-utilities picture_frame `legacy`).
- */
-export const pictureFrameSymbolDeities = migrations.define({ table: "deities", migrateOne: typedDeity });
-
-function typedPreparing(_ctx: MutationCtx, room: Doc<"rooms">) {
-  if (!room.preparing) return;
-  const deals = room.preparing.deals.map(d => ({ godId: d.godId, utility: typedDescriptor(d.utility, room.settings) ?? d.utility }));
-  if (deals.every((d, i) => d.utility === room.preparing!.deals[i].utility)) return;
-  return { preparing: { ...room.preparing, deals } };
-}
-export const typedParamsPreparing = migrations.define({ table: "rooms", migrateOne: typedPreparing });
-/** PR 5 (Int and string families typed): the same two rewrites for their stored draws (`{ d: 7 }` → `{ digit: 7 }` …). */
-export const typedParamsIntStringDeities = migrations.define({ table: "deities", migrateOne: typedDeity });
-export const typedParamsIntStringPreparing = migrations.define({ table: "rooms", migrateOne: typedPreparing });
-/** PR 5 (games.ts and geometry.ts families typed): the same two rewrites for their stored draws. */
-export const typedParamsGamesDeities = migrations.define({ table: "deities", migrateOne: typedDeity });
-export const typedParamsGamesPreparing = migrations.define({ table: "rooms", migrateOne: typedPreparing });
-/** PR 5 (colour.ts and strategy.ts families typed): the same two rewrites for their stored draws. */
-export const typedParamsColourDeities = migrations.define({ table: "deities", migrateOne: typedDeity });
-export const typedParamsColourPreparing = migrations.define({ table: "rooms", migrateOne: typedPreparing });
-/** PR 5 (arithmetic.ts and seeds.ts families typed): the same two rewrites for their stored draws. */
-export const typedParamsArithmeticDeities = migrations.define({ table: "deities", migrateOne: typedDeity });
-export const typedParamsArithmeticPreparing = migrations.define({ table: "rooms", migrateOne: typedPreparing });
-/** PR 5 (Bingo Caller typed: its called ranks by name): the same two rewrites for its stored draws. */
-export const typedParamsBingoDeities = migrations.define({ table: "deities", migrateOne: typedDeity });
-export const typedParamsBingoPreparing = migrations.define({ table: "rooms", migrateOne: typedPreparing });
-/** Set Spotter's one geometry (equal opportunity, rules-design.md P10): `{ diag }` draws become `{}`. */
-export const setSpotterGeometryDeities = migrations.define({ table: "deities", migrateOne: typedDeity });
-export const setSpotterGeometryPreparing = migrations.define({ table: "rooms", migrateOne: typedPreparing });
-/** Equal opportunity (P10), games.ts and geometry.ts: draws of a removed param class read as their nearest peer. */
-export const equalOpportunityGamesDeities = migrations.define({ table: "deities", migrateOne: typedDeity });
-export const equalOpportunityGamesPreparing = migrations.define({ table: "rooms", migrateOne: typedPreparing });
-/** Equal opportunity (P10), arithmetic.ts, colour.ts and strategy.ts. */
-export const equalOpportunityArithmeticDeities = migrations.define({ table: "deities", migrateOne: typedDeity });
-export const equalOpportunityArithmeticPreparing = migrations.define({ table: "rooms", migrateOne: typedPreparing });
-export const pictureFrameSymbolPreparing = migrations.define({ table: "rooms", migrateOne: typedPreparing });
-/** Equal opportunity (P10), the Int and string families (int.ts, string.ts). */
-export const equalOpportunityIntStringDeities = migrations.define({ table: "deities", migrateOne: typedDeity });
-export const equalOpportunityIntStringPreparing = migrations.define({ table: "rooms", migrateOne: typedPreparing });
 
 export const backfillObjectTimes = migrations.define({
   table: "objects",
@@ -265,109 +141,6 @@ export const backfillObjectTimes = migrations.define({
   },
 });
 
-export const assistantModeFromCredentials = migrations.define({
-  table: "credentials",
-  migrateOne: async (ctx, cred) => {
-    if (cred.kind !== "assistant" || cred.permission !== "read" || !cred.roomId || cred.revokedAt !== undefined || cred.expiresAt <= Date.now()) return;
-    const roomId = ctx.db.normalizeId("rooms", cred.roomId);
-    if (!roomId) return;
-    const prefs = await ctx.db.query("assistantPrefs").withIndex("by_key", q => q.eq("roomId", roomId).eq("subject", cred.subject)).unique();
-    // A mode already set (by the player, or a run before this one) is left alone.
-    if (prefs?.mode !== undefined) return;
-    if (prefs) await ctx.db.patch(prefs._id, { mode: "readOnly" });
-    else await ctx.db.insert("assistantPrefs", { roomId, subject: cred.subject, mode: "readOnly" });
-  },
-});
-
-export const assistantPrefsMode = migrations.define({
-  table: "assistantPrefs",
-  migrateOne: (_ctx, prefs) => {
-    if (prefs.mode !== undefined && prefs.autoApproveSummonBits === undefined) return;
-    return { mode: prefs.mode ?? "onRequest", autoApproveSummonBits: undefined };
-  },
-});
-
-export const assistantNoApprovalsTurns = migrations.define({
-  table: "assistantTurns",
-  // Ended as a cancellation ends a turn (its thread freed, streaming messages closed, unrun calls denied, the
-  // thread's queued messages started).
-  migrateOne: async (ctx, turn) => {
-    if (turn.status === "awaiting_confirmation") await finishTurn(ctx, turn, "cancelled");
-  },
-});
-
-export const assistantNoApprovalsCalls = migrations.define({
-  table: "assistantToolCalls",
-  migrateOne: (_ctx, call) => {
-    if (call.status !== "awaiting_confirmation" && call.approved === undefined && call.confirmDeadline === undefined) return;
-    return {
-      approved: undefined, confirmDeadline: undefined,
-      ...(call.status === "awaiting_confirmation" ? {
-        status: "denied" as const, summary: "Not run: approvals were retired", updatedAt: Date.now(),
-        resultJson: JSON.stringify({ error: { code: "NOT_RUN", message: "This call waited for an approval card, which no longer exists; it did not run." } }),
-      } : {}),
-    };
-  },
-});
-export const agentPricesV2 = migrations.define({ table: "agents", migrateOne: (_ctx, row) => agentPriceV2(row) });
-
-// powerV1 (docs/energy-model.md §6, §9). Agents and deities first: they read their game's OLD settings (lib/power.ts
-// falls back to them), which powerV1Games then rewrites.
-export const powerV1Agents = migrations.define({
-  table: "agents",
-  migrateOne: async (ctx, agent) => {
-    if (agent.powerShare !== undefined) return;
-    const game = await ctx.db.get(agent.gameId);
-    if (!game) return { powerShare: 0 };
-    // The old share (the same for every agent of the game), scaled down when the owner's agents would hold more than all
-    // of its power. Counted from the legacy shares only, so the order the rows migrate in does not matter.
-    const owned = await ctx.db.query("agents").withIndex("by_game_owner", q => q.eq("gameId", agent.gameId).eq("ownerId", agent.ownerId)).take(201);
-    const share = shareOf({}, game.settings as GameSettings), total = owned.length * share;
-    return { powerShare: roundShare(Math.floor((total > 1 ? share / total : share) * 1e6) / 1e6) };
-  },
-});
-export const powerV1Deities = migrations.define({
-  table: "deities",
-  migrateOne: async (ctx, deity) => {
-    if (deity.account !== undefined && deity.allocated !== undefined) return;
-    const game = await ctx.db.get(deity.gameId);
-    if (!game) return { account: { balance: 0, settledWorldSeconds: 0 }, allocated: 0 };
-    const clocked = await withEngine(ctx, game);
-    const world = worldNow(clocked);
-    const owned = await ctx.db.query("agents").withIndex("by_game_owner", q => q.eq("gameId", deity.gameId).eq("ownerId", deity.godId)).take(201);
-    const allocated = roundShare(Math.min(1, owned.reduce((sum, a) => sum + shareOf(a, game.settings as GameSettings), 0)));
-    return { account: deityAccount(clocked, deity, world), allocated };
-  },
-});
-export const powerV1Games = migrations.define({ table: "games", migrateOne: (_ctx, row) => { const settings = powerSettingsV1(row.settings); return settings ? { settings } : undefined; } });
-export const powerV1Rooms = migrations.define({ table: "rooms", migrateOne: (_ctx, row) => { const settings = powerSettingsV1(row.settings); return settings ? { settings } : undefined; } });
-export const powerV1Setups = migrations.define({ table: "gameSetups", migrateOne: (_ctx, row) => { const settings = powerSettingsV1(row.settings); return settings ? { settings } : undefined; } });
-
-export const objectEventPlaces = migrations.define({
-  table: "objectEvents",
-  // A placed row (every row written since #173) costs nothing beyond itself; an unplaced one reads its tick batch, which
-  // the rows next to it (written by the same commit) share, so a transaction reads few batches.
-  // A row's place is its event's position in the tickBatches doc of its `seq` (the same spawn or transform: the same
-  // object at the same version), and a transform's charge is that event's cost.total: what lib/load.ts's old scan read.
-  // A row already placed is left alone; one whose batch does not hold its event (the clone fixture's copies name the
-  // source game's objects) is left as it is.
-  migrateOne: async (ctx, row) => {
-    const needsCost = row.kind === "transform" && row.cost === undefined;
-    if (row.index !== undefined && !needsCost) return;
-    const batch = await ctx.db.query("tickBatches").withIndex("by_game_seq", q => q.eq("gameId", row.gameId).eq("seq", row.seq)).first();
-    if (!batch) return;
-    const index = batch.events.findIndex(e => e.t === row.kind && e.objectId === row.objectId && e.version === row.version);
-    const event = batch.events[index];
-    if (!event) return;
-    return { ...(row.index === undefined ? { index } : {}), ...(needsCost && event.t === "transform" ? { cost: event.cost.total } : {}) };
-  },
-});
-
-export const setupListing = migrations.define({
-  table: "gameSetups",
-  migrateOne: async (ctx, row) => { const listing = await listingFor(ctx, row); return listed(row, listing) ? undefined : listing; },
-});
-
 export const backfillObjectViews = migrations.define({
   table: "games",
   // A game stored before the per-god read model gets its rows and totals (game/objectViews.ts fill, paged, scheduled:
@@ -375,27 +148,15 @@ export const backfillObjectViews = migrations.define({
   migrateOne: async (ctx, game) => { if (!await hasObjectViews(ctx, game)) await scheduleFill(ctx, game._id); },
 });
 
-/** Every component migration, in order: run by the deploy workflow (`npx convex run migrations:runAll`). Append only. */
+/**
+ * Every component migration, in order: run by the deploy workflow (`npx convex run migrations:runAll`). Append new ones
+ * at the end. A migration leaves only when it is narrowed, after dev and production both report it done.
+ */
 // Annotated: this module's own `internal` references would otherwise make its exported types circular.
 const RUN_ALL: FunctionReference<"mutation", "internal">[] = [internal.migrations.dropHaskellFromSetups, internal.migrations.dropHaskellFromRooms,
   internal.migrations.dropHaskellFromGames, internal.migrations.dropHaskellBundle, internal.migrations.dropHaskellCompiledPrograms,
-  internal.migrations.backfillReplays, internal.migrations.backfillStandings, internal.migrations.aiQuotas,
-  internal.migrations.typedParamsDeities, internal.migrations.typedParamsPreparing,
-  internal.migrations.backfillObjectTimes, internal.migrations.pictureFrameSymbolDeities, internal.migrations.pictureFrameSymbolPreparing,
-  internal.migrations.typedParamsIntStringDeities, internal.migrations.typedParamsIntStringPreparing,
-  internal.migrations.typedParamsGamesDeities, internal.migrations.typedParamsGamesPreparing,
-  internal.migrations.typedParamsColourDeities, internal.migrations.typedParamsColourPreparing,
-  internal.migrations.typedParamsArithmeticDeities, internal.migrations.typedParamsArithmeticPreparing,
-  internal.migrations.typedParamsBingoDeities, internal.migrations.typedParamsBingoPreparing,
-  internal.migrations.setSpotterGeometryDeities, internal.migrations.setSpotterGeometryPreparing,
-  internal.migrations.equalOpportunityGamesDeities, internal.migrations.equalOpportunityGamesPreparing,
-  internal.migrations.equalOpportunityArithmeticDeities, internal.migrations.equalOpportunityArithmeticPreparing,
-  internal.migrations.assistantModeFromCredentials, internal.migrations.assistantPrefsMode, internal.migrations.assistantNoApprovalsTurns,
-  internal.migrations.assistantNoApprovalsCalls, internal.migrations.agentPricesV2,
-  internal.migrations.equalOpportunityIntStringDeities, internal.migrations.equalOpportunityIntStringPreparing,
-  internal.migrations.powerV1Agents, internal.migrations.powerV1Deities, internal.migrations.powerV1Games, internal.migrations.powerV1Rooms, internal.migrations.powerV1Setups,
-  internal.migrations.objectEventPlaces,
-  internal.migrations.setupListing, internal.migrations.backfillObjectViews];
+  internal.migrations.backfillReplays, internal.migrations.backfillStandings,
+  internal.migrations.backfillObjectTimes, internal.migrations.backfillObjectViews];
 export const runAll = migrations.runner(RUN_ALL);
 /** The state of each of runAll's migrations (scripts/run-migrations.mjs waits for all of them to succeed). */
 export const status = internalQuery({

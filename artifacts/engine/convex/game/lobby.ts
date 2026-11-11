@@ -140,7 +140,8 @@ export const beginPreparing = internalMutation({
     if (failure) await forgetWaits(ctx, room._id);
     else if (!pending.length) await ctx.scheduler.runAfter(0, internal.owner.completeStart, { roomId: room._id, requestId: args.requestId });
     else await ctx.scheduler.runAfter(PREPARING_WATCHDOG_MS, internal.owner.completeStart, { roomId: room._id, requestId: args.requestId, watchdog: true });
-    await touchActivity(ctx, true);
+    // Not forced: a forced touch writes the one global activity row on every start, so concurrent starts conflict.
+    await touchActivity(ctx);
     return preparing;
   },
 });
@@ -263,7 +264,8 @@ export const commitStart = internalMutation({
     if (args.requestId) {
       await ctx.db.insert("receipts", { roomId: room._id, actorId, requestId: `start:${args.requestId}`, hash: "start", result, createdAt: now });
     }
-    await touchActivity(ctx, true);
+    // Not forced: a forced touch writes the one global activity row on every start, so concurrent starts conflict.
+    await touchActivity(ctx);
     return result;
   },
 });

@@ -15,7 +15,7 @@ import type { ClockedGame, Scoreboard } from "../game/state";
 import { DEFAULT_AGENT_MODEL } from "./aiModels";
 import { aiQuotaOf, assistantQuotaOf } from "./aiAccess";
 import { NO_FAILURES, diagnoseAgent } from "./futility";
-import { agentIncomeOf, powerOf, shareOf } from "./power";
+import { agentIncomeOf, powerOf } from "./power";
 import { agentStatus, disclosedTotalsOf, godEnergy, totalsOf, viewOf, viewOfNet, worldNow } from "./world";
 import { agentLanguage } from "./language";
 
@@ -156,10 +156,10 @@ export function personalObject(o: Obj, godId: string, live: boolean) {
 }
 
 /**
- * An agent's estimated cost per act as {read, change} (docs/energy-model.md §5). A price stored before the energy model
- * (until migrations.agentPricesV2 has run) shows its change part only: its decision and floor are no longer charged.
+ * A summon's estimated cost per act as {read, change} (docs/energy-model.md §5). An event-log schema ≤ 4 summon (history)
+ * shows its change part only: its decision and floor are no longer charged.
  */
-export function costBreakdown(b: Doc<"agents">["breakdown"]): { read: number; change: number } {
+export function costBreakdown(b: { read: number; change: number } | { decision: number; erasure: number; motion: number; floor: number }): { read: number; change: number } {
   return "read" in b ? { read: b.read, change: b.change } : { read: 0, change: b.erasure + b.motion };
 }
 /**
@@ -178,7 +178,7 @@ export function agentView(game: ClockedGame, agent: Doc<"agents">, nowMs = Date.
     id: agent._id as string, name: agentDisplayName(agent.name, ordinal), ...(agent.description ? { description: agent.description } : {}), source: agent.source, language: agentLanguage(agent, game.settings as GameSettings), createdAt: agent.createdAt,
     summonCost: agent.summonCost, expectedActCost: agent.expectedActCost,
     breakdown: costBreakdown(agent.breakdown), randomized: agent.randomized, energy: status.energy, eligible: status.eligible,
-    powerShare: shareOf(agent, game.settings), income: agentIncomeOf(agent, game.settings),
+    powerShare: agent.powerShare, income: agentIncomeOf(agent, game.settings),
     acts: agent.acts, spent: agent.spent, ...(agent.spentRead !== undefined ? { spentRead: agent.spentRead } : {}), skips: agent.skips ?? 0,
     ...agentOutcomes(agent),
   };
@@ -369,11 +369,10 @@ export function observation(input: ObservationInput): Observation {
     self: {
       godId: self.godId, label: self.name, isAI: self.kind === "ai", ready: self.ready,
       utility: game && deity ? deity.card : undefined, pauseUsed: deity?.pauseUsed ?? false,
-      energy: game && deity ? godEnergy(game, deity, worldNow(game, now), now) : 0,
+      energy: game && deity ? godEnergy(game, deity, worldNow(game, now)) : 0,
       // Power (docs/energy-model.md §6): the share its agents hold, and its own income from the rest.
       ...(game && deity ? (() => {
-        const allocated = deity.allocated ?? roundShare(Math.min(1, input.agents.reduce((sum, a) => sum + shareOf(a, settings), 0)));
-        return { allocated, income: deityIncome(powerOf(settings), allocated) };
+        return { allocated: deity.allocated, income: deityIncome(powerOf(settings), deity.allocated) };
       })() : {}),
       // The own score is live; the leaderboard below is the scoreboard last published.
       // Live, it is the sum of the payoffs as disclosed (from the noisy peers' sums), consistent with the scoreboard.

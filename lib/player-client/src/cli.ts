@@ -152,6 +152,8 @@ async function connect(args: string[]) {
 
 async function main(argv: string[]) {
   const [command, ...args] = argv;
+  // `<command> --help` (or -h) prints the usage instead of failing as an unknown option.
+  if (args.some(a => a === "--help" || a === "-h")) { process.stdout.write(USAGE); return; }
   switch (command) {
     case "connect": return connect(args);
     case "status": {

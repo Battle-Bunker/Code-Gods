@@ -6,7 +6,9 @@
 import { dimensionVar } from "@workspace/object-views";
 import { LineChart, Obj, Table, useGame, useLeaderboard, useObjectsTop, useRoomInfo, useTrajectories } from "@/sdk";
 import { usePastGames } from "@/core/game/past-games";
-import { ObjectRef, PanelEmpty, PreparingNote, Section, fmt, ordinal, referObject, type PanelProps } from "./kit";
+import { Link } from "@/core/navigation";
+import { finishPlace, liveResultRows } from "./results-rank";
+import { ObjectRef, PanelEmpty, PreparingNote, Section, fmt, referObject, type PanelProps } from "./kit";
 
 /** Your bits × the others' care, in the dimension colours every panel uses. */
 const YOURS = dimensionVar("yours"), OTHERS = dimensionVar("others");
@@ -27,7 +29,7 @@ export default function Results({ params, phase }: PanelProps<"results">) {
   const record = params.gameId ? past?.find(g => g.id === params.gameId || g.shortCode === params.gameId) : phase === "ended" ? undefined : past?.[0];
   const live = !params.gameId && phase === "ended";
   const rows: Row[] = live
-    ? [...board].sort((a, b) => b.totalPayoff - a.totalPayoff).map((r, i) => ({ id: r.godId, name: r.label, isAI: r.isAI, total: r.totalPayoff, rank: i + 1 }))
+    ? liveResultRows(board)
     : (record?.leaderboard ?? []).map(r => ({ id: r.deityId, name: r.name, isAI: r.kind === "ai", total: r.totalPayoff, rank: r.rank }));
   const preparing = (phase === "lobby" || phase === "ended") && !params.gameId ? room?.preparing : null;
   if (!rows.length) {
@@ -42,13 +44,21 @@ export default function Results({ params, phase }: PanelProps<"results">) {
   const mine = rows.find(r => r.id === me);
   const best = top, worst = bottom.filter(o => !best.some(b => b.id === o.id));
   const ranks = new Map(best.map(o => [o.id, o.rank]));
+  // A line needs two points: a game that ended at once has none worth drawing.
+  const chart = best.map(o => ({ label: `#${ranks.get(o.id)}`, points: (trajectories.get(o.id) ?? []).map(p => ({ x: p.worldSeconds, y: p.payoff })) }));
   const why = mine
-    ? `You finished ${ordinal(mine.rank)} of ${rows.length} with ${fmt(mine.total)} bits of payoff.${live && best[0] ? ` Your best object paid ${fmt(best[0].payoff)}${worst[0] && worst[0].payoff < 0 ? `; your worst cost ${fmt(-worst[0].payoff)}` : ""}.` : ""}`
+    ? `You finished ${finishPlace(rows, mine)} of ${rows.length} with ${fmt(mine.total)} bits of payoff.${live && best[0] ? ` Your best object paid ${fmt(best[0].payoff)}${worst[0] && worst[0].payoff < 0 ? `; your worst cost ${fmt(-worst[0].payoff)}` : ""}.` : ""}`
     : "You didn't play in this game.";
   return (
     <div className="space-y-5" data-testid="panel-results">
       {preparing && <PreparingNote preparing={preparing} />}
-      <p className="text-base">{record ? `Game ${record.shortCode}: ` : ""}{why}</p>
+      {/* The outcome is the panel's headline; once this game has ended, the next step is the room (its next game). */}
+      <p className="font-serif text-xl font-semibold leading-snug" data-testid="text-results-headline">{record ? `Game ${record.shortCode}: ` : ""}{why}</p>
+      {live && room?.shortCode && (
+        <Link to={{ kind: "room", room: room.shortCode }} className="inline-block bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground" data-testid="link-results-room">
+          Back to room {room.shortCode} for the next game
+        </Link>
+      )}
       {params.section !== "mine" && (
         <Section title="Final standings">
           <Table rows={rows} rowKey={r => r.id} columns={[
@@ -60,8 +70,8 @@ export default function Results({ params, phase }: PanelProps<"results">) {
       )}
       {params.section !== "standings" && live && best.length > 0 && (
         <Section title="Why: your best and worst objects">
-          <LineChart width={400} height={150} xLabel="world s" yLabel="payoff"
-            series={best.map(o => ({ label: `#${ranks.get(o.id)}`, points: (trajectories.get(o.id) ?? []).map(p => ({ x: p.worldSeconds, y: p.payoff })) }))} />
+          {chart.some(c => c.points.length > 1) && <LineChart width={400} height={150} xLabel="world s" yLabel="payoff"
+            series={chart} />}
           <ul className="space-y-1 text-xs">
             {[...best, ...worst].map(o => (
               <li key={o.id} className="flex items-center gap-2">

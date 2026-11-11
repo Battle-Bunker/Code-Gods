@@ -4,7 +4,7 @@ import {
   DEFAULT_SETTINGS, SETTINGS_OPTIONS, MAX_AGENTS_PER_GOD, settingsOptionsFor, validateSettings, LANGUAGES, LANGUAGE_SPECS,
   grammarFor, complexityFor, allowedLanguages, upgradeLegacyLanguage,
   upgradeStoredSettings, FIRST_STEPS_SEED_ID, ANNOTATED_BASICS_SEED_ID,
-  instantiationOf, codecOf, assertObjectValue, defaultSettingsFor, SEED_SETUPS, SETUP_NAME_MAX, seedSetupSettings, type GameSettings,
+  instantiationOf, codecOf, assertObjectValue, defaultSettingsFor, SEED_SETUPS, SETUP_NAME_MAX, seedSetupSettings, ENERGY_LIMITS, type GameSettings,
 } from "../src/settings.ts";
 import { gameEndSeconds } from "../src/random.ts";
 
@@ -251,14 +251,13 @@ test("Annotated basics starts with 10 objects, spawns 0.1 per second and plans f
   assert.doesNotThrow(() => validateSettings(s));
 });
 
-test("stored settings from before the power budget are widened: powerPerSecond from the old incomes, the retired keys dropped", async () => {
-  const { upgradeStoredSettings, upgradeLegacyPower } = await import("../src/settings.ts");
-  const legacy = { ...DEFAULT_SETTINGS, powerPerSecond: undefined, energyPerSecond: 1, agentEnergyPerSecond: 32, agentBatteryActs: 2, perActFloorBits: 2 } as Record<string, unknown>;
-  delete legacy.powerPerSecond;
-  const up = upgradeStoredSettings(legacy)!;
-  assert.equal(up.powerPerSecond, 65);
-  for (const k of ["energyPerSecond", "agentEnergyPerSecond", "agentBatteryActs", "perActFloorBits"]) assert.equal(k in up, false, k);
-  assert.doesNotThrow(() => validateSettings(up as never));
-  assert.equal(upgradeLegacyPower(up), null, "idempotent");
-  assert.equal(upgradeLegacyPower({ ...DEFAULT_SETTINGS }), null);
+test("energy settings have upper bounds, so no allowed value overflows an account or a score (balance harness)", () => {
+  // Unbounded before: 1e308 bits/s passed, then every settlement threw "Energy overflow"; a weight of 1e308 made netBits −Infinity.
+  for (const key of ["powerPerSecond", "startingEnergy", "penaltyWeight"] as const) {
+    const { max } = ENERGY_LIMITS[key];
+    assert.doesNotThrow(() => validateSettings(settings({ [key]: max })));
+    assert.throws(() => validateSettings(settings({ [key]: max * 2 })), new RegExp(key));
+    assert.throws(() => validateSettings(settings({ [key]: 1e308 })), new RegExp(key));
+  }
+  for (const seed of SEED_SETUPS) assert.doesNotThrow(() => validateSettings(seed.settings));
 });

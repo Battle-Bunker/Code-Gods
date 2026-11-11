@@ -50,7 +50,8 @@ test("descriptions come from the catalogue unless a tool wraps a shared function
     assert.ok(t.description.length >= 40 && t.description.length <= 700, `${t.name} description is bounded (${t.description.length})`);
   }
   assert.equal(tool("wake_engine").description, CATALOG["activity.touch"].ai.description, "a tool without a note is the catalogue text");
-  assert.match(tool("summon_agent").description, /confirms first/);
+  // No approval step exists (the in-client assistant's modes decide what it may do): no tool may tell an agent there is one.
+  for (const t of TOOLS) assert.doesNotMatch(t.description, /confirms first|Confirmed by the player/, t.name);
   for (const t of TOOLS) assert.ok(t.title.length >= 3 && t.title.length <= 60, `${t.name} has a short title`);
 });
 

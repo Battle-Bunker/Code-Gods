@@ -19,7 +19,7 @@ import { useAdminAgents, useAgentOptions } from "@/site/hooks/use-agents";
 import { useToast } from "@/hooks/use-toast";
 import { api, useLive } from "@/site/lib/convex";
 import { codeCommands, engineCommands, paletteContextFor, type EngineActions, type EngineScope, type Live, type Template } from "@/site/lib/commands";
-import { errMsg } from "@/site/lib/errors";
+import { errMsg, startRaced } from "@/site/lib/errors";
 import type { GameRecord, GameView, Manifest, RoomState } from "@/site/lib/types";
 import { useSetupEntries } from "@/site/hooks/use-setups";
 import { rulesFor } from "@/site/components/game-rules";
@@ -72,7 +72,7 @@ function ConnDot({ ok, label = "live" }: { ok: boolean; label?: string }) {
   const text = !ok ? "Updates are failing; they resume when the engine answers again." : connected ? (label === "live" ? "Live: changes appear as they happen." : "Final: this game has ended.") : "Reconnecting…";
   return (
     <Tip text={text}>
-      <span className="inline-flex items-center" data-testid="status-connection" aria-label={text} tabIndex={0}>
+      <span className="inline-flex items-center" data-testid="status-connection" role="img" aria-label={text} tabIndex={0}>
         <span className={`h-2 w-2 rounded-full ${!ok ? "bg-destructive" : connected ? (label === "live" ? "bg-primary pulse-dot" : "bg-muted-foreground") : "bg-accent"}`} />
       </span>
     </Tip>
@@ -173,7 +173,8 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
     setReady: ready => setReady({ roomId: need(roomId), ready }),
     setSpectator: (spectator, godId) => setSpectator({ roomId: need(roomId), spectator, ...(godId ? { godId } : {}) }),
     // One click is one requestId; a second click while it is pending sends nothing (the button shows "Starting…").
-    start: () => trackStart(startTracker, need(roomId), requestId => start({ roomId: need(roomId), requestId })),
+    start: () => trackStart(startTracker, need(roomId), requestId => start({ roomId: need(roomId), requestId })
+      .catch(e => { if (startRaced(e)) return null; throw e; })),
     resume: () => resume({ roomId: need(roomId) }),
     startWorldNow: () => startWorldNow({ roomId: need(roomId) }),
     endGame: () => end({ roomId: need(roomId) }),

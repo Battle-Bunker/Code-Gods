@@ -34,12 +34,17 @@ test("limits mirror validateSettings and the engine's resource limits, with the 
   assert.equal(fieldError("maxAgentsPerGod", 2.5), "Must be a whole number.");
   assert.equal(fieldError("maxAgentsPerGod", 200), null);
   assert.equal(fieldError("startingObjectCount", 1001), "Must be between 0 and 1,000 objects.", "nextSettings caps objects at 1000");
+  // The engine refuses these above ENERGY_LIMITS (game-core validateSettings): the form says so before saving.
+  assert.equal(fieldError("powerPerSecond", 1_000_001), "Must be between 0 and 1,000,000 bits per second.");
+  assert.equal(fieldError("startingEnergy", 1e9 + 1), "Must be between 0 and 1,000,000,000 bits.");
+  assert.equal(fieldError("penaltyWeight", 1001), "Must be between 0 and 1,000.");
+  assert.equal(fieldError("penaltyWeight", 1000), null);
   assert.equal(fieldError("spawnRateHz", 10.5), "Must be between 0 and 10 per second.");
   assert.equal(fieldError("halfLifeSeconds", 0), "Must be between 1 and 1,000,000,000 seconds.");
   assert.equal(fieldError("pauseSeconds", 3601), "Must be between 1 and 3,600 seconds.");
   assert.equal(fieldError("scoreIntervalSeconds", 2.5), "Must be a whole number.");
   assert.equal(fieldError("scoreIntervalSeconds", 45), null, "any whole number of seconds, not only the presets");
-  assert.equal(fieldError("powerPerSecond", -1), "Must be at least 0 bits per second.");
+  assert.equal(fieldError("powerPerSecond", -1), "Must be between 0 and 1,000,000 bits per second.");
   assert.ok(fieldsOf("energy").includes("powerPerSecond"), "each player's power is on the form");
   assert.ok(!fieldsOf("energy").some(k => ["energyPerSecond", "agentEnergyPerSecond", "agentBatteryActs", "perActFloorBits"].includes(k)), "the old income, battery and floor settings are gone");
   assert.equal(fieldError("planningSeconds", NaN), "Enter a number.");

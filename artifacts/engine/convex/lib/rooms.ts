@@ -56,8 +56,10 @@ export const AI_LOBBY_STATUS = "Ready; awaiting game start";
 export async function memberOf(ctx: Ctx, roomId: Id<"rooms">, godId: string) {
   return ctx.db.query("members").withIndex("by_room_god", q => q.eq("roomId", roomId).eq("godId", godId)).unique();
 }
+/** One past rooms.ts MAX_MEMBERS (24): every member is read, and the member limit's check can see a full room. */
+const MEMBERS_READ = 25;
 export async function membersOf(ctx: Ctx, roomId: Id<"rooms">) {
-  return ctx.db.query("members").withIndex("by_room", q => q.eq("roomId", roomId)).take(16);
+  return ctx.db.query("members").withIndex("by_room", q => q.eq("roomId", roomId)).take(MEMBERS_READ);
 }
 
 /** The viewer as an acting member of this room, with at least `need` (player credentials are room-bound). */

@@ -128,6 +128,8 @@ function preparingResult(p: NonNullable<Doc<"rooms">["preparing"]>): Preparing {
     dealtAs: p.dealer.dealtAs, ...(p.dealer.note ? { note: p.dealer.note } : {}), message: preparingLine(view) };
 }
 
+/** The longest start requestId: it is stored on the room's `preparing`, a receipt and scheduled calls' arguments. */
+const REQUEST_ID_MAX = 128;
 /**
  * The game start (docs/analytic-calibration/architecture.md §3.4). The deal is fixed first, from every available
  * family; then each draw's table is resolved (analytic, shipped, or computed earlier: the common case, and the game
@@ -137,6 +139,7 @@ function preparingResult(p: NonNullable<Doc<"rooms">["preparing"]>): Preparing {
  * clock starts then. Idempotent per requestId (a repeated start reports the preparation, then the game).
  */
 async function startGame(ctx: ActionCtx, args: { roomId: string; requestId?: string; principal?: Principal }): Promise<StartResult> {
+  if ((args.requestId?.length ?? 0) > REQUEST_ID_MAX) fail("BAD_REQUEST", `requestId is longer than ${REQUEST_ID_MAX} characters`);
   const context = await ctx.runQuery(internal.game.lobby.ownerContext, { room: args.roomId, principal: args.principal });
   const room = context.room;
   if (args.requestId) {
@@ -213,6 +216,9 @@ export const completeStart = internalAction({
       if (watchdog) await ctx.scheduler.runAfter(PREPARING_WATCHDOG_MS, internal.owner.completeStart, { roomId, requestId, watchdog: true });
       return;
     }
+    // If this run dies before the launch or the failure is recorded (both mutations conflicting, a timeout), the room
+    // would show "preparing" for ever: a later run retries (and returns at once once `preparing` is gone or failed).
+    await ctx.scheduler.runAfter(PREPARING_WATCHDOG_MS, internal.owner.completeStart, { roomId, requestId, watchdog: true });
     try {
       await launch(ctx, settings, p.deals as Deal[], resolved.tables, { roomId, revision: p.revision, memberIds: p.memberIds, requestId, prepared: requestId });
     } catch (error) {

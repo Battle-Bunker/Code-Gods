@@ -186,7 +186,7 @@ test("hand-derived pins: exact tops and body values of the wired analytics", () 
   assert.deepEqual(tk.levels[0], [7, 0]);
   close(last(tk)[1], 2 - 25 * 2);
   // Green Ones: every cell perfect, probability (1/(S·C))^n
-  const go = analyticFor("seed3_green_ones", { colour: 0, value: 0 }, g5)!;
+  const go = analyticFor("seed3_green_ones", { colour: "red", value: 0 }, g5)!;
   assert.deepEqual(last(go)[0], [25, 0]);
   close(last(go)[1], 25 * Math.log2(1 / 40));
   // Rainbow Road: P(at least one whole row) = 1 − (1 − C^(1−N))^N, and the top is every row a whole rainbow line

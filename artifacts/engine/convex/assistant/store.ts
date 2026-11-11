@@ -296,7 +296,7 @@ export const sweep = internalMutation({
   args: {},
   handler: async (ctx) => {
     const now = Date.now();
-    for (const status of ["running", "awaiting_confirmation", "cancelling"] as const) {
+    for (const status of ["running", "cancelling"] as const) {
       for (const turn of await ctx.db.query("assistantTurns").withIndex("by_status_deadline", q => q.eq("status", status).lt("deadline", now)).take(50)) {
         await finishTurn(ctx, turn, status === "cancelling" ? "cancelled" : "failed", status === "cancelling" ? undefined : { code: "DEADLINE", message: "The turn ran past its 10-minute deadline" });
       }

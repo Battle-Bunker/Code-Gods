@@ -121,3 +121,10 @@ test("eight players fill the next game; more members join as spectators", { time
   assert.match(await rejects(host.c.mutation(api.rooms.setSpectator, { roomId, spectator: false })), /already has eight players/);
   assert.equal((await host.c.query(api.rooms.get, { room: roomId })).members.length, 10);
 });
+
+test("a room stops at its 24-member limit (every member counts, not only the first 16)", { timeout: 120000 }, async () => {
+  const [host, ...rest] = await gods(...Array.from({ length: 25 }, (_, i) => `Cap ${i}`));
+  const { shortCode } = await host.c.mutation(api.rooms.create, {});
+  for (const m of rest.slice(0, 23)) await m.c.mutation(api.rooms.join, { room: shortCode, spectator: true });
+  assert.match(await rejects(rest[23].c.mutation(api.rooms.join, { room: shortCode, spectator: true })), /24-member limit/);
+});

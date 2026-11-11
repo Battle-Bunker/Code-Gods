@@ -18,8 +18,8 @@ type Transformation = { id: string; agentId: string; before: number | string; af
 /**
  * `godId`'s transformations in the latest RECENT_BATCHES batches, oldest first, id `<seq>:<position in the batch>`.
  * Read from the god's own objectEvents rows (by_game_owner_seq) plus the latest batch for the window, not from every
- * batch of the window (each holds every god's events). A game whose rows predate `index`/`cost` (or objectEvents, log
- * schema < 3) reads the batches as before.
+ * batch of the window (each holds every god's events). A game logged before objectEvents (log schema < 3) reads the
+ * batches.
  */
 async function recentOwnTransformations(ctx: QueryCtx, gameId: Id<"games">, godId: string, max = RECENT_TRANSFORMATIONS): Promise<Transformation[]> {
   const latest = await ctx.db.query("tickBatches").withIndex("by_game_seq", q => q.eq("gameId", gameId)).order("desc").first();
@@ -28,9 +28,7 @@ async function recentOwnTransformations(ctx: QueryCtx, gameId: Id<"games">, godI
     const rows = await ctx.db.query("objectEvents")
       .withIndex("by_game_owner_seq", q => q.eq("gameId", gameId).eq("ownerId", godId).gt("seq", latest.seq - RECENT_BATCHES))
       .order("desc").take(max);
-    if (rows.every(r => r.index !== undefined && r.cost !== undefined)) {
-      return rows.reverse().map(r => ({ id: `${r.seq}:${r.index}`, agentId: r.agentId!, before: r.before!, after: r.value, calls: r.calls, cost: r.cost }));
-    }
+    return rows.reverse().map(r => ({ id: `${r.seq}:${r.index}`, agentId: r.agentId!, before: r.before!, after: r.value, calls: r.calls, cost: r.cost }));
   }
   const batches = await ctx.db.query("tickBatches").withIndex("by_game_seq", q => q.eq("gameId", gameId)).order("desc").take(RECENT_BATCHES);
   const out: Transformation[] = [];

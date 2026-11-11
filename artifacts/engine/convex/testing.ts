@@ -102,38 +102,6 @@ export const patchRoom = internalMutation({
   },
 });
 
-/** Put a room back into its shape before AI quotas: an approved `aiBudget` (and optional `assistantBudget`), no quotas. */
-export const legacyAiBudget = internalMutation({
-  args: { roomId: v.id("rooms"), aiBudget: v.number(), assistantBudget: v.optional(v.number()) },
-  handler: async (ctx, { roomId, aiBudget, assistantBudget }) => {
-    dev();
-    await ctx.db.patch(roomId, { aiQuota: undefined, assistantQuota: undefined, aiBudget, assistantBudget });
-  },
-});
-
-/** Store a game as it was before the power budget: old income settings, agents without shares, deities without accounts. */
-export const legacyPower = internalMutation({
-  args: { gameId: v.id("games"), energyPerSecond: v.number(), agentEnergyPerSecond: v.number() },
-  handler: async (ctx, { gameId, energyPerSecond, agentEnergyPerSecond }) => {
-    dev();
-    const game = (await ctx.db.get(gameId))!;
-    const { powerPerSecond: _p, ...settings } = game.settings as Record<string, unknown>;
-    await ctx.db.patch(gameId, { settings: { ...settings, energyPerSecond, agentEnergyPerSecond, agentBatteryActs: 2, perActFloorBits: 2 } });
-    for (const a of await ctx.db.query("agents").withIndex("by_game", q => q.eq("gameId", gameId)).collect()) await ctx.db.patch(a._id, { powerShare: undefined });
-    for (const d of await ctx.db.query("deities").withIndex("by_game", q => q.eq("gameId", gameId)).collect()) await ctx.db.patch(d._id, { account: undefined, allocated: undefined });
-  },
-});
-
-/** Store an agent's price as it was before the energy model: a decision price, a per-act floor, the old breakdown. */
-export const legacyAgentPrice = internalMutation({
-  args: { agentId: v.id("agents"), decisionBits: v.number(), perActFloorBits: v.number(), erasure: v.number(), motion: v.number() },
-  handler: async (ctx, { agentId, decisionBits, perActFloorBits, erasure, motion }) => {
-    dev();
-    await ctx.db.patch(agentId, { decisionBits, perActFloorBits, breakdown: { decision: decisionBits, erasure, motion, floor: perActFloorBits },
-      expectedActCost: decisionBits + erasure + motion + perActFloorBits });
-  },
-});
-
 /** Give an agent a stored language (e.g. a retired one, as a past game's agent may carry). */
 export const patchAgentLanguage = internalMutation({
   args: { agentId: v.id("agents"), language: storedLanguageV },
@@ -226,28 +194,18 @@ export const forgetReplay = internalMutation({
 });
 
 /**
- * Give a game's gods utilities stored before their family was typed (e.g. `{ familyId: "kingdom", params: { C: 0 } }`,
- * one per god in roster order) and cards without typed params, for migrations:typedParamsDeities' test.
+ * Give a game's gods these utilities (one per god in roster order, repeating). Their stored cards lose their typed
+ * params, which described the previous deal (the cards' text is left as it was).
  */
-export const legacyUtilities = internalMutation({
+export const dealUtilities = internalMutation({
   args: { gameId: v.id("games"), utilities: v.array(v.any()) },
   handler: async (ctx, { gameId, utilities }) => {
     dev();
     const deities = (await ctx.db.query("deities").withIndex("by_game", q => q.eq("gameId", gameId)).take(16)).sort((a, b) => a.index - b.index);
     for (const [i, d] of deities.entries()) {
-      const { params: _typed, ...card } = d.card as { params?: unknown };
+      const { params: _previous, ...card } = (d.card ?? {}) as { params?: unknown };
       await ctx.db.patch(d._id, { utility: utilities[i % utilities.length], card });
     }
-  },
-});
-
-/** A game's gods as stored (descriptor and card). */
-export const rawDeities = internalQuery({
-  args: { gameId: v.id("games") },
-  handler: async (ctx, { gameId }) => {
-    dev();
-    return (await ctx.db.query("deities").withIndex("by_game", q => q.eq("gameId", gameId)).take(16)).sort((a, b) => a.index - b.index)
-      .map(d => ({ utility: d.utility, card: d.card }));
   },
 });
 
@@ -261,11 +219,7 @@ export const replayFile = internalAction({
   },
 });
 
-/** A setup as stored before its catalogue fields (migrations setupListing), and the stored row. */
-export const legacySetupListing = internalMutation({
-  args: { setupId: v.id("gameSetups") },
-  handler: async (ctx, { setupId }) => { dev(); await ctx.db.patch(setupId, { order: undefined, nameKey: undefined, searchText: undefined }); },
-});
+/** A setup as stored. */
 export const rawSetupDoc = internalQuery({
   args: { setupId: v.id("gameSetups") },
   handler: async (ctx, { setupId }) => { dev(); return await ctx.db.get(setupId); },
@@ -297,17 +251,6 @@ export const rawGame = internalQuery({
       batches: await ctx.db.query("tickBatches").withIndex("by_game_seq", q => q.eq("gameId", gameId)).collect(),
       objectEvents: await ctx.db.query("objectEvents").withIndex("by_game_world", q => q.eq("gameId", gameId)).collect(),
     };
-  },
-});
-
-/** A game's objectEvents rows as stored before they carried `index` and `cost` (test/game-observation-transformations). */
-export const stripObjectEventPlaces = internalMutation({
-  args: { gameId: v.id("games") },
-  handler: async (ctx, { gameId }) => {
-    dev();
-    const rows = await ctx.db.query("objectEvents").withIndex("by_game_world", q => q.eq("gameId", gameId)).take(5000);
-    for (const r of rows) await ctx.db.patch(r._id, { index: undefined, cost: undefined });
-    return rows.length;
   },
 });
 
@@ -557,23 +500,6 @@ export const hideCalibration = internalMutation({
   },
 });
 
-/**
- * One human's assistant rows as they were under per-action approvals (the assistant-mode migrations' input): a prefs
- * row with `autoApproveSummonBits` and no mode, and the given turn waiting on the given call's approval card.
- */
-export const legacyAssistantApprovals = internalMutation({
-  args: { roomId: v.id("rooms"), subject: v.string(), turnId: v.id("assistantTurns"), callId: v.id("assistantToolCalls") },
-  handler: async (ctx, { roomId, subject, turnId, callId }) => {
-    dev();
-    for (const p of await ctx.db.query("assistantPrefs").withIndex("by_key", q => q.eq("roomId", roomId).eq("subject", subject)).collect()) await ctx.db.delete(p._id);
-    await ctx.db.insert("assistantPrefs", { roomId, subject, autoApproveSummonBits: 25 });
-    const turn = await ctx.db.get(turnId);
-    await ctx.db.patch(turnId, { status: "awaiting_confirmation", finishedAt: undefined });
-    if (turn) await ctx.db.patch(turn.threadId, { activeTurnId: turnId });
-    await ctx.db.patch(callId, { status: "awaiting_confirmation", confirmDeadline: Date.now() + 120_000, approved: false });
-  },
-});
-
 /** A human's raw assistant prefs row in a room (its mode and autopilot chain), or null. */
 export const rawAssistantPrefs = internalQuery({
   args: { roomId: v.id("rooms"), subject: v.string() },
@@ -615,15 +541,6 @@ export const openAutopilotTurn = internalMutation({
   },
 });
 
-/** An assistant tool call's raw row (the retired approval fields included). */
-export const rawAssistantCall = internalQuery({
-  args: { callId: v.id("assistantToolCalls") },
-  handler: async (ctx, { callId }) => {
-    dev();
-    return ctx.db.get(callId);
-  },
-});
-
 /** One god's object rows and totals as stored (game/objectViews.ts; test/game-object-views.test.ts). */
 export const rawObjectViews = internalQuery({
   args: { gameId: v.id("games"), godId: v.string() },
@@ -657,5 +574,19 @@ export const staleObjectView = internalMutation({
     const row = await ctx.db.query("objectViews").withIndex("by_object_god", q => q.eq("objectId", objectId).eq("godId", godId)).first()
       ?? fail("NOT_FOUND", "no row");
     await ctx.db.patch(row._id, { payoff });
+  },
+});
+
+/** Remove a game's gameEngine row (returns it), or put a removed one back: a game whose state cannot be loaded. */
+export const detachEngine = internalMutation({
+  args: { gameId: v.id("games"), restore: v.optional(v.any()) },
+  handler: async (ctx, { gameId, restore }) => {
+    dev();
+    if (restore) { await ctx.db.insert("gameEngine", { ...restore, gameId }); return null; }
+    const row = await engineDoc(ctx, gameId);
+    if (!row) return null;
+    await ctx.db.delete(row._id);
+    const { _id, _creationTime, ...fields } = row;
+    return fields;
   },
 });

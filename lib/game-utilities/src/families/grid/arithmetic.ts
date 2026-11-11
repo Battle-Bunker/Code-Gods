@@ -13,10 +13,6 @@ const PY_AXIS: Record<Axis, [string, string]> = { rows: ["grid.rows", "row"], co
 const TS_AXIS: Record<Axis, string> = { rows: "grid.rows", cols: "grid.columns" };
 const AXIS_WORD: Record<Axis, string> = { rows: "row", cols: "column" };
 const AXIS_OPTIONS = [["rows", "rows"], ["cols", "columns"]] as const;
-/** A stored `axis` / `scope` as today's: "both" (rows and columns together) is no longer a choice and reads as rows. */
-const legacyAxis = (v: unknown): Axis => (v === "cols" ? "cols" : "rows");
-/** A stored colour (an index, a name, or null / "any" from before a colour was required) as a colour name: "any" becomes the first colour. */
-const legacyColour = (g: GridSpec, v: unknown): string => (typeof v === "number" ? g.colourNames[v] : typeof v === "string" && v !== "any" ? v : g.colourNames[0]);
 const symGrid = (g: GridSpec, v: Layer) => v.map(row => row.map(x => symForValue(g, x)));
 
 // --- the words the goal texts share (docs/rules-design.md §2) -----------------------------------------------
@@ -52,8 +48,6 @@ const straightShooter = gridFamily<ShootP>({
     ace_high: boolParam("Aces count high"),
   }),
   // The "double for one colour" option only added scoring opportunity (P10): runs of one colour always double.
-  legacy: p => (typeof p.step === "number" || "flush" in p
-    ? { direction: typeof p.step === "number" ? (p.step === 1 ? "up" : "down") : p.direction as ShootP["direction"], ace_high: p.ace_high as boolean } : null),
   support: g => product<ShootP>({ direction: ["up", "down"], ace_high: g.cards ? [false, true] : [false] }),
   sample: (rng, g) => ({ direction: pick(rng, ["up", "down"] as const), ace_high: g.cards && chance(rng, 1, 2) }),
   canonical: p => ({ ...p, direction: "up" }),
@@ -158,7 +152,6 @@ const numberBonds = gridFamily<BondsP>({
   requires: { classes: ["Valued"] }, shape: SCALAR, tags: ["shortlist"],
   params: () => ({}),
   // The pair-colour mode (any | same | different) changed what can score, not just how: only "any colours" is left (P10).
-  legacy: p => (Object.keys(p).length ? {} : null),
   support: () => [{}],
   summary: (_, g) => bondsText(g).about,
   python: (_, g) => pyCard(bondsText(g), `
@@ -217,8 +210,6 @@ const magicAccountant = gridFamily<MagicP>({
     };
   },
   // "Rows and columns" doubled the lines that could score, and magic numbers far from the middle total are harder to hit (P10).
-  legacy: p => (typeof p.T === "number" || p.axis === "both"
-    ? { axis: legacyAxis(p.axis), target: typeof p.T === "number" ? p.T : p.target as number } : null),
   support: g => product<MagicP>({ axis: ["rows", "cols"], target: magicTargets(g) }),
   sample: (rng, g) => {
     const N = g.N, mid = roundHalfEven((N * (g.vmin + g.vmax)) / 2);
@@ -276,7 +267,6 @@ const kingOfTheHill = gridFamily<KingP>({
   id: "king_of_the_hill", name: "King of the Hill", emoji: "⛰️", theme: "Mountain tops in your colour",
   requires: { classes: ["Valued"] }, shape: SCALAR, tags: ["shortlist"],
   params: () => ({ colour: colourParam("Your colour"), valley: boolParam("Valleys instead of hills") }),
-  legacy: (p, g) => (typeof p.X === "number" ? { colour: g.colourNames[p.X], valley: p.valley as boolean } : null),
   support: g => product<KingP>({ colour: g.colourNames, valley: [false, true] }),
   sample: (rng, g) => ({ colour: g.colourNames[rng.int(g.C)], valley: chance(rng, 3, 10) }),
   canonical: (_, g) => ({ colour: g.colourNames[0], valley: false }), // value reflection maps valleys to peaks
@@ -324,7 +314,6 @@ const divisibility = gridFamily<DivP>({
   requires: { classes: ["Numeral"] }, shape: SCALAR, tags: ["shortlist"],
   params: () => ({ scope: choiceParam("Numbers read", [["rows", "rows"], ["cols", "columns"]]) }),
   // Divisors other than base − 1, and reading rows and columns together, changed what can score (P10).
-  legacy: p => (typeof p.m === "number" || "divisor" in p || p.scope === "both" ? { scope: legacyAxis(p.scope) } : null),
   support: () => (["rows", "cols"] as const).map(scope => ({ scope })),
   canonical: () => ({ scope: "rows" }),
   summary: (p, g) => divText(p, g).about,
@@ -378,7 +367,6 @@ const roundNumbers = gridFamily<RoundP>({
   requires: { classes: ["Numeral"] }, shape: tuple(2),
   params: () => ({ axis: choiceParam("Lines that count", AXIS_OPTIONS) }),
   // Rows and columns together doubled the lines that could score (P10).
-  legacy: p => (p.axis === "both" ? { axis: "rows" } : null),
   support: () => (["rows", "cols"] as const).map(axis => ({ axis })),
   canonical: () => ({ axis: "rows" }),
   summary: (p, g) => roundText(p, g).about,
@@ -430,7 +418,6 @@ const numberSandwich = gridFamily<SandP>({
   requires: { classes: ["Valued"] }, shape: SCALAR,
   params: g => ({ colour: colourParam("Colour of the total cell") }),
   // The "last is the total" kind and "any colour" changed what can score, not just how (P10): only a coloured middle total is left.
-  legacy: (p, g) => ("X" in p || "mode" in p || p.colour === "any" ? { colour: legacyColour(g, "X" in p ? p.X : p.colour) } : null),
   support: g => g.colourNames.map(colour => ({ colour })),
   sample: (rng, g) => ({ colour: g.colourNames[rng.int(g.C)] }),
   canonical: (p, g) => recolourNames(g, p, ["colour"]),
@@ -471,7 +458,7 @@ const windowText = (p: WindowP, g: GridSpec): CardText => ({
   about: sentences(
     "Try to make a 3×3 window full of magic lines.",
     "Look at every 3×3 window. In each one, a line is a row, column or diagonal of 3 cells.",
-    `A line is magic when its ${nums(g)} add up to 3 times the middle cell's ${num(g)}, unless all 3 are the same.`,
+    `A line is magic when its ${nums(g)} add up to 3 times the ${num(g)} in the window's middle cell, unless all 3 are the same.`,
     `A window only counts if its middle cell is ${p.colour}.`,
     g.say.valueKey(),
     `Your best window scores 1 primary point for each of its magic lines (8 is a perfect magic square).`,
@@ -483,7 +470,6 @@ const magicWindow = gridFamily<WindowP>({
   requires: { classes: ["Valued"] }, shape: tuple(2),
   params: () => ({ colour: colourParam("Colour of the middle cell") }),
   // "Any colour" let every window count (P10): the middle cell has to be a colour.
-  legacy: (p, g) => ("X" in p || p.colour === "any" ? { colour: legacyColour(g, "X" in p ? p.X : p.colour) } : null),
   support: g => g.colourNames.map(colour => ({ colour })),
   sample: (rng, g) => ({ colour: g.colourNames[rng.int(g.C)] }),
   canonical: (p, g) => recolourNames(g, p, ["colour"]),
@@ -573,7 +559,6 @@ const timesTable = gridFamily<TimesP>({
   requires: { classes: ["Valued"] }, shape: SCALAR,
   params: () => ({ colour: colourParam("Colour of the patch") }),
   // Other tables (3, 5, 6, primes) and "any colour" changed what can score, not just how (P10): the 4 times table in a colour is left.
-  legacy: (p, g) => ("X" in p || "table" in p || p.colour === "any" ? { colour: legacyColour(g, "X" in p ? p.X : p.colour) } : null),
   support: g => g.colourNames.map(colour => ({ colour })),
   sample: (rng, g) => ({ colour: g.colourNames[rng.int(g.C)] }),
   canonical: (p, g) => recolourNames(g, p, ["colour"]),
@@ -626,7 +611,6 @@ const oddsEvens = gridFamily<OddP>({
   requires: { classes: ["Valued"] }, shape: SCALAR,
   params: () => ({ colour: colourParam("Colour of the odd numbers") }),
   // "Any colour" let every chessboard count (P10): the odd numbers have to sit on a colour.
-  legacy: (p, g) => ("X" in p || p.colour === "any" ? { colour: legacyColour(g, "X" in p ? p.X : p.colour) } : null),
   support: g => g.colourNames.map(colour => ({ colour })),
   sample: (rng, g) => ({ colour: g.colourNames[rng.int(g.C)] }),
   canonical: (p, g) => recolourNames(g, p, ["colour"]),
@@ -686,7 +670,6 @@ const numberPainter = gridFamily<PaintP>({
   analytic: solvedAnalytic("number_painter"),
   requires: { classes: ["Valued", "Spectral"] }, shape: SCALAR,
   params: g => ({ first_number: intParam("Number of the first colour", g.vmin, g.vmax - g.C + 1) }),
-  legacy: p => (typeof p.o === "number" ? { first_number: p.o + 1 } : null),
   support: g => firstNumbers(g).map(first_number => ({ first_number })),
   canonical: (_, g) => ({ first_number: firstNumbers(g)[0] }),
   summary: (p, g) => paintText(p, g).about,
@@ -769,7 +752,7 @@ const seesawText = (p: SeesawP, g: GridSpec): CardText => ({
   emoji: "⚖️", name: "Seesaw", consts: [],
   about: sentences(
     `Try to make ${everyLine(p.scope)} balance like a seesaw.`,
-    `Its two sides are its left half and its right half (skipping the middle cell if there is one): add up the ${nums(g)} on each.`,
+    `Its two sides are its ${p.scope === "cols" ? "top half and its bottom half" : "left half and its right half"} (skipping the middle cell if there is one): add up the ${nums(g)} on each.`,
     g.say.valueKey(),
     `A seesaw balances when both sides match. Each balanced seesaw scores ${tierPoints(1, 0, 2)}.`,
     "Each seesaw deducts as many secondary points as the gap between its two sides.",
@@ -781,7 +764,6 @@ const seesaw = gridFamily<SeesawP>({
   requires: { classes: ["Valued"] }, shape: tuple(2),
   params: () => ({ scope: choiceParam("Lines that count", AXIS_OPTIONS) }),
   // Rows and columns together, and sides by colour, changed what can score, not just how (P10): left and right halves of rows or columns are left.
-  legacy: p => ("X" in p || "mode" in p || p.scope === "both" ? { scope: legacyAxis(p.scope) } : null),
   support: () => (["rows", "cols"] as const).map(scope => ({ scope })),
   canonical: () => ({ scope: "rows" }),
   summary: (p, g) => seesawText(p, g).about,
@@ -845,7 +827,6 @@ const steppingStones = gridFamily<HopP>({
   requires: { classes: ["Valued"] }, shape: SCALAR,
   params: () => ({}),
   // The hop size was a param; sizes joined different numbers of neighbours (P10), so only one is left.
-  legacy: p => (Object.keys(p).length ? {} : null),
   support: () => [{}],
   summary: (_, g) => hopText(g).about,
   python: (_, g) => pyCard(hopText(g), `
@@ -889,7 +870,6 @@ const columnAddition = gridFamily<SumP>({
   analytic: solvedAnalytic("column_addition"),
   requires: { classes: ["Numeral"] }, shape: tuple(2),
   params: g => ({ top_row: intParam("Row of the first number (0 is the top)", 0, g.N - 3) }),
-  legacy: p => (typeof p.top === "number" ? { top_row: p.top } : null),
   support: g => range(g.N - 2).map(top_row => ({ top_row })),
   canonical: () => ({ top_row: 0 }),
   summary: (p, g) => sumText(p, g).about,
@@ -941,7 +921,7 @@ const ladderText = (p: LadderP, g: GridSpec): CardText => ({
     `Try to make each row a bigger number than the row before it, going ${p.direction} the page.`,
     `Read each row as one big number in base ${g.base}.`,
     digitNote(g),
-    `Each row in your longest unbroken climb, the most rows in a row that each beat the row before, scores ${tierPoints(1, 0, 2)}.`,
+    `Find your longest unbroken climb of rows that each beat the row before. Each of those rows scores ${tierPoints(1, 0, 2)} (the row it starts from doesn't score).`,
     `Each row that beats the row before it scores ${tierPoints(1, 1, 2)}.`,
   ),
 });
@@ -949,7 +929,6 @@ const ladder = gridFamily<LadderP>({
   id: "ladder_of_numbers", name: "Ladder of Numbers", emoji: "🪜", theme: "Row numbers that keep getting bigger",
   requires: { classes: ["Numeral"] }, shape: tuple(2),
   params: () => ({ direction: choiceParam("Climbing", [["down", "down the page"], ["up", "up the page"]]) }),
-  legacy: p => ("dir" in p ? { direction: p.dir as LadderP["direction"] } : null),
   support: () => [{ direction: "down" }, { direction: "up" }],
   canonical: () => ({ direction: "down" }),
   summary: (p, g) => ladderText(p, g).about,
@@ -1054,7 +1033,6 @@ const youngTableau = gridFamily<CornerP>({
   params: () => ({
     corner: choiceParam("Corner the numbers rise toward", [["TL", "top-left"], ["TR", "top-right"], ["BL", "bottom-left"], ["BR", "bottom-right"]]),
   }),
-  legacy: p => ("K" in p ? { corner: p.K as CornerP["corner"] } : null),
   support: () => (["TL", "TR", "BL", "BR"] as const).map(corner => ({ corner })),
   canonical: () => ({ corner: "BR" }),
   summary: (p, g) => uphillText(p, g).about,

@@ -23,7 +23,7 @@ function castleText(p: CastleP, _g: GridSpec): CardText {
   const W = p.wall;
   return {
     emoji: "🏯", name: "Castle Keeper", consts: [["WALL", W]],
-    about: `Try to keep the water out with walls of ${W}. Water flows in from the edge and can't cross ${W} cells. A cell is shut in when the water can't reach it. `
+    about: `Try to keep the water out with walls of ${W}. Water flows in from the edge and can't cross ${W} cells. A cell that isn't ${W} is shut in when the water can't reach it. `
       + `Each shut-in cell scores 1 primary point. Each ${W} cell on the edge scores 1 secondary point.`,
   };
 }
@@ -31,8 +31,6 @@ const castleKeeper = gridFamily<CastleP>({
   id: "castle_keeper", name: "Castle Keeper", emoji: "🏯", theme: "Walls that keep the water out",
   requires: { minSize: 4 }, shape: tuple(2), tags: ["shortlist"],
   params: () => ({ wall: colourParam("Wall colour") }),
-  // LEGACY: `{ W, mode, T }` (indices, before typing) and `{ wall, mode, treasure }` (before the mode was fixed) read as the wall colour alone.
-  legacy: (p, g) => (typeof p.W === "number" || "mode" in p ? { wall: typeof p.W === "number" ? g.colourNames[p.W] : (p.wall as string) } : null),
   support: g => g.colourNames.map(wall => ({ wall })),
   sample: (rng, g) => ({ wall: g.colourNames[rng.int(g.C)] }),
   canonical: (p, g) => recolourNames(g, p, ["wall"]),
@@ -103,7 +101,6 @@ const chessmaster = gridFamily<ChessP>({
   id: "chessmaster", name: "Chessmaster", emoji: "♟️", theme: "Little chessboards in your two colours",
   shape: tuple(2), tags: ["shortlist"],
   params: () => ({ colour_a: colourParam("First colour"), colour_b: colourParam("Second colour (not the first)") }),
-  legacy: (p, g) => (typeof p.A === "number" && typeof p.B === "number" ? { colour_a: g.colourNames[p.A], colour_b: g.colourNames[p.B] } : null),
   support: g => colourPairs(g).map(([A, B]) => ({ colour_a: g.colourNames[A], colour_b: g.colourNames[B] })),
   canonical: (p, g) => recolourNames(g, p, ["colour_a", "colour_b"]),
   summary: p => chessText(p).about,
@@ -162,7 +159,6 @@ const bridgeBuilder = gridFamily<BridgeP>({
     colour: colourParam("Bridge colour"),
     direction: choiceParam("Bridge runs", [["LR", "from the left edge to the right edge"], ["TB", "from the top edge to the bottom edge"]]),
   }),
-  legacy: (p, g) => (typeof p.C === "number" ? { colour: g.colourNames[p.C], direction: p.D as BridgeP["direction"] } : null),
   support: g => product<BridgeP>({ colour: g.colourNames, direction: ["LR", "TB"] }),
   canonical: (_, g) => ({ colour: g.colourNames[0], direction: "LR" }),
   summary: (p, g) => bridgeText(p, g).about,
@@ -207,10 +203,14 @@ const bridgeBuilder = gridFamily<BridgeP>({
   },
 });
 
+/** How a quarter turn moves cells: in sets of 4, and on an odd-sized grid the middle cell stays put (it is in no set). */
+const quarterTurnSets = (g: GridSpec) => `cells swap places in sets of 4${g.N % 2 ? ", and the middle cell stays put" : ""}.`;
+
 // --- Card Windmill ---------------------------------------------------------------------------------
 const windmillText = (g: GridSpec): CardText => ({
   emoji: "🌀", name: "Card Windmill", consts: [],
-  about: "Try to make suits spin round a quarter turn. Turn the grid a quarter turn clockwise, so every card lands on another spot. "
+  about: `Try to make suits spin round a quarter turn. Turn the grid a quarter turn clockwise, so every card ${g.N % 2 ? "except the middle one " : ""}lands on another spot. `
+    + (g.N % 2 ? "The middle card never scores. " : "")
     + `A turn is good when the card there is the next suit. ${cap(g.say.distinctSuits(4))} go round in order: ♠ → ♥ → ♦ → ♣ → ♠. `
     + "A card whose four turns are all good scores 1 primary point. Each good turn scores 1 secondary point.",
 });
@@ -309,10 +309,6 @@ const royalCourt = gridFamily<CourtP>({
   id: "royal_court", name: "Royal Court", emoji: "👑", theme: "A palace of picture cards around the centre",
   requires: { classes: ["Faced"], parity: "odd" }, shape: tuple(2), tags: ["shortlist"],
   params: () => ({ suit: choiceParam("Suit of the court", suitOptions()) }),
-  // LEGACY: `{ suit: index | null }` (before typing) and `{ suit: "any" }` (before the option was removed) read as a named suit
-  // ("any" as the first suit).
-  legacy: p => (p.suit === null || p.suit === "any" || typeof p.suit === "number"
-    ? { suit: typeof p.suit === "number" ? SUIT_NAMES[p.suit] : SUIT_NAMES[0] } : null),
   support: () => SUIT_NAMES.map(suit => ({ suit })),
   sample: rng => ({ suit: SUIT_NAMES[rng.int(4)] }),
   canonical: () => ({ suit: SUIT_NAMES[0] }),
@@ -397,7 +393,6 @@ const archText = (p: IslandsP, g: GridSpec): CardText => ({
 const archipelago = gridFamily<IslandsP>({
   id: "archipelago", name: "Archipelago", emoji: "🗺️", theme: "As many separate islands as possible", shape: SCALAR,
   params: () => ({ colour: colourParam("Island colour") }),
-  legacy: (p, g) => (typeof p.C === "number" ? { colour: g.colourNames[p.C] } : null),
   support: g => g.colourNames.map(colour => ({ colour })),
   canonical: (p, g) => recolourNames(g, p, ["colour"]),
   summary: (p, g) => archText(p, g).about,
@@ -442,11 +437,6 @@ const glassText = (p: GlassP, g: GridSpec): CardText => ({
 const lookingGlass = gridFamily<GlassP>({
   id: "looking_glass", name: "Looking-Glass", emoji: "🔍", theme: "Every cell matches its mirror twin", shape: SCALAR,
   params: () => ({ axis: choiceParam("Fold the grid", [["V", "left onto right"], ["H", "top onto bottom"]]) }),
-  // LEGACY: `{ axis: V | H | D | A | half, layer }` read as a straight fold of the numbers (a diagonal or the half-turn as the nearest one).
-  legacy: p => {
-    if (!("layer" in p) && (p.axis === "V" || p.axis === "H")) return null;
-    return { axis: p.axis === "H" || p.axis === "A" ? "H" : "V" };
-  },
   support: () => [{ axis: "V" }, { axis: "H" }],
   canonical: () => ({ axis: "V" }),
   summary: (p, g) => glassText(p, g).about,
@@ -497,15 +487,13 @@ const pinKey = (g: GridSpec) => (g.cards ? "suit" : "symbol");
 const pinWord = (g: GridSpec) => (g.cards ? "suit" : "number");
 const pinText = (_p: PinP, g: GridSpec): CardText => ({
   emoji: "🎡", name: "Pinwheel", consts: [],
-  about: `Try to make a quarter turn leave the grid looking the same. Turn the grid a quarter turn: cells swap places in sets of 4, and the middle cell stays put. `
+  about: `Try to make a quarter turn leave the grid looking the same. Turn the grid a quarter turn: ${quarterTurnSets(g)} `
     + `A set of 4 that all share the same ${pinWord(g)} scores 1 primary point. `
     + `In each set, every cell of the commonest ${pinWord(g)} scores 1 secondary point.`,
 });
 const pinwheel = gridFamily<PinP>({
   id: "pinwheel", name: "Pinwheel", emoji: "🎡", theme: "Looks the same after a quarter turn", shape: tuple(2),
   params: () => ({}),
-  // LEGACY: `{ attr }` (before typing) and `{ layer }` (colour | symbol, before the layer was fixed) read as today's rule.
-  legacy: p => ("attr" in p || "layer" in p ? {} : null),
   support: () => [{}],
   summary: (p, g) => pinText(p, g).about,
   python: (p, g) => pyCard(pinText(p, g), `
@@ -628,7 +616,6 @@ const snakeText = (p: IslandsP, g: GridSpec): CardText => ({
 const snakeCharmer = gridFamily<IslandsP>({
   id: "snake_charmer", name: "Snake Charmer", emoji: "🐍", theme: "The longest wiggly snake", shape: SCALAR,
   params: () => ({ colour: colourParam("Snake colour") }),
-  legacy: (p, g) => (typeof p.C === "number" ? { colour: g.colourNames[p.C] } : null),
   support: g => g.colourNames.map(colour => ({ colour })),
   canonical: (p, g) => recolourNames(g, p, ["colour"]),
   summary: (p, g) => snakeText(p, g).about,
@@ -840,8 +827,6 @@ const tetrominoTamer = gridFamily<TetP>({
   id: "tetromino_tamer", name: "Tetromino Tamer", emoji: "🧱", theme: "Islands shaped like a Tetris square",
   shape: tuple(2),
   params: () => ({ colour: colourParam("Island colour") }),
-  // LEGACY: `{ C, P }` (indices, before typing) and `{ colour, piece }` (before the piece was fixed) read as the colour alone.
-  legacy: (p, g) => (typeof p.C === "number" || "piece" in p ? { colour: typeof p.C === "number" ? g.colourNames[p.C] : (p.colour as string) } : null),
   support: g => g.colourNames.map(colour => ({ colour })),
   sample: (rng, g) => ({ colour: g.colourNames[rng.int(g.C)] }),
   canonical: (p, g) => recolourNames(g, p, ["colour"]),
@@ -871,7 +856,6 @@ const rainbowBands = gridFamily<BandP>({
   id: "rainbow_bands", name: "Rainbow Bands", emoji: "🌈", theme: "Slanted rainbow stripes from your corner",
   requires: { classes: ["Spectral"] }, shape: tuple(2),
   params: () => ({ corner: choiceParam("Start from the", [["TL", "top-left corner"], ["TR", "top-right corner"], ["BL", "bottom-left corner"], ["BR", "bottom-right corner"]]) }),
-  legacy: p => (typeof p.K === "string" ? { corner: p.K as BandP["corner"] } : null),
   support: () => (["TL", "TR", "BL", "BR"] as const).map(corner => ({ corner })),
   canonical: () => ({ corner: "TL" }),
   summary: (p, g) => bandText(p, g).about,
@@ -921,7 +905,6 @@ const starText = (p: RankP, g: GridSpec): CardText => ({
 const constellation = gridFamily<RankP>({
   id: "constellation", name: "Constellation", emoji: "✨", theme: "The biggest star cluster of your symbol", shape: SCALAR,
   params: g => ({ star: choiceParam("Your stars", rankOptions(g)) }),
-  legacy: (p, g) => (typeof p.S === "number" ? { star: rankName(g, p.S) } : null),
   support: g => range(g.ranks).map(r => ({ star: rankName(g, r) })),
   canonical: (_, g) => ({ star: rankName(g, 0) }),
   summary: (p, g) => starText(p, g).about,
@@ -1110,7 +1093,6 @@ const carousel = gridFamily<TurnP>({
   id: "colour_carousel", name: "Colour Carousel", emoji: "🎠", theme: "The border goes round the colour wheel",
   requires: { classes: ["Wheel"], minSize: 4 }, shape: tuple(3),
   params: () => ({ direction: choiceParam("Walk round the edge", [["cw", "clockwise"], ["ccw", "anticlockwise"]]) }),
-  legacy: p => (typeof p.dir === "string" ? { direction: p.dir as TurnP["direction"] } : null),
   support: () => [{ direction: "cw" }, { direction: "ccw" }],
   canonical: () => ({ direction: "cw" }),
   summary: (p, g) => carouselText(p, g).about,
@@ -1178,7 +1160,6 @@ const gravity = gridFamily<ColourP>({
   id: "gravity", name: "Falling Sand", emoji: "⏳", theme: "Your colour sinks to the bottom", shape: SCALAR,
   analytic: solvedAnalytic("gravity"),
   params: () => ({ colour: colourParam("Sand colour") }),
-  legacy: (p, g) => (typeof p.X === "number" ? { colour: g.colourNames[p.X] } : null),
   support: g => g.colourNames.map(colour => ({ colour })),
   canonical: (p, g) => recolourNames(g, p, ["colour"]),
   summary: (p, g) => sandText(p, g).about,
@@ -1215,7 +1196,6 @@ const swissCheese = gridFamily<ColourP>({
   id: "swiss_cheese", name: "Swiss Cheese", emoji: "🧀", theme: "As many holes as possible",
   requires: { minSize: 4 }, shape: tuple(2),
   params: () => ({ colour: colourParam("Cheese colour") }),
-  legacy: (p, g) => (typeof p.X === "number" ? { colour: g.colourNames[p.X] } : null),
   support: g => g.colourNames.map(colour => ({ colour })),
   canonical: (p, g) => recolourNames(g, p, ["colour"]),
   summary: (p, g) => cheeseText(p, g).about,
@@ -1330,7 +1310,6 @@ const treasureMap = gridFamily<ColourP>({
   analytic: solvedAnalytic("treasure_map"),
   requires: { classes: ["Valued"] }, shape: SCALAR,
   params: () => ({ colour: colourParam("Treasure colour") }),
-  legacy: (p, g) => (typeof p.X === "number" ? { colour: g.colourNames[p.X] } : null),
   support: g => g.colourNames.map(colour => ({ colour })),
   canonical: (p, g) => recolourNames(g, p, ["colour"]),
   summary: (p, g) => mapText(p, g).about,
@@ -1416,9 +1395,9 @@ const mirrorQuilt = gridFamily<GlassP>({
 });
 
 // --- Colour Pinwheel (Pinwheel on colours) ---------------------------------------------------------
-const colourPinText = (_p: PinP, _g: GridSpec): CardText => ({
+const colourPinText = (_p: PinP, g: GridSpec): CardText => ({
   emoji: "🌀", name: "Colour Pinwheel", consts: [],
-  about: "Try to make a quarter turn leave the colours the same. Turn the grid a quarter turn: cells swap places in sets of 4, and the middle cell stays put. "
+  about: `Try to make a quarter turn leave the colours the same. Turn the grid a quarter turn: ${quarterTurnSets(g)} `
     + "A set of 4 that all share the same colour scores 1 primary point. "
     + "In each set, every cell of the commonest colour scores 1 secondary point.",
 });
@@ -1508,7 +1487,7 @@ const sPieceTamer = pieceTamer("S", "s_piece_tamer", "S-Piece Tamer", "Islands s
 
 // --- Treasure Castle and Castle Pockets (Castle Keeper's treasure and eyes modes) ---------------------
 const castleFlood = (W: string) =>
-  `Try to keep the water out with walls of ${W}. Water flows in from the edge and can't cross ${W} cells. A cell is shut in when the water can't reach it.`;
+  `Try to keep the water out with walls of ${W}. Water flows in from the edge and can't cross ${W} cells. A cell that isn't ${W} is shut in when the water can't reach it.`;
 const CASTLE_BASE_PY = `
     def not_wall(cell):
         return cell.colour != WALL

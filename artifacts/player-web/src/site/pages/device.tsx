@@ -72,6 +72,7 @@ export default function Device() {
             <label htmlFor="device-code" className="text-sm font-medium">The code your client printed</label>
             <input id="device-code" value={code} disabled={pending} onChange={e => { setCode(e.target.value.toUpperCase()); setReviewedCode(""); setOwnerConsent(false); setError(null); }} maxLength={32} placeholder="XXXX-XXXX"
               className="w-full border bg-card px-4 py-4 font-mono text-3xl tracking-[0.3em] text-center outline-none focus:border-primary" data-testid="input-device-code" />
+            {!d && <p className="text-xs text-muted-foreground">8 letters or digits, as your app or CLI shows them; the dash is optional.</p>}
             {!d && <button type="submit" disabled={!validCode(code) || pending || (reviewing && details.isLoading)} className="w-full bg-primary text-primary-foreground py-3 disabled:opacity-50" data-testid="button-review-device">{reviewing && details.isLoading ? "Loading request…" : "Continue"}</button>}
             {reviewing && details.data === null && (
               <p role="alert" className="text-sm text-destructive" data-testid="text-device-unknown">No request with this code is waiting for you. Check the code, ask the client for a fresh one, or join its room first: only room members can approve.</p>

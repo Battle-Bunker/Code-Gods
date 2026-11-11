@@ -142,6 +142,16 @@ export const TIME_LIMITS = Object.freeze({
   pauseSeconds: Object.freeze({ min: 1, max: 3600 }),
 });
 
+/**
+ * Upper bounds of the energy settings (lower bound 0). Far above any playable value; they keep every account and score
+ * finite: unbounded, 1e308 bits/s passed validation and every settlement then threw "Energy overflow".
+ */
+export const ENERGY_LIMITS = Object.freeze({
+  powerPerSecond: Object.freeze({ min: 0, max: 1_000_000 }),
+  startingEnergy: Object.freeze({ min: 0, max: 1_000_000_000 }),
+  penaltyWeight: Object.freeze({ min: 0, max: 1000 }),
+});
+
 /** The pre-authored choices of scoreIntervalSeconds (world seconds). */
 export const SCORE_INTERVALS: readonly number[] = Object.freeze([5, 10, 20, 30, 60]);
 export const DEFAULT_SCORE_INTERVAL_SECONDS = 10;
@@ -211,25 +221,7 @@ export function upgradeStoredSettings(settings: unknown): Record<string, unknown
     ...(!("durationMode" in s) ? { durationMode: "halfLife" } : {}),
     ...(!("peerNoiseBits" in s) ? { peerNoiseBits: DEFAULT_PEER_NOISE_BITS } : {}),
   };
-  const power = upgradeLegacyPower(s);
-  if (power) return { ...power, ...filled };
   return Object.keys(filled).length ? { ...s, ...filled } : languages;
-}
-
-/** Settings keys retired by the power budget (docs/energy-model.md §6). */
-export const RETIRED_POWER_SETTINGS = ["energyPerSecond", "agentEnergyPerSecond", "agentBatteryActs", "perActFloorBits"] as const;
-/**
- * Stored settings from before the power budget: powerPerSecond = energyPerSecond + 2 · agentEnergyPerSecond (the deity's
- * old income plus two agents at the old rate), the retired keys dropped. Null when there is nothing to convert.
- */
-export function upgradeLegacyPower(settings: Record<string, unknown>): Record<string, unknown> | null {
-  if (typeof settings.powerPerSecond === "number" && RETIRED_POWER_SETTINGS.every(k => !(k in settings))) return null;
-  if (typeof settings.powerPerSecond !== "number" && RETIRED_POWER_SETTINGS.every(k => !(k in settings))) return null;
-  const num = (k: string, d: number) => (typeof settings[k] === "number" ? settings[k] as number : d);
-  const out: Record<string, unknown> = { ...settings,
-    powerPerSecond: typeof settings.powerPerSecond === "number" ? settings.powerPerSecond : num("energyPerSecond", 1) + 2 * num("agentEnergyPerSecond", 2) };
-  for (const k of RETIRED_POWER_SETTINGS) delete out[k];
-  return out;
 }
 
 /**
@@ -329,6 +321,9 @@ export function validateSettings(settings: GameSettings, domain?: FamilyDomain):
   inRange("planningSeconds", settings.planningSeconds);
   inRange("halfLifeSeconds", settings.halfLifeSeconds);
   inRange("pauseSeconds", settings.pauseSeconds);
+  for (const key of ["powerPerSecond", "startingEnergy", "penaltyWeight"] as const) {
+    if (settings[key] > ENERGY_LIMITS[key].max) throw new Error(`${key} must be from 0 to ${ENERGY_LIMITS[key].max}`);
+  }
   if (settings.interactionRateHz > TIME_LIMITS.interactionRateHz.max) throw new Error("interactionRateHz must not exceed 1000 Hz");
   if (!Number.isInteger(settings.interactionComputeMs) ||
       settings.interactionComputeMs < 1 || settings.interactionComputeMs > 1000) {

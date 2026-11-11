@@ -41,6 +41,9 @@ export function replaySearch(current: string, p: ({ e: number; t?: undefined } |
 }
 
 /** The last four characters of an id: how agents and objects are named on screen. */
+/** A key with Ctrl, Cmd or Alt is the browser's (Alt+Left is Back), never the replay's (parts.tsx useReplayKeys). */
+export const replayKeyIgnored = (e: { ctrlKey: boolean; metaKey: boolean; altKey: boolean }) => e.ctrlKey || e.metaKey || e.altKey;
+
 export const shortId = (id: string) => id.slice(-4);
 
 const bits = (n: number) => (Math.abs(n) >= 100 ? n.toFixed(0) : n.toFixed(1));

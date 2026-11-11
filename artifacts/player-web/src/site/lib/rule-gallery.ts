@@ -72,8 +72,7 @@ const support = (familyId: string, inst: Instantiation) => family(familyId).supp
 export interface GalleryField {
   readonly key: string;
   readonly label: string;
-  /** "value" only for a family not yet typed (game-utilities UNTYPED_FAMILIES): its raw support values. */
-  readonly kind: ParamKind | "value";
+  readonly kind: ParamKind;
   readonly options: readonly (ParamOption & { readonly value: Scalar })[];
 }
 
@@ -81,15 +80,10 @@ export interface GalleryField {
 export function paramFields(familyId: string, inst: Instantiation): GalleryField[] {
   const f = family(familyId), ctx = context(inst), sup = support(familyId, inst);
   const used = (key: string) => new Set(sup.map(p => p[key]));
-  if (f.params) {
-    return f.params(ctx).map(field => {
-      const u = used(field.key);
-      return { key: field.key, label: field.label, kind: field.kind, options: field.options.filter(o => u.has(o.value as Scalar)) as GalleryField["options"] };
-    });
-  }
-  const keys: string[] = [];
-  for (const p of sup) for (const k of Object.keys(p)) if (!keys.includes(k)) keys.push(k);
-  return keys.map(key => ({ key, label: key, kind: "value" as const, options: [...used(key)].map(value => ({ value, label: String(value) })) }));
+  return f.params(ctx).map(field => {
+    const u = used(field.key);
+    return { key: field.key, label: field.label, kind: field.kind, options: field.options.filter(o => u.has(o.value as Scalar)) as GalleryField["options"] };
+  });
 }
 
 /** The support entry that agrees with `wanted` on the most keys (`must` keys first), the support's first on a tie. */

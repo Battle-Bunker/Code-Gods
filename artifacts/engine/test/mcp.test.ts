@@ -172,6 +172,11 @@ test("permissions: a read grant never lists or runs act or owner tools; revoked 
     const r = await call(reader.token, name, name === "send_chat" ? { text: "should never post" } : name === "save_setup" ? { name: "Never saved", settings: someSettings } : {});
     assert.ok(r.error || r.rpcError, `read grant ran ${name}: ${JSON.stringify(r)}`);
   }
+  // The refusal names the permission needed, so a model asks for the right grant instead of thinking the tool is gone.
+  assert.match((await call(reader.token, "send_chat", { text: "never" })).rpcError?.message ?? "", /send_chat needs the act permission; this connection has read/);
+  assert.match((await call(reader.token, "frobnicate", {})).rpcError?.message ?? "", /^Tool frobnicate not found$/);
+  // A token that is not a credential or a JWT is an invalid token (re-authenticate), not a missing one.
+  assert.match((await modern("garbage", "tools/list")).headers.get("www-authenticate") ?? "", /error="invalid_token"/);
   assert.ok(!(await setupEntries(host.c)).some((s: any) => s.name === "Never saved") && !(await setupEntries(ada.c)).some((s: any) => s.name === "Never saved"));
   const chat = await host.c.query(api.rooms.chatHistory, { roomId });
   assert.ok(!chat.some((m: any) => m.text === "should never post"));
@@ -276,6 +281,8 @@ test("commands: summon is idempotent per commandId, a changed payload is a CONFL
   assert.equal(done.data.receipt.accepted, true);
   // Required commandIds and simple commands.
   assert.ok((await call(actor.token, "pause_game", {})).rpcError || (await call(actor.token, "pause_game", {})).error, "pause needs a commandId");
+  const planningPause = await call(actor.token, "pause_game", { commandId: randomUUID() });
+  assert.match(planningPause.data?.receipt?.message ?? "", /only while the game is running \(it is planning\)/, JSON.stringify(planningPause));
   const chat = await call(actor.token, "send_chat", { text: "hello over MCP" });
   assert.equal(chat.data.receipt.accepted, true);
   assert.ok((await host.c.query(api.rooms.chatHistory, { roomId })).some((m: any) => m.text === "hello over MCP" && m.authorId === ada.subject));

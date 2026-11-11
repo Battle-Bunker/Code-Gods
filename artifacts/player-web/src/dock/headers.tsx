@@ -126,7 +126,7 @@ function PanelMenu({ pane }: { pane: Extract<Pane, { kind: "panel" }> }) {
   return (
     <Popover open={open} onOpenChange={next => { setOpen(next); if (!next) setQuery(""); }}>
       <PopoverTrigger data-testid="menu-panel" title="Change this panel" aria-haspopup="listbox" onPointerDown={e => e.stopPropagation()}
-        className="inline-flex max-w-[60%] min-w-0 shrink-0 items-center gap-1 px-1 font-serif text-sm font-semibold hover:bg-muted">
+        className="inline-flex min-h-6 max-w-[60%] min-w-0 shrink-0 items-center gap-1 px-1 font-serif text-sm font-semibold hover:bg-muted">
         <span className="truncate">{PANELS[pane.panelId].title}</span><ChevronDown size={13} className="shrink-0 text-muted-foreground" />
       </PopoverTrigger>
       <PopoverContent align="start" className="w-72 rounded-none p-0">

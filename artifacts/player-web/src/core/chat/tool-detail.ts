@@ -214,7 +214,7 @@ export function toolDetail(call: DetailCall): Section[] {
   const view = TOOL_DETAIL[call.tool];
   const body = view ? view(args, data, call) : [...input(args), ...output(data)];
   const pending = call.resultJson === null
-    ? [{ kind: "note" as const, tone: "info" as const, text: call.status === "awaiting_confirmation" ? "Waiting for your confirmation: nothing has run yet." : call.status === "denied" ? "You declined: it never ran." : "No result yet." }]
+    ? [{ kind: "note" as const, tone: "info" as const, text: call.status === "denied" ? "Not run: its turn ended first." : "No result yet." }]
     : [];
   return [...notes, ...(error ? [] : pending), ...body];
 }

@@ -22,14 +22,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { nextStep } from "@/site/lib/next-step";
 import { SetupPicker, setupTitle } from "@/site/components/setup-picker";
-import { errMsg, fmt, reload, transient } from "@/site/lib/errors";
+import { fmt, notFoundMsg, reload, transient } from "@/site/lib/errors";
 import { fmtWhen, isoWhen } from "@/site/lib/time";
 import { Bot, Copy, Crown, MoreHorizontal, User } from "lucide-react";
 import type { GameRecord } from "@/site/lib/types";
 import { canOpenGame, gamePath } from "@/site/lib/routes";
 
 function Players({ room, meId, isOwner, minPlayers }: { room: RoomState; meId?: string; isOwner: boolean; minPlayers: number }) {
-  const { act, manifest } = usePage();
+  const { act, manifest, run } = usePage();
   const runner = useRun();
   const [armed, setArmed] = useState<string | null>(null);
   useEffect(() => { if (!armed) return; const t = setTimeout(() => setArmed(null), 5000); return () => clearTimeout(t); }, [armed]);
@@ -76,10 +76,18 @@ function Players({ room, meId, isOwner, minPlayers }: { room: RoomState; meId?: 
           </li>
         ))}
         {Array.from({ length: open }, (_, i) => (
-          <li key={`open-${i}`} className="px-4 py-2.5 text-sm text-muted-foreground flex items-center gap-3"><span aria-hidden className="h-4 w-4 rounded-full border border-dashed" />waiting for a player…</li>
+          <li key={`open-${i}`} className="px-4 py-2.5 text-sm text-muted-foreground flex items-center gap-3"><span aria-hidden className="h-4 w-4 rounded-full border border-dashed" />
+            <span className="flex-1">Open seat</span>
+            {i === 0 && meId && room.members.some(m => m.id === meId) && (
+              <button type="button" className="text-xs underline underline-offset-4 hover:text-foreground" onClick={() => run("ui.copyInviteLink")} data-testid="button-open-seat-invite">Copy invite link</button>
+            )}
+          </li>
         ))}
       </ul>
       {isOwner && manifest?.aiFunding.configured === false && <p className="border-t px-4 py-2 text-xs text-muted-foreground">AI players are not set up on this server.</p>}
+      {isOwner && manifest?.aiFunding.configured !== false && !room.aiEnabled && !g && open > 0 && (
+        <p className="border-t px-4 py-2 text-xs text-muted-foreground" data-testid="text-ai-unavailable">AI players need a room an administrator owns: invite people to fill the seats.</p>
+      )}
     </Section>
   );
 }
@@ -246,7 +254,7 @@ export default function Room() {
         <div className="mx-auto max-w-[1200px] px-6 py-8 space-y-4"><Skeleton className="h-20 w-1/2" /><div className="grid lg:grid-cols-2 gap-4"><Skeleton className="h-72" /><Skeleton className="h-72" /></div></div>
       ) : !room ? (
         <div className="mx-auto max-w-lg px-4 py-20 space-y-4">
-          <ErrorLine message={q.error ? errMsg(q.error) : "Room not found. Check the code, or ask the owner for the link."} onRetry={transient(q.error) ? reload : undefined} />
+          <ErrorLine message={notFoundMsg(q.error, "Room not found. Check the code, or ask the owner for the link.")} onRetry={transient(q.error) ? reload : undefined} />
           <Link href="/" className="underline underline-offset-4" data-testid="link-back">Your rooms</Link>
         </div>
       ) : <RoomBody room={room} games={games} />}

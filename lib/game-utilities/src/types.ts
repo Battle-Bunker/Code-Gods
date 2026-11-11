@@ -52,16 +52,9 @@ export interface UtilityFamily<P extends Params = Params> {
   readonly tags: readonly string[];
   /**
    * The params by name and type, resolved against this instantiation (src/params.ts): every key of every support
-   * value, each value in its field's exact domain. Absent only for the families still listed in `UNTYPED_FAMILIES`.
+   * value, each value in its field's exact domain. Every family declares them (docs/rules-design.md §9).
    */
-  params?(ctx: FamilyContext): readonly ParamField[];
-  /**
-   * LEGACY (widen step of the typed-params migration, docs/rules-design.md §9): params stored before the family was
-   * typed (e.g. `{ X: 0 }`), rewritten to today's shape (`{ colour: "red" }`); today's params come back unchanged.
-   * Every method of the family accepts either shape through it. Removed (narrowed) once dev and production report
-   * migrations:typedParams* done.
-   */
-  upgrade?(params: Params, ctx: FamilyContext): P;
+  params(ctx: FamilyContext): readonly ParamField[];
   /** Finite parameter support in this instantiation; `sample` returns one of these. */
   support(ctx: FamilyContext): readonly P[];
   sample(rng: Rng, ctx: FamilyContext): P;
@@ -114,12 +107,12 @@ export interface UtilityCard {
   readonly shape: ScoreShape;
   readonly source: Readonly<Record<Language, string>>;
   readonly example?: CardExample;
-  /** The dealt params by name and type, with how each value reads ("Your colour: red"). Absent for untyped families. */
-  readonly params?: readonly CardParam[];
+  /** The dealt params by name and type, with how each value reads ("Your colour: red"). */
+  readonly params: readonly CardParam[];
   readonly penalty?: {
     readonly familyId: string; readonly emoji: string; readonly name: string; readonly summary: string;
     /** The defence goal's params by name and type (as `UtilityCard.params`). */
-    readonly params?: readonly CardParam[];
+    readonly params: readonly CardParam[];
     /** "redder", "blobbier": the ⚠️ line reads "⚠️ redder than 90% of grids". */
     readonly comparative: string;
     readonly shape: ScoreShape;

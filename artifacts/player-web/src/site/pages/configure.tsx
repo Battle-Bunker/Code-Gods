@@ -36,7 +36,7 @@ import { ErrorLine } from "@/site/components/page-parts";
 import { costLine } from "@/site/components/sheets";
 import { SettingsList, settingsSummary } from "@/site/components/game-panels";
 import { Skeleton } from "@/components/ui/skeleton";
-import { errCode, errMsg, fmt } from "@/site/lib/errors";
+import { errCode, errMsg, fmt, notFoundMsg } from "@/site/lib/errors";
 import {
   QUOTA_LIMITS, LABELS, SECTIONS, argChoices, choiceLabel, defenceBlocker, draftErrors, fieldsOf, formatValue, isHidden, lengthLine, limitError, paceWord,
   dealerNote, firstUseNote, same, settingsDomain, shelfEntries, stepChoices, toggleLanguage, type PlayableTypes, type Settings, type SettingsKey,
@@ -69,9 +69,9 @@ export default function Configure() {
       <div data-testid="page-configure">
         {!isAuthenticated ? null
         : q.isLoading || (setupId && sq.isLoading) ? <div className="mx-auto max-w-[1200px] px-4 md:px-6 py-8 space-y-4"><Skeleton className="h-12 w-1/2" /><Skeleton className="h-96" /></div>
-        : !room ? <div className="mx-auto max-w-lg px-4 py-20"><ErrorLine message={q.error ? errMsg(q.error) : "Room not found. Check the code, or ask the owner for the link."} /></div>
+        : !room ? <div className="mx-auto max-w-lg px-4 py-20"><ErrorLine message={notFoundMsg(q.error, "Room not found. Check the code, or ask the owner for the link.")} /></div>
         : !requested && room.setup?.deleted ? <DeletedSetup room={room} roomOwner={room.ownerId === user?.id} />
-        : !setupId || !sq.data ? <div className="mx-auto max-w-lg px-4 py-20 space-y-3"><ErrorLine message={sq.error ? errMsg(sq.error) : "This room runs no game setup yet."} />
+        : !setupId || !sq.data ? <div className="mx-auto max-w-lg px-4 py-20 space-y-3"><ErrorLine message={sq.error ? notFoundMsg(sq.error, "That setup does not exist or was deleted. Open the room's own setup from the room.") : "This room runs no game setup yet."} />
             <Link href={`/rooms/${room.shortCode}`} className="underline underline-offset-4">Back to room {room.shortCode}</Link></div>
         : <ConfigureForm key={sq.data.id} room={room} setup={sq.data} roomOwner={room.ownerId === user?.id} />}
       </div>
@@ -619,10 +619,11 @@ function PlayersAndAi({ room, editable, manifest, quotas, setQuotas, errors, ope
   errors: { aiQuota: string | null; assistantQuota: string | null }; openPalette: (init?: { page?: string }) => void;
 }) {
   const ais = room.members.filter(m => m.kind === "ai");
-  if (manifest?.aiFunding.configured === false) return <p className="text-sm text-muted-foreground">AI players and assistants are not set up on this server. {room.members.filter(m => !m.spectator).length} players are in the room (spectators don't count); a game needs {manifest.minimumPlayers}.</p>;
+  const playersIn = (r: typeof room) => { const n = r.members.filter(m => !m.spectator).length; return `${n} ${n === 1 ? "player is" : "players are"} in the room`; };
+  if (manifest?.aiFunding.configured === false) return <p className="text-sm text-muted-foreground">AI players and assistants are not set up on this server. {playersIn(room)} (spectators don't count); a game needs {manifest.minimumPlayers}.</p>;
   if (!room.aiEnabled) return (
     <p className="text-sm text-muted-foreground" data-testid="text-ai-admin-only">
-      AI players and assistants are only available in rooms run by an administrator for now. {room.members.filter(m => !m.spectator).length} players are in the room (spectators don't count); a game needs {manifest?.minimumPlayers ?? 3}.
+      AI players and assistants are only available in rooms run by an administrator for now. {playersIn(room)} (spectators don't count); a game needs {manifest?.minimumPlayers ?? 3}.
       {/* AI seats left from before: the game cannot start with them here, so say so and offer their removal. */}
       {ais.length > 0 && <> Seated AI players ({ais.map(a => a.name).join(", ")}) cannot play here: {editable
         ? <button type="button" className="underline underline-offset-4" onClick={() => openPalette({ page: "rooms.removeAi" })} data-testid="button-remove-legacy-ai">remove them</button>
