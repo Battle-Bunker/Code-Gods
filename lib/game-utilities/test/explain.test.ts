@@ -254,6 +254,40 @@ test("Mirrormancer: one unit per row, folded onto itself, pairs as ✓/✗ arcs"
   assert.equal(look("mirrormancer", { axis: "TB" }).point(0, 0)!.id, "line:column:0");
 });
 
+test("Strangers: one unit per touching pair, its facts name the shared divisor; the 1 rule and the 0 rule", () => {
+  const { e, unit, modes } = look("strangers", {});
+  // Rows: 2|5 ✓ 5|8 ✓ 8|1 (1) / 4|4 ✗ 4|4 ✗ 4|7 ✓ / 6|3 ✗ 3|9 ✗ 9|0 ✗ / 1|7 (1) 7|3 ✓ 3|5 ✓.
+  // Columns: 2-4 ✗ 4-6 ✗ 6-1 (1) / 5-4 ✓ 4-3 ✓ 3-7 ✓ / 8-4 ✗ 4-9 ✓ 9-3 ✗ / 1-7 (1) 7-0 ✗ 0-5 ✗.
+  // Strangers both bigger than 1: 2 + 1 + 2 + 3 + 1 = 9 primary points; a 1 beside a bigger number: 4 secondary points.
+  assert.deepEqual(e.ordinal, [9, 4]);
+  assert.equal(e.parts.length, 24, "2 × 4 × 3 touching pairs");
+  assert.deepEqual(unit("pair:1,2:down").facts, [{ text: "4 and 9 share nothing: strangers", ok: true }]);
+  assert.deepEqual(unit("pair:1,2:down").points, [1, 0]);
+  assert.deepEqual(unit("pair:2,0:right").facts, [{ text: "6 and 3 share 3", ok: false }]);
+  assert.equal(unit("pair:2,0:right").title, "not strangers");
+  assert.deepEqual(unit("pair:1,0:right").facts, [{ text: "4 and 4 share 4", ok: false }], "a number beside itself");
+  assert.deepEqual(unit("pair:3,0:right").facts, [{ text: "1 beside 7: a 1 beside a bigger number", ok: true, tier: 1 }]);
+  assert.deepEqual(unit("pair:3,0:right").points, [0, 1]);
+  assert.deepEqual(unit("pair:2,3:down").facts, [{ text: "0 beside 5: 5 divides both", ok: false }]);
+  assert.deepEqual(unit("pair:2,2:right").facts, [{ text: "9 beside 0: 9 divides both", ok: false }]);
+  assert.deepEqual(sortUnits(e.parts).slice(0, 13).map(u => u.points.join(",")), [...Array(9).fill("1,0"), ...Array(4).fill("0,1")]);
+  assert.equal(modes.length, 1, "one hover mode: the nearest shared edge");
+  const near = (x: number, y: number) => hitTest(e.parts, modes[0], { x, y })!.id;
+  assert.equal(near(2.5, 1.95), "pair:1,2:down", "near 4R's bottom edge: 4R over 9R");
+  assert.equal(near(0.95, 2.5), "pair:2,0:right", "near 6B's right edge: 6B beside 3G");
+  // The 1 rule's edge cases and the 0 rule, each in a board of 0s.
+  const ones = look("strangers", {}, "0R,0R,0R,0R/0R,1R,1R,0R/0R,0R,0R,0R/0R,0R,0R,0R");
+  assert.deepEqual(ones.e.ordinal, [0, 0]);
+  assert.deepEqual(ones.unit("pair:1,1:right").facts, [{ text: "1 beside 1: equal numbers never score", ok: false, tier: 1 }]);
+  assert.deepEqual(ones.unit("pair:1,1:down").facts, [{ text: "1 beside 0: a 0 never scores", ok: false }]);
+  assert.deepEqual(ones.unit("pair:0,0:right").facts, [{ text: "0 beside 0: a 0 never scores", ok: false }]);
+  const b12 = instantiate("Grid", { size: 4, symbols: "base12", colours: "rgb" });
+  const hex = explainer({ familyId: "strangers", params: {} }, b12)!.explain("AR,BR,0R,0R/5R,0R,0R,0R/0R,0R,0R,0R/0R,0R,0R,0R")!;
+  assert.ok(hex.verified);
+  assert.deepEqual(hex.parts.find(p => p.id === "pair:0,0:right")!.facts, [{ text: "A (10) and B (11) share nothing: strangers", ok: true }]);
+  assert.deepEqual(hex.parts.find(p => p.id === "pair:0,0:down")!.facts, [{ text: "A (10) and 5 share 5", ok: false }]);
+});
+
 test("goal examples: deterministic, in the room's own shape, verified, and they teach both sides", () => {
   for (const l of LENSES) {
     for (const p of paramsFor(l.familyId, FIRST_STEPS)) {
