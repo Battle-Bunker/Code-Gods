@@ -5,8 +5,11 @@
  *   act charge     = the bits the act read × READ_PRICE + its change when that commits          (agent pays, per act)
  * (docs/energy-model.md §2). expectedActCost, the estimate shown at validation and summon, is measured by RUNNING the
  * agent on the season's reference mixture plus up to 16 live objects; nothing is charged or scheduled from it.
+ * The estimate never includes the breaking surcharge of a room with settings.breakCost > 0 (docs/energy-model.md §2.2):
+ * that depends on what the gods' rules make of each object before and after, which a measurement on reference objects
+ * does not know. The diagnostics say so in such a room.
  */
-import { instantiationOf, type GameSettings, type Language, type ObjectValue } from "@workspace/game-core";
+import { breakCostOf, instantiationOf, type GameSettings, type Language, type ObjectValue } from "@workspace/game-core";
 import type { Inspection } from "@workspace/game-runtime";
 import {
   CHANGE_READ_RATIO, availableMutators, futilityWarnings, failedReadBits, measureAgent, readBound, parseAct, probeFutility, referenceMixture, withComponents, type FutilityProfile, type Instantiation,
@@ -125,6 +128,9 @@ export async function examineAgent(ctx: ActionCtx, settings: GameSettings, langu
     `Measured on ${d.n} reference objects${measured.randomized ? " (it uses random)" : ""}: changes ${(100 * d.changeRate).toFixed(0)}%, skips ${(100 * d.skipRate).toFixed(0)}%, invalid or failing ${(100 * d.invalidRate).toFixed(0)}%${d.errors.length ? ` (${d.errors.map(([e, n]) => `${e} ×${n}`).join(", ")})` : ""}; mutators ${d.mutators.join(", ") || "none"}.`,
   ];
   diagnostics.push(`Two passes over a sample world of ${probedCount} objects: ${(100 * futility.successRate).toFixed(0)}% of its acts succeed (first pass ${(100 * futility.firstPass).toFixed(0)}%, second ${(100 * futility.secondPass).toFixed(0)}%).`);
+  if (breakCostOf(settings) > 0) {
+    diagnostics.push(`This room charges extra for breaking (${breakCostOf(settings)} bits of work per bit destroyed): the estimate leaves that out, so an act that makes an object worth fewer bits to all the gods together costs more than this.`);
+  }
   if (sample.value !== undefined) {
     diagnostics.push(sample.error ? `On object 1 it fails: ${sample.error.slice(0, 300)}`
       : `On object 1 it returns ${sample.calls!.length > 300 ? `${sample.calls!.slice(0, 300)}…` : sample.calls}.`);

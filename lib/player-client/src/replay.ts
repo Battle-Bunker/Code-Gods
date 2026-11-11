@@ -20,7 +20,7 @@
  * Pure: no React, no Convex; browser-safe.
  */
 import { NO_FAILURES, diagnoseAgent, failureKind, type FailureKind } from "@workspace/engine/convex/lib/futility.ts";
-import { CHANGE_READ_RATIO, DEFAULT_SCORE_INTERVAL_SECONDS, MAX_AGENT_OPPORTUNITY_HZ, agentIncome, allowedLanguages, chargeAct, deityIncome, energyCapacity, fullChargeOf, settleDeityEnergy, instantiationOf, roundShare, settleAgentEnergy, type AgentAccount, type GameSettings } from "@workspace/game-core";
+import { CHANGE_READ_RATIO, DEFAULT_SCORE_INTERVAL_SECONDS, MAX_AGENT_OPPORTUNITY_HZ, agentIncome, allowedLanguages, breakCostOf, chargeAct, deityIncome, energyCapacity, fullChargeOf, settleDeityEnergy, instantiationOf, roundShare, settleAgentEnergy, type AgentAccount, type GameSettings } from "@workspace/game-core";
 
 /** The replay API version this reducer reads (player.replay's `version`). */
 export const REPLAY_VERSION = 2;
@@ -28,8 +28,12 @@ export const KEYFRAME_EVERY = 256;
 const MAX_KEYFRAMES = 256;
 
 type Wire = number | string;
-/** One act's charge in energy bits (docs/energy-model.md §2): what its reads cost plus its change when that committed. Recorded, never recomputed. */
-type Charge = { read: number; change: number; total: number };
+/**
+ * One act's charge in energy bits (docs/energy-model.md §2): what its reads cost plus its change when that committed.
+ * Recorded, never recomputed. In a room that charged for breaking (§2.2, log schema 10) a committed change also carries
+ * `broke`, the bits it destroyed, and `breaking`, the part of `change` paid for them.
+ */
+type Charge = { read: number; change: number; total: number; broke?: number; breaking?: number };
 /** An agent's estimated cost per act, split. */
 type Breakdown = { read: number; change: number };
 
@@ -467,6 +471,7 @@ export function replayObservation(replay: Replay, at: ReplayAt, state: ReplaySta
       changeReadRatio: (game.logSchema ?? 1) >= 8 ? CHANGE_READ_RATIO : 1,
       maxAgentsPerGod: settings.maxAgentsPerGod, penaltyWeight: settings.penaltyWeight, worldSeconds: state.world,
       commitClause: settings.commitClause, objectSelection: settings.objectSelection,
+      ...(breakCostOf(settings) > 0 ? { breakCost: breakCostOf(settings) } : {}),
     },
     self: {
       godId: god?.id ?? "", label: god?.name ?? "", isAI: god?.kind === "ai", energy: godEnergyAt(replay, state, at.pov), ...godPowerAt(replay, state, at.pov), ready: false,

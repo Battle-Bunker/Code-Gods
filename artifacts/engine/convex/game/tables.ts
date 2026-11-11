@@ -39,11 +39,13 @@ const agentBreakdown = v.object({ read: v.number(), change: v.number() });
 const breakdown = v.union(agentBreakdown, v.object({ decision: v.number(), erasure: v.number(), motion: v.number(), floor: v.number() }));
 /**
  * One act's charge in energy bits (docs/energy-model.md §2): what its reads cost plus its change when that committed
- * (schema 8 prices reads at READ_PRICE; schemas 5–7 at one bit per bit read). Event-log schema ≤ 4
+ * (schema 8 prices reads at READ_PRICE; schemas 5–7 at one bit per bit read). In a game that charges for breaking
+ * (settings.breakCost > 0, schema 10, docs/energy-model.md §2.2) a committed change also records `broke`, the bits it
+ * destroyed, and `breaking`, the part of `change` paid for them. Event-log schema ≤ 4
  * (history) carries the older split, which stays readable by schema.
  */
 const charge = v.union(
-  v.object({ read: v.number(), change: v.number(), total: v.number() }),
+  v.object({ read: v.number(), change: v.number(), total: v.number(), broke: v.optional(v.number()), breaking: v.optional(v.number()) }),
   v.object({ decision: v.number(), erasure: v.number(), motion: v.number(), floor: v.number(), total: v.number(), naming: v.number() }),
 );
 

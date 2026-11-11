@@ -41,8 +41,11 @@ export const EVENTS_PER_BATCH = 400;
  * priced at one energy bit per bit read, so cost.read there is also the bits read. Replay reads recorded costs either way.
  * 9 marks a failed act whose code raised or ran out of time (`error: true` on a fail event), so a replay tells a runtime
  * error from an invalid call, as the live failure breakdown (agents.failures) does.
+ * 10 is "breaking costs extra" (docs/energy-model.md §2.2): in a game whose settings.breakCost > 0, a transform's cost
+ * also carries `broke` (the bits it destroyed) and `breaking` (the part of cost.change paid for them). Other games' costs
+ * are unchanged.
  */
-export const EVENT_LOG_SCHEMA = 9;
+export const EVENT_LOG_SCHEMA = 10;
 
 export type Clock = {
   phase: "planning" | "running" | "paused" | "recovery" | "ended";
@@ -115,6 +118,16 @@ export function viewOfNet(net: readonly number[], index: number, noise = 0) {
 export function commitRaises(before: readonly { god: string; netBits: number }[], after: readonly { god: string; netBits: number }[],
   ownerId: string, beforeNoise: number, afterNoise: number): boolean {
   return viewOf(after, ownerId, afterNoise).payoff - viewOf(before, ownerId, beforeNoise).payoff > 0;
+}
+
+/**
+ * "Breaking costs extra" (docs/energy-model.md §2.2): the bits a change destroys, D = max(0, salience before − salience
+ * after), where salience is the sum of every god's net bits on the object AS DISCLOSED LIVE (each value's disclosure
+ * noise added). These are the two numbers the acting agent's owner is shown for its own transformation (own bits plus the
+ * others' noisy sum, before and after), the same ones commitRaises compares: the charge reveals nothing more.
+ */
+export function bitsDestroyed(before: readonly { netBits: number }[], after: readonly { netBits: number }[], beforeNoise: number, afterNoise: number): number {
+  return Math.max(0, (salienceOf(before) + beforeNoise) - (salienceOf(after) + afterNoise));
 }
 
 /**

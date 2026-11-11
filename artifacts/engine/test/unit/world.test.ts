@@ -88,6 +88,20 @@ test("the live disclosure adds an object version's noise to the peers' sum; care
   assert.deepEqual(disclosedTotalsOf(["a", "b", "c"], [{ scores }]), totalsOf(["a", "b", "c"], [{ scores }]), "without noise: the exact totals");
 });
 
+test("breaking costs extra: the bits destroyed are the drop of every god's summed net bits as disclosed, never negative", async () => {
+  const { bitsDestroyed } = await import("../../convex/lib/world.ts");
+  // Before: 2 + 3 − 1 = 4 bits to all the gods together. After: 1 + 0 − 1 = 0. Exact drop: 4 bits.
+  const before = [{ god: "a", netBits: 2 }, { god: "b", netBits: 3 }, { god: "c", netBits: -1 }];
+  const after = [{ god: "a", netBits: 1 }, { god: "b", netBits: 0 }, { god: "c", netBits: -1 }];
+  assert.equal(bitsDestroyed(before, after, 0, 0), 4);
+  // As disclosed: before 4 − 1.5 = 2.5, after 0 + 1 = 1 → 1.5 bits. The owner is shown both numbers (own bits plus the
+  // others' noisy sum), so the charge reveals nothing more.
+  assert.equal(bitsDestroyed(before, after, -1.5, 1), 1.5);
+  // A rise is no destruction, exact or by the noise alone.
+  assert.equal(bitsDestroyed(after, before, 0, 0), 0);
+  assert.equal(bitsDestroyed(before, after, -5, 0), 0, "disclosed: before −1, after 0");
+});
+
 test("the commit clause decides on the payoffs the owner sees: own bits exact, the others' sum with each value's disclosure noise", async () => {
   const { commitRaises } = await import("../../convex/lib/world.ts");
   // Owner a; others b and c. Before: a 2, others 1 + 1 = 2 → exact payoff 4. After: a 3, others 1 + 0 = 1 → exact 3.

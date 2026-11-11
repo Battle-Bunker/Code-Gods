@@ -6,7 +6,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { SPEEDS, worldAtFraction, describeEvent, endedGameReplay, parseReplayParams, replayKeyIgnored, replaySearch, shortId } from "../src/core/replay/model.ts";
+import { SPEEDS, worldAtFraction, breakingNote, describeEvent, endedGameReplay, parseReplayParams, replayKeyIgnored, replaySearch, shortId } from "../src/core/replay/model.ts";
 
 test("deep-link parameters: an exact event wins over a world time; junk is ignored; speeds are the offered ones", () => {
   assert.deepEqual(parseReplayParams("?t=12.5&speed=4&play=1&as=god-b"), { t: 12.5, speed: 4, play: true, as: "god-b" });
@@ -30,6 +30,14 @@ test("event sentences name the god behind every move and what changed", () => {
     account: { balance: 0, settledWorldSeconds: 0 } }, names), "Ada summoned agent 1234 (python, 30.3 bits)");
   assert.equal(describeEvent({ type: "object.transformed", objectId: "obj9999", before: 1, value: 2, version: 3, worldSeconds: 1, agentId: "bbbb5678", ownerId: "g2",
     calls: [["add", { k: 1 }]], cost: charge, net: [1, 2] }, names), "Bo's agent 5678 changed object 9999: add(k=1)");
+  // A room that charges for breaking records how much of the change was for the bits it destroyed: the sentence says so.
+  assert.equal(describeEvent({ type: "object.transformed", objectId: "obj9999", before: 1, value: 2, version: 3, worldSeconds: 1, agentId: "bbbb5678", ownerId: "g2",
+    calls: [["add", { k: 1 }]], cost: { read: 0.5, change: 22.95, total: 23.45, broke: 3, breaking: 6.64 }, net: [1, 2] }, names),
+    "Bo's agent 5678 changed object 9999: add(k=1) (paid 23.4 bits, 6.6 of them for breaking 3.0 bits)");
+  assert.equal(breakingNote({ read: 0.5, change: 16.31, total: 16.81, broke: 0, breaking: 0 }), "", "nothing destroyed: nothing to say");
+  assert.equal(breakingNote({ read: 0.5, change: 16.31, total: 16.81 }), "", "a room without the rule");
+  assert.equal(breakingNote(16.81), "", "a bare total (the observation's own transformations)");
+  assert.equal(breakingNote({ read: 0, change: 250, total: 250, broke: 12.25, breaking: 120 }), "120 of them for breaking 12.3 bits");
   assert.equal(describeEvent({ type: "agent.failed", objectId: "obj9999", agentId: "bbbb5678", ownerId: "g2", worldSeconds: 1, reason: "another object already has this value", cost: charge }, names),
     "Bo's agent 5678 failed on object 9999: another object already has this value");
   assert.equal(describeEvent({ type: "agent.skipped", objectId: "obj9999", agentId: "bbbb5678", ownerId: "g2", worldSeconds: 1, cost: { read: 1.5, change: 0, total: 1.5 } }, names),

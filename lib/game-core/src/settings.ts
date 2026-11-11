@@ -95,6 +95,13 @@ export interface GameSettings {
    * A game stored before the setting existed has none (no capacity): read it through game-core `energyCapacity`.
    */
   fullChargeSeconds: number;
+  /**
+   * "Breaking costs extra" (docs/energy-model.md §2.2): work bits added to a committed change per bit it destroys, where
+   * the bits destroyed are how far the object's worth to all the gods together (the sum of every god's net bits, as
+   * disclosed live) fell. The change then pays changeCost(W + breakCost × bits destroyed). 0 is off (no surcharge), the
+   * default everywhere. A game stored before the setting existed has none, which is also off: read it with breakCostOf.
+   */
+  breakCost: number;
   maxAgentsPerGod: number;
   /** w in n = s⁺ − w(h − E_μh): the weight of a defence-goal bit against a reward bit. */
   penaltyWeight: number;
@@ -157,6 +164,7 @@ export const ENERGY_LIMITS = Object.freeze({
   powerPerSecond: Object.freeze({ min: 0, max: 1_000_000 }),
   startingEnergy: Object.freeze({ min: 0, max: 1_000_000_000 }),
   penaltyWeight: Object.freeze({ min: 0, max: 1000 }),
+  breakCost: Object.freeze({ min: 0, max: 100 }),
 });
 
 /** The pre-authored choices of scoreIntervalSeconds (world seconds). */
@@ -167,6 +175,11 @@ export const DEFAULT_SCORE_INTERVAL_SECONDS = 10;
  * ever afford (retained power × this) makes code size matter, by the sweep in lib/game-core/scripts/balance-settings.ts.
  */
 export const DEFAULT_FULL_CHARGE_SECONDS = 30;
+/** The suggested choices of breakCost (work bits per bit destroyed; 0 is off) and the default: off. */
+export const BREAK_COST_OPTIONS: readonly number[] = Object.freeze([0, 1, 2, 4]);
+export const DEFAULT_BREAK_COST = 0;
+/** The room's price of breaking (settings.breakCost): 0 when off, or when the game predates the setting. */
+export const breakCostOf = (settings: { breakCost?: number }): number => settings.breakCost ?? 0;
 /** The pre-authored choices of peerNoiseBits (σ in bits) and the default, chosen from the inference experiment. */
 export const PEER_NOISE_OPTIONS: readonly number[] = Object.freeze([0, 2, 4, 8, 16]);
 export const DEFAULT_PEER_NOISE_BITS = 8;
@@ -190,6 +203,7 @@ export const DEFAULT_SETTINGS: Readonly<GameSettings> = Object.freeze({
   startingEnergy: 200,
   powerPerSecond: 8,
   fullChargeSeconds: DEFAULT_FULL_CHARGE_SECONDS,
+  breakCost: DEFAULT_BREAK_COST,
   maxAgentsPerGod: MAX_AGENTS_PER_GOD,
   penaltyWeight: 1,
   defenceGoals: false,
@@ -220,10 +234,11 @@ export function allowedLanguages(settings: Pick<GameSettings, "languages"> | { l
  * Stored settings in today's shape, or null when they already are (idempotent): the single-language shape converted
  * (see upgradeLegacyLanguage), the removed Haskell language dropped from `languages` (TypeScript when none is left:
  * 2026-11), and fields added since filled with their defaults (scoreIntervalSeconds, peerNoiseBits, durationMode,
- * fullChargeSeconds: 2026-11).
+ * fullChargeSeconds, breakCost: 2026-11).
  * Use it wherever stored settings (rooms, setups, games) are read. With `played` (the settings of a game already
  * started, live or ended) the economy is history and is left as it was charged: `fullChargeSeconds` is not filled, so a
- * game started before the setting existed keeps having no capacity (game-core energyCapacity), live and in its replay.
+ * game started before the setting existed keeps having no capacity (game-core energyCapacity), live and in its replay;
+ * nor is `breakCost` (absent means off: breakCostOf).
  */
 export function upgradeStoredSettings(settings: unknown, played = false): Record<string, unknown> | null {
   const languages = upgradeLegacyLanguage(settings);
@@ -236,6 +251,7 @@ export function upgradeStoredSettings(settings: unknown, played = false): Record
     ...(!("durationMode" in s) ? { durationMode: "halfLife" } : {}),
     ...(!("peerNoiseBits" in s) ? { peerNoiseBits: DEFAULT_PEER_NOISE_BITS } : {}),
     ...(!played && !("fullChargeSeconds" in s) ? { fullChargeSeconds: DEFAULT_FULL_CHARGE_SECONDS } : {}),
+    ...(!played && !("breakCost" in s) ? { breakCost: DEFAULT_BREAK_COST } : {}),
   };
   return Object.keys(filled).length ? { ...s, ...filled } : languages;
 }
@@ -342,6 +358,11 @@ export function validateSettings(settings: GameSettings, domain?: FamilyDomain):
   if (settings.fullChargeSeconds !== undefined) {
     if (typeof settings.fullChargeSeconds !== "number" || !Number.isFinite(settings.fullChargeSeconds)) throw new Error("fullChargeSeconds must be a number of seconds");
     inRange("fullChargeSeconds", settings.fullChargeSeconds);
+  }
+  // Absent only in the settings of a game started before the setting existed (off: breakCostOf), like fullChargeSeconds.
+  if (settings.breakCost !== undefined) {
+    const { min, max } = ENERGY_LIMITS.breakCost;
+    if (typeof settings.breakCost !== "number" || !(settings.breakCost >= min && settings.breakCost <= max)) throw new Error(`breakCost must be a number from ${min} to ${max}`);
   }
   for (const key of ["powerPerSecond", "startingEnergy", "penaltyWeight"] as const) {
     if (settings[key] > ENERGY_LIMITS[key].max) throw new Error(`${key} must be from 0 to ${ENERGY_LIMITS[key].max}`);
@@ -710,6 +731,11 @@ export const SETTINGS_DOCS = {
     question: "How long does an empty energy store take to fill?", section: "energy", tier: "ask", control: "number", unit: "s", suggested: [10, 30, 60, 120, 300],
     meaning: "Every agent, and each player's own energy, stores at most this many seconds of its power, and income past a full store is lost.",
     consequence: "Shortening it stops energy piling up, so players must spend or re-allocate it, and big agents and big changes need more power kept for them.",
+  },
+  breakCost: {
+    question: "Does breaking an object cost extra?", section: "energy", tier: "more", control: "segmented", suggested: BREAK_COST_OPTIONS,
+    meaning: "When a change makes an object worth fewer bits to all the players together, it is charged as if it were this many bits bigger for every bit destroyed; zero turns it off.",
+    consequence: "Raising it makes wrecking what others have built expensive while building stays cheap, so agreements last longer and attacks need more energy.",
   },
   startingObjectCount: {
     question: "How many objects does the world start with?", section: "population", tier: "ask", control: "number", suggested: [10, 40, 80, 160],

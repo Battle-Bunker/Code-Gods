@@ -374,6 +374,31 @@ test("My agents' energy series: each agent's energy at every scoreboard interval
   assert.deepEqual(series[1].map(r => [r.world, r.agents[0].energy]), [[10, 20], [20, 40], [30, 60]], "each god's own agents");
 });
 
+test("a room that charged for breaking: the replay shows the setting and each change's recorded breaking cost, never re-priced", () => {
+  // The log records the charge: 16 for the change, of which 6 for the 3 bits it destroyed (o1 was worth 3 + 2 = 5 bits
+  // to both gods together, then −1 + 3 = 2).
+  const broke = { read: 0.5, change: 16, total: 16.5, broke: 3, breaking: 6 };
+  const events: ReplayEvent[] = [
+    { type: "phase", phase: "running", worldSeconds: 0 },
+    { type: "object.spawned", objectId: "o1", value: 1, version: 0, worldSeconds: 0, net: [3, 2] },
+    summon("a1", "me", 30, 0.5),
+    { type: "object.transformed", objectId: "o1", value: 2, before: 1, version: 1, worldSeconds: 10, agentId: "a1", ownerId: "me", calls: [["add", { k: 1 }]], cost: broke, net: [-1, 3] },
+  ];
+  const at = { room: { roomId: "r", roomShortCode: "R" }, cursor: 4, pov: 0 };
+  const replay = buildReplay([page([{ seq: 0, at: T0, worldFrom: 0, worldTo: 10, events }], { game: { ...page([]).game, settings: { ...settings, penaltyWeight: 0, maxAgentsPerGod: 4, breakCost: 2 } as unknown as GameSettings } })]);
+  const obs = replayObservation(replay, at);
+  assert.equal(obs.economy!.breakCost, 2);
+  assert.equal(observationSchema.shape.economy.parse(obs.economy)!.breakCost, 2, "the protocol carries it");
+  // a1 earns 2/s for 10 s and pays the recorded total, 16.5: 3.5 left.
+  assert.equal(obs.agents[0].energy, 3.5);
+  assert.deepEqual((replayEvents(replay, at, 20).events.at(-1) as { cost: unknown }).cost, broke, "the recorded split, breaking included");
+  // A room without the rule (or a game from before it): no such setting in the economy.
+  for (const s of [settings, { ...settings, breakCost: 0 }]) {
+    const plain = buildReplay([page([{ seq: 0, at: T0, worldFrom: 0, worldTo: 10, events }], { game: { ...page([]).game, settings: s as unknown as GameSettings } })]);
+    assert.equal("breakCost" in replayObservation(plain, at).economy!, false);
+  }
+});
+
 test("a game with fullChargeSeconds replays its accounts within their capacity; one without it has none", () => {
   // P = 4 bits/s, T = 20 s. Hand-derived: nothing allocated holds 80, half 40, three quarters 60.
   const events: ReplayEvent[] = [

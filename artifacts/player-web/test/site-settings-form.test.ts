@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { DEFAULT_SETTINGS, applySettingsChange, seedSetupSettings } from "@workspace/game-core";
 import { objectType } from "@workspace/game-types";
 import {
-  SECTIONS, argChoices, choiceLabel, formatValue, toggleLanguage, dealerNote, formatSeconds, defenceBlocker, draftErrors, fieldError, fieldsOf, firstUseNote, isHidden, lengthLine, paceWord,
+  LABELS, SECTIONS, argChoices, choiceLabel, formatValue, toggleLanguage, dealerNote, formatSeconds, defenceBlocker, draftErrors, fieldError, fieldsOf, firstUseNote, isHidden, lengthLine, paceWord,
   settingsDomain, shelfEntries, stepChoices,
 } from "../src/site/lib/settings-form.ts";
 import { editBlocker, freeName, ownerLabel } from "../src/site/lib/setup-words.ts";
@@ -50,6 +50,16 @@ test("limits mirror validateSettings and the engine's resource limits, with the 
   assert.ok(fieldsOf("energy").includes("fullChargeSeconds"));
   assert.equal(fieldError("fullChargeSeconds", 0), "Must be between 1 and 1,000,000 seconds.");
   assert.equal(fieldError("fullChargeSeconds", 30), null);
+  // Breaking costs extra: in the energy section, off (0) to 100 work bits per bit destroyed, fractions allowed.
+  assert.ok(fieldsOf("energy").includes("breakCost"));
+  assert.equal(fieldError("breakCost", -1), "Must be between 0 and 100 bits per bit destroyed.");
+  assert.equal(fieldError("breakCost", 101), "Must be between 0 and 100 bits per bit destroyed.");
+  assert.equal(fieldError("breakCost", 0), null);
+  assert.equal(fieldError("breakCost", 1.5), null);
+  assert.deepEqual(stepChoices("breakCost", 0).map(v => choiceLabel("breakCost", v)), ["Off", "1 bit per bit", "2 bits per bit", "4 bits per bit"]);
+  assert.equal(formatValue("breakCost", 0), "Off");
+  assert.equal(formatValue("breakCost", 2), "2 bits per bit destroyed");
+  assert.equal(LABELS.breakCost, "Breaking costs extra");
   assert.ok(!fieldsOf("energy").some(k => ["energyPerSecond", "agentEnergyPerSecond", "agentBatteryActs", "perActFloorBits"].includes(k)), "the old income, battery and floor settings are gone");
   assert.equal(fieldError("planningSeconds", NaN), "Enter a number.");
   const grid = seedSetupSettings("grid-classic");

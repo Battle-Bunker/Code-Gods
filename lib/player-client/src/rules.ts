@@ -18,6 +18,15 @@ const capacityText = (s: Settings): string => typeof s.fullChargeSeconds === "nu
   ? `, until it is full: an agent holds at most ${n(s, "fullChargeSeconds")} seconds of its income (a 25% share: ${(0.25 * Number(s.powerPerSecond ?? 8) * s.fullChargeSeconds).toFixed(0)} bits), and your own energy at most ${n(s, "fullChargeSeconds")} seconds of your unallocated power. Energy fills up in ${n(s, "fullChargeSeconds")} seconds and then stops: use it or re-allocate it. Taking power from an agent lowers what it can hold, and what it holds above that is lost.`
   : ".";
 
+/**
+ * "Breaking costs extra", for a room whose settings.breakCost > 0 (docs/energy-model.md §2.2); "" otherwise, so a room
+ * without the rule reads as it always did.
+ */
+const breakingText = (s: Settings): string => typeof s.breakCost === "number" && s.breakCost > 0
+  ? `\nBreaking costs extra in this room: when your change makes an object worth fewer bits to all the gods together, you pay for every bit you destroyed.
+The bits destroyed are how far the object's total fell (your own bits plus the other gods' summed bits, as you are shown them, before and after); the change then costs W' + 0.05·W'² with W' = W + ${s.breakCost} × the bits destroyed. A change that keeps or raises the total pays the usual price, and an act that changes nothing pays only its reads.`
+  : "";
+
 /** Every setting with its value and the same meaning and consequence the configuration page shows (lib/game-core SETTINGS_DOCS). */
 export function settingsExplained(s: Settings): string {
   return Object.entries(SETTINGS_DOCS as Record<string, FieldDoc>).map(([key, doc]) => {
@@ -51,7 +60,7 @@ An act pays only what it does: what it reads, plus its change when it changes th
 Looking is ${CHANGE_READ_RATIO}× cheaper than changing: each bit of the object an act reads costs 1/${CHANGE_READ_RATIO} bit of energy (${lookText(s)}computing is free).
 So look before you change, return no calls when nothing is worth doing (a skip: it pays only what it read), and save energy to act more often.
 A change costs W + 0.05·W², where W adds up its elementary steps (one cell's colour or symbol; one digit added, or a multiplication by a prime):
-painting a 4-cell row costs about 7.5× one cell. Small incremental acts are much cheaper than radical ones.
+painting a 4-cell row costs about 7.5× one cell. Small incremental acts are much cheaper than radical ones.${breakingText(s)}
 You may destroy your own agents at any time, for free (their power share comes back to you).
 At most ${n(s, "maxAgentsPerGod", 200)} agents per god.
 

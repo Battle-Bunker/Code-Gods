@@ -169,7 +169,7 @@ export const READ_TOOLS = [
 
 export const ACT_TOOLS = [
   def({ name: "validate_agent", short: "Check an agent's source without summoning it (free): compiles, summon price, estimated cost per act.", title: "Validate an agent", functions: ["commands.submit"], permission: "act", annotations: read,
-    about: "Measure an agent without summoning it (free): whether it compiles, its summon price (paid once), the estimated cost per act split into reading and changing (an act pays its reads, at 1/economy.changeReadRatio energy bit per bit read, plus, when it changes the object, its change; a skip pays only its reads), and the share of skips, with sample moves. Takes a few seconds. Always validate before summoning.",
+    about: "Measure an agent without summoning it (free): whether it compiles, its summon price (paid once), the estimated cost per act split into reading and changing (an act pays its reads, at 1/economy.changeReadRatio energy bit per bit read, plus, when it changes the object, its change; a skip pays only its reads; where economy.breakCost is present, the estimate leaves out the extra a change pays for the bits it destroys), and the share of skips, with sample moves. Takes a few seconds. Always validate before summoning.",
     input: obj({ source, language: language.optional().describe("The agent's language: one the game allows (get_observation languages). Default: the game's first allowed language."), commandId: optionalCommandId, gameId, waitMs }),
     output: result(receiptData) }),
   def({ name: "summon_agent", short: "Summon an agent into the game, paying its cost from the player's energy.", title: "Summon an agent", functions: ["commands.submit"], permission: "act", annotations: acts,

@@ -44,7 +44,7 @@ export const LABELS: Readonly<Record<SettingsKey, string>> = {
   spawnFunctionId: "New objects", planningSeconds: "Planning", durationMode: "Game end", halfLifeSeconds: "Game length",
   startingObjectCount: "Starting objects", spawnRateHz: "New objects per second", interactionRateHz: "World speed", interactionComputeMs: "CPU limit per act",
   stepBudget: "Steps per act", pauseSeconds: "Pause length", startingEnergy: "Starting energy",
-  powerPerSecond: "Power per player", fullChargeSeconds: "Energy fills in", maxAgentsPerGod: "Agents per player",
+  powerPerSecond: "Power per player", fullChargeSeconds: "Energy fills in", breakCost: "Breaking costs extra", maxAgentsPerGod: "Agents per player",
   penaltyWeight: "Defence weight", defenceGoals: "Defence goals", excludedFamilies: "Rules never dealt", excludedDefenceFamilies: "Defence goals never dealt",
   priorId: "Rarity reference",
   commitClause: "Conditional moves", objectSelection: "Act targeting", scoreIntervalSeconds: "Score updates", peerNoiseBits: "Blur on others' interest",
@@ -65,6 +65,7 @@ export const LIMITS: Readonly<Partial<Record<SettingsKey, Limit>>> = {
   startingEnergy: { ...ENERGY_LIMITS.startingEnergy, unit: "bits" },
   powerPerSecond: { ...ENERGY_LIMITS.powerPerSecond, unit: "bits per second" },
   fullChargeSeconds: { ...TIME_LIMITS.fullChargeSeconds, unit: "seconds" },
+  breakCost: { ...ENERGY_LIMITS.breakCost, unit: "bits per bit destroyed" },
   maxAgentsPerGod: { min: 1, max: 200, int: true, unit: "agents" },
   penaltyWeight: { ...ENERGY_LIMITS.penaltyWeight, unit: "" },
 };
@@ -246,6 +247,7 @@ export function formatValue(key: SettingsKey, v: unknown): string {
   if (key === "excludedDefenceFamilies" && Array.isArray(v)) return v.length ? `${v.length} defence goal${v.length === 1 ? "" : "s"}` : "none";
   if (key === "commitClause") return v ? "offered" : "off";
   if (key === "defenceGoals") return v ? "every player" : "off";
+  if (key === "breakCost" && typeof v === "number") return v === 0 ? "Off" : `${n(v)} bit${v === 1 ? "" : "s"} per bit destroyed`;
   if (key === "languages" && Array.isArray(v)) return v.map(l => choiceLabel(key, l)).join(", ") || "none";
   if ((key === "utilitySelectorId" || key === "objectSelection" || key === "durationMode") && typeof v === "string") return choiceLabel(key, v);
   const unit = (SETTINGS_DOCS[key] as FieldDoc).unit;
@@ -270,6 +272,7 @@ export function choiceLabel(key: SettingsKey, v: number | string | boolean): str
   if (named) return named;
   if ((key === "planningSeconds" || key === "pauseSeconds") && typeof v === "number") return duration(v);
   if (key === "scoreIntervalSeconds" && typeof v === "number") return `every ${duration(v)}`;
+  if (key === "breakCost" && typeof v === "number") return v === 0 ? "Off" : `${n(v)} bit${v === 1 ? "" : "s"} per bit`;
   if (key === "peerNoiseBits" && typeof v === "number") return v === 0 ? "Exact" : `±${n(v)} bits`;
   if (key === "penaltyWeight" && typeof v === "number") return v === 0.5 ? "½" : `${n(v)}`;
   return typeof v === "number" ? n(v) : v;

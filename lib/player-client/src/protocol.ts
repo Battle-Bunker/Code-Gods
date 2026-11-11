@@ -121,12 +121,15 @@ export const observationSchema = z.object({
    * maxAgentOpportunityHz times per world second per agent; an act pays the bits it read divided by changeReadRatio,
    * plus its change when it changes the object (docs/energy-model.md §2). changeReadRatio (κ, absent on replays of
    * older games) is how many bits an agent may read for the price of one bit of change: looking is κ× cheaper.
+   * breakCost (b, present only in a room that charges for breaking; docs/energy-model.md §2.2): a change that makes the
+   * object worth fewer bits to all the gods together (your own bits plus the others' sum, as you are shown them) pays
+   * W' + 0.05·W'² with W' = W + b × the bits destroyed, instead of W + 0.05·W².
    */
   economy: z.object({ powerPerSecond: finite, startingEnergy: finite, fullChargeSeconds: finite.optional(), maxAgentOpportunityHz: finite.optional(), changeReadRatio: finite.optional(),
     maxAgentsPerGod: z.number().int().nonnegative(), penaltyWeight: finite, worldSeconds: finite,
     /** How the game ends and its length in world seconds (the exact length when "fixed", else the half-life): the game timer. */
     durationMode: z.enum(["fixed", "halfLife"]).optional(), lengthSeconds: finite.optional(),
-    commitClause: z.boolean().optional(), objectSelection: z.enum(["uniform", "shelter"]).optional() }).optional(),
+    commitClause: z.boolean().optional(), objectSelection: z.enum(["uniform", "shelter"]).optional(), breakCost: finite.optional() }).optional(),
   self: z.object({ godId: id, label: z.string().max(128), isAI: z.boolean(), energy: finite, ready: z.boolean(), pauseUsed: z.boolean().optional(),
     // Power: the share (0–1) of economy.powerPerSecond given to your agents, and your own income (bits per world second) from the rest.
     // capacity: the most your own energy can hold, income x economy.fullChargeSeconds (absent: no capacity).

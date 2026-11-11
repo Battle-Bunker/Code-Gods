@@ -6,11 +6,14 @@
 import { useMemo } from "react";
 import { TransformationView } from "@workspace/object-views";
 import { Table, fmtBits, useEvents, useMutators, useObjectContext, useTransformations, type GameEvent } from "@/sdk";
+import { breakingNote } from "@/core/replay/model";
 import { ObjectRef, PanelEmpty, Section, type PanelProps } from "./kit";
 
 type Change = {
   key: string; objectId: string; agentId?: string; before: unknown; after: unknown; mine: boolean;
   dMine?: number; dOthers?: number; calls?: readonly (readonly [string, unknown])[]; cost?: number; world?: number;
+  /** Your own change in a room that charges for breaking, when it destroyed bits: "6.6 of them for breaking 3.0 bits". */
+  breaking?: string;
 };
 type Transformed = Extract<GameEvent, { type: "object.transformed" }>;
 const costOf = (cost: unknown) => (typeof cost === "number" ? cost : typeof cost === "object" && cost ? (cost as { total?: number }).total : undefined);
@@ -39,7 +42,7 @@ export default function Feed({ params }: PanelProps<"feed">) {
       out.push({
         key: `${e.seq ?? ""}-${t.objectId}-${t.version}`, objectId: t.objectId, agentId: t.agentId, before: t.before, after: t.value, mine: t.mine, world: t.worldSeconds,
         ...(scored && before ? { dMine: scored.mine - before.mine, dOthers: scored.others - before.others } : {}),
-        ...(t.mine && t.calls ? { calls: t.calls as Change["calls"], cost: costOf(t.cost) } : {}),
+        ...(t.mine && t.calls ? { calls: t.calls as Change["calls"], cost: costOf(t.cost), ...(breakingNote(t.cost) ? { breaking: breakingNote(t.cost) } : {}) } : {}),
       });
     }
     return out.reverse();
@@ -79,7 +82,7 @@ export default function Feed({ params }: PanelProps<"feed">) {
       <TransformationView before={c.before as never} after={c.after as never} {...ctx} />
       {c.dMine !== undefined && <span className={c.dMine > 0 ? "text-[hsl(var(--accent))]" : c.dMine < 0 ? "text-destructive" : "text-muted-foreground"}>Δ yours {c.dMine >= 0 ? "+" : ""}{fmtBits(c.dMine)}</span>}
       {c.dOthers !== undefined && <span className="text-muted-foreground">Δ others {c.dOthers >= 0 ? "+" : ""}{fmtBits(c.dOthers)}</span>}
-      {c.calls && <span className="basis-full text-muted-foreground sm:basis-auto">{c.calls.map(call => call[0]).join("; ")}{c.cost !== undefined ? ` · ${fmtBits(c.cost)} bits` : ""}</span>}
+      {c.calls && <span className="basis-full text-muted-foreground sm:basis-auto">{c.calls.map(call => call[0]).join("; ")}{c.cost !== undefined ? ` · ${fmtBits(c.cost)} bits` : ""}{c.breaking ? ` (${c.breaking})` : ""}</span>}
     </li>
   );
   if (params.groupBy === "object") {

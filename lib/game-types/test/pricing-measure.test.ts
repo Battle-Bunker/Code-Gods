@@ -166,6 +166,33 @@ test("actCharge has no fixed part: reads at READ_PRICE, plus the change only whe
   assert.equal(actCharge(null, -3).total, 0);
 });
 
+test("breaking costs extra: a committed change pays changeCost(W + breakCost × bits destroyed), and nothing else changes", () => {
+  // A symbol write on a 4×4 mono board: W = 4 + 2·log2(10) = 10.644 bits, so it pays W + 0.05·W² = 16.31.
+  const W = 4 + 2 * Math.log2(10);
+  const ok = { ok: true as const, value: "v", cost: { work: W, total: W + 0.05 * W * W }, calls: [] };
+  close(actCharge(ok, 0).change, 16.3085, 1e-3, "today's charge");
+  assert.equal("broke" in actCharge(ok, 0), false, "a room without the rule records no breaking fields");
+  // breakCost 1, 3 bits destroyed: W' = 13.644 → 13.644 + 0.05·13.644² = 22.952; the extra is the difference.
+  const three = actCharge(ok, 0, { breaking: { bits: 3, cost: 1 } });
+  close(three.change, 22.9518, 1e-3, "W' = W + 3");
+  close(three.breaking!, 22.9518 - 16.3085, 1e-3, "the extra energy");
+  assert.equal(three.broke, 3);
+  assert.equal(three.total, three.read + three.change);
+  // breakCost 2: each destroyed bit counts twice. W' = 16.644 → 30.495.
+  close(actCharge(ok, 0, { breaking: { bits: 3, cost: 2 } }).change, 30.4953, 1e-3, "W' = W + 2·3");
+  // A change that raises (or keeps) the object's worth destroys nothing and pays today's charge.
+  const raised = actCharge(ok, 2.5, { breaking: { bits: 0, cost: 4 } });
+  assert.deepEqual(raised, { read: 0.078125, change: ok.cost.total, total: 0.078125 + ok.cost.total, broke: 0, breaking: 0 });
+  assert.equal(actCharge(ok, 0, { breaking: { bits: -5, cost: 4 } }).change, ok.cost.total, "a negative drop is no drop");
+  // A change that does not commit (a collision, the commit clause, an invalid act, a skip) pays its reads only.
+  assert.deepEqual(actCharge(ok, 2.5, { commits: false, breaking: { bits: 3, cost: 1 } }), { read: 0.078125, change: 0, total: 0.078125 });
+  const bad = { ok: false as const, reason: "no change", cost: { work: 0, total: 0 } };
+  assert.deepEqual(actCharge(bad, 32, { breaking: { bits: 3, cost: 1 } }), { read: 1, change: 0, total: 1 });
+  assert.deepEqual(actCharge(null, 32, { breaking: { bits: 3, cost: 1 } }), { read: 1, change: 0, total: 1 });
+  // breakCost 0 is off: the same charge as without the option, and no fields.
+  assert.deepEqual(actCharge(ok, 0, { breaking: { bits: 3, cost: 0 } }), actCharge(ok, 0));
+});
+
 test("the read price: κ = 32 bits read for one bit changed; κ = 1 is the old charge R + C", () => {
   assert.equal(CHANGE_READ_RATIO, 32);
   assert.equal(READ_PRICE, 1 / 32);

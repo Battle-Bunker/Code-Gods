@@ -17,7 +17,7 @@
  * so the outcome is the sequential one.
  */
 import { v } from "convex/values";
-import { chargeAct, instantiationOf, isLanguage, pickByEnergy, poissonIntervalSeconds, type GameSettings, type ObjectValue } from "@workspace/game-core";
+import { breakCostOf, chargeAct, instantiationOf, isLanguage, pickByEnergy, poissonIntervalSeconds, type GameSettings, type ObjectValue } from "@workspace/game-core";
 import { actCharge, applyCalls, deriveSeed, failedReadBits, isSkip, objectType, readBound, type ActOutcome, type MutatorCallWire } from "@workspace/game-types";
 import type { UtilityDescriptor } from "@workspace/game-utilities";
 import type { Id } from "../_generated/dataModel";
@@ -31,7 +31,7 @@ import { disclosureNoise, openUniform, scoresOf, seasonSalt, uniform01, uniqueSp
 import { act, bindRuntime, ensureSandboxes, isAgentFault, runtimeVersion, WORKERS } from "./runtime";
 import { effectiveSandbox, planningEnd } from "../lib/sandboxes";
 import { FutileMemo, failureKind, futileAfter, pickPair, type ActKind } from "../lib/futility";
-import { MAX_OBJECTS, MIN_TICK_MS, TICK_SECONDS, planSpawns, agentStatus, pickObject, salienceOf, secondsUntilEligible, settledAccount, commitRaises, disclosedTotalsOf, scoreIntervalOf, scoreboardDue, totalsOf } from "../lib/world";
+import { MAX_OBJECTS, MIN_TICK_MS, TICK_SECONDS, planSpawns, agentStatus, pickObject, salienceOf, secondsUntilEligible, settledAccount, bitsDestroyed, commitRaises, disclosedTotalsOf, scoreIntervalOf, scoreboardDue, totalsOf } from "../lib/world";
 import { godTotalsOf } from "../lib/views";
 
 type Score = Doc<"objects">["scores"][number];
@@ -141,6 +141,7 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
     const agents = snap.agents.filter(a => isLanguage(a.language) && !unready.has(a.language)).map(a => ({ ...a, failures: { ...a.failures }, lastFailures: { ...a.lastFailures }, fromActs: a.acts, touched: false }));
     const salt = seasonSalt();
     const readCap = readBound(instantiationOf(settings));
+    const breakCost = breakCostOf(settings);   // 0: off, and for a game started before the setting existed
 
     // Opportunities: rate × Δt, stochastically rounded; spread evenly over the window.
     const expected = settings.interactionRateHz * windowLength;
@@ -175,7 +176,14 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
         }
       }
       const duplicate = outcome.ok && occupied.has(outcome.value); // includes the object's own value
-      const cost = actCharge(outcome, result.readBits, { commits: !duplicate });
+      // Breaking costs extra (settings.breakCost > 0, docs/energy-model.md §2.2): a change that commits is also charged
+      // for the bits it destroys, measured on the disclosed sums (the object's stored noise before, the new value's after).
+      let breaking: { bits: number; cost: number } | undefined;
+      if (breakCost > 0 && outcome.ok && !duplicate) {
+        next ??= scoresOf(tables, settings, deals, outcome.value);
+        breaking = { bits: bitsDestroyed(object.scores, next, object.noise ?? 0, disclosureNoise(settings, game.noiseKey, outcome.value)), cost: breakCost };
+      }
+      const cost = actCharge(outcome, result.readBits, { commits: !duplicate, ...(breaking ? { breaking } : {}) });
       agent.account = chargeAct(settledAccount(settings, agent, p.world), cost.total);
       agent.acts++; agent.spent += cost.total; agent.spentRead += cost.read; agent.touched = true; acts++;
       const kind: ActKind = "error" in result ? "error" : !outcome.ok ? failureKind(outcome.reason) : duplicate ? "collision" : "transform";

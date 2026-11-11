@@ -19,7 +19,7 @@
  * deriveSeed(salt, ["measure", inst.key, i, 0]), and reports the expected charge per act and its read/change split, for
  * the UI and the assistant. Nothing is charged or scheduled from the estimate.
  */
-import { applyCalls, READ_PRICE } from "../mutators.ts";
+import { applyCalls, changeCost, READ_PRICE } from "../mutators.ts";
 import { objectType } from "../registry.ts";
 import type { ActOutcome, Instantiation, ObjectTypeDef, ObjectValue } from "../types.ts";
 import type { ReferenceMixture } from "./mixture.ts";
@@ -198,8 +198,24 @@ export async function measureAgent(runActs: RunActs, inst: Instantiation, mixtur
 export interface ActCharge {
   /** Energy paid for reading (bits read × READ_PRICE), not the bits read. */
   readonly read: number;
+  /** Energy paid for the committed change, the breaking surcharge (`breaking`) included. */
   readonly change: number;
   readonly total: number;
+  /**
+   * Only in a room that charges for breaking (settings.breakCost > 0), on a committed change: the bits the change
+   * destroyed (how far the object's disclosed worth to all the gods together fell; 0 when it did not fall).
+   */
+  readonly broke?: number;
+  /** With `broke`: the part of `change` paid for breaking, changeCost(W + breakCost·broke) − changeCost(W). */
+  readonly breaking?: number;
+}
+
+/** "Breaking costs extra" (docs/energy-model.md §2.2): the bits a committed change destroyed, and the room's price per bit. */
+export interface Breaking {
+  /** D: the drop of the object's disclosed salience, in bits (a rise counts as 0). */
+  readonly bits: number;
+  /** settings.breakCost: work bits added per bit destroyed. 0 is off. */
+  readonly cost: number;
 }
 
 /**
@@ -207,10 +223,16 @@ export interface ActCharge {
  * `readBits` is the bits of information read (the meter, failedReadBits or readBound): never an already priced charge.
  * `outcome` is applyCalls' result, or null for an act that produced no outcome (skipped, or the agent raised); `commits`
  * is false when the engine refuses an ok outcome (a collision, the commit clause). `readPrice` is for analysis only
- * (κ = 1 reproduces the old R + C); the engine never passes it.
+ * (κ = 1 reproduces the old R + C); the engine never passes it. With `breaking` (a room whose breakCost > 0) a committed
+ * change's work is W' = W + breakCost·D and it pays changeCost(W') (§2.2); the charge then says how much of it was for
+ * breaking. An act that does not commit pays its reads only, as ever.
  */
-export function actCharge(outcome: ActOutcome | null, readBits: number, opts: { commits?: boolean; readPrice?: number } = {}): ActCharge {
+export function actCharge(outcome: ActOutcome | null, readBits: number, opts: { commits?: boolean; readPrice?: number; breaking?: Breaking } = {}): ActCharge {
   const read = readCharge(readBits, opts.readPrice);
-  const change = outcome?.ok && (opts.commits ?? true) ? outcome.cost.total : 0;
-  return { read, change, total: read + change };
+  if (!outcome?.ok || !(opts.commits ?? true)) return { read, change: 0, total: read };
+  const plain = outcome.cost.total;
+  if (!opts.breaking || !(opts.breaking.cost > 0)) return { read, change: plain, total: read + plain };
+  const broke = Math.max(0, opts.breaking.bits);
+  const change = broke > 0 ? changeCost(outcome.cost.work + opts.breaking.cost * broke) : plain;
+  return { read, change, total: read + change, broke, breaking: change - plain };
 }

@@ -14,6 +14,17 @@ test("rules text explains every documented setting with its value, meaning and c
   assert.ok(text.includes(`- halfLifeSeconds = ${DEFAULT_SETTINGS.halfLifeSeconds} s:`), "units follow the value");
 });
 
+test("breaking costs extra is explained with the act cost only in a room that charges for it", () => {
+  const off = rulesText(DEFAULT_SETTINGS as unknown as Record<string, unknown>);
+  assert.equal(/Breaking costs extra/.test(off), false, "off by default: the act cost reads as before");
+  assert.ok(off.includes("- breakCost = 0:"), "the setting itself is still listed");
+  const on = rulesText({ ...DEFAULT_SETTINGS, breakCost: 2 } as unknown as Record<string, unknown>);
+  assert.ok(on.includes("Breaking costs extra in this room: when your change makes an object worth fewer bits to all the gods together, you pay for every bit you destroyed."), on);
+  assert.ok(on.includes("W + 2 × the bits destroyed"), "the formula with this room's value");
+  const old = rulesText((({ breakCost: _, ...rest }) => rest)(DEFAULT_SETTINGS) as unknown as Record<string, unknown>);
+  assert.equal(/Breaking costs extra/.test(old), false, "a game from before the setting: off");
+});
+
 test("the rules name every allowed language and each one's agent shape; an old single language still reads", () => {
   const both = rulesText({ ...DEFAULT_SETTINGS, languages: ["typescript", "python"] } as unknown as Record<string, unknown>);
   assert.match(both, /one of this game's languages \(TypeScript, Python\), chosen per agent/);

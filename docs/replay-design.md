@@ -51,7 +51,7 @@ mutation that changes it:
 | Settings, instance, roster (with AI seats), start time, planning deadline, setup | `game/lobby.ts commitStart` (frozen for the game: settings and seats cannot change while a game is live) | the game document's fixed header | present |
 | Initial objects | `commitStart` | batch 0: `phase planning` + one `spawn` per object at world 0 | present |
 | Spawns (values, with their random draws resolved) | `engine/tick.ts` | `spawn {objectId, value, version, world, net[]}` | present |
-| Transformations | `engine/tick.ts` | `transform {objectId, before, value, version, world, agentId, ownerId, calls, cost, net[]}` (`cost` is `{read, change, total}` from schema 5; schemas ≤ 4 have `{decision, erasure, motion, floor, total, naming}`) | present |
+| Transformations | `engine/tick.ts` | `transform {objectId, before, value, version, world, agentId, ownerId, calls, cost, net[]}` (`cost` is `{read, change, total}` from schema 5, plus `broke` and `breaking` in a game that charges for breaking, schema 10; schemas ≤ 4 have `{decision, erasure, motion, floor, total, naming}`) | present |
 | Failed acts (charged, object unchanged) | `engine/tick.ts` | `fail {objectId, world, agentId, ownerId, reason, cost}` | present |
 | Skipped acts (returned no calls; charged their reads) | `engine/tick.ts` | `skip {objectId, world, agentId, ownerId, cost}` (schema 5) | present |
 | Agent summons: source, language, price, act cost, energy account, owner | `game/commands.ts` summon | **`summon {agentId, ownerId, world, language, source, summonCost, expectedActCost, breakdown {read, change}, randomized, account}` (schema ≤ 4: also `decisionBits`, `perActFloorBits`, and a four-part `breakdown`)** | **missing** (the agent row was the only record, deleted on destroy) |
@@ -105,6 +105,8 @@ agent (owner, source, acts, spending, energy account; destroyed ones as destroye
 exact total, and the phase. The reducer's own rules are unit-tested in `lib/player-client/test/replay.test.ts`.
 
 **Schema 5 (the energy model, docs/energy-model.md).** An act's `cost` is `{read, change, total}`: the bits it read and the change it committed (0 for a failed act or a skip). A new event `skip` (projected as `agent.skipped`) records an act that returned no calls, which is neither a transform nor a failure. A `summon` has `expectedActCost` and `breakdown {read, change}` only (the estimate; nothing is charged from it). Older schemas keep their shape: the reducer reads their costs through `total` only, and an agent account in a schema ≤ 4 log is replayed without the battery cap it then had, so a replay of such a game shows the uncapped balance.
+
+**Schema 10 (breaking costs extra, docs/energy-model.md §2.2).** In a game whose `settings.breakCost` > 0, a `transform`'s `cost` also carries `broke` (the bits of disclosed salience the change destroyed) and `breaking` (the part of `cost.change` paid for them). The reducer still charges `cost.total`; the two fields are shown, never recomputed. Games without the rule write the same costs as schema 9.
 
 **Seeds (schema 3).** Each transform and fail event carries the act's seed, `deriveSeed(salt, ["play", gameId,
 agentId, actIndex])` as a decimal string. It is an HMAC of the season salt, so revealing it reveals nothing about the

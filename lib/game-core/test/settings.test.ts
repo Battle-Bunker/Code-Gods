@@ -283,6 +283,24 @@ test("fullChargeSeconds: a default, validated bounds, and stored room/setup sett
   assert.equal(upgradeStoredSettings({ ...old, fullChargeSeconds: 120 }), null, "a chosen value is kept");
 });
 
+test("breakCost: off (0) by default and in every seed setup, validated bounds, and stored room/setup settings without it get 0", () => {
+  assert.equal(DEFAULT_SETTINGS.breakCost, 0);
+  for (const seed of SEED_SETUPS) assert.equal(seed.settings.breakCost, 0, seed.seedId);
+  for (const bad of [-1, -0.01, NaN, Infinity, 100.5, "2", null]) {
+    assert.throws(() => validateSettings({ ...DEFAULT_SETTINGS, breakCost: bad as number }), /breakCost/, String(bad));
+  }
+  for (const good of [0, 0.5, 1, 2, 4, 100]) assert.doesNotThrow(() => validateSettings({ ...DEFAULT_SETTINGS, breakCost: good }), String(good));
+  const { breakCost: _, ...old } = DEFAULT_SETTINGS;
+  assert.equal(upgradeStoredSettings(old)?.breakCost, 0);
+  assert.equal(upgradeStoredSettings({ ...old, breakCost: 2 }), null, "a chosen value is kept");
+});
+
+test("a game started before breakCost existed is left without it (absent means off) and still validates", () => {
+  const { breakCost: _, ...old } = DEFAULT_SETTINGS;
+  assert.equal(upgradeStoredSettings(old, true), null);
+  assert.doesNotThrow(() => validateSettings(old as GameSettings));
+});
+
 test("upgradeStoredSettings leaves a started game's economy alone: no capacity is added to a game that had none", () => {
   const { fullChargeSeconds: _, ...old } = DEFAULT_SETTINGS;
   assert.equal(upgradeStoredSettings(old, true), null);

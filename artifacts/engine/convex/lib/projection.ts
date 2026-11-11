@@ -7,7 +7,7 @@
  */
 import { agentDisplayName } from "./agentName";
 import { gameNotice } from "./engineErrors";
-import { MAX_AGENT_OPPORTUNITY_HZ, allowedLanguages, deityIncome, roundShare, instantiationOf, leaderboard, rankTotals, type GameSettings } from "@workspace/game-core";
+import { MAX_AGENT_OPPORTUNITY_HZ, allowedLanguages, breakCostOf, deityIncome, roundShare, instantiationOf, leaderboard, rankTotals, type GameSettings } from "@workspace/game-core";
 import { CHANGE_READ_RATIO, COMMIT_CLAUSE_HELPER, instanceInfo, type InstanceInfo } from "@workspace/game-types";
 import { VERSION, observationSchema, type Observation } from "@workspace/player-client";
 import type { Doc } from "../_generated/dataModel";
@@ -167,8 +167,10 @@ export function costBreakdown(b: { read: number; change: number } | { decision: 
  * erasure and motion as the change; its decision and floor were a fixed price, not reading, so `read` is 0 and the total
  * is more than the parts.
  */
-export function actCost(c: { read: number; change: number; total: number } | { decision: number; erasure: number; motion: number; floor: number; total: number }) {
-  return "read" in c ? { read: c.read, change: c.change, total: c.total } : { read: 0, change: c.erasure + c.motion, total: c.total };
+export function actCost(c: { read: number; change: number; total: number; broke?: number; breaking?: number } | { decision: number; erasure: number; motion: number; floor: number; total: number }) {
+  if (!("read" in c)) return { read: 0, change: c.erasure + c.motion, total: c.total };
+  // `broke`, `breaking`: only in a game that charges for breaking (docs/energy-model.md §2.2), on a committed change.
+  return { read: c.read, change: c.change, total: c.total, ...(c.broke !== undefined ? { broke: c.broke } : {}), ...(c.breaking !== undefined ? { breaking: c.breaking } : {}) };
 }
 
 /** An account's capacity for the wire (docs/energy-model.md §6.1); absent when the game has none (JSON has no Infinity). */
@@ -369,6 +371,7 @@ export function observation(input: ObservationInput): Observation {
       penaltyWeight: settings.penaltyWeight, worldSeconds: game ? worldNow(game, now) : 0,
       durationMode: settings.durationMode, lengthSeconds: settings.halfLifeSeconds,
       commitClause: settings.commitClause, objectSelection: settings.objectSelection,
+      ...(breakCostOf(settings) > 0 ? { breakCost: breakCostOf(settings) } : {}),
     },
     self: {
       godId: self.godId, label: self.name, isAI: self.kind === "ai", ready: self.ready,

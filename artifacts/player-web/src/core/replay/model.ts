@@ -52,6 +52,15 @@ const callText = (calls: unknown) => (Array.isArray(calls) ? calls : []).map(c =
   return `${name}(${Object.entries(args ?? {}).map(([k, v]) => `${k}=${typeof v === "string" ? v : JSON.stringify(v)}`).join(", ")})`;
 }).join(" · ");
 
+/**
+ * "6.6 of them for breaking 3.0 bits" for a charge recorded in a room that charges for breaking (docs/energy-model.md
+ * §2.2) when the change destroyed something; "" otherwise (no rule, nothing destroyed, or a bare total).
+ */
+export function breakingNote(cost: unknown): string {
+  const c = typeof cost === "object" && cost ? cost as { broke?: unknown; breaking?: unknown } : {};
+  return typeof c.breaking === "number" && c.breaking > 0 && typeof c.broke === "number" ? `${bits(c.breaking)} of them for breaking ${bits(c.broke)} bits` : "";
+}
+
 /** One event as a sentence; `names` maps god ids to names. */
 export function describeEvent(ev: ReplayEvent, names: ReadonlyMap<string, string>): string {
   const god = (id: string | undefined) => (id ? names.get(id) ?? "Someone" : "Someone");
@@ -62,7 +71,7 @@ export function describeEvent(ev: ReplayEvent, names: ReadonlyMap<string, string
     }
     case "object.spawned": return `Object ${shortId(ev.objectId)} appeared`;
     case "object.rescored": return `Object ${shortId(ev.objectId)} re-scored for the number of players (hold rarity)`;
-    case "object.transformed": return `${god(ev.ownerId)}'s agent ${ev.agentId ? shortId(ev.agentId) : "?"} changed object ${shortId(ev.objectId)}: ${callText(ev.calls) || "no calls"}`;
+    case "object.transformed": return `${god(ev.ownerId)}'s agent ${ev.agentId ? shortId(ev.agentId) : "?"} changed object ${shortId(ev.objectId)}: ${callText(ev.calls) || "no calls"}${breakingNote(ev.cost) ? ` (paid ${bits(ev.cost.total)} bits, ${breakingNote(ev.cost)})` : ""}`;
     case "agent.failed": return `${god(ev.ownerId)}'s agent ${shortId(ev.agentId)} failed on object ${shortId(ev.objectId)}: ${ev.reason}`;
     case "agent.skipped": return `${god(ev.ownerId)}'s agent ${shortId(ev.agentId)} looked at object ${shortId(ev.objectId)} and did nothing (paid ${bits(ev.cost.read)} bits to look)`;
     case "agent.summoned": return `${god(ev.ownerId)} summoned agent ${shortId(ev.agentId)} (${ev.language}, ${bits(ev.summonCost)} bits${ev.powerShare !== undefined ? `, ${Math.round(ev.powerShare * 1000) / 10}% of its owner's power` : ""})`;

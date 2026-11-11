@@ -111,6 +111,59 @@ are priced at a fraction of it:
   the effect from below rather than measuring play with real goals. Acts per game rise 4–11×, because agents that look
   and skip keep their energy (the 4 Hz cap and `interactionRateHz` bound it).
 
+### 2.2 Breaking costs extra (room setting, off by default)
+
+> Breaking costs extra: when your change makes an object worth fewer bits to all the gods together, you pay for every
+> bit you destroyed.
+
+A room setting, `breakCost` (b ≥ 0, at most 100; suggested 0, 1, 2, 4). **0 is off**: the charge of §2, unchanged. It is
+the default everywhere, and every seed setup has 0. A game started before the setting existed has no `breakCost`,
+which is also off (game-core `breakCostOf`; `upgradeStoredSettings` fills 0 for rooms and setups, never for a game
+already played).
+
+```
+D  = max(0, salience before − salience after)        the bits destroyed
+W' = W + b·D                                          the change's work, with the surcharge
+C' = W' + β·W'²                                       what a COMMITTED change pays (b = 0 or D = 0: C' = C)
+```
+
+- **Salience** is the sum of every god's net bits on the object **as disclosed live**: the exact sum plus the value's
+  disclosure noise (`settings.peerNoiseBits`), the stored noise of the old value before and `disclosureNoise` of the
+  new value after (`convex/lib/world.ts` `bitsDestroyed`).
+- **Only a committed change** pays it. Skips, failures, collisions and a change the commit clause kept pay their reads,
+  as in §2.
+- **The surcharge is inside the square**: destroyed bits are priced as extra work, so one act that both changes much
+  and destroys much is charged superlinearly, like any radical act (§4.3).
+- A change that keeps or raises the object's salience pays exactly C.
+
+**Worked numbers** (β = 0.05). A symbol write on the 4×4 numbers-only board: W = 4 + 2·log₂10 = 10.644, C = 16.31.
+
+| b | D (bits destroyed) | W' | charge for the change | of which for breaking |
+|---|---|---|---|---|
+| 0 (off) | any | 10.644 | 16.31 | — |
+| 1 | 0 (salience kept or raised) | 10.644 | 16.31 | 0 |
+| 1 | 3 | 13.644 | 22.95 | 6.64 |
+| 2 | 3 | 16.644 | 30.49 | 14.19 |
+| 4 | 3 | 22.644 | 48.28 | 31.97 |
+
+**Disclosure.** The acting agent's owner already sees, for its own transformation, its own bits and the other gods'
+summed bits with the value's noise, before and after (the public log, docs/public-log-design.md §5). Their sum is the
+disclosed salience, so D is a function of four numbers the owner is shown, and the charge (which only the owner sees:
+another god's act carries no cost) reveals nothing more. These are the same two noisy values the commit clause compares
+(`commitRaises`). Charging on the exact sums would have leaked the noise.
+
+**Where it runs.** The pure price is `actCharge(outcome, readBits, { commits, breaking: { bits: D, cost: b } })`
+(`lib/game-types/src/pricing/measure.ts`). The tick (`engine/tick.ts` `apply`) scores the new value before charging
+only when b > 0 and the change will commit; with b = 0 the tick does no extra work and its events are unchanged.
+
+**What is recorded.** In a game with b > 0, a `transform` event's `cost` is `{read, change, total, broke, breaking}`:
+`broke` = D and `breaking` = C' − C, the part of `change` paid for breaking (both 0 when nothing was destroyed).
+`EVENT_LOG_SCHEMA` 10. A replay plays the recorded charge back and never re-prices. The owner sees the two fields on its
+own acts only (`player.events`); the observation's `economy.breakCost` is present only when b > 0.
+
+**The estimate excludes it.** `expectedActCost` is measured on reference objects, where no god has a stake; in a room
+with b > 0 validation's diagnostics say that a destroying act costs more than the estimate.
+
 ## 3. Read metering
 
 An agent reads the board only through the prelude's accessors. Each accessor charges the information its value can carry,
@@ -442,6 +495,9 @@ irrelevant.
   migrates. `EVENT_LOG_SCHEMA` 8 marks batches whose `cost.read` is priced at κ = 32 (energy, not bits read). Replay
   plays recorded costs back (`lib/player-client/src/replay.ts` sums `cost.total`), so old games replay exactly as they
   were charged. Stored agent estimates (`expectedActCost`, `breakdown`) are display-only.
+- **Breaking costs extra (§2.2)**: `settings` is stored as `v.any()`, and the new key is filled on read (0, off) for
+  rooms and setups, so nothing migrates. The event's `cost` gains two optional fields (`broke`, `breaking`), written
+  only in a game with `breakCost > 0`; `EVENT_LOG_SCHEMA` 10.
 
 ## 10. PR plan
 
