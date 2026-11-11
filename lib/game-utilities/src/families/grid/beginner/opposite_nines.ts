@@ -28,7 +28,7 @@ const ninesText = (g: GridSpec): CardText => {
 };
 
 export const oppositeNines = gridFamily<NinesP>({
-  id: "opposite_nines", name: "Opposite Nines", emoji: "🙃", theme: "Opposite cells that add up to nine",
+  id: "opposite_nines", name: "Opposite Nines", emoji: "🙃", theme: "Opposite cells that add up to the biggest number",
   requires: { classes: ["Numeral"], parity: "even", maxSize: 6 }, shape: tuple(2), tags: ["beginner"],
   params: () => ({}),
   support: () => [{}],

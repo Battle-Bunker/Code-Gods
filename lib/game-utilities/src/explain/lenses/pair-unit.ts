@@ -1,7 +1,8 @@
 /**
- * One fixed pair of cells as a scoring unit, for the beginner pair families (🙃 Opposite Nines):
- * a capsule with a link between its two cells, a primary point when the pair hits (`miss` 0) and `miss` secondary
- * points deducted. Every cell is in exactly one pair, so the board picks the pair of the cell under the pointer.
+ * One fixed pair of cells as a scoring unit, for the beginner pair families (🙃 Opposite Nines, 🐸 Leapfrog,
+ * ↙️ Crosswise Threes): a capsule with a link between its two cells, a primary point when the pair hits (`miss` 0) and
+ * `miss` secondary points deducted. The board picks the pair of the cell under the pointer; a cell in no pair (Crosswise
+ * Threes' fold line) picks the nearest pair.
  */
 import type { Pair } from "../../families/grid/beginner/_pairs.ts";
 import { count, tally } from "../lens.ts";

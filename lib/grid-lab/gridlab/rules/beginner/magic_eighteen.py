@@ -29,7 +29,7 @@ def me_exemplar(p, gtype):
 
 
 MAGIC_EIGHTEEN = mk(
-    id="magic_eighteen", name="Magic Eighteen", theme="Every line adds up to 18",
+    id="magic_eighteen", name="Magic Eighteen", theme="Every line adds up to the board's middle total",
     requires=req("Numeral", parity="even", max_size=6), layers={"symbol", "position"}, camp="neutral",
     sample=lambda rng, gt: {"axis": str(rng.choice(["rows", "cols"]))},
     summary=lambda p, gt: f"Every {'row' if p['axis'] == 'rows' else 'column'} that adds up to exactly {target(gt)} scores a point.",

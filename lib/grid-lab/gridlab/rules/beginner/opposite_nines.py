@@ -24,7 +24,7 @@ def on_exemplar(p, gtype):
 
 
 OPPOSITE_NINES = mk(
-    id="opposite_nines", name="Opposite Nines", theme="Opposite cells that add up to nine",
+    id="opposite_nines", name="Opposite Nines", theme="Opposite cells that add up to the biggest number",
     requires=req("Numeral", parity="even", max_size=6), layers={"symbol", "position"}, camp="neutral",
     sample=lambda rng, gt: {},
     summary=lambda p, gt: f"Each pair of cells opposite through the middle that adds up to {vmax(gt)} scores a point.",

@@ -34,7 +34,7 @@ const spreadText = (g: GridSpec): CardText => {
 export const spreadThree = gridFamily<SpreadP>({
   id: "spread_three", name: "Spread of Three", emoji: "📏", theme: "Every 2×2 square spans exactly 3",
   // Numbers, not cards; up to 6×6 keeps the calibrated shapes modest.
-  requires: { classes: ["Numeral"], minSize: 4, maxSize: 6 }, shape: tuple(2),
+  requires: { classes: ["Numeral"], minSize: 4, maxSize: 6 }, shape: tuple(2), tags: ["beginner"],
   params: () => ({}),
   support: () => [{}],
   summary: (_p, g) => spreadText(g).about,

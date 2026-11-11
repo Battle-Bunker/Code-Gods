@@ -64,10 +64,9 @@ test("a ladder's starting row does not score", () => {
 });
 
 // --- beginner pair families: each sentence checked against boards scored by the card program ----------------------
-import { evaluator as pairEvaluator } from "../src/catalog.ts";
 
 const pairs12 = context(instantiate("Grid", { size: 4, symbols: "base12", colours: "rgb" }));
-const pairScore = (id: string, ctx = even) => pairEvaluator({ familyId: id, params: {} }, ctx.inst);
+const pairScore = (id: string, ctx = even) => evaluator({ familyId: id, params: {} }, ctx.inst);
 
 test("opposite nines: a cell's opposite is where a half turn takes it; pairs making 9 score, every pair deducts its distance", () => {
   const text = say("opposite_nines", {});

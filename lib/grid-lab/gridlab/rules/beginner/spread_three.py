@@ -38,4 +38,5 @@ SPREAD_THREE = mk(
     ordinal=sp_ord, batch=sp_batch,
     exemplar=lambda p, gt: grid(np.fromfunction(lambda r, c: ((r + c) % 2) * SPREAD, (gt.N, gt.N), dtype=int),
                                 np.zeros((gt.N, gt.N))),
-    source="beginner pool (2026-11-11): fixed small units, one-cell greedy never stuck")
+    source="beginner pool (2026-11-11): fixed small units, one-cell greedy never stuck",
+    tags={"beginner"})

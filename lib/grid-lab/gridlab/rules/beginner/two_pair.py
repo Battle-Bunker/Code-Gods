@@ -39,4 +39,5 @@ TWO_PAIR = mk(
                            "one pair or three of a kind is a secondary point."),
     ordinal=tp_ord, batch=tp_batch,
     exemplar=lambda p, gt: grid(np.array([[3 if r % 2 == 0 else 8] * gt.N for r in range(gt.N)]), np.zeros((gt.N, gt.N))),
-    source="beginner pool (2026-11-11): fixed small units, one-cell greedy never stuck")
+    source="beginner pool (2026-11-11): fixed small units, one-cell greedy never stuck",
+    tags={"beginner"})

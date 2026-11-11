@@ -81,6 +81,9 @@ test("Annotated basics deals exactly the beginner pool on a numbers-only board; 
       }
     }
   }
-  // The colour set must be the only thing between the two: every beginner rule is annotated on the coloured board too.
+  // Every beginner rule is dealt by the coloured annotated setup too.
   assert.equal(BEGINNER_POOL.length, 8);
+  const colours = seedSetupSettings(ANNOTATED_COLOURS_SEED_ID);
+  const coloursDealable = new Set(availableFamilies(instantiate(colours.objectType, colours.typeArgs), "reward", colours.excludedFamilies).map(f => f.id));
+  for (const id of BEGINNER_POOL) assert.ok(coloursDealable.has(id), `Annotated colours deals ${id}`);
 });

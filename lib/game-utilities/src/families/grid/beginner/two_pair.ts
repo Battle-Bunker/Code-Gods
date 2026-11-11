@@ -35,7 +35,7 @@ const twoPairText = (g: GridSpec): CardText => {
 export const twoPair = gridFamily<TwoPairP>({
   id: "two_pair", name: "Two Pair", emoji: "✌️", theme: "Two different pairs in every box",
   // Numbers, not cards; boxes tile the board only on even sizes; up to 6×6 keeps the calibrated shapes modest.
-  requires: { classes: ["Numeral"], parity: "even", maxSize: 6 }, shape: tuple(2),
+  requires: { classes: ["Numeral"], parity: "even", maxSize: 6 }, shape: tuple(2), tags: ["beginner"],
   params: () => ({}),
   support: () => [{}],
   summary: (_p, g) => twoPairText(g).about,

@@ -29,7 +29,7 @@ const eighteenText = (p: EighteenP, g: GridSpec): CardText => {
 };
 
 export const magicEighteen = gridFamily<EighteenP>({
-  id: "magic_eighteen", name: "Magic Eighteen", emoji: "🎩", theme: "Every line adds up to 18",
+  id: "magic_eighteen", name: "Magic Eighteen", emoji: "🎩", theme: "Every line adds up to the board's middle total",
   // Numbers, not cards; even sizes, where the middle total is whole; up to 6×6 keeps the calibrated shapes modest.
   requires: { classes: ["Numeral"], parity: "even", maxSize: 6 }, shape: tuple(2), tags: ["beginner"],
   params: () => ({ axis: choiceParam("Lines that count", AXIS_OPTIONS) }),
