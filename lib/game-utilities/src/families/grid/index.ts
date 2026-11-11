@@ -5,6 +5,7 @@ import { COLOUR } from "./colour.ts";
 import { PENALTIES } from "./defence.ts";
 import { GAMES } from "./games.ts";
 import { GEOMETRY } from "./geometry.ts";
+import { LAYERED } from "./layered/index.ts";
 import { SEEDS } from "./seeds.ts";
 import { STRATEGY } from "./strategy.ts";
 
@@ -12,5 +13,6 @@ export const GRID_LENSES = {
   seeds: SEEDS, strategy: STRATEGY, geometry: GEOMETRY, arithmetic: ARITHMETIC, colour: COLOUR, games: GAMES,
   defence: PENALTIES,
   beginner: BEGINNER,
+  layered: LAYERED,
 } as const;
-export const GRID_FAMILIES = [...SEEDS, ...STRATEGY, ...GEOMETRY, ...ARITHMETIC, ...COLOUR, ...GAMES, ...PENALTIES, ...BEGINNER];
+export const GRID_FAMILIES = [...SEEDS, ...STRATEGY, ...GEOMETRY, ...ARITHMETIC, ...COLOUR, ...GAMES, ...PENALTIES, ...BEGINNER, ...LAYERED];
