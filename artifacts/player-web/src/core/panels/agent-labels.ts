@@ -31,7 +31,7 @@ export const laneKind = (a: { energy: number; eligible: boolean }): "ok" | "cool
 export const STATE_LEGEND = [
   { kind: "ok", label: "can act now (energy above 0)" },
   { kind: "cool", label: "waiting for income (energy 0 or below)" },
-  { kind: "idle", label: "at its turn limit (4 turns a second)" },
+  { kind: "idle", label: "at its turn limit (games before 11 Nov 2026 limited each agent's turns)" },
 ] as const;
 
 /** The status beside an agent's name; `wait` is the world seconds until its energy is above 0 again. */

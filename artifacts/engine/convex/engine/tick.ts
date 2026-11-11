@@ -6,15 +6,17 @@
  * Opportunities run at most interactionRateHz × Δt (stochastically rounded, never accumulated: no
  * interaction debt), each sequentially against an in-memory copy of the world, exactly as the Express
  * engine's semantics: pick the target object (uniform/shelter), then an agent with probability proportional to
- * its positive energy (settled to the opportunity's world time; at most MAX_AGENT_OPPORTUNITY_HZ per agent,
- * docs/energy-model.md §7) with a CSPRNG, run the act with the season-salted seed
+ * its positive energy (settled to the opportunity's world time; one draw over all agents, docs/energy-model.md §7)
+ * with a CSPRNG, run the act with the season-salted seed
  * deriveSeed(salt, ["play", gameId, agentId, actIndex]), applyCalls, enforce uniqueness (onto any existing
  * value, the object's own included, fails), apply the commit clause, charge the act (the bits it read at READ_PRICE,
  * plus its change when that commits: §2) and score the result. An act that returns no calls is skipped: not a failure.
  *
  * Throughput: up to WORKERS acts run concurrently in a "wave", but a wave never holds the same object or
  * agent twice (as the Express engine reserved them), and results are applied strictly in opportunity order,
- * so the outcome is the sequential one.
+ * so the outcome is the sequential one. An agent in the wave stays in the draw (its weight does not depend on how many
+ * agents its god runs): when it is drawn again the wave is applied first, and the offer stays with it if it still has
+ * energy, else the draw is repeated.
  */
 import { v } from "convex/values";
 import { chargeAct, instantiationOf, isLanguage, pickByEnergy, poissonIntervalSeconds, type GameSettings, type ObjectValue } from "@workspace/game-core";
@@ -228,9 +230,10 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
         const busyObjects = new Set(wave.map(p => p.object.id)), busyAgents = new Set(wave.map(p => p.agent.id));
         const freeObjects = objects.filter(o => !busyObjects.has(o.id));
         // Each candidate's energy at this opportunity, settled once: the filter and the energy-weighted draw share it.
+        // Agents in the wave are candidates too (at their energy before the act in flight is charged): leaving them
+        // out would hand their offers to the others, a limit per agent rather than per unit of energy (§7).
         const energy = new Map<string, number>();
         const eligible = agents.filter(a => {
-          if (busyAgents.has(a.id)) return false;
           const status = agentStatus(settings, a, world);
           energy.set(a.id, status.energy);
           return status.eligible;
@@ -253,7 +256,12 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
           break;
         }
         const { object, agent } = pair;
-        agent.lastOpportunityWorld = world; agent.touched = true;
+        if (busyAgents.has(agent.id)) {
+          // Its act in flight is applied (and charged) first. The offer stays with it if it can still take it; if that
+          // act left it without energy (or made this pair futile), the draw is repeated on the settled world.
+          await flush();
+          if (!agentStatus(settings, agent, world).eligible || futile.isFutile(agent.id, object, versionOf)) continue;
+        }
         wave.push({ object, agent, world, before: object.value, seed: deriveSeed(salt, ["play", game._id, agent.id, agent.acts]) });
         if (wave.length >= WORKERS) await flush();
         break;
@@ -306,8 +314,7 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
         ...(o.noise !== undefined ? { noise: o.noise } : {}) })),
       spawns: spawns.map(s => ({ ...s, value: s.value as number | string })),
       agents: agents.filter(a => a.touched).map(a => ({ id: a.id as Doc<"agents">["_id"], fromActs: a.fromActs, acts: a.acts, spent: a.spent, spentRead: a.spentRead, account: a.account,
-        transforms: a.transforms, skips: a.skips, failures: a.failures, lastFailures: a.lastFailures,
-        ...(a.lastOpportunityWorld !== undefined ? { lastOpportunityWorld: a.lastOpportunityWorld } : {}) })),
+        transforms: a.transforms, skips: a.skips, failures: a.failures, lastFailures: a.lastFailures })),
       futile: futile.changedRows(versionOf).map(m => ({ agentId: m.agentId as Doc<"agents">["_id"],
         entries: m.entries as { o: Doc<"objects">["_id"]; v: number; by?: Doc<"objects">["_id"]; bv?: number }[] })),
       events, stats: { opportunities, acts, simulateMs, prevCommitMs: lastCommitMs.get(gameId) }, wakeAt,

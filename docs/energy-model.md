@@ -86,8 +86,8 @@ are priced at a fraction of it:
   before it keep their stored estimate (`expectedActCost`, `breakdown`), which overstates their reads until re-summoned;
   nothing is charged or scheduled from it (§5).
 - **Selection.** An agent that looks and skips now keeps nearly all its energy, so it stays rich and is offered more
-  opportunities. `MAX_AGENT_OPPORTUNITY_HZ` (§7) already bounds that (it was built for the agent that reads nothing),
-  and the futility memo still applies, so nothing there changes.
+  opportunities. Its store is bounded by the capacity (§6.1) and each offer has a price (§7.1); the per-agent rate cap
+  that bounded it when κ was introduced is gone (§7). The futility memo still applies.
 - **As a room setting** (if the owner wants per-setup tuning): add an optional `changeReadRatio` to `GameSettings`
   (game-core settings, SETTINGS_DOCS, validation ≥ 1, the setup editor), have `tick.ts` and `pricing.ts` pass
   `readPrice: 1/settings.changeReadRatio` to `actCharge` (it already takes `readPrice`; `measureAgent` would need it
@@ -109,7 +109,7 @@ are priced at a fraction of it:
   by κ = 8–32 and flat after. On Master (and Classic at κ = 128) the abstract world's edits are too coarse for reading to
   separate the policies much: this harness models a look as all-or-nothing and the goals as random draws, so it bounds
   the effect from below rather than measuring play with real goals. Acts per game rise 4–11×, because agents that look
-  and skip keep their energy (the 4 Hz cap and `interactionRateHz` bound it).
+  and skip keep their energy (the 4 Hz cap of the time and `interactionRateHz` bound it).
 
 ## 3. Read metering
 
@@ -351,23 +351,50 @@ irrelevant.
   writes `deities.account` and `deities.spent`, returns the new balance or null) are the one way to charge it for
   anything other than a summon.
 
-## 7. Selection (PR 1)
+## 7. Selection: energy only, however many agents hold it (11 Nov 2026)
+
+The owner: "We want agent impact to be a function of power assigned to that agent and for the discrete quantity of
+agents to offer no opportunity for advantage."
 
 - Opportunities stay a room-wide stream of `interactionRateHz` per world second.
 - Each opportunity picks an object as today ("uniform" or "shelter"). It then picks an agent with probability
-  proportional to max(0, energy). An agent with no positive energy is not picked, and the opportunity passes if no agent
-  has positive energy. Balances may go negative, because spend varies per object.
-- There is no eligibility threshold and no battery.
-- **Sanity cap:** an agent is offered at most `MAX_AGENT_OPPORTUNITY_HZ` = 4 opportunities per world second (a
-  constant in `lib/game-core/src/energy.ts`, not a room setting; the observation's `economy.maxAgentOpportunityHz` reports
-  it). It is skipped while less than 1/cap world seconds have passed since its last opportunity.
-  - Without the cap, an agent that reads nothing and always skips pays 0 per act. It would keep all its energy and,
-    as the richest agent, take nearly every opportunity.
-  - Four a second is far more than any agent needs to contest an object, and it bounds the sandbox work one agent can
-    cause.
-  - The futility memo still keeps agents off pairs where they can only fail.
-- A cheap skipper therefore runs more often than an expensive actor with the same income: its balance stays high.
-  This is a unit test (`lib/game-core/test/energy.test.ts`).
+  proportional to max(0, energy): **one draw over every agent in the room**. An agent with no positive energy is not
+  picked, and the opportunity passes if no agent has positive energy. Balances may go negative, because spend varies
+  per object.
+- There is no eligibility threshold, no battery and **no limit per agent**. A god's chance of the next opportunity is
+  the energy its agents hold together over the room's total, so it does not matter how that energy is split.
+- **Agent-count neutrality is an invariant with tests.** For any split of a power budget over n agents running the same
+  program, the god's expected offers, acts and energy spent are those of one agent with the whole budget
+  (`lib/game-core/test/energy.test.ts`, with capacity binding, with energy binding and with no capacity; six seeds,
+  uneven splits included; a companion test re-creates a per-agent limit and checks that the test sees it;
+  `artifacts/engine/test/game-energy.test.ts` plays one agent with 80% against four with 20% each on the real tick).
+- **What bounds an agent that looks and skips** is the capacity (§6.1), in proportion to its power, and the price of
+  each offer (§7.1). Its store cannot exceed s·P·T, so the others need only hold a comparable amount to be offered
+  their share; they then act as often as their income allows.
+- The futility memo still keeps agents off pairs where they can only fail.
+- A cheap skipper runs more often than an expensive actor with the same income: its balance stays high. This is a unit
+  test (`lib/game-core/test/energy.test.ts`).
+
+**What was removed, and why.** Until 11 Nov 2026 two limits were per agent, so a god gained turns by running more
+agents with the same power:
+
+| Per-agent limit | Where | Effect |
+|---|---|---|
+| `MAX_AGENT_OPPORTUNITY_HZ` = 4 offers per world second per agent | game-core `offerable`, `lib/world.ts agentStatus`, `agents.lastOpportunityWorld` | n agents could take 4n offers a second. Measured (balance harness, skippers, 25 Hz): 4.0, 8.0, 12.0, 18.7 offers/s for n = 1, 2, 3, 5 with the same power; now 18.5 at every n |
+| An agent with an act in flight was left out of the next draws of the tick's wave (up to 16 concurrent acts) | `engine/tick.ts` | the rest of the wave went to the other agents with probability 1: one rich agent got at most one offer per wave, the same energy over n agents up to n |
+
+The cap was built for the agent that reads nothing and skips ("it would keep all its energy and take nearly every
+opportunity"); the capacity now bounds that store in proportion to power instead. The tick still never runs one agent
+twice in a wave: an agent in the wave stays in the draw at the energy it had before its act in flight; when it is drawn
+again the wave is applied first (so that act is charged), the offer stays with it if it still has energy, and otherwise
+the draw is repeated on the settled world. The room's sandbox work is bounded by `interactionRateHz`, as before.
+`agents.lastOpportunityWorld` stays in the schema as history (no longer read or written); the observation no longer
+reports `economy.maxAgentOpportunityHz` (a replay of an older game still does). `EVENT_LOG_SCHEMA` 10 marks the change.
+
+**Per-agent quantities that remain** (none is an advantage in turns): `maxAgentsPerGod` (a limit); the summon price
+(each program is priced by its own description, so n small programs cost what their lengths cost, plus each one's own
+boilerplate: never cheaper than one); the futility memo (per agent and object: n copies of a deterministic agent each
+fail once on an object before being kept off it, and pay their reads); and debt (§7.2).
 
 ## 8. Hold rarity (PR 5)
 
