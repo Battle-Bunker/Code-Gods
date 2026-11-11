@@ -7,8 +7,8 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { SEED_SETUPS, SETUP_NAME_MAX, seedSetupSettings } from "@workspace/game-core";
-import { admin, api, clientFor, gods, internal, playerClient, roomWith, setupEntries, touch, type God } from "./game-helpers.ts";
+import { SEED_SETUPS, SETUP_NAME_MAX, isLabSeedId, seedSetupSettings } from "@workspace/game-core";
+import { admin, api, clientFor, envelope, gods, internal, playerClient, raw, roomWith, setupEntries, startGame, touch, waitFor, type God } from "./game-helpers.ts";
 
 async function errorOf(promise: Promise<unknown>): Promise<{ code?: string; message?: string }> {
   try { await promise; } catch (error) { return (error as { data?: { code?: string; message?: string } }).data ?? { message: (error as Error).message }; }
@@ -31,6 +31,8 @@ async function list(g: God): Promise<Omit<Setup, "settings">[]> {
 }
 const get = (g: God, setupId: string): Promise<Setup> => g.c.query(api.setups.get, { setupId });
 const classic = () => seedSetupSettings("grid-classic");
+/** The system setups everyone sees, and the Lab ones only administrators do (game-core isLabSeedId). */
+const ORDINARY = SEED_SETUPS.filter(s => !isLabSeedId(s.seedId)), LAB = SEED_SETUPS.filter(s => isLabSeedId(s.seedId));
 
 before(async () => { await admin.mutation(internal.testing.resetSeedSetups, {}); });
 after(async () => { await admin.mutation(internal.testing.resetSeedSetups, {}); });
@@ -40,7 +42,9 @@ test("system setups: seeded once in the shipped order, owned by the system, and 
   await admin.mutation(internal.setups.ensureSeeded, {});
   const [ann] = await gods("Seed Ann");
   const system = (await list(ann)).filter(r => r.system);
-  assert.deepEqual(system.map(d => d.seedId), SEED_SETUPS.map(s => s.seedId), "each seed exactly once, in order, first");
+  assert.deepEqual(system.map(d => d.seedId), ORDINARY.map(s => s.seedId), "each ordinary seed exactly once, in order, first (no Lab setup)");
+  const [root] = [await adminGod("Seed Admin")];
+  assert.deepEqual((await list(root)).filter(r => r.system).map(d => d.seedId), SEED_SETUPS.map(s => s.seedId), "an administrator: every seed once, in order");
   assert.deepEqual(system.map(d => d.name), ["First steps", "Annotated basics", "Annotated colours", "Classic", "Low income", "Big board", "Master"]);
   for (const d of system) {
     assert.ok(!("settings" in d), "a list row has no settings");
@@ -78,7 +82,7 @@ test("everyone sees every setup with its owner; only the owner changes or delete
   assert.deepEqual((await get(bob, saved.id)).settings, quick, "and its settings");
   assert.equal(await errorCode(bob.c.query(api.setups.get, { setupId: "nope" })), "NOT_FOUND");
   const annRows = await list(ann);
-  assert.ok(annRows.findIndex(r => r.id === saved.id) >= SEED_SETUPS.length, "after the system's");
+  assert.ok(annRows.findIndex(r => r.id === saved.id) >= ORDINARY.length, "after the system's");
 
   // Bob may not change or delete Ann's setup, and is told whose it is.
   const edit = await errorOf(bob.c.action(api.setups.save, { setupId: saved.id, name: "Mine now", settings: quick }));
@@ -150,8 +154,8 @@ test("the catalogue pages in order, at most 30 a page; search finds by name, own
   const first = await ann.c.query(api.setups.page, { paginationOpts: { numItems: 500, cursor: null } });
   assert.ok(first.page.length <= 30, "a page holds at most 30 (a page of setups with their settings stays within 64 KiB)");
   const all = await setupEntries(ann.c);
-  assert.deepEqual(all.slice(0, SEED_SETUPS.length).map(e => e.seedId), SEED_SETUPS.map(s => s.seedId), "the system's first, in seed order");
-  const others = all.slice(SEED_SETUPS.length);
+  assert.deepEqual(all.slice(0, ORDINARY.length).map(e => e.seedId), ORDINARY.map(s => s.seedId), "the system's first, in seed order");
+  const others = all.slice(ORDINARY.length);
   assert.ok(others.every(e => !e.system), "then everyone's");
   const fold = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
   others.forEach((e, i) => { if (i) assert.ok(fold(others[i - 1].name) <= fold(e.name), `by name: ${others[i - 1].name} before ${e.name}`); });
@@ -229,4 +233,102 @@ test("a new room runs the system's Annotated basics; owner.settings applies anyo
   await ada.c.mutation(api.setups.remove, { setupId: adas.id });
   room = await ada.c.query(api.rooms.get, { room: roomId });
   assert.deepEqual([room.settings, room.setup], [adas.settings, { id: adas.id, name: "TypeScript Master", deleted: true }]);
+});
+
+// What would break: an ordinary player finding an experiment in the Setup list, its search or an agent's list_setups,
+// or running one by its id (duplicating it, putting a room on it); an administrator missing one; a Lab setup that is
+// not Annotated basics under its cost model; or a room on "multiply and divide" without those helpers or priced as
+// another model.
+test("Lab setups: only an administrator finds, duplicates or runs them; a room on lab-cost-multiply has multiply and divide and is charged by that model", { timeout: 420_000 }, async () => {
+  await admin.mutation(internal.setups.ensureSeeded, {});
+  const root = await adminGod("Lab Admin");
+  const [ann, bo, cy] = await gods("Lab Ann", "Lab Bo", "Lab Cy");
+  const labIds = ["lab-cost-set", "lab-cost-dial", "lab-cost-log", "lab-cost-multiply"];
+  assert.deepEqual(LAB.map(s => s.seedId), labIds);
+  const seeds = (entries: any[]) => entries.filter(e => e.system).map(e => e.seedId);
+
+  // The catalogue (setups.page): the administrator's has all four, after the ordinary ones; a player's has none.
+  const rootEntries = await setupEntries(root.c);
+  assert.deepEqual(seeds(rootEntries), SEED_SETUPS.map(s => s.seedId));
+  assert.deepEqual(rootEntries.filter(e => isLabSeedId(e.seedId)).map(e => e.name), ["Lab: flat price", "Lab: dial numbers", "Lab: gentle distance", "Lab: multiply and divide"]);
+  assert.deepEqual(seeds(await setupEntries(ann.c)), ORDINARY.map(s => s.seedId));
+  // A short first page keeps its cursor: the player's next pages follow on (everyone's setups, no Lab one).
+  const firstPage = await ann.c.query(api.setups.page, { paginationOpts: { numItems: ORDINARY.length + 2, cursor: null } });
+  assert.deepEqual(firstPage.page.map((e: any) => e.seedId), ORDINARY.map(s => s.seedId), "the two Lab rows of this page are left out");
+  if (!firstPage.isDone) {
+    const next = await ann.c.query(api.setups.page, { paginationOpts: { numItems: 5, cursor: firstPage.continueCursor } });
+    assert.ok(next.page.every((e: any) => !isLabSeedId(e.seedId)));
+  }
+  // The search, by name and by summary.
+  for (const q of ["Lab", "multiply divide", "dial"]) {
+    assert.deepEqual((await setupEntries(ann.c, q)).filter(e => isLabSeedId(e.seedId)), [], `a player's search for "${q}"`);
+    assert.ok((await setupEntries(root.c, q)).some(e => isLabSeedId(e.seedId)), `an administrator's search for "${q}"`);
+  }
+  // An agent's list_setups (setups.listAs): by whose credential it is, in any room.
+  const { roomId: annRoom } = await roomWith([ann]);
+  const { roomId } = await roomWith([root, bo, cy]);
+  const listAs = async (god: God, room: string) => (await admin.query(internal.setups.listAs, {
+    principal: { credentialId: await admin.mutation(internal.testing.seedCredential, { subject: god.subject, roomId: room, permission: "read" }) } }));
+  assert.deepEqual(seeds(await listAs(ann, annRoom)), ORDINARY.map(s => s.seedId));
+  assert.deepEqual(seeds(await listAs(bo, roomId)), ORDINARY.map(s => s.seedId), "a player in an administrator's room");
+  assert.deepEqual(seeds(await listAs(root, roomId)), SEED_SETUPS.map(s => s.seedId));
+  // The same page through a credential (the player app's list_setups): the administrator's own app lists them.
+  assert.deepEqual(seeds(await setupEntries(await playerClient(root, roomId, "read"))), SEED_SETUPS.map(s => s.seedId));
+  assert.deepEqual(seeds(await setupEntries(await playerClient(bo, roomId, "read"))), ORDINARY.map(s => s.seedId));
+
+  // Each is Annotated basics but for its cost model.
+  const { costModel: _basics, ...basics } = seedSetupSettings("grid-annotated-basics");
+  const lab = Object.fromEntries(rootEntries.filter(e => isLabSeedId(e.seedId)).map(e => [e.seedId, e.id])) as Record<string, string>;
+  const models: Record<string, string | undefined> = {};
+  for (const seedId of labIds) {
+    const { costModel, ...rest } = (await get(root, lab[seedId])).settings;
+    assert.deepEqual(rest, basics, seedId);
+    models[seedId] = costModel as string | undefined;
+  }
+  assert.deepEqual(models, { "lab-cost-set": undefined, "lab-cost-dial": "dial-v1", "lab-cost-log": "log-v1", "lab-cost-multiply": "multiply-v1" });
+
+  // A player who has the id (from a room that runs one) may neither copy it nor put a room on it.
+  const multiplyId = lab["lab-cost-multiply"];
+  const copy = await errorOf(ann.c.mutation(api.setups.duplicate, { setupId: multiplyId }));
+  assert.deepEqual([copy.code, copy.message], ["FORBIDDEN", "Lab setups are for administrators"]);
+  const annState = await ann.c.query(api.rooms.get, { room: annRoom });
+  const apply = await errorOf(ann.c.action(api.owner.settings, { roomId: annRoom, revision: annState.revision, setupId: multiplyId }));
+  assert.deepEqual([apply.code, apply.message], ["FORBIDDEN", "Lab setups are for administrators"]);
+  const annAfter = await ann.c.query(api.rooms.get, { room: annRoom });
+  assert.deepEqual([annAfter.revision, annAfter.setup.name, annAfter.settings.costModel], [annState.revision, "Annotated basics", "distance-v1"], "the room is unchanged");
+  assert.ok(!annAfter.objectInstance.helpers.some((h: any) => h.name.python === "multiply"), "no multiply under distance-v1");
+
+  // The administrator runs one: the room's next game has multiply and divide, and its members see the setup's name.
+  await touch(root);
+  const before_ = await root.c.query(api.rooms.get, { room: roomId });
+  const applied = await root.c.action(api.owner.settings, { roomId, revision: before_.revision, setupId: multiplyId });
+  assert.deepEqual([applied.setup.id, applied.setup.name, applied.setup.created], [multiplyId, "Lab: multiply and divide", false]);
+  const seenByBo = await bo.c.query(api.rooms.get, { room: roomId });
+  assert.deepEqual([seenByBo.setup.name, seenByBo.settings.costModel], ["Lab: multiply and divide", "multiply-v1"]);
+  const mutators = seenByBo.objectInstance.helpers.filter((h: any) => h.group === "mutator").map((h: any) => h.name.python);
+  assert.ok(mutators.includes("multiply") && mutators.includes("divide") && mutators.includes("add"), mutators.join(" "));
+  assert.equal((await bo.c.query(api.setups.row, { setupId: multiplyId }))?.name, "Lab: multiply and divide", "a row by id stays readable");
+  // The administrator may copy it (the copy is an ordinary setup of theirs).
+  const mine: Setup = await root.c.mutation(api.setups.duplicate, { setupId: multiplyId });
+  assert.deepEqual([mine.name, mine.system, mine.mine, mine.settings.costModel], ["Lab: multiply and divide's copy", false, true, "multiply-v1"]);
+  await root.c.mutation(api.setups.remove, { setupId: mine.id });
+
+  // Charged by multiply-v1, by hand (docs/mutation-cost-design.md §0, §4) on the 4×4 numbers board, C = W + 0.05·W²:
+  //   add 1:      W = log2 16 cells + 1 bit (add, not multiply) + log2 3 per step = 6.585 → 8.75 (7.14 under distance-v1)
+  //   multiply 3: W = 4 + 1 + 1.4963·log2 3 = 7.372 → 10.09 (never cheaper as an add: 3d − d is never ±1 modulo 10)
+  const C = (w: number) => w + 0.05 * w * w, want = { add: C(5 + Math.log2(3)), multiply: C(5 + 1.4963 * Math.log2(3)) };
+  assert.deepEqual([want.add.toFixed(2), want.multiply.toFixed(2)], ["8.75", "10.09"]);
+  const game = await startGame(root, roomId);
+  const send = (god: God, command: Record<string, unknown>) => god.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
+  const adder = await send(root, { type: "summon", name: "Adder", language: "python", source: "def agent(g):\n    return [add((0, 0), 1)]" });
+  assert.equal(adder.accepted, true, adder.message);
+  const tripler = await send(bo, { type: "summon", name: "Tripler", language: "python", source: "def agent(g):\n    return [multiply((0, 1), 3)]" });
+  assert.equal(tripler.accepted, true, tripler.message);
+  await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 3600 }, kick: true });
+  const transformsOf = async (god: God) => (await raw(game.gameId)).batches.flatMap((b: any) => b.events).filter((e: any) => e.t === "transform" && e.ownerId === god.subject);
+  await waitFor(async () => (await transformsOf(root)).length >= 1 && (await transformsOf(bo)).length >= 1, "both agents change an object", 240_000, 500);
+  assert.equal((await raw(game.gameId)).game.settings.costModel, "multiply-v1");
+  for (const e of await transformsOf(root)) assert.ok(Math.abs(e.cost.change - want.add) < 1e-3 && e.cost.read === 0, `an add of 1 was charged ${JSON.stringify(e.cost)}, by hand ${want.add}`);
+  for (const e of await transformsOf(bo)) assert.ok(Math.abs(e.cost.change - want.multiply) < 5e-3, `a multiply by 3 was charged ${JSON.stringify(e.cost)}, by hand ${want.multiply}`);
+  await root.c.mutation(api.rooms.endActiveGame, { roomId });
 });

@@ -319,7 +319,8 @@ The tables:
 - §6.1, Annotated basics: the full pool with full moves, plus the three example ad-hoc rules.
 - §6.2, number-only families of First steps: measured on symbols only, with the pair matrix.
 - §6.3, every First steps family: per rule, full moves.
-- §6.4, energy: the Annotated basics pool and the beginner stand-ins under both cost models and both agents.
+- §6.4, energy: the beginner eight under the five cost models, and the beginner stand-ins under `set-v1` and
+  `distance-v1`, both agents.
 
 ### 6.1 Annotated basics (full moves) plus the example ad-hoc rules
 
@@ -517,30 +518,98 @@ Pool: rate4 max/min 7.19 (CV 0.37); reach16 max/min 6.17; card max/min 7.94; DIF
 
 Symmetric beginner pool thresholds: fails 110 (seed2_patchwork: DIFF 41.95 > 10 (greedy is trapped or a cleverer search earns more); seed2_patchwork: K 3.93 > 3.5 (a move's effect depends on too many cells); rainbow_road: DIFF 18.99 > 10 (greedy is trapped or a cleverer search earns more); border_baron: DIFF 25.90 > 10 (greedy is trapped or a cleverer search earns more); border_baron: card 926.18 bits > 800; conqueror: DIFF 13.64 > 10 (greedy is trapped or a cleverer search earns more); …).
 
-### 6.4 Energy under `set-v1` and `distance-v1` (measured 2026-11-11)
+### 6.4 Energy under the five cost models (measured 2026-11-11)
 
-Grid(4,base10,mono), the Annotated basics board (numbers only, so every one-cell move is a digit change), 16 shared
-start boards, no pairs. Each cell is the mean bits held after **32 / 64** energy bits. One run per cost model:
+Grid(4,base10,mono), the Annotated basics board (numbers only, so every one-cell move is a digit change), shared start
+boards, no pairs. Each cell is the mean bits held after **32 / 64** energy bits. One run per cost model:
 
 ```
-pnpm --filter @workspace/game-utilities difficulty --no-pairs --starts 16 --cost-model set-v1        # and distance-v1
+# the beginner eight (the default setup deals exactly BEGINNER_POOL on this board); N = 16 and 64
+# cost models: set-v1, distance-v1, dial-v1, log-v1, multiply-v1
+pnpm --filter @workspace/game-utilities difficulty --no-pairs --starts N --cost-model set-v1
+# the stand-ins
 pnpm --filter @workspace/game-utilities difficulty --no-pairs --starts 16 --cost-model distance-v1 \
   --shape "Grid(4,base10,mono)" --only-adhoc --adhoc lib/game-utilities/scripts/mutation-cost-beginner-rules.mjs
 ```
 
-A digit change costs 16.3 energy under `set-v1` whatever the distance. Under `distance-v1` it costs 7.1 for ±1, 9.7
-for ±2, 12.6 for ±3, 15.7 for ±4, 19.0 for ±5 and 34.9 for ±9.
+What one digit change costs (energy bits, from `moveEnergy`):
 
-**The Annotated basics pool as seeded today** (three families; the "beginner eight" are not in this tree):
+| model | ±1 | ±2 | ±3 | ±5 | ±9 | mean of the 90 changes |
+|---|--:|--:|--:|--:|--:|--:|
+| `set-v1` | 16.3 | 16.3 | 16.3 | 16.3 | 16.3 | 16.3 |
+| `distance-v1` | 7.1 | 9.7 | 12.6 | 19.0 | 34.9 | 15.2 |
+| `dial-v1` (9 and 0 are one apart) | 7.1 | 9.7 | 12.5 | 18.9 | 7.1 | 12.1 |
+| `log-v1` | 7.2 | 10.5 | 12.7 | 15.5 | 19.1 | 12.8 |
+| `multiply-v1` | 8.8 | 10.1 to 11.5 | 10.3 to 14.5 | 10.3 to 21.3 | 22.1 to 37.8 | 14.1 |
+
+Under `multiply-v1` the price depends on the two digits: the cheaper of an add and a multiply mod 10, plus 1 bit to say
+which. So every nudge costs 8.8 where the slider charges 7.1, and some far changes are cheap (3 to 9 is ×3 for 10.1; 5
+to 0 is ×2 for 10.3; 8 to 4 is ×3 for 10.1). The framework's moves are one-cell writes priced by their net effect
+(`callWork`), so these discounts are in the price without the agent choosing a multiply.
+
+**The beginner eight** (docs/beginner-pool.md), 64 starts, `set-v1` and `distance-v1`:
 
 | rule (top bits) | set-v1, steepest | set-v1, per-energy | distance-v1, steepest | distance-v1, per-energy | `rateE` set-v1 | `rateE` distance-v1 |
 |---|--:|--:|--:|--:|--:|--:|
-| mirrormancer (26.6) | 3.4 / 9.1 | 3.4 / 9.1 | 5.1 / 11.6 | 6.8 / 14.0 | 0.131 | 0.208 |
-| number_bonds (50.6) | 3.0 / 9.8 | 3.0 / 9.8 | 5.9 / 14.5 | 9.2 / 17.7 | 0.137 | 0.261 |
-| magic_accountant (16.3) | 4.2 / 11.6 | 4.2 / 11.6 | 5.7 / 12.5 | 7.7 / 12.3 | 0.158 | 0.170 |
-| **share of top at 32: mean; max/min; CV** | 0.15; 4.31; 0.56 | 0.15; 4.31; 0.56 | 0.22; 3.00; 0.44 | 0.30; 2.59; 0.40 | | |
-| **share of top at 64: mean; max/min; CV** | 0.42; 3.69; 0.52 | 0.42; 3.69; 0.52 | 0.50; 2.66; 0.40 | 0.54; 2.16; 0.30 | | |
-| **`rateE` max/min (CV)** | | | | | 1.21 (0.08) | 1.54 (0.18) |
+| mirrormancer (26.6) | 3.5 / 9.3 | 3.5 / 9.3 | 5.5 / 11.4 | 7.4 / 14.4 | 0.130 | 0.209 |
+| opposite_nines (26.4) | 3.6 / 9.8 | 3.6 / 9.8 | 3.7 / 9.4 | 7.6 / 14.7 | 0.129 | 0.206 |
+| leapfrog (20.2) | 1.9 / 5.8 | 1.9 / 5.8 | 2.8 / 7.2 | 6.1 / 12.2 | 0.077 | 0.178 |
+| two_pair (20.5) | 3.9 / 10.1 | 3.9 / 10.1 | 6.6 / 13.6 | 7.4 / 15.4 | 0.142 | 0.224 |
+| spread_three (22.8) | 4.2 / 10.1 | 4.2 / 10.1 | 5.4 / 11.7 | 7.3 / 14.7 | 0.132 | 0.205 |
+| strangers (21.7) | 3.1 / 7.8 | 3.1 / 7.8 | 5.5 / 11.7 | 7.6 / 15.4 | 0.099 | 0.218 |
+| crosswise_threes (16.2) | 3.0 / 8.7 | 3.0 / 8.7 | 4.9 / 12.4 | 7.3 / 15.2 | 0.119 | 0.220 |
+| magic_eighteen (14.8) | 4.0 / 11.2 | 4.0 / 11.2 | 4.5 / 10.7 | 6.0 / 11.0 | 0.155 | 0.153 |
+| **share of top at 32: mean; max/min; CV** | 0.17; 2.96; 0.30 | 0.17; 2.96; 0.30 | 0.24; 2.34; 0.29 | 0.34; 1.63; 0.17 | | |
+| **share of top at 64: mean; max/min; CV** | 0.45; 2.64; 0.31 | 0.45; 2.64; 0.31 | 0.54; 2.16; 0.28 | 0.69; 1.73; 0.18 | | |
+| **`rateE` max/min (CV)** | | | | | 2.01 (0.19) | 1.47 (0.11) |
+
+**All five models**, pool rows only. Share of top is "mean; max/min; CV"; `rateE` is the per-energy agent's.
+
+| model, starts | steepest at 32 | steepest at 64 | per-energy at 32 | per-energy at 64 | `rateE` max/min (CV) | mean `rateE` (× set-v1) |
+|---|--:|--:|--:|--:|--:|--:|
+| `set-v1`, 64 | 0.17; 2.96; 0.30 | 0.45; 2.64; 0.31 | 0.17; 2.96; 0.30 | 0.45; 2.64; 0.31 | 2.01 (0.19) | 0.123 |
+| `distance-v1`, 64 | 0.24; 2.34; 0.29 | 0.54; 2.16; 0.28 | 0.34; 1.63; 0.17 | 0.69; 1.73; 0.18 | 1.47 (0.11) | 0.202 (×1.64) |
+| `dial-v1`, 64 | 0.31; 2.78; 0.31 | 0.69; 1.74; 0.21 | 0.39; 1.80; 0.19 | 0.80; 1.53; 0.15 | 1.26 (0.07) | 0.238 (×1.93) |
+| `log-v1`, 64 | 0.29; 2.40; 0.29 | 0.65; 1.85; 0.23 | 0.35; 1.77; 0.21 | 0.74; 1.57; 0.17 | 1.31 (0.08) | 0.216 (×1.76) |
+| `multiply-v1`, 64 | 0.26; 2.66; 0.31 | 0.59; 1.97; 0.26 | 0.35; 1.99; 0.25 | 0.72; 1.60; 0.18 | 1.26 (0.08) | 0.211 (×1.72) |
+| `set-v1`, 16 | 0.17; 3.17; 0.35 | 0.46; 2.68; 0.31 | 0.17; 3.17; 0.35 | 0.46; 2.68; 0.31 | 1.98 (0.18) | 0.125 |
+| `distance-v1`, 16 | 0.24; 3.07; 0.34 | 0.55; 2.64; 0.32 | 0.34; 1.69; 0.19 | 0.70; 1.83; 0.20 | 1.50 (0.12) | 0.207 (×1.65) |
+| `dial-v1`, 16 | 0.31; 2.82; 0.29 | 0.71; 1.89; 0.21 | 0.38; 1.85; 0.21 | 0.80; 1.65; 0.16 | 1.29 (0.08) | 0.238 (×1.90) |
+| `log-v1`, 16 | 0.29; 3.16; 0.34 | 0.67; 2.03; 0.24 | 0.36; 2.19; 0.25 | 0.74; 1.69; 0.19 | 1.30 (0.09) | 0.219 (×1.75) |
+| `multiply-v1`, 16 | 0.27; 3.34; 0.38 | 0.59; 2.14; 0.27 | 0.35; 2.46; 0.30 | 0.73; 1.65; 0.18 | 1.18 (0.06) | 0.214 (×1.70) |
+
+Per rule, per-energy agent, 64 starts: share of top at 32 / 64 energy.
+
+| rule | set-v1 | distance-v1 | dial-v1 | log-v1 | multiply-v1 |
+|---|--:|--:|--:|--:|--:|
+| mirrormancer | 0.13 / 0.35 | 0.28 / 0.54 | 0.30 / 0.66 | 0.28 / 0.59 | 0.26 / 0.58 |
+| opposite_nines | 0.14 / 0.37 | 0.29 / 0.56 | 0.32 / 0.63 | 0.28 / 0.58 | 0.28 / 0.62 |
+| leapfrog | 0.09 / 0.29 | 0.30 / 0.60 | 0.34 / 0.79 | 0.28 / 0.67 | 0.27 / 0.67 |
+| two_pair | 0.19 / 0.49 | 0.36 / 0.75 | 0.40 / 0.85 | 0.38 / 0.84 | 0.37 / 0.78 |
+| spread_three | 0.19 / 0.44 | 0.32 / 0.65 | 0.38 / 0.72 | 0.34 / 0.67 | 0.33 / 0.64 |
+| strangers | 0.14 / 0.36 | 0.35 / 0.71 | 0.38 / 0.81 | 0.34 / 0.70 | 0.29 / 0.62 |
+| crosswise_threes | 0.19 / 0.54 | 0.45 / 0.94 | 0.46 / 0.95 | 0.43 / 0.92 | 0.43 / 0.90 |
+| magic_eighteen | 0.27 / 0.76 | 0.41 / 0.74 | 0.55 / 0.97 | 0.49 / 0.92 | 0.52 / 0.93 |
+
+What the eight show:
+- **Any distance price with the cost-aware agent evens the pool out and speeds it up.** The CV of the share of top at
+  64 energy falls from 0.31 to 0.15–0.18, `rateE` max/min from 2.0 to 1.26–1.47 (all under the design's 1.6), and the
+  same energy buys 1.6 to 1.9 times the bits. The blind agent gets a quarter to two thirds of the gain in evenness
+  (CV at 64: 0.28 on the slider, 0.21 on the dial).
+- **`distance-v1` is the most even at 32 energy** (CV 0.17) and the slowest of the four (×1.64). **`dial-v1` is the most
+  even at 64** (CV 0.15) and the fastest (×1.93): no change costs more than 18.9.
+- **Who gains against `set-v1`** (per-energy, share at 64, 64 starts): crosswise_threes (+0.36 to +0.41), leapfrog
+  (+0.32 to +0.51) and strangers (+0.26 to +0.45) most, because their fixes are nudges; two_pair +0.26 to +0.36; spread_three,
+  mirrormancer and opposite_nines +0.19 to +0.30. No rule loses more than noise (magic_eighteen −0.01 on the slider).
+- **magic_eighteen is the rule the models disagree on.** Under the slider it gains nothing at 64 (0.76 to 0.74): a row
+  total is often fixed by one far change, which the slider charges up to 34.9 for. The dial, the log code and multiply
+  make far changes cheap (9 to 1 costs 9.7 on the dial), and it reaches 0.92–0.97. The rule's arithmetic has no wrap
+  and no multiplication, so on the dial and under multiply that cheapness comes from the price list, not the rule.
+- **`multiply-v1` is `distance-v1` with dearer nudges and a few cheap jumps.** It helps magic_eighteen (+0.19 on the
+  slider at 64) and costs strangers (0.71 to 0.62: its fixes are nudges, each 1 bit dearer). The pool is no more even
+  than on the slider at 64 (CV 0.18) and less even at 32 (0.25 against 0.17).
+- **16 against 64 starts** agree on every pool row within 0.02 of mean share and 0.07 of CV. The max/min at 32 energy
+  (one to four moves) is noisy.
 
 **The beginner stand-ins** of docs/mutation-cost-design.md §8 (`scripts/mutation-cost-beginner-rules.mjs`, calibrated
 on the spot):
@@ -559,7 +628,7 @@ on the spot):
 | **share of top at 64: mean; max/min; CV** | 0.39; 3.49; 0.46 | 0.39; 3.49; 0.46 | 0.45; 2.80; 0.38 | 0.62; 1.92; 0.22 | | |
 | **`rateE` max/min (CV)** | | | | | 4.01 (0.35) | 1.52 (0.12) |
 
-What it shows:
+What the stand-ins show:
 - **Under `set-v1` the two agents are the same agent**, in every row.
 - **Distance pricing with the cost-aware greedy halves the stand-ins' spread**: the CV of the share of top falls from
   0.50 to 0.24 at 32 energy and from 0.46 to 0.22 at 64, and `rateE` max/min from 4.0 to 1.5. The mean share doubles
@@ -570,11 +639,7 @@ What it shows:
   row_partners_one_apart (0.30 to 0.67), column_mirror_equal (0.22 to 0.47) and half_turn_nine (0.23 to 0.48).
   corner_box_two_pairs (0.40 to 0.42) and row_sum_18 (0.78 to 0.81) gain least: the first is trapped (`DIFF` 58), the
   second is already near its top after three changes. No rule loses more than noise with the cost-aware agent
-  (row_sum_18 and magic_accountant move by ±0.7 bits at 64, and by −0.2 with 64 starts).
-- **The seeded pool of three is still uneven** (CV 0.56 to 0.40 at 32). Its spread is the spread of the tops
-  (16 to 51 bits), which no price changes: the three rules gain bits at similar rates (`rateE` max/min 1.2 under
-  `set-v1`), and distance pricing widens that to 1.5 because number_bonds speeds up most and magic_accountant
-  least.
+  (row_sum_18 moves by +0.5 bits at 64, and by −0.2 with 64 starts).
 
 **Against the prototype's figure.** docs/mutation-cost-design.md §8 measured CV 0.39 to 0.17 at 32. With the shipped
 cost functions in the prototype's exact setup, the figure is reproduced digit for digit: the prototype's slider and

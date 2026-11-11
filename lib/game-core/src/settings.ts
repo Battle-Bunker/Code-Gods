@@ -571,7 +571,21 @@ const ANNOTATED_COLOURS_EXCLUDED: readonly string[] = Object.freeze([
 const seed = (seedId: string, name: string, summary: string, objectType: string, typeArgs: TypeArgs, patch: Partial<GameSettings>): SeedSetup =>
   Object.freeze({ seedId, name, summary, settings: Object.freeze({ ...defaultSettingsFor(objectType, ["python"], typeArgs), ...patch }) });
 
-export const SEED_SETUPS: readonly SeedSetup[] = Object.freeze([
+/** Seed ids of the Lab setups start with this: system setups only administrators see (the engine's setups.ts). */
+export const LAB_SEED_PREFIX = "lab-";
+/** Whether a seed id names a Lab setup: an experiment shipped to every deployment, listed for administrators only. */
+export const isLabSeedId = (seedId: string | undefined | null): boolean => typeof seedId === "string" && seedId.startsWith(LAB_SEED_PREFIX);
+
+/**
+ * A Lab setup: `base` (a seed) with another cost model, name and summary; everything else is the base's own settings,
+ * so its board, rule pool and pacing cannot drift from it. "set-v1" stays unspelled, as in every stored setup.
+ */
+function labCostSeed(base: SeedSetup, seedId: string, name: string, summary: string, costModel: CostModel): SeedSetup {
+  const { costModel: _replaced, ...rest } = base.settings;
+  return Object.freeze({ seedId, name, summary, settings: Object.freeze({ ...rest, ...(costModel === DEFAULT_COST_MODEL ? {} : { costModel }) }) });
+}
+
+const ORDINARY_SEED_SETUPS: readonly SeedSetup[] = [
   seed(FIRST_STEPS_SEED_ID, "First steps", "A small 4×4 board, slowed down so you can watch your score",
     "Grid", { size: 4, symbols: "base10", colours: "rgb" }, { interactionRateHz: 25, durationMode: "fixed", halfLifeSeconds: 600 }),
   // The default setup's board is numbers only (owner, 2026-11-11: "the most basic game mode … just a grid of numbers").
@@ -595,6 +609,20 @@ export const SEED_SETUPS: readonly SeedSetup[] = Object.freeze([
     "Grid", { size: 6, symbols: "base16", colours: "rainbow6" }, {}),
   seed("grid-master", "Master", "7×7 playing cards in rainbow colours",
     "Grid", { size: 7, symbols: "cards", colours: "rainbow6" }, {}),
+];
+
+/**
+ * The system setups, in catalogue order: the ordinary ones, then the Lab ones (the owner, 2026-11-11: the alternative
+ * cost models, to try on Annotated basics' board and rules without ordinary players seeing them).
+ */
+export const SEED_SETUPS: readonly SeedSetup[] = Object.freeze([
+  ...ORDINARY_SEED_SETUPS,
+  ...((basics: SeedSetup) => [
+    labCostSeed(basics, "lab-cost-set", "Lab: flat price", "Annotated basics with today's pricing: every changed number costs the same", "set-v1"),
+    labCostSeed(basics, "lab-cost-dial", "Lab: dial numbers", "Numbers are a dial: 9 and 0 are one step apart, and a step either way costs the same", "dial-v1"),
+    labCostSeed(basics, "lab-cost-log", "Lab: gentle distance", "A far move costs only a little more than a middling one", "log-v1"),
+    labCostSeed(basics, "lab-cost-multiply", "Lab: multiply and divide", "Adds, plus multiply and divide by the last digit; a number's move costs the cheaper of the two", "multiply-v1"),
+  ])(ORDINARY_SEED_SETUPS.find(s => s.seedId === ANNOTATED_BASICS_SEED_ID)!),
 ]);
 
 /** A seed setup's complete settings (a fresh copy). */

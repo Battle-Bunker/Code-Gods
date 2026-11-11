@@ -11,7 +11,10 @@
  *
  * Every setup is owned: by the human who created it, or by the system (`ownerId` null: game-core SEED_SETUPS). Only
  * the owner may change or delete one; system setups nobody can (admins included): the seed sync keeps them equal to
- * the code, and players duplicate one instead. Everyone sees every setup (intended: setups are shared).
+ * the code, and players duplicate one instead. Everyone sees every setup (intended: setups are shared), except the
+ * Lab setups (system setups whose seedId starts "lab-", game-core isLabSeedId: experiments shipped to every
+ * deployment): only administrators find them in the catalogue (page, its search, list_setups), duplicate one or put a
+ * room on one. `row` and `get` by id stay open, so the members of an administrator's room on a Lab setup see its name.
  * `owner.settings({setupId})` applies a setup to a room; `owner.settings({settings})` edits the room's setup through
  * `roomSetupWrite` below (convex/owner.ts).
  *
@@ -21,12 +24,12 @@
  */
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
-import { DEFAULT_SETUP_SEED_ID, LANGUAGE_SPECS, SEED_SETUPS, allowedLanguages, SETUP_NAME_MAX, instantiationOf, sameSettings, seedSetupSettings, type GameSettings } from "@workspace/game-core";
+import { DEFAULT_SETUP_SEED_ID, LANGUAGE_SPECS, SEED_SETUPS, allowedLanguages, SETUP_NAME_MAX, instantiationOf, isLabSeedId, sameSettings, seedSetupSettings, type GameSettings } from "@workspace/game-core";
 import { instanceInfo } from "@workspace/game-types";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { action, internalAction, internalMutation, internalQuery, mutation, query, type ActionCtx, type MutationCtx, type QueryCtx } from "./_generated/server";
-import { actsAsHuman, type Viewer } from "./auth/access";
+import { actsAsHuman, humanIsAdmin, type Viewer } from "./auth/access";
 import { fail } from "./lib/errors";
 import { displayName, principalV, viewerOf, type Principal } from "./lib/rooms";
 
@@ -99,6 +102,22 @@ export const listed = (d: Doc<"gameSetups">, want: ReturnType<typeof listingOf>)
 /** `listingOf` with the owner's current name. */
 export const listingFor = async (ctx: Ctx, d: Pick<Doc<"gameSetups">, "ownerId" | "name" | "summary" | "seedId">) => listingOf(d, await ownerNameOf(ctx, d.ownerId));
 
+/** A Lab setup: a system setup of a "lab-" seed (no stored field: the seed id says it). */
+export const isLab = (d: Pick<Doc<"gameSetups">, "ownerId" | "seedId">) => d.ownerId === null && isLabSeedId(d.seedId);
+export const LAB_ADMIN_ONLY = "Lab setups are for administrators";
+/**
+ * `rows` as the viewer's catalogue lists them: without the Lab setups unless their human is an administrator. The
+ * administrator check runs only when a Lab row is among them (free for a browser session; one `users` row for a
+ * credential: auth/access.ts humanIsAdmin), so a page of everyone's setups reads nothing more.
+ */
+async function withoutHiddenLab<T extends Pick<Doc<"gameSetups">, "ownerId" | "seedId">>(ctx: Ctx, viewer: Viewer, rows: T[]): Promise<T[]> {
+  return rows.some(isLab) && !(await humanIsAdmin(ctx, viewer)) ? rows.filter(d => !isLab(d)) : rows;
+}
+/** Refuse a Lab setup to anyone but an administrator (duplicating it, putting a room on it). */
+export async function requireLabAccess(ctx: Ctx, viewer: Viewer, doc: Pick<Doc<"gameSetups">, "ownerId" | "seedId">): Promise<void> {
+  if (isLab(doc) && !(await humanIsAdmin(ctx, viewer))) fail("FORBIDDEN", LAB_ADMIN_ONLY);
+}
+
 /** A setup as a list row shows it: who owns it and what it is, without its settings. */
 function rowOf(d: Doc<"gameSetups">, viewer: Viewer, ownerName: string) {
   const mine = d.ownerId !== null && d.ownerId === viewer.subject;
@@ -116,11 +135,12 @@ export type SetupView = ReturnType<typeof view>;
 
 /**
  * The system's setups and the viewer's own always; everyone else's, most recently created first, up to LIST_CAP in all
- * (so a large catalogue drops the oldest strangers' setups, never the viewer's or the system's).
+ * (so a large catalogue drops the oldest strangers' setups, never the viewer's or the system's). The Lab setups only
+ * for an administrator.
  */
 async function listImpl(ctx: Ctx, viewer: Viewer): Promise<SetupRow[]> {
   const byOwner = (ownerId: string | null) => ctx.db.query("gameSetups").withIndex("by_owner", q => q.eq("ownerId", ownerId)).take(MAX_OWN_SETUPS + 200);
-  const fixed = [...await byOwner(null), ...await byOwner(viewer.subject)];
+  const fixed = [...await withoutHiddenLab(ctx, viewer, await byOwner(null)), ...await byOwner(viewer.subject)];
   const others = (await ctx.db.query("gameSetups").order("desc").take(LIST_CAP + fixed.length))
     .filter(d => d.ownerId !== null && d.ownerId !== viewer.subject).slice(0, Math.max(0, LIST_CAP - fixed.length));
   const rows = [...fixed, ...others].filter(d => !d.deleted);
@@ -152,7 +172,8 @@ const SEARCH_MAX = 100, SEARCH_TERMS = 16;
 /**
  * One page of the shared catalogue, the skeleton of a setup list (read-architecture R1; `row` is one setup with its
  * owner's name): the system's in seed order, then everyone's by name (the by_order index); with `search`, the setups
- * whose name, owner or summary match it, best first (the search index). At most PAGE_MAX a page.
+ * whose name, owner or summary match it, best first (the search index). At most PAGE_MAX a page; a page that holds
+ * Lab setups is that much shorter for everyone but an administrator (its cursor is the index's, unchanged).
  */
 export const page = query({
   args: { paginationOpts: paginationOptsValidator, search: v.optional(v.string()) },
@@ -163,7 +184,7 @@ export const page = query({
     const result = text
       ? await ctx.db.query("gameSetups").withSearchIndex("search", q => q.search("searchText", text)).paginate(opts)
       : await ctx.db.query("gameSetups").withIndex("by_order").paginate(opts);
-    return { ...result, page: result.page.filter(d => !d.deleted).map(d => entry(d, viewer)) };
+    return { ...result, page: (await withoutHiddenLab(ctx, viewer, result.page)).filter(d => !d.deleted).map(d => entry(d, viewer)) };
   },
 });
 
@@ -334,11 +355,12 @@ export const saveAs = internalAction({
 async function duplicateImpl(ctx: MutationCtx, viewer: Viewer, setupId: string, rawName?: string): Promise<SetupView> {
   requireWriter(viewer);
   const source = await setupById(ctx, setupId);
+  await requireLabAccess(ctx, viewer, source);
   const taken = await takenNames(ctx, viewer.subject);
   const name = rawName === undefined ? copyName(source.name, taken) : freeName(checkName(rawName), "", taken);
   return view(await insertOwn(ctx, viewer.subject, name, source.settings as GameSettings, source.summary), viewer, viewer.name);
 }
-/** Copy any setup (the system's, anyone's, yours) as a new one of yours: "<name>'s copy" (then " 2", " 3"…), or `name`. */
+/** Copy any setup (the system's, anyone's, yours; a Lab one only as an administrator) as a new one of yours: "<name>'s copy" (then " 2", " 3"…), or `name`. */
 export const duplicate = mutation({
   args: { setupId: v.string(), name: v.optional(v.string()) },
   handler: async (ctx, { setupId, name }) => duplicateImpl(ctx, await viewerOf(ctx), setupId, name),

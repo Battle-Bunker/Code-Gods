@@ -6,7 +6,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ANNOTATED_BASICS_SEED_ID, ANNOTATED_COLOURS_SEED_ID, BEGINNER_POOL, SEED_SETUPS, applySettingsChange, validateSettings } from "@workspace/game-core";
+import { ANNOTATED_BASICS_SEED_ID, ANNOTATED_COLOURS_SEED_ID, BEGINNER_POOL, SEED_SETUPS, applySettingsChange, isLabSeedId, validateSettings } from "@workspace/game-core";
 import { offeredInstantiations, playableInstantiations } from "@workspace/game-utilities";
 import { shippedManifest } from "@workspace/game-utilities/calibration-data";
 import { settingsDomain } from "../../convex/engine/settingsDomain.ts";
@@ -57,7 +57,10 @@ test("Annotated basics deals exactly the beginner pool on a numbers-only board; 
   const cases = [
     { seedId: ANNOTATED_BASICS_SEED_ID, pool: new Set(BEGINNER_POOL), colours: "mono" },
     { seedId: ANNOTATED_COLOURS_SEED_ID, pool: null, colours: "rgb" },
+    // The Lab setups are Annotated basics under another cost model: the same board and the same eight rules.
+    ...SEED_SETUPS.filter(x => isLabSeedId(x.seedId)).map(x => ({ seedId: x.seedId, pool: new Set(BEGINNER_POOL), colours: "mono" })),
   ];
+  assert.deepEqual(cases.slice(2).map(c => c.seedId), ["lab-cost-set", "lab-cost-dial", "lab-cost-log", "lab-cost-multiply"]);
   for (const { seedId, pool, colours } of cases) {
     const s = seedSetupSettings(seedId);
     assert.ok(SEED_SETUPS.some(x => x.seedId === seedId && x.summary.length <= 160), `${seedId}: listed among the system setups`);
