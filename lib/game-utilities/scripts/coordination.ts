@@ -19,15 +19,16 @@
  *   --players P                       gods (default 3)
  *   --set a,b,c                       the policies in play (default: all but random and sniper for equilibria)
  *   --duration S  --objects K  --spawn HZ  --power B  --rate HZ      override the setup
- *   --kappa K  --capacity S  --distance  --erasure L  --erasure-noise SIGMA  --aggregate sum|min|geo  --scoring final|integral
- *   --learn S  --agents N  --candidates C  --hoard T  --snipe S       the model's knobs (coordination-lib Econ, Tuning)
+ *   --kappa K  --capacity S|none  --distance  --erasure L  --erasure-noise SIGMA  --aggregate sum|min|geo  --scoring final|integral
+ *   --learn S  --agents N  --candidates C  --peer-noise SIGMA  --hoard T  --snipe S       the model's knobs (coordination-lib Econ, Tuning)
  *   --summon                          charge each policy its summon price: its agents start once the god has saved it
+ *   --only a,b  --out DIR             report: only these sections; also write each section's text and JSON to DIR
  *   --jobs J                          worker processes (default: the cores)
  *   --json FILE                       also write every table's statistics as JSON
  */
 import { execFile } from "node:child_process";
 import { availableParallelism } from "node:os";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -49,7 +50,7 @@ const num = (n: string, d: number) => Number(opt(n, String(d)));
 /** One record of coordination-engine-games.json (what the model needs of it). */
 interface EngineGame {
   table: string; gameId: string; worldSeconds: number; objectsAtEnd: number;
-  settings: { objectType: string; typeArgs: Record<string, unknown>; powerPerSecond: number; interactionRateHz: number };
+  settings: { objectType: string; typeArgs: Record<string, unknown>; powerPerSecond: number; interactionRateHz: number; fullChargeSeconds?: number };
   seats: { policy: Policy; utility: { familyId: string; params: Record<string, unknown> }; totalPayoff: number; rank: number; acts: number; transforms: number; skips: number; spent: number; spentRead: number }[];
 }
 export interface Run { setup: string; games: number; players: number; econ: Econ; tuning: Tuning }
@@ -63,7 +64,7 @@ export function econOf(setupId: string, patch: Partial<Econ> = {}): Econ {
   const s = setupOf(setupId).settings;
   return {
     powerPerSecond: s.powerPerSecond, interactionRateHz: s.interactionRateHz, durationSeconds: s.halfLifeSeconds,
-    startingObjectCount: s.startingObjectCount, spawnRateHz: s.spawnRateHz, ...DEVELOP_ECON, ...patch,
+    startingObjectCount: s.startingObjectCount, spawnRateHz: s.spawnRateHz, capacitySeconds: s.fullChargeSeconds, ...DEVELOP_ECON, peerNoiseBits: s.peerNoiseBits, ...patch,
   };
 }
 
@@ -182,19 +183,19 @@ export function equilibriaMarkdown(set: readonly Policy[], players: number, tabl
  * two rule cards as well and are estimated as greedy + 2 cards + the objective (docs/coordination-incentives.md §3).
  */
 export const SUMMON_BITS: Record<Policy, number> = {
-  random: 150, greedy: 4400, considerate: 6200, payoff: 6200, cooperator: 6300, defender: 6400, deny: 6300, hoarder: 6400, sniper: 6500,
+  random: 150, greedy: 4400, clause: 4400, considerate: 6200, payoff: 6200, cooperator: 6300, defender: 6400, deny: 6300, hoarder: 6400, sniper: 6500,
 };
-const ZOO: Policy[] = ["greedy", "considerate", "payoff", "cooperator", "defender", "deny", "hoarder"];
+const ZOO: Policy[] = ["greedy", "clause", "considerate", "payoff", "cooperator", "defender", "deny"];
 function runOf(): Run {
   const setup = opt("setup", "annotated")!;
   const patch: Partial<Econ> = {
     ...(opt("duration") ? { durationSeconds: num("duration", 0) } : {}), ...(opt("objects") ? { startingObjectCount: num("objects", 0) } : {}),
     ...(opt("spawn") ? { spawnRateHz: num("spawn", 0) } : {}), ...(opt("power") ? { powerPerSecond: num("power", 0) } : {}),
     ...(opt("rate") ? { interactionRateHz: num("rate", 0) } : {}), ...(opt("kappa") ? { kappa: num("kappa", 0) } : {}),
-    ...(opt("capacity") ? { capacitySeconds: num("capacity", 0) } : {}), ...(flag("distance") ? { distancePricing: true } : {}),
+    ...(opt("capacity") ? { capacitySeconds: opt("capacity") === "none" ? undefined : num("capacity", 0) } : {}), ...(flag("distance") ? { distancePricing: true } : {}),
     ...(opt("erasure") ? { erasure: num("erasure", 0) } : {}), ...(opt("erasure-noise") ? { erasureNoiseBits: num("erasure-noise", 0) } : {}), ...(opt("aggregate") ? { aggregate: opt("aggregate") as Aggregate } : {}),
     ...(opt("scoring") ? { scoring: opt("scoring") as Econ["scoring"] } : {}), ...(opt("learn") ? { learnSeconds: num("learn", 0) } : {}),
-    ...(opt("agents") ? { agentsPerGod: num("agents", 1) } : {}), ...(opt("candidates") ? { candidates: num("candidates", 24) } : {}),
+    ...(opt("agents") ? { agentsPerGod: num("agents", 1) } : {}), ...(opt("candidates") ? { candidates: num("candidates", 24) } : {}), ...(opt("peer-noise") ? { peerNoiseBits: num("peer-noise", 8) } : {}),
   };
   return { setup, games: num("games", 24), players: num("players", 3), econ: econOf(setup, patch),
     tuning: { hoarderThreshold: num("hoard", DEFAULT_TUNING.hoarderThreshold), sniperSeconds: num("snipe", DEFAULT_TUNING.sniperSeconds),
@@ -237,6 +238,58 @@ async function main() {
     json.tables = Object.fromEntries(table);
     console.log(TABLE_HEAD);
     for (const t of named) console.log(tableRow(table.get(profileKey(t))!));
+  } else if (mode === "report") {
+    // The document's tables: develop's rules on the full zoo, each candidate rule, and the sensitivities. `--only a,b`
+    // runs the named sections; `--out DIR` also writes each section's text and JSON there.
+    const only = opt("only")?.split(","), out = opt("out");
+    const CORE: Policy[] = ["greedy", "payoff", "cooperator", "deny"];
+    const sections: { name: string; title: string; mode: "equilibria" | "duel" | "tables"; set?: Policy[]; players?: number; econ?: Partial<Econ>; tuning?: Partial<Tuning>; tables?: Policy[][] }[] = [
+      { name: "develop-zoo", title: "The rules on develop, the whole zoo", mode: "equilibria", set: ZOO },
+      { name: "develop", title: "The rules on develop", mode: "equilibria", set: CORE },
+      { name: "erasure1", title: "Candidate: breaking costs extra (1 bit of work per bit destroyed)", mode: "equilibria", set: CORE, econ: { erasure: 1 } },
+      { name: "erasure3", title: "Candidate: breaking costs extra (3 bits of work per bit destroyed)", mode: "equilibria", set: CORE, econ: { erasure: 3 } },
+      { name: "erasure1-noise8", title: "Breaking costs extra, charged on the disclosed salience (noise σ = 8 bits)", mode: "equilibria", set: CORE, econ: { erasure: 1, erasureNoiseBits: 8 } },
+      { name: "erasure3-noise8", title: "Breaking costs extra ×3, charged on the disclosed salience (noise σ = 8 bits)", mode: "equilibria", set: CORE, econ: { erasure: 3, erasureNoiseBits: 8 } },
+      { name: "min", title: "Candidate: own bits × the smallest other god's bits", mode: "equilibria", set: CORE, econ: { aggregate: "min" } },
+      { name: "geo", title: "Candidate: own bits × the geometric mean of the others' bits", mode: "equilibria", set: CORE, econ: { aggregate: "geo" } },
+      { name: "integral", title: "Candidate: points averaged over the game's time", mode: "equilibria", set: CORE, econ: { scoring: "integral" } },
+      { name: "min-erasure1", title: "Smallest other × breaking costs extra", mode: "equilibria", set: CORE, econ: { aggregate: "min", erasure: 1 } },
+      { name: "mixed", title: "Mixed tables on develop", mode: "tables", tables: [["cooperator", "cooperator", "deny"], ["payoff", "payoff", "deny"], ["payoff", "payoff", "greedy"], ["deny", "deny", "deny"], ["random", "greedy", "deny"], ["random", "random", "random"], ["considerate", "considerate", "considerate"], ["defender", "defender", "deny"]] },
+      { name: "sniper-nocap", title: "Saving energy for the end, no capacity, 8 agents per god", mode: "tables", econ: { capacitySeconds: undefined, agentsPerGod: 8 }, tables: [["payoff", "payoff", "sniper"], ["greedy", "greedy", "sniper"], ["payoff", "payoff", "payoff"]] },
+      { name: "sniper-cap", title: "Saving energy for the end, develop's capacity, 8 agents per god", mode: "tables", econ: { agentsPerGod: 8 }, tables: [["payoff", "payoff", "sniper"], ["greedy", "greedy", "sniper"], ["payoff", "payoff", "payoff"]] },
+      { name: "sniper-integral", title: "Saving energy for the end, no capacity, points averaged over time", mode: "tables", econ: { capacitySeconds: undefined, agentsPerGod: 8, scoring: "integral" }, tables: [["payoff", "payoff", "sniper"], ["greedy", "greedy", "sniper"], ["payoff", "payoff", "payoff"]] },
+      ...([1, 8, 128] as const).map(kappa => ({ name: `kappa${kappa}`, title: `Read price: κ = ${kappa}`, mode: "duel" as const, set: CORE, econ: { kappa } })),
+      { name: "capacity-none", title: "No energy capacity", mode: "duel", set: CORE, econ: { capacitySeconds: undefined } },
+      { name: "capacity-5", title: "Capacity 5 s", mode: "duel", set: CORE, econ: { capacitySeconds: 5 } },
+      { name: "distance", title: "Distance pricing (docs/mutation-cost-design.md)", mode: "duel", set: CORE, econ: { distancePricing: true } },
+      { name: "players2", title: "Two gods", mode: "duel", set: CORE, players: 2 },
+      { name: "players4", title: "Four gods", mode: "duel", set: CORE, players: 4 },
+      { name: "players5", title: "Five gods", mode: "duel", set: CORE, players: 5 },
+      { name: "length", title: "The full 600 s game", mode: "duel", set: CORE, econ: { durationSeconds: 600 } },
+      { name: "objects40", title: "40 starting objects", mode: "duel", set: CORE, econ: { startingObjectCount: 40 } },
+      { name: "agents1", title: "One agent per god", mode: "duel", set: CORE, econ: { agentsPerGod: 1 } },
+      { name: "learn120", title: "The others' rules known only after 120 s", mode: "duel", set: CORE, econ: { learnSeconds: 120 } },
+      { name: "summon", title: "Programs paid for: agents start once their summon price is saved", mode: "duel", set: CORE, tuning: { summonBits: SUMMON_BITS, startingEnergy: setupOf(run.setup).settings.startingEnergy } },
+      { name: "exhaustive", title: "Agents try all 144 writes", mode: "duel", set: CORE, econ: { candidates: 1000 } },
+    ];
+    for (const sec of sections) {
+      if (only && !only.includes(sec.name)) continue;
+      const r: Run = { ...run, players: sec.players ?? run.players, econ: { ...run.econ, ...sec.econ }, tuning: { ...run.tuning, ...sec.tuning } };
+      const Q = r.players, sset = sec.set ?? CORE;
+      const tables = sec.mode === "tables" ? sec.tables! : sec.mode === "duel" ? sset.flatMap(base => sset.map(dev => [dev, ...new Array<Policy>(Q - 1).fill(base)])) : profiles(sset, Q);
+      const started = Date.now(), table = await playTables(r, tables, jobs);
+      const lines = [`### ${sec.title}`, "", `\`${sec.name}\`: ${Q} gods, ${r.games} games per table, ${r.econ.durationSeconds} s, ${r.econ.agentsPerGod} agent(s) per god.`, ""];
+      if (sec.mode === "tables") { lines.push(TABLE_HEAD); for (const t of sec.tables!) lines.push(tableRow(table.get(profileKey(t))!)); }
+      else {
+        lines.push(`Win share of the one god:\n${duelMarkdown(sset, Q, table, "win")}`, "", `Points of the one god:\n${duelMarkdown(sset, Q, table, "score")}`, "",
+          `Welfare of each one-policy table: ${sset.map(p => `${p} ${f0(table.get(profileKey(new Array<Policy>(Q).fill(p)))!.welfare)}`).join(", ")}`);
+        if (sec.mode === "equilibria") lines.push("", equilibriaMarkdown(sset, Q, table, "win", 0.03), "", equilibriaMarkdown(sset, Q, table, "score", 0.02 * Math.max(...[...table.values()].map(s => s.welfare / Q))));
+      }
+      const text = lines.join("\n");
+      console.log(`\n${text}\n\n(${((Date.now() - started) / 1000).toFixed(0)} s)`);
+      json[sec.name] = Object.fromEntries(table);
+      if (out) { mkdirSync(out, { recursive: true }); writeFileSync(join(out, `${sec.name}.md`), text + "\n"); writeFileSync(join(out, `${sec.name}.json`), JSON.stringify({ run: r, tables: Object.fromEntries(table) })); }
+    }
   } else if (mode === "validate") {
     // Real engine games (artifacts/engine/scripts/coordination-games.ts) against the model on the same deals and policies.
     const games = JSON.parse(readFileSync(opt("engine", fileURLToPath(new URL("./coordination-engine-games.json", import.meta.url)))!, "utf8")) as EngineGame[];
@@ -245,7 +298,7 @@ async function main() {
     for (const game of games) {
       const s = game.settings, inst = instantiate(s.objectType, s.typeArgs), sp = space(inst, "symbol");
       const rules = game.seats.map(seat => gameRule(seat.utility.familyId, seat.utility.params as Params, inst, game.seats.length)), policies = game.seats.map(seat => seat.policy);
-      const econ = econOf(run.setup, { ...run.econ, durationSeconds: game.worldSeconds, powerPerSecond: s.powerPerSecond, interactionRateHz: s.interactionRateHz, candidates: 1000, agentsPerGod: 1 });
+      const econ = econOf(run.setup, { ...run.econ, durationSeconds: game.worldSeconds, powerPerSecond: s.powerPerSecond, interactionRateHz: s.interactionRateHz, capacitySeconds: s.fullChargeSeconds, candidates: 1000, agentsPerGod: 1 });
       const model = Array.from({ length: runs }, (_, k) => playGame(rules, policies, sp, econ, seededRng(`coordination|validate|${game.gameId}|${k}`), run.tuning));
       const mean = (f: (r: GameResult) => number) => model.reduce((a, r) => a + f(r), 0) / runs;
       game.seats.forEach((seat, g) => {
@@ -267,7 +320,7 @@ async function main() {
       console.log(`| ${key} | ${v.engine.length} | ${fmt(e)} (${fmt(sd(v.engine))}) | ${fmt(m)} | ${e ? (m / e).toFixed(2) : "–"} |`);
     }
     json.validation = rows;
-  } else throw new Error(`Unknown mode: ${mode} (the report is scripts/coordination-report.ts)`);
+  } else throw new Error(`Unknown mode: ${mode}`);
   saveHoldTables();
   if (opt("json")) writeFileSync(opt("json")!, JSON.stringify(json, null, 1));
 }

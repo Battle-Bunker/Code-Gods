@@ -17,7 +17,7 @@
  * The rule variants under study are fields of `Econ`, all off by default (= the rules on develop).
  */
 import { changeCost, CHANGE_READ_RATIO, type GridValue, type Rng } from "@workspace/game-types";
-import { MAX_AGENT_OPPORTUNITY_HZ, offerable, pickByEnergy, chargeAct, settleAgentEnergy, type AgentAccount } from "../../game-core/src/energy.ts";
+import { MAX_AGENT_OPPORTUNITY_HZ, energyCapacity, offerable, pickByEnergy, chargeAct, settleAgentEnergy, type AgentAccount } from "../../game-core/src/energy.ts";
 import { poissonIntervalSeconds } from "../../game-core/src/index.ts";
 import { compareOrdinals, type Ordinal } from "../src/index.ts";
 import { apply, type Move, type Rule, type Space } from "./rule-difficulty-lib.ts";
@@ -62,7 +62,7 @@ export interface Econ {
   readonly kappa: number;
   /** Agents per god, each with an equal share of the god's whole power. */
   readonly agentsPerGod: number;
-  /** An agent's energy is capped at this many seconds of its income (undefined: no cap, as on develop). */
+  /** settings.fullChargeSeconds: an agent stores at most this many seconds of its income (undefined: no capacity). */
   readonly capacitySeconds?: number;
   /** Distance pricing (docs/mutation-cost-design.md): a write of digit a→b costs W = log2(cells) + 1.585·|a − b|. */
   readonly distancePricing: boolean;
@@ -74,6 +74,8 @@ export interface Econ {
    */
   readonly erasureNoiseBits: number;
   readonly aggregate: Aggregate;
+  /** settings.peerNoiseBits: σ of the fixed noise on the others' sum a god (and the commit clause) sees per value. */
+  readonly peerNoiseBits: number;
   /** What decides the game: the payoff at the end (develop) or its average over the game's time. */
   readonly scoring: "final" | "integral";
   /** World seconds before a policy that uses the other gods' rules knows them (it plays greedy until then). */
@@ -81,7 +83,7 @@ export interface Econ {
   /** One-cell writes a searching agent tries per act (a random sample; ≥ every move = exhaustive). */
   readonly candidates: number;
 }
-export const DEVELOP_ECON = { kappa: CHANGE_READ_RATIO, agentsPerGod: 1, distancePricing: false, erasure: 0, erasureNoiseBits: 0, aggregate: "sum", scoring: "final", learnSeconds: 0, candidates: 24 } as const;
+export const DEVELOP_ECON = { kappa: CHANGE_READ_RATIO, agentsPerGod: 1, distancePricing: false, erasure: 0, erasureNoiseBits: 0, aggregate: "sum", peerNoiseBits: 8, scoring: "final", learnSeconds: 0, candidates: 24 } as const;
 
 /** The work W (bits) of one write and its erasure surcharge; the charge is changeCost(W). */
 export function writeWork(sp: Space, econ: Pick<Econ, "distancePricing" | "erasure">, from: number, to: number, salienceBefore: number, salienceAfter: number): number {
@@ -94,13 +96,14 @@ export function writeWork(sp: Space, econ: Pick<Econ, "distancePricing" | "erasu
 // policies
 // ------------------------------------------------------------------------------------------------
 
-export const POLICIES = ["random", "greedy", "considerate", "payoff", "cooperator", "defender", "deny", "hoarder", "sniper"] as const;
+export const POLICIES = ["random", "greedy", "clause", "considerate", "payoff", "cooperator", "defender", "deny", "hoarder", "sniper"] as const;
 export type Policy = typeof POLICIES[number];
 
 /** What a policy needs to know, which sets its program's size (summon price) and what it reads. */
 export const POLICY_INFO: Readonly<Record<Policy, { readonly reads: boolean; readonly othersRules: boolean; readonly kid: string }>> = {
   random: { reads: false, othersRules: false, kid: "Writes a random digit in a random cell, without looking." },
   greedy: { reads: true, othersRules: false, kid: "Makes the one-cell change that most raises its own rule; skips when none does." },
+  clause: { reads: true, othersRules: false, kid: "Greedy on its own rule, with the commit clause: the engine keeps the change only if it raises its points as it sees them." },
   considerate: { reads: true, othersRules: true, kid: "Greedy on its own rule, but never makes a change that lowers another god's bits." },
   payoff: { reads: true, othersRules: true, kid: "Makes the change that most raises its own points (own bits × the others' bits); skips when none does." },
   cooperator: { reads: true, othersRules: true, kid: "Makes the change that most raises everybody's points together, among those that do not lower its own." },
@@ -178,7 +181,7 @@ export function decide(policy: Policy, v: ActView): Decision {
   let best: Decision["after"] | undefined, bestMove: Move | null = null, bestKey = -Infinity, bestOrd: Ordinal = o.ords[i];
   for (const k of ks) {
     const move = pickMove(k), grid = apply(o.grid, move);
-    if (p === "greedy") {
+    if (p === "greedy" || p === "clause") {
       // Its own rule only, compared as ordinals (what a program holding the card's source does).
       const ord = rules[i].score(grid);
       if (compareOrdinals(ord, bestOrd) > 0) { bestOrd = ord; bestMove = move; best = undefined; }
@@ -208,6 +211,13 @@ export function decide(policy: Policy, v: ActView): Decision {
     if (key > bestKey) { bestKey = key; best = s; bestMove = move; }
   }
   if (!bestMove) return { move: null, readBits: fullRead };
+  if (policy === "clause") {
+    // The commit clause (engine lib/world.ts commitRaises): own bits exact, the others' sum with each value's noise.
+    const after = score(apply(o.grid, bestMove));
+    const seen = (bits: readonly number[], grid: GridValue) => { const peers = sum(bits) - bits[i] + econ.peerNoiseBits * valueNoise(grid); return peers > 0 ? bits[i] * peers : 0; };
+    if (!(seen(after.bits, after.grid) - seen(o.bits, o.grid) > 0)) return { move: null, readBits: fullRead };
+    return { move: bestMove, readBits: fullRead, after };
+  }
   return { move: bestMove, readBits: fullRead, after: best ?? score(apply(o.grid, bestMove)) };
 }
 
@@ -264,15 +274,14 @@ export function playGame(rules: readonly Rule[], policies: readonly Policy[], sp
     pay.forEach((x, g) => (totals[g] += x));
   };
   for (let k = 0; k < econ.startingObjectCount; k++) spawn();
-  const income = econ.powerPerSecond / econ.agentsPerGod, cap = econ.capacitySeconds === undefined ? Infinity : econ.capacitySeconds * income;
+  const income = econ.powerPerSecond / econ.agentsPerGod, cap = energyCapacity(income, econ.capacitySeconds);
   const agents = Array.from({ length: P * econ.agentsPerGod }, (_, a) => ({ god: a % P, account: { balance: 0, settledWorldSeconds: 0 } as AgentAccount, last: undefined as number | undefined }));
   // When each god's agents exist: once its saved power (and starting energy) has paid the policy's summon price.
   const bornAt = policies.map(p => Math.max(0, ((tuning.summonBits?.[p] ?? 0) - (tuning.startingEnergy ?? 0)) / Math.max(1e-9, econ.powerPerSecond)));
   for (const a of agents) a.account = { balance: 0, settledWorldSeconds: Math.min(T, bornAt[a.god]) };
   const settle = (a: typeof agents[number], t: number) => {
     if (t <= a.account.settledWorldSeconds) return;
-    const s = settleAgentEnergy(a.account, t, income);
-    a.account = s.balance > cap ? { ...s, balance: cap } : s;
+    a.account = settleAgentEnergy(a.account, t, income, cap);
   };
   const r: GameResult = { final: zero(), average: zero(), score: zero(), acts: zero(), changes: zero(), skips: zero(), readSpent: zero(), changeSpent: zero(),
     destroyed: zero(), created: zero(), ownBits: zero(), opportunities: 0, idle: 0, objects: 0 };

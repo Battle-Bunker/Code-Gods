@@ -81,6 +81,20 @@ test("each policy's choice on boards worked out by hand", () => {
   const full = act("defender", 1, [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 0].map((s, k) => (k === 15 ? 0 : s)));
   assert.equal(full.move?.value, 3);
 
+  // The commit clause, with no noise: the 3 on sevens raises its points 0 → 30, so it commits; for the 7s god on all
+  // sevens but one 3 (bits [15, 1, 15], points 240) a 7 gives [16, 0, 16], points 256: commits. For the "high" god
+  // on [7, 3 × 15] (bits [1, 15, 1]) greedy writes a high digit over a 3: [1, 14, 2], its points 16 → 30: commits;
+  // with the others' sum hidden under heavy noise the clause decides by the noise, so some boards are refused.
+  const quiet = econ({ peerNoiseBits: 0 });
+  assert.equal(act("clause", 1, ALL7, quiet).move?.value, 3);
+  assert.equal(act("clause", 0, [3, ...ALL7.slice(1)], quiet).after?.bits[0], 16);
+  // Own bits up but points down: the 3s god on [7 × 15, 3] with rivals at 15 each… a second 3 gives [14, 2, 14]:
+  // 30 → 56, commits. The 7s god on fifteen 3s and a 7 adding a 7: 16 → 2 × 16 = 32, commits. A refusal needs the
+  // others to fall faster than it rises: god 2 ("high") on [9, 3 × 15] has bits [0, 15, 1], points 15; a high digit
+  // over a 3 gives [0, 14, 2], points 28: commits. So refusals here come only from noise:
+  const refused = Array.from({ length: 40 }, (_, k) => act("clause", 1, [k % 10, ...ALL7.slice(1)].map((x, c) => (c === 5 ? (k >> 1) % 10 : x)), econ({ peerNoiseBits: 64 })).move === null);
+  assert.ok(refused.some(Boolean) && !refused.every(Boolean), "heavy noise refuses some improving changes and keeps others");
+
   // Before it knows the others' rules an informed policy plays greedy.
   assert.equal(act("considerate", 1, ALL7, econ(), { informed: false }).move?.value, 3);
   // The hoarder wants ≥ 2 points per energy bit: +30 points for 16.3 bits is not enough; on fifteen 7s and one 3 a
