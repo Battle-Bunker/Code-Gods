@@ -1334,6 +1334,47 @@ const step_rank = def({
   }),
 });
 
+/**
+ * The slider's own move (docs/mutation-cost-design.md §0): add a whole number to every number in an area. Unlike
+ * step_rank it never wraps: an add that would take any cell below the lowest number or above the highest cannot apply,
+ * so the act fails. Under distance-v1 this is the elementary number mutator (a cell pays for how far it moved); under
+ * set-v1 it is a composite priced like any other symbol change.
+ */
+const add = def({
+  id: "add", name: "Add", emoji: "➕", summary: "Add to (or take away from) every number in an area, without wrapping: 9 + 1 does not fit.",
+  requires: ["Ranked"], kind: "bijective", scope: "local",
+  fields: [F_kind("cell", "line", "block", "ring", "all"), F_REGION,
+    { name: "k", choices: g => cached(`add:${g.R}`, () => range(g.R, 1).flatMap(k => [k, -k])) }],
+  terms: (p, g) => ({ dsym: regionSize(p.kind, p.region, g.N), scope: REGION_SCOPE[p.kind] }),
+  apply: (v, p, g) => {
+    const out = copy(v);
+    for (const i of resolveCells(p, g, v)) {
+      const r = rankOf(g, v.sym[i]) + p.k;
+      if (r < 0 || r >= g.R) return null;
+      out.sym[i] = v.sym[i] + p.k;
+    }
+    return out;
+  },
+  text: (p, g) => `${p.k > 0 ? `add ${p.k} to` : `take ${-p.k} from`} every number in ${regionText(p, g)}`,
+  guest: guest({
+    py: `def add(where, amount=1):
+    k = _M_INT(amount, "amount")
+    if k == 0:
+        _M_FAIL("adding 0 does nothing")
+    return _M_CALL("add", **_M_WHERE(where), k=k)
+`,
+    js: `function add(where, amount = 1) {
+  const k = __M_INT(amount, "amount");
+  if (k === 0) __M_FAIL("adding 0 does nothing");
+  return { __m: "add", ...__M_WHERE(where), k };
+}
+`,
+    dts: `declare function add(where: Area, amount?: number): MutatorCall;\n`,
+    doc: [["add(where, amount=1)", "add(where, amount = 1)",
+      "Add a whole number to every number in a cell, row or column, square, ring or everything: add(cell, 1), add(cell, -2). It never wraps: if any number would leave the range (9 + 1), the move fails.", "Ranked"]],
+  }),
+});
+
 const write_ramp = def({
   id: "write_ramp", name: "Count along", emoji: "🪜", summary: "Write a counting run along a row or column: 3, 4, 5, 6, ... (cards keep their suit).",
   requires: ["Ranked"], kind: "overwrite", scope: "line",
@@ -1645,7 +1686,7 @@ export const GRID_MUTATORS: readonly GridMutator[] = Object.freeze([
   swap_cells, shift_line, reverse_line, swap_lines, turn_block, turn_grid,
   sort_line, mirror_fold,
   paint, recolour, swap_colours, hue_turn, pattern_line, motif, majority_line,
-  write, step_rank, write_ramp, swap_symbols,
+  write, step_rank, add, write_ramp, swap_symbols,
   paint_by_key, stamp, tally,
   blend, suit_swap, suit_set,
 ]);

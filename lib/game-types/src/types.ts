@@ -9,6 +9,8 @@
  * This file is shared by every package and both UIs: keep it free of Node and DOM dependencies.
  */
 
+import type { CostModel, CostRow } from "./structure/index.ts";
+
 // ------------------------------------------------------------------------------------------------
 // values and randomness
 // ------------------------------------------------------------------------------------------------
@@ -274,9 +276,14 @@ export interface ObjectTypeDef<V = unknown> {
   /**
    * W of one call (docs/energy-model.md §4.1–4.2): the cost of the cheapest decomposition the type knows of the call's
    * net effect (`before` → `after`, which differ) into its elementary mutators. `call` is the mutator id and its parsed
-   * params, for an elementary mutator priced by its parameters (Int's multiply).
+   * params, for an elementary mutator priced by its parameters (Int's multiply). `model` is the room's cost model
+   * (structure/index.ts; absent means set-v1).
    */
-  callWork(before: V, after: V, call: { readonly id: string; readonly params: unknown }, inst: Instantiation): number;
+  callWork(before: V, after: V, call: { readonly id: string; readonly params: unknown }, inst: Instantiation, model?: CostModel): number;
+  /** Whether rooms of this instantiation may use `model` (set-v1 always). */
+  supportsCostModel?(inst: Instantiation, model: CostModel): boolean;
+  /** One row per kind of elementary move, with its W under `model` (for the texts that explain change cost). */
+  costTable?(inst: Instantiation, model?: CostModel): readonly CostRow[];
   /** Total bits per layer of a uniform value (log2 alphabet × cells): the most an act can read (pricing readBound). */
   layerBits(inst: Instantiation): Readonly<Record<string, number>>;
   readonly mutators: readonly MutatorDef<V, any>[];

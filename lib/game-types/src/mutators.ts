@@ -32,6 +32,7 @@
  * Availability is prelude.ts availableOf (constraints over inst.classes / inst.terms).
  */
 import { availableOf } from "./prelude.ts";
+import { DEFAULT_COST_MODEL, type CostModel } from "./structure/index.ts";
 import {
   MAX_CALLS, MutatorError,
   type ActCost, type ActOutcome, type HelperDoc, type Instantiation,
@@ -142,9 +143,11 @@ const NOTHING: ActCost = Object.freeze({ work: 0, total: 0 });
 
 /**
  * Validate and apply an act's calls to `value` (wire form) and price its change. Never throws on agent input.
- * `wire` is the agent's output: the JSON text of MutatorCallWire[] (or the parsed array).
+ * `wire` is the agent's output: the JSON text of MutatorCallWire[] (or the parsed array). `model` is the room's cost
+ * model (settings.costModel; structure/index.ts): it changes what a change costs, never what a call does.
  */
-export function applyCalls<V>(typeDef: ObjectTypeDef<V>, inst: Instantiation, value: ObjectValue, wire: unknown): ActOutcome {
+export function applyCalls<V>(typeDef: ObjectTypeDef<V>, inst: Instantiation, value: ObjectValue, wire: unknown,
+  model: CostModel = DEFAULT_COST_MODEL): ActOutcome {
   const avail = availableOf(typeDef.mutators, inst);
   const byId = new Map(avail.map(m => [m.id, m]));
   const codec = typeDef.codec(inst);
@@ -169,7 +172,7 @@ export function applyCalls<V>(typeDef: ObjectTypeDef<V>, inst: Instantiation, va
       if (y === null) return failed(`call ${i + 1} (${id}) cannot apply to this object`);
       const yEnc = codec.encode(y);
       if (yEnc !== enc) {
-        work += typeDef.callWork(x, y, { id, params: p }, inst);
+        work += typeDef.callWork(x, y, { id, params: p }, inst, model);
         x = y;
         enc = yEnc;
       }
