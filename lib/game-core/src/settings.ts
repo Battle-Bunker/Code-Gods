@@ -632,6 +632,15 @@ const lab = (...args: Parameters<typeof seed>): SeedSetup => Object.freeze({ ...
  * To retire one, delete its entry: the next deploy's seed sync removes the stored row (rooms that ran it keep their settings).
  */
 export const LAB_SETUPS: readonly SeedSetup[] = Object.freeze([
+  // Paid observation's other values (docs/energy-model.md §11.8): Annotated basics itself is "paid".
+  ...([
+    ["lab-observation-free", "Lab · everything always visible", "Annotated basics, but looking is free: every object is shown as it changes", "free"],
+    ["lab-observation-boards", "Lab · boards always visible", "Annotated basics, but every board is live: only the others' interest in it is as you last saw it", "boards"],
+    ["lab-observation-agents", "Lab · only agents can look", "Annotated basics, but you cannot pay to look: only your agents' changes and complete reads show you the world", "agents"],
+  ] as const).map(([seedId, name, summary, observation]) => {
+    const basics = SEED_SETUPS.find(x => x.seedId === ANNOTATED_BASICS_SEED_ID)!.settings;
+    return lab(seedId, name, summary, basics.objectType, { ...basics.typeArgs }, { ...basics, observation });
+  }),
 ]);
 
 /** Every setup the engine seeds: the system's, then the Lab's. */
