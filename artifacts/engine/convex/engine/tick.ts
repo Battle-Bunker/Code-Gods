@@ -200,7 +200,7 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
           agentId: agent.id, ownerId: agent.ownerId, calls: outcome.calls as MutatorCallWire[], cost, net: net(object.scores, roster), noise: object.noise, seed: p.seed.toString() });
       } else {
         events.push({ t: "fail", objectId: object.id, world: p.world, agentId: agent.id, ownerId: agent.ownerId, cost, seed: p.seed.toString(),
-          reason: outcome.ok ? "another object already has this value" : outcome.reason.slice(0, 300) });
+          reason: outcome.ok ? "another object already has this value" : outcome.reason.slice(0, 300), ...(kind === "error" ? { error: true as const } : {}) });
       }
     };
     const flush = async () => {

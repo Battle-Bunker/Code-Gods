@@ -214,3 +214,17 @@ test("at the end of a game with a quiet tail, forward moves never take the playh
   c.advance(100);
   assert.equal(c.getCoarse(), between, "the clock's per-frame time alone does not");
 });
+
+test("dock.agentSeries: the point of view's agents' energy at each scoreboard interval up to the playhead, paged by world", () => {
+  const summon = { type: "agent.summoned" as const, agentId: "m", ownerId: "a", worldSeconds: 0, language: "python", source: "s", summonCost: 0, expectedActCost: 1,
+    breakdown: { read: 1, change: 0 }, randomized: false, account: { balance: 0, settledWorldSeconds: 0 }, powerShare: 0.5 };
+  const withAgent: ReplayPage = { ...page, game: { ...page.game, worldSeconds: 30, endAtWorld: 30, settings: { ...settings, scoreIntervalSeconds: 10 } as never },
+    batches: [{ seq: 0, at: 0, worldFrom: 0, worldTo: 30, events: [{ type: "phase", phase: "running", worldSeconds: 0 }, summon,
+      { type: "agent.skipped", objectId: "o1", agentId: "m", ownerId: "a", worldSeconds: 25, cost: { read: 0, change: 0, total: 0 } }, { type: "phase", phase: "ended", worldSeconds: 30 }] }] };
+  const c = new ReplayController(buildReplay([withAgent]), { roomId: "r" }, { cursor: 0, world: 25 });
+  // Ada's agent earns 0.5 × 2 = 1 bit per world second: 10 and 20 by the playhead at 25 s, not 30.
+  assert.deepEqual(c.answer("dock.agentSeries", { gameId: "g" }), { rows: [{ world: 10, agents: [{ id: "m", energy: 10 }] }, { world: 20, agents: [{ id: "m", energy: 20 }] }], more: false });
+  assert.deepEqual(c.answer("dock.agentSeries", { gameId: "g", after: 10 }), { rows: [{ world: 20, agents: [{ id: "m", energy: 20 }] }], more: false });
+  c.setPov(1);
+  assert.deepEqual(c.answer("dock.agentSeries", { gameId: "g" }), { rows: [], more: false }, "Bo has no agents");
+});

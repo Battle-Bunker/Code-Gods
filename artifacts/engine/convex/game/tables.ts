@@ -67,6 +67,8 @@ export const eventV = v.union(
   v.object({
     t: v.literal("fail"), objectId: v.string(), world: v.number(), agentId: v.string(), ownerId: v.string(),
     reason: v.string(), cost: charge, seed: v.optional(v.string()),
+    /** The agent's code raised or ran out of time (schema 9): `reason` is its error. Absent: the rules refused the act. */
+    error: v.optional(v.literal(true)),
   }),
   /** An act that returned no calls (schema 5): it paid its reads; not a failure (docs/energy-model.md §2). */
   v.object({
