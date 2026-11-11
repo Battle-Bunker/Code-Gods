@@ -280,13 +280,21 @@ test("the cost model is optional: absent reads as set-v1, and distance-v1 is off
   for (const odd of [null, undefined, {}, { costModel: "free" }, { costModel: 1 }]) assert.equal(costModelOf(odd as never), "set-v1");
   const grid = defaultSettingsFor("Grid", ["python"], { size: 4, symbols: "base10", colours: "mono" });
   assert.deepEqual(COST_MODELS.slice(0, 2), ["set-v1", "distance-v1"]);
-  assert.deepEqual(supportedCostModels(grid), COST_MODELS, "a Grid offers every model, the default first");
-  assert.deepEqual(supportedCostModels(defaultSettingsFor("Grid", ["python"], { size: 7, symbols: "cards", colours: "rainbow6" })), COST_MODELS);
+  // Which further models a Grid offers is the type's own business (game-types supportsCostModel): the default comes first.
+  const cards = defaultSettingsFor("Grid", ["python"], { size: 7, symbols: "cards", colours: "rainbow6" });
+  for (const g of [grid, cards]) {
+    const offered = supportedCostModels(g);
+    assert.deepEqual(offered.slice(0, 2), ["set-v1", "distance-v1"]);
+    assert.ok(offered.every(m => COST_MODELS.includes(m)));
+    for (const model of COST_MODELS) {
+      if (offered.includes(model)) assert.doesNotThrow(() => validateSettings({ ...g, costModel: model }), model);
+      else assert.throws(() => validateSettings({ ...g, costModel: model }), /is not offered for Grid\(/, model);
+    }
+  }
   for (const type of ["Int", "string"]) assert.deepEqual(supportedCostModels(defaultSettingsFor(type)), ["set-v1"], type);
   for (const ok of [grid, { ...grid, costModel: "set-v1" }, { ...grid, costModel: "distance-v1" }, { ...DEFAULT_SETTINGS, costModel: "set-v1" }] as GameSettings[]) {
     assert.doesNotThrow(() => validateSettings(ok), JSON.stringify(ok.costModel));
   }
-  for (const model of COST_MODELS) assert.doesNotThrow(() => validateSettings({ ...grid, costModel: model }), model);
   assert.throws(() => validateSettings({ ...grid, costModel: "free" as never }), /costModel must be one of set-v1, distance-v1/);
   assert.throws(() => validateSettings({ ...grid, costModel: null as never }), /costModel must be one of/);
   assert.throws(() => validateSettings({ ...DEFAULT_SETTINGS, costModel: "distance-v1" }), /costModel distance-v1 is not offered for Int\(/);

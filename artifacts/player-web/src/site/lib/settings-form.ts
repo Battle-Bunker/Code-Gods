@@ -272,7 +272,8 @@ const NAMED: Partial<Record<SettingsKey, Record<string, string>>> = {
   costModel: {
     "set-v1": "Set: every change alike", "distance-v1": "Distance: further costs more",
     "dial-v1": "Dial: distance, 9 next to 0", "log-v1": "Log: a far move costs little more",
-  } satisfies Record<CostModel, string>,
+    "multiply-v1": "Multiply: add or multiply, the cheaper",
+  },   // a model game-types adds later shows as its capitalised name until it gets words here (choiceLabel)
   languages: Object.fromEntries(LANGUAGES.map(l => [l, LANGUAGE_SPECS[l].label])),
 };
 const duration = (s: number) => (s >= 60 && s % 60 === 0 ? `${s / 60} min` : `${n(s)} s`);
@@ -284,6 +285,7 @@ export function choiceLabel(key: SettingsKey, v: number | string | boolean): str
   if (key === "interactionRateHz" && typeof v === "number") return named ? `${named} (${n(v)}/s)` : `${n(v)}/s`;
   if (key === "halfLifeSeconds" && typeof v === "number") return named ? `${named} (${duration(v)})` : duration(v);
   if (named) return named;
+  if (key === "costModel" && typeof v === "string") return v.replace(/-v\d+$/, "").replace(/^./, c => c.toUpperCase());
   if ((key === "planningSeconds" || key === "pauseSeconds") && typeof v === "number") return duration(v);
   if (key === "scoreIntervalSeconds" && typeof v === "number") return `every ${duration(v)}`;
   if (key === "peerNoiseBits" && typeof v === "number") return v === 0 ? "Exact" : `±${n(v)} bits`;

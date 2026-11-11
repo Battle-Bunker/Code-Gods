@@ -6,7 +6,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_SETTINGS, applySettingsChange, seedSetupSettings } from "@workspace/game-core";
+import { DEFAULT_SETTINGS, applySettingsChange, seedSetupSettings, supportedCostModels } from "@workspace/game-core";
 import { COST_MODELS, objectType } from "@workspace/game-types";
 import {
   SECTIONS, LABELS, argChoices, choiceLabel, costModelChoices, formatValue, toggleLanguage, dealerNote, formatSeconds, defenceBlocker, draftErrors, fieldError, fieldsOf, firstUseNote, isHidden, lengthLine, paceWord,
@@ -178,9 +178,11 @@ test("the cost model: a choice under Energy › More, offered where the world ha
   assert.deepEqual(fieldsOf("energy"), ["startingEnergy", "powerPerSecond", "costModel"], "asked, then more");
   assert.equal(LABELS.costModel, "Change pricing");
   const classic = seedSetupSettings("grid-classic"), basics = seedSetupSettings("grid-annotated-basics");
-  assert.deepEqual(costModelChoices(classic), COST_MODELS, "a Grid offers every model, the default first");
+  assert.deepEqual(costModelChoices(classic), supportedCostModels(classic), "the models the world offers (game-core), the default first");
+  assert.deepEqual(costModelChoices(classic).slice(0, 2), ["set-v1", "distance-v1"]);
   assert.deepEqual(costModelChoices(classic).slice(0, 2).map(v => choiceLabel("costModel", v)), ["Set: every change alike", "Distance: further costs more"]);
-  for (const v of COST_MODELS) assert.notEqual(choiceLabel("costModel", v), v, `${v} has a label in plain words`);
+  for (const v of COST_MODELS) assert.match(choiceLabel("costModel", v), /^[A-Z][a-z]+: /, `${v} has a label in plain words`);
+  assert.equal(choiceLabel("costModel", "future-v2"), "Future", "a model without words yet shows its name, not its id");
   assert.equal(isHidden("costModel", classic), false);
   for (const s of [DEFAULT_SETTINGS, { ...DEFAULT_SETTINGS, objectType: "string", typeArgs: { maxLength: 128 } }]) {
     assert.deepEqual(costModelChoices(s), ["set-v1"]);
