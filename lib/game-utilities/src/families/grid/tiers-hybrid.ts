@@ -14,7 +14,7 @@ import { gridSpec, symbolCode, type GridSpec } from "./_util.ts";
 import { COLOUR_COMPONENTS } from "@workspace/game-types";
 
 /** Bump when the hybrid estimate of a key would change (the splitting, its budget or the kernel). */
-export const HYBRID_VERSION = 1;
+export const HYBRID_VERSION = 2;
 
 const stable = (p: unknown): string => (Array.isArray(p) ? `[${p.map(stable).join(",")}]`
   : p && typeof p === "object" ? `{${Object.keys(p).sort().map(k => `${k}:${stable((p as Record<string, unknown>)[k])}`).join(",")}}` : JSON.stringify(p));
