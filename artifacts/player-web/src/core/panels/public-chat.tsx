@@ -43,7 +43,7 @@ export default function PublicChat({ params }: PanelProps<"public-chat">) {
           <li key={c.id} data-testid={`row-chat-${c.id}`} className={`text-sm ${mentionsMe(c.text) && c.godId !== me?.godId ? "border-l-2 border-[hsl(var(--chart-4))] pl-2" : ""}`}>
             <span className={`font-semibold ${c.godId === me?.godId ? "text-primary" : ""}`}>{c.godId === me?.godId ? "You" : c.label}</span>
             {c.isAI && <span className="label ml-1.5">AI</span>}
-            <p className="whitespace-pre-wrap break-words">{marked(c.text, params.highlight)}</p>
+            <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{marked(c.text, params.highlight)}</p>
           </li>
         ))}
       </ul>
