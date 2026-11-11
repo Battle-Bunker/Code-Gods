@@ -752,7 +752,7 @@ const seesawText = (p: SeesawP, g: GridSpec): CardText => ({
   emoji: "⚖️", name: "Seesaw", consts: [],
   about: sentences(
     `Try to make ${everyLine(p.scope)} balance like a seesaw.`,
-    `Its two sides are its left half and its right half (skipping the middle cell if there is one): add up the ${nums(g)} on each.`,
+    `Its two sides are its ${p.scope === "cols" ? "top half and its bottom half" : "left half and its right half"} (skipping the middle cell if there is one): add up the ${nums(g)} on each.`,
     g.say.valueKey(),
     `A seesaw balances when both sides match. Each balanced seesaw scores ${tierPoints(1, 0, 2)}.`,
     "Each seesaw deducts as many secondary points as the gap between its two sides.",
