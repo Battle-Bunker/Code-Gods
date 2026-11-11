@@ -34,6 +34,14 @@ import { kingdom } from "./lenses/kingdom.ts";
 import { pictureFrame } from "./lenses/picture-frame.ts";
 import { mirrormancer } from "./lenses/mirrormancer.ts";
 import { colourMirror } from "./lenses/colour-mirror.ts";
+import { oppositeNines } from "./lenses/opposite-nines.ts";
+import { leapfrog } from "./lenses/leapfrog.ts";
+import { strangers } from "./lenses/strangers.ts";
+import { steppingStones } from "./lenses/stepping-stones.ts";
+import { twoPair } from "./lenses/two-pair.ts";
+import { spreadThree } from "./lenses/spread-three.ts";
+import { crosswiseThrees } from "./lenses/crosswise-threes.ts";
+import { magicEighteen } from "./lenses/magic-eighteen.ts";
 
 export * from "./model.ts";
 export { type Lens } from "./lens.ts";
@@ -45,6 +53,10 @@ export { STORY_FAMILIES, compareOrdinal, story, whatIf, type Story, type StoryFr
 /** The families with a lens (a rich annotation). */
 export const LENSES: readonly Lens[] = Object.freeze([
   parityPainter, setSpotter, numberBonds, colourBonds, chessmaster, honestMinesweeper, magicAccountant, kingdom, pictureFrame, mirrormancer, colourMirror,
+  oppositeNines, leapfrog,
+  strangers, steppingStones,
+  twoPair, spreadThree,
+  crosswiseThrees, magicEighteen,
 ]);
 const byFamily = new Map(LENSES.map(l => [l.familyId, l]));
 export const lensFor = (familyId: string): Lens | undefined => byFamily.get(familyId);

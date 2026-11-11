@@ -31,6 +31,14 @@ export const SHOWCASE = [
   { familyId: "kingdom", params: { colour: "red" } },
   { familyId: "picture_frame", params: { colour: "red", symbol: "7" } },
   { familyId: "mirrormancer", params: { axis: "LR" } },
+  { familyId: "opposite_nines", params: {} },
+  { familyId: "leapfrog", params: {} },
+  { familyId: "strangers", params: {} },
+  { familyId: "stepping_stones", params: {} },
+  { familyId: "two_pair", params: {} },
+  { familyId: "spread_three", params: {} },
+  { familyId: "crosswise_threes", params: {} },
+  { familyId: "magic_eighteen", params: { axis: "rows" } },
 ] as const;
 
 /** A family without a lens: its example board shows the score only (no breakdown). */
