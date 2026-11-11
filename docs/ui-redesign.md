@@ -13,8 +13,9 @@ panels** (`docs/panels.md`), "Your panels" in menus.
 
 1. The whole site is cluttered. Centre the interface on the AI assistant, which reaches every capability the player
    has through its tools, plus tools that show parameterisable analytics.
-2. The game, for a seated player, is an IDE-style dock of movable, resizable panes. Default: one analytics **panel** in the top
-   half, the assistant chat in the bottom half. Dragging the assistant to the right, adding a second panel (from the
+2. The game, for a seated player, is an IDE-style dock of movable, resizable panes. Default (the owner's arrangement, 2026-11-11): two
+   rows with the column divider at the middle; on top (53 %) the secret goal beside the objects by payoff, below the
+   assistant chat (half the width) beside My agents and the Leaderboard race (a quarter each). Dragging the assistant to the right, adding a second panel (from the
    palette or by asking the assistant) and dragging it under the first must be easy.
 3. A pane's panel is chosen from a dropdown; a panel's **parameters are set only by the assistant**.
 4. A **command palette** (a search field with a menu button at the top right, and a keyboard shortcut) gives humans
@@ -125,7 +126,7 @@ export type Node =
 export type DockLayout = { version: 1; root: Node; panes: Record<string, Pane> };
 export type Place = { relativeTo?: string; direction: "left" | "right" | "above" | "below" };
 export const LAYOUT_LIMITS = { panes: 12, panelPanes: 4, depth: 6, bytes: 32 * 1024, writesPerMinute: 12 } as const;
-export const DEFAULT_LAYOUT: (phase: Phase) => DockLayout;   // column 76/24: [row 50/50: p1 my-card, column 58/42: p2 objects (defaultPanelFor), p3 agents], p4 assistant
+export const DEFAULT_LAYOUT: (phase: Phase) => DockLayout;   // column 53/47: [row 50/50: p1 my-card (human), p2 objects (defaultPanelFor)], [row 50/25/25: p4 assistant, p3 agents, p5 race]; all four panel slots, so showing a fifth panel swaps the focused one, else the largest nobody chose (the objects); no assistant (room not admin-owned): agents and race share the bottom row; a replay: the Timeline in the assistant's place
 export function parseLayout(raw: unknown, ctx: { phase: Phase; storedSlugs: readonly string[]; fileIds?: readonly string[] }): { layout: DockLayout; warnings: string[] };  // never throws
 export function openPane(layout: DockLayout, pane: Pane, place?: Place): { layout: DockLayout; paneId: string };   // default place: below the most recent panel when the assistant is left/right, else to its right; a 5th built-in panel is refused (CONFLICT)
 export function movePane(layout: DockLayout, paneId: string, place: Place): DockLayout;

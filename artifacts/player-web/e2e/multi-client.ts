@@ -17,8 +17,8 @@
  *
  * What it checks (each line printed as ok / FAIL):
  *   each app shows its credential's room page with the members; in the first game, each app's dock is its own
- *   player's; the dock: the default (three panels above the assistant, no tabs), the palette adds a panel and the
- *   panel menu changes it, the assistant closes and reopens, and the layout is stored in the engine; a layout written
+ *   player's; the dock: the default (goal | objects over assistant | agents | race, no tabs), the panel menu
+ *   changes a pane, the assistant closes and reopens, and the layout is stored in the engine; a layout written
  *   to the engine reaches the open client; full Int, string and Grid games (validate + summon in the Agent code
  *   panel, transformations, chat, owner end: the page turns into the replay, room history); live HMR of a new panel
  *   in one app during a running game (it opens as a pane by itself; no reload, live data, the other apps unaffected);
@@ -98,7 +98,7 @@ execFileSync("npx", ["convex", "env", "set", "DEV", "1"], { cwd: ENGINE, stdio: 
 const { browserJwt, client, decodeJwt, deviceRequest, poll } = await import("../../engine/test/helpers.ts");
 const { ConvexHttpClient } = await import("convex/browser");
 const { makeFunctionReference } = await import("convex/server");
-const { DEFAULT_LAYOUT, openPane } = await import("@workspace/player-client/layout");
+const { DEFAULT_LAYOUT } = await import("@workspace/player-client/layout");
 
 // ------------------------------------------------------------------------------------------------
 // three duplicated repositories (worktrees of HEAD), each a player app
@@ -142,19 +142,17 @@ async function owner(action: string, extra: Record<string, unknown> = {}) {
 /**
  * The dock layout the games are played in, written to the engine as that human (the open client follows it, as it
  * would an arrangement made on another device): panel p1 (Agent code; switched to Objects once the agent
- * runs), My agents, What just changed and Public chat side by side on top, the assistant below.
+ * runs) and What just changed on top; the assistant, My agents and Public chat below (the default dock's arrangement).
  */
-const PANELS_FOR_PLAY = ["public-chat"] as const;   // the default dock has the goal, objects and agents; p1 and p2 are changed below
 async function arrangeForPlay(p: Player) {
   let layout = DEFAULT_LAYOUT("running");
   // Every panel is the player's own choice (setBy "human"): the first one nobody chose would follow the game's phase.
-  const human = (id: string, panelId: "forge" | "feed" | "agents") => ({ id, kind: "panel" as const, panelId, params: {}, setBy: "human" as const });
-  layout = { ...layout, panes: { ...layout.panes, p1: human("p1", "forge"), p2: human("p2", "feed"), p3: human("p3", "agents") } };
-  for (const panelId of PANELS_FOR_PLAY) layout = openPane(layout, { id: "", kind: "panel", panelId, params: {}, setBy: "human" }).layout;
+  const human = (id: string, panelId: "forge" | "feed" | "agents" | "public-chat") => ({ id, kind: "panel" as const, panelId, params: {}, setBy: "human" as const });
+  layout = { ...layout, panes: { ...layout.panes, p1: human("p1", "forge"), p2: human("p2", "feed"), p3: human("p3", "agents"), p5: human("p5", "public-chat") } };
   const c = new ConvexHttpClient(CLOUD);
   c.setAuth(await browserJwt(sessionOf(p)));
   await c.mutation(makeFunctionReference<"mutation">("layout:set"), { roomId, layout });
-  // p1 forge, p2 feed, p3 agents (the default's), p5 public chat, the assistant p4 across the bottom: all on screen.
+  // p1 forge and p2 feed on top; the assistant p4, p3 agents (the default's) and p5 public chat below: all on screen.
   await pages[p].waitForSelector("[data-testid=pane-p5] [data-testid=input-chat]", { state: "attached", timeout: 30_000 });
 }
 /** Change a pane's panel through its header's panel menu (the player's own control). */
@@ -256,13 +254,11 @@ await check("each app's dock is connected to the shared engine as its own player
   }
 });
 
-await check("the dock: the default is three panels (goal | objects over agents) above the assistant, no tabs; the palette adds a panel, the panel menu changes it, the engine stores it", async () => {
+await check("the dock: the default is four panels and the assistant (goal | objects over assistant | agents | race), no tabs; the panel menu changes a pane, the engine stores it", async () => {
   const page = pages.admin;
   await page.waitForSelector("[data-testid=dock] [data-testid=assistant-pane]");
   // A long-lived engine may carry ada's arrangement from an earlier run's room: start from the default.
   await palette("admin", "Reset layout");
-  await page.waitForFunction(() => document.querySelectorAll("[data-testid=dock] [data-testid=menu-panel]").length === 3, null, { timeout: 10_000 });
-  await palette("admin", "Add panel: Leaderboard race");
   await page.waitForFunction(() => document.querySelectorAll("[data-testid=dock] [data-testid=menu-panel]").length === 4, null, { timeout: 10_000 });
   await choosePanel("admin", "p5", "rules");
   const stored = async () => JSON.stringify((await (await ownerClient()).query(ref.query("layout:current"), { roomId }) as { layout: unknown }).layout);

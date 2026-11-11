@@ -6,7 +6,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  DEFAULT_LAYOUT, LAYOUT_LIMITS, openAssistant, assistantPaneOf, LayoutError, PRESET_LAYOUTS, assistantSide, carryLayout, closePane, describeLayout, followPhase, panelPanesOf,
+  DEFAULT_LAYOUT, LAYOUT_LIMITS, paneCaption, openAssistant, assistantPaneOf, LayoutError, PRESET_LAYOUTS, assistantSide, carryLayout, closePane, describeLayout, followPhase, panelPanesOf,
   movePane, nextPaneId, openPane, paneOrder, panesOf, parseLayout, resetPanelParams, setPanePanel, setPaneParams, type DockLayout, type Node, type Pane,
 } from "../src/layout.ts";
 
@@ -19,9 +19,9 @@ const single = (phase: "lobby" | "running" | "ended"): DockLayout => ({
 
 test("the default dock: the goal card stays, and the first panel nobody chose (objects) becomes the results when the game ends", () => {
   const ended = followPhase(DEFAULT_LAYOUT("running"), "ended");
-  assert.deepEqual(panelPanesOf(ended).map(p => p.panelId), ["my-card", "results", "agents"]);
-  assert.deepEqual(panelPanesOf(parseLayout(DEFAULT_LAYOUT("running"), { phase: "ended", storedSlugs: [] }).layout).map(p => p.panelId), ["my-card", "results", "agents"], "the engine's parse agrees");
-  assert.deepEqual(panelPanesOf(followPhase(ended, "running")).map(p => p.panelId), ["my-card", "objects", "agents"], "and back for the next game");
+  assert.deepEqual(panelPanesOf(ended).map(p => p.panelId), ["my-card", "results", "agents", "race"]);
+  assert.deepEqual(panelPanesOf(parseLayout(DEFAULT_LAYOUT("running"), { phase: "ended", storedSlugs: [] }).layout).map(p => p.panelId), ["my-card", "results", "agents", "race"], "the engine's parse agrees");
+  assert.deepEqual(panelPanesOf(followPhase(ended, "running")).map(p => p.panelId), ["my-card", "objects", "agents", "race"], "and back for the next game");
 });
 
 test("the first built-in panel follows the phase only while nobody chose it; a new game resets parameters but keeps choices; what-if cannot survive a reset", () => {
@@ -69,19 +69,22 @@ function wellFormed(layout: DockLayout) {
   assert.deepEqual([...seen].sort(), Object.keys(layout.panes).sort(), "every pane is placed exactly once");
 }
 
-test("the default layout: the goal left, objects by payoff over my agents right, the assistant across the bottom", () => {
+test("the default layout: the goal and objects by payoff side by side on top; the assistant, my agents and the race below, the column divider aligned", () => {
   const layout = DEFAULT_LAYOUT("running");
   wellFormed(layout);
   const tabsOf = (id: string): Node => ({ type: "pane", id });
-  assert.deepEqual(layout.root, { type: "split", direction: "column", sizes: [76, 24], children: [
-    { type: "split", direction: "row", sizes: [50, 50], children: [tabsOf("p1"), { type: "split", direction: "column", sizes: [58, 42], children: [tabsOf("p2"), tabsOf("p3")] }] },
-    tabsOf("p4"),
+  assert.deepEqual(layout.root, { type: "split", direction: "column", sizes: [53, 47], children: [
+    { type: "split", direction: "row", sizes: [50, 50], children: [tabsOf("p1"), tabsOf("p2")] },
+    { type: "split", direction: "row", sizes: [50, 25, 25], children: [tabsOf("p4"), tabsOf("p3"), tabsOf("p5")] },
   ] });
   const shown = (id: string) => { const p = layout.panes[id]; return p.kind === "panel" ? [p.panelId, p.params] : p.kind; };
   assert.deepEqual(shown("p1"), ["my-card", { showSource: false }]);
   assert.deepEqual(shown("p2"), ["objects", { sortBy: "payoff", filter: "all", limit: 12, highlight: [], layout: "list" }]);
   assert.deepEqual(shown("p3"), ["agents", { agentIds: [], window: 120, showSource: false, showCosts: false }]);
   assert.equal(shown("p4"), "assistant");
+  assert.deepEqual(shown("p5"), ["race", { show: "all", metric: "total", window: 300 }]);
+  assert.deepEqual(panesOf(layout).map(paneCaption), ["Goal and an example object", "Top 12 by payoff", "Your assistant (private)", "All agents · last 120 s", "Everyone · total payoff · last 300 s"], "the captions of the owner's screenshot");
+  assert.equal(panelPanesOf(layout).length, LAYOUT_LIMITS.panelPanes, "every built-in panel slot is used");
   assert.equal(assistantSide(layout), "column");
   assert.deepEqual(parseLayout(layout, ctx), { layout, warnings: [] });
   for (const phase of ["lobby", "running", "ended"] as const) {
@@ -263,7 +266,7 @@ test("a stored layout with tab groups keeps only each group's active tab; the pa
 
 test("the assistant is an ordinary pane: in the default dock, closable, reopened full width at the bottom, never required", () => {
   const dflt = DEFAULT_LAYOUT("running");
-  assert.equal(assistantPaneOf(dflt)?.id, "p4", "the default dock has it, full width at the bottom");
+  assert.equal(assistantPaneOf(dflt)?.id, "p4", "the default dock has it, bottom left");
   const closed = closePane(dflt, "p4");
   wellFormed(closed);
   assert.equal(assistantPaneOf(closed), undefined);
@@ -283,4 +286,11 @@ test("the assistant is an ordinary pane: in the default dock, closable, reopened
   assert.throws(() => openPane(reopened.layout, { id: "", kind: "assistant" }), (e: LayoutError) => e.code === "CONFLICT", "still only one");
   // A stored layout always had one: it keeps it.
   assert.equal(assistantPaneOf(parseLayout(dflt, ctx).layout)?.id, "p4");
+});
+
+test("closing a pane gives its room to the rest in proportion; the others keep their weights", () => {
+  const closed = closePane(DEFAULT_LAYOUT("running"), "p4");
+  assert.deepEqual(closed.root.type === "split" && closed.root.children[1], { type: "split", direction: "row", sizes: [50, 50], children: [{ type: "pane", id: "p3" }, { type: "pane", id: "p5" }] });
+  const middle = closePane(DEFAULT_LAYOUT("running"), "p3");
+  assert.deepEqual(middle.root.type === "split" && middle.root.children[1].type === "split" && middle.root.children[1].sizes, [66.667, 33.333], "the assistant keeps twice the race's width");
 });
