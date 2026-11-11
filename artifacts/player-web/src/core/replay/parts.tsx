@@ -6,7 +6,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState, useSyn
 import { TransformationView, type ObjectContext } from "@workspace/object-views";
 import { cursorAtWorld, godEnergyAt, stateAt, type ReplayAgent, type ReplayEvent } from "@workspace/player-client/replay";
 import { SERIES } from "@/sdk/charts";
-import { SPEEDS, describeEvent, shortId, worldAtFraction } from "./model";
+import { SPEEDS, describeEvent, replayKeyIgnored, shortId, worldAtFraction } from "./model";
 import { useReplay, useReplayCoarse, type Changed, type ReplayController } from "./controller";
 
 export const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
@@ -305,6 +305,7 @@ export function useReplayKeys(c: ReplayController) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
+      if (replayKeyIgnored(e)) return;
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
       if (t?.closest?.("iframe, [data-testid=assistant-pane], [role=dialog]")) return;
       if (e.key === " " && t && (t.tagName === "BUTTON" || t.tagName === "A")) return;
