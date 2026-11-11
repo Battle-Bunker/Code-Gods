@@ -6,7 +6,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { credentialKind, credentialProblem } from "../../convex/auth/principal.ts";
 import {
-  CLAUDE_CALLBACKS, bearerFrom, resourceAllowed, cimdUrlProblem, isAllowedOrigin, parseScope, pollDelay, redirectAllowedForRegistration, redirectMatches,
+  CLAUDE_CALLBACKS, bearerFrom, grantHint, resourceAllowed, cimdUrlProblem, isAllowedOrigin, parseScope, pollDelay, redirectAllowedForRegistration, redirectMatches,
 } from "../../convex/agent/rules.ts";
 import { bound } from "../../convex/agent/bound.ts";
 
@@ -120,4 +120,13 @@ test("bound: small results pass through; oversized arrays are trimmed and marked
 
 test("receipt polling backs off: 250 ms doubling to a 2 s ceiling", () => {
   assert.deepEqual([0, 1, 2, 3, 4, 10].map(pollDelay), [250, 500, 1000, 2000, 2000, 2000]);
+});
+
+test("grantHint: a tool beyond the connection's grant says which permission it needs, not that it does not exist", () => {
+  const needs = (name: string) => ({ send_chat: "act", end_game: "owner", whoami: "read" } as Record<string, "read" | "act" | "owner">)[name];
+  assert.match(grantHint("Tool send_chat not found", "read", needs) ?? "", /send_chat needs the act permission; this connection has read/);
+  assert.match(grantHint("Tool end_game not found", "act", needs) ?? "", /needs the owner permission/);
+  assert.equal(grantHint("Tool frobnicate not found", "read", needs), null, "a truly unknown tool keeps the SDK's message");
+  assert.equal(grantHint("Tool whoami not found", "read", needs), null, "a tool the grant covers is not rewritten");
+  assert.equal(grantHint("Invalid params", "read", needs), null);
 });

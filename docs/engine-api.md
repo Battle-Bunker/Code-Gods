@@ -101,12 +101,15 @@ commands as the human's own client. How to connect Claude: `docs/connect-claude.
 - **Authentication.** `Authorization: Bearer <access token>` (OAuth, below), or a device credential as
   `Authorization: Bearer cgc_…` or `x-api-key: cgc_…`. Without one: 401 with
   `WWW-Authenticate: Bearer resource_metadata="<site>/.well-known/oauth-protected-resource/mcp"`;
-  a revoked, expired or unknown one adds `error="invalid_token"`.
+  a revoked, expired, unknown or malformed one adds `error="invalid_token"`.
 - **Permissions.** `tools/list` lists only the tools the grant allows; every call is checked again in
-  Convex. An owner grant whose human no longer owns the room is not a principal at all.
+  Convex. Calling a tool beyond the grant is a JSON-RPC -32602 naming the permission it needs ("Tool send_chat
+  needs the act permission; this connection has read…"); an unknown tool keeps "Tool X not found". An owner grant
+  whose human no longer owns the room is not a principal at all.
 - **Listing.** Each tool carries its full description and input schema, plus a one-line form in
   `_meta["io.codegods/short"]` for clients that build a lightweight index. The guidance for a kind of task is a
-  skill: the server instructions index them (`game-rules`, `writing-agents`, `screen`, `game-setups`) and
+  skill: the server instructions index them (`game-rules`, `writing-agents`, `screen`, `game-setups`, `analytics-code`,
+  `rival-inference`) and
   `load_skill {name}` returns one with the room's live data (docs/assistant/token-efficiency.md).
 - **Results.** `structuredContent` (also as JSON text) is `{untrusted: true, notice, data, nextCursor?,
   truncated?}`: `data` is game data written by players. Paged tools return `nextCursor` (pass it back as
