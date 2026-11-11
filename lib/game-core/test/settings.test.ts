@@ -4,7 +4,7 @@ import {
   DEFAULT_SETTINGS, SETTINGS_OPTIONS, MAX_AGENTS_PER_GOD, settingsOptionsFor, validateSettings, LANGUAGES, LANGUAGE_SPECS,
   grammarFor, complexityFor, allowedLanguages, upgradeLegacyLanguage,
   upgradeStoredSettings, FIRST_STEPS_SEED_ID, ANNOTATED_BASICS_SEED_ID,
-  instantiationOf, codecOf, assertObjectValue, defaultSettingsFor, SEED_SETUPS, SETUP_NAME_MAX, seedSetupSettings, type GameSettings,
+  instantiationOf, codecOf, assertObjectValue, defaultSettingsFor, SEED_SETUPS, SETUP_NAME_MAX, seedSetupSettings, ENERGY_LIMITS, type GameSettings,
 } from "../src/settings.ts";
 import { gameEndSeconds } from "../src/random.ts";
 
@@ -249,4 +249,15 @@ test("Annotated basics starts with 10 objects, spawns 0.1 per second and plans f
   const s = seedSetupSettings(ANNOTATED_BASICS_SEED_ID);
   assert.deepEqual([s.startingObjectCount, s.spawnRateHz, s.planningSeconds], [10, 0.1, 300]);
   assert.doesNotThrow(() => validateSettings(s));
+});
+
+test("energy settings have upper bounds, so no allowed value overflows an account or a score (balance harness)", () => {
+  // Unbounded before: 1e308 bits/s passed, then every settlement threw "Energy overflow"; a weight of 1e308 made netBits −Infinity.
+  for (const key of ["powerPerSecond", "startingEnergy", "penaltyWeight"] as const) {
+    const { max } = ENERGY_LIMITS[key];
+    assert.doesNotThrow(() => validateSettings(settings({ [key]: max })));
+    assert.throws(() => validateSettings(settings({ [key]: max * 2 })), new RegExp(key));
+    assert.throws(() => validateSettings(settings({ [key]: 1e308 })), new RegExp(key));
+  }
+  for (const seed of SEED_SETUPS) assert.doesNotThrow(() => validateSettings(seed.settings));
 });

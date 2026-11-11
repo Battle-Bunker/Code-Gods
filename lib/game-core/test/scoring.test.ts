@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { HINGE_BITS, softHinge, netBits, payoff, personalView, salience, leaderboard } from "../src/scoring.ts";
+import { HINGE_BITS, softHinge, netBits, payoff, personalView, salience, leaderboard, rankTotals } from "../src/scoring.ts";
 
 const close = (actual: number, expected: number, eps = 1e-12) =>
   assert.ok(Math.abs(actual - expected) <= eps, `${actual} ≠ ${expected}`);
@@ -122,4 +122,15 @@ test("leaderboard sums payoffs over objects and preserves tied ranks", () => {
   assert.deepEqual(leaderboard(["a"], []), [{ godId: "a", totalPayoff: 0, rank: 1 }]);
   assert.throws(() => leaderboard(["a", "a"], []));
   assert.throws(() => leaderboard(["a", "z"], [first]));
+});
+
+test("totals equal up to float rounding share a rank (2 gods without defence goals always tie)", () => {
+  // π_a = n_a·((n_a + n_b) − n_a) and π_b = n_b·((n_a + n_b) − n_b) are the same product, but the sums round
+  // differently: the balance harness saw a "winner" by rounding alone in 32–42% of seeded 2-god games.
+  const objects = [new Map([["a", 0.1 + 0.7], ["b", 0.3]]), new Map([["a", 1.7], ["b", 0.1 + 0.2]]), new Map([["a", 3.3], ["b", 2.9]])];
+  const rows = leaderboard(["a", "b"], objects);
+  assert.deepEqual(rows.map(r => r.rank), [1, 1]);
+  assert.deepEqual(rankTotals(["a", "b"], [0.24, 0.23999999999999996]).map(r => r.rank), [1, 1]);
+  assert.deepEqual(rankTotals(["a", "b", "c"], [5, 5 + 1e-6, 0]).map(r => [r.godId, r.rank]), [["b", 1], ["a", 2], ["c", 3]]);
+  assert.deepEqual(rankTotals(["a", "b"], [0, -0]).map(r => r.rank), [1, 1]);
 });
