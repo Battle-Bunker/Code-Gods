@@ -21,7 +21,8 @@
  */
 import { ENCODE_CALLS_JS, objectType, sha256, type Instantiation } from "@workspace/game-types";
 import { applicable, canonicalSupport, context, entryPoint, family, familiesFor, available, paramsKey, type Draw } from "./catalog.ts";
-import type { Ordinal, Params, ScoreShape } from "./types.ts";
+import { dealableParams, type TierOptions } from "./dealable.ts";
+import type { FamilyContext, Ordinal, Params, ScoreShape, UtilityFamily } from "./types.ts";
 import { canonicalJson } from "./canonical-json.ts";
 import { cardProgram } from "./families/card.ts";
 import { ANALYTIC_MAX_ERROR_BITS, HYBRID_MAX_ERROR_BITS, assertAnalyticHeader, cmpOrdinals, type AnalyticSurvival } from "./analytic.ts";
@@ -453,14 +454,23 @@ export interface Coverage {
 /** Grid sizes retired from play (3×3: too small for most families' structure). Never offered, tables or not. */
 export const RETIRED_GRID_SIZES: readonly number[] = Object.freeze([3]);
 
+/** The distinct canonical forms of some draws of a family (one table each), in order. */
+function canonicalOf(f: UtilityFamily<any>, ctx: FamilyContext, draws: readonly Params[]): Params[] {
+  const out = new Map<string, Params>();
+  for (const p of draws) { const c = f.canonical(p, ctx) as Params; out.set(paramsKey(c), c); }
+  return [...out.values()];
+}
+
 const coverageMemo = new WeakMap<CalibrationManifest, Map<string, Coverage>>();
 /**
  * Which dealable draws of an instantiation (every available reward and penalty family × canonical support, minus
- * `excludedFamilies`, default none) lack a fresh table in `manifest`. Memoised per manifest object.
+ * `excludedFamilies`, default none) lack a fresh table in `manifest`. With `tiers` (a tiered game, settings.ruleTiers)
+ * the reward draws are the families' canonical tiered draws of that depth and composition instead of their supports.
+ * Memoised per manifest object.
  */
 export function coverage(manifest: CalibrationManifest, inst: Instantiation, excludedFamilies: readonly string[] = [],
-  prior: PriorRef = UNIFORM_PRIOR): Coverage {
-  const memoKey = `${inst.key}\0${[...excludedFamilies].sort().join(",")}\0${priorKey(prior)}`;
+  prior: PriorRef = UNIFORM_PRIOR, tiers?: TierOptions): Coverage {
+  const memoKey = `${inst.key}\0${[...excludedFamilies].sort().join(",")}\0${priorKey(prior)}${tiers ? `\0${tiers.depth}:${tiers.compose ?? "gated"}` : ""}`;
   let memo = coverageMemo.get(manifest);
   if (!memo) coverageMemo.set(manifest, memo = new Map());
   let c = memo.get(memoKey);
@@ -470,7 +480,7 @@ export function coverage(manifest: CalibrationManifest, inst: Instantiation, exc
   let tables = 0;
   for (const f of familiesFor(inst.objectType)) {
     if (excluded.has(f.id) || !available(f, inst).ok) continue;
-    for (const p of canonicalSupport(f, ctx)) {
+    for (const p of tiers && f.role === "reward" ? canonicalOf(f, ctx, dealableParams(f, ctx, tiers)) : canonicalSupport(f, ctx)) {
       if (f.needs && !applicable(f, inst, p).ok) continue; // never dealt here, so never needs a table
       const stored = (isUniform(prior) ? entry?.tables : entry?.priors?.[priorKey(prior)])?.[f.id]?.[paramsKey(p)];
       if (stored !== undefined && stored === tableKey(f.id, p, inst, prior)) tables++;

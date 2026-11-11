@@ -7,8 +7,10 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { SEED_SETUPS, SETUP_NAME_MAX, seedSetupSettings } from "@workspace/game-core";
-import { admin, api, clientFor, gods, internal, playerClient, roomWith, setupEntries, touch, type God } from "./game-helpers.ts";
+import { BEGINNER_POOL, SEED_SETUPS, SETUP_NAME_MAX, seedSetupSettings } from "@workspace/game-core";
+import { admin, api, clientFor, gods, internal, playerClient, roomWith, setupEntries, startGame, touch, waitFor, type God } from "./game-helpers.ts";
+/** The system setups everyone sees (the administrator-only ones exist for administrators alone). */
+const PUBLIC_SEEDS = SEED_SETUPS.filter(s => !s.adminOnly);
 
 async function errorOf(promise: Promise<unknown>): Promise<{ code?: string; message?: string }> {
   try { await promise; } catch (error) { return (error as { data?: { code?: string; message?: string } }).data ?? { message: (error as Error).message }; }
@@ -40,8 +42,8 @@ test("system setups: seeded once in the shipped order, owned by the system, and 
   await admin.mutation(internal.setups.ensureSeeded, {});
   const [ann] = await gods("Seed Ann");
   const system = (await list(ann)).filter(r => r.system);
-  assert.deepEqual(system.map(d => d.seedId), SEED_SETUPS.map(s => s.seedId), "each seed exactly once, in order, first");
-  assert.deepEqual(system.map(d => d.name), ["First steps", "Annotated basics", "Annotated colours", "Classic", "Low income", "Big board", "Master"]);
+  assert.deepEqual(system.map(d => d.seedId), SEED_SETUPS.filter(s => !s.adminOnly).map(s => s.seedId), "each public seed exactly once, in order, first");
+  assert.deepEqual(system.map(d => d.name), ["First steps", "Annotated basics", "Annotated colours", "Classic", "Low income", "Big board", "Master", "Tiered rules"]);
   for (const d of system) {
     assert.ok(!("settings" in d), "a list row has no settings");
     assert.deepEqual((await get(ann, d.id)).settings, seedSetupSettings(d.seedId!), `${d.name}: the complete shipped settings`);
@@ -78,7 +80,7 @@ test("everyone sees every setup with its owner; only the owner changes or delete
   assert.deepEqual((await get(bob, saved.id)).settings, quick, "and its settings");
   assert.equal(await errorCode(bob.c.query(api.setups.get, { setupId: "nope" })), "NOT_FOUND");
   const annRows = await list(ann);
-  assert.ok(annRows.findIndex(r => r.id === saved.id) >= SEED_SETUPS.length, "after the system's");
+  assert.ok(annRows.findIndex(r => r.id === saved.id) >= PUBLIC_SEEDS.length, "after the system's");
 
   // Bob may not change or delete Ann's setup, and is told whose it is.
   const edit = await errorOf(bob.c.action(api.setups.save, { setupId: saved.id, name: "Mine now", settings: quick }));
@@ -150,8 +152,8 @@ test("the catalogue pages in order, at most 30 a page; search finds by name, own
   const first = await ann.c.query(api.setups.page, { paginationOpts: { numItems: 500, cursor: null } });
   assert.ok(first.page.length <= 30, "a page holds at most 30 (a page of setups with their settings stays within 64 KiB)");
   const all = await setupEntries(ann.c);
-  assert.deepEqual(all.slice(0, SEED_SETUPS.length).map(e => e.seedId), SEED_SETUPS.map(s => s.seedId), "the system's first, in seed order");
-  const others = all.slice(SEED_SETUPS.length);
+  assert.deepEqual(all.slice(0, PUBLIC_SEEDS.length).map(e => e.seedId), PUBLIC_SEEDS.map(s => s.seedId), "the system's first, in seed order");
+  const others = all.slice(PUBLIC_SEEDS.length);
   assert.ok(others.every(e => !e.system), "then everyone's");
   const fold = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
   others.forEach((e, i) => { if (i) assert.ok(fold(others[i - 1].name) <= fold(e.name), `by name: ${others[i - 1].name} before ${e.name}`); });
@@ -229,4 +231,97 @@ test("a new room runs the system's Annotated basics; owner.settings applies anyo
   await ada.c.mutation(api.setups.remove, { setupId: adas.id });
   room = await ada.c.query(api.rooms.get, { room: roomId });
   assert.deepEqual([room.settings, room.setup], [adas.settings, { id: adas.id, name: "TypeScript Master", deleted: true }]);
+});
+
+test("administrator-only system setups: administrators see and use them, marked; to everyone else they do not exist, by id either", { timeout: 120_000 }, async () => {
+  await admin.mutation(internal.setups.ensureSeeded, {});
+  const [ann] = await gods("Lab Ann");
+  const boss = await adminGod("Lab Boss");
+  const labIds = SEED_SETUPS.filter(s => s.adminOnly).map(s => s.seedId);
+  assert.deepEqual(labIds, ["lab-tiers-plain", "lab-tiers-unlock", "grid-tiered-expert", "lab-tiers-uncapped"]);
+  // The administrator's catalogue: every seed in order, the administrator-only ones marked (entry and row alike).
+  const forBoss = (await list(boss)).filter(r => r.system) as (Omit<Setup, "settings"> & { adminOnly?: boolean })[];
+  assert.deepEqual(forBoss.map(r => r.seedId), SEED_SETUPS.map(s => s.seedId));
+  assert.deepEqual(forBoss.filter(r => r.adminOnly).map(r => r.seedId), labIds);
+  assert.deepEqual(forBoss.filter(r => r.adminOnly).map(r => r.name), ["Lab: tiers without a gate", "Lab: unlocking tiers", "Expert tiered rules", "Lab: tiers with unequal reach"]);
+  assert.deepEqual((await setupEntries(boss.c)).filter(e => e.adminOnly).map(e => e.seedId), labIds);
+  const plain = forBoss.find(r => r.seedId === "lab-tiers-plain")!, expert = forBoss.find(r => r.seedId === "grid-tiered-expert")!;
+  assert.deepEqual((await get(boss, plain.id)).settings, seedSetupSettings("lab-tiers-plain"));
+
+  // Anyone else: not paged, not searched, no row, no settings, no copy; a player credential (an agent) neither.
+  const forAnn = await setupEntries(ann.c);
+  assert.deepEqual(forAnn.filter(e => e.system).map(e => e.seedId), SEED_SETUPS.filter(s => !s.adminOnly).map(s => s.seedId));
+  assert.ok(forAnn.every(e => !("adminOnly" in e)));
+  assert.deepEqual((await setupEntries(ann.c, "Lab tiers")).filter(e => e.system && labIds.includes(e.seedId)), []);
+  assert.ok((await setupEntries(boss.c, "Lab tiers")).some(e => e.seedId === "lab-tiers-plain"), "the search finds it for an administrator");
+  for (const hidden of [plain, expert]) {
+    assert.equal(await ann.c.query(api.setups.row, { setupId: hidden.id }), null);
+    assert.equal(await errorCode(ann.c.query(api.setups.get, { setupId: hidden.id })), "NOT_FOUND");
+    assert.equal(await errorCode(ann.c.mutation(api.setups.duplicate, { setupId: hidden.id })), "NOT_FOUND");
+    assert.equal(await errorCode(ann.c.mutation(api.setups.remove, { setupId: hidden.id })), "NOT_FOUND");
+  }
+  await touch(ann);
+  const annRoom = await roomWith([ann]);
+  const annRevision = (await ann.c.query(api.rooms.get, { room: annRoom.roomId })).revision;
+  assert.equal(await errorCode(ann.c.action(api.owner.settings, { roomId: annRoom.roomId, revision: annRevision, setupId: plain.id })), "NOT_FOUND", "no game from it by id");
+  assert.deepEqual((await ann.c.query(api.rooms.get, { room: annRoom.roomId })).settings, seedSetupSettings("grid-annotated-basics"), "the room is unchanged");
+  const credentialId = await admin.mutation(internal.testing.seedCredential, { subject: ann.subject, roomId: annRoom.roomId, permission: "owner" });
+  const listed: { seedId?: string }[] = await admin.query(internal.setups.listAs, { principal: { credentialId } });
+  assert.deepEqual(listed.filter(r => r.seedId).map(r => r.seedId), SEED_SETUPS.filter(s => !s.adminOnly).map(s => s.seedId), "list_setups names none of them");
+  assert.equal(await errorCode(admin.query(internal.setups.getAs, { principal: { credentialId }, setupId: plain.id })), "NOT_FOUND");
+  assert.equal(await errorCode(admin.mutation(internal.setups.duplicateAs, { principal: { credentialId }, setupId: plain.id })), "NOT_FOUND");
+  // An administrator's own credential is not an administrator either (isAdmin is the browser session's).
+  await touch(boss);
+  const bossRoom = await roomWith([boss]);
+  const bossCredential = await admin.mutation(internal.testing.seedCredential, { subject: boss.subject, roomId: bossRoom.roomId, permission: "owner" });
+  assert.equal(await errorCode(admin.query(internal.setups.getAs, { principal: { credentialId: bossCredential }, setupId: plain.id })), "NOT_FOUND");
+
+  // The administrator applies one to a room, and duplicates it; the public tiered setup anyone applies.
+  let room = await boss.c.query(api.rooms.get, { room: bossRoom.roomId });
+  await boss.c.action(api.owner.settings, { roomId: bossRoom.roomId, revision: room.revision, setupId: plain.id });
+  room = await boss.c.query(api.rooms.get, { room: bossRoom.roomId });
+  assert.deepEqual([room.settings, room.setup], [seedSetupSettings("lab-tiers-plain"), { id: plain.id, name: "Lab: tiers without a gate", deleted: false }]);
+  const copy: Setup = await boss.c.mutation(api.setups.duplicate, { setupId: plain.id });
+  assert.deepEqual([copy.mine, copy.settings], [true, seedSetupSettings("lab-tiers-plain")]);
+  await boss.c.mutation(api.setups.remove, { setupId: copy.id });
+  // No family offers two tiers yet: the expert setup's pool is empty, so applying it is refused, saying why.
+  const refused = await errorOf(boss.c.action(api.owner.settings, { roomId: bossRoom.roomId, revision: room.revision, setupId: expert.id }));
+  assert.equal(refused.code, "BAD_REQUEST");
+  assert.match(refused.message ?? "", /Tiered rules need at least one allowed rule with two tiers in this world/);
+  assert.deepEqual((await boss.c.query(api.rooms.get, { room: bossRoom.roomId })).settings, seedSetupSettings("lab-tiers-plain"), "the room keeps its setup");
+});
+
+test("a game from the Tiered rules setup deals every god a tiered rule; an ordinary game deals none", { timeout: 300_000 }, async () => {
+  await admin.mutation(internal.setups.ensureSeeded, {});
+  const [host, ada, bob] = await gods("Tier Host", "Tier Ada", "Tier Bob");
+  await touch(host);
+  const dealt = async (seedId: string) => {
+    const { roomId } = await roomWith([host, ada, bob]);
+    const setup = (await setupEntries(host.c)).find(e => e.seedId === seedId)!;
+    const room = await host.c.query(api.rooms.get, { room: roomId });
+    if (room.setup.id !== setup.id) await host.c.action(api.owner.settings, { roomId, revision: room.revision, setupId: setup.id });
+    const catalog: { id: string; role: string; available: boolean; excluded: boolean }[] =
+      await waitFor(async () => (await host.c.query(api.rooms.get, { room: roomId })).utilityCatalog, "the room's catalogue", 60_000);
+    // Tables the deal lacks are prepared on demand; the game then begins by itself (startGame waits for it).
+    const game = await startGame(host, roomId, { requestId: randomUUID(), holdSettled: false }, 240_000);
+    const g = await admin.query(internal.testing.rawGame, { gameId: game.gameId as never });
+    await host.c.mutation(api.rooms.endActiveGame, { roomId });
+    return { utilities: g.deities.map((d: { utility: { familyId: string; params: { tiers?: unknown } } }) => d.utility), settings: g.game.settings, catalog };
+  };
+  const tiered = await dealt("grid-tiered");
+  assert.deepEqual(tiered.settings.ruleTiers, { depth: 1 });
+  assert.equal(tiered.utilities.length, 3);
+  for (const u of tiered.utilities) assert.ok(Array.isArray(u.params.tiers) && u.params.tiers.length === 1, `${u.familyId}: ${JSON.stringify(u.params)} carries one tier`);
+  assert.equal(new Set(tiered.utilities.map((u: unknown) => JSON.stringify(u))).size, 3, "three distinct rules");
+  // The room's public catalogue: only the families that offer tiers there can be dealt.
+  const { availableFamilies } = await import("@workspace/game-utilities");
+  const { instantiate } = await import("@workspace/game-types");
+  const mono4 = instantiate("Grid", { size: 4, symbols: "base10", colours: "mono" });
+  const pool = availableFamilies(mono4, "reward", seedSetupSettings("grid-tiered").excludedFamilies, { depth: 1 }).map(f => f.id);
+  assert.deepEqual(tiered.catalog.filter(f => f.role === "reward" && f.available && !f.excluded).map(f => f.id), pool);
+  for (const u of tiered.utilities) assert.ok(pool.includes(u.familyId), u.familyId);
+  const basics = await dealt("grid-annotated-basics");
+  assert.deepEqual(basics.catalog.filter(f => f.role === "reward" && f.available && !f.excluded).map(f => f.id).sort(), [...BEGINNER_POOL].sort(), "an ordinary room's catalogue is unchanged");
+  assert.ok(!("ruleTiers" in basics.settings));
+  for (const u of basics.utilities) assert.equal(u.params.tiers, undefined, `${u.familyId}: a base rule`);
 });

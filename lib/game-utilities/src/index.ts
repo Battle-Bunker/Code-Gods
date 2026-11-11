@@ -5,6 +5,7 @@ export {
   type CatalogEntry, type Draw,
 } from "./catalog.ts";
 export * from "./params.ts";
+export { dealableParams, type TierOptions } from "./dealable.ts";
 export * from "./tuples.ts";
 export {
   SELECTORS, selector, divineLottery, fairAligned, registerSynergy, synergyFor, availableFamilies,

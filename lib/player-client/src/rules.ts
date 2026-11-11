@@ -3,7 +3,7 @@
  * settings. The app's "rules for an AI assistant" copy (artifacts/player-web/src/site/components/game-rules.tsx) says the
  * same at more length.
  */
-import { CHANGE_READ_RATIO, fullReadCharge, LANGUAGE_SPECS, SETTINGS_DOCS, allowedLanguages, type FieldDoc, MAX_AGENT_OPPORTUNITY_HZ } from "@workspace/game-core";
+import { CHANGE_READ_RATIO, fullReadCharge, LANGUAGE_SPECS, OPTIONAL_SETTINGS, SETTINGS_DOCS, allowedLanguages, type FieldDoc, MAX_AGENT_OPPORTUNITY_HZ } from "@workspace/game-core";
 
 type Settings = Record<string, unknown>;
 
@@ -17,7 +17,8 @@ const lookText = (s: Settings): string => {
 export function settingsExplained(s: Settings): string {
   return Object.entries(SETTINGS_DOCS as Record<string, FieldDoc>).map(([key, doc]) => {
     const value = s[key];
-    const shown = value === undefined ? "?" : Array.isArray(value) ? (value.length ? value.join(", ") : "none") : typeof value === "object" ? JSON.stringify(value) : String(value);
+    // The optional setting (tiered rules) is absent when off.
+    const shown = value === undefined ? ((OPTIONAL_SETTINGS as readonly string[]).includes(key) ? "none" : "?") : Array.isArray(value) ? (value.length ? value.join(", ") : "none") : typeof value === "object" ? JSON.stringify(value) : String(value);
     return `- ${key} = ${shown}${doc.unit ? ` ${doc.unit}` : ""}: ${doc.meaning} ${doc.consequence}`;
   }).join("\n");
 }

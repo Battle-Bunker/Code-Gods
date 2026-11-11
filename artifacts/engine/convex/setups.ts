@@ -11,7 +11,10 @@
  *
  * Every setup is owned: by the human who created it, or by the system (`ownerId` null: game-core SEED_SETUPS). Only
  * the owner may change or delete one; system setups nobody can (admins included): the seed sync keeps them equal to
- * the code, and players duplicate one instead. Everyone sees every setup (intended: setups are shared).
+ * the code, and players duplicate one instead. Everyone sees every setup (intended: setups are shared), except the
+ * system's administrator-only ones (game-core SeedSetup.adminOnly: experiments), which only administrators see, read,
+ * duplicate or apply: to everyone else they do not exist (lib/setupAccess.ts `hiddenFrom`; every reader and `setupById`
+ * apply it).
  * `owner.settings({setupId})` applies a setup to a room; `owner.settings({settings})` edits the room's setup through
  * `roomSetupWrite` below (convex/owner.ts).
  *
@@ -28,6 +31,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { action, internalAction, internalMutation, internalQuery, mutation, query, type ActionCtx, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { actsAsHuman, type Viewer } from "./auth/access";
 import { fail } from "./lib/errors";
+import { adminOnly, hiddenFrom } from "./lib/setupAccess";
 import { displayName, principalV, viewerOf, type Principal } from "./lib/rooms";
 
 type Ctx = QueryCtx | MutationCtx;
@@ -106,6 +110,8 @@ function rowOf(d: Doc<"gameSetups">, viewer: Viewer, ownerName: string) {
     id: d._id, name: d.name, summary: d.summary,
     /** Owned by the system (a seed setup): nobody may change it. */
     system: d.ownerId === null, ...(d.seedId ? { seedId: d.seedId } : {}),
+    /** Shown to administrators only (only they ever receive such a row). */
+    ...(adminOnly(d) ? { adminOnly: true } : {}),
     ownerName, mine, editable: mine, updatedAt: d.updatedAt,
   };
 }
@@ -123,7 +129,7 @@ async function listImpl(ctx: Ctx, viewer: Viewer): Promise<SetupRow[]> {
   const fixed = [...await byOwner(null), ...await byOwner(viewer.subject)];
   const others = (await ctx.db.query("gameSetups").order("desc").take(LIST_CAP + fixed.length))
     .filter(d => d.ownerId !== null && d.ownerId !== viewer.subject).slice(0, Math.max(0, LIST_CAP - fixed.length));
-  const rows = [...fixed, ...others].filter(d => !d.deleted);
+  const rows = [...fixed, ...others].filter(d => !d.deleted && !hiddenFrom(d, viewer));
   const owners = [...new Set(rows.map(d => d.ownerId))];
   const names = new Map(await Promise.all(owners.map(async o => [o, await ownerNameOf(ctx, o)] as const)));
   const system = rows.filter(d => d.ownerId === null).sort((a, b) => seedOrder(a) - seedOrder(b) || a.createdAt - b.createdAt);
@@ -141,6 +147,7 @@ export const listAs = internalQuery({ args: { principal: principalV }, handler: 
 /** A setup as a list's skeleton has it: its own small fields (no owner: `row` has it; no settings: `get`). */
 const entry = (d: Doc<"gameSetups">, viewer: Viewer) => ({
   id: d._id, name: d.name, summary: d.summary, system: d.ownerId === null, ...(d.seedId ? { seedId: d.seedId } : {}),
+  ...(adminOnly(d) ? { adminOnly: true } : {}),
   mine: d.ownerId !== null && d.ownerId === viewer.subject,
 });
 export type SetupEntry = ReturnType<typeof entry>;
@@ -163,7 +170,7 @@ export const page = query({
     const result = text
       ? await ctx.db.query("gameSetups").withSearchIndex("search", q => q.search("searchText", text)).paginate(opts)
       : await ctx.db.query("gameSetups").withIndex("by_order").paginate(opts);
-    return { ...result, page: result.page.filter(d => !d.deleted).map(d => entry(d, viewer)) };
+    return { ...result, page: result.page.filter(d => !d.deleted && !hiddenFrom(d, viewer)).map(d => entry(d, viewer)) };
   },
 });
 
@@ -174,20 +181,20 @@ export const row = query({
     const viewer = await viewerOf(ctx);
     const id = ctx.db.normalizeId("gameSetups", setupId);
     const doc = id ? await ctx.db.get(id) : null;
-    return doc && !doc.deleted ? rowOf(doc, viewer, await ownerNameOf(ctx, doc.ownerId)) : null;
+    return doc && !doc.deleted && !hiddenFrom(doc, viewer) ? rowOf(doc, viewer, await ownerNameOf(ctx, doc.ownerId)) : null;
   },
 });
 
-/** A setup by id (every setup is visible to everyone), else NOT_FOUND. */
-async function setupById(ctx: Ctx, setupId: string): Promise<Doc<"gameSetups">> {
+/** A setup by id as this viewer may see it (every setup but another's view of an administrator-only one), else NOT_FOUND. */
+async function setupById(ctx: Ctx, viewer: Viewer, setupId: string): Promise<Doc<"gameSetups">> {
   const id = ctx.db.normalizeId("gameSetups", setupId);
   const doc = id ? await ctx.db.get(id) : null;
-  if (!doc || doc.deleted) return fail("NOT_FOUND", "No such setup: list_setups names them all");
+  if (!doc || doc.deleted || hiddenFrom(doc, viewer)) return fail("NOT_FOUND", "No such setup: list_setups names them all");
   return doc;
 }
 
 async function getImpl(ctx: Ctx, viewer: Viewer, setupId: string): Promise<SetupView> {
-  const doc = await setupById(ctx, setupId);
+  const doc = await setupById(ctx, viewer, setupId);
   return view(doc, viewer, await ownerNameOf(ctx, doc.ownerId));
 }
 /** One setup with its complete settings (any setup: they are shared), else NOT_FOUND. */
@@ -211,11 +218,11 @@ export const ownedBase = internalQuery({
   },
 });
 
-/** owner.settings({setupId}): the setup's complete settings. */
+/** owner.settings({setupId}): the setup's complete settings, for the caller applying it (NOT_FOUND for one hidden from them). */
 export const resolve = internalQuery({
-  args: { setupId: v.string() },
-  handler: async (ctx, { setupId }): Promise<{ id: Id<"gameSetups">; name: string; settings: GameSettings }> => {
-    const doc = await setupById(ctx, setupId);
+  args: { setupId: v.string(), principal: v.optional(principalV) },
+  handler: async (ctx, { setupId, principal }): Promise<{ id: Id<"gameSetups">; name: string; settings: GameSettings }> => {
+    const doc = await setupById(ctx, await viewerOf(ctx, principal), setupId);
     return { id: doc._id, name: doc.name, settings: doc.settings as GameSettings };
   },
 });
@@ -233,7 +240,7 @@ export const notYours = (ownerName: string) => (ownerName === SYSTEM
   ? "System setups cannot be edited: duplicate it" : `Only ${ownerName} can edit this setup: duplicate it`);
 /** A setup the viewer owns, else FORBIDDEN naming its owner. */
 async function ownSetup(ctx: Ctx, viewer: Viewer, setupId: string): Promise<Doc<"gameSetups">> {
-  const doc = await setupById(ctx, setupId);
+  const doc = await setupById(ctx, viewer, setupId);
   if (doc.ownerId === null || doc.ownerId !== viewer.subject) fail("FORBIDDEN", notYours(await ownerNameOf(ctx, doc.ownerId)));
   return doc;
 }
@@ -333,7 +340,7 @@ export const saveAs = internalAction({
 
 async function duplicateImpl(ctx: MutationCtx, viewer: Viewer, setupId: string, rawName?: string): Promise<SetupView> {
   requireWriter(viewer);
-  const source = await setupById(ctx, setupId);
+  const source = await setupById(ctx, viewer, setupId);
   const taken = await takenNames(ctx, viewer.subject);
   const name = rawName === undefined ? copyName(source.name, taken) : freeName(checkName(rawName), "", taken);
   return view(await insertOwn(ctx, viewer.subject, name, source.settings as GameSettings, source.summary), viewer, viewer.name);

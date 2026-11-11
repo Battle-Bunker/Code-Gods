@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { OBJECT_TYPES } from "@workspace/game-types";
 import {
-  DEFAULT_SETTINGS, ROOM_QUOTA_DOCS, SEED_SETUPS, SETTINGS_DOCS, TYPE_DEFAULTS, type FieldDoc, type GameSettings,
+  DEFAULT_SETTINGS, OPTIONAL_SETTINGS, SETTINGS_FIELDS, ROOM_QUOTA_DOCS, SEED_SETUPS, SETTINGS_DOCS, TYPE_DEFAULTS, type FieldDoc, type GameSettings,
 } from "../src/settings.ts";
 
 const LAYOUT_WORDS = /\b(below|above|click|button|tab|panel|page|screen)\b/i;
@@ -17,7 +17,7 @@ const docs = [...Object.entries({ ...SETTINGS_DOCS, ...ROOM_QUOTA_DOCS }), ...pa
 
 test("every settings field, type argument and room quota has a question, a meaning and a consequence", () => {
   assert.ok(paramDocs.length >= 6, "Grid size/symbols/colours, Int min/max and string maxLength are documented");
-  assert.deepEqual(Object.keys(SETTINGS_DOCS).sort(), Object.keys(DEFAULT_SETTINGS).sort(), "one doc per GameSettings field, no stale keys");
+  assert.deepEqual(Object.keys(SETTINGS_DOCS).sort(), [...SETTINGS_FIELDS].sort(), "one doc per GameSettings field (the optional one too), no stale keys");
   assert.deepEqual(Object.keys(ROOM_QUOTA_DOCS).sort(), ["aiQuota", "assistantModel", "assistantQuota"]);
   for (const [key, doc] of docs) {
     assert.match(doc.question, /^[A-Z].*\?$/, `${key}: the question is a question`);
@@ -67,7 +67,8 @@ test("every field is a control: asked or under More, never a fixed fact, with a 
   for (const [key, doc] of Object.entries(SETTINGS_DOCS) as [keyof GameSettings, FieldDoc][]) {
     assert.ok(doc.tier === "ask" || doc.tier === "more", `${key}: tier ${doc.tier}`);
     assert.ok(doc.control in kinds, `${key}: a known control kind (${doc.control})`);
-    assert.ok(kinds[doc.control]!(DEFAULT_SETTINGS[key]), `${key}: a ${doc.control} control fits its value`);
+    // An optional field is absent by default (its control then shows "none").
+    if (!(OPTIONAL_SETTINGS as readonly string[]).includes(key)) assert.ok(kinds[doc.control]!(DEFAULT_SETTINGS[key]), `${key}: a ${doc.control} control fits its value`);
   }
   for (const key of ["languages", "utilitySelectorId", "priorId", "spawnFunctionId", "objectSelection", "commitClause"] as const) {
     assert.notEqual(SETTINGS_DOCS[key].control, undefined, `${key} is edited, not asserted`);

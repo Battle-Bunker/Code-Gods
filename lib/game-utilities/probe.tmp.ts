@@ -1,0 +1,10 @@
+import { family, context, selector, familiesFor } from "./src/index.ts";
+import { instantiate, seededRng } from "@workspace/game-types";
+const inst = instantiate("Grid", { size: 4, symbols: "base10", colours: "mono" });
+const ctx = context(inst);
+for (const c of ["gated", "plain", "unlock"] as const) for (const d of [1, 2]) console.log(c, d, JSON.stringify(family("opposite_nines").tiered!(ctx, d, c)));
+console.log(familiesFor("Grid", "reward").filter(f => f.tiered).map(f => f.id));
+for (const sel of ["fair-aligned", "divine-lottery"]) console.log(sel, JSON.stringify(selector(sel).select(inst, 4, seededRng(7), { exclude: ["snap"] })));
+const inst2 = instantiate("Grid", { size: 5, symbols: "base10", colours: "rgby" });
+console.log(JSON.stringify(selector("fair-aligned").select(inst2, 3, seededRng(11), { defenceGoals: true })));
+console.log(family("opposite_nines").tiered!(context(inst2), 1).length, JSON.stringify(family("opposite_nines").support(ctx)));

@@ -8,7 +8,7 @@
  */
 import { v } from "convex/values";
 import { DEFAULT_SETUP_SEED_ID, instantiationOf, seedSetupSettings, type GameSettings } from "@workspace/game-core";
-import { context, family, familiesFor, tableKey, type UtilityDescriptor } from "@workspace/game-utilities";
+import { context, dealableParams, family, familiesFor, tableKey, type UtilityDescriptor } from "@workspace/game-utilities";
 import { DEFAULT_HOLD_BUDGET, buildHoldTable, holdKeyPart, type HoldTable } from "@workspace/game-utilities/hold";
 import { sha256, type Instantiation } from "@workspace/game-types";
 import { internal } from "../_generated/api";
@@ -120,7 +120,8 @@ export const warm = internalAction({
     const draws = new Map<string, { draw: { familyId: string; params: Record<string, unknown> }; m: number }>();
     for (const { id } of familiesFor(inst.objectType, "reward")) {
       if (excluded.has(id)) continue;
-      for (const params of family(id).support(context(inst))) for (const m of [1, 2, 3]) {
+      // What the setup deals from the family: its support, or its tiered draws in a tiered setup (none: nothing to warm).
+      for (const params of dealableParams(family(id), context(inst), settings.ruleTiers)) for (const m of [1, 2, 3]) {
         draws.set(holdCacheKey({ familyId: id, params }, inst, settings, m), { draw: { familyId: id, params: params as Record<string, unknown> }, m });
       }
     }
