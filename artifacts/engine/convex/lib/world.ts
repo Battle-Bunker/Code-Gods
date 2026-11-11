@@ -2,7 +2,7 @@
  * The world clock and the two energy accounts as the engine and the projections read them (pure; ported
  * from api-server economy.ts / interaction-scheduler.ts). game-core holds the arithmetic.
  */
-import { agentIncomeOf, deityAccount, type DeityPower } from "./power.ts";
+import { agentCapacityOf, agentIncomeOf, deityAccount, type DeityPower } from "./power.ts";
 import { DEFAULT_SCORE_INTERVAL_SECONDS, MAX_AGENT_OPPORTUNITY_HZ, leaderboard, offerable, personalView, settleAgentEnergy, type AgentAccount, type GameSettings } from "@workspace/game-core";
 
 /**
@@ -57,10 +57,12 @@ export function worldNow(game: Clock, nowMs = Date.now()): number {
   return Math.min(game.endAtWorld, game.worldSeconds + running);
 }
 
-/** The agent's account accrued to `world`; a clock behind the account's own accrues nothing. */
+/**
+ * The agent's account accrued to `world` within its capacity (share·P·fullChargeSeconds: docs/energy-model.md §6.1); a
+ * clock behind the account's own accrues nothing, but the capacity still holds (its share may just have been lowered).
+ */
 export function settledAccount(settings: GameSettings, agent: AgentLike, world: number): AgentAccount {
-  if (!(world > agent.account.settledWorldSeconds)) return agent.account;
-  return settleAgentEnergy(agent.account, world, agentIncomeOf(agent, settings));
+  return settleAgentEnergy(agent.account, Math.max(world, agent.account.settledWorldSeconds), agentIncomeOf(agent, settings), agentCapacityOf(agent, settings));
 }
 /**
  * The agent's energy at `world`, and whether it can be offered an opportunity then (docs/energy-model.md §7): positive

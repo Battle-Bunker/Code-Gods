@@ -44,7 +44,7 @@ export const LABELS: Readonly<Record<SettingsKey, string>> = {
   spawnFunctionId: "New objects", planningSeconds: "Planning", durationMode: "Game end", halfLifeSeconds: "Game length",
   startingObjectCount: "Starting objects", spawnRateHz: "New objects per second", interactionRateHz: "World speed", interactionComputeMs: "CPU limit per act",
   stepBudget: "Steps per act", pauseSeconds: "Pause length", startingEnergy: "Starting energy",
-  powerPerSecond: "Power per player", maxAgentsPerGod: "Agents per player",
+  powerPerSecond: "Power per player", fullChargeSeconds: "Energy fills in", maxAgentsPerGod: "Agents per player",
   penaltyWeight: "Defence weight", defenceGoals: "Defence goals", excludedFamilies: "Rules never dealt", excludedDefenceFamilies: "Defence goals never dealt",
   priorId: "Rarity reference",
   commitClause: "Conditional moves", objectSelection: "Act targeting", scoreIntervalSeconds: "Score updates", peerNoiseBits: "Blur on others' interest",
@@ -64,6 +64,7 @@ export const LIMITS: Readonly<Partial<Record<SettingsKey, Limit>>> = {
   pauseSeconds: { ...TIME_LIMITS.pauseSeconds, unit: "seconds" },
   startingEnergy: { ...ENERGY_LIMITS.startingEnergy, unit: "bits" },
   powerPerSecond: { ...ENERGY_LIMITS.powerPerSecond, unit: "bits per second" },
+  fullChargeSeconds: { ...TIME_LIMITS.fullChargeSeconds, unit: "seconds" },
   maxAgentsPerGod: { min: 1, max: 200, int: true, unit: "agents" },
   penaltyWeight: { ...ENERGY_LIMITS.penaltyWeight, unit: "" },
 };

@@ -199,7 +199,7 @@ export function useMyCard() {
 
 /**
  * Your agents with settled energy and eligibility, plus the rules to project them: an agent earns
- * its income (`agents[].income` = powerShare × `economy.powerPerSecond`) per world second with no cap, can be offered a turn while its energy is above 0 (the more
+ * its income (`agents[].income` = powerShare × `economy.powerPerSecond`) per world second up to `agents[].capacity` (income × `economy.fullChargeSeconds`; a full store wastes its income; absent: no cap), can be offered a turn while its energy is above 0 (the more
  * energy, the likelier), and an act can drive energy negative (it then waits for income to lift it above 0).
  */
 export function useMyAgents({ hz }: Live = {}) {

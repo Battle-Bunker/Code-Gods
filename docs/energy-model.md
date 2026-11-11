@@ -19,8 +19,10 @@ distance (add k on a digit costs 4 + 1.585·|k| bits, no set for numbers) and dr
    information cost w. A *composite* mutator (paint a row, ×2401) is priced as its decomposition into elementary ones.
    An act's W is the sum of its elementary costs, and its change cost is W + β·W². Small incremental acts are cheap.
    Radical acts are very expensive, so every object becomes an incremental battleground.
-4. **Power, not batteries.** Each deity has a fixed power budget (bits per world second). They split it between their
-   agents and themselves, and can re-allocate at will (§6). There is no per-agent energy cap.
+4. **Power, and a store in proportion to it.** Each deity has a fixed power budget (bits per world second). They split
+   it between their agents and themselves, and can re-allocate at will (§6). Every account holds at most
+   `fullChargeSeconds` of its own power (§6.1, 11 Nov 2026): energy fills up and then stops, so it is used or
+   re-allocated, never hoarded.
 5. **Selection by energy.** The chance that an agent gets the next mutation opportunity is proportional to its current
    energy (§7). An agent that reads a little and skips saves energy, so it is offered more opportunities.
 
@@ -286,6 +288,7 @@ They are unit tests (`lib/game-types/test/mutators.test.ts`).
   which starts at `startingEnergy` (default 200) and pays summon prices.
 - A summon may name the new agent's share (`powerShare`); by default it gets half of what is unallocated
   (`defaultShare`), so the deity keeps the other half for later summons. The agent starts with 0 energy.
+- Every account holds at most `fullChargeSeconds` of its power (§6.1).
 - `allocatePower(agentId, share)` (MCP `allocate_power`) settles both accounts at the current world time and then
   changes the share. Destroying an agent returns its share to the deity. Every share is in the event log (schema 6:
   the summon's `powerShare`, a `power` event per re-allocation).
@@ -298,6 +301,55 @@ They are unit tests (`lib/game-types/test/mutators.test.ts`).
   - P = energyPerSecond + 2 · agentEnergyPerSecond (the deity's old income plus two agents at the old rate);
   - each existing agent's share = agentEnergyPerSecond / P, scaled down so an owner's shares total at most 1;
   - each deity's account = its energy at the migration, and `allocated` = its agents' shares.
+
+### 6.1 Capacity (owner, 11 Nov 2026)
+
+The owner: "If we don't already have an energy capacity cap we need one as a function of power. Let's add a setup
+parameter for the time to full energy storage with no spending." Without one, an agent that looks and skips and a god
+that keeps power unallocated both grew without bound; the god's balance soon made summon prices, and so program size,
+irrelevant.
+
+- **The setting.** `settings.fullChargeSeconds` (T, world seconds; default 30, from 1 to 1,000,000; `SETTINGS_DOCS`, the
+  configuration page's energy section).
+- **The rule.** An account holds at most its power × T: an agent's capacity is s·P·T, the deity's own (1 − Σs)·P·T. One
+  formula for every account, whatever the number of agents: a deity's accounts together hold at most P·T.
+- **In the formula, not in a write.** `settleAgentEnergy(account, world, income, capacity)` is
+  `min(capacity, balance + income·Δt)` (game-core `energy.ts`; `energyCapacity` gives the capacity). Accounts are settled
+  lazily at world time, and every reader goes through that function (`lib/world.ts settledAccount`,
+  `lib/power.ts deityAccount`, the replay's `settleAccount`), so nothing is written when an account fills (CLAUDE.md:
+  no hot writes).
+- **Income past a full store is lost.** It is not kept, and it does not overflow to another account.
+- **Lowering an account's power lowers its capacity, and what it holds above the new capacity is lost at once.** That
+  covers an agent whose share is lowered, and the deity's own account when a summon or a re-allocation gives power to an
+  agent. The My agents panel says what will be lost before the player confirms. Both accounts are settled at the old
+  shares first, as before.
+- **Planning.** World time is stopped, so nothing accrues, but the capacity holds: the deity starts with
+  min(`startingEnergy`, P·T), and each planning summon lowers its capacity with its unallocated power. With the default
+  shares (half of what is unallocated) a Grid deity (P = 64, T = 30) holds at most 1920, then 960, 480, 240 bits.
+- **Agents start empty**, as before. Starting full would make destroy and re-summon a source of energy.
+- **Debt** (a balance below zero after an act that cost more than the agent had) is repaid from income first, as before.
+- **What a deity can afford.** A summon is paid from the deity's own account, so the largest program a deity can ever
+  buy costs (unallocated power) × T. With all power allocated the deity's account holds nothing, and a refused summon
+  says how much it can hold. Keeping power back for later agents is now a real choice against giving it to agents.
+
+  | Unallocated power (P = 64, T = 30) | The deity's own capacity | Refills from empty in | Programs it can buy |
+  |---|---|---|---|
+  | 100% | 1920 bits | 30 s | any shipped so far (the owner's 1,137-bit agent included) |
+  | 50% | 960 bits | 30 s | up to 960 bits |
+  | 25% | 480 bits | 30 s | up to 480 bits |
+  | 10% | 192 bits | 30 s | small agents only (a one-move agent is about 60 bits) |
+
+- **Stored data.** `fullChargeSeconds` is one more settings field (`settings` is stored as-is), so nothing reshapes.
+  Rooms and setups stored without it get the default when read (`upgradeStoredSettings`). **A game already started
+  keeps the economy it was charged with**: `upgradeStoredSettings(settings, played = true)` (the setups migration's
+  games phase, command examination) does not fill it, the engine reads the game's own settings, and
+  `energyCapacity(income, undefined)` is Infinity. So a game in progress across the deploy plays on without a capacity,
+  and an older game's replay shows the balances it had. The observation reports `economy.fullChargeSeconds`,
+  `self.capacity` and each agent's `capacity` only when the game has one.
+- **Charging the god's account.** `chargeDeityAccount(account, bits, world, power)` (game-core, pure: settle within the
+  capacity, then deduct; throws "Insufficient energy") and `chargeGod(ctx, game, deity, bits)` (engine `lib/power.ts`:
+  writes `deities.account` and `deities.spent`, returns the new balance or null) are the one way to charge it for
+  anything other than a summon.
 
 ## 7. Selection (PR 1)
 
