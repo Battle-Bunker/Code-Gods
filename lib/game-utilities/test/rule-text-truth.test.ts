@@ -62,3 +62,50 @@ test("a ladder's starting row does not score", () => {
   // Rows 0001 < 0002 < 0003 < 0004 score [3, 3].
   assert.match(say("ladder_of_numbers", { direction: "down" }), /the row it starts from doesn't score/);
 });
+
+// --- beginner pair families: each sentence checked against boards scored by the card program ----------------------
+import { evaluator as pairEvaluator } from "../src/catalog.ts";
+
+const pairs12 = context(instantiate("Grid", { size: 4, symbols: "base12", colours: "rgb" }));
+const pairScore = (id: string, ctx = even) => pairEvaluator({ familyId: id, params: {} }, ctx.inst);
+
+test("opposite nines: a cell's opposite is where a half turn takes it; pairs making 9 score, every pair deducts its distance", () => {
+  const text = say("opposite_nines", {});
+  assert.match(text, /^Try to make opposite cells add up to 9\./);
+  assert.match(text, /Each opposite pair that adds up to 9 scores 1 primary point\./);
+  assert.match(text, /Each pair deducts as many secondary points as its total is away from 9\./);
+  assert.match(text, /turn the board half way round, like the top-left and bottom-right corners/);
+  const u = pairScore("opposite_nines");
+  // The corners 4 and 5 are opposites and make 9; the other 7 pairs are 0 + 0, 9 away each.
+  assert.deepEqual(u("4R,0R,0R,0R/0R,0R,0R,0R/0R,0R,0R,0R/0R,0R,0R,5R"), [1, -63]);
+  // A half turn, not a fold: row 1, column 2 lands on row 4, column 3.
+  assert.deepEqual(u("0R,4R,0R,0R/0R,0R,0R,0R/0R,0R,0R,0R/0R,0R,5R,0R"), [1, -63]);
+  // Put the 5 where a fold would take the 4 instead: 4 + 0 is 5 away, 5 + 0 is 4 away, the other 6 pairs 9 each.
+  assert.deepEqual(u("0R,4R,0R,0R/0R,0R,0R,0R/0R,0R,0R,0R/0R,5R,0R,0R"), [0, -63]);
+  // A pair over 9 deducts as much as one under it: 8 + 7 = 15 is 6 away; the seven 4 + 5 pairs make 9.
+  assert.deepEqual(u("8R,4R,4R,4R/4R,4R,4R,4R/5R,5R,5R,5R/5R,5R,5R,7R"), [7, -6]);
+  // Base 12: the target is B (11), and the text says what A and B count. A + 1 and seven 5 + 6 pairs make 11.
+  const t12 = say("opposite_nines", {}, pairs12);
+  assert.match(t12, /^Try to make opposite cells add up to B \(11\)\./);
+  assert.match(t12, /as its total is away from 11\./);
+  assert.match(t12, /Here A counts 10 and B counts 11\./);
+  assert.deepEqual(pairScore("opposite_nines", pairs12)("AR,5R,5R,5R/5R,5R,5R,5R/6R,6R,6R,6R/6R,6R,6R,1R"), [8, 0]);
+});
+
+test("step-stool mirror: folding top onto bottom pairs each cell with the one in the same column of the mirrored row", () => {
+  const text = say("step_stool", {});
+  assert.match(text, /^Try to fold the board top onto bottom so each number lands on a number one apart from it, like 4 and 5\./);
+  assert.match(text, /Each pair one apart scores 1 primary point\./);
+  assert.match(text, /so 4 and 4 deduct 1 and 2 and 6 deduct 3\./);
+  assert.match(text, /the top row on the bottom row, the second row on the second-last row/);
+  const u = pairScore("step_stool");
+  // 4 lands on 5: one apart. Every other pair is 0 on 0, the same number: 1 away from one apart.
+  assert.deepEqual(u("4R,0R,0R,0R/0R,0R,0R,0R/0R,0R,0R,0R/5R,0R,0R,0R"), [1, -7]);
+  // 2 lands on 6: 4 apart deducts 3; every other pair is 0 on 1.
+  assert.deepEqual(u("2R,0R,0R,0R/0R,0R,0R,0R/1R,1R,1R,1R/6R,1R,1R,1R"), [7, -3]);
+  // Side by side does not count: rows stepping 4, 5, 4, 5 fold onto equal rows, so every pair deducts 1.
+  assert.deepEqual(u("4R,5R,4R,5R/4R,5R,4R,5R/4R,5R,4R,5R/4R,5R,4R,5R"), [0, -8]);
+  // Base 12: A (10) and B (11) are one apart.
+  assert.match(say("step_stool", {}, pairs12), /Here A counts 10 and B counts 11\./);
+  assert.deepEqual(pairScore("step_stool", pairs12)("AR,0R,0R,0R/0R,0R,0R,0R/0R,0R,0R,0R/BR,0R,0R,0R"), [1, -7]);
+});
