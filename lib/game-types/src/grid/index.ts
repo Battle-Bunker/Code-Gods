@@ -189,7 +189,7 @@ const describe = memo((inst): InstanceInfo => {
 });
 
 export const GRID: ObjectTypeDef<GridValue> = Object.freeze({
-  id: "Grid", label: "Grid", emoji: "🟥", kid: "A square board of coloured cells, each with a symbol on it",
+  id: "Grid", label: "Grid", emoji: "🟥", kid: "A square board of cells, each with a symbol on it (and a colour, unless it is numbers only)",
   params: PARAMS,
   // Beginner board (lib/grid-lab/docs/explore/gridtypes.md); bigger boards via the settings presets.
   defaults: Object.freeze({ size: 4, symbols: "base10", colours: "rgb" }),

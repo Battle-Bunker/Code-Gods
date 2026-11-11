@@ -103,7 +103,9 @@ export function boardKeyLine(instance: unknown): string[] {
     const high = S.values.map((v, k) => [v, k] as const).filter(([v]) => v >= 10).map(([v, k]) => `${S.glyphs[k]} (${v})`);
     symbols = high.length ? `0 to 9, then ${LIST(high)}` : "0 to 9";
   }
-  return [`Board key: a ${size}×${size} board. Symbols: ${symbols}. Colours: ${LIST([...C.names])}.`];
+  // A mono board is numbers only: say so instead of listing its one colour.
+  const colours = C.count === 1 ? "No colours: every cell is plain, so only the symbols matter." : `Colours: ${LIST([...C.names])}.`;
+  return [`Board key: a ${size}×${size} board. Symbols: ${symbols}. ${colours}`];
 }
 
 function utilityLine(title: string, u: Json): string[] {
