@@ -424,7 +424,8 @@ export function replayObservation(replay: Replay, at: ReplayAt, state: ReplaySta
     agents: [...state.agents.values()].filter(a => a.alive && a.ownerId === god?.id).map(a => {
       const account = a.account ? settleAccount(settings, a.account, state.world, a.share) : undefined;
       return {
-        id: a.id, source: a.source ?? "", language: a.language ?? languages[0], summonCost: a.summonCost ?? 0,
+        id: a.id, ...(a.name ? { name: a.name } : {}), ...(a.description ? { description: a.description } : {}),
+        source: a.source ?? "", language: a.language ?? languages[0], summonCost: a.summonCost ?? 0,
         expectedActCost: a.expectedActCost ?? 0, breakdown: a.breakdown ?? { read: 0, change: 0 }, randomized: a.randomized ?? false,
         energy: account?.balance ?? 0, eligible: (account?.balance ?? 0) > 0, acts: a.acts, spent: a.spent, skips: a.skips, powerShare: a.share, income: agentIncome(powerOf(settings), a.share),
       };

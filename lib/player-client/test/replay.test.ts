@@ -86,7 +86,7 @@ test("a re-allocation settles both accounts and then changes the rates; a destro
   const replay = buildReplay([page([{ seq: 0, at: T0, worldFrom: 0, worldTo: 40, events: [
     { type: "phase", phase: "running", worldSeconds: 0 },
     summon("a1", "me", 30, 0.5),               // me: 70 energy, +2/s unallocated; a1 earns 2/s
-    summon("old", "me", 10),                   // an older log: no share at all (0), 10 more bits
+    { ...summon("old", "me", 10), name: "Painter", description: "paints" },   // an older log: no share at all (0), 10 more bits
     { type: "agent.power", agentId: "a1", ownerId: "me", worldSeconds: 10, share: 0.25 },   // a1 had 20 bits; me: 60 + 20 = 80
     { type: "agent.power", agentId: "old", ownerId: "me", worldSeconds: 20, share: 0.5 },   // me: 80 + 10 × 3 = 110; allocated 0.75
     { type: "agent.destroyed", agentId: "a1", ownerId: "me", worldSeconds: 30 },           // me: 110 + 10 × 1 = 120; allocated 0.5
@@ -107,6 +107,7 @@ test("a re-allocation settles both accounts and then changes the rates; a destro
   const obs = replayObservation(replay, { room: { roomId: "r", roomShortCode: "R" }, cursor: replay.log.length, pov: 0 });
   assert.deepEqual([obs.self.allocated, obs.self.income], [0.5, 2]);
   assert.deepEqual(obs.agents.map(a => [a.id, a.powerShare, a.income]), [["old", 0.5, 2]]);
+  assert.deepEqual(obs.agents.map(a => [a.name, a.description]), [["Painter", "paints"]], "the replay keeps the agent's name and description");
   assert.deepEqual([obs.economy!.powerPerSecond, obs.economy!.startingEnergy], [4, 100]);
   // The event window carries the god's own re-allocations.
   assert.equal(replayEvents(replay, { room: { roomId: "r", roomShortCode: "R" }, cursor: replay.log.length, pov: 0 }).events.filter(e => e.type === "agent.power").length, 2);

@@ -14,6 +14,7 @@ import { LANGUAGE_SPECS, defaultShare, isLanguage } from "@workspace/game-core";
 import { runner, useGameCommands, useRunner, type Lang } from "@/core/game/runner";
 import { forgeLanguage, forgeLanguages, forgeSandbox } from "@/core/game/language";
 import { useAffordances } from "@/core/use-affordances";
+import { summonNeeds } from "./summon-needs";
 import { GhostButton, PanelEmpty, PrimaryButton, TextButton, type PanelProps } from "./kit";
 
 const fmt = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(3));
@@ -120,6 +121,10 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended }: { lan
         </PrimaryButton>
         <TextButton onClick={() => runner.setEditing(false)}>Done</TextButton>
       </div>
+      {gameplay && !busy && !(canSummon && name.trim()) && source.trim() && (() => {
+        const needs = summonNeeds(!!current?.valid, !!name.trim(), !!current && current.cost <= (obs?.self.energy ?? 0));
+        return needs && <p data-testid="text-summon-needs" className="text-xs text-muted-foreground">{needs}</p>;
+      })()}
       {!ended && sandbox.text && <p data-testid="text-forge-sandbox" className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">{sandbox.warming && <Loader2 size={12} className="animate-spin" />}{sandbox.text}</p>}
       {!can.validate.ok && !ended && !sandbox.text && !busy && <p data-testid="text-forge-off" className="text-xs font-semibold text-muted-foreground">{can.validate.reason}</p>}
       {ended && <p data-testid="text-forge-ended" className="text-xs font-semibold text-muted-foreground">No summons after the end: the game is over, so Validate and Summon are off. Your code stays here for the next game.</p>}
