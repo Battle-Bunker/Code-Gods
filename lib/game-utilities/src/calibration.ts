@@ -24,7 +24,7 @@ import { applicable, canonicalSupport, context, entryPoint, family, familiesFor,
 import type { Ordinal, Params, ScoreShape } from "./types.ts";
 import { canonicalJson } from "./canonical-json.ts";
 import { cardProgram } from "./families/card.ts";
-import { ANALYTIC_MAX_ERROR_BITS, assertAnalyticHeader, cmpOrdinals, type AnalyticSurvival } from "./analytic.ts";
+import { ANALYTIC_MAX_ERROR_BITS, HYBRID_MAX_ERROR_BITS, assertAnalyticHeader, cmpOrdinals, type AnalyticSurvival } from "./analytic.ts";
 
 // ------------------------------------------------------------------------------------------------
 // format
@@ -57,6 +57,7 @@ export function analyticFor(familyId: string, canonicalParams: Params, inst: Ins
       // The id and kind are checked here (they key tables); the levels, which may be lazy, when a table is built.
       assertAnalyticHeader(a, `${familyId} ${paramsKey(canonicalParams)} on ${inst.key}`);
       if (a.kind === "approx" && a.maxErrorBits! > ANALYTIC_MAX_ERROR_BITS) a = null;
+      else if (a.kind === "hybrid" && a.maxErrorBits! > HYBRID_MAX_ERROR_BITS) a = null;
     }
     analyticMemo.set(m, a);
   }
@@ -124,7 +125,7 @@ export interface CalibrationTable {
      * "exact": the whole domain was enumerated; "exact:<id>" / "approx:<id>": built from the family's analytic survival
      * function with that id (src/analytic.ts).
      */
-    readonly budget: CalibrationBudget | "exact" | `exact:${string}` | `approx:${string}`;
+    readonly budget: CalibrationBudget | "exact" | `exact:${string}` | `approx:${string}` | `hybrid:${string}`;
     /**
      * Built as `replicates` independent runs on 1/R of the budget each, merged in probability (scripts/estimator.ts
      * mergeReplicates; the engine's on-demand split, architecture.md §3.2). Absent: the single run. Same key, same
@@ -217,7 +218,7 @@ export function tableKeyParts(familyId: string, canonicalParams: Params, inst: I
     instance: inst.key,
     card: sha256(cardProgram(f.card.typescript(canonicalParams, ctx))),
     entry: entryPoint(f),
-    shape: f.shape(ctx),
+    shape: f.shape(ctx, canonicalParams),
     prelude: utilityPreludeHash(inst),
     spawn: "uniform",
     estimator: { id: ESTIMATOR.id, version: ESTIMATOR.version },

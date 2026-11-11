@@ -7,6 +7,7 @@ import type { CardText, GridSpec } from "../_util.ts";
 import { fromFn, full, gridFamily, pyCard, sentences, tsCard, tuple, wire } from "../_util.ts";
 import { tierPoints } from "../../../tuples.ts";
 import { halfTurnPairs, pairTop } from "./_pairs.ts";
+import { linesSum, windowsSum, type GridTiers, type TierValue } from "../tiers.ts";
 
 type NinesP = Record<string, never>;
 
@@ -27,7 +28,38 @@ const ninesText = (g: GridSpec): CardText => {
   };
 };
 
+/**
+ * Tiers (docs/layered-rules-design.md §5.3): "lines add up to x" and "2×2 squares add up to x". Half-turn partners add
+ * up to the target T at the base's top, so a line and its image add up to N·T together and x folds with N·T − x; at
+ * x = N·T/2 (18 on 4×4 digits) both long diagonals are free and the tier is Magic Eighteen's own goal.
+ */
+const foldX = (id: string, whole: (g: GridSpec) => number) => (v: TierValue, g: GridSpec): TierValue => {
+  const x = v.x as number;
+  return { id, x: Math.min(x, whole(g) - x) };
+};
+export const ninesTiers: GridTiers<NinesP> = {
+  interactions: [
+    { ...linesSum, canonical: foldX("lines", g => g.N * ninesTarget(g)) },
+    { ...windowsSum, canonical: foldX("squares", g => 4 * ninesTarget(g)) },
+  ],
+  // The base's greedy ten-move level on 4×4 (docs/layered-rules-design.md §3): three quarters of the pairs.
+  gate: g => (3 * g.N * g.N) / 8,
+  gateText: (gate, g) => `${gate} opposite pairs that add up to ${g.say.tile(ninesTarget(g))}`,
+  dealt: g => (g.N === 4 && g.base === 10 ? NINES_DEALT : []),
+  lab: g => (g.N === 4 && g.base === 10 ? NINES_LAB : []),
+  base: (_p, g) => ({
+    id: "opposite-nines-pairs@1", symbols: g.S, cells: g.N * g.N, arity: 2,
+    units: halfTurnPairs(g.N).map(([a, b]) => [a.r * g.N + a.c, b.r * g.N + b.c]),
+    score: ([a, b]) => { const total = g.value[a] + g.value[b]; return [total === ninesTarget(g) ? 1 : 0, -Math.abs(total - ninesTarget(g))]; },
+  }),
+};
+/** The values dealt on 4×4 digits: each adds 6 to 20 bits over the base's top and passes the liveness check (test/tiers.test.ts). */
+const NINES_DEALT: readonly TierValue[] = [14, 16, 18, 20, 22].map(x => ({ id: "lines", x }));
+/** Lab: outside the balance band. */
+const NINES_LAB: readonly TierValue[] = [{ id: "squares", x: 18 }];
+
 export const oppositeNines = gridFamily<NinesP>({
+  tiers: ninesTiers,
   id: "opposite_nines", name: "Opposite Nines", emoji: "🙃", theme: "Opposite cells that add up to the biggest number",
   requires: { classes: ["Numeral"], parity: "even", maxSize: 6 }, shape: tuple(2), tags: ["beginner"],
   params: () => ({}),

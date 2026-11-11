@@ -36,13 +36,19 @@ export interface AnalyticSurvival {
    */
   readonly levels: AnalyticLevels;
   /** "exact": closed form, exact enumeration or exact dynamic programme. "approx": every level within `maxErrorBits`. */
-  readonly kind: "exact" | "approx";
+  /**
+   * "hybrid" (tiered rules, src/tiers/hybrid.ts): the base's levels are exact and each tier level is estimated
+   * conditionally on its base level, within `maxErrorBits` (its own bound, HYBRID_MAX_ERROR_BITS; verified against brute force).
+   */
+  readonly kind: "exact" | "approx" | "hybrid";
   /** Approximations only: a bound on |log2 G − true log2 G| at every level, proven or verified against the reference tables. */
   readonly maxErrorBits?: number;
 }
 
 /** An approximation is used for scoring only when its error bound is at most this (well below the estimator's error). */
 export const ANALYTIC_MAX_ERROR_BITS = 0.25;
+/** A hybrid law (exact base, conditional tier) is used for scoring when its bound on the tier levels is at most this. */
+export const HYBRID_MAX_ERROR_BITS = 1;
 
 const tupleOf = (o: Ordinal): readonly number[] => (typeof o === "number" ? [o] : o);
 /** Lexicographic comparison of ordinals (scalars as 1-tuples): the one comparator of the package (calibration.ts re-exports it). */
@@ -57,8 +63,8 @@ export function cmpOrdinals(a: Ordinal, b: Ordinal): number {
 /** Throws unless the id, kind and error bound are well formed (without reading the levels, which may be lazy). */
 export function assertAnalyticHeader(a: AnalyticSurvival, where: string): void {
   if (!/^[a-z0-9-]+@\d+$/.test(a.id)) throw new Error(`${where}: analytic id ${JSON.stringify(a.id)} must look like "name@1"`);
-  if (a.kind !== "exact" && a.kind !== "approx") throw new Error(`${where}: analytic kind ${String(a.kind)}`);
-  if (a.kind === "approx" && !(typeof a.maxErrorBits === "number" && a.maxErrorBits >= 0)) throw new Error(`${where}: an approximation needs maxErrorBits ≥ 0`);
+  if (a.kind !== "exact" && a.kind !== "approx" && a.kind !== "hybrid") throw new Error(`${where}: analytic kind ${String(a.kind)}`);
+  if (a.kind !== "exact" && !(typeof a.maxErrorBits === "number" && a.maxErrorBits >= 0)) throw new Error(`${where}: an approximation needs maxErrorBits ≥ 0`);
 }
 /** Throws unless `a` is well formed (see AnalyticSurvival.levels); `where` names the family for the message. */
 export function assertAnalytic(a: AnalyticSurvival, where: string): void {
