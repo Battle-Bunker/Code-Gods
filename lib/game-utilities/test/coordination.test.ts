@@ -16,7 +16,9 @@ const inst = instantiate("Grid", { size: 4, symbols: "base10", colours: "mono" }
 const sp = space(inst, "symbol");
 const near = (a: number, b: number, eps = 1e-6) => assert.ok(Math.abs(a - b) <= eps, `${a} ≉ ${b}`);
 const econ = (patch: Partial<Econ> = {}): Econ => ({
-  powerPerSecond: 64, interactionRateHz: 25, durationSeconds: 10, startingObjectCount: 3, spawnRateHz: 0, ...DEVELOP_ECON, candidates: 1000, ...patch,
+  powerPerSecond: 64, interactionRateHz: 25, durationSeconds: 10, startingObjectCount: 3, spawnRateHz: 0, ...DEVELOP_ECON, candidates: 1000,
+  // The rules these expectations were derived under (develop until #283): a 4 Hz cap per agent, offers free.
+  agentCapHz: 4, offerReads: false, ...patch,
 });
 
 // Bits = the count itself. god 0 wants 7s, god 1 wants 3s, god 2 wants digits ≥ 5 (fine with 7s, against 3s).
