@@ -86,7 +86,15 @@ export const run = internalAction({
   args: { gameId: v.id("games"), godId: v.string(), chain: v.number() },
   handler: async (ctx, { gameId, godId, chain }): Promise<unknown> => {
     await bindRuntime(ctx);
-    const context = await ctx.runQuery(internal.ai.seats.turnContext, { gameId, godId, chain });
+    let context;
+    try {
+      context = await ctx.runQuery(internal.ai.seats.turnContext, { gameId, godId, chain });
+    } catch (error) {
+      // A failed read must not end the seat's chain silently: it backs off and retries like any failed turn.
+      console.warn(`AI turn context failed for ${godId}: ${messageOf(error)}`);
+      await ctx.runMutation(internal.ai.seats.afterTurn, { gameId, godId, chain, ok: false, status: failureStatus("turn_failed") });
+      return { ok: false };
+    }
     if ("stop" in context) return { stopped: context.stop };
     if ("waitUntil" in context) {
       await ctx.runMutation(internal.ai.seats.afterTurn, { gameId, godId, chain, ok: true, status: context.status ?? "Waiting", waitUntil: context.waitUntil });
