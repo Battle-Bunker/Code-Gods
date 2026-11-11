@@ -197,16 +197,17 @@ async function migrateRoom(ctx: MutationCtx, room: Doc<"rooms">, defence: Readon
 }
 
 async function migrateGame(ctx: MutationCtx, game: Doc<"games">, defence: ReadonlySet<string>): Promise<boolean> {
-  const settings = migrateSettings(game.settings, defence);
+  // A started game's economy is history: `played` leaves fullChargeSeconds unfilled (no capacity, live and in replay).
+  const settings = migrateSettings(game.settings, defence, true);
   const summary = game.summary as Record<string, unknown> | undefined;
-  const legacySummary = !!summary && ("settingsOrigin" in summary || !!migrateSettings(summary.settings, defence));
+  const legacySummary = !!summary && ("settingsOrigin" in summary || !!migrateSettings(summary.settings, defence, true));
   if (!settings && game.settingsOrigin === undefined && !legacySummary) return false;
   const setup = game.settingsOrigin ? await setupFor(ctx, game.settingsOrigin) : null;
   const named = setup ? { id: setup._id, name: setup.name } : game.setupId ? { id: game.setupId, name: game.setupName ?? "" } : null;
   let nextSummary: Record<string, unknown> | undefined;
   if (summary && legacySummary) {
     const { settingsOrigin: _o, ...rest } = summary;
-    nextSummary = { ...rest, settings: migrateSettings(summary.settings, defence) ?? summary.settings, setup: named };
+    nextSummary = { ...rest, settings: migrateSettings(summary.settings, defence, true) ?? summary.settings, setup: named };
   }
   await ctx.db.patch(game._id, {
     ...(settings ? { settings } : {}),

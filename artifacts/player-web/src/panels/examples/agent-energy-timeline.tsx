@@ -1,7 +1,7 @@
 /**
  * Agent energy timeline. Samples your agents once a second (energy is settled by the engine) and draws one named row per
  * agent: green while it can act now (energy above 0), dashed while it waits for income (energy 0 or below), grey while it
- * is at its turn limit. Each agent's energy is a sparkline with a sentence; a legend explains the colours and the "now" line.
+ * is at its turn limit. Each agent's energy is a sparkline with a sentence (against its capacity when the game has one); a legend explains the colours and the "now" line.
  */
 import { useEffect, useRef, useState } from "react";
 import { definePanel, Sparkline, Timeline, TimelineLegend, useMyAgents, useGame } from "@sdk";
@@ -56,7 +56,7 @@ export default definePanel({
                 <Sparkline values={(history.current.get(a.id) ?? []).map(s => s.energy)} zero width={100} label={`${nameOf(a.name, i)}: energy over time`} />
               </div>
               <div className="flex flex-wrap gap-x-3">
-                <span className="tabular-nums">Energy {bits(a.energy)}</span>
+                <span className="tabular-nums">Energy {bits(a.energy)}{a.capacity !== undefined && ` of ${bits(a.capacity)}${a.energy > 0 && a.energy >= a.capacity ? " (full: income is wasted)" : ""}`}</span>
                 <span className="tabular-nums opacity-70">Estimate per act {bits(a.expectedActCost)}</span>
                 <span className={a.energy <= 0 ? "text-destructive" : a.eligible ? "font-semibold" : "opacity-70"}>
                   {a.energy <= 0 ? `waiting for income (about ${secondsUntilEligible(a).toFixed(1)} s)` : a.eligible ? "can act now" : "at its turn limit"}

@@ -269,3 +269,28 @@ test("the default setup (Annotated basics) is the numbers-only 4×4 board; First
   assert.doesNotThrow(() => validateSettings(s));
   assert.deepEqual(seedSetupSettings(FIRST_STEPS_SEED_ID).typeArgs, { size: 4, symbols: "base10", colours: "rgb" });
 });
+
+test("fullChargeSeconds: a default, validated bounds, and stored room/setup settings without it get the default", () => {
+  assert.equal(DEFAULT_SETTINGS.fullChargeSeconds, 30);
+  for (const seed of SEED_SETUPS) assert.equal(seed.settings.fullChargeSeconds, 30, seed.seedId);
+  for (const bad of [0, 0.5, -1, NaN, Infinity, 1_000_001, "30"]) {
+    assert.throws(() => validateSettings({ ...DEFAULT_SETTINGS, fullChargeSeconds: bad as number }), /fullChargeSeconds/, String(bad));
+  }
+  assert.doesNotThrow(() => validateSettings({ ...DEFAULT_SETTINGS, fullChargeSeconds: 1 }));
+  assert.doesNotThrow(() => validateSettings({ ...DEFAULT_SETTINGS, fullChargeSeconds: 12.5 }));
+  const { fullChargeSeconds: _, ...old } = DEFAULT_SETTINGS;
+  assert.equal(upgradeStoredSettings(old)?.fullChargeSeconds, 30);
+  assert.equal(upgradeStoredSettings({ ...old, fullChargeSeconds: 120 }), null, "a chosen value is kept");
+});
+
+test("upgradeStoredSettings leaves a started game's economy alone: no capacity is added to a game that had none", () => {
+  const { fullChargeSeconds: _, ...old } = DEFAULT_SETTINGS;
+  assert.equal(upgradeStoredSettings(old, true), null);
+  const { scoreIntervalSeconds: __, ...older } = old;
+  assert.deepEqual(upgradeStoredSettings(older, true), old, "its other fields are still filled");
+});
+
+test("the settings of a game started before fullChargeSeconds existed still validate (it is examined and summoned into)", () => {
+  const { fullChargeSeconds: _, ...old } = DEFAULT_SETTINGS;
+  assert.doesNotThrow(() => validateSettings(old as GameSettings));
+});
