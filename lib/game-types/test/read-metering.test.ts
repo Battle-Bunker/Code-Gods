@@ -76,6 +76,19 @@ test("grid: symbol, value, suit and is_picture of one cell share log2 S; colour 
   near(trace(cards, WC, [both("v.cell(0, 0).symbol"), ["v.cell(0, 1).symbol", "v.cell(0, 1).symbol"]]), [lg(52), 2 * lg(52)]);
 });
 
+test("grid, mono: colour reads 0 bits, the palette has one entry, and a full look is 16 · log2 10", { skip: skipPy }, () => {
+  const mono = GRID.instantiate({ size: 4, symbols: "base10", colours: "mono" });
+  const wire = "1P,9P,1P,1P/8P,1P,7P,6P/6P,7P,6P,6P/6P,2P,3P,6P";
+  near(trace(mono, wire, [
+    both("v.cell(0, 0).colour"), ["c = [x.colour for x in v.cells]", "const c = v.cells.map(x => x.colour)"],
+    both("v.cell(0, 0).symbol"), ["s = [x.value for x in v.cells]", "const s = v.cells.map(x => x.value)"],
+  ]), [0, 0, lg(10), 16 * lg(10)]);
+  assert.deepEqual(runJs(mono, `const v = __agent_view(${JSON.stringify(wire)}); return JSON.stringify([v.palette, v.cell(1, 2).colour, String(v)]);`),
+    [["plain"], "plain", "1 9 1 1\n8 1 7 6\n6 7 6 6\n6 2 3 6"]);
+  if (python3) assert.deepEqual(runPy(mono, `v = __agent_view(${JSON.stringify(wire)})\nprint(json.dumps([v.palette, v.cell(1, 2).colour, repr(v)]))`),
+    [["plain"], "plain", "1 9 1 1\n8 1 7 6\n6 7 6 6\n6 2 3 6"]);
+});
+
 test("grid: positions, neighbours and shapes are free", { skip: skipPy }, () => {
   const bits = trace(g4, W4, [
     ["[c.row + c.col for c in v.cells]", "v.cells.map((c) => c.row + c.col)"],

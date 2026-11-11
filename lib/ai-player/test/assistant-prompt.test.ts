@@ -156,6 +156,7 @@ test("the briefing carries a board key, so the assistant can name the symbols an
     .split("\n").find(l => l.startsWith("Board key:"));
   assert.equal(grid("base12", "rgb"), "Board key: a 5×5 board. Symbols: 0 to 9, then A (10) and B (11). Colours: red, green and blue.");
   assert.equal(grid("cards", "rgby"), "Board key: a 5×5 board. Symbols: playing cards A, 2 to 10, J, Q and K in four suits (♠ spades, ♥ hearts, ♦ diamonds, ♣ clubs); A counts 1, J 11, Q 12, K 13. Colours: red, yellow, green and blue.");
+  assert.equal(grid("base10", "mono"), "Board key: a 5×5 board. Symbols: 0 to 9. No colours: every cell is plain, so only the symbols matter.");
   assert.equal(grid("base10", "rainbow6"), "Board key: a 5×5 board. Symbols: 0 to 9. Colours: red, orange, yellow, green, blue and violet.");
   assert.equal(assistantBriefing({ observation }).includes("Board key"), false, "no key without a Grid instance");
   assert.match(assistantSystemPrompt({ playerName: "Ann", roomCode: "R", permission: "read", mode: "onRequest" }), /exact symbols and colours, with an example; never say you haven't looked/);

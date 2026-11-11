@@ -187,6 +187,11 @@ lotteries) and calibration coverage. That part was sound. The gaps:
 - **One checker**: `applicable(family, inst, params?)` in `catalog.ts` = object type matches ∧ `resolve(requires ++
   needs(params))`. `available` is `applicable` without params. Dealing (`drawFrom` in both lotteries) checks the drawn
   params too, the public catalog (settings UI and the configure page) uses it, and coverage/offer use it.
+- **Colour is a need (mono, 11 Nov 2026)**: a mono board (`Grid(_,_,mono)`: one colour, numbers only) exists, so every
+  family whose rule reads a cell's colour at all declares `minColours: 2` (72 families, penalties included). The checker
+  then locks them on mono with "needs at least 2 colours: pick …" and offers only the numbers-only families
+  (`lib/game-utilities/test/mono.test.ts` pins the 4×4 list and checks, on every mono shape, that an offered family's
+  card never mentions colour and its score varies with the board).
 - **Grid spec from game-types**: `gridSpec` reads colour names and mixes from `COLOUR_COMPONENTS`, so whatever colour
   sets exist (including ones being added now) are covered and checked, not special-cased.
 
@@ -239,8 +244,8 @@ calls green "warm". Fix: text from the program's own counts; warm_hearts names t
 
 **Undeclared needs (§4).** go_fish (adapted count, now explicit), rummy_melder, set_spotter, quilt_maker and sunset_sky
 (3 different colours: `minColours 3`), card_windmill (`minSuits 4`), court_parade (`minFaces 3`), colour_wheel_harmony
-(`evenColours`), and the grid colour tables (§4.2). Every colour set today has at least 3 colours, so these lock
-nothing now; they keep a future 2-colour set honest.
+(`evenColours`), and the grid colour tables (§4.2). Every coloured set has at least 3 colours, so these lock
+nothing there; the mono set (one colour) is locked out of every colour family by `minColours: 2` (§4.2).
 
 **Grammar.** best_friends, twin_friends: "a orange". Fix: `an()`.
 

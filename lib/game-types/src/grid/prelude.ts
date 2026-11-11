@@ -14,6 +14,8 @@ import type { HelperDoc } from "../types.ts";
 export function gridPrelude(size: number, s: SymbolComponent, c: ColourComponent, classes: readonly string[]): BasePrelude {
   const suited = classes.includes("Suited") && !!s.suits, faced = classes.includes("Faced") && !!s.faces;
   const mixable = classes.includes("Mixable");
+  // A mono board (one colour) is numbers only: repr shows just the symbols, and the docs say there is no colour to read.
+  const mono = c.count === 1;
   const codes = s.codes.map((code, i) => [code, i] as const), letters = c.letters.map((l, i) => [l, i] as const);
   const next = c.names.map((n, i) => [n, c.names[(i + 1) % c.count]] as const);
   const mixes: (readonly [string, string])[] = [];
@@ -140,7 +142,7 @@ class Grid:
         return out
 
     def __repr__(self):
-        return "\\n".join(" ".join("%s%s" % (c.symbol, c.colour[0].upper()) for c in row) for row in self._rows)
+        return "\\n".join(" ".join(${mono ? `c.symbol` : `"%s%s" % (c.symbol, c.colour[0].upper())`} for c in row) for row in self._rows)
 
 
 def next_colour(colour):
@@ -245,7 +247,7 @@ class Grid {
     }
     return out;
   }
-  toString() { return this.#rows.map((row) => row.map((c) => c.symbol + c.colour[0].toUpperCase()).join(" ")).join("\\n"); }
+  toString() { return this.#rows.map((row) => row.map((c) => ${mono ? "c.symbol" : "c.symbol + c.colour[0].toUpperCase()"}).join(" ")).join("\\n"); }
 }
 
 function nextColour(colour) {
@@ -498,7 +500,8 @@ declare function __read_bits(): number;
     helper("grid.diagonals", "grid.diagonals -> list[list[Cell]]", "grid.diagonals: Cell[][]", "The two long diagonals"),
     helper("grid.edge_cells", "grid.edge_cells -> list[Cell]", "grid.edgeCells: Cell[]", "The outside ring of cells"),
     helper("grid.cell", "grid.cell(row, col) -> Cell", "grid.cell(row: number, col: number): Cell", "One cell; grid.cell(0, 0) is the top-left"),
-    helper("grid.palette", "grid.palette -> list[str]", "grid.palette: Colour[]", "Every colour this grid can use, in rainbow order"),
+    helper("grid.palette", "grid.palette -> list[str]", "grid.palette: Colour[]",
+      mono ? `Every colour this grid can use: only "${c.names[0]}" (this grid has no colours)` : "Every colour this grid can use, in rainbow order"),
     helper("grid.reachable", "grid.reachable(start, through) -> list[Cell]", "grid.reachable(start: Cell | Cell[], through: (cell: Cell) => boolean): Cell[]",
       "Every cell you can walk to from start, only stepping on cells where through(cell) is True. Reads what through() reads"),
     helper("grid.regions", "grid.regions(same) -> list[list[Cell]]", "grid.regions(same: (a: Cell, b: Cell) => boolean): Cell[][]",
@@ -506,7 +509,9 @@ declare function __read_bits(): number;
     helper("grid.quarter_turn", "grid.quarter_turn(cell) -> Cell", "grid.quarterTurn(cell: Cell): Cell",
       "Where cell lands when the grid turns a quarter turn clockwise"),
     helper("cell.row", "cell.row, cell.col -> int", "cell.row, cell.col: number", "Where the cell is (0 = top row / left column)"),
-    helper("cell.colour", "cell.colour -> str", "cell.colour: Colour", `Its colour as a word: ${c.names.map(n => `"${n}"`).join(", ")}. Reads ${fmtBits(bC)} bits`),
+    helper("cell.colour", "cell.colour -> str", "cell.colour: Colour", mono
+      ? `Always "${c.names[0]}": this grid has no colours, only numbers. Reads 0 bits`
+      : `Its colour as a word: ${c.names.map(n => `"${n}"`).join(", ")}. Reads ${fmtBits(bC)} bits`),
     helper("cell.symbol", "cell.symbol -> str", "cell.symbol: string", `What's printed on it: "${s.glyphs[1]}", "${s.glyphs[s.count - 1]}". Reads ${fmtBits(bS)} bits`),
     helper("cell.value", "cell.value -> int", "cell.value: number", (s.suits ? "Points: A = 1, 2 to 10, J = 11, Q = 12, K = 13" : "Points: the digit's value")
       + `. Reads ${fmtBits(bV)} bits (symbol, value${suited ? ", suit" : ""}${faced ? " and is_picture" : ""} share ${fmtBits(bS)} bits per cell)`),
@@ -518,8 +523,8 @@ declare function __read_bits(): number;
     helper("cell.on_edge", "cell.on_edge -> bool", "cell.onEdge: boolean", "True if it's in the outside ring"),
     ...(suited ? [helper("cell.suit", "cell.suit -> str", "cell.suit: Suit", `"spades", "hearts", "diamonds" or "clubs". Reads ${fmtBits(bU)} bits`, "Suited")] : []),
     ...(faced ? [helper("cell.is_picture", "cell.is_picture -> bool", "cell.isPicture: boolean", `True for J, Q and K. Reads ${fmtBits(bP)} bit`, "Faced")] : []),
-    helper("next_colour", "next_colour(colour) -> str", "nextColour(colour: Colour): Colour",
-      "The next colour round the rainbow; the last one goes back to the first", "Spectral"),
+    ...(classes.includes("Spectral") ? [helper("next_colour", "next_colour(colour) -> str", "nextColour(colour: Colour): Colour",
+      "The next colour round the rainbow; the last one goes back to the first", "Spectral")] : []),
     ...(mixable ? [helper("mix", "mix(a, b) -> str | None", "mix(a: Colour, b: Colour): Colour | null",
       `The colour two paints make, or None: ${c.mixes.map(([a, b, m]) => `${c.names[a]} + ${c.names[b]} = ${c.names[m]}`).join(", ")}`, "Mixable")] : []),
   ];

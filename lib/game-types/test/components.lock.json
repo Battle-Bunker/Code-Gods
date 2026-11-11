@@ -668,6 +668,33 @@
   }
  },
  "colours": {
+  "mono": {
+   "id": "mono",
+   "label": "No colour (numbers only)",
+   "emoji": "⬜",
+   "kid": "Every cell is the same plain colour: just numbers",
+   "count": 1,
+   "letters": [
+    "P"
+   ],
+   "names": [
+    "plain"
+   ],
+   "css": [
+    "#f4f1ea"
+   ],
+   "ink": [
+    "#1a1a1a"
+   ],
+   "patterns": [
+    "none"
+   ],
+   "hues": [
+    0
+   ],
+   "mixes": [],
+   "classes": []
+  },
   "rgb": {
    "id": "rgb",
    "label": "Red, green, blue",

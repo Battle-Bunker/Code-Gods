@@ -3,8 +3,9 @@
  * to set every legal value of its instantiation. Grid: pick a cell (click, or arrow keys), then its symbol and colour
  * from the board's own palette. Int: a whole number in range. string: ASCII text within its length.
  */
+import { MONO_TILE } from "@workspace/object-views";
 import { useEffect, useMemo, useRef, useState, type ComponentType, type KeyboardEvent } from "react";
-import type { Instantiation, ObjectValue } from "@workspace/game-types";
+import { isMonoColours, type GridColourSet, type Instantiation, type ObjectValue } from "@workspace/game-types";
 import { editorKindOf, gridCellsOf, gridPalette, parseObjectText, withGridCell, type EditorKind } from "@/lib/object-editor-model";
 
 export interface ObjectEditorProps {
@@ -35,7 +36,9 @@ function GridEditor({ value, inst, onChange }: ObjectEditorProps) {
   const [r, c] = at[0] < size && at[1] < size ? at : [0, 0];
   const cell = cells[r][c];
   const set = (patch: { sym?: number; col?: number }) => onChange(withGridCell(value, inst, r, c, patch));
-  const name = (rr: number, cc: number) => `${palette.colours[cells[rr][cc].col].name} ${palette.symbols[cells[rr][cc].sym].name}`;
+  // A numbers-only (mono) board has one colour: nothing about colour is named, keyed or offered.
+  const mono = isMonoColours(inst.args.colours as GridColourSet);
+  const name = (rr: number, cc: number) => mono ? palette.symbols[cells[rr][cc].sym].name : `${palette.colours[cells[rr][cc].col].name} ${palette.symbols[cells[rr][cc].sym].name}`;
 
   const onKey = (e: KeyboardEvent) => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (copy, zoom) stay the browser's
@@ -47,14 +50,14 @@ function GridEditor({ value, inst, onChange }: ObjectEditorProps) {
       focusNext.current = true;
     } else if (e.key === "+" || e.key === "=" || e.key === "-") {
       e.preventDefault(); set({ sym: step(cell.sym, palette.symbols.length, e.key === "-" ? -1 : 1) });
-    } else if (e.key === "c" || e.key === "C") {
+    } else if (!mono && (e.key === "c" || e.key === "C")) {
       e.preventDefault(); set({ col: step(cell.col, palette.colours.length, e.key === "C" ? -1 : 1) });
     }
   };
 
   return (
     <div className="space-y-3" data-testid="object-editor-grid">
-      <div role="grid" aria-label="Board cells: arrow keys move, + and − change the symbol, c changes the colour" className="inline-grid gap-0.5"
+      <div role="grid" aria-label={`Board cells: arrow keys move, + and − change the symbol${mono ? "" : ", c changes the colour"}`} className="inline-grid gap-0.5"
         style={{ gridTemplateColumns: `repeat(${size}, 2.25rem)` }} onKeyDown={onKey}>
         {cells.map((row, rr) => row.map((x, cc) => {
           const selected = rr === r && cc === c, colour = palette.colours[x.col];
@@ -64,7 +67,7 @@ function GridEditor({ value, inst, onChange }: ObjectEditorProps) {
               ref={el => { if (el) buttons.current.set(`${rr},${cc}`, el); else buttons.current.delete(`${rr},${cc}`); }}
               onClick={() => setAt([rr, cc])}
               className={`h-9 w-9 font-mono text-sm font-semibold ${selected ? "outline outline-2 outline-offset-1 outline-ring" : ""}`}
-              style={{ background: colour.css, color: colour.ink }}>
+              style={mono ? { background: MONO_TILE.css, color: MONO_TILE.ink } : { background: colour.css, color: colour.ink }}>
               {palette.symbols[x.sym].glyph}
             </button>
           );
@@ -78,7 +81,7 @@ function GridEditor({ value, inst, onChange }: ObjectEditorProps) {
             {palette.symbols.map(s => <option key={s.index} value={s.index}>{s.glyph} ({s.name})</option>)}
           </select>
         </label>
-        <fieldset className="flex flex-col gap-1">
+        {!mono && <fieldset className="flex flex-col gap-1">
           <legend className="text-muted-foreground">Colour</legend>
           <div className="flex flex-wrap gap-1" role="radiogroup" aria-label={`Colour of row ${r + 1}, column ${c + 1}`}>
             {palette.colours.map(k => (
@@ -90,7 +93,7 @@ function GridEditor({ value, inst, onChange }: ObjectEditorProps) {
               </button>
             ))}
           </div>
-        </fieldset>
+        </fieldset>}
       </div>
     </div>
   );

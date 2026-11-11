@@ -23,6 +23,9 @@ import {
 } from "../src/grid-display.ts";
 import { deltaE2000, deltaE2000Lab, deltaEOk, oklchOf, simulateHex, smallFieldMetrics } from "../src/colour-science.ts";
 
+/** The coloured sets: mono (one colour, numbers only) has no digit shades; its digits take the theme's text colour. */
+const COLOURED_SETS = GRID_COLOUR_SETS.filter((s): s is Exclude<typeof s, "mono"> => s !== "mono");
+
 const css = (app: string) => readFileSync(new URL(`../../../artifacts/${app}/src/index.css`, import.meta.url), "utf8");
 const APPS = ["player-web"] as const;
 
@@ -105,7 +108,7 @@ test("hand-checked colour science: hsl, Lab, CIE76, CIEDE2000 and CVD simulation
 });
 
 test("every set has one shade per colour letter in both schemes, inside its name's OKLCH box", () => {
-  for (const set of GRID_COLOUR_SETS) {
+  for (const set of COLOURED_SETS) {
     const { letters, names } = COLOUR_COMPONENTS[set];
     for (const scheme of ["light", "dark"] as const) {
       assert.deepEqual(Object.keys(DIGIT_SHADES[set][scheme]).sort(), [...letters].sort(), `${set} ${scheme} letters`);
@@ -126,7 +129,7 @@ test("the owner's names: orange is orange not brown, red darker than the old cri
   // Orange vs brown is lightness: the old #773a0e (OKLCH L 0.42) read as brown; every light orange is now ≥ 0.62.
   assert.ok(oklchOf("#773a0e")[0] < 0.45 && SHADE_WINDOWS.light.orange.L[0] >= 0.62);
   // Red a little darker than #c20d39 (L* 41), still a red (L* ≥ 33, not a maroon).
-  for (const set of GRID_COLOUR_SETS) {
+  for (const set of COLOURED_SETS) {
     const L = labOf(DIGIT_SHADES[set].light.R)[0];
     assert.ok(L < labOf("#c20d39")[0] && L >= 33, `${set} light red L* ${L.toFixed(1)}`);
   }
@@ -143,7 +146,7 @@ test("the digits are WCAG large text, so light shades need 3:1; dark shades and 
   assert.equal(MIN_CONTRAST.dark, 4.5);
   const bg = backgrounds();
   assert.ok(bg.light.size >= 4 && bg.dark.size >= 1, "the app's light surfaces and a dark page are checked");
-  for (const set of GRID_COLOUR_SETS) for (const scheme of ["light", "dark"] as const) {
+  for (const set of COLOURED_SETS) for (const scheme of ["light", "dark"] as const) {
     for (const [letter, shade] of Object.entries(DIGIT_SHADES[set][scheme])) for (const [where, hex] of bg[scheme]) {
       const ratio = contrastRatio(shade, hex);
       assert.ok(ratio >= MIN_CONTRAST[scheme], `${set} ${scheme} ${letter} ${shade} on ${where} ${hex} is ${ratio.toFixed(2)}:1`);
@@ -155,7 +158,7 @@ test("each set stays apart as a small, distant digit stroke for every eye (small
   const stroke = digitStrokeDeg();
   // A 19 px bold stem (0.115 em) at 60 px per degree is 0.036°, about 2 arcminutes.
   assert.ok(Math.abs(stroke - 19 * 0.115 / 60) < 1e-9);
-  for (const set of GRID_COLOUR_SETS) for (const scheme of ["light", "dark"] as const) {
+  for (const set of COLOURED_SETS) for (const scheme of ["light", "dark"] as const) {
     const m = smallFieldMetrics(shadesOf(set, scheme), PAGE[scheme], stroke);
     const [n, t, cvd] = FLOORS[set][scheme], where = `${set} ${scheme}`;
     assert.ok(m.normal >= n, `${where}: normal ${m.normal.toFixed(2)} < ${n}`);
@@ -163,7 +166,7 @@ test("each set stays apart as a small, distant digit stroke for every eye (small
     assert.ok(Math.min(m.deutan, m.protan) >= cvd, `${where}: deutan/protan ${Math.min(m.deutan, m.protan).toFixed(2)} < ${cvd}`);
   }
   // The floors exclude the shades they replace, even had those been drawn at the new size.
-  for (const set of GRID_COLOUR_SETS) {
+  for (const set of COLOURED_SETS) {
     const old = smallFieldMetrics(PR88[set], PAGE.light, stroke), [n, t, cvd] = FLOORS[set].light;
     assert.ok(old.normal < n || old.tritan < t || Math.min(old.deutan, old.protan) < cvd, `${set}: the PR #88 shades would pass`);
   }
@@ -171,7 +174,7 @@ test("each set stays apart as a small, distant digit stroke for every eye (small
 
 test("blue and green never rely on blue–yellow: they differ in L* by at least BLUE_GREEN_MIN_DL", () => {
   assert.ok(BLUE_GREEN_MIN_DL >= 15);
-  for (const set of GRID_COLOUR_SETS) for (const scheme of ["light", "dark"] as const) {
+  for (const set of COLOURED_SETS) for (const scheme of ["light", "dark"] as const) {
     const { G, B } = DIGIT_SHADES[set][scheme], dL = Math.abs(labOf(G)[0] - labOf(B)[0]);
     assert.ok(dL >= BLUE_GREEN_MIN_DL, `${set} ${scheme} green ${G} / blue ${B}: ΔL* ${dL.toFixed(1)}`);
   }
@@ -182,7 +185,7 @@ test("blue and green never rely on blue–yellow: they differ in L* by at least 
   const tritan = (g: string, b: string) => smallFieldMetrics([g, b], PAGE.light, stroke).tritan;
   for (const g of ["#06641a", "#0a5c1c", "#1d7242"]) assert.ok(tritan(g, "#0555e7") < 2.2 && Math.abs(labOf(g)[0] - labOf("#0555e7")[0]) < 9, g);
   assert.ok(BLUE_GREEN_MIN_TRITAN >= 3);
-  for (const set of GRID_COLOUR_SETS) for (const scheme of ["light", "dark"] as const) {
+  for (const set of COLOURED_SETS) for (const scheme of ["light", "dark"] as const) {
     const { G, B } = DIGIT_SHADES[set][scheme];
     const t = smallFieldMetrics([G, B], PAGE[scheme], stroke).tritan;
     assert.ok(t >= BLUE_GREEN_MIN_TRITAN, `${set} ${scheme} green ${G} / blue ${B}: foveal tritan ${t.toFixed(2)}`);
@@ -190,7 +193,7 @@ test("blue and green never rely on blue–yellow: they differ in L* by at least 
 });
 
 test("tile fills are the set's bright shades with a dark glyph that reads on each (≥ 4.5:1)", () => {
-  for (const set of GRID_COLOUR_SETS) for (const [letter, fill] of Object.entries(DIGIT_SHADES[set].dark)) {
+  for (const set of COLOURED_SETS) for (const [letter, fill] of Object.entries(DIGIT_SHADES[set].dark)) {
     assert.ok(contrastRatio(TILE_INK, fill) >= 4.5, `${set} ${letter} tile`);
   }
   const m = gridModel("7R,3G,0B/1R,2R,9B/4G,4G,8R", { size: 3, symbols: "base10", colours: "rgb" });
@@ -211,7 +214,7 @@ test("the app defines the shades as --cg-ink-* (light under :root; a `.dark` tha
     const source = css(app);
     const root = block(source, ":root"), dark = block(source, ".dark");
     const darkIsDark = relativeDark(hslToken(dark, "background"));
-    for (const set of GRID_COLOUR_SETS) for (const [letter, hex] of Object.entries(DIGIT_SHADES[set].light)) {
+    for (const set of COLOURED_SETS) for (const [letter, hex] of Object.entries(DIGIT_SHADES[set].light)) {
       const name = textShadeToken(letter, set).slice(2);
       assert.equal(token(root, name)?.toLowerCase(), hex, `${app} :root --${name}`);
       // A `.dark` that keeps a light page (the player client's paper) inherits the light shades from :root.

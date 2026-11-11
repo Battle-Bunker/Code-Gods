@@ -6,12 +6,14 @@
  * Indices match lib/grid-lab/gridlab/core.py exactly:
  *   symbols  digit sets: index = digit value; cards: index = suit * 13 + rank,
  *            rank 0..12 = A,2..10,J,Q,K and suit 0..3 = ♠ ♥ ♦ ♣ (codes "AS", "TH", "KC", ...)
- *   colours  spectral (rainbow) order: rgb = R G B, rgby = R Y G B, rainbow6 = R O Y G B V
+ *   colours  spectral (rainbow) order: rgb = R G B, rgby = R Y G B, rainbow6 = R O Y G B V;
+ *            mono = P (one plain colour: a numbers-only board, its colour layer carries 0 bits). mono is
+ *            TS-only: core.py has no mono, so the parity fixtures cover the three coloured sets (test/mono.test.ts the rest)
  */
 
 export const GRID_SIZES = [3, 4, 5, 6, 7] as const;
 export const GRID_SYMBOL_SETS = ["base10", "base12", "base16", "cards"] as const;
-export const GRID_COLOUR_SETS = ["rgb", "rgby", "rainbow6"] as const;
+export const GRID_COLOUR_SETS = ["mono", "rgb", "rgby", "rainbow6"] as const;
 export type GridSymbolSet = (typeof GRID_SYMBOL_SETS)[number];
 export type GridColourSet = (typeof GRID_COLOUR_SETS)[number];
 
@@ -119,10 +121,15 @@ const PALETTE: Record<string, { letter: string; css: string; ink: string; patter
   green: { letter: "G", css: "#2e9e44", ink: "#1a1a1a", pattern: "grid" },
   blue: { letter: "B", css: "#2667c9", ink: "#ffffff", pattern: "vertical" },
   violet: { letter: "V", css: "#7b3fb8", ink: "#ffffff", pattern: "cross" },
+  // The one colour of a mono board. Renderers draw mono tiles as plain number tiles in the theme's own colours (no chip,
+  // no colour name); this css is only a neutral fallback for a renderer that knows nothing of mono.
+  plain: { letter: "P", css: "#f4f1ea", ink: "#1a1a1a", pattern: "none" },
 };
 
 function colours(id: GridColourSet, names: string[], mixes: [string, string, string][], wheel: boolean,
   label: string, emoji: string, kid: string): ColourComponent {
+  // One colour has no order, wheel or mixing: a mono board has no colour capability at all.
+  const spectral = names.length > 1;
   const ix = (n: string) => names.indexOf(n);
   return deep({
     id, label, emoji, kid, count: names.length,
@@ -133,11 +140,12 @@ function colours(id: GridColourSet, names: string[], mixes: [string, string, str
     patterns: names.map(n => PALETTE[n].pattern),
     hues: names.map((_, i) => i),
     mixes: mixes.map(([a, b, c]) => [Math.min(ix(a), ix(b)), Math.max(ix(a), ix(b)), ix(c)] as const),
-    classes: ["Spectral", ...(wheel ? ["Wheel"] : []), ...(mixes.length ? ["Mixable"] : [])],
+    classes: [...(spectral ? ["Spectral"] : []), ...(wheel ? ["Wheel"] : []), ...(mixes.length ? ["Mixable"] : [])],
   });
 }
 
 export const COLOUR_COMPONENTS: Readonly<Record<GridColourSet, ColourComponent>> = deep({
+  mono: colours("mono", ["plain"], [], false, "No colour (numbers only)", "⬜", "Every cell is the same plain colour: just numbers"),
   rgb: colours("rgb", ["red", "green", "blue"], [], false, "Red, green, blue", "🟥🟩🟦", "Three colours"),
   rgby: colours("rgby", ["red", "yellow", "green", "blue"], [["yellow", "blue", "green"]], false,
     "Red, yellow, green, blue", "🟥🟨🟩🟦", "Four colours; yellow and blue mix to green"),
@@ -162,6 +170,11 @@ export function stepSymbol(s: SymbolComponent, x: number, k = 1): number {
 export function mixColours(c: ColourComponent, a: number, b: number): number | null {
   const [lo, hi] = a < b ? [a, b] : [b, a];
   return c.mixes.find(m => m[0] === lo && m[1] === hi)?.[2] ?? null;
+}
+
+/** A colour set with a single colour: the board is numbers only (no colour to read, choose or change). */
+export function isMonoColours(c: ColourComponent | GridColourSet): boolean {
+  return (typeof c === "string" ? COLOUR_COMPONENTS[c] : c).count === 1;
 }
 
 /** Wheel: distance round the colour wheel. */

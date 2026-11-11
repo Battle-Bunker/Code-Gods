@@ -63,7 +63,7 @@ function Tile({ cell, px, dim, cue = "colour", changed }: { cell: GridCellModel;
         ...(changed ? { outline: "2px solid currentColor", outlineOffset: -2 } : {}),
       }} data-changed={changed || undefined}>
       <span style={{ color: cell.ink }}><CellGlyph parts={cell.parts} weight={600} /></span>
-      {px > 24 && <span className="absolute bottom-0.5 right-0.5 leading-none" style={{ fontSize: 9, color: cell.ink }}>{cell.letter}</span>}
+      {px > 24 && !cell.mono && <span className="absolute bottom-0.5 right-0.5 leading-none" style={{ fontSize: 9, color: cell.ink }}>{cell.letter}</span>}
     </span>
   );
 }

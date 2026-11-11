@@ -22,6 +22,7 @@ const stripeText = (p: StripeP): CardText => {
 };
 const stripePainter = gridFamily<StripeP>({
   id: "stripe_painter", name: "Stripe Painter", emoji: "🦓", theme: "A striped flag",
+  requires: { minColours: 2 },
   analytic: solvedAnalytic("stripe_painter"),
   shape: tuple(2), tags: ["shortlist"],
   params: () => ({ axis: choiceParam("Stripes run along", [["rows", "rows"], ["cols", "columns"]]) }),
@@ -98,6 +99,7 @@ const feudText = (p: FeudP, g: GridSpec): CardText => {
 };
 const feudingFamilies = gridFamily<FeudP>({
   id: "feuding_families", name: "Feuding Families", emoji: "😤", theme: "Two big families that must never touch",
+  requires: { minColours: 2 },
   shape: tuple(2), tags: ["shortlist"],
   params: () => ({ first_family: colourParam("First family"), second_family: colourParam("Second family") }),
   support: g => colourPairs(g).map(([X, Y]) => ({ first_family: g.colourNames[X], second_family: g.colourNames[Y] })),
@@ -232,6 +234,7 @@ const weaverText = (g: GridSpec): CardText => ({
 });
 const fairWeaver = gridFamily<Record<string, never>>({
   id: "fair_weaver", name: "Fair Weaver", emoji: "🧶", theme: "Every colour gets a fair share of each line",
+  requires: { minColours: 2 },
   shape: tuple(2), tags: ["shortlist"],
   params: () => ({}),
   support: () => [{}],
@@ -291,6 +294,7 @@ const lanternText = (p: LanternP, g: GridSpec): CardText => ({
 });
 const lanternLighter = gridFamily<LanternP>({
   id: "lantern_lighter", name: "Lantern Lighter", emoji: "🏮", theme: "One lantern per row and column",
+  requires: { minColours: 2 },
   shape: SCALAR, tags: ["shortlist"],
   params: () => ({ colour: colourParam("Your colour") }),
   support: g => g.colourNames.map(colour => ({ colour })),
@@ -387,6 +391,7 @@ const OPPOSITE_TS = `
 const TRANSFER_STATES = 1300;
 const bestFriends = gridFamily<PairP>({
   id: "best_friends", name: "Best Friends", emoji: "🤗", theme: "Your two colours side by side", shape: SCALAR,
+  requires: { minColours: 2 },
   params: pairParams, support: pairSupport,
   canonical: (p, g) => recolourNames(g, p, ["first_colour", "second_colour"]),
   summary: (p, g) => friendsText(p).about,
@@ -523,6 +528,7 @@ const flagText = (p: FlagP, g: GridSpec): CardText => ({
 });
 const flagBearer = gridFamily<FlagP>({
   id: "flag_bearer", name: "Flag Bearer", emoji: "🚩", theme: "Your colour is the most common in every row", shape: tuple(2),
+  requires: { minColours: 2 },
   analytic: solvedAnalytic("flag_bearer"),
   params: () => ({
     colour: colourParam("Your colour"),
@@ -587,7 +593,7 @@ const keyText = (p: ShiftP, g: GridSpec): CardText => ({
 const colourByNumber = gridFamily<ShiftP>({
   id: "colour_by_number", name: "Colour-by-Number", emoji: "🔢", theme: "Every number has a colour to match",
   analytic: solvedAnalytic("colour_by_number"),
-  requires: { classes: ["Valued"] }, shape: SCALAR,
+  requires: { classes: ["Valued"], minColours: 2 }, shape: SCALAR,
   params: g => ({ shift: intParam("Colour shift (0 paints the first number in the first colour)", 0, g.C - 1) }),
   support: g => range(g.C).map(shift => ({ shift })),
   canonical: () => ({ shift: 0 }), // cyclic colour relabelling shifts the shift
@@ -619,6 +625,7 @@ const kingdomText = (p: KingdomP): CardText => ({
 });
 const kingdom = gridFamily<KingdomP>({
   id: "kingdom", name: "Kingdom", emoji: "🏰", theme: "The biggest patch of your colour", shape: SCALAR,
+  requires: { minColours: 2 },
   params: () => ({ colour: colourParam("Your colour") }),
   support: g => g.colourNames.map(colour => ({ colour })),
   canonical: (p, g) => recolourNames(g, p, ["colour"]),
@@ -659,6 +666,7 @@ const paperText = (p: PaperP): CardText => ({
 });
 const wallpaper = gridFamily<PaperP>({
   id: "wallpaper_weaver", name: "Wallpaper Weaver", emoji: "🧱", theme: "A repeating pattern", shape: SCALAR,
+  requires: { minColours: 2 },
   analytic: solvedAnalytic("wallpaper_weaver"),
   params: () => ({ direction: choiceParam("Compare with the cell", [["right", "to the right"], ["down", "below"]]) }),
   support: () => [{ direction: "right" }, { direction: "down" }],
@@ -860,6 +868,7 @@ const twinText = (p: PairP, g: GridSpec): CardText => ({
 });
 const twinFriends = gridFamily<PairP>({
   id: "twin_friends", name: "Twin Friends", emoji: "👯", theme: "Your two colours side by side on matching symbols",
+  requires: { minColours: 2 },
   shape: tuple(2),
   params: pairParams, support: pairSupport,
   canonical: (p, g) => recolourNames(g, p, ["first_colour", "second_colour"]),
