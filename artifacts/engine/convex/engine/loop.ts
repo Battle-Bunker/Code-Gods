@@ -400,7 +400,13 @@ export const watchdog = internalMutation({
     let restarted = 0, parked = 0;
     for (const phase of ["planning", "running", "paused"] as const) {
       const games = await ctx.db.query("games").withIndex("by_phase", q => q.eq("phase", phase)).take(200);
-      for (const game of await Promise.all(games.map(g => withEngine(ctx, g)))) {
+      // A game whose state cannot be loaded is skipped (and logged), not allowed to stop every other game's restart.
+      const loaded = await Promise.all(games.map(g => withEngine(ctx, g).catch((error: unknown) => {
+        console.error(`watchdog: skipped game ${g._id}: ${error instanceof Error ? error.message : String(error)}`);
+        return null;
+      })));
+      for (const game of loaded) {
+        if (!game) continue;
         if (idle) {
           await parkGame(ctx, game, "The engine went idle after 30 minutes without human activity. The game resumes when a player returns.", true);
           parked++;

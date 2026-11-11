@@ -91,3 +91,21 @@ test("the owner's Resume brings back an idle-parked game", { timeout: 120000 }, 
     await host.c.mutation(api.rooms.endActiveGame, { roomId }).catch(() => {});
   }
 });
+
+test("the watchdog still restarts expired leases when another game's state cannot be loaded", { timeout: 120000 }, async () => {
+  const [host, ada, cy] = await gods("Watch Host", "Watch Ada", "Watch Cy");
+  const [host2, bo, di] = await gods("Watch Host2", "Watch Bo", "Watch Di");
+  await touch(host);
+  const good = await startGame(host, (await roomWith([host, ada, cy], settings)).roomId);
+  const brokenRoom = (await roomWith([host2, bo, di], settings)).roomId;
+  const broken = await startGame(host2, brokenRoom);
+  const engine = await admin.mutation(internal.testing.detachEngine, { gameId: broken.gameId });
+  try {
+    await admin.mutation(internal.testing.patchGame, { gameId: good.gameId, patch: { tick: { seq: (await raw(good.gameId)).game.tick.seq + 100, leaseUntil: 0 } } });
+    const result = await admin.mutation(internal.engine.loop.watchdog, {});
+    assert.ok(result.restarted >= 1, "the healthy game is restarted despite the broken one");
+  } finally {
+    await admin.mutation(internal.testing.detachEngine, { gameId: broken.gameId, restore: engine });
+    await host2.c.mutation(api.rooms.endActiveGame, { roomId: brokenRoom }).catch(() => {});
+  }
+});

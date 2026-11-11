@@ -576,3 +576,17 @@ export const staleObjectView = internalMutation({
     await ctx.db.patch(row._id, { payoff });
   },
 });
+
+/** Remove a game's gameEngine row (returns it), or put a removed one back: a game whose state cannot be loaded. */
+export const detachEngine = internalMutation({
+  args: { gameId: v.id("games"), restore: v.optional(v.any()) },
+  handler: async (ctx, { gameId, restore }) => {
+    dev();
+    if (restore) { await ctx.db.insert("gameEngine", { ...restore, gameId }); return null; }
+    const row = await engineDoc(ctx, gameId);
+    if (!row) return null;
+    await ctx.db.delete(row._id);
+    const { _id, _creationTime, ...fields } = row;
+    return fields;
+  },
+});

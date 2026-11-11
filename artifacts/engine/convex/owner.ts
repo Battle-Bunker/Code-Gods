@@ -136,7 +136,10 @@ function preparingResult(p: NonNullable<Doc<"rooms">["preparing"]>): Preparing {
  * lands, calibration/cache.ts finished schedules `completeStart`, which launches the game with that deal: the planning
  * clock starts then. Idempotent per requestId (a repeated start reports the preparation, then the game).
  */
+/** The longest start requestId: it is stored on the room's `preparing`, a receipt and scheduled calls' arguments. */
+const REQUEST_ID_MAX = 128;
 async function startGame(ctx: ActionCtx, args: { roomId: string; requestId?: string; principal?: Principal }): Promise<StartResult> {
+  if ((args.requestId?.length ?? 0) > REQUEST_ID_MAX) fail("BAD_REQUEST", `requestId is longer than ${REQUEST_ID_MAX} characters`);
   const context = await ctx.runQuery(internal.game.lobby.ownerContext, { room: args.roomId, principal: args.principal });
   const room = context.room;
   if (args.requestId) {

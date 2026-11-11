@@ -39,3 +39,9 @@ test("validate and summon examinations are capped per human per room per minute,
   assert.equal(retried.validation.valid, true);
   await host.c.mutation(api.rooms.endActiveGame, { roomId });
 });
+
+test("a start's requestId is bounded (it is stored on the room and in scheduled calls)", { timeout: 60000 }, async () => {
+  const trio = await gods("Req Host", "Req Ada", "Req Bo");
+  const { roomId } = await roomWith(trio, INT_TS);
+  assert.match(await rejects(trio[0].c.action(api.owner.start, { roomId, requestId: "x".repeat(129) })), /longer than 128/);
+});
