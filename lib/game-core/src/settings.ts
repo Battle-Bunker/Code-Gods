@@ -435,6 +435,9 @@ export const TYPE_DEFAULTS: Readonly<Record<string, {
     // interaction cap binds in about 75% of snapshots, and the study predates defence goals. The documented
     // alternative is the "grid-low-income" seed setup (half the power: 32 bits/s).
     all: { spawnRateHz: 0.5, startingObjectCount: 80, powerPerSecond: 64, excludedFamilies: WEAK_GRID_FAMILIES },
+    // A mono board (one colour, numbers only) cannot deal the weak colour families, so excluding them there means nothing:
+    // of the weak list only ladder_of_numbers reads numbers alone (and it needs numerals).
+    of: inst => (inst.terms["colours.count"] === 1 ? { excludedFamilies: inst.classes.includes("Numeral") ? ["ladder_of_numbers"] : [] } : {}),
     byKey: {
       "Grid(4,base10,rgb)": { excludedFamilies: [...WEAK_GRID_FAMILIES, "fair_weaver"] },
       // Ladder of numbers needs numerals (Numeral), so it cannot be dealt on playing cards: excluding it there means nothing.
@@ -489,24 +492,14 @@ export const ANNOTATED_BASICS_SEED_ID = "grid-annotated-basics";
 /** The setup a new room starts on (owner, 2026-11-03): the single source of every default setup. */
 export const DEFAULT_SETUP_SEED_ID = ANNOTATED_BASICS_SEED_ID;
 /**
- * Grid(4,base10,rgb) reward families without a lens. Pre-authored; the engine unit test (test/unit/setups.test.ts)
+ * Grid(4,base10,mono) reward families without a lens (Annotated basics is the numbers-only board since 2026-11-11, so the
+ * colour families, lens or not, cannot be dealt on it). Pre-authored; the engine unit test (test/unit/setups.test.ts)
  * derives the expected list from the lens registry (game-utilities LENSES), so a new lens or family fails it.
  */
 const ANNOTATED_BASICS_EXCLUDED: readonly string[] = Object.freeze([
-  "seed1_line_painter", "seed2_patchwork", "seed3_green_ones", "rainbow_road", "border_baron", "conqueror",
-  "homebody", "lone_peak", "islander", "rooks_watch", "staircase_climber", "lucky_token", "neighbourhood_vote",
-  "far_apart", "castle_keeper", "archipelago", "bridge_builder", "looking_glass", "pinwheel", "bullseye",
-  "snake_charmer", "tetromino_tamer", "rainbow_bands", "constellation", "gravity", "swiss_cheese", "mountain_climb",
-  "treasure_map", "straight_shooter", "round_numbers", "king_of_the_hill", "divisibility_detective",
-  "number_sandwich", "magic_window", "times_table_territory", "odds_evens", "number_painter", "robin_hood", "seesaw",
-  "stepping_stones", "column_addition", "ladder_of_numbers", "snap", "young_tableau", "fillomino",
-  "colour_value_ladder", "stripe_painter", "feuding_families", "fair_weaver", "lantern_lighter", "best_friends",
-  "rainbow_steps", "quilt_maker", "flag_bearer", "colour_by_number", "wallpaper_weaver", "sunset_sky",
-  "twin_friends", "rummy_melder", "othello_sandwich", "bingo_caller", "sudoku_scholar", "full_house", "flush_royale",
-  "twenty_one", "go_fish_books", "knight_riders", "uno_snake", "kings_court", "connect_four", "head_count",
-  "fibonacci_sandwich", "prime_territory", "colour_seesaw",
-  "mirror_quilt", "colour_pinwheel", "i_piece_tamer", "t_piece_tamer", "l_piece_tamer", "s_piece_tamer", "treasure_castle",
-  "castle_pockets",
+  "staircase_climber", "looking_glass", "pinwheel", "constellation", "mountain_climb", "round_numbers",
+  "divisibility_detective", "seesaw", "stepping_stones", "column_addition", "ladder_of_numbers", "snap", "young_tableau",
+  "fillomino", "bingo_caller", "full_house", "twenty_one",
 ]);
 
 const seed = (seedId: string, name: string, summary: string, objectType: string, typeArgs: TypeArgs, patch: Partial<GameSettings>): SeedSetup =>
@@ -515,8 +508,9 @@ const seed = (seedId: string, name: string, summary: string, objectType: string,
 export const SEED_SETUPS: readonly SeedSetup[] = Object.freeze([
   seed(FIRST_STEPS_SEED_ID, "First steps", "A small 4×4 board, slowed down so you can watch your score",
     "Grid", { size: 4, symbols: "base10", colours: "rgb" }, { interactionRateHz: 25, durationMode: "fixed", halfLifeSeconds: 600 }),
-  seed(ANNOTATED_BASICS_SEED_ID, "Annotated basics", "Only rules with picture-by-picture explanations, on a small slowed-down board",
-    "Grid", { size: 4, symbols: "base10", colours: "rgb" }, {
+  // The default setup's board is numbers only (owner, 2026-11-11: "the most basic game mode … just a grid of numbers").
+  seed(ANNOTATED_BASICS_SEED_ID, "Annotated basics", "Only rules with picture-by-picture explanations, on a small slowed-down 4×4 board of numbers with no colour",
+    "Grid", { size: 4, symbols: "base10", colours: "mono" }, {
       interactionRateHz: 25, durationMode: "fixed", halfLifeSeconds: 600, excludedFamilies: ANNOTATED_BASICS_EXCLUDED,
       startingObjectCount: 10, spawnRateHz: 0.1, planningSeconds: 300,
     }),

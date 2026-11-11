@@ -134,6 +134,10 @@ export interface Requires {
   readonly minSize?: number;
   readonly maxSize?: number;
   readonly parity?: "odd" | "even";
+  /**
+   * At least this many colours. Every family whose rule reads a cell's colour at all declares at least 2: a mono board
+   * (one colour, numbers only) must not deal a rule that is constant or meaningless there (test/mono.test.ts).
+   */
   readonly minColours?: number;
   readonly minSymbols?: number;
   /** Cards: at least this many suits / picture-card ranks. */

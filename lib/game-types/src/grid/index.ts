@@ -127,13 +127,16 @@ function layerBits(inst: Instantiation): Record<string, number> {
 
 /**
  * The information cost w of Grid's elementary mutators (docs/energy-model.md §4.1): set one cell's colour, or its
- * symbol. 1 bit names the op (2 elementary ops), log2 N² the cell, log2 C (S) the new value, and log2 C (S) the value it
- * overwrites (pointwise erasure).
+ * symbol. The op-choice bits are log2 of how many elementary ops the type has (2: 1 bit), log2 N² the cell, log2 C (S) the
+ * new value, and log2 C (S) the value it overwrites (pointwise erasure). A mono board (one colour) has no colour to set,
+ * so its only elementary op is "set a symbol": naming it costs 0 bits, and `colour` is Infinity (no such op; a call can
+ * never change a mono cell's colour, so callWork never charges it).
  */
 export const gridElementaryCosts = memo((inst: Instantiation): { colour: number; symbol: number } => {
   const t = gridArgs(inst), cell = Math.log2(t.size * t.size);
   const C = COLOUR_COMPONENTS[t.colours].count, S = SYMBOL_COMPONENTS[t.symbols].count;
-  return { colour: 1 + cell + 2 * Math.log2(C), symbol: 1 + cell + 2 * Math.log2(S) };
+  const op = Math.log2((C > 1 ? 1 : 0) + (S > 1 ? 1 : 0));
+  return { colour: C > 1 ? op + cell + 2 * Math.log2(C) : Infinity, symbol: op + cell + 2 * Math.log2(S) };
 });
 
 /**
@@ -145,7 +148,7 @@ function callWork(a: GridValue, b: GridValue, _call: unknown, inst: Instantiatio
   const w = gridElementaryCosts(inst);
   let ds = 0, dc = 0;
   for (let i = 0; i < a.sym.length; i++) { if (a.sym[i] !== b.sym[i]) ds++; if (a.col[i] !== b.col[i]) dc++; }
-  return dc * w.colour + ds * w.symbol;
+  return (dc ? dc * w.colour : 0) + ds * w.symbol;
 }
 
 const prelude = memo(inst => {

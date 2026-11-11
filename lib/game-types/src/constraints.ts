@@ -154,7 +154,11 @@ function choices(c: Constraint, inst: Instantiation): string[] {
       return next !== null && satisfied(c, next);
     });
     if (!ok.length) continue;
-    if (p.kind === "component") out.push(...ok.map(v => p.options.find(o => o.id === v)!.label));
+    if (p.kind === "component") {
+      // Quote labels that hold commas ("Red, green, blue") when there are several, so the list reads as a list.
+      const labels = ok.map(v => p.options.find(o => o.id === v)!.label);
+      out.push(...(labels.length > 1 && labels.some(l => l.includes(",")) ? labels.map(l => `“${l}”`) : labels));
+    }
     else if (ok.length <= 6) out.push(`${p.label.toLowerCase()} ${orList((ok as number[]).sort((a, b) => a - b).map(String))}`);
   }
   return out;
@@ -195,7 +199,7 @@ export function badgesFor(constraints: readonly Constraint[]): Badge[] {
       out.push({ id: "size:odd", emoji: "🎯", label: "Middle square", kid: "The board has a middle square" });
     else if (c.term === "size" && "op" in c && c.op === ">=")
       out.push({ id: `size>=${c.value}`, emoji: "📏", label: "Big board", kid: `Needs a board of size ${c.value} or more` });
-    // Every colour set has at least 3 colours, so only a demand for 4 or more is worth a badge.
+    // Every coloured set has at least 3 colours (mono has one), so only a demand for 4 or more is worth a badge.
     else if (c.term === "colours.count" && "op" in c && c.op === ">=" && c.value > 3)
       out.push({ id: `colours>=${c.value}`, emoji: "🌈", label: "More colours", kid: `Needs at least ${c.value} colours` });
   }

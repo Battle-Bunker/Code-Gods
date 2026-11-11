@@ -31,6 +31,7 @@ const hateColourText = (p: ColourP): CardText => ({
 });
 const hateColour = gridFamily<ColourP>({
   id: "hate_colour", name: "Hated colour", emoji: "🚫", theme: "Hates one colour", ...PENALTY, shape: SCALAR,
+  requires: { minColours: 2 },
   comparative: p => COMPARATIVE_COLOUR[p.colour] ?? `more ${p.colour}`,
   params: () => ({ colour: colourParam("Hated colour") }),
   support: g => g.colourNames.map(colour => ({ colour })),
@@ -97,6 +98,7 @@ const hateBlobText = (p: BlobP): CardText => ({
 });
 const hateBlob = gridFamily<BlobP>({
   id: "hate_blob", name: "Hated patch", emoji: "🫧", theme: "Hates a big patch of one colour", ...PENALTY, shape: SCALAR,
+  requires: { minColours: 2 },
   comparative: p => `with a bigger ${p.colour} patch`,
   params: () => ({ colour: colourParam("Hated colour") }),
   support: g => g.colourNames.map(colour => ({ colour })),
@@ -134,6 +136,7 @@ const takeoverText: CardText = {
 };
 const hateTakeover = gridFamily<Record<string, never>>({
   id: "hate_takeover", name: "Takeover", emoji: "🏴", theme: "Hates one colour taking over", ...PENALTY, shape: SCALAR,
+  requires: { minColours: 2 },
   comparative: () => "more taken over by one colour",
   params: () => ({}),
   support: () => [{}],
@@ -172,6 +175,7 @@ const bigBlobText: CardText = {
 };
 const hateBigBlob = gridFamily<Record<string, never>>({
   id: "hate_big_blob", name: "Big blobs", emoji: "🫠", theme: "Hates big blobs of any colour", ...PENALTY, shape: SCALAR,
+  requires: { minColours: 2 },
   comparative: () => "blobbier",
   params: () => ({}),
   support: () => [{}],
@@ -207,6 +211,7 @@ const cornersText = (g: GridSpec): CardText => ({
 });
 const hateSameCorners = gridFamily<Record<string, never>>({
   id: "hate_same_corners", name: "Matching corners", emoji: "📐", theme: "Hates matching corners", ...PENALTY,
+  requires: { minColours: 2 },
   analytic: solvedAnalytic("hate_same_corners"),
   comparative: () => "more alike in the corners",
   shape: tuple(2),
@@ -252,6 +257,7 @@ const repeatText = (p: RowP): CardText => ({
 });
 const hateRepeatRow = gridFamily<RowP>({
   id: "hate_repeat_row", name: "Repeats in the row", emoji: "🔁", theme: "Hates repeats in one row", ...PENALTY,
+  requires: { minColours: 2 },
   analytic: solvedAnalytic("hate_repeat_row"),
   comparative: () => "more repetitive in that row",
   shape: tuple(2),

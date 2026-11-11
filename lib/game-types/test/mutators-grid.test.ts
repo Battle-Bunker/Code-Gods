@@ -6,7 +6,10 @@ import { applyCalls, changeCost, decisionBits } from "../src/mutators.ts";
 import { gridElementaryCosts } from "../src/grid/index.ts";
 import { GRID_MUTATORS, type GridMutator } from "../src/grid/mutators.ts";
 
-const TYPES: Instantiation[] = GRID.representatives().map((a: TypeArgs) => GRID.instantiate(a));
+const ALL_TYPES: Instantiation[] = GRID.representatives().map((a: TypeArgs) => GRID.instantiate(a));
+/** The coloured GridTypes (gridlab/mutators.py's); mono boards (one colour, numbers only) are tested in test/mono.test.ts. */
+const TYPES = ALL_TYPES.filter(t => t.args.colours !== "mono");
+const MONO_TYPES = ALL_TYPES.filter(t => t.args.colours === "mono");
 const key = (g: GridValue) => `${g.sym.join(",")}|${g.col.join(",")}`;
 const avail = (inst: Instantiation) => availableOf(GRID_MUTATORS, inst) as GridMutator[];
 const byId = (id: string) => GRID_MUTATORS.find(m => m.id === id)!;
@@ -31,6 +34,32 @@ test("25 mutators (mutators.py order, no flatten); 22 to 24 available per GridTy
     assert.ok(n >= 22 && n <= 24, `${inst.key}: ${n}`);
   }
   assert.equal(avail(inst5).length, 23);
+  // A mono board drops every mutator that needs a choice of colours (paint stays: painting the one colour is a no-change).
+  for (const inst of MONO_TYPES) {
+    const ids = avail(inst).map(m => m.id);
+    assert.ok(ids.includes("paint") && ids.includes("write") && ids.includes("swap_cells"), inst.key);
+    for (const id of ["recolour", "swap_colours", "majority_line", "paint_by_key", "stamp", "tally", "hue_turn", "pattern_line", "motif", "blend"])
+      assert.ok(!ids.includes(id), `${inst.key} offers ${id}`);
+  }
+});
+
+test("every available mutator on every mono GridType: valid, never changes a colour, costs ≥ 0", () => {
+  const rng = seededRng("grid-laws-mono");
+  for (const inst of MONO_TYPES) {
+    const grids = Array.from({ length: 3 }, () => GRID.spawn(inst, rng));
+    for (const m of avail(inst)) {
+      for (let k = 0; k < 8; k++) {
+        const p = m.sample(rng, inst);
+        for (const g of grids) {
+          const y = m.apply(g, p, inst);
+          if (y === null) continue;
+          assert.ok(y.col.every(c => c === 0), `${inst.key} ${m.id}: a mono cell changed colour`);
+          assert.ok(GRID.codec(inst).isValid(GRID.codec(inst).encode(y)), `${inst.key} ${m.id}`);
+          assert.ok(GRID.callWork(g, y, undefined, inst) >= 0);
+        }
+      }
+    }
+  }
 });
 
 test("every mutator × every GridType: deterministic, valid, idempotent or bijective, costs ≥ 0", () => {

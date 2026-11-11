@@ -141,6 +141,7 @@ const sandText = (p: SandP, _g: GridSpec): CardText => ({
 });
 const othello = gridFamily<SandP>({
   id: "othello_sandwich", name: "Othello Sandwich", emoji: "🥪", theme: "Capture cells between two of yours",
+  requires: { minColours: 2 },
   shape: SCALAR, tags: ["shortlist"],
   params: () => ({ colour: colourParam("Sandwiching colour") }),
   support: g => g.colourNames.map(colour => ({ colour })),
@@ -212,7 +213,7 @@ function count8(mine: boolean[][]): Layer {
 }
 const minesweeper = gridFamily<MineP>({
   id: "honest_minesweeper", name: "Honest Minesweeper", emoji: "💣", theme: "Numbers that count the mines around them",
-  requires: { classes: ["Valued"] }, shape: SCALAR, tags: ["shortlist"],
+  requires: { classes: ["Valued"], minColours: 2 }, shape: SCALAR, tags: ["shortlist"],
   params: () => ({ mine: colourParam("Mine colour") }),
   support: g => g.colourNames.map(mine => ({ mine })),
   canonical: (p, g) => recolourNames(g, p, ["mine"]),
@@ -339,6 +340,7 @@ const sudokuText = (_p: SudokuP, g: GridSpec): CardText => {
 };
 const sudoku = gridFamily<SudokuP>({
   id: "sudoku_scholar", name: "Sudoku Scholar", emoji: "🔢", theme: "No number twice in a line",
+  requires: { minColours: 2 },
   params: () => ({}),
   // All or nothing at N <= 4: grid-lab pads the tuple with a constant 0, the card returns 0 or 1.
   shape: g => (g.N <= 4 ? SCALAR : tuple(2)), tags: ["shortlist"],
@@ -473,7 +475,7 @@ const flushText = (g: GridSpec): CardText => ({
 });
 const flushRoyale = gridFamily<Record<string, never>>({
   id: "flush_royale", name: "Flush Royale", emoji: "♣️", theme: "Lines all in one suit",
-  requires: { classes: ["Valued", "Ranked"] }, shape: tuple(2),
+  requires: { classes: ["Valued", "Ranked"], minColours: 2 }, shape: tuple(2),
   params: () => ({}),
   support: () => [{}],
   summary: (_, g) => flushText(g).about,
@@ -614,6 +616,7 @@ const fishText = (p: FishP, g: GridSpec): CardText => {
 };
 const goFish = gridFamily<FishP>({
   id: "go_fish_books", name: "Go Fish Books", emoji: "🐟", theme: "2×2 blocks of your fish", shape: tuple(2),
+  requires: { minColours: 2 },
   params: g => ({ fish: choiceParam("Your fish", rankOptions(g)) }),
   support: g => range(g.ranks).map(r => ({ fish: rankName(g, r) })),
   canonical: (_, g) => ({ fish: rankName(g, 0) }),
@@ -734,6 +737,7 @@ const knightText = (p: KnightP, g: GridSpec): CardText => ({
 });
 const knightRiders = gridFamily<KnightP>({
   id: "knight_riders", name: "Knight Riders", emoji: "🐴", theme: "Twins a knight's jump apart", shape: SCALAR,
+  requires: { minColours: 2 },
   params: g => ({ colour: choiceParam("Twins' colour", colourOrNone(g, ["any", "any colour"])) }),
   support: g => ["any", ...g.colourNames].map(colour => ({ colour })),
   sample: (rng, g) => ({ colour: chance(rng, 1, 2) ? g.colourNames[rng.int(g.C)] : "any" }),
@@ -783,6 +787,7 @@ const unoText = (p: UnoP, g: GridSpec): CardText => ({
 });
 const unoSnake = gridFamily<UnoP>({
   id: "uno_snake", name: "Uno Snake", emoji: "🐍", theme: "A zig-zag walk where every step matches", shape: SCALAR,
+  requires: { minColours: 2 },
   analytic: solvedAnalytic("uno_snake"),
   params: () => ({ axis: choiceParam("Walk along", LINE_OPTIONS) }),
   support: () => [{ axis: "rows" }, { axis: "cols" }],
@@ -848,7 +853,7 @@ const paradeText = (p: ParadeP, g: GridSpec): CardText => ({
 });
 const courtParade = gridFamily<ParadeP>({
   id: "court_parade", name: "Court Parade", emoji: "🎺", theme: "J, Q, K of one suit marching in a line",
-  requires: { classes: ["Suited", "Faced"], minFaces: 3 }, shape: tuple(2),
+  requires: { classes: ["Suited", "Faced"], minFaces: 3, minColours: 2 }, shape: tuple(2),
   params: () => ({ suit: choiceParam("Suit of the parade", suitOptions()) }),
   support: () => SUIT_NAMES.map(suit => ({ suit })),
   sample: rng => ({ suit: SUIT_NAMES[rng.int(4)] }),
@@ -916,6 +921,7 @@ const kingsText = (p: CourtRankP, g: GridSpec): CardText => ({
 });
 const kingsCourt = gridFamily<CourtRankP>({
   id: "kings_court", name: "King's Court", emoji: "🤴", theme: "Your symbol surrounded by every other colour",
+  requires: { minColours: 2 },
   shape: SCALAR,
   params: g => ({ target: choiceParam("Your target", rankOptions(g)) }),
   support: g => range(g.ranks).map(r => ({ target: rankName(g, r) })),
@@ -960,7 +966,7 @@ const fourText = (p: FourP, g: GridSpec): CardText => ({
 const connectFour = gridFamily<FourP>({
   id: "connect_four", name: "Connect Four", emoji: "🔴", theme: "Four in a row, stacked from the bottom",
   analytic: solvedAnalytic("connect_four"),
-  requires: { minSize: 4 }, shape: tuple(2),
+  requires: { minSize: 4, minColours: 2 }, shape: tuple(2),
   params: () => ({ colour: colourParam("Your counters") }),
   support: g => g.colourNames.map(colour => ({ colour })),
   canonical: (p, g) => recolourNames(g, p, ["colour"]),
@@ -1020,7 +1026,7 @@ const anyParadeText = (_p: AnyParadeP, _g: GridSpec): CardText => ({
 });
 const anySuitParade = gridFamily<AnyParadeP>({
   id: "any_suit_parade", name: "Any-Suit Parade", emoji: "🎪", theme: "J, Q, K of any one suit marching in a line",
-  requires: { classes: ["Suited", "Faced"], minFaces: 3 }, shape: tuple(2),
+  requires: { classes: ["Suited", "Faced"], minFaces: 3, minColours: 2 }, shape: tuple(2),
   params: () => ({}),
   support: () => [{}],
   summary: (p, g) => anyParadeText(p, g).about,

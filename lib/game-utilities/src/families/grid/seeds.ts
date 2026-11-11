@@ -12,7 +12,7 @@ import {
 type LineP = { colour: string; diagonals: boolean };
 const linePainter = gridFamily<LineP>({
   id: "seed1_line_painter", name: "Line Painter", emoji: "🖍️", theme: "Straight lines of one colour",
-  requires: { classes: ["Valued"] }, shape: SCALAR, tags: ["seed", "shortlist"],
+  requires: { classes: ["Valued"], minColours: 2 }, shape: SCALAR, tags: ["seed", "shortlist"],
   params: () => ({ colour: colourParam("Your colour"), diagonals: boolParam("Diagonals count too") }),
   support: g => product<LineP>({ colour: g.colourNames, diagonals: [false, true] }),
   sample: (rng, g) => ({ colour: g.colourNames[rng.int(g.C)], diagonals: chance(rng, 1, 4) }),
@@ -70,7 +70,7 @@ function text(p: LineP, g: GridSpec) {
 const patchwork = gridFamily<Record<string, never>>({
   id: "seed2_patchwork", name: "Patchwork", emoji: "🧩",
   theme: "Same-symbol patches with no two touching colours alike",
-  requires: { classes: ["Valued"] }, shape: SCALAR, tags: ["seed", "shortlist"],
+  requires: { classes: ["Valued"], minColours: 2 }, shape: SCALAR, tags: ["seed", "shortlist"],
   params: () => ({}),
   support: () => [{}],
   summary: (_, g) => patchText(g).about,
@@ -128,6 +128,7 @@ const patchText = (g: GridSpec) => ({
 type GreenP = { colour: string; value: number };
 const greenOnes = gridFamily<GreenP>({
   id: "seed3_green_ones", name: "Green Ones", emoji: "🍀", theme: "Lucky green ones",
+  requires: { minColours: 2 },
   shape: tuple(2), tags: ["seed", "shortlist"],
   params: g => ({ colour: colourParam("Your colour"), value: intParam(g.cards ? "Rank (1 is the ace)" : "Number", g.vmin, g.vmax) }),
   // grid-lab's sampler always deals green (every colour set has it) and 1 (every symbol set has it).
