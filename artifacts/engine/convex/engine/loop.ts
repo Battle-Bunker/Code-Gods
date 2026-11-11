@@ -14,6 +14,7 @@ import { eventV, failuresV, futileEntriesV, lastFailuresV, scoreV } from "../gam
 import { liveGame, withEngine, writeGame, type LiveGame } from "../game/state";
 import { publicSalienceOf } from "../game/readModel";
 import { godTotalsV, scheduleFill } from "../game/objectViews";
+import { paidLive } from "../lib/knowledge";
 import { writeAgentSamples } from "../game/agentSeries";
 /** World seconds between sweeps of the per-god read model (game/objectViews.ts). */
 const SWEEP_SECONDS = 60;
@@ -217,6 +218,8 @@ export const commit = internalMutation({
     disclosedTotals: v.optional(v.array(v.number())),
     /** Each roster god's totals after the window as disclosed (lib/views.ts godTotalsOf), when objects changed. */
     godTotals: v.optional(v.array(godTotalsV)),
+    /** Paid observation (lib/knowledge.ts): per object, the gods this window told it (an agent's change or complete read). */
+    told: v.optional(v.array(v.object({ id: v.id("objects"), gods: v.array(v.string()) }))),
     wakeAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
@@ -301,9 +304,15 @@ export const commit = internalMutation({
     const resolved = events.map(e => (e.t === "spawn" && ids.has(e.objectId) ? { ...e, objectId: ids.get(e.objectId)! } : e));
     const clock = args.clock!;
     // Each god's object rows and totals (game/objectViews.ts), written off this commit: one scheduled call.
-    const touched = [...args.objects.map(c => c.id), ...[...ids.values()] as Id<"objects">[]];
+    // Under paid observation only the told objects' rows (and the spawns', which are new) can change: nothing is read
+    // or written for an object nobody was told about.
+    const told = args.told ?? [];
+    const touched = paidLive(game)
+      ? [...told.map(t => t.id), ...[...ids.values()] as Id<"objects">[]]
+      : [...new Set([...args.objects.map(c => c.id), ...told.map(t => t.id)]), ...[...ids.values()] as Id<"objects">[]];
     if (touched.length || args.godTotals) {
-      await ctx.scheduler.runAfter(0, internal.game.objectViews.sync, { gameId: game._id, objectIds: touched, world: clock.worldSeconds, ...(args.godTotals ? { totals: args.godTotals } : {}) });
+      await ctx.scheduler.runAfter(0, internal.game.objectViews.sync, { gameId: game._id, objectIds: touched, world: clock.worldSeconds, ...(args.godTotals ? { totals: args.godTotals } : {}),
+        ...(told.length ? { told } : {}) });
     }
     const acts = events.filter(e => e.t === "transform" || e.t === "fail" || e.t === "skip").length;
     const perf = { acts, window: clock.worldSeconds - game.worldSeconds, simulateMs: args.stats.simulateMs, ...(args.stats.prevCommitMs !== undefined ? { commitMs: args.stats.prevCommitMs } : {}) };

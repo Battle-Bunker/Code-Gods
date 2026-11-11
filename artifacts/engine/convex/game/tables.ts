@@ -90,6 +90,11 @@ export const eventV = v.union(
   v.object({ t: v.literal("rescore"), objectId: v.string(), value: wire, version: v.number(), world: v.number(), net: v.array(v.number()), noise: v.optional(v.number()) }),
   /** The owner re-allocated its power (schema 6): the agent's share from `world` on. */
   v.object({ t: v.literal("power"), agentId: v.string(), ownerId: v.string(), world: v.number(), share: v.number() }),
+  /**
+   * A god paid for a look (schema 10; paid observation, lib/knowledge.ts): `cost` energy from its own account for `count`
+   * objects (one: `objectId`; absent: every object then). PRIVATE to its god while the game is live.
+   */
+  v.object({ t: v.literal("look"), ownerId: v.string(), world: v.number(), cost: v.number(), count: v.number(), objectId: v.optional(v.string()) }),
 );
 
 /** An agent's failure breakdown (lib/futility.ts FAILURE_KINDS) and the last reason of the kinds the diagnosis quotes. */
@@ -331,6 +336,11 @@ export const gameTables = {
     createdAt: v.number(), lastMutatedAt: v.optional(v.number()),
     ordinal, rewardBits: v.number(), penaltyBits: v.optional(v.number()), netBits: v.number(),
     peerNetBits: v.number(), peerCare: v.number(), payoff: v.number(),
+    /**
+     * Paid observation (lib/knowledge.ts): the world time (seconds) the god was last told this object; the row is the
+     * object as it was then. Absent in a free game and once the game has ended (the row is the object as it is).
+     */
+    learnedAt: v.optional(v.number()),
   }).index("by_object_god", ["objectId", "godId"])
     .index("by_game_god_payoff", ["gameId", "godId", "payoff"])
     .index("by_game_god_netBits", ["gameId", "godId", "netBits"])

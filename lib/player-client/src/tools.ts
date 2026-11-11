@@ -185,6 +185,9 @@ export const ACT_TOOLS = [
   def({ name: "allocate_power", short: "Change how much of the player's power one agent gets.", title: "Allocate power", functions: ["commands.submit"], permission: "act", annotations: acts,
     about: "Set one agent's power share (0 to 1) from now on: it earns share x economy.powerPerSecond bits per world second, and the player's own income is the unallocated rest (self.income). The player's shares total at most 1; both accounts are settled first. Moving power between agents is two calls: lower one, then raise the other.",
     input: obj({ agentId: id.describe("The agent's id from get_observation (agents[].id); never a command id."), share: z.number().min(0).max(1).describe("The agent's new share of the player's power, 0 to 1."), commandId, gameId }), output: result(receiptData) }),
+  def({ name: "look", short: "Pay energy to see one object (or all) as it is now.", title: "Look", functions: ["commands.submit"], permission: "act", annotations: acts,
+    about: "Only in a game with paid observation (get_observation economy.observation is \"paid\"). There the player sees each object as it was when they were last told about it (objects[].knownAt, a world time): at its birth, when one of their agents changed it or read all of it, or after a look. A look spends the player's OWN energy (self.energy, the same account that pays summons): economy.lookPrice for one object (objectId), or economy.lookPrice times the number of objects for all of them (no objectId). It is refused, with the price and the balance, when the player cannot afford it. The receipt's `look` has the price paid, the energy left and, for one object, the object as it is now (value, own bits, the others' sum, payoff). Say the price before an expensive look. To watch objects continuously, summon an observer agent instead (one that reads the whole object and returns no change): each object it is offered is refreshed, paid from its power share.",
+    input: obj({ objectId: id.optional().describe("The object's id from get_observation (objects[].id). Omit to look at every object (the price times the object count)."), commandId, gameId }), output: result(receiptData) }),
   def({ name: "set_ready", short: "Mark the player ready (or not) in the lobby.", title: "Set ready", functions: ["commands.submit", "rooms.setReady"], permission: "act", annotations: acts,
     about: "Mark the player ready (or not) in the room lobby; advisory.",
     input: obj({ ready: z.boolean(), commandId: optionalCommandId }), output: result(receiptData) }),
@@ -435,13 +438,13 @@ export function toolJsonSchemas(): Record<string, { input: Record<string, unknow
 // Command tools → v3 envelopes
 // ---------------------------------------------------------------------------------------------
 
-export const COMMAND_TOOLS = ["validate_agent", "summon_agent", "destroy_agent", "allocate_power", "set_ready", "send_chat", "pause_game"] as const;
+export const COMMAND_TOOLS = ["validate_agent", "summon_agent", "destroy_agent", "allocate_power", "look", "set_ready", "send_chat", "pause_game"] as const;
 export type CommandToolName = (typeof COMMAND_TOOLS)[number];
 export const isCommandTool = (name: string): name is CommandToolName => (COMMAND_TOOLS as readonly string[]).includes(name);
 /** The command tool of each envelope command type (the CLI's `assistant command` alias). */
-export const TOOL_OF_COMMAND = { validate: "validate_agent", summon: "summon_agent", destroy: "destroy_agent", allocatePower: "allocate_power", ready: "set_ready", chat: "send_chat", pause: "pause_game" } as const;
+export const TOOL_OF_COMMAND = { validate: "validate_agent", summon: "summon_agent", destroy: "destroy_agent", allocatePower: "allocate_power", look: "look", ready: "set_ready", chat: "send_chat", pause: "pause_game" } as const;
 
-type CommandArgs = { commandId?: string; gameId?: string; source?: string; language?: Language; name?: string; description?: string; agentId?: string; share?: number; powerShare?: number; ready?: boolean; text?: string };
+type CommandArgs = { commandId?: string; gameId?: string; objectId?: string; source?: string; language?: Language; name?: string; description?: string; agentId?: string; share?: number; powerShare?: number; ready?: boolean; text?: string };
 
 /** Does buildEnvelope need the current game (its id or language) for these arguments? */
 export function envelopeNeedsGame(name: CommandToolName, args: CommandArgs): boolean {
@@ -470,6 +473,7 @@ export function buildEnvelope(name: CommandToolName, args: CommandArgs, game: { 
     : name === "summon_agent" ? { type: "summon", language: lang(), source: args.source!, name: args.name!, ...(args.description ? { description: args.description } : {}), ...(args.powerShare !== undefined ? { powerShare: args.powerShare } : {}) }
     : name === "destroy_agent" ? { type: "destroy", agentId: args.agentId! }
     : name === "allocate_power" ? { type: "allocatePower", agentId: args.agentId!, share: args.share! }
+    : name === "look" ? { type: "look", ...(args.objectId ? { objectId: args.objectId } : {}) }
     : name === "set_ready" ? { type: "ready", ready: args.ready! }
     : name === "send_chat" ? { type: "chat", text: args.text! }
     : { type: "pause" };

@@ -52,7 +52,9 @@ export type ReplayEvent =
     powerShare?: number }
   /** The owner re-allocated power: the agent's share from then on (log schema 6). */
   | { type: "agent.power"; agentId: string; ownerId: string; worldSeconds: number; share: number }
-  | { type: "agent.destroyed"; agentId: string; ownerId: string; worldSeconds: number };
+  | { type: "agent.destroyed"; agentId: string; ownerId: string; worldSeconds: number }
+  /** A god paid `cost` of its own energy to look at `count` objects (log schema 10; paid observation). */
+  | { type: "god.looked"; ownerId: string; worldSeconds: number; cost: number; count: number; objectId?: string };
 
 /** `from`: the index in its batch of the first event served (a batch larger than a page is split across pages). */
 export type ReplayBatch = { seq: number; at: number; worldFrom: number; worldTo: number; from?: number; events: ReplayEvent[] };
@@ -231,6 +233,15 @@ export function applyEntry(state: ReplayState, entry: LogEntry, settings: GameSe
         state.spent[i] += ev.summonCost;
         const d = settleDeity(settings, state.deities[i], entry.world);
         state.deities[i] = { balance: d.balance - ev.summonCost, world: d.world, allocated: roundShare(d.allocated + (ev.powerShare ?? 0)) };
+      }
+      break;
+    }
+    case "god.looked": {
+      const i = roster.get(ev.ownerId);
+      if (i !== undefined) {
+        state.spent[i] += ev.cost;
+        const d = settleDeity(settings, state.deities[i], entry.world);
+        state.deities[i] = { ...d, balance: d.balance - ev.cost };
       }
       break;
     }
@@ -520,6 +531,7 @@ function projected(ev: ReplayEvent, seq: number, pov: number, roster: Replay["ga
     };
     case "agent.power": return mine ? { type: "agent.power" as const, seq, agentId: ev.agentId, worldSeconds: ev.worldSeconds, share: ev.share } : null;
     case "agent.destroyed": return { type: "agent.destroyed" as const, seq, agentId: ev.agentId, mine, worldSeconds: ev.worldSeconds };
+    case "god.looked": return { type: "god.looked" as const, seq, mine, worldSeconds: ev.worldSeconds, cost: ev.cost, count: ev.count, ...(ev.objectId ? { objectId: ev.objectId } : {}) };
   }
 }
 

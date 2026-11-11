@@ -128,7 +128,20 @@ export interface GameSettings {
    * One of PEER_NOISE_OPTIONS. An ended game is exact.
    */
   peerNoiseBits: number;
+  /**
+   * What a seated god sees of the world while the game is live (docs/energy-model.md §11). "free": every object, live
+   * (the game until 2026-11-11). "paid": seeing an object's state costs its full read at the read price; a god's view of
+   * an object is the last state they were told (at its birth, by their agents' changes and complete reads, or by a look
+   * they paid for from their own energy), with the world time they learned it. One of OBSERVATION_MODES. Stored settings
+   * without it are "free" (upgradeStoredSettings), and an ended game is always open.
+   */
+  observation: ObservationMode;
 }
+export type ObservationMode = "free" | "paid";
+/** The pre-authored choices of observation. */
+export const OBSERVATION_MODES: readonly ObservationMode[] = Object.freeze(["free", "paid"]);
+/** Whether this game's gods pay to see objects (stored settings from before the setting are free). */
+export const paidObservation = (settings: { observation?: unknown } | null | undefined): boolean => settings?.observation === "paid";
 
 export type DurationMode = "fixed" | "halfLife";
 /** The pre-authored choices of durationMode. */
@@ -187,6 +200,7 @@ export const DEFAULT_SETTINGS: Readonly<GameSettings> = Object.freeze({
   objectSelection: "uniform",
   scoreIntervalSeconds: DEFAULT_SCORE_INTERVAL_SECONDS,
   peerNoiseBits: DEFAULT_PEER_NOISE_BITS,
+  observation: "free",
 } satisfies GameSettings);
 
 /**
@@ -220,6 +234,7 @@ export function upgradeStoredSettings(settings: unknown): Record<string, unknown
     ...(!("scoreIntervalSeconds" in s) ? { scoreIntervalSeconds: DEFAULT_SCORE_INTERVAL_SECONDS } : {}),
     ...(!("durationMode" in s) ? { durationMode: "halfLife" } : {}),
     ...(!("peerNoiseBits" in s) ? { peerNoiseBits: DEFAULT_PEER_NOISE_BITS } : {}),
+    ...(!("observation" in s) ? { observation: "free" } : {}),
   };
   return Object.keys(filled).length ? { ...s, ...filled } : languages;
 }
@@ -348,6 +363,7 @@ export function validateSettings(settings: GameSettings, domain?: FamilyDomain):
   if (!PEER_NOISE_OPTIONS.includes(settings.peerNoiseBits)) {
     throw new Error(`peerNoiseBits must be one of ${PEER_NOISE_OPTIONS.join(", ")} bits`);
   }
+  if (!OBSERVATION_MODES.includes(settings.observation)) throw new Error(`observation must be one of ${OBSERVATION_MODES.join(", ")}`);
   for (const key of OPTION_KEYS) {
     if (!settingsOptionsFor(key, settings.objectType).some(o => o.id === settings[key])) {
       throw new Error(`Unsupported ${key} for this object type`);
@@ -514,6 +530,8 @@ export const SEED_SETUPS: readonly SeedSetup[] = Object.freeze([
     "Grid", { size: 4, symbols: "base10", colours: "mono" }, {
       interactionRateHz: 25, durationMode: "fixed", halfLifeSeconds: 600, excludedFamilies: ANNOTATED_BASICS_EXCLUDED,
       startingObjectCount: 10, spawnRateHz: 0.1, planningSeconds: 300,
+      // Paid observation (owner, 2026-11-11: a costly use of a god's own energy; docs/energy-model.md §11).
+      observation: "paid",
     }),
   seed("grid-classic", "Classic", "5×5 with four colours: the standard game",
     "Grid", { size: 5, symbols: "base10", colours: "rgby" }, {}),
@@ -697,6 +715,11 @@ export const SETTINGS_DOCS = {
     question: "How blurred are the other players' combined interest in each object?", section: "goals", tier: "more", control: "segmented", unit: "bits", suggested: PEER_NOISE_OPTIONS,
     meaning: "While the game runs, the other players' summed bits for each object are shown with random noise of this size, fixed per change; after the end the exact numbers show.",
     consequence: "More noise makes it harder to work out the other players' rules from the numbers alone, so negotiation clues matter more, but it also makes their interest in each object less certain.",
+  },
+  observation: {
+    question: "Do players pay to look at the world?", section: "energy", tier: "more", control: "segmented", suggested: OBSERVATION_MODES,
+    meaning: "Free: every player sees every object as it changes. Paid: a player sees each object as it was when they were last told about it (when it appeared, when one of their agents changed it or read all of it, or when they paid energy for a look), and how long ago that was.",
+    consequence: "Paid looking gives a player's own energy a use besides summoning, and makes watching the other players closely expensive; free looking is easier to follow.",
   },
   pauseSeconds: {
     question: "How long is each player's one pause?", section: "time", tier: "more", control: "number", unit: "s", suggested: [60, 180, 300],

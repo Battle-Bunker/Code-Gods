@@ -19,7 +19,10 @@ import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx } from "../_generated/server";
 import { godTotalsOf, viewRowOf, type GodTotals } from "../lib/views";
+import { paidLive } from "../lib/knowledge";
 import { clockDoc } from "./state";
+
+const NOBODY: ReadonlySet<string> = new Set();
 
 export const godTotalsV = v.object({
   godId: v.string(), objectCount: v.number(), score: v.number(), sumOwnNetBits: v.number(), sumPeerNetBits: v.number(),
@@ -32,30 +35,39 @@ const stored = ({ _id, _creationTime, ...row }: Doc<"objectViews">): Row => row;
 type ObjectState = Pick<Doc<"objects">, "_id" | "gameId" | "value" | "version" | "scores" | "noise" | "createdAt" | "lastMutatedAt">;
 
 
-/** Every roster god's row of one object as disclosed now. */
-function rowsOf(o: ObjectState, live: boolean): Row[] {
+/** Every roster god's row of one object as disclosed now (`learnedAt`: paid observation, the world time of this telling). */
+function rowsOf(o: ObjectState, live: boolean, learnedAt?: number): Row[] {
   const rows: Row[] = [];
   for (const { god } of o.scores) {
     const view = viewRowOf(o, god, live)!;
     rows.push({
       gameId: o.gameId, godId: god, objectId: o._id, value: o.value, version: o.version, createdAt: o.createdAt ?? 0,
       ...(o.lastMutatedAt !== undefined ? { lastMutatedAt: o.lastMutatedAt } : {}), ...view,
+      ...(learnedAt !== undefined ? { learnedAt } : {}),
     });
   }
   return rows;
 }
 
 /**
- * Write each roster god's row of these objects where it differs from the stored one (insert the missing), never over a
- * newer version (a late or out-of-order write).
+ * Paid observation (lib/knowledge.ts): which gods a write tells, and when. A row that does not exist yet is always
+ * written (the object's birth is public); an existing one only for a god in `told(objectId)` ("all": everyone).
  */
-export async function syncRows(ctx: MutationCtx, objects: readonly ObjectState[], live: boolean) {
+export type Telling = { world: number; told: (objectId: string) => ReadonlySet<string> | "all" };
+
+/**
+ * Write each roster god's row of these objects where it differs from the stored one (insert the missing), never over a
+ * newer version (a late or out-of-order write). With `telling` (a paid live game), only the gods told.
+ */
+export async function syncRows(ctx: MutationCtx, objects: readonly ObjectState[], live: boolean, telling?: Telling) {
   for (const o of objects) {
     // bounded: one row per roster god (≤ 8).
     const have = new Map((await ctx.db.query("objectViews").withIndex("by_object_god", q => q.eq("objectId", o._id)).take(16)).map(r => [r.godId, r]));
-    for (const row of rowsOf(o, live)) {
+    const told = telling?.told(o._id);
+    for (const row of rowsOf(o, live, telling?.world)) {
       const old = have.get(row.godId);
       if (!old) await ctx.db.insert("objectViews", row);
+      else if (told !== undefined && told !== "all" && !told.has(row.godId)) continue;
       else if (old.version <= row.version && JSON.stringify(stored(old)) !== JSON.stringify(row)) await ctx.db.replace(old._id, row);
     }
   }
@@ -72,15 +84,24 @@ async function writeTotals(ctx: MutationCtx, gameId: Id<"games">, world: number,
   }
 }
 
-/** The read model after one tick commit: the rows of the objects it changed or spawned (as they are now), and its totals. */
+/**
+ * The read model after one tick commit: the rows of the objects it changed or spawned (as they are now), and its totals.
+ * In a paid live game (lib/knowledge.ts) only the gods the commit told get their row rewritten: `told` lists, per
+ * object, the gods whose agents changed it or read all of it in the window; a spawn's rows are new, so everyone's.
+ */
 export const sync = internalMutation({
-  args: { gameId: v.id("games"), objectIds: v.array(v.id("objects")), world: v.number(), totals: v.optional(v.array(godTotalsV)) },
-  handler: async (ctx, { gameId, objectIds, world, totals }) => {
+  args: {
+    gameId: v.id("games"), objectIds: v.array(v.id("objects")), world: v.number(), totals: v.optional(v.array(godTotalsV)),
+    told: v.optional(v.array(v.object({ id: v.id("objects"), gods: v.array(v.string()) }))),
+  },
+  handler: async (ctx, { gameId, objectIds, world, totals, told }) => {
     const game = await ctx.db.get(gameId);
     // Once ended, the end's fill writes the exact rows and totals; a late tick's live ones are dropped.
     if (!game || game.phase === "ended") return;
     const objects = (await Promise.all(objectIds.map(id => ctx.db.get(id)))).filter((o): o is Doc<"objects"> => !!o && o.gameId === gameId);
-    await syncRows(ctx, objects, true);
+    const gods = new Map((told ?? []).map(t => [t.id as string, new Set(t.gods)]));
+    const none: ReadonlySet<string> = new Set();
+    await syncRows(ctx, objects, true, paidLive(game) ? { world, told: id => gods.get(id) ?? none } : undefined);
     if (totals) await writeTotals(ctx, gameId, world, totals, false);
   },
 });
@@ -96,7 +117,10 @@ export const fill = internalMutation({
     const game = await ctx.db.get(gameId);
     if (!game) return;
     const page = await ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", gameId)).paginate({ cursor, numItems: FILL_PAGE });
-    await syncRows(ctx, page.page, game.phase !== "ended");
+    // Paid observation: before the world runs (the start, the hold rescoring) every god is told every object as it is
+    // born; once it runs, a fill only adds a missing row (a birth), and the running game's sweep has nothing to repair.
+    const world = (await clockDoc(ctx, gameId))?.worldSeconds ?? 0;
+    await syncRows(ctx, page.page, game.phase !== "ended", paidLive(game) ? { world, told: () => (game.phase === "planning" ? "all" : NOBODY) } : undefined);
     if (!page.isDone) await ctx.scheduler.runAfter(0, internal.game.objectViews.fill, { gameId, cursor: page.continueCursor, ...(rowsOnly ? { rowsOnly } : {}) });
     else if (!rowsOnly) await ctx.scheduler.runAfter(0, internal.game.objectViews.fillTotals, { gameId });
   },

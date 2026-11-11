@@ -40,9 +40,10 @@ export const EVENTS_PER_BATCH = 400;
  * cost.read is the energy its reads cost (bits read × READ_PRICE, 1/32 when 8 was introduced); in schemas 5–7 reads were
  * priced at one energy bit per bit read, so cost.read there is also the bits read. Replay reads recorded costs either way.
  * 9 marks a failed act whose code raised or ran out of time (`error: true` on a fail event), so a replay tells a runtime
- * error from an invalid call, as the live failure breakdown (agents.failures) does.
+ * error from an invalid call, as the live failure breakdown (agents.failures) does. 10 adds the `look` event (paid
+ * observation, lib/knowledge.ts): a god paid its own energy to be told one object, or all of them.
  */
-export const EVENT_LOG_SCHEMA = 9;
+export const EVENT_LOG_SCHEMA = 10;
 
 export type Clock = {
   phase: "planning" | "running" | "paused" | "recovery" | "ended";
