@@ -8,17 +8,17 @@ import { solvedAnalytic } from "../../analytic/hook.ts";
 import { tierPoints } from "../../tuples.ts";
 
 /** Which lines a rule scores: rows or columns, which are transposes of each other (canonically rows). "Both" was an option until P10. */
-type Axis = "rows" | "cols";
+export type Axis = "rows" | "cols";
 const PY_AXIS: Record<Axis, [string, string]> = { rows: ["grid.rows", "row"], cols: ["grid.columns", "column"] };
 const TS_AXIS: Record<Axis, string> = { rows: "grid.rows", cols: "grid.columns" };
-const AXIS_WORD: Record<Axis, string> = { rows: "row", cols: "column" };
-const AXIS_OPTIONS = [["rows", "rows"], ["cols", "columns"]] as const;
+export const AXIS_WORD: Record<Axis, string> = { rows: "row", cols: "column" };
+export const AXIS_OPTIONS = [["rows", "rows"], ["cols", "columns"]] as const;
 const symGrid = (g: GridSpec, v: Layer) => v.map(row => row.map(x => symForValue(g, x)));
 
 // --- the words the goal texts share (docs/rules-design.md §2) -----------------------------------------------
 /** Joins sentences, skipping empty ones (the value key is "" on base 10). */
 /** "every row", "every column". */
-const everyLine = (axis: Axis) => `every ${AXIS_WORD[axis]}`;
+export const everyLine = (axis: Axis) => `every ${AXIS_WORD[axis]}`;
 /** What a tile's number is called, singular and plural: cards have values, digit sets have numbers. */
 const num = (g: GridSpec) => (g.cards ? "value" : "number");
 const nums = (g: GridSpec) => `${num(g)}s`;
@@ -189,6 +189,31 @@ function magicTargets(g: GridSpec): number[] {
   for (let k = -MAGIC_SPREAD; k <= MAGIC_SPREAD; k++) out.add(Math.min(Math.max(mid + k, N * g.vmin), N * g.vmax));
   return [...out].sort((a, b) => a - b);
 }
+/** The magic-lines card programs (Magic Accountant, and 🎩 Magic Eighteen in beginner/): lines making TARGET, every line's distance from it. */
+export const magicLinesPy = (axis: Axis) => `
+    def utility(grid):
+        exact = 0
+        distance = 0
+        for line in ${PY_AXIS[axis][0]}:
+            total = 0
+            for cell in line:
+                total += cell.value
+            if total == TARGET:
+                exact += 1
+            distance += abs(total - TARGET)
+        return (exact, -distance)`;
+export const magicLinesTs = (axis: Axis) => `
+    function utility(grid) {
+      let exact = 0;
+      let distance = 0;
+      for (const line of ${TS_AXIS[axis]}) {
+        let total = 0;
+        for (const cell of line) total += cell.value;
+        if (total === TARGET) exact += 1;
+        distance += Math.abs(total - TARGET);
+      }
+      return [exact, -distance];
+    }`;
 const magicText = (p: MagicP, g: GridSpec): CardText => ({
   emoji: "🧮", name: "Magic Accountant", consts: [["TARGET", p.target]],
   about: sentences(
@@ -218,30 +243,8 @@ const magicAccountant = gridFamily<MagicP>({
   },
   canonical: (p, g) => ({ axis: "rows", target: Math.min(p.target, g.N * (g.vmin + g.vmax) - p.target) }),
   summary: (p, g) => magicText(p, g).about,
-  python: (p, g) => pyCard(magicText(p, g), `
-    def utility(grid):
-        exact = 0
-        distance = 0
-        for line in ${PY_AXIS[p.axis][0]}:
-            total = 0
-            for cell in line:
-                total += cell.value
-            if total == TARGET:
-                exact += 1
-            distance += abs(total - TARGET)
-        return (exact, -distance)`),
-  typescript: (p, g) => tsCard(magicText(p, g), `
-    function utility(grid) {
-      let exact = 0;
-      let distance = 0;
-      for (const line of ${TS_AXIS[p.axis]}) {
-        let total = 0;
-        for (const cell of line) total += cell.value;
-        if (total === TARGET) exact += 1;
-        distance += Math.abs(total - TARGET);
-      }
-      return [exact, -distance];
-    }`),
+  python: (p, g) => pyCard(magicText(p, g), magicLinesPy(p.axis)),
+  typescript: (p, g) => tsCard(magicText(p, g), magicLinesTs(p.axis)),
   exemplar: (p, g) => {
     const N = g.N, row = Array<number>(N).fill(g.vmin);
     let rem = p.target - N * g.vmin;
