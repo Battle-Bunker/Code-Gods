@@ -4,7 +4,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { START_LAG_MS, START_TIMEOUT_MS, createStartTracker, startView, trackStart, type StartRoom } from "../src/start.ts";
+import { START_ERROR_LAG_MS, START_LAG_MS, START_TIMEOUT_MS, createStartTracker, startView, trackStart, type StartRoom } from "../src/start.ts";
 
 const lobby: StartRoom = { activeGame: null, preparing: null };
 const live: StartRoom = { activeGame: { shortCode: "G1" }, preparing: null };
@@ -41,6 +41,10 @@ test("a stale request cannot stick: the subscription lagging after the call retu
   const returned = { requestId: "r", since: 100, source: "owner" as const, returnedAt: 200 };
   assert.equal(startView(returned, lobby, 200 + START_LAG_MS - 1).phase, "starting", "the call returned; the room has not caught up yet");
   assert.equal(startView(returned, lobby, 200 + START_LAG_MS).phase, "idle", "the lag is over: the room is the truth");
+  // Under load the game can take 40–60 s to show after the call returned: the page must still say "starting" then.
+  assert.equal(startView(returned, lobby, 200 + 50_000).phase, "starting", "a slow commit under load is still a start in progress");
+  const failedPrep = { activeGame: null, preparing: { ready: 1, total: 8, error: "boom" } };
+  assert.equal(startView(returned, failedPrep, 200 + START_ERROR_LAG_MS).phase, "idle", "a failed preparation is not hidden for long");
   const hung = { requestId: "r", since: 100, source: "owner" as const };
   assert.equal(startView(hung, lobby, 100 + START_TIMEOUT_MS - 1).phase, "starting");
   assert.equal(startView(hung, lobby, 100 + START_TIMEOUT_MS).phase, "idle");

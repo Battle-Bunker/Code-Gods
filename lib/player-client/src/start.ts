@@ -7,13 +7,13 @@
  * (about 1–2 s), and a shape new to the server then reports `preparing` while its rule tables compute (tens of
  * seconds). The click must register in the same frame, never twice, and never stick:
  * - the request is held in memory only, so a reload mid-start shows the room as it is (the subscription is the truth);
- * - once the call returns, the room has START_LAG_MS to show the game or the preparation, then the pending view ends;
+ * - once the call returns, the room has START_LAG_MS (60 s) to show the game or the preparation, then the pending view ends;
  * - a call that never settles stops showing as pending after START_TIMEOUT_MS.
  * The engine's start is idempotent per requestId, so one click is one requestId.
  */
 
-/** After the start call returned, how long the UI waits for the room's subscription to catch up. */
-export const START_LAG_MS = 8_000;
+/** After the start call returned, how long the UI waits for the room's subscription to catch up (a commit under load can take 40–60 s). */
+export const START_LAG_MS = 60_000;
 /** A start call that has not settled by then is no longer shown as pending (the room's state is shown instead). */
 export const START_TIMEOUT_MS = 90_000;
 
@@ -26,8 +26,10 @@ export type StartView =
   | { phase: "starting"; source: StartSource }
   | { phase: "preparing"; ready: number; total: number };
 
-const isLive = (r: StartRequest | null | undefined, now: number): r is StartRequest =>
-  !!r && now - r.since < START_TIMEOUT_MS && (r.returnedAt === undefined || now - r.returnedAt < START_LAG_MS);
+/** The lag before a returned start over a failed preparation stops hiding that failure (the old 8 s). */
+export const START_ERROR_LAG_MS = 8_000;
+const isLive = (r: StartRequest | null | undefined, now: number, lag = START_LAG_MS): r is StartRequest =>
+  !!r && now - r.since < START_TIMEOUT_MS && (r.returnedAt === undefined || now - r.returnedAt < lag);
 
 /**
  * The start control's state. A live game ends any pending start; a preparation in progress shows its progress; a live
@@ -37,7 +39,8 @@ export function startView(request: StartRequest | null | undefined, room: StartR
   if (room?.activeGame) return { phase: "idle" };
   const p = room?.preparing;
   if (p && !p.error) return { phase: "preparing", ready: p.ready, total: p.total };
-  if (isLive(request, now)) return { phase: "starting", source: request.source };
+  // A failed preparation is shown soon after the call returned (a retry has START_ERROR_LAG_MS to replace it).
+  if (isLive(request, now, p?.error ? START_ERROR_LAG_MS : START_LAG_MS)) return { phase: "starting", source: request.source };
   return { phase: "idle" };
 }
 
@@ -72,6 +75,7 @@ export function createStartTracker(clock: Clock = realClock) {
       const r = requests.get(roomId);
       if (r?.requestId !== requestId || r.returnedAt !== undefined) return;
       set(roomId, { ...r, returnedAt: clock.now() });
+      clock.later(expire, START_ERROR_LAG_MS);   // re-render when a failed preparation stops being hidden
       clock.later(expire, START_LAG_MS);
     },
     /** The call failed: the control is restored at once (the caller shows the error). */
