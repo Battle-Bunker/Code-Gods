@@ -7,8 +7,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { instantiate } from "@workspace/game-types";
 import {
-  EXACT_TOP, calibrationError, exactTopFromBoards, headroomShare, ninesExactTop, sentenceCount, tierFloor, tierLayout, tierOf, topTierOf,
+  EXACT_TOP, calibrationError, courtTopSample, exactTopFromBoards, headroomShare, mirrorExactTop, mirrorQualifying, ninesExactTop, sentenceCount, tierFloor,
+  tierLayout, tierOf, topTierOf,
 } from "../scripts/tiered-profile.ts";
+import { courtScore } from "../src/families/grid/layered/royal_court.ts";
 import { conditionalTier, mulberry32, type DisjointBase } from "../src/tiers/hybrid.ts";
 
 test("tier layout: gated and plain append the tier, unlock puts it after the capped first component", () => {
@@ -85,5 +87,34 @@ test("conditionalTier agrees with the exact top law of Opposite Nines within hal
   const inst = instantiate("Grid", { size: 4, symbols: "base10", colours: "mono" });
   assert.ok(EXACT_TOP.opposite_nines({ tiers: [{ id: "lines", x: 18, gate: 6 }] }, inst));
   assert.equal(EXACT_TOP.opposite_nines({ tiers: [{ id: "lines", x: 18, gate: 6, compose: "unlock" }] }, inst), null);
+});
+
+test("Mirrormancer at its top, in closed form, against brute force and the family's own count", () => {
+  // 3 lines, 6 mirrors, 2 of them qualifying: enumerate the 216 top boards.
+  const counts = [0, 0, 0];
+  for (let a = 0; a < 6; a++) for (let b = 0; b < 6; b++) for (let c = 0; c < 6; c++) counts[new Set([a, b, c].filter(m => m < 2)).size]++;
+  const small = mirrorExactTop(2, 6, 3);
+  assert.equal(small.boards, 216);
+  assert.deepEqual(small.survival, [[0, 1], [1, (counts[1] + counts[2]) / 216], [2, counts[2] / 216]]);
+  // 4×4 digits: 18 mirrors hold exactly two ys, and four different ones fill 18·17·16·15 of the 10⁸ top boards.
+  assert.equal(mirrorQualifying("holding", { y: 7 }), 18);
+  assert.deepEqual([7, 8, 9].map(x => mirrorQualifying("halves", { x })), [8, 8, 10]);
+  assert.equal(mirrorQualifying("other", {}), null);
+  const e = mirrorExactTop(18);
+  assert.equal(e.boards, 1e8);
+  assert.equal(e.survival.at(-1)![1], 18 * 17 * 16 * 15 / 1e8);
+  assert.ok(Math.abs(e.survival[1][1] - (1 - 0.82 ** 4)) < 1e-12);
+});
+
+test("Kings and Subjects at its top: the sample draws four courts and tallies the tier", () => {
+  const boxes = [[0, 1, 4, 5], [2, 3, 6, 7], [8, 9, 12, 13], [10, 11, 14, 15]];
+  let k = 0;
+  const s = courtTopSample(board => {
+    for (const cells of boxes) assert.deepEqual([...courtScore(cells.map(c => board[c]), 20).score], [1, 0]);
+    return k++ % 4 === 0 ? 1 : 0;
+  }, 400);
+  assert.equal(s.boards, 400);
+  assert.deepEqual(s.survival, [[0, 1], [1, 0.25]]);
+  assert.deepEqual(s.hits, [[0, 400], [1, 100]]);
 });
 
