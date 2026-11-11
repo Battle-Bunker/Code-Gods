@@ -31,10 +31,10 @@ export interface DatasetSpec {
 
 const OBJECT = "{ id: string; value: number | string; payoff: number; own: { netBits: number; rewardBits: number; penaltyBits?: number; ordinal: number }; peerCare: number; peerNetBits: number }";
 /** One projected event (convex/lib/projection.ts projectEvent), tagged with its tick batch's seq. */
-const EVENT = "{ seq: number; worldSeconds: number; type: 'phase' | 'object.spawned' | 'object.rescored' | 'object.transformed' | 'agent.failed' | 'agent.skipped' | 'agent.summoned' | 'agent.destroyed' | 'agent.power'; phase?: string; objectId?: string; "
+const EVENT = "{ seq: number; worldSeconds: number; type: 'phase' | 'object.spawned' | 'object.rescored' | 'object.transformed' | 'agent.failed' | 'agent.skipped' | 'agent.summoned' | 'agent.destroyed' | 'agent.power' | 'god.looked'; phase?: string; objectId?: string; "
   + "value?: number | string; before?: number | string; version?: number; agentId?: string; mine?: boolean; calls?: [string, Record<string, unknown>][]; cost?: { read: number; change: number; total: number }; "
   + "own?: { netBits: number }; peerNetBits?: number; peerCare?: number; payoff?: number; reason?: string; "
-  + "source?: string; summonCost?: number; expectedActCost?: number /* agent.summoned: source, price and act cost only when mine */; powerShare?: number; share?: number /* agent.summoned powerShare; agent.power share (mine only) */ }";
+  + "source?: string; summonCost?: number; expectedActCost?: number /* agent.summoned: source, price and act cost only when mine */; powerShare?: number; share?: number /* agent.summoned powerShare; agent.power share (mine only) */; price?: number; count?: number /* god.looked (yours, paid observation): energy paid and objects looked at */ }";
 
 export const DATASETS: { readonly [K in DatasetName]: DatasetSpec } = {
   objects: {
