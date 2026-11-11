@@ -213,7 +213,10 @@ function illumination(l: Lens, p: Draw["params"], b: Board): number {
   const total = parts.reduce((s, t) => s + t.points[0], 0), won = parts.reduce((s, t) => s + Math.max(0, t.points[0]), 0);
   // A varied board (several numbers, every colour) looks like a real game, not a test pattern.
   const variety = Math.min(new Set(b.cells.map(x => b.sym(x))).size, 8) + 2 * new Set(b.cells.map(x => b.col(x))).size;
-  return Math.min(gains, 6) * 3 + Math.min(rest, 6) * 2 + tones * 8 + Math.min(won, 6) * 2 + variety * 2
+  // A tiered draw (docs/tiered-rules.md) teaches most on a board past its gate that already holds a ★ point.
+  const tier = parts.filter(t => t.id.startsWith("tier"));
+  const star = tier.some(t => t.points.some(x => x > 0)) ? 45 : tier.length ? 15 : 0;
+  return Math.min(gains, 6) * 3 + Math.min(rest, 6) * 2 + tones * 8 + Math.min(won, 6) * 2 + variety * 2 + star
     - Math.max(0, parts.length - 24) - (gains === 0 ? 40 : 0) - (total <= 0 ? 20 : 0);
 }
 
