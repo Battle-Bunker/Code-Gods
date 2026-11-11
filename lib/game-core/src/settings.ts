@@ -643,7 +643,7 @@ export const SEED_SETUPS: readonly SeedSetup[] = Object.freeze([
   // Tiered rules (docs/layered-rules-design.md). New seeds go at the end: the order above is the learning order.
   tieredSeed(TIERED_RULES_SEED_ID, "Tiered rules", "Each rule has an easy base and a ★ bonus that opens once the base is well along", { depth: 1 }),
   tieredSeed("lab-tiers-plain", "Lab: tiers without a gate", "Tiered rules whose ★ bonus counts from the start, with no gate", { depth: 1, compose: "plain" }, true),
-  tieredSeed("lab-tiers-unlock", "Lab: unlocking tiers", "Tiered rules whose ★ bonus shows its points only once the base unlocks it", { depth: 1, compose: "unlock" }, true),
+  tieredSeed("lab-tiers-unlock", "Lab: unlocking tiers", "Once unlocked, the ★ bonus outranks the rest of the base. Rarity near the top is a rough estimate here (sampled tables)", { depth: 1, compose: "unlock" }, true),
   // No family offers two tiers yet, so no game can be dealt from it: administrators only until one does.
   tieredSeed("grid-tiered-expert", "Expert tiered rules", "Each rule has a base and two ★ bonuses that open in turn", { depth: 2 }, true),
   tieredSeed("lab-tiers-uncapped", "Lab: tiers with unequal reach", "Tiered rules whose ★ bonuses are deliberately unequal in how far they reach", { depth: 1, compose: "uncapped" }, true),
