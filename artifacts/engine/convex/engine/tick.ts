@@ -10,8 +10,7 @@
  * with a CSPRNG, run the act with the season-salted seed
  * deriveSeed(salt, ["play", gameId, agentId, actIndex]), applyCalls, enforce uniqueness (onto any existing
  * value, the object's own included, fails), apply the commit clause, charge the act (the bits it read at READ_PRICE,
- * the offer itself counted as a read of which object it was given: §7.1, plus its change when that commits: §2) and score
- * the result. An act that returns no calls is skipped: not a failure.
+ * plus its change when that commits: §2) and score the result. An act that returns no calls is skipped: not a failure.
  *
  * Throughput: up to WORKERS acts run concurrently in a "wave", but a wave never holds the same object or
  * agent twice (as the Express engine reserved them), and results are applied strictly in opportunity order,
@@ -20,7 +19,7 @@
  * (its energy after that act) ÷ (the energy it was drawn at), else the draw is repeated: the sequential draw exactly.
  */
 import { v } from "convex/values";
-import { chargeAct, instantiationOf, isLanguage, offerReadBits, pickByEnergy, poissonIntervalSeconds, type GameSettings, type ObjectValue } from "@workspace/game-core";
+import { chargeAct, instantiationOf, isLanguage, pickByEnergy, poissonIntervalSeconds, type GameSettings, type ObjectValue } from "@workspace/game-core";
 import { actCharge, applyCalls, deriveSeed, failedReadBits, isSkip, objectType, readBound, type ActOutcome, type MutatorCallWire } from "@workspace/game-types";
 import type { UtilityDescriptor } from "@workspace/game-utilities";
 import type { Id } from "../_generated/dataModel";
@@ -148,8 +147,7 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
     // Opportunities: rate × Δt, stochastically rounded; spread evenly over the window.
     const expected = settings.interactionRateHz * windowLength;
     const count = agents.length && objects.length ? Math.floor(expected) + (uniform01() < expected - Math.floor(expected) ? 1 : 0) : 0;
-    /** `offerBits`: what the offer told the agent, which of the live objects it holds (§7.1); read bits like the meter's. */
-    type Pending = { object: typeof objects[number]; agent: typeof agents[number]; world: number; before: ObjectValue; seed: bigint; offerBits: number };
+    type Pending = { object: typeof objects[number]; agent: typeof agents[number]; world: number; before: ObjectValue; seed: bigint };
     let wave: Pending[] = [];
     let acts = 0, opportunities = 0, applied = 0, exhausted: string | null = null;
 
@@ -157,11 +155,9 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
       if (!result) return; // a host failure (capacity, unavailable): not the agent's fault, nothing is charged
       applied++;
       const { object, agent } = p;
-      // Every offer is a read (§7.1): the agent learned which object it holds, whatever it then looked at or did.
-      const readBits = result.readBits + p.offerBits;
       if ("calls" in result && isSkip(result.calls)) {
         // Skipped (docs/energy-model.md §2): it read, chose not to act, and pays its reads; not a failure, never futile.
-        const cost = actCharge(null, readBits);
+        const cost = actCharge(null, result.readBits);
         agent.account = chargeAct(settledAccount(settings, agent, p.world), cost.total);
         agent.acts++; agent.skips++; agent.spent += cost.total; agent.spentRead += cost.read; agent.touched = true; acts++;
         events.push({ t: "skip", objectId: object.id, world: p.world, agentId: agent.id, ownerId: agent.ownerId, cost, seed: p.seed.toString() });
@@ -181,7 +177,7 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
         }
       }
       const duplicate = outcome.ok && occupied.has(outcome.value); // includes the object's own value
-      const cost = actCharge(outcome, readBits, { commits: !duplicate });
+      const cost = actCharge(outcome, result.readBits, { commits: !duplicate });
       agent.account = chargeAct(settledAccount(settings, agent, p.world), cost.total);
       agent.acts++; agent.spent += cost.total; agent.spentRead += cost.read; agent.touched = true; acts++;
       const kind: ActKind = "error" in result ? "error" : !outcome.ok ? failureKind(outcome.reason) : duplicate ? "collision" : "transform";
@@ -270,7 +266,7 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
           const settled = agentStatus(settings, agent, world);
           if (!settled.eligible || uniform01() * drawnAt >= settled.energy || futile.isFutile(agent.id, object, versionOf)) continue;
         }
-        wave.push({ object, agent, world, before: object.value, seed: deriveSeed(salt, ["play", game._id, agent.id, agent.acts]), offerBits: offerReadBits(objects.length) });
+        wave.push({ object, agent, world, before: object.value, seed: deriveSeed(salt, ["play", game._id, agent.id, agent.acts]) });
         if (wave.length >= WORKERS) await flush();
         break;
       }

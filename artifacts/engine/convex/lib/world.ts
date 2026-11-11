@@ -41,9 +41,8 @@ export const EVENTS_PER_BATCH = 400;
  * priced at one energy bit per bit read, so cost.read there is also the bits read. Replay reads recorded costs either way.
  * 9 marks a failed act whose code raised or ran out of time (`error: true` on a fail event), so a replay tells a runtime
  * error from an invalid call, as the live failure breakdown (agents.failures) does.
- * 10 marks the selection and exposure rules of 11 Nov 2026 (docs/energy-model.md §7): no rate limit per agent (before it,
- * each agent was offered at most 4 opportunities per world second), and every offer is charged as a read of which object
- * the agent was given (log2 of the live objects, inside cost.read). Replay reads recorded costs either way.
+ * 10 marks the selection rule of 11 Nov 2026 (docs/energy-model.md §7): no rate limit per agent (before it, each agent
+ * was offered at most 4 opportunities per world second). Replay reads recorded costs either way.
  */
 export const EVENT_LOG_SCHEMA = 10;
 
