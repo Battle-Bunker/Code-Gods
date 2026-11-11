@@ -377,6 +377,24 @@ function climb(s: Sampler, budget: CalibrationBudget, rng: Rng, initial: Particl
   return { levels: tl, log2p: tp, vars: tv, chosen, stoppedEarly, extinct, stages };
 }
 
+/**
+ * A calibration curve for any score function on any instantiation (no family needed): the same body + splitting
+ * estimator and clean-up as `buildTable`, returning the levels (strictly increasing bits) and the extrapolation slope.
+ * Used by scripts/rule-difficulty.ts to put ad-hoc evaluators (brainstormed rules) into bits. Deterministic in `seed`.
+ */
+export function calibrateScore(score: (v: unknown) => Ordinal, inst: Instantiation, budget: CalibrationBudget, seed: string):
+  { levels: [Ordinal, number][]; slope: number; evaluations: number } {
+  const T = objectType(inst.objectType);
+  let n = 0;
+  const s: Sampler = { inst, T, score: v => { n++; return score(v); }, evaluations: () => n };
+  const { points } = sampleCurve(s, budget, seededRng(seed));
+  const strict = strictBits(points.map(p => p[1]), points.map(p => p[2])).map(round9);
+  const { levels: lv, bits } = thin(points.map(p => p[0]), strict);
+  const top = bits.length - 1, back = Math.max(0, top - SLOPE_LEVELS);
+  const fit = top > back ? (bits[top] - bits[back]) / ordinalDistance(lv[back], lv[top]) : 0;
+  return { levels: lv.map((o, i) => [o, bits[i]]), slope: round9(Math.max(MIN_SLOPE_BITS, fit)), evaluations: n };
+}
+
 /** What a build produces before the clean-up: the curve, and how it was made. */
 interface Raw {
   readonly key: string;
