@@ -435,20 +435,31 @@ much less than mutation) to get exposure to mutation opportunities."
   agent: log2 objects + log2 of the room's agents with energy), not a per-agent rule. The measurements above do not call
   for it.
 
-### 7.2 Debt (open)
+### 7.2 Debt within capacity (variant: `variant/debt-within-capacity`)
 
-A balance may go negative by one whole act: an agent with 0.1 bits can commit a 985-bit repaint of a 4×4 grid and then
-waits until income repays it. Debt is per agent, not per unit of power: n agents can owe n acts, and one agent's debt
-does not reduce its siblings' weight in the draw. In the long run this is neutral (every bit spent is repaid from the
-agent's own income before it acts again), with two exceptions that exist today:
+A balance may go negative: an act's cost is known only after it has run. Before this rule the debt had no bound and
+was per agent, not per unit of power: an agent with 0.1 bits could commit a 985-bit repaint of a 4×4 grid, n agents
+could owe n such acts, and the debt could be left unpaid by destroying the agent (re-summon: about 60 bits) or by giving
+its power to another agent.
 
-- **Destroying an agent in debt, or giving its power to another agent, leaves the debt unpaid.** Destroy and re-summon
-  costs a summon price (about 60 bits for a small agent) against an act of any size.
-- **Debts outstanding when the game ends are never repaid.**
+Two rules, both in terms of power:
 
-Proposed rule (not shipped; see the variant branch `variant/debt-within-capacity`): an account's balance stays within
-its capacity on both sides (an act that would leave it owing more than its capacity does not commit and pays its
-reads), and power cannot be taken from an account in debt.
+- **An account may owe at most what it can hold.** Its balance stays within ±capacity (s·P·T). A change that would
+  leave the agent owing more does not commit: the act fails as "it could not afford the change" (`failures.debt`,
+  `DEBT_REASON`), pays its reads like any change that does not commit, and is not remembered as futile (it commits once
+  the agent holds more). So the largest change an agent can ever make costs 2·s·P·T, and a god's agents together can
+  owe at most P·T however they are split. game-core `affordable(balance, cost, capacity)`; the tick applies it.
+- **Power cannot be taken from an account in debt.** An agent that owes cannot be destroyed or given a smaller share
+  until its own income has repaid it. It is offered nothing while it owes, and it owes at most its capacity, so the wait
+  is at most T seconds. The refusal says how much it owes and for how long. Raising its share is always allowed.
+
+With both, every bit an agent spends is paid from the power assigned to it, except what is owed when the game ends
+(at most P·T per god, the same for everyone). A game without capacity (started before the setting) keeps its old
+behaviour. Stored data: `agents.failures.debt` is optional (absent reads as 0); nothing else changes.
+
+Tests: game-core `affordable`; engine unit (the failure kind and its diagnosis); `test/game-power.test.ts` on the real
+tick (a 5% agent is refused a change that a 50% agent commits; no account owes more than its capacity; an agent in debt
+cannot be destroyed or given less power).
 
 **What was removed, and why.** Until 11 Nov 2026 two limits were per agent, so a god gained turns by running more
 agents with the same power:
@@ -470,7 +481,7 @@ reports `economy.maxAgentOpportunityHz` (a replay of an older game still does). 
 **Per-agent quantities that remain** (none is an advantage in turns): `maxAgentsPerGod` (a limit); the summon price
 (each program is priced by its own description, so n small programs cost what their lengths cost, plus each one's own
 boilerplate: never cheaper than one); the futility memo (per agent and object: n copies of a deterministic agent each
-fail once on an object before being kept off it, and pay their reads); and debt (§7.2).
+fail once on an object before being kept off it, and pay their reads). Debt is bounded by power (§7.2).
 
 ## 8. Hold rarity (PR 5)
 

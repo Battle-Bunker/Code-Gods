@@ -16,7 +16,7 @@ import { withEngine, writeGame } from "./state";
 import { fail, messageOf } from "../lib/errors";
 import { memberOf, principalV, requireMemberAs, requireRoom, viewerOf, type Principal } from "../lib/rooms";
 import { godEnergy, settledAccount, worldNow } from "../lib/world";
-import { deityAccount, deityCapacityOf } from "../lib/power";
+import { agentIncomeOf, deityAccount, deityCapacityOf, fullChargeOf } from "../lib/power";
 import { agentLanguage, languageV } from "../lib/language";
 
 const CHAT_INTERVAL_MS = 1000;
@@ -152,6 +152,20 @@ export const claimExamination = internalMutation({
   },
 });
 
+/**
+ * Power cannot be taken from an account in debt (docs/energy-model.md §7.2): an agent that owes keeps its share until
+ * its own income has repaid it, so a debt cannot be left behind by destroying the agent or moving its power. It is
+ * offered nothing while it owes, and it owes at most its capacity, so the wait is at most fullChargeSeconds. A game
+ * without capacity (started before the setting) keeps its old behaviour.
+ */
+function owesNothing(settings: GameSettings, agent: Doc<"agents">, world: number, what: string): void {
+  if (fullChargeOf(settings) === undefined) return;
+  const { balance } = settledAccount(settings, agent, world);
+  if (balance >= 0) return;
+  const income = agentIncomeOf(agent, settings);
+  fail("CONFLICT", `This agent owes ${(-balance).toFixed(0)} bits of energy, so it cannot be ${what} yet: it keeps its power until it has repaid, in about ${Math.ceil(-balance / income)} s. It is offered no turns while it owes`);
+}
+
 type Examined = { gameId: string; source: string; language: Language; error?: string; twins?: number; result?: { cost: number; parts: unknown; expectedActCost: number;
   breakdown: { read: number; change: number }; randomized: boolean; diagnostics: string[];
   changeRate?: number; invalidRate?: number; skipRate?: number; futility?: Futility; warnings?: string[] } };
@@ -254,6 +268,7 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     const agent = id ? await ctx.db.get(id) : null;
     if (!agent || agent.gameId !== game._id || agent.ownerId !== member.godId) fail("NOT_FOUND", "You have no agent with that ID");
     const world = worldNow(game, now);
+    owesNothing(settings, agent, world, "destroyed");
     // Its power share returns to the deity (settled first: the deity's income changes from now).
     await ctx.db.patch(deity._id, { account: deityAccount(game, deity, world), allocated: roundShare(Math.max(0, deity.allocated - agent.powerShare)) });
     await ctx.db.delete(agent._id);
@@ -272,6 +287,7 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     assertShare(share);
     const world = worldNow(game, now);
     const others = deity.allocated - agent.powerShare;
+    if (share < agent.powerShare) owesNothing(settings, agent, world, "given less power");
     if (others + share > 1 + 1e-9) fail("BAD_REQUEST", `Your other agents hold ${(100 * others).toFixed(0)}% of your power: this one can have at most ${(100 * Math.max(0, 1 - others)).toFixed(0)}%`);
     await ctx.db.patch(agent._id, { account: settledAccount(settings, agent, world), powerShare: share });
     await ctx.db.patch(deity._id, { account: deityAccount(game, deity, world), allocated: roundShare(others + share) });

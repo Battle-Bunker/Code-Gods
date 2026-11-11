@@ -142,3 +142,60 @@ test("capacity: accounts fill to power × fullChargeSeconds and stop; lowering a
   assert.equal(checked.accepted, true, checked.message);
   await host.c.mutation(api.rooms.endActiveGame, { roomId });
 });
+
+/**
+ * Debt within capacity (docs/energy-model.md §7.2). P = 40 bits/s, T = 10 s. "Small" has 5% of the power (2 bits/s:
+ * holds 20, may owe 20); "Big" has 50% (holds 200, may owe 200). Both add 11111: five digit adds, far more than 40 bits
+ * and far less than 200. Small can never commit it (it would owe more than it holds): each try fails as "debt" and pays
+ * only its reads. Big commits it and goes into debt, and then its power cannot be lowered and it cannot be destroyed
+ * until it has repaid.
+ */
+test("debt within capacity: an act may not leave an agent owing more than it holds; power stays with an agent in debt", { timeout: 240000 }, async () => {
+  const [host, ada, bo] = await gods("Debt Host", "Debt Ada", "Debt Bo");
+  await touch(host);
+  const { roomId } = await roomWith([host, ada, bo], {
+    objectType: "Int", typeArgs: { min: -1000000, max: 1000000 }, languages: ["typescript"],
+    startingObjectCount: 6, spawnRateHz: 0, planningSeconds: 3600, powerPerSecond: 40, startingEnergy: 5000, interactionRateHz: 20, fullChargeSeconds: 10,
+  });
+  const game = await startGame(host, roomId);
+  const send = (god: typeof ada, command: Record<string, unknown>) => god.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
+  const source = "function agent(n) { return [add(11111)]; }";
+  const small = await send(ada, { type: "summon", name: "Small", language: "typescript", source, powerShare: 0.05 });
+  assert.equal(small.accepted, true, small.message);
+  const big = await send(bo, { type: "summon", name: "Big", language: "typescript", source, powerShare: 0.5 });
+  assert.equal(big.accepted, true, big.message);
+  await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 3600 }, kick: true });
+  const agentOf = async (god: typeof ada) => (await raw(game.gameId)).agents.find((a: any) => a.ownerId === god.subject);
+  await waitFor(async () => (await agentOf(bo))?.transforms >= 1 && ((await agentOf(ada))?.failures?.debt ?? 0) >= 3, "Big commits and Small is refused", 120000, 250);
+
+  const state = await raw(game.gameId);
+  const events = state.batches.flatMap((b: any) => b.events);
+  const cost = events.find((e: any) => e.t === "transform").cost;
+  assert.ok(cost.change > 40 && cost.change < 200, `the change costs ${cost.change}: more than Small may ever pay, less than Big may owe`);
+  const smallAgent = state.agents.find((a: any) => a.ownerId === ada.subject);
+  assert.equal(smallAgent.transforms ?? 0, 0, "Small never commits");
+  assert.ok(smallAgent.account.balance >= -20 - 1e-6, `Small owes at most its capacity: ${smallAgent.account.balance}`);
+  const refused = events.filter((e: any) => e.t === "fail" && e.agentId === smallAgent._id);
+  assert.ok(refused.length >= 3 && refused.every((e: any) => /cannot afford/.test(e.reason) && e.cost.change === 0), "each refusal pays its reads only");
+  const memo = await admin.query(internal.testing.futileActs, { gameId: game.gameId });
+  assert.ok(memo.every((m: any) => m.agentId !== smallAgent._id || m.entries.length === 0), "a refusal for debt is not remembered as futile");
+  for (const a of state.agents) assert.ok(a.account.balance >= -(a.powerShare * 40 * 10) - 1e-6, `${a.name} owes at most its capacity: ${a.account.balance}`);
+
+  // Big in debt: its power cannot be taken, by re-allocation or by destroying it. Catch it right after an act.
+  let locked = false;
+  for (let i = 0; i < 200 && !locked; i++) {
+    const bigAgent = await agentOf(bo);
+    if (bigAgent.account.balance >= -30) { await new Promise(r => setTimeout(r, 100)); continue; }
+    const lower = await send(bo, { type: "allocatePower", agentId: bigAgent._id, share: 0.1 });
+    if (lower.accepted) break; // it repaid between the read and the command: a rare race, checked below
+    assert.match(lower.message, /owes .* bits of energy.*cannot be given less power/);
+    const destroy = await send(bo, { type: "destroy", agentId: bigAgent._id });
+    if (!destroy.accepted) assert.match(destroy.message, /cannot be destroyed yet/);
+    locked = true;
+  }
+  assert.ok(locked, "Big was caught in debt and kept its power");
+  // Raising its share is always allowed, and so is lowering it once it owes nothing.
+  const bigAgent = await agentOf(bo);
+  assert.equal((await send(bo, { type: "allocatePower", agentId: bigAgent._id, share: 0.6 })).accepted, true);
+  await host.c.mutation(api.rooms.endActiveGame, { roomId });
+});

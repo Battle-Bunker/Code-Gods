@@ -155,7 +155,7 @@ export const observationSchema = z.object({
     // the object, or failed by kind (collision: another object already had the value; noChange; commit: the commit
     // clause kept the object; invalid call; error: the code raised or timed out), with the last invalid call or error.
     outcomes: z.object({ transforms: z.number().int().nonnegative(),
-      failures: z.object({ collision: count, noChange: count, commit: count, invalid: count, error: count }),
+      failures: z.object({ collision: count, noChange: count, commit: count, invalid: count, error: count, debt: count.optional() }),
       lastFailures: z.object({ invalid: z.string().max(300).optional(), error: z.string().max(300).optional() }).optional() }).optional(),
     // "38 of 38 acts failed: another object already has this value", and when most acts fail, why and how to fix it.
     diagnosis: z.object({ summary: z.string().max(500), hint: z.string().max(600).optional() }).optional() })).max(200),
