@@ -9,7 +9,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { instantiate, objectType, type ObjectValue } from "@workspace/game-types";
-import { FAMILIES, available, canonicalSupport, context, entryPoint, evaluator, paramsKey } from "../src/index.ts";
+import { FAMILIES, TIER_COMPOSITIONS, available, canonicalSupport, context, entryPoint, evaluator, paramsKey } from "../src/index.ts";
 import { allGrids, coveringGrids, familiesOf, intInsts, sampleObjects, seededRng, stringInsts } from "./support.ts";
 
 const here = dirname(new URL(import.meta.url).pathname);
@@ -27,6 +27,18 @@ export function cardsFixture() {
       for (const params of draws) {
         const ex = f.exemplar ? [f.exemplar(params, ctx)] : [];
         const wires = [...base, ...ex];
+        const u = evaluator({ familyId: f.id, params }, inst);
+        cases.push({
+          key: inst.key, family: f.id, entry: entryPoint(f), params, source: f.card.python(params, ctx),
+          wires, ordinals: wires.map(w => u(w)),
+        });
+      }
+      // Tiered draws (docs/tiered-rules.md): one per variant, on the same objects plus the base's best board (above the gate).
+      for (const compose of TIER_COMPOSITIONS) {
+        const params = f.tiered?.(ctx, 1, compose)[0];
+        if (!params) continue;
+        const { tiers: _tiers, ...baseOnly } = params as Record<string, unknown>;
+        const wires = [...base, ...(f.exemplar ? [f.exemplar(baseOnly, ctx)] : [])];
         const u = evaluator({ familyId: f.id, params }, inst);
         cases.push({
           key: inst.key, family: f.id, entry: entryPoint(f), params, source: f.card.python(params, ctx),

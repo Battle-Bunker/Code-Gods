@@ -63,7 +63,7 @@ export function compileSource(source: string, inst: Instantiation): (g: GridValu
 /** A family draw as a rule: the shipped table when there is one, else a calibration here (SMALL_BUDGET). */
 export function familyRule(familyId: string, params: Params, inst: Instantiation, opts: { calibrate?: boolean; id?: string } = {}): Rule {
   const f = family(familyId), ctx = context(inst), codec = objectType(inst.objectType).codec(inst);
-  const ev = evaluator({ familyId, params }, inst), shape = f.shape(ctx);
+  const ev = evaluator({ familyId, params }, inst), shape = f.shape(ctx, params);
   const score = (g: GridValue) => assertOrdinal(shape, ev(codec.encode(g)));
   const shipped = opts.calibrate ? undefined : tableFor(shippedTables(inst.key), { familyId, params }, inst);
   const cal = shipped ? { levels: shipped.levels, slope: shipped.slope }

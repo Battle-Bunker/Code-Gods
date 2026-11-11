@@ -1,6 +1,6 @@
 # Layered rules: an easy base, and interactions that reach higher
 
-Status: design brainstorm with measured prototypes (2026-11-11). No shipped family, parameter or calibration key changes.
+Status: design brainstorm with measured prototypes (2026-11-11). The paradigm is now implemented: see `docs/tiered-rules.md` for the shipped code and `docs/layered-rules-measurements/` for the numbers on real families.
 
 Code:
 - `lib/game-utilities/scripts/rule-difficulty-layered.mjs`: the prototypes. It holds the operator menu, six families,

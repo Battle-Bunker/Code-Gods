@@ -59,7 +59,7 @@ test("draws given the base have that base", () => {
 for (const [x, gate] of [[2, 6], [1, 6], [2, 0]] as const) {
   test(`hybrid law within 1 bit of brute force: lines add up to ${x}, gate ${gate}`, () => {
     const truth = exact(pairs, lineSum(x), gate);
-    const law = hybridLaw(pairs, { gate, tier: lineSum(x), tierArity: 1, seed: 7, particles: 512, topParticles: 2048 });
+    const law = hybridLaw(pairs, { gate, tier: lineSum(x), tierArity: 1, seed: 7, particles: 512, topParticles: 2048, topSweeps: 2 });
     let worst = 0, belowGate = 0;
     for (const [o, l] of law.levels) {
       const t = truth.get(o.join(","));
