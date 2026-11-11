@@ -9,8 +9,9 @@ distance (add k on a digit costs 4 + 1.585·|k| bits, no set for numbers) and dr
 
 ## 1. Principles
 
-1. **An act pays only for what it does.** It pays for the bits it reads (§3) and for the change it makes (§4). There is
-   no per-act floor and no per-act charge for the agent's code. Code complexity is priced once, at summon (the
+1. **An act pays only for what it does.** It pays for the bits it reads (§3), the offer included (§7.1: being given an
+   object is a read of which object it is), and for the change it makes (§4). There is no other per-act charge and no
+   per-act charge for the agent's code. Code complexity is priced once, at summon (the
    ast-bits description length, unchanged).
 2. **Looking is much cheaper than changing.** A bit read costs 1/κ of a bit changed (κ = `CHANGE_READ_RATIO` = 32,
    §2.1), and computing is free. Careful play (read the board, work out which change serves you without breaking the
@@ -30,7 +31,7 @@ distance (add k on a digit costs 4 + 1.585·|k| bits, no set for numbers) and dr
 
 ```
 charge = R/κ + (the change commits ? C : 0)
-R = Σ distinct reads' information, in bits (§3)        C = W + β·W²,  W = Σ elementary costs (§4)
+R = the offer's bits (§7.1) + Σ distinct reads' information, in bits (§3)        C = W + β·W²,  W = Σ elementary costs (§4)
 κ = CHANGE_READ_RATIO = 32                             READ_PRICE = 1/κ energy bits per bit read (§2.1)
 ```
 
@@ -49,7 +50,7 @@ bits.
 | collision | the result is another object's value | R/κ | recorded | counted |
 | commit clause kept it | `only_if_better` and no improvement | R/κ | recorded | counted |
 
-A change that does not commit pays no change cost: the world did not change. A skip is a choice, not a failure. Calls
+R always includes the offer's bits (§7.1), so no outcome is free. A change that does not commit pays no change cost: the world did not change. A skip is a choice, not a failure. Calls
 that cancel out are still "no change", a failure, because the agent asked for a change and nothing happened.
 
 ### 2.1 The read price κ (owner, 11 Nov 2026)
@@ -86,8 +87,8 @@ are priced at a fraction of it:
   before it keep their stored estimate (`expectedActCost`, `breakdown`), which overstates their reads until re-summoned;
   nothing is charged or scheduled from it (§5).
 - **Selection.** An agent that looks and skips now keeps nearly all its energy, so it stays rich and is offered more
-  opportunities. `MAX_AGENT_OPPORTUNITY_HZ` (§7) already bounds that (it was built for the agent that reads nothing),
-  and the futility memo still applies, so nothing there changes.
+  opportunities. Its store is bounded by the capacity (§6.1) and each offer has a price (§7.1); the per-agent rate cap
+  that bounded it when κ was introduced is gone (§7). The futility memo still applies.
 - **As a room setting** (if the owner wants per-setup tuning): add an optional `changeReadRatio` to `GameSettings`
   (game-core settings, SETTINGS_DOCS, validation ≥ 1, the setup editor), have `tick.ts` and `pricing.ts` pass
   `readPrice: 1/settings.changeReadRatio` to `actCharge` (it already takes `readPrice`; `measureAgent` would need it
@@ -109,7 +110,7 @@ are priced at a fraction of it:
   by κ = 8–32 and flat after. On Master (and Classic at κ = 128) the abstract world's edits are too coarse for reading to
   separate the policies much: this harness models a look as all-or-nothing and the goals as random draws, so it bounds
   the effect from below rather than measuring play with real goals. Acts per game rise 4–11×, because agents that look
-  and skip keep their energy (the 4 Hz cap and `interactionRateHz` bound it).
+  and skip keep their energy (the 4 Hz cap of the time and `interactionRateHz` bound it).
 
 ## 3. Read metering
 
@@ -142,7 +143,7 @@ Worked examples (4×4, base10, rgb):
 | Scans one row's colours | 4 colours | 6.34 |
 | Scans every colour | 16 colours | 25.4 |
 | Scans every symbol and colour | 32 values | 78.5 |
-| Never looks (always `paint(cell(0,0), "red")`) | — | 0 |
+| Never looks (always `paint(cell(0,0), "red")`) | — | 0 (plus the offer's bits, as every row: §7.1) |
 
 ### 3.2 Int and string
 
@@ -328,6 +329,17 @@ irrelevant.
   shares (half of what is unallocated) a Grid deity (P = 64, T = 30) holds at most 1920, then 960, 480, 240 bits.
 - **Agents start empty**, as before. Starting full would make destroy and re-summon a source of energy.
 - **Debt** (a balance below zero after an act that cost more than the agent had) is repaid from income first, as before.
+- **Why 30 seconds** (`lib/game-core/scripts/capacity-experiments.ts`; tables in `docs/energy-capacity-evidence.md`).
+  - In every shipped room agents spend income as it arrives, so no agent store fills and acts, skips and win shares are
+    the same at every T from 5 to 300: T is free to be set by the other concerns.
+  - Hoarding: the active gods keep 99% of their acts at T = 30, 98% at 60, 95% at 120, 89% at 300 (§7.1).
+  - Code size: the largest program a deity can buy is (unallocated power) × T. At 30 s the owner's 1,137-bit agent needs
+    59% of the power kept back (30% at 60 s, 15% at 120 s), and a 400-bit agent 21%: size is a real trade against the
+    agents' power. At 120 s and more it is not.
+  - Agents can still store a mid-sized change: the smallest default agent (an eighth of the power) holds 240 bits, 2.8
+    row repaints on 4×4; a half-share agent 960. At 5 s the eighth holds 40 bits, less than one row.
+  - Low power is the exception: with P = 8 (the default Int settings) the deity holds 240 bits, and its second default
+    summon leaves it 60. Such a room wants T = 60 or more.
 - **What a deity can afford.** A summon is paid from the deity's own account, so the largest program a deity can ever
   buy costs (unallocated power) × T. With all power allocated the deity's account holds nothing, and a refused summon
   says how much it can hold. Keeping power back for later agents is now a real choice against giving it to agents.
@@ -351,23 +363,114 @@ irrelevant.
   writes `deities.account` and `deities.spent`, returns the new balance or null) are the one way to charge it for
   anything other than a summon.
 
-## 7. Selection (PR 1)
+## 7. Selection: energy only, however many agents hold it (11 Nov 2026)
+
+The owner: "We want agent impact to be a function of power assigned to that agent and for the discrete quantity of
+agents to offer no opportunity for advantage."
 
 - Opportunities stay a room-wide stream of `interactionRateHz` per world second.
 - Each opportunity picks an object as today ("uniform" or "shelter"). It then picks an agent with probability
-  proportional to max(0, energy). An agent with no positive energy is not picked, and the opportunity passes if no agent
-  has positive energy. Balances may go negative, because spend varies per object.
-- There is no eligibility threshold and no battery.
-- **Sanity cap:** an agent is offered at most `MAX_AGENT_OPPORTUNITY_HZ` = 4 opportunities per world second (a
-  constant in `lib/game-core/src/energy.ts`, not a room setting; the observation's `economy.maxAgentOpportunityHz` reports
-  it). It is skipped while less than 1/cap world seconds have passed since its last opportunity.
-  - Without the cap, an agent that reads nothing and always skips pays 0 per act. It would keep all its energy and,
-    as the richest agent, take nearly every opportunity.
-  - Four a second is far more than any agent needs to contest an object, and it bounds the sandbox work one agent can
-    cause.
-  - The futility memo still keeps agents off pairs where they can only fail.
-- A cheap skipper therefore runs more often than an expensive actor with the same income: its balance stays high.
-  This is a unit test (`lib/game-core/test/energy.test.ts`).
+  proportional to max(0, energy): **one draw over every agent in the room**. An agent with no positive energy is not
+  picked, and the opportunity passes if no agent has positive energy. Balances may go negative, because spend varies
+  per object.
+- There is no eligibility threshold, no battery and **no limit per agent**. A god's chance of the next opportunity is
+  the energy its agents hold together over the room's total, so it does not matter how that energy is split.
+- **Agent-count neutrality is an invariant with tests.** For any split of a power budget over n agents running the same
+  program, the god's expected offers, acts and energy spent are those of one agent with the whole budget
+  (`lib/game-core/test/energy.test.ts`, with capacity binding, with energy binding and with no capacity; six seeds,
+  uneven splits included; a companion test re-creates a per-agent limit and checks that the test sees it;
+  `artifacts/engine/test/game-energy.test.ts` plays one agent with 80% against four with 20% each on the real tick).
+- **What bounds an agent that looks and skips** is the capacity (§6.1), in proportion to its power, and the price of
+  each offer (§7.1). Its store cannot exceed s·P·T, so the others need only hold a comparable amount to be offered
+  their share; they then act as often as their income allows.
+- The futility memo still keeps agents off pairs where they can only fail.
+- A cheap skipper runs more often than an expensive actor with the same income: its balance stays high. This is a unit
+  test (`lib/game-core/test/energy.test.ts`).
+
+### 7.1 The price of an offer (owner, 11 Nov 2026)
+
+The owner: "Choosing not to mutate after analysing a board should be an approved strategy for gaining higher leverage
+impact by spending one's energy more wisely. Although it does seem appropriate for it to cost something so that
+arbitrary hoarding of energy can't saturate access to mutation opportunities", and "we want it to cost something (though
+much less than mutation) to get exposure to mutation opportunities."
+
+- **The rule.** Being offered an object tells the agent which of the live objects it holds: log2(number of live
+  objects) bits (`offerReadBits`, game-core). The tick adds those bits to what the act read, so they are charged at the
+  read price like any other read, on every offer, whether the agent then looks at the object, changes it, skips or
+  fails. It is not a new kind of charge: it is inside `cost.read` (and `spentRead`), and `EVENT_LOG_SCHEMA` 10 marks it.
+  An act the host could not run is not charged, as before.
+- **Size.** With 80 objects it is 6.3 bits read, 0.198 energy bits: 1.1–1.7% of the cheapest change on the Grid seeds,
+  and 1.6–8% of a full look at the object.
+
+  | Seed | Objects at the start | Offer price | Cheapest change C | Offer ÷ C | Offer ÷ a full look |
+  |---|---|---|---|---|---|
+  | First steps | 80 | 0.198 | 11.5 | 1.7% | 8.1% |
+  | Annotated basics | 10 | 0.104 | 16.3 | 0.6% | 6.3% |
+  | Classic, Low income | 80 | 0.198 | 14.3 | 1.4% | 4.8% |
+  | Big board | 80 | 0.198 | 17.8 | 1.1% | 2.7% |
+  | Master | 80 | 0.198 | 18.7 | 1.1% | 1.6% |
+
+- **The summon-time estimate** (`expectedActCost`, `breakdown.read`) is of the act alone; the offer's price depends on
+  how many objects are live.
+- **Is it enough against hoarding?** With the capacity, yes; and it is the capacity that does the work. The experiment
+  (`lib/game-core/scripts/capacity-experiments.ts`, First steps, 100 games per row): one god's three agents read
+  nothing and never act; the other two gods play greedy.
+
+  | T | Rate cap | Hoarder's share of the 25 Hz stream | What it pays | Its store | The active gods' acts, against the same room with an ordinary third player |
+  |---|---|---|---|---|---|
+  | 30 s | none (shipped) | 69% | 4.2 bits/s (7.5% of its agents' income) | 1,679 bits | 99% |
+  | 60 s | none | 70% | 4.2 bits/s | 3,359 | 98% |
+  | 120 s | none | 70% | 4.2 bits/s | 6,719 | 95% |
+  | 300 s | none | 72% | 4.4 bits/s | 16,749 | 89% |
+  | no capacity | none | 74% | 4.5 bits/s | 23,252 and growing | 84% |
+  | no capacity, no offer price | 4 per agent per second (before) | 48% | 0 | 25,207 and growing | 100% |
+
+  The hoarder takes most of the stream because nobody else can use it: at 25 Hz the active gods can pay for about 6
+  acts a second between them, and they still get them. They hold about 370 bits each to stay in the draw (well inside
+  their capacity). In a scarce stream (4 Hz) every store is full, the stream splits by power (the hoarder gets its
+  34%), and the active gods act as often as against an ordinary third player (98–99%). So a hoarder cannot saturate
+  access; what it can do is waste its own share, for a price. Without a capacity it could tax the others 16–18% for
+  ever, which is why the rate cap can only go once the capacity is in.
+- **If a higher price is ever wanted**, the principled next step is to charge the whole draw (which object and which
+  agent: log2 objects + log2 of the room's agents with energy), not a per-agent rule. The measurements above do not call
+  for it.
+
+### 7.2 Debt (open)
+
+A balance may go negative by one whole act: an agent with 0.1 bits can commit a 985-bit repaint of a 4×4 grid and then
+waits until income repays it. Debt is per agent, not per unit of power: n agents can owe n acts, and one agent's debt
+does not reduce its siblings' weight in the draw. In the long run this is neutral (every bit spent is repaid from the
+agent's own income before it acts again), with two exceptions that exist today:
+
+- **Destroying an agent in debt, or giving its power to another agent, leaves the debt unpaid.** Destroy and re-summon
+  costs a summon price (about 60 bits for a small agent) against an act of any size.
+- **Debts outstanding when the game ends are never repaid.**
+
+Proposed rule (not shipped; see the variant branch `variant/debt-within-capacity`): an account's balance stays within
+its capacity on both sides (an act that would leave it owing more than its capacity does not commit and pays its
+reads), and power cannot be taken from an account in debt.
+
+**What was removed, and why.** Until 11 Nov 2026 two limits were per agent, so a god gained turns by running more
+agents with the same power:
+
+| Per-agent limit | Where | Effect |
+|---|---|---|
+| `MAX_AGENT_OPPORTUNITY_HZ` = 4 offers per world second per agent | game-core `offerable`, `lib/world.ts agentStatus`, `agents.lastOpportunityWorld` | n agents could take 4n offers a second. Measured (balance harness, skippers, 25 Hz): 4.0, 8.0, 12.0, 18.7 offers/s for n = 1, 2, 3, 5 with the same power; now 18.5 at every n |
+| An agent with an act in flight was left out of the next draws of the tick's wave (up to 16 concurrent acts) | `engine/tick.ts` | the rest of the wave went to the other agents with probability 1: one rich agent got at most one offer per wave, the same energy over n agents up to n |
+
+The cap was built for the agent that reads nothing and skips ("it would keep all its energy and take nearly every
+opportunity"); the capacity now bounds that store in proportion to power instead. The tick still never runs one agent
+twice in a wave: an agent in the wave stays in the draw at the energy it had before its act in flight; when it is drawn
+again the wave is applied first (so that act is charged), the offer stays with it with probability (its energy now) ÷
+(the energy it was drawn at), and otherwise the draw is repeated on the settled world: each agent's chance is its
+settled energy over the room's, exactly as if acts ran one at a time. The room's sandbox work is bounded by `interactionRateHz`, as before.
+`agents.lastOpportunityWorld` stays in the schema as history (no longer read or written); the observation no longer
+reports `economy.maxAgentOpportunityHz` (a replay of an older game still does). `EVENT_LOG_SCHEMA` 10 marks the change.
+
+**Per-agent quantities that remain** (none is an advantage in turns): `maxAgentsPerGod` (a limit); the summon price
+(each program is priced by its own description, so n small programs cost what their lengths cost, plus each one's own
+boilerplate: never cheaper than one); the futility memo (per agent and object: n copies of a deterministic agent each
+fail once on an object before being kept off it, and pay their reads); and debt (§7.2).
 
 ## 8. Hold rarity (PR 5)
 
@@ -569,7 +672,7 @@ holds; for a competitive room, close it.
   changed since you last saw them". It has its row in the query-cost gate.
 - `player.object` reads one more document in a paid game (the object's own, for `changesSince`).
 - A look is the `look` command (`commands.submit`): it settles and charges the deity's account, rewrites the god's row
-  (all objects: a paged scheduled mutation, `game/looks.ts`) and logs a `look` event (event-log schema 10; private to its
+  (all objects: a paged scheduled mutation, `game/looks.ts`) and logs a `look` event (event-log schema 11; private to its
   god while live; the replay subtracts it from the god's energy).
 - The observation reports `economy.observation` and `economy.lookPrice`.
 

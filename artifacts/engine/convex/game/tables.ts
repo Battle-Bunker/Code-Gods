@@ -91,7 +91,7 @@ export const eventV = v.union(
   /** The owner re-allocated its power (schema 6): the agent's share from `world` on. */
   v.object({ t: v.literal("power"), agentId: v.string(), ownerId: v.string(), world: v.number(), share: v.number() }),
   /**
-   * A god paid for a look (schema 10; paid observation, lib/knowledge.ts): `cost` energy from its own account for `count`
+   * A god paid for a look (schema 11; paid observation, lib/knowledge.ts): `cost` energy from its own account for `count`
    * objects (one: `objectId`; absent: every object then). PRIVATE to its god while the game is live.
    */
   v.object({ t: v.literal("look"), ownerId: v.string(), world: v.number(), cost: v.number(), count: v.number(), objectId: v.optional(v.string()) }),
@@ -398,7 +398,7 @@ export const gameTables = {
     spentRead: v.optional(v.number()),
     /** Acts that returned no calls (docs/energy-model.md §2), counted since the energy model; absent: none yet. */
     skips: v.optional(v.number()),
-    /** World time of its last opportunity: the per-agent cap (game-core MAX_AGENT_OPPORTUNITY_HZ); absent: none yet. */
+    /** HISTORY: world time of its last opportunity, for the per-agent rate cap removed on 11 Nov 2026 (docs/energy-model.md §7). No longer read or written. */
     lastOpportunityWorld: v.optional(v.number()),
     /**
      * PRIVATE to the owner: how its acts ended (lib/futility.ts FAILURE_KINDS), counted by the tick since this field
@@ -518,6 +518,12 @@ export const gameTables = {
      * position, else OTHERS_ORDER; `nameKey` the name with case and accents folded; `searchText` name, owner and summary.
      */
     order: v.number(), nameKey: v.string(), searchText: v.string(),
+    /**
+     * Experimental ("Lab", game-core LAB_SETUPS): visible only to administrators (and to its owner, for an
+     * administrator's copy of one). Absent on every ordinary setup. Lab setups sort from LAB_ORDER up, so the
+     * catalogue page of everyone else stops before them (setups.ts page).
+     */
+    lab: v.optional(v.boolean()),
   }).index("by_owner", ["ownerId"]).index("by_seed", ["seedId"])
     /** The catalogue's order: the system's in seed order, then everyone's by name (setups.page). */
     .index("by_order", ["order", "nameKey"])

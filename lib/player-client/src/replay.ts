@@ -20,7 +20,7 @@
  * Pure: no React, no Convex; browser-safe.
  */
 import { NO_FAILURES, diagnoseAgent, failureKind, type FailureKind } from "@workspace/engine/convex/lib/futility.ts";
-import { CHANGE_READ_RATIO, DEFAULT_SCORE_INTERVAL_SECONDS, MAX_AGENT_OPPORTUNITY_HZ, agentIncome, allowedLanguages, chargeAct, deityIncome, energyCapacity, fullChargeOf, settleDeityEnergy, instantiationOf, roundShare, settleAgentEnergy, type AgentAccount, type GameSettings } from "@workspace/game-core";
+import { CHANGE_READ_RATIO, DEFAULT_SCORE_INTERVAL_SECONDS, agentIncome, allowedLanguages, chargeAct, deityIncome, energyCapacity, fullChargeOf, settleDeityEnergy, instantiationOf, roundShare, settleAgentEnergy, type AgentAccount, type GameSettings } from "@workspace/game-core";
 
 /** The replay API version this reducer reads (player.replay's `version`). */
 export const REPLAY_VERSION = 2;
@@ -53,7 +53,7 @@ export type ReplayEvent =
   /** The owner re-allocated power: the agent's share from then on (log schema 6). */
   | { type: "agent.power"; agentId: string; ownerId: string; worldSeconds: number; share: number }
   | { type: "agent.destroyed"; agentId: string; ownerId: string; worldSeconds: number }
-  /** A god paid `cost` of its own energy to look at `count` objects (log schema 10; paid observation). */
+  /** A god paid `cost` of its own energy to look at `count` objects (log schema 11; paid observation). */
   | { type: "god.looked"; ownerId: string; worldSeconds: number; price: number; count: number; objectId?: string };
 
 /** `from`: the index in its batch of the first event served (a batch larger than a page is split across pages). */
@@ -472,7 +472,9 @@ export function replayObservation(replay: Replay, at: ReplayAt, state: ReplaySta
     phase: (state.phase === "recovery" ? "paused" : state.phase) as "planning" | "running" | "paused" | "ended",
     language: languages[0], languages, instance: game.objectInstance,
     economy: {
-      powerPerSecond: powerOf(settings), startingEnergy: settings.startingEnergy, maxAgentOpportunityHz: MAX_AGENT_OPPORTUNITY_HZ,
+      powerPerSecond: powerOf(settings), startingEnergy: settings.startingEnergy,
+      // Games logged before schema 10 offered each agent at most 4 opportunities per world second (docs/energy-model.md §7).
+      ...((game.logSchema ?? 1) < 10 ? { maxAgentOpportunityHz: 4 } : {}),
       ...(fullChargeOf(settings) !== undefined ? { fullChargeSeconds: fullChargeOf(settings) } : {}),
       // The read price the log was charged at: event-log schema 8 introduced κ (docs/energy-model.md §2.1); before it, 1.
       changeReadRatio: (game.logSchema ?? 1) >= 8 ? CHANGE_READ_RATIO : 1,

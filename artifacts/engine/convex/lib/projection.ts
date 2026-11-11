@@ -7,7 +7,7 @@
  */
 import { agentDisplayName } from "./agentName";
 import { gameNotice } from "./engineErrors";
-import { godLooks, MAX_AGENT_OPPORTUNITY_HZ, allowedLanguages, deityIncome, roundShare, instantiationOf, leaderboard, paidObservation, rankTotals, type GameSettings } from "@workspace/game-core";
+import { godLooks, allowedLanguages, deityIncome, roundShare, instantiationOf, leaderboard, paidObservation, rankTotals, type GameSettings } from "@workspace/game-core";
 import { lookPriceOf } from "./knowledge";
 import { CHANGE_READ_RATIO, COMMIT_CLAUSE_HELPER, instanceInfo, type InstanceInfo } from "@workspace/game-types";
 import { VERSION, observationSchema, type Observation } from "@workspace/player-client";
@@ -374,7 +374,7 @@ export function observation(input: ObservationInput): Observation {
     economy: {
       powerPerSecond: powerOf(settings), startingEnergy: settings.startingEnergy,
       ...(fullChargeOf(settings) !== undefined ? { fullChargeSeconds: fullChargeOf(settings) } : {}),
-      maxAgentOpportunityHz: MAX_AGENT_OPPORTUNITY_HZ, changeReadRatio: CHANGE_READ_RATIO, maxAgentsPerGod: settings.maxAgentsPerGod,
+      changeReadRatio: CHANGE_READ_RATIO, maxAgentsPerGod: settings.maxAgentsPerGod,
       penaltyWeight: settings.penaltyWeight, worldSeconds: game ? worldNow(game, now) : 0,
       durationMode: settings.durationMode, lengthSeconds: settings.halfLifeSeconds,
       commitClause: settings.commitClause, objectSelection: settings.objectSelection,

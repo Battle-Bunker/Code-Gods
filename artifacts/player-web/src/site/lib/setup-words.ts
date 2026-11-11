@@ -13,6 +13,15 @@ export function editBlocker(s: Pick<SetupRow, "system" | "editable" | "ownerName
   return s.system ? "System setups cannot be edited: duplicate it" : `Only ${s.ownerName} can edit this setup`;
 }
 
+/** The one-line note under the picker's "Lab" heading. */
+export const LAB_NOTE = "Experimental setups. Only administrators see these; players in your room still see the one it runs.";
+/**
+ * Whether the "Lab" heading goes before entry `i`: the first Lab setup of the list (the engine sends them last, and
+ * only to an administrator). Search results come best match first, so a Lab setup can appear anywhere: each then gets
+ * the heading when it follows an ordinary one.
+ */
+export const labStartsAt = (entries: readonly { lab?: boolean }[], i: number) => !!entries[i]?.lab && !entries[i - 1]?.lab;
+
 /** The longest setup name (game-core SETUP_NAME_MAX; repeated so this module stays dependency-free). */
 const NAME_MAX = 40;
 /**
