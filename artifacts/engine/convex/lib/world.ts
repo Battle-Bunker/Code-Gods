@@ -36,9 +36,11 @@ export const EVENTS_PER_BATCH = 400;
  * summons carry no decisionBits or perActFloorBits, and an act that returned no calls is a `skip` event. Bump it whenever
  * an event's meaning or fields change. 6 is the power budget (docs/energy-model.md §6): a summon carries the agent's
  * `powerShare`, and a `power` event records each re-allocation. 7 is hold rarity (docs/energy-model.md §8): a `rescore` event
- * per object when the hold corrections arrive during planning.
+ * per object when the hold corrections arrive during planning. 8 is the read price (docs/energy-model.md §2.1): an act's
+ * cost.read is the energy its reads cost (bits read × READ_PRICE, 1/32 when 8 was introduced); in schemas 5–7 reads were
+ * priced at one energy bit per bit read, so cost.read there is also the bits read. Replay reads recorded costs either way.
  */
-export const EVENT_LOG_SCHEMA = 7;
+export const EVENT_LOG_SCHEMA = 8;
 
 export type Clock = {
   phase: "planning" | "running" | "paused" | "recovery" | "ended";

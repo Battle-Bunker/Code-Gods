@@ -2,14 +2,14 @@
 /**
  * Open-agent pricing (ported from api-server pricing.ts):
  *   summon price   = description bits (ast-bits-v1 / ts-ast-bits-v1-uniform) + each literal move   (god pays once)
- *   act charge     = the bits the act read + its change when that commits                        (agent pays, per act)
+ *   act charge     = the bits the act read × READ_PRICE + its change when that commits          (agent pays, per act)
  * (docs/energy-model.md §2). expectedActCost, the estimate shown at validation and summon, is measured by RUNNING the
  * agent on the season's reference mixture plus up to 16 live objects; nothing is charged or scheduled from it.
  */
 import { instantiationOf, type GameSettings, type Language, type ObjectValue } from "@workspace/game-core";
 import type { Inspection } from "@workspace/game-runtime";
 import {
-  availableMutators, futilityWarnings, failedReadBits, measureAgent, readBound, parseAct, probeFutility, referenceMixture, withComponents, type FutilityProfile, type Instantiation,
+  CHANGE_READ_RATIO, availableMutators, futilityWarnings, failedReadBits, measureAgent, readBound, parseAct, probeFutility, referenceMixture, withComponents, type FutilityProfile, type Instantiation,
   type ReferenceMixture,
 } from "@workspace/game-types";
 import type { ActionCtx } from "../_generated/server";
@@ -23,7 +23,7 @@ export const GAME_COMPONENT = 16;
 const MOVE_FLAG_BITS = 3;
 const CONCURRENCY = 4;
 
-/** The estimated cost per act, split: the bits it reads and its change (docs/energy-model.md §5). */
+/** The estimated cost per act in energy bits, split: what its reads cost (bits read × READ_PRICE) and its change (docs/energy-model.md §5). */
 export type CostBreakdown = { read: number; change: number };
 export type SummonParts = { structure: number; names: number; literals: number; moveFlags: number; literalMoves: number; commitClause: number };
 export type Examination = {
@@ -121,7 +121,7 @@ export async function examineAgent(ctx: ActionCtx, settings: GameSettings, langu
   const d = measured.diagnostics;
   const diagnostics = [
     `Summon price ${price.cost.toFixed(1)} bits (${inspection.complexityFunctionId}: structure ${inspection.parts.structure.toFixed(1)}, names ${inspection.parts.names.toFixed(1)}, literals ${inspection.parts.literals.toFixed(1)}, literal moves ${price.parts.literalMoves.toFixed(1)}${usesClause ? `, commit clause ${COMMIT_CLAUSE_BITS.toFixed(2)}` : ""}).`,
-    `Each act: about ${measured.expectedActCost.toFixed(2)} bits = reading ${measured.expectedRead.toFixed(2)} + changing ${measured.expectedChange.toFixed(2)} (an act pays what it reads, plus its change only when it changes the object; there is no fixed charge).`,
+    `Each act: about ${measured.expectedActCost.toFixed(2)} bits = reading ${measured.expectedRead.toFixed(2)} (${measured.expectedReadBits.toFixed(1)} bits of the object looked at, at 1/${CHANGE_READ_RATIO} each) + changing ${measured.expectedChange.toFixed(2)} (looking is ${CHANGE_READ_RATIO}× cheaper than changing; an act pays its reads, plus its change only when it changes the object; there is no fixed charge).`,
     `Measured on ${d.n} reference objects${measured.randomized ? " (it uses random)" : ""}: changes ${(100 * d.changeRate).toFixed(0)}%, skips ${(100 * d.skipRate).toFixed(0)}%, invalid or failing ${(100 * d.invalidRate).toFixed(0)}%${d.errors.length ? ` (${d.errors.map(([e, n]) => `${e} ×${n}`).join(", ")})` : ""}; mutators ${d.mutators.join(", ") || "none"}.`,
   ];
   diagnostics.push(`Two passes over a sample world of ${probedCount} objects: ${(100 * futility.successRate).toFixed(0)}% of its acts succeed (first pass ${(100 * futility.firstPass).toFixed(0)}%, second ${(100 * futility.secondPass).toFixed(0)}%).`);

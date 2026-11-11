@@ -19,7 +19,7 @@
  *
  * Pure: no React, no Convex; browser-safe.
  */
-import { MAX_AGENT_OPPORTUNITY_HZ, agentIncome, allowedLanguages, chargeAct, deityIncome, instantiationOf, roundShare, settleAgentEnergy, type AgentAccount, type GameSettings } from "@workspace/game-core";
+import { CHANGE_READ_RATIO, MAX_AGENT_OPPORTUNITY_HZ, agentIncome, allowedLanguages, chargeAct, deityIncome, instantiationOf, roundShare, settleAgentEnergy, type AgentAccount, type GameSettings } from "@workspace/game-core";
 
 /** The replay API version this reducer reads (player.replay's `version`). */
 export const REPLAY_VERSION = 2;
@@ -27,7 +27,7 @@ export const KEYFRAME_EVERY = 256;
 const MAX_KEYFRAMES = 256;
 
 type Wire = number | string;
-/** One act's charge (docs/energy-model.md §2): the bits it read plus its change when that committed. */
+/** One act's charge in energy bits (docs/energy-model.md §2): what its reads cost plus its change when that committed. Recorded, never recomputed. */
 type Charge = { read: number; change: number; total: number };
 /** An agent's estimated cost per act, split. */
 type Breakdown = { read: number; change: number };
@@ -408,6 +408,8 @@ export function replayObservation(replay: Replay, at: ReplayAt, state: ReplaySta
     language: languages[0], languages, instance: game.objectInstance,
     economy: {
       powerPerSecond: powerOf(settings), startingEnergy: settings.startingEnergy, maxAgentOpportunityHz: MAX_AGENT_OPPORTUNITY_HZ,
+      // The read price the log was charged at: event-log schema 8 introduced κ (docs/energy-model.md §2.1); before it, 1.
+      changeReadRatio: (game.logSchema ?? 1) >= 8 ? CHANGE_READ_RATIO : 1,
       maxAgentsPerGod: settings.maxAgentsPerGod, penaltyWeight: settings.penaltyWeight, worldSeconds: state.world,
       commitClause: settings.commitClause, objectSelection: settings.objectSelection,
     },

@@ -3,10 +3,11 @@
  * (settle, pickByEnergy with the 4 Hz cap, chargeAct, spendDeityEnergy, default shares), scoring (netBits, softHinge,
  * payoff, rankTotals) and timing (gameEndSeconds, poissonIntervalSeconds), on an ABSTRACT world: each object holds one
  * reward surprisal per god (−log2 U, the uniform-prior law of a calibrated ordinal) and an act re-draws a few of them
- * (a local edit). Grid size, symbols and colours enter only through the act's read and change prices (energy-model §3–4).
+ * (a local edit). Grid size, symbols and colours enter only through the act's read and change prices (energy-model §3–4):
+ * a look at the board costs readBits × READ_PRICE (game-types; --kappa κ overrides 1/READ_PRICE, κ = 1 is the old price).
  * It measures settings, energy, seat order and player count, not goal families (see the balance-families harness).
  *
- *   node --experimental-transform-types lib/game-core/scripts/balance-settings.ts [--games 200] [--only <name>]
+ *   node --experimental-transform-types lib/game-core/scripts/balance-settings.ts [--games 200] [--only <name>] [--kappa 32]
  *
  * Policies: random (edits blindly, reads nothing), greedy (reads the board, keeps the best of 4 edits for its own
  * payoff, skips when none helps), deny (greedy on own payoff minus the mean opponent payoff).
@@ -14,12 +15,13 @@
 import {
   DEFAULT_SETTINGS, SEED_SETUPS, validateSettings, type GameSettings,
   newAgentAccount, settleAgentEnergy, chargeAct, pickByEnergy, offerable, spendDeityEnergy, defaultShare,
-  netBits, softHinge, rankTotals, gameEndSeconds, poissonIntervalSeconds,
+  netBits, softHinge, rankTotals, gameEndSeconds, poissonIntervalSeconds, CHANGE_READ_RATIO, CHANGE_BETA,
 } from "../src/index.ts";
 
 type Policy = "random" | "greedy" | "deny";
 const arg = (n: string, d: string) => { const i = process.argv.indexOf(`--${n}`); return i > 0 ? process.argv[i + 1] : d; };
-const GAMES = Number(arg("games", "200")), ONLY = arg("only", "");
+const GAMES = Number(arg("games", "200")), ONLY = arg("only", ""), KAPPA = Number(arg("kappa", String(CHANGE_READ_RATIO)));
+if (!(KAPPA >= 1)) throw new Error(`--kappa must be a number ≥ 1, not ${arg("kappa", "")}`);
 
 /** mulberry32: a seeded uniform in [0, 1). */
 function rng(seed: number) {
@@ -39,6 +41,8 @@ interface Obj { reward: number[]; penalty: number[] }
 interface Agent { god: number; share: number; acct: ReturnType<typeof newAgentAccount>; last?: number }
 interface Result {
   totals: number[]; half: number[]; acts: number; skips: number; worldSeconds: number; starved: boolean; error?: string;
+  /** Energy spent on reading and on changing. */
+  readSpent: number; changeSpent: number;
 }
 
 function net(o: Obj, g: number, s: GameSettings): number {
@@ -75,7 +79,9 @@ export function play(c: Config, seed: number): Result {
     agents.push({ god: g, share, acct: newAgentAccount(t) });
   };
   for (let k = 0; k < c.agentsPerGod; k++) for (let g = 0; g < n; g++) trySummon(g, 0);
-  const cellBits = Math.log2(c.symbols * c.colours), readBits = c.cells * cellBits, W = cellBits * 2, changeBits = W + 0.05 * W * W;
+  const cellBits = Math.log2(c.symbols * c.colours), W = cellBits * 2, changeBits = W + CHANGE_BETA * W * W;
+  const lookCharge = c.cells * cellBits / KAPPA; // energy for a whole-board look: its bits at 1/κ
+  let readSpent = 0, changeSpent = 0;
   const dt = 0.25, frac = 2 / c.cells;
   let t = 0, acts = 0, skips = 0, nextSpawn = poissonIntervalSeconds(s.spawnRateHz, uo()), oppDebt = 0, half: number[] | null = null;
   try {
@@ -95,26 +101,27 @@ export function play(c: Config, seed: number): Result {
         if (!a) { oppDebt = 0; break; }
         a.last = t;
         const oi = Math.floor(u() * objs.length), o = objs[oi], pol = c.policies[a.god];
-        if (pol === "random") { objs[oi] = edit(o, u, frac); a.acct = chargeAct(a.acct, changeBits); acts++; continue; }
+        if (pol === "random") { objs[oi] = edit(o, u, frac); a.acct = chargeAct(a.acct, changeBits); changeSpent += changeBits; acts++; continue; }
         const noise = () => s.peerNoiseBits * Math.sqrt(-2 * Math.log(uo())) * Math.cos(2 * Math.PI * u());
         const value = (x: Obj) => { const p = payoffs(x, n, s); const own = p[a.god] + noise(); if (pol === "greedy") return own; return own - (p.reduce((q, v) => q + v, 0) - p[a.god]) / Math.max(1, n - 1); };
         const base = value(o); let best: Obj | null = null, bestV = base;
         for (let k = 0; k < 4; k++) { const cand = edit(o, u, frac), v = value(cand); if (v > bestV) { bestV = v; best = cand; } }
-        if (best) { objs[oi] = best; a.acct = chargeAct(a.acct, readBits + changeBits); acts++; }
-        else { a.acct = chargeAct(a.acct, readBits); skips++; }
+        readSpent += lookCharge;
+        if (best) { objs[oi] = best; a.acct = chargeAct(a.acct, lookCharge + changeBits); changeSpent += changeBits; acts++; }
+        else { a.acct = chargeAct(a.acct, lookCharge); skips++; }
       }
     }
     const totals = totalsOf(objs, n, s);
-    if (totals.some(x => !Number.isFinite(x))) return { totals, half: half ?? totals, acts, skips, worldSeconds: end, starved: false, error: "non-finite score" };
-    return { totals, half: half ?? totals, acts, skips, worldSeconds: end, starved: acts + skips === 0 };
+    if (totals.some(x => !Number.isFinite(x))) return { totals, half: half ?? totals, acts, skips, worldSeconds: end, starved: false, error: "non-finite score", readSpent, changeSpent };
+    return { totals, half: half ?? totals, acts, skips, worldSeconds: end, starved: acts + skips === 0, readSpent, changeSpent };
   } catch (e) {
-    return { totals: new Array(n).fill(0), half: new Array(n).fill(0), acts, skips, worldSeconds: t, starved: false, error: String((e as Error).message) };
+    return { totals: new Array(n).fill(0), half: new Array(n).fill(0), acts, skips, worldSeconds: t, starved: false, error: String((e as Error).message), readSpent, changeSpent };
   }
 }
 
 function summarize(c: Config, games: number) {
   const n = c.players, seatWins = new Array(n).fill(0), polWins: Record<string, number> = {};
-  let blow = 0, comeback = 0, acts = 0, starved = 0, ties = 0, errors: string[] = [], spread = 0, len = 0;
+  let blow = 0, comeback = 0, acts = 0, skips = 0, starved = 0, ties = 0, errors: string[] = [], spread = 0, len = 0, readSpent = 0, changeSpent = 0;
   for (let i = 0; i < games; i++) {
     const r = play(c, 1000 + i);
     if (r.error) { if (errors.length < 3) errors.push(`seed ${1000 + i}: ${r.error}`); continue; }
@@ -127,12 +134,13 @@ function summarize(c: Config, games: number) {
     spread += mean > 0 ? (sorted[0] - sorted[n - 1]) / mean : 0;
     const halfLeader = rankTotals(ids, r.half)[0].godId;
     if (halfLeader !== rows[0].godId) comeback++;
-    acts += r.acts; len += r.worldSeconds; if (r.starved) starved++;
+    acts += r.acts; skips += r.skips; len += r.worldSeconds; readSpent += r.readSpent; changeSpent += r.changeSpent; if (r.starved) starved++;
   }
   const ok = games - errors.length || 1, pct = (x: number) => `${Math.round((100 * x) / ok)}%`;
   return {
     name: c.name, seat0: pct(seatWins[0]), seatLast: pct(seatWins[n - 1]), fair: `${Math.round(100 / n)}%`, blowout: pct(blow), comeback: pct(comeback),
-    spread: (spread / ok).toFixed(2), actsPerGame: Math.round(acts / ok), worldS: Math.round(len / ok), ties: pct(ties), starved: pct(starved),
+    spread: (spread / ok).toFixed(2), actsPerGame: Math.round(acts / ok), skipsPerGame: Math.round(skips / ok),
+    readShare: `${Math.round((100 * readSpent) / Math.max(1e-9, readSpent + changeSpent))}%`, worldS: Math.round(len / ok), ties: pct(ties), starved: pct(starved),
     policyWins: Object.entries(polWins).map(([k, v]) => `${k}:${pct(v)}`).join(" "), errors: errors.join("; "),
   };
 }
@@ -171,6 +179,10 @@ function configs(): Config[] {
   add(`${B} 2p random vs greedy`, base(B, { players: 2, policies: ["random", "greedy"] }));
   add(`${B} 2p deny vs greedy`, base(B, { players: 2, policies: ["deny", "greedy"] }));
   add(`grid-master power=8`, base("grid-master", {}, { powerPerSecond: 8 }));
+  const F = "grid-first-steps";
+  add(`${F} random vs greedy vs greedy`, base(F, { policies: ["random", "greedy", "greedy"] }));
+  add(`${F} random vs greedy vs deny`, base(F, { policies: ["random", "greedy", "deny"] }));
+  add(`grid-master random vs greedy vs deny`, base("grid-master", { policies: ["random", "greedy", "deny"] }));
   add(`grid-first-steps 8p`, base("grid-first-steps", { players: 8, policies: new Array(8).fill("greedy") }));
   return out.filter(c => !ONLY || c.name.includes(ONLY));
 }

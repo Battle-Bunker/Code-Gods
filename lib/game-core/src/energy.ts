@@ -9,7 +9,7 @@
  * Agent: starts at 0, accrues s·P bits per WORLD second, with no cap. Each mutation
  *        opportunity goes to an agent with probability proportional to its positive energy (pickByEnergy),
  *        at most MAX_AGENT_OPPORTUNITY_HZ times per world second per agent, and the agent pays what the
- *        act actually cost: the bits it read plus its change (docs/energy-model.md §2, §7). The balance may
+ *        act actually cost: the bits it read at READ_PRICE plus its change (docs/energy-model.md §2, §7). The balance may
  *        go negative; such an agent is not picked until its income lifts it above zero.
  *
  * Pure functions: the service persists the results under its own lock.

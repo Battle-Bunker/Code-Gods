@@ -47,6 +47,18 @@ export const CHANGE_BETA = 0.05;
 /** The change cost of an act whose elementary decomposition costs W bits. */
 export const changeCost = (W: number): number => W + CHANGE_BETA * W * W;
 
+/**
+ * κ, the change/read ratio (docs/energy-model.md §2.1): how many bits of the object an agent may read for the price of
+ * one bit of committed change. It is the economy's one free dimension of price (scaling every price together is the
+ * same as scaling power): κ = 1 prices a bit read like a bit changed; κ → ∞ makes looking free. 32 is set by a rule,
+ * not by feel: a complete look at the board costs less than the smallest change to it, on every shipped setup (the
+ * binding case is Master, 7×7 cards, where κ must exceed 21.7; game-core/test/read-price.test.ts). A constant like
+ * CHANGE_BETA, not a room setting, so every room prices alike.
+ */
+export const CHANGE_READ_RATIO = 32;
+/** Energy bits charged per bit of information read: 1/κ. A committed change's bits are the unit. */
+export const READ_PRICE = 1 / CHANGE_READ_RATIO;
+
 export const MAX_ACT_BYTES = 64 * 1024;
 
 /** log2 x for x > 1, else 0 (mutators.py `_lg`). */

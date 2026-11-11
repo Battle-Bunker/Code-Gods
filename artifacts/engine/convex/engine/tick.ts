@@ -9,8 +9,8 @@
  * its positive energy (settled to the opportunity's world time; at most MAX_AGENT_OPPORTUNITY_HZ per agent,
  * docs/energy-model.md §7) with a CSPRNG, run the act with the season-salted seed
  * deriveSeed(salt, ["play", gameId, agentId, actIndex]), applyCalls, enforce uniqueness (onto any existing
- * value, the object's own included, fails), apply the commit clause, charge the act (the bits it read, plus its
- * change when that commits: §2) and score the result. An act that returns no calls is skipped: not a failure.
+ * value, the object's own included, fails), apply the commit clause, charge the act (the bits it read at READ_PRICE,
+ * plus its change when that commits: §2) and score the result. An act that returns no calls is skipped: not a failure.
  *
  * Throughput: up to WORKERS acts run concurrently in a "wave", but a wave never holds the same object or
  * agent twice (as the Express engine reserved them), and results are applied strictly in opportunity order,

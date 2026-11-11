@@ -9,6 +9,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { GameSettings } from "@workspace/game-core";
 import { observationSchema } from "../src/protocol.ts";
+import { CHANGE_READ_RATIO } from "@workspace/game-core";
 import { KEYFRAME_EVERY, REPLAY_VERSION, buildReplay, cursorAtWorld, godEnergyAt, keyMoments, replayEvents, replayMyUtility, replayObservation, replayTrajectories, scoreSeries, stateAt, viewOf, type ReplayBatch, type ReplayPage } from "../src/replay.ts";
 
 const settings = { powerPerSecond: 4, startingEnergy: 100 } as unknown as GameSettings;
@@ -109,6 +110,11 @@ test("a re-allocation settles both accounts and then changes the rates; a destro
   assert.deepEqual(obs.agents.map(a => [a.id, a.powerShare, a.income]), [["old", 0.5, 2]]);
   assert.deepEqual(obs.agents.map(a => [a.name, a.description]), [["Painter", "paints"]], "the replay keeps the agent's name and description");
   assert.deepEqual([obs.economy!.powerPerSecond, obs.economy!.startingEnergy], [4, 100]);
+  // A log from before event-log schema 8 was charged at one energy bit per bit read: κ = 1, whatever the code's κ is now.
+  assert.equal(obs.economy!.changeReadRatio, 1);
+  const p8 = page([{ seq: 0, at: T0, worldFrom: 0, worldTo: 1, events: [{ type: "phase", phase: "running", worldSeconds: 0 }] }]);
+  const priced = buildReplay([{ ...p8, game: { ...p8.game, logSchema: 8 } }]);
+  assert.equal(replayObservation(priced, { room: { roomId: "r", roomShortCode: "R" }, cursor: 1, pov: 0 }).economy!.changeReadRatio, CHANGE_READ_RATIO);
   // The event window carries the god's own re-allocations.
   assert.equal(replayEvents(replay, { room: { roomId: "r", roomShortCode: "R" }, cursor: replay.log.length, pov: 0 }).events.filter(e => e.type === "agent.power").length, 2);
   assert.equal(replayEvents(replay, { room: { roomId: "r", roomShortCode: "R" }, cursor: replay.log.length, pov: 1 }).events.filter(e => e.type === "agent.power").length, 0, "another god's are not shown");

@@ -26,7 +26,7 @@ const samples = new Map<string, Sample[]>(agents.map((a, k) => [a.id, Array.from
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <div className="mx-auto max-w-[460px] bg-card p-4 text-card-foreground">
-      <AgentsView agents={agents} self={{ allocated: 0.75, income: 16, energy: 230 }} powerPerSecond={64} world={600} samples={samples} window={60} ended={false}
+      <AgentsView agents={agents} self={{ allocated: 0.75, income: 16, energy: 230 }} powerPerSecond={64} changeReadRatio={32} world={600} samples={samples} window={60} ended={false}
         showCosts showSource={false} can={can} wait={a => (a.energy <= 0 ? -a.energy / (a.income ?? 1) : 0)} onEdit={() => {}} onSetShare={() => {}} onDestroy={() => {}} />
     </div>
   </StrictMode>,

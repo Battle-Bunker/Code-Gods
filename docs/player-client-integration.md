@@ -199,8 +199,9 @@ payload is a `CONFLICT`. After an uncertain failure, retry the same envelope, ne
 **Result** (`resultSchema`): `{commandId, accepted, message, validation?}`. A validation has `valid`,
 `cost` (the summon price in bits, paid once) and its `parts`, `expectedActCost` (an ESTIMATE per act; nothing is
 charged from it) with its `breakdown` (`{read, change}`), `skipRate` (the share of reference acts that return no calls),
-`randomized` and `diagnostics`. An act pays the bits it reads plus, only when it changes the object, its change; a
-skip pays only its reads (docs/energy-model.md).
+`randomized` and `diagnostics`. An act pays its reads (1/32 energy bit per bit read: `economy.changeReadRatio`) plus,
+only when it changes the object, its change; a skip pays only its reads (docs/energy-model.md §2). `breakdown.read`, an
+agent's `spentRead` and an event's `cost.read` are energy, not bits read.
 
 **Observation** (`observationSchema`, `player.observation`), the caller's own projection:
 

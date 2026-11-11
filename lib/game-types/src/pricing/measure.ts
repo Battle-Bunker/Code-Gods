@@ -2,9 +2,14 @@
  * What an open agent's acts cost (docs/energy-model.md §2, §5).
  *
  *   summon price = ast-bits-v1 description of the source       paid once, by the god (Runtime)
- *   act charge   = R + (the change commits ? C : 0)             paid by the agent, per act
- *     R = the bits the act read (the prelude's read meter, §3)
+ *   act charge   = READ_PRICE·R + (the change commits ? C : 0)  paid by the agent, per act
+ *     R = the bits of information the act read (the prelude's read meter, §3)
+ *     READ_PRICE = 1/κ energy bits per bit read (mutators.ts CHANGE_READ_RATIO, §2.1)
  *     C = the change cost of the act's calls (applyCalls: W + β·W², docs/energy-model.md §4)
+ *
+ * Two units, kept apart by name: "bits read" (readBits, meterBits, readBound, failedReadBits, expectedReadBits) are
+ * information, what the meter counts; "read charge" (readCharge, ActCharge.read, expectedRead) is energy. The price is
+ * applied in exactly one place, readCharge, which actCharge calls.
  *
  * There is no fixed per-act component: an act that reads nothing and returns no calls costs 0. The agent's code is
  * priced once, at summon. A change that does not commit (no change, an invalid call, a collision, the commit clause)
@@ -14,7 +19,7 @@
  * deriveSeed(salt, ["measure", inst.key, i, 0]), and reports the expected charge per act and its read/change split, for
  * the UI and the assistant. Nothing is charged or scheduled from the estimate.
  */
-import { applyCalls } from "../mutators.ts";
+import { applyCalls, READ_PRICE } from "../mutators.ts";
 import { objectType } from "../registry.ts";
 import type { ActOutcome, Instantiation, ObjectTypeDef, ObjectValue } from "../types.ts";
 import type { ReferenceMixture } from "./mixture.ts";
@@ -70,7 +75,9 @@ export interface MeasureDiagnostics {
 
 export interface MeasuredPrice {
   readonly instKey: string;
-  /** Mean bits read per act. */
+  /** Mean bits of information read per act (what the meter counts). */
+  readonly expectedReadBits: number;
+  /** Mean energy paid for reading per act: expectedReadBits × READ_PRICE. */
   readonly expectedRead: number;
   /** Mean change cost per act (0 for acts that change nothing). */
   readonly expectedChange: number;
@@ -92,6 +99,7 @@ async function pool<T>(n: number, jobs: readonly (() => Promise<T>)[]): Promise<
 }
 
 interface Sample {
+  /** Bits read (information). */
   readonly read: number;
   readonly change: number;
   readonly changed: boolean;
@@ -103,12 +111,15 @@ interface Sample {
 }
 
 const mean = (xs: readonly number[]): number => (xs.length ? xs.reduce((s, x) => s + x, 0) / xs.length : 0);
-/** A meter reading as a charge: finite and non-negative, else 0. */
-export const readCharge = (bits: unknown): number => (typeof bits === "number" && Number.isFinite(bits) && bits > 0 ? bits : 0);
+/** A meter reading in bits of information: finite and non-negative, else 0. */
+export const meterBits = (bits: unknown): number => (typeof bits === "number" && Number.isFinite(bits) && bits > 0 ? bits : 0);
+/** The energy charged for reading `bits` bits of information: the one place the read price applies. */
+export const readCharge = (bits: unknown, readPrice: number = READ_PRICE): number => meterBits(bits) * readPrice;
 
 /**
- * The most an act can read: the whole object's information (Σ layerBits). An act whose meter cannot be read (it trapped,
- * or its worker was killed at the hard wall) is charged this, so ending in a trap never dodges the reads it made.
+ * The most an act can read, in bits of information: the whole object's (Σ layerBits). An act whose meter cannot be read
+ * (it trapped, or its worker was killed at the hard wall) is charged as if it read this, so ending in a trap never dodges
+ * the reads it made. Like every bit count, actCharge prices it.
  */
 export function readBound(inst: Instantiation): number {
   const layers = (objectType(inst.objectType) as ObjectTypeDef<unknown>).layerBits(inst);
@@ -116,11 +127,12 @@ export function readBound(inst: Instantiation): number {
 }
 
 /**
- * The read charge of an act the runtime refused: the bits its meter reported, else the bound only when the act was cut off
- * while running (a LIMIT: a trap, the step or time limit, the hard wall), else 0 (it never ran: a compile error).
+ * The bits read (information, not yet priced) by an act the runtime refused: the bits its meter reported, else the bound
+ * only when the act was cut off while running (a LIMIT: a trap, the step or time limit, the hard wall), else 0 (it never
+ * ran: a compile error). actCharge prices them.
  */
 export function failedReadBits(error: { readBits?: unknown; code?: unknown }, bound: number): number {
-  if (typeof error.readBits === "number") return readCharge(error.readBits);
+  if (typeof error.readBits === "number") return meterBits(error.readBits);
   return error.code === "LIMIT" ? bound : 0;
 }
 
@@ -154,7 +166,7 @@ export async function measureAgent(runActs: RunActs, inst: Instantiation, mixtur
       return { read: 0, change: 0, changed: false, skipped: false, mutators: [], usedRandom: false, error: `run failed: ${(e as Error).message}` };
     }
     const run: AgentRun = isRun(res) ? res : { calls: res };
-    const usedRandom = !!run.usedRandom, read = readCharge(run.readBits);
+    const usedRandom = !!run.usedRandom, read = meterBits(run.readBits);
     if (run.error) return { read, change: 0, changed: false, skipped: false, mutators: [], usedRandom, error: run.error, steps: run.steps };
     if (isSkip(run.calls)) return { read, change: 0, changed: false, skipped: true, mutators: [], usedRandom, steps: run.steps };
     const out: ActOutcome = applyCalls(typeDef, inst, value, run.calls);
@@ -175,27 +187,30 @@ export async function measureAgent(runActs: RunActs, inst: Instantiation, mixtur
     mutators: [...new Set(all.flatMap(s => s.mutators))].sort(),
     ...(steps.length ? { stepsMean: mean(steps), stepsMax: Math.max(...steps) } : {}),
   };
-  const expectedRead = mean(all.map(s => s.read)), expectedChange = mean(all.map(s => s.change));
+  const expectedReadBits = mean(all.map(s => s.read)), expectedRead = readCharge(expectedReadBits), expectedChange = mean(all.map(s => s.change));
   return {
-    instKey: inst.key, expectedRead, expectedChange, expectedActCost: expectedRead + expectedChange,
+    instKey: inst.key, expectedReadBits, expectedRead, expectedChange, expectedActCost: expectedRead + expectedChange,
     randomized: all.some(s => s.usedRandom), diagnostics,
   };
 }
 
-/** What one act costs, in bits: what it read, plus its change cost when the change commits. */
+/** What one act costs, in energy bits: its reads at READ_PRICE, plus its change cost when the change commits. */
 export interface ActCharge {
+  /** Energy paid for reading (bits read × READ_PRICE), not the bits read. */
   readonly read: number;
   readonly change: number;
   readonly total: number;
 }
 
 /**
- * The charge of one act (docs/energy-model.md §2): R + C when its change commits, R otherwise. `outcome` is
- * applyCalls' result, or null for an act that produced no outcome (skipped, or the agent raised); `commits` is false
- * when the engine refuses an ok outcome (a collision, the commit clause).
+ * The charge of one act (docs/energy-model.md §2): READ_PRICE·R + C when its change commits, READ_PRICE·R otherwise.
+ * `readBits` is the bits of information read (the meter, failedReadBits or readBound): never an already priced charge.
+ * `outcome` is applyCalls' result, or null for an act that produced no outcome (skipped, or the agent raised); `commits`
+ * is false when the engine refuses an ok outcome (a collision, the commit clause). `readPrice` is for analysis only
+ * (κ = 1 reproduces the old R + C); the engine never passes it.
  */
-export function actCharge(outcome: ActOutcome | null, readBits: number, opts: { commits?: boolean } = {}): ActCharge {
-  const read = readCharge(readBits);
+export function actCharge(outcome: ActOutcome | null, readBits: number, opts: { commits?: boolean; readPrice?: number } = {}): ActCharge {
+  const read = readCharge(readBits, opts.readPrice);
   const change = outcome?.ok && (opts.commits ?? true) ? outcome.cost.total : 0;
   return { read, change, total: read + change };
 }

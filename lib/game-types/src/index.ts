@@ -6,6 +6,6 @@ export * from "./registry.ts";
 export * from "./grid/index.ts";
 export * from "./int/index.ts";
 export * from "./string/index.ts";
-export { applyCalls, parseAct, CHANGE_BETA, changeCost, MAX_ACT_BYTES, type CommitClause } from "./mutators.ts";
+export { applyCalls, parseAct, CHANGE_BETA, CHANGE_READ_RATIO, READ_PRICE, changeCost, MAX_ACT_BYTES, type CommitClause } from "./mutators.ts";
 export * from "./pricing/index.ts";
 export * from "./noise.ts";

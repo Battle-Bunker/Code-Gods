@@ -20,7 +20,7 @@ export const GLOSSARY = {
   "agent-energy": { term: "Agent energy", gloss: "An agent's own bits: its income fills them, each act pays from them. Above 0 it can get turns; at or below 0 it waits for income." },
   power: { term: "Power", gloss: "Your fixed income in bits per second. You split it: a share to each agent, and the rest refills your own energy." },
   "power-share": { term: "Power share", gloss: "The slice of your power one agent gets (0 to 100%). That slice is its income; all your agents' shares add up to at most 100%." },
-  "read-bits": { term: "Read bits", gloss: "What an act pays for looking at the object. Looking is never free, even when the agent then changes nothing." },
+  "read-bits": { term: "Read bits", gloss: "What an act pays for looking at the object: a small fraction of a bit per bit read, since looking is much cheaper than changing. Never free." },
   "change-cost": { term: "Change cost", gloss: "The extra bits an act pays when it really changes the object, on top of reading it. No change, no change cost." },
   skip: { term: "Skip", gloss: "A turn where the agent looked and changed nothing. It pays only for reading, so skipping is cheap." },
   turn: { term: "Turn", gloss: "A chance to act on one object. The world hands turns out at random: more energy means more turns, at most 4 a second each." },

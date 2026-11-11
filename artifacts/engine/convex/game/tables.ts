@@ -33,12 +33,13 @@ const leaseV = v.object({ seq: v.number(), leaseUntil: v.number() });
 const statsV = v.object({ acts: v.number(), commits: v.number(), discarded: v.number(), opportunities: v.number() });
 const scoreboardV = v.object({ totals: v.array(v.number()), world: v.number(), at: v.number() });
 const account = v.object({ balance: v.number(), settledWorldSeconds: v.number() });
-/** An agent's estimated cost per act, split (docs/energy-model.md §5): the bits it reads and its change. */
+/** An agent's estimated cost per act in energy bits, split (docs/energy-model.md §5): what its reads cost and its change. */
 const agentBreakdown = v.object({ read: v.number(), change: v.number() });
 /** A summon event's estimate: an agent's, or (event-log schema ≤ 4 history) the decision/erasure/motion/floor split. */
 const breakdown = v.union(agentBreakdown, v.object({ decision: v.number(), erasure: v.number(), motion: v.number(), floor: v.number() }));
 /**
- * One act's charge (docs/energy-model.md §2): what it read plus its change when that committed. Event-log schema ≤ 4
+ * One act's charge in energy bits (docs/energy-model.md §2): what its reads cost plus its change when that committed
+ * (schema 8 prices reads at READ_PRICE; schemas 5–7 at one bit per bit read). Event-log schema ≤ 4
  * (history) carries the older split, which stays readable by schema.
  */
 const charge = v.union(
