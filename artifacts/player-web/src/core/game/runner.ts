@@ -2,7 +2,8 @@
  * The one path for the player's own game commands, shared by every panel and the palette: the same authorised
  * `commands.submit` the assistant's tools use (through the SDK's useActions). One command at a time; the engine's
  * receipt becomes a notice; a transport failure leaves the outcome UNKNOWN and keeps the envelope, so the banner
- * under the header retries exactly the same command (a summon is never paid twice).
+ * under the header retries exactly the same command (a summon is never paid twice). Validate and summon wait for the
+ * sandbox, so they have a deadline (command-deadline.ts): past it the forge says the sandbox is busy and works again.
  *
  * The forge's draft (source, language, edit mode, last validation) lives here too, so the palette's "Write agent
  * code…" and the agents panel's "Edit a copy" reach the same editor. State survives hot updates of the panels.
@@ -12,6 +13,7 @@ import type { Language } from "@workspace/game-core";
 import { GAME_COMMANDS, VERSION, type Command, type CommandResult, type Envelope } from "@workspace/player-client";
 import { useActions, useDockState } from "@/sdk";
 import { errorText, noticeStore } from "@/core/notices";
+import { busyMessage, createAttempts, deadlineFor, receiptNotice, type Examined } from "./command-deadline";
 
 export type Lang = Language;
 export type Unknown = { envelope: Envelope; error: string };
@@ -31,6 +33,8 @@ export type RunnerState = {
 
 let state: RunnerState = { busy: null, notice: null, unknown: null, validation: null, draft: { source: "", language: null }, editing: false };
 const listeners = new Set<() => void>();
+/** One command at a time, each with its deadline; only the latest attempt's outcome reaches the state. */
+const attempts = createAttempts();
 function set(patch: Partial<RunnerState>) { state = { ...state, ...patch }; for (const l of listeners) l(); }
 
 export const runner = {
@@ -56,24 +60,33 @@ export function useGameCommands() {
   const send = useCallback(async (envelope: Envelope): Promise<CommandResult | undefined> => {
     const command = envelope.command;
     set({ busy: command.type, notice: null });
-    try {
-      const result = await actions.retry(envelope);
-      // A failed validation lists its diagnostics in the forge; don't repeat them as a notice.
-      const quiet = command.type === "validate" && !!result.validation?.diagnostics.length;
-      const text = result.message || (result.accepted ? "Accepted." : "Rejected.");
+    const examined = command.type === "validate" || command.type === "summon";
+    const outcome = await attempts.run(() => actions.retry(envelope), deadlineFor(command.type));
+    // A newer attempt began meanwhile: the state (busy included) is that one's.
+    if (outcome.status === "stale") return undefined;
+    if (outcome.status === "done") {
+      const result = outcome.value;
+      // A failed validation lists its diagnostics in the forge; they are not repeated as a notice.
+      const notice = receiptNotice(command.type, result);
       set({
-        unknown: null,
-        notice: quiet ? null : { ok: result.accepted, text },
+        busy: null, unknown: null, notice,
         ...(command.type === "validate" && result.validation ? { validation: { source: command.source, language: command.language, result } } : {}),
       });
       // The forge shows its own notices; anything else is said under the header.
-      if (command.type !== "validate" && command.type !== "summon" && !(command.type === "chat" && result.accepted)) noticeStore.push(text, result.accepted ? "info" : "error");
+      if (!examined && !(command.type === "chat" && result.accepted)) noticeStore.push(result.message || (result.accepted ? "Accepted." : "Rejected."), result.accepted ? "info" : "error");
       return result;
-    } catch (error) {
-      // A transport failure leaves the outcome unknown: keep the envelope for an identical retry.
-      set({ unknown: { envelope, error: errorText(error) } });
-      return undefined;
-    } finally { set({ busy: null }); }
+    }
+    // No answer by the deadline (a congested sandbox queue), or the engine could not run it: the forge says so and its
+    // buttons work again. Whatever the abandoned request answers later is never read.
+    const text = outcome.status === "timeout" ? busyMessage(command.type as Examined, deadlineFor(command.type)!) : errorText(outcome.error);
+    set({
+      busy: null,
+      ...(examined ? { notice: { ok: false, text } } : {}),
+      // A validation changes nothing, so a timed-out one is simply run again. Anything else may still have arrived: its
+      // outcome is unknown, and the envelope is kept for an identical retry (a summon is never paid twice).
+      ...(outcome.status === "timeout" && command.type === "validate" ? {} : { unknown: { envelope, error: text } }),
+    });
+    return undefined;
   }, [actions]);
   const run = useCallback((command: Command) => {
     if (state.busy) return Promise.resolve(undefined);

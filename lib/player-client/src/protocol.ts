@@ -83,6 +83,13 @@ const breakdownSchema = z.object({ read: finite, change: finite });
 /** One allowed language's agent sandbox: booted (`ready`), booting (`warming`), or not booting (`failed`, with why). */
 export const sandboxSchema = z.object({ language, state: z.enum(["warming", "ready", "failed"]), reason: z.string().max(500).optional() });
 export type SandboxStatus = z.infer<typeof sandboxSchema>;
+/**
+ * How long the engine lets one player's validate or summon examine an agent in the sandbox before it answers
+ * UNAVAILABLE with nothing applied (engine convex/commands.ts). A healthy examination takes a few seconds (a few
+ * hundred runs of a few milliseconds, four at a time); only a congested sandbox queue, where each run may wait up to
+ * 34 s, takes longer. Clients wait a little longer than this, so the engine's answer normally comes first.
+ */
+export const EXAMINATION_DEADLINE_MS = 20_000;
 export const sandboxNotReadySchema = z.object({ language, state: z.enum(["warming", "failed"]), reason: z.string().max(500).optional(), retryAfterMs: z.number().int().nonnegative() });
 // Strip unknown fields at every level: never spread raw server state into model context.
 export const observationSchema = z.object({
