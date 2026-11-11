@@ -179,7 +179,7 @@ export function Chat({ messages, canPost, placeholder, pending, onSend, title = 
 /** The settings a newcomer asks about, as key/values (the full list is the configuration page). */
 const SHOWN: readonly SettingsKey[] = [
   "languages", "planningSeconds", "halfLifeSeconds", "interactionRateHz", "startingObjectCount", "spawnRateHz",
-  "startingEnergy", "powerPerSecond", "maxAgentsPerGod", "defenceGoals", "utilitySelectorId",
+  "startingEnergy", "powerPerSecond", "fullChargeSeconds", "maxAgentsPerGod", "defenceGoals", "utilitySelectorId",
 ];
 
 /** "Python · Grid 5×5 base10 rgby · ~6 min (often 3–13) · normal pace". */

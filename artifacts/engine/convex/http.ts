@@ -7,6 +7,7 @@
  *   /api/replay/<roomId>/<gameId>  an ended game's stored replay, for a signed-in caller its replay admits (convex/replays.ts)
  *   /api/calibration/<roomId>/<gameId>/<godId>  a seat's calibration tables, for that player or a replay viewer (convex/calibration/mine.ts)
  *   /api/rule-tables?instance=&family=&params=  one draw's table by instantiation, for any signed-in caller (convex/calibration/draw.ts)
+ *   /api/preview-auth/*  preview deployments only: the passphrase sign-in (convex/auth/previewRoutes.ts); a 404 elsewhere
  *   /api/*        exact routes: device flow, player JWKS, config, health (convex/auth/routes.ts); any other
  *                 /api/ path is a JSON 404 (a longer prefix than "/", so it beats the SPA fallback)
  *   /*            the app (artifacts/player-web; static-hosting instance `engineSite`, built with base /)
@@ -21,6 +22,7 @@ import { httpAction } from "./_generated/server";
 import { mcp, mcpMethodNotAllowed } from "./agent/mcp";
 import { registerOAuthRoutes } from "./agent/oauth";
 import { registerAuthRoutes } from "./auth/routes";
+import { registerPreviewAuthRoutes } from "./auth/previewRoutes";
 import { download as replayDownload, downloadPreflight as replayPreflight } from "./replays";
 import { download as tablesDownload, preflight as tablesPreflight } from "./calibration/mine";
 import { download as ruleTablesDownload, preflight as ruleTablesPreflight } from "./calibration/draw";
@@ -73,6 +75,7 @@ http.route({ pathPrefix: "/api/calibration/", method: "OPTIONS", handler: tables
 // One draw's calibration table by instantiation, for the rule gallery (convex/calibration/draw.ts): the JWT in Authorization.
 http.route({ path: "/api/rule-tables", method: "GET", handler: ruleTablesDownload });
 http.route({ path: "/api/rule-tables", method: "OPTIONS", handler: ruleTablesPreflight });
+registerPreviewAuthRoutes(http);   // preview deployments only (a JSON 404 everywhere else): auth/preview.ts
 registerAuthRoutes(http);
 registerStaticRoutes(http, components.engineSite);
 

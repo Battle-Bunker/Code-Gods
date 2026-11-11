@@ -9,12 +9,12 @@ import { Term } from "@workspace/ui-kit";
 import { useObjectContext, useRoomInfo } from "@/sdk";
 import { Section, type PanelProps } from "./kit";
 
-function Primer({ world }: { world: string }) {
+function Primer({ world, fullChargeSeconds }: { world: string; fullChargeSeconds?: number }) {
   return (
     <div className="max-w-[68ch] space-y-3 text-[15px] leading-relaxed" data-testid="text-primer">
       <p>Code Gods is a game about a shared world and secret wishes.</p>
       <p>The world is a crowd of <Term id="object">objects</Term>: {world}. Every player is a god with a secret <Term id="utility-function">utility function</Term>, a short rule that scores every object. The rarer an object is by your rule, the more <Term id="bits">bits</Term> it is worth to you.</p>
-      <p>You cannot touch objects yourself. You <Term id="summon">summon</Term> <Term id="agent">agents</Term>: tiny Python or TypeScript programs that, when the world picks them, make a few moves on a random object. Summoning costs your <Term id="energy">energy</Term>, which refills every second, and shorter programs cost less. Each agent then earns its own energy and spends some on every move.</p>
+      <p>You cannot touch objects yourself. You <Term id="summon">summon</Term> <Term id="agent">agents</Term>: tiny Python or TypeScript programs that, when the world picks them, make a few moves on a random object. Summoning costs your <Term id="energy">energy</Term>, which refills every second, and shorter programs cost less. Each agent then earns its own energy and spends some on every move.{fullChargeSeconds !== undefined && ` Energy fills up in ${fullChargeSeconds} seconds and then stops: use it or re-allocate it.`}</p>
       <p>Here is the twist. Your <Term id="payoff">payoff</Term> from an object is your bits times how much the other gods, together, care about it. An object only you love earns you nothing. You cannot see anyone else's rule, only the total. So talk: say what you want in the public chat, find overlaps, strike deals.</p>
       <p>The game ends at a random moment. Your score is your payoff added up over every object alive then. Your assistant can explain, write agents and draft messages for you.</p>
     </div>
@@ -27,15 +27,17 @@ export default function Rules({ params }: PanelProps<"rules">) {
   const settings = (room?.settings ?? {}) as Record<string, unknown>;
   const objectType = typeof settings.objectType === "string" ? settings.objectType : undefined;
   const world = objectType === "Grid" || !objectType ? "usually small grids of coloured numbers" : objectType === "Int" ? "whole numbers" : "pieces of text";
+  const fullChargeSeconds = typeof settings.fullChargeSeconds === "number" ? settings.fullChargeSeconds : undefined;
   const all = params.section === "all";
   const rows: [string, unknown][] = [
     ["Objects", objectType], ["Languages", allowedLanguages(settings).map(l => LANGUAGE_SPECS[l].label).join(", ") || undefined], ["Planning", settings.planningSeconds !== undefined ? `${settings.planningSeconds} s` : undefined],
     ["Starting energy", settings.startingEnergy !== undefined ? `${settings.startingEnergy} bits` : undefined], ["Power per second", settings.powerPerSecond !== undefined ? `${settings.powerPerSecond} bits` : undefined],
+    ["Energy fills in", fullChargeSeconds !== undefined ? `${fullChargeSeconds} s` : undefined],
     ["Pause length", settings.pauseSeconds !== undefined ? `${settings.pauseSeconds} s` : undefined], [settings.durationMode === "fixed" ? "Game length (fixed)" : "Game half-life", settings.halfLifeSeconds !== undefined ? `${settings.halfLifeSeconds} world s` : undefined],
   ];
   return (
     <div className="space-y-6" data-testid="panel-rules">
-      {(all || params.section === "primer") && <Primer world={world} />}
+      {(all || params.section === "primer") && <Primer world={world} fullChargeSeconds={fullChargeSeconds} />}
       {(all || params.section === "scoring") && <HowScoringWorks noun={noun} open={params.section === "scoring"} />}
       {(all || params.section === "settings") && (
         <Section title="This room's next game">
