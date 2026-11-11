@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  agentIncome, deityIncome, defaultShare, assertShare, spendDeityEnergy, newAgentAccount, settleAgentEnergy, chargeAct, pickByEnergy, selectionWeight, offerReadBits,
+  agentIncome, deityIncome, defaultShare, assertShare, spendDeityEnergy, newAgentAccount, settleAgentEnergy, chargeAct, pickByEnergy, selectionWeight,
   energyCapacity, secondsToFull, settleDeityEnergy, chargeDeityAccount,
 } from "../src/energy.ts";
 
@@ -232,14 +232,4 @@ test("chargeDeityAccount settles within the capacity, then deducts; it refuses w
   assert.throws(() => chargeDeityAccount(account, 961, 1000, terms), /Insufficient/);   // never more than a full store
   assert.throws(() => chargeDeityAccount(account, -1, 5, terms), /Invalid/);
   assert.equal(account.balance, 100, "the input is untouched");
-});
-
-test("an offer is a read of which object the agent was given: log2 of the live objects", () => {
-  assert.equal(offerReadBits(80), Math.log2(80));     // the Grid seeds start with 80 objects: 6.32 bits
-  assert.equal(offerReadBits(2), 1);
-  assert.equal(offerReadBits(1), 0, "one object: nothing to learn");
-  assert.equal(offerReadBits(0), 0);
-  assert.equal(offerReadBits(NaN), 0);
-  // At the read price (1/32) that is 0.198 energy bits on a Grid seed: under 2% of the cheapest change there (11.5).
-  assert.ok(Math.abs(offerReadBits(80) / 32 - 0.1976) < 1e-4);
 });

@@ -23,14 +23,15 @@
  *   rateCap            R2: true re-creates the rate cap removed on 11 Nov 2026 (an agent is offered at most 4 opportunities per
  *                      world second); false draws one agent ∝ positive energy over all agents.
  *   offerPrice         R3: every offer charges the agent log2(live objects) / κ, whatever it then does. Counted with
- *                      reading (readSpent) and on its own (offerSpent).
+ *                      reading (readSpent) and on its own (offerSpent). Not an engine rule on this branch: the
+ *                      harness computes it itself, for comparison.
  *   debtBound          R4: an act whose cost would leave the balance below −capacity does not commit; the agent pays its
  *                      reads and the offer only.
  *   shares             pre-created agents (one list of power shares per god) in place of priced summons.
  */
 import {
   DEFAULT_SETTINGS, SEED_SETUPS, validateSettings, type GameSettings, type AgentAccount,
-  newAgentAccount, settleAgentEnergy, chargeAct, pickByEnergy, offerReadBits, defaultShare, energyCapacity,
+  newAgentAccount, settleAgentEnergy, chargeAct, pickByEnergy, defaultShare, energyCapacity,
   settleDeityEnergy, chargeDeityAccount,
   netBits, softHinge, rankTotals, gameEndSeconds, poissonIntervalSeconds, CHANGE_READ_RATIO, CHANGE_BETA,
 } from "../src/index.ts";
@@ -172,7 +173,7 @@ export function play(c: Config, seed: number): Result {
         a.last = t;
         const g = gods[a.god]; g.offers++;
         const pay = (cost: number) => { a.acct = chargeAct(a.acct, cost); g.spent += cost; };
-        if (c.offerPrice) { const offer = offerReadBits(objs.length) / KAPPA; pay(offer); g.offerSpent += offer; offerSpent += offer; readSpent += offer; }
+        if (c.offerPrice) { const offer = (objs.length > 1 ? Math.log2(objs.length) : 0) / KAPPA; pay(offer); g.offerSpent += offer; offerSpent += offer; readSpent += offer; }
         // R4: the change commits only if it leaves the balance at or above −capacity (reads are paid first).
         const affordable = (reads: number) => !c.debtBound || a.acct.balance - reads - changeBits >= -capacityOf(a);
         const oi = Math.floor(u() * objs.length), o = objs[oi], pol = c.policies[a.god];

@@ -9,9 +9,8 @@ distance (add k on a digit costs 4 + 1.585·|k| bits, no set for numbers) and dr
 
 ## 1. Principles
 
-1. **An act pays only for what it does.** It pays for the bits it reads (§3), the offer included (§7.1: being given an
-   object is a read of which object it is), and for the change it makes (§4). There is no other per-act charge and no
-   per-act charge for the agent's code. Code complexity is priced once, at summon (the
+1. **An act pays only for what it does.** It pays for the bits it reads (§3) and for the change it makes (§4). There is
+   no per-act floor (being offered an object is free: §7.1) and no per-act charge for the agent's code. Code complexity is priced once, at summon (the
    ast-bits description length, unchanged).
 2. **Looking is much cheaper than changing.** A bit read costs 1/κ of a bit changed (κ = `CHANGE_READ_RATIO` = 32,
    §2.1), and computing is free. Careful play (read the board, work out which change serves you without breaking the
@@ -31,7 +30,7 @@ distance (add k on a digit costs 4 + 1.585·|k| bits, no set for numbers) and dr
 
 ```
 charge = R/κ + (the change commits ? C : 0)
-R = the offer's bits (§7.1) + Σ distinct reads' information, in bits (§3)        C = W + β·W²,  W = Σ elementary costs (§4)
+R = Σ distinct reads' information, in bits (§3)        C = W + β·W²,  W = Σ elementary costs (§4)
 κ = CHANGE_READ_RATIO = 32                             READ_PRICE = 1/κ energy bits per bit read (§2.1)
 ```
 
@@ -50,7 +49,7 @@ bits.
 | collision | the result is another object's value | R/κ | recorded | counted |
 | commit clause kept it | `only_if_better` and no improvement | R/κ | recorded | counted |
 
-R always includes the offer's bits (§7.1), so no outcome is free. A change that does not commit pays no change cost: the world did not change. A skip is a choice, not a failure. Calls
+A change that does not commit pays no change cost: the world did not change. A skip is a choice, not a failure. Calls
 that cancel out are still "no change", a failure, because the agent asked for a change and nothing happened.
 
 ### 2.1 The read price κ (owner, 11 Nov 2026)
@@ -87,7 +86,7 @@ are priced at a fraction of it:
   before it keep their stored estimate (`expectedActCost`, `breakdown`), which overstates their reads until re-summoned;
   nothing is charged or scheduled from it (§5).
 - **Selection.** An agent that looks and skips now keeps nearly all its energy, so it stays rich and is offered more
-  opportunities. Its store is bounded by the capacity (§6.1) and each offer has a price (§7.1); the per-agent rate cap
+  opportunities. Its store is bounded by the capacity (§6.1), and an offer itself is free (§7.1); the per-agent rate cap
   that bounded it when κ was introduced is gone (§7). The futility memo still applies.
 - **As a room setting** (if the owner wants per-setup tuning): add an optional `changeReadRatio` to `GameSettings`
   (game-core settings, SETTINGS_DOCS, validation ≥ 1, the setup editor), have `tick.ts` and `pricing.ts` pass
@@ -143,7 +142,7 @@ Worked examples (4×4, base10, rgb):
 | Scans one row's colours | 4 colours | 6.34 |
 | Scans every colour | 16 colours | 25.4 |
 | Scans every symbol and colour | 32 values | 78.5 |
-| Never looks (always `paint(cell(0,0), "red")`) | — | 0 (plus the offer's bits, as every row: §7.1) |
+| Never looks (always `paint(cell(0,0), "red")`) | — | 0 |
 
 ### 3.2 Int and string
 
@@ -332,7 +331,7 @@ irrelevant.
 - **Why 30 seconds** (`lib/game-core/scripts/capacity-experiments.ts`; tables in `docs/energy-capacity-evidence.md`).
   - In every shipped room agents spend income as it arrives, so no agent store fills and acts, skips and win shares are
     the same at every T from 5 to 300: T is free to be set by the other concerns.
-  - Hoarding: the active gods keep 99% of their acts at T = 30, 98% at 60, 95% at 120, 89% at 300 (§7.1).
+  - Hoarding: the active gods keep 99% of their acts at T = 30, 98% at 60, 95% at 120, 88% at 300 (`docs/energy-capacity-evidence.md` §3, offer price off).
   - Code size: the largest program a deity can buy is (unallocated power) × T. At 30 s the owner's 1,137-bit agent needs
     59% of the power kept back (30% at 60 s, 15% at 120 s), and a 400-bit agent 21%: size is a real trade against the
     agents' power. At 120 s and more it is not.
@@ -380,60 +379,36 @@ agents to offer no opportunity for advantage."
   (`lib/game-core/test/energy.test.ts`, with capacity binding, with energy binding and with no capacity; six seeds,
   uneven splits included; a companion test re-creates a per-agent limit and checks that the test sees it;
   `artifacts/engine/test/game-energy.test.ts` plays one agent with 80% against four with 20% each on the real tick).
-- **What bounds an agent that looks and skips** is the capacity (§6.1), in proportion to its power, and the price of
-  each offer (§7.1). Its store cannot exceed s·P·T, so the others need only hold a comparable amount to be offered
+- **What bounds an agent that looks and skips** is the capacity (§6.1), in proportion to its power, and
+  nothing else: an offer is free (§7.1). Its store cannot exceed s·P·T, so the others need only hold a comparable amount to be offered
   their share; they then act as often as their income allows.
 - The futility memo still keeps agents off pairs where they can only fail.
 - A cheap skipper runs more often than an expensive actor with the same income: its balance stays high. This is a unit
   test (`lib/game-core/test/energy.test.ts`).
 
-### 7.1 The price of an offer (owner, 11 Nov 2026)
+### 7.1 Exposure is free (variant `variant/exposure-free`)
 
-The owner: "Choosing not to mutate after analysing a board should be an approved strategy for gaining higher leverage
-impact by spending one's energy more wisely. Although it does seem appropriate for it to cost something so that
-arbitrary hoarding of energy can't saturate access to mutation opportunities", and "we want it to cost something (though
-much less than mutation) to get exposure to mutation opportunities."
+The owner (11 Nov 2026): "Choosing not to mutate after analysing a board should be an approved strategy", and "it does
+seem appropriate for it to cost something so that arbitrary hoarding of energy can't saturate access to mutation
+opportunities". `develop` answers the second with a price on every offer (log2 of the live objects, at the read price).
+This variant does not: being offered an object costs nothing, so an agent that reads nothing and returns no calls pays
+nothing, as before 11 Nov 2026.
 
-- **The rule.** Being offered an object tells the agent which of the live objects it holds: log2(number of live
-  objects) bits (`offerReadBits`, game-core). The tick adds those bits to what the act read, so they are charged at the
-  read price like any other read, on every offer, whether the agent then looks at the object, changes it, skips or
-  fails. It is not a new kind of charge: it is inside `cost.read` (and `spentRead`), and `EVENT_LOG_SCHEMA` 10 marks it.
-  An act the host could not run is not charged, as before.
-- **Size.** With 80 objects it is 6.3 bits read, 0.198 energy bits: 1.1–1.7% of the cheapest change on the Grid seeds,
-  and 1.6–8% of a full look at the object.
+- **What bounds a hoarder is the capacity alone** (§6.1): its store cannot exceed s·P·T, so the others need only hold a
+  comparable amount to be offered their share.
+- **Measured** (`docs/energy-capacity-evidence.md` §3; First steps, 25 Hz, T = 30, no rate cap, 100 games per row): one
+  god's three agents read nothing and never act; the other two gods play greedy.
 
-  | Seed | Objects at the start | Offer price | Cheapest change C | Offer ÷ C | Offer ÷ a full look |
-  |---|---|---|---|---|---|
-  | First steps | 80 | 0.198 | 11.5 | 1.7% | 8.1% |
-  | Annotated basics | 10 | 0.104 | 16.3 | 0.6% | 6.3% |
-  | Classic, Low income | 80 | 0.198 | 14.3 | 1.4% | 4.8% |
-  | Big board | 80 | 0.198 | 17.8 | 1.1% | 2.7% |
-  | Master | 80 | 0.198 | 18.7 | 1.1% | 1.6% |
+  | Offer price | Hoarder's share of the stream | What it pays | Its store | The active gods' acts, against the same room with an ordinary third player |
+  |---|---|---|---|---|
+  | off (this variant) | 68.7% | 0 | 1,680 bits | 99% |
+  | on (`develop`) | 69.2% | 4.2 bits/s | 1,679 bits | 99% |
 
-- **The summon-time estimate** (`expectedActCost`, `breakdown.read`) is of the act alone; the offer's price depends on
-  how many objects are live.
-- **Is it enough against hoarding?** With the capacity, yes; and it is the capacity that does the work. The experiment
-  (`lib/game-core/scripts/capacity-experiments.ts`, First steps, 100 games per row): one god's three agents read
-  nothing and never act; the other two gods play greedy.
-
-  | T | Rate cap | Hoarder's share of the 25 Hz stream | What it pays | Its store | The active gods' acts, against the same room with an ordinary third player |
-  |---|---|---|---|---|---|
-  | 30 s | none (shipped) | 69% | 4.2 bits/s (7.5% of its agents' income) | 1,679 bits | 99% |
-  | 60 s | none | 70% | 4.2 bits/s | 3,359 | 98% |
-  | 120 s | none | 70% | 4.2 bits/s | 6,719 | 95% |
-  | 300 s | none | 72% | 4.4 bits/s | 16,749 | 89% |
-  | no capacity | none | 74% | 4.5 bits/s | 23,252 and growing | 84% |
-  | no capacity, no offer price | 4 per agent per second (before) | 48% | 0 | 25,207 and growing | 100% |
-
-  The hoarder takes most of the stream because nobody else can use it: at 25 Hz the active gods can pay for about 6
-  acts a second between them, and they still get them. They hold about 370 bits each to stay in the draw (well inside
-  their capacity). In a scarce stream (4 Hz) every store is full, the stream splits by power (the hoarder gets its
-  34%), and the active gods act as often as against an ordinary third player (98–99%). So a hoarder cannot saturate
-  access; what it can do is waste its own share, for a price. Without a capacity it could tax the others 16–18% for
-  ever, which is why the rate cap can only go once the capacity is in.
-- **If a higher price is ever wanted**, the principled next step is to charge the whole draw (which object and which
-  agent: log2 objects + log2 of the room's agents with energy), not a per-agent rule. The measurements above do not call
-  for it.
+  The hoarder takes most of the stream either way, because nobody else can pay for it, and the active gods keep 99% of
+  their acts either way. The price changes only what the hoarder pays for wasting its own share. With longer capacities
+  the active gods lose more, with or without the price (95% at T = 120, 88–89% at 300).
+- **What this variant gives up**: a turn can be free, so a room full of pure skippers runs every offer at no cost to
+  anyone. That is compute load, not an advantage in play.
 
 ### 7.2 Debt (open)
 
