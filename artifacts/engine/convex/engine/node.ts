@@ -206,6 +206,8 @@ export function utilityCard(settings: GameSettings, utility: UtilityDescriptor) 
     familyId: c.familyId, emoji: c.emoji, name: c.name, theme: c.theme, summary: c.summary, shape: c.shape,
     language, source: c.source[language],
     ...(c.example ? { example: { value: String(c.example.value), size: c.example.size, caption: c.example.caption } } : {}),
+    // A tiered draw's ★ blocks (optional: base draws and every card dealt before tiers have none).
+    ...(c.tiers ? { tiers: c.tiers.map(t => ({ id: t.id, heading: t.heading, text: t.text, gate: t.gate, index: t.index, arity: t.arity })) } : {}),
     ...(c.penalty ? { penalty: {
       familyId: c.penalty.familyId, emoji: c.penalty.emoji, name: c.penalty.name, summary: c.penalty.summary,
       comparative: c.penalty.comparative, shape: c.penalty.shape, source: c.penalty.source[language],
