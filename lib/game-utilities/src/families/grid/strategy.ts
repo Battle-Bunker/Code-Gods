@@ -98,7 +98,7 @@ const rainbowRoad = gridFamily<RoadP>({
 type BaronP = Record<string, never>;
 const baronText = (g: GridSpec): CardText => ({
   emoji: "🏰", name: "Border Baron", consts: [["BIG", g.N]],
-  about: "Try to make long borders between big countries. A country is a group of touching cells of one colour. A border is a place where two countries touch. "
+  about: "Try to make long borders between big countries. A country is a group of touching cells of one colour. A border is each place where a cell touches a cell of another colour, side by side or one above the other. A long border counts many times. "
     + `Each border scores ${tierPoints(1, 0, 2)} if both countries have at least ${g.N} cells. `
     + `Each border also scores as many secondary points as the size of its smaller country (counting at most ${g.N}).`,
 });

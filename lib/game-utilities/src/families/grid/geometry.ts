@@ -23,7 +23,7 @@ function castleText(p: CastleP, _g: GridSpec): CardText {
   const W = p.wall;
   return {
     emoji: "🏯", name: "Castle Keeper", consts: [["WALL", W]],
-    about: `Try to keep the water out with walls of ${W}. Water flows in from the edge and can't cross ${W} cells. A cell is shut in when the water can't reach it. `
+    about: `Try to keep the water out with walls of ${W}. Water flows in from the edge and can't cross ${W} cells. A cell that isn't ${W} is shut in when the water can't reach it. `
       + `Each shut-in cell scores 1 primary point. Each ${W} cell on the edge scores 1 secondary point.`,
   };
 }
@@ -1487,7 +1487,7 @@ const sPieceTamer = pieceTamer("S", "s_piece_tamer", "S-Piece Tamer", "Islands s
 
 // --- Treasure Castle and Castle Pockets (Castle Keeper's treasure and eyes modes) ---------------------
 const castleFlood = (W: string) =>
-  `Try to keep the water out with walls of ${W}. Water flows in from the edge and can't cross ${W} cells. A cell is shut in when the water can't reach it.`;
+  `Try to keep the water out with walls of ${W}. Water flows in from the edge and can't cross ${W} cells. A cell that isn't ${W} is shut in when the water can't reach it.`;
 const CASTLE_BASE_PY = `
     def not_wall(cell):
         return cell.colour != WALL
