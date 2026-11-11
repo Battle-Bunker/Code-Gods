@@ -18,7 +18,9 @@ test("a visitor signs in; a signed-in stranger joins (and may watch a running ga
 });
 
 test("in the lobby a player marks ready (or watches instead); the owner invites, then starts, and may watch or play", () => {
-  assert.deepEqual(nextStep("bob", room(["ada", "bob"])), { status: "Waiting for Ada to start the game.", primary: "rooms.setReady", secondary: ["rooms.setSpectator"] });
+  // Below the minimum, nobody can start yet: a player's status says so and their one primary is to invite (ready gates nothing).
+  assert.deepEqual(nextStep("bob", room(["ada", "bob"])), { status: "1 more player needed; then Ada can start.", primary: "ui.copyInviteLink", secondary: ["rooms.setReady", "rooms.setSpectator"] });
+  assert.deepEqual(nextStep("bob", room(["ada", "bob", "cy"])), { status: "Waiting for Ada to start the game.", primary: "rooms.setReady", secondary: ["rooms.setSpectator"] });
   assert.deepEqual(nextStep("ada", room(["ada"])), { status: "2 more players needed. AI players count.", primary: "ui.copyInviteLink", secondary: ["rooms.setSpectator", "rooms.addAi"] });
   assert.equal(nextStep("ada", room(["ada", "bob"])).status, "1 more player needed. AI players count.");
   assert.deepEqual(nextStep("ada", room(["ada", "bob", "ai:x"])), { status: "3 players are in; start when you're ready.", primary: "owner.start", secondary: ["rooms.setSpectator", "rooms.addAi"] });
