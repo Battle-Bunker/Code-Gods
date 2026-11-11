@@ -15,6 +15,8 @@
  * object type (settingsOptionsFor); excluded reward families are reward families
  * of the object type and excluded defence families its defence families, and each list keeps only those that exist in
  * the instantiation (excluding one its board cannot deal means nothing).
+ * Tiered rules (`ruleTiers`, the one optional field): a depth and at most a known composition, or null to switch them
+ * off (the field is then absent, as in every ordinary game).
  * Everything else (every number, the defence switch, the prior, the commit clause, act targeting) is free:
  * `validateSettings` (the single validator) says whether a value is within bounds. No field is retuned to "suit"
  * another, and nothing is repaired.
@@ -27,7 +29,7 @@
 import { instantiate, objectType as objectTypeDef } from "@workspace/game-types";
 import type { TypeArgs } from "@workspace/game-types";
 import {
-  DEFAULT_SETTINGS, OPTION_KEYS, settingsOptionsFor, upgradeLegacyLanguage, validLanguages, type FamilyDomain, type FamilyRole, type GameSettings,
+  OPTION_KEYS, OPTIONAL_SETTINGS, SETTINGS_FIELDS, validRuleTiers, settingsOptionsFor, upgradeLegacyLanguage, validLanguages, type FamilyDomain, type FamilyRole, type GameSettings,
 } from "./settings.ts";
 
 export interface SettingsDomain extends FamilyDomain {
@@ -57,7 +59,7 @@ export class SettingsChangeError extends Error {
   }
 }
 
-const FIELDS = new Set(Object.keys(DEFAULT_SETTINGS));
+const FIELDS = new Set(SETTINGS_FIELDS);
 /** Each excluded-family list and the role of the families it holds. */
 const EXCLUDED = [["excludedFamilies", "reward"], ["excludedDefenceFamilies", "defence"]] as const;
 
@@ -162,7 +164,13 @@ export function applySettingsChange(settings: GameSettings, patch: Partial<GameS
     if (unknown.length) throw new SettingsChangeError(field, `Not ${role} families of ${next.objectType}: ${unknown.join(", ")}`);
     next = keepExisting({ ...next, [field]: [...new Set(ids as string[])] }, domain);
   }
-  const handled = new Set<string>(["objectType", "typeArgs", "languages", ...EXCLUDED.map(([f]) => f), ...OPTION_KEYS]);
+  // The optional field: null switches tiered rules off (the field goes), an object switches them on.
+  if (given.ruleTiers === null) { const { ruleTiers: _off, ...rest } = next; next = rest; }
+  else if (changed("ruleTiers")) {
+    if (!validRuleTiers(given.ruleTiers)) throw new SettingsChangeError("ruleTiers", "ruleTiers must be a depth of 1 or 2 with at most a known composition, or null for none");
+    next = { ...next, ruleTiers: { depth: given.ruleTiers.depth, ...(given.ruleTiers.compose ? { compose: given.ruleTiers.compose } : {}) } };
+  }
+  const handled = new Set<string>(["objectType", "typeArgs", "languages", ...EXCLUDED.map(([f]) => f), ...OPTION_KEYS, ...OPTIONAL_SETTINGS]);
   for (const key of Object.keys(given) as (keyof GameSettings)[]) {
     if (!handled.has(key) && changed(key)) next = { ...next, [key]: given[key] };
   }

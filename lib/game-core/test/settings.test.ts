@@ -4,7 +4,7 @@ import {
   DEFAULT_SETTINGS, SETTINGS_OPTIONS, MAX_AGENTS_PER_GOD, settingsOptionsFor, validateSettings, LANGUAGES, LANGUAGE_SPECS,
   grammarFor, complexityFor, allowedLanguages, upgradeLegacyLanguage,
   upgradeStoredSettings, FIRST_STEPS_SEED_ID, ANNOTATED_BASICS_SEED_ID, DEFAULT_SETUP_SEED_ID,
-  instantiationOf, codecOf, assertObjectValue, defaultSettingsFor, SEED_SETUPS, SETUP_NAME_MAX, seedSetupSettings, ENERGY_LIMITS, type GameSettings,
+  instantiationOf, codecOf, assertObjectValue, defaultSettingsFor, SEED_SETUPS, SETUP_NAME_MAX, seedSetupSettings, ENERGY_LIMITS, OPTIONAL_SETTINGS, SETTINGS_FIELDS, ADMIN_ONLY_SEED_IDS, type GameSettings,
 } from "../src/settings.ts";
 import { gameEndSeconds } from "../src/random.ts";
 
@@ -189,7 +189,8 @@ test("defaultSettingsFor gives valid settings for every type and language", () =
   assert.equal(defaultSettingsFor("Grid", ["python"], { size: 7, symbols: "cards", colours: "rainbow6" }).powerPerSecond, 64);
   assert.equal(defaultSettingsFor("Int").powerPerSecond, 8);
   for (const s of SEED_SETUPS) { validateSettings(s.settings); assert.ok(s.name.length <= SETUP_NAME_MAX, s.name); }
-  assert.deepEqual(SEED_SETUPS.map(s => s.seedId), ["grid-first-steps", "grid-annotated-basics", "grid-annotated-colours", "grid-classic", "grid-low-income", "grid-big", "grid-master"]);
+  assert.deepEqual(SEED_SETUPS.map(s => s.seedId), ["grid-first-steps", "grid-annotated-basics", "grid-annotated-colours", "grid-classic", "grid-low-income", "grid-big", "grid-master",
+    "grid-tiered", "lab-tiers-plain", "lab-tiers-unlock", "grid-tiered-expert", "lab-tiers-uncapped"], "new seeds are appended: the existing order never moves");
   assert.equal(seedSetupSettings("grid-first-steps").interactionRateHz, 25);
   assert.deepEqual(seedSetupSettings("grid-classic"), { ...classic, interactionRateHz: 100 }, "Classic is the tuned 5×5 board, complete");
   assert.ok(!seedSetupSettings("grid-master").excludedFamilies.includes("ladder_of_numbers"), "cards cannot deal it, so it is not listed");
@@ -268,4 +269,39 @@ test("the default setup (Annotated basics) is the numbers-only 4×4 board; First
   assert.deepEqual(s.typeArgs, { size: 4, symbols: "base10", colours: "mono" });
   assert.doesNotThrow(() => validateSettings(s));
   assert.deepEqual(seedSetupSettings(FIRST_STEPS_SEED_ID).typeArgs, { size: 4, symbols: "base10", colours: "rgb" });
+});
+
+test("tiered rules are one optional setting: absent everywhere but the tiered seeds, validated, and a seed may be for administrators only", () => {
+  assert.ok(!("ruleTiers" in DEFAULT_SETTINGS), "absent by default: a stored setup from before the field needs no migration");
+  assert.deepEqual(OPTIONAL_SETTINGS, ["ruleTiers"]);
+  assert.deepEqual(SETTINGS_FIELDS, [...Object.keys(DEFAULT_SETTINGS), "ruleTiers"]);
+  // The seeds from before tiers carry no such field (their stored rows stay equal to the code, untouched).
+  const tiered = Object.fromEntries(SEED_SETUPS.filter(s => "ruleTiers" in s.settings).map(s => [s.seedId, [s.settings.ruleTiers, s.adminOnly === true]]));
+  assert.deepEqual(tiered, {
+    "grid-tiered": [{ depth: 1 }, false],
+    "lab-tiers-plain": [{ depth: 1, compose: "plain" }, true],
+    "lab-tiers-unlock": [{ depth: 1, compose: "unlock" }, true],
+    "grid-tiered-expert": [{ depth: 2 }, true],
+    "lab-tiers-uncapped": [{ depth: 1, compose: "uncapped" }, true],
+  });
+  assert.deepEqual([...ADMIN_ONLY_SEED_IDS].sort(), ["grid-tiered-expert", "lab-tiers-plain", "lab-tiers-uncapped", "lab-tiers-unlock"]);
+  assert.ok(SEED_SETUPS.filter(s => !("ruleTiers" in s.settings)).every(s => !s.adminOnly), "every earlier seed stays public");
+  // The tiered seed: the board and pace of Annotated basics.
+  const t = seedSetupSettings("grid-tiered"), basics = seedSetupSettings("grid-annotated-basics");
+  assert.deepEqual(t.typeArgs, { size: 4, symbols: "base10", colours: "mono" });
+  for (const key of ["interactionRateHz", "durationMode", "halfLifeSeconds", "startingObjectCount", "spawnRateHz", "planningSeconds"] as const) assert.equal(t[key], basics[key], key);
+  assert.notEqual(seedSetupSettings("grid-tiered").ruleTiers, SEED_SETUPS.find(s => s.seedId === "grid-tiered")!.settings.ruleTiers, "a fresh copy");
+  // Validation: a depth of 1 or 2, at most a known composition, nothing else.
+  for (const ok of [{ depth: 1 }, { depth: 2 }, { depth: 1, compose: "plain" }, { depth: 2, compose: "unlock" }, { depth: 1, compose: "uncapped" }]) {
+    assert.doesNotThrow(() => validateSettings({ ...DEFAULT_SETTINGS, ruleTiers: ok as never }), JSON.stringify(ok));
+  }
+  for (const bad of [null, 1, "gated", [], {}, { depth: 0 }, { depth: 3 }, { depth: "1" }, { depth: 1, compose: "gated" }, { depth: 1, compose: "other" }, { depth: 1, extra: true }]) {
+    assert.throws(() => validateSettings({ ...DEFAULT_SETTINGS, ruleTiers: bad as never }), /ruleTiers must be/, JSON.stringify(bad));
+  }
+  // With a domain that knows which families offer tiers: an empty tiered pool is refused; one allowed family is enough.
+  const domain = (offered: string[]) => ({ families: () => [], tiered: () => offered });
+  assert.throws(() => validateSettings({ ...DEFAULT_SETTINGS, ruleTiers: { depth: 2 } }, domain([])), /Tiered rules need at least one allowed rule with two tiers/);
+  assert.throws(() => validateSettings({ ...DEFAULT_SETTINGS, ruleTiers: { depth: 1 }, excludedFamilies: ["a"] }, domain(["a"])), /Tiered rules need at least one allowed rule with one tier/);
+  assert.doesNotThrow(() => validateSettings({ ...DEFAULT_SETTINGS, ruleTiers: { depth: 1 }, excludedFamilies: ["a"] }, domain(["a", "b"])));
+  assert.doesNotThrow(() => validateSettings(DEFAULT_SETTINGS, domain([])), "an ordinary game asks nothing of tiers");
 });

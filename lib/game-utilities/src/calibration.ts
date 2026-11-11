@@ -22,7 +22,7 @@
 import { ENCODE_CALLS_JS, objectType, sha256, type Instantiation } from "@workspace/game-types";
 import { applicable, canonicalSupport, context, entryPoint, family, familiesFor, available, paramsKey, type Draw } from "./catalog.ts";
 import { dealableParams, type TierOptions } from "./dealable.ts";
-import type { Ordinal, Params, ScoreShape } from "./types.ts";
+import type { FamilyContext, Ordinal, Params, ScoreShape, UtilityFamily } from "./types.ts";
 import { canonicalJson } from "./canonical-json.ts";
 import { cardProgram } from "./families/card.ts";
 import { ANALYTIC_MAX_ERROR_BITS, HYBRID_MAX_ERROR_BITS, assertAnalyticHeader, cmpOrdinals, type AnalyticSurvival } from "./analytic.ts";
