@@ -15,8 +15,8 @@
  * Hold computations and AI seats' turns (seconds each: a provider call, then the seat's own validations and summons)
  * are scheduled functions, as ticks are, and the scheduler runs only about ten at once, oldest first: measured with 20
  * games starting together, forty seats' first turns (or forty hold tables) kept every game's planning-end tick waiting
- * 30–70 s. Three of each leave the scheduler to the ticks, which are short. A seat's turn past the cap runs a few
- * seconds later (ai/turn.ts); its examinations run under the turn's own slot.
+ * 30–70 s. Three of each leave the scheduler to the ticks, which are short. A seat's turn past the cap is queued and
+ * runs when a turn in flight ends (engine/background.ts takeTurn: no polling); its examinations run under the turn's slot.
  */
 export const BACKGROUND_LIMITS = { examination: 8, hold: 3, turn: 3 } as const;
 export type BackgroundKind = keyof typeof BACKGROUND_LIMITS;
@@ -28,8 +28,6 @@ export const BACKGROUND_SLOT_MS = 2 * 60_000;
  * waiting up to 12 s, were refused actions themselves), so past a moment the player's own retry is the queue.
  */
 export const EXAMINATION_WAIT_MS = 3_000;
-/** How long a seat's turn past the cap waits before asking again (plus up to as much again, at random). */
-export const TURN_SLOT_WAIT_MS = 3_000;
 /**
  * When a job waiting up to `waitMs` for a slot asks again: a few times, further apart each time (1, 2, 3… s plus up
  * to a second at random), so fifty waiters cost a handful of mutations a second, not a hundred. `random` in [0, 1).

@@ -107,6 +107,22 @@ export const afterTurn = internalMutation({
   },
 });
 
+/**
+ * The seat's turn is queued for a turn slot (engine/background.ts takeTurn): its status says so, and its next turn is
+ * due now, so a queue that never reaches it (five minutes: TURN_QUEUE_MS) ends in the watchdog's restart below.
+ */
+export const queued = internalMutation({
+  args: { gameId: v.id("games"), godId: v.string(), chain: v.number() },
+  handler: async (ctx, args) => {
+    const game = await ctx.db.get(args.gameId);
+    const member = game && await ctx.db.query("members").withIndex("by_room_god", q => q.eq("roomId", game.roomId).eq("godId", args.godId)).unique();
+    if (!member || member.aiChain !== args.chain) return;
+    await ctx.db.patch(member._id, { status: "Waiting for its turn", aiNextAt: Date.now() + TURN_QUEUE_GRACE_MS });
+  },
+});
+/** A queued turn is not overdue while the queue may still reach it. */
+const TURN_QUEUE_GRACE_MS = 5 * 60_000;
+
 /** A chain whose next turn is this long overdue is dead: its turn action died without running `afterTurn`. */
 export const CHAIN_OVERDUE_MS = 2 * 60_000;
 /**

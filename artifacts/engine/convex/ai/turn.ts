@@ -18,8 +18,6 @@ import { internal } from "../_generated/api";
 import { internalAction, type ActionCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import type { FunctionReturnType } from "convex/server";
-import { withBackgroundSlot } from "../engine/background";
-import { TURN_SLOT_WAIT_MS } from "../lib/background";
 import { runEnvelope } from "../commands";
 import { findModel, mockEnabled } from "../lib/aiModels";
 import { messageOf } from "../lib/errors";
@@ -87,35 +85,48 @@ function providerFor(agent: { provider: string; model: string }): ModelProvider 
 }
 
 export const run = internalAction({
-  args: { gameId: v.id("games"), godId: v.string(), chain: v.number() },
-  handler: async (ctx, { gameId, godId, chain }): Promise<unknown> => {
+  args: { gameId: v.id("games"), godId: v.string(), chain: v.number(), slot: v.optional(v.id("workSlots")) },
+  handler: async (ctx, { gameId, godId, chain, slot }): Promise<unknown> => {
     await bindRuntime(ctx);
+    // Whatever ends this run before the turn plays gives a slot it was handed back (to the next waiting turn).
+    const giveBack = async () => { if (slot) await ctx.runMutation(internal.engine.background.release, { slot }).catch(() => { /* it expires */ }); };
     let context;
     try {
       context = await ctx.runQuery(internal.ai.seats.turnContext, { gameId, godId, chain });
     } catch (error) {
       // A failed read must not end the seat's chain silently: it backs off and retries like any failed turn.
       console.warn(`AI turn context failed for ${godId}: ${messageOf(error)}`);
+      await giveBack();
       await ctx.runMutation(internal.ai.seats.afterTurn, { gameId, godId, chain, ok: false, status: failureStatus("turn_failed") });
       return { ok: false };
     }
-    if ("stop" in context) return { stopped: context.stop };
+    if ("stop" in context) { await giveBack(); return { stopped: context.stop }; }
     if ("waitUntil" in context) {
+      await giveBack();
       await ctx.runMutation(internal.ai.seats.afterTurn, { gameId, godId, chain, ok: true, status: context.status ?? "Waiting", waitUntil: context.waitUntil });
       return { waited: true };
     }
     const { roomId, agent } = context;
-    // A turn is background work, capped deployment-wide (lib/background.ts): past the cap it runs a few seconds later,
-    // so many seats' turns never keep the games' ticks waiting for the scheduler.
-    const ran = await withBackgroundSlot(ctx, "turn", 0, () => playTurn(ctx, { gameId, godId, roomId, agent }));
-    if (ran.busy) {
-      await ctx.runMutation(internal.ai.seats.afterTurn, { gameId, godId, chain, ok: true, status: "Waiting for its turn",
-        waitUntil: Date.now() + TURN_SLOT_WAIT_MS + Math.floor(Math.random() * TURN_SLOT_WAIT_MS) });
-      return { waited: true };
+    // A turn is background work, capped deployment-wide (lib/background.ts): past the cap it is queued and runs when a
+    // turn in flight ends (engine/background.ts takeTurn), so many seats' turns never keep the games' ticks waiting for
+    // the scheduler. `slot`: this run is that queued turn, already holding its slot.
+    let held: Id<"workSlots"> | null;
+    try { held = slot ?? await ctx.runMutation(internal.engine.background.takeTurn, { turn: { gameId, godId, chain } }); }
+    catch (error) {
+      // Many seats asking at once can exhaust the mutation's retries: the seat backs off like any failed turn.
+      console.warn(`AI turn slot failed for ${godId}: ${messageOf(error)}`);
+      await ctx.runMutation(internal.ai.seats.afterTurn, { gameId, godId, chain, ok: false, status: failureStatus("turn_failed") });
+      return { ok: false };
     }
-    const { ok, status } = ran.value;
-    await ctx.runMutation(internal.ai.seats.afterTurn, { gameId, godId, chain, ok, status });
-    return { ok, status };
+    if (!held) {
+      await ctx.runMutation(internal.ai.seats.queued, { gameId, godId, chain });
+      return { queued: true };
+    }
+    let outcome: { ok: boolean; status: string };
+    try { outcome = await playTurn(ctx, { gameId, godId, roomId, agent }); }
+    finally { await ctx.runMutation(internal.engine.background.release, { slot: held }).catch(() => { /* it expires */ }); }
+    await ctx.runMutation(internal.ai.seats.afterTurn, { gameId, godId, chain, ...outcome });
+    return outcome;
   },
 });
 

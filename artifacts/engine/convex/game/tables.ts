@@ -110,7 +110,11 @@ export const gameTables = {
    * The background jobs running now (engine/background.ts): one row per agent examination, hold computation or AI
    * seat turn in flight, at most lib/background.ts BACKGROUND_LIMITS of each kind live. Engine only; a few rows at any time.
    */
-  workSlots: defineTable({ kind: v.union(v.literal("examination"), v.literal("hold"), v.literal("turn")), expiresAt: v.number() }).index("by_kind", ["kind"]),
+  workSlots: defineTable({
+    kind: v.union(v.literal("examination"), v.literal("hold"), v.literal("turn"), v.literal("turnQueue")), expiresAt: v.number(),
+    /** A `turnQueue` row: the AI seat's turn waiting for a `turn` slot, oldest first (ai/turn.ts runs it when one is free). */
+    turn: v.optional(v.object({ gameId: v.id("games"), godId: v.string(), chain: v.number() })),
+  }).index("by_kind", ["kind"]),
 
   rooms: defineTable({
     /** Short code from the room GUID (Crockford base32 prefix); `encoded` is the full 26-digit encoding. */
