@@ -35,6 +35,7 @@ import { pictureFrame } from "./lenses/picture-frame.ts";
 import { mirrormancer } from "./lenses/mirrormancer.ts";
 import { colourMirror } from "./lenses/colour-mirror.ts";
 import { strangers } from "./lenses/strangers.ts";
+import { steppingStones } from "./lenses/stepping-stones.ts";
 
 export * from "./model.ts";
 export { type Lens } from "./lens.ts";
@@ -46,7 +47,7 @@ export { STORY_FAMILIES, compareOrdinal, story, whatIf, type Story, type StoryFr
 /** The families with a lens (a rich annotation). */
 export const LENSES: readonly Lens[] = Object.freeze([
   parityPainter, setSpotter, numberBonds, colourBonds, chessmaster, honestMinesweeper, magicAccountant, kingdom, pictureFrame, mirrormancer, colourMirror,
-  strangers,
+  strangers, steppingStones,
 ]);
 const byFamily = new Map(LENSES.map(l => [l.familyId, l]));
 export const lensFor = (familyId: string): Lens | undefined => byFamily.get(familyId);

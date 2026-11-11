@@ -288,6 +288,32 @@ test("Strangers: one unit per touching pair, its facts name the shared divisor; 
   assert.deepEqual(hex.parts.find(p => p.id === "pair:0,0:down")!.facts, [{ text: "A (10) and 5 share 5", ok: false }]);
 });
 
+test("Stepping Stones: one unit per hop group, lone cells folded into one; only the biggest group scores", () => {
+  const { e, unit, point } = look("stepping_stones", {});
+  // Hops (numbers 2 apart, sharing a side): 2–4 and 4–6 down column 1; 3–5 at the end of row 4. Nothing else differs by 2.
+  // Groups: 2 4 6 (3 cells, the biggest: 3 points), 3 5 (2 cells), and 11 lone cells.
+  assert.equal(e.ordinal, 3);
+  assert.equal(e.parts.length, 3, "two groups and one unit for the lone cells");
+  const big = unit("group:0,0");
+  assert.deepEqual([big.points, big.cells.length, big.title], [[3], 3, "your biggest group"]);
+  assert.deepEqual(big.facts, [{ text: "3 cells joined by hops of 2", ok: true }]);
+  assert.deepEqual(big.links!.map(l => [l.from, l.to, l.ok]), [[{ r: 0, c: 0 }, { r: 1, c: 0 }, true], [{ r: 1, c: 0 }, { r: 2, c: 0 }, true]]);
+  const small = unit("group:3,2");
+  assert.deepEqual(small.points, [0]);
+  assert.deepEqual(small.facts, [{ text: "2 cells joined by hops of 2", ok: true }, { text: "smaller than the biggest (3)", ok: false }]);
+  const lone = unit("lone");
+  assert.deepEqual([lone.points, lone.cells.length], [[0], 11]);
+  assert.deepEqual(lone.facts, [{ text: "11 cells with no touching number 2 away", ok: false }]);
+  assert.equal(point(1, 0)!.id, "group:0,0", "the group under the pointer");
+  assert.equal(point(0, 1)!.id, "lone", "a lone cell picks the lone cells' unit");
+  assert.equal(point(3, 3)!.id, "group:3,2");
+  assert.deepEqual(sortUnits(e.parts).map(u => u.id), ["group:0,0", "group:3,2", "lone"]);
+  // A tie: two groups of 2; only the first (in the card's reading order) scores.
+  const tie = look("stepping_stones", {}, "1R,3R,0R,0R/0R,0R,0R,0R/0R,0R,0R,0R/0R,0R,5R,7R");
+  assert.equal(tie.e.ordinal, 2);
+  assert.deepEqual(tie.unit("group:3,2").facts[1], { text: "as big as the biggest (2), but only one group scores", ok: false });
+});
+
 test("goal examples: deterministic, in the room's own shape, verified, and they teach both sides", () => {
   for (const l of LENSES) {
     for (const p of paramsFor(l.familyId, FIRST_STEPS)) {
