@@ -1,10 +1,11 @@
 export * from "./types.ts";
 export {
-  FAMILIES, family, familiesFor, context, applicable, available, canonicalSupport, paramsKey, publicCatalog, readDescriptor, card,
+  FAMILIES, family, familiesFor, context, applicable, available, canonicalSupport, tieredCanonicalSupport, paramsKey, publicCatalog, readDescriptor, card,
   compareOrdinals, assertOrdinal, evaluator, ordinal, entryPoint, cardParams,
   type CatalogEntry, type Draw,
 } from "./catalog.ts";
 export * from "./params.ts";
+export { dealableParams, type TierOptions } from "./dealable.ts";
 export * from "./tuples.ts";
 export {
   SELECTORS, selector, divineLottery, fairAligned, registerSynergy, synergyFor, availableFamilies,

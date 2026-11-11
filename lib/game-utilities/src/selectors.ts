@@ -2,6 +2,7 @@ import type { Instantiation, Rng } from "@workspace/game-types";
 import { MATRICES } from "../data/synergy/index.js";
 import type { UtilityDescriptor, UtilityFamily } from "./types.ts";
 import { applicable, available, context, familiesFor, paramsKey, type Draw } from "./catalog.ts";
+import { dealableParams, type TierOptions } from "./dealable.ts";
 
 export interface SelectOptions {
   /**
@@ -20,6 +21,12 @@ export interface SelectOptions {
   readonly excludeDefence?: readonly string[];
   /** The rarity prior (settings.priorId); selects the synergy matrix. Default "uniform". */
   readonly priorId?: string;
+  /**
+   * Tiered rules (settings.ruleTiers): when set, every reward is a tiered draw of this depth and composition, from the
+   * families that offer some here (`UtilityFamily.tiered`): a uniform family, then a uniform one of its tiered draws.
+   * Absent: base draws only, exactly as before tiers existed. Defence goals never carry tiers.
+   */
+  readonly tiers?: TierOptions;
 }
 
 /**
@@ -35,21 +42,29 @@ export interface UtilitySelector {
 
 const ATTEMPTS = 1000;
 
-/** A uniform family among `candidates`, then its sampler; redrawn until the draw is applicable (its needs) and has a table. */
-function drawFrom(candidates: readonly UtilityFamily<any>[], inst: Instantiation, rng: Rng, hasTable: (d: Draw) => boolean): Draw | null {
+/**
+ * A uniform family among `candidates`, then its sampler (with `tiers`: a uniform one of its tiered draws); redrawn until
+ * the draw is applicable (its needs) and has a table.
+ */
+function drawFrom(candidates: readonly UtilityFamily<any>[], inst: Instantiation, rng: Rng, hasTable: (d: Draw) => boolean, tiers?: TierOptions): Draw | null {
   if (!candidates.length) return null;
   const ctx = context(inst);
   for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
     const f = candidates[rng.int(candidates.length)];
-    const d = { familyId: f.id, params: f.sample(rng, ctx) };
+    const offered = tiers ? dealableParams(f, ctx, tiers) : null;
+    const d = { familyId: f.id, params: offered ? offered[rng.int(offered.length)] : f.sample(rng, ctx) };
     if ((!f.needs || applicable(f, inst, d.params).ok) && hasTable(d)) return d;
   }
   return null;
 }
 
-/** The families of this instantiation that `resolve` makes available, of one role. */
-export const availableFamilies = (inst: Instantiation, role: "reward" | "penalty", exclude: readonly string[] = []) =>
-  familiesFor(inst.objectType, role).filter(f => available(f, inst).ok && !exclude.includes(f.id));
+/**
+ * The families of this instantiation that `resolve` makes available, of one role. With `tiers` (reward families only):
+ * those that also offer tiered draws of that depth and composition here, the pool of a tiered game.
+ */
+export const availableFamilies = (inst: Instantiation, role: "reward" | "penalty", exclude: readonly string[] = [], tiers?: TierOptions) =>
+  familiesFor(inst.objectType, role).filter(f => available(f, inst).ok && !exclude.includes(f.id)
+    && (!tiers || role !== "reward" || dealableParams(f, context(inst), tiers).length > 0));
 
 export const divineLottery: UtilitySelector = {
   id: "divine-lottery",
@@ -60,13 +75,13 @@ export const divineLottery: UtilitySelector = {
   select(inst, godCount, rng, options = {}) {
     const hasTable = options.hasTable ?? (() => true);
     const defence = options.defenceGoals === true;
-    const rewards = availableFamilies(inst, "reward", options.exclude);
+    const rewards = availableFamilies(inst, "reward", options.exclude, options.tiers);
     const penalties = defence ? availableFamilies(inst, "penalty", options.excludeDefence) : [];
     const chosen: UtilityDescriptor[] = [];
     const seen = new Set<string>();
     for (let attempt = 0; chosen.length < godCount; attempt++) {
       if (attempt > ATTEMPTS * Math.max(1, godCount)) throw new Error(`Not enough distinct utility functions for ${inst.key}`);
-      const reward = drawFrom(rewards, inst, rng, hasTable);
+      const reward = drawFrom(rewards, inst, rng, hasTable, options.tiers);
       if (!reward) throw new Error(`No calibrated utility family is available for ${inst.key}`);
       const penalty = defence ? drawFrom(penalties, inst, rng, hasTable) : null;
       if (defence && !penalty) throw new Error(`No calibrated defence goal is allowed for ${inst.key}`);
