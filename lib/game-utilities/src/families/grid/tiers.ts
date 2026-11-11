@@ -57,8 +57,10 @@ export interface GridTiers<P extends Params> {
   readonly dealt: (g: GridSpec) => readonly TierValue[];
   /** Expert: the dealt pairs of interactions (two tiers). */
   readonly dealtPairs?: (g: GridSpec) => readonly (readonly [TierValue, TierValue])[];
-  /** Lab variants: values dealt outside the balance band (deliberately unequal reach). Not part of depth 1. */
+  /** Lab ("uncapped"): alive values outside the balance band (deliberately unequal reach), dealt beside `dealt`. */
   readonly lab?: (g: GridSpec) => readonly TierValue[];
+  /** Lab ("plain", "unlock"): the few values whose other compositions are built for comparison (default: the first two dealt). */
+  readonly compare?: (g: GridSpec) => readonly TierValue[];
   /** The base as disjoint, equally scored units (exact law and conditional sampler), or null where it has none. */
   readonly base: (p: P, g: GridSpec) => DisjointBase | null;
 }
@@ -88,12 +90,15 @@ export const tierArity = <P extends Params>(spec: GridTiers<P>, p: Params): numb
 /** The tiered params of `base` with these values, composed as asked. */
 export function withTiers<P extends Params>(spec: GridTiers<P>, base: P, values: readonly TierValue[], g: GridSpec, compose: TierCompose = "gated"): P {
   const gate = compose === "plain" ? 0 : spec.gate(g);
+  if (!values.length) throw new Error("a tiered draw needs at least one interaction");
   return { ...base, tiers: values.map(v => ({ ...v, gate, ...(compose === "unlock" ? { compose: "unlock" } : {}) })) } as unknown as P;
 }
 
 /** Every tiered draw of the family on this shape at one depth and composition. */
 export function tieredSupport<P extends Params>(spec: GridTiers<P>, bases: readonly P[], g: GridSpec, depth: number, compose: TierCompose = "gated"): P[] {
-  const sets: (readonly TierValue[])[] = depth === 1 ? spec.dealt(g).map(v => [v]) : depth === 2 ? (spec.dealtPairs?.(g) ?? []).map(pair => [...pair]) : [];
+  const one = compose === "uncapped" ? [...spec.dealt(g), ...(spec.lab?.(g) ?? [])]
+    : compose === "gated" ? spec.dealt(g) : spec.compare ? spec.compare(g) : spec.dealt(g).slice(0, 2);
+  const sets: (readonly TierValue[])[] = depth === 1 ? one.map(v => [v]) : depth === 2 && compose === "gated" ? (spec.dealtPairs?.(g) ?? []).map(pair => [...pair]) : [];
   return bases.flatMap(b => sets.map(vs => withTiers(spec, b, vs, g, compose)));
 }
 

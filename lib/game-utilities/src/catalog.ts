@@ -71,10 +71,11 @@ export function canonicalSupport<P extends Params>(f: UtilityFamily<P>, ctx: Fam
   return [...out.values()];
 }
 
+export const TIER_COMPOSITIONS = ["gated", "plain", "unlock", "uncapped"] as const;
 /** The distinct canonical tiered draws of a family here, every depth and composition it offers (one table each). */
 export function tieredCanonicalSupport<P extends Params>(f: UtilityFamily<P>, ctx: FamilyContext): P[] {
   const out = new Map<string, P>();
-  if (f.tiered) for (const depth of [1, 2]) for (const compose of ["gated", "plain", "unlock"] as const) for (const p of f.tiered(ctx, depth, compose)) {
+  if (f.tiered) for (const depth of [1, 2]) for (const compose of TIER_COMPOSITIONS) for (const p of f.tiered(ctx, depth, compose)) {
     const c = f.canonical(p, ctx);
     out.set(paramsKey(c), c);
   }
