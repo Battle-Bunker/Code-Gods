@@ -404,7 +404,8 @@ Court variant.
     lines on only 81 of the 1,000 top boards for y = 7.
   - It scores 4 on the uniform 7 board (only the 2-cell diagonals), so it **breaks the uniform maximum** in the ordinal.
   - **What the framework saw instead shows the calibration problem of §7.**
-    - The searches found only 6 such lines (`7337/3663/…`), not 16.
+    - The default run's annealing found only 6 such lines (`7337/3663/…`), not 16. The quick run's climbs did find 16
+      (§6.1).
     - The sampled table gives the tier just +2.1 bits, so the uniform 7 board still reads as within 99% of the top
       (`unif` 7 in §5.7).
     - A tier on a rigid base is invisible to today's sampled calibration and to one-cell searches. Conditional
@@ -691,6 +692,90 @@ Each composition beside its base (`--compositions-only`). Gated rows: the early 
 
 The composite `DIFF` of a tiered rule mixes the two. It is 15–40 for every tiered prototype, because greedy reaches the
 base's top but little of the tier's. Read the base's `DIFF` and the tier share instead.
+
+### 6.1 Liveness, measured
+
+The tier's range on the best-base boards the climbs found (`--budget quick`). `U` means a uniform board reaches the
+tier's maximum there; n is the number of best-base boards found.
+
+How to read it:
+- A range of 0–0 marks a tier **dead at the top**.
+- `U` marks a tier that **keeps the degenerate maximum**.
+- n = 1 or 2 means the climbs rarely reach the base's top (the overlapping Royal Court, Ladders), and the column says
+  little. The exact check of §12 step 2 replaces it there.
+
+The flags agree with the brainstorms' exact counts:
+- "twice" on 18 lines: 0–0, U.
+- Every even-x halves tier: U.
+- rows and columns + "twice": U (all 7s scores 16).
+- "holding two 7s" on 18 lines: 0–16 with no U, alive. The quick run's climbs found 16, while the default run's annealing
+  found only 6: whether a search sees a rigid tier's top is luck.
+- Two Pair roads of 6 and Ladders of 7: dead.
+
+| variant | tier at best base (n) |
+|---|---|
+| royal_court.overlap+paths(x16) | 6–6 (1) |
+| royal_court.overlap+paths(x20) | 0–10 (4) |
+| royal_court.overlap+paths(x24) | 0–0 (1) |
+| royal_court.overlap+roads(y3) | 0–0 (2) |
+| royal_court.overlap+roads(y5) | 0–1 (3) |
+| royal_court.overlap+pathPairs(x6) | 9–11 (2) |
+| royal_court.overlap+pathPairs(x10) | 10–10 (1) |
+| royal_court.overlap+sameRoad | 1–1 (2) |
+| royal_court.overlap+shared(n2) | 8–8 (1) |
+| royal_court.overlap+distinct | 3–6 (4) |
+| royal_court.corners+paths(x16) | 0–4 (12) |
+| royal_court.corners+paths(x20) | 0–4 (12) |
+| royal_court.corners+paths(x24) | 0–6 (12) |
+| royal_court.corners+roads(y3) | 0–1 (12) |
+| royal_court.corners+roads(y5) | 0–0 (12) |
+| royal_court.corners+pathPairs(x6) | 7–7 (1) |
+| royal_court.corners+pathPairs(x10) | 6–6 (1) |
+| royal_court.corners+sameRoad | 1–3 (12) |
+| royal_court.corners+shared(n2) | 0–0 (12) |
+| royal_court.corners+distinct | 2–4 (12) |
+| royal_court.graded+paths(x16) | 2–6 (3) |
+| royal_court.graded+paths(x20) | 1–7 (2) |
+| royal_court.graded+paths(x24) | 0–3 (2) |
+| royal_court.graded+roads(y3) | 0–1 (2) |
+| royal_court.graded+roads(y5) | 0–0 (2) |
+| royal_court.graded+pathPairs(x6) | 9–9 (1) |
+| royal_court.graded+pathPairs(x10) | 0–0 (1) |
+| royal_court.graded+sameRoad | 2–2 (2) |
+| royal_court.graded+shared(n2) | 8–8 (2) |
+| royal_court.graded+distinct | 4–4 (1) |
+| hall_of_mirrors.all+halves(x6) | 0–14 (19) |
+| hall_of_mirrors.all+halves(x14) | 0–10 U (18) |
+| hall_of_mirrors.all+halves4(x10) | 0–10 U (18) |
+| hall_of_mirrors.all+halves4(x13) | 0–8 (18) |
+| hall_of_mirrors.all+pairOf(k2y7) | 0–16 (20) |
+| hall_of_mirrors.all+twice(n2y7) | 0–0 U (18) |
+| hall_of_mirrors.rowsColumns+halves(x6) | 0–8 U (12) |
+| hall_of_mirrors.rowsColumns+halves(x14) | 0–8 U (12) |
+| hall_of_mirrors.rowsColumns+halves4(x10) | 0–8 U (12) |
+| hall_of_mirrors.rowsColumns+halves4(x13) | 0–2 (12) |
+| hall_of_mirrors.rowsColumns+pairOf(k2y7) | 0–4 (12) |
+| hall_of_mirrors.rowsColumns+twice(n2y7) | 0–16 U (12) |
+| opposite_nines_plus.plain+lines(x18) | 2–8 (12) |
+| opposite_nines_plus.plain+lines(x15) | 0–3 (12) |
+| opposite_nines_plus.plain+lines(x24) | 0–2 (12) |
+| opposite_nines_plus.plain+windows(x18) | 1–5 (12) |
+| opposite_nines_plus.plain+windows(x12) | 0–3 (12) |
+| two_pair_plus.plain+roads(y4) | 0–2 (12) |
+| two_pair_plus.plain+roads(y6) | 0–1 (12) |
+| two_pair_plus.plain+boxes(x10) | 0–2 (12) |
+| two_pair_plus.plain+boxes(x20) | 0–4 (12) |
+| ladders.plain+ladders(y5) | 0–48 (5) |
+| ladders.plain+ladders(y7) | 0–0 (2) |
+| ladders.plain+lines(x18) | 2–8 (2) |
+| ladders.plain+lines(x10) | 0–0 (2) |
+| hilltops.plain+distinct | 4–7 (6) |
+| hilltops.plain+paths(x15) | 2–22 (6) |
+| hilltops.plain+paths(x25) | 3–22 (6) |
+| opposite_nines_plus.plain+lines(x18)@gate6 | 2–6 (12) |
+| royal_court.corners+paths(x20)@gate3 | 0–4 (12) |
+| ladders.plain+ladders(y5)@gate16 | 0–48 (4) |
+| hall_of_mirrors.rowsColumns+pairOf(k2y7)@gate6 | 0–0 U (12) |
 
 ---
 
