@@ -44,8 +44,11 @@ header of each file).
    status line ("Couldn't start the game: <reason>. Try again."), which needs a failure field on `StartView` in
    `lib/player-client/src/start.ts` (about 15 lines); optionally make `startGame` return the existing game instead
    of CONFLICT when the same owner started it less than 2 minutes ago (`owner.ts`, about 6 lines).
-3. **Forge "Validate" stuck 10–30 s under load, Summon disabled (P1).** Same sandbox queue as item 1. Add a timeout
-   and a visible error in `artifacts/player-web/src/core/panels/forge.tsx:116`.
+3. **Forge "Validate" stuck 10–30 s under load, Summon disabled (P1).** Same sandbox queue as item 1. Bounded: the
+   engine gives a player's examination 20 s (`EXAMINATION_DEADLINE_MS`, `convex/commands.ts`, `convex/lib/deadline.ts`)
+   and answers UNAVAILABLE with nothing applied; the forge waits 25 s and then shows a retryable error
+   (`core/game/command-deadline.ts`). Still open: the given-up examination's remaining sandbox runs are not cancelled
+   (that needs a signal through `engine/pricing.ts` into the runtime), and the queue itself (item 1).
 4. **AI-seat chain watchdog (P2).** A turn action that dies without running `afterTurn` silences the seat for the
    rest of the game. `afterTurn` records `member.aiNextAt` (optional field: schema widen); the watchdog restarts
    chains more than 2 minutes overdue. About 40 lines plus a test in `game-ai.test.ts`.
