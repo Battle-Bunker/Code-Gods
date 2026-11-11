@@ -20,13 +20,14 @@ test("a new player's pre-filled example validates, is summoned unchanged and rai
   const observe = async (i: number) => observationSchema.parse(await players[i]!.c.query(api.player.observation, { roomId }));
   const send = (i: number, command: Record<string, unknown>) => players[i]!.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
 
-  const before: number[] = [], late: { i: number; command: Record<string, unknown> }[] = [], families: string[] = [];
+  const before: number[] = [], late: { i: number; cost: number; command: Record<string, unknown> }[] = [], families: string[] = [];
   for (let i = 0; i < players.length; i++) {
     const obs = await observe(i);
     const card = obs.self.utility!, board = obs.instance!, language = obs.languages![0] as "python" | "typescript";
     const example = buildExampleAgent({ familyId: card.familyId, language, summary: card.summary, cardSource: card.source, mutators: mutatorNames(board, language), ...boardFacts(board) });
     families.push(card.familyId);
-    assert.equal(example.specific, true, `${card.familyId}: the default setup deals only rules with an example of their own`);
+    assert.equal(example.specific, true, `The default setup dealt ${card.familyId}, whose first agent is only the fallback. `
+      + `Add a recipe to RECIPES in lib/game-utilities/src/example-agents.ts for: ${card.familyId}`);
     const checked = await send(i, { type: "validate", language, source: example.source });
     assert.equal(checked.accepted, true, checked.message);
     assert.equal(checked.validation.valid, true, `${card.familyId}: ${JSON.stringify(checked.validation.diagnostics)}`);
@@ -38,13 +39,13 @@ test("a new player's pre-filled example validates, is summoned unchanged and rai
       assert.equal(summoned.accepted, true, summoned.message);
       const agent = (await observe(i)).agents.find(a => a.name === example.name)!;
       assert.equal(agent.powerShare, 0.5, "the first summon takes half the power, so the player can still summon again");
-    } else late.push({ i, command });
+    } else late.push({ i, cost: checked.validation.cost, command });
     console.log(`${card.familyId}: summon price ${checked.validation.cost.toFixed(1)} of ${obs.self.energy} energy${checked.validation.cost <= obs.self.energy ? "" : " (summoned once the world runs)"}`);
   }
 
   await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 3600 }, kick: true });
-  for (const { i, command } of late) {
-    await waitFor(async () => (await observe(i)).self.energy >= 300 || undefined, "income pays for the dearer example", 60000, 250);
+  for (const { i, cost, command } of late) {
+    await waitFor(async () => (await observe(i)).self.energy >= cost || undefined, "income pays for the dearer example", 60000, 250);
     const summoned = await send(i, command);
     assert.equal(summoned.accepted, true, summoned.message);
   }

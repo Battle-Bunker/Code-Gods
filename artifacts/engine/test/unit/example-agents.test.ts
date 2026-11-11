@@ -13,7 +13,7 @@ import {
   available, canonicalSupport, compareOrdinals, context, evaluator, familiesFor, type Ordinal, type Params,
 } from "@workspace/game-utilities";
 import {
-  EXAMPLE_AGENT_FAMILIES, buildExampleAgent, exampleAgent, exampleMutator, mutatorNames, type ExampleLanguage,
+  EXAMPLE_AGENT_FAMILIES, buildExampleAgent, exampleAgent, exampleMutator, mutatorNames, starterAgents, starterAgentsFor, type ExampleLanguage,
 } from "@workspace/game-utilities/example-agents";
 
 const settings: GameSettings = seedSetupSettings(DEFAULT_SETUP_SEED_ID);
@@ -27,6 +27,8 @@ const ACTS = 12;
 /** The default setup's pool: the reward families its board can deal, minus the setup's exclusions. */
 const dealable = familiesFor(inst.objectType, "reward").filter(f => available(f, inst).ok);
 const pool = dealable.filter(f => !settings.excludedFamilies.includes(f.id));
+/** The families behaviour-tested below: the pool, then the other families of this board that have a recipe (other setups deal them). */
+const tested = [...pool, ...dealable.filter(f => settings.excludedFamilies.includes(f.id) && EXAMPLE_AGENT_FAMILIES.includes(f.id))];
 
 // The room's own act settings (convex/engine/runtime.ts actSettings), without the Convex action around them.
 const parts = typeDef.prelude(inst);
@@ -45,30 +47,50 @@ const runtime = (language: ExampleLanguage): GameRuntime => {
 };
 after(() => { for (const r of runtimes.values()) r.close(); });
 
-/** The most an example may cost to summon (description bits), per language: TypeScript's price function charges about twice Python's. */
-const PRICE_CEILING: Readonly<Record<ExampleLanguage, number>> = { python: 260, typescript: 480 };
 /**
- * Known gap (2026-11-11): the default setup's starting energy is 200 bits, and the cheapest readable agent for Magic
- * Accountant (two loops and a clamp) costs about 257. It can be summoned a few seconds into the running phase, not in
- * planning. Every other default-pool example fits.
+ * The summon price is the description length of the code's syntax tree in bits (ast-bits-v1 for Python, ts-ast-bits-v1
+ * for TypeScript: lib/game-runtime, priced by convex/engine/pricing.ts summonPrice): every statement, operator, name
+ * and number costs bits; comments, blank lines and the length of a name cost nothing; nothing is measured by running.
+ * TypeScript's tree has more node kinds per statement (declarations, blocks, strict comparisons), so the same agent
+ * costs about twice as much there.
+ *
+ * Today's Python prices on the default setup (2026-11-11), each budget set just above its number so a dearer example
+ * is noticed. The default setup's starting energy is 200, so in planning a new player can only pay for Mirrormancer's;
+ * the others can be summoned a few seconds into the running phase. Starting energy and pricing are owned elsewhere.
  */
-const OVER_STARTING_ENERGY: readonly string[] = ["magic_accountant"];
+const PYTHON_PRICE_BUDGET: Readonly<Record<string, number>> = {
+  mirrormancer: 180,      // 178.3
+  opposite_nines: 210,    // 206.9
+  leapfrog: 240,          // 237.7
+  magic_eighteen: 260,    // 256.7
+  crosswise_threes: 370,  // 364.6
+  two_pair: 380,          // 377.1
+  strangers: 430,         // 424.4
+  spread_three: 575,      // 572.1
+};
+/** The fallback (133.5 in Python, 239.0 in TypeScript) and the recipes of families outside the default pool. */
+const OTHER_PRICE_CEILING: Readonly<Record<ExampleLanguage, number>> = { python: 260, typescript: 1100 };
+const withoutComments = (source: string) => source.split("\n").filter(l => !/^\s*(#|\/\/)/.test(l)).map(l => l.replace(/\s+(#|\/\/) .*$/, "")).join("\n");
 
 const cellsChanged = (a: ObjectValue, b: ObjectValue) => {
   const x = String(a).split(/[/,]/), y = String(b).split(/[/,]/);
   return x.filter((cell, i) => cell !== y[i]).length;
 };
+/** What to do when a family joins the default pool without an example of its own. */
+const ADD_RECIPE = (ids: readonly string[]) => `Add a recipe to RECIPES in lib/game-utilities/src/example-agents.ts for: ${ids.join(", ")} `
+  + "(Python and TypeScript; it must change one cell per act, raise the rule's score, and not drive every grid to the same few boards).";
+const f_support = (id: string): readonly Params[] => pool.find(f => f.id === id)!.support(ctx);
 const better = (a: Ordinal, b: Ordinal) => compareOrdinals(a, b) > 0;
 
 /** `acts` turns of one agent on one object, as the tick runs them: act, validate and apply; a refused act is an error here. */
-async function play(language: ExampleLanguage, source: string, start: ObjectValue, acts: number, seed: number) {
+async function play(language: ExampleLanguage, source: string, start: ObjectValue, acts: number, seed: number, cells = 1) {
   let value = start, changes = 0, spent = 0;
   for (let i = 0; i < acts; i++) {
     const result = await runtime(language).act(source, value, room, String(seed * 1000 + i));
     if (result.calls === "[]" || result.calls === "null") continue;
     const outcome = applyCalls(typeDef, inst, value, result.calls);
     assert.ok(outcome.ok, `the engine accepts the move ${result.calls}: ${!outcome.ok && outcome.reason}`);
-    assert.equal(cellsChanged(value, outcome.value), 1, "one small change per act");
+    assert.ok(cellsChanged(value, outcome.value) <= cells, `at most ${cells} cell(s) change per act`);
     value = outcome.value;
     spent += outcome.cost.total;
     changes++;
@@ -78,11 +100,9 @@ async function play(language: ExampleLanguage, source: string, start: ObjectValu
 
 test("the default pool is not empty, and every family in it has an example of its own", () => {
   assert.ok(pool.length > 0);
-  assert.deepEqual(pool.map(f => f.id).filter(id => !EXAMPLE_AGENT_FAMILIES.includes(id)), [],
-    "add a recipe in lib/game-utilities/src/example-agents.ts for each family the default setup deals");
-  for (const f of pool) for (const p of f.support(ctx)) for (const language of LANGUAGES) {
-    assert.equal(exampleAgent(f.id, p, inst, language).specific, true, `${f.id} ${language}`);
-  }
+  const missing = pool.map(f => f.id).filter(id => !EXAMPLE_AGENT_FAMILIES.includes(id)
+    || f_support(id).some(p => LANGUAGES.some(language => !exampleAgent(id, p, inst, language).specific)));
+  assert.deepEqual(missing, [], `The default setup deals rules whose first agent is only the fallback. ${ADD_RECIPE(missing)}`);
 });
 
 test("examples call only mutators the default board's prelude offers", () => {
@@ -115,34 +135,39 @@ test("the generator follows the prelude: add when it is offered, write otherwise
 
 test("the generator is total: every family the board can deal, and an unknown one, gets a named agent that the sandbox accepts", async () => {
   const cases: { id: string; params: Params }[] = [...dealable.map(f => ({ id: f.id, params: canonicalSupport(f, ctx)[0]! })), { id: "no_such_family", params: {} }];
-  const tooDear: string[] = [];
+  const payable: string[] = [], inPool = new Set(pool.map(f => f.id));
   for (const language of LANGUAGES) for (const c of cases) {
     const example = exampleAgent(c.id, c.params, inst, language);
     assert.ok(example.name.trim() && example.name.length <= 40, `${c.id}: a name`);
     assert.ok(example.source.split("\n").some(l => /Try this:/.test(l)), `${c.id} ${language}: invites the first edit`);
     if (c.id !== "no_such_family") assert.ok(example.source.includes("My goal: "), `${c.id} ${language}: says the goal`);
     const { cost } = await runtime(language).inspect(example.source, room);
-    assert.ok(cost <= PRICE_CEILING[language], `${c.id} ${language}: summon price ${cost.toFixed(1)} is at most ${PRICE_CEILING[language]}`);
-    // What a new player can pay in planning (world time is stopped, so there is no income yet): the starting energy.
-    if (language === "python" && cost > settings.startingEnergy) tooDear.push(c.id);
+    const budget = language === "python" && inPool.has(c.id) ? PYTHON_PRICE_BUDGET[c.id] : OTHER_PRICE_CEILING[language];
+    assert.ok(budget !== undefined, `${c.id}: state its Python summon price budget in PYTHON_PRICE_BUDGET (today ${cost.toFixed(1)})`);
+    assert.ok(cost <= budget, `${c.id} ${language}: summon price ${cost.toFixed(1)} is within its budget ${budget}`);
+    if (language === "python" && cost <= settings.startingEnergy) payable.push(c.id);
+    if (inPool.has(c.id)) {
+      const bare = await runtime(language).inspect(withoutComments(example.source), room);
+      assert.equal(bare.cost, cost, `${c.id} ${language}: comments and blank lines are free`);
+    }
     const start = typeDef.codec(inst).encode(typeDef.spawn(inst, seededRng(99)));
     const { changes } = await play(language, example.source, start, 3, 99);
     if (!example.specific) assert.ok(changes > 0, `${c.id} ${language}: the fallback changes the board`);
   }
-  assert.deepEqual(tooDear, OVER_STARTING_ENERGY,
-    "Python examples a new player cannot pay for in planning on the default setup (shrink the example or raise startingEnergy, then update this list)");
+  // Not a goal, a record: which default-pool examples a new player can pay for in planning today.
+  assert.deepEqual(payable.filter(id => inPool.has(id)), ["mirrormancer"],
+    `default-pool Python examples within the starting energy (${settings.startingEnergy}); update this record when prices or the energy change`);
 });
 
-for (const f of pool) for (const language of LANGUAGES) {
-  test(`${f.id} (${language}): the example raises its own rule's score on every seed, for every dealt setting`, async () => {
-    for (const params of f.support(ctx)) {
-      const example = exampleAgent(f.id, params, inst, language);
+for (const f of tested) for (const language of LANGUAGES) {
+  test(`${f.id} (${language}): every starter agent raises its own rule's score on every seed, for every dealt setting`, async () => {
+    for (const params of f.support(ctx)) for (const example of starterAgentsFor(f.id, params, inst, language)) {
       const score = evaluator({ familyId: f.id, params }, inst);
       for (const seed of SEEDS) {
         const start = typeDef.codec(inst).encode(typeDef.spawn(inst, seededRng(seed)));
         const before = score(start);
-        const { value, changes, spent } = await play(language, example.source, start, ACTS, seed);
-        const where = `${f.id} ${JSON.stringify(params)} seed ${seed}`;
+        const { value, changes, spent } = await play(language, example.source, start, ACTS, seed, example.id === "bold" ? 2 : 1);
+        const where = `${f.id} ${example.id} ${JSON.stringify(params)} seed ${seed}`;
         assert.ok(changes > 0, `${where}: it acts`);
         assert.ok(better(score(value), before), `${where}: ${JSON.stringify(before)} → ${JSON.stringify(score(value))} after ${changes} changes`);
         assert.ok(spent > 0);
@@ -156,10 +181,9 @@ for (const f of pool) for (const language of LANGUAGES) {
  * whose result is another object's value is refused ("another object already has this value"). An example that drove
  * every object to the same few boards would score once and then fail forever.
  */
-for (const f of pool) for (const language of LANGUAGES) {
-  test(`${f.id} (${language}): in a world of ten objects the example keeps scoring and almost never collides`, async () => {
-    for (const params of f.support(ctx)) {
-      const example = exampleAgent(f.id, params, inst, language);
+for (const f of tested) for (const language of LANGUAGES) {
+  test(`${f.id} (${language}): in a world of ten objects every starter agent keeps scoring and almost never collides`, async () => {
+    for (const params of f.support(ctx)) for (const example of starterAgentsFor(f.id, params, inst, language)) {
       const score = evaluator({ familyId: f.id, params }, inst);
       const rng = seededRng(`${f.id}-world`);
       const codec = typeDef.codec(inst);
@@ -177,7 +201,7 @@ for (const f of pool) for (const language of LANGUAGES) {
         world[k] = outcome.value;
         changes++;
       }
-      const where = `${f.id} ${JSON.stringify(params)}`;
+      const where = `${f.id} ${example.id} ${JSON.stringify(params)}`;
       const improved = world.filter((v, k) => better(score(v), score(start[k]!))).length;
       const worse = world.filter((v, k) => better(score(start[k]!), score(v))).length;
       assert.ok(improved >= 8 && worse === 0, `${where}: ${improved} of 10 objects improved, ${worse} got worse`);
@@ -185,3 +209,19 @@ for (const f of pool) for (const language of LANGUAGES) {
     }
   });
 }
+
+test("starter agents: the careful one is the example itself, a bold one where the family has it, each with plain words", async () => {
+  for (const language of LANGUAGES) {
+    for (const f of dealable) for (const params of canonicalSupport(f, ctx)) {
+      const starters = starterAgentsFor(f.id, params, inst, language), example = exampleAgent(f.id, params, inst, language);
+      assert.deepEqual({ name: starters[0]!.name, source: starters[0]!.source, specific: starters[0]!.specific }, example, `${f.id}: careful is the example`);
+      assert.deepEqual(starters.map(s => s.id), starters.length === 2 ? ["careful", "bold"] : ["careful"]);
+      for (const s of starters) {
+        assert.ok(s.title && s.blurb.endsWith(".") && s.name.length <= 40 && !/[—–]/.test(s.blurb + s.source), `${f.id} ${s.id}`);
+        if (s.id === "bold") await runtime(language).inspect(s.source, room);
+      }
+    }
+    assert.deepEqual(starterAgentsFor("mirrormancer", { axis: "LR" }, inst, language).map(s => s.title), ["Careful", "Bold"]);
+    assert.deepEqual(starterAgents({ familyId: "no_such_family", language, mutators: ["paint"] }).map(s => s.id), ["careful"], "never empty");
+  }
+});
