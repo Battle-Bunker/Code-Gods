@@ -619,10 +619,11 @@ function PlayersAndAi({ room, editable, manifest, quotas, setQuotas, errors, ope
   errors: { aiQuota: string | null; assistantQuota: string | null }; openPalette: (init?: { page?: string }) => void;
 }) {
   const ais = room.members.filter(m => m.kind === "ai");
-  if (manifest?.aiFunding.configured === false) return <p className="text-sm text-muted-foreground">AI players and assistants are not set up on this server. {room.members.filter(m => !m.spectator).length} players are in the room (spectators don't count); a game needs {manifest.minimumPlayers}.</p>;
+  const playersIn = (r: typeof room) => { const n = r.members.filter(m => !m.spectator).length; return `${n} ${n === 1 ? "player is" : "players are"} in the room`; };
+  if (manifest?.aiFunding.configured === false) return <p className="text-sm text-muted-foreground">AI players and assistants are not set up on this server. {playersIn(room)} (spectators don't count); a game needs {manifest.minimumPlayers}.</p>;
   if (!room.aiEnabled) return (
     <p className="text-sm text-muted-foreground" data-testid="text-ai-admin-only">
-      AI players and assistants are only available in rooms run by an administrator for now. {room.members.filter(m => !m.spectator).length} players are in the room (spectators don't count); a game needs {manifest?.minimumPlayers ?? 3}.
+      AI players and assistants are only available in rooms run by an administrator for now. {playersIn(room)} (spectators don't count); a game needs {manifest?.minimumPlayers ?? 3}.
       {/* AI seats left from before: the game cannot start with them here, so say so and offer their removal. */}
       {ais.length > 0 && <> Seated AI players ({ais.map(a => a.name).join(", ")}) cannot play here: {editable
         ? <button type="button" className="underline underline-offset-4" onClick={() => openPalette({ page: "rooms.removeAi" })} data-testid="button-remove-legacy-ai">remove them</button>
