@@ -103,7 +103,7 @@ export function HowScoringWorks({ noun = "object", open = false, id = "how-scori
   );
 }
 
-/** An estimated act's cost split (bits), when the server reports it: what it reads and what it changes. */
+/** An estimated act's cost split (energy bits), when the server reports it: what its reads cost and what it changes. */
 export type ActCostBreakdown = { read?: number; change?: number };
 
 /**
@@ -126,7 +126,7 @@ export function AgentCost({ summonCost, expectedActCost, breakdown, powerShare, 
       <dd data-testid="text-summon-cost">{f(summonCost)} bits from your energy, paid once{godEnergy !== undefined && summonCost > godEnergy ? ` (you have ${f(godEnergy)})` : ""}</dd>
       <dt className="text-muted-foreground">Estimate per act</dt>
       <dd data-testid="text-expected-act-cost">{f(expectedActCost)} bits (an estimate: an act pays what it reads, plus a change cost only when it changes the object)</dd>
-      {finite(breakdown?.read) && <div className="contents" data-testid="cost-part-read"><dt className="text-muted-foreground pl-3">· Reading</dt><dd>{f(breakdown.read)} bits (looking at the object)</dd></div>}
+      {finite(breakdown?.read) && <div className="contents" data-testid="cost-part-read"><dt className="text-muted-foreground pl-3">· Reading</dt><dd>{f(breakdown.read)} bits of energy (looking at the object: much cheaper per bit than changing it)</dd></div>}
       {finite(breakdown?.change) && <div className="contents" data-testid="cost-part-change"><dt className="text-muted-foreground pl-3">· Changing</dt><dd>{f(breakdown.change)} bits (only when it changes it)</dd></div>}
       {finite(acts) && acts > 0 && finite(spent) && (<>
         <dt className="text-muted-foreground">Actual average</dt>

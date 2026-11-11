@@ -86,6 +86,8 @@ export type AgentsViewProps = {
   /** Your own power line: the whole budget (bits per world second), the share given to agents, your income and energy. */
   self?: { allocated?: number; income?: number; energy?: number };
   powerPerSecond?: number;
+  /** κ, economy.changeReadRatio: bits read for the price of one bit changed (1 on a replay of a game before the read price). */
+  changeReadRatio?: number;
   world: number;
   samples: ReadonlyMap<string, readonly Sample[]>;
   window: number;
@@ -101,7 +103,7 @@ export type AgentsViewProps = {
 };
 
 /** The panel without its data hooks, so the gallery (src/gallery/agents.tsx) can draw it from fixtures. */
-export function AgentsView({ agents, self, powerPerSecond, world, samples, window: windowS, ended, showCosts, showSource, can, wait, onEdit, onSetShare, onDestroy, footer }: AgentsViewProps) {
+export function AgentsView({ agents, self, powerPerSecond, changeReadRatio, world, samples, window: windowS, ended, showCosts, showSource, can, wait, onEdit, onSetShare, onDestroy, footer }: AgentsViewProps) {
   const [confirm, setConfirm] = useState<string | null>(null);
   const { editCode, destroy, allocatePower } = can;
   const showDestroy = destroy.ok || !destroy.hidden;
@@ -117,7 +119,7 @@ export function AgentsView({ agents, self, powerPerSecond, world, samples, windo
           <p className="font-medium text-foreground"><Say segs={yourPowerLine({ total, allocated: self.allocated, income: self.income, energy: self.energy ?? 0 })} /></p>
           <p className="text-muted-foreground">
             The world hands out <Term id="turn">turns</Term> at random: the more energy an agent has, the more turns it gets. An act pays what it
-            looks at (<Term id="read-bits">read bits</Term>) plus, if it changes the object, the <Term id="change-cost">change cost</Term>.
+            looks at (<Term id="read-bits">read bits</Term>{changeReadRatio !== undefined && changeReadRatio > 1 ? `, 1/${changeReadRatio} bit of energy per bit: looking is ${changeReadRatio}× cheaper than changing` : ""}) plus, if it changes the object, the <Term id="change-cost">change cost</Term>.
           </p>
         </div>
       )}
@@ -224,7 +226,7 @@ export default function Agents({ params, phase }: PanelProps<"agents">) {
   return (
     <div className="space-y-4">
       {owner}
-      <AgentsView agents={agents} self={self} powerPerSecond={economy?.powerPerSecond} world={world} samples={history} window={params.window} ended={ended}
+      <AgentsView agents={agents} self={self} powerPerSecond={economy?.powerPerSecond} changeReadRatio={economy?.changeReadRatio} world={world} samples={history} window={params.window} ended={ended}
         showCosts={params.showCosts} showSource={params.showSource} can={can.can} wait={secondsUntilEligible}
         onEdit={a => dock.forgeEdit(a.source, isLanguage(a.language) ? a.language : undefined)}
         onSetShare={(a, share) => void commands.run({ type: "allocatePower", agentId: a.id, share })}

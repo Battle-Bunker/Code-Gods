@@ -78,7 +78,7 @@ export const utilityCardSchema = z.object({
   }).optional(),
 });
 export type UtilityCardView = z.infer<typeof utilityCardSchema>;
-/** Estimated bits per act, split (docs/energy-model.md §5): the bits it reads and its change. No fixed part. */
+/** Estimated energy bits per act, split (docs/energy-model.md §5): what its reads cost (bits read / changeReadRatio) and its change. No fixed part. */
 const breakdownSchema = z.object({ read: finite, change: finite });
 /** One allowed language's agent sandbox: booted (`ready`), booting (`warming`), or not booting (`failed`, with why). */
 export const sandboxSchema = z.object({ language, state: z.enum(["warming", "ready", "failed"]), reason: z.string().max(500).optional() });
@@ -109,10 +109,11 @@ export const observationSchema = z.object({
    * The game's energy rules. Each god has powerPerSecond bits per world second (P), split into its agents' powerShare
    * (income = share x P) and the unallocated rest, which is the god's own income and pays summons (it starts with
    * startingEnergy). Agents' energy has no cap. Each opportunity goes to an agent with probability proportional to its positive energy, at most
-   * maxAgentOpportunityHz times per world second per agent; an act pays the bits it read plus its change when it
-   * changes the object (docs/energy-model.md).
+   * maxAgentOpportunityHz times per world second per agent; an act pays the bits it read divided by changeReadRatio,
+   * plus its change when it changes the object (docs/energy-model.md §2). changeReadRatio (κ, absent on replays of
+   * older games) is how many bits an agent may read for the price of one bit of change: looking is κ× cheaper.
    */
-  economy: z.object({ powerPerSecond: finite, startingEnergy: finite, maxAgentOpportunityHz: finite.optional(),
+  economy: z.object({ powerPerSecond: finite, startingEnergy: finite, maxAgentOpportunityHz: finite.optional(), changeReadRatio: finite.optional(),
     maxAgentsPerGod: z.number().int().nonnegative(), penaltyWeight: finite, worldSeconds: finite,
     /** How the game ends and its length in world seconds (the exact length when "fixed", else the half-life): the game timer. */
     durationMode: z.enum(["fixed", "halfLife"]).optional(), lengthSeconds: finite.optional(),
@@ -135,7 +136,7 @@ export const observationSchema = z.object({
     energy: finite, eligible: z.boolean(),
     // Its share (0–1) of your power and its income: share x economy.powerPerSecond bits per world second.
     powerShare: finite.optional(), income: finite.optional(), acts: z.number().int().nonnegative(), spent: finite, skips: z.number().int().nonnegative().optional(),
-    // Of `spent`: the bits its acts read (the rest paid for the changes they made).
+    // Of `spent`: the energy its acts paid for reading (bits read / economy.changeReadRatio; the rest paid for the changes they made).
     spentRead: finite.optional(),
     // How its acts ended (counted since the engine started counting: older agents' earlier acts are not in it): changed
     // the object, or failed by kind (collision: another object already had the value; noChange; commit: the commit

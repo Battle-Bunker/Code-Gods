@@ -3,11 +3,15 @@
  * settings. The app's "rules for an AI assistant" copy (artifacts/player-web/src/site/components/game-rules.tsx) says the
  * same at more length.
  */
-import { LANGUAGE_SPECS, SETTINGS_DOCS, allowedLanguages, type FieldDoc, MAX_AGENT_OPPORTUNITY_HZ } from "@workspace/game-core";
+import { CHANGE_READ_RATIO, fullReadCharge, LANGUAGE_SPECS, SETTINGS_DOCS, allowedLanguages, type FieldDoc, MAX_AGENT_OPPORTUNITY_HZ } from "@workspace/game-core";
 
 type Settings = Record<string, unknown>;
 
 const n = (s: Settings, key: string, fallback: unknown = "?") => String(s[key] ?? fallback);
+/** "a look at every value of one object here costs 2.5 bits; " when these settings name a valid object type, else "". */
+const lookText = (s: Settings): string => {
+  try { return `a look at every value of one object here costs ${fullReadCharge(s as Parameters<typeof fullReadCharge>[0]).toFixed(1)} bits; `; } catch { return ""; }
+};
 
 /** Every setting with its value and the same meaning and consequence the configuration page shows (lib/game-core SETTINGS_DOCS). */
 export function settingsExplained(s: Settings): string {
@@ -38,8 +42,9 @@ Summoning costs the agent's description bits from your own energy (validate firs
 each agent gets a share of it (powerShare, 0 to 100%; a summon without one gets half of your unallocated power, and allocatePower changes it later).
 An agent's energy gains share × ${n(s, "powerPerSecond", 8)} bits per world second, with no cap. More agents do not add power: they divide it. At each interaction a random object is picked, then an agent,
 with probability proportional to its energy (an agent at or below zero waits; at most ${MAX_AGENT_OPPORTUNITY_HZ} turns per world second each).
-An act pays only what it does: the bits of the object it reads, plus its change when it changes the object. There is no fixed charge per act.
-So scan cheaply, return no calls when nothing is worth doing (a skip: it pays only what it read), and save energy to act more often.
+An act pays only what it does: what it reads, plus its change when it changes the object. There is no fixed charge per act.
+Looking is ${CHANGE_READ_RATIO}× cheaper than changing: each bit of the object an act reads costs 1/${CHANGE_READ_RATIO} bit of energy (${lookText(s)}computing is free).
+So look before you change, return no calls when nothing is worth doing (a skip: it pays only what it read), and save energy to act more often.
 A change costs W + 0.05·W², where W adds up its elementary steps (one cell's colour or symbol; one digit added, or a multiplication by a prime):
 painting a 4-cell row costs about 7.5× one cell. Small incremental acts are much cheaper than radical ones.
 You may destroy your own agents at any time, for free (their power share comes back to you).

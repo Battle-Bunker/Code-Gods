@@ -9,33 +9,101 @@ one economy. This document is the specification; the code cites its sections. Al
 1. **An act pays only for what it does.** It pays for the bits it reads (§3) and for the change it makes (§4). There is
    no per-act floor and no per-act charge for the agent's code. Code complexity is priced once, at summon (the
    ast-bits description length, unchanged).
-2. **Change is priced by operations, superlinearly.** Every object type has a few *elementary mutators*, each with its own
+2. **Looking is much cheaper than changing.** A bit read costs 1/κ of a bit changed (κ = `CHANGE_READ_RATIO` = 32,
+   §2.1), and computing is free. Careful play (read the board, work out which change serves you without breaking the
+   interests of the gods you share objects with, change only then) costs little more than blind play, so it pays.
+3. **Change is priced by operations, superlinearly.** Every object type has a few *elementary mutators*, each with its own
    information cost w. A *composite* mutator (paint a row, ×2401) is priced as its decomposition into elementary ones.
    An act's W is the sum of its elementary costs, and its change cost is W + β·W². Small incremental acts are cheap.
    Radical acts are very expensive, so every object becomes an incremental battleground.
-3. **Power, not batteries.** Each deity has a fixed power budget (bits per world second). They split it between their
+4. **Power, not batteries.** Each deity has a fixed power budget (bits per world second). They split it between their
    agents and themselves, and can re-allocate at will (§6). There is no per-agent energy cap.
-4. **Selection by energy.** The chance that an agent gets the next mutation opportunity is proportional to its current
+5. **Selection by energy.** The chance that an agent gets the next mutation opportunity is proportional to its current
    energy (§7). An agent that reads a little and skips saves energy, so it is offered more opportunities.
 
 ## 2. The act charge
 
 ```
-charge = R + (the change commits ? C : 0)
-R = Σ distinct reads' information (§3)        C = W + β·W²,  W = Σ elementary costs (§4)
+charge = R/κ + (the change commits ? C : 0)
+R = Σ distinct reads' information, in bits (§3)        C = W + β·W²,  W = Σ elementary costs (§4)
+κ = CHANGE_READ_RATIO = 32                             READ_PRICE = 1/κ energy bits per bit read (§2.1)
 ```
+
+Two units are kept apart by name in the code (`lib/game-types/src/pricing/measure.ts`): *bits read* (`readBits`, the
+meter, `readBound`, `failedReadBits`, `expectedReadBits`) are information; the *read charge* (`readCharge`,
+`ActCharge.read`, `expectedRead`, an agent's `breakdown.read` and `spentRead`, an event's `cost.read`) is energy. The
+price is applied in exactly one place, `readCharge`, which `actCharge` calls; everything upstream of `actCharge` passes
+bits.
 
 | Outcome | What happened | Charge | Futility memo | Failure breakdown |
 |---|---|---|---|---|
-| transform | a change committed | R + C | — | — |
-| **skipped** | returned no calls (`[]` / `None`) | R | not recorded | not counted |
-| no change | calls whose net effect is nothing | R | recorded (deterministic) | counted |
-| invalid / error | a bad call, a raise, the step limit | R (reads made before it stopped) | recorded | counted |
-| collision | the result is another object's value | R | recorded | counted |
-| commit clause kept it | `only_if_better` and no improvement | R | recorded | counted |
+| transform | a change committed | R/κ + C | — | — |
+| **skipped** | returned no calls (`[]` / `None`) | R/κ | not recorded | not counted |
+| no change | calls whose net effect is nothing | R/κ | recorded (deterministic) | counted |
+| invalid / error | a bad call, a raise, the step limit | R/κ (reads made before it stopped; a trap or the hard wall: the whole object, `readBound`) | recorded | counted |
+| collision | the result is another object's value | R/κ | recorded | counted |
+| commit clause kept it | `only_if_better` and no improvement | R/κ | recorded | counted |
 
 A change that does not commit pays no change cost: the world did not change. A skip is a choice, not a failure. Calls
 that cancel out are still "no change", a failure, because the agent asked for a change and nothing happened.
+
+### 2.1 The read price κ (owner, 11 Nov 2026)
+
+The owner wants analysis to be much cheaper than mutation, so that careful, coordinating strategies (change objects
+towards one's goals without breaking the others' interests) are rewarded. Scaling every price together is the same as
+scaling power, so the economy has one free dimension of price: the ratio between a bit changed and a bit read. A
+committed change's bits stay the unit (so change costs, summon prices and power settings keep their meaning), and reads
+are priced at a fraction of it:
+
+- `CHANGE_READ_RATIO` (κ ≥ 1) in `lib/game-types/src/mutators.ts`, beside `CHANGE_BETA`: how many bits an agent may read
+  for the price of one bit of change. `READ_PRICE = 1/κ`. κ = 1 was the economy until 11 Nov 2026; κ → ∞ makes looking
+  free. It is a constant, not a room setting, so every room prices alike (as β).
+- **The rule that sets κ = 32:** a complete look at the board costs less than the smallest change to it, on every
+  shipped setup. Then "look at everything, then decide" is never the expensive part of an act. The binding case is
+  Master; 32 is the next power of two above it, with margin. `lib/game-core/test/read-price.test.ts` checks the rule over
+  `SEED_SETUPS`, so retuning κ or adding a bigger board shows it.
+
+| Setup | Board | Full read R (bits) | Cheapest change C | κ the rule needs | Full read at κ = 32 |
+|---|---|---|---|---|---|
+| First steps, Annotated basics | 4×4, base10, rgb | 78.5 | 11.5 (a colour) | > 6.8 | 2.45 |
+| Classic, Low income | 5×5, base10, rgby | 133.1 | 14.3 (a colour) | > 9.3 | 4.16 |
+| Big board | 6×6, base16, rainbow6 | 237.1 | 17.8 (a colour) | > 13.3 | 7.41 |
+| Master | 7×7, cards, rainbow6 | 406.0 | 18.7 (a colour) | > 21.7 | 12.69 |
+| (Int, 32-bit; not a seed) | | 32 | 2.2 (×−1) | > 14.5 | 1 |
+
+- The meter, the observation's read helpers and the runtime still count bits of information; only the charge is scaled.
+  The observation reports κ as `economy.changeReadRatio`, and the rules, primer, skills and My agents panel say "looking
+  is 32× cheaper than changing".
+- A game in progress across the deploy that introduced κ pays the new price from its next tick. Its earlier acts keep
+  their recorded costs: the event log stores each act's `cost` and replay never recomputes it (schema 8 marks batches
+  priced at κ = 32; schemas 5–7 priced reads at κ = 1, so their `cost.read` is also the bits read). Agents summoned
+  before it keep their stored estimate (`expectedActCost`, `breakdown`), which overstates their reads until re-summoned;
+  nothing is charged or scheduled from it (§5).
+- **Selection.** An agent that looks and skips now keeps nearly all its energy, so it stays rich and is offered more
+  opportunities. `MAX_AGENT_OPPORTUNITY_HZ` (§7) already bounds that (it was built for the agent that reads nothing),
+  and the futility memo still applies, so nothing there changes.
+- **As a room setting** (if the owner wants per-setup tuning): add an optional `changeReadRatio` to `GameSettings`
+  (game-core settings, SETTINGS_DOCS, validation ≥ 1, the setup editor), have `tick.ts` and `pricing.ts` pass
+  `readPrice: 1/settings.changeReadRatio` to `actCharge` (it already takes `readPrice`; `measureAgent` would need it
+  too), report it in the observation from settings, and make the rules text read it. Existing games' stored settings
+  would read it as `?? CHANGE_READ_RATIO` (widen; no migration needed for an optional field with a default), and the
+  read-price rule test would check each seed's own κ.
+- **Evidence** (`lib/game-core/scripts/balance-settings.ts --kappa κ`, 200 seeded games per row, 3 gods × 3 agents;
+  "read" is the share of all energy spent on reading; wins are the share of games each policy won):
+
+| κ | Acts/game, 3 greedy: First steps / Master | First steps wins, random / greedy / greedy | First steps wins, random / greedy / deny | Classic wins, r / g / d | Master wins, r / g / d | Energy on reading, First steps r/g/d / Master r/g/d |
+|---|---|---|---|---|---|---|
+| 1 (before) | 897 / 144 | 30 / 35 / 35 | 27 / 37 / 36 | 34 / 32 / 35 | 35 / 33 / 32 | 58% / 63% |
+| 8 | 3750 / 810 | 25 / 37.5 / 37.5 | 24 / 34 / 43 | 28 / 35 / 37 | 34 / 32 / 35 | 30% / 45% |
+| **32** | 5699 / 1642 | 22 / 39.5 / 39.5 | 19 / 36 / 45 | 28 / 35 / 37 | 31 / 36 / 33 | 12% / 23% |
+| 128 | 6551 / 2212 | 22 / 39 / 39 | 20 / 36 / 45 | 31 / 35 / 34 | 32 / 35 / 33 | 3% / 8% |
+
+  Win shares are from 1000 games (±1.5 points), acts from 200. Fair is 33. On the small boards the careful policies pull
+  away from the blind one as reads get cheaper, and the opponent-aware "deny" policy gains most; the gain is mostly in
+  by κ = 8–32 and flat after. On Master (and Classic at κ = 128) the abstract world's edits are too coarse for reading to
+  separate the policies much: this harness models a look as all-or-nothing and the goals as random draws, so it bounds
+  the effect from below rather than measuring play with real goals. Acts per game rise 4–11×, because agents that look
+  and skip keep their energy (the 4 Hz cap and `interactionRateHz` bound it).
 
 ## 3. Read metering
 
@@ -193,8 +261,8 @@ They are unit tests (`lib/game-types/test/mutators.test.ts`).
 
 - Validation and summon run the agent on the reference mixture, as today. They report:
   - the summon price (description bits);
-  - the estimated cost per act: the mixture mean of R + C over runs that would commit, with R alone for the rest;
-  - the read/change split;
+  - the estimated cost per act: the mixture mean of R/κ + C over runs that would commit, with R/κ alone for the rest;
+  - the read/change split, in energy (and, in the diagnostics, the bits read behind it);
   - the skip, change and failure rates.
 - These are estimates for the UI and the assistant. Nothing is charged or scheduled from them.
 - The decision information I(X; A) is no longer estimated or charged; its estimators are deleted.
@@ -308,6 +376,10 @@ They are unit tests (`lib/game-types/test/mutators.test.ts`).
   migration runs after `convex deploy`.
 - The event log bumps `EVENT_LOG_SCHEMA` to 5 for the new cost shape (`{read, change, total}`) and the `skip` event.
   Replay reads both shapes by schema.
+- **The read price (§2.1, 11 Nov)** needs no stored-data change: no field is added or reshaped, so nothing widens or
+  migrates. `EVENT_LOG_SCHEMA` 8 marks batches whose `cost.read` is priced at κ = 32 (energy, not bits read). Replay
+  plays recorded costs back (`lib/player-client/src/replay.ts` sums `cost.total`), so old games replay exactly as they
+  were charged. Stored agent estimates (`expectedActCost`, `breakdown`) are display-only.
 
 ## 10. PR plan
 

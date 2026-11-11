@@ -6,7 +6,7 @@
  * game-core knows no object type itself: arguments, codecs and spawn priors all come from the
  * `@workspace/game-types` registry.
  */
-import { instantiate, objectType as objectTypeDef } from "@workspace/game-types";
+import { READ_PRICE, instantiate, objectType as objectTypeDef, readBound } from "@workspace/game-types";
 import type { Codec, Instantiation, ObjectValue, TypeArgs } from "@workspace/game-types";
 
 export type { ObjectValue, TypeArgs } from "@workspace/game-types";
@@ -385,6 +385,11 @@ function resolveType(settings: Pick<GameSettings, "objectType" | "typeArgs">): R
 /** The fully applied object type of these settings, e.g. Grid(5,base10,rgby). Throws on bad args. */
 export function instantiationOf(settings: Pick<GameSettings, "objectType" | "typeArgs">): Instantiation {
   return resolveType(settings).inst;
+}
+
+/** What a look at every value of one object costs an act, in energy bits: its whole information at READ_PRICE (docs/energy-model.md §2.1). */
+export function fullReadCharge(settings: Pick<GameSettings, "objectType" | "typeArgs">): number {
+  return readBound(instantiationOf(settings)) * READ_PRICE;
 }
 
 /** The wire codec of these settings' instantiation. */

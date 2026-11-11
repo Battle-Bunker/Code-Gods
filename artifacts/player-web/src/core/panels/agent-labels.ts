@@ -73,7 +73,7 @@ export function runwayText(energy: number, income: number): string {
 /** "Summoned for 84 bits (paid once)". */
 export const summonLine = (cost: number): Seg[] => [{ term: "summon", text: "Summoned" }, ` for ${bits(cost)} (paid once)`];
 
-/** "Spent 310 bits on 25 acts: 120 reading, 190 changing" (the split only when the engine reports spentRead). */
+/** "Spent 310 bits on 25 acts: 120 reading, 190 changing" (energy; the split only when the engine reports spentRead). */
 export function spentLine(spent: number, spentRead: number | undefined, actCount: number): Seg[] {
   const head = `Spent ${bits(spent)} on ${acts(actCount)}`;
   if (spentRead === undefined || !Number.isFinite(spentRead)) return [head];
