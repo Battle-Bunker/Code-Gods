@@ -16,7 +16,7 @@ import { withEngine, writeGame } from "./state";
 import { fail, messageOf } from "../lib/errors";
 import { memberOf, principalV, requireMemberAs, requireRoom, viewerOf, type Principal } from "../lib/rooms";
 import { godEnergy, settledAccount, worldNow } from "../lib/world";
-import { deityAccount } from "../lib/power";
+import { deityAccount, deityCapacityOf } from "../lib/power";
 import { agentLanguage, languageV } from "../lib/language";
 import { dryRunVerdict, summonDryRunWarnings } from "../lib/dryRun";
 
@@ -60,7 +60,7 @@ export const prepare = internalQuery({
         game.roster.some(m => m.id === member.godId)) {
       const live = await ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", game._id)).take(16);
       // A game the single-language migration has not reached yet is examined as its one language (validateSettings needs the set).
-      const settings = (upgradeStoredSettings(game.settings) ?? game.settings) as GameSettings;
+      const settings = (upgradeStoredSettings(game.settings, true) ?? game.settings) as GameSettings;
       // The player's live agents running this exact code (the copies warning), read here, off the mutation's read set.
       const own = await ctx.db.query("agents").withIndex("by_game_owner", q => q.eq("gameId", game._id).eq("ownerId", member.godId)).take(settings.maxAgentsPerGod + 1);
       const twins = own.filter(a => a.source === command.source && agentLanguage(a, settings) === command.language).length;
@@ -232,7 +232,13 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     }
     const world = worldNow(game, now);
     const own = deityAccount(game, deity, world);
-    if (own.balance < e.cost) fail("CONFLICT", "Insufficient energy");
+    if (own.balance < e.cost) {
+      // Capacity (docs/energy-model.md §6.1): a price above what the unallocated power can ever store needs more power kept.
+      const capacity = deityCapacityOf(deity, settings);
+      fail("CONFLICT", e.cost > capacity
+        ? `Insufficient energy: this agent costs ${e.cost.toFixed(0)} bits, but your own energy holds at most ${capacity.toFixed(0)} bits with ${(100 * Math.max(0, 1 - deity.allocated)).toFixed(0)}% of your power unallocated. Take power back from an agent first (allocatePower), or write a smaller agent`
+        : "Insufficient energy");
+    }
     const owned = await ctx.db.query("agents").withIndex("by_game_owner", q => q.eq("gameId", game._id).eq("ownerId", member.godId)).take(settings.maxAgentsPerGod + 1);
     if (owned.length >= settings.maxAgentsPerGod) fail("CONFLICT", `This god has reached the ${settings.maxAgentsPerGod}-agent resource limit`);
     // Power (docs/energy-model.md §6): the new agent's share comes out of what the deity has not allocated.

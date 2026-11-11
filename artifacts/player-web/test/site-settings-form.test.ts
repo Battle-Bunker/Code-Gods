@@ -46,6 +46,10 @@ test("limits mirror validateSettings and the engine's resource limits, with the 
   assert.equal(fieldError("scoreIntervalSeconds", 45), null, "any whole number of seconds, not only the presets");
   assert.equal(fieldError("powerPerSecond", -1), "Must be between 0 and 1,000,000 ⚡ per second.");
   assert.ok(fieldsOf("energy").includes("powerPerSecond"), "each player's power is on the form");
+  // The time an empty energy store takes to fill: asked in the energy section, in seconds, 1 to 1,000,000.
+  assert.ok(fieldsOf("energy").includes("fullChargeSeconds"));
+  assert.equal(fieldError("fullChargeSeconds", 0), "Must be between 1 and 1,000,000 seconds.");
+  assert.equal(fieldError("fullChargeSeconds", 30), null);
   assert.ok(!fieldsOf("energy").some(k => ["energyPerSecond", "agentEnergyPerSecond", "agentBatteryActs", "perActFloorBits"].includes(k)), "the old income, battery and floor settings are gone");
   assert.equal(fieldError("planningSeconds", NaN), "Enter a number.");
   const grid = seedSetupSettings("grid-classic");
@@ -160,6 +164,9 @@ test("penalty weight and the defence checklist hide while defence goals are off;
     assert.equal(isHidden(key, { ...DEFAULT_SETTINGS, defenceGoals: true }), false, key);
   }
   assert.deepEqual(stepChoices("pauseSeconds", 180), [60, 180, 300]);
+  assert.deepEqual(stepChoices("fullChargeSeconds", 30), [10, 30, 60, 120, 300], "the suggested steps come from SETTINGS_DOCS");
+  assert.deepEqual(stepChoices("fullChargeSeconds", 45), [10, 30, 45, 60, 120, 300]);
+  assert.equal(formatValue("fullChargeSeconds", 30), "30 s");
   assert.deepEqual(stepChoices("pauseSeconds", 240), [60, 180, 240, 300]);
   // Catches: the summary adding planning to the game ("15 min") beside a Time field that says "Long (10 min)".
   assert.equal(lengthLine({ planningSeconds: 60, halfLifeSeconds: 300 }), "1 min planning, then about 5 min (ends at a hidden moment, often after 2 to 12 min)");

@@ -224,12 +224,12 @@ jobs:
           for n in BETTER_AUTH_SECRET GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET PLAYER_JWT_PRIVATE_KEY PLAYER_JWT_JWKS SEASON_SALT ADMIN_EMAILS; do
             if ! grep -qx "$n" <<<"$names"; then missing="$missing $n"; fi
           done
-          for n in DEV TEST_FIXTURES AI_MOCK FAKE_OIDC_URL; do
+          for n in DEV TEST_FIXTURES AI_MOCK FAKE_OIDC_URL PREVIEW_SIGN_IN_CODE; do   # the last: preview deployments only (docs/preview-deployments.md)
             if grep -qx "$n" <<<"$names"; then forbidden="$forbidden $n"; fi
           done
           stale=$(grep '^CODE_GODS_' <<<"$names" | tr '\n' ' ' || true)   # renamed without the prefix (PILOT.md)
           [ -z "$stale" ] || { echo "::error::Old CODE_GODS_ env vars on the deployment: $stale(move each to its new name, then remove it)"; exit 1; }
-          [ -z "$forbidden" ] || { echo "::error::Test-only env vars set on a cloud deployment:$forbidden (remove them)"; exit 1; }
+          [ -z "$forbidden" ] || { echo "::error::Test-only or preview-only env vars set on this deployment:$forbidden (remove them)"; exit 1; }
           [ -z "$missing" ] || { echo "::error::Missing deployment env vars:$missing (see PILOT.md)"; exit 1; }
 
       - name: Push functions

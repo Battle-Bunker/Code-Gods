@@ -7,7 +7,7 @@
  */
 import { agentDisplayName } from "./agentName";
 import { gameNotice } from "./engineErrors";
-import { MAX_AGENT_OPPORTUNITY_HZ, allowedLanguages, deityIncome, roundShare, instantiationOf, leaderboard, rankTotals, type GameSettings } from "@workspace/game-core";
+import { allowedLanguages, deityIncome, roundShare, instantiationOf, leaderboard, rankTotals, type GameSettings } from "@workspace/game-core";
 import { CHANGE_READ_RATIO, COMMIT_CLAUSE_HELPER, instanceInfo, type InstanceInfo } from "@workspace/game-types";
 import { VERSION, observationSchema, type Observation } from "@workspace/player-client";
 import type { Doc } from "../_generated/dataModel";
@@ -15,7 +15,7 @@ import type { ClockedGame, Scoreboard } from "../game/state";
 import { DEFAULT_AGENT_MODEL } from "./aiModels";
 import { aiQuotaOf, assistantQuotaOf } from "./aiAccess";
 import { NO_FAILURES, diagnoseAgent } from "./futility";
-import { agentIncomeOf, powerOf } from "./power";
+import { agentCapacityOf, agentIncomeOf, deityCapacityOf, fullChargeOf, powerOf } from "./power";
 import { agentStatus, disclosedTotalsOf, godEnergy, totalsOf, viewOf, viewOfNet, worldNow } from "./world";
 import { agentLanguage } from "./language";
 
@@ -171,6 +171,9 @@ export function actCost(c: { read: number; change: number; total: number } | { d
   return "read" in c ? { read: c.read, change: c.change, total: c.total } : { read: 0, change: c.erasure + c.motion, total: c.total };
 }
 
+/** An account's capacity for the wire (docs/energy-model.md §6.1); absent when the game has none (JSON has no Infinity). */
+const capacityField = (capacity: number) => Number.isFinite(capacity) ? { capacity } : {};
+
 /** An agent as its owner sees it. */
 export function agentView(game: ClockedGame, agent: Doc<"agents">, nowMs = Date.now(), ordinal = 0) {
   const status = agentStatus(game.settings, agent, worldNow(game, nowMs));
@@ -178,7 +181,7 @@ export function agentView(game: ClockedGame, agent: Doc<"agents">, nowMs = Date.
     id: agent._id as string, name: agentDisplayName(agent.name, ordinal), ...(agent.description ? { description: agent.description } : {}), source: agent.source, language: agentLanguage(agent, game.settings as GameSettings), createdAt: agent.createdAt,
     summonCost: agent.summonCost, expectedActCost: agent.expectedActCost,
     breakdown: costBreakdown(agent.breakdown), randomized: agent.randomized, energy: status.energy, eligible: status.eligible,
-    powerShare: agent.powerShare, income: agentIncomeOf(agent, game.settings),
+    powerShare: agent.powerShare, income: agentIncomeOf(agent, game.settings), ...capacityField(agentCapacityOf(agent, game.settings)),
     acts: agent.acts, spent: agent.spent, ...(agent.spentRead !== undefined ? { spentRead: agent.spentRead } : {}), skips: agent.skips ?? 0,
     ...agentOutcomes(agent),
   };
@@ -361,7 +364,8 @@ export function observation(input: ObservationInput): Observation {
     instance: objectInstance(settings),
     economy: {
       powerPerSecond: powerOf(settings), startingEnergy: settings.startingEnergy,
-      maxAgentOpportunityHz: MAX_AGENT_OPPORTUNITY_HZ, changeReadRatio: CHANGE_READ_RATIO, maxAgentsPerGod: settings.maxAgentsPerGod,
+      ...(fullChargeOf(settings) !== undefined ? { fullChargeSeconds: fullChargeOf(settings) } : {}),
+      changeReadRatio: CHANGE_READ_RATIO, maxAgentsPerGod: settings.maxAgentsPerGod,
       penaltyWeight: settings.penaltyWeight, worldSeconds: game ? worldNow(game, now) : 0,
       durationMode: settings.durationMode, lengthSeconds: settings.halfLifeSeconds,
       commitClause: settings.commitClause, objectSelection: settings.objectSelection,
@@ -372,7 +376,7 @@ export function observation(input: ObservationInput): Observation {
       energy: game && deity ? godEnergy(game, deity, worldNow(game, now)) : 0,
       // Power (docs/energy-model.md §6): the share its agents hold, and its own income from the rest.
       ...(game && deity ? (() => {
-        return { allocated: deity.allocated, income: deityIncome(powerOf(settings), deity.allocated) };
+        return { allocated: deity.allocated, income: deityIncome(powerOf(settings), deity.allocated), ...capacityField(deityCapacityOf(deity, settings)) };
       })() : {}),
       // The own score is live; the leaderboard below is the scoreboard last published.
       // Live, it is the sum of the payoffs as disclosed (from the noisy peers' sums), consistent with the scoreboard.

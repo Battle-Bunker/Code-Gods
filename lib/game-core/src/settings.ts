@@ -89,6 +89,12 @@ export interface GameSettings {
    * (agents.powerShare), and what it leaves unallocated is its own income, which pays for summons.
    */
   powerPerSecond: number;
+  /**
+   * World seconds an empty account that spends nothing takes to fill (docs/energy-model.md §6.1): every account holds at
+   * most its power × this (an agent's share·P·T, the deity's own (1 − Σ shares)·P·T). Income above it is not stored.
+   * A game stored before the setting existed has none (no capacity): read it through game-core `energyCapacity`.
+   */
+  fullChargeSeconds: number;
   maxAgentsPerGod: number;
   /** w in n = s⁺ − w(h − E_μh): the weight of a defence-goal bit against a reward bit. */
   penaltyWeight: number;
@@ -140,6 +146,7 @@ export const TIME_LIMITS = Object.freeze({
   interactionRateHz: Object.freeze({ min: 0, max: 1000 }),
   scoreIntervalSeconds: Object.freeze({ min: 1, max: 3600 }),
   pauseSeconds: Object.freeze({ min: 1, max: 3600 }),
+  fullChargeSeconds: Object.freeze({ min: 1, max: 1_000_000 }),
 });
 
 /**
@@ -155,6 +162,11 @@ export const ENERGY_LIMITS = Object.freeze({
 /** The pre-authored choices of scoreIntervalSeconds (world seconds). */
 export const SCORE_INTERVALS: readonly number[] = Object.freeze([5, 10, 20, 30, 60]);
 export const DEFAULT_SCORE_INTERVAL_SECONDS = 10;
+/**
+ * The default time to a full energy store (docs/energy-model.md §6.1): chosen so that the largest program a deity can
+ * ever afford (retained power × this) makes code size matter, by the sweep in lib/game-core/scripts/balance-settings.ts.
+ */
+export const DEFAULT_FULL_CHARGE_SECONDS = 30;
 /** The pre-authored choices of peerNoiseBits (σ in bits) and the default, chosen from the inference experiment. */
 export const PEER_NOISE_OPTIONS: readonly number[] = Object.freeze([0, 2, 4, 8, 16]);
 export const DEFAULT_PEER_NOISE_BITS = 8;
@@ -177,6 +189,7 @@ export const DEFAULT_SETTINGS: Readonly<GameSettings> = Object.freeze({
   pauseSeconds: 180,
   startingEnergy: 200,
   powerPerSecond: 8,
+  fullChargeSeconds: DEFAULT_FULL_CHARGE_SECONDS,
   maxAgentsPerGod: MAX_AGENTS_PER_GOD,
   penaltyWeight: 1,
   defenceGoals: false,
@@ -206,11 +219,13 @@ export function allowedLanguages(settings: Pick<GameSettings, "languages"> | { l
 /**
  * Stored settings in today's shape, or null when they already are (idempotent): the single-language shape converted
  * (see upgradeLegacyLanguage), the removed Haskell language dropped from `languages` (TypeScript when none is left:
- * 2026-11), and fields added since filled with their defaults (scoreIntervalSeconds, peerNoiseBits, durationMode:
- * 2026-11).
- * Use it wherever stored settings (rooms, setups, games) are read.
+ * 2026-11), and fields added since filled with their defaults (scoreIntervalSeconds, peerNoiseBits, durationMode,
+ * fullChargeSeconds: 2026-11).
+ * Use it wherever stored settings (rooms, setups, games) are read. With `played` (the settings of a game already
+ * started, live or ended) the economy is history and is left as it was charged: `fullChargeSeconds` is not filled, so a
+ * game started before the setting existed keeps having no capacity (game-core energyCapacity), live and in its replay.
  */
-export function upgradeStoredSettings(settings: unknown): Record<string, unknown> | null {
+export function upgradeStoredSettings(settings: unknown, played = false): Record<string, unknown> | null {
   const languages = upgradeLegacyLanguage(settings);
   const s = (languages ?? settings) as Record<string, unknown> | null;
   if (!s || typeof s !== "object" || Array.isArray(s)) return languages;
@@ -220,6 +235,7 @@ export function upgradeStoredSettings(settings: unknown): Record<string, unknown
     ...(!("scoreIntervalSeconds" in s) ? { scoreIntervalSeconds: DEFAULT_SCORE_INTERVAL_SECONDS } : {}),
     ...(!("durationMode" in s) ? { durationMode: "halfLife" } : {}),
     ...(!("peerNoiseBits" in s) ? { peerNoiseBits: DEFAULT_PEER_NOISE_BITS } : {}),
+    ...(!played && !("fullChargeSeconds" in s) ? { fullChargeSeconds: DEFAULT_FULL_CHARGE_SECONDS } : {}),
   };
   return Object.keys(filled).length ? { ...s, ...filled } : languages;
 }
@@ -321,6 +337,12 @@ export function validateSettings(settings: GameSettings, domain?: FamilyDomain):
   inRange("planningSeconds", settings.planningSeconds);
   inRange("halfLifeSeconds", settings.halfLifeSeconds);
   inRange("pauseSeconds", settings.pauseSeconds);
+  // Absent only in the settings of a game started before the setting existed (no capacity: upgradeStoredSettings
+  // `played`); a setup or a room always has it (assertCompleteSettings, the upgrade's default).
+  if (settings.fullChargeSeconds !== undefined) {
+    if (typeof settings.fullChargeSeconds !== "number" || !Number.isFinite(settings.fullChargeSeconds)) throw new Error("fullChargeSeconds must be a number of seconds");
+    inRange("fullChargeSeconds", settings.fullChargeSeconds);
+  }
   for (const key of ["powerPerSecond", "startingEnergy", "penaltyWeight"] as const) {
     if (settings[key] > ENERGY_LIMITS[key].max) throw new Error(`${key} must be from 0 to ${ENERGY_LIMITS[key].max}`);
   }
@@ -683,6 +705,11 @@ export const SETTINGS_DOCS = {
     question: "How much power does each player have?", section: "energy", tier: "ask", control: "number", unit: "bits/s", suggested: [8, 16, 32, 64, 128],
     meaning: "Each player's fixed energy income per second of world time, shared between their agents as they choose; the unshared rest refills their own energy for summoning.",
     consequence: "Raising it makes every player's agents act more often, so objects change faster.",
+  },
+  fullChargeSeconds: {
+    question: "How long does an empty energy store take to fill?", section: "energy", tier: "ask", control: "number", unit: "s", suggested: [10, 30, 60, 120, 300],
+    meaning: "Every agent, and each player's own energy, stores at most this many seconds of its power, and income past a full store is lost.",
+    consequence: "Shortening it stops energy piling up, so players must spend or re-allocate it, and big agents and big changes need more power kept for them.",
   },
   startingObjectCount: {
     question: "How many objects does the world start with?", section: "population", tier: "ask", control: "number", suggested: [10, 40, 80, 160],
