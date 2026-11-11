@@ -1,0 +1,2399 @@
+{
+  "instance": "Grid(4,base10,mono)",
+  "compose": "gated",
+  "variants": [
+    {
+      "id": "opposite_nines.base",
+      "family": "opposite_nines",
+      "params": {},
+      "report": {
+        "id": "opposite_nines.base",
+        "calibration": "shipped",
+        "topBits": 26.428597607,
+        "cardBits": 666.9563272126477,
+        "colourBlind": true,
+        "greedy10": 26.428597607,
+        "greedy20": 26.428597607,
+        "uniformTop": [],
+        "greedy4": 13.015404791113,
+        "greedy8": 26.428597607,
+        "greedy16": 26.428597607,
+        "rate4": 2.945360878778775,
+        "rate8": 3.1493295413752627,
+        "reach16": 1,
+        "reachEnd": 1,
+        "movesTo50": 4,
+        "movesTo90": 7,
+        "beam16": 26.428597607,
+        "gap": 0,
+        "plateau": 0,
+        "trap": 0,
+        "stall": 0,
+        "escape2": null,
+        "entangle": 1,
+        "difficulty": 0
+      },
+      "table": {
+        "from": "shipped",
+        "kind": "sampled",
+        "seconds": 9.297385472,
+        "levels": 120,
+        "priorMean": 1.39623108630226
+      }
+    },
+    {
+      "id": "opposite_nines.lines(x=10)",
+      "family": "opposite_nines",
+      "params": {
+        "tiers": [
+          {
+            "id": "lines",
+            "x": 10,
+            "gate": 6
+          }
+        ]
+      },
+      "interaction": "lines",
+      "report": {
+        "id": "opposite_nines.lines(x=10)",
+        "calibration": "shipped",
+        "topBits": 42.539221795,
+        "cardBits": 1183.2850733325668,
+        "colourBlind": true,
+        "greedy10": 27.954060397333336,
+        "greedy20": 27.954060397333336,
+        "uniformTop": [],
+        "greedy4": 13.150126453499999,
+        "greedy8": 27.954060397333336,
+        "greedy16": 27.954060397333336,
+        "rate4": 2.9819388867708327,
+        "rate8": 3.3414611863645836,
+        "reach16": 0.6571361491295314,
+        "reachEnd": 0.6571361491295314,
+        "movesTo50": 6,
+        "movesTo90": "inf",
+        "beam16": 30.982865184083337,
+        "gap": 0.09775741425960736,
+        "plateau": 0,
+        "trap": 0.3428638508704686,
+        "stall": 1,
+        "escape2": 0.6666666666666666,
+        "entangle": 1,
+        "difficulty": 22.0310632565038
+      },
+      "table": {
+        "from": "shipped",
+        "kind": "hybrid",
+        "seconds": 0.00003652100000181235,
+        "levels": 417,
+        "priorMean": 1.4093273587763595
+      },
+      "tier": {
+        "layout": {
+          "compose": "gated",
+          "gate": 6,
+          "at": 2,
+          "arity": 1,
+          "baseArity": 2
+        },
+        "addedTop": 16.110624188000003,
+        "baseAgent": 27.166268603999995,
+        "baseAgentOwn": 26.428597607,
+        "baseAgentLoss": -0.737670996999995,
+        "accidental": 0.03701148565517255,
+        "tierAgent": 27.954060397333336,
+        "tierShare": 0.0863601331954026
+      },
+      "live": {
+        "tierTop": 4,
+        "tierMin": 0,
+        "shareAtTop": 0.000015646537576685616,
+        "addedBits": 15.963797036039349,
+        "degenerate": [],
+        "problems": [],
+        "seconds": 0.00003652100000181235,
+        "levels": 417,
+        "topTier": [
+          [
+            [
+              0
+            ],
+            1
+          ],
+          [
+            [
+              1
+            ],
+            0.19433593749999964
+          ],
+          [
+            [
+              2
+            ],
+            0.01802921295166011
+          ],
+          [
+            [
+              3
+            ],
+            0.0006162328645586956
+          ],
+          [
+            [
+              4
+            ],
+            0.000015646537576685616
+          ]
+        ]
+      },
+      "exact": {
+        "how": "native enumeration of the 10⁸ boards with all 8 pairs at 9",
+        "boards": 100000000,
+        "rows": [
+          {
+            "tier": 0,
+            "hybrid": 0,
+            "exact": 0,
+            "error": 0
+          },
+          {
+            "tier": 1,
+            "hybrid": 2.363375379456354,
+            "exact": 2.2666480197673584,
+            "error": 0.09672735968899548
+          },
+          {
+            "tier": 2,
+            "hybrid": 5.793519771125407,
+            "exact": 5.8617965979440605,
+            "error": 0.06827682681865355
+          },
+          {
+            "tier": 3,
+            "hybrid": 10.66423675418044,
+            "exact": 10.75684258161804,
+            "error": 0.09260582743760004
+          },
+          {
+            "tier": 4,
+            "hybrid": 15.963797036039349,
+            "exact": 16.1159931404616,
+            "error": 0.15219610442225218
+          }
+        ],
+        "maxError": 0.15219610442225218,
+        "missed": 0
+      }
+    },
+    {
+      "id": "opposite_nines.lines(x=11)",
+      "family": "opposite_nines",
+      "params": {
+        "tiers": [
+          {
+            "id": "lines",
+            "x": 11,
+            "gate": 6
+          }
+        ]
+      },
+      "interaction": "lines",
+      "report": {
+        "id": "opposite_nines.lines(x=11)",
+        "calibration": "shipped",
+        "topBits": 41.089792943,
+        "cardBits": 1183.2850733325668,
+        "colourBlind": true,
+        "greedy10": 27.279177009333335,
+        "greedy20": 27.279177009333335,
+        "uniformTop": [],
+        "greedy4": 13.116067749750002,
+        "greedy8": 27.279177009333335,
+        "greedy16": 27.279177009333335,
+        "rate4": 2.973424210833333,
+        "rate8": 3.257100762864583,
+        "reach16": 0.6638918099970756,
+        "reachEnd": 0.6638918099970756,
+        "movesTo50": 6,
+        "movesTo90": "inf",
+        "beam16": 32.560593415583334,
+        "gap": 0.1622027073905336,
+        "plateau": 0,
+        "trap": 0.33610819000292436,
+        "stall": 1,
+        "escape2": 1,
+        "entangle": 1,
+        "difficulty": 24.9155448696729
+      },
+      "table": {
+        "from": "shipped",
+        "kind": "hybrid",
+        "seconds": 0.000011043999998946674,
+        "levels": 416,
+        "priorMean": 1.4093274684174903
+      },
+      "tier": {
+        "layout": {
+          "compose": "gated",
+          "gate": 6,
+          "at": 2,
+          "arity": 1,
+          "baseArity": 2
+        },
+        "addedTop": 14.661195335999999,
+        "baseAgent": 26.751362821583328,
+        "baseAgentOwn": 26.428597607,
+        "baseAgentLoss": -0.3227652145833275,
+        "accidental": 0.012121648035446672,
+        "tierAgent": 27.279177009333335,
+        "tierShare": 0.04848659214178669
+      },
+      "live": {
+        "tierTop": 4,
+        "tierMin": 0,
+        "shareAtTop": 0.000042730680434033254,
+        "addedBits": 14.514368184073778,
+        "degenerate": [],
+        "problems": [],
+        "seconds": 0.000011043999998946674,
+        "levels": 416,
+        "topTier": [
+          [
+            [
+              0
+            ],
+            1
+          ],
+          [
+            [
+              1
+            ],
+            0.23144531249999986
+          ],
+          [
+            [
+              2
+            ],
+            0.026670455932617194
+          ],
+          [
+            [
+              3
+            ],
+            0.0010939054191112518
+          ],
+          [
+            [
+              4
+            ],
+            0.000042730680434033254
+          ]
+        ]
+      },
+      "exact": {
+        "how": "native enumeration of the 10⁸ boards with all 8 pairs at 9",
+        "boards": 100000000,
+        "rows": [
+          {
+            "tier": 0,
+            "hybrid": 0,
+            "exact": 0,
+            "error": 0
+          },
+          {
+            "tier": 1,
+            "hybrid": 2.1112567511017417,
+            "exact": 1.9948699059154764,
+            "error": 0.1163868451862653
+          },
+          {
+            "tier": 2,
+            "hybrid": 5.228613701739899,
+            "exact": 5.24862663970702,
+            "error": 0.020012937967120337
+          },
+          {
+            "tier": 3,
+            "hybrid": 9.83629627896114,
+            "exact": 9.749273544298692,
+            "error": 0.08702273466244748
+          },
+          {
+            "tier": 4,
+            "hybrid": 14.514368184073778,
+            "exact": 14.45648368637539,
+            "error": 0.057884497698386994
+          }
+        ],
+        "maxError": 0.1163868451862653,
+        "missed": 0
+      }
+    },
+    {
+      "id": "opposite_nines.lines(x=12)",
+      "family": "opposite_nines",
+      "params": {
+        "tiers": [
+          {
+            "id": "lines",
+            "x": 12,
+            "gate": 6
+          }
+        ]
+      },
+      "interaction": "lines",
+      "report": {
+        "id": "opposite_nines.lines(x=12)",
+        "calibration": "shipped",
+        "topBits": 39.834425101,
+        "cardBits": 1183.2850733325668,
+        "colourBlind": true,
+        "greedy10": 28.370426866833338,
+        "greedy20": 28.370426866833338,
+        "uniformTop": [],
+        "greedy4": 13.116067749750002,
+        "greedy8": 28.370426866833338,
+        "greedy16": 28.370426866833338,
+        "rate4": 2.973424210833333,
+        "rate8": 3.3935069950520838,
+        "reach16": 0.7122087690458756,
+        "reachEnd": 0.7122087690458756,
+        "movesTo50": 6,
+        "movesTo90": "inf",
+        "beam16": 33.777688687166666,
+        "gap": 0.16008383138387255,
+        "plateau": 0,
+        "trap": 0.28779123095412457,
+        "stall": 1,
+        "escape2": 1,
+        "entangle": 1,
+        "difficulty": 22.393753116899855
+      },
+      "table": {
+        "from": "shipped",
+        "kind": "hybrid",
+        "seconds": 0.000013818999999784865,
+        "levels": 419,
+        "priorMean": 1.4093277287728005
+      },
+      "tier": {
+        "layout": {
+          "compose": "gated",
+          "gate": 6,
+          "at": 2,
+          "arity": 1,
+          "baseArity": 2
+        },
+        "addedTop": 13.405827494,
+        "baseAgent": 27.18046631133333,
+        "baseAgentOwn": 26.428597607,
+        "baseAgentLoss": -0.7518687043333294,
+        "accidental": 0.0456325165342041,
+        "tierAgent": 28.370426866833338,
+        "tierShare": 0.13537989754381233
+      },
+      "live": {
+        "tierTop": 4,
+        "tierMin": 0,
+        "shareAtTop": 0.00010201010263699566,
+        "addedBits": 13.259000342033598,
+        "degenerate": [],
+        "problems": [],
+        "seconds": 0.000013818999999784865,
+        "levels": 419,
+        "topTier": [
+          [
+            [
+              0
+            ],
+            1
+          ],
+          [
+            [
+              1
+            ],
+            0.2841796874999995
+          ],
+          [
+            [
+              2
+            ],
+            0.03691005706787105
+          ],
+          [
+            [
+              3
+            ],
+            0.0015138890594243982
+          ],
+          [
+            [
+              4
+            ],
+            0.00010201010263699566
+          ]
+        ]
+      },
+      "exact": {
+        "how": "native enumeration of the 10⁸ boards with all 8 pairs at 9",
+        "boards": 100000000,
+        "rows": [
+          {
+            "tier": 0,
+            "hybrid": 0,
+            "exact": 0,
+            "error": 0
+          },
+          {
+            "tier": 1,
+            "hybrid": 1.8151246570917188,
+            "exact": 1.7715841323362493,
+            "error": 0.043540524755469434
+          },
+          {
+            "tier": 2,
+            "hybrid": 4.759842221590528,
+            "exact": 4.755392302901468,
+            "error": 0.004449918689060084
+          },
+          {
+            "tier": 3,
+            "hybrid": 9.367524798811768,
+            "exact": 8.970871530019862,
+            "error": 0.39665326879190665
+          },
+          {
+            "tier": 4,
+            "hybrid": 13.259000342033598,
+            "exact": 13.346606068603018,
+            "error": 0.08760572656941967
+          }
+        ],
+        "maxError": 0.39665326879190665,
+        "missed": 0
+      }
+    },
+    {
+      "id": "opposite_nines.lines(x=13)",
+      "family": "opposite_nines",
+      "params": {
+        "tiers": [
+          {
+            "id": "lines",
+            "x": 13,
+            "gate": 6
+          }
+        ]
+      },
+      "interaction": "lines",
+      "report": {
+        "id": "opposite_nines.lines(x=13)",
+        "calibration": "shipped",
+        "topBits": 39.496787144,
+        "cardBits": 1183.2850733325668,
+        "colourBlind": true,
+        "greedy10": 29.81979107166667,
+        "greedy20": 29.81979107166667,
+        "uniformTop": [],
+        "greedy4": 13.142352073749999,
+        "greedy8": 29.81979107166667,
+        "greedy16": 29.81979107166667,
+        "rate4": 2.9799952918333332,
+        "rate8": 3.57467752065625,
+        "reach16": 0.7549928292381783,
+        "reachEnd": 0.7549928292381783,
+        "movesTo50": 6,
+        "movesTo90": "inf",
+        "beam16": 34.26332217983333,
+        "gap": 0.12968769008575673,
+        "plateau": 0,
+        "trap": 0.24500717076182185,
+        "stall": 1,
+        "escape2": 1,
+        "entangle": 1,
+        "difficulty": 18.73474304237893
+      },
+      "table": {
+        "from": "shipped",
+        "kind": "hybrid",
+        "seconds": 0.000014213000002200715,
+        "levels": 418,
+        "priorMean": 1.4093279042535267
+      },
+      "tier": {
+        "layout": {
+          "compose": "gated",
+          "gate": 6,
+          "at": 2,
+          "arity": 1,
+          "baseArity": 2
+        },
+        "addedTop": 13.068189537000002,
+        "baseAgent": 27.437362556500005,
+        "baseAgentOwn": 26.428597607,
+        "baseAgentLoss": -1.008764949500005,
+        "accidental": 0.06670641777685886,
+        "tierAgent": 29.81979107166667,
+        "tierShare": 0.2510854673059048
+      },
+      "live": {
+        "tierTop": 4,
+        "tierMin": 0,
+        "shareAtTop": 0.0001289087322220441,
+        "addedBits": 12.921362384998528,
+        "degenerate": [],
+        "problems": [],
+        "seconds": 0.000014213000002200715,
+        "levels": 418,
+        "topTier": [
+          [
+            [
+              0
+            ],
+            1
+          ],
+          [
+            [
+              1
+            ],
+            0.30273437499999944
+          ],
+          [
+            [
+              2
+            ],
+            0.04818916320800777
+          ],
+          [
+            [
+              3
+            ],
+            0.002588285133242609
+          ],
+          [
+            [
+              4
+            ],
+            0.0001289087322220441
+          ]
+        ]
+      },
+      "exact": {
+        "how": "native enumeration of the 10⁸ boards with all 8 pairs at 9",
+        "boards": 100000000,
+        "rows": [
+          {
+            "tier": 0,
+            "hybrid": 0,
+            "exact": 0,
+            "error": 0
+          },
+          {
+            "tier": 1,
+            "hybrid": 1.7238755947257651,
+            "exact": 1.5902179313153009,
+            "error": 0.13365766341046426
+          },
+          {
+            "tier": 2,
+            "hybrid": 4.375147440494686,
+            "exact": 4.360128764837578,
+            "error": 0.01501867565710846
+          },
+          {
+            "tier": 3,
+            "hybrid": 8.593787726970024,
+            "exact": 8.372535701578991,
+            "error": 0.22125202539103306
+          },
+          {
+            "tier": 4,
+            "hybrid": 12.921362384998528,
+            "exact": 12.539251146545414,
+            "error": 0.38211123845311334
+          }
+        ],
+        "maxError": 0.38211123845311334,
+        "missed": 0
+      }
+    },
+    {
+      "id": "opposite_nines.lines(x=14)",
+      "family": "opposite_nines",
+      "params": {
+        "tiers": [
+          {
+            "id": "lines",
+            "x": 14,
+            "gate": 6
+          }
+        ]
+      },
+      "interaction": "lines",
+      "report": {
+        "id": "opposite_nines.lines(x=14)",
+        "calibration": "shipped",
+        "topBits": 38.433547209,
+        "cardBits": 1183.2850733325668,
+        "colourBlind": true,
+        "greedy10": 28.158331544333336,
+        "greedy20": 28.158331544333336,
+        "uniformTop": [],
+        "greedy4": 13.116067749750002,
+        "greedy8": 28.158331544333336,
+        "greedy16": 28.158331544333336,
+        "rate4": 2.973424210833333,
+        "rate8": 3.366995079739583,
+        "reach16": 0.7326498225940355,
+        "reachEnd": 0.7326498225940355,
+        "movesTo50": 6,
+        "movesTo90": "inf",
+        "beam16": 34.12669049108333,
+        "gap": 0.17488830182081136,
+        "plateau": 0,
+        "trap": 0.26735017740596456,
+        "stall": 1,
+        "escape2": 1,
+        "entangle": 1,
+        "difficulty": 22.111923961338796
+      },
+      "table": {
+        "from": "shipped",
+        "kind": "hybrid",
+        "seconds": 0.0000155629999935627,
+        "levels": 435,
+        "priorMean": 1.4093280609207626
+      },
+      "tier": {
+        "layout": {
+          "compose": "gated",
+          "gate": 6,
+          "at": 2,
+          "arity": 1,
+          "baseArity": 2
+        },
+        "addedTop": 12.004949601999996,
+        "baseAgent": 27.19552781983333,
+        "baseAgentOwn": 26.428597607,
+        "baseAgentLoss": -0.76693021283333,
+        "accidental": 0.052293528208028635,
+        "tierAgent": 28.158331544333336,
+        "tierShare": 0.13348713440999527
+      },
+      "live": {
+        "tierTop": 4,
+        "tierMin": 0,
+        "shareAtTop": 0.0002693701389944179,
+        "addedBits": 11.858122449730725,
+        "degenerate": [],
+        "problems": [],
+        "seconds": 0.0000155629999935627,
+        "levels": 435,
+        "topTier": [
+          [
+            [
+              0
+            ],
+            1
+          ],
+          [
+            [
+              1
+            ],
+            0.3564453124999995
+          ],
+          [
+            [
+              2
+            ],
+            0.0511693954467773
+          ],
+          [
+            [
+              3
+            ],
+            0.003447937779128551
+          ],
+          [
+            [
+              4
+            ],
+            0.0002693701389944179
+          ]
+        ]
+      },
+      "exact": {
+        "how": "native enumeration of the 10⁸ boards with all 8 pairs at 9",
+        "boards": 100000000,
+        "rows": [
+          {
+            "tier": 0,
+            "hybrid": 0,
+            "exact": 0,
+            "error": 0
+          },
+          {
+            "tier": 1,
+            "hybrid": 1.4882473462326224,
+            "exact": 1.4452300308640753,
+            "error": 0.04301731536854714
+          },
+          {
+            "tier": 2,
+            "hybrid": 4.288575001396257,
+            "exact": 4.0497663181767996,
+            "error": 0.23880868321945758
+          },
+          {
+            "tier": 3,
+            "hybrid": 8.180050544618087,
+            "exact": 7.919782238117566,
+            "error": 0.2602683065005209
+          },
+          {
+            "tier": 4,
+            "hybrid": 11.858122449730725,
+            "exact": 11.931568569324174,
+            "error": 0.0734461195934486
+          }
+        ],
+        "maxError": 0.2602683065005209,
+        "missed": 0
+      }
+    },
+    {
+      "id": "opposite_nines.lines(x=15)",
+      "family": "opposite_nines",
+      "params": {
+        "tiers": [
+          {
+            "id": "lines",
+            "x": 15,
+            "gate": 6
+          }
+        ]
+      },
+      "interaction": "lines",
+      "report": {
+        "id": "opposite_nines.lines(x=15)",
+        "calibration": "shipped",
+        "topBits": 38.798736495,
+        "cardBits": 1185.2850733325668,
+        "colourBlind": true,
+        "greedy10": 28.417003979333334,
+        "greedy20": 28.417003979333334,
+        "uniformTop": [],
+        "greedy4": 13.13679055383333,
+        "greedy8": 28.417003979333334,
+        "greedy16": 28.417003979333334,
+        "rate4": 2.978604911854166,
+        "rate8": 3.399329134114584,
+        "reach16": 0.7324208607410563,
+        "reachEnd": 0.7324208607410563,
+        "movesTo50": 6,
+        "movesTo90": "inf",
+        "beam16": 34.965999983833335,
+        "gap": 0.1872961164424857,
+        "plateau": 0,
+        "trap": 0.2675791392589438,
+        "stall": 1,
+        "escape2": 0.3333333333333333,
+        "entangle": 1,
+        "difficulty": 22.743762785071475
+      },
+      "table": {
+        "from": "shipped",
+        "kind": "hybrid",
+        "seconds": 0.00001597899998887442,
+        "levels": 434,
+        "priorMean": 1.4093282086555334
+      },
+      "tier": {
+        "layout": {
+          "compose": "gated",
+          "gate": 6,
+          "at": 2,
+          "arity": 1,
+          "baseArity": 2
+        },
+        "addedTop": 12.370138888,
+        "baseAgent": 27.332049763,
+        "baseAgentOwn": 26.428597607,
+        "baseAgentLoss": -0.9034521560000002,
+        "accidental": 0.061900164238763045,
+        "tierAgent": 28.417003979333334,
+        "tierShare": 0.1506612332326867
+      },
+      "live": {
+        "tierTop": 4,
+        "tierMin": 0,
+        "shareAtTop": 0.00020913008847855917,
+        "addedBits": 12.223311735718713,
+        "degenerate": [],
+        "problems": [],
+        "seconds": 0.00001597899998887442,
+        "levels": 434,
+        "topTier": [
+          [
+            [
+              0
+            ],
+            1
+          ],
+          [
+            [
+              1
+            ],
+            0.40820312499999967
+          ],
+          [
+            [
+              2
+            ],
+            0.0665721893310547
+          ],
+          [
+            [
+              3
+            ],
+            0.003965726122260081
+          ],
+          [
+            [
+              4
+            ],
+            0.00020913008847855917
+          ]
+        ]
+      },
+      "exact": {
+        "how": "native enumeration of the 10⁸ boards with all 8 pairs at 9",
+        "boards": 100000000,
+        "rows": [
+          {
+            "tier": 0,
+            "hybrid": 0,
+            "exact": 0,
+            "error": 0
+          },
+          {
+            "tier": 1,
+            "hybrid": 1.2926408679191184,
+            "exact": 1.3327286191503962,
+            "error": 0.040087751231277835
+          },
+          {
+            "tier": 2,
+            "hybrid": 3.9089365754450647,
+            "exact": 3.8156860843533003,
+            "error": 0.09325049109176442
+          },
+          {
+            "tier": 3,
+            "hybrid": 7.978199237882183,
+            "exact": 7.583283027472972,
+            "error": 0.3949162104092112
+          },
+          {
+            "tier": 4,
+            "hybrid": 12.223311735718713,
+            "exact": 11.473449088149668,
+            "error": 0.7498626475690457
+          }
+        ],
+        "maxError": 0.7498626475690457,
+        "missed": 0
+      }
+    },
+    {
+      "id": "opposite_nines.lines(x=16)",
+      "family": "opposite_nines",
+      "params": {
+        "tiers": [
+          {
+            "id": "lines",
+            "x": 16,
+            "gate": 6
+          }
+        ]
+      },
+      "interaction": "lines",
+      "report": {
+        "id": "opposite_nines.lines(x=16)",
+        "calibration": "shipped",
+        "topBits": 37.0939431,
+        "cardBits": 1185.2850733325668,
+        "colourBlind": true,
+        "greedy10": 28.30034881983333,
+        "greedy20": 28.30034881983333,
+        "uniformTop": [],
+        "greedy4": 13.15478596925,
+        "greedy8": 28.30034881983333,
+        "greedy16": 28.30034881983333,
+        "rate4": 2.9831037657083335,
+        "rate8": 3.384747239177083,
+        "reach16": 0.7629371928333317,
+        "reachEnd": 0.7629371928333317,
+        "movesTo50": 6,
+        "movesTo90": "inf",
+        "beam16": 33.46045807283334,
+        "gap": 0.15421514080195808,
+        "plateau": 0,
+        "trap": 0.2370628071666682,
+        "stall": 0.9166666666666666,
+        "escape2": 0.6666666666666666,
+        "entangle": 1,
+        "difficulty": 19.563897398431312
+      },
+      "table": {
+        "from": "shipped",
+        "kind": "hybrid",
+        "seconds": 0.000013348999986192211,
+        "levels": 435,
+        "priorMean": 1.40932829839134
+      },
+      "tier": {
+        "layout": {
+          "compose": "gated",
+          "gate": 6,
+          "at": 2,
+          "arity": 1,
+          "baseArity": 2
+        },
+        "addedTop": 10.665345492999997,
+        "baseAgent": 27.796469338666665,
+        "baseAgentOwn": 26.428597607,
+        "baseAgentLoss": -1.3678717316666642,
+        "accidental": 0.11608522608238202,
+        "tierAgent": 28.30034881983333,
+        "tierShare": 0.16398926207218498
+      },
+      "live": {
+        "tierTop": 4,
+        "tierMin": 0,
+        "shareAtTop": 0.0006817269604653108,
+        "addedBits": 10.518518340674557,
+        "degenerate": [],
+        "problems": [],
+        "seconds": 0.000013348999986192211,
+        "levels": 435,
+        "topTier": [
+          [
+            [
+              0
+            ],
+            1
+          ],
+          [
+            [
+              1
+            ],
+            0.43749999999999933
+          ],
+          [
+            [
+              2
+            ],
+            0.07904052734375001
+          ],
+          [
+            [
+              3
+            ],
+            0.005866289138793945
+          ],
+          [
+            [
+              4
+            ],
+            0.0006817269604653108
+          ]
+        ]
+      },
+      "exact": {
+        "how": "native enumeration of the 10⁸ boards with all 8 pairs at 9",
+        "boards": 100000000,
+        "rows": [
+          {
+            "tier": 0,
+            "hybrid": 0,
+            "exact": 0,
+            "error": 0
+          },
+          {
+            "tier": 1,
+            "hybrid": 1.192645077942398,
+            "exact": 1.2508796746374873,
+            "error": 0.058234596695089236
+          },
+          {
+            "tier": 2,
+            "hybrid": 3.6612636174260835,
+            "exact": 3.650726767926739,
+            "error": 0.010536849499344747
+          },
+          {
+            "tier": 3,
+            "hybrid": 7.413336103982498,
+            "exact": 7.346305538440304,
+            "error": 0.06703056554219433
+          },
+          {
+            "tier": 4,
+            "hybrid": 10.518518340674557,
+            "exact": 11.140796531462174,
+            "error": 0.6222781907876165
+          }
+        ],
+        "maxError": 0.6222781907876165,
+        "missed": 0
+      }
+    },
+    {
+      "id": "opposite_nines.lines(x=17)",
+      "family": "opposite_nines",
+      "params": {
+        "tiers": [
+          {
+            "id": "lines",
+            "x": 17,
+            "gate": 6
+          }
+        ]
+      },
+      "interaction": "lines",
+      "report": {
+        "id": "opposite_nines.lines(x=17)",
+        "calibration": "shipped",
+        "topBits": 38.439229491,
+        "cardBits": 1185.2850733325668,
+        "colourBlind": true,
+        "greedy10": 27.865939619083324,
+        "greedy20": 27.865939619083324,
+        "uniformTop": [],
+        "greedy4": 13.135050038166668,
+        "greedy8": 27.865939619083324,
+        "greedy16": 27.865939619083324,
+        "rate4": 2.9781697829374996,
+        "rate8": 3.330446089083333,
+        "reach16": 0.7249349164401888,
+        "reachEnd": 0.7249349164401888,
+        "movesTo50": 6,
+        "movesTo90": "inf",
+        "beam16": 32.52410686383333,
+        "gap": 0.1432219880549547,
+        "plateau": 0,
+        "trap": 0.275065083559811,
+        "stall": 1,
+        "escape2": 1,
+        "entangle": 1,
+        "difficulty": 20.914353580738286
+      },
+      "table": {
+        "from": "shipped",
+        "kind": "hybrid",
+        "seconds": 0.000016051000013248994,
+        "levels": 433,
+        "priorMean": 1.4093283841505448
+      },
+      "tier": {
+        "layout": {
+          "compose": "gated",
+          "gate": 6,
+          "at": 2,
+          "arity": 1,
+          "baseArity": 2
+        },
+        "addedTop": 12.010631883999999,
+        "baseAgent": 27.583359761833325,
+        "baseAgentOwn": 26.428597607,
+        "baseAgentLoss": -1.1547621548333247,
+        "accidental": 0.08495883281985002,
+        "tierAgent": 27.865939619083324,
+        "tierShare": 0.10877748658509645
+      },
+      "live": {
+        "tierTop": 4,
+        "tierMin": 0,
+        "shareAtTop": 0.00026831126888282624,
+        "addedBits": 11.863804731510978,
+        "degenerate": [],
+        "problems": [],
+        "seconds": 0.000016051000013248994,
+        "levels": 433,
+        "topTier": [
+          [
+            [
+              0
+            ],
+            1
+          ],
+          [
+            [
+              1
+            ],
+            0.44140625000000006
+          ],
+          [
+            [
+              2
+            ],
+            0.07759094238281246
+          ],
+          [
+            [
+              3
+            ],
+            0.005607157945632929
+          ],
+          [
+            [
+              4
+            ],
+            0.00026831126888282624
+          ]
+        ]
+      },
+      "exact": {
+        "how": "native enumeration of the 10⁸ boards with all 8 pairs at 9",
+        "boards": 100000000,
+        "rows": [
+          {
+            "tier": 0,
+            "hybrid": 0,
+            "exact": 0,
+            "error": 0
+          },
+          {
+            "tier": 1,
+            "hybrid": 1.1798210375848122,
+            "exact": 1.1997202936028413,
+            "error": 0.01989925601802911
+          },
+          {
+            "tier": 2,
+            "hybrid": 3.6879679412551383,
+            "exact": 3.5505285942585965,
+            "error": 0.1374393469965418
+          },
+          {
+            "tier": 3,
+            "hybrid": 7.478514575626189,
+            "exact": 7.204396877213782,
+            "error": 0.2741176984124074
+          },
+          {
+            "tier": 4,
+            "hybrid": 11.863804731510978,
+            "exact": 10.927067177089233,
+            "error": 0.9367375544217449
+          }
+        ],
+        "maxError": 0.9367375544217449,
+        "missed": 0
+      }
+    },
+    {
+      "id": "opposite_nines.lines(x=18)",
+      "family": "opposite_nines",
+      "params": {
+        "tiers": [
+          {
+            "id": "lines",
+            "x": 18,
+            "gate": 6
+          }
+        ]
+      },
+      "interaction": "lines",
+      "report": {
+        "id": "opposite_nines.lines(x=18)",
+        "calibration": "shipped",
+        "topBits": 42.966361478,
+        "cardBits": 1185.2850733325668,
+        "colourBlind": true,
+        "greedy10": 27.908758092333326,
+        "greedy20": 27.908758092333326,
+        "uniformTop": [],
+        "greedy4": 13.137493877333332,
+        "greedy8": 27.908758092333326,
+        "greedy16": 27.908758092333326,
+        "rate4": 2.978780742729166,
+        "rate8": 3.3357983982395827,
+        "reach16": 0.6495490223584187,
+        "reachEnd": 0.6495490223584187,
+        "movesTo50": 6,
+        "movesTo90": "inf",
+        "beam16": 34.409976563250005,
+        "gap": 0.18893411505138913,
+        "plateau": 0,
+        "trap": 0.3504509776415811,
+        "stall": 1,
+        "escape2": 1,
+        "entangle": 1,
+        "difficulty": 26.96925463464851
+      },
+      "table": {
+        "from": "shipped",
+        "kind": "hybrid",
+        "seconds": 0.000019310000003315507,
+        "levels": 504,
+        "priorMean": 1.4093287345216456
+      },
+      "tier": {
+        "layout": {
+          "compose": "gated",
+          "gate": 6,
+          "at": 2,
+          "arity": 1,
+          "baseArity": 2
+        },
+        "addedTop": 16.537763871000003,
+        "baseAgent": 27.07542475899999,
+        "baseAgentOwn": 26.428597607,
+        "baseAgentLoss": -0.6468271519999895,
+        "accidental": 0.030504995639298385,
+        "tierAgent": 27.908758092333326,
+        "tierShare": 0.08134608310445313
+      },
+      "live": {
+        "tierTop": 10,
+        "tierMin": 2,
+        "shareAtTop": 0.000011636875569820404,
+        "addedBits": 16.390936719025934,
+        "degenerate": [],
+        "problems": [],
+        "seconds": 0.000019310000003315507,
+        "levels": 504,
+        "topTier": [
+          [
+            [
+              2
+            ],
+            1
+          ],
+          [
+            [
+              4
+            ],
+            0.25
+          ],
+          [
+            [
+              6
+            ],
+            0.024902343749999962
+          ],
+          [
+            [
+              8
+            ],
+            0.0008511543273925773
+          ],
+          [
+            [
+              10
+            ],
+            0.000011636875569820404
+          ]
+        ]
+      },
+      "exact": {
+        "how": "native enumeration of the 10⁸ boards with all 8 pairs at 9",
+        "boards": 100000000,
+        "rows": [
+          {
+            "tier": 2,
+            "hybrid": 0,
+            "exact": 0,
+            "error": 0
+          },
+          {
+            "tier": 4,
+            "hybrid": 2,
+            "exact": 2.0393805884872402,
+            "error": 0.03938058848724024
+          },
+          {
+            "tier": 6,
+            "hybrid": 5.327574658028507,
+            "exact": 5.397771643024332,
+            "error": 0.0701969849958255
+          },
+          {
+            "tier": 8,
+            "hybrid": 10.19829164108354,
+            "exact": 9.997641909947909,
+            "error": 0.20064973113563056
+          },
+          {
+            "tier": 10,
+            "hybrid": 16.390936719025934,
+            "exact": 14.844105728073835,
+            "error": 1.546830990952099
+          }
+        ],
+        "maxError": 1.546830990952099,
+        "missed": 0
+      }
+    },
+    {
+      "id": "opposite_nines.squares(x=10)",
+      "family": "opposite_nines",
+      "params": {
+        "tiers": [
+          {
+            "id": "squares",
+            "x": 10,
+            "gate": 6
+          }
+        ]
+      },
+      "interaction": "squares",
+      "report": {
+        "id": "opposite_nines.squares(x=10)",
+        "calibration": "shipped",
+        "topBits": 46.035766109,
+        "cardBits": 1280.2189208908608,
+        "colourBlind": true,
+        "greedy10": 27.688031228999993,
+        "greedy20": 27.688031228999993,
+        "uniformTop": [],
+        "greedy4": 13.116067749750002,
+        "greedy8": 27.688031228999993,
+        "greedy16": 27.688031228999993,
+        "rate4": 2.973424210833333,
+        "rate8": 3.308207540322916,
+        "reach16": 0.6014460835395324,
+        "reachEnd": 0.6014460835395324,
+        "movesTo50": 7,
+        "movesTo90": "inf",
+        "beam16": 31.46983156608333,
+        "gap": 0.12017224589022518,
+        "plateau": 0,
+        "trap": 0.3985539164604674,
+        "stall": 1,
+        "escape2": 1,
+        "entangle": 1,
+        "difficulty": 25.93630811753463
+      },
+      "table": {
+        "from": "shipped",
+        "kind": "hybrid",
+        "seconds": 0.000013708999991649762,
+        "levels": 417,
+        "priorMean": 1.4093272543036934
+      },
+      "tier": {
+        "layout": {
+          "compose": "gated",
+          "gate": 6,
+          "at": 2,
+          "arity": 1,
+          "baseArity": 2
+        },
+        "addedTop": 19.607168502,
+        "baseAgent": 27.31716240566666,
+        "baseAgentOwn": 26.428597607,
+        "baseAgentLoss": -0.8885647986666605,
+        "accidental": 0.03811534614559401,
+        "tierAgent": 27.688031228999993,
+        "tierShare": 0.05717301921839101
+      },
+      "live": {
+        "tierTop": 4,
+        "tierMin": 0,
+        "shareAtTop": 0.0000013862882042303664,
+        "addedBits": 19.460341349662738,
+        "degenerate": [],
+        "problems": [],
+        "seconds": 0.000013708999991649762,
+        "levels": 417,
+        "topTier": [
+          [
+            [
+              0
+            ],
+            1
+          ],
+          [
+            [
+              1
+            ],
+            0.21386718750000006
+          ],
+          [
+            [
+              2
+            ],
+            0.018170356750488267
+          ],
+          [
+            [
+              3
+            ],
+            0.0007097795605659476
+          ],
+          [
+            [
+              4
+            ],
+            0.0000013862882042303664
+          ]
+        ]
+      },
+      "exact": {
+        "how": "native enumeration of the 10⁸ boards with all 8 pairs at 9",
+        "boards": 100000000,
+        "rows": [
+          {
+            "tier": 0,
+            "hybrid": 0,
+            "exact": 0,
+            "error": 0
+          },
+          {
+            "tier": 1,
+            "hybrid": 2.2252129403988263,
+            "exact": 2.2791028016441306,
+            "error": 0.05388986124530426
+          },
+          {
+            "tier": 2,
+            "hybrid": 5.782269444550099,
+            "exact": 5.731405595324472,
+            "error": 0.050863849225627256
+          },
+          {
+            "tier": 3,
+            "hybrid": 10.460341349662738,
+            "exact": 10.391014276849024,
+            "error": 0.06932707281371364
+          },
+          {
+            "tier": 4,
+            "hybrid": 19.460341349662738,
+            "exact": 17.1159931404616,
+            "error": 2.3443482092011365
+          }
+        ],
+        "maxError": 2.3443482092011365,
+        "missed": 0
+      }
+    },
+    {
+      "id": "opposite_nines.squares(x=12)",
+      "family": "opposite_nines",
+      "params": {
+        "tiers": [
+          {
+            "id": "squares",
+            "x": 12,
+            "gate": 6
+          }
+        ]
+      },
+      "interaction": "squares",
+      "report": {
+        "id": "opposite_nines.squares(x=12)",
+        "calibration": "shipped",
+        "topBits": 40.272084389,
+        "cardBits": 1280.2189208908608,
+        "colourBlind": true,
+        "greedy10": 27.64639130225,
+        "greedy20": 27.64639130225,
+        "uniformTop": [],
+        "greedy4": 13.147798526833332,
+        "greedy8": 27.64639130225,
+        "greedy16": 27.64639130225,
+        "rate4": 2.981356905104166,
+        "rate8": 3.303002549479167,
+        "reach16": 0.686490200884695,
+        "reachEnd": 0.686490200884695,
+        "movesTo50": 6,
+        "movesTo90": "inf",
+        "beam16": 31.979844801499997,
+        "gap": 0.13550577015454246,
+        "plateau": 0,
+        "trap": 0.313509799115305,
+        "stall": 1,
+        "escape2": 1,
+        "entangle": 1,
+        "difficulty": 22.450778463492373
+      },
+      "table": {
+        "from": "shipped",
+        "kind": "hybrid",
+        "seconds": 0.000012999000027775764,
+        "levels": 418,
+        "priorMean": 1.40932755051554
+      },
+      "tier": {
+        "layout": {
+          "compose": "gated",
+          "gate": 6,
+          "at": 2,
+          "arity": 1,
+          "baseArity": 2
+        },
+        "addedTop": 13.843486782,
+        "baseAgent": 27.133281596666663,
+        "baseAgentOwn": 26.428597607,
+        "baseAgentLoss": -0.7046839896666626,
+        "accidental": 0.040729407953219755,
+        "tierAgent": 27.64639130225,
+        "tierShare": 0.07819180531465095
+      },
+      "live": {
+        "tierTop": 4,
+        "tierMin": 0,
+        "shareAtTop": 0.00007531727715104349,
+        "addedBits": 13.696659629446064,
+        "degenerate": [],
+        "problems": [],
+        "seconds": 0.000012999000027775764,
+        "levels": 418,
+        "topTier": [
+          [
+            [
+              0
+            ],
+            1
+          ],
+          [
+            [
+              1
+            ],
+            0.3134765624999995
+          ],
+          [
+            [
+              2
+            ],
+            0.044694900512695306
+          ],
+          [
+            [
+              3
+            ],
+            0.00248789973556995
+          ],
+          [
+            [
+              4
+            ],
+            0.00007531727715104349
+          ]
+        ]
+      },
+      "exact": {
+        "how": "native enumeration of the 10⁸ boards with all 8 pairs at 9",
+        "boards": 100000000,
+        "rows": [
+          {
+            "tier": 0,
+            "hybrid": 0,
+            "exact": 0,
+            "error": 0
+          },
+          {
+            "tier": 1,
+            "hybrid": 1.6735705128776992,
+            "exact": 1.772151890261933,
+            "error": 0.09858137738423389
+          },
+          {
+            "tier": 2,
+            "hybrid": 4.48374595399768,
+            "exact": 4.755721216792494,
+            "error": 0.27197526279481377
+          },
+          {
+            "tier": 3,
+            "hybrid": 8.65085593983294,
+            "exact": 8.851710493119569,
+            "error": 0.2008545532866286
+          },
+          {
+            "tier": 4,
+            "hybrid": 13.696659629446064,
+            "exact": 14.344203578387713,
+            "error": 0.6475439489416495
+          }
+        ],
+        "maxError": 0.6475439489416495,
+        "missed": 0
+      }
+    },
+    {
+      "id": "opposite_nines.squares(x=14)",
+      "family": "opposite_nines",
+      "params": {
+        "tiers": [
+          {
+            "id": "squares",
+            "x": 14,
+            "gate": 6
+          }
+        ]
+      },
+      "interaction": "squares",
+      "report": {
+        "id": "opposite_nines.squares(x=14)",
+        "calibration": "shipped",
+        "topBits": 39.241847625,
+        "cardBits": 1280.2189208908608,
+        "colourBlind": true,
+        "greedy10": 28.252907881333332,
+        "greedy20": 28.252907881333332,
+        "uniformTop": [],
+        "greedy4": 13.140710765083332,
+        "greedy8": 28.252907881333332,
+        "greedy16": 28.252907881333332,
+        "rate4": 2.979584964666666,
+        "rate8": 3.3788171218645835,
+        "reach16": 0.7199688493600417,
+        "reachEnd": 0.7199688493600417,
+        "movesTo50": 6,
+        "movesTo90": "inf",
+        "beam16": 34.118684306,
+        "gap": 0.17192270288204314,
+        "plateau": 0,
+        "trap": 0.2800311506399583,
+        "stall": 1,
+        "escape2": 0.6666666666666666,
+        "entangle": 1,
+        "difficulty": 22.597692676100074
+      },
+      "table": {
+        "from": "shipped",
+        "kind": "hybrid",
+        "seconds": 0.000014454999996814876,
+        "levels": 443,
+        "priorMean": 1.4093280345385584
+      },
+      "tier": {
+        "layout": {
+          "compose": "gated",
+          "gate": 6,
+          "at": 2,
+          "arity": 1,
+          "baseArity": 2
+        },
+        "addedTop": 12.813250017999998,
+        "baseAgent": 27.05722847499999,
+        "baseAgentOwn": 26.428597607,
+        "baseAgentLoss": -0.6286308679999912,
+        "accidental": 0.038037867604537895,
+        "tierAgent": 28.252907881333332,
+        "tierShare": 0.13243542711937537
+      },
+      "live": {
+        "tierTop": 4,
+        "tierMin": 0,
+        "shareAtTop": 0.00015382494893856366,
+        "addedBits": 12.666422865905982,
+        "degenerate": [],
+        "problems": [],
+        "seconds": 0.000014454999996814876,
+        "levels": 443,
+        "topTier": [
+          [
+            [
+              0
+            ],
+            1
+          ],
+          [
+            [
+              1
+            ],
+            0.3671874999999996
+          ],
+          [
+            [
+              2
+            ],
+            0.060958862304687396
+          ],
+          [
+            [
+              3
+            ],
+            0.005833953619003298
+          ],
+          [
+            [
+              4
+            ],
+            0.00015382494893856366
+          ]
+        ]
+      },
+      "exact": {
+        "how": "native enumeration of the 10⁸ boards with all 8 pairs at 9",
+        "boards": 100000000,
+        "rows": [
+          {
+            "tier": 0,
+            "hybrid": 0,
+            "exact": 0,
+            "error": 0
+          },
+          {
+            "tier": 1,
+            "hybrid": 1.4454111483223642,
+            "exact": 1.4512258093629236,
+            "error": 0.005814661040559388
+          },
+          {
+            "tier": 2,
+            "hybrid": 4.036020212184663,
+            "exact": 4.029657091215353,
+            "error": 0.006363120969310465
+          },
+          {
+            "tier": 3,
+            "hybrid": 7.421310368069452,
+            "exact": 7.670743101974199,
+            "error": 0.2494327339047464
+          },
+          {
+            "tier": 4,
+            "hybrid": 12.666422865905982,
+            "exact": 12.670037754080768,
+            "error": 0.0036148881747859463
+          }
+        ],
+        "maxError": 0.2494327339047464,
+        "missed": 0
+      }
+    },
+    {
+      "id": "opposite_nines.squares(x=16)",
+      "family": "opposite_nines",
+      "params": {
+        "tiers": [
+          {
+            "id": "squares",
+            "x": 16,
+            "gate": 6
+          }
+        ]
+      },
+      "interaction": "squares",
+      "report": {
+        "id": "opposite_nines.squares(x=16)",
+        "calibration": "shipped",
+        "topBits": 38.03221965,
+        "cardBits": 1282.2189208908608,
+        "colourBlind": true,
+        "greedy10": 29.37087149341666,
+        "greedy20": 29.37087149341666,
+        "uniformTop": [],
+        "greedy4": 13.139091562083332,
+        "greedy8": 29.37087149341666,
+        "greedy16": 29.37087149341666,
+        "rate4": 2.9791801639166664,
+        "rate8": 3.518562573375,
+        "reach16": 0.7722628803606171,
+        "reachEnd": 0.7722628803606171,
+        "movesTo50": 6,
+        "movesTo90": "inf",
+        "beam16": 32.8224128675,
+        "gap": 0.10515806342503767,
+        "plateau": 0,
+        "trap": 0.2277371196393828,
+        "stall": 1,
+        "escape2": 1,
+        "entangle": 1,
+        "difficulty": 16.644759153221024
+      },
+      "table": {
+        "from": "shipped",
+        "kind": "hybrid",
+        "seconds": 0.000012684000015724451,
+        "levels": 442,
+        "priorMean": 1.409328187500697
+      },
+      "tier": {
+        "layout": {
+          "compose": "gated",
+          "gate": 6,
+          "at": 2,
+          "arity": 1,
+          "baseArity": 2
+        },
+        "addedTop": 11.603622043000001,
+        "baseAgent": 27.926738773999997,
+        "baseAgentOwn": 26.428597607,
+        "baseAgentLoss": -1.4981411669999964,
+        "accidental": 0.11794869576145915,
+        "tierAgent": 29.37087149341666,
+        "tierShare": 0.24399902075690091
+      },
+      "live": {
+        "tierTop": 4,
+        "tierMin": 0,
+        "shareAtTop": 0.0003557632498996094,
+        "addedBits": 11.456794890658582,
+        "degenerate": [],
+        "problems": [],
+        "seconds": 0.000012684000015724451,
+        "levels": 442,
+        "topTier": [
+          [
+            [
+              0
+            ],
+            1
+          ],
+          [
+            [
+              1
+            ],
+            0.40917968749999956
+          ],
+          [
+            [
+              2
+            ],
+            0.08271503448486314
+          ],
+          [
+            [
+              3
+            ],
+            0.008885404095053649
+          ],
+          [
+            [
+              4
+            ],
+            0.0003557632498996094
+          ]
+        ]
+      },
+      "exact": {
+        "how": "native enumeration of the 10⁸ boards with all 8 pairs at 9",
+        "boards": 100000000,
+        "rows": [
+          {
+            "tier": 0,
+            "hybrid": 0,
+            "exact": 0,
+            "error": 0
+          },
+          {
+            "tier": 1,
+            "hybrid": 1.28919356630065,
+            "exact": 1.2710421014353237,
+            "error": 0.01815146486532626
+          },
+          {
+            "tier": 2,
+            "hybrid": 3.5957066088013256,
+            "exact": 3.5916663865729723,
+            "error": 0.0040402222283533185
+          },
+          {
+            "tier": 3,
+            "hybrid": 6.8143468952766675,
+            "exact": 6.841892995023753,
+            "error": 0.02754609974708533
+          },
+          {
+            "tier": 4,
+            "hybrid": 11.456794890658582,
+            "exact": 11.379744973602918,
+            "error": 0.077049917055664
+          }
+        ],
+        "maxError": 0.077049917055664,
+        "missed": 0
+      }
+    }
+  ],
+  "pairs": [
+    {
+      "a": "opposite_nines.base",
+      "b": "mirrormancer",
+      "conflict": 0.564426651415499,
+      "corr": -0.2169745882536446,
+      "naive": 0.20856305781458911,
+      "considerate": 0.6182116494157244,
+      "ceiling": 1,
+      "gap": 0.3817883505842756,
+      "difficulty": 38.178835058427566
+    },
+    {
+      "a": "opposite_nines.base",
+      "b": "magic_eighteen",
+      "conflict": 0.6700743494423791,
+      "corr": -0.26437275074318856,
+      "naive": 0.24248306338912193,
+      "considerate": 0.7665734877641547,
+      "ceiling": 1,
+      "gap": 0.23342651223584532,
+      "difficulty": 23.342651223584532
+    },
+    {
+      "a": "opposite_nines.base",
+      "b": "opposite_nines",
+      "conflict": 0,
+      "corr": 1,
+      "naive": 1,
+      "considerate": 1,
+      "ceiling": 1,
+      "gap": 0,
+      "difficulty": 0
+    },
+    {
+      "a": "opposite_nines.base",
+      "b": "two_pair",
+      "conflict": 0.5870658284077179,
+      "corr": -0.25823029369053385,
+      "naive": 0.2588444453631653,
+      "considerate": 0.575537539957912,
+      "ceiling": 1,
+      "gap": 0.424462460042088,
+      "difficulty": 42.446246004208795
+    },
+    {
+      "a": "opposite_nines.base",
+      "b": "spread_three",
+      "conflict": 0.5924423791821561,
+      "corr": -0.24573854701428724,
+      "naive": 0.2886619688366876,
+      "considerate": 0.7623826582254893,
+      "ceiling": 1,
+      "gap": 0.23761734177451066,
+      "difficulty": 23.761734177451068
+    },
+    {
+      "a": "opposite_nines.base",
+      "b": "strangers",
+      "conflict": 0.6064887722368038,
+      "corr": -0.24459435806258167,
+      "naive": 0.19512713931457243,
+      "considerate": 0.5860409369416303,
+      "ceiling": 1,
+      "gap": 0.4139590630583697,
+      "difficulty": 41.395906305836974
+    },
+    {
+      "a": "opposite_nines.base",
+      "b": "leapfrog",
+      "conflict": 0.48882360267559505,
+      "corr": 0.05853453470765716,
+      "naive": 0.11123102682288755,
+      "considerate": 0.6682913554921609,
+      "ceiling": 1,
+      "gap": 0.3317086445078391,
+      "difficulty": 33.17086445078391
+    },
+    {
+      "a": "opposite_nines.base",
+      "b": "crosswise_threes",
+      "conflict": 0.602766713777892,
+      "corr": -0.24839882524504167,
+      "naive": 0.1818767581395877,
+      "considerate": 0.7496418862592975,
+      "ceiling": 1,
+      "gap": 0.2503581137407025,
+      "difficulty": 25.03581137407025
+    },
+    {
+      "a": "opposite_nines.lines(x=10)",
+      "b": "mirrormancer",
+      "conflict": 0.569133884480941,
+      "corr": -0.20099452463641823,
+      "naive": 0.16378683781007208,
+      "considerate": 0.49094855712113455,
+      "ceiling": 0.7903970978487576,
+      "gap": 0.3788583504957687,
+      "difficulty": 50.90514428788655
+    },
+    {
+      "a": "opposite_nines.lines(x=10)",
+      "b": "magic_eighteen",
+      "conflict": 0.6688143073945672,
+      "corr": -0.27493044684991663,
+      "naive": 0.1921704032799134,
+      "considerate": 0.6066662061031532,
+      "ceiling": 0.8247939940299972,
+      "gap": 0.2644633563116256,
+      "difficulty": 39.33337938968467
+    },
+    {
+      "a": "opposite_nines.lines(x=10)",
+      "b": "opposite_nines",
+      "conflict": 0,
+      "corr": 0.996343531562912,
+      "naive": 0.7903970978487576,
+      "considerate": 0.7903970978487576,
+      "ceiling": 0.7903970978487576,
+      "gap": 0,
+      "difficulty": 20.960290215124246
+    },
+    {
+      "a": "opposite_nines.lines(x=10)",
+      "b": "two_pair",
+      "conflict": 0.5829974555853279,
+      "corr": -0.23968702451355425,
+      "naive": 0.20401287892711328,
+      "considerate": 0.45493724175499406,
+      "ceiling": 0.872307283713818,
+      "gap": 0.47846676251731557,
+      "difficulty": 54.50627582450059
+    },
+    {
+      "a": "opposite_nines.lines(x=10)",
+      "b": "spread_three",
+      "conflict": 0.5907289719626168,
+      "corr": -0.24803748220679772,
+      "naive": 0.2277778113247047,
+      "considerate": 0.6114015790927119,
+      "ceiling": 0.8247939940299972,
+      "gap": 0.2587220766419941,
+      "difficulty": 38.85984209072881
+    },
+    {
+      "a": "opposite_nines.lines(x=10)",
+      "b": "strangers",
+      "conflict": 0.605692367829571,
+      "corr": -0.23824234042231077,
+      "naive": 0.15250032841142655,
+      "considerate": 0.4512917063868985,
+      "ceiling": 0.7903970978487576,
+      "gap": 0.42903167583080737,
+      "difficulty": 54.87082936131016
+    },
+    {
+      "a": "opposite_nines.lines(x=10)",
+      "b": "leapfrog",
+      "conflict": 0.4868931007450931,
+      "corr": 0.06199866864770428,
+      "naive": 0.08776448026729436,
+      "considerate": 0.6283625147042342,
+      "ceiling": 0.872307283713818,
+      "gap": 0.27965462809274894,
+      "difficulty": 37.16374852957658
+    },
+    {
+      "a": "opposite_nines.lines(x=10)",
+      "b": "crosswise_threes",
+      "conflict": 0.602766713777892,
+      "corr": -0.24821675615035144,
+      "naive": 0.14356285996826026,
+      "considerate": 0.5957628131144987,
+      "ceiling": 0.8247939940299972,
+      "gap": 0.2776828912107339,
+      "difficulty": 40.423718688550125
+    },
+    {
+      "a": "opposite_nines.lines(x=18)",
+      "b": "mirrormancer",
+      "conflict": 0.564426651415499,
+      "corr": -0.21889752059979428,
+      "naive": 0.1629706807341656,
+      "considerate": 0.49220599178487956,
+      "ceiling": 0.925133638083107,
+      "gap": 0.46796227969319226,
+      "difficulty": 50.77940082151204
+    },
+    {
+      "a": "opposite_nines.lines(x=18)",
+      "b": "magic_eighteen",
+      "conflict": 0.6700743494423791,
+      "corr": -0.2709993844691059,
+      "naive": 0.19121280963860637,
+      "considerate": 0.6568124374623184,
+      "ceiling": 0.925133638083107,
+      "gap": 0.29003507123225436,
+      "difficulty": 34.31875625376816
+    },
+    {
+      "a": "opposite_nines.lines(x=18)",
+      "b": "opposite_nines",
+      "conflict": 0,
+      "corr": 0.9985346308662717,
+      "naive": 0.786458514060155,
+      "considerate": 0.786458514060155,
+      "ceiling": 0.8155151968962779,
+      "gap": 0.035629848403448634,
+      "difficulty": 21.3541485939845
+    },
+    {
+      "a": "opposite_nines.lines(x=18)",
+      "b": "two_pair",
+      "conflict": 0.5870658284077179,
+      "corr": -0.2580874751688627,
+      "naive": 0.20299627370450374,
+      "considerate": 0.47841264571040587,
+      "ceiling": 0.8616908255806285,
+      "gap": 0.4447977957894125,
+      "difficulty": 52.15873542895941
+    },
+    {
+      "a": "opposite_nines.lines(x=18)",
+      "b": "spread_three",
+      "conflict": 0.5924423791821561,
+      "corr": -0.24707829272018297,
+      "naive": 0.22664278439010618,
+      "considerate": 0.6131098948668847,
+      "ceiling": 0.8155151968962779,
+      "gap": 0.24819317015760814,
+      "difficulty": 38.68901051331153
+    },
+    {
+      "a": "opposite_nines.lines(x=18)",
+      "b": "strangers",
+      "conflict": 0.6064887722368038,
+      "corr": -0.2441344139811175,
+      "naive": 0.15174041251235182,
+      "considerate": 0.46053775986820983,
+      "ceiling": 0.8616908255806285,
+      "gap": 0.4655417625481992,
+      "difficulty": 53.94622401317901
+    },
+    {
+      "a": "opposite_nines.lines(x=18)",
+      "b": "leapfrog",
+      "conflict": 0.48882360267559505,
+      "corr": 0.05821025251615781,
+      "naive": 0.08732714597022179,
+      "considerate": 0.5255834263996118,
+      "ceiling": 0.8616908255806285,
+      "gap": 0.3900556779800218,
+      "difficulty": 47.441657360038825
+    },
+    {
+      "a": "opposite_nines.lines(x=18)",
+      "b": "crosswise_threes",
+      "conflict": 0.602766713777892,
+      "corr": -0.25003347362710854,
+      "naive": 0.14284747987076832,
+      "considerate": 0.5957361670395982,
+      "ceiling": 0.8155151968962779,
+      "gap": 0.2694971604368919,
+      "difficulty": 40.42638329604018
+    },
+    {
+      "a": "opposite_nines.squares(x=10)",
+      "b": "mirrormancer",
+      "conflict": 0.564426651415499,
+      "corr": -0.21542774432679865,
+      "naive": 0.15744398776220334,
+      "considerate": 0.475397077815384,
+      "ceiling": 0.7597879821410666,
+      "gap": 0.3743029779495525,
+      "difficulty": 52.4602922184616
+    },
+    {
+      "a": "opposite_nines.squares(x=10)",
+      "b": "magic_eighteen",
+      "conflict": 0.671003717472119,
+      "corr": -0.2665854326196367,
+      "naive": 0.18472836417628039,
+      "considerate": 0.5863966163046033,
+      "ceiling": 0.7909578934893258,
+      "gap": 0.258624737003757,
+      "difficulty": 41.360338369539676
+    },
+    {
+      "a": "opposite_nines.squares(x=10)",
+      "b": "opposite_nines",
+      "conflict": 0,
+      "corr": 0.9930781595110355,
+      "naive": 0.7675804599781314,
+      "considerate": 0.7675804599781314,
+      "ceiling": 0.7909578934893258,
+      "gap": 0.029555850827993353,
+      "difficulty": 23.24195400218686
+    },
+    {
+      "a": "opposite_nines.squares(x=10)",
+      "b": "two_pair",
+      "conflict": 0.5870658284077179,
+      "corr": -0.2535184938987857,
+      "naive": 0.19611222514949267,
+      "considerate": 0.44015462674979355,
+      "ceiling": 0.7909578934893258,
+      "gap": 0.44351699329019517,
+      "difficulty": 55.984537325020646
+    },
+    {
+      "a": "opposite_nines.squares(x=10)",
+      "b": "spread_three",
+      "conflict": 0.5924423791821561,
+      "corr": -0.2424878743835058,
+      "naive": 0.21895683083090162,
+      "considerate": 0.579458080271174,
+      "ceiling": 0.8383803596570335,
+      "gap": 0.308836289404227,
+      "difficulty": 42.054191972882606
+    },
+    {
+      "a": "opposite_nines.squares(x=10)",
+      "b": "strangers",
+      "conflict": 0.6064887722368038,
+      "corr": -0.24046393274613848,
+      "naive": 0.14659456254954403,
+      "considerate": 0.44759821245877107,
+      "ceiling": 0.7597879821410666,
+      "gap": 0.41089063925774566,
+      "difficulty": 55.240178754122894
+    },
+    {
+      "a": "opposite_nines.squares(x=10)",
+      "b": "leapfrog",
+      "conflict": 0.48882360267559505,
+      "corr": 0.05661804805801805,
+      "naive": 0.0843656910525584,
+      "considerate": 0.47916912899924796,
+      "ceiling": 0.7909578934893258,
+      "gap": 0.3941913558945796,
+      "difficulty": 52.08308710007521
+    },
+    {
+      "a": "opposite_nines.squares(x=10)",
+      "b": "crosswise_threes",
+      "conflict": 0.6041479292475053,
+      "corr": -0.2457361336726213,
+      "naive": 0.13800320874477318,
+      "considerate": 0.5804069570490857,
+      "ceiling": 0.7909578934893258,
+      "gap": 0.2661974021289434,
+      "difficulty": 41.95930429509143
+    },
+    {
+      "a": "opposite_nines.squares(x=16)",
+      "b": "mirrormancer",
+      "conflict": 0.569133884480941,
+      "corr": -0.20414005463126292,
+      "naive": 0.17321995930980882,
+      "considerate": 0.5238681141337312,
+      "ceiling": 0.8359191431897425,
+      "gap": 0.37330288652712407,
+      "difficulty": 47.613188586626876
+    },
+    {
+      "a": "opposite_nines.squares(x=16)",
+      "b": "magic_eighteen",
+      "conflict": 0.6697506369825821,
+      "corr": -0.27785232667534887,
+      "naive": 0.20323824479288605,
+      "considerate": 0.644290696359356,
+      "ceiling": 0.9369812239565203,
+      "gap": 0.31237608621573226,
+      "difficulty": 35.5709303640644
+    },
+    {
+      "a": "opposite_nines.squares(x=16)",
+      "b": "opposite_nines",
+      "conflict": 0,
+      "corr": 0.9976610366419008,
+      "naive": 0.8409279989286886,
+      "considerate": 0.8409279989286886,
+      "ceiling": 0.8906764338699514,
+      "gap": 0.05585466623957698,
+      "difficulty": 15.907200107131136
+    },
+    {
+      "a": "opposite_nines.squares(x=16)",
+      "b": "two_pair",
+      "conflict": 0.5829974555853279,
+      "corr": -0.24339451525400643,
+      "naive": 0.21576277470727465,
+      "considerate": 0.482999683364135,
+      "ceiling": 0.8359191431897425,
+      "gap": 0.4221932978815625,
+      "difficulty": 51.7000316635865
+    },
+    {
+      "a": "opposite_nines.squares(x=16)",
+      "b": "spread_three",
+      "conflict": 0.5925981308411215,
+      "corr": -0.2507991692518103,
+      "naive": 0.24089642206228817,
+      "considerate": 0.6375200889722944,
+      "ceiling": 0.8494769756392095,
+      "gap": 0.24951457513892364,
+      "difficulty": 36.24799110277056
+    },
+    {
+      "a": "opposite_nines.squares(x=16)",
+      "b": "strangers",
+      "conflict": 0.6070116290432913,
+      "corr": -0.2408846088925441,
+      "naive": 0.16128341590422554,
+      "considerate": 0.48604811264600045,
+      "ceiling": 0.9369812239565203,
+      "gap": 0.4812616302025759,
+      "difficulty": 51.395188735399955
+    },
+    {
+      "a": "opposite_nines.squares(x=16)",
+      "b": "leapfrog",
+      "conflict": 0.48882360267559505,
+      "corr": 0.0629311284476571,
+      "naive": 0.09281917829304577,
+      "considerate": 0.5910099183648193,
+      "ceiling": 0.9369812239565203,
+      "gap": 0.36924038256689273,
+      "difficulty": 40.89900816351807
+    },
+    {
+      "a": "opposite_nines.squares(x=16)",
+      "b": "crosswise_threes",
+      "conflict": 0.6041479292475053,
+      "corr": -0.251367137936265,
+      "naive": 0.15183120386595908,
+      "considerate": 0.6305036647057503,
+      "ceiling": 0.8559545661455272,
+      "gap": 0.26339120130524124,
+      "difficulty": 36.94963352942497
+    }
+  ],
+  "games": [
+    {
+      "id": "opposite_nines.lines(x=10)",
+      "games": 40,
+      "winBase": 0.575,
+      "winTier": 0.575,
+      "ownBase": 9.570036066790001,
+      "ownTier": 9.7004608402925,
+      "payRatio": 1.0257513072862563
+    },
+    {
+      "id": "opposite_nines.lines(x=18)",
+      "games": 40,
+      "winBase": 0.675,
+      "winTier": 0.6,
+      "ownBase": 11.003913346577502,
+      "ownTier": 10.982521412202502,
+      "payRatio": 1.001665235677
+    },
+    {
+      "id": "opposite_nines.squares(x=10)",
+      "games": 40,
+      "winBase": 0.575,
+      "winTier": 0.55,
+      "ownBase": 10.55984112982,
+      "ownTier": 10.697663350249998,
+      "payRatio": 1.0108186085706863
+    },
+    {
+      "id": "opposite_nines.squares(x=16)",
+      "games": 40,
+      "winBase": 0.55,
+      "winTier": 0.575,
+      "ownBase": 11.040780353719999,
+      "ownTier": 11.122239397380003,
+      "payRatio": 0.9978613308713536
+    }
+  ],
+  "comparison": [],
+  "sweep": []
+}

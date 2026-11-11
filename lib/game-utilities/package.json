@@ -16,6 +16,7 @@
     "calibrate": "node --experimental-strip-types scripts/calibrate.ts",
     "difficulty": "node --experimental-strip-types scripts/rule-difficulty.ts",
     "layered": "node --experimental-strip-types scripts/layered-profile.ts",
+    "tiered": "node --experimental-strip-types scripts/tiered-profile.ts",
     "mutation-cost": "node --experimental-strip-types scripts/mutation-cost.ts"
   },
   "devDependencies": {
