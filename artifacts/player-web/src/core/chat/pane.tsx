@@ -130,7 +130,7 @@ function Conversation({ paneId, status }: { paneId: string; status: Status | und
   return (
     <div data-testid="assistant-pane" className="flex h-full min-h-0 flex-col bg-card">
       {enabled && status && <ModeSelector roomId={room} mode={status.mode} max={max} onError={setError} />}
-      <Timeline items={items} notes={notes} warnings={warnings} empty={!status ? null : !enabled ? (
+      <Timeline items={items} notes={notes} warnings={warnings} tail={`${latestTurn?._id ?? ""}:${latestTurn?.status ?? ""}:${latestTurn?.error?.code ?? ""}`} empty={!status ? null : !enabled ? (
         <div data-testid="text-assistant-off" className="space-y-1 text-sm">
           <p className="font-serif text-xl">{empty.greeting}</p>
           <p className="text-muted-foreground">{empty.body}</p>
@@ -174,12 +174,14 @@ function Conversation({ paneId, status }: { paneId: string; status: Status | und
 
 /** The scrolling timeline: pinned to the bottom unless the player scrolled up ("↓ new" then). */
 type Warnings = ReadonlyMap<string, NonNullable<ReturnType<typeof summonWarnings>>>;
-function Timeline({ items, notes, warnings, empty, footer }: { items: ChatItem[]; notes: Note[]; warnings: Warnings; empty: React.ReactNode; footer: React.ReactNode }) {
+function Timeline({ items, notes, warnings, empty, footer, tail }: { items: ChatItem[]; notes: Note[]; warnings: Warnings; empty: React.ReactNode; footer: React.ReactNode; tail: string }) {
   const scroller = useRef<HTMLDivElement>(null);
   const pinned = useRef(true);
   const [fresh, setFresh] = useState(false);
   const last = items.at(-1);
-  const signature = `${items.length}:${last?.kind === "assistant" ? last.text.length : last?.kind === "step" ? last.calls.map(x => x.status).join() : ""}`;
+  const signature = `${items.length}:${last?.kind === "assistant" ? last.text.length : last?.kind === "step" ? last.calls.map(x => x.status).join() : ""}:${tail}`;
+  // `tail` changes when the footer (the latest turn's end: its error, "stopped") does: a turn refused before its
+  // first step (assistant quota used up) adds no item, so without it the refusal line lands below the fold.
   useLayoutEffect(() => {
     const el = scroller.current;
     if (!el) return;

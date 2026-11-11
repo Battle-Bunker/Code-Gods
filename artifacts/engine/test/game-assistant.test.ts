@@ -605,3 +605,16 @@ test("watching a replay, the human's message carries the playhead: the briefing 
   await other.members[0].c.mutation(api.rooms.endActiveGame, { roomId: other.roomId });
   assert.equal(await errorCode(ann.c.mutation(api.assistant.send, { roomId, text: "hi", replay: { ...at, gameId: other.game!.gameId } })), "NOT_FOUND");
 });
+
+test("an unknown tool and schema-invalid input are error results the model sees, and the turn still ends with text", { timeout: 180_000 }, async () => {
+  const { members: [ann], roomId } = await assistantRoom(["Una Unkno", "Val Valid", "Wes Wrong"]);
+  const sent = await ann.c.mutation(api.assistant.send, { roomId, text: mock([
+    { tools: [{ name: "no_such_tool", input: {} }, { name: "get_observation", input: { objectsLimit: "lots" } }] },
+    { text: "recovered" },
+  ]) });
+  const t = await until(ann, sent, DONE, "the turn finishes");
+  assert.equal(t.turn.status, "done", JSON.stringify(t.turn.error));
+  assert.deepEqual(t.calls.map((c: any) => [c.tool, c.status]), [["no_such_tool", "error"], ["get_observation", "error"]]);
+  for (const call of t.calls) assert.ok(JSON.parse(call.resultJson).error?.message, `a clear error for ${call.tool}: ${call.resultJson}`);
+  assert.equal(finalText(t), "recovered");
+});
