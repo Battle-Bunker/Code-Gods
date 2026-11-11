@@ -6,7 +6,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { SPEEDS, worldAtFraction, describeEvent, endedGameReplay, parseReplayParams, replaySearch, shortId } from "../src/core/replay/model.ts";
+import { SPEEDS, worldAtFraction, describeEvent, endedGameReplay, parseReplayParams, replayKeyIgnored, replaySearch, shortId } from "../src/core/replay/model.ts";
 
 test("deep-link parameters: an exact event wins over a world time; junk is ignored; speeds are the offered ones", () => {
   assert.deepEqual(parseReplayParams("?t=12.5&speed=4&play=1&as=god-b"), { t: 12.5, speed: 4, play: true, as: "god-b" });
@@ -64,4 +64,12 @@ test("the room page offers the replay of its game once that game has ended, to i
   assert.equal(endedGameReplay({ phase: "lobby" }, player), null, "a room that never played");
   assert.equal(endedGameReplay({ phase: "ended" }, player), null, "no game to open");
   assert.equal(endedGameReplay(undefined, player), null, "still connecting");
+});
+
+test("the replay's keys leave a modified key to the browser (Alt+Left is Back, Ctrl/Cmd+Arrow moves the caret)", () => {
+  const key = (m: Partial<Record<"ctrlKey" | "metaKey" | "altKey", boolean>>) => ({ ctrlKey: false, metaKey: false, altKey: false, ...m });
+  assert.equal(replayKeyIgnored(key({})), false);
+  assert.equal(replayKeyIgnored(key({ altKey: true })), true);
+  assert.equal(replayKeyIgnored(key({ ctrlKey: true })), true);
+  assert.equal(replayKeyIgnored(key({ metaKey: true })), true);
 });

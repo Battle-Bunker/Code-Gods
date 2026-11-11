@@ -15,8 +15,8 @@ import { BadgeChips, ObjectView, RuleShelf, objectContext, objectRowHeight } fro
 import { Term } from "@workspace/ui-kit";
 
 /** Standings and roster in one list: rank, name, AI or human, score, the owner's crown. Public totals only. */
-export function Leaderboard({ rows, roster, meId, ownerId, agentCount, emptyBody = "Scores appear once the world begins to run." }: {
-  rows: readonly Standing[]; roster: readonly RosterEntry[]; meId?: string; ownerId?: string | null; agentCount?: number; emptyBody?: string;
+export function Leaderboard({ rows, roster, meId, ownerId, agentCount, planning, emptyBody = "Scores appear once the world begins to run." }: {
+  rows: readonly Standing[]; roster: readonly RosterEntry[]; meId?: string; ownerId?: string | null; agentCount?: number; planning?: boolean; emptyBody?: string;
 }) {
   const merged = useMemo(() => {
     const byId = new Map(rows.map(r => [r.deityId, r]));
@@ -28,6 +28,7 @@ export function Leaderboard({ rows, roster, meId, ownerId, agentCount, emptyBody
   return (
     <Section title="Leaderboard" count={merged.length} action={agentCount !== undefined ? <span className="text-xs text-muted-foreground" data-testid="text-agent-count">{agentCount} agent{agentCount === 1 ? "" : "s"}</span> : undefined}>
       <p className="px-4 pt-2 text-xs text-muted-foreground">Points: each player's <Term id="bits">bits</Term> times how much the others care, summed over every object now.</p>
+      {planning && rows.length > 0 && <p className="px-4 pt-1 text-xs text-muted-foreground" data-testid="text-standings-planning">Starting position: the world is not running yet, so no agent has moved anything.</p>}
       {merged.length === 0 ? <EmptyState title="No players yet" body={emptyBody} /> : (
         <ol className="divide-y">
           {merged.map(p => (
@@ -49,11 +50,11 @@ export function Leaderboard({ rows, roster, meId, ownerId, agentCount, emptyBody
 }
 
 /** One page of the game's standings (games.standings): the leaderboard re-renders when the scoreboard is published. */
-export function GameStandings({ gameId, roster, meId, ownerId, emptyBody }: {
-  gameId: string; roster: readonly RosterEntry[]; meId?: string; ownerId?: string | null; emptyBody?: string;
+export function GameStandings({ gameId, roster, meId, ownerId, planning, emptyBody }: {
+  gameId: string; roster: readonly RosterEntry[]; meId?: string; ownerId?: string | null; planning?: boolean; emptyBody?: string;
 }) {
   const standings = useLive(api.games.standings, { gameId: gameId as Id<"games"> }).data;
-  return <Leaderboard rows={standings?.rows ?? []} roster={roster} meId={meId} ownerId={ownerId} agentCount={standings?.agentCount ?? undefined} emptyBody={emptyBody} />;
+  return <Leaderboard rows={standings?.rows ?? []} roster={roster} meId={meId} ownerId={ownerId} agentCount={standings?.agentCount ?? undefined} planning={planning} emptyBody={emptyBody} />;
 }
 
 const OBJECT_PAGE = 50;
