@@ -254,6 +254,48 @@ test("Mirrormancer: one unit per row, folded onto itself, pairs as ✓/✗ arcs"
   assert.equal(look("mirrormancer", { axis: "TB" }).point(0, 0)!.id, "line:column:0");
 });
 
+test("Two Pair: one unit per corner box; two different pairs, one pair or three of a kind, said with the numbers", () => {
+  const { e, point, modes } = look("two_pair", {});
+  // Boxes: 2 5 / 4 4 (one pair: 4 4), 8 1 / 4 7, 6 3 / 1 7 and 9 0 / 3 5 (no pair each).
+  assert.deepEqual(e.ordinal, [0, 1]);
+  assert.equal(e.parts.length, 4);
+  assert.equal(modes.length, 1, "the boxes don't overlap: no toggle");
+  const v = point(1, 1)!;
+  assert.equal(v.id, "box:0,0");
+  assert.equal(v.shape, "block");
+  assert.deepEqual(v.points, [0, 1]);
+  assert.equal(v.title, "one pair");
+  assert.deepEqual(v.facts, [{ text: "only one pair: 4 4, then 2 and 5", ok: false }, { text: "one pair (4 4)", ok: true, tier: 1 }]);
+  assert.deepEqual(point(3, 3)!.facts, [{ text: "no pair: 9, 0, 3 and 5 all differ", ok: false }]);
+  // Two pairs, three of a kind and four of a kind, on a board of their own.
+  const f = look("two_pair", {}, "3R,3R,8R,3R/8R,8R,3R,8R/5R,5R,4R,4R/5R,1R,4R,4R");
+  assert.deepEqual(f.e.ordinal, [2, 1]);
+  assert.deepEqual(f.unit("box:0,2").facts, [{ text: "two pairs: 8 8 and 3 3", ok: true }]);
+  assert.deepEqual(f.unit("box:2,0").facts, [{ text: "three of a kind: 5 5 5, then 1", ok: false }, { text: "three of a kind (5 5 5)", ok: true, tier: 1 }]);
+  assert.deepEqual(f.unit("box:2,2").facts, [{ text: "four of a kind: 4 4 4 4 scores nothing", ok: false }]);
+  assert.deepEqual(sortUnits(f.e.parts).map(u => u.points), [[1, 0], [1, 0], [0, 1], [0, 0]]);
+});
+
+test("Spread of Three: one unit per overlapping 2×2 square; the gap, and how far it is from 3", () => {
+  const { e, point, unit } = look("spread_three", {});
+  // Spreads, square by square: 3, 4, 7 / 3, 6, 9 / 6, 6, 9 (see the rule-text test).
+  assert.deepEqual(e.ordinal, [2, -26]);
+  assert.equal(e.parts.length, 9);
+  assert.deepEqual(unit("square:0,0").facts, [{ text: "biggest 5, smallest 2: 5 − 2 = 3", ok: true }]);
+  assert.deepEqual(unit("square:0,0").points, [1, 0]);
+  assert.deepEqual(unit("square:2,2").facts, [{ text: "biggest 9, smallest 0: 9 − 0 = 9", ok: false }, { text: "6 too wide: deducts 6", ok: false, tier: 1 }]);
+  assert.deepEqual(unit("square:2,2").points, [0, -6]);
+  // Pointing just past a corner where four cells meet picks the square centred there.
+  assert.equal(point(1, 1)!.id.startsWith("square:"), true);
+  const narrow = look("spread_three", {}, "5R,5R,5R,5R/5R,6R,5R,5R/5R,5R,5R,5R/5R,5R,5R,5R").unit("square:0,0");
+  assert.deepEqual(narrow.facts, [{ text: "biggest 6, smallest 5: 6 − 5 = 1", ok: false }, { text: "2 too narrow: deducts 2", ok: false, tier: 1 }]);
+  // Base 12 names a digit above 9 by its glyph and its value.
+  const big = instantiate("Grid", { size: 6, symbols: "base12", colours: "rgby" });
+  const b12 = explainer({ familyId: "spread_three", params: {} }, big)!.explain(["B 8 8 8 8 8", "9 A 8 8 8 8", ...Array(4).fill("8 8 8 8 8 8")].map(r => r.split(" ").map(x => `${x}R`).join(",")).join("/"))!;
+  assert.ok(b12.verified);
+  assert.deepEqual(b12.parts.find(p => p.id === "square:0,0")!.facts, [{ text: "biggest B (11), smallest 8: 11 − 8 = 3", ok: true }]);
+});
+
 test("goal examples: deterministic, in the room's own shape, verified, and they teach both sides", () => {
   for (const l of LENSES) {
     for (const p of paramsFor(l.familyId, FIRST_STEPS)) {
