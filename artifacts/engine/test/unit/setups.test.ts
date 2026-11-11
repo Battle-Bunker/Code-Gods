@@ -31,7 +31,7 @@ test("the server domain lists every playable shape, shipped tables or not, and t
   // Every combination of the parameters' presets, the type's default first; tables are never a condition.
   assert.deepEqual(SETTINGS_DOMAIN.playable("Int"), [{ min: -2147483648, max: 2147483647 }, { min: -2147483648, max: 9999 }, { min: 0, max: 2147483647 }, { min: 0, max: 9999 }]);
   assert.deepEqual(SETTINGS_DOMAIN.playable("string"), [{ maxLength: 128 }, { maxLength: 16 }]);
-  assert.equal(SETTINGS_DOMAIN.playable("Grid").length, 4 * 4 * 3, "sizes 4–7 × four symbol sets × three colour sets");
+  assert.equal(SETTINGS_DOMAIN.playable("Grid").length, 4 * 4 * 4, "sizes 4–7 × four symbol sets × four colour sets (mono included)");
   assert.ok(!SETTINGS_DOMAIN.playable("Grid").some(a => a.size === 3), "3×3 is retired");
   const shipped = new Set(offeredInstantiations(shippedManifest(), "Int").map(i => i.key));
   assert.ok(playableInstantiations("Int").some(i => !shipped.has(i.key)), "an Int range with no shipped file is playable");
@@ -56,8 +56,11 @@ test("Annotated basics deals only the families that have a lens, derived from th
   const s = seedSetupSettings(ANNOTATED_BASICS_SEED_ID);
   assert.ok(SEED_SETUPS.some(x => x.seedId === ANNOTATED_BASICS_SEED_ID && x.summary.length <= 160), "listed among the system setups");
   const inst = instantiate(s.objectType, s.typeArgs);
-  const annotated = new Set(LENSES.map(l => l.familyId));
-  // Every annotated family is dealable on this shape; nothing else is (a new family must be added to the exclusions).
+  // The board is numbers only (mono), so the annotated families that read colour cannot be dealt on it.
+  assert.deepEqual(s.typeArgs, { size: 4, symbols: "base10", colours: "mono" });
+  const annotated = new Set(LENSES.map(l => l.familyId).filter(id => availableFamilies(inst, "reward", []).some(f => f.id === id)));
+  assert.deepEqual([...annotated].sort(), ["magic_accountant", "mirrormancer", "number_bonds"]);
+  // Every annotated family the board can deal is dealable; nothing else is (a new family must be added to the exclusions).
   const dealable = availableFamilies(inst, "reward", s.excludedFamilies).map(f => f.id).sort();
   assert.deepEqual(dealable, [...annotated].sort());
   for (const id of annotated) {

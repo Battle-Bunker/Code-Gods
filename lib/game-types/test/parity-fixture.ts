@@ -44,10 +44,13 @@ export const CALL_SAMPLES: readonly unknown[] = [
   [{ __m: "nest", deep: { b: [1, [2, [3]]], a: { y: 1, x: 2 } } }],
 ];
 
+/** The colour sets lib/grid-lab/gridlab/core.py models: every one but mono (a TS-only numbers-only board, test/mono.test.ts). */
+const PARITY_COLOUR_SETS = GRID_COLOUR_SETS.filter(id => id !== "mono");
+
 export function instantiations() {
   const out = [];
   let i = 0;
-  for (const symbols of GRID_SYMBOL_SETS) for (const colours of GRID_COLOUR_SETS) out.push({ size: GRID_SIZES[i++ % 5], symbols, colours });
+  for (const symbols of GRID_SYMBOL_SETS) for (const colours of PARITY_COLOUR_SETS) out.push({ size: GRID_SIZES[i++ % 5], symbols, colours });
   for (const size of GRID_SIZES) out.push({ size, symbols: "base10", colours: "rgby" });
   return out.map(a => GRID.instantiate(a));
 }
@@ -70,7 +73,7 @@ export function buildFixture() {
   });
   const components = {
     symbols: Object.fromEntries(GRID_SYMBOL_SETS.map(id => [id, SYMBOL_COMPONENTS[id]])),
-    colours: Object.fromEntries(GRID_COLOUR_SETS.map(id => [id, COLOUR_COMPONENTS[id]])),
+    colours: Object.fromEntries(PARITY_COLOUR_SETS.map(id => [id, COLOUR_COMPONENTS[id]])),
   };
   return { cases, callSamples: CALL_SAMPLES, components };
 }

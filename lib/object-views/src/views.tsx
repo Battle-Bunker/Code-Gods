@@ -97,7 +97,7 @@ function Cell({ cell, px, wide, cue, changed, detail }: {
         {detail ? <CellGlyph parts={cell.parts} weight={600} /> : <RankGlyph parts={cell.parts} weight={600} />}
         {!detail && wide && <span style={{ fontSize: "0.72em", marginLeft: 1 }}>{cell.letter}</span>}
       </span>
-      {detail && <span className="absolute bottom-0.5 right-0.5 leading-none" style={{ fontSize: 9, color: cell.ink }}>{cell.letter}</span>}
+      {detail && !cell.mono && <span className="absolute bottom-0.5 right-0.5 leading-none" style={{ fontSize: 9, color: cell.ink }}>{cell.letter}</span>}
     </span>
   );
 }
@@ -105,7 +105,7 @@ function Cell({ cell, px, wide, cue, changed, detail }: {
 function Cells({ model, px, cue, changes, detail, label }: {
   model: GridModel; px: number; cue: ColourCue; changes: boolean[][] | null; detail: boolean; label?: string;
 }) {
-  const wide = !detail && cue === "letter";
+  const wide = !detail && cue === "letter" && !model.mono;
   return (
     <span
       role={label ? "img" : undefined} aria-label={label} aria-hidden={label ? undefined : true}
@@ -139,7 +139,7 @@ function Digits({ model, cue, changes, label }: { model: GridModel; cue: ColourC
               color: textShadeVar(c.letter, model.colours),
               ...(c.changed ? { fontWeight: 800, boxShadow: "0 2px 0 currentColor" } : {}),
             }}>
-            <CellGlyph parts={c.parts} letter={cue === "letter" ? c.letter : undefined} weight={c.changed ? 800 : DIGIT_TYPE.weight} />
+            <CellGlyph parts={c.parts} letter={cue === "letter" && !model.mono ? c.letter : undefined} weight={c.changed ? 800 : DIGIT_TYPE.weight} />
           </span>
       )))}
     </span>
@@ -236,7 +236,7 @@ function GridView({ model, previous, typeLabel, className, mode, grid }: {
           <code className="block font-mono text-xs break-all bg-muted px-2 py-1 select-all" data-testid="grid-object-canonical">{model.canonical}</code>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <RendererToggle mode={mode} />
-            <CueToggle cue={cue} />
+            {!model.mono && <CueToggle cue={cue} />}
           </div>
           <ol className="text-xs space-y-1 max-h-40 overflow-auto" aria-label="Cells by row">
             {model.rows.map((row, r) => (

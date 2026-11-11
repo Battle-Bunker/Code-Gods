@@ -42,7 +42,7 @@ const shootText = (p: ShootP, g: GridSpec): CardText => ({
 });
 const straightShooter = gridFamily<ShootP>({
   id: "straight_shooter", name: "Straight Shooter", emoji: "🎯", theme: "Rows and columns that count",
-  requires: { classes: ["Valued", "Ranked"] }, shape: tuple(2), tags: ["shortlist"],
+  requires: { classes: ["Valued", "Ranked"], minColours: 2 }, shape: tuple(2), tags: ["shortlist"],
   params: () => ({
     direction: choiceParam("Counting", [["up", "count up"], ["down", "count down"]]),
     ace_high: boolParam("Aces count high"),
@@ -265,7 +265,7 @@ const kingText = (p: KingP, g: GridSpec): CardText => ({
 });
 const kingOfTheHill = gridFamily<KingP>({
   id: "king_of_the_hill", name: "King of the Hill", emoji: "⛰️", theme: "Mountain tops in your colour",
-  requires: { classes: ["Valued"] }, shape: SCALAR, tags: ["shortlist"],
+  requires: { classes: ["Valued"], minColours: 2 }, shape: SCALAR, tags: ["shortlist"],
   params: () => ({ colour: colourParam("Your colour"), valley: boolParam("Valleys instead of hills") }),
   support: g => product<KingP>({ colour: g.colourNames, valley: [false, true] }),
   sample: (rng, g) => ({ colour: g.colourNames[rng.int(g.C)], valley: chance(rng, 3, 10) }),
@@ -415,7 +415,7 @@ const sandText = (p: SandP, g: GridSpec): CardText => ({
 });
 const numberSandwich = gridFamily<SandP>({
   id: "number_sandwich", name: "Number Sandwich", emoji: "🥙", theme: "The middle number is the total",
-  requires: { classes: ["Valued"] }, shape: SCALAR,
+  requires: { classes: ["Valued"], minColours: 2 }, shape: SCALAR,
   params: g => ({ colour: colourParam("Colour of the total cell") }),
   // The "last is the total" kind and "any colour" changed what can score, not just how (P10): only a coloured middle total is left.
   support: g => g.colourNames.map(colour => ({ colour })),
@@ -467,7 +467,7 @@ const windowText = (p: WindowP, g: GridSpec): CardText => ({
 });
 const magicWindow = gridFamily<WindowP>({
   id: "magic_window", name: "Magic Window", emoji: "🪟", theme: "Find a magic square",
-  requires: { classes: ["Valued"] }, shape: tuple(2),
+  requires: { classes: ["Valued"], minColours: 2 }, shape: tuple(2),
   params: () => ({ colour: colourParam("Colour of the middle cell") }),
   // "Any colour" let every window count (P10): the middle cell has to be a colour.
   support: g => g.colourNames.map(colour => ({ colour })),
@@ -556,7 +556,7 @@ const timesText = (p: TimesP, g: GridSpec): CardText => ({
 });
 const timesTable = gridFamily<TimesP>({
   id: "times_table_territory", name: "Times-Table Territory", emoji: "✖️", theme: "The biggest patch of your times table",
-  requires: { classes: ["Valued"] }, shape: SCALAR,
+  requires: { classes: ["Valued"], minColours: 2 }, shape: SCALAR,
   params: () => ({ colour: colourParam("Colour of the patch") }),
   // Other tables (3, 5, 6, primes) and "any colour" changed what can score, not just how (P10): the 4 times table in a colour is left.
   support: g => g.colourNames.map(colour => ({ colour })),
@@ -608,7 +608,7 @@ const oddText = (p: OddP, g: GridSpec): CardText => ({
 });
 const oddsEvens = gridFamily<OddP>({
   id: "odds_evens", name: "Odds & Evens", emoji: "🏁", theme: "A chessboard of odd and even numbers",
-  requires: { classes: ["Valued"] }, shape: SCALAR,
+  requires: { classes: ["Valued"], minColours: 2 }, shape: SCALAR,
   params: () => ({ colour: colourParam("Colour of the odd numbers") }),
   // "Any colour" let every chessboard count (P10): the odd numbers have to sit on a colour.
   support: g => g.colourNames.map(colour => ({ colour })),
@@ -704,7 +704,7 @@ const robinText = (g: GridSpec): CardText => ({
 });
 const robinHood = gridFamily<Record<string, never>>({
   id: "robin_hood", name: "Robin Hood", emoji: "🏹", theme: "Fair shares for every colour",
-  requires: { classes: ["Valued"] }, shape: SCALAR,
+  requires: { classes: ["Valued"], minColours: 2 }, shape: SCALAR,
   params: () => ({}),
   support: () => [{}],
   summary: (_, g) => robinText(g).about,
@@ -1189,7 +1189,7 @@ const colourBondsText = (g: GridSpec): CardText => ({
 });
 const colourBonds = gridFamily<ColourBondsP>({
   id: "colour_bonds", name: "Colour Bonds", emoji: "🎨", theme: "Neighbours that make the magic number and share a colour",
-  requires: { classes: ["Valued"] }, shape: SCALAR,
+  requires: { classes: ["Valued"], minColours: 2 }, shape: SCALAR,
   params: () => ({}),
   support: () => [{}],
   summary: (_, g) => colourBondsText(g).about,
@@ -1229,7 +1229,7 @@ const fibonacciText = (p: SandP, g: GridSpec): CardText => ({
 });
 const fibonacciSandwich = gridFamily<SandP>({
   id: "fibonacci_sandwich", name: "Fibonacci Sandwich", emoji: "🐚", theme: "The last number is the total of the two before",
-  requires: { classes: ["Valued"] }, shape: SCALAR,
+  requires: { classes: ["Valued"], minColours: 2 }, shape: SCALAR,
   params: () => ({ colour: colourParam("Colour of the total cell") }),
   support: g => g.colourNames.map(colour => ({ colour })),
   sample: (rng, g) => ({ colour: g.colourNames[rng.int(g.C)] }),
@@ -1278,7 +1278,7 @@ const primeText = (p: SandP, g: GridSpec): CardText => ({
 });
 const primeTerritory = gridFamily<SandP>({
   id: "prime_territory", name: "Prime Territory", emoji: "🔢", theme: "The biggest patch of prime numbers",
-  requires: { classes: ["Valued"] }, shape: SCALAR,
+  requires: { classes: ["Valued"], minColours: 2 }, shape: SCALAR,
   params: () => ({ colour: colourParam("Colour of the patch") }),
   support: g => g.colourNames.map(colour => ({ colour })),
   sample: (rng, g) => ({ colour: g.colourNames[rng.int(g.C)] }),
@@ -1330,7 +1330,7 @@ const colourSeesawText = (p: ColourSeesawP, g: GridSpec): CardText => ({
 });
 const colourSeesaw = gridFamily<ColourSeesawP>({
   id: "colour_seesaw", name: "Colour Seesaw", emoji: "🎚️", theme: "Lines whose two colours balance",
-  requires: { classes: ["Valued"] }, shape: tuple(2),
+  requires: { classes: ["Valued"], minColours: 2 }, shape: tuple(2),
   params: () => ({
     scope: choiceParam("Lines that count", AXIS_OPTIONS),
     left_colour: colourParam("Colour of the left side"),

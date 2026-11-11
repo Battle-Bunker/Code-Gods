@@ -3,9 +3,12 @@
  * (the colour alone, or with its letter). Framework-free so it is unit tested under Node.
  */
 import {
-  COLOUR_COMPONENTS, COLOUR_LETTERS, SYMBOL_COMPONENTS, decodeGrid, glyphForCode, isGridTypeArgs,
+  COLOUR_COMPONENTS, COLOUR_LETTERS, SYMBOL_COMPONENTS, decodeGrid, glyphForCode, isGridTypeArgs, isMonoColours,
   parseGridForDisplay, type GridColourSet, type GridTypeArgs,
 } from "@workspace/game-types";
+
+/** The wire letter of the mono set's one colour (a numbers-only board). */
+const MONO_LETTER = COLOUR_COMPONENTS.mono.letters[0];
 
 export { contrastRatio, deltaE76, hexRgb, labHue, labOf, relativeLuminance } from "./colour-science.ts";
 import type { GridSettings, ObjectValue } from "./registry.ts";
@@ -26,11 +29,18 @@ export interface GridCellModel {
   /** Tile fill: the set's display shade for this colour (TILE_FILLS), with `ink` the glyph colour on it. */
   css: string;
   ink: string;
+  /** On a numbers-only (mono) board: no letter cue or colour name is drawn for it. */
+  mono: boolean;
 }
 
 export interface GridModel {
   /** The colour set when the settings are known (picks the set's display shades), else undefined. */
   colours?: GridColourSet;
+  /**
+   * A numbers-only board (the mono set, or every cell's letter is mono's "P"): drawn as plain number tiles in the theme's
+   * own colours, with no colour name, letter cue, chip or legend.
+   */
+  mono: boolean;
   size: number;
   rows: GridCellModel[][];
   /** The value exactly as received (the canonical wire string). */
@@ -83,6 +93,7 @@ export function gridModel(value: unknown, settings?: GridSettings): GridModel | 
   // whenever they name a known set.
   const set = args?.colours ?? (settings && Object.hasOwn(COLOUR_COMPONENTS, String(settings.colours)) ? settings.colours as GridColourSet : undefined);
   const palette = set ? COLOUR_COMPONENTS[set] : undefined;
+  const mono = set ? isMonoColours(set) : cells.every(row => row.every(c => c.letter === MONO_LETTER));
   const rows = cells.map(row => row.map(({ code, letter }): GridCellModel => {
     const idx = palette ? palette.letters.indexOf(letter) : -1;
     const base = COLOUR_LETTERS[letter];
@@ -90,11 +101,11 @@ export function gridModel(value: unknown, settings?: GridSettings): GridModel | 
     const sName = symbolName(code), parts = glyphParts(code);
     return {
       code, letter, glyph: glyphForCode(code), compactGlyph: parts.rank, parts,
-      symbolName: sName, colourName, name: `${sName}, ${colourName}`,
-      ...tileColours(letter, set, base),
+      symbolName: sName, colourName, name: mono ? sName : `${sName}, ${colourName}`, mono,
+      ...(mono ? MONO_TILE : tileColours(letter, set as ColouredSet | undefined, base)),
     };
   }));
-  return { size: rows.length, rows, canonical: value as string, strict, ...(set ? { colours: set } : {}) };
+  return { size: rows.length, rows, canonical: value as string, strict, mono, ...(set ? { colours: set } : {}) };
 }
 
 /**
@@ -109,6 +120,7 @@ export function looksLikeGrid(value: ObjectValue): boolean {
 
 /** Text summary for screen readers. */
 export function gridSummary(model: GridModel): string {
+  if (model.mono) return `Grid of numbers, ${model.size} by ${model.size}. ${model.rows.map((row, r) => `Row ${r + 1}: ${row.map(c => c.name).join("; ")}.`).join(" ")}`;
   const counts = new Map<string, number>();
   for (const row of model.rows) for (const c of row) counts.set(c.colourName, (counts.get(c.colourName) ?? 0) + 1);
   const tally = [...counts].map(([name, n]) => `${n} ${name}`).join(", ");
@@ -148,7 +160,8 @@ export interface DigitsLine {
 
 /** One line per row of the grid, for the digits renderer (and its tests). */
 export function gridDigitsLines(model: GridModel, changes?: boolean[][] | null, opts: { letters?: boolean } = {}): DigitsLine[] {
-  const glyph = (c: GridCellModel) => (opts.letters ? `${c.glyph}${c.letter}` : c.glyph);
+  // A mono board has no colour to cue: never a letter.
+  const glyph = (c: GridCellModel) => (opts.letters && !model.mono ? `${c.glyph}${c.letter}` : c.glyph);
   const width = Math.max(...model.rows.flatMap(row => row.map(c => glyph(c).length)));
   return model.rows.map((row, r) => {
     const cells = row.map((c, k): DigitsCell => {
@@ -266,7 +279,9 @@ export const SHADE_WINDOWS: Readonly<Record<ShadeScheme, Readonly<Record<string,
 });
 type Shades = Readonly<Record<ShadeScheme, Readonly<Record<string, string>>>>;
 
-export const DIGIT_SHADES: Readonly<Record<GridColourSet, Shades>> = Object.freeze({
+/** The coloured sets (every one but mono, whose digits take the theme's text colour: textShadeVar). */
+export type ColouredSet = Exclude<GridColourSet, "mono">;
+export const DIGIT_SHADES: Readonly<Record<ColouredSet, Shades>> = Object.freeze({
   rgb: Object.freeze({
     light: Object.freeze({ R: "#a50b25", G: "#3d9406", B: "#033ffe" }),
     dark: Object.freeze({ R: "#f7502a", G: "#b5fd83", B: "#4886fe" }),
@@ -285,7 +300,7 @@ export const DIGIT_SHADES: Readonly<Record<GridColourSet, Shades>> = Object.free
 export const TEXT_SHADES: Shades = DIGIT_SHADES.rainbow6;
 
 /** The CSS custom property carrying a letter's shade in a set (rainbow6 and unknown sets use the plain one). */
-export function textShadeToken(letter: string, set?: GridColourSet): string {
+export function textShadeToken(letter: string, set?: ColouredSet): string {
   return set && set !== "rainbow6" ? `--cg-ink-${set}-${letter}` : `--cg-ink-${letter}`;
 }
 /**
@@ -293,6 +308,8 @@ export function textShadeToken(letter: string, set?: GridColourSet): string {
  * non-strict grid) takes the unknown-set shade, as its tile does; a letter no set names, the text colour.
  */
 export function textShadeVar(letter: string, set?: GridColourSet): string {
+  // Mono digits are plain text: the theme's own text colour, so they read in both schemes.
+  if (set === "mono" || (!set && letter === MONO_LETTER)) return "currentColor";
   const light = set ? DIGIT_SHADES[set].light[letter] : undefined;
   if (light) return `var(${textShadeToken(letter, set)}, ${light})`;
   const any = TEXT_SHADES.light[letter];
@@ -302,10 +319,15 @@ export function textShadeVar(letter: string, set?: GridColourSet): string {
 /** Glyph colour on a tile: a dark ink (4.5:1 or better on every tile fill, as on the dark surfaces). */
 export const TILE_INK = "#11131d";
 /**
+ * A mono (numbers-only) tile: a plain light paper fill with the dark tile ink, the same in both schemes (as every tile
+ * fill is): it reads as "no colour", not as a sixth hue. test/grid-display.test.ts holds its contrast.
+ */
+export const MONO_TILE: Readonly<{ css: string; ink: string }> = Object.freeze({ css: "#ece8e1", ink: TILE_INK });
+/**
  * The tiles renderer's fills: the same sets, at their dark-scheme (bright) shades, so a tile reads as the colour its
  * digit is drawn in and a dark glyph sits on every one. Letters outside the set fall back to the wire table.
  */
-function tileColours(letter: string, set: GridColourSet | undefined, base: { css: string; ink: string }): { css: string; ink: string } {
+function tileColours(letter: string, set: ColouredSet | undefined, base: { css: string; ink: string }): { css: string; ink: string } {
   const fill = (set ? DIGIT_SHADES[set] : TEXT_SHADES).dark[letter];
   return fill ? { css: fill, ink: TILE_INK } : { css: base.css, ink: base.ink };
 }

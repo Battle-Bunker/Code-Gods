@@ -115,14 +115,14 @@ export function WhatIfBoard({ draw, inst, goal, value, grid, initialFocus = { r:
         </div>
         <p className="max-w-[16rem] text-xs text-muted-foreground" data-testid="what-if-best">
           {best.verdict > 0
-            ? <>Best change here: <b className="text-foreground">{symbols.glyphs[best.sym]} in {colours.names[best.col]}</b> ({signed(best.delta)}).</>
+            ? <>Best change here: <b className="text-foreground">{model.mono ? symbols.glyphs[best.sym] : `${symbols.glyphs[best.sym]} in ${colours.names[best.col]}`}</b> ({signed(best.delta)}).</>
             : <>No change to this cell helps you: it is already as good as it gets.</>}
         </p>
       </div>
       <figure className="border bg-background px-2.5 py-2 text-xs" data-testid="what-if-table" onPointerLeave={() => setPreview(null)}>
         <figcaption className="mb-1 font-semibold">What if this cell showed…</figcaption>
         <table className="border-separate" style={{ borderSpacing: "3px 2px" }}>
-          <thead><tr><th />{colours.names.map(n => <th key={n} className="font-normal text-muted-foreground">{n}</th>)}</tr></thead>
+          <thead><tr><th />{colours.names.map(n => <th key={n} className="font-normal text-muted-foreground">{model.mono ? "points" : n}</th>)}</tr></thead>
           <tbody>
             {groups.map(({ syms, row }) => (
               <tr key={syms[0]}>

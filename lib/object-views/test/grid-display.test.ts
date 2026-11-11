@@ -4,7 +4,7 @@ import { COLOUR_COMPONENTS, COLOUR_LETTERS, SYMBOL_COMPONENTS } from "@workspace
 import {
   TEXT_SHADES,
   changedCells, contrastRatio, gridModel, gridSummary, looksLikeGrid,
-  getColourCue, setColourCue, subscribeColourCue, gridDigitsLines, glyphParts,
+  getColourCue, setColourCue, subscribeColourCue, gridDigitsLines, glyphParts, MONO_TILE, TILE_INK, textShadeVar,
 } from "../src/grid-display.ts";
 import { createObjectTypeRegistry } from "../src/registry.ts";
 
@@ -179,4 +179,22 @@ test("objectRowHeight: a Grid row holds every line of its digits and tiles, what
   assert.ok(objectRowHeight({ objectType: "Grid", grid: {} }) >= objectRowHeight({ objectType: "Grid", grid: { size: 7 } }), "unknown size assumes the largest");
   assert.equal(objectRowHeight({ objectType: "Int" }), OBJECT_ROW_LINE_PX);
   assert.equal(objectRowHeight(undefined), OBJECT_ROW_LINE_PX);
+});
+
+test("a mono board (numbers only) draws plain number tiles: no colour name, letter cue or hue", () => {
+  const wire = "1P,9P,1P,1P/8P,1P,7P,6P/6P,7P,6P,6P/6P,2P,3P,6P";
+  for (const settings of [{ size: 4, symbols: "base10", colours: "mono" }, undefined]) {
+    const m = gridModel(wire, settings)!;
+    assert.equal(m.mono, true, JSON.stringify(settings));
+    assert.equal(m.rows[0][1].name, "nine");
+    assert.ok(m.rows.flat().every(c => c.mono && c.css === MONO_TILE.css && c.ink === TILE_INK));
+    assert.equal(gridSummary(m), "Grid of numbers, 4 by 4. Row 1: one; nine; one; one. Row 2: eight; one; seven; six. Row 3: six; seven; six; six. Row 4: six; two; three; six.");
+    assert.deepEqual(gridDigitsLines(m, null, { letters: true }).map(l => l.text), ["1 9 1 1", "8 1 7 6", "6 7 6 6", "6 2 3 6"]);
+    assert.equal(textShadeVar("P", m.colours), "currentColor");
+  }
+  assert.ok(contrastRatio(MONO_TILE.css, TILE_INK) >= 7, "the tile's digits are dark on a light paper fill");
+  // A coloured board is unchanged.
+  const rgb = gridModel("1R,9G/8B,1R", { size: 2, symbols: "base10", colours: "rgb" })!;
+  assert.equal(rgb.mono, false);
+  assert.equal(rgb.rows[0][0].name, "one, red");
 });

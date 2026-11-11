@@ -241,6 +241,11 @@ interface Terms { erase?: number; dcol?: number; dsym?: number; measure?: number
 interface GridMutatorSpec {
   id: string; name: string; emoji: string; summary: string;
   requires: readonly string[];
+  /**
+   * The mutator needs a choice of colours: it is offered only on a grid with at least 2 (never on a mono board, whose one
+   * colour leaves it nothing to do). `paint` does not set it: painting a mono cell its only colour is a valid no-change.
+   */
+  coloured?: true;
   kind: MutatorKind;
   scope: MutatorScope;
   fields: readonly Field[];
@@ -288,7 +293,8 @@ function def(s: GridMutatorSpec): GridMutator {
   const spaces = new Map<string, readonly GP[]>();
   return Object.freeze({
     id: s.id, name: s.name, emoji: s.emoji, summary: s.summary,
-    requires: s.requires.map(has => ({ has })), scope: s.scope, kind: s.kind,
+    requires: [...s.requires.map(has => ({ has })), ...(s.coloured ? [{ term: "colours.count", op: ">=" as const, value: 2 }] : [])],
+    scope: s.scope, kind: s.kind,
     parse: (raw: Readonly<Record<string, unknown>>, inst: Instantiation) => parseFields(s.fields, raw, gridCtx(inst)),
     describeBits: (p: GP, inst: Instantiation) => describeFields(s.fields, p, gridCtx(inst)),
     apply: (v: GridValue, p: GP, inst: Instantiation) => s.apply(v, p, gridCtx(inst)),
@@ -1019,7 +1025,7 @@ const paint = def({
 
 const recolour = def({
   id: "recolour", name: "Recolour", emoji: "🎨", summary: "Turn every cell of one colour into another colour, inside an area.",
-  requires: [], kind: "overwrite", scope: "line",
+  requires: [], coloured: true, kind: "overwrite", scope: "line",
   fields: [F_kind("line", "line*", "block", "ring", "core", "all"), F_REGION, F_pairOrdered()],
   terms: (p, g) => {
     const n = regionSize(p.kind, p.region, g.N);
@@ -1053,7 +1059,7 @@ const recolour = def({
 
 const swap_colours = def({
   id: "swap_colours", name: "Trade colours", emoji: "🔁", summary: "Two colours trade places inside an area: every A becomes B and every B becomes A.",
-  requires: [], kind: "bijective", scope: "line",
+  requires: [], coloured: true, kind: "bijective", scope: "line",
   fields: [F_kind("line", "block", "ring", "all"), F_REGION, F_pair()],
   terms: (p, g) => ({ dcol: (2 * regionSize(p.kind, p.region, g.N)) / g.C, scope: REGION_SCOPE[p.kind] }),
   apply: (v, p, g) => {
@@ -1238,7 +1244,7 @@ const majorityFeature = (g: GridCtx): Feature => v =>
 
 const majority_line = def({
   id: "majority_line", name: "Majority vote", emoji: "🗳️", summary: "A row or column votes: every cell takes the line's most common colour.",
-  requires: [], kind: "overwrite", scope: "line",
+  requires: [], coloured: true, kind: "overwrite", scope: "line",
   fields: [F_kind("line", "line*"), F_REGION],
   terms: (p, g) => { const st = majorityStats(g.N, g.C); return { erase: st.erase, dcol: st.changed, measure: starMeasure(p, g), scope: "line" }; },
   apply: (v, p, g) => {
@@ -1399,7 +1405,7 @@ function keyColour(p: GP, g: GridCtx, s: number): number {
 
 const paint_by_key = def({
   id: "paint_by_key", name: "Paint by number", emoji: "🔟", summary: "Colour cells by what they show: even/odd, number-to-colour, or red/black suits.",
-  requires: ["Valued"], kind: "overwrite", scope: "line",
+  requires: ["Valued"], coloured: true, kind: "overwrite", scope: "line",
   fields: [F_kind("line", "all"), F_REGION,
     { name: "key", choices: g => (g.suited ? ["parity", "mod", "redblack"] : ["parity", "mod"]) },
     { name: "pair", choices: (g, p) => (p.key !== "mod" ? F_pairOrdered().choices(g, p) : null) },
@@ -1455,7 +1461,7 @@ declare function paintRedBlack(where: Area, red: string, black: string): Mutator
 
 const stamp = def({
   id: "stamp", name: "Stamp", emoji: "📮", summary: "Every cell of one colour gets the same symbol stamped on it, inside an area.",
-  requires: [], kind: "overwrite", scope: "line",
+  requires: [], coloured: true, kind: "overwrite", scope: "line",
   fields: [F_kind("line", "block", "all"), F_REGION, F_colour(), { name: "symbol", choices: g => cached(`col:${g.S}`, () => range(g.S)) }],
   terms: (p, g) => {
     const n = regionSize(p.kind, p.region, g.N);
@@ -1496,7 +1502,7 @@ function mineCounts(v: GridValue, X: number, N: number): number[] {
 
 const tally = def({
   id: "tally", name: "Count the mines", emoji: "💣", summary: "Cells of one colour are mines; every other cell shows how many mines touch it.",
-  requires: ["Numeral"], kind: "overwrite", scope: "line",
+  requires: ["Numeral"], coloured: true, kind: "overwrite", scope: "line",
   fields: [F_kind("line", "block", "all"), F_REGION, F_colour()],
   terms: (p, g) => {
     const n = regionSize(p.kind, p.region, g.N);

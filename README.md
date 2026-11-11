@@ -31,7 +31,7 @@ short program, for anyone who likes to read code.
 
 ### 2. You watch the world
 
-The world is a set of objects. In the first game they are 4×4 boards of coloured numbers, and new ones keep
+The world is a set of objects. In the first game they are 4×4 boards of numbers (no colour), and new ones keep
 appearing. Every change to every object is shown to everyone as it happens, but nobody is told *whose* agent made it.
 
 ### 3. You write agents

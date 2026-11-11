@@ -13,6 +13,9 @@ import { DIGIT_SHADES } from "../src/grid-display.ts";
 import { contrastRatio, deltaEOk, oklchOf } from "../src/colour-science.ts";
 import { surfaces } from "../scripts/derive-palettes.ts";
 
+/** The coloured sets: mono (one colour, numbers only) has no digit shades; its digits take the theme's text colour. */
+const COLOURED_SETS = GRID_COLOUR_SETS.filter((s): s is Exclude<typeof s, "mono"> => s !== "mono");
+
 // The surfaces the dimension colours sit on, read from the app's index.css (scripts/derive-palettes.ts surfaces).
 const { light: LIGHT, dark: DARK } = surfaces();
 
@@ -36,7 +39,7 @@ for (const [scheme, surfaces] of [["light", LIGHT], ["dark", DARK]] as const) {
   test(`${scheme}: the dimension colours' hues sit away from every digit shade's hue (≥ 15° OKLCH)`, () => {
     for (const [d, hex] of Object.entries(DIMENSION_COLOURS[scheme])) {
       const h = oklchOf(hex)[2];
-      for (const set of GRID_COLOUR_SETS) for (const [l, shade] of Object.entries(DIGIT_SHADES[set][scheme])) {
+      for (const set of COLOURED_SETS) for (const [l, shade] of Object.entries(DIGIT_SHADES[set][scheme])) {
         const dh = Math.abs(h - oklchOf(shade)[2]), sep = Math.min(dh, 360 - dh);
         assert.ok(sep >= 15, `${d} ${hex} vs ${set} ${l} ${shade}: ${sep.toFixed(1)}°`);
       }

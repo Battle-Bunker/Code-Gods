@@ -4,6 +4,9 @@ The owner's decisions of 3 Nov 2026, recorded in `docs/coordination/status.md` (
 one economy. This document is the specification; the code cites its sections. All numbers below are for the
 "First steps" board, Grid(4, base10, rgb): 16 cells, S = 10 symbols, C = 3 colours.
 
+Proposed successor (design, not shipped): [docs/mutation-cost-design.md](mutation-cost-design.md) prices change by
+distance (add k on a digit costs 4 + 1.585·|k| bits, no set for numbers) and drops the read and summon prices.
+
 ## 1. Principles
 
 1. **An act pays only for what it does.** It pays for the bits it reads (§3) and for the change it makes (§4). There is
@@ -65,7 +68,8 @@ are priced at a fraction of it:
 
 | Setup | Board | Full read R (bits) | Cheapest change C | κ the rule needs | Full read at κ = 32 |
 |---|---|---|---|---|---|
-| First steps, Annotated basics | 4×4, base10, rgb | 78.5 | 11.5 (a colour) | > 6.8 | 2.45 |
+| First steps | 4×4, base10, rgb | 78.5 | 11.5 (a colour) | > 6.8 | 2.45 |
+| Annotated basics (the default) | 4×4, base10, mono | 53.2 | 16.3 (a symbol: w = 10.64) | > 3.3 | 1.66 |
 | Classic, Low income | 5×5, base10, rgby | 133.1 | 14.3 (a colour) | > 9.3 | 4.16 |
 | Big board | 6×6, base16, rainbow6 | 237.1 | 17.8 (a colour) | > 13.3 | 7.41 |
 | Master | 7×7, cards, rainbow6 | 406.0 | 18.7 (a colour) | > 21.7 | 12.69 |
@@ -188,6 +192,12 @@ The meter is guest code, so the guest must not be able to read the board or rese
 w is the surprisal of the call's parameters under the maximum-entropy prior on them, plus, for an overwrite, the bits
 it erases (pointwise: log2 of the preimage size). There is one op-choice bit per call (log2 of the number of elementary
 ops for the type, which is 2 for each type below).
+
+A **mono** Grid (one colour, numbers only, 11 Nov 2026) has no colour to set, so its only elementary op is "set a
+symbol" and naming it costs log2 1 = 0 bits: w_symbol = log2 N² + 2 log2 S, which on 4×4 base10 is 4 + 6.64 = 10.64 bits
+(C = 10.64 + 0.05 · 10.64² = 16.3). Its colour layer reads 0 bits, `paint` to its one colour is a no-change (W = 0), and
+the mutators that need a choice of colours (recolour, trade colours, majority vote, paint by number, stamp, count the
+mines) are not offered.
 
 | Type | Elementary mutator | w |
 |---|---|---|

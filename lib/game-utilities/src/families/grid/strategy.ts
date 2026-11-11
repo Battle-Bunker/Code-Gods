@@ -104,6 +104,7 @@ const baronText = (g: GridSpec): CardText => ({
 });
 const borderBaron = gridFamily<BaronP>({
   id: "border_baron", name: "Border Baron", emoji: "🏰", theme: "Long borders between big countries",
+  requires: { minColours: 2 },
   shape: tuple(2), tags: ["shortlist"],
   params: () => ({}),
   support: () => [{}],
@@ -170,7 +171,7 @@ const conqText = (p: ConqP, g: GridSpec): CardText => ({
 const conqueror = gridFamily<ConqP>({
   id: "conqueror", name: "Conqueror", emoji: "⚔️", theme: "Your army against your enemy",
   analytic: solvedAnalytic("conqueror"),
-  requires: { classes: ["Valued"] }, shape: SCALAR, tags: ["shortlist"],
+  requires: { classes: ["Valued"], minColours: 2 }, shape: SCALAR, tags: ["shortlist"],
   params: () => ({ colour: colourParam("Your colour"), enemy_colour: colourParam("Your enemy's colour") }),
   // Counting every cell as 1 point left far fewer scores to chase than counting its value (25 vs 79 top bits on 4×4): values it is (P10).
   support: g => colourPairs(g).map(([A, B]) => ({ colour: g.colourNames[A], enemy_colour: g.colourNames[B] })),
@@ -216,7 +217,7 @@ const parityText = (p: ParityP, g: GridSpec): CardText => {
 const parityPainter = gridFamily<ParityP>({
   id: "parity_painter", name: "Parity Painter", emoji: "🎭", theme: "Numbers wear the colour of their kind",
   analytic: solvedAnalytic("parity_painter"),
-  requires: { classes: ["Valued"] }, shape: SCALAR, tags: ["shortlist"],
+  requires: { classes: ["Valued"], minColours: 2 }, shape: SCALAR, tags: ["shortlist"],
   params: g => ({
     even_or_red: colourParam(g.cards ? "Colour for even values (or red suits)" : "Colour for even numbers"),
     odd_or_black: colourParam(g.cards ? "Colour for odd values (or black suits)" : "Colour for odd numbers"),
@@ -348,6 +349,7 @@ const homeText = (p: HomeP): CardText => ({
 });
 const homebody = gridFamily<HomeP>({
   id: "homebody", name: "Homebody", emoji: "🏡", theme: "Your colour belongs at home",
+  requires: { minColours: 2 },
   analytic: solvedAnalytic("homebody"),
   shape: SCALAR, tags: ["shortlist"],
   params: () => ({ colour: colourParam("Your colour") }),
@@ -393,7 +395,7 @@ const peakText = (p: PeakP, g: GridSpec): CardText => ({
 });
 const lonePeak = gridFamily<PeakP>({
   id: "lone_peak", name: "Lone Peak", emoji: "🏔️", theme: "One mountain towering over everything",
-  requires: { classes: ["Valued"] }, shape: tuple(2), tags: ["shortlist"],
+  requires: { classes: ["Valued"], minColours: 2 }, shape: tuple(2), tags: ["shortlist"],
   params: () => ({ colour: colourParam("Your colour") }),
   support: g => g.colourNames.map(colour => ({ colour })),
   canonical: (p, g) => recolourNames(g, p, ["colour"]),
@@ -467,6 +469,7 @@ const islanderText = (p: ColourP, g: GridSpec): CardText => ({
 });
 const islander = gridFamily<ColourP>({
   id: "islander", name: "Islander", emoji: "🏝️", theme: "Polka dots in a one-colour sea", shape: tuple(2),
+  requires: { minColours: 2 },
   params: colourOnly, support: g => g.colourNames.map(colour => ({ colour })),
   canonical: (p, g) => recolourNames(g, p, ["colour"]),
   summary: (p, g) => islanderText(p, g).about,
@@ -515,6 +518,7 @@ const rookText = (p: TokenP, g: GridSpec): CardText => ({
 });
 const rooksWatch = gridFamily<TokenP>({
   id: "rooks_watch", name: "Rook's Watch", emoji: "🏰", theme: "One token watching every row and column", shape: tuple(2),
+  requires: { minColours: 2 },
   params: tokenParams, support: tokenSupport,
   canonical: (_p, g) => ({ symbol: glyph(g, 0), colour: g.colourNames[0] }),
   summary: (p, g) => rookText(p, g).about,
@@ -596,6 +600,7 @@ function frameCellLaw(g: GridSpec, pts: { none: number; one: number; both: numbe
 }
 const pictureFrame = gridFamily<FrameP>({
   id: "picture_frame", name: "Picture Frame", emoji: "🖼️", theme: "Your colour and your symbol around a clear middle", shape: SCALAR,
+  requires: { minColours: 2 },
   params: g => ({ colour: colourParam("Your colour"), symbol: symbolParam(g.cards ? "Your card" : "Your number") }),
   support: g => g.colourNames.flatMap(colour => range(g.S).map(s => ({ colour, symbol: glyph(g, s) }))),
   // Colours and symbols are each exchangeable under the uniform prior and the rule only tests equality with them.
@@ -687,6 +692,7 @@ const luckyText = (p: TokenP, g: GridSpec): CardText => ({
 });
 const luckyToken = gridFamily<TokenP>({
   id: "lucky_token", name: "Lucky Token", emoji: "🧿", theme: "Collect your lucky token", shape: tuple(2),
+  requires: { minColours: 2 },
   analytic: solvedAnalytic("lucky_token"),
   tags: ["generalised-seed"],
   params: tokenParams, support: tokenSupport,
@@ -727,6 +733,7 @@ const voteText = (p: ColourP, g: GridSpec): CardText => ({
 });
 const neighbourhoodVote = gridFamily<ColourP>({
   id: "neighbourhood_vote", name: "Neighbourhood Vote", emoji: "🗳️", theme: "Every cell votes with its neighbours",
+  requires: { minColours: 2 },
   shape: SCALAR,
   params: colourOnly, support: g => g.colourNames.map(colour => ({ colour })),
   canonical: (p, g) => recolourNames(g, p, ["colour"]),
@@ -778,6 +785,7 @@ const farText = (p: PairP, g: GridSpec): CardText => ({
 });
 const farApart = gridFamily<PairP>({
   id: "far_apart", name: "Far Apart", emoji: "↔️", theme: "Keep two colours as far apart as possible", shape: SCALAR,
+  requires: { minColours: 2 },
   params: () => ({ first_colour: colourParam("First colour"), second_colour: colourParam("Second colour") }),
   support: g => colourPairs(g).map(([A, B]) => ({ first_colour: g.colourNames[A], second_colour: g.colourNames[B] })),
   canonical: (p, g) => recolourNames(g, p, ["first_colour", "second_colour"]),
@@ -822,6 +830,7 @@ const headText = (p: HeadP): CardText => ({
 });
 const headCount = gridFamily<HeadP>({
   id: "head_count", name: "Head Count", emoji: "🪖", theme: "More soldiers than your enemy",
+  requires: { minColours: 2 },
   analytic: solvedAnalytic("head_count"),
   shape: SCALAR, tags: ["shortlist"],
   params: () => ({ colour: colourParam("Your colour"), enemy_colour: colourParam("Your enemy's colour") }),
@@ -861,6 +870,7 @@ const colourMirrorText = (p: ColourMirrorP): CardText => {
 };
 const colourMirror = gridFamily<ColourMirrorP>({
   id: "colour_mirror", name: "Colour Mirror", emoji: "🪞", theme: "Colours that read the same both ways",
+  requires: { minColours: 2 },
   analytic: solvedAnalytic("colour_mirror"),
   shape: tuple(2), tags: ["shortlist"],
   params: () => ({ axis: choiceParam("Mirror lines", [["LR", "rows (left to right)"], ["TB", "columns (top to bottom)"]]) }),
