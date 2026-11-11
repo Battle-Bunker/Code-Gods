@@ -199,3 +199,13 @@ test("token middleware: same-origin GET only, no-store, cached JWT, RECONNECT on
     assert.equal((await response.json()).code, "NOT_CONFIGURED");
   } finally { server2.closeAllConnections(); server2.close(); }
 });
+
+test("cli: `<command> --help` prints the usage and exits 0 instead of failing as an unknown option", async () => {
+  const { spawnSync } = await import("node:child_process");
+  const cli = new URL("../src/cli.ts", import.meta.url).pathname;
+  for (const argv of [["state", "--help"], ["assistant", "-h"]]) {
+    const run = spawnSync(process.execPath, ["--disable-warning=ExperimentalWarning", "--experimental-transform-types", cli, ...argv], { encoding: "utf8", env: { ...process.env, CODE_GODS_CREDENTIAL: "" } });
+    assert.equal(run.status, 0, `${argv.join(" ")}: ${run.stdout}${run.stderr}`);
+    assert.match(run.stdout, /^Usage: pnpm player/);
+  }
+});

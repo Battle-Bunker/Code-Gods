@@ -91,16 +91,20 @@ const devicePoll = guarded(async (ctx, request) => {
   }
 });
 
-function credentialFrom(request: Request, body: Record<string, unknown> | null): string | null {
+/** The presented credential; "malformed" when one is there but is no `cgc_` credential (an unknown one, not a missing one). */
+function credentialFrom(request: Request, body: Record<string, unknown> | null): string | null | "malformed" {
   const auth = request.headers.get("authorization");
   const value = auth?.startsWith("Bearer ") ? auth.slice(7) : body?.credential;
-  return boundedString(value, 20, 128) && /^cgc_[A-Za-z0-9_-]+$/.test(value) ? value : null;
+  if (value === undefined || value === null || value === "") return null;
+  return boundedString(value, 20, 128) && /^cgc_[A-Za-z0-9_-]+$/.test(value) ? value : "malformed";
 }
+const CREDENTIAL_REQUIRED = "credential required (JSON {credential} or Authorization: Bearer cgc_…)";
 
 /** Credential → 10-minute player JWT (`sub`, `scope: "player"`, `cred`, `room`, `perm`). */
 const deviceToken = guarded(async (ctx, request) => {
   const credential = credentialFrom(request, await readJson(request));
-  if (!credential) return json({ error: "credential required" }, 400);
+  if (!credential) return json({ error: CREDENTIAL_REQUIRED }, 400);
+  if (credential === "malformed") return json({ error: "Credential revoked, expired or unknown; reconnect for a fresh approval" }, 401);
   const grant = await ctx.runMutation(internal.auth.credentials.exchange, { tokenHash: await sha256Hex(credential) });
   if (!grant) return json({ error: "Credential revoked, expired or unknown; reconnect for a fresh approval" }, 401);
   const { token, expiresAt } = await mintPlayerJwt({
@@ -111,7 +115,8 @@ const deviceToken = guarded(async (ctx, request) => {
 
 const deviceRevoke = guarded(async (ctx, request) => {
   const credential = credentialFrom(request, await readJson(request));
-  if (!credential) return json({ error: "credential required" }, 400);
+  if (!credential) return json({ error: CREDENTIAL_REQUIRED }, 400);
+  if (credential === "malformed") return json({ error: "Credential revoked, expired or unknown" }, 401);
   const revoked = await ctx.runMutation(internal.auth.credentials.revokeSelf, { tokenHash: await sha256Hex(credential) });
   return revoked ? json({ status: "revoked" }) : json({ error: "Credential revoked, expired or unknown" }, 401);
 });
