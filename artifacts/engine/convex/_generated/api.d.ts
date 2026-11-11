@@ -92,6 +92,7 @@ import type * as lib_agentName from "../lib/agentName.js";
 import type * as lib_aiAccess from "../lib/aiAccess.js";
 import type * as lib_aiModels from "../lib/aiModels.js";
 import type * as lib_aiNames from "../lib/aiNames.js";
+import type * as lib_deadline from "../lib/deadline.js";
 import type * as lib_engineErrors from "../lib/engineErrors.js";
 import type * as lib_errors from "../lib/errors.js";
 import type * as lib_futility from "../lib/futility.js";
@@ -230,6 +231,7 @@ declare const fullApi: ApiFromModules<{
   "lib/aiAccess": typeof lib_aiAccess;
   "lib/aiModels": typeof lib_aiModels;
   "lib/aiNames": typeof lib_aiNames;
+  "lib/deadline": typeof lib_deadline;
   "lib/engineErrors": typeof lib_engineErrors;
   "lib/errors": typeof lib_errors;
   "lib/futility": typeof lib_futility;
