@@ -6,7 +6,8 @@
  * - the settings model's domain from the manifest (`settingsDomain`): every control changes the draft through
  *   game-core's `applySettingsChange`, exactly as the engine applies a change, so the only dependencies are the
  *   game's own (a world moves its default instantiation and the families
- *   that no longer exist); penalty weight and the defence checklist hide while defence goals are off;
+ *   that no longer exist); penalty weight and the defence checklist hide while defence goals are off, and the bid
+ *   price rule while there is no bid phase;
  * - one control per type argument (`argChoices`): every value of each argument, never moving another argument; only a
  *   combination the type refuses (or a retired one, 3×3) is disabled. Calibration is never a condition: a shape whose
  *   tables are not shipped prepares them on its first game, which `firstUseNote` says (with the measured time);
@@ -48,12 +49,14 @@ export const LABELS: Readonly<Record<SettingsKey, string>> = {
   penaltyWeight: "Defence weight", defenceGoals: "Defence goals", excludedFamilies: "Rules never dealt", excludedDefenceFamilies: "Defence goals never dealt",
   priorId: "Rarity reference",
   commitClause: "Conditional moves", objectSelection: "Act targeting", scoreIntervalSeconds: "Score updates", peerNoiseBits: "Blur on others' interest",
+  bidSeconds: "Bidding time", bidPricing: "Bid price", bidVisibility: "Bids shown", bidDisclosure: "Bid results shown",
 };
 
 type Limit = { min: number; max?: number; int?: boolean; above?: boolean; unit: string };
 /** Bounds from validateSettings and the engine's nextSettings resource limits (onboarding §0). */
 export const LIMITS: Readonly<Partial<Record<SettingsKey, Limit>>> = {
   planningSeconds: { ...TIME_LIMITS.planningSeconds, unit: "seconds" },
+  bidSeconds: { ...TIME_LIMITS.bidSeconds, int: true, unit: "seconds" },
   halfLifeSeconds: { ...TIME_LIMITS.halfLifeSeconds, unit: "seconds" },
   startingObjectCount: { min: 0, max: 1000, int: true, unit: "objects" },
   spawnRateHz: { min: 0, max: 10, unit: "per second" },
@@ -112,7 +115,7 @@ export function toggleLanguage(current: readonly Language[], language: Language,
   return next.length ? next : [...current];
 }
 
-/** Fields with no effect in these settings (penalty weight and the defence checklist while defence goals are off). */
+/** Fields with no effect in these settings (penalty weight and the defence checklist while defence goals are off; the bid price without a bid phase). */
 export function isHidden(key: SettingsKey, s: Settings): boolean {
   const when = (SETTINGS_DOCS[key] as FieldDoc).hiddenWhen;
   return !!when && Object.entries(when).every(([k, v]) => s[k as SettingsKey] === v);
@@ -247,7 +250,8 @@ export function formatValue(key: SettingsKey, v: unknown): string {
   if (key === "commitClause") return v ? "offered" : "off";
   if (key === "defenceGoals") return v ? "every player" : "off";
   if (key === "languages" && Array.isArray(v)) return v.map(l => choiceLabel(key, l)).join(", ") || "none";
-  if ((key === "utilitySelectorId" || key === "objectSelection" || key === "durationMode") && typeof v === "string") return choiceLabel(key, v);
+  if ((key === "utilitySelectorId" || key === "objectSelection" || key === "durationMode" || key === "bidPricing" || key === "bidVisibility" || key === "bidDisclosure") && typeof v === "string") return choiceLabel(key, v);
+  if (key === "bidSeconds" && v === 0) return "No bidding";
   const unit = (SETTINGS_DOCS[key] as FieldDoc).unit;
   return typeof v === "number" ? `${n(v)}${unit ? ` ${unit}` : ""}` : String(v);
 }
@@ -258,6 +262,9 @@ const NAMED: Partial<Record<SettingsKey, Record<string, string>>> = {
   utilitySelectorId: { "fair-aligned": "Aligned Lottery", "divine-lottery": "Divine Lottery" },
   objectSelection: { uniform: "Uniform", shelter: "Shelter" },
   languages: Object.fromEntries(LANGUAGES.map(l => [l, LANGUAGE_SPECS[l].label])),
+  bidPricing: { first: "First price", second: "Second price" },
+  bidVisibility: { sealed: "Sealed", open: "Open" },
+  bidDisclosure: { private: "Own result only", handicaps: "Everyone's handicap", all: "The whole auction" },
 };
 const duration = (s: number) => (s >= 60 && s % 60 === 0 ? `${s / 60} min` : `${n(s)} s`);
 /** A stepped choice's label: "Slow (25/s)", "2 min", "50%", "500,000 steps". */
@@ -269,6 +276,7 @@ export function choiceLabel(key: SettingsKey, v: number | string | boolean): str
   if (key === "halfLifeSeconds" && typeof v === "number") return named ? `${named} (${duration(v)})` : duration(v);
   if (named) return named;
   if ((key === "planningSeconds" || key === "pauseSeconds") && typeof v === "number") return duration(v);
+  if (key === "bidSeconds" && typeof v === "number") return v === 0 ? "No bidding" : duration(v);
   if (key === "scoreIntervalSeconds" && typeof v === "number") return `every ${duration(v)}`;
   if (key === "peerNoiseBits" && typeof v === "number") return v === 0 ? "Exact" : `±${n(v)} bits`;
   if (key === "penaltyWeight" && typeof v === "number") return v === 0.5 ? "½" : `${n(v)}`;
@@ -281,5 +289,13 @@ export function lengthLine(s: Pick<Settings, "planningSeconds" | "halfLifeSecond
   const p = s.planningSeconds, h = s.halfLifeSeconds;
   if (s.durationMode === "fixed") return `${m(p + h)} min`;
   return `~${m(p + h)} min (often ${m(p + 0.415 * h)}–${m(p + 2.32 * h)})`;
+}
+/**
+ * "30 s, first price": the bid phase of a game in a rules summary, or null when it has none (bidSeconds 0, or a game
+ * started before the setting existed).
+ */
+export function bidLine(s: { bidSeconds?: number; bidPricing?: Settings["bidPricing"] }): string | null {
+  if (typeof s.bidSeconds !== "number" || !(s.bidSeconds > 0)) return null;
+  return `${n(s.bidSeconds)} s, ${s.bidPricing === "second" ? "second" : "first"} price`;
 }
 export const paceWord = (hz: number) => (hz <= 30 ? "slow" : hz <= 150 ? "normal" : "fast");

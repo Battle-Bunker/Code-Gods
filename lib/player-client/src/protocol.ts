@@ -76,6 +76,13 @@ export const utilityCardSchema = z.object({
     familyId: z.string().max(128), emoji: z.string().max(16), name: z.string().max(128), summary: z.string().max(2000),
     comparative: z.string().max(64), source: z.string().max(16384), shape: shape.optional(),
   }).optional(),
+  // Your outcome of the game's bid phase, present only when somebody won a bid (docs/bid-phase.md): whether you won
+  // this rule by bidding, what you bid, and `handicap`: the percentage taken off every total of yours (0: none).
+  handicap: z.number().min(0).max(100).optional(),
+  bid: z.object({
+    won: z.boolean(), familyId: z.string().max(128).optional(), percent: z.number().optional(), handicap: z.number(),
+    pricing: z.enum(["first", "second"]), bids: z.array(z.object({ familyId: z.string().max(128), percent: z.number() })).max(200),
+  }).optional(),
 });
 export type UtilityCardView = z.infer<typeof utilityCardSchema>;
 /** Estimated energy bits per act, split (docs/energy-model.md §5): what its reads cost (bits read / changeReadRatio) and its change. No fixed part. */

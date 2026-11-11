@@ -80,6 +80,10 @@ export const BUDGETS: Budget[] = [
     // An unknown request key: the MCP OAuth flow is not driven here, so this measures the lookup only.
     args: () => ({ request: "gate-unknown-request-key-0000" }), cold: true },
   // ---- room page, game page ----------------------------------------------------------------------------------------
+  // What the game tells about its bid phase (null unless the setup discloses it, or the game ended): the game and one small document.
+  { query: "games:auction", subscribedBy: "core/panels (standings, results) and the replay, in a game dealt with bids", args: f => ({ gameId: f.gameId }), cold: true },
+  // The caller's own view of a start's bid phase (null outside one): the room, its catalog, at most eight members and their bid rows.
+  { query: "bidding:mine", subscribedBy: "site/components/bidding.tsx (the room page during a bid phase)", args: f => ({ roomId: f.roomId }), cold: true },
   { query: "rooms:get", subscribedBy: "site/pages/room.tsx, configure.tsx, game.tsx, core/app.tsx, sdk useRoom", args: f => ({ room: f.roomId }), cold: true },
   { query: "rooms:history", subscribedBy: "site/pages/room.tsx, core/game/past-games.ts", args: f => ({ room: f.roomId }), cold: true },
   { query: "games:resolve", subscribedBy: "lib/player-client catalog (game links)", args: f => ({ code: f.gameCode }), cold: true },

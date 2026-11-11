@@ -9,6 +9,7 @@
  *   assistant <status | observation | events [--after SEQ] [--limit N] | receipt ID | wake | disconnect |
  *              command [--retry-unknown] < envelope.json | room-state | ai-catalog | room-command < action.json>
  *   panel list | push <slug> [--file PATH] | pull <slug> [--version N] [--file PATH] [--force]
+ *   bid [show] | place FAMILY PERCENT | withdraw FAMILY | done | pass | reopen [--pretty]
  *
  * Configuration: CODE_GODS_ENGINE_URL and CODE_GODS_CREDENTIAL from the environment (your environment's
  * secret store, e.g. Replit Secrets or Codespaces secrets), else a gitignored .env.local / $CODE_GODS_ENV_FILE.
@@ -24,6 +25,7 @@ import { ToolError, callTool, listTools } from "./mcp.ts";
 import { permissionSchema } from "./protocol.ts";
 import { playerState, watchState } from "./state.ts";
 import { PanelCliError, runPanel } from "./panel.ts";
+import { BidCliError, runBid } from "./bid.ts";
 
 const USAGE = `Usage: pnpm player <command>
 
@@ -49,6 +51,13 @@ const USAGE = `Usage: pnpm player <command>
       Stored panels (docs/panels.md): push compiles and saves a file (default
       artifacts/player-web/src/panels/<slug>.tsx; act or owner credential) and prints the diagnostics;
       pull writes a stored version to a file (never overwriting without --force); list shows them all.
+  bid [show] | place FAMILY PERCENT | withdraw FAMILY | done | pass | reopen [--pretty]
+      The bid phase of a game start (a setup with bidding): before the game is dealt, bid a handicap, a whole
+      percent (1-100) taken off your own final score, on rules of the pool. The highest bid wins a rule and
+      nobody else is dealt it; bids are sealed. show: the clock, the rules and your bids. place: bid on a
+      rule by its id (replaces your earlier bid on it). withdraw: take a bid back. done: you are finished
+      (pass: the same with no bids); bidding ends early once every human player is done. reopen: take
+      "done" back. place, withdraw, done, pass and reopen need an act or owner credential.
 `;
 
 type Flags = Record<string, string | boolean>;
@@ -217,6 +226,14 @@ async function main(argv: string[]) {
       if (!ok) process.exitCode = 1;
       return;
     }
+    case "bid": {
+      const pretty = args.includes("--pretty");
+      const rest = args.filter(a => a !== "--pretty");
+      const unknown = rest.find(a => a.startsWith("--"));
+      if (unknown) throw new AssistantError("INVALID", `Unknown option ${unknown}`);
+      print(await runBid(createEngine(), rest), pretty);
+      return;
+    }
     case undefined: case "help": case "--help": case "-h":
       process.stdout.write(USAGE); return;
     default:
@@ -228,7 +245,7 @@ main(process.argv.slice(2)).then(() => {
   // ConvexHttpClient keeps no handles; exit promptly unless a watcher is still running.
 }, error => {
   if (error instanceof AssistantError) print({ error: error.message, code: error.code, ...error.extra });
-  else if (error instanceof PanelCliError) print({ error: error.message, code: error.code });
+  else if (error instanceof PanelCliError || error instanceof BidCliError) print({ error: error.message, code: error.code });
   else if (error instanceof EngineError || error instanceof ToolError) print({ error: error.message, code: error.code });
   else if (error instanceof McpError) print({ error: error.message, code: "INVALID", rpcCode: error.code });
   else {

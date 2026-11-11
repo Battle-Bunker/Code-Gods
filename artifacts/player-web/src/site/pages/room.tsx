@@ -22,6 +22,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { nextStep } from "@/site/lib/next-step";
 import { SetupPicker, setupTitle } from "@/site/components/setup-picker";
+import { Bidding, BiddingFailed } from "@/site/components/bidding";
+import { openBidding } from "@/site/lib/bidding";
 import { fmt, notFoundMsg, reload, transient } from "@/site/lib/errors";
 import { fmtWhen, isoWhen } from "@/site/lib/time";
 import { Bot, Copy, Crown, MoreHorizontal, User } from "lucide-react";
@@ -38,7 +40,7 @@ function Players({ room, meId, isOwner, minPlayers }: { room: RoomState; meId?: 
   const players = room.members.filter(m => !m.spectator).length;
   const open = g ? 0 : Math.max(0, minPlayers - players);
   // Watch or play the next game (docs/unify-apps-plan.md §2): the member themselves, or the owner for any human.
-  const canToggle = (m: RoomState["members"][number]) => m.kind === "human" && (m.id === meId || isOwner) && !(room.preparing && !room.preparing.error)
+  const canToggle = (m: RoomState["members"][number]) => m.kind === "human" && (m.id === meId || isOwner) && !(room.preparing && !room.preparing.error) && !openBidding(room)
     && !(m.spectator && players >= (manifest?.maximumPlayers ?? 8));
   const role = (m: RoomState["members"][number]) => (m.spectator ? (g ? "watches the next game" : "spectator") : g ? "plays the next game" : "player");
   return (
@@ -187,6 +189,7 @@ function RoomBody({ room, games }: { room: RoomState; games?: GameRecord[] }) {
   const isOwner = room.ownerId === user?.id;
   const isMember = room.members.some(m => m.id === user?.id);
   const minPlayers = manifest?.minimumPlayers ?? 3;
+  const bidding = openBidding(room);
   const step = nextStep(user?.id, room, { minPlayers, maxPlayers: manifest?.maximumPlayers ?? 8, aiAvailable: manifest?.aiFunding.configured !== false && room.aiEnabled, start });
   return (
     <div className="mx-auto max-w-[1200px] px-4 md:px-6 py-8 space-y-6">
@@ -203,6 +206,9 @@ function RoomBody({ room, games }: { room: RoomState; games?: GameRecord[] }) {
           primary={step.primary && <StepAction id={step.primary} primary roomCode={room.shortCode} gameCode={room.activeGame?.shortCode} />}
           secondary={step.secondary.map(id => <StepAction key={id} id={id} roomCode={room.shortCode} gameCode={room.activeGame?.shortCode} />)} />
       </header>
+      {/* A start in its bid phase (docs/bid-phase.md): the bidding screen, until the rules are dealt. */}
+      {!room.activeGame && !room.preparing && (bidding ? <Bidding room={room} bidding={bidding} isOwner={isOwner} />
+        : room.bidding?.error ? <BiddingFailed error={room.bidding.error} /> : null)}
       {room.preparing && <Preparing preparing={room.preparing} />}
       {room.activeGame && <ActiveGame room={room} meId={user?.id} />}
       <div className="grid gap-6 lg:grid-cols-2 items-start">

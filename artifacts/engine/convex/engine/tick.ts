@@ -314,10 +314,10 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
       // The leaderboard after the window: the commit publishes it only when the scoreboard is due (scoreIntervalSeconds).
       // Exact totals for the log when scores changed; the disclosed ones only when the scoreboard is due (the commit
       // re-checks), so an ordinary tick does not pay for them.
-      ...(changed.length || spawns.length || due ? { totals: totalsOf(roster, [...objects, ...spawns]) } : {}),
-      ...(due ? { disclosedTotals: disclosedTotalsOf(roster, [...objects, ...spawns]) } : {}),
+      ...(changed.length || spawns.length || due ? { totals: totalsOf(roster, [...objects, ...spawns], game.handicaps) } : {}),
+      ...(due ? { disclosedTotals: disclosedTotalsOf(roster, [...objects, ...spawns], game.handicaps) } : {}),
       // Each god's totals as disclosed, from the snapshot that already holds every object (game/objectViews.ts).
-      ...(changed.length || spawns.length ? { godTotals: godTotalsOf(roster, [...objects, ...spawns], true) } : {}),
+      ...(changed.length || spawns.length ? { godTotals: godTotalsOf(roster, [...objects, ...spawns], true, game.handicaps) } : {}),
     });
     lastCommitMs.set(gameId, Date.now() - commitStarted);
     return committed;

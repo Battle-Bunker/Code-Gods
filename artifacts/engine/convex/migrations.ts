@@ -197,7 +197,8 @@ async function migrateRoom(ctx: MutationCtx, room: Doc<"rooms">, defence: Readon
 }
 
 async function migrateGame(ctx: MutationCtx, game: Doc<"games">, defence: ReadonlySet<string>): Promise<boolean> {
-  // A started game's economy is history: `played` leaves fullChargeSeconds unfilled (no capacity, live and in replay).
+  // A started game's economy is history: `played` leaves fullChargeSeconds unfilled (no capacity, live and in replay),
+  // and bidSeconds/bidPricing too (it had no bid phase).
   const settings = migrateSettings(game.settings, defence, true);
   const summary = game.summary as Record<string, unknown> | undefined;
   const legacySummary = !!summary && ("settingsOrigin" in summary || !!migrateSettings(summary.settings, defence, true));

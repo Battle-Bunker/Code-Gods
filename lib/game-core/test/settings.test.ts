@@ -4,7 +4,7 @@ import {
   DEFAULT_SETTINGS, SETTINGS_OPTIONS, MAX_AGENTS_PER_GOD, settingsOptionsFor, validateSettings, LANGUAGES, LANGUAGE_SPECS,
   grammarFor, complexityFor, allowedLanguages, upgradeLegacyLanguage,
   upgradeStoredSettings, FIRST_STEPS_SEED_ID, ANNOTATED_BASICS_SEED_ID, DEFAULT_SETUP_SEED_ID,
-  instantiationOf, codecOf, assertObjectValue, defaultSettingsFor, SEED_SETUPS, SETUP_NAME_MAX, seedSetupSettings, ENERGY_LIMITS, type GameSettings,
+  instantiationOf, codecOf, assertObjectValue, defaultSettingsFor, SEED_SETUPS, SETUP_NAME_MAX, seedSetupSettings, ENERGY_LIMITS, BID_PRICINGS, TIME_LIMITS, type GameSettings,
 } from "../src/settings.ts";
 import { gameEndSeconds } from "../src/random.ts";
 
@@ -292,5 +292,38 @@ test("upgradeStoredSettings leaves a started game's economy alone: no capacity i
 
 test("the settings of a game started before fullChargeSeconds existed still validate (it is examined and summoned into)", () => {
   const { fullChargeSeconds: _, ...old } = DEFAULT_SETTINGS;
+  assert.doesNotThrow(() => validateSettings(old as GameSettings));
+});
+
+test("the bid phase settings: off by default, whole seconds from 0 to 600, a first or second price", () => {
+  assert.equal(DEFAULT_SETTINGS.bidSeconds, 0, "no bid phase unless the owner asks for one");
+  assert.equal(DEFAULT_SETTINGS.bidPricing, "first");
+  for (const seed of SEED_SETUPS) assert.deepEqual([seed.settings.bidSeconds, seed.settings.bidPricing], [0, "first"], seed.seedId);
+  assert.deepEqual(TIME_LIMITS.bidSeconds, { min: 0, max: 600 });
+  for (const ok of [0, 1, 30, 600]) assert.doesNotThrow(() => validateSettings(settings({ bidSeconds: ok })), String(ok));
+  for (const bad of [601, 1.5, -1, NaN, Infinity, "30", null]) {
+    assert.throws(() => validateSettings(settings({ bidSeconds: bad as number })), /bidSeconds/, String(bad));
+  }
+  assert.deepEqual(BID_PRICINGS, ["first", "second"]);
+  for (const ok of BID_PRICINGS) assert.doesNotThrow(() => validateSettings(settings({ bidSeconds: 30, bidPricing: ok })));
+  for (const bad of ["third", "", 1, null]) {
+    assert.throws(() => validateSettings(settings({ bidPricing: bad as never })), /bidPricing/, String(bad));
+  }
+});
+
+test("stored room and setup settings from before the bid phase get none (0, first price); a started game is left without the fields and still validates", () => {
+  const { bidSeconds: _s, bidPricing: _p, bidVisibility: _v, bidDisclosure: _d, ...older } = DEFAULT_SETTINGS;
+  assert.deepEqual(upgradeStoredSettings(older), { ...older, bidSeconds: 0, bidPricing: "first", bidVisibility: "sealed", bidDisclosure: "private" });
+  for (const bad of ["public", "", 1]) {
+    assert.throws(() => validateSettings(settings({ bidVisibility: bad as never })), /bidVisibility/);
+    assert.throws(() => validateSettings(settings({ bidDisclosure: bad as never })), /bidDisclosure/);
+  }
+  for (const v of ["sealed", "open"] as const) for (const d of ["private", "handicaps", "all"] as const) assert.doesNotThrow(() => validateSettings(settings({ bidSeconds: 30, bidVisibility: v, bidDisclosure: d })));
+  const old = { ...older, bidVisibility: "sealed", bidDisclosure: "private" };
+  assert.deepEqual(upgradeStoredSettings(old), { ...old, bidSeconds: 0, bidPricing: "first" });
+  assert.deepEqual(upgradeStoredSettings(old), DEFAULT_SETTINGS);
+  assert.equal(upgradeStoredSettings({ ...old, bidSeconds: 30, bidPricing: "second" }), null, "chosen values are kept");
+  assert.deepEqual(upgradeStoredSettings({ ...old, bidSeconds: 30 }), { ...old, bidSeconds: 30, bidPricing: "first" }, "each field is filled by itself");
+  assert.equal(upgradeStoredSettings(old, true), null, "a game already started had no bid phase: nothing is added");
   assert.doesNotThrow(() => validateSettings(old as GameSettings));
 });

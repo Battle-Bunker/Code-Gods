@@ -18,6 +18,16 @@ const capacityText = (s: Settings): string => typeof s.fullChargeSeconds === "nu
   ? `, until it is full: an agent holds at most ${n(s, "fullChargeSeconds")} seconds of its income (a 25% share: ${(0.25 * Number(s.powerPerSecond ?? 8) * s.fullChargeSeconds).toFixed(0)} bits), and your own energy at most ${n(s, "fullChargeSeconds")} seconds of your unallocated power. Energy fills up in ${n(s, "fullChargeSeconds")} seconds and then stops: use it or re-allocate it. Taking power from an agent lowers what it can hold, and what it holds above that is lost.`
   : ".";
 
+/**
+ * The "## Bidding" section when the game has a bid phase (bidSeconds > 0; docs/bid-phase.md), else "": a game without
+ * one, or one started before the setting existed, says nothing about bidding.
+ */
+const bidText = (s: Settings): string => typeof s.bidSeconds === "number" && s.bidSeconds > 0 ? `
+## Bidding
+Before the rules are dealt, the gods have ${s.bidSeconds} s to bid for the rule they want (it ends early when every human player is done). A bid is a handicap, a whole percent from 1 to 100 taken off your own score, on a rule family of this game's pool. The highest bid on a family wins it and nobody else gets it (ties are broken at random); a winner's other bids are dropped, and everyone else is dealt at random from the families nobody won.
+${s.bidPricing === "second" ? "Second price: a winner's handicap is the highest bid they beat on that family, at least 1%." : "First price: a winner's handicap is their own bid."}
+` : "";
+
 /** Every setting with its value and the same meaning and consequence the configuration page shows (lib/game-core SETTINGS_DOCS). */
 export function settingsExplained(s: Settings): string {
   return Object.entries(SETTINGS_DOCS as Record<string, FieldDoc>).map(([key, doc]) => {
@@ -39,7 +49,7 @@ ${s.defenceGoals ? `Every god also has a defence goal (penalty, bigger is worse)
 For each CURRENT object x: payoff_me(x) = net_me(x) * max(0, sum of every other god's net bits of x).
 Your total payoff is the sum over all current objects. You see only your own scores and the aggregate of your peers, never another god's.
 If, overall, the others do not care about an object, nobody scores from it.
-
+${bidText(s)}
 ## Agents
 An agent is code in one of this game's languages (${allowed.map(l => LANGUAGE_SPECS[l].label).join(", ") || "?"}), chosen per agent, defining ${shapes.join(" or ")} that returns mutator calls, against the room's helper prelude (see the observation's instance: mutators and helpers). Its summon price is counted in its own language.
 It returns at most 16 mutator calls; objects change only through mutators. All object values are unique.

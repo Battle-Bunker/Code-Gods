@@ -111,6 +111,14 @@ agentId, actIndex])` as a decimal string. It is an HMAC of the season salt, so r
 salt, which stays secret because it seeds every live game of the season. With the seed, an agent's act can be re-run
 in the sandbox to study it; the replay itself never needs to.
 
+### Handicaps from a bid phase (2026-11-11)
+
+A game dealt with winning bids (`docs/bid-phase.md`) records nothing new in the event log and needs no new schema
+version: every `totals` and `scoreboard` a batch records is already net of the handicaps (the engine takes them off
+where totals are computed), and a replay plays those recorded values back as it always has. Per-object `net` bits are
+unscaled. What a replay shows about the auction comes with the first page: each god's `card.bid` (what they bid, whether
+they won, what they pay) and `card.handicap`; `games.auction` returns the whole auction once the game has ended.
+
 ## 3. The replay API (public, for every client and assistant)
 
 `player.replay({ roomId, gameId, afterSeq?, chatAfter?, eventOffset?, limit?, maxEvents? })`, a Convex query. Third-party

@@ -5,6 +5,7 @@
  * opponents' scores and descriptors, seeds, other gods' agent sources, AI prompts and the end deadline
  * (endAtWorld) never leave. Every public query builds its result through these functions.
  */
+import { biddingView } from "../bidding";
 import { agentDisplayName } from "./agentName";
 import { gameNotice } from "./engineErrors";
 import { MAX_AGENT_OPPORTUNITY_HZ, allowedLanguages, deityIncome, roundShare, instantiationOf, leaderboard, rankTotals, type GameSettings } from "@workspace/game-core";
@@ -33,7 +34,7 @@ export type Standing = { deityId: string; name: string; kind: "human" | "ai"; to
  */
 export function standings(game: Pick<Game, "roster"> & { scoreboard?: Scoreboard }, objects: readonly Pick<Obj, "scores">[]): Standing[] {
   const member = new Map(game.roster.map(m => [m.id, m]));
-  const rows = game.scoreboard ? rankTotals(game.roster.map(m => m.id), game.scoreboard.totals) : leaderboard(game.roster.map(m => m.id), objects.map(netMap));
+  const rows = game.scoreboard ? rankTotals(game.roster.map(m => m.id), game.scoreboard.totals) : leaderboard(game.roster.map(m => m.id), objects.map(netMap));   // (a game from before scoreboards has no handicaps)
   return rows.map(row => ({
     deityId: row.godId, name: member.get(row.godId)!.name, kind: member.get(row.godId)!.kind, totalPayoff: row.totalPayoff, rank: row.rank,
   }));
@@ -122,6 +123,8 @@ export function publicRoom(room: Doc<"rooms">, members: readonly Doc<"members">[
     activeGame: activeGameRef(active),
     // A start waiting for rule tables computed on demand: progress only (the deal stays private until the game starts).
     preparing: room.preparing ? preparingView(room.preparing) : null,
+    // A start in its bid phase (bidding.ts): its clock and how many play. Bids are private (bidding.mine: the caller's own).
+    bidding: room.bidding ? biddingView(room.bidding) : null,
   };
 }
 
@@ -380,7 +383,7 @@ export function observation(input: ObservationInput): Observation {
       })() : {}),
       // The own score is live; the leaderboard below is the scoreboard last published.
       // Live, it is the sum of the payoffs as disclosed (from the noisy peers' sums), consistent with the scoreboard.
-      ...(game && deity ? { score: input.score ?? (game.phase === "ended" ? totalsOf : disclosedTotalsOf)(game.roster.map(m => m.id), input.objects)[game.roster.findIndex(m => m.id === self.godId)] } : {}),
+      ...(game && deity ? { score: input.score ?? (game.phase === "ended" ? totalsOf : disclosedTotalsOf)(game.roster.map(m => m.id), input.objects, game.handicaps)[game.roster.findIndex(m => m.id === self.godId)] } : {}),
     },
     objects: game && deity ? input.views?.map(o => ({ id: o.id, value: o.value, own: o.own, peerNetBits: o.peerNetBits, peerCare: o.peerCare, payoff: o.payoff })) ?? input.objects.flatMap(o => {
       const view = personalObject(o, self.godId, game.phase !== "ended");

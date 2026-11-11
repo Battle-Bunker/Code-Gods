@@ -9,7 +9,7 @@ import { EmptyState, ErrorLine, Section } from "@/site/components/page-parts";
 import { fmt } from "@/site/lib/errors";
 import { toMs } from "@/site/lib/time";
 import { allowedLanguages } from "@workspace/game-core";
-import { formatValue, LABELS, lengthLine, paceWord, type SettingsKey } from "@/site/lib/settings-form";
+import { bidLine, formatValue, LABELS, lengthLine, paceWord, type SettingsKey } from "@/site/lib/settings-form";
 import { Bot, Crown, Send, User } from "lucide-react";
 import { BadgeChips, ObjectView, RuleShelf, objectContext, objectRowHeight } from "@workspace/object-views";
 import { Term } from "@workspace/ui-kit";
@@ -198,6 +198,8 @@ export function SettingsList({ settings, instance }: { settings: Settings; insta
         {SHOWN.map(k => settings[k] === undefined ? null : (
           <div key={k} className="contents"><dt className="text-muted-foreground truncate">{LABELS[k]}</dt><dd className="font-mono text-right">{formatValue(k, settings[k])}</dd></div>
         ))}
+        {/* Only a game with a bid phase says so (bidSeconds > 0). */}
+        {bidLine(settings) && <div className="contents" data-testid="row-bidding"><dt className="text-muted-foreground truncate">Bidding</dt><dd className="font-mono text-right">{bidLine(settings)}</dd></div>}
       </dl>
     </div>
   );

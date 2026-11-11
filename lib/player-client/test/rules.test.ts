@@ -30,3 +30,19 @@ test("settings explained: lists and missing values read as words, never as [obje
   assert.ok(lines.includes("- languages = ?:"));
   assert.equal(lines.includes("[object Object]"), false);
 });
+
+test("the bid phase is described only when the game has one, with its length and what a winner pays", () => {
+  const rules = (patch: object) => rulesText({ ...DEFAULT_SETTINGS, ...patch } as unknown as Record<string, unknown>);
+  assert.doesNotMatch(rules({ bidSeconds: 0 }), /## Bidding/);
+  const { bidSeconds: _s, bidPricing: _p, ...before } = DEFAULT_SETTINGS;
+  assert.doesNotMatch(rulesText(before), /## Bidding/, "a game from before the bid phase had none");
+  const first = rules({ bidSeconds: 30, bidPricing: "first" });
+  assert.match(first, /## Bidding\nBefore the rules are dealt, the gods have 30 s to bid/);
+  assert.match(first, /whole percent from 1 to 100/);
+  assert.match(first, /First price: a winner's handicap is their own bid\./);
+  assert.doesNotMatch(first, /Second price/);
+  const second = rules({ bidSeconds: 45, bidPricing: "second" });
+  assert.match(second, /have 45 s to bid/);
+  assert.match(second, /Second price: a winner's handicap is the highest bid they beat on that family, at least 1%\./);
+  assert.ok(second.indexOf("## Bidding") < second.indexOf("## Agents"), "bidding comes before the agents: it happens first");
+});

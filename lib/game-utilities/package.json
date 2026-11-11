@@ -16,7 +16,8 @@
     "calibrate": "node --experimental-strip-types scripts/calibrate.ts",
     "difficulty": "node --experimental-strip-types scripts/rule-difficulty.ts",
     "layered": "node --experimental-strip-types scripts/layered-profile.ts",
-    "mutation-cost": "node --experimental-strip-types scripts/mutation-cost.ts"
+    "mutation-cost": "node --experimental-strip-types scripts/mutation-cost.ts",
+    "bid-market": "node --experimental-strip-types scripts/bid-market.ts"
   },
   "devDependencies": {
     "typescript": "~5.9.3",

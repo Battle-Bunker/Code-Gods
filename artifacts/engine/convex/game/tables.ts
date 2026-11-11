@@ -142,13 +142,46 @@ export const gameTables = {
     preparing: v.optional(v.object({
       requestId: v.string(), ownerId: v.string(), startedAt: v.number(), revision: v.number(), memberIds: v.array(v.string()),
       instance: v.string(), total: v.number(), pending: v.array(v.string()), estimateSeconds: v.number(),
-      deals: v.array(v.object({ godId: v.string(), utility: v.any() })),
+      /** `bid`: the god's outcome of the bid phase (bidding.ts BidOutcome), only when somebody won a bid. */
+      deals: v.array(v.object({ godId: v.string(), utility: v.any(), bid: v.optional(v.any()) })),
       dealer: v.object({ selectorId: v.string(), dealtAs: v.string(), note: v.optional(v.string()) }),
+      /** PRIVATE: the whole auction of a deal made with bids (bidding.ts AuctionRecord), for the game's replay. */
+      auction: v.optional(v.any()),
       error: v.optional(v.string()),
       /** Progress in computation pieces (a split table is several, architecture.md §3.2): done of total, for the waited keys. */
       pieces: v.optional(v.object({ done: v.number(), total: v.number() })),
     })),
+    /**
+     * The bid phase of a start (bidding.ts, docs/bid-phase.md): the game was started on a setup with `bidSeconds` > 0,
+     * and until `endsAt` (or until every human player is done) the players in `memberIds` may bid on rule families.
+     * The bids themselves are private rows (roomBids), never on this document, which changes only when the phase begins
+     * and ends. Then the deal is made with the bids and the start continues as `preparing`. `error`: the deal could
+     * not be made; the owner starts again.
+     */
+    bidding: v.optional(v.object({
+      requestId: v.string(), ownerId: v.string(), startedAt: v.number(), endsAt: v.number(), revision: v.number(), memberIds: v.array(v.string()),
+      pricing: v.union(v.literal("first"), v.literal("second")),
+      /** Open bidding (settings.bidVisibility): every player of the phase sees every bid, live. Absent: sealed. */
+      open: v.optional(v.boolean()),
+      error: v.optional(v.string()),
+    })),
   }).index("by_short_code", ["shortCode"]).index("by_encoded", ["encoded"]).index("by_guid", ["guid"]),
+
+  /**
+   * PRIVATE: one player's bids in a room's bid phase (bidding.ts): at most one row per (room, player), rewritten by that
+   * player's own commands and read only by them and by the deal. `requestId` is the bid phase it belongs to (rows of an
+   * earlier one are ignored and replaced). `done`: the player passed or finished bidding.
+   */
+  roomBids: defineTable({
+    roomId: v.id("rooms"), requestId: v.string(), godId: v.string(),
+    bids: v.array(v.object({ familyId: v.string(), percent: v.number() })), done: v.boolean(), updatedAt: v.number(),
+  }).index("by_room_god", ["roomId", "godId"]),
+
+  /**
+   * PRIVATE until the game ends: the auction a game was dealt with (bidding.ts AuctionRecord: every bid, who won what
+   * and each handicap). One small document per game that had a winning bid; read by the replay of an ended game only.
+   */
+  gameAuctions: defineTable({ gameId: v.id("games"), auction: v.any() }).index("by_game", ["gameId"]),
 
   members: defineTable({
     roomId: v.id("rooms"), godId: v.string(), name: v.string(), kind, ready: v.boolean(), joinedAt: v.number(),
@@ -190,6 +223,12 @@ export const gameTables = {
      * first tick of a game started before pinning (no migration: an unpinned game pins itself).
      */
     tablesStorageId: v.optional(v.id("_storage")),
+    /**
+     * PRIVATE: each roster god's handicap in percent, in roster order (docs/bid-phase.md): what a bid's winner pays,
+     * taken off every total of theirs (lib/world.ts withHandicaps). Absent: nobody won a bid (or no bid phase). Never
+     * projected; a god's own handicap is on its card.
+     */
+    handicaps: v.optional(v.array(v.number())),
     /**
      * Hold rarity (docs/energy-model.md §8): the hold corrections of a game with more than one player are computed
      * during planning (engine/hold.ts); planning waits while `computing`. Absent: none needed (one player, or a game

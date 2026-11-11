@@ -188,3 +188,23 @@ export const object = query({
     return { id: o._id, value: o.value, version: o.version, salience: live ? o.publicSalience : publicSalienceOf(o, false) };
   },
 });
+
+/**
+ * What a game's players and watchers are told about its bid phase (docs/bid-phase.md), or null: a game dealt without a
+ * winning bid has nothing to tell, and while a game is live the setup's `bidDisclosure` decides: "private" (the default)
+ * tells nothing here (each player's own outcome is on their own card), "handicaps" every player's handicap (not which
+ * rule they won), "all" the whole auction. An ended game tells everything. One small document (gameAuctions).
+ */
+export const auction = query({
+  args: { gameId: v.id("games") },
+  handler: async (ctx, { gameId }) => {
+    const { game } = await readable(ctx, gameId);
+    const disclosure = game.phase === "ended" ? "all" : (game.settings as Partial<GameSettings>).bidDisclosure ?? "private";
+    if (disclosure === "private" || !game.handicaps) return null;
+    const handicaps = game.roster.map((m, i) => ({ godId: m.id, handicap: game.handicaps![i] ?? 0 }));
+    if (disclosure === "handicaps") return { disclosure, handicaps };
+    const row = await ctx.db.query("gameAuctions").withIndex("by_game", q => q.eq("gameId", game._id)).first();
+    const record = row?.auction as { pricing: string; bids: unknown[]; wins: unknown[]; dropped: unknown[] } | undefined;
+    return { disclosure, handicaps, ...(record ? { pricing: record.pricing, bids: record.bids, wins: record.wins, dropped: record.dropped } : {}) };
+  },
+});

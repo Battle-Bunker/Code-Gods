@@ -15,7 +15,7 @@ import { objectType, type Rng } from "@workspace/game-types";
 import {
   card, context, divineLottery, evaluator, fairAligned, familiesFor, penaltyMeanBits, publicCatalog, selector, synergyFor,
   coverage, isPlayableInstantiation, priorKey, shippedPriors, surprisal, tableFor, UNIFORM_PRIOR, type CalibrationManifest, type CalibrationTable, type GodScore, type InstanceTables, type PriorRef,
-  type UtilityDescriptor,
+  type UtilityDescriptor, dealWithBids, type Bid,
 } from "@workspace/game-utilities";
 import { holdBits, type HoldTable } from "@workspace/game-utilities/hold";
 import { fail } from "../lib/errors";
@@ -185,6 +185,18 @@ export function deal(settings: GameSettings, count: number): UtilityDescriptor[]
     defenceGoals: settings.defenceGoals,
     exclude: settings.excludedFamilies, excludeDefence: settings.excludedDefenceFamilies, priorId: settings.priorId,
   });
+}
+/**
+ * The deal of a game whose start had a bid phase (docs/bid-phase.md; game-utilities dealWithBids): the winners of the
+ * bids hold their families, everyone else is dealt by the dealer from the families nobody won. With no bids it is
+ * `deal` itself.
+ */
+export function dealWithBidsFor(settings: GameSettings, playerIds: readonly string[], bids: readonly Bid[]) {
+  validateSettings(settings);
+  return dealWithBids(settings.utilitySelectorId ?? divineLottery.id, instantiationOf(settings), playerIds, bids, cryptoRng, {
+    defenceGoals: settings.defenceGoals,
+    exclude: settings.excludedFamilies, excludeDefence: settings.excludedDefenceFamilies, priorId: settings.priorId,
+  }, settings.bidPricing ?? "first");
 }
 /**
  * How the settings' dealer actually deals on their instantiation: the Aligned Lottery needs a measured synergy matrix

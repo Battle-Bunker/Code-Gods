@@ -15,7 +15,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { firstUseSeconds, type InstanceTables, type UtilityDescriptor } from "@workspace/game-utilities";
 import { calibrationManifest, drawsOf, resolveTables } from "./engine/calibration";
-import { assertShape, catalogFor, deal, dealerOf, disclosureNoise, newNoiseKey, nextSettings, openUniform, pinTables, priorOf, scoresOf, seasonCommitment, uniqueSpawn, utilityCard } from "./engine/node";
+import { assertShape, catalogFor, deal, dealWithBidsFor, dealerOf, disclosureNoise, newNoiseKey, nextSettings, openUniform, pinTables, priorOf, scoresOf, seasonCommitment, uniqueSpawn, utilityCard } from "./engine/node";
 import { storePinned } from "./engine/pinned";
 import { ensureSandboxes } from "./engine/runtime";
 import { settingsDomain } from "./engine/settingsDomain";
@@ -27,6 +27,7 @@ import { salienceOf } from "./lib/world";
 import { preparingLine, preparingView } from "./lib/projection";
 import { MAX_GODS } from "./rooms";
 import { PREPARING_WATCHDOG_MS } from "./game/lobby";
+import { BIDDING_WATCHDOG_MS, biddingLine, biddingView, type AuctionRecord, type BidOutcome, type RoomBidding } from "./bidding";
 
 export const fillCatalog = internalAction({
   args: { roomId: v.id("rooms") },
@@ -85,15 +86,23 @@ export function aiProviderAvailable(provider: string) {
 type Started = { gameId: Id<"games">; shortCode: string; guid: string };
 /** A start waiting for calibration tables computed on demand (rooms.preparing; the game begins by itself). */
 export type Preparing = { status: "preparing"; instance: string; ready: number; total: number; estimateSeconds: number; dealtAs: string; note?: string; message: string };
-type StartResult = Started | Preparing;
-type Deal = { godId: string; utility: UtilityDescriptor };
+/** A start in its bid phase (rooms.bidding, bidding.ts): the players bid until `endsAt`; the game is dealt and begins by itself. */
+export type Bidding = { status: "bidding"; startedAt: number; endsAt: number; seconds: number; pricing: "first" | "second"; players: number; message: string };
+type StartResult = Started | Preparing | Bidding;
+/** `bid`: the god's outcome of the bid phase, when somebody won a bid (it goes on the god's own card, with its handicap). */
+type Deal = { godId: string; utility: UtilityDescriptor; bid?: BidOutcome };
+
+function biddingResult(b: RoomBidding): Bidding {
+  const view = biddingView(b);
+  return { status: "bidding", startedAt: view.startedAt, endsAt: view.endsAt, seconds: view.seconds, pricing: view.pricing, players: view.players, message: biddingLine(view) };
+}
 
 /** How long a preparation may run before it is reported failed (a table computing for longer is a stuck backend). */
 export const MAX_PREPARING_MS = 30 * 60_000;
 
 /** Spawn and score the starting objects, then commit the game (the start's last step, both halves). */
 async function launch(ctx: ActionCtx, settings: GameSettings, deals: readonly Deal[], tables: InstanceTables,
-  commit: { roomId: Id<"rooms">; revision: number; memberIds: string[]; requestId?: string; principal?: Principal; prepared?: string }): Promise<Started | null> {
+  commit: { roomId: Id<"rooms">; revision: number; memberIds: string[]; requestId?: string; principal?: Principal; prepared?: string; auction?: unknown }): Promise<Started | null> {
   const occupied = new Set<ObjectValue>();
   const objects = [], noiseKey = newNoiseKey();
   for (let i = 0; i < settings.startingObjectCount; i++) {
@@ -108,8 +117,10 @@ async function launch(ctx: ActionCtx, settings: GameSettings, deals: readonly De
     ...commit,
     seasonCommitment: seasonCommitment(), noiseKey, endAtWorld: gameEndSeconds(settings.durationMode, settings.halfLifeSeconds, openUniform),
     nextSpawn: Number.isFinite(next) ? next : Number.MAX_VALUE, catalog: catalogFor(settings),
-    deities: deals.map(d => ({ godId: d.godId, utility: d.utility, card: utilityCard(settings, d.utility) })),
+    // A god's outcome of the bid phase is on its own card (private like the card): what it won, and its handicap.
+    deities: deals.map(d => ({ godId: d.godId, utility: d.utility, card: { ...utilityCard(settings, d.utility), ...(d.bid ? { bid: d.bid, handicap: d.bid.handicap } : {}) } })),
     objects,
+    ...(deals.some(d => d.bid?.handicap) ? { handicaps: deals.map(d => d.bid?.handicap ?? 0) } : {}),
   };
   // The game scores with these tables until it ends, whatever later deploys do to the shipped ones (engine/pinned.ts).
   const tablesStorageId = await storePinned(ctx, pinTables(tables, settings, deals));
@@ -147,7 +158,8 @@ async function startGame(ctx: ActionCtx, args: { roomId: string; requestId?: str
     if (prior) return prior.result as Started;
   }
   if (context.activeGame) fail("CONFLICT", "There is already a live game");
-  // A preparation in progress is reported, not restarted; a failed one may be started afresh.
+  // A preparation in progress is reported, not restarted; a failed one may be started afresh. So is a bid phase.
+  if (room.bidding && !room.bidding.error) return biddingResult(room.bidding);
   if (room.preparing && !room.preparing.error) return preparingResult(room.preparing);
   // Spectators watch: only players are dealt in (docs/unify-apps-plan.md §2).
   const members = context.members.filter(m => !m.spectator);
@@ -173,6 +185,13 @@ async function startGame(ctx: ActionCtx, args: { roomId: string; requestId?: str
     fail("UNAVAILABLE", down.map(s => `The isolated ${LANGUAGE_SPECS[s.language].label} runtime is unavailable: ${s.reason}`).join("; ").slice(0, 1000));
   }
   const inst = instantiationOf(settings);
+  // A setup with a bid phase (docs/bid-phase.md): the deal waits for the bids (completeBidding makes it and carries on).
+  if ((settings.bidSeconds ?? 0) > 0) {
+    return biddingResult(await ctx.runMutation(internal.bidding.begin, {
+      roomId: room._id, principal: args.principal, revision: room.revision, memberIds: members.map(m => m.godId),
+      requestId: args.requestId ?? crypto.randomUUID(), seconds: settings.bidSeconds, pricing: settings.bidPricing ?? "first", ...(settings.bidVisibility === "open" ? { open: true } : {}),
+    }));
+  }
   const dealt = deal(settings, members.length);
   const deals = members.map((m, i) => ({ godId: m.godId, utility: dealt[i] }));
   let resolved;
@@ -189,8 +208,59 @@ async function startGame(ctx: ActionCtx, args: { roomId: string; requestId?: str
     ...commit, requestId: args.requestId ?? crypto.randomUUID(), instance: inst.key, total, pending: keys,
     estimateSeconds: firstUseSeconds(inst), deals, dealer: dealerOf(settings),
   });
-  return preparingResult(preparing);
+  return preparingResult(preparing!);
 }
+
+/**
+ * The end of a start's bid phase (bidding.ts): at its deadline, or as soon as every human player is done, deal the game
+ * with the bids (game-utilities dealWithBids: winners hold their families exclusively, everyone else is dealt by the
+ * dealer from the rest; no bids: the dealer's own deal) and hand the deal to the start's second half through the room's
+ * `preparing`, exactly as a start without bidding that had tables to wait for. A player who left during bidding is not
+ * dealt in and their bids are dropped; with fewer than three players left the start fails and the owner starts again.
+ * Runs again every BIDDING_WATCHDOG_MS until the bid phase is the room's no longer (a run that died is retried).
+ */
+export const completeBidding = internalAction({
+  args: { roomId: v.id("rooms"), requestId: v.string() },
+  handler: async (ctx, { roomId, requestId }): Promise<void> => {
+    const state = await ctx.runQuery(internal.bidding.forDeal, { roomId, requestId });
+    if (state.state === "gone") return;
+    if (state.state === "wait") return void await ctx.scheduler.runAfter(state.wait, internal.owner.completeBidding, { roomId, requestId });
+    await ctx.scheduler.runAfter(BIDDING_WATCHDOG_MS, internal.owner.completeBidding, { roomId, requestId });
+    const failWith = (message: string) => ctx.runMutation(internal.bidding.failed, { roomId, requestId, message });
+    const { room, bidding, playerIds, bids } = state;
+    try {
+      if (playerIds.length < 3) return void await failWith("Players left during bidding and fewer than three remain. Start again.");
+      const settings = (upgradeStoredSettings(room.settings) ?? room.settings) as GameSettings;
+      const inst = instantiationOf(settings);
+      const { deal: dealt, wins, dropped } = dealWithBidsFor(settings, playerIds, bids);
+      // Nobody won a bid: the deal carries no trace of the bid phase (the game is the one a start without it deals).
+      const deals: Deal[] = playerIds.map((godId, i) => {
+        if (!wins.length) return { godId, utility: dealt[i] };
+        const win = wins.find(w => w.playerId === godId);
+        const mine = bids.filter(b => b.playerId === godId).map(b => ({ familyId: b.familyId, percent: b.percent }));
+        return { godId, utility: dealt[i], bid: win
+          ? { won: true, familyId: win.familyId, percent: win.percent, handicap: win.handicap, pricing: bidding.pricing, bids: mine }
+          : { won: false, handicap: 0, pricing: bidding.pricing, bids: mine } };
+      });
+      const auction: AuctionRecord | undefined = wins.length ? {
+        pricing: bidding.pricing,
+        bids: bids.map(b => ({ godId: b.playerId, familyId: b.familyId, percent: b.percent })),
+        wins: wins.map(w => ({ godId: w.playerId, familyId: w.familyId, percent: w.percent, handicap: w.handicap })),
+        dropped: dropped.map(w => ({ godId: w.playerId, familyId: w.familyId, percent: w.percent })),
+      } : undefined;
+      const resolved = await resolveTables(ctx, inst, drawsOf(dealt), priorOf(settings.priorId), { owner: { id: bidding.ownerId, roomId } });
+      const keys = [...new Set(resolved.pending.map(p => p.key))];
+      const total = new Set([...resolved.ready.map(r => r.key), ...keys]).size;
+      // With every table ready the second half (completeStart) is scheduled at once by beginPreparing.
+      await ctx.runMutation(internal.game.lobby.beginPreparing, {
+        roomId, revision: bidding.revision, memberIds: playerIds, requestId, instance: inst.key, total, pending: keys,
+        estimateSeconds: firstUseSeconds(inst), deals, dealer: dealerOf(settings), bidding: requestId, ...(auction ? { auction } : {}),
+      });
+    } catch (error) {
+      await failWith(`The game could not be dealt after bidding: ${error instanceof ConvexError ? (error.data as { message?: string })?.message ?? String(error.data) : (error as Error).message}. Start again.`);
+    }
+  },
+});
 
 /**
  * The start's second half: the tables of the preparing room's deal are all ready (or, as the watchdog, check whether
@@ -220,7 +290,8 @@ export const completeStart = internalAction({
     // would show "preparing" for ever: a later run retries (and returns at once once `preparing` is gone or failed).
     await ctx.scheduler.runAfter(PREPARING_WATCHDOG_MS, internal.owner.completeStart, { roomId, requestId, watchdog: true });
     try {
-      await launch(ctx, settings, p.deals as Deal[], resolved.tables, { roomId, revision: p.revision, memberIds: p.memberIds, requestId, prepared: requestId });
+      await launch(ctx, settings, p.deals as Deal[], resolved.tables, { roomId, revision: p.revision, memberIds: p.memberIds, requestId, prepared: requestId,
+        ...(p.auction !== undefined ? { auction: p.auction } : {}) });
     } catch (error) {
       await failWith(`The game could not start: ${(error as Error).message}`);
     }
