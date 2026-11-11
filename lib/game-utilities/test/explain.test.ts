@@ -254,6 +254,204 @@ test("Mirrormancer: one unit per row, folded onto itself, pairs as ✓/✗ arcs"
   assert.equal(look("mirrormancer", { axis: "TB" }).point(0, 0)!.id, "line:column:0");
 });
 
+test("Opposite Nines: one unit per half-turn pair, linked through the middle; the pair under the pointer", () => {
+  // The literal board with 9R → 5R and 5G → 7G, so two pairs make 9:
+  //   2 5 8 1 / 4 4 4 7 / 6 3 5 0 / 1 7 3 7. Reading order i pairs with 15 − i:
+  //   2+7=9 ✓, 5+3=8 (1), 8+7=15 (6), 1+1=2 (7), 4+0=4 (5), 4+5=9 ✓, 4+3=7 (2), 7+6=13 (4): (2, −25).
+  const board = "2R,5R,8R,1G/4G,4B,4R,7G/6B,3G,5R,0B/1R,7B,3B,7G";
+  const { e, unit, point } = look("opposite_nines", {}, board);
+  assert.deepEqual(e.ordinal, [2, -25]);
+  assert.equal(e.parts.length, 8);
+  assert.deepEqual(sortUnits(e.parts).slice(0, 2).map(u => u.id), ["pair:0,0", "pair:1,1"], "the two nines lead the list");
+  assert.deepEqual(unit("pair:0,0").facts, [{ text: "2 + 7 = 9", ok: true }, { text: "right on 9", ok: true, tier: 1 }]);
+  assert.deepEqual(unit("pair:0,2").facts, [{ text: "8 + 7 = 15, not 9", ok: false }, { text: "6 too many", ok: false, tier: 1 }]);
+  assert.deepEqual(unit("pair:0,3").facts[1], { text: "7 too few", ok: false, tier: 1 });
+  assert.deepEqual(unit("pair:0,2").points, [0, -6]);
+  assert.deepEqual(unit("pair:0,2").links, [{ from: { r: 0, c: 2 }, to: { r: 3, c: 1 }, ok: false }], "a link through the middle");
+  assert.equal(point(3, 3)!.id, "pair:0,0", "the bottom-right corner picks its pair with the top-left");
+  assert.equal(point(2, 2)!.id, "pair:1,1");
+  const bd = lensFor("opposite_nines")!.breakdown({}, readBoard(FIRST_STEPS, board)!, e.parts);
+  assert.deepEqual(bd.items.map(i => [i.text, i.points]), [["2 opposite pairs adding up to 9", [2, 0]], ["6 opposite pairs that miss 9, 25 away in all", [0, -25]]]);
+});
+
+test("Leapfrog: one unit per pair two cells apart in a row, a link leaping over the middle cell; the pair under the pointer", () => {
+  //   4 1 5 7: 4 _ 5 ✓, 1 _ 7 (6 apart) / 3 8 2 9: 3 _ 2 ✓, 8 _ 9 ✓ / 6 0 6 0: the same twice / 1 7 3 5: 2 apart twice. 3 points.
+  const board = "4R,1G,5B,7R/3G,8B,2R,9G/6B,0R,6G,0B/1R,7B,3B,5G";
+  const { e, unit, point, modes } = look("leapfrog", {}, board);
+  assert.equal(e.ordinal, 3);
+  assert.equal(e.parts.length, 8, "2 pairs in each of 4 rows");
+  assert.deepEqual(sortUnits(e.parts).slice(0, 3).map(u => u.id), ["pair:0,0", "pair:1,0", "pair:1,1"]);
+  assert.deepEqual(unit("pair:0,0").facts, [{ text: "4 and 5 are one apart", ok: true }]);
+  assert.deepEqual(unit("pair:0,0").points, [1]);
+  assert.deepEqual(unit("pair:0,0").links, [{ from: { r: 0, c: 0 }, to: { r: 0, c: 2 }, ok: true }], "a link over the 1 between");
+  assert.deepEqual(unit("pair:0,1").facts, [{ text: "1 and 7 are 6 apart", ok: false }]);
+  assert.deepEqual(unit("pair:0,1").points, [0]);
+  assert.deepEqual(unit("pair:2,0").facts, [{ text: "6 and 6 are the same, not one apart", ok: false }]);
+  assert.deepEqual(unit("pair:1,0").facts, [{ text: "3 and 2 are one apart", ok: true }], "one less counts too");
+  assert.equal(modes.length, 1);
+  assert.equal(point(0, 2)!.id, "pair:0,0", "the 5 picks its pair with the 4");
+  assert.equal(point(0, 1)!.id, "pair:0,1", "the 1 between picks its own pair, with the 7");
+  const bd = lensFor("leapfrog")!.breakdown({}, readBoard(FIRST_STEPS, board)!, e.parts);
+  assert.deepEqual(bd.items.map(i => [i.text, i.points]), [["3 pairs one apart", [3]], ["5 pairs not one apart", [0]]]);
+  // 6×6: a cell in the middle columns is in two pairs (columns 1–3 and 3–5); every pair can still be pointed at (units test).
+  const six = instantiate("Grid", { size: 6, symbols: "base12", colours: "rgby" });
+  const e6 = explainer({ familyId: "leapfrog", params: {} }, six)!.explain(Array(6).fill("AR,0R,BR,0R,AR,0R").join("/"))!;
+  assert.ok(e6.verified);
+  assert.equal(e6.parts.length, 24);
+  assert.deepEqual(e6.parts.find(p => p.id === "pair:0,2")!.facts, [{ text: "B (11) and A (10) are one apart", ok: true }]);
+});
+
+test("Strangers: one unit per touching pair inside a corner box, its facts name the shared divisor or the next-door; the 1 rule", () => {
+  const { e, unit, modes } = look("strangers", {});
+  // Boxes: 2 5 / 4 4: 2|5 ✓, 2-4 share 2, 5-4 next-door, 4|4 share 4.  8 1 / 4 7: 8|1 (1), 8-4 share 4, 1-7 (1), 4|7 ✓.
+  //        6 3 / 1 7: 6|3 share 3, 6-1 (1), 3-7 ✓, 1|7 (1).          9 0 / 3 5: 9|0 9 divides both, 9-3 share 3, 0-5, 3|5 ✓.
+  // Strangers both bigger than 1: 4 primary points; a 1 beside a bigger number: 4 secondary points.
+  assert.deepEqual(e.ordinal, [4, 4]);
+  assert.equal(e.parts.length, 16, "4 touching pairs in each of the 4 corner boxes");
+  assert.equal(unit("pair:0,1:right"), undefined, "5|8 crosses from one box to the next: not a unit");
+  assert.equal(unit("pair:1,0:down"), undefined, "4-6 crosses too");
+  assert.deepEqual(unit("pair:0,0:right").facts, [{ text: "2 and 5 are strangers", ok: true }]);
+  assert.deepEqual(unit("pair:0,0:right").points, [1, 0]);
+  assert.deepEqual(unit("pair:0,0:down").facts, [{ text: "2 and 4 share 2", ok: false }]);
+  assert.equal(unit("pair:0,0:down").title, "not strangers");
+  assert.deepEqual(unit("pair:0,1:down").facts, [{ text: "5 and 4 are next-door", ok: false }]);
+  assert.equal(unit("pair:0,1:down").title, "next-door");
+  assert.deepEqual(unit("pair:1,0:right").facts, [{ text: "4 and 4 share 4", ok: false }], "a number beside itself");
+  assert.deepEqual(unit("pair:0,2:right").facts, [{ text: "8 beside 1: a 1 beside a bigger number", ok: true, tier: 1 }]);
+  assert.deepEqual(unit("pair:0,2:right").points, [0, 1]);
+  assert.deepEqual(unit("pair:2,2:right").facts, [{ text: "9 beside 0: 9 divides both", ok: false }]);
+  assert.deepEqual(unit("pair:2,3:down").facts, [{ text: "0 beside 5: 5 divides both", ok: false }]);
+  assert.deepEqual(sortUnits(e.parts).slice(0, 8).map(u => u.points.join(",")), [...Array(4).fill("1,0"), ...Array(4).fill("0,1")]);
+  assert.equal(modes.length, 1, "one hover mode: the nearest shared edge");
+  const near = (x: number, y: number) => hitTest(e.parts, modes[0], { x, y })!.id;
+  assert.equal(near(1, 0.5), "pair:0,0:right", "on the edge between 2R and 5R");
+  assert.equal(near(0.5, 1), "pair:0,0:down", "on the edge between 2R and 4G");
+  // The 1 rule's edge cases and the 0 rule, in a board of 0s.
+  const ones = look("strangers", {}, "1R,1R,0R,0R/0R,0R,0R,0R/0R,0R,0R,0R/0R,0R,0R,0R");
+  assert.deepEqual(ones.e.ordinal, [0, 0]);
+  assert.deepEqual(ones.unit("pair:0,0:right").facts, [{ text: "1 beside 1: no bigger number", ok: false, tier: 1 }]);
+  assert.deepEqual(ones.unit("pair:0,0:down").facts, [{ text: "1 beside 0: 0 is not bigger than 1", ok: false, tier: 1 }]);
+  assert.deepEqual(ones.unit("pair:1,0:right").facts, [{ text: "0 and 0 share 2", ok: false }]);
+  const bd = lensFor("strangers")!.breakdown({}, readBoard(FIRST_STEPS, BOARD)!, e.parts);
+  assert.deepEqual(bd.items.map(i => [i.text, i.points]), [
+    ["4 pairs of strangers, both bigger than 1", [4, 0]], ["4 pairs of a 1 and a bigger number", [0, 4]], ["8 other pairs, not scoring", [0, 0]],
+  ]);
+  const b12 = instantiate("Grid", { size: 4, symbols: "base12", colours: "rgb" });
+  const hex = explainer({ familyId: "strangers", params: {} }, b12)!.explain("AR,BR,0R,0R/5R,0R,0R,0R/AR,7R,0R,0R/0R,0R,0R,0R")!;
+  assert.ok(hex.verified);
+  assert.deepEqual(hex.parts.find(p => p.id === "pair:0,0:right")!.facts, [{ text: "A (10) and B (11) are next-door", ok: false }]);
+  assert.deepEqual(hex.parts.find(p => p.id === "pair:0,0:down")!.facts, [{ text: "A (10) and 5 share 5", ok: false }]);
+  assert.deepEqual(hex.parts.find(p => p.id === "pair:2,0:right")!.facts, [{ text: "A (10) and 7 are strangers", ok: true }]);
+});
+
+test("Stepping Stones: one unit per hop group, lone cells folded into one; only the biggest group scores", () => {
+  const { e, unit, point } = look("stepping_stones", {});
+  // Hops (numbers 2 apart, sharing a side): 2–4 and 4–6 down column 1; 3–5 at the end of row 4. Nothing else differs by 2.
+  // Groups: 2 4 6 (3 cells, the biggest: 3 points), 3 5 (2 cells), and 11 lone cells.
+  assert.equal(e.ordinal, 3);
+  assert.equal(e.parts.length, 3, "two groups and one unit for the lone cells");
+  const big = unit("group:0,0");
+  assert.deepEqual([big.points, big.cells.length, big.title], [[3], 3, "your biggest group"]);
+  assert.deepEqual(big.facts, [{ text: "3 cells joined by hops of 2", ok: true }]);
+  assert.deepEqual(big.links!.map(l => [l.from, l.to, l.ok]), [[{ r: 0, c: 0 }, { r: 1, c: 0 }, true], [{ r: 1, c: 0 }, { r: 2, c: 0 }, true]]);
+  const small = unit("group:3,2");
+  assert.deepEqual(small.points, [0]);
+  assert.deepEqual(small.facts, [{ text: "2 cells joined by hops of 2", ok: true }, { text: "smaller than the biggest (3)", ok: false }]);
+  const lone = unit("lone");
+  assert.deepEqual([lone.points, lone.cells.length], [[0], 11]);
+  assert.deepEqual(lone.facts, [{ text: "11 cells with no touching number 2 away", ok: false }]);
+  assert.equal(point(1, 0)!.id, "group:0,0", "the group under the pointer");
+  assert.equal(point(0, 1)!.id, "lone", "a lone cell picks the lone cells' unit");
+  assert.equal(point(3, 3)!.id, "group:3,2");
+  assert.deepEqual(sortUnits(e.parts).map(u => u.id), ["group:0,0", "group:3,2", "lone"]);
+  // A tie: two groups of 2; only the first (in the card's reading order) scores.
+  const tie = look("stepping_stones", {}, "1R,3R,0R,0R/0R,0R,0R,0R/0R,0R,0R,0R/0R,0R,5R,7R");
+  assert.equal(tie.e.ordinal, 2);
+  assert.deepEqual(tie.unit("group:3,2").facts[1], { text: "as big as the biggest (2), but only one group scores", ok: false });
+});
+
+test("Two Pair: one unit per corner box; two different pairs, one pair or three of a kind, said with the numbers", () => {
+  const { e, point, modes } = look("two_pair", {});
+  // Boxes: 2 5 / 4 4 (one pair: 4 4), 8 1 / 4 7, 6 3 / 1 7 and 9 0 / 3 5 (no pair each).
+  assert.deepEqual(e.ordinal, [0, 1]);
+  assert.equal(e.parts.length, 4);
+  assert.equal(modes.length, 1, "the boxes don't overlap: no toggle");
+  const v = point(1, 1)!;
+  assert.equal(v.id, "box:0,0");
+  assert.equal(v.shape, "block");
+  assert.deepEqual(v.points, [0, 1]);
+  assert.equal(v.title, "one pair");
+  assert.deepEqual(v.facts, [{ text: "only one pair: 4 4, then 2 and 5", ok: false }, { text: "one pair (4 4)", ok: true, tier: 1 }]);
+  assert.deepEqual(point(3, 3)!.facts, [{ text: "no pair: 9, 0, 3 and 5 all differ", ok: false }]);
+  // Two pairs, three of a kind and four of a kind, on a board of their own.
+  const f = look("two_pair", {}, "3R,3R,8R,3R/8R,8R,3R,8R/5R,5R,4R,4R/5R,1R,4R,4R");
+  assert.deepEqual(f.e.ordinal, [2, 1]);
+  assert.deepEqual(f.unit("box:0,2").facts, [{ text: "two pairs: 8 8 and 3 3", ok: true }]);
+  assert.deepEqual(f.unit("box:2,0").facts, [{ text: "three of a kind: 5 5 5, then 1", ok: false }, { text: "three of a kind (5 5 5)", ok: true, tier: 1 }]);
+  assert.deepEqual(f.unit("box:2,2").facts, [{ text: "four of a kind: 4 4 4 4 scores nothing", ok: false }]);
+  assert.deepEqual(sortUnits(f.e.parts).map(u => u.points), [[1, 0], [1, 0], [0, 1], [0, 0]]);
+});
+
+test("Spread of Three: one unit per overlapping 2×2 square; the gap, and how far it is from 3", () => {
+  const { e, point, unit } = look("spread_three", {});
+  // Spreads, square by square: 3, 4, 7 / 3, 6, 9 / 6, 6, 9 (see the rule-text test).
+  assert.deepEqual(e.ordinal, [2, -26]);
+  assert.equal(e.parts.length, 9);
+  assert.deepEqual(unit("square:0,0").facts, [{ text: "biggest 5, smallest 2: 5 − 2 = 3", ok: true }]);
+  assert.deepEqual(unit("square:0,0").points, [1, 0]);
+  assert.deepEqual(unit("square:2,2").facts, [{ text: "biggest 9, smallest 0: 9 − 0 = 9", ok: false }, { text: "6 too wide: deducts 6", ok: false, tier: 1 }]);
+  assert.deepEqual(unit("square:2,2").points, [0, -6]);
+  // Pointing just past a corner where four cells meet picks the square centred there.
+  assert.equal(point(1, 1)!.id.startsWith("square:"), true);
+  const narrow = look("spread_three", {}, "5R,5R,5R,5R/5R,6R,5R,5R/5R,5R,5R,5R/5R,5R,5R,5R").unit("square:0,0");
+  assert.deepEqual(narrow.facts, [{ text: "biggest 6, smallest 5: 6 − 5 = 1", ok: false }, { text: "2 too narrow: deducts 2", ok: false, tier: 1 }]);
+  // Base 12 names a digit above 9 by its glyph and its value.
+  const big = instantiate("Grid", { size: 6, symbols: "base12", colours: "rgby" });
+  const b12 = explainer({ familyId: "spread_three", params: {} }, big)!.explain(["B 8 8 8 8 8", "9 A 8 8 8 8", ...Array(4).fill("8 8 8 8 8 8")].map(r => r.split(" ").map(x => `${x}R`).join(",")).join("/"))!;
+  assert.ok(b12.verified);
+  assert.deepEqual(b12.parts.find(p => p.id === "square:0,0")!.facts, [{ text: "biggest B (11), smallest 8: 11 − 8 = 3", ok: true }]);
+});
+
+test("Crosswise Threes: one unit per pair across the top-right to bottom-left fold; fold-line cells are no unit", () => {
+  const { e, unit, point } = look("crosswise_threes", {});
+  // (r, c) lands on (3 − c, 3 − r): 2/5 ✓, 5/0 (2), 8/7 (2), 4/3 (2), 4/9 (2), 6/7 (2): (1, −10).
+  // The fold line's 1, 4, 3, 1 are in no pair.
+  assert.deepEqual(e.ordinal, [1, -10]);
+  assert.equal(e.parts.length, 6);
+  assert.ok(e.parts.every(p => p.cells.every(x => x.r + x.c !== 3)), "no unit holds a fold-line cell");
+  assert.deepEqual(unit("pair:0,0").facts, [{ text: "2 and 5 are 3 apart", ok: true }, { text: "exactly 3 apart", ok: true, tier: 1 }]);
+  assert.deepEqual(unit("pair:0,1").facts, [{ text: "5 and 0 are 5 apart, not 3", ok: false }, { text: "2 too far", ok: false, tier: 1 }]);
+  assert.deepEqual(unit("pair:0,2").facts[1], { text: "2 too close", ok: false, tier: 1 });
+  assert.deepEqual(unit("pair:0,1").points, [0, -2]);
+  assert.deepEqual(unit("pair:0,1").links, [{ from: { r: 0, c: 1 }, to: { r: 2, c: 3 }, ok: false }], "a link across the fold line");
+  assert.equal(point(3, 3)!.id, "pair:0,0", "the bottom-right corner picks its pair with the top-left");
+  assert.equal(point(3, 1)!.id, "pair:2,0");
+  const same = look("crosswise_threes", {}, "4R,4R,4R,4R/4R,4R,4R,4R/4R,4R,4R,4R/4R,4R,4R,4R");
+  assert.deepEqual(same.e.ordinal, [0, -18]);
+  assert.deepEqual(same.unit("pair:1,1").facts, [{ text: "4 and 4 are the same, not 3 apart", ok: false }, { text: "3 too close", ok: false, tier: 1 }]);
+  const bd = lensFor("crosswise_threes")!.breakdown({}, readBoard(FIRST_STEPS, BOARD)!, e.parts);
+  assert.deepEqual(bd.items.map(i => [i.text, i.points]), [["1 pair 3 apart", [1, 0]], ["5 pairs not 3 apart, 10 away in all", [0, -10]]]);
+});
+
+test("Magic Eighteen: Magic Accountant's line units against 18; rows or columns, the line under the pointer", () => {
+  const { e, unit, point } = look("magic_eighteen", { axis: "rows" });
+  // Row totals 16, 19, 18, 16: row 3 makes 18; distance 2 + 1 + 0 + 2 = 5.
+  assert.deepEqual(e.ordinal, [1, -5]);
+  assert.deepEqual(e.components, ["lines adding up to 18", "how far the totals are from 18"]);
+  assert.deepEqual([unit("line:row 3").title, unit("line:row 3").facts], ["row 3 makes 18", [
+    { text: "6 + 3 + 9 + 0 = 18", ok: true },
+    { text: "exactly 18", ok: true, tier: 1 },
+  ]]);
+  assert.deepEqual(unit("line:row 1").facts, [{ text: "2 + 5 + 8 + 1 = 16, not 18", ok: false }, { text: "18 − 16 = 2 short", ok: false, tier: 1 }]);
+  assert.equal(point(0, 2)!.id, "line:row 1");
+  const cols = look("magic_eighteen", { axis: "cols" });
+  // Column totals 13, 19, 24, 13: none makes 18; 5 + 1 + 6 + 5 = 17 away.
+  assert.deepEqual(cols.e.ordinal, [0, -17]);
+  assert.equal(cols.point(0, 0)!.id, "line:column 1");
+  const bd = lensFor("magic_eighteen")!.breakdown({ axis: "rows" }, readBoard(FIRST_STEPS, BOARD)!, e.parts);
+  assert.deepEqual(bd.items.map(i => [i.text, i.points]), [["1 line adding up to 18", [1, 0]], ["3 lines that miss 18, 5 away in all", [0, -5]]]);
+});
+
 test("goal examples: deterministic, in the room's own shape, verified, and they teach both sides", () => {
   for (const l of LENSES) {
     for (const p of paramsFor(l.familyId, FIRST_STEPS)) {

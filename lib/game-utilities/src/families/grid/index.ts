@@ -1,5 +1,6 @@
-/** Every ported grid-lab family, by lens (lib/grid-lab/gridlab/rules/__init__.py order: seeds, strategy, ...). */
+/** Every ported grid-lab family, by lens (lib/grid-lab/gridlab/rules/__init__.py order: seeds, strategy, ...), then the beginner pool. */
 import { ARITHMETIC } from "./arithmetic.ts";
+import { BEGINNER } from "./beginner/index.ts";
 import { COLOUR } from "./colour.ts";
 import { PENALTIES } from "./defence.ts";
 import { GAMES } from "./games.ts";
@@ -10,5 +11,6 @@ import { STRATEGY } from "./strategy.ts";
 export const GRID_LENSES = {
   seeds: SEEDS, strategy: STRATEGY, geometry: GEOMETRY, arithmetic: ARITHMETIC, colour: COLOUR, games: GAMES,
   defence: PENALTIES,
+  beginner: BEGINNER,
 } as const;
-export const GRID_FAMILIES = [...SEEDS, ...STRATEGY, ...GEOMETRY, ...ARITHMETIC, ...COLOUR, ...GAMES, ...PENALTIES];
+export const GRID_FAMILIES = [...SEEDS, ...STRATEGY, ...GEOMETRY, ...ARITHMETIC, ...COLOUR, ...GAMES, ...PENALTIES, ...BEGINNER];
