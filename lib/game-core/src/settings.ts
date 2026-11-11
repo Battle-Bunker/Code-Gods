@@ -718,7 +718,7 @@ export const SETTINGS_DOCS = {
   },
   observation: {
     question: "Do players pay to look at the world?", section: "energy", tier: "more", control: "segmented", suggested: OBSERVATION_MODES,
-    meaning: "Free: everyone sees every object as it changes. Paid: you see each object as you were last told it (at its birth, by your agents, or by a look you pay energy for).",
+    meaning: "Free shows everyone every object as it changes, while paid shows you each object as you were last told it (at its birth, by your agents, or by a look you pay energy for).",
     consequence: "Paid looking gives a player's own energy a use besides summoning and makes watching the others closely expensive; free looking is easier to follow.",
   },
   pauseSeconds: {
