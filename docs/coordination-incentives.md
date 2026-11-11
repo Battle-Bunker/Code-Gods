@@ -4,6 +4,13 @@ Status: measurement and recommendation. The model and its runner are on `develop
 (`lib/game-utilities/scripts/coordination-lib.ts`, `coordination.ts`, unit-tested in
 `lib/game-utilities/test/coordination.test.ts`). What is built in the engine is listed in §8.
 
+**Read this first: the tables are one economy behind.** Every number below was measured on `develop` as of #283
+(the eight beginner rules, the 30 s capacity, a cap of 4 offers a second per agent, offers free). While this was being
+merged, `develop` dropped the 4 Hz cap and made every offer a small read (docs/energy-model.md §7, §7.1). The model
+follows the new rules by default (`--cap 4 --free-offers` gives the old ones) and its tests pass, but the report has
+**not** been re-run under them, and the engine validation games were played under the old ones. Re-run
+`coordination report` before relying on a number here.
+
 The owner's aim: looking and computing should be much cheaper than changing, so that "more complex coordination
 strategies that carefully change objects towards one's goals without breaking the interests of other Gods" are
 rewarded, and "choosing not to mutate after analysing a board" is a good use of energy.

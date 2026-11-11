@@ -20,7 +20,7 @@
  *   --set a,b,c                       the policies in play (default: all but random and sniper for equilibria)
  *   --duration S  --objects K  --spawn HZ  --power B  --rate HZ      override the setup
  *   --kappa K  --capacity S|none  --distance  --erasure L  --erasure-noise SIGMA  --aggregate sum|min|geo  --scoring final|integral
- *   --learn S  --agents N  --candidates C  --peer-noise SIGMA  --hoard T  --snipe S       the model's knobs (coordination-lib Econ, Tuning)
+ *   --learn S  --agents N  --candidates C  --peer-noise SIGMA  --cap HZ  --free-offers  --hoard T  --snipe S       the model's knobs (coordination-lib Econ, Tuning)
  *   --summon                          charge each policy its summon price: its agents start once the god has saved it
  *   --only a,b  --out DIR             report: only these sections; also write each section's text and JSON to DIR
  *   --jobs J                          worker processes (default: the cores)
@@ -196,7 +196,7 @@ function runOf(): Run {
     ...(opt("capacity") ? { capacitySeconds: opt("capacity") === "none" ? undefined : num("capacity", 0) } : {}), ...(flag("distance") ? { distancePricing: true } : {}),
     ...(opt("erasure") ? { erasure: num("erasure", 0) } : {}), ...(opt("erasure-noise") ? { erasureNoiseBits: num("erasure-noise", 0) } : {}), ...(opt("aggregate") ? { aggregate: opt("aggregate") as Aggregate } : {}),
     ...(opt("scoring") ? { scoring: opt("scoring") as Econ["scoring"] } : {}), ...(opt("learn") ? { learnSeconds: num("learn", 0) } : {}),
-    ...(opt("agents") ? { agentsPerGod: num("agents", 1) } : {}), ...(opt("candidates") ? { candidates: num("candidates", 24) } : {}), ...(opt("peer-noise") ? { peerNoiseBits: num("peer-noise", 8) } : {}),
+    ...(opt("agents") ? { agentsPerGod: num("agents", 1) } : {}), ...(opt("candidates") ? { candidates: num("candidates", 24) } : {}), ...(opt("cap") ? { agentCapHz: num("cap", 4) } : {}), ...(flag("free-offers") ? { offerReads: false } : {}), ...(opt("peer-noise") ? { peerNoiseBits: num("peer-noise", 8) } : {}),
   };
   return { setup, games: num("games", 24), players: num("players", 3), econ: econOf(setup, patch),
     tuning: { hoarderThreshold: num("hoard", DEFAULT_TUNING.hoarderThreshold), sniperSeconds: num("snipe", DEFAULT_TUNING.sniperSeconds),
@@ -299,7 +299,8 @@ async function main() {
     for (const game of games) {
       const s = game.settings, inst = instantiate(s.objectType, s.typeArgs), sp = space(inst, "symbol");
       const rules = game.seats.map(seat => gameRule(seat.utility.familyId, seat.utility.params as Params, inst, game.seats.length)), policies = game.seats.map(seat => seat.policy);
-      const econ = econOf(run.setup, { ...run.econ, durationSeconds: game.worldSeconds, powerPerSecond: s.powerPerSecond, interactionRateHz: s.interactionRateHz, capacitySeconds: s.fullChargeSeconds, candidates: 1000, agentsPerGod: 1 });
+      const econ = econOf(run.setup, { ...run.econ, durationSeconds: game.worldSeconds, powerPerSecond: s.powerPerSecond, interactionRateHz: s.interactionRateHz, capacitySeconds: s.fullChargeSeconds, candidates: 1000, agentsPerGod: 1,
+        agentCapHz: 4, offerReads: false }); // the recorded games were played under the 4 Hz cap, with free offers
       const model = Array.from({ length: runs }, (_, k) => playGame(rules, policies, sp, econ, seededRng(`coordination|validate|${game.gameId}|${k}`), run.tuning));
       const mean = (f: (r: GameResult) => number) => model.reduce((a, r) => a + f(r), 0) / runs;
       game.seats.forEach((seat, g) => {

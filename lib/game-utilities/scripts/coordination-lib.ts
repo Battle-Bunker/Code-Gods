@@ -17,7 +17,7 @@
  * The rule variants under study are fields of `Econ`, all off by default (= the rules on develop).
  */
 import { changeCost, CHANGE_READ_RATIO, type GridValue, type Rng } from "@workspace/game-types";
-import { MAX_AGENT_OPPORTUNITY_HZ, energyCapacity, offerable, pickByEnergy, chargeAct, settleAgentEnergy, type AgentAccount } from "../../game-core/src/energy.ts";
+import { energyCapacity, offerReadBits, pickByEnergy, chargeAct, settleAgentEnergy, type AgentAccount } from "../../game-core/src/energy.ts";
 import { poissonIntervalSeconds } from "../../game-core/src/index.ts";
 import { compareOrdinals, type Ordinal } from "../src/index.ts";
 import { apply, type Move, type Rule, type Space } from "./rule-difficulty-lib.ts";
@@ -80,10 +80,17 @@ export interface Econ {
   readonly scoring: "final" | "integral";
   /** World seconds before a policy that uses the other gods' rules knows them (it plays greedy until then). */
   readonly learnSeconds: number;
+  /**
+   * An agent is offered at most this many opportunities per world second (develop until #283: 4). Undefined: no cap,
+   * as on develop since the selection rules of 11 Nov 2026 (docs/energy-model.md §7).
+   */
+  readonly agentCapHz?: number;
+  /** Every offer is itself a read of which live object the agent was given (game-core offerReadBits, §7.1). */
+  readonly offerReads: boolean;
   /** One-cell writes a searching agent tries per act (a random sample; ≥ every move = exhaustive). */
   readonly candidates: number;
 }
-export const DEVELOP_ECON = { kappa: CHANGE_READ_RATIO, agentsPerGod: 1, distancePricing: false, erasure: 0, erasureNoiseBits: 0, aggregate: "sum", peerNoiseBits: 8, scoring: "final", learnSeconds: 0, candidates: 24 } as const;
+export const DEVELOP_ECON = { kappa: CHANGE_READ_RATIO, agentsPerGod: 1, distancePricing: false, erasure: 0, erasureNoiseBits: 0, aggregate: "sum", peerNoiseBits: 8, scoring: "final", learnSeconds: 0, candidates: 24, offerReads: true } as const;
 
 /** The work W (bits) of one write and its erasure surcharge; the charge is changeCost(W). */
 export function writeWork(sp: Space, econ: Pick<Econ, "distancePricing" | "erasure">, from: number, to: number, salienceBefore: number, salienceAfter: number): number {
@@ -297,12 +304,13 @@ export function playGame(rules: readonly Rule[], policies: readonly Policy[], sp
     if (!objects.length) continue;
     const o = objects[Math.min(objects.length - 1, Math.floor(u() * objects.length))];
     for (const a of agents) settle(a, t);
-    const agent = pickByEnergy(agents.filter(a => a.account.balance > 0 && offerable(a.last, t, MAX_AGENT_OPPORTUNITY_HZ)), a => a.account.balance, u);
+    const gap = econ.agentCapHz ? 1 / econ.agentCapHz - 1e-9 : 0;
+    const agent = pickByEnergy(agents.filter(a => a.account.balance > 0 && (a.last === undefined || t - a.last >= gap)), a => a.account.balance, u);
     if (!agent) { (r as { idle: number }).idle++; continue; }
     agent.last = t;
     const g = agent.god;
     const d = decide(policies[g], { god: g, object: o, rules, sp, econ, tuning, informed: t >= econ.learnSeconds, remaining: T - t, rng: seed });
-    const read = d.readBits / econ.kappa;
+    const read = (d.readBits + (econ.offerReads ? offerReadBits(objects.length) : 0)) / econ.kappa;
     r.acts[g]++; r.readSpent[g] += read;
     if (!d.move || !d.after || taken.has(keyOf(d.after.grid))) {
       // A skip, or a collision with another object's value: reads only.
