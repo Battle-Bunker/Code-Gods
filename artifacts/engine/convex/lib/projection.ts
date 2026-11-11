@@ -284,7 +284,7 @@ export function replayEvent(ev: Ev) {
     };
     case "fail": return {
       type: "agent.failed" as const, objectId: ev.objectId, worldSeconds: ev.world, agentId: ev.agentId, ownerId: ev.ownerId, reason: ev.reason, cost: actCost(ev.cost),
-      ...(ev.seed ? { seed: ev.seed } : {}),
+      ...(ev.seed ? { seed: ev.seed } : {}), ...(ev.error ? { error: true as const } : {}),
     };
     case "skip": return {
       type: "agent.skipped" as const, objectId: ev.objectId, worldSeconds: ev.world, agentId: ev.agentId, ownerId: ev.ownerId, cost: actCost(ev.cost),

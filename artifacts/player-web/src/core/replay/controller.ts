@@ -8,8 +8,8 @@
  */
 import { useSyncExternalStore } from "react";
 import {
-  cursorAtWorld, keyMoments, replayEvents, replayMyUtility, replayObservation, replayTrajectories, scoreSeries, stateAt,
-  type KeyMoment, type Replay, type ReplayState,
+  agentSeries, cursorAtWorld, keyMoments, replayEvents, replayMyUtility, replayObservation, replayTrajectories, scoreSeries, stateAt,
+  type AgentSample, type KeyMoment, type Replay, type ReplayState,
 } from "@workspace/player-client/replay";
 import {
   OBJECT_FILTERS, OBJECT_PAGE_MAX, OBJECT_SORTS, matchesFilter, pageObjects, sortKey, type ObjectCursor, type ObjectFilter, type ObjectSort,
@@ -24,6 +24,8 @@ export type Changed = { version: number; after: number | string; before?: number
 const CHANGE_MS = 1200;
 /** While playing, SDK answers move at most this often (each answer re-renders every panel). */
 const ANSWER_MS = 125;
+/** dock.agentSeries' page size (engine dock.ts SERIES_PAGE). */
+const AGENT_SERIES_PAGE = 90;
 /**
  * `world`: the playhead, a continuous world time (the clock and the scrub thumb); `cursor`: the events applied, exactly
  * those at or before it (stepping lands `world` on an event's time). `scrubbing`: a drag of the track is in progress.
@@ -194,12 +196,14 @@ export class ReplayController {
         ? replayReadModel(name, replayObservation(this.replay, at, p.state).objects, p.state.world, args)
       : name === "player.myUtility" ? replayMyUtility(this.replay, p.pov)
       : name.startsWith("dock.") || name === "games.standings" || name === "games.standingsHistory" || name === "rooms.chat"
-        ? replayDock(name, this.observationAt(at, p.state), this.series, p.cursor, this.replay.game.roster, args)
+        ? replayDock(name, this.observationAt(at, p.state), this.series, p.cursor, this.replay.game.roster, args, (this.agentSamples ??= agentSeries(this.replay))[p.pov] ?? [])
       : undefined;
     this.answers.set(key, value);
     return value;
   }
   refusal = "This is a replay of an ended game: nothing can be done in it. Go back to the room to play.";
+  /** Every god's agents' energy series (agentSeries), built on the first dock.agentSeries question. */
+  private agentSamples?: AgentSample[][];
   /** The observation at the playhead, built once per published state: the dock's several queries all read it. */
   private observed?: { state: ReplayState; pov: number; value: ReturnType<typeof replayObservation> };
   private observationAt(at: Parameters<typeof replayObservation>[1], state: ReplayState) {
@@ -268,15 +272,19 @@ type ReplayObservation = ReturnType<typeof replayObservation>;
  * replay's observation: the same shapes the engine returns, so every hook reads a replay as it reads a live game.
  */
 export function replayDock(name: QueryName, o: ReplayObservation, series: ReturnType<typeof scoreSeries>, cursor: number,
-  roster: readonly { id: string; name: string; kind: string }[], args: Record<string, unknown>): unknown {
+  roster: readonly { id: string; name: string; kind: string }[], args: Record<string, unknown>, agentSamples: readonly AgentSample[] = []): unknown {
   if (name === "dock.state") {
     const { objects: _o, agents: _a, transformations: _t, chat: _c, leaderboard: _l, leaderboardWorldSeconds: _w, ...rest } = o as ReplayObservation & { leaderboardWorldSeconds?: number };
     return { ...rest, roster: roster.map(m => m.id) };
   }
   if (name === "dock.agents") return o.agents;
   if (name === "dock.transformations") return o.transformations.slice(-90);
-  // The replay keeps no energy samples; the agents panel shows the energy at the playhead.
-  if (name === "dock.agentSeries") return { rows: [], more: false };
+  // The point of view's agents' energy at each scoreboard interval up to the playhead, paged by world time as the engine pages it.
+  if (name === "dock.agentSeries") {
+    const now = o.economy?.worldSeconds ?? 0, after = typeof args.after === "number" ? args.after : -Infinity;
+    const rows = agentSamples.filter(r => r.world > after && r.world <= now);
+    return { rows: rows.slice(0, AGENT_SERIES_PAGE), more: rows.length > AGENT_SERIES_PAGE };
+  }
   if (name === "games.standings") {
     const ranked = [...o.leaderboard].sort((x, y) => y.totalPayoff - x.totalPayoff);
     return {

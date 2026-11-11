@@ -10,6 +10,9 @@ are all different colours."* Two failures:
    The program was right (it asks for `PERFECT = min(4, C)` = 3 colours), the sentence was not. The summary and the card
    were written separately and drifted apart, and nothing checked that a sentence fits the shape it is dealt on.
 
+How hard a rule is to *write an algorithm for* and to *combine with other rules* (beyond how hard it is to read) is
+measured by the rule-difficulty framework: [rule-difficulty.md](rule-difficulty.md).
+
 This document sets the principles for rule text, the machinery that renders it for each shape, the declarations that
 say what a rule needs from a shape, the one checker that uses them, and the audit of every family.
 

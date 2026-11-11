@@ -19,7 +19,8 @@
  *
  * Pure: no React, no Convex; browser-safe.
  */
-import { CHANGE_READ_RATIO, MAX_AGENT_OPPORTUNITY_HZ, agentIncome, allowedLanguages, chargeAct, deityIncome, instantiationOf, roundShare, settleAgentEnergy, type AgentAccount, type GameSettings } from "@workspace/game-core";
+import { NO_FAILURES, diagnoseAgent, failureKind, type FailureKind } from "@workspace/engine/convex/lib/futility.ts";
+import { CHANGE_READ_RATIO, DEFAULT_SCORE_INTERVAL_SECONDS, MAX_AGENT_OPPORTUNITY_HZ, agentIncome, allowedLanguages, chargeAct, deityIncome, instantiationOf, roundShare, settleAgentEnergy, type AgentAccount, type GameSettings } from "@workspace/game-core";
 
 /** The replay API version this reducer reads (player.replay's `version`). */
 export const REPLAY_VERSION = 2;
@@ -41,7 +42,8 @@ export type ReplayEvent =
   // agentId/ownerId are always present in an ended game's replay; a client folding other (live, unattributed) pages may lack them.
   | { type: "object.transformed"; objectId: string; before: Wire; value: Wire; version: number; worldSeconds: number; agentId?: string; ownerId?: string;
     calls: unknown; cost: Charge; net: number[]; seed?: string }
-  | { type: "agent.failed"; objectId: string; agentId: string; ownerId: string; worldSeconds: number; reason: string; cost: Charge; seed?: string }
+  /** `error`: the agent's code raised or ran out of time (log schema 9); before it, an error and an invalid call read alike. */
+  | { type: "agent.failed"; objectId: string; agentId: string; ownerId: string; worldSeconds: number; reason: string; error?: boolean; cost: Charge; seed?: string }
   /** An act that returned no calls: it paid its reads; not a failure. */
   | { type: "agent.skipped"; objectId: string; agentId: string; ownerId: string; worldSeconds: number; cost: Charge; seed?: string }
   | { type: "agent.summoned"; agentId: string; ownerId: string; worldSeconds: number; language: string; source: string; name?: string; description?: string; summonCost: number;
@@ -81,6 +83,11 @@ export type ReplayAgent = {
   /** From the summon (absent for an agent whose summon predates schema 2). */
   name?: string; description?: string; language?: string; source?: string; summonCost?: number; expectedActCost?: number; breakdown?: Breakdown; randomized?: boolean;
   acts: number; transforms: number; failures: number; skips: number; spent: number; account?: AgentAccount;
+  /** Of `spent`: what its acts paid for reading (cost.read; 0 for a log before the {read, change, total} cost, schema 5). */
+  spentRead: number;
+  /** Its failures by kind (as the engine counts agents.failures), the last invalid call and error, and whether a failure's
+   * kind was a guess: an unmarked reason the rules do not name is an invalid call from schema 9 on, either before it. */
+  failureKinds: Record<FailureKind, number>; lastFailures: { invalid?: string; error?: string }; unmarked: boolean;
   /** Its share of its owner's power now (0 for an agent logged before the power budget). */
   share: number;
 };
@@ -135,10 +142,12 @@ const emptyState = (gods: number, startingEnergy: number): ReplayState => ({
   deities: Array.from({ length: gods }, () => ({ balance: startingEnergy, world: 0, allocated: 0 })),
 });
 const cloneState = (s: ReplayState): ReplayState => ({
-  ...s, objects: new Map([...s.objects].map(([k, o]) => [k, { ...o }])), agents: new Map([...s.agents].map(([k, a]) => [k, { ...a }])),
+  ...s, objects: new Map([...s.objects].map(([k, o]) => [k, { ...o }])), agents: new Map([...s.agents].map(([k, a]) => [k, { ...a, failureKinds: { ...a.failureKinds }, lastFailures: { ...a.lastFailures } }])),
   spent: [...s.spent], totals: [...s.totals], deities: s.deities.map(d => ({ ...d })),
 });
 
+/** An agent's counters before its first act. */
+const noActs = () => ({ acts: 0, transforms: 0, failures: 0, skips: 0, spent: 0, spentRead: 0, failureKinds: { ...NO_FAILURES }, lastFailures: {}, unmarked: false });
 /** The power a game gives each god, bits per world second (0 for settings that carry none). */
 const powerOf = (settings: GameSettings): number => settings.powerPerSecond ?? 0;
 
@@ -175,11 +184,11 @@ export function applyEntry(state: ReplayState, entry: LogEntry, settings: GameSe
   const agentOf = (agentId: string, ownerId: string) => {
     // A log from before summons were recorded (schema 1) still shows every agent, from its acts, without its record.
     let agent = state.agents.get(agentId);
-    if (!agent) state.agents.set(agentId, agent = { id: agentId, ownerId, alive: true, summonedAt: entry.world, acts: 0, transforms: 0, failures: 0, skips: 0, spent: 0, share: 0 });
+    if (!agent) state.agents.set(agentId, agent = { id: agentId, ownerId, alive: true, summonedAt: entry.world, ...noActs(), share: 0 });
     return agent;
   };
   const charge = (agent: ReplayAgent, cost: Charge, outcome: "transform" | "failure" | "skip") => {
-    agent.acts++; agent.spent += cost.total;
+    agent.acts++; agent.spent += cost.total; agent.spentRead += cost.read;
     if (outcome === "transform") agent.transforms++; else if (outcome === "skip") agent.skips++; else agent.failures++;
     if (agent.account) agent.account = chargeAct(settleAccount(settings, agent.account, entry.world, agent.share), cost.total);
   };
@@ -200,11 +209,20 @@ export function applyEntry(state: ReplayState, entry: LogEntry, settings: GameSe
       if (ev.agentId) charge(agentOf(ev.agentId, ev.ownerId ?? ""), ev.cost, "transform");
       break;
     }
-    case "agent.failed": charge(agentOf(ev.agentId, ev.ownerId), ev.cost, "failure"); break;
+    case "agent.failed": {
+      const agent = agentOf(ev.agentId, ev.ownerId);
+      charge(agent, ev.cost, "failure");
+      // As the tick counts it (engine/tick.ts): a runtime error, else the kind the reason names.
+      const kind: FailureKind = ev.error ? "error" : failureKind(ev.reason);
+      agent.failureKinds[kind]++;
+      if (kind === "invalid" || kind === "error") agent.lastFailures[kind] = ev.reason.slice(0, 300);
+      if (kind === "invalid") agent.unmarked = true;
+      break;
+    }
     case "agent.skipped": charge(agentOf(ev.agentId, ev.ownerId), ev.cost, "skip"); break;
     case "agent.summoned": {
       state.agents.set(ev.agentId, {
-        id: ev.agentId, ownerId: ev.ownerId, alive: true, summonedAt: entry.world, acts: 0, transforms: 0, failures: 0, skips: 0, spent: 0,
+        id: ev.agentId, ownerId: ev.ownerId, alive: true, summonedAt: entry.world, ...noActs(),
         name: ev.name, description: ev.description, language: ev.language, source: ev.source, summonCost: ev.summonCost, expectedActCost: ev.expectedActCost, account: ev.account,
         breakdown: ev.breakdown, randomized: ev.randomized, share: ev.powerShare ?? 0,
       });
@@ -329,6 +347,35 @@ export function scoreSeries(replay: Replay, maxPoints = 2000) {
   return { cursor, world, totals };
 }
 
+/** One sample of a god's agents' energy, as dock.agentSeries serves a row. */
+export type AgentSample = { world: number; agents: { id: string; energy: number }[] };
+/**
+ * Every god's agents' energy over the game (roster order), as the tick writes it live (engine game/agentSeries.ts): a row
+ * per god with agents at each scoreboard publication, every scoreIntervalSeconds of world time, each agent's account
+ * settled to that time. The log does not mark the publications, so the replay samples at the multiples of the
+ * interval (live, the commit that crosses one, a fraction of a second later). An agent from a log without accounts
+ * (schema 1) has no energy to sample.
+ */
+export function agentSeries(replay: Replay): AgentSample[][] {
+  const { settings, roster } = replay.game;
+  const out: AgentSample[][] = roster.map(() => []);
+  const interval = settings.scoreIntervalSeconds ?? DEFAULT_SCORE_INTERVAL_SECONDS;
+  if (!(interval > 0)) return out;
+  const state = emptyState(roster.length, settings.startingEnergy);
+  const sample = (world: number) => roster.forEach((g, i) => {
+    const agents = [...state.agents.values()].filter(a => a.alive && a.ownerId === g.id && a.account)
+      .map(a => ({ id: a.id, energy: settleAccount(settings, a.account!, world, a.share).balance }));
+    if (agents.length) out[i].push({ world, agents });
+  });
+  let k = 1;
+  for (const entry of replay.log) {
+    for (; entry.world > k * interval; k++) sample(k * interval);
+    applyEntry(state, entry, settings, replay.roster);
+  }
+  for (; k * interval <= replay.endWorld; k++) sample(k * interval);
+  return out;
+}
+
 /** A moment worth jumping to; `cursor` is the events applied once it has happened. */
 export type KeyMoment = {
   cursor: number; world: number;
@@ -390,6 +437,10 @@ export function replayObservation(replay: Replay, at: ReplayAt, state: ReplaySta
   const { game } = replay, settings = game.settings, god = game.roster[at.pov], dealt = replay.gods.find(g => g.index === at.pov);
   const languages = allowedLanguages(settings) as string[];
   const view = (net: readonly number[]) => viewOf(net, at.pov);
+  // As live (engine projection agentView), what the log can tell: the spend's reading part from schema 5 (before it an
+  // act's cost had no read part, so only the total is shown), and how acts ended, unless an unmarked failure before
+  // schema 9 could be an invalid call or a runtime error (then nothing rather than a guess).
+  const schema = game.logSchema ?? 1, splitCost = schema >= 5, kindsMarked = schema >= 9;
   // The point of view's last 500 transformations, read back from the playhead.
   const transformations: { id: string; agentId: string; before: Wire; after: Wire; calls?: unknown; cost?: number }[] = [];
   for (let i = Math.min(at.cursor, replay.log.length) - 1; i >= 0 && transformations.length < 500; i--) {
@@ -430,12 +481,22 @@ export function replayObservation(replay: Replay, at: ReplayAt, state: ReplaySta
         source: a.source ?? "", language: a.language ?? languages[0], summonCost: a.summonCost ?? 0,
         expectedActCost: a.expectedActCost ?? 0, breakdown: a.breakdown ?? { read: 0, change: 0 }, randomized: a.randomized ?? false,
         energy: account?.balance ?? 0, eligible: (account?.balance ?? 0) > 0, acts: a.acts, spent: a.spent, skips: a.skips, powerShare: a.share, income: agentIncome(powerOf(settings), a.share),
+        ...(a.acts > 0 && splitCost ? { spentRead: a.spentRead } : {}),
+        ...(a.acts > 0 && (kindsMarked || !a.unmarked) ? outcomesOf(a) : {}),
       };
     }),
     transformations,
     leaderboard: ranked,
     chat: replay.chat.filter(m => m.world <= state.world).slice(-100).map(m => ({ id: m.id, godId: m.authorId, label: m.authorName, isAI: m.kind === "ai", text: m.text })),
   };
+}
+
+/** An agent's outcomes and diagnosis as the engine's projection gives them (lib/projection.ts agentOutcomes). */
+function outcomesOf(a: ReplayAgent) {
+  const lastFailures = { ...(a.lastFailures.invalid !== undefined ? { invalid: a.lastFailures.invalid } : {}), ...(a.lastFailures.error !== undefined ? { error: a.lastFailures.error } : {}) };
+  const outcomes = { transforms: a.transforms, failures: { ...a.failureKinds }, ...(Object.keys(lastFailures).length ? { lastFailures } : {}) };
+  const diagnosis = diagnoseAgent(outcomes);
+  return { outcomes, ...(diagnosis ? { diagnosis } : {}) };
 }
 
 /** One logged event as player.events projects it, for god `pov`, transparently (calls and costs for every act). */
@@ -450,7 +511,7 @@ function projected(ev: ReplayEvent, seq: number, pov: number, roster: Replay["ga
       type: "object.transformed" as const, seq, objectId: ev.objectId, value: ev.value, before: ev.before, version: ev.version, worldSeconds: ev.worldSeconds,
       agentId: ev.agentId ?? "", mine, calls: ev.calls, cost: ev.cost, ...scored(ev.net),
     };
-    case "agent.failed": return { type: "agent.failed" as const, seq, objectId: ev.objectId, agentId: ev.agentId, worldSeconds: ev.worldSeconds, reason: ev.reason, cost: ev.cost };
+    case "agent.failed": return { type: "agent.failed" as const, seq, objectId: ev.objectId, agentId: ev.agentId, worldSeconds: ev.worldSeconds, reason: ev.reason, ...(ev.error ? { error: true } : {}), cost: ev.cost };
     case "agent.skipped": return { type: "agent.skipped" as const, seq, objectId: ev.objectId, agentId: ev.agentId, worldSeconds: ev.worldSeconds, cost: ev.cost };
     case "agent.summoned": return {
       type: "agent.summoned" as const, seq, agentId: ev.agentId, mine, worldSeconds: ev.worldSeconds, language: ev.language, source: ev.source, summonCost: ev.summonCost,

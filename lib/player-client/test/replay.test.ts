@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 import type { GameSettings } from "@workspace/game-core";
 import { observationSchema } from "../src/protocol.ts";
 import { CHANGE_READ_RATIO } from "@workspace/game-core";
-import { KEYFRAME_EVERY, REPLAY_VERSION, buildReplay, cursorAtWorld, godEnergyAt, keyMoments, replayEvents, replayMyUtility, replayObservation, replayTrajectories, scoreSeries, stateAt, viewOf, type ReplayBatch, type ReplayPage } from "../src/replay.ts";
+import { KEYFRAME_EVERY, REPLAY_VERSION, agentSeries, buildReplay, cursorAtWorld, godEnergyAt, keyMoments, replayEvents, replayMyUtility, replayObservation, replayTrajectories, scoreSeries, stateAt, viewOf, type ReplayBatch, type ReplayEvent, type ReplayPage } from "../src/replay.ts";
 
 const settings = { powerPerSecond: 4, startingEnergy: 100 } as unknown as GameSettings;
 const charge = (total: number) => ({ read: total, change: 0, total });
@@ -316,4 +316,60 @@ test("the event window is the last `limit` batches up to the playhead (at most 5
   assert.deepEqual(w.objects.map(o => o.objectId), ["a", "b", "c"], "seq 0..2");
   assert.deepEqual([w.nextCursor, w.latestCursor], [2, 2]);
   assert.deepEqual(replayTrajectories(replay, at(5), 2, 4).objects, [], "no batch in 3..4");
+});
+
+test("My agents at a playhead: the spend split into reading and changing, and how the acts ended, up to the playhead, as live", () => {
+  const room = { roomId: "r", roomShortCode: "R" };
+  const cost = (read: number, change: number) => ({ read, change, total: read + change });
+  const events: ReplayEvent[] = [
+    { type: "phase", phase: "running", worldSeconds: 0 }, summon("a1", "me", 30, 0.5),
+    { type: "object.spawned", objectId: "o1", value: 1, version: 0, worldSeconds: 0, net: [1, 0] },
+    // Act 1: a transform reading 2 and changing 6. Act 2: a skip reading 1.5. Act 3: a failure reading 0.5 and changing 4.
+    { type: "object.transformed", objectId: "o1", value: 2, before: 1, version: 1, worldSeconds: 5, agentId: "a1", ownerId: "me", calls: [], cost: cost(2, 6), net: [2, 0] },
+    { type: "agent.skipped", objectId: "o1", agentId: "a1", ownerId: "me", worldSeconds: 6, cost: cost(1.5, 0) },
+    { type: "agent.failed", objectId: "o1", agentId: "a1", ownerId: "me", worldSeconds: 7, reason: "another object already has this value", cost: cost(0.5, 4) },
+    { type: "agent.failed", objectId: "o1", agentId: "a1", ownerId: "me", worldSeconds: 8, reason: "TypeError: x is undefined", error: true, cost: cost(1, 0) },
+  ];
+  const at = (logSchema: number, cursor: number) => {
+    // The runtime error's mark exists from event-log schema 9 on.
+    const logged = logSchema >= 9 ? events : events.map(e => (e.type === "agent.failed" ? { ...e, error: undefined } : e));
+    const p = page([{ seq: 0, at: T0, worldFrom: 0, worldTo: 10, events: logged }]);
+    const replay = buildReplay([{ ...p, game: { ...p.game, logSchema } }]);
+    const obs = replayObservation(replay, { room, cursor, pov: 0 });
+    return obs.agents.find(a => a.id === "a1")!;
+  };
+  // Before its first act, as live (spentRead is written by the first act): no split, no outcomes yet.
+  const before = at(9, 3);
+  assert.deepEqual([before.acts, before.spent, before.spentRead, before.diagnosis], [0, 0, undefined, undefined]);
+  // After acts 1 and 2: 3.5 read of 9.5 spent.
+  const mid = at(9, 5);
+  assert.deepEqual([mid.acts, mid.spent, mid.spentRead, mid.skips], [2, 9.5, 3.5, 1]);
+  assert.equal(mid.diagnosis, undefined, "no failure yet");
+  // At the end: 5 read of 15 spent; one collision and one runtime error of three counted acts (skips are not counted).
+  const end = at(9, events.length);
+  assert.deepEqual([end.acts, end.spent, end.spentRead], [4, 15, 5]);
+  assert.deepEqual(end.outcomes, { transforms: 1, failures: { collision: 1, noChange: 0, commit: 0, invalid: 0, error: 1 }, lastFailures: { error: "TypeError: x is undefined" } });
+  assert.match(end.diagnosis!.summary, /^2 of 3 acts failed: another object already has this value ×1, its code raised or ran out of time ×1$/);
+  assert.match(end.diagnosis!.hint!, /only one object can hold a value/, "most acts failed: the fix for the first of the tied kinds");
+  // A log from before the {read, change, total} cost (schema ≤ 4): the total only, never a made-up split.
+  assert.deepEqual([at(4, events.length).spent, at(4, events.length).spentRead], [15, undefined]);
+  // A log from before runtime errors were marked (schema ≤ 8): an unmarked reason may be either an invalid call or an
+  // error, so the outcomes and diagnosis are left out rather than guessed; a log whose failures are all rule failures keeps them.
+  assert.deepEqual([at(8, events.length).outcomes, at(8, events.length).diagnosis], [undefined, undefined]);
+  assert.equal(at(8, events.length - 1).diagnosis!.summary, "1 of 2 acts failed: another object already has this value");
+});
+
+test("My agents' energy series: each agent's energy at every scoreboard interval of world time, as the tick samples it live", () => {
+  const replay = buildReplay([page([{ seq: 0, at: T0, worldFrom: 0, worldTo: 30, events: [
+    { type: "phase", phase: "running", worldSeconds: 0 },
+    summon("a1", "me", 30, 0.25),                     // a1 earns 1/s from 0
+    summon("b1", "you", 30, 0.5),                     // b1 earns 2/s
+    { type: "agent.skipped", objectId: "o1", agentId: "a1", ownerId: "me", worldSeconds: 15, cost: { read: 4, change: 0, total: 4 } },
+    { type: "agent.destroyed", agentId: "a1", ownerId: "me", worldSeconds: 25 },
+    { type: "phase", phase: "ended", worldSeconds: 30 },
+  ] }], { game: { ...page([]).game, settings: { ...settings, scoreIntervalSeconds: 10 } as unknown as GameSettings } })]);
+  const series = agentSeries(replay);
+  // Mine: 10 s → 10; 20 s → 20 − 4 = 16; at 30 s a1 is gone, so no row (live writes rows only for a god with agents).
+  assert.deepEqual(series[0], [{ world: 10, agents: [{ id: "a1", energy: 10 }] }, { world: 20, agents: [{ id: "a1", energy: 16 }] }]);
+  assert.deepEqual(series[1].map(r => [r.world, r.agents[0].energy]), [[10, 20], [20, 40], [30, 60]], "each god's own agents");
 });
