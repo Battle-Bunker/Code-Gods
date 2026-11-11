@@ -210,7 +210,7 @@ export function GoalBoard({ goal, value, grid, caption, changed, selected: chose
   const tuple = rich && ord ? ord : scoreArr;
   const total: ReactNode = tuple
     ? <>This board: <b>{tupleText(tuple)}</b> <Term id="points-tuple">points</Term>
-      {rich && explanation && <span className="text-muted-foreground"> — {explanation.components.map((name, k) => `${explanation.components.length > 1 ? `${tierName(k)}: ` : ""}${name}, ${minusText(tuple[k])}`).join(" · ")}</span>}</>
+      {rich && explanation && !(explanation.components.length === 1 && explanation.components[0] === "points") && <span className="text-muted-foreground"> — {explanation.components.map((name, k) => `${explanation.components.length > 1 ? `${tierName(k)}: ` : ""}${name}, ${minusText(tuple[k])}`).join(" · ")}</span>}</>
     : null;
   const tone = selected ? toneOf(selected.points) : "zero";
 
