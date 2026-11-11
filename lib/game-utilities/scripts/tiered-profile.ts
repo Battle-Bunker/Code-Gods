@@ -11,7 +11,8 @@
  *   --families a,b        only these families
  *   --interactions a,b    profile only these interactions (to split a long run over processes)
  *   --check               every dealt and Lab value's shipped table against the reference law at the base's top
- *   --top-sample N        boards of a sampled reference (Kings and Subjects; default 2,000,000; 0: none)
+ *   --values "a;b"        with --check: only these values, e.g. "sameRoads(y=2);sameRoads(y=3)"
+ *   --top-sample N       boards of a sampled reference (Kings and Subjects; default 2,000,000; 0: none)
  *   --build-time          one fresh build per family: the base and the first dealt value of each interaction
  *   --compare-value V     with --compare: only this value, e.g. "lines(x=18)"
  *   --compose gated|plain|unlock|uncapped   which tiered draws to profile (default gated)
@@ -538,6 +539,7 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
   if (flag("check")) for (const f of fams) {
     const dealt = draws(f, "gated", 1), all = [...dealt, ...draws(f, "uncapped", 1).filter(p => !dealt.some(d => key(d) === key(p)))];
     for (const p of all) {
+      if (opt("values") && !opt("values")!.split(";").includes(label(p))) continue;
       const baseShape = f.shape(ctx, baseParams(p)), baseArity = baseShape.kind === "tuple" ? baseShape.arity : 1;
       const shipped = tableFor(shippedTables(inst.key), { familyId: f.id, params: p }, inst);
       const baseTable = tableFor(shippedTables(inst.key), { familyId: f.id, params: f.canonical(baseParams(p), ctx) }, inst);
