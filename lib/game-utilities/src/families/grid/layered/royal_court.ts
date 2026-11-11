@@ -84,9 +84,12 @@ const courtText = (p: CourtP, g: GridSpec): CardText => {
  */
 const COURT_DEALT: readonly TierValue[] = [
   ...[1, 2, 3, 4, 5].map(x => ({ id: "pairs", x })),
-  ...[2, 3, 4].map(y => ({ id: "sameRoads", y })),
+  { id: "sameRoads", y: 4 },
 ];
-const COURT_LAB: readonly TierValue[] = [{ id: "paths", x: 17 }, { id: "paths", x: 20 }, { id: "pairs", x: 13 }];
+// Roads of 2 and 3 are Lab: at the shipped budget their best tier is rarer than first measured (about 21 and 24 to 26
+// bits over the base, at or above the cap; docs/layered-rules-measurements/kings-and-subjects.md).
+const COURT_LAB: readonly TierValue[] = [{ id: "paths", x: 17 }, { id: "paths", x: 20 }, { id: "pairs", x: 13 },
+  { id: "sameRoads", y: 2 }, { id: "sameRoads", y: 3 }];
 export const courtTiers: GridTiers<CourtP> = {
   interactions: COURT_INTERACTIONS,
   gate: g => (g.N / 2) ** 2,
