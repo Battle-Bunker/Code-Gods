@@ -18,7 +18,8 @@ import type { CalibrationTable } from "../src/calibration.ts";
 
 /** The seed setups' shapes (game-core SEED_SETUPS), measured 2026-11-11: the largest top-bits ratio and the largest prior-mean-bits gap allowed. */
 const LIMITS: Readonly<Record<string, { topRatio: number; meanGap: number }>> = {
-  "Grid(4,base10,rgb)": { topRatio: 21.59, meanGap: 1.39 }, // bridge_builder..conqueror (First steps, Annotated basics)
+  "Grid(4,base10,rgb)": { topRatio: 21.59, meanGap: 1.39 }, // bridge_builder..conqueror (First steps)
+  "Grid(4,base10,mono)": { topRatio: 11.42, meanGap: 1.38 }, // ladder_of_numbers..constellation (Annotated basics, numbers only)
   "Grid(5,base10,rgby)": { topRatio: 20.16, meanGap: 1.02 }, // bridge_builder..conqueror (Classic, Low income)
   "Grid(6,base16,rainbow6)": { topRatio: 24.81, meanGap: 1.17 }, // ladder_of_numbers..conqueror (Big board)
   "Grid(7,cards,rainbow6)": { topRatio: 28.67, meanGap: 1.27 }, // bridge_builder..lucky_token (Master)

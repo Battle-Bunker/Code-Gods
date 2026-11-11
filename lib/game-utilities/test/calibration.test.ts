@@ -399,7 +399,7 @@ test("every shape the type can instantiate is playable, shipped tables or not; o
   const { playableInstantiations, isPlayableInstantiation, firstUseSeconds, offeredInstantiations } = await import("../src/calibration.ts");
   const { instantiate } = await import("@workspace/game-types");
   const grid = playableInstantiations("Grid");
-  assert.equal(grid.length, 48, "sizes 4–7 × 4 symbol sets × 3 colour sets");
+  assert.equal(grid.length, 64, "sizes 4–7 × 4 symbol sets × 4 colour sets (mono included)");
   assert.equal(grid[0]!.key, instantiate("Grid", {}).key, "the type's default first");
   assert.ok(!grid.some(i => i.terms.size === 3), "3×3 stays retired");
   assert.equal(isPlayableInstantiation(instantiate("Grid", { size: 3, symbols: "base10", colours: "rgb" })), false);

@@ -3,7 +3,7 @@ import test from "node:test";
 import {
   DEFAULT_SETTINGS, SETTINGS_OPTIONS, MAX_AGENTS_PER_GOD, settingsOptionsFor, validateSettings, LANGUAGES, LANGUAGE_SPECS,
   grammarFor, complexityFor, allowedLanguages, upgradeLegacyLanguage,
-  upgradeStoredSettings, FIRST_STEPS_SEED_ID, ANNOTATED_BASICS_SEED_ID,
+  upgradeStoredSettings, FIRST_STEPS_SEED_ID, ANNOTATED_BASICS_SEED_ID, DEFAULT_SETUP_SEED_ID,
   instantiationOf, codecOf, assertObjectValue, defaultSettingsFor, SEED_SETUPS, SETUP_NAME_MAX, seedSetupSettings, ENERGY_LIMITS, type GameSettings,
 } from "../src/settings.ts";
 import { gameEndSeconds } from "../src/random.ts";
@@ -260,4 +260,12 @@ test("energy settings have upper bounds, so no allowed value overflows an accoun
     assert.throws(() => validateSettings(settings({ [key]: 1e308 })), new RegExp(key));
   }
   for (const seed of SEED_SETUPS) assert.doesNotThrow(() => validateSettings(seed.settings));
+});
+
+test("the default setup (Annotated basics) is the numbers-only 4×4 board; First steps keeps its colours", () => {
+  const s = seedSetupSettings(DEFAULT_SETUP_SEED_ID);
+  assert.equal(DEFAULT_SETUP_SEED_ID, ANNOTATED_BASICS_SEED_ID);
+  assert.deepEqual(s.typeArgs, { size: 4, symbols: "base10", colours: "mono" });
+  assert.doesNotThrow(() => validateSettings(s));
+  assert.deepEqual(seedSetupSettings(FIRST_STEPS_SEED_ID).typeArgs, { size: 4, symbols: "base10", colours: "rgb" });
 });

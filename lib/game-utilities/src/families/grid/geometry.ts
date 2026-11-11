@@ -29,7 +29,7 @@ function castleText(p: CastleP, _g: GridSpec): CardText {
 }
 const castleKeeper = gridFamily<CastleP>({
   id: "castle_keeper", name: "Castle Keeper", emoji: "🏯", theme: "Walls that keep the water out",
-  requires: { minSize: 4 }, shape: tuple(2), tags: ["shortlist"],
+  requires: { minSize: 4, minColours: 2 }, shape: tuple(2), tags: ["shortlist"],
   params: () => ({ wall: colourParam("Wall colour") }),
   support: g => g.colourNames.map(wall => ({ wall })),
   sample: (rng, g) => ({ wall: g.colourNames[rng.int(g.C)] }),
@@ -99,6 +99,7 @@ const chessText = (p: ChessP): CardText => {
 };
 const chessmaster = gridFamily<ChessP>({
   id: "chessmaster", name: "Chessmaster", emoji: "♟️", theme: "Little chessboards in your two colours",
+  requires: { minColours: 2 },
   shape: tuple(2), tags: ["shortlist"],
   params: () => ({ colour_a: colourParam("First colour"), colour_b: colourParam("Second colour (not the first)") }),
   support: g => colourPairs(g).map(([A, B]) => ({ colour_a: g.colourNames[A], colour_b: g.colourNames[B] })),
@@ -154,6 +155,7 @@ const bridgeText = (p: BridgeP, g: GridSpec): CardText => {
 };
 const bridgeBuilder = gridFamily<BridgeP>({
   id: "bridge_builder", name: "Bridge Builder", emoji: "🌉", theme: "A path from one edge to the other",
+  requires: { minColours: 2 },
   shape: SCALAR, tags: ["shortlist"],
   params: () => ({
     colour: colourParam("Bridge colour"),
@@ -392,6 +394,7 @@ const archText = (p: IslandsP, g: GridSpec): CardText => ({
 });
 const archipelago = gridFamily<IslandsP>({
   id: "archipelago", name: "Archipelago", emoji: "🗺️", theme: "As many separate islands as possible", shape: SCALAR,
+  requires: { minColours: 2 },
   params: () => ({ colour: colourParam("Island colour") }),
   support: g => g.colourNames.map(colour => ({ colour })),
   canonical: (p, g) => recolourNames(g, p, ["colour"]),
@@ -556,6 +559,7 @@ const bullText: CardText = {
 };
 const bullseye = gridFamily<Record<string, never>>({
   id: "bullseye", name: "Bullseye", emoji: "🎯", theme: "Rings like an archery target", shape: tuple(2),
+  requires: { minColours: 2 },
   params: () => ({}),
   support: () => [{}],
   summary: () => bullText.about,
@@ -615,6 +619,7 @@ const snakeText = (p: IslandsP, g: GridSpec): CardText => ({
 });
 const snakeCharmer = gridFamily<IslandsP>({
   id: "snake_charmer", name: "Snake Charmer", emoji: "🐍", theme: "The longest wiggly snake", shape: SCALAR,
+  requires: { minColours: 2 },
   params: () => ({ colour: colourParam("Snake colour") }),
   support: g => g.colourNames.map(colour => ({ colour })),
   canonical: (p, g) => recolourNames(g, p, ["colour"]),
@@ -825,6 +830,7 @@ const TET_TS = `${SAME_COLOUR_TS}
     }`;
 const tetrominoTamer = gridFamily<TetP>({
   id: "tetromino_tamer", name: "Tetromino Tamer", emoji: "🧱", theme: "Islands shaped like a Tetris square",
+  requires: { minColours: 2 },
   shape: tuple(2),
   params: () => ({ colour: colourParam("Island colour") }),
   support: g => g.colourNames.map(colour => ({ colour })),
@@ -1158,6 +1164,7 @@ const sandText = (p: ColourP, g: GridSpec): CardText => ({
 });
 const gravity = gridFamily<ColourP>({
   id: "gravity", name: "Falling Sand", emoji: "⏳", theme: "Your colour sinks to the bottom", shape: SCALAR,
+  requires: { minColours: 2 },
   analytic: solvedAnalytic("gravity"),
   params: () => ({ colour: colourParam("Sand colour") }),
   support: g => g.colourNames.map(colour => ({ colour })),
@@ -1194,7 +1201,7 @@ const cheeseText = (p: ColourP, g: GridSpec): CardText => ({
 });
 const swissCheese = gridFamily<ColourP>({
   id: "swiss_cheese", name: "Swiss Cheese", emoji: "🧀", theme: "As many holes as possible",
-  requires: { minSize: 4 }, shape: tuple(2),
+  requires: { minSize: 4, minColours: 2 }, shape: tuple(2),
   params: () => ({ colour: colourParam("Cheese colour") }),
   support: g => g.colourNames.map(colour => ({ colour })),
   canonical: (p, g) => recolourNames(g, p, ["colour"]),
@@ -1308,7 +1315,7 @@ const mapText = (p: ColourP, g: GridSpec): CardText => ({
 const treasureMap = gridFamily<ColourP>({
   id: "treasure_map", name: "Treasure Map", emoji: "🗝️", theme: "Big numbers of your colour near the middle",
   analytic: solvedAnalytic("treasure_map"),
-  requires: { classes: ["Valued"] }, shape: SCALAR,
+  requires: { classes: ["Valued"], minColours: 2 }, shape: SCALAR,
   params: () => ({ colour: colourParam("Treasure colour") }),
   support: g => g.colourNames.map(colour => ({ colour })),
   canonical: (p, g) => recolourNames(g, p, ["colour"]),
@@ -1354,6 +1361,7 @@ const mirrorText = (p: GlassP, _g: GridSpec): CardText => ({
 });
 const mirrorQuilt = gridFamily<GlassP>({
   id: "mirror_quilt", name: "Mirror Quilt", emoji: "🪞", theme: "Every cell matches its mirror twin in colour", shape: SCALAR,
+  requires: { minColours: 2 },
   params: () => ({ axis: choiceParam("Fold the grid", [["V", "left onto right"], ["H", "top onto bottom"]]) }),
   support: () => [{ axis: "V" }, { axis: "H" }],
   canonical: () => ({ axis: "V" }),
@@ -1403,6 +1411,7 @@ const colourPinText = (_p: PinP, g: GridSpec): CardText => ({
 });
 const colourPinwheel = gridFamily<PinP>({
   id: "colour_pinwheel", name: "Colour Pinwheel", emoji: "🌀", theme: "The same colour all the way round a quarter turn", shape: tuple(2),
+  requires: { minColours: 2 },
   params: () => ({}),
   support: () => [{}],
   summary: (p, g) => colourPinText(p, g).about,
@@ -1466,7 +1475,7 @@ function pieceTamer(piece: "I" | "T" | "L" | "S", id: string, name: string, them
       + `(${PIECE_LOOK[piece]}, turned or flipped is fine) scores 1 primary point. Each island of exactly 4 cells, of any shape, scores 1 secondary point.`,
   });
   return gridFamily<TetP>({
-    id, name, emoji: "🧱", theme, shape: tuple(2), ...(minSize ? { requires: { minSize } } : {}),
+    id, name, emoji: "🧱", theme, shape: tuple(2), requires: { minColours: 2, ...(minSize ? { minSize } : {}) },
     params: () => ({ colour: colourParam("Island colour") }),
     support: g => g.colourNames.map(colour => ({ colour })),
     sample: (rng, g) => ({ colour: g.colourNames[rng.int(g.C)] }),
@@ -1528,7 +1537,7 @@ const treasureText = (p: TreasureP, _g: GridSpec): CardText => ({
 });
 const treasureCastle = gridFamily<TreasureP>({
   id: "treasure_castle", name: "Treasure Castle", emoji: "💎", theme: "Walls that keep your treasure dry",
-  requires: { minSize: 4 }, shape: tuple(2),
+  requires: { minSize: 4, minColours: 2 }, shape: tuple(2),
   params: () => ({ wall: colourParam("Wall colour"), treasure: colourParam("Treasure colour (not the wall)") }),
   support: g => colourPairs(g).map(([W, T]) => ({ wall: g.colourNames[W], treasure: g.colourNames[T] })),
   sample: (rng, g) => { const [W, T] = pick(rng, colourPairs(g)); return { wall: g.colourNames[W], treasure: g.colourNames[T] }; },
@@ -1565,7 +1574,7 @@ const pocketsText = (p: CastleP, _g: GridSpec): CardText => ({
 });
 const castlePockets = gridFamily<CastleP>({
   id: "castle_pockets", name: "Castle Pockets", emoji: "👀", theme: "Walls that shut in separate pockets, like eyes in Go",
-  requires: { minSize: 4 }, shape: tuple(2),
+  requires: { minSize: 4, minColours: 2 }, shape: tuple(2),
   params: () => ({ wall: colourParam("Wall colour") }),
   support: g => g.colourNames.map(wall => ({ wall })),
   sample: (rng, g) => ({ wall: g.colourNames[rng.int(g.C)] }),
