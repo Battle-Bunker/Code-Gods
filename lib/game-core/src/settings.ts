@@ -6,10 +6,10 @@
  * game-core knows no object type itself: arguments, codecs and spawn priors all come from the
  * `@workspace/game-types` registry.
  */
-import { READ_PRICE, instantiate, objectType as objectTypeDef, readBound } from "@workspace/game-types";
-import type { Codec, Instantiation, ObjectValue, TypeArgs } from "@workspace/game-types";
+import { COST_MODELS, DEFAULT_COST_MODEL, READ_PRICE, instantiate, isCostModel, objectType as objectTypeDef, readBound } from "@workspace/game-types";
+import type { Codec, CostModel, Instantiation, ObjectValue, TypeArgs } from "@workspace/game-types";
 
-export type { ObjectValue, TypeArgs } from "@workspace/game-types";
+export type { CostModel, ObjectValue, TypeArgs } from "@workspace/game-types";
 
 /**
  * The agent languages, ONE entry each. A game allows a non-empty set of them (`GameSettings.languages`), and each
@@ -128,6 +128,28 @@ export interface GameSettings {
    * One of PEER_NOISE_OPTIONS. An ended game is exact.
    */
   peerNoiseBits: number;
+  /**
+   * How a change is priced (game-types structure/index.ts; docs/mutation-cost-design.md §11 stage 1): "set-v1" charges
+   * every changed cell the same; "distance-v1" charges a number by how far it moved and a colour for having changed.
+   * OPTIONAL: absent means "set-v1" (read it with `costModelOf`), so settings stored before cost models existed need no
+   * migration, and the settings model never stores the default (applySettingsChange). Only the models the object type
+   * supports (`supportedCostModels`: every model on Grid, "set-v1" alone elsewhere).
+   */
+  costModel?: CostModel;
+}
+
+/** The fields a settings object may leave out (each has a reader that supplies its default): not in DEFAULT_SETTINGS. */
+export const OPTIONAL_SETTINGS_FIELDS = Object.freeze(["costModel"] as const);
+
+/** The cost model these settings price changes with: `settings.costModel`, or "set-v1" when absent (or unknown). */
+export function costModelOf(settings: { readonly costModel?: unknown } | null | undefined): CostModel {
+  return isCostModel(settings?.costModel) ? settings.costModel : DEFAULT_COST_MODEL;
+}
+
+/** The cost models rooms of this instantiation may use, the default first ([] never: "set-v1" is always offered). */
+export function supportedCostModels(settings: Pick<GameSettings, "objectType" | "typeArgs">): CostModel[] {
+  const inst = instantiationOf(settings), typeDef = objectTypeDef(settings.objectType);
+  return COST_MODELS.filter(m => m === DEFAULT_COST_MODEL || typeDef.supportsCostModel?.(inst, m) === true);
 }
 
 export type DurationMode = "fixed" | "halfLife";
@@ -343,6 +365,12 @@ export function validateSettings(settings: GameSettings, domain?: FamilyDomain):
   if (settings.objectSelection !== "uniform" && settings.objectSelection !== "shelter") {
     throw new Error("objectSelection must be uniform or shelter");
   }
+  if (settings.costModel !== undefined) {
+    if (!isCostModel(settings.costModel)) throw new Error(`costModel must be one of ${COST_MODELS.join(", ")}`);
+    if (!supportedCostModels(settings).includes(settings.costModel)) {
+      throw new Error(`costModel ${settings.costModel} is not offered for ${instantiationOf(settings).key}`);
+    }
+  }
   if (!Number.isInteger(settings.scoreIntervalSeconds)) throw new Error("scoreIntervalSeconds must be a whole number of seconds");
   inRange("scoreIntervalSeconds", settings.scoreIntervalSeconds);
   if (!PEER_NOISE_OPTIONS.includes(settings.peerNoiseBits)) {
@@ -514,6 +542,7 @@ export const SEED_SETUPS: readonly SeedSetup[] = Object.freeze([
     "Grid", { size: 4, symbols: "base10", colours: "mono" }, {
       interactionRateHz: 25, durationMode: "fixed", halfLifeSeconds: 600, excludedFamilies: ANNOTATED_BASICS_EXCLUDED,
       startingObjectCount: 10, spawnRateHz: 0.1, planningSeconds: 300,
+      costModel: "distance-v1",
     }),
   seed("grid-classic", "Classic", "5×5 with four colours: the standard game",
     "Grid", { size: 5, symbols: "base10", colours: "rgby" }, {}),
@@ -569,7 +598,7 @@ export interface FieldDoc {
   readonly dependsOn?: readonly (keyof GameSettings)[];
 }
 
-/** Every GameSettings field, documented once; a field without docs (or a stale key) fails the typecheck. */
+/** Every GameSettings field (the optional ones too), documented once; a field without docs (or a stale key) fails the typecheck. */
 export const SETTINGS_DOCS = {
   objectType: {
     question: "What are the objects in the world?", section: "world", tier: "ask", control: "segmented", suggested: ["Grid", "Int", "string"],
@@ -647,6 +676,11 @@ export const SETTINGS_DOCS = {
     question: "How much power does each player have?", section: "energy", tier: "ask", control: "number", unit: "bits/s", suggested: [8, 16, 32, 64, 128],
     meaning: "Each player's fixed energy income per second of world time, shared between their agents as they choose; the unshared rest refills their own energy for summoning.",
     consequence: "Raising it makes every player's agents act more often, so objects change faster.",
+  },
+  costModel: {
+    question: "How is a change priced?", section: "energy", tier: "more", control: "segmented", suggested: COST_MODELS, dependsOn: ["objectType", "typeArgs"],
+    meaning: "How a change is priced: set charges every changed cell the same, while distance charges a number by how far it moved and a colour for having changed.",
+    consequence: "Under distance, adding 1 to a number is the cheapest change and a far jump costs more, so small careful steps are rewarded.",
   },
   startingObjectCount: {
     question: "How many objects does the world start with?", section: "population", tier: "ask", control: "number", suggested: [10, 40, 80, 160],
