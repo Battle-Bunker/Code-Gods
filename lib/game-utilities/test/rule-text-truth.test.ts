@@ -192,3 +192,58 @@ test("spread of three: every overlapping 2×2 square, biggest minus smallest aga
   const sixes = ["B 8 8 8 8 8", "9 A 8 8 8 8", ...Array(4).fill("8 8 8 8 8 8")];
   assert.deepEqual(scoreOf("spread_three", bigBoard)(board(sixes)), [1, -(3 + 63)]);
 });
+
+test("crosswise threes: fold along the top-right to bottom-left diagonal; pairs 3 apart score, fold-line cells never count", () => {
+  const text = say("crosswise_threes", {});
+  assert.match(text, /^Try to fold the board corner to corner so each number lands on a number 3 apart from it, like 2 and 5\./);
+  assert.match(text, /Each pair 3 apart scores 1 primary point\./);
+  assert.match(text, /Each pair deducts as many secondary points as its difference is away from 3, so 4 and 4 deduct 3 and 2 and 9 deduct 4\./);
+  assert.match(text, /The fold line runs from the top-right corner to the bottom-left corner, so the top row lands on the right column\./);
+  assert.match(text, /Cells on the fold line have no partner, so they never score or deduct\./);
+  const u = scoreOf("crosswise_threes");
+  // The top-left 2 lands on the bottom-right 5: 3 apart. The other 5 pairs are 0 on 0, 3 away each.
+  assert.deepEqual(u(board(["2 0 0 0", "0 0 0 0", "0 0 0 0", "0 0 0 5"])), [1, -15]);
+  // The top row, left to right, lands on the right column, bottom to top: 1 on 4, 2 on 5, 3 on 6.
+  assert.deepEqual(u(board(["1 2 3 0", "0 0 0 6", "0 0 0 5", "0 0 0 4"])), [3, -9]);
+  // Not the other diagonal: the 2 and the 5 swap places under that fold, but here 2 on 0 is 1 off and 5 on 0 is 2 off.
+  assert.deepEqual(u(board(["0 2 0 0", "5 0 0 0", "0 0 0 0", "0 0 0 0"])), [0, -15]);
+  // The fold line's 9s change nothing: every other pair is 4 on 7.
+  assert.deepEqual(u(board(["4 4 4 9", "4 4 9 7", "4 9 7 7", "9 7 7 7"])), [6, 0]);
+  // 4 and 4 deduct 3 each (6 pairs); 2 on 9 deducts 4.
+  assert.deepEqual(u(board(["4 4 4 4", "4 4 4 4", "4 4 4 4", "4 4 4 4"])), [0, -18]);
+  assert.deepEqual(u(board(["2 4 4 4", "4 4 4 4", "4 4 4 4", "4 4 4 9"])), [0, -19]);
+  // Base 12: A (10) and 7 are 3 apart, and the card says what A and B count.
+  assert.match(say("crosswise_threes", {}, pairs12), /Here A counts 10 and B counts 11\./);
+  assert.deepEqual(pairScore("crosswise_threes", pairs12)(board(["A 0 0 0", "0 0 0 0", "0 0 0 0", "0 0 0 7"])), [1, -15]);
+  // Odd sizes too: 5×5 has 10 pairs and 5 fold-line cells.
+  const five = instantiate("Grid", { size: 5, symbols: "base10", colours: "rgb" });
+  assert.deepEqual(scoreOf("crosswise_threes", five)(board(["4 4 4 4 0", "4 4 4 0 7", "4 4 0 7 7", "4 0 7 7 7", "0 7 7 7 7"])), [10, 0]);
+});
+
+test("magic eighteen: every row (or column) against the middle total, 18 on 4×4 digits; Magic Accountant's scoring at 18", () => {
+  const rows = say("magic_eighteen", { axis: "rows" });
+  assert.match(rows, /^Try to make every row add up to 18\./);
+  assert.match(rows, /Each row that adds up to exactly 18 scores 1 primary point\./);
+  assert.match(rows, /Each row deducts as many secondary points as its total is away from 18\./);
+  assert.match(say("magic_eighteen", { axis: "cols" }), /^Try to make every column add up to 18\. Each column that adds up/);
+  const u = (axis: string, inst = firstSteps) => evaluator({ familyId: "magic_eighteen", params: { axis } }, inst);
+  // Rows 9 9 0 0 and 4 5 4 5 make 18; 9 9 9 9 is 18 over, 0 0 0 0 is 18 short.
+  const b = board(["9 9 0 0", "4 5 4 5", "9 9 9 9", "0 0 0 0"]);
+  assert.deepEqual(u("rows")(b), [2, -36]);
+  // Its columns make 22, 23, 13 and 14: 4 + 5 + 5 + 4 away.
+  assert.deepEqual(u("cols")(b), [0, -18]);
+  // Base 12 aims at 22, base 16 at 30, 6×6 digits at 27: half of the biggest total a line can make.
+  const b12 = instantiate("Grid", { size: 4, symbols: "base12", colours: "rgb" });
+  assert.match(say("magic_eighteen", { axis: "rows" }, context(b12)), /^Try to make every row add up to 22\..*Here A counts 10 and B counts 11\./);
+  assert.deepEqual(u("rows", b12)(board(["B B 0 0", "B 0 B 0", "A 1 A 1", "0 0 0 0"])), [3, -22]);
+  assert.match(say("magic_eighteen", { axis: "rows" }, context(instantiate("Grid", { size: 4, symbols: "base16", colours: "rgb" }))), /add up to 30\./);
+  assert.match(say("magic_eighteen", { axis: "rows" }, context(instantiate("Grid", { size: 6, symbols: "base10", colours: "rgb" }))), /add up to 27\./);
+  // The same scores as Magic Accountant dealt the magic number 18, on any board.
+  for (const axis of ["rows", "cols"]) {
+    const mine = u(axis), theirs = evaluator({ familyId: "magic_accountant", params: { axis, target: 18 } }, firstSteps);
+    for (let i = 0; i < 40; i++) {
+      const v = board(Array.from({ length: 4 }, (_, r) => Array.from({ length: 4 }, (_, c) => String((i * 7 + r * 5 + c * 3 + r * c * i) % 10)).join(" ")));
+      assert.deepEqual(mine(v), theirs(v), v);
+    }
+  }
+});

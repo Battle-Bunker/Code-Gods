@@ -37,6 +37,8 @@ export const SHOWCASE = [
   { familyId: "stepping_stones", params: {} },
   { familyId: "two_pair", params: {} },
   { familyId: "spread_three", params: {} },
+  { familyId: "crosswise_threes", params: {} },
+  { familyId: "magic_eighteen", params: { axis: "rows" } },
 ] as const;
 
 /** A family without a lens: its example board shows the score only (no breakdown). */
