@@ -178,12 +178,13 @@ export function equilibriaMarkdown(set: readonly Policy[], players: number, tabl
 
 // ------------------------------------------------------------------------------------------------ main
 /**
- * Summon prices (bits) of each policy written as a TypeScript agent on the default board: measured by the engine's
- * validation (artifacts/engine/scripts/coordination-games.ts) for random and greedy; the others embed the other gods'
- * two rule cards as well and are estimated as greedy + 2 cards + the objective (docs/coordination-incentives.md §3).
+ * Summon prices (bits) of each policy as the smallest honest Python agent on the default board, from the engine's own
+ * validate path (scripts/coordination-programs/README.md: a god holding Magic Eighteen against Opposite Nines and
+ * Leapfrog). clause = greedy plus the clause; defender, hoarder and sniper were not written: estimated from deny.
+ * A deity can hold at most power × fullChargeSeconds (1920 bits on the default setup), so each of these can be paid.
  */
 export const SUMMON_BITS: Record<Policy, number> = {
-  random: 150, greedy: 4400, clause: 4400, considerate: 6200, payoff: 6200, cooperator: 6300, defender: 6400, deny: 6300, hoarder: 6400, sniper: 6500,
+  random: 143, greedy: 738, clause: 760, considerate: 1179, payoff: 1599, cooperator: 1797, defender: 1700, deny: 1612, hoarder: 1650, sniper: 1700,
 };
 const ZOO: Policy[] = ["greedy", "clause", "considerate", "payoff", "cooperator", "defender", "deny"];
 function runOf(): Run {
