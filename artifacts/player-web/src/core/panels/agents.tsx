@@ -51,7 +51,7 @@ function EnergyMeter({ energy, income }: { energy: number; income: number }) {
 }
 
 /** The energy as a bar against what the store can hold, with the time until it is full or the warning that it is. */
-function CapacityMeter({ energy, income, capacity, testId }: { energy: number; income: number; capacity: number; testId: string }) {
+function CapacityMeter({ energy, income, capacity, testId, bare }: { energy: number; income: number; capacity: number; testId: string; /** The bar alone: the sentence beside it already says it. */ bare?: boolean }) {
   const full = storeState(energy, income, capacity) === "full";
   const text = fillText(energy, income, capacity);
   const label = `${num(energy)} of ${num(capacity)} bits: ${text}`;
@@ -60,7 +60,7 @@ function CapacityMeter({ energy, income, capacity, testId }: { energy: number; i
       <span role="meter" aria-label={label} aria-valuemin={0} aria-valuemax={capacity} aria-valuenow={Math.min(capacity, Math.max(0, energy))} className="inline-block h-1.5 w-20 bg-muted">
         <span className={`block h-full ${full ? "bg-destructive" : "bg-[hsl(var(--accent))]"}`} style={{ width: `${Math.round(storeFraction(energy, capacity) * 100)}%` }} />
       </span>
-      <span className={full ? "font-semibold text-destructive" : "text-muted-foreground"}>{text}</span>
+      {!bare && <span className={full ? "font-semibold text-destructive" : "text-muted-foreground"}>{text}</span>}
     </span>
   );
 }
@@ -147,12 +147,12 @@ export function AgentsView({ agents, self, powerPerSecond, fullChargeSeconds, ch
           {self.capacity !== undefined && (
             <p data-testid="text-own-capacity" className={`flex flex-wrap items-center gap-x-3 gap-y-1 ${self.capacity > 0 ? "text-foreground" : "font-semibold text-destructive"}`}>
               <span><Say segs={ownEnergyLine({ energy: self.energy ?? 0, income: self.income, capacity: self.capacity })} /></span>
-              {self.capacity > 0 && <CapacityMeter testId="meter-own-energy" energy={self.energy ?? 0} income={self.income} capacity={self.capacity} />}
+              {self.capacity > 0 && <CapacityMeter bare testId="meter-own-energy" energy={self.energy ?? 0} income={self.income} capacity={self.capacity} />}
             </p>
           )}
           <p className="text-muted-foreground">
             The world hands out <Term id="turn">turns</Term> at random: the more energy an agent has, the more turns it gets. An act pays what it
-            looks at (<Term id="read-bits">read bits</Term>{changeReadRatio !== undefined && changeReadRatio > 1 ? `, 1/${changeReadRatio} bit of energy per bit: looking is ${changeReadRatio}× cheaper than changing` : ""}) plus, if it changes the object, the <Term id="change-cost">change cost</Term>.
+            looks at (<Term id="read-bits">read bits</Term>{changeReadRatio !== undefined && changeReadRatio > 1 ? `, 1/${changeReadRatio} bit of energy per bit: looking is ${changeReadRatio}× cheaper than changing` : ""}) plus, if it changes the object, the <Term id="change-cost">change cost</Term>. Every turn also pays a little for being given its object, so a turn is never free.
           </p>
         </div>
       )}

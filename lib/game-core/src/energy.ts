@@ -10,8 +10,9 @@
  *        s·P·T, the deity's own (1 − Σ s)·P·T). Income above it is not stored, and an account whose power falls loses
  *        what it holds above its new capacity. A game stored without the setting has no capacity.
  * Agent: starts at 0, accrues s·P bits per WORLD second up to its capacity. Each mutation
- *        opportunity goes to an agent with probability proportional to its positive energy (pickByEnergy),
- *        at most MAX_AGENT_OPPORTUNITY_HZ times per world second per agent, and the agent pays what the
+ *        opportunity goes to an agent with probability proportional to its positive energy (pickByEnergy): one draw
+ *        over all agents, with no limit per agent, so a deity's offers follow the energy its agents hold together,
+ *        however many they are (§7). The agent pays what the
  *        act actually cost: the bits it read at READ_PRICE plus its change (docs/energy-model.md §2, §7). The balance may
  *        go negative; such an agent is not picked until its income lifts it above zero.
  *
@@ -132,20 +133,17 @@ export function settleAgentEnergy(account: AgentAccount, worldSeconds: number, p
 // ------------------------------------------------------------------------------------------------
 
 /**
- * The sanity cap: an agent is offered at most this many opportunities per world second. Without it an agent that reads
- * nothing and returns no calls pays 0 per act, keeps all its energy and, as the richest agent, would take nearly every
- * opportunity. Four a second is far more than an agent needs to contest an object, and it bounds the sandbox work one
- * agent can cause.
+ * The bits an offer itself tells the agent (docs/energy-model.md §7.1): which of the `liveObjects` it was given, log2 of
+ * their number (0 for one object, or none). The tick adds them to the bits the act read, so every offer is charged at
+ * the read price whether or not the agent then looks at the object or changes it: exposure to an opportunity costs
+ * something, far less than a change.
  */
-export const MAX_AGENT_OPPORTUNITY_HZ = 4;
+export function offerReadBits(liveObjects: number): number {
+  return Number.isFinite(liveObjects) && liveObjects > 1 ? Math.log2(liveObjects) : 0;
+}
 
 /** An agent's weight in the draw for an opportunity: its positive energy (none when at or below zero). */
 export const selectionWeight = (balance: number): number => (Number.isFinite(balance) && balance > 0 ? balance : 0);
-
-/** True while the cap allows offering the agent an opportunity at `world` (it was last offered one at `last`). */
-export function offerable(last: number | undefined, world: number, capHz = MAX_AGENT_OPPORTUNITY_HZ): boolean {
-  return last === undefined || !(capHz > 0) || world - last >= 1 / capHz - 1e-9;
-}
 
 /**
  * Pick one of `candidates` with probability proportional to selectionWeight(energy(c)), using `uniform01` in [0, 1);

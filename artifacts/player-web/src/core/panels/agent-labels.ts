@@ -23,7 +23,11 @@ export const perSecond = (x: number): string => `${num(x)} bits/s`;
 export const percent = (share: number): string => `${Math.round(share * 1000) / 10}%`;
 const acts = (n: number) => `${n} act${n === 1 ? "" : "s"}`;
 
-/** What an agent is doing now (energy ≤ 0: waiting for income; else eligible: can act; else it is at its turn limit). */
+/**
+ * What an agent is doing now (energy ≤ 0: waiting for income; else eligible: can act). "limit" (positive energy, not
+ * eligible) was the per-agent turn limit removed on 11 Nov 2026: the engine no longer reports it, so the legend has no
+ * row for it; the state stays for an observation from an older engine.
+ */
 export type AgentState = "can" | "waiting" | "limit";
 export const agentState = (a: { energy: number; eligible: boolean }): AgentState => (a.energy <= 0 ? "waiting" : a.eligible ? "can" : "limit");
 /** The timeline lane colour for each state: green can act, dashed waiting for income, grey at its turn limit. */
@@ -31,7 +35,6 @@ export const laneKind = (a: { energy: number; eligible: boolean }): "ok" | "cool
 export const STATE_LEGEND = [
   { kind: "ok", label: "can act now (energy above 0)" },
   { kind: "cool", label: "waiting for income (energy 0 or below)" },
-  { kind: "idle", label: "at its turn limit (4 turns a second)" },
 ] as const;
 
 /** The status beside an agent's name; `wait` is the world seconds until its energy is above 0 again. */

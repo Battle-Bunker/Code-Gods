@@ -114,6 +114,15 @@ export const patchAgentLanguage = internalMutation({
   },
 });
 
+/** An agent as the tick stored it while agents had a rate cap of their own: with `lastOpportunityWorld` (test/game-schema-migrations.test.ts). */
+export const legacyAgentOpportunity = internalMutation({
+  args: { agentId: v.id("agents"), world: v.number() },
+  handler: async (ctx, { agentId, world }) => {
+    dev();
+    await ctx.db.patch(agentId, { lastOpportunityWorld: world });
+  },
+});
+
 /** Put the system setups back as shipped (the seed sync does exactly that). */
 export const resetSeedSetups = internalMutation({
   args: {},
