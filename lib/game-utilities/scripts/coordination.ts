@@ -1,0 +1,275 @@
+/**
+ * Coordination incentives (docs/coordination-incentives.md): plays the policy zoo on a seed setup with the real rules,
+ * tables and energy, and prints each table's payoffs, win shares, welfare, best responses and equilibria.
+ *
+ *   pnpm --filter @workspace/game-utilities coordination [mode] [options]
+ *   (= node --experimental-strip-types lib/game-utilities/scripts/coordination.ts [mode] [options])
+ *
+ * Modes
+ *   report (default)  everything the document's tables need, for develop's rules and each candidate rule (slow: minutes)
+ *   seat              identical policies at every seat: win share by seat
+ *   duel              every policy as the one deviator at a table where the others all play one policy
+ *   equilibria        every multiset of policies: equilibria by win share and by points
+ *   tables            the named mixed tables
+ *   validate          the model against real engine games (scripts/coordination-engine-games.json) on the same deals
+ *
+ * Options
+ *   --setup annotated|first-steps     the seed setup (default annotated: the default beginner setup)
+ *   --games N                         games per table (default 24); deals and seeds are shared by every table
+ *   --players P                       gods (default 3)
+ *   --set a,b,c                       the policies in play (default: all but random and sniper for equilibria)
+ *   --duration S  --objects K  --spawn HZ  --power B  --rate HZ      override the setup
+ *   --kappa K  --capacity S  --distance  --erasure L  --erasure-noise SIGMA  --aggregate sum|min|geo  --scoring final|integral
+ *   --learn S  --agents N  --candidates C  --hoard T  --snipe S       the model's knobs (coordination-lib Econ, Tuning)
+ *   --summon                          charge each policy its summon price: its agents start once the god has saved it
+ *   --jobs J                          worker processes (default: the cores)
+ *   --json FILE                       also write every table's statistics as JSON
+ */
+import { execFile } from "node:child_process";
+import { availableParallelism } from "node:os";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { instantiate, seededRng, type Instantiation } from "@workspace/game-types";
+import { SEED_SETUPS } from "../../game-core/src/settings.ts";
+import { selector, type Params } from "../src/index.ts";
+import { HOLD_ESTIMATOR, buildHoldTable, holdBits, type HoldTable } from "./hold.ts";
+import { familyRule, space, type Rule } from "./rule-difficulty-lib.ts";
+import {
+  DEFAULT_TUNING, DEVELOP_ECON, POLICIES, equilibria, playGame, profileKey, profiles, summarise, valueIn, winShares,
+  type Aggregate, type Econ, type GameResult, type Metric, type Policy, type TableStats, type Tuning,
+} from "./coordination-lib.ts";
+
+const argv = process.argv.slice(2);
+const flag = (n: string) => argv.includes(`--${n}`);
+const opt = (n: string, d?: string) => { const i = argv.indexOf(`--${n}`); return i >= 0 ? argv[i + 1] : d; };
+const num = (n: string, d: number) => Number(opt(n, String(d)));
+
+/** One record of coordination-engine-games.json (what the model needs of it). */
+interface EngineGame {
+  table: string; gameId: string; worldSeconds: number; objectsAtEnd: number;
+  settings: { objectType: string; typeArgs: Record<string, unknown>; powerPerSecond: number; interactionRateHz: number };
+  seats: { policy: Policy; utility: { familyId: string; params: Record<string, unknown> }; totalPayoff: number; rank: number; acts: number; transforms: number; skips: number; spent: number; spentRead: number }[];
+}
+export interface Run { setup: string; games: number; players: number; econ: Econ; tuning: Tuning }
+
+export function setupOf(id: string) {
+  const setup = SEED_SETUPS.find(s => s.seedId === (id === "first-steps" ? "grid-first-steps" : id === "annotated" ? "grid-annotated-basics" : id));
+  if (!setup) throw new Error(`Unknown setup: ${id}`);
+  return setup;
+}
+export function econOf(setupId: string, patch: Partial<Econ> = {}): Econ {
+  const s = setupOf(setupId).settings;
+  return {
+    powerPerSecond: s.powerPerSecond, interactionRateHz: s.interactionRateHz, durationSeconds: s.halfLifeSeconds,
+    startingObjectCount: s.startingObjectCount, spawnRateHz: s.spawnRateHz, ...DEVELOP_ECON, ...patch,
+  };
+}
+
+const ruleCache = new Map<string, Rule>();
+const HOLD_FILE = join(tmpdir(), `coordination-hold-${HOLD_ESTIMATOR.id}-${HOLD_ESTIMATOR.version}.json`);
+let holdTables: Record<string, HoldTable> | null = null, holdDirty = false;
+/** Writes the hold tables computed so far, for the worker processes (and the next run). */
+export function saveHoldTables() { if (holdDirty) { writeFileSync(HOLD_FILE, JSON.stringify(holdTables)); holdDirty = false; } }
+/**
+ * A dealt rule as the engine scores it in a game of `players` gods: the shipped table's surprisal plus hold rarity's
+ * correction for m = players − 1 (docs/energy-model.md §8; the engine computes the same table at the game's start).
+ */
+export function gameRule(familyId: string, params: Params, inst: Instantiation, players: number): Rule {
+  const key = `${inst.key}|${familyId}|${JSON.stringify(params)}|m=${players - 1}`;
+  let rule = ruleCache.get(key);
+  if (rule) return rule;
+  const base = familyRule(familyId, params, inst);
+  if (players < 2) { ruleCache.set(key, base); return base; }
+  holdTables ??= existsSync(HOLD_FILE) ? JSON.parse(readFileSync(HOLD_FILE, "utf8")) as Record<string, HoldTable> : {};
+  let hold = holdTables[key];
+  if (!hold) { hold = holdTables[key] = buildHoldTable(familyId, params, inst, players - 1, `coordination|${key}`); holdDirty = true; }
+  ruleCache.set(key, rule = { ...base, bits: o => base.bits(o) + holdBits(hold, o), topBits: base.topBits + (hold.levels.length ? hold.levels[hold.levels.length - 1][1] : 0) });
+  return rule;
+}
+/** The rules of game `g`: the setup's own dealer (settings.utilitySelectorId) on a seed shared by every table. */
+export function dealOf(setupId: string, players: number, g: number): { inst: Instantiation; rules: Rule[] } {
+  const s = setupOf(setupId).settings, inst = instantiate(s.objectType, s.typeArgs);
+  const deal = selector(s.utilitySelectorId).select(inst, players, seededRng(`coordination|deal|${setupId}|${players}|${g}`), { exclude: s.excludedFamilies });
+  return { inst, rules: deal.map(d => gameRule(d.familyId, d.params, inst, players)) };
+}
+
+/** Game `g` of a table: slot k of `policies` sits at seat (k + g) mod P, so every policy meets every seat and rule. */
+export function playTable(run: Run, policies: readonly Policy[]): GameResult[] {
+  const P = run.players, out: GameResult[] = [];
+  for (let g = 0; g < run.games; g++) {
+    const { inst, rules } = dealOf(run.setup, P, g), sp = space(inst, "symbol");
+    const seatOf = (slot: number) => (slot + g) % P, bySeat = new Array<Policy>(P);
+    policies.forEach((p, slot) => (bySeat[seatOf(slot)] = p));
+    const r = playGame(rules, bySeat, sp, run.econ, seededRng(`coordination|game|${run.setup}|${g}`), run.tuning);
+    const slots = <T>(a: readonly T[]) => policies.map((_, slot) => a[seatOf(slot)]);
+    out.push({ ...r, final: slots(r.final), average: slots(r.average), score: slots(r.score), acts: slots(r.acts), changes: slots(r.changes), skips: slots(r.skips),
+      readSpent: slots(r.readSpent), changeSpent: slots(r.changeSpent), destroyed: slots(r.destroyed), created: slots(r.created), ownBits: slots(r.ownBits) });
+  }
+  return out;
+}
+/** Seat statistics: the same policy everywhere, no rotation. */
+export function playSeats(run: Run, policy: Policy): TableStats {
+  const P = run.players, results: GameResult[] = [];
+  for (let g = 0; g < run.games; g++) {
+    const { inst, rules } = dealOf(run.setup, P, g);
+    results.push(playGame(rules, new Array<Policy>(P).fill(policy), space(inst, "symbol"), run.econ, seededRng(`coordination|game|${run.setup}|${g}`), run.tuning));
+  }
+  return summarise(new Array<Policy>(P).fill(policy), results, run.econ.durationSeconds);
+}
+
+// ------------------------------------------------------------------------------------------------ workers
+const SELF = fileURLToPath(import.meta.url);
+/** Plays every table (in worker processes) and returns profileKey → stats. Tables are given in slot order. */
+export async function playTables(run: Run, tables: readonly (readonly Policy[])[], jobs: number): Promise<Map<string, TableStats>> {
+  for (let g = 0; g < run.games; g++) dealOf(run.setup, run.players, g); // the hold tables, once, for every worker
+  saveHoldTables();
+  const unique = [...new Map(tables.map(t => [profileKey(t), [...t].sort() as Policy[]])).values()];
+  const chunks: Policy[][][] = Array.from({ length: Math.min(jobs, unique.length) }, () => []);
+  unique.forEach((t, k) => chunks[k % chunks.length].push(t));
+  const parts = await Promise.all(chunks.map(chunk => new Promise<[string, TableStats][]>((resolve, reject) => {
+    execFile(process.execPath, ["--experimental-strip-types", "--disable-warning=ExperimentalWarning", SELF, "--worker", JSON.stringify({ run, tables: chunk })],
+      { maxBuffer: 1 << 28 }, (error, stdout, stderr) => (error ? reject(new Error(`${error.message}\n${stderr}`)) : resolve(JSON.parse(stdout))));
+  })));
+  return new Map(parts.flat());
+}
+
+// ------------------------------------------------------------------------------------------------ printing
+const pct = (x: number) => `${(100 * x).toFixed(0)}%`;
+const f0 = (x: number) => x.toFixed(0);
+export function tableRow(s: TableStats): string {
+  const names = [...new Set(s.policies)];
+  const cell = (p: Policy) => `${p} ${pct(valueIn(s, p, "win"))} / ${f0(valueIn(s, p, "score"))}`;
+  return `| ${s.policies.join(", ")} | ${names.map(cell).join("; ")} | ${f0(s.welfare)} | ${s.actsPerSecond.map(x => x.toFixed(1)).join(" / ")} | ${s.skipShare.map(pct).join(" / ")} | ${s.destroyedPerChange.map(x => x.toFixed(1)).join(" / ")} |`;
+}
+export const TABLE_HEAD = "| table | win share / points, per god of each policy | welfare | acts/s by slot | skips | bits destroyed per change |\n|---|---|---|---|---|---|";
+
+/** The duel matrix: rows = what the other gods play, columns = what the one god plays; cell = its value by `metric`. */
+export function duelMarkdown(set: readonly Policy[], players: number, table: ReadonlyMap<string, TableStats>, metric: Metric): string {
+  const fmt = metric === "win" ? pct : metric === "relative" ? (x: number) => x.toFixed(2) : f0;
+  const lines = [`| the others play ↓, one god plays → | ${set.join(" | ")} | best response |`, `|---|${set.map(() => "---").join("|")}|---|`];
+  for (const base of set) {
+    const row = set.map(dev => {
+      const s = table.get(profileKey([dev, ...new Array<Policy>(players - 1).fill(base)]));
+      return s ? valueIn(s, dev, metric) : NaN;
+    });
+    const best = set[row.indexOf(Math.max(...row.filter(x => !Number.isNaN(x))))];
+    lines.push(`| ${base} | ${row.map((x, k) => (set[k] === base ? `*${fmt(x)}*` : fmt(x))).join(" | ")} | ${best} |`);
+  }
+  return lines.join("\n");
+}
+export function equilibriaMarkdown(set: readonly Policy[], players: number, table: ReadonlyMap<string, TableStats>, metric: Metric, tolerance: number): string {
+  const all = equilibria(set, players, table, metric, tolerance);
+  const fmt = metric === "win" ? pct : f0;
+  const eq = all.filter(e => e.equilibrium);
+  const lines = [`Equilibria by ${metric === "win" ? "win share" : "points"} (no god gains more than ${fmt(tolerance)} by switching), of ${all.length} tables:`, ""];
+  if (!eq.length) lines.push("none.");
+  for (const e of eq) lines.push(`- **${e.profile.join(", ")}**: welfare ${f0(e.stats.welfare)}; ${[...new Set(e.profile)].map(p => `${p} ${fmt(valueIn(e.stats, p, metric))}`).join(", ")}`
+    + (e.best ? `; best switch ${e.best.from} → ${e.best.to} ${e.best.gain >= 0 ? "+" : "−"}${fmt(Math.abs(e.best.gain))}` : ""));
+  const homogeneous = all.filter(e => new Set(e.profile).size === 1 && !e.equilibrium);
+  if (homogeneous.length) {
+    lines.push("", "Tables of one policy that are not equilibria, and the switch that breaks them:");
+    for (const e of homogeneous) lines.push(`- all ${e.profile[0]} (welfare ${f0(e.stats.welfare)}): one god switches to ${e.best!.to}, +${fmt(e.best!.gain)}`);
+  }
+  return lines.join("\n");
+}
+
+// ------------------------------------------------------------------------------------------------ main
+/**
+ * Summon prices (bits) of each policy written as a TypeScript agent on the default board: measured by the engine's
+ * validation (artifacts/engine/scripts/coordination-games.ts) for random and greedy; the others embed the other gods'
+ * two rule cards as well and are estimated as greedy + 2 cards + the objective (docs/coordination-incentives.md §3).
+ */
+export const SUMMON_BITS: Record<Policy, number> = {
+  random: 150, greedy: 4400, considerate: 6200, payoff: 6200, cooperator: 6300, defender: 6400, deny: 6300, hoarder: 6400, sniper: 6500,
+};
+const ZOO: Policy[] = ["greedy", "considerate", "payoff", "cooperator", "defender", "deny", "hoarder"];
+function runOf(): Run {
+  const setup = opt("setup", "annotated")!;
+  const patch: Partial<Econ> = {
+    ...(opt("duration") ? { durationSeconds: num("duration", 0) } : {}), ...(opt("objects") ? { startingObjectCount: num("objects", 0) } : {}),
+    ...(opt("spawn") ? { spawnRateHz: num("spawn", 0) } : {}), ...(opt("power") ? { powerPerSecond: num("power", 0) } : {}),
+    ...(opt("rate") ? { interactionRateHz: num("rate", 0) } : {}), ...(opt("kappa") ? { kappa: num("kappa", 0) } : {}),
+    ...(opt("capacity") ? { capacitySeconds: num("capacity", 0) } : {}), ...(flag("distance") ? { distancePricing: true } : {}),
+    ...(opt("erasure") ? { erasure: num("erasure", 0) } : {}), ...(opt("erasure-noise") ? { erasureNoiseBits: num("erasure-noise", 0) } : {}), ...(opt("aggregate") ? { aggregate: opt("aggregate") as Aggregate } : {}),
+    ...(opt("scoring") ? { scoring: opt("scoring") as Econ["scoring"] } : {}), ...(opt("learn") ? { learnSeconds: num("learn", 0) } : {}),
+    ...(opt("agents") ? { agentsPerGod: num("agents", 1) } : {}), ...(opt("candidates") ? { candidates: num("candidates", 24) } : {}),
+  };
+  return { setup, games: num("games", 24), players: num("players", 3), econ: econOf(setup, patch),
+    tuning: { hoarderThreshold: num("hoard", DEFAULT_TUNING.hoarderThreshold), sniperSeconds: num("snipe", DEFAULT_TUNING.sniperSeconds),
+      ...(flag("summon") ? { summonBits: SUMMON_BITS, startingEnergy: setupOf(setup).settings.startingEnergy } : {}) } };
+}
+
+async function main() {
+  if (flag("worker")) {
+    const { run, tables } = JSON.parse(opt("worker")!) as { run: Run; tables: Policy[][] };
+    process.stdout.write(JSON.stringify(tables.map(t => [profileKey(t), summarise(t, playTable(run, t), run.econ.durationSeconds)])));
+    return;
+  }
+  const mode = argv[0] && !argv[0].startsWith("--") ? argv[0] : "report";
+  const run = runOf(), jobs = num("jobs", availableParallelism()), P = run.players;
+  const set = (opt("set")?.split(",") as Policy[] | undefined) ?? ZOO;
+  for (const p of set) if (!POLICIES.includes(p)) throw new Error(`Unknown policy: ${p}`);
+  console.log(`setup ${run.setup}, ${P} gods, ${run.games} games per table, econ ${JSON.stringify(run.econ)}`);
+  const json: Record<string, unknown> = { run };
+  if (mode === "seat") {
+    for (const p of set) {
+      const s = playSeats(run, p);
+      console.log(`all ${p}: win share by seat ${s.win.map(pct).join(" / ")} (fair ${pct(1 / P)}); points by seat ${s.score.map(f0).join(" / ")}; acts/s ${s.actsPerSecond.map(x => x.toFixed(2)).join(" / ")}; idle opportunities ${pct(s.idleShare)}`);
+      json[`seat:${p}`] = s;
+    }
+  } else if (mode === "duel" || mode === "equilibria") {
+    const tables = mode === "duel" ? set.flatMap(base => set.map(dev => [dev, ...new Array<Policy>(P - 1).fill(base)])) : profiles(set, P);
+    const table = await playTables(run, tables, jobs);
+    json.tables = Object.fromEntries(table);
+    console.log(`\nWin share of the one god:\n${duelMarkdown(set, P, table, "win")}`);
+    console.log(`\nPoints of the one god:\n${duelMarkdown(set, P, table, "score")}`);
+    console.log(`\nWelfare of each one-policy table: ${set.map(p => `${p} ${f0(table.get(profileKey(new Array<Policy>(P).fill(p)))!.welfare)}`).join(", ")}`);
+    if (mode === "equilibria") {
+      console.log(`\n${equilibriaMarkdown(set, P, table, "win", 0.03)}`);
+      console.log(`\n${equilibriaMarkdown(set, P, table, "score", 0.02 * Math.max(...[...table.values()].map(s => s.welfare / P)))}`);
+    }
+  } else if (mode === "tables") {
+    const named = (opt("tables") ?? "cooperator,cooperator,deny;deny,deny,deny;cooperator,cooperator,cooperator;greedy,greedy,greedy;random,greedy,deny;cooperator,cooperator,sniper;payoff,payoff,sniper")
+      .split(";").map(t => t.split(",") as Policy[]);
+    const table = await playTables(run, named, jobs);
+    json.tables = Object.fromEntries(table);
+    console.log(TABLE_HEAD);
+    for (const t of named) console.log(tableRow(table.get(profileKey(t))!));
+  } else if (mode === "validate") {
+    // Real engine games (artifacts/engine/scripts/coordination-games.ts) against the model on the same deals and policies.
+    const games = JSON.parse(readFileSync(opt("engine", fileURLToPath(new URL("./coordination-engine-games.json", import.meta.url)))!, "utf8")) as EngineGame[];
+    const runs = num("runs", 20), rows: Record<string, { engine: number[]; model: number[] }> = {};
+    const add = (key: string, engine: number, model: number) => { (rows[key] ??= { engine: [], model: [] }).engine.push(engine); rows[key].model.push(model); };
+    for (const game of games) {
+      const s = game.settings, inst = instantiate(s.objectType, s.typeArgs), sp = space(inst, "symbol");
+      const rules = game.seats.map(seat => gameRule(seat.utility.familyId, seat.utility.params as Params, inst, game.seats.length)), policies = game.seats.map(seat => seat.policy);
+      const econ = econOf(run.setup, { ...run.econ, durationSeconds: game.worldSeconds, powerPerSecond: s.powerPerSecond, interactionRateHz: s.interactionRateHz, candidates: 1000, agentsPerGod: 1 });
+      const model = Array.from({ length: runs }, (_, k) => playGame(rules, policies, sp, econ, seededRng(`coordination|validate|${game.gameId}|${k}`), run.tuning));
+      const mean = (f: (r: GameResult) => number) => model.reduce((a, r) => a + f(r), 0) / runs;
+      game.seats.forEach((seat, g) => {
+        const k = `${game.table} ${seat.policy}`;
+        add(`${k}: acts/s`, seat.acts / game.worldSeconds, mean(r => r.acts[g]) / game.worldSeconds);
+        add(`${k}: changes/s`, seat.transforms / game.worldSeconds, mean(r => r.changes[g]) / game.worldSeconds);
+        add(`${k}: energy spent/s`, seat.spent / game.worldSeconds, mean(r => r.readSpent[g] + r.changeSpent[g]) / game.worldSeconds);
+        add(`${k}: read share of spend`, seat.spentRead / Math.max(1e-9, seat.spent), mean(r => r.readSpent[g] / Math.max(1e-9, r.readSpent[g] + r.changeSpent[g])));
+        add(`${k}: final points`, seat.totalPayoff, mean(r => r.final[g]));
+        add(`${k}: win share`, seat.rank === 1 ? 1 : 0, mean(r => winShares(r.final)[g]));
+        add(`seat ${g} (all tables): win share`, seat.rank === 1 ? 1 : 0, mean(r => winShares(r.final)[g]));
+      });
+      add(`${game.table}: objects at the end`, game.objectsAtEnd, mean(r => r.objects));
+    }
+    const avg = (a: number[]) => a.reduce((x, y) => x + y, 0) / a.length, sd = (a: number[]) => { const m = avg(a); return Math.sqrt(avg(a.map(x => (x - m) ** 2))); };
+    console.log(`${games.length} engine games, ${runs} model games each\n\n| table and policy: quantity | n | engine mean (sd over games) | model mean | model / engine |\n|---|---|---|---|---|`);
+    for (const [key, v] of Object.entries(rows).sort()) {
+      const e = avg(v.engine), m = avg(v.model), fmt = (x: number) => (Math.abs(x) >= 100 ? x.toFixed(0) : x.toFixed(2));
+      console.log(`| ${key} | ${v.engine.length} | ${fmt(e)} (${fmt(sd(v.engine))}) | ${fmt(m)} | ${e ? (m / e).toFixed(2) : "–"} |`);
+    }
+    json.validation = rows;
+  } else throw new Error(`Unknown mode: ${mode} (the report is scripts/coordination-report.ts)`);
+  saveHoldTables();
+  if (opt("json")) writeFileSync(opt("json")!, JSON.stringify(json, null, 1));
+}
+
+if (process.argv[1] === SELF) await main();
