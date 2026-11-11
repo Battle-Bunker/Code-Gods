@@ -487,20 +487,51 @@ export interface SeedSetup {
 export const SETUP_NAME_MAX = 40;
 export const FIRST_STEPS_SEED_ID = "grid-first-steps";
 
-/** The setup of the families that have a rich annotation (a lens): every other 4×4 reward family is excluded. */
+/** The default setup: the beginner pool (BEGINNER_POOL), every rule annotated, on a 4×4 board of numbers with no colour. */
 export const ANNOTATED_BASICS_SEED_ID = "grid-annotated-basics";
 
 /** The setup a new room starts on (owner, 2026-11-03): the single source of every default setup. */
 export const DEFAULT_SETUP_SEED_ID = ANNOTATED_BASICS_SEED_ID;
 /**
- * Grid(4,base10,mono) reward families without a lens (Annotated basics is the numbers-only board since 2026-11-11, so the
- * colour families, lens or not, cannot be dealt on it). Pre-authored; the engine unit test (test/unit/setups.test.ts)
- * derives the expected list from the lens registry (game-utilities LENSES), so a new lens or family fails it.
+ * The beginner pool (owner, 2026-11-11): eight rules equally simple to understand and to write an algorithm for (small
+ * fixed scoring units, one-cell greedy never stuck, no uniform-board maximum but mirrormancer's, jointly satisfiable),
+ * chosen and tuned with the rule-difficulty framework (docs/rule-difficulty.md, docs/beginner-pool.md). Annotated basics
+ * deals exactly these on its numbers-only board.
+ */
+export const BEGINNER_POOL: readonly string[] = Object.freeze([
+  "mirrormancer", "magic_eighteen", "opposite_nines", "two_pair", "spread_three", "strangers", "leapfrog", "crosswise_threes",
+]);
+/**
+ * Grid(4,base10,mono) reward families outside the beginner pool. Pre-authored; the engine unit test
+ * (test/unit/setups.test.ts) checks that the dealable families are exactly BEGINNER_POOL, so a new family fails it.
  */
 const ANNOTATED_BASICS_EXCLUDED: readonly string[] = Object.freeze([
   "staircase_climber", "looking_glass", "pinwheel", "constellation", "mountain_climb", "round_numbers",
   "divisibility_detective", "seesaw", "stepping_stones", "column_addition", "ladder_of_numbers", "snap", "young_tableau",
-  "fillomino", "bingo_caller", "full_house", "twenty_one", "sudoku_scholar",
+  "fillomino", "bingo_caller", "full_house", "twenty_one", "sudoku_scholar", "magic_accountant", "number_bonds",
+]);
+
+/** The coloured annotated setup: every family with a rich annotation (a lens), on the coloured 4×4 board. */
+export const ANNOTATED_COLOURS_SEED_ID = "grid-annotated-colours";
+/**
+ * Grid(4,base10,rgb) reward families without a lens. Pre-authored; the engine unit test (test/unit/setups.test.ts)
+ * derives the expected list from the lens registry (game-utilities LENSES), so a new lens or family fails it.
+ */
+const ANNOTATED_COLOURS_EXCLUDED: readonly string[] = Object.freeze([
+  "seed1_line_painter", "seed2_patchwork", "seed3_green_ones", "rainbow_road", "border_baron", "conqueror",
+  "homebody", "lone_peak", "islander", "rooks_watch", "staircase_climber", "lucky_token", "neighbourhood_vote",
+  "far_apart", "castle_keeper", "archipelago", "bridge_builder", "looking_glass", "pinwheel", "bullseye",
+  "snake_charmer", "tetromino_tamer", "rainbow_bands", "constellation", "gravity", "swiss_cheese", "mountain_climb",
+  "treasure_map", "straight_shooter", "round_numbers", "king_of_the_hill", "divisibility_detective",
+  "number_sandwich", "magic_window", "times_table_territory", "odds_evens", "number_painter", "robin_hood", "seesaw",
+  "column_addition", "ladder_of_numbers", "snap", "young_tableau", "fillomino",
+  "colour_value_ladder", "stripe_painter", "feuding_families", "fair_weaver", "lantern_lighter", "best_friends",
+  "rainbow_steps", "quilt_maker", "flag_bearer", "colour_by_number", "wallpaper_weaver", "sunset_sky",
+  "twin_friends", "rummy_melder", "othello_sandwich", "bingo_caller", "sudoku_scholar", "full_house", "flush_royale",
+  "twenty_one", "go_fish_books", "knight_riders", "uno_snake", "kings_court", "connect_four", "head_count",
+  "fibonacci_sandwich", "prime_territory", "colour_seesaw",
+  "mirror_quilt", "colour_pinwheel", "i_piece_tamer", "t_piece_tamer", "l_piece_tamer", "s_piece_tamer", "treasure_castle",
+  "castle_pockets",
 ]);
 
 const seed = (seedId: string, name: string, summary: string, objectType: string, typeArgs: TypeArgs, patch: Partial<GameSettings>): SeedSetup =>
@@ -510,9 +541,14 @@ export const SEED_SETUPS: readonly SeedSetup[] = Object.freeze([
   seed(FIRST_STEPS_SEED_ID, "First steps", "A small 4×4 board, slowed down so you can watch your score",
     "Grid", { size: 4, symbols: "base10", colours: "rgb" }, { interactionRateHz: 25, durationMode: "fixed", halfLifeSeconds: 600 }),
   // The default setup's board is numbers only (owner, 2026-11-11: "the most basic game mode … just a grid of numbers").
-  seed(ANNOTATED_BASICS_SEED_ID, "Annotated basics", "Only rules with picture-by-picture explanations, on a small slowed-down board",
+  seed(ANNOTATED_BASICS_SEED_ID, "Annotated basics", "Eight simple rules with picture-by-picture explanations, on a small slowed-down board of numbers",
     "Grid", { size: 4, symbols: "base10", colours: "mono" }, {
       interactionRateHz: 25, durationMode: "fixed", halfLifeSeconds: 600, excludedFamilies: ANNOTATED_BASICS_EXCLUDED,
+      startingObjectCount: 10, spawnRateHz: 0.1, planningSeconds: 300,
+    }),
+  seed(ANNOTATED_COLOURS_SEED_ID, "Annotated colours", "Every rule with picture-by-picture explanations, on a small slowed-down coloured board",
+    "Grid", { size: 4, symbols: "base10", colours: "rgb" }, {
+      interactionRateHz: 25, durationMode: "fixed", halfLifeSeconds: 600, excludedFamilies: ANNOTATED_COLOURS_EXCLUDED,
       startingObjectCount: 10, spawnRateHz: 0.1, planningSeconds: 300,
     }),
   seed("grid-classic", "Classic", "5×5 with four colours: the standard game",

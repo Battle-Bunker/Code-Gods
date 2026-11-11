@@ -21,6 +21,8 @@ test("Grid(4,base10,mono) offers exactly the numbers-only families", () => {
     "bingo_caller", "column_addition", "constellation", "divisibility_detective", "fillomino", "full_house", "hate_symbol_takeover",
     "hate_value", "ladder_of_numbers", "looking_glass", "magic_accountant", "mirrormancer", "mountain_climb", "number_bonds",
     "pinwheel", "round_numbers", "seesaw", "snap", "stepping_stones", "staircase_climber", "sudoku_scholar", "twenty_one", "young_tableau",
+    // the beginner pool's new families (families/grid/beginner)
+    "crosswise_threes", "leapfrog", "magic_eighteen", "opposite_nines", "spread_three", "strangers", "two_pair",
   ].sort());
 });
 
