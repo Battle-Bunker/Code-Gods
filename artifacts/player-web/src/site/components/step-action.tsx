@@ -8,7 +8,7 @@ import { gamePath, roomPath } from "@/site/lib/routes";
 /** Test ids the e2e suites rely on, per step. */
 const TEST_IDS: Partial<Record<StepId, string>> = {
   "ui.auth.signIn": "button-login-room", "rooms.join": "button-join", "rooms.setReady": "button-ready",
-  "ui.copyInviteLink": "button-copy-link", "rooms.addAi": "button-add-ai", "owner.start": "button-start", "ui.nav.game": "link-running-game",
+  "ui.copyInviteLink": "button-copy-link", "ui.practiceGame": "button-practice-game", "owner.start": "button-start", "ui.nav.game": "link-running-game",
   "rooms.resume": "button-resume", "ui.nav.room": "button-back-to-room",
   "rooms.setSpectator": "button-spectator",
 };

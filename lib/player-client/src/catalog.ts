@@ -520,8 +520,8 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   // ----- rooms -----
   "rooms.create": {
     kind: "mutation", audience: "player",
-    human: { title: "Create a room", tooltip: "Opens a new room on the Annotated basics setup with you as owner, ready to share its invite link." },
-    ai: { description: "Create a room owned by the signed-in human (browser only). It runs the system's Annotated basics setup (setup {id, name}); its AI quotas start at 300,000 tokens per game for the AI players and for each player's assistant; optional aiQuota, assistantQuota (0 = none) and assistantModel set them at creation. AI is used only in rooms whose owner is an administrator." },
+    human: { title: "Create a room", tooltip: "Opens a new room on the Annotated basics setup with you as its owner and first player, ready to share its invite link." },
+    ai: { description: "Create a room owned by the signed-in human (browser only). It runs the system's Annotated basics setup (setup {id, name}); its AI quotas start at 300,000 tokens per game for the AI players and for each player's assistant; optional aiQuota, assistantQuota (0 = none) and assistantModel set them at creation. The owner is seated as a player of the next game unless spectator is true. AI is used only in rooms whose owner is an administrator." },
     tools: [], palette: { label: "Create a room", group: "room", keywords: ["new room", "host", "create"], surfaces: SITE },
     why: "A credential is bound to one existing room; rooms are created in the browser.",
   },
@@ -590,7 +590,7 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   "rooms.addAi": {
     kind: "mutation", audience: "owner",
     human: { title: "Add an AI player", tooltip: "Seats an AI player from the library between games; it draws on the room's AI players' quota." },
-    ai: { description: "Owner: seat an AI player from the library (aiTemplates.catalog / get_ai_catalog) between games." },
+    ai: { description: "Owner: seat an AI player from the library (aiTemplates.catalog / get_ai_catalog) between games; without templateId, the library's first one." },
     tools: ["add_ai"], palette: { label: "Add an AI player…", group: "owner", keywords: ["bot", "ai seat", "add"], confirm: "summary" },
   },
   "rooms.removeAi": {

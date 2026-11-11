@@ -29,7 +29,7 @@ import type { GameRecord } from "@/site/lib/types";
 import { canOpenGame, gamePath } from "@/site/lib/routes";
 
 function Players({ room, meId, isOwner, minPlayers }: { room: RoomState; meId?: string; isOwner: boolean; minPlayers: number }) {
-  const { act, manifest, run } = usePage();
+  const { act, manifest, run, unavailable } = usePage();
   const runner = useRun();
   const [armed, setArmed] = useState<string | null>(null);
   useEffect(() => { if (!armed) return; const t = setTimeout(() => setArmed(null), 5000); return () => clearTimeout(t); }, [armed]);
@@ -84,9 +84,16 @@ function Players({ room, meId, isOwner, minPlayers }: { room: RoomState; meId?: 
           </li>
         ))}
       </ul>
+      {/* One plain button seats the default AI player; which AI (its model) is a choice behind the small link. */}
+      {isOwner && !g && !unavailable("ui.addAiPlayer") && (
+        <div className="border-t px-4 py-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+          <Action k="ui.addAiPlayer" label="+ Add AI player" tone="secondary" onClick={() => run("ui.addAiPlayer")} testId="button-add-ai" />
+          <button type="button" className="text-xs underline underline-offset-4 text-muted-foreground hover:text-foreground" onClick={() => run("rooms.addAi")} data-testid="button-choose-ai">Choose a model</button>
+        </div>
+      )}
       {isOwner && manifest?.aiFunding.configured === false && <p className="border-t px-4 py-2 text-xs text-muted-foreground">AI players are not set up on this server.</p>}
       {isOwner && manifest?.aiFunding.configured !== false && !room.aiEnabled && !g && open > 0 && (
-        <p className="border-t px-4 py-2 text-xs text-muted-foreground" data-testid="text-ai-unavailable">AI players need a room an administrator owns: invite people to fill the seats.</p>
+        <p className="border-t px-4 py-2 text-xs text-muted-foreground" data-testid="text-ai-unavailable">AI players are not available in this room: invite people to fill the seats.</p>
       )}
     </Section>
   );

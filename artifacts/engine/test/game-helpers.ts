@@ -126,8 +126,7 @@ export async function roomWith(members: God[], settings?: Record<string, unknown
   await sandboxesWarm();
   const [owner, ...rest] = members;
   const { roomId, shortCode } = await owner.c.mutation(api.rooms.create, {});
-  // The owner starts as a spectator (docs/unify-apps-plan.md §2); these rooms seat every member given.
-  await owner.c.mutation(api.rooms.setSpectator, { roomId, spectator: false });
+  // The owner is seated as a player by rooms.create; these rooms seat every member given.
   for (const m of rest) await m.c.mutation(api.rooms.join, { room: shortCode });
   if (settings) {
     const room = await owner.c.query(api.rooms.get, { room: roomId });

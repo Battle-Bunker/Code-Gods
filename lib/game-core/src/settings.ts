@@ -543,8 +543,8 @@ export const SEED_SETUPS: readonly SeedSetup[] = Object.freeze([
   // The default setup's board is numbers only (owner, 2026-11-11: "the most basic game mode … just a grid of numbers").
   seed(ANNOTATED_BASICS_SEED_ID, "Annotated basics", "Eight simple rules with picture-by-picture explanations, on a small slowed-down board of numbers",
     "Grid", { size: 4, symbols: "base10", colours: "mono" }, {
-      interactionRateHz: 25, durationMode: "fixed", halfLifeSeconds: 600, excludedFamilies: ANNOTATED_BASICS_EXCLUDED,
-      startingObjectCount: 10, spawnRateHz: 0.1, planningSeconds: 300,
+      interactionRateHz: 25, durationMode: "fixed", halfLifeSeconds: 300, excludedFamilies: ANNOTATED_BASICS_EXCLUDED,
+      startingObjectCount: 10, spawnRateHz: 0.1, planningSeconds: 75,
     }),
   seed(ANNOTATED_COLOURS_SEED_ID, "Annotated colours", "Every rule with picture-by-picture explanations, on a small slowed-down coloured board",
     "Grid", { size: 4, symbols: "base10", colours: "rgb" }, {

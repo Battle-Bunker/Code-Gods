@@ -24,7 +24,7 @@ export const SECTIONS: readonly { id: SettingsSection | "review"; title: string;
   { id: "world", title: "World", intro: "What the objects are and which languages agents may be written in." },
   { id: "goals", title: "Goals", intro: "How secret goals are dealt, and whether every player also defends something." },
   { id: "agents", title: "Agents", intro: "How many agents each player may keep and how much they may compute." },
-  { id: "energy", title: "Energy", intro: "How players and their agents earn and spend bits." },
+  { id: "energy", title: "Energy", intro: "How players and their agents earn and spend ⚡ energy." },
   { id: "population", title: "Population", intro: "How many objects there are and how new ones arrive." },
   { id: "time", title: "Time", intro: "How long planning, pauses and the game itself last, and how fast the world moves." },
   { id: "players", title: "Players & AI", intro: "Who fills the seats and what the AI may spend." },
@@ -62,8 +62,8 @@ export const LIMITS: Readonly<Partial<Record<SettingsKey, Limit>>> = {
   interactionComputeMs: { min: 1, max: 1000, int: true, unit: "ms" },
   stepBudget: { min: 1, max: 10_000_000, int: true, unit: "steps" },
   pauseSeconds: { ...TIME_LIMITS.pauseSeconds, unit: "seconds" },
-  startingEnergy: { ...ENERGY_LIMITS.startingEnergy, unit: "bits" },
-  powerPerSecond: { ...ENERGY_LIMITS.powerPerSecond, unit: "bits per second" },
+  startingEnergy: { ...ENERGY_LIMITS.startingEnergy, unit: "⚡" },
+  powerPerSecond: { ...ENERGY_LIMITS.powerPerSecond, unit: "⚡ per second" },
   maxAgentsPerGod: { min: 1, max: 200, int: true, unit: "agents" },
   penaltyWeight: { ...ENERGY_LIMITS.penaltyWeight, unit: "" },
 };
@@ -274,11 +274,17 @@ export function choiceLabel(key: SettingsKey, v: number | string | boolean): str
   return typeof v === "number" ? n(v) : v;
 }
 
-/** "~6 min (often 3–13)": planning plus the half-life, and the 20%–80% range of the random end; "10 min" for a fixed game. */
+/**
+ * The next game's time in one line, with the same numbers as the Time section's fields (planning and the game's
+ * length are never added up): "75 s planning, then a 5 min game" for a fixed game, whose end everyone sees on the
+ * countdown; "1 min planning, then about 5 min (ends at a hidden moment, often after 2 to 12 min)" for a half-life
+ * game (the 20%–80% range of its random end).
+ */
 export function lengthLine(s: Pick<Settings, "planningSeconds" | "halfLifeSeconds"> & { durationMode?: Settings["durationMode"] }): string {
   const m = (sec: number) => Math.max(1, Math.round(sec / 60));
   const p = s.planningSeconds, h = s.halfLifeSeconds;
-  if (s.durationMode === "fixed") return `${m(p + h)} min`;
-  return `~${m(p + h)} min (often ${m(p + 0.415 * h)}–${m(p + 2.32 * h)})`;
+  const planning = p > 0 ? `${duration(p)} planning, then ` : "";
+  if (s.durationMode === "fixed") return `${planning}a ${duration(h)} game`;
+  return `${planning}about ${duration(h)} (ends at a hidden moment, often after ${m(0.415 * h)} to ${m(2.32 * h)} min)`;
 }
 export const paceWord = (hz: number) => (hz <= 30 ? "slow" : hz <= 150 ? "normal" : "fast");

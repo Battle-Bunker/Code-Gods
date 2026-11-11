@@ -236,18 +236,19 @@ test("upgradeStoredSettings drops the removed Haskell language, falling back to 
   assert.equal(upgradeStoredSettings({ ...DEFAULT_SETTINGS, languages: ["python", "typescript"] }), null, "idempotent");
 });
 
-test("First steps and Annotated basics are 10 minutes fixed", () => {
-  for (const id of [FIRST_STEPS_SEED_ID, ANNOTATED_BASICS_SEED_ID]) {
+test("First steps is 10 minutes fixed; the default setup (Annotated basics) is sized for a first session: 5 minutes fixed", () => {
+  // Catches: a first game nobody sees the end of (5 min of planning + 10 min of game in the first-players study).
+  for (const [id, length] of [[FIRST_STEPS_SEED_ID, 600], [ANNOTATED_BASICS_SEED_ID, 300]] as const) {
     const s = seedSetupSettings(id);
-    assert.equal(s.durationMode, "fixed"); assert.equal(s.halfLifeSeconds, 600);
+    assert.equal(s.durationMode, "fixed"); assert.equal(s.halfLifeSeconds, length);
     assert.doesNotThrow(() => validateSettings(s));
   }
   assert.equal(seedSetupSettings("grid-classic").durationMode, "halfLife");
 });
 
-test("Annotated basics starts with 10 objects, spawns 0.1 per second and plans for 5 minutes", () => {
+test("Annotated basics starts with 10 objects, spawns 0.1 per second and plans for 75 seconds", () => {
   const s = seedSetupSettings(ANNOTATED_BASICS_SEED_ID);
-  assert.deepEqual([s.startingObjectCount, s.spawnRateHz, s.planningSeconds], [10, 0.1, 300]);
+  assert.deepEqual([s.startingObjectCount, s.spawnRateHz, s.planningSeconds], [10, 0.1, 75]);
   assert.doesNotThrow(() => validateSettings(s));
 });
 

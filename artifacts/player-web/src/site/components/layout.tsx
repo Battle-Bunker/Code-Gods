@@ -19,6 +19,7 @@ import { useAdminAgents, useAgentOptions } from "@/site/hooks/use-agents";
 import { useToast } from "@/hooks/use-toast";
 import { api, useLive } from "@/site/lib/convex";
 import { codeCommands, engineCommands, paletteContextFor, type EngineActions, type EngineScope, type Live, type Template } from "@/site/lib/commands";
+import { oncePerKey } from "@/site/lib/click-once";
 import { errMsg, startRaced } from "@/site/lib/errors";
 import type { GameRecord, GameView, Manifest, RoomState } from "@/site/lib/types";
 import { useSetupEntries } from "@/site/hooks/use-setups";
@@ -116,12 +117,14 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
   const [palette, setPalette] = useState<{ open: boolean; init?: PaletteOpenInit }>({ open: false });
   const [sheet, setSheet] = useState<Sheet | null>(null);
   const creating = useRef(false);
+  const practising = useRef(false);
 
   const create = useMutation(api.rooms.create);
   const join = useMutation(api.rooms.join);
   const leave = useMutation(api.rooms.leave);
   const setReady = useMutation(api.rooms.setReady);
   const setSpectator = useMutation(api.rooms.setSpectator);
+  const spectatorOnce = useMemo(() => oncePerKey(setSpectator, args => `${args.roomId}:${args.godId ?? "me"}`), [setSpectator]);
   const start = useAction(api.owner.start);
   const resume = useMutation(api.rooms.resume);
   const startWorldNow = useMutation(api.rooms.startWorldNow);
@@ -142,7 +145,8 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
   const need = <T,>(v: T | null | undefined): T => { if (v === null || v === undefined) throw new Error("Open a room first."); return v; };
 
   /**
-   * Create a room in one step, on the default (Annotated basics) setup, and open it: its invite link is the owner's first next step.
+   * Create a room in one step, on the default (Annotated basics) setup, and open it. The creator is seated as a player
+   * (rooms.create); the room's next step is a practice game with AI players where they are available, else its invite link.
    * Nothing is asked first; the assistant is turned on later from the room page (Assistant: off · Turn on…).
    */
   const doCreate = useCallback(async () => {
@@ -161,6 +165,9 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
     minPlayers: manifest?.minimumPlayers ?? 3, maxPlayers: manifest?.maximumPlayers ?? 8,
     gridRenderer, starting, siteSession: kind === "site",
   };
+  // One click is one requestId; a second click while it is pending sends nothing (the button shows "Starting…").
+  const doStart = () => trackStart(startTracker, need(roomId), requestId => start({ roomId: need(roomId), requestId })
+    .catch(e => { if (startRaced(e)) return null; throw e; }));
   const act: EngineActions = {
     navigate: to => navigate(to),
     openTab: url => { window.open(url, "_blank", "noopener"); },
@@ -171,14 +178,26 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
     join: () => join({ room: need(room).shortCode, spectator: need(room).members.filter(m => !m.spectator).length >= (manifest?.maximumPlayers ?? 8) }),
     leave: () => leave({ roomId: need(roomId) }),
     setReady: ready => setReady({ roomId: need(roomId), ready }),
-    setSpectator: (spectator, godId) => setSpectator({ roomId: need(roomId), spectator, ...(godId ? { godId } : {}) }),
-    // One click is one requestId; a second click while it is pending sends nothing (the button shows "Starting…").
-    start: () => trackStart(startTracker, need(roomId), requestId => start({ roomId: need(roomId), requestId })
-      .catch(e => { if (startRaced(e)) return null; throw e; })),
+    // Both play/watch controls (the step under the status line and the button beside a name) come through here: a double
+    // click must not toggle back (lib/click-once.ts).
+    setSpectator: (spectator, godId) => spectatorOnce({ roomId: need(roomId), spectator, ...(godId ? { godId } : {}) }),
+    start: doStart,
     resume: () => resume({ roomId: need(roomId) }),
     startWorldNow: () => startWorldNow({ roomId: need(roomId) }),
     endGame: () => end({ roomId: need(roomId) }),
-    addAi: templateId => addAi({ roomId: need(roomId), templateId }),
+    addAi: templateId => addAi({ roomId: need(roomId), ...(templateId ? { templateId } : {}) }),
+    // A practice game: the engine's default AI player in each seat the game still needs, then the start. If a step
+    // fails the seats already added stay, and the room's next step is then Start (or what is still missing).
+    practiceGame: async () => {
+      if (practising.current) return; // a double click adds the seats once
+      practising.current = true;
+      try {
+        const r = need(room);
+        const missing = (manifest?.minimumPlayers ?? 3) - r.members.filter(m => !m.spectator).length;
+        for (let i = 0; i < missing; i++) await addAi({ roomId: r.id });
+        await doStart();
+      } finally { practising.current = false; }
+    },
     removeAi: godId => removeAi({ roomId: need(roomId), godId }),
     applySetup: async id => {
       const r = need(room);

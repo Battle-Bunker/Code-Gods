@@ -27,7 +27,7 @@ export function Leaderboard({ rows, roster, meId, ownerId, agentCount, planning,
   const max = Math.max(1, ...rows.map(r => Math.abs(r.totalPayoff)));
   return (
     <Section title="Leaderboard" count={merged.length} action={agentCount !== undefined ? <span className="text-xs text-muted-foreground" data-testid="text-agent-count">{agentCount} agent{agentCount === 1 ? "" : "s"}</span> : undefined}>
-      <p className="px-4 pt-2 text-xs text-muted-foreground">Points: each player's <Term id="bits">bits</Term> times how much the others care, summed over every object now.</p>
+      <p className="px-4 pt-2 text-xs text-muted-foreground">Points: for each object, a player's ✨ rarity times how much the others want it, added up over every object now.</p>
       {planning && rows.length > 0 && <p className="px-4 pt-1 text-xs text-muted-foreground" data-testid="text-standings-planning">Starting position: the world is not running yet, so no agent has moved anything.</p>}
       {merged.length === 0 ? <EmptyState title="No players yet" body={emptyBody} /> : (
         <ol className="divide-y">
@@ -86,7 +86,7 @@ function ObjectList({ gameId, instance, emptyBody = "Objects appear once the wor
   const more = useCallback(() => { if (status === "CanLoadMore") loadMore(OBJECT_PAGE); }, [status, loadMore]);
   return (
     <Section title="Objects" count={status === "Exhausted" ? rows.length : undefined}>
-      <p className="px-4 pt-2 pb-1 text-xs text-muted-foreground">Hottest first. 🔥 <Term id="salience" /> is how many bits all players together see in an object; who likes what stays secret.</p>
+      <p className="px-4 pt-2 pb-1 text-xs text-muted-foreground">Hottest first. 🔥 <Term id="salience" /> is how much ✨ rarity all players together see in an object; who likes what stays secret.</p>
       {status === "LoadingFirstPage" ? <p className="px-4 py-3 text-sm text-muted-foreground" data-testid="status-objects-loading">Loading objects…</p>
       : rows.length === 0 ? <EmptyState title="No objects yet" body={emptyBody} /> : (<>
         <div className="grid grid-cols-[3rem_minmax(0,1fr)_auto] text-xs text-muted-foreground border-b">
@@ -182,7 +182,7 @@ const SHOWN: readonly SettingsKey[] = [
   "startingEnergy", "powerPerSecond", "maxAgentsPerGod", "defenceGoals", "utilitySelectorId",
 ];
 
-/** "Python · Grid 5×5 base10 rgby · ~6 min (often 3–13) · normal pace". */
+/** "Python · Grid 4×4 base10 · 75 s planning, then a 5 min game · slow pace". */
 export function settingsSummary(s: Settings, instance?: InstanceInfo): string {
   return [formatValue("languages", allowedLanguages(s)), instance?.label ?? s.objectType, lengthLine(s), `${paceWord(s.interactionRateHz)} pace`].join(" · ");
 }

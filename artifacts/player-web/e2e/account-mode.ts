@@ -115,8 +115,8 @@ try {
     await page.waitForURL(/\/rooms\/[0-9A-Z]+$/, { timeout: 30_000 });
     code = (await page.getByTestId("text-room-code").innerText()).trim();
     for (const c of others) await c.mutation(ref<"mutation">("rooms:join"), { room: code });
-    await page.getByTestId(`button-spectator-${alice.subject}`).click();   // the owner starts as a spectator
-    await page.getByTestId(`text-member-seat-${alice.subject}`).filter({ hasNotText: /spectator/ }).waitFor();
+    // The owner is seated as a player when the room is created.
+    await page.getByTestId(`text-member-seat-${alice.subject}`).filter({ hasText: /owner · player/ }).waitFor();
     await page.getByTestId("button-start").click();
     await page.waitForURL(new RegExp(`/rooms/${code}/games/[0-9A-Z]+$`), { timeout: 480_000 });
     await page.getByTestId("dock").waitFor({ timeout: 60_000 });

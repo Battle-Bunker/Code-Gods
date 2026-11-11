@@ -136,7 +136,7 @@ Sonnet 5.5; deleted defaults stay deleted. Both direct Anthropic and OpenAI are 
 - **Rooms.** Create a room and share its short code or URL. Rooms have no names; they are persistent
   lobbies with a history of ended games. All humans sign in with Google and join.
 - **Players and spectators.** A game needs three to eight players. Every member is a player or a
-  spectator: the owner starts as a spectator and members join as players, and a member (or the owner, for
+  spectator: the owner and the members who join start as players, and a member (or the owner, for
   any human member) switches it on the room page (`rooms.setSpectator`, tool `set_spectator`; it applies
   to the next game). Only players count toward the 3–8. The owner may fill seats with AI players from the
   library. Readiness is advisory. **Start game** takes everyone on the room page to the game's page,

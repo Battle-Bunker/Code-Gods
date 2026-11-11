@@ -11,7 +11,7 @@ import {
   type Availability, type Command, type PaletteContext, type PaletteGroup, type PaletteSection, type Performer, type PickOption,
 } from "@workspace/ui-kit/core";
 import type { GridRendererId } from "@workspace/object-views";
-import { firstName } from "./next-step.ts";
+import { countWord, firstName } from "./next-step.ts";
 export { STEP_IDS } from "./next-step.ts";
 
 /** Client-only commands: the human text every button and palette row of these actions uses. */
@@ -26,9 +26,11 @@ export const UI_COMMANDS = {
   "ui.nav.device": { title: "Approve a device code…", tooltip: "Review and approve the code a player app printed.", group: "account", section: "settings", keywords: ["device", "code", "connect", "cli"] },
   "ui.nav.admin": { title: "AI library", tooltip: "The AI players owners can seat, with their models and prompts.", group: "account", section: "settings", keywords: ["admin", "templates", "agents"] },
   "ui.copyInviteLink": { title: "Copy invite link", tooltip: "Copies this room's link; anyone who opens it can sign in and join.", group: "room", section: "actions", keywords: ["share", "invite", "link"] },
+  "ui.addAiPlayer": { title: "Add AI player", tooltip: "Seats one AI player in the next game; it draws on the room's AI players' quota.", group: "owner", section: "actions", keywords: ["bot", "ai seat", "add", "computer"] },
+  "ui.practiceGame": { title: "Play a practice game with AI players", tooltip: "Fills the empty seats with AI players and starts the game at once, so you can try the game by yourself.", group: "owner", section: "actions", keywords: ["solo", "alone", "practice", "practise", "bots", "try"] },
   "ui.connectInstructions": { title: "Connect a player app…", tooltip: "How to connect your own player app or coding agent to this room.", group: "account", section: "settings", keywords: ["cli", "connect", "credential", "replit", "codespaces"] },
   "ui.copyRules": { title: "Copy game rules for an AI", tooltip: "Copies this room's rules as text you can paste into any AI assistant.", group: "help", section: "help", keywords: ["rules", "prompt", "copy"] },
-  "ui.help.scoring": { title: "How scoring works", tooltip: "Rarity bits, defence goals and why others' care decides your points.", group: "help", section: "help", keywords: ["points", "bits", "payoff", "score"] },
+  "ui.help.scoring": { title: "How scoring works", tooltip: "Your rule score, ✨ rarity, and why what the others want decides your points.", group: "help", section: "help", keywords: ["points", "bits", "payoff", "score"] },
   "ui.help.howToPlay": { title: "How to play", tooltip: "The game in 90 seconds.", group: "help", section: "help", keywords: ["rules", "intro", "tutorial"] },
   "ui.auth.signIn": { title: "Sign in with Google", tooltip: "Sign in with your Google account to create or join rooms.", group: "account", section: "settings", keywords: ["login", "log in"] },
   "ui.auth.signOut": { title: "Sign out", tooltip: "Signs you out of this browser.", group: "account", section: "settings", keywords: ["logout", "log out"] },
@@ -99,8 +101,10 @@ export interface EngineActions {
   resume(): Promise<unknown>;
   startWorldNow(): Promise<unknown>;
   endGame(): Promise<unknown>;
-  /** Seat an AI player. */
-  addAi(templateId: string): Promise<unknown>;
+  /** Seat an AI player: the library's default one, or the one chosen (`templateId`). */
+  addAi(templateId?: string): Promise<unknown>;
+  /** Seat AI players in the seats a game still needs, then start it. */
+  practiceGame(): Promise<unknown>;
   removeAi(godId: string): Promise<unknown>;
   /** Put the next game on a setup at once (the app offers Undo). */
   applySetup(id: string): Promise<unknown>;
@@ -160,6 +164,20 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
     : !isOwner ? no(`Only the owner, ${room.ownerName}, can do this.`) : a());
   const lobby = (a: Availability): Availability => (running ? no(`Changes wait until game ${running.shortCode} ends.`) : a);
 
+  const addAi = (): Availability => (aiOff ? no("AI players are not set up on this server.", { hidden: true })
+    : notAdminRoom ? no(adminOnly, { hidden: true })
+    : ownerOnly(() => lobby(players >= scope.maxPlayers ? no(`The next game is full (${scope.maxPlayers} players).`) : ok)));
+  // A practice game: the owner plays, AI players take the seats a game still needs, and it starts in the same click.
+  const missing = Math.max(0, scope.minPlayers - players);
+  const practice = (): Availability => {
+    const a = addAi();
+    if (!a.ok) return a;
+    if (me?.spectator) return no("You are watching the next game; play it first.", { fix: "rooms.setSpectator" });
+    if (scope.starting) return no("The game is already starting.");
+    if (room!.preparing && !room!.preparing.error) return no("The game is preparing its rule tables; it starts by itself.");
+    return missing ? ok : no("Enough players are in: start the game.", { fix: "owner.start" });
+  };
+
   const states: Partial<Record<PublicFunctionPath, (base: Availability) => Availability>> = {
     "owner.start": () => ownerOnly(() => running ? no(`Game ${running.shortCode} is already running.`)
       : scope.starting ? no("The game is already starting.")
@@ -167,9 +185,7 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
       : notAdminRoom && ais.some(a => !a.spectator) ? no(`${adminOnly} Remove the AI players to start.`, { fix: "rooms.removeAi" })
       : players < scope.minPlayers ? no(`Needs ${scope.minPlayers} players; ${players} ${players === 1 ? "plays" : "play"} (spectators don't count).`, aiOff || notAdminRoom ? {} : { fix: "rooms.addAi" }) : ok),
     "owner.settings": () => ownerOnly(() => lobby(ok)),
-    "rooms.addAi": () => (aiOff ? no("AI players are not set up on this server.", { hidden: true })
-      : notAdminRoom ? no(adminOnly, { hidden: true })
-      : ownerOnly(() => lobby(players >= scope.maxPlayers ? no(`The next game is full (${scope.maxPlayers} players).`) : ok))),
+    "rooms.addAi": () => addAi(),
     "rooms.removeAi": () => (aiOff && !ais.length ? no("AI players are not set up on this server.", { hidden: true })
       : ownerOnly(() => lobby(ais.length ? ok : no("No AI players are seated.")))),
     // With no game running it ends a preparation (the next game computing its rule tables).
@@ -230,6 +246,8 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
     const extra: Partial<Command> = {};
     if (c.id === "rooms.setSpectator") extra.human = { title: me?.spectator ? "Play the next game" : "Watch the next game", tooltip: c.human.tooltip };
     if (c.id === "rooms.setReady") extra.human = { title: me?.ready ? "Mark me not ready" : "Mark me ready", tooltip: c.human.tooltip };
+    // The plain "Add AI player" seats the default one; this row is the choice of which.
+    if (c.id === "rooms.addAi") extra.human = { title: "Add an AI player: choose which…", tooltip: c.human.tooltip };
     if (c.id === "rooms.setAiQuotas") extra.confirm = "none"; // the sheet is the form and its Save the confirmation
     if (c.id === "owner.start" && room) extra.summary = () => `${players} players (${ais.length} AI) start now; each gets a secret goal. Spectators watch.`;
     if (c.id === "rooms.endActiveGame" && running) { extra.confirmLabel = `End game ${running.shortCode}`; extra.summary = () => `The current leaderboard becomes the final result of game ${running.shortCode}.`; }
@@ -259,6 +277,10 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
     ui("ui.nav.device", { kind: "navigate", to: "/device" }, signedIn),
     ui("ui.nav.admin", { kind: "navigate", to: "/admin/agents" }, () => (user?.isAdmin ? ok : no("Only admins can do this.", { hidden: true }))),
     ui("ui.copyInviteLink", { kind: "local", run: () => roomCode && act.copy(`${act.origin}/rooms/${roomCode}`, "Invite link") }, () => (roomCode ? ok : no("Open a room first.", { hidden: true }))),
+    ui("ui.addAiPlayer", { kind: "submit", run: () => act.addAi() }, addAi),
+    ui("ui.practiceGame", { kind: "submit", run: act.practiceGame }, practice, missing > 0 ? {
+      human: { title: `Play a practice game with ${countWord(missing)} AI ${missing === 1 ? "player" : "players"}`, tooltip: UI_COMMANDS["ui.practiceGame"].tooltip },
+    } : {}),
     ui("ui.connectInstructions", { kind: "form", page: { kind: "info", title: "Connect a player app", lines: [
       `1. In your app's environment, set CODE_GODS_ENGINE_URL to ${act.origin}`,
       `2. Run: pnpm player connect --room ${roomCode ?? "CODE"}`,
@@ -280,7 +302,7 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
 
   // Default scores: what the empty-query view shows (everything else appears when typed).
   const scores: Record<string, number> = {
-    "owner.start": 9, "rooms.resume": 9, "rooms.join": 9, "ui.copyInviteLink": 7, "rooms.addAi": 6,
+    "owner.start": 9, "rooms.resume": 9, "rooms.join": 9, "ui.copyInviteLink": 7, "ui.addAiPlayer": 6, "ui.practiceGame": 8,
     "owner.settings": 5, "ui.nav.configure": 4, "ui.newSetup": 3, "rooms.endActiveGame": 3, "rooms.create": 6,
     "ui.nav.game": 6, "ui.nav.room": 5, "ui.nav.home": 4, "ui.nav.pastGame": 2, "rooms.history": 1,
   };
@@ -301,10 +323,10 @@ export function codeCommands(query: string, _act: Pick<EngineActions, "navigate"
 /** The game in 90 seconds (onboarding-and-config.md §2), for "How to play". */
 export const HOW_TO_PLAY: readonly string[] = [
   "Code Gods is a game about a shared world and secret wishes.",
-  "The world is a crowd of objects: usually small grids of coloured numbers. Every player is a god with a secret utility function, a short rule that scores every object, such as \"I like grids with red corners\". The rarer an object is by your rule, the more bits it is worth to you.",
-  "You cannot touch objects yourself. You summon agents: tiny Python or TypeScript programs that, when the world picks them, make a few moves on a random object: swap, paint, slide. Summoning costs your energy, which refills every second, and shorter programs cost less. Each agent then earns its own energy and spends some on every move.",
-  "Here is the twist. Your payoff from an object is your bits times how much the other players, together, care about it. An object only you love earns you nothing. You cannot see anyone else's rule, only the total. So talk: say what you want in the public chat, find overlaps, strike deals, call out agents that wreck your favourites.",
-  "The game ends at a random moment. Your score is your payoff added up over every object alive then. Your assistant can explain, write agents and draft messages for you.",
+  "The world is a crowd of objects: usually small grids of coloured numbers. Every player is a god with a secret goal card, a short rule that gives every object a rule score, such as \"I like grids with red corners\". The higher the rule score, the rarer the object is by your rule (its ✨ rarity).",
+  "You cannot touch objects yourself. You summon agents: tiny Python or TypeScript programs that, when the world picks them, make a few moves on a random object: swap, paint, slide. Summoning costs your ⚡ energy, which you earn every second, and shorter programs cost less. Each agent then earns its own energy and spends some on every move.",
+  "Here is the twist. Your points from an object are its ✨ rarity by your rule times how much the other players, together, want it. So +1 on your rule score is not +1 point, and an object only you want gives you 0 points. You cannot see anyone else's rule, only the total. So talk: say what you want in the public chat, find overlaps, strike deals, call out agents that wreck your favourites.",
+  "A first game ends when its countdown reaches zero (some setups hide the end and stop at a random moment instead). Your final points are the points of every object alive then, added up. Your assistant can explain, write agents and draft messages for you.",
 ];
 
 export { firstName };

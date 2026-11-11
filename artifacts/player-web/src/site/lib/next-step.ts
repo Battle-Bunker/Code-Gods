@@ -9,7 +9,7 @@ import type { StartView } from "@workspace/player-client/start";
 
 /** The ids a page's next step can name; every one is a palette command (tested). */
 export const STEP_IDS = [
-  "ui.auth.signIn", "rooms.join", "rooms.setReady", "ui.copyInviteLink", "rooms.addAi",
+  "ui.auth.signIn", "rooms.join", "rooms.setReady", "ui.copyInviteLink", "ui.practiceGame",
   "owner.start", "ui.nav.game", "rooms.resume", "ui.nav.room", "rooms.create", "rooms.setSpectator",
 ] as const;
 export type StepId = (typeof STEP_IDS)[number];
@@ -37,6 +37,9 @@ export interface StepOptions { minPlayers?: number; maxPlayers?: number; aiAvail
 
 export const firstName = (name: string) => name.split(/\s+/)[0] || name;
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+const WORDS = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight"];
+/** A small count in words ("two friends"); digits past eight. */
+export const countWord = (n: number) => WORDS[n] ?? String(n);
 
 /** The room page's next step for this viewer (`viewerId` null when signed out). */
 export function nextStep(viewerId: string | null | undefined, room: StepRoom, opts: StepOptions = {}): NextStep {
@@ -80,14 +83,26 @@ export function nextStep(viewerId: string | null | undefined, room: StepRoom, op
   if (!owner) {
     if (watching) return n >= max ? { status: "The next game is full; you'll watch it.", primary: null, secondary: [] }
       : { status: "You'll watch the next game.", primary: "rooms.setSpectator", secondary: [] };
-    // Below the minimum nobody can start: say what is missing; inviting is the one thing that helps (ready gates nothing).
-    if (n < min) return { status: `${plural(min - n, "more player")} needed; then ${firstName(room.ownerName)} can start.`, primary: "ui.copyInviteLink", secondary: ["rooms.setReady", "rooms.setSpectator"] };
-    return { status: `Waiting for ${firstName(room.ownerName)} to start the game.`, primary: "rooms.setReady", secondary: ["rooms.setSpectator"] };
+    // Below the minimum nobody can start: say what is missing; inviting is the one thing that helps. Ready gates nothing
+    // (rooms.setReady is advisory: owner.start never reads it), so it is never the filled button.
+    if (n < min) return { status: `${plural(min - n, "more player")} needed; then ${firstName(room.ownerName)} can start.`, primary: "ui.copyInviteLink", secondary: ["rooms.setSpectator"] };
+    return { status: `Waiting for ${firstName(room.ownerName)} to start the game.`, primary: null, secondary: ["rooms.setReady", "rooms.setSpectator"] };
   }
-  // The owner may switch between watching and playing, beside the AI seats.
-  const addAi: StepId[] = ["rooms.setSpectator", ...(ai && n < max ? ["rooms.addAi" as const] : [])];
-  if (n < min) return { status: `${plural(min - n, "more player")} needed${watching ? "; you're watching" : ""}.${ai ? " AI players count." : ""}`, primary: "ui.copyInviteLink", secondary: addAi };
-  return { status: watching ? `${plural(n, "player")} are in; you're watching. Start when ready.` : `${plural(n, "player")} are in; start when you're ready.`, primary: "owner.start", secondary: addAi };
+  // Adding an AI player is the Members list's one plain button (pages/room.tsx), not a step: the status only says they count.
+  // An owner who chose to watch: playing again is one click.
+  if (watching) {
+    const secondary: StepId[] = ["rooms.setSpectator"];
+    return n < min ? { status: `${plural(min - n, "more player")} needed; you're watching.${ai ? " AI players count." : ""}`, primary: "ui.copyInviteLink", secondary }
+      : { status: `${plural(n, "player")} are in; you're watching. Start when ready.`, primary: "owner.start", secondary };
+  }
+  // The owner plays (rooms.create seats them). Until enough players are in, the path is to invite; alone in the room
+  // with AI players available, one click fills the other seats and starts a practice game.
+  if (n < min) {
+    if (!ai) return { status: `A game needs ${countWord(min)} players. Invite ${countWord(min - n)} ${min - n === 1 ? "friend" : "friends"} with this link.`, primary: "ui.copyInviteLink", secondary: [] };
+    if (room.members.length === 1) return { status: `A game needs ${countWord(min)} players. Practise against AI players, or invite friends.`, primary: "ui.practiceGame", secondary: ["ui.copyInviteLink"] };
+    return { status: `${plural(min - n, "more player")} needed. AI players count.`, primary: "ui.copyInviteLink", secondary: [] };
+  }
+  return { status: `${plural(n, "player")} are in; start when you're ready.`, primary: "owner.start", secondary: ["ui.copyInviteLink"] };
 }
 
 export interface StepGame {
