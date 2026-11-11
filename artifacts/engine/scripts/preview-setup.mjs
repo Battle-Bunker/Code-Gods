@@ -3,13 +3,21 @@
  * Everything a PREVIEW deployment needs after its first push (.github/workflows/preview.yml; docs/preview-deployments.md):
  * the same steps the dev deploy runs, plus the secrets a brand-new deployment lacks, generated here.
  *
- *   node scripts/preview-setup.mjs            in the workflow, after `npx convex deploy --preview-name <name>` and
- *                                             `.github/scripts/preview.mjs credentials <name>`
+ *   node scripts/preview-setup.mjs --env-only   step 1 alone, BEFORE the first push: the workflow passes it to
+ *                                               `npx convex deploy --preview-name <name> --cmd …`, which runs it once
+ *                                               the preview exists and before the functions are pushed (the order
+ *                                               Convex's Better Auth guide uses), so the very first push already
+ *                                               finds its secrets. Reaches the preview the documented way: the preview
+ *                                               deploy key in CONVEX_DEPLOY_KEY plus `--preview-name $PREVIEW_NAME`.
+ *   node scripts/preview-setup.mjs              everything, after that push and after
+ *                                               `.github/scripts/preview.mjs credentials <name>`
  *
- * It only ever talks to the deployment named by CONVEX_SELF_HOSTED_URL + CONVEX_SELF_HOSTED_ADMIN_KEY (the Convex CLI's
- * URL + admin key variables, which the `credentials` step fills in for the preview), and refuses to start
+ * The full run only ever talks to the deployment named by CONVEX_SELF_HOSTED_URL + CONVEX_SELF_HOSTED_ADMIN_KEY (the
+ * Convex CLI's URL + admin key variables, which the `credentials` step fills in for the preview), and refuses to start
  *   - without them, or with CONVEX_DEPLOY_KEY set (that key could name dev or production), or
  *   - when the URL is the dev or production deployment.
+ * `--env-only` refuses any CONVEX_DEPLOY_KEY that is not a preview deploy key (`preview:<team>:<project>|…`), which
+ * can only ever reach previews.
  *
  * Steps (each idempotent, so a later push to the same preview repeats them safely and keeps its data and sessions):
  *   1. env vars, only where missing: BETTER_AUTH_SECRET, PLAYER_JWT_PRIVATE_KEY + PLAYER_JWT_JWKS, SEASON_SALT
@@ -41,6 +49,16 @@ export function refusal(env) {
   if (!env.CONVEX_SELF_HOSTED_URL || !env.CONVEX_SELF_HOSTED_ADMIN_KEY) return "CONVEX_SELF_HOSTED_URL and CONVEX_SELF_HOSTED_ADMIN_KEY must name the preview deployment";
   const hit = PROTECTED_DEPLOYMENTS.find(name => env.CONVEX_SELF_HOSTED_URL.includes(name));
   if (hit) return `${hit} is the dev or production deployment, not a preview`;
+  return null;
+}
+
+/** Why `--env-only` must not run in this environment, or null: it needs a preview deploy key and the preview's name. */
+export function envOnlyRefusal(env) {
+  const [prefix, secret] = String(env.CONVEX_DEPLOY_KEY ?? "").split("|");
+  const parts = prefix.split(":");
+  if (!secret || parts.length !== 3 || parts[0] !== "preview") return "--env-only needs a preview deploy key (preview:<team>:<project>|…) in CONVEX_DEPLOY_KEY: any other key could name dev or production";
+  if (env.CONVEX_SELF_HOSTED_URL || env.CONVEX_SELF_HOSTED_ADMIN_KEY) return "--env-only runs with the preview deploy key alone: CONVEX_SELF_HOSTED_URL must not be set";
+  if (!/^[a-z0-9][a-z0-9-]{0,39}$/.test(env.PREVIEW_NAME ?? "")) return "PREVIEW_NAME must be the preview's name (.github/scripts/preview.mjs name <branch>)";
   return null;
 }
 
@@ -79,11 +97,14 @@ export async function envPlan(existing, env, { generateKey = generateJwtKey, ran
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const why = refusal(process.env);
+  const envOnly = process.argv.includes("--env-only");
+  const why = envOnly ? envOnlyRefusal(process.env) : refusal(process.env);
   if (why) { console.error(`::error::${why}`); process.exit(1); }
   const env = { ...process.env };
+  /** `--env-only`: the preview by name, with the preview deploy key. Otherwise the URL + admin key in the environment. */
+  const target = envOnly ? ["--preview-name", process.env.PREVIEW_NAME] : [];
   const step = title => console.log(`\n[preview] ${title}`);
-  const convex = (args, options = {}) => spawnSync("npx", ["convex", ...args], { cwd: root, env, encoding: "utf8", ...options });
+  const convex = (args, options = {}) => spawnSync("npx", ["convex", ...args, ...(["env", "run"].includes(args[0]) ? target : [])], { cwd: root, env, encoding: "utf8", ...options });
   const must = (result, what) => { if (result.status !== 0) { console.error(`::error::${what} failed\n${result.stderr ?? ""}`); process.exit(1); } return result; };
   const run = (command, args, what, options = {}) => must(spawnSync(command, args, { cwd: root, env, stdio: "inherit", ...options }), what);
   /** Values go in on stdin: never in a process list or the log. */
@@ -95,6 +116,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   for (const [name, value] of Object.entries(plan.set)) setEnv(name, value);
   for (const name of plan.remove) must(convex(["env", "remove", name], { stdio: ["ignore", "ignore", "inherit"] }), `convex env remove ${name}`);
   console.log(`set: ${Object.keys(plan.set).join(", ") || "nothing"}; removed: ${plan.remove.join(", ") || "nothing"}`);
+  if (envOnly) process.exit(0);
 
   if (!names().includes("BETTER_AUTH_JWKS")) {
     step("Better Auth signing key (first run only)");

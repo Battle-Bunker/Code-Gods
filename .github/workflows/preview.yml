@@ -130,11 +130,17 @@ jobs:
         run: node scripts/build-worker.mjs --check
 
       # ---- the preview (the only two steps that see the preview deploy key) ----
-      - name: Create or update the preview and push the functions
+      # --preview-name creates the preview, or reuses the existing one and its data. --cmd runs once the preview
+      # exists and BEFORE the functions are pushed: it gives a new preview its secrets (preview-setup.mjs --env-only).
+      - name: Create or update the preview, set its secrets, push the functions
         working-directory: artifacts/engine
         env:
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_PREVIEW_DEPLOY_KEY }}
-        run: npx convex deploy --preview-name "$NAME" --typecheck enable   # --preview-name reuses an existing preview and its data
+          PREVIEW_NAME: ${{ needs.gate.outputs.name }}
+          PREVIEW_SIGN_IN_CODE: ${{ secrets.PREVIEW_SIGN_IN_CODE }}
+          PREVIEW_ANTHROPIC_API_KEY: ${{ secrets.PREVIEW_ANTHROPIC_API_KEY }}
+          PREVIEW_OPENAI_API_KEY: ${{ secrets.PREVIEW_OPENAI_API_KEY }}
+        run: npx convex deploy --preview-name "$NAME" --typecheck enable --cmd 'node scripts/preview-setup.mjs --env-only'
       - name: Point the following steps at the preview
         id: target
         env:

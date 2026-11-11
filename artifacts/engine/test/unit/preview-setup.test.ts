@@ -4,7 +4,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { envPlan, refusal } from "../../scripts/preview-setup.mjs";
+import { envOnlyRefusal, envPlan, refusal } from "../../scripts/preview-setup.mjs";
 
 const target = { CONVEX_SELF_HOSTED_URL: "https://happy-otter-1.convex.cloud", CONVEX_SELF_HOSTED_ADMIN_KEY: "k" };
 const fixed = { generateKey: async () => ({ privateKey: "-----BEGIN-----\nabc\n-----END-----\n", jwks: '{"keys":[]}' }), random: (n: number) => `r${n}` };
@@ -16,6 +16,17 @@ test("the preview setup never runs against a deploy key's deployment, nor dev or
   assert.match(refusal({})!, /must name the preview/);
   assert.match(refusal({ ...target, CONVEX_SELF_HOSTED_URL: "https://quixotic-gopher-395.convex.cloud" })!, /dev or production/);
   assert.match(refusal({ ...target, CONVEX_SELF_HOSTED_URL: "https://original-bear-509.convex.cloud" })!, /dev or production/);
+});
+
+test("--env-only (before the first push) accepts a preview deploy key and nothing else", () => {
+  const ok = { CONVEX_DEPLOY_KEY: "preview:team:code-gods|secret", PREVIEW_NAME: "variant-x" };
+  assert.equal(envOnlyRefusal(ok), null);
+  for (const key of ["dev:quixotic-gopher-395|x", "prod:original-bear-509|x", "project:t:p|x", "preview:happy-otter-1|x", "", undefined]) {
+    assert.match(envOnlyRefusal({ ...ok, CONVEX_DEPLOY_KEY: key })!, /needs a preview deploy key/, String(key));
+  }
+  assert.match(envOnlyRefusal({ ...ok, PREVIEW_NAME: "" })!, /PREVIEW_NAME/);
+  assert.match(envOnlyRefusal({ ...ok, PREVIEW_NAME: "--prod" })!, /PREVIEW_NAME/, "a name is never read as a flag");
+  assert.match(envOnlyRefusal({ ...ok, CONVEX_SELF_HOSTED_URL: "http://x" })!, /must not be set/);
 });
 
 test("a new preview gets its own generated secrets, placeholders for Google, the preview admin, and the passphrase", async () => {
