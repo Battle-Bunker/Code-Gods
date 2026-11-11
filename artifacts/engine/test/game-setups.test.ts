@@ -8,7 +8,9 @@ import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { BEGINNER_POOL, SEED_SETUPS, SETUP_NAME_MAX, seedSetupSettings } from "@workspace/game-core";
-import { admin, api, clientFor, gods, internal, playerClient, roomWith, setupEntries, touch, waitFor, type God } from "./game-helpers.ts";
+import { admin, api, clientFor, gods, internal, playerClient, roomWith, setupEntries, startGame, touch, waitFor, type God } from "./game-helpers.ts";
+/** The system setups everyone sees (the administrator-only ones exist for administrators alone). */
+const PUBLIC_SEEDS = SEED_SETUPS.filter(s => !s.adminOnly);
 
 async function errorOf(promise: Promise<unknown>): Promise<{ code?: string; message?: string }> {
   try { await promise; } catch (error) { return (error as { data?: { code?: string; message?: string } }).data ?? { message: (error as Error).message }; }
@@ -78,7 +80,7 @@ test("everyone sees every setup with its owner; only the owner changes or delete
   assert.deepEqual((await get(bob, saved.id)).settings, quick, "and its settings");
   assert.equal(await errorCode(bob.c.query(api.setups.get, { setupId: "nope" })), "NOT_FOUND");
   const annRows = await list(ann);
-  assert.ok(annRows.findIndex(r => r.id === saved.id) >= SEED_SETUPS.length, "after the system's");
+  assert.ok(annRows.findIndex(r => r.id === saved.id) >= PUBLIC_SEEDS.length, "after the system's");
 
   // Bob may not change or delete Ann's setup, and is told whose it is.
   const edit = await errorOf(bob.c.action(api.setups.save, { setupId: saved.id, name: "Mine now", settings: quick }));
@@ -150,8 +152,8 @@ test("the catalogue pages in order, at most 30 a page; search finds by name, own
   const first = await ann.c.query(api.setups.page, { paginationOpts: { numItems: 500, cursor: null } });
   assert.ok(first.page.length <= 30, "a page holds at most 30 (a page of setups with their settings stays within 64 KiB)");
   const all = await setupEntries(ann.c);
-  assert.deepEqual(all.slice(0, SEED_SETUPS.length).map(e => e.seedId), SEED_SETUPS.map(s => s.seedId), "the system's first, in seed order");
-  const others = all.slice(SEED_SETUPS.length);
+  assert.deepEqual(all.slice(0, PUBLIC_SEEDS.length).map(e => e.seedId), PUBLIC_SEEDS.map(s => s.seedId), "the system's first, in seed order");
+  const others = all.slice(PUBLIC_SEEDS.length);
   assert.ok(others.every(e => !e.system), "then everyone's");
   const fold = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
   others.forEach((e, i) => { if (i) assert.ok(fold(others[i - 1].name) <= fold(e.name), `by name: ${others[i - 1].name} before ${e.name}`); });
@@ -300,14 +302,9 @@ test("a game from the Tiered rules setup deals every god a tiered rule; an ordin
     if (room.setup.id !== setup.id) await host.c.action(api.owner.settings, { roomId, revision: room.revision, setupId: setup.id });
     const catalog: { id: string; role: string; available: boolean; excluded: boolean }[] =
       await waitFor(async () => (await host.c.query(api.rooms.get, { room: roomId })).utilityCatalog, "the room's catalogue", 60_000);
-    await host.c.action(api.owner.start, { roomId, requestId: randomUUID() });
-    // Tables the deal lacks are prepared on demand; the game then begins by itself.
-    const game = await waitFor(async () => {
-      const r = await host.c.query(api.rooms.get, { room: roomId });
-      if (r.preparing?.failed) throw new Error(`preparing failed: ${JSON.stringify(r.preparing)}`);
-      return r.activeGame;
-    }, `the ${seedId} game starts`, 240_000);
-    const g = await admin.query(internal.testing.rawGame, { gameId: game.id });
+    // Tables the deal lacks are prepared on demand; the game then begins by itself (startGame waits for it).
+    const game = await startGame(host, roomId, { requestId: randomUUID(), holdSettled: false }, 240_000);
+    const g = await admin.query(internal.testing.rawGame, { gameId: game.gameId as never });
     await host.c.mutation(api.rooms.endActiveGame, { roomId });
     return { utilities: g.deities.map((d: { utility: { familyId: string; params: { tiers?: unknown } } }) => d.utility), settings: g.game.settings, catalog };
   };
