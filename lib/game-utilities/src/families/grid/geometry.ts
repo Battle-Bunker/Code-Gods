@@ -203,10 +203,14 @@ const bridgeBuilder = gridFamily<BridgeP>({
   },
 });
 
+/** How a quarter turn moves cells: in sets of 4, and on an odd-sized grid the middle cell stays put (it is in no set). */
+const quarterTurnSets = (g: GridSpec) => `cells swap places in sets of 4${g.N % 2 ? ", and the middle cell stays put" : ""}.`;
+
 // --- Card Windmill ---------------------------------------------------------------------------------
 const windmillText = (g: GridSpec): CardText => ({
   emoji: "🌀", name: "Card Windmill", consts: [],
-  about: "Try to make suits spin round a quarter turn. Turn the grid a quarter turn clockwise, so every card lands on another spot. "
+  about: `Try to make suits spin round a quarter turn. Turn the grid a quarter turn clockwise, so every card ${g.N % 2 ? "except the middle one " : ""}lands on another spot. `
+    + (g.N % 2 ? "The middle card never scores. " : "")
     + `A turn is good when the card there is the next suit. ${cap(g.say.distinctSuits(4))} go round in order: ♠ → ♥ → ♦ → ♣ → ♠. `
     + "A card whose four turns are all good scores 1 primary point. Each good turn scores 1 secondary point.",
 });
@@ -483,7 +487,7 @@ const pinKey = (g: GridSpec) => (g.cards ? "suit" : "symbol");
 const pinWord = (g: GridSpec) => (g.cards ? "suit" : "number");
 const pinText = (_p: PinP, g: GridSpec): CardText => ({
   emoji: "🎡", name: "Pinwheel", consts: [],
-  about: `Try to make a quarter turn leave the grid looking the same. Turn the grid a quarter turn: cells swap places in sets of 4, and the middle cell stays put. `
+  about: `Try to make a quarter turn leave the grid looking the same. Turn the grid a quarter turn: ${quarterTurnSets(g)} `
     + `A set of 4 that all share the same ${pinWord(g)} scores 1 primary point. `
     + `In each set, every cell of the commonest ${pinWord(g)} scores 1 secondary point.`,
 });
@@ -1391,9 +1395,9 @@ const mirrorQuilt = gridFamily<GlassP>({
 });
 
 // --- Colour Pinwheel (Pinwheel on colours) ---------------------------------------------------------
-const colourPinText = (_p: PinP, _g: GridSpec): CardText => ({
+const colourPinText = (_p: PinP, g: GridSpec): CardText => ({
   emoji: "🌀", name: "Colour Pinwheel", consts: [],
-  about: "Try to make a quarter turn leave the colours the same. Turn the grid a quarter turn: cells swap places in sets of 4, and the middle cell stays put. "
+  about: `Try to make a quarter turn leave the colours the same. Turn the grid a quarter turn: ${quarterTurnSets(g)} `
     + "A set of 4 that all share the same colour scores 1 primary point. "
     + "In each set, every cell of the commonest colour scores 1 secondary point.",
 });

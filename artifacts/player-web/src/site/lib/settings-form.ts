@@ -13,7 +13,7 @@
  * - the family shelves of an instantiation (reward rules and defence goals);
  * - stepped choices that always contain the current value; the length and pace lines of the summary.
  */
-import { LANGUAGES, TIME_LIMITS, LANGUAGE_SPECS, SETTINGS_DOCS, sameSettings, validateSettings, type FamilyRole, type FieldDoc, type GameSettings, type Language, type SettingsDomain, type SettingsSection } from "@workspace/game-core";
+import { ENERGY_LIMITS, LANGUAGES, TIME_LIMITS, LANGUAGE_SPECS, SETTINGS_DOCS, sameSettings, validateSettings, type FamilyRole, type FieldDoc, type GameSettings, type Language, type SettingsDomain, type SettingsSection } from "@workspace/game-core";
 import { instanceInfo, instantiate, type ParamSchema, type TypeArgs } from "@workspace/game-types";
 import { familiesFor, firstUseSeconds, isPlayableInstantiation, publicCatalog, type CatalogEntry } from "@workspace/game-utilities";
 
@@ -62,10 +62,10 @@ export const LIMITS: Readonly<Partial<Record<SettingsKey, Limit>>> = {
   interactionComputeMs: { min: 1, max: 1000, int: true, unit: "ms" },
   stepBudget: { min: 1, max: 10_000_000, int: true, unit: "steps" },
   pauseSeconds: { ...TIME_LIMITS.pauseSeconds, unit: "seconds" },
-  startingEnergy: { min: 0, unit: "bits" },
-  powerPerSecond: { min: 0, unit: "bits per second" },
+  startingEnergy: { ...ENERGY_LIMITS.startingEnergy, unit: "bits" },
+  powerPerSecond: { ...ENERGY_LIMITS.powerPerSecond, unit: "bits per second" },
   maxAgentsPerGod: { min: 1, max: 200, int: true, unit: "agents" },
-  penaltyWeight: { min: 0, unit: "" },
+  penaltyWeight: { ...ENERGY_LIMITS.penaltyWeight, unit: "" },
 };
 export const QUOTA_LIMITS = { aiQuota: { min: 0, max: 1_000_000, int: true, unit: "tokens" }, assistantQuota: { min: 0, max: 2_000_000, int: true, unit: "tokens" } } as const;
 

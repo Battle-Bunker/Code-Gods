@@ -1,0 +1,42 @@
+/**
+ * Rule text that must match what the program computes on the shipped boards (production-readiness audit, 2026-11-11):
+ * each case is a sentence that was false of its scoring code on some shape.
+ */
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { instantiate } from "@workspace/game-types";
+import { context, family } from "../src/catalog.ts";
+
+const even = context(instantiate("Grid", { size: 4, symbols: "base10", colours: "rgb" }));
+const odd = context(instantiate("Grid", { size: 7, symbols: "cards", colours: "rainbow6" }));
+const say = (id: string, params: object, ctx = even) => family(id).summary(params as never, ctx);
+
+test("a quarter turn has a middle cell only on odd-sized grids", () => {
+  for (const id of ["pinwheel", "colour_pinwheel"]) {
+    assert.doesNotMatch(say(id, {}, even), /middle/);
+    assert.match(say(id, {}, odd), /the middle cell stays put/);
+  }
+  assert.match(say("card_windmill", {}, odd), /every card except the middle one lands on another spot\. The middle card never scores\./);
+});
+
+test("a column seesaw weighs its top half against its bottom half", () => {
+  assert.match(say("seesaw", { scope: "cols" }), /top half and its bottom half/);
+  assert.match(say("seesaw", { scope: "rows" }), /left half and its right half/);
+});
+
+test("repeats in a row count every extra copy, not each repeated colour", () => {
+  // The program scores len(row) - distinct colours: red, red, red, green is 2.
+  assert.match(say("hate_repeat_row", { row: 0 }), /Each cell whose colour already appears earlier in that row adds 1 primary point/);
+});
+
+test("matching corners score the size of the biggest matching group, 1 when all differ", () => {
+  const text = say("hate_same_corners", {});
+  assert.match(text, /find the colour most of them share\. Each corner of that colour adds 1 primary point of badness \(1 in all if the 4 colours differ\)/);
+  assert.match(say("hate_same_corners", {}, odd), /Do the same with ranks/);
+});
+
+test("colour-by-number says colours are shared, as its own key shows", () => {
+  const text = say("colour_by_number", { shift: 0 });
+  assert.doesNotMatch(text, /its own colour/);
+  assert.match(text, /Every number has a colour, and some numbers share one\./);
+});
