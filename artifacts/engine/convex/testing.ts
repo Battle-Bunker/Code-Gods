@@ -438,6 +438,18 @@ export const legacyAiSeat = internalMutation({
   },
 });
 
+/** Kill an AI seat's turn chain as a dead turn action would: its scheduled turn is stale and none follows; `dueAgoMs` ago. */
+export const killAiChain = internalMutation({
+  args: { roomId: v.id("rooms"), godId: v.string(), dueAgoMs: v.number() },
+  handler: async (ctx, { roomId, godId, dueAgoMs }) => {
+    dev();
+    const seat = await ctx.db.query("members").withIndex("by_room_god", q => q.eq("roomId", roomId).eq("godId", godId)).unique();
+    if (!seat?.aiAgent) fail("NOT_FOUND", "no AI seat");
+    await ctx.db.patch(seat._id, { aiChain: (seat.aiChain ?? 0) + 1, aiNextAt: Date.now() - dueAgoMs });
+    return (seat.aiChain ?? 0) + 1;
+  },
+});
+
 /** A room's member rows as stored (rooms.get defaults what it projects). */
 export const rawMembers = internalQuery({
   args: { roomId: v.id("rooms") },

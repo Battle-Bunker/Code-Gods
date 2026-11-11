@@ -119,6 +119,13 @@ export class RuntimeError extends Error {
  * source, checked against PYTHON_BUNDLE_SHA256, compiled once and shared by every worker.
  */
 export type PythonAssets = Uint8Array | ArrayBuffer | string | (() => Promise<Uint8Array | ArrayBuffer>);
+/** How one act queues for a worker. */
+export interface RequestOptions {
+  /** Queue behind every foreground request (arrival order within each lane): work no game's tick is waiting for. */
+  background?: boolean;
+  /** Epoch ms: if no worker has taken the request by then it fails with CAPACITY (a running request is not interrupted). */
+  deadline?: number;
+}
 export interface RuntimeOptions {
   language: Language;
   /** Engines (worker_threads), 1–16, started lazily on concurrent demand (or by `warm`). Default 1. */
@@ -206,14 +213,14 @@ export class GameRuntime {
    * starts at 2026-01-01T00:00:00Z and `random` / `Math.random` are seeded with `seed`
    * (a 64-bit decimal or 0x-hex string): the same (source, input, settings, seed) gives the same result.
    */
-  act(source: string, input: WireValue, settings: ActSettings, seed: string): Promise<ActResult>;
+  act(source: string, input: WireValue, settings: ActSettings, seed: string, options?: RequestOptions): Promise<ActResult>;
   /**
    * A compile pool (role "compile", TypeScript): the trusted compiler output for `source`, `{inspection, js}`.
    * (An execution pool with its own compiler also answers this, from its cache.)
    */
   compile(source: string, settings: ActSettings): Promise<Compiled>;
   /** An execution pool: one act of `js`, the `compile(source, ...)` output of a compile pool (trusted, not the player's). */
-  actCompiled(source: string, js: string, input: WireValue, settings: ActSettings, seed: string): Promise<ActResult>;
+  actCompiled(source: string, js: string, input: WireValue, settings: ActSettings, seed: string, options?: RequestOptions): Promise<ActResult>;
   /** Nothing queued or running: closing the pool now interrupts no request. */
   readonly idle: boolean;
   /** inspect + one act per sample (1–32 samples, one seed each, fresh guest each); rejects on the first failure. */

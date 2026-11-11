@@ -15,7 +15,11 @@ import { AIController, AITurnError, createDirectAnthropicProvider, createDirectO
 import type { Language } from "@workspace/game-core";
 import type { Observation } from "@workspace/player-client";
 import { internal } from "../_generated/api";
-import { internalAction } from "../_generated/server";
+import { internalAction, type ActionCtx } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
+import type { FunctionReturnType } from "convex/server";
+import { withBackgroundSlot } from "../engine/background";
+import { TURN_SLOT_WAIT_MS } from "../lib/background";
 import { runEnvelope } from "../commands";
 import { findModel, mockEnabled } from "../lib/aiModels";
 import { messageOf } from "../lib/errors";
@@ -101,6 +105,23 @@ export const run = internalAction({
       return { waited: true };
     }
     const { roomId, agent } = context;
+    // A turn is background work, capped deployment-wide (lib/background.ts): past the cap it runs a few seconds later,
+    // so many seats' turns never keep the games' ticks waiting for the scheduler.
+    const ran = await withBackgroundSlot(ctx, "turn", 0, () => playTurn(ctx, { gameId, godId, roomId, agent }));
+    if (ran.busy) {
+      await ctx.runMutation(internal.ai.seats.afterTurn, { gameId, godId, chain, ok: true, status: "Waiting for its turn",
+        waitUntil: Date.now() + TURN_SLOT_WAIT_MS + Math.floor(Math.random() * TURN_SLOT_WAIT_MS) });
+      return { waited: true };
+    }
+    const { ok, status } = ran.value;
+    await ctx.runMutation(internal.ai.seats.afterTurn, { gameId, godId, chain, ok, status });
+    return { ok, status };
+  },
+});
+
+type TurnContext = Extract<FunctionReturnType<typeof internal.ai.seats.turnContext>, { roomId: unknown }>;
+/** One turn of the seat: the provider call and the commands it sends. Never throws: a failure is its status. */
+async function playTurn(ctx: ActionCtx, { gameId, godId, roomId, agent }: { gameId: Id<"games">; godId: string; roomId: TurnContext["roomId"]; agent: TurnContext["agent"] }): Promise<{ ok: boolean; status: string }> {
     let status = "Thinking";
     let ok = true;
     let failure: SeatFailure | undefined;
@@ -143,7 +164,5 @@ export const run = internalAction({
       console.warn(`AI turn failed for ${godId} [${reason}]: ${messageOf(error)}${cause}`);
       status = reason === "budget_exhausted" && refusal ? refusal.replace(/\.$/, "") : failureStatus(reason);
     }
-    await ctx.runMutation(internal.ai.seats.afterTurn, { gameId, godId, chain, ok, status });
     return { ok, status };
-  },
-});
+}

@@ -65,11 +65,19 @@ export function seasonMixture(inst: Instantiation): ReferenceMixture {
   return mix;
 }
 
+/** An examination's acts are background work (engine/runtime.ts ActLane): no game's tick waits behind them. */
+const BACKGROUND = { background: true } as const;
+
 /** An agent-fault examination failure (compile error etc.): reported to the player, never a host error. */
 export class AgentFault extends Error {}
 
 /** Throws AgentFault for the agent's own compile errors; host failures propagate as they are. */
-export async function examineAgent(ctx: ActionCtx, settings: GameSettings, language: Language, source: string, live: readonly ObjectValue[]): Promise<Examination> {
+/**
+ * `deadline` (epoch ms): when the caller stops waiting. Runs the sandbox has not started by then are dropped there
+ * (a host failure, which ends the examination), so an abandoned examination does not keep the sandbox busy.
+ */
+export async function examineAgent(ctx: ActionCtx, settings: GameSettings, language: Language, source: string, live: readonly ObjectValue[], deadline?: number): Promise<Examination> {
+  const lane = deadline === undefined ? BACKGROUND : { ...BACKGROUND, deadline };
   const inst = instantiationOf(settings);
   let inspection: Inspection;
   try { inspection = await inspect(ctx, source, language, settings); }
@@ -88,7 +96,7 @@ export async function examineAgent(ctx: ActionCtx, settings: GameSettings, langu
   const probing = probeFutility(async (value, seed) => {
     if (hostFailure) throw hostFailure;
     runs++;
-    try { const result = await act(ctx, source, language, value, settings, seed); return { calls: result.calls, usedRandom: result.usedRandom, steps: result.steps, readBits: result.readBits }; }
+    try { const result = await act(ctx, source, language, value, settings, seed, lane); return { calls: result.calls, usedRandom: result.usedRandom, steps: result.steps, readBits: result.readBits }; }
     catch (error) {
       if (!isAgentFault(error)) { hostFailure ??= error; throw error; }
       return { calls: "[]", error: (error as Error).message.slice(0, 200) };
@@ -98,7 +106,7 @@ export async function examineAgent(ctx: ActionCtx, settings: GameSettings, langu
     if (hostFailure) throw hostFailure;
     runs++;
     try {
-      const result = await act(ctx, source, language, value, settings, seed);
+      const result = await act(ctx, source, language, value, settings, seed, lane);
       if (settings.commitClause && !usesClause) { try { usesClause = parseAct(result.calls).commit !== undefined; } catch { /* invalid act */ } }
       if (at.component === "game" && at.replicate === 0 && sample.value === undefined) Object.assign(sample, { value, calls: result.calls });
       return { calls: result.calls, usedRandom: result.usedRandom, steps: result.steps, readBits: result.readBits };

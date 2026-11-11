@@ -15,6 +15,7 @@ import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalAction, type ActionCtx } from "../_generated/server";
 import { priorOf, scoresOf, type Deal } from "./node";
+import { withBackgroundSlot } from "./background";
 import { fromPinnedFile, pinnedFile, storePinned } from "./pinned";
 
 /** The cache key of one draw's hold table at m: its static table's key (family, canonical params, card, prelude…) + m + noise. */
@@ -52,12 +53,24 @@ export const start = internalAction({
   },
 });
 
+/** How long a hold computation past the background cap waits before asking again (plus as much again, at random). */
+const HOLD_RETRY_MS = 1000;
 export const computeOne = internalAction({
   args: { gameId: v.id("games"), key: v.string(), draw: v.object({ familyId: v.string(), params: v.any() }), m: v.number() },
   handler: async (ctx, { gameId, key, draw, m }) => {
     const game = await ctx.runQuery(internal.engine.holdData.status, { gameId });
     if (!game || game.holdState !== "computing") return;
-    try { await compute(ctx, key, draw, instantiationOf(game.settings as GameSettings), m, gameId); }
+    try {
+      // Background work, capped deployment-wide (engine/background.ts): past the cap it runs a moment later, so many
+      // games starting together compute their tables a few at a time and running games' ticks keep their capacity.
+      // Another game may have computed this table meanwhile: then only this game's pending key is settled.
+      const ran = await withBackgroundSlot(ctx, "hold", 0, async () => {
+        const cached = (await ctx.runQuery(internal.engine.holdData.missing, { keys: [key] })).length === 0;
+        if (cached) await ctx.runMutation(internal.engine.holdData.settle, { gameId, key });
+        else await compute(ctx, key, draw, instantiationOf(game.settings as GameSettings), m, gameId);
+      });
+      if (ran.busy) await ctx.scheduler.runAfter(HOLD_RETRY_MS + Math.floor(Math.random() * HOLD_RETRY_MS), internal.engine.hold.computeOne, { gameId, key, draw, m });
+    }
     catch (error) { await ctx.runMutation(internal.engine.holdData.failed, { gameId, message: `hold table ${draw.familyId}: ${(error as Error).message}` }); }
   },
 });

@@ -11,7 +11,7 @@ import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
 import { eventV, failuresV, futileEntriesV, lastFailuresV, scoreV } from "../game/tables";
-import { liveGame, withEngine, writeGame, type LiveGame } from "../game/state";
+import { engineDoc, liveGame, withEngine, writeGame, type LiveGame } from "../game/state";
 import { publicSalienceOf } from "../game/readModel";
 import { godTotalsV, scheduleFill } from "../game/objectViews";
 import { writeAgentSamples } from "../game/agentSeries";
@@ -181,6 +181,23 @@ export const snapshot = internalQuery({
   },
 });
 
+/**
+ * The tick's heartbeat (engine/tick.ts keepLease): the tick holding lease `seq` extends it to LEASE_MS from now, so the
+ * watchdog leaves a slow tick alone. Returns the new `leaseUntil`, or null when the lease is no longer this tick's (the
+ * game was restarted, paused, ended or parked): its window can no longer commit. Reads and writes only the gameEngine
+ * doc, and only when the tick asks (lib/world.ts LEASE_RENEW_BELOW_MS: a tick that commits within ten seconds never does).
+ */
+export const renewLease = internalMutation({
+  args: { gameId: v.id("games"), seq: v.number() },
+  handler: async (ctx, { gameId, seq }) => {
+    const engine = await engineDoc(ctx, gameId);
+    if (!engine || engine.tick.seq !== seq || engine.tick.leaseUntil === 0) return null;
+    const leaseUntil = Date.now() + LEASE_MS;
+    await ctx.db.patch(engine._id, { tick: { seq, leaseUntil } });
+    return leaseUntil;
+  },
+});
+
 // ------------------------------------------------------------------------------------------------
 // the commit
 // ------------------------------------------------------------------------------------------------
@@ -328,7 +345,7 @@ export const commit = internalMutation({
       ...(scoreboard ? { scoreboard } : {}),
       worldSeconds: clock.worldSeconds, lastTick: clock.lastTick, nextSpawn: clock.nextSpawn, nextBatch,
       objectCount: game.objectCount + args.spawns.length,
-      stats: { acts: game.stats.acts + acts, commits: game.stats.commits + 1, discarded: game.stats.discarded, opportunities: game.stats.opportunities + args.stats.opportunities },
+      stats: { ...game.stats, acts: game.stats.acts + acts, commits: game.stats.commits + 1, opportunities: game.stats.opportunities + args.stats.opportunities },
     };
     const updated = { ...game, ...patch, phase: clock.phase };
     if (clock.phase === "ended") {
@@ -392,6 +409,8 @@ export const pinTables = internalMutation({
 /**
  * Restart any live game whose lease expired (a crashed or lost tick action), and park live games when the
  * engine is idle. A restarted running game does not simulate the downtime: its wall clock restarts now.
+ * A tick that is alive renews its lease (renewLease), so a slow tick is never restarted under itself; each restart is
+ * logged and counted on the game (`stats.restarts`), since it means a tick action died or never started.
  */
 export const watchdog = internalMutation({
   args: {},
@@ -411,7 +430,8 @@ export const watchdog = internalMutation({
           await parkGame(ctx, game, "The engine went idle after 30 minutes without human activity. The game resumes when a player returns.", true);
           parked++;
         } else if (game.tick.leaseUntil < now) {
-          await scheduleTick(ctx, game, nextDeadline(game, now), phase === "running" ? { lastTick: now } : {});
+          console.log(`watchdog: restarting ${game._id}#${game.tick.seq} (${phase}): its lease expired ${now - game.tick.leaseUntil} ms ago, last commit ${now - game.lastTick} ms ago`);
+          await scheduleTick(ctx, game, nextDeadline(game, now), { ...(phase === "running" ? { lastTick: now } : {}), stats: { ...game.stats, restarts: (game.stats.restarts ?? 0) + 1 } });
           restarted++;
         }
       }
@@ -433,6 +453,7 @@ export const liveProgress = internalQuery({
       const games = await ctx.db.query("games").withIndex("by_phase", q => q.eq("phase", phase)).take(200);
       for (const game of await Promise.all(games.map(g => withEngine(ctx, g)))) {
         out.push({ id: game._id, shortCode: game.shortCode, phase: game.phase, seq: game.tick.seq, commits: game.stats.commits,
+          discarded: game.stats.discarded, restarts: game.stats.restarts ?? 0,
           worldSeconds: game.worldSeconds, idleParked: !!game.autoResume, engineError: game.engineError ? { ...game.engineError, failures: game.tickFailures ?? 0 } : null });
       }
     }

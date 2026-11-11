@@ -65,7 +65,8 @@ export type GameMetrics = {
   startReturnedMs: number | null; gameCreatedMs: number | null; runningMs: number | null;
   /** ms phase "running" was first seen after planning was due to end (createdAt + planningSeconds). */
   runningLateMs: number | null;
-  summons: { ok: number; failed: number; maxMs: number; errors: string[] };
+  /** `busy`: "the sandbox is busy" answers, each followed by the identical retry; `maxMs`: the longest summon, retries included. */
+  summons: { ok: number; failed: number; busy: number; maxMs: number; errors: string[] };
   commits: number; discarded: number; acts: number; seq: number;
   /** Leases taken before the game ran (waits for a hold or a sandbox, and watchdog restarts of a planning tick that never came). */
   seqBeforeRunning: number | null;
@@ -108,6 +109,8 @@ export type Summary = {
   endVsScheduleP50Ms: number | null; endVsScheduleMaxMs: number | null;
   seqBeforeRunning: number; firstWindowWorldMaxSeconds: number | null;
   summonsFailed: number;
+  summonsBusy: number;
+  summonMaxMs: number;
 };
 
 /** A game that ends within this of its due time ended "on time". */
@@ -325,7 +328,7 @@ export async function runLoad(options: LoadOptions): Promise<LoadResult> {
 
   const games: GameMetrics[] = rooms.map(r => ({
     index: r.index, roomId: r.roomId, gameId: null, humans: r.humans.length, aiSeats: r.aiSeats, startError: null, preparing: false,
-    startReturnedMs: null, gameCreatedMs: null, runningMs: null, runningLateMs: null, summons: { ok: 0, failed: 0, maxMs: 0, errors: [] },
+    startReturnedMs: null, gameCreatedMs: null, runningMs: null, runningLateMs: null, summons: { ok: 0, failed: 0, busy: 0, maxMs: 0, errors: [] },
     commits: 0, discarded: 0, acts: 0, seq: 0, seqBeforeRunning: null, firstWindowWorldSeconds: null, endVsScheduleMs: null, seqExtraRunning: null, tickFailuresMax: 0, engineErrors: [], longestCommitGapMs: null,
     ended: false, endReason: null, worldSeconds: 0, endLateMs: null, agentCount: 0, samples: [],
   }));
@@ -337,13 +340,19 @@ export async function runLoad(options: LoadOptions): Promise<LoadResult> {
     const m = games[room.index];
     await Promise.all(room.humans.flatMap((god, seat) => Array.from({ length: options.humanAgents ?? 1 + seat % 2 }, async (_, k) => {
       const from = Date.now();
-      try {
-        const result = await god.c.action(api.commands.submit, { roomId: room.roomId, envelope: {
-          version: VERSION, commandId: randomUUID(), gameId, command: { type: "summon", name: `Load agent ${seat}.${k}`, language, source: SOURCES[language] },
-        } });
-        if (result?.accepted) m.summons.ok++;
-        else { m.summons.failed++; m.summons.errors.push(JSON.stringify(result?.error ?? result).slice(0, 200)); }
-      } catch (error) { m.summons.failed++; m.summons.errors.push(message(error)); }
+      // A player told "the sandbox is busy; send the same command again" does so: the identical envelope, a few seconds later, up to twelve times.
+      const envelope = { version: VERSION, commandId: randomUUID(), gameId, command: { type: "summon", name: `Load agent ${seat}.${k}`, language, source: SOURCES[language] } };
+      for (let attempt = 0; ; attempt++) {
+        try {
+          const result = await god.c.action(api.commands.submit, { roomId: room.roomId, envelope });
+          if (result?.accepted) m.summons.ok++;
+          else { m.summons.failed++; m.summons.errors.push(JSON.stringify(result?.error ?? result).slice(0, 200)); }
+        } catch (error) {
+          if (/sandbox(es)? (is|are) busy/.test(message(error)) && attempt < 12) { m.summons.busy++; await sleep(2000 + Math.random() * 2000); continue; }
+          m.summons.failed++; m.summons.errors.push(message(error));
+        }
+        break;
+      }
       m.summons.maxMs = Math.max(m.summons.maxMs, Date.now() - from);
     })));
   };
@@ -451,6 +460,8 @@ export async function runLoad(options: LoadOptions): Promise<LoadResult> {
     endVsScheduleP50Ms: quantile(of(g => g.endVsScheduleMs), 0.5), endVsScheduleMaxMs: max(of(g => g.endVsScheduleMs)),
     seqBeforeRunning: games.reduce((s, g) => s + (g.seqBeforeRunning ?? 0), 0), firstWindowWorldMaxSeconds: max(of(g => g.firstWindowWorldSeconds)),
     summonsFailed: games.reduce((s, g) => s + g.summons.failed, 0),
+    summonsBusy: games.reduce((s, g) => s + g.summons.busy, 0),
+    summonMaxMs: Math.max(0, ...games.map(g => g.summons.maxMs)),
   };
   return {
     options: { games: options.games, aiSeats, humans, lifetimeSeconds, planningSeconds, language, capMs, pollMs, settings },
@@ -488,6 +499,6 @@ export function table(results: LoadResult[]): string {
 export function gameLines(result: LoadResult): string {
   return result.games.map(g =>
     `#${String(g.index).padStart(2)} ${g.startError ? `START FAILED: ${g.startError}` : `game ${s1(g.gameCreatedMs)} running ${s1(g.runningMs)} commits ${g.commits} disc ${g.discarded} ` +
-      `first-window ${g.firstWindowWorldSeconds ?? "-"}s leases-before ${g.seqBeforeRunning ?? "-"} seq-extra ${g.seqExtraRunning ?? "-"} stall ${s1(g.longestCommitGapMs)} world ${g.worldSeconds.toFixed(0)}s agents ${g.agentCount} summons ${g.summons.ok}/${g.summons.ok + g.summons.failed} ` +
+      `first-window ${g.firstWindowWorldSeconds ?? "-"}s leases-before ${g.seqBeforeRunning ?? "-"} seq-extra ${g.seqExtraRunning ?? "-"} stall ${s1(g.longestCommitGapMs)} world ${g.worldSeconds.toFixed(0)}s agents ${g.agentCount} summons ${g.summons.ok}/${g.summons.ok + g.summons.failed} (busy ${g.summons.busy}, ${s1(g.summons.maxMs)}) ` +
       `${g.ended ? `ended(${g.endReason}) late ${s1(g.endLateMs)} vs-schedule ${s1(g.endVsScheduleMs)}` : "NOT ENDED"}${g.engineErrors.length ? ` engineError: ${g.engineErrors.join("; ")}` : ""}`}`).join("\n");
 }
