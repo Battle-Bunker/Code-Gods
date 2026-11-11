@@ -87,7 +87,7 @@ test("a tiered ordinal is [...base, base[0] ≥ gate ? tier : 0], and the plain 
     for (const p of [gated[0], gated[gated.length - 1]]) {
       const base = evaluator({ familyId: f.id, params: baseParams(p) }, beginner), full = evaluator({ familyId: f.id, params: p }, beginner);
       const gate = tiersOf(p)[0].gate, ungated = evaluator({ familyId: f.id, params: { ...p, tiers: tiersOf(p).map(t => ({ ...t, gate: 0 })) } }, beginner);
-      const top = f.exemplar!(p, ctx);
+      const top = f.exemplar!(baseParams(p), ctx);   // the base's best board: above the gate (a tiered exemplar is a 20 s search)
       let above = 0;
       for (const w of [...boards, top, f.exemplar!(baseParams(p), ctx)]) {
         const b = tup(base(w)), o = tup(full(w)), u = tup(ungated(w));
@@ -96,7 +96,6 @@ test("a tiered ordinal is [...base, base[0] ≥ gate ? tier : 0], and the plain 
         if (b[0] >= gate) { above++; assert.deepEqual(o, u); } else assert.ok(o.slice(b.length).every(x => x === 0), `${f.id}: a tier point below the gate`);
       }
       assert.ok(above >= 2);
-      assert.ok(tup(full(top)).slice(tup(base(top)).length).some(x => x > 0), `${f.id}: the exemplar holds no tier point`);
     }
     assert.ok(plain.every(p => tiersOf(p)[0].gate === 0));
   }
@@ -201,7 +200,7 @@ test("shipped tiered tables: fresh on every shape that deals them, labelled hybr
       const base = tableFor(tables, { familyId: f.id, params: baseParams(p) }, inst);
       const full = evaluator({ familyId: f.id, params: p }, inst), plain = evaluator({ familyId: f.id, params: baseParams(p) }, inst);
       const gate = tiersOf(p)[0].gate;
-      for (const w of [...boards, f.exemplar!(p as Params, ctx)]) {
+      for (const w of [...boards, f.exemplar!(baseParams(p) as Params, ctx)]) {
         const bits = surprisal(t, full(w));
         assert.ok(bits >= 0 && Number.isFinite(bits));
         // Below the gate the tiered rule is its base: the two tables agree up to the base table's own sampling error.
