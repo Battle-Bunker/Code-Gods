@@ -36,7 +36,7 @@ import { ErrorLine } from "@/site/components/page-parts";
 import { costLine } from "@/site/components/sheets";
 import { SettingsList, settingsSummary } from "@/site/components/game-panels";
 import { Skeleton } from "@/components/ui/skeleton";
-import { errCode, errMsg, fmt } from "@/site/lib/errors";
+import { errCode, errMsg, fmt, notFoundMsg } from "@/site/lib/errors";
 import {
   QUOTA_LIMITS, LABELS, SECTIONS, argChoices, choiceLabel, defenceBlocker, draftErrors, fieldsOf, formatValue, isHidden, lengthLine, limitError, paceWord,
   dealerNote, firstUseNote, same, settingsDomain, shelfEntries, stepChoices, toggleLanguage, type PlayableTypes, type Settings, type SettingsKey,
@@ -69,9 +69,9 @@ export default function Configure() {
       <div data-testid="page-configure">
         {!isAuthenticated ? null
         : q.isLoading || (setupId && sq.isLoading) ? <div className="mx-auto max-w-[1200px] px-4 md:px-6 py-8 space-y-4"><Skeleton className="h-12 w-1/2" /><Skeleton className="h-96" /></div>
-        : !room ? <div className="mx-auto max-w-lg px-4 py-20"><ErrorLine message={q.error ? errMsg(q.error) : "Room not found. Check the code, or ask the owner for the link."} /></div>
+        : !room ? <div className="mx-auto max-w-lg px-4 py-20"><ErrorLine message={notFoundMsg(q.error, "Room not found. Check the code, or ask the owner for the link.")} /></div>
         : !requested && room.setup?.deleted ? <DeletedSetup room={room} roomOwner={room.ownerId === user?.id} />
-        : !setupId || !sq.data ? <div className="mx-auto max-w-lg px-4 py-20 space-y-3"><ErrorLine message={sq.error ? errMsg(sq.error) : "This room runs no game setup yet."} />
+        : !setupId || !sq.data ? <div className="mx-auto max-w-lg px-4 py-20 space-y-3"><ErrorLine message={sq.error ? notFoundMsg(sq.error, "That setup does not exist or was deleted. Open the room's own setup from the room.") : "This room runs no game setup yet."} />
             <Link href={`/rooms/${room.shortCode}`} className="underline underline-offset-4">Back to room {room.shortCode}</Link></div>
         : <ConfigureForm key={sq.data.id} room={room} setup={sq.data} roomOwner={room.ownerId === user?.id} />}
       </div>
