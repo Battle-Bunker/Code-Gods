@@ -340,7 +340,6 @@ const sudokuText = (_p: SudokuP, g: GridSpec): CardText => {
 };
 const sudoku = gridFamily<SudokuP>({
   id: "sudoku_scholar", name: "Sudoku Scholar", emoji: "🔢", theme: "No number twice in a line",
-  requires: { minColours: 2 },
   params: () => ({}),
   // All or nothing at N <= 4: grid-lab pads the tuple with a constant 0, the card returns 0 or 1.
   shape: g => (g.N <= 4 ? SCALAR : tuple(2)), tags: ["shortlist"],

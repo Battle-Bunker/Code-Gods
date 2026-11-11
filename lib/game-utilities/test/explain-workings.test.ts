@@ -17,7 +17,7 @@ const FIRST_STEPS = instantiate("Grid", { size: 4, symbols: "base10", colours: "
 function randomWire(inst: Instantiation, seed: string): string {
   const args = gridArgs(inst), rng = seededRng(seed);
   const syms = args.symbols === "cards" ? "A23456789TJQK".split("").flatMap(r => "SHDC".split("").map(s => r + s)) : "0123456789ABCDEF".slice(0, Number(String(args.symbols).slice(4))).split("");
-  const letters = ({ rgb: "RGB", rgby: "RGBY", rainbow6: "ROYGBV" } as Record<string, string>)[String(args.colours)] ?? "RGB";
+  const letters = ({ mono: "P", rgb: "RGB", rgby: "RGBY", rainbow6: "ROYGBV" } as Record<string, string>)[String(args.colours)] ?? "RGB";
   return Array.from({ length: args.size }, () => Array.from({ length: args.size }, () => syms[rng.int(syms.length)] + letters[rng.int(letters.length)]).join(",")).join("/");
 }
 const paramsFor = (familyId: string, inst: Instantiation): Params[] => {

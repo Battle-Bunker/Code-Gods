@@ -5,7 +5,7 @@
  */
 import { MONO_TILE } from "@workspace/object-views";
 import { useEffect, useMemo, useRef, useState, type ComponentType, type KeyboardEvent } from "react";
-import type { Instantiation, ObjectValue } from "@workspace/game-types";
+import { isMonoColours, type GridColourSet, type Instantiation, type ObjectValue } from "@workspace/game-types";
 import { editorKindOf, gridCellsOf, gridPalette, parseObjectText, withGridCell, type EditorKind } from "@/lib/object-editor-model";
 
 export interface ObjectEditorProps {
@@ -37,7 +37,7 @@ function GridEditor({ value, inst, onChange }: ObjectEditorProps) {
   const cell = cells[r][c];
   const set = (patch: { sym?: number; col?: number }) => onChange(withGridCell(value, inst, r, c, patch));
   // A numbers-only (mono) board has one colour: nothing about colour is named, keyed or offered.
-  const mono = palette.colours.length === 1;
+  const mono = isMonoColours(inst.args.colours as GridColourSet);
   const name = (rr: number, cc: number) => mono ? palette.symbols[cells[rr][cc].sym].name : `${palette.colours[cells[rr][cc].col].name} ${palette.symbols[cells[rr][cc].sym].name}`;
 
   const onKey = (e: KeyboardEvent) => {

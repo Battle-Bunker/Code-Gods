@@ -7,7 +7,8 @@
  *   symbols  digit sets: index = digit value; cards: index = suit * 13 + rank,
  *            rank 0..12 = A,2..10,J,Q,K and suit 0..3 = ♠ ♥ ♦ ♣ (codes "AS", "TH", "KC", ...)
  *   colours  spectral (rainbow) order: rgb = R G B, rgby = R Y G B, rainbow6 = R O Y G B V;
- *            mono = P (one plain colour: a numbers-only board, its colour layer carries 0 bits)
+ *            mono = P (one plain colour: a numbers-only board, its colour layer carries 0 bits). mono is
+ *            TS-only: core.py has no mono, so the parity fixtures cover the three coloured sets (test/mono.test.ts the rest)
  */
 
 export const GRID_SIZES = [3, 4, 5, 6, 7] as const;

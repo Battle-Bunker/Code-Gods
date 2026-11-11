@@ -436,8 +436,9 @@ export const TYPE_DEFAULTS: Readonly<Record<string, {
     // alternative is the "grid-low-income" seed setup (half the power: 32 bits/s).
     all: { spawnRateHz: 0.5, startingObjectCount: 80, powerPerSecond: 64, excludedFamilies: WEAK_GRID_FAMILIES },
     // A mono board (one colour, numbers only) cannot deal the weak colour families, so excluding them there means nothing:
-    // of the weak list only ladder_of_numbers reads numbers alone (and it needs numerals).
-    of: inst => (inst.terms["colours.count"] === 1 ? { excludedFamilies: inst.classes.includes("Numeral") ? ["ladder_of_numbers"] : [] } : {}),
+    // of the weak list only sudoku_scholar and ladder_of_numbers read numbers alone (the ladder needs numerals).
+    of: inst => (inst.terms["colours.count"] === 1
+      ? { excludedFamilies: ["sudoku_scholar", ...(inst.classes.includes("Numeral") ? ["ladder_of_numbers"] : [])] } : {}),
     byKey: {
       "Grid(4,base10,rgb)": { excludedFamilies: [...WEAK_GRID_FAMILIES, "fair_weaver"] },
       // Ladder of numbers needs numerals (Numeral), so it cannot be dealt on playing cards: excluding it there means nothing.
@@ -499,7 +500,7 @@ export const DEFAULT_SETUP_SEED_ID = ANNOTATED_BASICS_SEED_ID;
 const ANNOTATED_BASICS_EXCLUDED: readonly string[] = Object.freeze([
   "staircase_climber", "looking_glass", "pinwheel", "constellation", "mountain_climb", "round_numbers",
   "divisibility_detective", "seesaw", "stepping_stones", "column_addition", "ladder_of_numbers", "snap", "young_tableau",
-  "fillomino", "bingo_caller", "full_house", "twenty_one",
+  "fillomino", "bingo_caller", "full_house", "twenty_one", "sudoku_scholar",
 ]);
 
 const seed = (seedId: string, name: string, summary: string, objectType: string, typeArgs: TypeArgs, patch: Partial<GameSettings>): SeedSetup =>

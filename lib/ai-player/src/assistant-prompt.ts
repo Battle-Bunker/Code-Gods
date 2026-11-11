@@ -11,7 +11,7 @@
  */
 import { CORE_TOOLS, OWNER_TOOLS, SKILL_LOADED_TOOLS, toolsFor } from "@workspace/player-client/tools";
 import { skillIndexLines } from "@workspace/player-client/skills";
-import { COLOUR_COMPONENTS, SYMBOL_COMPONENTS, type GridColourSet, type GridSymbolSet } from "@workspace/game-types";
+import { COLOUR_COMPONENTS, SYMBOL_COMPONENTS, isMonoColours, type GridColourSet, type GridSymbolSet } from "@workspace/game-types";
 import { LOAD_TOOLS } from "./chat.ts";
 
 /** The assistant's mode (engine convex/assistant/mode.ts): what it may do, and when. */
@@ -104,7 +104,7 @@ export function boardKeyLine(instance: unknown): string[] {
     symbols = high.length ? `0 to 9, then ${LIST(high)}` : "0 to 9";
   }
   // A mono board is numbers only: say so instead of listing its one colour.
-  const colours = C.count === 1 ? "No colours: every cell is plain, so only the symbols matter." : `Colours: ${LIST([...C.names])}.`;
+  const colours = isMonoColours(C) ? "No colours: every cell is plain, so only the symbols matter." : `Colours: ${LIST([...C.names])}.`;
   return [`Board key: a ${size}×${size} board. Symbols: ${symbols}. ${colours}`];
 }
 

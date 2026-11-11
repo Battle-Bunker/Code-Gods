@@ -80,8 +80,8 @@ function useColourCue(): ColourCue {
 const compactPx = compactTilePx;
 const detailPx = (n: number) => (n <= 4 ? 40 : n <= 5 ? 36 : n <= 6 ? 32 : n <= 7 ? 28 : 20);
 
-function Cell({ cell, px, wide, cue, changed, detail, mono }: {
-  cell: GridCellModel; px: number; wide: boolean; cue: ColourCue; changed: boolean; detail: boolean; mono: boolean;
+function Cell({ cell, px, wide, cue, changed, detail }: {
+  cell: GridCellModel; px: number; wide: boolean; cue: ColourCue; changed: boolean; detail: boolean;
 }) {
   const style: CSSProperties = {
     width: wide ? Math.round(px * 1.5) : px, height: px,
@@ -97,7 +97,7 @@ function Cell({ cell, px, wide, cue, changed, detail, mono }: {
         {detail ? <CellGlyph parts={cell.parts} weight={600} /> : <RankGlyph parts={cell.parts} weight={600} />}
         {!detail && wide && <span style={{ fontSize: "0.72em", marginLeft: 1 }}>{cell.letter}</span>}
       </span>
-      {detail && !mono && <span className="absolute bottom-0.5 right-0.5 leading-none" style={{ fontSize: 9, color: cell.ink }}>{cell.letter}</span>}
+      {detail && !cell.mono && <span className="absolute bottom-0.5 right-0.5 leading-none" style={{ fontSize: 9, color: cell.ink }}>{cell.letter}</span>}
     </span>
   );
 }
@@ -113,7 +113,7 @@ function Cells({ model, px, cue, changes, detail, label }: {
       style={{ gridTemplateColumns: `repeat(${model.size}, auto)` }}
     >
       {model.rows.flatMap((row, r) => row.map((cell, k) => (
-        <Cell key={`${r}-${k}`} cell={cell} px={px} wide={wide} cue={cue} detail={detail} mono={model.mono} changed={!!changes?.[r][k]} />
+        <Cell key={`${r}-${k}`} cell={cell} px={px} wide={wide} cue={cue} detail={detail} changed={!!changes?.[r][k]} />
       )))}
     </span>
   );

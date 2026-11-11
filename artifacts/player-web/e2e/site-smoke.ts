@@ -321,7 +321,8 @@ try {
       for (const size of [4, 5, 6, 7]) assert.equal(await a.getByTestId(`choice-arg-size-${size}`).isDisabled(), false, `${size}×${size} is playable`);
       assert.equal(await a.getByTestId("reasons-size").count(), 0, "nothing to explain");
       assert.equal(await a.getByTestId("note-first-use").count(), 0, "every Grid shape is shipped: no first-use note");
-      for (const id of ["choice-arg-symbols-cards", "choice-arg-colours-rgby"]) await a.getByTestId(id).waitFor();
+      for (const id of ["choice-arg-symbols-cards", "choice-arg-colours-rgby", "choice-arg-colours-mono"]) await a.getByTestId(id).waitFor();
+      assert.equal(await a.getByTestId("choice-arg-colours-mono").isDisabled(), false, "the numbers-only board is playable");
       await a.getByTestId("choice-arg-size-5").click();
       assert.equal(await a.getByTestId("choice-arg-size-5").getAttribute("aria-checked"), "true");
       assert.equal(await a.getByTestId("choice-arg-symbols-base10").getAttribute("aria-checked"), "true", "the other arguments did not move");
