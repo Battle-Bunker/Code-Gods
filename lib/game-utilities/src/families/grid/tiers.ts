@@ -116,7 +116,7 @@ export function canonicalTiers<P extends Params>(spec: GridTiers<P>, p: P, g: Gr
 
 /** The ★ blocks of a tiered draw, in the order of the ordinal's tier components. */
 export function cardTiers<P extends Params>(spec: GridTiers<P>, p: P, g: GridSpec, baseArity: number): CardTier[] {
-  const tiers = tiersOf(p), total = baseArity + tierArity(spec, p);
+  const tiers = tiersOf(p), total = baseArity + tierArity(spec, p) + (tiers[0]?.compose === "unlock" ? 1 : 0);
   let index = baseArity;
   return tiers.map(t => {
     const it = interactionOf(spec, t.id), arity = it.arity ?? 1, unlock = t.compose === "unlock";

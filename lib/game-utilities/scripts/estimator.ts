@@ -421,7 +421,7 @@ export function buildTable(familyId: string, params: Params, inst: Instantiation
   const domain = options.exact === false || analytic ? null : enumerate(inst);
   if (analytic) {
     assertAnalytic(analytic, `${familyId} ${JSON.stringify(params)} on ${inst.key}`);   // reads the (possibly lazy) levels
-    const v = analytic.kind === "approx" ? analytic.maxErrorBits! : 0;
+    const v = analytic.kind !== "exact" ? analytic.maxErrorBits! : 0;
     const points = sortedPoints(analytic.levels.map(([o]) => o), analytic.levels.map(([, l]) => l), analytic.levels.map(() => v * v), analytic.levels.length);
     const raw: Raw = { key, seed: key.slice(0, 16), budgetLabel: `${analytic.kind}:${analytic.id}`, analytic: true, exactMode: true,
       curve: { points, mcLevels: points.length, splitLevels: 0, stoppedEarly: false, bodyTop: null } };
@@ -615,7 +615,7 @@ function finishTable(familyId: string, params: Params, inst: Instantiation, raw:
   }
   const frozenLevels = lv.map((o, i) => Object.freeze([typeof o === "number" ? o : Object.freeze([...o]), bits[i]] as const));
   const table: CalibrationTable = {
-    key: raw.key, family: familyId, canonicalParams: params, instance: inst.key, shape: f.shape(ctx),
+    key: raw.key, family: familyId, canonicalParams: params, instance: inst.key, shape: f.shape(ctx, params),
     levels: frozenLevels, slope,
     ...(f.role === "penalty" ? { penaltyMeanBits: 0 } : {}),
     estimator: { id: ESTIMATOR.id, version: ESTIMATOR.version, seed: raw.seed, budget: raw.budgetLabel, ...(raw.split ? { split: raw.split } : {}) },

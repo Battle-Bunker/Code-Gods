@@ -283,7 +283,8 @@ function tieredGridFamily<P extends Params>(f: UtilityFamily<P>, d: GridFamilyDe
   };
   return {
     ...f,
-    shape: (ctx, p) => (p && isTiered(p) ? tuple(baseArity(ctx) + tierArity(spec, p)) : baseShape(ctx)),
+    // An unlocked tier adds one more component: [min(base[0], gate), tier, ...base].
+    shape: (ctx, p) => (p && isTiered(p) ? tuple(baseArity(ctx) + tierArity(spec, p) + (tiersOf(p)[0].compose === "unlock" ? 1 : 0)) : baseShape(ctx)),
     tiered: (ctx, depth, compose = "gated") => {
       const g = gridSpec(ctx);
       return tieredSupport(spec, f.support(ctx).filter(b => spec.base(b, g) !== null), g, depth, compose);
