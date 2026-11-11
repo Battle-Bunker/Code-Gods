@@ -29,7 +29,12 @@ export function canOpenGame(game: { roster: readonly { id: string }[]; spectator
 /** What the signed-out visitor opened, in words: an invite link names its room (and game). */
 export function invitedTo(path: string): string | null {
   const m = /^\/rooms\/([^/?#]+)(?:\/games\/([^/?#]+))?/.exec(path);
-  if (!m) return null;
+  if (!m) {
+    if (/^\/device(?:[/?#]|$)/.test(path)) return "Sign in to approve the device that asked for access.";
+    if (/^\/connect(?:[/?#]|$)/.test(path)) return "Sign in to connect an app to your account.";
+    if (/^\/admin(?:[/?#]|$)/.test(path)) return "Sign in with an administrator account to manage AI players.";
+    return null;
+  }
   const room = decodeURIComponent(m[1]).toUpperCase();
   return m[2] ? `Sign in to watch or play game ${decodeURIComponent(m[2]).toUpperCase()} in room ${room}.` : `Sign in to open room ${room}.`;
 }
