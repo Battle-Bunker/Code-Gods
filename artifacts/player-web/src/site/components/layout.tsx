@@ -72,7 +72,7 @@ function ConnDot({ ok, label = "live" }: { ok: boolean; label?: string }) {
   const text = !ok ? "Updates are failing; they resume when the engine answers again." : connected ? (label === "live" ? "Live: changes appear as they happen." : "Final: this game has ended.") : "Reconnecting…";
   return (
     <Tip text={text}>
-      <span className="inline-flex items-center" data-testid="status-connection" aria-label={text} tabIndex={0}>
+      <span className="inline-flex items-center" data-testid="status-connection" role="img" aria-label={text} tabIndex={0}>
         <span className={`h-2 w-2 rounded-full ${!ok ? "bg-destructive" : connected ? (label === "live" ? "bg-primary pulse-dot" : "bg-muted-foreground") : "bg-accent"}`} />
       </span>
     </Tip>
