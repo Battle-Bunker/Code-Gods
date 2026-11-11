@@ -82,7 +82,7 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   "bidding.mine": {
     kind: "query", audience: "player",
     human: { title: "Show my bids", tooltip: "While a game's start is in its bid phase: the clock, the rules you can bid on, and your own bids." },
-    ai: { description: "The room's open bid phase as the human sees it. Before a game with bidding is dealt, each player may bid a handicap (a whole percent, 1 to 100, taken off their own final score) on rule families of the pool; the highest bid wins a rule and nobody else is dealt it. Gives endsAt (ms), pricing, the pool (families), the human's own bids, whether they are done, how many are still bidding (waitingFor) and what a handicap means. Bids are sealed, never another player's, unless the setup makes bidding open (then `table`: every player's bids)." },
+    ai: { description: "The room's open bid phase as the human sees it. Before a game with bidding is dealt, each player may bid a handicap (a whole percent, 1 to 100, off their own final score) on rule families of the pool; the highest bid wins a rule and nobody else is dealt it. Gives endsAt (ms), pricing, the pool (families), the human's own bids, whether they are done, how many are still bidding (waitingFor) and what a handicap means. Bids are sealed, never another player's, unless the setup makes bidding open (then `table`: every player's bids)." },
     tools: ["get_bidding"], palette: null, why: "The bidding screen appears by itself while a bid phase is open; there is nothing to run.",
   },
   "bidding.place": {

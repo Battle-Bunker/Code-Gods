@@ -2,7 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  beforeHandicap, bidExample, bidOutcomeText, bidSummary, cardBid, cardHandicap, countdownText, doneLine, handicapNote, openBidding, parsePercent,
+  auctionLines, beforeHandicap, bidExample, everyonesBids, handicapLabel, handicapsOf, readAuction, bidOutcomeText, bidSummary, cardBid, cardHandicap, countdownText, doneLine, handicapNote, openBidding, parsePercent,
   placeBid, primaryLabel, roomStartView, stepPercent, withdrawBid,
 } from "../src/site/lib/bidding.ts";
 
@@ -99,4 +99,37 @@ test("the goal card's bid outcome: won at first price, won at second price, or d
   const lost = { bid: { won: false, handicap: 0, pricing: "first", bids: [{ familyId: "a", percent: 3 }] }, handicap: 0 };
   assert.equal(cardHandicap(lost), 0);
   assert.equal(bidOutcomeText(cardBid(lost)!, "whatever"), "You did not win a bid: this rule was dealt to you at random. No handicap.");
+});
+
+test("open bidding: everyone's bids per rule, highest first, the viewer's own marked; rules nobody bid on are left out", () => {
+  const families = [{ id: "a", name: "Alpha", emoji: "🅰", theme: "" }, { id: "b", name: "Beta", emoji: "🅱", theme: "" }, { id: "c", name: "Gamma", emoji: "🅲", theme: "" }];
+  const table = [
+    { godId: "al", name: "Alice", done: false, bids: [{ familyId: "b", percent: 10 }, { familyId: "a", percent: 5 }] },
+    { godId: "bo", name: "Bob", done: true, bids: [{ familyId: "b", percent: 20 }] },
+    { godId: "ca", name: "Carol", done: true, bids: [] },
+  ];
+  assert.deepEqual(everyonesBids(table, families, "al"), [
+    { familyId: "a", name: "Alpha", emoji: "🅰", bids: [{ godId: "al", name: "Alice", percent: 5, mine: true }] },
+    { familyId: "b", name: "Beta", emoji: "🅱", bids: [{ godId: "bo", name: "Bob", percent: 20, mine: false }, { godId: "al", name: "Alice", percent: 10, mine: true }] },
+  ]);
+  assert.deepEqual(everyonesBids([], families, "al"), []);
+});
+
+test("what a game tells about its auction: handicaps beside scores; the wins once everything is told", () => {
+  assert.equal(readAuction(null), null, "a private live game, or a game nobody won a bid in");
+  const some = readAuction({ disclosure: "handicaps", handicaps: [{ godId: "al", handicap: 0 }, { godId: "bo", handicap: 12 }] })!;
+  assert.deepEqual([...handicapsOf(some)], [["al", 0], ["bo", 12]]);
+  assert.equal(some.wins, undefined);
+  assert.equal(handicapLabel(12), "−12%");
+  assert.equal(handicapLabel(0), "");
+  assert.equal(handicapLabel(undefined), "");
+  assert.deepEqual(auctionLines(some, id => id, id => id), [], "handicaps only: not which rule");
+  const all = readAuction({ disclosure: "all", handicaps: some.handicaps, pricing: "second", bids: [], dropped: [],
+    wins: [{ godId: "al", familyId: "a", percent: 5, handicap: 1 }, { godId: "bo", familyId: "b", percent: 20, handicap: 12 }, { godId: "ca", familyId: "c", percent: 7, handicap: 7 }] })!;
+  const names: Record<string, string> = { al: "Alice", bo: "Bob", ca: "Carol", a: "Alpha", b: "Beta", c: "Gamma" };
+  assert.deepEqual(auctionLines(all, id => names[id], id => names[id]).map(l => l.text), [
+    "Bob won Beta: bid 20%, pays a 12% handicap.",
+    "Carol won Gamma with a bid of 7%: a 7% handicap.",
+    "Alice won Alpha: bid 5%, pays a 1% handicap.",
+  ]);
 });

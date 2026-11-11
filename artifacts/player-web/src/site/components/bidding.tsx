@@ -15,8 +15,8 @@ import { errMsg } from "@/site/lib/errors";
 import { routeHref } from "@/core/routes";
 import { galleryFamilies, gallerySearch, instOf } from "@/site/lib/rule-gallery";
 import {
-  BID_CHIPS, bidExample, bidSummary, countdownText, doneLine, parsePercent, placeBid, primaryLabel, secondsLeft, stepPercent, withdrawBid,
-  type Bid, type BidFamily, type RoomBidding,
+  BID_CHIPS, bidExample, bidSummary, countdownText, doneLine, everyonesBids, parsePercent, placeBid, primaryLabel, secondsLeft, stepPercent, withdrawBid,
+  type Bid, type BidFamily, type RoomBidding, type TableRow,
 } from "@/site/lib/bidding";
 import { Spinner } from "@/components/ui/spinner";
 import { Minus, Plus } from "lucide-react";
@@ -64,8 +64,10 @@ function CancelBidding() {
 }
 
 /** One rule of the pool: what it is, the viewer's bid on it, and the controls that change it. */
-function FamilyCard({ family, bid, min, max, href, onPlace, onWithdraw }: {
+function FamilyCard({ family, bid, min, max, href, others, onPlace, onWithdraw }: {
   family: BidFamily; bid: number | undefined; min: number; max: number; href: string | null;
+  /** Open bidding: everyone's bids on this rule, highest first (absent while bids are secret). */
+  others?: readonly { godId: string; name: string; percent: number; mine: boolean }[];
   onPlace: (percent: number) => Promise<unknown>; onWithdraw: () => Promise<unknown>;
 }) {
   const inputId = useId();
@@ -117,6 +119,11 @@ function FamilyCard({ family, bid, min, max, href, onPlace, onWithdraw }: {
         </span>
         {pending > 0 && <Spinner aria-label="Saving your bid" className="size-4 text-muted-foreground" />}
       </div>
+      {others && (
+        <p className="text-sm text-muted-foreground" data-testid={`text-all-bids-${family.id}`}>
+          {others.length ? <>Bids: {others.map((b, i) => <span key={b.godId}>{i > 0 && ", "}<span className={`whitespace-nowrap ${b.mine ? "font-semibold text-foreground" : ""}`}>{b.mine ? "you" : b.name} {b.percent}%</span></span>)}</> : "No bids yet"}
+        </p>
+      )}
       <div className="mt-auto flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-sm">
         {href
           ? <a href={href} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center underline underline-offset-4 decoration-border hover:decoration-foreground" data-testid={`link-bid-card-${family.id}`}
@@ -142,8 +149,33 @@ function YourBids({ bids, families, done }: { bids: readonly Bid[]; families: re
   );
 }
 
+/** Open bidding (the setup's bid visibility): every player's bids per rule, live, highest first; who is done. */
+function EveryonesBids({ table, families, meId }: { table: readonly TableRow[]; families: readonly BidFamily[]; meId?: string }) {
+  const rules = everyonesBids(table, families, meId);
+  return (
+    <div className="space-y-2 border-t px-4 py-3 text-sm" data-testid="panel-everyones-bids" aria-live="polite">
+      <h3 className="font-semibold">Everyone's bids</h3>
+      {rules.length === 0 ? <p className="text-muted-foreground">Nobody has bid yet.</p> : (
+        <ul className="space-y-1">
+          {rules.map(r => (
+            <li key={r.familyId} className="flex flex-wrap gap-x-2" data-testid={`row-everyones-bids-${r.familyId}`}>
+              <span><span aria-hidden>{r.emoji} </span>{r.name}:</span>
+              <span>{r.bids.map((b, i) => (
+                <span key={b.godId}>{i > 0 && ", "}<span className={`whitespace-nowrap ${b.mine ? "font-semibold text-primary" : ""}`}>{b.mine ? "you" : b.name} <span className="font-mono tabular-nums">{b.percent}%</span></span></span>
+              ))}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="text-xs text-muted-foreground" data-testid="text-bidders-done">
+        {table.map((p, i) => <span key={p.godId}>{i > 0 && " · "}{p.godId === meId ? "You" : p.name}: {p.done ? "done" : "bidding"}</span>)}
+      </p>
+    </div>
+  );
+}
+
 /** The room's open bid phase, for whoever is looking: a player bids or passes; everyone else watches the clock. */
-export function Bidding({ room, bidding, isOwner }: { room: RoomState; bidding: RoomBidding; isOwner: boolean }) {
+export function Bidding({ room, bidding, isOwner, meId }: { room: RoomState; bidding: RoomBidding; isOwner: boolean; meId?: string }) {
   const args = useMemo(() => ({ roomId: room.id }), [room.id]);
   const mine = useLive(api.bidding.mine, args);
   const view = mine.data;
@@ -219,6 +251,7 @@ export function Bidding({ room, bidding, isOwner }: { room: RoomState; bidding: 
   }
 
   const bidOn = new Map(view.bids.map(b => [b.familyId, b.percent]));
+  const allBids = view.table ? new Map(everyonesBids(view.table, view.families, meId).map(r => [r.familyId, r.bids])) : null;
   return (
     <section ref={panel} className={`${frame} scroll-mt-20`} data-testid="panel-bidding" data-seated="true" data-done={view.done ? "true" : "false"} aria-label="Bidding">
       <div className="space-y-3 px-4 pt-4 pb-4">
@@ -226,16 +259,20 @@ export function Bidding({ room, bidding, isOwner }: { room: RoomState; bidding: 
         <div className="max-w-[72ch] space-y-1 text-sm">
           <p data-testid="text-bidding-meaning">{view.meaning}</p>
           <p className="text-muted-foreground" data-testid="text-bidding-example">{bidExample(view.pricing)}</p>
+          <p className="text-muted-foreground" data-testid="text-bidding-visibility">
+            {view.table ? "Bids are open: every player sees everyone's bids as they change." : "Bids are secret: the other players do not see yours."}
+          </p>
         </div>
       </div>
       {!view.done && (
         <ul className="grid gap-3 px-4 pb-4 sm:grid-cols-2 xl:grid-cols-3" aria-label="The rules you can bid on" data-testid="list-bid-families">
           {view.families.map(f => (
-            <FamilyCard key={f.id} family={f} bid={bidOn.get(f.id)} min={view.minPercent} max={view.maxPercent} href={cardHref(f.id)}
+            <FamilyCard key={f.id} family={f} bid={bidOn.get(f.id)} min={view.minPercent} max={view.maxPercent} href={cardHref(f.id)} others={allBids ? allBids.get(f.id) ?? [] : undefined}
               onPlace={percent => place({ roomId: room.id, familyId: f.id, percent })} onWithdraw={() => withdraw({ roomId: room.id, familyId: f.id })} />
           ))}
         </ul>
       )}
+      {view.table && <EveryonesBids table={view.table} families={view.families} meId={meId} />}
       {/* The one button stays in reach: the bar sticks to the bottom of the screen while the rules scroll. */}
       <div className="sticky bottom-0 z-10 flex flex-col gap-3 border-t bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between" data-testid="bar-bidding">
         <div className="min-w-0 space-y-1" aria-live="polite">

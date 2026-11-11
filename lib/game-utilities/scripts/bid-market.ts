@@ -4,10 +4,11 @@
  * greedy play, the shipped calibration tables and game-core's payoff rule) on the default setup, Annotated basics,
  * deals with `dealWithBids` (src/bidding.ts) and takes each winner's handicap off their total with `applyHandicap`.
  *
- *   node --experimental-strip-types lib/game-utilities/scripts/bid-market.ts [--games 150] [--players 3,4]
+ *   node --experimental-strip-types lib/game-utilities/scripts/bid-market.ts [--games 100] [--players 3,4]
  *        [--policy greedy|deny|random] [--shade 0.67] [--noise 0] [--rounds 40] [--workers 4]
- *     --games:  games per batch (one batch per family for the strength table, one per bidding scenario). 150 is a
- *               quick look (about three minutes on four cores); docs/bid-phase.md used 1000.
+ *     --games:  games per batch (one batch per family for the strength table, one per bidding scenario; 36 batches
+ *               for both table sizes). 100 is a quick look (two to three minutes on four cores, win shares within
+ *               about ±5 points); docs/bid-phase.md used 1000 (23 minutes).
  *     --shade:  the fraction of their value a shading bidder bids. Default (n − 1) / n: the first-price equilibrium
  *               with n bidders whose values are independent and uniform (2/3 at a table of 3, 3/4 at 4).
  *     --noise:  each bidder misjudges each family's value by up to this many points (whole, uniform). Default 0:
@@ -181,7 +182,7 @@ interface MarketResult {
 async function main() {
   const args = process.argv.slice(2);
   const flag = (name: string, fallback: string) => { const i = args.indexOf(`--${name}`); return i >= 0 && args[i + 1] !== undefined ? args[i + 1] : fallback; };
-  const GAMES = Number(flag("games", "150")), ROUNDS = Number(flag("rounds", "40")), NOISE = Number(flag("noise", "0"));
+  const GAMES = Number(flag("games", "100")), ROUNDS = Number(flag("rounds", "40")), NOISE = Number(flag("noise", "0"));
   const sizes = flag("players", "3,4").split(",").map(Number), policy = flag("policy", "greedy") as Policy;
   const workers = Number(flag("workers", String(Math.min(8, availableParallelism()))));
   const shadeOf = (n: number) => Number(flag("shade", String((n - 1) / n)));

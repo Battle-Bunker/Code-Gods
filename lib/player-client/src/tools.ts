@@ -152,7 +152,7 @@ export const READ_TOOLS = [
     note: "The observation's self.utility has the readable name, summary and source. typedParams lists each param by name and type (colour, symbol, int, choice, bool) with its value and how it reads.",
     input: obj({}), output: result(anyData) }),
   def({ name: "get_bidding", short: "The open bid phase: clock, rules to bid on, the player's own bids.", functions: ["bidding.mine"], permission: "read", annotations: read,
-    note: "With none open: {open: false, message}; a finished phase's outcome is in get_observation (self.utility.bid, .handicap) once the game has started. Open: also secondsLeft; a family's theme says what it rewards.",
+    note: "With none open: {open: false, message}; once the game has started the outcome is get_observation's self.utility.bid. A family's theme says what it rewards.",
     input: obj({}), output: result(anyData) }),
   def({ name: "evaluate_value", short: "Score a hypothetical object value with the player's own utility.", title: "Evaluate a value", functions: [], permission: "read", annotations: read,
     about: "Score a hypothetical object value with YOUR OWN utility in the current game: ordinal, reward bits, penalty bits and net bits. Other gods' utilities are never evaluated. Use it to check what an agent should aim for before writing it.",

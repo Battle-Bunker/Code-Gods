@@ -142,3 +142,55 @@ export function handicapNote(net: number, handicap: number, fmt: (v: number) => 
 
 /** Under standings and results of a game that was bid for (only the viewer's own card says so). */
 export const HANDICAP_FOOTNOTE = "Scores are after handicaps from bidding.";
+
+// ------------------------------------------------------------------------------------------------
+// Open bidding (settings.bidVisibility "open"): everyone's bids, live
+// ------------------------------------------------------------------------------------------------
+
+/** One human player of an open bid phase (bidding.mine `table`): their bids so far and whether they are done. */
+export type TableRow = { godId: string; name: string; done: boolean; bids: readonly Bid[] };
+
+/** Everyone's bids per rule (the pool's order, only rules somebody bid on): highest first, ties by name; `mine` marks the viewer's. */
+export function everyonesBids(table: readonly TableRow[], families: readonly BidFamily[], meId: string | null | undefined):
+  { familyId: string; name: string; emoji: string; bids: { godId: string; name: string; percent: number; mine: boolean }[] }[] {
+  return families.flatMap(f => {
+    const bids = table.flatMap(p => p.bids.filter(b => b.familyId === f.id).map(b => ({ godId: p.godId, name: p.name, percent: b.percent, mine: p.godId === meId })))
+      .sort((a, b) => b.percent - a.percent || a.name.localeCompare(b.name));
+    return bids.length ? [{ familyId: f.id, name: f.name, emoji: f.emoji, bids }] : [];
+  });
+}
+
+// ------------------------------------------------------------------------------------------------
+// What a game tells about its auction (games.auction; settings.bidDisclosure, everything once it has ended)
+// ------------------------------------------------------------------------------------------------
+
+export type AuctionWin = { godId: string; familyId: string; percent: number; handicap: number };
+export type Auction = { disclosure: "handicaps" | "all"; handicaps: { godId: string; handicap: number }[]; pricing?: BidPricing; wins?: AuctionWin[] };
+
+/** games.auction's answer, checked (the engine stores the auction untyped); null: nothing is told. */
+export function readAuction(value: unknown): Auction | null {
+  const a = value as { disclosure?: unknown; handicaps?: unknown; pricing?: unknown; wins?: unknown } | null | undefined;
+  if (!a || (a.disclosure !== "handicaps" && a.disclosure !== "all") || !Array.isArray(a.handicaps)) return null;
+  const handicaps = (a.handicaps as { godId?: unknown; handicap?: unknown }[])
+    .flatMap(h => (typeof h?.godId === "string" && typeof h.handicap === "number" ? [{ godId: h.godId, handicap: h.handicap }] : []));
+  const wins = a.disclosure === "all" && Array.isArray(a.wins)
+    ? (a.wins as Partial<AuctionWin>[]).flatMap(w => (typeof w?.godId === "string" && typeof w.familyId === "string" && typeof w.percent === "number"
+      ? [{ godId: w.godId, familyId: w.familyId, percent: w.percent, handicap: typeof w.handicap === "number" ? w.handicap : w.percent }] : []))
+    : undefined;
+  return { disclosure: a.disclosure, handicaps, ...(a.pricing === "first" || a.pricing === "second" ? { pricing: a.pricing } : {}), ...(wins ? { wins } : {}) };
+}
+
+/** Each player's handicap in percent, by god id (players who won nothing have 0). */
+export const handicapsOf = (auction: Auction | null | undefined): ReadonlyMap<string, number> => new Map((auction?.handicaps ?? []).map(h => [h.godId, h.handicap]));
+/** "−12%" beside a net score; "" for a player without a handicap. */
+export const handicapLabel = (handicap: number | undefined) => (handicap && handicap > 0 ? `−${handicap}%` : "");
+
+/** The "Bidding" block of an ended game: who won which rule for how much, highest handicap first. Empty when the wins are not told. */
+export function auctionLines(auction: Auction | null | undefined, playerName: (godId: string) => string, ruleName: (familyId: string) => string): { godId: string; text: string }[] {
+  return [...(auction?.wins ?? [])].sort((a, b) => b.handicap - a.handicap || playerName(a.godId).localeCompare(playerName(b.godId))).map(w => ({
+    godId: w.godId,
+    text: w.handicap !== w.percent
+      ? `${playerName(w.godId)} won ${ruleName(w.familyId)}: bid ${w.percent}%, pays a ${w.handicap}% handicap.`
+      : `${playerName(w.godId)} won ${ruleName(w.familyId)} with a bid of ${w.percent}%: a ${w.handicap}% handicap.`,
+  }));
+}

@@ -207,7 +207,7 @@ function RoomBody({ room, games }: { room: RoomState; games?: GameRecord[] }) {
           secondary={step.secondary.map(id => <StepAction key={id} id={id} roomCode={room.shortCode} gameCode={room.activeGame?.shortCode} />)} />
       </header>
       {/* A start in its bid phase (docs/bid-phase.md): the bidding screen, until the rules are dealt. */}
-      {!room.activeGame && !room.preparing && (bidding ? <Bidding room={room} bidding={bidding} isOwner={isOwner} />
+      {!room.activeGame && !room.preparing && (bidding ? <Bidding room={room} bidding={bidding} isOwner={isOwner} meId={user?.id} />
         : room.bidding?.error ? <BiddingFailed error={room.bidding.error} /> : null)}
       {room.preparing && <Preparing preparing={room.preparing} />}
       {room.activeGame && <ActiveGame room={room} meId={user?.id} />}
