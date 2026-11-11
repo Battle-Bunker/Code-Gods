@@ -544,7 +544,7 @@ export const SEED_SETUPS: readonly SeedSetup[] = Object.freeze([
   seed(ANNOTATED_BASICS_SEED_ID, "Annotated basics", "Eight simple rules with picture-by-picture explanations, on a small slowed-down board of numbers",
     "Grid", { size: 4, symbols: "base10", colours: "mono" }, {
       interactionRateHz: 25, durationMode: "fixed", halfLifeSeconds: 300, excludedFamilies: ANNOTATED_BASICS_EXCLUDED,
-      startingObjectCount: 10, spawnRateHz: 0.1, planningSeconds: 75,
+      startingObjectCount: 10, spawnRateHz: 0.1, planningSeconds: 60,
     }),
   seed(ANNOTATED_COLOURS_SEED_ID, "Annotated colours", "Every rule with picture-by-picture explanations, on a small slowed-down coloured board",
     "Grid", { size: 4, symbols: "base10", colours: "rgb" }, {
