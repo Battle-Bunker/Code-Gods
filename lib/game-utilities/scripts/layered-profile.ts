@@ -12,6 +12,7 @@
  *   --families a,b        only these families
  *   --budget default|quick
  *   --no-pairs            skip synergy with the beginner eight and between params
+ *   --compositions-only   only the extra compositions (gate, unlock, sum) and their bases
  *   --no-games            skip the three-player games
  *   --games N             games per variant and policy (default 40)
  *   --json FILE / --markdown FILE
@@ -122,6 +123,8 @@ export interface TierReport {
   /** One-cell greedy on this rule (tier-aware) to its end, and a tier-aware beam (width 6, 16 moves) */
   tierAgent: number;
   addedTop: number;
+  /** Mean bits on uniform random boards (the prior mean: a tier that breaks ties at the bottom raises it). */
+  priorMean: number;
   /** The share of the tier's headroom (same base, tier 0 → full top) the tier-aware greedy end holds. */
   tierShare: number;
 }
@@ -213,7 +216,10 @@ async function main() {
     variants(): Variant[]; compositionVariants?(): Variant[]; BEGINNER: { id: string; utility: string }[];
   };
   const only = opt("families")?.split(",");
-  const list = [...mod.variants(), ...(mod.compositionVariants?.() ?? [])].filter(v => !only || only.includes(v.family));
+  const comps = mod.compositionVariants?.() ?? [];
+  const list = (flag("compositions-only")
+    ? [...mod.variants().filter(v => !v.interaction && comps.some(c => c.family === v.family && c.base === v.base)), ...comps]
+    : [...mod.variants(), ...comps]).filter(v => !only || only.includes(v.family));
   const inst = instantiate("Grid", { size: 4, symbols: "base10", colours: "rgb" });
   const sp = space(inst, "symbol"), budget = opt("budget") === "quick" ? QUICK_BUDGET : DEFAULT_BUDGET, ctx: Context = { sp, budget };
   const log = (s: string) => process.stderr.write(s + "\n");
@@ -225,8 +231,9 @@ async function main() {
     rules.set(v.id, c);
     const report = measureRule(c.rule, ctx);
     const baseId = `${v.family}.${v.base}`, base = rules.get(baseId)!;
-    const extra = v.interaction ? tierColumns(c.rule, base.rule, sp, budget, !v.id.includes("@")) : { baseAgent: NaN, tierAgent: NaN, accidental: NaN, addedTop: 0, tierShare: NaN };
-    tiers.push({ id: v.id, family: v.family, base: v.base, interaction: v.interaction, report, calSeconds: c.seconds, levels: c.levels.length,
+    const extra = v.interaction ? tierColumns(c.rule, base.rule, sp, budget, !v.id.includes("@") || v.id.includes("@gate")) : { baseAgent: NaN, tierAgent: NaN, accidental: NaN, addedTop: 0, tierShare: NaN };
+    const priorMean = mean(starts(sp, 400, "prior").map(g => c.rule.bits(c.rule.score(g))));
+    tiers.push({ id: v.id, priorMean, family: v.family, base: v.base, interaction: v.interaction, report, calSeconds: c.seconds, levels: c.levels.length,
       tail: c.levels.slice(-5), best: { bits: best.bits, board: boardText(best.board), ordinal: best.ordinal }, ...extra });
     log(`${v.id}: top ${report.topBits.toFixed(1)} DIFF ${report.difficulty.toFixed(1)} K ${report.entangle.toFixed(1)} rate4 ${report.rate4.toFixed(2)} cal ${c.seconds.toFixed(1)}s`);
   }
@@ -267,11 +274,11 @@ async function main() {
 function markdown(tiers: TierReport[], pairs: PairReport[], gameReports: GameReport[], beginner: string[]): string {
   const f = (x: number, d = 1) => (Number.isFinite(x) ? x.toFixed(d) : x === Infinity ? "∞" : "–");
   const out = [
-    "| variant | card | top | +top | rate4 | g10 | g20 | trap | gap | K | **DIFF** | plat | unif | base agent | accidental | tier agent | tier share | best board (ordinal) |",
-    "|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|---|",
+    "| variant | card | top | +top | rate4 | g10 | g20 | trap | gap | K | **DIFF** | plat | unif | base agent | accidental | tier agent | tier share | prior mean | best board (ordinal) |",
+    "|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|---|",
     ...tiers.map(t => {
       const r = t.report;
-      return `| ${t.id} | ${f(r.cardBits, 0)} | ${f(r.topBits)} | ${t.interaction ? f(t.addedTop) : ""} | ${f(r.rate4, 2)} | ${f(r.greedy10)} | ${f(r.greedy20)} | ${f(r.trap, 2)} | ${f(r.gap, 2)} | ${f(r.entangle)} | **${f(r.difficulty)}** | ${f(r.plateau, 2)} | ${r.uniformTop.join("") || "–"} | ${f(t.baseAgent)} | ${f(t.accidental, 2)} | ${f(t.tierAgent)} | ${f(t.tierShare, 2)} | ${t.best.board} ${JSON.stringify(t.best.ordinal)} |`;
+      return `| ${t.id} | ${f(r.cardBits, 0)} | ${f(r.topBits)} | ${t.interaction ? f(t.addedTop) : ""} | ${f(r.rate4, 2)} | ${f(r.greedy10)} | ${f(r.greedy20)} | ${f(r.trap, 2)} | ${f(r.gap, 2)} | ${f(r.entangle)} | **${f(r.difficulty)}** | ${f(r.plateau, 2)} | ${r.uniformTop.join("") || "–"} | ${f(t.baseAgent)} | ${f(t.accidental, 2)} | ${f(t.tierAgent)} | ${f(t.tierShare, 2)} | ${f(t.priorMean, 2)} | ${t.best.board} ${JSON.stringify(t.best.ordinal)} |`;
     }),
     "",
     "Upper tail of each calibration (the last levels: ordinal → bits) and calibration seconds at the small budget:",
