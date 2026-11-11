@@ -4,17 +4,23 @@
  * of the languages the game allows; the agent's own by default, else the first allowed), the source, the
  * helpers drawer with insert, a byte count, Validate (free) and Summon (pays from your energy). The same command
  * path as everything else; an uncertain summon keeps its envelope for the identical retry under the header.
+ *
+ * A player with no agents finds a working example for their own goal already in the editor, named and validated
+ * (./first-agent.ts decides when; lib/game-utilities/src/example-agents.ts writes it from the goal card).
  */
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AGENT_DESCRIPTION_MAX, AGENT_NAME_MAX } from "@workspace/player-client";
 import { Loader2, Sparkles, Wand2 } from "lucide-react";
 import { AgentCost, HelpersDrawer, type ActCostBreakdown } from "@workspace/object-views";
-import { useMyAgents, useMutators, useDockState } from "@/sdk";
+import { boardFacts, buildExampleAgent, mutatorNames } from "@workspace/game-utilities/example-agents";
+import { useMyAgents, useMutators, useDockState, useMyCard } from "@/sdk";
 import { LANGUAGE_SPECS, defaultShare, isLanguage } from "@workspace/game-core";
 import { runner, useGameCommands, useRunner, type Lang } from "@/core/game/runner";
 import { forgeLanguage, forgeLanguages, forgeSandbox } from "@/core/game/language";
 import { useAffordances } from "@/core/use-affordances";
+import { useDockActions } from "@/dock/actions";
 import { summonNeeds } from "./summon-needs";
+import { firstAgentFill, firstAgentHint, untouchedExample, validatesExample, type Example } from "./first-agent";
 import { GhostButton, PanelEmpty, PrimaryButton, TextButton, type PanelProps } from "./kit";
 
 const fmt = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(3));
@@ -49,12 +55,15 @@ export default function Forge({ params, phase }: PanelProps<"forge">) {
       </div>
     );
   }
-  return <Editor language={language} allowed={allowed} assistantDraft={params.source} showHelpers={params.showHelpers} ended={phase === "ended"} />;
+  return <Editor language={language} allowed={allowed} assistantDraft={params.source} showHelpers={params.showHelpers} ended={phase === "ended"} onlyEditor={!shown} />;
 }
 
-function Editor({ language, allowed, assistantDraft, showHelpers, ended }: { language: Lang; allowed: readonly Lang[]; assistantDraft?: string; showHelpers: boolean; ended: boolean }) {
+function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEditor }: { language: Lang; allowed: readonly Lang[]; assistantDraft?: string; showHelpers: boolean; ended: boolean; /** The pane has no code view to go back to. */ onlyEditor: boolean }) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  // The agent this editor last summoned: said plainly under the buttons, since the button itself goes back to "Summon".
+  const [summoned, setSummoned] = useState<string | null>(null);
+  const dock = useDockActions();
   const obs = useDockState({ hz: 2 });
   // A summon from here takes the default share: half of the power you have not given to agents yet.
   const newShare = obs?.self.allocated !== undefined ? defaultShare(obs.self.allocated) : undefined;
@@ -64,6 +73,34 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended }: { lan
   const { can } = useAffordances({ language });
   const editor = useRef<HTMLTextAreaElement>(null);
   const source = draft.source;
+  // The first agent: the example for the player's own goal per allowed language, from the goal card and the board
+  // this pane already subscribes to (no extra read).
+  const card = useMyCard();
+  const { agents } = useMyAgents({ hz: 1 });
+  const board = obs?.instance;
+  const languageKey = allowed.join(",");
+  const examples = useMemo(() => {
+    const out: Record<string, Example> = {};
+    if (!card || !board || board.objectType !== "Grid") return out;
+    for (const l of allowed) {
+      out[l] = buildExampleAgent({ familyId: card.familyId, language: l, summary: card.summary, cardSource: card.source, mutators: mutatorNames(board, l), ...boardFacts(board) });
+    }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [card?.familyId, card?.summary, card?.source, board?.key, languageKey]);
+  const offered = useRef(false);
+  // A share above zero means an agent holds it, even before the agent list has arrived.
+  const agentCount = obs ? ((obs.self.allocated ?? 0) > 0 ? Math.max(1, agents.length) : agents.length) : undefined;
+  const fill = firstAgentFill({ editable: !ended, agents: agentCount, source, language, examples, offered: offered.current });
+  useEffect(() => {
+    if (!fill) return;
+    offered.current = true;
+    runner.setDraft({ source: fill.source });
+    setName(n => (n.trim() ? n : fill.name));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fill?.source]);
+  // Only for the first agent: once one is summoned the line would read as if nothing had happened.
+  const hint = agentCount === 0 ? firstAgentHint(source, language, examples) : null;
   const insert = (name: string) => {
     const el = editor.current;
     const at = el ? el.selectionStart : source.length, end = el ? el.selectionEnd : source.length;
@@ -74,6 +111,16 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended }: { lan
   const sandbox = forgeSandbox(obs, language);
   const gameplay = can.validate.ok;
   const current = validation && validation.source === source && validation.language === language ? validation.result.validation : undefined;
+  // The untouched example validates by itself (free), so its cost shows and Summon is one click away.
+  const autoValidated = useRef("");
+  useEffect(() => {
+    const key = `${language}\0${source}`;
+    const untouched = untouchedExample(source, examples) === language;
+    const validated = !!validation && validation.source === source && validation.language === language;
+    if (!validatesExample({ untouched, validated, busy: !!busy, ready: gameplay && sandbox.ready && allowed.includes(language), tried: autoValidated.current === key })) return;
+    autoValidated.current = key;
+    void commands.run({ type: "validate", language, source });
+  });
   const canSummon = gameplay && !!validation?.result.accepted && !!current?.valid && current.cost <= (obs?.self.energy ?? 0) && allowed.includes(language) && source.trim().length > 0;
   const arg = instance?.objectType === "Grid" ? "grid" : "x";
   const noun = instance?.objectType === "Grid" ? "grid" : "object";
@@ -93,6 +140,7 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended }: { lan
       {assistantDraft && assistantDraft !== source && (
         <p className="text-xs text-muted-foreground">Your assistant has a draft here. <TextButton onClick={() => runner.setDraft({ source: assistantDraft })}>Load it</TextButton></p>
       )}
+      {hint && <p data-testid="text-first-agent-hint" className="text-sm font-semibold text-foreground">{hint}</p>}
       <textarea ref={editor} data-testid="input-source" value={source} onChange={e => runner.setDraft({ source: e.target.value })} maxLength={16384} spellCheck={false}
         aria-label="Agent source"
         placeholder={language === "python" ? `def agent(${arg}):\n    # return a list of moves, e.g. [swap(...)]\n    return []`
@@ -113,14 +161,20 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended }: { lan
         </label>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <GhostButton testId="button-validate" disabled={!gameplay || !allowed.includes(language) || !source.trim()} onClick={() => void commands.run({ type: "validate", language, source })}>
+        <GhostButton testId="button-validate" disabled={!gameplay || !!busy || !allowed.includes(language) || !source.trim()} onClick={() => void commands.run({ type: "validate", language, source })}>
           <Wand2 size={14} /> {busy === "validate" ? "Validating" : "Validate (free)"}
         </GhostButton>
-        <PrimaryButton testId="button-summon" disabled={!canSummon || !name.trim()} onClick={() => void commands.run({ type: "summon", language, source, name: name.trim(), ...(description.trim() ? { description: description.trim() } : {}) })}>
+        <PrimaryButton testId="button-summon" disabled={!canSummon || !name.trim()} onClick={() => {
+          const summonedName = name.trim();
+          void commands.run({ type: "summon", language, source, name: summonedName, ...(description.trim() ? { description: description.trim() } : {}) })
+            .then(result => { if (result?.accepted) setSummoned(summonedName); });
+        }}>
           <Sparkles size={14} /> {busy === "summon" ? "Summoning" : current ? `Summon · cost ${fmt(current.cost)}` : "Summon"}
         </PrimaryButton>
-        <TextButton onClick={() => runner.setEditing(false)}>Done</TextButton>
+        {/* With no code view to go back to, Done goes to My agents (leaving edit mode alone would change nothing). */}
+        <TextButton onClick={() => { runner.setEditing(false); if (onlyEditor) dock.show("agents"); }}>Done</TextButton>
       </div>
+      {summoned && <p data-testid="text-summoned" className="text-sm font-semibold text-[hsl(var(--accent))]">Summoned: {summoned} is in the game. {obs?.phase === "planning" ? "It acts when the world starts." : "It acts whenever it gets a turn."} Find it in My agents.</p>}
       {gameplay && !busy && !(canSummon && name.trim()) && source.trim() && (() => {
         const needs = summonNeeds(!!current?.valid, !!name.trim(), !!current && current.cost <= (obs?.self.energy ?? 0));
         return needs && <p data-testid="text-summon-needs" className="text-xs text-muted-foreground">{needs}</p>;
