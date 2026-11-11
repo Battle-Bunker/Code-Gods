@@ -40,3 +40,8 @@ test("colour-by-number says colours are shared, as its own key shows", () => {
   assert.doesNotMatch(text, /its own colour/);
   assert.match(text, /Every number has a colour, and some numbers share one\./);
 });
+
+test("a castle's own wall cells are never shut in", () => {
+  // All-red 4×4 scores [0, 12] for castle_keeper {wall: red}: walls are not counted as shut-in cells.
+  for (const id of ["castle_keeper", "castle_pockets"]) assert.match(say(id, { wall: "red" }), /A cell that isn't red is shut in/);
+});
