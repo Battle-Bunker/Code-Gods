@@ -41,7 +41,7 @@ export function standings(game: Pick<Game, "roster"> & { scoreboard?: Scoreboard
 
 /** The fully applied object type of (validated) settings, with the commit-clause helper when offered. */
 export function objectInstance(settings: GameSettings): InstanceInfo {
-  const info = instanceInfo(instantiationOf(settings));
+  const info = instanceInfo(instantiationOf(settings), costModelOf(settings));
   return settings.commitClause ? { ...info, helpers: [...info.helpers, COMMIT_CLAUSE_HELPER] } : info;
 }
 
