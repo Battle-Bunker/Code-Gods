@@ -4,6 +4,9 @@ The owner's decisions of 3 Nov 2026, recorded in `docs/coordination/status.md` (
 one economy. This document is the specification; the code cites its sections. All numbers below are for the
 "First steps" board, Grid(4, base10, rgb): 16 cells, S = 10 symbols, C = 3 colours.
 
+Proposed successor (design, not shipped): [docs/mutation-cost-design.md](mutation-cost-design.md) prices change by
+distance (add k on a digit costs 4 + 1.585·|k| bits, no set for numbers) and drops the read and summon prices.
+
 ## 1. Principles
 
 1. **An act pays only for what it does.** It pays for the bits it reads (§3) and for the change it makes (§4). There is
