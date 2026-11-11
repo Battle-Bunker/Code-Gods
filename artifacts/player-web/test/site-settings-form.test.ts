@@ -183,3 +183,12 @@ test("penalty weight and the defence checklist hide while defence goals are off;
   assert.equal(paceWord(100), "normal");
   assert.equal(paceWord(300), "fast");
 });
+
+test("the picker's Lab heading goes before the first Lab setup, and before each one that follows an ordinary setup in a search", async () => {
+  const { labStartsAt } = await import("../src/site/lib/setup-words.ts");
+  const list = [{}, {}, { lab: true }, { lab: true }];
+  assert.deepEqual(list.map((_, i) => labStartsAt(list, i)), [false, false, true, false], "one heading for the catalogue's Lab tail");
+  const found = [{ lab: true }, {}, { lab: true }];
+  assert.deepEqual(found.map((_, i) => labStartsAt(found, i)), [true, false, true]);
+  assert.deepEqual([{}, {}].map((_, i, all) => labStartsAt(all, i)), [false, false], "no heading for anyone who is sent no Lab setup");
+});

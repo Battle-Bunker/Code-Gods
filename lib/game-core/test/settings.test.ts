@@ -4,7 +4,7 @@ import {
   DEFAULT_SETTINGS, SETTINGS_OPTIONS, MAX_AGENTS_PER_GOD, settingsOptionsFor, validateSettings, LANGUAGES, LANGUAGE_SPECS,
   grammarFor, complexityFor, allowedLanguages, upgradeLegacyLanguage,
   upgradeStoredSettings, FIRST_STEPS_SEED_ID, ANNOTATED_BASICS_SEED_ID, DEFAULT_SETUP_SEED_ID,
-  instantiationOf, codecOf, assertObjectValue, defaultSettingsFor, SEED_SETUPS, SETUP_NAME_MAX, seedSetupSettings, ENERGY_LIMITS, type GameSettings,
+  instantiationOf, codecOf, assertObjectValue, defaultSettingsFor, SEED_SETUPS, SETUP_NAME_MAX, seedSetupSettings, ALL_SEED_SETUPS, LAB_SETUPS, ENERGY_LIMITS, type GameSettings,
 } from "../src/settings.ts";
 import { gameEndSeconds } from "../src/random.ts";
 
@@ -294,4 +294,20 @@ test("upgradeStoredSettings leaves a started game's economy alone: no capacity i
 test("the settings of a game started before fullChargeSeconds existed still validate (it is examined and summoned into)", () => {
   const { fullChargeSeconds: _, ...old } = DEFAULT_SETTINGS;
   assert.doesNotThrow(() => validateSettings(old as GameSettings));
+});
+
+test("Lab setups: complete, valid, marked, with ids and names of their own, and never the default or among the system setups", () => {
+  const ids = ALL_SEED_SETUPS.map(s => s.seedId), names = ALL_SEED_SETUPS.map(s => s.name.toLowerCase());
+  assert.equal(new Set(ids).size, ids.length, "seed ids are unique across the system and Lab setups");
+  assert.equal(new Set(names).size, names.length, "and so are names (the picker shows both to an administrator)");
+  assert.deepEqual(ALL_SEED_SETUPS, [...SEED_SETUPS, ...LAB_SETUPS], "the system's first: Lab setups never shift a system setup's position");
+  assert.ok(SEED_SETUPS.every(s => !s.lab), "no system setup is marked Lab");
+  for (const s of LAB_SETUPS) {
+    assert.equal(s.lab, true, s.seedId);
+    assert.match(s.seedId, /^lab-[a-z0-9-]+$/, `${s.seedId}: a Lab seed id starts with "lab-"`);
+    assert.ok(s.name.length <= SETUP_NAME_MAX && s.summary.length > 0 && s.summary.length <= 160, s.seedId);
+    assert.doesNotThrow(() => validateSettings(s.settings), s.seedId);
+    assert.deepEqual(seedSetupSettings(s.seedId), { ...s.settings }, s.seedId);
+  }
+  assert.ok(!LAB_SETUPS.some(s => s.seedId === DEFAULT_SETUP_SEED_ID), "a new room never starts on a Lab setup");
 });
