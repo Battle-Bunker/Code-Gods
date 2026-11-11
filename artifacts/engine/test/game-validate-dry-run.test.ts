@@ -1,7 +1,8 @@
 /**
  * Validation runs the agent (a dry run on the game's own objects and the board's reference objects, with no effect
  * on the game): an agent that raises on its first act is INVALID with the error it raised, never "VALID"; an agent
- * that never moves validates with a warning; a working agent is unchanged (convex/lib/dryRun.ts).
+ * that never moves validates with a warning; a working agent is unchanged (convex/lib/dryRun.ts). A summon of the
+ * failing agent still works, and its receipt carries the finding as a warning.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -43,6 +44,13 @@ test("validate dry-runs the agent: a runtime error is INVALID with its message, 
   const working = (await send({ type: "validate", language: "python", source: "def agent(x):\n    return [add(1)]\n" })).validation;
   assert.equal(working.valid, true);
   assert.equal(working.warnings, undefined);
+
+  // Summoning the broken agent is not refused (callers that did it before keep working), but the receipt says it.
+  const summoned = await send({ type: "summon", name: "Broken", language: "python", source: "def agent(x):\n    return [add(line)]\n" });
+  assert.equal(summoned.accepted, true, summoned.message);
+  assert.match((summoned.warnings ?? []).join(" "), /failed on every sample object, so every act will fail: NameError: name 'line' is not defined/);
+  const summonedIdle = await send({ type: "summon", name: "Idle", language: "python", source: "def agent(x):\n    return []\n" });
+  assert.match((summonedIdle.warnings ?? []).join(" "), /made no move on any sample object/);
 
   // The dry runs changed nothing in the game.
   assert.equal(JSON.stringify((await raw(game.gameId)).objects.map((o: any) => [o._id, o.value, o.version])), before);

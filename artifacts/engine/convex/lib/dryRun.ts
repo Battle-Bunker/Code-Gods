@@ -42,3 +42,15 @@ export function dryRunVerdict(run: DryRun): DryRunVerdict {
   if (invalid >= MOSTLY_FAILING) return { valid: true, warnings: [`It fails on ${Math.round(100 * invalid)}% of sample objects${error ? `: ${error}` : "."}`] };
   return { valid: true, warnings: [] };
 }
+
+/**
+ * What a SUMMON receipt says about the dry run (pure). A summon is not refused for failing its dry run (AI seats, the
+ * assistant, the CLI and MCP `summon_agent` summoned such agents before and do not all handle a refusal), but it must
+ * not be silent either: the verdict's own warnings, and for an agent that fails on every sample object one warning with
+ * the error it raised.
+ */
+export function summonDryRunWarnings(verdict: DryRunVerdict): string[] {
+  if (verdict.valid) return verdict.warnings;
+  const failing = "This agent failed on every sample object, so every act will fail";
+  return [verdict.detail && verdict.lead ? `${failing}: ${verdict.lead}` : `${failing}.`, ...verdict.warnings];
+}

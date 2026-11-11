@@ -13,12 +13,16 @@ const TEST_IDS: Partial<Record<StepId, string>> = {
   "rooms.setSpectator": "button-spectator",
 };
 
-export function StepAction({ id, primary, roomCode, gameCode }: { id: StepId; primary?: boolean; roomCode?: string | null; gameCode?: string | null }) {
+export function StepAction({ id, primary, roomCode, gameCode, testId: testIdOverride }: {
+  id: StepId; primary?: boolean; roomCode?: string | null; gameCode?: string | null;
+  /** A second copy of a step on the same page (Start in the Members header) takes its own test id. */
+  testId?: string;
+}) {
   const { run, command, unavailable, start } = usePage();
   const c = command(id);
   if (!c) return null;
   const tone = primary ? "primary" : "link";
-  const testId = TEST_IDS[id];
+  const testId = testIdOverride ?? TEST_IDS[id];
   // Links stay links: the game and the room are routes.
   if (id === "ui.nav.game" && gameCode && roomCode) return <Action k={id} tone={tone} href={gamePath(roomCode, gameCode)} testId={testId} />;
   if (id === "ui.nav.room" && roomCode) return <Action k={id} label={`Back to room ${roomCode}`} tone={tone} href={roomPath(roomCode)} testId={testId} />;

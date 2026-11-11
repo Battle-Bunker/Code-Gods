@@ -27,9 +27,14 @@ export const SCORE_LINES = {
   rarity: "✨ Rarity is how hard your rule score is to get by chance, in bits: 1 random object in 8 doing as well is ✨ 3. Each ✨ is twice as rare.",
   points: "Points are what the leaderboard adds up. One object gives you its ✨ rarity by your rule × how much the others want it (their ✨ added up, never below 0).",
   total: "Your points now are the points of every object in the world added up. This is your total as last counted for you, so it can be a few seconds old.",
+  moves: "Every object on the table gives you points when it is rare by your rule and the others want it too, so this moves when anyone changes an object.",
   nobody: "An object only you want gives you 0 points, however high your rule score is.",
   energy: "You earn ⚡ energy every second. Summoning an agent spends yours once; each agent then earns its share and spends some on every move.",
 } as const;
+
+/** SCORE_LINES.moves in the table's own noun ("grid", "number"): why your points move while you do nothing. */
+export const scoreMovesLine = (noun: string = "object"): string =>
+  noun === "object" ? SCORE_LINES.moves : SCORE_LINES.moves.replace("Every object", `Every ${noun}`).replace("an object", `${/^[aeiou]/i.test(noun) ? "an" : "a"} ${noun}`);
 
 export const GLOSSARY = {
   room: { term: "Room", gloss: "The table you play at: a short code, an owner and up to 8 seats; it hosts game after game." },
@@ -41,7 +46,7 @@ export const GLOSSARY = {
   "defence-goal": { term: "Defence goal", gloss: "An optional second secret rule: objects that are unusually bad for it take ✨ rarity away from you." },
   bits: { term: "✨ Rarity (bits)", gloss: SCORE_LINES.rarity },
   "others-care": { term: "Others' care", gloss: "The other gods' ✨ rarity for an object added together (never below 0): the only thing you learn about their rules." },
-  payoff: { term: "Points", gloss: "One object gives you its ✨ rarity by your rule × how much the others want it. The leaderboard adds up every object." },
+  payoff: { term: "Points", gloss: "One object gives you its ✨ rarity by your rule × how much the others want it. The leaderboard adds up every object, so your total moves when anyone changes one." },
   "points-tuple": { term: "Points tuple", gloss: "A rule score with parts: primary, then secondary (tertiary…), like (3, −5). Compared primary first, then secondary; its ✨ is how rare it is." },
   salience: { term: "Salience", gloss: "Everyone's ✨ rarity for an object added up: public, so you can see what the table cares about." },
   agent: { term: "Agent", gloss: "Your small program, agent(obj), which returns up to 16 moves when the world picks it." },

@@ -54,6 +54,7 @@ export default function Results({ params, phase }: PanelProps<"results">) {
       {preparing && <PreparingNote preparing={preparing} />}
       {/* The outcome is the panel's headline; once this game has ended, the next step is the room (its next game). */}
       <p className="font-serif text-xl font-semibold leading-snug" data-testid="text-results-headline">{record ? `Game ${record.shortCode}: ` : ""}{why}</p>
+      <p className="text-xs leading-snug text-muted-foreground" data-testid="text-results-exact">Final points are counted exactly when the game ends. During the game your points were an estimate: how much the others want each object is blurred to keep their rules secret, and that usually reads high.</p>
       {live && room?.shortCode && (
         <Link to={{ kind: "room", room: room.shortCode }} className="inline-block bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground" data-testid="link-results-room">
           Back to room {room.shortCode} for the next game

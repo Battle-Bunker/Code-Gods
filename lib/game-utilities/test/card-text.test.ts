@@ -29,6 +29,29 @@ test("a text without the word is left alone, and rewording twice changes nothing
   assert.equal(ruleScoreWording("Make every row the same colour."), "Make every row the same colour.");
   const once = ruleScoreWording("Each SET scores 1 point, and each pair scores as many points as the gap.");
   assert.equal(ruleScoreWording(once), once);
+  // A sentence-initial "Points" (a caption reworded by the card and again by the goal board).
+  for (const text of ["Points are counted per row.", "Points: 3. Each arrow that points to a red cell scores 2 points.", "Two cells score 1 point, or 2 points if red."]) {
+    const shown = ruleScoreWording(text);
+    assert.equal(ruleScoreWording(shown), shown, text);
+    assert.ok(!usesReservedPoints(shown), shown);
+  }
+  assert.equal(ruleScoreWording("Points are counted per row."), "Rule-score points are counted per row.");
+});
+
+test("the verb is left alone, and decimal or negative amounts are reworded", () => {
+  const cases: [string, string][] = [
+    ["Each arrow that points to a red cell scores 2 points.", "Each arrow that points to a red cell adds 2 to your rule score."],
+    ["An arrow that points left scores 1 point; one that points up, down or right scores 0.5 points.", "An arrow that points left adds 1 to your rule score; one that points up, down or right adds 0.5 to your rule score."],
+    ["A hand that points towards the centre loses 1.5 points.", "A hand that points towards the centre takes 1.5 off your rule score."],
+    ["Point at a unit. Each one scores −2 points.", "Point at a unit. Each one adds −2 to your rule score."],
+    ["Each pair scores -1 point.", "Each pair adds -1 to your rule score."],
+    ["Worth 2.5 points.", "Worth 2.5 rule-score points."],
+  ];
+  for (const [from, to] of cases) {
+    assert.equal(ruleScoreWording(from), to);
+    assert.equal(ruleScoreWording(to), to);
+    assert.ok(!usesReservedPoints(to), to);
+  }
 });
 
 test("no family's card text, reworded, uses the reserved word for what the card counts", () => {
@@ -65,6 +88,7 @@ test("no lens's goal-board texts (unit titles, checks, tallies, stories, example
     if (!text) return;
     const shown = ruleScoreWording(text);
     assert.ok(!usesReservedPoints(shown), `${where}: ${shown}`);
+    assert.equal(ruleScoreWording(shown), shown, where);
     checked++;
   };
   for (const l of LENSES) {

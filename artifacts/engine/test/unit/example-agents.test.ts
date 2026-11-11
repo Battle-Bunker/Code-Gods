@@ -146,7 +146,7 @@ test("the generator follows the prelude: add when it is offered, write otherwise
   }
 });
 
-test("the generator is total: every family the board can deal, and an unknown one, gets a named agent that the sandbox accepts", async () => {
+test("the generator is total: every family the board can deal, and an unknown one, gets a named agent that the sandbox accepts", async t => {
   const cases: { id: string; params: Params }[] = [...dealable.map(f => ({ id: f.id, params: canonicalSupport(f, ctx)[0]! })), { id: "no_such_family", params: {} }];
   const payable: string[] = [], inPool = new Set(pool.map(f => f.id));
   for (const language of LANGUAGES) for (const c of cases) {
@@ -159,7 +159,7 @@ test("the generator is total: every family the board can deal, and an unknown on
     assert.ok(budget !== undefined, `${c.id}: state its Python summon price budget in EXAMPLE_PRICE_BUDGET (today ${cost.toFixed(1)})`);
     assert.ok(cost <= budget, `${c.id} ${language}: summon price ${cost.toFixed(1)} is within its budget ${budget}`);
     if (language === "python" && inPool.has(c.id)) {
-      console.log(`price ${c.id}: ${cost.toFixed(1)}`);
+      t.diagnostic(`price ${c.id}: ${cost.toFixed(1)}`);
       if (cost <= PAYABLE) payable.push(c.id);
       const thorough = starterAgentsFor(c.id, c.params, inst, language).find(s => s.id === "thorough");
       if (thorough) {

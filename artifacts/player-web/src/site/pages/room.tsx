@@ -21,6 +21,7 @@ import { Chat, SettingsList, UtilityFamilies, settingsSummary } from "@/site/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { nextStep } from "@/site/lib/next-step";
+import { membersStart } from "@/site/lib/room-seats";
 import { SetupPicker, setupTitle } from "@/site/components/setup-picker";
 import { fmt, notFoundMsg, reload, transient } from "@/site/lib/errors";
 import { fmtWhen, isoWhen } from "@/site/lib/time";
@@ -29,7 +30,7 @@ import type { GameRecord } from "@/site/lib/types";
 import { canOpenGame, gamePath } from "@/site/lib/routes";
 
 function Players({ room, meId, isOwner, minPlayers }: { room: RoomState; meId?: string; isOwner: boolean; minPlayers: number }) {
-  const { act, manifest, run, unavailable } = usePage();
+  const { act, manifest, run, unavailable, start } = usePage();
   const runner = useRun();
   const [armed, setArmed] = useState<string | null>(null);
   useEffect(() => { if (!armed) return; const t = setTimeout(() => setArmed(null), 5000); return () => clearTimeout(t); }, [armed]);
@@ -42,7 +43,10 @@ function Players({ room, meId, isOwner, minPlayers }: { room: RoomState; meId?: 
     && !(m.spectator && players >= (manifest?.maximumPlayers ?? 8));
   const role = (m: RoomState["members"][number]) => (m.spectator ? (g ? "watches the next game" : "spectator") : g ? "plays the next game" : "player");
   return (
-    <Section title="Members" count={room.members.length} summary={`${players} playing`}>
+    <Section title="Members" count={room.members.length} summary={`${players} playing`}
+      // Enough players are in: the owner finds Start here too, not only at the top of the page (lib/room-seats.ts).
+      action={membersStart({ isOwner, hasGame: !!g, players, minPlayers, startUnavailable: start.phase === "starting" ? null : unavailable("owner.start") })
+        ? <StepAction id="owner.start" primary testId="button-start-members" /> : undefined}>
       <ul className="divide-y">
         {room.members.map(m => (
           <li key={m.id} className="px-4 py-2.5 flex items-center gap-3" data-testid={`row-member-${m.id}`}>

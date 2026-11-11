@@ -4,7 +4,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { dryRunVerdict } from "../../convex/lib/dryRun.ts";
+import { dryRunVerdict, summonDryRunWarnings } from "../../convex/lib/dryRun.ts";
 
 test("an agent that raises on every sample object is invalid, and says the error first", () => {
   const v = dryRunVerdict({ invalidRate: 1, skipRate: 0, changeRate: 0, firstError: "NameError: name 'line' is not defined (line 2)" });
@@ -37,4 +37,12 @@ test("an agent that fails on most sample objects validates with a warning that n
 test("a working agent has no dry-run findings; an older examination without rates is valid", () => {
   assert.deepEqual(dryRunVerdict({ invalidRate: 0.1, skipRate: 0.2, changeRate: 0.7 }), { valid: true, warnings: [] });
   assert.deepEqual(dryRunVerdict({}), { valid: true, warnings: [] });
+});
+
+test("a summon receipt carries the dry run's finding as a warning: the summon still works, and is never silent", () => {
+  assert.deepEqual(summonDryRunWarnings(dryRunVerdict({ invalidRate: 1, firstError: "agent raised an error: NameError: name 'line' is not defined (line 2)" })),
+    ["This agent failed on every sample object, so every act will fail: NameError: name 'line' is not defined (line 2)"]);
+  assert.deepEqual(summonDryRunWarnings(dryRunVerdict({ invalidRate: 1 })), ["This agent failed on every sample object, so every act will fail."]);
+  assert.deepEqual(summonDryRunWarnings(dryRunVerdict({ skipRate: 1 })), ["This agent made no move on any sample object. It may do nothing."]);
+  assert.deepEqual(summonDryRunWarnings(dryRunVerdict({ invalidRate: 0.1, skipRate: 0.2, changeRate: 0.7 })), []);
 });

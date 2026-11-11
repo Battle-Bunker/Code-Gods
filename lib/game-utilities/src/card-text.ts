@@ -6,7 +6,11 @@
  * reaches a player in the card's sense. It leaves a text without "point" alone, and applying it twice changes nothing.
  */
 const TIER = "(primary |secondary |tertiary )?";
-const AMOUNT = "(\\d+|that many)";
+/** A whole, decimal or negative amount ("2", "0.5", "−2", "-1"), or "that many". */
+const AMOUNT = "([−-]?\\d+(?:\\.\\d+)?|that many)";
+/** "point(s)" as a verb ("points to a red cell", "Point at a unit") is not the card's word and stays. */
+const VERB = "(?!\\s+(?:to|at|towards?|left|right|up|down|away)\\b)";
+const BARE = `(?<![Rr]ule-score )\\b(P|p)oint(s?)\\b${VERB}`;
 const tier = (t: string | undefined) => t ?? "";
 
 const RULES: readonly [RegExp, (...m: string[]) => string][] = [
@@ -17,13 +21,13 @@ const RULES: readonly [RegExp, (...m: string[]) => string][] = [
     (_m, s, plural, n, more, t) => `${s === "S" ? "A" : "a"}dd${plural} ${n} ${more ?? ""}to your ${tier(t)}rule score`],
   // "scores as many secondary points as …"
   [new RegExp(`\\b([Ss])core(s?) as many ${TIER}points as\\b`, "g"), (_m, s, plural, t) => `${s === "S" ? "A" : "a"}dd${plural} as much to your ${tier(t)}rule score as`],
-  // "deducts 1 point", "loses 2 primary points"
+  // "deducts 1 point", "loses 2 primary points", "loses 1.5 points"
   [new RegExp(`\\b(?:deducts|loses) ${AMOUNT} ${TIER}points?\\b`, "g"), (_m, n, t) => `takes ${n} off your ${tier(t)}rule score`],
   // "You lose 1 point for each …", "lose as many points as …"
   [new RegExp(`\\b([Ll])ose ${AMOUNT} ${TIER}points?\\b`, "g"), (_m, l, n, t) => `${l}ose ${n} from your ${tier(t)}rule score`],
   [new RegExp(`\\b([Ll])ose(s?) as many ${TIER}points as\\b`, "g"), (_m, l, plural, t) => `${l === "L" ? "T" : "t"}ake${plural} as much off your ${tier(t)}rule score as`],
-  // Whatever is left: never the bare word (the verb, "point at a unit", stays).
-  [/(?<!rule-score )\b(P|p)oint(s?)\b(?! at\b)/g, (_m, p, plural) => `${p === "P" ? "Rule-score" : "rule-score"} point${plural}`],
+  // Whatever is left: never the bare word (the verb stays; a "Rule-score point" already reworded is left alone).
+  [new RegExp(BARE, "g"), (_m, p, plural) => `${p === "P" ? "Rule-score" : "rule-score"} point${plural}`],
 ];
 
 export function ruleScoreWording(text: string): string {
@@ -32,4 +36,4 @@ export function ruleScoreWording(text: string): string {
 }
 
 /** True when a card text shown to a player still uses "point(s)" in the card's sense (the word is reserved for the payoff). */
-export const usesReservedPoints = (text: string): boolean => /(?<!rule-score )\bpoints?\b(?! at\b)/i.test(text);
+export const usesReservedPoints = (text: string): boolean => new RegExp(BARE, "i").test(text);

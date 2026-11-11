@@ -57,12 +57,13 @@ test("a double click on Play the next game seats the player once: the second cli
   const sent: [boolean, string][] = [];
   let release: () => void = () => {};
   const send = oncePerKey((spectator: boolean, godId?: string) => new Promise<void>(done => { sent.push([spectator, godId ?? "me"]); release = done; }),
-    (_spectator, godId) => godId ?? "me", 800, () => clock);
+    (_spectator, godId) => godId ?? "me", spectator => spectator, 800, () => clock);
   const first = send(false);
-  assert.equal(await send(true), undefined, "a second click while the first is in flight sends nothing");
+  clock += 100;
+  assert.equal(await send(false), undefined, "the same click again while the first is in flight sends nothing");
   release(); await first;
-  clock += 300;
-  assert.equal(await send(true), undefined, "nor does one just after the room updated and the label flipped");
+  clock += 200;
+  assert.equal(await send(true), undefined, "nor does the second click of a double click, made on the label that just flipped");
   assert.deepEqual(sent, [[false, "me"]]);
   const other = send(true, "bob");
   assert.deepEqual(sent, [[false, "me"], [true, "bob"]], "another member's toggle is its own");
@@ -71,8 +72,42 @@ test("a double click on Play the next game seats the player once: the second cli
   const later = send(true);
   release(); await later;
   assert.deepEqual(sent, [[false, "me"], [true, "bob"], [true, "me"]], "a deliberate later click toggles as before");
-  // A failed call frees the control too.
-  const failing = oncePerKey(async () => { throw new Error("refused"); }, () => "k", 0, () => clock);
-  await assert.rejects(failing());
-  await assert.rejects(failing(), "not stuck busy after a failure");
+});
+
+test("a deliberate toggle the other way is not swallowed because the first call settled a moment ago", async () => {
+  const { oncePerKey } = await import("../src/site/lib/click-once.ts");
+  let clock = 1000;
+  const sent: boolean[] = [];
+  let release: () => void = () => {};
+  const send = oncePerKey((spectator: boolean) => new Promise<void>(done => { sent.push(spectator); release = done; }), () => "me", spectator => spectator, 800, () => clock);
+  // A slow call: the click was 2 s ago, the room updated just now, and the player clicks the new label at once.
+  const first = send(false);
+  clock += 2000;
+  release(); await first;
+  clock += 100;
+  const back = send(true);
+  assert.deepEqual(sent, [false, true], "sent: the quiet period runs from the click, not from the call settling");
+  release(); await back;
+  // The other value while the first is still in flight, long after the click: also deliberate.
+  clock += 5000;
+  const slow = send(false);
+  clock += 900;
+  const meanwhile = send(true);
+  assert.deepEqual(sent, [false, true, false, true]);
+  assert.equal(await send(true), undefined, "but the same value twice in flight is one call");
+  release(); await meanwhile; void slow;
+});
+
+test("after a failed call nothing is dropped: the player retries at once", async () => {
+  const { oncePerKey } = await import("../src/site/lib/click-once.ts");
+  const clock = 1000;
+  let calls = 0;
+  const failing = oncePerKey(async (_spectator: boolean) => { calls++; throw new Error("refused"); }, () => "k", spectator => spectator, 800, () => clock);
+  await assert.rejects(failing(false));
+  await assert.rejects(failing(false), "the same click again, in the same instant, is sent");
+  await assert.rejects(failing(true), "and so is the other way");
+  assert.equal(calls, 3);
+  const throwing = oncePerKey((): Promise<void> => { throw new Error("offline"); }, () => "k", () => 0, 800, () => clock);
+  await assert.rejects(throwing());
+  await assert.rejects(throwing(), "a call that throws before it starts frees the control too");
 });

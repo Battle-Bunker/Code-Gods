@@ -18,7 +18,7 @@ import { memberOf, principalV, requireMemberAs, requireRoom, viewerOf, type Prin
 import { godEnergy, settledAccount, worldNow } from "../lib/world";
 import { deityAccount } from "../lib/power";
 import { agentLanguage, languageV } from "../lib/language";
-import { dryRunVerdict } from "../lib/dryRun";
+import { dryRunVerdict, summonDryRunWarnings } from "../lib/dryRun";
 
 const CHAT_INTERVAL_MS = 1000;
 /** Agent examinations (validate, summon) per human per room per rolling minute: a looping client cannot burn the sandbox. */
@@ -216,7 +216,10 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     const dry = dryRunVerdict(e);
     // A dry-run finding says it all: the futility warnings of the same runs ("never changes an object") would only repeat it.
     const found = !dry.valid || dry.warnings.length > 0;
-    const warnings = [...dry.warnings, ...(found ? [] : e.warnings ?? []), ...(twins ? [copiesWarning(twins, e.futility)] : [])];
+    // A validation says an invalid agent in its verdict and diagnostics; a summon is not refused for it (callers that
+    // summoned such agents before do not all handle a refusal), so its receipt carries the finding as a warning.
+    const dryWarnings = command.type === "summon" ? summonDryRunWarnings(dry) : dry.warnings;
+    const warnings = [...dryWarnings, ...(found ? [] : e.warnings ?? []), ...(twins ? [copiesWarning(twins, e.futility)] : [])];
     const findings = { ...(e.futility ? { futility: e.futility, expectedSuccessRate: e.futility.successRate } : {}), ...(warnings.length ? { warnings } : {}) };
     if (command.type === "validate") {
       const energy = godEnergy(game, deity, worldNow(game, now));

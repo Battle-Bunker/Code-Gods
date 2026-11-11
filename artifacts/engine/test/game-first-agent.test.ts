@@ -10,7 +10,7 @@ import { observationSchema } from "@workspace/player-client";
 import { boardFacts, buildExampleAgent, mutatorNames } from "@workspace/game-utilities/example-agents";
 import { admin, api, envelope, gods, internal, raw, roomWith, startGame, touch, waitFor } from "./game-helpers.ts";
 
-test("a new player's pre-filled example validates, is summoned unchanged and raises their own score", { timeout: 240000 }, async () => {
+test("a new player's pre-filled example validates, is summoned unchanged and raises their own score", { timeout: 240000 }, async t => {
   const players = await gods("First Agent Host", "First Agent Ada", "First Agent Bo");
   await touch(players[0]!);
   const { roomId } = await roomWith(players);
@@ -40,7 +40,7 @@ test("a new player's pre-filled example validates, is summoned unchanged and rai
       const agent = (await observe(i)).agents.find(a => a.name === example.name)!;
       assert.equal(agent.powerShare, 0.5, "the first summon takes half the power, so the player can still summon again");
     } else late.push({ i, cost: checked.validation.cost, command });
-    console.log(`${card.familyId}: summon price ${checked.validation.cost.toFixed(1)} of ${obs.self.energy} energy${checked.validation.cost <= obs.self.energy ? "" : " (summoned once the world runs)"}`);
+    t.diagnostic(`${card.familyId}: summon price ${checked.validation.cost.toFixed(1)} of ${obs.self.energy} energy${checked.validation.cost <= obs.self.energy ? "" : " (summoned once the world runs)"}`);
   }
 
   await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 3600 }, kick: true });
@@ -53,7 +53,7 @@ test("a new player's pre-filled example validates, is summoned unchanged and rai
   for (let i = 0; i < players.length; i++) {
     const obs = await observe(i);
     const mine = obs.agents[0]!;
-    console.log(`${families[i]}: score ${before[i]!.toFixed(2)} → ${(obs.self.score ?? 0).toFixed(2)}; agent ${JSON.stringify({ acts: (mine as any).acts, energy: mine.energy })}`);
+    t.diagnostic(`${families[i]}: score ${before[i]!.toFixed(2)} → ${(obs.self.score ?? 0).toFixed(2)}; agent ${JSON.stringify({ acts: (mine as any).acts, energy: mine.energy })}`);
     assert.ok((obs.self.score ?? 0) > before[i]!, `${families[i]}: the player's own score rose (${before[i]} → ${obs.self.score})`);
   }
   await players[0]!.c.mutation(api.rooms.endActiveGame, { roomId });

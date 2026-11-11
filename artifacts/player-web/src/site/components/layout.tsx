@@ -20,6 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { api, useLive } from "@/site/lib/convex";
 import { codeCommands, engineCommands, paletteContextFor, type EngineActions, type EngineScope, type Live, type Template } from "@/site/lib/commands";
 import { oncePerKey } from "@/site/lib/click-once";
+import { aiSeats } from "@/site/lib/room-seats";
 import { errMsg, startRaced } from "@/site/lib/errors";
 import type { GameRecord, GameView, Manifest, RoomState } from "@/site/lib/types";
 import { useSetupEntries } from "@/site/hooks/use-setups";
@@ -124,12 +125,16 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
   const leave = useMutation(api.rooms.leave);
   const setReady = useMutation(api.rooms.setReady);
   const setSpectator = useMutation(api.rooms.setSpectator);
-  const spectatorOnce = useMemo(() => oncePerKey(setSpectator, args => `${args.roomId}:${args.godId ?? "me"}`), [setSpectator]);
+  const spectatorOnce = useMemo(() => oncePerKey(setSpectator, args => `${args.roomId}:${args.godId ?? "me"}`, args => args.spectator), [setSpectator]);
   const start = useAction(api.owner.start);
   const resume = useMutation(api.rooms.resume);
   const startWorldNow = useMutation(api.rooms.startWorldNow);
   const end = useMutation(api.rooms.endActiveGame);
   const addAi = useMutation(api.rooms.addAi);
+  const roomNow = useRef(room);
+  roomNow.current = room;
+  // AI seats go through one ledger per room (lib/room-seats.ts): a seat just added counts before the page shows it.
+  const aiSeatsOf = useMemo(() => aiSeats((templateId?: string) => addAi({ roomId: need(roomNow.current?.id), ...(templateId ? { templateId } : {}) })), [addAi, room?.id]);
   const removeAi = useMutation(api.rooms.removeAi);
   const saveSettings = useAction(api.owner.settings);
   const duplicate = useMutation(api.setups.duplicate);
@@ -185,16 +190,18 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
     resume: () => resume({ roomId: need(roomId) }),
     startWorldNow: () => startWorldNow({ roomId: need(roomId) }),
     endGame: () => end({ roomId: need(roomId) }),
-    addAi: templateId => addAi({ roomId: need(roomId), ...(templateId ? { templateId } : {}) }),
-    // A practice game: the engine's default AI player in each seat the game still needs, then the start. If a step
-    // fails the seats already added stay, and the room's next step is then Start (or what is still missing).
+    // One click, one seat: a double click on "+ Add AI player" adds one (lib/room-seats.ts).
+    addAi: templateId => { need(roomId); return aiSeatsOf.addOnce(templateId); },
+    // A practice game: the engine's default AI player in each seat the game still needs, then the start. What is missing
+    // is counted from the room as it is now plus the seats this page has just added (not from the room as it was when
+    // the button was drawn), one seat at a time. If a step fails the seats already added stay, and the room's next step
+    // is then Start (or what is still missing).
     practiceGame: async () => {
       if (practising.current) return; // a double click adds the seats once
       practising.current = true;
       try {
-        const r = need(room);
-        const missing = (manifest?.minimumPlayers ?? 3) - r.members.filter(m => !m.spectator).length;
-        for (let i = 0; i < missing; i++) await addAi({ roomId: r.id });
+        need(roomId);
+        await aiSeatsOf.fill(manifest?.minimumPlayers ?? 3, () => roomNow.current?.members ?? []);
         await doStart();
       } finally { practising.current = false; }
     },
