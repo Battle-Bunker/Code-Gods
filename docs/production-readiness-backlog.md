@@ -26,14 +26,21 @@ header of each file).
    4. A priority lane in `GameRuntime.request` so acts are dequeued before examinations.
    A watchdog grace period alone is not safe: `scripts/check-live-games.mjs` expects a commit within
    `LIVE_CHECK_SECONDS = 90` after a deploy; the two must change together.
+   It is not only AI seats: 20 games with humans only (no AI seats) froze 7 of 20 mid-run and took up to 230 s to
+   start; with AI seats 20 of 20 stalled. A re-run on develop after #262 still livelocks ("watchdog: restarted 20"
+   every minute; 13 of 20 games had not finished starting after 240 s; none ended within 290 s).
+   Hold rarity adds to it: `engine/hold:computeOne` takes 1.4–7.5 s each under load, shares the same capacity, and
+   `holdState "computing"` gates planning→running (`engine/tick.ts:109-114`). Put hold and examination work at a
+   priority below ticks.
    Load regression to add: 20 games with 3 mock AI seats; every `tick.seq` advances within 2 minutes.
    Open question: what fired 1,836 `runtime/acts:run` calls while every game was still in planning (AI examinations
    or probes).
 2. **Start is slow and fragile under light load (P0/P1).** Start→running took 40–60 s with about five games
    starting at once (the "preparing" table computation). #262 stopped every start writing the global activity row and
    re-arms the watchdog for a stuck "preparing" room; #263/#266 keep the room page on "Starting…" instead of falling
-   back to the lobby. Still open: confirm #262 under the soak's 20 parallel starts (it was not reproducible on the
-   engine lead's machine); a fault-injection test for the stuck-"preparing" fix; show a real start failure in the
+   back to the lobby. #262 is confirmed under the soak's 20 parallel starts: 0 `commitStart` failures of any kind
+   (before: 5 and 7 OCC failures). Start latency is not fixed: 80–218 s at 20 concurrent games (see item 1). Still
+   open: a fault-injection test for the stuck-"preparing" fix; show a real start failure in the
    status line ("Couldn't start the game: <reason>. Try again."), which needs a failure field on `StartView` in
    `lib/player-client/src/start.ts` (about 15 lines); optionally make `startGame` return the existing game instead
    of CONFLICT when the same owner started it less than 2 minutes ago (`owner.ts`, about 6 lines).
