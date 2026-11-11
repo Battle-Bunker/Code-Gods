@@ -62,7 +62,7 @@ export function Header() {
         {permission === "read" && <span className="label shrink-0">view only</span>}
       </div>
       <span data-testid="text-phase" className="shrink-0 bg-primary px-2 py-0.5 font-mono text-[11px] font-semibold text-primary-foreground">{phasePill(s, now)}</span>
-      {self && live && s.seated && <span className="hidden shrink-0 font-mono text-xs tabular-nums sm:inline" title="Your energy: it pays for summons and refills every second" data-testid="text-energy">⚡ {bits(self.energy)} bits</span>}
+      {self && live && s.seated && <span className="hidden shrink-0 font-mono text-xs tabular-nums sm:inline" title="Your energy: you earn it every second, and summoning an agent spends it" data-testid="text-energy">⚡ {bits(self.energy)} energy</span>}
       <span data-testid="status-connection" className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground" title={s.obs ? "Live" : "Connecting to the engine"}>
         <span aria-hidden className={`h-2 w-2 ${s.obs ? "bg-[hsl(var(--accent))]" : "beat bg-muted-foreground"}`} />
         <span className={s.obs ? "sr-only" : ""}>{s.obs ? "live" : "connecting"}</span>

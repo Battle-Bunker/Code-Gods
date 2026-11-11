@@ -4,6 +4,8 @@
  * bits and the floored peer care), never individually.
  */
 import { dimensionVar } from "./dimensions.ts";
+import { SCORE_LINES } from "@workspace/ui-kit";
+import { productText } from "./product.ts";
 import { formatBits, penaltyLine, powerLine, penaltyPercent, rarityText } from "./rarity.ts";
 
 /** Your bits and the others' care wear their dimension colours (dimensions.ts) wherever they appear. */
@@ -56,7 +58,10 @@ export interface PersonalScore {
 
 const num = (x: number, d = 1) => (Math.round(x * 10 ** d) / 10 ** d).toLocaleString("en-US", { maximumFractionDigits: d, minimumFractionDigits: d }).replace("-", "−");
 
-/** Your own view of one object: ✨ rarity, ⚠️ (if you have a defence goal), net bits, peer care, points. */
+/**
+ * Your own view of one object: your rule score, its ✨ rarity, ⚠️ (if you have a defence goal), how much the others want
+ * it, and the points: a product whose displayed factors multiply to the displayed points (product.ts).
+ */
 export function ScoreBreakdown({ score, noun = "object", comparative, compact = false }: { score: PersonalScore; noun?: string; comparative?: string; compact?: boolean }) {
   const { own, peerNetBits, peerCare, payoff } = score;
   const nobody = peerCare <= 0;
@@ -68,36 +73,41 @@ export function ScoreBreakdown({ score, noun = "object", comparative, compact = 
       </span>
     );
   }
+  const line = productText(own.netBits, peerCare, payoff);
   const ordinal = own.ordinal === undefined ? undefined : Array.isArray(own.ordinal) ? `(${own.ordinal.join(", ")})` : String(own.ordinal);
   return (
     <div className="space-y-2 text-sm" data-testid="score-breakdown">
-      {ordinal !== undefined && <p className="font-mono text-xs">utility({noun}) → {ordinal}</p>}
+      {ordinal !== undefined && <p className="font-mono text-xs" data-testid="score-rule-score">your rule score for this {noun}: {ordinal}</p>}
       <Rarity bits={own.rewardBits} noun={noun} />
       {own.penaltyBits !== undefined && comparative && <p><PenaltyWarning bits={own.penaltyBits} comparative={comparative} noun={noun} /></p>}
       <dl className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-0.5 font-mono text-xs">
-        <dt style={YOURS}>your net bits</dt><dd className="text-right tabular-nums" style={YOURS} data-testid="score-own">{num(own.netBits)}</dd>
-        <dt style={OTHERS}>everyone else, together</dt><dd className="text-right tabular-nums" style={OTHERS} data-testid="score-peers">{num(peerNetBits)}</dd>
-        <dt style={OTHERS}>peer care (never below 0)</dt><dd className="text-right tabular-nums" style={OTHERS}>{num(peerCare)}</dd>
+        <dt style={YOURS}>your ✨ rarity{own.penaltyBits !== undefined ? " minus ⚠️" : ""}</dt><dd className="text-right tabular-nums" style={YOURS} data-testid="score-own">{num(own.netBits)}</dd>
+        <dt style={OTHERS}>the others' ✨, added up</dt><dd className="text-right tabular-nums" style={OTHERS} data-testid="score-peers">{num(peerNetBits)}</dd>
+        <dt style={OTHERS}>how much the others want it (never below 0)</dt><dd className="text-right tabular-nums" style={OTHERS}>{num(peerCare)}</dd>
         <dt className="font-semibold">points</dt>
-        <dd className="text-right tabular-nums font-semibold" data-testid="score-payoff"><span style={YOURS}>{num(own.netBits)}</span> × <span style={OTHERS}>{num(peerCare)}</span> = {num(payoff)}</dd>
+        <dd className="text-right tabular-nums font-semibold" data-testid="score-payoff"><span style={YOURS}>{line.a}</span> × <span style={OTHERS}>{line.b}</span> {line.sign} {line.product}</dd>
       </dl>
-      {nobody && <p className="text-xs text-muted-foreground">The others don't care about this {noun} (together), so nobody scores from it.</p>}
+      {nobody && <p className="text-xs text-muted-foreground">The others don't want this {noun} (together), so it gives nobody points.</p>}
     </div>
   );
 }
 
-/** The scoring rules in kid words. `id` lets a page link to it (#how-scoring-works). */
+/** The explainer's worked example: factors that multiply to the product as displayed. */
+const EXAMPLE = productText(3.2, 4.5);
+
+/** The scoring rules in kid words, in the one score vocabulary (ui-kit glossary.ts SCORE_WORDS). `id` lets a page link to it (#how-scoring-works). */
 export function HowScoringWorks({ noun = "object", open = false, id = "how-scoring-works" }: { noun?: string; open?: boolean; id?: string }) {
   const nouns = noun.endsWith("s") ? noun : `${noun}s`;
   return (
     <details id={id} open={open} className="text-sm border bg-card/50" data-testid="how-scoring-works">
       <summary className="cursor-pointer px-3 py-2 font-medium">How scoring works</summary>
       <div className="px-3 pb-3 space-y-2 text-muted-foreground">
-        <p><b className="text-foreground">✨ Rarity bits.</b> Your utility function scores every {noun}. The server compares that score with thousands of random {nouns}: if only 1 random {noun} in 8 does as well, that is ✨ 3 bits. Each ✨ means twice as rare.</p>
-        <p><b className="text-foreground">⚠️ Defence goals.</b> Some gods also have something they want to stop. It takes bits away only when a {noun} is worse than usual for it.</p>
-        <p><b className="text-foreground">Net bits.</b> Your ✨ minus your ⚠️ (if you have one). Everyone gets their own net bits for every {noun}.</p>
-        <p><b className="text-foreground">Points.</b> For each {noun}: your bits × max(0, the other gods' bits added up). Your total is the sum over every {noun} in the world now.</p>
-        <p><b className="text-foreground">If the others don't care, nobody scores.</b> A {noun} only you love earns you nothing. You see the others only as one total, never one by one.</p>
+        <p data-testid="scoring-rule-score"><b className="text-foreground">Your rule score.</b> Your goal card counts something on every {noun}: that count is the {noun}'s rule score. Your agents change {nouns} to raise it.</p>
+        <p><b className="text-foreground">✨ Rarity.</b> The game compares that rule score with thousands of random {nouns}: if only 1 random {noun} in 8 does as well, that is ✨ 3. Each ✨ means twice as rare, so a higher rule score gives more ✨. Bits are only ever the unit of ✨ rarity.</p>
+        <p><b className="text-foreground">⚠️ Defence goals.</b> Some players also have something they want to stop. It takes ✨ away only when a {noun} is worse than usual for it.</p>
+        <p data-testid="scoring-points"><b className="text-foreground">Points.</b> For each {noun}: your ✨ × how much the others want it (their ✨ added up, never below 0). For example <span className="font-mono text-foreground"><span style={YOURS}>{EXAMPLE.a}</span> × <span style={OTHERS}>{EXAMPLE.b}</span> {EXAMPLE.sign} {EXAMPLE.product} points</span>. Your points now, the number on the leaderboard, are the points of every {noun} in the world added up.</p>
+        <p><b className="text-foreground">If the others don't want it, nobody scores.</b> {SCORE_LINES.nobody} You see the others only as one total, never one by one.</p>
+        <p data-testid="scoring-not-one-for-one"><b className="text-foreground">Why +1 on your card is not +1 point.</b> Raising a rule score by 1 makes the {noun} rarer, which raises its ✨, which is then multiplied by what the others want. So the same move can be worth 0 points on one {noun} and 20 on another.</p>
       </div>
     </details>
   );
@@ -122,15 +132,15 @@ export function AgentCost({ summonCost, expectedActCost, breakdown, powerShare, 
   const finite = (x: number | undefined): x is number => typeof x === "number" && Number.isFinite(x);
   return (
     <dl className="grid grid-cols-[auto_1fr] gap-x-3 font-mono text-xs" data-testid="validation-costs">
-      <dt className="text-muted-foreground">Summon price</dt>
-      <dd data-testid="text-summon-cost">{f(summonCost)} bits from your energy, paid once{godEnergy !== undefined && summonCost > godEnergy ? ` (you have ${f(godEnergy)})` : ""}</dd>
+      <dt className="text-muted-foreground" title={SCORE_LINES.energy}>Summon price</dt>
+      <dd data-testid="text-summon-cost">{f(summonCost)} ⚡ from your energy, paid once{godEnergy !== undefined && summonCost > godEnergy ? ` (you have ${f(godEnergy)})` : ""}</dd>
       <dt className="text-muted-foreground">Estimate per act</dt>
-      <dd data-testid="text-expected-act-cost">{f(expectedActCost)} bits (an estimate: an act pays what it reads, plus a change cost only when it changes the object)</dd>
-      {finite(breakdown?.read) && <div className="contents" data-testid="cost-part-read"><dt className="text-muted-foreground pl-3">· Reading</dt><dd>{f(breakdown.read)} bits of energy (looking at the object: much cheaper per bit than changing it)</dd></div>}
-      {finite(breakdown?.change) && <div className="contents" data-testid="cost-part-change"><dt className="text-muted-foreground pl-3">· Changing</dt><dd>{f(breakdown.change)} bits (only when it changes it)</dd></div>}
+      <dd data-testid="text-expected-act-cost">{f(expectedActCost)} ⚡ energy (an estimate: an act pays what it reads, plus a change cost only when it changes the object)</dd>
+      {finite(breakdown?.read) && <div className="contents" data-testid="cost-part-read"><dt className="text-muted-foreground pl-3">· Reading</dt><dd>{f(breakdown.read)} ⚡ (looking at the object: much cheaper than changing it)</dd></div>}
+      {finite(breakdown?.change) && <div className="contents" data-testid="cost-part-change"><dt className="text-muted-foreground pl-3">· Changing</dt><dd>{f(breakdown.change)} ⚡ (only when it changes it)</dd></div>}
       {finite(acts) && acts > 0 && finite(spent) && (<>
         <dt className="text-muted-foreground">Actual average</dt>
-        <dd data-testid="text-actual-act-cost">{f(spent / acts)} bits per act, over {acts} acts (estimate was {f(expectedActCost)})</dd>
+        <dd data-testid="text-actual-act-cost">{f(spent / acts)} ⚡ per act, over {acts} acts (estimate was {f(expectedActCost)})</dd>
       </>)}
       {finite(income) && finite(powerShare) && (<>
         <dt className="text-muted-foreground">Power share</dt>

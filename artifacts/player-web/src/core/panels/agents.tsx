@@ -1,6 +1,8 @@
 /**
  * My agents: every number is written as a sentence a newcomer can read (core/panels/agent-labels.ts), with the key words
- * as hover glossary terms. The player's own line (their power, how it is split, their energy for summoning) comes first;
+ * as hover glossary terms. "Your points now" and the player's own line (their power, how it is split, their energy for
+ * summoning; energy is always written ⚡, never "bits") come first; each agent also says what its latest act did to your
+ * rule score and points (score-lines.tsx);
  * then, per agent: its status, power share and income, energy (with a meter of how many seconds of its income that
  * holds), what it spent (reading and changing), the actual average per act against the summon-time estimate, how often it
  * skipped, how its acts ended when some failed (the engine's diagnosis, with a fix when most fail), the power-share
@@ -9,7 +11,7 @@
  * a read-only replay, and Destroy goes after the end. In a replay seen as another god, the panel says whose agents these are.
  */
 import { isLanguage } from "@workspace/game-core";
-import { Term } from "@workspace/ui-kit";
+import { SCORE_LINES, Term } from "@workspace/ui-kit";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Sparkline, Timeline, TimelineLegend, useAgentSeries, useDockState, useGame, useMyAgents, type MyAgent } from "@/sdk";
 import { useDockActions } from "@/dock/actions";
@@ -25,6 +27,7 @@ import {
 } from "./agent-labels";
 import { PanelEmpty, TextButton, type PanelProps } from "./kit";
 import { maxShareFor, parseSharePercent, shareProblem } from "./power-share";
+import { PointsNow, useOwnActLines } from "./score-lines";
 
 export type Sample = { at: number; energy: number; eligible: boolean };
 
@@ -100,10 +103,14 @@ export type AgentsViewProps = {
   onSetShare: (a: MyAgent, share: number) => void;
   onDestroy: (a: MyAgent) => void;
   footer?: ReactNode;
+  /** "Your points now", above your power line (the panel passes <PointsNow />). */
+  header?: ReactNode;
+  /** Agent id → one plain sentence for its latest act: the change, your rule score, the points (score-line.ts). */
+  actLines?: ReadonlyMap<string, string>;
 };
 
 /** The panel without its data hooks, so the gallery (src/gallery/agents.tsx) can draw it from fixtures. */
-export function AgentsView({ agents, self, powerPerSecond, changeReadRatio, world, samples, window: windowS, ended, showCosts, showSource, can, wait, onEdit, onSetShare, onDestroy, footer }: AgentsViewProps) {
+export function AgentsView({ agents, self, powerPerSecond, changeReadRatio, world, samples, window: windowS, ended, showCosts, showSource, can, wait, onEdit, onSetShare, onDestroy, footer, header, actLines }: AgentsViewProps) {
   const [confirm, setConfirm] = useState<string | null>(null);
   const { editCode, destroy, allocatePower } = can;
   const showDestroy = destroy.ok || !destroy.hidden;
@@ -114,12 +121,14 @@ export function AgentsView({ agents, self, powerPerSecond, changeReadRatio, worl
   });
   return (
     <div className="space-y-4">
+      {header}
       {self?.allocated !== undefined && self.income !== undefined && (
         <div className="space-y-1 text-xs" data-testid="text-unallocated-power">
-          <p className="font-medium text-foreground"><Say segs={yourPowerLine({ total, allocated: self.allocated, income: self.income, energy: self.energy ?? 0 })} /></p>
+          <p className="font-medium text-foreground" title={SCORE_LINES.energy}><Say segs={yourPowerLine({ total, allocated: self.allocated, income: self.income, energy: self.energy ?? 0 })} /></p>
+          <p className="text-muted-foreground" data-testid="text-energy-income">⚡ is <Term id="energy">energy</Term>: {SCORE_LINES.energy}</p>
           <p className="text-muted-foreground">
             The world hands out <Term id="turn">turns</Term> at random: the more energy an agent has, the more turns it gets. An act pays what it
-            looks at (<Term id="read-bits">read bits</Term>{changeReadRatio !== undefined && changeReadRatio > 1 ? `, 1/${changeReadRatio} bit of energy per bit: looking is ${changeReadRatio}× cheaper than changing` : ""}) plus, if it changes the object, the <Term id="change-cost">change cost</Term>.
+            looks at (<Term id="read-bits">reading cost</Term>{changeReadRatio !== undefined && changeReadRatio > 1 ? `: looking is ${changeReadRatio}× cheaper than changing` : ""}) plus, if it changes the object, the <Term id="change-cost">change cost</Term>.
           </p>
         </div>
       )}
@@ -149,6 +158,7 @@ export function AgentsView({ agents, self, powerPerSecond, changeReadRatio, worl
                 <p data-testid={`text-agent-skips-${a.id}`}><Say segs={skipLine(a.skips ?? 0)} /></p>
                 {showCosts && <p data-testid={`text-expected-act-cost-${a.id}`}><Say segs={estimateLine(a.expectedActCost, a.breakdown)} /></p>}
               </div>
+              {actLines?.get(a.id) && <p data-testid={`text-agent-act-${a.id}`} className="text-xs text-foreground">Latest: {actLines.get(a.id)}</p>}
               {a.diagnosis && (
                 // How its acts ended (engine-counted) and, when most fail, why and what to change.
                 <div data-testid={`text-agent-diagnosis-${a.id}`} className="space-y-0.5 text-xs">
@@ -199,6 +209,7 @@ export default function Agents({ params, phase }: PanelProps<"agents">) {
   const commands = useGameCommands();
   const can = useAffordances();
   const world = game?.worldSeconds ?? 0;
+  const acts = useOwnActLines(all);
   useEffect(() => { pruneSourceOpen(all.map(a => a.id)); }, [all]);
   // The published samples change only with the series; the point now is added per render.
   const published = useMemo(() => {
@@ -231,6 +242,7 @@ export default function Agents({ params, phase }: PanelProps<"agents">) {
         onEdit={a => dock.forgeEdit(a.source, isLanguage(a.language) ? a.language : undefined)}
         onSetShare={(a, share) => void commands.run({ type: "allocatePower", agentId: a.id, share })}
         onDestroy={a => void commands.run({ type: "destroy", agentId: a.id })}
+        header={can.seenAs ? undefined : <PointsNow />} actLines={acts.byAgent}
         footer={ended && <p data-testid="text-agents-ended" className="text-xs text-muted-foreground">
           {can.readOnly ? `These are ${can.whose} agents as they ended the game.` : "The game is over: these are your agents as they ended it. Edit a copy keeps the code for the next game."}
         </p>} />

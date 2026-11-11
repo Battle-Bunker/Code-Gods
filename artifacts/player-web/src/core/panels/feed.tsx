@@ -1,6 +1,6 @@
 /**
- * What just changed: the latest changes to the world, newest first, and what each did to you (Δ your bits, Δ the
- * others'). Your own agents' changes also show their moves and cost. Grouped by mutator, it becomes the "cost vs
+ * What just changed: the latest changes to the world, newest first, and what each did to you (Δ your ✨ rarity, Δ the
+ * others'; energy costs in ⚡). Your own agents' changes also show their moves and cost. Grouped by mutator, it becomes the "cost vs
  * yield" table of your moves.
  */
 import { useMemo } from "react";
@@ -66,7 +66,7 @@ export default function Feed({ params }: PanelProps<"feed">) {
       <Section title="Your moves: cost against yield">
         <Table rows={rows} rowKey={r => r.id} columns={[
           { header: "mutator", cell: r => r.name }, { header: "acts", cell: r => r.acts, align: "right" },
-          { header: "bits per act", cell: r => avg(r.cost, r.acts), align: "right" }, { header: "Δ yours per act", cell: r => avg(r.dMine, r.acts), align: "right" },
+          { header: "⚡ per act", cell: r => avg(r.cost, r.acts), align: "right" }, { header: "Δ your ✨ per act", cell: r => avg(r.dMine, r.acts), align: "right" },
         ]} />
       </Section>
     );
@@ -77,9 +77,9 @@ export default function Feed({ params }: PanelProps<"feed">) {
       <span className={`w-14 shrink-0 ${c.mine ? "font-semibold" : "text-muted-foreground"}`}>{c.mine ? "yours" : "others'"}</span>
       {c.objectId && <ObjectRef objectId={c.objectId} />}
       <TransformationView before={c.before as never} after={c.after as never} {...ctx} />
-      {c.dMine !== undefined && <span className={c.dMine > 0 ? "text-[hsl(var(--accent))]" : c.dMine < 0 ? "text-destructive" : "text-muted-foreground"}>Δ yours {c.dMine >= 0 ? "+" : ""}{fmtBits(c.dMine)}</span>}
-      {c.dOthers !== undefined && <span className="text-muted-foreground">Δ others {c.dOthers >= 0 ? "+" : ""}{fmtBits(c.dOthers)}</span>}
-      {c.calls && <span className="basis-full text-muted-foreground sm:basis-auto">{c.calls.map(call => call[0]).join("; ")}{c.cost !== undefined ? ` · ${fmtBits(c.cost)} bits` : ""}</span>}
+      {c.dMine !== undefined && <span className={c.dMine > 0 ? "text-[hsl(var(--accent))]" : c.dMine < 0 ? "text-destructive" : "text-muted-foreground"}>Δ your ✨ {c.dMine >= 0 ? "+" : ""}{fmtBits(c.dMine)}</span>}
+      {c.dOthers !== undefined && <span className="text-muted-foreground">Δ others' ✨ {c.dOthers >= 0 ? "+" : ""}{fmtBits(c.dOthers)}</span>}
+      {c.calls && <span className="basis-full text-muted-foreground sm:basis-auto">{c.calls.map(call => call[0]).join("; ")}{c.cost !== undefined ? ` · ${fmtBits(c.cost)} ⚡` : ""}</span>}
     </li>
   );
   if (params.groupBy === "object") {

@@ -4,6 +4,7 @@ export * from "./colour-science.ts";
 export * from "./dimensions.ts";
 export * from "./views.tsx";
 export * from "./rarity.ts";
+export * from "./product.ts";
 export * from "./catalog.ts";
 export * from "./settings.ts";
 export * from "./scoring.tsx";
