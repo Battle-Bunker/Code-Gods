@@ -40,21 +40,21 @@ test("an agent that never changes an object is not a working agent", () => {
 test("a working, affordable agent: the price against the energy, and stop validating", () => {
   const a = assessValidation(receipt({ changeRate: 0.67, invalidRate: 0, energy: 565.1, affordable: true }));
   assert.equal(a.verdict, "works");
-  assert.equal(a.summary, "Works: changes 67% of reference objects. Summon price 147.7 bits; the player had 565.1 bits of energy when it was validated (affordable). Each act costs about 3.48 bits; it pays only what it does.");
+  assert.equal(a.summary, "Works: changes 67% of reference objects. Summon price 147.7 energy; the player had 565.1 energy when it was validated (affordable). Each act costs about 3.48 energy; it pays only what it does.");
   assert.match(a.next, /^Stop validating/);
   assert.deepEqual([a.cost, a.energy, a.affordable], [147.74, 565.1, true]);
 });
 
 test("the price line splits an act into reading and changing and names the skip rate", () => {
   const a = assessValidation(receipt({ changeRate: 0.5, invalidRate: 0, skipRate: 0.25, breakdown: { read: 1.5, change: 1.9786 } }));
-  assert.match(a.summary, /Each act costs about 3\.48 bits \(reading 1\.50 \+ changing 1\.98\); it pays only what it does\. It returns no calls \(a skip, which pays only its reads\) on 25% of reference objects\./);
+  assert.match(a.summary, /Each act costs about 3\.48 energy \(reading 1\.50 \+ changing 1\.98\); it pays only what it does\. It returns no calls \(a skip, which pays only its reads\) on 25% of reference objects\./);
 });
 
 test("a working agent the player cannot afford yet says so and suggests a cheaper version", () => {
   const a = assessValidation(receipt({ changeRate: 0.4, invalidRate: 0.1, energy: 100, affordable: false }));
   assert.equal(a.verdict, "works");
   assert.match(a.summary, /changes 40% of reference objects, 10% invalid or failing\. .*not affordable yet/);
-  assert.match(a.next, /could not afford it when validated \(100\.0 bits of 147\.7 bits/);
+  assert.match(a.next, /could not afford it when validated \(100\.0 of 147\.7 energy/);
 });
 
 test("a source that does not compile is rejected with the engine's message", () => {

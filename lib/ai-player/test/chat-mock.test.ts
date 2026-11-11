@@ -197,3 +197,14 @@ test("an autopilot tick with no agent yet tests and summons the first agent for 
     assert.match(textOf(step), /nothing is worth doing/);
   }
 });
+
+test("mock only: a typed request to write or make an agent takes the first-agent path; questions, other texts and /mock scripts do not", async () => {
+  const mock = mockChatProvider();
+  const first = async (text: string) => usesOf(await mock.stream(ask([chip(text)]))).map(u => [u.name, u.input.name ?? null]);
+  for (const text of ["please make an agent that puts numbers next to each other that add up to 10", "Write an agent for my goal", "can you build me a bot that mirrors the board"]) {
+    assert.deepEqual(await first(text), [["load_skill", "writing-agents"]], text);
+  }
+  for (const text of ["Is my agent any good?", "What should my agent do?", "How do I write an agent?", "hello"]) assert.deepEqual(await first(text), [["get_observation", null]], text);
+  const scripted = await mock.stream(ask([chip('/mock [{"text":"make an agent"}]')]));
+  assert.equal(textOf(scripted), "make an agent", "a /mock script stays a script");
+});

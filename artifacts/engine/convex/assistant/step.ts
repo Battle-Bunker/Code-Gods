@@ -25,6 +25,7 @@ import {
   type ChatMessage, type ChatProvider, type ChatResult, type ChatToolUse, type Prices,
 } from "@workspace/ai-player";
 import type { ToolResult } from "@workspace/player-client/tools";
+import { ruleScoreWording } from "@workspace/game-utilities/card-text";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalAction, type ActionCtx } from "../_generated/server";
@@ -77,7 +78,20 @@ async function briefingFor(ctx: ActionCtx, credentialId: Context["turn"]["creden
   // With no game running, the next one may be preparing its rule tables (rooms.preparing, through get_rules).
   const phase = (observation as { phase?: string } | undefined)?.phase;
   const preparing = phase === "lobby" || phase === "ended" ? ((await read("get_rules", {})) as { preparing?: unknown } | undefined)?.preparing : undefined;
-  return assistantBriefing({ observation, layout, preparing });
+  return assistantBriefing({ observation: inPlayerWords(observation), layout, preparing });
+}
+
+/**
+ * The observation with the goal card's summaries in the player's words (game-utilities card-text.ts): a card's
+ * "scores 1 point" is the rule score, and "points" is kept for the leaderboard, so the assistant never mixes them.
+ */
+function inPlayerWords(observation: unknown): unknown {
+  const o = observation as { self?: { utility?: { summary?: unknown; penalty?: { summary?: unknown } } } } | undefined;
+  const utility = o?.self?.utility;
+  if (!utility || typeof utility !== "object") return observation;
+  const reword = <T extends { summary?: unknown }>(card: T): T => typeof card.summary === "string" ? { ...card, summary: ruleScoreWording(card.summary) } : card;
+  const penalty = utility.penalty && typeof utility.penalty === "object" ? { penalty: reword(utility.penalty) } : {};
+  return { ...o, self: { ...o!.self, utility: { ...reword(utility), ...penalty } } };
 }
 
 /**

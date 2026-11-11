@@ -13,6 +13,7 @@ import assert from "node:assert/strict";
 import { CHIP_TEXT, SUMMON_REPLY } from "@workspace/player-client/chips";
 import { firstAgentIn } from "@workspace/player-client/first-agent";
 import { EXAMPLE_AGENT_FAMILIES } from "@workspace/game-utilities/example-agents";
+import { ruleScoreWording, usesReservedPoints } from "@workspace/game-utilities/card-text";
 import { api, gods, makeAdmin, raw, roomWith, startGame, touch, waitFor, type God } from "./game-helpers.ts";
 import { silentTurnNote, type MessageRow } from "../../player-web/src/core/chat/state.ts";
 
@@ -50,13 +51,16 @@ test("'Explain my goal simply' answers in a few plain sentences with the player'
   const [mine, theirs] = await Promise.all([ann, bob].map(g => g.c.query(api.player.observation, { roomId })));
   const t = await ask(ann, roomId, CHIP_TEXT.explainGoal);
   assert.equal(t.turn.status, "done", JSON.stringify(t.turn.error));
-  assert.ok(t.text.includes(mine.self.utility.summary), `the reply quotes the rule text "${mine.self.utility.summary}": ${t.text}`);
+  // The rule in the player's words: a card's "scores 1 point" is the rule score ("points" is the leaderboard's word).
+  const rule = ruleScoreWording(mine.self.utility.summary);
+  assert.ok(t.text.includes(rule), `the reply quotes the rule text "${rule}": ${t.text}`);
+  assert.equal(usesReservedPoints(t.text.slice(t.text.indexOf(rule), t.text.indexOf(rule) + rule.length)), false, "never 'points' for the rule score");
   assert.ok(t.text.includes(mine.self.utility.name), "and names the rule");
   assert.match(t.text, /rule score/);
   assert.match(t.text, /points/);
   assert.doesNotMatch(t.text, /\bbits\b/, "energy and scores in the player's words");
-  assert.ok(t.text.split(/\s+/).length <= 60 + mine.self.utility.summary.split(/\s+/).length, `short: ${t.text}`);
-  if (theirs.self.utility.summary !== mine.self.utility.summary) assert.ok(!t.text.includes(theirs.self.utility.summary), "never another player's rule");
+  assert.ok(t.text.split(/\s+/).length <= 60 + rule.split(/\s+/).length, `short: ${t.text}`);
+  if (theirs.self.utility.summary !== mine.self.utility.summary) assert.ok(!t.text.includes(ruleScoreWording(theirs.self.utility.summary)), "never another player's rule");
 });
 
 test("'Write me a first agent' drafts an agent for the player's game, shows it, tests it and offers to summon; 'Summon it' summons exactly that", { timeout: 300_000 }, async () => {
@@ -80,7 +84,7 @@ test("'Write me a first agent' drafts an agent for the player's game, shows it, 
   const tested = JSON.parse(t.calls[2].resultJson).data;
   assert.equal(tested.receipt.validation.valid, true, JSON.stringify(tested));
   assert.ok(["works", "warns"].includes(tested.assessment.verdict), `the draft works: ${tested.assessment.verdict}: ${tested.assessment.summary}`);
-  for (const expected of [draft.source, mine.self.utility.summary, `"${SUMMON_REPLY}"`]) assert.ok(t.text.includes(expected), `the reply has ${expected}: ${t.text}`);
+  for (const expected of [draft.source, ruleScoreWording(mine.self.utility.summary), `"${SUMMON_REPLY}"`]) assert.ok(t.text.includes(expected), `the reply has ${expected}: ${t.text}`);
   assert.match(t.text, /Summoning it costs \d+ energy, and you have \d+\./, `the price is in energy, never bits: ${t.text}`);
   assert.equal((await raw(game.gameId)).agents.length, 0, "an offer: nothing is summoned unasked");
   const affordable = tested.receipt.validation.affordable;

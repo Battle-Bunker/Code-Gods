@@ -3,7 +3,7 @@
  * chip ends in a reply that does what it says and a regression in that path fails a test. Each script walks the path
  * the system prompt gives a real model, with the real tools:
  *   "Explain my goal simply"   answers from the briefing: two or three plain sentences quoting the player's own rule;
- *   "Write me a first agent"   load_skill writing-agents, take its first agent example for the player's rule, show it
+ *   "Write me a first agent"   (and, mock only, any typed request to write or make an agent) load_skill writing-agents, take its first agent example for the player's rule, show it
  *                              in the Agent code panel, validate it, report and offer to summon;
  *   "Summon it" (the yes)      summon_agent with the source that was validated, then say what happened;
  *   an autopilot tick          with no agent yet, the same first agent, tested, summoned, and named in the chat.
@@ -129,6 +129,13 @@ function summon(step: number, before: readonly ChatMessage[], turn: readonly Cha
   return say(`Done: your agent ${name} is summoned. Open My agents to watch it act. Your rule score and your points change as it works.`);
 }
 
+/**
+ * Mock only: a typed request to write or make an agent ("please make an agent that …") takes the first-agent path
+ * too, so a local tester gets a draft instead of the default summary. Questions about an agent do not.
+ */
+const asksForAgent = (text: string) => !text.startsWith("/") && !/\?\s*$/.test(text)
+  && /\b(write|make|create|build|draft|code|give)\b[^.?!]{0,40}\b(agent|bot)\b/i.test(text);
+
 const AUTOPILOT_IDLE = "Autopilot: nothing is worth doing right now.";
 /**
  * An autopilot tick (the engine's "(autopilot)" prompt): with a game on and no agent yet, summon the first agent for
@@ -171,7 +178,7 @@ function autopilot(step: number, turn: readonly ChatMessage[], briefing: string)
  */
 export function chipStep(prompt: string, context: string, step: number, request: Pick<ChatRequest, "messages">, promptAt: number): { intent: ChipIntent | "autopilot"; step: ChipStep | undefined } | undefined {
   if (prompt.startsWith("(autopilot)")) return { intent: "autopilot", step: autopilot(step, request.messages.slice(promptAt + 1), context) };
-  const intent = chipIntent(prompt);
+  const intent = chipIntent(prompt) ?? (asksForAgent(prompt) ? "writeAgent" : null);
   if (!intent) return undefined;
   const before = request.messages.slice(0, Math.max(0, promptAt)), turn = request.messages.slice(promptAt + 1);
   if (intent === "explainGoal") return { intent, step: step === 0 ? explainGoal(context) : undefined };
