@@ -32,7 +32,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Skeleton } from "@/components/ui/skeleton";
 import { gameStep } from "@/site/lib/next-step";
 import { gamePath, roomPath } from "@/site/lib/routes";
-import { errMsg, fmt, reload, transient } from "@/site/lib/errors";
+import { errMsg, fmt, notFoundMsg, reload, transient } from "@/site/lib/errors";
 import { endReasonLabel, fmtDuration, fmtWhen, secsLeft, toMs, worldSecondsAt } from "@/site/lib/time";
 import type { FunctionReturnType } from "convex/server";
 import { DEFAULT_SCORE_INTERVAL_SECONDS, gameTimer } from "@workspace/game-core";
@@ -243,8 +243,11 @@ export default function Game() {
       ) : !game ? (
         <div className="mx-auto max-w-lg px-4 py-20 space-y-4">
           <h1 className="font-display text-5xl" data-testid="text-game-code">{code}</h1>
-          <ErrorLine message={q.error ? errMsg(q.error) : "Game not found. Check the code, or open it from its room."} onRetry={transient(q.error) ? reload : undefined} />
-          <Link href="/" className="underline underline-offset-4" data-testid="link-game-home">Your rooms</Link>
+          <ErrorLine message={notFoundMsg(q.error, "Game not found. Check the code, or open it from its room.")} onRetry={transient(q.error) ? reload : undefined} />
+          <div className="flex gap-4">
+            {roomCode && <Link href={roomPath(roomCode)} className="underline underline-offset-4" data-testid="link-game-room">Back to room {roomCode.toUpperCase()}</Link>}
+            <Link href="/" className="underline underline-offset-4" data-testid="link-game-home">Your rooms</Link>
+          </div>
         </div>
       ) : roomFailed ? (
         <div className="mx-auto max-w-lg px-4 py-20"><ErrorLine message={`Could not load this game's room: ${errMsg(roomFailed)}`} onRetry={reload} /></div>

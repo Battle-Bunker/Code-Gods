@@ -159,7 +159,7 @@ export function Chat({ messages, canPost, placeholder, pending, onSend, title = 
             {(c.kind as string) === "system" ? <span>{c.text}</span> : (<>
               <span className="font-medium">{c.authorName}</span>
               <span className="text-xs text-muted-foreground ml-2">{new Date(toMs(c.timestamp)).toLocaleTimeString()}</span>
-              <p className="whitespace-pre-wrap break-words text-foreground/90">{c.text}</p>
+              <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere] text-foreground/90">{c.text}</p>
             </>)}
           </div>
         ))}
