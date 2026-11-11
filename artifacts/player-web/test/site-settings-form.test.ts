@@ -24,7 +24,7 @@ const types = [
 
 test("the sections run World → Goals → Agents → Energy → Population → Time → Players & AI → Review, with no Start from", () => {
   assert.deepEqual(SECTIONS.map(s => s.id), ["world", "goals", "agents", "energy", "population", "time", "players", "review"]);
-  assert.deepEqual(fieldsOf("goals"), ["utilitySelectorId", "defenceGoals", "excludedDefenceFamilies", "bidSeconds", "excludedFamilies", "penaltyWeight", "priorId", "peerNoiseBits", "bidPricing"], "asked, then more");
+  assert.deepEqual(fieldsOf("goals"), ["utilitySelectorId", "defenceGoals", "excludedDefenceFamilies", "bidSeconds", "excludedFamilies", "penaltyWeight", "priorId", "peerNoiseBits", "bidPricing", "bidVisibility", "bidDisclosure"], "asked, then more");
   assert.deepEqual(fieldsOf("world"), ["objectType", "typeArgs", "languages"], "the grammar and summon price follow each agent's language");
   assert.deepEqual(fieldsOf("population"), ["startingObjectCount", "spawnRateHz", "spawnFunctionId", "objectSelection"]);
 });
@@ -207,4 +207,13 @@ test("the bid phase on the form: bidding time in whole seconds up to 10 minutes,
   assert.equal(bidLine({ bidSeconds: 30, bidPricing: "first" }), "30 s, first price");
   assert.equal(bidLine({ bidSeconds: 120, bidPricing: "second" }), "120 s, second price");
   assert.equal(bidLine({ bidSeconds: 30 }), "30 s, first price");
+});
+
+test("the picker's Lab heading goes before the first Lab setup, and before each one that follows an ordinary setup in a search", async () => {
+  const { labStartsAt } = await import("../src/site/lib/setup-words.ts");
+  const list = [{}, {}, { lab: true }, { lab: true }];
+  assert.deepEqual(list.map((_, i) => labStartsAt(list, i)), [false, false, true, false], "one heading for the catalogue's Lab tail");
+  const found = [{ lab: true }, {}, { lab: true }];
+  assert.deepEqual(found.map((_, i) => labStartsAt(found, i)), [true, false, true]);
+  assert.deepEqual([{}, {}].map((_, i, all) => labStartsAt(all, i)), [false, false], "no heading for anyone who is sent no Lab setup");
 });

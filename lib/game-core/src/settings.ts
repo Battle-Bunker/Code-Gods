@@ -548,6 +548,11 @@ export interface SeedSetup {
   /** One plain sentence for the setup menu. */
   readonly summary: string;
   readonly settings: Readonly<GameSettings>;
+  /**
+   * Experimental ("Lab"): listed only for administrators, under "Lab" in the setup picker; never offered to anyone
+   * else and never a new room's default. Set by declaring the setup in LAB_SETUPS (below), never by hand.
+   */
+  readonly lab?: true;
 }
 /** The longest setup name. */
 export const SETUP_NAME_MAX = 40;
@@ -628,9 +633,32 @@ export const SEED_SETUPS: readonly SeedSetup[] = Object.freeze([
     "Grid", { size: 7, symbols: "cards", colours: "rainbow6" }, {}),
 ]);
 
-/** A seed setup's complete settings (a fresh copy). */
+/** An experimental setup: `seed(...)` marked `lab` (see LAB_SETUPS). */
+const lab = (...args: Parameters<typeof seed>): SeedSetup => Object.freeze({ ...seed(...args), lab: true as const });
+
+/**
+ * The LAB setups: experimental alternatives the owner can try on a deployment without offering them to players.
+ * The engine seeds them like the system setups (setups:ensureSeeded, on every deploy), but lists them only for
+ * administrators (ADMIN_EMAILS), under "Lab" in the setup picker; nobody else can see, open, apply or copy one, and a
+ * new room never starts on one. A room whose administrator owner applied one runs it like any setup.
+ *
+ * To declare one, add an entry here with `lab(...)`, exactly as `seed(...)` above: a NEW stable seed id (prefix
+ * "lab-"), a name of at most SETUP_NAME_MAX characters, a one-sentence summary saying what is different, the
+ * instantiation, and the patch over that instantiation's defaults. Example:
+ *   lab("lab-free-observation", "Lab: free observation", "Annotated basics, but looking at the world costs nothing",
+ *     "Grid", { size: 4, symbols: "base10", colours: "mono" }, { ...the Annotated basics patch, observationMode: "free" }),
+ * SEED_SETUPS (the ordinary system setups, and every test and script that pins or walks them) never includes these.
+ * To retire one, delete its entry: the next deploy's seed sync removes the stored row (rooms that ran it keep their settings).
+ */
+export const LAB_SETUPS: readonly SeedSetup[] = Object.freeze([
+]);
+
+/** Every setup the engine seeds: the system's, then the Lab's. */
+export const ALL_SEED_SETUPS: readonly SeedSetup[] = Object.freeze([...SEED_SETUPS, ...LAB_SETUPS]);
+
+/** A seed setup's complete settings (a fresh copy); Lab setups included. */
 export function seedSetupSettings(seedId: string): GameSettings {
-  const found = SEED_SETUPS.find(s => s.seedId === seedId);
+  const found = ALL_SEED_SETUPS.find(s => s.seedId === seedId);
   if (!found) throw new Error(`Unknown seed setup: ${seedId}`);
   return { ...found.settings, languages: [...found.settings.languages], typeArgs: { ...found.settings.typeArgs }, excludedFamilies: [...found.settings.excludedFamilies] };
 }
