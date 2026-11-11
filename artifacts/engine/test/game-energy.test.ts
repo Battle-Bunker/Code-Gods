@@ -33,7 +33,8 @@ test("a skipper pays only what it read, never fails, is never futile, and has no
   const state = await raw(game.gameId);
   const looker = state.agents.find((a: any) => a.ownerId === ada.subject);
   const world = state.game.worldSeconds;
-  const digit = Math.log2(10) * READ_PRICE; // one digit read (log2 10 bits) at 1/32: ≈ 0.104 energy bits
+  const offer = Math.log2(5) * READ_PRICE;  // the offer itself: which of the 5 live objects (log2 5 bits) at 1/32: ≈ 0.073
+  const digit = Math.log2(10) * READ_PRICE + offer; // plus one digit read (log2 10 bits): ≈ 0.176 energy bits in all
 
   // Skips: every act, each paying log2 10 bits read at the read price, none a failure, no futile memo.
   assert.equal(looker.skips, looker.acts);
@@ -51,17 +52,19 @@ test("a skipper pays only what it read, never fails, is never futile, and has no
   const events = state.batches.flatMap((b: any) => b.events);
   const skips = events.filter((e: any) => e.t === "skip");
   assert.ok(skips.length > 0);
-  for (const e of skips) assert.deepEqual(e.cost, { read: digit, change: 0, total: digit });
+  for (const e of skips) { assert.ok(Math.abs(e.cost.read - digit) < 1e-12 && e.cost.change === 0 && Math.abs(e.cost.total - digit) < 1e-12, JSON.stringify(e.cost)); }
   const transforms = events.filter((e: any) => e.t === "transform");
   assert.ok(transforms.length > 0);
-  for (const e of transforms) { assert.equal(e.cost.read, 0); assert.ok(e.cost.change > 0); assert.equal(e.cost.total, e.cost.change); }
+  // An agent that reads nothing still pays for the offer (docs/energy-model.md §7.1).
+  for (const e of transforms) { assert.ok(Math.abs(e.cost.read - offer) < 1e-12); assert.ok(e.cost.change > 0); assert.ok(Math.abs(e.cost.total - e.cost.change - offer) < 1e-9); }
   assert.equal(state.batches.at(-1).schema, 10);
 
   // The owner sees the skips, and the estimate split into reading and changing (no decision bits, no floor).
   const obs = observationSchema.parse(await ada.c.query(api.player.observation, { roomId }));
   const [mine] = obs.agents;
   assert.ok((mine.skips ?? 0) > 0);
-  assert.ok(Math.abs(mine.breakdown.read - digit) < 1e-6, JSON.stringify(mine.breakdown));
+  // The summon-time estimate is of the act alone (the offer's price depends on how many objects are live).
+  assert.ok(Math.abs(mine.breakdown.read - (digit - offer)) < 1e-6, JSON.stringify(mine.breakdown));
   assert.equal(obs.economy?.changeReadRatio, CHANGE_READ_RATIO);
   assert.equal(mine.breakdown.change, 0);
   assert.equal(mine.outcomes?.transforms ?? 0, 0);
@@ -100,6 +103,9 @@ test("agent-count neutrality: one agent with 80% of the power gets the turns of 
   // About 900 turns in all: each god's share of them has a standard error of about 15 (binomial), so 15% is many of them.
   assert.ok(solo + quad > 500, `the room's turns were offered: ${solo} + ${quad}`);
   assert.ok(Math.abs(solo - quad) <= 0.15 * (solo + quad) / 2, `one agent got ${solo} turns, four agents with the same power ${quad}`);
+  // Each offer cost log2(5)/32 bits, so the two gods also spent alike: exposure is priced per offer, not per agent.
+  const offer = Math.log2(5) * READ_PRICE;
+  assert.ok(Math.abs(total(ada, "spent") - solo * offer) < 1e-6 && Math.abs(total(bo, "spent") - quad * offer) < 1e-6, `${total(ada, "spent")} and ${total(bo, "spent")}`);
   // Within Bo's four, equal shares get about equal turns.
   const each = state.agents.filter((a: any) => a.ownerId === bo.subject).map((a: any) => a.acts);
   assert.ok(Math.min(...each) > 0.5 * quad / 4 && Math.max(...each) < 1.5 * quad / 4, `Bo's agents: ${each}`);

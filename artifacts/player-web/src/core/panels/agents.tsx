@@ -152,7 +152,7 @@ export function AgentsView({ agents, self, powerPerSecond, fullChargeSeconds, ch
           )}
           <p className="text-muted-foreground">
             The world hands out <Term id="turn">turns</Term> at random: the more energy an agent has, the more turns it gets. An act pays what it
-            looks at (<Term id="read-bits">read bits</Term>{changeReadRatio !== undefined && changeReadRatio > 1 ? `, 1/${changeReadRatio} bit of energy per bit: looking is ${changeReadRatio}× cheaper than changing` : ""}) plus, if it changes the object, the <Term id="change-cost">change cost</Term>.
+            looks at (<Term id="read-bits">read bits</Term>{changeReadRatio !== undefined && changeReadRatio > 1 ? `, 1/${changeReadRatio} bit of energy per bit: looking is ${changeReadRatio}× cheaper than changing` : ""}) plus, if it changes the object, the <Term id="change-cost">change cost</Term>. Every turn also pays a little for being given its object, so a turn is never free.
           </p>
         </div>
       )}

@@ -132,6 +132,16 @@ export function settleAgentEnergy(account: AgentAccount, worldSeconds: number, p
 // selection (docs/energy-model.md §7)
 // ------------------------------------------------------------------------------------------------
 
+/**
+ * The bits an offer itself tells the agent (docs/energy-model.md §7.1): which of the `liveObjects` it was given, log2 of
+ * their number (0 for one object, or none). The tick adds them to the bits the act read, so every offer is charged at
+ * the read price whether or not the agent then looks at the object or changes it: exposure to an opportunity costs
+ * something, far less than a change.
+ */
+export function offerReadBits(liveObjects: number): number {
+  return Number.isFinite(liveObjects) && liveObjects > 1 ? Math.log2(liveObjects) : 0;
+}
+
 /** An agent's weight in the draw for an opportunity: its positive energy (none when at or below zero). */
 export const selectionWeight = (balance: number): number => (Number.isFinite(balance) && balance > 0 ? balance : 0);
 
