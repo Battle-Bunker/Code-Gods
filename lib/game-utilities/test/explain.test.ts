@@ -394,6 +394,46 @@ test("Spread of Three: one unit per overlapping 2×2 square; the gap, and how fa
   assert.deepEqual(b12.parts.find(p => p.id === "square:0,0")!.facts, [{ text: "biggest B (11), smallest 8: 11 − 8 = 3", ok: true }]);
 });
 
+test("Crosswise Threes: one unit per pair across the top-right to bottom-left fold; fold-line cells are no unit", () => {
+  const { e, unit, point } = look("crosswise_threes", {});
+  // (r, c) lands on (3 − c, 3 − r): 2/5 ✓, 5/0 (2), 8/7 (2), 4/3 (2), 4/9 (2), 6/7 (2): (1, −10).
+  // The fold line's 1, 4, 3, 1 are in no pair.
+  assert.deepEqual(e.ordinal, [1, -10]);
+  assert.equal(e.parts.length, 6);
+  assert.ok(e.parts.every(p => p.cells.every(x => x.r + x.c !== 3)), "no unit holds a fold-line cell");
+  assert.deepEqual(unit("pair:0,0").facts, [{ text: "2 and 5 are 3 apart", ok: true }, { text: "exactly 3 apart", ok: true, tier: 1 }]);
+  assert.deepEqual(unit("pair:0,1").facts, [{ text: "5 and 0 are 5 apart, not 3", ok: false }, { text: "2 too far", ok: false, tier: 1 }]);
+  assert.deepEqual(unit("pair:0,2").facts[1], { text: "2 too close", ok: false, tier: 1 });
+  assert.deepEqual(unit("pair:0,1").points, [0, -2]);
+  assert.deepEqual(unit("pair:0,1").links, [{ from: { r: 0, c: 1 }, to: { r: 2, c: 3 }, ok: false }], "a link across the fold line");
+  assert.equal(point(3, 3)!.id, "pair:0,0", "the bottom-right corner picks its pair with the top-left");
+  assert.equal(point(3, 1)!.id, "pair:2,0");
+  const same = look("crosswise_threes", {}, "4R,4R,4R,4R/4R,4R,4R,4R/4R,4R,4R,4R/4R,4R,4R,4R");
+  assert.deepEqual(same.e.ordinal, [0, -18]);
+  assert.deepEqual(same.unit("pair:1,1").facts, [{ text: "4 and 4 are the same, not 3 apart", ok: false }, { text: "3 too close", ok: false, tier: 1 }]);
+  const bd = lensFor("crosswise_threes")!.breakdown({}, readBoard(FIRST_STEPS, BOARD)!, e.parts);
+  assert.deepEqual(bd.items.map(i => [i.text, i.points]), [["1 pair 3 apart", [1, 0]], ["5 pairs not 3 apart, 10 away in all", [0, -10]]]);
+});
+
+test("Magic Eighteen: Magic Accountant's line units against 18; rows or columns, the line under the pointer", () => {
+  const { e, unit, point } = look("magic_eighteen", { axis: "rows" });
+  // Row totals 16, 19, 18, 16: row 3 makes 18; distance 2 + 1 + 0 + 2 = 5.
+  assert.deepEqual(e.ordinal, [1, -5]);
+  assert.deepEqual(e.components, ["lines adding up to 18", "how far the totals are from 18"]);
+  assert.deepEqual([unit("line:row 3").title, unit("line:row 3").facts], ["row 3 makes 18", [
+    { text: "6 + 3 + 9 + 0 = 18", ok: true },
+    { text: "exactly 18", ok: true, tier: 1 },
+  ]]);
+  assert.deepEqual(unit("line:row 1").facts, [{ text: "2 + 5 + 8 + 1 = 16, not 18", ok: false }, { text: "18 − 16 = 2 short", ok: false, tier: 1 }]);
+  assert.equal(point(0, 2)!.id, "line:row 1");
+  const cols = look("magic_eighteen", { axis: "cols" });
+  // Column totals 13, 19, 24, 13: none makes 18; 5 + 1 + 6 + 5 = 17 away.
+  assert.deepEqual(cols.e.ordinal, [0, -17]);
+  assert.equal(cols.point(0, 0)!.id, "line:column 1");
+  const bd = lensFor("magic_eighteen")!.breakdown({ axis: "rows" }, readBoard(FIRST_STEPS, BOARD)!, e.parts);
+  assert.deepEqual(bd.items.map(i => [i.text, i.points]), [["1 line adding up to 18", [1, 0]], ["3 lines that miss 18, 5 away in all", [0, -5]]]);
+});
+
 test("goal examples: deterministic, in the room's own shape, verified, and they teach both sides", () => {
   for (const l of LENSES) {
     for (const p of paramsFor(l.familyId, FIRST_STEPS)) {

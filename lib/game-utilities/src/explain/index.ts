@@ -40,6 +40,8 @@ import { strangers } from "./lenses/strangers.ts";
 import { steppingStones } from "./lenses/stepping-stones.ts";
 import { twoPair } from "./lenses/two-pair.ts";
 import { spreadThree } from "./lenses/spread-three.ts";
+import { crosswiseThrees } from "./lenses/crosswise-threes.ts";
+import { magicEighteen } from "./lenses/magic-eighteen.ts";
 
 export * from "./model.ts";
 export { type Lens } from "./lens.ts";
@@ -54,6 +56,7 @@ export const LENSES: readonly Lens[] = Object.freeze([
   oppositeNines, stepStool,
   strangers, steppingStones,
   twoPair, spreadThree,
+  crosswiseThrees, magicEighteen,
 ]);
 const byFamily = new Map(LENSES.map(l => [l.familyId, l]));
 export const lensFor = (familyId: string): Lens | undefined => byFamily.get(familyId);
