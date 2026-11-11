@@ -33,6 +33,8 @@ export const SHOWCASE = [
   { familyId: "mirrormancer", params: { axis: "LR" } },
   { familyId: "opposite_nines", params: {} },
   { familyId: "step_stool", params: {} },
+  { familyId: "strangers", params: {} },
+  { familyId: "stepping_stones", params: {} },
 ] as const;
 
 /** A family without a lens: its example board shows the score only (no breakdown). */

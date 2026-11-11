@@ -292,6 +292,66 @@ test("Step-Stool Mirror: one unit per folded pair (top onto bottom), a vertical 
   assert.deepEqual(bd.items.map(i => [i.text, i.points]), [["2 pairs one apart", [2, 0]], ["6 pairs not one apart, 19 away in all", [0, -19]]]);
 });
 
+test("Strangers: one unit per touching pair, its facts name the shared divisor; the 1 rule and the 0 rule", () => {
+  const { e, unit, modes } = look("strangers", {});
+  // Rows: 2|5 ✓ 5|8 ✓ 8|1 (1) / 4|4 ✗ 4|4 ✗ 4|7 ✓ / 6|3 ✗ 3|9 ✗ 9|0 ✗ / 1|7 (1) 7|3 ✓ 3|5 ✓.
+  // Columns: 2-4 ✗ 4-6 ✗ 6-1 (1) / 5-4 ✓ 4-3 ✓ 3-7 ✓ / 8-4 ✗ 4-9 ✓ 9-3 ✗ / 1-7 (1) 7-0 ✗ 0-5 ✗.
+  // Strangers both bigger than 1: 2 + 1 + 2 + 3 + 1 = 9 primary points; a 1 beside a bigger number: 4 secondary points.
+  assert.deepEqual(e.ordinal, [9, 4]);
+  assert.equal(e.parts.length, 24, "2 × 4 × 3 touching pairs");
+  assert.deepEqual(unit("pair:1,2:down").facts, [{ text: "4 and 9 share nothing: strangers", ok: true }]);
+  assert.deepEqual(unit("pair:1,2:down").points, [1, 0]);
+  assert.deepEqual(unit("pair:2,0:right").facts, [{ text: "6 and 3 share 3", ok: false }]);
+  assert.equal(unit("pair:2,0:right").title, "not strangers");
+  assert.deepEqual(unit("pair:1,0:right").facts, [{ text: "4 and 4 share 4", ok: false }], "a number beside itself");
+  assert.deepEqual(unit("pair:3,0:right").facts, [{ text: "1 beside 7: a 1 beside a bigger number", ok: true, tier: 1 }]);
+  assert.deepEqual(unit("pair:3,0:right").points, [0, 1]);
+  assert.deepEqual(unit("pair:2,3:down").facts, [{ text: "0 beside 5: 5 divides both", ok: false }]);
+  assert.deepEqual(unit("pair:2,2:right").facts, [{ text: "9 beside 0: 9 divides both", ok: false }]);
+  assert.deepEqual(sortUnits(e.parts).slice(0, 13).map(u => u.points.join(",")), [...Array(9).fill("1,0"), ...Array(4).fill("0,1")]);
+  assert.equal(modes.length, 1, "one hover mode: the nearest shared edge");
+  const near = (x: number, y: number) => hitTest(e.parts, modes[0], { x, y })!.id;
+  assert.equal(near(2.5, 1.95), "pair:1,2:down", "near 4R's bottom edge: 4R over 9R");
+  assert.equal(near(0.95, 2.5), "pair:2,0:right", "near 6B's right edge: 6B beside 3G");
+  // The 1 rule's edge cases and the 0 rule, each in a board of 0s.
+  const ones = look("strangers", {}, "0R,0R,0R,0R/0R,1R,1R,0R/0R,0R,0R,0R/0R,0R,0R,0R");
+  assert.deepEqual(ones.e.ordinal, [0, 0]);
+  assert.deepEqual(ones.unit("pair:1,1:right").facts, [{ text: "1 beside 1: equal numbers never score", ok: false, tier: 1 }]);
+  assert.deepEqual(ones.unit("pair:1,1:down").facts, [{ text: "1 beside 0: a 0 never scores", ok: false }]);
+  assert.deepEqual(ones.unit("pair:0,0:right").facts, [{ text: "0 beside 0: a 0 never scores", ok: false }]);
+  const b12 = instantiate("Grid", { size: 4, symbols: "base12", colours: "rgb" });
+  const hex = explainer({ familyId: "strangers", params: {} }, b12)!.explain("AR,BR,0R,0R/5R,0R,0R,0R/0R,0R,0R,0R/0R,0R,0R,0R")!;
+  assert.ok(hex.verified);
+  assert.deepEqual(hex.parts.find(p => p.id === "pair:0,0:right")!.facts, [{ text: "A (10) and B (11) share nothing: strangers", ok: true }]);
+  assert.deepEqual(hex.parts.find(p => p.id === "pair:0,0:down")!.facts, [{ text: "A (10) and 5 share 5", ok: false }]);
+});
+
+test("Stepping Stones: one unit per hop group, lone cells folded into one; only the biggest group scores", () => {
+  const { e, unit, point } = look("stepping_stones", {});
+  // Hops (numbers 2 apart, sharing a side): 2–4 and 4–6 down column 1; 3–5 at the end of row 4. Nothing else differs by 2.
+  // Groups: 2 4 6 (3 cells, the biggest: 3 points), 3 5 (2 cells), and 11 lone cells.
+  assert.equal(e.ordinal, 3);
+  assert.equal(e.parts.length, 3, "two groups and one unit for the lone cells");
+  const big = unit("group:0,0");
+  assert.deepEqual([big.points, big.cells.length, big.title], [[3], 3, "your biggest group"]);
+  assert.deepEqual(big.facts, [{ text: "3 cells joined by hops of 2", ok: true }]);
+  assert.deepEqual(big.links!.map(l => [l.from, l.to, l.ok]), [[{ r: 0, c: 0 }, { r: 1, c: 0 }, true], [{ r: 1, c: 0 }, { r: 2, c: 0 }, true]]);
+  const small = unit("group:3,2");
+  assert.deepEqual(small.points, [0]);
+  assert.deepEqual(small.facts, [{ text: "2 cells joined by hops of 2", ok: true }, { text: "smaller than the biggest (3)", ok: false }]);
+  const lone = unit("lone");
+  assert.deepEqual([lone.points, lone.cells.length], [[0], 11]);
+  assert.deepEqual(lone.facts, [{ text: "11 cells with no touching number 2 away", ok: false }]);
+  assert.equal(point(1, 0)!.id, "group:0,0", "the group under the pointer");
+  assert.equal(point(0, 1)!.id, "lone", "a lone cell picks the lone cells' unit");
+  assert.equal(point(3, 3)!.id, "group:3,2");
+  assert.deepEqual(sortUnits(e.parts).map(u => u.id), ["group:0,0", "group:3,2", "lone"]);
+  // A tie: two groups of 2; only the first (in the card's reading order) scores.
+  const tie = look("stepping_stones", {}, "1R,3R,0R,0R/0R,0R,0R,0R/0R,0R,0R,0R/0R,0R,5R,7R");
+  assert.equal(tie.e.ordinal, 2);
+  assert.deepEqual(tie.unit("group:3,2").facts[1], { text: "as big as the biggest (2), but only one group scores", ok: false });
+});
+
 test("goal examples: deterministic, in the room's own shape, verified, and they teach both sides", () => {
   for (const l of LENSES) {
     for (const p of paramsFor(l.familyId, FIRST_STEPS)) {
