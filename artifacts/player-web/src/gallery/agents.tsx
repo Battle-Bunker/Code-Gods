@@ -1,11 +1,13 @@
 /**
  * My agents gallery (dev only: `pnpm --filter @workspace/player-web dev`, then /agents-gallery.html): the panel's view
  * (core/panels/agents.tsx AgentsView) drawn from fixtures: an agent that can act, one waiting for income (negative
- * energy), one at its turn limit, one unnamed; for screenshots and a visual check of the wording.
+ * energy), one at its turn limit, one unnamed, "Your points now" and each agent's latest act line; for screenshots and a visual check of the wording.
  */
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { AgentsView, type Sample } from "@/core/panels/agents";
+import { PointsNowView } from "@/core/panels/score-lines";
+import { actLine, asOfText } from "@/core/panels/score-line";
 import type { MyAgent } from "@/sdk";
 import "../index.css";
 
@@ -23,11 +25,18 @@ const samples = new Map<string, Sample[]>(agents.map((a, k) => [a.id, Array.from
   return { at: 540 + t, energy, eligible: k === 2 ? false : energy > 0 };
 })]));
 
+// What each agent's latest act did (score-line.ts): a gain, and a higher rule score on a grid nobody else wants.
+const actLines = new Map([
+  ["a1", actLine({ agent: "Corner hoarder", before: "1R,2R/3R,4R", after: "1R,2R/4R,4R", noun: "grid", ruleBefore: 4, ruleAfter: 5, pointsBefore: 10.1, pointsAfter: 22.4 })],
+  ["a2", actLine({ agent: "Digit swapper", before: "1R,2R/3R,4R", after: "2R,1R/3R,4R", noun: "grid", ruleBefore: 2, ruleAfter: 3, pointsBefore: 0, pointsAfter: 0 })],
+]);
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <div className="mx-auto max-w-[460px] bg-card p-4 text-card-foreground">
       <AgentsView agents={agents} self={{ allocated: 0.75, income: 16, energy: 230 }} powerPerSecond={64} changeReadRatio={32} world={600} samples={samples} window={60} ended={false}
-        showCosts showSource={false} can={can} wait={a => (a.energy <= 0 ? -a.energy / (a.income ?? 1) : 0)} onEdit={() => {}} onSetShare={() => {}} onDestroy={() => {}} />
+        showCosts showSource={false} can={can} wait={a => (a.energy <= 0 ? -a.energy / (a.income ?? 1) : 0)} onEdit={() => {}} onSetShare={() => {}} onDestroy={() => {}}
+        header={<PointsNowView score={184.3} age={asOfText(600, 592)} />} actLines={actLines} />
     </div>
   </StrictMode>,
 );

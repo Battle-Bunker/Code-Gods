@@ -33,6 +33,16 @@ export function signed(x: number): string {
 /** The big figure: "12.3", "1,235", "–" while unknown. */
 export const pointsNowText = (score: number | undefined | null): string => (typeof score === "number" && Number.isFinite(score) ? amount(score) : "–");
 
+/**
+ * How old the figure is, in world seconds: "counted just now", "counted 8 s ago", "counted 3 min ago"; null when either
+ * time is unknown. The total is not promised to be live: it is as fresh as the last count the engine made for you.
+ */
+export function asOfText(worldNow: number | undefined | null, countedAt: number | undefined | null): string | null {
+  if (typeof worldNow !== "number" || typeof countedAt !== "number" || !Number.isFinite(worldNow) || !Number.isFinite(countedAt)) return null;
+  const age = Math.max(0, worldNow - countedAt);
+  return age < 2 ? "counted just now" : age < 90 ? `counted ${Math.round(age)} s ago` : `counted ${Math.round(age / 60)} min ago`;
+}
+
 /** A rule score as the card counts it: "3", or "(3, −5)" for a rule with several parts. */
 export function ruleScoreText(score: RuleScore): string {
   if (score === null || score === undefined) return "–";

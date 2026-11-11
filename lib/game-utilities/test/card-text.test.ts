@@ -55,3 +55,37 @@ test("no family's card text, reworded, uses the reserved word for what the card 
   }
   assert.ok(checked > 300, `only ${checked} card texts checked`);
 });
+
+test("no lens's goal-board texts (unit titles, checks, tallies, stories, example captions), reworded, use the reserved word", async () => {
+  const { LENSES, explainer, story } = await import("../src/explain/index.ts");
+  const { family } = await import("../src/catalog.ts");
+  const shapes = [instantiate("Grid", {}), instantiate("Grid", { size: 4, symbols: "base10", colours: "rgb" }), instantiate("Grid", { size: 5, symbols: "cards", colours: "rainbow6" })];
+  let checked = 0;
+  const check = (where: string, text: string | undefined) => {
+    if (!text) return;
+    const shown = ruleScoreWording(text);
+    assert.ok(!usesReservedPoints(shown), `${where}: ${shown}`);
+    checked++;
+  };
+  for (const l of LENSES) {
+    for (const inst of shapes) {
+      const ctx = context(inst), f = family(l.familyId);
+      let support: unknown[];
+      try { support = canonicalSupport(f, ctx).slice(0, 6); } catch { continue; }
+      for (const params of support) {
+        let goal;
+        try { goal = explainer({ familyId: l.familyId, params: params as never }, inst); } catch { continue; }
+        const example = goal.example();
+        if (!example) continue;
+        check(`${l.familyId} caption`, example.caption);
+        const e = goal.explain(example.value);
+        for (const part of e?.parts ?? []) {
+          check(`${l.familyId} unit`, part.title);
+          for (const fact of (part as { facts?: { text: string }[] }).facts ?? []) check(`${l.familyId} check`, fact.text);
+        }
+        try { for (const frame of story({ familyId: l.familyId, params: params as never }, inst, example.value)?.frames ?? []) check(`${l.familyId} story`, frame.text); } catch { /* no story for this family */ }
+      }
+    }
+  }
+  assert.ok(checked > 100, `only ${checked} texts checked`);
+});

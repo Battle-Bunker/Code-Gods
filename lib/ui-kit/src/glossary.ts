@@ -26,7 +26,7 @@ export const SCORE_LINES = {
   ruleScore: "Your rule score is what your goal card counts on one object. Your agents change objects to raise it.",
   rarity: "✨ Rarity is how hard your rule score is to get by chance, in bits: 1 random object in 8 doing as well is ✨ 3. Each ✨ is twice as rare.",
   points: "Points are what the leaderboard adds up. One object gives you its ✨ rarity by your rule × how much the others want it (their ✨ added up, never below 0).",
-  total: "Your points now are the points of every object in the world added up. They change whenever any object changes.",
+  total: "Your points now are the points of every object in the world added up. This is your total as last counted for you, so it can be a few seconds old.",
   nobody: "An object only you want gives you 0 points, however high your rule score is.",
   energy: "You earn ⚡ energy every second. Summoning an agent spends yours once; each agent then earns its share and spends some on every move.",
 } as const;

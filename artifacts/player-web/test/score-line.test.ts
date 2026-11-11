@@ -1,7 +1,7 @@
 /** The plain score lines (src/core/panels/score-line.ts): "Your points now", and what one act of your agent did. */
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { actLine, describeChange, latestOwnActs, pointsNowText, ruleScoreChange, ruleScoreText, signed } from "../src/core/panels/score-line.ts";
+import { actLine, asOfText, describeChange, latestOwnActs, pointsNowText, ruleScoreChange, ruleScoreText, signed } from "../src/core/panels/score-line.ts";
 
 test("a change is said in plain words", () => {
   assert.equal(describeChange("1R,2R/3R,4R", "1R,2R/4R,4R", "grid"), "changed 3 to 4 at row 2, column 1");
@@ -65,4 +65,13 @@ test("the latest act of each of your agents, with the object's points before it 
   assert.deepEqual(acts.get("a2"), { agentId: "a2", objectId: "o2", before: "P", after: "Q", world: 2, pointsAfter: 7 });
   assert.equal(acts.latest?.agentId, "a1");
   assert.equal(latestOwnActs([]).latest, undefined);
+});
+
+test("the figure says how old it is instead of promising a live total", () => {
+  assert.equal(asOfText(120, 119.2), "counted just now");
+  assert.equal(asOfText(120, 112), "counted 8 s ago");
+  assert.equal(asOfText(300, 120), "counted 3 min ago");
+  assert.equal(asOfText(120, undefined), null, "unknown age: say nothing");
+  assert.equal(asOfText(undefined, 100), null);
+  assert.equal(asOfText(100, 120), "counted just now", "never a negative age");
 });

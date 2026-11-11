@@ -12,6 +12,7 @@ import { COLOUR_COMPONENTS, SYMBOL_COMPONENTS, type GridColourSet, type GridSymb
 import {
   toneOf, tupleText, whatIf, type Cell, type Draw, type GoalExplainer, type Part, type Story, type StoryRole, type WhatIfEntry,
 } from "@workspace/game-utilities";
+import { ruleScoreWording } from "@workspace/game-utilities/card-text";
 import { gridModel } from "../grid-display.ts";
 import type { GridSettings } from "../registry.ts";
 import { GoalBoard, GoalTile, useColourCueSetting as useCue } from "./GoalBoard.tsx";
@@ -94,8 +95,8 @@ export function WhatIfBoard({ draw, inst, goal, value, grid, initialFocus = { r:
       <div className="space-y-2">
         <p className="text-xs" aria-live="polite" data-testid="what-if-score">
           {preview
-            ? <>With this change: <b>{score(preview.ordinal)} points</b> <span style={{ color: TONE_COLOUR[toneOf([preview.delta])] }}>({signed(preview.delta)})</span></>
-            : <>This board: <b>{score(table.ordinal)} points</b>. Pick a cell, then point at a change.</>}
+            ? <>With this change, your rule score: <b>{score(preview.ordinal)}</b> <span style={{ color: TONE_COLOUR[toneOf([preview.delta])] }}>({signed(preview.delta)})</span></>
+            : <>This board's rule score: <b>{score(table.ordinal)}</b>. Pick a cell, then point at a change.</>}
         </p>
         <div role="grid" tabIndex={0} aria-label="Board: pick a cell" className="relative outline-none focus-visible:ring-2 focus-visible:ring-ring"
           style={{ width: boardPx(geo), height: boardPx(geo) }}
@@ -122,7 +123,7 @@ export function WhatIfBoard({ draw, inst, goal, value, grid, initialFocus = { r:
       <figure className="border bg-background px-2.5 py-2 text-xs" data-testid="what-if-table" onPointerLeave={() => setPreview(null)}>
         <figcaption className="mb-1 font-semibold">What if this cell showed…</figcaption>
         <table className="border-separate" style={{ borderSpacing: "3px 2px" }}>
-          <thead><tr><th />{colours.names.map(n => <th key={n} className="font-normal text-muted-foreground">{model.mono ? "points" : n}</th>)}</tr></thead>
+          <thead><tr><th />{colours.names.map(n => <th key={n} className="font-normal text-muted-foreground">{model.mono ? "rule score" : n}</th>)}</tr></thead>
           <tbody>
             {groups.map(({ syms, row }) => (
               <tr key={syms[0]}>
@@ -185,7 +186,7 @@ export function StoryPlayer({ story, value, grid, testId = "story-player" }: { s
           </svg>
         </div>
         <div className="max-w-[20rem] space-y-1">
-          <p className="text-sm leading-snug" aria-live="polite" data-testid="story-text">{frame.text}</p>
+          <p className="text-sm leading-snug" aria-live="polite" data-testid="story-text">{ruleScoreWording(frame.text)}</p>
           {frame.points !== undefined && <p className="text-sm" data-testid="story-points">Score: <b>{frame.points} point{frame.points === 1 ? "" : "s"}</b></p>}
           <p className="text-[11px] text-muted-foreground">≈ water · ★ shut in · thick outline: wall</p>
         </div>

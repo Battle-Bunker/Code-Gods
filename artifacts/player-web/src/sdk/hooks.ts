@@ -22,6 +22,7 @@ import type { UtilityDescriptor } from "@workspace/game-utilities";
 import { useRoom } from "./context";
 import { createEvaluator, type Evaluator } from "./evaluator";
 import { advance, extendWith, freshHistory, lastPoints, pagesToShow, planWindows, type TrajectoryPage } from "./trajectory-windows";
+import { tablesKey } from "./tables-key";
 
 export type { Observation };
 export type LiveObject = Observation["objects"][number];
@@ -318,7 +319,8 @@ export function useEvaluator({ enabled = true }: { enabled?: boolean } = {}): Ev
   const { roomId } = useRoom();
   const mine = useMyUtility();
   const [evaluator, setEvaluator] = useState<{ key: string; value: Evaluator }>();
-  const key = mine ? `${mine.gameId}:${mine.godId}` : "";
+  // Built again once the game's hold correction is ready, so its bits are the engine's (tables-key.ts).
+  const key = tablesKey(mine, useDockState()?.holdRarity?.state);
   useEffect(() => {
     if (!enabled || !mine || evaluator?.key === key) return;
     let live = true;
