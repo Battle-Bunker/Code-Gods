@@ -1,5 +1,8 @@
 # Mirrormancer's tiers: what was measured
 
+> The numbers below were measured with the older hybrid budget. For the shipped tables (hybrid version 2) see
+> [`mirrormancer.md`](mirrormancer.md).
+
 Everything here is on 4×4 digits (`Grid(4,base10,*)`), and is reproduced by
 
 ```

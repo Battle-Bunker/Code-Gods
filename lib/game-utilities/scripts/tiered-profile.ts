@@ -9,6 +9,12 @@
  *    also `pnpm --filter @workspace/game-utilities layered --real [options]`)
  *
  *   --families a,b        only these families
+ *   --interactions a,b    profile only these interactions (to split a long run over processes)
+ *   --check               every dealt and Lab value's shipped table against the reference law at the base's top
+ *   --values "a;b"        with --check: only these values, e.g. "sameRoads(y=2);sameRoads(y=3)"
+ *   --top-sample N       boards of a sampled reference (Kings and Subjects; default 2,000,000; 0: none)
+ *   --build-time          one fresh build per family: the base and the first dealt value of each interaction
+ *   --compare-value V     with --compare: only this value, e.g. "lines(x=18)"
  *   --compose gated|plain|unlock|uncapped   which tiered draws to profile (default gated)
  *   --depth 1|2           tiers per draw (default 1)
  *   --limit N             at most N values per interaction (evenly spread through the dealt list)
@@ -38,7 +44,8 @@ import { FAMILIES, applicable, assertOrdinal, context, evaluator, family } from 
 import { analyticFor, priorMeanBits, surprisal, tableFor, type CalibrationTable } from "../src/calibration.ts";
 import { shippedTables } from "../src/calibration-data.ts";
 import { baseParams, tiersOf } from "../src/families/grid/tiers.ts";
-import { liveness, type HybridLaw, type Liveness } from "../src/tiers/hybrid.ts";
+import { liveness, mulberry32, type HybridLaw, type Liveness } from "../src/tiers/hybrid.ts";
+import { courtScore, courtSquares } from "../src/families/grid/layered/royal_court.ts";
 import type { Ordinal, Params, TierParams } from "../src/types.ts";
 
 // ------------------------------------------------------------------------------------------------
@@ -94,6 +101,8 @@ export interface ExactTop {
   /** `[tier, P(tier ≥ this | base at its top)]`, increasing, only the values that occur. */
   readonly survival: readonly (readonly [number, number])[];
   readonly how: string;
+  /** Only for a sampled (not exact) law: `[tier, boards of the sample with tier ≥ this]`. */
+  readonly hits?: readonly (readonly [number, number])[];
 }
 /** A tally of whole-number tiers over an enumeration of the top set (the generic route for a small top set). */
 export function exactTopFromBoards(boards: Iterable<Uint8Array>, tier: (board: Uint8Array) => number, how = "enumerated through the tier function"): ExactTop {
@@ -155,6 +164,63 @@ export function ninesExactTop(kind: "lines" | "squares", x: number): ExactTop {
 }
 
 /**
+ * Mirrormancer at its top on 4×4 digits, in closed form: the four lines are independent uniform mirrors `abba` (100 of
+ * them), `n` of which qualify for the tier, and the tier counts the different qualifying mirrors among the four. The
+ * number of the `total^lines` top boards with exactly k different qualifying mirrors is
+ * Σ_j C(lines, j) · (total − n)^(lines − j) · C(n, k) · (surjections of j lines onto k mirrors).
+ */
+export function mirrorExactTop(n: number, total = 100, lines = 4): ExactTop {
+  const C = (a: number, b: number) => { if (b < 0 || b > a) return 0; let r = 1; for (let i = 0; i < b; i++) r = r * (a - i) / (i + 1); return r; };
+  const onto = (j: number, k: number) => { let r = 0; for (let i = 0; i <= k; i++) r += (-1) ** i * C(k, i) * (k - i) ** j; return r; };
+  const counts: [number, number][] = [];
+  for (let k = 0; k <= Math.min(lines, n); k++) {
+    let c = 0;
+    for (let j = k; j <= lines; j++) c += C(lines, j) * (total - n) ** (lines - j) * C(n, k) * onto(j, k);
+    counts.push([k, Math.round(c)]);
+  }
+  const boards = total ** lines;
+  return { boards, survival: survivalOf(counts, boards), how: `closed form: ${n} of the ${total} mirrors qualify, ${lines} independent lines (all ${boards.toExponential(0)} top boards)` };
+}
+/** How many of the 100 mirrors `abba` qualify for a Mirrormancer tier on 4×4 digits (null: not one of its two). */
+export function mirrorQualifying(id: string, v: Record<string, unknown>): number | null {
+  if (id !== "holding" && id !== "halves") return null;
+  let n = 0;
+  for (let a = 0; a < 10; a++) for (let b = 0; b < 10; b++) {
+    if (id === "holding" ? [a, b, b, a].filter(d => d === v.y).length === 2 : a + b === v.x && a !== b) n++;
+  }
+  return n;
+}
+
+/**
+ * Kings and Subjects at its top (four courts, no gap) has no product form for its tiers (they read kings and roads
+ * across boxes), and the top set is too large to enumerate. An independent check instead: `n` boards drawn uniformly
+ * at the top (each corner box an independent uniform court), the tier read through the card. Unbiased, not exact:
+ * `hits` at each level say how far to trust it.
+ */
+export function courtTopSample(tier: (board: Uint8Array) => number, n: number, seed = 1): ExactTop {
+  const courts: number[][] = [];
+  for (let i = 0; i < 10000; i++) {
+    const v = [Math.floor(i / 1000), Math.floor(i / 100) % 10, Math.floor(i / 10) % 10, i % 10], s = courtScore(v, 20).score;
+    if (s[0] === 1 && s[1] === 0) courts.push(v);
+  }
+  const boxes = courtSquares(4, "corners").map(({ r, c }) => [4 * r + c, 4 * r + c + 1, 4 * r + 4 + c, 4 * r + 5 + c]);
+  const rand = mulberry32(seed), counts = new Map<number, number>(), board = new Uint8Array(16);
+  for (let k = 0; k < n; k++) {
+    for (const cells of boxes) { const f = courts[Math.floor(rand() * courts.length)]; for (let i = 0; i < 4; i++) board[cells[i]] = f[i]; }
+    const t = tier(board);
+    counts.set(t, (counts.get(t) ?? 0) + 1);
+  }
+  const sorted = [...counts].sort((a, b) => a[0] - b[0]);
+  let above = 0;
+  const hits: [number, number][] = [];
+  for (let i = sorted.length - 1; i >= 0; i--) { above += sorted[i][1]; hits.unshift([sorted[i][0], above]); }
+  return { boards: n, survival: survivalOf(sorted, n), hits, how: `sampled, not exact: ${n.toExponential(0)} uniform boards with four courts (${courts.length} courts a box, ${(courts.length ** 4).toExponential(1)} top boards), independent of the hybrid law` };
+}
+/** Boards per draw for `courtTopSample` (`--top-sample N`; 0 turns the check off). */
+export const TOP_SAMPLE = { n: 2_000_000 };
+const digits4 = (inst: Instantiation) => inst.key.replace(/,[a-z]+\)$/, ")") === "Grid(4,base10)";
+
+/**
  * The exact tier law at the base's top, by family: the hook for a family whose top set is small enough to enumerate
  * (natively, or with `exactTopFromBoards`). Returns null for draws it does not cover.
  */
@@ -165,6 +231,24 @@ export const EXACT_TOP: Record<string, (params: Params, inst: Instantiation) => 
     const x = t[0].x as number;
     if ((t[0].id !== "lines" && t[0].id !== "squares") || !Number.isInteger(x) || x < 0 || x > 36) return null;
     return ninesExactTop(t[0].id, x);
+  },
+  mirrormancer: (p, inst) => {
+    const t = tiersOf(p);
+    if (!digits4(inst) || t.length !== 1 || t[0].compose === "unlock") return null;
+    const n = mirrorQualifying(t[0].id, t[0] as unknown as Record<string, unknown>);
+    return n === null ? null : mirrorExactTop(n);
+  },
+  // Not exact: an independent uniform sample of the top (see courtTopSample).
+  kings_and_subjects: (p, inst) => {
+    const t = tiersOf(p);
+    if (!digits4(inst) || t.length !== 1 || t[0].compose === "unlock" || (p as { squares?: string }).squares !== "corners" || !TOP_SAMPLE.n) return null;
+    const ev = evaluator({ familyId: "kings_and_subjects", params: p }, inst), codec = objectType(inst.objectType).codec(inst), col = new Uint8Array(16);
+    let first = true;
+    return courtTopSample(board => {
+      const o = tup(ev(codec.encode({ size: 4, sym: board, col } as GridValue)));
+      if (first) { first = false; if (o[0] !== 4 || o[1] !== 0) throw new Error(`kings_and_subjects: a sampled top board scores ${o}`); }
+      return o[o.length - 1];
+    }, TOP_SAMPLE.n);
   },
 };
 
@@ -365,6 +449,7 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
 
   const chosen: { r: RealRule; base: RealRule; paired: boolean }[] = [];
   if (!flag("no-profile")) for (const f of fams) for (const group of byInteraction(draws(f, compose))) {
+    if (opt("interactions") && !opt("interactions")!.split(",").includes(tiersOf(group[0])[0].id)) continue;
     const picked = spread(group, limit), paired = new Set(spread(picked, pairLimit).map(key));
     for (const p of picked) {
       const base = baseRule(f.id, p), r = realRule(f.id, p, inst);
@@ -399,6 +484,7 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
     const same = (a: Params, b: Params) => key(tiersOf(a).map(({ gate: _g, compose: _c, ...v }) => v)) === key(tiersOf(b).map(({ gate: _g, compose: _c, ...v }) => v)) && key(baseParams(a)) === key(baseParams(b));
     const gated = draws(f, "uncapped", 1), unlock = draws(f, "unlock", 1);
     for (const plain of draws(f, "plain", 1)) {
+      if (opt("compare-value") && label(plain).replace("@plain", "") !== opt("compare-value")) continue;
       const base = baseRule(f.id, plain), S = starts(sp, budget.starts);
       const baseEnds = S.map(g => greedy(base.rule, sp, g, budget.longSteps).boards.at(-1)!);
       const own = mean(baseEnds.map(g => base.rule.bits(base.rule.score(g))));
@@ -447,10 +533,49 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
     }
   }
 
-  const md = markdown({ variants, pairs, gameReports, beginner: beginner.map(b => b.id), comparison, sweep, compose, budget: budget === QUICK_BUDGET ? "quick" : "default" });
+  // The shipped tables against the exact (or independently sampled) law at the base's top: every dealt and Lab value.
+  const checks: CheckRow[] = [];
+  if (opt("top-sample") !== undefined) TOP_SAMPLE.n = Number(opt("top-sample"));
+  if (flag("check")) for (const f of fams) {
+    const dealt = draws(f, "gated", 1), all = [...dealt, ...draws(f, "uncapped", 1).filter(p => !dealt.some(d => key(d) === key(p)))];
+    for (const p of all) {
+      if (opt("values") && !opt("values")!.split(";").includes(label(p))) continue;
+      const baseShape = f.shape(ctx, baseParams(p)), baseArity = baseShape.kind === "tuple" ? baseShape.arity : 1;
+      const shipped = tableFor(shippedTables(inst.key), { familyId: f.id, params: p }, inst);
+      const baseTable = tableFor(shippedTables(inst.key), { familyId: f.id, params: f.canonical(baseParams(p), ctx) }, inst);
+      const topTier = shipped ? topTierOf(shipped.levels as unknown as [Ordinal, number][], baseArity, 1) : liveOf(f.id, p, inst)?.topTier;
+      if (!topTier) continue;
+      const e = EXACT_TOP[f.id]?.(p, inst) ?? null, rows = e ? calibrationError(topTier, e) : [];
+      // A sampled reference is only trusted where it has at least 100 boards.
+      const trusted = rows.filter(r => r.error !== null && (!e?.hits || (e.hits.find(([t]) => t === r.tier)?.[1] ?? 0) >= 100));
+      const last = topTier[topTier.length - 1];
+      checks.push({
+        id: `${f.id}.${label(p)}`, family: f.id, interaction: tiersOf(p)[0].id, status: dealt.includes(p) ? "dealt" : "lab", source: shipped ? "shipped table" : "law computed here",
+        levels: shipped?.levels.length ?? NaN, top: shipped ? shipped.levels[shipped.levels.length - 1][1] : NaN, baseTop: baseTable ? baseTable.levels[baseTable.levels.length - 1][1] : NaN,
+        tierTop: last[0], added: -Math.log2(last[1]), how: e?.how ?? "", sampled: !!e?.hits, rows: rows.map(r => ({ ...r, hits: e?.hits?.find(([t]) => t === r.tier)?.[1] })),
+        maxError: trusted.length ? Math.max(...trusted.map(r => r.error!)) : NaN, missed: rows.filter(r => r.error === null).length,
+        refTop: e ? e.survival[e.survival.length - 1][0] : NaN, refAdded: e ? -Math.log2(e.survival[e.survival.length - 1][1]) : NaN,
+      });
+      const c = checks[checks.length - 1];
+      log(`check ${c.id}: ${c.status} +${c.added.toFixed(2)} (reference +${c.refAdded.toFixed(2)}) max error ${c.maxError.toFixed(2)}`);
+    }
+  }
+
+  // One fresh build per family and kind of draw: the base, and the first dealt value of each interaction.
+  const builds: BuildRow[] = [];
+  if (flag("build-time")) for (const f of fams) {
+    const firsts = byInteraction(draws(f, "gated", 1)).map(g => g[0]);
+    for (const p of [f.canonical(baseParams(firsts[0]), ctx), ...firsts]) {
+      const b = buildTable(f.id, p, inst), budgetOf = b.table.estimator.budget;
+      builds.push({ id: `${f.id}.${label(p)}`, kind: typeof budgetOf === "string" ? budgetOf : "sampled", levels: b.table.levels.length, seconds: b.seconds });
+      log(`build ${f.id}.${label(p)}: ${b.seconds.toFixed(1)} s, ${b.table.levels.length} levels`);
+    }
+  }
+
+  const md = markdown({ variants, pairs, gameReports, beginner: beginner.map(b => b.id), comparison, sweep, checks, builds, compose, budget: budget === QUICK_BUDGET ? "quick" : "default" });
   console.log(md);
   if (opt("markdown")) writeFileSync(opt("markdown")!, md);
-  if (opt("json")) writeFileSync(opt("json")!, JSON.stringify({ instance: inst.key, compose, variants, pairs, games: gameReports, comparison, sweep },
+  if (opt("json")) writeFileSync(opt("json")!, JSON.stringify({ instance: inst.key, compose, variants, pairs, games: gameReports, comparison, sweep, checks, builds },
     (_, v) => (v === Infinity ? "inf" : typeof v === "number" && Number.isNaN(v) ? null : v), 2) + "\n");
 }
 
@@ -463,9 +588,15 @@ interface SweepRow {
   exactMax: number; exactMissed: number; exactAdded: number; exactTop: number; baseTop: number;
 }
 
+interface CheckRow {
+  id: string; family: string; interaction: string; status: string; source: string; levels: number; top: number; baseTop: number; tierTop: number[]; added: number;
+  how: string; sampled: boolean; rows: (TierError & { hits?: number })[]; maxError: number; missed: number; refTop: number; refAdded: number;
+}
+interface BuildRow { id: string; kind: string; levels: number; seconds: number }
+
 const f = (x: number | null | undefined, d = 1) => (x === null || x === undefined ? "–" : Number.isFinite(x) ? x.toFixed(d) : x === Infinity ? "∞" : "–");
 
-export function markdown(r: { variants: VariantReport[]; pairs: PairReport[]; gameReports: GameReport[]; beginner: string[]; comparison: CompareRow[]; sweep: SweepRow[]; compose: string; budget: string }): string {
+export function markdown(r: { variants: VariantReport[]; pairs: PairReport[]; gameReports: GameReport[]; beginner: string[]; comparison: CompareRow[]; sweep: SweepRow[]; checks?: CheckRow[]; builds?: BuildRow[]; compose: string; budget: string }): string {
   const out: string[] = [];
   const tiered = r.variants.filter(v => v.tier);
   if (r.variants.length) {
@@ -509,6 +640,13 @@ export function markdown(r: { variants: VariantReport[]; pairs: PairReport[]; ga
     "| family | interaction | value(s) | status | tier min–top | share at top | added bits (hybrid) | added bits (exact) | tier top (exact) | max error (bits) | hybrid s | problems |",
     "|---|---|---|---|--:|--:|--:|--:|--:|--:|--:|---|",
     ...r.sweep.map(s => `| ${s.family} | ${s.interaction} | ${s.param} = ${s.values.join(", ")} | ${s.status} | ${s.live ? `${key(s.live.tierMin)}–${key(s.live.tierTop)}` : "–"} | ${s.live ? s.live.shareAtTop.toExponential(2) : "–"} | ${s.live ? f(s.live.addedBits) : "–"} | ${f(s.exactAdded)} | ${f(s.exactTop, 0)} | ${f(s.exactMax, 2)}${s.exactMissed ? ` (${s.exactMissed} missed)` : ""} | ${s.live ? f(s.live.seconds) : "–"} | ${s.live ? s.live.problems.join("; ") || "alive" : s.error} |`), "");
+  if (r.checks?.length) out.push("### Shipped tables against the reference law at the base's top", "",
+    "Bits of P(tier ≥ i | base at its top): table / reference at every tier level of the reference (a sampled reference shows its boards at that level in brackets; its max error counts only levels with at least 100 boards).", "",
+    "| variant | status | table levels | table top | tier top | added bits (table) | added bits (reference) | levels: tier table/reference | max error (bits) | levels missed | reference |",
+    "|---|---|--:|--:|--:|--:|--:|---|--:|--:|---|",
+    ...r.checks.map(c => `| ${c.id} | ${c.status} | ${f(c.levels, 0)} | ${f(c.top, 2)} | ${key(c.tierTop)} | ${f(c.added, 2)} | ${f(c.refAdded, 2)}${c.sampled ? ` at ${c.refTop}` : ""} | ${c.rows.map(x => `${x.tier}: ${f(x.hybrid, 2)}/${f(x.exact, 2)}${x.hits === undefined ? "" : ` [${x.hits}]`}`).join(", ")} | ${f(c.maxError, 2)} | ${c.missed} | ${c.how} |`), "");
+  if (r.builds?.length) out.push("### One fresh build", "", "| draw | estimator | levels | seconds |", "|---|---|--:|--:|",
+    ...r.builds.map(b => `| ${b.id} | ${b.kind} | ${b.levels} | ${f(b.seconds)} |`), "");
   return out.join("\n");
 }
 

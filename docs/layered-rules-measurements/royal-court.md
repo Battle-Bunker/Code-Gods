@@ -1,5 +1,9 @@
 # 🫅 Kings and Subjects (Royal Court): measurements
 
+> The tier numbers below were measured with the older hybrid budget. For the shipped tables (hybrid version 2) see
+> [`kings-and-subjects.md`](kings-and-subjects.md): there sameRoads y = 2 and y = 3 have a rarer best tier (6 and 4
+> roads) and add more than the cap of 20 bits.
+
 The family is `kings_and_subjects` (`lib/game-utilities/src/families/grid/layered/royal_court.ts`). The design calls it
 Royal Court; that id belongs to the cards family 👑 Royal Court. Everything here is Grid(4,base10,mono), measured
 2026-11-11.

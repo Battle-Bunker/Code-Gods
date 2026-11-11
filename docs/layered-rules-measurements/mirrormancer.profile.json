@@ -1,0 +1,1025 @@
+{
+  "instance": "Grid(4,base10,mono)",
+  "compose": "gated",
+  "variants": [
+    {
+      "id": "mirrormancer.base",
+      "family": "mirrormancer",
+      "params": {
+        "axis": "LR"
+      },
+      "report": {
+        "id": "mirrormancer.base",
+        "calibration": "shipped",
+        "topBits": 26.575424759,
+        "cardBits": 625.4466994744257,
+        "colourBlind": true,
+        "greedy10": 26.57542475899999,
+        "greedy20": 26.57542475899999,
+        "uniformTop": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9
+        ],
+        "greedy4": 12.243935632166663,
+        "greedy8": 26.57542475899999,
+        "greedy16": 26.57542475899999,
+        "rate4": 2.892135025395833,
+        "rate8": 3.2375036535520834,
+        "reach16": 0.9999999999999996,
+        "reachEnd": 0.9999999999999996,
+        "movesTo50": 5,
+        "movesTo90": 7,
+        "beam16": 26.57542475899999,
+        "gap": 0,
+        "plateau": 0,
+        "trap": 0,
+        "stall": 0,
+        "escape2": null,
+        "entangle": 1,
+        "difficulty": 0
+      },
+      "table": {
+        "from": "shipped",
+        "kind": "exact",
+        "seconds": 0.0031479650000001127,
+        "levels": 15,
+        "priorMean": 0.9166317484911316
+      }
+    },
+    {
+      "id": "mirrormancer.holding(y=0)",
+      "family": "mirrormancer",
+      "params": {
+        "axis": "LR",
+        "tiers": [
+          {
+            "id": "holding",
+            "y": 0,
+            "gate": 3
+          }
+        ]
+      },
+      "interaction": "holding",
+      "report": {
+        "id": "mirrormancer.holding(y=0)",
+        "calibration": "shipped",
+        "topBits": 36.927890293,
+        "cardBits": 1450.1976603279147,
+        "colourBlind": true,
+        "greedy10": 27.69562642349999,
+        "greedy20": 27.69562642349999,
+        "uniformTop": [],
+        "greedy4": 12.312270275999998,
+        "greedy8": 27.69562642349999,
+        "greedy16": 27.69562642349999,
+        "rate4": 2.909218686354167,
+        "rate8": 3.3775288616145835,
+        "reach16": 0.7499921117548906,
+        "reachEnd": 0.7499921117548906,
+        "movesTo50": 6,
+        "movesTo90": "inf",
+        "beam16": 35.162474159333335,
+        "gap": 0.21235274008303492,
+        "plateau": 0,
+        "trap": 0.2500078882451093,
+        "stall": 1,
+        "escape2": 1,
+        "entangle": 1,
+        "difficulty": 23.11803141640721
+      },
+      "table": {
+        "from": "shipped",
+        "kind": "hybrid",
+        "seconds": 11.97805989,
+        "levels": 25,
+        "priorMean": 0.9166338174662598
+      },
+      "tier": {
+        "layout": {
+          "compose": "gated",
+          "gate": 3,
+          "at": 2,
+          "arity": 1,
+          "baseArity": 2
+        },
+        "addedTop": 10.352465533999997,
+        "baseAgent": 27.160279011583327,
+        "baseAgentOwn": 26.57542475899999,
+        "baseAgentLoss": -0.5848542525833373,
+        "accidental": 0.05649419944094766,
+        "tierAgent": 27.69562642349999,
+        "tierShare": 0.10820626843151382
+      },
+      "live": {
+        "tierTop": 4,
+        "tierMin": 0,
+        "shareAtTop": 0.000764887115565216,
+        "addedBits": 10.352465533484288,
+        "degenerate": [],
+        "problems": [],
+        "seconds": 0.00011070699999982025,
+        "levels": 25,
+        "topTier": [
+          [
+            [
+              0
+            ],
+            1
+          ],
+          [
+            [
+              1
+            ],
+            0.5563964843749998
+          ],
+          [
+            [
+              2
+            ],
+            0.14466851949691772
+          ],
+          [
+            [
+              3
+            ],
+            0.017801009234972312
+          ],
+          [
+            [
+              4
+            ],
+            0.000764887115565216
+          ]
+        ]
+      },
+      "exact": {
+        "how": "closed form: 18 of the 100 mirrors qualify, 4 independent lines (all 1e+8 top boards)",
+        "boards": 100000000,
+        "rows": [
+          {
+            "tier": 0,
+            "hybrid": 0,
+            "exact": 0,
+            "error": 0
+          },
+          {
+            "tier": 1,
+            "hybrid": 0.8458147907347034,
+            "exact": 0.8680727894137528,
+            "error": 0.022257998679049318
+          },
+          {
+            "tier": 2,
+            "hybrid": 2.7891770756215024,
+            "exact": 2.8001522717941936,
+            "error": 0.01097519617269116
+          },
+          {
+            "tier": 3,
+            "hybrid": 5.811897152121585,
+            "exact": 5.870953690196595,
+            "error": 0.05905653807501032
+          },
+          {
+            "tier": 4,
+            "hybrid": 10.352465533484288,
+            "exact": 10.411146320797728,
+            "error": 0.058680787313440064
+          }
+        ],
+        "maxError": 0.05905653807501032,
+        "missed": 0
+      }
+    },
+    {
+      "id": "mirrormancer.halves(x=7)",
+      "family": "mirrormancer",
+      "params": {
+        "axis": "LR",
+        "tiers": [
+          {
+            "id": "halves",
+            "x": 7,
+            "gate": 3
+          }
+        ]
+      },
+      "interaction": "halves",
+      "report": {
+        "id": "mirrormancer.halves(x=7)",
+        "calibration": "shipped",
+        "topBits": 42.470430237,
+        "cardBits": 1701.7429846608807,
+        "colourBlind": true,
+        "greedy10": 27.152644025499995,
+        "greedy20": 27.152644025499995,
+        "uniformTop": [],
+        "greedy4": 12.243935632166663,
+        "greedy8": 27.152644025499995,
+        "greedy16": 27.152644025499995,
+        "rate4": 2.892135025395833,
+        "rate8": 3.309656061864583,
+        "reach16": 0.6393305618515907,
+        "reachEnd": 0.6393305618515907,
+        "movesTo50": 7,
+        "movesTo90": "inf",
+        "beam16": 33.953147162666674,
+        "gap": 0.20029080381226635,
+        "plateau": 0,
+        "trap": 0.36066943814840924,
+        "stall": 1,
+        "escape2": 1,
+        "entangle": 1,
+        "difficulty": 28.04801209803378
+      },
+      "table": {
+        "from": "shipped",
+        "kind": "hybrid",
+        "seconds": 9.434164371,
+        "levels": 25,
+        "priorMean": 0.9166331972090607
+      },
+      "tier": {
+        "layout": {
+          "compose": "gated",
+          "gate": 3,
+          "at": 2,
+          "arity": 1,
+          "baseArity": 2
+        },
+        "addedTop": 15.895005478000002,
+        "baseAgent": 26.999247412999992,
+        "baseAgentOwn": 26.57542475899999,
+        "baseAgentLoss": -0.4238226540000021,
+        "accidental": 0.026663888514326436,
+        "tierAgent": 27.152644025499995,
+        "tierShare": 0.03631450566650757
+      },
+      "live": {
+        "tierTop": 4,
+        "tierMin": 0,
+        "shareAtTop": 0.00001641067972713018,
+        "addedBits": 15.895005478202453,
+        "degenerate": [],
+        "problems": [],
+        "seconds": 0.000014382000001205598,
+        "levels": 25,
+        "topTier": [
+          [
+            [
+              0
+            ],
+            1
+          ],
+          [
+            [
+              1
+            ],
+            0.27917480468749983
+          ],
+          [
+            [
+              2
+            ],
+            0.029444217681884703
+          ],
+          [
+            [
+              3
+            ],
+            0.0011897016665898237
+          ],
+          [
+            [
+              4
+            ],
+            0.00001641067972713018
+          ]
+        ]
+      },
+      "exact": {
+        "how": "closed form: 8 of the 100 mirrors qualify, 4 independent lines (all 1e+8 top boards)",
+        "boards": 100000000,
+        "rows": [
+          {
+            "tier": 0,
+            "hybrid": 0,
+            "exact": 0,
+            "error": 0
+          },
+          {
+            "tier": 1,
+            "hybrid": 1.8407593495883283,
+            "exact": 1.8180347497322602,
+            "error": 0.022724599856068117
+          },
+          {
+            "tier": 2,
+            "hybrid": 5.085871847424862,
+            "exact": 5.0428899996597565,
+            "error": 0.042981847765105385
+          },
+          {
+            "tier": 3,
+            "hybrid": 9.715184440617644,
+            "exact": 9.617053298149047,
+            "error": 0.09813114246859733
+          },
+          {
+            "tier": 4,
+            "hybrid": 15.895005478202453,
+            "exact": 15.861179241432776,
+            "error": 0.03382623676967711
+          }
+        ],
+        "maxError": 0.09813114246859733,
+        "missed": 0
+      }
+    },
+    {
+      "id": "mirrormancer.halves(x=8)",
+      "family": "mirrormancer",
+      "params": {
+        "axis": "LR",
+        "tiers": [
+          {
+            "id": "halves",
+            "x": 8,
+            "gate": 3
+          }
+        ]
+      },
+      "interaction": "halves",
+      "report": {
+        "id": "mirrormancer.halves(x=8)",
+        "calibration": "shipped",
+        "topBits": 42.715909025,
+        "cardBits": 1701.7429846608807,
+        "colourBlind": true,
+        "greedy10": 26.865761915999993,
+        "greedy20": 26.865761915999993,
+        "uniformTop": [],
+        "greedy4": 12.243935632166663,
+        "greedy8": 26.865761915999993,
+        "greedy16": 26.865761915999993,
+        "rate4": 2.892135025395833,
+        "rate8": 3.2737957981770833,
+        "reach16": 0.628940423584957,
+        "reachEnd": 0.628940423584957,
+        "movesTo50": 7,
+        "movesTo90": "inf",
+        "beam16": 29.84137746991667,
+        "gap": 0.09971441690037323,
+        "plateau": 0,
+        "trap": 0.3710595764150428,
+        "stall": 1,
+        "escape2": 1,
+        "entangle": 1,
+        "difficulty": 23.5386996657708
+      },
+      "table": {
+        "from": "shipped",
+        "kind": "hybrid",
+        "seconds": 12.086108029000004,
+        "levels": 25,
+        "priorMean": 0.9166332257470137
+      },
+      "tier": {
+        "layout": {
+          "compose": "gated",
+          "gate": 3,
+          "at": 2,
+          "arity": 1,
+          "baseArity": 2
+        },
+        "addedTop": 16.140484266,
+        "baseAgent": 26.72059333749999,
+        "baseAgentOwn": 26.57542475899999,
+        "baseAgentLoss": -0.14516857850000164,
+        "accidental": 0.008994065859956761,
+        "tierAgent": 26.865761915999993,
+        "tierShare": 0.017988131719913522
+      },
+      "live": {
+        "tierTop": 4,
+        "tierMin": 0,
+        "shareAtTop": 0.000013842995940649428,
+        "addedBits": 16.140484265496173,
+        "degenerate": [],
+        "problems": [],
+        "seconds": 0.000012902000002213754,
+        "levels": 25,
+        "topTier": [
+          [
+            [
+              0
+            ],
+            1
+          ],
+          [
+            [
+              1
+            ],
+            0.2989501953124998
+          ],
+          [
+            [
+              2
+            ],
+            0.03298962116241453
+          ],
+          [
+            [
+              3
+            ],
+            0.0012886570766568201
+          ],
+          [
+            [
+              4
+            ],
+            0.000013842995940649428
+          ]
+        ]
+      },
+      "exact": {
+        "how": "closed form: 8 of the 100 mirrors qualify, 4 independent lines (all 1e+8 top boards)",
+        "boards": 100000000,
+        "rows": [
+          {
+            "tier": 0,
+            "hybrid": 0,
+            "exact": 0,
+            "error": 0
+          },
+          {
+            "tier": 1,
+            "hybrid": 1.7420229414360229,
+            "exact": 1.8180347497322602,
+            "error": 0.07601180829623733
+          },
+          {
+            "tier": 2,
+            "hybrid": 4.921843979020835,
+            "exact": 5.0428899996597565,
+            "error": 0.12104602063892145
+          },
+          {
+            "tier": 3,
+            "hybrid": 9.59991588413347,
+            "exact": 9.617053298149047,
+            "error": 0.017137414015577335
+          },
+          {
+            "tier": 4,
+            "hybrid": 16.140484265496173,
+            "exact": 15.861179241432776,
+            "error": 0.2793050240633974
+          }
+        ],
+        "maxError": 0.2793050240633974,
+        "missed": 0
+      }
+    },
+    {
+      "id": "mirrormancer.halves(x=9)",
+      "family": "mirrormancer",
+      "params": {
+        "axis": "LR",
+        "tiers": [
+          {
+            "id": "halves",
+            "x": 9,
+            "gate": 3
+          }
+        ]
+      },
+      "interaction": "halves",
+      "report": {
+        "id": "mirrormancer.halves(x=9)",
+        "calibration": "shipped",
+        "topBits": 40.976457456,
+        "cardBits": 1701.7429846608807,
+        "colourBlind": true,
+        "greedy10": 27.94335868483333,
+        "greedy20": 27.94335868483333,
+        "uniformTop": [],
+        "greedy4": 12.243935632166663,
+        "greedy8": 27.94335868483333,
+        "greedy16": 27.94335868483333,
+        "rate4": 2.892135025395833,
+        "rate8": 3.40849539428125,
+        "reach16": 0.681936907670424,
+        "reachEnd": 0.681936907670424,
+        "movesTo50": 7,
+        "movesTo90": "inf",
+        "beam16": 32.38176844216667,
+        "gap": 0.13706508232434142,
+        "plateau": 0,
+        "trap": 0.3180630923295758,
+        "stall": 1,
+        "escape2": 1,
+        "entangle": 1,
+        "difficulty": 22.75640873269586
+      },
+      "table": {
+        "from": "shipped",
+        "kind": "hybrid",
+        "seconds": 8.312556978,
+        "levels": 25,
+        "priorMean": 0.9166333283767019
+      },
+      "tier": {
+        "layout": {
+          "compose": "gated",
+          "gate": 3,
+          "at": 2,
+          "arity": 1,
+          "baseArity": 2
+        },
+        "addedTop": 14.401032696999998,
+        "baseAgent": 27.57736969066666,
+        "baseAgentOwn": 26.57542475899999,
+        "baseAgentLoss": -1.0019449316666709,
+        "accidental": 0.06957451960201369,
+        "tierAgent": 27.94335868483333,
+        "tierShare": 0.09498859940220113
+      },
+      "live": {
+        "tierTop": 4,
+        "tierMin": 0,
+        "shareAtTop": 0.00004622290003553065,
+        "addedBits": 14.40103269676828,
+        "degenerate": [],
+        "problems": [],
+        "seconds": 0.000009888000000501051,
+        "levels": 25,
+        "topTier": [
+          [
+            [
+              0
+            ],
+            1
+          ],
+          [
+            [
+              1
+            ],
+            0.34716796874999933
+          ],
+          [
+            [
+              2
+            ],
+            0.04763388633728026
+          ],
+          [
+            [
+              3
+            ],
+            0.0025759047421161007
+          ],
+          [
+            [
+              4
+            ],
+            0.00004622290003553065
+          ]
+        ]
+      },
+      "exact": {
+        "how": "closed form: 10 of the 100 mirrors qualify, 4 independent lines (all 1e+8 top boards)",
+        "boards": 100000000,
+        "rows": [
+          {
+            "tier": 0,
+            "hybrid": 0,
+            "exact": 0,
+            "error": 0
+          },
+          {
+            "tier": 1,
+            "hybrid": 1.5262942503805874,
+            "exact": 1.5399389790226585,
+            "error": 0.013644728642071113
+          },
+          {
+            "tier": 2,
+            "hybrid": 4.391867930159659,
+            "exact": 4.398850432777735,
+            "error": 0.00698250261807587
+          },
+          {
+            "tier": 3,
+            "hybrid": 8.600705041604645,
+            "exact": 8.540539842513986,
+            "error": 0.060165199090658206
+          },
+          {
+            "tier": 4,
+            "hybrid": 14.40103269676828,
+            "exact": 14.27621674071162,
+            "error": 0.12481595605665952
+          }
+        ],
+        "maxError": 0.12481595605665952,
+        "missed": 0
+      }
+    }
+  ],
+  "pairs": [
+    {
+      "a": "mirrormancer.base",
+      "b": "mirrormancer",
+      "conflict": 0,
+      "corr": 1,
+      "naive": 1,
+      "considerate": 1,
+      "ceiling": 1,
+      "gap": 0,
+      "difficulty": 0
+    },
+    {
+      "a": "mirrormancer.base",
+      "b": "magic_eighteen",
+      "conflict": 0.6445169017833378,
+      "corr": -0.2320919222267233,
+      "naive": 0.2536788088643773,
+      "considerate": 0.44804892524570783,
+      "ceiling": 0.6601321726179927,
+      "gap": 0.32127391478465916,
+      "difficulty": 55.19510747542922
+    },
+    {
+      "a": "mirrormancer.base",
+      "b": "opposite_nines",
+      "conflict": 0.564426651415499,
+      "corr": -0.2169745882536424,
+      "naive": 0.15917934268842365,
+      "considerate": 0.5887051023192371,
+      "ceiling": 1,
+      "gap": 0.4112948976807629,
+      "difficulty": 41.12948976807629
+    },
+    {
+      "a": "mirrormancer.base",
+      "b": "two_pair",
+      "conflict": 0.29155081865925236,
+      "corr": -0.19516685780932097,
+      "naive": 0.11912681658288887,
+      "considerate": 0.6558869987974326,
+      "ceiling": 1,
+      "gap": 0.3441130012025674,
+      "difficulty": 34.41130012025674
+    },
+    {
+      "a": "mirrormancer.base",
+      "b": "spread_three",
+      "conflict": 0.45473073122529645,
+      "corr": -0.19511914032058164,
+      "naive": 0.45038713461764535,
+      "considerate": 0.6199532748569647,
+      "ceiling": 1,
+      "gap": 0.3800467251430353,
+      "difficulty": 38.00467251430353
+    },
+    {
+      "a": "mirrormancer.base",
+      "b": "strangers",
+      "conflict": 0.42723505775991966,
+      "corr": -0.15055452563468025,
+      "naive": 0.5799827339855504,
+      "considerate": 0.7350892771185764,
+      "ceiling": 1,
+      "gap": 0.2649107228814236,
+      "difficulty": 26.49107228814236
+    },
+    {
+      "a": "mirrormancer.base",
+      "b": "leapfrog",
+      "conflict": 0.29904454997738583,
+      "corr": -0.11895227759174268,
+      "naive": 0.16371435783178143,
+      "considerate": 0.8323444728629357,
+      "ceiling": 1,
+      "gap": 0.16765552713706433,
+      "difficulty": 16.765552713706434
+    },
+    {
+      "a": "mirrormancer.base",
+      "b": "crosswise_threes",
+      "conflict": 0.4526948590381426,
+      "corr": -0.2501474301266348,
+      "naive": 0.24889625856457104,
+      "considerate": 0.6290625394090374,
+      "ceiling": 1,
+      "gap": 0.37093746059096255,
+      "difficulty": 37.093746059096254
+    },
+    {
+      "a": "mirrormancer.holding(y=0)",
+      "b": "mirrormancer",
+      "conflict": 0,
+      "corr": 0.9965282782225108,
+      "naive": 0.8516746784667134,
+      "considerate": 0.8516746784667134,
+      "ceiling": 0.936505366781994,
+      "gap": 0.09058216997386206,
+      "difficulty": 14.832532153328659
+    },
+    {
+      "a": "mirrormancer.holding(y=0)",
+      "b": "magic_eighteen",
+      "conflict": 0.6445169017833378,
+      "corr": -0.23474510792596276,
+      "naive": 0.2152023694157111,
+      "considerate": 0.3800916235718695,
+      "ceiling": 0.6454111037356896,
+      "gap": 0.4110860173122686,
+      "difficulty": 61.990837642813055
+    },
+    {
+      "a": "mirrormancer.holding(y=0)",
+      "b": "opposite_nines",
+      "conflict": 0.564426651415499,
+      "corr": -0.2137963202423361,
+      "naive": 0.1350360002947592,
+      "considerate": 0.5015458257525989,
+      "ceiling": 0.848326158495814,
+      "gap": 0.408781845602992,
+      "difficulty": 49.84541742474011
+    },
+    {
+      "a": "mirrormancer.holding(y=0)",
+      "b": "two_pair",
+      "conflict": 0.29155081865925236,
+      "corr": -0.19382621757408924,
+      "naive": 0.10105839468559756,
+      "considerate": 0.5564060980971747,
+      "ceiling": 0.8917329406083185,
+      "gap": 0.3760395374453612,
+      "difficulty": 44.35939019028253
+    },
+    {
+      "a": "mirrormancer.holding(y=0)",
+      "b": "spread_three",
+      "conflict": 0.45473073122529645,
+      "corr": -0.19719456688673107,
+      "naive": 0.38207518774612415,
+      "considerate": 0.5259225801063084,
+      "ceiling": 0.848326158495814,
+      "gap": 0.3800467251430353,
+      "difficulty": 47.40774198936916
+    },
+    {
+      "a": "mirrormancer.holding(y=0)",
+      "b": "strangers",
+      "conflict": 0.42723505775991966,
+      "corr": -0.15585104616343784,
+      "naive": 0.49201452471586166,
+      "considerate": 0.6235954626094669,
+      "ceiling": 0.848326158495814,
+      "gap": 0.2649107228814236,
+      "difficulty": 37.640453739053314
+    },
+    {
+      "a": "mirrormancer.holding(y=0)",
+      "b": "leapfrog",
+      "conflict": 0.29904454997738583,
+      "corr": -0.11758224291735092,
+      "naive": 0.13888317227004424,
+      "considerate": 0.7060995892090376,
+      "ceiling": 0.8617202383794114,
+      "gap": 0.18059300714932813,
+      "difficulty": 29.390041079096243
+    },
+    {
+      "a": "mirrormancer.holding(y=0)",
+      "b": "crosswise_threes",
+      "conflict": 0.4526948590381426,
+      "corr": -0.2498168731051373,
+      "naive": 0.21114520689206343,
+      "considerate": 0.5377433778328486,
+      "ceiling": 0.8917329406083185,
+      "gap": 0.39696813547561316,
+      "difficulty": 46.225662216715136
+    },
+    {
+      "a": "mirrormancer.halves(x=7)",
+      "b": "mirrormancer",
+      "conflict": 0,
+      "corr": 0.9894769089863911,
+      "naive": 0.797771244996544,
+      "considerate": 0.797771244996544,
+      "ceiling": 0.8179740926980712,
+      "gap": 0.024698640069257646,
+      "difficulty": 20.222875500345605
+    },
+    {
+      "a": "mirrormancer.halves(x=7)",
+      "b": "magic_eighteen",
+      "conflict": 0.6445169017833378,
+      "corr": -0.23584534802307586,
+      "naive": 0.20066931439677735,
+      "considerate": 0.35442326084610787,
+      "ceiling": 0.6018251752633947,
+      "gap": 0.4110860173122684,
+      "difficulty": 64.55767391538922
+    },
+    {
+      "a": "mirrormancer.halves(x=7)",
+      "b": "opposite_nines",
+      "conflict": 0.564426651415499,
+      "corr": -0.21061214551991908,
+      "naive": 0.12591674372175413,
+      "considerate": 0.46568749590527975,
+      "ceiling": 0.863417840097735,
+      "gap": 0.46064642832424446,
+      "difficulty": 53.43125040947203
+    },
+    {
+      "a": "mirrormancer.halves(x=7)",
+      "b": "two_pair",
+      "conflict": 0.29155081865925236,
+      "corr": -0.19208308361268694,
+      "naive": 0.09423371513360893,
+      "considerate": 0.5188308592256359,
+      "ceiling": 0.7910369624293683,
+      "gap": 0.3441130012025673,
+      "difficulty": 48.11691407743641
+    },
+    {
+      "a": "mirrormancer.halves(x=7)",
+      "b": "spread_three",
+      "conflict": 0.45473073122529645,
+      "corr": -0.19800362137910119,
+      "naive": 0.35627287088520915,
+      "considerate": 0.4904059553909927,
+      "ceiling": 0.7287565320079722,
+      "gap": 0.3270647550290116,
+      "difficulty": 50.95940446090073
+    },
+    {
+      "a": "mirrormancer.halves(x=7)",
+      "b": "strangers",
+      "conflict": 0.42723505775991966,
+      "corr": -0.15918897074971552,
+      "naive": 0.45878778015341015,
+      "considerate": 0.586271902630261,
+      "ceiling": 0.8179740926980712,
+      "gap": 0.2832634824698973,
+      "difficulty": 41.372809736973906
+    },
+    {
+      "a": "mirrormancer.halves(x=7)",
+      "b": "leapfrog",
+      "conflict": 0.29904454997738583,
+      "corr": -0.1160420030600508,
+      "naive": 0.12950410832532705,
+      "considerate": 0.6651495260755462,
+      "ceiling": 0.7910369624293683,
+      "gap": 0.15914229338564256,
+      "difficulty": 33.48504739244538
+    },
+    {
+      "a": "mirrormancer.halves(x=7)",
+      "b": "crosswise_threes",
+      "conflict": 0.4526948590381426,
+      "corr": -0.24865065465732314,
+      "naive": 0.19688614033495294,
+      "considerate": 0.4976117203522297,
+      "ceiling": 0.8179740926980712,
+      "gap": 0.3916534462468519,
+      "difficulty": 50.23882796477703
+    },
+    {
+      "a": "mirrormancer.halves(x=9)",
+      "b": "mirrormancer",
+      "conflict": 0,
+      "corr": 0.9935676820759699,
+      "naive": 0.8270293132548856,
+      "considerate": 0.8270293132548856,
+      "ceiling": 0.8693294946995962,
+      "gap": 0.04865839903353074,
+      "difficulty": 17.29706867451144
+    },
+    {
+      "a": "mirrormancer.halves(x=9)",
+      "b": "magic_eighteen",
+      "conflict": 0.641093117408907,
+      "corr": -0.19470420504618438,
+      "naive": 0.20429469644613,
+      "considerate": 0.3608264308156024,
+      "ceiling": 0.8041462841441823,
+      "gap": 0.551292547226511,
+      "difficulty": 63.91735691843976
+    },
+    {
+      "a": "mirrormancer.halves(x=9)",
+      "b": "opposite_nines",
+      "conflict": 0.5633897818599312,
+      "corr": -0.216421023180536,
+      "naive": 0.1281916122225712,
+      "considerate": 0.4741008155667241,
+      "ceiling": 0.8053281918212993,
+      "gap": 0.41129489768076305,
+      "difficulty": 52.58991844332759
+    },
+    {
+      "a": "mirrormancer.halves(x=9)",
+      "b": "two_pair",
+      "conflict": 0.2860476343739942,
+      "corr": -0.18002034002482614,
+      "naive": 0.09593618379612547,
+      "considerate": 0.5282042907806351,
+      "ceiling": 1,
+      "gap": 0.47179570921936487,
+      "difficulty": 47.17957092193649
+    },
+    {
+      "a": "mirrormancer.halves(x=9)",
+      "b": "spread_three",
+      "conflict": 0.45715675200803213,
+      "corr": -0.19597693969241511,
+      "naive": 0.3627094567412045,
+      "considerate": 0.4992658498542524,
+      "ceiling": 0.7419225751443244,
+      "gap": 0.3270647550290117,
+      "difficulty": 50.07341501457476
+    },
+    {
+      "a": "mirrormancer.halves(x=9)",
+      "b": "strangers",
+      "conflict": 0.42494863893168977,
+      "corr": -0.1430415929799225,
+      "naive": 0.467076446448157,
+      "considerate": 0.5964204299057208,
+      "ceiling": 0.8053281918212993,
+      "gap": 0.25940698964371384,
+      "difficulty": 40.35795700942793
+    },
+    {
+      "a": "mirrormancer.halves(x=9)",
+      "b": "leapfrog",
+      "conflict": 0.3015935360790035,
+      "corr": -0.12064590504336897,
+      "naive": 0.09580326092717956,
+      "considerate": 0.6744706561036415,
+      "ceiling": 0.828131374677347,
+      "gap": 0.18555113750348376,
+      "difficulty": 32.552934389635844
+    },
+    {
+      "a": "mirrormancer.halves(x=9)",
+      "b": "crosswise_threes",
+      "conflict": 0.4494801274526245,
+      "corr": -0.2476777361996366,
+      "naive": 0.2004431738608926,
+      "considerate": 0.5066017974047949,
+      "ceiling": 0.828131374677347,
+      "gap": 0.38825914233454206,
+      "difficulty": 49.33982025952051
+    }
+  ],
+  "games": [
+    {
+      "id": "mirrormancer.holding(y=0)",
+      "games": 40,
+      "winBase": 0.4,
+      "winTier": 0.4,
+      "ownBase": 9.353423458200002,
+      "ownTier": 9.353423458200002,
+      "payRatio": 1
+    },
+    {
+      "id": "mirrormancer.halves(x=7)",
+      "games": 40,
+      "winBase": 0.375,
+      "winTier": 0.375,
+      "ownBase": 9.260903763837499,
+      "ownTier": 9.260903763837499,
+      "payRatio": 1
+    },
+    {
+      "id": "mirrormancer.halves(x=9)",
+      "games": 40,
+      "winBase": 0.4,
+      "winTier": 0.45,
+      "ownBase": 10.014124336259998,
+      "ownTier": 10.055159076142498,
+      "payRatio": 1.0034098929985604
+    }
+  ],
+  "comparison": [],
+  "sweep": [],
+  "checks": [],
+  "builds": []
+}
