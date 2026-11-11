@@ -14,7 +14,8 @@
     "test": "node --experimental-strip-types --test test/*.test.ts",
     "typecheck": "tsc --build",
     "calibrate": "node --experimental-strip-types scripts/calibrate.ts",
-    "difficulty": "node --experimental-strip-types scripts/rule-difficulty.ts"
+    "difficulty": "node --experimental-strip-types scripts/rule-difficulty.ts",
+    "mutation-cost": "node --experimental-strip-types scripts/mutation-cost.ts"
   },
   "devDependencies": {
     "typescript": "~5.9.3",
