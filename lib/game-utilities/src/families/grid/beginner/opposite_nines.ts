@@ -62,8 +62,11 @@ const NINES_DEALT: readonly TierValue[] = [
   ...[10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26].map(x => ({ id: "lines", x })),
   ...[10, 12, 14, 16, 20, 22, 24, 26].map(x => ({ id: "squares", x })),
 ];
-/** Lab: alive, but adds 21.8 bits (above the cap). Squares of 18 and of 8 are refused: a two-digit board maxes them. */
-const NINES_LAB: readonly TierValue[] = [{ id: "lines", x: 9 }, { id: "lines", x: 27 }];
+/**
+ * Lab ("uncapped"): alive, but at or over the cap. Exactly (10^8 top boards counted), lines of 9 add 19.3 bits and
+ * squares of 9 add 20.3. Squares of 18 and of 8 are refused outright: a two-digit board maxes them.
+ */
+const NINES_LAB: readonly TierValue[] = [{ id: "lines", x: 9 }, { id: "lines", x: 27 }, { id: "squares", x: 9 }, { id: "squares", x: 27 }];
 
 export const oppositeNines = gridFamily<NinesP>({
   tiers: ninesTiers,

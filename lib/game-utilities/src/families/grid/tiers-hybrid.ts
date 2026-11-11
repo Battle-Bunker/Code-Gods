@@ -8,7 +8,7 @@ import type { AnalyticSurvival } from "../../analytic.ts";
 import { HYBRID_MAX_ERROR_BITS } from "../../analytic.ts";
 import type { FamilyContext, Params } from "../../types.ts";
 import { hostEval } from "../define.ts";
-import { hybridLaw, liveness, type HybridLaw, type Liveness } from "../../tiers/hybrid.ts";
+import { baseLaw, drawGiven, hybridLaw, liveness, mulberry32, type HybridLaw, type Liveness } from "../../tiers/hybrid.ts";
 import { baseParams, tierArity, tiersOf, type GridTiers } from "./tiers.ts";
 import { gridSpec, symbolCode, type GridSpec } from "./_util.ts";
 import { COLOUR_COMPONENTS } from "@workspace/game-types";
@@ -37,6 +37,13 @@ function wireOf(g: GridSpec, ctx: FamilyContext): (board: Uint8Array) => ObjectV
 }
 
 const laws = new Map<string, HybridLaw | null>();
+/**
+ * An optional store shared between processes (the calibration script's workers build the same law once per colour
+ * set otherwise). Keys include HYBRID_VERSION and the card's program, so a stale entry is never read.
+ */
+export interface HybridStore { get(key: string): string | null; set(key: string, json: string): void }
+let store: HybridStore | null = null;
+export function setHybridStore(s: HybridStore | null): void { store = s; }
 /** The hybrid law of a tiered draw, or null when it has none (an unlocked tier, or a base without disjoint units here). */
 export function hybridLawOf<P extends Params>(familyId: string, spec: GridTiers<P>, p: P, ctx: FamilyContext): HybridLaw | null {
   const g = gridSpec(ctx), key = `${familyId}|${g.N}|${g.symbols}|${stable(p)}`;
@@ -45,10 +52,21 @@ export function hybridLawOf<P extends Params>(familyId: string, spec: GridTiers<
   const tiers = tiersOf(p), base = spec.base(baseParams(p), g);
   if (!base || tiers.some(t => t.compose === "unlock")) { laws.set(key, null); return null; }
   const score = hostEval(familyId, p, ctx), wire = wireOf(g, ctx), arity = tierArity(spec, p);
-  law = hybridLaw(base, {
-    gate: tiers[0].gate, tierArity: arity, seed: hash32(key),
-    tier: board => { const o = score(wire(board)) as readonly number[]; return arity === 1 ? o[o.length - 1] : o.slice(o.length - arity); },
-  });
+  // The stored key carries a fingerprint of what the card scores (64 fixed boards drawn at the base's top and below).
+  const probe = mulberry32(12345), top = baseLaw(base), prints: string[] = [];
+  for (let i = 0; i < 64; i++) prints.push(String(score(wire(drawGiven(base, top[top.length - 1 - (i % Math.min(8, top.length))].ordinal, probe)))));
+  const stored = `${HYBRID_VERSION}|${base.id}|${key}|${hash32(prints.join(";"))}`;
+  const hit = store?.get(stored);
+  if (hit) {
+    const j = JSON.parse(hit) as { levels: HybridLaw["levels"]; baseLevels: HybridLaw["baseLevels"]; topTier: HybridLaw["topTier"]; best: number[] };
+    law = { ...j, best: Uint8Array.from(j.best), evaluations: 0 };
+  } else {
+    law = hybridLaw(base, {
+      gate: tiers[0].gate, tierArity: arity, seed: hash32(key),
+      tier: board => { const o = score(wire(board)) as readonly number[]; return arity === 1 ? o[o.length - 1] : o.slice(o.length - arity); },
+    });
+    store?.set(stored, JSON.stringify({ levels: law.levels, baseLevels: law.baseLevels, topTier: law.topTier, best: [...law.best] }));
+  }
   laws.set(key, law);
   return law;
 }
