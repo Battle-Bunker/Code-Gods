@@ -162,7 +162,7 @@ function preparingLines(value: unknown): string[] {
 /** The room's cost model in words (docs/energy-model.md §4): absent or unknown reads as set-v1. */
 function costModelLine(model: unknown): string {
   return typeof model === "string" && model !== "set-v1" && /^[a-z0-9-]{1,24}$/.test(model)
-    ? `Change cost model: ${model} (a number pays for how far it moves: adding 1 is the cheapest change; a colour or suit pays a flat price).`
+    ? `Change cost model: ${model} (a number pays for how it moves, a small step is cheap: get_rules has the price list; a colour or suit pays a flat price).`
     : "Change cost model: set-v1 (every changed cell costs the same, however far its value moves).";
 }
 

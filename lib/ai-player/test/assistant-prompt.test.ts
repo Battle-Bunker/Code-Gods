@@ -165,5 +165,5 @@ test("the briefing carries a board key, so the assistant can name the symbols an
 test("the briefing names the room's cost model outside the economy JSON, which is cut", () => {
   assert.match(assistantBriefing({ observation }), /Change cost model: set-v1 \(every changed cell costs the same/);
   const padded = { ...observation, economy: { ...observation.economy, ...Object.fromEntries(Array.from({ length: 80 }, (_, i) => [`k${i}`, i])), costModel: "distance-v1" } };
-  assert.match(assistantBriefing({ observation: padded }), /Change cost model: distance-v1 \(a number pays for how far it moves: adding 1 is the cheapest change/);
+  assert.match(assistantBriefing({ observation: padded }), /Change cost model: distance-v1 \(a number pays for how it moves, a small step is cheap/);
 });

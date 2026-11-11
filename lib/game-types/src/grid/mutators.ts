@@ -247,6 +247,8 @@ interface GridMutatorSpec {
    * colour leaves it nothing to do). `paint` does not set it: painting a mono cell its only colour is a valid no-change.
    */
   coloured?: true;
+  /** The mutator is arithmetic modulo 10: offered only on the digits 0–9. */
+  base10?: true;
   /** Offered only under these cost models (MutatorDef.costModels). */
   costModels?: readonly CostModel[];
   kind: MutatorKind;
@@ -296,7 +298,8 @@ function def(s: GridMutatorSpec): GridMutator {
   const spaces = new Map<string, readonly GP[]>();
   return Object.freeze({
     id: s.id, name: s.name, emoji: s.emoji, summary: s.summary,
-    requires: [...s.requires.map(has => ({ has })), ...(s.coloured ? [{ term: "colours.count", op: ">=" as const, value: 2 }] : [])],
+    requires: [...s.requires.map(has => ({ has })), ...(s.coloured ? [{ term: "colours.count", op: ">=" as const, value: 2 }] : []),
+      ...(s.base10 ? [{ term: "symbols.base", op: "==" as const, value: 10 }] : [])],
     scope: s.scope, kind: s.kind, ...(s.costModels ? { costModels: s.costModels } : {}),
     parse: (raw: Readonly<Record<string, unknown>>, inst: Instantiation) => parseFields(s.fields, raw, gridCtx(inst)),
     describeBits: (p: GP, inst: Instantiation) => describeFields(s.fields, p, gridCtx(inst)),
@@ -1390,7 +1393,7 @@ const inverses = (S: number): Map<number, number> => cached(`inv:${S}`, () =>
  */
 const multiply = def({
   id: "multiply", name: "Multiply", emoji: "✖️", summary: "Multiply every number in an area, keeping only the last digit: 7 × 8 = 56 leaves 6.",
-  requires: ["Numeral"], costModels: ["multiply-v1"], kind: "overwrite", scope: "local",
+  requires: ["Numeral"], base10: true, costModels: ["multiply-v1"], kind: "overwrite", scope: "local",
   fields: [F_kind("cell", "line", "block", "ring", "all"), F_REGION,
     { name: "m", choices: g => cached(`mul:${g.S}`, () => range(g.S).filter(m => m !== 1)) }],
   terms: (p, g) => {
@@ -1424,7 +1427,7 @@ const multiply = def({
 
 const divide = def({
   id: "divide", name: "Divide", emoji: "➗", summary: "Undo a multiply: divide every number in an area by 3, 7 or 9 (the multipliers that can be undone).",
-  requires: ["Numeral"], costModels: ["multiply-v1"], kind: "bijective", scope: "local",
+  requires: ["Numeral"], base10: true, costModels: ["multiply-v1"], kind: "bijective", scope: "local",
   fields: [F_kind("cell", "line", "block", "ring", "all"), F_REGION,
     { name: "u", choices: g => cached(`div:${g.S}`, () => [...inverses(g.S).keys()].filter(u => u !== 1)) }],
   terms: (p, g) => ({ dsym: regionSize(p.kind, p.region, g.N) * (1 - 1 / g.S), scope: REGION_SCOPE[p.kind] }),

@@ -367,14 +367,15 @@ above holds for them except as said:
 - **"log-v1"**: numbers are a slider, but the argument code grows with log2 d: the maximum-entropy code with a fixed
   mean of log-distance, P(k) ∝ |k|^−2 (w = ℓ_where + ℓ_which + log2 Z + 2·log2 |k|). Each doubling of the distance costs
   2 bits, so a far move costs little more than a middling one (beginner board: ±1 7.2, ±2 10.5, ±9 19.1).
-- **"multiply-v1"** (boards of digits only): the number layer has a second generator, multiply modulo the base, and a
+- **"multiply-v1"** (boards of the digits 0–9 only): the number layer has a second generator, multiply modulo the base, and a
   number's move costs the cheaper of the two plus ℓ = 1 bit to say which. ×m is named by its magnitude: λ×·log2 m with
   ×0 read as ×base, λ× = 1.496 on ten digits (the Kraft root over m = 0, 2 … 9), and it erases ε = log2 gcd(m, base)
   bits, since it merges that many numbers into one (×2: 1 bit; ×5: 2.32; ×0: 3.32; ×3, ×7, ×9 erase nothing). The room
   offers `multiply(where, by)` and `divide(where, by)` (÷u is × the inverse of u: only 3, 7, 9 on digits). Beginner
   board: +1 is 6.58 bits (8.8 energy; the extra bit), ×3 is 7.37 (10.1) whatever it moves, ×0 is 13.29 (22.1). The
-  price stops being a distance: 38 of the 90 digit pairs are cheaper by a multiply than by their add (3 → 9 costs a ×3,
-  not a +6), a → b need not cost what b → a costs, and two moves can cost less than the one move they add up to.
+  price stops being a distance on the number line: 43 of the 90 digit pairs are cheaper than their add (3 → 9 costs a
+  ×3, not a +6), and a → b need not cost what b → a costs. A cell pays its cheapest ROUTE (0 → 9 is +1 then ×9, two
+  located steps, 16.33 bits, not a +9 at 19.26), so one call never costs more than calls that do the same.
 
 **The noise follows the model.** Hold rarity's mutation noise (§8) is one move drawn with probability ∝ 2^−C. Under
 distance-v1 it draws a uniform cell and then one generator argument (a number by ±k, a suit or a colour to one of the

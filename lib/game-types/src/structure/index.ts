@@ -191,6 +191,26 @@ function anyOf(layer: Layer, members: readonly Generator[]): Generator {
     members.flatMap(g => g.argDistances), 0);
 }
 
+/**
+ * A generator's prices closed under composition: moving a to b costs the cheapest SEQUENCE of its arguments, each
+ * further step paying `hop` bits again (the site's ℓ_where + ℓ_which, which every elementary move pays). For a
+ * generator whose price is a metric (add, turn, set) this changes nothing; with two generators on one layer (add and
+ * multiply) a two-step route can beat every single argument (0 → 9 as +1 then ×9), and a call must never cost more
+ * than the calls that do the same.
+ */
+export function closedUnderComposition(g: Generator, hop: number): Generator {
+  const n = layerSize(g.layer), d: number[] = Array.from({ length: n * n }, (_, i) => {
+    const a = Math.floor(i / n), b = i % n;
+    return a === b ? 0 : g.argBits(a, b) + g.erasedBits(a, b);
+  });
+  for (let k = 0; k < n; k++) for (let a = 0; a < n; a++) for (let b = 0; b < n; b++) {
+    if (a === b || a === k || b === k) continue;
+    const via = d[a * n + k] + hop + d[k * n + b];
+    if (via < d[a * n + b] - 1e-12) d[a * n + b] = via;
+  }
+  return Object.freeze({ ...g, argBits: (a: number, b: number) => d[a * n + b], erasedBits: () => 0 });
+}
+
 const generators = new Map<string, Generator | null>();
 /** The generator `model` gives a layer; null for a unit layer (no move). */
 export function generatorOf(layer: Layer, model: CostModel): Generator | null {

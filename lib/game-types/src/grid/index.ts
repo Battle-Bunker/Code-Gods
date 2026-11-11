@@ -7,7 +7,7 @@ import { assemblePrelude, availableOf, memo, offerKey } from "../prelude.ts";
 import type { Codec, Instantiation, InstanceInfo, ObjectTypeDef, ParamSchema, PreludeParts, Rng, TypeArgs } from "../types.ts";
 import { draw } from "../util.ts";
 import {
-  DEFAULT_COST_MODEL, effectWork, generatorOf, layerSize, numberLayerKind, siteWork,
+  DEFAULT_COST_MODEL, closedUnderComposition, effectWork, generatorOf, locationBits, layerSize, numberLayerKind, siteWork,
   type CostModel, type CostRow, type Family, type Layer,
 } from "../structure/index.ts";
 import { decodeGrid, encodeGrid, gridMaxLength, gridTypeKey, type GridTypeArgs, type GridValue } from "./codec.ts";
@@ -150,10 +150,13 @@ export function gridFamilies(inst: Instantiation, model: CostModel = DEFAULT_COS
     : [["rank", { kind: numberLayerKind(model), n: R }, (v, i) => s.ranks[v.sym[i]], (v, i, x) => { v.sym[i] += x - s.ranks[v.sym[i]]; }],
       ["suit", { kind: "categorical", n: suits }, (v, i) => (v.sym[i] - s.ranks[v.sym[i]]) / R, (v, i, x) => { v.sym[i] = x * R + s.ranks[v.sym[i]]; }],
       ["colour", { kind: "categorical", n: C }, (v, i) => v.col[i], (v, i, x) => { v.col[i] = x; }]];
-  fams = Object.freeze(layers.flatMap(([id, layer, get, set]) => {
+  const open = layers.flatMap(([id, layer, get, set]) => {
     const generator = generatorOf(layer, model);
-    return generator ? [Object.freeze({ id, generator, sites, get, set })] : [];
-  }));
+    return generator ? [{ id, generator, sites, get, set }] : [];
+  });
+  // A layer with several generators (multiply-v1's numbers) is priced by its cheapest route, not its cheapest step.
+  fams = Object.freeze(open.map(f => Object.freeze(f.generator.id !== "any" ? f
+    : { ...f, generator: closedUnderComposition(f.generator, locationBits(f, open.length)) })));
   familiesCache.set(key, fams);
   return fams;
 }
@@ -185,11 +188,17 @@ function callWork(a: GridValue, b: GridValue, _call: unknown, inst: Instantiatio
 export function gridCostTable(inst: Instantiation, model: CostModel = DEFAULT_COST_MODEL): readonly CostRow[] {
   const fams = gridFamilies(inst, model), rows: CostRow[] = [];
   for (const f of fams) {
-    const n = layerSize(f.generator.layer);
-    if (f.generator.id === "set") rows.push({ move: `change a cell's ${f.id}`, work: siteWork(f, fams.length, 0, 1) });
-    else for (let k = 1; k < n; k++) {
-      if (f.generator.distance(0, k) < k) break; // a dial: the far half repeats the near half
-      rows.push({ move: `move a cell's ${f.id === "rank" ? "number" : f.id} by ${k}`, work: siteWork(f, fams.length, 0, k) });
+    const g = f.generator, n = layerSize(g.layer), what = f.id === "rank" ? "number" : f.id, where = locationBits(f, fams.length);
+    if (g.id === "set") rows.push({ move: `change a cell's ${what}`, work: siteWork(f, fams.length, 0, 1) });
+    else if (g.id === "any") {
+      // Several generators on one layer: one row per argument (its own price; a cell pays its cheapest route).
+      for (const x of g.args) {
+        if (x.label.startsWith("-")) continue;
+        rows.push({ move: x.label.startsWith("+") ? `add ${x.label.slice(1)} to a cell's ${what} (or take it away)` : `multiply a cell's ${what} by ${x.label.slice(1)}`, work: where + x.bits + x.erased });
+      }
+    } else for (let k = 1; k < n; k++) {
+      if (g.distance(0, k) < k) break; // a dial: the far half repeats the near half
+      rows.push({ move: `move a cell's ${what} by ${k}`, work: siteWork(f, fams.length, 0, k) });
     }
   }
   return rows;
@@ -256,8 +265,8 @@ export const GRID: ObjectTypeDef<GridValue> = Object.freeze({
   spawn: spawnGrid,
   propose: proposeGrid,
   callWork,
-  // Multiply needs digits (a number base); every other model fits every Grid.
-  supportsCostModel: (inst: Instantiation, model: CostModel) => model !== "multiply-v1" || inst.classes.includes("Numeral"),
+  // Multiply is modulo 10, on the digits 0–9; every other model fits every Grid.
+  supportsCostModel: (inst: Instantiation, model: CostModel) => model !== "multiply-v1" || inst.terms["symbols.base"] === 10,
   costTable: gridCostTable,
   layerBits,
   // A getter, so mutator modules may import grid helpers without an evaluation-order cycle.

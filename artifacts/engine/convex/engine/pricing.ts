@@ -12,7 +12,7 @@ import type { Inspection } from "@workspace/game-runtime";
 import {
   CHANGE_READ_RATIO, availableMutators, futilityWarnings, failedReadBits, measureAgent, readBound, parseAct, probeFutility, referenceMixture, withComponents, type FutilityProfile, type Instantiation,
   type ReferenceMixture,
-} from "@workspace/game-types";
+type CostModel } from "@workspace/game-types";
 import type { ActionCtx } from "../_generated/server";
 import { act, inspect, isAgentFault } from "./runtime";
 import { seasonCommitment, seasonSalt } from "./node";
@@ -39,8 +39,8 @@ export type Examination = {
 
 const lg = (x: number) => (x > 1 ? Math.log2(x) : 0);
 
-export function summonPrice(inspection: Inspection, inst: Instantiation): { cost: number; parts: SummonParts } {
-  const avail = availableMutators(inst), byId = new Map(avail.map(m => [m.id, m]));
+export function summonPrice(inspection: Inspection, inst: Instantiation, model?: CostModel): { cost: number; parts: SummonParts } {
+  const avail = availableMutators(inst, model), byId = new Map(avail.map(m => [m.id, m]));
   let literalMoves = 0;
   inspection.literalMoves.forEach(([id, raw], i) => {
     const m = byId.get(id);
@@ -78,7 +78,7 @@ export async function examineAgent(ctx: ActionCtx, settings: GameSettings, langu
     if (!isAgentFault(error)) throw error;
     throw new AgentFault((error as Error).message.slice(0, 1000));
   }
-  const price = summonPrice(inspection, inst);
+  const price = summonPrice(inspection, inst, costModelOf(settings));
   const game = live.slice(0, GAME_COMPONENT);
   const mixture = game.length ? withComponents(seasonMixture(inst), { game }) : seasonMixture(inst);
   let hostFailure: unknown, runs = 0, usesClause = false;

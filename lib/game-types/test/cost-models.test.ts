@@ -702,7 +702,9 @@ test("every generator's closed form is the cheapest argument of its declared arg
     for (let a = 0; a < n; a++) for (let b = 0; b < n; b++) {
       if (a === b) continue;
       const best = Math.min(...g.args.filter(x => x.apply(a) === b).map(x => x.bits + x.erased));
-      near(g.argBits(a, b) + g.erasedBits(a, b), best, 1e-12, `${m} ${g.id} ${n}: ${a}→${b}`);
+      // A layer with two generators is priced by its cheapest route (closedUnderComposition): never above its cheapest step.
+      if (g.id === "any") assert.ok(g.argBits(a, b) + g.erasedBits(a, b) <= best + 1e-12, `${m} any ${n}: ${a}→${b}`);
+      else near(g.argBits(a, b) + g.erasedBits(a, b), best, 1e-12, `${m} ${g.id} ${n}: ${a}→${b}`);
     }
     // Kraft over the declared arguments (the identity's slot, where a model has one, is spare).
     assert.ok(g.args.reduce((t, x) => t + 2 ** -x.bits, 0) <= 1 + 1 / n + 1e-9, `${m} ${g.id} ${n}`);
@@ -746,6 +748,16 @@ test("multiply-v1: digits only; a number's move costs the cheaper of an add and 
   // An add under multiply-v1 pays the 1 bit that says "add, not multiply": +1 is 4 + 1 + 1.585 = 6.58 (8.8 energy; 7.1 under distance-v1).
   const p1 = act(4, ["add", { ...cell, k: 1 }]);
   near(p1.ok ? p1.cost.total : NaN, changeCost(5 + lamA), 1e-9);
+  // A call never costs more than calls that do the same: 0 → 9 by one write is priced as its cheapest route, +1 then ×9
+  // (two located steps), not as a +9. W = (5 + 1.585) + (5 + λ×·log2 9) = 16.33; the +9 alone would be 19.26.
+  const w09 = act(0, ["write", { ...cell, symbol: 9 }]), two = applyCalls(GRID, mono4, board(0), JSON.stringify([["add", { ...cell, k: 1 }], ["multiply", { ...cell, m: 9 }]]), M);
+  near(w09.ok ? w09.cost.work : NaN, 10 + lamA + lamM * Math.log2(9), 1e-9, "0 → 9");
+  near(two.ok ? two.cost.work : NaN, w09.ok ? w09.cost.work : NaN, 1e-9, "one call = the two calls");
+  for (let a = 0; a < 10; a++) for (let b = 0; b < 10; b++) for (let c = 0; c < 10; c++) {
+    if (a === b || b === c || a === c) continue;
+    assert.ok(siteWork(families(mono4, M)[0], 1, a, c) <= siteWork(families(mono4, M)[0], 1, a, b) + siteWork(families(mono4, M)[0], 1, b, c) + 1e-9, `${a}→${b}→${c}`);
+  }
+  assert.ok(!GRID.supportsCostModel!(grid(4, "base12", "mono"), M), "multiply is modulo 10 only");
   // The whole one-cell code still claims at most 1.
   const f = families(mono4, M)[0];
   assert.ok(f.generator.args.reduce((t, x) => t + 2 ** -(x.bits + x.erased), 0) <= 1 + 1e-9);
@@ -754,4 +766,4 @@ test("multiply-v1: digits only; a number's move costs the cheaper of an add and 
   for (let a = 0; a < 10; a++) for (let b = 0; b < 10; b++) if (a !== b && f.generator.argBits(a, b) + f.generator.erasedBits(a, b) < 1 + lamA * Math.abs(b - a) - 1e-9) cheaper++;
   assert.equal(cheaper, CHEAPER_BY_MULTIPLY);
 });
-const CHEAPER_BY_MULTIPLY = 38;
+const CHEAPER_BY_MULTIPLY = 43;
