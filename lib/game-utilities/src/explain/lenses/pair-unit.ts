@@ -1,5 +1,5 @@
 /**
- * One fixed pair of cells as a scoring unit, for the beginner pair families (🙃 Opposite Nines, 🪑 Step-Stool Mirror):
+ * One fixed pair of cells as a scoring unit, for the beginner pair families (🙃 Opposite Nines):
  * a capsule with a link between its two cells, a primary point when the pair hits (`miss` 0) and `miss` secondary
  * points deducted. Every cell is in exactly one pair, so the board picks the pair of the cell under the pointer.
  */
