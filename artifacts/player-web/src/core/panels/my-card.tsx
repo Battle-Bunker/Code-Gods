@@ -1,7 +1,7 @@
 /**
  * Your secret goal: the goal card (core/goal/goal-card.tsx): your utility card in plain words, one example object you
  * can randomise or edit (hover it for its annotations), and how scoring works. Above the card: "Your points now" (your
- * live total) and what your agents' latest act did to your rule score and points (score-lines.tsx). The card itself is
+ * total as last counted) and what your agents' latest act did to your rule score and points (score-lines.tsx). The card itself is
  * static: the same component renders a rule family's page in the rule gallery.
  */
 import { useMemo } from "react";

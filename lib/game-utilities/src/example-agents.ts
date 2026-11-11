@@ -97,6 +97,12 @@ interface Recipe {
   readonly fitsBoard?: (c: Ctx) => boolean;
   /** The bolder variant (starterAgents): the same idea, two changes a turn. */
   readonly bold?: Variant;
+  /**
+   * A much shorter agent for the same rule, cheap enough to summon from a new player's starting energy (the summon
+   * price is the size of the code's syntax tree). It does part of the job, or does it a simpler way; when a family
+   * has one that fits the board, it is the example and the recipe itself becomes the "thorough" starter.
+   */
+  readonly tiny?: Variant & { readonly fitsBoard?: (c: Ctx) => boolean };
 }
 /** A second way to play the same rule: its own words and code, the recipe's name and goal line. */
 interface Variant {
@@ -452,6 +458,129 @@ Object.assign(RECIPES, {
       }`,
   },
 } satisfies Record<string, Recipe>);
+const MORE = "Want more? Summon the thorough version later, when you have more energy.";
+const TINY: Record<string, NonNullable<Recipe["tiny"]>> = {
+  opposite_nines: {
+    does: [
+      "Each time this agent is handed a grid, it pairs the first cell with the last, the second with the",
+      "second-last, and so on (each cell with its opposite), and fixes the first pair that does not add up to TARGET.",
+    ],
+    tryThis: `Try this: in the line that returns a move, swap cell and twin to change the first cell instead. ${MORE}`,
+    python: c => `
+      def agent(grid):
+          cells = grid.cells
+          for cell in cells:
+              twin = cells.pop()  # takes the last cell off the list: the opposite of this one
+              if cell.value + twin.value != ${target(c, 9)}:
+                  return [${c.pen.set("twin", `${target(c, 9)} - cell.value`)}]`,
+    typescript: c => `
+      function agent(grid) {
+        const cells = grid.cells;
+        for (const cell of cells) {
+          const twin = cells.pop(); // takes the last cell off the list: the opposite of this one
+          if (twin && cell.value + twin.value !== ${target(c, 9)}) return [${c.pen.set("twin", `${target(c, 9)} - cell.value`)}];
+        }
+        return []; // every pair adds up: skip and save energy
+      }`,
+  },
+  two_pair: {
+    does: [
+      "Each time this agent is handed a grid, it finds a cell in an even column whose right-hand neighbour",
+      "holds a different number, and copies its number there. Each corner box ends up as two pairs side by side.",
+    ],
+    tryThis: `Try this: change cell.right to cell.down and cell.col to cell.row to stack the pairs instead. ${MORE}`,
+    python: c => `
+      def agent(grid):
+          for cell in grid.cells:
+              if cell.col % 2 == 0 and cell.right.value != cell.value:
+                  return [${c.pen.set("cell.right", "cell.value")}]`,
+    typescript: c => `
+      function agent(grid) {
+        for (const cell of grid.cells) {
+          const other = cell.right;
+          if (cell.col % 2 === 0 && other && other.value !== cell.value) return [${c.pen.set("other", "cell.value")}];
+        }
+        return []; // every pair matches: skip and save energy
+      }`,
+  },
+  spread_three: {
+    does: [
+      "Each time this agent is handed a grid, it finds a number below BAND_LO or above BAND_HI and moves it to",
+      "BAND_LO or BAND_HI. With every number between BAND_LO and BAND_HI, no square can spread more than SPREAD.",
+    ],
+    tryThis: `Try this: change the two numbers to another pair SPREAD apart, such as BAND_ALT. ${MORE}`,
+    python: c => `
+      def agent(grid):
+          for cell in grid.cells:
+              want = min(${band(c)[1]}, max(${band(c)[0]}, cell.value))
+              if want != cell.value:
+                  return [${c.pen.set("cell", "want")}]`,
+    typescript: c => `
+      function agent(grid) {
+        for (const cell of grid.cells) {
+          const want = Math.min(${band(c)[1]}, Math.max(${band(c)[0]}, cell.value));
+          if (want !== cell.value) return [${c.pen.set("cell", "want")}];
+        }
+        return []; // every number is in the band: skip and save energy
+      }`,
+  },
+  magic_eighteen: {
+    // Two numbers that add up to half the target, twice, make the target: only for an even side and an even target.
+    fitsBoard: c => c.size === 4 && target(c, 18) === 2 * (c.lo + c.hi),
+    does: [
+      "Each time this agent is handed a grid, it finds a cell and the next one along its LINE that do not",
+      "add up to HALF, and changes the second. Two pairs that add up to HALF make a LINE of TARGET.",
+    ],
+    tryThis: `Try this: in the line that returns a move, swap cell and other to change the first cell instead. ${MORE}`,
+    python: c => `
+      def agent(grid):
+          for cell in grid.cells:
+              other = cell.${next(c)}  # the next cell along the ${line(c)} (None at the end)
+              if other and cell.value + other.value != ${target(c, 18) / 2}:
+                  return [${c.pen.set("other", `${target(c, 18) / 2} - cell.value`)}]`,
+    typescript: c => `
+      function agent(grid) {
+        for (const cell of grid.cells) {
+          const other = cell.${next(c)}; // the next cell along the ${line(c)} (null at the end)
+          if (other && cell.value + other.value !== ${target(c, 18) / 2}) return [${c.pen.set("other", `${target(c, 18) / 2} - cell.value`)}];
+        }
+        return []; // every pair adds up: skip and save energy
+      }`,
+  },
+  leapfrog: {
+    fitsBoard: c => c.size === 4 && c.lo === 0 && c.hi % 2 === 1,
+    does: [
+      "Each time this agent is handed a grid, it finds a row whose first and third numbers are not exactly",
+      "one apart, and changes the third. It leaves the second and fourth numbers of each row alone.",
+    ],
+    tryThis: `Try this: name the second and fourth cells instead of the first and third. ${MORE}`,
+    python: c => `
+      def agent(grid):
+          for first, _, third, _ in grid.rows:
+              if abs(first.value - third.value) != 1:
+                  # ^ 1 gives the number one away: 0 and 1 swap, 2 and 3 swap, and so on.
+                  return [${c.pen.set("third", "first.value ^ 1")}]`,
+    typescript: c => `
+      function agent(grid) {
+        for (const [first, , third] of grid.rows) {
+          // ^ 1 gives the number one away: 0 and 1 swap, 2 and 3 swap, and so on.
+          if (Math.abs(first.value - third.value) !== 1) return [${c.pen.set("third", "first.value ^ 1")}];
+        }
+        return []; // every row is right: skip and save energy
+      }`,
+  },
+  // Strangers and Crosswise Threes have no tiny variant: the shortest agents found that raise the score on every
+  // board cost more than a new player's starting energy (a first-pair-per-row Strangers agent at 189 bits left one
+  // test board no better; the cheapest Crosswise Threes agent was 225).
+};
+for (const [id, tiny] of Object.entries(TINY)) RECIPES[id] = { ...RECIPES[id]!, tiny };
+/** Spread of Three's band: the middle numbers SPREAD apart (3 and 6 on digits). */
+function band(c: Ctx): [number, number] {
+  const low = Math.floor((c.lo + c.hi - spread(c)) / 2);
+  return [low, low + spread(c)];
+}
+/** The next cell along a scored line: to the right in a row, below in a column. */
+const next = (c: Ctx) => (isColumns(c) ? "down" : "right");
 function apart(c: Ctx): number { return cardConst(c.i.cardSource, "APART") ?? 3; }
 function spread(c: Ctx): number { return cardConst(c.i.cardSource, "SPREAD") ?? 3; }
 
@@ -509,8 +638,10 @@ function render(i: ExampleInput, p: Pen, recipe: Recipe, variant: Variant, name:
   const c = ctxOf(i, p);
   const mark = i.language === "python" ? "#" : "//";
   const tryThis = typeof variant.tryThis === "function" ? variant.tryThis(c) : variant.tryThis;
-  const words = (text: string) => text.replace("LINE", line(c)).replace("TARGET", String(target(c, recipe.usual ?? 10)))
-    .replace("LO", String(c.lo)).replace("HI", String(c.hi)).replace("APART", String(apart(c))).replace("SPREAD", String(spread(c)));
+  const words = (text: string) => text.replaceAll("LINE", line(c)).replace("TARGET", String(target(c, recipe.usual ?? 10)))
+    .replaceAll("BAND_LO", String(band(c)[0])).replaceAll("BAND_HI", String(band(c)[1])).replace("BAND_ALT", `${band(c)[0] - 1} and ${band(c)[1] - 1}`)
+    .replace("HALF", String(target(c, recipe.usual ?? 10) / 2)).replace("HALF", String(target(c, recipe.usual ?? 10) / 2))
+    .replace("LO", String(c.lo)).replace("HI", String(c.hi)).replace("APART", String(apart(c))).replaceAll("SPREAD", String(spread(c)));
   // The player's first view of the API: how to read a number and how to change one, in the board's own words.
   const api = `cell.value reads a cell's number; ${p.mutator === "add" ? "add(cell, 1) adds one to it" : "write(cell, 5) changes it to 5"}.`;
   const head = [...(goal ? [`My goal: ${goal}`] : []), ...variant.does.map(words), api, words(tryThis)].map(l => `${mark} ${l}`);
@@ -522,33 +653,50 @@ function recipeFor(i: ExampleInput, p: Pen): Recipe {
 }
 const ctxOf = (i: ExampleInput, p: Pen): Ctx => ({ i, pen: p, lo: i.minValue ?? 0, hi: i.maxValue ?? 9, size: i.size ?? 4 });
 
-/** The example agent for a goal, from plain data (what a client has on the goal card). Total: never throws. */
+/** The family's tiny variant when it has one that fits this board. */
+function tinyOf(i: ExampleInput, p: Pen, recipe: Recipe): Variant | undefined {
+  return recipe.tiny && (!recipe.tiny.fitsBoard || recipe.tiny.fitsBoard(ctxOf(i, p))) ? recipe.tiny : undefined;
+}
+
+/**
+ * The example agent for a goal, from plain data (what a client has on the goal card): the first of starterAgents.
+ * Total: never throws.
+ */
 export function buildExampleAgent(i: ExampleInput): ExampleAgent {
-  const p = pen(i.mutators);
-  if (!p) return skipper(i, firstSentence(i.summary));
-  const recipe = recipeFor(i, p);
-  return render(i, p, recipe, recipe, recipe.name);
+  const { name, source, specific } = starterAgents(i)[0]!;
+  return { name, source, specific };
 }
 
 /** One ready-made agent a player can pick without writing code. */
 export interface StarterAgent extends ExampleAgent {
-  /** "careful" (the example itself) or "bold". */
+  /** "tiny", "thorough", "bold", or "careful" when the family has one agent that is both short and complete. */
   readonly id: string;
   /** One word for the choice, and one plain sentence saying what it does differently. */
   readonly title: string;
   readonly blurb: string;
 }
 /**
- * The ready-made agents for a goal, most careful first: the example itself, then (for families with a recipe) a bolder
- * one that makes two changes a turn. There is no "undo what hurts me" starter: an agent sees one object as it is now,
- * never what it was, so it cannot tell a change that hurt from a board that started that way. Never empty.
+ * The ready-made agents for a goal; the first is the example the forge pre-fills. A family with a tiny variant offers
+ * it first ("Simple": short enough to pay for at once) and its full recipe second ("Thorough"); otherwise the recipe
+ * alone ("Careful"). Families with a bold variant add it last. There is no "undo what hurts me" starter: an agent
+ * sees one object as it is now, never what it was, so it cannot tell a change that hurt from a board that started
+ * that way. Never empty.
  */
 export function starterAgents(i: ExampleInput): StarterAgent[] {
-  const careful = buildExampleAgent(i);
-  const out: StarterAgent[] = [{ ...careful, id: "careful", title: "Careful",
-    blurb: careful.specific ? "One small change toward my goal each turn." : "A starter that does not chase my goal yet." }];
-  const p = pen(i.mutators), recipe = p ? recipeFor(i, p) : FALLBACK;
-  if (p && recipe.bold) {
+  const p = pen(i.mutators);
+  if (!p) return [{ ...skipper(i, firstSentence(i.summary)), id: "careful", title: "Careful", blurb: "A starter that does nothing yet." }];
+  const recipe = recipeFor(i, p), tiny = tinyOf(i, p, recipe);
+  const full = render(i, p, recipe, recipe, recipe.name);
+  const out: StarterAgent[] = [];
+  if (tiny) {
+    out.push({ ...render(i, p, recipe, tiny, `Simple ${recipe.name.toLowerCase()}`), id: "tiny", title: "Simple",
+      blurb: "A short agent that costs little to summon and does the simple part of my goal." });
+    out.push({ ...full, id: "thorough", title: "Thorough", blurb: "A longer agent that chases every part of my goal. It costs more to summon." });
+  } else {
+    out.push({ ...full, id: "careful", title: "Careful",
+      blurb: full.specific ? "One small change toward my goal each turn." : "A starter that does not chase my goal yet." });
+  }
+  if (recipe.bold) {
     out.push({ ...render(i, p, recipe, recipe.bold, `Bold ${recipe.name.toLowerCase()}`), id: "bold", title: "Bold",
       blurb: "Two changes toward my goal each turn: faster, but each turn costs more energy." });
   }

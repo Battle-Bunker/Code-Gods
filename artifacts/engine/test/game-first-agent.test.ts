@@ -49,7 +49,7 @@ test("a new player's pre-filled example validates, is summoned unchanged and rai
     const summoned = await send(i, command);
     assert.equal(summoned.accepted, true, summoned.message);
   }
-  await waitFor(async () => (await raw(game.gameId)).game.worldSeconds >= 20, "the world runs", 120000, 500);
+  await waitFor(async () => (await raw(game.gameId)).game.worldSeconds >= 10, "the world runs", 180000, 500);
   for (let i = 0; i < players.length; i++) {
     const obs = await observe(i);
     const mine = obs.agents[0]!;

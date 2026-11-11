@@ -25,11 +25,10 @@ import {
   type ChatMessage, type ChatProvider, type ChatResult, type ChatToolUse, type Prices,
 } from "@workspace/ai-player";
 import type { ToolResult } from "@workspace/player-client/tools";
-import { ruleScoreWording } from "@workspace/game-utilities/card-text";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalAction, type ActionCtx } from "../_generated/server";
-import { runTool, toolError } from "../agent/registry";
+import { inPlayerWords, runTool, toolError } from "../agent/registry";
 import type { Who } from "../agent/store";
 import type { Reservation } from "../ai/seats";
 import { AI_MODEL_CATALOG, DEFAULT_AGENT_MODEL, assistantMockEnabled } from "../lib/aiModels";
@@ -81,18 +80,6 @@ async function briefingFor(ctx: ActionCtx, credentialId: Context["turn"]["creden
   return assistantBriefing({ observation: inPlayerWords(observation), layout, preparing });
 }
 
-/**
- * The observation with the goal card's summaries in the player's words (game-utilities card-text.ts): a card's
- * "scores 1 point" is the rule score, and "points" is kept for the leaderboard, so the assistant never mixes them.
- */
-function inPlayerWords(observation: unknown): unknown {
-  const o = observation as { self?: { utility?: { summary?: unknown; penalty?: { summary?: unknown } } } } | undefined;
-  const utility = o?.self?.utility;
-  if (!utility || typeof utility !== "object") return observation;
-  const reword = <T extends { summary?: unknown }>(card: T): T => typeof card.summary === "string" ? { ...card, summary: ruleScoreWording(card.summary) } : card;
-  const penalty = utility.penalty && typeof utility.penalty === "object" ? { penalty: reword(utility.penalty) } : {};
-  return { ...o, self: { ...o!.self, utility: { ...reword(utility), ...penalty } } };
-}
 
 /**
  * The replay on the human's screen when they wrote (docs/replay-design.md §8): which ended game, which moment, seen as

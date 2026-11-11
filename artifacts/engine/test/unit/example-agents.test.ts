@@ -55,17 +55,30 @@ after(() => { for (const r of runtimes.values()) r.close(); });
  * costs about twice as much there.
  *
  * Today's Python prices on the default setup (2026-11-11), each budget set just above its number so a dearer example
- * is noticed. The default setup's starting energy is 200, so in planning a new player can only pay for Mirrormancer's;
- * the others can be summoned a few seconds into the running phase. Starting energy and pricing are owned elsewhere.
+ * is noticed. A new player pays from the starting energy (200) in planning, so the pre-filled example of each family
+ * is its "tiny" variant where one exists under PAYABLE; the full recipe is the "thorough" starter, payable a few
+ * seconds into the running phase. Starting energy and pricing are owned elsewhere.
  */
-const PYTHON_PRICE_BUDGET: Readonly<Record<string, number>> = {
+const PAYABLE = 190;
+/** The pre-filled example (the first starter) of each default-pool family. */
+const EXAMPLE_PRICE_BUDGET: Readonly<Record<string, number>> = {
+  two_pair: 176,          // 174.3 (tiny)
+  spread_three: 171,      // 169.2 (tiny)
   mirrormancer: 180,      // 178.3
+  leapfrog: 183,          // 181.6 (tiny)
+  magic_eighteen: 185,    // 183.7 (tiny)
+  opposite_nines: 189,    // 187.4 (tiny)
+  crosswise_threes: 370,  // 364.6: no agent under 190 found (the cheapest that scores on every board was 225)
+  strangers: 430,         // 424.4: a 189-bit agent (first pair of each row) left one of eight test boards no better
+};
+/** Default-pool families whose pre-filled example a new player cannot pay for in planning, with today's price. */
+const NOT_PAYABLE_IN_PLANNING: Readonly<Record<string, number>> = { crosswise_threes: 364.6, strangers: 424.4 };
+/** The thorough starters (the full recipes) of the families that also have a tiny one. */
+const THOROUGH_PRICE_BUDGET: Readonly<Record<string, number>> = {
   opposite_nines: 210,    // 206.9
   leapfrog: 240,          // 237.7
   magic_eighteen: 260,    // 256.7
-  crosswise_threes: 370,  // 364.6
   two_pair: 380,          // 377.1
-  strangers: 430,         // 424.4
   spread_three: 575,      // 572.1
 };
 /** The fallback (133.5 in Python, 239.0 in TypeScript) and the recipes of families outside the default pool. */
@@ -142,10 +155,18 @@ test("the generator is total: every family the board can deal, and an unknown on
     assert.ok(example.source.split("\n").some(l => /Try this:/.test(l)), `${c.id} ${language}: invites the first edit`);
     if (c.id !== "no_such_family") assert.ok(example.source.includes("My goal: "), `${c.id} ${language}: says the goal`);
     const { cost } = await runtime(language).inspect(example.source, room);
-    const budget = language === "python" && inPool.has(c.id) ? PYTHON_PRICE_BUDGET[c.id] : OTHER_PRICE_CEILING[language];
-    assert.ok(budget !== undefined, `${c.id}: state its Python summon price budget in PYTHON_PRICE_BUDGET (today ${cost.toFixed(1)})`);
+    const budget = language === "python" && inPool.has(c.id) ? EXAMPLE_PRICE_BUDGET[c.id] : OTHER_PRICE_CEILING[language];
+    assert.ok(budget !== undefined, `${c.id}: state its Python summon price budget in EXAMPLE_PRICE_BUDGET (today ${cost.toFixed(1)})`);
     assert.ok(cost <= budget, `${c.id} ${language}: summon price ${cost.toFixed(1)} is within its budget ${budget}`);
-    if (language === "python" && cost <= settings.startingEnergy) payable.push(c.id);
+    if (language === "python" && inPool.has(c.id)) {
+      console.log(`price ${c.id}: ${cost.toFixed(1)}`);
+      if (cost <= PAYABLE) payable.push(c.id);
+      const thorough = starterAgentsFor(c.id, c.params, inst, language).find(s => s.id === "thorough");
+      if (thorough) {
+        const price = (await runtime(language).inspect(thorough.source, room)).cost;
+        assert.ok(price <= THOROUGH_PRICE_BUDGET[c.id]!, `${c.id} thorough: summon price ${price.toFixed(1)} within ${THOROUGH_PRICE_BUDGET[c.id]}`);
+      }
+    }
     if (inPool.has(c.id)) {
       const bare = await runtime(language).inspect(withoutComments(example.source), room);
       assert.equal(bare.cost, cost, `${c.id} ${language}: comments and blank lines are free`);
@@ -154,9 +175,9 @@ test("the generator is total: every family the board can deal, and an unknown on
     const { changes } = await play(language, example.source, start, 3, 99);
     if (!example.specific) assert.ok(changes > 0, `${c.id} ${language}: the fallback changes the board`);
   }
-  // Not a goal, a record: which default-pool examples a new player can pay for in planning today.
-  assert.deepEqual(payable.filter(id => inPool.has(id)), ["mirrormancer"],
-    `default-pool Python examples within the starting energy (${settings.startingEnergy}); update this record when prices or the energy change`);
+  assert.deepEqual(pool.map(f => f.id).filter(id => !payable.includes(id)).sort(), Object.keys(NOT_PAYABLE_IN_PLANNING).sort(),
+    `default-pool examples priced above ${PAYABLE} (starting energy ${settings.startingEnergy}) are exactly those listed in NOT_PAYABLE_IN_PLANNING`);
+  assert.ok(PAYABLE < settings.startingEnergy, "payable means under the default setup's starting energy");
 });
 
 for (const f of tested) for (const language of LANGUAGES) {
@@ -204,24 +225,28 @@ for (const f of tested) for (const language of LANGUAGES) {
       const where = `${f.id} ${example.id} ${JSON.stringify(params)}`;
       const improved = world.filter((v, k) => better(score(v), score(start[k]!))).length;
       const worse = world.filter((v, k) => better(score(start[k]!), score(v))).length;
-      assert.ok(improved >= 8 && worse === 0, `${where}: ${improved} of 10 objects improved, ${worse} got worse`);
+      // A tiny starter does the simple part of the rule, so it may leave more objects as they were.
+      assert.ok(improved >= (example.id === "tiny" ? 6 : 8) && worse === 0, `${where}: ${improved} of 10 objects improved, ${worse} got worse`);
       assert.ok(collisions <= changes / 10, `${where}: ${collisions} collisions for ${changes} changes`);
     }
   });
 }
 
-test("starter agents: the careful one is the example itself, a bold one where the family has it, each with plain words", async () => {
+test("starter agents: the first is the example itself; simple then thorough where a tiny one exists; plain words", async () => {
   for (const language of LANGUAGES) {
     for (const f of dealable) for (const params of canonicalSupport(f, ctx)) {
       const starters = starterAgentsFor(f.id, params, inst, language), example = exampleAgent(f.id, params, inst, language);
-      assert.deepEqual({ name: starters[0]!.name, source: starters[0]!.source, specific: starters[0]!.specific }, example, `${f.id}: careful is the example`);
-      assert.deepEqual(starters.map(s => s.id), starters.length === 2 ? ["careful", "bold"] : ["careful"]);
+      assert.deepEqual({ name: starters[0]!.name, source: starters[0]!.source, specific: starters[0]!.specific }, example, `${f.id}: the first starter is the example`);
+      const ids = starters.map(s => s.id).join();
+      assert.ok(["careful", "careful,bold", "tiny,thorough", "tiny,thorough,bold"].includes(ids), `${f.id}: ${ids}`);
       for (const s of starters) {
         assert.ok(s.title && s.blurb.endsWith(".") && s.name.length <= 40 && !/[—–]/.test(s.blurb + s.source), `${f.id} ${s.id}`);
-        if (s.id === "bold") await runtime(language).inspect(s.source, room);
+        if (s.id === "tiny") assert.match(s.source, /Want more\? Summon the thorough version later, when you have more energy\./);
+        if (s.id !== "careful") await runtime(language).inspect(s.source, room);
       }
     }
     assert.deepEqual(starterAgentsFor("mirrormancer", { axis: "LR" }, inst, language).map(s => s.title), ["Careful", "Bold"]);
+    assert.deepEqual(starterAgentsFor("two_pair", {}, inst, language).map(s => s.title), ["Simple", "Thorough"]);
     assert.deepEqual(starterAgents({ familyId: "no_such_family", language, mutators: ["paint"] }).map(s => s.id), ["careful"], "never empty");
   }
 });

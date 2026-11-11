@@ -7,7 +7,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  FIRST_AGENT_HINT, STARTER_AGENT_HINT, firstAgentFill, firstAgentHint, untouchedExample, validatesExample, type Examples, type FirstAgentState,
+  FIRST_AGENT_HINT, STARTER_AGENT_HINT, armedStep, armedText, energyHint, firstAgentFill, firstAgentHint, untouchedExample, validatesExample, type ArmedSummon, type Examples, type FirstAgentState,
 } from "../src/core/panels/first-agent.ts";
 
 const py = { name: "Mirror maker", source: "# My goal: mirrors\ndef agent(grid):\n    return []\n", specific: true };
@@ -66,4 +66,38 @@ test("the untouched example validates by itself once, when validation can run", 
   assert.equal(validatesExample({ ...ok, busy: true }), false);
   assert.equal(validatesExample({ ...ok, ready: false }), false, "sandbox warming, game ended, read-only");
   assert.equal(validatesExample({ ...ok, tried: true }), false, "never in a loop");
+});
+
+test("an agent the player cannot pay for yet: the hint gives both numbers and says when it will be payable", () => {
+  assert.equal(energyHint({ cost: 150, energy: 200, income: 64, planning: true }), null, "payable: nothing to say");
+  assert.equal(energyHint({ cost: 200, energy: 200, planning: true }), null);
+  assert.equal(energyHint({ cost: 364.6, energy: 200, income: 64, planning: true }),
+    "This agent costs 365 energy and you have 200. You will have enough about 3 s after the world starts.");
+  assert.equal(energyHint({ cost: 364.6, energy: 200.9, income: 8, planning: false }),
+    "This agent costs 365 energy and you have 200. You will have enough in about 25 s.", "longer waits are rounded up to 5 s");
+  assert.equal(energyHint({ cost: 365, energy: 200, planning: true }),
+    "This agent costs 365 energy and you have 200. You earn more once the world starts.", "income unknown: no time");
+  assert.equal(energyHint({ cost: 365, energy: 200, planning: false }), "This agent costs 365 energy and you have 200. You earn more as the world runs.");
+  assert.equal(energyHint({ cost: 365, energy: 200, income: 0, planning: false }),
+    "This agent costs 365 energy and you have 200. All your power goes to your agents, so your own energy is not growing. Lower an agent's share in My agents, then come back.");
+});
+
+test("an armed summon waits for the energy, fires once it is there, and is dropped by an edit", () => {
+  const armed: ArmedSummon = { name: "Three apart", language: "python", source: "def agent(grid):\n    return []\n", cost: 365 };
+  const now = { source: armed.source, language: "python", energy: 200, busy: false, canSummon: true };
+  assert.equal(armedStep(null, now), "idle");
+  assert.equal(armedStep(armed, now), "wait", "not enough energy yet");
+  assert.equal(armedStep(armed, { ...now, energy: undefined }), "wait", "energy not known");
+  assert.equal(armedStep(armed, { ...now, energy: 364.9 }), "wait");
+  assert.equal(armedStep(armed, { ...now, energy: 365 }), "fire");
+  assert.equal(armedStep(armed, { ...now, energy: 900, busy: true }), "wait", "one command at a time");
+  assert.equal(armedStep(armed, { ...now, energy: 900, canSummon: false }), "wait", "sandbox warming or game paused: not now");
+  assert.equal(armedStep(armed, { ...now, energy: 900, source: armed.source + "#" }), "disarm", "an edit is a different agent");
+  assert.equal(armedStep(armed, { ...now, language: "typescript" }), "disarm");
+  // The caller clears the armed summon before sending, so the next step cannot fire again.
+  assert.equal(armedStep(null, { ...now, energy: 900 }), "idle", "never twice");
+  assert.equal(armedText(armed, { energy: 200, income: 64, planning: true }),
+    "Armed: Three apart will be summoned about 3 s after the world starts. Keep this pane open.");
+  assert.equal(armedText(armed, { energy: 200, income: 8, planning: false }), "Armed: Three apart will be summoned in about 25 s. Keep this pane open.");
+  assert.equal(armedText(armed, { energy: 200, planning: true }), "Armed: Three apart will be summoned as soon as you have the energy. Keep this pane open.");
 });

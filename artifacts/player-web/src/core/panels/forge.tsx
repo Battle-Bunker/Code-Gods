@@ -20,7 +20,7 @@ import { forgeLanguage, forgeLanguages, forgeSandbox } from "@/core/game/languag
 import { useAffordances } from "@/core/use-affordances";
 import { useDockActions } from "@/dock/actions";
 import { summonNeeds } from "./summon-needs";
-import { firstAgentFill, firstAgentHint, untouchedExample, validatesExample, type Example } from "./first-agent";
+import { armedStep, armedText, energyHint, firstAgentFill, firstAgentHint, untouchedExample, validatesExample, type ArmedSummon, type Example } from "./first-agent";
 import { GhostButton, PanelEmpty, PrimaryButton, TextButton, type PanelProps } from "./kit";
 
 const fmt = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(3));
@@ -111,6 +111,21 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
   const sandbox = forgeSandbox(obs, language);
   const gameplay = can.validate.ok;
   const current = validation && validation.source === source && validation.language === language ? validation.result.validation : undefined;
+  const canSummon = gameplay && !!validation?.result.accepted && !!current?.valid && current.cost <= (obs?.self.energy ?? 0) && allowed.includes(language) && source.trim().length > 0;
+  // "Summon as soon as I have the energy": armed for a validated agent the player cannot pay for yet, fired once
+  // when their live energy reaches the price (while this pane is open), dropped by an edit.
+  const [armed, setArmed] = useState<ArmedSummon | null>(null);
+  const fired = useRef<ArmedSummon | null>(null);
+  const canArm = gameplay && !canSummon && !armed && !!validation?.result.accepted && !!current?.valid && current.cost > (obs?.self.energy ?? 0) && allowed.includes(language) && source.trim().length > 0;
+  useEffect(() => {
+    const step = armedStep(armed, { source, language, energy: obs?.self.energy, busy: !!busy, canSummon: gameplay && sandbox.ready && allowed.includes(language) });
+    if (step === "disarm") setArmed(null);
+    if (step !== "fire" || !armed || fired.current === armed) return;
+    fired.current = armed;
+    setArmed(null);
+    void commands.run({ type: "summon", language: armed.language as Lang, source: armed.source, name: armed.name, ...(armed.description ? { description: armed.description } : {}) })
+      .then(result => { if (result?.accepted) setSummoned(armed.name); });
+  });
   // The untouched example validates by itself (free), so its cost shows and Summon is one click away.
   const autoValidated = useRef("");
   useEffect(() => {
@@ -121,7 +136,6 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
     autoValidated.current = key;
     void commands.run({ type: "validate", language, source });
   });
-  const canSummon = gameplay && !!validation?.result.accepted && !!current?.valid && current.cost <= (obs?.self.energy ?? 0) && allowed.includes(language) && source.trim().length > 0;
   const arg = instance?.objectType === "Grid" ? "grid" : "x";
   const noun = instance?.objectType === "Grid" ? "grid" : "object";
   return (
@@ -141,13 +155,7 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
         <p className="text-xs text-muted-foreground">Your assistant has a draft here. <TextButton onClick={() => runner.setDraft({ source: assistantDraft })}>Load it</TextButton></p>
       )}
       {hint && <p data-testid="text-first-agent-hint" className="text-sm font-semibold text-foreground">{hint}</p>}
-      <textarea ref={editor} data-testid="input-source" value={source} onChange={e => runner.setDraft({ source: e.target.value })} maxLength={16384} spellCheck={false}
-        aria-label="Agent source"
-        placeholder={language === "python" ? `def agent(${arg}):\n    # return a list of moves, e.g. [swap(...)]\n    return []`
-          : `function agent(${arg}) {\n  // return a list of moves, e.g. [swap(...)]\n  return [];\n}`}
-        className="h-56 w-full resize-y border-l-4 border-[hsl(var(--input))] bg-secondary p-3 font-mono text-[13px] leading-relaxed text-secondary-foreground caret-[hsl(var(--primary))] outline-none focus:border-primary" />
-      <p className="text-xs text-muted-foreground">Write <code>{language === "python" ? `def agent(${arg}):` : `function agent(${arg})`}</code>. It reads the {noun} and returns at most 16 moves from the room's helpers; each act costs bits from the agent's own energy.</p>
-      {obs?.instance && <HelpersDrawer helpers={obs.instance.helpers} language={language} onInsert={insert} open={showHelpers} />}
+      {/* The name, the buttons and what they say come before the code, so Summon is in view in a small pane. */}
       <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
         <label className="space-y-0.5 text-xs text-muted-foreground">
           Name (required to summon)
@@ -164,21 +172,34 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
         <GhostButton testId="button-validate" disabled={!gameplay || !!busy || !allowed.includes(language) || !source.trim()} onClick={() => void commands.run({ type: "validate", language, source })}>
           <Wand2 size={14} /> {busy === "validate" ? "Validating" : "Validate (free)"}
         </GhostButton>
-        <PrimaryButton testId="button-summon" disabled={!canSummon || !name.trim()} onClick={() => {
-          const summonedName = name.trim();
-          void commands.run({ type: "summon", language, source, name: summonedName, ...(description.trim() ? { description: description.trim() } : {}) })
+        <PrimaryButton testId="button-summon" disabled={!(canSummon || canArm) || !name.trim()} onClick={() => {
+          const summonedName = name.trim(), about = description.trim();
+          // Not payable yet: arm a one-shot that summons when the energy is there (the effect above fires it).
+          if (!canSummon) { if (current) setArmed({ name: summonedName, ...(about ? { description: about } : {}), language, source, cost: current.cost }); return; }
+          void commands.run({ type: "summon", language, source, name: summonedName, ...(about ? { description: about } : {}) })
             .then(result => { if (result?.accepted) setSummoned(summonedName); });
         }}>
-          <Sparkles size={14} /> {busy === "summon" ? "Summoning" : current ? `Summon · cost ${fmt(current.cost)}` : "Summon"}
+          <Sparkles size={14} /> {busy === "summon" ? "Summoning" : canArm ? "Summon as soon as I have the energy" : current ? `Summon · cost ${fmt(current.cost)}` : "Summon"}
         </PrimaryButton>
         {/* With no code view to go back to, Done goes to My agents (leaving edit mode alone would change nothing). */}
         <TextButton onClick={() => { runner.setEditing(false); if (onlyEditor) dock.show("agents"); }}>Done</TextButton>
       </div>
       {summoned && <p data-testid="text-summoned" className="text-sm font-semibold text-[hsl(var(--accent))]">Summoned: {summoned} is in the game. {obs?.phase === "planning" ? "It acts when the world starts." : "It acts whenever it gets a turn."} Find it in My agents.</p>}
-      {gameplay && !busy && !(canSummon && name.trim()) && source.trim() && (() => {
-        const needs = summonNeeds(!!current?.valid, !!name.trim(), !!current && current.cost <= (obs?.self.energy ?? 0));
+      {armed && <p data-testid="text-armed" className="text-sm font-semibold text-foreground">{armedText(armed, { energy: obs?.self.energy ?? 0, income: obs?.self.income, planning: obs?.phase === "planning" })} <TextButton onClick={() => setArmed(null)}>Cancel</TextButton></p>}
+      {gameplay && !busy && !armed && !(canSummon && name.trim()) && source.trim() && (() => {
+        // Too dear for now: say both numbers and when it will be payable, not only that it is.
+        const short = current?.valid && name.trim() ? energyHint({ cost: current.cost, energy: obs?.self.energy ?? 0, income: obs?.self.income, planning: obs?.phase === "planning" }) : null;
+        const needs = short ?? summonNeeds(!!current?.valid, !!name.trim(), !!current && current.cost <= (obs?.self.energy ?? 0));
         return needs && <p data-testid="text-summon-needs" className="text-xs text-muted-foreground">{needs}</p>;
       })()}
+      {notice && <p data-testid="text-notice" className={`text-sm ${notice.ok ? "text-[hsl(var(--accent))]" : "text-destructive"}`}>{notice.text}</p>}
+      <textarea ref={editor} data-testid="input-source" value={source} onChange={e => runner.setDraft({ source: e.target.value })} maxLength={16384} spellCheck={false}
+        aria-label="Agent source"
+        placeholder={language === "python" ? `def agent(${arg}):\n    # return a list of moves, e.g. [swap(...)]\n    return []`
+          : `function agent(${arg}) {\n  // return a list of moves, e.g. [swap(...)]\n  return [];\n}`}
+        className="h-56 w-full resize-y border-l-4 border-[hsl(var(--input))] bg-secondary p-3 font-mono text-[13px] leading-relaxed text-secondary-foreground caret-[hsl(var(--primary))] outline-none focus:border-primary" />
+      <p className="text-xs text-muted-foreground">Write <code>{language === "python" ? `def agent(${arg}):` : `function agent(${arg})`}</code>. It reads the {noun} and returns at most 16 moves from the room's helpers; each act costs bits from the agent's own energy.</p>
+      {obs?.instance && <HelpersDrawer helpers={obs.instance.helpers} language={language} onInsert={insert} open={showHelpers} />}
       {!ended && sandbox.text && <p data-testid="text-forge-sandbox" className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">{sandbox.warming && <Loader2 size={12} className="animate-spin" />}{sandbox.text}</p>}
       {!can.validate.ok && !ended && !sandbox.text && !busy && <p data-testid="text-forge-off" className="text-xs font-semibold text-muted-foreground">{can.validate.reason}</p>}
       {ended && <p data-testid="text-forge-ended" className="text-xs font-semibold text-muted-foreground">No summons after the end: the game is over, so Validate and Summon are off. Your code stays here for the next game.</p>}
@@ -201,7 +222,6 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
           </div>
         ) : <p className="text-xs text-muted-foreground">{validation ? "The code changed since it was validated. Validate again." : "Validate before summoning: it is free."}</p>}
       </div>
-      {notice && <p data-testid="text-notice" className={`text-sm ${notice.ok ? "text-[hsl(var(--accent))]" : "text-destructive"}`}>{notice.text}</p>}
     </div>
   );
 }
