@@ -158,7 +158,7 @@ function ReplayDock({ room, gameCode, access, controller, partial }: { room: Roo
         <Link to={{ kind: "room", room: room.shortCode }} className="underline" data-testid="link-room">Room {room.shortCode}</Link>
         <Link to={{ kind: "room", room: room.shortCode }} className="underline" data-testid="link-past-games">Past games</Link>
         <span className="font-serif text-base">Game <span className="font-mono" data-testid="text-game-code">{gameCode}</span></span>
-        <span className="label" data-testid="text-game-status">ended{controller.replay.game.endReason ? `: ${endReasonLabel(controller.replay.game.endReason)}` : ""} · read-only replay</span>
+        <span className="label" data-testid="text-game-status">{controller.replay.game.endReason ? `game over: ${endReasonLabel(controller.replay.game.endReason)}` : "ended"} · read-only replay</span>
         {partial && <span className="text-xs text-destructive" data-testid="text-replay-partial">Only part of the replay loaded ({partial}).</span>}
         <PlayerPalette compact suggested={["ui.replay.toggle", "ui.replay.start", "ui.replay.end"]} />
       </div>
