@@ -16,13 +16,12 @@ export const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b
 const strangersText = (g: GridSpec): CardText => ({
   emoji: "👋", name: "Strangers", consts: [],
   about: sentences(
-    "Try to make touching numbers strangers.",
+    "Try to make touching numbers strangers (cells touch when they share a side).",
     "Two numbers are strangers when no number bigger than 1 divides both: 4 and 9 are strangers, 4 and 6 are not (2 divides both).",
-    "So keep even numbers apart, and keep a 3 away from a 6 or a 9.",
-    `Each pair of touching strangers scores ${tierPoints(1, 0, 2)} when both numbers are bigger than 1.`,
+    "So keep even numbers apart.",
+    `Each pair of touching strangers scores ${tierPoints(1, 0, 2)} when both are bigger than 1.`,
     `Each 1 scores ${tierPoints(1, 1, 2)} for every number bigger than 1 it touches.`,
-    "A 0 never scores, and neither do two equal numbers that touch.",
-    "Two cells touch when they share a side.",
+    "A 0 never scores, nor do two equal numbers.",
     g.say.valueKey(),
   ),
 });
