@@ -216,6 +216,9 @@ export const completeStart = internalAction({
       if (watchdog) await ctx.scheduler.runAfter(PREPARING_WATCHDOG_MS, internal.owner.completeStart, { roomId, requestId, watchdog: true });
       return;
     }
+    // If this run dies before the launch or the failure is recorded (both mutations conflicting, a timeout), the room
+    // would show "preparing" for ever: a later run retries (and returns at once once `preparing` is gone or failed).
+    await ctx.scheduler.runAfter(PREPARING_WATCHDOG_MS, internal.owner.completeStart, { roomId, requestId, watchdog: true });
     try {
       await launch(ctx, settings, p.deals as Deal[], resolved.tables, { roomId, revision: p.revision, memberIds: p.memberIds, requestId, prepared: requestId });
     } catch (error) {
