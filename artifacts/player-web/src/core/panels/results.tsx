@@ -6,6 +6,7 @@
 import { dimensionVar } from "@workspace/object-views";
 import { LineChart, Obj, Table, useGame, useLeaderboard, useObjectsTop, useRoomInfo, useTrajectories } from "@/sdk";
 import { usePastGames } from "@/core/game/past-games";
+import { Link } from "@/core/navigation";
 import { ObjectRef, PanelEmpty, PreparingNote, Section, fmt, ordinal, referObject, type PanelProps } from "./kit";
 
 /** Your bits × the others' care, in the dimension colours every panel uses. */
@@ -48,7 +49,13 @@ export default function Results({ params, phase }: PanelProps<"results">) {
   return (
     <div className="space-y-5" data-testid="panel-results">
       {preparing && <PreparingNote preparing={preparing} />}
-      <p className="text-base">{record ? `Game ${record.shortCode}: ` : ""}{why}</p>
+      {/* The outcome is the panel's headline; once this game has ended, the next step is the room (its next game). */}
+      <p className="font-serif text-xl font-semibold leading-snug" data-testid="text-results-headline">{record ? `Game ${record.shortCode}: ` : ""}{why}</p>
+      {live && room?.shortCode && (
+        <Link to={{ kind: "room", room: room.shortCode }} className="inline-block bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground" data-testid="link-results-room">
+          Back to room {room.shortCode} for the next game
+        </Link>
+      )}
       {params.section !== "mine" && (
         <Section title="Final standings">
           <Table rows={rows} rowKey={r => r.id} columns={[
