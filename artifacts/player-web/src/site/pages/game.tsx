@@ -167,7 +167,7 @@ function SpectatorView({ game, instance, room }: { game: GameHeader; instance?: 
       </header>
       <div className="grid gap-6 grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] items-start">
         <div className="space-y-6 min-w-0">
-          <GameStandings gameId={game.id} roster={game.roster} meId={user?.id} ownerId={game.ownerId}
+          <GameStandings gameId={game.id} roster={game.roster} meId={user?.id} ownerId={game.ownerId} planning={active && game.phase === "planning"}
             emptyBody={active ? "Scores appear once the world begins to run." : "No standings were recorded."} />
           {game.roomId ? (
             <GameChat roomId={game.roomId} gameId={game.id} canPost={canPost} pending={act.pending}
