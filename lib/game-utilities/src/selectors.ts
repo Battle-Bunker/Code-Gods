@@ -76,6 +76,9 @@ export const divineLottery: UtilitySelector = {
       seen.add(key);
       chosen.push(descriptor);
     }
+    // Redraws favour the earlier seats (a repeat is redrawn for the later one), so shuffle the finished deal: every seat
+    // then has the same chance of every family.
+    for (let i = chosen.length - 1; i > 0; i--) { const j = rng.int(i + 1); [chosen[i], chosen[j]] = [chosen[j], chosen[i]]; }
     return chosen;
   },
 };
