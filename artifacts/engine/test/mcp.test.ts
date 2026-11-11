@@ -281,6 +281,8 @@ test("commands: summon is idempotent per commandId, a changed payload is a CONFL
   assert.equal(done.data.receipt.accepted, true);
   // Required commandIds and simple commands.
   assert.ok((await call(actor.token, "pause_game", {})).rpcError || (await call(actor.token, "pause_game", {})).error, "pause needs a commandId");
+  const planningPause = await call(actor.token, "pause_game", { commandId: randomUUID() });
+  assert.match(planningPause.data?.receipt?.message ?? "", /only while the game is running \(it is planning\)/, JSON.stringify(planningPause));
   const chat = await call(actor.token, "send_chat", { text: "hello over MCP" });
   assert.equal(chat.data.receipt.accepted, true);
   assert.ok((await host.c.query(api.rooms.chatHistory, { roomId })).some((m: any) => m.text === "hello over MCP" && m.authorId === ada.subject));

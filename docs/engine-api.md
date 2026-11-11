@@ -69,8 +69,8 @@ const convex = new ConvexReactClient(convexUrl);
 | `/api/auth/*` | Better Auth: `POST /api/auth/sign-in/social {provider: "google", callbackURL}` → `{url}` (Google), `GET /api/auth/callback/google`, `POST /api/auth/sign-out`, `GET /api/auth/get-session`, `GET /api/auth/convex/token` → `{token}`, `GET /api/auth/convex/jwks`. Same origin only; callback URLs must be on the site |
 | `POST /api/device/request` | `{challenge (S256, 43 chars), room (id/guid/short code), permission?: read\|act\|owner (default act), label?}` → `{deviceId, deviceSecret, userCode "XXXX-XXXX", verificationUrl "<site>/device?code=…", roomId, roomCode, permission, label, expiresIn: 300, interval: 2}` |
 | `POST /api/device/poll` | `{deviceId, deviceSecret, verifier}` → 200 `{status:"approved", credential, credentialId, roomId, permission, expiresAt}` (once only), 202 pending, 429 slow_down, 403 denied/forbidden, 410 expired, 400 invalid |
-| `POST /api/device/token` | `{credential}` or `Authorization: Bearer cgc_…` → a player JWT (see above) |
-| `POST /api/device/revoke` | `{credential}` → `{status:"revoked"}` |
+| `POST /api/device/token` | `{credential}` or `Authorization: Bearer cgc_…` → a player JWT (see above); 400 without a credential, 401 for a revoked, expired, unknown or malformed one |
+| `POST /api/device/revoke` | `{credential}` → `{status:"revoked"}`; 400 without a credential, 401 for a revoked, expired, unknown or malformed one |
 | `GET /api/replay/<roomId>/<gameId>` | `Authorization: Bearer <Convex JWT>` (a browser or player JWT, the one the Convex client sends) → an ended game's stored replay `{version, pages}` (the `player.replay` pages without `viewer`; `replays.stored` gives the caller's place). Same access as `player.replay`: 401 signed out, 403 not a player, spectator or the room owner, 404 unknown game or not stored yet, 409 live. `Cache-Control: private, no-store` |
 | `GET /api/calibration/<roomId>/<gameId>/<godId>` | `Authorization: Bearer <Convex JWT>` → the caller's own calibration tables `{reward, penalty?}` in the room's current game (`gameId`, `godId`: `player.myUtility`'s). 401 signed out, 403 another god's, 404 no seat in the current game, 409 not the current game. `Cache-Control: private, max-age=31536000, immutable` (a seat's tables never change) |
 
@@ -119,32 +119,39 @@ commands as the human's own client. How to connect Claude: `docs/connect-claude.
 | Tool | Permission | Arguments → `data` |
 |---|---|---|
 | `whoami` | read | → `{subject, name, roomId, roomCode, permission, kind, label, credentialId, expiresAt}` |
-| `get_rules` | read | → `{rules, settings, objectInstance, activeGame}` |
+| `get_rules` | read | → `{rules, settings, objectInstance, activeGame, preparing, note}` (`preparing`: the next game is computing its rule tables) |
 | `get_observation` | read | `objectsLimit≤200 (served ≤90), objectsSort?, objectsCursor?` → the narrow v3 observation: one server-side page of the player's objects (objectViews, default payoff first; `objectCount` the total, `nextCursor` an opaque string), ≤20 agents, sources ≤4 KB, ≤20 chat, ≤50 recent transformations |
-| `get_events` | read | `gameId?, after?, limit≤50` → `player.events` |
-| `get_trajectories` | read | `gameId?, afterSeq?, limit≤200` → `player.trajectories` |
-| `list_games` | read | `cursor, limit≤20` → `{games, total}` (`rooms.history`) |
-| `get_game_history` | read | `gameId, afterSeq?, limit≤50` → `player.history` |
+| `get_events` | read | `gameId?, after?, limit≤50 (default 20)` → `player.events` |
+| `get_trajectories` | read | `gameId?, afterSeq?, limit≤200 (default 100)` → `player.trajectories` |
+| `list_games` | read | `cursor?` (offset, default 0), `limit≤20` (default 5) → `{games, total}` (`rooms.history`) |
+| `get_game_history` | read | `gameId, afterSeq?, limit≤50 (default 20)` → `player.history` |
+| `get_replay` | read | `gameId, cursor?` (nextCursor) → an ended game the caller played in, fully revealed (`player.replay`) |
 | `get_my_utility` | read | → `player.myUtility` |
 | `evaluate_value` | read | `value` → `{ordinal, rewardBits, netBits, penalty?}` with YOUR utility in the current game |
-| `get_chat` | read | `cursor?, limit≤100` → `{messages}`, `nextCursor` (an opaque string: the next older page; null at the end) |
+| `get_chat` | read | `cursor?, limit≤100 (default 50)` → `{messages}`, `nextCursor` (an opaque string: the next older page; null at the end) |
 | `get_receipt` | read | `commandId` → `{status: received\|pending\|failed\|not_found, receipt?, error?}` |
-| `load_skill` | read | `{name}` (`game-rules`, `writing-agents`, `screen`, `game-setups`) → `{name, body}`: the skill's guidance with the live parts it reads as the caller (the room's rules; the allowed languages and the default one's helpers, and the caller's utility source; the panel catalogue) |
-| `validate_agent`, `summon_agent` | act | `source, language? (one the game allows; default its first), commandId (summon: required), gameId?, waitMs≤120000 (default 90000)` |
+| `load_skill` | read | `{name}` (`game-rules`, `writing-agents`, `screen`, `game-setups`, `analytics-code`, `rival-inference`) → `{name, body}`: the skill's guidance with the live parts it reads as the caller (the room's rules; the allowed languages and the default one's helpers, and the caller's utility source; the panel catalogue) |
+| `validate_agent`, `summon_agent` | act | `source, language? (one the game allows; default its first), commandId (summon: required), gameId?, waitMs≤120000 (default 90000)`; summon also takes `name` (required, ≤40 characters), `description?` (≤500), `powerShare?` (0–1; default: half the power not yet given to agents) |
 | `destroy_agent` | act | `agentId, commandId, gameId?` |
+| `allocate_power` | act | `agentId, share (0–1), commandId, gameId?` → receipt; a player's shares total at most 1 |
+| `set_spectator` | act | `spectator, deityId?` (another member: owner only) → `rooms.setSpectator`; applies from the next game |
 | `set_ready`, `send_chat` | act | `ready` / `text`, `commandId?` |
 | `pause_game` | act | `commandId, gameId?` |
 | `wake_engine` | act | → `activity.touch` |
 | `get_room_state`, `get_ai_catalog` | owner | → `rooms.get`, `aiTemplates.catalog` |
 | `update_settings` | owner | `requestId, revision, setupId?, settings?`: a setup from `list_setups` or the settings fields to change, not both |
 | `start_game`, `resume_game`, `end_game` | owner | `requestId` (start is idempotent per requestId) |
+| `set_ai_quotas` | owner | `requestId, aiQuota?, assistantQuota?, assistantModel?` → `rooms.setAiQuotas` (0 = none; rooms run by an administrator only) |
 | `add_ai`, `remove_ai` | owner | `requestId, aiAgentId` / `requestId, deityId` |
-| `list_setups` | read | → the catalogue (`setups.listAs`, one read inside Convex: the system's, then everyone's by name, at most 500) |
+| `list_setups`, `get_setup` | read | `query?` (words that must all appear in the name, owner or summary), `limit≤200` (default 100) → `{setups, total}` (rows without settings); `setupId` → one setup with its settings |
+| `duplicate_setup` | act | `setupId, name?` → `setups.duplicate` ("<name>'s copy") |
 | `save_setup`, `delete_setup` | act | `name, settings, setupId?, summary?` → `setups.save` (changes no room); `setupId` → `setups.remove` |
 | `list_panels`, `get_panel` | read | → `panels.list`; `slug, version?` → `panels.code` |
 | `save_panel`, `rollback_panel`, `delete_panel` | act | `slug, source, title?, placement?, size?` → `panels.save`; `slug, version` → `panels.rollback`; `slug` → `panels.remove` |
 | `get_layout` | read | → `layout.current` plus the built-in panel catalogue (`panels[{id, title, blurb, phases, paramsSchema, defaults}]`) and the caller's enabled stored panels (`storedPanels[{slug, title, placement, size}]`) |
 | `open_panel` | act | exactly one of `panelId` (a built-in panel, with `params?`) and `slug` (a stored panel), `place?` → `{paneId, layout, summary, reused}` (both or neither: BAD_REQUEST). Built-in, without `place` no pane is added: an open pane of that panel is reused (`reused: true`), else a built-in panel the player did not choose (`setBy` default or assistant) is switched to it; a new pane opens only with `place` or when every built-in panel is the player's; at most 4 (CONFLICT). Stored, without `place` an open pane of it is activated, else it opens in a new pane |
+| `run_code`, `get_code_run`, `list_code_objects`, `list_code_runs` | read | analytics scripts that only read (Python or TypeScript over named datasets) and their results, stored objects and runs; see `load_skill analytics-code` and the tool schemas |
+| `get_utility_series`, `get_board_at`, `list_utility_candidates`, `fit_utility_mixture` | read | rival inference from the caller's own and the others' summed bits; see `load_skill rival-inference` and the tool schemas |
 | `set_panel_params`, `move_pane`, `close_pane` | act | `paneId, params` / `paneId, place` / `paneId` → `{paneId, layout, summary, reused}`; the assistant pane and the last built-in panel cannot be closed (CONFLICT) |
 
 Pricing, for `validate_agent` and the observation: the summon price is paid once; `expectedActCost` (split into `breakdown.read` and `breakdown.change`) is only an ESTIMATE per act and nothing is charged from it. An act pays what it does, the bits it reads plus its change when it changes the object; returning no calls is a skip, which pays only its reads. The change costs W + 0.05·W², W being the sum of the elementary mutators the act's calls decompose into (Grid: one cell's colour or symbol; Int: one digit add d·10ᵖ or a multiplication by a prime; string: one character set, inserted or deleted), so small incremental acts are far cheaper than radical ones. An agent's energy has no cap, and each turn goes to an agent with probability proportional to its positive energy (docs/energy-model.md).
@@ -172,7 +179,7 @@ grant, `/mcp`.
 | `/connect` (the app, engine origin only) | the signed-in human reviews the client's self-reported name and the redirect host, picks one of their rooms and a permission ≤ the scope (`agent/connect:pending`, `:approve` with a `completion` secret the page generates, `:deny`). The hinted room is preselected, and offered to join (`rooms.join`) when the human is not in it. A non-owner's `owner` request starts at `act`. An account request shows "act as you in every room" with the app's origin and is approved as asked or denied. Nothing is approved without a click; an owner or account grant always needs the consent checkbox |
 | `GET /oauth/authorize/complete?request=…&completion=…` | → 302 to `redirect_uri?code&state&iss` (or `error=access_denied`). The code is released only with the approving browser's completion secret (403 otherwise), so holding the request key is not enough |
 | `POST /api/oauth/token` | form: `grant_type=authorization_code, code, code_verifier, client_id, redirect_uri` or `grant_type=refresh_token, refresh_token, client_id` → `{access_token, token_type: "Bearer", expires_in: 3600, refresh_token: "cgr_…", scope, room_id, room_code, credential_id}` (`room_id` and `room_code` null for an account grant) |
-| `POST /api/oauth/revoke` | RFC 7009: a refresh or access token → the connection is revoked; always 200 |
+| `POST /api/oauth/revoke` | RFC 7009: a refresh or access token → the connection is revoked; 200 for any token, unknown ones included; 400 `invalid_request` with no token |
 
 The access token is a 60-minute player JWT naming the credential (`cred`), so revocation applies on the next
 call. Refresh tokens rotate; presenting a used one revokes the connection, as does replaying a code. A
