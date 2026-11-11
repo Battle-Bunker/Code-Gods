@@ -273,6 +273,7 @@ const NAMED: Partial<Record<SettingsKey, Record<string, string>>> = {
     "set-v1": "Set: every change alike", "distance-v1": "Distance: further costs more",
     "dial-v1": "Dial: distance, 9 next to 0", "log-v1": "Log: a far move costs little more",
     "multiply-v1": "Multiply: add or multiply, the cheaper",
+    "proportional-v1": "Proportional: twice as far costs twice as much",
   },   // a model game-types adds later shows as its capitalised name until it gets words here (choiceLabel)
   languages: Object.fromEntries(LANGUAGES.map(l => [l, LANGUAGE_SPECS[l].label])),
 };

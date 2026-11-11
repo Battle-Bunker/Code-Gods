@@ -20,7 +20,7 @@ import { applyCalls } from "../src/mutators.ts";
 import { chiCritical, chiSquare } from "./helpers.ts";
 
 const L3 = Math.log2(3);                       // 1.58496
-const D: CostModel = "distance-v1", S1: CostModel = "set-v1";
+const D: CostModel = "distance-v1", S1: CostModel = "set-v1", P: CostModel = "proportional-v1";
 /** The models whose price is a metric on values (symmetric, subadditive, a complete code). multiply-v1 is not: it erases. */
 const METRIC_MODELS = COST_MODELS.filter(m => m !== "multiply-v1");
 const ALL: Instantiation[] = GRID.representatives().map((a: TypeArgs) => GRID.instantiate(a));
@@ -180,7 +180,8 @@ const argBitsAt = (g: Generator, d: number) => { assert.equal(g.distance(0, d), 
 
 test("Kraft per generator: the argument code claims at most 1, and exactly 1 under every distance model", () => {
   // set-v1 names the new value in log2 n bits: (n − 1)·(1/n) < 1 (the identity's slot is unused).
-  // distance-v1: λ is the root, so the sum is 1.
+  // distance-v1: λ is the root, so the sum is 1. proportional-v1: the root for the generator's share of the board's
+  // budget, 1/(cells × families) (its own test below sums the whole board to 1).
   assert.deepEqual(generatorsOf(S1).map(g => layerSize(g.layer)).sort((a, b) => a - b), [3, 4, 6, 10, 12, 16, 52]);
   assert.deepEqual(generatorsOf(D).map(g => `${g.layer.kind}${layerSize(g.layer)}`).sort(),
     ["categorical3", "categorical4", "categorical6", "ordinal10", "ordinal12", "ordinal13", "ordinal16"]);
@@ -188,7 +189,8 @@ test("Kraft per generator: the argument code claims at most 1, and exactly 1 und
     const n = layerSize(g.layer), sum = g.argDistances.reduce((s, d) => s + 2 ** -argBitsAt(g, d), 0);
     const what = `${m} ${g.id} ${g.layer.kind} ${n}`;
     assert.ok(sum <= 1 + 1e-9, `${what}: ${sum}`);
-    if (m !== S1) near(sum, 1, 1e-6, what); else near(sum, (n - 1) / n, 1e-12, what);
+    if (m !== S1) near(sum / g.mass, 1, 1e-6, what); else near(sum, (n - 1) / n, 1e-12, what);
+    assert.equal(g.mass < 1, m === P, what);
     // the argument space is every non-identity argument: n − 1 values to set, or ±1 … ±(n − 1) on a slider
     assert.equal(g.argDistances.length, g.id === "add" ? 2 * (n - 1) : n - 1, what);
     if (m !== S1) for (let a = 0; a < n; a++) for (let b = 0; b < n; b++) assert.equal(g.erasedBits(a, b), 0, "a bijection erases nothing");
@@ -197,8 +199,8 @@ test("Kraft per generator: the argument code claims at most 1, and exactly 1 und
 
 test("Kraft for a whole one-cell board: every family and every argument, with ℓ_which, claims at most 1", () => {
   // With F families each tight, Σ_f 2^(−log2 F)·1 = 1 under distance-v1. Under set-v1 each argument also pays the
-  // erasure: Σ_f (n_f − 1)/(F·n_f²) < 1.
-  for (const inst of ALL) for (const m of METRIC_MODELS) {
+  // erasure: Σ_f (n_f − 1)/(F·n_f²) < 1. (proportional-v1 has no ℓ_which to add: its whole-board sum is tested below.)
+  for (const inst of ALL) for (const m of METRIC_MODELS.filter(x => x !== P)) {
     const fams = families(inst, m);
     let sum = 0, closed = 0;
     for (const f of fams) {
@@ -767,3 +769,127 @@ test("multiply-v1: digits only; a number's move costs the cheaper of an add and 
   assert.equal(cheaper, CHEAPER_BY_MULTIPLY);
 });
 const CHEAPER_BY_MULTIPLY = 43;
+
+// ------------------------------------------------------------------------------------------------
+// proportional-v1: no ℓ_where, no ℓ_which; w = λ·d with λ the Kraft root of the whole board
+// ------------------------------------------------------------------------------------------------
+
+test("proportional-v1 λ: the Kraft root with mass 1/(cells × families); 5.044 on the 16-cell numbers board", () => {
+  // Grid(4,base10,mono): 16 cells, 1 family, a slider of ten digits. Σ over every cell and every ±k of 2^(−λ·k) = 1:
+  //   16 · 2·Σ_{k=1..9} x^k = 1 with x = 2^(−λ). The infinite sum is 2x/(1 − x) = 1/16, so x = 1/33 and
+  //   λ = log2 33 = 5.04439. Cutting the sum at k = 9 drops 2·x^10/(1 − x) = 1.4e-15: nothing a double can see.
+  near(kraftRate([1, 2, 3, 4, 5, 6, 7, 8, 9].flatMap(k => [k, k]), 1 / 16), Math.log2(33), 1e-9, "slider, mass 1/16");
+  const { f } = family(mono4, P, "rank");
+  assert.deepEqual([f.generator.id, f.generator.layer.kind, f.generator.mass], ["add", "ordinal", 1 / 16]);
+  near(f.generator.rate, Math.log2(33), 1e-9, "mono4 rank");
+  // The design's X1 row (docs/mutation-cost-design.md §3) says 5.04 for a DIAL (distances 1,1,2,2,3,3,4,4,5). The dial
+  // has no ±6 … ±9 and one ±5 instead of two, so its sum is x^5 + … = 2.6e-8 short of the slider's: its root is lower
+  // by 2.6e-8 / (ln 2 · 1/16) = 6e-7 bits. Both are 5.04.
+  const dial = kraftRate([1, 1, 2, 2, 3, 3, 4, 4, 5], 1 / 16);
+  assert.ok(dial < f.generator.rate && f.generator.rate - dial < 1e-6, `${dial}`);
+  near(dial, 5.04, 5e-3, "the design's 5.04");
+  // mass 1 is the located rate, unchanged: 1.58491.
+  assert.equal(kraftRate([1, 2, 3, 4, 5, 6, 7, 8, 9].flatMap(k => [k, k]), 1), generatorOf({ kind: "ordinal", n: 10 }, D)!.rate);
+  // Grid(4,base10,rgb): 16 cells × 2 families. Numbers: 2x/(1 − x) = 1/32, x = 1/65, λ = log2 65 = 6.0224.
+  near(family(rgb4, P, "rank").f.generator.rate, Math.log2(65), 1e-9, "rgb4 rank");
+  // The same layer on two boards has two rates: the generator is cached by its mass too.
+  assert.notEqual(family(rgb4, P, "rank").f.generator, f.generator);
+  assert.equal(family(mono4, P, "rank").f.generator, f.generator);
+});
+
+test("proportional-v1 Kraft: every cell, family and argument of the whole board claims exactly 1", () => {
+  for (const inst of ALL) {
+    const fams = families(inst, P);
+    let sum = 0;
+    for (const f of fams) {
+      assert.equal(f.generator.mass, 1 / (f.sites * fams.length), `${inst.key} ${f.id}`);
+      // siteWork is the whole price of the move (no location bits), the same in every cell: count it once per cell.
+      for (const x of f.generator.args) {
+        const from = [...Array(layerSize(f.generator.layer)).keys()].find(a => x.apply(a) !== null && x.apply(a) !== a)!;
+        near(siteWork(f, fams.length, from, x.apply(from)!), x.bits, 1e-12, `${inst.key} ${f.id} ${x.label}`);
+        sum += f.sites * 2 ** -x.bits;
+      }
+    }
+    near(sum, 1, 1e-6, inst.key);
+  }
+});
+
+test("Grid(4,base10,mono) proportional-v1: add(cell, ±k) costs W = 5.044·|k|, exactly k × the ±1 price", () => {
+  // W = λ·|k| with λ = log2 33 = 5.04439 (no cell, no family); energy = W + 0.05·W²:
+  //   k   W        0.05·W²   energy    distance-v1   set-v1
+  //   1    5.044    1.272      6.3        7.1         16.3
+  //   2   10.089    5.089     15.2        9.7         16.3
+  //   3   15.133   11.451     26.6       12.6         16.3
+  //   4   20.178   20.357     40.5       15.7         16.3
+  //   5   25.222   31.808     57.0       19.0         16.3
+  //   6   30.266   45.803     76.1       22.6         16.3
+  //   7   35.311   62.343     97.7       26.5         16.3
+  //   8   40.355   81.427    121.8       30.6         16.3
+  //   9   45.400  103.056    148.5       34.9         16.3
+  const energy = [6.3, 15.2, 26.6, 40.5, 57.0, 76.1, 97.7, 121.8, 148.5], lam = Math.log2(33);
+  const one = work(mono4, flat(mono4, 0), [add(cell(2, 1), 1)], P);
+  near(one, lam, 1e-9, "W of ±1");
+  for (let k = 1; k <= 9; k++) for (const sign of [1, -1]) {
+    const start = flat(mono4, sign > 0 ? 0 : 9), call = [add(cell(2, 1), sign * k)];
+    const p = act(mono4, start, call, P), d = act(mono4, start, call, D);
+    assert.ok(p.out.ok && d.out.ok, `add ${sign * k}`);
+    assert.deepEqual(GRID.codec(mono4).encode(p.after!), GRID.codec(mono4).encode(d.after!), "the model changes the price, never the move");
+    near(p.out.cost.work, k * one, 1e-9, `W of add ${sign * k} is ${k} × W of ±1`);
+    near(p.out.cost.total, changeCost(k * lam), 1e-9);
+    assert.equal(+p.out.cost.total.toFixed(1), energy[k - 1], `energy of add ${sign * k}`);
+  }
+  // The table the texts show is the same nine rows.
+  const rows = gridCostTable(mono4, P);
+  assert.deepEqual(rows.map(r => r.move), [1, 2, 3, 4, 5, 6, 7, 8, 9].map(k => `move a cell's number by ${k}`));
+  assert.deepEqual(rows.map(r => +changeCost(r.work).toFixed(1)), energy);
+  // Against the others: a nudge is a little cheaper than distance-v1's (6.3 < 7.1), everything further dearer, and
+  // +5 costs 57.0/16.3 = 3.5 × the flat price.
+  const dist = gridCostTable(mono4, D).map(r => r.work), flatW = gridCostTable(mono4, S1)[0].work;
+  assert.ok(rows[0].work < dist[0]);
+  for (let k = 2; k <= 9; k++) assert.ok(rows[k - 1].work > dist[k - 1], `±${k}`);
+  near(changeCost(rows[4].work) / changeCost(flatW), 3.5, 0.05, "+5 against the flat price");
+  // Every mutator is priced by its net effect: write(cell, 7) on a 5 is a +2; add(row, +2) is four cells' +2 (the cell
+  // is not named, so there is no saving and no surcharge in doing them together, before the square).
+  near(work(mono4, flat(mono4, 5), [["write", { ...cell(0, 0), symbol: 7 }]], P), 2 * lam, 1e-9, "write 7 on 5");
+  near(work(mono4, flat(mono4, 3), [add(row(1), 2)], P), 8 * lam, 1e-9, "add(row, 2)");
+  // The identity still costs nothing, and a move in another cell costs the same.
+  assert.equal(act(mono4, flat(mono4, 4), [add(cell(1, 1), 2), add(cell(1, 1), -2)], P).out.ok, false);
+  assert.equal(work(mono4, flat(mono4, 3), [add(cell(3, 3), 1)], P), one);
+});
+
+test("proportional-v1 on colours and cards: one distance, so a colour or a suit costs its located price", () => {
+  // A categorical layer of n values: (n − 1)·2^(−λ) = 1/(cells × families), λ = log2(cells × families × (n − 1)):
+  // what distance-v1 charges as log2 cells + log2 families + log2(n − 1).
+  for (const inst of ALL) for (const f of families(inst, P).filter(x => x.generator.layer.kind === "categorical")) {
+    const F = families(inst, P).length, n = layerSize(f.generator.layer), located = family(inst, D, f.id);
+    near(siteWork(f, F, 0, 1), Math.log2(f.sites * F * (n - 1)), 1e-9, `${inst.key} ${f.id}`);
+    near(siteWork(f, F, 0, 1), siteWork(located.f, located.n, 0, 1), 1e-9, `${inst.key} ${f.id} against distance-v1`);
+    for (let a = 0; a < n; a++) for (let b = 0; b < n; b++) if (a !== b) assert.equal(siteWork(f, F, a, b), siteWork(f, F, 0, 1));
+  }
+  // Grid(4,base10,rgb): a colour is log2(16·2·2) = 6 bits (7.8 energy), as under distance-v1; a number by ±1 is
+  // log2 65 = 6.02 bits (7.8), by ±2 12.04 (19.3).
+  assert.equal(work(rgb4, flat(rgb4, 4, 0), [["paint", { ...cell(1, 2), colour: 2 }]], P), 6);
+  near(work(rgb4, flat(rgb4, 4, 0), [add(cell(1, 2), 2)], P), 2 * Math.log2(65), 1e-9);
+  // Grid(7,cards,rgb), 49 cells × 3 families: a suit is log2(49·3·3) = 8.785, a colour log2(49·3·2) = 8.200.
+  const table = Object.fromEntries(gridCostTable(cards7, P).map(r => [r.move, r.work]));
+  near(table["change a cell's suit"], Math.log2(441), 1e-9);
+  near(table["change a cell's colour"], Math.log2(294), 1e-9);
+  near(table["move a cell's number by 3"], 3 * table["move a cell's number by 1"], 1e-9);
+  assert.ok(GRID.supportsCostModel!(cards7, P) && GRID.supportsCostModel!(mono4, P));
+});
+
+test("proportional-v1 noise: its own version; one cell, uniform, and almost always a ±1", () => {
+  assert.equal(noiseVersion(P), "noise-v1|beta=0.05|cost=proportional-v1");
+  // From a 5 on Grid(4,base10,mono): the weight of ±k is 2^(−C(5.044·k)), with no location bits. C(±1) = 6.317,
+  // C(±2) = 15.178, so P(±2)/P(±1) = 2^(−8.861) = 0.00215 and ±1 is 99.8% of the draws (distance-v1: about 84%).
+  const start = flat(mono4, 5), step = noiseStep(mono4, P), rng = seededRng("proportional noise"), n = 8000, byCell = Array(16).fill(0);
+  let ones = 0;
+  for (let t = 0; t < n; t++) {
+    const y = step(start, rng) as GridValue, changed = [...y.sym.keys()].filter(i => y.sym[i] !== 5);
+    assert.equal(changed.length, 1, "one cell (every ±k up to ±4 fits from a 5; further has mass below 1e-15)");
+    byCell[changed[0]]++;
+    if (Math.abs(y.sym[changed[0]] - 5) === 1) ones++;
+  }
+  near(ones / n, 1 / (1 + 2 ** -(changeCost(2 * Math.log2(33)) - changeCost(Math.log2(33)))), 5 * Math.sqrt(0.00215 / n) + 1e-4, "share of ±1");
+  assert.ok(chiSquare(byCell) < chiCritical(15), `cells: ${byCell}`);
+});

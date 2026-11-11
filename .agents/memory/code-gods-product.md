@@ -315,7 +315,8 @@ colour or suit pays a flat log2(n − 1), nothing for erasure; every mutator is 
 (`write(cell, 7)` on a 5 costs what `add(cell, 2)` costs). Every Ranked Grid has `add(where, amount=1)` in both
 models; it never wraps and fails out of range. Reads and summons stay priced. Variants in code: "dial-v1" (numbers
 wrap: 9 and 0 are one step apart), "log-v1" (price grows with log2 of the distance) and "multiply-v1" (digits only:
-adds plus multiply/divide modulo the base, a number pays the cheaper, plus 1 bit). The Lab setups (administrators only)
+adds plus multiply/divide modulo the base, a number pays the cheaper, plus 1 bit) and "proportional-v1" (no charge for
+the cell or the family: w = λ·|k| with λ the Kraft root over the whole board, 5.04 on 16 cells). The Lab setups (administrators only)
 run the beginner pool under each.
 
 **Why:** the owner (2026-11-11) wants adding a small number to cost less than setting a cell, with the cost following

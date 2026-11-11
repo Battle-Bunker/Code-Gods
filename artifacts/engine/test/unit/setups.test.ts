@@ -60,7 +60,7 @@ test("Annotated basics deals exactly the beginner pool on a numbers-only board; 
     // The Lab setups are Annotated basics under another cost model: the same board and the same eight rules.
     ...SEED_SETUPS.filter(x => isLabSeedId(x.seedId)).map(x => ({ seedId: x.seedId, pool: new Set(BEGINNER_POOL), colours: "mono" })),
   ];
-  assert.deepEqual(cases.slice(2).map(c => c.seedId), ["lab-cost-set", "lab-cost-dial", "lab-cost-log", "lab-cost-multiply"]);
+  assert.deepEqual(cases.slice(2).map(c => c.seedId), ["lab-cost-set", "lab-cost-dial", "lab-cost-log", "lab-cost-multiply", "lab-cost-proportional"]);
   for (const { seedId, pool, colours } of cases) {
     const s = seedSetupSettings(seedId);
     assert.ok(SEED_SETUPS.some(x => x.seedId === seedId && x.summary.length <= 160), `${seedId}: listed among the system setups`);

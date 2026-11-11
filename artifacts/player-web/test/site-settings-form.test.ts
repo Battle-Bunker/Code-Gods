@@ -182,6 +182,7 @@ test("the cost model: a choice under Energy › More, offered where the world ha
   assert.deepEqual(costModelChoices(classic).slice(0, 2), ["set-v1", "distance-v1"]);
   assert.deepEqual(costModelChoices(classic).slice(0, 2).map(v => choiceLabel("costModel", v)), ["Set: every change alike", "Distance: further costs more"]);
   for (const v of COST_MODELS) assert.match(choiceLabel("costModel", v), /^[A-Z][a-z]+: /, `${v} has a label in plain words`);
+  assert.equal(choiceLabel("costModel", "proportional-v1"), "Proportional: twice as far costs twice as much");
   assert.equal(choiceLabel("costModel", "future-v2"), "Future", "a model without words yet shows its name, not its id");
   assert.equal(isHidden("costModel", classic), false);
   for (const s of [DEFAULT_SETTINGS, { ...DEFAULT_SETTINGS, objectType: "string", typeArgs: { maxLength: 128 } }]) {

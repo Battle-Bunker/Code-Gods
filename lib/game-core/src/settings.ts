@@ -622,6 +622,7 @@ export const SEED_SETUPS: readonly SeedSetup[] = Object.freeze([
     labCostSeed(basics, "lab-cost-dial", "Lab: dial numbers", "Numbers are a dial: 9 and 0 are one step apart, and a step either way costs the same", "dial-v1"),
     labCostSeed(basics, "lab-cost-log", "Lab: gentle distance", "A far move costs only a little more than a middling one", "log-v1"),
     labCostSeed(basics, "lab-cost-multiply", "Lab: multiply and divide", "Adds, plus multiply and divide by the last digit; a number's move costs the cheaper of the two", "multiply-v1"),
+    labCostSeed(basics, "lab-cost-proportional", "Lab: strictly proportional", "Twice as far costs twice as much, with no charge for choosing the cell", "proportional-v1"),
   ])(ORDINARY_SEED_SETUPS.find(s => s.seedId === ANNOTATED_BASICS_SEED_ID)!),
 ]);
 

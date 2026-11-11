@@ -243,14 +243,14 @@ test("Lab setups: only an administrator finds, duplicates or runs them; a room o
   await admin.mutation(internal.setups.ensureSeeded, {});
   const root = await adminGod("Lab Admin");
   const [ann, bo, cy] = await gods("Lab Ann", "Lab Bo", "Lab Cy");
-  const labIds = ["lab-cost-set", "lab-cost-dial", "lab-cost-log", "lab-cost-multiply"];
+  const labIds = ["lab-cost-set", "lab-cost-dial", "lab-cost-log", "lab-cost-multiply", "lab-cost-proportional"];
   assert.deepEqual(LAB.map(s => s.seedId), labIds);
   const seeds = (entries: any[]) => entries.filter(e => e.system).map(e => e.seedId);
 
-  // The catalogue (setups.page): the administrator's has all four, after the ordinary ones; a player's has none.
+  // The catalogue (setups.page): the administrator's has all five, after the ordinary ones; a player's has none.
   const rootEntries = await setupEntries(root.c);
   assert.deepEqual(seeds(rootEntries), SEED_SETUPS.map(s => s.seedId));
-  assert.deepEqual(rootEntries.filter(e => isLabSeedId(e.seedId)).map(e => e.name), ["Lab: flat price", "Lab: dial numbers", "Lab: gentle distance", "Lab: multiply and divide"]);
+  assert.deepEqual(rootEntries.filter(e => isLabSeedId(e.seedId)).map(e => e.name), ["Lab: flat price", "Lab: dial numbers", "Lab: gentle distance", "Lab: multiply and divide", "Lab: strictly proportional"]);
   assert.deepEqual(seeds(await setupEntries(ann.c)), ORDINARY.map(s => s.seedId));
   // A short first page keeps its cursor: the player's next pages follow on (everyone's setups, no Lab one).
   const firstPage = await ann.c.query(api.setups.page, { paginationOpts: { numItems: ORDINARY.length + 2, cursor: null } });
@@ -285,7 +285,7 @@ test("Lab setups: only an administrator finds, duplicates or runs them; a room o
     assert.deepEqual(rest, basics, seedId);
     models[seedId] = costModel as string | undefined;
   }
-  assert.deepEqual(models, { "lab-cost-set": undefined, "lab-cost-dial": "dial-v1", "lab-cost-log": "log-v1", "lab-cost-multiply": "multiply-v1" });
+  assert.deepEqual(models, { "lab-cost-set": undefined, "lab-cost-dial": "dial-v1", "lab-cost-log": "log-v1", "lab-cost-multiply": "multiply-v1", "lab-cost-proportional": "proportional-v1" });
 
   // A player who has the id (from a room that runs one) may neither copy it nor put a room on it.
   const multiplyId = lab["lab-cost-multiply"];

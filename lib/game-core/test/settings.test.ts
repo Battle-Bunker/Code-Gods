@@ -192,7 +192,7 @@ test("defaultSettingsFor gives valid settings for every type and language", () =
   assert.equal(defaultSettingsFor("Int").powerPerSecond, 8);
   for (const s of SEED_SETUPS) { validateSettings(s.settings); assert.ok(s.name.length <= SETUP_NAME_MAX, s.name); }
   assert.deepEqual(SEED_SETUPS.map(s => s.seedId), ["grid-first-steps", "grid-annotated-basics", "grid-annotated-colours", "grid-classic", "grid-low-income", "grid-big", "grid-master",
-    "lab-cost-set", "lab-cost-dial", "lab-cost-log", "lab-cost-multiply"], "the ordinary seeds, then the Lab ones");
+    "lab-cost-set", "lab-cost-dial", "lab-cost-log", "lab-cost-multiply", "lab-cost-proportional"], "the ordinary seeds, then the Lab ones");
   assert.equal(seedSetupSettings("grid-first-steps").interactionRateHz, 25);
   assert.deepEqual(seedSetupSettings("grid-classic"), { ...classic, interactionRateHz: 100 }, "Classic is the tuned 5×5 board, complete");
   assert.ok(!seedSetupSettings("grid-master").excludedFamilies.includes("ladder_of_numbers"), "cards cannot deal it, so it is not listed");
@@ -319,6 +319,7 @@ test("the Lab setups are Annotated basics under each other cost model, after the
     ["lab-cost-dial", "Lab: dial numbers", "Numbers are a dial: 9 and 0 are one step apart, and a step either way costs the same", "dial-v1"],
     ["lab-cost-log", "Lab: gentle distance", "A far move costs only a little more than a middling one", "log-v1"],
     ["lab-cost-multiply", "Lab: multiply and divide", "Adds, plus multiply and divide by the last digit; a number's move costs the cheaper of the two", "multiply-v1"],
+    ["lab-cost-proportional", "Lab: strictly proportional", "Twice as far costs twice as much, with no charge for choosing the cell", "proportional-v1"],
   ]);
   assert.deepEqual(SEED_SETUPS.slice(-lab.length), lab, "placed last");
   // Everything but the cost model is Annotated basics (the board, the rule pool, the pacing): the pool cannot drift.
@@ -334,5 +335,6 @@ test("the Lab setups are Annotated basics under each other cost model, after the
   }
   // Each model of COST_MODELS is tried by exactly one system setup on this board.
   const tried = [ANNOTATED_BASICS_SEED_ID, ...lab.map(s => s.seedId)].map(id => costModelOf(seedSetupSettings(id))).sort();
-  assert.deepEqual(tried, ["dial-v1", "distance-v1", "log-v1", "multiply-v1", "set-v1"]);
+  assert.deepEqual(tried, ["dial-v1", "distance-v1", "log-v1", "multiply-v1", "proportional-v1", "set-v1"]);
+  assert.deepEqual(tried, [...COST_MODELS].sort());
 });
