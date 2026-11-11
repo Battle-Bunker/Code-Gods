@@ -31,5 +31,9 @@ test("the sign-in screen names what an invite link opens: its room, or its game 
   assert.equal(invitedTo("/rooms/ABCD/configure"), "Sign in to open room ABCD.");
   assert.equal(invitedTo("/rooms/ABCD/games/g9tq"), "Sign in to watch or play game G9TQ in room ABCD.");
   assert.equal(invitedTo("/"), null);
-  assert.equal(invitedTo("/device"), null);
+  // The other pages that need an account say what signing in is for.
+  assert.equal(invitedTo("/device?code=AB12"), "Sign in to approve the device that asked for access.");
+  assert.equal(invitedTo("/connect"), "Sign in to connect an app to your account.");
+  assert.equal(invitedTo("/admin/agents"), "Sign in with an administrator account to manage AI players.");
+  assert.equal(invitedTo("/devices"), null, "only the page itself, not a path that starts with its name");
 });

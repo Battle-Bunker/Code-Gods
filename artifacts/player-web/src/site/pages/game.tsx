@@ -242,7 +242,7 @@ export default function Game() {
         <div className="mx-auto max-w-[1440px] px-6 py-8 space-y-4"><Skeleton className="h-20 w-1/2" /><div className="grid lg:grid-cols-2 gap-4"><Skeleton className="h-80" /><Skeleton className="h-80" /></div></div>
       ) : !game ? (
         <div className="mx-auto max-w-lg px-4 py-20 space-y-4">
-          <h1 className="font-display text-5xl" data-testid="text-game-code">{code}</h1>
+          <h1 className="font-display text-5xl" data-testid="text-game-code">{code.toUpperCase()}</h1>
           <ErrorLine message={notFoundMsg(q.error, "Game not found. Check the code, or open it from its room.")} onRetry={transient(q.error) ? reload : undefined} />
           <div className="flex gap-4">
             {roomCode && <Link href={roomPath(roomCode)} className="underline underline-offset-4" data-testid="link-game-room">Back to room {roomCode.toUpperCase()}</Link>}
