@@ -56,8 +56,8 @@ export function SetupPicker({ room }: { room: RoomState }) {
   return (
     <Popover open={open} onOpenChange={o => { setOpen(o); if (!o) setQuery(""); }}>
       <PopoverTrigger asChild>
-        <button type="button" role="combobox" aria-expanded={open} aria-controls="setup-picker-list" disabled={runner.pending} data-testid="select-setup"
-          className="flex min-w-0 w-full sm:w-[24rem] items-center gap-2 border bg-background px-2 py-1.5 text-left text-sm outline-none focus:border-primary disabled:opacity-50">
+        <button type="button" role="combobox" aria-expanded={open} aria-controls="setup-picker-list" aria-label={`Setup for the next game: ${setupTitle(room)}`} disabled={runner.pending} data-testid="select-setup"
+          className="flex min-w-0 w-full sm:w-[24rem] items-center gap-2 border bg-background px-2 py-1.5 text-left text-sm outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50">
           <span className="min-w-0 flex-1 truncate">
             <span className="font-medium" data-testid="text-current-setup">{setupTitle(room)}</span>
             {current && <span className="text-muted-foreground"> · {ownerLabel(current)}</span>}

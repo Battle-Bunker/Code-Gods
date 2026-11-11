@@ -168,7 +168,7 @@ export function Chat({ messages, canPost, placeholder, pending, onSend, title = 
       {closed ? <p className="border-t px-4 py-3 text-sm text-muted-foreground" data-testid="text-chat-closed">{closed}</p> : (
       <form className="border-t flex" onSubmit={e => { e.preventDefault(); const t = text.trim(); if (t) onSend(t.slice(0, 4000), () => setText("")); }}>
         <input disabled={!canPost} value={text} onChange={e => setText(e.target.value)} maxLength={4000} placeholder={placeholder} aria-label="Message to everyone"
-          className="flex-1 min-w-0 bg-transparent px-4 py-3 text-sm outline-none disabled:opacity-50" data-testid="input-chat" />
+          className="flex-1 min-w-0 bg-transparent px-4 py-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:opacity-50" data-testid="input-chat" />
         <button type="submit" disabled={!canPost || !text.trim() || pending} className="px-4 border-l text-primary disabled:opacity-40" data-testid="button-send-chat" aria-label="Send to everyone"><Send className="h-4 w-4" /></button>
       </form>)}
     </Section>

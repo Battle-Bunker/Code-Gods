@@ -114,7 +114,7 @@
   --popover: 42 40% 97%;
   --popover-foreground: 232 38% 14%;
   --popover-border: 36 18% 80%;
-  --primary: 9 82% 50%;
+  --primary: 9 82% 45%;   /* 4.8:1 under --primary-foreground (WCAG 1.4.3); 50% was 4.0:1 */
   --primary-foreground: 40 40% 97%;
   --secondary: 232 38% 14%;
   --secondary-foreground: 40 33% 94%;
@@ -236,7 +236,7 @@
   --popover: 42 40% 97%;
   --popover-foreground: 232 38% 14%;
   --popover-border: 36 18% 80%;
-  --primary: 9 82% 50%;
+  --primary: 9 82% 45%;   /* 4.8:1 under --primary-foreground (WCAG 1.4.3); 50% was 4.0:1 */
   --primary-foreground: 40 40% 97%;
   --secondary: 232 38% 14%;
   --secondary-foreground: 40 33% 94%;
@@ -488,3 +488,10 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:50;op
 @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.3} }
 .pulse-dot { animation: pulse-dot 1.4s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .orbit-once, .pulse-dot { animation: none; } }
+
+/* Accessibility guards (WCAG 2.2 AA). On touch screens form fields are at least 16px, so iOS does not zoom in on focus
+   now that the viewport allows pinch-zoom (1.4.4). */
+.dockview-theme-cg .dv-tab button { min-height: 24px; }   /* pane tab menus and close: WCAG 2.5.8 target size */
+@media (pointer: coarse) { input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea { font-size: max(16px, 1em); } }
+/* Players who ask for reduced motion get none anywhere, not only where a component remembered to guard (2.3.3). */
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
