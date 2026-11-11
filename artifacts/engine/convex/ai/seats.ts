@@ -57,7 +57,9 @@ export const turnContext = internalQuery({
     const seat = await ctx.db.query("deities").withIndex("by_game_god", q => q.eq("gameId", gameId).eq("godId", godId)).unique();
     if (!room || !member || member.aiChain !== chain || !seat?.aiAgent) return { stop: "stale chain" as const };
     if (game.phase === "ended" || game.phase === "recovery") return { stop: game.phase };
-    if (isIdle(await lastHumanActivity(ctx))) return { stop: "idle" as const };
+    // Idle: the loop parks the game (and its resume restarts every chain), so the seat waits rather than ending its
+    // chain: a human returning before the park lands would otherwise leave this seat dead for the rest of the game.
+    if (isIdle(await lastHumanActivity(ctx))) return { waitUntil: Date.now() + TURN_MS, status: "Waiting: no human activity" };
     if (game.phase === "paused") return { waitUntil: game.pauseEndsAt, status: "Waiting for the pause to end" };
     // No tokens are spent before the game's agent sandboxes can run the seat's summons: it waits (a failed one, longer).
     const sandboxes = await sandboxViews(ctx, allowedLanguages(game.settings as GameSettings));

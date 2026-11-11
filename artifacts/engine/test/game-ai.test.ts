@@ -97,3 +97,17 @@ test("an OpenAI seat whose reply is JSON but no decision says so and keeps the r
   assert.match(failed.status, /^Turn failed: the model's reply was not a valid move; retrying in \d+ s$/, failed.status);
   assert.equal(failed.status.includes("private plan"), false, "the reply itself stays private");
 });
+
+test("an idle engine makes an AI seat wait, never end its chain (a human may return before the park)", { timeout: 240000 }, async () => {
+  const { host, roomId, godId, game } = await aiRoom(300_000);
+  const { members } = await admin.query(internal.testing.rawRoom, { roomId });
+  const chain = members.find((m: any) => m.godId === godId).aiChain;
+  // Planning an hour long: no tick runs to park the game before this read.
+  await admin.mutation(internal.testing.setActivity, { at: Date.now() - 31 * 60 * 1000 });
+  try {
+    const context: any = await admin.query(internal.ai.seats.turnContext, { gameId: game.gameId, godId, chain });
+    assert.ok(!("stop" in context) && context.waitUntil > Date.now(), `the seat waits: ${JSON.stringify(context)}`);
+  } finally {
+    await touch(host);
+  }
+});
