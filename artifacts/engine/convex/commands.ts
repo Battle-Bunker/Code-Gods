@@ -8,11 +8,12 @@ import { bindRuntime, sandboxGate } from "./engine/runtime";
  */
 import { v } from "convex/values";
 import type { Language } from "@workspace/game-core";
-import { envelopeSchema, type CommandResult } from "@workspace/player-client";
+import { EXAMINATION_DEADLINE_MS, envelopeSchema, type CommandResult } from "@workspace/player-client";
 import { internal } from "./_generated/api";
 import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { AgentFault, examineAgent } from "./engine/pricing";
 import { envelopeHash } from "./game/commands";
+import { DeadlineExceeded, examinationBusyMessage, within } from "./lib/deadline";
 import { fail, messageOf } from "./lib/errors";
 import { principalV, type Principal } from "./lib/rooms";
 
@@ -41,9 +42,18 @@ export async function runEnvelope(ctx: ActionCtx, roomId: string, raw: unknown, 
     // The abuse cap, before the expensive part (throws RATE_LIMITED; nothing is receipted).
     await ctx.runMutation(internal.game.commands.claimExamination, { roomId: prepared.roomId, godId: prepared.godId });
     try {
-      const e = await examineAgent(ctx, prepared.examine.settings, command.language, command.source, prepared.examine.live);
+      const examining = examineAgent(ctx, prepared.examine.settings, command.language, command.source, prepared.examine.live);
+      // A person (the forge, the assistant's validate_agent, an agent tool) is waiting: under a congested sandbox queue
+      // the examination is given up at its deadline and the caller told so. An AI seat's turn has its own bounds.
+      const e = asAi ? await examining : await within(examining, EXAMINATION_DEADLINE_MS);
       examined = { gameId: envelope.gameId!, source: command.source, language: command.language, twins: prepared.examine.twins, result: e };
     } catch (error) {
+      // Not finished in time: nothing is receipted (the commit below is never reached), so the identical envelope can
+      // be sent again. The abandoned examination's remaining runs end by their own limits.
+      if (error instanceof DeadlineExceeded) {
+        console.error(`Agent examination given up after ${error.ms} ms (sandbox busy)`);
+        fail("UNAVAILABLE", examinationBusyMessage(command.type, error.ms));
+      }
       // The agent's own fault (it does not compile) is a final answer; a host failure (capacity, runtime
       // unavailable) is not: nothing is receipted and the identical envelope can be retried.
       if (!(error instanceof AgentFault)) {
