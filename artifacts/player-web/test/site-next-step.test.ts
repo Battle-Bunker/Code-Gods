@@ -30,6 +30,9 @@ test("in the lobby the owner plays by default: alone they practise against AI pl
 
 test("without AI players the owner is told what a game needs and invites", () => {
   assert.deepEqual(nextStep("ada", room(["ada"]), { aiAvailable: false }), { status: "A game needs three players. Invite two friends with this link.", primary: "ui.copyInviteLink", secondary: [] });
+  // A non-admin owner alone (the page passes aiAvailable = the server has AI and the room's owner may use it): no practice game, no AI wording.
+  assert.equal(nextStep("ada", room(["ada"]), { aiAvailable: false }).primary, "ui.copyInviteLink");
+  assert.doesNotMatch(JSON.stringify(nextStep("ada", room(["ada"]), { aiAvailable: false })), /AI|practiceGame/);
   assert.equal(nextStep("ada", room(["ada", "bob"]), { aiAvailable: false }).status, "A game needs three players. Invite one friend with this link.");
   assert.equal(nextStep("ada", room(["ada"]), { aiAvailable: false, minPlayers: 12 }).status, "A game needs 12 players. Invite 11 friends with this link.");
 });

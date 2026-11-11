@@ -15,6 +15,8 @@ import { paletteStore, usePaletteState } from "./palette/store";
 import { usePlayerCommands } from "./palette/use-commands";
 import { useWide } from "./use-wide";
 import { Link } from "./navigation";
+import { planningLine } from "./planning-line";
+import { useOwnerActions } from "@/core/game/owner";
 
 const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]!.toUpperCase()).join("") || "?";
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
@@ -30,7 +32,8 @@ function phasePill(s: Situation, now: number): string {
     case "lobby": { const ready = s.room?.members.filter(m => m.ready && !m.spectator).length; return s.room ? `Lobby · ${ready} of ${s.players} ready` : "Lobby"; }
     case "planning": {
       const left = countdown(obs.planningEndsAt);
-      if (left) return `Planning · starts in ${left}`;
+      // The countdown itself is the planning line's, under the header (PlanningBar): one countdown on screen.
+      if (left) return "Planning";
       // Past the deadline, planning holds until every allowed language's agent sandbox is warm.
       if (obs.sandboxes?.some(sb => sb.state !== "ready")) return "Planning · agent sandboxes warming up";
       // …and until hold rarity's corrections for this player count are computed (docs/energy-model.md §8).
@@ -95,6 +98,28 @@ export function PlayerPalette({ compact, suggested = ["ui.forge.edit", "ui.panel
   );
 }
 
+/**
+ * Planning, under the header: what it is for, the one countdown to the world's start, and the owner's visible
+ * "Start the world now" (the palette's rooms.startWorldNow). The game timer stands down while this shows (game-timer.tsx).
+ */
+export function PlanningBar() {
+  const { permission } = useRoom();
+  const s = useSituation();
+  const now = useNow(1000);
+  const owner = useOwnerActions();
+  const line = planningLine({ phase: s.phase, seated: s.seated, owner: s.isOwner && permission !== "read", planningEndsAt: s.obs?.planningEndsAt, nowMs: now });
+  if (!line) return null;
+  return (
+    <div role="timer" aria-live="off" data-testid="banner-planning" className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 border-b border-[hsl(var(--card-border))] bg-muted px-3 py-2 text-sm">
+      <span className="font-medium tabular-nums" data-testid="text-planning">{line.text}</span>
+      {line.startNow && (
+        <button type="button" data-testid="button-start-world-now" onClick={() => void owner.startWorldNow()}
+          className="shrink-0 bg-primary px-3 py-1 text-sm font-semibold text-primary-foreground hover:opacity-90">Start the world now</button>
+      )}
+    </div>
+  );
+}
+
 /** Under the header: an uncertain command waiting for its identical retry, and short notices. */
 export function HeaderBanners() {
   const { unknown, busy } = useRunner();
@@ -103,6 +128,7 @@ export function HeaderBanners() {
   const gameNotice = useSituation().obs?.notice;
   return (
     <>
+      <PlanningBar />
       {gameNotice && (
         // Why the game is not moving (an idle park, a pause for safety, or the engine retrying): never mistaken for a crash.
         <div data-testid="banner-game-notice" data-kind={gameNotice.kind} role="status"

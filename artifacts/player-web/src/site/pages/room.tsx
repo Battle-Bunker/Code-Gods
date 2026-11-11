@@ -51,7 +51,7 @@ function Players({ room, meId, isOwner, minPlayers }: { room: RoomState; meId?: 
               <span className="block truncate">{m.name}{m.id === meId && <span className="text-muted-foreground"> (you)</span>}{m.id === room.ownerId && <Crown className="inline h-3.5 w-3.5 ml-1.5 text-accent" aria-label="room owner" />}</span>
               <span className="block text-xs text-muted-foreground" data-testid={`text-member-seat-${m.id}`}>
                 {[m.id === room.ownerId ? "owner" : null, g && seated(m.id) ? "in the game" : g && m.kind === "human" ? `watching · ${role(m)}` : role(m),
-                  m.kind === "ai" ? `AI · ${m.model ?? m.provider ?? ""}` : null, !g && m.ready ? "ready" : null, !g ? m.status ?? null : null].filter(Boolean).join(" · ")}
+                  m.kind === "ai" ? "AI player" : null, !g && m.ready ? "ready" : null, !g ? m.status ?? null : null].filter(Boolean).join(" · ")}
               </span>
             </span>
             {canToggle(m) && (
