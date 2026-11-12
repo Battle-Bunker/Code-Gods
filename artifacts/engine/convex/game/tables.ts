@@ -98,7 +98,8 @@ export const eventV = v.union(
 );
 
 /** An agent's failure breakdown (lib/futility.ts FAILURE_KINDS) and the last reason of the kinds the diagnosis quotes. */
-export const failuresV = v.object({ collision: v.number(), noChange: v.number(), commit: v.number(), invalid: v.number(), error: v.number() });
+/** `unaffordable` (changes the agent could not pay for: docs/energy-model.md §7.2) is absent on agents counted before it existed: read as 0. */
+export const failuresV = v.object({ collision: v.number(), noChange: v.number(), commit: v.number(), invalid: v.number(), error: v.number(), unaffordable: v.optional(v.number()) });
 export const lastFailuresV = v.object({ invalid: v.optional(v.string()), error: v.optional(v.string()) });
 /** One agent's futile pairs (lib/futility.ts Futile). */
 export const futileEntriesV = v.array(v.object({ o: v.id("objects"), v: v.number(), by: v.optional(v.id("objects")), bv: v.optional(v.number()) }));

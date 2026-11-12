@@ -435,20 +435,34 @@ much less than mutation) to get exposure to mutation opportunities."
   agent: log2 objects + log2 of the room's agents with energy), not a per-agent rule. The measurements above do not call
   for it.
 
-### 7.2 Debt (open)
+### 7.2 No credit (variant: `variant/no-credit`)
 
-A balance may go negative by one whole act: an agent with 0.1 bits can commit a 985-bit repaint of a 4×4 grid and then
-waits until income repays it. Debt is per agent, not per unit of power: n agents can owe n acts, and one agent's debt
-does not reduce its siblings' weight in the draw. In the long run this is neutral (every bit spent is repaid from the
-agent's own income before it acts again), with two exceptions that exist today:
+**The rule.** A change commits only if the agent can pay for the whole act (its reads, the offer and the change) from
+what it holds at that world time. Otherwise the change does not commit: the act fails as "could not afford this change:
+needed X bits, had Y" (`failures.unaffordable`), pays its reads like any change that does not commit, and is not
+remembered as futile. A balance can then fall below zero only by one act's reads (at most a full look and the offer:
+2.6 bits on First steps, 12.9 on Master), and selection gives such an account no weight. Nothing is owed, so nothing
+can be dodged by destroying an agent or moving its power, and the largest act an agent can ever make costs its
+capacity, s·P·T. game-core `actCredit` (0 in a game with capacity) and `affordable`; the tick applies them. A game
+without capacity keeps its old behaviour. Stored data: `agents.failures.unaffordable` is optional (absent reads as 0).
 
-- **Destroying an agent in debt, or giving its power to another agent, leaves the debt unpaid.** Destroy and re-summon
-  costs a summon price (about 60 bits for a small agent) against an act of any size.
-- **Debts outstanding when the game ends are never repaid.**
+**Why it is a variant and not on develop: it starves play where offers are plentiful.** An agent is offered a turn as
+soon as it holds anything (selection is proportional to energy and most of the stream finds no richer agent), and each
+turn costs its reads. An agent that looks before acting then spends its income on looks and never holds the price of a
+change. Balance harness, T = 30, no rate cap, offer price on, 100 games per row
+(`balance-settings.ts --T 30 --no-cap --offer [--no-debt]`):
 
-Proposed rule (not shipped; see the variant branch `variant/debt-within-capacity`): an account's balance stays within
-its capacity on both sides (an act that would leave it owing more than its capacity does not commit and pays its
-reads), and power cannot be taken from an account in debt.
+| Room (stream) | Agents | Changes per game, debt allowed | Changes per game, no credit |
+|---|---|---|---|
+| Classic (100 Hz) | 3 gods, look then act | 3,476 | 0 |
+| Big board (100 Hz) | 3 gods, look then act | 2,416 | 0 |
+| Master (100 Hz) | 3 gods, look then act | 1,635 | 0 |
+| Classic (100 Hz) | blind / looker / deny | 3,843 | 1,034 (the blind god's only) |
+| First steps (25 Hz) | blind / looker / looker | 5,997 | 4,931 |
+
+It punishes exactly the careful agents the read price was introduced to reward. It would need a second rule to work
+(for example, an agent is in the draw only once it holds some minimum), which is the kind of patch the owner does not
+want. Bounding credit by capacity (develop) changes none of these numbers.
 
 **What was removed, and why.** Until 11 Nov 2026 two limits were per agent, so a god gained turns by running more
 agents with the same power:
@@ -470,7 +484,7 @@ reports `economy.maxAgentOpportunityHz` (a replay of an older game still does). 
 **Per-agent quantities that remain** (none is an advantage in turns): `maxAgentsPerGod` (a limit); the summon price
 (each program is priced by its own description, so n small programs cost what their lengths cost, plus each one's own
 boilerplate: never cheaper than one); the futility memo (per agent and object: n copies of a deterministic agent each
-fail once on an object before being kept off it, and pay their reads); and debt (§7.2).
+fail once on an object before being kept off it, and pay their reads). There is no debt (§7.2).
 
 ## 8. Hold rarity (PR 5)
 

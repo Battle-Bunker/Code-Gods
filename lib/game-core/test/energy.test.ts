@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  agentIncome, deityIncome, defaultShare, assertShare, spendDeityEnergy, newAgentAccount, settleAgentEnergy, chargeAct, pickByEnergy, selectionWeight, offerReadBits,
+  agentIncome, deityIncome, defaultShare, assertShare, spendDeityEnergy, newAgentAccount, settleAgentEnergy, chargeAct, pickByEnergy, selectionWeight, offerReadBits, affordable, actCredit,
   energyCapacity, secondsToFull, settleDeityEnergy, chargeDeityAccount,
 } from "../src/energy.ts";
 
@@ -242,4 +242,19 @@ test("an offer is a read of which object the agent was given: log2 of the live o
   assert.equal(offerReadBits(NaN), 0);
   // At the read price (1/32) that is 0.198 energy bits on a Grid seed: under 2% of the cheapest change there (11.5).
   assert.ok(Math.abs(offerReadBits(80) / 32 - 0.1976) < 1e-4);
+});
+
+test("no credit: a change commits only if the account can pay for the whole act", () => {
+  assert.equal(actCredit(480), 0, "a game with capacity gives no credit");
+  assert.equal(actCredit(0), 0);
+  assert.equal(actCredit(Infinity), Infinity, "a game from before capacities keeps its unbounded debt");
+  assert.equal(affordable(12, 11.7, 0), true);
+  assert.equal(affordable(12, 12, 0), true, "exactly what it holds");
+  assert.equal(affordable(11.9, 12, 0), false);
+  assert.equal(affordable(0.1, 985, 0), false, "a whole-grid repaint on a nearly empty agent");
+  assert.equal(affordable(-2, 0.2, 0), false);
+  assert.equal(affordable(0.1, 1e9, Infinity), true);
+  // With credit (the bounded-debt variant): an account may owe up to the credit.
+  assert.equal(affordable(0.1, 480, 480), true);
+  assert.equal(affordable(0.1, 481, 480), false);
 });
