@@ -1,13 +1,14 @@
 "use node";
 /**
  * Open-agent pricing (ported from api-server pricing.ts):
- *   summon price   = description bits (ast-bits-v1 / ts-ast-bits-v1-uniform) + each literal move   (god pays once)
+ *   summon price   = description bits (ast-bits-v1 / ts-ast-bits-v1-uniform, the structure part weighted per language:
+ *                    game-core fairSummonBits) + each literal move                                   (god pays once)
  *   act charge     = the bits the act read × READ_PRICE + its change when that commits          (agent pays, per act)
  * (docs/energy-model.md §2). expectedActCost, the estimate shown at validation and summon, is measured by RUNNING the
  * agent on the season's reference mixture plus up to 16 live objects; nothing is charged or scheduled from it. Its
  * changes are priced under the game's cost model (settings.costModel), as the tick will charge them.
  */
-import { costModelOf, instantiationOf, type GameSettings, type Language, type ObjectValue } from "@workspace/game-core";
+import { costModelOf, fairSummonBits, instantiationOf, type GameSettings, type Language, type ObjectValue } from "@workspace/game-core";
 import type { Inspection } from "@workspace/game-runtime";
 import {
   CHANGE_READ_RATIO, availableMutators, futilityWarnings, failedReadBits, measureAgent, readBound, parseAct, probeFutility, referenceMixture, withComponents, type FutilityProfile, type Instantiation,
@@ -39,7 +40,7 @@ export type Examination = {
 
 const lg = (x: number) => (x > 1 ? Math.log2(x) : 0);
 
-export function summonPrice(inspection: Inspection, inst: Instantiation, model?: CostModel): { cost: number; parts: SummonParts } {
+export function summonPrice(inspection: Inspection, inst: Instantiation, language: Language, model?: CostModel): { cost: number; parts: SummonParts } {
   const avail = availableMutators(inst, model), byId = new Map(avail.map(m => [m.id, m]));
   let literalMoves = 0;
   inspection.literalMoves.forEach(([id, raw], i) => {
@@ -51,7 +52,9 @@ export function summonPrice(inspection: Inspection, inst: Instantiation, model?:
     }
     literalMoves += bits;
   });
-  return { cost: inspection.cost + literalMoves, parts: { ...inspection.parts, literalMoves, commitClause: 0 } };
+  // Language-fair (game-core LANGUAGE_SPECS.structureWeight): the same program costs about the same in either language.
+  const fair = fairSummonBits(language, inspection.cost, inspection.parts.structure);
+  return { cost: fair.cost + literalMoves, parts: { ...inspection.parts, structure: fair.structure, literalMoves, commitClause: 0 } };
 }
 
 const mixtures = new Map<string, ReferenceMixture>();
@@ -78,7 +81,7 @@ export async function examineAgent(ctx: ActionCtx, settings: GameSettings, langu
     if (!isAgentFault(error)) throw error;
     throw new AgentFault((error as Error).message.slice(0, 1000));
   }
-  const price = summonPrice(inspection, inst, costModelOf(settings));
+  const price = summonPrice(inspection, inst, language, costModelOf(settings));
   const game = live.slice(0, GAME_COMPONENT);
   const mixture = game.length ? withComponents(seasonMixture(inst), { game }) : seasonMixture(inst);
   let hostFailure: unknown, runs = 0, usesClause = false;
