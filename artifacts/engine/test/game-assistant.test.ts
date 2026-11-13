@@ -200,7 +200,7 @@ test("the 1WB8 loop: the whole skill arrives, a failing validation says it fails
   const skill = JSON.parse(t.calls[0].resultJson);
   assert.equal(skill.TRUNCATED, undefined, "the skill is not cut");
   assert.ok(skill.data.body.includes("paint(") && skill.data.body.includes("grid.cell(row, col)"), "the mutators and the read helpers (how to reach a cell)");
-  assert.ok(skill.data.body.includes(mine.self.utility.source.slice(-40)), "the player's whole utility source");
+  assert.ok(skill.data.body.includes(mine.self.utility.source.slice(-40)), `the player's whole utility source (${mine.self.utility.familyId}: ${mine.self.utility.source.length} characters; body ${skill.data.body.length}; ends ${JSON.stringify(skill.data.body.slice(-60))})`);
 
   const [first, second, third] = t.calls.slice(1).map((c: any) => JSON.parse(c.resultJson));
   assert.equal(first.data.receipt.validation.valid, false, "it compiles, and fails on every sample object: not valid (convex/lib/dryRun.ts)");

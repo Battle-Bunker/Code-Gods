@@ -229,3 +229,63 @@ test("debt: an agent may owe at most what it holds, and what it owes follows its
   assert.ok((await observe(bo)).agents.find(a => a.name === "Again")!.energy < 60, "a re-summoned agent starts empty");
   await host.c.mutation(api.rooms.endActiveGame, { roomId });
 });
+
+/**
+ * Debt moves with power, from a god to an agent (docs/energy-model.md §7.2; game-core movePower). P = 40 bits/s,
+ * T = 10 s. Bo keeps 10% for itself (holds 40), gives "Big" 80% (it adds 111111111 on credit: holds 320, may owe 320) and
+ * "Idle" 10% (it never acts: holds 40). Big's change is nine digit adds (about 210 bits). Bo destroys Big while it owes more than 150, so Bo itself owes more than 110
+ * and has 90% unallocated. Bo then gives Idle half of that unallocated power (10% → 55%): Idle takes exactly half of
+ * what Bo owes, so what Bo still owes equals what moved. Giving it the rest moves the rest: Bo owes nothing, Idle owes
+ * it all, and nothing was lost on the way. What would break: a god shedding its debt by re-allocating (the amount
+ * vanishing), or an agent taking a different fraction of the debt than of the power.
+ */
+test("debt: a god that owes gives an agent power, and the same fraction of its debt goes with it", { timeout: 240000 }, async () => {
+  const [host, ada, bo] = await gods("Owing Host", "Owing Ada", "Owing Bo");
+  await touch(host);
+  const { roomId } = await roomWith([host, ada, bo], {
+    objectType: "Int", typeArgs: { min: -2000000000, max: 2000000000 }, languages: ["typescript"],
+    startingObjectCount: 6, spawnRateHz: 0, planningSeconds: 3600, powerPerSecond: 40, startingEnergy: 5000, interactionRateHz: 20, fullChargeSeconds: 10,
+  });
+  const game = await startGame(host, roomId);
+  const send = (command: Record<string, unknown>) => bo.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
+  const big = await send({ type: "summon", name: "Big", language: "typescript", source: "function agent(n) { return [add(111111111)]; }", powerShare: 0.8 });
+  assert.equal(big.accepted, true, big.message);
+  const idle = await send({ type: "summon", name: "Idle", language: "typescript", source: "function agent(n) { return []; }", powerShare: 0.1 });
+  assert.equal(idle.accepted, true, idle.message);
+  await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 3600 }, kick: true });
+  const stored = async () => {
+    const state = await raw(game.gameId);
+    return { state, deity: state.deities.find((d: any) => d.godId === bo.subject), idle: state.agents.find((a: any) => a.name === "Idle"), big: state.agents.find((a: any) => a.name === "Big") };
+  };
+  const owing = await waitFor(async () => { const s = await stored(); return s.big.account.balance < -150 ? s : null; }, "Big owes more than 150", 120000, 30);
+  const idleId = owing.idle._id;
+  const destroyed = await send({ type: "destroy", agentId: owing.big._id });
+  assert.equal(destroyed.accepted, true, destroyed.message);
+  assert.ok(destroyed.owed > 150, `Big's debt moved to Bo: ${destroyed.owed}`);
+
+  // Half of Bo's unallocated power (90%) to Idle: half of what Bo owes at that moment goes with it.
+  const half = await send({ type: "allocatePower", agentId: idleId, share: 0.55 });
+  assert.equal(half.accepted, true, half.message);
+  assert.ok(half.owed < -20, `debt moved from Bo onto Idle (negative: towards the agent): ${half.owed}`);
+  assert.ok(half.owed > -destroyed.owed / 2 - 1e-6, `at most half of what Bo took over: ${half.owed} of ${destroyed.owed}`);
+  let s = await stored();
+  assert.ok(Math.abs(s.deity.account.balance - half.owed) < 1e-6, `Bo keeps the other half: ${s.deity.account.balance} against ${half.owed} moved`);
+  // Idle held at most its old capacity (40) and never acts: its balance is that minus the debt it took.
+  assert.ok(s.idle.account.balance >= half.owed - 1e-6 && s.idle.account.balance <= half.owed + 40 + 1e-6, `Idle: ${s.idle.account.balance}`);
+
+  // The rest of Bo's power (45% of 45% unallocated): the rest of the debt. Bo owes nothing; nothing was lost.
+  const rest = await send({ type: "allocatePower", agentId: idleId, share: 1 });
+  assert.equal(rest.accepted, true, rest.message);
+  s = await stored();
+  if (rest.owed !== undefined) {
+    assert.ok(rest.owed < 0);
+    assert.ok(Math.abs(s.deity.account.balance) < 1e-6, `Bo gave all its power and all its debt: ${s.deity.account.balance}`);
+  }
+  // The log records what moved in each direction, for the replay: + onto the god, − onto the agent.
+  const events = s.state.batches.flatMap((b: any) => b.events);
+  assert.ok(Math.abs(events.find((e: any) => e.t === "destroy").owed - destroyed.owed) < 1e-9);
+  assert.deepEqual(events.filter((e: any) => e.t === "power").map((e: any) => e.owed), [half.owed, ...(rest.owed !== undefined ? [rest.owed] : [])]);
+  // Idle now has all of Bo's power (40 bits/s) and repays what it took within the capacity time.
+  await waitFor(async () => (await stored()).idle.account.balance > 0 || ((await bo.c.query(api.player.observation, { roomId })) as any).agents[0].energy > 0, "Idle's income repays the debt", 60000, 250);
+  await host.c.mutation(api.rooms.endActiveGame, { roomId });
+});

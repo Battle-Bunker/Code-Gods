@@ -118,6 +118,8 @@ jobs:
           CG_SHARD: ${{ matrix.shard }}
       - if: matrix.shard == 'rest'
         run: pnpm run test:offline:rest
+        env:
+          CG_REQUIRE_PYTHON_RUNTIME: 1   # a test that needs the bundle fails here instead of skipping itself
       - name: Calibration tables are fresh   # every instance file in git matches the current code (seconds; builds nothing)
         if: matrix.shard == 'rest'
         run: pnpm --filter @workspace/game-utilities calibrate --check
