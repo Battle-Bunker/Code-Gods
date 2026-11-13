@@ -68,7 +68,7 @@ export const lacksEnergy = (message: string | undefined): boolean => /insufficie
 export function summonedText(name: string, planning: boolean): string {
   return `Summoned: ${name} is in the game. ${planning ? "It acts when the world starts." : "It acts whenever it gets a turn."}`;
 }
-export const SUMMONED_NEXT = "Then try the change suggested in the code and summon again.";
+export const SUMMONED_NEXT = "Then try the change suggested in the code and press Replace.";
 
 /**
  * Why the player's own energy store shrank at a summon: the share of their power the new agent takes, and what their
@@ -208,3 +208,90 @@ export function armedText(armed: ArmedSummon, s: { energy: number; income?: numb
   const wait = energyWait({ cost: armed.cost, energy: s.energy, income: s.income, planning: s.planning });
   return `Armed: ${armed.name} will be summoned ${wait ?? "as soon as you have the energy"}. Keep this pane open.`;
 }
+
+/**
+ * Replace, not a second agent. A changed copy of an agent the player has, summoned beside it, undoes its work (two
+ * walks: "Its last 30 moves: −916 points", the total halved). So when the draft started from one of the player's
+ * agents and has been changed, the primary button replaces that agent and "Summon beside it" is the secondary.
+ */
+type OwnAgent = { id: string; name?: string; source?: string; language?: string };
+/**
+ * The agent the draft started from: the one whose code the editor holds now, else the previous origin while it still
+ * exists (the draft is an edit of it). Null for an empty editor, or when that agent is gone.
+ */
+export function draftOrigin(previous: string | null, source: string, language: string, agents: readonly OwnAgent[]): string | null {
+  if (!source.trim()) return null;
+  const same = agents.find(a => a.source === source && (a.language === undefined || a.language === language));
+  if (same) return same.id;
+  return previous !== null && agents.some(a => a.id === previous) ? previous : null;
+}
+/** Whether the draft is a changed version of `origin` (an unchanged one is a copy: isCopy). */
+export const replaceOffer = (origin: OwnAgent | undefined, source: string): boolean => !!origin && !!source.trim() && origin.source !== source;
+export const replaceLabel = (name: string): string => `Replace ${name} with this version`;
+export const REPLACE_WHY = "Two agents with different ideas undo each other's work; replacing keeps one.";
+
+/**
+ * The share of the player's power the new version is summoned with: the old agent's, as far as the power not given
+ * out allows (the old share comes back only when the old agent is destroyed, after the summon). Undefined: the
+ * engine's default (half of what is free).
+ */
+export function replaceShare(s: { oldShare: number | undefined; allocated: number | undefined }): number | undefined {
+  if (s.oldShare === undefined || !(s.oldShare > 0)) return undefined;
+  const free = Math.max(0, 1 - (s.allocated ?? 0));
+  // Floored to the engine's 6 decimals: never a hair more than what is free (a share rounded up was refused).
+  const share = Math.floor(Math.min(s.oldShare, free) * 1e6 + 1e-9) / 1e6;
+  return share > 0 ? share : undefined;
+}
+
+/** Nothing is free for the new version to start with (the old agent and the others hold all the power): why Replace is off, and what to do. */
+export function replaceBlocked(s: { oldShare: number | undefined; allocated: number | undefined; name: string }): string | null {
+  if (s.oldShare === undefined || !(s.oldShare > 0) || replaceShare(s) !== undefined) return null;
+  return `Replacing needs a little free power for the new version first. Lower ${s.name}'s share in My agents, then replace.`;
+}
+/** Several agents run the code the draft started from: only the one it came from is replaced, and the pane says so. */
+export function sameVersionNote(origin: OwnAgent | undefined, agents: readonly OwnAgent[]): string | null {
+  if (!origin) return null;
+  const twins = agents.filter(a => a.source === origin.source).length;
+  return twins > 1 ? `You have ${twins} agents running the old version; this replaces ${origin.name?.trim() || "one of them"} only.` : null;
+}
+
+/**
+ * A replace in flight, kept by the runner (core/game/runner.ts) so that it finishes on whichever path its summon is
+ * accepted: the first send, the forge's "Try again", or "Retry the same command" under the header. The same envelope
+ * keeps it; any other command, a refusal, a dismissal or PENDING_REPLACE_MS abandon it, and then nothing is destroyed.
+ */
+export interface PendingReplace { readonly commandId: string; readonly oldId: string; readonly name: string; readonly source: string; readonly share?: number; readonly oldShare?: number; readonly at: number }
+export const PENDING_REPLACE_MS = 10 * 60_000;
+export function pendingReplaceOnSend(pending: PendingReplace | null, commandId: string, now: number): "none" | "keep" | "clear" {
+  if (!pending) return "none";
+  return pending.commandId === commandId && now - pending.at <= PENDING_REPLACE_MS ? "keep" : "clear";
+}
+export function pendingReplaceOnReceipt(pending: PendingReplace | null, commandId: string, receipt: { accepted: boolean } | undefined): "none" | "keep" | "destroy" | "clear" {
+  if (!pending) return "none";
+  if (pending.commandId !== commandId || !receipt) return "keep";
+  return receipt.accepted ? "destroy" : "clear";
+}
+
+/**
+ * Replace as two commands, the new agent first so the player is never left with none: the summon accepted, the old
+ * agent is destroyed (free); the summon refused (or unanswered), nothing is destroyed; the destroy refused, both exist.
+ */
+export type ReplaceOutcome = { next: "destroying" } | { done: "refused"; message: string } | { done: "unknown" } | { done: "replaced" } | { done: "both"; message: string };
+export function replaceStep(state: "summoning" | "destroying", receipt: { accepted: boolean; message?: string } | undefined): ReplaceOutcome {
+  if (state === "summoning") {
+    if (!receipt) return { done: "unknown" };
+    return receipt.accepted ? { next: "destroying" } : { done: "refused", message: receipt.message || "The game refused this summon." };
+  }
+  if (receipt?.accepted) return { done: "replaced" };
+  return { done: "both", message: receipt ? receipt.message || "the game refused" : "no answer from the game" };
+}
+const percentOf = (share: number) => `${Math.round(share * 100)}%`;
+/** "Replaced: NAME now runs your new version." and, when its share is not the old one's, what it has. */
+export function replacedText(name: string, s: { share: number | undefined; oldShare: number | undefined }): string {
+  const head = `Replaced: ${name} now runs your new version.`;
+  if (s.oldShare === undefined) return head;
+  if (s.share === undefined) return `${head} Its share of your power may differ from the old one's (${percentOf(s.oldShare)}); check it in My agents.`;
+  return Math.abs(s.share - s.oldShare) < 0.005 ? head : `${head} It has ${percentOf(s.share)} of your power (the old one had ${percentOf(s.oldShare)}); raise it in My agents.`;
+}
+export const bothText = (name: string, message: string): string =>
+  `The new version of ${name} is in the game, but the old one could not be destroyed (${message}). Both are running: destroy the old one in My agents.`;

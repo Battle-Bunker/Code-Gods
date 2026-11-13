@@ -22,8 +22,9 @@ import { forgeLanguage, forgeLanguages, forgeSandbox } from "@/core/game/languag
 import { useAffordances } from "@/core/use-affordances";
 import { useDockActions } from "@/dock/actions";
 import { summonNeeds } from "./summon-needs";
-import { COPY_HINT, COPY_LABEL, REPLACE_QUESTION, SUMMONED_NEXT, isCopy, replaceNeedsConfirm, armedStep, armedText, energyHint, firstAgentFill, firstAgentHint, firstSummonStep, lacksEnergy, nextFreeName, proposedName, secondAgentHint, storeAfterSummonText, summonReady, summonedText, untouchedExample, type ArmedSummon, type Example } from "./first-agent";
+import { REPLACE_WHY, draftOrigin, replaceBlocked, replaceLabel, replaceOffer, replaceShare, sameVersionNote, COPY_HINT, COPY_LABEL, REPLACE_QUESTION, SUMMONED_NEXT, isCopy, replaceNeedsConfirm, armedStep, armedText, energyHint, firstAgentFill, firstAgentHint, firstSummonStep, lacksEnergy, nextFreeName, proposedName, secondAgentHint, storeAfterSummonText, summonReady, summonedText, untouchedExample, type ArmedSummon, type Example } from "./first-agent";
 import { progressLine } from "@/core/game/command-deadline";
+import { PRICE_GROWS, otherDiagnostics, priceParts, storeTooSmall } from "./validation-text";
 import { OBSERVER_DESCRIPTION, OBSERVER_NAME, observerRate, observerSource, rateText } from "./observer";
 import { GhostButton, PanelEmpty, PrimaryButton, TextButton, type PanelProps } from "./kit";
 
@@ -53,7 +54,7 @@ export default function Forge({ params, phase }: PanelProps<"forge">) {
         <p className="text-sm text-muted-foreground">{live ? (phase === "ended" ? `The code of one of ${can.whose} agents, as it ran until the end.` : `The code of one of ${can.whose} live agents.`) : "A draft from your assistant. Nothing is summoned until you or your assistant (with your approval) summons it."}</p>
         <pre className="max-h-[50vh] overflow-auto bg-secondary p-3 font-mono text-[13px] leading-relaxed text-secondary-foreground"><code>{shown}</code></pre>
         <div className="flex items-center gap-3">
-          {!readOnly && <GhostButton testId="button-forge-edit" onClick={() => runner.edit(shown!, isLanguage(lang) ? lang : undefined)}>Edit</GhostButton>}
+          {!readOnly && <GhostButton testId="button-forge-edit" onClick={() => runner.edit(shown!, isLanguage(lang) ? lang : undefined, live?.id)}>Edit</GhostButton>}
           <span className="font-mono text-xs text-muted-foreground">{lang} · {bytes(shown!)} bytes</span>
         </div>
       </div>
@@ -75,6 +76,7 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
   // What was summoned (its own source, not whatever the editor holds by the time the receipt arrives).
   const setSummoned = (agentName: string, agentSource: string) => setSummonedState({ name: agentName, share: shareAtSummon.current, source: agentSource });
   const summonRow = useRef<HTMLDivElement>(null);
+  const helpersBox = useRef<HTMLDivElement>(null);
   const [ringing, setRinging] = useState(false);
   const dock = useDockActions();
   const obs = useDockState({ hz: 2 });
@@ -82,7 +84,7 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
   const newShare = obs?.self.allocated !== undefined ? defaultShare(obs.self.allocated) : undefined;
   const { instance } = useMutators();
   const commands = useGameCommands();
-  const { draft, validation, busy, notice, retrying, failed, firstSummon, unknown } = useRunner();
+  const { draft, validation, busy, notice, retrying, failed, firstSummon, unknown, origin, replaced } = useRunner();
   const { can } = useAffordances({ language });
   const editor = useRef<HTMLTextAreaElement>(null);
   const source = draft.source;
@@ -117,9 +119,19 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
   // the game, the line says what another one means (a player's second "Simple spread keeper" undid their first).
   // The editor holds exactly an agent the player already has (three copies of one example were summoned in a walk).
   const copy = !ended && isCopy(source, language, agents);
-  const hint = ended ? null : agentCount === 0 ? firstAgentHint(source, language, examples) : copy ? COPY_HINT : secondAgentHint(agentCount);
+  // The agent this draft started from (the summoned example, or an agent opened for editing): a changed draft of it
+  // is offered as its replacement, since a changed copy summoned beside it undoes its work (first-agent.ts).
+  useEffect(() => { if (!agentsLoading) runner.setOrigin(draftOrigin(origin, source, language, agents)); });
+  const originAgent = origin ? agents.find(a => a.id === origin) : undefined;
+  const replacing = !ended && replaceOffer(originAgent, source);
+  // How the last replace ended (the runner finishes it, on a retry too): said only while the editor holds that code.
+  const replaceResult = replaced && replaced.source === source ? replaced : null;
+  const blocked = replacing && originAgent ? replaceBlocked({ oldShare: originAgent.powerShare, allocated: obs?.self.allocated, name: originAgent.name?.trim() || "that agent" }) : null;
+  const twinsNote = replacing ? sameVersionNote(originAgent, agents) : null;
+  const hint = ended ? null : agentCount === 0 ? firstAgentHint(source, language, examples) : copy ? COPY_HINT : replacing ? REPLACE_WHY : secondAgentHint(agentCount);
   // The summoned line speaks of the code that was summoned: it goes when the editor holds other code.
-  useEffect(() => { setSummonedState(s => (s && s.source !== source ? null : s)); setAskReplace(false); }, [source]);
+  // So does the last receipt (a green "Accepted" stayed under "To summon: validate this code first." for other code).
+  useEffect(() => { setSummonedState(s => (s && s.source !== source ? null : s)); setAskReplace(false); runner.clearNotice(); }, [source]);
   // The name of an agent the player already has: the next free one is proposed, unless they typed this one themselves.
   const agentNames = agents.map(a => a.name).join("\u0000");
   const taken = !ended && name.trim() ? nextFreeName(name, agents.map(a => a.name), AGENT_NAME_MAX) : name.trim();
@@ -143,6 +155,7 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
   const loadObserver = () => {
     if (!observer) return;
     setAskReplace(false);
+    runner.setOrigin(null);   // other code: not a new version of the agent that was in the editor
     runner.setDraft({ source: observer.source });
     // A name or description the player typed is theirs; anything else (the example's name) gives way to the observer's.
     if (!nameTyped.current) setName(nextFreeName(OBSERVER_NAME, agents.map(a => a.name), AGENT_NAME_MAX));
@@ -170,7 +183,10 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
   // An armed summon the engine refused: its message stays beside "Try again", which arms it again.
   const [refused, setRefused] = useState<{ armed: ArmedSummon; message: string } | null>(null);
   const fired = useRef<ArmedSummon | null>(null);
-  const canArm = summonable && !canSummon && !armed && checked && !!current?.valid && current.cost > energy;
+  // The player's own store can never hold this price (its capacity fell with the power given to agents): waiting
+  // will not help, so nothing is armed and the pane says what to do (validation-text.ts storeTooSmall).
+  const tooSmall = checked && current?.valid ? storeTooSmall({ cost: current.cost, capacity: obs?.self.capacity }) : null;
+  const canArm = summonable && !canSummon && !armed && !tooSmall && checked && !!current?.valid && current.cost > energy;
   const summon = (agent: Omit<ArmedSummon, "cost">, wasArmed?: ArmedSummon) => {
     setRefused(null);
     shareAtSummon.current = newShare;
@@ -200,6 +216,19 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
     // Not payable yet: arm a one-shot that summons when the energy is there (the effect above fires it).
     if (!canSummon) { if (current) { setRefused(null); setArmed({ ...agent, cost: current.cost }); } return; }
     summon(agent);
+  };
+  // Replace: the new version is summoned first (the same summon, with the old agent's name and, as far as the free
+  // power allows, its share); only when that is accepted is the old agent destroyed (free). Never no agent.
+  const pressReplace = () => {
+    const old = originAgent;
+    if (!old || !canSummon || busy || blocked) return;
+    const as = nameTyped.current && name.trim() ? name.trim() : old.name?.trim() || name.trim() || "Agent";
+    const share = replaceShare({ oldShare: old.powerShare, allocated: obs?.self.allocated });
+    setRefused(null); setSummonedState(null);
+    // The runner keeps the replace until its summon is accepted (now, or through "Try again" / "Retry the same
+    // command") and then destroys the old agent; refused or given up, nothing is destroyed.
+    void commands.replace({ type: "summon", language, source, name: as, ...(description.trim() ? { description: description.trim() } : {}), ...(share !== undefined ? { powerShare: share } : {}) },
+      { oldId: old.id, name: as, source, share, oldShare: old.powerShare });
   };
   // "Summon my first agent", pressed outside this pane (runner.firstSummon): the untouched example is summoned here, by
   // this pane's own summon; the player's own code is not, and the Summon button is shown with an attention ring.
@@ -272,7 +301,7 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
         <span className="ml-auto font-mono text-[11px] text-muted-foreground">{bytes(source)} / 16384 bytes</span>
       </div>
       {assistantDraft && assistantDraft !== source && (
-        <p className="text-xs text-muted-foreground">Your assistant has a draft here. <TextButton onClick={() => runner.setDraft({ source: assistantDraft })}>Load it</TextButton></p>
+        <p className="text-xs text-muted-foreground">Your assistant has a draft here. <TextButton onClick={() => { runner.setOrigin(null); runner.setDraft({ source: assistantDraft }); }}>Load it</TextButton></p>
       )}
       {hint && <p data-testid="text-first-agent-hint" className="text-sm font-semibold text-foreground">{hint}</p>}
       {/* The name, the buttons and what they say come before the code, so Summon is in view in a small pane. */}
@@ -292,49 +321,83 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
         // A name the player typed themselves stays; the pane says it is taken and offers the next free one.
         <p data-testid="text-name-taken" className="text-xs text-muted-foreground">You already have an agent named {name.trim()}. <TextButton boxed testId="button-next-free-name" onClick={() => { nameTyped.current = false; setName(taken); }}>Name this one {taken}</TextButton></p>
       )}
-      <div ref={summonRow} data-ringing={ringing || undefined} className={`flex flex-wrap items-center gap-2 ${ringing ? "attention-ring" : ""}`}>
+      <div ref={summonRow} data-ringing={ringing || undefined} className={`flex scroll-mt-4 flex-wrap items-center gap-2 ${ringing ? "attention-ring" : ""}`}>
         <GhostButton testId="button-validate" disabled={!gameplay || !!busy || !allowed.includes(language) || !source.trim()} onClick={() => void commands.run({ type: "validate", language, source })}>
           <Wand2 size={14} /> {busy === "validate" ? "Checking" : "Validate (free)"}
         </GhostButton>
-        <PrimaryButton testId="button-summon" disabled={!summonOn} onClick={() => pressSummon()}>
-          <Sparkles size={14} /> {busy === "summon" ? "Summoning" : canArm ? "Summon as soon as I have the energy" : `${copy ? COPY_LABEL : "Summon"}${current ? ` · cost ${fmt(current.cost)}` : ""}`}
-        </PrimaryButton>
+        {replacing && originAgent ? (<>
+          {/* A changed version of an agent the player has: replacing it is the main action, a second agent the other. */}
+          <PrimaryButton testId="button-replace" disabled={!!busy || !canSummon || !!blocked} onClick={pressReplace}>
+            <Sparkles size={14} /> {busy === "summon" ? "Summoning" : busy === "destroy" ? "Replacing" : `${replaceLabel(originAgent.name?.trim() || "your agent")}${current ? ` · cost ${fmt(current.cost)}` : ""}`}
+          </PrimaryButton>
+          <GhostButton testId="button-summon" disabled={!summonOn} onClick={() => pressSummon()}>{canArm ? "Summon beside it as soon as I have the energy" : "Summon beside it"}</GhostButton>
+        </>) : (
+          <PrimaryButton testId="button-summon" disabled={!summonOn} onClick={() => pressSummon()}>
+            <Sparkles size={14} /> {busy === "summon" ? "Summoning" : canArm ? "Summon as soon as I have the energy" : `${copy ? COPY_LABEL : "Summon"}${current ? ` · cost ${fmt(current.cost)}` : ""}`}
+          </PrimaryButton>
+        )}
         {/* With no code view to go back to, Done goes to My agents (leaving edit mode alone would change nothing). */}
         <TextButton onClick={() => { runner.setEditing(false); if (onlyEditor) dock.show("agents"); }}>Done</TextButton>
       </div>
+      {/* Why the price is what it is, where the price is (a helper function took it from 349.5 to 565 unexplained). */}
+      {current?.valid && <p data-testid="text-price-grows" className="text-xs text-muted-foreground">{PRICE_GROWS}</p>}
+      {/* What a move costs and where the helpers are, above the code from the start. */}
+      {!ended && (costHint || obs?.instance) && (
+        <p className="text-xs text-muted-foreground" data-testid="text-forge-costs">
+          {costHint && <span data-testid="text-forge-change-cost">{costHint} </span>}
+          {obs?.instance && <TextButton boxed testId="button-open-helpers" onClick={() => {
+            // The drawer's own `open` is only its first state (the player may have closed it since): set it on the element.
+            const drawer = helpersBox.current?.querySelector("details");
+            if (drawer) drawer.open = true;
+            requestAnimationFrame(() => helpersBox.current?.scrollIntoView({ block: "nearest" }));
+          }}>Room helpers ({obs.instance.helpers.length}): how to read and change {noun === "grid" ? "a grid" : "an object"}</TextButton>}
+        </p>
+      )}
       {(busy === "validate" || busy === "summon") && <p data-testid="text-forge-progress" role="status" className="flex items-center gap-1.5 text-sm font-semibold text-foreground"><Loader2 size={14} className="shrink-0 animate-spin" />{progressLine(busy, retrying, waited)}</p>}
       {summoned && !busy && (() => {
         // Why the player's own store just shrank: the share the agent took, and the live capacity.
-        const store = storeAfterSummonText({ share: summoned.share, capacity: obs?.self.capacity });
+        // Dropped once that agent's share is no longer the one it was summoned with (a change in My agents made the
+        // sentence false: "25% of your power now feeds this agent… at most 0").
+        const live = agents.find(a => a.source === summoned.source && a.name === summoned.name);
+        const unchanged = !live || live.powerShare === undefined || summoned.share === undefined || Math.abs(live.powerShare - summoned.share) < 0.005;
+        const store = unchanged && (obs?.self.capacity ?? 0) > 0 ? storeAfterSummonText({ share: summoned.share, capacity: obs?.self.capacity }) : null;
         return (
           <div data-testid="text-summoned" className="space-y-0.5 text-sm">
             <p className="font-semibold text-[hsl(var(--accent))]">{summonedText(summoned.name, obs?.phase === "planning")}{" "}
               <TextButton boxed testId="button-open-my-agents" onClick={() => dock.show("agents")}>See what it does in My agents</TextButton></p>
             {store && <p data-testid="text-summoned-store" className="text-xs text-muted-foreground">{store}</p>}
-            <p className="text-xs text-muted-foreground">{SUMMONED_NEXT}</p>
+            {/* The next thing to try, until the player has tried it (a changed version summoned says nothing more). */}
+            {untouchedExample(summoned.source, examples) !== null && <p className="text-xs text-muted-foreground">{SUMMONED_NEXT}</p>}
           </div>
         );
       })()}
+      {(blocked || twinsNote) && !busy && <p data-testid="text-replace-note" className={`text-xs ${blocked ? "font-semibold text-foreground" : "text-muted-foreground"}`}>{blocked ?? twinsNote}</p>}
+      {replaceResult && !busy && <p data-testid="text-replaced" role="status" className={`text-sm font-semibold ${replaceResult.ok ? "text-[hsl(var(--accent))]" : "text-destructive"}`}>{replaceResult.text}{" "}
+        <TextButton boxed testId="button-open-my-agents-replaced" onClick={() => dock.show("agents")}>See it in My agents</TextButton></p>}
       {refused && !busy && !armed && <p data-testid="text-armed-refused" className="text-sm font-semibold text-destructive">{refused.armed.name} was not summoned: {refused.message} <TextButton onClick={() => { const again = { ...refused.armed }; setRefused(null); setArmed(again); }}>Try again</TextButton></p>}
       {armed && <p data-testid="text-armed" className="text-sm font-semibold text-foreground">{armedText(armed, { energy: obs?.self.energy ?? 0, income: obs?.self.income, planning: obs?.phase === "planning" })} <TextButton onClick={() => setArmed(null)}>Cancel</TextButton></p>}
       {gameplay && !busy && !armed && !refused && !(canSummon && name.trim()) && source.trim() && (() => {
         // Too dear for now: say both numbers and when it will be payable, not only that it is.
+        if (tooSmall) return <p data-testid="text-store-too-small" className="text-sm font-semibold text-foreground">{tooSmall}</p>;
         const short = current?.valid && name.trim() ? energyHint({ cost: current.cost, energy: obs?.self.energy ?? 0, income: obs?.self.income, planning: obs?.phase === "planning" }) : null;
         const needs = short ?? summonNeeds(!!current?.valid || (untouched && !current), !!name.trim(), !current || current.cost <= energy);
         return needs && <p data-testid="text-summon-needs" className="text-xs text-muted-foreground">{needs}</p>;
       })()}
-      {notice && !(refused && !notice.ok) && <p data-testid="text-notice" className={`text-sm ${notice.ok ? "text-[hsl(var(--accent))]" : "text-destructive"}`}>
+      {notice && !(refused && !notice.ok) && !(notice.ok && (summoned || replaceResult)) && <p data-testid="text-notice" className={`text-sm ${notice.ok ? "text-[hsl(var(--accent))]" : "text-destructive"}`}>
         {notice.text}
       </p>}
       {/* Still busy after every try: one button, the same command again (it can never apply twice). */}
       {failed && !busy && <GhostButton testId="button-try-again" onClick={() => void commands.retry(failed).then(result => { if (failed.command.type === "summon" && result?.accepted) setSummoned(failed.command.name, failed.command.source); })}>Try again</GhostButton>}
-      <textarea ref={editor} data-testid="input-source" value={source} onChange={e => runner.setDraft({ source: e.target.value })} maxLength={16384} spellCheck={false}
+      <textarea ref={editor} data-testid="input-source" value={source} onChange={e => runner.setDraft({ source: e.target.value })}
+        // Everything replaced by a paste is other code, not a new version of the agent that was in the editor.
+        onPaste={e => { const el = e.currentTarget; if (el.selectionStart === 0 && el.selectionEnd === el.value.length) runner.setOrigin(null); }} maxLength={16384} spellCheck={false}
         aria-label="Agent source"
         placeholder={language === "python" ? `def agent(${arg}):\n    # return a list of moves, e.g. [swap(...)]\n    return []`
           : `function agent(${arg}) {\n  // return a list of moves, e.g. [swap(...)]\n  return [];\n}`}
-        className="h-56 w-full resize-y border-l-4 border-[hsl(var(--input))] bg-secondary p-3 font-mono text-[13px] leading-relaxed text-secondary-foreground caret-[hsl(var(--primary))] outline-none focus:border-primary" />
-      <p className="text-xs text-muted-foreground">Write <code>{language === "python" ? `def agent(${arg}):` : `function agent(${arg})`}</code>. It reads the {noun} and returns at most 16 moves from the room's helpers; each act costs ⚡ energy from the agent's own store.{costHint && <> <span data-testid="text-forge-change-cost">{costHint}</span></>}</p>
-      {obs?.instance && <HelpersDrawer helpers={obs.instance.helpers} language={language} onInsert={insert} open={showHelpers} />}
+        // On a phone a modest fixed height, and the page scrolls on when the code reaches its end (no scroll trap).
+        className="h-40 w-full resize-y overscroll-auto border-l-4 sm:h-56 border-[hsl(var(--input))] bg-secondary p-3 font-mono text-[13px] leading-relaxed text-secondary-foreground caret-[hsl(var(--primary))] outline-none focus:border-primary" />
+      <p className="text-xs text-muted-foreground">Write <code>{language === "python" ? `def agent(${arg}):` : `function agent(${arg})`}</code>. It reads the {noun} and returns at most 16 moves from the room's helpers; each act costs ⚡ energy from the agent's own store.</p>
+      {obs?.instance && <div ref={helpersBox}><HelpersDrawer helpers={obs.instance.helpers} language={language} onInsert={insert} open={showHelpers} /></div>}
       {observer && observer.source !== source && (
         // Paid observation: the standing watch as another starting point, below the code and closed until asked for, so
         // it is never read as describing the agent in the editor (./observer.ts).
@@ -359,9 +422,9 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
       <div data-testid="panel-validation" className="text-sm">
         {current ? (
           <div className={`border-l-4 py-1 pl-3 ${current.valid ? "border-[hsl(var(--accent))]" : "border-destructive"}`}>
-            <p className="font-mono text-xs"><strong>{current.valid ? "VALID" : "INVALID"}</strong></p>
-            <div className="mt-1"><AgentCost summonCost={current.cost} expectedActCost={current.expectedActCost} breakdown={current.breakdown as ActCostBreakdown | undefined}
-              powerShare={newShare} income={newShare !== undefined ? newShare * (obs?.economy?.powerPerSecond ?? 0) : undefined} godEnergy={obs?.self.energy} /></div>
+            {/* The verdict, the price and any warning; the rest is under "Details" (it was a wall of jargon on a phone). */}
+            <p className="text-xs" data-testid="text-validation-verdict"><strong className="font-mono">{current.valid ? "VALID" : "INVALID"}</strong>
+              {current.valid && <> · Price {fmt(current.cost)} ⚡, paid once from your energy; about {(Math.round(current.expectedActCost * 10) / 10).toFixed(1)} ⚡ a move.</>}</p>
             {current.warnings?.length ? (
               // The examination's warnings (docs/rules-design.md §11): shown before the summon, which they never block.
               <div data-testid="text-validation-warnings" className="mt-1 space-y-0.5 text-xs">
@@ -369,9 +432,16 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
                 {current.warnings.map((w, i) => <p key={i} className="text-destructive">{w}</p>)}
               </div>
             ) : null}
-            {current.diagnostics.length > 0
-              ? <ul className="mt-1 space-y-0.5 font-mono text-xs text-muted-foreground">{current.diagnostics.map((d, i) => <li key={i} className="whitespace-pre-wrap break-words">{d}</li>)}</ul>
-              : <p className="mt-1 font-mono text-xs text-muted-foreground">no diagnostics</p>}
+            {!current.valid && current.diagnostics.length > 0 && <ul className="mt-1 space-y-0.5 font-mono text-xs text-muted-foreground" data-testid="list-validation-errors">{current.diagnostics.map((d, i) => <li key={i} className="whitespace-pre-wrap break-words">{d}</li>)}</ul>}
+            {current.valid && (
+              <details className="mt-1 text-xs" data-testid="details-validation">
+                <summary className="cursor-pointer text-muted-foreground">Details</summary>
+                <div className="mt-1"><AgentCost summonCost={current.cost} expectedActCost={current.expectedActCost} breakdown={current.breakdown as ActCostBreakdown | undefined}
+                  powerShare={newShare} income={newShare !== undefined ? newShare * (obs?.economy?.powerPerSecond ?? 0) : undefined} godEnergy={obs?.self.energy} /></div>
+                {priceParts(current.parts, current.cost) && <p className="mt-1" data-testid="text-price-parts">{priceParts(current.parts, current.cost)}</p>}
+                <ul className="mt-1 space-y-0.5 font-mono text-muted-foreground">{otherDiagnostics(current.diagnostics).map((d, i) => <li key={i} className="whitespace-pre-wrap break-words">{d}</li>)}</ul>
+              </details>
+            )}
           </div>
         ) : <p className="text-xs text-muted-foreground">{validation ? "The code changed since it was validated. Validate again." : untouched ? "This agent is ready to summon. Validate (free) shows what it costs first." : "Validate before summoning: it is free."}</p>}
       </div>

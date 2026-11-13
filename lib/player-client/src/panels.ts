@@ -100,7 +100,7 @@ export const PANELS = {
   race: def({
     id: "race", title: "Leaderboard race", blurb: "Who's winning, and is anyone catching up.", phases: WORLD,
     params: z.strictObject({ show: z.enum(["all", "top3", "me-vs-leader"]).default("all"), metric: z.enum(["total", "gap"]).default("total"), window: seconds(60, 3600, 300) }),
-    summary: p => line([{ all: "Everyone", top3: "Top 3", "me-vs-leader": "You vs the leader" }[p.show], p.metric === "gap" ? "gap to the leader" : "total payoff", `last ${p.window} s`]),
+    summary: p => line([{ all: "Everyone", top3: "Top 3", "me-vs-leader": "You vs the leader" }[p.show], p.metric === "gap" ? "gap to the leader" : "total points", `last ${p.window} s`]),
   }),
   agents: def({
     id: "agents", title: "My agents", blurb: "Your agents, their energy, and when each acts next.", phases: WORLD,

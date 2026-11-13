@@ -34,11 +34,11 @@ import { useAffordances } from "@/core/use-affordances";
 import type { Affordance } from "@/core/affordances";
 import { useReplaySource } from "@/sdk/replay-source";
 import { useNow } from "@/core/game/situation";
-import { PanelEmpty, PrimaryButton, TextButton, referObject, type PanelProps } from "./kit";
+import { AskAboutObject, PanelEmpty, PrimaryButton, TextButton, type PanelProps } from "./kit";
 import { payoffLabels, payoffRect, type PayoffScale } from "./payoff-geometry";
 import { useNextStep } from "./use-next-step";
 import { ageText, lookOffer, staleness } from "./knowledge";
-import { whyTitle, whyUnavailable } from "./object-why";
+import { rankNote, whyTitle, whyUnavailable } from "./object-why";
 import { useReplayChanged } from "@/core/replay/parts";
 
 /** The rectangle's box: the side the largest value fills, and room for the two edge labels. */
@@ -80,12 +80,12 @@ function PayoffKey() {
   const swatch = (colour: string) => <span aria-hidden className="inline-block h-[3px] w-3 align-middle" style={{ background: colour }} />;
   return (
     <p className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] text-muted-foreground" data-testid="text-payoff-caption">
-      <span className="inline-flex items-center gap-1">{swatch(YOURS)}<span>width: <span style={{ color: YOURS }}>your bits</span></span></span>
-      <span className="inline-flex items-center gap-1">{swatch(OTHERS)}<span>height: <span style={{ color: OTHERS }}>what the others care</span></span></span>
+      <span className="inline-flex items-center gap-1">{swatch(YOURS)}<span>width: <span style={{ color: YOURS }}>your ✨ rarity</span></span></span>
+      <span className="inline-flex items-center gap-1">{swatch(OTHERS)}<span>height: <span style={{ color: OTHERS }}>how much the others want it</span></span></span>
       <span className="inline-flex items-center gap-1">
         <span aria-hidden className="inline-block h-2.5 w-6 align-middle"
           style={{ background: `linear-gradient(to right, ${KEY_STOPS})` }} />
-        area: your payoff, low → high
+        area: your points, low → high
       </span>
     </p>
   );
@@ -244,8 +244,7 @@ function ObjectRow({ objectId, position, byPayoff, scales, world, highlighted, o
   return (
     <div key={lit ? `${o.id}:${change!.version}` : o.id} data-testid={`row-object-${o.id}`} className={`relative h-full min-w-0 overflow-hidden border-t border-[hsl(var(--card-border))] pt-2 pb-2 ${highlighted ? "bg-[hsl(var(--primary)/0.06)]" : ""} ${lit ? "replay-changed" : ""}`}>
       <div className={`flex min-w-0 items-start gap-3 ${seen ? "mt-5" : ""}`.trimEnd()}>
-        <button type="button" onClick={() => referObject(rank)} title="Ask your assistant about this object"
-          className="w-7 shrink-0 pt-0.5 text-left font-mono text-xs text-muted-foreground hover:text-foreground">{label}</button>
+        <span className="w-7 shrink-0 pt-0.5 font-mono text-xs text-muted-foreground" data-testid={`text-object-rank-${o.id}`}>{label}</span>
         <span className={`max-w-[40%] shrink-0 truncate font-mono text-xs ${boards ? "" : dim}`.trimEnd()} data-stale={seen?.stale || undefined} data-testid={seen ? `object-seen-${o.id}` : undefined}><ObjectView value={o.value} compareTo={lit ? change!.before as never : undefined} {...ctx} showTitle /></span>
         <PayoffRectangle o={o} scale={scales.scale} strength={strength} dim={dim} />
         <span className="min-w-0 flex-1 space-y-1">
@@ -257,9 +256,13 @@ function ObjectRow({ objectId, position, byPayoff, scales, world, highlighted, o
             <span className={`absolute inset-y-0 left-0 ${o.payoff < 0 ? "bg-destructive" : ""}`} data-testid={`payoff-bar-${o.id}`}
               style={{ width: `${Math.min(100, (100 * Math.abs(o.payoff)) / scales.max)}%`, ...(o.payoff < 0 ? {} : { background: rampVar(strength) }) }} />
           </span>
-          <span className="block truncate font-mono text-[11px] text-muted-foreground" data-testid={`text-mutations-${o.id}`}>{mutationLine(o, world)}</span>
+          <span className="block break-words font-mono text-[11px] text-muted-foreground" data-testid={`text-mutations-${o.id}`}>{mutationLine(o, world)}</span>
           <span className="block truncate" data-testid={`text-rarity-${o.id}`}><ScoreBreakdown score={o} noun={noun} comparative={comparative} compact /></span>
-          <TextButton onClick={() => onOpen(o.id, byPayoff ? position : undefined)} testId={`button-object-detail-${o.id}`}>{open ? "hide" : "why?"}</TextButton>
+          <span className="flex flex-wrap items-center gap-x-3">
+            <TextButton onClick={() => onOpen(o.id, byPayoff ? position : undefined)} testId={`button-object-detail-${o.id}`}>{open ? "hide" : "why?"}</TextButton>
+            {/* Referring it to the assistant is asked for, never what a click on the board does. */}
+            <AskAboutObject objectId={o.id} />
+          </span>
         </span>
       </div>
       {seen && (
@@ -301,10 +304,11 @@ function ObjectRow({ objectId, position, byPayoff, scales, world, highlighted, o
  * into view when it opens: under the list it was out of sight below a 640px scroller, so "why?" turned into "hide" and
  * seemed to open nothing (three first-time walks). It always says something: the breakdown, or why there is none.
  */
-function ObjectDetail({ objectId, position, noun, comparative, world, boards, onHide }: { objectId: string; /** The row's rank when the list is by points (no subscription for it); else undefined and the rank is read. */ position: number | undefined; noun: string; comparative: string | undefined; world: number; boards?: boolean; onHide: () => void }) {
+function ObjectDetail({ objectId, noun, comparative, world, boards, onHide }: { objectId: string; noun: string; comparative: string | undefined; world: number; boards?: boolean; onHide: () => void }) {
   const o: MyObject | null | undefined = useMyObject(objectId);
-  const ranked = useObjectRank(position === undefined ? objectId : undefined);
-  const rank = position ?? ranked;
+  // The rank NOW (player.objectRank), not the row's when it was clicked: the list re-ranks while the box is open, and
+  // only one detail is open at a time, so this is one subscription.
+  const rank = useObjectRank(objectId);
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => { box.current?.scrollIntoView({ block: "nearest" }); }, [objectId]);
   const hide = <TextButton boxed testId="button-object-detail-hide" onClick={onHide}>hide</TextButton>;
@@ -312,8 +316,11 @@ function ObjectDetail({ objectId, position, noun, comparative, world, boards, on
   if (!o) return <div ref={box} className="flex flex-wrap items-center gap-2 border-l-2 border-[hsl(var(--card-border))] pl-3 text-xs text-muted-foreground" data-testid="object-detail-none"><span>{missing}</span>{hide}</div>;
   const seen = staleness(o, world);
   return (
-    <div ref={box} className="space-y-1 border-l-2 border-primary bg-[hsl(var(--primary)/0.04)] py-1 pl-3" data-testid={`object-detail-${o.id}`}>
-      <p className="flex flex-wrap items-center gap-2 text-sm font-semibold" data-testid="text-object-detail-title"><span>{whyTitle(rank, o.payoff, noun)}</span>{hide}</p>
+    <div ref={box} className="max-h-[40vh] scroll-mt-4 space-y-1 overflow-auto border-l-2 border-primary bg-[hsl(var(--primary)/0.04)] py-1 pl-3 pr-1" data-testid={`object-detail-${o.id}`}>
+      {/* A block in the flow, at most 40% of the window with its own scroll; the heading names the grid, not its changing rank. */}
+      <p className="flex flex-wrap items-center gap-2 text-sm font-semibold" data-testid="text-object-detail-title"><span>{whyTitle(o.payoff, noun)}</span>
+        {rankNote(rank) && <span className="font-mono text-[11px] font-normal text-muted-foreground" data-testid="text-object-detail-rank">{rankNote(rank)}</span>}
+        <span className="ml-auto">{hide}</span></p>
       {seen && (
         <p className="text-xs text-muted-foreground" data-testid={`text-detail-seen-${o.id}`}>
           {boards ? "The others' interest and your points as you last saw them" : "As you last saw it"}, {seen.age < 1 ? "just now" : `${ageText(seen.age)} ago`}
@@ -326,12 +333,12 @@ function ObjectDetail({ objectId, position, noun, comparative, world, boards, on
 }
 
 /** The grid layout: one window of the collection (player.objectsPage, at most 90 objects) drawn as a board. */
-function ObjectsGrid({ params, world }: Pick<PanelProps<"objects">, "params"> & { world: number }) {
+function ObjectsGrid({ params, world, onOpen }: Pick<PanelProps<"objects">, "params"> & { world: number; /** A click on a board opens its "why?" (never the assistant). */ onOpen: (id: string, rank?: number) => void }) {
   const data = useObjectsPage({ sort: params.sortBy, filter: params.filter, limit: 90, hz: 1 });
   const shown = data?.rows ?? [];
   // The window's position is the payoff rank only when it is by payoff and unfiltered.
   const ranks = params.sortBy === "payoff" && params.filter === "all" ? new Map(shown.map((o, i) => [o.id, i + 1])) : new Map<string, number>();
-  return <ObjectGrid objects={shown} max={shown.length} badge={(o: LiveObject) => (ranks.has(o.id) ? `#${ranks.get(o.id)} · ` : "") + formatBits(o.payoff) + (o.knownAt !== undefined ? ` · ${staleness(o, world)!.seen}` : "")} onSelect={id => referObject(ranks.get(id))} />;
+  return <ObjectGrid objects={shown} max={shown.length} badge={(o: LiveObject) => (ranks.has(o.id) ? `#${ranks.get(o.id)} · ` : "") + formatBits(o.payoff) + (o.knownAt !== undefined ? ` · ${staleness(o, world)!.seen}` : "")} onSelect={id => onOpen(id, ranks.get(id))} />;
 }
 
 export default function Objects({ paneId, params, phase }: PanelProps<"objects">) {
@@ -393,11 +400,19 @@ export default function Objects({ paneId, params, phase }: PanelProps<"objects">
   // Off for the phase or a command in flight (the affordance's reason), else for the price (with what to do when no power is kept).
   const look: RowLook | undefined = one && (can.look.ok || !can.look.hidden)
     ? { label: one.label, disabled: !can.look.ok, ...(can.look.ok ? {} : { reason: can.look.reason === lookOffer({ price: lookPrice!, energy }).reason ? one.reason! : can.look.reason }), onLook: lookAt } : undefined;
-  if (params.layout === "grid") return <div className="space-y-3">{header}<ObjectsGrid params={params} world={world} /></div>;
+  if (params.layout === "grid") {
+    return (
+      <div className="space-y-3">
+        {header}
+        {open && <ObjectDetail objectId={open.id} noun={noun} comparative={comparative} world={world} boards={boards} onHide={() => setOpen(null)} />}
+        <ObjectsGrid params={params} world={world} onOpen={toggle} />
+      </div>
+    );
+  }
   return (
     <div className="space-y-3" ref={paneRef}>
       {header}
-      {open && <ObjectDetail objectId={open.id} position={byPayoff ? open.rank : undefined} noun={noun} comparative={comparative} world={world} boards={boards} onHide={() => setOpen(null)} />}
+      {open && <ObjectDetail objectId={open.id} noun={noun} comparative={comparative} world={world} boards={boards} onHide={() => setOpen(null)} />}
       <VirtualRows rows={skeleton.rows} rowHeight={rowHeightFor(ctx, widePane) + (paid ? SEEN_LINE : 0)} maxHeight={640} keyOf={r => r.id} onNearEnd={loadMore} testId="list-objects"
         render={(r, i) => <ObjectRow objectId={r.id} position={i + 1} byPayoff={byPayoff} scales={scales} world={world} boards={boards}
           highlighted={highlight.has(r.id)} open={open?.id === r.id} onOpen={toggle} ctx={ctx} noun={noun} comparative={comparative} changed={changed} look={look} />} />

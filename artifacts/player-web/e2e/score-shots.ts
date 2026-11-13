@@ -76,6 +76,8 @@ try {
       await target.scrollIntoViewIfNeeded();
       await sleep(2500);
       await page.screenshot({ path: join(OUT, `${panel}-${name}.png`) });
+      // The energy explanation is behind "How energy works" (closed by default): open it before reading its text.
+      await page.locator("[data-testid=details-how-energy-works] summary").first().click({ timeout: 2000 }).catch(() => {});
       for (const id of ["text-points-now", "text-latest-act", "text-energy-income", "scoring-points"]) {
         const el = page.locator(`[data-testid=${id}]`).first();
         if (await el.count()) console.log(`${name} ${panel} ${id}:`, (await el.innerText()).replace(/\s+/g, " "));
