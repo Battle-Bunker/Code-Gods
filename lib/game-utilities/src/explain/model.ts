@@ -87,10 +87,12 @@ export interface TierStatus {
   /** "2 more opposite pairs to open ★: rows, columns and long diagonals adding up to 18." */
   readonly note: string;
   /**
-   * The unit that comes nearest, for an open tier that scores nothing: "Row 2: 3 short of 18 (4 + 5 + 2 + 2 = 13, not
-   * 18)". Absent when the tier is not open, when it already scores, or when nothing on the board is near it. A tier may
-   * take a plan rather than one more cell (measured: a one-cell climber gets none of ✌️ Two Pair's linked boxes), so
-   * this line is the whole of a player's foothold on it.
+   * The unit that comes nearest, for an open tier that scores nothing: "Row 2: 3 short of 18 — 4 + 5 + 2 + 2 = 13, not
+   * 18." It is the nearest one *however far that is*: a tier may take a plan rather than one more cell (measured: a
+   * one-cell climber gets none of ✌️ Two Pair's linked boxes), and then even the nearest unit is two conditions away —
+   * "not linked — the boxes share both pairs (3s and 8s)" — which is still the whole of a player's foothold on it.
+   * Absent when the tier is not open, when it already scores, when it has no units on this board at all, and when its
+   * lens says nothing about how near a unit is (`Part.heat`).
    */
   readonly nearest?: string;
 }

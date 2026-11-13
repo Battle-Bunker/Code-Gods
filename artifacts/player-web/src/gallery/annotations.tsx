@@ -7,7 +7,7 @@
 import React, { StrictMode, useMemo } from "react";
 import { createRoot } from "react-dom/client";
 import { instantiate } from "@workspace/game-types";
-import { context, explainer, family, instanceTables, story, tableFor, whatIf, type CalibrationFile } from "@workspace/game-utilities";
+import { baseParams, context, explainer, family, instanceTables, story, tableFor, whatIf, type CalibrationFile } from "@workspace/game-utilities";
 import firstSteps from "../../../../lib/game-utilities/data/calibration/v1/Grid(4,base10,rgb).json";
 import { GoalBoard, GoalExplainerProvider, GridObject, PartScrubber, StoryPlayer, WhatIfBoard } from "@workspace/object-views";
 import { ruleScoreWording } from "@workspace/game-utilities/card-text";
@@ -81,7 +81,8 @@ function TieredFamily({ familyId }: { familyId: string }) {
   const params = useMemo(() => f.tiered!(context(INST), 1)[0], [familyId]);
   const goal = useMemo(() => withTables({ familyId, params: params as never }), [params]);
   const example = useMemo(() => goal.example(), [goal]);
-  const exemplar = useMemo(() => String(f.exemplar!({} as never, context(INST))), [familyId]);
+  // The BASE's exemplar, on the base's own params (a tiered draw carries `tiers` beside them), as the example search does.
+  const exemplar = useMemo(() => String(f.exemplar!(baseParams(params) as never, context(INST))), [params]);
   const card = useMemo(() => f.cardTiers!(params as never, context(INST))[0], [params]);
   return (
     <section className="space-y-4 border bg-card p-5" data-tiered-family={familyId}>
