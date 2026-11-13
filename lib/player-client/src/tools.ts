@@ -189,7 +189,7 @@ export const ACT_TOOLS = [
       description: z.string().trim().max(AGENT_DESCRIPTION_MAX).optional().describe("A new description for the agent (optional; without one it keeps the description it has)."),
       commandId, gameId, waitMs }), output: result(receiptData) }),
   def({ name: "destroy_agent", short: "Destroy one of the player's agents (no refund).", title: "Destroy an agent", functions: ["commands.submit"], permission: "act", annotations: destructive,
-    about: "Destroy one of the player's own agents, for free (energy already spent is not refunded; its power share goes back to the player).",
+    about: "Destroy one of the player's own agents, for free (energy already spent is not refunded; its power share goes back to the player, and with it the energy the agent holds, or what it owes).",
     input: obj({ agentId: id.describe("The agent's id from get_observation (agents[].id); never a command id."), commandId, gameId }), output: result(receiptData) }),
   def({ name: "allocate_power", short: "Change how much of the player's power one agent gets.", title: "Allocate power", functions: ["commands.submit"], permission: "act", annotations: acts,
     about: "Set one agent's power share (0 to 1) from now on: it earns share x economy.powerPerSecond bits per world second, and the player's own income is the unallocated rest (self.income). The player's shares total at most 1; both accounts are settled first. Moving power between agents is two calls: lower one, then raise the other.",

@@ -31,10 +31,10 @@ test("an agent's store: debt, filling, full (income wasted), or no income", () =
   assert.equal(fillText(5, 0, 0), "no income");
 });
 
-test("lowering a share: the agent holds less, and loses what it holds above the new limit", () => {
-  // 25% → 12.5%: 480 → 8 × 30 = 240 ⚡; it holds 400, so 160 are lost. You keep 25% → 37.5%: 480 → 24 × 30 = 720.
+test("lowering a share: the agent holds less, and what it holds above the new limit moves to you", () => {
+  // 25% → 12.5%: 480 → 8 × 30 = 240 ⚡; it holds 400, so 160 move to you. You keep 25% → 37.5%: 480 → 24 × 30 = 720.
   assert.deepEqual(shareCapacityLines({ newShare: 0.125, agentShare: 0.25, allocated: 0.75, total: 64, fullChargeSeconds: 30, agentEnergy: 400, ownEnergy: 230 }), [
-    "This agent will hold at most 240 ⚡ (now 480): 160 ⚡ it holds above that will be lost.",
+    "This agent will hold at most 240 ⚡ (now 480): the 160 ⚡ it holds above that move to your own energy.",
     "Your own energy will hold at most 720 ⚡ (now 480).",
   ]);
   // It holds 100, under the new 240: no loss to mention.
@@ -45,16 +45,16 @@ test("lowering a share: the agent holds less, and loses what it holds above the 
     "This agent will hold nothing (now at most 480 ⚡).");
 });
 
-test("raising a share: your own energy holds less, and loses what it holds above the new limit", () => {
-  // 25% → 50% with 50% given out: you keep 50% → 25%: 32 × 30 = 960 → 16 × 30 = 480; you hold 700, so 220 are lost.
+test("raising a share: your own energy holds less, and what you hold above the new limit moves to the agent", () => {
+  // 25% → 50% with 50% given out: you keep 50% → 25%: 32 × 30 = 960 → 16 × 30 = 480; you hold 700, so 220 move to the agent.
   assert.deepEqual(shareCapacityLines({ newShare: 0.5, agentShare: 0.25, allocated: 0.5, total: 64, fullChargeSeconds: 30, agentEnergy: 400, ownEnergy: 700 }), [
     "This agent will hold at most 960 ⚡ (now 480).",
-    "Your own energy will hold at most 480 ⚡ (now 960): 220 ⚡ above that will be lost.",
+    "Your own energy will hold at most 480 ⚡ (now 960): the 220 ⚡ you hold above that move to this agent.",
   ]);
   // Everything given away: 25% → 50% with 75% given out leaves you 0%.
   assert.deepEqual(shareCapacityLines({ newShare: 0.5, agentShare: 0.25, allocated: 0.75, total: 64, fullChargeSeconds: 30, agentEnergy: 0, ownEnergy: 230 }), [
     // What it does to the player comes first, in its first words (a player set 50% and only then read "You cannot summon").
-    "This leaves you nothing for summoning. Your own energy will hold nothing (now at most 480 ⚡): the 230 ⚡ you hold will be lost, and you cannot summon until you take power back.",
+    "This leaves you nothing for summoning. Your own energy will hold nothing (now at most 480 ⚡): the 230 ⚡ you hold move to this agent, and you cannot summon until you take power back.",
     "This agent will hold at most 960 ⚡ (now 480).",
   ]);
   assert.equal(shareCapacityLines({ newShare: 0.5, agentShare: 0.25, allocated: 0.75, total: 64, fullChargeSeconds: 30, agentEnergy: 0, ownEnergy: 0 })[0],
