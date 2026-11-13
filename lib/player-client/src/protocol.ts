@@ -25,6 +25,9 @@ export const commandSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("validate"), ...program }).strict(),
   // powerShare: the share of your power the new agent earns (0–1; default half of what you have not allocated).
   z.object({ type: z.literal("summon"), ...program, name: agentName, description: agentDescription.optional(), powerShare: z.number().min(0).max(1).optional() }).strict(),
+  // Replace an agent's program (docs/energy-model.md §5.2): it costs what summoning the new program would, examined
+  // the same way; the agent keeps its id, name, power share, stored energy and debt. description: replaced when sent.
+  z.object({ type: z.literal("replace"), agentId: id, ...program, description: agentDescription.optional() }).strict(),
   z.object({ type: z.literal("ready"), ready: z.boolean() }).strict(),
   z.object({ type: z.literal("pause") }).strict(),
   z.object({ type: z.literal("chat"), text: z.string().trim().min(1).max(2000) }).strict(),
@@ -41,12 +44,15 @@ export const commandSchema = z.discriminatedUnion("type", [
 ]);
 export type Command = z.infer<typeof commandSchema>;
 /** Commands that act on the current game and therefore need its gameId. */
-export const GAME_COMMANDS: readonly Command["type"][] = ["validate", "summon", "pause", "destroy", "allocatePower", "look"];
+export const GAME_COMMANDS: readonly Command["type"][] = ["validate", "summon", "replace", "pause", "destroy", "allocatePower", "look"];
 /**
  * Validate and summon measure the agent on the server (a few hundred sandboxed runs; a few seconds,
  * longer for agents that use random), so they get a longer deadline than other commands.
  */
-export const commandTimeoutMs = (command: Command) => (command.type === "validate" || command.type === "summon" ? 120000 : 15000);
+/** The commands whose program the engine examines in the agent sandbox before answering (priced, dry-run). */
+export const examinesProgram = (command: Command): command is Extract<Command, { type: "validate" | "summon" | "replace" }> =>
+  command.type === "validate" || command.type === "summon" || command.type === "replace";
+export const commandTimeoutMs = (command: Command) => (examinesProgram(command) ? 120000 : 15000);
 export const envelopeSchema = z.object({
   version: z.literal(VERSION), commandId: z.string().uuid(), command: commandSchema,
   gameId: id.optional(),

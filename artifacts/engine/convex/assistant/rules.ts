@@ -2,7 +2,7 @@
  * Pure rules of the in-client assistant (docs/surface-architecture.md §6), shared by the turn loop and the unit
  * tests (test/unit/assistant.test.ts): no Convex imports.
  */
-import { CORE_TOOLS, LAYOUT_TOOLS, OWNER_TOOLS, findTool, isCommandTool, toolJsonSchemas, toolsFor } from "@workspace/player-client/tools";
+import { CORE_TOOLS, LAYOUT_TOOLS, OWNER_TOOLS, examinesTool, findTool, isCommandTool, toolJsonSchemas, toolsFor } from "@workspace/player-client/tools";
 import { SKILL_LIMITS, findSkill } from "@workspace/player-client/skills";
 import { LOAD_TOOLS, loadedToolNames, type ChatAssistantBlock, type ChatMessage, type ChatToolResult } from "@workspace/ai-player/chat";
 import { bound } from "../agent/bound.ts";
@@ -70,7 +70,7 @@ const takesRequestId = (tool: string) => "requestId" in ((findTool(tool)?.input 
 export function prepareArgs(tool: string, args: Record<string, unknown>, id: string): Record<string, unknown> {
   if (isCommandTool(tool)) {
     const out: Record<string, unknown> = { ...args, commandId: id };
-    if (tool === "validate_agent" || tool === "summon_agent") out.waitMs = Math.min(Number(args.waitMs ?? LIMITS.waitMs) || LIMITS.waitMs, LIMITS.waitMs);
+    if (examinesTool(tool)) out.waitMs = Math.min(Number(args.waitMs ?? LIMITS.waitMs) || LIMITS.waitMs, LIMITS.waitMs);
     return out;
   }
   // Only owner tools that take a request id (the read-only ones, get_room_state and get_ai_catalog, reject extras).
@@ -141,7 +141,7 @@ export function loadTools(permission: Permission, mode: AssistantMode, args: Rec
 }
 
 /** Tools whose arguments carry code or whole documents: a step that may call them gets the full output ceiling. */
-const WRITES_CODE = new Set(["validate_agent", "summon_agent", "save_panel", "save_setup"]);
+const WRITES_CODE = new Set(["validate_agent", "summon_agent", "replace_agent", "save_panel", "save_setup"]);
 /**
  * A step's output ceiling: the thread's raised one after a cut, the full one once a code-writing tool the grant may
  * use (one of `tools`) is loaded, else the default.
@@ -159,7 +159,7 @@ export function outputCeiling(turnCeiling: number | undefined, messages: ChatMes
 export function argsLimit(tool: string): number {
   if (tool === "save_panel") return 70_000;
   if (tool === "run_code") return 72_000;
-  if (tool === "validate_agent" || tool === "summon_agent") return 20_000;
+  if (examinesTool(tool)) return 20_000;
   // A forge draft (open_panel forge {source}) is an agent source too.
   if (tool === "open_panel" || tool === "set_panel_params") return 20_000;
   return LIMITS.argsChars;
