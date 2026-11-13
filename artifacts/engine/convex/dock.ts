@@ -51,7 +51,8 @@ export const state = query({
       self: { godId: viewer.subject, name: member.name, kind: member.kind, ready: member.ready },
     });
     // `roster`: the game's gods in roster order (the order of games.standingsHistory's totals).
-    return { ...rest, roster: game ? game.roster.map(m => m.id) : [], self: { ...rest.self, ...(game && deity ? { score: totals?.score ?? 0 } : {}) } };
+    // `objectCount`: the live number of objects (public, on the clock): what a look at everything is priced by.
+    return { ...rest, roster: game ? game.roster.map(m => m.id) : [], ...(game ? { objectCount: game.objectCount } : {}), self: { ...rest.self, ...(game && deity ? { score: totals?.score ?? 0 } : {}) } };
   },
 });
 

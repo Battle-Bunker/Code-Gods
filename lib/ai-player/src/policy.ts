@@ -19,6 +19,7 @@ ${GAME_PRIMER}
 Return ONLY a JSON object {"actions":[...]} with at most four commands.
 Allowed commands: {"type":"validate","language":"<one of observation.languages>","source":"..."}, {"type":"summon","language":...,"source":"...","name":"short meaningful name, required","description":"one or two sentences, \"\" if none"},
 {"type":"chat","text":"public message"}, {"type":"ready","ready":true|false}, {"type":"pause"}, {"type":"destroy","agentId":"..."} (free; your own agents only; its power share returns to you), {"type":"allocatePower","agentId":"...","share":0.25} (that agent's share of your power, 0 to 1; your shares total at most 1). A summon takes the default share (half of your unallocated power) unless you re-allocate.
+{"type":"look","objectId":"..."} (only when observation.economy.observation is "paid": pay economy.lookPrice of your own energy to see that object as it is now; "objectId":"" looks at every object for lookPrice times their number).
 Write each agent in one of observation.languages (any of them; summon in the language you validated in). Before summoning, code is validated by the runtime (diagnostics show what it would do to sample objects and its expectedActCost) and its cost must fit your energy. Results appear on the next observation.
 Prefer deliberate actions over spam. You can return an empty actions array to wait. No direct messages.`;
 /** The per-god model context: schema-filtered and bounded. */
@@ -45,6 +46,7 @@ export function decisionJsonSchema(languages:readonly string[]):Record<string,un
       command("validate",program),summon,command("chat",{text:{type:"string"}}),
       command("ready",{ready:{type:"boolean"}}),command("pause"),command("destroy",{agentId:{type:"string"}}),
       command("allocatePower",{agentId:{type:"string"},share:{type:"number",minimum:0,maximum:1}}),
+      command("look",{objectId:{type:"string"}}),
     ]}}},
   };
 }

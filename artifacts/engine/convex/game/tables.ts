@@ -90,6 +90,11 @@ export const eventV = v.union(
   v.object({ t: v.literal("rescore"), objectId: v.string(), value: wire, version: v.number(), world: v.number(), net: v.array(v.number()), noise: v.optional(v.number()) }),
   /** The owner re-allocated its power (schema 6): the agent's share from `world` on. */
   v.object({ t: v.literal("power"), agentId: v.string(), ownerId: v.string(), world: v.number(), share: v.number() }),
+  /**
+   * A god paid for a look (schema 11; paid observation, lib/knowledge.ts): `cost` energy from its own account for `count`
+   * objects (one: `objectId`; absent: every object then). PRIVATE to its god while the game is live.
+   */
+  v.object({ t: v.literal("look"), ownerId: v.string(), world: v.number(), cost: v.number(), count: v.number(), objectId: v.optional(v.string()) }),
 );
 
 /** An agent's failure breakdown (lib/futility.ts FAILURE_KINDS) and the last reason of the kinds the diagnosis quotes. */
@@ -331,13 +336,39 @@ export const gameTables = {
     createdAt: v.number(), lastMutatedAt: v.optional(v.number()),
     ordinal, rewardBits: v.number(), penaltyBits: v.optional(v.number()), netBits: v.number(),
     peerNetBits: v.number(), peerCare: v.number(), payoff: v.number(),
+    /**
+     * Paid observation (lib/knowledge.ts): the world time (seconds) the god was last told this object; the row is the
+     * object as it was then. Absent in a free game and once the game has ended (the row is the object as it is).
+     */
+    learnedAt: v.optional(v.number()),
+    /** "boards" mode only: the object's version when the god was last told the others' sum (the row's board is live). */
+    toldVersion: v.optional(v.number()),
+    /**
+     * Paid observation: the object has changed since the god was last told it (set once, by the sync of the commit that
+     * first changed it; cleared by the next telling). That an object changed is public; this row only counts it for its
+     * god (player.staleCount, by_game_god_stale).
+     */
+    stale: v.optional(v.boolean()),
   }).index("by_object_god", ["objectId", "godId"])
+    .index("by_game_god_stale", ["gameId", "godId", "stale"])
     .index("by_game_god_payoff", ["gameId", "godId", "payoff"])
     .index("by_game_god_netBits", ["gameId", "godId", "netBits"])
     .index("by_game_god_peer", ["gameId", "godId", "peerCare"])
     .index("by_game_god_version", ["gameId", "godId", "version"])
     .index("by_game_god_created", ["gameId", "godId", "createdAt"])
     .index("by_game_god_mutated", ["gameId", "godId", "lastMutatedAt"]),
+
+  /**
+   * PRIVATE to `godId`, paid observation only (lib/knowledge.ts): the god's knowledge over time, one row per telling
+   * that brought something new (an object's birth, a version the god had not been told, or the same version re-scored):
+   * the object as told at world time `world`, with the god's own bits, the others' sum as disclosed and the payoff.
+   * Written with the god's objectViews row (game/objectViews.ts syncRows), so only for objects the god was told. It is
+   * the god's utility series while the game is live (player.series): what the analytics and the rival inference read.
+   */
+  knowledgeLog: defineTable({
+    gameId: v.id("games"), godId: v.string(), objectId: v.id("objects"), world: v.number(), version: v.number(), value: wire,
+    own: v.number(), others: v.number(), payoff: v.number(),
+  }).index("by_game_god_world", ["gameId", "godId", "world"]).index("by_game_god_object_world", ["gameId", "godId", "objectId", "world"]),
 
   /**
    * PRIVATE to `godId`: that god's totals over every object as disclosed (lib/views.ts GodTotals): the objects panel's

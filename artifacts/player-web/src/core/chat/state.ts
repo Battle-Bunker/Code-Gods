@@ -104,6 +104,7 @@ export const STEP_VERBS = {
   summon_agent: ["summoned an agent", "summoning an agent", "summon an agent"],
   destroy_agent: ["destroyed an agent", "destroying an agent", "destroy an agent"],
   allocate_power: ["shared out power", "sharing out power", "share out power"],
+  look: ["paid for a look", "paying for a look", "pay for a look"],
   set_ready: ["marked you ready", "marking you ready", "mark you ready"],
   set_spectator: ["changed whether you play", "changing whether you play", "change whether you play"],
   send_chat: ["posted to everyone", "posting to everyone", "post to everyone"],

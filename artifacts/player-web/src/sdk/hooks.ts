@@ -193,6 +193,14 @@ export function useMyTotals(gameId: string | undefined): MyTotals | null | undef
   return useSdkQuery("player.totals", gameId ? { gameId } : "skip");
 }
 
+/**
+ * Paid observation: how many objects have changed since you last saw them ({count, more}: more when over 99). Skipped
+ * (undefined) without a game id: pass none where looking is free.
+ */
+export function useStaleCount(gameId: string | undefined): { count: number; more: boolean } | undefined {
+  return useSdkQuery("player.staleCount", gameId ? { gameId } : "skip");
+}
+
 /** Your own utility card (kid card: emoji, summary, source, optional defence goal). */
 export function useMyCard() {
   return useDockState()?.self.utility;

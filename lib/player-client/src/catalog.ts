@@ -250,7 +250,7 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
     kind: "action", audience: "player",
     human: { title: "Send a game command", tooltip: "Validate, summon or destroy an agent, share out your power, mark yourself ready, chat publicly or use your pause." },
     ai: { description: "Submit one v3 command envelope as the human: validate, summon, destroy, allocatePower, ready, chat or pause. The engine checks permission, phase, energy and idempotency and returns a receipt {accepted, message, validation?}. Replaying an identical envelope returns its receipt; a reused commandId with other content is CONFLICT." },
-    tools: ["validate_agent", "summon_agent", "destroy_agent", "allocate_power", "set_ready", "send_chat", "pause_game"],
+    tools: ["validate_agent", "summon_agent", "destroy_agent", "allocate_power", "look", "set_ready", "send_chat", "pause_game"],
     palette: { label: "Send a game command…", group: "play", keywords: ["validate", "summon", "destroy", "power", "ready", "chat", "pause"], surfaces: DOCK },
   },
   // ----- games -----
@@ -491,6 +491,12 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
     human: { title: "My totals", tooltip: "Your score and sums over every object, and how many are contested or chips." },
     ai: { description: "The human's totals over every object as disclosed: object count, score (sum of payoffs), sums of their bits and of the others', the contested and chip counts, and the extremes." },
     tools: [], palette: null, why: "The Objects panel's footer and the overview's figures.",
+  },
+  "player.staleCount": {
+    kind: "query", audience: "player",
+    human: { title: "Changed since I looked", tooltip: "How many objects have changed since you last saw them, in a game where looking costs energy." },
+    ai: { description: "In a game with paid observation: how many objects have changed since the human was last told them ({count, more}: more when over 99). That an object changed is public; what it changed to is not." },
+    tools: [], palette: null, why: "The Objects panel's look bar: why a look is worth its price.",
   },
   "player.series": {
     kind: "query", audience: "player",

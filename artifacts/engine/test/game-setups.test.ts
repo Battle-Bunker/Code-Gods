@@ -108,7 +108,7 @@ test("Lab setups: an administrator sees, opens, copies and applies one; to anyon
   await admin.mutation(internal.setups.ensureSeeded, {});
   assert.equal(await root.c.query(api.setups.row, { setupId: labId }), null);
   assert.deepEqual((await pat.c.query(api.rooms.get, { room: lab.roomId })).setup, { id: labId, name: "Lab: zebra pricing", deleted: true });
-  assert.deepEqual((await setupEntries(root.c)).filter(e => e.system).map(e => e.seedId), SEED_SETUPS.map(x => x.seedId), "the ordinary system setups are untouched");
+  assert.deepEqual((await setupEntries(root.c)).filter(e => e.system && !e.lab).map(e => e.seedId), SEED_SETUPS.map(x => x.seedId), "the ordinary system setups are untouched");
 });
 
 test("nobody edits or deletes a system setup, admins and owner credentials included: they duplicate it", { timeout: 60_000 }, async () => {
