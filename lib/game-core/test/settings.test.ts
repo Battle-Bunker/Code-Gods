@@ -314,10 +314,10 @@ test("the Lab setups are Annotated basics under each other cost model, after the
   const lab = LAB_SETUPS.filter(s => s.seedId.startsWith("lab-cost-"));
   assert.ok(lab.every(s => s.lab === true) && !SEED_SETUPS.some(s => s.seedId.startsWith("lab-")), "Lab setups are never among the ordinary seeds");
   assert.deepEqual(lab.map(s => [s.seedId, s.name, s.summary, s.settings.costModel]), [
-    ["lab-cost-set", "Lab: flat price", "Annotated basics with the flat price: every changed number costs the same", undefined],
-    ["lab-cost-dial", "Lab: dial numbers", "Numbers are a dial: 9 and 0 are one step apart, and a step either way costs the same", "dial-v1"],
-    ["lab-cost-log", "Lab: gentle distance", "A far move costs only a little more than a middling one", "log-v1"],
-    ["lab-cost-multiply", "Lab: multiply and divide", "Adds, plus multiply and divide by the last digit; a number's move costs the cheaper of the two", "multiply-v1"],
+    ["lab-cost-set", "Lab · flat price", "Annotated basics with the flat price: every changed number costs the same", undefined],
+    ["lab-cost-dial", "Lab · dial numbers", "Numbers are a dial: 9 and 0 are one step apart, and a step either way costs the same", "dial-v1"],
+    ["lab-cost-log", "Lab · gentle distance", "A far move costs only a little more than a middling one", "log-v1"],
+    ["lab-cost-multiply", "Lab · multiply and divide", "Adds, plus multiply and divide by the last digit; a number's move costs the cheaper of the two", "multiply-v1"],
   ]);
   // Everything but the cost model is Annotated basics (the board, the rule pool, the pacing): the pool cannot drift.
   const { costModel: _basics, ...basics } = seedSetupSettings(ANNOTATED_BASICS_SEED_ID);

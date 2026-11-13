@@ -272,8 +272,8 @@ const NAMED: Partial<Record<SettingsKey, Record<string, string>>> = {
   utilitySelectorId: { "fair-aligned": "Aligned Lottery", "divine-lottery": "Divine Lottery" },
   objectSelection: { uniform: "Uniform", shelter: "Shelter" },
   costModel: {
-    "set-v1": "Set: every change alike", "distance-v1": "Distance: further costs more",
-    "dial-v1": "Dial: distance, 9 next to 0", "log-v1": "Log: a far move costs little more",
+    "set-v1": "Flat: every change alike", "distance-v1": "Distance: further costs more",
+    "dial-v1": "Dial: distance, 9 next to 0", "log-v1": "Gentle: a far move costs little more",
     "multiply-v1": "Multiply: add or multiply, the cheaper",
   },   // a model game-types adds later shows as its capitalised name until it gets words here (choiceLabel)
   observation: { free: "Free", boards: "Boards free", paid: "Paid", agents: "Agents only" },

@@ -694,10 +694,10 @@ function labCostSeed(seedId: string, name: string, summary: string, costModel: C
  */
 export const LAB_SETUPS: readonly SeedSetup[] = Object.freeze([
   // The alternative cost models (docs/energy-model.md §4.5), each on Annotated basics' board, rules and pacing.
-  labCostSeed("lab-cost-set", "Lab: flat price", "Annotated basics with the flat price: every changed number costs the same", "set-v1"),
-  labCostSeed("lab-cost-dial", "Lab: dial numbers", "Numbers are a dial: 9 and 0 are one step apart, and a step either way costs the same", "dial-v1"),
-  labCostSeed("lab-cost-log", "Lab: gentle distance", "A far move costs only a little more than a middling one", "log-v1"),
-  labCostSeed("lab-cost-multiply", "Lab: multiply and divide", "Adds, plus multiply and divide by the last digit; a number's move costs the cheaper of the two", "multiply-v1"),
+  labCostSeed("lab-cost-set", "Lab · flat price", "Annotated basics with the flat price: every changed number costs the same", "set-v1"),
+  labCostSeed("lab-cost-dial", "Lab · dial numbers", "Numbers are a dial: 9 and 0 are one step apart, and a step either way costs the same", "dial-v1"),
+  labCostSeed("lab-cost-log", "Lab · gentle distance", "A far move costs only a little more than a middling one", "log-v1"),
+  labCostSeed("lab-cost-multiply", "Lab · multiply and divide", "Adds, plus multiply and divide by the last digit; a number's move costs the cheaper of the two", "multiply-v1"),
   // Paid observation's other values (docs/energy-model.md §11.8): Annotated basics itself is "paid".
   ...([
     ["lab-observation-free", "Lab · everything always visible", "Annotated basics, but looking is free: every object is shown as it changes", "free"],
@@ -841,7 +841,7 @@ export const SETTINGS_DOCS = {
   },
   costModel: {
     question: "How is a change priced?", section: "energy", tier: "more", control: "segmented", suggested: COST_MODELS, dependsOn: ["objectType", "typeArgs"],
-    meaning: "How a change is priced: set charges every changed cell the same, while distance (like its variants dial and log) charges a number by how far it moved and a colour for having changed.",
+    meaning: "Flat charges every changed cell the same, while distance charges a number by how far it moved and a colour for having changed; dial, gentle and multiply are variants of distance.",
     consequence: "Under distance, adding 1 to a number is the cheapest change and a far jump costs more, so small careful steps are rewarded.",
   },
   startingObjectCount: {

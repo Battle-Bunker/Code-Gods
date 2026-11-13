@@ -191,7 +191,7 @@ test("the cost model: a choice under Energy › More, offered where the world ha
   const classic = seedSetupSettings("grid-classic"), basics = seedSetupSettings("grid-annotated-basics");
   assert.deepEqual(costModelChoices(classic), supportedCostModels(classic), "the models the world offers (game-core), the default first");
   assert.deepEqual(costModelChoices(classic).slice(0, 2), ["set-v1", "distance-v1"]);
-  assert.deepEqual(costModelChoices(classic).slice(0, 2).map(v => choiceLabel("costModel", v)), ["Set: every change alike", "Distance: further costs more"]);
+  assert.deepEqual(costModelChoices(classic).slice(0, 2).map(v => choiceLabel("costModel", v)), ["Flat: every change alike", "Distance: further costs more"]);
   for (const v of COST_MODELS) assert.match(choiceLabel("costModel", v), /^[A-Z][a-z]+: /, `${v} has a label in plain words`);
   assert.equal(choiceLabel("costModel", "future-v2"), "Future", "a model without words yet shows its name, not its id");
   assert.equal(isHidden("costModel", classic), false);
@@ -199,7 +199,7 @@ test("the cost model: a choice under Energy › More, offered where the world ha
     assert.deepEqual(costModelChoices(s), ["set-v1"]);
     assert.equal(isHidden("costModel", s), true, `${s.objectType} has one model: nothing to choose`);
   }
-  assert.equal(formatValue("costModel", classic.costModel), "Set: every change alike", "absent is the default");
+  assert.equal(formatValue("costModel", classic.costModel), "Flat: every change alike", "absent is the default");
   assert.equal(formatValue("costModel", basics.costModel), "Distance: further costs more", "the default setup prices by distance");
   // A pick goes through the settings model: the default is the field's absence, so picking it back leaves no unsaved change.
   const domain = settingsDomain([{ id: "Grid", playable: [{ args: classic.typeArgs }] }, { id: "Int", defaults: DEFAULT_SETTINGS.typeArgs, playable: [{ args: DEFAULT_SETTINGS.typeArgs }] }]);

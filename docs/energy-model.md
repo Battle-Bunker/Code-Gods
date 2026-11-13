@@ -380,6 +380,11 @@ above holds for them except as said:
   ×3, not a +6), and a → b need not cost what b → a costs. A cell pays its cheapest ROUTE (0 → 9 is +1 then ×9, two
   located steps, 16.33 bits, not a +9 at 19.26), so one call never costs more than calls that do the same.
 
+**Where a model is offered.** The rule of §2.1 (a complete look costs less than the smallest change) is kept under every
+model: a room may choose a model only where it holds for that board (`supportedCostModels`, checked by
+`validateSettings`). Distance pricing makes the cheapest change cheaper, so on the biggest boards, where a look is
+dearest, it is not offered (7×7 cards in six colours: a colour change would cost 12.64 against a look of 12.69).
+
 **The noise follows the model.** Hold rarity's mutation noise (§8) is one move drawn with probability ∝ 2^−C. Under
 distance-v1 it draws a uniform cell and then one generator argument (a number by ±k, a suit or a colour to one of the
 others) with weight 2^−C(w), so a small step is likelier than a far one; a number move that would leave the range leaves
