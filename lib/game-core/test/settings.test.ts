@@ -4,9 +4,9 @@ import { COST_MODELS } from "@workspace/game-types";
 import {
   DEFAULT_SETTINGS, SETTINGS_OPTIONS, MAX_AGENTS_PER_GOD, settingsOptionsFor, validateSettings, LANGUAGES, LANGUAGE_SPECS,
   grammarFor, complexityFor, allowedLanguages, upgradeLegacyLanguage,
-  upgradeStoredSettings, FIRST_STEPS_SEED_ID, ANNOTATED_BASICS_SEED_ID, DEFAULT_SETUP_SEED_ID,
+  upgradeStoredSettings, FIRST_STEPS_SEED_ID, ANNOTATED_BASICS_SEED_ID, ANNOTATED_BIDDING_SEED_ID, DEFAULT_SETUP_SEED_ID,
   costModelOf, supportedCostModels, OPTIONAL_SETTINGS_FIELDS,
-  instantiationOf, codecOf, assertObjectValue, defaultSettingsFor, SEED_SETUPS, SETUP_NAME_MAX, seedSetupSettings, ALL_SEED_SETUPS, LAB_SETUPS, ENERGY_LIMITS, type GameSettings,
+  instantiationOf, codecOf, assertObjectValue, defaultSettingsFor, SEED_SETUPS, SETUP_NAME_MAX, seedSetupSettings, ALL_SEED_SETUPS, LAB_SETUPS, ENERGY_LIMITS, BID_PRICINGS, TIME_LIMITS, type GameSettings,
 } from "../src/settings.ts";
 import { gameEndSeconds } from "../src/random.ts";
 
@@ -191,7 +191,7 @@ test("defaultSettingsFor gives valid settings for every type and language", () =
   assert.equal(defaultSettingsFor("Grid", ["python"], { size: 7, symbols: "cards", colours: "rainbow6" }).powerPerSecond, 64);
   assert.equal(defaultSettingsFor("Int").powerPerSecond, 8);
   for (const s of SEED_SETUPS) { validateSettings(s.settings); assert.ok(s.name.length <= SETUP_NAME_MAX, s.name); }
-  assert.deepEqual(SEED_SETUPS.map(s => s.seedId), ["grid-first-steps", "grid-annotated-basics", "grid-annotated-colours", "grid-classic", "grid-low-income", "grid-big", "grid-master"]);
+  assert.deepEqual(SEED_SETUPS.map(s => s.seedId), ["grid-first-steps", "grid-annotated-basics", "grid-annotated-colours", "grid-annotated-bidding", "grid-classic", "grid-low-income", "grid-big", "grid-master"]);
   assert.equal(seedSetupSettings("grid-first-steps").interactionRateHz, 25);
   assert.deepEqual(seedSetupSettings("grid-classic"), { ...classic, interactionRateHz: 100 }, "Classic is the tuned 5×5 board, complete");
   assert.ok(!seedSetupSettings("grid-master").excludedFamilies.includes("ladder_of_numbers"), "cards cannot deal it, so it is not listed");
@@ -301,10 +301,11 @@ test("the cost model is optional: absent reads as set-v1, and distance-v1 is off
   assert.throws(() => validateSettings({ ...defaultSettingsFor("string"), costModel: "distance-v1" }), /not offered for string\(/);
 });
 
-test("only the default setup (Annotated basics) prices changes by distance; every other ordinary seed keeps the default model unspelled", () => {
+test("only the default setup (Annotated basics) and its twin with bidding price changes by distance; every other ordinary seed keeps the default model unspelled", () => {
   for (const s of SEED_SETUPS) {
     validateSettings(s.settings);
-    if (s.seedId === DEFAULT_SETUP_SEED_ID) assert.equal(s.settings.costModel, "distance-v1");
+    // "Basics with bidding" is Annotated basics plus a bid phase and nothing else, so it follows the default's pricing.
+    if (s.seedId === DEFAULT_SETUP_SEED_ID || s.seedId === ANNOTATED_BIDDING_SEED_ID) assert.equal(s.settings.costModel, "distance-v1");
     else assert.ok(!("costModel" in s.settings), `${s.seedId} is untouched`);
   }
   assert.equal(seedSetupSettings(DEFAULT_SETUP_SEED_ID).costModel, "distance-v1");
@@ -360,6 +361,49 @@ test("the settings of a game started before fullChargeSeconds existed still vali
   assert.doesNotThrow(() => validateSettings(old as GameSettings));
 });
 
+test("the bid phase settings: off by default, whole seconds from 0 to 600, a first or second price", () => {
+  assert.equal(DEFAULT_SETTINGS.bidSeconds, 0, "no bid phase unless the owner asks for one");
+  assert.equal(DEFAULT_SETTINGS.bidPricing, "first");
+  // Only "Basics with bidding" has a bid phase (45 s); the default setup and every other system setup have none.
+  for (const seed of SEED_SETUPS) assert.deepEqual([seed.settings.bidSeconds, seed.settings.bidPricing], [seed.seedId === ANNOTATED_BIDDING_SEED_ID ? 45 : 0, "first"], seed.seedId);
+  assert.notEqual(DEFAULT_SETUP_SEED_ID, ANNOTATED_BIDDING_SEED_ID);
+  const { bidSeconds: _b, ...basics } = seedSetupSettings(ANNOTATED_BASICS_SEED_ID), { bidSeconds: _c, ...withBids } = seedSetupSettings(ANNOTATED_BIDDING_SEED_ID);
+  assert.deepEqual(withBids, basics, "the bidding setup is Annotated basics with a bid phase and nothing else");
+  // The Lab alternatives differ from it in exactly one bid setting each.
+  const variants = LAB_SETUPS.filter(s => s.seedId.startsWith("lab-bidding-")).map(s => {
+    const base = seedSetupSettings(ANNOTATED_BIDDING_SEED_ID) as unknown as Record<string, unknown>, mine = s.settings as unknown as Record<string, unknown>;
+    return Object.keys(base).filter(k => JSON.stringify(base[k]) !== JSON.stringify(mine[k])).map(k => `${k}=${String(mine[k])}`).join();
+  });
+  assert.deepEqual(variants, ["bidPricing=second", "bidVisibility=open", "bidDisclosure=handicaps", "bidDisclosure=all"]);
+  assert.deepEqual(TIME_LIMITS.bidSeconds, { min: 0, max: 600 });
+  for (const ok of [0, 1, 30, 600]) assert.doesNotThrow(() => validateSettings(settings({ bidSeconds: ok })), String(ok));
+  for (const bad of [601, 1.5, -1, NaN, Infinity, "30", null]) {
+    assert.throws(() => validateSettings(settings({ bidSeconds: bad as number })), /bidSeconds/, String(bad));
+  }
+  assert.deepEqual(BID_PRICINGS, ["first", "second"]);
+  for (const ok of BID_PRICINGS) assert.doesNotThrow(() => validateSettings(settings({ bidSeconds: 30, bidPricing: ok })));
+  for (const bad of ["third", "", 1, null]) {
+    assert.throws(() => validateSettings(settings({ bidPricing: bad as never })), /bidPricing/, String(bad));
+  }
+});
+
+test("stored room and setup settings from before the bid phase get none (0, first price); a started game is left without the fields and still validates", () => {
+  const { bidSeconds: _s, bidPricing: _p, bidVisibility: _v, bidDisclosure: _d, ...older } = DEFAULT_SETTINGS;
+  assert.deepEqual(upgradeStoredSettings(older), { ...older, bidSeconds: 0, bidPricing: "first", bidVisibility: "sealed", bidDisclosure: "private" });
+  for (const bad of ["public", "", 1]) {
+    assert.throws(() => validateSettings(settings({ bidVisibility: bad as never })), /bidVisibility/);
+    assert.throws(() => validateSettings(settings({ bidDisclosure: bad as never })), /bidDisclosure/);
+  }
+  for (const v of ["sealed", "open"] as const) for (const d of ["private", "handicaps", "all"] as const) assert.doesNotThrow(() => validateSettings(settings({ bidSeconds: 30, bidVisibility: v, bidDisclosure: d })));
+  const old = { ...older, bidVisibility: "sealed", bidDisclosure: "private" };
+  assert.deepEqual(upgradeStoredSettings(old), { ...old, bidSeconds: 0, bidPricing: "first" });
+  assert.deepEqual(upgradeStoredSettings(old), DEFAULT_SETTINGS);
+  assert.equal(upgradeStoredSettings({ ...old, bidSeconds: 30, bidPricing: "second" }), null, "chosen values are kept");
+  assert.deepEqual(upgradeStoredSettings({ ...old, bidSeconds: 30 }), { ...old, bidSeconds: 30, bidPricing: "first" }, "each field is filled by itself");
+  assert.equal(upgradeStoredSettings(old, true), null, "a game already started had no bid phase: nothing is added");
+  assert.doesNotThrow(() => validateSettings(old as GameSettings));
+});
+
 test("Lab setups: complete, valid, marked, with ids and names of their own, and never the default or among the system setups", () => {
   const ids = ALL_SEED_SETUPS.map(s => s.seedId), names = ALL_SEED_SETUPS.map(s => s.name.toLowerCase());
   assert.equal(new Set(ids).size, ids.length, "seed ids are unique across the system and Lab setups");
@@ -374,4 +418,68 @@ test("Lab setups: complete, valid, marked, with ids and names of their own, and 
     assert.deepEqual(seedSetupSettings(s.seedId), { ...s.settings }, s.seedId);
   }
   assert.ok(!LAB_SETUPS.some(s => s.seedId === DEFAULT_SETUP_SEED_ID), "a new room never starts on a Lab setup");
+});
+
+/**
+ * A beginner's first minutes on the default setup (owner, 11 Nov 2026: "we still want to motivate simpler agents";
+ * coordinator, 13 Nov: every shipped Python example must be payable in planning, a second agent within about a minute).
+ * Hand-derived for Annotated basics: P = 64 bits/s, T = 30 s, starting energy 600.
+ */
+test("the default setup: the dearest example agent is payable in planning, and again within a minute of the world starting", async () => {
+  const { BEGINNER_AGENT_BUDGET_BITS } = await import("../src/settings.ts");
+  const { chargeDeityAccount, settleDeityEnergy, defaultShare, energyCapacity, deityIncome } = await import("../src/energy.ts");
+  const s = SEED_SETUPS.find(x => x.seedId === DEFAULT_SETUP_SEED_ID)!.settings;
+  assert.deepEqual([s.powerPerSecond, s.fullChargeSeconds, s.startingEnergy, BEGINNER_AGENT_BUDGET_BITS], [64, 30, 600, 572]);
+  // Planning: world time is stopped, nothing accrues; the store with nothing allocated (1,920) holds the starting energy.
+  const terms = (allocated: number) => ({ powerPerSecond: s.powerPerSecond, allocated, fullChargeSeconds: s.fullChargeSeconds });
+  let own = settleDeityEnergy({ balance: s.startingEnergy, settledWorldSeconds: 0 }, 0, terms(0));
+  assert.equal(own.balance, 600, "none of the starting energy is lost to the capacity");
+  own = chargeDeityAccount(own, BEGINNER_AGENT_BUDGET_BITS, 0, terms(0));
+  assert.equal(own.balance, 28);
+  // The first summon takes the default share, half: the god keeps 32 bits/s and holds at most 960.
+  const allocated = defaultShare(0);
+  assert.deepEqual([allocated, deityIncome(64, allocated), energyCapacity(deityIncome(64, allocated), 30)], [0.5, 32, 960]);
+  // The same agent again: (572 − 28) / 32 = 17 s of world time.
+  assert.throws(() => chargeDeityAccount(own, BEGINNER_AGENT_BUDGET_BITS, 16.9, terms(allocated)), /Insufficient/);
+  assert.doesNotThrow(() => chargeDeityAccount(own, BEGINNER_AGENT_BUDGET_BITS, 17, terms(allocated)));
+  assert.equal(settleDeityEnergy(own, 60, terms(allocated)).balance, 960, "a full store within the first minute");
+  // Code size still matters: that agent is 15% of the god's whole first minute of power (572 of 3,840 bits), and a
+  // program over 960 bits cannot be bought at all while half the power is with an agent.
+  assert.ok(BEGINNER_AGENT_BUDGET_BITS / (64 * 60) > 0.1);
+  assert.throws(() => chargeDeityAccount(own, 961, 3600, terms(allocated)), /Insufficient/);
+  // Every Grid setup starts the same way; other worlds keep the general default.
+  for (const seed of SEED_SETUPS.filter(x => x.settings.objectType === "Grid")) assert.equal(seed.settings.startingEnergy, 600, seed.seedId);
+  assert.equal(DEFAULT_SETTINGS.startingEnergy, 200);
+});
+
+test("every world's defaults keep the starting energy: the store holds it in planning and after the first default summons", async () => {
+  const { settleDeityEnergy, chargeDeityAccount, defaultShare } = await import("../src/energy.ts");
+  for (const type of ["Int", "string", "Grid"]) {
+    const s = defaultSettingsFor(type);
+    const terms = (allocated: number) => ({ powerPerSecond: s.powerPerSecond, allocated, fullChargeSeconds: s.fullChargeSeconds });
+    let own = settleDeityEnergy({ balance: s.startingEnergy, settledWorldSeconds: 0 }, 0, terms(0)), allocated = 0;
+    assert.equal(own.balance, s.startingEnergy, `${type}: the planning store (${s.powerPerSecond} × ${s.fullChargeSeconds}) holds the starting energy`);
+    // Two small agents (60 bits each, a one-move agent) at the default shares: a half, then a quarter.
+    for (const left of [s.startingEnergy - 60, s.startingEnergy - 120]) {
+      own = chargeDeityAccount(own, 60, 0, terms(allocated));
+      allocated += defaultShare(allocated);
+      own = settleDeityEnergy(own, 0, terms(allocated));
+      // Grid (600 bits, P = 64): 540 then 480 = its quarter-power store exactly. Int and string (200 bits, P = 8, T = 60): 140, 80.
+      assert.equal(own.balance, left, `${type}: nothing is lost to the capacity with ${100 * allocated}% allocated`);
+    }
+  }
+  assert.deepEqual([defaultSettingsFor("Int").fullChargeSeconds, defaultSettingsFor("string").fullChargeSeconds, defaultSettingsFor("Grid").fullChargeSeconds], [60, 60, 30]);
+});
+
+test("the summon price is language-fair: TypeScript's structure bits are weighted to Python's scale (docs/energy-model.md §5.1)", async () => {
+  const { fairSummonBits } = await import("../src/settings.ts");
+  assert.deepEqual([LANGUAGE_SPECS.python.structureWeight, LANGUAGE_SPECS.typescript.structureWeight], [1, 0.44]);
+  // Python is unchanged.
+  assert.deepEqual(fairSummonBits("python", 737.9, 420.0), { cost: 737.9, structure: 420.0 });
+  // The greedy policy program (lib/game-utilities/scripts/coordination-programs): TypeScript inspection 1,319.7 bits, of
+  // which 974.6 are structure. Weighted: 974.6 × 0.44 = 428.8, so 1,319.7 − 974.6 + 428.8 = 773.9 (Python: 737.9).
+  const greedy = fairSummonBits("typescript", 1319.7, 974.6);
+  assert.ok(Math.abs(greedy.structure - 428.824) < 1e-9 && Math.abs(greedy.cost - 773.924) < 1e-9, JSON.stringify(greedy));
+  // The dearest policy (cooperator, 2,916.7 with 1,955.2 of structure) now fits a god's store of 1,920 bits: 1,821.8.
+  assert.ok(Math.abs(fairSummonBits("typescript", 2916.7, 1955.2).cost - 1821.788) < 1e-9);
 });

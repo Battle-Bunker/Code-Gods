@@ -10,6 +10,12 @@ export function rulesFor(s: Settings, roomCode?: string | null, gameCode?: strin
   const t = instance ? `${instance.label} (${instance.key}, wire format ${instance.codec.format})` : `${s.objectType} ${JSON.stringify(s.typeArgs)}`;
   // A game started before the capacity rule has no fullChargeSeconds: its rules say nothing about filling up.
   const fill: number | undefined = s.fullChargeSeconds;
+  // Only a game with a bid phase (bidSeconds > 0) says anything about bidding; one started before the setting has none.
+  const bid = typeof s.bidSeconds === "number" && s.bidSeconds > 0 ? `## Bidding
+Before the rules are dealt, the gods have ${s.bidSeconds} seconds to bid for the rule they want (it ends early when every human player is done). A bid is a handicap, a whole percent from 1 to 100 taken off your own score, on a rule family of this game's pool. The highest bid on a family wins it and nobody else gets it (ties are broken at random); a winner's other bids are dropped, and everyone else is dealt at random from the families nobody won.
+${s.bidPricing === "second" ? "Second price: a winner's handicap is the highest bid they beat on that family, at least 1%." : "First price: a winner's handicap is their own bid."}
+
+` : "";
   const moves = instance?.mutators.length ? instance.mutators.map(m => `${m.emoji} ${m.id}: ${m.summary}`).join("\n  ") : "(see the room's helpers)";
   return `# Code Gods — rules for an AI assistant
 
@@ -24,7 +30,7 @@ Net bits n = ✨ − weight × (⚠️ − its average). For each CURRENT object
 My TOTAL PAYOFF is the SUM of payoff_me(x) over ALL current objects (not an average, not cumulative over time).
 If, overall, the others don't care about an object, nobody scores from it. You cannot win by hating things together.
 
-## World and agents
+${bid}## World and agents
 Object type: ${t}.
 An agent is ordinary code in one of this game's languages, chosen per agent: ${agent}, against the room's helper prelude. It returns a list of at most 16 mutator calls; objects change only through these mutators:
   ${moves}

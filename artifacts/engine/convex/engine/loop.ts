@@ -101,7 +101,7 @@ async function allObjects(ctx: MutationCtx, gameId: Id<"games">) {
 export async function endGame(ctx: MutationCtx, game: LiveGame, reason: "lifetime" | "owner", patch: Partial<LiveGame> = {}) {
   const now = Date.now();
   const objects = await allObjects(ctx, game._id);
-  const scoreboard = { totals: totalsOf(game.roster.map(m => m.id), objects), world: patch.worldSeconds ?? game.worldSeconds, at: now };
+  const scoreboard = { totals: totalsOf(game.roster.map(m => m.id), objects, game.handicaps), world: patch.worldSeconds ?? game.worldSeconds, at: now };
   const ended = { ...game, ...patch, phase: "ended" as const, endedAt: now, endReason: reason, executionEpoch: game.executionEpoch + 1, autoResume: undefined, scoreboard };
   const summary = gameRecord(ended, objects);
   const nextBatch = await appendEvents(ctx, ended, [{ t: "phase", phase: "ended", world: ended.worldSeconds, reason }], ended.worldSeconds, ended.worldSeconds,

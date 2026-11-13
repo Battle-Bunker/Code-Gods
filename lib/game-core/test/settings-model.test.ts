@@ -142,6 +142,7 @@ test("every numeric field, the commit clause and act targeting are free: only th
     ["interactionComputeMs", 5], ["stepBudget", 100_000], ["pauseSeconds", 60], ["startingEnergy", 400],
     ["powerPerSecond", 64], ["maxAgentsPerGod", 5], ["defenceGoals", true],
     ["penaltyWeight", 0.5], ["commitClause", false], ["objectSelection", "shelter"], ["startingEnergy", -1], ["priorId", "uniform"],
+    ["bidSeconds", 30], ["bidPricing", "second"],
   ] as [keyof GameSettings, unknown][]) {
     assert.deepEqual(applySettingsChange(start, { [field]: value }, domain), { ...start, [field]: value }, `${field} = ${String(value)}`);
   }

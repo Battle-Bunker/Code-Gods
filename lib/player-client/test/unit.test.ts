@@ -9,6 +9,7 @@ import { VERSION, commandSchema, observationSchema, ownerActionSchema } from "..
 import { PlayerClient } from "../src/client.ts";
 import { Engine, EngineError, TOKEN_PATH, devServerHosts, isSameOriginRequest, loadConfig, normalizeEngineUrl, parseEnvFile, redact, tokenHandler } from "../src/engine.ts";
 import { updateEnvFile } from "../src/connect.ts";
+import { BidCliError, bidCall } from "../src/bid.ts";
 
 const CREDENTIAL = "cgc_" + "A".repeat(43);
 const raw = {version:VERSION,roomId:"room",revision:1,phase:"running",language:"python",languages:["python","typescript"],self:{godId:"god",label:"Human",isAI:false,energy:100,ready:true,utility:{familyId:"zebra",emoji:"🦓",name:"Zebra",theme:"stripes",summary:"stripes",language:"python",source:"own"}},objects:[{id:"o",value:1,own:{ordinal:1,rewardBits:1,netBits:1},peerNetBits:2,peerCare:2,payoff:2,opponentUtilities:[1,1],peerScores:{a:1}}],agents:[{id:"a",name:"Agent 1",source:"def agent(x):\n    return [add(1)]",language:"python",summonCost:11,expectedActCost:5,breakdown:{read:0.5,change:4.5},randomized:false,energy:-1,eligible:false,acts:2,spent:9,skips:1}],transformations:[],leaderboard:[],chat:[],adminToken:"NEVER"};
@@ -207,5 +208,20 @@ test("cli: `<command> --help` prints the usage and exits 0 instead of failing as
     const run = spawnSync(process.execPath, ["--disable-warning=ExperimentalWarning", "--experimental-transform-types", cli, ...argv], { encoding: "utf8", env: { ...process.env, CODE_GODS_CREDENTIAL: "" } });
     assert.equal(run.status, 0, `${argv.join(" ")}: ${run.stdout}${run.stderr}`);
     assert.match(run.stdout, /^Usage: pnpm player/);
+  }
+});
+
+test("bid CLI: each subcommand is one registry tool call; pass is done with no bids; a percent is whole, 1 to 100", () => {
+  assert.deepEqual(bidCall([]), { tool: "get_bidding", args: {} }, "bare `bid` shows the phase");
+  assert.deepEqual(bidCall(["show"]), { tool: "get_bidding", args: {} });
+  assert.deepEqual(bidCall(["place", "leapfrog", "10"]), { tool: "place_bid", args: { familyId: "leapfrog", percent: 10 } });
+  assert.deepEqual(bidCall(["place", "leapfrog", "10%"]), { tool: "place_bid", args: { familyId: "leapfrog", percent: 10 } });
+  assert.deepEqual(bidCall(["withdraw", "leapfrog"]), { tool: "withdraw_bid", args: { familyId: "leapfrog" } });
+  assert.deepEqual(bidCall(["done"]), { tool: "finish_bidding", args: { done: true } });
+  assert.deepEqual(bidCall(["pass"]), { tool: "finish_bidding", args: { done: true } });
+  assert.deepEqual(bidCall(["reopen"]), { tool: "finish_bidding", args: { done: false } });
+  for (const bad of [["place", "leapfrog"], ["place", "leapfrog", "0"], ["place", "leapfrog", "101"], ["place", "leapfrog", "2.5"], ["place", "leapfrog", "ten"],
+    ["withdraw"], ["done", "now"], ["raise", "leapfrog", "5"]]) {
+    assert.throws(() => bidCall(bad), BidCliError, bad.join(" "));
   }
 });

@@ -72,6 +72,37 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
     ai: { description: "Deployment-wide activity: the last human activity time and whether games are parked. The observation already says when a game is parked." },
     tools: [], palette: null, why: SUBSCRIPTION,
   },
+  "games.auction": {
+    kind: "query", audience: "player",
+    human: { title: "Show the bidding results", tooltip: "What this game shows about its bid phase: nothing, every handicap or the whole auction, by its setup; everything once it has ended." },
+    ai: { description: "What a game discloses about its bid phase, or null: by the setup's bidDisclosure, every player's handicap in percent (\"handicaps\") or also every bid and who won which rule (\"all\"); an ended game discloses all. Null while a live game keeps it private (the default) or when nobody won a bid." },
+    tools: [], palette: null, why: SUBSCRIPTION,
+  },
+  // ----- bidding (the bid phase of a game start: docs/bid-phase.md) -----
+  "bidding.mine": {
+    kind: "query", audience: "player",
+    human: { title: "Show my bids", tooltip: "While a game's start is in its bid phase: the clock, the rules you can bid on, and your own bids." },
+    ai: { description: "The room's open bid phase as the human sees it. Before a game with bidding is dealt, each player may bid a handicap (a whole percent, 1 to 100, off their own final score) on rule families of the pool; the highest bid wins a rule and nobody else is dealt it. Gives endsAt (ms), pricing, the pool (families), the human's own bids, whether they are done, how many are still bidding (waitingFor) and what a handicap means. Bids are sealed, never another player's, unless the setup makes bidding open (then `table`: every player's bids)." },
+    tools: ["get_bidding"], palette: null, why: "The bidding screen appears by itself while a bid phase is open; there is nothing to run.",
+  },
+  "bidding.place": {
+    kind: "mutation", audience: "player",
+    human: { title: "Bid on a rule", tooltip: "Bid a percentage of your own score to win a rule for this game; the highest bid wins it and nobody else gets that rule." },
+    ai: { description: "During a bid phase, bid `percent` (a whole number, 1 to 100) on rule family `familyId` from the pool (get_bidding). One bid per family: it replaces the human's earlier bid on it, changeable until the phase ends. The highest bid on a rule wins it exclusively (ties at random; a winner's other bids are dropped). The winner pays a handicap: that percent (with second-price bidding, the highest bid it beat) is taken off their own final score. Bids are sealed unless the setup makes bidding open. A new bid marks the human not done: call finish_bidding after. Idempotent." },
+    tools: ["place_bid"], palette: null, why: "Bids are placed on the bidding screen, which shows the rules to choose from.",
+  },
+  "bidding.withdraw": {
+    kind: "mutation", audience: "player",
+    human: { title: "Withdraw a bid", tooltip: "Take back your bid on a rule while bidding is still open." },
+    ai: { description: "During a bid phase, remove the human's bid on rule family `familyId`. Nothing happens if there was none. It marks the human not done: call finish_bidding when they are. Idempotent." },
+    tools: ["withdraw_bid"], palette: null, why: "Bids are withdrawn on the bidding screen.",
+  },
+  "bidding.done": {
+    kind: "mutation", audience: "player",
+    human: { title: "Finish bidding", tooltip: "Say you are done bidding, or pass with no bids; when every player is done the game is dealt at once." },
+    ai: { description: "During a bid phase, mark the human done bidding; with no bids placed this is a pass (no handicap; they are dealt a rule nobody won, at random). When every human player is done the phase ends at once and the game is dealt; otherwise it ends at its deadline. `done: false` takes it back while the phase is still open. Idempotent." },
+    tools: ["finish_bidding"], palette: null, why: "Finishing is a button on the bidding screen.",
+  },
   // ----- agent/connect (MCP OAuth approval; reached from an OAuth redirect only) -----
   "agent.connect.pending": {
     kind: "query", audience: "infrastructure",

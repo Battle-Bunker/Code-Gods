@@ -148,7 +148,7 @@ test("a change edits the owner's setup as it is now, not the room's older snapsh
   for (const roomId of [a.roomId, b.roomId]) await host.c.action(api.owner.settings, { roomId, revision: await revision(roomId), setupId: mine.id });
   // Edited elsewhere (here: saved directly); room A's snapshot still has the old energy.
   await host.c.action(api.setups.save, { setupId: mine.id, name: "Shared board", settings: { ...seedSetupSettings("grid-classic"), startingEnergy: 400 } });
-  assert.equal((await host.c.query(api.rooms.get, { room: a.roomId })).settings.startingEnergy, 200);
+  assert.equal((await host.c.query(api.rooms.get, { room: a.roomId })).settings.startingEnergy, 600);
   const changed = await host.c.action(api.owner.settings, { roomId: a.roomId, revision: await revision(a.roomId), settings: { planningSeconds: 120 } });
   assert.deepEqual([changed.setup.id, changed.setup.created], [mine.id, false]);
   const stored = (await host.c.query(api.setups.get, { setupId: mine.id })).settings;

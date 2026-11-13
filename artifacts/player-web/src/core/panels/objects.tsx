@@ -184,7 +184,26 @@ const scalesOf = (t: MyTotals | null | undefined) => ({
 type Scales = ReturnType<typeof scalesOf>;
 
 /** Space for one row: the object (a grid draws taller), the rectangle with its labels, four lines of text. */
-const rowHeightFor = (ctx: Parameters<typeof objectRowHeight>[0]) => Math.max(SIDE + LABEL_H, objectRowHeight(ctx)) + 64;
+/**
+ * In a narrow pane (a phone, a slim column) the text beside the object wraps and needs the room; in a wide one it sits
+ * in four short lines beside the object, and the same allowance would leave an empty band under every row.
+ */
+const rowHeightFor = (ctx: Parameters<typeof objectRowHeight>[0], wide = false) => Math.max(SIDE + LABEL_H, objectRowHeight(ctx)) + (wide ? 20 : 64);
+/** The pane width from which a row's text no longer wraps (px). */
+const WIDE_PANE = 560;
+/** Whether the element is at least WIDE_PANE wide, followed as the pane is resized (false until measured). */
+function useWidePane() {
+  // A callback ref: the list mounts only once the game's rows have loaded.
+  const [el, setEl] = useState<HTMLDivElement | null>(null);
+  const [wide, setWide] = useState(false);
+  useEffect(() => {
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(([entry]) => setWide(entry.contentRect.width >= WIDE_PANE));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [el]);
+  return [setEl, wide] as const;
+}
 /** Paid observation adds one line to every row (when it was seen, whether it has changed since): one height for the list. */
 const SEEN_LINE = 20;
 
@@ -326,6 +345,7 @@ export default function Objects({ paneId, params, phase }: PanelProps<"objects">
   const lookAt = useCallback((objectId: string) => void commands.run({ type: "look", objectId }), [commands]);
   const lookAll = useCallback(() => void commands.run({ type: "look" }), [commands]);
   const { ctx, noun } = useObjectContext();
+  const [paneRef, widePane] = useWidePane();
   const [open, setOpen] = useState<string | null>(null);
   const toggle = useCallback((id: string) => setOpen(o => (o === id ? null : id)), []);
   const comparative = card?.penalty?.comparative;
@@ -354,9 +374,9 @@ export default function Objects({ paneId, params, phase }: PanelProps<"objects">
     ? { label: one.label, disabled: !can.look.ok, ...(can.look.ok ? {} : { reason: can.look.reason === lookOffer({ price: lookPrice!, energy }).reason ? one.reason! : can.look.reason }), onLook: lookAt } : undefined;
   if (params.layout === "grid") return <div className="space-y-3">{header}<ObjectsGrid params={params} world={world} /></div>;
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" ref={paneRef}>
       {header}
-      <VirtualRows rows={skeleton.rows} rowHeight={rowHeightFor(ctx) + (paid ? SEEN_LINE : 0)} maxHeight={640} keyOf={r => r.id} onNearEnd={loadMore} testId="list-objects"
+      <VirtualRows rows={skeleton.rows} rowHeight={rowHeightFor(ctx, widePane) + (paid ? SEEN_LINE : 0)} maxHeight={640} keyOf={r => r.id} onNearEnd={loadMore} testId="list-objects"
         render={(r, i) => <ObjectRow objectId={r.id} position={i + 1} byPayoff={params.sortBy === "payoff" && params.filter === "all"} scales={scales} world={world} boards={boards}
           highlighted={highlight.has(r.id)} open={open === r.id} onOpen={toggle} ctx={ctx} noun={noun} comparative={comparative} changed={changed} look={look} />} />
       {skeleton.more && <TextButton onClick={loadMore} testId="button-objects-more">Load more ({skeleton.rows.length} of {matching})</TextButton>}

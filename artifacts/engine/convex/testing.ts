@@ -251,6 +251,18 @@ export const rawSetupDoc = internalQuery({
   handler: async (ctx, { setupId }) => { dev(); return await ctx.db.get(setupId); },
 });
 
+/** A room's bid phase as stored (convex/bidding.ts). */
+export const roomBidding = internalQuery({
+  args: { roomId: v.id("rooms") },
+  handler: async (ctx, { roomId }) => { dev(); return (await ctx.db.get(roomId))?.bidding ?? null; },
+});
+
+/** The auction a game was dealt with (convex/bidding.ts AuctionRecord), or null when nobody won a bid. */
+export const auctionOf = internalQuery({
+  args: { gameId: v.id("games") },
+  handler: async (ctx, { gameId }) => { dev(); return (await ctx.db.query("gameAuctions").withIndex("by_game", q => q.eq("gameId", gameId)).first())?.auction ?? null; },
+});
+
 /** The games row as stored (no clock or engine merged in). */
 export const rawGameDoc = internalQuery({
   args: { gameId: v.id("games") },

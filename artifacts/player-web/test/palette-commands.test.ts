@@ -126,6 +126,10 @@ test("owner commands need the owner and the right moment", () => {
   assert.match(reason(starting, "owner.start", as("lobby")), /already starting/, "no second start while one is pending");
   const preparing = playerCommands(state({ isOwner: true, phase: "lobby", starting: "preparing" }), actions);
   assert.match(reason(preparing, "owner.start", as("lobby")), /preparing/);
+  // The bid phase of a start (docs/bid-phase.md): no second start; End cancels it (the room's `bidding` counts as a start in progress).
+  const bidding = playerCommands(state({ isOwner: true, phase: "lobby", starting: "bidding", preparing: true }), actions);
+  assert.match(reason(bidding, "owner.start", as("lobby")), /bidding for their rules/);
+  assert.ok(ok(bidding, "rooms.endActiveGame", as("lobby")));
   assert.ok(ok(owner("running"), "rooms.endActiveGame", as("running")));
   assert.ok(!ok(owner("lobby"), "rooms.endActiveGame", as("lobby")));
   assert.ok(ok(owner("planning"), "rooms.startWorldNow", as("planning")));

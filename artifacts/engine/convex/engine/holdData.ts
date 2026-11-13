@@ -121,7 +121,7 @@ export const apply = internalMutation({
     }
     // The totals and the published scoreboard follow the new scores at once (the start published the static ones).
     const all = await ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", gameId)).take(2100);
-    const totals = totalsOf(roster, all), disclosed = disclosedTotalsOf(roster, all);
+    const totals = totalsOf(roster, all, game.handicaps), disclosed = disclosedTotalsOf(roster, all, game.handicaps);
     const nextBatch = await appendEvents(ctx, game, events, game.worldSeconds, game.worldSeconds, undefined, totals, disclosed);
     const old = game.tablesStorageId ?? null;
     await writeGame(ctx, game, { tablesStorageId: storageId, holdState: "ready", holdPending: [], holdReadyAt: Date.now(), nextBatch,

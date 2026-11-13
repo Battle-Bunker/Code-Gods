@@ -132,3 +132,14 @@ test("expiry hands React a new snapshot (useSyncExternalStore skips an unchanged
   t2.follow("room1", "new", "running");
   assert.equal(t2.get("room1")?.requestId, "new");
 });
+
+test("a start that opened a bid phase is no longer pending: the room's bidding is what the page shows; a failed one is not hidden for long", () => {
+  const bidding: StartRoom = { activeGame: null, preparing: null, bidding: { endsAt: 60_000 } };
+  const failedBid: StartRoom = { activeGame: null, preparing: null, bidding: { endsAt: 60_000, error: "fewer than three remain" } };
+  const returned = { requestId: "r", since: 100, source: "owner" as const, returnedAt: 200 };
+  assert.deepEqual(startView(returned, bidding, 250), { phase: "idle" }, "the answer was {status: \"bidding\"}: nothing is starting any more");
+  assert.deepEqual(startView(null, bidding, 250), { phase: "idle" });
+  assert.equal(startView(returned, failedBid, 200 + START_ERROR_LAG_MS - 1).phase, "starting", "a retry has a moment to replace the old failure");
+  assert.equal(startView(returned, failedBid, 200 + START_ERROR_LAG_MS).phase, "idle");
+  assert.equal(startView({ requestId: "r2", since: 300, source: "owner" as const }, failedBid, 300).phase, "starting", "a retry over failed bidding is starting");
+});

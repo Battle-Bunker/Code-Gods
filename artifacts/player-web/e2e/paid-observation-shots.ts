@@ -122,6 +122,80 @@ const ready = async (page: Page) => { await page.waitForSelector(BAR, { timeout:
 const waitStale = async (page: Page) => { await page.waitForSelector("[data-testid^=badge-stale-]", { timeout: 90_000 }); await sleep(500); };
 const only = process.env.SHOTS_ONLY?.split(",");
 const wanted = (mode: string) => !only || only.includes(mode);
+/** SHOTS_FOCUS=abc: the row height, the hover popover and the forge's observer template only (skips the energy steps). */
+const focus = process.env.SHOTS_FOCUS === "abc" || process.env.SHOTS_FOCUS === "b";
+/** SHOTS_FOCUS=b: the hover popover only. */
+const onlyB = process.env.SHOTS_FOCUS === "b";
+
+/** Change a pane's panel through its header's panel menu (as a player does). */
+const choosePanel = async (page: Page, paneId: string, panelId: string, title: string) => {
+  const menu = page.locator(`[data-testid=tab-${paneId}] [data-testid=menu-panel]`);
+  if ((await menu.textContent()) === title) return;
+  await menu.click();
+  await page.click(`[data-testid=menu-panel-item-${panelId}]`);
+  await page.waitForFunction(([id, t]) => document.querySelector(`[data-testid=tab-${id}] [data-testid=menu-panel]`)?.textContent === t, [paneId, title] as const, { timeout: 15_000 });
+  await sleep(500);
+};
+
+/** Every row's own height against what it holds: a clipped row (scrollHeight > clientHeight) or an empty band below. */
+const rowBoxes = (page: Page) => page.evaluate(() => {
+  const paneOf = (sel: string) => [...document.querySelectorAll(".cg-pane")].find(p => p.querySelector(sel));
+  const pane = paneOf("[data-testid=objects-paid-observation]");
+  const rows = [...document.querySelectorAll("[data-testid^=row-object-]")] as HTMLElement[];
+  return {
+    paneWidth: pane ? Math.round(pane.getBoundingClientRect().width) : null,
+    listWidth: Math.round(document.querySelector("[data-testid=list-objects]")?.getBoundingClientRect().width ?? 0),
+    rows: rows.map(r => {
+      const rect = r.getBoundingClientRect();
+      const id = r.getAttribute("data-testid")!.replace("row-object-", "");
+      const edge = (el: Element | null, which: "top" | "bottom") => el ? Math.round(el.getBoundingClientRect()[which] - rect.top) : null;
+      let content = 0;
+      for (const el of r.querySelectorAll("*")) {
+        const b = el.getBoundingClientRect();
+        if (b.width > 0 && b.height > 0) content = Math.max(content, b.bottom - rect.top);
+      }
+      return {
+        id: id.slice(-4), stale: !!r.querySelector(`[data-testid=text-seen-${id}][data-stale]`),
+        clientHeight: r.clientHeight, scrollHeight: r.scrollHeight, clipped: r.scrollHeight > r.clientHeight,
+        seenTop: edge(r.querySelector(`[data-testid=text-seen-${id}]`), "top"),
+        whyBottom: edge(r.querySelector(`[data-testid=button-object-detail-${id}]`), "bottom"),
+        lookBottom: edge(r.querySelector(`[data-testid=button-look-${id}]`), "bottom"),
+        contentBottom: Math.round(content), bandBelow: Math.round(rect.height - content),
+      };
+    }),
+  };
+});
+
+/** The hover popover of one row's board against that row's staleness line and Look button (boxes and a hit test). */
+const hoverBoxes = (page: Page, id: string) => page.evaluate(i => {
+  const box = (el: Element | null) => { if (!el) return null; const r = el.getBoundingClientRect(); return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height), top: Math.round(r.top), bottom: Math.round(r.bottom) }; };
+  const content = document.querySelector("[data-testid=grid-object-detail]");
+  const pop = box(content), seen = box(document.querySelector(`[data-testid=text-seen-${i}]`)), look = box(document.querySelector(`[data-testid=button-look-${i}]`));
+  const intersects = (a: typeof pop, b: typeof pop) => a && b ? !(a.bottom <= b.top || b.bottom <= a.top || a.x + a.w <= b.x || b.x + b.w <= a.x) : null;
+  const at = (b: typeof pop, dx = b!.w / 2) => {
+    const el = b && document.elementFromPoint(Math.min(innerWidth - 2, b.x + dx), b.y + b.h / 2);
+    if (!el) return null;
+    const named = el.closest("[data-testid]")?.getAttribute("data-testid");
+    const wrapper = el.closest("[data-radix-popper-content-wrapper]");
+    const r = wrapper?.getBoundingClientRect();
+    return named ?? (wrapper ? `popper-wrapper(bottom ${Math.round(r!.bottom)}, pointer-events ${getComputedStyle(wrapper).pointerEvents})` : `${el.tagName}.${(el.className || "").toString().slice(0, 60)}`);
+  };
+  return {
+    side: content?.getAttribute("data-side") ?? null, popover: pop, seen, look,
+    coversSeen: intersects(pop, seen), coversLook: intersects(pop, look),
+    popBottomToSeenTop: pop && seen ? Math.round(seen.top - pop.bottom) : null,
+    onSeenLine: seen ? at(seen, 24) : null, onLookButton: look ? at(look) : null,
+  };
+}, id);
+
+/** The id of the stale board lowest (or highest) on screen. */
+const pickBoard = (page: Page, which: "low" | "high") => page.evaluate(w => {
+  const els = [...document.querySelectorAll("[data-testid^=object-seen-][data-stale]")];
+  const visible = els.filter(e => { const r = e.getBoundingClientRect(); return r.top > 0 && r.bottom < innerHeight; });
+  const sorted = (visible.length ? visible : els).sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
+  const el = w === "low" ? sorted[sorted.length - 1] : sorted[0];
+  return el ? el.getAttribute("data-testid")!.replace("object-seen-", "") : null;
+}, which);
 
 // ---- The default: paid observation ----
 if (wanted("paid")) {
@@ -148,22 +222,37 @@ if (wanted("paid")) {
     log("2 running panel", await panelText(page));
   });
 
-  await step("3 hover", async () => {
-    // The board's hover popover against the row's staleness line and Look button.
-    const board = page.locator("[data-testid^=object-seen-][data-stale]").first();
-    await board.scrollIntoViewIfNeeded();
-    await board.hover();
-    await sleep(900);
-    await shot(page, "03-paid-board-hover", { still: true });
-    const id = (await board.getAttribute("data-testid"))!.replace("object-seen-", "");
-    log("3 hover boxes", await page.evaluate(i => {
-      const box = (el: Element | null) => { const r = el?.getBoundingClientRect(); return r ? { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) } : null; };
-      const pop = [...document.querySelectorAll("[role=tooltip], [data-radix-popper-content-wrapper], [data-testid*=popover], [data-testid*=tooltip]")];
-      return { seen: box(document.querySelector(`[data-testid=text-seen-${i}]`)), look: box(document.querySelector(`[data-testid=button-look-${i}]`)), popovers: pop.map(p => ({ testid: p.getAttribute("data-testid"), ...box(p) })) };
-    }, id));
+  await step("2b row heights (A)", async () => {
+    await page.locator(BAR).scrollIntoViewIfNeeded();
+    await sleep(500);
+    log("2b desktop rows", await rowBoxes(page));
   });
 
-  await step("4 one look", async () => {
+  await step("3 hover", async () => {
+    // (B) The board's hover popover against the row's staleness line and Look button, low in the pane (it flips above
+    // the board) and high in it (it opens below).
+    for (const which of ["low", "high"] as const) {
+      const id = await pickBoard(page, which);
+      if (!id) { log(`3 ${which}`, "no stale board on screen"); continue; }
+      const board = page.locator(`[data-testid=object-seen-${id}]`);
+      await board.scrollIntoViewIfNeeded();
+      await board.hover();
+      await sleep(900);
+      await shot(page, `03-paid-board-hover-${which}`, { still: true });
+      log(`3 hover ${which}`, await hoverBoxes(page, id));
+      // The row's Look button while the popover is open: a click must reach it (Playwright names whatever intercepts it).
+      const look = page.locator(`[data-testid=button-look-${id}]`);
+      if (which === "low" && await look.count()) {
+        log("3 click look under the popover", await look.click({ timeout: 5000 }).then(() => "clicked").catch(e => String((e as Error).message).split("\n").slice(0, 8).join(" / ")));
+        await sleep(1500);
+        log("3 row after that click", (await page.locator(`[data-testid=text-seen-${id}]`).innerText().catch(() => "(row gone)")).replace(/\s+/g, " "));
+      }
+      await page.mouse.move(700, 4);
+      await sleep(500);
+    }
+  });
+
+  if (!onlyB) await step("4 one look", async () => {
     const button = page.locator(ROW_LOOK).first();
     await button.waitFor({ timeout: 60_000 });
     const id = (await button.getAttribute("data-testid"))!.replace("button-look-", "");
@@ -182,7 +271,7 @@ if (wanted("paid")) {
     log("4 energy", { before: before.self.energy, after: after.self.energy, drop: before.self.energy - after.self.energy, lookPrice: before.economy.lookPrice });
   });
 
-  await step("5 why", async () => {
+  if (!onlyB) await step("5 why", async () => {
     const board = page.locator("[data-testid^=object-seen-][data-stale]").first();
     const id = (await board.getAttribute("data-testid"))!.replace("object-seen-", "");
     await page.click(`[data-testid=button-object-detail-${id}]`);
@@ -191,11 +280,12 @@ if (wanted("paid")) {
     await detail.scrollIntoViewIfNeeded();
     await shot(page, "05-paid-why");
     log("5 detail", (await page.locator(`[data-testid=text-detail-seen-${id}]`).innerText()).replace(/\s+/g, " "));
+    log("5 rows with why open", await rowBoxes(page));
     await page.click(`[data-testid=button-object-detail-${id}]`).catch(() => {});
     await page.locator(BAR).scrollIntoViewIfNeeded();
   });
 
-  await step("6 phone", async () => {
+  if (!onlyB) await step("6 phone", async () => {
     const { page: phone, context: ctx } = await open(game, 390, 844);
     await ready(phone);
     await waitStale(phone);
@@ -205,10 +295,57 @@ if (wanted("paid")) {
     await shot(phone, "06b-paid-phone-stale-row");
     log("6 phone overflow", (await panelText(phone)).overflow);
     log("6 row boxes", await phone.locator("[data-testid^=text-seen-]").evaluateAll(els => els.slice(0, 6).map(e => { const span = e.querySelector("span.truncate") as HTMLElement | null; return { text: (e as HTMLElement).innerText.replace(/\s+/g, " "), truncated: span ? span.scrollWidth > span.clientWidth : null }; })));
+    log("6 phone rows (A)", await rowBoxes(phone));
+    // (C) The forge's observer template on the phone, before anything is loaded into the editor.
+    await step("6c phone forge", async () => {
+      await choosePanel(phone, "p1", "forge", "Agent code");
+      await phone.waitForSelector("[data-testid=text-observer-template]", { timeout: 20_000 });
+      await phone.locator("[data-testid=text-observer-template]").scrollIntoViewIfNeeded();
+      await sleep(400);
+      await shot(phone, "06c-phone-forge-observer");
+      log("6c phone template", (await phone.locator("[data-testid=text-observer-template]").innerText()).replace(/\s+/g, " "));
+      log("6c phone overflow", await phone.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, innerWidth: window.innerWidth })));
+      await choosePanel(phone, "p1", "my-card", "Your secret goal").catch(() => {});
+    });
     await ctx.close();
   });
 
-  await step("7 look at all", async () => {
+  if (!onlyB) await step("9 forge observer (C)", async () => {
+    await choosePanel(page, "p1", "forge", "Agent code");
+    await page.waitForSelector("[data-testid=panel-forge]", { timeout: 20_000 });
+    const tpl = page.locator("[data-testid=text-observer-template]");
+    await tpl.waitFor({ timeout: 20_000 });
+    log("9 template", (await tpl.innerText()).replace(/\s+/g, " "));
+    log("9 live objects", { objectCount: (await observe()).objectCount, economy: (await observe()).economy });
+    await shot(page, "09a-forge-observer-template");
+    await page.click("[data-testid=button-observer-template]");
+    await sleep(800);
+    log("9 after click", {
+      source: await page.inputValue("[data-testid=input-source]"),
+      name: await page.inputValue("[data-testid=input-agent-name]"),
+      description: await page.inputValue("[data-testid=input-agent-description]"),
+      templateStillShown: await page.locator("[data-testid=text-observer-template]").count(),
+    });
+    await shot(page, "09b-forge-observer-loaded");
+    await page.click("[data-testid=button-validate]");
+    await page.waitForFunction(() => /VALID/.test(document.querySelector("[data-testid=panel-validation]")?.textContent ?? ""), null, { timeout: 120_000 });
+    log("9 validation", (await page.locator("[data-testid=panel-validation]").innerText()).replace(/\s+/g, " | "));
+    log("9 warnings", await page.locator("[data-testid=text-validation-warnings]").innerText().catch(() => null));
+    await shot(page, "09c-forge-observer-validation");
+    const before = await panelText(page);
+    log("9 panel before summon", { staleCount: before.staleCount, staleBoards: before.staleBoards, rows: before.rows });
+    await page.waitForSelector("[data-testid=button-summon]:not([disabled])", { timeout: 30_000 });
+    await page.click("[data-testid=button-summon]");
+    await page.waitForSelector("[data-testid^=row-agent-]", { timeout: 120_000 }).catch(() => log("9", "no agent row after the summon"));
+    log("9 notice", await page.locator("[data-testid=text-notice]").innerText().catch(() => null));
+    await sleep(20_000);
+    const after = await panelText(page);
+    log("9 panel after 20 s", { staleCount: after.staleCount, staleBoards: after.staleBoards, rows: after.rows });
+    log("9 self", selfOf(await observe()));
+    await shot(page, "09d-forge-observer-running");
+  });
+
+  if (!focus) await step("7 look at all", async () => {
     const before = await observe();
     await page.click("[data-testid=button-look-all]");
     await page.waitForSelector("[data-testid=button-confirm-look-all]");
@@ -222,7 +359,7 @@ if (wanted("paid")) {
     log("7 panel after", await panelText(page));
   });
 
-  await step("8 unaffordable", async () => {
+  if (!focus) await step("8 unaffordable", async () => {
     const o = await observe();
     for (const a of o.agents) log("8 allocatePower", (await submit({ type: "allocatePower", agentId: a.id ?? a.agentId, share: 1 / o.agents.length })).message);
     await admin.mutation(fn.m("testing:setGodEnergy"), { gameId: game.gameId, godId: o.self.godId, balance: 0 });

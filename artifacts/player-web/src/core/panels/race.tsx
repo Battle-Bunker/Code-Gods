@@ -5,12 +5,18 @@
  * the game's start, whenever the panel opens.
  */
 import { useMemo } from "react";
-import { LineChart, Table, useDockState, useGame, useLeaderboard, useStandingsHistory } from "@/sdk";
+import { LineChart, Table, useDockState, useGame, useLeaderboard, useMyCard, useStandingsHistory } from "@/sdk";
+import { HANDICAP_FOOTNOTE, cardBid, cardHandicap, handicapLabel, handicapsOf } from "@/site/lib/bidding";
+import { useAuction } from "@/core/game/auction";
 import { PanelEmpty, fmt, type PanelProps } from "./kit";
 
 export default function Race({ params }: PanelProps<"race">) {
   const board = useLeaderboard({ hz: 1 });
   const game = useGame({ hz: 1 });
+  const card = useMyCard();
+  // The players' handicaps, when this game tells them (its setup's bid disclosure, or it has ended).
+  const auction = useAuction(game?.gameId);
+  const handicaps = handicapsOf(auction);
   const world = game?.worldSeconds ?? 0;
   const published = useStandingsHistory(game?.gameId);
   // The history's totals are in the game's roster order (its header's roster).
@@ -19,6 +25,8 @@ export default function Race({ params }: PanelProps<"race">) {
 
   if (!board.length) return <PanelEmpty>No standings yet: they start when the world runs.</PanelEmpty>;
   const me = game?.self.godId;
+  // Dealt after a bid phase somebody won (your own card says so): everyone's total is after their handicap.
+  const bidGame = !!cardBid(card) || cardHandicap(card) > 0;
   const ranked = [...board].sort((a, b) => b.totalPayoff - a.totalPayoff);
   const leader = ranked[0];
   const shown = params.show === "top3" ? ranked.slice(0, 3) : params.show === "me-vs-leader" ? ranked.filter(r => r.godId === me || r.godId === leader.godId) : ranked;
@@ -36,8 +44,10 @@ export default function Race({ params }: PanelProps<"race">) {
       <Table rows={ranked} rowKey={r => r.godId} columns={[
         { header: "#", cell: r => ranked.indexOf(r) + 1 },
         { header: "player", cell: r => <span className={r.godId === me ? "font-semibold text-primary" : ""} data-testid={`row-leader-${r.godId}`}>{r.godId === me ? `${r.label} (you)` : r.label}{r.isAI ? " · AI" : ""}</span> },
+        ...(auction ? [{ header: "handicap", cell: (r: typeof ranked[number]) => <span data-testid={`text-handicap-${r.godId}`}>{handicapLabel(handicaps.get(r.godId)) || "–"}</span>, align: "right" as const }] : []),
         { header: "payoff", cell: r => fmt(r.totalPayoff), align: "right" },
       ]} />
+      {(bidGame || auction) && <p className="text-xs text-muted-foreground" data-testid="text-handicap-footnote">{HANDICAP_FOOTNOTE}</p>}
     </div>
   );
 }
