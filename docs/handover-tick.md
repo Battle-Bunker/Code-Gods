@@ -65,15 +65,16 @@ Through the forge in a browser, one practice game, one builder subagent on the s
 untouched example ≤ 4 s; "Check and summon" of a new program 10–12 s check plus 4–5 s summon; check after a
 two-character edit 10–12 s; validate after a comment-only edit 10–12 s. No retry line seen.
 
-Against my 1.4–3.3 s for the same thing through `commands:submit`. I did **not** reproduce 10–12 s and have no
-measured explanation. Candidates, none verified:
-
-- The browser's live subscriptions re-run on every tick commit and load the backend, which is exactly the kind of
-  load that slowed examinations in my eight-game run (round trips, not CPU).
-- The forge may do more than one engine call per "Check" (a validate, then a summon or replace that examines again).
-  The 4–5 s summon right after a successful check suggests the second examination was not a full cache hit: in a
-  running game the first 16 live objects change between the two, so their runs and the futility probe are redone.
-- Time between the click and the request, and between the receipt and the repaint (not measured by anyone).
+**Explained and fixed (2026-11-13, PR "Inline the auth JWKS").** Every nested call of a signed-in browser's action
+(each `ctx.runQuery`/`runMutation`/`runAction` of `commands:submit`, about 25 in a check) made the backend fetch
+`/api/auth/convex/jwks` first, 80–190 ms each. `auth.config.ts` was meant to inline the JWKS from `BETTER_AUTH_JWKS`, but it
+checked `Object.keys(process.env)`, which is always empty in Convex's runtime, so it always fell back to the URL (the
+player JWT's `PLAYER_JWT_JWKS` too). At 60 nested calls a check (before #325's batching) and a busy machine that is the
+10–12 s. The suites never saw it: they impersonate with the admin key, which validates no JWT.
+`artifacts/player-web/e2e/forge-check-timing.ts` measures a forge check in a real browser with the backend's log for the
+same window. Local, one running game: 3.6–4.0 s (24 JWKS fetches a check) → 1.05–1.3 s (none); click → websocket
+send is 35–60 ms and response → repaint under 50 ms, so the client adds nothing. Regression test:
+`test/game-auth-jwks.test.ts`. Unverified on a cloud deployment (which may cache the JWKS; the inlining is right either way).
 
 Two ideas from that lead, not built: key the cache on comment-stripped source or the syntax tree, so a comment or
 whitespace edit is instant; and make summon-after-check in a running game reuse the check (for example by examining
@@ -81,7 +82,7 @@ against the board the check saw).
 
 ## Remains, in order
 
-1. **Re-verify and merge the draft PR.** From the repo root, with the local engine running
+1. **(Done: #325 merged.) Re-verify and merge the draft PR.** From the repo root, with the local engine running
    (`pnpm --filter @workspace/engine dev`, wait for `[dev] READY`):
    ```
    git fetch origin develop && git merge origin/develop
@@ -92,7 +93,7 @@ against the board the check saw).
    for f in game-examination-cache game-validate-latency game-code game-ai game-load game-ai-quotas game-lifecycle; do $T test/$f.test.ts; done
    ```
    All seven passed on develop as of #320. Then run the `code-review` skill on the diff (not done for this commit).
-2. **Explain the 10–12 s browser check.** Get backend durations for one forge check: the local backend's log stream
+2. **(Done: the JWKS fetch above.) Explain the 10–12 s browser check.** Get backend durations for one forge check: the local backend's log stream
    is `GET http://127.0.0.1:3210/api/stream_function_logs?cursor=0` with header `Authorization: Convex <adminKey>`
    (key in `artifacts/engine/.convex/local/default/config.json`; `test/execution-log.ts` and `test/load-harness.ts`
    read it). Compare the durations of `commands:submit`, `runtime/acts:run`, `runtime/acts:inspect` with the
