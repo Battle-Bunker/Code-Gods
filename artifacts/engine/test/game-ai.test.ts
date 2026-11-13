@@ -111,3 +111,23 @@ test("an idle engine makes an AI seat wait, never end its chain (a human may ret
     await touch(host);
   }
 });
+
+test("a seat whose turn chain died is restarted by the seat watchdog; a healthy or merely late one is left alone", { timeout: 240000 }, async () => {
+  const { roomId, godId } = await aiRoom(300_000);
+  const seat = async () => (await admin.query(internal.testing.rawRoom, { roomId })).members.find((m: any) => m.godId === godId);
+  // A healthy chain records when its next turn is due, and the watchdog leaves it alone.
+  await waitFor(async () => (await seat()).aiNextAt !== undefined || undefined, "the chain records its next turn");
+  assert.deepEqual(await admin.mutation(internal.ai.seats.watchdog, {}), { restarted: 0 });
+  // A turn 90 s overdue may still be running (a slow provider call): not restarted.
+  const late = await admin.mutation(internal.testing.killAiChain, { roomId, godId, dueAgoMs: 90_000 });
+  assert.deepEqual(await admin.mutation(internal.ai.seats.watchdog, {}), { restarted: 0 });
+  assert.equal((await seat()).aiChain, late);
+  // The turn action died without scheduling the next (its generation is gone, nothing is scheduled), 3 minutes ago.
+  const dead = await admin.mutation(internal.testing.killAiChain, { roomId, godId, dueAgoMs: 180_000 });
+  assert.deepEqual(await admin.mutation(internal.ai.seats.watchdog, {}), { restarted: 1 });
+  const restarted = await seat();
+  assert.equal(restarted.aiChain, dead + 1, "a new chain generation");
+  // The new chain plays: its first turn runs and schedules the next one itself.
+  const due = restarted.aiNextAt;
+  await waitFor(async () => { const s = await seat(); return s.aiChain === dead + 1 && s.aiNextAt > due || undefined; }, "the restarted chain's turn ran and scheduled the next", 120_000);
+});

@@ -314,6 +314,24 @@ export const gameCounters = internalQuery({
 });
 
 /**
+ * The loop's own counters of several games in one read (test/load-harness.ts polls it each second): the phase, the
+ * lease, commits and discards, world time and the wall times the lateness measures need. Read-only.
+ */
+export const loadProbe = internalQuery({
+  args: { gameIds: v.array(v.id("games")) },
+  handler: async (ctx, { gameIds }) => {
+    dev();
+    const games = await Promise.all(gameIds.map(id => liveGame(ctx, id)));
+    return { now: Date.now(), games: games.map(g => g && {
+      id: g._id, phase: g.phase, seq: g.tick.seq, leaseUntil: g.tick.leaseUntil, commits: g.stats.commits, discarded: g.stats.discarded,
+      acts: g.stats.acts, tickFailures: g.tickFailures ?? 0, worldSeconds: g.worldSeconds, lastTick: g.lastTick, endAtWorld: g.endAtWorld,
+      createdAt: g.createdAt, planningEndsAt: g.planningEndsAt, endedAt: g.endedAt ?? null, endReason: g.endReason ?? null,
+      holdState: g.holdState ?? null, engineError: g.engineError ?? null, agentCount: g.agentCount, objectCount: g.objectCount,
+    }) };
+  },
+});
+
+/**
  * Store a game as it was before the standings read model (migrations:backfillStandings): no standings or history rows.
  */
 export const legacyReadModels = internalMutation({
@@ -455,6 +473,37 @@ export const legacyAiSeat = internalMutation({
     if (!seat?.aiAgent) fail("NOT_FOUND", "no AI seat");
     await ctx.db.patch(seat._id, { name: seat.aiAgent.name });
     if (chat) await ctx.db.insert("chat", { roomId, authorId: godId, authorName: seat.aiAgent.name, kind: "ai", text: chat, timestamp: Date.now() });
+  },
+});
+
+/** Kill an AI seat's turn chain as a dead turn action would: its scheduled turn is stale and none follows; `dueAgoMs` ago. */
+export const killAiChain = internalMutation({
+  args: { roomId: v.id("rooms"), godId: v.string(), dueAgoMs: v.number() },
+  handler: async (ctx, { roomId, godId, dueAgoMs }) => {
+    dev();
+    const seat = await ctx.db.query("members").withIndex("by_room_god", q => q.eq("roomId", roomId).eq("godId", godId)).unique();
+    if (!seat?.aiAgent) fail("NOT_FOUND", "no AI seat");
+    await ctx.db.patch(seat._id, { aiChain: (seat.aiChain ?? 0) + 1, aiNextAt: Date.now() - dueAgoMs });
+    return (seat.aiChain ?? 0) + 1;
+  },
+});
+
+/** The examination cache's most recently used program (engine/examinationCache.ts): how many runs it remembers, and since when. */
+export const latestExaminationRuns = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    dev();
+    const row = await ctx.db.query("examinationRuns").withIndex("by_usedAt").order("desc").first();
+    return row ? { key: row.key, runs: row.runs.length, usedAt: row.usedAt, fields: Object.keys(row).sort() } : null;
+  },
+});
+/** Age an examination cache entry (its last use `ageMs` ago): the daily touch and the prune are tested without waiting. */
+export const ageExaminationRuns = internalMutation({
+  args: { key: v.string(), ageMs: v.number() },
+  handler: async (ctx, { key, ageMs }) => {
+    dev();
+    const row = await ctx.db.query("examinationRuns").withIndex("by_key", q => q.eq("key", key)).first();
+    if (row) await ctx.db.patch(row._id, { usedAt: Date.now() - ageMs });
   },
 });
 

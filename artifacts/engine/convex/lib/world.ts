@@ -20,8 +20,26 @@ export const TICK_SECONDS = 1.5;
  * The window (TICK_SECONDS) still covers every interaction opportunity of the interval.
  */
 export const MIN_TICK_MS = 1000;
-/** A tick action that has not committed within this time loses its lease to the watchdog. */
+/**
+ * A tick's lease: the watchdog (engine/loop.ts) restarts a game whose lease ran out. A tick that is alive keeps its
+ * lease (the heartbeat, engine/loop.ts renewLease): it renews once less than LEASE_RENEW_BELOW_MS is left, so a tick
+ * that starts on time and commits within ten seconds (every tick in normal running) writes nothing extra, and a slow
+ * one (a congested sandbox, a late start) is never restarted under itself, which would throw its window away.
+ */
 export const LEASE_MS = 30_000;
+export const LEASE_RENEW_BELOW_MS = 20_000;
+/** Whether a tick holding a lease until `leaseUntil` should renew it now. */
+export const leaseRenewalDue = (leaseUntil: number, now: number): boolean => leaseUntil - now < LEASE_RENEW_BELOW_MS;
+/** Wall-clock budget for one window's simulation: opportunities past it are dropped (no debt). */
+export const MAX_SIMULATE_MS = 4000;
+/** The least a wave of acts gets, however little of the budget is left when it starts. */
+export const MIN_WAVE_MS = 1000;
+/**
+ * How long a wave of acts starting `elapsedMs` into the simulation may take: the budget left, at least MIN_WAVE_MS.
+ * An act with no answer by then is a host skip (nothing charged), so a tick lasts at most about
+ * MAX_SIMULATE_MS + MIN_WAVE_MS whatever the sandboxes' queues hold.
+ */
+export const waveBudgetMs = (elapsedMs: number): number => Math.max(MIN_WAVE_MS, MAX_SIMULATE_MS - elapsedMs);
 export const MAX_OBJECTS = 2000;
 export const IDLE_MS = 30 * 60 * 1000;
 /** Every object a game holds; events per tickBatches doc. */
