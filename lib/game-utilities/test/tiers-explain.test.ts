@@ -334,3 +334,23 @@ test("a draw whose units cannot add up to its ordinal is annotated like a family
     else assert.equal(ex, null, "unlock: no units rather than units that do not add up");
   }
 });
+
+test("a tiered draw's goal example scores its ★ tier, for nearly every draw of every tiered family", () => {
+  // The example board is the card's one worked example, so a tiered draw whose example scores nothing on the ★ tier
+  // teaches the player only half the rule. The ordinary search never found one for ✌️ Two Pair's linked boxes (1 of 35
+  // draws): one ★ point is worth less than the rest of what makes a board teach well, and a cell change anywhere on
+  // the board almost never moves one of these units. `climbTier` in explain/index.ts goes looking for one on purpose.
+  const want: Record<string, number> = { opposite_nines: 1, mirrormancer: 0.7, kings_and_subjects: 0.8, two_pair: 0.9 };
+  for (const [familyId, least] of Object.entries(want)) {
+    const f = family(familyId), dealt = f.tiered!(CTX, 1) as Params[];
+    let scored = 0;
+    for (const params of dealt) {
+      const draw = { familyId, params }, example = explainer(draw, INST)!.example();
+      assert.ok(example, `${familyId} ${paramsKey(params)}: an example board`);
+      const ord = evaluator(draw, INST)(example.value) as number[];
+      if (f.cardTiers!(params as never, CTX).some(t => ord.slice(t.index, t.index + t.arity).some(x => x > 0))) scored++;
+    }
+    assert.ok(scored >= Math.ceil(dealt.length * least),
+      `${familyId}: only ${scored} of ${dealt.length} examples score the ★ tier (want ${least * 100}%)`);
+  }
+});

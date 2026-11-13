@@ -9,7 +9,7 @@
 import type { TierValue } from "../families/grid/tiers.ts";
 import type { Board } from "./board.ts";
 import type { Cell, Fact, Part } from "./model.ts";
-import type { TierLens } from "./tier-lenses.ts";
+import { heatOf, type TierLens } from "./tier-lenses.ts";
 
 const num = (v: TierValue, k: string) => v[k] as number;
 
@@ -26,7 +26,7 @@ const boxAt = (r: number, c: number): Cell[] => [{ r, c }, { r, c: c + 1 }, { r:
 const list = (ns: readonly number[]) => (ns.length === 0 ? "no pair" : ns.length === 1 ? `a pair of ${ns[0]}s` : `pairs of ${ns[0]}s and ${ns[1]}s`);
 
 /** What a link must also be, for the tiers that count only some links. */
-interface LinkTest { readonly ok: boolean; readonly fact: Fact; readonly miss: string }
+interface LinkTest { readonly ok: boolean; readonly fact: Fact; readonly miss: string; readonly away?: number }
 
 function linkLens(what: (v: TierValue) => string, test: (v: TierValue, b: Board, cells: readonly Cell[], shared: number) => LinkTest | null): TierLens {
   return {
@@ -49,8 +49,14 @@ function linkLens(what: (v: TierValue) => string, test: (v: TierValue, b: Board,
           }];
           if (more) facts.push(more.fact);
           const ok = linked && (more?.ok ?? true);
+          // How close this pair of boxes is to a link that counts: the pairs they must come to share, then the test's own gap.
+          // Two stages when the tier asks for more than a link: first share exactly one pair, then meet that test.
+          const stages = more || !linked ? 2 : 1;
+          const heat = linked
+            ? heatOf(more?.away ?? 0, 1, stages)
+            : heatOf(Math.abs(shared.length - 1) + (a.length === 0 || z.length === 0 ? 1 : 0), 0, stages);
           out.push({
-            id: `link:${r},${c}:${group}`, group, shape: "block", cells, points: [ok ? 1 : 0], facts,
+            id: `link:${r},${c}:${group}`, group, shape: "block", cells, points: [ok ? 1 : 0], facts, heat,
             title: ok ? `linked by the ${shared[0]}s` : linked ? `linked by the ${shared[0]}s, but ${more!.miss}` : "not linked",
           });
         }
@@ -68,14 +74,14 @@ const links = linkLens(() => "", () => null);
 const linkSums = linkLens(v => ` adding up to ${num(v, "x")}`, (v, b, cells) => {
   const x = num(v, "x"), total = cells.reduce((s, c) => s + b.value(c), 0), gap = total - x;
   return {
-    ok: gap === 0, miss: `${Math.abs(gap)} ${gap < 0 ? "short of" : "over"} ${x}`,
+    ok: gap === 0, away: Math.abs(gap), miss: `${Math.abs(gap)} ${gap < 0 ? "short of" : "over"} ${x}`,
     fact: { text: gap === 0 ? `the two boxes add up to ${total}` : `the two boxes add up to ${total}, not ${x}`, ok: gap === 0 },
   };
 });
 const linksVia = linkLens(v => ` whose shared number is ${num(v, "y")}`, (v, _b, _cells, shared) => {
   const y = num(v, "y");
   return {
-    ok: shared === y, miss: `not by ${y}s`,
+    ok: shared === y, away: 1, miss: `not by ${y}s`,
     fact: { text: shared === y ? `the shared number is ${y}` : `the shared number is ${shared}, not ${y}`, ok: shared === y },
   };
 });
@@ -90,7 +96,7 @@ const equalRoads: TierLens = {
     return b.regions((p, q) => b.value(p) === b.value(q)).map(road => {
       const n = road.length, first = road[0], ok = n === y;
       return {
-        id: `road:${first.r},${first.c}`, group: "road", shape: "region" as const, cells: road, points: [ok ? 1 : 0],
+        id: `road:${first.r},${first.c}`, group: "road", shape: "region" as const, cells: road, points: [ok ? 1 : 0], heat: heatOf(Math.abs(n - y)),
         title: ok ? `a road of ${n} ${b.glyph(first)}s` : n === 1 ? `a lone ${b.glyph(first)}` : `a road of ${n} ${b.glyph(first)}s, not ${y}`,
         facts: [{ text: n === 1 ? `one ${b.glyph(first)} with no equal number beside it` : `${n} ${b.glyph(first)}s joined side by side${ok ? "" : `: ${Math.abs(n - y)} ${n < y ? "short of" : "over"} ${y}`}`, ok }],
       };

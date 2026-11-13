@@ -61,6 +61,12 @@ export interface Part {
   readonly group?: string;
   /** The cell the board picks this unit by, when its cells overlap other units' (a minesweeper number's 3×3 window). */
   readonly anchor?: Cell;
+  /**
+   * How close a unit that scores nothing is to scoring, from 0 (nowhere near) to just under 1 (one away). It is never
+   * shown; the goal-card example search reads it as a gradient, so a ★ tier whose units are hard to hit by chance still
+   * gets an example board that scores it (explain/index.ts `illumination`). Only the ★ tiers' units set it.
+   */
+  readonly heat?: number;
 }
 
 /** Where one ★ tier of a tiered draw stands on a board (docs/layered-rules-design.md §4). */
