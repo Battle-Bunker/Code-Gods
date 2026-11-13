@@ -122,15 +122,18 @@ export function PlanningBar() {
   const { loading } = useMyAgents();
   const { editCode } = useAffordances().can;
   // The button summons the pre-filled example itself (dock.summonFirst), so it says so while the summon is in flight.
-  const { busy: running, firstSummon } = useRunner();
+  const { busy: running, firstSummon, summonedIn } = useRunner();
   const summoning = running === "summon";
   // "Start the world now" says it was pressed until the world starts (the bar then changes): on a phone the receipt's
   // notice was out of view, and a walker asked "did that do anything?". A refused start turns the button back on.
   const [startingWorld, setStartingWorld] = useState(false);
   const line = planningLine({
     phase: s.phase, seated: s.seated, owner: s.isOwner && permission !== "read", planningEndsAt: s.obs?.planningEndsAt, nowMs: now,
-    agents: loading ? undefined : s.agents, canSummon: editCode.ok,
+    // A summon accepted in this game counts as an agent until the list catches up (runner.summonedIn).
+    agents: loading ? undefined : Math.max(s.agents, summonedIn !== null && summonedIn === s.obs?.gameId ? 1 : 0), canSummon: editCode.ok,
   });
+  // Cleared here (the bar is always mounted in the dock): once an agent is listed, the list speaks for itself.
+  useEffect(() => { if (summonedIn !== null && s.agents > 0) runner.setSummonedIn(null); }, [summonedIn, s.agents]);
   const offered = !!line?.startNow;
   useEffect(() => { if (!offered) setStartingWorld(false); }, [offered]);
   // An accepted start that has not started the world after a while (the engine had nothing to do, or its tick is late)

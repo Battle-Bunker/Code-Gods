@@ -79,7 +79,7 @@ await page.screenshot({ path: `${OUT}/after-scroll.png` });
 console.log(JSON.stringify({ first, loaded, total }));
 
 // Sort selector: "Your bits" orders the whole collection by the viewer's own bits and persists.
-const bits = async () => rows.evaluateAll(els => els.map(el => Number((el.querySelector("[data-testid^=payoff-rect-]") as SVGElement | null)?.getAttribute("aria-label")?.match(/your bits (-?[\d.]+)/)?.[1] ?? NaN)));
+const bits = async () => rows.evaluateAll(els => els.map(el => Number((el.querySelector("[data-testid^=payoff-rect-]") as SVGElement | null)?.getAttribute("aria-label")?.match(/your ✨ rarity (-?[\d.]+)/)?.[1] ?? NaN)));
 await page.click("[data-testid=sort-mine]");
 await page.waitForFunction(() => document.querySelector("[data-testid=sort-mine]")?.getAttribute("aria-checked") === "true");
 await sleep(1500);

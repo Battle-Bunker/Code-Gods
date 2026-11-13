@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { plain } from "../src/core/panels/agent-labels.ts";
-import { workingEnergyLine, destroyReturnsLine, fullStoreAdvice, fullStoreOneAgent, overdraft, overdraftTone, spendsAsItEarns, agentDebtDetail, agentDebtLine, destroyDebtLine, fillText, fullIn, owedText, owes, ownEnergyLine, ownStoreFull, shareCapacityLines, storeFraction, storeState, storedLine } from "../src/core/panels/energy-capacity.ts";
+import { agentEnergyShown, runwayCaption, workingEnergyLine, destroyReturnsLine, fullStoreAdvice, fullStoreOneAgent, overdraft, overdraftTone, spendsAsItEarns, agentDebtDetail, agentDebtLine, destroyDebtLine, fillText, fullIn, owedText, owes, ownEnergyLine, ownStoreFull, shareCapacityLines, storeFraction, storeState, storedLine } from "../src/core/panels/energy-capacity.ts";
 
 // Hand-derived: power 64 bits/s, full charge 30 s. A 25% agent earns 16 bits/s and holds at most 16 × 30 = 480 bits.
 
@@ -206,4 +206,15 @@ test("the full-store advice with 'Give NAME more power' is only for a player who
 test("a routine overdraft reads 'about 0 ⚡', not a bare negative number (a walker read '−8.9 ⚡' as broken)", () => {
   assert.equal(plain(workingEnergyLine(-8.9)), "Energy about 0 ⚡");
   assert.equal(plain(workingEnergyLine(3.2)), "Energy 3.2 ⚡", "above zero: the number");
+});
+
+test("a working agent shows 'about 0 ⚡' with or without a store limit, and its bar no '0 s of its income'", () => {
+  assert.equal(agentEnergyShown({ energy: -13.4, capacity: 1347, working: true, debt: true }), "working", "capacities: the debt line is the working text, the number is not shown");
+  assert.equal(agentEnergyShown({ energy: -8.9, capacity: undefined, working: true, debt: false }), "working");
+  assert.equal(agentEnergyShown({ energy: -400, capacity: 1347, working: false, debt: true }), "owed", "a real debt keeps its number");
+  assert.equal(agentEnergyShown({ energy: 300, capacity: 1347, working: false, debt: false }), "stored");
+  assert.equal(agentEnergyShown({ energy: 3, capacity: undefined, working: false, debt: false }), "plain");
+  assert.equal(runwayCaption(0, true), null);
+  assert.equal(runwayCaption(4, false), "4 s of its income");
+  assert.equal(runwayCaption(null, false), "no income");
 });

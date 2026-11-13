@@ -34,7 +34,7 @@ import {
   STATE_LEGEND, actualLine, afterShareLine, agentState, energyLine, estimateLine, laneKind, num, perSecond, plain, runwayFraction, runwaySeconds, runwayText,
   allocationSettled, shareLine, skipLine, spentLine, statusText, summonLine, yourPowerLine, type Seg,
 } from "./agent-labels";
-import { OWN_FULL_DETAIL, destroyReturnsLine, fullStoreAdvice, WORKING_TEXT, workingEnergyLine, fullStoreOneAgent, spendsAsItEarns, overdraft, overdraftTone, agentDebtDetail, agentDebtLine, destroyDebtLine, fillText, owes, ownEnergyLine, ownStoreFull, shareCapacityLines, storeFraction, storeState, storedLine } from "./energy-capacity";
+import { OWN_FULL_DETAIL, destroyReturnsLine, fullStoreAdvice, WORKING_TEXT, workingEnergyLine, agentEnergyShown, runwayCaption, fullStoreOneAgent, spendsAsItEarns, overdraft, overdraftTone, agentDebtDetail, agentDebtLine, destroyDebtLine, fillText, owes, ownEnergyLine, ownStoreFull, shareCapacityLines, storeFraction, storeState, storedLine } from "./energy-capacity";
 import { PanelEmpty, TextButton, type PanelProps } from "./kit";
 import { maxShareFor, parseSharePercent, shareProblem } from "./power-share";
 import { PointsNow, useOpenObject, useOwnActLines } from "./score-lines";
@@ -48,7 +48,7 @@ function Say({ segs }: { segs: readonly Seg[] }) {
 }
 
 /** The energy as a bar: how many seconds of the agent's income it holds (full at 10 s), explained by its tooltip. */
-function EnergyMeter({ energy, income }: { energy: number; income: number }) {
+function EnergyMeter({ energy, income, working = false }: { energy: number; income: number; working?: boolean }) {
   const secs = runwaySeconds(energy, income);
   const text = runwayText(energy, income);
   return (
@@ -56,7 +56,7 @@ function EnergyMeter({ energy, income }: { energy: number; income: number }) {
       <span role="meter" aria-label={text} aria-valuemin={0} aria-valuemax={10} aria-valuenow={Math.min(10, secs ?? 0)} className="inline-block h-1.5 w-20 bg-muted">
         <span className={`block h-full ${overdraftTone(overdraft(energy, income)) === "alarm" ? "bg-destructive" : "bg-[hsl(var(--accent))]"}`} style={{ width: `${Math.round(runwayFraction(secs ?? 0) * 100)}%` }} />
       </span>
-      <span className="text-muted-foreground">{secs === null ? "no income" : `${num(secs)} s of its income`}</span>
+      {runwayCaption(secs, working) && <span className="text-muted-foreground">{runwayCaption(secs, working)}</span>}
     </span>
   );
 }
@@ -233,14 +233,18 @@ export function AgentsView({ agents, self, powerPerSecond, fullChargeSeconds, ch
               <div data-testid={`text-agent-energy-${a.id}`} className="space-y-0.5 text-xs text-muted-foreground">
                 {a.powerShare !== undefined && a.income !== undefined && <p data-testid={`text-agent-share-${a.id}`}><Say segs={shareLine(a.powerShare, a.income)} /></p>}
                 <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                  <span className={alarm ? "font-semibold text-destructive" : "text-foreground"} title={working && !debt && a.energy < 0 ? `Exactly ${num(a.energy)} ⚡: it spends each bit of energy as it comes in.` : undefined}><Say segs={capped ? storedLine(a.energy, a.capacity!) : working && !debt ? workingEnergyLine(a.energy) : debt ? [{ term: "agent-energy", text: "Energy" }, ` ${num(a.energy)} ⚡`] : energyLine(a.energy)} /></span>
+                  {(() => {
+                    const shown = agentEnergyShown({ energy: a.energy, capacity: a.capacity, working, debt: !!debt });
+                    return <span className={alarm ? "font-semibold text-destructive" : "text-foreground"} title={shown === "working" && a.energy < 0 ? `Exactly ${num(a.energy)} ⚡: it spends each bit of energy as it comes in.` : undefined}>
+                      <Say segs={shown === "stored" ? storedLine(a.energy, a.capacity!) : shown === "working" ? workingEnergyLine(a.energy) : shown === "owed" ? [{ term: "agent-energy", text: "Energy" }, ` ${num(a.energy)} ⚡`] : energyLine(a.energy)} /></span>;
+                  })()}
                   {/* A game without capacities has no line beside it: the routine overdraft is still said as work. */}
                   {working && !debt && <span data-testid={`text-agent-working-${a.id}`} className="text-muted-foreground">{WORKING_TEXT}</span>}
                   {debt && <span data-testid={`text-agent-debt-${a.id}`} title={agentDebtDetail(a.capacity) ?? undefined} className={alarm ? "font-semibold text-destructive" : "text-muted-foreground"}>{debt}</span>}
                 </p>
                 <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
                   {capped ? <CapacityMeter testId={`meter-agent-capacity-${a.id}`} energy={a.energy} income={a.income ?? 0} capacity={a.capacity!}
-                    spending={!ended && spendsAsItEarns({ energy: a.energy, income: a.income ?? 0, acts: a.acts })} /> : <EnergyMeter energy={a.energy} income={a.income ?? 0} />}
+                    spending={!ended && spendsAsItEarns({ energy: a.energy, income: a.income ?? 0, acts: a.acts })} /> : <EnergyMeter energy={a.energy} income={a.income ?? 0} working={working} />}
                   <span title="Energy over the last minutes of this game: the dashed line is 0" className="inline-flex items-center"><Sparkline values={history} zero width={90} height={18} label={`${label}: energy over time`} /></span>
                 </p>
                 <p data-testid={`text-agent-spent-${a.id}`}><Say segs={spentLine(a.spent, a.spentRead, a.acts)} /></p>

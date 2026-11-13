@@ -172,10 +172,10 @@ test("with an agent already in the game the forge says what another one means", 
 
 test("the summoned line says what share the agent took and what the player keeps, from the real numbers", () => {
   // 64 ⚡/s: a first agent takes three quarters, the player keeps 16 ⚡/s.
-  assert.equal(storeAfterSummonText({ share: 0.75, income: 16 }), "Three quarters of your power now feeds this agent; you keep 16 ⚡/s for replacing it or adding another.");
-  assert.equal(storeAfterSummonText({ share: 0.5, income: 32 }), "Half of your power now feeds this agent; you keep 32 ⚡/s for replacing it or adding another.");
-  assert.equal(storeAfterSummonText({ share: 0.125, income: 8 }), "13% of your power now feeds this agent; you keep 8 ⚡/s for replacing it or adding another.");
-  assert.equal(storeAfterSummonText({ share: 0.25, income: 0 }), "25% of your power now feeds this agent; you keep none for yourself, so you cannot summon or replace until you take some back in My agents.");
+  assert.equal(storeAfterSummonText({ share: 0.75, income: 16 }), "Your power is the energy you earn each second. Three quarters of it now goes to this agent, which spends it on moves; you keep 16 ⚡ a second, saved up for replacing it or adding another.");
+  assert.equal(storeAfterSummonText({ share: 0.5, income: 32 }), "Your power is the energy you earn each second. Half of it now goes to this agent, which spends it on moves; you keep 32 ⚡ a second, saved up for replacing it or adding another.");
+  assert.equal(storeAfterSummonText({ share: 0.125, income: 8 }), "Your power is the energy you earn each second. 13% of it now goes to this agent, which spends it on moves; you keep 8 ⚡ a second, saved up for replacing it or adding another.");
+  assert.equal(storeAfterSummonText({ share: 0.25, income: 0 }), "Your power is the energy you earn each second. 25% of it now goes to this agent, which spends it on moves; you keep none, so you cannot summon or replace until you take some back in My agents.");
   assert.equal(storeAfterSummonText({ share: undefined, income: 16 }), null);
   assert.equal(storeAfterSummonText({ share: 0.75, income: undefined }), null, "the player's income is not known: nothing is guessed");
   assert.equal(storeAfterSummonText({ share: 0, income: 64 }), null);
