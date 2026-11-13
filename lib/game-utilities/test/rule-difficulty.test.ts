@@ -167,6 +167,10 @@ test("rateE is the bits the per-energy greedy gains per energy bit over the firs
   assert.ok(dist.rateE > flat.rateE, `nudges first: ${dist.rateE}`);
   assert.ok(dist.energyBits["per-energy"][0] >= dist.energyBits.steepest[0]);
   for (const k of ["rate4", "greedy16", "trap", "difficulty", "entangle"] as const) assert.equal(dist[k], flat[k], `${k} does not depend on the cost model`);
+  // Every act can pay an overhead besides its change (its offer and reads): 16.3 + 1.7 = 18.0 a change, so one change by
+  // 32 (as before) and three by 64 (54.0), but only two with an overhead of 6 (22.3 a change: 44.6, the third at 66.9).
+  assert.equal(measureRule(sevens(), { sp, budget: TINY, actOverhead: 1.7 }).rateE, 3 / 64);
+  assert.equal(measureRule(sevens(), { sp, budget: TINY, actOverhead: 6 }).rateE, 2 / 64);
   // The pool check is reported, never a failing gate.
   const late = measureRule(givenRule("all_sevens", g => (g.sym.every(s => s === 7) ? 1 : 0), o => o as number, 1), { sp, budget: TINY });
   const s = summarise([flat, { ...flat, id: "half", rateE: flat.rateE / 2, e32: flat.e32 / 2, e64: flat.e64 / 2 }], []);

@@ -14,6 +14,7 @@
  *   --budget default|quick          sample sizes (lib DEFAULT_BUDGET / QUICK_BUDGET)
  *   --starts N                      start boards per rule, overriding the budget's
  *   --cost-model set-v1|distance-v1 the room's cost model (any of game-types COST_MODELS), for the energy columns
+ *   --act-overhead BITS             energy every act pays besides its change (its offer and its reads), default 0
  *                                   rateE, e32, e64 and the energy table (default set-v1)
  *   --params N                      distinct canonical params per family (default 1; rows are id#k when > 1)
  *   --no-pairs                      skip the synergy matrix
@@ -86,7 +87,9 @@ if (opt("adhoc")) {
 const chosen = flag("numbers-only") ? rules.filter(r => colourBlind(r, sp)) : rules;
 log(`${inst.key}, moves=${moveSet}, cost model=${costModel}, ${chosen.length} rules, budget=${opt("budget") ?? "default"}`);
 const t0 = performance.now();
-const report = measurePool(chosen, { sp, budget, costModel }, { pairs: !flag("no-pairs"), log });
+const actOverhead = Number(opt("act-overhead") ?? 0);
+if (!(actOverhead >= 0)) throw new Error(`--act-overhead must be a number of bits, 0 or more`);
+const report = measurePool(chosen, { sp, budget, costModel, actOverhead }, { pairs: !flag("no-pairs"), log });
 log(`measured in ${((performance.now() - t0) / 1000).toFixed(1)}s`);
 print(report);
 if (opt("json")) writeFileSync(opt("json")!, JSON.stringify({ shape: inst.key, moves: moveSet, costModel, budget, ...report }, (_, v) => (v === Infinity ? "inf" : v), 2) + "\n");

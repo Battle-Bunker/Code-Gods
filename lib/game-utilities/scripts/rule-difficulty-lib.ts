@@ -350,6 +350,8 @@ export interface Context {
   sp: Space; budget: Budget;
   /** The room's cost model (default set-v1): only the energy columns depend on it. */
   costModel?: CostModel;
+  /** Energy every act pays besides its change (its offer and what it reads; docs/energy-model.md §3, §7.1). Default 0. */
+  actOverhead?: number;
 }
 
 /** The start boards a rule (or pair) is measured from: seeded by the label only, so every rule shares them. */
@@ -452,7 +454,8 @@ export function measureRule(rule: Rule, ctx: Context): RuleReport {
   const gap = bm > 0 ? Math.max(0, (bm - g16) / bm) : 0;
   const trap = mean(end.map(e => (top - e) / top));
   // Energy: the same starts, each act paying the cost model's price of its net effect.
-  const cost = (g: GridValue, h: GridValue) => moveEnergy(inst, g, h, ctx.costModel);
+  const overhead = ctx.actOverhead ?? 0;
+  const cost = (g: GridValue, h: GridValue) => moveEnergy(inst, g, h, ctx.costModel) + overhead;
   const paid = (policy: Policy) => S.map(g => energyClimb(rule, sp, g, cost, ENERGY_BUDGETS, policy).bitsAt.map(x => Math.min(top, x)));
   const careful = paid("per-energy"), heldAt = (cs: number[][]) => ENERGY_BUDGETS.map((_, j) => mean(cs.map(c => c[j])));
   const energyBits = { steepest: heldAt(paid("steepest")), "per-energy": heldAt(careful) };
