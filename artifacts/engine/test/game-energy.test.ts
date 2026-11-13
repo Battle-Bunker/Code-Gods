@@ -42,7 +42,7 @@ test("a skipper pays only what it read, never fails, is never futile, and has no
   // Skips: every act, each paying log2 10 bits read at the read price, none a failure, no futile memo.
   assert.equal(looker.skips, looker.acts);
   assert.equal(looker.transforms ?? 0, 0);
-  assert.deepEqual(looker.failures, { collision: 0, noChange: 0, commit: 0, invalid: 0, error: 0 });
+  assert.deepEqual(looker.failures, { collision: 0, noChange: 0, commit: 0, invalid: 0, error: 0, unaffordable: 0 });
   assert.ok(Math.abs(looker.spent - looker.acts * digit) < 1e-6, `${looker.spent} for ${looker.acts} acts`);
   assert.ok(Math.abs(looker.spentRead - looker.spent) < 1e-9, "all of a skipper's spend is reading");
   const memo = await admin.query(internal.testing.futileActs, { gameId: game.gameId });

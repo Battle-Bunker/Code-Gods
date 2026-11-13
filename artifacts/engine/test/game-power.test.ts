@@ -225,6 +225,7 @@ test("debt: an agent may owe at most what it holds, and what it owes follows its
   await waitFor(async () => (await observe(bo)).self.energy >= 60, "Bo's income repays the debt", 60000, 250);
   const again = await send(bo, { type: "summon", name: "Again", language: "typescript", source: "function agent(n) { return []; }", powerShare: 0.5 });
   assert.equal(again.accepted, true, again.message);
-  assert.equal((await observe(bo)).agents.find(a => a.name === "Again")!.energy, 0, "a re-summoned agent starts empty: nothing was gained");
+  // A re-summoned agent starts empty (here: at most a second or two of its own 20 bits/s): nothing was gained.
+  assert.ok((await observe(bo)).agents.find(a => a.name === "Again")!.energy < 60, "a re-summoned agent starts empty");
   await host.c.mutation(api.rooms.endActiveGame, { roomId });
 });
