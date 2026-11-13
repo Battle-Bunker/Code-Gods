@@ -47,6 +47,7 @@ export const ninesTiers: GridTiers<NinesP> = {
   gateText: (gate, g) => `${gate} opposite pairs that add up to ${g.say.tile(ninesTarget(g))}`,
   dealt: g => (g.N === 4 && g.base === 10 ? NINES_DEALT : []),
   lab: g => (g.N === 4 && g.base === 10 ? NINES_LAB : []),
+  dealtPairs: g => (g.N === 4 && g.base === 10 ? NINES_PAIRS : []),
   base: (_p, g) => ({
     id: "opposite-nines-pairs@1", symbols: g.S, cells: g.N * g.N, arity: 2,
     units: halfTurnPairs(g.N).map(([a, b]) => [a.r * g.N + a.c, b.r * g.N + b.c]),
@@ -69,6 +70,18 @@ const NINES_DEALT: readonly TierValue[] = [
  */
 const NINES_LAB: readonly TierValue[] = [
   ...[9, 10, 26, 27].map(x => ({ id: "lines", x })), ...[9, 10, 26, 27].map(x => ({ id: "squares", x })),
+];
+
+/**
+ * Expert (two tiers: lines, then squares among boards equal on lines), measured on 4×4 digits against a band of 6 to 26
+ * bits for the two together (docs/layered-rules-measurements/expert-pairs.md). Both totals are at most 18, so each
+ * pair is its own canonical form: the two values fold separately (x ~ 36 − x), which is one symmetry of the pair only
+ * when both fold together.
+ */
+const NINES_PAIRS: readonly (readonly [TierValue, TierValue])[] = [
+  [{ id: "lines", x: 16 }, { id: "squares", x: 16 }],
+  [{ id: "lines", x: 14 }, { id: "squares", x: 16 }],
+  [{ id: "lines", x: 16 }, { id: "squares", x: 14 }],
 ];
 
 export const oppositeNines = gridFamily<NinesP>({

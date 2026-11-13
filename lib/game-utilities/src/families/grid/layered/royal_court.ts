@@ -90,12 +90,20 @@ const COURT_DEALT: readonly TierValue[] = [
 // over the base) that the hybrid law misses it by up to 5 bits at the shipped budget
 // (docs/layered-rules-measurements/kings-and-subjects.md).
 const COURT_LAB: readonly TierValue[] = [{ id: "paths", x: 17 }, { id: "paths", x: 20 }, { id: "pairs", x: 13 }];
+/**
+ * Expert (two tiers: pairs of kings, then same-number roads among boards equal on pairs), on 4×4 digits against a band
+ * of 6 to 26 bits for the two together (docs/layered-rules-measurements/expert-pairs.md). With every pair of kings
+ * scoring, one road of four equal subjects is the most that fits.
+ */
+const COURT_PAIRS: readonly (readonly [TierValue, TierValue])[] = [2, 3].map(x => [{ id: "pairs", x }, { id: "sameRoads", y: 4 }] as const);
+
 export const courtTiers: GridTiers<CourtP> = {
   interactions: COURT_INTERACTIONS,
   gate: g => (g.N / 2) ** 2,
   gateText: gate => `${gate} courts`,
   dealt: g => (g.N === 4 && g.base === 10 ? COURT_DEALT : []),
   lab: g => (g.N === 4 && g.base === 10 ? COURT_LAB : []),
+  dealtPairs: g => (g.N === 4 && g.base === 10 ? COURT_PAIRS : []),
   base: (p, g) => (p.squares !== "corners" ? null : {
     id: "kings-and-subjects-boxes@1", symbols: g.S, cells: g.N * g.N, arity: 2,
     units: courtSquares(g.N, "corners").map(({ r, c }) => [r * g.N + c, r * g.N + c + 1, (r + 1) * g.N + c, (r + 1) * g.N + c + 1]),

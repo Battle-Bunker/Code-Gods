@@ -20,13 +20,16 @@ import { baseLaw, liveness, topTierOf, TIER_MAX_ADDED_BITS, TIER_MIN_ADDED_BITS 
 import { ninesTiers } from "../src/families/grid/beginner/opposite_nines.ts";
 import { mirrorTiers } from "../src/families/grid/layered/mirror-tiers.ts";
 import { courtTiers } from "../src/families/grid/layered/royal_court.ts";
+import { pairTiers } from "../src/families/grid/layered/pair-tiers.ts";
 import type { GridTiers } from "../src/families/grid/tiers.ts";
 import { gridSpec } from "../src/families/grid/_util.ts";
 import type { Ordinal, Params } from "../src/types.ts";
 
 const TIERED = FAMILIES.filter(f => f.tiered);
 /** The tier specs by family id (each family exports its own). */
-const SPECS: Record<string, GridTiers<any>> = { opposite_nines: ninesTiers, mirrormancer: mirrorTiers, kings_and_subjects: courtTiers };
+const SPECS: Record<string, GridTiers<any>> = { opposite_nines: ninesTiers, mirrormancer: mirrorTiers, kings_and_subjects: courtTiers, two_pair: pairTiers };
+/** Expert draws carry two tiers: together they may add up to 26 bits over the base's top (one tier: 20). */
+const EXPERT_BAND = { min: TIER_MIN_ADDED_BITS, max: 26 };
 const beginner = instantiate("Grid", { size: 4, symbols: "base10", colours: "mono" });
 const tup = (o: Ordinal) => (typeof o === "number" ? [o] : [...o]);
 const spawn = (n: number, seed: string) => {
@@ -120,6 +123,35 @@ test("a tiered ordinal is [...base, base[0] ≥ gate ? tier : 0], and the plain 
   }
 });
 
+test("an expert draw's ordinal is [...base, gate ? tier1 : 0, gate ? tier2 : 0]: each tier scores what it scores alone", () => {
+  const ctx = context(beginner), boards = spawn(200, "expert");
+  let families = 0;
+  for (const f of TIERED) {
+    const pairs = f.tiered!(ctx, 2);
+    if (!pairs.length) continue;
+    families++;
+    // Canonical pairs are dealt as they are: a pair's two values fold separately, which is only right when neither moves.
+    for (const p of pairs) assert.deepEqual(f.canonical(p, ctx), { ...f.canonical(baseParams(p), ctx), tiers: tiersOf(p) }, `${f.id} ${paramsKey(p)}: deal the canonical pair`);
+    for (const p of [pairs[0], pairs[pairs.length - 1]]) {
+      const [t1, t2] = tiersOf(p), gate = t1.gate;
+      assert.equal(t2.gate, gate);
+      assert.notEqual(t1.id, t2.id, `${f.id}: an expert draw pairs two different interactions`);
+      const base = evaluator({ familyId: f.id, params: baseParams(p) }, beginner), full = evaluator({ familyId: f.id, params: p }, beginner);
+      const one = [t1, t2].map(t => evaluator({ familyId: f.id, params: { ...baseParams(p), tiers: [t] } }, beginner));
+      let above = 0;
+      for (const w of [...boards, f.exemplar!(baseParams(p), ctx), ...[t1, t2].map(t => f.exemplar!({ ...baseParams(p), tiers: [t] }, ctx))]) {
+        const b = tup(base(w)), o = tup(full(w));
+        assert.equal(o.length, b.length + 2);
+        assert.deepEqual(o.slice(0, b.length), b);
+        assert.deepEqual(o.slice(b.length), one.map(u => tup(u(w))[b.length]), `${f.id} ${paramsKey(p)} on ${w}`);
+        if (b[0] >= gate) above++; else assert.deepEqual(o.slice(b.length), [0, 0]);
+      }
+      assert.ok(above >= 2);
+    }
+  }
+  assert.ok(families >= 1, "no family deals an expert pair");
+});
+
 test("the disjoint units' scores add up to the card's base ordinal", () => {
   const ctx = context(beginner), g = gridSpec(ctx), T = objectType("Grid"), rng = seededRng("units");
   for (const f of TIERED) for (const p of f.support(ctx)) {
@@ -187,6 +219,13 @@ test("liveness: every dealt tier varies at the base's top, adds 6 to 20 bits, an
       if (seen.has(paramsKey(c))) continue;
       seen.add(paramsKey(c));
       check(f, c, { min: 0, max: 99 });
+    }
+    // Expert pairs: the two tiers together, against the wider band (their tops are not in the one-tier pool's spread).
+    for (const p of f.tiered!(ctx, 2)) {
+      const c = f.canonical(p, ctx);
+      if (seen.has(paramsKey(c))) continue;
+      seen.add(paramsKey(c));
+      check(f, c, EXPERT_BAND);
     }
   }
   // The pool of tiered rules: tops within 2.5× of each other (docs/layered-rules-design.md §8.3).
