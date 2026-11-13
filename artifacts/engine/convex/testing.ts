@@ -476,6 +476,16 @@ export const killAiChain = internalMutation({
   },
 });
 
+/** The examination cache's most recently used program (engine/examinationCache.ts): how many runs it remembers, and since when. */
+export const latestExaminationRuns = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    dev();
+    const row = await ctx.db.query("examinationRuns").withIndex("by_usedAt").order("desc").first();
+    return row ? { key: row.key, runs: row.runs.length, usedAt: row.usedAt, fields: Object.keys(row).sort() } : null;
+  },
+});
+
 /** A room's member rows as stored (rooms.get defaults what it projects). */
 export const rawMembers = internalQuery({
   args: { roomId: v.id("rooms") },
