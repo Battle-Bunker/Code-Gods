@@ -126,3 +126,48 @@ plan rather than falling out of greed.
 Synergy with the beginner eight rises as it does for every tiered family (§8.1 of the design document, measured): mean
 `SYN` 21.0 → 43.0–43.2 and the ceiling 1.00 → 0.70–0.92. Payoff ratio 0.99 to 1.01 over 40 three-player games each,
 seat 0 playing the base only against playing the whole rule.
+
+## The shipped tables against a uniform sample of the top (2026-11-13)
+
+The top set is every board whose 6 fold pairs are 3 apart and whose 4 fold-line cells are anything: 14⁶ · 10⁴ ≈
+7.5 · 10¹⁰ boards, too many to enumerate, and a tier that reads lines across the fold has no product form. So the
+reference is an independent **uniform sample** of the top, as for 🫅 Kings and Subjects: each pair one of its 14
+fillings ((a, a+3) and (a+3, a) for a = 0…6), each free cell a uniform digit. One pass counts, for every total x at
+once, how many boards have exactly h of the 10 lines (and of the 9 squares) adding up to x — which is what makes
+2 · 10⁷ boards affordable for twelve tables. The sums are read off the board rather than through the card, so every
+variant first runs its own short sample *through the card* and must agree on the base's top and on the tier's count
+(`threesTopBoards`, `threesTopCounts`, `threesCheckCard`, `threesTopSample` in `scripts/tiered-profile.ts`).
+
+```sh
+node --experimental-strip-types scripts/tiered-profile.ts --families crosswise_threes --no-profile --check --top-sample 20000000
+```
+
+**What a sampled reference can and cannot settle.** `--check`'s "max error" counts only the levels where the sample has
+at least 100 boards; the top level of a rare value has far fewer, and the tool now says so in its own output
+("NOT COMPARED: 1 under 100 boards") rather than reporting a clean error over the easy levels alone. Both numbers are
+below, because the top level is the one that matters and a thin check of it is still worth more than none.
+
+| table | added bits, shipped | added bits, sample | max error over the levels with ≥ 100 boards | the top level: error (boards) |
+|---|--:|--:|--:|--:|
+| `lines` x = 11 | 17.79 | 17.64 | 0.02 | 0.15 (98) |
+| x = 12 | 19.70 | 20.17 | 0.21 | **0.47** (17) |
+| x = 13 | 16.45 | 16.45 | 0.07 | 0.00 (224) |
+| x = 14 | 18.74 | 18.64 | 0.10 | 0.10 (49) |
+| x = 15 | 15.40 | 15.45 | 0.10 | 0.05 (446) |
+| x = 16 | 18.02 | 17.99 | 0.10 | 0.03 (77) |
+| x = 17 | 15.29 | 14.87 | **0.42** | 0.42 (666) |
+| x = 18 | 17.87 | 17.61 | 0.26 | 0.26 (100) |
+| `lines` x = 9 (Lab) | 20.12 | 20.45 | 0.10 | 0.33 (14) |
+| `lines` x = 10 (Lab) | 21.20 | 20.93 | 0.06 | 0.27 (10) |
+| `squares` x = 17 (Lab) | 21.03 | 20.67 | 0.21 | 0.36 (12) |
+| `squares` x = 18 (Lab) | 20.80 | 20.08 | 0.15 | **0.72** (18) |
+
+So: every table is **within 0.42 bits of the sample wherever the sample is solid**, and **within 0.72 bits counting the
+thin top levels too** — inside the 1-bit bound the tables declare either way, with no level left uncompared. The worst
+rows are the Lab's `squares` x = 18 (0.72 on 18 boards) and the dealt `lines` x = 12 (0.47 on 17 boards), and at that
+many boards the sample's own 95% interval is about ±0.3 to ±0.5 bits, so those two rows do not establish much beyond
+"not wrong by a lot". Every level below the top rests on thousands of boards.
+
+At 2 · 10⁶ boards — the default, and what a whole-pool `--check` run uses — the two `squares` tables are worse than
+thin: the sample never reaches tier 7 at all, so their top level is not compared, which the tool now reports as
+"1 level(s) above the reference's top".
