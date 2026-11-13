@@ -280,6 +280,44 @@ They are unit tests (`lib/game-types/test/mutators.test.ts`).
 - These are estimates for the UI and the assistant. Nothing is charged or scheduled from them.
 - The decision information I(X; A) is no longer estimated or charged; its estimators are deleted.
 
+### 5.1 The summon price is language-fair (13 Nov 2026)
+
+The summon price is the description length of the program's syntax tree: `ast-bits-v1` for Python, `ts-ast-bits-v1-uniform`
+for TypeScript (lib/game-runtime). Both code the tree's structure, its names and its literals. Names and literals use
+the same codes and agree within about 10%. The structure codes differ: Python's is weighted by a corpus (common nodes
+are cheap), TypeScript's is uniform over node kinds, so the same program's structure cost 2.0–2.6× more in TypeScript
+and its whole price 1.5–2.1× more. With a 1,920-bit store that put every strategy past plain greedy out of reach in
+TypeScript only: an advantage by language, not by program.
+
+**The fix:** an agent's structure bits are multiplied by its language's `structureWeight` (game-core `LANGUAGE_SPECS`,
+`fairSummonBits`; the engine's `summonPrice` applies it): Python 1, TypeScript 0.44. The weight is the ratio of the two
+structure codes pooled over ten programs written in both languages (four small ones and the six coordination policies:
+Python 3,810 structure bits, TypeScript 8,664). It is one number per language, derived from the two grammars' codes on
+paired programs; it is not fitted per program. `artifacts/engine/scripts/language-price.ts` prints the table:
+
+| Program | Python | TypeScript before | ratio | TypeScript now | ratio |
+|---|---|---|---|---|---|
+| skip always | 24.7 | 36.6 | 1.48 | 16.7 | 0.67 |
+| one fixed write | 73.1 | 113.9 | 1.56 | 64.3 | 0.88 |
+| loop and if | 119.2 | 190.7 | 1.60 | 108.2 | 0.91 |
+| sum, then act | 184.6 | 291.5 | 1.58 | 171.3 | 0.93 |
+| policy: random | 142.6 | 304.2 | 2.13 | 177.9 | 1.25 |
+| policy: greedy | 737.9 | 1319.7 | 1.79 | 774.0 | 1.05 |
+| policy: considerate | 1179.2 | 2019.3 | 1.71 | 1203.6 | 1.02 |
+| policy: payoff | 1599.4 | 2646.8 | 1.65 | 1651.4 | 1.03 |
+| policy: cooperator | 1796.9 | 2916.7 | 1.62 | 1821.8 | 1.01 |
+| policy: deny | 1611.7 | 2660.7 | 1.65 | 1659.2 | 1.03 |
+
+Every policy now fits a god's store in either language. What remains: very small TypeScript programs come out cheaper
+than Python's (a uniform code has less fixed overhead), and the "random" policy 25% dearer (its TypeScript names cost
+more). A corpus-weighted TypeScript code would remove the weight altogether; it needs a corpus of agents that does not
+exist yet.
+
+**Stored data and existing rooms.** Nothing stored changes: an agent keeps the price it paid (`agents.summonCost`, the
+summon event), replays show recorded prices, and the price function ids are unchanged. From the deploy on, a TypeScript
+summon or validation in any room, a game in progress included, is priced with the weight (cheaper than before); Python
+prices do not move. The validation's `parts.structure` is the weighted figure, so the parts still add up to the price.
+
 ## 6. Power (PR 3)
 
 - `settings.powerPerSecond` (P, bits per world second) is each deity's fixed budget. Defaults: 8; Grid 64 (two agents

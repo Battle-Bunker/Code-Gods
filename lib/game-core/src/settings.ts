@@ -17,15 +17,22 @@ export type { ObjectValue, TypeArgs } from "@workspace/game-types";
  * language has exactly one of each, as in lib/game-runtime GRAMMAR_IDS and COMPLEXITY_IDS), so settings never carry
  * them. Adding a language is an entry here plus its runtime (lib/game-runtime, wired in the engine's runtime/node.ts).
  * `emptyAgent` is the smallest valid agent (the engine's availability probe).
+ *
+ * `structureWeight` makes the summon price language-fair (docs/energy-model.md §5.1, 13 Nov 2026). Both price functions
+ * describe a program's syntax tree, but TypeScript's is uniform over node kinds where Python's is weighted by a corpus,
+ * so the same program's STRUCTURE bits came out 2.3× dearer in TypeScript (names and literals use the same codes and
+ * agree within about 10%). The weight is the ratio of the two structure codes pooled over ten programs written in both
+ * languages (`artifacts/engine/scripts/language-price.ts`: Python 3,810 bits ÷ TypeScript 8,664 = 0.44); the engine
+ * multiplies an agent's structure bits by its language's weight (`fairSummonBits`).
  */
 export const LANGUAGE_SPECS = Object.freeze({
   python: Object.freeze({
-    label: "Python", grammarId: "python-agent-v1", complexityFunctionId: "ast-bits-v1",
+    label: "Python", grammarId: "python-agent-v1", complexityFunctionId: "ast-bits-v1", structureWeight: 1,
     grammarLabel: "def agent(obj) returns mutator calls",
     emptyAgent: "def agent(x):\n    return []",
   }),
   typescript: Object.freeze({
-    label: "TypeScript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform",
+    label: "TypeScript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", structureWeight: 0.44,
     grammarLabel: "function agent(obj) returns mutator calls",
     emptyAgent: "function agent(x) { return []; }",
   }),
@@ -48,6 +55,15 @@ export type GrammarId = (typeof LANGUAGE_SPECS)[Language]["grammarId"];
 export const grammarFor = (language: Language): GrammarId => LANGUAGE_SPECS[language].grammarId;
 /** The summon-price function of an agent written in this language. */
 export const complexityFor = (language: Language): string => LANGUAGE_SPECS[language].complexityFunctionId;
+/**
+ * A description length made language-fair: the price function's total `cost` and its `structure` part, with the
+ * structure bits weighted by the language's `structureWeight`. The other parts (names, literals, move flags) are as
+ * the price function gave them. Python is unchanged (weight 1).
+ */
+export function fairSummonBits(language: Language, cost: number, structure: number): { cost: number; structure: number } {
+  const weighted = structure * LANGUAGE_SPECS[language].structureWeight;
+  return { cost: cost - structure + weighted, structure: weighted };
+}
 
 /** Resource limit: at most this many live agents per god. */
 export const MAX_AGENTS_PER_GOD = 200;
