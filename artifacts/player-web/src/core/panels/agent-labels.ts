@@ -31,10 +31,15 @@ const acts = (n: number) => `${n} act${n === 1 ? "" : "s"}`;
 export type AgentState = "can" | "waiting" | "limit";
 export const agentState = (a: { energy: number; eligible: boolean }): AgentState => (a.energy <= 0 ? "waiting" : a.eligible ? "can" : "limit");
 /** The timeline lane colour for each state: green can act, dashed waiting for income, grey at its turn limit. */
-export const laneKind = (a: { energy: number; eligible: boolean }): "ok" | "cool" | "idle" => ({ can: "ok", waiting: "cool", limit: "idle" } as const)[agentState(a)];
+/**
+ * `income` (the agent's energy per second), when given: an agent overdrawn by at most two seconds of it is working
+ * (it spends as fast as it earns), so its lane is not the waiting colour; an all-orange timeline read as "is it stuck?".
+ */
+export const laneKind = (a: { energy: number; eligible: boolean }, income?: number): "ok" | "cool" | "idle" =>
+  a.energy <= 0 && income !== undefined && income > 0 && -a.energy <= 2 * income ? "ok" : ({ can: "ok", waiting: "cool", limit: "idle" } as const)[agentState(a)];
 export const STATE_LEGEND = [
-  { kind: "ok", label: "can act now (energy above 0)" },
-  { kind: "cool", label: "waiting for income (energy 0 or below)" },
+  { kind: "ok", label: "acting (energy above 0, or spending it as fast as it comes in)" },
+  { kind: "cool", label: "waiting for income (overdrawn by more than 2 s of it)" },
 ] as const;
 
 /** The status beside an agent's name; `wait` is the world seconds until its energy is above 0 again. */
@@ -69,6 +74,7 @@ export const shareLine = (share: number, income: number): Seg[] => [{ term: "pow
 
 /** "Energy 42 ⚡" or, at 0 or below, "Energy −12 ⚡: waiting for income". */
 export function energyLine(energy: number): Seg[] {
+  // The wait is said by the line beside it (energy-capacity.ts agentDebtLine) where the game has capacities.
   return [{ term: "agent-energy", text: "Energy" }, ` ${bits(energy)}` + (energy <= 0 ? ": waiting for income" : "")];
 }
 /** How many seconds of its income the energy holds, or null with no income. Negative energy holds none. */

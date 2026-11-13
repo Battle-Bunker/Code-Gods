@@ -11,7 +11,7 @@ import { createContext, useContext, useSyncExternalStore } from "react";
 import type { DockviewApi } from "dockview-react";
 import { DEFAULT_LAYOUT, parseLayout, panesOf, type DockLayout, type Pane } from "@workspace/player-client/layout";
 import type { Phase } from "@workspace/player-client/panels";
-import { PUSH_DELAY_MS, PUSH_SOON_MS, RETRY_MS, effectiveLayout, initialSync, pushPlan, sameLayout, syncReducer, keepAssistantPane, withResultsFirst, withTimeline, withoutAssistant, type SyncEvent, type SyncState } from "./layout-sync";
+import { PUSH_DELAY_MS, PUSH_SOON_MS, RETRY_MS, effectiveLayout, initialSync, pushPlan, sameLayout, syncReducer, keepAssistantPane, hiddenByResultsOnly, withResultsFirst, withResultsOnly, withTimeline, withoutAssistant, type SyncEvent, type SyncState } from "./layout-sync";
 import { back, emptyHistory, observe, resetView, type History } from "./history";
 
 export type Pusher = (layout: DockLayout, ifUpdatedAt: number | undefined) => Promise<{ layout: unknown; updatedAt: number }>;
@@ -22,6 +22,8 @@ export type DockSnapshot = {
   /** This room has an assistant (its owner is an administrator); when not, its pane is not in `layout` and no menu offers it. */
   assistantAvailable: boolean;
   focused: string | null;
+  /** An ended game shows its results and timeline only (layout-sync.ts withResultsOnly): "Show my panes" brings the rest back. */
+  hiddenPanes: boolean;
   phase: Phase;
   loaded: boolean;
   canWrite: boolean;
@@ -44,6 +46,10 @@ export class DockStore {
   private timelineClosed = false;
   /** The human rearranged the replay's dock: their arrangement stays (the results are no longer moved to the top). */
   private replayArranged = false;
+  /** "Show my panes" was pressed: the ended game shows every pane, the results first. */
+  private myPanes = false;
+  /** The player's arrangement as it was before a change made in the results-only view, for "Show my panes". */
+  private keptLocal: DockLayout | undefined;
   private assistantAvailable = true;
   private timer: ReturnType<typeof setTimeout> | undefined;
   private pusher: Pusher | undefined;
@@ -73,12 +79,15 @@ export class DockStore {
     const shown = effectiveLayout(this.sync.local, this.phase);
     const timeline = this.replayTimeline && !this.timelineClosed ? withTimeline(shown) : shown;
     // An ended game opens on how it went: the results across the top (layout-sync.ts withResultsFirst).
-    const withT = this.replayTimeline && !this.replayArranged ? withResultsFirst(timeline) : timeline;
-    return { layout: this.assistantAvailable ? withT : withoutAssistant(withT), history: this.history, assistantAvailable: this.assistantAvailable, focused: this.focused, phase: this.phase, loaded: this.sync.latest !== null, canWrite: this.options.canWrite };
+    // Two things only until "Show my panes": the results and the timeline (withResultsOnly).
+    const derived = this.replayTimeline && !this.replayArranged;
+    const withT = !derived ? timeline : this.myPanes ? withResultsFirst(timeline) : withResultsOnly(timeline);
+    const hiddenPanes = (derived && !this.myPanes && hiddenByResultsOnly(timeline) > 0) || !!this.keptLocal;
+    return { layout: this.assistantAvailable ? withT : withoutAssistant(withT), hiddenPanes, history: this.history, assistantAvailable: this.assistantAvailable, focused: this.focused, phase: this.phase, loaded: this.sync.latest !== null, canWrite: this.options.canWrite };
   }
   private emit() {
     const next = this.build();
-    const same = sameLayout(next.layout, this.snapshot.layout, 0) && next.history === this.snapshot.history && next.assistantAvailable === this.snapshot.assistantAvailable && next.focused === this.snapshot.focused
+    const same = sameLayout(next.layout, this.snapshot.layout, 0) && next.history === this.snapshot.history && next.assistantAvailable === this.snapshot.assistantAvailable && next.focused === this.snapshot.focused && next.hiddenPanes === this.snapshot.hiddenPanes
       && next.phase === this.snapshot.phase && next.loaded === this.snapshot.loaded;
     if (same) return;
     this.snapshot = next;
@@ -132,7 +141,24 @@ export class DockStore {
     if (this.replayTimeline && !this.timelineClosed && has(this.snapshot.layout) && !has(next)) this.timelineClosed = true;
   }
   /** A change of the human's in a replay starts from the shown arrangement and is kept in `local`: it is theirs from now on. */
-  private noteArranged() { if (this.replayTimeline) this.replayArranged = true; }
+  private noteArranged() {
+    if (!this.replayTimeline) return;
+    // A change made in the results-only view: the arrangement it hid is kept for "Show my panes".
+    if (!this.replayArranged && !this.myPanes) this.keptLocal = this.sync.local;
+    this.replayArranged = true;
+  }
+  /** "Show my panes": the ended game's other panes come back, the results first (a replay's dock is never saved). */
+  showMyPanes() {
+    this.myPanes = true;
+    if (this.keptLocal) {
+      const kept = this.keptLocal;
+      this.keptLocal = undefined;
+      this.replayArranged = false;
+      this.dispatch({ type: "edit", layout: kept });
+      return;
+    }
+    this.emit();
+  }
   setFocused(paneId: string | null) { if (paneId !== this.focused) { this.focused = paneId; this.emit(); } }
 
   /** A human's change (menu, palette, a drag's result): shown at once, pushed soon (a drag: after PUSH_DELAY_MS). */

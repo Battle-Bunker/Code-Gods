@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { DEFAULT_LAYOUT, assistantSide, closePane, paneExtents, panelPanesOf, paneOrder, panesOf, movePane, openPane, parseLayout, setPanePanel, setPaneParams, type DockLayout } from "@workspace/player-client/layout";
 import { SINGLE_LAYOUT } from "./single-layout.ts";
 import {
-  effectiveLayout, initialSync, keepAssistantPane, pushPlan, sameLayout, syncReducer, withResultsFirst, withTimeline, withoutAssistant, type SyncState,
+  effectiveLayout, initialSync, keepAssistantPane, pushPlan, sameLayout, syncReducer, withResultsFirst, withResultsOnly, hiddenByResultsOnly, withTimeline, withoutAssistant, type SyncState,
 } from "../src/dock/layout-sync.ts";
 import { back, canUndo, lastParams, observe, emptyHistory, resetView } from "../src/dock/history.ts";
 import { EDITOR_MIN, dockAssistant, showPanel } from "../src/dock/operations.ts";
@@ -345,6 +345,27 @@ test("an ended game shows its results first: the results pane across the top, ev
   // A dock that only shows the results is left alone.
   const only: DockLayout = { version: 1, root: { type: "pane", id: "p1" }, panes: { p1: { id: "p1", kind: "panel", panelId: "results", params: {}, setBy: "human" } } };
   assert.equal(withResultsFirst(only), only);
+});
+
+test("an ended game opens on two things only: the results and the replay timeline; the other panes are one button away", () => {
+  const ended = withTimeline(DEFAULT_LAYOUT("ended"));
+  const shown = withResultsOnly(ended);
+  assert.deepEqual(panesOf(shown).map(p => p.kind === "panel" && p.panelId), ["results", "timeline"], "results first, then the timeline (the phone stacks them in this order)");
+  assert.ok(shown.root.type === "split" && shown.root.direction === "column" && shown.root.sizes[0] >= 60, "the results take most of the screen");
+  assert.ok(shown.root.type === "split" && Math.abs(shown.root.sizes.reduce((a, b) => a + b, 0) - 100) < 1e-9);
+  // The same pane ids as the full arrangement, so "Show my panes" only adds panes around them.
+  const full = withResultsFirst(ended);
+  for (const pane of panesOf(shown)) assert.deepEqual(full.panes[pane.id], pane);
+  assert.equal(parseLayout(shown, { phase: "ended", storedSlugs: [], fileIds: [] }).warnings.filter(w => /reset/.test(w)).length, 0, "a valid layout");
+  // The timeline was closed: the results alone.
+  const closed = withResultsOnly(DEFAULT_LAYOUT("ended"));
+  assert.deepEqual(panesOf(closed).map(p => p.kind === "panel" && p.panelId), ["results"]);
+  assert.equal(closed.root.type, "pane");
+  // A layout with no results pane gets one.
+  const none = withResultsOnly(withTimeline(setPanePanel(DEFAULT_LAYOUT("ended"), "p2", "objects", "human")));
+  assert.deepEqual(panesOf(none).map(p => p.kind === "panel" && p.panelId), ["results", "timeline"]);
+  assert.equal(hiddenByResultsOnly(ended), 3, "the goal, My agents and the leaderboard wait behind the button");
+  assert.equal(hiddenByResultsOnly(shown), 0);
 });
 
 test("hidden assistant: changes never shrink its neighbour (the editor once ended as a sliver after a few clicks)", () => {

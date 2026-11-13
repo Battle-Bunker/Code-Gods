@@ -57,7 +57,12 @@ test("state: energy 0 or below waits for income even if the server still says el
   assert.equal(agentState({ energy: -3, eligible: false }), "waiting");
   assert.equal(agentState({ energy: 5, eligible: false }), "limit");
   assert.equal(agentState({ energy: 5, eligible: true }), "can");
-  assert.deepEqual([{ energy: 5, eligible: true }, { energy: 0, eligible: false }, { energy: 5, eligible: false }].map(laneKind), ["ok", "cool", "idle"]);
+  assert.deepEqual([{ energy: 5, eligible: true }, { energy: 0, eligible: false }, { energy: 5, eligible: false }].map(a => laneKind(a)), ["ok", "cool", "idle"]);
+  // With its income known: overdrawn by at most two seconds of it is work, not waiting (an all-orange timeline read as "stuck").
+  assert.equal(laneKind({ energy: -2.4, eligible: false }, 32), "ok");
+  assert.equal(laneKind({ energy: -64, eligible: false }, 32), "ok");
+  assert.equal(laneKind({ energy: -65, eligible: false }, 32), "cool");
+  assert.equal(laneKind({ energy: -2.4, eligible: false }, 0), "cool", "no income: it waits");
   assert.equal(statusText("waiting", false, 2.34), "waiting for income (about 2.3 s)");
   assert.equal(statusText("waiting", false, Infinity), "waiting for income");
   assert.equal(statusText("can", true, 0), "at the end: could act");

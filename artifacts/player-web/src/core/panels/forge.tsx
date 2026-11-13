@@ -24,6 +24,7 @@ import { useDockActions } from "@/dock/actions";
 import { summonNeeds } from "./summon-needs";
 import { COPY_HINT, COPY_LABEL, REPLACE_QUESTION, SUMMONED_NEXT, isCopy, replaceNeedsConfirm, armedStep, armedText, energyHint, firstAgentFill, firstAgentHint, firstSummonStep, lacksEnergy, nextFreeName, proposedName, secondAgentHint, storeAfterSummonText, summonReady, summonedText, untouchedExample, type ArmedSummon, type Example } from "./first-agent";
 import { progressLine } from "@/core/game/command-deadline";
+import { PRICE_GROWS, otherDiagnostics, priceParts, storeTooSmall } from "./validation-text";
 import { OBSERVER_DESCRIPTION, OBSERVER_NAME, observerRate, observerSource, rateText } from "./observer";
 import { GhostButton, PanelEmpty, PrimaryButton, TextButton, type PanelProps } from "./kit";
 
@@ -75,6 +76,8 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
   // What was summoned (its own source, not whatever the editor holds by the time the receipt arrives).
   const setSummoned = (agentName: string, agentSource: string) => setSummonedState({ name: agentName, share: shareAtSummon.current, source: agentSource });
   const summonRow = useRef<HTMLDivElement>(null);
+  const helpersBox = useRef<HTMLDivElement>(null);
+  const [helpersOpen, setHelpersOpen] = useState(false);
   const [ringing, setRinging] = useState(false);
   const dock = useDockActions();
   const obs = useDockState({ hz: 2 });
@@ -119,7 +122,8 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
   const copy = !ended && isCopy(source, language, agents);
   const hint = ended ? null : agentCount === 0 ? firstAgentHint(source, language, examples) : copy ? COPY_HINT : secondAgentHint(agentCount);
   // The summoned line speaks of the code that was summoned: it goes when the editor holds other code.
-  useEffect(() => { setSummonedState(s => (s && s.source !== source ? null : s)); setAskReplace(false); }, [source]);
+  // So does the last receipt (a green "Accepted" stayed under "To summon: validate this code first." for other code).
+  useEffect(() => { setSummonedState(s => (s && s.source !== source ? null : s)); setAskReplace(false); runner.clearNotice(); }, [source]);
   // The name of an agent the player already has: the next free one is proposed, unless they typed this one themselves.
   const agentNames = agents.map(a => a.name).join("\u0000");
   const taken = !ended && name.trim() ? nextFreeName(name, agents.map(a => a.name), AGENT_NAME_MAX) : name.trim();
@@ -170,7 +174,10 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
   // An armed summon the engine refused: its message stays beside "Try again", which arms it again.
   const [refused, setRefused] = useState<{ armed: ArmedSummon; message: string } | null>(null);
   const fired = useRef<ArmedSummon | null>(null);
-  const canArm = summonable && !canSummon && !armed && checked && !!current?.valid && current.cost > energy;
+  // The player's own store can never hold this price (its capacity fell with the power given to agents): waiting
+  // will not help, so nothing is armed and the pane says what to do (validation-text.ts storeTooSmall).
+  const tooSmall = checked && current?.valid ? storeTooSmall({ cost: current.cost, capacity: obs?.self.capacity }) : null;
+  const canArm = summonable && !canSummon && !armed && !tooSmall && checked && !!current?.valid && current.cost > energy;
   const summon = (agent: Omit<ArmedSummon, "cost">, wasArmed?: ArmedSummon) => {
     setRefused(null);
     shareAtSummon.current = newShare;
@@ -302,10 +309,23 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
         {/* With no code view to go back to, Done goes to My agents (leaving edit mode alone would change nothing). */}
         <TextButton onClick={() => { runner.setEditing(false); if (onlyEditor) dock.show("agents"); }}>Done</TextButton>
       </div>
+      {/* Why the price is what it is, where the price is (a helper function took it from 349.5 to 565 unexplained). */}
+      {current?.valid && <p data-testid="text-price-grows" className="text-xs text-muted-foreground">{PRICE_GROWS}</p>}
+      {/* What a move costs and where the helpers are, above the code from the start. */}
+      {!ended && (costHint || obs?.instance) && (
+        <p className="text-xs text-muted-foreground" data-testid="text-forge-costs">
+          {costHint && <span data-testid="text-forge-change-cost">{costHint} </span>}
+          {obs?.instance && <TextButton boxed testId="button-open-helpers" onClick={() => { setHelpersOpen(true); requestAnimationFrame(() => helpersBox.current?.scrollIntoView({ block: "nearest" })); }}>Room helpers ({obs.instance.helpers.length}): how to read and change {noun === "grid" ? "a grid" : "an object"}</TextButton>}
+        </p>
+      )}
       {(busy === "validate" || busy === "summon") && <p data-testid="text-forge-progress" role="status" className="flex items-center gap-1.5 text-sm font-semibold text-foreground"><Loader2 size={14} className="shrink-0 animate-spin" />{progressLine(busy, retrying, waited)}</p>}
       {summoned && !busy && (() => {
         // Why the player's own store just shrank: the share the agent took, and the live capacity.
-        const store = storeAfterSummonText({ share: summoned.share, capacity: obs?.self.capacity });
+        // Dropped once that agent's share is no longer the one it was summoned with (a change in My agents made the
+        // sentence false: "25% of your power now feeds this agent… at most 0").
+        const live = agents.find(a => a.source === summoned.source && a.name === summoned.name);
+        const unchanged = !live || live.powerShare === undefined || summoned.share === undefined || Math.abs(live.powerShare - summoned.share) < 0.005;
+        const store = unchanged && (obs?.self.capacity ?? 0) > 0 ? storeAfterSummonText({ share: summoned.share, capacity: obs?.self.capacity }) : null;
         return (
           <div data-testid="text-summoned" className="space-y-0.5 text-sm">
             <p className="font-semibold text-[hsl(var(--accent))]">{summonedText(summoned.name, obs?.phase === "planning")}{" "}
@@ -319,6 +339,7 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
       {armed && <p data-testid="text-armed" className="text-sm font-semibold text-foreground">{armedText(armed, { energy: obs?.self.energy ?? 0, income: obs?.self.income, planning: obs?.phase === "planning" })} <TextButton onClick={() => setArmed(null)}>Cancel</TextButton></p>}
       {gameplay && !busy && !armed && !refused && !(canSummon && name.trim()) && source.trim() && (() => {
         // Too dear for now: say both numbers and when it will be payable, not only that it is.
+        if (tooSmall) return <p data-testid="text-store-too-small" className="text-sm font-semibold text-foreground">{tooSmall}</p>;
         const short = current?.valid && name.trim() ? energyHint({ cost: current.cost, energy: obs?.self.energy ?? 0, income: obs?.self.income, planning: obs?.phase === "planning" }) : null;
         const needs = short ?? summonNeeds(!!current?.valid || (untouched && !current), !!name.trim(), !current || current.cost <= energy);
         return needs && <p data-testid="text-summon-needs" className="text-xs text-muted-foreground">{needs}</p>;
@@ -333,8 +354,8 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
         placeholder={language === "python" ? `def agent(${arg}):\n    # return a list of moves, e.g. [swap(...)]\n    return []`
           : `function agent(${arg}) {\n  // return a list of moves, e.g. [swap(...)]\n  return [];\n}`}
         className="h-56 w-full resize-y border-l-4 border-[hsl(var(--input))] bg-secondary p-3 font-mono text-[13px] leading-relaxed text-secondary-foreground caret-[hsl(var(--primary))] outline-none focus:border-primary" />
-      <p className="text-xs text-muted-foreground">Write <code>{language === "python" ? `def agent(${arg}):` : `function agent(${arg})`}</code>. It reads the {noun} and returns at most 16 moves from the room's helpers; each act costs ⚡ energy from the agent's own store.{costHint && <> <span data-testid="text-forge-change-cost">{costHint}</span></>}</p>
-      {obs?.instance && <HelpersDrawer helpers={obs.instance.helpers} language={language} onInsert={insert} open={showHelpers} />}
+      <p className="text-xs text-muted-foreground">Write <code>{language === "python" ? `def agent(${arg}):` : `function agent(${arg})`}</code>. It reads the {noun} and returns at most 16 moves from the room's helpers; each act costs ⚡ energy from the agent's own store.</p>
+      {obs?.instance && <div ref={helpersBox}><HelpersDrawer helpers={obs.instance.helpers} language={language} onInsert={insert} open={showHelpers || helpersOpen} /></div>}
       {observer && observer.source !== source && (
         // Paid observation: the standing watch as another starting point, below the code and closed until asked for, so
         // it is never read as describing the agent in the editor (./observer.ts).
@@ -359,9 +380,9 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
       <div data-testid="panel-validation" className="text-sm">
         {current ? (
           <div className={`border-l-4 py-1 pl-3 ${current.valid ? "border-[hsl(var(--accent))]" : "border-destructive"}`}>
-            <p className="font-mono text-xs"><strong>{current.valid ? "VALID" : "INVALID"}</strong></p>
-            <div className="mt-1"><AgentCost summonCost={current.cost} expectedActCost={current.expectedActCost} breakdown={current.breakdown as ActCostBreakdown | undefined}
-              powerShare={newShare} income={newShare !== undefined ? newShare * (obs?.economy?.powerPerSecond ?? 0) : undefined} godEnergy={obs?.self.energy} /></div>
+            {/* The verdict, the price and any warning; the rest is under "Details" (it was a wall of jargon on a phone). */}
+            <p className="text-xs" data-testid="text-validation-verdict"><strong className="font-mono">{current.valid ? "VALID" : "INVALID"}</strong>
+              {current.valid && <> · Price {fmt(current.cost)} ⚡, paid once from your energy; about {fmt(Math.round(current.expectedActCost * 10) / 10)} ⚡ a move.</>}</p>
             {current.warnings?.length ? (
               // The examination's warnings (docs/rules-design.md §11): shown before the summon, which they never block.
               <div data-testid="text-validation-warnings" className="mt-1 space-y-0.5 text-xs">
@@ -369,9 +390,16 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
                 {current.warnings.map((w, i) => <p key={i} className="text-destructive">{w}</p>)}
               </div>
             ) : null}
-            {current.diagnostics.length > 0
-              ? <ul className="mt-1 space-y-0.5 font-mono text-xs text-muted-foreground">{current.diagnostics.map((d, i) => <li key={i} className="whitespace-pre-wrap break-words">{d}</li>)}</ul>
-              : <p className="mt-1 font-mono text-xs text-muted-foreground">no diagnostics</p>}
+            {!current.valid && current.diagnostics.length > 0 && <ul className="mt-1 space-y-0.5 font-mono text-xs text-muted-foreground" data-testid="list-validation-errors">{current.diagnostics.map((d, i) => <li key={i} className="whitespace-pre-wrap break-words">{d}</li>)}</ul>}
+            {current.valid && (
+              <details className="mt-1 text-xs" data-testid="details-validation">
+                <summary className="cursor-pointer text-muted-foreground">Details</summary>
+                <div className="mt-1"><AgentCost summonCost={current.cost} expectedActCost={current.expectedActCost} breakdown={current.breakdown as ActCostBreakdown | undefined}
+                  powerShare={newShare} income={newShare !== undefined ? newShare * (obs?.economy?.powerPerSecond ?? 0) : undefined} godEnergy={obs?.self.energy} /></div>
+                {priceParts(current.diagnostics) && <p className="mt-1" data-testid="text-price-parts">{priceParts(current.diagnostics)}</p>}
+                <ul className="mt-1 space-y-0.5 font-mono text-muted-foreground">{otherDiagnostics(current.diagnostics).map((d, i) => <li key={i} className="whitespace-pre-wrap break-words">{d}</li>)}</ul>
+              </details>
+            )}
           </div>
         ) : <p className="text-xs text-muted-foreground">{validation ? "The code changed since it was validated. Validate again." : untouched ? "This agent is ready to summon. Validate (free) shows what it costs first." : "Validate before summoning: it is free."}</p>}
       </div>

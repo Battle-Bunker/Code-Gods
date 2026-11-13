@@ -124,6 +124,9 @@ export interface ActLineInput {
   /** The same two figures before the act: only when the object's previous event is among the recent events. */
   ownBefore?: number;
   othersBefore?: number;
+  /** The ✨ rarity of the rule score before and after, from the player's own table (the goal explainer's `rarity`), when it is loaded. */
+  rarityBefore?: number | null;
+  rarityAfter?: number | null;
   /** The room blurs the others' side while the game is live (score-lines.tsx liveIsEstimate): see pointsCause. */
   estimate?: boolean;
   /** Seen as another player (a replay): "Their agent … their rule score". */
@@ -203,15 +206,20 @@ export function actLine(input: ActLineInput): string {
   const theirs = (text: string) => input.third ? text.replace(/\byour\b/g, "their").replace(/\bYour\b/g, "Their").replace(/\byou\b/g, "them") : text;
   return theirs(ownActLine(input));
 }
-function ownActLine({ agent, before, after, noun = "object", ruleBefore, ruleAfter, pointsBefore, pointsAfter, ownBefore, othersBefore, ownAfter, othersAfter, estimate }: ActLineInput): string {
+function ownActLine({ agent, before, after, noun = "object", ruleBefore, ruleAfter, rarityBefore, rarityAfter, pointsBefore, pointsAfter, ownBefore, othersBefore, ownAfter, othersAfter, estimate }: ActLineInput): string {
   const head = `Your agent ${agent} ${describeChange(before, after, noun)}`;
-  const rule = ruleScoreChange(ruleBefore, ruleAfter);
+  // What the move did to the rarity, so its size can be read: only when both sides are known and show differently.
+  const rare = (x: number) => minus((Math.round(x * 10) / 10 === 0 ? 0 : Math.round(x * 10) / 10).toFixed(1));
+  const rarity = typeof rarityBefore === "number" && typeof rarityAfter === "number" && Number.isFinite(rarityBefore) && Number.isFinite(rarityAfter)
+    && rare(rarityBefore) !== rare(rarityAfter) && ruleDirection(ruleBefore, ruleAfter) !== 0 ? `: ✨ ${rare(rarityBefore)} → ${rare(rarityAfter)}` : "";
+  const plain = ruleScoreChange(ruleBefore, ruleAfter);
+  const rule = plain ? plain + rarity : plain;
   const others = othersWantClause(othersAfter, noun);
   if (isKnown(pointsBefore) && isKnown(pointsAfter)) {
     const delta = pointsAfter - pointsBefore, moved = signed(delta) !== "+0";
     const way = ruleDirection(ruleBefore, ruleAfter);
     if (moved && way !== null && Math.sign(delta) !== way) {
-      const told = way === 0 ? rule : `your rule score went ${way > 0 ? "up" : "down"} (${ruleScoreText(ruleBefore)} → ${ruleScoreText(ruleAfter)}${typeof ruleAfter === "object" && ruleAfter && ruleAfter.length > 1 ? ", primary first" : ""})`;
+      const told = way === 0 ? rule : `your rule score went ${way > 0 ? "up" : "down"} (${ruleScoreText(ruleBefore)} → ${ruleScoreText(ruleAfter)}${typeof ruleAfter === "object" && ruleAfter && ruleAfter.length > 1 ? ", primary first" : ""}${rarity})`;
       const change = `but this ${noun}'s points ${delta > 0 ? "rose" : "fell"} ${signed(Math.abs(delta)).slice(1)} (${amount(pointsBefore)} → ${amount(pointsAfter)})`;
       const cause = pointsCause({ rule: way, pointsDelta: delta, ownBefore, ownAfter, othersBefore, othersAfter, noun, estimate });
       return cause ? `${head}: ${told}, ${change} because ${cause}.`
@@ -279,4 +287,41 @@ export function latestOwnActs(events: readonly EventLike[]): Map<string, OwnAct>
     out.latest = act;
   }
   return out;
+}
+
+export interface AgentEarnings {
+  /** Its moves among the events whose object's points just before the move are known. */
+  moves: number;
+  /** What those moves added to the points of the objects they changed (after the move minus just before it). */
+  points: number;
+  /** How many different objects they changed. */
+  objects: number;
+}
+/**
+ * What each of your agents' moves earned, from the same events the act lines read (player.events, no query of its
+ * own): for every move of an agent whose object's points just before it are among the events, the points after minus
+ * the points before. It is the move's own effect at that moment, not what the object earned later, and it covers only
+ * the events held, which the line says.
+ */
+export function agentEarnings(events: readonly EventLike[]): Map<string, AgentEarnings> {
+  const points = new Map<string, number>(), sums = new Map<string, { moves: number; points: number; objects: Set<string> }>();
+  for (const e of events) {
+    if (e.type !== "object.spawned" && e.type !== "object.rescored" && e.type !== "object.transformed") continue;
+    if (!e.objectId) continue;
+    const before = points.get(e.objectId);
+    if (typeof e.payoff === "number") points.set(e.objectId, e.payoff); else points.delete(e.objectId);
+    if (e.type !== "object.transformed" || !e.mine || !e.agentId || before === undefined || typeof e.payoff !== "number") continue;
+    const sum = sums.get(e.agentId) ?? { moves: 0, points: 0, objects: new Set<string>() };
+    sum.moves += 1; sum.points += e.payoff - before; sum.objects.add(e.objectId);
+    sums.set(e.agentId, sum);
+  }
+  return new Map([...sums].map(([id, s]) => [id, { moves: s.moves, points: s.points, objects: s.objects.size }]));
+}
+/** "Its last 12 moves seen here: +648 points on 9 grids (+54 a move). Only the latest events are counted, not the whole game." */
+export function earningsLine(earned: AgentEarnings | undefined, noun = "object", third = false): string | null {
+  if (!earned || earned.moves < 1) return null;
+  const count = (n: number, word: string) => `${n.toLocaleString("en-US")} ${word}${n === 1 ? "" : "s"}`;
+  const head = `${third ? "Their agent's" : "Its"} last ${earned.moves === 1 ? "move" : count(earned.moves, "move")} seen here`;
+  const each = earned.moves > 1 ? ` (${signed(earned.points / earned.moves)} a move)` : "";
+  return `${head}: ${signed(earned.points)} points on ${count(earned.objects, noun)}${each}. Only the latest events are counted, not the whole game.`;
 }

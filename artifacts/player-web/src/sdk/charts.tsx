@@ -53,7 +53,8 @@ export function LineChart({ series, width = 320, height = 160, xLabel, yLabel, z
   const x = scale([x0, x1], [m.l, width - m.r]), y = scale([y0, y1], [height - m.b, m.t]);
   return (
     <figure className="m-0">
-      <svg width={width} height={height} role="img" aria-label={yLabel ?? "line chart"}>
+      {/* Never wider than its container (a 420px chart on a 390px phone): it scales down, keeping its proportions. */}
+      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ maxWidth: "100%", height: "auto" }} role="img" aria-label={yLabel ?? "line chart"}>
         {[y0, (y0 + y1) / 2, y1].map(v => (
           <g key={v}>
             <line x1={m.l} x2={width - m.r} y1={y(v)} y2={y(v)} stroke={GRID} />

@@ -50,11 +50,32 @@ export function fillText(energy: number, income: number, capacity: number): stri
 
 /** How far a balance is overdrawn: 0 unless it shows as a negative number. */
 export const owes = (energy: number): number => (energy < 0 && num(energy) !== "0" ? -energy : 0);
+/**
+ * How an agent below zero stands. Agents normally spend as fast as they earn, so a small overdraft is the routine
+ * state of a working agent, not an error (three players asked "am I in trouble?" at red text):
+ * - "working": overdrawn by at most WORKING_SECONDS of its income;
+ * - "waiting": more than that, but it acts again within STUCK_SECONDS;
+ * - "stuck": it cannot act for a long time (more than STUCK_SECONDS of income, or no income at all).
+ */
+export type Overdraft = "none" | "working" | "waiting" | "stuck";
+export const WORKING_SECONDS = 2, STUCK_SECONDS = 10;
+export function overdraft(energy: number, income: number): Overdraft {
+  const owed = owes(energy);
+  if (owed === 0) return "none";
+  if (!(income > 0)) return "stuck";
+  const seconds = owed / income;
+  return seconds <= WORKING_SECONDS ? "working" : seconds > STUCK_SECONDS ? "stuck" : "waiting";
+}
+/** Red is for "stuck" only; everything else, a full store included, is neutral. */
+export const overdraftTone = (state: Overdraft): "neutral" | "alarm" => (state === "stuck" ? "alarm" : "neutral");
+export const WORKING_TEXT = "Working: it spends energy as fast as it earns it.";
+
 /** The header's energy when the player is overdrawn: "overdrawn by 312 ⚡" (null when they are not). */
 export const owedText = (energy: number): string | null => (owes(energy) > 0 ? `overdrawn by ${bits(owes(energy))}` : null);
 /** Under an agent's energy: "Overdrawn by 120 ⚡; it waits for income." (the wait only with a power share to earn from). Null when it is not overdrawn or the game has no capacity. */
-export function agentDebtLine(energy: number, capacity: number | undefined): string | null {
+export function agentDebtLine(energy: number, capacity: number | undefined, income?: number): string | null {
   if (capacity === undefined || owes(energy) === 0) return null;
+  if (income !== undefined && overdraft(energy, income) === "working") return WORKING_TEXT;
   return `Overdrawn by ${bits(owes(energy))}${capacity > 0 ? "; it waits for income." : ""}`;
 }
 /** The detail behind that line (a tooltip, never the main line): how far an agent may be overdrawn. Null with no power or no capacity. */
@@ -89,6 +110,8 @@ export function destroyDebtLine({ agentEnergy, agentShare, ownEnergy, allocated,
   return owes(ownEnergy - debt) > 0 ? `${head}. ${ownAfterDebt(ownEnergy, debt, income, "")}` : `${head}${ownAfterDebt(ownEnergy, debt, income, "")}`;
 }
 
+/** The first words of the preview when a new share leaves the player's own store at 0. */
+export const LEAVES_NOTHING = "This leaves you nothing for summoning.";
 /** "at most 240 ⚡ (now 480)" or "nothing (now at most 480 ⚡)". */
 const holds = (next: number, now: number): string => (next > 0 ? `at most ${bits(next)} (now ${num(now)})` : `nothing (now at most ${bits(now)})`);
 /** What a store holding `energy` loses when its limit becomes `capacity`: 0 unless it shows as a number. */
@@ -111,8 +134,9 @@ export function shareCapacityLines({ newShare, agentShare, allocated, total, ful
   const agent = `This agent will hold ${holds(agentNext, agentNow)}${agentLoss > 0 ? `: ${bits(agentLoss)} it holds above that will be lost` : ""}.`;
   const own = ownNext > 0
     ? `Your own energy will hold ${holds(ownNext, ownNow)}${ownLoss > 0 ? `: ${bits(ownLoss)} above that will be lost` : ""}.`
-    : `Your own energy will hold ${holds(ownNext, ownNow)}: ${ownLoss > 0 ? `the ${bits(ownLoss)} you hold will be lost, and ` : ""}you cannot summon until you take power back.`;
-  const lines = [agent, own];
+    : `${LEAVES_NOTHING} Your own energy will hold ${holds(ownNext, ownNow)}: ${ownLoss > 0 ? `the ${bits(ownLoss)} you hold will be lost, and ` : ""}you cannot summon until you take power back.`;
+  // A share that leaves the player nothing says so first.
+  const lines = ownNext > 0 ? [agent, own] : [own, agent];
   const agentDebt = owes(agentEnergy), ownDebt = owes(ownEnergy);
   if (newShare < agentShare && agentDebt > 0) {
     const moved = agentDebt * (agentShare - newShare) / agentShare;

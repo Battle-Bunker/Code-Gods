@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { SCORE_LINES, scoreMovesLine } from "@workspace/ui-kit/core";
-import { actLine, fresherPoints, othersWantClause, ruleDirection, asOfText, describeChange, latestOwnActs, pointsNowText, ruleScoreChange, ruleScoreText, signed } from "../src/core/panels/score-line.ts";
+import { actLine, agentEarnings, earningsLine, fresherPoints, othersWantClause, ruleDirection, asOfText, describeChange, latestOwnActs, pointsNowText, ruleScoreChange, ruleScoreText, signed } from "../src/core/panels/score-line.ts";
 
 test("a change is said in plain words", () => {
   assert.equal(describeChange("1R,2R/3R,4R", "1R,2R/4R,4R", "grid"), "changed 3 to 4 at row 2, column 1");
@@ -137,6 +137,42 @@ test("your points now is the fresher of the counts the page holds, so it never t
   assert.deepEqual(fresherPoints([undefined, null, { score: 2700 }]), { score: 2700 }, "an undated count only while no dated one has loaded");
   assert.deepEqual(fresherPoints([{ score: 2700 }, { score: 2890, world: 100 }]), { score: 2890, world: 100 });
   assert.equal(fresherPoints([undefined, { score: undefined }]), null);
+});
+
+test("the act line gives the rarity move beside the rule score when the player's table gives it", () => {
+  const base = { agent: "Keeper", before: "1R,2R/3R,4R", after: "1R,2R/4R,4R", noun: "grid" };
+  const head = "Your agent Keeper changed 3 to 4 at row 2, column 1: ";
+  assert.equal(actLine({ ...base, ruleBefore: [3, -26], ruleAfter: [4, -21], rarityBefore: 9.1, rarityAfter: 12.42, pointsBefore: 36.4, pointsAfter: 49.6 }),
+    `${head}your rule score (primary, secondary) (3, −26) → (4, −21): ✨ 9.1 → 12.4, this grid's points +13.2 (36.4 → 49.6).`);
+  assert.equal(actLine({ ...base, ruleBefore: 4, ruleAfter: 5, rarityBefore: 2, rarityAfter: 3.5, pointsAfter: 22.4 }),
+    `${head}your rule score +1 (4 → 5): ✨ 2.0 → 3.5; this grid now gives you 22.4 points.`);
+  // The same ✨ to one decimal, a rule score that stayed, or one side unknown: the tuple alone.
+  assert.equal(actLine({ ...base, ruleBefore: 4, ruleAfter: 5, rarityBefore: 2.01, rarityAfter: 2.04, pointsAfter: 22.4 }), `${head}your rule score +1 (4 → 5); this grid now gives you 22.4 points.`);
+  assert.equal(actLine({ ...base, ruleBefore: 5, ruleAfter: 5, rarityBefore: 2, rarityAfter: 2 }), `${head}your rule score stayed 5.`);
+  assert.equal(actLine({ ...base, ruleBefore: 4, ruleAfter: 5, rarityAfter: 3.5 }), `${head}your rule score +1 (4 → 5).`);
+  // Against the points: the rarity move is said with the rule score there too.
+  assert.equal(actLine({ ...base, ruleBefore: 4, ruleAfter: 5, rarityBefore: 2, rarityAfter: 3.5, pointsBefore: 120, pointsAfter: 100 }),
+    `${head}your rule score went up (4 → 5: ✨ 2.0 → 3.5), but this grid's points fell 20 (120.0 → 100.0). A grid's points are your ✨ rarity for it × how much the others want it, not the rule score alone.`);
+});
+
+test("what each agent's moves earned, counted from the events the pane holds, with the window said", () => {
+  const scored = (payoff: number) => ({ own: { netBits: 1 }, peerCare: 1, payoff });
+  const events = [
+    { type: "object.spawned", objectId: "o1", worldSeconds: 0, ...scored(10) },
+    { type: "object.transformed", objectId: "o1", before: "A", value: "B", worldSeconds: 1, mine: true, agentId: "a1", ...scored(60) },    // +50
+    { type: "object.transformed", objectId: "o2", before: "P", value: "Q", worldSeconds: 2, mine: true, agentId: "a1", ...scored(7) },     // before unknown: not counted
+    { type: "object.transformed", objectId: "o1", before: "B", value: "C", worldSeconds: 3, mine: false, ...scored(40) },                   // another player's move
+    { type: "object.transformed", objectId: "o1", before: "C", value: "D", worldSeconds: 4, mine: true, agentId: "a2", ...scored(30) },    // −10
+    { type: "object.transformed", objectId: "o2", before: "Q", value: "R", worldSeconds: 5, mine: true, agentId: "a1", ...scored(65) },    // +58
+  ];
+  const earned = agentEarnings(events);
+  assert.deepEqual(earned.get("a1"), { moves: 2, points: 108, objects: 2 });
+  assert.deepEqual(earned.get("a2"), { moves: 1, points: -10, objects: 1 });
+  assert.equal(earningsLine(earned.get("a1"), "grid"), "Its last 2 moves seen here: +108 points on 2 grids (+54 a move). Only the latest events are counted, not the whole game.");
+  assert.equal(earningsLine(earned.get("a2"), "grid"), "Its last move seen here: −10 points on 1 grid. Only the latest events are counted, not the whole game.");
+  assert.equal(earningsLine(undefined, "grid"), null);
+  assert.equal(earningsLine({ moves: 1234, points: 1240.4, objects: 23 }, "grid"), "Its last 1,234 moves seen here: +1,240.4 points on 23 grids (+1 a move). Only the latest events are counted, not the whole game.");
+  assert.equal(earningsLine({ moves: 2, points: 108, objects: 2 }, "grid", true), "Its last 2 moves seen here: +108 points on 2 grids (+54 a move). Only the latest events are counted, not the whole game.".replace("Its", "Their agent's"));
 });
 
 test("your points now", () => {

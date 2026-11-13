@@ -11,7 +11,7 @@ import { SCORE_LINES, scoreMovesLine, Term } from "@workspace/ui-kit";
 import { useDockState, useEvents, useGameId, useMyTotals, useObjectContext, useRoomInfo } from "@/sdk";
 import { useStandings } from "@/sdk/hooks";
 import { agentLabel } from "./agent-name";
-import { actLine, asOfText, fresherPoints, latestOwnActs, pointsNowText, type OwnAct } from "./score-line";
+import { actLine, agentEarnings, asOfText, earningsLine, fresherPoints, latestOwnActs, pointsNowText, type OwnAct } from "./score-line";
 
 /**
  * "Your points now": one figure, the same number wherever it is shown, with how old it is. It is your total as the
@@ -66,6 +66,8 @@ export interface OwnActLines {
   byAgent: ReadonlyMap<string, string>;
   /** The sentence for the latest act of any of your agents. */
   latest?: string;
+  /** Agent id → what its moves among the recent events earned, with the window said (score-line.ts earningsLine). */
+  earned: ReadonlyMap<string, string>;
 }
 
 /**
@@ -85,16 +87,19 @@ export function useOwnActLines(agents: readonly { id: string; name?: string }[],
     const say = (act: OwnAct): string => {
       const index = agents.findIndex(a => a.id === act.agentId);
       const score = (value: OwnAct["before"]) => { try { return goal?.score(value) ?? null; } catch { return null; } };
+      const rarity = (value: OwnAct["before"]) => { const s = score(value); try { return s === null ? null : goal?.rarity(s) ?? null; } catch { return null; } };
       return actLine({
         // An act by an agent no longer in the list is never told as a live agent's.
         agent: index < 0 ? "(now destroyed)" : agentLabel(agents[index]?.name, index), before: act.before, after: act.after, noun,
-        ruleBefore: score(act.before), ruleAfter: score(act.after), pointsBefore: act.pointsBefore, pointsAfter: act.pointsAfter,
+        ruleBefore: score(act.before), ruleAfter: score(act.after), rarityBefore: rarity(act.before), rarityAfter: rarity(act.after), pointsBefore: act.pointsBefore, pointsAfter: act.pointsAfter,
         ownAfter: act.ownAfter, othersAfter: act.othersAfter, ownBefore: act.ownBefore, othersBefore: act.othersBefore, third, estimate,
       });
     };
     const byAgent = new Map<string, string>();
     for (const [id, act] of acts) byAgent.set(id, say(act));
-    return { byAgent, latest: acts.latest ? say(acts.latest) : undefined };
+    const earned = new Map<string, string>();
+    for (const [id, sum] of agentEarnings(events)) { const line = earningsLine(sum, noun, third); if (line) earned.set(id, line); }
+    return { byAgent, latest: acts.latest ? say(acts.latest) : undefined, earned };
   }, [events, goal, noun, agents, third, estimate]);
 }
 

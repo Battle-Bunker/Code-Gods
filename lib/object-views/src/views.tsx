@@ -219,7 +219,8 @@ function GridView({ model, previous, typeLabel, className, mode, grid }: {
         </button>
       </Popover.Trigger>
       <Popover.Portal>
-        <Popover.Content side="bottom" align="start" sideOffset={6} collisionPadding={8}
+        <Popover.Content side="bottom" align="start" sideOffset={6} collisionPadding={{ top: 52, right: 8, bottom: 8, left: 8 }}
+          // The top padding keeps it under an app's header (the clock and the phase stay readable while it is open).
           // Flipped above its object (no room below), it stands a line clear of it: a list row may carry a line of its
           // own just above the object (the dock's "seen … ago" line and its Look button), which must stay in sight.
           // Never taller than the room on its side of the object (Radix's available height): it scrolls inside itself
@@ -233,6 +234,8 @@ function GridView({ model, previous, typeLabel, className, mode, grid }: {
           <div className="flex items-baseline justify-between gap-2">
             <span className="text-sm font-semibold">Grid {model.size}×{model.size}</span>
             {typeLabel && <span className="font-mono text-xs text-muted-foreground truncate">{typeLabel}</span>}
+            {/* A visible way out: on a phone there is no pointer to move away and no Escape key. */}
+            <Popover.Close aria-label="Close" data-testid="button-grid-detail-close" className="ml-auto shrink-0 border px-2 py-0.5 text-xs hover:bg-muted">Close ✕</Popover.Close>
           </div>
           {explained
             ? <GoalBoard goal={goal!} value={model.canonical} grid={grid!} changed={changes} testId="grid-object-goal" />

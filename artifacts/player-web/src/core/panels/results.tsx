@@ -4,6 +4,7 @@
  * older one.
  */
 import { useRef } from "react";
+import { useDock, useDockStore } from "@/dock/store";
 import { dimensionVar, productText } from "@workspace/object-views";
 import { LineChart, Obj, Table, useGame, useLeaderboard, useMyCard, useObjectsTop, useRoomInfo, useTrajectories } from "@/sdk";
 import { usePastGames } from "@/core/game/past-games";
@@ -21,6 +22,7 @@ type Row = { id: string; name: string; isAI: boolean; total: number; rank: numbe
 
 export default function Results({ params, phase }: PanelProps<"results">) {
   const whySection = useRef<HTMLDivElement>(null);
+  const store = useDockStore(), dock = useDock();
   const game = useGame({ hz: 1 });
   const board = useLeaderboard({ hz: 1 });
   const past = usePastGames();
@@ -75,6 +77,11 @@ export default function Results({ params, phase }: PanelProps<"results">) {
         <Link to={{ kind: "room", room: room.shortCode }} className="inline-block bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground" data-testid="link-results-room">
           Back to room {room.shortCode} for the next game
         </Link>
+      )}
+      {dock.hiddenPanes && (
+        // The ended game shows the results and the timeline only; the goal, code, agents and objects are one press away.
+        <button type="button" data-testid="button-show-my-panes" onClick={() => store.showMyPanes()}
+          className="ml-3 border border-[hsl(var(--input))] px-3 py-1.5 text-sm font-semibold">Show my panes</button>
       )}
       {params.section !== "standings" && live && best.length > 0 && (
         <button type="button" data-testid="button-results-why" onClick={() => whySection.current?.scrollIntoView({ block: "start", behavior: "smooth" })}
