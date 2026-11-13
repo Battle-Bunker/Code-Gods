@@ -559,3 +559,160 @@ fail once on an object before being kept off it, and pay their reads); and debt 
    - give the timeline a legend and row labels, name unnamed agents, and add hover Terms;
    - add a power slider.
 5. Hold rarity.
+
+## 11. Paid observation (11 Nov 2026)
+
+The owner, 11 Nov 2026: a god's own energy piles up once its power is given to agents, and summons are too rare to use
+it; "create more costly uses of God energy, such as charging the God for reads (querying the world state) … objects
+update in the interface whenever either the God or their agents receive information about it (with clear information
+staleness indicators) but one has to setup their own process to periodically query the game state". And: "I would rather
+keep a principled cost function for reads […] than have to fight an arms race of bespoke fixes."
+
+It is a setup parameter, `observation` (the setup editor, Energy, "Do players pay to look at the world?"), with four
+values, so each can be tried on one deployment by duplicating a setup and changing one control:
+
+| Value | A seated god sees | A god can pay to look |
+|---|---|---|
+| `free` (stored settings without the field) | every object as it is: the game as it was | — |
+| `boards` | every board and its own bits live; the others' interest (and the payoff) and the history as last told | yes |
+| `paid` (the default setup, Annotated basics) | every object as last told | yes |
+| `agents` | every object as last told | no: its agents are its only eyes |
+
+Two sentences carry it: **an object's birth is public; its life is paid** and **activity is public; content is paid**.
+The code is `artifacts/engine/convex/lib/knowledge.ts`. What follows describes `paid`; 11.8 says how the other two differ.
+
+### 11.1 The rule
+
+**Seeing an object's state at one moment costs the object's full read at the read price, whoever asks, and a god knows
+what it or its agents were told.** The state of an object is its value, the viewer's own bits on it and the others'
+summed bits as disclosed (§8, `peerNoiseBits`). The price is `fullReadCharge` = `readBound × READ_PRICE` (§2.1), the same
+number an agent pays to read the whole object:
+
+| Setup | One look | All starting objects | Cheapest change (for scale) |
+|---|---|---|---|
+| Annotated basics (the default) | 1.66 | 16.6 (10 objects) | 16.3 |
+| First steps | 2.45 | 24.5 | 11.5 |
+| Classic, Low income | 4.16 | 41.6 | 14.3 |
+| Big board | 7.41 | 74.1 | 17.8 |
+| Master | 12.69 | 126.9 | 18.7 |
+
+A god's view of an object (its `objectViews` row) is the object as the god was last **told** it, with the world time of
+the telling (`learnedAt`; `knownAt` in the API). A god is told an object:
+
+1. **At its birth, free.** The starting world and every spawn. A birth is a draw from the public prior, so it says
+   nothing about the other gods' play; and a player who cannot see the board cannot make a first move.
+2. **When one of its agents commits a change to it.** The read-price rule (§2.1) already makes the cheapest change cost
+   more than a complete look on every setup, so a change has paid for the look.
+3. **When one of its agents' acts read the whole object** (`readBits` = `readBound`): the act paid exactly a look.
+4. **When the god pays for a look** from its own account (the one that pays summons): one object, or every object
+   (the price times the object count). Refused, with the price and the balance, when the account cannot pay.
+
+With the energy capacity (§6.1, `fullChargeSeconds`) a god's own account holds at most what the power it keeps for
+itself fills, so a god that gives all its power to agents cannot look; the refusal says "keep some power for yourself
+to look". Before the world runs a look is refused: nothing has changed yet.
+
+Free for everyone: the published scoreboard (every `scoreIntervalSeconds`; the god's own score and totals move with it,
+not live), the number of objects, and each object's existence, age, number of changes and time of last change.
+**Activity is public; content is paid.** So the interface can say "seen 40 s ago, changed 3× since" without showing what
+changed, and an object nobody has touched stays exactly known however old the look.
+
+After the game ends everything is open and exact, as before. A viewer without a seat (a spectator) sees the live world
+as before; see 11.5.
+
+### 11.2 Granularity: the object
+
+The owner's wording is per object ("objects update … whenever either the God or their agents receive information about
+it"), and the host learns only a bit total from the meter (§3.4), not which cells were read. So an agent that reads part
+of a board tells its god nothing by reading (only by changing). Telling the god exactly the cells read needs the
+preludes' meters (three types, two languages) and both sandbox engines to export a read mask; the knowledge row can then
+carry per-cell times without a redesign. Not done here.
+
+### 11.3 Standing queries are processes
+
+There is no "refresh every N seconds" switch. A standing watch is an **observer agent**: an ordinary agent that reads the
+whole object and returns no calls (`String(grid); return []` / `repr(grid); return []`). Each object it is offered is
+told to its god (rule 3), at one look's price from the agent's own energy, so coverage is a function of the power share
+given to it and the number of agents gives nothing (§6, §7). A god that keeps power for itself can also pay for looks
+directly: watching closely costs power either way. On the default setup (P = 64 bits/s, 10 objects) looking at
+everything once a second costs 16.6 bits/s, a quarter of a god's power.
+
+### 11.4 What a seated god can read while the game is live
+
+| Path | Free game | Paid game |
+|---|---|---|
+| `player.object`, `objectIds`, `objectsTop`, `objectRank`, `objectsPage`, `board` (now), the observation's objects | the object as it is | the object as last told (`knownAt`); `player.object` adds the public `changesSince` |
+| `player.totals`, `dock.state` `self.score` | live | as of the last published scoreboard |
+| `player.events`, `history`, `trajectories` | every spawn and transformation | births and the god's own agents' acts (and its own looks) |
+| `player.series` (`get_utility_series`, `fit_utility_mixture`, the `utility_series` dataset) | every spawn and transformation, with the others' sum | the god's knowledge over time: one row per telling (11.7) |
+| `player.board` at a past world time | the board then | refused (it is a look at every object then) |
+| `games.object`, `games.objectIds`, `player.game` objects (the spectator's queries) | the world | nothing for a seated god |
+| validate / summon's sample world | 16 live objects | the same objects as the god was last told them |
+| the published scoreboard, standings history, chat, own agents, own goal card, the clock | free | free |
+
+Nothing was added to what a look can show: a look reveals exactly the row a free game shows all the time.
+
+### 11.5 Spectators and second accounts
+
+Spectating is unchanged, so a seated player who also watches through a second account (a room member who spectates, or
+any signed-in viewer of the room's current game) sees the live world without paying. The existing spectator rules do
+nothing about this: the game page is open to any signed-in viewer. Closing it means giving spectators of a paid live game
+the free tier only (the scoreboard and activity) until the end; that is one check in `games.ts` (`toldOnly` for every
+viewer), left out because the room owner often watches their own room's AI seats play. Among friends the honour system
+holds; for a competitive room, close it.
+
+### 11.6 Reads and stored data
+
+- No new page query; one new table (`knowledgeLog`, 11.7), private to its god, written only with a telling. `objectViews` gains an optional `learnedAt` (absent in a free game and after the
+  end: no migration; rows of a paid game are written with it).
+- The tick tells the commit which gods it told which objects (`told`); the read-model sync rewrites only those gods'
+  rows and inserts rows for spawns. A changed object's other rows are not rewritten: each is marked `stale` once, when
+  the object first moves past what its god was told (one small write per god per staleness, cleared by the next
+  telling). The once-a-minute sweep only adds missing rows. `godTotals` are written at scoreboard publications.
+- One new page query, `player.staleCount` (one index page of the god's own stale rows, at most 100): "7 of 12 have
+  changed since you last saw them". It has its row in the query-cost gate.
+- `player.object` reads one more document in a paid game (the object's own, for `changesSince`).
+- A look is the `look` command (`commands.submit`): it settles and charges the deity's account, rewrites the god's row
+  (all objects: a paged scheduled mutation, `game/looks.ts`) and logs a `look` event (event-log schema 11; private to its
+  god while live; the replay subtracts it from the god's energy).
+- The observation reports `economy.observation` and `economy.lookPrice`.
+
+
+### 11.7 History and analysis at a price
+
+"We could allow higher time resolution data to be accessible in principle but at a high cost, meaning one valid use of
+energy would be detailed analysis that could expensively derive the goals of other gods."
+
+- Every telling that brings a god something new (a birth, a version it had not been told, a re-score) is one row of
+  that god's `knowledgeLog`: the world time, the object's value, the god's own bits, the others' sum as disclosed and the
+  payoff. It is written with the god's row, by the same sync.
+- While a paid game is live, the god's utility series (`player.series`, and so `get_utility_series`, the `utility_series`
+  dataset and `fit_utility_mixture`) is that log. The rival inference fits the other gods' rules to (value, others' sum)
+  pairs; in a paid game it has exactly the pairs the god paid for. The time resolution of the history is the rate the
+  god samples at, and each sample costs one look.
+- There is no purchase of the past: a state nobody paid to see at the time is not for sale later. (It would be a second
+  mechanism; the price would be the same, one look per row.)
+- What an inference costs on the default setup (look 1.66; cheapest change 16.3; a small agent's summon price is tens of
+  bits; a god's power is 64 bits/s and its account starts at 200):
+
+  | Sampling | Looks | Energy | In cheapest changes |
+  |---|---|---|---|
+  | One look at every object (10) | 10 | 16.6 | 1 |
+  | Every object every 10 s for a 10-minute game | 600 | 996 | 61 |
+  | Every object once a second for one minute | 600 | 996 | 61 |
+  | One object once a second for the whole game | 600 | 996 | 61 |
+  | An observer agent with a 10% power share (6.4 bits/s) | about 3.9 objects/s | 6.4/s | 0.4/s |
+
+  The births are free samples (one per object), which is too few to tell rules apart; `fit_utility_mixture` needs tens
+  to hundreds of distinct values.
+
+### 11.8 The other two values
+
+- **`boards`** (the mild one): the board is public. An untold god's row still follows the object's value and the god's
+  own bits (the sync rewrites it, as in a free game), but the others' sum, the care and the payoff built on it stay as
+  last told, with `toldVersion`. A look (same price) tells the others' interest. The history, the series and the
+  spectator queries are as in `paid`; validate and summon sample the live objects. Use it if hiding the board proves too
+  hard on new players: what is paid for is exactly the information about the other gods.
+- **`agents`** (the austere one): as `paid`, but the `look` command is refused and `economy.lookPrice` is absent, so the
+  dock shows no Look button. A god's own energy then pays for summons only; watching costs power through observer
+  agents. Use it if looks by the god make the god's account matter more than its agents' code.
+

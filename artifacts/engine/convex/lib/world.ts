@@ -44,8 +44,10 @@ export const EVENTS_PER_BATCH = 400;
  * 10 marks the selection and exposure rules of 11 Nov 2026 (docs/energy-model.md §7): no rate limit per agent (before it,
  * each agent was offered at most 4 opportunities per world second), and every offer is charged as a read of which object
  * the agent was given (log2 of the live objects, inside cost.read). Replay reads recorded costs either way.
+ * 11 adds the `look` event (paid observation, lib/knowledge.ts): a god paid its own energy to be told one object, or all
+ * of them.
  */
-export const EVENT_LOG_SCHEMA = 10;
+export const EVENT_LOG_SCHEMA = 11;
 
 export type Clock = {
   phase: "planning" | "running" | "paused" | "recovery" | "ended";

@@ -135,6 +135,16 @@ export interface GameSettings {
    */
   peerNoiseBits: number;
   /**
+   * What a seated god sees of the world while the game is live (docs/energy-model.md §11). "free": every object, live
+   * (the game until 2026-11-11). "paid": seeing an object's state costs its full read at the read price; a god's view of
+   * an object is the last state they were told (at its birth, by their agents' changes and complete reads, or by a look
+   * they paid for from their own energy), with the world time they learned it. "boards": as paid, but every board and
+   * the god's own bits on it are shown live; only the others' interest (and the payoff built on it) and the history are
+   * as last told. "agents": as paid, but a god cannot pay to look: its agents are its only eyes. One of
+   * OBSERVATION_MODES. Stored settings without it are "free" (upgradeStoredSettings), and an ended game is always open.
+   */
+  observation: ObservationMode;
+  /**
    * The bid phase (docs/bid-phase.md): seconds the players have, when the game starts and before it is dealt, to bid a
    * handicap percentage on rule families of the pool. The highest bid on a family wins it, exclusively, and that
    * percentage is taken off the winner's score; everyone else is dealt as usual from the families nobody won. 0: no bid
@@ -152,6 +162,16 @@ export interface GameSettings {
    */
   bidDisclosure: BidDisclosure;
 }
+export type ObservationMode = "free" | "boards" | "paid" | "agents";
+/** The pre-authored choices of observation, from the most open to the most austere. */
+export const OBSERVATION_MODES: readonly ObservationMode[] = Object.freeze(["free", "boards", "paid", "agents"]);
+/** Whether this game's gods see objects as last told, not as they are (stored settings from before the setting are free). */
+export const paidObservation = (settings: { observation?: unknown } | null | undefined): boolean =>
+  settings?.observation === "paid" || settings?.observation === "boards" || settings?.observation === "agents";
+/** "boards": every board and the god's own bits are live; the others' interest and the history are as last told. */
+export const boardsFree = (settings: { observation?: unknown } | null | undefined): boolean => settings?.observation === "boards";
+/** Whether a god may pay its own energy for a look ("agents": no, its agents are its only eyes). */
+export const godLooks = (settings: { observation?: unknown } | null | undefined): boolean => settings?.observation === "paid" || settings?.observation === "boards";
 
 export type BidPricing = "first" | "second";
 /** The pre-authored choices of bidPricing. */
@@ -226,6 +246,7 @@ export const DEFAULT_SETTINGS: Readonly<GameSettings> = Object.freeze({
   objectSelection: "uniform",
   scoreIntervalSeconds: DEFAULT_SCORE_INTERVAL_SECONDS,
   peerNoiseBits: DEFAULT_PEER_NOISE_BITS,
+  observation: "free",
   bidSeconds: 0,
   bidPricing: "first",
   bidVisibility: "sealed",
@@ -266,6 +287,7 @@ export function upgradeStoredSettings(settings: unknown, played = false): Record
     ...(!("scoreIntervalSeconds" in s) ? { scoreIntervalSeconds: DEFAULT_SCORE_INTERVAL_SECONDS } : {}),
     ...(!("durationMode" in s) ? { durationMode: "halfLife" } : {}),
     ...(!("peerNoiseBits" in s) ? { peerNoiseBits: DEFAULT_PEER_NOISE_BITS } : {}),
+    ...(!("observation" in s) ? { observation: "free" } : {}),
     ...(!played && !("fullChargeSeconds" in s) ? { fullChargeSeconds: DEFAULT_FULL_CHARGE_SECONDS } : {}),
     // No bid phase before the setting existed (docs/bid-phase.md): a played game is left without the fields (read `?? 0`).
     ...(!played && !("bidSeconds" in s) ? { bidSeconds: 0 } : {}),
@@ -406,6 +428,7 @@ export function validateSettings(settings: GameSettings, domain?: FamilyDomain):
   if (!PEER_NOISE_OPTIONS.includes(settings.peerNoiseBits)) {
     throw new Error(`peerNoiseBits must be one of ${PEER_NOISE_OPTIONS.join(", ")} bits`);
   }
+  if (!OBSERVATION_MODES.includes(settings.observation)) throw new Error(`observation must be one of ${OBSERVATION_MODES.join(", ")}`);
   // Absent only in the settings of a game started before the bid phase existed (it had none).
   if (settings.bidSeconds !== undefined) {
     if (!Number.isInteger(settings.bidSeconds)) throw new Error("bidSeconds must be a whole number of seconds");
@@ -616,6 +639,8 @@ export const SEED_SETUPS: readonly SeedSetup[] = Object.freeze([
     "Grid", { size: 4, symbols: "base10", colours: "mono" }, {
       interactionRateHz: 25, durationMode: "fixed", halfLifeSeconds: 600, excludedFamilies: ANNOTATED_BASICS_EXCLUDED,
       startingObjectCount: 10, spawnRateHz: 0.1, planningSeconds: 300,
+      // Paid observation (owner, 2026-11-11: a costly use of a god's own energy; docs/energy-model.md §11).
+      observation: "paid",
     }),
   seed(ANNOTATED_COLOURS_SEED_ID, "Annotated colours", "Every rule with picture-by-picture explanations, on a small slowed-down coloured board",
     "Grid", { size: 4, symbols: "base10", colours: "rgb" }, {
@@ -651,6 +676,15 @@ const lab = (...args: Parameters<typeof seed>): SeedSetup => Object.freeze({ ...
  * To retire one, delete its entry: the next deploy's seed sync removes the stored row (rooms that ran it keep their settings).
  */
 export const LAB_SETUPS: readonly SeedSetup[] = Object.freeze([
+  // Paid observation's other values (docs/energy-model.md §11.8): Annotated basics itself is "paid".
+  ...([
+    ["lab-observation-free", "Lab · everything always visible", "Annotated basics, but looking is free: every object is shown as it changes", "free"],
+    ["lab-observation-boards", "Lab · boards always visible", "Annotated basics, but every board is live: only the others' interest in it is as you last saw it", "boards"],
+    ["lab-observation-agents", "Lab · only agents can look", "Annotated basics, but you cannot pay to look: only your agents' changes and complete reads show you the world", "agents"],
+  ] as const).map(([seedId, name, summary, observation]) => {
+    const basics = SEED_SETUPS.find(x => x.seedId === ANNOTATED_BASICS_SEED_ID)!.settings;
+    return lab(seedId, name, summary, basics.objectType, { ...basics.typeArgs }, { ...basics, observation });
+  }),
 ]);
 
 /** Every setup the engine seeds: the system's, then the Lab's. */
@@ -832,6 +866,11 @@ export const SETTINGS_DOCS = {
     question: "How blurred are the other players' combined interest in each object?", section: "goals", tier: "more", control: "segmented", unit: "bits", suggested: PEER_NOISE_OPTIONS,
     meaning: "While the game runs, the other players' summed bits for each object are shown with random noise of this size, fixed per change; after the end the exact numbers show.",
     consequence: "More noise makes it harder to work out the other players' rules from the numbers alone, so negotiation clues matter more, but it also makes their interest in each object less certain.",
+  },
+  observation: {
+    question: "Do players pay to look at the world?", section: "energy", tier: "more", control: "segmented", suggested: OBSERVATION_MODES,
+    meaning: "Free shows every object as it changes, while paid shows each as you were last told it (at its birth, by your agents, or by a look you pay energy for); boards and agents are variants.",
+    consequence: "Paid looking gives a player's own energy a use and makes watching the others costly; boards keeps every board live and charges only for the others' interest; agents allows no paid looks.",
   },
   bidSeconds: {
     question: "How long may players bid for rules before the game is dealt?", section: "goals", tier: "ask", control: "number", unit: "s", suggested: [0, 20, 30, 60, 120],

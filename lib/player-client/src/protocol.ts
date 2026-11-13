@@ -32,10 +32,14 @@ export const commandSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("destroy"), agentId: id }).strict(),
   // Re-allocate your power (docs/energy-model.md §6): the agent's share from now on; your shares may total at most 1.
   z.object({ type: z.literal("allocatePower"), agentId: id, share: z.number().min(0).max(1) }).strict(),
+  // Paid observation (docs/energy-model.md §11): pay economy.lookPrice from your own energy to be told one object as it
+  // is now (objectId), or every object (no objectId: the price times the number of objects). Refused when looking is free.
+  // (An empty objectId means none: a structured-output model must send every key.)
+  z.object({ type: z.literal("look"), objectId: z.preprocess(v => (v === "" ? undefined : v), id.optional()) }).strict(),
 ]);
 export type Command = z.infer<typeof commandSchema>;
 /** Commands that act on the current game and therefore need its gameId. */
-export const GAME_COMMANDS: readonly Command["type"][] = ["validate", "summon", "pause", "destroy", "allocatePower"];
+export const GAME_COMMANDS: readonly Command["type"][] = ["validate", "summon", "pause", "destroy", "allocatePower", "look"];
 /**
  * Validate and summon measure the agent on the server (a few hundred sandboxed runs; a few seconds,
  * longer for agents that use random), so they get a longer deadline than other commands.
@@ -135,7 +139,9 @@ export const observationSchema = z.object({
     maxAgentsPerGod: z.number().int().nonnegative(), penaltyWeight: finite, worldSeconds: finite,
     /** How the game ends and its length in world seconds (the exact length when "fixed", else the half-life): the game timer. */
     durationMode: z.enum(["fixed", "halfLife"]).optional(), lengthSeconds: finite.optional(),
-    commitClause: z.boolean().optional(), objectSelection: z.enum(["uniform", "shelter"]).optional() }).optional(),
+    commitClause: z.boolean().optional(), objectSelection: z.enum(["uniform", "shelter"]).optional(),
+    /** Paid observation (docs/energy-model.md §11): how objects are shown ("paid": as last told; "boards": the board live, the others' interest as last told; "agents": as last told, and no paid looks) and what one look at one object costs (absent when a god cannot look). */
+    observation: z.enum(["free", "boards", "paid", "agents"]).optional(), lookPrice: z.number().optional() }).optional(),
   self: z.object({ godId: id, label: z.string().max(128), isAI: z.boolean(), energy: finite, ready: z.boolean(), pauseUsed: z.boolean().optional(),
     // Power: the share (0–1) of economy.powerPerSecond given to your agents, and your own income (bits per world second) from the rest.
     // capacity: the most your own energy can hold, income x economy.fullChargeSeconds (absent: no capacity).
@@ -146,7 +152,10 @@ export const observationSchema = z.object({
   // Your own score of each object and aggregates over your peers. Individual opponents' scores are never disclosed.
   objects: z.array(z.object({ id, value: wire,
     own: z.object({ ordinal, rewardBits: finite, penaltyBits: finite.optional(), netBits: finite }),
-    peerNetBits: finite, peerCare: finite, payoff: finite })).max(2000),
+    peerNetBits: finite, peerCare: finite, payoff: finite,
+    // Paid observation (economy.observation "paid"): the world time (seconds) you were last told this object; the row is
+    // the object as it was then. Absent when looking is free.
+    knownAt: finite.optional() })).max(2000),
   // Your agents. `eligible`: it can be offered the next opportunity now (positive energy); the
   // more energy, the likelier. expectedActCost is the summon-time estimate per act (reading + changing); nothing is
   // charged from it. `skips`: acts that returned no calls (they paid only what they read; not failures).
@@ -201,6 +210,10 @@ export const resultSchema = z.object({
   // Validate or summon before the agent's language's sandbox is warm: nothing was examined or stored, and the identical
   // command can be sent again after retryAfterMs. `failed` carries the boot's reason (it is retried automatically).
   notReady: sandboxNotReadySchema.optional(),
+  // A look (paid observation): how many objects, the energy paid from the god's own account, the energy left, the world
+  // time of the look and, for one object, the object as it is then (your own bits, the others' sum as disclosed, payoff).
+  look: z.object({ looked: z.number().int().nonnegative(), price: finite, energy: finite, worldSeconds: finite,
+    object: z.object({ id, value: wire, version: z.number().int().nonnegative(), own: z.object({ netBits: finite }), peerNetBits: finite, peerCare: finite, payoff: finite }).optional() }).optional(),
 });
 export type CommandResult = z.infer<typeof resultSchema>;
 /** Room-credential permissions, weakest first: read < act < owner. */

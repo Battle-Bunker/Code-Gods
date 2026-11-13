@@ -48,10 +48,11 @@ export function BigNumber({ label, value, testId, tone }: { label: string; value
 }
 
 /** A small text button (secondary actions inside a panel). */
-export function TextButton({ children, onClick, disabled, testId, tone, title }: { children: ReactNode; onClick: () => void; disabled?: boolean; testId?: string; tone?: "danger"; title?: string }) {
+/** `boxed`: drawn with a border, for an action that spends something (a look) and must read as a button at a glance. */
+export function TextButton({ children, onClick, disabled, testId, tone, title, boxed }: { children: ReactNode; onClick: () => void; disabled?: boolean; testId?: string; tone?: "danger"; title?: string; boxed?: boolean }) {
   return (
     <button type="button" onClick={onClick} disabled={disabled} data-testid={testId} title={title}
-      className={`text-xs underline-offset-2 hover:underline disabled:opacity-40 disabled:no-underline ${tone === "danger" ? "text-destructive font-semibold" : "text-muted-foreground hover:text-foreground"}`}>
+      className={`text-xs underline-offset-2 hover:underline disabled:opacity-40 disabled:no-underline ${boxed ? "border border-[hsl(var(--card-border))] px-1.5 py-px hover:no-underline hover:border-foreground " : ""}${tone === "danger" ? "text-destructive font-semibold" : "text-muted-foreground hover:text-foreground"}`}>
       {children}
     </button>
   );

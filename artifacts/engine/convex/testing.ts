@@ -622,3 +622,15 @@ export const detachEngine = internalMutation({
     return fields;
   },
 });
+
+/** Set a god's own energy (its account settled at the game's world time): the paid look's affordability tests. */
+export const setGodEnergy = internalMutation({
+  args: { gameId: v.id("games"), godId: v.string(), balance: v.number() },
+  handler: async (ctx, { gameId, godId, balance }) => {
+    dev();
+    const game = await liveGame(ctx, gameId);
+    const deity = await ctx.db.query("deities").withIndex("by_game_god", q => q.eq("gameId", gameId).eq("godId", godId)).unique();
+    if (!game || !deity) return fail("NOT_FOUND", "no such god");
+    await ctx.db.patch(deity._id, { account: { balance, settledWorldSeconds: game.worldSeconds } });
+  },
+});

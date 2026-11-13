@@ -57,7 +57,7 @@ test("a skipper pays only what it read, never fails, is never futile, and has no
   assert.ok(transforms.length > 0);
   // An agent that reads nothing still pays for the offer (docs/energy-model.md §7.1).
   for (const e of transforms) { assert.ok(Math.abs(e.cost.read - offer) < 1e-12); assert.ok(e.cost.change > 0); assert.ok(Math.abs(e.cost.total - e.cost.change - offer) < 1e-9); }
-  assert.equal(state.batches.at(-1).schema, 10);
+  assert.equal(state.batches.at(-1).schema, 11);
 
   // The owner sees the skips, and the estimate split into reading and changing (no decision bits, no floor).
   const obs = observationSchema.parse(await ada.c.query(api.player.observation, { roomId }));
