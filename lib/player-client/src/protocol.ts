@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { LANGUAGES, RETIRED_LANGUAGES, type Language, type StoredLanguage } from "@workspace/game-core";
+import { COST_MODELS, LANGUAGES, RETIRED_LANGUAGES, type CostModel, type Language, type StoredLanguage } from "@workspace/game-core";
 
 /**
  * Player protocol v3 (docs/player-client-integration.md has the migration note from v2).
@@ -134,7 +134,9 @@ export const observationSchema = z.object({
     durationMode: z.enum(["fixed", "halfLife"]).optional(), lengthSeconds: finite.optional(),
     commitClause: z.boolean().optional(), objectSelection: z.enum(["uniform", "shelter"]).optional(),
     /** Paid observation (docs/energy-model.md §11): how objects are shown ("paid": as last told; "boards": the board live, the others' interest as last told; "agents": as last told, and no paid looks) and what one look at one object costs (absent when a god cannot look). */
-    observation: z.enum(["free", "boards", "paid", "agents"]).optional(), lookPrice: z.number().optional() }).optional(),
+    observation: z.enum(["free", "boards", "paid", "agents"]).optional(), lookPrice: z.number().optional(),
+    /** How a change is priced (game-core settings.costModel; absent on older servers: "set-v1"). */
+    costModel: z.enum(COST_MODELS as readonly [CostModel, ...CostModel[]]).optional() }).optional(),
   self: z.object({ godId: id, label: z.string().max(128), isAI: z.boolean(), energy: finite, ready: z.boolean(), pauseUsed: z.boolean().optional(),
     // Power: the share (0–1) of economy.powerPerSecond given to your agents, and your own income (bits per world second) from the rest.
     // capacity: the most your own energy can hold, income x economy.fullChargeSeconds (absent: no capacity).

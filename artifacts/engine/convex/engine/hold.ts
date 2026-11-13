@@ -2,30 +2,34 @@
 /**
  * Hold rarity's computing side (docs/energy-model.md §8; the data side is engine/holdData.ts). A game with more than one
  * player needs each god's reward hold table at m = players − 1. They are computed during planning, in parallel with the
- * sandbox warm-up, one action per missing table (fan-out), cached by (static table key, m, NOISE_VERSION); planning waits
+ * sandbox warm-up, one action per missing table (fan-out), cached by (static table key, m, the noise version of the
+ * game's cost model: game-types noiseVersion(settings.costModel)); planning waits
  * for them (engine/tick.ts) and `finish` re-pins the game's tables with them and re-scores the starting objects. A
  * failure plays the game on static rarity. `warm` fills the cache after a deploy for the default board.
  */
 import { v } from "convex/values";
-import { DEFAULT_SETUP_SEED_ID, instantiationOf, seedSetupSettings, type GameSettings } from "@workspace/game-core";
+import { DEFAULT_SETUP_SEED_ID, costModelOf, instantiationOf, seedSetupSettings, type GameSettings } from "@workspace/game-core";
 import { context, family, familiesFor, tableKey, type UtilityDescriptor } from "@workspace/game-utilities";
 import { DEFAULT_HOLD_BUDGET, buildHoldTable, holdKeyPart, type HoldTable } from "@workspace/game-utilities/hold";
-import { sha256, type Instantiation } from "@workspace/game-types";
+import { sha256, type CostModel, type Instantiation } from "@workspace/game-types";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalAction, type ActionCtx } from "../_generated/server";
 import { priorOf, scoresOf, type Deal } from "./node";
 import { fromPinnedFile, pinnedFile, storePinned } from "./pinned";
 
-/** The cache key of one draw's hold table at m: its static table's key (family, canonical params, card, prelude…) + m + noise. */
+/**
+ * The cache key of one draw's hold table at m: its static table's key (family, canonical params, card, prelude…) + m +
+ * the noise of the game's cost model (settings.costModel; a set-v1 game's key is what it was before cost models).
+ */
 export function holdCacheKey(draw: { familyId: string; params: Record<string, unknown> }, inst: Instantiation, settings: GameSettings, m: number): string {
   const f = family(draw.familyId), canon = f.canonical(draw.params as never, context(inst));
-  return sha256(`${tableKey(draw.familyId, canon, inst, priorOf(settings.priorId))}\0${holdKeyPart(m)}`);
+  return sha256(`${tableKey(draw.familyId, canon, inst, priorOf(settings.priorId))}\0${holdKeyPart(m, costModelOf(settings))}`);
 }
 
 async function compute(ctx: ActionCtx, key: string, draw: { familyId: string; params: Record<string, unknown> }, inst: Instantiation, m: number,
-  gameId?: Id<"games">): Promise<void> {
-  const table = buildHoldTable(draw.familyId, draw.params as never, inst, m, key, DEFAULT_HOLD_BUDGET);
+  model: CostModel, gameId?: Id<"games">): Promise<void> {
+  const table = buildHoldTable(draw.familyId, draw.params as never, inst, m, key, DEFAULT_HOLD_BUDGET, model);
   await ctx.runMutation(internal.engine.holdData.store, { key, table, ...(gameId ? { gameId } : {}) });
 }
 
@@ -57,7 +61,7 @@ export const computeOne = internalAction({
   handler: async (ctx, { gameId, key, draw, m }) => {
     const game = await ctx.runQuery(internal.engine.holdData.status, { gameId });
     if (!game || game.holdState !== "computing") return;
-    try { await compute(ctx, key, draw, instantiationOf(game.settings as GameSettings), m, gameId); }
+    try { await compute(ctx, key, draw, instantiationOf(game.settings as GameSettings), m, costModelOf(game.settings), gameId); }
     catch (error) { await ctx.runMutation(internal.engine.holdData.failed, { gameId, message: `hold table ${draw.familyId}: ${(error as Error).message}` }); }
   },
 });
@@ -135,6 +139,6 @@ export const warmOne = internalAction({
   handler: async (ctx, { key, draw, m }) => {
     if (!(await ctx.runQuery(internal.engine.holdData.missing, { keys: [key] })).length) return;
     const settings = seedSetupSettings(DEFAULT_SETUP_SEED_ID) as GameSettings;
-    await compute(ctx, key, draw, instantiationOf(settings), m);
+    await compute(ctx, key, draw, instantiationOf(settings), m, costModelOf(settings));
   },
 });

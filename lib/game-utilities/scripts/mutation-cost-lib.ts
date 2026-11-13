@@ -8,11 +8,11 @@
  * a cyclic layer of b values moves x to (x + k) mod b; Lee(k) = min(k mod b, b − k mod b). W is an act's information
  * (bits), its energy is W + β·W² (energy-model.md §4.3). Every number here is in bits.
  */
-import type { GridValue } from "@workspace/game-types";
-import { compareOrdinals } from "../src/index.ts";
-import { starts, type Rule, type Space } from "./rule-difficulty-lib.ts";
+import { CHANGE_BETA, generatorOf, siteWork, type GridValue, type Layer } from "@workspace/game-types";
+import { energyClimb as paidClimb, spread, starts, type Policy, type Rule, type Space } from "./rule-difficulty-lib.ts";
 
-export const BETA = 0.05;
+export { spread, type Policy };
+export const BETA = CHANGE_BETA;
 export const energyOf = (W: number, beta = BETA): number => W + beta * W * W;
 const lg = (x: number) => Math.log2(x);
 const gcd = (a: number, b: number): number => (b === 0 ? Math.abs(a) : gcd(b, a % b));
@@ -58,10 +58,17 @@ export interface CostModel {
   cellW(x: number, y: number): number;
 }
 
-/** Today's set (energy-model.md §4.1) on a mono board: log2 N² (where) + log2 S (new) + log2 S (erased); one op, 0 bits. */
+/** W of moving one site of a lone layer (a numbers-only board: one family) under a shipped cost model (game-types structure). */
+const shipped = (layer: Layer, model: "set-v1" | "distance-v1", cells: number) => {
+  const family = { generator: generatorOf(layer, model)!, sites: cells };
+  return { rate: family.generator.rate, cellW: (x: number, y: number) => siteWork(family, 1, x, y) };
+};
+
+/** Today's set (energy-model.md §4.1) on a mono board: log2 N² (where) + log2 S (new) + log2 S (erased); one op, 0 bits.
+ * It is the shipped "set-v1" (game-types structure), not a copy. */
 export function setModel(cells: number, b: number): CostModel {
-  const w = lg(cells) + 2 * lg(b);
-  return { id: "set", label: `today's set: log2 ${cells} + 2·log2 ${b} = ${w.toFixed(2)} for any change`, cellW: () => w };
+  const { cellW } = shipped({ kind: "categorical", n: b }, "set-v1", cells);
+  return { id: "set", label: `today's set: log2 ${cells} + 2·log2 ${b} = ${cellW(0, 1).toFixed(2)} for any change`, cellW };
 }
 
 /**
@@ -85,12 +92,13 @@ export function leeModel(preset: "lee-located" | "lee-proportional" | "lee-diame
 }
 
 /**
- * A bounded ordinal (no wrap: 9 + 1 is refused): W = log2 cells + λ·|y − x|, λ Kraft-tight over the shifts ±1…±(b − 1)
- * (the code is complete for a middle value; an edge value wastes the out-of-range codewords, which is allowed by Kraft).
+ * R, the slider (a bounded ordinal, no wrap: 9 + 1 is refused): W = log2 cells + λ·|y − x|, λ Kraft-tight over the shifts
+ * ±1…±(b − 1) (the code is complete for a middle value; an edge value wastes the out-of-range codewords, which is
+ * allowed by Kraft). This is the model that shipped as "distance-v1": it delegates to game-types' generator.
  */
 export function linearModel(cells: number, b: number): CostModel {
-  const spec = Array.from({ length: b - 1 }, (_, i) => [i + 1, i + 1]).flat(), lam = kraftLambda(spec, 1), a = lg(cells);
-  return { id: "linear-located", label: `linear-located (no wrap): ${a.toFixed(2)} + ${lam.toFixed(3)}·|k|`, cellW: (x, y) => a + lam * Math.abs(y - x) };
+  const { rate, cellW } = shipped({ kind: "ordinal", n: b }, "distance-v1", cells);
+  return { id: "linear-located", label: `linear-located (no wrap): ${lg(cells).toFixed(2)} + ${rate.toFixed(3)}·|k|`, cellW };
 }
 
 /** A logarithmic alternative: W = log2 cells + log2 Z + s·log2 Lee(k) (power-law prior P ∝ Lee^−s, fixed mean log-distance). */
@@ -148,7 +156,6 @@ export function unitWordLength(u: number, g: number, b: number): number {
 // the cost-weighted climb
 // ------------------------------------------------------------------------------------------------
 
-export type Policy = "steepest" | "per-energy";
 export interface EnergyClimb {
   /** Bits held after spending at most each budget in `budgets`. */
   readonly bitsAt: number[];
@@ -160,44 +167,16 @@ export interface EnergyClimb {
 }
 
 /**
- * One agent climbing one rule, one-cell moves, one move per act, paying energy(model.cellW) per act. "steepest" is the
- * rule-difficulty greedy (best strictly higher ordinal; cost-blind but pays); "per-energy" takes the strictly improving
- * move with the most bits gained per energy bit (an ordinal gain worth 0 bits ranks below any bit gain, cheapest first).
- * Moves: every digit change of one cell (= add k for every k, the same move set as today's set).
+ * rule-difficulty's energy climb (one agent, one rule, one-cell moves, one move per act; "steepest" or "per-energy"),
+ * paying energy(model.cellW) per act under a candidate model. Moves: every digit change of one cell (= add k for every
+ * k, the same move set as today's set); the candidate models price digits only.
  */
 export function energyClimb(rule: Rule, sp: Space, start: GridValue, model: CostModel, budgets: readonly number[], policy: Policy, beta = BETA): EnergyClimb {
-  const cap = Math.max(...budgets), b = sp.S;
-  let g = start, o = rule.score(g), bits = rule.bits(o), spent = 0, moves = 0, steps = 0;
-  const trace: [number, number][] = [[0, bits]];
-  for (;;) {
-    let best: { h: GridValue; ho: ReturnType<Rule["score"]>; hb: number; e: number; d: number } | null = null;
-    let bestKey = -Infinity;
-    for (let i = 0; i < sp.cells; i++) for (let v = 0; v < b; v++) {
-      if (v === g.sym[i]) continue;
-      const e = energyOf(model.cellW(g.sym[i], v), beta);
-      if (spent + e > cap + 1e-9) continue;
-      const sym = g.sym.slice(); sym[i] = v;
-      const h = { size: g.size, sym, col: g.col }, ho = rule.score(h);
-      if (compareOrdinals(ho, o) <= 0) continue;
-      const hb = rule.bits(ho);
-      let key: number;
-      if (policy === "steepest") {
-        if (best && compareOrdinals(ho, best.ho) <= 0) continue;
-        key = 0;
-      } else {
-        const gain = hb - bits;
-        key = gain > 1e-12 ? gain / e : -e; // a 0-bit ordinal gain ranks below every bit gain, cheapest first
-        if (key <= bestKey) continue;
-      }
-      best = { h, ho, hb, e, d: lee(v - g.sym[i], b) };
-      bestKey = key;
-    }
-    if (!best) break;
-    g = best.h; o = best.ho; bits = best.hb; spent += best.e; moves++; steps += best.d;
-    trace.push([spent, bits]);
-  }
-  const bitsAt = budgets.map(B => { let x = trace[0][1]; for (const [e, v] of trace) if (e <= B + 1e-9) x = v; return x; });
-  return { bitsAt, moves, spent, meanStep: moves ? steps / moves : 0 };
+  const moved = (g: GridValue, h: GridValue) => g.sym.findIndex((x, i) => x !== h.sym[i]);
+  const c = paidClimb(rule, sp, start, (g, h) => { const i = moved(g, h); return i < 0 ? Infinity : energyOf(model.cellW(g.sym[i], h.sym[i]), beta); }, budgets, policy);
+  const moves = c.boards.length - 1;
+  const steps = c.boards.slice(1).reduce((s, h, k) => { const g = c.boards[k], i = moved(g, h); return s + lee(h.sym[i] - g.sym[i], sp.S); }, 0);
+  return { bitsAt: c.bitsAt, moves, spent: c.spent, meanStep: moves ? steps / moves : 0 };
 }
 
 /** The mean energy of one uniformly random retarget (a random cell to a random other digit) under a model. */
@@ -225,11 +204,4 @@ export function balance(rules: readonly Rule[], sp: Space, model: CostModel, pol
       meanStep: cs.reduce((s, c) => s + c.meanStep, 0) / cs.length,
     };
   });
-}
-
-/** max/min and coefficient of variation of a list of positive numbers (the pool-spread measures of rule-difficulty). */
-export function spread(xs: readonly number[]): { ratio: number; cv: number } {
-  const m = xs.reduce((s, x) => s + x, 0) / xs.length;
-  const sd = Math.sqrt(xs.reduce((s, x) => s + (x - m) ** 2, 0) / xs.length);
-  return { ratio: Math.max(...xs) / Math.min(...xs), cv: sd / m };
 }
