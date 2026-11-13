@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { plain } from "../src/core/panels/agent-labels.ts";
-import { overdraft, overdraftTone, agentDebtDetail, agentDebtLine, destroyDebtLine, fillText, fullIn, owedText, owes, ownEnergyLine, ownStoreFull, shareCapacityLines, storeFraction, storeState, storedLine } from "../src/core/panels/energy-capacity.ts";
+import { overdraft, overdraftTone, spendsAsItEarns, agentDebtDetail, agentDebtLine, destroyDebtLine, fillText, fullIn, owedText, owes, ownEnergyLine, ownStoreFull, shareCapacityLines, storeFraction, storeState, storedLine } from "../src/core/panels/energy-capacity.ts";
 
 // Hand-derived: power 64 bits/s, full charge 30 s. A 25% agent earns 16 bits/s and holds at most 16 × 30 = 480 bits.
 
@@ -117,6 +117,12 @@ test("a routine overdraft is work, not trouble: red only when the agent cannot a
   assert.equal(agentDebtLine(-2.4, 960, 32), "Working: it spends energy as fast as it earns it.");
   assert.equal(agentDebtLine(-100, 960, 32), "Overdrawn by 100 ⚡; it waits for income.");
   assert.equal(agentDebtLine(-100, 960), "Overdrawn by 100 ⚡; it waits for income.", "income unknown: as before");
+  // "Energy 13.6 of 960 ⚡ … full in 30 s" for an agent that spends as it earns: it never fills, so that is not said.
+  assert.equal(spendsAsItEarns({ energy: 13.6, income: 32, acts: 2076 }), true);
+  assert.equal(spendsAsItEarns({ energy: -2.4, income: 32, acts: 10 }), true);
+  assert.equal(spendsAsItEarns({ energy: 13.6, income: 32, acts: 0 }), false, "not acting yet: it is filling");
+  assert.equal(spendsAsItEarns({ energy: 400, income: 32, acts: 50 }), false, "it holds a reserve: it is filling");
+  assert.equal(spendsAsItEarns({ energy: 5, income: 0, acts: 50 }), false);
   assert.equal(overdraftTone("working"), "neutral");
   assert.equal(overdraftTone("waiting"), "neutral");
   assert.equal(overdraftTone("stuck"), "alarm");

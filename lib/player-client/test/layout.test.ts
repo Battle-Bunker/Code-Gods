@@ -83,7 +83,7 @@ test("the default layout: the goal and objects by payoff side by side on top; th
   assert.deepEqual(shown("p3"), ["agents", { agentIds: [], window: 120, showSource: false, showCosts: false }]);
   assert.equal(shown("p4"), "assistant");
   assert.deepEqual(shown("p5"), ["race", { show: "all", metric: "total", window: 300 }]);
-  assert.deepEqual(panesOf(layout).map(paneCaption), ["Goal and an example object", "By points", "Your assistant (private)", "All agents · last 120 s", "Everyone · total payoff · last 300 s"], "the captions of the owner's screenshot");
+  assert.deepEqual(panesOf(layout).map(paneCaption), ["Goal and an example object", "By points", "Your assistant (private)", "All agents · last 120 s", "Everyone · total points · last 300 s"], "the captions of the owner's screenshot");
   assert.equal(panelPanesOf(layout).length, LAYOUT_LIMITS.panelPanes, "every built-in panel slot is used");
   assert.equal(assistantSide(layout), "column");
   assert.deepEqual(parseLayout(layout, ctx), { layout, warnings: [] });

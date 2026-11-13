@@ -11,7 +11,7 @@ import { createContext, useContext, useSyncExternalStore } from "react";
 import type { DockviewApi } from "dockview-react";
 import { DEFAULT_LAYOUT, parseLayout, panesOf, type DockLayout, type Pane } from "@workspace/player-client/layout";
 import type { Phase } from "@workspace/player-client/panels";
-import { PUSH_DELAY_MS, PUSH_SOON_MS, RETRY_MS, effectiveLayout, initialSync, pushPlan, sameLayout, syncReducer, keepAssistantPane, hiddenByResultsOnly, withResultsFirst, withResultsOnly, withTimeline, withoutAssistant, type SyncEvent, type SyncState } from "./layout-sync";
+import { PUSH_DELAY_MS, PUSH_SOON_MS, RETRY_MS, effectiveLayout, initialSync, pushPlan, sameLayout, syncReducer, keepAssistantPane, hiddenByResultsOnly, withResultsOnly, withTimeline, withoutAssistant, type SyncEvent, type SyncState } from "./layout-sync";
 import { back, emptyHistory, observe, resetView, type History } from "./history";
 
 export type Pusher = (layout: DockLayout, ifUpdatedAt: number | undefined) => Promise<{ layout: unknown; updatedAt: number }>;
@@ -24,6 +24,8 @@ export type DockSnapshot = {
   focused: string | null;
   /** An ended game shows its results and timeline only (layout-sync.ts withResultsOnly): "Show my panes" brings the rest back. */
   hiddenPanes: boolean;
+  /** "Show my panes" is on: the ended game shows the player's own arrangement; "Back to the results" returns. */
+  myPanes: boolean;
   phase: Phase;
   loaded: boolean;
   canWrite: boolean;
@@ -76,19 +78,23 @@ export class DockStore {
   pane(id: string): Pane | undefined { return this.snapshot.layout.panes[id]; }
 
   private build(): DockSnapshot {
-    const shown = effectiveLayout(this.sync.local, this.phase);
+    // "Show my panes": the arrangement as it was during the game (the phase rule would turn its default pane into the results).
+    const own = this.replayTimeline && this.myPanes;
+    const shown = effectiveLayout(this.sync.local, own && this.phase === "ended" ? "running" : this.phase);
     const timeline = this.replayTimeline && !this.timelineClosed ? withTimeline(shown) : shown;
     // An ended game opens on how it went: the results across the top (layout-sync.ts withResultsFirst).
     // Two things only until "Show my panes": the results and the timeline (withResultsOnly).
     const derived = this.replayTimeline && !this.replayArranged;
-    const withT = !derived ? timeline : this.myPanes ? withResultsFirst(timeline) : withResultsOnly(timeline);
+    // Two states, neither stored: the results with the timeline (withResultsOnly), or the player's own arrangement as
+    // it is, with no results row squeezed in above it (four panes became 100px strips under a results-first row).
+    const withT = !derived || this.myPanes ? timeline : withResultsOnly(timeline);
     // Offered only when it would bring something back, counted on what is shown (a room without an assistant does not show its pane).
     const hiddenPanes = (derived && !this.myPanes && hiddenByResultsOnly(this.shownOf(timeline)) > 0) || !!this.keptLocal;
-    return { layout: this.assistantAvailable ? withT : withoutAssistant(withT), hiddenPanes, history: this.history, assistantAvailable: this.assistantAvailable, focused: this.focused, phase: this.phase, loaded: this.sync.latest !== null, canWrite: this.options.canWrite };
+    return { layout: this.assistantAvailable ? withT : withoutAssistant(withT), hiddenPanes, myPanes: own, history: this.history, assistantAvailable: this.assistantAvailable, focused: this.focused, phase: this.phase, loaded: this.sync.latest !== null, canWrite: this.options.canWrite };
   }
   private emit() {
     const next = this.build();
-    const same = sameLayout(next.layout, this.snapshot.layout, 0) && next.history === this.snapshot.history && next.assistantAvailable === this.snapshot.assistantAvailable && next.focused === this.snapshot.focused && next.hiddenPanes === this.snapshot.hiddenPanes
+    const same = sameLayout(next.layout, this.snapshot.layout, 0) && next.history === this.snapshot.history && next.assistantAvailable === this.snapshot.assistantAvailable && next.focused === this.snapshot.focused && next.hiddenPanes === this.snapshot.hiddenPanes && next.myPanes === this.snapshot.myPanes
       && next.phase === this.snapshot.phase && next.loaded === this.snapshot.loaded;
     if (same) return;
     this.snapshot = next;
@@ -160,7 +166,14 @@ export class DockStore {
     this.keptLocal = undefined;
     this.replayArranged = false;
   }
-  /** "Show my panes": the ended game's other panes come back, the results first (a replay's dock is never saved). */
+  /** "Back to the results": the ended game shows its results and timeline again (what the player arranged meanwhile is kept for "Show my panes"). */
+  showResults() {
+    if (!this.myPanes) return;
+    this.myPanes = false;
+    if (this.replayArranged) { this.keptLocal = this.sync.local; this.replayArranged = false; }
+    this.emit();
+  }
+  /** "Show my panes": the player's own arrangement, as it was during the game (a replay's dock is never saved). */
   showMyPanes() {
     this.myPanes = true;
     if (this.keptLocal) {

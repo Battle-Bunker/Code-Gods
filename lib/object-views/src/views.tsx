@@ -233,8 +233,8 @@ function GridView({ model, previous, typeLabel, className, mode, grid, plain }: 
         </button>
       </Popover.Trigger>
       <Popover.Portal>
-        <Popover.Content side="bottom" align="start" sideOffset={6} collisionPadding={{ top: 52, right: 8, bottom: 8, left: 8 }}
-          // The top padding keeps it under an app's header (the clock and the phase stay readable while it is open).
+        <Popover.Content side="bottom" align="start" sideOffset={6} collisionPadding={{ top: 100, right: 8, bottom: 8, left: 8 }}
+          // The top padding keeps it under an app's header and its game clock (about 100px: both stay readable while it is open).
           // Flipped above its object (no room below), it stands a line clear of it: a list row may carry a line of its
           // own just above the object (the dock's "seen … ago" line and its Look button), which must stay in sight.
           // Never taller than the room on its side of the object (Radix's available height): it scrolls inside itself

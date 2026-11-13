@@ -86,11 +86,20 @@ export function GhostButton({ children, onClick, disabled, testId, type = "butto
 export const ranksOf = (objects: readonly LiveObject[]) =>
   new Map(objects.map((o, i) => [o.id, (o as LiveObject & { rank?: number }).rank ?? i + 1]));
 
-/** "#N" for one object by your payoff (player.objectRank), clickable to refer to it; "#–" past the first 90 or gone. */
+/**
+ * "#N" for one object by your points (player.objectRank): a label, not a button (a click on a number once opened the
+ * assistant with another object's rank typed in). Past the first 90, or gone, it shows nothing rather than "#–".
+ */
 export function ObjectRef({ objectId }: { objectId: string }) {
   const rank = useObjectRank(objectId);
-  return <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => referObject(rank ?? undefined)}>{rank ? `#${rank}` : "#–"}</button>;
+  return rank ? <span className="text-muted-foreground" data-testid={`text-object-ref-${objectId}`}>#{rank}</span> : null;
 }
+/** "ask my assistant": asked for, never what a click on a board or its number does; the object is named by its id, which does not move as ranks do. */
+export function AskAboutObject({ objectId }: { objectId: string }) {
+  return <button type="button" data-testid={`button-object-ask-${objectId}`} title="Put this object in a message to your assistant"
+    className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline" onClick={() => referObjectId(objectId)}>ask my assistant</button>;
+}
+export const referObjectId = (objectId: string) => { if (objectId) composer.fill(`object ${objectId}: `); };
 /** Clicking an object puts a reference into the assistant's composer: point, then ask. */
 export const referObject = (rank: number | undefined) => { if (rank) composer.fill(`object #${rank}`); };
 

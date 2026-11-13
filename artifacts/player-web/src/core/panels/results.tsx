@@ -126,7 +126,7 @@ export default function Results({ params, phase }: PanelProps<"results">) {
               </li>
             ))}
           </ul>
-          {chart.some(c => c.points.length > 1) && <LineChart width={400} height={150} xLabel="world s" yLabel="points"
+          {chart.some(c => c.points.length > 1) && <LineChart width={400} height={150} xLabel="world s" yLabel="points" format={fmt}
             series={chart} />}
         </Section>
         </div>

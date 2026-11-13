@@ -66,6 +66,13 @@ export function overdraft(energy: number, income: number): Overdraft {
   const seconds = owed / income;
   return seconds <= WORKING_SECONDS ? "working" : seconds > STUCK_SECONDS ? "stuck" : "waiting";
 }
+/**
+ * An agent that acts and holds less than WORKING_SECONDS of its income spends its energy as it earns it: its store
+ * will not fill, so "full in 30 s" beside it is false. (One that has not acted yet is filling.)
+ */
+export function spendsAsItEarns(a: { energy: number; income: number; acts?: number }): boolean {
+  return a.income > 0 && (a.acts ?? 0) > 0 && a.energy <= WORKING_SECONDS * a.income;
+}
 /** Red is for "stuck" only; everything else, a full store included, is neutral. */
 export const overdraftTone = (state: Overdraft): "neutral" | "alarm" => (state === "stuck" ? "alarm" : "neutral");
 export const WORKING_TEXT = "Working: it spends energy as fast as it earns it.";

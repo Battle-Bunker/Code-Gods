@@ -54,7 +54,7 @@ test("summaries read as pane captions", () => {
   assert.equal(panelSummary("objects", {}), "By points");
   assert.equal(panelSummary("objects", { limit: 5, filter: "chips", layout: "grid" }), "By points · only ones others care about · grid");
   assert.equal(panelSummary("objects", { annotate: "none" }), "By points", "a retired key is ignored");
-  assert.equal(panelSummary("race", {}), "Everyone · total payoff · last 300 s");
+  assert.equal(panelSummary("race", {}), "Everyone · total points · last 300 s");
   assert.equal(panelSummary("bits-over-time", { objects: "ids", ids: ["a", "b"] }), "Payoff · 2 chosen objects");
   assert.equal(panelSummary("forge", { source: "def agent(x): return []", language: "python" }), "A draft · python");
   assert.equal(panelSummary("what-if", { objectId: "o", calls: [["add", { k: 1 }]], compare: [["add", { k: 2 }]] }), "1 move on one object · vs an alternative");

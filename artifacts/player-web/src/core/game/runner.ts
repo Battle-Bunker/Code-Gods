@@ -45,9 +45,14 @@ export type RunnerState = {
    * so while it is mounted, and loading other code into the editor (`edit`) sets it. The next step reads it.
    */
   ownDraft: boolean;
+  /**
+   * The id of the player's agent the draft started from (its code was in the editor, edited or not), or null: an
+   * edited draft of it is offered as a replacement (panels/first-agent.ts draftOrigin). Kept here so it outlives the pane.
+   */
+  origin: string | null;
 };
 
-let state: RunnerState = { busy: null, notice: null, unknown: null, retrying: null, failed: null, validation: null, draft: { source: "", language: null }, editing: false, firstSummon: 0, ownDraft: false };
+let state: RunnerState = { busy: null, notice: null, unknown: null, retrying: null, failed: null, validation: null, draft: { source: "", language: null }, editing: false, firstSummon: 0, ownDraft: false, origin: null };
 const listeners = new Set<() => void>();
 /** One command at a time, each with its deadline; only the latest attempt's outcome reaches the state. */
 const attempts = createAttempts();
@@ -60,6 +65,7 @@ export const runner = {
   setEditing(editing: boolean) { set({ editing }); },
   /** Load code into the editor (the agents panel's "Edit a copy", the assistant's draft) and open edit mode. */
   edit(source: string, language?: Lang) { set({ draft: { source, language: language ?? state.draft.language }, editing: true, ownDraft: source.trim().length > 0 }); },
+  setOrigin(origin: string | null) { if (state.origin !== origin) set({ origin }); },
   setOwnDraft(ownDraft: boolean) { if (state.ownDraft !== ownDraft) set({ ownDraft }); },
   /** Ignored while a summon is in flight: a second press can never buy a second copy. */
   requestFirstSummon() {

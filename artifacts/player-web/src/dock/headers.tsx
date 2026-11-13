@@ -70,7 +70,8 @@ function BuiltInPanelHeader({ pane, desktop }: { pane: Extract<Pane, { kind: "pa
   return (
     <>
       <PanelMenu pane={pane} />
-      <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground" title={`${caption}${byAssistant ? " · set by your assistant" : ""}`} data-testid={`text-caption-${pane.id}`}>
+      {/* On a phone the caption wraps instead of being cut ("Everyone · total points · last 3…"). */}
+      <span className={`min-w-0 flex-1 text-xs text-muted-foreground ${desktop ? "truncate" : "whitespace-normal break-words leading-tight"}`} title={`${caption}${byAssistant ? " · set by your assistant" : ""}`} data-testid={`text-caption-${pane.id}`}>
         {caption}{byAssistant ? " · set by your assistant" : ""}
       </span>
       {byAssistant && canUndo(history, pane) && <IconButton label="Back to the previous view" onClick={() => store.undo(pane.id)}><Undo2 size={13} /></IconButton>}

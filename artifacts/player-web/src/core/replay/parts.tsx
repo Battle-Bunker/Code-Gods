@@ -190,7 +190,12 @@ export function ScoreChart({ controller: c, swings }: { controller: ReplayContro
   const ranked = replay.game.roster.map((g, i) => ({ g, i, total: v.state.totals[i] })).sort((a, b) => b.total - a.total);
   return (
     <div className="space-y-2" data-testid="replay-scores">
-      <svg ref={svg} width="100%" viewBox={`0 0 ${W} ${H}`} className="cursor-crosshair" role="img" aria-label="Every player's score over world time"
+      {/* Each player's line, named (the standings below repeat it with the figures). */}
+      <p className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs" data-testid="replay-score-legend">
+        {replay.game.roster.map((g, i) => <span key={g.id} className={i === v.pov ? "font-semibold" : ""}><span className="mr-1 inline-block h-0.5 w-4 align-middle" style={{ background: godColour(i) }} />{g.name}{i === replay.viewer.index ? " (you)" : ""}</span>)}
+      </p>
+      {/* Never blown up to the pane's width: lines keep their widths (non-scaling strokes) and the chart a readable size. */}
+      <svg ref={svg} width="100%" viewBox={`0 0 ${W} ${H}`} style={{ maxWidth: 760 }} className="cursor-crosshair" role="img" aria-label="Every player's score over world time"
         onClick={e => {
           const box = svg.current!.getBoundingClientRect();
           c.seekWorld(((e.clientX - box.left) / box.width * W - m.l) / (W - m.l - m.r) * maxWorld);
@@ -200,7 +205,7 @@ export function ScoreChart({ controller: c, swings }: { controller: ReplayContro
         <text x={m.l - 4} y={Y(lo)} fontSize="9" textAnchor="end" fill="hsl(var(--muted-foreground))">{num(lo)}</text>
         {c.moments.filter(k => k.kind === "lead").map((k, i) => <line key={`l${i}`} x1={X(k.world)} x2={X(k.world)} y1={m.t} y2={H - m.b} stroke="hsl(var(--foreground))" strokeDasharray="2 3" opacity="0.3" />)}
         {c.moments.filter(k => k.kind === "phase" && (k.phase === "paused" || k.phase === "recovery")).map((k, i) => <line key={`p${i}`} x1={X(k.world)} x2={X(k.world)} y1={m.t} y2={H - m.b} stroke="hsl(var(--foreground))" strokeWidth="3" opacity="0.15" />)}
-        {replay.game.roster.map((_, god) => <path key={god} d={paths[god]} fill="none" stroke={godColour(god)} strokeWidth={god === v.pov ? 2.2 : 1.2} opacity={god === v.pov ? 1 : 0.75} />)}
+        {replay.game.roster.map((_, god) => <path key={god} d={paths[god]} fill="none" stroke={godColour(god)} strokeWidth={god === v.pov ? 2.2 : 1.2} vectorEffect="non-scaling-stroke" opacity={god === v.pov ? 1 : 0.75} />)}
         {marked.map((k, i) => <path key={`s${i}`} d={`M${X(k.world)},${Y(series.totals[k.god!][Math.min(series.world.length - 1, Math.max(0, series.cursor.findIndex(x => x >= k.cursor)))]) - 6}l3,-5h-6z`} fill="hsl(var(--chart-4))" />)}
         <line x1={X(v.world)} x2={X(v.world)} y1={0} y2={H - m.b} stroke="hsl(var(--primary))" strokeWidth="1.5" />
         <text x={W - m.r} y={H - 4} fontSize="9" textAnchor="end" fill="hsl(var(--muted-foreground))">world {clock(maxWorld)} · click to go there</text>

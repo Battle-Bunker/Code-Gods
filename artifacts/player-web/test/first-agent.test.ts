@@ -7,7 +7,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  FIRST_AGENT_HINT, STARTER_AGENT_HINT, armedStep, armedText, energyHint, firstAgentFill, firstAgentHint, untouchedExample, lacksEnergy, readyText, summonReady, summonedText, COPY_HINT, FIRST_SUMMON_MAX_AGE_MS, FIRST_SUMMON_WARMING_MS, firstSummonLabel, isCopy, replaceNeedsConfirm, firstSummonStep, nextFreeName, proposedName, secondAgentHint, storeAfterSummonText, type ArmedSummon, type Examples, type FirstAgentState,
+  FIRST_AGENT_HINT, STARTER_AGENT_HINT, armedStep, armedText, energyHint, firstAgentFill, firstAgentHint, untouchedExample, lacksEnergy, readyText, summonReady, summonedText, COPY_HINT, REPLACE_WHY, bothText, draftOrigin, replaceLabel, replaceOffer, replaceShare, replaceStep, replacedText, FIRST_SUMMON_MAX_AGE_MS, FIRST_SUMMON_WARMING_MS, firstSummonLabel, isCopy, replaceNeedsConfirm, firstSummonStep, nextFreeName, proposedName, secondAgentHint, storeAfterSummonText, type ArmedSummon, type Examples, type FirstAgentState,
 } from "../src/core/panels/first-agent.ts";
 
 const py = { name: "Mirror maker", source: "# My goal: mirrors\ndef agent(grid):\n    return []\n", specific: true };
@@ -190,4 +190,42 @@ test("the same code again is called a copy; a template replaces lost-able code o
   assert.equal(replaceNeedsConfirm({ source: py.source, untouched: true, copy: false }), false, "the untouched example can be had again");
   assert.equal(replaceNeedsConfirm({ source: py.source, untouched: false, copy: true }), false, "the code of a summoned agent is kept by that agent");
   assert.equal(replaceNeedsConfirm({ source: " ", untouched: false, copy: false }), false);
+});
+
+test("an edited copy of an agent the player has is offered as a replacement, not as a second agent that fights the first", () => {
+  const mine = [{ id: "a1", name: "Simple spread keeper", source: py.source, language: "python" }, { id: "a2", name: "Other", source: "def agent(grid): return []", language: "python" }];
+  // The draft's origin: the agent whose code the editor held; it stays while that code is being edited.
+  assert.equal(draftOrigin(null, py.source, "python", mine), "a1");
+  assert.equal(draftOrigin("a1", py.source + "\n# 2 and 5", "python", mine), "a1", "an edit keeps the origin");
+  assert.equal(draftOrigin("a1", "def agent(grid): return []", "python", mine), "a2", "the code of another agent: that one");
+  assert.equal(draftOrigin("a1", py.source + "x", "python", [mine[1]]), null, "the origin was destroyed");
+  assert.equal(draftOrigin(null, "something new", "python", mine), null);
+  assert.equal(draftOrigin("a1", "", "python", mine), null, "an emptied editor starts afresh");
+  assert.equal(draftOrigin("a1", py.source, "typescript", mine), "a1", "another language is still an edit of it");
+  // Offered only for a changed draft of an agent that exists.
+  assert.equal(replaceOffer(mine[0], py.source + "\n# 2 and 5"), true);
+  assert.equal(replaceOffer(mine[0], py.source), false, "unchanged: that is a copy (isCopy), not a new version");
+  assert.equal(replaceOffer(undefined, "anything"), false);
+  assert.equal(replaceOffer(mine[0], "  "), false);
+  assert.equal(replaceLabel("Simple spread keeper"), "Replace Simple spread keeper with this version");
+  assert.equal(REPLACE_WHY, "Two agents with different ideas undo each other's work; replacing keeps one.");
+});
+
+test("replace: the new version is summoned first, and the old one is destroyed only when that is accepted", () => {
+  assert.deepEqual(replaceStep("summoning", { accepted: true }), { next: "destroying" });
+  assert.deepEqual(replaceStep("summoning", { accepted: false, message: "Not enough energy" }), { done: "refused", message: "Not enough energy" }, "nothing is destroyed");
+  assert.deepEqual(replaceStep("summoning", { accepted: false }), { done: "refused", message: "The game refused this summon." });
+  assert.deepEqual(replaceStep("summoning", undefined), { done: "unknown" }, "no answer: the old agent stays; the retry banner has the summon");
+  assert.deepEqual(replaceStep("destroying", { accepted: true }), { done: "replaced" });
+  assert.deepEqual(replaceStep("destroying", { accepted: false, message: "No such agent" }), { done: "both", message: "No such agent" });
+  assert.deepEqual(replaceStep("destroying", undefined), { done: "both", message: "no answer from the game" });
+  // The share the new version asks for: the old one's, as far as the power not given out allows (the old share is free only after the destroy).
+  assert.equal(replaceShare({ oldShare: 0.25, allocated: 0.5 }), 0.25);
+  assert.equal(replaceShare({ oldShare: 0.5, allocated: 0.75 }), 0.25);
+  assert.equal(replaceShare({ oldShare: 0.5, allocated: 1 }), undefined, "nothing free: the engine's default");
+  assert.equal(replaceShare({ oldShare: undefined, allocated: 0.5 }), undefined);
+  assert.equal(replacedText("Simple spread keeper", { share: 0.5, oldShare: 0.5 }), "Replaced: Simple spread keeper now runs your new version.");
+  assert.equal(replacedText("Simple spread keeper", { share: 0.25, oldShare: 0.5 }), "Replaced: Simple spread keeper now runs your new version. It has 25% of your power (the old one had 50%); raise it in My agents.");
+  assert.equal(replacedText("Simple spread keeper", { share: undefined, oldShare: 0.5 }), "Replaced: Simple spread keeper now runs your new version. Its share of your power may differ from the old one's (50%); check it in My agents.");
+  assert.equal(bothText("Simple spread keeper", "No such agent"), "The new version of Simple spread keeper is in the game, but the old one could not be destroyed (No such agent). Both are running: destroy the old one in My agents.");
 });

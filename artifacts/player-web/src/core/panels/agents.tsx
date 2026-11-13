@@ -32,7 +32,7 @@ import {
   STATE_LEGEND, actualLine, afterShareLine, agentState, energyLine, estimateLine, laneKind, num, perSecond, plain, runwayFraction, runwaySeconds, runwayText,
   allocationSettled, shareLine, skipLine, spentLine, statusText, summonLine, yourPowerLine, type Seg,
 } from "./agent-labels";
-import { OWN_FULL_DETAIL, WORKING_TEXT, overdraft, overdraftTone, agentDebtDetail, agentDebtLine, destroyDebtLine, fillText, owes, ownEnergyLine, ownStoreFull, shareCapacityLines, storeFraction, storeState, storedLine } from "./energy-capacity";
+import { OWN_FULL_DETAIL, WORKING_TEXT, spendsAsItEarns, overdraft, overdraftTone, agentDebtDetail, agentDebtLine, destroyDebtLine, fillText, owes, ownEnergyLine, ownStoreFull, shareCapacityLines, storeFraction, storeState, storedLine } from "./energy-capacity";
 import { PanelEmpty, TextButton, type PanelProps } from "./kit";
 import { maxShareFor, parseSharePercent, shareProblem } from "./power-share";
 import { PointsNow, useOwnActLines } from "./score-lines";
@@ -59,9 +59,9 @@ function EnergyMeter({ energy, income }: { energy: number; income: number }) {
 }
 
 /** The energy as a bar against what the store can hold, with the time until it is full or the warning that it is. */
-function CapacityMeter({ energy, income, capacity, testId, bare }: { energy: number; income: number; capacity: number; testId: string; /** The bar alone: the sentence beside it already says it. */ bare?: boolean }) {
+function CapacityMeter({ energy, income, capacity, testId, bare, spending }: { energy: number; income: number; capacity: number; testId: string; /** The bar alone: the sentence beside it already says it. */ bare?: boolean; /** It spends its energy as it earns it, so it will not fill: no "full in N s". */ spending?: boolean }) {
   const full = storeState(energy, income, capacity) === "full";
-  const text = fillText(energy, income, capacity);
+  const text = spending && !full ? "it spends energy as it earns it" : fillText(energy, income, capacity);
   const label = `${num(energy)} of ${num(capacity)} ⚡: ${text}`;
   return (
     <span className="inline-flex flex-wrap items-center gap-x-1.5" title={`Holds at most ${num(capacity)} ⚡. Income past that is not stored.`} data-testid={testId}>
@@ -209,7 +209,8 @@ export function AgentsView({ agents, self, powerPerSecond, fullChargeSeconds, ch
                   {debt && <span data-testid={`text-agent-debt-${a.id}`} title={agentDebtDetail(a.capacity) ?? undefined} className={alarm ? "font-semibold text-destructive" : "text-muted-foreground"}>{debt}</span>}
                 </p>
                 <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                  {capped ? <CapacityMeter testId={`meter-agent-capacity-${a.id}`} energy={a.energy} income={a.income ?? 0} capacity={a.capacity!} /> : <EnergyMeter energy={a.energy} income={a.income ?? 0} />}
+                  {capped ? <CapacityMeter testId={`meter-agent-capacity-${a.id}`} energy={a.energy} income={a.income ?? 0} capacity={a.capacity!}
+                    spending={!ended && spendsAsItEarns({ energy: a.energy, income: a.income ?? 0, acts: a.acts })} /> : <EnergyMeter energy={a.energy} income={a.income ?? 0} />}
                   <span title="Energy over the last minutes of this game: the dashed line is 0" className="inline-flex items-center"><Sparkline values={history} zero width={90} height={18} label={`${label}: energy over time`} /></span>
                 </p>
                 <p data-testid={`text-agent-spent-${a.id}`}><Say segs={spentLine(a.spent, a.spentRead, a.acts)} /></p>
@@ -290,6 +291,14 @@ export default function Agents({ params, phase }: PanelProps<"agents">) {
     [published, all, world]);
 
   const agents = params.agentIds.length ? all.filter(a => params.agentIds.includes(a.id)) : all;
+  // A destroy just accepted: the allocated total it left behind, until a new one arrives (or 6 s pass).
+  const [awaiting, setAwaiting] = useState<{ allocated: number | undefined; at: number } | null>(null);
+  useEffect(() => {
+    if (!awaiting) return;
+    if (self?.allocated !== awaiting.allocated) { setAwaiting(null); return; }
+    const timer = setTimeout(() => setAwaiting(null), Math.max(0, 6000 - (Date.now() - awaiting.at)));
+    return () => clearTimeout(timer);
+  }, [awaiting, self?.allocated]);
   const ended = phase === "ended";
   const { editCode } = can.can;
   const owner = can.seenAs ? <p data-testid="text-agents-owner" className="text-xs text-muted-foreground">Seen as {can.seenAs}: these are {can.whose} agents.</p> : null;
@@ -306,8 +315,12 @@ export default function Agents({ params, phase }: PanelProps<"agents">) {
         showCosts={params.showCosts} showSource={params.showSource} can={can.can} wait={secondsUntilEligible}
         onEdit={a => dock.forgeEdit(a.source, isLanguage(a.language) ? a.language : undefined)}
         onSetShare={(a, share) => void commands.run({ type: "allocatePower", agentId: a.id, share })}
-        onDestroy={a => void commands.run({ type: "destroy", agentId: a.id }, destroyedText(agentLabel(a.name, agents.indexOf(a))))}
-        settling={!ended && self?.allocated !== undefined && !allocationSettled(self.allocated, all.map(a => a.powerShare))}
+        onDestroy={a => void commands.run({ type: "destroy", agentId: a.id }, destroyedText(agentLabel(a.name, agents.indexOf(a)))).then(result => {
+          // Accepted: the split shown is the one from before the destroy until the next state arrives (both
+          // subscriptions can lag together, which the shares' own disagreement does not catch).
+          if (result?.accepted && (a.powerShare ?? 0) > 0) setAwaiting({ allocated: self?.allocated, at: Date.now() });
+        })}
+        settling={!ended && self?.allocated !== undefined && (!allocationSettled(self.allocated, all.map(a => a.powerShare)) || (!!awaiting && awaiting.allocated === self.allocated))}
         header={can.seenAs ? undefined : <PointsNow />} actLines={acts.byAgent} earnLines={acts.earned}
         footer={ended && <p data-testid="text-agents-ended" className="text-xs text-muted-foreground">
           {can.readOnly ? `These are ${can.whose} agents as they ended the game.` : "The game is over: these are your agents as they ended it. Edit a copy keeps the code for the next game."}

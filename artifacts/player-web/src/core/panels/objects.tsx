@@ -34,7 +34,7 @@ import { useAffordances } from "@/core/use-affordances";
 import type { Affordance } from "@/core/affordances";
 import { useReplaySource } from "@/sdk/replay-source";
 import { useNow } from "@/core/game/situation";
-import { PanelEmpty, PrimaryButton, TextButton, referObject, type PanelProps } from "./kit";
+import { AskAboutObject, PanelEmpty, PrimaryButton, TextButton, type PanelProps } from "./kit";
 import { payoffLabels, payoffRect, type PayoffScale } from "./payoff-geometry";
 import { useNextStep } from "./use-next-step";
 import { ageText, lookOffer, staleness } from "./knowledge";
@@ -80,12 +80,12 @@ function PayoffKey() {
   const swatch = (colour: string) => <span aria-hidden className="inline-block h-[3px] w-3 align-middle" style={{ background: colour }} />;
   return (
     <p className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] text-muted-foreground" data-testid="text-payoff-caption">
-      <span className="inline-flex items-center gap-1">{swatch(YOURS)}<span>width: <span style={{ color: YOURS }}>your bits</span></span></span>
-      <span className="inline-flex items-center gap-1">{swatch(OTHERS)}<span>height: <span style={{ color: OTHERS }}>what the others care</span></span></span>
+      <span className="inline-flex items-center gap-1">{swatch(YOURS)}<span>width: <span style={{ color: YOURS }}>your ✨ rarity</span></span></span>
+      <span className="inline-flex items-center gap-1">{swatch(OTHERS)}<span>height: <span style={{ color: OTHERS }}>how much the others want it</span></span></span>
       <span className="inline-flex items-center gap-1">
         <span aria-hidden className="inline-block h-2.5 w-6 align-middle"
           style={{ background: `linear-gradient(to right, ${KEY_STOPS})` }} />
-        area: your payoff, low → high
+        area: your points, low → high
       </span>
     </p>
   );
@@ -261,7 +261,7 @@ function ObjectRow({ objectId, position, byPayoff, scales, world, highlighted, o
           <span className="flex flex-wrap items-center gap-x-3">
             <TextButton onClick={() => onOpen(o.id, byPayoff ? position : undefined)} testId={`button-object-detail-${o.id}`}>{open ? "hide" : "why?"}</TextButton>
             {/* Referring it to the assistant is asked for, never what a click on the board does. */}
-            <TextButton onClick={() => referObject(rank)} testId={`button-object-ask-${o.id}`} title="Put this object in a message to your assistant">ask my assistant</TextButton>
+            <AskAboutObject objectId={o.id} />
           </span>
         </span>
       </div>
@@ -316,7 +316,7 @@ function ObjectDetail({ objectId, noun, comparative, world, boards, onHide }: { 
   if (!o) return <div ref={box} className="flex flex-wrap items-center gap-2 border-l-2 border-[hsl(var(--card-border))] pl-3 text-xs text-muted-foreground" data-testid="object-detail-none"><span>{missing}</span>{hide}</div>;
   const seen = staleness(o, world);
   return (
-    <div ref={box} className="max-h-[40vh] space-y-1 overflow-auto border-l-2 border-primary bg-[hsl(var(--primary)/0.04)] py-1 pl-3 pr-1" data-testid={`object-detail-${o.id}`}>
+    <div ref={box} className="max-h-[40vh] scroll-mt-4 space-y-1 overflow-auto border-l-2 border-primary bg-[hsl(var(--primary)/0.04)] py-1 pl-3 pr-1" data-testid={`object-detail-${o.id}`}>
       {/* A block in the flow, at most 40% of the window with its own scroll; the heading names the grid, not its changing rank. */}
       <p className="flex flex-wrap items-center gap-2 text-sm font-semibold" data-testid="text-object-detail-title"><span>{whyTitle(o.payoff, noun)}</span>
         {rankNote(rank) && <span className="font-mono text-[11px] font-normal text-muted-foreground" data-testid="text-object-detail-rank">{rankNote(rank)}</span>}

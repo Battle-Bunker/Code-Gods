@@ -6,7 +6,7 @@
 import { useMemo } from "react";
 import { TransformationView } from "@workspace/object-views";
 import { Table, fmtBits, useEvents, useMutators, useObjectContext, useTransformations, type GameEvent } from "@/sdk";
-import { ObjectRef, PanelEmpty, Section, type PanelProps } from "./kit";
+import { AskAboutObject, ObjectRef, PanelEmpty, Section, type PanelProps } from "./kit";
 
 type Change = {
   key: string; objectId: string; agentId?: string; before: unknown; after: unknown; mine: boolean;
@@ -83,6 +83,7 @@ export default function Feed({ params }: PanelProps<"feed">) {
       {c.dMine !== undefined && <span className={c.dMine > 0 ? "text-[hsl(var(--accent))]" : c.dMine < 0 ? "text-destructive" : "text-muted-foreground"}>change in your ✨ rarity {c.dMine >= 0 ? "+" : ""}{figure(c.dMine)}</span>}
       {c.dOthers !== undefined && <span className="text-muted-foreground">change in the others' ✨ rarity {c.dOthers >= 0 ? "+" : ""}{figure(c.dOthers)}</span>}
       {c.calls && <span className="basis-full text-muted-foreground sm:basis-auto">{c.calls.map(call => call[0]).join("; ")}{c.cost !== undefined ? ` · cost ${figure(c.cost)} ⚡` : ""}</span>}
+      {c.objectId && <AskAboutObject objectId={c.objectId} />}
     </li>
   );
   if (params.groupBy === "object") {
