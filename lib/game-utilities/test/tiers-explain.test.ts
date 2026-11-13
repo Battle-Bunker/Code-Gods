@@ -288,13 +288,13 @@ test("hand-derived: Mirrormancer's mirrors holding exactly two 7s, and mirrors w
   assert.equal(hu[3].title, "Row 4: a mirror, but its half does not add up to 7");
 });
 
-test("hand-derived: Kings and Subjects' pairs of kings with 4 between them, and same-number roads of 2 subjects", () => {
+test("hand-derived: Kings and Subjects' pairs of kings with 4 between them, and same-number roads of 4 subjects", () => {
   //   9 2 2 9   every corner box is 9 with 2, 3, 4: four courts, kings in the four corners: (4, 0, …).
   //   3 4 4 3   pairs with 4 between: top kings (0,0)-(0,3): 2 + 2 = 4 ✓. Bottom kings the same ✓.
   //   3 4 4 3   left kings (0,0)-(3,0): 3 + 3 = 6 ✗; right the same ✗. The diagonals walk 5 cells in between: the
   //   9 2 2 9   smallest sum is 2+2+3+3+2 = 12 ✗. So 2 pairs.
   //   roads of subjects with one number: the 2s (0,1)-(0,2) and (3,1)-(3,2): 2 subjects each ✓ ✓; the 3s (1,0)-(2,0)
-  //   and (1,3)-(2,3): 2 each ✓ ✓; the four 4s in the middle: one road of 4 ✗. So 4 roads of exactly 2.
+  //   and (1,3)-(2,3): 2 each ✓ ✓; the four 4s in the middle: one road of 4 ✗. So 1 road of exactly 4 (and four roads of 2, which miss).
   const value = wireOf([9, 2, 2, 9, 3, 4, 4, 3, 3, 4, 4, 3, 9, 2, 2, 9]);
   const dealt = family("kings_and_subjects").tiered!(CTX, 1) as Params[];
   const of = (id: string, k: string, n: number) => dealt.find(p => (p.tiers as Record<string, unknown>[])[0].id === id && (p.tiers as Record<string, unknown>[])[0][k] === n)!;
@@ -313,9 +313,9 @@ test("hand-derived: Kings and Subjects' pairs of kings with 4 between them, and 
   assert.deepEqual(left.facts, [{ text: "the nearest path: 3 + 3 = 6, not 4", ok: false, tier: 2 }]);
   assert.deepEqual(goal.hover(value)!.modes.map(m => m.label).slice(-1), ["★ Pairs of kings"]);
 
-  const roads = explainer({ familyId: "kings_and_subjects", params: of("sameRoads", "y", 2) }, INST)!.explain(value)!;
-  assert.deepEqual(roads.ordinal, [4, 0, 4]);
+  const roads = explainer({ familyId: "kings_and_subjects", params: of("sameRoads", "y", 4) }, INST)!.explain(value)!;
+  assert.deepEqual(roads.ordinal, [4, 0, 1]);
   const ru = roads.parts.filter(part => part.id.startsWith("tier"));
   // In board order: the top 2s, the left 3s, the middle 4s, the right 3s, the bottom 2s.
-  assert.deepEqual(ru.map(u => [u.cells.length, u.points[2]]), [[2, 1], [2, 1], [4, 0], [2, 1], [2, 1]]);
+  assert.deepEqual(ru.map(u => [u.cells.length, u.points[2]]), [[2, 0], [2, 0], [4, 1], [2, 0], [2, 0]]);
 });

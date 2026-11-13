@@ -56,17 +56,21 @@ export const ninesTiers: GridTiers<NinesP> = {
 };
 /**
  * The values dealt on 4×4 digits (measured, docs/layered-rules-measurements/opposite-nines.md): each is alive at the
- * base's top and adds 10 to 17 bits over it (the band is 6 to 20). test/tiers.test.ts re-runs the check.
+ * base's top, adds 11 to 15 bits over it (the band is 6 to 20), and the tops of one interaction's values stay within
+ * 15% of each other (equal opportunity between peers, test/equal-opportunity.test.ts).
  */
 const NINES_DEALT: readonly TierValue[] = [
-  ...[10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26].map(x => ({ id: "lines", x })),
-  ...[10, 12, 14, 16, 20, 22, 24, 26].map(x => ({ id: "squares", x })),
+  ...[11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25].map(x => ({ id: "lines", x })),
+  ...[12, 14, 16, 20, 22, 24].map(x => ({ id: "squares", x })),
 ];
 /**
- * Lab ("uncapped"): alive, but at or over the cap. Exactly (10^8 top boards counted), lines of 9 add 19.3 bits and
- * squares of 9 add 20.3. Squares of 18 and of 8 are refused outright: a two-digit board maxes them.
+ * Lab ("uncapped"): alive, but reaching further than their peers. Lines and squares of 10 top 43 bits against 37.5 to 41.6
+ * for the dealt values; exactly (10^8 top boards counted), lines of 9 add 19.3 bits and squares of 9 add 20.3.
+ * Squares of 18 and of 8 are refused outright: a two-digit board maxes them.
  */
-const NINES_LAB: readonly TierValue[] = [{ id: "lines", x: 9 }, { id: "lines", x: 27 }, { id: "squares", x: 9 }, { id: "squares", x: 27 }];
+const NINES_LAB: readonly TierValue[] = [
+  ...[9, 10, 26, 27].map(x => ({ id: "lines", x })), ...[9, 10, 26, 27].map(x => ({ id: "squares", x })),
+];
 
 export const oppositeNines = gridFamily<NinesP>({
   tiers: ninesTiers,

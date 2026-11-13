@@ -75,7 +75,7 @@ const courtText = (p: CourtP, g: GridSpec): CardText => {
  *   a time and adds 12.2 to 13.3 bits. The owner's plain count of paths (`paths`) adds 22 to 53 bits for all but two
  *   values of x (its best boards hold 13 to 20 paths), above the cap of 20; so does the two-component `pathPairs`
  *   for all but five.
- * - `sameRoads` (y): roads of subjects showing one number, of exactly y cells. Dealt for y = 2, 3, 4 (12.6 to 15.0 bits).
+ * - `sameRoads` (y): roads of subjects showing one number, of exactly y cells. Dealt for y = 4 (12.4 bits); y = 2 and 3 are too rare at the top to calibrate (see COURT_LAB).
  *   The owner's "longest road" is maxed by 91% of the boards with four courts; roads of exactly y subjects depend only
  *   on where the kings sit (dead, or under 5 bits); the longest same-number road is topped by 1111/1331/1331/1111.
  * - Lab: alive, but above the cap.
@@ -86,10 +86,10 @@ const COURT_DEALT: readonly TierValue[] = [
   ...[1, 2, 3, 4, 5].map(x => ({ id: "pairs", x })),
   { id: "sameRoads", y: 4 },
 ];
-// Roads of 2 and 3 are Lab: at the shipped budget their best tier is rarer than first measured (about 21 and 24 to 26
-// bits over the base, at or above the cap; docs/layered-rules-measurements/kings-and-subjects.md).
-const COURT_LAB: readonly TierValue[] = [{ id: "paths", x: 17 }, { id: "paths", x: 20 }, { id: "pairs", x: 13 },
-  { id: "sameRoads", y: 2 }, { id: "sameRoads", y: 3 }];
+// Same-number roads of 2 and 3 are not dealt at all, Lab included: their best tier is so rare (about 21 and 24 to 26 bits
+// over the base) that the hybrid law misses it by up to 5 bits at the shipped budget
+// (docs/layered-rules-measurements/kings-and-subjects.md).
+const COURT_LAB: readonly TierValue[] = [{ id: "paths", x: 17 }, { id: "paths", x: 20 }, { id: "pairs", x: 13 }];
 export const courtTiers: GridTiers<CourtP> = {
   interactions: COURT_INTERACTIONS,
   gate: g => (g.N / 2) ** 2,

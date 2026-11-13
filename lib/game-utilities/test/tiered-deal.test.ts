@@ -41,8 +41,10 @@ test("with the tiers option every dealt rule is a tiered draw of a family that o
   const offering = familiesFor("Grid", "reward").filter(f => f.tiered?.(ctx, 1).length);
   assert.ok(offering.some(f => f.id === "opposite_nines"), "opposite nines offers tiers on the 4×4 board of numbers");
   assert.deepEqual(availableFamilies(MONO4, "reward", [], { depth: 1 }).map(f => f.id), offering.map(f => f.id), "the tiered pool: the families with tiered draws");
-  assert.equal(dealableParams(family("opposite_nines"), ctx, { depth: 1 }).length, 5, "gated, by default");
-  assert.equal(dealableParams(family("opposite_nines"), ctx, { depth: 1, compose: "plain" }).length, 6);
+  const nines = family("opposite_nines");
+  assert.deepEqual(dealableParams(nines, ctx, { depth: 1 }), nines.tiered!(ctx, 1), "gated, by default");
+  assert.deepEqual(dealableParams(nines, ctx, { depth: 1, compose: "plain" }), nines.tiered!(ctx, 1, "plain"));
+  assert.ok(nines.tiered!(ctx, 1).length >= 10 && nines.tiered!(ctx, 1, "plain").length >= 1 && nines.tiered!(ctx, 1, "plain").every(p => (p as { tiers: { gate: number }[] }).tiers[0].gate === 0));
   assert.deepEqual(dealableParams(family("opposite_nines"), ctx), [{}], "no tiers: the support");
   for (const compose of [undefined, "plain", "unlock"] as const) {
     const tiers = { depth: 1, ...(compose ? { compose } : {}) };
