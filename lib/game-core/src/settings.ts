@@ -17,15 +17,22 @@ export type { ObjectValue, TypeArgs } from "@workspace/game-types";
  * language has exactly one of each, as in lib/game-runtime GRAMMAR_IDS and COMPLEXITY_IDS), so settings never carry
  * them. Adding a language is an entry here plus its runtime (lib/game-runtime, wired in the engine's runtime/node.ts).
  * `emptyAgent` is the smallest valid agent (the engine's availability probe).
+ *
+ * `structureWeight` makes the summon price language-fair (docs/energy-model.md §5.1, 13 Nov 2026). Both price functions
+ * describe a program's syntax tree, but TypeScript's is uniform over node kinds where Python's is weighted by a corpus,
+ * so the same program's STRUCTURE bits came out 2.3× dearer in TypeScript (names and literals use the same codes and
+ * agree within about 10%). The weight is the ratio of the two structure codes pooled over ten programs written in both
+ * languages (`artifacts/engine/scripts/language-price.ts`: Python 3,810 bits ÷ TypeScript 8,664 = 0.44); the engine
+ * multiplies an agent's structure bits by its language's weight (`fairSummonBits`).
  */
 export const LANGUAGE_SPECS = Object.freeze({
   python: Object.freeze({
-    label: "Python", grammarId: "python-agent-v1", complexityFunctionId: "ast-bits-v1",
+    label: "Python", grammarId: "python-agent-v1", complexityFunctionId: "ast-bits-v1", structureWeight: 1,
     grammarLabel: "def agent(obj) returns mutator calls",
     emptyAgent: "def agent(x):\n    return []",
   }),
   typescript: Object.freeze({
-    label: "TypeScript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform",
+    label: "TypeScript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", structureWeight: 0.44,
     grammarLabel: "function agent(obj) returns mutator calls",
     emptyAgent: "function agent(x) { return []; }",
   }),
@@ -48,6 +55,15 @@ export type GrammarId = (typeof LANGUAGE_SPECS)[Language]["grammarId"];
 export const grammarFor = (language: Language): GrammarId => LANGUAGE_SPECS[language].grammarId;
 /** The summon-price function of an agent written in this language. */
 export const complexityFor = (language: Language): string => LANGUAGE_SPECS[language].complexityFunctionId;
+/**
+ * A description length made language-fair: the price function's total `cost` and its `structure` part, with the
+ * structure bits weighted by the language's `structureWeight`. The other parts (names, literals, move flags) are as
+ * the price function gave them. Python is unchanged (weight 1).
+ */
+export function fairSummonBits(language: Language, cost: number, structure: number): { cost: number; structure: number } {
+  const weighted = structure * LANGUAGE_SPECS[language].structureWeight;
+  return { cost: cost - structure + weighted, structure: weighted };
+}
 
 /** Resource limit: at most this many live agents per god. */
 export const MAX_AGENTS_PER_GOD = 200;
@@ -253,6 +269,12 @@ export const ENERGY_LIMITS = Object.freeze({
 /** The pre-authored choices of scoreIntervalSeconds (world seconds). */
 export const SCORE_INTERVALS: readonly number[] = Object.freeze([5, 10, 20, 30, 60]);
 export const DEFAULT_SCORE_INTERVAL_SECONDS = 10;
+/**
+ * What a new player's first agent may cost to summon, in bits: the dearest shipped Python example agent for a beginner
+ * rule (572, "Spread of Three"; the examples' own budget test holds each one under it). The Grid setups' starting
+ * energy covers it during planning.
+ */
+export const BEGINNER_AGENT_BUDGET_BITS = 572;
 /**
  * The default time to a full energy store (docs/energy-model.md §6.1): chosen so that the largest program a deity can
  * ever afford (retained power × this) makes code size matter, by the sweep in lib/game-core/scripts/balance-settings.ts.
@@ -569,12 +591,21 @@ export const TYPE_DEFAULTS: Readonly<Record<string, {
   readonly of?: (inst: Instantiation) => Partial<GameSettings>;
   readonly byKey?: Readonly<Record<string, Partial<GameSettings>>>;
 }>> = {
+  // The general defaults give each deity 8 bits/s (Int and string worlds). At 30 s a deity would hold 240 bits, and its
+  // first summon at the default half share would leave it a store of 120: less than what is left of its 200 starting
+  // bits. 60 s keeps the starting energy through the first two default summons (docs/energy-model.md §6.1).
+  Int: { all: { fullChargeSeconds: 60 } },
+  string: { all: { fullChargeSeconds: 60 } },
   Grid: {
     // Power 64 bits/s per deity (docs/energy-model.md §6): two agents at the former 32 bits/s each. The 32 was the measured value of
     // grid-lab PR #14 §4.9 (held out) for the 80-object world: 0.46 hits per object, dynamism +0.056. The global
     // interaction cap binds in about 75% of snapshots, and the study predates defence goals. The documented
     // alternative is the "grid-low-income" seed setup (half the power: 32 bits/s).
-    all: { spawnRateHz: 0.5, startingObjectCount: 80, powerPerSecond: 64, excludedFamilies: WEAK_GRID_FAMILIES },
+    // Starting energy 600 (13 Nov 2026): a new player's first agent must be payable during planning, when nothing
+    // accrues. The dearest shipped Python example agent for a beginner rule costs 572 bits (BEGINNER_AGENT_BUDGET_BITS).
+    // It is under the planning store (64 × 30 = 1,920), and after a first summon at the default half share the god's own
+    // 32 bits/s refills the price of the same agent again in 17 s (test/settings.test.ts pins both).
+    all: { spawnRateHz: 0.5, startingObjectCount: 80, powerPerSecond: 64, startingEnergy: 600, excludedFamilies: WEAK_GRID_FAMILIES },
     // A mono board (one colour, numbers only) cannot deal the weak colour families, so excluding them there means nothing:
     // of the weak list only sudoku_scholar and ladder_of_numbers read numbers alone (the ladder needs numerals).
     of: inst => (inst.terms["colours.count"] === 1
@@ -893,7 +924,7 @@ export const SETTINGS_DOCS = {
     consequence: "It rarely binds, so changing it seldom matters.",
   },
   startingEnergy: {
-    question: "How much energy does each player start with?", section: "energy", tier: "ask", control: "number", unit: "bits", suggested: [50, 100, 200, 400],
+    question: "How much energy does each player start with?", section: "energy", tier: "ask", control: "number", unit: "bits", suggested: [50, 100, 200, 400, 600],
     meaning: "The energy, in bits, each player holds for summoning agents when planning begins.",
     consequence: "Raising it allows bigger or more first agents and a faster start.",
   },
