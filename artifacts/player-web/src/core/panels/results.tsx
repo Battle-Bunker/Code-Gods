@@ -65,7 +65,7 @@ export default function Results({ params, phase }: PanelProps<"results">) {
   const won = auctionLines(auction, id => rows.find(r => r.id === id)?.name ?? "A player", ruleName);
   const note = mine ? handicapNote(mine.total, handicap, fmt) : null;
   const why = mine
-    ? `You finished ${finishPlace(rows, mine)} of ${rows.length} with ${fmt(mine.total)} points${note ? ` (${note})` : ""}.${live && best[0] ? ` Your best object gave you ${fmt(best[0].payoff)} points${worst[0] && worst[0].payoff < 0 ? `; your worst took ${fmt(-worst[0].payoff)}` : ""}.` : ""}`
+    ? `You finished ${finishPlace(rows, mine)} of ${rows.length} with ${fmt(mine.total)} points${note ? ` (${note})` : ""}.${live && best[0] ? ` At the end, your best object gave you ${fmt(best[0].payoff)} points${worst[0] && worst[0].payoff < 0 ? `; your worst took ${fmt(-worst[0].payoff)}` : ""}.` : ""}`
     : "You didn't play in this game.";
   return (
     // The pane scrolls inside itself; the padding lets its last element scroll clear of the pane's bottom edge (the
@@ -116,7 +116,7 @@ export default function Results({ params, phase }: PanelProps<"results">) {
           {/* The chart first, at its own modest height (it scales down to the pane), then the objects it is about. */}
           {chart.some(c => c.points.length > 1) && <LineChart width={400} height={150} xLabel="world s" yLabel="points" format={fmt}
             series={chart} />}
-          <p className="text-xs text-muted-foreground" data-testid="text-results-formula">Each object's points: your ✨ rarity × how much the others want it. Your total is every object's points added up.</p>
+          <p className="text-xs text-muted-foreground" data-testid="text-results-formula">The lines are these objects' points over the game: they rise and fall as the board changes, so a peak can be higher than the end. Each object's points: your ✨ rarity × how much the others want it. Your total is every object's points added up.</p>
           <ul className="space-y-1 text-xs">
             {[...best, ...worst].map(o => ({ o, line: productText(o.own.netBits, o.peerCare, o.payoff) })).map(({ o, line }) => (
               <li key={o.id} className="flex items-center gap-2">
