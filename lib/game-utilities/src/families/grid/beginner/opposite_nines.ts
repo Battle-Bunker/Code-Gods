@@ -79,6 +79,7 @@ const NINES_LAB: readonly TierValue[] = [
  * when both fold together.
  */
 const NINES_PAIRS: readonly (readonly [TierValue, TierValue])[] = [
+  [{ id: "lines", x: 18 }, { id: "squares", x: 16 }],
   [{ id: "lines", x: 16 }, { id: "squares", x: 16 }],
   [{ id: "lines", x: 14 }, { id: "squares", x: 16 }],
   [{ id: "lines", x: 16 }, { id: "squares", x: 14 }],

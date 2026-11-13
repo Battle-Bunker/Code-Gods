@@ -28,7 +28,7 @@ A grid family passes `tiers` to `gridFamily` (`GridTiers` in `src/families/grid/
 | `dealt` | the values dealt on a shape. Each must pass the liveness check there; `test/tiers.test.ts` re-runs it |
 | `lab` | alive values outside the 6 to 20 bit band (the "uncapped" Lab variant) |
 | `compare` | the few values whose plain and unlocked compositions are built for comparison |
-| `dealtPairs` | expert: pairs of interactions (depth 2) |
+| `dealtPairs` | expert: pairs of interactions (depth 2), checked against a wider band (6 to 26 bits for the two together) |
 | `base` | the base as disjoint, equally scored units whose scores add up to the base ordinal (`DisjointBase`) |
 
 An interaction's code is the body of a nested function inside `utility(grid)`. It may read the base's local variables
@@ -38,6 +38,18 @@ Then:
 1. add the family's spec to `SPECS` in `test/tiers.test.ts`;
 2. sweep the parameter with `tierLiveness` and list the values that pass in `dealt`;
 3. build the tables: `pnpm --filter @workspace/game-utilities calibrate --families <id>`.
+
+## The families that carry tiers (4×4 digits)
+
+| family | interactions | dealt values | pairs (depth 2) |
+|---|---|--:|--:|
+| Opposite Nines | lines x, squares x | 21 | 4 |
+| Mirrormancer | mirrors holding two ys, halves add up to x | 15 | 3 |
+| Kings and Subjects | pairs of kings x apart, same-number roads of y | 6 | 2 |
+| Two Pair | links by total x, links through y, roads of equal numbers of y | 35 | – |
+
+The seeded setup **Tiered rules** deals one interaction per rule; the Lab setups deal the other compositions and, as
+**Lab · two ★ tiers**, the pairs.
 
 ## Calibration: the hybrid law
 

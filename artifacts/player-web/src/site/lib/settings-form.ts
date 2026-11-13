@@ -268,8 +268,7 @@ export function dealerNote(type: PlayableTypes | undefined, s: Pick<Settings, "t
 export const RULE_TIER_CHOICES: readonly { id: string; label: string; value: RuleTiers | null }[] = [
   { id: "none", label: "No tiers: base rules only", value: null },
   { id: "1", label: "One ★ tier on every rule", value: { depth: 1 } },
-  // Two tiers are a shape of the setting, but no family deals a pair yet (GridTiers.dealtPairs), so every world's
-  // depth-2 pool is empty and the choice would only fail on save. Offer it again when one does.
+  { id: "2", label: "Two ★ tiers on every rule", value: { depth: 2 } },
 ];
 /** The id of a `ruleTiers` value among RULE_TIER_CHOICES ("none", "1", "2"), or "<depth>:<composition>" for an experiment's. */
 export const ruleTiersId = (t: RuleTiers | undefined | null): string => (!t ? "none" : t.compose ? `${t.depth}:${t.compose}` : String(t.depth));
