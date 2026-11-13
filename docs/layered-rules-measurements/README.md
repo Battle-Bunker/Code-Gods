@@ -37,7 +37,7 @@ reference for Opposite Nines and Mirrormancer, which is exact.
 | Two Pair | linkSums | 23 | 12 | 20.5 | 36.1–38.3 | 15.6–17.8 | 0.00–0.04 | **0.00–0.06** | 27.2 → 44.0–46.4 | 1.00–1.02 | 0.63 (exact reference) |
 | Two Pair | linksVia | 10 | 1 | 20.5 | 30.8 | 10.2 | 0.03 | 0.03 | 27.2 → 40.0 | 1.01 | 0.05 (exact reference) |
 | Two Pair | equalRoads | 2 | 2 | 20.5 | 35.3–37.3 | 14.8–16.8 | 0.00–0.01 | 0.00–0.02 | 27.2 → 42.6–45.7 | 1.00–1.02 | no reference law |
-| Crosswise Threes | lines | 8 | 8 | 16.2 | 32.3–36.7 | 16.1–20.5 | 0.03–0.08 | **0.35–0.57** | 21.0 → 43.0–43.2 | 0.99–1.01 | 0.42 (sampled reference) |
+| Crosswise Threes | lines | 8 | 8 | 16.2 | 32.3–36.7 | 16.1–20.5 | 0.03–0.08 | **0.35–0.57** | 21.0 → 43.0–43.2 | 0.99–1.01 | 0.42, or 0.47 counting a top level of 17 boards (sampled reference) |
 
 **How reachable each tier is.** The tier-aware share is the one number a beginner feels, and the five families are not
 alike: Crosswise Threes' lines are **0.35 to 0.57** — a one-cell climber gets a third to a half of that tier — while
@@ -55,9 +55,18 @@ boards, every total x in one pass). The bound the tables declare is 1 bit, and *
 reference law** — only Two Pair's two `equalRoads` tables have none, because they read arrangements inside the boxes
 and roads across them, which the 45⁴ count cannot see.
 
+**What "max error" covers.** It is the worst level where the reference is solid: an exact reference is solid
+everywhere, and a sampled one only where it has at least 100 boards. `--check` now says in its own output which levels
+that leaves out — "NOT COMPARED: 1 under 100 boards", or "1 level(s) above the reference's top" when the sample never
+reached the table's top tier at all — so a thin sample can no longer report a clean error over the easy levels and say
+nothing about the top. Counting those thin top levels too, the worst anywhere is **0.72 bits**, on Crosswise Threes'
+Lab `squares` x = 18 (18 boards at that level); the worst dealt one is its `lines` x = 12 (0.47 on 17 boards).
+
 One run over everything (`$T --no-profile --check`, dealt and Lab, 53 tables with a reference and 2 without):
-**every one is within 0.63 bits**, the worst being Two Pair's `linkSums` x = 14 (0.63), x = 16 (0.57) and x = 36
-(0.55), then Opposite Nines' `squares` x = 9 in the Lab (0.56). Nothing is over 0.7.
+**every one is within 0.63 bits** where its reference is solid, the worst being Two Pair's `linkSums` x = 14 (0.63),
+x = 16 (0.57) and x = 36 (0.55), then Opposite Nines' Lab `squares` x = 9 (0.56). That run uses the default sample of
+2 · 10⁶ boards, which is too thin for Crosswise Threes: its own numbers above come from `--top-sample 20000000`, and at
+the default its two Lab `squares` tables have their top level not compared at all.
 
 **Pool check.** Max top / min top over the **44** dealt tiered tables: 42.72 (Mirrormancer halves x = 8) / 27.20
 (Kings and Subjects sameRoads y = 4) = **1.57** (must be ≤ 2.5: passes).
