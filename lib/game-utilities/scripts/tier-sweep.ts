@@ -12,22 +12,12 @@
 import { instantiate, seededRng } from "@workspace/game-types";
 import { context, evaluator, family } from "../src/catalog.ts";
 import { gridSpec } from "../src/families/grid/_util.ts";
-import { withTiers, type GridTiers, type TierValue } from "../src/families/grid/tiers.ts";
+import { withTiers, type TierValue } from "../src/families/grid/tiers.ts";
 import { hybridLawOf, tierLiveness } from "../src/families/grid/tiers-hybrid.ts";
-import { ninesTiers } from "../src/families/grid/beginner/opposite_nines.ts";
-import { mirrorTiers } from "../src/families/grid/layered/mirror-tiers.ts";
-import { courtTiers } from "../src/families/grid/layered/royal_court.ts";
-import { pairTiers } from "../src/families/grid/layered/pair-tiers.ts";
-import { threesTiers } from "../src/families/grid/beginner/crosswise_threes.ts";
+import { SPEC_BASE, TIER_SPECS } from "./tier-specs.ts";
 import type { Params } from "../src/types.ts";
 
-const FAMILIES: Record<string, { spec: GridTiers<any>; base: Params }> = {
-  opposite_nines: { spec: ninesTiers, base: {} },
-  mirrormancer: { spec: mirrorTiers, base: { axis: "LR" } },
-  kings_and_subjects: { spec: courtTiers, base: { squares: "corners" } },
-  two_pair: { spec: pairTiers, base: {} },
-  crosswise_threes: { spec: threesTiers, base: {} },
-};
+const FAMILIES = Object.fromEntries(Object.entries(TIER_SPECS).map(([id, spec]) => [id, { spec, base: SPEC_BASE[id] ?? {} as Params }]));
 
 const argv = process.argv.slice(2);
 const opt = (name: string) => { const i = argv.indexOf(`--${name}`); return i < 0 ? undefined : argv[i + 1]; };
