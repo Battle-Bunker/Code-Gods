@@ -5,10 +5,10 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { instantiate, type GridValue } from "@workspace/game-types";
+import { changeCost, instantiate, objectType, type GridValue } from "@workspace/game-types";
 import { givenRule, space } from "../scripts/rule-difficulty-lib.ts";
 import {
-  energyClimb, floorDivideRow, kraftLambda, lee, leeModel, leeSpectrum, linearModel, log2Z, logModel, multiplyTable, setModel, unitWordLength,
+  energyClimb, energyOf, floorDivideRow, kraftLambda, lee, leeModel, leeSpectrum, linearModel, log2Z, logModel, multiplyTable, setModel, unitWordLength,
 } from "../scripts/mutation-cost-lib.ts";
 
 const close = (a: number, b: number, eps = 1e-6) => assert.ok(Math.abs(a - b) < eps, `${a} ≉ ${b}`);
@@ -54,6 +54,19 @@ test("every candidate model but the diameter one is a code: Σ over (cell, targe
   }
   // The diameter-normalised model prices the farthest add at what naming a value costs (plus where).
   close(leeModel("lee-diameter", cells, b).cellW(0, 5), 4 + Math.log2(10));
+});
+
+test("the prototype's set and slider models are the shipped set-v1 and distance-v1 on the numbers-only board", () => {
+  const inst = instantiate("Grid", { size: 4, symbols: "base10", colours: "mono" }), G = objectType("Grid");
+  const at = (x: number): GridValue => ({ size: 4, sym: new Uint8Array(16).fill(x, 0, 1), col: new Uint8Array(16) });
+  for (const [model, id] of [[setModel(16, 10), "set-v1"], [linearModel(16, 10), "distance-v1"]] as const) {
+    for (let x = 0; x < 10; x++) for (let y = 0; y < 10; y++) if (x !== y) {
+      close(model.cellW(x, y), G.callWork(at(x), at(y), { id: "", params: null }, inst, id));
+      close(energyOf(model.cellW(x, y)), changeCost(model.cellW(x, y)));
+    }
+  }
+  close(setModel(16, 10).cellW(3, 4), 4 + 2 * Math.log2(10));
+  close(linearModel(16, 10).cellW(3, 6), 4 + 3 * kraftLambda([1, 2, 3, 4, 5, 6, 7, 8, 9].flatMap(k => [k, k])));
 });
 
 test("multiplying mod 10 erases log2 gcd(m, 10) bits; the units are 1, 3, 7, 9 and 3 generates them", () => {

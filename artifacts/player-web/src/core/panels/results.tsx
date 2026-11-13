@@ -4,11 +4,13 @@
  * older one.
  */
 import { dimensionVar } from "@workspace/object-views";
-import { LineChart, Obj, Table, useGame, useLeaderboard, useObjectsTop, useRoomInfo, useTrajectories } from "@/sdk";
+import { LineChart, Obj, Table, useGame, useLeaderboard, useMyCard, useObjectsTop, useRoomInfo, useTrajectories } from "@/sdk";
 import { usePastGames } from "@/core/game/past-games";
 import { Link } from "@/core/navigation";
 import { finishPlace, liveResultRows } from "./results-rank";
-import { ObjectRef, PanelEmpty, PreparingNote, Section, fmt, referObject, type PanelProps } from "./kit";
+import { HANDICAP_FOOTNOTE, auctionLines, cardBid, cardHandicap, handicapLabel, handicapNote, handicapsOf } from "@/site/lib/bidding";
+import { ruleName, useAuction } from "@/core/game/auction";
+import { BiddingNote, ObjectRef, PanelEmpty, PreparingNote, Section, fmt, referObject, type PanelProps } from "./kit";
 
 /** Your bits × the others' care, in the dimension colours every panel uses. */
 const YOURS = dimensionVar("yours"), OTHERS = dimensionVar("others");
@@ -25,6 +27,7 @@ export default function Results({ params, phase }: PanelProps<"results">) {
   const trajectories = useTrajectories({ hz: 0.5 });
   const me = game?.self.godId;
   const room = useRoomInfo();
+  const myCard = useMyCard();
 
   const record = params.gameId ? past?.find(g => g.id === params.gameId || g.shortCode === params.gameId) : phase === "ended" ? undefined : past?.[0];
   const live = !params.gameId && phase === "ended";
@@ -32,11 +35,19 @@ export default function Results({ params, phase }: PanelProps<"results">) {
     ? liveResultRows(board)
     : (record?.leaderboard ?? []).map(r => ({ id: r.deityId, name: r.name, isAI: r.kind === "ai", total: r.totalPayoff, rank: r.rank }));
   const preparing = (phase === "lobby" || phase === "ended") && !params.gameId ? room?.preparing : null;
+  const bidding = (phase === "lobby" || phase === "ended") && !params.gameId && !preparing ? room?.bidding : null;
+  const next = <>{preparing && <PreparingNote preparing={preparing} />}{bidding && <BiddingNote bidding={bidding} room={room?.shortCode} />}</>;
+  // This game was dealt after a bid phase somebody won (your own card says so): totals are after handicaps (docs/bid-phase.md).
+  const card = live ? myCard : undefined;
+  // What the game shown tells about its auction (an ended game tells everything): handicaps beside the scores, who won what.
+  const auction = useAuction(live ? game?.gameId : record?.id);
+  const handicaps = handicapsOf(auction);
+  const handicap = cardHandicap(card), bidGame = !!cardBid(card) || handicap > 0 || !!auction;
   if (!rows.length) {
     if (params.gameId && past && !record) return <PanelEmpty>That game isn't in this room's history.</PanelEmpty>;
     return (
       <div className="space-y-4">
-        {preparing && <PreparingNote preparing={preparing} />}
+        {next}
         <PanelEmpty>No finished game yet. Results appear here when a game ends.</PanelEmpty>
       </div>
     );
@@ -46,12 +57,14 @@ export default function Results({ params, phase }: PanelProps<"results">) {
   const ranks = new Map(best.map(o => [o.id, o.rank]));
   // A line needs two points: a game that ended at once has none worth drawing.
   const chart = best.map(o => ({ label: `#${ranks.get(o.id)}`, points: (trajectories.get(o.id) ?? []).map(p => ({ x: p.worldSeconds, y: p.payoff })) }));
+  const won = auctionLines(auction, id => rows.find(r => r.id === id)?.name ?? "A player", ruleName);
+  const note = mine ? handicapNote(mine.total, handicap, fmt) : null;
   const why = mine
-    ? `You finished ${finishPlace(rows, mine)} of ${rows.length} with ${fmt(mine.total)} bits of payoff.${live && best[0] ? ` Your best object paid ${fmt(best[0].payoff)}${worst[0] && worst[0].payoff < 0 ? `; your worst cost ${fmt(-worst[0].payoff)}` : ""}.` : ""}`
+    ? `You finished ${finishPlace(rows, mine)} of ${rows.length} with ${fmt(mine.total)} bits of payoff${note ? ` (${note})` : ""}.${live && best[0] ? ` Your best object paid ${fmt(best[0].payoff)}${worst[0] && worst[0].payoff < 0 ? `; your worst cost ${fmt(-worst[0].payoff)}` : ""}.` : ""}`
     : "You didn't play in this game.";
   return (
     <div className="space-y-5" data-testid="panel-results">
-      {preparing && <PreparingNote preparing={preparing} />}
+      {next}
       {/* The outcome is the panel's headline; once this game has ended, the next step is the room (its next game). */}
       <p className="font-serif text-xl font-semibold leading-snug" data-testid="text-results-headline">{record ? `Game ${record.shortCode}: ` : ""}{why}</p>
       {live && room?.shortCode && (
@@ -64,8 +77,18 @@ export default function Results({ params, phase }: PanelProps<"results">) {
           <Table rows={rows} rowKey={r => r.id} columns={[
             { header: "#", cell: r => r.rank },
             { header: "player", cell: r => <span className={r.id === me ? "font-semibold text-primary" : ""}>{r.name}{r.id === me ? " (you)" : ""}{r.isAI ? " · AI" : ""}</span> },
+            ...(auction ? [{ header: "handicap", cell: (r: Row) => <span data-testid={`text-handicap-${r.id}`}>{handicapLabel(handicaps.get(r.id)) || "–"}</span>, align: "right" as const }] : []),
             { header: "payoff", cell: r => fmt(r.total), align: "right" },
           ]} />
+          {bidGame && <p className="text-xs text-muted-foreground" data-testid="text-handicap-footnote">{HANDICAP_FOOTNOTE}</p>}
+        </Section>
+      )}
+      {params.section !== "mine" && won.length > 0 && (
+        <Section title="Bidding">
+          <ul className="space-y-0.5 text-sm" data-testid="list-auction">
+            {won.map(w => <li key={w.godId} className={w.godId === me ? "font-semibold" : ""}>{w.text}</li>)}
+          </ul>
+          <p className="text-xs text-muted-foreground">Everyone else was dealt a rule at random, with no handicap.</p>
         </Section>
       )}
       {params.section !== "standings" && live && best.length > 0 && (

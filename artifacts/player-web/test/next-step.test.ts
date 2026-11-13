@@ -45,3 +45,13 @@ test("an owner short of players in a room without AI seats is told to invite, no
   assert.equal(short.label, "Invite players");
   assert.equal(nextStep({ ...owner, players: 2 }).label, "Add an AI player");
 });
+
+test("bidding: nobody starts again while the players bid; the step says where the bidding is", () => {
+  // What would break: the owner's button offering a second start (or a spinner reading "Starting…") during the bid phase.
+  for (const who of [owner, { ...owner, isOwner: false }]) {
+    const s = nextStep({ ...who, start: { phase: "bidding", endsAt: 31_000 } });
+    assert.equal(s.label, "Bidding…");
+    assert.equal(s.busy, true);
+    assert.match(s.why, /bidding for their rules on the room page/);
+  }
+});

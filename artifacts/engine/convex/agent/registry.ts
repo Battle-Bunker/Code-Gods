@@ -27,6 +27,7 @@ import type { Principal } from "../lib/rooms";
 import type { boardFor, eventsFor, historyFor as gameHistoryFor, myUtilityFor, observationFor, replayFor, trajectoriesFor } from "../player";
 import { fitRows, gatherSeries } from "./series";
 import type { chatFor, historyFor as roomHistoryFor, roomFor } from "../rooms";
+import type { BidRow } from "../bidding";
 import type { CurrentLayout, LayoutChange } from "../layout";
 import type { RunOutcome } from "../code/execute";
 import type { RunDetail } from "../code/runs";
@@ -45,6 +46,15 @@ type ReceiptStatus =
   | { status: "pending"; commandId: string; message: string }
   | { status: "failed"; commandId: string; error: { code: string; message: string }; message: string }
   | { status: "not_found"; commandId: string; message: string };
+
+/** The human's own view of the open bid phase (bidding.ts mineFor) and the answer of a bid command. */
+type BidPhase = {
+  startedAt: number; endsAt: number; seconds: number; pricing: "first" | "second"; players: number; seated: boolean; minPercent: number; maxPercent: number;
+  families: { id: string; name: string; emoji: string; theme: string }[]; bids: BidRow[]; done: boolean; waitingFor: number; meaning: string;
+  /** Open bidding only (settings.bidVisibility "open"), for the phase's players: every human player's bids, live. */
+  visibility?: "open"; table?: unknown[];
+};
+type BidChange = { bids: BidRow[]; done: boolean; ended: boolean };
 
 type Page = { data: unknown; nextCursor?: number | string | null };
 type Exec<N extends ToolName> = (ctx: ActionCtx, p: { principal: Principal; who: Who }, args: ToolInput<N>) => Promise<Page>;
@@ -217,8 +227,8 @@ export const EXECUTORS: Executors = {
   get_rules: async (ctx, { principal, who }) => {
     const room: RoomState = await ctx.runQuery(internal.rooms.getAs, { principal, room: who.roomId });
     return { data: { rules: rulesText(room.settings as unknown as Record<string, unknown>), settings: room.settings, objectInstance: room.objectInstance,
-      activeGame: room.activeGame, preparing: room.preparing,
-      note: "Settings are the room's next game; a running game keeps the settings it started with (get_my_utility). `preparing`: the next game is computing its rule tables (first game on this shape on this server) and starts by itself when they are ready." } };
+      activeGame: room.activeGame, preparing: room.preparing, bidding: room.bidding,
+      note: "Settings are the room's next game; a running game keeps the settings it started with (get_my_utility). `preparing`: the next game is computing its rule tables (first game on this shape on this server) and starts by itself when they are ready. `bidding`: the next game's players are bidding for their rules until endsAt (get_bidding, place_bid, finish_bidding); the game is dealt and starts by itself when bidding ends." } };
   },
   get_observation: async (ctx, { principal, who }, { objectsLimit, objectsSort, objectsCursor }) => {
     // Narrow (player.observationFor): one page of the player's objectViews rows, never the world; agentCount counts up
@@ -265,6 +275,15 @@ export const EXECUTORS: Executors = {
   get_my_utility: async (ctx, { principal, who }) => {
     const mine: R<typeof myUtilityFor> = await ctx.runQuery(internal.player.myUtilityAs, { principal, roomId: who.roomId });
     return { data: mine };
+  },
+  get_bidding: async (ctx, { principal, who }) => {
+    const mine: BidPhase | null = await ctx.runQuery(internal.bidding.mineAs, { principal, roomId: who.roomId });
+    if (!mine) {
+      return { data: { open: false, message: "No bid phase is open in this room. One opens when the owner starts a game whose setup has bidding (bidSeconds above 0), and lasts until its deadline or until every human player is done. "
+        + "Once the game has started, get_observation says what the player won and pays (self.utility.bid, self.utility.handicap; absent when nobody won a bid)." } };
+    }
+    return { data: { open: true, ...mine, secondsLeft: Math.max(0, Math.round((mine.endsAt - Date.now()) / 1000)),
+      ...(mine.seated ? {} : { note: "The player is not one of this game's players (a spectator, or they joined after bidding began): they watch and cannot bid." }) } };
   },
   get_utility_series: async (ctx, { principal, who }, { gameId, objectId, fromWorld, offset, limit }) => {
     // Whole rows up to the result bound: the next page starts at offset + rows.
@@ -323,6 +342,19 @@ export const EXECUTORS: Executors = {
   set_spectator: async (ctx, { principal, who }, args) => ({
     data: await ctx.runMutation(internal.rooms.setSpectatorAs, { principal, roomId: who.roomId, spectator: args.spectator, ...(args.deityId ? { godId: args.deityId } : {}) }),
   }),
+  // The bid phase (convex/bidding.ts): each sets a state (this bid, no bid, done), so a repeat changes nothing and needs no receipt.
+  place_bid: async (ctx, { principal, who }, { familyId, percent }) => {
+    const changed: BidChange = await ctx.runMutation(internal.bidding.placeAs, { principal, roomId: who.roomId, familyId, percent });
+    return { data: changed };
+  },
+  withdraw_bid: async (ctx, { principal, who }, { familyId }) => {
+    const changed: BidChange = await ctx.runMutation(internal.bidding.withdrawAs, { principal, roomId: who.roomId, familyId });
+    return { data: changed };
+  },
+  finish_bidding: async (ctx, { principal, who }, { done }) => {
+    const changed: BidChange = await ctx.runMutation(internal.bidding.doneAs, { principal, roomId: who.roomId, done });
+    return { data: changed };
+  },
   send_chat: (ctx, p, args) => command(ctx, p, "send_chat", args),
   pause_game: (ctx, p, args) => command(ctx, p, "pause_game", args),
   wake_engine: async (ctx, { principal }) => {

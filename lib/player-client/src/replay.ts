@@ -20,7 +20,7 @@
  * Pure: no React, no Convex; browser-safe.
  */
 import { NO_FAILURES, diagnoseAgent, failureKind, type FailureKind } from "@workspace/engine/convex/lib/futility.ts";
-import { CHANGE_READ_RATIO, DEFAULT_SCORE_INTERVAL_SECONDS, agentIncome, allowedLanguages, chargeAct, deityIncome, energyCapacity, fullChargeOf, settleDeityEnergy, instantiationOf, roundShare, settleAgentEnergy, type AgentAccount, type GameSettings } from "@workspace/game-core";
+import { CHANGE_READ_RATIO, DEFAULT_SCORE_INTERVAL_SECONDS, agentIncome, allowedLanguages, chargeAct, costModelOf, deityIncome, energyCapacity, fullChargeOf, settleDeityEnergy, instantiationOf, roundShare, settleAgentEnergy, type AgentAccount, type GameSettings } from "@workspace/game-core";
 
 /** The replay API version this reducer reads (player.replay's `version`). */
 export const REPLAY_VERSION = 2;
@@ -51,8 +51,9 @@ export type ReplayEvent =
     /** The share of its owner's power the agent was given (log schema 6); absent in older logs, which replay as share 0. */
     powerShare?: number }
   /** The owner re-allocated power: the agent's share from then on (log schema 6). */
-  | { type: "agent.power"; agentId: string; ownerId: string; worldSeconds: number; share: number }
-  | { type: "agent.destroyed"; agentId: string; ownerId: string; worldSeconds: number }
+  /** `owed` (log schema 13): the debt that moved with the power, from the agent onto its god's own account (negative: the other way). */
+  | { type: "agent.power"; agentId: string; ownerId: string; worldSeconds: number; share: number; owed?: number }
+  | { type: "agent.destroyed"; agentId: string; ownerId: string; worldSeconds: number; owed?: number }
   /** A god paid `cost` of its own energy to look at `count` objects (log schema 11; paid observation). */
   | { type: "god.looked"; ownerId: string; worldSeconds: number; price: number; count: number; objectId?: string };
 
@@ -251,10 +252,12 @@ export function applyEntry(state: ReplayState, entry: LogEntry, settings: GameSe
       const agent = state.agents.get(ev.agentId), i = roster.get(ev.ownerId);
       if (!agent || !agent.alive) break;
       // Both accounts are settled at the old rates, then the share changes.
-      if (agent.account) agent.account = settleAccount(settings, agent.account, entry.world, agent.share);
+      // Debt moves with the power (docs/energy-model.md §7.2): the recorded amount, never recomputed.
+      const owed = ev.owed ?? 0;
+      if (agent.account) { const a = settleAccount(settings, agent.account, entry.world, agent.share); agent.account = { ...a, balance: a.balance + owed }; }
       if (i !== undefined) {
         const d = settleDeity(settings, state.deities[i], entry.world);
-        state.deities[i] = { ...d, allocated: Math.max(0, roundShare(d.allocated - agent.share + ev.share)) };
+        state.deities[i] = { ...d, balance: d.balance - owed, allocated: Math.max(0, roundShare(d.allocated - agent.share + ev.share)) };
       }
       agent.share = ev.share;
       break;
@@ -265,9 +268,10 @@ export function applyEntry(state: ReplayState, entry: LogEntry, settings: GameSe
         agent.alive = false; agent.destroyedAt = entry.world;
         // Its share returns to its owner, whose income changes from now.
         const i = roster.get(agent.ownerId);
-        if (i !== undefined && agent.share > 0) {
+        if (i !== undefined && (agent.share > 0 || ev.owed)) {
           const d = settleDeity(settings, state.deities[i], entry.world);
-          state.deities[i] = { ...d, allocated: Math.max(0, roundShare(d.allocated - agent.share)) };
+          // What it owed is now its god's (§7.2): the recorded amount.
+          state.deities[i] = { ...d, balance: d.balance - (ev.owed ?? 0), allocated: Math.max(0, roundShare(d.allocated - agent.share)) };
         }
         agent.share = 0;
       }
@@ -479,7 +483,8 @@ export function replayObservation(replay: Replay, at: ReplayAt, state: ReplaySta
       // The read price the log was charged at: event-log schema 8 introduced κ (docs/energy-model.md §2.1); before it, 1.
       changeReadRatio: (game.logSchema ?? 1) >= 8 ? CHANGE_READ_RATIO : 1,
       maxAgentsPerGod: settings.maxAgentsPerGod, penaltyWeight: settings.penaltyWeight, worldSeconds: state.world,
-      commitClause: settings.commitClause, objectSelection: settings.objectSelection,
+      // The model the recorded change costs were priced under (the game's settings; a game from before cost models: set-v1).
+      commitClause: settings.commitClause, objectSelection: settings.objectSelection, costModel: costModelOf(settings),
     },
     self: {
       godId: god?.id ?? "", label: god?.name ?? "", isAI: god?.kind === "ai", energy: godEnergyAt(replay, state, at.pov), ...godPowerAt(replay, state, at.pov), ready: false,
@@ -536,8 +541,8 @@ function projected(ev: ReplayEvent, seq: number, pov: number, roster: Replay["ga
       expectedActCost: ev.expectedActCost, breakdown: ev.breakdown, randomized: ev.randomized, account: ev.account,
       ...(ev.powerShare !== undefined ? { powerShare: ev.powerShare } : {}),
     };
-    case "agent.power": return mine ? { type: "agent.power" as const, seq, agentId: ev.agentId, worldSeconds: ev.worldSeconds, share: ev.share } : null;
-    case "agent.destroyed": return { type: "agent.destroyed" as const, seq, agentId: ev.agentId, mine, worldSeconds: ev.worldSeconds };
+    case "agent.power": return mine ? { type: "agent.power" as const, seq, agentId: ev.agentId, worldSeconds: ev.worldSeconds, share: ev.share, ...(ev.owed !== undefined ? { owed: ev.owed } : {}) } : null;
+    case "agent.destroyed": return { type: "agent.destroyed" as const, seq, agentId: ev.agentId, mine, worldSeconds: ev.worldSeconds, ...(mine && ev.owed !== undefined ? { owed: ev.owed } : {}) };
     case "god.looked": return { type: "god.looked" as const, seq, mine, worldSeconds: ev.worldSeconds, price: ev.price, count: ev.count, ...(ev.objectId ? { objectId: ev.objectId } : {}) };
   }
 }

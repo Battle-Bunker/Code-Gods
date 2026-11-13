@@ -22,7 +22,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation, useParams, useSearch } from "wouter";
 import { useAction, useMutation } from "convex/react";
 import {
-  LANGUAGES, LANGUAGE_SPECS, ROOM_QUOTA_DOCS, SETTINGS_DOCS, SETUP_NAME_MAX, allowedLanguages, applySettingsChange, settingsOptionsFor, type FieldDoc, type Language, type OptionKey,
+  LANGUAGES, LANGUAGE_SPECS, ROOM_QUOTA_DOCS, SETTINGS_DOCS, SETUP_NAME_MAX, allowedLanguages, applySettingsChange, costModelOf, settingsOptionsFor, type FieldDoc, type Language, type OptionKey,
   type SettingsSection,
 } from "@workspace/game-core";
 import { BadgeChips, RuleShelf, sameArgs } from "@workspace/object-views";
@@ -38,8 +38,8 @@ import { SettingsList, settingsSummary } from "@/site/components/game-panels";
 import { Skeleton } from "@/components/ui/skeleton";
 import { errCode, errMsg, fmt, notFoundMsg } from "@/site/lib/errors";
 import {
-  QUOTA_LIMITS, LABELS, SECTIONS, argChoices, choiceLabel, defenceBlocker, draftErrors, fieldsOf, formatValue, isHidden, lengthLine, limitError, paceWord,
-  RULE_TIER_CHOICES, dealerNote, firstUseNote, ruleTiersId, ruleTiersPatch, same, settingsDomain, shelfEntries, stepChoices, toggleLanguage, type PlayableTypes, type Settings, type SettingsKey,
+  QUOTA_LIMITS, LABELS, RULE_TIER_CHOICES, SECTIONS, argChoices, choiceLabel, costModelChoices, defenceBlocker, draftErrors, fieldsOf, formatValue, isHidden, lengthLine, limitError, paceWord,
+  dealerNote, firstUseNote, ruleTiersId, ruleTiersPatch, same, settingsDomain, shelfEntries, stepChoices, toggleLanguage, type PlayableTypes, type Settings, type SettingsKey,
 } from "@/site/lib/settings-form";
 import { freeName, ownerLabel } from "@/site/lib/setup-words";
 
@@ -430,11 +430,14 @@ function Field({ k, draft, editable, change, error, manifest, type }: FieldProps
           </Question>
         );
       }
-      const choices = k === "utilitySelectorId" ? settingsOptionsFor("utilitySelectorId", draft.objectType).map(o => o.id) : stepChoices(k, draft[k]);
+      // The cost model is optional (absent: the default) and its choices are the models this world supports.
+      const value = k === "costModel" ? costModelOf(draft) : draft[k] as string;
+      const choices = k === "utilitySelectorId" ? settingsOptionsFor("utilitySelectorId", draft.objectType).map(o => o.id)
+        : k === "costModel" ? costModelChoices(draft) : stepChoices(k, draft[k]);
       const note = k === "utilitySelectorId" ? dealerNote(type as unknown as PlayableTypes | undefined, draft) : null;
       return (
         <Question k={k} error={error}>
-          <Segmented k={k} value={draft[k] as string} choices={choices} editable={editable} onPick={v => change({ [k]: v })} />
+          <Segmented k={k} value={value} choices={choices} editable={editable} onPick={v => change({ [k]: v })} />
           {note && <p className="text-xs text-muted-foreground" data-testid="note-dealer">{note}</p>}
         </Question>
       );

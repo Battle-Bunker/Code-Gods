@@ -85,11 +85,13 @@ export const eventV = v.union(
     decisionBits: v.optional(v.number()), perActFloorBits: v.optional(v.number()),
     breakdown, randomized: v.boolean(), account,
   }),
-  v.object({ t: v.literal("destroy"), agentId: v.string(), ownerId: v.string(), world: v.number() }),
+  /** `owed` (schema 13): the debt that moved from the agent onto its god's own account with its power (docs/energy-model.md §7.2); absent: none. */
+  v.object({ t: v.literal("destroy"), agentId: v.string(), ownerId: v.string(), world: v.number(), owed: v.optional(v.number()) }),
   /** The hold corrections arrived during planning (schema 7): the object re-scored with them, before the world ran. */
   v.object({ t: v.literal("rescore"), objectId: v.string(), value: wire, version: v.number(), world: v.number(), net: v.array(v.number()), noise: v.optional(v.number()) }),
   /** The owner re-allocated its power (schema 6): the agent's share from `world` on. */
-  v.object({ t: v.literal("power"), agentId: v.string(), ownerId: v.string(), world: v.number(), share: v.number() }),
+  /** `owed` (schema 13): the debt that moved with the power, from the agent onto its god's own account (negative: from the god onto the agent); absent: none. */
+  v.object({ t: v.literal("power"), agentId: v.string(), ownerId: v.string(), world: v.number(), share: v.number(), owed: v.optional(v.number()) }),
   /**
    * A god paid for a look (schema 11; paid observation, lib/knowledge.ts): `cost` energy from its own account for `count`
    * objects (one: `objectId`; absent: every object then). PRIVATE to its god while the game is live.
@@ -98,7 +100,8 @@ export const eventV = v.union(
 );
 
 /** An agent's failure breakdown (lib/futility.ts FAILURE_KINDS) and the last reason of the kinds the diagnosis quotes. */
-export const failuresV = v.object({ collision: v.number(), noChange: v.number(), commit: v.number(), invalid: v.number(), error: v.number() });
+/** `unaffordable` (changes the agent could not pay for: docs/energy-model.md §7.2) is absent on agents counted before it existed: read as 0. */
+export const failuresV = v.object({ collision: v.number(), noChange: v.number(), commit: v.number(), invalid: v.number(), error: v.number(), unaffordable: v.optional(v.number()) });
 export const lastFailuresV = v.object({ invalid: v.optional(v.string()), error: v.optional(v.string()) });
 /** One agent's futile pairs (lib/futility.ts Futile). */
 export const futileEntriesV = v.array(v.object({ o: v.id("objects"), v: v.number(), by: v.optional(v.id("objects")), bv: v.optional(v.number()) }));
@@ -147,13 +150,48 @@ export const gameTables = {
     preparing: v.optional(v.object({
       requestId: v.string(), ownerId: v.string(), startedAt: v.number(), revision: v.number(), memberIds: v.array(v.string()),
       instance: v.string(), total: v.number(), pending: v.array(v.string()), estimateSeconds: v.number(),
-      deals: v.array(v.object({ godId: v.string(), utility: v.any() })),
+      /** `bid`: the god's outcome of the bid phase (bidding.ts BidOutcome), only when somebody won a bid. */
+      deals: v.array(v.object({ godId: v.string(), utility: v.any(), bid: v.optional(v.any()) })),
       dealer: v.object({ selectorId: v.string(), dealtAs: v.string(), note: v.optional(v.string()) }),
+      /** PRIVATE: the whole auction of a deal made with bids (bidding.ts AuctionRecord), for the game's replay. */
+      auction: v.optional(v.any()),
       error: v.optional(v.string()),
       /** Progress in computation pieces (a split table is several, architecture.md §3.2): done of total, for the waited keys. */
       pieces: v.optional(v.object({ done: v.number(), total: v.number() })),
     })),
+    /**
+     * The bid phase of a start (bidding.ts, docs/bid-phase.md): the game was started on a setup with `bidSeconds` > 0,
+     * and until `endsAt` (or until every human player is done) the players in `memberIds` may bid on rule families.
+     * The bids themselves are private rows (roomBids), never on this document, which changes only when the phase begins
+     * and ends. Then the deal is made with the bids and the start continues as `preparing`. `error`: the deal could
+     * not be made; the owner starts again.
+     */
+    bidding: v.optional(v.object({
+      requestId: v.string(), ownerId: v.string(), startedAt: v.number(), endsAt: v.number(), revision: v.number(), memberIds: v.array(v.string()),
+      pricing: v.union(v.literal("first"), v.literal("second")),
+      /** Open bidding (settings.bidVisibility): every player of the phase sees every bid, live. Absent: sealed. */
+      open: v.optional(v.boolean()),
+      /** The deal has begun (bidding.ts takeForDeal): no bid is taken any more, though the phase is still the room's. */
+      closed: v.optional(v.boolean()),
+      error: v.optional(v.string()),
+    })),
   }).index("by_short_code", ["shortCode"]).index("by_encoded", ["encoded"]).index("by_guid", ["guid"]),
+
+  /**
+   * PRIVATE: one player's bids in a room's bid phase (bidding.ts): at most one row per (room, player), rewritten by that
+   * player's own commands and read only by them and by the deal. `requestId` is the bid phase it belongs to (rows of an
+   * earlier one are ignored and replaced). `done`: the player passed or finished bidding.
+   */
+  roomBids: defineTable({
+    roomId: v.id("rooms"), requestId: v.string(), godId: v.string(),
+    bids: v.array(v.object({ familyId: v.string(), percent: v.number() })), done: v.boolean(), updatedAt: v.number(),
+  }).index("by_room_god", ["roomId", "godId"]),
+
+  /**
+   * PRIVATE until the game ends: the auction a game was dealt with (bidding.ts AuctionRecord: every bid, who won what
+   * and each handicap). One small document per game that had a winning bid; read by the replay of an ended game only.
+   */
+  gameAuctions: defineTable({ gameId: v.id("games"), auction: v.any() }).index("by_game", ["gameId"]),
 
   members: defineTable({
     roomId: v.id("rooms"), godId: v.string(), name: v.string(), kind, ready: v.boolean(), joinedAt: v.number(),
@@ -195,6 +233,12 @@ export const gameTables = {
      * first tick of a game started before pinning (no migration: an unpinned game pins itself).
      */
     tablesStorageId: v.optional(v.id("_storage")),
+    /**
+     * PRIVATE: each roster god's handicap in percent, in roster order (docs/bid-phase.md): what a bid's winner pays,
+     * taken off every total of theirs (lib/world.ts withHandicaps). Absent: nobody won a bid (or no bid phase). Never
+     * projected; a god's own handicap is on its card.
+     */
+    handicaps: v.optional(v.array(v.number())),
     /**
      * Hold rarity (docs/energy-model.md §8): the hold corrections of a game with more than one player are computed
      * during planning (engine/hold.ts); planning waits while `computing`. Absent: none needed (one player, or a game

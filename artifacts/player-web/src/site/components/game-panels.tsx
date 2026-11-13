@@ -9,14 +9,18 @@ import { EmptyState, ErrorLine, Section } from "@/site/components/page-parts";
 import { fmt } from "@/site/lib/errors";
 import { toMs } from "@/site/lib/time";
 import { allowedLanguages } from "@workspace/game-core";
-import { formatValue, LABELS, lengthLine, paceWord, type SettingsKey } from "@/site/lib/settings-form";
+import { bidLine, formatValue, LABELS, lengthLine, paceWord, type SettingsKey } from "@/site/lib/settings-form";
 import { Bot, Crown, Send, User } from "lucide-react";
 import { BadgeChips, ObjectView, RuleShelf, objectContext, objectRowHeight } from "@workspace/object-views";
 import { Term } from "@workspace/ui-kit";
+import { HANDICAP_FOOTNOTE, handicapLabel, handicapsOf } from "@/site/lib/bidding";
+import { useAuction } from "@/core/game/auction";
 
 /** Standings and roster in one list: rank, name, AI or human, score, the owner's crown. Public totals only. */
-export function Leaderboard({ rows, roster, meId, ownerId, agentCount, planning, emptyBody = "Scores appear once the world begins to run." }: {
+export function Leaderboard({ rows, roster, meId, ownerId, agentCount, planning, emptyBody = "Scores appear once the world begins to run.", handicaps }: {
   rows: readonly Standing[]; roster: readonly RosterEntry[]; meId?: string; ownerId?: string | null; agentCount?: number; planning?: boolean; emptyBody?: string;
+  /** Each player's handicap from bidding in percent, when the game tells them: shown beside the score, which is after it. */
+  handicaps?: ReadonlyMap<string, number>;
 }) {
   const merged = useMemo(() => {
     const byId = new Map(rows.map(r => [r.deityId, r]));
@@ -29,6 +33,7 @@ export function Leaderboard({ rows, roster, meId, ownerId, agentCount, planning,
     <Section title="Leaderboard" count={merged.length} action={agentCount !== undefined ? <span className="text-xs text-muted-foreground" data-testid="text-agent-count">{agentCount} agent{agentCount === 1 ? "" : "s"}</span> : undefined}>
       <p className="px-4 pt-2 text-xs text-muted-foreground">Points: each player's <Term id="bits">bits</Term> times how much the others care, summed over every object now.</p>
       {planning && rows.length > 0 && <p className="px-4 pt-1 text-xs text-muted-foreground" data-testid="text-standings-planning">Starting position: the world is not running yet, so no agent has moved anything.</p>}
+      {handicaps && <p className="px-4 pt-1 text-xs text-muted-foreground" data-testid="text-handicap-footnote">{HANDICAP_FOOTNOTE}</p>}
       {merged.length === 0 ? <EmptyState title="No players yet" body={emptyBody} /> : (
         <ol className="divide-y">
           {merged.map(p => (
@@ -40,6 +45,7 @@ export function Leaderboard({ rows, roster, meId, ownerId, agentCount, planning,
                 {p.name}{p.id === meId && <span className="text-muted-foreground"> (you)</span>}
                 {p.id === ownerId && <Crown className="inline h-3.5 w-3.5 ml-1.5 text-accent" aria-label="room owner" />}
               </span>
+              {handicapLabel(handicaps?.get(p.id)) && <span className="relative font-mono text-xs tabular-nums text-muted-foreground" data-testid={`text-handicap-${p.id}`}>{handicapLabel(handicaps?.get(p.id))}</span>}
               <span className="relative font-mono tabular-nums">{p.standing ? fmt(p.standing.totalPayoff, 1) : "—"}</span>
             </li>
           ))}
@@ -54,7 +60,10 @@ export function GameStandings({ gameId, roster, meId, ownerId, planning, emptyBo
   gameId: string; roster: readonly RosterEntry[]; meId?: string; ownerId?: string | null; planning?: boolean; emptyBody?: string;
 }) {
   const standings = useLive(api.games.standings, { gameId: gameId as Id<"games"> }).data;
-  return <Leaderboard rows={standings?.rows ?? []} roster={roster} meId={meId} ownerId={ownerId} agentCount={standings?.agentCount ?? undefined} planning={planning} emptyBody={emptyBody} />;
+  // The players' handicaps from bidding, when the game tells them (games.auction: its setup's bid disclosure; docs/bid-phase.md).
+  const auction = useAuction(gameId);
+  return <Leaderboard rows={standings?.rows ?? []} roster={roster} meId={meId} ownerId={ownerId} agentCount={standings?.agentCount ?? undefined} planning={planning} emptyBody={emptyBody}
+    handicaps={auction ? handicapsOf(auction) : undefined} />;
 }
 
 const OBJECT_PAGE = 50;
@@ -185,10 +194,13 @@ export function Chat({ messages, canPost, placeholder, pending, onSend, title = 
   );
 }
 
-/** The settings a newcomer asks about, as key/values (the full list is the configuration page). */
+/**
+ * The settings a newcomer asks about, as key/values (the full list is the configuration page). The cost model is
+ * optional: a room on the default one stores none and shows no row, another model shows as its label (formatValue).
+ */
 const SHOWN: readonly SettingsKey[] = [
   "languages", "planningSeconds", "halfLifeSeconds", "interactionRateHz", "startingObjectCount", "spawnRateHz",
-  "startingEnergy", "powerPerSecond", "fullChargeSeconds", "maxAgentsPerGod", "defenceGoals", "utilitySelectorId",
+  "startingEnergy", "powerPerSecond", "fullChargeSeconds", "costModel", "maxAgentsPerGod", "defenceGoals", "utilitySelectorId",
 ];
 
 /** "Python · Grid 5×5 base10 rgby · ~6 min (often 3–13) · normal pace". */
@@ -207,6 +219,8 @@ export function SettingsList({ settings, instance }: { settings: Settings; insta
         {SHOWN.map(k => settings[k] === undefined ? null : (
           <div key={k} className="contents"><dt className="text-muted-foreground truncate">{LABELS[k]}</dt><dd className="font-mono text-right">{formatValue(k, settings[k])}</dd></div>
         ))}
+        {/* Only a game with a bid phase says so (bidSeconds > 0). */}
+        {bidLine(settings) && <div className="contents" data-testid="row-bidding"><dt className="text-muted-foreground truncate">Bidding</dt><dd className="font-mono text-right">{bidLine(settings)}</dd></div>}
       </dl>
     </div>
   );

@@ -15,16 +15,21 @@ import { admin, api, gods, internal, raw, roomWith, startGame, touch, waitFor } 
 const INSTANCE = "Grid(4,base10,rgb)";
 const GRID_4 = { language: "typescript", grammarId: "typescript-agent-v1", complexityFunctionId: "ts-ast-bits-v1-uniform", objectType: "Grid",
   typeArgs: { size: 4, symbols: "base10", colours: "rgb" }, spawnRateHz: 0.5, startingObjectCount: 3, halfLifeSeconds: 100000, defenceGoals: true };
-/** One god each, then the same gods with other rules (so no table is found under the first deal's keys). */
+/**
+ * One god each, then what a re-keying deploy does to them: the SAME rules with other parameters, so no table is found
+ * under the first deal's keys. (The fixture once dealt other families here. No deploy does that to a game in progress,
+ * and scoring one family's ordinals against another's pinned table failed some ticks with "Cannot compare ordinals of
+ * arity 2 and 1", which made this test flaky for a reason unrelated to what it checks.)
+ */
 const DEALT = [
   { familyId: "kingdom", params: { colour: "blue" } },
   { familyId: "picture_frame", params: { colour: "green", symbol: "0" }, penalty: { familyId: "hate_colour", params: { colour: "red" } } },
   { familyId: "magic_accountant", params: { axis: "rows", target: 18 } },
 ];
 const REKEYED = [
-  { familyId: "number_bonds", params: {} },
-  { familyId: "set_spotter", params: {}, penalty: { familyId: "hate_colour", params: { colour: "green" } } },
-  { familyId: "honest_minesweeper", params: { mine: "red" } },
+  { familyId: "kingdom", params: { colour: "red" } },
+  { familyId: "picture_frame", params: { colour: "red", symbol: "0" }, penalty: { familyId: "hate_colour", params: { colour: "green" } } },
+  { familyId: "magic_accountant", params: { axis: "cols", target: 18 } },
 ];
 
 async function runningGame(prefix: string) {

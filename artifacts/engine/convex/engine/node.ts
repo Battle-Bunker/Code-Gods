@@ -8,14 +8,14 @@
  */
 import { createHash, createHmac, randomBytes } from "node:crypto";
 import {
-  DEFAULT_SETTINGS, SETTINGS_FIELDS, allowedLanguages, SettingsChangeError, applySettingsChange, instantiationOf, netBits, softHinge, upgradeStoredSettings, validateSettings,
+  DEFAULT_SETTINGS, SETTINGS_FIELDS, allowedLanguages, SettingsChangeError, applySettingsChange, canonicalCostModel, instantiationOf, netBits, softHinge, upgradeStoredSettings, validateSettings,
   type GameSettings, type ObjectValue,
 } from "@workspace/game-core";
 import { objectType, type Rng } from "@workspace/game-types";
 import {
   availableFamilies, card, context, divineLottery, evaluator, fairAligned, familiesFor, penaltyMeanBits, publicCatalog, selector, synergyFor,
   coverage, isPlayableInstantiation, priorKey, shippedPriors, surprisal, tableFor, UNIFORM_PRIOR, type CalibrationManifest, type CalibrationTable, type GodScore, type InstanceTables, type PriorRef,
-  type UtilityDescriptor,
+  type UtilityDescriptor, dealWithBids, type Bid,
 } from "@workspace/game-utilities";
 import { holdBits, type HoldTable } from "@workspace/game-utilities/hold";
 import { fail } from "../lib/errors";
@@ -189,6 +189,18 @@ export function deal(settings: GameSettings, count: number): UtilityDescriptor[]
   });
 }
 /**
+ * The deal of a game whose start had a bid phase (docs/bid-phase.md; game-utilities dealWithBids): the winners of the
+ * bids hold their families, everyone else is dealt by the dealer from the families nobody won. With no bids it is
+ * `deal` itself.
+ */
+export function dealWithBidsFor(settings: GameSettings, playerIds: readonly string[], bids: readonly Bid[]) {
+  validateSettings(settings);
+  return dealWithBids(settings.utilitySelectorId ?? divineLottery.id, instantiationOf(settings), playerIds, bids, cryptoRng, {
+    defenceGoals: settings.defenceGoals,
+    exclude: settings.excludedFamilies, excludeDefence: settings.excludedDefenceFamilies, priorId: settings.priorId,
+  }, settings.bidPricing ?? "first");
+}
+/**
  * How the settings' dealer actually deals on their instantiation: the Aligned Lottery needs a measured synergy matrix
  * (game-utilities selectors.ts) and deals exactly like the Divine Lottery without one. Shown to players and the owner.
  */
@@ -262,20 +274,21 @@ export function assertPlayable(manifest: CalibrationManifest, settings: GameSett
 }
 
 /**
- * A complete settings object (a game setup): exactly the GameSettings fields, playable. The single-language shape of
+ * A complete settings object (a game setup): exactly the GameSettings fields (the optional ones may be absent), playable. The single-language shape of
  * settings saved before games allowed several languages is accepted as that one language, and a field added since with a
  * default (scoreIntervalSeconds) is filled with it (upgradeStoredSettings).
  */
 export function assertCompleteSettings(manifest: CalibrationManifest, given: unknown): GameSettings {
   if (!given || typeof given !== "object" || Array.isArray(given)) return fail("BAD_REQUEST", "settings must be a settings object");
-  const settings = upgradeStoredSettings(given) ?? given;
-  // Every field but the optional ones (game-core OPTIONAL_SETTINGS: absent means off) must be there; nothing else may be.
+  // The optional fields (costModel) may be absent; the cost model is stored in its one spelling (the default never).
+  const settings = canonicalCostModel((upgradeStoredSettings(given) ?? given) as GameSettings);
+  // Every field but the optional ones (game-core OPTIONAL_SETTINGS_FIELDS: absent means off) must be there; nothing else may be.
   const keys = Object.keys(settings), fields = Object.keys(DEFAULT_SETTINGS);
   const unknown = keys.filter(k => !SETTINGS_FIELDS.includes(k)), missing = fields.filter(k => !keys.includes(k));
   if (unknown.length) fail("BAD_REQUEST", `Unknown settings: ${unknown.join(", ")}`);
   if (missing.length) fail("BAD_REQUEST", `A setup has every setting; missing: ${missing.join(", ")}`);
-  assertPlayable(manifest, settings as GameSettings);
-  return settings as GameSettings;
+  assertPlayable(manifest, settings);
+  return settings;
 }
 
 /**

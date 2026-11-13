@@ -9,7 +9,10 @@
  *   ignored (they are derived);
  * - objectType: the type's default instantiation (else the first playable one), and excluded families (reward and
  *   defence alike) that do not exist in it are dropped;
- * - typeArgs: only a playable instantiation is accepted, and excluded families that do not exist in it are dropped.
+ * - typeArgs: only a playable instantiation is accepted, and excluded families that do not exist in it are dropped;
+ * - costModel (optional; absent means "set-v1"): one of the models the instantiation supports. The default is never
+ *   stored (choosing "set-v1" removes the field), and a model the new instantiation does not support is dropped with a
+ *   change of object type or type arguments.
  * Constraints checked on the changed field: the allowed languages are a non-empty list of supported languages (a
  * language listed twice is listed once); goal dealing and the spawn function are among the choices of the current
  * object type (settingsOptionsFor); excluded reward families are reward families
@@ -28,8 +31,10 @@
  */
 import { instantiate, objectType as objectTypeDef } from "@workspace/game-types";
 import type { TypeArgs } from "@workspace/game-types";
+import { COST_MODELS, DEFAULT_COST_MODEL, isCostModel } from "@workspace/game-types";
 import {
-  OPTION_KEYS, OPTIONAL_SETTINGS, SETTINGS_FIELDS, validRuleTiers, settingsOptionsFor, upgradeLegacyLanguage, validLanguages, type FamilyDomain, type FamilyRole, type GameSettings,
+  DEFAULT_SETTINGS, OPTIONAL_SETTINGS_FIELDS, OPTION_KEYS, validRuleTiers, settingsOptionsFor, supportedCostModels, upgradeLegacyLanguage, validLanguages,
+  type FamilyDomain, type FamilyRole, type GameSettings,
 } from "./settings.ts";
 
 export interface SettingsDomain extends FamilyDomain {
@@ -59,6 +64,8 @@ export class SettingsChangeError extends Error {
   }
 }
 
+/** Every settings field: the ones a complete settings object always has, and the optional ones. */
+export const SETTINGS_FIELDS: readonly string[] = Object.freeze([...Object.keys(DEFAULT_SETTINGS), ...OPTIONAL_SETTINGS_FIELDS]);
 const FIELDS = new Set(SETTINGS_FIELDS);
 /** Each excluded-family list and the role of the families it holds. */
 const EXCLUDED = [["excludedFamilies", "reward"], ["excludedDefenceFamilies", "defence"]] as const;
@@ -164,15 +171,33 @@ export function applySettingsChange(settings: GameSettings, patch: Partial<GameS
     if (unknown.length) throw new SettingsChangeError(field, `Not ${role} families of ${next.objectType}: ${unknown.join(", ")}`);
     next = keepExisting({ ...next, [field]: [...new Set(ids as string[])] }, domain);
   }
-  // The optional field: null switches tiered rules off (the field goes), an object switches them on.
+  // An optional field: null switches tiered rules off (the field goes), an object switches them on.
   if (given.ruleTiers === null) { const { ruleTiers: _off, ...rest } = next; next = rest; }
   else if (changed("ruleTiers")) {
     if (!validRuleTiers(given.ruleTiers)) throw new SettingsChangeError("ruleTiers", "ruleTiers must be a depth of 1 or 2 with at most a known composition, or null for none");
     next = { ...next, ruleTiers: { depth: given.ruleTiers.depth, ...(given.ruleTiers.compose ? { compose: given.ruleTiers.compose } : {}) } };
   }
-  const handled = new Set<string>(["objectType", "typeArgs", "languages", ...EXCLUDED.map(([f]) => f), ...OPTION_KEYS, ...OPTIONAL_SETTINGS]);
+  if (changed("costModel")) {
+    const model = given.costModel;
+    if (!isCostModel(model)) throw new SettingsChangeError("costModel", `costModel must be one of ${COST_MODELS.join(", ")}: ${String(model)}`);
+    if (!supportedCostModels(next).includes(model)) throw new SettingsChangeError("costModel", `Unsupported costModel for ${keyOf(next.objectType, next.typeArgs)}: ${model}`);
+    next = { ...next, costModel: model };
+  }
+  const handled = new Set<string>(["objectType", "typeArgs", "languages", "costModel", ...OPTIONAL_SETTINGS_FIELDS, ...EXCLUDED.map(([f]) => f), ...OPTION_KEYS]);
   for (const key of Object.keys(given) as (keyof GameSettings)[]) {
     if (!handled.has(key) && changed(key)) next = { ...next, [key]: given[key] };
   }
-  return next;
+  // A model the instantiation does not support (the world changed under it) goes back to the default.
+  if (next.costModel !== undefined && !(isCostModel(next.costModel) && supportedCostModels(next).includes(next.costModel))) next = { ...next, costModel: DEFAULT_COST_MODEL };
+  return canonicalCostModel(next);
+}
+
+/**
+ * Settings with the cost model in its one stored spelling: the default ("set-v1") is never stored, so equal settings
+ * compare equal whether or not they name it. Any other value is left for `validateSettings` to judge.
+ */
+export function canonicalCostModel<S extends { readonly costModel?: unknown }>(settings: S): S {
+  if (settings.costModel !== DEFAULT_COST_MODEL) return settings;
+  const { costModel: _default, ...rest } = settings;
+  return rest as S;
 }

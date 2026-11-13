@@ -6,7 +6,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ALL_SEED_SETUPS, ANNOTATED_BASICS_SEED_ID, ANNOTATED_COLOURS_SEED_ID, BEGINNER_POOL, SEED_SETUPS, TIERED_RULES_SEED_ID, applySettingsChange, seedSetupSettings, validateSettings } from "@workspace/game-core";
+import { ANNOTATED_BASICS_SEED_ID, ANNOTATED_COLOURS_SEED_ID, ALL_SEED_SETUPS, BEGINNER_POOL, LAB_SETUPS, SEED_SETUPS, TIERED_RULES_SEED_ID, applySettingsChange, seedSetupSettings, validateSettings } from "@workspace/game-core";
 import { offeredInstantiations, playableInstantiations } from "@workspace/game-utilities";
 import { shippedManifest } from "@workspace/game-utilities/calibration-data";
 import { settingsDomain } from "../../convex/engine/settingsDomain.ts";
@@ -57,10 +57,13 @@ test("Annotated basics deals exactly the beginner pool on a numbers-only board; 
   const cases = [
     { seedId: ANNOTATED_BASICS_SEED_ID, pool: new Set(BEGINNER_POOL), colours: "mono" },
     { seedId: ANNOTATED_COLOURS_SEED_ID, pool: null, colours: "rgb" },
+    // The Lab setups are Annotated basics under another cost model: the same board and the same eight rules.
+    ...LAB_SETUPS.filter(x => x.seedId.startsWith("lab-cost-")).map(x => ({ seedId: x.seedId, pool: new Set(BEGINNER_POOL), colours: "mono" })),
   ];
+  assert.deepEqual(cases.slice(2).map(c => c.seedId), ["lab-cost-set", "lab-cost-dial", "lab-cost-log", "lab-cost-multiply"]);
   for (const { seedId, pool, colours } of cases) {
     const s = seedSetupSettings(seedId);
-    assert.ok(SEED_SETUPS.some(x => x.seedId === seedId && x.summary.length <= 160), `${seedId}: listed among the system setups`);
+    assert.ok([...SEED_SETUPS, ...LAB_SETUPS].some(x => x.seedId === seedId && x.summary.length <= 160), `${seedId}: listed among the system setups`);
     assert.equal(s.typeArgs.colours, colours, `${seedId}: board`);
     const inst = instantiate(s.objectType, s.typeArgs);
     // Every family of the pool is dealable on this shape and annotated; nothing else is (a new family must be excluded).

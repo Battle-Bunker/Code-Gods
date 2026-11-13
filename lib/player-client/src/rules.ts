@@ -3,7 +3,7 @@
  * settings. The app's "rules for an AI assistant" copy (artifacts/player-web/src/site/components/game-rules.tsx) says the
  * same at more length.
  */
-import { CHANGE_READ_RATIO, fullReadCharge, LANGUAGE_SPECS, OPTIONAL_SETTINGS, SETTINGS_DOCS, allowedLanguages, type FieldDoc } from "@workspace/game-core";
+import { CHANGE_READ_RATIO, OPTIONAL_SETTINGS_FIELDS, changeCostExplained, costModelOf, fullReadCharge, LANGUAGE_SPECS, SETTINGS_DOCS, allowedLanguages, type FieldDoc } from "@workspace/game-core";
 
 type Settings = Record<string, unknown>;
 
@@ -22,12 +22,23 @@ const capacityText = (s: Settings): string => typeof s.fullChargeSeconds === "nu
   ? `, until it is full: an agent holds at most ${n(s, "fullChargeSeconds")} seconds of its income (a 25% share: ${(0.25 * Number(s.powerPerSecond ?? 8) * s.fullChargeSeconds).toFixed(0)} bits), and your own energy at most ${n(s, "fullChargeSeconds")} seconds of your unallocated power. Energy fills up in ${n(s, "fullChargeSeconds")} seconds and then stops: use it or re-allocate it. Taking power from an agent lowers what it can hold, and what it holds above that is lost.`
   : ".";
 
+/**
+ * The "## Bidding" section when the game has a bid phase (bidSeconds > 0; docs/bid-phase.md), else "": a game without
+ * one, or one started before the setting existed, says nothing about bidding.
+ */
+const bidText = (s: Settings): string => typeof s.bidSeconds === "number" && s.bidSeconds > 0 ? `
+## Bidding
+Before the rules are dealt, the gods have ${s.bidSeconds} s to bid for the rule they want (it ends early when every human player is done). A bid is a handicap, a whole percent from 1 to 100 taken off your own score, on a rule family of this game's pool. The highest bid on a family wins it and nobody else gets it (ties are broken at random); a winner's other bids are dropped, and everyone else is dealt at random from the families nobody won.
+${s.bidPricing === "second" ? "Second price: a winner's handicap is the highest bid they beat on that family, at least 1%." : "First price: a winner's handicap is their own bid."}
+` : "";
+
 /** Every setting with its value and the same meaning and consequence the configuration page shows (lib/game-core SETTINGS_DOCS). */
 export function settingsExplained(s: Settings): string {
   return Object.entries(SETTINGS_DOCS as Record<string, FieldDoc>).map(([key, doc]) => {
-    const value = s[key];
-    // The optional setting (tiered rules) is absent when off.
-    const shown = value === undefined ? ((OPTIONAL_SETTINGS as readonly string[]).includes(key) ? "none" : "?") : Array.isArray(value) ? (value.length ? value.join(", ") : "none") : typeof value === "object" ? JSON.stringify(value) : String(value);
+    const value = key === "costModel" ? costModelOf(s) : s[key];   // optional: absent means the default model
+    // An optional setting (tiered rules) is absent when it is off.
+    const shown = value === undefined ? ((OPTIONAL_SETTINGS_FIELDS as readonly string[]).includes(key) ? "none" : "?")
+      : Array.isArray(value) ? (value.length ? value.join(", ") : "none") : typeof value === "object" ? JSON.stringify(value) : String(value);
     return `- ${key} = ${shown}${doc.unit ? ` ${doc.unit}` : ""}: ${doc.meaning} ${doc.consequence}`;
   }).join("\n");
 }
@@ -44,7 +55,7 @@ ${s.defenceGoals ? `Every god also has a defence goal (penalty, bigger is worse)
 For each CURRENT object x: payoff_me(x) = net_me(x) * max(0, sum of every other god's net bits of x).
 Your total payoff is the sum over all current objects. You see only your own scores and the aggregate of your peers, never another god's.
 If, overall, the others do not care about an object, nobody scores from it.
-
+${bidText(s)}
 ## Agents
 An agent is code in one of this game's languages (${allowed.map(l => LANGUAGE_SPECS[l].label).join(", ") || "?"}), chosen per agent, defining ${shapes.join(" or ")} that returns mutator calls, against the room's helper prelude (see the observation's instance: mutators and helpers). Its summon price is counted in its own language.
 It returns at most 16 mutator calls; objects change only through mutators. All object values are unique.
@@ -55,9 +66,10 @@ with probability proportional to its energy (an agent at or below zero waits). T
 An act pays only what it does: what it reads, plus its change when it changes the object. Being given an object is itself a read (which of the live objects it is: log2 of their number, in bits), so every turn costs a little even when the agent looks at nothing and returns no calls. There is no other charge per act.
 Looking is ${CHANGE_READ_RATIO}× cheaper than changing: each bit of the object an act reads costs 1/${CHANGE_READ_RATIO} bit of energy (${lookText(s)}computing is free).
 So look before you change, return no calls when nothing is worth doing (a skip: it pays only what it read), and save energy to act more often.
-A change costs W + 0.05·W², where W adds up its elementary steps (one cell's colour or symbol; one digit added, or a multiplication by a prime):
-painting a 4-cell row costs about 7.5× one cell. Small incremental acts are much cheaper than radical ones.
-You may destroy your own agents at any time, for free (their power share comes back to you).
+${changeCostExplained(s as Parameters<typeof changeCostExplained>[0], costModelOf(s))}
+An act may cost more than the agent has: it then owes the rest and gets no turns until its income has repaid it.${typeof s.fullChargeSeconds === "number" ? ` It may owe at most what it can hold, so a change that would leave it owing more does not happen (the act fails with "could not afford this change" and pays only what it read): big changes need a big power share.
+Debt moves with power: if you destroy an agent that owes, or take power from it, what it owes (or the same part of it) becomes yours, out of your own energy, which can then be below zero; you cannot summon until your own income has repaid it. If you owe and give an agent power, it takes the same part of your debt.` : ""}
+You may destroy your own agents at any time, for free (their power share comes back to you${typeof s.fullChargeSeconds === "number" ? ", and so does anything they owe" : ""}).
 At most ${n(s, "maxAgentsPerGod", 200)} agents per god.
 
 ## Energy and timing

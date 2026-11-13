@@ -21,6 +21,7 @@
  */
 import { applyCalls, READ_PRICE } from "../mutators.ts";
 import { objectType } from "../registry.ts";
+import type { CostModel } from "../structure/index.ts";
 import type { ActOutcome, Instantiation, ObjectTypeDef, ObjectValue } from "../types.ts";
 import type { ReferenceMixture } from "./mixture.ts";
 import { deriveSeed } from "./rng.ts";
@@ -55,6 +56,8 @@ export interface MeasureOptions {
   readonly salt: string | Uint8Array;
   /** Runs in flight at once. Default 1 (results never depend on it). */
   readonly concurrency?: number;
+  /** The room's cost model (settings.costModel); absent means set-v1. */
+  readonly costModel?: CostModel;
 }
 
 export const MEASURE_DEFAULTS = Object.freeze({ concurrency: 1 });
@@ -169,7 +172,7 @@ export async function measureAgent(runActs: RunActs, inst: Instantiation, mixtur
     const usedRandom = !!run.usedRandom, read = meterBits(run.readBits);
     if (run.error) return { read, change: 0, changed: false, skipped: false, mutators: [], usedRandom, error: run.error, steps: run.steps };
     if (isSkip(run.calls)) return { read, change: 0, changed: false, skipped: true, mutators: [], usedRandom, steps: run.steps };
-    const out: ActOutcome = applyCalls(typeDef, inst, value, run.calls);
+    const out: ActOutcome = applyCalls(typeDef, inst, value, run.calls, opts.costModel);
     if (!out.ok) return { read, change: 0, changed: false, skipped: false, mutators: [], usedRandom, error: out.reason, steps: run.steps };
     return { read, change: actCharge(out, read).change, changed: true, skipped: false, mutators: out.calls.map(c => c[0]), usedRandom, steps: run.steps };
   };

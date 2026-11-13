@@ -5,16 +5,17 @@
  * helpers drawer with insert, a byte count, Validate (free) and Summon (pays from your energy). The same command
  * path as everything else; an uncertain summon keeps its envelope for the identical retry under the header.
  */
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { AGENT_DESCRIPTION_MAX, AGENT_NAME_MAX } from "@workspace/player-client";
 import { Loader2, Sparkles, Wand2 } from "lucide-react";
 import { AgentCost, HelpersDrawer, type ActCostBreakdown } from "@workspace/object-views";
 import { useMyAgents, useMutators, useDockState } from "@/sdk";
-import { LANGUAGE_SPECS, defaultShare, isLanguage } from "@workspace/game-core";
+import { LANGUAGE_SPECS, changeCostHint, costModelOf, defaultShare, isLanguage } from "@workspace/game-core";
 import { runner, useGameCommands, useRunner, type Lang } from "@/core/game/runner";
 import { forgeLanguage, forgeLanguages, forgeSandbox } from "@/core/game/language";
 import { useAffordances } from "@/core/use-affordances";
 import { summonNeeds } from "./summon-needs";
+import { OBSERVER_DESCRIPTION, OBSERVER_NAME, observerRate, observerSource, rateText } from "./observer";
 import { GhostButton, PanelEmpty, PrimaryButton, TextButton, type PanelProps } from "./kit";
 
 const fmt = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(3));
@@ -64,6 +65,15 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended }: { lan
   const { can } = useAffordances({ language });
   const editor = useRef<HTMLTextAreaElement>(null);
   const source = draft.source;
+  // Paid observation (economy.observation; docs/energy-model.md §11.3): the observer agent as a ready template.
+  const observer = useMemo(() => {
+    const e = obs?.economy, mode = e?.observation;
+    const template = observerSource(language, instance?.objectType);
+    if (!e || !mode || mode === "free" || e.fullRead === undefined || !template || ended) return null;
+    const objects = (obs as { objectCount?: number }).objectCount ?? 0;
+    return { source: template, boards: mode === "boards",
+      ...observerRate({ fullRead: e.fullRead, objects, changeReadRatio: e.changeReadRatio ?? 32, powerPerSecond: e.powerPerSecond, share: 0.1 }) };
+  }, [obs, language, instance?.objectType, ended]);
   const insert = (name: string) => {
     const el = editor.current;
     const at = el ? el.selectionStart : source.length, end = el ? el.selectionEnd : source.length;
@@ -77,6 +87,9 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended }: { lan
   const canSummon = gameplay && !!validation?.result.accepted && !!current?.valid && current.cost <= (obs?.self.energy ?? 0) && allowed.includes(language) && source.trim().length > 0;
   const arg = instance?.objectType === "Grid" ? "grid" : "x";
   const noun = instance?.objectType === "Grid" ? "grid" : "object";
+  // What a change costs in this room, with its own numbers (game-core change-cost.ts; the room's cost model).
+  const costModel = costModelOf(obs?.economy);
+  const costHint = useMemo(() => (instance ? changeCostHint({ objectType: instance.objectType, typeArgs: instance.args }, costModel) : ""), [instance, costModel]);
   return (
     <div className="space-y-3" data-testid="panel-forge">
       <div className="flex flex-wrap items-center gap-2">
@@ -90,6 +103,16 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended }: { lan
         </label>
         <span className="ml-auto font-mono text-[11px] text-muted-foreground">{bytes(source)} / 16384 bytes</span>
       </div>
+      {observer && observer.source !== source && (
+        // Paid observation: the standing watch, one click away, with what it costs (./observer.ts).
+        <p data-testid="text-observer-template" className="max-w-[75ch] text-xs text-muted-foreground">
+          <strong className="font-semibold text-foreground">An agent that only looks.</strong>{" "}
+          It reads the whole object and changes nothing, so each object it is handed is shown to you as it is
+          {observer.boards ? " (the others' interest in it, here)" : ""}. A turn costs it {observer.perTurn.toFixed(2)} energy; with a 10% share
+          of your power it {rateText(observer.perSecond)}.{" "}
+          <TextButton boxed testId="button-observer-template" onClick={() => { runner.setDraft({ source: observer.source }); if (!name.trim()) setName(OBSERVER_NAME); if (!description.trim()) setDescription(OBSERVER_DESCRIPTION); }}>Use this agent</TextButton>
+        </p>
+      )}
       {assistantDraft && assistantDraft !== source && (
         <p className="text-xs text-muted-foreground">Your assistant has a draft here. <TextButton onClick={() => runner.setDraft({ source: assistantDraft })}>Load it</TextButton></p>
       )}
@@ -98,7 +121,7 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended }: { lan
         placeholder={language === "python" ? `def agent(${arg}):\n    # return a list of moves, e.g. [swap(...)]\n    return []`
           : `function agent(${arg}) {\n  // return a list of moves, e.g. [swap(...)]\n  return [];\n}`}
         className="h-56 w-full resize-y border-l-4 border-[hsl(var(--input))] bg-secondary p-3 font-mono text-[13px] leading-relaxed text-secondary-foreground caret-[hsl(var(--primary))] outline-none focus:border-primary" />
-      <p className="text-xs text-muted-foreground">Write <code>{language === "python" ? `def agent(${arg}):` : `function agent(${arg})`}</code>. It reads the {noun} and returns at most 16 moves from the room's helpers; each act costs bits from the agent's own energy.</p>
+      <p className="text-xs text-muted-foreground">Write <code>{language === "python" ? `def agent(${arg}):` : `function agent(${arg})`}</code>. It reads the {noun} and returns at most 16 moves from the room's helpers; each act costs bits from the agent's own energy.{costHint && <> <span data-testid="text-forge-change-cost">{costHint}</span></>}</p>
       {obs?.instance && <HelpersDrawer helpers={obs.instance.helpers} language={language} onInsert={insert} open={showHelpers} />}
       <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
         <label className="space-y-0.5 text-xs text-muted-foreground">

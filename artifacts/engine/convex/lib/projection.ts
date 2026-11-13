@@ -5,9 +5,10 @@
  * opponents' scores and descriptors, seeds, other gods' agent sources, AI prompts and the end deadline
  * (endAtWorld) never leave. Every public query builds its result through these functions.
  */
+import { biddingView } from "../bidding";
 import { agentDisplayName } from "./agentName";
 import { gameNotice } from "./engineErrors";
-import { godLooks, allowedLanguages, deityIncome, roundShare, instantiationOf, leaderboard, paidObservation, rankTotals, type GameSettings } from "@workspace/game-core";
+import { godLooks, allowedLanguages, costModelOf, deityIncome, roundShare, instantiationOf, leaderboard, paidObservation, rankTotals, type GameSettings } from "@workspace/game-core";
 import { lookPriceOf } from "./knowledge";
 import { CHANGE_READ_RATIO, COMMIT_CLAUSE_HELPER, instanceInfo, type InstanceInfo } from "@workspace/game-types";
 import { VERSION, observationSchema, type Observation } from "@workspace/player-client";
@@ -34,7 +35,7 @@ export type Standing = { deityId: string; name: string; kind: "human" | "ai"; to
  */
 export function standings(game: Pick<Game, "roster"> & { scoreboard?: Scoreboard }, objects: readonly Pick<Obj, "scores">[]): Standing[] {
   const member = new Map(game.roster.map(m => [m.id, m]));
-  const rows = game.scoreboard ? rankTotals(game.roster.map(m => m.id), game.scoreboard.totals) : leaderboard(game.roster.map(m => m.id), objects.map(netMap));
+  const rows = game.scoreboard ? rankTotals(game.roster.map(m => m.id), game.scoreboard.totals) : leaderboard(game.roster.map(m => m.id), objects.map(netMap));   // (a game from before scoreboards has no handicaps)
   return rows.map(row => ({
     deityId: row.godId, name: member.get(row.godId)!.name, kind: member.get(row.godId)!.kind, totalPayoff: row.totalPayoff, rank: row.rank,
   }));
@@ -42,7 +43,7 @@ export function standings(game: Pick<Game, "roster"> & { scoreboard?: Scoreboard
 
 /** The fully applied object type of (validated) settings, with the commit-clause helper when offered. */
 export function objectInstance(settings: GameSettings): InstanceInfo {
-  const info = instanceInfo(instantiationOf(settings));
+  const info = instanceInfo(instantiationOf(settings), costModelOf(settings));
   return settings.commitClause ? { ...info, helpers: [...info.helpers, COMMIT_CLAUSE_HELPER] } : info;
 }
 
@@ -123,6 +124,8 @@ export function publicRoom(room: Doc<"rooms">, members: readonly Doc<"members">[
     activeGame: activeGameRef(active),
     // A start waiting for rule tables computed on demand: progress only (the deal stays private until the game starts).
     preparing: room.preparing ? preparingView(room.preparing) : null,
+    // A start in its bid phase (bidding.ts): its clock and how many play. Bids are private (bidding.mine: the caller's own).
+    bidding: room.bidding ? biddingView(room.bidding) : null,
   };
 }
 
@@ -191,7 +194,7 @@ export function agentView(game: ClockedGame, agent: Doc<"agents">, nowMs = Date.
 /** The owner's breakdown of how the agent's acts ended (counted by the tick) and its diagnosis (lib/futility.ts). */
 export function agentOutcomes(agent: Pick<Doc<"agents">, "transforms" | "failures" | "lastFailures">) {
   if (agent.failures === undefined && agent.transforms === undefined) return {};
-  const outcomes = { transforms: agent.transforms ?? 0, failures: agent.failures ?? NO_FAILURES, ...(agent.lastFailures ? { lastFailures: agent.lastFailures } : {}) };
+  const outcomes = { transforms: agent.transforms ?? 0, failures: { ...NO_FAILURES, ...agent.failures }, ...(agent.lastFailures ? { lastFailures: agent.lastFailures } : {}) };
   const diagnosis = diagnoseAgent(outcomes);
   return { outcomes, ...(diagnosis ? { diagnosis } : {}) };
 }
@@ -228,11 +231,12 @@ export function projectEvent(ev: Ev, godId: string, index: number, live = true) 
   }
   if (ev.t === "destroy") {
     const mine = ev.ownerId === godId;
-    return live && !mine ? null : { type: "agent.destroyed" as const, agentId: ev.agentId, mine, worldSeconds: ev.world };
+    // `owed` (the debt that moved to its god with its power, §7.2) is the owner's own account: theirs alone while live.
+    return live && !mine ? null : { type: "agent.destroyed" as const, agentId: ev.agentId, mine, worldSeconds: ev.world, ...(mine && ev.owed !== undefined ? { owed: ev.owed } : {}) };
   }
   if (ev.t === "power") {
     if (ev.ownerId !== godId) return null;
-    return { type: "agent.power" as const, agentId: ev.agentId, worldSeconds: ev.world, share: ev.share };
+    return { type: "agent.power" as const, agentId: ev.agentId, worldSeconds: ev.world, share: ev.share, ...(ev.owed !== undefined ? { owed: ev.owed } : {}) };
   }
   if (ev.t === "look") {
     // A god's looks are its own while the game is live (what it chose to watch says what it cares about).
@@ -305,8 +309,8 @@ export function replayEvent(ev: Ev) {
       summonCost: ev.summonCost, expectedActCost: ev.expectedActCost, ...(ev.powerShare !== undefined ? { powerShare: ev.powerShare } : {}),
       breakdown: costBreakdown(ev.breakdown), randomized: ev.randomized, account: ev.account,
     };
-    case "destroy": return { type: "agent.destroyed" as const, agentId: ev.agentId, ownerId: ev.ownerId, worldSeconds: ev.world };
-    case "power": return { type: "agent.power" as const, agentId: ev.agentId, ownerId: ev.ownerId, worldSeconds: ev.world, share: ev.share };
+    case "destroy": return { type: "agent.destroyed" as const, agentId: ev.agentId, ownerId: ev.ownerId, worldSeconds: ev.world, ...(ev.owed !== undefined ? { owed: ev.owed } : {}) };
+    case "power": return { type: "agent.power" as const, agentId: ev.agentId, ownerId: ev.ownerId, worldSeconds: ev.world, share: ev.share, ...(ev.owed !== undefined ? { owed: ev.owed } : {}) };
     case "look": return { type: "god.looked" as const, ownerId: ev.ownerId, worldSeconds: ev.world, price: ev.cost, count: ev.count, ...(ev.objectId ? { objectId: ev.objectId } : {}) };
   }
 }
@@ -374,10 +378,10 @@ export function observation(input: ObservationInput): Observation {
     economy: {
       powerPerSecond: powerOf(settings), startingEnergy: settings.startingEnergy,
       ...(fullChargeOf(settings) !== undefined ? { fullChargeSeconds: fullChargeOf(settings) } : {}),
-      changeReadRatio: CHANGE_READ_RATIO, maxAgentsPerGod: settings.maxAgentsPerGod,
+      changeReadRatio: CHANGE_READ_RATIO, maxAgentsPerGod: settings.maxAgentsPerGod, fullRead: lookPriceOf(settings),
       penaltyWeight: settings.penaltyWeight, worldSeconds: game ? worldNow(game, now) : 0,
       durationMode: settings.durationMode, lengthSeconds: settings.halfLifeSeconds,
-      commitClause: settings.commitClause, objectSelection: settings.objectSelection,
+      commitClause: settings.commitClause, objectSelection: settings.objectSelection, costModel: costModelOf(settings),
       // Paid observation (lib/knowledge.ts): objects are shown as last told (`knownAt`); one look at one object costs lookPrice.
       ...(paidObservation(settings) ? { observation: settings.observation, ...(godLooks(settings) ? { lookPrice: lookPriceOf(settings) } : {}) } : {}),
     },
@@ -391,7 +395,7 @@ export function observation(input: ObservationInput): Observation {
       })() : {}),
       // The own score is live; the leaderboard below is the scoreboard last published.
       // Live, it is the sum of the payoffs as disclosed (from the noisy peers' sums), consistent with the scoreboard.
-      ...(game && deity ? { score: input.score ?? (game.phase === "ended" ? totalsOf : disclosedTotalsOf)(game.roster.map(m => m.id), input.objects)[game.roster.findIndex(m => m.id === self.godId)] } : {}),
+      ...(game && deity ? { score: input.score ?? (game.phase === "ended" ? totalsOf : disclosedTotalsOf)(game.roster.map(m => m.id), input.objects, game.handicaps)[game.roster.findIndex(m => m.id === self.godId)] } : {}),
     },
     objects: game && deity ? input.views?.map(o => ({ id: o.id, value: o.value, own: o.own, peerNetBits: o.peerNetBits, peerCare: o.peerCare, payoff: o.payoff, ...(o.knownAt !== undefined ? { knownAt: o.knownAt } : {}) })) ?? input.objects.flatMap(o => {
       const view = personalObject(o, self.godId, game.phase !== "ended");

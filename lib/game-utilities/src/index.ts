@@ -11,6 +11,10 @@ export {
   SELECTORS, selector, divineLottery, fairAligned, registerSynergy, synergyFor, availableFamilies,
   type UtilitySelector, type SelectOptions, type SynergyMatrix,
 } from "./selectors.ts";
+export {
+  resolveBids, dealWithBids, applyHandicap, bidProblem, BID_MIN_PERCENT, BID_MAX_PERCENT, BID_PRICINGS,
+  type Bid, type BidWin, type BidDeal, type BidPricing,
+} from "./bidding.ts";
 export { cardProgram } from "./families/card.ts";
 export { GRID_FAMILIES, GRID_LENSES } from "./families/grid/index.ts";
 export { INT_FAMILIES } from "./families/int.ts";

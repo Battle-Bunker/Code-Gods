@@ -4,8 +4,10 @@ The owner's decisions of 3 Nov 2026, recorded in `docs/coordination/status.md` (
 one economy. This document is the specification; the code cites its sections. All numbers below are for the
 "First steps" board, Grid(4, base10, rgb): 16 cells, S = 10 symbols, C = 3 colours.
 
-Proposed successor (design, not shipped): [docs/mutation-cost-design.md](mutation-cost-design.md) prices change by
-distance (add k on a digit costs 4 + 1.585·|k| bits, no set for numbers) and drops the read and summon prices.
+Cost models (11 Nov 2026): a room prices change by one of two models, §4. "set-v1" (the default, and every number in
+this document outside §4.5) charges every changed cell the same; "distance-v1" (§4.5, a room setting) charges a number
+by how far it moved. The design behind it is [docs/mutation-cost-design.md](mutation-cost-design.md), which also
+proposes dropping the read and summon prices: that part is not shipped, and reads and summons are priced as below.
 
 ## 1. Principles
 
@@ -190,7 +192,25 @@ The meter is guest code, so the guest must not be able to read the board or rese
 
 ## 4. Change cost
 
-### 4.1 Elementary mutators and their information cost w
+One rule holds in every room: **a move costs the changes it makes, cell by cell.** An act's W is the sum, over its
+calls, of the work of each site (a cell's number, a cell's colour, an Int's digit place, a string's character) the
+call's net effect changed, whatever mutator did it, and the act pays C = W + β·W² (§4.3).
+
+What one changed site costs is the room's **cost model**: the optional room setting `settings.costModel`, shown to
+clients as `economy.costModel`. Absent means "set-v1", so games and settings stored before cost models existed read as
+before.
+
+- **"set-v1"** (§4.1, §4.2, §4.4): a value is overwritten. Every changed cell costs the same, however far its value
+  moved. Every object type supports it.
+- **"distance-v1"** (§4.5): a number is moved. It pays for how far it went; a colour or a card's suit pays a flat
+  price for having changed. Grid supports it; Int and string rooms stay on set-v1.
+
+A cost model changes what a change costs, never what a call does. `applyCalls(typeDef, inst, value, wire, model)`
+prices an act under a model, `objectType(t).costTable?.(inst, model)` lists a type's one-cell moves with their W,
+and `changeCost(W)` is C (`lib/game-types/src/structure/index.ts`, `mutators.ts`). The texts that explain cost to
+players and AIs take their numbers from these (`lib/game-core/src/change-cost.ts`).
+
+### 4.1 Elementary mutators and their information cost w (set-v1)
 
 w is the surprisal of the call's parameters under the maximum-entropy prior on them, plus, for an overwrite, the bits
 it erases (pointwise: log2 of the preimage size). There is one op-choice bit per call (log2 of the number of elementary
@@ -219,7 +239,7 @@ There is no "set the number" mutator. Setting a number means a sequence of digit
 
 Every existing mutator stays, priced by the decomposition of its *net effect on this value* into elementary ones:
 
-- **Grid:** W(call) = Σ over cells whose colour changed of w_colour + Σ over cells whose symbol changed of w_symbol.
+- **Grid (set-v1):** W(call) = Σ over cells whose colour changed of w_colour + Σ over cells whose symbol changed of w_symbol.
   This is exact: a cell that changed needs at least one set, and one set suffices. `paint(cell, c)` and
   `write(cell, s)` are the elementary mutators. `paint(row(2), "red")` on a row with no red is 4 sets.
 - **Int:** W(call) = the cheaper of:
@@ -248,7 +268,7 @@ colour changes on a 4×4 board.
 
 `CHANGE_BETA = 0.05` is a constant in `lib/game-types`, not a room setting, so every room prices change alike.
 
-### 4.4 Worked examples (β = 0.05)
+### 4.4 Worked examples (set-v1, β = 0.05)
 
 | Board | Act | W | C = W + βW² | × one cell |
 |---|---|---|---|---|
@@ -269,6 +289,110 @@ The owner's checks hold:
 - a row costs more than 4 × a cell.
 
 They are unit tests (`lib/game-types/test/mutators.test.ts`).
+
+### 4.5 The distance model (distance-v1, 11 Nov 2026)
+
+Under distance-v1 a mutator is a cost function, not a constant. Each value layer of a site has one *generator*, the
+elementary move on it, and the work of moving one site from a to b is
+
+```
+w(a → b) = ℓ_where + ℓ_which + λ · d(a, b) + ε
+```
+
+- **ℓ_where** = log2(number of sites): on a Grid, log2 of the number of cells.
+- **ℓ_which** = log2(number of generator families the type offers here). A family is a kind of thing a cell has that
+  can change: a numbers-only board has 1 (its numbers: 0 bits), numbers with colours 2 (1 bit), cards with colours 3
+  (rank, suit and colour: 1.585 bits). A layer with one value (a mono board's colour) is no family.
+- **d(a, b)** = the fewest generator steps from a to b. Numbers (digits 0–9, base 12 and 16, card ranks A–K) are a
+  *slider*: the generator is ±1 without wrap, so d = |b − a|. Colours and suits are *categorical*: any change is one
+  step.
+- **λ** is the rate at which the generator's argument code is complete with no constant: the Kraft root of
+  Σ over every non-identity argument of 2^(−λ·d) = 1 (`kraftRate`). It follows from the argument space and **is not
+  tuned**. On a slider it is log2 3 = 1.585 bits per step (each further step is one of three continuations: stop, or
+  one further either way). On a categorical layer of n values it is log2(n − 1), the bits to name one of the others.
+- **ε** = the bits the move erases (log2 of the preimage size). Every distance-v1 generator is a bijection, so ε = 0:
+  nothing is paid for erasure, where set-v1 pays log2 n for the value it overwrites.
+
+So on a Grid, per changed cell:
+
+| Change | w |
+|---|---|
+| a number moved by k steps | log2 N² + log2 families + 1.585·\|k\| |
+| a colour changed (C colours) | log2 N² + log2 families + log2(C − 1) |
+| a card's suit changed | log2 N² + log2 families + log2 3 |
+
+**Every mutator is priced by its net effect on each changed cell**, as under set-v1 (§4.2): the sum over cells of the
+work of how far each cell's number moved, plus a flat price for each colour or suit that changed.
+
+- `write(cell, 7)` on a 5 costs what `add(cell, 2)` costs.
+- `count_on` wraps: taking a 9 round to 0 moves the number 9 steps and pays for 9.
+- Rows, slides, reversals and swaps pay for each cell by how far its number moved; a cell whose number did not change
+  pays nothing.
+- A card whose rank and suit both change pays for both.
+
+**`add`** is a mutator in every Ranked Grid's prelude, under both models: Python `add(where, amount=1)`, TypeScript
+`add(where, amount = 1)`. It adds `amount` to every number in a cell, row, column, square, ring or everything. It never
+wraps: if any number would leave the range (9 + 1), the act fails. Under set-v1 it is a composite priced like any other
+symbol change; under distance-v1 it is the generator the numbers are priced by.
+
+**The beginner board** (4×4, numbers only: 16 cells, 1 family), w = 4 + 1.585·|k|:
+
+| move one number by | ±1 | ±2 | ±3 | ±4 | ±5 | ±6 | ±7 | ±8 | ±9 |
+|---|---|---|---|---|---|---|---|---|---|
+| W (bits) | 5.58 | 7.17 | 8.75 | 10.34 | 11.92 | 13.51 | 15.09 | 16.68 | 18.26 |
+| C = W + 0.05·W² | 7.1 | 9.7 | 12.6 | 15.7 | 19.0 | 22.6 | 26.5 | 30.6 | 34.9 |
+| set-v1 (any change) | 16.3 | 16.3 | 16.3 | 16.3 | 16.3 | 16.3 | 16.3 | 16.3 | 16.3 |
+
+A nudge costs 0.44× a set-v1 change, ±4 about the same, and ±5 and beyond more.
+
+**Other boards** (one cell, as an act of its own):
+
+| Board | Change | W | C | set-v1 C |
+|---|---|---|---|---|
+| 4×4 base10 mono | `add(row(2), 1)`: four numbers by 1 | 22.3 | 47.3 | 133 (4 symbols) |
+| 4×4 base10 rgb (2 families) | a number by ±1 | 6.58 | 8.8 | 18.4 |
+| 4×4 base10 rgb | a number by ±2 | 8.17 | 11.5 | 18.4 |
+| 4×4 base10 rgb | a number by ±9 | 19.26 | 37.8 | 18.4 |
+| 4×4 base10 rgb | a colour (4 + 1 + log2 2) | 6.00 | 7.8 | 11.5 |
+| 5×5 base10 rgby | a number by ±1 | 7.23 | 9.8 | 19.8 |
+| 5×5 base10 rgby | a colour (log2 25 + 1 + log2 3) | 7.23 | 9.8 | 14.3 |
+| 6×6 cards rainbow6 (3 families) | a rank by ±1 (5 → 6) | 8.34 | 11.8 | 33.0 |
+| 6×6 cards rainbow6 | a suit (♠ → ♥) | 8.34 | 11.8 | 33.0 |
+| 6×6 cards rainbow6 | a colour (log2 36 + log2 3 + log2 5) | 9.08 | 13.2 | 17.8 |
+| 6×6 cards rainbow6 | 5♠ → 7♥ (rank by 2 and suit) | 18.26 | 34.9 | 33.0 |
+| 7×7 cards mono (2 families) | a rank by ±1 | 8.20 | 11.6 | 31.5 |
+
+**Three variants** are declared beside distance-v1 (`COST_MODELS`), each differing from it in one declaration; everything
+above holds for them except as said:
+
+- **"dial-v1"**: numbers are a *dial* (cyclic: 9 and 0 are one step apart), so d is the shorter way round and a wrap
+  pays one step. λ is the Kraft root of the dial's argument space (1.577 on ten digits). ±5 is the farthest move.
+- **"log-v1"**: numbers are a slider, but the argument code grows with log2 d: the maximum-entropy code with a fixed
+  mean of log-distance, P(k) ∝ |k|^−2 (w = ℓ_where + ℓ_which + log2 Z + 2·log2 |k|). Each doubling of the distance costs
+  2 bits, so a far move costs little more than a middling one (beginner board: ±1 7.2, ±2 10.5, ±9 19.1).
+- **"multiply-v1"** (boards of the digits 0–9 only): the number layer has a second generator, multiply modulo the base, and a
+  number's move costs the cheaper of the two plus ℓ = 1 bit to say which. ×m is named by its magnitude: λ×·log2 m with
+  ×0 read as ×base, λ× = 1.496 on ten digits (the Kraft root over m = 0, 2 … 9), and it erases ε = log2 gcd(m, base)
+  bits, since it merges that many numbers into one (×2: 1 bit; ×5: 2.32; ×0: 3.32; ×3, ×7, ×9 erase nothing). The room
+  offers `multiply(where, by)` and `divide(where, by)` (÷u is × the inverse of u: only 3, 7, 9 on digits). Beginner
+  board: +1 is 6.58 bits (8.8 energy; the extra bit), ×3 is 7.37 (10.1) whatever it moves, ×0 is 13.29 (22.1). The
+  price stops being a distance on the number line: 43 of the 90 digit pairs are cheaper than their add (3 → 9 costs a
+  ×3, not a +6), and a → b need not cost what b → a costs. A cell pays its cheapest ROUTE (0 → 9 is +1 then ×9, two
+  located steps, 16.33 bits, not a +9 at 19.26), so one call never costs more than calls that do the same.
+
+**Where a model is offered.** The rule of §2.1 (a complete look costs less than the smallest change) is kept under every
+model: a room may choose a model only where it holds for that board (`supportedCostModels`, checked by
+`validateSettings`). Distance pricing makes the cheapest change cheaper, so on the biggest boards, where a look is
+dearest, it is not offered (7×7 cards in six colours: a colour change would cost 12.64 against a look of 12.69).
+
+**The noise follows the model.** Hold rarity's mutation noise (§8) is one move drawn with probability ∝ 2^−C. Under
+distance-v1 it draws a uniform cell and then one generator argument (a number by ±k, a suit or a colour to one of the
+others) with weight 2^−C(w), so a small step is likelier than a far one; a number move that would leave the range leaves
+the board as it is, like `add`. Hold tables are cached by `noiseVersion(model)`: set-v1 keeps `NOISE_VERSION`, so its
+tables stay valid, and distance-v1 has its own.
+
+The invariants a cost model must keep (docs/mutation-cost-design.md §5.5): the identity costs 0, every generator's
+Kraft sum is 1, a composite never costs less than its net effect, and set-v1 prices are unchanged.
 
 ## 5. What the agent is told at summon
 
@@ -410,8 +534,9 @@ much less than mutation) to get exposure to mutation opportunities."
   | Big board | 80 | 0.198 | 17.8 | 1.1% | 2.7% |
   | Master | 80 | 0.198 | 18.7 | 1.1% | 1.6% |
 
-- **The summon-time estimate** (`expectedActCost`, `breakdown.read`) is of the act alone; the offer's price depends on
-  how many objects are live.
+- **The summon-time estimate** (`expectedActCost`, `breakdown.read`) includes the offer, at the number of objects the
+  game holds when the agent is validated or summoned (the examination measures the act alone; `game/commands.ts` adds
+  it). So an agent that reads nothing and skips is told about 0.2 bits per act, which is what it pays, not 0.
 - **Is it enough against hoarding?** With the capacity, yes; and it is the capacity that does the work. The experiment
   (`lib/game-core/scripts/capacity-experiments.ts`, First steps, 100 games per row): one god's three agents read
   nothing and never act; the other two gods play greedy.
@@ -435,20 +560,61 @@ much less than mutation) to get exposure to mutation opportunities."
   agent: log2 objects + log2 of the room's agents with energy), not a per-agent rule. The measurements above do not call
   for it.
 
-### 7.2 Debt (open)
+### 7.2 Debt: at most a full store, and it moves with power (13 Nov 2026)
 
-A balance may go negative by one whole act: an agent with 0.1 bits can commit a 985-bit repaint of a 4×4 grid and then
-waits until income repays it. Debt is per agent, not per unit of power: n agents can owe n acts, and one agent's debt
-does not reduce its siblings' weight in the draw. In the long run this is neutral (every bit spent is repaid from the
-agent's own income before it acts again), with two exceptions that exist today:
+A balance may go negative: an act's cost is known only after it has run. Until this rule the debt had no bound and
+was per agent, not per unit of power: an agent with 0.1 bits could commit a 985-bit repaint of a 4×4 grid, n agents
+could owe n such acts, and the debt could be left unpaid by destroying the agent (re-summon: about 60 bits) or by
+giving its power to another agent. That was free energy, on develop and in production.
 
-- **Destroying an agent in debt, or giving its power to another agent, leaves the debt unpaid.** Destroy and re-summon
-  costs a summon price (about 60 bits for a small agent) against an act of any size.
-- **Debts outstanding when the game ends are never repaid.**
+One principle: **what an account owes is repaid by the power it holds.** Two consequences, both in terms of power:
 
-Proposed rule (not shipped; see the variant branch `variant/debt-within-capacity`): an account's balance stays within
-its capacity on both sides (an act that would leave it owing more than its capacity does not commit and pays its
-reads), and power cannot be taken from an account in debt.
+- **An account may owe at most what it can hold** (its capacity, s·P·T), so its debt is always repayable within T
+  seconds by its own income. A change that would leave the agent owing more does not commit: the act fails as "could
+  not afford this change: it costs X bits, the agent had Y and may owe at most Z" (`failures.unaffordable`), pays its
+  reads like any change that does not commit, and is not remembered as futile (it commits once the agent holds more).
+  game-core `actCredit` and `affordable`; the tick applies them.
+- **Debt moves with power** (game-core `movePower`). When power is taken from an agent that owes (its share is
+  lowered, or it is destroyed), the same fraction of its debt moves onto its god's own account: a god's own energy can
+  therefore be negative, and until its own income has repaid it the god cannot pay for anything (a summon, a look).
+  When a god that owes gives an agent power, the agent takes the same fraction of the god's debt as it takes of the
+  god's unallocated power. Energy never moves this way (what an account holds above a lowered capacity is still lost);
+  debt is never lost. The `power` and `destroy` events record what moved (`owed`, `EVENT_LOG_SCHEMA` 13), the command's
+  receipt says it, and the replay applies the recorded amount.
+
+There is no rule about what an agent in debt may not do, and no special state: an agent in debt is simply not in the
+draw (its weight is zero), as before.
+
+**What this gives.**
+
+- Destroy and re-summon gains nothing: the debt is the god's, and the god cannot summon until it is repaid.
+- Moving power between agents gains nothing: the debt arrives with the power (`lib/game-core/test/energy.test.ts`:
+  over random re-allocations the total owed never changes, and no account without power ever owes).
+- Credit is a function of power: a god's accounts together can owe at most P·T, however many agents hold it. The
+  agent-count property test (§7) now includes a program that acts on credit.
+- The largest change an agent can ever make costs its capacity plus what it holds: at most 2·s·P·T. A whole 4×4 grid
+  (985 bits) needs a share of at least 26% at P = 64, T = 30.
+- Play is unchanged where it was sound: in the balance harness the bound changes no act count or win share on any
+  seed (`balance-settings.ts --T 30 --no-cap --offer --debt-bound`, 100 games per row: identical to the unbounded
+  rows), because agents there never owe more than a store.
+
+**What it costs.** An agent whose changes cost more than it can hold (more than s·P·T) must save before it can act,
+and in a busy room its turns keep coming while it saves, each one costing its reads: it is mostly refused. That is the
+agent's impact following its power, and the diagnosis says so ("give it a bigger power share, or make each act change
+less"). The same mechanism is why having no credit at all does not work (`variant/no-credit`, #293): there, every
+agent that looks before acting is in that position, and the harness shows 0 changes per game in the 100 Hz rooms
+(Classic 3,476 → 0, Big 2,416 → 0, Master 1,635 → 0).
+
+**Alternatives kept as branches.** `variant/debt-within-capacity` (#292: the same bound, but an agent in debt cannot
+be destroyed or given less power, a rule about a state); `variant/no-credit` (#293).
+
+A game without capacity (started before the setting) keeps its old behaviour. Stored data:
+`agents.failures.unaffordable` and the events' `owed` are optional (absent reads as 0 / nothing moved); nothing migrates.
+
+Tests: game-core (`affordable`, `movePower`, conservation under random re-allocation, neutrality with credit); engine
+unit (the failure kind and its diagnosis); replay (the recorded amount); `test/game-power.test.ts` on the real tick (a
+5% agent is refused a change a 90% agent commits; no account owes more than its capacity; half the power takes half
+the debt; a destroyed agent's debt lands on its god, who cannot summon until its income has repaid it).
 
 **What was removed, and why.** Until 11 Nov 2026 two limits were per agent, so a god gained turns by running more
 agents with the same power:
@@ -470,7 +636,7 @@ reports `economy.maxAgentOpportunityHz` (a replay of an older game still does). 
 **Per-agent quantities that remain** (none is an advantage in turns): `maxAgentsPerGod` (a limit); the summon price
 (each program is priced by its own description, so n small programs cost what their lengths cost, plus each one's own
 boilerplate: never cheaper than one); the futility memo (per agent and object: n copies of a deterministic agent each
-fail once on an object before being kept off it, and pay their reads); and debt (§7.2).
+fail once on an object before being kept off it, and pay their reads). Debt is bounded by power and moves with it (§7.2).
 
 ## 8. Hold rarity (PR 5)
 
@@ -636,6 +802,11 @@ given to it and the number of agents gives nothing (§6, §7). A god that keeps 
 directly: watching closely costs power either way. On the default setup (P = 64 bits/s, 10 objects) looking at
 everything once a second costs 16.6 bits/s, a quarter of a god's power.
 
+The forge offers it ready-made where looking costs energy ("An agent that only looks", `player-web`
+`core/panels/observer.ts`), with its cost under the offer price of §7.1: one turn costs the whole read plus the offer
+(log2 of the live objects, at the read price), 1.76 energy on the default setup with 10 objects, so a 10% share (6.4
+bits/s) refreshes about 3.6 objects a second. The observation carries the whole-read price as `economy.fullRead`.
+
 ### 11.4 What a seated god can read while the game is live
 
 | Path | Free game | Paid game |
@@ -644,7 +815,7 @@ everything once a second costs 16.6 bits/s, a quarter of a god's power.
 | `player.totals`, `dock.state` `self.score` | live | as of the last published scoreboard |
 | `player.events`, `history`, `trajectories` | every spawn and transformation | births and the god's own agents' acts (and its own looks) |
 | `player.series` (`get_utility_series`, `fit_utility_mixture`, the `utility_series` dataset) | every spawn and transformation, with the others' sum | the god's knowledge over time: one row per telling (11.7) |
-| `player.board` at a past world time | the board then | refused (it is a look at every object then) |
+| `player.board` with a world time (past, present or future) | the board then | refused: the board without a time is the god's knowledge, and the answer never depends on the clock |
 | `games.object`, `games.objectIds`, `player.game` objects (the spectator's queries) | the world | nothing for a seated god |
 | validate / summon's sample world | 16 live objects | the same objects as the god was last told them |
 | the published scoreboard, standings history, chat, own agents, own goal card, the clock | free | free |
@@ -689,6 +860,9 @@ energy would be detailed analysis that could expensively derive the goals of oth
   dataset and `fit_utility_mixture`) is that log. The rival inference fits the other gods' rules to (value, others' sum)
   pairs; in a paid game it has exactly the pairs the god paid for. The time resolution of the history is the rate the
   god samples at, and each sample costs one look.
+- The code-run datasets (`run_code`: `objects`, `observation`, `events`, `game_history`, `trajectories`,
+  `utility_series`) have no price of their own: each is read through the same functions as the dock, so in a paid live
+  game it holds what the god was told and nothing else. Their descriptions say so (`lib/player-client/src/datasets.ts`).
 - There is no purchase of the past: a state nobody paid to see at the time is not for sale later. (It would be a second
   mechanism; the price would be the same, one look per row.)
 - What an inference costs on the default setup (look 1.66; cheapest change 16.3; a small agent's summon price is tens of

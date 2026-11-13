@@ -3,7 +3,7 @@
  * now, why, and the single action that does it. Pure.
  */
 import type { PanelId, Phase } from "@workspace/player-client/panels";
-import type { StartView } from "@workspace/player-client/start";
+import type { RoomStartView } from "../../site/lib/bidding.ts";
 
 export type NextStepAction =
   | { kind: "panel"; panelId: PanelId }
@@ -13,7 +13,7 @@ export type NextStepAction =
 /** `busy`: a start is pending; the button shows a spinner and does nothing (no second start). */
 export type NextStep = { label: string; why: string; action: NextStepAction; busy?: true };
 /** `start`: the pending start (@workspace/player-client/start), so the click shows at once and progress follows. */
-export type NextStepContext = { phase: Phase; seated: boolean; isOwner: boolean; players: number; agents: number; start?: StartView;
+export type NextStepContext = { phase: Phase; seated: boolean; isOwner: boolean; players: number; agents: number; start?: RoomStartView;
   /** AI seats exist in this room (its owner is an administrator); absent means yes. */ aiEnabled?: boolean };
 
 export function nextStep(s: NextStepContext): NextStep {
@@ -25,6 +25,10 @@ export function nextStep(s: NextStepContext): NextStep {
     }
     if (s.isOwner && s.start?.phase === "preparing") {
       return { label: "Preparing the game…", why: `its rule tables are computing (${s.start.ready} of ${s.start.total} ready); it starts by itself.`, action: { kind: "start" }, busy: true };
+    }
+    // The bid phase (docs/bid-phase.md) is on the room page: its bidding screen has the one button.
+    if (s.start?.phase === "bidding") {
+      return { label: "Bidding…", why: "the players are bidding for their rules on the room page; the rules are dealt and the game starts by itself when bidding ends.", action: { kind: "start" }, busy: true };
     }
     if (s.isOwner && s.players >= 3) return { label: "Start the game", why: `${s.players} players are in (spectators watch); planning begins at once.`, action: { kind: "start" } };
     if (s.isOwner && s.aiEnabled === false) return { label: "Invite players", why: `a game needs 3 players and the room has ${s.players} (spectators don't count).`, action: { kind: "palette", command: "ui.room.copy-link" } };

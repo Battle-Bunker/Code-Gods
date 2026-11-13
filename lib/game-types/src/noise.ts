@@ -8,11 +8,15 @@
  * elementary-priced calls (×6 = ×2·×3 costs its prime factors), and ×4 (7.8 bits) weighs about as much as a digit add,
  * so every |m| ≤ MAX_MULTIPLIER is enumerated (the rest has mass below 1e-5 of the total).
  *
+ * Under a distance cost model (structure/index.ts) the Grid draw is over the generators' arguments instead: a small
+ * step is likelier than a far one.
+ *
  * The draw is exact for that distribution. A mutation that cannot apply (a multiplication out of range) leaves the
  * value as it is. Bump NOISE_VERSION whenever the costs or the distribution change: cached hold tables are keyed by it.
  */
 import { CHANGE_BETA, changeCost } from "./mutators.ts";
-import { gridArgs, gridElementaryCosts } from "./grid/index.ts";
+import { gridArgs, gridElementaryCosts, gridFamilies } from "./grid/index.ts";
+import { DEFAULT_COST_MODEL, locationBits, type CostModel } from "./structure/index.ts";
 import type { GridValue } from "./grid/codec.ts";
 import { COLOUR_COMPONENTS, SYMBOL_COMPONENTS } from "./grid/components.ts";
 import { digitAddCost, multiplyCost } from "./int/index.ts";
@@ -21,6 +25,12 @@ import { stringArgs, stringElementaryCosts } from "./string/index.ts";
 import type { Instantiation, Rng } from "./types.ts";
 
 export const NOISE_VERSION = `noise-v1|beta=${CHANGE_BETA}`;
+/**
+ * The noise version of a cost model: hold tables are cached by it. set-v1 keeps NOISE_VERSION, so tables computed before
+ * cost models existed stay valid; every other model has its own.
+ */
+export const noiseVersion = (model: CostModel = DEFAULT_COST_MODEL): string =>
+  model === DEFAULT_COST_MODEL ? NOISE_VERSION : `${NOISE_VERSION}|cost=${model}`;
 export const MAX_MULTIPLIER = 1024;
 
 /** A uniform number in [0, 1) from an Rng (53 bits). */
@@ -30,7 +40,8 @@ const weight = (C: number) => 2 ** -C;
 /** One mutation of `value` (the type's decoded value), drawn ∝ 2^(−C). Never mutates its input. */
 export type NoiseStep<V> = (value: V, rng: Rng) => V;
 
-function gridNoise(inst: Instantiation): NoiseStep<GridValue> {
+function gridNoise(inst: Instantiation, model: CostModel): NoiseStep<GridValue> {
+  if (model !== "set-v1") return gridGeneratorNoise(inst, model);
   const t = gridArgs(inst);
   const C = COLOUR_COMPONENTS[t.colours].count, S = SYMBOL_COMPONENTS[t.symbols].count, w = gridElementaryCosts(inst);
   const colourMass = (C - 1) * weight(changeCost(w.colour)), symbolMass = (S - 1) * weight(changeCost(w.symbol));
@@ -40,6 +51,30 @@ function gridNoise(inst: Instantiation): NoiseStep<GridValue> {
     if (unit(rng) < pColour) col[i] = (col[i] + 1 + rng.int(C - 1)) % C;
     else sym[i] = (sym[i] + 1 + rng.int(S - 1)) % S;
     return { size: g.size, sym, col };
+  };
+}
+
+/**
+ * Grid noise under every other model: a uniform cell, then one argument of one family's generator drawn ∝ 2^(−C(w))
+ * over the declared argument spaces (structure/index.ts Generator.args): the number by ±k (or ×m), the suit or the
+ * colour to one of the others. An argument that cannot apply (9 + 1 on a slider) leaves the board as it is, like the
+ * call it stands for.
+ */
+function gridGeneratorNoise(inst: Instantiation, model: CostModel): NoiseStep<GridValue> {
+  const fams = gridFamilies(inst, model);
+  const kinds = fams.flatMap(f => f.generator.args.map(arg =>
+    ({ family: f, arg, w: weight(changeCost(locationBits(f, fams.length) + (arg.bits + arg.erased))) })));
+  const cum: number[] = [];
+  let total = 0;
+  for (const k of kinds) cum.push(total += k.w);
+  return (g, rng) => {
+    const i = rng.int(g.size * g.size), u = unit(rng) * total;
+    let lo = 0, hi = cum.length - 1;
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (cum[mid] > u) hi = mid; else lo = mid + 1; }
+    const k = kinds[lo], out = { size: g.size, sym: g.sym.slice(), col: g.col.slice() };
+    const to = k.arg.apply(k.family.get(g, i));
+    if (to !== null) k.family.set(out, i, to);
+    return out;
   };
 }
 
@@ -83,19 +118,20 @@ function stringNoise(inst: Instantiation): NoiseStep<string> {
 }
 
 const memo = new Map<string, NoiseStep<unknown>>();
-/** The noise step for an instantiation (memoised). */
-export function noiseStep(inst: Instantiation): NoiseStep<unknown> {
-  let f = memo.get(inst.key);
+/** The noise step for an instantiation under a cost model (memoised). Int and string have one model. */
+export function noiseStep(inst: Instantiation, model: CostModel = DEFAULT_COST_MODEL): NoiseStep<unknown> {
+  const key = `${inst.key}|${model}`;
+  let f = memo.get(key);
   if (!f) {
-    f = (inst.objectType === "Grid" ? gridNoise(inst) : inst.objectType === "Int" ? intNoise(inst) : inst.objectType === "string" ? stringNoise(inst)
+    f = (inst.objectType === "Grid" ? gridNoise(inst, model) : inst.objectType === "Int" ? intNoise(inst) : inst.objectType === "string" ? stringNoise(inst)
       : (() => { throw new Error(`no mutation noise for ${inst.objectType}`); })()) as NoiseStep<unknown>;
-    memo.set(inst.key, f);
+    memo.set(key, f);
   }
   return f;
 }
 /** `m` independent noise steps. */
-export function noise<V>(inst: Instantiation, value: V, m: number, rng: Rng): V {
-  const step = noiseStep(inst) as NoiseStep<V>;
+export function noise<V>(inst: Instantiation, value: V, m: number, rng: Rng, model: CostModel = DEFAULT_COST_MODEL): V {
+  const step = noiseStep(inst, model) as NoiseStep<V>;
   let v = value;
   for (let k = 0; k < m; k++) v = step(v, rng);
   return v;

@@ -43,10 +43,10 @@ export interface UtilitySelector {
 const ATTEMPTS = 1000;
 
 /**
- * A uniform family among `candidates`, then its sampler (with `tiers`: a uniform one of its tiered draws); redrawn until
- * the draw is applicable (its needs) and has a table.
+ * A uniform family among `candidates`, then its sampler (with `tiers`: a uniform one of its tiered draws); redrawn
+ * until the draw is applicable (its needs) and has a table.
  */
-function drawFrom(candidates: readonly UtilityFamily<any>[], inst: Instantiation, rng: Rng, hasTable: (d: Draw) => boolean, tiers?: TierOptions): Draw | null {
+export function drawFrom(candidates: readonly UtilityFamily<any>[], inst: Instantiation, rng: Rng, hasTable: (d: Draw) => boolean, tiers?: TierOptions): Draw | null {
   if (!candidates.length) return null;
   const ctx = context(inst);
   for (let attempt = 0; attempt < ATTEMPTS; attempt++) {

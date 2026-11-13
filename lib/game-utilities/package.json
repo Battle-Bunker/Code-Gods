@@ -18,7 +18,8 @@
     "layered": "node --experimental-strip-types scripts/layered-profile.ts",
     "tiered": "node --experimental-strip-types scripts/tiered-profile.ts",
     "mutation-cost": "node --experimental-strip-types scripts/mutation-cost.ts",
-    "coordination": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/coordination.ts"
+    "coordination": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/coordination.ts",
+    "bid-market": "node --experimental-strip-types scripts/bid-market.ts"
   },
   "devDependencies": {
     "typescript": "~5.9.3",

@@ -6,10 +6,10 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_SETTINGS, applySettingsChange, seedSetupSettings } from "@workspace/game-core";
-import { objectType } from "@workspace/game-types";
+import { DEFAULT_SETTINGS, applySettingsChange, seedSetupSettings, supportedCostModels } from "@workspace/game-core";
+import { COST_MODELS, objectType } from "@workspace/game-types";
 import {
-  SECTIONS, argChoices, choiceLabel, formatValue, toggleLanguage, dealerNote, formatSeconds, defenceBlocker, draftErrors, fieldError, fieldsOf, firstUseNote, isHidden, lengthLine, paceWord,
+  SECTIONS, LABELS, argChoices, choiceLabel, costModelChoices, formatValue, toggleLanguage, dealerNote, formatSeconds, defenceBlocker, draftErrors, fieldError, fieldsOf, firstUseNote, isHidden, lengthLine, bidLine, paceWord,
   settingsDomain, shelfEntries, stepChoices,
 } from "../src/site/lib/settings-form.ts";
 import { editBlocker, freeName, ownerLabel } from "../src/site/lib/setup-words.ts";
@@ -24,7 +24,7 @@ const types = [
 
 test("the sections run World → Goals → Agents → Energy → Population → Time → Players & AI → Review, with no Start from", () => {
   assert.deepEqual(SECTIONS.map(s => s.id), ["world", "goals", "agents", "energy", "population", "time", "players", "review"]);
-  assert.deepEqual(fieldsOf("goals"), ["utilitySelectorId", "defenceGoals", "excludedDefenceFamilies", "excludedFamilies", "ruleTiers", "penaltyWeight", "priorId", "peerNoiseBits"], "asked, then more");
+  assert.deepEqual(fieldsOf("goals"), ["utilitySelectorId", "defenceGoals", "excludedDefenceFamilies", "bidSeconds", "excludedFamilies", "ruleTiers", "penaltyWeight", "priorId", "peerNoiseBits", "bidPricing", "bidVisibility", "bidDisclosure"], "asked, then more");
   assert.deepEqual(fieldsOf("world"), ["objectType", "typeArgs", "languages"], "the grammar and summon price follow each agent's language");
   assert.deepEqual(fieldsOf("population"), ["startingObjectCount", "spawnRateHz", "spawnFunctionId", "objectSelection"]);
 });
@@ -199,6 +199,59 @@ test("tiered rules: the control's choices are none, one tier or two; none remove
   assert.deepEqual(ruleTiersPatch("1"), { ruleTiers: { depth: 1 } });
   assert.deepEqual(ruleTiersPatch("none"), { ruleTiers: null }, "null switches them off in the settings model");
   assert.deepEqual([undefined, { depth: 1 }, { depth: 2, compose: "unlock" }].map(t => formatValue("ruleTiers", t)), ["none", "one ★ tier", "two ★ tiers (unlock)"]);
+});
+
+test("the bid phase on the form: bidding time in whole seconds up to 10 minutes, zero reads as no bidding; the price rule hides without a bid phase", () => {
+  assert.equal(LABELS.bidSeconds, "Bidding time");
+  assert.equal(LABELS.bidPricing, "Bid price");
+  assert.equal(fieldError("bidSeconds", 0), null);
+  assert.equal(fieldError("bidSeconds", 600), null);
+  assert.equal(fieldError("bidSeconds", 601), "Must be between 0 and 600 seconds.");
+  assert.equal(fieldError("bidSeconds", -1), "Must be between 0 and 600 seconds.");
+  assert.equal(fieldError("bidSeconds", 1.5), "Must be a whole number.");
+  assert.equal(draftErrors({ ...DEFAULT_SETTINGS, bidSeconds: 601 }).bidSeconds, "Must be between 0 and 600 seconds.");
+  assert.deepEqual(draftErrors({ ...DEFAULT_SETTINGS, bidSeconds: 30, bidPricing: "second" }), {});
+  assert.equal(formatValue("bidSeconds", 0), "No bidding");
+  assert.equal(formatValue("bidSeconds", 30), "30 s");
+  assert.equal(formatValue("bidPricing", "first"), "First price");
+  assert.equal(formatValue("bidPricing", "second"), "Second price");
+  assert.deepEqual(stepChoices("bidSeconds", 0).map(v => choiceLabel("bidSeconds", v)), ["No bidding", "20 s", "30 s", "45 s", "1 min", "2 min"]);
+  assert.deepEqual(stepChoices("bidSeconds", 50), [0, 20, 30, 45, 50, 60, 120], "a custom time joins the presets");
+  assert.deepEqual(stepChoices("bidPricing", "first").map(v => choiceLabel("bidPricing", v)), ["First price", "Second price"]);
+  assert.equal(isHidden("bidPricing", { ...DEFAULT_SETTINGS, bidSeconds: 0 }), true, "nothing is bid, so nothing is paid");
+  assert.equal(isHidden("bidPricing", { ...DEFAULT_SETTINGS, bidSeconds: 30 }), false);
+  assert.equal(isHidden("bidSeconds", DEFAULT_SETTINGS), false);
+  // The line a rules summary shows: only for a game with a bid phase (one started before the setting has none).
+  assert.equal(bidLine({ bidSeconds: 0, bidPricing: "first" }), null);
+  assert.equal(bidLine({}), null);
+  assert.equal(bidLine({ bidSeconds: 30, bidPricing: "first" }), "30 s, first price");
+  assert.equal(bidLine({ bidSeconds: 120, bidPricing: "second" }), "120 s, second price");
+  assert.equal(bidLine({ bidSeconds: 30 }), "30 s, first price");
+});
+
+test("the cost model: a choice under Energy › More, offered where the world has more than one, read as set-v1 when absent", () => {
+  assert.deepEqual(fieldsOf("energy"), ["startingEnergy", "powerPerSecond", "fullChargeSeconds", "costModel", "observation"], "asked, then more");
+  assert.equal(LABELS.costModel, "Change pricing");
+  const classic = seedSetupSettings("grid-classic"), basics = seedSetupSettings("grid-annotated-basics");
+  assert.deepEqual(costModelChoices(classic), supportedCostModels(classic), "the models the world offers (game-core), the default first");
+  assert.deepEqual(costModelChoices(classic).slice(0, 2), ["set-v1", "distance-v1"]);
+  assert.deepEqual(costModelChoices(classic).slice(0, 2).map(v => choiceLabel("costModel", v)), ["Flat: every change alike", "Distance: further costs more"]);
+  for (const v of COST_MODELS) assert.match(choiceLabel("costModel", v), /^[A-Z][a-z]+: /, `${v} has a label in plain words`);
+  assert.equal(choiceLabel("costModel", "future-v2"), "Future", "a model without words yet shows its name, not its id");
+  assert.equal(isHidden("costModel", classic), false);
+  for (const s of [DEFAULT_SETTINGS, { ...DEFAULT_SETTINGS, objectType: "string", typeArgs: { maxLength: 128 } }]) {
+    assert.deepEqual(costModelChoices(s), ["set-v1"]);
+    assert.equal(isHidden("costModel", s), true, `${s.objectType} has one model: nothing to choose`);
+  }
+  assert.equal(formatValue("costModel", classic.costModel), "Flat: every change alike", "absent is the default");
+  assert.equal(formatValue("costModel", basics.costModel), "Distance: further costs more", "the default setup prices by distance");
+  // A pick goes through the settings model: the default is the field's absence, so picking it back leaves no unsaved change.
+  const domain = settingsDomain([{ id: "Grid", playable: [{ args: classic.typeArgs }] }, { id: "Int", defaults: DEFAULT_SETTINGS.typeArgs, playable: [{ args: DEFAULT_SETTINGS.typeArgs }] }]);
+  const picked = applySettingsChange(classic, { costModel: "distance-v1" }, domain);
+  assert.deepEqual(draftErrors(picked, domain), {});
+  assert.deepEqual(applySettingsChange(picked, { costModel: "set-v1" }, domain), classic);
+  assert.ok(!("costModel" in applySettingsChange(picked, { objectType: "Int" }, domain)), "a world without the model drops it");
+  assert.match(draftErrors({ ...DEFAULT_SETTINGS, costModel: "distance-v1" }, domain)._form ?? "", /costModel distance-v1 is not offered/);
 });
 
 test("the picker's Lab heading goes before the first Lab setup, and before each one that follows an ordinary setup in a search", async () => {

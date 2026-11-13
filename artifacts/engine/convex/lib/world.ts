@@ -46,8 +46,16 @@ export const EVENTS_PER_BATCH = 400;
  * the agent was given (log2 of the live objects, inside cost.read). Replay reads recorded costs either way.
  * 11 adds the `look` event (paid observation, lib/knowledge.ts): a god paid its own energy to be told one object, or all
  * of them.
+ * 12 is cost models (docs/mutation-cost-design.md §11): an act's cost.change (and cost.work) is priced under the game's
+ * settings.costModel ("distance-v1" charges a number by how far it moved); in every batch below 12 it is priced under
+ * "set-v1", whatever the settings say. A game without the setting (every game started before 12) is "set-v1" too, so a
+ * game that was running across the deploy changes its stamp and nothing else. Replay reads recorded costs and never
+ * re-prices.
+ * 13 marks debt within capacity (docs/energy-model.md §7.2): a change that would leave the agent owing more than it can
+ * hold fails ("could not afford this change"), and `power` and `destroy` events carry `owed`, the debt that moved with
+ * the power between the agent and its god's own account. Replay applies the recorded amount.
  */
-export const EVENT_LOG_SCHEMA = 11;
+export const EVENT_LOG_SCHEMA = 13;
 
 export type Clock = {
   phase: "planning" | "running" | "paused" | "recovery" | "ended";
@@ -124,14 +132,27 @@ export function commitRaises(before: readonly { god: string; netBits: number }[]
  * Every roster god's total payoff as disclosed live (the published scoreboard): each object's payoff computed from its
  * noisy peers' sum (the object's stored `noise`), so a god's published total is consistent with what that god sees.
  */
-export function disclosedTotalsOf(roster: readonly string[], objects: readonly { scores: readonly { god: string; netBits: number }[]; noise?: number }[]): number[] {
-  return roster.map(id => objects.reduce((sum, o) => sum + (o.scores.some(s => s.god === id) ? viewOf(o.scores, id, o.noise ?? 0).payoff : 0), 0));
+export function disclosedTotalsOf(roster: readonly string[], objects: readonly { scores: readonly { god: string; netBits: number }[]; noise?: number }[],
+  handicaps?: readonly number[]): number[] {
+  return withHandicaps(roster.map(id => objects.reduce((sum, o) => sum + (o.scores.some(s => s.god === id) ? viewOf(o.scores, id, o.noise ?? 0).payoff : 0), 0)), handicaps);
 }
+/**
+ * A handicap taken off a total (docs/bid-phase.md): `percent` of its size, always downwards (a negative total, possible
+ * with defence goals, gets more negative: a handicap never helps). None (0 or absent) is the total itself, untouched.
+ * The same formula as game-utilities applyHandicap (kept here: this file loads in the V8 runtime).
+ */
+export const applyHandicap = (total: number, percent: number | undefined): number => (percent ? total - Math.abs(total) * percent / 100 : total);
+/**
+ * Roster-ordered totals with the game's handicaps taken off (`games.handicaps`, roster order; absent: nobody has one,
+ * and the totals are returned as they are). Every total a game ranks, shows or records goes through here.
+ */
+export const withHandicaps = (totals: number[], handicaps?: readonly number[]): number[] =>
+  (handicaps?.some(h => h > 0) ? totals.map((t, i) => applyHandicap(t, handicaps[i])) : totals);
 /** Every roster god's total payoff over these objects (the leaderboard's numbers), in roster order. */
-export function totalsOf(roster: readonly string[], objects: readonly { scores: readonly { god: string; netBits: number }[] }[]): number[] {
+export function totalsOf(roster: readonly string[], objects: readonly { scores: readonly { god: string; netBits: number }[] }[], handicaps?: readonly number[]): number[] {
   const rows = leaderboard(roster, objects.map(o => new Map(o.scores.map(s => [s.god, s.netBits]))));
   const total = new Map(rows.map(r => [r.godId, r.totalPayoff]));
-  return roster.map(id => total.get(id)!);
+  return withHandicaps(roster.map(id => total.get(id)!), handicaps);
 }
 /** The game's scoreboard interval (world seconds); a game stored before the setting existed uses the default. */
 export const scoreIntervalOf = (game: { settings: unknown }) =>

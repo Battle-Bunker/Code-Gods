@@ -10,6 +10,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
 import { failureMessage, forgetWaits, preparationFailed } from "../calibration/cache";
 import { touchActivity } from "../activity";
+import { endBidding, openBidding } from "../bidding";
 import { endTurnsForNewGame } from "../assistant/turns";
 import { insertObjectEvents, nextDeadline } from "../engine/loop";
 import { fail } from "../lib/errors";
@@ -65,6 +66,7 @@ export const commitSettings = internalMutation({
     const active = room.activeGameId ? await ctx.db.get(room.activeGameId) : null;
     if (active && active.phase !== "ended") fail("CONFLICT", "Settings and seats are frozen during games");
     if (room.preparing && !room.preparing.error) fail("CONFLICT", "The next game is preparing its rule tables; settings are frozen until it starts (or end the preparation)");
+    if (openBidding(room)) fail("CONFLICT", "The players are bidding for the next game's rules; settings are frozen until it starts (or end the game to cancel)");
     const settings = args.settings as GameSettings;
     validateSettings(settings);
     // The room always runs a setup: applying one names it; an edit changes the room's own setup or a copy of it.
@@ -106,16 +108,32 @@ export const beginPreparing = internalMutation({
   args: {
     roomId: v.id("rooms"), principal: v.optional(principalV), revision: v.number(), memberIds: v.array(v.string()), requestId: v.string(),
     instance: v.string(), total: v.number(), pending: v.array(v.string()), estimateSeconds: v.number(),
-    deals: v.array(v.object({ godId: v.string(), utility: v.any() })),
+    deals: v.array(v.object({ godId: v.string(), utility: v.any(), bid: v.optional(v.any()) })),
     dealer: v.object({ selectorId: v.string(), dealtAs: v.string(), note: v.optional(v.string()) }),
+    /**
+     * The deal of a bid phase (owner.ts completeBidding; `bidding` is that phase's requestId): it runs without the
+     * owner's identity (the owner was checked when bidding began) and only while that bid phase is the room's, which it
+     * then ends. Returns null otherwise. `auction`: the whole auction, kept for the game's replay.
+     */
+    bidding: v.optional(v.string()), auction: v.optional(v.any()),
   },
   handler: async (ctx, args) => {
     const room = await requireRoom(ctx, args.roomId);
-    const { viewer } = await requireOwnerAs(ctx, await viewerOf(ctx, args.principal), room);
+    let ownerId: string;
+    if (args.bidding !== undefined) {
+      const b = openBidding(room);
+      if (!b || b.requestId !== args.bidding) return null;
+      if (room.ownerId !== b.ownerId) fail("CONFLICT", "The room changed owner during bidding; start again");
+      ownerId = b.ownerId;
+    } else {
+      ownerId = (await requireOwnerAs(ctx, await viewerOf(ctx, args.principal), room)).viewer.subject;
+      if (openBidding(room)) fail("CONFLICT", "The players are bidding for this game's rules");
+    }
     if (room.revision !== args.revision) fail("CONFLICT", "Settings changed while starting; try again");
     const active = room.activeGameId ? await ctx.db.get(room.activeGameId) : null;
     if (active && active.phase !== "ended") fail("CONFLICT", "There is already a live game");
     if (room.preparing && !room.preparing.error) return room.preparing;   // a concurrent start won
+    if (args.bidding !== undefined) await endBidding(ctx, room._id);
     await forgetWaits(ctx, room._id);
     const pending: string[] = [];
     let failure: string | undefined;
@@ -131,12 +149,14 @@ export const beginPreparing = internalMutation({
       await ctx.db.insert("calibrationWaits", { key, roomId: room._id, requestId: args.requestId });
     }
     const preparing = {
-      requestId: args.requestId, ownerId: viewer.subject, startedAt: Date.now(), revision: args.revision, memberIds: args.memberIds,
+      requestId: args.requestId, ownerId, startedAt: Date.now(), revision: args.revision, memberIds: args.memberIds,
       instance: args.instance, total: args.total, pending, estimateSeconds: args.estimateSeconds, deals: args.deals, dealer: args.dealer,
+      ...(args.auction !== undefined ? { auction: args.auction } : {}),
       ...(pieces.total > pending.length ? { pieces } : {}),
       ...(failure ? { error: failure } : {}),
     };
-    await ctx.db.patch(room._id, { preparing, seq: room.seq + 1 });
+    // The bid phase ends here; a failed earlier one (its error still shown) is cleared by any new start.
+    await ctx.db.patch(room._id, { preparing, seq: room.seq + 1, bidding: undefined });
     if (failure) await forgetWaits(ctx, room._id);
     else if (!pending.length) await ctx.scheduler.runAfter(0, internal.owner.completeStart, { roomId: room._id, requestId: args.requestId });
     else await ctx.scheduler.runAfter(PREPARING_WATCHDOG_MS, internal.owner.completeStart, { roomId: room._id, requestId: args.requestId, watchdog: true });
@@ -174,6 +194,8 @@ export const commitStart = internalMutation({
     objects: v.array(v.object({ value: wire, scores: v.array(scoreV), salience: v.number(), noise: v.optional(v.number()) })),
     /** The deal's calibration tables, pinned by god (engine/pinned.ts): the game scores with these until it ends. */
     tablesStorageId: v.optional(v.id("_storage")),
+    /** A deal made with winning bids (docs/bid-phase.md): each deity's handicap in percent, in `deities` order, and the auction for the replay. */
+    handicaps: v.optional(v.array(v.number())), auction: v.optional(v.any()),
   },
   handler: async (ctx, args) => {
     const room = await requireRoom(ctx, args.roomId);
@@ -185,7 +207,10 @@ export const commitStart = internalMutation({
     } else {
       actorId = (await requireOwnerAs(ctx, await viewerOf(ctx, args.principal), room)).viewer.subject;
       if (room.preparing && !room.preparing.error) fail("CONFLICT", "The game is preparing its rule tables");
+      if (openBidding(room)) fail("CONFLICT", "The players are bidding for this game's rules");
     }
+    const handicaps = args.handicaps?.some(h => h > 0) ? args.handicaps : undefined;
+    if (handicaps && handicaps.length !== args.deities.length) fail("BAD_REQUEST", "One handicap per deity");
     if (room.revision !== args.revision) fail("CONFLICT", "Settings changed while starting; try again");
     const active = room.activeGameId ? await ctx.db.get(room.activeGameId) : null;
     if (active && active.phase !== "ended") fail("CONFLICT", "There is already a live game");
@@ -215,10 +240,12 @@ export const commitStart = internalMutation({
       createdAt: now, planningEndsAt, pauseEndsAt: 0,
       endAtWorld: args.endAtWorld, noiseKey: args.noiseKey, executionEpoch: 0,
       ...(args.tablesStorageId ? { tablesStorageId: args.tablesStorageId } : {}),
+      ...(handicaps ? { handicaps } : {}),
       // Hold rarity (docs/energy-model.md §8): more than one player needs its corrections, computed during planning.
       ...(args.deities.length > 1 ? { holdState: "computing" as const, holdPending: [] } : {}),
     });
     await putCatalog(ctx, `game:${gameId}`, args.catalog, 0);
+    if (args.auction !== undefined) await ctx.db.insert("gameAuctions", { gameId, auction: args.auction });
     for (const [index, d] of args.deities.entries()) {
       const aiAgent = byGod.get(d.godId)!.aiAgent;
       // Its own energy starts at startingEnergy on the world clock (0 at the start), with all its power unallocated.
@@ -235,7 +262,7 @@ export const commitStart = internalMutation({
     // The first scoreboard (docs/public-log-design.md §3): published with the starting objects, at world 0.
     // Exact totals are stored for the replay; the scoreboard players see is the disclosed one (noisy peers' sums).
     const godIds = args.deities.map(d => d.godId);
-    const totals = totalsOf(godIds, args.objects), disclosed = disclosedTotalsOf(godIds, args.objects);
+    const totals = totalsOf(godIds, args.objects, handicaps), disclosed = disclosedTotalsOf(godIds, args.objects, handicaps);
     await ctx.db.insert("tickBatches", {
       gameId, seq: 0, at: now, worldFrom: 0, worldTo: 0, schema: EVENT_LOG_SCHEMA, events: [{ t: "phase", phase: "planning", world: 0 }, ...events], totals, scoreboard: disclosed,
     });
@@ -252,7 +279,7 @@ export const commitStart = internalMutation({
     // The assistant's conversation and working state are per (player, game): the last game's turns end here.
     await endTurnsForNewGame(ctx, room._id);
     await ctx.db.patch(room._id, {
-      activeGameId: gameId, currentGameId: gameId, seq: room.seq + 1, preparing: undefined,
+      activeGameId: gameId, currentGameId: gameId, seq: room.seq + 1, preparing: undefined, bidding: undefined,
       aiUsed: 0, aiReservedUsd: 0, aiInputTokens: 0, aiOutputTokens: 0, aiCalls: [],
     });
     await ctx.scheduler.runAt(nextDeadline({ phase: "planning", planningEndsAt, pauseEndsAt: 0 }, now)!, internal.engine.tick.run, { gameId, seq: 0 });
