@@ -90,8 +90,9 @@ test("an examination cut off at its deadline keeps the runs it finished, so send
   // The answer is the one an uninterrupted examination of the same program gives (here: from memory, at once).
   const whole = await examine(source, 20_000);
   assert.deepEqual(whole, result);
-  // And the price does not depend on how many attempts it took: an uninterrupted examination of the twin program
-  // (another constant of the same size) costs the same.
-  const twin = await examine(program(), 20_000);
-  assert.equal(twin.finished, true);
+  // And the price does not depend on how many attempts it took: an uninterrupted examination of the same program with
+  // a comment added (another text, so nothing is remembered for it; the same behaviour) gives the same answer.
+  const twin = await examine(`${source}\n# the same agent`, 20_000);
+  assert.ok(twin.finished && result.finished);
+  assert.deepEqual({ expectedActCost: twin.expectedActCost, cost: twin.cost }, { expectedActCost: result.expectedActCost, cost: result.cost });
 });

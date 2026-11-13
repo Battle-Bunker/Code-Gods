@@ -29,7 +29,7 @@ const MOVE_FLAG_BITS = 3;
  * Runs in flight per pass of an examination: one `runtime/acts:run` call carries that many (lib/programs.ts ACT_BATCH).
  * An examination is about 230 runs; at 4 a call it was about 60 nested action calls, and on a loaded backend the
  * calls, not the runs, were its time (measured with eight other games running: 5–8 s a validate at 4, 2.2–4.5 s at 16;
- * idle, 1.5 s either way). Results never depend on it.
+ * idle, 1.5 s either way). The measured price never depends on it (lib/game-types measure.ts).
  */
 const CONCURRENCY = 16;
 
@@ -82,7 +82,6 @@ export function seasonMixture(inst: Instantiation): ReferenceMixture {
 /** An agent-fault examination failure (compile error etc.): reported to the player, never a host error. */
 export class AgentFault extends Error {}
 
-/** Throws AgentFault for the agent's own compile errors; host failures propagate as they are. */
 /** The examination's deadline passed before every run was done; the `remembered` runs it finished are kept for the next attempt. */
 export class ExaminationUnfinished extends Error {
   constructor(readonly remembered: number) { super(`The examination ran out of time after ${remembered} runs`); this.name = "ExaminationUnfinished"; }
@@ -136,7 +135,7 @@ export async function examineAgent(ctx: ActionCtx, settings: GameSettings, langu
   const price = summonPrice(inspection, inst, language, costModelOf(settings));
   const game = live.slice(0, GAME_COMPONENT);
   const mixture = game.length ? withComponents(seasonMixture(inst), { game }) : seasonMixture(inst);
-  let hostFailure: unknown, runs = 0, usesClause = false, firstFault: string | undefined;
+  let hostFailure: unknown, runs = 0, usesClause = false, firstFault: string | undefined, faultAt = Infinity, sampleAt = Infinity;
   const sample = { value: undefined as ObjectValue | undefined, calls: undefined as string | undefined, error: undefined as string | undefined };
   const started = performance.now();
   // The measurement and the futility probe (docs/rules-design.md §11: the game's objects first, then the reference
@@ -159,12 +158,13 @@ export async function examineAgent(ctx: ActionCtx, settings: GameSettings, langu
     try {
       const result = await run(value, seed);
       if (settings.commitClause && !usesClause) { try { usesClause = parseAct(result.calls).commit !== undefined; } catch { /* invalid act */ } }
-      if (at.component === "game" && at.replicate === 0 && sample.value === undefined) Object.assign(sample, { value, calls: result.calls });
+      // The sample is the first game object, not the first run to finish (remembered runs finish at once).
+      if (at.component === "game" && at.replicate === 0 && at.index < sampleAt) { sampleAt = at.index; Object.assign(sample, { value, calls: result.calls, error: undefined }); }
       return { calls: result.calls, usedRandom: result.usedRandom, steps: result.steps, readBits: result.readBits };
     } catch (error) {
       if (!isAgentFault(error)) { hostFailure ??= error; throw error; }
-      firstFault ??= (error as Error).message;
-      if (at.component === "game" && at.replicate === 0 && sample.value === undefined) Object.assign(sample, { value, error: (error as Error).message });
+      if (at.index < faultAt) { faultAt = at.index; firstFault = (error as Error).message; }
+      if (at.component === "game" && at.replicate === 0 && at.index < sampleAt) { sampleAt = at.index; Object.assign(sample, { value, calls: undefined, error: (error as Error).message }); }
       return { calls: "[]", error: (error as Error).message.slice(0, 200), readBits: failedReadBits(error as { readBits?: number; code?: string }, readBound(inst)) };
     }
   }, inst, mixture, { salt: seasonSalt(), concurrency: CONCURRENCY, costModel });
@@ -176,10 +176,9 @@ export async function examineAgent(ctx: ActionCtx, settings: GameSettings, langu
     // the program's answers: they are remembered, so the same command sent again carries on from here instead of
     // starting over. Under load this is what lets a retry succeed at all: each attempt adds to the last.
     await probing?.catch(() => { /* it stopped with the measurement */ });
-    if (learned && !who.cacheOnly && !(error instanceof CacheMiss)) {
-      await ctx.runMutation(internal.engine.examinationCache.put, { key, inspection, used }).catch(e => console.warn(`examination cache not stored: ${(e as Error).message}`));
-      if (who.deadline !== undefined && Date.now() >= who.deadline) throw new ExaminationUnfinished(used.length);
-    }
+    if (learned) await ctx.runMutation(internal.engine.examinationCache.put, { key, inspection, used }).catch(e => console.warn(`examination cache not stored: ${(e as Error).message}`));
+    // Cut off at the deadline (whether or not this attempt finished a new run): the caller's "busy, try again" answer.
+    if (who.deadline !== undefined && Date.now() >= who.deadline && !(error instanceof CacheMiss)) throw new ExaminationUnfinished(used.length);
     throw error;
   }
   // What this examination learned is remembered for the next one of the same program (best effort: it is a cache).
