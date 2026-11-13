@@ -142,3 +142,90 @@ test("capacity: accounts fill to power × fullChargeSeconds and stop; lowering a
   assert.equal(checked.accepted, true, checked.message);
   await host.c.mutation(api.rooms.endActiveGame, { roomId });
 });
+
+/**
+ * Debt within capacity, and debt moves with power (docs/energy-model.md §7.2). P = 40 bits/s, T = 10 s. Both agents
+ * add 11111 (five digit adds: more than 40 bits, less than 360).
+ *  - "Small" has 5% of the power: it holds 20 bits and may owe 20, so it can never commit that change. Each try fails
+ *    as "unaffordable" and pays only its reads.
+ *  - "Big" has 90%: it holds 360 and may owe 360, so it commits with almost nothing and then owes. Its god keeps 10%
+ *    (holds 40). Taking half of Big's power moves half its debt to the god; destroying it moves the rest. The god then
+ *    owes, cannot summon, and repays from its own income: the debt the exploit used to erase is paid in full.
+ */
+test("debt: an agent may owe at most what it holds, and what it owes follows its power to its god", { timeout: 240000 }, async () => {
+  const [host, ada, bo] = await gods("Debt Host", "Debt Ada", "Debt Bo");
+  await touch(host);
+  const { roomId } = await roomWith([host, ada, bo], {
+    objectType: "Int", typeArgs: { min: -1000000, max: 1000000 }, languages: ["typescript"],
+    startingObjectCount: 6, spawnRateHz: 0, planningSeconds: 3600, powerPerSecond: 40, startingEnergy: 5000, interactionRateHz: 20, fullChargeSeconds: 10,
+  });
+  const game = await startGame(host, roomId);
+  const send = (god: typeof ada, command: Record<string, unknown>) => god.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
+  const observe = async (god: typeof ada) => observationSchema.parse(await god.c.query(api.player.observation, { roomId }));
+  const source = "function agent(n) { return [add(11111)]; }";
+  const small = await send(ada, { type: "summon", name: "Small", language: "typescript", source, powerShare: 0.05 });
+  assert.equal(small.accepted, true, small.message);
+  const big = await send(bo, { type: "summon", name: "Big", language: "typescript", source, powerShare: 0.9 });
+  assert.equal(big.accepted, true, big.message);
+  await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 3600 }, kick: true });
+  const agentOf = async (god: typeof ada) => (await raw(game.gameId)).agents.find((a: any) => a.ownerId === god.subject);
+  await waitFor(async () => (await agentOf(bo))?.transforms >= 1 && ((await agentOf(ada))?.failures?.unaffordable ?? 0) >= 3, "Big commits and Small is refused", 120000, 250);
+
+  // Small: refused every time, paying only for its turn; it never owes more than it can hold.
+  const state = await raw(game.gameId);
+  const events = state.batches.flatMap((b: any) => b.events);
+  const offer = Math.log2(6) / 32;   // each turn's own read: which of the 6 objects
+  const price = events.find((e: any) => e.t === "transform").cost.total;
+  assert.ok(price > 40 && price < 360, `the act costs ${price}: more than Small may ever pay (20 held + 20 owed), less than Big may owe`);
+  const smallAgent = state.agents.find((a: any) => a.ownerId === ada.subject);
+  assert.equal(smallAgent.transforms ?? 0, 0, "Small never commits");
+  const refused = events.filter((e: any) => e.t === "fail" && e.agentId === smallAgent._id);
+  assert.ok(refused.length >= 3);
+  for (const e of refused) {
+    assert.match(e.reason, /^could not afford this change: it costs \d+\.\d bits, the agent had -?\d+\.\d and may owe at most 20\.0$/);
+    assert.ok(e.cost.change === 0 && Math.abs(e.cost.total - offer) < 1e-9, `a refusal pays its reads only: ${JSON.stringify(e.cost)}`);
+  }
+  const memo = await admin.query(internal.testing.futileActs, { gameId: game.gameId });
+  assert.ok(memo.every((m: any) => m.agentId !== smallAgent._id || m.entries.length === 0), "a refusal is not remembered as futile: it commits once the agent holds more");
+  for (const a of state.agents) assert.ok(a.account.balance >= -(a.powerShare * 40 * 10) - 1e-6, `${a.name} owes at most its capacity: ${a.account.balance}`);
+  const adaSees = await observe(ada);
+  assert.ok((adaSees.agents[0].outcomes?.failures.unaffordable ?? 0) >= 3);
+  assert.match(adaSees.agents[0].diagnosis!.hint!, /bigger power share/);
+
+  // Big owes right after an act. Take half its power: half of what it owes moves to Bo's own account.
+  const inDebt = async () => { const a = await agentOf(bo); return a.account.balance < -60 ? a : null; };
+  let bigAgent = await waitFor(inDebt, "Big is in debt", 60000, 50);
+  const lowered = await send(bo, { type: "allocatePower", agentId: bigAgent._id, share: 0.45 });
+  assert.equal(lowered.accepted, true, lowered.message);
+  const half = lowered.owed;
+  assert.ok(half > 20 && half < 180, `half of Big's debt moved: ${half}`);
+  let boSees = await observe(bo);
+  assert.ok(boSees.self.energy < 40 - half + 25, `it came out of Bo's own energy (at most 40 held): ${boSees.self.energy}`);
+  // Destroy it while it still owes: the rest moves too, Bo now owes, and cannot summon until its income has repaid it.
+  bigAgent = await agentOf(bo);
+  if (bigAgent.account.balance < -5) {
+    const before = (await observe(bo)).self.energy;
+    const destroyed = await send(bo, { type: "destroy", agentId: bigAgent._id });
+    assert.equal(destroyed.accepted, true, destroyed.message);
+    const rest = destroyed.owed;
+    assert.ok(rest > 0, "what it still owed moved to Bo");
+    boSees = await observe(bo);
+    // All of Bo's power is its own again (40 bits/s): allow a second of income between the reads.
+    assert.ok(boSees.self.energy <= before - rest + 60, `Bo's own energy fell by the debt: ${before} − ${rest} → ${boSees.self.energy}`);
+    if (boSees.self.energy < -20) {
+      const again = await send(bo, { type: "summon", name: "Again", language: "typescript", source, powerShare: 0.9 });
+      assert.equal(again.accepted, false, "an owing god cannot summon");
+      assert.match(again.message, /you owe \d+ bits/);
+    }
+  }
+  // The log records what moved, for the replay.
+  const log = (await raw(game.gameId)).batches.flatMap((b: any) => b.events);
+  assert.ok(Math.abs(log.find((e: any) => e.t === "power").owed - half) < 1e-9);
+  // Bo's own income (all 40 bits/s now) repays it: within its capacity time Bo is out of debt and can summon again.
+  await waitFor(async () => (await observe(bo)).self.energy >= 60, "Bo's income repays the debt", 60000, 250);
+  const again = await send(bo, { type: "summon", name: "Again", language: "typescript", source: "function agent(n) { return []; }", powerShare: 0.5 });
+  assert.equal(again.accepted, true, again.message);
+  // A re-summoned agent starts empty (here: at most a second or two of its own 20 bits/s): nothing was gained.
+  assert.ok((await observe(bo)).agents.find(a => a.name === "Again")!.energy < 60, "a re-summoned agent starts empty");
+  await host.c.mutation(api.rooms.endActiveGame, { roomId });
+});

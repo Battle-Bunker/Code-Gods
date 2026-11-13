@@ -29,7 +29,7 @@ test("a constant agent stops colliding: one act per object version, then a diagn
   const agent = await agentOf();
   assert.equal(agent.acts, 6, "one act per object version, then nothing more to try");
   assert.equal(agent.transforms, 1);
-  assert.deepEqual(agent.failures, { collision: 4, noChange: 1, commit: 0, invalid: 0, error: 0 });
+  assert.deepEqual(agent.failures, { collision: 4, noChange: 1, commit: 0, invalid: 0, error: 0, unaffordable: 0 });
   const memo = await admin.query(internal.testing.futileActs, { gameId: game.gameId });
   assert.equal(memo.length, 1);
   assert.equal(memo[0].entries.length, 5, "every object is a futile pair");
@@ -37,7 +37,7 @@ test("a constant agent stops colliding: one act per object version, then a diagn
   // The owner reads why, and how to fix it.
   const obs = observationSchema.parse(await ada.c.query(api.player.observation, { roomId }));
   const [mine] = obs.agents;
-  assert.deepEqual(mine.outcomes?.failures, { collision: 4, noChange: 1, commit: 0, invalid: 0, error: 0 });
+  assert.deepEqual(mine.outcomes?.failures, { collision: 4, noChange: 1, commit: 0, invalid: 0, error: 0, unaffordable: 0 });
   assert.equal(mine.diagnosis?.summary, "5 of 6 acts failed: another object already has this value ×4, the act changed nothing ×1");
   assert.match(mine.diagnosis?.hint ?? "", /depend on the object/);
 

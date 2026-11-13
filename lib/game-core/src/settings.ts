@@ -145,6 +145,23 @@ export interface GameSettings {
    */
   observation: ObservationMode;
   /**
+   * The bid phase (docs/bid-phase.md): seconds the players have, when the game starts and before it is dealt, to bid a
+   * handicap percentage on rule families of the pool. The highest bid on a family wins it, exclusively, and that
+   * percentage is taken off the winner's score; everyone else is dealt as usual from the families nobody won. 0: no bid
+   * phase (the deal is the dealer's alone). It ends early once every human player is done.
+   */
+  bidSeconds: number;
+  /** What a bid's winner pays: their own bid ("first"), or the highest bid they beat on that family ("second", at least 1%). */
+  bidPricing: BidPricing;
+  /** Who sees the bids while bidding is open: only their bidder ("sealed"), or every player of the game, live ("open"). */
+  bidVisibility: BidVisibility;
+  /**
+   * What the players are told about the others once the game is dealt: nothing ("private": each player knows their own
+   * outcome only), every player's handicap ("handicaps": not which rule they won), or the whole auction ("all": every
+   * bid, who won which rule, and each handicap). After the game ends the replay shows everything in every case.
+   */
+  bidDisclosure: BidDisclosure;
+  /**
    * How a change is priced (game-types structure/index.ts; docs/mutation-cost-design.md §11 stage 1): "set-v1" charges
    * every changed cell the same; "distance-v1" (and the other models of game-types COST_MODELS) charges a number by how
    * far it moved and a colour for having changed.
@@ -201,12 +218,21 @@ export const boardsFree = (settings: { observation?: unknown } | null | undefine
 /** Whether a god may pay its own energy for a look ("agents": no, its agents are its only eyes). */
 export const godLooks = (settings: { observation?: unknown } | null | undefined): boolean => settings?.observation === "paid" || settings?.observation === "boards";
 
+export type BidPricing = "first" | "second";
+/** The pre-authored choices of bidPricing. */
+export const BID_PRICINGS: readonly BidPricing[] = Object.freeze(["first", "second"]);
+export type BidVisibility = "sealed" | "open";
+export const BID_VISIBILITIES: readonly BidVisibility[] = Object.freeze(["sealed", "open"]);
+export type BidDisclosure = "private" | "handicaps" | "all";
+export const BID_DISCLOSURES: readonly BidDisclosure[] = Object.freeze(["private", "handicaps", "all"]);
+
 export type DurationMode = "fixed" | "halfLife";
 /** The pre-authored choices of durationMode. */
 export const DURATION_MODES: readonly DurationMode[] = Object.freeze(["fixed", "halfLife"]);
 /** The server-enforced bounds of the time settings (seconds unless named); the configuration page offers custom values within them. */
 export const TIME_LIMITS = Object.freeze({
   planningSeconds: Object.freeze({ min: 0, max: 3600 }),
+  bidSeconds: Object.freeze({ min: 0, max: 600 }),
   halfLifeSeconds: Object.freeze({ min: 1, max: 1_000_000_000 }),
   interactionRateHz: Object.freeze({ min: 0, max: 1000 }),
   scoreIntervalSeconds: Object.freeze({ min: 1, max: 3600 }),
@@ -266,6 +292,10 @@ export const DEFAULT_SETTINGS: Readonly<GameSettings> = Object.freeze({
   scoreIntervalSeconds: DEFAULT_SCORE_INTERVAL_SECONDS,
   peerNoiseBits: DEFAULT_PEER_NOISE_BITS,
   observation: "free",
+  bidSeconds: 0,
+  bidPricing: "first",
+  bidVisibility: "sealed",
+  bidDisclosure: "private",
 } satisfies GameSettings);
 
 /**
@@ -286,10 +316,11 @@ export function allowedLanguages(settings: Pick<GameSettings, "languages"> | { l
  * Stored settings in today's shape, or null when they already are (idempotent): the single-language shape converted
  * (see upgradeLegacyLanguage), the removed Haskell language dropped from `languages` (TypeScript when none is left:
  * 2026-11), and fields added since filled with their defaults (scoreIntervalSeconds, peerNoiseBits, durationMode,
- * fullChargeSeconds: 2026-11).
+ * fullChargeSeconds, bidSeconds, bidPricing: 2026-11).
  * Use it wherever stored settings (rooms, setups, games) are read. With `played` (the settings of a game already
  * started, live or ended) the economy is history and is left as it was charged: `fullChargeSeconds` is not filled, so a
  * game started before the setting existed keeps having no capacity (game-core energyCapacity), live and in its replay.
+ * Likewise `bidSeconds` and `bidPricing` are not filled: a game started before the bid phase existed had none.
  */
 export function upgradeStoredSettings(settings: unknown, played = false): Record<string, unknown> | null {
   const languages = upgradeLegacyLanguage(settings);
@@ -303,6 +334,11 @@ export function upgradeStoredSettings(settings: unknown, played = false): Record
     ...(!("peerNoiseBits" in s) ? { peerNoiseBits: DEFAULT_PEER_NOISE_BITS } : {}),
     ...(!("observation" in s) ? { observation: "free" } : {}),
     ...(!played && !("fullChargeSeconds" in s) ? { fullChargeSeconds: DEFAULT_FULL_CHARGE_SECONDS } : {}),
+    // No bid phase before the setting existed (docs/bid-phase.md): a played game is left without the fields (read `?? 0`).
+    ...(!played && !("bidSeconds" in s) ? { bidSeconds: 0 } : {}),
+    ...(!played && !("bidPricing" in s) ? { bidPricing: "first" } : {}),
+    ...(!played && !("bidVisibility" in s) ? { bidVisibility: "sealed" } : {}),
+    ...(!played && !("bidDisclosure" in s) ? { bidDisclosure: "private" } : {}),
   };
   return Object.keys(filled).length ? { ...s, ...filled } : languages;
 }
@@ -444,6 +480,14 @@ export function validateSettings(settings: GameSettings, domain?: FamilyDomain):
     throw new Error(`peerNoiseBits must be one of ${PEER_NOISE_OPTIONS.join(", ")} bits`);
   }
   if (!OBSERVATION_MODES.includes(settings.observation)) throw new Error(`observation must be one of ${OBSERVATION_MODES.join(", ")}`);
+  // Absent only in the settings of a game started before the bid phase existed (it had none).
+  if (settings.bidSeconds !== undefined) {
+    if (!Number.isInteger(settings.bidSeconds)) throw new Error("bidSeconds must be a whole number of seconds");
+    inRange("bidSeconds", settings.bidSeconds);
+  }
+  if (settings.bidPricing !== undefined && !BID_PRICINGS.includes(settings.bidPricing)) throw new Error(`bidPricing must be one of ${BID_PRICINGS.join(", ")}`);
+  if (settings.bidVisibility !== undefined && !BID_VISIBILITIES.includes(settings.bidVisibility)) throw new Error(`bidVisibility must be one of ${BID_VISIBILITIES.join(", ")}`);
+  if (settings.bidDisclosure !== undefined && !BID_DISCLOSURES.includes(settings.bidDisclosure)) throw new Error(`bidDisclosure must be one of ${BID_DISCLOSURES.join(", ")}`);
   for (const key of OPTION_KEYS) {
     if (!settingsOptionsFor(key, settings.objectType).some(o => o.id === settings[key])) {
       throw new Error(`Unsupported ${key} for this object type`);
@@ -612,6 +656,8 @@ const ANNOTATED_BASICS_EXCLUDED: readonly string[] = Object.freeze([
   "fillomino", "bingo_caller", "full_house", "twenty_one", "sudoku_scholar", "magic_accountant", "number_bonds",
 ]);
 
+/** Annotated basics with a bid phase before the deal (docs/bid-phase.md). */
+export const ANNOTATED_BIDDING_SEED_ID = "grid-annotated-bidding";
 /** The coloured annotated setup: every family with a rich annotation (a lens), on the coloured 4×4 board. */
 export const ANNOTATED_COLOURS_SEED_ID = "grid-annotated-colours";
 /**
@@ -638,23 +684,31 @@ const ANNOTATED_COLOURS_EXCLUDED: readonly string[] = Object.freeze([
 const seed = (seedId: string, name: string, summary: string, objectType: string, typeArgs: TypeArgs, patch: Partial<GameSettings>): SeedSetup =>
   Object.freeze({ seedId, name, summary, settings: Object.freeze({ ...defaultSettingsFor(objectType, ["python"], typeArgs), ...patch }) });
 
+/** Annotated basics' board and what it changes from that board's defaults: shared with its twin "Basics with bidding", which adds only a bid phase. */
+const ANNOTATED_BASICS_BOARD: TypeArgs = Object.freeze({ size: 4, symbols: "base10", colours: "mono" });
+const ANNOTATED_BASICS_PATCH: Partial<GameSettings> = Object.freeze({
+  interactionRateHz: 25, durationMode: "fixed", halfLifeSeconds: 600, excludedFamilies: ANNOTATED_BASICS_EXCLUDED,
+  startingObjectCount: 10, spawnRateHz: 0.1, planningSeconds: 300,
+  costModel: "distance-v1",
+  // Paid observation (owner, 2026-11-11: a costly use of a god's own energy; docs/energy-model.md §11).
+  observation: "paid",
+});
+
 export const SEED_SETUPS: readonly SeedSetup[] = Object.freeze([
   seed(FIRST_STEPS_SEED_ID, "First steps", "A small 4×4 board, slowed down so you can watch your score",
     "Grid", { size: 4, symbols: "base10", colours: "rgb" }, { interactionRateHz: 25, durationMode: "fixed", halfLifeSeconds: 600 }),
   // The default setup's board is numbers only (owner, 2026-11-11: "the most basic game mode … just a grid of numbers").
   seed(ANNOTATED_BASICS_SEED_ID, "Annotated basics", "Eight simple rules with picture-by-picture explanations, on a small slowed-down board of numbers",
-    "Grid", { size: 4, symbols: "base10", colours: "mono" }, {
-      interactionRateHz: 25, durationMode: "fixed", halfLifeSeconds: 600, excludedFamilies: ANNOTATED_BASICS_EXCLUDED,
-      startingObjectCount: 10, spawnRateHz: 0.1, planningSeconds: 300,
-      costModel: "distance-v1",
-      // Paid observation (owner, 2026-11-11: a costly use of a god's own energy; docs/energy-model.md §11).
-      observation: "paid",
-    }),
+    "Grid", ANNOTATED_BASICS_BOARD, ANNOTATED_BASICS_PATCH),
   seed(ANNOTATED_COLOURS_SEED_ID, "Annotated colours", "Every rule with picture-by-picture explanations, on a small slowed-down coloured board",
     "Grid", { size: 4, symbols: "base10", colours: "rgb" }, {
       interactionRateHz: 25, durationMode: "fixed", halfLifeSeconds: 600, excludedFamilies: ANNOTATED_COLOURS_EXCLUDED,
       startingObjectCount: 10, spawnRateHz: 0.1, planningSeconds: 300,
     }),
+  // Annotated basics with a bid phase (docs/bid-phase.md; the default setup itself has none: a first game goes straight
+  // to planning). 45 s, and it ends at once when every human player has passed or finished.
+  seed(ANNOTATED_BIDDING_SEED_ID, "Basics with bidding", "The beginner board and its eight rules, but first each player may bid part of their score for the rule they want",
+    "Grid", ANNOTATED_BASICS_BOARD, { ...ANNOTATED_BASICS_PATCH, bidSeconds: 45 }),
   seed("grid-classic", "Classic", "5×5 with four colours: the standard game",
     "Grid", { size: 5, symbols: "base10", colours: "rgby" }, {}),
   // grid-lab PR #14 §4.9's alternative economy: half the income, half the floor (see TYPE_DEFAULTS.Grid).
@@ -706,6 +760,16 @@ export const LAB_SETUPS: readonly SeedSetup[] = Object.freeze([
   ] as const).map(([seedId, name, summary, observation]) => {
     const basics = SEED_SETUPS.find(x => x.seedId === ANNOTATED_BASICS_SEED_ID)!.settings;
     return lab(seedId, name, summary, basics.objectType, { ...basics.typeArgs }, { ...basics, observation });
+  }),
+  // The bid phase's alternatives (docs/bid-phase.md §4): "Basics with bidding" is first price, sealed, private.
+  ...([
+    ["lab-bidding-second-price", "Lab · bidding, second price", "Basics with bidding, but a winner pays the highest bid they beat, not their own", { bidPricing: "second" }],
+    ["lab-bidding-open", "Lab · bidding, open bids", "Basics with bidding, but every player sees every bid as it is placed", { bidVisibility: "open" }],
+    ["lab-bidding-handicaps-shown", "Lab · bidding, handicaps shown", "Basics with bidding, but everyone sees each player's handicap during the game", { bidDisclosure: "handicaps" }],
+    ["lab-bidding-auction-shown", "Lab · bidding, auction shown", "Basics with bidding, but everyone sees every bid and who won which rule", { bidDisclosure: "all" }],
+  ] as const).map(([seedId, name, summary, patch]) => {
+    const bidding = SEED_SETUPS.find(x => x.seedId === ANNOTATED_BIDDING_SEED_ID)!.settings;
+    return lab(seedId, name, summary, bidding.objectType, { ...bidding.typeArgs }, { ...bidding, ...patch });
   }),
 ]);
 
@@ -898,6 +962,29 @@ export const SETTINGS_DOCS = {
     question: "Do players pay to look at the world?", section: "energy", tier: "more", control: "segmented", suggested: OBSERVATION_MODES,
     meaning: "Free shows every object as it changes, while paid shows each as you were last told it (at its birth, by your agents, or by a look you pay energy for); boards and agents are variants.",
     consequence: "Paid looking gives a player's own energy a use and makes watching the others costly; boards keeps every board live and charges only for the others' interest; agents allows no paid looks.",
+  },
+  bidSeconds: {
+    question: "How long may players bid for rules before the game is dealt?", section: "goals", tier: "ask", control: "number", unit: "s", suggested: [0, 20, 30, 45, 60, 120],
+    meaning: "Before rules are dealt, each player may bid a share of their own score for the rules they want: the highest bid wins a rule for that player alone, the rest are dealt at random, and zero is no bidding.",
+    consequence: "Bidding lets players pay for the rule they want, so a strong rule costs its holder part of their score, and it adds up to this many seconds before planning.",
+  },
+  bidPricing: {
+    question: "What does the winner of a bid pay?", section: "goals", tier: "more", control: "segmented", suggested: BID_PRICINGS,
+    hiddenWhen: { bidSeconds: 0 },
+    meaning: "With first price the winner's handicap is their own bid, and with second price it is the highest bid they beat on that rule, or 1% when nobody else bid on it.",
+    consequence: "With second price a player can simply bid what a rule is worth to them, while with first price they must guess what the others will bid and bid a little less.",
+  },
+  bidVisibility: {
+    question: "Can players see each other's bids while bidding?", section: "goals", tier: "more", control: "segmented", suggested: BID_VISIBILITIES,
+    hiddenWhen: { bidSeconds: 0 },
+    meaning: "Sealed bids are seen only by their bidder until bidding ends, while open bids are seen by every player as they are placed.",
+    consequence: "Open bidding becomes a live auction where players raise each other, while sealed bidding is quicker and keeps wishes secret.",
+  },
+  bidDisclosure: {
+    question: "What are players told about the others after bidding?", section: "goals", tier: "more", control: "segmented", suggested: BID_DISCLOSURES,
+    hiddenWhen: { bidSeconds: 0 },
+    meaning: "Private tells each player only their own result, handicaps shows everyone each player's handicap, and all shows every bid and who won which rule.",
+    consequence: "Showing more tells players who holds which rule and how much they paid for it, which removes part of the guessing from the game.",
   },
   pauseSeconds: {
     question: "How long is each player's one pause?", section: "time", tier: "more", control: "number", unit: "s", suggested: [60, 180, 300],

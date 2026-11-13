@@ -50,12 +50,15 @@ export function useOwnerActions() {
           settle();
           if (!r) return undefined;
           // A shape new to this server first prepares its rule tables; the game then starts by itself.
-          notify("status" in r && r.status === "preparing" ? `Preparing the game's rule tables (${r.ready} of ${r.total} ready); it starts by itself.` : "Game started: planning begins.");
+          // A setup with a bid phase first lets the players bid for their rules (docs/bid-phase.md); the game then starts by itself.
+          notify("status" in r && r.status === "preparing" ? `Preparing the game's rule tables (${r.ready} of ${r.total} ready); it starts by itself.`
+            : "status" in r && r.status === "bidding" ? `Bidding is open for ${r.seconds} s: the players bid for their rules on the room page; the game starts by itself.`
+            : "Game started: planning begins.");
           return r;
         }, e => { settle(); notifyError(e); return undefined; });
       },
       endGame: () => end({ roomId: room }).then(r => {
-        notify(r && "cancelled" in r ? "The game's preparation was ended." : "Game ended.");
+        notify(r && "cancelled" in r ? (r.cancelled === "bidding" ? "The bidding was cancelled: nothing was dealt." : "The game's preparation was ended.") : "Game ended.");
         return r;
       }, e => { notifyError(e); return undefined; }),
       resume: () => done("Game resumed.")(resume({ roomId: room })),

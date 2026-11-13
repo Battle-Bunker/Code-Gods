@@ -27,10 +27,10 @@ export type PaletteState = {
   seated: boolean;
   ready: boolean;
   pauseUsed: boolean;
-  /** The next game is preparing its rule tables (rooms.get `preparing`); End ends the preparation. */
+  /** The next game is preparing its rule tables (rooms.get `preparing`) or its players are bidding (`bidding`); End ends either. */
   preparing?: boolean;
   /** A start is pending (@workspace/player-client/start): the click registered, the room has not shown the game yet. */
-  starting?: "starting" | "preparing";
+  starting?: "starting" | "preparing" | "bidding";
   agents: readonly { id: string; label: string }[];
   /** A command whose outcome is unknown waits for its identical retry (the banner under the header). */
   unknownOutcome: boolean;
@@ -176,7 +176,8 @@ export function playerCommands(s: PaletteState, a: PaletteActions): Command[] {
     "owner.start": {
       performer: submit(() => a.owner.start()),
       available: () => (s.starting === "starting" ? no("The game is already starting.")
-        : s.starting === "preparing" ? no("The game is preparing its rule tables; it starts by itself.") : betweenGames(s)),
+        : s.starting === "preparing" ? no("The game is preparing its rule tables; it starts by itself.")
+        : s.starting === "bidding" ? no("The players are bidding for their rules; the game starts by itself when bidding ends.") : betweenGames(s)),
     },
     "panels.list": { performer: pick("Open one of your panels", storedOptions(p => p.enabled, p => p.title), slug => a.panels.open(slug)) },
     "panels.code": {

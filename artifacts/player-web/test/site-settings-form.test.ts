@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { DEFAULT_SETTINGS, applySettingsChange, seedSetupSettings, supportedCostModels } from "@workspace/game-core";
 import { COST_MODELS, objectType } from "@workspace/game-types";
 import {
-  SECTIONS, LABELS, argChoices, choiceLabel, costModelChoices, formatValue, toggleLanguage, dealerNote, formatSeconds, defenceBlocker, draftErrors, fieldError, fieldsOf, firstUseNote, isHidden, lengthLine, paceWord,
+  SECTIONS, LABELS, argChoices, choiceLabel, costModelChoices, formatValue, toggleLanguage, dealerNote, formatSeconds, defenceBlocker, draftErrors, fieldError, fieldsOf, firstUseNote, isHidden, lengthLine, bidLine, paceWord,
   settingsDomain, shelfEntries, stepChoices,
 } from "../src/site/lib/settings-form.ts";
 import { editBlocker, freeName, ownerLabel } from "../src/site/lib/setup-words.ts";
@@ -24,7 +24,7 @@ const types = [
 
 test("the sections run World → Goals → Agents → Energy → Population → Time → Players & AI → Review, with no Start from", () => {
   assert.deepEqual(SECTIONS.map(s => s.id), ["world", "goals", "agents", "energy", "population", "time", "players", "review"]);
-  assert.deepEqual(fieldsOf("goals"), ["utilitySelectorId", "defenceGoals", "excludedDefenceFamilies", "excludedFamilies", "penaltyWeight", "priorId", "peerNoiseBits"], "asked, then more");
+  assert.deepEqual(fieldsOf("goals"), ["utilitySelectorId", "defenceGoals", "excludedDefenceFamilies", "bidSeconds", "excludedFamilies", "penaltyWeight", "priorId", "peerNoiseBits", "bidPricing", "bidVisibility", "bidDisclosure"], "asked, then more");
   assert.deepEqual(fieldsOf("world"), ["objectType", "typeArgs", "languages"], "the grammar and summon price follow each agent's language");
   assert.deepEqual(fieldsOf("population"), ["startingObjectCount", "spawnRateHz", "spawnFunctionId", "objectSelection"]);
 });
@@ -183,6 +183,34 @@ test("penalty weight and the defence checklist hide while defence goals are off;
   assert.equal(paceWord(25), "slow");
   assert.equal(paceWord(100), "normal");
   assert.equal(paceWord(300), "fast");
+});
+
+test("the bid phase on the form: bidding time in whole seconds up to 10 minutes, zero reads as no bidding; the price rule hides without a bid phase", () => {
+  assert.equal(LABELS.bidSeconds, "Bidding time");
+  assert.equal(LABELS.bidPricing, "Bid price");
+  assert.equal(fieldError("bidSeconds", 0), null);
+  assert.equal(fieldError("bidSeconds", 600), null);
+  assert.equal(fieldError("bidSeconds", 601), "Must be between 0 and 600 seconds.");
+  assert.equal(fieldError("bidSeconds", -1), "Must be between 0 and 600 seconds.");
+  assert.equal(fieldError("bidSeconds", 1.5), "Must be a whole number.");
+  assert.equal(draftErrors({ ...DEFAULT_SETTINGS, bidSeconds: 601 }).bidSeconds, "Must be between 0 and 600 seconds.");
+  assert.deepEqual(draftErrors({ ...DEFAULT_SETTINGS, bidSeconds: 30, bidPricing: "second" }), {});
+  assert.equal(formatValue("bidSeconds", 0), "No bidding");
+  assert.equal(formatValue("bidSeconds", 30), "30 s");
+  assert.equal(formatValue("bidPricing", "first"), "First price");
+  assert.equal(formatValue("bidPricing", "second"), "Second price");
+  assert.deepEqual(stepChoices("bidSeconds", 0).map(v => choiceLabel("bidSeconds", v)), ["No bidding", "20 s", "30 s", "45 s", "1 min", "2 min"]);
+  assert.deepEqual(stepChoices("bidSeconds", 50), [0, 20, 30, 45, 50, 60, 120], "a custom time joins the presets");
+  assert.deepEqual(stepChoices("bidPricing", "first").map(v => choiceLabel("bidPricing", v)), ["First price", "Second price"]);
+  assert.equal(isHidden("bidPricing", { ...DEFAULT_SETTINGS, bidSeconds: 0 }), true, "nothing is bid, so nothing is paid");
+  assert.equal(isHidden("bidPricing", { ...DEFAULT_SETTINGS, bidSeconds: 30 }), false);
+  assert.equal(isHidden("bidSeconds", DEFAULT_SETTINGS), false);
+  // The line a rules summary shows: only for a game with a bid phase (one started before the setting has none).
+  assert.equal(bidLine({ bidSeconds: 0, bidPricing: "first" }), null);
+  assert.equal(bidLine({}), null);
+  assert.equal(bidLine({ bidSeconds: 30, bidPricing: "first" }), "30 s, first price");
+  assert.equal(bidLine({ bidSeconds: 120, bidPricing: "second" }), "120 s, second price");
+  assert.equal(bidLine({ bidSeconds: 30 }), "30 s, first price");
 });
 
 test("the cost model: a choice under Energy › More, offered where the world has more than one, read as set-v1 when absent", () => {

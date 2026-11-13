@@ -11,7 +11,8 @@ import { Link, useLocation } from "wouter";
 import { useAction, useConvexConnectionState, useMutation } from "convex/react";
 import { CommandPalette, PaletteTrigger, type Command, type PaletteContext, type PaletteOpenInit } from "@workspace/ui-kit";
 import { setObjectRenderer, useGridRenderer } from "@workspace/object-views";
-import { startTracker, startView, trackStart, type StartView } from "@workspace/player-client/start";
+import { startTracker, trackStart } from "@workspace/player-client/start";
+import { roomStartView, type RoomStartView } from "@/site/lib/bidding";
 import { useAuth } from "@/site/hooks/use-auth";
 import { engineSite } from "@/core/connection";
 import { useManifest, useWarmSandboxes } from "@/site/hooks/use-manifest";
@@ -56,8 +57,8 @@ interface PageApi {
   manifest?: Manifest;
   /** The actions behind the commands, for controls that pass their own argument (the Setup select, an AI row's Remove). */
   act: EngineActions;
-  /** This room's pending start (@workspace/player-client/start): the Start button and the next step show it at once. */
-  start: StartView;
+  /** This room's pending start (@workspace/player-client/start, with the bid phase: lib/bidding.ts): the Start button and the next step show it at once. */
+  start: RoomStartView;
 }
 const PageCtx = createContext<PageApi | null>(null);
 export function usePage(): PageApi {
@@ -136,7 +137,7 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
   const fail = useCallback((what: string, e: unknown) => toast({ title: `${what} failed`, description: errMsg(e), variant: "destructive" }), [toast]);
   const roomId = room?.id;
   const startRequest = useSyncExternalStore(startTracker.subscribe, () => (roomId ? startTracker.get(roomId) : null));
-  const start_ = startView(startRequest, room, startTracker.now());
+  const start_ = roomStartView(startRequest, room, startTracker.now());
   // Only the click itself: a preparation in progress has its own reason (lib/commands.ts reads room.preparing).
   const starting = start_.phase === "starting";
   const need = <T,>(v: T | null | undefined): T => { if (v === null || v === undefined) throw new Error("Open a room first."); return v; };
