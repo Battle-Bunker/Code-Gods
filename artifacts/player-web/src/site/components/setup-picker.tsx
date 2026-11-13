@@ -4,12 +4,13 @@
  * the name, whose it is ("System", "You" or the owner's name) and its one-line summary, with Edit (unavailable, with
  * the reason, unless the viewer owns it) and Duplicate. Picking a row applies it to the room at once (the app offers
  * Undo). There is no "Custom" and no separate defaults: a new setup starts as a copy of the room's current one ("New
- * setup").
+ * setup"). An administrator also sees the experimental "Lab" setups (game-core LAB_SETUPS), last, under a "Lab" heading
+ * and marked "Lab" on each row (also in a search, which has no headings); nobody else is sent them.
  *
  * Reads (read-architecture R1): the list is the catalogue's paged skeleton (setups.page, loaded while the popover is
  * open, a page more as it scrolls), and each row subscribes to its own setup (setups.row) only while it is on screen.
  */
-import { useRef, useState, type UIEvent } from "react";
+import { Fragment, useRef, useState, type UIEvent } from "react";
 import { useLocation } from "wouter";
 import { Command as Cmdk } from "cmdk";
 import { ChevronsUpDown, Copy, Pencil, Plus, Search } from "lucide-react";
@@ -19,7 +20,7 @@ import { Tip } from "@/site/components/action";
 import { useRun } from "@/site/hooks/use-run";
 import { usePage } from "@/site/components/layout";
 import { PICKER_PAGE, useInView, useSetupPages, useSetupRow } from "@/site/hooks/use-setups";
-import { editBlocker, ownerLabel } from "@/site/lib/setup-words";
+import { LAB_NOTE, editBlocker, labStartsAt, ownerLabel } from "@/site/lib/setup-words";
 
 export function setupTitle(room: Pick<RoomState, "setup">): string {
   return room.setup ? `${room.setup.name}${room.setup.deleted ? " (deleted)" : ""}` : "No setup";
@@ -77,9 +78,17 @@ export function SetupPicker({ room }: { room: RoomState }) {
             {pages.loading
               ? <Cmdk.Loading><p className="px-3 py-6 text-center text-sm text-muted-foreground">Loading setups…</p></Cmdk.Loading>
               : <Cmdk.Empty className="px-3 py-6 text-center text-sm text-muted-foreground">{query.trim() ? `No setup matches “${query}”.` : "No setups yet."}</Cmdk.Empty>}
-            {pages.results.map(entry => (
-              <SetupRow key={entry.id} entry={entry} current={entry.id === room.setup?.id} onPick={() => pick(entry.id)} onDuplicate={() => duplicate(entry.id)}
-                onEdit={() => { setOpen(false); navigate(`/rooms/${room.shortCode}/configure?setup=${encodeURIComponent(entry.id)}`); }} />
+            {pages.results.map((entry, i) => (
+              <Fragment key={entry.id}>
+                {labStartsAt(pages.results, i) && (
+                  <div role="presentation" data-testid="heading-lab-setups" className="mt-1 border-t px-2 pt-2 pb-1">
+                    <p className="text-xs font-medium uppercase tracking-wide text-accent">Lab</p>
+                    <p className="text-xs text-muted-foreground">{LAB_NOTE}</p>
+                  </div>
+                )}
+                <SetupRow entry={entry} current={entry.id === room.setup?.id} onPick={() => pick(entry.id)} onDuplicate={() => duplicate(entry.id)}
+                  onEdit={() => { setOpen(false); navigate(`/rooms/${room.shortCode}/configure?setup=${encodeURIComponent(entry.id)}`); }} />
+              </Fragment>
             ))}
             {pages.status === "LoadingMore" && <p className="px-3 py-2 text-xs text-muted-foreground">Loading more…</p>}
           </Cmdk.List>
@@ -110,6 +119,7 @@ function SetupRow({ entry, current, onPick, onEdit, onDuplicate }: { entry: Setu
           <span className="font-medium">{row?.name ?? entry.name}</span>
           {current && <span className="text-primary"> (current)</span>}
           <span className="text-muted-foreground" data-testid={`text-setup-owner-${entry.id}`}> · {who}</span>
+          {entry.lab && <span className="text-accent" data-testid={`text-setup-lab-${entry.id}`}> · Lab</span>}
         </span>
         <span className="block text-xs text-muted-foreground line-clamp-2">{row?.summary ?? entry.summary}</span>
       </span>

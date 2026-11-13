@@ -668,6 +668,35 @@ So the claim holds and is, if anything, understated: the spread roughly halves. 
 holds less at 64 under distance pricing (11.9 to 10.8 bits): the myopic per-energy agent takes cheap nudges toward a
 row total where one set would finish the row.
 
+**With what every act now pays (2026-11-13).** Since 11 Nov every turn is charged for its offer (which of the live
+objects it was given) and agents pay for what they read, so an act costs more than its change. `--act-overhead 1.77`
+adds a full look at the 4×4 board (1.66) and the offer among ten objects (0.10) to every move. The beginner eight, 64
+starts, cost-aware agent, share of each rule's top after 32 / 64 energy bits:
+
+| rule | flat price | distance | distance, cost-blind agent |
+|---|--:|--:|--:|
+| mirrormancer | 0.13 / 0.35 | 0.24 / 0.48 | 0.18 / 0.37 |
+| opposite_nines | 0.14 / 0.37 | 0.24 / 0.48 | 0.11 / 0.30 |
+| leapfrog | 0.09 / 0.29 | 0.24 / 0.53 | 0.12 / 0.31 |
+| two_pair | 0.19 / 0.49 | 0.31 / 0.62 | 0.28 / 0.57 |
+| spread_three | 0.19 / 0.44 | 0.28 / 0.56 | 0.20 / 0.46 |
+| strangers | 0.14 / 0.36 | 0.28 / 0.59 | 0.23 / 0.45 |
+| crosswise_threes | 0.19 / 0.54 | 0.39 / 0.82 | 0.26 / 0.67 |
+| magic_eighteen | 0.27 / 0.76 | 0.37 / 0.70 | 0.25 / 0.67 |
+| **mean; max/min; CV at 32** | 0.17; 2.96; 0.30 | 0.29; 1.67; 0.20 | 0.20; 2.46; 0.28 |
+| **mean; max/min; CV at 64** | 0.45; 2.64; 0.31 | 0.60; 1.73; 0.18 | 0.48; 2.23; 0.30 |
+| **rateE: mean; max/min** | 0.123; 2.01 | 0.172; 1.34 | |
+
+- The overhead takes some of the speed-up away (1.40× the bits per energy, against 1.64× without it): a nudge now
+  costs 8.9 in all against 18.1 for a flat change. The pool is as even as before (CV 0.18 at 64; rateE max/min 1.34).
+- The flat column is unchanged by the overhead: the same number of 18.1-bit changes fit in 32 and in 64 bits as 16.3-bit
+  ones.
+- magic_eighteen is the one rule distance pricing does not speed up (0.76 to 0.70 at 64): a row total is often fixed
+  by one far change, and the one-move agent prefers cheap nudges. It was the fastest rule under the flat price and is
+  still the second fastest, so the pool is more even with it left alone; nothing is changed for it.
+- The store's capacity (30 s of power: 480 bits for a quarter share) is far above any single change here (34.9 at
+  most), so it does not bind these climbs.
+
 ## 7. Anchor check
 
 The owner's anchors are honest_minesweeper versus mirrormancer, from §6.1 with full moves.

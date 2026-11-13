@@ -37,7 +37,7 @@ test("dock.state, agents and transformations equal the observation's; the agent 
   }, "the dock's score is the observation's", 30_000, 250);
   // Catches: a header field lost or changed in the split (the dock's header would disagree with the agent's view).
   const { objects: _o, agents: _a, transformations: _t, chat: _c, leaderboard: _l, leaderboardWorldSeconds: _w, ...header } = obs as any;
-  const { roster, ...dock } = state as any;
+  const { roster, objectCount: _n, ...dock } = state as any;
   assert.deepEqual({ ...dock, self: { ...dock.self, score: 0 }, economy: { ...dock.economy, worldSeconds: 0 }, revision: 0 },
     { ...header, self: { ...header.self, score: 0 }, economy: { ...header.economy, worldSeconds: 0 }, revision: 0 });
   assert.deepEqual(roster, (await admin.query(internal.testing.rawGame, { gameId: game.gameId })).game.roster.map((m: any) => m.id));

@@ -31,7 +31,7 @@ test("the catalogue lists exactly the public functions in the engine's sources, 
   const found = walkPublicFunctions();
   assert.deepEqual([...CATALOG_PATHS].sort(), [...found.keys()].sort());
   for (const [path, kind] of found) assert.equal(CATALOG[path as keyof typeof CATALOG].kind, kind, `${path} is a ${kind}`);
-  assert.equal(found.size, 95);
+  assert.equal(found.size, 96);
   assert.ok(found.has("layout.current") && found.has("layout.set") && !found.has("panels.place") && !found.has("panels.layout"));
 });
 
@@ -47,7 +47,7 @@ test("every player or owner affordance reaches the assistant through a tool, or 
   assert.deepEqual(noTool, ["assistant.cancel", "assistant.editQueued", "assistant.removeQueued", "assistant.send", "assistant.sendQueued", "assistant.setMode", "assistant.status", "assistant.thread", "assistant.threads", "assistant.transcript",
     "dock.agentSeries", "dock.agents", "dock.state", "dock.transformations",
     "games.header", "games.instance", "games.object", "games.objectIds", "games.resolve", "games.standings", "games.standingsHistory",
-    "panels.setEnabled", "player.game", "player.object", "player.objectIds", "player.objectRank", "player.objectsPage", "player.objectsTop", "player.totals", "replays.stored", "rooms.chat", "rooms.create", "rooms.join", "rooms.leave", "rooms.list", "rooms.startWorldNow", "setups.row"]);
+    "panels.setEnabled", "player.game", "player.object", "player.objectIds", "player.objectRank", "player.objectsPage", "player.objectsTop", "player.staleCount", "player.totals", "replays.stored", "rooms.chat", "rooms.create", "rooms.join", "rooms.leave", "rooms.list", "rooms.startWorldNow", "setups.row"]);
 });
 
 test("tools and entries agree in both directions; kinds match annotations", () => {

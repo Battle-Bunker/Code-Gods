@@ -124,6 +124,7 @@ export const BUDGETS: Budget[] = [
   { query: "player:objectsTop", subscribedBy: "sdk useObjectsTop", args: f => ({ gameId: f.gameId, n: 20 }), cold: false },
   { query: "player:objectRank", subscribedBy: "sdk useObjectRank", args: f => ({ objectId: f.objectId }), cold: false },
   { query: "player:totals", subscribedBy: "core/panels/objects.tsx (footer), sdk useTotals", args: f => ({ gameId: f.gameId }), cold: false },
+  { query: "player:staleCount", subscribedBy: "core/panels/objects.tsx (the look bar), sdk useStaleCount", args: f => ({ gameId: f.gameId }), cold: false },
   { query: "dock:state", subscribedBy: "sdk useDockState (useGame, useMyCard, the dock's header, every panel's phase)", args: f => ({ roomId: f.roomId }), cold: false },
   { query: "dock:agents", subscribedBy: "sdk useMyAgents (agents, forge, overview)", args: f => ({ roomId: f.roomId }), cold: false },
   { query: "dock:transformations", subscribedBy: "sdk useTransformations (feed)", args: f => ({ roomId: f.roomId }), cold: false },

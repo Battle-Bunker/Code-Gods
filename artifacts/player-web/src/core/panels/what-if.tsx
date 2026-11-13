@@ -6,7 +6,8 @@
 import { useMemo } from "react";
 import type { MutatorCallWire } from "@workspace/game-types";
 import { dimensionVar } from "@workspace/object-views";
-import { Obj, fmtBits, useEvaluator, useMyObject, type Evaluator, type LiveObject } from "@/sdk";
+import { Obj, fmtBits, useDockState, useEvaluator, useMyObject, type Evaluator, type LiveObject } from "@/sdk";
+import { staleness } from "./knowledge";
 import { composer } from "@/core/chat/composer";
 import { PanelEmpty, Section, TextButton, type PanelProps } from "./kit";
 
@@ -39,6 +40,9 @@ function Result({ label, target, outcome }: { label: string; target: LiveObject;
 export default function WhatIf({ params }: PanelProps<"what-if">) {
   const evaluator = useEvaluator();
   const target = useMyObject(params?.objectId) ?? undefined;
+  // Paid observation: the move is tried on the object as the god last saw it (./knowledge.ts), which may have changed.
+  const world = useDockState({ hz: 1 })?.economy?.worldSeconds ?? 0;
+  const seen = target ? staleness(target, world) : null;
   const main = useMemo(() => (evaluator && target && params ? tryMove(evaluator, target, params.calls) : undefined), [evaluator, target, params]);
   const alt = useMemo(() => (evaluator && target && params?.compare ? tryMove(evaluator, target, params.compare) : undefined), [evaluator, target, params]);
   const raw = useMemo(() => {
@@ -55,6 +59,11 @@ export default function WhatIf({ params }: PanelProps<"what-if">) {
   if (!evaluator || !main) return <PanelEmpty>Loading your utility function…</PanelEmpty>;
   return (
     <div className="space-y-4" data-testid="panel-what-if">
+      {seen && (
+        <p className="text-xs text-muted-foreground" data-testid="text-what-if-seen">
+          Tried on the object as you last saw it ({seen.seen}){seen.stale ? <>: it has <span className="font-semibold text-destructive">{seen.note}</span>, so the real move may come out differently.</> : "."}
+        </p>
+      )}
       <Result label={`${params.calls.map(c => c[0]).join(", ")}`} target={target} outcome={main} />
       {alt && params.compare && <Section title="Compared with"><Result label={params.compare.map(c => c[0]).join(", ")} target={target} outcome={alt} /></Section>}
       {raw !== undefined && <p className="text-sm">The value your assistant asked about scores {typeof raw === "number" ? <span style={YOURS}>{fmtBits(raw)} bits</span> : `nothing: ${raw}`} for you.</p>}

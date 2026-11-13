@@ -76,18 +76,6 @@ export async function getViewer(ctx: QueryCtx | MutationCtx): Promise<Viewer | n
   return viewer && viewer.subject === identity.subject ? viewer : null;
 }
 
-/**
- * Whether the caller's human is an administrator, through a browser session or any of their credentials (whose Viewer
- * never carries `isAdmin`: admin powers stay with the browser). Only for what an administrator may SEE or pick (the
- * Lab setups, convex/setups.ts), never for an admin power. A browser viewer costs nothing; a credential one indexed
- * read of its human's `users` row (which viewerForCredential already read).
- */
-export async function humanIsAdmin(ctx: QueryCtx | MutationCtx, viewer: Viewer): Promise<boolean> {
-  if (viewer.scope === "browser") return viewer.isAdmin;
-  const user = await ctx.db.query("users").withIndex("by_subject", q => q.eq("subject", viewer.subject)).unique();
-  return !!user && isAdminUser(user, process.env);
-}
-
 /** The human everywhere (a browser session or an account grant), not a credential bound to one room. */
 export const actsAsHuman = (viewer: Viewer) => viewer.scope !== "player";
 

@@ -17,7 +17,7 @@ import { aiEnabledFor } from "../lib/aiAccess";
 import { putCatalog } from "../lib/rooms";
 import { membersOf, principalV, requireOwnerAs, requireRoom, shortCodeFor, viewerOf } from "../lib/rooms";
 import { EVENT_LOG_SCHEMA, LEASE_MS, disclosedTotalsOf, totalsOf } from "../lib/world";
-import { requireLabAccess, roomSetupWrite, type RoomSetupChange } from "../setups";
+import { roomSetupWrite, type RoomSetupChange } from "../setups";
 import { scoreV } from "./tables";
 import { publicSalienceOf, publishStandings } from "./readModel";
 import { scheduleFill } from "./objectViews";
@@ -72,7 +72,6 @@ export const commitSettings = internalMutation({
     if (args.setup?.kind === "apply") {
       const doc = await ctx.db.get(args.setup.setupId);
       if (!doc || doc.deleted) fail("NOT_FOUND", "That setup was deleted meanwhile");
-      await requireLabAccess(ctx, viewer, doc);
       setup = { id: doc._id, name: doc.name, created: false, note: `The next game runs "${doc.name}"` };
     } else if (args.setup?.kind === "edit" && !(room.setupId && sameSettings(settings, room.settings))) {
       setup = await roomSetupWrite(ctx, room, viewer.subject, settings, args.setup.baseUpdatedAt);

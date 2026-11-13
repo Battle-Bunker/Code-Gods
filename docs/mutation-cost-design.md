@@ -1,6 +1,6 @@
 # Mutation cost as a cost function: design brainstorm (2026-11-11)
 
-Status (2026-11-11, later the same day): the cost function of this document is shipped as a room setting, `costModel`
+Status (2026-11-13): the cost function of this document is shipped as a room setting, `costModel`
 (docs/energy-model.md §4.5; `lib/game-types/src/structure/`). What shipped, and where it departs from the text below:
 
 - **Shipped as values of `costModel`:** `set-v1` (the flat price, the default when the setting is absent), `distance-v1`
@@ -13,8 +13,9 @@ Status (2026-11-11, later the same day): the cost function of this document is s
 - **A mutator does the same thing under every model.** `count_on` (step_rank) still wraps and pays for the distance each
   number moved (9 → 0 is nine steps on a slider, one on a dial); the new `add(where, amount)` never wraps and fails out
   of range in every room. Only multiply-v1 changes what is offered (it adds `multiply` and `divide`).
-- **Cards are in:** rank is a slider (A–K), suit categorical. Every Grid may use the distance models; multiply needs
-  digits.
+- **Cards are in:** rank is a slider (A–K), suit categorical. Multiply needs the digits 0–9. A model is offered on a
+  board only where a full look stays cheaper than the model's cheapest change (the rule that sets the read price,
+  energy-model.md §2.1): the biggest boards (6×6 and 7×7 with many colours or cards) keep the flat price.
 - **λ is the exact Kraft root of each generator's declared argument space** (1.58491 for ten digits), which gives
   categorical layers log2(n − 1) by the same rule.
 - §8's numbers are confirmed with the real implementation (docs/rule-difficulty.md §6.4).

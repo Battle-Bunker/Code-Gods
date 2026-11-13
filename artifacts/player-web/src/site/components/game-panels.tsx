@@ -64,7 +64,16 @@ const OBJECT_PAGE = 50;
  * while live), never anyone's own score. A skeleton (games.objectIds: ids and salience, paged by the index) and one
  * subscription per visible row (games.object); rows scrolled out of view unmount and drop theirs.
  */
-export function Objects(props: { gameId: string; instance?: InstanceInfo; emptyBody?: string }) {
+export function Objects(props: { gameId: string; instance?: InstanceInfo; emptyBody?: string; playingPaid?: boolean }) {
+  // Paid observation: a seated player of a live game sees objects only as they last saw them, in their dock; the public
+  // list answers them nothing (games.objectIds), so it is not subscribed to and a note stands in its place.
+  if (props.playingPaid) {
+    return (
+      <Section title="Objects">
+        <EmptyState testId="note-objects-paid" title="In your dock" body="You are playing this game. Looking costs energy here, so its objects are in your dock as you last saw them." />
+      </Section>
+    );
+  }
   return <ErrorBoundary FallbackComponent={ObjectsError} resetKey={props.gameId}><ObjectList {...props} /></ErrorBoundary>;
 }
 
@@ -182,7 +191,7 @@ export function Chat({ messages, canPost, placeholder, pending, onSend, title = 
  */
 const SHOWN: readonly SettingsKey[] = [
   "languages", "planningSeconds", "halfLifeSeconds", "interactionRateHz", "startingObjectCount", "spawnRateHz",
-  "startingEnergy", "powerPerSecond", "costModel", "maxAgentsPerGod", "defenceGoals", "utilitySelectorId",
+  "startingEnergy", "powerPerSecond", "fullChargeSeconds", "costModel", "maxAgentsPerGod", "defenceGoals", "utilitySelectorId",
 ];
 
 /** "Python · Grid 5×5 base10 rgby · ~6 min (often 3–13) · normal pace". */

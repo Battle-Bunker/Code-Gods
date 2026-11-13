@@ -7,7 +7,7 @@
  *
  *   node --experimental-transform-types --disable-warning=ExperimentalWarning test/probe-commit-time.ts [seconds=60] [agentsPerGod=8]
  *
- * Each agent is offered at most MAX_AGENT_OPPORTUNITY_HZ (4) opportunities a second, so 8 agents per god let three gods
+ * Written when each agent was offered at most 4 opportunities a second (a cap removed on 11 Nov 2026), so 8 agents per god let three gods
  * take most of the 100 opportunities a second. Run against an otherwise idle local backend (one backend-heavy run per
  * machine): the numbers are only comparable between runs on the same machine under the same load.
  */
