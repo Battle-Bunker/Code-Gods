@@ -27,12 +27,12 @@ test("validate_agent: the code it validated, the language, price, energy, verdic
   assert.deepEqual(find(sections, "code"), { kind: "code", title: "Agent code", language: "python", code: SOURCE });
   const facts = Object.fromEntries(find(sections, "facts", "Outcome")!.rows);
   assert.equal(facts.Verdict, "Fails");
-  assert.equal(facts["Summon price"], "74.2 bits");
-  assert.equal(facts["Your energy"], "565.1 bits");
+  assert.equal(facts["Summon price"], "74.2 energy");
+  assert.equal(facts["Your energy"], "565.1", "energy is never counted in bits");
   assert.equal(facts.Affordable, "yes");
-  assert.equal(facts["Est. cost per act"], "2 bits (an estimate: an act pays only what it does)");
-  assert.equal(facts["Reading per act"], "1.5 bits");
-  assert.equal(facts["Changing per act"], "0.5 bits");
+  assert.equal(facts["Est. cost per act"], "2 energy (an estimate: an act pays only what it does)");
+  assert.equal(facts["Reading per act"], "1.5 energy");
+  assert.equal(facts["Changing per act"], "0.5 energy");
   assert.equal(facts["Skips (no calls)"], "25%");
   assert.ok(!("Decision bits" in facts), "there is no per-act decision charge any more");
   assert.equal(facts["Invalid or failing"], "100%");

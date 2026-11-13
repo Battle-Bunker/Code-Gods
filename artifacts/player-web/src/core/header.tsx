@@ -1,6 +1,6 @@
 /**
  * The global header, 44 px on the page background: where am I. Identity (initials and full name), the phase pill
- * (the only primary-coloured element here), energy ("owes 312 bits" when it is below zero), the connection dot, the room code and the client mode in small
+ * (the only primary-coloured element here), energy ("owes 312 ⚡" when it is below zero), the connection dot, the room code and the client mode in small
  * print, and the command palette (search field + menu; Cmd/Ctrl+K). Everything else lives in the palette.
  */
 import { CommandPalette, PaletteTrigger } from "@workspace/ui-kit";
@@ -15,6 +15,11 @@ import { paletteStore, usePaletteState } from "./palette/store";
 import { usePlayerCommands } from "./palette/use-commands";
 import { useWide } from "./use-wide";
 import { Link } from "./navigation";
+import { SUMMON_FIRST, planningLine } from "./planning-line";
+import { useMyAgents } from "@/sdk";
+import { useDockActions } from "@/dock/actions";
+import { useAffordances } from "@/core/use-affordances";
+import { useOwnerActions } from "@/core/game/owner";
 import { owedText } from "./panels/energy-capacity";
 
 const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]!.toUpperCase()).join("") || "?";
@@ -31,7 +36,8 @@ function phasePill(s: Situation, now: number): string {
     case "lobby": { const ready = s.room?.members.filter(m => m.ready && !m.spectator).length; return s.room ? `Lobby · ${ready} of ${s.players} ready` : "Lobby"; }
     case "planning": {
       const left = countdown(obs.planningEndsAt);
-      if (left) return `Planning · starts in ${left}`;
+      // The countdown itself is the planning line's, under the header (PlanningBar): one countdown on screen.
+      if (left) return "Planning";
       // Past the deadline, planning holds until every allowed language's agent sandbox is warm.
       if (obs.sandboxes?.some(sb => sb.state !== "ready")) return "Planning · agent sandboxes warming up";
       // …and until hold rarity's corrections for this player count are computed (docs/energy-model.md §8).
@@ -63,7 +69,7 @@ export function Header() {
         {permission === "read" && <span className="label shrink-0">view only</span>}
       </div>
       <span data-testid="text-phase" className="shrink-0 bg-primary px-2 py-0.5 font-mono text-[11px] font-semibold text-primary-foreground">{phasePill(s, now)}</span>
-      {self && live && s.seated && <span className="hidden shrink-0 font-mono text-xs tabular-nums sm:inline" title={owedText(self.energy) ? "You owe energy: you cannot summon until your income has repaid it" : `Your energy: it pays for summons${s.obs?.economy?.lookPrice !== undefined ? " and looks" : ""} and refills every second${self.capacity !== undefined ? `, up to ${bits(self.capacity)} bits` : ""}`} data-testid="text-energy">⚡ {owedText(self.energy) ?? `${bits(self.energy)} bits`}</span>}
+      {self && live && s.seated && <span className="hidden shrink-0 font-mono text-xs tabular-nums sm:inline" title={owedText(self.energy) ? "You owe energy: you cannot summon until your income has repaid it" : `Your energy: it pays for summons${s.obs?.economy?.lookPrice !== undefined ? " and looks" : ""} and refills every second${self.capacity !== undefined ? `, until it is full at ${bits(self.capacity)} ⚡` : ""}`} data-testid="text-energy">{owedText(self.energy) ?? `⚡ ${bits(self.energy)} energy`}</span>}
       <span data-testid="status-connection" className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground" title={s.obs ? "Live" : "Connecting to the engine"}>
         <span aria-hidden className={`h-2 w-2 ${s.obs ? "bg-[hsl(var(--accent))]" : "beat bg-muted-foreground"}`} />
         <span className={s.obs ? "sr-only" : ""}>{s.obs ? "live" : "connecting"}</span>
@@ -96,6 +102,41 @@ export function PlayerPalette({ compact, suggested = ["ui.forge.edit", "ui.panel
   );
 }
 
+/**
+ * Planning, under the header: what it is for, the one countdown to the world's start, the player's one next step as a
+ * button while they have no agent ("Summon my first agent" opens the agent editor, which already holds a working
+ * agent), and the owner's visible "Start the world now" (the palette's rooms.startWorldNow). Once the world runs, a
+ * player still without an agent keeps the line and the button. The game timer stands down while the planning line
+ * shows (game-timer.tsx). On a phone the two buttons stack under the text.
+ */
+export function PlanningBar() {
+  const { permission } = useRoom();
+  const s = useSituation();
+  const now = useNow(1000);
+  const owner = useOwnerActions();
+  const dock = useDockActions();
+  const { loading } = useMyAgents();
+  const { editCode } = useAffordances().can;
+  const line = planningLine({
+    phase: s.phase, seated: s.seated, owner: s.isOwner && permission !== "read", planningEndsAt: s.obs?.planningEndsAt, nowMs: now,
+    agents: loading ? undefined : s.agents, canSummon: editCode.ok,
+  });
+  if (!line) return null;
+  return (
+    <div role={s.phase === "planning" ? "timer" : "status"} aria-live="off" data-testid="banner-planning" className="flex flex-col items-center justify-center gap-x-4 gap-y-2 border-b border-[hsl(var(--card-border))] bg-muted px-3 py-2 text-center text-sm sm:flex-row sm:flex-wrap sm:text-left">
+      <span className="font-medium tabular-nums" data-testid="text-planning">{line.text}</span>
+      {line.summon && (
+        <button type="button" data-testid="button-summon-first-agent" onClick={() => dock.forgeEdit()}
+          className="w-full shrink-0 bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground hover:opacity-90 sm:w-auto sm:py-1">{SUMMON_FIRST}</button>
+      )}
+      {line.startNow && (
+        <button type="button" data-testid="button-start-world-now" onClick={() => void owner.startWorldNow()}
+          className={`w-full shrink-0 px-3 py-1.5 text-sm font-semibold hover:opacity-90 sm:w-auto sm:py-1 ${line.summon ? "border border-primary bg-background text-primary" : "bg-primary text-primary-foreground"}`}>Start the world now</button>
+      )}
+    </div>
+  );
+}
+
 /** Under the header: an uncertain command waiting for its identical retry, and short notices. */
 export function HeaderBanners() {
   const { unknown, busy } = useRunner();
@@ -104,6 +145,7 @@ export function HeaderBanners() {
   const gameNotice = useSituation().obs?.notice;
   return (
     <>
+      <PlanningBar />
       {gameNotice && (
         // Why the game is not moving (an idle park, a pause for safety, or the engine retrying): never mistaken for a crash.
         <div data-testid="banner-game-notice" data-kind={gameNotice.kind} role="status"

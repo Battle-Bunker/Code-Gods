@@ -758,11 +758,15 @@ const seed = (seedId: string, name: string, summary: string, objectType: string,
 /** Annotated basics' board and what it changes from that board's defaults: shared with its twin "Basics with bidding", which adds only a bid phase. */
 const ANNOTATED_BASICS_BOARD: TypeArgs = Object.freeze({ size: 4, symbols: "base10", colours: "mono" });
 const ANNOTATED_BASICS_PATCH: Partial<GameSettings> = Object.freeze({
-  interactionRateHz: 25, durationMode: "fixed", halfLifeSeconds: 600, excludedFamilies: ANNOTATED_BASICS_EXCLUDED,
-  startingObjectCount: 10, spawnRateHz: 0.1, planningSeconds: 300,
+  interactionRateHz: 25, durationMode: "fixed", halfLifeSeconds: 300, excludedFamilies: ANNOTATED_BASICS_EXCLUDED,
+  startingObjectCount: 10, spawnRateHz: 0.1, planningSeconds: 60,
   costModel: "distance-v1",
   // Paid observation (owner, 2026-11-11: a costly use of a god's own energy; docs/energy-model.md §11).
   observation: "paid",
+  // No disclosure noise on the beginner setup: with noise, a live total reads high (the others' sum is floored at 0
+  // after the noise) and every total drops when the game ends (live 308, final 194 in a first game), which a new
+  // player reads as a bug. Eight known simple rules have little secrecy to protect; docs/public-log-design.md §5.2.
+  peerNoiseBits: 0,
 });
 
 /** Tiered rules for players (docs/tiered-rules.md); the other compositions are Lab setups (LAB_SETUPS). */

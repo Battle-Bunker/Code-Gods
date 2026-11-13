@@ -126,14 +126,14 @@ export async function roomWith(members: God[], settings?: Record<string, unknown
   await sandboxesWarm();
   const [owner, ...rest] = members;
   const { roomId, shortCode } = await owner.c.mutation(api.rooms.create, {});
-  // The owner starts as a spectator (docs/unify-apps-plan.md §2); these rooms seat every member given.
-  await owner.c.mutation(api.rooms.setSpectator, { roomId, spectator: false });
+  // The owner is seated as a player by rooms.create; these rooms seat every member given.
   for (const m of rest) await m.c.mutation(api.rooms.join, { room: shortCode });
   // The default setup charges for looking (paid observation, convex/lib/knowledge.ts); these rooms see the world for
-  // free, as every suite written before it assumes, unless the test asks for "paid" (game-paid-observation).
+  // free, as every suite written before it assumes, unless the test asks for "paid" (game-paid-observation). The default
+  // setup also discloses exact sums (peerNoiseBits 0, for a first game); these rooms keep the general default's noise.
   if (settings) {
     const room = await owner.c.query(api.rooms.get, { room: roomId });
-    await owner.c.action(api.owner.settings, { roomId, revision: room.revision, settings: { observation: "free", ...settings } });
+    await owner.c.action(api.owner.settings, { roomId, revision: room.revision, settings: { observation: "free", peerNoiseBits: 8, ...settings } });
   }
   return { roomId: roomId as string, shortCode: shortCode as string };
 }

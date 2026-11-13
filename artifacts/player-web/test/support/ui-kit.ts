@@ -3,4 +3,4 @@
  * (.tsx), which node's type stripping cannot load. test/support/ui-kit-hook.mjs points the bare specifier here.
  */
 export { availabilityFor, commandsFromCatalog, liveOptions, searchCommands } from "../../../../lib/ui-kit/src/commands.ts";
-export { GLOSSARY, GLOSSARY_IDS } from "../../../../lib/ui-kit/src/glossary.ts";
+export { GLOSSARY, GLOSSARY_IDS, SCORE_LINES, SCORE_WORDS } from "../../../../lib/ui-kit/src/glossary.ts";

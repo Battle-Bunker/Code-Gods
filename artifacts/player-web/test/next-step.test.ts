@@ -36,7 +36,7 @@ test("preparing: busy with the tables' honest progress, for the owner; others ke
 
 test("a pending start does not change the step once the game is live", () => {
   const s = nextStep({ ...owner, phase: "planning", seated: true, start: { phase: "starting", source: "owner" } });
-  assert.equal(s.label, "Write your first agent");
+  assert.equal(s.label, "Summon your first agent");
   assert.ok(!s.busy);
 });
 

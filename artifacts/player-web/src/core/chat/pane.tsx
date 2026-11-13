@@ -28,7 +28,7 @@ import { runPaletteCommand } from "@/core/palette/registry";
 import { composer, threadIn, useComposer, type Permission } from "./composer";
 import { emptyStateFor, suggestionsFor, type Suggestion } from "./suggestions";
 import {
-  MODE_OPTIONS, TURN_ACTIVE, allowanceMeter, allowanceNote, buildTimeline, chipView, queueNote, stepView, summonWarnings, userCount, withPending, withSteps,
+  MODE_OPTIONS, TURN_ACTIVE, allowanceMeter, allowanceNote, buildTimeline, chipView, queueNote, silentTurnNote, stepView, summonWarnings, userCount, withPending, withSteps,
   type AssistantMode, type CallRow, type ChatItem, type StepTone,
 } from "./state";
 import { ToolDetail } from "./tool-detail-view";
@@ -76,6 +76,8 @@ function Conversation({ paneId, status }: { paneId: string; status: Status | und
   const warnings = useMemo(() => new Map(calls.flatMap(call => { const w = summonWarnings(call, calls); return w ? [[call._id, w] as const] : []; })), [thread]); // eslint-disable-line react-hooks/exhaustive-deps
   const latestTurn = thread?.turns.at(-1);
   const active = !!latestTurn && TURN_ACTIVE.includes(latestTurn.status);
+  /** A turn that ended with nothing to read (no answer, error or stop): said in a line, never silence. */
+  const silent = silentTurnNote(latestTurn, thread?.messages ?? []);
   const enabled = status?.enabled ?? false;
   const max = status?.maxPermission ?? "act";
   // A credential from "Only look" (read) is not the mode any more: the next message asks for act when this connection may.
@@ -95,6 +97,7 @@ function Conversation({ paneId, status }: { paneId: string; status: Status | und
     if (!message || !status || blocked) return;
     // While the assistant works the message is queued (shown in the queue, not the timeline, until it is delivered).
     // A new conversation starts from no messages.
+    composer.expand();
     setError(null); if (!active) setPending({ text: message, users: threadId ? userCount(timeline) : 0 }); composer.setDraft("");
     try {
       const firstUse = !status.credential;
@@ -107,14 +110,18 @@ function Conversation({ paneId, status }: { paneId: string; status: Status | und
     } catch (e) { setError(errorText(e)); setPending(null); composer.setDraft(message); }
   };
 
+  // With this game's quota used up a chip would only be refused: it runs its command instead, as with the assistant off.
+  const quotaUsedUp = !!status && status.allowance.limit > 0 && status.allowance.used >= status.allowance.limit;
   const chips = suggestionsFor({ phase: situation.phase, seated: situation.seated, isOwner: situation.isOwner, agents: situation.agents, ready: situation.ready,
-    players: situation.players, assistantOn: enabled, aiEnabled: situation.room?.aiEnabled });
+    players: situation.players, assistantOn: enabled && !quotaUsedUp, aiEnabled: situation.room?.aiEnabled });
   const runChip = (chip: Suggestion) => {
     if (chip.command) runPaletteCommand(chip.command);
+    else if (chip.prompt && blocked) setError("Tick Owner powers above first, or untick it: your assistant needs your say-so to use owner powers.");
     else if (chip.prompt) void submit(chip.prompt);
   };
   const empty = emptyStateFor(situation.phase, enabled);
-  const showChips = !active && !c.draft.trim() && (!items.length || items.at(-1)?.kind === "assistant");
+  // Also after a turn that failed or said nothing, so the player has a next step under the error line.
+  const showChips = !active && !c.draft.trim() && (!items.length || items.at(-1)?.kind === "assistant" || !!silent || (!!latestTurn?.error && !pending));
 
   // Phase changes seen while this pane is open become system lines where they happened in the conversation.
   const [notes, setNotes] = useState<Note[]>([]);
@@ -130,7 +137,7 @@ function Conversation({ paneId, status }: { paneId: string; status: Status | und
   return (
     <div data-testid="assistant-pane" className="flex h-full min-h-0 flex-col bg-card">
       {enabled && status && <ModeSelector roomId={room} mode={status.mode} max={max} onError={setError} />}
-      <Timeline items={items} notes={notes} warnings={warnings} tail={`${latestTurn?._id ?? ""}:${latestTurn?.status ?? ""}:${latestTurn?.error?.code ?? ""}`} empty={!status ? null : !enabled ? (
+      <Timeline items={items} notes={notes} warnings={warnings} tail={`${latestTurn?._id ?? ""}:${latestTurn?.status ?? ""}:${latestTurn?.error?.code ?? ""}:${silent ? "silent" : ""}`} empty={!status ? null : !enabled ? (
         <div data-testid="text-assistant-off" className="space-y-1 text-sm">
           <p className="font-serif text-xl">{empty.greeting}</p>
           <p className="text-muted-foreground">{empty.body}</p>
@@ -143,6 +150,7 @@ function Conversation({ paneId, status }: { paneId: string; status: Status | und
         </div>
       )} footer={<>
         {latestTurn?.error && !active && <p className={`text-xs ${latestTurn.status === "done" ? "text-muted-foreground" : "text-destructive"}`} data-testid="text-assistant-turn-error">{latestTurn.error.message}</p>}
+        {silent && <p className="text-xs text-destructive" data-testid="text-assistant-no-answer">{silent}</p>}
         {latestTurn?.status === "cancelled" && <SystemLine>{latestTurn.trigger === "autopilot" ? "Autopilot stopped." : "You stopped the assistant."}</SystemLine>}
       </>} />
       {showChips && chips.length > 0 && (
@@ -402,7 +410,8 @@ function Composer({ active, onSend, onStop, meter, blocked, paneId }: {
           placeholder={active ? "Add a message; your assistant reads it after this step…" : "Ask your assistant…"} aria-label="Ask your assistant (private)"
           onKeyDown={e => {
             if (e.key === "Enter" && !e.shiftKey && !e.metaKey && !e.ctrlKey) { e.preventDefault(); if (!blocked) onSend(); }
-            if (e.key === "Escape" && !draft) { e.preventDefault(); input.current?.blur(); collapse(); }
+            // Escape belongs to an open menu or dialog first: closing one must not also shrink the assistant.
+            if (e.key === "Escape" && !draft && !e.defaultPrevented && !document.querySelector('[role="menu"], [role="dialog"], [role="listbox"]')) { e.preventDefault(); input.current?.blur(); collapse(); }
           }}
           className="min-h-9 min-w-0 flex-1 resize-none bg-transparent px-2 py-1.5 text-sm leading-5 outline-none" />
         {active && (

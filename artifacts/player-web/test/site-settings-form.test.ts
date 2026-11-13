@@ -35,8 +35,8 @@ test("limits mirror validateSettings and the engine's resource limits, with the 
   assert.equal(fieldError("maxAgentsPerGod", 200), null);
   assert.equal(fieldError("startingObjectCount", 1001), "Must be between 0 and 1,000 objects.", "nextSettings caps objects at 1000");
   // The engine refuses these above ENERGY_LIMITS (game-core validateSettings): the form says so before saving.
-  assert.equal(fieldError("powerPerSecond", 1_000_001), "Must be between 0 and 1,000,000 bits per second.");
-  assert.equal(fieldError("startingEnergy", 1e9 + 1), "Must be between 0 and 1,000,000,000 bits.");
+  assert.equal(fieldError("powerPerSecond", 1_000_001), "Must be between 0 and 1,000,000 ⚡ per second.");
+  assert.equal(fieldError("startingEnergy", 1e9 + 1), "Must be between 0 and 1,000,000,000 ⚡.");
   assert.equal(fieldError("penaltyWeight", 1001), "Must be between 0 and 1,000.");
   assert.equal(fieldError("penaltyWeight", 1000), null);
   assert.equal(fieldError("spawnRateHz", 10.5), "Must be between 0 and 10 per second.");
@@ -44,7 +44,7 @@ test("limits mirror validateSettings and the engine's resource limits, with the 
   assert.equal(fieldError("pauseSeconds", 3601), "Must be between 1 and 3,600 seconds.");
   assert.equal(fieldError("scoreIntervalSeconds", 2.5), "Must be a whole number.");
   assert.equal(fieldError("scoreIntervalSeconds", 45), null, "any whole number of seconds, not only the presets");
-  assert.equal(fieldError("powerPerSecond", -1), "Must be between 0 and 1,000,000 bits per second.");
+  assert.equal(fieldError("powerPerSecond", -1), "Must be between 0 and 1,000,000 ⚡ per second.");
   assert.ok(fieldsOf("energy").includes("powerPerSecond"), "each player's power is on the form");
   // The time an empty energy store takes to fill: asked in the energy section, in seconds, 1 to 1,000,000.
   assert.ok(fieldsOf("energy").includes("fullChargeSeconds"));
@@ -168,8 +168,11 @@ test("penalty weight and the defence checklist hide while defence goals are off;
   assert.deepEqual(stepChoices("fullChargeSeconds", 45), [10, 30, 45, 60, 120, 300]);
   assert.equal(formatValue("fullChargeSeconds", 30), "30 s");
   assert.deepEqual(stepChoices("pauseSeconds", 240), [60, 180, 240, 300]);
-  assert.equal(lengthLine({ planningSeconds: 60, halfLifeSeconds: 300 }), "~6 min (often 3–13)");
-  assert.equal(lengthLine({ planningSeconds: 60, halfLifeSeconds: 600, durationMode: "fixed" }), "11 min", "a fixed game's length is exact");
+  // Catches: the summary adding planning to the game ("15 min") beside a Time field that says "Long (10 min)".
+  assert.equal(lengthLine({ planningSeconds: 60, halfLifeSeconds: 300 }), "1 min planning, then about 5 min (ends at a hidden moment, often after 2 to 12 min)");
+  assert.equal(lengthLine({ planningSeconds: 300, halfLifeSeconds: 600, durationMode: "fixed" }), "5 min planning, then a 10 min game", "a fixed game's length is exact");
+  assert.equal(lengthLine({ planningSeconds: 75, halfLifeSeconds: 300, durationMode: "fixed" }), "75 s planning, then a 5 min game");
+  assert.equal(lengthLine({ planningSeconds: 0, halfLifeSeconds: 300, durationMode: "fixed" }), "a 5 min game");
   assert.deepEqual(stepChoices("durationMode", "fixed").map(v => choiceLabel("durationMode", v)), ["Fixed duration", "Half-life"]);
   // Paid observation: two worded choices, and the same words in the review and in a diff.
   assert.deepEqual(stepChoices("observation", "free").map(v => choiceLabel("observation", v)), ["Free", "Boards free", "Paid", "Agents only"]);

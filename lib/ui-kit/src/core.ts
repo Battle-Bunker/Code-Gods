@@ -9,5 +9,5 @@ export { SECTION_ORDER, SECTION_TITLES, matchScore, paletteRows, scoreCommand, s
 export { INLINE_TIMEOUT_MS, deriveConfirm, inlineStep, type Armed } from "./confirm.ts";
 export { RECENT_MAX, browserStorage, pushRecent, readRecent, recordRecent, type StorageLike } from "./recency.ts";
 export { isEditable, paletteKey, shortcutLabel, type KeyEnv, type KeyLike } from "./keys.ts";
-export { GLOSSARY, GLOSSARY_IDS, type GlossaryId } from "./glossary.ts";
+export { GLOSSARY, GLOSSARY_IDS, SCORE_LINES, SCORE_WORDS, scoreMovesLine, type GlossaryId } from "./glossary.ts";
 export { explainTermCommand, glossaryCommands, shortcutsCommand } from "./help.ts";

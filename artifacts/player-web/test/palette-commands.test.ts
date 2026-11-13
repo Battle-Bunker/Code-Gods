@@ -138,6 +138,10 @@ test("owner commands need the owner and the right moment", () => {
   assert.ok(ok(owner("lobby"), "rooms.addAi", as("lobby")));
   assert.ok(!ok(owner("running"), "rooms.addAi", as("running")), "seats change between games");
   assert.equal(find(owner("running"), "rooms.endActiveGame").confirm, "modal");
+  // The dialog says who it affects, and its button is not the same words as the row that opened it.
+  const end = find(owner("running"), "rooms.endActiveGame");
+  assert.equal(end.confirmLabel, "End the game");
+  assert.match(end.summary?.(as("running")) ?? "", /for everyone/);
 });
 
 test("hand-offs only pre-fill the composer, and need the assistant", async () => {

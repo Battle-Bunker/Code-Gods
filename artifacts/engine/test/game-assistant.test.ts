@@ -13,6 +13,7 @@ import { createHash } from "node:crypto";
 import { admin, api, envelope, gods, internal, playerClient, raw, rejects, roomWith, sleep, startGame, touch, waitFor, TS, type God, makeAdmin } from "./game-helpers.ts";
 import { disclosureChecker } from "./disclosure.ts";
 import { commandIdFor } from "../convex/assistant/rules.ts";
+import { ruleScoreWording } from "@workspace/game-utilities/card-text";
 
 const sha1 = (bytes: Uint8Array) => new Uint8Array(createHash("sha1").update(bytes).digest());
 const derived = (turnId: string, callId: string) => commandIdFor(turnId, callId, sha1);
@@ -96,7 +97,7 @@ test("each turn starts with a briefing of the player's live situation, kept for 
   assert.deepEqual(second, first, "the same briefing, system prompt and tools at every step of the turn");
   const [briefing] = first.context as string[];
   assert.ok(briefing.startsWith("<briefing>"), briefing);
-  for (const expected of [mine.self.utility.name, mine.self.utility.summary, "phase: planning", "Panes on the player's screen"]) {
+  for (const expected of [mine.self.utility.name, ruleScoreWording(mine.self.utility.summary), "phase: planning", "Panes on the player's screen"]) {
     assert.ok(briefing.includes(expected), `the briefing has ${expected}`);
   }
   assert.ok(!briefing.includes("Room rules:") && !briefing.includes("Mutators") && briefing.length < 2_500, "rules and helpers are skills now");
@@ -202,7 +203,7 @@ test("the 1WB8 loop: the whole skill arrives, a failing validation says it fails
   assert.ok(skill.data.body.includes(mine.self.utility.source.slice(-40)), "the player's whole utility source");
 
   const [first, second, third] = t.calls.slice(1).map((c: any) => JSON.parse(c.resultJson));
-  assert.equal(first.data.receipt.validation.valid, true, "the engine still calls it valid (it compiles)");
+  assert.equal(first.data.receipt.validation.valid, false, "it compiles, and fails on every sample object: not valid (convex/lib/dryRun.ts)");
   assert.equal(first.data.receipt.validation.invalidRate, 1);
   assert.ok(Math.abs(first.data.receipt.validation.energy - mine.self.energy) < 60, "the player's energy when validated");
   assert.equal(typeof first.data.receipt.validation.affordable, "boolean");

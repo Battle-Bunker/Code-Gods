@@ -261,7 +261,7 @@ function ObjectRow({ objectId, position, byPayoff, scales, world, highlighted, o
         // and words a stale row shortly ("1m 5s ago · changed 3×"), so the badge, the change and the priced button all fit.
         <div className="@container absolute inset-x-0 top-1.5" data-testid={`text-seen-${o.id}`} data-stale={seen.stale || undefined}>
           <div className="flex h-[18px] min-w-0 items-center gap-2 font-mono text-[11px] text-muted-foreground @[26rem]:pl-10"
-            title={boards ? (seen.stale ? "It has changed since you last saw the others' interest in it: the payoff shown may no longer be so." : "Nothing has changed it since you last saw the others' interest: the payoff is as it is now.")
+            title={boards ? (seen.stale ? "It has changed since you last saw the others' interest in it: the points shown may no longer be so." : "Nothing has changed it since you last saw the others' interest: the points are as they are now.")
               : seen.stale ? "It has changed since you last saw it: what is shown here may no longer be so." : "Nothing has changed it since you last saw it: this is how it is now."}>
             {seen.stale && <span className="shrink-0 border border-destructive px-1 text-[10px] font-semibold uppercase leading-[14px] tracking-wide text-destructive" data-testid={`badge-stale-${o.id}`}>stale</span>}
             {seen.stale ? (<>
@@ -297,7 +297,7 @@ function ObjectDetail({ objectId, noun, comparative, world, boards }: { objectId
     <div className="space-y-1 border-l-2 border-[hsl(var(--card-border))] pl-3" data-testid={`object-detail-${o.id}`}>
       {seen && (
         <p className="text-xs text-muted-foreground" data-testid={`text-detail-seen-${o.id}`}>
-          {boards ? "The others' interest and your payoff as you last saw them" : "As you last saw it"}, {seen.age < 1 ? "just now" : `${ageText(seen.age)} ago`}
+          {boards ? "The others' interest and your points as you last saw them" : "As you last saw it"}, {seen.age < 1 ? "just now" : `${ageText(seen.age)} ago`}
           {seen.stale ? <>; it has <span className="font-semibold text-destructive">{seen.note}</span>, so {boards ? "they" : "this"} may no longer be so.</> : seen.note ? ": nothing has changed it since." : "."}
         </p>
       )}

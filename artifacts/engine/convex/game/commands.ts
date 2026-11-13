@@ -22,6 +22,7 @@ import { memberOf, principalV, requireMemberAs, requireRoom, viewerOf, type Prin
 import { godEnergy, settledAccount, worldNow } from "../lib/world";
 import { chargeGod, deityAccount, deityCapacityOf, fullChargeOf } from "../lib/power";
 import { agentLanguage, languageV } from "../lib/language";
+import { dryRunVerdict, summonDryRunWarnings } from "../lib/dryRun";
 
 const CHAT_INTERVAL_MS = 1000;
 /** Agent examinations (validate, summon) per human per room per rolling minute: a looping client cannot burn the sandbox. */
@@ -100,6 +101,7 @@ const examinedV = v.object({
     randomized: v.boolean(), diagnostics: v.array(v.string()),
     changeRate: v.optional(v.number()), invalidRate: v.optional(v.number()), skipRate: v.optional(v.number()),
     futility: v.optional(futilityV), warnings: v.optional(v.array(v.string())),
+    firstError: v.optional(v.string()),
   })),
   /** The player's live agents with this exact code and language when it was examined (the copies warning). */
   twins: v.optional(v.number()),
@@ -241,12 +243,20 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
       breakdown: { read: examined.result.breakdown.read + turn, change: examined.result.breakdown.change } };
     // Copies of the player's own live agents: the same code acts the same way on the same objects.
     const twins = examined.twins ?? 0;
-    const warnings = [...(e.warnings ?? []), ...(twins ? [copiesWarning(twins, e.futility)] : [])];
+    // The dry run's verdict (lib/dryRun.ts): failing on every sample object is INVALID; never moving is a warning.
+    const dry = dryRunVerdict(e);
+    // A dry-run finding says it all: the futility warnings of the same runs ("never changes an object") would only repeat it.
+    const found = !dry.valid || dry.warnings.length > 0;
+    // A validation says an invalid agent in its verdict and diagnostics; a summon is not refused for it (callers that
+    // summoned such agents before do not all handle a refusal), so its receipt carries the finding as a warning.
+    const dryWarnings = command.type === "summon" ? summonDryRunWarnings(dry) : dry.warnings;
+    const warnings = [...dryWarnings, ...(found ? [] : e.warnings ?? []), ...(twins ? [copiesWarning(twins, e.futility)] : [])];
     const findings = { ...(e.futility ? { futility: e.futility, expectedSuccessRate: e.futility.successRate } : {}), ...(warnings.length ? { warnings } : {}) };
     if (command.type === "validate") {
       const energy = godEnergy(game, deity, worldNow(game, now));
-      return { valid: true, cost: e.cost, parts: e.parts, expectedActCost: e.expectedActCost,
-        breakdown: e.breakdown, randomized: e.randomized, diagnostics: e.diagnostics.slice(0, 30).map(d => d.slice(0, 1000)),
+      const diagnostics = [...(dry.lead ? [dry.lead] : []), ...(dry.detail ? [dry.detail] : []), ...e.diagnostics];
+      return { valid: dry.valid, cost: e.cost, parts: e.parts, expectedActCost: e.expectedActCost,
+        breakdown: e.breakdown, randomized: e.randomized, diagnostics: diagnostics.slice(0, 30).map(d => d.slice(0, 1000)),
         ...(e.changeRate !== undefined ? { changeRate: e.changeRate } : {}), ...(e.invalidRate !== undefined ? { invalidRate: e.invalidRate } : {}),
         ...(e.skipRate !== undefined ? { skipRate: e.skipRate } : {}),
         ...findings, energy, affordable: energy >= e.cost };

@@ -23,7 +23,7 @@ test("probability and percent keep three significant digits and no exponent", ()
 
 test("Number Bonds: pairs, then the share of boards, then −log₂ with the same numbers", () => {
   const t = workingsText(bonds());
-  assert.equal(t.rawTotal, "Total: (4), 4 best-friend pairs");
+  assert.equal(t.rawTotal, "Your rule score: (4), 4 best-friend pairs");
   assert.match(t.rarityLines[0], /^Out of all possible boards, dealt at random, 17\.2% have at least 4 best-friend pairs\.$/);
   assert.equal(t.rarityLines[1], "As a chance: P = 0.172.");
   assert.equal(t.bitsLines[0], "bits = −log₂(P) = −log₂(0.172) = 2.54 bits");
@@ -37,10 +37,20 @@ test("a points tuple names each tier and compares them in order; a defence goal 
     defence: { ordinal: [3], badnessBits: 2, penaltyBits: 0.5, meanBits: 0.25, weight: 2 }, netBits: 2.54 - 2 * (0.5 - 0.25),
   });
   const t = workingsText(w);
-  assert.equal(t.rawTotal, "Total: (1, −2): primary points 1 (lines), secondary points −2 (how far)");
-  assert.match(t.rarityLines[0], /a points tuple at least \(1, −2\) \(primary points first, then secondary…\)/);
+  assert.equal(t.rawTotal, "Your rule score: (1, −2): primary 1 (lines), secondary −2 (how far)");
+  assert.match(t.rarityLines[0], /a rule score of at least \(1, −2\) \(primary first, then secondary…\)/);
   for (const line of [t.rawTotal, ...t.rarityLines]) assert.doesNotMatch(line, /\bwins?\b|\btie/i);
   assert.match(t.defenceLines[0], /as bad as or worse than 25% of random boards/);
   assert.equal(t.netLines[0], "net bits = ✨ 2.54 − 2 × (0.50 − 0.25) = 2.04");
   assert.equal(t.rawLines[0].text, "Nothing on this board scores");
+});
+
+test("what the card counts is never called points: a lens whose unit is the point says rule-score points", () => {
+  const w = bonds({ netBits: 2.54 });
+  const t = workingsText({ ...w, breakdown: { ...w.breakdown, unit: ["point", "points"], items: [{ text: "3 edge cells neither red nor odd: no points", points: [0] }] } });
+  const card = [t.rawTitle, ...t.rawLines.map(l => l.text), t.rawTotal, t.rarityTitle, ...t.rarityLines, t.bitsTitle, ...t.bitsLines];
+  for (const line of card) assert.doesNotMatch(line, /(?<!rule-score )\bpoints?\b/i, line);
+  assert.match(t.rawTotal, /4 rule-score points$/);
+  // The one line that does say points means the leaderboard's.
+  assert.match(t.netLines.at(-1)!, /^Your points for a board = your net bits \(its ✨ rarity\) × how much the other gods, together, want it/);
 });

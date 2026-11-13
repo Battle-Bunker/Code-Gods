@@ -17,18 +17,24 @@ test("a visitor signs in; a signed-in stranger joins (and may watch a running ga
   assert.deepEqual(nextStep("bob", room(["ada", "cy", "di"], running(["ada", "cy", "di"]))).secondary, ["ui.nav.game"]);
 });
 
-test("in the lobby a player marks ready (or watches instead); the owner invites, then starts, and may watch or play", () => {
-  // Below the minimum, nobody can start yet: a player's status says so and their one primary is to invite (ready gates nothing).
-  assert.deepEqual(nextStep("bob", room(["ada", "bob"])), { status: "1 more player needed; then Ada can start.", primary: "ui.copyInviteLink", secondary: ["rooms.setReady", "rooms.setSpectator"] });
-  assert.deepEqual(nextStep("bob", room(["ada", "bob", "cy"])), { status: "Waiting for Ada to start the game.", primary: "rooms.setReady", secondary: ["rooms.setSpectator"] });
-  assert.deepEqual(nextStep("ada", room(["ada"])), { status: "2 more players needed. AI players count.", primary: "ui.copyInviteLink", secondary: ["rooms.setSpectator", "rooms.addAi"] });
-  assert.equal(nextStep("ada", room(["ada", "bob"])).status, "1 more player needed. AI players count.");
-  assert.deepEqual(nextStep("ada", room(["ada", "bob", "ai:x"])), { status: "3 players are in; start when you're ready.", primary: "owner.start", secondary: ["rooms.setSpectator", "rooms.addAi"] });
+test("in the lobby the owner plays by default: alone they practise against AI players, then invite, then start; ready is never the main button", () => {
+  // Catches: "Mark me ready" as a player's filled button (ready gates nothing), or an owner alone left with only an invite link.
+  assert.deepEqual(nextStep("bob", room(["ada", "bob"])), { status: "1 more player needed; then Ada can start.", primary: "ui.copyInviteLink", secondary: ["rooms.setSpectator"] });
+  assert.deepEqual(nextStep("bob", room(["ada", "bob", "cy"])), { status: "Waiting for Ada to start the game.", primary: null, secondary: ["rooms.setReady", "rooms.setSpectator"] });
+  assert.deepEqual(nextStep("ada", room(["ada"])),
+    { status: "A game needs three players. Practise against AI players, or invite friends.", primary: "ui.practiceGame", secondary: ["ui.copyInviteLink"] });
+  assert.deepEqual(nextStep("ada", room(["ada", "bob"])), { status: "1 more player needed. AI players count.", primary: "ui.copyInviteLink", secondary: [] });
+  assert.deepEqual(nextStep("ada", room(["ada", "ai:x"])).primary, "ui.copyInviteLink", "one AI seat already: practice is for a room with nobody else in it");
+  assert.deepEqual(nextStep("ada", room(["ada", "bob", "ai:x"])), { status: "3 players are in; start when you're ready.", primary: "owner.start", secondary: ["ui.copyInviteLink"] });
 });
 
-test("without AI on the server, AI is neither offered nor mentioned; a full game offers no more seats", () => {
-  assert.deepEqual(nextStep("ada", room(["ada"]), { aiAvailable: false }), { status: "2 more players needed.", primary: "ui.copyInviteLink", secondary: ["rooms.setSpectator"] });
-  assert.deepEqual(nextStep("ada", room(["ada", "b", "c", "d", "e", "f", "g", "h"])).secondary, ["rooms.setSpectator"]);
+test("without AI players the owner is told what a game needs and invites", () => {
+  assert.deepEqual(nextStep("ada", room(["ada"]), { aiAvailable: false }), { status: "A game needs three players. Invite two friends with this link.", primary: "ui.copyInviteLink", secondary: [] });
+  // A non-admin owner alone (the page passes aiAvailable = the server has AI and the room's owner may use it): no practice game, no AI wording.
+  assert.equal(nextStep("ada", room(["ada"]), { aiAvailable: false }).primary, "ui.copyInviteLink");
+  assert.doesNotMatch(JSON.stringify(nextStep("ada", room(["ada"]), { aiAvailable: false })), /AI|practiceGame/);
+  assert.equal(nextStep("ada", room(["ada", "bob"]), { aiAvailable: false }).status, "A game needs three players. Invite one friend with this link.");
+  assert.equal(nextStep("ada", room(["ada"]), { aiAvailable: false, minPlayers: 12 }).status, "A game needs 12 players. Invite 11 friends with this link.");
 });
 
 test("during a game: seated players and watchers open the game page; the owner resumes a safety pause", () => {
@@ -71,12 +77,15 @@ test("the owner's click shows at once: Starting the game, the same primary butto
   assert.equal(nextStep("ada", preparing, { start: { phase: "preparing", ready: 12, total: 18 } }).status, "Preparing rule tables: 12 of 18 ready.", "the room's own progress wins");
 });
 
-test("spectators (the owner by default) watch: only players count toward the minimum, and the step offers to play", () => {
+test("spectators watch: only players count toward the minimum, and the step offers to play", () => {
   // Catches: a spectating owner counted as one of the three.
   assert.deepEqual(nextStep("ada", withRoles([["ada", true], ["bob", false], ["cy", false]])),
-    { status: "1 more player needed; you're watching. AI players count.", primary: "ui.copyInviteLink", secondary: ["rooms.setSpectator", "rooms.addAi"] });
+    { status: "1 more player needed; you're watching. AI players count.", primary: "ui.copyInviteLink", secondary: ["rooms.setSpectator"] });
   assert.deepEqual(nextStep("ada", withRoles([["ada", true], ["bob", false], ["cy", false], ["ai:x", false]])),
-    { status: "3 players are in; you're watching. Start when ready.", primary: "owner.start", secondary: ["rooms.setSpectator", "rooms.addAi"] });
+    { status: "3 players are in; you're watching. Start when ready.", primary: "owner.start", secondary: ["rooms.setSpectator"] });
+  // An owner who chose to watch, alone: no practice game (they would not be in it).
+  assert.deepEqual(nextStep("ada", withRoles([["ada", true]])),
+    { status: "3 more players needed; you're watching. AI players count.", primary: "ui.copyInviteLink", secondary: ["rooms.setSpectator"] });
   assert.deepEqual(nextStep("bob", withRoles([["ada", false], ["bob", true]])), { status: "You'll watch the next game.", primary: "rooms.setSpectator", secondary: [] });
   const full = withRoles([["bob", true], ...["a", "b", "c", "d", "e", "f", "g", "h"].map(id => [id, false] as [string, boolean])]);
   assert.deepEqual(nextStep("bob", full), { status: "The next game is full; you'll watch it.", primary: null, secondary: [] }, "no dead Play button");

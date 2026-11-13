@@ -145,7 +145,7 @@ test("dispatch: a known objectType wins over inference; untyped values fall back
 });
 
 test("an agent's power line: income and its percentage of the god's power", () => {
-  assert.equal(powerLine(16, 0.25), "earns 16.0 bits/s (25% of your power)");
-  assert.equal(powerLine(0, 0), "earns 0.0 bits/s (0% of your power)");
+  assert.equal(powerLine(16, 0.25), "earns 16.0 ⚡/s (25% of your power)");
+  assert.equal(powerLine(0, 0), "earns 0.0 ⚡/s (0% of your power)");
   assert.match(powerLine(2.667, 1 / 3), /\(33\.3% of your power\)/);
 });

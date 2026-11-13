@@ -28,7 +28,7 @@ import type { ToolResult } from "@workspace/player-client/tools";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalAction, type ActionCtx } from "../_generated/server";
-import { runTool, toolError } from "../agent/registry";
+import { inPlayerWords, runTool, toolError } from "../agent/registry";
 import type { Who } from "../agent/store";
 import type { Reservation } from "../ai/seats";
 import { AI_MODEL_CATALOG, DEFAULT_AGENT_MODEL, assistantMockEnabled } from "../lib/aiModels";
@@ -78,7 +78,7 @@ async function briefingFor(ctx: ActionCtx, credentialId: Context["turn"]["creden
   const phase = (observation as { phase?: string } | undefined)?.phase;
   // Or its players may be bidding for their rules (rooms.bidding): the player can ask the assistant to bid or pass.
   const room = phase === "lobby" || phase === "ended" ? (await read("get_rules", {})) as { preparing?: unknown; bidding?: unknown } | undefined : undefined;
-  return assistantBriefing({ observation, layout, preparing: room?.preparing }) + biddingBriefing(room?.bidding, Date.now());
+  return assistantBriefing({ observation: inPlayerWords(observation), layout, preparing: room?.preparing }) + biddingBriefing(room?.bidding, Date.now());
 }
 
 /**
@@ -96,6 +96,7 @@ export function biddingBriefing(value: unknown, now: number): string {
     + "get_bidding (the rules to bid on and the player's own bids), place_bid, withdraw_bid, finish_bidding (with no bids: a pass). "
     + `A bid is a handicap: a whole percent (1 to 100) taken off the player's own final score if it wins the rule. ${b.visibility === "open" ? "Bidding is open: the players see each other's bids (get_bidding table)." : "Bids are sealed."} The game is dealt and starts by itself when bidding ends.</bidding>`;
 }
+
 
 /**
  * The replay on the human's screen when they wrote (docs/replay-design.md §8): which ended game, which moment, seen as

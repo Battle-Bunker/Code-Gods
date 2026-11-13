@@ -86,6 +86,7 @@ export async function runEnvelope(ctx: ActionCtx, roomId: string, raw: unknown, 
     expectedActCost: examined.result.expectedActCost, breakdown: examined.result.breakdown, randomized: examined.result.randomized,
     changeRate: examined.result.changeRate, invalidRate: examined.result.invalidRate, skipRate: examined.result.skipRate,
     futility: examined.result.futility, warnings: examined.result.warnings,
+    ...(examined.result.firstError ? { firstError: examined.result.firstError } : {}),
     diagnostics: examined.result.diagnostics };
   return ctx.runMutation(internal.game.commands.apply, {
     roomId: prepared.roomId, asAi, principal, envelope,

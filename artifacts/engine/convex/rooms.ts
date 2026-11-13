@@ -52,15 +52,15 @@ const quotaPatch = ({ aiQuota, assistantQuota, assistantModel }: Quotas) => ({
 });
 
 /**
- * Create a room (the human everywhere: a browser session or an account grant; never a room credential). The creator owns it and is its first member, a spectator until they choose to
- * play (setSpectator; docs/unify-apps-plan.md §2). It starts on the seeded default (Annotated basics)
+ * Create a room (the human everywhere: a browser session or an account grant; never a room credential). The creator owns it and is its first member, seated as a player of the
+ * next game (a person who makes a room expects to play in it) unless `spectator` is true; they may switch at any time (setSpectator). It starts on the seeded default (Annotated basics)
  * setup (docs/ui-redesign.md §1: a small, slowed-down board a newcomer can follow; its built-in settings if an admin
  * removed it). Its AI quotas start at the defaults (300,000 tokens per game for the AI players, and for each player's
  * assistant); an API caller may set them and the assistant's model in the same call.
  */
 export const create = mutation({
-  args: { aiQuota: v.optional(v.number()), assistantQuota: v.optional(v.number()), assistantModel: v.optional(v.string()) },
-  handler: async (ctx, quotas) => {
+  args: { aiQuota: v.optional(v.number()), assistantQuota: v.optional(v.number()), assistantModel: v.optional(v.string()), spectator: v.optional(v.boolean()) },
+  handler: async (ctx, { spectator = false, ...quotas }) => {
     const viewer = await requireViewer(ctx);
     if (!actsAsHuman(viewer)) fail("FORBIDDEN", "Sign in (in a browser, or an app you allowed to act as you in every room) to create a room");
     checkQuotas(quotas);
@@ -74,7 +74,7 @@ export const create = mutation({
       aiQuota: DEFAULT_AI_QUOTA, assistantQuota: DEFAULT_ASSISTANT_QUOTA, aiUsed: 0, aiReservedUsd: 0, aiInputTokens: 0, aiOutputTokens: 0, aiCalls: [],
       ...quotaPatch(quotas),
     });
-    await ctx.db.insert("members", { roomId, godId: viewer.subject, userId: viewer.subject, name: viewer.name, kind: "human", ready: false, spectator: true, joinedAt: now });
+    await ctx.db.insert("members", { roomId, godId: viewer.subject, userId: viewer.subject, name: viewer.name, kind: "human", ready: false, spectator, joinedAt: now });
     await ctx.scheduler.runAfter(0, internal.owner.fillCatalog, { roomId });
     await ctx.scheduler.runAfter(0, internal.aiTemplates.ensureSeeded, {});
     await touchActivity(ctx);
@@ -301,18 +301,19 @@ async function setAiQuotasFor(ctx: MutationCtx, viewer: Viewer, { roomId, ...quo
 }
 
 /**
- * Add an AI seat from the template library; the seat snapshots the template (name, provider, model, prompt, revision)
+ * Add an AI seat from the template library (`templateId`; without it, the library's first AI player, which is the
+ * seeded default unless an administrator removed it: the room's plain "Add AI player"); the seat snapshots the template (name, provider, model, prompt, revision)
  * and gets its own name, unique in the room and fixed for the seat's life (lib/aiNames.ts).
  */
 export const addAi = mutation({
-  args: { roomId: v.id("rooms"), templateId: v.string() },
+  args: { roomId: v.id("rooms"), templateId: v.optional(v.string()) },
   handler: async (ctx, args) => addAiFor(ctx, await requireViewer(ctx), args),
 });
 export const addAiAs = internalMutation({
   args: { principal: principalV, roomId: v.id("rooms"), templateId: v.string() },
   handler: async (ctx, { principal, ...args }) => addAiFor(ctx, await viewerOf(ctx, principal), args),
 });
-async function addAiFor(ctx: MutationCtx, viewer: Viewer, { roomId, templateId }: { roomId: string; templateId: string }) {
+async function addAiFor(ctx: MutationCtx, viewer: Viewer, { roomId, templateId }: { roomId: string; templateId?: string }) {
     const room = await requireRoom(ctx, roomId);
     await requireOwnerAs(ctx, viewer, room);
     await requireAiEnabled(ctx, room);
@@ -320,8 +321,11 @@ async function addAiFor(ctx: MutationCtx, viewer: Viewer, { roomId, templateId }
     const members = await membersOf(ctx, room._id);
     if (members.length >= MAX_MEMBERS) fail("CONFLICT", `This room has reached its ${MAX_MEMBERS}-member limit`);
     if (playersOf(members).length >= MAX_GODS) fail("CONFLICT", "The next game already has eight players");
-    const template = await ctx.db.query("aiTemplates").withIndex("by_template", q => q.eq("templateId", templateId)).unique();
-    if (!template || template.deleted) fail("NOT_FOUND", "AI agent not found");
+    // No template named: the oldest one still in the library (one indexed row).
+    const template = templateId !== undefined
+      ? await ctx.db.query("aiTemplates").withIndex("by_template", q => q.eq("templateId", templateId)).unique()
+      : await ctx.db.query("aiTemplates").withIndex("by_deleted", q => q.eq("deleted", false)).first();
+    if (!template || template.deleted) return fail("NOT_FOUND", templateId !== undefined ? "AI agent not found" : "The AI library is empty; an administrator adds AI players");
     const godId = `ai:${crypto.randomUUID()}`;
     const name = aiSeatName(godId, members.map(m => m.name), [template.name]);
     await ctx.db.insert("members", {

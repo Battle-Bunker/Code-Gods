@@ -17,8 +17,8 @@
  * CONVEX_LOCAL_CLOUD_PORT, CONVEX_LOCAL_SITE_PORT, FAKE_OIDC_PORT) and stops it at the end.
  *
  * Scenario, at desktop and phone widths: alice (an administrator: AI is only available in rooms an administrator owns), bob and carol sign in (three browser contexts). Alice
- * creates a room in one click (no dialog) and sees its AI quotas (300,000 tokens per game by default) on the room page; the page's one primary follows nextStep
- * (Copy invite link, then Start game). Bob and carol open the room by code from the command palette and
+ * creates a room in one click (no dialog), is seated as a player, and sees its AI quotas (300,000 tokens per game by default) on the room page; the page's one primary follows nextStep
+ * (a practice game with AI players while she is alone, then Start game). Bob and carol open the room by code from the command palette and
  * join; alice searches the Setup combobox (a system setup's Edit is unavailable, with the reason), duplicates the
  * room's setup (put on First steps through the combobox: a new room runs Annotated basics) and edits the copy on /rooms/:code/configure (its name "First steps's copy" first; the board as
  * three controls with every playable value enabled; defence goals switched on with one unticked; goal
@@ -279,12 +279,16 @@ try {
       assert.match(code, /^[0-9A-Z]{4,}$/);
       assert.match(await a.getByTestId("text-room-owner").innerText(), /Ada Admin/);
       assert.match(await a.getByTestId("text-room-created").innerText(), /\d{4}/);
-      // nextStep: alone, the owner's one primary is the invite link; AI players count. The owner starts as a spectator
-      // (not one of the three) and chooses to play.
-      assert.match(await a.getByTestId("text-viewer-seat").innerText(), /3 more players needed; you're watching\. AI players count\./);
-      assert.match(await a.getByTestId(`text-member-seat-${alice.subject}`).innerText(), /owner · spectator/);
+      // nextStep: the owner plays (rooms.create seats them). Alone in a room with AI players, the one primary is a
+      // practice game against them, with the invite link beside it. The owner may still watch instead, and play again.
+      assert.match(await a.getByTestId("text-viewer-seat").innerText(), /A game needs three players\. Practise against AI players, or invite friends\./);
+      assert.match(await a.getByTestId("button-practice-game").innerText(), /Play a practice game with two AI players/);
+      assert.match(await a.getByTestId(`text-member-seat-${alice.subject}`).innerText(), /owner · player/);
       await a.getByTestId(`button-spectator-${alice.subject}`).click();
-      await a.getByTestId("text-viewer-seat").filter({ hasText: /2 more players needed\. AI players count\./ }).waitFor();
+      await a.getByTestId("text-viewer-seat").filter({ hasText: /3 more players needed; you're watching\. AI players count\./ }).waitFor();
+      await a.waitForTimeout(400);   // the play/watch toggle drops the second click of a double click (click-once.ts)
+      await a.getByTestId(`button-spectator-${alice.subject}`).click();
+      await a.getByTestId("text-viewer-seat").filter({ hasText: /A game needs three players/ }).waitFor();
       await a.goto(`${SITE}/`);
       const row = a.locator('[data-testid^="row-room-"]', { hasText: code });
       await row.waitFor();
@@ -301,12 +305,13 @@ try {
         await palette(p, code);   // a code-shaped query: "Open room CODE" is the first row
         await p.waitForURL(new RegExp(`/rooms/${code}$`));
         await p.getByTestId("button-join").click();
-        await p.getByTestId("button-ready").waitFor();
+        await p.getByTestId(`row-member-${p === b ? bob.subject : carol.subject}`).waitFor();
       }
       await a.locator('[data-testid^="row-member-"]').nth(2).waitFor();
       const members = await a.locator('[data-testid^="row-member-"]').allInnerTexts();
       assert.ok(members.some(t => /Bob Okafor/.test(t)) && members.some(t => /Carol Nguyen/.test(t)), members.join(" | "));
-      // A player's one primary is "Mark me ready".
+      // Ready gates nothing, so it is a text link beside the status, never a player's filled button.
+      assert.match(await b.getByTestId("text-viewer-seat").innerText(), /Waiting for Ada to start the game\./);
       await b.getByTestId("button-ready").click();
       await a.getByTestId(`row-member-${bob.subject}`).getByText("ready").waitFor();
       await a.getByTestId("button-start").waitFor();   // three players: Start is the owner's one primary now
@@ -429,8 +434,13 @@ try {
     });
 
     await check(`${name}: alice adds a mock AI player with no approval step`, async () => {
-      await a.getByTestId("button-add-ai").click();   // opens the palette on its pick list
-      await a.locator('[data-testid^="row-palette-option-"]').first().click();
+      // One plain button seats the default AI player; which AI is a choice behind "Choose a model" (the palette's pick list).
+      await a.getByTestId("button-choose-ai").click();
+      await a.locator('[data-testid^="row-palette-option-"]').first().waitFor();
+      // Escape leaves the pick list for the palette's first page, then closes the palette.
+      for (let i = 0; i < 3 && await a.getByTestId("dialog-palette").isVisible(); i++) { await a.keyboard.press("Escape"); await a.waitForTimeout(200); }
+      await a.getByTestId("dialog-palette").waitFor({ state: "hidden" });
+      await a.getByTestId("button-add-ai").click();
       await a.locator('[data-testid^="row-member-ai:"]').waitFor();
       await b.locator('[data-testid^="row-member-ai:"]').waitFor();
       // The seat has its own name (lib/aiNames.ts), not its template's; its row menu's tooltip stays on-screen.

@@ -10,7 +10,8 @@ import { instantiate } from "@workspace/game-types";
 import { explainer, type CalibrationTable, type GoalExplainer, type HoldTable, type UtilityDescriptor } from "@workspace/game-utilities";
 import { GoalExplainerProvider } from "@workspace/object-views";
 import { loadTables } from "@sdk-transport";
-import { useMyUtility } from "./hooks";
+import { useDockState, useMyUtility } from "./hooks";
+import { tablesKey } from "./tables-key";
 import { useRoom } from "./context";
 
 /**
@@ -35,7 +36,8 @@ export function useMyGoal(): GoalExplainer | null {
   const mine = useMyUtility();
   const descriptor = mine?.utility as UtilityDescriptor | undefined;
   const settings = mine?.settings as { objectType: string; typeArgs?: Record<string, number | string>; penaltyWeight?: number } | undefined;
-  const key = mine ? `${mine.gameId}:${mine.godId}` : "";
+  // Loaded again once the game's hold correction is ready, so the worked rarity is the engine's (tables-key.ts).
+  const key = tablesKey(mine, useDockState()?.holdRarity?.state);
   const scoring = useScoringInputs(key, mine);
   return useMemo(() => {
     if (!descriptor || !settings) return null;

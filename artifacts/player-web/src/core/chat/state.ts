@@ -205,6 +205,19 @@ export function prettyArgs(json: string): string {
 export const TURN_ACTIVE = ["running", "cancelling"];
 
 /**
+ * A finished turn that left the player nothing to read: no answer text, no error and no stop (a model that ended on
+ * tool calls or an empty answer). The pane shows this line instead, so a chip or a question never ends in silence.
+ * Null while the turn runs, when it said something, or when the pane already shows its error or its stop.
+ */
+export function silentTurnNote(turn: { _id: string; status: string; error?: unknown } | undefined, messages: readonly MessageRow[]): string | null {
+  if (!turn || TURN_ACTIVE.includes(turn.status) || turn.status === "cancelled" || turn.error) return null;
+  if (messages.some(m => m.turnId === turn._id && m.role === "assistant" && m.text.trim())) return null;
+  return turn.status === "done"
+    ? "Your assistant finished without an answer. Ask again, or use the command palette to do it yourself."
+    : "Something went wrong and your assistant stopped without an answer. Ask again, or use the command palette to do it yourself.";
+}
+
+/**
  * The line over the player's queued messages (convex/assistant.ts send while a turn is active): when the assistant
  * will read them. With no turn running they are held (a Stop, or a turn that failed) until the player sends. Null
  * with none queued.

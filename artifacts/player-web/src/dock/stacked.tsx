@@ -9,7 +9,7 @@ import { assistantPaneOf, panesOf } from "@workspace/player-client/layout";
 import { composer, useComposer } from "@/core/chat/composer";
 import { PaneHeader } from "./headers";
 import { PaneBody } from "./panes";
-import { useDock } from "./store";
+import { useDock, useDockStore } from "./store";
 
 type Snap = "peek" | "half" | "full";
 const HEIGHT: Record<Snap, string> = { peek: "8.5rem", half: "55dvh", full: "calc(100dvh - 44px)" };
@@ -20,9 +20,23 @@ export default function StackedDock() {
   const assistant = assistantPaneOf(layout);
   const panes = panesOf(layout).filter(p => p.kind !== "assistant");
   const [snap, setSnap] = useState<Snap>("peek");
-  const { collapseTick } = useComposer();
+  const { collapseTick, expandTick } = useComposer();
   const sheet = useRef<HTMLDivElement>(null);
   useEffect(() => { if (collapseTick) setSnap("peek"); }, [collapseTick]);
+  // A message sent from the peek (a starter chip): open halfway, so its answer is not hidden under the composer.
+  useEffect(() => { if (expandTick) setSnap(s => (s === "peek" ? "half" : s)); }, [expandTick]);
+  // Opening a panel (the menu's "Write agent code…", "Summon my first agent") brings it to the player: the sheet shrinks
+  // to its peek so it cannot cover the pane, and the pane scrolls to the top of the screen.
+  const store = useDockStore();
+  const scroller = useRef<HTMLDivElement>(null);
+  useEffect(() => store.onReveal(paneId => {
+    setSnap("peek");
+    // After the pane exists (a new one is rendered by this reveal's own layout change).
+    requestAnimationFrame(() => {
+      const section = [...(scroller.current?.querySelectorAll<HTMLElement>("section[data-pane]") ?? [])].find(el => el.dataset.pane === paneId);
+      section?.scrollIntoView({ block: "start", behavior: "smooth" });
+    });
+  }), [store]);
   // Focusing the composer opens the sheet halfway.
   useEffect(() => {
     const el = sheet.current;
@@ -32,10 +46,10 @@ export default function StackedDock() {
     return () => el.removeEventListener("focusin", onFocus);
   }, []);
   return (
-    <div className="relative h-full overflow-y-auto overflow-x-hidden" style={{ paddingBottom: assistant ? HEIGHT.peek : 0 }} data-testid="dock-stacked">
+    <div ref={scroller} className="relative h-full overflow-y-auto overflow-x-hidden" style={{ paddingBottom: assistant ? HEIGHT.peek : 0 }} data-testid="dock-stacked">
       <div className="divide-y divide-[hsl(var(--card-border))]">
         {panes.map(pane => (
-          <section key={pane.id} className="flex min-h-[280px] flex-col bg-card" aria-label={pane.kind === "panel" ? pane.panelId : pane.kind}>
+          <section key={pane.id} data-pane={pane.id} className="flex min-h-[280px] flex-col bg-card" aria-label={pane.kind === "panel" ? pane.panelId : pane.kind}>
             <div className="border-b border-[hsl(var(--card-border))]"><PaneHeader paneId={pane.id} desktop={false} /></div>
             <div className="min-h-0 flex-1"><PaneBody paneId={pane.id} /></div>
           </section>

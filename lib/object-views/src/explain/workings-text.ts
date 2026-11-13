@@ -3,6 +3,7 @@
  * Pure text, so it is unit tested under Node; HowThisScores.tsx only lays it out.
  */
 import { impactText, minusText, tierName, tupleText, type ScoreWorkings } from "@workspace/game-utilities";
+import { ruleScoreWording } from "@workspace/game-utilities/card-text";
 import { formatCount, oneInN } from "../rarity.ts";
 
 /** 0.172 → "0.172"; 0.0004213 → "0.000421"; 1 → "1": three significant digits, no exponent. */
@@ -42,12 +43,13 @@ export function workingsText(w: ScoreWorkings, noun = "board"): WorkingsText {
   const [one, many] = w.breakdown.unit, first = w.breakdown.total[0];
   const unit = first === 1 ? one : many;
   const multi = w.components.length > 1, tuple = tupleText(w.breakdown.total);
-  // The raw score is the points tuple; a rule with several tiers says what each counts.
-  const rawTotal = multi
-    ? `Total: ${tuple}: ${w.components.map((name, k) => `${tierName(k)} points ${minusText(w.breakdown.total[k])} (${name})`).join(", ")}`
-    : `Total: ${tuple}, ${minusText(first)} ${unit}`;
+  // The raw score is the rule score; a rule with several tiers says what each counts. "Point" is never said for what
+  // the card counts (the word is the leaderboard's: ui-kit SCORE_WORDS), so a lens's own words go through ruleScoreWording.
+  const rawTotal = ruleScoreWording(multi
+    ? `Your rule score: ${tuple}: ${w.components.map((name, k) => `${tierName(k)} ${minusText(w.breakdown.total[k])} (${name})`).join(", ")}`
+    : `Your rule score: ${tuple}, ${minusText(first)} ${unit}`);
   const r = w.rarity, p = formatProbability(r.probability);
-  const atLeast = multi ? `a points tuple at least ${tuple} (primary points first, then secondary…)` : `at least ${first} ${unit}`;
+  const atLeast = ruleScoreWording(multi ? `a rule score of at least ${tuple} (primary first, then secondary…)` : `at least ${first} ${unit}`);
   const rarityLines = [
     `Out of all possible ${noun}s, dealt at random, ${formatPercent(r.probability)} have ${atLeast}.`,
     `As a chance: P = ${p}.`,
@@ -76,10 +78,10 @@ export function workingsText(w: ScoreWorkings, noun = "board"): WorkingsText {
   } else if (w.netBits !== undefined) {
     netLines.push(`You have no defence goal, so net bits = ✨ ${bits2(r.bits)}.`);
   }
-  if (w.netBits !== undefined) netLines.push("Your points for a " + noun + " = your net bits × what the other gods add up to care about it (never less than 0).");
+  if (w.netBits !== undefined) netLines.push("Your points for a " + noun + " = your net bits (its ✨ rarity) × how much the other gods, together, want it (never less than 0).");
   return {
     rawTitle: "1. What this board scores",
-    rawLines: w.breakdown.items.length ? w.breakdown.items.map(it => ({ text: it.text, points: impactText(it.points) })) : [{ text: `Nothing on this ${noun} scores`, points: impactText(w.breakdown.total.map(() => 0)) }],
+    rawLines: w.breakdown.items.length ? w.breakdown.items.map(it => ({ text: ruleScoreWording(it.text), points: impactText(it.points) })) : [{ text: `Nothing on this ${noun} scores`, points: impactText(w.breakdown.total.map(() => 0)) }],
     rawTotal,
     rarityTitle: "2. How rare is that?",
     rarityLines,

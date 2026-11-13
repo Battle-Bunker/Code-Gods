@@ -51,7 +51,7 @@ export function GoalCard({ card, goal, inst, sourceOpen = false, initialExample 
           <GoalExplainerProvider value={goal}>
             <span data-testid="example-object"><ObjectView value={example} {...ctx} /></span>
           </GoalExplainerProvider>
-          {goal && <span className="text-sm">Your rule scores it <span className="font-mono font-semibold" data-testid="example-object-score">{ordinalText(score)}</span>{goal.rich ? "; hover it to see why." : "."}</span>}
+          {goal && <span className="text-sm">Your rule score for this {noun}: <span className="font-mono font-semibold" data-testid="example-object-score">{ordinalText(score)}</span>{goal.rich ? " (hover it to see why)." : "."}</span>}
         </div>
         {editing && <ObjectEditor value={example} inst={inst} onChange={setExample} />}
       </section>

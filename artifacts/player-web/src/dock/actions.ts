@@ -23,7 +23,8 @@ export function dockActions(store: DockStore) {
       let id: string | undefined, replaced = false;
       attempt(store, layout => { const r = showPanel(layout, panelId, undefined, store.getSnapshot().focused); id = r.paneId; replaced = !!r.replaced; return r.layout; }, () => {
         focusPane(() => id);
-        if (replaced) notify(`Four panels is the most at a time, so this pane shows ${PANELS[panelId].title} now.`);
+        // The agent editor takes a pane because it needs the room, whatever the count: the pane itself shows what happened.
+        if (replaced && panelId !== "forge") notify(`Four panels is the most at a time, so this pane shows ${PANELS[panelId].title} now.`);
       });
     },
     change(paneId: string, panelId: PanelId) {
