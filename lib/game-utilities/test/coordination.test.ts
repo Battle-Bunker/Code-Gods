@@ -11,7 +11,7 @@ import {
   DEFAULT_TUNING, DEVELOP_ECON, decide, equilibria, payoffs, playGame, profileKey, profiles, ranksOf, winShares, writeWork,
   type Econ, type Obj, type Policy, type TableStats,
 } from "../scripts/coordination-lib.ts";
-import { ruleStats, type RuleGame } from "../scripts/coordination.ts";
+import { dealOf, ruleStats, setPool, type RuleGame } from "../scripts/coordination.ts";
 
 const inst = instantiate("Grid", { size: 4, symbols: "base10", colours: "mono" });
 const sp = space(inst, "symbol");
@@ -214,4 +214,20 @@ test("statistics by dealt rule: win share with ties split, mean rank with ties s
   assert.deepEqual([s.get("c")!.win, s.get("c")!.rank], [0, 2.75]);
   near(s.get("a")!.relative, (3 / (5 / 3) + 2 / (4 / 3)) / 2);
   assert.deepEqual([s.get("a")!.topShare, s.get("c")!.topShare, s.get("a")!.changes, s.get("b")!.refused, s.get("a")!.n], [0.5, 0.5, 3, 1, 2]);
+});
+
+test("a fixed deal (mode combos) passes the rules one seat along per game, so every rule meets every seat", () => {
+  setPool(undefined, 0, {}, ["leapfrog", "two_pair", "spread_three"]);
+  try {
+    for (let g = 0; g < 3; g++) assert.deepEqual(dealOf("annotated", 3, g).families, [0, 1, 2].map(k => ["leapfrog", "two_pair", "spread_three"][(k + g) % 3]));
+  } finally { setPool(undefined); }
+});
+
+test("checkpoints: every 30 world seconds and at the end, shares of top between 0 and 1, a leader that is a seat", () => {
+  const r = playGame(RULES, ["greedy", "greedy", "greedy"], sp, econ({ durationSeconds: 65 }), seededRng("checkpoints"), DEFAULT_TUNING);
+  assert.deepEqual(r.checkpoints!.map(c => c.t), [30, 60, 65]);
+  for (const c of r.checkpoints!) {
+    assert.ok(c.leader >= 0 && c.leader < 3);
+    for (const x of [...c.topShare, ...c.atTop]) assert.ok(x >= 0 && x <= 1 + 1e-9);
+  }
 });
