@@ -1,0 +1,12 @@
+setup annotated, 3 gods, 300 games per table, econ {"powerPerSecond":64,"interactionRateHz":25,"durationSeconds":300,"startingObjectCount":10,"spawnRateHz":0.1,"capacitySeconds":30,"kappa":32,"agentsPerGod":1,"distancePricing":true,"erasure":0,"erasureNoiseBits":0,"aggregate":"sum","peerNoiseBits":0,"scoring":"final","learnSeconds":0,"candidates":24,"offerReads":true,"debtBound":true}
+
+Win share / mean rank / points against the table's mean / own bits per object at the end (share of the rule's top), 3 gods, every god playing the column's policy (fair win share 33%, fair rank 2.0):
+
+| rule | games | greedy | considerate | deny |
+|---|---|---|---|---|
+| crosswise_threes | 171 | 9% / 2.62 / 0.95 / 11.1 (56%) | 28% / 2.04 / 1.00 / 11.9 (60%) | 25% / 2.20 / 0.97 / 6.7 (34%) |
+| leapfrog | 165 | 38% / 1.84 / 1.02 / 13.2 (53%) | 19% / 2.09 / 0.99 / 12.3 (49%) | 39% / 1.88 / 1.03 / 8.0 (32%) |
+| spread_three | 184 | 52% / 1.64 / 1.03 / 14.1 (52%) | 60% / 1.51 / 1.04 / 14.2 (52%) | 50% / 1.58 / 1.09 / 6.8 (25%) |
+| strangers | 196 | 26% / 2.20 / 0.98 / 13.3 (52%) | 10% / 2.49 / 0.95 / 10.8 (43%) | 22% / 2.32 / 0.91 / 6.3 (25%) |
+| two_pair | 184 | 41% / 1.72 / 1.01 / 15.2 (56%) | 48% / 1.86 / 1.02 / 14.1 (52%) | 32% / 1.99 / 1.01 / 7.5 (28%) |
+| **win share, lowest–highest (ratio)** | | 9%–52% (×5.95) | 10%–60% (×5.91) | 22%–50% (×2.28) |

@@ -186,7 +186,8 @@ export const gameTables = {
       requestId: v.string(), ownerId: v.string(), startedAt: v.number(), revision: v.number(), memberIds: v.array(v.string()),
       instance: v.string(), total: v.number(), pending: v.array(v.string()), estimateSeconds: v.number(),
       /** `bid`: the god's outcome of the bid phase (bidding.ts BidOutcome), only when somebody won a bid. */
-      deals: v.array(v.object({ godId: v.string(), utility: v.any(), bid: v.optional(v.any()) })),
+      /** `rotation`: a passed-on deal's card line (lib/dealRotation.ts), only when the room plays again with the same players. */
+      deals: v.array(v.object({ godId: v.string(), utility: v.any(), bid: v.optional(v.any()), rotation: v.optional(v.object({ round: v.number(), of: v.number(), from: v.string() })) })),
       dealer: v.object({ selectorId: v.string(), dealtAs: v.string(), note: v.optional(v.string()) }),
       /** PRIVATE: the whole auction of a deal made with bids (bidding.ts AuctionRecord), for the game's replay. */
       auction: v.optional(v.any()),

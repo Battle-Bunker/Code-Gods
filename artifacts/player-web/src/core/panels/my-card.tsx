@@ -10,6 +10,7 @@ import { UtilityCardView, useGoalExplainer } from "@workspace/object-views";
 import { useMutators, useMyAgents, useMyCard } from "@/sdk";
 import { GoalCard } from "@/core/goal/goal-card";
 import { bidOutcomeText, cardBid } from "@/site/lib/bidding";
+import { cardRotation, rotationText } from "@/site/lib/rotation";
 import { PanelEmpty, type PanelProps } from "./kit";
 import { LatestActLine, PointsNow, useOwnActLines } from "./score-lines";
 
@@ -24,7 +25,7 @@ export default function MyCard({ params }: PanelProps<"my-card">) {
   }, [instance?.key]); // eslint-disable-line react-hooks/exhaustive-deps
   const { agents } = useMyAgents({ hz: 1 });
   const acts = useOwnActLines(agents);
-  const bid = cardBid(card);
+  const bid = cardBid(card), rotation = cardRotation(card);
   if (!card) return <PanelEmpty>Your secret goal is dealt when the game starts. Until then, nobody knows what anyone wants.</PanelEmpty>;
   return (
     <div className="space-y-4" data-testid="panel-utility">
@@ -34,6 +35,8 @@ export default function MyCard({ params }: PanelProps<"my-card">) {
           {bidOutcomeText(bid, card.name)}
         </p>
       )}
+      {/* Playing again with the same players: the rules passed one seat along (docs/beginner-pool.md §6). */}
+      {rotation && <p className="border-l-2 border-[hsl(var(--accent))] pl-3 text-sm" data-testid="text-rotation">{rotationText(rotation)}</p>}
       <div className="space-y-1 border-b border-[hsl(var(--card-border))] pb-3" data-testid="score-now">
         <PointsNow />
         <LatestActLine line={acts.latest} objectId={acts.latestObject} />

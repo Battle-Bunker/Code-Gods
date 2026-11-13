@@ -201,7 +201,10 @@ test("permissions: a read grant never lists or runs act or owner tools; revoked 
   const firstPage = (await call(owner.token, "list_setups", { limit: 5 })).data;
   assert.deepEqual([firstPage.setups.length, firstPage.total >= 6], [5, true], "a limit caps the rows; total counts every match");
   assert.ok(!("settings" in firstPage.setups[0]), "rows carry no settings");
-  const classic = (await call(owner.token, "get_setup", { setupId: firstPage.setups.find((s: any) => s.seedId === "grid-classic").id })).data;
+  // Classic by name: the first page holds whichever five setups sort first, which changes as setups are added.
+  const classicRow = (await call(owner.token, "list_setups", { query: "Classic" })).data.setups.find((s: any) => s.seedId === "grid-classic");
+  assert.ok(classicRow, "list_setups finds the Classic system setup by name");
+  const classic = (await call(owner.token, "get_setup", { setupId: classicRow.id })).data;
   const copy = await call(actor.token, "duplicate_setup", { setupId: classic.id });
   assert.deepEqual([copy.data?.name, copy.data?.mine, copy.data?.settings], ["Classic's copy", true, classic.settings], JSON.stringify(copy).slice(0, 300));
   const revision = (await host.c.query(api.rooms.get, { room: roomId })).revision;
