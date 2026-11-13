@@ -15,7 +15,7 @@
  */
 import { ENERGY_LIMITS, LANGUAGES, TIME_LIMITS, LANGUAGE_SPECS, SETTINGS_DOCS, sameSettings, validateSettings, type FamilyRole, type FieldDoc, type GameSettings, type RuleTiers, type Language, type SettingsDomain, type SettingsSection } from "@workspace/game-core";
 import { instanceInfo, instantiate, type ParamSchema, type TypeArgs } from "@workspace/game-types";
-import { familiesFor, firstUseSeconds, isPlayableInstantiation, publicCatalog, type CatalogEntry } from "@workspace/game-utilities";
+import { availableFamilies, familiesFor, firstUseSeconds, isPlayableInstantiation, publicCatalog, type CatalogEntry } from "@workspace/game-utilities";
 
 export type Settings = GameSettings;
 export type SettingsKey = keyof GameSettings;
@@ -162,6 +162,11 @@ export function settingsDomain(types: readonly PlayableTypes[]): SettingsDomain 
     isPlayable: (objectType, typeArgs) => { try { return isPlayableInstantiation(instantiate(objectType, typeArgs)); } catch { return false; } },
     families: (objectType, typeArgs, role) => existingFamilies(objectType, typeArgs, role).map(e => e.id),
     typeFamilies: (objectType, role) => familiesFor(objectType, utilityRole(role)).map(f => f.id),
+    // The pool of a tiered game, exactly as the engine computes it (convex/engine/settingsDomain.ts), so the draft
+    // refuses tiered rules on a world that offers none instead of failing only when the owner saves.
+    tiered: (objectType, typeArgs, tiers) => {
+      try { return availableFamilies(instantiate(objectType, typeArgs), "reward", [], tiers).map(f => f.id); } catch { return []; }
+    },
   };
 }
 
@@ -248,7 +253,8 @@ export function dealerNote(type: PlayableTypes | undefined, s: Pick<Settings, "t
 export const RULE_TIER_CHOICES: readonly { id: string; label: string; value: RuleTiers | null }[] = [
   { id: "none", label: "No tiers: base rules only", value: null },
   { id: "1", label: "One ★ tier on every rule", value: { depth: 1 } },
-  { id: "2", label: "Two ★ tiers on every rule", value: { depth: 2 } },
+  // Two tiers are a shape of the setting, but no family deals a pair yet (GridTiers.dealtPairs), so every world's
+  // depth-2 pool is empty and the choice would only fail on save. Offer it again when one does.
 ];
 /** The id of a `ruleTiers` value among RULE_TIER_CHOICES ("none", "1", "2"), or "<depth>:<composition>" for an experiment's. */
 export const ruleTiersId = (t: RuleTiers | undefined | null): string => (!t ? "none" : t.compose ? `${t.depth}:${t.compose}` : String(t.depth));

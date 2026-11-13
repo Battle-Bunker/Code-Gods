@@ -60,8 +60,16 @@ export const setParam = (label: string, size: number, options: readonly (readonl
 /** A choice among a fixed list of values, each labelled by itself (or `labelOf`): Power Hoarder's primes 2, 3, 5, 7. */
 export const valuesParam = <T extends ParamJson>(label: string, values: readonly T[], labelOf: (v: T) => string = v => String(v)): ParamDecl =>
   choiceParam(label, values.map(v => [v, labelOf(v)] as const));
-/** Values compare by content (lists included). */
-const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+/**
+ * Values compare by content, whatever order an object's keys are written in (lists included). Key order matters here:
+ * Convex sorts an object's keys when it encodes a value, so a param that holds an object (a tiered draw's `tiers`,
+ * docs/tiered-rules.md) comes back from the engine with its keys in another order than the family wrote them.
+ */
+const same = (a: unknown, b: unknown) => stableJson(a) === stableJson(b);
+const stableJson = (v: unknown): string =>
+  Array.isArray(v) ? `[${v.map(stableJson).join(",")}]`
+    : v && typeof v === "object" ? `{${Object.keys(v).sort().map(k => `${JSON.stringify(k)}:${stableJson((v as Record<string, unknown>)[k])}`).join(",")}}`
+      : JSON.stringify(v);
 
 const colourSet = (inst: Instantiation) => (COLOUR_COMPONENTS as Readonly<Record<string, (typeof COLOUR_COMPONENTS)[GridColourSet]>>)[String(inst.args.colours)];
 const symbolSet = (inst: Instantiation) => (SYMBOL_COMPONENTS as Readonly<Record<string, (typeof SYMBOL_COMPONENTS)[GridSymbolSet]>>)[String(inst.args.symbols)];

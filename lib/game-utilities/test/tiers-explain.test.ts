@@ -12,7 +12,7 @@ import { context, evaluator, family, paramsKey } from "../src/catalog.ts";
 import { addsUp, aimAt, explainer, groupOf, hitTest, lensFor, readBoard, type Explanation } from "../src/explain/index.ts";
 import { TIER_LENSES, tieredLens } from "../src/explain/tier-lenses.ts";
 import { gridSpec } from "../src/families/grid/_util.ts";
-import { withTiers } from "../src/families/grid/tiers.ts";
+import { baseParams, withTiers } from "../src/families/grid/tiers.ts";
 import { ninesTiers } from "../src/families/grid/beginner/opposite_nines.ts";
 import type { Params } from "../src/types.ts";
 
@@ -318,4 +318,19 @@ test("hand-derived: Kings and Subjects' pairs of kings with 4 between them, and 
   const ru = roads.parts.filter(part => part.id.startsWith("tier"));
   // In board order: the top 2s, the left 3s, the middle 4s, the right 3s, the bottom 2s.
   assert.deepEqual(ru.map(u => [u.cells.length, u.points[2]]), [[2, 0], [2, 0], [4, 1], [2, 0], [2, 0]]);
+});
+
+test("a draw whose units cannot add up to its ordinal is annotated like a family without a lens", () => {
+  // The unlocked composition's first component is min(base, gate): a clamp, not a sum of units, so no additive
+  // annotation can verify against it. The card still shows an example board and its score, as a lensless family does.
+  const f = family("opposite_nines");
+  for (const compose of ["gated", "plain", "unlock"] as const) {
+    const p = f.tiered!(CTX, 1, compose)[0], e = explainer({ familyId: f.id, params: p }, INST)!;
+    const rich = compose !== "unlock";
+    assert.equal(e.rich, rich, compose);
+    assert.ok(e.example(), `${compose}: an example board either way`);
+    const ex = e.explain(f.exemplar!(baseParams(p), CTX));
+    if (rich) assert.ok(ex?.verified, `${compose}: its units add up`);
+    else assert.equal(ex, null, "unlock: no units rather than units that do not add up");
+  }
 });

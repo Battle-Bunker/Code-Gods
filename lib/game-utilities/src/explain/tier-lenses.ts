@@ -241,6 +241,15 @@ const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
  * it is `base` on the base's params, unchanged. `blocksOf` gives a draw's ★ blocks (`UtilityFamily.cardTiers`): where
  * each tier's points sit in the ordinal, and its gate.
  */
+/**
+ * Whether a tiered draw's units can add up to its ordinal at all. The "unlock" composition's first component is
+ * `min(base, gate)`, a clamp and not a sum of units, so no additive annotation can verify against it; an interaction
+ * with no tier lens cannot be drawn either. Such a draw is annotated like a family without a lens: the example board
+ * and its score, no units (explain/index.ts).
+ */
+export const explainableTiers = (p: Params): boolean =>
+  tiersOf(p).every(t => !t.compose && Object.hasOwn(TIER_LENSES, t.id));
+
 export function tieredLens(base: Lens, blocksOf: (p: Params) => readonly CardTier[]): Lens {
   const plan = (p: Params, b: Board): Plan | null => {
     const dealt = tiersOf(p);

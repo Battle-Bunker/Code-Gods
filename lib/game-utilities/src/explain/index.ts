@@ -42,8 +42,8 @@ import { twoPair } from "./lenses/two-pair.ts";
 import { spreadThree } from "./lenses/spread-three.ts";
 import { crosswiseThrees } from "./lenses/crosswise-threes.ts";
 import { magicEighteen } from "./lenses/magic-eighteen.ts";
-import { tieredLens } from "./tier-lenses.ts";
-import { baseParams } from "../families/grid/tiers.ts";
+import { explainableTiers, tieredLens } from "./tier-lenses.ts";
+import { baseParams, isTiered } from "../families/grid/tiers.ts";
 import { kingsAndSubjects } from "./lenses/royal-court.ts";
 
 export * from "./model.ts";
@@ -115,9 +115,12 @@ export function explainer(draw: Draw, inst: Instantiation, options: ExplainerOpt
   // explained: no annotation rather than a wrong one.
   const f = family(draw.familyId), ctx = context(inst);
   if (!paramsInDomain(f.params(ctx), draw.params)) return null;
-  // A tiered draw (params carrying `tiers`) is explained by its base's lens and its tiers' (tier-lenses.ts).
+  // A tiered draw (params carrying `tiers`) is explained by its base's lens and its tiers' (tier-lenses.ts). A draw
+  // whose units cannot add up to its ordinal (the unlocked composition's clamped first component, or an interaction
+  // with no tier lens) is annotated like a family without a lens: the example board and its score, no units.
   const own = lensFor(draw.familyId), p = draw.params;
-  const l = own && f.cardTiers ? tieredLens(own, q => f.cardTiers!(q, ctx)) : own;
+  const l = isTiered(p) && !explainableTiers(p) ? undefined
+    : own && f.cardTiers ? tieredLens(own, q => f.cardTiers!(q, ctx)) : own;
   let card: ((wire: ObjectValue) => Ordinal) | null | undefined;
   const score = (value: ObjectValue): Ordinal | null => {
     try {

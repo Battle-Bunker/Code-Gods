@@ -13,6 +13,7 @@ import { FAMILIES, card, canonicalSupport, context, evaluator, paramsKey, tiered
 import { analyticFor, instantiateKey, surprisal, tableFor, tableKey, tableKeyParts } from "../src/calibration.ts";
 import { shippedInstanceKeys, shippedManifest, shippedTables } from "../src/calibration-data.ts";
 import { paramsInDomain } from "../src/params.ts";
+import { explainer } from "../src/explain/index.ts";
 import { baseParams, isTiered, tiersOf } from "../src/families/grid/tiers.ts";
 import { hybridLawOf, tierLiveness } from "../src/families/grid/tiers-hybrid.ts";
 import { baseLaw, liveness, topTierOf, TIER_MAX_ADDED_BITS, TIER_MIN_ADDED_BITS } from "../src/tiers/hybrid.ts";
@@ -77,6 +78,24 @@ test("tiered draws: in their declared domain, canonical is idempotent, the card 
     }
     assert.ok(n > 0, `${f.id} deals no tiered draw on ${beginner.key}`);
     for (const p of f.support(ctx)) assert.ok(paramsInDomain(fields, p), `${f.id}: a base draw fell out of its params' domain`);
+  }
+});
+
+test("params that have been through the engine (an object's keys sorted) are the same draw: in domain, labelled, explained", () => {
+  // Convex sorts an object's keys when it encodes a value, so the `tiers` a player's card comes back with is written in
+  // another order than the family wrote it. Everything that matches params by content must see one draw, not two.
+  const ctx = context(beginner), sortKeys = (v: unknown): unknown => Array.isArray(v) ? v.map(sortKeys)
+    : v && typeof v === "object" ? Object.fromEntries(Object.keys(v).sort().map(k => [k, sortKeys((v as Record<string, unknown>)[k])])) : v;
+  for (const f of TIERED) for (const p of [f.tiered!(ctx, 1)[0], f.tiered!(ctx, 1).at(-1)!]) {
+    const q = sortKeys(p) as typeof p;
+    assert.notEqual(JSON.stringify(q), JSON.stringify(p), `${f.id}: the sorted form differs, so the test means something`);
+    assert.ok(paramsInDomain(f.params(ctx), q), `${f.id}: a round-tripped draw is still in the family's domain`);
+    assert.deepEqual(f.canonical(q, ctx), f.canonical(p, ctx));
+    const shown = card({ familyId: f.id, params: q }, ctx).params.find(x => x.key === "tiers");
+    assert.ok(shown && shown.text && !shown.text.includes("object Object"), `${f.id}: the ★ param reads as words, not [object Object]`);
+    const e = explainer({ familyId: f.id, params: q }, beginner);
+    assert.ok(e?.rich, `${f.id}: a round-tripped tiered draw is still annotated`);
+    assert.ok(e!.explain(f.exemplar!(q, ctx))?.verified, `${f.id}: and its units still add up`);
   }
 });
 

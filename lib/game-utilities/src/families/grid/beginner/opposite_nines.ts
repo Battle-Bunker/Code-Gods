@@ -47,7 +47,6 @@ export const ninesTiers: GridTiers<NinesP> = {
   gateText: (gate, g) => `${gate} opposite pairs that add up to ${g.say.tile(ninesTarget(g))}`,
   dealt: g => (g.N === 4 && g.base === 10 ? NINES_DEALT : []),
   lab: g => (g.N === 4 && g.base === 10 ? NINES_LAB : []),
-  compare: g => (g.N === 4 && g.base === 10 ? [{ id: "lines", x: 18 }] : []),
   base: (_p, g) => ({
     id: "opposite-nines-pairs@1", symbols: g.S, cells: g.N * g.N, arity: 2,
     units: halfTurnPairs(g.N).map(([a, b]) => [a.r * g.N + a.c, b.r * g.N + b.c]),
