@@ -6,7 +6,7 @@
  * game-core knows no object type itself: arguments, codecs and spawn priors all come from the
  * `@workspace/game-types` registry.
  */
-import { COST_MODELS, DEFAULT_COST_MODEL, READ_PRICE, instantiate, isCostModel, objectType as objectTypeDef, readBound } from "@workspace/game-types";
+import { COST_MODELS, DEFAULT_COST_MODEL, READ_PRICE, changeCost, instantiate, isCostModel, objectType as objectTypeDef, readBound } from "@workspace/game-types";
 import type { Codec, CostModel, Instantiation, ObjectValue, TypeArgs } from "@workspace/game-types";
 
 export type { ObjectValue, TypeArgs } from "@workspace/game-types";
@@ -171,7 +171,24 @@ export function costModelOf(from: unknown): CostModel {
 /** The cost models rooms of this instantiation may use, the default first ([] never: "set-v1" is always offered). */
 export function supportedCostModels(settings: Pick<GameSettings, "objectType" | "typeArgs">): CostModel[] {
   const inst = instantiationOf(settings), typeDef = objectTypeDef(settings.objectType);
-  return COST_MODELS.filter(m => m === DEFAULT_COST_MODEL || typeDef.supportsCostModel?.(inst, m) === true);
+  return COST_MODELS.filter(m => m === DEFAULT_COST_MODEL || (typeDef.supportsCostModel?.(inst, m) === true && lookIsCheaperThanChange(settings, m)));
+}
+
+/** The cheapest change an act can make under a cost model (energy bits), or undefined where the type has no cost table. */
+export function cheapestChange(settings: Pick<GameSettings, "objectType" | "typeArgs">, model: CostModel): number | undefined {
+  const rows = objectTypeDef(settings.objectType).costTable?.(instantiationOf(settings), model) ?? [];
+  return rows.length ? Math.min(...rows.map(r => changeCost(r.work))) : undefined;
+}
+
+/**
+ * The rule that sets the read price (docs/energy-model.md §2.1): a complete look at an object costs less than the
+ * smallest change to it. A cost model that would break it on a board is not offered there (a big board under a distance
+ * model: the 7×7 cards in six colours, where a colour change would cost 12.64 against a look of 12.69), so looking
+ * before changing always pays, whatever the room's settings.
+ */
+export function lookIsCheaperThanChange(settings: Pick<GameSettings, "objectType" | "typeArgs">, model: CostModel): boolean {
+  const cheapest = cheapestChange(settings, model);
+  return cheapest === undefined || readBound(instantiationOf(settings)) * READ_PRICE < cheapest;
 }
 export type ObservationMode = "free" | "boards" | "paid" | "agents";
 /** The pre-authored choices of observation, from the most open to the most austere. */

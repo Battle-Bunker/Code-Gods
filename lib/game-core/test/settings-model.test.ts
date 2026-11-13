@@ -171,7 +171,9 @@ test("the cost model: one of the instantiation's models, the default never store
   assert.deepEqual(applySettingsChange(distance, { costModel: "set-v1" }, domain), grid, "the default is the field's absence: and back again");
   assert.deepEqual(applySettingsChange(grid, { costModel: "set-v1" }, domain), grid, "choosing the default where it already holds is no change");
   assert.deepEqual(applySettingsChange(distance, { planningSeconds: 99 }, domain), { ...distance, planningSeconds: 99 }, "another field leaves it alone");
-  assert.deepEqual(applySettingsChange(distance, { typeArgs: GRID7 }, domain), { ...distance, typeArgs: GRID7, excludedFamilies: [] }, "every Grid supports it");
+  // The 7×7 cards in six colours do not offer it (a full look would cost more than its cheapest change: settings.ts
+  // lookIsCheaperThanChange), so the model goes when the board changes to that one.
+  assert.deepEqual(applySettingsChange(distance, { typeArgs: GRID7 }, domain), { ...grid, typeArgs: GRID7, excludedFamilies: [] }, "dropped where the board does not offer it");
   // A world that has only the default model: the field goes with the change of world, and cannot be chosen there.
   const int = applySettingsChange(distance, { objectType: "Int" }, domain);
   assert.ok(!("costModel" in int));

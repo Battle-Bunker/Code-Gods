@@ -281,7 +281,7 @@ test("the cost model is optional: absent reads as set-v1, and distance-v1 is off
   const grid = defaultSettingsFor("Grid", ["python"], { size: 4, symbols: "base10", colours: "mono" });
   assert.deepEqual(COST_MODELS.slice(0, 2), ["set-v1", "distance-v1"]);
   // Which further models a Grid offers is the type's own business (game-types supportsCostModel): the default comes first.
-  const cards = defaultSettingsFor("Grid", ["python"], { size: 7, symbols: "cards", colours: "rainbow6" });
+  const cards = defaultSettingsFor("Grid", ["python"], { size: 5, symbols: "cards", colours: "rgb" });
   for (const g of [grid, cards]) {
     const offered = supportedCostModels(g);
     assert.deepEqual(offered.slice(0, 2), ["set-v1", "distance-v1"]);
