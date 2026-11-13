@@ -729,6 +729,8 @@ const ANNOTATED_BASICS_EXCLUDED: readonly string[] = Object.freeze([
 
 /** Annotated basics with a bid phase before the deal (docs/bid-phase.md). */
 export const ANNOTATED_BIDDING_SEED_ID = "grid-annotated-bidding";
+/** Annotated basics with paid observation: the default sees everything for free. */
+export const ANNOTATED_PAID_SEED_ID = "grid-annotated-paid";
 /** The coloured annotated setup: every family with a rich annotation (a lens), on the coloured 4×4 board. */
 export const ANNOTATED_COLOURS_SEED_ID = "grid-annotated-colours";
 /**
@@ -761,8 +763,11 @@ const ANNOTATED_BASICS_PATCH: Partial<GameSettings> = Object.freeze({
   interactionRateHz: 25, durationMode: "fixed", halfLifeSeconds: 300, excludedFamilies: ANNOTATED_BASICS_EXCLUDED,
   startingObjectCount: 10, spawnRateHz: 0.1, planningSeconds: 60,
   costModel: "distance-v1",
-  // Paid observation (owner, 2026-11-11: a costly use of a god's own energy; docs/energy-model.md §11).
-  observation: "paid",
+  // A first game sees everything as it changes. Paid looks (docs/energy-model.md §11) are "Basics with paid looks":
+  // in first-game walks (2026-11-13) they sped nobody up and cost attention: boards went stale again seconds after a
+  // paid look, the three-human game never met them, and on "boards" a player replaced their agent with a looker to
+  // make the STALE notice go away. Free was the walk with the clearest account of why the score moved.
+  observation: "free",
   // No disclosure noise on the beginner setup: with noise, a live total reads high (the others' sum is floored at 0
   // after the noise) and every total drops when the game ends (live 308, final 194 in a first game), which a new
   // player reads as a bug. Eight known simple rules have little secrecy to protect; docs/public-log-design.md §5.2.
@@ -793,6 +798,9 @@ export const SEED_SETUPS: readonly SeedSetup[] = Object.freeze([
   // to planning). 45 s, and it ends at once when every human player has passed or finished.
   seed(ANNOTATED_BIDDING_SEED_ID, "Basics with bidding", "The beginner board and its eight rules, but first each player may bid part of their score for the rule they want",
     "Grid", ANNOTATED_BASICS_BOARD, { ...ANNOTATED_BASICS_PATCH, bidSeconds: 45 }),
+  // Annotated basics where looking costs energy (owner, 2026-11-11: a costly use of a god's own energy): for a second game.
+  seed(ANNOTATED_PAID_SEED_ID, "Basics with paid looks", "The beginner board and its eight rules, but you see each board as you last saw it: a fresh look costs energy",
+    "Grid", ANNOTATED_BASICS_BOARD, { ...ANNOTATED_BASICS_PATCH, observation: "paid" }),
   seed("grid-classic", "Classic", "5×5 with four colours: the standard game",
     "Grid", { size: 5, symbols: "base10", colours: "rgby" }, {}),
   // grid-lab PR #14 §4.9's alternative economy: half the income, half the floor (see TYPE_DEFAULTS.Grid).
@@ -802,7 +810,9 @@ export const SEED_SETUPS: readonly SeedSetup[] = Object.freeze([
     "Grid", { size: 6, symbols: "base16", colours: "rainbow6" }, {}),
   seed("grid-master", "Master", "7×7 playing cards in rainbow colours",
     "Grid", { size: 7, symbols: "cards", colours: "rainbow6" }, {}),
-  // Tiered rules (docs/layered-rules-design.md). New seeds go at the end: the order above is the learning order.
+  // Tiered rules (docs/layered-rules-design.md). The order above is the learning order, with the twins of Annotated
+  // basics (the same board with one setting changed, such as paid looks) sitting together right after it; any other
+  // new seed goes at the end.
   seed(TIERED_RULES_SEED_ID, "Tiered rules", "Each rule has an easy base and a ★ bonus that opens once the base is well along",
     "Grid", { ...ANNOTATED_BASICS_BOARD }, tieredPatch({ depth: 1 })),
 ]);
@@ -839,7 +849,8 @@ export const LAB_SETUPS: readonly SeedSetup[] = Object.freeze([
   labCostSeed("lab-cost-dial", "Lab · dial numbers", "Numbers are a dial: 9 and 0 are one step apart, and a step either way costs the same", "dial-v1"),
   labCostSeed("lab-cost-log", "Lab · gentle distance", "A far move costs only a little more than a middling one", "log-v1"),
   labCostSeed("lab-cost-multiply", "Lab · multiply and divide", "Adds, plus multiply and divide by the last digit; a number's move costs the cheaper of the two", "multiply-v1"),
-  // Paid observation's other values (docs/energy-model.md §11.8): Annotated basics itself is "paid".
+  // Observation modes on Annotated basics (docs/energy-model.md §11.8): the default is "free" (the first entry equals
+  // it and stays so that no stored seed disappears); "paid" is the ordinary setup "Basics with paid looks".
   ...([
     ["lab-observation-free", "Lab · everything always visible", "Annotated basics, but looking is free: every object is shown as it changes", "free"],
     ["lab-observation-boards", "Lab · boards always visible", "Annotated basics, but every board is live: only the others' interest in it is as you last saw it", "boards"],

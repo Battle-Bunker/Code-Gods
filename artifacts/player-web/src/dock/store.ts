@@ -11,7 +11,7 @@ import { createContext, useContext, useSyncExternalStore } from "react";
 import type { DockviewApi } from "dockview-react";
 import { DEFAULT_LAYOUT, parseLayout, panesOf, type DockLayout, type Pane } from "@workspace/player-client/layout";
 import type { Phase } from "@workspace/player-client/panels";
-import { PUSH_DELAY_MS, PUSH_SOON_MS, RETRY_MS, effectiveLayout, initialSync, pushPlan, sameLayout, syncReducer, keepAssistantPane, withResultsFirst, withTimeline, withoutAssistant, type SyncEvent, type SyncState } from "./layout-sync";
+import { PUSH_DELAY_MS, PUSH_SOON_MS, RETRY_MS, effectiveLayout, initialSync, pushPlan, sameLayout, syncReducer, keepAssistantPane, hiddenByResultsOnly, withResultsOnly, withTimeline, withoutAssistant, type SyncEvent, type SyncState } from "./layout-sync";
 import { back, emptyHistory, observe, resetView, type History } from "./history";
 
 export type Pusher = (layout: DockLayout, ifUpdatedAt: number | undefined) => Promise<{ layout: unknown; updatedAt: number }>;
@@ -22,6 +22,10 @@ export type DockSnapshot = {
   /** This room has an assistant (its owner is an administrator); when not, its pane is not in `layout` and no menu offers it. */
   assistantAvailable: boolean;
   focused: string | null;
+  /** An ended game shows its results and timeline only (layout-sync.ts withResultsOnly): "Show my panes" brings the rest back. */
+  hiddenPanes: boolean;
+  /** "Show my panes" is on: the ended game shows the player's own arrangement; "Back to the results" returns. */
+  myPanes: boolean;
   phase: Phase;
   loaded: boolean;
   canWrite: boolean;
@@ -44,6 +48,10 @@ export class DockStore {
   private timelineClosed = false;
   /** The human rearranged the replay's dock: their arrangement stays (the results are no longer moved to the top). */
   private replayArranged = false;
+  /** "Show my panes" was pressed: the ended game shows every pane, the results first. */
+  private myPanes = false;
+  /** The player's arrangement as it was before a change made in the results-only view, for "Show my panes". */
+  private keptLocal: DockLayout | undefined;
   private assistantAvailable = true;
   private timer: ReturnType<typeof setTimeout> | undefined;
   private pusher: Pusher | undefined;
@@ -70,15 +78,23 @@ export class DockStore {
   pane(id: string): Pane | undefined { return this.snapshot.layout.panes[id]; }
 
   private build(): DockSnapshot {
-    const shown = effectiveLayout(this.sync.local, this.phase);
+    // "Show my panes": the arrangement as it was during the game (the phase rule would turn its default pane into the results).
+    const own = this.replayTimeline && this.myPanes;
+    const shown = effectiveLayout(this.sync.local, own && this.phase === "ended" ? "running" : this.phase);
     const timeline = this.replayTimeline && !this.timelineClosed ? withTimeline(shown) : shown;
     // An ended game opens on how it went: the results across the top (layout-sync.ts withResultsFirst).
-    const withT = this.replayTimeline && !this.replayArranged ? withResultsFirst(timeline) : timeline;
-    return { layout: this.assistantAvailable ? withT : withoutAssistant(withT), history: this.history, assistantAvailable: this.assistantAvailable, focused: this.focused, phase: this.phase, loaded: this.sync.latest !== null, canWrite: this.options.canWrite };
+    // Two things only until "Show my panes": the results and the timeline (withResultsOnly).
+    const derived = this.replayTimeline && !this.replayArranged;
+    // Two states, neither stored: the results with the timeline (withResultsOnly), or the player's own arrangement as
+    // it is, with no results row squeezed in above it (four panes became 100px strips under a results-first row).
+    const withT = !derived || this.myPanes ? timeline : withResultsOnly(timeline);
+    // Offered only when it would bring something back, counted on what is shown (a room without an assistant does not show its pane).
+    const hiddenPanes = (derived && !this.myPanes && hiddenByResultsOnly(this.shownOf(timeline)) > 0) || !!this.keptLocal;
+    return { layout: this.assistantAvailable ? withT : withoutAssistant(withT), hiddenPanes, myPanes: own, history: this.history, assistantAvailable: this.assistantAvailable, focused: this.focused, phase: this.phase, loaded: this.sync.latest !== null, canWrite: this.options.canWrite };
   }
   private emit() {
     const next = this.build();
-    const same = sameLayout(next.layout, this.snapshot.layout, 0) && next.history === this.snapshot.history && next.assistantAvailable === this.snapshot.assistantAvailable && next.focused === this.snapshot.focused
+    const same = sameLayout(next.layout, this.snapshot.layout, 0) && next.history === this.snapshot.history && next.assistantAvailable === this.snapshot.assistantAvailable && next.focused === this.snapshot.focused && next.hiddenPanes === this.snapshot.hiddenPanes && next.myPanes === this.snapshot.myPanes
       && next.phase === this.snapshot.phase && next.loaded === this.snapshot.loaded;
     if (same) return;
     this.snapshot = next;
@@ -105,6 +121,7 @@ export class DockStore {
     const latest = this.sync.latest && (this.raw !== undefined ? { ...this.sync.latest, layout: this.parse(this.raw) } : this.sync.latest);
     const clean = !this.sync.dirty && !this.sync.gesture && !this.sync.inFlight;
     const local = clean && latest ? latest.layout : this.parse(this.sync.local);
+    this.noteReplaced(local);
     this.sync = { ...this.sync, local, latest };
     this.history = observe(this.history, null, local);
     this.emit();
@@ -112,7 +129,9 @@ export class DockStore {
   server(raw: unknown, updatedAt: number | null) {
     const first = this.sync.latest === null;
     this.raw = raw;
+    const before = this.sync.local;
     this.dispatch({ type: "server", layout: this.parse(raw), updatedAt }, first);
+    if (this.sync.local !== before) { this.noteReplaced(this.sync.local, before); this.emit(); }
     // An edit made before the first server layout arrived had nothing to push against; now it does.
     if (this.sync.dirty) this.schedule(PUSH_SOON_MS);
   }
@@ -132,7 +151,40 @@ export class DockStore {
     if (this.replayTimeline && !this.timelineClosed && has(this.snapshot.layout) && !has(next)) this.timelineClosed = true;
   }
   /** A change of the human's in a replay starts from the shown arrangement and is kept in `local`: it is theirs from now on. */
-  private noteArranged() { if (this.replayTimeline) this.replayArranged = true; }
+  private noteArranged() {
+    if (!this.replayTimeline) return;
+    // A change made in the results-only view: the arrangement it hid is kept for "Show my panes".
+    if (!this.replayArranged && !this.myPanes) this.keptLocal = this.sync.local;
+    this.replayArranged = true;
+  }
+  /**
+   * The server's layout (or a re-parse of it) replaced `local`: what the human arranged in this replay, and the
+   * arrangement kept for "Show my panes", belonged to the layout that is gone, so the derived view starts again.
+   */
+  private noteReplaced(next: DockLayout, before: DockLayout = this.sync.local) {
+    if (sameLayout(next, before, 0)) return;
+    this.keptLocal = undefined;
+    this.replayArranged = false;
+  }
+  /** "Back to the results": the ended game shows its results and timeline again (what the player arranged meanwhile is kept for "Show my panes"). */
+  showResults() {
+    if (!this.myPanes) return;
+    this.myPanes = false;
+    if (this.replayArranged) { this.keptLocal = this.sync.local; this.replayArranged = false; }
+    this.emit();
+  }
+  /** "Show my panes": the player's own arrangement, as it was during the game (a replay's dock is never saved). */
+  showMyPanes() {
+    this.myPanes = true;
+    if (this.keptLocal) {
+      const kept = this.keptLocal;
+      this.keptLocal = undefined;
+      this.replayArranged = false;
+      this.dispatch({ type: "edit", layout: kept });
+      return;
+    }
+    this.emit();
+  }
   setFocused(paneId: string | null) { if (paneId !== this.focused) { this.focused = paneId; this.emit(); } }
 
   /** A human's change (menu, palette, a drag's result): shown at once, pushed soon (a drag: after PUSH_DELAY_MS). */

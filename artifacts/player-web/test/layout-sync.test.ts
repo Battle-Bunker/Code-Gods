@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { DEFAULT_LAYOUT, assistantSide, closePane, paneExtents, panelPanesOf, paneOrder, panesOf, movePane, openPane, parseLayout, setPanePanel, setPaneParams, type DockLayout } from "@workspace/player-client/layout";
 import { SINGLE_LAYOUT } from "./single-layout.ts";
 import {
-  effectiveLayout, initialSync, keepAssistantPane, pushPlan, sameLayout, syncReducer, withResultsFirst, withTimeline, withoutAssistant, type SyncState,
+  effectiveLayout, initialSync, keepAssistantPane, pushPlan, sameLayout, syncReducer, withResultsFirst, withResultsOnly, hiddenByResultsOnly, withTimeline, withoutAssistant, type SyncState,
 } from "../src/dock/layout-sync.ts";
 import { back, canUndo, lastParams, observe, emptyHistory, resetView } from "../src/dock/history.ts";
 import { EDITOR_MIN, dockAssistant, showPanel } from "../src/dock/operations.ts";
@@ -207,6 +207,10 @@ test("showing a panel reuses its open pane, adds one otherwise, and at four pane
   const parsed = parseLayout(full.layout, ctx).layout;
   assert.equal(panelPanesOf(parsed).length, 4, "nothing parseLayout would drop");
   assert.ok(panelPanesOf(parsed).some(p => p.panelId === "public-chat"));
+  // The goal card and the objects are never replaced while another pane can give way, even when one of them has the focus.
+  const kept = showPanel(layout, "public-chat", undefined, panelPanesOf(layout).find(p => p.kind === "panel" && p.panelId === "objects")!.id);
+  assert.ok(kept.replaced);
+  assert.ok(panelPanesOf(kept.layout).some(p => p.kind === "panel" && p.panelId === "objects"), "the objects stay");
   assert.throws(() => showPanel(base, "what-if"), /assistant/, "a what-if needs the assistant's parameters");
 });
 
@@ -306,14 +310,16 @@ test("an edit in a room without an assistant puts its stored pane back where it 
   assert.ok(bottom?.type === "split" && bottom.direction === "row" && bottom.children.length === 3, "in the bottom row");
 });
 
-test("the agent editor in the full default dock takes the largest panel nobody chose (objects), unless a panel is focused", () => {
+test("the agent editor in the full default dock takes the leaderboard's pane, whatever is focused: the goal, the objects and My agents stay", () => {
   const dock = DEFAULT_LAYOUT("running");
-  for (const focused of [null, "p4"]) {
+  for (const focused of [null, "p1", "p2", "p3", "p4", "p5"]) {
     const r = showPanel(dock, "forge", undefined, focused);
     assert.ok(r.replaced);
-    assert.equal(r.paneId, "p2", `objects, top right (focused ${focused})`);
+    assert.equal(r.paneId, "p5", `the leaderboard, bottom right (focused ${focused})`);
+    const e = paneExtents(r.layout.root)[r.paneId];
+    assert.ok(e.width >= EDITOR_MIN.width && e.height >= EDITOR_MIN.height, "a pane a quarter wide is given room for the editor");
+    assert.deepEqual(panelPanesOf(r.layout).map(p => p.panelId).sort(), ["agents", "forge", "my-card", "objects"]);
   }
-  assert.equal(showPanel(dock, "forge", undefined, "p5").paneId, "p2", "a focused pane a quarter wide is too small for the editor");
   assert.equal(showPanel(dock, "public-chat", undefined, "p5").paneId, "p5", "any other panel: the focused pane, as before");
 });
 
@@ -341,6 +347,27 @@ test("an ended game shows its results first: the results pane across the top, ev
   assert.equal(withResultsFirst(only), only);
 });
 
+test("an ended game opens on two things only: the results and the replay timeline; the other panes are one button away", () => {
+  const ended = withTimeline(DEFAULT_LAYOUT("ended"));
+  const shown = withResultsOnly(ended);
+  assert.deepEqual(panesOf(shown).map(p => p.kind === "panel" && p.panelId), ["results", "timeline"], "results first, then the timeline (the phone stacks them in this order)");
+  assert.ok(shown.root.type === "split" && shown.root.direction === "column" && shown.root.sizes[0] >= 60, "the results take most of the screen");
+  assert.ok(shown.root.type === "split" && Math.abs(shown.root.sizes.reduce((a, b) => a + b, 0) - 100) < 1e-9);
+  // The same pane ids as the full arrangement, so "Show my panes" only adds panes around them.
+  const full = withResultsFirst(ended);
+  for (const pane of panesOf(shown)) assert.deepEqual(full.panes[pane.id], pane);
+  assert.equal(parseLayout(shown, { phase: "ended", storedSlugs: [], fileIds: [] }).warnings.filter(w => /reset/.test(w)).length, 0, "a valid layout");
+  // The timeline was closed: the results alone.
+  const closed = withResultsOnly(DEFAULT_LAYOUT("ended"));
+  assert.deepEqual(panesOf(closed).map(p => p.kind === "panel" && p.panelId), ["results"]);
+  assert.equal(closed.root.type, "pane");
+  // A layout with no results pane gets one.
+  const none = withResultsOnly(withTimeline(setPanePanel(DEFAULT_LAYOUT("ended"), "p2", "objects", "human")));
+  assert.deepEqual(panesOf(none).map(p => p.kind === "panel" && p.panelId), ["results", "timeline"]);
+  assert.equal(hiddenByResultsOnly(ended), 3, "the goal, My agents and the leaderboard wait behind the button");
+  assert.equal(hiddenByResultsOnly(shown), 0);
+});
+
 test("hidden assistant: changes never shrink its neighbour (the editor once ended as a sliver after a few clicks)", () => {
   const stored = DEFAULT_LAYOUT("planning");
   let saved = stored;
@@ -355,9 +382,9 @@ test("hidden assistant: changes never shrink its neighbour (the editor once ende
 
 test("the agent editor always opens with room to work: never the goal card, never a sliver", () => {
   const usable = (layout: DockLayout, id: string) => { const e = paneExtents(layout.root)[id]; return e.width >= EDITOR_MIN.width && e.height >= EDITOR_MIN.height; };
-  // The default dock with the assistant: My agents (a quarter wide) is focused, the objects (top right) show the editor.
+  // The default dock with the assistant: My agents (a quarter wide) is focused; the leaderboard shows the editor, with room.
   const admin = showPanel(DEFAULT_LAYOUT("planning"), "forge", undefined, "p3");
-  assert.equal(admin.paneId, "p2");
+  assert.equal(admin.paneId, "p5");
   assert.ok(usable(admin.layout, admin.paneId));
   // No assistant: the leaderboard the button was clicked in has the room, and shows it.
   const alice = showPanel(withoutAssistant(DEFAULT_LAYOUT("planning")), "forge", undefined, "p5");

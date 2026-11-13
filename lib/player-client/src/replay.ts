@@ -50,6 +50,12 @@ export type ReplayEvent =
     expectedActCost: number; breakdown: Breakdown; randomized: boolean; account: AgentAccount;
     /** The share of its owner's power the agent was given (log schema 6); absent in older logs, which replay as share 0. */
     powerShare?: number }
+  /**
+   * The owner replaced the agent's program (log schema 14; docs/energy-model.md §5.2): its god paid `summonCost`, the
+   * new program's summon price. The agent keeps its id, name, power share and account.
+   */
+  | { type: "agent.replaced"; agentId: string; ownerId: string; worldSeconds: number; language: string; source: string; description?: string; summonCost: number;
+    expectedActCost: number; breakdown: Breakdown; randomized: boolean }
   /** The owner re-allocated power: the agent's share from then on (log schema 6). */
   /** `owed` (log schema 13): the debt that moved with the power, from the agent onto its god's own account (negative: the other way). */
   | { type: "agent.power"; agentId: string; ownerId: string; worldSeconds: number; share: number; owed?: number }
@@ -236,6 +242,22 @@ export function applyEntry(state: ReplayState, entry: LogEntry, settings: GameSe
         state.spent[i] += ev.summonCost;
         const d = settleDeity(settings, state.deities[i], entry.world);
         state.deities[i] = { balance: d.balance - ev.summonCost, world: d.world, allocated: roundShare(d.allocated + (ev.powerShare ?? 0)) };
+      }
+      break;
+    }
+    case "agent.replaced": {
+      // The god pays the new program's summon price; the agent's account, share, name, acts and spending stay.
+      const agent = state.agents.get(ev.agentId), i = roster.get(ev.ownerId);
+      if (agent && agent.alive) {
+        Object.assign(agent, { language: ev.language, source: ev.source, summonCost: ev.summonCost, expectedActCost: ev.expectedActCost, breakdown: ev.breakdown, randomized: ev.randomized,
+          ...(ev.description ? { description: ev.description } : {}),
+          // How the old program's acts ended is not the new program's diagnosis.
+          transforms: 0, failures: 0, failureKinds: { ...NO_FAILURES }, lastFailures: {}, unmarked: false });
+      }
+      if (i !== undefined) {
+        state.spent[i] += ev.summonCost;
+        const d = settleDeity(settings, state.deities[i], entry.world);
+        state.deities[i] = { ...d, balance: d.balance - ev.summonCost };
       }
       break;
     }
@@ -540,6 +562,10 @@ function projected(ev: ReplayEvent, seq: number, pov: number, roster: Replay["ga
       type: "agent.summoned" as const, seq, agentId: ev.agentId, mine, worldSeconds: ev.worldSeconds, language: ev.language, source: ev.source, summonCost: ev.summonCost,
       expectedActCost: ev.expectedActCost, breakdown: ev.breakdown, randomized: ev.randomized, account: ev.account,
       ...(ev.powerShare !== undefined ? { powerShare: ev.powerShare } : {}),
+    };
+    case "agent.replaced": return {
+      type: "agent.replaced" as const, seq, agentId: ev.agentId, mine, worldSeconds: ev.worldSeconds,
+      ...(mine ? { ...(ev.description ? { description: ev.description } : {}), language: ev.language, source: ev.source, summonCost: ev.summonCost, expectedActCost: ev.expectedActCost, breakdown: ev.breakdown, randomized: ev.randomized } : {}),
     };
     case "agent.power": return mine ? { type: "agent.power" as const, seq, agentId: ev.agentId, worldSeconds: ev.worldSeconds, share: ev.share, ...(ev.owed !== undefined ? { owed: ev.owed } : {}) } : null;
     case "agent.destroyed": return { type: "agent.destroyed" as const, seq, agentId: ev.agentId, mine, worldSeconds: ev.worldSeconds, ...(mine && ev.owed !== undefined ? { owed: ev.owed } : {}) };

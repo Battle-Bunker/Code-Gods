@@ -442,6 +442,30 @@ summon event), replays show recorded prices, and the price function ids are unch
 summon or validation in any room, a game in progress included, is priced with the weight (cheaper than before); Python
 prices do not move. The validation's `parts.structure` is the weighted figure, so the parts still add up to the price.
 
+### 5.2 Replacing a program (13 Nov 2026)
+
+One rule: **replacing a program costs what summoning it would; everything else stays.** The command
+`{ type: "replace", agentId, language, source, description? }` is examined and priced exactly as a summon of the same
+program (the same sandbox runs, the same refusals when the god cannot pay, the same warnings, the same rate limit), and
+the god pays that price from its own energy. The agent keeps its id, name, power share and account: its stored energy
+or its debt, untouched (the account is not even settled, so no capacity is applied at that moment). Its acts, skips
+and spending stay too; no power moves, so no other account changes.
+
+What described the old program is replaced with the new program's: source, language, `summonCost`, `expectedActCost`,
+`breakdown`, `randomized`, and the description when one is sent. The counts of how its acts ended (`transforms`,
+`failures`, `lastFailures`, which make the owner's diagnosis) start again, and so does the memo of the objects the old
+program could only fail on. A tick window in flight is discarded (the execution epoch is bumped), so no act of the old
+program is counted against the new one.
+
+Why a command and not destroy-then-summon: the two-step route returned the share to the god, re-allocated it to a new
+agent that starts empty, and so threw away the energy the agent held and reset its name; the god paid for a program
+change with a full store as well as the price. With one command, code size keeps mattering (the price is the summon
+price, no discount), and nothing about power or agent count changes, so agent-count neutrality (§7) and the debt rule
+(§7.2) are untouched: the command moves no power and no debt.
+
+The log records it (`replace`, `EVENT_LOG_SCHEMA` 14; the players' event is `agent.replaced`, the owner's own while the
+game is live); a replay charges the recorded price to the god and swaps the agent's program at that point.
+
 ## 6. Power (PR 3)
 
 - `settings.powerPerSecond` (P, bits per world second) is each deity's fixed budget. Defaults: 8; Grid 64 (two agents
@@ -788,7 +812,7 @@ values, so each can be tried on one deployment by duplicating a setup and changi
 |---|---|---|
 | `free` (stored settings without the field) | every object as it is: the game as it was | — |
 | `boards` | every board and its own bits live; the others' interest (and the payoff) and the history as last told | yes |
-| `paid` (the default setup, Annotated basics) | every object as last told | yes |
+| `paid` (the setup "Basics with paid looks"; the default setup, Annotated basics, is `free`) | every object as last told | yes |
 | `agents` | every object as last told | no: its agents are its only eyes |
 
 Two sentences carry it: **an object's birth is public; its life is paid** and **activity is public; content is paid**.

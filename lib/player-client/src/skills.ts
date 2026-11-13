@@ -23,7 +23,7 @@ export const SKILLS = [
   { name: "game-rules", description: "The room's full rules: scoring, agents, energy, timing, phases. Load when the briefing isn't enough.", reads: ["rules"],
     tools: ["get_bidding", "place_bid", "withdraw_bid", "finish_bidding"] },
   { name: "writing-agents", description: "Writing, validating, summoning agents: workflow, mutators, helpers, your utility's source.", reads: ["observation"],
-    tools: ["evaluate_value", "validate_agent", "summon_agent", "destroy_agent", "allocate_power"] },
+    tools: ["evaluate_value", "validate_agent", "summon_agent", "replace_agent", "destroy_agent", "allocate_power"] },
   { name: "screen", description: "The player's screen: panes, every built-in panel and its parameters; when to open, move or close one.", reads: ["layout"], tools: ["get_layout", "move_pane", "close_pane"] },
   { name: "game-setups", description: "Game setups and room settings: list, copy, save, switch (owners); what each choice does.", reads: [],
     tools: ["list_setups", "get_setup", "save_setup", "duplicate_setup", "get_room_state", "update_settings"] },
@@ -63,8 +63,8 @@ export function helperLines(instance: unknown, language: string, limits: { helpe
       const signature = str(rec(h.signature)[language]) ?? str(rec(h.name)[language]);
       if (!signature) continue;
       const line = cut(`  ${signature}${h.kid ? ` — ${str(h.kid)}` : ""}`, limits.helper);
-      if (used + line.length > limits.helpers / 2) { lines.push("  … more in get_observation (instance.helpers)"); break; }
-      used += line.length;
+      if (used + line.length + 1 > limits.helpers / 2) { lines.push("  … more in get_observation (instance.helpers)"); break; }
+      used += line.length + 1;   // with its newline: the budget is characters of the body
       lines.push(line);
     }
   }
@@ -138,14 +138,21 @@ export function skillBody(name: SkillName, data: { rules?: unknown; observation?
     const mutators = helpers.filter(h => h.group === "mutator").flatMap(h => str(rec(h.name)[allowed[0]!]) ?? []);
     const first = data.firstAgent ?? firstAgentFor({ familyId: str(utility.familyId), objectType: str(rec(o.instance).objectType), language: allowed[0]!, mutators });
     if (first) parts.push(firstAgentSection(first, allowed[0]!));
-    // Each allowed language's helper names, sharing the helpers budget.
-    const share = { ...SKILL_LIMITS, helpers: Math.floor(SKILL_LIMITS.helpers / allowed.length) };
-    for (const language of allowed) parts.push(`Helpers in ${language}:`, ...helperLines(o.instance, language, share));
+    // The player's own rule (and defence goal) come last and must arrive whole: the helper lists before them give way.
+    const tail: string[] = [];
     const source = str(utility.source);
-    if (source) parts.push(`The player's utility (private): ${[str(utility.emoji), str(utility.name)].filter(Boolean).join(" ")}${utility.summary ? ` — ${str(utility.summary)}` : ""}`, "Source:", cut(source, SKILL_LIMITS.source));
+    if (source) tail.push(`The player's utility (private): ${[str(utility.emoji), str(utility.name)].filter(Boolean).join(" ")}${utility.summary ? ` — ${str(utility.summary)}` : ""}`, "Source:", cut(source, SKILL_LIMITS.source));
     const penalty = rec(utility.penalty);
-    if (str(penalty.source)) parts.push(`Defence goal (penalty): ${str(penalty.name) ?? ""}${penalty.summary ? ` — ${str(penalty.summary)}` : ""}`, "Source:", cut(str(penalty.source)!, SKILL_LIMITS.source));
-    if (!data.observation) parts.push("The observation could not be read: call get_observation for the helpers and the utility.");
+    if (str(penalty.source)) tail.push(`Defence goal (penalty): ${str(penalty.name) ?? ""}${penalty.summary ? ` — ${str(penalty.summary)}` : ""}`, "Source:", cut(str(penalty.source)!, SKILL_LIMITS.source));
+    if (!data.observation) tail.push("The observation could not be read: call get_observation for the helpers and the utility.");
+    // Each allowed language's helper names share the helpers budget, or what the rest of the body leaves of its limit
+    // if that is less (a long rule with a first agent once pushed the rule's last lines past the cut). Per language:
+    // its heading, two group headings and two "more in get_observation" lines, with every line's newline (about 300).
+    const rest = [...parts, ...tail, toolsLine(name)].reduce((n, part) => n + part.length + 1, 0);
+    const budget = Math.max(0, Math.min(SKILL_LIMITS.helpers, SKILL_LIMITS.body - rest - 300 * allowed.length));
+    const share = { ...SKILL_LIMITS, helpers: Math.floor(budget / allowed.length) };
+    for (const language of allowed) parts.push(`Helpers in ${language}:`, ...helperLines(o.instance, language, share));
+    parts.push(...tail);
   } else if (name === "screen") {
     parts.push(SCREEN);
     const catalog = panelCatalogLines(data.layout);
@@ -158,7 +165,10 @@ export function skillBody(name: SkillName, data: { rules?: unknown; observation?
   } else {
     parts.push(SETUPS);
   }
-  const tools = findSkill(name)?.tools ?? [];
-  if (tools.length) parts.push(`This skill's tools (those the grant allows): ${tools.join(", ")}. In the in-client assistant, call load_tools for any not in your tool list yet.`);
+  if (toolsLine(name)) parts.push(toolsLine(name));
   return cut(parts.join("\n"), SKILL_LIMITS.body);
+}
+function toolsLine(name: SkillName): string {
+  const tools = findSkill(name)?.tools ?? [];
+  return tools.length ? `This skill's tools (those the grant allows): ${tools.join(", ")}. In the in-client assistant, call load_tools for any not in your tool list yet.` : "";
 }

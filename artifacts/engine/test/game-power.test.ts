@@ -229,3 +229,130 @@ test("debt: an agent may owe at most what it holds, and what it owes follows its
   assert.ok((await observe(bo)).agents.find(a => a.name === "Again")!.energy < 60, "a re-summoned agent starts empty");
   await host.c.mutation(api.rooms.endActiveGame, { roomId });
 });
+
+/**
+ * Debt moves with power, from a god to an agent (docs/energy-model.md §7.2; game-core movePower). P = 40 bits/s,
+ * T = 10 s. Bo keeps 10% for itself (holds 40), gives "Big" 80% (it adds 111111111 on credit: holds 320, may owe 320) and
+ * "Idle" 10% (it never acts: holds 40). Big's change is nine digit adds (about 210 bits). Bo destroys Big while it owes more than 150, so Bo itself owes more than 110
+ * and has 90% unallocated. Bo then gives Idle half of that unallocated power (10% → 55%): Idle takes exactly half of
+ * what Bo owes, so what Bo still owes equals what moved. Giving it the rest moves the rest: Bo owes nothing, Idle owes
+ * it all, and nothing was lost on the way. What would break: a god shedding its debt by re-allocating (the amount
+ * vanishing), or an agent taking a different fraction of the debt than of the power.
+ */
+test("debt: a god that owes gives an agent power, and the same fraction of its debt goes with it", { timeout: 240000 }, async () => {
+  const [host, ada, bo] = await gods("Owing Host", "Owing Ada", "Owing Bo");
+  await touch(host);
+  const { roomId } = await roomWith([host, ada, bo], {
+    objectType: "Int", typeArgs: { min: -2000000000, max: 2000000000 }, languages: ["typescript"],
+    startingObjectCount: 6, spawnRateHz: 0, planningSeconds: 3600, powerPerSecond: 40, startingEnergy: 5000, interactionRateHz: 20, fullChargeSeconds: 10,
+  });
+  const game = await startGame(host, roomId);
+  const send = (command: Record<string, unknown>) => bo.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
+  const big = await send({ type: "summon", name: "Big", language: "typescript", source: "function agent(n) { return [add(111111111)]; }", powerShare: 0.8 });
+  assert.equal(big.accepted, true, big.message);
+  const idle = await send({ type: "summon", name: "Idle", language: "typescript", source: "function agent(n) { return []; }", powerShare: 0.1 });
+  assert.equal(idle.accepted, true, idle.message);
+  await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 3600 }, kick: true });
+  const stored = async () => {
+    const state = await raw(game.gameId);
+    return { state, deity: state.deities.find((d: any) => d.godId === bo.subject), idle: state.agents.find((a: any) => a.name === "Idle"), big: state.agents.find((a: any) => a.name === "Big") };
+  };
+  const owing = await waitFor(async () => { const s = await stored(); return s.big.account.balance < -150 ? s : null; }, "Big owes more than 150", 120000, 30);
+  const idleId = owing.idle._id;
+  const destroyed = await send({ type: "destroy", agentId: owing.big._id });
+  assert.equal(destroyed.accepted, true, destroyed.message);
+  assert.ok(destroyed.owed > 150, `Big's debt moved to Bo: ${destroyed.owed}`);
+
+  // Half of Bo's unallocated power (90%) to Idle: half of what Bo owes at that moment goes with it.
+  const half = await send({ type: "allocatePower", agentId: idleId, share: 0.55 });
+  assert.equal(half.accepted, true, half.message);
+  assert.ok(half.owed < -20, `debt moved from Bo onto Idle (negative: towards the agent): ${half.owed}`);
+  assert.ok(half.owed > -destroyed.owed / 2 - 1e-6, `at most half of what Bo took over: ${half.owed} of ${destroyed.owed}`);
+  let s = await stored();
+  assert.ok(Math.abs(s.deity.account.balance - half.owed) < 1e-6, `Bo keeps the other half: ${s.deity.account.balance} against ${half.owed} moved`);
+  // Idle held at most its old capacity (40) and never acts: its balance is that minus the debt it took.
+  assert.ok(s.idle.account.balance >= half.owed - 1e-6 && s.idle.account.balance <= half.owed + 40 + 1e-6, `Idle: ${s.idle.account.balance}`);
+
+  // The rest of Bo's power (45% of 45% unallocated): the rest of the debt. Bo owes nothing; nothing was lost.
+  const rest = await send({ type: "allocatePower", agentId: idleId, share: 1 });
+  assert.equal(rest.accepted, true, rest.message);
+  s = await stored();
+  if (rest.owed !== undefined) {
+    assert.ok(rest.owed < 0);
+    assert.ok(Math.abs(s.deity.account.balance) < 1e-6, `Bo gave all its power and all its debt: ${s.deity.account.balance}`);
+  }
+  // The log records what moved in each direction, for the replay: + onto the god, − onto the agent.
+  const events = s.state.batches.flatMap((b: any) => b.events);
+  assert.ok(Math.abs(events.find((e: any) => e.t === "destroy").owed - destroyed.owed) < 1e-9);
+  assert.deepEqual(events.filter((e: any) => e.t === "power").map((e: any) => e.owed), [half.owed, ...(rest.owed !== undefined ? [rest.owed] : [])]);
+  // Idle now has all of Bo's power (40 bits/s) and repays what it took within the capacity time.
+  await waitFor(async () => (await stored()).idle.account.balance > 0 || ((await bo.c.query(api.player.observation, { roomId })) as any).agents[0].energy > 0, "Idle's income repays the debt", 60000, 250);
+  await host.c.mutation(api.rooms.endActiveGame, { roomId });
+});
+
+/**
+ * Replacing a program (docs/energy-model.md §5.2): it costs what summoning the new program would, and everything else
+ * stays. Checked in a paused game, where no account earns: the god's energy before and after differs by exactly the
+ * price, and the agent's id, name, share, account (its stored energy), acts and spending are the same documents' values.
+ */
+test("replace: the god pays the new program's summon price; the agent keeps its name, share and stored energy", { timeout: 240000 }, async () => {
+  const [host, ada, bo] = await gods("Replace Host", "Replace Ada", "Replace Bo");
+  await touch(host);
+  const { roomId } = await roomWith([host, ada, bo], {
+    objectType: "Int", typeArgs: { min: -1000000, max: 1000000 }, languages: ["typescript"],
+    startingObjectCount: 3, spawnRateHz: 0, planningSeconds: 3600, powerPerSecond: 40, startingEnergy: 5000, interactionRateHz: 20, fullChargeSeconds: 10,
+  });
+  const game = await startGame(host, roomId);
+  const send = (god: typeof ada, command: Record<string, unknown>) => god.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
+  const observe = async () => observationSchema.parse(await ada.c.query(api.player.observation, { roomId }));
+  const skipper = "function agent(n) { return []; }", mover = "function agent(n) { return [add(3)]; }";
+  const summoned = await send(ada, { type: "summon", name: "Keeper", description: "Waits.", language: "typescript", source: skipper, powerShare: 0.5 });
+  assert.equal(summoned.accepted, true, summoned.message);
+  const other = await send(ada, { type: "summon", name: "Other", language: "typescript", source: mover, powerShare: 0.25 });
+  assert.equal(other.accepted, true, other.message);
+  const mine = async (name: string) => (await raw(game.gameId)).agents.find((a: any) => a.name === name);
+
+  // Run until Keeper holds energy and has acted, then pause: world time, and so every income, stops.
+  await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 3600 }, kick: true });
+  await waitFor(async () => { const a = await mine("Keeper"); return a.acts >= 3 && a.account.balance > 20; }, "Keeper acts and stores energy", 120000, 250);
+  assert.equal((await send(ada, { type: "pause" })).accepted, true);
+  await waitFor(async () => (await raw(game.gameId)).game.phase === "paused", "the game pauses", 30000, 100);
+  const was = await mine("Keeper"), wasOther = await mine("Other"), before = await observe();
+  const validated = await send(ada, { type: "validate", language: "typescript", source: mover });
+  const price = validated.validation.cost;
+
+  // Only its owner replaces it, and nothing is paid for a refusal.
+  const stolen = await send(bo, { type: "replace", agentId: was._id, language: "typescript", source: mover });
+  assert.equal(stolen.accepted, false);
+  assert.match(stolen.message, /no agent with that ID/);
+
+  const replaced = await send(ada, { type: "replace", agentId: was._id, language: "typescript", source: mover });
+  assert.equal(replaced.accepted, true, replaced.message);
+  assert.match(replaced.message, new RegExp(`replaced, for ${price.toFixed(0)} bits`), "at the price a summon of this program is told");
+  assert.match(replaced.warnings.join(" "), /already have an agent with this exact code/, "the same warnings as a summon (Other runs this code)");
+  const now = await mine("Keeper"), after = await observe(), state = await raw(game.gameId);
+  // The god: energy before and after differs only by the price; no power moved.
+  assert.ok(Math.abs(before.self.energy - after.self.energy - price) < 1e-6, `${before.self.energy} − ${after.self.energy} vs ${price}`);
+  assert.equal(after.self.allocated, before.self.allocated);
+  // The agent: the same id, name, description, share, stored energy, acts and spending; the new program and its prices.
+  assert.deepEqual([now._id, now.name, now.description, now.powerShare, now.account, now.acts, now.spent, now.skips, now.createdAt],
+    [was._id, "Keeper", "Waits.", 0.5, was.account, was.acts, was.spent, was.skips, was.createdAt]);
+  assert.ok(now.account.balance > 20, "its store is neither emptied nor clipped");
+  assert.deepEqual([now.source, now.summonCost, now.expectedActCost], [mover, price, wasOther.expectedActCost], "the new program's prices, as an agent summoned with it has");
+  assert.notEqual(now.expectedActCost, was.expectedActCost);
+  assert.equal(now.failures, undefined, "the old program's outcomes are not the new program's diagnosis");
+  // Nothing else moved: the other agent, the agent count, and the log has the one event.
+  assert.deepEqual(await mine("Other"), wasOther);
+  assert.equal(state.game.agentCount, 2);
+  const events = state.batches.flatMap((b: any) => b.events).filter((e: any) => e.t === "replace");
+  assert.deepEqual(events.map((e: any) => [e.agentId, e.ownerId, e.source, e.summonCost]), [[was._id, ada.subject, mover, price]]);
+  assert.equal(after.agents.find(a => a.id === was._id)!.summonCost, price);
+
+  // A program the god cannot pay for is refused, as a summon is, and nothing changes.
+  await admin.mutation(internal.testing.setGodEnergy, { gameId: game.gameId, godId: ada.subject, balance: 1 });
+  const poor = await send(ada, { type: "replace", agentId: was._id, language: "typescript", source: skipper });
+  assert.equal(poor.accepted, false);
+  assert.match(poor.message, /Insufficient energy/);
+  assert.equal((await mine("Keeper")).source, mover);
+  await host.c.mutation(api.rooms.endActiveGame, { roomId });
+});

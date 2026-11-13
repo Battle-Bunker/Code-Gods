@@ -60,7 +60,7 @@ test("a skipper pays only what it read, never fails, is never futile, and has no
   assert.ok(transforms.length > 0);
   // An agent that reads nothing still pays for the offer (docs/energy-model.md §7.1).
   for (const e of transforms) { assert.ok(Math.abs(e.cost.read - offer) < 1e-12); assert.ok(e.cost.change > 0); assert.ok(Math.abs(e.cost.total - e.cost.change - offer) < 1e-9); }
-  assert.equal(state.batches.at(-1).schema, 13);
+  assert.equal(state.batches.at(-1).schema, 14);
 
   // The owner sees the skips, and the estimate split into reading and changing (no decision bits, no floor).
   const obs = observationSchema.parse(await ada.c.query(api.player.observation, { roomId }));
@@ -134,7 +134,7 @@ test("a room's cost model prices the change: by distance a nudge costs 7.14 and 
       assert.ok(Math.abs(e.cost.read - digit - offer) < 1e-9 && Math.abs(e.cost.total - e.cost.read - e.cost.change) < 1e-9);
     }
     // The log is stamped with the schema that says "priced under the game's cost model" (lib/world.ts EVENT_LOG_SCHEMA 12).
-    assert.ok(state.batches.every((b: any) => b.schema === 13));
+    assert.ok(state.batches.every((b: any) => b.schema === 14));
     await host.c.mutation(api.rooms.endActiveGame, { roomId });
   }
 });
@@ -177,5 +177,61 @@ test("agent-count neutrality: one agent with 80% of the power gets the turns of 
   // Within Bo's four, equal shares get about equal turns.
   const each = state.agents.filter((a: any) => a.ownerId === bo.subject).map((a: any) => a.acts);
   assert.ok(Math.min(...each) > 0.5 * quad / 4 && Math.max(...each) < 1.5 * quad / 4, `Bo's agents: ${each}`);
+  await host.c.mutation(api.rooms.endActiveGame, { roomId });
+});
+
+/**
+ * Agent-count neutrality with debts (docs/energy-model.md §7.2: "credit is a function of power"). The same split as
+ * above, but the program acts on credit: it adds 11111 (five digit adds, about 117 bits, measured below) with whatever
+ * it holds, so every agent owes right after it acts. P = 40 bits/s, T = 30 s: Ada's one agent has 80% (32 bits/s; holds
+ * and may owe 960), each of Bo's four has 20% (8 bits/s; holds and may owe 240, twice the price, so the bound refuses
+ * none of them). Each god's agents earn 32 bits/s together and spend it on the same change, so the two gods commit the
+ * same number of changes; and Bo's four together never owe more than one agent with their power may (960).
+ * What would break: debt counted per agent instead of per unit of power (four agents each owing a store that does not
+ * shrink with their share would out-act one), or a bound that ignores the share.
+ */
+test("agent-count neutrality with debts: four agents acting on credit commit what one with their power commits, and owe no more", { timeout: 240000 }, async () => {
+  const [host, ada, bo] = await gods("Credit Host", "Credit Ada", "Credit Bo");
+  await touch(host);
+  const { roomId } = await roomWith([host, ada, bo], {
+    objectType: "Int", typeArgs: { min: -2000000000, max: 2000000000 }, languages: ["typescript"],
+    startingObjectCount: 5, spawnRateHz: 0, planningSeconds: 3600, powerPerSecond: 40, startingEnergy: 5000, interactionRateHz: 20, fullChargeSeconds: 30,
+  });
+  const game = await startGame(host, roomId);
+  const send = (god: typeof ada, command: Record<string, unknown>) => god.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
+  const source = "function agent(n) { return [add(11111)]; }";
+  const one = await send(ada, { type: "summon", name: "Solo", language: "typescript", source, powerShare: 0.8 });
+  assert.equal(one.accepted, true, one.message);
+  for (let i = 0; i < 4; i++) {
+    const r = await send(bo, { type: "summon", name: `Quad ${i + 1}`, language: "typescript", source, powerShare: 0.2 });
+    assert.equal(r.accepted, true, r.message);
+  }
+  await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 3600 }, kick: true });
+  // Watch the stored balances while the world runs 60 seconds: the lowest each agent, and each god's agents together, reach.
+  const lowest = new Map<string, number>(); let lowestQuad = 0, lowestSolo = 0;
+  const state = await waitFor(async () => {
+    const s = await raw(game.gameId);
+    for (const a of s.agents) lowest.set(a.name, Math.min(lowest.get(a.name) ?? 0, a.account.balance));
+    const owedBy = (god: typeof ada) => s.agents.filter((a: any) => a.ownerId === god.subject).reduce((sum: number, a: any) => sum + Math.min(0, a.account.balance), 0);
+    lowestQuad = Math.min(lowestQuad, owedBy(bo)); lowestSolo = Math.min(lowestSolo, owedBy(ada));
+    return s.game.worldSeconds >= 60 ? s : null;
+  }, "the world runs 60 seconds", 180000, 200);
+  const total = (god: typeof ada, key: "transforms" | "spent") => state.agents.filter((a: any) => a.ownerId === god.subject).reduce((sum: number, a: any) => sum + (a[key] ?? 0), 0);
+  const price = state.batches.flatMap((b: any) => b.events).find((e: any) => e.t === "transform").cost.total;
+  assert.ok(price > 80 && price < 200, `the change costs ${price}: under a 20% agent's credit of 240`);
+  // Income-bound: 32 bits/s × 60 s ÷ the price is about 16 changes per god; one change either way is 6%.
+  const solo = total(ada, "transforms"), quad = total(bo, "transforms");
+  assert.ok(solo >= 10 && quad >= 10, `both gods' agents commit: ${solo} and ${quad}`);
+  assert.ok(Math.abs(solo - quad) <= 0.25 * (solo + quad) / 2, `one agent committed ${solo} changes, four agents with the same power ${quad}`);
+  assert.ok(Math.abs(total(ada, "spent") - total(bo, "spent")) <= 0.25 * (total(ada, "spent") + total(bo, "spent")) / 2, `spent ${total(ada, "spent")} and ${total(bo, "spent")}`);
+  // They did act on credit (the test would prove nothing otherwise), within each agent's own store.
+  assert.ok(lowestSolo < -20 && lowestQuad < -20, `both gods' agents owed: ${lowestSolo} and ${lowestQuad}`);
+  for (const a of state.agents) {
+    const capacity = a.powerShare * 40 * 30;
+    assert.ok((lowest.get(a.name) ?? 0) >= -capacity - 1e-6, `${a.name} owed ${lowest.get(a.name)}: at most its capacity ${capacity}`);
+    assert.equal(a.failures?.unaffordable ?? 0, 0, `${a.name} was never refused: the price is under its credit`);
+  }
+  // Credit follows power, not the number of agents: the four together never owed more than the one agent's bound.
+  assert.ok(lowestQuad >= -960 - 1e-6, `Bo's four owed ${lowestQuad} together`);
   await host.c.mutation(api.rooms.endActiveGame, { roomId });
 });

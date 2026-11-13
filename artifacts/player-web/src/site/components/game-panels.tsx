@@ -9,7 +9,7 @@ import { EmptyState, ErrorLine, Section } from "@/site/components/page-parts";
 import { fmt } from "@/site/lib/errors";
 import { toMs } from "@/site/lib/time";
 import { allowedLanguages } from "@workspace/game-core";
-import { bidLine, formatValue, LABELS, lengthLine, paceWord, type SettingsKey } from "@/site/lib/settings-form";
+import { bidLine, formatValue, LABELS, lengthLine, paceWord, ROOM_DETAILS } from "@/site/lib/settings-form";
 import { Bot, Crown, Send, User } from "lucide-react";
 import { BadgeChips, ObjectView, RuleShelf, objectContext, objectRowHeight } from "@workspace/object-views";
 import { Term } from "@workspace/ui-kit";
@@ -194,15 +194,6 @@ export function Chat({ messages, canPost, placeholder, pending, onSend, title = 
   );
 }
 
-/**
- * The settings a newcomer asks about, as key/values (the full list is the configuration page). The cost model is
- * optional: a room on the default one stores none and shows no row, another model shows as its label (formatValue).
- */
-const SHOWN: readonly SettingsKey[] = [
-  "languages", "planningSeconds", "halfLifeSeconds", "interactionRateHz", "startingObjectCount", "spawnRateHz",
-  "startingEnergy", "powerPerSecond", "fullChargeSeconds", "costModel", "maxAgentsPerGod", "defenceGoals", "utilitySelectorId",
-];
-
 /** "Python · Grid 4×4 base10 · 75 s planning, then a 5 min game · slow pace". */
 export function settingsSummary(s: Settings, instance?: InstanceInfo): string {
   return [formatValue("languages", allowedLanguages(s)), instance?.label ?? s.objectType, lengthLine(s), `${paceWord(s.interactionRateHz)} pace`].join(" · ");
@@ -216,7 +207,7 @@ export function SettingsList({ settings, instance }: { settings: Settings; insta
         {instance && <div className="mt-1"><BadgeChips badges={instance.badges} /></div>}
       </div>
       <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-0.5">
-        {SHOWN.map(k => settings[k] === undefined ? null : (
+        {ROOM_DETAILS.map(k => settings[k] === undefined ? null : (
           <div key={k} className="contents"><dt className="text-muted-foreground truncate">{LABELS[k]}</dt><dd className="font-mono text-right">{formatValue(k, settings[k])}</dd></div>
         ))}
         {/* Only a game with a bid phase says so (bidSeconds > 0). */}

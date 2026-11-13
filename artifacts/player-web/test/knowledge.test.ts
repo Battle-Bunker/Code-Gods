@@ -56,3 +56,7 @@ test("a look at all: the price times the object count, said before paying", () =
   assert.equal(none.ok, false);
   assert.equal(none.reason, "There are no objects to look at yet");
 });
+
+test("the look at all quotes the exact price for the count it sends (quoted 23.25 for 14, charged 23.25)", () => {
+  assert.equal(lookOffer({ price: 1.6607, energy: 100, count: 14 }).label, "Look at all 14 · 23.25 energy");
+});

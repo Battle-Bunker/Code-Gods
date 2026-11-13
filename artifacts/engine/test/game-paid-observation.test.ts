@@ -178,6 +178,14 @@ test("paid observation: a god sees what it was told, and pays its own energy to 
   assert.match(refused.message, /costs \d+\.\d\d and you have \d+\.\d\d/);
   assert.match(refused.message, /keep some power for yourself to look/, "a god whose power is all with its agents is told why it cannot look");
   // A look at everything: the price times the object count, then every row is as of the look.
+  // The price shown is the price charged: a look at all names the object count it was quoted for and covers that many,
+  // oldest first (an object born since is already known from its birth), however many there are by then.
+  const quoted = ok(await send(host, { type: "look", count: 3 }));
+  assert.deepEqual([quoted.look.looked, Math.round(quoted.look.price * 1e6)], [3, Math.round(3 * price * 1e6)], "charged for the three it was quoted for");
+  const oldest = (await raw(game.gameId)).objects.slice().sort((x: any, y: any) => x._creationTime - y._creationTime).slice(0, 4);
+  await waitFor(async () => (await Promise.all(oldest.slice(0, 3).map((o: any) => rowOf(host, o._id)))).every((r: any) => r.knownAt >= quoted.look.worldSeconds - 1e-9), "the three oldest are as of the look", 30000);
+  const beyond = ok(await send(host, { type: "look", count: 2000 }));
+  assert.equal(beyond.look.looked, (await raw(game.gameId)).game.objectCount, "never more than there are");
   const all = ok(await send(ada, { type: "look" }));
   assert.ok(Math.abs(all.look.price - price * all.look.looked) < 1e-9 && all.look.looked >= 12);
   await waitFor(async () => {

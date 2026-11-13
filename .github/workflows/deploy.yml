@@ -100,12 +100,26 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # The "rest" shard runs the tests that compile a starter agent (ai-player, engine example agents), which need the
+      # pinned Python runtime; `dist/python-runtime.bin.gz` is built, not committed, so this shard builds it too.
+      - if: matrix.shard == 'rest'
+        uses: actions/cache@v4
+        id: cpython
+        with:
+          path: .cache/code-gods
+          key: cpython-wasi-${{ hashFiles('lib/game-runtime/python/setup.py') }}
+      - if: matrix.shard == 'rest' && steps.cpython.outputs.cache-hit != 'true'
+        run: pnpm --filter @workspace/game-runtime setup:python
+      - if: matrix.shard == 'rest'
+        run: pnpm --filter @workspace/game-runtime build:python
       - if: matrix.shard != 'rest'
         run: pnpm --filter @workspace/game-utilities test
         env:
           CG_SHARD: ${{ matrix.shard }}
       - if: matrix.shard == 'rest'
         run: pnpm run test:offline:rest
+        env:
+          CG_REQUIRE_PYTHON_RUNTIME: 1   # a test that needs the bundle fails here instead of skipping itself
       - name: Calibration tables are fresh   # every instance file in git matches the current code (seconds; builds nothing)
         if: matrix.shard == 'rest'
         run: pnpm --filter @workspace/game-utilities calibrate --check

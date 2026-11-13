@@ -61,6 +61,26 @@ test("writing-agents: many long mutators never crowd out the read helpers (the 1
   assert.ok(body.includes("def u(x)"), "and the utility source");
 });
 
+test("writing-agents: the player's rule and defence goal arrive whole, however long the helper lists and the first agent are", () => {
+  // What would break (seen live, 13 Nov 2026: Tetromino Tamer on a 4×4 colour grid): the body is cut at its limit and
+  // the rule's source comes last, so with long helper lists and a first agent before it the assistant read a rule
+  // whose last lines were missing. The helper lists are what gives way: get_observation has them all.
+  const long = (i: number, group: string) => ({ group, name: { python: `h${group[0]}${i}` }, signature: { python: `h${group[0]}${i}(${"x".repeat(150)})` }, kid: "k".repeat(140) });
+  const helpers = [{ group: "mutator", name: { python: "slide" }, signature: { python: "slide(line, steps=1)" }, kid: "Slide a line" },
+    ...Array.from({ length: 200 }, (_, i) => long(i, "mutator")), ...Array.from({ length: 200 }, (_, i) => long(i, "read"))];
+  const source = `def utility(grid):\n${"    total = total + 1  # a long rule\n".repeat(79)}    return (total, LAST_LINE_OF_THE_RULE)`;
+  const penalty = `def penalty(grid):\n${"    worst = worst + 1  # a long goal\n".repeat(78)}    return LAST_LINE_OF_THE_GOAL`;
+  assert.ok(source.length > 2900 && source.length <= SKILL_LIMITS.source && penalty.length <= SKILL_LIMITS.source);
+  const firstAgent = { name: "Example", source: `def agent(grid):\n${"    # a commented step of the example\n".repeat(10)}    return [slide(row(0), 1)]` };
+  const body = skillBody("writing-agents", { firstAgent, observation: { phase: "planning", languages: ["python"], instance: { objectType: "Grid", helpers },
+    self: { utility: { familyId: "tetromino_tamer", name: "Tetromino Tamer", summary: "s".repeat(60), source, penalty: { name: "Goal", summary: "s".repeat(60), source: penalty } } } } });
+  assert.ok(body.length <= SKILL_LIMITS.body, `${body.length} characters`);
+  assert.ok(!body.endsWith("… [cut]"), "the body is not cut");
+  assert.ok(body.includes("LAST_LINE_OF_THE_RULE") && body.includes("LAST_LINE_OF_THE_GOAL"), "both sources to their last line");
+  assert.ok(body.includes("This skill's tools"), "and the tools line after them");
+  assert.ok(body.includes("hm0(") && body.includes("hr0(") && body.includes("… more in get_observation"), "the helper lists are what gives way, both groups still present");
+});
+
 test("the writing-agents skill carries a first agent for the player's game: short, commented, readable back, and absent when it could not work", async () => {
   const { firstAgentFor, firstAgentIn } = await import("../src/first-agent.ts");
   const { CHIP_TEXT, chipIntent } = await import("../src/chips.ts");

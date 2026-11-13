@@ -184,6 +184,33 @@ export function withResultsFirst(layout: DockLayout): DockLayout {
   };
 }
 
+/** The share of the dock's height the results take when they are shown with the timeline alone. */
+export const RESULTS_ONLY_SHARE = 64;
+
+/**
+ * An ended game opens on two things only (derived for display, never pushed): how it went (the results, most of the
+ * screen: the headline, the standings and why) and the replay timeline under it. The goal, the code, the agents and
+ * the objects were one-line slivers between them, their text cut mid-sentence (five walks); they come back with one
+ * button, "Show my panes" (dock/store.ts shows withResultsFirst then). The panes keep the ids withResultsFirst gives
+ * them. With the timeline closed, the results alone.
+ */
+export function withResultsOnly(layout: DockLayout): DockLayout {
+  const full = withResultsFirst(layout);
+  const panels = panelPanesOf(full);
+  const results = panels.find(p => p.panelId === "results"), timeline = panels.find(p => p.panelId === "timeline");
+  if (!results) return full;
+  if (!timeline) return { ...full, root: { type: "pane", id: results.id }, panes: { [results.id]: results } };
+  return {
+    ...full,
+    root: { type: "split", direction: "column", sizes: [RESULTS_ONLY_SHARE, 100 - RESULTS_ONLY_SHARE], children: [{ type: "pane", id: results.id }, { type: "pane", id: timeline.id }] },
+    panes: { [results.id]: results, [timeline.id]: timeline },
+  };
+}
+/** How many panes "Show my panes" would bring back (0: the button is not offered). */
+export function hiddenByResultsOnly(layout: DockLayout): number {
+  return Object.keys(withResultsFirst(layout).panes).length - Object.keys(withResultsOnly(layout).panes).length;
+}
+
 /**
  * A room with no assistant (its owner is not an administrator) shows its layout without the assistant pane: derived for
  * display like the replay's Timeline, so the stored layout keeps it for rooms where it exists.

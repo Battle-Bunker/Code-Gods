@@ -12,9 +12,16 @@ const bits = (x: number) => `${(Math.round(x * 10) / 10).toLocaleString("en-US",
 /** An agent's name, or "Agent 1", "Agent 2"… when it has none. */
 const nameOf = (name: string | undefined, i: number) => name?.trim() || `Agent ${i + 1}`;
 const LEGEND = [
-  { kind: "ok", label: "can act now (energy above 0)" },
-  { kind: "cool", label: "waiting for income (energy 0 or below)" },
+  { kind: "ok", label: "acting (energy above 0, or spending it as fast as it comes in)" },
+  { kind: "cool", label: "waiting for income (overdrawn by more than 2 s of it)" },
 ] as const;
+/**
+ * An agent below zero (the built-in My agents panel's rule): overdrawn by at most 2 s of its income it is working (it
+ * spends as fast as it earns), which is routine and not an error; it is stuck, and shown in red, only when it cannot
+ * act for a long time (more than 10 s of income, or no income).
+ */
+const overdrawn = (energy: number, income: number): "none" | "working" | "waiting" | "stuck" =>
+  energy > 0 ? "none" : !(income > 0) ? "stuck" : -energy <= 2 * income ? "working" : -energy > 10 * income ? "stuck" : "waiting";
 
 export default definePanel({
   title: "Agent energy",
@@ -39,7 +46,7 @@ export default definePanel({
       const samples = history.current.get(a.id) ?? [];
       return {
         label: nameOf(a.name, i),
-        spans: samples.slice(1).map((s, j) => ({ start: samples[j].at, end: s.at, kind: samples[j].energy <= 0 ? "cool" as const : samples[j].eligible ? "ok" as const : "idle" as const })),
+        spans: samples.slice(1).map((s, j) => ({ start: samples[j].at, end: s.at, kind: samples[j].energy <= 0 ? (overdrawn(samples[j].energy, a.income ?? 0) === "working" ? "ok" as const : "cool" as const) : samples[j].eligible ? "ok" as const : "idle" as const })),
       };
     });
     return (
@@ -57,8 +64,8 @@ export default definePanel({
               <div className="flex flex-wrap gap-x-3">
                 <span className="tabular-nums">Energy {bits(a.energy)}{a.capacity !== undefined && ` of ${bits(a.capacity)}${a.energy > 0 && a.energy >= a.capacity ? " (full: income is wasted)" : ""}`}</span>
                 <span className="tabular-nums opacity-70">Estimate per act {bits(a.expectedActCost)}</span>
-                <span className={a.energy <= 0 ? "text-destructive" : a.eligible ? "font-semibold" : "opacity-70"}>
-                  {a.energy <= 0 ? `waiting for income (about ${secondsUntilEligible(a).toFixed(1)} s)` : a.eligible ? "can act now" : "at its turn limit"}
+                <span className={overdrawn(a.energy, a.income ?? 0) === "stuck" ? "text-destructive" : a.energy > 0 && a.eligible ? "font-semibold" : "opacity-70"}>
+                  {overdrawn(a.energy, a.income ?? 0) === "working" ? "working: it spends energy as fast as it earns it" : a.energy <= 0 ? `waiting for income (about ${secondsUntilEligible(a).toFixed(1)} s)` : a.eligible ? "can act now" : "at its turn limit"}
                 </span>
               </div>
             </li>

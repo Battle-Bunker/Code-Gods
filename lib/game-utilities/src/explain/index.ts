@@ -20,6 +20,8 @@ import { gridSpec, wire, type GridSpec } from "../families/grid/_util.ts";
 import type { Ordinal } from "../types.ts";
 import { boardOf, readBoard, type Board } from "./board.ts";
 import { scoreWorkings, type ScoreWorkings, type WorkingsInput, type WorkingsTables } from "./workings.ts";
+import { rarityOf, rarityScale, type RarityScaleRow } from "./rarity-scale.ts";
+export { rarityOf, rarityScale, type RarityScaleRow } from "./rarity-scale.ts";
 import type { Lens } from "./lens.ts";
 import { toneOf, type Explanation, type GoalExample, type Part } from "./model.ts";
 import { defaultGeometry, type HoverGeometry } from "./units.ts";
@@ -98,6 +100,10 @@ export interface GoalExplainer {
    * any defence goal's terms. Null without tables (`explainer(draw, inst, options)`), a lens, or a verified explanation.
    */
   workings(value: ObjectValue): ScoreWorkings | null;
+  /** The ✨ rarity of a rule score under the game's tables (rarity-scale.ts), or null without tables. */
+  rarity(ordinal: Ordinal): number | null;
+  /** A short scale of rule scores and their ✨ rarity from the game's table (rarity-scale.ts); empty without tables. */
+  scale(maxRows?: number): readonly RarityScaleRow[];
 }
 
 /** What `explainer` needs for `workings`: the game's tables for your utility, and your defence goal. */
@@ -160,6 +166,12 @@ export function explainer(draw: Draw, inst: Instantiation, options: ExplainerOpt
         const e = this.explain(value);
         return e ? defaultGeometry(e.parts) : null;
       } catch { return null; }
+    },
+    rarity(ordinal) {
+      try { return options.tables ? rarityOf(options.tables, ordinal) : null; } catch { return null; }
+    },
+    scale(maxRows) {
+      try { return options.tables ? rarityScale(options.tables, maxRows) : []; } catch { return []; }
     },
     workings(value) {
       const e = this.explain(value), b = board(value);

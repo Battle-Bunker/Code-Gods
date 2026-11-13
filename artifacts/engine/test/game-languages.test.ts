@@ -27,6 +27,12 @@ test("each agent is written in one of the game's languages, priced and run in it
   assert.match(validated.validation.diagnostics[0], /\(ast-bits-v1:/);
   const tsValidated = await send(bo, { type: "validate", language: "typescript", source: TS.Int });
   assert.match(tsValidated.validation.diagnostics[0], /\(ts-ast-bits-v1-uniform:/);
+  // The parts the first line names add up to the price it names (TypeScript's structure bits are shown weighted, as
+  // charged: the line once showed them unweighted, about twice the price beside them).
+  for (const line of [validated.validation.diagnostics[0], tsValidated.validation.diagnostics[0]]) {
+    const [total, ...parts] = [...line.matchAll(/\d+\.\d+/g)].map(m => Number(m[0]));
+    assert.ok(parts.length >= 4 && Math.abs(parts.reduce((a, b) => a + b, 0) - total) < 5, `the parts add up (move flags, a few bits, are not listed): ${line}`);
+  }
   // Language-fair (docs/energy-model.md §5.1): the same one-move agent costs about the same in either language. Before
   // TypeScript's structure bits were weighted it cost about 1.5 times Python's.
   const same = { python: "def agent(n):\n    return [add(1)]", typescript: "function agent(n) { return [add(1)]; }" };

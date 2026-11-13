@@ -69,8 +69,9 @@ test("the overview's one next step follows the situation", () => {
   assert.deepEqual(step({ phase: "lobby", isOwner: true, players: 3 }).action, { kind: "start" }, "an owner with players starts the game");
   assert.deepEqual(step({ phase: "lobby", isOwner: true, players: 2 }).action, { kind: "palette", command: "rooms.addAi" }, "short of players: seat an AI");
   assert.deepEqual(step({ phase: "lobby" }).action, { kind: "panel", panelId: "rules" }, "a player waits and learns");
-  assert.deepEqual(step({ phase: "planning", agents: 0 }).action, { kind: "forge" });
-  assert.deepEqual(step({ phase: "running", agents: 0 }).action, { kind: "forge" });
+  assert.deepEqual(step({ phase: "planning", agents: 0 }).action, { kind: "summon" });
+  assert.deepEqual(step({ phase: "running", agents: 0 }).action, { kind: "summon" });
+  assert.deepEqual(step({ phase: "running", agents: 0, ownDraft: true }).action, { kind: "forge" });
   assert.deepEqual(step({ phase: "running" }).action, { kind: "panel", panelId: "objects" });
   assert.deepEqual(step({ phase: "running", seated: false }).action, { kind: "panel", panelId: "race" }, "a spectator watches");
   assert.deepEqual(step({ phase: "paused" }).action, { kind: "panel", panelId: "public-chat" });

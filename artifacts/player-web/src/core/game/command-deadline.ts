@@ -15,8 +15,8 @@ import { EXAMINATION_DEADLINE_MS, type CommandResult } from "@workspace/player-c
 export const COMMAND_MARGIN_MS = 5_000;
 export const COMMAND_DEADLINE_MS = EXAMINATION_DEADLINE_MS + COMMAND_MARGIN_MS;
 
-export type Examined = "validate" | "summon";
-const isExamined = (type: string): type is Examined => type === "validate" || type === "summon";
+export type Examined = "validate" | "summon" | "replace";
+const isExamined = (type: string): type is Examined => type === "validate" || type === "summon" || type === "replace";
 
 /** How long the app waits for a command's receipt: only the commands that use the sandbox have a deadline. */
 export function deadlineFor(type: string): number | null {
@@ -37,17 +37,20 @@ export function isBusy(outcome: { status: string; error?: unknown }): boolean {
   return outcome.status === "failed" && (outcome.error as { data?: { code?: string } } | undefined)?.data?.code === "UNAVAILABLE";
 }
 
-/** What the forge says while a command waits for the sandbox: plain words, no numbers the engine might contradict. */
-export function progressLine(type: Examined, retry?: { attempt: number; of: number } | null): string {
-  if (retry && retry.attempt > 1) return `The game is busy checking agents. Trying again (${retry.attempt} of ${retry.of})…`;
-  return type === "validate" ? "Checking your agent… this can take up to 20 seconds." : "Summoning…";
+/** What the forge says while a command waits for the sandbox: plain words, the seconds waited so far and which try it is; no number the engine might contradict. */
+export function progressLine(type: Examined, retry?: { attempt: number; of: number } | null, elapsedMs?: number): string {
+  // From two seconds on, the seconds waited so far (the client's clock), so a long check is not read as stuck.
+  const seconds = elapsedMs !== undefined && elapsedMs >= 2_000 ? Math.floor(elapsedMs / 1000) : null;
+  if (retry && retry.attempt > 1) return `The game is busy checking agents. Trying again (${retry.attempt} of ${retry.of})…${seconds !== null ? ` ${seconds} s` : ""}`;
+  if (type === "validate") return seconds !== null ? `Checking your agent… ${seconds} s (this can take up to 20 seconds).` : "Checking your agent… this can take up to 20 seconds.";
+  return `${type === "replace" ? "Replacing its program" : "Summoning"}…${seconds !== null ? ` ${seconds} s` : ""}`;
 }
 
 /** After the last try: what did not happen, and that nothing was spent. The forge puts one "Try again" button beside it. */
 export function busyMessage(type: Examined): string {
   return type === "validate"
     ? "The game is still busy checking agents, so yours was not checked. Your code is safe."
-    : "The game is still busy checking agents, so yours was not summoned and nothing was spent. Your code is safe.";
+    : `The game is still busy checking agents, so yours was not ${type === "replace" ? "replaced" : "summoned"} and nothing was spent. Your code is safe.`;
 }
 
 /**
@@ -56,8 +59,24 @@ export function busyMessage(type: Examined): string {
  */
 export function receiptNotice(type: string, result: CommandResult): { ok: boolean; text: string } | null {
   if (type === "validate" && result.validation?.diagnostics.length) return null;
+  // An accepted summon with no sentence of its own: the forge's "Summoned: …" line says it; a bare "Accepted." says nothing.
+  if (type === "summon" && result.accepted && !result.message) return null;
   return { ok: result.accepted, text: result.message || (result.accepted ? "Accepted." : "Rejected.") };
 }
+
+/**
+ * The notice under the header for a receipt that is not the forge's: the engine's own sentence when it has one, else
+ * what happened in plain words (`say`, from the caller who knows the names: "Destroyed: Keeper. Its power share is
+ * yours again."), never a bare "Accepted." for a command whose effect can be named.
+ */
+export function headerNotice(type: string, result: Pick<CommandResult, "accepted" | "message">, say?: string): string {
+  if (!result.accepted) return result.message || "Rejected.";
+  if (say) return say;
+  if (result.message) return result.message;
+  return type === "destroy" ? "Destroyed. Its power share is yours again." : type === "allocatePower" ? "Power share set." : "Accepted.";
+}
+/** What the Destroy button says once the engine accepted it. */
+export const destroyedText = (name: string | undefined): string => `Destroyed: ${name?.trim() || "your agent"}. Its power share is yours again.`;
 
 export type Timers = { set(fn: () => void, ms: number): unknown; clear(handle: unknown): void };
 const realTimers: Timers = { set: (fn, ms) => setTimeout(fn, ms), clear: handle => clearTimeout(handle as ReturnType<typeof setTimeout>) };

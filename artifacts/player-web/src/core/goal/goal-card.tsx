@@ -8,6 +8,7 @@ import { useMemo, useState } from "react";
 import type { Instantiation, ObjectValue } from "@workspace/game-types";
 import type { GoalExplainer } from "@workspace/game-utilities";
 import {
+  exampleRarityLine, scaleRowText, sparkleMeans,
   GoalExplainerProvider, HowScoringWorks, ObjectView, UtilityCardView, objectContext, objectNoun, type UtilityCardLike,
 } from "@workspace/object-views";
 import { randomObject } from "@/lib/object-editor-model";
@@ -33,6 +34,12 @@ export function GoalCard({ card, goal, inst, sourceOpen = false, initialExample 
   const [example, setExample] = useState<ObjectValue>(() => initialExample ?? randomObject(inst, freshSeed()));
   const [editing, setEditing] = useState(false);
   const score = useMemo(() => goal?.score(example) ?? null, [goal, example]);
+  const rarity = useMemo(() => (goal && score !== null ? goal.rarity(score) : null), [goal, score]);
+  const scale = useMemo(() => goal?.scale(5) ?? [], [goal]);
+  // The scale starts open where there is room for it, closed on a phone.
+  // A screen with no hover (a phone, a tablet) is told to tap.
+  const [touch] = useState(() => typeof window !== "undefined" && !!window.matchMedia?.("(hover: none)").matches);
+  const [wide] = useState(() => typeof window !== "undefined" && !!window.matchMedia?.("(min-width: 640px)").matches);
   return (
     <div className="space-y-5" data-testid="goal-card">
       {/* A tiered rule's ★ block opens once the example object reaches its gate (or already holds a tier point). */}
@@ -51,9 +58,21 @@ export function GoalCard({ card, goal, inst, sourceOpen = false, initialExample 
           <GoalExplainerProvider value={goal}>
             <span data-testid="example-object"><ObjectView value={example} {...ctx} /></span>
           </GoalExplainerProvider>
-          {goal && <span className="text-sm">Your rule score for this {noun}: <span className="font-mono font-semibold" data-testid="example-object-score">{ordinalText(score)}</span>{goal.rich ? " (hover it to see why)." : "."}</span>}
+          {goal && <span className="text-sm">Your rule score for this {noun}: <span className="font-mono font-semibold" data-testid="example-object-score">{ordinalText(score)}</span>{goal.rich ? ` (${touch ? "tap" : "hover"} it to see why).` : "."}</span>}
         </div>
         {editing && <ObjectEditor value={example} inst={inst} onChange={setExample} />}
+        {/* Rule score → ✨ rarity, from the player's own table (the game's; absent in the rule gallery): this board's
+            line, then a short scale, so the size of a move can be anticipated. Closed on a phone. */}
+        {rarity !== null && score !== null && <p className="text-sm" data-testid="text-example-rarity">{exampleRarityLine(typeof score === "number" ? [score] : score, rarity, noun)}</p>}
+        {scale.length > 1 && (
+          <details className="text-sm" data-testid="details-rarity-scale" open={wide}>
+            <summary className="cursor-pointer font-medium">How rare is each rule score?</summary>
+            <ul className="mt-1 space-y-0.5 font-mono text-xs" data-testid="list-rarity-scale">
+              {scale.map(row => <li key={row.ordinal.join(",")}>{scaleRowText(row, noun)}</li>)}
+            </ul>
+            <p className="mt-1 text-xs text-muted-foreground" data-testid="text-sparkle-means">{sparkleMeans(noun)}{scale[0].ordinal.length > 1 ? " Each row is the lowest rule score with that primary value." : ""}</p>
+          </details>
+        )}
       </section>
       <HowScoringWorks noun={noun} />
     </div>

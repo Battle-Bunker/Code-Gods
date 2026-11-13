@@ -11,7 +11,7 @@
  */
 import { ConvexError } from "convex/values";
 import {
-  DEFAULT_WAIT_MS, UNTRUSTED_NOTICE, buildEnvelope, envelopeNeedsGame, findTool, isCommandTool, mayUse, type CommandToolName, type ToolInput, type ToolName, type ToolResult,
+  DEFAULT_WAIT_MS, UNTRUSTED_NOTICE, buildEnvelope, examinesTool, envelopeNeedsGame, findTool, isCommandTool, mayUse, type CommandToolName, type ToolInput, type ToolName, type ToolResult,
 } from "@workspace/player-client/tools";
 import type { Language } from "@workspace/game-core";
 import { rulesText } from "@workspace/player-client/rules";
@@ -109,7 +109,7 @@ async function command(ctx: ActionCtx, p: { principal: Principal; who: Who }, na
   const game = envelopeNeedsGame(name, args) ? await gameOf(ctx, principal, who.roomId) : {};
   let envelope: Envelope;
   try { envelope = buildEnvelope(name, args, game); } catch (error) { return fail("CONFLICT", (error as Error).message); }
-  if (name !== "validate_agent" && name !== "summon_agent") {
+  if (!examinesTool(name)) {
     const receipt: CommandResult = await ctx.runAction(internal.commands.submitAs, { principal, roomId: who.roomId, envelope });
     return { data: { status: "received", commandId: envelope.commandId, receipt } };
   }
@@ -369,6 +369,7 @@ export const EXECUTORS: Executors = {
   // ----- act -----
   validate_agent: (ctx, p, args) => command(ctx, p, "validate_agent", args),
   summon_agent: (ctx, p, args) => command(ctx, p, "summon_agent", args),
+  replace_agent: (ctx, p, args) => command(ctx, p, "replace_agent", args),
   destroy_agent: (ctx, p, args) => command(ctx, p, "destroy_agent", args),
   allocate_power: (ctx, p, args) => command(ctx, p, "allocate_power", args),
   look: (ctx, p, args) => command(ctx, p, "look", args),

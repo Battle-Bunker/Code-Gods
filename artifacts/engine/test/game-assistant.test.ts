@@ -168,7 +168,7 @@ test("load_tools puts index tools in context for the rest of the thread; load_sk
   assert.ok(skill.body.includes("validate_agent") && skill.body.includes("Mutators") && skill.body.includes(mineObs.self.utility.source.slice(0, 30)), "guidance, helpers and the player's own utility source");
   const echoed = JSON.parse(finalText(t));
   assert.deepEqual(echoed.tools, ["load_tools", "get_observation", "load_skill", "send_chat", "open_panel", "set_panel_params", "validate_agent", "move_pane",
-    "evaluate_value", "summon_agent", "destroy_agent", "allocate_power"], "load_tools' tools, then the skill's own (where the adapter manages context)");
+    "evaluate_value", "summon_agent", "replace_agent", "destroy_agent", "allocate_power"], "load_tools' tools, then the skill's own (where the adapter manages context)");
   assert.equal(echoed.maxOutputTokens, 8192, "a code-writing tool is loaded: the full ceiling");
   // The next turn of the thread keeps them (the load is in its history).
   const again = await ann.c.mutation(api.assistant.send, { roomId, threadId: sent.threadId, text: mock([{ echo: true }]) });
@@ -200,7 +200,7 @@ test("the 1WB8 loop: the whole skill arrives, a failing validation says it fails
   const skill = JSON.parse(t.calls[0].resultJson);
   assert.equal(skill.TRUNCATED, undefined, "the skill is not cut");
   assert.ok(skill.data.body.includes("paint(") && skill.data.body.includes("grid.cell(row, col)"), "the mutators and the read helpers (how to reach a cell)");
-  assert.ok(skill.data.body.includes(mine.self.utility.source.slice(-40)), "the player's whole utility source");
+  assert.ok(skill.data.body.includes(mine.self.utility.source.slice(-40)), `the player's whole utility source (${mine.self.utility.familyId}: ${mine.self.utility.source.length} characters; body ${skill.data.body.length}; ends ${JSON.stringify(skill.data.body.slice(-60))})`);
 
   const [first, second, third] = t.calls.slice(1).map((c: any) => JSON.parse(c.resultJson));
   assert.equal(first.data.receipt.validation.valid, false, "it compiles, and fails on every sample object: not valid (convex/lib/dryRun.ts)");
@@ -583,7 +583,7 @@ test("the assistant arranges the player's screen: open_panel changes the layout 
   assert.equal(t.turn.status, "done", JSON.stringify(t.turn.error));
   assert.deepEqual(t.calls.map((c: any) => [c.tool, c.status]), [["open_panel", "ok"], ["open_panel", "ok"], ["get_layout", "ok"], ["move_pane", "ok"], ["close_pane", "error"]]);
   // The objects panel is the default pane, so the first open_panel reuses it (parameters replaced) rather than adding one.
-  assert.equal(t.calls[0].summary, "Updated Top 4 by payoff · only ones others care about", "the chip names the change; no confirmation card");
+  assert.equal(t.calls[0].summary, "Updated By points · only ones others care about", "the chip names the change; no confirmation card");
   assert.match(t.calls[4].resultJson, /At most 2 layout changes/, "get_layout is a read; the third change is refused before it runs");
   const layout = await ann.c.query(api.layout.current, { roomId });
   assert.equal(layout.source, "room");

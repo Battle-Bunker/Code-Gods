@@ -55,8 +55,16 @@ export function dockActions(store: DockStore) {
     openPanel(slug: string) { attempt(store, layout => showOwnPanel(layout, { id: "", kind: "stored-panel", slug }).layout); },
     openFile(fileId: string) { attempt(store, layout => showOwnPanel(layout, { id: "", kind: "file-panel", fileId }).layout); },
     /** The forge panel in edit mode (the palette's "Write agent code…", the overview's next step, "Edit a copy"). */
-    forgeEdit(source?: string, language?: Lang) {
-      if (source !== undefined) runner.edit(source, language); else runner.setEditing(true);
+    forgeEdit(source?: string, language?: Lang, /** The id of the player's agent this code is ("Edit a copy"). */ origin?: string) {
+      if (source !== undefined) runner.edit(source, language, origin); else runner.setEditing(true);
+      this.show("forge");
+    },
+    /**
+     * "Summon my first agent": the editor comes to the front and is asked to summon the example it holds, or, when the
+     * player has changed the code, to show its Summon button (the forge decides: panels/first-agent.ts firstSummonStep).
+     */
+    summonFirst() {
+      runner.requestFirstSummon();
       this.show("forge");
     },
     /** "Ask about this view": the composer gets a start, the player finishes the question. */

@@ -58,6 +58,7 @@ export type LookOffer = { total: number; label: string; ok: boolean; reason: str
 export function lookOffer({ price, energy, count, noPower }: { price: number; energy: number; count?: number; noPower?: boolean }): LookOffer {
   const all = count !== undefined;
   const total = Math.round(price * (count ?? 1) * 100) / 100;
+  // The look at all sends the count it quoted and the engine charges exactly that, so the price on the button is exact.
   const label = all ? `Look at all ${count} · ${total.toFixed(2)} energy` : `Look · ${total.toFixed(2)} energy`;
   if (all && count <= 0) return { total, label, ok: false, reason: "There are no objects to look at yet" };
   // The engine compares the exact price (game/commands.ts), so the cents shown are not what decides.

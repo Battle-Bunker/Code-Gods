@@ -58,6 +58,16 @@ export const LABELS: Readonly<Record<SettingsKey, string>> = {
 
 type Limit = { min: number; max?: number; int?: boolean; above?: boolean; unit: string };
 /** Bounds from validateSettings and the engine's nextSettings resource limits (onboarding §0). */
+/**
+ * The settings a newcomer asks about, as the room page's key/values (the full list is the configuration page). The
+ * cost model is optional: a room on the default one stores none and shows no row, another model shows as its label
+ * (formatValue). How the world is looked at sits beside it: both say what a player's energy is spent on.
+ */
+export const ROOM_DETAILS: readonly SettingsKey[] = [
+  "languages", "planningSeconds", "halfLifeSeconds", "interactionRateHz", "startingObjectCount", "spawnRateHz",
+  "startingEnergy", "powerPerSecond", "fullChargeSeconds", "costModel", "observation", "maxAgentsPerGod", "defenceGoals", "utilitySelectorId",
+];
+
 export const LIMITS: Readonly<Partial<Record<SettingsKey, Limit>>> = {
   planningSeconds: { ...TIME_LIMITS.planningSeconds, unit: "seconds" },
   bidSeconds: { ...TIME_LIMITS.bidSeconds, int: true, unit: "seconds" },

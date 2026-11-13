@@ -18,6 +18,11 @@ export interface ObjectViewProps extends ObjectContext {
   showTitle?: boolean;
   /** Draw with this renderer of the type (e.g. "tiles") instead of the viewer's choice or the type's default. */
   renderer?: string;
+  /**
+   * Draw the object only, with no control of its own (a grid's popover trigger): for an object inside another
+   * control, such as a button that opens its detail, where a button in a button would act twice.
+   */
+  plain?: boolean;
 }
 
 export type ObjectComponent = ComponentType<ObjectViewProps>;
@@ -182,8 +187,8 @@ export function useGridRenderer(): GridRendererId {
   return asGridRenderer(useObjectRenderer("Grid"));
 }
 
-function GridView({ model, previous, typeLabel, className, mode, grid }: {
-  model: GridModel; previous: GridModel | null; typeLabel?: string; className?: string; mode: GridRendererId; grid?: GridSettings;
+function GridView({ model, previous, typeLabel, className, mode, grid, plain }: {
+  model: GridModel; previous: GridModel | null; typeLabel?: string; className?: string; mode: GridRendererId; grid?: GridSettings; plain?: boolean;
 }) {
   const cue = useColourCue();
   // The viewer's own goal, when the app provides it: the rich view explains this grid with it (annotations-design.md §3).
@@ -201,6 +206,15 @@ function GridView({ model, previous, typeLabel, className, mode, grid }: {
   const hoverIn = (e: PointerEvent) => { if (e.pointerType !== "mouse") return; clear(); if (!open) timer.current = setTimeout(() => setOpen(true), 120); };
   const hoverOut = (e: PointerEvent) => { if (e.pointerType !== "mouse" || pinned.current) return; clear(); timer.current = setTimeout(() => setOpen(false), 160); };
 
+  if (plain) {
+    return (
+      <span data-object-type="Grid" data-renderer={mode} data-testid="grid-object-plain" className={`inline-flex align-middle ${className ?? ""}`}>
+        {mode === "digits"
+          ? <Digits model={model} cue={cue} changes={changes} label={label} />
+          : <Cells model={model} px={compactPx(model.size)} cue={cue} changes={changes} detail={false} label={label} />}
+      </span>
+    );
+  }
   const view = (
     <Popover.Root open={open} onOpenChange={(o) => { clear(); pinned.current = o; setOpen(o); }}>
       <Popover.Trigger asChild>
@@ -219,18 +233,23 @@ function GridView({ model, previous, typeLabel, className, mode, grid }: {
         </button>
       </Popover.Trigger>
       <Popover.Portal>
-        <Popover.Content side="bottom" align="start" sideOffset={6} collisionPadding={8}
+        <Popover.Content side="bottom" align="start" sideOffset={6} collisionPadding={{ top: 100, right: 8, bottom: 8, left: 8 }}
+          // The top padding keeps it under an app's header and its game clock (about 100px: both stay readable while it is open).
           // Flipped above its object (no room below), it stands a line clear of it: a list row may carry a line of its
           // own just above the object (the dock's "seen … ago" line and its Look button), which must stay in sight.
+          // Never taller than the room on its side of the object (Radix's available height): it scrolls inside itself
+          // instead of running off the top of the window over the header and the timer.
           data-clear-above=""
           onOpenAutoFocus={(e) => { if (!pinned.current) e.preventDefault(); }}
           onPointerEnter={clear} onPointerLeave={hoverOut}
           aria-label={`Grid ${model.size} by ${model.size} details`}
-          className={`z-50 data-[side=top]:mb-7 ${explained ? "w-[min(calc(100vw-16px),46rem)] max-h-[min(90vh,48rem)]" : "w-[min(calc(100vw-16px),22rem)] max-h-[min(80vh,36rem)]"} overflow-auto border bg-popover text-popover-foreground shadow-lg p-3 space-y-3 text-left whitespace-normal font-sans`}
+          className={`z-50 data-[side=top]:mb-7 ${explained ? "w-[min(calc(100vw-16px),46rem)] max-h-[min(calc(var(--radix-popover-content-available-height,90vh)_-_2rem),90vh,48rem)]" : "w-[min(calc(100vw-16px),22rem)] max-h-[min(calc(var(--radix-popover-content-available-height,80vh)_-_2rem),80vh,36rem)]"} overflow-auto border bg-popover text-popover-foreground shadow-lg p-3 space-y-3 text-left whitespace-normal font-sans`}
           data-testid="grid-object-detail">
           <div className="flex items-baseline justify-between gap-2">
             <span className="text-sm font-semibold">Grid {model.size}×{model.size}</span>
             {typeLabel && <span className="font-mono text-xs text-muted-foreground truncate">{typeLabel}</span>}
+            {/* A visible way out: on a phone there is no pointer to move away and no Escape key. */}
+            <Popover.Close aria-label="Close" data-testid="button-grid-detail-close" className="ml-auto shrink-0 border px-2 py-0.5 text-xs hover:bg-muted">Close ✕</Popover.Close>
           </div>
           {explained
             ? <GoalBoard goal={goal!} value={model.canonical} grid={grid!} changed={changes} testId="grid-object-goal" />
@@ -267,7 +286,7 @@ export function GridObject(props: ObjectViewProps) {
   const previous = useMemo(() => (compareTo === undefined ? null : gridModel(compareTo, grid)), [compareTo, key]);
   if (!model) return <StringObject {...props} />;
   const typeLabel = grid?.size && grid.symbols && grid.colours ? `Grid(${grid.size},${grid.symbols},${grid.colours})` : undefined;
-  return <GridView model={model} previous={previous} typeLabel={typeLabel} className={className} mode={mode} grid={grid} />;
+  return <GridView model={model} previous={previous} typeLabel={typeLabel} className={className} mode={mode} grid={grid} plain={props.plain} />;
 }
 
 // Built-in types. Later registrations are tried first when inferring, so Grid wins over string.

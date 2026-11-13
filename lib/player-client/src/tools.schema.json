@@ -1222,6 +1222,175 @@
       "additionalProperties": false
     }
   },
+  "replace_agent": {
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "agentId": {
+          "description": "The agent's id from get_observation (agents[].id); never a command id.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "source": {
+          "description": "Agent source defining agent(obj) and returning mutator calls (≤ 16 KiB)",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 16384
+        },
+        "language": {
+          "description": "The new program's language, the one it was validated in: one the game allows. Default: the game's first allowed language.",
+          "type": "string",
+          "enum": [
+            "python",
+            "typescript"
+          ]
+        },
+        "description": {
+          "description": "A new description for the agent (optional; without one it keeps the description it has).",
+          "type": "string",
+          "maxLength": 500
+        },
+        "commandId": {
+          "description": "A fresh UUID per new intent; resend the identical call (same id) to retry: never applied twice.",
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000)$"
+        },
+        "gameId": {
+          "description": "The game (default: the room's current game).",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "waitMs": {
+          "description": "How long to wait for the receipt (ms); past it the answer is pending: finish with get_receipt.",
+          "default": 90000,
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 120000
+        }
+      },
+      "required": [
+        "agentId",
+        "source",
+        "commandId"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "notice": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "received",
+                "pending",
+                "failed",
+                "not_found"
+              ]
+            },
+            "commandId": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000)$"
+            },
+            "receipt": {
+              "description": "The engine's CommandResult: accepted, message, validation details."
+            },
+            "assessment": {
+              "description": "A validation's meaning: works, warns (works, but most acts would fail or the player already runs this code: tell them the warnings before any summon), fails (on the reference objects), no_change or rejected (does not compile); the price against the player's energy, and the next step.",
+              "type": "object",
+              "properties": {
+                "verdict": {
+                  "type": "string",
+                  "enum": [
+                    "works",
+                    "warns",
+                    "fails",
+                    "no_change",
+                    "rejected",
+                    "not_ready"
+                  ]
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "next": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "verdict",
+                "summary",
+                "next"
+              ],
+              "additionalProperties": {}
+            },
+            "error": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "additionalProperties": false
+            },
+            "message": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "status",
+            "commandId"
+          ],
+          "additionalProperties": false
+        },
+        "nextCursor": {
+          "description": "Pass back as the cursor argument for the next page; null when there is none.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "untrusted",
+        "notice",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  },
   "destroy_agent": {
     "input": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -1523,6 +1692,12 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 128
+        },
+        "count": {
+          "description": "With no objectId: the object count the price was quoted for (get_observation objectCount). The look covers that many, oldest first, and charges exactly lookPrice x count, even if objects were born since (those are already known from birth).",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2000
         },
         "commandId": {
           "description": "A fresh UUID per new intent; resend the identical call (same id) to retry: never applied twice.",

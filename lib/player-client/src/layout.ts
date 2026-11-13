@@ -494,7 +494,7 @@ export function followPhase(layout: DockLayout, phase: Phase): DockLayout {
   return { ...layout, panes: { ...layout.panes, [first.id]: { ...first, panelId, params: defaultPanelParams(panelId) ?? {} } } };
 }
 
-/** One line per pane for the assistant's briefing: "[p1] objects — Top 12 by payoff (set by you)". */
+/** One line per pane for the assistant's briefing: "[p1] objects — By points (set by you)". */
 export function describeLayout(layout: DockLayout): string[] {
   const side = assistantSide(layout) === "row" ? "beside" : "below";
   return panesOf(layout).map(pane => {

@@ -182,6 +182,12 @@ export const ACT_TOOLS = [
       description: z.string().trim().max(AGENT_DESCRIPTION_MAX).optional().describe("One or two sentences on what the agent does and why (optional, up to 500 characters). Shown on hover next to the name."),
       powerShare: z.number().min(0).max(1).optional().describe("The share of the player's power the new agent earns, 0 to 1 (0.25 = a quarter of it). Default: half of the power the player has not yet given to agents. Shares of one player total at most 1."),
       commandId, gameId, waitMs }), output: result(receiptData) }),
+  def({ name: "replace_agent", short: "Recode an agent (summon price).", title: "Replace an agent's program", functions: ["commands.submit"], permission: "act", annotations: acts,
+    about: "Replace the program of one of the player's own agents. It costs what summoning the new program would (examined and priced like a summon, paid from the player's own energy) and everything else stays: the agent's id, name, power share and the energy it holds (or owes). Use it instead of destroy_agent then summon_agent to change a running agent's code. Requires a commandId; resend the identical call to retry.",
+    input: obj({ agentId: id.describe("The agent's id from get_observation (agents[].id); never a command id."), source,
+      language: language.optional().describe("The new program's language, the one it was validated in: one the game allows. Default: the game's first allowed language."),
+      description: z.string().trim().max(AGENT_DESCRIPTION_MAX).optional().describe("A new description for the agent (optional; without one it keeps the description it has)."),
+      commandId, gameId, waitMs }), output: result(receiptData) }),
   def({ name: "destroy_agent", short: "Destroy one of the player's agents (no refund).", title: "Destroy an agent", functions: ["commands.submit"], permission: "act", annotations: destructive,
     about: "Destroy one of the player's own agents, for free (energy already spent is not refunded; its power share goes back to the player).",
     input: obj({ agentId: id.describe("The agent's id from get_observation (agents[].id); never a command id."), commandId, gameId }), output: result(receiptData) }),
@@ -190,7 +196,8 @@ export const ACT_TOOLS = [
     input: obj({ agentId: id.describe("The agent's id from get_observation (agents[].id); never a command id."), share: z.number().min(0).max(1).describe("The agent's new share of the player's power, 0 to 1."), commandId, gameId }), output: result(receiptData) }),
   def({ name: "look", short: "Pay energy to see objects as they are now.", title: "Look", functions: ["commands.submit"], permission: "act", annotations: acts,
     about: "Only where get_observation economy.observation is \"paid\": there the player sees each object as last told (objects[].knownAt, a world time): at its birth, when their agent changed it or read all of it, or after a look. A look spends the player's OWN energy (self.energy, which also pays summons): economy.lookPrice for one object (objectId), or lookPrice times the number of objects for all (no objectId); refused with the price and balance when unaffordable. The receipt's `look` has the price, the energy left and, for one object, the object now. Say the price before an expensive look. For a standing watch, summon an observer agent (reads the whole object, returns no calls).",
-    input: obj({ objectId: id.optional().describe("The object's id from get_observation (objects[].id). Omit to look at every object (the price times the object count)."), commandId, gameId }), output: result(receiptData) }),
+    input: obj({ objectId: id.optional().describe("The object's id from get_observation (objects[].id). Omit to look at every object (the price times the object count)."),
+      count: z.number().int().min(1).max(2000).optional().describe("With no objectId: the object count the price was quoted for (get_observation objectCount). The look covers that many, oldest first, and charges exactly lookPrice x count, even if objects were born since (those are already known from birth)."), commandId, gameId }), output: result(receiptData) }),
   def({ name: "set_ready", short: "Mark the player ready (or not) in the lobby.", title: "Set ready", functions: ["commands.submit", "rooms.setReady"], permission: "act", annotations: acts,
     about: "Mark the player ready (or not) in the room lobby; advisory.",
     input: obj({ ready: z.boolean(), commandId: optionalCommandId }), output: result(receiptData) }),
@@ -454,19 +461,21 @@ export function toolJsonSchemas(): Record<string, { input: Record<string, unknow
 // Command tools → v3 envelopes
 // ---------------------------------------------------------------------------------------------
 
-export const COMMAND_TOOLS = ["validate_agent", "summon_agent", "destroy_agent", "allocate_power", "look", "set_ready", "send_chat", "pause_game"] as const;
+export const COMMAND_TOOLS = ["validate_agent", "summon_agent", "replace_agent", "destroy_agent", "allocate_power", "look", "set_ready", "send_chat", "pause_game"] as const;
 export type CommandToolName = (typeof COMMAND_TOOLS)[number];
 export const isCommandTool = (name: string): name is CommandToolName => (COMMAND_TOOLS as readonly string[]).includes(name);
 /** The command tool of each envelope command type (the CLI's `assistant command` alias). */
-export const TOOL_OF_COMMAND = { validate: "validate_agent", summon: "summon_agent", destroy: "destroy_agent", allocatePower: "allocate_power", look: "look", ready: "set_ready", chat: "send_chat", pause: "pause_game" } as const;
+export const TOOL_OF_COMMAND = { validate: "validate_agent", summon: "summon_agent", replace: "replace_agent", destroy: "destroy_agent", allocatePower: "allocate_power", look: "look", ready: "set_ready", chat: "send_chat", pause: "pause_game" } as const;
 
-type CommandArgs = { commandId?: string; gameId?: string; objectId?: string; source?: string; language?: Language; name?: string; description?: string; agentId?: string; share?: number; powerShare?: number; ready?: boolean; text?: string };
+type CommandArgs = { commandId?: string; gameId?: string; objectId?: string; count?: number; source?: string; language?: Language; name?: string; description?: string; agentId?: string; share?: number; powerShare?: number; ready?: boolean; text?: string };
 
 /** Does buildEnvelope need the current game (its id or language) for these arguments? */
 export function envelopeNeedsGame(name: CommandToolName, args: CommandArgs): boolean {
   const gameCommand = name !== "set_ready" && name !== "send_chat";
-  return (gameCommand && !args.gameId) || ((name === "validate_agent" || name === "summon_agent") && !args.language);
+  return (gameCommand && !args.gameId) || (examinesTool(name) && !args.language);
 }
+/** The command tools whose program the engine examines in the sandbox (seconds; protocol examinesProgram): they take waitMs and carry source. */
+export const examinesTool = (name: string): name is "validate_agent" | "summon_agent" | "replace_agent" => name === "validate_agent" || name === "summon_agent" || name === "replace_agent";
 
 /**
  * The v3 envelope a command tool submits. Game commands (validate, summon, destroy, pause) carry the given
@@ -487,9 +496,10 @@ export function buildEnvelope(name: CommandToolName, args: CommandArgs, game: { 
   const command: Envelope["command"] =
     name === "validate_agent" ? { type: "validate", language: lang(), source: args.source! }
     : name === "summon_agent" ? { type: "summon", language: lang(), source: args.source!, name: args.name!, ...(args.description ? { description: args.description } : {}), ...(args.powerShare !== undefined ? { powerShare: args.powerShare } : {}) }
+    : name === "replace_agent" ? { type: "replace", agentId: args.agentId!, language: lang(), source: args.source!, ...(args.description ? { description: args.description } : {}) }
     : name === "destroy_agent" ? { type: "destroy", agentId: args.agentId! }
     : name === "allocate_power" ? { type: "allocatePower", agentId: args.agentId!, share: args.share! }
-    : name === "look" ? { type: "look", ...(args.objectId ? { objectId: args.objectId } : {}) }
+    : name === "look" ? { type: "look", ...(args.objectId ? { objectId: args.objectId } : args.count !== undefined ? { count: args.count } : {}) }
     : name === "set_ready" ? { type: "ready", ready: args.ready! }
     : name === "send_chat" ? { type: "chat", text: args.text! }
     : { type: "pause" };

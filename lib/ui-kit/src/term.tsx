@@ -24,7 +24,7 @@ export function Term({ id, children, onAsk }: { id: GlossaryId; children?: React
         </button>
       </Popover.Trigger>
       <Popover.Portal>
-        <Popover.Content side="top" align="start" sideOffset={6} onPointerEnter={hover(true)} onPointerLeave={hover(false)}
+        <Popover.Content side="top" align="start" sideOffset={6} collisionPadding={{ top: 100, right: 8, bottom: 8, left: 8 }} onPointerEnter={hover(true)} onPointerLeave={hover(false)}
           onOpenAutoFocus={e => e.preventDefault()} data-testid={`popover-term-${id}`}
           className="z-[95] max-w-xs border border-border bg-popover text-popover-foreground px-3 py-2 text-xs shadow-md">
           <p><span className="font-medium">{term}.</span> {gloss}</p>

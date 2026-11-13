@@ -1,6 +1,6 @@
 /**
  * The global header, 44 px on the page background: where am I. Identity (initials and full name), the phase pill
- * (the only primary-coloured element here), energy ("owes 312 ⚡" when it is below zero), the connection dot, the room code and the client mode in small
+ * (the only primary-coloured element here), energy ("overdrawn by 312 ⚡" when it is below zero), the connection dot, the room code and the client mode in small
  * print, and the command palette (search field + menu; Cmd/Ctrl+K). Everything else lives in the palette.
  */
 import { CommandPalette, PaletteTrigger } from "@workspace/ui-kit";
@@ -15,7 +15,8 @@ import { paletteStore, usePaletteState } from "./palette/store";
 import { usePlayerCommands } from "./palette/use-commands";
 import { useWide } from "./use-wide";
 import { Link } from "./navigation";
-import { SUMMON_FIRST, planningLine } from "./planning-line";
+import { planningLine } from "./planning-line";
+import { firstSummonLabel } from "./panels/first-agent";
 import { useMyAgents } from "@/sdk";
 import { useDockActions } from "@/dock/actions";
 import { useAffordances } from "@/core/use-affordances";
@@ -69,7 +70,7 @@ export function Header() {
         {permission === "read" && <span className="label shrink-0">view only</span>}
       </div>
       <span data-testid="text-phase" className="shrink-0 bg-primary px-2 py-0.5 font-mono text-[11px] font-semibold text-primary-foreground">{phasePill(s, now)}</span>
-      {self && live && s.seated && <span className="hidden shrink-0 font-mono text-xs tabular-nums sm:inline" title={owedText(self.energy) ? "You owe energy: you cannot summon until your income has repaid it" : `Your energy: it pays for summons${s.obs?.economy?.lookPrice !== undefined ? " and looks" : ""} and refills every second${self.capacity !== undefined ? `, until it is full at ${bits(self.capacity)} ⚡` : ""}`} data-testid="text-energy">{owedText(self.energy) ?? `⚡ ${bits(self.energy)} energy`}</span>}
+      {self && live && s.seated && <span className="hidden shrink-0 font-mono text-xs tabular-nums sm:inline" title={owedText(self.energy) ? "Your energy is overdrawn: you cannot summon until your income has covered it" : `Your energy: it pays for summons${s.obs?.economy?.lookPrice !== undefined ? " and looks" : ""} and refills every second${self.capacity !== undefined ? `, until it is full at ${bits(self.capacity)} ⚡` : ""}`} data-testid="text-energy">{owedText(self.energy) ?? `⚡ ${bits(self.energy)} energy`}</span>}
       <span data-testid="status-connection" className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground" title={s.obs ? "Live" : "Connecting to the engine"}>
         <span aria-hidden className={`h-2 w-2 ${s.obs ? "bg-[hsl(var(--accent))]" : "beat bg-muted-foreground"}`} />
         <span className={s.obs ? "sr-only" : ""}>{s.obs ? "live" : "connecting"}</span>
@@ -117,6 +118,9 @@ export function PlanningBar() {
   const dock = useDockActions();
   const { loading } = useMyAgents();
   const { editCode } = useAffordances().can;
+  // The button summons the pre-filled example itself (dock.summonFirst), so it says so while the summon is in flight.
+  const { busy: running, firstSummon } = useRunner();
+  const summoning = running === "summon";
   const line = planningLine({
     phase: s.phase, seated: s.seated, owner: s.isOwner && permission !== "read", planningEndsAt: s.obs?.planningEndsAt, nowMs: now,
     agents: loading ? undefined : s.agents, canSummon: editCode.ok,
@@ -126,8 +130,8 @@ export function PlanningBar() {
     <div role={s.phase === "planning" ? "timer" : "status"} aria-live="off" data-testid="banner-planning" className="flex flex-col items-center justify-center gap-x-4 gap-y-2 border-b border-[hsl(var(--card-border))] bg-muted px-3 py-2 text-center text-sm sm:flex-row sm:flex-wrap sm:text-left">
       <span className="font-medium tabular-nums" data-testid="text-planning">{line.text}</span>
       {line.summon && (
-        <button type="button" data-testid="button-summon-first-agent" onClick={() => dock.forgeEdit()}
-          className="w-full shrink-0 bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground hover:opacity-90 sm:w-auto sm:py-1">{SUMMON_FIRST}</button>
+        <button type="button" data-testid="button-summon-first-agent" onClick={() => dock.summonFirst()} disabled={summoning} aria-busy={summoning || undefined}
+          className="w-full shrink-0 bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-70 sm:w-auto sm:py-1">{firstSummonLabel({ summoning, pending: firstSummon > 0 })}</button>
       )}
       {line.startNow && (
         <button type="button" data-testid="button-start-world-now" onClick={() => void owner.startWorldNow()}

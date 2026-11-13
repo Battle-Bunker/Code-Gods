@@ -18,10 +18,13 @@ const ALL: readonly Phase[] = ["lobby", "planning", "running", "paused", "ended"
 const WORLD: readonly Phase[] = ["running", "paused", "ended"];
 const GAME: readonly Phase[] = ["planning", "running", "paused", "ended"];
 
-/** How the objects panel's sort reads in a summary, after "Top N". */
+/**
+ * How the objects panel's sort reads in a summary. No "Top N": the list scrolls over every object (`limit` is only its
+ * page size), so a count in the caption was wrong as soon as the player scrolled. "Points", never "payoff", to a player.
+ */
 const SORT_SUMMARY: Record<(typeof OBJECT_SORTS)[number], string> = {
-  payoff: "by payoff", mine: "by your bits", othersCare: "by others' care",
-  mutations: "most mutated first", newest: "newest first", oldest: "oldest first", recentlyMutated: "most recently mutated first",
+  payoff: "By points", mine: "By your bits", othersCare: "By others' care",
+  mutations: "Most mutated first", newest: "Newest first", oldest: "Oldest first", recentlyMutated: "Most recently mutated first",
 };
 
 export const PANEL_IDS = ["overview", "my-card", "objects", "others-care", "bits-over-time", "race", "agents", "feed", "what-if", "public-chat", "forge", "results", "rules", "code-output", "timeline"] as const;
@@ -39,7 +42,7 @@ export interface PanelDefinition<P extends z.ZodObject = z.ZodObject> {
   phases: readonly Phase[];
   /** Strict; every field optional with a default, except what-if's objectId and calls. */
   params: P;
-  /** The pane caption and the chat chip, e.g. "Top 12 · only ones others care about". */
+  /** The pane caption and the chat chip, e.g. "By points · only ones others care about". */
   summary: (params: z.output<P>) => string;
 }
 
@@ -76,7 +79,7 @@ export const PANELS = {
       highlight: objectIds(8),
       layout: z.enum(["list", "grid"]).default("list"),
     }),
-    summary: p => line([`Top ${p.limit} ${SORT_SUMMARY[p.sortBy]}`,
+    summary: p => line([SORT_SUMMARY[p.sortBy],
       ...when(p.filter !== "all", ({ positive: "positive only", contested: "only ones both care about", chips: "only ones others care about" } as Record<string, string>)[p.filter] ?? p.filter),
       ...when(p.highlight.length > 0, `${p.highlight.length} highlighted`), ...when(p.layout === "grid", "grid")]),
   }),
@@ -97,7 +100,7 @@ export const PANELS = {
   race: def({
     id: "race", title: "Leaderboard race", blurb: "Who's winning, and is anyone catching up.", phases: WORLD,
     params: z.strictObject({ show: z.enum(["all", "top3", "me-vs-leader"]).default("all"), metric: z.enum(["total", "gap"]).default("total"), window: seconds(60, 3600, 300) }),
-    summary: p => line([{ all: "Everyone", top3: "Top 3", "me-vs-leader": "You vs the leader" }[p.show], p.metric === "gap" ? "gap to the leader" : "total payoff", `last ${p.window} s`]),
+    summary: p => line([{ all: "Everyone", top3: "Top 3", "me-vs-leader": "You vs the leader" }[p.show], p.metric === "gap" ? "gap to the leader" : "total points", `last ${p.window} s`]),
   }),
   agents: def({
     id: "agents", title: "My agents", blurb: "Your agents, their energy, and when each acts next.", phases: WORLD,

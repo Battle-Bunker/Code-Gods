@@ -191,15 +191,50 @@ const FRESH = 400;
 /** Families whose exemplar is computed exactly, so no calibrated level can be above it. */
 const EXACT_EXEMPLARS = new Set(["tetromino_tamer", "snake_charmer", "colour_mixer"]);
 
+/**
+ * A tiered draw whose best board is the hybrid law's (families/grid/tiers-hybrid.ts): its exemplar is a search that
+ * takes 10 to 30 seconds, the same for every colour set of a shape. The fresh-spawn loop leaves its exemplar to the
+ * test after it, which builds each law once (in one shard) instead of once per shard that holds one of the shape's
+ * files: that took CI's shards with a 4×4 digit file past their 20 minutes when the tiered tables shipped.
+ */
+const lawKey = (t: CalibrationTable, inst: Instantiation): string | null => {
+  const tiers = (t.canonicalParams as { tiers?: { compose?: string }[] } | null)?.tiers;
+  if (!tiers?.length || tiers.some(x => x.compose === "unlock")) return null;
+  const args = inst.args as { size?: unknown; symbols?: unknown };
+  return `${t.family}|${args.size}|${args.symbols}|${JSON.stringify(t.canonicalParams)}`;
+};
+const freshWires = new Map<string, string[]>();
+/** The same FRESH spawns of a shape for every test that scores them. */
+function fresh(instKey: string) {
+  const inst = instOf(instKey), T = objectType(inst.objectType), codec = T.codec(inst), ctx = context(inst);
+  let wires = freshWires.get(instKey);
+  if (!wires) { const rng = seededRng(`fresh:${instKey}`); freshWires.set(instKey, wires = Array.from({ length: FRESH }, () => codec.encode(T.spawn(inst, rng)))); }
+  return { inst, ctx, wires };
+}
+/** One table's exemplar against its fresh spawns `s` (sorted bits); returns a line when the exemplar is below 8 bits. */
+function checkExemplar(t: CalibrationTable, inst: Instantiation, ctx: ReturnType<typeof context>, s: number[], where: string): string | null {
+  const f = family(t.family);
+  if (!f.exemplar) return null;
+  const ev = evaluator({ familyId: t.family, params: t.canonicalParams }, inst);
+  const best = ev(f.exemplar(t.canonicalParams, ctx)), ex = surprisal(t, best), top = t.levels[t.levels.length - 1][0];
+  assert.ok(ex >= s[FRESH - 1], `${where}: exemplar ${ex} bits below a random spawn's ${s[FRESH - 1]}`);
+  // The estimator records whether the exemplar's ordinal is among the levels; the key does not cover the
+  // exemplar, so a changed exemplar can leave the flag stale without making the table stale. (Mixture tables
+  // copy the uniform table's meta, so only uniform tables are checked.)
+  if (!t.prior) assert.equal(t.meta.topReached, cmpOrdinal(best, top) <= 0, `${where}: stale meta.topReached`);
+  if (EXACT_EXEMPLARS.has(t.family)) {
+    assert.ok(cmpOrdinal(best, top) >= 0, `${where}: exact exemplar ${JSON.stringify(best)} below the level ${JSON.stringify(top)}`);
+  }
+  return ex < 8 ? `${where}: ${ex.toFixed(1)}` : null;
+}
+
 test("fresh spawns: median s⁺ ≤ 2 bits, P(s ≥ k) ≤ 2^-k within tolerance, exemplars reach high bits", () => {
   const pooled = new Array(9).fill(0);
   let pooledN = 0;
   const lowExemplars: string[] = [];
   const mine = shardOf(Object.entries(FILES));
   for (const [instKey, file] of mine) {
-    const inst = instOf(instKey), T = objectType(inst.objectType), codec = T.codec(inst), ctx = context(inst);
-    const rng = seededRng(`fresh:${instKey}`);
-    const wires = Array.from({ length: FRESH }, () => codec.encode(T.spawn(inst, rng)));
+    const { inst, ctx, wires } = fresh(instKey);
     for (const t of file.tables) {
       const where = `${t.family} ${JSON.stringify(t.canonicalParams)} on ${instKey}`;
       const ev = evaluator({ familyId: t.family, params: t.canonicalParams }, inst);
@@ -211,19 +246,9 @@ test("fresh spawns: median s⁺ ≤ 2 bits, P(s ≥ k) ≤ 2^-k within tolerance
         // Binomial upper tail at ~5 sd plus 3 (per table, so a few hundred tables do not trip it by chance).
         assert.ok(hits <= expect + 5 * Math.sqrt(expect) + 3, `${where}: P(s ≥ ${k}) = ${hits}/${FRESH} > 2^-${k}`);
       }
-      const f = family(t.family);
-      if (f.exemplar) {
-        const best = ev(f.exemplar(t.canonicalParams, ctx)), ex = surprisal(t, best), top = t.levels[t.levels.length - 1][0];
-        assert.ok(ex >= s[FRESH - 1], `${where}: exemplar ${ex} bits below a random spawn's ${s[FRESH - 1]}`);
-        // The estimator records whether the exemplar's ordinal is among the levels; the key does not cover the
-        // exemplar, so a changed exemplar can leave the flag stale without making the table stale. (Mixture tables
-        // copy the uniform table's meta, so only uniform tables are checked.)
-        if (!t.prior) assert.equal(t.meta.topReached, cmpOrdinal(best, top) <= 0, `${where}: stale meta.topReached`);
-        if (EXACT_EXEMPLARS.has(t.family)) {
-          assert.ok(cmpOrdinal(best, top) >= 0, `${where}: exact exemplar ${JSON.stringify(best)} below the level ${JSON.stringify(top)}`);
-        }
-        if (ex < 8) lowExemplars.push(`${where}: ${ex.toFixed(1)}`);
-      }
+      if (lawKey(t, inst)) continue;   // its exemplar is checked once, by the next test
+      const low = checkExemplar(t, inst, ctx, s, where);
+      if (low) lowExemplars.push(low);
     }
     pooledN += file.tables.length * FRESH;
   }
@@ -236,6 +261,26 @@ test("fresh spawns: median s⁺ ≤ 2 bits, P(s ≥ k) ≤ 2^-k within tolerance
   // families whose top is common, e.g. Int(0,9999) where 13.3 bits is the most any value can have).
   const allowed = mine.reduce((n, [, f]) => n + f.tables.length, 0) * 0.15;
   assert.ok(lowExemplars.length <= allowed, `exemplars below 8 bits:\n${lowExemplars.join("\n")}`);
+});
+
+test("fresh spawns, tiered draws: the hybrid law's best board passes the exemplar checks on every colour set", () => {
+  // Every table with a law, grouped by the law it shares across colour sets; the laws are what CG_SHARD splits.
+  const byLaw = new Map<string, [string, CalibrationTable][]>();
+  for (const [instKey, file] of Object.entries(FILES)) for (const t of file.tables) {
+    const key = lawKey(t, instOf(instKey));
+    if (key) byLaw.set(key, [...(byLaw.get(key) ?? []), [instKey, t]]);
+  }
+  assert.ok(byLaw.size >= 40, `only ${byLaw.size} tiered laws shipped`);
+  let checked = 0;
+  const low: string[] = [];
+  for (const key of shardOf([...byLaw.keys()].sort())) for (const [instKey, t] of byLaw.get(key)!) {
+    const { inst, ctx, wires } = fresh(instKey), where = `${t.family} ${JSON.stringify(t.canonicalParams)} on ${instKey}`;
+    const ev = evaluator({ familyId: t.family, params: t.canonicalParams }, inst);
+    const line = checkExemplar(t, inst, ctx, wires.map(w => surprisal(t, ev(w))).sort((a, b) => a - b), where);
+    if (line) low.push(line);
+    checked++;
+  }
+  assert.ok(low.length <= checked * 0.15, `tiered exemplars below 8 bits:\n${low.join("\n")}`);
 });
 
 // ------------------------------------------------------------------------------------------------

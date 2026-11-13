@@ -32,7 +32,8 @@ export function ObjectGrid({ objects, badge, onSelect, max = 60 }: {
       {objects.slice(0, max).map(o => (
         <button key={o.id} type="button" onClick={onSelect ? () => onSelect(o.id) : undefined} disabled={!onSelect}
           className="flex flex-col items-center gap-0.5 border border-[hsl(var(--card-border))] p-1 text-[10px] font-mono disabled:cursor-default">
-          <ObjectView value={o.value} {...ctx} />
+          {/* Inside a button that acts, the object is drawn without a control of its own: one click does one thing. */}
+          <ObjectView value={o.value} {...ctx} plain={!!onSelect} />
           {badge && <span>{badge(o)}</span>}
         </button>
       ))}

@@ -38,7 +38,8 @@ export function GameTimerView({ timer }: { timer: GameTimer | null }) {
   return createElement("div", {
     role: "timer", "aria-live": "off", "data-testid": "game-timer", "data-paused": x.paused ? "true" : undefined, title: x.tip,
     "aria-label": `${x.label} ${x.value}${x.note ? `, ${x.note}` : ""}. ${x.tip}`,
-    className: "flex flex-wrap items-baseline justify-center gap-x-2 border-b border-[hsl(var(--card-border))] bg-muted px-3 py-1.5 font-mono",
+    // Opaque and above the panes that scroll beneath it (a soft shadow marks the edge), so nothing reads as part of the bar.
+    className: "relative z-30 flex flex-wrap items-baseline justify-center gap-x-2 border-b border-[hsl(var(--card-border))] bg-[hsl(var(--muted))] px-3 py-1.5 font-mono shadow-[0_2px_6px_rgba(0,0,0,0.08)]",
   },
   createElement("span", { className: "label-mono text-xs text-muted-foreground" }, x.label),
   createElement("span", { className: `text-2xl font-semibold tabular-nums sm:text-3xl ${x.paused ? "opacity-60" : ""}`, "data-testid": "game-timer-value" }, x.value),
