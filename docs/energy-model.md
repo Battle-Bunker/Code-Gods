@@ -554,13 +554,20 @@ irrelevant.
     default summon 120, less than what is left of the 200 starting bits. Those worlds default to 60 s (`TYPE_DEFAULTS`,
     13 Nov 2026); a test checks that every world's defaults keep the starting energy through two default summons.
 - **Starting energy on the Grid setups is 600** (13 Nov 2026; it was 200). A new player's first agent must be payable in
-  planning, when nothing accrues: the dearest shipped Python example agent for a beginner rule costs 572 bits
-  (`BEGINNER_AGENT_BUDGET_BITS`). 600 is under the planning store (1,920), and after a first summon at the default half
+  planning, when nothing accrues: the dearest shipped Python example agent for a beginner rule costs 572.2 bits
+  (`BEGINNER_AGENT_BUDGET_BITS`, 573). 600 is under the planning store (1,920), and after a first summon at the default half
   share the god's own 32 bits/s pays for the same agent again in 17 s (its store, 960, is full within the first
-  minute). Code size still matters: that agent is 15% of the god's whole first minute of power (572 of 3,840 bits), a
+  minute). Code size still matters: that agent is 15% of the god's whole first minute of power (573 of 3,840 bits), a
   typical 250-bit example 6.5%, and nothing over 960 bits can be bought while half the power is with an agent. Low
   income (P = 32) holds 480 after a first summon, so there the dearest example is a first agent only. Rooms and setups
   already stored keep the starting energy they have.
+- **A beginner's first agent from the forge** (13 Nov 2026; the engine's default is unchanged). On a beginner rule on the
+  beginner board (game-core `isBeginnerGoal`), the forge summons the first agent with `firstAgentShare`: as close to
+  three quarters of the power as still leaves the god's own store able to hold the dearest agent it may want next (the
+  dearest starter, 573, or a dearer one being summoned), so a Replace with any starter is never refused for good. On
+  Annotated basics that is 0.701562 (store 573). Every other summon, and every other setup, sends no share and takes
+  the default half of what is free. `artifacts/engine/test/unit/example-agents.test.ts` derives the bound from the
+  starters' real prices.
 - **What a deity can afford.** A summon is paid from the deity's own account, so the largest program a deity can ever
   buy costs (unallocated power) × T. With all power allocated the deity's account holds nothing, and a refused summon
   says how much it can hold. Keeping power back for later agents is now a real choice against giving it to agents.

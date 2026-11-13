@@ -19,7 +19,7 @@ import { useEvents, useMyAgents, useMutators, useDockState, useMyCard, useRoomIn
 import { liveIsEstimate } from "./score-lines";
 import { usePreviousVersion } from "./use-previous-version";
 import { agentEarnings } from "./score-line";
-import { LANGUAGE_SPECS, changeCostHint, costModelOf, defaultShare, isLanguage } from "@workspace/game-core";
+import { LANGUAGE_SPECS, changeCostHint, costModelOf, defaultShare, isBeginnerGoal, isLanguage } from "@workspace/game-core";
 import { runner, useGameCommands, useRunner, type Lang } from "@/core/game/runner";
 import { forgeLanguage, forgeLanguages, forgeSandbox } from "@/core/game/language";
 import { useAffordances } from "@/core/use-affordances";
@@ -121,10 +121,6 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
   // Not known while the agent list is loading (an empty list then is not "no agents"), unless a share above zero
   // already says an agent holds it.
   const agentCount = !obs ? undefined : (obs.self.allocated ?? 0) > 0 ? Math.max(1, agents.length) : agentsLoading ? undefined : agents.length;
-  // The first agent takes three quarters of the player's power (first-agent.ts summonShare); any later summon from
-  // here takes the engine's default share: half of the power not given to agents yet.
-  const firstShare = summonShare({ agents: agentCount, allocated: obs?.self.allocated });
-  const newShare = firstShare ?? (obs?.self.allocated !== undefined ? defaultShare(obs.self.allocated) : undefined);
   const fill = firstAgentFill({ editable: !ended, agents: agentCount, source, language, examples, offered: offered.current });
   useEffect(() => {
     if (!fill) return;
@@ -247,6 +243,17 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
   const gameplay = can.validate.ok;
   const current = validation && validation.source === source && validation.language === language ? validation.result.validation : undefined;
   const energy = obs?.self.energy ?? 0;
+  // A beginner's first agent takes as much of the player's power as still leaves a store for the dearest starter
+  // (first-agent.ts summonShare); any other summon from here takes the engine's default share: half of what is free.
+  // Once this game's first summon is sent, the next one (before the agent list catches up) takes the default too.
+  const [firstSent, setFirstSent] = useState<string | undefined>(undefined);
+  useEffect(() => { if (firstSent !== undefined && (agentCount ?? 0) > 0) setFirstSent(undefined); }, [firstSent, agentCount]);
+  const firstShare = summonShare({
+    agents: agentCount, allocated: obs?.self.allocated, beginner: isBeginnerGoal({ boardKey: board?.key, familyId: card?.familyId }),
+    firstSent: !!obs?.gameId && firstSent === obs.gameId, powerPerSecond: obs?.economy?.powerPerSecond, fullChargeSeconds: obs?.economy?.fullChargeSeconds,
+    price: current?.valid ? current.cost : undefined, prices: prices?.values(),
+  });
+  const newShare = firstShare ?? (obs?.self.allocated !== undefined ? defaultShare(obs.self.allocated) : undefined);
   // A starter's valid check is remembered for the shelf (starters only: the player's own code is not listed there).
   const starterPrice = current?.valid && starters.some(x => x.source === source) ? current.cost : undefined;
   useEffect(() => { if (obs?.gameId && starterPrice !== undefined) runner.setPrice(obs.gameId, priceKey(language, source), starterPrice); }, [obs?.gameId, starterPrice, language, source]);
@@ -271,9 +278,13 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
   const summon = (agent: Omit<ArmedSummon, "cost">, wasArmed?: ArmedSummon) => {
     setRefused(null);
     shareAtSummon.current = newShare;
+    const gameId = obs?.gameId;
+    if (firstShare !== undefined && gameId) setFirstSent(gameId);
     void commands.run({ type: "summon", language: agent.language as Lang, source: agent.source, name: agent.name, ...(agent.description ? { description: agent.description } : {}), ...(firstShare !== undefined ? { powerShare: firstShare } : {}) }).then(async result => {
       if (!result) return;
       if (result.accepted) { setSummoned(agent.name, agent.source); return; }
+      // Refused: no agent took the share, so the next summon is still the first.
+      if (firstShare !== undefined) setFirstSent(sent => (sent === gameId ? undefined : sent));
       if (wasArmed) { setRefused({ armed: wasArmed, message: result.message || "The game refused this summon." }); return; }
       // Not enough energy for an agent summoned without a validation: learn its price (free), then wait for the energy.
       if (!lacksEnergy(result.message)) return;
@@ -292,12 +303,15 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
     summon(armed, armed);
   });
   // Beside the price: what of the player's stored energy would move to the new agent with its share (not for a replace or a copy's note).
-  const starts = current?.valid && !ended && !replacing && !copyNow ? startsWithLine({ energy, cost: current.cost, allocated: obs?.self.allocated, share: newShare, powerPerSecond: obs?.economy?.powerPerSecond, fullChargeSeconds: obs?.economy?.fullChargeSeconds }) : null;
+  // With Replace offered (which keeps the agent's energy) the line is about "Summon beside it"; a copy is a summon too.
+  const starts = current?.valid && !ended ? startsWithLine({ energy, cost: current.cost, allocated: obs?.self.allocated, share: newShare, powerPerSecond: obs?.economy?.powerPerSecond, fullChargeSeconds: obs?.economy?.fullChargeSeconds, beside: replacing }) : null;
   const summonOn = !busy && (canSummon || canArm) && !!name.trim();
   // The player's own code with no check of it yet: the primary button checks and goes on (one press).
   const needsCheck = summonable && !canSummon && !canArm && !untouched && !(checked && !!current);
   const pressSummon = (as = name) => {
-    const agent = { name: as.trim(), ...(description.trim() ? { description: description.trim() } : {}), language, source };
+    // Beside an adopted agent, its own description is not the new one's: only a description the player changed is sent.
+    const sent = replacing ? descriptionToSend(description, originDescription) : description.trim() || undefined;
+    const agent = { name: as.trim(), ...(sent ? { description: sent } : {}), language, source };
     // Not payable yet: arm a one-shot that summons when the energy is there (the effect above fires it).
     if (!canSummon) { if (current) { setRefused(null); setArmed({ ...agent, cost: current.cost }); } return; }
     summon(agent);

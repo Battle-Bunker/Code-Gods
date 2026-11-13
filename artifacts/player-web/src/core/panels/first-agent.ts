@@ -6,6 +6,7 @@
  * - switching the language swaps the example while it is untouched;
  * - an edited draft is never overwritten, and players who already have agents keep the editor as it was.
  */
+import { BEGINNER_AGENT_BUDGET_BITS, firstAgentShare } from "@workspace/game-core";
 import { SUMMON_FIRST } from "../planning-line.ts";
 
 export interface Example { readonly name: string; readonly source: string; readonly specific: boolean }
@@ -83,16 +84,23 @@ export function storeAfterSummonText(s: { share: number | undefined; income: num
 }
 
 /**
- * The share a summon from the forge asks for. The FIRST agent takes three quarters of the player's power (decided for
- * the beginner setup: one agent should act often, and a quarter is kept for replacing it or adding another), never
- * more than what is free; any later agent takes the engine's own default (half of what is unallocated): undefined.
+ * The share a summon from the forge asks for. A beginner's FIRST agent (a beginner rule on the beginner board) takes as
+ * close to three quarters of the player's power as still leaves their own store able to pay for the dearest agent they
+ * may want next: the dearest shipped starter (BEGINNER_AGENT_BUDGET_BITS), a dearer one remembered in this game, or the
+ * agent being summoned (game-core firstAgentShare). Every other summon sends nothing and takes the engine's default
+ * (half of what is unallocated): another setup, a later agent, the agent list not known yet, or a first summon already
+ * sent in this game (the list can lag the receipt, and a second summon at the large share would be refused).
  */
-export const FIRST_AGENT_SHARE = 0.75;
-export function summonShare(s: { agents: number | undefined; allocated: number | undefined }): number | undefined {
-  if (s.agents !== 0) return undefined;
-  const free = Math.max(0, 1 - (s.allocated ?? 0));
-  const share = Math.floor(Math.min(FIRST_AGENT_SHARE, free) * 1e6 + 1e-9) / 1e6;
-  return share > 0 ? share : undefined;
+export function summonShare(s: {
+  agents: number | undefined; allocated: number | undefined; beginner: boolean; firstSent: boolean;
+  powerPerSecond: number | undefined; fullChargeSeconds: number | undefined;
+  /** The price of the agent being summoned, when checked. */ price?: number;
+  /** Prices of starters checked in this game. */ prices?: Iterable<number>;
+}): number | undefined {
+  if (!s.beginner || s.firstSent || s.agents !== 0 || s.allocated === undefined || s.powerPerSecond === undefined) return undefined;
+  let need = Math.max(BEGINNER_AGENT_BUDGET_BITS, s.price ?? 0);
+  for (const p of s.prices ?? []) need = Math.max(need, p);
+  return firstAgentShare({ allocated: s.allocated, powerPerSecond: s.powerPerSecond, fullChargeSeconds: s.fullChargeSeconds, need });
 }
 
 /**
@@ -100,11 +108,12 @@ export function summonShare(s: { agents: number | undefined; allocated: number |
  * new limit ((unallocated − share) × power × fullChargeSeconds) after paying the price, the excess goes to the new
  * agent. Null when nothing would move, the price is not payable, or the game has no capacity.
  */
-export function startsWithLine(s: { energy: number; cost: number; allocated: number | undefined; share: number | undefined; powerPerSecond: number | undefined; fullChargeSeconds: number | undefined }): string | null {
+export function startsWithLine(s: { energy: number; cost: number; allocated: number | undefined; share: number | undefined; powerPerSecond: number | undefined; fullChargeSeconds: number | undefined; /** Replace is the main button: the line is about "Summon beside it". */ beside?: boolean }): string | null {
   if (s.share === undefined || s.powerPerSecond === undefined || s.fullChargeSeconds === undefined || s.cost > s.energy) return null;
   const limit = Math.max(0, 1 - (s.allocated ?? 0) - s.share) * s.powerPerSecond * s.fullChargeSeconds;
   const moved = Math.round(s.energy - s.cost - limit);
-  return moved >= 1 ? `It starts with ${moved.toLocaleString("en-US")} ⚡ of your energy that would no longer fit in your own store.` : null;
+  if (moved < 1) return null;
+  return `${s.beside ? "Summoned beside it, the new agent starts" : "It starts"} with ${moved.toLocaleString("en-US")} ⚡ of your energy that would no longer fit in your own store.`;
 }
 
 /** A starter's remembered price: by language and exact source, in one game (the price depends on the game's settings). */

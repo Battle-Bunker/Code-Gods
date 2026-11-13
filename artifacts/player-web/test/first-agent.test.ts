@@ -7,7 +7,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  FIRST_AGENT_HINT, STARTER_AGENT_HINT, armedStep, armedText, energyHint, firstAgentFill, firstAgentHint, untouchedExample, lacksEnergy, readyText, summonReady, summonedText, COPY_HINT, REPLACE_WHY, FIRST_AGENT_SHARE, descriptionToSend, keepsNameNote, priceKey, rememberPrice, startsWithLine, summonShare, replaceBoundary, starterSwap, DIFFERENT_IDEAS, PRICE_AFTER_CHECK, replaceQuestion, shelfOpen, starterShelf, COMPARISON_CAVEAT, previousTarget, putBackLabel, putBackText, BUSY_NOTHING_CHANGED, afterCheck, checkedLine, versionComparison, PENDING_REPLACE_MS, pendingReplaceOnReceipt, pendingReplaceOnSend, sameVersionNote, draftOrigin, replaceLabel, replaceOffer, replacedText, FIRST_SUMMON_MAX_AGE_MS, FIRST_SUMMON_WARMING_MS, firstSummonLabel, isCopy, replaceNeedsConfirm, firstSummonStep, nextFreeName, proposedName, secondAgentHint, storeAfterSummonText, type ArmedSummon, type Examples, type FirstAgentState,
+  FIRST_AGENT_HINT, STARTER_AGENT_HINT, armedStep, armedText, energyHint, firstAgentFill, firstAgentHint, untouchedExample, lacksEnergy, readyText, summonReady, summonedText, COPY_HINT, REPLACE_WHY, descriptionToSend, keepsNameNote, priceKey, rememberPrice, startsWithLine, summonShare, replaceBoundary, starterSwap, DIFFERENT_IDEAS, PRICE_AFTER_CHECK, replaceQuestion, shelfOpen, starterShelf, COMPARISON_CAVEAT, previousTarget, putBackLabel, putBackText, BUSY_NOTHING_CHANGED, afterCheck, checkedLine, versionComparison, PENDING_REPLACE_MS, pendingReplaceOnReceipt, pendingReplaceOnSend, sameVersionNote, draftOrigin, replaceLabel, replaceOffer, replacedText, FIRST_SUMMON_MAX_AGE_MS, FIRST_SUMMON_WARMING_MS, firstSummonLabel, isCopy, replaceNeedsConfirm, firstSummonStep, nextFreeName, proposedName, secondAgentHint, storeAfterSummonText, type ArmedSummon, type Examples, type FirstAgentState,
 } from "../src/core/panels/first-agent.ts";
 
 const py = { name: "Mirror maker", source: "# My goal: mirrors\ndef agent(grid):\n    return []\n", specific: true };
@@ -344,13 +344,22 @@ test("the 'since' boundary of a replace is its own agent.replaced event, never a
   assert.equal(replaceBoundary(null, [replacedAt(100.8)], 101), null);
 });
 
-test("the first agent asks for three quarters of the player's power; later agents take the engine's default", () => {
-  assert.equal(FIRST_AGENT_SHARE, 0.75);
-  assert.equal(summonShare({ agents: 0, allocated: 0 }), 0.75);
-  assert.equal(summonShare({ agents: 0, allocated: 0.5 }), 0.5, "never more than what is free (power given out with no agent listed yet)");
-  assert.equal(summonShare({ agents: 1, allocated: 0.75 }), undefined, "a later agent: half of what is unallocated, the engine's own default");
-  assert.equal(summonShare({ agents: undefined, allocated: 0 }), undefined, "the agent list is not known yet: the default");
-  assert.equal(summonShare({ agents: 0, allocated: 1 }), undefined);
+test("a beginner's first agent asks for as much power as still leaves a store for the dearest starter; anything else takes the engine's default", () => {
+  // Annotated basics: P = 64, T = 30 (planning store 1,920); the dearest starter 572.2 (BEGINNER_AGENT_BUDGET_BITS 573).
+  const beginner = { agents: 0, allocated: 0, beginner: true, firstSent: false, powerPerSecond: 64, fullChargeSeconds: 30 } as const;
+  const share = summonShare(beginner)!;
+  assert.equal(share, 0.701562);
+  assert.ok((1 - share) * 64 * 30 >= 573, "the store after the summon holds the dearest starter, so Replace with it is never refused for good");
+  assert.equal(summonShare({ ...beginner, price: 700 }), 0.635416, "a dearer agent being summoned: its own price is kept payable too");
+  assert.equal(summonShare({ ...beginner, prices: [100, 650] }), 0.661458, "a dearer starter remembered in this game");
+  assert.equal(summonShare({ ...beginner, beginner: false }), undefined, "any other setup: the engine's default");
+  assert.equal(summonShare({ ...beginner, firstSent: true }), undefined, "this game's first summon already sent: a second one right after takes the default");
+  assert.equal(summonShare({ ...beginner, agents: 1, allocated: 0.7 }), undefined, "a later agent: half of what is unallocated, the engine's own default");
+  assert.equal(summonShare({ ...beginner, agents: undefined }), undefined, "the agent list is not known yet: the default");
+  assert.equal(summonShare({ ...beginner, allocated: 0.5 }), undefined, "power already given out with no agent listed: nothing above the default is left");
+  assert.equal(summonShare({ ...beginner, allocated: undefined }), undefined, "the state has not arrived: the default");
+  assert.equal(summonShare({ ...beginner, fullChargeSeconds: undefined }), undefined, "a game with no capacity: the default");
+  assert.equal(summonShare({ ...beginner, powerPerSecond: 8, fullChargeSeconds: 60 }), undefined, "a small store (Int and string worlds): the default");
 });
 
 test("the summon preview says what the new agent starts with when the player's store would overflow its new limit", () => {
@@ -361,6 +370,13 @@ test("the summon preview says what the new agent starts with when the player's s
   assert.equal(startsWithLine({ energy: 960, cost: 300, allocated: 0, share: 0.75, powerPerSecond: 64, fullChargeSeconds: undefined }), null, "a game with no capacity");
   assert.equal(startsWithLine({ energy: 960, cost: 300, allocated: 0, share: undefined, powerPerSecond: 64, fullChargeSeconds: 30 }), null);
   assert.equal(startsWithLine({ energy: 960, cost: 1200, allocated: 0, share: 0.75, powerPerSecond: 64, fullChargeSeconds: 30 }), null, "not payable: nothing to say about what is left");
+  assert.equal(startsWithLine({ energy: 960, cost: 300, allocated: 0, share: 0.75, powerPerSecond: 64, fullChargeSeconds: 30, beside: true }),
+    "Summoned beside it, the new agent starts with 180 ⚡ of your energy that would no longer fit in your own store.", "with Replace offered, the line is about the other button");
+});
+
+test("Summon beside it sends only a description the player changed, not the replaced agent's own", () => {
+  assert.equal(descriptionToSend("Keeps rows mirrored", "Keeps rows mirrored"), undefined);
+  assert.equal(descriptionToSend("Mirrors columns now", "Keeps rows mirrored"), "Mirrors columns now");
 });
 
 test("a starter's price is remembered per game, language and source, and forgotten in another game", () => {

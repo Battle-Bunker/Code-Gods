@@ -473,27 +473,52 @@ test("the default setup: the dearest example agent is payable in planning, and a
   const { BEGINNER_AGENT_BUDGET_BITS } = await import("../src/settings.ts");
   const { chargeDeityAccount, settleDeityEnergy, defaultShare, energyCapacity, deityIncome } = await import("../src/energy.ts");
   const s = SEED_SETUPS.find(x => x.seedId === DEFAULT_SETUP_SEED_ID)!.settings;
-  assert.deepEqual([s.powerPerSecond, s.fullChargeSeconds, s.startingEnergy, BEGINNER_AGENT_BUDGET_BITS], [64, 30, 600, 572]);
+  assert.deepEqual([s.powerPerSecond, s.fullChargeSeconds, s.startingEnergy, BEGINNER_AGENT_BUDGET_BITS], [64, 30, 600, 573]);
   // Planning: world time is stopped, nothing accrues; the store with nothing allocated (1,920) holds the starting energy.
   const terms = (allocated: number) => ({ powerPerSecond: s.powerPerSecond, allocated, fullChargeSeconds: s.fullChargeSeconds });
   let own = settleDeityEnergy({ balance: s.startingEnergy, settledWorldSeconds: 0 }, 0, terms(0));
   assert.equal(own.balance, 600, "none of the starting energy is lost to the capacity");
   own = chargeDeityAccount(own, BEGINNER_AGENT_BUDGET_BITS, 0, terms(0));
-  assert.equal(own.balance, 28);
+  assert.equal(own.balance, 27);
   // The first summon takes the default share, half: the god keeps 32 bits/s and holds at most 960.
   const allocated = defaultShare(0);
   assert.deepEqual([allocated, deityIncome(64, allocated), energyCapacity(deityIncome(64, allocated), 30)], [0.5, 32, 960]);
-  // The same agent again: (572 − 28) / 32 = 17 s of world time.
+  // The same agent again: (573 − 27) / 32 = 17.06 s of world time.
   assert.throws(() => chargeDeityAccount(own, BEGINNER_AGENT_BUDGET_BITS, 16.9, terms(allocated)), /Insufficient/);
-  assert.doesNotThrow(() => chargeDeityAccount(own, BEGINNER_AGENT_BUDGET_BITS, 17, terms(allocated)));
+  assert.doesNotThrow(() => chargeDeityAccount(own, BEGINNER_AGENT_BUDGET_BITS, 17.1, terms(allocated)));
   assert.equal(settleDeityEnergy(own, 60, terms(allocated)).balance, 960, "a full store within the first minute");
-  // Code size still matters: that agent is 15% of the god's whole first minute of power (572 of 3,840 bits), and a
+  // Code size still matters: that agent is 15% of the god's whole first minute of power (573 of 3,840 bits), and a
   // program over 960 bits cannot be bought at all while half the power is with an agent.
   assert.ok(BEGINNER_AGENT_BUDGET_BITS / (64 * 60) > 0.1);
   assert.throws(() => chargeDeityAccount(own, 961, 3600, terms(allocated)), /Insufficient/);
   // Every Grid setup starts the same way; other worlds keep the general default.
   for (const seed of SEED_SETUPS.filter(x => x.settings.objectType === "Grid")) assert.equal(seed.settings.startingEnergy, 600, seed.seedId);
   assert.equal(DEFAULT_SETTINGS.startingEnergy, 200);
+});
+
+test("a beginner's first agent: as close to three quarters as still leaves a store that pays for the dearest starter; elsewhere the engine default", async () => {
+  const { BEGINNER_AGENT_BUDGET_BITS, BEGINNER_BOARD_KEY, BEGINNER_POOL, isBeginnerGoal, instantiationOf, seedSetupSettings } = await import("../src/index.ts");
+  const { firstAgentShare, energyCapacity, deityIncome } = await import("../src/energy.ts");
+  const s = SEED_SETUPS.find(x => x.seedId === DEFAULT_SETUP_SEED_ID)!.settings;
+  assert.equal(instantiationOf(seedSetupSettings(DEFAULT_SETUP_SEED_ID)).key, BEGINNER_BOARD_KEY);
+  const at = (allocated: number, need = BEGINNER_AGENT_BUDGET_BITS) => firstAgentShare({ allocated, powerPerSecond: s.powerPerSecond, fullChargeSeconds: s.fullChargeSeconds, need });
+  const share = at(0)!;
+  // P = 64, T = 30: the store after the summon is (1 − share) × 1,920 ≥ 573, so share ≤ 0.701562.
+  assert.equal(share, 0.701562);
+  assert.ok(energyCapacity(deityIncome(s.powerPerSecond, share), s.fullChargeSeconds) >= BEGINNER_AGENT_BUDGET_BITS);
+  assert.ok(energyCapacity(deityIncome(s.powerPerSecond, share + 1e-6), s.fullChargeSeconds) < BEGINNER_AGENT_BUDGET_BITS, "the largest such share");
+  assert.equal(at(0, 100), 0.75, "a cheap need: three quarters, no more");
+  assert.equal(at(0, 1200), undefined, "not above the default half: the engine default");
+  assert.equal(at(0.5), undefined, "power already given out: half of the rest is the default");
+  assert.equal(firstAgentShare({ allocated: 0, powerPerSecond: 64, fullChargeSeconds: undefined, need: 572 }), undefined, "no capacity: the default");
+  // Int and string worlds (P = 8, T = 60, store 480) cannot keep 572: they keep the default too.
+  const int = defaultSettingsFor("Int");
+  assert.equal(firstAgentShare({ allocated: 0, powerPerSecond: int.powerPerSecond, fullChargeSeconds: int.fullChargeSeconds, need: BEGINNER_AGENT_BUDGET_BITS }), undefined);
+  // Only a beginner rule on the beginner board counts.
+  assert.equal(isBeginnerGoal({ boardKey: BEGINNER_BOARD_KEY, familyId: BEGINNER_POOL[0] }), true);
+  assert.equal(isBeginnerGoal({ boardKey: "Grid(5,base10,rgby)", familyId: BEGINNER_POOL[0] }), false);
+  assert.equal(isBeginnerGoal({ boardKey: BEGINNER_BOARD_KEY, familyId: "no_such_family" }), false);
+  assert.equal(isBeginnerGoal({ boardKey: undefined, familyId: undefined }), false);
 });
 
 test("every world's defaults keep the starting energy: the store holds it in planning and after the first default summons", async () => {
