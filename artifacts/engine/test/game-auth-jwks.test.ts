@@ -10,10 +10,11 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { ConvexHttpClient } from "convex/browser";
 import { ADMIN_KEY, URL_, api, sleep } from "./game-helpers.ts";
 
-const config = await import("../.convex/local/default/config.json", { with: { type: "json" } }).then(m => m.default as { ports?: { site?: number } }).catch(() => ({}) as { ports?: { site?: number } });
+const config = (() => { try { return JSON.parse(readFileSync(new URL("../.convex/local/default/config.json", import.meta.url), "utf8")) as { ports?: { site?: number } }; } catch { return {}; } })();
 process.env.CG_TEST_SITE_URL ??= `http://127.0.0.1:${config.ports?.site ?? 3211}`;
 process.env.CG_TEST_OIDC_URL ??= `http://127.0.0.1:${process.env.FAKE_OIDC_PORT ?? 3399}`;
 const { login } = await import("./helpers.ts");
