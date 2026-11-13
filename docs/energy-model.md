@@ -768,7 +768,7 @@ everything once a second costs 16.6 bits/s, a quarter of a god's power.
 | `player.totals`, `dock.state` `self.score` | live | as of the last published scoreboard |
 | `player.events`, `history`, `trajectories` | every spawn and transformation | births and the god's own agents' acts (and its own looks) |
 | `player.series` (`get_utility_series`, `fit_utility_mixture`, the `utility_series` dataset) | every spawn and transformation, with the others' sum | the god's knowledge over time: one row per telling (11.7) |
-| `player.board` at a past world time | the board then | refused (it is a look at every object then) |
+| `player.board` with a world time (past, present or future) | the board then | refused: the board without a time is the god's knowledge, and the answer never depends on the clock |
 | `games.object`, `games.objectIds`, `player.game` objects (the spectator's queries) | the world | nothing for a seated god |
 | validate / summon's sample world | 16 live objects | the same objects as the god was last told them |
 | the published scoreboard, standings history, chat, own agents, own goal card, the clock | free | free |

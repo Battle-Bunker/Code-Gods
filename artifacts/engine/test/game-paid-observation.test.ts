@@ -94,7 +94,41 @@ test("paid observation: a god sees what it was told, and pays its own energy to 
   const trajectories = await host.c.query(api.player.trajectories, { roomId, afterSeq: -1, limit: 200 });
   const versions = new Map((await raw(game.gameId)).objectEvents.filter((e: any) => e.kind === "spawn" || e.ownerId === host.subject).map((e: any) => [`${e.objectId}:${e.world}`, true]));
   for (const o of trajectories.objects) for (const p of o.points) assert.ok(versions.has(`${o.objectId}:${p.worldSeconds}`), "a trajectory point is a birth or an own change");
-  assert.match(await rejects(host.c.query(api.player.board, { roomId, world: 0.5 })), /FORBIDDEN|charges for looking/);
+  // No board at a chosen world time, past, present or future: the answer never depends on where the clock stands.
+  const clock = (await raw(game.gameId)).game.worldSeconds;
+  for (const world of [0, 0.5, clock, clock + 0.001, clock + 3600, 1e9]) {
+    assert.match(await rejects(host.c.query(api.player.board, { roomId, world })), /charges for looking/, `a board at world ${world} is refused`);
+  }
+  // The board without a time is Host's knowledge, row for row (the object only Bo changed: as Host was last told it).
+  const knownBoard = await host.c.query(api.player.board, { roomId });
+  for (const o of knownBoard.objects.slice(0, 20)) {
+    const row = await rowOf(host, o.objectId);
+    if (row.knownAt === o.knownAt) assert.deepEqual([o.value, o.version, o.others], [row.value, row.version, row.peerNetBits], "the board is the knowledge");
+  }
+  if (stale.version === 0) {
+    const seen = knownBoard.objects.find((o: any) => o.objectId === untouched.id);
+    if (seen.knownAt === 0) assert.equal(seen.value, untouched.born.value, "the board shows the object as born, not as Bo left it");
+  }
+  // Every other read keyed by a time or a position the caller supplies gives the same told history, wherever it starts.
+  const latest = (await raw(game.gameId)).batches.at(-1).seq;
+  const theirs = (events: any[]) => events.some((e: any) => e.type === "object.transformed" && !e.mine);
+  for (const after of [-1, 0, Math.max(0, latest - 3), latest, latest + 1000]) {
+    assert.ok(!theirs((await host.c.query(api.player.events, { roomId, after, limit: 50 })).events), `events after ${after}`);
+    assert.ok(!theirs((await host.c.query(api.player.history, { roomId, gameId: game.gameId, afterSeq: after, limit: 50 })).events), `history after ${after}`);
+  }
+  const toldKeys = new Set((await raw(game.gameId)).objectEvents.filter((e: any) => e.kind === "spawn" || e.ownerId === host.subject).map((e: any) => `${e.objectId}:${e.world}`));
+  for (const window of [{ afterSeq: -1, upTo: latest }, { afterSeq: Math.max(0, latest - 5) }, { afterSeq: -1, upTo: 0 }, { afterSeq: latest + 1000 }]) {
+    const t = await host.c.query(api.player.trajectories, { roomId, limit: 200, ...window });
+    for (const o of t.objects) for (const p of o.points) assert.ok(toldKeys.has(`${o.objectId}:${p.worldSeconds}`), `trajectories ${JSON.stringify(window)}`);
+  }
+  for (const fromWorld of [0, clock / 2, clock, clock + 3600]) {
+    const s = await host.c.query(api.player.series, { roomId, fromWorld, limit: 40 });
+    for (let i = 0; i < s.rows; i++) {
+      const row = await rowOf(host, s.columns.objectId[i]);
+      assert.ok(s.columns.version[i] <= row.version, `series from ${fromWorld}: no version newer than Host was told`);
+    }
+  }
+  assert.match(await rejects(host.c.query(api.player.replay, { roomId, gameId: game.gameId })), /CONFLICT|ends/, "no replay of a live game");
   assert.equal(await host.c.query(api.games.object, { objectId: untouched.id }), null, "the public object is not for a seated god");
   assert.equal((await host.c.query(api.games.objectIds, { gameId: game.gameId, paginationOpts: { numItems: 50, cursor: null } })).page.length, 0);
   assert.equal((await host.c.query(api.player.game, { roomId, gameId: game.gameId })).objects.length, 0);
