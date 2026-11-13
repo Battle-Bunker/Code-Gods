@@ -3,7 +3,8 @@
 Run from the repo root:  python3 lib/game-types/test/mutator_parity.py
 The TS side (test/mutator_parity.dump.ts) samples params and grids in all 60 GridTypes and records
 its apply results and cost terms; this script replays every case through gridlab and requires:
-  * the same available mutator set in every GridType (gridlab with flatten disabled);
+  * the same available mutator set in every GridType (gridlab with flatten disabled; TS without `add`, which has no
+    gridlab twin: TS_ONLY in mutator_parity.dump.ts);
   * identical apply results (TS "unchanged" == gridlab None);
   * identical deterministic cost terms within 1e-9 bits: base (log2 #available), D, M, scope;
   * the same analytic terms (erase, expected changed cells), except sort_line's fixed-seed Monte

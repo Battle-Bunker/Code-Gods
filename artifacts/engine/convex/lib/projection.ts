@@ -8,7 +8,7 @@
 import { biddingView } from "../bidding";
 import { agentDisplayName } from "./agentName";
 import { gameNotice } from "./engineErrors";
-import { godLooks, allowedLanguages, deityIncome, roundShare, instantiationOf, leaderboard, paidObservation, rankTotals, type GameSettings } from "@workspace/game-core";
+import { godLooks, allowedLanguages, costModelOf, deityIncome, roundShare, instantiationOf, leaderboard, paidObservation, rankTotals, type GameSettings } from "@workspace/game-core";
 import { lookPriceOf } from "./knowledge";
 import { CHANGE_READ_RATIO, COMMIT_CLAUSE_HELPER, instanceInfo, type InstanceInfo } from "@workspace/game-types";
 import { VERSION, observationSchema, type Observation } from "@workspace/player-client";
@@ -43,7 +43,7 @@ export function standings(game: Pick<Game, "roster"> & { scoreboard?: Scoreboard
 
 /** The fully applied object type of (validated) settings, with the commit-clause helper when offered. */
 export function objectInstance(settings: GameSettings): InstanceInfo {
-  const info = instanceInfo(instantiationOf(settings));
+  const info = instanceInfo(instantiationOf(settings), costModelOf(settings));
   return settings.commitClause ? { ...info, helpers: [...info.helpers, COMMIT_CLAUSE_HELPER] } : info;
 }
 
@@ -380,7 +380,7 @@ export function observation(input: ObservationInput): Observation {
       changeReadRatio: CHANGE_READ_RATIO, maxAgentsPerGod: settings.maxAgentsPerGod,
       penaltyWeight: settings.penaltyWeight, worldSeconds: game ? worldNow(game, now) : 0,
       durationMode: settings.durationMode, lengthSeconds: settings.halfLifeSeconds,
-      commitClause: settings.commitClause, objectSelection: settings.objectSelection,
+      commitClause: settings.commitClause, objectSelection: settings.objectSelection, costModel: costModelOf(settings),
       // Paid observation (lib/knowledge.ts): objects are shown as last told (`knownAt`); one look at one object costs lookPrice.
       ...(paidObservation(settings) ? { observation: settings.observation, ...(godLooks(settings) ? { lookPrice: lookPriceOf(settings) } : {}) } : {}),
     },

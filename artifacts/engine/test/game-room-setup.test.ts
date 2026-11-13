@@ -56,7 +56,9 @@ test("a settings change moves only what the game ties to it: no retuning on a ne
   await touch(host);
   const { roomId } = await roomWith([host]);
   const revision = async () => (await host.c.query(api.rooms.get, { room: roomId })).revision;
-  const before = seedSetupSettings("grid-annotated-basics");
+  // The room starts on Annotated basics, priced by distance; Int has only the flat price, so the cost model goes with the
+  // Grid (settings-model: a model the new world does not support is dropped). Everything else stays the owner's.
+  const { costModel: _gridOnly, ...before } = seedSetupSettings("grid-annotated-basics");
   await host.c.action(api.owner.settings, { roomId, revision: await revision(), settings: { objectType: "Int" } });
   let room = await host.c.query(api.rooms.get, { room: roomId });
   // Hand-derived: Int's default instantiation, the Grid families no longer exist, every tuned Grid value stays the owner's.

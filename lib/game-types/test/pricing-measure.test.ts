@@ -55,7 +55,6 @@ for (const [label, typeDef, i] of [
 }
 
 test("structured grids carry visible structure (paints, writes, sorts) more often than spawns", () => {
-  const m = referenceMixture(inst, "structure check", { nUniform: 128, nStructured: 128 });
   const codec = GRID.codec(inst);
   const longestRun = (v: ObjectValue) => {
     const g = codec.decode(v);
@@ -66,11 +65,18 @@ test("structured grids carry visible structure (paints, writes, sorts) more ofte
     }
     return best;
   };
-  const avg = (c: string) => {
-    const xs = m.values.filter((_, k) => m.components[k] === c).map(longestRun);
-    return xs.reduce((s, x) => s + x, 0) / xs.length;
-  };
-  assert.ok(avg("structured") > avg("uniform") + 0.2, `${avg("structured")} vs ${avg("uniform")}`);
+  // The gap of one salt is noisy (mean 0.2, sd 0.08 over salts: whether one salt clears a 0.2 bar is luck, and the
+  // draw moves whenever a mutator is added), so pool 16 salts: the mean gap has sd 0.02.
+  const gaps = Array.from({ length: 16 }, (_, k) => {
+    const m = referenceMixture(inst, `structure check ${k}`, { nUniform: 128, nStructured: 128 });
+    const avg = (c: string) => {
+      const xs = m.values.filter((_, i) => m.components[i] === c).map(longestRun);
+      return xs.reduce((s, x) => s + x, 0) / xs.length;
+    };
+    return avg("structured") - avg("uniform");
+  });
+  const mean = gaps.reduce((s, x) => s + x, 0) / gaps.length;
+  assert.ok(mean > 0.12, `mean gap ${mean} over ${gaps.length} salts: ${gaps.map(x => x.toFixed(2))}`);
 });
 
 test("extra components (game, self) are appended and validated", () => {

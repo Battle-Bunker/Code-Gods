@@ -25,15 +25,26 @@ function orbitReturns(m: GridMutator, p: unknown, g: GridValue, inst: Instantiat
   return false;
 }
 
-test("25 mutators (mutators.py order, no flatten); 22 to 24 available per GridType", () => {
-  assert.equal(GRID_MUTATORS.length, 25);
-  assert.equal(new Set(GRID_MUTATORS.map(m => m.id)).size, 25);
+/**
+ * Mutators that cannot apply to every grid (apply returns null and the act fails): `add` never wraps, so 9 + 1 does not
+ * fit. Where one applies it is still a bijection: its inverse call undoes it.
+ */
+const PARTIAL: Record<string, (p: any) => unknown> = { add: p => ({ ...p, k: -p.k }) };
+
+test("26 mutators (mutators.py order, no flatten, plus add) and two only multiply-v1 offers; 23 to 25 available per GridType", () => {
+  const gated = GRID_MUTATORS.filter(m => m.costModels);
+  assert.deepEqual(gated.map(m => [m.id, m.costModels]), [["multiply", ["multiply-v1"]], ["divide", ["multiply-v1"]]]);
+  assert.equal(GRID_MUTATORS.length - gated.length, 26);
+  assert.equal(new Set(GRID_MUTATORS.map(m => m.id)).size, 28);
+  // add comes straight after step_rank, the wrapping move it mirrors
+  assert.equal(GRID_MUTATORS[GRID_MUTATORS.findIndex(m => m.id === "step_rank") + 1].id, "add");
   assert.ok(!GRID_MUTATORS.some(m => m.id === "flatten"));
   for (const inst of TYPES) {
     const n = avail(inst).length;
-    assert.ok(n >= 22 && n <= 24, `${inst.key}: ${n}`);
+    assert.ok(n >= 23 && n <= 25, `${inst.key}: ${n}`);
+    assert.ok(avail(inst).some(m => m.id === "add"), `${inst.key}: every grid is Ranked, so add is there`);
   }
-  assert.equal(avail(inst5).length, 23);
+  assert.equal(avail(inst5).length, 24);
   // A mono board drops every mutator that needs a choice of colours (paint stays: painting the one colour is a no-change).
   for (const inst of MONO_TYPES) {
     const ids = avail(inst).map(m => m.id);
@@ -82,13 +93,17 @@ test("every mutator × every GridType: deterministic, valid, idempotent or bijec
         for (const g of grids) {
           const k0 = key(g), y = m.apply(g, p, inst), y2 = m.apply(g, p, inst);
           assert.equal(key(g), k0, `${m.id} mutated its input`);
+          if (PARTIAL[m.id] && y === null) { assert.equal(y2, null, `nondeterministic ${m.id}`); continue; }
           assert.ok(y !== null && y2 !== null, `${m.id} returned null`);
           assert.equal(key(y), key(y2), `nondeterministic ${m.id}`);
           assert.equal(y.sym.length, N * N);
           assert.ok(y.sym.every(v => v < S) && y.col.every(v => v < C), `${m.id} invalid output on ${inst.key}`);
           const e = m.erasureBits(g, p, inst);
           assert.ok(Number.isFinite(e) && e >= 0, `${m.id} erasure ${e}`);
-          if (m.kind === "bijective") {
+          if (PARTIAL[m.id]) {
+            assert.equal(e, 0);
+            assert.equal(key(m.apply(y, PARTIAL[m.id](p), inst)!), k0, `${m.id} ${JSON.stringify(p)}: the inverse call does not undo it on ${inst.key}`);
+          } else if (m.kind === "bijective") {
             assert.equal(e, 0);
             assert.ok(orbitReturns(m, p, g, inst), `${m.id} ${JSON.stringify(p)} is not a bijection on ${inst.key}`);
           } else {
@@ -106,7 +121,9 @@ test("bijections are injective on many grids (Grid(4,base10,rgb))", () => {
   for (const m of avail(inst).filter(x => x.kind === "bijective")) {
     for (let s = 0; s < 10; s++) {
       const p = m.sample(rng, inst);
-      assert.equal(new Set(gs.map(g => key(m.apply(g, p, inst)!))).size, new Set(gs.map(key)).size, `${m.id} ${JSON.stringify(p)}`);
+      // a partial mutator (add) is injective on the grids it applies to
+      const on = PARTIAL[m.id] ? gs.filter(g => m.apply(g, p, inst) !== null) : gs;
+      assert.equal(new Set(on.map(g => key(m.apply(g, p, inst)!))).size, new Set(on.map(key)).size, `${m.id} ${JSON.stringify(p)}`);
     }
   }
 });
@@ -180,7 +197,7 @@ test("act costs are the elementary decomposition of what changed, W + βW² (doc
   }
   // the naming part of a literal move (summon price) is deterministic: log2 #available + D (+ M)
   const p = { kind: "line", region: [0, 2], colour: 0 };
-  assert.ok(Math.abs(decisionBits(byId("paint"), p, inst5, 23) - (Math.log2(23) + Math.log2(8) + Math.log2(10) + 2)) < 1e-12);
+  assert.ok(Math.abs(decisionBits(byId("paint"), p, inst5, 24) - (Math.log2(24) + Math.log2(8) + Math.log2(10) + 2)) < 1e-12);
 });
 
 // ------------------------------------------------------------------------------------------------
@@ -197,7 +214,7 @@ const calls = [
   recolour(column(0), "red", grid.palette[2]), swapColours(ring(0), grid.palette[2], "red"), rainbowStep(grid.cell(1, 1), -1),
   rainbowLine(row(0), "red", true), alternateLine(column(2), "red", grid.palette[1]), stripes("red", true), diagonalRainbow("red"),
   chessboard("red", grid.palette[1]), majority(busiestLine()), majority(grid.columns[0]), write(grid.cell(1, 1), grid.cell(0, 0).symbol),
-  countOn(everything(), 3), countAlong(row(0), grid.cell(2, 2).value), swapNumbers(row(1), 1, "2"),
+  countOn(everything(), 3), add(grid.cell(1, 1)), add(row(0), -2), countAlong(row(0), grid.cell(2, 2).value), swapNumbers(row(1), 1, "2"),
   paintEvenOdd(everything(), "red", grid.palette[1]), paintByNumber(row(0), 1),
   stamp(everything(), "red", grid.cell(0, 0).symbol),
 ];
@@ -219,7 +236,7 @@ def agent(grid):
         recolour(column(0), "red", grid.palette[2]), swap_colours(ring(0), grid.palette[2], "red"), rainbow_step(grid.cell(1, 1), -1),
         rainbow_line(row(0), "red", True), alternate_line(column(2), "red", grid.palette[1]), stripes("red", True), diagonal_rainbow("red"),
         chessboard("red", grid.palette[1]), majority(busiest_line()), majority(grid.columns[0]), write(grid.cell(1, 1), grid.cell(0, 0).symbol),
-        count_on(everything(), 3), count_along(row(0), grid.cell(2, 2).value), swap_numbers(row(1), 1, "2"),
+        count_on(everything(), 3), add(grid.cell(1, 1)), add(row(0), -2), count_along(row(0), grid.cell(2, 2).value), swap_numbers(row(1), 1, "2"),
         paint_even_odd(everything(), "red", grid.palette[1]), paint_by_number(row(0), 1),
         stamp(everything(), "red", grid.cell(0, 0).symbol),
     ]
@@ -244,7 +261,8 @@ test("JS guest constructors produce calls the engine accepts, one by one, in eve
   for (const inst of TYPES) {
     const g = GRID.codec(inst).encode(GRID.spawn(inst, rng));
     const calls = JSON.parse(jsCalls(inst, g as string)) as [string, Record<string, unknown>][];
-    assert.ok(calls.length >= 38);
+    assert.ok(calls.length >= 40);
+    assert.ok(JSON.stringify(calls).includes(`["add",{"k":1,"kind":"cell","region":[1,1]}],["add",{"k":-2,"kind":"line","region":[0,0]}]`), inst.key);
     for (const c of calls) {
       const m = byId(c[0]);
       assert.doesNotThrow(() => m.parse(c[1], inst), `${inst.key} ${JSON.stringify(c)}`);

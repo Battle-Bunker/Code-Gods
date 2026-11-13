@@ -8,7 +8,7 @@
  */
 import { createHash, createHmac, randomBytes } from "node:crypto";
 import {
-  DEFAULT_SETTINGS, allowedLanguages, SettingsChangeError, applySettingsChange, instantiationOf, netBits, softHinge, upgradeStoredSettings, validateSettings,
+  DEFAULT_SETTINGS, SETTINGS_FIELDS, allowedLanguages, SettingsChangeError, applySettingsChange, canonicalCostModel, instantiationOf, netBits, softHinge, upgradeStoredSettings, validateSettings,
   type GameSettings, type ObjectValue,
 } from "@workspace/game-core";
 import { objectType, type Rng } from "@workspace/game-types";
@@ -264,19 +264,20 @@ export function assertPlayable(manifest: CalibrationManifest, settings: GameSett
 }
 
 /**
- * A complete settings object (a game setup): exactly the GameSettings fields, playable. The single-language shape of
+ * A complete settings object (a game setup): exactly the GameSettings fields (the optional ones may be absent), playable. The single-language shape of
  * settings saved before games allowed several languages is accepted as that one language, and a field added since with a
  * default (scoreIntervalSeconds) is filled with it (upgradeStoredSettings).
  */
 export function assertCompleteSettings(manifest: CalibrationManifest, given: unknown): GameSettings {
   if (!given || typeof given !== "object" || Array.isArray(given)) return fail("BAD_REQUEST", "settings must be a settings object");
-  const settings = upgradeStoredSettings(given) ?? given;
+  // The optional fields (costModel) may be absent; the cost model is stored in its one spelling (the default never).
+  const settings = canonicalCostModel((upgradeStoredSettings(given) ?? given) as GameSettings);
   const keys = Object.keys(settings), fields = Object.keys(DEFAULT_SETTINGS);
-  const unknown = keys.filter(k => !fields.includes(k)), missing = fields.filter(k => !keys.includes(k));
+  const unknown = keys.filter(k => !SETTINGS_FIELDS.includes(k)), missing = fields.filter(k => !keys.includes(k));
   if (unknown.length) fail("BAD_REQUEST", `Unknown settings: ${unknown.join(", ")}`);
   if (missing.length) fail("BAD_REQUEST", `A setup has every setting; missing: ${missing.join(", ")}`);
-  assertPlayable(manifest, settings as GameSettings);
-  return settings as GameSettings;
+  assertPlayable(manifest, settings);
+  return settings;
 }
 
 /**
