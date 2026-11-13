@@ -8,6 +8,7 @@ import type { CardText, GridSpec } from "../_util.ts";
 import { fromFn, full, gridFamily, pyCard, sentences, tsCard, tuple, wire } from "../_util.ts";
 import { tierPoints } from "../../../tuples.ts";
 import { pairTop, type Pair } from "./_pairs.ts";
+import { foldTotal, linesSum, windowsSum, type GridTiers, type TierValue } from "../tiers.ts";
 
 type CrossP = Record<string, never>;
 
@@ -36,7 +37,53 @@ const crossText = (g: GridSpec): CardText => ({
   ),
 });
 
+/**
+ * Tiers (docs/layered-rules-design.md §5.3; docs/layered-rules-measurements/crosswise-threes.md): "lines add up to x"
+ * and "2×2 squares add up to x". The base reads differences only, so turning every number v into (S−1) − v leaves it
+ * alone and takes a total of k cells to k(S−1) − x: x folds with 36 − x on 4×4 digits, for lines and squares alike.
+ *
+ * Why these interact with this base rather than sit beside it: the base pairs 12 of the 16 cells across the fold and
+ * leaves the 4 cells of the fold line free, and every row and every column holds exactly one free cell — the same one,
+ * since the fold line's cell in row r is the one in column N−1−r. So the free cells cannot tune a row and its column
+ * apart, and the ↙ diagonal is the fold line itself, four free cells, while the ↘ diagonal is two folded pairs.
+ */
+export const threesTiers: GridTiers<CrossP> = {
+  interactions: [
+    { ...linesSum, canonical: foldTotal("lines", g => g.N * g.vmax) },
+    { ...windowsSum, canonical: foldTotal("squares", g => 4 * g.vmax) },
+  ],
+  // The base's greedy ten-move level (scripts/tier-sweep.ts crosswise_threes --gate): every pair, on 400 of 400 starts.
+  gate: g => crosswisePairs(g.N).length,
+  gateText: gate => `${gate} pairs ${APART} apart`,
+  dealt: g => (g.N === 4 && g.base === 10 ? THREES_DEALT : []),
+  lab: g => (g.N === 4 && g.base === 10 ? THREES_LAB : []),
+  base: (_p, g) => ({
+    id: "crosswise-threes-pairs@1", symbols: g.S, cells: g.N * g.N, arity: 2,
+    units: crosswisePairs(g.N).map(([a, b]) => [a.r * g.N + a.c, b.r * g.N + b.c]),
+    score: ([a, b]) => {
+      const off = Math.abs(Math.abs(g.value[a] - g.value[b]) - APART);
+      return [off === 0 ? 1 : 0, -off];
+    },
+  }),
+};
+/**
+ * The values dealt on 4×4 digits (measured, docs/layered-rules-measurements/crosswise-threes.md): each is alive at the
+ * base's top, adds 15.3 to 19.7 bits over it (the band is 6 to 20) and tops at 5 or 6 of the 10 lines, and their tops
+ * stay within 14% of each other (equal opportunity, test/equal-opportunity.test.ts). Line totals below 11 all reach
+ * further than that — the base leaves four cells free, which is room enough to make low lines common — and every
+ * squares value does, so this base carries one dealt interaction.
+ */
+const THREES_DEALT: readonly TierValue[] = [11, 12, 13, 14, 15, 16, 17, 18].map(x => ({ id: "lines", x }));
+/**
+ * Lab ("uncapped"): alive, but reaching past the band. Lines of 9 and 10 add 20.1 and 21.2 bits where the dealt values
+ * add at most 19.7; the gentlest squares values, 17 and 18, add 21.0 and 20.8, and every other squares value more.
+ */
+const THREES_LAB: readonly TierValue[] = [
+  ...[9, 10].map(x => ({ id: "lines", x })), ...[17, 18].map(x => ({ id: "squares", x })),
+];
+
 export const crosswiseThrees = gridFamily<CrossP>({
+  tiers: threesTiers,
   id: "crosswise_threes", name: "Crosswise Threes", emoji: "↙️", theme: "Fold corner to corner: numbers 3 apart",
   // Numbers, not cards; up to 6×6 keeps the calibrated shapes modest. Any parity: the fold line is a diagonal.
   requires: { classes: ["Numeral"], minSize: 4, maxSize: 6 }, shape: tuple(2), tags: ["beginner"],

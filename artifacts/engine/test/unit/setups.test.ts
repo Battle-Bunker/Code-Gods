@@ -96,7 +96,7 @@ test("the tiered seeds, Lab ones included: each has a pool and deals only tiered
   const { instantiate, seededRng } = await import("@workspace/game-types");
   const tiered = ALL_SEED_SETUPS.filter(s => s.settings.ruleTiers);
   assert.ok(tiered.some(s => s.seedId === TIERED_RULES_SEED_ID && !s.lab), "Tiered rules is for everyone");
-  assert.deepEqual(tiered.filter(s => s.lab).map(s => s.seedId), ["lab-tiers-plain", "lab-tiers-unlock", "lab-tiers-uncapped"]);
+  assert.deepEqual(tiered.filter(s => s.lab).map(s => s.seedId), ["lab-tiers-plain", "lab-tiers-unlock", "lab-tiers-expert", "lab-tiers-uncapped"]);
   for (const s of tiered) {
     const inst = instantiate(s.settings.objectType, s.settings.typeArgs), tiers = s.settings.ruleTiers!;
     const pool = availableFamilies(inst, "reward", s.settings.excludedFamilies, tiers);
