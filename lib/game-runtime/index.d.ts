@@ -121,8 +121,11 @@ export class RuntimeError extends Error {
 export type PythonAssets = Uint8Array | ArrayBuffer | string | (() => Promise<Uint8Array | ArrayBuffer>);
 /** How one act queues for a worker. */
 export interface RequestOptions {
-  /** Queue behind every foreground request (arrival order within each lane): work no game's tick is waiting for. */
-  background?: boolean;
+  /**
+   * The queue's order: 0 (default: a game's tick), then 1 (a person waiting: validate, summon), then 2 (background: an
+   * AI seat's examinations); arrival order within each.
+   */
+  priority?: 0 | 1 | 2;
   /** Epoch ms: if no worker has taken the request by then it fails with CAPACITY (a running request is not interrupted). */
   deadline?: number;
 }

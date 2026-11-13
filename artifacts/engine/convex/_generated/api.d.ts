@@ -68,6 +68,7 @@ import type * as crons from "../crons.js";
 import type * as dock from "../dock.js";
 import type * as engine_background from "../engine/background.js";
 import type * as engine_calibration from "../engine/calibration.js";
+import type * as engine_examinationCache from "../engine/examinationCache.js";
 import type * as engine_hold from "../engine/hold.js";
 import type * as engine_holdData from "../engine/holdData.js";
 import type * as engine_loop from "../engine/loop.js";
@@ -211,6 +212,7 @@ declare const fullApi: ApiFromModules<{
   dock: typeof dock;
   "engine/background": typeof engine_background;
   "engine/calibration": typeof engine_calibration;
+  "engine/examinationCache": typeof engine_examinationCache;
   "engine/hold": typeof engine_hold;
   "engine/holdData": typeof engine_holdData;
   "engine/loop": typeof engine_loop;

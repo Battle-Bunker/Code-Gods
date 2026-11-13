@@ -11,7 +11,7 @@ import type { Language } from "@workspace/game-core";
 import { EXAMINATION_DEADLINE_MS, envelopeSchema, type CommandResult } from "@workspace/player-client";
 import { internal } from "./_generated/api";
 import { action, internalAction, type ActionCtx } from "./_generated/server";
-import { AgentFault, examineAgent } from "./engine/pricing";
+import { AgentFault, examinationKey, examineAgent, type StoredExamination } from "./engine/pricing";
 import { withBackgroundSlot } from "./engine/background";
 import { EXAMINATION_WAIT_MS } from "./lib/background";
 import { envelopeHash } from "./game/commands";
@@ -49,9 +49,17 @@ export async function runEnvelope(ctx: ActionCtx, roomId: string, raw: unknown, 
       // A person (the forge, the assistant's validate_agent, an agent tool) is waiting: under a congested sandbox queue
       // the examination is given up at its deadline and the caller told so. An AI seat's turn has its own bounds.
       const examine = prepared.examine, asked = Date.now();
-      const examineNow = () => examineAgent(ctx, examine.settings, command.language, command.source, examine.live, asAi ? undefined : asked + EXAMINATION_DEADLINE_MS);
+      // The program's remembered runs (lib/examinationCache.ts). When they answer the whole examination (a summon
+      // after its validate, an example another player already examined on the same objects), nothing runs in the
+      // sandbox and no slot is needed: the answer is immediate however busy the deployment is.
+      const stored = await ctx.runQuery(internal.engine.examinationCache.get, { key: examinationKey(examine.settings, command.language, command.source) }) as StoredExamination;
+      const who = asAi ? { lane: "background" as const, stored } : { lane: "human" as const, deadline: asked + EXAMINATION_DEADLINE_MS, stored };
+      const remembered = !stored ? undefined
+        : await examineAgent(ctx, examine.settings, command.language, command.source, examine.live, { ...who, cacheOnly: true }).catch(() => undefined);
+      const examineNow = () => examineAgent(ctx, examine.settings, command.language, command.source, examine.live, who);
       // An AI seat's turn already holds its own slot (ai/turn.ts): its examinations run under that one.
-      const ran = asAi ? { busy: false as const, value: await examineNow() }
+      const ran = remembered ? { busy: false as const, value: remembered }
+        : asAi ? { busy: false as const, value: await examineNow() }
         // The wait for a slot counts towards the deadline: the caller's own (the app's) starts when it asked.
         : await withBackgroundSlot(ctx, "examination", EXAMINATION_WAIT_MS, () => within(examineNow(), EXAMINATION_DEADLINE_MS - (Date.now() - asked)));
       if (ran.busy) fail("UNAVAILABLE", "The agent sandbox is busy with other players' agents: nothing was validated, summoned or paid. Send the same command again in a few seconds.");

@@ -112,6 +112,16 @@ export const gameTables = {
   holdTables: defineTable({ key: v.string(), table: v.any(), computedAt: v.number() }).index("by_key", ["key"]),
 
   /**
+   * The examination cache (lib/examinationCache.ts): per agent program (the key hashes its text, language, the room's
+   * sandbox rules, the season and the runtime), its inspection and its deterministic runs on objects. Engine only; holds
+   * no player, room or goal.
+   */
+  examinationRuns: defineTable({
+    key: v.string(), inspection: v.any(), usedAt: v.number(),
+    runs: v.array(v.object({ k: v.string(), calls: v.string(), usedRandom: v.boolean(), steps: v.optional(v.number()), readBits: v.optional(v.number()) })),
+  }).index("by_key", ["key"]).index("by_usedAt", ["usedAt"]),
+
+  /**
    * The background jobs running now (engine/background.ts): one row per agent examination, hold computation or AI
    * seat turn in flight, at most lib/background.ts BACKGROUND_LIMITS of each kind live. Engine only; a few rows at any time.
    */

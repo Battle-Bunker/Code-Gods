@@ -25,17 +25,17 @@ const failure = (error: unknown) => {
 export const run = internalAction({
   args: {
     language: languageV, settings: v.any(), requests: v.array(v.object({ source: v.string(), input: v.union(v.string(), v.number()), seed: v.string() })),
-    /** The lane (engine/runtime.ts ActLane): `background` acts wait for every tick's; past `deadline` an act not yet started fails with CAPACITY. */
-    background: v.optional(v.boolean()), deadline: v.optional(v.number()),
+    /** The lane (engine/runtime.ts ActLane): absent, a tick's acts; past `deadline` an act not yet started fails with CAPACITY. */
+    lane: v.optional(v.union(v.literal("human"), v.literal("background"))), deadline: v.optional(v.number()),
   },
-  handler: async (ctx, { language, settings, requests, background, deadline }): Promise<{ replies: ActReply[] } & Memory> => {
+  handler: async (ctx, { language, settings, requests, lane: who, deadline }): Promise<{ replies: ActReply[] } & Memory> => {
     const startMiB = rssNow();
     if (requests.length > ACT_BATCH) throw new Error(`At most ${ACT_BATCH} acts per call`);
     if (language === "python") await bindRuntime(ctx);
     // One after another: the pool has one worker, and a queued act's wait is bounded (startupMs + deadlineMs), so a
     // batch of slow agents must not expire the acts behind them.
     const replies: ActReply[] = [];
-    const lane = { ...(background ? { background } : {}), ...(deadline !== undefined ? { deadline } : {}) };
+    const lane = { ...(who ? { lane: who } : {}), ...(deadline !== undefined ? { deadline } : {}) };
     for (const { source, input, seed } of requests) {
       try { replies.push({ ok: true, ...await actHere(ctx, source, language, input, settings, seed, lane) }); }
       catch (error) { replies.push(failure(error)); }

@@ -103,23 +103,25 @@ export function act(ctx: ActionCtx, source: string, language: StoredLanguage, in
   });
 }
 /**
- * How an act queues for its sandbox (game-runtime RequestOptions). A game's tick is the foreground: it gives each act
- * the wave's `deadline` (past it nobody is waiting for the answer, so the sandbox drops the act instead of running
- * it late). Everything else that runs agents (validation, summon measurement, an AI seat's examinations) is
- * `background`: served after every tick's acts.
+ * How an act queues for its sandbox (game-runtime RequestOptions). `lane`: who waits for it. A game's tick (the
+ * default) goes first and gives each act the wave's `deadline` (past it nobody is waiting for the answer, so the
+ * sandbox drops the act instead of running it late). "human": a person's validate or summon (the assistant's on a
+ * person's behalf included), served right behind ticks. "background": an AI seat's examinations, after both.
  */
-export type ActLane = { background?: boolean; deadline?: number };
+export type ActLane = { lane?: "human" | "background"; deadline?: number };
+const PRIORITY = { tick: 0, human: 1, background: 2 } as const;
 type ActRequest = { source: string; input: string | number; seed: string; lane: ActLane; resolve: (result: ActResult) => void; reject: (error: unknown) => void };
 /** Acts waiting to be sent, per action, room settings and language. */
 const actQueues = new WeakMap<ActionCtx, Map<GameSettings, Map<Language, ActRequest[]>>>();
 async function sendActs(ctx: ActionCtx, language: Language, settings: GameSettings, batch: ActRequest[]): Promise<void> {
   let replies: Awaited<ReturnType<typeof ctx.runAction<typeof internal.runtime.acts.run>>>["replies"];
   try {
-    // One lane per batch: background only when every act is; the earliest deadline.
+    // One lane per batch: the most urgent of its acts'; the earliest deadline.
     const deadlines = batch.flatMap(r => (r.lane.deadline !== undefined ? [r.lane.deadline] : []));
+    const lane = batch.some(r => !r.lane.lane) ? undefined : batch.some(r => r.lane.lane === "human") ? "human" as const : "background" as const;
     ({ replies } = await ctx.runAction(internal.runtime.acts.run, { language, settings,
       requests: batch.map(({ source, input, seed }) => ({ source, input, seed })),
-      ...(batch.every(r => r.lane.background) ? { background: true } : {}), ...(deadlines.length ? { deadline: Math.min(...deadlines) } : {}) }));
+      ...(lane ? { lane } : {}), ...(deadlines.length ? { deadline: Math.min(...deadlines) } : {}) }));
   } catch (error) {
     // The call itself failed (the other action ran out of memory, or the deployment refused it): the host's failure.
     const failure = Object.assign(new Error(`The ${LANGUAGE_SPECS[language].label} runtime is unavailable: ${(error as Error)?.message ?? error}`), { code: "UNAVAILABLE" });
@@ -136,12 +138,13 @@ async function sendActs(ctx: ActionCtx, language: Language, settings: GameSettin
 /** One act on this instance's pool of its language (runtime/acts.ts only). */
 export async function actHere(ctx: ActionCtx, source: string, language: Language, input: string | number, settings: GameSettings, seed: string, lane: ActLane = {}): Promise<ActResult> {
   const room = actSettings(settings);
+  const options = { priority: PRIORITY[lane.lane ?? "tick"], ...(lane.deadline !== undefined ? { deadline: lane.deadline } : {}) };
   if (language === "typescript") {
     // The program first (another action compiles it), then this instance's pool runs it.
     const { js } = await compiledProgram(ctx, language, source, settings);
-    return runtimeFor(language).actCompiled(source, js, input, room, seed, lane).catch(serverBug);
+    return runtimeFor(language).actCompiled(source, js, input, room, seed, options).catch(serverBug);
   }
-  return runtimeFor(language).act(source, input, room, seed, lane).catch(serverBug);
+  return runtimeFor(language).act(source, input, room, seed, options).catch(serverBug);
 }
 
 type KnownProgram = Compiled | { error: { code: string; message: string } };
