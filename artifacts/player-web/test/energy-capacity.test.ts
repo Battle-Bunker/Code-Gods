@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { plain } from "../src/core/panels/agent-labels.ts";
-import { destroyReturnsLine, fullStoreAdvice, fullStoreOneAgent, overdraft, overdraftTone, spendsAsItEarns, agentDebtDetail, agentDebtLine, destroyDebtLine, fillText, fullIn, owedText, owes, ownEnergyLine, ownStoreFull, shareCapacityLines, storeFraction, storeState, storedLine } from "../src/core/panels/energy-capacity.ts";
+import { workingEnergyLine, destroyReturnsLine, fullStoreAdvice, fullStoreOneAgent, overdraft, overdraftTone, spendsAsItEarns, agentDebtDetail, agentDebtLine, destroyDebtLine, fillText, fullIn, owedText, owes, ownEnergyLine, ownStoreFull, shareCapacityLines, storeFraction, storeState, storedLine } from "../src/core/panels/energy-capacity.ts";
 
 // Hand-derived: power 64 bits/s, full charge 30 s. A 25% agent earns 16 bits/s and holds at most 16 × 30 = 480 bits.
 
@@ -201,4 +201,9 @@ test("the full-store advice with 'Give NAME more power' is only for a player who
   assert.equal(fullStoreAdvice({ ...base, ended: true }), false);
   assert.equal(fullStoreAdvice({ ...base, agents: 2 }), false);
   assert.equal(fullStoreAdvice({ ...base, energy: 200 }), false, "not full");
+});
+
+test("a routine overdraft reads 'about 0 ⚡', not a bare negative number (a walker read '−8.9 ⚡' as broken)", () => {
+  assert.equal(plain(workingEnergyLine(-8.9)), "Energy about 0 ⚡");
+  assert.equal(plain(workingEnergyLine(3.2)), "Energy 3.2 ⚡", "above zero: the number");
 });
