@@ -172,3 +172,35 @@ Neither levels the pool. Equal tops moves the win to other rules (Crosswise Thre
 Mirrormancer falls to 1% under deny). Dropping the three outliers leaves Spread of Three on top under every policy.
 Because the winner turns on a few percent of points, no constant per rule can level every way of playing at once; see
 `docs/handover-integration.md` for the diagnosis and the fix proposed.
+
+## 6. The fix: the rules pass one seat along when a room plays again (2026-11-13)
+
+Measured first (3 players, model as §5, every god the same style; win share by rule, lowest to highest; raw tables in
+`docs/balance-results-2026-11-13/`):
+
+| Candidate | greedy | considerate | deny | Verdict |
+|---|---|---|---|---|
+| As shipped (develop of 13 Nov, 120 games) | 2% to 86% | – | – | the problem |
+| (a) **Par**: each rule scaled so reference greedy play holds 15 bits per object (`--equal-par 15`, par measured on 600 other deals: Mirrormancer 19.9 … Magic Eighteen 9.7) | 4% to 63% | 1% to 95% | 0% to 79% | rejected (`par3.txt`) |
+| (b) **Symmetric deal**: the same rule for everyone, turned or relabelled | – | – | – | impossible: under rotations, reflections and the digit complement 9 − d no beginner rule has more than 2 distinct variants (Opposite Nines, Two Pair, Spread of Three: 1), so two seats would hold the identical rule |
+| (c) **Fixed combinations**: every one of the 56 three-rule deals of the pool (`combos`, 60 games per style) | | | | rejected: 0 of 56 keep every rule within 20–45% for all three styles; the best (Leapfrog, Strangers, Crosswise Threes) is 65/10/25 under greedy. Inside one deal the winner is close to certain (100/0/0 in 39 of 56 deals under greedy) (`combos3.txt`) |
+| (c) narrower dealt parameters | | | | nothing to narrow: only Magic Eighteen has a parameter (rows or columns) |
+| (e) the bid phase (docs/bid-phase.md §3, §5) | 41 → 9 to 22 points of spread | | | needs accurate bids, measured for greedy tables only; a lone low bidder takes the best rule |
+
+**What the measurements say.** Par equalised every rule's own bits (14.7 to 15.6 per object) and Mirrormancer still won
+4% under greedy. The winner is set by how a rule's high-scoring boards line up with the other two rules' (its conflict
+with them, docs/rule-difficulty.md SYN) together with the table's style, not by how many bits it holds; so no constant
+per rule and no choice of deal levels a single game for every way of playing.
+
+**Shipped: (d) as a dealer change, no rule or score changes.** When a room plays again with the same players and the
+same dealing settings, the last game's rules pass one seat along (each player gets the rule of the player before them
+in the last game's order), until everyone has held every rule; the next game is then dealt afresh. The goal card says
+"Game 2 of 3: Alice held this rule last game. The rules pass one player along each game, so everyone holds each rule
+once." A deal made with bids is never rotated. The first game is exactly as before. Fair over a round of P games by
+construction (each player holds each of the P rules once, against the same table); within one game the dealt rule
+still matters as in §5. Code: `artifacts/engine/convex/lib/dealRotation.ts` (stateless: it reads the room's last 8
+games), tests `test/unit/deal-rotation.test.ts`, `test/game-deal-rotation.test.ts`.
+
+**Style, not rule.** Mixed tables, single games, rules and seats rotated (150 games, `tables3-mixed.txt`): one `deny`
+among two cooperators wins 95%, among two `considerate` 100%; one `considerate` among two greedy 0%; one `payoff`
+among two greedy 10%. Rotation does not touch this: it is the coordination problem of docs/coordination-incentives.md.
