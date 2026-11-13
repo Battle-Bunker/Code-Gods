@@ -168,7 +168,7 @@ export const observationSchema = z.object({
     // the object, or failed by kind (collision: another object already had the value; noChange; commit: the commit
     // clause kept the object; invalid call; error: the code raised or timed out), with the last invalid call or error.
     outcomes: z.object({ transforms: z.number().int().nonnegative(),
-      failures: z.object({ collision: count, noChange: count, commit: count, invalid: count, error: count }),
+      failures: z.object({ collision: count, noChange: count, commit: count, invalid: count, error: count, unaffordable: count.optional() }),
       lastFailures: z.object({ invalid: z.string().max(300).optional(), error: z.string().max(300).optional() }).optional() }).optional(),
     // "38 of 38 acts failed: another object already has this value", and when most acts fail, why and how to fix it.
     diagnosis: z.object({ summary: z.string().max(500), hint: z.string().max(600).optional() }).optional() })).max(200),
@@ -211,6 +211,9 @@ export const resultSchema = z.object({
   // time of the look and, for one object, the object as it is then (your own bits, the others' sum as disclosed, payoff).
   look: z.object({ looked: z.number().int().nonnegative(), price: finite, energy: finite, worldSeconds: finite,
     object: z.object({ id, value: wire, version: z.number().int().nonnegative(), own: z.object({ netBits: finite }), peerNetBits: finite, peerCare: finite, payoff: finite }).optional() }).optional(),
+  // A destroy or an allocatePower that moved debt with the power (docs/energy-model.md §7.2): the bits that moved from
+  // the agent onto your own energy (negative: from your own energy onto the agent). Absent when nothing was owed.
+  owed: finite.optional(),
 });
 export type CommandResult = z.infer<typeof resultSchema>;
 /** Room-credential permissions, weakest first: read < act < owner. */

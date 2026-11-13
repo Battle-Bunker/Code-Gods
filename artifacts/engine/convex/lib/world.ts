@@ -51,8 +51,11 @@ export const EVENTS_PER_BATCH = 400;
  * "set-v1", whatever the settings say. A game without the setting (every game started before 12) is "set-v1" too, so a
  * game that was running across the deploy changes its stamp and nothing else. Replay reads recorded costs and never
  * re-prices.
+ * 13 marks debt within capacity (docs/energy-model.md §7.2): a change that would leave the agent owing more than it can
+ * hold fails ("could not afford this change"), and `power` and `destroy` events carry `owed`, the debt that moved with
+ * the power between the agent and its god's own account. Replay applies the recorded amount.
  */
-export const EVENT_LOG_SCHEMA = 12;
+export const EVENT_LOG_SCHEMA = 13;
 
 export type Clock = {
   phase: "planning" | "running" | "paused" | "recovery" | "ended";
