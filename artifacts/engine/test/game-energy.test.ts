@@ -63,8 +63,9 @@ test("a skipper pays only what it read, never fails, is never futile, and has no
   const obs = observationSchema.parse(await ada.c.query(api.player.observation, { roomId }));
   const [mine] = obs.agents;
   assert.ok((mine.skips ?? 0) > 0);
-  // The summon-time estimate is of the act alone (the offer's price depends on how many objects are live).
-  assert.ok(Math.abs(mine.breakdown.read - (digit - offer)) < 1e-6, JSON.stringify(mine.breakdown));
+  // The summon-time estimate includes the turn itself (the 5 objects the game held when it was summoned): what it pays.
+  assert.ok(Math.abs(mine.breakdown.read - digit) < 1e-6, JSON.stringify(mine.breakdown));
+  assert.ok(Math.abs(mine.expectedActCost - digit) < 1e-6, "a skipper is told what each turn costs it, not 0");
   assert.equal(obs.economy?.changeReadRatio, CHANGE_READ_RATIO);
   assert.equal(mine.breakdown.change, 0);
   assert.equal(mine.outcomes?.transforms ?? 0, 0);

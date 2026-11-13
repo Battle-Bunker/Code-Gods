@@ -38,8 +38,8 @@ export const catalogOf = (catalog: unknown): UtilityFamily[] => (Array.isArray(c
 export type OfferedInfo = OfferedLike;
 /** A playable shape (manifest.get `playable`): its first game's preparation here, and whether synergy is measured. */
 export type PlayableInfo = OfferedInfo & { prepare: { toCompute: number; seconds: number } | null; synergy: string[] };
-export interface ObjectTypeInfo extends ObjectTypeInfoLike<OfferedInfo> {
-  /** Every shape a room may choose (tables are prepared on demand); `offered` lists those whose tables are all shipped. */
+export interface ObjectTypeInfo extends Omit<ObjectTypeInfoLike<OfferedInfo>, "offered"> {
+  /** Every shape a room may choose (tables are prepared on demand); one whose tables are all shipped has `prepare: null`. */
   playable: PlayableInfo[];
   label: string; emoji: string; kid: string;
   classes: { id: string; slot: string; superclasses?: string[]; badge: { id: string; emoji: string; label: string; kid: string } }[];

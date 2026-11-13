@@ -9,7 +9,7 @@ import { ConvexError, v } from "convex/values";
 import { boardsLive, godLooks, lookPriceOf, paidLive } from "../lib/knowledge";
 import { viewRowOf } from "../lib/views";
 import { syncRows } from "./objectViews";
-import { allowedLanguages, assertShare, defaultShare, newAgentAccount, roundShare, spendDeityEnergy, upgradeStoredSettings, type GameSettings, type Language } from "@workspace/game-core";
+import { READ_PRICE, offerReadBits, allowedLanguages, assertShare, defaultShare, newAgentAccount, roundShare, spendDeityEnergy, upgradeStoredSettings, type GameSettings, type Language } from "@workspace/game-core";
 import { sha256 } from "@workspace/game-types";
 import { GAME_COMMANDS, envelopeSchema, type CommandResult, type Envelope } from "@workspace/player-client";
 import type { Doc, Id } from "../_generated/dataModel";
@@ -218,7 +218,12 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
   if (command.type === "validate" || command.type === "summon") {
     if (!examined || examined.gameId !== game._id || examined.source !== command.source || examined.language !== command.language) fail("UNAVAILABLE", "The agent could not be examined; retry");
     if (examined.error !== undefined || !examined.result) return fail("BAD_REQUEST", examined.error ?? "Examination failed");
-    const e = examined.result;
+    // The estimate per act includes the turn itself (docs/energy-model.md §7.1): being given an object is a read of which
+    // of the live objects it is, at the read price. The examination measures the act alone, so it is added here, from
+    // the number of objects the game holds now. Without it a skipper was told "0 bits per act" and then paid for every turn.
+    const turn = offerReadBits(game.objectCount) * READ_PRICE;
+    const e = { ...examined.result, expectedActCost: examined.result.expectedActCost + turn,
+      breakdown: { read: examined.result.breakdown.read + turn, change: examined.result.breakdown.change } };
     // Copies of the player's own live agents: the same code acts the same way on the same objects.
     const twins = examined.twins ?? 0;
     const warnings = [...(e.warnings ?? []), ...(twins ? [copiesWarning(twins, e.futility)] : [])];
