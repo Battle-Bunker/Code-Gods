@@ -11,6 +11,7 @@ import { instantiate, seededRng } from "@workspace/game-types";
 import { context, evaluator, family, FAMILIES, paramsKey } from "../src/catalog.ts";
 import { addsUp, aimAt, explainer, groupOf, hitTest, lensFor, readBoard, type Explanation } from "../src/explain/index.ts";
 import { TIER_LENSES, tieredLens } from "../src/explain/tier-lenses.ts";
+import { ruleScoreWording, usesReservedPoints } from "../src/card-text.ts";
 import { gridSpec } from "../src/families/grid/_util.ts";
 import { baseParams, withTiers } from "../src/families/grid/tiers.ts";
 import { ninesTiers } from "../src/families/grid/beginner/opposite_nines.ts";
@@ -375,5 +376,27 @@ test("the search for one never hands back a board below the gate, on any shape (
       }
     }
     assert.ok(checked > 90, `${colours}: only ${checked} draws checked`);
+  }
+});
+
+test("an open ★ tier that scores nothing says which unit comes nearest; one that scores says nothing extra", () => {
+  // Above the gate the board used to be told only "★ Open: <what the tier wants>", with no sense of how near it was:
+  // a player had to read the whole unit list. Some of these tiers take a plan rather than one more cell (a one-cell
+  // climber gets none of ✌️ Two Pair's linked boxes), so the nearest unit is the whole of their foothold.
+  for (const familyId of ["two_pair", "crosswise_threes", "opposite_nines", "mirrormancer"]) {
+    const f = family(familyId), p = f.tiered!(CTX, 1)[0] as Params;
+    const e = explainer({ familyId, params: p }, INST)!;
+    // The base's exemplar maxes the base (so the tier is open) and is not built for the tier.
+    const top = e.explain(f.exemplar!(baseParams(p) as never, CTX))!.tiers![0];
+    assert.equal(top.open, true, familyId);
+    assert.equal(top.short, 0, familyId);
+    assert.equal(top.scored, 0, `${familyId}: the exemplar is not built for the tier`);
+    assert.ok(top.nearest, `${familyId}: an open tier that scores nothing names its nearest unit`);
+    assert.match(top.nearest!, /\.$/, `${familyId}: a sentence (${top.nearest})`);
+    assert.ok(!usesReservedPoints(ruleScoreWording(top.nearest!)), `${familyId}: ${top.nearest}`);
+    // The goal example does score the tier, so it needs no nearest line: the units in the list say it.
+    const scoring = e.explain(e.example()!.value)!.tiers![0];
+    assert.ok(scoring.scored > 0, familyId);
+    assert.equal(scoring.nearest, undefined, `${familyId}: a scoring tier says nothing extra`);
   }
 });

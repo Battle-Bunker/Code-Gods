@@ -321,11 +321,23 @@ export function tieredLens(base: Lens, blocksOf: (p: Params) => readonly CardTie
       const pl = plan(p, b);
       if (!pl) return undefined;
       const baseParts = base.parts(baseParams(p), b), got = reached(baseParts), [one, many] = baseUnit(p, b, baseParts);
+      const bp = baseParams(p);
       return pl.tiers.map((t): TierStatus => {
         const short = Math.max(0, t.block.gate - got), names = t.lens.components(t.value, b).join(", ");
+        if (short > 0) {
+          return {
+            id: t.block.id, index: t.block.index, arity: t.block.arity, gate: t.block.gate, open: false, short, scored: 0,
+            note: `${count(short, `more ${one}`, `more ${many}`)} to open ★: ${names}.`,
+          };
+        }
+        // Open: how many of its units score, and — when none does — which one comes nearest (`Part.heat`). Some of
+        // these tiers take a plan rather than one more cell, so the nearest unit is the whole of the player's foothold.
+        const units = t.lens.parts(t.value, b, bp), scored = units.filter(u => u.points.some(x => x > 0)).length;
+        const near = scored ? undefined : units.filter(u => (u.heat ?? 0) > 0).sort((x, y) => (y.heat ?? 0) - (x.heat ?? 0))[0];
         return {
-          id: t.block.id, index: t.block.index, arity: t.block.arity, gate: t.block.gate, open: short === 0, short,
-          note: short === 0 ? `★ Open: ${names}.` : `${count(short, `more ${one}`, `more ${many}`)} to open ★: ${names}.`,
+          id: t.block.id, index: t.block.index, arity: t.block.arity, gate: t.block.gate, open: true, short: 0, scored,
+          note: `★ Open: ${names}.`,
+          ...(near ? { nearest: `${near.title}${near.facts[0] ? ` — ${near.facts[0].text}` : ""}.` } : {}),
         };
       });
     },
