@@ -98,6 +98,7 @@ import type * as lib_aiModels from "../lib/aiModels.js";
 import type * as lib_aiNames from "../lib/aiNames.js";
 import type * as lib_background from "../lib/background.js";
 import type * as lib_deadline from "../lib/deadline.js";
+import type * as lib_dryRun from "../lib/dryRun.js";
 import type * as lib_engineErrors from "../lib/engineErrors.js";
 import type * as lib_errors from "../lib/errors.js";
 import type * as lib_examinationCache from "../lib/examinationCache.js";
@@ -244,6 +245,7 @@ declare const fullApi: ApiFromModules<{
   "lib/aiNames": typeof lib_aiNames;
   "lib/background": typeof lib_background;
   "lib/deadline": typeof lib_deadline;
+  "lib/dryRun": typeof lib_dryRun;
   "lib/engineErrors": typeof lib_engineErrors;
   "lib/errors": typeof lib_errors;
   "lib/examinationCache": typeof lib_examinationCache;

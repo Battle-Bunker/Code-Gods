@@ -22,6 +22,7 @@ import type { UtilityDescriptor } from "@workspace/game-utilities";
 import { useRoom } from "./context";
 import { createEvaluator, type Evaluator } from "./evaluator";
 import { advance, extendWith, freshHistory, lastPoints, pagesToShow, planWindows, type TrajectoryPage } from "./trajectory-windows";
+import { tablesKey } from "./tables-key";
 
 export type { Observation };
 export type LiveObject = Observation["objects"][number];
@@ -215,6 +216,8 @@ export function useMyAgents({ hz }: Live = {}) {
   const economy = useDockState({ hz })?.economy;
   return useMemo(() => ({
     agents: list ?? (EMPTY as MyAgent[]),
+    /** The list has not arrived yet: `agents` is empty, which does not mean you have none. */
+    loading: list === undefined,
     economy,
     /** Seconds of world time until `agent` has energy above 0 again (0 if it can act now). */
     secondsUntilEligible(agent: MyAgent) {
@@ -326,7 +329,8 @@ export function useEvaluator({ enabled = true }: { enabled?: boolean } = {}): Ev
   const { roomId } = useRoom();
   const mine = useMyUtility();
   const [evaluator, setEvaluator] = useState<{ key: string; value: Evaluator }>();
-  const key = mine ? `${mine.gameId}:${mine.godId}` : "";
+  // Built again once the game's hold correction is ready, so its bits are the engine's (tables-key.ts).
+  const key = tablesKey(mine, useDockState()?.holdRarity?.state);
   useEffect(() => {
     if (!enabled || !mine || evaluator?.key === key) return;
     let live = true;

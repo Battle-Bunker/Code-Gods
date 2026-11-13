@@ -8,7 +8,9 @@
     "./calibration-data": "./src/calibration-data.ts",
     "./estimator": "./scripts/estimator.ts",
     "./canonical-json": "./src/canonical-json.ts",
-    "./hold": "./scripts/hold.ts"
+    "./card-text": "./src/card-text.ts",
+    "./hold": "./scripts/hold.ts",
+    "./example-agents": "./src/example-agents.ts"
   },
   "scripts": {
     "test": "node --experimental-strip-types --test test/*.test.ts",

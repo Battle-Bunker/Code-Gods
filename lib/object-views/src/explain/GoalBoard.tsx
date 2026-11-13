@@ -19,6 +19,7 @@ import {
 import { CellGlyph } from "../glyph.tsx";
 import { HowThisScores } from "./HowThisScores.tsx";
 import { Term } from "@workspace/ui-kit";
+import { ruleScoreWording } from "@workspace/game-utilities/card-text";
 
 export interface GoalBoardProps {
   goal: GoalExplainer;
@@ -82,7 +83,7 @@ function UnitBox({ part, selected, model, onSelect, setRef }: {
       style={{ borderLeft: `4px ${TONE_DASH[tone] ? "dashed" : "solid"} ${TONE_COLOUR[tone]}`, ...(selected ? { outline: `2px solid ${TONE_COLOUR[tone]}`, outlineOffset: -1 } : {}) }}
       data-testid="goal-unit" data-tone={tone} data-part={part.id} data-selected={selected || undefined}>
       <div className="flex items-center gap-1.5">
-        <span className="font-semibold">{part.title}</span>
+        <span className="font-semibold">{ruleScoreWording(part.title)}</span>
         <span className="ml-auto whitespace-nowrap font-mono font-semibold" style={{ color: TONE_COLOUR[tone] }} data-testid="goal-unit-impact">{impactText(part.points)}</span>
       </div>
       {small && model && (
@@ -96,14 +97,14 @@ function UnitBox({ part, selected, model, onSelect, setRef }: {
         <div key={k} className="mt-1" data-testid="goal-unit-tier" data-tier={k}>
           {multi && (
             <div className="flex text-[11px] text-muted-foreground">
-              <span>{tierName(k)} points</span>
+              <span>{tierName(k)} rule score</span>
               <span className="ml-auto font-mono">{signedPoints(part.points[k] ?? 0)}</span>
             </div>
           )}
           <ul className="space-y-0.5">
             {facts.map((f, i) => (
               <li key={i} className="flex gap-1"><span aria-hidden className="font-bold" style={{ color: f.ok ? TONE_COLOUR.gain : TONE_COLOUR.loss }}>{f.ok ? "✓" : "✗"}</span>
-                <span><span className="sr-only">{f.ok ? "yes: " : "no: "}</span>{f.text}</span></li>
+                <span><span className="sr-only">{f.ok ? "yes: " : "no: "}</span>{ruleScoreWording(f.text)}</span></li>
             ))}
           </ul>
         </div>
@@ -209,7 +210,7 @@ export function GoalBoard({ goal, value, grid, caption, changed, selected: chose
   // The board's score is its points tuple; with a lens, each tier says what it counts.
   const tuple = rich && ord ? ord : scoreArr;
   const total: ReactNode = tuple
-    ? <>This board: <b>{tupleText(tuple)}</b> <Term id="points-tuple">points</Term>
+    ? <>This board's <Term id={tuple.length > 1 ? "points-tuple" : "rule-score"}>rule score</Term>: <b>{tupleText(tuple)}</b>
       {rich && explanation && !(explanation.components.length === 1 && explanation.components[0] === "points") && <span className="text-muted-foreground"> — {explanation.components.map((name, k) => `${explanation.components.length > 1 ? `${tierName(k)}: ` : ""}${name}, ${minusText(tuple[k])}`).join(" · ")}</span>}</>
     : null;
   const tone = selected ? toneOf(selected.points) : "zero";
@@ -282,7 +283,7 @@ export function GoalBoard({ goal, value, grid, caption, changed, selected: chose
         </defs>
         {arrow && <path d={arrow} fill="none" stroke={TONE_COLOUR[tone]} strokeOpacity={0.8} strokeWidth={1.75} markerEnd={`url(#goal-arrow-${tone})`} data-testid="goal-unit-arrow" />}
       </svg>
-      <span aria-live="polite" className="sr-only">{selected ? `${selected.title}, ${impactText(selected.points)}. ${byTier(selected).map(([k, fs]) => `${selected.points.length > 1 ? `${tierName(k)} points ${signedPoints(selected.points[k] ?? 0)}: ` : ""}${fs.map(f => `${f.ok ? TONE_MARK.gain : TONE_MARK.loss} ${f.text}`).join(". ")}`).join(". ")}` : ""}</span>
+      <span aria-live="polite" className="sr-only">{selected ? ruleScoreWording(`${selected.title}, ${impactText(selected.points)}. ${byTier(selected).map(([k, fs]) => `${selected.points.length > 1 ? `${tierName(k)} rule score ${signedPoints(selected.points[k] ?? 0)}: ` : ""}${fs.map(f => `${f.ok ? TONE_MARK.gain : TONE_MARK.loss} ${f.text}`).join(". ")}`).join(". ")}`) : ""}</span>
     </div>
   );
 }

@@ -26,7 +26,7 @@ export const probe = query({
   },
 });
 
-/** A schema-valid room row with default settings, plus the owner's membership (what rooms.create writes). */
+/** A schema-valid room row with default settings, plus the owner's membership (what rooms.create writes: the owner is seated, not a spectator). */
 export const createRoom = internalMutation({
   args: { shortCode: v.string(), ownerId: v.string(), guid: v.optional(v.string()) },
   handler: async (ctx, { shortCode, ownerId, guid }) => {
@@ -37,7 +37,7 @@ export const createRoom = internalMutation({
       settings: defaultSettingsFor(DEFAULT_SETTINGS.objectType),
       aiQuota: 300_000, assistantQuota: 300_000, aiUsed: 0, aiReservedUsd: 0, aiInputTokens: 0, aiOutputTokens: 0, aiCalls: [],
     });
-    await ctx.db.insert("members", { roomId, godId: ownerId, userId: ownerId, name: ownerId, kind: "human", ready: false, spectator: true, joinedAt: now });
+    await ctx.db.insert("members", { roomId, godId: ownerId, userId: ownerId, name: ownerId, kind: "human", ready: false, spectator: false, joinedAt: now });
     return roomId;
   },
 });

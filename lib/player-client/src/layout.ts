@@ -94,6 +94,20 @@ export function paneAreas(root: Node, share = 1, out: Record<string, number> = {
   return out;
 }
 
+/**
+ * Each pane's share of the dock's width and height (0–1), from the split weights. With the dock's size these are
+ * pixels, so a caller can tell whether a pane is wide and tall enough for what it is about to show.
+ */
+export function paneExtents(root: Node, width = 1, height = 1, out: Record<string, { width: number; height: number }> = {}): Record<string, { width: number; height: number }> {
+  if (root.type === "pane") { out[root.id] = { width, height }; return out; }
+  const total = root.sizes.reduce((a, b) => a + b, 0) || 1;
+  root.children.forEach((child, i) => {
+    const share = (root.sizes[i] ?? 0) / total;
+    if (root.direction === "row") paneExtents(child, width * share, height, out); else paneExtents(child, width, height * share, out);
+  });
+  return out;
+}
+
 function depthOf(node: Node): number {
   return node.type === "pane" ? 1 : 1 + Math.max(0, ...node.children.map(depthOf));
 }

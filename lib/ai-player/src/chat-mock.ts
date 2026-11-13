@@ -11,12 +11,15 @@
  *       "echo": true (answer with JSON {system, tools: the names in context (core and loaded), context: the prompt's other text blocks, earlier: earlier
  *       turns' user text without their briefings, later: the text of the turn's later user messages (queued messages delivered after
  *       tool results), maxOutputTokens}) }
+ *   one of the assistant pane's starter chips with a fixed answer shape ("Explain my goal simply", "Write me a first
+ *   agent", and the "Summon it" that accepts its offer) runs that chip's script with the real tools (chat-mock-chips.ts);
  *   anything else runs the default script: call get_observation, then summarize it.
  * The step index is the number of assistant messages after that user message. Past the last step the mock ends
  * the turn with no text. Usage is reported from the request and answer sizes (about four characters a token). An aborted
  * stream reports its input usage and the characters it streamed (ChatAbortedError), as the Anthropic adapter does.
  */
 import { z } from "zod";
+import { chipStep } from "./chat-mock-chips.ts";
 import { CHARS_PER_TOKEN, ChatAbortedError, ChatCutError, activeTools, charsEstimate, inputChars, type ChatMessage, type ChatProvider, type ChatRequest, type ChatResult } from "./chat.ts";
 
 const stepSchema = z.object({
@@ -76,7 +79,8 @@ export function mockChatProvider(): ChatProvider {
       const prompt = blocks.at(-1) ?? "";
       const step = request.messages.slice(promptAt + 1).filter(m => m.role === "assistant").length;
       const script = parseMockScript(prompt);
-      const current = script ? script.steps[step] : defaultStep(step, request);
+      const chip = script ? undefined : chipStep(prompt, blocks.slice(0, -1).join("\n"), step, request, promptAt);
+      const current: MockStep | undefined = script ? script.steps[step] : chip ? chip.step : defaultStep(step, request);
       const inputTokens = Math.ceil(inputChars(request) / CHARS_PER_TOKEN.mock);
       const cacheReadTokens = Math.floor(inputTokens * (current?.cache?.read ?? 0)), cacheWriteTokens = Math.floor(inputTokens * (current?.cache?.write ?? 0));
       const usage = { inputTokens, cacheReadTokens, cacheWriteTokens };

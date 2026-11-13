@@ -6,7 +6,8 @@
  * EXAMINATION_DEADLINE_MS (20 s) and then answers UNAVAILABLE with nothing applied; this deadline is that plus a
  * margin for the round trip and the command's own queries and mutations, so the engine's answer normally comes first
  * and this one catches what the engine cannot say: an action that never started or a connection that stalled. It is one
- * user-initiated request with one deadline and a manual retry: nothing here retries or polls.
+ * user-initiated request; while the game is busy the runner sends the SAME envelope again a few times (BUSY_ATTEMPTS),
+ * then stops and offers one "Try again".
  */
 import { EXAMINATION_DEADLINE_MS, type CommandResult } from "@workspace/player-client";
 
@@ -22,9 +23,31 @@ export function deadlineFor(type: string): number | null {
   return isExamined(type) ? COMMAND_DEADLINE_MS : null;
 }
 
-export function busyMessage(type: Examined, ms: number): string {
-  const seconds = Math.round(ms / 1000);
-  return `The sandbox is busy: ${type === "validate" ? "validating" : "summoning"} took longer than ${seconds} second${seconds === 1 ? "" : "s"}. Try again.`;
+/** How many times the forge sends an examined command by itself while the game is busy checking agents (the first try included). */
+export const BUSY_ATTEMPTS = 4;
+/** The pause before the forge sends the same command again. */
+export const BUSY_RETRY_MS = 2_000;
+
+/**
+ * The game could not check the agent in time: no answer by the deadline, or the engine's UNAVAILABLE (nothing was
+ * examined, stored or paid). The same envelope can be sent again: its command id makes a second arrival a no-op.
+ */
+export function isBusy(outcome: { status: string; error?: unknown }): boolean {
+  if (outcome.status === "timeout") return true;
+  return outcome.status === "failed" && (outcome.error as { data?: { code?: string } } | undefined)?.data?.code === "UNAVAILABLE";
+}
+
+/** What the forge says while a command waits for the sandbox: plain words, no numbers the engine might contradict. */
+export function progressLine(type: Examined, retry?: { attempt: number; of: number } | null): string {
+  if (retry && retry.attempt > 1) return `The game is busy checking agents. Trying again (${retry.attempt} of ${retry.of})…`;
+  return type === "validate" ? "Checking your agent… this can take up to 20 seconds." : "Summoning…";
+}
+
+/** After the last try: what did not happen, and that nothing was spent. The forge puts one "Try again" button beside it. */
+export function busyMessage(type: Examined): string {
+  return type === "validate"
+    ? "The game is still busy checking agents, so yours was not checked. Your code is safe."
+    : "The game is still busy checking agents, so yours was not summoned and nothing was spent. Your code is safe.";
 }
 
 /**

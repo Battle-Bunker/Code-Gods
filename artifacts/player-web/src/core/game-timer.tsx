@@ -11,6 +11,8 @@ export function DockGameTimer() {
   const base = useRef<{ obs: unknown; at: number }>({ obs: null, at: now });
   if (base.current.obs !== obs) base.current = { obs, at: Date.now() };
   if (!obs || obs.phase === "lobby" || (obs.phase === "ended" && !obs.gameId)) return null;
+  // While planning counts down, the planning line under the header carries the one countdown (header.tsx PlanningBar).
+  if (obs.phase === "planning" && obs.planningEndsAt && obs.planningEndsAt > now) return null;
   const eco = obs.economy;
   const world = advanceWorld(eco?.worldSeconds ?? 0, base.current.at, now, obs.phase === "running");
   return <GameTimerView timer={gameTimer({ phase: obs.phase, endReason: obs.endReason ?? null, durationMode: eco?.durationMode, lengthSeconds: eco?.lengthSeconds, world, planningEndsAt: obs.planningEndsAt, nowMs: now })} />;

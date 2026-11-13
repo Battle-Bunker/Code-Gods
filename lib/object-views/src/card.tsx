@@ -5,6 +5,7 @@ import { familyUses, type BadgeLike } from "./catalog.ts";
 import type { GridSettings } from "./registry.ts";
 import type { GoalExplainer, Ordinal } from "@workspace/game-utilities";
 import { cardSections, tierBonus, tierOpens, type CardTierLike, type CardTierSection } from "./card-tiers.ts";
+import { ruleScoreWording } from "@workspace/game-utilities/card-text";
 import { GridObject } from "./views.tsx";
 import { GoalBoard } from "./explain/GoalBoard.tsx";
 import { Term } from "@workspace/ui-kit";
@@ -49,7 +50,7 @@ export function CardExample({ example, grid }: { example: NonNullable<UtilityCar
   return (
     <figure className="mt-2 flex items-center gap-3" data-testid="utility-card-example">
       <GridObject value={example.value} grid={grid ? { ...grid, size: example.size } : undefined} renderer="tiles" />
-      <figcaption className="text-xs leading-snug text-muted-foreground"><span className="font-medium text-foreground">For example: </span>{example.caption}</figcaption>
+      <figcaption className="text-xs leading-snug text-muted-foreground"><span className="font-medium text-foreground">For example: </span>{ruleScoreWording(example.caption)}</figcaption>
     </figure>
   );
 }
@@ -64,7 +65,7 @@ export function GoalExampleView({ goal, grid }: { goal: GoalExplainer; grid: Gri
   return (
     <figure className="mt-3 border-t pt-3" data-testid="utility-card-goal-example">
       <figcaption className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Example</figcaption>
-      <GoalBoard goal={goal} value={example.value} grid={grid} caption={example.caption} testId="goal-example-board" />
+      <GoalBoard goal={goal} value={example.value} grid={grid} caption={ruleScoreWording(example.caption)} testId="goal-example-board" />
     </figure>
   );
 }
@@ -84,13 +85,13 @@ function TierBlock({ section, ordinal }: { section: CardTierSection; ordinal?: O
       onToggle={e => setOpen((e.currentTarget as HTMLDetailsElement).open)} data-testid={`card-tier-${section.tier.id}`} data-open={open || undefined}>
       <summary className="cursor-pointer font-medium leading-snug [overflow-wrap:anywhere]">{section.title}
         {bonus && <span className="mt-0.5 block text-xs font-normal text-muted-foreground" data-testid={`card-tier-bonus-${section.tier.id}`}>{bonus}</span>}</summary>
-      <p className="mt-1.5 leading-relaxed" data-testid={`card-tier-text-${section.tier.id}`}>{section.body}</p>
+      <p className="mt-1.5 leading-relaxed" data-testid={`card-tier-text-${section.tier.id}`}>{ruleScoreWording(section.body)}</p>
     </details>
   );
 }
 
 /**
- * Emoji and name, plain summary (a tiered draw: the base rule, then its ★ blocks), an example board (the annotated one with `goal`, else the card's tiny one when the rule
+ * Emoji and name, plain summary in the player's score words (card-text.ts; a tiered draw: the base rule, then its ★ blocks), an example board (the annotated one with `goal`, else the card's tiny one when the rule
  * has one), a "uses" chip row, then the source (collapsed unless `sourceOpen`); a defence goal follows as its own card. `grid` (the room's Grid settings) draws the example with the room's colour shades.
  */
 export function UtilityCardView({ card, uses, grid, goal, ordinal, sourceOpen = false }: {
@@ -116,8 +117,8 @@ export function UtilityCardView({ card, uses, grid, goal, ordinal, sourceOpen = 
       <div>
         <p className="text-xl font-semibold leading-tight" data-testid="utility-card-name"><span aria-hidden>{card.emoji} </span>{card.name}</p>
         {card.theme && <p className="text-xs text-muted-foreground">{card.theme}</p>}
-        <p className="mt-2 text-sm leading-relaxed" data-testid="text-utility-summary">{sections.base}
-          {/\bprimary points?\b/.test(card.summary) && <> <span className="text-muted-foreground">(<Term id="points-tuple">how points tuples compare</Term>)</span></>}</p>
+        <p className="mt-2 text-sm leading-relaxed" data-testid="text-utility-summary">{ruleScoreWording(sections.base)}
+          {/\bprimary points?\b/.test(card.summary) && <> <span className="text-muted-foreground">(<Term id="points-tuple">how a rule score with parts compares</Term>)</span></>}</p>
         {sections.tiers.map(t => <TierBlock key={t.tier.id + t.tier.index} section={t} ordinal={ordinal} />)}
         {goal && grid && (goal.rich || !card.example) ? <GoalExampleView goal={goal} grid={grid} /> : card.example && <CardExample example={card.example} grid={grid} />}
         <p className="mt-2 text-xs flex flex-wrap items-center gap-1.5"><span className="text-muted-foreground">uses:</span><BadgeChips badges={badges} testId="utility-card-uses" /></p>
@@ -126,7 +127,7 @@ export function UtilityCardView({ card, uses, grid, goal, ordinal, sourceOpen = 
       {card.penalty && (
         <div className="border-l-4 border-destructive pl-3 py-1" data-testid="utility-card-penalty">
           <p className="font-semibold"><span aria-hidden>⚠️ {card.penalty.emoji} </span>{card.penalty.name} <span className="text-xs font-normal text-muted-foreground">your defence goal</span></p>
-          <p className="mt-1 text-sm">{card.penalty.summary}</p>
+          <p className="mt-1 text-sm">{ruleScoreWording(card.penalty.summary)}</p>
           <p className="mt-1 text-xs text-muted-foreground">Only counts when an object is {card.penalty.comparative} than usual. Then you see “⚠️ {card.penalty.comparative} than 90% of …”.</p>
           {penaltyUses.length > 0 && <p className="mt-1 text-xs flex flex-wrap items-center gap-1.5"><span className="text-muted-foreground">uses:</span><BadgeChips badges={penaltyUses} /></p>}
           <Source text={card.penalty.source} language={card.language} testId="text-penalty-source" open={sourceOpen} />

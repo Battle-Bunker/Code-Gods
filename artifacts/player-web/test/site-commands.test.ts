@@ -10,11 +10,12 @@ import { EXCLUDED, STEP_IDS, allCatalogSitePaths, codeCommands, engineCommands, 
 const nothing = async () => undefined;
 const act: EngineActions = {
   navigate() {}, openTab() {}, copy() {}, login() {}, logout() {}, createRoom() {}, join: nothing, leave: nothing, setReady: nothing, start: nothing,
-  resume: nothing, startWorldNow: nothing, endGame: nothing, addAi: nothing, removeAi: nothing, applySetup: async id => { applied.push(id); }, duplicateSetup: async id => { duplicated.push(id); },
+  resume: nothing, startWorldNow: nothing, endGame: nothing, addAi: async id => { added.push(id); }, practiceGame: async () => { practised.push(1); }, removeAi: nothing, applySetup: async id => { applied.push(id); }, duplicateSetup: async id => { duplicated.push(id); },
   useTemplates: () => lists.templates, useAdminTemplates: () => lists.adminTemplates, usePastGames: () => lists.pastGames, useCredentials: () => lists.credentials, revoke: nothing, openSheet() {}, rulesText: () => "rules", useServerInfo: () => [], useSetups: query => { searched.push(query); return lists.setups; }, whoAmI: () => [], origin: "https://cg.test",
   setGridRenderer: id => { gridCalls.push(id); },
 };
 const gridCalls: string[] = [];
+const added: (string | undefined)[] = [], practised: number[] = [];
 // What each palette list's subscription holds right now (the stubs stand in for the shared useLive hook).
 const searched: string[] = [];
 const lists: Record<"templates" | "adminTemplates" | "pastGames" | "credentials" | "setups", { data: any; error: Error | null }> = {
@@ -227,4 +228,31 @@ test("Show server info is for signed-in humans only: the engine refuses a signed
   assert.equal(out.ok, false);
   assert.equal(out.hidden, true);
   assert.equal(avail(scope({}), "manifest.get").ok, true);
+});
+
+// What would break: the plain button opening the picker of models again, a practice game offered where it cannot run
+// (no AI in this room, the owner watching, enough players already), or its label promising the wrong number of AI players.
+test("Add AI player seats the default one in one click; a practice game fills the seats a game still needs and is the owner's alone", async () => {
+  const solo = scope({ room: room(["ada"]) });
+  const add = find(solo, "ui.addAiPlayer");
+  assert.deepEqual(add.available(paletteContextFor(solo)), { ok: true });
+  assert.equal(add.performer.kind, "submit");
+  if (add.performer.kind === "submit") await add.performer.run();
+  assert.deepEqual(added, [undefined], "no template named: the engine seats its default");
+  assert.equal(find(solo, "rooms.addAi").performer.kind, "form", "choosing which AI stays a pick");
+
+  const practice = find(solo, "ui.practiceGame");
+  assert.equal(practice.human.title, "Play a practice game with two AI players");
+  assert.deepEqual(practice.available(paletteContextFor(solo)), { ok: true });
+  if (practice.performer.kind === "submit") await practice.performer.run();
+  assert.deepEqual(practised, [1]);
+  assert.equal(find(scope({ room: room(["ada", "bob"]) }), "ui.practiceGame").human.title, "Play a practice game with one AI player");
+  assert.deepEqual(avail(scope({ room: room(["ada", "bob", "cy"]) }), "ui.practiceGame"), { ok: false, reason: "Enough players are in: start the game.", fix: "owner.start" });
+  const watching = { ...room([]), members: [{ id: "ada", name: "Ada", kind: "human", ready: false, spectator: true }] };
+  assert.deepEqual(avail(scope({ room: watching }), "ui.practiceGame"), { ok: false, reason: "You are watching the next game; play it first.", fix: "rooms.setSpectator" });
+  for (const s of [scope({ room: room(["ada"]), aiConfigured: false }), scope({ room: { ...room(["ada"]), aiEnabled: false } })]) {
+    for (const id of ["ui.addAiPlayer", "ui.practiceGame"]) assert.equal((avail(s, id) as { hidden?: boolean }).hidden, true, `${id} is hidden without AI players`);
+  }
+  assert.equal(avail(scope({ user: { ...ada, id: "bob" }, room: room(["ada", "bob"]) }), "ui.practiceGame").ok, false, "owner only");
+  assert.equal(avail(scope({ room: room(["ada"]), starting: true }), "ui.practiceGame").ok, false, "no second click while it starts");
 });

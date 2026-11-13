@@ -1,10 +1,12 @@
 /**
  * The assistant pane's guidance, at zero tokens (docs/research/ui-redesign/player-client.md §4, architecture.md §4.2):
  * the empty-state copy of each phase and at most three prompt chips. With the assistant on, a chip sends its prompt;
- * off, it runs a palette command (core/palette/commands.ts ids) and says so in command form. Pure; tested in
+ * off, it runs a palette command (core/palette/commands.ts ids) and says so in command form. The text a chip sends is
+ * shared (lib/player-client chips.ts): the engine tests what the assistant answers to it. Pure; tested in
  * test/suggestions.test.ts.
  */
 import type { Phase } from "@workspace/player-client/panels";
+import { CHIP_TEXT as T } from "@workspace/player-client/chips";
 
 export type Suggestion = { label: string; prompt?: string; command?: string };
 export type SuggestionContext = {
@@ -18,28 +20,28 @@ type Chip = { ask: string; prompt?: string; off: string; command: string };
 const chip = (ask: string, off: string, command: string, prompt?: string): Chip => ({ ask, off, command, prompt });
 const panel = (id: string) => `ui.panel.add.${id}`;
 
-const RULES = chip("How does this game work?", "How to play", panel("rules"));
+const RULES = chip(T.howItWorks, "How to play", panel("rules"));
 const CHIPS: Record<Phase, Chip[]> = {
-  lobby: [RULES, chip("Who's in the room?", "Who's here", panel("overview")), chip("I'm ready", "Mark me ready", "ui.ready", "I'm ready for the next game.")],
-  planning: [chip("Explain my goal simply", "Show my secret goal", panel("my-card")), chip("Write me a first agent", "Open the agent editor", "ui.forge.edit"),
-    chip("What should my agent do?", "How to play", panel("rules"))],
-  running: [chip("What should I do next?", "Where am I", panel("overview")), chip("Which objects matter to me?", "Objects", panel("objects")),
-    chip("What do the others want?", "What others care about", panel("others-care"))],
-  paused: [chip("What changed?", "What just changed", panel("feed")), chip("Draft a public proposal", "Public chat", panel("public-chat")),
-    chip("Should I change my agents?", "My agents", panel("agents"))],
-  ended: [chip("Why did I finish there?", "How the game went", panel("results")), chip("What would have worked better?", "My points over time", panel("bits-over-time")),
-    chip("Show the results", "Leaderboard race", panel("race"))],
+  lobby: [RULES, chip(T.whoIsHere, "Who's here", panel("overview")), chip("I'm ready", "Mark me ready", "ui.ready", T.ready)],
+  planning: [chip(T.explainGoal, "Show my secret goal", panel("my-card")), chip(T.firstAgent, "Open the agent editor", "ui.forge.edit"),
+    chip(T.whatShouldAgentDo, "How to play", panel("rules"))],
+  running: [chip(T.whatNext, "Where am I", panel("overview")), chip(T.whichObjects, "Objects", panel("objects")),
+    chip(T.whatOthersWant, "What others care about", panel("others-care"))],
+  paused: [chip(T.whatChanged, "What just changed", panel("feed")), chip(T.draftProposal, "Public chat", panel("public-chat")),
+    chip(T.changeAgents, "My agents", panel("agents"))],
+  ended: [chip(T.whyFinished, "How the game went", panel("results")), chip(T.whatBetter, "My points over time", panel("bits-over-time")),
+    chip(T.showResults, "Leaderboard race", panel("race"))],
 };
-const SPECTATOR = [chip("What's happening?", "Where am I", panel("overview")), chip("Who's winning?", "Leaderboard race", panel("race")),
-  chip("How do I join the next game?", "How to play", panel("rules"))];
+const SPECTATOR = [chip(T.whatsHappening, "Where am I", panel("overview")), chip(T.whoIsWinning, "Leaderboard race", panel("race")),
+  chip(T.howToJoin, "How to play", panel("rules"))];
 
 function chipsFor(ctx: SuggestionContext): Chip[] {
   const live = ctx.phase === "planning" || ctx.phase === "running" || ctx.phase === "paused";
   if (live && !ctx.seated) return SPECTATOR;
   let chips = CHIPS[ctx.phase];
   if (ctx.phase === "lobby" && ctx.ready) chips = chips.filter(c => c.command !== "ui.ready");
-  if (ctx.phase === "planning" && ctx.agents > 0) chips = chips.map((c, i) => (i === 1 ? chip("Is my agent any good?", "My agents", panel("agents")) : c));
-  if (ctx.phase === "running" && ctx.agents === 0) chips = [chip("Write me an agent", "Open the agent editor", "ui.forge.edit"), ...chips.slice(1)];
+  if (ctx.phase === "planning" && ctx.agents > 0) chips = chips.map((c, i) => (i === 1 ? chip(T.agentAnyGood, "My agents", panel("agents")) : c));
+  if (ctx.phase === "running" && ctx.agents === 0) chips = [chip(T.writeAgent, "Open the agent editor", "ui.forge.edit"), ...chips.slice(1)];
   return chips;
 }
 

@@ -126,7 +126,7 @@ export const PANELS = {
   forge: def({
     id: "forge", title: "Agent code", blurb: "The agent being written for you and what it costs; Edit opens the editor.", phases: GAME,
     params: z.strictObject({ language: z.enum(LANGUAGES as [Language, ...Language[]]).optional(), source: z.string().max(16384).optional(), agentId: z.string().min(1).max(128).optional(), showHelpers: bool(false) }),
-    summary: p => line([p.agentId ? "A live agent's code" : p.source ? "A draft" : "Empty", ...when(!!p.language, p.language ?? ""), ...when(p.showHelpers, "with helpers")]),
+    summary: p => line([p.agentId ? "A live agent's code" : p.source ? "A draft" : "Editor", ...when(!!p.language, p.language ?? ""), ...when(p.showHelpers, "with helpers")]),
   }),
   results: def({
     id: "results", title: "How the game went", blurb: "Final standings and why you finished where you did.", phases: ["ended", "lobby"],

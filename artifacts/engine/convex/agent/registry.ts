@@ -17,6 +17,9 @@ import type { Language } from "@workspace/game-core";
 import { rulesText } from "@workspace/player-client/rules";
 import { defaultPanelParams, panelCatalog } from "@workspace/player-client/panels";
 import { findSkill, skillBody, type SkillRead } from "@workspace/player-client/skills";
+import type { FirstAgent } from "@workspace/player-client/first-agent";
+import { boardFacts, buildExampleAgent, mutatorNames } from "@workspace/game-utilities/example-agents";
+import { ruleScoreWording } from "@workspace/game-utilities/card-text";
 import { envelopeSchema, type CommandResult, type Envelope } from "@workspace/player-client";
 import { assessValidation } from "@workspace/player-client/validation";
 import { internal } from "../_generated/api";
@@ -188,6 +191,37 @@ const LAYOUT_EXECUTORS = {
  * Code runs (convex/code; docs/assistant/code-execution.md): analytics scripts over datasets the engine resolves as the
  * human, in the room the credential is bound to. Reads only. The analytics-code skill (load_skill) has the guidance.
  */
+/**
+ * The first agent the writing-agents skill offers (lib/player-client first-agent.ts): the shared example for the
+ * player's own dealt rule on this board, in the game's first language (lib/game-utilities example-agents.ts). Null
+ * when there is no game or no Grid: the skill then falls back to its generic move.
+ */
+function firstAgentOf(observation: unknown): FirstAgent | null {
+  try {
+    const o = observation as { languages?: string[]; language?: string; instance?: Parameters<typeof mutatorNames>[0] & Parameters<typeof boardFacts>[0] & { objectType?: string };
+      self?: { utility?: { familyId?: string; summary?: string; source?: string } } } | undefined;
+    const utility = o?.self?.utility, instance = o?.instance;
+    const language = o?.languages?.[0] ?? o?.language;
+    if (!utility?.familyId || instance?.objectType !== "Grid" || (language !== "python" && language !== "typescript")) return null;
+    const example = buildExampleAgent({ familyId: utility.familyId, language, summary: utility.summary, cardSource: utility.source, mutators: mutatorNames(instance, language), ...boardFacts(instance) });
+    return { name: example.name, source: example.source.trimEnd() };
+  } catch { return null; }
+}
+
+/**
+ * The observation with the goal card's summaries in the player's words (game-utilities card-text.ts): a card's
+ * "scores 1 point" is the rule score, and "points" is kept for the leaderboard, so the assistant never mixes them. Used for the
+ * briefing (assistant/step.ts) and for the writing-agents skill's rule line (load_skill).
+ */
+export function inPlayerWords(observation: unknown): unknown {
+  const o = observation as { self?: { utility?: { summary?: unknown; penalty?: { summary?: unknown } } } } | undefined;
+  const utility = o?.self?.utility;
+  if (!utility || typeof utility !== "object") return observation;
+  const reword = <T extends { summary?: unknown }>(card: T): T => typeof card.summary === "string" ? { ...card, summary: ruleScoreWording(card.summary) } : card;
+  const penalty = utility.penalty && typeof utility.penalty === "object" ? { penalty: reword(utility.penalty) } : {};
+  return { ...o, self: { ...o!.self, utility: { ...reword(utility), ...penalty } } };
+}
+
 const CODE_EXECUTORS = {
   run_code: async (ctx, { principal, who }, { language, source, script, load, saveAs, datasets, params, title, cpuSeconds }) => {
     const outcome: RunOutcome = await ctx.runAction(internal.code.execute.runAs, {
@@ -330,7 +364,7 @@ export const EXECUTORS: Executors = {
       } catch { return undefined; }
     };
     const [rules, observation, layout] = await Promise.all([read("rules"), read("observation"), read("layout")]);
-    return { data: { name, body: skillBody(name, { rules, observation, layout }) } };
+    return { data: { name, body: skillBody(name, { rules, observation: inPlayerWords(observation), layout, ...(name === "writing-agents" ? { firstAgent: firstAgentOf(inPlayerWords(observation)) } : {}) }) } };
   },
   // ----- act -----
   validate_agent: (ctx, p, args) => command(ctx, p, "validate_agent", args),

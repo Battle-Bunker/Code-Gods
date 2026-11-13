@@ -1,9 +1,10 @@
 /**
- * Where am I: three sentences (the situation, how you're doing, the next step), three big numbers (rank, total
- * payoff, agents acting) and ONE next-step button. Lobby variant: who is here and ready, the owner, what happens
+ * Where am I: three sentences (the situation, how you're doing, the next step), three big numbers (rank, your points
+ * now, agents acting) and ONE next-step button. Lobby variant: who is here and ready, the owner, what happens
  * when the game starts, and its rule tables' progress while a first game on a new shape prepares them. `focus` (set by the assistant) chooses what the middle sentence is about.
  */
 import { useMemo } from "react";
+import { ruleScoreWording } from "@workspace/game-utilities/card-text";
 import { useLeaderboard } from "@/sdk";
 import { useNow, useSituation } from "@/core/game/situation";
 import type { nextStep } from "./next-step";
@@ -37,9 +38,9 @@ export default function Overview({ paneId, params, phase }: PanelProps<"overview
   const note = handicapNote(standing.total, handicap, fmt);
   const focus = params.focus === "auto" ? (phase === "planning" ? "goal" : "standing") : params.focus;
   const middle = !s.seated && phase !== "ended" ? "You're watching this game; you play in the next one."
-    : focus === "goal" ? (obs?.self.utility ? `Your secret goal: ${obs.self.utility.summary}` : "Your secret goal is dealt when the game starts.")
+    : focus === "goal" ? (obs?.self.utility ? `Your secret goal: ${ruleScoreWording(obs.self.utility.summary)}` : "Your secret goal is dealt when the game starts.")
     : focus === "agents" ? (agents.length ? `You have ${agents.length} agent${agents.length === 1 ? "" : "s"}; ${acting} can act now.` : "You have no agents yet.")
-    : standing.rank ? `You're ${ordinal(standing.rank)} of ${standing.of}, with ${fmt(standing.total)} bits of payoff${note ? ` (${note})` : ""}.` : "Nobody has scored yet.";
+    : standing.rank ? `You're ${ordinal(standing.rank)} of ${standing.of}, with ${fmt(standing.total)} points${note ? ` (${note})` : ""}.` : "Nobody has scored yet.";
 
   return (
     <div className="space-y-6" data-testid="panel-overview">
@@ -53,7 +54,7 @@ export default function Overview({ paneId, params, phase }: PanelProps<"overview
       </div>
       <dl className="grid grid-cols-3 gap-4">
         <BigNumber label="Rank" value={standing.rank ? `${standing.rank}/${standing.of}` : "–"} testId="stat-rank" />
-        <BigNumber label={handicap > 0 ? `Payoff after ${handicap}% handicap` : "Payoff"} value={fmt(standing.total)} testId="stat-payoff" tone={standing.total > 0 ? "good" : standing.total < 0 ? "bad" : undefined} />
+        <BigNumber label={handicap > 0 ? `Your points now (after a ${handicap}% handicap)` : "Your points now"} value={fmt(standing.total)} testId="stat-payoff" tone={standing.total > 0 ? "good" : standing.total < 0 ? "bad" : undefined} />
         {phase === "ended"
           ? <BigNumber label="Agents" value={String(agents.length)} testId="stat-agents" />
           : <BigNumber label="Agents acting" value={agents.length ? `${acting}/${agents.length}` : "0"} testId="stat-agents" />}

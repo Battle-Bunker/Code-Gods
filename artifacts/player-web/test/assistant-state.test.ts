@@ -126,3 +126,18 @@ test("a summon's step line carries the warnings of the latest validation of the 
   assert.equal(summonWarnings(summon, [validated(source, [constant]), validated(source, []), summon]), null);
   assert.equal(summonWarnings(call(0, "m", "send_chat", "ok"), []), null);
 });
+
+test("a turn that ends without a word, an error or a stop gets a line saying so: never silence after a chip", async () => {
+  const { silentTurnNote } = await import("../src/core/chat/state.ts");
+  const turn = (status: string, over: Record<string, unknown> = {}) => ({ _id: "t1", status, ...over });
+  const asked = [msg(1, "user", "Write me a first agent")];
+  assert.match(silentTurnNote(turn("done"), [...asked, msg(2, "assistant", "")])!, /without an answer/);
+  assert.match(silentTurnNote(turn("done"), asked)!, /without an answer/, "also when it only ran tools");
+  assert.match(silentTurnNote(turn("failed"), asked)!, /went wrong/, "a failure with no message still shows");
+  assert.equal(silentTurnNote(turn("done"), [...asked, msg(2, "assistant", "Here it is.")]), null);
+  assert.equal(silentTurnNote(turn("done"), [msg(2, "assistant", "An earlier answer", { turnId: "t0" }), ...asked]) === null, false, "an earlier turn's answer does not count");
+  assert.equal(silentTurnNote(turn("running"), asked), null, "still working");
+  assert.equal(silentTurnNote(turn("cancelled"), asked), null, "the pane says who stopped it");
+  assert.equal(silentTurnNote(turn("failed", { error: { code: "MODEL", message: "The model call failed" } }), asked), null, "the error line is shown instead");
+  assert.equal(silentTurnNote(undefined, []), null);
+});

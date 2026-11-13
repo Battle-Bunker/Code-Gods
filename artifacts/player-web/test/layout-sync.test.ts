@@ -6,13 +6,13 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_LAYOUT, assistantSide, closePane, panelPanesOf, paneOrder, panesOf, movePane, openPane, parseLayout, setPanePanel, setPaneParams, type DockLayout } from "@workspace/player-client/layout";
+import { DEFAULT_LAYOUT, assistantSide, closePane, paneExtents, panelPanesOf, paneOrder, panesOf, movePane, openPane, parseLayout, setPanePanel, setPaneParams, type DockLayout } from "@workspace/player-client/layout";
 import { SINGLE_LAYOUT } from "./single-layout.ts";
 import {
-  effectiveLayout, initialSync, keepAssistantPane, pushPlan, sameLayout, syncReducer, withTimeline, withoutAssistant, type SyncState,
+  effectiveLayout, initialSync, keepAssistantPane, pushPlan, sameLayout, syncReducer, withResultsFirst, withTimeline, withoutAssistant, type SyncState,
 } from "../src/dock/layout-sync.ts";
 import { back, canUndo, lastParams, observe, emptyHistory, resetView } from "../src/dock/history.ts";
-import { dockAssistant, showPanel } from "../src/dock/operations.ts";
+import { EDITOR_MIN, dockAssistant, showPanel } from "../src/dock/operations.ts";
 
 const base = SINGLE_LAYOUT;
 const withRace = openPane(base, { id: "", kind: "panel", panelId: "race", params: {}, setBy: "human" }).layout;
@@ -313,5 +313,88 @@ test("the agent editor in the full default dock takes the largest panel nobody c
     assert.ok(r.replaced);
     assert.equal(r.paneId, "p2", `objects, top right (focused ${focused})`);
   }
-  assert.equal(showPanel(dock, "forge", undefined, "p5").paneId, "p5", "the focused panel, as before");
+  assert.equal(showPanel(dock, "forge", undefined, "p5").paneId, "p2", "a focused pane a quarter wide is too small for the editor");
+  assert.equal(showPanel(dock, "public-chat", undefined, "p5").paneId, "p5", "any other panel: the focused pane, as before");
+});
+
+test("an ended game shows its results first: the results pane across the top, everything else below", () => {
+  const ended = withTimeline(DEFAULT_LAYOUT("ended"));
+  const shown = withResultsFirst(ended);
+  const first = panesOf(shown)[0];
+  assert.ok(first.kind === "panel" && first.panelId === "results", "the results come first in reading order (the phone stacks panes in this order)");
+  assert.ok(shown.root.type === "split" && shown.root.direction === "column" && shown.root.children[0].type === "pane", "a full-width top row");
+  assert.ok(shown.root.type === "split" && shown.root.sizes[0] >= 45, "about half the dock, so the headline and the standings need no scrolling");
+  assert.deepEqual(Object.keys(shown.panes).sort(), Object.keys(ended.panes).sort(), "the same panes: nothing added or lost");
+  assert.equal(panelPanesOf(shown).filter(p => p.panelId === "results").length, 1);
+  assert.equal(withResultsFirst(shown), shown, "already first: unchanged");
+  assert.ok(shown.root.type === "split" && shown.root.children.every(c => c.type !== "split" || c.direction === "row"), "no column inside the column");
+  assert.ok(shown.root.type === "split" && Math.abs(shown.root.sizes.reduce((a, b) => a + b, 0) - 100) < 1e-9, "the weights sum to 100");
+  assert.equal(parseLayout(shown, { phase: "ended", storedSlugs: [], fileIds: [] }).warnings.filter(w => /reset/.test(w)).length, 0, "a valid layout");
+  // A layout with no results pane gets one (derived for display, like the Timeline).
+  const none = withTimeline(setPanePanel(DEFAULT_LAYOUT("ended"), "p2", "objects", "human"));
+  const added = withResultsFirst(none);
+  const top = panesOf(added)[0];
+  assert.ok(top.kind === "panel" && top.panelId === "results");
+  assert.equal(Object.keys(added.panes).length, Object.keys(none.panes).length + 1);
+  // A dock that only shows the results is left alone.
+  const only: DockLayout = { version: 1, root: { type: "pane", id: "p1" }, panes: { p1: { id: "p1", kind: "panel", panelId: "results", params: {}, setBy: "human" } } };
+  assert.equal(withResultsFirst(only), only);
+});
+
+test("hidden assistant: changes never shrink its neighbour (the editor once ended as a sliver after a few clicks)", () => {
+  const stored = DEFAULT_LAYOUT("planning");
+  let saved = stored;
+  for (const panel of ["forge", "agents", "forge", "rules"] as const) {
+    const shown = withoutAssistant(saved);
+    const pane = panelPanesOf(shown).find(p => p.id === "p3")!;
+    saved = keepAssistantPane(parseLayout(setPanePanel(shown, pane.id, panel), { phase: "planning", storedSlugs: [] }).layout, saved);
+    assert.ok(sameLayout(saved, { ...stored, panes: saved.panes }), `the stored arrangement keeps its sizes after showing ${panel}`);
+    assert.ok(Math.abs(paneExtents(withoutAssistant(saved).root).p3.width - 0.5) < 0.02, "My agents' pane keeps half the row");
+  }
+});
+
+test("the agent editor always opens with room to work: never the goal card, never a sliver", () => {
+  const usable = (layout: DockLayout, id: string) => { const e = paneExtents(layout.root)[id]; return e.width >= EDITOR_MIN.width && e.height >= EDITOR_MIN.height; };
+  // The default dock with the assistant: My agents (a quarter wide) is focused, the objects (top right) show the editor.
+  const admin = showPanel(DEFAULT_LAYOUT("planning"), "forge", undefined, "p3");
+  assert.equal(admin.paneId, "p2");
+  assert.ok(usable(admin.layout, admin.paneId));
+  // No assistant: the leaderboard the button was clicked in has the room, and shows it.
+  const alice = showPanel(withoutAssistant(DEFAULT_LAYOUT("planning")), "forge", undefined, "p5");
+  assert.equal(alice.paneId, "p5");
+  assert.ok(usable(alice.layout, alice.paneId));
+  // Clicked in My agents: that pane stays (it tells what the new agent does) while another has the room.
+  const fromAgents = showPanel(withoutAssistant(DEFAULT_LAYOUT("planning")), "forge", undefined, "p3");
+  assert.notEqual(fromAgents.paneId, "p3");
+  assert.notEqual(fromAgents.paneId, "p1", "the goal card stays");
+  assert.ok(usable(fromAgents.layout, fromAgents.paneId));
+  // Clicked in the goal card: the goal stays.
+  assert.notEqual(showPanel(DEFAULT_LAYOUT("planning"), "forge", undefined, "p1").paneId, "p1");
+  // Fewer than four panels: a pane is split only when both halves stay usable, else one shows the editor.
+  const two = parseLayout(closePane(closePane(withoutAssistant(DEFAULT_LAYOUT("planning")), "p5"), "p2"), { phase: "planning", storedSlugs: [] }).layout;
+  const split = showPanel(two, "forge", undefined, "p1");
+  assert.ok(!split.replaced, "a full-width pane has room for two");
+  assert.ok(usable(split.layout, split.paneId));
+  const three = parseLayout(closePane(DEFAULT_LAYOUT("planning"), "p5"), { phase: "planning", storedSlugs: [] }).layout;
+  const tight = showPanel(three, "forge", undefined, "p3");
+  assert.ok(usable(tight.layout, tight.paneId), "no half of a small pane");
+  assert.equal(panelPanesOf(tight.layout).find(p => p.panelId === "my-card")?.id, "p1");
+});
+
+test("an editor left as a sliver (an arrangement carried from another room) gets room when it is opened again", () => {
+  const usable = (layout: DockLayout, id: string) => { const e = paneExtents(layout.root)[id]; return e.width >= EDITOR_MIN.width && e.height >= EDITOR_MIN.height; };
+  const sliver: DockLayout = {
+    version: 1,
+    root: { type: "split", direction: "column", sizes: [53, 47], children: [
+      { type: "split", direction: "row", sizes: [50, 50], children: [{ type: "pane", id: "p1" }, { type: "pane", id: "p2" }] },
+      { type: "split", direction: "row", sizes: [7, 93], children: [{ type: "pane", id: "p3" }, { type: "pane", id: "p5" }] }] },
+    panes: { ...withoutAssistant(DEFAULT_LAYOUT("planning")).panes, p3: { id: "p3", kind: "panel", panelId: "forge", params: { showHelpers: false }, setBy: "human" } },
+  };
+  assert.ok(!usable(sliver, "p3"));
+  const shown = showPanel(sliver, "forge", undefined, "p5");
+  assert.equal(shown.paneId, "p3", "the same pane");
+  assert.ok(usable(shown.layout, "p3"));
+  assert.ok(usable(parseLayout(shown.layout, { phase: "planning", storedSlugs: [] }).layout, "p3"), "and parseLayout keeps it");
+  const fine = showPanel(DEFAULT_LAYOUT("planning"), "forge", undefined, null).layout;
+  assert.equal(showPanel(fine, "forge").layout, fine, "an editor with room is left alone");
 });

@@ -32,7 +32,7 @@ export function storeState(energy: number, income: number, capacity: number): St
   return energy >= capacity - EPSILON ? "full" : "filling";
 }
 
-/** "Energy 336 of 480 bits". */
+/** "Energy 336 of 480 ⚡". */
 export const storedLine = (energy: number, capacity: number): Seg[] => [{ term: "agent-energy", text: "Energy" }, ` ${num(energy)} of ${bits(capacity)}`];
 
 /** How full the meter is, from 0 to 1. */
@@ -48,18 +48,18 @@ export function fillText(energy: number, income: number, capacity: number): stri
 
 /** What a balance owes: 0 unless it shows as a negative number. */
 export const owes = (energy: number): number => (energy < 0 && num(energy) !== "0" ? -energy : 0);
-/** The header's energy when the player owes: "owes 312 bits" (null when they do not). */
+/** The header's energy when the player owes: "owes 312 ⚡" (null when they do not). */
 export const owedText = (energy: number): string | null => (owes(energy) > 0 ? `owes ${bits(owes(energy))}` : null);
-/** Under an agent's energy: "Owes 120 bits (it may owe at most 480)". Null when it owes nothing or the game has no capacity. */
+/** Under an agent's energy: "Owes 120 ⚡ (it may owe at most 480)". Null when it owes nothing or the game has no capacity. */
 export function agentDebtLine(energy: number, capacity: number | undefined): string | null {
   if (capacity === undefined || owes(energy) === 0) return null;
   return `Owes ${bits(owes(energy))}${capacity > 0 ? ` (it may owe at most ${num(capacity)})` : ""}`;
 }
 
-/** When a player who owes can summon again: once `income` (bits per world second) has repaid `owed`. */
+/** When a player who owes can summon again: once `income` (energy per world second) has repaid `owed`. */
 const repaid = (owed: number, income: number): string =>
   income > 0 ? `until your income has repaid it (about ${duration(owed / income)})` : "until you keep some power for yourself";
-/** The player's own energy after `moved` bits of debt land on it, with `income` from then on. */
+/** The player's own energy after `moved` of debt land on it, with `income` from then on. */
 function ownAfterDebt(ownEnergy: number, moved: number, income: number, paid: string): string {
   const after = ownEnergy - moved;
   return owes(after) > 0
@@ -83,7 +83,7 @@ export function destroyDebtLine({ agentEnergy, agentShare, ownEnergy, allocated,
   return owes(ownEnergy - debt) > 0 ? `${head}you will owe them. ${ownAfterDebt(ownEnergy, debt, income, "")}` : head + ownAfterDebt(ownEnergy, debt, income, "they will");
 }
 
-/** "at most 240 bits (now 480)" or "nothing (now at most 480 bits)". */
+/** "at most 240 ⚡ (now 480)" or "nothing (now at most 480 ⚡)". */
 const holds = (next: number, now: number): string => (next > 0 ? `at most ${bits(next)} (now ${num(now)})` : `nothing (now at most ${bits(now)})`);
 /** What a store holding `energy` loses when its limit becomes `capacity`: 0 unless it shows as a number. */
 const lost = (energy: number, capacity: number): number => (num(energy - capacity) === "0" ? 0 : Math.max(0, energy - capacity));

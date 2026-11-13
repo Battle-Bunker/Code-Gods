@@ -11,7 +11,7 @@ import { invitedTo } from "@/site/lib/routes";
 const STEPS = [
   ["Join or create a room", "A room is a table for 3 to 8 players; AI players can fill seats."],
   ["Write a tiny agent and bargain in chat", "Agents change the shared world; deals in the public chat decide whose wishes win."],
-  ["Highest score wins", "The game ends at a random moment; your score is what your objects are worth then."],
+  ["Most points wins", "A first game lasts five minutes, with a countdown; your points are what the objects are worth to you and to the others when it ends."],
 ] as const;
 
 /** One sentence, three steps, one button. */

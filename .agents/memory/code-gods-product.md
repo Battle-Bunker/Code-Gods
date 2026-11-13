@@ -243,7 +243,7 @@ The player can keep typing while their assistant works: messages queue in Convex
 
 **Rule:** the panel-type menu in a pane header is a Popover with a cmdk combobox (`dock/headers.tsx` PanelMenu): focused on open, typing filters fuzzily over names and synonyms with the palette's `matchScore` (`dock/panel-search.ts`, `PANEL_SYNONYMS`), sections kept ("For now", "Other panels", "Your panels" incl. the assistant), arrows/Enter select, Esc closes. Give a new built-in panel synonyms there (a unit test requires them).
 
-A room member is a player or a spectator of the next game. The owner starts as a spectator; a member sets it for themselves, the owner for any human member; AI seats always play. Only players are dealt in and count toward the 3 to 8.
+A room member is a player or a spectator of the next game. The owner is seated as a player when they create the room (since 2026-11-11: first-time players expected to play the room they made; `rooms.create {spectator: true}` creates it watching); a member sets it for themselves, the owner for any human member; AI seats always play. Only players are dealt in and count toward the 3 to 8.
 
 **Why:** The owner (2026-11-02): "Allow room members to be spectators (owner or the member themselves can configure this) and default the room owner to a spectator." Spectators see the public view of a live game, never per-god secrets.
 

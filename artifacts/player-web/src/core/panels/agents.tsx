@@ -1,6 +1,8 @@
 /**
  * My agents: every number is written as a sentence a newcomer can read (core/panels/agent-labels.ts), with the key words
- * as hover glossary terms. The player's own line (their power, how it is split, their energy for summoning) comes first;
+ * as hover glossary terms. "Your points now" and the player's own line (their power, how it is split, their energy for
+ * summoning; energy is always written ⚡, never "bits") come first; each agent also says what its latest act did to your
+ * rule score and points (score-lines.tsx);
  * then, per agent: its status, power share and income, energy (with a meter against its capacity and the time until it
  * is full, or the warning that a full store wastes its income; in a game without capacity, a meter of how many seconds
  * of its income it holds), what it spent (reading and changing), the actual average per act against the summon-time estimate, how often it
@@ -14,8 +16,9 @@
  * a read-only replay, and Destroy goes after the end. In a replay seen as another god, the panel says whose agents these are.
  */
 import { changeCostKid, costModelOf, isLanguage, type CostModel } from "@workspace/game-core";
-import { Term } from "@workspace/ui-kit";
+import { SCORE_LINES, Term } from "@workspace/ui-kit";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { SUMMON_FIRST } from "@/core/planning-line";
 import { Sparkline, Timeline, TimelineLegend, useAgentSeries, useDockState, useGame, useMyAgents, type MyAgent } from "@/sdk";
 import { useDockActions } from "@/dock/actions";
 import { useGameCommands } from "@/core/game/runner";
@@ -31,6 +34,7 @@ import {
 import { agentDebtLine, destroyDebtLine, fillText, owes, ownEnergyLine, shareCapacityLines, storeFraction, storeState, storedLine } from "./energy-capacity";
 import { PanelEmpty, TextButton, type PanelProps } from "./kit";
 import { maxShareFor, parseSharePercent, shareProblem } from "./power-share";
+import { PointsNow, useOwnActLines } from "./score-lines";
 
 export type Sample = { at: number; energy: number; eligible: boolean };
 
@@ -57,9 +61,9 @@ function EnergyMeter({ energy, income }: { energy: number; income: number }) {
 function CapacityMeter({ energy, income, capacity, testId, bare }: { energy: number; income: number; capacity: number; testId: string; /** The bar alone: the sentence beside it already says it. */ bare?: boolean }) {
   const full = storeState(energy, income, capacity) === "full";
   const text = fillText(energy, income, capacity);
-  const label = `${num(energy)} of ${num(capacity)} bits: ${text}`;
+  const label = `${num(energy)} of ${num(capacity)} ⚡: ${text}`;
   return (
-    <span className="inline-flex flex-wrap items-center gap-x-1.5" title={`Holds at most ${num(capacity)} bits. Income past that is not stored.`} data-testid={testId}>
+    <span className="inline-flex flex-wrap items-center gap-x-1.5" title={`Holds at most ${num(capacity)} ⚡. Income past that is not stored.`} data-testid={testId}>
       <span role="meter" aria-label={label} aria-valuemin={0} aria-valuemax={capacity} aria-valuenow={Math.min(capacity, Math.max(0, energy))} className="inline-block h-1.5 w-20 bg-muted">
         <span className={`block h-full ${full ? "bg-destructive" : "bg-[hsl(var(--accent))]"}`} style={{ width: `${Math.round(storeFraction(energy, capacity) * 100)}%` }} />
       </span>
@@ -132,10 +136,14 @@ export type AgentsViewProps = {
   onSetShare: (a: MyAgent, share: number) => void;
   onDestroy: (a: MyAgent) => void;
   footer?: ReactNode;
+  /** "Your points now", above your power line (the panel passes <PointsNow />). */
+  header?: ReactNode;
+  /** Agent id → one plain sentence for its latest act: the change, your rule score, the points (score-line.ts). */
+  actLines?: ReadonlyMap<string, string>;
 };
 
 /** The panel without its data hooks, so the gallery (src/gallery/agents.tsx) can draw it from fixtures. */
-export function AgentsView({ agents, self, powerPerSecond, fullChargeSeconds, changeReadRatio, costModel, world, samples, window: windowS, ended, showCosts, showSource, can, wait, onEdit, onSetShare, onDestroy, footer }: AgentsViewProps) {
+export function AgentsView({ agents, self, powerPerSecond, fullChargeSeconds, changeReadRatio, costModel, world, samples, window: windowS, ended, showCosts, showSource, can, wait, onEdit, onSetShare, onDestroy, footer, header, actLines }: AgentsViewProps) {
   const [confirm, setConfirm] = useState<string | null>(null);
   const { editCode, destroy, allocatePower } = can;
   const showDestroy = destroy.ok || !destroy.hidden;
@@ -146,18 +154,20 @@ export function AgentsView({ agents, self, powerPerSecond, fullChargeSeconds, ch
   });
   return (
     <div className="space-y-4">
+      {header}
       {self?.allocated !== undefined && self.income !== undefined && (
         <div className="space-y-1 text-xs" data-testid="text-unallocated-power">
-          <p className="font-medium text-foreground"><Say segs={yourPowerLine({ total, allocated: self.allocated, income: self.income, energy: self.energy ?? 0 })} /></p>
+          <p className="font-medium text-foreground" title={SCORE_LINES.energy}><Say segs={yourPowerLine({ total, allocated: self.allocated, income: self.income, energy: self.energy ?? 0 })} /></p>
           {self.capacity !== undefined && (
             <p data-testid="text-own-capacity" className={`flex flex-wrap items-center gap-x-3 gap-y-1 ${self.capacity > 0 && owes(self.energy ?? 0) === 0 ? "text-foreground" : "font-semibold text-destructive"}`}>
               <span><Say segs={ownEnergyLine({ energy: self.energy ?? 0, income: self.income, capacity: self.capacity })} /></span>
               {self.capacity > 0 && owes(self.energy ?? 0) === 0 && <CapacityMeter bare testId="meter-own-energy" energy={self.energy ?? 0} income={self.income} capacity={self.capacity} />}
             </p>
           )}
+          <p className="text-muted-foreground" data-testid="text-energy-income">⚡ is <Term id="energy">energy</Term>: {SCORE_LINES.energy}</p>
           <p className="text-muted-foreground">
             The world hands out <Term id="turn">turns</Term> at random: the more energy an agent has, the more turns it gets. An act pays what it
-            looks at (<Term id="read-bits">read bits</Term>{changeReadRatio !== undefined && changeReadRatio > 1 ? `, 1/${changeReadRatio} bit of energy per bit: looking is ${changeReadRatio}× cheaper than changing` : ""}) plus, if it changes the object, the <Term id="change-cost">change cost</Term>. Every turn also pays a little for being given its object, so a turn is never free. <span data-testid="text-change-cost-rule">{changeCostKid(costModelOf(costModel))}</span>
+            looks at (<Term id="read-bits">reading cost</Term>{changeReadRatio !== undefined && changeReadRatio > 1 ? `: looking is ${changeReadRatio}× cheaper than changing` : ""}) plus, if it changes the object, the <Term id="change-cost">change cost</Term>. Every turn also pays a little for being given its object, so a turn is never free. <span data-testid="text-change-cost-rule">{changeCostKid(costModelOf(costModel))}</span>
           </p>
         </div>
       )}
@@ -192,6 +202,7 @@ export function AgentsView({ agents, self, powerPerSecond, fullChargeSeconds, ch
                 <p data-testid={`text-agent-skips-${a.id}`}><Say segs={skipLine(a.skips ?? 0)} /></p>
                 {showCosts && <p data-testid={`text-expected-act-cost-${a.id}`}><Say segs={estimateLine(a.expectedActCost, a.breakdown)} /></p>}
               </div>
+              {actLines?.get(a.id) && <p data-testid={`text-agent-act-${a.id}`} className="text-xs text-foreground">Latest: {actLines.get(a.id)}</p>}
               {a.diagnosis && (
                 // How its acts ended (engine-counted) and, when most fail, why and what to change.
                 <div data-testid={`text-agent-diagnosis-${a.id}`} className="space-y-0.5 text-xs">
@@ -244,6 +255,7 @@ export default function Agents({ params, phase }: PanelProps<"agents">) {
   const commands = useGameCommands();
   const can = useAffordances();
   const world = game?.worldSeconds ?? 0;
+  const acts = useOwnActLines(all, { third: !!can.seenAs });
   useEffect(() => { pruneSourceOpen(all.map(a => a.id)); }, [all]);
   // The published samples change only with the series; the point now is added per render.
   const published = useMemo(() => {
@@ -263,7 +275,7 @@ export default function Agents({ params, phase }: PanelProps<"agents">) {
   const { editCode } = can.can;
   const owner = can.seenAs ? <p data-testid="text-agents-owner" className="text-xs text-muted-foreground">Seen as {can.seenAs}: these are {can.whose} agents.</p> : null;
   if (!all.length) {
-    return <PanelEmpty action={(phase === "planning" || phase === "running") && editCode.ok ? <TextButton onClick={() => dock.forgeEdit()}>Write an agent</TextButton> : undefined}>
+    return <PanelEmpty action={(phase === "planning" || phase === "running") && editCode.ok ? <TextButton onClick={() => dock.forgeEdit()}>{SUMMON_FIRST}</TextButton> : undefined}>
       {can.seenAs ? `${can.seenAs} has no agents ${ended ? "at the end of this game" : "at this moment"}.`
         : can.readOnly && !ended ? "No agents at this moment." : ended ? "You summoned no agents in this game." : "No agents summoned yet. An agent is a small program that changes objects your way when the world picks it."}
     </PanelEmpty>;
@@ -276,6 +288,7 @@ export default function Agents({ params, phase }: PanelProps<"agents">) {
         onEdit={a => dock.forgeEdit(a.source, isLanguage(a.language) ? a.language : undefined)}
         onSetShare={(a, share) => void commands.run({ type: "allocatePower", agentId: a.id, share })}
         onDestroy={a => void commands.run({ type: "destroy", agentId: a.id })}
+        header={can.seenAs ? undefined : <PointsNow />} actLines={acts.byAgent}
         footer={ended && <p data-testid="text-agents-ended" className="text-xs text-muted-foreground">
           {can.readOnly ? `These are ${can.whose} agents as they ended the game.` : "The game is over: these are your agents as they ended it. Edit a copy keeps the code for the next game."}
         </p>} />

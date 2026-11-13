@@ -24,6 +24,8 @@ import Timeline from "./timeline";
 import { useMyAgents } from "@/sdk";
 import { useDockActions } from "@/dock/actions";
 import { useAffordances } from "@/core/use-affordances";
+import { SUMMON_FIRST } from "@/core/planning-line";
+import { readyText } from "./first-agent";
 
 export const PANEL_VIEWS = {
   overview: Overview, "my-card": MyCard, objects: Objects, "others-care": OthersCare, "bits-over-time": BitsOverTime, race: Race,
@@ -50,18 +52,23 @@ class PanelViewBoundary extends Component<{ children: ReactNode; panelId: PanelI
 
 /** Planning's one next step, where the empty state names it: open the agent editor, until the player has an agent. */
 function FirstAgentButton() {
-  const { agents } = useMyAgents({ hz: 1 });
+  const { agents, loading } = useMyAgents({ hz: 1 });
   const dock = useDockActions();
   const { editCode } = useAffordances().can;
-  if (agents.length || !editCode.ok) return null;
+  if (loading || agents.length || !editCode.ok) return null;
   return <button type="button" onClick={() => dock.forgeEdit()} data-testid="button-first-agent"
-    className="bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground">Write my first agent</button>;
+    className="bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground">{SUMMON_FIRST}</button>;
+}
+
+/** A panel opened outside its phases. In planning, once the player has an agent, there is nothing left to write: say it is ready. */
+function OutOfPhase({ panelId, phase }: { panelId: PanelId; phase: Phase }) {
+  const { agents } = useMyAgents({ hz: 1 });
+  const ready = phase === "planning" ? readyText(agents.map(a => a.name)) : null;
+  return <PanelEmpty testId={`panel-empty-${panelId}`} action={phase === "planning" ? <FirstAgentButton /> : undefined}>{outOfPhase(panelId, phase, ready)}</PanelEmpty>;
 }
 
 export function PanelHost({ paneId, panelId, params, phase }: { paneId: string; panelId: PanelId; params: unknown; phase: Phase }) {
-  if (!PANELS[panelId].phases.includes(phase) && !ALWAYS_RENDER.has(panelId)) {
-    return <PanelEmpty testId={`panel-empty-${panelId}`} action={phase === "planning" ? <FirstAgentButton /> : undefined}>{outOfPhase(panelId, phase)}</PanelEmpty>;
-  }
+  if (!PANELS[panelId].phases.includes(phase) && !ALWAYS_RENDER.has(panelId)) return <OutOfPhase panelId={panelId} phase={phase} />;
   const parsed = parsePanelParams(panelId, params);
   const values = parsed.ok ? parsed.params : defaultPanelParams(panelId);
   const View = PANEL_VIEWS[panelId] as unknown as (props: PanelProps<PanelId>) => ReactNode;
