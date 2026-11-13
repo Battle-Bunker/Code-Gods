@@ -79,8 +79,10 @@ export function storeAfterSummonText(s: { share: number | undefined; income: num
   if (s.share === undefined || !(s.share > 0) || s.income === undefined || !Number.isFinite(s.income)) return null;
   const part = Math.abs(s.share - 0.75) < 0.005 ? "Three quarters" : Math.abs(s.share - 0.5) < 0.005 ? "Half" : `${Math.round(s.share * 100)}%`;
   const keep = Math.round(s.income * 10) / 10;
-  return keep > 0 ? `${part} of your power now feeds this agent; you keep ${keep.toLocaleString("en-US", { maximumFractionDigits: 1 })} ⚡/s for replacing it or adding another.`
-    : `${part} of your power now feeds this agent; you keep none for yourself, so you cannot summon or replace until you take some back in My agents.`;
+  // Power glossed in the line itself: two walkers half-understood "power" against "energy" here.
+  const lead = `Your power is the energy you earn each second. ${part} of it now goes to this agent, which spends it on moves;`;
+  return keep > 0 ? `${lead} you keep ${keep.toLocaleString("en-US", { maximumFractionDigits: 1 })} ⚡ a second, saved up for replacing it or adding another.`
+    : `${lead} you keep none, so you cannot summon or replace until you take some back in My agents.`;
 }
 
 /**
