@@ -78,6 +78,11 @@ export function spendsAsItEarns(a: { energy: number; income: number; acts?: numb
 /** Red is for "stuck" only; everything else, a full store included, is neutral. */
 export const overdraftTone = (state: Overdraft): "neutral" | "alarm" => (state === "stuck" ? "alarm" : "neutral");
 export const WORKING_TEXT = "Working: it spends energy as fast as it earns it.";
+/**
+ * The energy of a working agent (a routine overdraft: it spends as fast as it earns): "about 0 ⚡" below zero, since a
+ * bare "−8.9 ⚡" read as broken to a first-time player; the exact figure is the line's tooltip.
+ */
+export const workingEnergyLine = (energy: number): Seg[] => [{ term: "agent-energy", text: "Energy" }, energy < 0 ? " about 0 ⚡" : ` ${num(energy)} ⚡`];
 
 /** The header's energy when the player is overdrawn: "overdrawn by 312 ⚡" (null when they are not). */
 export const owedText = (energy: number): string | null => (owes(energy) > 0 ? `overdrawn by ${bits(owes(energy))}` : null);

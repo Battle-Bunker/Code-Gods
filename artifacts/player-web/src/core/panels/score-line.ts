@@ -211,7 +211,9 @@ function ownActLine({ agent, before, after, noun = "object", ruleBefore, ruleAft
   // What the move did to the rarity, so its size can be read: only when both sides are known and show differently.
   const rare = (x: number) => minus((Math.round(x * 10) / 10 === 0 ? 0 : Math.round(x * 10) / 10).toFixed(1));
   const rarity = typeof rarityBefore === "number" && typeof rarityAfter === "number" && Number.isFinite(rarityBefore) && Number.isFinite(rarityAfter)
-    && rare(rarityBefore) !== rare(rarityAfter) && ruleDirection(ruleBefore, ruleAfter) !== 0 ? `: ✨ ${rare(rarityBefore)} → ${rare(rarityAfter)}` : "";
+    && rare(rarityBefore) !== rare(rarityAfter) && ruleDirection(ruleBefore, ruleAfter) !== 0
+    // Named and given its reason: a walker could not say why one more pair moved "✨ 1.0 → 2.9".
+    ? `: ✨ rarity ${rare(rarityBefore)} → ${rare(rarityAfter)} (${rarityAfter > rarityBefore ? "fewer" : "more"} random ${noun}s score this well)` : "";
   const plain = ruleScoreChange(ruleBefore, ruleAfter);
   const rule = plain ? plain + rarity : plain;
   const others = othersWantClause(othersAfter, noun);

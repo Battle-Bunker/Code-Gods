@@ -143,16 +143,16 @@ test("the act line gives the rarity move beside the rule score when the player's
   const base = { agent: "Keeper", before: "1R,2R/3R,4R", after: "1R,2R/4R,4R", noun: "grid" };
   const head = "Your agent Keeper changed 3 to 4 at row 2, column 1: ";
   assert.equal(actLine({ ...base, ruleBefore: [3, -26], ruleAfter: [4, -21], rarityBefore: 9.1, rarityAfter: 12.42, pointsBefore: 36.4, pointsAfter: 49.6 }),
-    `${head}your rule score (primary, secondary) (3, −26) → (4, −21): ✨ 9.1 → 12.4, this grid's points +13.2 (36.4 → 49.6).`);
+    `${head}your rule score (primary, secondary) (3, −26) → (4, −21): ✨ rarity 9.1 → 12.4 (fewer random grids score this well), this grid's points +13.2 (36.4 → 49.6).`);
   assert.equal(actLine({ ...base, ruleBefore: 4, ruleAfter: 5, rarityBefore: 2, rarityAfter: 3.5, pointsAfter: 22.4 }),
-    `${head}your rule score +1 (4 → 5): ✨ 2.0 → 3.5; this grid now gives you 22.4 points.`);
+    `${head}your rule score +1 (4 → 5): ✨ rarity 2.0 → 3.5 (fewer random grids score this well); this grid now gives you 22.4 points.`);
   // The same ✨ to one decimal, a rule score that stayed, or one side unknown: the tuple alone.
   assert.equal(actLine({ ...base, ruleBefore: 4, ruleAfter: 5, rarityBefore: 2.01, rarityAfter: 2.04, pointsAfter: 22.4 }), `${head}your rule score +1 (4 → 5); this grid now gives you 22.4 points.`);
   assert.equal(actLine({ ...base, ruleBefore: 5, ruleAfter: 5, rarityBefore: 2, rarityAfter: 2 }), `${head}your rule score stayed 5.`);
   assert.equal(actLine({ ...base, ruleBefore: 4, ruleAfter: 5, rarityAfter: 3.5 }), `${head}your rule score +1 (4 → 5).`);
   // Against the points: the rarity move is said with the rule score there too.
   assert.equal(actLine({ ...base, ruleBefore: 4, ruleAfter: 5, rarityBefore: 2, rarityAfter: 3.5, pointsBefore: 120, pointsAfter: 100 }),
-    `${head}your rule score went up (4 → 5: ✨ 2.0 → 3.5), but this grid's points fell 20 (120.0 → 100.0). A grid's points are your ✨ rarity for it × how much the others want it, not the rule score alone.`);
+    `${head}your rule score went up (4 → 5: ✨ rarity 2.0 → 3.5 (fewer random grids score this well)), but this grid's points fell 20 (120.0 → 100.0). A grid's points are your ✨ rarity for it × how much the others want it, not the rule score alone.`);
 });
 
 test("what each agent's moves earned, counted from the events the pane holds, with the window said", () => {
