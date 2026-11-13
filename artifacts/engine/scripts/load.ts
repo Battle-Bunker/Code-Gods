@@ -7,6 +7,7 @@
  *
  *   --games N        rooms started together (default 5)
  *   --ai N           mock AI seats per game (default 0; local only: they need AI_MOCK and an admin owner)
+ *   --unique         every summoned agent is a different program (nothing answered from the examination cache)
  *   --humans N       human gods per game (default 3 − ai, at least 1); each summons 1–2 `add(1)` agents in planning
  *   --seconds N      the game's fixed length in world seconds (default 75)
  *   --planning N     planning seconds (default 12)
@@ -46,7 +47,7 @@ import { anyApi } from "convex/server";
 const { values } = parseArgs({ args: process.argv.slice(2).filter(a => a !== "--"), options: {
   games: { type: "string", default: "5" }, ai: { type: "string", default: "0" }, humans: { type: "string" }, seconds: { type: "string", default: "75" },
   planning: { type: "string", default: "12" }, language: { type: "string", default: "typescript" }, rate: { type: "string" }, cap: { type: "string" },
-  out: { type: "string" }, log: { type: "string" }, "end-all": { type: "boolean", default: false }, target: { type: "string", default: "local" },
+  out: { type: "string" }, log: { type: "string" }, "end-all": { type: "boolean", default: false }, unique: { type: "boolean", default: false }, target: { type: "string", default: "local" },
 } });
 const refuse = (why: string): never => { console.error(`load: ${why}`); process.exit(1); };
 
@@ -86,7 +87,7 @@ console.log(`load: ${games} games × (${values.humans ?? Math.max(1, 3 - aiSeats
 const result = await runLoad({
   games, aiSeats, lifetimeSeconds, planningSeconds, language: values.language as "typescript" | "python", target,
   ...(values.humans ? { humans: Number(values.humans) } : {}), ...(values.cap ? { capMs: Number(values.cap) * 1000 } : {}),
-  ...(values.rate ? { settings: { interactionRateHz: Number(values.rate) } } : {}),
+  ...(values.rate ? { settings: { interactionRateHz: Number(values.rate) } } : {}), uniqueSources: values.unique,
   devLog: values.log ?? process.env.CG_DEV_LOG, log: line => console.log(`load: ${line}`),
 });
 const out = values.out ?? `load-${games}g-${aiSeats}ai-${result.startedAt.replace(/[:.]/g, "-")}.json`;

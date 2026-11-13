@@ -42,6 +42,12 @@ export type LoadOptions = {
   humans?: number;
   /** Agents each human summons during planning (1 or 2; default alternates 1, 2 by seat). */
   humanAgents?: number;
+  /**
+   * Every summoned agent is a different program (a different constant), so no examination is answered from the
+   * examination cache: the load of players each writing their own code. Default false: everyone summons the same
+   * `add(1)` (the pre-filled example every beginner summons).
+   */
+  uniqueSources?: boolean;
   /** The game's fixed length in world seconds (settings.halfLifeSeconds with durationMode "fixed": `endAtWorld`). */
   lifetimeSeconds?: number;
   planningSeconds?: number;
@@ -341,7 +347,8 @@ export async function runLoad(options: LoadOptions): Promise<LoadResult> {
     await Promise.all(room.humans.flatMap((god, seat) => Array.from({ length: options.humanAgents ?? 1 + seat % 2 }, async (_, k) => {
       const from = Date.now();
       // A player told "the sandbox is busy; send the same command again" does so: the identical envelope, a few seconds later, up to twelve times.
-      const envelope = { version: VERSION, commandId: randomUUID(), gameId, command: { type: "summon", name: `Load agent ${seat}.${k}`, language, source: SOURCES[language] } };
+      const envelope = { version: VERSION, commandId: randomUUID(), gameId, command: { type: "summon", name: `Load agent ${seat}.${k}`, language,
+        source: options.uniqueSources ? SOURCES[language].replace("add(1)", `add(${2 + Math.floor(Math.random() * 1e9)})`) : SOURCES[language] } };
       for (let attempt = 0; ; attempt++) {
         try {
           const result = await god.c.action(api.commands.submit, { roomId: room.roomId, envelope });

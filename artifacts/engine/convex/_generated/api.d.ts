@@ -99,6 +99,7 @@ import type * as lib_background from "../lib/background.js";
 import type * as lib_deadline from "../lib/deadline.js";
 import type * as lib_engineErrors from "../lib/engineErrors.js";
 import type * as lib_errors from "../lib/errors.js";
+import type * as lib_examinationCache from "../lib/examinationCache.js";
 import type * as lib_futility from "../lib/futility.js";
 import type * as lib_http from "../lib/http.js";
 import type * as lib_knowledge from "../lib/knowledge.js";
@@ -243,6 +244,7 @@ declare const fullApi: ApiFromModules<{
   "lib/deadline": typeof lib_deadline;
   "lib/engineErrors": typeof lib_engineErrors;
   "lib/errors": typeof lib_errors;
+  "lib/examinationCache": typeof lib_examinationCache;
   "lib/futility": typeof lib_futility;
   "lib/http": typeof lib_http;
   "lib/knowledge": typeof lib_knowledge;
