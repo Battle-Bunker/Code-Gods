@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { instantiate } from "@workspace/game-types";
 import {
   EXACT_TOP, calibrationError, courtTopSample, exactTopFromBoards, headroomShare, mirrorExactTop, mirrorQualifying, ninesExactTop, sentenceCount, tierFloor,
-  tierLayout, tierOf, topTierOf,
+  tierLayout, tierOf, topTierOf, threesTopCounts, twoPairExactTop, twoPairTopCounts,
 } from "../scripts/tiered-profile.ts";
 import { courtScore } from "../src/families/grid/layered/royal_court.ts";
 import { conditionalTier, mulberry32, type DisjointBase } from "../src/tiers/hybrid.ts";
@@ -118,3 +118,49 @@ test("Kings and Subjects at its top: the sample draws four courts and tallies th
   assert.deepEqual(s.hits, [[0, 400], [1, 100]]);
 });
 
+
+test("Two Pair at its top, exactly: the ring of four links over the 45⁴ choices of number pairs", () => {
+  const c = twoPairTopCounts();
+  assert.equal(c.boards, 45 ** 4);
+  // Every choice of four number pairs is counted once, for the links themselves and for linking through one number.
+  assert.equal(c.links.reduce((a, b) => a + b, 0), c.boards);
+  assert.equal(c.via.reduce((a, b) => a + b, 0), c.boards);
+  // All four borders link when the four boxes are a b / b c / c d / d a, and 77,760 of the choices are (docs: 5.72 bits).
+  assert.equal(c.links[4], 77_760);
+  assert.equal(c.via[4], 4_104);
+  assert.equal((-Math.log2(c.links[4] / c.boards)).toFixed(2), "5.72");
+  // A sum tier's histogram is a subset of the links': a link with a total is a link.
+  for (const x of [14, 28, 36]) {
+    const h = c.sums.get(x)!;
+    for (let k = 1; k <= 4; k++) assert.ok(h.slice(k).reduce((a, b) => a + b, 0) <= c.links.slice(k).reduce((a, b) => a + b, 0), `x=${x} k=${k}`);
+  }
+  // Odd totals are dead: a link's eight numbers are 4a + 2b + 2c.
+  assert.deepEqual(c.sums.get(15), [c.boards, 0, 0, 0, 0]);
+  const top = twoPairExactTop("linkSums", 14)!;
+  assert.equal(top.survival[0][1], 1);
+  assert.ok(top.survival.at(-1)![1] > 0 && top.survival.at(-1)![1] < 1e-4, "the top level is rare");
+  assert.equal(twoPairExactTop("equalRoads", 3), null, "roads read arrangements the count cannot see");
+});
+
+test("Crosswise Threes at its top: the sample draws pairs 3 apart and counts every total in one pass", () => {
+  let boards = 0;
+  const c = threesTopCounts(500, 7, (board, h) => {
+    boards++;
+    // Every fold pair is 3 apart, and the four fold-line cells are free.
+    for (let r = 0; r < 4; r++) for (let c2 = 0; r + c2 < 3; c2++) {
+      const a = board[4 * r + c2], b = board[4 * (3 - c2) + (3 - r)];
+      assert.equal(Math.abs(a - b), 3, `(${r},${c2})`);
+    }
+    // `h` is the board's own count of lines at each total: 10 lines in all.
+    assert.equal([...h].reduce((x, y) => x + y, 0), 10);
+  });
+  assert.equal(boards, 200, "the card check runs on the first 200 boards");
+  for (const counts of [c.lines, c.squares]) {
+    for (let x = 0; x <= 36; x++) {
+      const row = Array.from({ length: 11 }, (_, k) => counts[x * 11 + k]);
+      assert.equal(row.reduce((a, b) => a + b, 0), 500, `every board is counted at x=${x}`);
+    }
+  }
+  // A total no line can make (the smallest is 4 · 0 = 0, but a line crossing the fold holds a and a+3) is never hit.
+  assert.equal(c.lines[36 * 11 + 0], 500, "no line adds up to 36 on these boards");
+});

@@ -127,7 +127,39 @@ Compare (plain and unlock compositions, Lab): linkSums x = 36.
   player's board and the ring agree there. Not measured as `SYN`.
 - **linksVia y × Mirrormancer "holding two ys".** Both ask for pairs of the same y. Not measured.
 
+## The shipped tables against the exact law (2026-11-13)
+
+The exact count above is now the reference law `tiered-profile --check` uses, so every shipped link table is compared
+with it level by level (`twoPairTopCounts`/`twoPairExactTop` in `scripts/tiered-profile.ts`; the script
+`two-pair-exact.ts` prints the same count):
+
+```sh
+node --experimental-strip-types scripts/tiered-profile.ts --families two_pair --no-profile --check
+```
+
+| table | added bits, shipped | added bits, exact | max error over all levels |
+|---|--:|--:|--:|
+| `linkSums` x = 14 | 17.46 | 17.06 | **0.63** |
+| x = 16 | 17.37 | 16.80 | 0.57 |
+| x = 36 | 15.42 | 15.97 | 0.55 |
+| x = 18 | 16.85 | 16.44 | 0.46 |
+| x = 26 | 15.98 | 15.61 | 0.43 |
+| x = 32 | 16.01 | 15.72 | 0.29 |
+| x = 22 | 16.06 | 15.80 | 0.26 |
+| x = 24 | 16.27 | 16.06 | 0.21 |
+| x = 28 | 16.13 | 15.97 | 0.17 |
+| x = 20 | 16.62 | 16.58 | 0.16 |
+| x = 34 | 15.28 | 15.38 | 0.10 |
+| x = 30 | 15.54 | 15.51 | 0.09 |
+| `linksVia` y = 0 (every y) | 9.93 | 9.96 | 0.05 |
+| `links` (Lab) | 5.72 | 5.72 | 0.03 |
+
+Thirteen of the fifteen dealt tables, and the Lab one, are **within 0.63 bits of the exact law at every level** — well
+inside the 1-bit bound the tables declare. No level was missed. `equalRoads` is the exception: it reads arrangements
+inside the boxes and roads across them, which the 45⁴ count cannot see, so its two tables are still unchecked.
+
 ## Not done
 
 - No `SYN` runs, no agent runs (base-only against tier-aware greedy) for these tiers.
+- `equalRoads` y = 3 and y = 5 have no reference law.
 - Only 4×4 digits. On 6×6 the code runs (9 boxes, 12 possible links) but nothing is dealt and nothing was measured.

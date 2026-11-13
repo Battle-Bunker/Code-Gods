@@ -34,10 +34,10 @@ reference for Opposite Nines and Mirrormancer, which is exact.
 | Mirrormancer | halves | 5 | 3 | 26.6 | 41.0–42.7 | 14.4–16.1 | 0.01–0.07 | 0.02–0.09 | 31.1 → 44.2–45.3 | 1.00 | 0.28 (exact reference) |
 | Kings and Subjects | pairs | 5 | 5 | 14.6 | 27.5–28.3 | 12.8–13.7 | 0.04–0.09 | 0.19–0.26 | 45.6 → 59.8–59.9 | 0.99 | 0.30 (sampled reference) |
 | Kings and Subjects | sameRoads | 1 | 1 | 14.6 | 27.2 | 12.6 | 0.00 | 0.03 | 45.6 → 60.0 | 1.00 | 0.30 (sampled reference) |
-| Two Pair | linkSums | 23 | 12 | 20.5 | 36.1–38.3 | 15.6–17.8 | 0.00–0.04 | **0.00–0.06** | 27.2 → 44.0–46.4 | 1.00–1.02 | not measured |
-| Two Pair | linksVia | 10 | 1 | 20.5 | 30.8 | 10.2 | 0.03 | 0.03 | 27.2 → 40.0 | 1.01 | not measured |
-| Two Pair | equalRoads | 2 | 2 | 20.5 | 35.3–37.3 | 14.8–16.8 | 0.00–0.01 | 0.00–0.02 | 27.2 → 42.6–45.7 | 1.00–1.02 | not measured |
-| Crosswise Threes | lines | 8 | 8 | 16.2 | 32.3–36.7 | 16.1–20.5 | 0.03–0.08 | **0.35–0.57** | 21.0 → 43.0–43.2 | 0.99–1.01 | not measured |
+| Two Pair | linkSums | 23 | 12 | 20.5 | 36.1–38.3 | 15.6–17.8 | 0.00–0.04 | **0.00–0.06** | 27.2 → 44.0–46.4 | 1.00–1.02 | 0.63 (exact reference) |
+| Two Pair | linksVia | 10 | 1 | 20.5 | 30.8 | 10.2 | 0.03 | 0.03 | 27.2 → 40.0 | 1.01 | 0.05 (exact reference) |
+| Two Pair | equalRoads | 2 | 2 | 20.5 | 35.3–37.3 | 14.8–16.8 | 0.00–0.01 | 0.00–0.02 | 27.2 → 42.6–45.7 | 1.00–1.02 | no reference law |
+| Crosswise Threes | lines | 8 | 8 | 16.2 | 32.3–36.7 | 16.1–20.5 | 0.03–0.08 | **0.35–0.57** | 21.0 → 43.0–43.2 | 0.99–1.01 | 0.42 (sampled reference) |
 
 **How reachable each tier is.** The tier-aware share is the one number a beginner feels, and the five families are not
 alike: Crosswise Threes' lines are **0.35 to 0.57** — a one-cell climber gets a third to a half of that tier — while
@@ -49,9 +49,15 @@ goal-card example search, which could not find a board scoring Two Pair's tier u
 sit in between, and Mirrormancer's halves (0.02–0.09) and Two Pair's are the ones a player has to plan for.
 
 **Max calibration error per family** (shipped table against the reference, bits of P(tier ≥ i | base at its top)):
-Opposite Nines 0.38 dealt, 0.56 Lab (exact); Mirrormancer 0.28 (exact); Kings and Subjects 0.30 (sampled). Two Pair
-and Crosswise Threes have no reference law, so their tables are unchecked against one. The bound the tables declare is
-1 bit.
+Opposite Nines 0.38 dealt, 0.56 Lab (exact); Mirrormancer 0.28 (exact); Kings and Subjects 0.30 (sampled); Two Pair
+0.63 (exact: the 45⁴ choices of four number pairs at the top); Crosswise Threes 0.42 (sampled: 2 · 10⁷ uniform top
+boards, every total x in one pass). The bound the tables declare is 1 bit, and **42 of the 44 dealt tables now have a
+reference law** — only Two Pair's two `equalRoads` tables have none, because they read arrangements inside the boxes
+and roads across them, which the 45⁴ count cannot see.
+
+One run over everything (`$T --no-profile --check`, dealt and Lab, 53 tables with a reference and 2 without):
+**every one is within 0.63 bits**, the worst being Two Pair's `linkSums` x = 14 (0.63), x = 16 (0.57) and x = 36
+(0.55), then Opposite Nines' `squares` x = 9 in the Lab (0.56). Nothing is over 0.7.
 
 **Pool check.** Max top / min top over the **44** dealt tiered tables: 42.72 (Mirrormancer halves x = 8) / 27.20
 (Kings and Subjects sameRoads y = 4) = **1.57** (must be ≤ 2.5: passes).
@@ -114,8 +120,9 @@ payoff ratios 0.99 to 1.03 (design: 0.95 to 1.06); the pool ratio; mean `SYN` ri
 
 - Kings and Subjects: nothing is exact. The reference is a sample; it cannot check a level rarer than about 1 in 10⁷
   (the Lab tops, 31.7 to 33.9 added bits, are unchecked).
-- Two Pair and Crosswise Threes have no reference law at all (no exact enumeration and no sampled `EXACT_TOP`), so
-  their 20 dealt tables are unchecked against anything but the hybrid law that built them.
+- Two Pair's two `equalRoads` tables have no reference law. Every other dealt tiered table now has one.
+- Crosswise Threes' reference is a sample, and at the top of its rarest values it is thin: x = 12's top level rests on
+  17 of the 2 · 10⁷ boards (about ±0.3 bits at 95%), so that row checks the hybrid law only to about a third of a bit.
 - Tier levels below the base's top (between the gate and the top) are not compared with any reference, in any family.
 - The liveness sweep over every x of Opposite Nines (dealt or not) was not rerun on version 2.
 - Synergy and games were run for two values per interaction, 40 games each; depth 2 (pairs of interactions) not at all.
@@ -140,7 +147,9 @@ $T --families opposite_nines --interactions lines   --pair-limit 2 --json lines.
 $T --families opposite_nines --interactions squares --pair-limit 2 --json squares.json   # opposite-nines.profile.json
 # every dealt and Lab value's shipped table against the reference law at the base's top
 $T --no-profile --check --json $M/calibration-check.json
-$T --families kings_and_subjects --no-profile --check --values "sameRoads(y=2);sameRoads(y=3)" --top-sample 20000000
+$T --families two_pair --no-profile --check                                 # exact: the 45⁴ choices at the top
+$T --families crosswise_threes --no-profile --check --top-sample 20000000   # sampled: every total x in one pass
+node --experimental-strip-types scripts/two-pair-exact.ts                    # the same exact count, printed
 # the composition comparison (gated, plain, unlock)
 $T --families opposite_nines --no-profile --compare --compare-value "lines(x=18)" --json $M/opposite-nines.compare.json
 # one fresh build per family: the base and the first dealt value of each interaction

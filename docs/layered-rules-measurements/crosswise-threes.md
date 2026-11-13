@@ -126,3 +126,38 @@ plan rather than falling out of greed.
 Synergy with the beginner eight rises as it does for every tiered family (§8.1 of the design document, measured): mean
 `SYN` 21.0 → 43.0–43.2 and the ceiling 1.00 → 0.70–0.92. Payoff ratio 0.99 to 1.01 over 40 three-player games each,
 seat 0 playing the base only against playing the whole rule.
+
+## The shipped tables against a uniform sample of the top (2026-11-13)
+
+The top set is every board whose 6 fold pairs are 3 apart and whose 4 fold-line cells are anything: 14⁶ · 10⁴ ≈
+7.5 · 10¹⁰ boards, too many to enumerate, and a tier that reads lines across the fold has no product form. So the
+reference is an independent **uniform sample** of the top, as for 🫅 Kings and Subjects: each pair one of its 14
+fillings ((a, a+3) and (a+3, a) for a = 0…6), each free cell a uniform digit. One pass counts, for every total x at
+once, how many boards have exactly h of the 10 lines (and of the 9 squares) adding up to x — which is what makes
+2 · 10⁷ boards affordable for twelve tables. The line sums are read off the board rather than through the card, so the
+first 200 boards of every variant go through the card too and must agree, on the base's top and on the tier's count
+(`threesTopCounts`/`threesTopSample` in `scripts/tiered-profile.ts`).
+
+```sh
+node --experimental-strip-types scripts/tiered-profile.ts --families crosswise_threes --no-profile --check --top-sample 20000000
+```
+
+| table | added bits, shipped | added bits, sample | max error over all levels | boards at the top level |
+|---|--:|--:|--:|--:|
+| `lines` x = 11 | 17.79 | 17.64 | 0.02 | 98 |
+| x = 12 | 19.70 | 20.17 | 0.21 | **17** |
+| x = 13 | 16.45 | 16.45 | 0.07 | 224 |
+| x = 14 | 18.74 | 18.64 | 0.10 | 49 |
+| x = 15 | 15.40 | 15.45 | 0.10 | 446 |
+| x = 16 | 18.02 | 17.99 | 0.10 | 77 |
+| x = 17 | 15.29 | 14.87 | **0.42** | 666 |
+| x = 18 | 17.87 | 17.61 | 0.26 | 100 |
+| `lines` x = 9 (Lab) | 20.12 | 20.45 | 0.10 | 14 |
+| `lines` x = 10 (Lab) | 21.20 | 20.93 | 0.06 | 10 |
+| `squares` x = 17 (Lab) | 21.03 | 20.67 | 0.21 | – |
+| `squares` x = 18 (Lab) | 20.80 | 20.08 | 0.15 | – |
+
+Every table — all 8 dealt and all 4 Lab — is **within 0.42 bits of the sample at every level**, inside the 1-bit bound
+the tables declare, and no level was missed. The sample's own precision is the limit at the top of the rarest values:
+x = 12's top level rests on 17 of the 2 · 10⁷ boards (about ±0.3 bits at 95%) and the Lab's x = 10 on 10, so those rows
+check the hybrid law only to about a third of a bit. Every level below the top rests on thousands.
