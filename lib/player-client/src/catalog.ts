@@ -313,8 +313,8 @@ export const CATALOG: { readonly [K in PublicFunctionPath]: CatalogEntry & { kin
   // ----- manifest -----
   "manifest.get": {
     kind: "query", audience: "infrastructure",
-    human: { title: "Show server info", tooltip: "Object types, offered instantiations, options, runtimes and whether AI players are funded." },
-    ai: { description: "The deployment's manifest: object types with their offered instantiations, pre-authored option lists, runtimes (the agent sandboxes' state, live) and AI funding status; null until the deployment has stored it. get_rules includes what a player needs of it; list_setups lists the game setups." },
+    human: { title: "Show server info", tooltip: "Object types, playable instantiations, options, runtimes and whether AI players are funded." },
+    ai: { description: "The deployment's manifest: object types with their playable instantiations, pre-authored option lists, runtimes (the agent sandboxes' state, live) and AI funding status; null until the deployment has stored it. get_rules includes what a player needs of it; list_setups lists the game setups." },
     tools: ["get_rules"], palette: { label: "Show server info", group: "help", keywords: ["version", "manifest", "runtimes", "instantiations"], surfaces: SITE },
   },
   "manifest.node.warm": {

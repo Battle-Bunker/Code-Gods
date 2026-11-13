@@ -534,8 +534,9 @@ much less than mutation) to get exposure to mutation opportunities."
   | Big board | 80 | 0.198 | 17.8 | 1.1% | 2.7% |
   | Master | 80 | 0.198 | 18.7 | 1.1% | 1.6% |
 
-- **The summon-time estimate** (`expectedActCost`, `breakdown.read`) is of the act alone; the offer's price depends on
-  how many objects are live.
+- **The summon-time estimate** (`expectedActCost`, `breakdown.read`) includes the offer, at the number of objects the
+  game holds when the agent is validated or summoned (the examination measures the act alone; `game/commands.ts` adds
+  it). So an agent that reads nothing and skips is told about 0.2 bits per act, which is what it pays, not 0.
 - **Is it enough against hoarding?** With the capacity, yes; and it is the capacity that does the work. The experiment
   (`lib/game-core/scripts/capacity-experiments.ts`, First steps, 100 games per row): one god's three agents read
   nothing and never act; the other two gods play greedy.
