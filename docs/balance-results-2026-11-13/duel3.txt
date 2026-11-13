@@ -1,0 +1,17 @@
+setup annotated, 3 gods, 48 games per table, econ {"powerPerSecond":64,"interactionRateHz":25,"durationSeconds":300,"startingObjectCount":10,"spawnRateHz":0.1,"capacitySeconds":30,"kappa":32,"agentsPerGod":1,"distancePricing":true,"erasure":0,"erasureNoiseBits":0,"aggregate":"sum","peerNoiseBits":0,"scoring":"final","learnSeconds":0,"candidates":24,"offerReads":true,"debtBound":true}
+
+Win share of the one god:
+| the others play ↓, one god plays → | greedy | considerate | deny | best response |
+|---|---|---|---|---|
+| greedy | *33%* | 0% | 31% | greedy |
+| considerate | 100% | *33%* | 100% | greedy |
+| deny | 54% | 0% | *33%* | greedy |
+
+Points of the one god:
+| the others play ↓, one god plays → | greedy | considerate | deny | best response |
+|---|---|---|---|---|
+| greedy | *19410* | 10481 | 9678 | greedy |
+| considerate | 15100 | *10029* | 19455 | deny |
+| deny | 4404 | 2756 | *3883* | greedy |
+
+Welfare of each one-policy table: greedy 58231, considerate 30087, deny 11650

@@ -8,9 +8,10 @@ import assert from "node:assert/strict";
 import { instantiate, seededRng, type GridValue } from "@workspace/game-types";
 import { givenRule, space } from "../scripts/rule-difficulty-lib.ts";
 import {
-  DEFAULT_TUNING, DEVELOP_ECON, decide, equilibria, payoffs, playGame, profileKey, profiles, winShares, writeWork,
+  DEFAULT_TUNING, DEVELOP_ECON, decide, equilibria, payoffs, playGame, profileKey, profiles, ranksOf, winShares, writeWork,
   type Econ, type Obj, type Policy, type TableStats,
 } from "../scripts/coordination-lib.ts";
+import { ruleStats, type RuleGame } from "../scripts/coordination.ts";
 
 const inst = instantiate("Grid", { size: 4, symbols: "base10", colours: "mono" });
 const sp = space(inst, "symbol");
@@ -178,4 +179,39 @@ test("the equilibrium finder on a hand-made dilemma: spoiling is the only equili
   assert.deepEqual(found.filter(e => e.equilibrium).map(e => e.profile), [["deny", "deny"]]);
   const coop = found.find(e => e.profile.every(p => p === "cooperator"))!;
   assert.deepEqual(coop.best, { from: "cooperator", to: "deny", gain: 2 });
+});
+
+test("the debt bound: a change that would leave the agent owing more than its store does not commit, and pays its reads", () => {
+  // 1 bit/s for 5 s: each agent holds at most 5 bits and may owe 5. A write costs over 10.6 bits of work (4 + 2 log2 10)
+  // plus the read of the board (1.66): it would need 7.3 bits in hand, more than the store. Every change is refused.
+  const base = { powerPerSecond: 1, capacitySeconds: 5, durationSeconds: 60, agentCapHz: undefined };
+  const bound = playGame(RULES, ["greedy", "greedy", "greedy"], sp, econ(base), seededRng("debt"));
+  assert.deepEqual(bound.changes, [0, 0, 0]);
+  assert.ok(bound.refused.every(n => n > 0), `refused ${bound.refused}`);
+  bound.changeSpent.forEach(x => assert.equal(x, 0));
+  bound.readSpent.forEach((x, g) => near(x, bound.acts[g] * 16 * Math.log2(10) / 32, 1e-6));
+  // Without the bound (the economy before 13 Nov 2026) the same agents change the boards on credit.
+  const free = playGame(RULES, ["greedy", "greedy", "greedy"], sp, econ({ ...base, debtBound: false }), seededRng("debt"));
+  assert.ok(free.changes.every(n => n > 0), `changes ${free.changes}`);
+  assert.deepEqual(free.refused, [0, 0, 0]);
+  // Where a change fits the store the bound refuses nothing: 64 bits/s for 30 s holds 1920.
+  const rich = playGame(RULES, ["greedy", "greedy", "greedy"], sp, econ({ capacitySeconds: 30, agentCapHz: undefined }), seededRng("debt"));
+  assert.deepEqual(rich.refused, [0, 0, 0]);
+});
+
+test("ranks: 1 for the top score, equal scores share the mean of their places", () => {
+  assert.deepEqual(ranksOf([3, 1, 2]), [1, 3, 2]);
+  assert.deepEqual(ranksOf([2, 2, 0]), [1.5, 1.5, 3]);
+  assert.deepEqual(ranksOf([5, 5, 5, 5]), [2.5, 2.5, 2.5, 2.5]);
+});
+
+test("statistics by dealt rule: win share with ties split, mean rank with ties sharing their places", () => {
+  const game = (score: number[]): RuleGame => ({ families: ["a", "b", "c"], score, ownBits: [4, 2, 1], topBits: [8, 8, 2], changes: [3, 0, 0], refused: [0, 1, 0] });
+  const s = ruleStats([game([3, 1, 1]), game([2, 2, 0])]);
+  // a: first alone, then tied first (places 1 and 2: rank 1.5, half a win). b: tied second-third (2.5), then tied first.
+  assert.deepEqual([s.get("a")!.win, s.get("a")!.rank], [0.75, 1.25]);
+  assert.deepEqual([s.get("b")!.win, s.get("b")!.rank], [0.25, 2]);
+  assert.deepEqual([s.get("c")!.win, s.get("c")!.rank], [0, 2.75]);
+  near(s.get("a")!.relative, (3 / (5 / 3) + 2 / (4 / 3)) / 2);
+  assert.deepEqual([s.get("a")!.topShare, s.get("c")!.topShare, s.get("a")!.changes, s.get("b")!.refused, s.get("a")!.n], [0.5, 0.5, 3, 1, 2]);
 });

@@ -96,3 +96,79 @@ cost-aware greedy, share of top held after 64 energy bits (mean; max/min; CV) an
 Every distance price makes the pool more even and faster than `set-v1`. Magic Eighteen is the one rule the slider does
 not speed up (0.76 to 0.74 of top at 64): its row totals are often fixed by one far change. The dial and multiply make
 it cheap (0.97, 0.93) through the price list, not the rule.
+
+## 5. Win share by rule under the final economy (2026-11-13)
+
+Measured with the coordination model (`lib/game-utilities/scripts/coordination.ts`, mode `rules`), which plays the
+real rules, shipped tables with hold rarity, and game-core's energy on the default setup as it ships: changes priced
+by distance, 600 starting energy, a 30 s store, the read price, every offer charged, the debt bound, score noise off,
+300 s, one agent per player, each policy's program paid for at its measured summon price. The setup's own dealer deals
+(no two players hold the same rule). Every player at a table plays the same policy, so what differs between seats is
+the rule.
+
+```
+pnpm --filter @workspace/game-utilities coordination rules --players 3 --games 600 --summon --set greedy,considerate,deny
+pnpm --filter @workspace/game-utilities coordination rules --players 4 --games 600 --summon --set greedy
+pnpm --filter @workspace/game-utilities coordination rules --players 4 --games 300 --summon --set considerate,deny
+```
+
+Each cell: win share / mean rank / points against the table's mean / the rule's own bits per object at the end (as a
+share of its top). A win share is good to about ±3 points at 3 players (each rule is dealt in about 225 of 600 games).
+
+**3 players** (fair: 33%, rank 2.0)
+
+| Rule | top bits (table / in a 3-player game) | greedy | considerate | deny |
+|---|---|---|---|---|
+| Opposite Nines | 26.4 / 32.9 | 83% / 1.19 / 1.08 / 18.0 (55%) | 72% / 1.29 / 1.14 / 15.1 (46%) | 87% / 1.14 / 1.20 / 9.7 (29%) |
+| Mirrormancer | 26.6 / 33.0 | 68% / 1.35 / 1.08 / 19.5 (59%) | 11% / 2.50 / 0.90 / 9.8 (30%) | 24% / 2.27 / 0.90 / 6.5 (20%) |
+| Leapfrog | 20.2 / 25.0 | 24% / 2.02 / 1.01 / 14.9 (59%) | 9% / 2.43 / 0.92 / 9.6 (38%) | 34% / 1.87 / 1.05 / 8.3 (33%) |
+| Spread of Three | 22.8 / 27.3 | 23% / 2.03 / 1.01 / 14.1 (52%) | 28% / 1.96 / 0.98 / 11.4 (42%) | 25% / 2.04 / 1.00 / 6.3 (23%) |
+| Two Pair | 20.5 / 27.0 | 23% / 1.96 / 1.01 / 15.5 (57%) | 22% / 2.26 / 0.94 / 10.4 (39%) | 23% / 2.23 / 0.93 / 6.9 (25%) |
+| Crosswise Threes | 16.2 / 19.8 | 21% / 2.43 / 0.94 / 11.0 (55%) | 15% / 2.11 / 0.99 / 10.3 (52%) | 21% / 2.26 / 0.94 / 6.4 (32%) |
+| Strangers | 21.7 / 25.4 | 20% / 2.18 / 0.99 / 13.1 (52%) | 9% / 2.47 / 0.92 / 9.2 (36%) | 27% / 2.20 / 0.95 / 6.5 (26%) |
+| Magic Eighteen | 14.8 / 20.6 | 1% / 2.88 / 0.89 / 9.7 (47%) | 93% / 1.07 / 1.20 / 15.0 (73%) | 22% / 2.08 / 1.00 / 7.5 (36%) |
+| **lowest to highest** | 19.8 to 33.0 (×1.67) | 1% to 83% | 9% to 93% | 21% to 87% |
+
+**4 players** (fair: 25%, rank 2.5)
+
+| Rule | greedy | considerate | deny |
+|---|---|---|---|
+| Opposite Nines | 44% / 1.89 / 1.06 / 10.9 (30%) | 59% / 1.46 / 1.19 / 11.3 (31%) | 65% / 1.56 / 1.13 / 6.5 (18%) |
+| Mirrormancer | 52% / 1.69 / 1.10 / 12.0 (32%) | 1% / 3.66 / 0.78 / 6.3 (17%) | 9% / 2.96 / 0.93 / 4.8 (13%) |
+| Leapfrog | 13% / 2.59 / 1.00 / 9.1 (34%) | 1% / 3.23 / 0.86 / 7.0 (26%) | 19% / 2.67 / 0.99 / 5.3 (20%) |
+| Spread of Three | 44% / 1.88 / 1.07 / 11.0 (38%) | 28% / 2.04 / 1.04 / 9.5 (33%) | 38% / 2.02 / 1.06 / 5.7 (20%) |
+| Two Pair | 16% / 2.59 / 1.00 / 9.7 (32%) | 7% / 3.02 / 0.89 / 7.7 (25%) | 8% / 2.94 / 0.94 / 5.0 (16%) |
+| Crosswise Threes | 17% / 2.89 / 0.95 / 8.3 (39%) | 10% / 2.38 / 1.00 / 8.2 (38%) | 22% / 2.41 / 1.02 / 5.5 (26%) |
+| Strangers | 13% / 2.80 / 0.98 / 9.4 (35%) | 4% / 2.85 / 0.93 / 7.4 (27%) | 32% / 2.40 / 1.02 / 5.4 (20%) |
+| Magic Eighteen | 1% / 3.68 / 0.84 / 7.1 (31%) | 92% / 1.08 / 1.34 / 13.0 (56%) | 18% / 2.77 / 0.95 / 5.2 (22%) |
+| **lowest to highest** | 1% to 52% | 1% to 92% | 8% to 65% |
+
+**What it says.**
+
+- The pool is uneven by far more than 1.5× under every policy and at both table sizes: the dealt rule decides the game.
+  Greedy: Opposite Nines 83%, Mirrormancer 68%, Magic Eighteen 1%. Considerate: Magic Eighteen 93%. Spoiling: Opposite
+  Nines 87%. (Earlier figures, on a turn-based model: Strangers 17% greedy, Mirrormancer 15% under deny.)
+- **Why.** A player's points on an object are their own bits × the others' bits, so the totals at one table sit close
+  together (0.78 to 1.34 of the table's mean) and a small, systematic edge in own bits wins nearly every game. Between
+  two players a and b on one object the difference is c·(a − b): whoever's rule holds more bits is ahead on every
+  object the third player cares about. The edge comes from the rule: under greedy the rules with the highest tops hold
+  the most bits (Mirrormancer 19.5 and Opposite Nines 18.0 per object against 9.7 for Magic Eighteen); under
+  considerate play Magic Eighteen keeps 73% of its top because its moves seldom lower anybody else's bits.
+- **Best reachable score.** In a 3-player game the tops run from 19.8 bits (Crosswise Threes) and 20.6 (Magic Eighteen)
+  to 33.0 (Mirrormancer) and 32.9 (Opposite Nines): ×1.67. The first two are out of line low, the last two high.
+- In a real three-human game in the browser (one each of Mirrormancer, Spread of Three, Magic Eighteen, each player
+  running the shipped example agent) the best boards were at the top of all three rules and the final order was the
+  order of the tops: 31,626 / 29,909 / 23,740 points for 31.1 / 25.3 / 17.9 bits.
+
+**Fixes measured (none shipped).** 300 games per table, 3 players; raw tables in `docs/balance-results-2026-11-13/`.
+
+| Change | greedy | considerate | deny |
+|---|---|---|---|
+| As shipped (600 games) | 1% to 83% | 9% to 93% | 21% to 87% |
+| Every rule scaled so its best board is worth 26 bits (`--equal-tops 26`) | 15% to 63% (×4.1) | 4% to 96% | 1% to 68% |
+| Pool of five: without Opposite Nines, Mirrormancer, Magic Eighteen (`--pool …`) | 9% to 52% (×5.9) | 10% to 60% (×5.9) | 22% to 50% (×2.3) |
+
+Neither levels the pool. Equal tops moves the win to other rules (Crosswise Threes 63%, Leapfrog 59% under greedy;
+Mirrormancer falls to 1% under deny). Dropping the three outliers leaves Spread of Three on top under every policy.
+Because the winner turns on a few percent of points, no constant per rule can level every way of playing at once; see
+`docs/handover-integration.md` for the diagnosis and the fix proposed.

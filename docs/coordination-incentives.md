@@ -259,6 +259,209 @@ Tables of one policy that are not equilibria, and the switch that breaks them:
 - all defender (welfare 81525): one god switches to payoff, +1025
 - all deny (welfare 9841): one god switches to defender, +2109
 
+## 4a. The final economy (2026-11-13)
+
+Sections 4 to 6 were measured one economy behind (flat change prices, 200 starting energy, no debt bound, score noise
+of 8 bits, three agents per god, 240 s). This section repeats the core of them on the default setup as it ships now:
+changes priced by distance, 600 starting energy, the 30 s store, every offer charged, the debt bound (an agent may owe
+at most a full store), score noise off, a 300 s game, one agent per god, and every policy's program paid for at its
+measured summon price before its agent exists (`--summon`). 24 games per table on shared deals (a win share is good to
+about ±10 points); the considerate duel has 48.
+
+```
+pnpm --filter @workspace/game-utilities coordination report --games 24 --summon --only develop,mixed,players4,unbounded-debt,flat
+pnpm --filter @workspace/game-utilities coordination duel --games 48 --summon --set greedy,considerate,deny
+```
+
+**What changed, and what did not.**
+
+- **Spoiling still beats careful play on rank, by more than before.** One spoiler (`deny`) among two cooperators wins
+  88% of games (mean rank 1.13; 94% before), among two `payoff` players 79% (rank 1.21; 50% before), among two
+  considerate players 100% of 48 games, with nearly twice a considerate player's points (19,455 against 10,029 at the
+  all-considerate table). Among two greedy players it wins 46% (rank 1.63; 44% before).
+- The only equilibrium by win share is still **greedy, greedy, deny**; by points it is still **greedy, payoff, payoff**.
+  A table of spoilers is still the poorest (welfare 11,592 against 100,663 for a table of `payoff`), and plain greedy
+  beats it (54%).
+- **Careful play is never a best response.** `considerate` wins 0% as the one careful god at a greedy or a spoiling
+  table, and a considerate table is taken 100% of the time by one greedy or one spoiling god.
+- The debt bound changes nothing here (the `unbounded-debt` matrix is the `develop` matrix within noise: these agents
+  never owe more than a store). Flat pricing (`flat`) does not change the order either.
+- Welfare is up by about a third against section 4 at every one-policy table (greedy 45,225 → 61,450, payoff
+  90,293 → 100,663): the longer game, and distance pricing's cheaper near moves.
+
+#### Three gods, the default setup as shipped
+
+`develop`: 3 gods, 24 games per table, 300 s, 1 agent(s) per god.
+
+Win share of the one god:
+| the others play ↓, one god plays → | greedy | payoff | cooperator | deny | best response |
+|---|---|---|---|---|---|
+| greedy | *33%* | 4% | 0% | 46% | deny |
+| payoff | 67% | *33%* | 25% | 79% | deny |
+| cooperator | 67% | 54% | *33%* | 88% | deny |
+| deny | 54% | 0% | 0% | *33%* | greedy |
+
+Mean rank of the one god (1 = first; fair 2.0):
+| the others play ↓, one god plays → | greedy | payoff | cooperator | deny | best response |
+|---|---|---|---|---|---|
+| greedy | *2.00* | 2.67 | 2.96 | 1.63 | deny |
+| payoff | 1.50 | *2.00* | 2.42 | 1.21 | deny |
+| cooperator | 1.33 | 1.54 | *2.00* | 1.13 | deny |
+| deny | 1.67 | 3.00 | 3.00 | *2.00* | greedy |
+
+Points of the one god:
+| the others play ↓, one god plays → | greedy | payoff | cooperator | deny | best response |
+|---|---|---|---|---|---|
+| greedy | *20483* | 26843 | 14749 | 9314 | payoff |
+| payoff | 34775 | *33554* | 23898 | 27925 | greedy |
+| cooperator | 29132 | 28509 | *23642* | 24377 | greedy |
+| deny | 4474 | 6360 | 3788 | *3864* | payoff |
+
+Welfare of each one-policy table: greedy 61450, payoff 100663, cooperator 70925, deny 11592
+
+Equilibria by win share (no god gains more than 3% by switching), of 20 tables:
+
+- **greedy, greedy, deny**: welfare 26177; greedy 27%, deny 46%; best switch greedy → deny −4%
+
+Tables of one policy that are not equilibria, and the switch that breaks them:
+- all greedy (welfare 61450): one god switches to deny, +13%
+- all payoff (welfare 100663): one god switches to deny, +46%
+- all cooperator (welfare 70925): one god switches to deny, +54%
+- all deny (welfare 11592): one god switches to greedy, +21%
+
+Equilibria by points (no god gains more than 671 by switching), of 20 tables:
+
+- **greedy, payoff, payoff**: welfare 98033; greedy 34775, payoff 31629; best switch payoff → greedy −1161
+
+Tables of one policy that are not equilibria, and the switch that breaks them:
+- all greedy (welfare 61450): one god switches to payoff, +6360
+- all payoff (welfare 100663): one god switches to greedy, +1221
+- all cooperator (welfare 70925): one god switches to greedy, +5490
+- all deny (welfare 11592): one god switches to payoff, +2496
+
+#### Mixed tables
+
+`mixed`: 3 gods, 24 games per table, 300 s, 1 agent(s) per god.
+
+| table | win share / points, per god of each policy | welfare | acts/s by slot | skips | bits destroyed per change |
+|---|---|---|---|---|---|
+| cooperator, cooperator, deny | cooperator 6% / 16474; deny 88% / 24377 | 57325 | 8.0 / 8.0 / 7.0 | 84% / 84% / 74% | 0.1 / 0.1 / 3.3 |
+| deny, payoff, payoff | deny 79% / 27925; payoff 10% / 23564 | 75053 | 6.1 / 6.8 / 6.7 | 41% / 50% / 49% | 3.5 / 1.1 / 1.3 |
+| greedy, payoff, payoff | greedy 67% / 34775; payoff 17% / 31629 | 98033 | 8.1 / 7.3 / 7.3 | 71% / 66% / 66% | 1.7 / 1.2 / 1.4 |
+| deny, deny, deny | deny 33% / 3864 | 11592 | 3.8 / 3.7 / 3.8 | 9% / 8% / 9% | 2.0 / 2.3 / 2.3 |
+| deny, greedy, random | deny 4% / 6225; greedy 96% / 6445; random 0% / 993 | 13663 | 4.3 / 6.0 / 4.7 | 16% / 37% / 10% | 0.7 / 0.3 / 4.4 |
+| random, random, random | random 33% / 230 | 689 | 4.6 / 4.6 / 4.6 | 10% / 10% / 10% | 0.6 / 0.6 / 0.6 |
+| considerate, considerate, considerate | considerate 33% / 10379 | 31136 | 8.0 / 8.0 / 8.0 | 95% / 95% / 95% | 0.0 / 0.0 / 0.0 |
+| defender, defender, deny | defender 27% / 16004; deny 46% / 17164 | 49172 | 5.1 / 4.9 / 4.5 | 23% / 21% / 16% | 1.1 / 1.4 / 3.6 |
+
+#### Greedy, considerate and spoiler (48 games per table)
+
+Win share of the one god:
+| the others play ↓, one god plays → | greedy | considerate | deny | best response |
+|---|---|---|---|---|
+| greedy | *33%* | 0% | 31% | greedy |
+| considerate | 100% | *33%* | 100% | greedy |
+| deny | 54% | 0% | *33%* | greedy |
+
+Points of the one god:
+| the others play ↓, one god plays → | greedy | considerate | deny | best response |
+|---|---|---|---|---|
+| greedy | *19410* | 10481 | 9678 | greedy |
+| considerate | 15100 | *10029* | 19455 | deny |
+| deny | 4404 | 2756 | *3883* | greedy |
+
+Welfare of each one-policy table: greedy 58231, considerate 30087, deny 11650
+
+#### Four gods
+
+`players4`: 4 gods, 24 games per table, 300 s, 1 agent(s) per god.
+
+Win share of the one god:
+| the others play ↓, one god plays → | greedy | payoff | cooperator | deny | best response |
+|---|---|---|---|---|---|
+| greedy | *25%* | 0% | 0% | 29% | deny |
+| payoff | 54% | *25%* | 8% | 54% | greedy |
+| cooperator | 79% | 75% | *25%* | 92% | deny |
+| deny | 38% | 0% | 0% | *25%* | greedy |
+
+Mean rank of the one god (1 = first; fair 2.5):
+| the others play ↓, one god plays → | greedy | payoff | cooperator | deny | best response |
+|---|---|---|---|---|---|
+| greedy | *2.50* | 3.29 | 3.96 | 2.33 | deny |
+| payoff | 1.67 | *2.50* | 3.54 | 1.63 | deny |
+| cooperator | 1.21 | 1.29 | *2.50* | 1.08 | deny |
+| deny | 2.17 | 3.79 | 4.00 | *2.50* | greedy |
+
+Points of the one god:
+| the others play ↓, one god plays → | greedy | payoff | cooperator | deny | best response |
+|---|---|---|---|---|---|
+| greedy | *12150* | 17733 | 14266 | 7359 | payoff |
+| payoff | 40840 | *41982* | 26930 | 32451 | payoff |
+| cooperator | 41598 | 41561 | *28986* | 40600 | greedy |
+| deny | 3772 | 5346 | 4042 | *3105* | payoff |
+
+Welfare of each one-policy table: greedy 48602, payoff 167928, cooperator 115945, deny 12420
+
+#### No debt bound (the economy before 13 Nov 2026)
+
+`unbounded-debt`: 3 gods, 24 games per table, 300 s, 1 agent(s) per god.
+
+Win share of the one god:
+| the others play ↓, one god plays → | greedy | payoff | cooperator | deny | best response |
+|---|---|---|---|---|---|
+| greedy | *33%* | 4% | 0% | 46% | deny |
+| payoff | 67% | *33%* | 25% | 79% | deny |
+| cooperator | 67% | 54% | *33%* | 88% | deny |
+| deny | 54% | 0% | 0% | *33%* | greedy |
+
+Mean rank of the one god (1 = first; fair 2.0):
+| the others play ↓, one god plays → | greedy | payoff | cooperator | deny | best response |
+|---|---|---|---|---|---|
+| greedy | *2.00* | 2.67 | 2.96 | 1.63 | deny |
+| payoff | 1.50 | *2.00* | 2.42 | 1.21 | deny |
+| cooperator | 1.33 | 1.54 | *2.00* | 1.13 | deny |
+| deny | 1.67 | 3.00 | 3.00 | *2.00* | greedy |
+
+Points of the one god:
+| the others play ↓, one god plays → | greedy | payoff | cooperator | deny | best response |
+|---|---|---|---|---|---|
+| greedy | *20483* | 26843 | 14749 | 9314 | payoff |
+| payoff | 34775 | *33554* | 23898 | 27925 | greedy |
+| cooperator | 29132 | 28509 | *23642* | 24377 | greedy |
+| deny | 4474 | 6360 | 3788 | *3864* | payoff |
+
+Welfare of each one-policy table: greedy 61450, payoff 100663, cooperator 70925, deny 11592
+
+#### Flat pricing (set-v1: every one-cell write costs the same)
+
+`flat`: 3 gods, 24 games per table, 300 s, 1 agent(s) per god.
+
+Win share of the one god:
+| the others play ↓, one god plays → | greedy | payoff | cooperator | deny | best response |
+|---|---|---|---|---|---|
+| greedy | *33%* | 4% | 0% | 50% | deny |
+| payoff | 67% | *33%* | 25% | 92% | deny |
+| cooperator | 79% | 50% | *33%* | 92% | deny |
+| deny | 38% | 0% | 0% | *33%* | greedy |
+
+Mean rank of the one god (1 = first; fair 2.0):
+| the others play ↓, one god plays → | greedy | payoff | cooperator | deny | best response |
+|---|---|---|---|---|---|
+| greedy | *2.00* | 2.75 | 2.96 | 1.63 | deny |
+| payoff | 1.50 | *2.00* | 2.33 | 1.08 | deny |
+| cooperator | 1.21 | 1.54 | *2.00* | 1.08 | deny |
+| deny | 1.92 | 3.00 | 3.00 | *2.00* | greedy |
+
+Points of the one god:
+| the others play ↓, one god plays → | greedy | payoff | cooperator | deny | best response |
+|---|---|---|---|---|---|
+| greedy | *18880* | 26193 | 13970 | 8752 | payoff |
+| payoff | 36961 | *35347* | 25333 | 27217 | greedy |
+| cooperator | 31491 | 28572 | *22148* | 25335 | greedy |
+| deny | 4331 | 5927 | 3897 | *3827* | payoff |
+
+Welfare of each one-policy table: greedy 56640, payoff 106041, cooperator 66445, deny 11480
+
 ## 5. The candidates
 
 | candidate | the rule in a sentence a 12-year-old could follow | change to the code | spoiler's win share at a greedy / careful table | win-seekers' equilibrium (welfare) | points equilibrium (welfare) | verdict |

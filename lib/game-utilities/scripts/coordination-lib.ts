@@ -17,7 +17,7 @@
  * The rule variants under study are fields of `Econ`, all off by default (= the rules on develop).
  */
 import { changeCost, CHANGE_READ_RATIO, type GridValue, type Rng } from "@workspace/game-types";
-import { energyCapacity, offerReadBits, pickByEnergy, chargeAct, settleAgentEnergy, type AgentAccount } from "../../game-core/src/energy.ts";
+import { actCredit, affordable, energyCapacity, offerReadBits, pickByEnergy, chargeAct, settleAgentEnergy, type AgentAccount } from "../../game-core/src/energy.ts";
 import { poissonIntervalSeconds } from "../../game-core/src/index.ts";
 import { compareOrdinals, type Ordinal } from "../src/index.ts";
 import { apply, type Move, type Rule, type Space } from "./rule-difficulty-lib.ts";
@@ -89,8 +89,13 @@ export interface Econ {
   readonly offerReads: boolean;
   /** One-cell writes a searching agent tries per act (a random sample; ≥ every move = exhaustive). */
   readonly candidates: number;
+  /**
+   * The debt bound (docs/energy-model.md §7.2, 13 Nov 2026): a change that would leave the agent owing more than its
+   * capacity does not commit, and the act pays its reads only. Without a capacity there is no bound.
+   */
+  readonly debtBound: boolean;
 }
-export const DEVELOP_ECON = { kappa: CHANGE_READ_RATIO, agentsPerGod: 1, distancePricing: false, erasure: 0, erasureNoiseBits: 0, aggregate: "sum", peerNoiseBits: 8, scoring: "final", learnSeconds: 0, candidates: 24, offerReads: true } as const;
+export const DEVELOP_ECON = { kappa: CHANGE_READ_RATIO, agentsPerGod: 1, distancePricing: false, erasure: 0, erasureNoiseBits: 0, aggregate: "sum", peerNoiseBits: 8, scoring: "final", learnSeconds: 0, candidates: 24, offerReads: true, debtBound: true } as const;
 
 /** The work W (bits) of one write and its erasure surcharge; the charge is changeCost(W). */
 export function writeWork(sp: Space, econ: Pick<Econ, "distancePricing" | "erasure">, from: number, to: number, salienceBefore: number, salienceAfter: number): number {
@@ -241,6 +246,8 @@ export interface GameResult {
   readonly acts: number[];
   readonly changes: number[];
   readonly skips: number[];
+  /** Changes the debt bound refused. */
+  readonly refused: number[];
   readonly readSpent: number[];
   readonly changeSpent: number[];
   /** Salience bits each god's changes destroyed, and created. */
@@ -290,7 +297,7 @@ export function playGame(rules: readonly Rule[], policies: readonly Policy[], sp
     if (t <= a.account.settledWorldSeconds) return;
     a.account = settleAgentEnergy(a.account, t, income, cap);
   };
-  const r: GameResult = { final: zero(), average: zero(), score: zero(), acts: zero(), changes: zero(), skips: zero(), readSpent: zero(), changeSpent: zero(),
+  const r: GameResult = { final: zero(), average: zero(), score: zero(), acts: zero(), changes: zero(), skips: zero(), refused: zero(), readSpent: zero(), changeSpent: zero(),
     destroyed: zero(), created: zero(), ownBits: zero(), opportunities: 0, idle: 0, objects: 0 };
   const integral = zero();
   let nextSpawn = econ.spawnRateHz > 0 ? poissonIntervalSeconds(econ.spawnRateHz, u()) : Infinity, last = 0;
@@ -322,6 +329,12 @@ export function playGame(rules: readonly Rule[], policies: readonly Policy[], sp
     const noisy = econ.erasure > 0 && econ.erasureNoiseBits > 0;
     const change = changeCost(writeWork(sp, econ, o.grid.sym[d.move.cell], d.move.value,
       sBefore + (noisy ? econ.erasureNoiseBits * valueNoise(o.grid) : 0), sAfter + (noisy ? econ.erasureNoiseBits * valueNoise(d.after.grid) : 0)));
+    if (econ.debtBound && Number.isFinite(cap) && !affordable(agent.account.balance, read + change, actCredit(cap))) {
+      // Refused (§7.2): the agent would owe more than it can hold. It pays its reads, like any change that does not commit.
+      r.refused[g]++;
+      agent.account = chargeAct(agent.account, read);
+      continue;
+    }
     agent.account = chargeAct(agent.account, read + change);
     r.changes[g]++; r.changeSpent[g] += change;
     if (sAfter < sBefore) r.destroyed[g] += sBefore - sAfter; else r.created[g] += sAfter - sBefore;
@@ -352,6 +365,8 @@ export interface TableStats {
   readonly score: number[];
   readonly win: number[];
   readonly relative: number[];
+  /** Mean rank (1 = first; equal scores share the mean of their places). */
+  readonly rank: number[];
   /** Σ over gods of the mean score. */
   readonly welfare: number;
   readonly actsPerSecond: number[];
@@ -369,6 +384,12 @@ export function winShares(score: readonly number[]): number[] {
   return tops.map(t => (t ? 1 / n : 0));
 }
 
+/** Ranks of one game: 1 for the top score; equal scores (relative 1e-9) share the mean of their places. */
+export function ranksOf(score: readonly number[]): number[] {
+  const same = (a: number, b: number) => Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(a), Math.abs(b));
+  return score.map(x => score.filter(y => y > x && !same(x, y)).length + (score.filter(y => same(x, y)).length + 1) / 2);
+}
+
 export function summarise(policies: readonly Policy[], results: readonly GameResult[], durationSeconds: number): TableStats {
   const P = policies.length, n = results.length, mean = (f: (r: GameResult) => number) => sum(results.map(f)) / n;
   const per = (f: (r: GameResult, g: number) => number) => Array.from({ length: P }, (_, g) => mean(r => f(r, g)));
@@ -377,6 +398,7 @@ export function summarise(policies: readonly Policy[], results: readonly GameRes
     policies, games: n, score, welfare,
     win: per((r, g) => winShares(r.score)[g]),
     relative: per((r, g) => { const m = sum(r.score) / P; return m > 0 ? r.score[g] / m : 1; }),
+    rank: per((r, g) => ranksOf(r.score)[g]),
     actsPerSecond: per((r, g) => r.acts[g] / durationSeconds),
     skipShare: per((r, g) => (r.acts[g] ? r.skips[g] / r.acts[g] : 0)),
     readShare: mean(r => sum(r.readSpent) / Math.max(1e-9, sum(r.readSpent) + sum(r.changeSpent))),
@@ -401,7 +423,7 @@ export function profiles(set: readonly Policy[], players: number): Policy[][] {
 }
 
 /** What one god playing `policy` gets in a profile, by `metric` (the mean over the seats that play it). */
-export type Metric = "win" | "score" | "relative";
+export type Metric = "win" | "score" | "relative" | "rank";
 export function valueIn(stats: TableStats, policy: Policy, metric: Metric): number {
   const seats = stats.policies.map((p, g) => (p === policy ? g : -1)).filter(g => g >= 0);
   return sum(seats.map(g => stats[metric][g])) / seats.length;
