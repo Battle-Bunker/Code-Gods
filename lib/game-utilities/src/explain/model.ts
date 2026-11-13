@@ -82,8 +82,17 @@ export interface TierStatus {
   readonly open: boolean;
   /** How many more primary points open the tier (0 when open). */
   readonly short: number;
+  /** How many of the tier's units score on this board (0 when the tier is not open yet). */
+  readonly scored: number;
   /** "2 more opposite pairs to open ★: rows, columns and long diagonals adding up to 18." */
   readonly note: string;
+  /**
+   * The unit that comes nearest, for an open tier that scores nothing: "Row 2: 3 short of 18 (4 + 5 + 2 + 2 = 13, not
+   * 18)". Absent when the tier is not open, when it already scores, or when nothing on the board is near it. A tier may
+   * take a plan rather than one more cell (measured: a one-cell climber gets none of ✌️ Two Pair's linked boxes), so
+   * this line is the whole of a player's foothold on it.
+   */
+  readonly nearest?: string;
 }
 
 /** The whole board's explanation: its scoring units and what they add up to. */
