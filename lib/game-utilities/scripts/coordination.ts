@@ -12,6 +12,7 @@
  *   equilibria        every multiset of policies: equilibria by win share and by points
  *   tables            the named mixed tables
  *   rules             win share, rank and bits by DEALT RULE at tables where every god plays the same policy (--set)
+ *   combos            every combination of P rules of the pool dealt as a fixed set: each rule's win share by policy
  *   validate          the model against real engine games (scripts/coordination-engine-games.json) on the same deals
  *
  * Options
@@ -41,7 +42,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { instantiate, seededRng, type Instantiation } from "@workspace/game-types";
 import { SEED_SETUPS, costModelOf } from "../../game-core/src/settings.ts";
-import { availableFamilies, selector, type Params } from "../src/index.ts";
+import { availableFamilies, context, family, selector, type Params } from "../src/index.ts";
 import { HOLD_ESTIMATOR, buildHoldTable, holdBits, type HoldTable } from "./hold.ts";
 import { familyRule, space, type Rule } from "./rule-difficulty-lib.ts";
 import {
@@ -61,11 +62,12 @@ interface EngineGame {
   seats: { policy: Policy; utility: { familyId: string; params: Record<string, unknown> }; totalPayoff: number; rank: number; acts: number; transforms: number; skips: number; spent: number; spentRead: number }[];
 }
 export interface Run { setup: string; games: number; players: number; econ: Econ; tuning: Tuning; /** --pool: deal from exactly these families instead of the setup's pool. */ pool?: string[]; /** --equal-tops B: scale every rule so its best board is worth B bits (0: as shipped). */ equalTops?: number;
+  /** Mode combos: every game deals exactly these families, passed one seat along per game (params at random from each family's support). */ deal?: string[];
   /** --match: every table is a match of P rounds with the rules rotated (fix candidate d). */ match?: boolean;
   /** --equal-par B: per family, the factor that scales its bits so reference greedy play holds B bits per object (computed before the run). */ scale?: Record<string, number> }
 /** The pool in force (the worker processes set it from their Run before they deal). */
-let POOL: readonly string[] | undefined, EQUAL_TOPS = 0, SCALE: Record<string, number> = {};
-export function setPool(pool: readonly string[] | undefined, equalTops = 0, scale: Record<string, number> = {}) { POOL = pool; EQUAL_TOPS = equalTops; SCALE = scale; ruleCache.clear(); }
+let POOL: readonly string[] | undefined, EQUAL_TOPS = 0, SCALE: Record<string, number> = {}, DEAL: readonly string[] | undefined;
+export function setPool(pool: readonly string[] | undefined, equalTops = 0, scale: Record<string, number> = {}, deal?: readonly string[]) { POOL = pool; EQUAL_TOPS = equalTops; SCALE = scale; DEAL = deal; ruleCache.clear(); }
 
 export function setupOf(id: string) {
   const setup = SEED_SETUPS.find(s => s.seedId === (id === "first-steps" ? "grid-first-steps" : id === "annotated" ? "grid-annotated-basics" : id));
@@ -110,6 +112,12 @@ export function gameRule(familyId: string, params: Params, inst: Instantiation, 
 /** The rules of game `g`: the setup's own dealer (settings.utilitySelectorId) on a seed shared by every table. */
 export function dealOf(setupId: string, players: number, g: number): { inst: Instantiation; rules: Rule[]; families: string[] } {
   const s = setupOf(setupId).settings, inst = instantiate(s.objectType, s.typeArgs);
+  if (DEAL) {
+    // A fixed combination (mode combos): seat k holds DEAL[(k + g) mod P], so every rule meets every seat.
+    const rng = seededRng(`coordination|deal|${setupId}|${players}|${g}`), ctx = context(inst);
+    const deal = Array.from({ length: players }, (_, k) => { const f = DEAL![(k + g) % DEAL!.length], sup = family(f).support(ctx); return { familyId: f, params: sup[rng.int(sup.length)] as Params }; });
+    return { inst, rules: deal.map(d => gameRule(d.familyId, d.params, inst, players)), families: deal.map(d => d.familyId) };
+  }
   const exclude = POOL ? availableFamilies(inst, "reward").map(f => f.id).filter(id => !POOL!.includes(id)) : s.excludedFamilies;
   const deal = selector(s.utilitySelectorId).select(inst, players, seededRng(`coordination|deal|${setupId}|${players}|${g}`), { exclude });
   return { inst, rules: deal.map(d => gameRule(d.familyId, d.params, inst, players)), families: deal.map(d => d.familyId) };
@@ -289,19 +297,19 @@ function runOf(): Run {
 async function main() {
   if (flag("worker")) {
     const { run, tables } = JSON.parse(opt("worker")!) as { run: Run; tables: Policy[][] };
-    setPool(run.pool, run.equalTops, run.scale);
+    setPool(run.pool, run.equalTops, run.scale, run.deal);
     process.stdout.write(JSON.stringify(tables.map(t => [profileKey(t), summarise(t, playTable(run, t), run.econ.durationSeconds)])));
     return;
   }
   if (flag("rules-worker")) {
     const { run, policy, from, to } = JSON.parse(opt("rules-worker")!) as { run: Run; policy: Policy; from: number; to: number };
-    setPool(run.pool, run.equalTops, run.scale);
+    setPool(run.pool, run.equalTops, run.scale, run.deal);
     process.stdout.write(JSON.stringify(playRules(run, policy, from, to)));
     return;
   }
   const mode = argv[0] && !argv[0].startsWith("--") ? argv[0] : "report";
   const run = runOf(), jobs = num("jobs", availableParallelism()), P = run.players;
-  setPool(run.pool, run.equalTops, run.scale);
+  setPool(run.pool, run.equalTops, run.scale, run.deal);
   const set = (opt("set")?.split(",") as Policy[] | undefined) ?? ZOO;
   for (const p of set) if (!POLICIES.includes(p)) throw new Error(`Unknown policy: ${p}`);
   console.log(`setup ${run.setup}, ${P} gods, ${run.games} games per table, econ ${JSON.stringify(run.econ)}`);
@@ -406,13 +414,47 @@ async function main() {
       saveHoldTables();
       const par = await rulesIn({ ...run, scale: {} }, (opt("par-policy") ?? "greedy") as Policy, 100000, 100000 + parGames);
       run.scale = Object.fromEntries([...par].map(([f, s]) => [f, B / s.ownBits]));
-      setPool(run.pool, run.equalTops, run.scale);
+      setPool(run.pool, run.equalTops, run.scale, run.deal);
       console.log(`par (${opt("par-policy") ?? "greedy"}, ${parGames} games): ${[...par].map(([f, s]) => `${f} ${s.ownBits.toFixed(2)} (×${run.scale![f].toFixed(3)})`).join(", ")}`);
     }
     const byPolicy = new Map<Policy, Map<string, RuleStats>>();
     for (const policy of policies) byPolicy.set(policy, await rulesIn(run, policy, 0, run.games));
     console.log(`\n${rulesMarkdown(policies, byPolicy, P)}`);
     json.rules = Object.fromEntries([...byPolicy].map(([p, m]) => [p, Object.fromEntries(m)]));
+  } else if (mode === "combos") {
+    // Fix candidate (c'): every combination of P rules from the pool, dealt as a fixed set (seats rotated), each policy
+    // of --set at every seat; per combination, each rule's win share by policy. Prints the combinations where every
+    // rule's win share lies within --band lo,hi (default 20,45 at 3 players) under every policy.
+    const policies = (opt("set")?.split(",") as Policy[] | undefined) ?? ["greedy", "considerate", "deny"];
+    const pool = run.pool ?? (setupOf(run.setup).settings.excludedFamilies ? availableFamilies(instantiate(setupOf(run.setup).settings.objectType, setupOf(run.setup).settings.typeArgs), "reward").map(f => f.id).filter(id => !setupOf(run.setup).settings.excludedFamilies!.includes(id)) : []);
+    const [lo, hi] = (opt("band") ?? (P === 3 ? "20,45" : "14,36")).split(",").map(Number);
+    const combos: string[][] = [];
+    const rec = (from: number, acc: string[]) => { if (acc.length === P) { combos.push(acc); return; } for (let k = from; k < pool.length; k++) rec(k + 1, [...acc, pool[k]]); };
+    rec(0, []);
+    const tasks = combos.flatMap(c => policies.map(policy => ({ c, policy })));
+    const results = new Map<string, Map<Policy, Map<string, RuleStats>>>();
+    let next = 0;
+    await Promise.all(Array.from({ length: jobs }, async () => {
+      while (next < tasks.length) {
+        const { c, policy } = tasks[next++];
+        const r: Run = { ...run, deal: c };
+        const games = await new Promise<RuleGame[]>((resolve, reject) => execFile(process.execPath, ["--experimental-strip-types", "--disable-warning=ExperimentalWarning", SELF, "--rules-worker", JSON.stringify({ run: r, policy, from: 0, to: run.games })],
+          { maxBuffer: 1 << 28 }, (error, stdout, stderr) => (error ? reject(new Error(`${error.message}\n${stderr}`)) : resolve(JSON.parse(stdout)))));
+        const key = c.join(",");
+        if (!results.has(key)) results.set(key, new Map());
+        results.get(key)!.set(policy, ruleStats(games));
+      }
+    }));
+    const lines = [`| combination | ${policies.join(" | ")} | worst | in band |`, `|---|${policies.map(() => "---").join("|")}|---|---|`];
+    const rows = combos.map(c => {
+      const m = results.get(c.join(","))!, wins = policies.flatMap(p => c.map(f => m.get(p)!.get(f)!.win));
+      const worst = Math.max(...wins.map(w => Math.max(lo / 100 - w, w - hi / 100, 0)));
+      return { c, m, worst, ok: worst === 0 };
+    }).sort((a, b) => a.worst - b.worst);
+    for (const { c, m, worst, ok } of rows) lines.push(`| ${c.join(", ")} | ${policies.map(p => c.map(f => `${(100 * m.get(p)!.get(f)!.win).toFixed(0)}`).join("/")).join(" | ")} | ${(100 * worst).toFixed(0)} | ${ok ? "yes" : ""} |`);
+    console.log(`\nWin share of each rule (in the combination's order) by policy, ${run.games} games per cell; band ${lo}–${hi}%:\n${lines.join("\n")}`);
+    console.log(`\n${rows.filter(r => r.ok).length} of ${combos.length} combinations in band.`);
+    json.combos = rows.map(r => ({ combo: r.c, worst: r.worst, ok: r.ok, byPolicy: Object.fromEntries([...r.m].map(([p, x]) => [p, Object.fromEntries(x)])) }));
   } else if (mode === "validate") {
     // Real engine games (artifacts/engine/scripts/coordination-games.ts) against the model on the same deals and policies.
     const games = JSON.parse(readFileSync(opt("engine", fileURLToPath(new URL("./coordination-engine-games.json", import.meta.url)))!, "utf8")) as EngineGame[];

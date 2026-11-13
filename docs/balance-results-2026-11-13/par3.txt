@@ -1,0 +1,20 @@
+
+> @workspace/game-utilities@2.0.0 coordination /home/user/Code-Gods/lib/game-utilities
+> node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/coordination.ts rules --players 3 --games 600 --summon --set greedy,considerate,deny --equal-par 15 --par-games 600
+
+setup annotated, 3 gods, 600 games per table, econ {"powerPerSecond":64,"interactionRateHz":25,"durationSeconds":300,"startingObjectCount":10,"spawnRateHz":0.1,"capacitySeconds":30,"kappa":32,"agentsPerGod":1,"distancePricing":true,"erasure":0,"erasureNoiseBits":0,"aggregate":"sum","peerNoiseBits":0,"scoring":"final","learnSeconds":0,"candidates":24,"offerReads":true,"debtBound":true}
+par (greedy, 600 games): opposite_nines 18.30 (×0.820), crosswise_threes 10.88 (×1.378), leapfrog 14.31 (×1.048), two_pair 15.42 (×0.973), spread_three 14.22 (×1.055), mirrormancer 19.93 (×0.753), magic_eighteen 9.68 (×1.550), strangers 13.16 (×1.140)
+
+Win share / mean rank / points against the table's mean / own bits per object at the end (share of the rule's top), 3 gods, every god playing the column's policy (fair win share 33%, fair rank 2.0):
+
+| rule | games | greedy | considerate | deny |
+|---|---|---|---|---|
+| crosswise_threes | 205 | 63% / 1.47 / 1.04 / 15.2 (55%) | 67% / 1.33 / 1.09 / 14.2 (52%) | 61% / 1.42 / 1.20 / 10.5 (39%) |
+| leapfrog | 246 | 35% / 1.91 / 1.01 / 15.6 (59%) | 9% / 2.43 / 0.92 / 10.0 (38%) | 38% / 1.87 / 1.05 / 8.6 (33%) |
+| magic_eighteen | 238 | 55% / 1.58 / 1.03 / 15.0 (47%) | 95% / 1.05 / 1.29 / 23.3 (73%) | 79% / 1.24 / 1.28 / 13.8 (43%) |
+| mirrormancer | 226 | 4% / 2.63 / 0.96 / 14.7 (59%) | 1% / 2.88 / 0.78 / 7.4 (30%) | 0% / 2.91 / 0.54 / 3.4 (14%) |
+| opposite_nines | 239 | 21% / 2.21 / 0.98 / 14.8 (55%) | 45% / 1.62 / 1.06 / 12.4 (46%) | 16% / 2.23 / 0.98 / 6.9 (25%) |
+| spread_three | 208 | 36% / 1.91 / 1.00 / 14.9 (52%) | 23% / 2.02 / 0.99 / 12.0 (42%) | 23% / 2.05 / 1.02 / 6.7 (23%) |
+| strangers | 215 | 51% / 1.79 / 1.01 / 15.0 (52%) | 14% / 2.25 / 0.95 / 10.5 (36%) | 38% / 1.86 / 1.06 / 8.0 (28%) |
+| two_pair | 223 | 4% / 2.46 / 0.97 / 15.1 (57%) | 13% / 2.40 / 0.91 / 10.2 (39%) | 11% / 2.41 / 0.87 / 6.3 (24%) |
+| **win share, lowest–highest (ratio)** | | 4%–63% (×17.54) | 1%–95% (×106.83) | 0%–79% (×179.47) |
