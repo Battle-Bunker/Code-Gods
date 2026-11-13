@@ -308,12 +308,14 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
           const settled = agentStatus(settings, agent, world);
           if (!settled.eligible || uniform01() * drawnAt >= settled.energy || futile.isFutile(agent.id, object, versionOf)) continue;
         }
+        // That flush lost the lease or ran out of time: nothing more is offered in this tick.
+        if (lost || late) break;
         wave.push({ object, agent, world, before: object.value, seed: deriveSeed(salt, ["play", game._id, agent.id, agent.acts]), offerBits: offerReadBits(objects.length) });
         if (wave.length >= WORKERS) await flush();
         break;
       }
     }
-    if (wave.length) await flush();
+    if (wave.length && !lost && !late) await flush();
     if (lost) return { result: "stale" };
     if (late) console.warn(`tick ${gameId}#${seq}: ${late} act(s) skipped (host): no answer from the sandbox within the wave's budget`);
 

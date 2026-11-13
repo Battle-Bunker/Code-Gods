@@ -20,6 +20,13 @@
  */
 export const BACKGROUND_LIMITS = { examination: 8, hold: 3, turn: 3 } as const;
 export type BackgroundKind = keyof typeof BACKGROUND_LIMITS;
+/**
+ * How long a queued job (a seat's turn, a hold computation) may wait for a slot; past it the row is dropped. A seat's
+ * `aiNextAt` allows the same time (ai/seats.ts queued), so its watchdog restarts the chain only after that.
+ */
+export const QUEUE_MS = 5 * 60_000;
+/** The longest a seat's turn may run (an action's own limit): while it plays, the seat watchdog leaves the seat alone. */
+export const TURN_RUN_MS = 10 * 60_000;
 /** A slot is given back when its job ends; one whose action died is free again after this long. */
 export const BACKGROUND_SLOT_MS = 2 * 60_000;
 /**

@@ -21,7 +21,7 @@ import { utcDay } from "../lib/world";
 import { LANGUAGE_SPECS, allowedLanguages, type GameSettings } from "@workspace/game-core";
 import { sandboxViews } from "../runtime/readiness";
 import { clockDoc } from "../game/state";
-import { tickOverdue } from "../lib/background";
+import { QUEUE_MS, TURN_RUN_MS, tickOverdue } from "../lib/background";
 
 /** How long a seat waits before looking again at a game whose tick is overdue. */
 const TICK_OVERDUE_WAIT_MS = 3_000;
@@ -108,20 +108,20 @@ export const afterTurn = internalMutation({
 });
 
 /**
- * The seat's turn is queued for a turn slot (engine/background.ts takeTurn): its status says so, and its next turn is
- * due now, so a queue that never reaches it (five minutes: TURN_QUEUE_MS) ends in the watchdog's restart below.
+ * The seat's turn is queued for a turn slot (engine/background.ts takeTurn), or has its slot and plays (`playing`). Its
+ * next turn is then due only after the longest the queue (lib/background.ts QUEUE_MS) or a turn (TURN_RUN_MS) may
+ * take, so the watchdog below never restarts a seat whose turn is waiting or still running; one that died is found
+ * two minutes after that.
  */
 export const queued = internalMutation({
-  args: { gameId: v.id("games"), godId: v.string(), chain: v.number() },
+  args: { gameId: v.id("games"), godId: v.string(), chain: v.number(), playing: v.optional(v.boolean()) },
   handler: async (ctx, args) => {
     const game = await ctx.db.get(args.gameId);
     const member = game && await ctx.db.query("members").withIndex("by_room_god", q => q.eq("roomId", game.roomId).eq("godId", args.godId)).unique();
     if (!member || member.aiChain !== args.chain) return;
-    await ctx.db.patch(member._id, { status: "Waiting for its turn", aiNextAt: Date.now() + TURN_QUEUE_GRACE_MS });
+    await ctx.db.patch(member._id, args.playing ? { aiNextAt: Date.now() + TURN_RUN_MS } : { status: "Waiting for its turn", aiNextAt: Date.now() + QUEUE_MS });
   },
 });
-/** A queued turn is not overdue while the queue may still reach it. */
-const TURN_QUEUE_GRACE_MS = 5 * 60_000;
 
 /** A chain whose next turn is this long overdue is dead: its turn action died without running `afterTurn`. */
 export const CHAIN_OVERDUE_MS = 2 * 60_000;

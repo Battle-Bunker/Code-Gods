@@ -19,20 +19,25 @@ export const EXAMINATION_CACHE_VERSION = 1;
 export const MAX_CACHED_RUNS = 600;
 /** A longer answer is not remembered (it is simply run again). */
 export const MAX_CACHED_CALLS = 2000;
+/** The runs' answers kept per program, in characters: the document stays far below Convex's 1 MiB whatever the answers' size. */
+export const MAX_CACHED_CHARS = 300_000;
+/** An entry answered from memory alone is marked used again once it is this old, so the prune never drops one in use. */
+export const TOUCH_AFTER_MS = 24 * 3600_000;
 
 export type CachedRun = { k: string; calls: string; usedRandom: boolean; steps?: number; readBits?: number };
 
 /**
  * The runs to keep after an examination: the ones it used (remembered or new) first, then the others already
- * stored, up to MAX_CACHED_RUNS. So the reference objects' runs, used by every examination, are never pushed out by
+ * stored, up to MAX_CACHED_RUNS runs and MAX_CACHED_CHARS characters of answers. So the reference objects' runs, used by every examination, are never pushed out by
  * the boards of other games.
  */
-export function mergeRuns(used: readonly CachedRun[], stored: readonly CachedRun[], limit = MAX_CACHED_RUNS): CachedRun[] {
+export function mergeRuns(used: readonly CachedRun[], stored: readonly CachedRun[], limit = MAX_CACHED_RUNS, chars = MAX_CACHED_CHARS): CachedRun[] {
   const out: CachedRun[] = [], seen = new Set<string>();
+  let size = 0;
   for (const run of [...used, ...stored]) {
     if (out.length >= limit) break;
-    if (seen.has(run.k) || run.calls.length > MAX_CACHED_CALLS) continue;
-    seen.add(run.k); out.push(run);
+    if (seen.has(run.k) || run.calls.length > MAX_CACHED_CALLS || size + run.calls.length > chars) continue;
+    seen.add(run.k); out.push(run); size += run.calls.length;
   }
   return out;
 }

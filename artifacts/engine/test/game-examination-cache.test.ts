@@ -42,10 +42,17 @@ for (const language of ["typescript", "python"] as const) {
     assert.equal(summoned.accepted, true, JSON.stringify(summoned));
     assert.deepEqual(await latest(), afterValidate, "the summon ran nothing new");
 
+    // An entry answered from memory is still in use: once a day's old it is marked used, so the prune keeps it.
+    await admin.mutation(internal.testing.ageExaminationRuns, { key: afterValidate.key, ageMs: 25 * 3600_000 });
+    assert.equal((await first.send(bo, { type: "validate", language, source })).accepted, true);
+    const touched = await latest();
+    assert.ok(touched.key === afterValidate.key && touched.runs === afterValidate.runs && Date.now() - touched.usedAt < 60_000, "marked used, nothing run");
+    const stable = { ...afterValidate, usedAt: touched.usedAt };
+
     // Another player validating the same text on the same board gets the same numbers (they are the program's).
     const again = await first.send(bo, { type: "validate", language, source });
     assert.deepEqual(again.validation, validated.validation);
-    assert.deepEqual(await latest(), afterValidate);
+    assert.deepEqual(await latest(), stable);
 
     // Another game (another board): only that board's objects and their probe run; the reference runs are reused.
     const second = await game(`Cache ${language} 2`);

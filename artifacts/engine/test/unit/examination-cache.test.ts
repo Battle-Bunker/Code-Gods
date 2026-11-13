@@ -16,3 +16,8 @@ test("an examination's own runs are kept first; older ones fill what is left, on
 test("a run used twice is stored once, and an oversized answer is not stored", () => {
   assert.deepEqual(mergeRuns([run("a"), run("a"), run("b", "x".repeat(MAX_CACHED_CALLS + 1)), run("c", "x".repeat(MAX_CACHED_CALLS))], []).map(r => r.k), ["a", "c"]);
 });
+
+test("the answers kept stay within the character budget, the examination's own first", () => {
+  const big = (k: string) => run(k, "x".repeat(1000));
+  assert.deepEqual(mergeRuns([big("a"), big("b")], [big("c"), run("d", "y")], 600, 2001).map(r => r.k), ["a", "b", "d"]);
+});

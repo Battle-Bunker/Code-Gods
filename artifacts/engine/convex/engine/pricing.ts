@@ -15,7 +15,7 @@ import {
 import type { ActionCtx } from "../_generated/server";
 import { act, actSettings, inspect, isAgentFault, runtimeVersion, type ActLane } from "./runtime";
 import { internal } from "../_generated/api";
-import { EXAMINATION_CACHE_VERSION, type CachedRun } from "../lib/examinationCache";
+import { EXAMINATION_CACHE_VERSION, TOUCH_AFTER_MS, type CachedRun } from "../lib/examinationCache";
 import { seasonCommitment, seasonSalt } from "./node";
 
 /** The commit clause's summon price when any measured act uses it: 1 + log2 3 + 1 bits. */
@@ -73,7 +73,7 @@ export class AgentFault extends Error {}
 /** Throws AgentFault for the agent's own compile errors; host failures propagate as they are. */
 /** A cache-only examination met a run (or an inspection) it has not seen: the caller examines in the sandbox. */
 export class CacheMiss extends Error {}
-export type StoredExamination = { inspection: Inspection | undefined; runs: CachedRun[] } | null;
+export type StoredExamination = { inspection: Inspection | undefined; runs: CachedRun[]; usedAt: number } | null;
 /** The examination cache's key for a program (lib/examinationCache.ts): its text and everything else its runs depend on. */
 export function examinationKey(settings: GameSettings, language: Language, source: string): string {
   return sha256([EXAMINATION_CACHE_VERSION, language, runtimeVersion(language), instantiationOf(settings).key, actSettings(settings).prelude.key,
@@ -153,6 +153,7 @@ export async function examineAgent(ctx: ActionCtx, settings: GameSettings, langu
   if (hostFailure) throw hostFailure;
   // What this examination learned is remembered for the next one of the same program (best effort: it is a cache).
   if (learned) await ctx.runMutation(internal.engine.examinationCache.put, { key, inspection, used }).catch(error => console.warn(`examination cache not stored: ${(error as Error).message}`));
+  else if (stored && Date.now() - stored.usedAt > TOUCH_AFTER_MS) await ctx.runMutation(internal.engine.examinationCache.touch, { key }).catch(() => { /* the next examination marks it */ });
   // An agent the measurement saw read `random` (on inputs the probe's sample may have missed) makes no deterministic claims.
   const { warnings: _w, ...profile } = measured.randomized ? { ...probed, deterministic: false, constant: false, idempotent: false } : probed;
   const warnings = futilityWarnings(profile);

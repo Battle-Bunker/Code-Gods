@@ -126,9 +126,11 @@ export const gameTables = {
    * seat turn in flight, at most lib/background.ts BACKGROUND_LIMITS of each kind live. Engine only; a few rows at any time.
    */
   workSlots: defineTable({
-    kind: v.union(v.literal("examination"), v.literal("hold"), v.literal("turn"), v.literal("turnQueue")), expiresAt: v.number(),
+    kind: v.union(v.literal("examination"), v.literal("hold"), v.literal("turn"), v.literal("turnQueue"), v.literal("holdQueue")), expiresAt: v.number(),
     /** A `turnQueue` row: the AI seat's turn waiting for a `turn` slot, oldest first (ai/turn.ts runs it when one is free). */
     turn: v.optional(v.object({ gameId: v.id("games"), godId: v.string(), chain: v.number() })),
+    /** A `holdQueue` row: the hold computation waiting for a `hold` slot (engine/hold.ts computeOne). */
+    hold: v.optional(v.object({ gameId: v.id("games"), key: v.string(), draw: v.object({ familyId: v.string(), params: v.any() }), m: v.number() })),
   }).index("by_kind", ["kind"]),
 
   rooms: defineTable({

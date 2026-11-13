@@ -10,7 +10,7 @@ export const get = internalQuery({
   args: { key: v.string() },
   handler: async (ctx, { key }) => {
     const row = await ctx.db.query("examinationRuns").withIndex("by_key", q => q.eq("key", key)).first();
-    return row ? { inspection: row.inspection, runs: row.runs } : null;
+    return row ? { inspection: row.inspection, runs: row.runs, usedAt: row.usedAt } : null;
   },
 });
 
@@ -22,6 +22,15 @@ export const put = internalMutation({
     const runs = mergeRuns(used, row?.runs ?? []);
     if (row) await ctx.db.patch(row._id, { inspection, runs, usedAt: Date.now() });
     else await ctx.db.insert("examinationRuns", { key, inspection, runs, usedAt: Date.now() });
+  },
+});
+
+/** The program was examined from memory alone: it is in use (called at most once a day per program: TOUCH_AFTER_MS). */
+export const touch = internalMutation({
+  args: { key: v.string() },
+  handler: async (ctx, { key }) => {
+    const row = await ctx.db.query("examinationRuns").withIndex("by_key", q => q.eq("key", key)).first();
+    if (row) await ctx.db.patch(row._id, { usedAt: Date.now() });
   },
 });
 

@@ -485,6 +485,15 @@ export const latestExaminationRuns = internalQuery({
     return row ? { key: row.key, runs: row.runs.length, usedAt: row.usedAt, fields: Object.keys(row).sort() } : null;
   },
 });
+/** Age an examination cache entry (its last use `ageMs` ago): the daily touch and the prune are tested without waiting. */
+export const ageExaminationRuns = internalMutation({
+  args: { key: v.string(), ageMs: v.number() },
+  handler: async (ctx, { key, ageMs }) => {
+    dev();
+    const row = await ctx.db.query("examinationRuns").withIndex("by_key", q => q.eq("key", key)).first();
+    if (row) await ctx.db.patch(row._id, { usedAt: Date.now() - ageMs });
+  },
+});
 
 /** A room's member rows as stored (rooms.get defaults what it projects). */
 export const rawMembers = internalQuery({
