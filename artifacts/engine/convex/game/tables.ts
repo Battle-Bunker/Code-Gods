@@ -90,17 +90,21 @@ export const eventV = v.union(
     summonCost: v.number(), expectedActCost: v.number(),
     /** Its share of the owner's power at the summon (schema 6; docs/energy-model.md §6). */
     powerShare: v.optional(v.number()),
+    /** What moved with that power (schema 15; as on `power`): negative, the energy its god held above its lowered capacity, which `account` starts with. */
+    held: v.optional(v.number()),
     /** LEGACY (schema ≤ 4 history): the decision price and the per-act floor, no longer charged. */
     decisionBits: v.optional(v.number()), perActFloorBits: v.optional(v.number()),
     breakdown, randomized: v.boolean(), account,
   }),
   /** `owed` (schema 13): the debt that moved from the agent onto its god's own account with its power (docs/energy-model.md §7.2); absent: none. */
-  v.object({ t: v.literal("destroy"), agentId: v.string(), ownerId: v.string(), world: v.number(), owed: v.optional(v.number()) }),
+  /** `held` (schema 15): the energy that moved with the power, from the agent onto its god's own account (negative: from the god onto the agent; docs/energy-model.md §6.1); absent: none. */
+  v.object({ t: v.literal("destroy"), agentId: v.string(), ownerId: v.string(), world: v.number(), owed: v.optional(v.number()), held: v.optional(v.number()) }),
   /** The hold corrections arrived during planning (schema 7): the object re-scored with them, before the world ran. */
   v.object({ t: v.literal("rescore"), objectId: v.string(), value: wire, version: v.number(), world: v.number(), net: v.array(v.number()), noise: v.optional(v.number()) }),
   /** The owner re-allocated its power (schema 6): the agent's share from `world` on. */
   /** `owed` (schema 13): the debt that moved with the power, from the agent onto its god's own account (negative: from the god onto the agent); absent: none. */
-  v.object({ t: v.literal("power"), agentId: v.string(), ownerId: v.string(), world: v.number(), share: v.number(), owed: v.optional(v.number()) }),
+  /** `held` (schema 15): the energy that moved with the power, from the agent onto its god's own account (negative: from the god onto the agent; docs/energy-model.md §6.1); absent: none. */
+  v.object({ t: v.literal("power"), agentId: v.string(), ownerId: v.string(), world: v.number(), share: v.number(), owed: v.optional(v.number()), held: v.optional(v.number()) }),
   /**
    * A god paid for a look (schema 11; paid observation, lib/knowledge.ts): `cost` energy from its own account for `count`
    * objects (one: `objectId`; absent: every object then). PRIVATE to its god while the game is live.

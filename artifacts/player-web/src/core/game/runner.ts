@@ -66,9 +66,11 @@ export type RunnerState = {
   previous: PreviousVersion | null;
   /** "See it in My agents": the agent whose row My agents brings into view and rings (a number so a second press is a new request). */
   reveal: { agentId: string; at: number } | null;
+  /** An act line was pressed: the object whose detail ("why") the Objects panel opens. */
+  revealObject: { objectId: string; at: number } | null;
 };
 
-let state: RunnerState = { busy: null, notice: null, unknown: null, retrying: null, failed: null, validation: null, draft: { source: "", language: null }, editing: false, firstSummon: 0, ownDraft: false, origin: null, replace: null, replaced: null, previous: null, reveal: null };
+let state: RunnerState = { busy: null, notice: null, unknown: null, retrying: null, failed: null, validation: null, draft: { source: "", language: null }, editing: false, firstSummon: 0, ownDraft: false, origin: null, replace: null, replaced: null, previous: null, reveal: null, revealObject: null };
 const listeners = new Set<() => void>();
 /** One command at a time, each with its deadline; only the latest attempt's outcome reaches the state. */
 const attempts = createAttempts();
@@ -85,6 +87,7 @@ export const runner = {
    * offered as its replacement. Code loaded with no origin (a draft, a template) is nobody's new version.
    */
   edit(source: string, language?: Lang, origin?: string) { set({ draft: { source, language: language ?? state.draft.language }, editing: true, ownDraft: source.trim().length > 0, origin: origin ?? null }); },
+  showObject(objectId: string) { set({ revealObject: { objectId, at: Date.now() } }); },
   revealAgent(agentId: string) { set({ reveal: { agentId, at: Date.now() } }); },
   clearPrevious() { if (state.previous) set({ previous: null }); },
   /** The new version's agent, once the agent list shows it (panels/first-agent.ts previousTarget). */

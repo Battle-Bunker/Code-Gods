@@ -458,7 +458,7 @@ program could only fail on. A tick window in flight is discarded (the execution 
 program is counted against the new one.
 
 Why a command and not destroy-then-summon: the two-step route returned the share to the god, re-allocated it to a new
-agent that starts empty, and so threw away the energy the agent held and reset its name; the god paid for a program
+agent that started empty, and (before energy moved with power, §6.1) threw away the energy the agent held and reset its name; the god paid for a program
 change with a full store as well as the price. With one command, code size keeps mattering (the price is the summon
 price, no discount), and nothing about power or agent count changes, so agent-count neutrality (§7) and the debt rule
 (§7.2) are untouched: the command moves no power and no debt.
@@ -506,14 +506,40 @@ irrelevant.
   `lib/power.ts deityAccount`, the replay's `settleAccount`), so nothing is written when an account fills (CLAUDE.md:
   no hot writes).
 - **Income past a full store is lost.** It is not kept, and it does not overflow to another account.
-- **Lowering an account's power lowers its capacity, and what it holds above the new capacity is lost at once.** That
-  covers an agent whose share is lowered, and the deity's own account when a summon or a re-allocation gives power to an
-  agent. The My agents panel says what will be lost before the player confirms. Both accounts are settled at the old
-  shares first, as before.
+- **Energy moves with power (owner, 13 Nov 2026).** Lowering an account's power lowers its capacity, and what it
+  holds above the new capacity goes to the account that gained the power: to the deity's own account when an agent's
+  share is lowered or the agent is destroyed (all of its power moves, so all it holds does), to the agent when a summon
+  or a raised share takes power from the deity. It always fits: the receiver's capacity rises by exactly what the
+  giver's falls, and the giver held at most its old capacity. So a re-allocation loses nothing, and a deity's accounts
+  together never hold more than P × T, however many agents there are. This is the same rule as debt (§7.2), in one
+  sentence: **what an account holds or owes beyond what its power supports goes where the power goes.** Both accounts
+  are settled at the old shares first. Game-core `movePower` computes it; the `summon`, `power` and `destroy` events
+  record the amount (`held`, `EVENT_LOG_SCHEMA` 15; positive onto the deity, negative onto the agent), the receipt
+  carries it, and a replay applies the recorded amount. Batches below 15 lost that energy, and replay them so.
+  Until 13 Nov the excess was dropped at once; that behaviour is the variant named in `docs/design-explorations.md`.
+  - *Why not keep the excess and only stop filling?* A deity could fill one agent at 100% of its power, move the power
+    to the next and fill that: one full store per agent, an advantage from the number of agents (§7).
+  - *Funding summons.* An agent's energy can now come back to its deity and pay for a summon, where before only
+    unallocated power did. Parking energy in an idle agent is never better than keeping the power unallocated: the idle
+    agent pays the offer price (§7.1) on every offer it is given. `balance-settings.ts --parking`, half the power for
+    T seconds: kept unallocated the deity has 960 bits in every Grid room; parked and taken back it has between 960
+    (the agent was offered nothing) and, if the agent were given every opportunity in the game, 882 (92%) in the 25 Hz
+    rooms, 812 (85%) in First steps, 367 (38%) in Classic, Big and Master, and in Low income (where those offers cost more than the
+    agent earns) it takes back a debt of 14 where keeping the power gave 480. What is new is only
+    that the energy a *working* agent happens to hold comes back when its power does; in the shipped rooms agents
+    spend income as it arrives, so that is little. Keeping power unallocated is still the only way to *earn* toward a
+    summon without paying for offers.
+  - *Balance.* `balance-settings.ts --T 30 --no-cap --offer --debt-bound`, with and without `--moves`, 200 games per
+    seed setup, three greedy gods: first-seat win share in Classic 38% before and 34% after, last seat 31% and 33%
+    (fair 33%; one seat's share moves about ±3 points between runs of 200); acts per game 3,472 and 3,497. No setup
+    moves by more than that noise. The harness models summons only (a god's excess at a summon goes to the new agent);
+    its policies never re-allocate.
 - **Planning.** World time is stopped, so nothing accrues, but the capacity holds: the deity starts with
-  min(`startingEnergy`, P·T), and each planning summon lowers its capacity with its unallocated power. With the default
+  min(`startingEnergy`, P·T), and each planning summon lowers its capacity with its unallocated power (what it holds
+  above that goes to the summoned agent). With the default
   shares (half of what is unallocated) a Grid deity (P = 64, T = 30) holds at most 1920, then 960, 480, 240 bits.
-- **Agents start empty**, as before. Starting full would make destroy and re-summon a source of energy.
+- **A summoned agent starts with what its deity held above its lowered capacity**, usually nothing. Destroy and
+  re-summon is not a source of energy: the total the deity's accounts hold is unchanged by either.
 - **Debt** (a balance below zero after an act that cost more than the agent had) is repaid from income first, as before.
 - **Why 30 seconds** (`lib/game-core/scripts/capacity-experiments.ts`; tables in `docs/energy-capacity-evidence.md`).
   - In every shipped room agents spend income as it arrives, so no agent store fills and acts, skips and win shares are
@@ -649,8 +675,8 @@ One principle: **what an account owes is repaid by the power it holds.** Two con
   lowered, or it is destroyed), the same fraction of its debt moves onto its god's own account: a god's own energy can
   therefore be negative, and until its own income has repaid it the god cannot pay for anything (a summon, a look).
   When a god that owes gives an agent power, the agent takes the same fraction of the god's debt as it takes of the
-  god's unallocated power. Energy never moves this way (what an account holds above a lowered capacity is still lost);
-  debt is never lost. The `power` and `destroy` events record what moved (`owed`, `EVENT_LOG_SCHEMA` 13), the command's
+  god's unallocated power. Energy moves by the same rule (§6.1: what an account holds above a lowered capacity goes with
+  the power); neither is ever lost. The `power` and `destroy` events record what moved (`owed`, `EVENT_LOG_SCHEMA` 13), the command's
   receipt says it, and the replay applies the recorded amount.
 
 There is no rule about what an agent in debt may not do, and no special state: an agent in debt is simply not in the

@@ -27,6 +27,8 @@ const ROOMY: ReadonlySet<PanelId> = new Set<PanelId>(["forge"]);
  */
 /** The panes a player plays from: showing another panel never replaces them while any other pane can give way. */
 const KEPT: ReadonlySet<PanelId> = new Set<PanelId>(["my-card", "objects"]);
+/** For a panel that is not the editor, My agents is kept too: "show this grid" pressed there must not replace the pane it was pressed in. */
+const KEPT_BY_OTHERS: ReadonlySet<PanelId> = new Set<PanelId>([...KEPT, "agents"]);
 export function showPanel(layout: DockLayout, panelId: PanelId, params?: Record<string, unknown>, focused?: string | null): { layout: DockLayout; paneId: string; replaced?: boolean } {
   const panels = panelPanesOf(layout);
   const open = panels.find(p => p.panelId === panelId);
@@ -57,9 +59,9 @@ export function showPanel(layout: DockLayout, panelId: PanelId, params?: Record<
     return { layout: withRoom(setPanePanel(layout, target.id, panelId, "human", values), target.id), paneId: target.id, replaced: true };
   }
   if (panels.length >= LAYOUT_LIMITS.panelPanes) {
-    // Never the goal card or the objects while another pane can give way ("Where did my boards go?"): the focused pane
+    // Never the goal card, the objects or My agents while another pane can give way ("Where did my boards go?"): the focused pane
     // unless it is one of those, else the pane the editor is in, else the largest default one.
-    const spare = panels.filter(p => !KEPT.has(p.panelId)), from = spare.length ? spare : panels;
+    const spare = panels.filter(p => !KEPT_BY_OTHERS.has(p.panelId)), from = spare.length ? spare : panels.filter(p => !KEPT.has(p.panelId)).length ? panels.filter(p => !KEPT.has(p.panelId)) : panels;
     const target = from.find(p => p.id === focused) ?? from.find(p => p.panelId === "forge") ?? largest(from.filter(p => p.setBy === "default")) ?? largest(from)!;
     return { layout: setPanePanel(layout, target.id, panelId, "human", values), paneId: target.id, replaced: true };
   }

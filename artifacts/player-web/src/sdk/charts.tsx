@@ -5,10 +5,9 @@
  */
 import { useId, useMemo, type ReactNode } from "react";
 
-/** Categorical colours: theme tokens first, then a colour-blind-safe fallback (Okabe–Ito). */
-export const SERIES = ["hsl(var(--primary))", "#0072B2", "#E69F00", "#009E73", "#CC79A7", "#56B4E9", "#D55E00", "#F0E442"];
-/** Distinct dash patterns that go with SERIES, so series stay apart without colour. */
-export const DASHES = ["", "4 2", "1 2", "6 2 1 2", "8 3", "2 4", "3 1", "10 2 2 2"];
+import { DASHES, SERIES } from "./player-colour";
+/** The categorical colours and their dashes (player-colour.ts, where a player's own slot is decided). */
+export { DASHES, SERIES };
 const INK = "hsl(var(--foreground))";
 const MUTED = "hsl(var(--muted-foreground))";
 const GRID = "hsl(var(--border))";
@@ -41,7 +40,8 @@ export function Sparkline({ values, width = 120, height = 28, color = SERIES[0],
   );
 }
 
-export type Series = { label: string; points: readonly { x: number; y: number }[] };
+/** `colour` / `dash`: this series' own (a player's, from player-colour.ts); absent: by its position among the series. */
+export type Series = { label: string; points: readonly { x: number; y: number }[]; colour?: string; dash?: string };
 
 /** A multi-series line chart with axes and a legend. */
 export function LineChart({ series, width = 320, height = 160, xLabel, yLabel, zero = true, format = fmtBits }: {
@@ -63,22 +63,22 @@ export function LineChart({ series, width = 320, height = 160, xLabel, yLabel, z
         ))}
         {zero && y0 < 0 && y1 > 0 && <line x1={m.l} x2={width - m.r} y1={y(0)} y2={y(0)} stroke={INK} strokeOpacity={0.4} />}
         {series.map((s, i) => (
-          <path key={s.label} fill="none" stroke={SERIES[i % SERIES.length]} strokeDasharray={DASHES[i % DASHES.length]} strokeWidth={1.5}
+          <path key={s.label} fill="none" stroke={s.colour ?? SERIES[i % SERIES.length]} strokeDasharray={s.dash ?? DASHES[i % DASHES.length]} strokeWidth={1.5}
             d={s.points.map((p, j) => `${j ? "L" : "M"}${x(p.x).toFixed(1)},${y(p.y).toFixed(1)}`).join("")} />
         ))}
         {xLabel && <text x={width - m.r} y={height - 4} textAnchor="end" fontSize={9} fill={MUTED}>{xLabel}</text>}
       </svg>
-      {series.length > 1 && <Legend items={series.map(s => s.label)} />}
+      {series.length > 1 && <Legend items={series.map(s => s.label)} styles={series.map(s => ({ colour: s.colour, dash: s.dash }))} />}
     </figure>
   );
 }
 
-export function Legend({ items }: { items: readonly string[] }) {
+export function Legend({ items, styles }: { items: readonly string[]; /** Each item's own colour and dash, when it has them. */ styles?: readonly { colour?: string; dash?: string }[] }) {
   return (
     <figcaption className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px]">
       {items.map((label, i) => (
         <span key={label} className="inline-flex items-center gap-1">
-          <svg width={16} height={6} aria-hidden><line x1={0} x2={16} y1={3} y2={3} stroke={SERIES[i % SERIES.length]} strokeWidth={2} strokeDasharray={DASHES[i % DASHES.length]} /></svg>
+          <svg width={16} height={6} aria-hidden><line x1={0} x2={16} y1={3} y2={3} stroke={styles?.[i]?.colour ?? SERIES[i % SERIES.length]} strokeWidth={2} strokeDasharray={styles?.[i]?.dash ?? DASHES[i % DASHES.length]} /></svg>
           {label}
         </span>
       ))}

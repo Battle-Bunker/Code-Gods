@@ -74,8 +74,11 @@ export const EVENTS_PER_BATCH = 400;
  * the power between the agent and its god's own account. Replay applies the recorded amount.
  * 14 adds the `replace` event (docs/energy-model.md §5.2): an agent's program was replaced for the new program's summon
  * price; the agent keeps its id, name, power share and account. Replay charges the recorded price to its god.
+ * 15 marks energy moving with power (docs/energy-model.md §6.1): `summon`, `power` and `destroy` events carry `held`,
+ * the energy that moved from the account whose capacity fell to the one that gained the power, where every batch below
+ * 15 lost it at the next settle. Replay applies the recorded amount (and, without it, the old loss).
  */
-export const EVENT_LOG_SCHEMA = 14;
+export const EVENT_LOG_SCHEMA = 15;
 
 export type Clock = {
   phase: "planning" | "running" | "paused" | "recovery" | "ended";
