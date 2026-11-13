@@ -11,6 +11,7 @@
 import type { CardTier, Params } from "../types.ts";
 import { baseParams, tierValue, tiersOf, type TierValue } from "../families/grid/tiers.ts";
 import type { Board } from "./board.ts";
+import { MORE_TIER_LENSES } from "./tier-lenses-more.ts";
 import { count, type Lens } from "./lens.ts";
 import type { BreakdownItem, Cell, Part, TierStatus } from "./model.ts";
 import { defaultGeometry, type HoverMode } from "./units.ts";
@@ -224,7 +225,8 @@ const sameRoads: TierLens = {
 };
 
 /** The tier lenses, by interaction id. */
-export const TIER_LENSES: Readonly<Record<string, TierLens>> = Object.freeze({ lines, squares, holding, halves, pairs, sameRoads });
+/** One lens per interaction id; the Two Pair ones live beside, in ./tier-lenses-more.ts. */
+export const TIER_LENSES: Readonly<Record<string, TierLens>> = Object.freeze({ lines, squares, holding, halves, pairs, sameRoads, ...MORE_TIER_LENSES });
 
 // ------------------------------------------------------------------------------------------------
 // a tiered draw's lens: its base's lens and its tiers'
