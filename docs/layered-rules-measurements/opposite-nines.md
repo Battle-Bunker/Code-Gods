@@ -164,3 +164,26 @@ Bits of P(tier ≥ i | base at its top): table / reference at every tier level o
 | lines(x=18) | gated | 2.98 | 1.41 | 41.6 | 25.5 | 27.9 | 27.1 | 26.4 | -0.7 | 1292 | 6 | shipped hybrid | 504 | 45.9 |
 | lines(x=18) | plain | 3.03 | 1.43 | 41.3 | 20.8 | 30.0 | 27.1 | 26.4 | -0.7 | 1209 | 5 | shipped hybrid | 2529 | 238.0 |
 | lines(x=18) | unlock | 3.03 | 1.39 | 40.8 | 29.3 | 28.5 | 19.4 | 26.4 | 7.1 | 1373 | 6 | shipped sampled | 236 | 9.9 |
+
+## Synergy with the beginner eight (2026-11-13, the shipped rules and tables)
+
+`SYN` = 100 × (1 − considerate joint value), the ceiling in brackets; higher `SYN` is harder to combine. Measured with
+`pnpm --filter @workspace/game-utilities tiered --families opposite_nines --pair-limit 8 --no-games --no-exact`.
+Every tier raises `SYN` against every partner and lowers the ceiling from 1.00 to 0.80–0.90: the rise tracks the tier's
+added reach, not what the tier asks for, so no tier of this family agrees with a partner's rule
+(docs/layered-rules-design.md §8.1).
+
+| variant | mirrormancer | magic_eighteen | opposite_nines | two_pair | spread_three | strangers | leapfrog | crosswise_threes | mean SYN |
+|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| opposite_nines.base | 38 (1.00) | 23 (1.00) | 0 (1.00) | 42 (1.00) | 24 (1.00) | 41 (1.00) | 33 (1.00) | 25 (1.00) | 28.4 |
+| opposite_nines.lines(x=11) | 50 (0.81) | 38 (0.84) | 17 (0.88) | 54 (0.84) | 39 (0.81) | 52 (0.81) | 40 (0.84) | 40 (0.84) | 41.2 |
+| opposite_nines.lines(x=12) | 48 (0.82) | 37 (0.89) | 17 (0.89) | 53 (0.85) | 37 (0.82) | 52 (0.82) | 49 (0.89) | 39 (0.82) | 41.5 |
+| opposite_nines.lines(x=13) | 49 (0.82) | 37 (0.85) | 17 (0.89) | 49 (0.85) | 37 (0.85) | 52 (0.82) | 50 (0.85) | 36 (0.82) | 40.8 |
+| opposite_nines.lines(x=14) | 48 (0.89) | 36 (0.89) | 16 (0.85) | 52 (0.85) | 36 (0.89) | 52 (0.85) | 44 (0.89) | 37 (0.85) | 40.1 |
+| opposite_nines.lines(x=15) | 48 (0.83) | 36 (0.86) | 15 (0.89) | 51 (0.89) | 37 (0.95) | 51 (0.83) | 42 (0.89) | 37 (0.86) | 39.7 |
+| opposite_nines.lines(x=16) | 48 (0.89) | 32 (0.86) | 14 (0.89) | 48 (0.89) | 38 (0.89) | 50 (1.00) | 48 (0.89) | 36 (0.86) | 39.4 |
+| opposite_nines.lines(x=17) | 47 (0.84) | 32 (0.86) | 13 (0.95) | 49 (0.90) | 35 (0.86) | 47 (0.84) | 42 (0.90) | 36 (0.86) | 37.8 |
+| opposite_nines.lines(x=18) | 50 (0.88) | 33 (0.88) | 20 (0.83) | 51 (0.88) | 38 (0.83) | 53 (0.88) | 47 (0.88) | 39 (0.80) | 41.5 |
+| opposite_nines.squares(x=12) | 49 (0.80) | 38 (0.87) | 19 (0.87) | 53 (0.80) | 38 (0.87) | 51 (0.80) | 41 (0.87) | 39 (0.80) | 41.1 |
+| opposite_nines.squares(x=14) | 49 (0.85) | 33 (0.93) | 16 (0.88) | 49 (0.88) | 36 (0.85) | 51 (0.88) | 43 (0.88) | 38 (0.85) | 39.3 |
+| opposite_nines.squares(x=16) | 48 (0.89) | 35 (0.89) | 16 (0.86) | 52 (0.84) | 36 (0.85) | 51 (0.94) | 41 (0.94) | 37 (0.81) | 39.4 |

@@ -178,3 +178,23 @@ Composition comparison: one row per composition of the same tier value. `base-on
 table` are the bits of the base-only agent's end boards on the composed table and on the base draw's own table; `base-only
 loses` is the second minus the first. `card chars` is the length of the TypeScript card; `summary sentences` the sentences
 of the rule text.
+
+## Synergy: does any tier agree with a partner's rule? No (2026-11-13)
+
+The design document proposed offering, per family, an interaction that a common partner's base already pays for
+(§8.1). Measured against the real beginner eight, no such tier exists among the shipped ones:
+
+| family | mean SYN, base | mean SYN, with a tier | ceiling, base | ceiling, with a tier |
+|---|--:|--:|--:|--:|
+| Opposite Nines | 28.4 | 37.8–41.5 | 1.00 | 0.80–0.95 |
+| Mirrormancer | 31.1 | 41.5–45.3 | 0.66–1.00 | 0.60–1.00 |
+| Kings and Subjects | 45.6 | 58.8–60.0 | 0.43–1.00 | 0.31–0.91 |
+
+Every tier of every family raises `SYN` against every one of the eight. The two openings the prototypes claimed are
+refuted: Opposite Nines' "lines add up to 18" × Crosswise Threes goes 25 → 39 (the prototype said 43 → 31), and Magic
+Eighteen's ceiling falls from 1.00 to 0.88. x = 18 scores no better against Magic Eighteen (SYN 33) than x = 16 or 17
+(32), so the agreement is not what moves the number: the tier's added reach is. `SYN` is a share of each rule's own
+top, and a considerate pair of one-cell agents reaches almost none of a tier.
+
+The design document's §8.1 now says this, and its "design rule" about agreeing tiers is dropped. A fair test of
+agreement needs a cooperation measure that is not normalised by each rule's own top; it does not exist yet.

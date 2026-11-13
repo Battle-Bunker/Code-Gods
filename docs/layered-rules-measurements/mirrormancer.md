@@ -95,3 +95,18 @@ Bits of P(tier ≥ i | base at its top): table / reference at every tier level o
 | mirrormancer.holding(y=0) | hybrid:mirrormancer-lines-hybrid@102 | 25 | 12.3 |
 | mirrormancer.halves(x=7) | hybrid:mirrormancer-lines-hybrid@102 | 25 | 9.2 |
 
+## Synergy with the beginner eight (2026-11-13, the shipped rules and tables)
+
+`SYN` = 100 × (1 − considerate joint value), the ceiling in brackets; higher `SYN` is harder to combine. Measured with
+`pnpm --filter @workspace/game-utilities tiered --families mirrormancer --pair-limit 8 --no-games --no-exact`.
+Every tier raises `SYN` against every partner and lowers the ceiling from 1.00 to 0.80–0.90: the rise tracks the tier's
+added reach, not what the tier asks for, so no tier of this family agrees with a partner's rule
+(docs/layered-rules-design.md §8.1).
+
+| variant | mirrormancer | magic_eighteen | opposite_nines | two_pair | spread_three | strangers | leapfrog | crosswise_threes | mean SYN |
+|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| mirrormancer.base | 0 (1.00) | 55 (0.66) | 41 (1.00) | 34 (1.00) | 38 (1.00) | 26 (1.00) | 17 (1.00) | 37 (1.00) | 31.1 |
+| mirrormancer.holding(y=0) | 15 (0.94) | 62 (0.65) | 50 (0.85) | 44 (0.89) | 47 (0.85) | 38 (0.85) | 29 (0.86) | 46 (0.89) | 41.5 |
+| mirrormancer.halves(x=7) | 20 (0.82) | 65 (0.60) | 53 (0.86) | 48 (0.79) | 51 (0.73) | 41 (0.82) | 33 (0.79) | 50 (0.82) | 45.3 |
+| mirrormancer.halves(x=8) | 20 (0.81) | 65 (0.63) | 54 (0.81) | 48 (0.86) | 50 (0.79) | 38 (0.86) | 34 (0.79) | 50 (0.81) | 45.1 |
+| mirrormancer.halves(x=9) | 17 (0.87) | 64 (0.80) | 53 (0.81) | 47 (1.00) | 50 (0.74) | 40 (0.81) | 33 (0.83) | 49 (0.83) | 44.2 |

@@ -119,3 +119,20 @@ Bits of P(tier ≥ i | base at its top): table / reference at every tier level o
 | kings_and_subjects.pairs(x=1) | hybrid:kings-and-subjects-boxes-hybrid@102 | 185 | 17.2 |
 | kings_and_subjects.sameRoads(y=2) | hybrid:kings-and-subjects-boxes-hybrid@102 | 185 | 19.7 |
 
+## Synergy with the beginner eight (2026-11-13, the shipped rules and tables)
+
+`SYN` = 100 × (1 − considerate joint value), the ceiling in brackets; higher `SYN` is harder to combine. Measured with
+`pnpm --filter @workspace/game-utilities tiered --families kings_and_subjects --pair-limit 8 --no-games --no-exact`.
+Every tier raises `SYN` against every partner and lowers the ceiling from 1.00 to 0.80–0.90: the rise tracks the tier's
+added reach, not what the tier asks for, so no tier of this family agrees with a partner's rule
+(docs/layered-rules-design.md §8.1).
+
+| variant | mirrormancer | magic_eighteen | opposite_nines | two_pair | spread_three | strangers | leapfrog | crosswise_threes | mean SYN |
+|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| kings_and_subjects.base | 42 (1.00) | 36 (1.00) | 55 (0.90) | 73 (0.43) | 46 (1.00) | 51 (0.82) | 39 (1.00) | 22 (1.00) | 45.6 |
+| kings_and_subjects.pairs(x=1) | 57 (0.78) | 54 (0.78) | 67 (0.75) | 80 (0.31) | 60 (0.76) | 64 (0.72) | 55 (0.88) | 41 (0.80) | 59.8 |
+| kings_and_subjects.pairs(x=2) | 57 (0.73) | 54 (0.75) | 67 (0.73) | 80 (0.31) | 63 (0.73) | 58 (0.60) | 55 (0.77) | 36 (0.84) | 58.8 |
+| kings_and_subjects.pairs(x=3) | 56 (0.73) | 54 (0.77) | 67 (0.77) | 80 (0.31) | 62 (0.75) | 65 (0.57) | 52 (0.80) | 40 (0.78) | 59.4 |
+| kings_and_subjects.pairs(x=4) | 55 (0.73) | 54 (0.77) | 67 (0.64) | 80 (0.31) | 63 (0.77) | 63 (0.66) | 53 (0.75) | 40 (0.91) | 59.4 |
+| kings_and_subjects.pairs(x=5) | 56 (0.76) | 54 (0.74) | 67 (0.67) | 80 (0.31) | 63 (0.76) | 64 (0.63) | 54 (0.79) | 40 (0.79) | 59.9 |
+| kings_and_subjects.sameRoads(y=4) | 57 (0.84) | 53 (0.74) | 67 (0.74) | 80 (0.31) | 60 (0.74) | 64 (0.61) | 55 (0.84) | 43 (0.74) | 60.0 |
