@@ -11,9 +11,9 @@ import type { Language } from "@workspace/game-core";
 import { EXAMINATION_DEADLINE_MS, envelopeSchema, examinesProgram, type CommandResult } from "@workspace/player-client";
 import { internal } from "./_generated/api";
 import { action, internalAction, type ActionCtx } from "./_generated/server";
-import { AgentFault, examinationKey, examineAgent, type StoredExamination } from "./engine/pricing";
+import { AgentFault, ExaminationUnfinished, examinationKey, examineAgent, type StoredExamination } from "./engine/pricing";
 import { withBackgroundSlot } from "./engine/background";
-import { EXAMINATION_WAIT_MS } from "./lib/background";
+import { EXAMINATION_SAVE_MS, EXAMINATION_WAIT_MS } from "./lib/background";
 import { envelopeHash } from "./game/commands";
 import { DeadlineExceeded, examinationBusyMessage, within } from "./lib/deadline";
 import { fail, messageOf } from "./lib/errors";
@@ -53,7 +53,8 @@ export async function runEnvelope(ctx: ActionCtx, roomId: string, raw: unknown, 
       // after its validate, an example another player already examined on the same objects), nothing runs in the
       // sandbox and no slot is needed: the answer is immediate however busy the deployment is.
       const stored = await ctx.runQuery(internal.engine.examinationCache.get, { key: examinationKey(examine.settings, command.language, command.source) }) as StoredExamination;
-      const who = asAi ? { lane: "background" as const, stored } : { lane: "human" as const, deadline: asked + EXAMINATION_DEADLINE_MS, stored };
+      // The sandbox stops a little before the caller does, so what the examination finished is saved for a retry.
+      const who = asAi ? { lane: "background" as const, stored } : { lane: "human" as const, deadline: asked + EXAMINATION_DEADLINE_MS - EXAMINATION_SAVE_MS, stored };
       const remembered = !stored ? undefined
         : await examineAgent(ctx, examine.settings, command.language, command.source, examine.live, { ...who, cacheOnly: true }).catch(() => undefined);
       const examineNow = () => examineAgent(ctx, examine.settings, command.language, command.source, examine.live, who);
@@ -69,6 +70,10 @@ export async function runEnvelope(ctx: ActionCtx, roomId: string, raw: unknown, 
       if (error instanceof ConvexError) throw error;   // the "busy" answer above
       // Not finished in time: nothing is receipted (the commit below is never reached), so the identical envelope can
       // be sent again. The sandbox drops the abandoned examination's remaining runs at the same deadline.
+      if (error instanceof ExaminationUnfinished) {
+        console.error(`Agent examination unfinished at its deadline (${error.remembered} runs kept for the retry)`);
+        fail("UNAVAILABLE", examinationBusyMessage(command.type, EXAMINATION_DEADLINE_MS));
+      }
       if (error instanceof DeadlineExceeded) {
         console.error(`Agent examination given up after ${error.ms} ms (sandbox busy)`);
         fail("UNAVAILABLE", examinationBusyMessage(command.type, error.ms));
