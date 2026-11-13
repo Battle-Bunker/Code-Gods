@@ -97,6 +97,9 @@ export const utilityCardSchema = z.object({
   // Your outcome of the game's bid phase, present only when somebody won a bid (docs/bid-phase.md): whether you won
   // this rule by bidding, what you bid, and `handicap`: the percentage taken off every total of yours (0: none).
   handicap: z.number().min(0).max(100).optional(),
+  // A room playing again with the same players (docs/beginner-pool.md §6): the rules passed one seat along. `round`
+  // is this game's place in the rotation (2 = the first passed-on game) of `of` games; `from` held this rule last game.
+  rotation: z.object({ round: z.number().int().min(2).max(8), of: z.number().int().min(2).max(8), from: z.string().max(128) }).optional(),
   bid: z.object({
     won: z.boolean(), familyId: z.string().max(128).optional(), percent: z.number().optional(), handicap: z.number(),
     pricing: z.enum(["first", "second"]), bids: z.array(z.object({ familyId: z.string().max(128), percent: z.number() })).max(200),

@@ -22,6 +22,7 @@ import { roomSetupWrite, type RoomSetupChange } from "../setups";
 import { scoreV } from "./tables";
 import { publicSalienceOf, publishStandings } from "./readModel";
 import { scheduleFill } from "./objectViews";
+import { dealKeyOf } from "../lib/dealRotation";
 
 /** The second half's watchdog period while tables compute (owner.ts completeStart; finished() normally launches at once). */
 export const PREPARING_WATCHDOG_MS = 60_000;
@@ -46,6 +47,24 @@ export const ownerContext = internalQuery({
       aiEnabled: await aiEnabledFor(ctx, room),
       receipt: null as unknown,
     };
+  },
+});
+
+/**
+ * The room's last games (newest first, at most 8, each with every roster god's dealt utility), for the rotated deal
+ * (lib/dealRotation.ts): one-shot, read only by a start.
+ */
+export const pastDeals = internalQuery({
+  args: { roomId: v.id("rooms") },
+  handler: async (ctx, { roomId }) => {
+    const games = await ctx.db.query("games").withIndex("by_room", q => q.eq("roomId", roomId)).order("desc").take(8);
+    const out: { godIds: string[]; names: string[]; utilities: unknown[]; dealKey: string; bid: boolean }[] = [];
+    for (const game of games) {
+      const deities = (await ctx.db.query("deities").withIndex("by_game", q => q.eq("gameId", game._id)).take(16)).sort((a, b) => a.index - b.index);
+      out.push({ godIds: deities.map(d => d.godId), names: deities.map(d => game.roster.find(r => r.id === d.godId)?.name ?? d.godId), utilities: deities.map(d => d.utility),
+        dealKey: dealKeyOf(game.settings as Record<string, unknown>), bid: !!game.handicaps?.some(h => h > 0) });
+    }
+    return out;
   },
 });
 
