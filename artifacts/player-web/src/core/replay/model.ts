@@ -77,11 +77,11 @@ export function describeEvent(ev: ReplayEvent, names: ReadonlyMap<string, string
     case "object.rescored": return `Object ${shortId(ev.objectId)} re-scored for the number of players (hold rarity)`;
     case "object.transformed": return `${god(ev.ownerId)}'s agent ${ev.agentId ? shortId(ev.agentId) : "?"} changed object ${shortId(ev.objectId)}: ${callText(ev.calls) || "no calls"}`;
     case "agent.failed": return `${god(ev.ownerId)}'s agent ${shortId(ev.agentId)} failed on object ${shortId(ev.objectId)}: ${ev.reason}`;
-    case "agent.skipped": return `${god(ev.ownerId)}'s agent ${shortId(ev.agentId)} looked at object ${shortId(ev.objectId)} and did nothing (paid ${bits(ev.cost.read)} bits to look)`;
+    case "agent.skipped": return `${god(ev.ownerId)}'s agent ${shortId(ev.agentId)} looked at object ${shortId(ev.objectId)} and did nothing (paid ${bits(ev.cost.read)} ⚡ to look)`;
     case "agent.summoned": return `${god(ev.ownerId)} summoned agent ${shortId(ev.agentId)} (${ev.language}, ${bits(ev.summonCost)} bits${ev.powerShare !== undefined ? `, ${Math.round(ev.powerShare * 1000) / 10}% of its owner's power` : ""})`;
-    case "agent.replaced": return `${god(ev.ownerId)} replaced agent ${shortId(ev.agentId)}'s program (${ev.language}, ${bits(ev.summonCost)} bits)`;
+    case "agent.replaced": return `${god(ev.ownerId)} replaced agent ${shortId(ev.agentId)}'s program (${ev.language}, ${bits(ev.summonCost)} ⚡)`;
     case "agent.destroyed": return `${god(ev.ownerId)} destroyed agent ${shortId(ev.agentId)}`;
-    case "god.looked": return `${god(ev.ownerId)} paid ${bits(ev.price)} bits to look at ${ev.objectId ? `object ${shortId(ev.objectId)}` : `all ${ev.count} objects`}`;
+    case "god.looked": return `${god(ev.ownerId)} paid ${bits(ev.price)} ⚡ to look at ${ev.objectId ? `object ${shortId(ev.objectId)}` : `all ${ev.count} objects`}`;
     case "agent.power": return `${god(ev.ownerId)} set agent ${shortId(ev.agentId)} to ${Math.round(ev.share * 1000) / 10}% of their power`;
   }
 }

@@ -59,7 +59,7 @@ export default function Overview({ paneId, params, phase }: PanelProps<"overview
           ? <BigNumber label="Agents" value={String(agents.length)} testId="stat-agents" />
           : <BigNumber label="Agents acting" value={agents.length ? `${acting}/${agents.length}` : "0"} testId="stat-agents" />}
       </dl>
-      {note && <p className="text-xs text-muted-foreground" data-testid="text-handicap">Your payoff is {fmt(standing.total)} bits {note}.</p>}
+      {note && <p className="text-xs text-muted-foreground" data-testid="text-handicap">Your points are {fmt(standing.total)} {note}.</p>}
       {offered && <PrimaryButton onClick={go} busy={step.busy} testId="button-next-step">{step.label}</PrimaryButton>}
     </div>
   );
