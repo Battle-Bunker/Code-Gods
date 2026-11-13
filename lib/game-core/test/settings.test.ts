@@ -470,3 +470,16 @@ test("every world's defaults keep the starting energy: the store holds it in pla
   }
   assert.deepEqual([defaultSettingsFor("Int").fullChargeSeconds, defaultSettingsFor("string").fullChargeSeconds, defaultSettingsFor("Grid").fullChargeSeconds], [60, 60, 30]);
 });
+
+test("the summon price is language-fair: TypeScript's structure bits are weighted to Python's scale (docs/energy-model.md §5.1)", async () => {
+  const { fairSummonBits } = await import("../src/settings.ts");
+  assert.deepEqual([LANGUAGE_SPECS.python.structureWeight, LANGUAGE_SPECS.typescript.structureWeight], [1, 0.44]);
+  // Python is unchanged.
+  assert.deepEqual(fairSummonBits("python", 737.9, 420.0), { cost: 737.9, structure: 420.0 });
+  // The greedy policy program (lib/game-utilities/scripts/coordination-programs): TypeScript inspection 1,319.7 bits, of
+  // which 974.6 are structure. Weighted: 974.6 × 0.44 = 428.8, so 1,319.7 − 974.6 + 428.8 = 773.9 (Python: 737.9).
+  const greedy = fairSummonBits("typescript", 1319.7, 974.6);
+  assert.ok(Math.abs(greedy.structure - 428.824) < 1e-9 && Math.abs(greedy.cost - 773.924) < 1e-9, JSON.stringify(greedy));
+  // The dearest policy (cooperator, 2,916.7 with 1,955.2 of structure) now fits a god's store of 1,920 bits: 1,821.8.
+  assert.ok(Math.abs(fairSummonBits("typescript", 2916.7, 1955.2).cost - 1821.788) < 1e-9);
+});
