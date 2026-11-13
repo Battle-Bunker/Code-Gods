@@ -163,8 +163,22 @@ test("a whole settings object is a change of the fields that differ: re-applying
   assert.ok(!sameSettings(edited, { ...edited, startingObjectCount: 81 }));
 });
 
+test("tiered rules: an object switches them on, null switches them off (the field goes), and nothing else moves", () => {
+  const on = applySettingsChange(start, { ruleTiers: { depth: 1, compose: "plain" } }, domain);
+  assert.deepEqual(on, { ...start, ruleTiers: { depth: 1, compose: "plain" } });
+  assert.deepEqual(applySettingsChange(on, { ruleTiers: { depth: 2 } }, domain), { ...start, ruleTiers: { depth: 2 } });
+  assert.deepEqual(applySettingsChange(on, { planningSeconds: 77 }, domain), { ...on, planningSeconds: 77 }, "another change keeps them");
+  const off = applySettingsChange(on, { ruleTiers: null } as never, domain);
+  assert.deepEqual(off, start);
+  assert.ok(!("ruleTiers" in off), "absent, not undefined: stored settings never hold an empty field");
+  assert.deepEqual(applySettingsChange(start, { ruleTiers: null } as never, domain), start, "off when already off");
+  for (const bad of [{ depth: 3 }, { depth: 1, compose: "gated" }, "on", 1]) {
+    assert.throws(() => applySettingsChange(start, { ruleTiers: bad } as never, domain), (e: unknown) => e instanceof SettingsChangeError && e.field === "ruleTiers", JSON.stringify(bad));
+  }
+});
+
 test("the cost model: one of the instantiation's models, the default never stored, dropped when the world stops supporting it", () => {
-  assert.deepEqual([...SETTINGS_FIELDS].sort(), [...Object.keys(DEFAULT_SETTINGS), "costModel"].sort());
+  assert.deepEqual([...SETTINGS_FIELDS].sort(), [...Object.keys(DEFAULT_SETTINGS), "costModel", "ruleTiers"].sort());
   const grid = applySettingsChange(start, { objectType: "Grid" }, domain);
   assert.ok(!("costModel" in grid));
   const distance = applySettingsChange(grid, { costModel: "distance-v1" }, domain);

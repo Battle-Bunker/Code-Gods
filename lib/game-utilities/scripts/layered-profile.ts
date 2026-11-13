@@ -8,6 +8,7 @@
  *   pnpm --filter @workspace/game-utilities layered [options]
  *   (= node --experimental-strip-types lib/game-utilities/scripts/layered-profile.ts [options])
  *
+ *   --real                profile the real tiered families instead (scripts/tiered-profile.ts; its own options apply)
  *   --rules FILE          the layered rules module (default scripts/rule-difficulty-layered.mjs)
  *   --families a,b        only these families
  *   --budget default|quick
@@ -231,6 +232,8 @@ interface Variant { id: string; family: string; base: string; interaction?: stri
 async function main() {
   const argv = process.argv.slice(2);
   const flag = (name: string) => argv.includes(`--${name}`);
+  // --real: the real tiered families (their own cards and tables) instead of the prototypes: scripts/tiered-profile.ts.
+  if (flag("real")) return (await import("./tiered-profile.ts")).main(argv.filter(a => a !== "--real"));
   const opt = (name: string) => { const i = argv.indexOf(`--${name}`); return i < 0 ? undefined : argv[i + 1]; };
   const here = dirname(fileURLToPath(import.meta.url));
   const mod = await import(pathToFileURL(resolve(opt("rules") ?? `${here}/rule-difficulty-layered.mjs`)).href) as {

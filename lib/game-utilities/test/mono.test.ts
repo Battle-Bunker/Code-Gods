@@ -23,6 +23,8 @@ test("Grid(4,base10,mono) offers exactly the numbers-only families", () => {
     "pinwheel", "round_numbers", "seesaw", "snap", "stepping_stones", "staircase_climber", "sudoku_scholar", "twenty_one", "young_tableau",
     // the beginner pool's new families (families/grid/beginner)
     "crosswise_threes", "leapfrog", "magic_eighteen", "opposite_nines", "spread_three", "strangers", "two_pair",
+    // layered families (families/grid/layered)
+    "kings_and_subjects",
   ].sort());
 });
 

@@ -73,7 +73,10 @@ test("every field is a control: asked or under More, never a fixed fact, with a 
   for (const [key, doc] of Object.entries(SETTINGS_DOCS) as [keyof GameSettings, FieldDoc][]) {
     assert.ok(doc.tier === "ask" || doc.tier === "more", `${key}: tier ${doc.tier}`);
     assert.ok(doc.control in kinds, `${key}: a known control kind (${doc.control})`);
-    assert.ok(kinds[doc.control]!(DEFAULTS_READ[key]), `${key}: a ${doc.control} control fits its value`);
+    // An optional field is absent by default (its control then shows "none"); the cost model reads through its default.
+    if (!(OPTIONAL_SETTINGS_FIELDS as readonly string[]).includes(key) || DEFAULTS_READ[key] !== undefined) {
+      assert.ok(kinds[doc.control]!(DEFAULTS_READ[key]), `${key}: a ${doc.control} control fits its value`);
+    }
   }
   assert.deepEqual(SETTINGS_DOCS.costModel.suggested, COST_MODELS, "pre-authored: the cost models of game-types");
   for (const key of ["languages", "utilitySelectorId", "priorId", "spawnFunctionId", "objectSelection", "commitClause", "costModel"] as const) {

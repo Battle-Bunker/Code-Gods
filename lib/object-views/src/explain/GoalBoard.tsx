@@ -220,6 +220,8 @@ export function GoalBoard({ goal, value, grid, caption, changed, selected: chose
       {caption && <p className="mb-2 text-xs leading-snug text-muted-foreground" data-testid="goal-board-caption">{caption}</p>}
       <div className="mb-2 text-xs leading-snug">
         {total && <p data-testid="goal-board-total">{total}</p>}
+        {/* A tiered rule below its gate: how many more primary points open the ★ tier (its units then join the list). */}
+        {rich && explanation?.tiers?.filter(t => !t.open).map(t => <p key={t.index} className="text-muted-foreground" data-testid="goal-tier-note">{t.note}</p>)}
         {explanation && !explanation.verified && <p className="text-muted-foreground">Can't explain this board yet.</p>}
         {rich && units.length === 0 && <p className="text-muted-foreground" data-testid="goal-no-units">Nothing on this board counts towards this goal yet.</p>}
       </div>

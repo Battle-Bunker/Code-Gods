@@ -1,6 +1,6 @@
 # Layered rules: an easy base, and interactions that reach higher
 
-Status: design brainstorm with measured prototypes (2026-11-11). No shipped family, parameter or calibration key changes.
+Status: design brainstorm with measured prototypes (2026-11-11), corrected where the shipped code refuted it (2026-11-13: §8.1). The paradigm is now implemented: see `docs/tiered-rules.md` for the shipped code and `docs/layered-rules-measurements/` for the numbers on real families.
 
 Code:
 - `lib/game-utilities/scripts/rule-difficulty-layered.mjs`: the prototypes. It holds the operator menu, six families,
@@ -426,7 +426,7 @@ Court variant.
 **The interactions:**
 - **lines(x):** "each row, column or long diagonal that adds up to x scores a point".
   - With x = 18, partner rows sum to s and 36 − s, and both long diagonals add up to 18 for free at the base's top.
-    The tier is then a magic square, and it agrees with Magic Eighteen.
+    The tier is then a magic square. (This does NOT make it agree with Magic Eighteen in play: §8.1, measured.)
   - Measured tops: 38.8 (x = 18), 35.8 (x = 15), 37.1 (x = 24).
   - Gated at 6: top 38.2, early climb unchanged, `DIFF` 24.8 (the tier needs a plan).
 - **windows(x):** "each 2×2 square that adds up to x scores a point".
@@ -921,9 +921,9 @@ The synergy table pairs, with each of the beginner eight:
 - each family's first base;
 - each interaction at its first param.
 
-**Method.** The beginner eight are stand-ins written in the prototypes file (`BEGINNER`). The session on
-`claude/beginner-rules` implements the real ones, and the measurements should be re-run against them when they land.
-Mirrormancer is the shipped family. `SYN` = 100 × (1 − considerate joint value); the ceiling is in brackets.
+**Method.** The table below is the PROTOTYPES', measured against stand-ins for the beginner eight. The shipped
+families were re-measured against the real eight on 2026-11-13; those numbers, which refute the "agreeing tier" idea,
+are under the table. `SYN` = 100 × (1 − considerate joint value); the ceiling is in brackets.
 
 **What interactions do to synergy:**
 - **Tiers make families somewhat harder to combine.** Mean `SYN` against the eight, base → with a tier:
@@ -943,18 +943,29 @@ Mirrormancer is the shipped family. `SYN` = 100 × (1 − considerate joint valu
 - **Tiers that only add constraints lower the ceiling.**
   - Royal Court + distinct kings × Two Pair: 0.52 → 0.41.
   - Hilltops + paths × Mirrormancer: 0.47 → 0.29.
-- **Tiers that agree with a partner's rule create an opening.**
-  - **Opposite Nines + lines (x = 18) × Crosswise Threes:** `SYN` 43 → 31. Magic Eighteen's ceiling stays at 1.00.
-    At x = 18 the tier *is* a magic square on a half-turn-complement board, which both rules want.
-  - **Hall of Mirrors + "holding two 7s" × Strangers:** `SYN` 11 → 22, the other way. The two 7s ask for equal
-    neighbours, which Strangers forbids.
-- **Design rule:** offer at least one interaction per family that a common partner's base already pays for. The
-  candidates measured here:
-  - "lines add up to 18": agrees with Magic Eighteen;
-  - "windows add up to 18": agrees with Opposite Nines' centre;
-  - a mirror tier on a symmetric base: agrees with Opposite Nines and Crosswise Threes.
-  
-  These are the cooperation openings: a tier point for one player that the other already wants.
+- **No tier agrees with a partner's rule, measured on the shipped families.** The prototypes suggested two openings;
+  neither survived the real beginner eight (`pnpm --filter @workspace/game-utilities tiered --families <id> --pair-limit 8
+  --no-games --no-exact`, 2026-11-13; the tables are in `docs/layered-rules-measurements/`).
+
+| Claim here | Prototype | Measured on the shipped rules |
+|---|---|---|
+| Opposite Nines + lines (x = 18) × Crosswise Threes | `SYN` 43 → 31 | 25 → 39: worse, like every other value of x (36–40) |
+| Opposite Nines + lines (x = 18) × Magic Eighteen, ceiling | stays 1.00 | 1.00 → 0.88; `SYN` 23 → 33, no better than x = 16 or 17 (32) |
+| Hall of Mirrors + "holding two 7s" × Strangers | `SYN` 11 → 22 (worse) | Mirrormancer + holding × Strangers 26 → 38 (worse, as predicted) |
+
+  Every tier of every shipped family raises `SYN` against every one of the beginner eight, and lowers the ceiling from
+  1.00 to 0.80–0.90. Mean `SYN`, base → with a tier: Opposite Nines 28.4 → 37.8–41.5, Mirrormancer 31.1 → 41.5–45.3,
+  Kings and Subjects 45.6 → 58.8–60.0.
+- **Why "agreement" does not show up.** `SYN` is a share of each rule's own top. A tier raises that top by 10 to 16
+  bits, and a considerate pair of one-cell agents reaches almost none of it, so the share falls whatever the tier asks
+  for. The effect swamps any agreement between a tier and a partner's base: the x that is a magic square scores no
+  better against Magic Eighteen than the x that is not.
+- **What this means for the design rule.** "Offer an interaction a common partner already pays for" is not supported.
+  Dropped. What the measurements do support is the weaker rule the tier cap already enforces: keep the added reach
+  small (6 to 20 bits), because the `SYN` rise and the ceiling fall both track it.
+- **What is still untested.** A tier whose units are *the partner's own units* (Opposite Nines' tier being literally
+  Magic Eighteen's rule, rather than a line sum that coincides with it at one x) might agree in a way this measure
+  could see. Measuring that needs a cooperation measure that is not normalised by each rule's own top.
 
 **Same family, different params.** Two players dealt the same interaction with different targets combine *easily*:
 `SYN` 3–37, ceilings 0.85–1.00, conflict ≤ 0.17. The base is shared, so only the tier competes, and it competes
@@ -1281,7 +1292,7 @@ The red team attacked the owner's examples read literally. Each finding below ha
    36 − x. Five tables on the beginner shape. Why this one:
    - the base is the cleanest measured (`DIFF` 0, `K` 1);
    - it has an exact law (8 independent pairs);
-   - the tier is alive at the top and agrees with Magic Eighteen at x = 18;
+   - the tier is alive at the top (it does NOT measurably agree with Magic Eighteen: §8.1);
    - it is a new param on a family the beginner-rules session is landing anyway. That session's variant stays exactly
      as it is, keyed as today.
 6. **Then:**

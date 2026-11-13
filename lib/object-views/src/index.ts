@@ -9,6 +9,7 @@ export * from "./catalog.ts";
 export * from "./settings.ts";
 export * from "./scoring.tsx";
 export * from "./card.tsx";
+export * from "./card-tiers.ts";
 export * from "./pickers.tsx";
 export * from "./explain/index.ts";
 export * from "./glyph.tsx";

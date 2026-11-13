@@ -106,7 +106,8 @@ test("every solved family is either wired to its own solution or listed as unwir
       }
     }
   }
-  for (const f of FAMILIES) if (f.analytic && !Object.values(ANALYTIC_FAMILIES).flat().includes(f.id)) assert.ok(OWN_HOOKS.includes(f.id), `${f.id} has a hook but is neither solved here nor listed in OWN_HOOKS`);
+  // A family with tiers has a hook for its tiered draws only (the hybrid law, src/families/grid/tiers-hybrid.ts).
+  for (const f of FAMILIES) if (f.analytic && !f.tiered && !Object.values(ANALYTIC_FAMILIES).flat().includes(f.id)) assert.ok(OWN_HOOKS.includes(f.id), `${f.id} has a hook but is neither solved here nor listed in OWN_HOOKS`);
 });
 
 test("proven maxima: the search reproduces the constants, and each exemplar scores exactly the proven maximum", async () => {

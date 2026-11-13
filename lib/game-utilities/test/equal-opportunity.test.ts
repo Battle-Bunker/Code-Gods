@@ -16,7 +16,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { shippedInstanceKeys, shippedFile } from "../src/calibration-data.ts";
-import type { CalibrationTable } from "../src/calibration.ts";
+import { instantiateKey, type CalibrationTable } from "../src/calibration.ts";
+import { context, family, paramsKey } from "../src/catalog.ts";
 
 /** The largest allowed ratio between a family's top achievable bits on one shape, and the largest mean-bits gap. */
 const TOP_RATIO = 1.15, MEAN_DELTA = 0.5;
@@ -31,6 +32,26 @@ function stats(t: CalibrationTable): { top: number; mean: number } {
   return { top: b[b.length - 1], mean };
 }
 
+/**
+ * The peers a table is compared with. Base draws of a family are one group, as ever. Tiered draws
+ * (docs/tiered-rules.md) are grouped by their tier signature: the dealt (gated, in-band) values of one interaction are
+ * peers of each other, never of the base, whose top they extend on purpose. Lab draws (other compositions, values
+ * outside the balance band) are deliberately unequal and belong to no group.
+ */
+const dealtMemo = new Map<string, Set<string>>();
+function peerGroup(t: CalibrationTable, instKey: string): string | null {
+  const tiers = (t.canonicalParams as { tiers?: readonly { id: string }[] }).tiers;
+  if (!tiers) return t.family;
+  const memo = `${instKey}|${t.family}`;
+  let dealt = dealtMemo.get(memo);
+  if (!dealt) {
+    const f = family(t.family), ctx = context(instantiateKey(instKey));
+    dealt = new Set([1, 2].flatMap(depth => (f.tiered?.(ctx, depth) ?? []).map(p => paramsKey(f.canonical(p, ctx)))));
+    dealtMemo.set(memo, dealt);
+  }
+  return dealt.has(paramsKey(t.canonicalParams)) ? `${t.family} ★ ${tiers.map(x => x.id).join(" + ")}` : null;
+}
+
 /** Every family whose canonical tables on some shipped shape differ beyond the tolerances, with the worst case. */
 export function opportunityGaps(): Map<string, string> {
   const out = new Map<string, string>();
@@ -38,7 +59,8 @@ export function opportunityGaps(): Map<string, string> {
     const by = new Map<string, CalibrationTable[]>();
     for (const t of shippedFile(key)!.tables) {
       if ((t as { prior?: unknown }).prior) continue;
-      by.set(t.family, [...(by.get(t.family) ?? []), t]);
+      const group = peerGroup(t, key);
+      if (group) by.set(group, [...(by.get(group) ?? []), t]);
     }
     for (const [family, ts] of by) {
       if (ts.length < 2) continue;

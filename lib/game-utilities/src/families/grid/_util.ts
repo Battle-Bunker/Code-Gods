@@ -6,11 +6,13 @@
  * works with (`colourAt`, `symbolAt`) where it needs one.
  */
 import { COLOUR_COMPONENTS, type Constraint, type GridColourSet, type ObjectValue, type Rng } from "@workspace/game-types";
-import type { CardExample, FamilyContext, Ordinal, Params, ScoreShape, UtilityFamily } from "../../types.ts";
+import type { CardExample, FamilyContext, Ordinal, ParamJson, Params, ScoreShape, UtilityFamily } from "../../types.ts";
 import { phrasebook, type Phrasebook } from "../say.ts";
 export { RuleTextError, an as article, count, list, points, type Phrasebook } from "../say.ts";
 import type { AnalyticSurvival } from "../../analytic.ts";
-import { resolveParams, type ParamDecls } from "../../params.ts";
+import { choiceParam, resolveParams, type ParamDecl, type ParamDecls } from "../../params.ts";
+import { baseParams, canonicalTiers, cardTiers, isTiered, tierArity, tieredAbout, tieredCard, tieredSupport, tierValue, tiersOf, type GridTiers } from "./tiers.ts";
+import { hybridAnalytic, hybridBest } from "./tiers-hybrid.ts";
 
 // ------------------------------------------------------------------------------------------------
 // the instantiation, as grid-lab's GridType
@@ -245,9 +247,71 @@ export interface GridFamilyDef<P extends Params> {
   readonly comparative?: (p: P, g: GridSpec) => string;
   /** The analytic survival function (src/analytic.ts), or null for params/shapes it does not cover. */
   readonly analytic?: (p: P, g: GridSpec, ctx: FamilyContext) => AnalyticSurvival | null;
+  /**
+   * Tiers (./tiers.ts): the interactions this base can carry. `summary`, `python` and `typescript` are then called
+   * with the base's params only; the tier text and code are appended here.
+   */
+  readonly tiers?: GridTiers<P>;
 }
 
 export function gridFamily<P extends Params>(d: GridFamilyDef<P>): UtilityFamily<P> {
+  return d.tiers ? tieredGridFamily(plainGridFamily(d), d, d.tiers) : plainGridFamily(d);
+}
+
+/** A family with tiers: the plain family for base draws (untouched), and the tiered draws built on top of it. */
+function tieredGridFamily<P extends Params>(f: UtilityFamily<P>, d: GridFamilyDef<P>, spec: GridTiers<P>): UtilityFamily<P> {
+  const baseShape = (ctx: FamilyContext) => f.shape(ctx);
+  const baseArity = (ctx: FamilyContext) => { const s = baseShape(ctx); return s.kind === "scalar" ? 1 : s.arity; };
+  const blocks = (p: P, ctx: FamilyContext) => cardTiers(spec, p, gridSpec(ctx), baseArity(ctx));
+  const about = (p: P, ctx: FamilyContext) => tieredAbout(d.summary(p, gridSpec(ctx)), blocks(p, ctx));
+  const source = (lang: "typescript" | "python") => (p: P, ctx: FamilyContext): string => {
+    if (!isTiered(p)) return f.card[lang](p, ctx);
+    return tieredCard(lang, d[lang](p, gridSpec(ctx)), spec, p, gridSpec(ctx), about(p, ctx), baseShape(ctx).kind === "scalar");
+  };
+  const every = (ctx: FamilyContext): P[] => {
+    const g = gridSpec(ctx), bases = f.support(ctx).filter(b => spec.base(b, g) !== null);
+    return (["gated", "plain", "unlock", "uncapped"] as const).flatMap(compose => [1, 2].flatMap(depth => tieredSupport(spec, bases, g, depth, compose)));
+  };
+  const tiersDecl = (ctx: FamilyContext): ParamDecl | null => {
+    const g = gridSpec(ctx), options = new Map<string, [ParamJson, string]>();
+    for (const p of every(ctx)) {
+      const t = tiersOf(p), how = t[0].compose ?? (t[0].gate === 0 ? "plain" : "");
+      const label = t.map(x => spec.interactions.find(i => i.id === x.id)!.label(tierValue(x), g)).join(" and ");
+      options.set(JSON.stringify(t), [t as unknown as ParamJson, how ? `${label} (${how})` : label]);
+    }
+    return options.size ? { ...choiceParam("To score even higher", [...options.values()]), optional: true } : null;
+  };
+  return {
+    ...f,
+    // An unlocked tier adds one more component: [min(base[0], gate), tier, ...base].
+    shape: (ctx, p) => (p && isTiered(p) ? tuple(baseArity(ctx) + tierArity(spec, p) + (tiersOf(p)[0].compose === "unlock" ? 1 : 0)) : baseShape(ctx)),
+    tiered: (ctx, depth, compose = "gated") => {
+      const g = gridSpec(ctx);
+      return tieredSupport(spec, f.support(ctx).filter(b => spec.base(b, g) !== null), g, depth, compose);
+    },
+    cardTiers: (p, ctx) => (isTiered(p) ? blocks(p, ctx) : []),
+    canonical: (p, ctx) => (isTiered(p) ? { ...f.canonical(baseParams(p), ctx), tiers: canonicalTiers(spec, p, gridSpec(ctx)) } as unknown as P : f.canonical(p, ctx)),
+    summary: (p, ctx) => (isTiered(p) ? about(p, ctx) : f.summary(p, ctx)),
+    card: { python: source("python"), typescript: source("typescript") },
+    params: ctx => {
+      const decl = tiersDecl(ctx);
+      return decl ? [...f.params(ctx), ...resolveParams({ tiers: decl }, ctx.inst)] : f.params(ctx);
+    },
+    ...(f.needs ? { needs: (p: P, ctx: FamilyContext) => f.needs!(baseParams(p), ctx) } : {}),
+    // A tiered draw's best board is the best the hybrid law found (base at its top, the best tier seen there).
+    exemplar: (p, ctx) => {
+      const best = isTiered(p) ? hybridBest(f.id, spec, p, ctx) : null;
+      if (best) return best;
+      if (!f.exemplar) throw new Error(`${f.id}: no exemplar`);
+      return f.exemplar(baseParams(p), ctx);
+    },
+    ...(f.top ? { top: (p: P, ctx: FamilyContext) => (isTiered(p) ? hostEval(f.id, p, ctx)(hybridBest(f.id, spec, p, ctx) ?? f.exemplar!(baseParams(p), ctx)) : f.top!(p, ctx)) } : {}),
+    ...(f.example ? { example: (p: P, ctx: FamilyContext) => f.example!(baseParams(p), ctx) } : {}),
+    analytic: (p, ctx) => (isTiered(p) ? hybridAnalytic(f.id, spec, p, ctx) : f.analytic ? f.analytic(p, ctx) : null),
+  };
+}
+
+function plainGridFamily<P extends Params>(d: GridFamilyDef<P>): UtilityFamily<P> {
   const shape = d.shape;
   const at = <R>(f: (p: P, g: GridSpec) => R) => (p: P, ctx: FamilyContext): R => f(p, gridSpec(ctx));
   return {
@@ -277,6 +341,7 @@ export function gridFamily<P extends Params>(d: GridFamilyDef<P>): UtilityFamily
 // ------------------------------------------------------------------------------------------------
 
 import { cmp, hostEval as host } from "../define.ts";
+const hostEval = host;
 export interface Cand { readonly sym: Layer; readonly col: Layer }
 
 /** The first candidate with the highest ordinal. */

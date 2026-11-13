@@ -17,6 +17,8 @@ import type { Levels } from "./kit.ts";
 export type { Levels } from "./kit.ts";
 
 export function analyticLevels(familyId: string, params: Params, inst: Instantiation): Levels | null {
+  // A tiered draw (docs/tiered-rules.md) is another rule: the base's solution does not cover it (its law is the hybrid one).
+  if ("tiers" in params) return null;
   if (inst.objectType === "Grid") return gridLevels(familyId, params, inst);
   if (inst.objectType === "Int") return intLevels(familyId, params, inst);
   if (inst.objectType === "string") return stringLevels(familyId, params, inst);
@@ -28,6 +30,7 @@ export const ANALYTIC_FAMILIES: Readonly<Record<string, readonly string[]>> = { 
 
 /** Whether `analyticLevels` returns levels for this draw, without computing them (the table key needs only this). */
 export function hasSolution(familyId: string, params: Params, inst: Instantiation): boolean {
+  if ("tiers" in params) return false;
   if (inst.objectType === "Grid") return gridApplies(familyId, params, inst);
   // Int and string solvers cover every params of their family (none declines a draw), so membership decides.
   return (ANALYTIC_FAMILIES[inst.objectType] ?? []).includes(familyId);

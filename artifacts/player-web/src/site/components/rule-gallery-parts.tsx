@@ -8,7 +8,7 @@ import type { Instantiation } from "@workspace/game-types";
 import { card as cardOf, context, explainer, family, type Params } from "@workspace/game-utilities";
 import type { UtilityCardLike } from "@workspace/object-views";
 import type { RuleScoring } from "@/site/lib/rule-tables";
-import { galleryObjectTypes, paramFields, setupFields, type GallerySetup } from "@/site/lib/rule-gallery";
+import { currentKey, galleryObjectTypes, optionKey, paramFields, setupFields, type GallerySetup, type GalleryValue } from "@/site/lib/rule-gallery";
 
 export type SourceLanguage = "python" | "typescript";
 export const languageOf = (search: string): SourceLanguage => (new URLSearchParams(search).get("lang") === "typescript" ? "typescript" : "python");
@@ -58,7 +58,7 @@ export function SetupForm({ setup, onChange, language, onLanguage }: {
  * swatches, everything else (a symbol, a number, a choice, yes/no) a select of labelled values ("A (10)", "columns").
  */
 export function ParamFields({ familyId, inst, params, onChange, compact = false }: {
-  familyId: string; inst: Instantiation; params: Params; onChange: (key: string, value: string | number | boolean) => void; compact?: boolean;
+  familyId: string; inst: Instantiation; params: Params; onChange: (key: string, value: GalleryValue) => void; compact?: boolean;
 }) {
   const fields = useMemo(() => paramFields(familyId, inst), [familyId, inst]);
   if (!fields.length) return <p className="text-xs text-muted-foreground">No parameters.</p>;
@@ -69,10 +69,10 @@ export function ParamFields({ familyId, inst, params, onChange, compact = false 
           <legend className="text-muted-foreground">{f.label}</legend>
           <div className="flex gap-1" role="radiogroup" aria-label={f.label}>
             {f.options.map(o => {
-              const on = params[f.key] === o.value;
+              const on = currentKey(params, f.key) === optionKey(o.value);
               return (
-                <button key={String(o.value)} type="button" role="radio" aria-checked={on} title={o.label}
-                  data-testid={`colour-${familyId}-${f.key}-${String(o.value)}`}
+                <button key={optionKey(o.value)} type="button" role="radio" aria-checked={on} title={o.label}
+                  data-testid={`colour-${familyId}-${f.key}-${optionKey(o.value)}`}
                   className={`border px-1.5 py-0.5 text-[11px] ${on ? "ring-2 ring-foreground ring-offset-1" : "opacity-70 hover:opacity-100"}`}
                   style={{ background: o.swatch, color: o.ink }}
                   onClick={() => onChange(f.key, o.value)}>
@@ -85,10 +85,10 @@ export function ParamFields({ familyId, inst, params, onChange, compact = false 
       ) : (
         <label key={f.key} className="flex flex-col gap-0.5 text-[11px]">
           <span className="text-muted-foreground">{f.label}</span>
-          <select className={compact ? "border bg-background px-1 py-0.5 text-xs" : fieldClass} value={String(params[f.key])}
+          <select className={compact ? "border bg-background px-1 py-0.5 text-xs" : fieldClass} value={currentKey(params, f.key)}
             data-testid={`select-param-${familyId}-${f.key}`}
-            onChange={e => { const v = f.options.find(o => String(o.value) === e.target.value); if (v !== undefined) onChange(f.key, v.value); }}>
-            {f.options.map(o => <option key={String(o.value)} value={String(o.value)}>{o.label}</option>)}
+            onChange={e => { const v = f.options.find(o => optionKey(o.value) === e.target.value); if (v !== undefined) onChange(f.key, v.value); }}>
+            {f.options.map(o => <option key={optionKey(o.value)} value={optionKey(o.value)}>{o.label}</option>)}
           </select>
         </label>
       ))}
@@ -102,6 +102,7 @@ export function familyCard(familyId: string, params: Params, inst: Instantiation
   return {
     familyId: c.familyId, emoji: c.emoji, name: c.name, theme: c.theme, summary: c.summary, language, source: c.source[language],
     ...(c.example ? { example: { value: String(c.example.value), size: c.example.size, caption: c.example.caption } } : {}),
+    ...(c.tiers ? { tiers: c.tiers } : {}),
   };
 }
 

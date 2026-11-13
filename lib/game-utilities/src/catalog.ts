@@ -56,7 +56,7 @@ export const available = (f: UtilityFamily<any>, inst: Instantiation): Resolutio
 
 /** The dealt params of a typed family as a goal card shows them (name, label, type, value and how it reads). */
 export function cardParams(f: UtilityFamily<any>, params: Params, ctx: FamilyContext): CardParam[] {
-  return f.params(ctx).map(field => ({
+  return f.params(ctx).filter(field => !field.optional || params[field.key] !== undefined).map(field => ({
     key: field.key, label: field.label, kind: field.kind, value: params[field.key] as ParamJson, text: paramLabel(field, params[field.key]),
   }));
 }
@@ -65,6 +65,17 @@ export function cardParams(f: UtilityFamily<any>, params: Params, ctx: FamilyCon
 export function canonicalSupport<P extends Params>(f: UtilityFamily<P>, ctx: FamilyContext): P[] {
   const out = new Map<string, P>();
   for (const p of f.support(ctx)) {
+    const c = f.canonical(p, ctx);
+    out.set(paramsKey(c), c);
+  }
+  return [...out.values()];
+}
+
+export const TIER_COMPOSITIONS = ["gated", "plain", "unlock", "uncapped"] as const;
+/** The distinct canonical tiered draws of a family here, every depth and composition it offers (one table each). */
+export function tieredCanonicalSupport<P extends Params>(f: UtilityFamily<P>, ctx: FamilyContext): P[] {
+  const out = new Map<string, P>();
+  if (f.tiered) for (const depth of [1, 2]) for (const compose of TIER_COMPOSITIONS) for (const p of f.tiered(ctx, depth, compose)) {
     const c = f.canonical(p, ctx);
     out.set(paramsKey(c), c);
   }
@@ -121,10 +132,11 @@ export function card(descriptor: UtilityDescriptor, ctx: FamilyContext): Utility
   const pf = pen ? family(pen.familyId) : null;
   const typed = cardParams(f, p, ctx);
   return {
-    familyId: f.id, emoji: f.emoji, name: f.name, theme: f.theme, summary: f.summary(p, ctx), shape: f.shape(ctx),
+    familyId: f.id, emoji: f.emoji, name: f.name, theme: f.theme, summary: f.summary(p, ctx), shape: f.shape(ctx, p),
     source: { python: f.card.python(p, ctx), typescript: f.card.typescript(p, ctx) },
     ...(f.example ? { example: f.example(p, ctx) } : {}),
     params: typed,
+    ...(f.cardTiers && f.cardTiers(p, ctx).length ? { tiers: f.cardTiers(p, ctx) } : {}),
     ...(pen && pf ? {
       penalty: {
         familyId: pf.id, emoji: pf.emoji, name: pf.name, summary: pf.summary(pen.params, ctx),
@@ -188,7 +200,7 @@ export function evaluator(draw: Draw, inst: Instantiation): (wire: ObjectValue) 
   const prelude = objectType(inst.objectType).prelude(inst);
   const body = `"use strict";\n${prelude.js}\n;\n${cardProgram(f.card.typescript(draw.params, ctx))}\n;\nreturn (wire) => ${entryPoint(f)}(__decode(wire));`;
   const raw = new Function(body)() as (wire: ObjectValue) => unknown;
-  const shape = f.shape(ctx);
+  const shape = f.shape(ctx, draw.params);
   fn = (wire: ObjectValue) => assertOrdinal(shape, raw(wire));
   if (compiled.size >= MAX_COMPILED) compiled.delete(compiled.keys().next().value!);
   compiled.set(key, fn);
