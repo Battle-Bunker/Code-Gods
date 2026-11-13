@@ -25,7 +25,7 @@ import { AgentName, agentLabel } from "./agent-name";
 import { AgentSource } from "./agent-source";
 import { pruneSourceOpen } from "./agent-source-state";
 import {
-  STATE_LEGEND, actualLine, afterShareLine, agentState, energyLine, estimateLine, failureKindsLine, laneKind, num, perSecond, plain, runwayFraction, runwaySeconds, runwayText,
+  STATE_LEGEND, actualLine, afterShareLine, agentState, energyLine, estimateLine, laneKind, num, perSecond, plain, runwayFraction, runwaySeconds, runwayText,
   shareLine, skipLine, spentLine, statusText, summonLine, yourPowerLine, type Seg,
 } from "./agent-labels";
 import { agentDebtLine, destroyDebtLine, fillText, owes, ownEnergyLine, shareCapacityLines, storeFraction, storeState, storedLine } from "./energy-capacity";
@@ -167,7 +167,6 @@ export function AgentsView({ agents, self, powerPerSecond, fullChargeSeconds, ch
           // Against its capacity when the game has one and the agent is not in debt (debt shows as it always did).
           const capped = a.capacity !== undefined && a.energy > 0;
           const debt = agentDebtLine(a.energy, a.capacity);
-          const failed = failureKindsLine(a.outcomes?.failures);
           const destroyDebt = confirm === a.id ? destroyDebtLine({ agentEnergy: a.energy, agentShare: a.powerShare ?? 0, ownEnergy: self?.energy ?? 0, allocated: self?.allocated ?? a.powerShare ?? 0, total, fullChargeSeconds }) : null;
           const statusColour = state === "waiting" ? "text-destructive" : state === "can" ? "text-[hsl(var(--accent))]" : "text-muted-foreground";
           return (
@@ -198,7 +197,6 @@ export function AgentsView({ agents, self, powerPerSecond, fullChargeSeconds, ch
                   {a.diagnosis.hint && <p className="text-muted-foreground">{a.diagnosis.hint}</p>}
                 </div>
               )}
-              {failed && <p data-testid={`text-agent-failures-${a.id}`} className="text-xs text-muted-foreground">{failed}</p>}
               {a.powerShare !== undefined && (allocatePower.ok || !allocatePower.hidden) && (
                 <PowerShareControl key={`${a.id}:${a.powerShare}`} id={a.id} share={a.powerShare} allocated={self?.allocated ?? a.powerShare} total={total}
                   fullChargeSeconds={fullChargeSeconds} agentEnergy={a.energy} ownEnergy={self?.energy ?? 0}

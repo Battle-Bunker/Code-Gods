@@ -228,11 +228,12 @@ export function projectEvent(ev: Ev, godId: string, index: number, live = true) 
   }
   if (ev.t === "destroy") {
     const mine = ev.ownerId === godId;
-    return live && !mine ? null : { type: "agent.destroyed" as const, agentId: ev.agentId, mine, worldSeconds: ev.world };
+    // `owed` (the debt that moved to its god with its power, §7.2) is the owner's own account: theirs alone while live.
+    return live && !mine ? null : { type: "agent.destroyed" as const, agentId: ev.agentId, mine, worldSeconds: ev.world, ...(mine && ev.owed !== undefined ? { owed: ev.owed } : {}) };
   }
   if (ev.t === "power") {
     if (ev.ownerId !== godId) return null;
-    return { type: "agent.power" as const, agentId: ev.agentId, worldSeconds: ev.world, share: ev.share };
+    return { type: "agent.power" as const, agentId: ev.agentId, worldSeconds: ev.world, share: ev.share, ...(ev.owed !== undefined ? { owed: ev.owed } : {}) };
   }
   if (ev.t === "look") {
     // A god's looks are its own while the game is live (what it chose to watch says what it cares about).

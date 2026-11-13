@@ -79,7 +79,8 @@ export function settleDeityEnergy(account: AgentAccount, worldSeconds: number, p
 /**
  * Charge a deity's own account `bits` at `worldSeconds` (a summon price, a paid query): the account is settled to then
  * within its capacity, and the charge deducted. Throws "Insufficient energy", leaving the input untouched, if the
- * settled balance cannot pay: a deity's account is never negative.
+ * settled balance cannot pay: a charge never takes a deity's account below zero (only an agent's debt moving to it
+ * with its power does: movePower).
  */
 export function chargeDeityAccount(account: AgentAccount, bits: number, worldSeconds: number, power: DeityPowerTerms): AgentAccount {
   return spendDeityEnergy(settleDeityEnergy(account, worldSeconds, power), bits);
@@ -98,7 +99,10 @@ export function spendDeityEnergy(account: AgentAccount, cost: number): AgentAcco
 
 /** An energy account on world time: an agent's, or a deity's own. */
 export interface AgentAccount {
-  /** Bits; an agent's is negative after an act that cost more than it had. A deity's is never negative. */
+  /**
+   * Bits; an agent's is negative after an act that cost more than it had, and a deity's own is negative while it owes
+   * what an agent of its owed when its power was taken (docs/energy-model.md §7.2). Either way by at most its capacity.
+   */
   balance: number;
   /** World time (seconds; negative during planning) the account was last accrued to. */
   settledWorldSeconds: number;
@@ -189,7 +193,8 @@ export function affordable(balance: number, cost: number, credit: number): boole
 export function movePower(agent: AgentAccount, deity: AgentAccount, from: number, to: number, unallocated: number): { agent: AgentAccount; deity: AgentAccount } {
   assertShare(from); assertShare(to);
   let moved = 0;   // debt moving from the agent to the deity (negative: from the deity to the agent)
-  if (to < from && agent.balance < 0) moved = -agent.balance * (from > 0 ? (from - to) / from : 1);
+  // (An agent left with no power keeps no debt: `to` 0 moves all of it, even from an agent that already had none.)
+  if (agent.balance < 0 && (to < from || to === 0)) moved = -agent.balance * (to === 0 ? 1 : (from - to) / from);
   else if (to > from && deity.balance < 0) moved = deity.balance * Math.min(1, unallocated > 0 ? (to - from) / unallocated : 1);
   if (moved === 0) return { agent, deity };
   return { agent: { ...agent, balance: agent.balance + moved }, deity: { ...deity, balance: deity.balance - moved } };

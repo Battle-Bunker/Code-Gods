@@ -126,7 +126,7 @@ export const apply = internalMutation({
       const owed = command.type === "destroy" || command.type === "allocatePower" ? (result as { owed?: number }).owed : undefined;
       receipt = { commandId: envelope.commandId, accepted: true,
         message: look ? `Looked at ${look.looked === 1 ? "1 object" : `${look.looked} objects`} for ${look.price.toFixed(2)} energy; ${look.energy.toFixed(2)} left`
-          : owed !== undefined ? (owed > 0 ? `Accepted: ${owed.toFixed(0)} bits the agent owed are now owed by you` : `Accepted: ${(-owed).toFixed(0)} bits you owed are now owed by the agent`)
+          : owed !== undefined && Math.abs(owed) >= 0.05 ? (owed > 0 ? `Accepted: ${owed.toFixed(1)} bits the agent owed are now owed by you` : `Accepted: ${(-owed).toFixed(1)} bits you owed are now owed by the agent`)
           : "Accepted",
         ...(look ? { look } : {}), ...(owed !== undefined ? { owed } : {}),
         ...(command.type === "validate" ? { validation: result as NonNullable<CommandResult["validation"]> } : {}),
@@ -291,7 +291,9 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     const memo = await ctx.db.query("futileActs").withIndex("by_agent", q => q.eq("agentId", agent._id)).unique();
     if (memo) await ctx.db.delete(memo._id);
     const nextBatch = await appendEvents(ctx, game, [{ t: "destroy", agentId: agent._id, ownerId: member.godId, world, ...(moved.owed !== 0 ? { owed: moved.owed } : {}) }], world, world);
-    await writeGame(ctx, game, { agentCount: Math.max(0, game.agentCount - 1), nextBatch });
+    // Bumping the epoch discards a window in flight, as a re-allocation does: an act of this agent simulated in it would
+    // commit its change while the debt it ran up, on an account that no longer exists, was lost (§7.2).
+    await writeGame(ctx, game, { agentCount: Math.max(0, game.agentCount - 1), nextBatch, executionEpoch: game.executionEpoch + 1 });
     return { destroyed: agent._id, ...(moved.owed > 0 ? { owed: moved.owed } : {}) };
   }
   if (command.type === "allocatePower") {
@@ -332,7 +334,7 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     // The shared charge (lib/power.ts chargeGod): settled within the account's capacity, never into debt.
     const left = own.balance < cost ? null : await chargeGod(ctx, game, deity, cost, now);
     if (left === null) {
-      fail("CONFLICT", `Not enough energy to look: ${object ? "a look at one object" : `a look at all ${count} objects`} costs ${cost.toFixed(2)} and you have ${Math.max(0, own.balance).toFixed(2)}`
+      fail("CONFLICT", `Not enough energy to look: ${object ? "a look at one object" : `a look at all ${count} objects`} costs ${cost.toFixed(2)} and you ${own.balance < 0 ? `owe ${(-own.balance).toFixed(2)} (what an agent of yours owed when you took its power; your own income repays it)` : `have ${own.balance.toFixed(2)}`}`
         + (deity.allocated >= 1 - 1e-9 ? ". All your power is with your agents, so your own energy holds nothing: keep some power for yourself to look" : ""));
     }
     const me: ReadonlySet<string> = new Set([member.godId]);

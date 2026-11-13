@@ -540,8 +540,8 @@ function projected(ev: ReplayEvent, seq: number, pov: number, roster: Replay["ga
       expectedActCost: ev.expectedActCost, breakdown: ev.breakdown, randomized: ev.randomized, account: ev.account,
       ...(ev.powerShare !== undefined ? { powerShare: ev.powerShare } : {}),
     };
-    case "agent.power": return mine ? { type: "agent.power" as const, seq, agentId: ev.agentId, worldSeconds: ev.worldSeconds, share: ev.share } : null;
-    case "agent.destroyed": return { type: "agent.destroyed" as const, seq, agentId: ev.agentId, mine, worldSeconds: ev.worldSeconds };
+    case "agent.power": return mine ? { type: "agent.power" as const, seq, agentId: ev.agentId, worldSeconds: ev.worldSeconds, share: ev.share, ...(ev.owed !== undefined ? { owed: ev.owed } : {}) } : null;
+    case "agent.destroyed": return { type: "agent.destroyed" as const, seq, agentId: ev.agentId, mine, worldSeconds: ev.worldSeconds, ...(mine && ev.owed !== undefined ? { owed: ev.owed } : {}) };
     case "god.looked": return { type: "god.looked" as const, seq, mine, worldSeconds: ev.worldSeconds, price: ev.price, count: ev.count, ...(ev.objectId ? { objectId: ev.objectId } : {}) };
   }
 }

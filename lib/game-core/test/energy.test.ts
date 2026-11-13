@@ -289,6 +289,8 @@ test("debt moves with power: taken from an agent that owes, its debt goes to the
   // A deity that owes nothing: giving power moves nothing.
   assert.deepEqual(movePower(at(0), at(200), 0, 0.5, 0.5), { agent: at(0), deity: at(200) });
   assert.deepEqual(movePower(at(-10), at(-5), 0.3, 0.3, 0.2), { agent: at(-10), deity: at(-5) }, "no change of share, no move");
+  // An agent that already has no power and still owes (stored before this rule): destroying it moves all of it.
+  assert.deepEqual(movePower(at(-70), at(100), 0, 0, 0.4), { agent: at(0), deity: at(30) });
 });
 
 test("no re-allocation or destroy makes a debt disappear: the total owed is unchanged, and it is always on an account with power", () => {
@@ -311,6 +313,11 @@ test("no re-allocation or destroy makes a debt disappear: the total owed is unch
       accounts.forEach((a, k) => assert.ok(shares[k] > 0 || a.balance >= -1e-9, `an agent with no power owes nothing (${a.balance})`));
       const left = 1 - shares.reduce((x, y) => x + y, 0);
       assert.ok(left > 1e-9 || deity.balance >= -1e-9, `a deity with no power of its own owes nothing (${deity.balance})`);
+      // And nobody owes more than its power can repay in T seconds (its capacity): debt arrives only with the power
+      // that was repaying it. Starts within it: the agents owe 380 and 60 of capacities 768 and 384 (P = 64, T = 30).
+      const capacityOf = (share: number) => share * 64 * 30;
+      accounts.forEach((a, k) => assert.ok(a.balance >= -capacityOf(shares[k]) - 1e-6, `agent ${k} owes ${-a.balance} with a capacity of ${capacityOf(shares[k])}`));
+      assert.ok(deity.balance >= -capacityOf(Math.max(0, left)) - 1e-6, `the deity owes ${-deity.balance} with a capacity of ${capacityOf(left)}`);
     }
   }
 });
