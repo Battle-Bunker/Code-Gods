@@ -5,6 +5,7 @@
  * names, a read-only credential writing, an incomplete or unplayable setup stored, or a new room not running First steps.
  */
 import test, { after, before } from "node:test";
+import { disclosureChecker } from "./disclosure.ts";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { BEGINNER_POOL, SEED_SETUPS, SETUP_NAME_MAX, seedSetupSettings } from "@workspace/game-core";
@@ -288,6 +289,43 @@ test("a new room runs the system's Annotated basics; owner.settings applies anyo
   assert.deepEqual([room.settings, room.setup], [adas.settings, { id: adas.id, name: "TypeScript Master", deleted: true }]);
 });
 
+/** JSON with sorted keys, so a value is found whatever order its keys are written in. */
+const sorted = (x: unknown): string => (Array.isArray(x) ? `[${x.map(sorted).join(",")}]`
+  : x && typeof x === "object" ? `{${Object.keys(x).sort().map(k => `${JSON.stringify(k)}:${sorted((x as Record<string, unknown>)[k])}`).join(",")}}` : JSON.stringify(x));
+
+/**
+ * A tier's parameters and its ★ text are part of a god's secret goal: what a player is sent in a live tiered game holds
+ * their own tier and nobody else's (the shared disclosure checker, plus the tier entry in any key order and the card's
+ * tier sentences).
+ */
+async function tiersStayPrivate(gameId: string, roomId: string, viewer: God, deities: { godId: string; utility: { params: { tiers?: unknown[] } }; card: { tiers?: { text: string }[] } }[]) {
+  const results: Record<string, unknown> = {
+    observation: await viewer.c.query(api.player.observation, { roomId }),
+    events: await viewer.c.query(api.player.events, { roomId, after: -1, limit: 50 }),
+    myUtility: await viewer.c.query(api.player.myUtility, { roomId }),
+    room: await viewer.c.query(api.rooms.get, { room: roomId }),
+    dockState: await viewer.c.query(api.dock.state, { roomId }),
+    dockAgents: await viewer.c.query(api.dock.agents, { roomId }),
+    objects: await viewer.c.query(api.player.objectsPage, { roomId, sort: "payoff", limit: 50 }),
+    roomHistory: await viewer.c.query(api.rooms.history, { room: roomId }),
+  };
+  const check = disclosureChecker(gameId, viewer.subject, [], { live: true });
+  const own = deities.find(d => d.godId === viewer.subject)!;
+  const ownTier = sorted(own.utility.params.tiers![0]), ownText = own.card.tiers![0].text;
+  assert.ok(sorted(results.myUtility).includes(ownTier), "the viewer is sent their own tier");
+  assert.ok(JSON.stringify(results.dockState).includes(ownText), "and their own card's ★ block");
+  for (const [label, result] of Object.entries(results)) {
+    await check(`tiered ${label}`, result);
+    const json = JSON.stringify(result), canon = sorted(result);
+    for (const d of deities) {
+      if (d.godId === viewer.subject) continue;
+      const tier = sorted(d.utility.params.tiers![0]), text = d.card.tiers![0].text;
+      if (tier !== ownTier) assert.ok(!canon.includes(tier), `tiered ${label}: ${d.godId}'s tier parameters`);
+      if (text !== ownText) assert.ok(!json.includes(text), `tiered ${label}: ${d.godId}'s ★ text`);
+    }
+  }
+}
+
 test("a game from the Tiered rules setup deals every god a tiered rule; an ordinary game deals none", { timeout: 300_000 }, async () => {
   await admin.mutation(internal.setups.ensureSeeded, {});
   const [host, ada, bob] = await gods("Tier Host", "Tier Ada", "Tier Bob");
@@ -302,6 +340,7 @@ test("a game from the Tiered rules setup deals every god a tiered rule; an ordin
     // Tables the deal lacks are prepared on demand; the game then begins by itself (startGame waits for it).
     const game = await startGame(host, roomId, { requestId: randomUUID(), holdSettled: false }, 240_000);
     const g = await admin.query(internal.testing.rawGame, { gameId: game.gameId as never });
+    if (seedId === "grid-tiered") await tiersStayPrivate(game.gameId, roomId, ada, g.deities);
     await host.c.mutation(api.rooms.endActiveGame, { roomId });
     return { utilities: g.deities.map((d: { utility: { familyId: string; params: { tiers?: unknown } } }) => d.utility), settings: g.game.settings, catalog };
   };
