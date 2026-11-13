@@ -8,8 +8,9 @@
  *        Never negative: a summon it cannot afford is refused. World time stops in planning and pauses.
  * Capacity (docs/energy-model.md §6.1): an account holds at most its power × settings.fullChargeSeconds (an agent's
  *        s·P·T, the deity's own (1 − Σ s)·P·T). Income above it is not stored, and an account whose power falls loses
- *        what it holds above its new capacity. A game stored without the setting has no capacity.
- * Agent: starts at 0, accrues s·P bits per WORLD second up to its capacity. Each mutation
+ *        what it holds above its new capacity to the account that gains the power (movePower): a re-allocation loses nothing.
+ *        A game stored without the setting has no capacity.
+ * Agent: starts with what its deity held above its lowered capacity (usually nothing), accrues s·P bits per WORLD second up to its capacity. Each mutation
  *        opportunity goes to an agent with probability proportional to its positive energy (pickByEnergy): one draw
  *        over all agents, with no limit per agent, so a deity's offers follow the energy its agents hold together,
  *        however many they are (§7). The agent pays what the
@@ -116,8 +117,9 @@ export function newAgentAccount(worldSeconds: number): AgentAccount {
 
 /**
  * Credit income from the last settlement to `worldSeconds`, up to `capacity` (energyCapacity; Infinity: no capacity).
- * Income above the capacity is not stored, and a balance already above it (the account's power was lowered) falls to
- * it, at any clock: the capacity is part of the formula, so it needs no write of its own. Debt is repaid first.
+ * Income above the capacity is not stored. A balance already above it falls to it, at any clock (the capacity is part
+ * of the formula): a re-allocation leaves none (movePower moves the excess with the power), so this only clamps
+ * `startingEnergy` above the deity's capacity, and rounding. Debt is repaid first.
  */
 export function settleAgentEnergy(account: AgentAccount, worldSeconds: number, perSecond: number, capacity = Infinity): AgentAccount {
   assertClock(worldSeconds, "world clock");
@@ -180,24 +182,35 @@ export function affordable(balance: number, cost: number, credit: number): boole
 }
 
 /**
- * Debt moves with power (docs/energy-model.md §7.2): what an account owes is repaid by the power it holds, so when a
- * deity changes an agent's share from `from` to `to` (0: the agent is destroyed) the debt goes where the power goes.
- * Both accounts are settled to the same world time first.
- *  - Power taken from an agent that owes: the same fraction of its debt moves onto the deity's own account, which may
- *    then be negative (the deity cannot pay for anything until its own income has repaid it).
- *  - Power given to an agent by a deity that owes: the agent takes the same fraction of the deity's debt as it takes
- *    of the deity's unallocated power (`unallocated`, before the change).
- * Energy never moves (what an account holds above its new capacity is lost when it is next settled); debt is never
- * lost. The sum of the two balances is unchanged whenever debt moves.
+ * What an account holds or owes beyond what its power supports goes where the power goes (docs/energy-model.md §6.1,
+ * §7.2). A deity changes an agent's share from `from` to `to` (0: the agent is destroyed; from 0: it is summoned). Both
+ * accounts are settled to the same world time first, at the old shares. `whole` is what all of the deity's power can
+ * hold (power × fullChargeSeconds; Infinity: a game with no capacity, where no energy moves).
+ *  - The account that loses power gives. If it owes, the same fraction of its debt moves as of its power (all of it
+ *    from an agent left with none). If it holds more than its new capacity, the excess moves.
+ *  - The account that gains power receives. Its capacity rises by exactly what the giver's falls, so what arrives
+ *    always fits, and an account never owes more than its capacity because of a move.
+ * Nothing is lost and nothing is made: the sum of the two balances is unchanged. Energy that lands on an account that
+ * owes repays it; debt that lands on an account that holds energy is paid from it.
+ * `owed`: the debt that moved onto the deity (negative: onto the agent). `held`: the energy that moved onto the deity
+ * (negative: onto the agent). At most one of them is not zero.
  */
-export function movePower(agent: AgentAccount, deity: AgentAccount, from: number, to: number, unallocated: number): { agent: AgentAccount; deity: AgentAccount } {
+export function movePower(agent: AgentAccount, deity: AgentAccount, from: number, to: number, unallocated: number, whole = Infinity): { agent: AgentAccount; deity: AgentAccount; owed: number; held: number } {
   assertShare(from); assertShare(to);
-  let moved = 0;   // debt moving from the agent to the deity (negative: from the deity to the agent)
-  // (An agent left with no power keeps no debt: `to` 0 moves all of it, even from an agent that already had none.)
-  if (agent.balance < 0 && (to < from || to === 0)) moved = -agent.balance * (to === 0 ? 1 : (from - to) / from);
-  else if (to > from && deity.balance < 0) moved = deity.balance * Math.min(1, unallocated > 0 ? (to - from) / unallocated : 1);
-  if (moved === 0) return { agent, deity };
-  return { agent: { ...agent, balance: agent.balance + moved }, deity: { ...deity, balance: deity.balance - moved } };
+  if (typeof whole !== "number" || Number.isNaN(whole) || whole < 0) throw new Error("Invalid energy capacity");
+  const capped = Number.isFinite(whole);
+  let owed = 0, held = 0;
+  if (to < from || to === 0) {
+    // (An agent left with no power keeps no debt: `to` 0 moves all of it, even from an agent that already had none.)
+    if (agent.balance < 0) owed = -agent.balance * (to === 0 ? 1 : (from - to) / from);
+    else if (capped) held = Math.max(0, agent.balance - to * whole);
+  } else if (to > from) {
+    if (deity.balance < 0) owed = deity.balance * Math.min(1, unallocated > 0 ? (to - from) / unallocated : 1);
+    else if (capped) held = -Math.max(0, deity.balance - Math.max(0, unallocated - (to - from)) * whole);
+  }
+  if (owed === 0 && held === 0) return { agent, deity, owed: 0, held: 0 };
+  const onto = held - owed;   // the change of the deity's balance
+  return { agent: { ...agent, balance: agent.balance - onto }, deity: { ...deity, balance: deity.balance + onto }, owed, held };
 }
 
 /** Deduct one act's actual cost. The balance may go negative: by at most the account's capacity when the act changed the object (§7.2). */

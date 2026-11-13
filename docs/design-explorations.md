@@ -53,6 +53,15 @@ seeded setups whose names start with "Lab:"):
 | Replay | My agents in a replay shows spending and energy as in a live game (#271). A game started before #282 replays with no capacity. A replay of a game from before #285 still reports the old limit per agent. | None. | Display only. | Dev: open a finished game's replay. | Not stated. |
 | Clean-up from the readiness push | #242 to #266: clearer errors, truer rule text (ten goal cards), accessibility fixes, join by code. Released to production in #268. | None. | No design choice to make. One visible change: the brand red is slightly darker (#257). | Dev or production. | See the "Unverified" items in the backlog. |
 
+## Energy above a lowered capacity (13 Nov 2026)
+
+- **On `develop` (favoured):** energy moves with power, as debt does. What an account holds above a lowered capacity
+  goes to the account that gained the power; a re-allocation, a summon or a destroy loses nothing
+  (`docs/energy-model.md` §6.1).
+- **Variant, "drop the excess":** what an account holds above a lowered capacity is lost at once. This is `develop` at
+  commit `916c715a` (the merge of #318), the last commit before the change; there is no setting for it. To try it, put
+  that commit on a preview deployment (`docs/preview-deployments.md`).
+
 ## Stale or unfinished
 
 - #281 (`claude/first-five-minutes`): open draft, 13 commits ahead, now conflicts with `develop`. Offline tests failed

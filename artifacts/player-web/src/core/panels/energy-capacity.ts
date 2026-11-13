@@ -1,7 +1,7 @@
 /**
  * The words for energy capacity (docs/energy-model.md §6.1), kept pure so they can be tested: every energy store holds
- * at most its power × the game's `fullChargeSeconds`, income past a full store is wasted, and a store whose power falls
- * loses what it holds above its new limit. The panel only calls these when the observation carries a capacity (a game
+ * at most its power × the game's `fullChargeSeconds`, income past a full store is wasted, and what a store holds above
+ * a lowered limit moves with the power to the store that gained it (nothing is lost by a re-allocation). The panel only calls these when the observation carries a capacity (a game
  * started before the rule has none, and looks as it did).
  *
  * Debt (§7.2): an account below zero is overdrawn. The words are always "overdrawn", never "owes" (a first-time player
@@ -122,12 +122,12 @@ export function destroyDebtLine({ agentEnergy, agentShare, ownEnergy, allocated,
 export const LEAVES_NOTHING = "This leaves you nothing for summoning.";
 /** "at most 240 ⚡ (now 480)" or "nothing (now at most 480 ⚡)". */
 const holds = (next: number, now: number): string => (next > 0 ? `at most ${bits(next)} (now ${num(now)})` : `nothing (now at most ${bits(now)})`);
-/** What a store holding `energy` loses when its limit becomes `capacity`: 0 unless it shows as a number. */
+/** What leaves a store holding `energy` when its limit becomes `capacity` (it moves with the power: game-core movePower): 0 unless it shows as a number. */
 const lost = (energy: number, capacity: number): number => (num(energy - capacity) === "0" ? 0 : Math.max(0, energy - capacity));
 
 /**
  * Under the power-share control, before the player presses Set: what the new share does to this agent's limit and to
- * the player's own (one sentence each; a loss is named only when there is one), then, when debt moves with the power,
+ * the player's own (one sentence each; what moves with the power is named only when something does), then, when debt moves with the power,
  * how much of it and what that does (lowering the share of an overdrawn agent; raising one while the player is overdrawn).
  * Empty for a game without the rule.
  */
@@ -139,10 +139,10 @@ export function shareCapacityLines({ newShare, agentShare, allocated, total, ful
   const agentNow = cap(agentShare), agentNext = cap(newShare);
   const ownNow = cap(1 - allocated), ownNext = cap(roundShare(1 - (allocated - agentShare + newShare)));   // rounded as the engine does: a full allocation is exactly 0
   const agentLoss = lost(agentEnergy, agentNext), ownLoss = lost(ownEnergy, ownNext);
-  const agent = `This agent will hold ${holds(agentNext, agentNow)}${agentLoss > 0 ? `: ${bits(agentLoss)} it holds above that will be lost` : ""}.`;
+  const agent = `This agent will hold ${holds(agentNext, agentNow)}${agentLoss > 0 ? `: the ${bits(agentLoss)} it holds above that move to your own energy` : ""}.`;
   const own = ownNext > 0
-    ? `Your own energy will hold ${holds(ownNext, ownNow)}${ownLoss > 0 ? `: ${bits(ownLoss)} above that will be lost` : ""}.`
-    : `${LEAVES_NOTHING} Your own energy will hold ${holds(ownNext, ownNow)}: ${ownLoss > 0 ? `the ${bits(ownLoss)} you hold will be lost, and ` : ""}you cannot summon until you take power back.`;
+    ? `Your own energy will hold ${holds(ownNext, ownNow)}${ownLoss > 0 ? `: the ${bits(ownLoss)} you hold above that move to this agent` : ""}.`
+    : `${LEAVES_NOTHING} Your own energy will hold ${holds(ownNext, ownNow)}: ${ownLoss > 0 ? `the ${bits(ownLoss)} you hold move to this agent, and ` : ""}you cannot summon until you take power back.`;
   // A share that leaves the player nothing says so first.
   const lines = ownNext > 0 ? [agent, own] : [own, agent];
   const agentDebt = owes(agentEnergy), ownDebt = owes(ownEnergy);

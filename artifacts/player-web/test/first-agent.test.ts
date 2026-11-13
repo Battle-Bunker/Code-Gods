@@ -275,10 +275,10 @@ test("a replace says what the moment with two versions cost the player's own sto
   assert.equal(replaceLoss({ energy: 300, cost: 174, allocated: 0.5, share: 0.25, powerPerSecond: 64, fullChargeSeconds: 30 }), 0, "what is left fits the smaller store");
   assert.equal(replaceLoss({ energy: 737, cost: 174, allocated: 0.5, share: 0.5, powerPerSecond: 64, fullChargeSeconds: 30 }), 563, "everything given away for a moment: the store holds nothing");
   assert.equal(replaceLoss({ energy: 737, cost: 174, allocated: 0.5, share: 0.25, powerPerSecond: 64, fullChargeSeconds: undefined }), 0, "a game without capacity loses nothing");
-  // The price and the spill are said together, and the spill is plainly not a charge: it refills, in so many seconds.
+  // The price and what moved are said together, and the move is plainly not a charge: nothing is lost, and the store refills in so many seconds.
   assert.equal(replacedText("Keeper", { share: 0.5, oldShare: 0.5, cost: 178.4, lost: 782, refill: 24.4 }),
-    "Replaced: Keeper now runs your new version for 178 ⚡. While the two versions overlapped, your own store was smaller and 782 ⚡ of stored energy spilled; it refills in about 24 s.");
-  assert.equal(replacedText("Keeper", { share: 0.5, oldShare: 0.5, lost: 83 }), "Replaced: Keeper now runs your new version. While the two versions overlapped, your own store was smaller and 83 ⚡ of stored energy spilled; it refills.");
+    "Replaced: Keeper now runs your new version for 178 ⚡. While the two versions overlapped, your own store was smaller, so 782 ⚡ of your stored energy went to the new version: it is not lost, and your own store refills in about 24 s.");
+  assert.equal(replacedText("Keeper", { share: 0.5, oldShare: 0.5, lost: 83 }), "Replaced: Keeper now runs your new version. While the two versions overlapped, your own store was smaller, so 83 ⚡ of your stored energy went to the new version: it is not lost.");
   assert.equal(replacedText("Keeper", { share: 0.5, oldShare: 0.5, cost: 178.4, lost: 0.4, refill: 1 }), "Replaced: Keeper now runs your new version for 178 ⚡.", "under 1 ⚡: not said");
   assert.equal(replacedText("Keeper", { share: 0.5, oldShare: 0.5, lost: 0.2 }), "Replaced: Keeper now runs your new version.");
 });
@@ -316,7 +316,7 @@ test("putting the previous version back is a paid summon and says so, before and
   assert.equal(putBackLabel(169.2), "Put the previous version back · costs 169.2 ⚡");
   assert.equal(putBackLabel(undefined), "Put the previous version back · costs its summon price again");
   assert.equal(putBackText("Keeper", {}), "Put back: Keeper runs the previous version again.");
-  assert.equal(putBackText("Keeper", { cost: 169.2, lost: 83, refill: 5.2 }), "Put back: Keeper runs the previous version again for 169 ⚡. While the two versions overlapped, your own store was smaller and 83 ⚡ of stored energy spilled; it refills in about 5 s.");
+  assert.equal(putBackText("Keeper", { cost: 169.2, lost: 83, refill: 5.2 }), "Put back: Keeper runs the previous version again for 169 ⚡. While the two versions overlapped, your own store was smaller, so 83 ⚡ of your stored energy went to the new version: it is not lost, and your own store refills in about 5 s.");
   assert.equal(BUSY_NOTHING_CHANGED, "The game is busy; nothing changed. Try again.");
 });
 
