@@ -52,14 +52,15 @@ export type LookOffer = { total: number; label: string; ok: boolean; reason: str
 /**
  * One look (no `count`) or a look at all `count` objects: the price (economy.lookPrice each), the button's label with
  * the price on it, and whether the god's own energy pays for it; if not, the reason, with the price and the balance as
- * the engine's refusal states them (game/commands.ts "look").
+ * the engine's refusal states them (game/commands.ts "look"). `noPower`: all the god's power is with its agents, so its
+ * own energy holds nothing; the reason then says what to do about it, as the engine's does.
  */
-export function lookOffer({ price, energy, count }: { price: number; energy: number; count?: number }): LookOffer {
+export function lookOffer({ price, energy, count, noPower }: { price: number; energy: number; count?: number; noPower?: boolean }): LookOffer {
   const all = count !== undefined;
   const total = Math.round(price * (count ?? 1) * 100) / 100;
   const label = all ? `Look at all ${count} · ${total.toFixed(2)} energy` : `Look · ${total.toFixed(2)} energy`;
   if (all && count <= 0) return { total, label, ok: false, reason: "There are no objects to look at yet" };
   // The engine compares the exact price (game/commands.ts), so the cents shown are not what decides.
   if (energy >= price * (count ?? 1)) return { total, label, ok: true, reason: null };
-  return { total, label, ok: false, reason: `${all ? `A look at all ${count} objects` : "A look"} costs ${total.toFixed(2)} energy; you have ${exact(energy)}` };
+  return { total, label, ok: false, reason: `${all ? `A look at all ${count} objects` : "A look"} costs ${total.toFixed(2)} energy; you have ${exact(energy)}${noPower ? ". All your power is with your agents: keep some power for yourself to look" : ""}` };
 }
