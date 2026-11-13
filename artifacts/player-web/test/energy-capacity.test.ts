@@ -184,11 +184,12 @@ test("a full store with one agent says what can be done with the power, not to s
   assert.equal(fullStoreOneAgent("Mirror maker"), "Your energy is full. Give Mirror maker more power so it acts more often, or add another ready-made agent.");
 });
 
-test("the destroy confirmation says the energy the agent holds comes back to the player", () => {
-  assert.equal(destroyReturnsLine(312.4), "The 312 ⚡ it holds come back to you.");
-  assert.equal(destroyReturnsLine(1), "The 1 ⚡ it holds comes back to you.");
-  assert.equal(destroyReturnsLine(0.2), null, "nothing worth saying");
-  assert.equal(destroyReturnsLine(-40), null, "overdrawn: the debt sentence speaks instead");
+test("the destroy confirmation says the energy the agent holds comes back to the player, in a game with capacity", () => {
+  assert.equal(destroyReturnsLine(312.4, 30), "The 312 ⚡ it holds come back to you.");
+  assert.equal(destroyReturnsLine(1, 30), "The 1 ⚡ it holds comes back to you.");
+  assert.equal(destroyReturnsLine(0.2, 30), null, "nothing worth saying");
+  assert.equal(destroyReturnsLine(-40, 30), null, "overdrawn: the debt sentence speaks instead");
+  assert.equal(destroyReturnsLine(312.4, undefined), null, "a game without capacity returns nothing (the engine's held: 0)");
 });
 
 test("the full-store advice with 'Give NAME more power' is only for a player who can change that share", () => {

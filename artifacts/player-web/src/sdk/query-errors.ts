@@ -25,16 +25,22 @@ export function releaseError(state: QueryErrors, key: string): QueryErrors {
 }
 
 /**
- * Whether a failure will not go away by waiting: the viewer lost access (FORBIDDEN, NOT_FOUND) or is signed out
- * (UNAUTHENTICATED). For those the line never says "it comes back by itself".
+ * Whether a failure will not go away by trying again, and why. The viewer is signed out (UNAUTHENTICATED), lost
+ * access (FORBIDDEN, NOT_FOUND), or one of two ordinary states the engine reports as an error (player.ts seatedGame):
+ * the room has no game yet (the live subscription fills in when one starts), or the viewer is not seated in the game
+ * (they watch; the data is for its players). Each gets its own true sentence; none says "it comes back by itself"
+ * except the one where that is so.
  */
-export function lasting(message: string): "access" | "signedOut" | null {
+export type Lasting = "signedOut" | "access" | "notSeated" | "noGame";
+export function lasting(message: string): Lasting | null {
   if (/UNAUTHENTICATED|not signed in/i.test(message)) return "signedOut";
+  if (/no game in this room yet/i.test(message)) return "noGame";
+  if (/not seated in/i.test(message)) return "notSeated";
   if (/FORBIDDEN|NOT_FOUND/i.test(message)) return "access";
   return null;
 }
-const worst = (messages: readonly string[]): "access" | "signedOut" | null =>
-  messages.some(m => lasting(m) === "signedOut") ? "signedOut" : messages.some(m => lasting(m) === "access") ? "access" : null;
+const ORDER: readonly Lasting[] = ["signedOut", "access", "notSeated", "noGame"];
+const worst = (messages: readonly string[]): Lasting | null => { const kinds = new Set(messages.map(lasting)); return ORDER.find(k => kinds.has(k)) ?? null; };
 
 /** The one line the dock shows while something outside the panes has failed; null when nothing has. `dock.state` gets its own words: the layout and the phase come from it. */
 export function errorsLine(state: QueryErrors): string | null {
@@ -42,6 +48,8 @@ export function errorsLine(state: QueryErrors): string | null {
   const kind = worst([...state.failed.values()].map(f => f.message));
   if (kind === "signedOut") return "You are signed out. Sign in again to see this game.";
   if (kind === "access") return "You no longer have access to this game.";
+  if (kind === "notSeated") return "You are watching, not playing: some of this is for the game's players.";
+  if (kind === "noGame") return "There is no game in this room yet. This fills in by itself when a game starts.";
   return [...state.failed.keys()].some(key => key.startsWith("dock.state"))
     ? "The game's state could not load, so this shows the default layout for now. It comes back by itself when the game sends new data."
     : "Some live data could not load. It comes back by itself when the game sends new data.";
@@ -52,6 +60,8 @@ export function paneErrorLine(messages: readonly string[]): string | null {
   const kind = worst(messages);
   if (kind === "signedOut") return "This pane could not load: you are signed out. Sign in again to see it.";
   if (kind === "access") return "This pane could not load: you no longer have access to this game.";
+  if (kind === "notSeated") return "You are watching, not playing: this pane is for the game's players.";
+  if (kind === "noGame") return "There is no game in this room yet. This pane fills in by itself when a game starts.";
   return "This pane could not load. It comes back by itself when the game sends new data.";
 }
 

@@ -170,10 +170,10 @@ export const fullStoreOneAgent = (name: string): string => `Your energy is full.
  */
 export const fullStoreAdvice = (s: { ended: boolean; agents: number; energy: number; capacity: number; canAllocate: boolean; hasShare: boolean; seenAs: boolean }): boolean =>
   !s.ended && !s.seenAs && s.canAllocate && s.hasShare && s.agents === 1 && ownStoreFull(s.energy, s.capacity);
-/** In the Destroy confirmation: the energy the agent holds goes back to the player with its power. Null when it holds none (or is overdrawn: destroyDebtLine). */
-export function destroyReturnsLine(agentEnergy: number): string | null {
+/** In the Destroy confirmation: the energy the agent holds goes back to the player with its power. Null when it holds none (or is overdrawn: destroyDebtLine), and in a game without capacity, where the engine returns nothing. */
+export function destroyReturnsLine(agentEnergy: number, fullChargeSeconds: number | undefined): string | null {
   const held = Math.round(agentEnergy);
-  return held >= 1 ? `The ${bits(held)} it holds ${held === 1 ? "comes" : "come"} back to you.` : null;
+  return fullChargeSeconds !== undefined && held >= 1 ? `The ${bits(held)} it holds ${held === 1 ? "comes" : "come"} back to you.` : null;
 }
 /** The tooltip on the player's own full store: the precise rule, never an instruction in the main line. */
 export const OWN_FULL_DETAIL = "A full store keeps no more: the income that would refill it is not saved up. That costs you nothing unless you want to summon a dearer agent later; to use that power instead, give an agent a larger share.";

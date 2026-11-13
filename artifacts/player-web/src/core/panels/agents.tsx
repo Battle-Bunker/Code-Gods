@@ -275,7 +275,7 @@ export function AgentsView({ agents, self, powerPerSecond, fullChargeSeconds, ch
                   </>) : (
                     <TextButton testId={`button-destroy-agent-${a.id}`} disabled={!destroy.ok} onClick={() => setConfirm(a.id)} title={destroy.ok ? "Free. It can't be undone." : destroy.reason}>Destroy</TextButton>
                   ))}
-                  {confirm === a.id && !destroyDebt && destroyReturnsLine(a.energy) && <p data-testid={`text-destroy-returns-${a.id}`} className="basis-full text-xs text-muted-foreground">{destroyReturnsLine(a.energy)}</p>}
+                  {confirm === a.id && !destroyDebt && destroyReturnsLine(a.energy, fullChargeSeconds) && <p data-testid={`text-destroy-returns-${a.id}`} className="basis-full text-xs text-muted-foreground">{destroyReturnsLine(a.energy, fullChargeSeconds)}</p>}
                   {destroyDebt && <p data-testid={`text-destroy-debt-${a.id}`} role="alert" className="basis-full text-xs font-semibold text-destructive">{destroyDebt}</p>}
                 </div>
               )}
