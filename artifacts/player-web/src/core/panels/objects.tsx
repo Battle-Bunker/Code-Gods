@@ -29,7 +29,7 @@ import { ObjectGrid, ObjectView, formatBits, useMyCard, useObjectContext, useDoc
 import { useGameId, useMyObject, useMyTotals, useStaleCount, useObjectRank, useObjectSkeleton, useObjectsPage, type MyObject, type MyTotals } from "@/sdk/hooks";
 import { VirtualRows } from "@/components/virtual-rows";
 import { useDockActions } from "@/dock/actions";
-import { useGameCommands } from "@/core/game/runner";
+import { useGameCommands, useRunner } from "@/core/game/runner";
 import { useAffordances } from "@/core/use-affordances";
 import type { Affordance } from "@/core/affordances";
 import { useReplaySource } from "@/sdk/replay-source";
@@ -375,6 +375,9 @@ export default function Objects({ paneId, params, phase }: PanelProps<"objects">
   // The open "why?": the object and, when the list is by points, the rank its row showed.
   const [open, setOpen] = useState<{ id: string; rank?: number } | null>(null);
   const toggle = useCallback((id: string, rank?: number) => setOpen(o => (o?.id === id ? null : { id, rank })), []);
+  // An act line elsewhere was pressed ("show this grid"): that object's detail opens here.
+  const shown = useRunner().revealObject;
+  useEffect(() => { if (shown && Date.now() - shown.at < 5000) setOpen({ id: shown.objectId }); }, [shown?.at]);   // a fresh press only: never an old one on a remount // eslint-disable-line react-hooks/exhaustive-deps
   const comparative = card?.penalty?.comparative;
   const byPayoff = params.sortBy === "payoff" && params.filter === "all";
   const scales = scalesOf(totals);

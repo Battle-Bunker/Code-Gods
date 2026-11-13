@@ -1,0 +1,37 @@
+/**
+ * One colour (and dash) per player, wherever players are drawn as lines or swatches: the Leaderboard race, the replay's
+ * "Scores over time" and its event marks. Keyed by the game's roster order, so a player keeps their colour from pane
+ * to pane; the viewer's own line is always the accent colour (the first of the series). Pure.
+ */
+/** Categorical colours: theme tokens first, then a colour-blind-safe fallback (Okabe–Ito). */
+export const SERIES = ["hsl(var(--primary))", "#0072B2", "#E69F00", "#009E73", "#CC79A7", "#56B4E9", "#D55E00", "#F0E442"];
+/** Distinct dash patterns that go with SERIES, so series stay apart without colour. */
+export const DASHES = ["", "4 2", "1 2", "6 2 1 2", "8 3", "2 4", "3 1", "10 2 2 2"];
+
+/**
+ * The slot of a player in SERIES / DASHES: 0 for the viewer; the others take 1, 2, … in roster order (the viewer's
+ * place is skipped, so the same player has the same slot whoever comes before them). With no viewer among the players
+ * (a spectator: -1 or undefined), plain roster order.
+ */
+export function playerSlot(rosterIndex: number, viewerIndex: number | undefined | null): number {
+  const i = Math.max(0, Math.floor(rosterIndex));
+  if (viewerIndex === undefined || viewerIndex === null || viewerIndex < 0) return i % SERIES.length;
+  if (i === viewerIndex) return 0;
+  const others = i < viewerIndex ? i : i - 1;
+  return 1 + (others % (SERIES.length - 1));
+}
+export const playerColour = (rosterIndex: number, viewerIndex: number | undefined | null): string => SERIES[playerSlot(rosterIndex, viewerIndex)];
+export const playerDash = (rosterIndex: number, viewerIndex: number | undefined | null): string => DASHES[playerSlot(rosterIndex, viewerIndex)];
+
+/**
+ * Round axis ticks covering [lo, hi]: steps of 1, 2 or 5 times a power of ten, about `count` of them, always
+ * including 0 when the range spans it. For an axis that reads "0, 1,000, 2,000" instead of the data's own maximum.
+ */
+export function niceTicks(lo: number, hi: number, count = 3): number[] {
+  if (!Number.isFinite(lo) || !Number.isFinite(hi) || hi <= lo) return [Number.isFinite(lo) ? lo : 0];
+  const raw = (hi - lo) / Math.max(1, count), pow = 10 ** Math.floor(Math.log10(raw));
+  const step = [1, 2, 5, 10].map(m => m * pow).find(s => s >= raw)!;
+  const out: number[] = [];
+  for (let v = Math.ceil(lo / step) * step; v <= hi + step * 1e-9; v += step) out.push(Math.round(v / step) * step + 0);   // + 0: never a "-0" tick
+  return out;
+}

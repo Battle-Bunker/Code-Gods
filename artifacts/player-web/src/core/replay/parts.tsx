@@ -5,13 +5,14 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { TransformationView, type ObjectContext } from "@workspace/object-views";
 import { cursorAtWorld, godEnergyAt, stateAt, type ReplayAgent, type ReplayEvent } from "@workspace/player-client/replay";
-import { SERIES } from "@/sdk/charts";
+import { niceTicks, playerColour } from "@/sdk/player-colour";
 import { SPEEDS, describeEvent, replayKeyIgnored, shortId, worldAtFraction } from "./model";
 import { useReplay, useReplayCoarse, type Changed, type ReplayController } from "./controller";
 
 export const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 const num = (n: number) => (Math.abs(n) >= 100 ? n.toFixed(0) : n.toFixed(1));
-export const godColour = (god: number) => SERIES[god % SERIES.length];
+/** A player's colour by roster index: the same in every pane (sdk/player-colour.ts); `viewer`: your own roster index (the accent colour). */
+export const godColour = (god: number, viewer?: number) => playerColour(god, viewer);
 
 /** The replay in force (the dock's replay mode), or null in live play. */
 export const ReplayControllerContext = createContext<ReplayController | null>(null);
@@ -87,8 +88,8 @@ export function ReplayBar({ controller: c, exitHref }: { controller: ReplayContr
   );
 }
 
-const momentColour = (m: ReplayController["moments"][number]) =>
-  m.kind === "swing" ? "hsl(var(--chart-4))" : m.kind === "lead" ? "hsl(var(--foreground))" : m.kind === "summon" ? godColour(m.god ?? 0) : "hsl(var(--muted-foreground))";
+const momentColour = (m: ReplayController["moments"][number], viewer: number) =>
+  m.kind === "swing" ? "hsl(var(--chart-4))" : m.kind === "lead" ? "hsl(var(--foreground))" : m.kind === "summon" ? godColour(m.god ?? 0, viewer) : "hsl(var(--muted-foreground))";
 
 /**
  * The scrub track, laid out in world time like a video's: drag (mouse, pen or touch) or click to move the playhead
@@ -154,7 +155,7 @@ function ScrubTrack({ controller: c, world, cursor }: { controller: ReplayContro
         </div>
         {c.moments.map((m, i) => (
           <span key={i} aria-hidden className="pointer-events-none absolute top-0 h-1.5 w-1 -translate-x-1/2"
-            style={{ left: pct(m.world), background: momentColour(m) }} data-testid="replay-marker" />
+            style={{ left: pct(m.world), background: momentColour(m, c.replay.viewer.index) }} data-testid="replay-marker" />
         ))}
         <span aria-hidden className="pointer-events-none absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-card bg-[hsl(var(--primary))] shadow group-active:h-5 group-active:w-5"
           style={{ left: pct(world) }} data-testid="replay-playhead" />
@@ -177,35 +178,52 @@ function ScrubTrack({ controller: c, world, cursor }: { controller: ReplayContro
 export function ScoreChart({ controller: c, swings }: { controller: ReplayController; swings: number }) {
   const v = useReplay(c);
   const { replay, series } = c;
-  const W = 420, H = 170, m = { l: 36, r: 6, t: 6, b: 18 };
+  // Drawn at the pane's own width and a fixed modest height (not a 420px drawing blown up to it): lines and text keep
+  // their sizes, the chart fills the pane, and it is never taller than the pane that holds it.
+  const box = useRef<HTMLDivElement | null>(null);
+  const [W, setW] = useState(420);
+  useEffect(() => {
+    const el = box.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(([entry]) => setW(Math.max(280, Math.round(entry.contentRect.width))));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  const H = 150, m = { l: 40, r: 44, t: 8, b: 18 };
   const all = series.totals.flat();
   const lo = Math.min(0, ...all), hi = Math.max(0, ...all), span = hi - lo || 1;
   const maxWorld = Math.max(replay.endWorld, 1e-9);
   const X = (w: number) => m.l + (w / maxWorld) * (W - m.l - m.r), Y = (val: number) => m.t + (1 - (val - lo) / span) * (H - m.t - m.b);
   // The curves depend on the game only: built once, not on every frame of playback.
   const paths = useMemo(() => replay.game.roster.map((_, god) => series.world.map((w, i) => `${i ? "L" : "M"}${X(w).toFixed(1)},${Y(series.totals[god][i]).toFixed(1)}`).join("")),
-    [replay, series]); // eslint-disable-line react-hooks/exhaustive-deps
+    [replay, series, W]); // eslint-disable-line react-hooks/exhaustive-deps
   const svg = useRef<SVGSVGElement | null>(null);
   const marked = [...c.moments.filter(k => k.kind === "swing")].sort((a, b) => Math.abs(b.delta!) - Math.abs(a.delta!)).slice(0, swings);
   const ranked = replay.game.roster.map((g, i) => ({ g, i, total: v.state.totals[i] })).sort((a, b) => b.total - a.total);
   return (
-    <div className="space-y-2" data-testid="replay-scores">
+    <div ref={box} className="space-y-2" data-testid="replay-scores">
       {/* Each player's line, named (the standings below repeat it with the figures). */}
       <p className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs" data-testid="replay-score-legend">
-        {replay.game.roster.map((g, i) => <span key={g.id} className={i === v.pov ? "font-semibold" : ""}><span className="mr-1 inline-block h-0.5 w-4 align-middle" style={{ background: godColour(i) }} />{g.name}{i === replay.viewer.index ? " (you)" : ""}</span>)}
+        {replay.game.roster.map((g, i) => <span key={g.id} className={i === v.pov ? "font-semibold" : ""}><span className="mr-1 inline-block h-0.5 w-4 align-middle" style={{ background: godColour(i, replay.viewer.index) }} />{g.name}{i === replay.viewer.index ? " (you)" : ""}</span>)}
       </p>
       {/* Never blown up to the pane's width: lines keep their widths (non-scaling strokes) and the chart a readable size. */}
-      <svg ref={svg} width="100%" viewBox={`0 0 ${W} ${H}`} style={{ maxWidth: 760 }} className="cursor-crosshair" role="img" aria-label="Every player's score over world time"
+      <svg ref={svg} width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="block cursor-crosshair" role="img" aria-label="Every player's score over world time"
         onClick={e => {
           const box = svg.current!.getBoundingClientRect();
           c.seekWorld(((e.clientX - box.left) / box.width * W - m.l) / (W - m.l - m.r) * maxWorld);
         }}>
         <line x1={m.l} x2={W - m.r} y1={Y(0)} y2={Y(0)} stroke="hsl(var(--border))" />
-        <text x={m.l - 4} y={Y(hi) + 4} fontSize="9" textAnchor="end" fill="hsl(var(--muted-foreground))">{num(hi)}</text>
-        <text x={m.l - 4} y={Y(lo)} fontSize="9" textAnchor="end" fill="hsl(var(--muted-foreground))">{num(lo)}</text>
+        {/* Round ticks (never the data's own maximum, which read as somebody's score), and the final value on the line of the player the panes are seen as. */}
+        {niceTicks(lo, hi, 3).map(t => (
+          <g key={t}>
+            <line x1={m.l} x2={W - m.r} y1={Y(t)} y2={Y(t)} stroke="hsl(var(--border))" strokeOpacity={t === 0 ? 1 : 0.5} />
+            <text x={m.l - 4} y={Y(t) + 3} fontSize="9" textAnchor="end" fill="hsl(var(--muted-foreground))">{t.toLocaleString("en-US")}</text>
+          </g>
+        ))}
+        {series.totals[v.pov]?.length ? <text x={W - m.r + 3} y={Y(series.totals[v.pov][series.totals[v.pov].length - 1]) + 3} fontSize="9" fontWeight="600" fill={godColour(v.pov, replay.viewer.index)} data-testid="replay-score-final">{Math.round(series.totals[v.pov][series.totals[v.pov].length - 1]).toLocaleString("en-US")}</text> : null}
         {c.moments.filter(k => k.kind === "lead").map((k, i) => <line key={`l${i}`} x1={X(k.world)} x2={X(k.world)} y1={m.t} y2={H - m.b} stroke="hsl(var(--foreground))" strokeDasharray="2 3" opacity="0.3" />)}
         {c.moments.filter(k => k.kind === "phase" && (k.phase === "paused" || k.phase === "recovery")).map((k, i) => <line key={`p${i}`} x1={X(k.world)} x2={X(k.world)} y1={m.t} y2={H - m.b} stroke="hsl(var(--foreground))" strokeWidth="3" opacity="0.15" />)}
-        {replay.game.roster.map((_, god) => <path key={god} d={paths[god]} fill="none" stroke={godColour(god)} strokeWidth={god === v.pov ? 2.2 : 1.2} vectorEffect="non-scaling-stroke" opacity={god === v.pov ? 1 : 0.75} />)}
+        {replay.game.roster.map((_, god) => <path key={god} d={paths[god]} fill="none" stroke={godColour(god, replay.viewer.index)} strokeWidth={god === v.pov ? 2.2 : 1.2} vectorEffect="non-scaling-stroke" opacity={god === v.pov ? 1 : 0.75} />)}
         {marked.map((k, i) => <path key={`s${i}`} d={`M${X(k.world)},${Y(series.totals[k.god!][Math.min(series.world.length - 1, Math.max(0, series.cursor.findIndex(x => x >= k.cursor)))]) - 6}l3,-5h-6z`} fill="hsl(var(--chart-4))" />)}
         <line x1={X(v.world)} x2={X(v.world)} y1={0} y2={H - m.b} stroke="hsl(var(--primary))" strokeWidth="1.5" />
         <text x={W - m.r} y={H - 4} fontSize="9" textAnchor="end" fill="hsl(var(--muted-foreground))">world {clock(maxWorld)} · click to go there</text>
@@ -215,7 +233,7 @@ export function ScoreChart({ controller: c, swings }: { controller: ReplayContro
           {ranked.map(({ g, i, total }, rank) => (
             <tr key={g.id} className={i === v.pov ? "font-semibold" : ""} data-testid={`replay-standing-${g.id}`}>
               <td className="w-5 tabular-nums">{rank + 1}</td>
-              <td><span className="mr-1 inline-block h-2 w-2" style={{ background: godColour(i) }} />{g.name}{i === replay.viewer.index ? " (you)" : ""}{g.kind === "ai" ? " · AI" : ""}</td>
+              <td><span className="mr-1 inline-block h-2 w-2" style={{ background: godColour(i, replay.viewer.index) }} />{g.name}{i === replay.viewer.index ? " (you)" : ""}{g.kind === "ai" ? " · AI" : ""}</td>
               <td className="text-right font-mono tabular-nums" title="God energy at this moment">{num(godEnergyAt(replay, v.state, i))} energy</td>
               <td className="text-right font-mono tabular-nums">{num(total)}</td>
             </tr>
@@ -248,7 +266,7 @@ export function EventList({ controller: c, ctx }: { controller: ReplayController
         return (
           <li key={i} ref={current ? here : undefined} data-testid={`replay-event-${i}`}
             className={`cursor-pointer border-l-2 px-2 py-1 ${current ? "bg-[hsl(var(--primary)/0.1)]" : ""} ${applied ? "" : "opacity-40"}`}
-            style={{ borderColor: owner !== undefined ? godColour(owner) : "transparent" }} onClick={() => c.seek(i + 1)}>
+            style={{ borderColor: owner !== undefined ? godColour(owner, replay.viewer.index) : "transparent" }} onClick={() => c.seek(i + 1)}>
             <span className="mr-2 font-mono text-muted-foreground tabular-nums">{clock(entry.world)}</span>
             <EventLine ev={ev} names={names} ctx={ctx} onAgent={openCode} />
           </li>

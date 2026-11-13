@@ -7,7 +7,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  FIRST_AGENT_HINT, STARTER_AGENT_HINT, armedStep, armedText, energyHint, firstAgentFill, firstAgentHint, untouchedExample, lacksEnergy, readyText, summonReady, summonedText, COPY_HINT, REPLACE_WHY, COMPARISON_CAVEAT, previousTarget, putBackLabel, putBackText, BUSY_NOTHING_CHANGED, afterCheck, checkedLine, replaceLoss, versionComparison, PENDING_REPLACE_MS, pendingReplaceOnReceipt, pendingReplaceOnSend, replaceBlocked, sameVersionNote, bothText, draftOrigin, replaceLabel, replaceOffer, replaceShare, replaceStep, replacedText, FIRST_SUMMON_MAX_AGE_MS, FIRST_SUMMON_WARMING_MS, firstSummonLabel, isCopy, replaceNeedsConfirm, firstSummonStep, nextFreeName, proposedName, secondAgentHint, storeAfterSummonText, type ArmedSummon, type Examples, type FirstAgentState,
+  FIRST_AGENT_HINT, STARTER_AGENT_HINT, armedStep, armedText, energyHint, firstAgentFill, firstAgentHint, untouchedExample, lacksEnergy, readyText, summonReady, summonedText, COPY_HINT, REPLACE_WHY, DIFFERENT_IDEAS, PRICE_AFTER_CHECK, replaceQuestion, shelfOpen, starterShelf, COMPARISON_CAVEAT, previousTarget, putBackLabel, putBackText, BUSY_NOTHING_CHANGED, afterCheck, checkedLine, replaceLoss, versionComparison, PENDING_REPLACE_MS, pendingReplaceOnReceipt, pendingReplaceOnSend, replaceBlocked, sameVersionNote, bothText, draftOrigin, replaceLabel, replaceOffer, replaceShare, replaceStep, replacedText, FIRST_SUMMON_MAX_AGE_MS, FIRST_SUMMON_WARMING_MS, firstSummonLabel, isCopy, replaceNeedsConfirm, firstSummonStep, nextFreeName, proposedName, secondAgentHint, storeAfterSummonText, type ArmedSummon, type Examples, type FirstAgentState,
 } from "../src/core/panels/first-agent.ts";
 
 const py = { name: "Mirror maker", source: "# My goal: mirrors\ndef agent(grid):\n    return []\n", specific: true };
@@ -318,4 +318,33 @@ test("putting the previous version back is a paid summon and says so, before and
   assert.equal(putBackText("Keeper", {}), "Put back: Keeper runs the previous version again.");
   assert.equal(putBackText("Keeper", { cost: 169.2, lost: 83, refill: 5.2 }), "Put back: Keeper runs the previous version again for 169 ⚡. While the two versions overlapped, your own store was smaller and 83 ⚡ of stored energy spilled; it refills in about 5 s.");
   assert.equal(BUSY_NOTHING_CHANGED, "The game is busy; nothing changed. Try again.");
+});
+
+test("the starter shelf: ready-made agents to pick without typing, each marked by where it already is", () => {
+  const starters = [
+    { id: "tiny", title: "Simple", blurb: "A short agent that costs little to summon and does the simple part of my goal.", name: "Simple spread keeper", source: "S", specific: true },
+    { id: "thorough", title: "Thorough", blurb: "A longer agent that chases every part of my goal. It costs more to summon.", name: "Spread keeper", source: "T", specific: true },
+    { id: "bold", title: "Bold", blurb: "Bigger changes each turn.", name: "Bold spread keeper", source: "B", specific: true },
+  ];
+  const rows = starterShelf(starters, { source: "S", agents: [{ source: "S", name: "Simple spread keeper" }, { source: "B", name: "Bold spread keeper" }] });
+  assert.deepEqual(rows.map(r => [r.id, r.state]), [["tiny", "editor"], ["thorough", "available"], ["bold", "running"]]);
+  // The blurbs are the player's own goal, said to the player.
+  assert.equal(rows[0].blurb, "A short agent that costs little to summon and does the simple part of your goal.");
+  assert.equal(rows[1].note, PRICE_AFTER_CHECK);
+  assert.equal(rows[0].note, "In the editor now.");
+  assert.equal(rows[2].note, "You are running this one (Bold spread keeper).");
+  assert.equal(PRICE_AFTER_CHECK, "Its price is shown after Check.");
+  // A starter that does not chase the goal is not offered as a choice beside real ones; alone, it stays.
+  const fallback = { id: "careful", title: "Careful", blurb: "A starter that does not chase my goal yet.", name: "First agent", source: "F", specific: false };
+  assert.deepEqual(starterShelf([fallback], { source: "", agents: [] }).map(r => r.id), ["careful"]);
+  assert.equal(replaceQuestion("Thorough"), "Replace the code in the editor with the Thorough agent? Your summoned agents are not affected.");
+  assert.equal(DIFFERENT_IDEAS, "Two agents with different ideas can undo each other's work; watch your points.");
+});
+
+test("the shelf opens by itself once the player has an agent and the energy for another like it", () => {
+  assert.equal(shelfOpen({ agents: [], energy: 960 }), false, "before the first agent: closed");
+  assert.equal(shelfOpen({ agents: [{ summonCost: 170 }], energy: 480 }), true);
+  assert.equal(shelfOpen({ agents: [{ summonCost: 170 }], energy: 120 }), false, "not enough to spare");
+  assert.equal(shelfOpen({ agents: [{ summonCost: undefined }], energy: 120 }), true, "no price known: about 100 is enough");
+  assert.equal(shelfOpen({ agents: [{ summonCost: 170 }], energy: 480, ended: true }), false);
 });

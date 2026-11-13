@@ -213,9 +213,11 @@ function RoomBody({ room, games }: { room: RoomState; games?: GameRecord[] }) {
           { label: "Owner", value: <>{room.ownerName}{isOwner ? " (you)" : ""}</>, testId: "text-room-owner" },
           { label: "Created", value: <time dateTime={isoWhen(room.createdAt)}>{fmtWhen(room.createdAt)}</time>, testId: "text-room-created" },
         ]} />
+        {/* One link to the running game: the active-game panel below has it ("Open game XXXX"), so the next-step bar
+            keeps its sentence and its other actions, and never a second link to the same game. */}
         <NextStepBar status={step.status}
-          primary={step.primary && <StepAction id={step.primary} primary roomCode={room.shortCode} gameCode={room.activeGame?.shortCode} />}
-          secondary={step.secondary.map(id => <StepAction key={id} id={id} roomCode={room.shortCode} gameCode={room.activeGame?.shortCode} />)} />
+          primary={step.primary && !(room.activeGame && step.primary === "ui.nav.game") && <StepAction id={step.primary} primary roomCode={room.shortCode} gameCode={room.activeGame?.shortCode} />}
+          secondary={step.secondary.filter(id => !(room.activeGame && id === "ui.nav.game")).map(id => <StepAction key={id} id={id} roomCode={room.shortCode} gameCode={room.activeGame?.shortCode} />)} />
       </header>
       {/* A start in its bid phase (docs/bid-phase.md): the bidding screen, until the rules are dealt. */}
       {!room.activeGame && !room.preparing && (bidding ? <Bidding room={room} bidding={bidding} isOwner={isOwner} meId={user?.id} />

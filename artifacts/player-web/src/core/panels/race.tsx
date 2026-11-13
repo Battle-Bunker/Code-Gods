@@ -13,6 +13,7 @@ import { useMyTotals, useMyUtility, useStandings } from "@/sdk/hooks";
 import { useReplaySource } from "@/sdk/replay-source";
 import { fresherPoints } from "./score-line";
 import { ownNow, publishedLine } from "./race-text";
+import { playerColour, playerDash } from "@/sdk/player-colour";
 
 export default function Race({ params }: PanelProps<"race">) {
   const board = useLeaderboard({ hz: 1 });
@@ -49,6 +50,8 @@ export default function Race({ params }: PanelProps<"race">) {
   const history = samples.filter(s => s.x >= world - params.window);
   const series = ordered.map(r => ({
     label: `${r.godId === me ? "You" : r.label}${r.isAI ? " (AI)" : ""}`,
+    // One colour per player everywhere, by the game's roster order (sdk/player-colour.ts): the same as the replay's.
+    ...(roster && roster.indexOf(r.godId) >= 0 ? { colour: playerColour(roster.indexOf(r.godId), me ? roster.indexOf(me) : -1), dash: playerDash(roster.indexOf(r.godId), me ? roster.indexOf(me) : -1) } : {}),
     points: history.map(s => ({ x: s.x, y: params.metric === "gap" ? (s.totals[r.godId] ?? 0) - Math.max(...Object.values(s.totals)) : s.totals[r.godId] ?? 0 })),
   }));
   const mine = board.find(r => r.godId === me);

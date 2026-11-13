@@ -36,7 +36,7 @@ export default function MyCard({ params }: PanelProps<"my-card">) {
       )}
       <div className="space-y-1 border-b border-[hsl(var(--card-border))] pb-3" data-testid="score-now">
         <PointsNow />
-        <LatestActLine line={acts.latest} />
+        <LatestActLine line={acts.latest} objectId={acts.latestObject} />
       </div>
       {/* Without the board's type (not yet observed, or unknown to this client) the card shows without its example object. */}
       {inst ? <GoalCard key={inst.key} card={card} goal={goal} inst={inst} sourceOpen={params.showSource} /> : <UtilityCardView card={card} goal={goal} sourceOpen={params.showSource} />}
