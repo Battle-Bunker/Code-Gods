@@ -70,6 +70,8 @@ export function gameRecord(game: ClockedGame, objects: readonly Obj[]) {
     winners: board.filter(row => row.rank === 1).map(({ deityId, name, kind }) => ({ deityId, name, kind })),
     worldSeconds: game.worldSeconds, objectCount: objects.length,
     scoring: SCORING, seasonCommitment: game.seasonCommitment,
+    // The rotation it belongs to (lib/dealRotation.ts): the results add up the round's games so far.
+    rotation: game.rotation ?? null,
   };
 }
 export type GameRecord = ReturnType<typeof gameRecord>;

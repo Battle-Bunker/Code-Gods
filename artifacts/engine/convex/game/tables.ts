@@ -189,6 +189,8 @@ export const gameTables = {
       /** `bid`: the god's outcome of the bid phase (bidding.ts BidOutcome), only when somebody won a bid. */
       /** `rotation`: a passed-on deal's card line (lib/dealRotation.ts), only when the room plays again with the same players. */
       deals: v.array(v.object({ godId: v.string(), utility: v.any(), bid: v.optional(v.any()), rotation: v.optional(v.object({ round: v.number(), of: v.number(), from: v.string() })) })),
+      /** The game's rotation (games.rotation), carried to the start's second half. */
+      rotation: v.optional(v.object({ round: v.number(), of: v.number(), order: v.array(v.string()), gameIds: v.array(v.id("games")) })),
       dealer: v.object({ selectorId: v.string(), dealtAs: v.string(), note: v.optional(v.string()) }),
       /** PRIVATE: the whole auction of a deal made with bids (bidding.ts AuctionRecord), for the game's replay. */
       auction: v.optional(v.any()),
@@ -301,6 +303,12 @@ export const gameTables = {
     endedAt: v.optional(v.number()), endReason: v.optional(v.union(v.literal("lifetime"), v.literal("owner"))),
     /** Public result, written in the commit that ends the game. */
     summary: v.optional(v.any()),
+    /**
+     * The rotation this game belongs to (lib/dealRotation.ts): its place `round` of `of` games, the round's first seat
+     * order (the rules pass along it) and the round's earlier games, oldest first. Absent: dealt with bids, or a game
+     * from before rotations (both read as "no rotation"; nothing to backfill).
+     */
+    rotation: v.optional(v.object({ round: v.number(), of: v.number(), order: v.array(v.string()), gameIds: v.array(v.id("games")) })),
     /**
      * The ended game's whole replay log in file storage (convex/replays.ts), written once after the end; the replay
      * page fetches it in one read. Optional: a game ended before it existed gets one from migrations:backfillReplays,

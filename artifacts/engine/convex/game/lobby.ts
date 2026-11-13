@@ -26,6 +26,8 @@ import { dealKeyOf } from "../lib/dealRotation";
 import { clockDoc } from "./state";
 /** A passed-on deal's card line (owner.ts Rotation). */
 const rotationV = v.object({ round: v.number(), of: v.number(), from: v.string() });
+/** A game's rotation (games.rotation). */
+export const gameRotationV = v.object({ round: v.number(), of: v.number(), order: v.array(v.string()), gameIds: v.array(v.id("games")) });
 
 /** The second half's watchdog period while tables compute (owner.ts completeStart; finished() normally launches at once). */
 export const PREPARING_WATCHDOG_MS = 60_000;
@@ -61,14 +63,14 @@ export const pastDeals = internalQuery({
   args: { roomId: v.id("rooms") },
   handler: async (ctx, { roomId }) => {
     const games = await ctx.db.query("games").withIndex("by_room", q => q.eq("roomId", roomId)).order("desc").take(8);
-    const out: { godIds: string[]; names: string[]; utilities: unknown[]; dealKey: string; bid: boolean }[] = [];
+    const out: { id: string; godIds: string[]; names: string[]; utilities: unknown[]; dealKey: string; bid: boolean }[] = [];
     for (const game of games) {
       // A game ended before its world ran (ended in planning) was never played: it neither counts nor breaks a round.
       if (game.phase === "ended" && ((await clockDoc(ctx, game._id))?.worldSeconds ?? 0) <= 0) continue;
       const deities = (await ctx.db.query("deities").withIndex("by_game", q => q.eq("gameId", game._id)).take(16)).sort((a, b) => a.index - b.index);
       // Dealt with a winning bid: it keeps its auction (bidding.ts); a bid phase nobody won leaves an ordinary deal.
       const bid = !!game.handicaps?.length || !!await ctx.db.query("gameAuctions").withIndex("by_game", q => q.eq("gameId", game._id)).first();
-      out.push({ godIds: deities.map(d => d.godId), names: deities.map(d => game.roster.find(r => r.id === d.godId)?.name ?? d.godId), utilities: deities.map(d => d.utility),
+      out.push({ id: game._id, godIds: deities.map(d => d.godId), names: deities.map(d => game.roster.find(r => r.id === d.godId)?.name ?? d.godId), utilities: deities.map(d => d.utility),
         dealKey: dealKeyOf(game.settings as Record<string, unknown>), bid });
     }
     return out;
@@ -142,6 +144,7 @@ export const beginPreparing = internalMutation({
      * then ends. Returns null otherwise. `auction`: the whole auction, kept for the game's replay.
      */
     bidding: v.optional(v.string()), auction: v.optional(v.any()),
+    rotation: v.optional(gameRotationV),
   },
   handler: async (ctx, args) => {
     const room = await requireRoom(ctx, args.roomId);
@@ -178,6 +181,7 @@ export const beginPreparing = internalMutation({
       requestId: args.requestId, ownerId, startedAt: Date.now(), revision: args.revision, memberIds: args.memberIds,
       instance: args.instance, total: args.total, pending, estimateSeconds: args.estimateSeconds, deals: args.deals, dealer: args.dealer,
       ...(args.auction !== undefined ? { auction: args.auction } : {}),
+      ...(args.rotation ? { rotation: args.rotation } : {}),
       ...(pieces.total > pending.length ? { pieces } : {}),
       ...(failure ? { error: failure } : {}),
     };
@@ -222,6 +226,7 @@ export const commitStart = internalMutation({
     tablesStorageId: v.optional(v.id("_storage")),
     /** A deal made with winning bids (docs/bid-phase.md): each deity's handicap in percent, in `deities` order, and the auction for the replay. */
     handicaps: v.optional(v.array(v.number())), auction: v.optional(v.any()),
+    rotation: v.optional(gameRotationV),
   },
   handler: async (ctx, args) => {
     const room = await requireRoom(ctx, args.roomId);
@@ -267,6 +272,7 @@ export const commitStart = internalMutation({
       endAtWorld: args.endAtWorld, noiseKey: args.noiseKey, executionEpoch: 0,
       ...(args.tablesStorageId ? { tablesStorageId: args.tablesStorageId } : {}),
       ...(handicaps ? { handicaps } : {}),
+      ...(args.rotation && !handicaps ? { rotation: args.rotation } : {}),
       // Hold rarity (docs/energy-model.md §8): more than one player needs its corrections, computed during planning.
       ...(args.deities.length > 1 ? { holdState: "computing" as const, holdPending: [] } : {}),
     });

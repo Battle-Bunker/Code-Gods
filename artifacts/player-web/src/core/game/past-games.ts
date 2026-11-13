@@ -6,6 +6,8 @@ import { useRoom } from "@/sdk";
 export type PastGame = {
   id: string; shortCode: string; endedAt: number | null; endReason: string | null; worldSeconds: number;
   leaderboard: { deityId: string; name: string; kind: string; totalPayoff: number; rank: number }[];
+  /** The rotation it belongs to (engine lib/dealRotation.ts), null without one. */
+  rotation?: { round: number; of: number; order: string[]; gameIds: string[] } | null;
 };
 
 export function usePastGames(): PastGame[] | undefined {
