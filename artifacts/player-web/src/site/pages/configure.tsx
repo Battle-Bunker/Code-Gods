@@ -61,7 +61,8 @@ export default function Configure() {
   const q = useLive(api.rooms.get, isAuthenticated && id ? { room: id } : "skip");
   const room = q.data;
   const setupId = requested ?? room?.setup?.id ?? null;
-  const sq = useLive(api.setups.get, isAuthenticated && setupId ? { setupId } : "skip");
+  // The room's own setup is read as the room's (a player may read the setup of the room they are in, a Lab one included).
+  const sq = useLive(api.setups.get, isAuthenticated && setupId ? { setupId, ...(!requested && room ? { room: room.id } : {}) } : "skip");
   const code = room?.shortCode ?? id.toUpperCase();
   useEffect(() => { document.title = `${sq.data ? `${sq.data.name} · ` : ""}Configure ${code} · Code Gods`; }, [code, sq.data?.name]); // eslint-disable-line react-hooks/exhaustive-deps
   return (

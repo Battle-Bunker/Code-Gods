@@ -153,7 +153,27 @@ export interface GameSettings {
    * One of PEER_NOISE_OPTIONS. An ended game is exact.
    */
   peerNoiseBits: number;
+  /**
+   * What a seated god sees of the world while the game is live (docs/energy-model.md §11). "free": every object, live
+   * (the game until 2026-11-11). "paid": seeing an object's state costs its full read at the read price; a god's view of
+   * an object is the last state they were told (at its birth, by their agents' changes and complete reads, or by a look
+   * they paid for from their own energy), with the world time they learned it. "boards": as paid, but every board and
+   * the god's own bits on it are shown live; only the others' interest (and the payoff built on it) and the history are
+   * as last told. "agents": as paid, but a god cannot pay to look: its agents are its only eyes. One of
+   * OBSERVATION_MODES. Stored settings without it are "free" (upgradeStoredSettings), and an ended game is always open.
+   */
+  observation: ObservationMode;
 }
+export type ObservationMode = "free" | "boards" | "paid" | "agents";
+/** The pre-authored choices of observation, from the most open to the most austere. */
+export const OBSERVATION_MODES: readonly ObservationMode[] = Object.freeze(["free", "boards", "paid", "agents"]);
+/** Whether this game's gods see objects as last told, not as they are (stored settings from before the setting are free). */
+export const paidObservation = (settings: { observation?: unknown } | null | undefined): boolean =>
+  settings?.observation === "paid" || settings?.observation === "boards" || settings?.observation === "agents";
+/** "boards": every board and the god's own bits are live; the others' interest and the history are as last told. */
+export const boardsFree = (settings: { observation?: unknown } | null | undefined): boolean => settings?.observation === "boards";
+/** Whether a god may pay its own energy for a look ("agents": no, its agents are its only eyes). */
+export const godLooks = (settings: { observation?: unknown } | null | undefined): boolean => settings?.observation === "paid" || settings?.observation === "boards";
 
 export type DurationMode = "fixed" | "halfLife";
 /** The pre-authored choices of durationMode. */
@@ -219,6 +239,7 @@ export const DEFAULT_SETTINGS: Readonly<GameSettings> = Object.freeze({
   objectSelection: "uniform",
   scoreIntervalSeconds: DEFAULT_SCORE_INTERVAL_SECONDS,
   peerNoiseBits: DEFAULT_PEER_NOISE_BITS,
+  observation: "free",
 } satisfies GameSettings);
 
 /** The settings a complete settings object may leave out (absent means off); every other field is always present. */
@@ -267,6 +288,7 @@ export function upgradeStoredSettings(settings: unknown, played = false): Record
     ...(!("scoreIntervalSeconds" in s) ? { scoreIntervalSeconds: DEFAULT_SCORE_INTERVAL_SECONDS } : {}),
     ...(!("durationMode" in s) ? { durationMode: "halfLife" } : {}),
     ...(!("peerNoiseBits" in s) ? { peerNoiseBits: DEFAULT_PEER_NOISE_BITS } : {}),
+    ...(!("observation" in s) ? { observation: "free" } : {}),
     ...(!played && !("fullChargeSeconds" in s) ? { fullChargeSeconds: DEFAULT_FULL_CHARGE_SECONDS } : {}),
   };
   return Object.keys(filled).length ? { ...s, ...filled } : languages;
@@ -404,6 +426,7 @@ export function validateSettings(settings: GameSettings, domain?: FamilyDomain):
   if (!PEER_NOISE_OPTIONS.includes(settings.peerNoiseBits)) {
     throw new Error(`peerNoiseBits must be one of ${PEER_NOISE_OPTIONS.join(", ")} bits`);
   }
+  if (!OBSERVATION_MODES.includes(settings.observation)) throw new Error(`observation must be one of ${OBSERVATION_MODES.join(", ")}`);
   for (const key of OPTION_KEYS) {
     if (!settingsOptionsFor(key, settings.objectType).some(o => o.id === settings[key])) {
       throw new Error(`Unsupported ${key} for this object type`);
@@ -548,10 +571,10 @@ export interface SeedSetup {
   readonly summary: string;
   readonly settings: Readonly<GameSettings>;
   /**
-   * Shown only to administrators (the engine's setups.ts hides it from everyone else, by id too): an experiment, or a
-   * setup not ready for players. Code only: the stored row has no such field.
+   * Experimental ("Lab"): listed only for administrators, under "Lab" in the setup picker; never offered to anyone
+   * else and never a new room's default. Set by declaring the setup in LAB_SETUPS (below), never by hand.
    */
-  readonly adminOnly?: boolean;
+  readonly lab?: true;
 }
 /** The longest setup name. */
 export const SETUP_NAME_MAX = 40;
@@ -605,17 +628,17 @@ const ANNOTATED_COLOURS_EXCLUDED: readonly string[] = Object.freeze([
   "castle_pockets",
 ]);
 
-const seed = (seedId: string, name: string, summary: string, objectType: string, typeArgs: TypeArgs, patch: Partial<GameSettings>, adminOnly = false): SeedSetup =>
-  Object.freeze({ seedId, name, summary, settings: Object.freeze({ ...defaultSettingsFor(objectType, ["python"], typeArgs), ...patch }), ...(adminOnly ? { adminOnly } : {}) });
+const seed = (seedId: string, name: string, summary: string, objectType: string, typeArgs: TypeArgs, patch: Partial<GameSettings>): SeedSetup =>
+  Object.freeze({ seedId, name, summary, settings: Object.freeze({ ...defaultSettingsFor(objectType, ["python"], typeArgs), ...patch }) });
 
-/** The tiered setups' ids: tiered rules for players, and the administrators' experiments. */
+/** Tiered rules for players (docs/tiered-rules.md); the other compositions are Lab setups (LAB_SETUPS). */
 export const TIERED_RULES_SEED_ID = "grid-tiered";
-/** A tiered setup: the 4×4 board of numbers at the Annotated basics pace, every rule dealt with ★ tiers. */
-const tieredSeed = (seedId: string, name: string, summary: string, ruleTiers: RuleTiers, adminOnly = false): SeedSetup =>
-  seed(seedId, name, summary, "Grid", { size: 4, symbols: "base10", colours: "mono" }, {
-    interactionRateHz: 25, durationMode: "fixed", halfLifeSeconds: 600, startingObjectCount: 10, spawnRateHz: 0.1, planningSeconds: 300,
-    ruleTiers: Object.freeze(ruleTiers),
-  }, adminOnly);
+/** A tiered setup's board, pace and economy: Annotated basics', with every rule dealt with ★ tiers (its own pool: the families that offer them). */
+const tieredPatch = (ruleTiers: RuleTiers): Partial<GameSettings> => ({
+  interactionRateHz: 25, durationMode: "fixed", halfLifeSeconds: 600, startingObjectCount: 10, spawnRateHz: 0.1, planningSeconds: 300,
+  observation: "paid", ruleTiers: Object.freeze(ruleTiers),
+});
+const TIERED_BOARD = { size: 4, symbols: "base10", colours: "mono" } as const;
 
 export const SEED_SETUPS: readonly SeedSetup[] = Object.freeze([
   seed(FIRST_STEPS_SEED_ID, "First steps", "A small 4×4 board, slowed down so you can watch your score",
@@ -625,6 +648,8 @@ export const SEED_SETUPS: readonly SeedSetup[] = Object.freeze([
     "Grid", { size: 4, symbols: "base10", colours: "mono" }, {
       interactionRateHz: 25, durationMode: "fixed", halfLifeSeconds: 600, excludedFamilies: ANNOTATED_BASICS_EXCLUDED,
       startingObjectCount: 10, spawnRateHz: 0.1, planningSeconds: 300,
+      // Paid observation (owner, 2026-11-11: a costly use of a god's own energy; docs/energy-model.md §11).
+      observation: "paid",
     }),
   seed(ANNOTATED_COLOURS_SEED_ID, "Annotated colours", "Every rule with picture-by-picture explanations, on a small slowed-down coloured board",
     "Grid", { size: 4, symbols: "base10", colours: "rgb" }, {
@@ -641,20 +666,52 @@ export const SEED_SETUPS: readonly SeedSetup[] = Object.freeze([
   seed("grid-master", "Master", "7×7 playing cards in rainbow colours",
     "Grid", { size: 7, symbols: "cards", colours: "rainbow6" }, {}),
   // Tiered rules (docs/layered-rules-design.md). New seeds go at the end: the order above is the learning order.
-  tieredSeed(TIERED_RULES_SEED_ID, "Tiered rules", "Each rule has an easy base and a ★ bonus that opens once the base is well along", { depth: 1 }),
-  tieredSeed("lab-tiers-plain", "Lab: tiers without a gate", "Tiered rules whose ★ bonus counts from the start, with no gate", { depth: 1, compose: "plain" }, true),
-  tieredSeed("lab-tiers-unlock", "Lab: unlocking tiers", "Once unlocked, the ★ bonus outranks the rest of the base. Rarity near the top is a rough estimate here (sampled tables)", { depth: 1, compose: "unlock" }, true),
-  // No family offers two tiers yet, so no game can be dealt from it: administrators only until one does.
-  tieredSeed("grid-tiered-expert", "Expert tiered rules", "Each rule has a base and two ★ bonuses that open in turn", { depth: 2 }, true),
-  tieredSeed("lab-tiers-uncapped", "Lab: tiers with unequal reach", "Tiered rules whose ★ bonuses are deliberately unequal in how far they reach", { depth: 1, compose: "uncapped" }, true),
+  seed(TIERED_RULES_SEED_ID, "Tiered rules", "Each rule has an easy base and a ★ bonus that opens once the base is well along",
+    "Grid", { ...TIERED_BOARD }, tieredPatch({ depth: 1 })),
 ]);
 
-/** The seed setups only administrators see (SeedSetup.adminOnly). */
-export const ADMIN_ONLY_SEED_IDS: ReadonlySet<string> = new Set(SEED_SETUPS.filter(s => s.adminOnly).map(s => s.seedId));
+/** An experimental setup: `seed(...)` marked `lab` (see LAB_SETUPS). */
+const lab = (...args: Parameters<typeof seed>): SeedSetup => Object.freeze({ ...seed(...args), lab: true as const });
 
-/** A seed setup's complete settings (a fresh copy). */
+/**
+ * The LAB setups: experimental alternatives the owner can try on a deployment without offering them to players.
+ * The engine seeds them like the system setups (setups:ensureSeeded, on every deploy), but lists them only for
+ * administrators (ADMIN_EMAILS), under "Lab" in the setup picker; nobody else can see, open, apply or copy one, and a
+ * new room never starts on one. A room whose administrator owner applied one runs it like any setup.
+ *
+ * To declare one, add an entry here with `lab(...)`, exactly as `seed(...)` above: a NEW stable seed id (prefix
+ * "lab-"), a name of at most SETUP_NAME_MAX characters, a one-sentence summary saying what is different, the
+ * instantiation, and the patch over that instantiation's defaults. Example:
+ *   lab("lab-free-observation", "Lab: free observation", "Annotated basics, but looking at the world costs nothing",
+ *     "Grid", { size: 4, symbols: "base10", colours: "mono" }, { ...the Annotated basics patch, observationMode: "free" }),
+ * SEED_SETUPS (the ordinary system setups, and every test and script that pins or walks them) never includes these.
+ * To retire one, delete its entry: the next deploy's seed sync removes the stored row (rooms that ran it keep their settings).
+ */
+export const LAB_SETUPS: readonly SeedSetup[] = Object.freeze([
+  // Paid observation's other values (docs/energy-model.md §11.8): Annotated basics itself is "paid".
+  ...([
+    ["lab-observation-free", "Lab · everything always visible", "Annotated basics, but looking is free: every object is shown as it changes", "free"],
+    ["lab-observation-boards", "Lab · boards always visible", "Annotated basics, but every board is live: only the others' interest in it is as you last saw it", "boards"],
+    ["lab-observation-agents", "Lab · only agents can look", "Annotated basics, but you cannot pay to look: only your agents' changes and complete reads show you the world", "agents"],
+  ] as const).map(([seedId, name, summary, observation]) => {
+    const basics = SEED_SETUPS.find(x => x.seedId === ANNOTATED_BASICS_SEED_ID)!.settings;
+    return lab(seedId, name, summary, basics.objectType, { ...basics.typeArgs }, { ...basics, observation });
+  }),
+  // Tiered rules' other compositions and balance policy (docs/tiered-rules.md; measured in docs/layered-rules-measurements/).
+  lab("lab-tiers-plain", "Lab · tiers without a gate", "Tiered rules, but the ★ bonus counts from the first move instead of opening at a gate",
+    "Grid", { ...TIERED_BOARD }, tieredPatch({ depth: 1, compose: "plain" })),
+  lab("lab-tiers-unlock", "Lab · unlocking tiers", "Tiered rules, but once unlocked the ★ bonus outranks the rest of the base; rarity near the top is a rough estimate (sampled tables)",
+    "Grid", { ...TIERED_BOARD }, tieredPatch({ depth: 1, compose: "unlock" })),
+  lab("lab-tiers-uncapped", "Lab · tiers with unequal reach", "Tiered rules, with ★ bonuses outside the balance band added: some rules reach much further than others",
+    "Grid", { ...TIERED_BOARD }, tieredPatch({ depth: 1, compose: "uncapped" })),
+]);
+
+/** Every setup the engine seeds: the system's, then the Lab's. */
+export const ALL_SEED_SETUPS: readonly SeedSetup[] = Object.freeze([...SEED_SETUPS, ...LAB_SETUPS]);
+
+/** A seed setup's complete settings (a fresh copy); Lab setups included. */
 export function seedSetupSettings(seedId: string): GameSettings {
-  const found = SEED_SETUPS.find(s => s.seedId === seedId);
+  const found = ALL_SEED_SETUPS.find(s => s.seedId === seedId);
   if (!found) throw new Error(`Unknown seed setup: ${seedId}`);
   return {
     ...found.settings, languages: [...found.settings.languages], typeArgs: { ...found.settings.typeArgs }, excludedFamilies: [...found.settings.excludedFamilies],
@@ -836,6 +893,11 @@ export const SETTINGS_DOCS = {
     question: "How blurred are the other players' combined interest in each object?", section: "goals", tier: "more", control: "segmented", unit: "bits", suggested: PEER_NOISE_OPTIONS,
     meaning: "While the game runs, the other players' summed bits for each object are shown with random noise of this size, fixed per change; after the end the exact numbers show.",
     consequence: "More noise makes it harder to work out the other players' rules from the numbers alone, so negotiation clues matter more, but it also makes their interest in each object less certain.",
+  },
+  observation: {
+    question: "Do players pay to look at the world?", section: "energy", tier: "more", control: "segmented", suggested: OBSERVATION_MODES,
+    meaning: "Free shows every object as it changes, while paid shows each as you were last told it (at its birth, by your agents, or by a look you pay energy for); boards and agents are variants.",
+    consequence: "Paid looking gives a player's own energy a use and makes watching the others costly; boards keeps every board live and charges only for the others' interest; agents allows no paid looks.",
   },
   pauseSeconds: {
     question: "How long is each player's one pause?", section: "time", tier: "more", control: "number", unit: "s", suggested: [60, 180, 300],

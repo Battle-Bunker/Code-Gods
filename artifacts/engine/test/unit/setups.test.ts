@@ -6,7 +6,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ADMIN_ONLY_SEED_IDS, ANNOTATED_BASICS_SEED_ID, ANNOTATED_COLOURS_SEED_ID, BEGINNER_POOL, SEED_SETUPS, TIERED_RULES_SEED_ID, applySettingsChange, seedSetupSettings, validateSettings } from "@workspace/game-core";
+import { ALL_SEED_SETUPS, ANNOTATED_BASICS_SEED_ID, ANNOTATED_COLOURS_SEED_ID, BEGINNER_POOL, SEED_SETUPS, TIERED_RULES_SEED_ID, applySettingsChange, seedSetupSettings, validateSettings } from "@workspace/game-core";
 import { offeredInstantiations, playableInstantiations } from "@workspace/game-utilities";
 import { shippedManifest } from "@workspace/game-utilities/calibration-data";
 import { settingsDomain } from "../../convex/engine/settingsDomain.ts";
@@ -88,22 +88,18 @@ test("Annotated basics deals exactly the beginner pool on a numbers-only board; 
   for (const id of BEGINNER_POOL) assert.ok(coloursDealable.has(id), `Annotated colours deals ${id}`);
 });
 
-test("the tiered seeds: each public one has a pool and deals only tiered rules; an empty pool is refused, not dealt", async () => {
+test("the tiered seeds, Lab ones included: each has a pool and deals only tiered rules", async () => {
   const { availableFamilies, selector, context, paramsKey } = await import("@workspace/game-utilities");
   const { instantiate, seededRng } = await import("@workspace/game-types");
-  const tiered = SEED_SETUPS.filter(s => s.settings.ruleTiers);
-  assert.ok(tiered.some(s => s.seedId === TIERED_RULES_SEED_ID && !s.adminOnly), "Tiered rules is for everyone");
+  const tiered = ALL_SEED_SETUPS.filter(s => s.settings.ruleTiers);
+  assert.ok(tiered.some(s => s.seedId === TIERED_RULES_SEED_ID && !s.lab), "Tiered rules is for everyone");
+  assert.deepEqual(tiered.filter(s => s.lab).map(s => s.seedId), ["lab-tiers-plain", "lab-tiers-unlock", "lab-tiers-uncapped"]);
   for (const s of tiered) {
     const inst = instantiate(s.settings.objectType, s.settings.typeArgs), tiers = s.settings.ruleTiers!;
     const pool = availableFamilies(inst, "reward", s.settings.excludedFamilies, tiers);
     // What the server's domain says of the pool is what the dealer deals from.
     assert.deepEqual([...SETTINGS_DOMAIN.tiered!(s.settings.objectType, s.settings.typeArgs, tiers)].filter(id => !s.settings.excludedFamilies.includes(id)), pool.map(f => f.id), s.seedId);
-    if (!pool.length) {
-      // A setup nobody can play yet: administrators only, refused with the reason (never an error from the dealer).
-      assert.ok(ADMIN_ONLY_SEED_IDS.has(s.seedId), `${s.seedId}: an empty pool is never shown to players`);
-      assert.throws(() => validateSettings(s.settings, SETTINGS_DOMAIN), /Tiered rules need at least one allowed rule/, s.seedId);
-      continue;
-    }
+    assert.ok(pool.length > 0, `${s.seedId}: a seeded setup always has rules to deal`);
     assert.doesNotThrow(() => validateSettings(s.settings, SETTINGS_DOMAIN), s.seedId);
     const allowed = new Set(pool.flatMap(f => f.tiered!(context(inst), tiers.depth, tiers.compose ?? "gated").map(p => `${f.id}${paramsKey(p)}`)));
     for (const sel of ["fair-aligned", "divine-lottery"]) for (let seed = 1; seed <= 5; seed++) {
@@ -113,14 +109,4 @@ test("the tiered seeds: each public one has a pool and deals only tiered rules; 
     }
   }
   assert.deepEqual(seedSetupSettings(TIERED_RULES_SEED_ID).ruleTiers, { depth: 1 });
-});
-
-test("an administrator-only system setup is hidden from everyone but administrators; the hiding follows the code, not the row", async () => {
-  const { hiddenFrom } = await import("../../convex/lib/setupAccess.ts");
-  const lab = [...ADMIN_ONLY_SEED_IDS][0]!;
-  assert.equal(hiddenFrom({ ownerId: null, seedId: lab }, { isAdmin: false }), true);
-  assert.equal(hiddenFrom({ ownerId: null, seedId: lab }, { isAdmin: true }), false);
-  assert.equal(hiddenFrom({ ownerId: null, seedId: TIERED_RULES_SEED_ID }, { isAdmin: false }), false, "a public seed");
-  assert.equal(hiddenFrom({ ownerId: "someone", seedId: lab }, { isAdmin: false }), false, "only the system's: a human's setup is never hidden");
-  assert.equal(hiddenFrom({ ownerId: "someone", seedId: undefined }, { isAdmin: false }), false);
 });

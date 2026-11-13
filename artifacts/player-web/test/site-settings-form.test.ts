@@ -171,6 +171,10 @@ test("penalty weight and the defence checklist hide while defence goals are off;
   assert.equal(lengthLine({ planningSeconds: 60, halfLifeSeconds: 300 }), "~6 min (often 3–13)");
   assert.equal(lengthLine({ planningSeconds: 60, halfLifeSeconds: 600, durationMode: "fixed" }), "11 min", "a fixed game's length is exact");
   assert.deepEqual(stepChoices("durationMode", "fixed").map(v => choiceLabel("durationMode", v)), ["Fixed duration", "Half-life"]);
+  // Paid observation: two worded choices, and the same words in the review and in a diff.
+  assert.deepEqual(stepChoices("observation", "free").map(v => choiceLabel("observation", v)), ["Free", "Boards free", "Paid", "Agents only"]);
+  assert.equal(formatValue("observation", "paid"), "Paid");
+  assert.ok(fieldsOf("energy").includes("observation"), "whether looking costs energy is asked with the energy settings");
   assert.deepEqual(stepChoices("scoreIntervalSeconds", 45), [5, 10, 20, 30, 45, 60], "a custom value joins the presets");
   assert.deepEqual(stepChoices("interactionRateHz", 25).map(v => choiceLabel("interactionRateHz", v)), ["Slow (25/s)", "Normal (100/s)", "Fast (300/s)", "Max (1,000/s)"]);
   assert.deepEqual([30, 60, 90].map(v => choiceLabel("planningSeconds", v)), ["30 s", "1 min", "90 s"]);
@@ -188,4 +192,13 @@ test("tiered rules: the control's choices are none, one tier or two; none remove
   assert.deepEqual(ruleTiersPatch("1"), { ruleTiers: { depth: 1 } });
   assert.deepEqual(ruleTiersPatch("none"), { ruleTiers: null }, "null switches them off in the settings model");
   assert.deepEqual([undefined, { depth: 1 }, { depth: 2, compose: "unlock" }].map(t => formatValue("ruleTiers", t)), ["none", "one ★ tier", "two ★ tiers (unlock)"]);
+});
+
+test("the picker's Lab heading goes before the first Lab setup, and before each one that follows an ordinary setup in a search", async () => {
+  const { labStartsAt } = await import("../src/site/lib/setup-words.ts");
+  const list = [{}, {}, { lab: true }, { lab: true }];
+  assert.deepEqual(list.map((_, i) => labStartsAt(list, i)), [false, false, true, false], "one heading for the catalogue's Lab tail");
+  const found = [{ lab: true }, {}, { lab: true }];
+  assert.deepEqual(found.map((_, i) => labStartsAt(found, i)), [true, false, true]);
+  assert.deepEqual([{}, {}].map((_, i, all) => labStartsAt(all, i)), [false, false], "no heading for anyone who is sent no Lab setup");
 });

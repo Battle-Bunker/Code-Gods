@@ -17,7 +17,8 @@
     "difficulty": "node --experimental-strip-types scripts/rule-difficulty.ts",
     "layered": "node --experimental-strip-types scripts/layered-profile.ts",
     "tiered": "node --experimental-strip-types scripts/tiered-profile.ts",
-    "mutation-cost": "node --experimental-strip-types scripts/mutation-cost.ts"
+    "mutation-cost": "node --experimental-strip-types scripts/mutation-cost.ts",
+    "coordination": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/coordination.ts"
   },
   "devDependencies": {
     "typescript": "~5.9.3",

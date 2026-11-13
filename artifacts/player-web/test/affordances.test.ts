@@ -73,6 +73,26 @@ test("in the lobby nothing can be summoned or destroyed yet, but the room's next
   assert.deepEqual(a.can.roomStep, { ok: true });
 });
 
+test("look: only in a paid-observation game, only seated; off with the price and the balance when unaffordable", () => {
+  assert.ok(!deriveAffordances(live).can.look.ok && (deriveAffordances(live).can.look as { hidden: boolean }).hidden, "free looking: no Look control at all");
+  const paid = { ...live, look: { price: 1.66, energy: 5 } };
+  assert.deepEqual(deriveAffordances(paid).can.look, { ok: true });
+  for (const hidden of [{ ...paid, seated: false }, { ...paid, replay: true }, { ...paid, permission: "read" as const }]) {
+    const c = deriveAffordances(hidden).can.look;
+    assert.ok(!c.ok && c.hidden);
+  }
+  const poor = deriveAffordances({ ...paid, look: { price: 1.66, energy: 0.4 } }).can.look;
+  assert.ok(!poor.ok && !poor.hidden);
+  assert.equal(!poor.ok && poor.reason, "A look costs 1.66 energy; you have 0.40");
+  for (const phase of ["lobby", "ended"] as const) {
+    const c = deriveAffordances({ ...paid, phase }).can.look;
+    assert.ok(!c.ok && !c.hidden && c.reason.length > 0, `${phase}: visible, off, with a reason`);
+  }
+  const busy = deriveAffordances({ ...paid, busy: true }).can.look;
+  assert.ok(!busy.ok && !busy.hidden && /running/.test(busy.reason));
+  assert.deepEqual(deriveAffordances({ ...paid, phase: "paused" }).can.look, { ok: true }, "a pause is a good moment to look");
+});
+
 test("a replay seen as another god names that god; seen as yourself it says you", () => {
   assert.equal(ownerPhrase(null), "your");
   assert.equal(ownerPhrase("Opcode Owl"), "Opcode Owl's");

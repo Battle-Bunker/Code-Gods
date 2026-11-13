@@ -4,7 +4,7 @@ import {
   DEFAULT_SETTINGS, SETTINGS_OPTIONS, MAX_AGENTS_PER_GOD, settingsOptionsFor, validateSettings, LANGUAGES, LANGUAGE_SPECS,
   grammarFor, complexityFor, allowedLanguages, upgradeLegacyLanguage,
   upgradeStoredSettings, FIRST_STEPS_SEED_ID, ANNOTATED_BASICS_SEED_ID, DEFAULT_SETUP_SEED_ID,
-  instantiationOf, codecOf, assertObjectValue, defaultSettingsFor, SEED_SETUPS, SETUP_NAME_MAX, seedSetupSettings, ENERGY_LIMITS, OPTIONAL_SETTINGS, SETTINGS_FIELDS, ADMIN_ONLY_SEED_IDS, type GameSettings,
+  instantiationOf, codecOf, assertObjectValue, defaultSettingsFor, SEED_SETUPS, SETUP_NAME_MAX, seedSetupSettings, ALL_SEED_SETUPS, LAB_SETUPS, ENERGY_LIMITS, OPTIONAL_SETTINGS, SETTINGS_FIELDS, type GameSettings,
 } from "../src/settings.ts";
 import { gameEndSeconds } from "../src/random.ts";
 
@@ -190,7 +190,7 @@ test("defaultSettingsFor gives valid settings for every type and language", () =
   assert.equal(defaultSettingsFor("Int").powerPerSecond, 8);
   for (const s of SEED_SETUPS) { validateSettings(s.settings); assert.ok(s.name.length <= SETUP_NAME_MAX, s.name); }
   assert.deepEqual(SEED_SETUPS.map(s => s.seedId), ["grid-first-steps", "grid-annotated-basics", "grid-annotated-colours", "grid-classic", "grid-low-income", "grid-big", "grid-master",
-    "grid-tiered", "lab-tiers-plain", "lab-tiers-unlock", "grid-tiered-expert", "lab-tiers-uncapped"], "new seeds are appended: the existing order never moves");
+    "grid-tiered"], "new seeds are appended: the existing order never moves");
   assert.equal(seedSetupSettings("grid-first-steps").interactionRateHz, 25);
   assert.deepEqual(seedSetupSettings("grid-classic"), { ...classic, interactionRateHz: 100 }, "Classic is the tuned 5×5 board, complete");
   assert.ok(!seedSetupSettings("grid-master").excludedFamilies.includes("ladder_of_numbers"), "cards cannot deal it, so it is not listed");
@@ -271,25 +271,22 @@ test("the default setup (Annotated basics) is the numbers-only 4×4 board; First
   assert.deepEqual(seedSetupSettings(FIRST_STEPS_SEED_ID).typeArgs, { size: 4, symbols: "base10", colours: "rgb" });
 });
 
-test("tiered rules are one optional setting: absent everywhere but the tiered seeds, validated, and a seed may be for administrators only", () => {
+test("tiered rules are one optional setting: absent everywhere but the tiered seeds, validated, and the other compositions are Lab setups", () => {
   assert.ok(!("ruleTiers" in DEFAULT_SETTINGS), "absent by default: a stored setup from before the field needs no migration");
   assert.deepEqual(OPTIONAL_SETTINGS, ["ruleTiers"]);
   assert.deepEqual(SETTINGS_FIELDS, [...Object.keys(DEFAULT_SETTINGS), "ruleTiers"]);
   // The seeds from before tiers carry no such field (their stored rows stay equal to the code, untouched).
-  const tiered = Object.fromEntries(SEED_SETUPS.filter(s => "ruleTiers" in s.settings).map(s => [s.seedId, [s.settings.ruleTiers, s.adminOnly === true]]));
+  const tiered = Object.fromEntries(ALL_SEED_SETUPS.filter(s => "ruleTiers" in s.settings).map(s => [s.seedId, [s.settings.ruleTiers, s.lab === true]]));
   assert.deepEqual(tiered, {
     "grid-tiered": [{ depth: 1 }, false],
     "lab-tiers-plain": [{ depth: 1, compose: "plain" }, true],
     "lab-tiers-unlock": [{ depth: 1, compose: "unlock" }, true],
-    "grid-tiered-expert": [{ depth: 2 }, true],
     "lab-tiers-uncapped": [{ depth: 1, compose: "uncapped" }, true],
   });
-  assert.deepEqual([...ADMIN_ONLY_SEED_IDS].sort(), ["grid-tiered-expert", "lab-tiers-plain", "lab-tiers-uncapped", "lab-tiers-unlock"]);
-  assert.ok(SEED_SETUPS.filter(s => !("ruleTiers" in s.settings)).every(s => !s.adminOnly), "every earlier seed stays public");
   // The tiered seed: the board and pace of Annotated basics.
   const t = seedSetupSettings("grid-tiered"), basics = seedSetupSettings("grid-annotated-basics");
   assert.deepEqual(t.typeArgs, { size: 4, symbols: "base10", colours: "mono" });
-  for (const key of ["interactionRateHz", "durationMode", "halfLifeSeconds", "startingObjectCount", "spawnRateHz", "planningSeconds"] as const) assert.equal(t[key], basics[key], key);
+  for (const key of ["interactionRateHz", "durationMode", "halfLifeSeconds", "startingObjectCount", "spawnRateHz", "planningSeconds", "observation"] as const) assert.equal(t[key], basics[key], key);
   assert.notEqual(seedSetupSettings("grid-tiered").ruleTiers, SEED_SETUPS.find(s => s.seedId === "grid-tiered")!.settings.ruleTiers, "a fresh copy");
   // Validation: a depth of 1 or 2, at most a known composition, nothing else.
   for (const ok of [{ depth: 1 }, { depth: 2 }, { depth: 1, compose: "plain" }, { depth: 2, compose: "unlock" }, { depth: 1, compose: "uncapped" }]) {
@@ -329,4 +326,20 @@ test("upgradeStoredSettings leaves a started game's economy alone: no capacity i
 test("the settings of a game started before fullChargeSeconds existed still validate (it is examined and summoned into)", () => {
   const { fullChargeSeconds: _, ...old } = DEFAULT_SETTINGS;
   assert.doesNotThrow(() => validateSettings(old as GameSettings));
+});
+
+test("Lab setups: complete, valid, marked, with ids and names of their own, and never the default or among the system setups", () => {
+  const ids = ALL_SEED_SETUPS.map(s => s.seedId), names = ALL_SEED_SETUPS.map(s => s.name.toLowerCase());
+  assert.equal(new Set(ids).size, ids.length, "seed ids are unique across the system and Lab setups");
+  assert.equal(new Set(names).size, names.length, "and so are names (the picker shows both to an administrator)");
+  assert.deepEqual(ALL_SEED_SETUPS, [...SEED_SETUPS, ...LAB_SETUPS], "the system's first: Lab setups never shift a system setup's position");
+  assert.ok(SEED_SETUPS.every(s => !s.lab), "no system setup is marked Lab");
+  for (const s of LAB_SETUPS) {
+    assert.equal(s.lab, true, s.seedId);
+    assert.match(s.seedId, /^lab-[a-z0-9-]+$/, `${s.seedId}: a Lab seed id starts with "lab-"`);
+    assert.ok(s.name.length <= SETUP_NAME_MAX && s.summary.length > 0 && s.summary.length <= 160, s.seedId);
+    assert.doesNotThrow(() => validateSettings(s.settings), s.seedId);
+    assert.deepEqual(seedSetupSettings(s.seedId), { ...s.settings }, s.seedId);
+  }
+  assert.ok(!LAB_SETUPS.some(s => s.seedId === DEFAULT_SETUP_SEED_ID), "a new room never starts on a Lab setup");
 });

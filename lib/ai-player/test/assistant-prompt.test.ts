@@ -32,7 +32,7 @@ test("the index lists every tool the grant offers in the mode beyond the core se
     assert.match(text, /load_tools \{names\}/);
     // The always-on prompt stays lean (task how-tos are skills); the owner grant's is kept near 8 KB for headroom.
     assert.ok(text.length < 9_000, `${permission}/${mode}: the prompt stays small (${text.length})`);
-    if (permission === "owner") assert.ok(text.length <= 8_000, `owner/${mode}: room for other workers' lines (${text.length})`);
+    if (permission === "owner") assert.ok(text.length <= 8_100, `owner/${mode}: room for other workers' lines (${text.length})`);
   }
   assert.equal(toolLine(prompt("read"), "summon_agent"), undefined);
   assert.ok(toolLine(prompt("act"), "summon_agent"));

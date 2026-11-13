@@ -12,7 +12,7 @@ import { endGame, nextDeadline, scheduleTick } from "./engine/loop";
 import { clockDoc, engineDoc, liveGame, withEngine, writeGame, type LiveGame } from "./game/state";
 import { fail } from "./lib/errors";
 import { shortCodeFor } from "./lib/rooms";
-import { seed as seedSetups } from "./setups";
+import { listingOf, seed as seedSetups } from "./setups";
 import { openTurn } from "./assistant/turns";
 
 const dev = () => {
@@ -111,6 +111,29 @@ export const patchAgentLanguage = internalMutation({
   handler: async (ctx, { agentId, language }) => {
     dev();
     await ctx.db.patch(agentId, { language });
+  },
+});
+
+/** An agent as the tick stored it while agents had a rate cap of their own: with `lastOpportunityWorld` (test/game-schema-migrations.test.ts). */
+export const legacyAgentOpportunity = internalMutation({
+  args: { agentId: v.id("agents"), world: v.number() },
+  handler: async (ctx, { agentId, world }) => {
+    dev();
+    await ctx.db.patch(agentId, { lastOpportunityWorld: world });
+  },
+});
+
+/**
+ * A system Lab setup as the seed sync would store one declared in game-core LAB_SETUPS (which may be empty), so the
+ * tests of who may see one never depend on which experiments are shipped today. The next seed sync removes it.
+ */
+export const seedLabSetup = internalMutation({
+  args: { seedId: v.string(), name: v.string(), settings: v.any() },
+  handler: async (ctx, { seedId, name, settings }) => {
+    dev();
+    const now = Date.now(), summary = "An experiment for the tests";
+    const fields = { ownerId: null, name, summary, seedId, lab: true };
+    return await ctx.db.insert("gameSetups", { ...fields, settings, createdAt: now, updatedAt: now, ...listingOf(fields, "System") });
   },
 });
 
@@ -591,5 +614,17 @@ export const detachEngine = internalMutation({
     await ctx.db.delete(row._id);
     const { _id, _creationTime, ...fields } = row;
     return fields;
+  },
+});
+
+/** Set a god's own energy (its account settled at the game's world time): the paid look's affordability tests. */
+export const setGodEnergy = internalMutation({
+  args: { gameId: v.id("games"), godId: v.string(), balance: v.number() },
+  handler: async (ctx, { gameId, godId, balance }) => {
+    dev();
+    const game = await liveGame(ctx, gameId);
+    const deity = await ctx.db.query("deities").withIndex("by_game_god", q => q.eq("gameId", gameId).eq("godId", godId)).unique();
+    if (!game || !deity) return fail("NOT_FOUND", "no such god");
+    await ctx.db.patch(deity._id, { account: { balance, settledWorldSeconds: game.worldSeconds } });
   },
 });

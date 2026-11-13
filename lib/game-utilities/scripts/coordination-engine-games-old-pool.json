@@ -1,0 +1,4873 @@
+[
+ {
+  "table": "b",
+  "label": "b0-mwc0iybo",
+  "gameId": "pd76h9dqsp5sddd1fsdqbgzgbd8j1nmr",
+  "playedAt": "2026-11-11T11:10:21.216Z",
+  "setup": "grid-annotated-basics",
+  "overrides": {
+   "halfLifeSeconds": 240,
+   "planningSeconds": 30,
+   "languages": [
+    "python",
+    "typescript"
+   ],
+   "startingEnergy": 4675
+  },
+  "settings": {
+   "commitClause": false,
+   "defenceGoals": false,
+   "durationMode": "fixed",
+   "excludedDefenceFamilies": [],
+   "excludedFamilies": [
+    "staircase_climber",
+    "looking_glass",
+    "pinwheel",
+    "constellation",
+    "mountain_climb",
+    "round_numbers",
+    "divisibility_detective",
+    "seesaw",
+    "stepping_stones",
+    "column_addition",
+    "ladder_of_numbers",
+    "snap",
+    "young_tableau",
+    "fillomino",
+    "bingo_caller",
+    "full_house",
+    "twenty_one",
+    "sudoku_scholar"
+   ],
+   "halfLifeSeconds": 240,
+   "interactionComputeMs": 1000,
+   "interactionRateHz": 25,
+   "languages": [
+    "python",
+    "typescript"
+   ],
+   "maxAgentsPerGod": 200,
+   "objectSelection": "uniform",
+   "objectType": "Grid",
+   "pauseSeconds": 180,
+   "peerNoiseBits": 8,
+   "penaltyWeight": 1,
+   "planningSeconds": 30,
+   "powerPerSecond": 64,
+   "priorId": "uniform",
+   "scoreIntervalSeconds": 10,
+   "spawnFunctionId": "uniform",
+   "spawnRateHz": 0.1,
+   "startingEnergy": 4675,
+   "startingObjectCount": 10,
+   "stepBudget": 500000,
+   "typeArgs": {
+    "colours": "mono",
+    "size": 4,
+    "symbols": "base10"
+   },
+   "utilitySelectorId": "fair-aligned"
+  },
+  "agentLanguage": "typescript",
+  "summonedInPlanning": true,
+  "worldSeconds": 240,
+  "endAtWorld": 240,
+  "phase": "ended",
+  "wallRunningSeconds": 242.278,
+  "worstStallMs": 0,
+  "objectsAtStart": 10,
+  "objectsAtEnd": 40,
+  "engineStats": {
+   "acts": 2483,
+   "commits": 211,
+   "discarded": 0,
+   "opportunities": 5760
+  },
+  "events": {
+   "transform": 2373,
+   "fail": 0,
+   "skip": 110,
+   "spawn": 40
+  },
+  "seats": [
+   {
+    "seat": 0,
+    "policy": "greedy",
+    "utility": {
+     "familyId": "magic_accountant",
+     "params": {
+      "axis": "cols",
+      "target": 15
+     }
+    },
+    "summonPrice": 4442.530280384037,
+    "expectedActCost": 17.96940396664864,
+    "powerShare": 1,
+    "validation": {
+     "changeRate": 1,
+     "skipRate": 0,
+     "expectedSuccessRate": 1,
+     "warnings": []
+    },
+    "totalPayoff": 6942.179306633623,
+    "rank": 3,
+    "acts": 830,
+    "transforms": 777,
+    "skips": 53,
+    "failures": {
+     "collision": 0,
+     "commit": 0,
+     "error": 0,
+     "invalid": 0,
+     "noChange": 0
+    },
+    "lastFailures": {},
+    "spent": 14050.257976600344,
+    "spentRead": 1378.6001593782685,
+    "energyBalance": 1309.7420233994544,
+    "storedAccount": {
+     "balance": 1306.9580233994548,
+     "settledWorldSeconds": 239.9565
+    },
+    "deityEnergyStored": {
+     "balance": 232.46971961596319,
+     "settledWorldSeconds": 0
+    },
+    "source": "const TARGET = 15;\nfunction utility(grid: any): any {\n  let exact = 0;\n  let distance = 0;\n  for (const line of grid.columns) {\n    let total = 0;\n    for (const cell of line) total += cell.value;\n    if (total === TARGET) exact += 1;\n    distance += Math.abs(total - TARGET);\n  }\n  return [exact, -distance];\n}\nfunction agent(grid: any) {\n  const n: number = grid.size, real: any[] = grid.cells, rows: any[][] = [];\n  // The prelude's own Cell and Grid classes (the agent's cells are metered views of Cell): a plain, writable board.\n  const CellClass: any = Object.getPrototypeOf(real[0]).constructor, GridClass: any = Object.getPrototypeOf(grid).constructor;\n  for (let r = 0; r < n; r++) {\n    const row: any[] = [];\n    for (let k = 0; k < n; k++) {\n      const x: any = new CellClass(), v: number = real[r * n + k].value;\n      x.row = r; x.col = k; x.value = v; x.symbol = String(v); x.colour = grid.palette[0];\n      row.push(x);\n    }\n    rows.push(row);\n  }\n  const at = (r: number, k: number): any => (r >= 0 && r < n && k >= 0 && k < n ? rows[r][k] : null);\n  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {\n    const x: any = rows[r][k];\n    x.left = at(r, k - 1); x.right = at(r, k + 1); x.up = at(r - 1, k); x.down = at(r + 1, k);\n    x.upLeft = at(r - 1, k - 1); x.upRight = at(r - 1, k + 1); x.downLeft = at(r + 1, k - 1); x.downRight = at(r + 1, k + 1);\n  }\n  const board: any = new GridClass(rows);\n  const list = (o: any): number[] => (typeof o === \"number\" ? [o] : o);\n  const beats = (a: number[], b: number[]): boolean => {\n    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] > b[i];\n    return false;\n  };\n  let best: number[] = list(utility(board)), move: number[] | null = null;\n  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {\n    const x: any = rows[r][k], old: number = x.value;\n    for (let d = 0; d < 10; d++) {\n      if (d === old) continue;\n      x.value = d; x.symbol = String(d);\n      const u: number[] = list(utility(board));\n      if (beats(u, best)) { best = u; move = [r, k, d]; }\n    }\n    x.value = old; x.symbol = String(old);\n  }\n  return move === null ? [] : [write([move[0], move[1]], move[2])];\n}"
+   },
+   {
+    "seat": 1,
+    "policy": "greedy",
+    "utility": {
+     "familyId": "magic_accountant",
+     "params": {
+      "axis": "cols",
+      "target": 17
+     }
+    },
+    "summonPrice": 4442.530280384037,
+    "expectedActCost": 17.96940396664864,
+    "powerShare": 1,
+    "validation": {
+     "changeRate": 1,
+     "skipRate": 0,
+     "expectedSuccessRate": 1,
+     "warnings": []
+    },
+    "totalPayoff": 7609.988377657331,
+    "rank": 2,
+    "acts": 830,
+    "transforms": 773,
+    "skips": 57,
+    "failures": {
+     "collision": 0,
+     "commit": 0,
+     "error": 0,
+     "invalid": 0,
+     "noChange": 0
+    },
+    "lastFailures": {},
+    "spent": 13985.024216923526,
+    "spentRead": 1378.6001593782685,
+    "energyBalance": 1374.9757830762694,
+    "storedAccount": {
+     "balance": 1366.6237830762705,
+     "settledWorldSeconds": 239.86950000000002
+    },
+    "deityEnergyStored": {
+     "balance": 232.46971961596319,
+     "settledWorldSeconds": 0
+    },
+    "source": "const TARGET = 17;\nfunction utility(grid: any): any {\n  let exact = 0;\n  let distance = 0;\n  for (const line of grid.columns) {\n    let total = 0;\n    for (const cell of line) total += cell.value;\n    if (total === TARGET) exact += 1;\n    distance += Math.abs(total - TARGET);\n  }\n  return [exact, -distance];\n}\nfunction agent(grid: any) {\n  const n: number = grid.size, real: any[] = grid.cells, rows: any[][] = [];\n  // The prelude's own Cell and Grid classes (the agent's cells are metered views of Cell): a plain, writable board.\n  const CellClass: any = Object.getPrototypeOf(real[0]).constructor, GridClass: any = Object.getPrototypeOf(grid).constructor;\n  for (let r = 0; r < n; r++) {\n    const row: any[] = [];\n    for (let k = 0; k < n; k++) {\n      const x: any = new CellClass(), v: number = real[r * n + k].value;\n      x.row = r; x.col = k; x.value = v; x.symbol = String(v); x.colour = grid.palette[0];\n      row.push(x);\n    }\n    rows.push(row);\n  }\n  const at = (r: number, k: number): any => (r >= 0 && r < n && k >= 0 && k < n ? rows[r][k] : null);\n  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {\n    const x: any = rows[r][k];\n    x.left = at(r, k - 1); x.right = at(r, k + 1); x.up = at(r - 1, k); x.down = at(r + 1, k);\n    x.upLeft = at(r - 1, k - 1); x.upRight = at(r - 1, k + 1); x.downLeft = at(r + 1, k - 1); x.downRight = at(r + 1, k + 1);\n  }\n  const board: any = new GridClass(rows);\n  const list = (o: any): number[] => (typeof o === \"number\" ? [o] : o);\n  const beats = (a: number[], b: number[]): boolean => {\n    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] > b[i];\n    return false;\n  };\n  let best: number[] = list(utility(board)), move: number[] | null = null;\n  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {\n    const x: any = rows[r][k], old: number = x.value;\n    for (let d = 0; d < 10; d++) {\n      if (d === old) continue;\n      x.value = d; x.symbol = String(d);\n      const u: number[] = list(utility(board));\n      if (beats(u, best)) { best = u; move = [r, k, d]; }\n    }\n    x.value = old; x.symbol = String(old);\n  }\n  return move === null ? [] : [write([move[0], move[1]], move[2])];\n}"
+   },
+   {
+    "seat": 2,
+    "policy": "greedy",
+    "utility": {
+     "familyId": "number_bonds",
+     "params": {}
+    },
+    "summonPrice": 4379.873567925095,
+    "expectedActCost": 17.96940396664864,
+    "powerShare": 1,
+    "validation": {
+     "changeRate": 1,
+     "skipRate": 0,
+     "expectedSuccessRate": 1,
+     "warnings": []
+    },
+    "totalPayoff": 9154.15091717227,
+    "rank": 1,
+    "acts": 823,
+    "transforms": 823,
+    "skips": 0,
+    "failures": {
+     "collision": 0,
+     "commit": 0,
+     "error": 0,
+     "invalid": 0,
+     "noChange": 0
+    },
+    "lastFailures": {},
+    "spent": 14788.819464551661,
+    "spentRead": 1366.9734110461625,
+    "energyBalance": 571.1805354481198,
+    "storedAccount": {
+     "balance": 565.6125354481205,
+     "settledWorldSeconds": 239.913
+    },
+    "deityEnergyStored": {
+     "balance": 295.1264320749051,
+     "settledWorldSeconds": 0
+    },
+    "source": "const TARGET = 10;\nfunction utility(grid: any): any {\n  let bonds = 0;\n  for (const cell of grid.cells) {\n    for (const other of [cell.right, cell.down]) {\n      if (other !== null && cell.value + other.value === TARGET) bonds += 1;\n    }\n  }\n  return bonds;\n}\nfunction agent(grid: any) {\n  const n: number = grid.size, real: any[] = grid.cells, rows: any[][] = [];\n  // The prelude's own Cell and Grid classes (the agent's cells are metered views of Cell): a plain, writable board.\n  const CellClass: any = Object.getPrototypeOf(real[0]).constructor, GridClass: any = Object.getPrototypeOf(grid).constructor;\n  for (let r = 0; r < n; r++) {\n    const row: any[] = [];\n    for (let k = 0; k < n; k++) {\n      const x: any = new CellClass(), v: number = real[r * n + k].value;\n      x.row = r; x.col = k; x.value = v; x.symbol = String(v); x.colour = grid.palette[0];\n      row.push(x);\n    }\n    rows.push(row);\n  }\n  const at = (r: number, k: number): any => (r >= 0 && r < n && k >= 0 && k < n ? rows[r][k] : null);\n  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {\n    const x: any = rows[r][k];\n    x.left = at(r, k - 1); x.right = at(r, k + 1); x.up = at(r - 1, k); x.down = at(r + 1, k);\n    x.upLeft = at(r - 1, k - 1); x.upRight = at(r - 1, k + 1); x.downLeft = at(r + 1, k - 1); x.downRight = at(r + 1, k + 1);\n  }\n  const board: any = new GridClass(rows);\n  const list = (o: any): number[] => (typeof o === \"number\" ? [o] : o);\n  const beats = (a: number[], b: number[]): boolean => {\n    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] > b[i];\n    return false;\n  };\n  let best: number[] = list(utility(board)), move: number[] | null = null;\n  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {\n    const x: any = rows[r][k], old: number = x.value;\n    for (let d = 0; d < 10; d++) {\n      if (d === old) continue;\n      x.value = d; x.symbol = String(d);\n      const u: number[] = list(utility(board));\n      if (beats(u, best)) { best = u; move = [r, k, d]; }\n    }\n    x.value = old; x.symbol = String(old);\n  }\n  return move === null ? [] : [write([move[0], move[1]], move[2])];\n}"
+   }
+  ],
+  "objects": [
+   {
+    "version": 104,
+    "net": [
+     5.246715157237603,
+     6.0043532581819505,
+     22.003358848250066
+    ]
+   },
+   {
+    "version": 113,
+    "net": [
+     11.791367256717711,
+     11.121495884812628,
+     11.49051950146678
+    ]
+   },
+   {
+    "version": 109,
+    "net": [
+     5.496072286872906,
+     9.086907828637024,
+     9.1294503312181
+    ]
+   },
+   {
+    "version": 93,
+    "net": [
+     2.23451265429392,
+     8.794858336388883,
+     25.02428468707982
+    ]
+   },
+   {
+    "version": 115,
+    "net": [
+     16.54376466415664,
+     6.570927158772155,
+     13.794256302591506
+    ]
+   },
+   {
+    "version": 112,
+    "net": [
+     2.839290950823953,
+     17.13170869341627,
+     13.794256302591506
+    ]
+   },
+   {
+    "version": 101,
+    "net": [
+     16.54376466415664,
+     6.570927158772155,
+     27.545188538072626
+    ]
+   },
+   {
+    "version": 98,
+    "net": [
+     11.791367256717711,
+     11.121495884812628,
+     0.8850198718365314
+    ]
+   },
+   {
+    "version": 127,
+    "net": [
+     2.8023248554292803,
+     20.74445435005357,
+     16.26818749144505
+    ]
+   },
+   {
+    "version": 106,
+    "net": [
+     5.246715157237603,
+     8.794858336388883,
+     22.003358848250066
+    ]
+   },
+   {
+    "version": 101,
+    "net": [
+     4.307165649832975,
+     5.137697981644123,
+     3.2380540747713837
+    ]
+   },
+   {
+    "version": 89,
+    "net": [
+     11.791367256717711,
+     11.121495884812628,
+     22.003358848250066
+    ]
+   },
+   {
+    "version": 83,
+    "net": [
+     6.459682609113667,
+     11.121495884812628,
+     13.794256302591506
+    ]
+   },
+   {
+    "version": 83,
+    "net": [
+     2.23451265429392,
+     14.166059310895363,
+     42.450069125647154
+    ]
+   },
+   {
+    "version": 92,
+    "net": [
+     6.026315928524386,
+     10.100412990996336,
+     22.003358848250066
+    ]
+   },
+   {
+    "version": 95,
+    "net": [
+     11.791367256717711,
+     11.121495884812628,
+     30.801528292166207
+    ]
+   },
+   {
+    "version": 83,
+    "net": [
+     11.791367256717711,
+     11.121495884812628,
+     9.1294503312181
+    ]
+   },
+   {
+    "version": 63,
+    "net": [
+     16.54376466415664,
+     2.4784385643542794,
+     11.49051950146678
+    ]
+   },
+   {
+    "version": 65,
+    "net": [
+     6.982708235790264,
+     7.068484204026413,
+     25.02428468707982
+    ]
+   },
+   {
+    "version": 49,
+    "net": [
+     11.791367256717711,
+     11.121495884812628,
+     4.902119302548886
+    ]
+   },
+   {
+    "version": 50,
+    "net": [
+     16.54376466415664,
+     6.570927158772155,
+     11.49051950146678
+    ]
+   },
+   {
+    "version": 41,
+    "net": [
+     11.791367256717711,
+     11.121495884812628,
+     16.26818749144505
+    ]
+   },
+   {
+    "version": 39,
+    "net": [
+     13.962406386050484,
+     1.8345540133469325,
+     13.794256302591506
+    ]
+   },
+   {
+    "version": 27,
+    "net": [
+     2.482602745620444,
+     14.61080614071712,
+     4.902119302548886
+    ]
+   },
+   {
+    "version": 23,
+    "net": [
+     2.8023248554292803,
+     20.74445435005357,
+     11.49051950146678
+    ]
+   },
+   {
+    "version": 32,
+    "net": [
+     11.791367256717711,
+     11.121495884812628,
+     16.26818749144505
+    ]
+   },
+   {
+    "version": 28,
+    "net": [
+     1.2670440204886724,
+     7.730757830611256,
+     9.1294503312181
+    ]
+   },
+   {
+    "version": 30,
+    "net": [
+     16.54376466415664,
+     6.570927158772155,
+     6.828510422942395
+    ]
+   },
+   {
+    "version": 28,
+    "net": [
+     8.354839874608082,
+     2.251043069667012,
+     18.96095328175979
+    ]
+   },
+   {
+    "version": 35,
+    "net": [
+     11.791367256717711,
+     11.121495884812628,
+     9.1294503312181
+    ]
+   },
+   {
+    "version": 23,
+    "net": [
+     2.748752314284223,
+     11.752993772587596,
+     4.902119302548886
+    ]
+   },
+   {
+    "version": 37,
+    "net": [
+     12.368204626717711,
+     6.894579241300493,
+     9.1294503312181
+    ]
+   },
+   {
+    "version": 26,
+    "net": [
+     5.75603935939497,
+     2.4784385643542794,
+     16.26818749144505
+    ]
+   },
+   {
+    "version": 18,
+    "net": [
+     3.567401102701865,
+     7.420115958977055,
+     0.8850198718365314
+    ]
+   },
+   {
+    "version": 21,
+    "net": [
+     4.307165649832975,
+     4.246014649888561,
+     11.49051950146678
+    ]
+   },
+   {
+    "version": 16,
+    "net": [
+     2.482602745620444,
+     14.61080614071712,
+     3.2380540747713837
+    ]
+   },
+   {
+    "version": 13,
+    "net": [
+     6.982708235790264,
+     15.894030705995963,
+     3.2380540747713837
+    ]
+   },
+   {
+    "version": 3,
+    "net": [
+     2.8023248554292803,
+     20.74445435005357,
+     0.2927839719182657
+    ]
+   },
+   {
+    "version": 2,
+    "net": [
+     4.307165649832975,
+     4.246014649888561,
+     0.2927839719182657
+    ]
+   },
+   {
+    "version": 0,
+    "net": [
+     1.6231271872287212,
+     2.565928470274808,
+     0.8850198718365314
+    ]
+   }
+  ]
+ },
+ {
+  "table": "b",
+  "label": "b1-mwc0iybo",
+  "gameId": "pd727x80fnj8n5vt9x51fbn7jh8j17zy",
+  "playedAt": "2026-11-11T11:10:21.498Z",
+  "setup": "grid-annotated-basics",
+  "overrides": {
+   "halfLifeSeconds": 240,
+   "planningSeconds": 30,
+   "languages": [
+    "python",
+    "typescript"
+   ],
+   "startingEnergy": 4675
+  },
+  "settings": {
+   "commitClause": false,
+   "defenceGoals": false,
+   "durationMode": "fixed",
+   "excludedDefenceFamilies": [],
+   "excludedFamilies": [
+    "staircase_climber",
+    "looking_glass",
+    "pinwheel",
+    "constellation",
+    "mountain_climb",
+    "round_numbers",
+    "divisibility_detective",
+    "seesaw",
+    "stepping_stones",
+    "column_addition",
+    "ladder_of_numbers",
+    "snap",
+    "young_tableau",
+    "fillomino",
+    "bingo_caller",
+    "full_house",
+    "twenty_one",
+    "sudoku_scholar"
+   ],
+   "halfLifeSeconds": 240,
+   "interactionComputeMs": 1000,
+   "interactionRateHz": 25,
+   "languages": [
+    "python",
+    "typescript"
+   ],
+   "maxAgentsPerGod": 200,
+   "objectSelection": "uniform",
+   "objectType": "Grid",
+   "pauseSeconds": 180,
+   "peerNoiseBits": 8,
+   "penaltyWeight": 1,
+   "planningSeconds": 30,
+   "powerPerSecond": 64,
+   "priorId": "uniform",
+   "scoreIntervalSeconds": 10,
+   "spawnFunctionId": "uniform",
+   "spawnRateHz": 0.1,
+   "startingEnergy": 4675,
+   "startingObjectCount": 10,
+   "stepBudget": 500000,
+   "typeArgs": {
+    "colours": "mono",
+    "size": 4,
+    "symbols": "base10"
+   },
+   "utilitySelectorId": "fair-aligned"
+  },
+  "agentLanguage": "typescript",
+  "summonedInPlanning": true,
+  "worldSeconds": 240,
+  "endAtWorld": 240,
+  "phase": "ended",
+  "wallRunningSeconds": 246.678,
+  "worstStallMs": 0,
+  "objectsAtStart": 10,
+  "objectsAtEnd": 34,
+  "engineStats": {
+   "acts": 2486,
+   "commits": 210,
+   "discarded": 0,
+   "opportunities": 5767
+  },
+  "events": {
+   "transform": 2112,
+   "fail": 0,
+   "skip": 374,
+   "spawn": 34
+  },
+  "seats": [
+   {
+    "seat": 0,
+    "policy": "greedy",
+    "utility": {
+     "familyId": "mirrormancer",
+     "params": {
+      "axis": "LR"
+     }
+    },
+    "summonPrice": 4630.213114325509,
+    "expectedActCost": 17.807934264478295,
+    "powerShare": 1,
+    "validation": {
+     "changeRate": 0.9900990099009901,
+     "skipRate": 0.009900990099009901,
+     "expectedSuccessRate": 1,
+     "warnings": []
+    },
+    "totalPayoff": 15261.106424410675,
+    "rank": 1,
+    "acts": 829,
+    "transforms": 691,
+    "skips": 138,
+    "failures": {
+     "collision": 0,
+     "commit": 0,
+     "error": 0,
+     "invalid": 0,
+     "noChange": 0
+    },
+    "lastFailures": {},
+    "spent": 12646.071179501285,
+    "spentRead": 1376.9391953308248,
+    "energyBalance": 2713.928820498511,
+    "storedAccount": {
+     "balance": 2698.3612529309426,
+     "settledWorldSeconds": 239.75675675675674
+    },
+    "deityEnergyStored": {
+     "balance": 44.786885674490804,
+     "settledWorldSeconds": 0
+    },
+    "source": "function utility(grid: any): any {\n  let mirrors = 0;\n  let pairs = 0;\n  for (const line of grid.rows) {\n    const half = Math.floor(line.length / 2);\n    let matches = 0;\n    for (let i = 0; i < half; i++) {\n      if (line[i].value === line[line.length - 1 - i].value) matches += 1;\n    }\n    pairs += matches;\n    if (matches === half) mirrors += 1;\n  }\n  return [mirrors, pairs];\n}\nfunction agent(grid: any) {\n  const n: number = grid.size, real: any[] = grid.cells, rows: any[][] = [];\n  // The prelude's own Cell and Grid classes (the agent's cells are metered views of Cell): a plain, writable board.\n  const CellClass: any = Object.getPrototypeOf(real[0]).constructor, GridClass: any = Object.getPrototypeOf(grid).constructor;\n  for (let r = 0; r < n; r++) {\n    const row: any[] = [];\n    for (let k = 0; k < n; k++) {\n      const x: any = new CellClass(), v: number = real[r * n + k].value;\n      x.row = r; x.col = k; x.value = v; x.symbol = String(v); x.colour = grid.palette[0];\n      row.push(x);\n    }\n    rows.push(row);\n  }\n  const at = (r: number, k: number): any => (r >= 0 && r < n && k >= 0 && k < n ? rows[r][k] : null);\n  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {\n    const x: any = rows[r][k];\n    x.left = at(r, k - 1); x.right = at(r, k + 1); x.up = at(r - 1, k); x.down = at(r + 1, k);\n    x.upLeft = at(r - 1, k - 1); x.upRight = at(r - 1, k + 1); x.downLeft = at(r + 1, k - 1); x.downRight = at(r + 1, k + 1);\n  }\n  const board: any = new GridClass(rows);\n  const list = (o: any): number[] => (typeof o === \"number\" ? [o] : o);\n  const beats = (a: number[], b: number[]): boolean => {\n    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] > b[i];\n    return false;\n  };\n  let best: number[] = list(utility(board)), move: number[] | null = null;\n  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {\n    const x: any = rows[r][k], old: number = x.value;\n    for (let d = 0; d < 10; d++) {\n      if (d === old) continue;\n      x.value = d; x.symbol = String(d);\n      const u: number[] = list(utility(board));\n      if (beats(u, best)) { best = u; move = [r, k, d]; }\n    }\n    x.value = old; x.symbol = String(old);\n  }\n  return move === null ? [] : [write([move[0], move[1]], move[2])];\n}"
+   },
+   {
+    "seat": 1,
+    "policy": "greedy",
+    "utility": {
+     "familyId": "magic_accountant",
+     "params": {
+      "axis": "cols",
+      "target": 21
+     }
+    },
+    "summonPrice": 4442.530280384037,
+    "expectedActCost": 17.96940396664864,
+    "powerShare": 1,
+    "validation": {
+     "changeRate": 1,
+     "skipRate": 0,
+     "expectedSuccessRate": 1,
+     "warnings": []
+    },
+    "totalPayoff": 10147.884461990607,
+    "rank": 3,
+    "acts": 829,
+    "transforms": 719,
+    "skips": 110,
+    "failures": {
+     "collision": 0,
+     "commit": 0,
+     "error": 0,
+     "invalid": 0,
+     "noChange": 0
+    },
+    "lastFailures": {},
+    "spent": 13102.707497239022,
+    "spentRead": 1376.9391953308248,
+    "energyBalance": 2257.2925027607557,
+    "storedAccount": {
+     "balance": 2257.2925027607557,
+     "settledWorldSeconds": 240
+    },
+    "deityEnergyStored": {
+     "balance": 232.46971961596319,
+     "settledWorldSeconds": 0
+    },
+    "source": "const TARGET = 21;\nfunction utility(grid: any): any {\n  let exact = 0;\n  let distance = 0;\n  for (const line of grid.columns) {\n    let total = 0;\n    for (const cell of line) total += cell.value;\n    if (total === TARGET) exact += 1;\n    distance += Math.abs(total - TARGET);\n  }\n  return [exact, -distance];\n}\nfunction agent(grid: any) {\n  const n: number = grid.size, real: any[] = grid.cells, rows: any[][] = [];\n  // The prelude's own Cell and Grid classes (the agent's cells are metered views of Cell): a plain, writable board.\n  const CellClass: any = Object.getPrototypeOf(real[0]).constructor, GridClass: any = Object.getPrototypeOf(grid).constructor;\n  for (let r = 0; r < n; r++) {\n    const row: any[] = [];\n    for (let k = 0; k < n; k++) {\n      const x: any = new CellClass(), v: number = real[r * n + k].value;\n      x.row = r; x.col = k; x.value = v; x.symbol = String(v); x.colour = grid.palette[0];\n      row.push(x);\n    }\n    rows.push(row);\n  }\n  const at = (r: number, k: number): any => (r >= 0 && r < n && k >= 0 && k < n ? rows[r][k] : null);\n  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {\n    const x: any = rows[r][k];\n    x.left = at(r, k - 1); x.right = at(r, k + 1); x.up = at(r - 1, k); x.down = at(r + 1, k);\n    x.upLeft = at(r - 1, k - 1); x.upRight = at(r - 1, k + 1); x.downLeft = at(r + 1, k - 1); x.downRight = at(r + 1, k + 1);\n  }\n  const board: any = new GridClass(rows);\n  const list = (o: any): number[] => (typeof o === \"number\" ? [o] : o);\n  const beats = (a: number[], b: number[]): boolean => {\n    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] > b[i];\n    return false;\n  };\n  let best: number[] = list(utility(board)), move: number[] | null = null;\n  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {\n    const x: any = rows[r][k], old: number = x.value;\n    for (let d = 0; d < 10; d++) {\n      if (d === old) continue;\n      x.value = d; x.symbol = String(d);\n      const u: number[] = list(utility(board));\n      if (beats(u, best)) { best = u; move = [r, k, d]; }\n    }\n    x.value = old; x.symbol = String(old);\n  }\n  return move === null ? [] : [write([move[0], move[1]], move[2])];\n}"
+   },
+   {
+    "seat": 2,
+    "policy": "greedy",
+    "utility": {
+     "familyId": "magic_accountant",
+     "params": {
+      "axis": "cols",
+      "target": 20
+     }
+    },
+    "summonPrice": 4442.530280384037,
+    "expectedActCost": 17.96940396664864,
+    "powerShare": 1,
+    "validation": {
+     "changeRate": 1,
+     "skipRate": 0,
+     "expectedSuccessRate": 1,
+     "warnings": []
+    },
+    "totalPayoff": 11028.772525760047,
+    "rank": 2,
+    "acts": 828,
+    "transforms": 702,
+    "skips": 126,
+    "failures": {
+     "collision": 0,
+     "commit": 0,
+     "error": 0,
+     "invalid": 0,
+     "noChange": 0
+    },
+    "lastFailures": {},
+    "spent": 12823.803054565096,
+    "spentRead": 1375.278231283381,
+    "energyBalance": 2536.1969454347004,
+    "storedAccount": {
+     "balance": 2533.6023508401054,
+     "settledWorldSeconds": 239.95945945945945
+    },
+    "deityEnergyStored": {
+     "balance": 232.46971961596319,
+     "settledWorldSeconds": 0
+    },
+    "source": "const TARGET = 20;\nfunction utility(grid: any): any {\n  let exact = 0;\n  let distance = 0;\n  for (const line of grid.columns) {\n    let total = 0;\n    for (const cell of line) total += cell.value;\n    if (total === TARGET) exact += 1;\n    distance += Math.abs(total - TARGET);\n  }\n  return [exact, -distance];\n}\nfunction agent(grid: any) {\n  const n: number = grid.size, real: any[] = grid.cells, rows: any[][] = [];\n  // The prelude's own Cell and Grid classes (the agent's cells are metered views of Cell): a plain, writable board.\n  const CellClass: any = Object.getPrototypeOf(real[0]).constructor, GridClass: any = Object.getPrototypeOf(grid).constructor;\n  for (let r = 0; r < n; r++) {\n    const row: any[] = [];\n    for (let k = 0; k < n; k++) {\n      const x: any = new CellClass(), v: number = real[r * n + k].value;\n      x.row = r; x.col = k; x.value = v; x.symbol = String(v); x.colour = grid.palette[0];\n      row.push(x);\n    }\n    rows.push(row);\n  }\n  const at = (r: number, k: number): any => (r >= 0 && r < n && k >= 0 && k < n ? rows[r][k] : null);\n  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {\n    const x: any = rows[r][k];\n    x.left = at(r, k - 1); x.right = at(r, k + 1); x.up = at(r - 1, k); x.down = at(r + 1, k);\n    x.upLeft = at(r - 1, k - 1); x.upRight = at(r - 1, k + 1); x.downLeft = at(r + 1, k - 1); x.downRight = at(r + 1, k + 1);\n  }\n  const board: any = new GridClass(rows);\n  const list = (o: any): number[] => (typeof o === \"number\" ? [o] : o);\n  const beats = (a: number[], b: number[]): boolean => {\n    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] > b[i];\n    return false;\n  };\n  let best: number[] = list(utility(board)), move: number[] | null = null;\n  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {\n    const x: any = rows[r][k], old: number = x.value;\n    for (let d = 0; d < 10; d++) {\n      if (d === old) continue;\n      x.value = d; x.symbol = String(d);\n      const u: number[] = list(utility(board));\n      if (beats(u, best)) { best = u; move = [r, k, d]; }\n    }\n    x.value = old; x.symbol = String(old);\n  }\n  return move === null ? [] : [write([move[0], move[1]], move[2])];\n}"
+   }
+  ],
+  "objects": [
+   {
+    "version": 92,
+    "net": [
+     14.76346561975979,
+     17.75453674041627,
+     2.9546854328790086
+    ]
+   },
+   {
+    "version": 84,
+    "net": [
+     24.570024771137426,
+     7.571436884352266,
+     17.556804422647154
+    ]
+   },
+   {
+    "version": 94,
+    "net": [
+     33.63431844805357,
+     3.054815620469406,
+     21.178141526995965
+    ]
+   },
+   {
+    "version": 73,
+    "net": [
+     33.63431844805357,
+     3.054815620469406,
+     21.178141526995965
+    ]
+   },
+   {
+    "version": 96,
+    "net": [
+     12.577995726383293,
+     6.459682609113667,
+     9.052460689156641
+    ]
+   },
+   {
+    "version": 83,
+    "net": [
+     33.63431844805357,
+     3.054815620469406,
+     21.178141526995965
+    ]
+   },
+   {
+    "version": 82,
+    "net": [
+     33.63431844805357,
+     21.433330289717713,
+     2.962193096323837
+    ]
+   },
+   {
+    "version": 74,
+    "net": [
+     33.63431844805357,
+     3.054815620469406,
+     21.178141526995965
+    ]
+   },
+   {
+    "version": 99,
+    "net": [
+     24.570024771137426,
+     17.75453674041627,
+     7.138829755599761
+    ]
+   },
+   {
+    "version": 91,
+    "net": [
+     24.570024771137426,
+     17.75453674041627,
+     7.138829755599761
+    ]
+   },
+   {
+    "version": 95,
+    "net": [
+     3.019160107416271,
+     17.75453674041627,
+     7.138829755599761
+    ]
+   },
+   {
+    "version": 74,
+    "net": [
+     24.570024771137426,
+     7.571436884352266,
+     17.556804422647154
+    ]
+   },
+   {
+    "version": 96,
+    "net": [
+     1.0444943917626537,
+     17.75453674041627,
+     7.138829755599761
+    ]
+   },
+   {
+    "version": 95,
+    "net": [
+     12.577995726383293,
+     12.921758944623578,
+     12.655980424337562
+    ]
+   },
+   {
+    "version": 68,
+    "net": [
+     33.63431844805357,
+     3.054815620469406,
+     21.178141526995965
+    ]
+   },
+   {
+    "version": 93,
+    "net": [
+     24.570024771137426,
+     17.75453674041627,
+     7.138829755599761
+    ]
+   },
+   {
+    "version": 90,
+    "net": [
+     9.531371586524386,
+     7.571436884352266,
+     17.556804422647154
+    ]
+   },
+   {
+    "version": 65,
+    "net": [
+     33.63431844805357,
+     21.433330289717713,
+     2.962193096323837
+    ]
+   },
+   {
+    "version": 68,
+    "net": [
+     33.63431844805357,
+     21.433330289717713,
+     2.962193096323837
+    ]
+   },
+   {
+    "version": 67,
+    "net": [
+     24.570024771137426,
+     17.75453674041627,
+     7.138829755599761
+    ]
+   },
+   {
+    "version": 72,
+    "net": [
+     24.570024771137426,
+     7.571436884352266,
+     17.556804422647154
+    ]
+   },
+   {
+    "version": 49,
+    "net": [
+     14.76346561975979,
+     7.329296334466782,
+     11.278037780008466
+    ]
+   },
+   {
+    "version": 38,
+    "net": [
+     21.60900582827481,
+     9.9792701660055,
+     2.7958082217710283
+    ]
+   },
+   {
+    "version": 38,
+    "net": [
+     6.873444137097088,
+     7.571436884352266,
+     17.556804422647154
+    ]
+   },
+   {
+    "version": 41,
+    "net": [
+     24.570024771137426,
+     17.75453674041627,
+     7.138829755599761
+    ]
+   },
+   {
+    "version": 30,
+    "net": [
+     33.63431844805357,
+     3.054815620469406,
+     21.178141526995965
+    ]
+   },
+   {
+    "version": 44,
+    "net": [
+     6.873444137097088,
+     12.368204626717711,
+     6.886000344624149
+    ]
+   },
+   {
+    "version": 23,
+    "net": [
+     6.873444137097088,
+     3.3053361323312123,
+     3.220358018493794
+    ]
+   },
+   {
+    "version": 21,
+    "net": [
+     6.873444137097088,
+     3.054815620469406,
+     21.178141526995965
+    ]
+   },
+   {
+    "version": 37,
+    "net": [
+     24.570024771137426,
+     11.252731686232242,
+     6.886000344624149
+    ]
+   },
+   {
+    "version": 15,
+    "net": [
+     5.4987990220335785,
+     17.75453674041627,
+     7.138829755599761
+    ]
+   },
+   {
+    "version": 19,
+    "net": [
+     3.019160107416271,
+     21.433330289717713,
+     2.962193096323837
+    ]
+   },
+   {
+    "version": 3,
+    "net": [
+     12.577995726383293,
+     5.496072286872906,
+     2.206978037084308
+    ]
+   },
+   {
+    "version": 3,
+    "net": [
+     5.4987990220335785,
+     1.6231271872287212,
+     1.1487833948591257
+    ]
+   }
+  ]
+ },
+ {
+  "table": "a",
+  "label": "a2-mwc0iybo",
+  "gameId": "pd78kxjhjvxh6fym396xmrt21n8j1v1g",
+  "playedAt": "2026-11-11T11:10:21.060Z",
+  "setup": "grid-annotated-basics",
+  "overrides": {
+   "halfLifeSeconds": 240,
+   "planningSeconds": 30,
+   "languages": [
+    "python",
+    "typescript"
+   ],
+   "startingEnergy": 500
+  },
+  "settings": {
+   "commitClause": false,
+   "defenceGoals": false,
+   "durationMode": "fixed",
+   "excludedDefenceFamilies": [],
+   "excludedFamilies": [
+    "staircase_climber",
+    "looking_glass",
+    "pinwheel",
+    "constellation",
+    "mountain_climb",
+    "round_numbers",
+    "divisibility_detective",
+    "seesaw",
+    "stepping_stones",
+    "column_addition",
+    "ladder_of_numbers",
+    "snap",
+    "young_tableau",
+    "fillomino",
+    "bingo_caller",
+    "full_house",
+    "twenty_one",
+    "sudoku_scholar"
+   ],
+   "halfLifeSeconds": 240,
+   "interactionComputeMs": 1000,
+   "interactionRateHz": 25,
+   "languages": [
+    "python",
+    "typescript"
+   ],
+   "maxAgentsPerGod": 200,
+   "objectSelection": "uniform",
+   "objectType": "Grid",
+   "pauseSeconds": 180,
+   "peerNoiseBits": 8,
+   "penaltyWeight": 1,
+   "planningSeconds": 30,
+   "powerPerSecond": 64,
+   "priorId": "uniform",
+   "scoreIntervalSeconds": 10,
+   "spawnFunctionId": "uniform",
+   "spawnRateHz": 0.1,
+   "startingEnergy": 500,
+   "startingObjectCount": 10,
+   "stepBudget": 500000,
+   "typeArgs": {
+    "colours": "mono",
+    "size": 4,
+    "symbols": "base10"
+   },
+   "utilitySelectorId": "fair-aligned"
+  },
+  "agentLanguage": "typescript",
+  "summonedInPlanning": true,
+  "worldSeconds": 240,
+  "endAtWorld": 240,
+  "phase": "ended",
+  "wallRunningSeconds": 242.223,
+  "worstStallMs": 0,
+  "objectsAtStart": 10,
+  "objectsAtEnd": 43,
+  "engineStats": {
+   "acts": 2497,
+   "commits": 211,
+   "discarded": 0,
+   "opportunities": 5783
+  },
+  "events": {
+   "transform": 2232,
+   "fail": 265,
+   "skip": 0,
+   "spawn": 43
+  },
+  "seats": [
+   {
+    "seat": 0,
+    "policy": "random",
+    "utility": {
+     "familyId": "number_bonds",
+     "params": {}
+    },
+    "summonPrice": 450.2851482071002,
+    "expectedActCost": 14.613008046416342,
+    "powerShare": 1,
+    "validation": {
+     "changeRate": 0.8960396039603961,
+     "skipRate": 0,
+     "expectedSuccessRate": 0.875,
+     "warnings": []
+    },
+    "totalPayoff": 84.48072292085897,
+    "rank": 3,
+    "acts": 832,
+    "transforms": 748,
+    "skips": 0,
+    "failures": {
+     "collision": 0,
+     "commit": 0,
+     "error": 0,
+     "invalid": 0,
+     "noChange": 84
+    },
+    "lastFailures": {},
+    "spent": 12198.71305956524,
+    "spentRead": 0,
+    "energyBalance": 3161.2869404346748,
+    "storedAccount": {
+     "balance": 3147.5560313437672,
+     "settledWorldSeconds": 239.78545454545457
+    },
+    "deityEnergyStored": {
+     "balance": 49.71485179289982,
+     "settledWorldSeconds": 0
+    },
+    "source": "function agent(grid) {\n  const n = grid.size;\n  const r = Math.floor(Math.random() * n), k = Math.floor(Math.random() * n);\n  return [write([r, k], Math.floor(Math.random() * 10))];\n}"
+   },
+   {
+    "seat": 1,
+    "policy": "random",
+    "utility": {
+     "familyId": "mirrormancer",
+     "params": {
+      "axis": "TB"
+     }
+    },
+    "summonPrice": 450.2851482071002,
+    "expectedActCost": 14.613008046416342,
+    "powerShare": 1,
+    "validation": {
+     "changeRate": 0.8960396039603961,
+     "skipRate": 0,
+     "expectedSuccessRate": 0.875,
+     "warnings": []
+    },
+    "totalPayoff": 142.69058458458824,
+    "rank": 1,
+    "acts": 833,
+    "transforms": 749,
+    "skips": 0,
+    "failures": {
+     "collision": 0,
+     "commit": 0,
+     "error": 0,
+     "invalid": 0,
+     "noChange": 84
+    },
+    "lastFailures": {},
+    "spent": 12215.021499484445,
+    "spentRead": 0,
+    "energyBalance": 3144.9785005154745,
+    "storedAccount": {
+     "balance": 3144.9785005154745,
+     "settledWorldSeconds": 240
+    },
+    "deityEnergyStored": {
+     "balance": 49.71485179289982,
+     "settledWorldSeconds": 0
+    },
+    "source": "function agent(grid) {\n  const n = grid.size;\n  const r = Math.floor(Math.random() * n), k = Math.floor(Math.random() * n);\n  return [write([r, k], Math.floor(Math.random() * 10))];\n}"
+   },
+   {
+    "seat": 2,
+    "policy": "random",
+    "utility": {
+     "familyId": "mirrormancer",
+     "params": {
+      "axis": "LR"
+     }
+    },
+    "summonPrice": 450.2851482071002,
+    "expectedActCost": 14.613008046416342,
+    "powerShare": 1,
+    "validation": {
+     "changeRate": 0.8960396039603961,
+     "skipRate": 0,
+     "expectedSuccessRate": 0.875,
+     "warnings": []
+    },
+    "totalPayoff": 107.48760167831391,
+    "rank": 2,
+    "acts": 832,
+    "transforms": 735,
+    "skips": 0,
+    "failures": {
+     "collision": 0,
+     "commit": 0,
+     "error": 0,
+     "invalid": 0,
+     "noChange": 97
+    },
+    "lastFailures": {},
+    "spent": 11986.703340615577,
+    "spentRead": 0,
+    "energyBalance": 3373.2966593843594,
+    "storedAccount": {
+     "balance": 3362.3119321116337,
+     "settledWorldSeconds": 239.82836363636366
+    },
+    "deityEnergyStored": {
+     "balance": 49.71485179289982,
+     "settledWorldSeconds": 0
+    },
+    "source": "function agent(grid) {\n  const n = grid.size;\n  const r = Math.floor(Math.random() * n), k = Math.floor(Math.random() * n);\n  return [write([r, k], Math.floor(Math.random() * 10))];\n}"
+   }
+  ],
+  "objects": [
+   {
+    "version": 96,
+    "net": [
+     0.000001,
+     1.0444943917626537,
+     0.000001
+    ]
+   },
+   {
+    "version": 125,
+    "net": [
+     0.2927839719182657,
+     0.000001,
+     1.0444943917626537
+    ]
+   },
+   {
+    "version": 101,
+    "net": [
+     0.2927839719182657,
+     0.000001,
+     1.0444943917626537
+    ]
+   },
+   {
+    "version": 101,
+    "net": [
+     0.8850198718365314,
+     1.0444943917626537,
+     1.0444943917626537
+    ]
+   },
+   {
+    "version": 87,
+    "net": [
+     0.000001,
+     0.000001,
+     1.0444943917626537
+    ]
+   },
+   {
+    "version": 131,
+    "net": [
+     0.000001,
+     6.873444137097088,
+     1.0444943917626537
+    ]
+   },
+   {
+    "version": 98,
+    "net": [
+     0.8850198718365314,
+     0.000001,
+     0.000001
+    ]
+   },
+   {
+    "version": 92,
+    "net": [
+     0.8850198718365314,
+     0.000001,
+     0.000001
+    ]
+   },
+   {
+    "version": 102,
+    "net": [
+     0.2927839719182657,
+     4.835835156412884,
+     1.0444943917626537
+    ]
+   },
+   {
+    "version": 115,
+    "net": [
+     0.2927839719182657,
+     0.000001,
+     1.0444943917626537
+    ]
+   },
+   {
+    "version": 117,
+    "net": [
+     1.8681599155099198,
+     6.873444137097088,
+     0.000001
+    ]
+   },
+   {
+    "version": 108,
+    "net": [
+     0.8850198718365314,
+     3.019160107416271,
+     1.0444943917626537
+    ]
+   },
+   {
+    "version": 88,
+    "net": [
+     0.000001,
+     1.0444943917626537,
+     0.000001
+    ]
+   },
+   {
+    "version": 94,
+    "net": [
+     0.8850198718365314,
+     0.000001,
+     0.000001
+    ]
+   },
+   {
+    "version": 64,
+    "net": [
+     0.000001,
+     0.000001,
+     0.000001
+    ]
+   },
+   {
+    "version": 65,
+    "net": [
+     0.8850198718365314,
+     3.019160107416271,
+     6.873444137097088
+    ]
+   },
+   {
+    "version": 59,
+    "net": [
+     0.8850198718365314,
+     0.000001,
+     0.000001
+    ]
+   },
+   {
+    "version": 47,
+    "net": [
+     0.000001,
+     1.0444943917626537,
+     0.000001
+    ]
+   },
+   {
+    "version": 42,
+    "net": [
+     0.8850198718365314,
+     4.835835156412884,
+     1.0444943917626537
+    ]
+   },
+   {
+    "version": 53,
+    "net": [
+     0.2927839719182657,
+     1.0444943917626537,
+     0.000001
+    ]
+   },
+   {
+    "version": 48,
+    "net": [
+     1.8681599155099198,
+     0.000001,
+     0.000001
+    ]
+   },
+   {
+    "version": 45,
+    "net": [
+     0.8850198718365314,
+     5.4987990220335785,
+     3.019160107416271
+    ]
+   },
+   {
+    "version": 50,
+    "net": [
+     0.8850198718365314,
+     1.0444943917626537,
+     0.000001
+    ]
+   },
+   {
+    "version": 38,
+    "net": [
+     0.000001,
+     0.000001,
+     1.0444943917626537
+    ]
+   },
+   {
+    "version": 40,
+    "net": [
+     4.902119302548886,
+     1.0444943917626537,
+     0.000001
+    ]
+   },
+   {
+    "version": 53,
+    "net": [
+     1.8681599155099198,
+     1.0444943917626537,
+     0.000001
+    ]
+   },
+   {
+    "version": 17,
+    "net": [
+     0.2927839719182657,
+     1.0444943917626537,
+     5.4987990220335785
+    ]
+   },
+   {
+    "version": 30,
+    "net": [
+     0.8850198718365314,
+     1.0444943917626537,
+     0.000001
+    ]
+   },
+   {
+    "version": 29,
+    "net": [
+     0.8850198718365314,
+     0.000001,
+     1.0444943917626537
+    ]
+   },
+   {
+    "version": 16,
+    "net": [
+     1.8681599155099198,
+     1.0444943917626537,
+     0.000001
+    ]
+   },
+   {
+    "version": 11,
+    "net": [
+     0.2927839719182657,
+     0.000001,
+     0.000001
+    ]
+   },
+   {
+    "version": 17,
+    "net": [
+     0.2927839719182657,
+     0.000001,
+     0.000001
+    ]
+   },
+   {
+    "version": 18,
+    "net": [
+     0.8850198718365314,
+     3.019160107416271,
+     0.000001
+    ]
+   },
+   {
+    "version": 6,
+    "net": [
+     1.8681599155099198,
+     3.019160107416271,
+     0.000001
+    ]
+   },
+   {
+    "version": 15,
+    "net": [
+     0.000001,
+     1.0444943917626537,
+     0.000001
+    ]
+   },
+   {
+    "version": 1,
+    "net": [
+     0.2927839719182657,
+     0.000001,
+     1.0444943917626537
+    ]
+   },
+   {
+    "version": 4,
+    "net": [
+     0.000001,
+     1.0444943917626537,
+     1.0444943917626537
+    ]
+   },
+   {
+    "version": 2,
+    "net": [
+     0.2927839719182657,
+     1.0444943917626537,
+     0.000001
+    ]
+   },
+   {
+    "version": 1,
+    "net": [
+     0.2927839719182657,
+     0.000001,
+     1.0444943917626537
+    ]
+   },
+   {
+    "version": 0,
+    "net": [
+     6.828510422942395,
+     1.0444943917626537,
+     0.000001
+    ]
+   },
+   {
+    "version": 3,
+    "net": [
+     0.8850198718365314,
+     1.0444943917626537,
+     9.531371586524386
+    ]
+   },
+   {
+    "version": 1,
+    "net": [
+     0.8850198718365314,
+     0.000001,
+     0.000001
+    ]
+   },
+   {
+    "version": 2,
+    "net": [
+     0.2927839719182657,
+     6.873444137097088,
+     1.0444943917626537
+    ]
+   }
+  ]
+ },
+ {
+  "table": "b",
+  "label": "b3-mwc0iybo",
+  "gameId": "pd78zfmc7e2vm8wr0k2sc85c2n8j1g65",
+  "playedAt": "2026-11-11T11:15:10.889Z",
+  "setup": "grid-annotated-basics",
+  "overrides": {
+   "halfLifeSeconds": 240,
+   "planningSeconds": 30,
+   "languages": [
+    "python",
+    "typescript"
+   ],
+   "startingEnergy": 4675
+  },
+  "settings": {
+   "commitClause": false,
+   "defenceGoals": false,
+   "durationMode": "fixed",
+   "excludedDefenceFamilies": [],
+   "excludedFamilies": [
+    "staircase_climber",
+    "looking_glass",
+    "pinwheel",
+    "constellation",
+    "mountain_climb",
+    "round_numbers",
+    "divisibility_detective",
+    "seesaw",
+    "stepping_stones",
+    "column_addition",
+    "ladder_of_numbers",
+    "snap",
+    "young_tableau",
+    "fillomino",
+    "bingo_caller",
+    "full_house",
+    "twenty_one",
+    "sudoku_scholar"
+   ],
+   "halfLifeSeconds": 240,
+   "interactionComputeMs": 1000,
+   "interactionRateHz": 25,
+   "languages": [
+    "python",
+    "typescript"
+   ],
+   "maxAgentsPerGod": 200,
+   "objectSelection": "uniform",
+   "objectType": "Grid",
+   "pauseSeconds": 180,
+   "peerNoiseBits": 8,
+   "penaltyWeight": 1,
+   "planningSeconds": 30,
+   "powerPerSecond": 64,
+   "priorId": "uniform",
+   "scoreIntervalSeconds": 10,
+   "spawnFunctionId": "uniform",
+   "spawnRateHz": 0.1,
+   "startingEnergy": 4675,
+   "startingObjectCount": 10,
+   "stepBudget": 500000,
+   "typeArgs": {
+    "colours": "mono",
+    "size": 4,
+    "symbols": "base10"
+   },
+   "utilitySelectorId": "fair-aligned"
+  },
+  "agentLanguage": "typescript",
+  "summonedInPlanning": true,
+  "worldSeconds": 240,
+  "endAtWorld": 240,
+  "phase": "ended",
+  "wallRunningSeconds": 240.329,
+  "worstStallMs": 0,
+  "objectsAtStart": 10,
+  "objectsAtEnd": 39,
+  "engineStats": {
+   "acts": 2152,
+   "commits": 164,
+   "discarded": 0,
+   "opportunities": 4921
+  },
+  "events": {
+   "transform": 2056,
+   "fail": 0,
+   "skip": 96,
+   "spawn": 39
+  },
+  "seats": [
+   {
+    "seat": 0,
+    "policy": "greedy",
+    "utility": {
+     "familyId": "number_bonds",
+     "params": {}
+    },
+    "summonPrice": 4379.873567925095,
+    "expectedActCost": 17.96940396664864,
+    "powerShare": 1,
+    "validation": {
+     "changeRate": 1,
+     "skipRate": 0,
+     "expectedSuccessRate": 1,
+     "warnings": []
+    },
+    "totalPayoff": 8353.777329068946,
+    "rank": 1,
+    "acts": 715,
+    "transforms": 712,
+    "skips": 3,
+    "failures": {
+     "collision": 0,
+     "commit": 0,
+     "error": 0,
+     "invalid": 0,
+     "noChange": 0
+    },
+    "lastFailures": {},
+    "spent": 12799.198516396029,
+    "spentRead": 1187.5892939222415,
+    "energyBalance": 2560.801483603759,
+    "storedAccount": {
+     "balance": 2558.689483603758,
+     "settledWorldSeconds": 239.96699999999998
+    },
+    "deityEnergyStored": {
+     "balance": 295.1264320749051,
+     "settledWorldSeconds": 0
+    },
+    "source": "const TARGET = 10;\nfunction utility(grid: any): any {\n  let bonds = 0;\n  for (const cell of grid.cells) {\n    for (const other of [cell.right, cell.down]) {\n      if (other !== null && cell.value + other.value === TARGET) bonds += 1;\n    }\n  }\n  return bonds;\n}\nfunction agent(grid: any) {\n  const n: number = grid.size, real: any[] = grid.cells, rows: any[][] = [];\n  // The prelude's own Cell and Grid classes (the agent's cells are metered views of Cell): a plain, writable board.\n  const CellClass: any = Object.getPrototypeOf(real[0]).constructor, GridClass: any = Object.getPrototypeOf(grid).constructor;\n  for (let r = 0; r < n; r++) {\n    const row: any[] = [];\n    for (let k = 0; k < n; k++) {\n      const x: any = new CellClass(), v: number = real[r * n + k].value;\n      x.row = r; x.col = k; x.value = v; x.symbol = String(v); x.colour = grid.palette[0];\n      row.push(x);\n    }\n    rows.push(row);\n  }\n  const at = (r: number, k: number): any => (r >= 0 && r < n && k >= 0 && k < n ? rows[r][k] : null);\n  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {\n    const x: any = rows[r][k];\n    x.left = at(r, k - 1); x.right = at(r, k + 1); x.up = at(r - 1, k); x.down = at(r + 1, k);\n    x.upLeft = at(r - 1, k - 1); x.upRight = at(r - 1, k + 1); x.downLeft = at(r + 1, k - 1); x.downRight = at(r + 1, k + 1);\n  }\n  const board: any = new GridClass(rows);\n  const list = (o: any): number[] => (typeof o === \"number\" ? [o] : o);\n  const beats = (a: number[], b: number[]): boolean => {\n    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] > b[i];\n    return false;\n  };\n  let best: number[] = list(utility(board)), move: number[] | null = null;\n  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {\n    const x: any = rows[r][k], old: number = x.value;\n    for (let d = 0; d < 10; d++) {\n      if (d === old) continue;\n      x.value = d; x.symbol = String(d);\n      const u: number[] = list(utility(board));\n      if (beats(u, best)) { best = u; move = [r, k, d]; }\n    }\n    x.value = old; x.symbol = String(old);\n  }\n  return move === null ? [] : [write([move[0], move[1]], move[2])];\n}"
+   },
+   {
+    "seat": 1,
+    "policy": "greedy",
+    "utility": {
+     "familyId": "magic_accountant",
+     "params": {
+      "axis": "cols",
+      "target": 15
+     }
+    },
+    "summonPrice": 4442.530280384037,
+    "expectedActCost": 17.96940396664864,
+    "powerShare": 1,
+    "validation": {
+     "changeRate": 1,
+     "skipRate": 0,
+     "expectedSuccessRate": 1,
+     "warnings": []
+    },
+    "totalPayoff": 6420.990257803463,
+    "rank": 3,
+    "acts": 716,
+    "transforms": 675,
+    "skips": 41,
+    "failures": {
+     "collision": 0,
+     "commit": 0,
+     "error": 0,
+     "invalid": 0,
+     "noChange": 0
+    },
+    "lastFailures": {},
+    "spent": 12197.447203432894,
+    "spentRead": 1189.2502579696852,
+    "energyBalance": 3162.552796566907,
+    "storedAccount": {
+     "balance": 3149.0274632335686,
+     "settledWorldSeconds": 239.7886666666666
+    },
+    "deityEnergyStored": {
+     "balance": 232.46971961596319,
+     "settledWorldSeconds": 0
+    },
+    "source": "const TARGET = 15;\nfunction utility(grid: any): any {\n  let exact = 0;\n  let distance = 0;\n  for (const line of grid.columns) {\n    let total = 0;\n    for (const cell of line) total += cell.value;\n    if (total === TARGET) exact += 1;\n    distance += Math.abs(total - TARGET);\n  }\n  return [exact, -distance];\n}\nfunction agent(grid: any) {\n  const n: number = grid.size, real: any[] = grid.cells, rows: any[][] = [];\n  // The prelude's own Cell and Grid classes (the agent's cells are metered views of Cell): a plain, writable board.\n  const CellClass: any = Object.getPrototypeOf(real[0]).constructor, GridClass: any = Object.getPrototypeOf(grid).constructor;\n  for (let r = 0; r < n; r++) {\n    const row: any[] = [];\n    for (let k = 0; k < n; k++) {\n      const x: any = new CellClass(), v: number = real[r * n + k].value;\n      x.row = r; x.col = k; x.value = v; x.symbol = String(v); x.colour = grid.palette[0];\n      row.push(x);\n    }\n    rows.push(row);\n  }\n  const at = (r: number, k: number): any => (r >= 0 && r < n && k >= 0 && k < n ? rows[r][k] : null);\n  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {\n    const x: any = rows[r][k];\n    x.left = at(r, k - 1); x.right = at(r, k + 1); x.up = at(r - 1, k); x.down = at(r + 1, k);\n    x.upLeft = at(r - 1, k - 1); x.upRight = at(r - 1, k + 1); x.downLeft = at(r + 1, k - 1); x.downRight = at(r + 1, k + 1);\n  }\n  const board: any = new GridClass(rows);\n  const list = (o: any): number[] => (typeof o === \"number\" ? [o] : o);\n  const beats = (a: number[], b: number[]): boolean => {\n    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] > b[i];\n    return false;\n  };\n  let best: number[] = list(utility(board)), move: number[] | null = null;\n  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {\n    const x: any = rows[r][k], old: number = x.value;\n    for (let d = 0; d < 10; d++) {\n      if (d === old) continue;\n      x.value = d; x.symbol = String(d);\n      const u: number[] = list(utility(board));\n      if (beats(u, best)) { best = u; move = [r, k, d]; }\n    }\n    x.value = old; x.symbol = String(old);\n  }\n  return move === null ? [] : [write([move[0], move[1]], move[2])];\n}"
+   },
+   {
+    "seat": 2,
+    "policy": "greedy",
+    "utility": {
+     "familyId": "magic_accountant",
+     "params": {
+      "axis": "cols",
+      "target": 17
+     }
+    },
+    "summonPrice": 4442.530280384037,
+    "expectedActCost": 17.96940396664864,
+    "powerShare": 1,
+    "validation": {
+     "changeRate": 1,
+     "skipRate": 0,
+     "expectedSuccessRate": 1,
+     "warnings": []
+    },
+    "totalPayoff": 6752.577418017664,
+    "rank": 2,
+    "acts": 721,
+    "transforms": 669,
+    "skips": 52,
+    "failures": {
+     "collision": 0,
+     "commit": 0,
+     "error": 0,
+     "invalid": 0,
+     "noChange": 0
+    },
+    "lastFailures": {},
+    "spent": 12107.901384154884,
+    "spentRead": 1197.5550782069038,
+    "energyBalance": 3252.0986158449205,
+    "storedAccount": {
+     "balance": 3252.0986158449205,
+     "settledWorldSeconds": 240
+    },
+    "deityEnergyStored": {
+     "balance": 232.46971961596319,
+     "settledWorldSeconds": 0
+    },
+    "source": "const TARGET = 17;\nfunction utility(grid: any): any {\n  let exact = 0;\n  let distance = 0;\n  for (const line of grid.columns) {\n    let total = 0;\n    for (const cell of line) total += cell.value;\n    if (total === TARGET) exact += 1;\n    distance += Math.abs(total - TARGET);\n  }\n  return [exact, -distance];\n}\nfunction agent(grid: any) {\n  const n: number = grid.size, real: any[] = grid.cells, rows: any[][] = [];\n  // The prelude's own Cell and Grid classes (the agent's cells are metered views of Cell): a plain, writable board.\n  const CellClass: any = Object.getPrototypeOf(real[0]).constructor, GridClass: any = Object.getPrototypeOf(grid).constructor;\n  for (let r = 0; r < n; r++) {\n    const row: any[] = [];\n    for (let k = 0; k < n; k++) {\n      const x: any = new CellClass(), v: number = real[r * n + k].value;\n      x.row = r; x.col = k; x.value = v; x.symbol = String(v); x.colour = grid.palette[0];\n      row.push(x);\n    }\n    rows.push(row);\n  }\n  const at = (r: number, k: number): any => (r >= 0 && r < n && k >= 0 && k < n ? rows[r][k] : null);\n  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {\n    const x: any = rows[r][k];\n    x.left = at(r, k - 1); x.right = at(r, k + 1); x.up = at(r - 1, k); x.down = at(r + 1, k);\n    x.upLeft = at(r - 1, k - 1); x.upRight = at(r - 1, k + 1); x.downLeft = at(r + 1, k - 1); x.downRight = at(r + 1, k + 1);\n  }\n  const board: any = new GridClass(rows);\n  const list = (o: any): number[] => (typeof o === \"number\" ? [o] : o);\n  const beats = (a: number[], b: number[]): boolean => {\n    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] > b[i];\n    return false;\n  };\n  let best: number[] = list(utility(board)), move: number[] | null = null;\n  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {\n    const x: any = rows[r][k], old: number = x.value;\n    for (let d = 0; d < 10; d++) {\n      if (d === old) continue;\n      x.value = d; x.symbol = String(d);\n      const u: number[] = list(utility(board));\n      if (beats(u, best)) { best = u; move = [r, k, d]; }\n    }\n    x.value = old; x.symbol = String(old);\n  }\n  return move === null ? [] : [write([move[0], move[1]], move[2])];\n}"
+   }
+  ],
+  "objects": [
+   {
+    "version": 104,
+    "net": [
+     16.26818749144505,
+     5.496072286872906,
+     9.086907828637024
+    ]
+   },
+   {
+    "version": 101,
+    "net": [
+     18.96095328175979,
+     14.660755268447502,
+     2.565928470274808
+    ]
+   },
+   {
+    "version": 94,
+    "net": [
+     16.26818749144505,
+     6.982708235790264,
+     15.894030705995963
+    ]
+   },
+   {
+    "version": 101,
+    "net": [
+     13.794256302591506,
+     2.8023248554292803,
+     20.74445435005357
+    ]
+   },
+   {
+    "version": 90,
+    "net": [
+     18.96095328175979,
+     14.660755268447502,
+     2.565928470274808
+    ]
+   },
+   {
+    "version": 81,
+    "net": [
+     13.794256302591506,
+     2.5879697086071247,
+     8.158045717362398
+    ]
+   },
+   {
+    "version": 82,
+    "net": [
+     51.08692822616621,
+     4.140191346171701,
+     2.3723910198678935
+    ]
+   },
+   {
+    "version": 103,
+    "net": [
+     22.003358848250066,
+     6.982708235790264,
+     15.894030705995963
+    ]
+   },
+   {
+    "version": 78,
+    "net": [
+     11.49051950146678,
+     21.433330289717713,
+     2.7826554832967982
+    ]
+   },
+   {
+    "version": 102,
+    "net": [
+     16.26818749144505,
+     2.677233370692215,
+     9.664365223335897
+    ]
+   },
+   {
+    "version": 89,
+    "net": [
+     22.003358848250066,
+     11.791367256717711,
+     11.121495884812628
+    ]
+   },
+   {
+    "version": 97,
+    "net": [
+     16.26818749144505,
+     2.8023248554292803,
+     20.74445435005357
+    ]
+   },
+   {
+    "version": 98,
+    "net": [
+     11.49051950146678,
+     10.34710935941627,
+     2.7826554832967982
+    ]
+   },
+   {
+    "version": 71,
+    "net": [
+     13.794256302591506,
+     7.185465412937351,
+     11.752993772587596
+    ]
+   },
+   {
+    "version": 72,
+    "net": [
+     4.902119302548886,
+     2.8023248554292803,
+     20.74445435005357
+    ]
+   },
+   {
+    "version": 71,
+    "net": [
+     13.794256302591506,
+     9.660643003348266,
+     6.0043532581819505
+    ]
+   },
+   {
+    "version": 70,
+    "net": [
+     22.003358848250066,
+     21.433330289717713,
+     2.7826554832967982
+    ]
+   },
+   {
+    "version": 49,
+    "net": [
+     3.2380540747713837,
+     2.748752314284223,
+     17.13170869341627
+    ]
+   },
+   {
+    "version": 53,
+    "net": [
+     27.545188538072626,
+     2.23451265429392,
+     9.664365223335897
+    ]
+   },
+   {
+    "version": 55,
+    "net": [
+     4.902119302548886,
+     11.791367256717711,
+     11.121495884812628
+    ]
+   },
+   {
+    "version": 50,
+    "net": [
+     13.794256302591506,
+     14.925964193524386,
+     2.7826554832967982
+    ]
+   },
+   {
+    "version": 49,
+    "net": [
+     22.003358848250066,
+     11.791367256717711,
+     11.121495884812628
+    ]
+   },
+   {
+    "version": 45,
+    "net": [
+     18.96095328175979,
+     2.482602745620444,
+     11.121495884812628
+    ]
+   },
+   {
+    "version": 42,
+    "net": [
+     11.49051950146678,
+     12.368204626717711,
+     6.894579241300493
+    ]
+   },
+   {
+    "version": 32,
+    "net": [
+     0.000001,
+     11.791367256717711,
+     11.121495884812628
+    ]
+   },
+   {
+    "version": 37,
+    "net": [
+     1.8681599155099198,
+     21.433330289717713,
+     2.7826554832967982
+    ]
+   },
+   {
+    "version": 26,
+    "net": [
+     4.902119302548886,
+     8.50424554896484,
+     4.887389406452606
+    ]
+   },
+   {
+    "version": 17,
+    "net": [
+     11.49051950146678,
+     6.459682609113667,
+     11.121495884812628
+    ]
+   },
+   {
+    "version": 17,
+    "net": [
+     13.794256302591506,
+     11.791367256717711,
+     6.0043532581819505
+    ]
+   },
+   {
+    "version": 16,
+    "net": [
+     6.828510422942395,
+     1.4980827555480394,
+     4.657662257673312
+    ]
+   },
+   {
+    "version": 13,
+    "net": [
+     9.1294503312181,
+     6.982708235790264,
+     15.894030705995963
+    ]
+   },
+   {
+    "version": 8,
+    "net": [
+     0.000001,
+     7.185465412937351,
+     11.752993772587596
+    ]
+   },
+   {
+    "version": 11,
+    "net": [
+     9.1294503312181,
+     2.677233370692215,
+     15.894030705995963
+    ]
+   },
+   {
+    "version": 5,
+    "net": [
+     1.8681599155099198,
+     1.2670440204886724,
+     7.730757830611256
+    ]
+   },
+   {
+    "version": 10,
+    "net": [
+     4.902119302548886,
+     11.791367256717711,
+     11.121495884812628
+    ]
+   },
+   {
+    "version": 6,
+    "net": [
+     9.1294503312181,
+     2.748752314284223,
+     17.13170869341627
+    ]
+   },
+   {
+    "version": 3,
+    "net": [
+     0.000001,
+     2.8023248554292803,
+     20.74445435005357
+    ]
+   },
+   {
+    "version": 7,
+    "net": [
+     4.902119302548886,
+     15.96340867515916,
+     2.8409408798248506
+    ]
+   },
+   {
+    "version": 1,
+    "net": [
+     3.2380540747713837,
+     5.496072286872906,
+     2.3723910198678935
+    ]
+   }
+  ]
+ },
+ {
+  "table": "b",
+  "label": "b6-mwc0iybo",
+  "gameId": "pd7fe2pmv88rsfyrrsqs5ngxrh8j1mx7",
+  "playedAt": "2026-11-11T11:19:57.123Z",
+  "setup": "grid-annotated-basics",
+  "overrides": {
+   "halfLifeSeconds": 240,
+   "planningSeconds": 30,
+   "languages": [
+    "python",
+    "typescript"
+   ],
+   "startingEnergy": 4675
+  },
+  "settings": {
+   "commitClause": false,
+   "defenceGoals": false,
+   "durationMode": "fixed",
+   "excludedDefenceFamilies": [],
+   "excludedFamilies": [
+    "staircase_climber",
+    "looking_glass",
+    "pinwheel",
+    "constellation",
+    "mountain_climb",
+    "round_numbers",
+    "divisibility_detective",
+    "seesaw",
+    "stepping_stones",
+    "column_addition",
+    "ladder_of_numbers",
+    "snap",
+    "young_tableau",
+    "fillomino",
+    "bingo_caller",
+    "full_house",
+    "twenty_one",
+    "sudoku_scholar"
+   ],
+   "halfLifeSeconds": 240,
+   "interactionComputeMs": 1000,
+   "interactionRateHz": 25,
+   "languages": [
+    "python",
+    "typescript"
+   ],
+   "maxAgentsPerGod": 200,
+   "objectSelection": "uniform",
+   "objectType": "Grid",
+   "pauseSeconds": 180,
+   "peerNoiseBits": 8,
+   "penaltyWeight": 1,
+   "planningSeconds": 30,
+   "powerPerSecond": 64,
+   "priorId": "uniform",
+   "scoreIntervalSeconds": 10,
+   "spawnFunctionId": "uniform",
+   "spawnRateHz": 0.1,
+   "startingEnergy": 4675,
+   "startingObjectCount": 10,
+   "stepBudget": 500000,
+   "typeArgs": {
+    "colours": "mono",
+    "size": 4,
+    "symbols": "base10"
+   },
+   "utilitySelectorId": "fair-aligned"
+  },
+  "agentLanguage": "typescript",
+  "summonedInPlanning": false,
+  "worldSeconds": 240,
+  "endAtWorld": 240,
+  "phase": "ended",
+  "wallRunningSeconds": 232.274,
+  "worstStallMs": 0,
+  "objectsAtStart": 10,
+  "objectsAtEnd": 22,
+  "engineStats": {
+   "acts": 1799,
+   "commits": 120,
+   "discarded": 0,
+   "opportunities": 4035
+  },
+  "events": {
+   "transform": 1706,
+   "fail": 0,
+   "skip": 93,
+   "spawn": 22
+  },
+  "seats": [
+   {
+    "seat": 0,
+    "policy": "greedy",
+    "utility": {
+     "familyId": "number_bonds",
+     "params": {}
+    },
+    "summonPrice": 4379.873567925095,
+    "expectedActCost": 17.96940396664864,
+    "powerShare": 1,
+    "validation": {
+     "changeRate": 1,
+     "skipRate": 0,
+     "expectedSuccessRate": 1,
+     "warnings": []
+    },
+    "totalPayoff": 9498.14578856703,
+    "rank": 1,
+    "acts": 594,
+    "transforms": 590,
+    "skips": 4,
+    "failures": {
+     "collision": 0,
+     "commit": 0,
+     "error": 0,
+     "invalid": 0,
+     "noChange": 0
+    },
+    "lastFailures": {},
+    "spent": 10608.592196512378,
+    "spentRead": 986.6126441815522,
+    "energyBalance": 3779.9518034874686,
+    "storedAccount": {
+     "balance": 3764.591803487468,
+     "settledWorldSeconds": 239.76
+    },
+    "deityEnergyStored": {
+     "balance": 1266.5824320749052,
+     "settledWorldSeconds": 15.179
+    },
+    "source": "const TARGET = 10;\nfunction utility(grid: any): any {\n  let bonds = 0;\n  for (const cell of grid.cells) {\n    for (const other of [cell.right, cell.down]) {\n      if (other !== null && cell.value + other.value === TARGET) bonds += 1;\n    }\n  }\n  return bonds;\n}\nfunction agent(grid: any) {\n  const n: number = grid.size, real: any[] = grid.cells, rows: any[][] = [];\n  // The prelude's own Cell and Grid classes (the agent's cells are metered views of Cell): a plain, writable board.\n  const CellClass: any = Object.getPrototypeOf(real[0]).constructor, GridClass: any = Object.getPrototypeOf(grid).constructor;\n  for (let r = 0; r < n; r++) {\n    const row: any[] = [];\n    for (let k = 0; k < n; k++) {\n      const x: any = new CellClass(), v: number = real[r * n + k].value;\n      x.row = r; x.col = k; x.value = v; x.symbol = String(v); x.colour = grid.palette[0];\n      row.push(x);\n    }\n    rows.push(row);\n  }\n  const at = (r: number, k: number): any => (r >= 0 && r < n && k >= 0 && k < n ? rows[r][k] : null);\n  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {\n    const x: any = rows[r][k];\n    x.left = at(r, k - 1); x.right = at(r, k + 1); x.up = at(r - 1, k); x.down = at(r + 1, k);\n    x.upLeft = at(r - 1, k - 1); x.upRight = at(r - 1, k + 1); x.downLeft = at(r + 1, k - 1); x.downRight = at(r + 1, k + 1);\n  }\n  const board: any = new GridClass(rows);\n  const list = (o: any): number[] => (typeof o === \"number\" ? [o] : o);\n  const beats = (a: number[], b: number[]): boolean => {\n    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] > b[i];\n    return false;\n  };\n  let best: number[] = list(utility(board)), move: number[] | null = null;\n  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {\n    const x: any = rows[r][k], old: number = x.value;\n    for (let d = 0; d < 10; d++) {\n      if (d === old) continue;\n      x.value = d; x.symbol = String(d);\n      const u: number[] = list(utility(board));\n      if (beats(u, best)) { best = u; move = [r, k, d]; }\n    }\n    x.value = old; x.symbol = String(old);\n  }\n  return move === null ? [] : [write([move[0], move[1]], move[2])];\n}"
+   },
+   {
+    "seat": 1,
+    "policy": "greedy",
+    "utility": {
+     "familyId": "magic_accountant",
+     "params": {
+      "axis": "rows",
+      "target": 19
+     }
+    },
+    "summonPrice": 4442.530280384037,
+    "expectedActCost": 17.96940396664864,
+    "powerShare": 1,
+    "validation": {
+     "changeRate": 1,
+     "skipRate": 0,
+     "expectedSuccessRate": 1,
+     "warnings": []
+    },
+    "totalPayoff": 6693.462235592998,
+    "rank": 2,
+    "acts": 603,
+    "transforms": 552,
+    "skips": 51,
+    "failures": {
+     "collision": 0,
+     "commit": 0,
+     "error": 0,
+     "invalid": 0,
+     "noChange": 0
+    },
+    "lastFailures": {},
+    "spent": 10003.820156009588,
+    "spentRead": 1001.5613206085457,
+    "energyBalance": 4340.435843990284,
+    "storedAccount": {
+     "balance": 4340.435843990284,
+     "settledWorldSeconds": 240
+    },
+    "deityEnergyStored": {
+     "balance": 1248.2137196159629,
+     "settledWorldSeconds": 15.871
+    },
+    "source": "const TARGET = 19;\nfunction utility(grid: any): any {\n  let exact = 0;\n  let distance = 0;\n  for (const line of grid.rows) {\n    let total = 0;\n    for (const cell of line) total += cell.value;\n    if (total === TARGET) exact += 1;\n    distance += Math.abs(total - TARGET);\n  }\n  return [exact, -distance];\n}\nfunction agent(grid: any) {\n  const n: number = grid.size, real: any[] = grid.cells, rows: any[][] = [];\n  // The prelude's own Cell and Grid classes (the agent's cells are metered views of Cell): a plain, writable board.\n  const CellClass: any = Object.getPrototypeOf(real[0]).constructor, GridClass: any = Object.getPrototypeOf(grid).constructor;\n  for (let r = 0; r < n; r++) {\n    const row: any[] = [];\n    for (let k = 0; k < n; k++) {\n      const x: any = new CellClass(), v: number = real[r * n + k].value;\n      x.row = r; x.col = k; x.value = v; x.symbol = String(v); x.colour = grid.palette[0];\n      row.push(x);\n    }\n    rows.push(row);\n  }\n  const at = (r: number, k: number): any => (r >= 0 && r < n && k >= 0 && k < n ? rows[r][k] : null);\n  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {\n    const x: any = rows[r][k];\n    x.left = at(r, k - 1); x.right = at(r, k + 1); x.up = at(r - 1, k); x.down = at(r + 1, k);\n    x.upLeft = at(r - 1, k - 1); x.upRight = at(r - 1, k + 1); x.downLeft = at(r + 1, k - 1); x.downRight = at(r + 1, k + 1);\n  }\n  const board: any = new GridClass(rows);\n  const list = (o: any): number[] => (typeof o === \"number\" ? [o] : o);\n  const beats = (a: number[], b: number[]): boolean => {\n    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] > b[i];\n    return false;\n  };\n  let best: number[] = list(utility(board)), move: number[] | null = null;\n  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {\n    const x: any = rows[r][k], old: number = x.value;\n    for (let d = 0; d < 10; d++) {\n      if (d === old) continue;\n      x.value = d; x.symbol = String(d);\n      const u: number[] = list(utility(board));\n      if (beats(u, best)) { best = u; move = [r, k, d]; }\n    }\n    x.value = old; x.symbol = String(old);\n  }\n  return move === null ? [] : [write([move[0], move[1]], move[2])];\n}"
+   },
+   {
+    "seat": 2,
+    "policy": "greedy",
+    "utility": {
+     "familyId": "magic_accountant",
+     "params": {
+      "axis": "rows",
+      "target": 18
+     }
+    },
+    "summonPrice": 4442.530280384037,
+    "expectedActCost": 17.96940396664864,
+    "powerShare": 1,
+    "validation": {
+     "changeRate": 1,
+     "skipRate": 0,
+     "expectedSuccessRate": 1,
+     "warnings": []
+    },
+    "totalPayoff": 6545.1545835303505,
+    "rank": 3,
+    "acts": 602,
+    "transforms": 564,
+    "skips": 38,
+    "failures": {
+     "collision": 0,
+     "commit": 0,
+     "error": 0,
+     "invalid": 0,
+     "noChange": 0
+    },
+    "lastFailures": {},
+    "spent": 10197.8604709926,
+    "spentRead": 999.900356561102,
+    "energyBalance": 4080.7955290072546,
+    "storedAccount": {
+     "balance": 4078.235529007255,
+     "settledWorldSeconds": 239.96
+    },
+    "deityEnergyStored": {
+     "balance": 1313.8137196159632,
+     "settledWorldSeconds": 16.896
+    },
+    "source": "const TARGET = 18;\nfunction utility(grid: any): any {\n  let exact = 0;\n  let distance = 0;\n  for (const line of grid.rows) {\n    let total = 0;\n    for (const cell of line) total += cell.value;\n    if (total === TARGET) exact += 1;\n    distance += Math.abs(total - TARGET);\n  }\n  return [exact, -distance];\n}\nfunction agent(grid: any) {\n  const n: number = grid.size, real: any[] = grid.cells, rows: any[][] = [];\n  // The prelude's own Cell and Grid classes (the agent's cells are metered views of Cell): a plain, writable board.\n  const CellClass: any = Object.getPrototypeOf(real[0]).constructor, GridClass: any = Object.getPrototypeOf(grid).constructor;\n  for (let r = 0; r < n; r++) {\n    const row: any[] = [];\n    for (let k = 0; k < n; k++) {\n      const x: any = new CellClass(), v: number = real[r * n + k].value;\n      x.row = r; x.col = k; x.value = v; x.symbol = String(v); x.colour = grid.palette[0];\n      row.push(x);\n    }\n    rows.push(row);\n  }\n  const at = (r: number, k: number): any => (r >= 0 && r < n && k >= 0 && k < n ? rows[r][k] : null);\n  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {\n    const x: any = rows[r][k];\n    x.left = at(r, k - 1); x.right = at(r, k + 1); x.up = at(r - 1, k); x.down = at(r + 1, k);\n    x.upLeft = at(r - 1, k - 1); x.upRight = at(r - 1, k + 1); x.downLeft = at(r + 1, k - 1); x.downRight = at(r + 1, k + 1);\n  }\n  const board: any = new GridClass(rows);\n  const list = (o: any): number[] => (typeof o === \"number\" ? [o] : o);\n  const beats = (a: number[], b: number[]): boolean => {\n    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] > b[i];\n    return false;\n  };\n  let best: number[] = list(utility(board)), move: number[] | null = null;\n  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {\n    const x: any = rows[r][k], old: number = x.value;\n    for (let d = 0; d < 10; d++) {\n      if (d === old) continue;\n      x.value = d; x.symbol = String(d);\n      const u: number[] = list(utility(board));\n      if (beats(u, best)) { best = u; move = [r, k, d]; }\n    }\n    x.value = old; x.symbol = String(old);\n  }\n  return move === null ? [] : [write([move[0], move[1]], move[2])];\n}"
+   }
+  ],
+  "objects": [
+   {
+    "version": 116,
+    "net": [
+     18.96095328175979,
+     7.1685385010802385,
+     17.047585779416274
+    ]
+   },
+   {
+    "version": 105,
+    "net": [
+     27.545188538072626,
+     7.1685385010802385,
+     11.903901065593045
+    ]
+   },
+   {
+    "version": 109,
+    "net": [
+     37.11477254352439,
+     12.625966336834997,
+     2.842318865190046
+    ]
+   },
+   {
+    "version": 112,
+    "net": [
+     51.08692822616621,
+     7.1685385010802385,
+     2.8002148384033143
+    ]
+   },
+   {
+    "version": 107,
+    "net": [
+     25.02428468707982,
+     7.1685385010802385,
+     17.047585779416274
+    ]
+   },
+   {
+    "version": 89,
+    "net": [
+     22.003358848250066,
+     12.625966336834997,
+     12.5810312228901
+    ]
+   },
+   {
+    "version": 110,
+    "net": [
+     39.43246364538785,
+     17.13170869341627,
+     2.8649878829429687
+    ]
+   },
+   {
+    "version": 105,
+    "net": [
+     16.26818749144505,
+     2.90554024002224,
+     21.542196848633633
+    ]
+   },
+   {
+    "version": 115,
+    "net": [
+     30.801528292166207,
+     7.1685385010802385,
+     17.047585779416274
+    ]
+   },
+   {
+    "version": 104,
+    "net": [
+     16.26818749144505,
+     20.74445435005357,
+     2.8758954905385465
+    ]
+   },
+   {
+    "version": 100,
+    "net": [
+     27.545188538072626,
+     6.894579241300493,
+     6.337079228126409
+    ]
+   },
+   {
+    "version": 74,
+    "net": [
+     11.49051950146678,
+     7.1685385010802385,
+     11.903901065593045
+    ]
+   },
+   {
+    "version": 88,
+    "net": [
+     30.801528292166207,
+     7.1685385010802385,
+     6.853701463609983
+    ]
+   },
+   {
+    "version": 73,
+    "net": [
+     39.43246364538785,
+     7.1685385010802385,
+     11.903901065593045
+    ]
+   },
+   {
+    "version": 69,
+    "net": [
+     30.801528292166207,
+     6.894579241300493,
+     10.324703881359145
+    ]
+   },
+   {
+    "version": 67,
+    "net": [
+     18.96095328175979,
+     12.625966336834997,
+     7.086573379993918
+    ]
+   },
+   {
+    "version": 50,
+    "net": [
+     9.1294503312181,
+     11.752993772587596,
+     6.853701463609983
+    ]
+   },
+   {
+    "version": 52,
+    "net": [
+     16.26818749144505,
+     2.90554024002224,
+     21.542196848633633
+    ]
+   },
+   {
+    "version": 18,
+    "net": [
+     6.828510422942395,
+     12.625966336834997,
+     12.5810312228901
+    ]
+   },
+   {
+    "version": 18,
+    "net": [
+     16.26818749144505,
+     20.74445435005357,
+     2.8758954905385465
+    ]
+   },
+   {
+    "version": 13,
+    "net": [
+     3.2380540747713837,
+     17.13170869341627,
+     7.189692942024228
+    ]
+   },
+   {
+    "version": 12,
+    "net": [
+     3.2380540747713837,
+     17.13170869341627,
+     7.189692942024228
+    ]
+   }
+  ]
+ },
+ {
+  "table": "b",
+  "label": "b7-mwc0iybo",
+  "gameId": "pd7ddrwhs0hwyfm4hkczmh4wwh8j0pvx",
+  "playedAt": "2026-11-11T11:19:57.035Z",
+  "setup": "grid-annotated-basics",
+  "overrides": {
+   "halfLifeSeconds": 240,
+   "planningSeconds": 30,
+   "languages": [
+    "python",
+    "typescript"
+   ],
+   "startingEnergy": 4675
+  },
+  "settings": {
+   "commitClause": false,
+   "defenceGoals": false,
+   "durationMode": "fixed",
+   "excludedDefenceFamilies": [],
+   "excludedFamilies": [
+    "staircase_climber",
+    "looking_glass",
+    "pinwheel",
+    "constellation",
+    "mountain_climb",
+    "round_numbers",
+    "divisibility_detective",
+    "seesaw",
+    "stepping_stones",
+    "column_addition",
+    "ladder_of_numbers",
+    "snap",
+    "young_tableau",
+    "fillomino",
+    "bingo_caller",
+    "full_house",
+    "twenty_one",
+    "sudoku_scholar"
+   ],
+   "halfLifeSeconds": 240,
+   "interactionComputeMs": 1000,
+   "interactionRateHz": 25,
+   "languages": [
+    "python",
+    "typescript"
+   ],
+   "maxAgentsPerGod": 200,
+   "objectSelection": "uniform",
+   "objectType": "Grid",
+   "pauseSeconds": 180,
+   "peerNoiseBits": 8,
+   "penaltyWeight": 1,
+   "planningSeconds": 30,
+   "powerPerSecond": 64,
+   "priorId": "uniform",
+   "scoreIntervalSeconds": 10,
+   "spawnFunctionId": "uniform",
+   "spawnRateHz": 0.1,
+   "startingEnergy": 4675,
+   "startingObjectCount": 10,
+   "stepBudget": 500000,
+   "typeArgs": {
+    "colours": "mono",
+    "size": 4,
+    "symbols": "base10"
+   },
+   "utilitySelectorId": "fair-aligned"
+  },
+  "agentLanguage": "typescript",
+  "summonedInPlanning": false,
+  "worldSeconds": 240,
+  "endAtWorld": 240,
+  "phase": "ended",
+  "wallRunningSeconds": 232.656,
+  "worstStallMs": 0,
+  "objectsAtStart": 10,
+  "objectsAtEnd": 25,
+  "engineStats": {
+   "acts": 1830,
+   "commits": 122,
+   "discarded": 0,
+   "opportunities": 4082
+  },
+  "events": {
+   "transform": 1480,
+   "fail": 3,
+   "skip": 347,
+   "spawn": 25
+  },
+  "seats": [
+   {
+    "seat": 0,
+    "policy": "greedy",
+    "utility": {
+     "familyId": "mirrormancer",
+     "params": {
+      "axis": "TB"
+     }
+    },
+    "summonPrice": 4630.213114325509,
+    "expectedActCost": 17.807934264478295,
+    "powerShare": 1,
+    "validation": {
+     "changeRate": 0.9900990099009901,
+     "skipRate": 0.009900990099009901,
+     "expectedSuccessRate": 1,
+     "warnings": []
+    },
+    "totalPayoff": 24508.796063623668,
+    "rank": 2,
+    "acts": 610,
+    "transforms": 521,
+    "skips": 89,
+    "failures": {
+     "collision": 0,
+     "commit": 0,
+     "error": 0,
+     "invalid": 0,
+     "noChange": 0
+    },
+    "lastFailures": {},
+    "spent": 9509.88526684634,
+    "spentRead": 1013.1880689406516,
+    "energyBalance": 5033.858733153556,
+    "storedAccount": {
+     "balance": 5020.616828391652,
+     "settledWorldSeconds": 239.79309523809525
+    },
+    "deityEnergyStored": {
+     "balance": 861.0428856744911,
+     "settledWorldSeconds": 12.754000000000001
+    },
+    "source": "function utility(grid: any): any {\n  let mirrors = 0;\n  let pairs = 0;\n  for (const line of grid.columns) {\n    const half = Math.floor(line.length / 2);\n    let matches = 0;\n    for (let i = 0; i < half; i++) {\n      if (line[i].value === line[line.length - 1 - i].value) matches += 1;\n    }\n    pairs += matches;\n    if (matches === half) mirrors += 1;\n  }\n  return [mirrors, pairs];\n}\nfunction agent(grid: any) {\n  const n: number = grid.size, real: any[] = grid.cells, rows: any[][] = [];\n  // The prelude's own Cell and Grid classes (the agent's cells are metered views of Cell): a plain, writable board.\n  const CellClass: any = Object.getPrototypeOf(real[0]).constructor, GridClass: any = Object.getPrototypeOf(grid).constructor;\n  for (let r = 0; r < n; r++) {\n    const row: any[] = [];\n    for (let k = 0; k < n; k++) {\n      const x: any = new CellClass(), v: number = real[r * n + k].value;\n      x.row = r; x.col = k; x.value = v; x.symbol = String(v); x.colour = grid.palette[0];\n      row.push(x);\n    }\n    rows.push(row);\n  }\n  const at = (r: number, k: number): any => (r >= 0 && r < n && k >= 0 && k < n ? rows[r][k] : null);\n  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {\n    const x: any = rows[r][k];\n    x.left = at(r, k - 1); x.right = at(r, k + 1); x.up = at(r - 1, k); x.down = at(r + 1, k);\n    x.upLeft = at(r - 1, k - 1); x.upRight = at(r - 1, k + 1); x.downLeft = at(r + 1, k - 1); x.downRight = at(r + 1, k + 1);\n  }\n  const board: any = new GridClass(rows);\n  const list = (o: any): number[] => (typeof o === \"number\" ? [o] : o);\n  const beats = (a: number[], b: number[]): boolean => {\n    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] > b[i];\n    return false;\n  };\n  let best: number[] = list(utility(board)), move: number[] | null = null;\n  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {\n    const x: any = rows[r][k], old: number = x.value;\n    for (let d = 0; d < 10; d++) {\n      if (d === old) continue;\n      x.value = d; x.symbol = String(d);\n      const u: number[] = list(utility(board));\n      if (beats(u, best)) { best = u; move = [r, k, d]; }\n    }\n    x.value = old; x.symbol = String(old);\n  }\n  return move === null ? [] : [write([move[0], move[1]], move[2])];\n}"
+   },
+   {
+    "seat": 1,
+    "policy": "greedy",
+    "utility": {
+     "familyId": "number_bonds",
+     "params": {}
+    },
+    "summonPrice": 4379.873567925095,
+    "expectedActCost": 17.96940396664864,
+    "powerShare": 1,
+    "validation": {
+     "changeRate": 1,
+     "skipRate": 0,
+     "expectedSuccessRate": 1,
+     "warnings": []
+    },
+    "totalPayoff": 28178.70278137224,
+    "rank": 1,
+    "acts": 610,
+    "transforms": 513,
+    "skips": 94,
+    "failures": {
+     "collision": 3,
+     "commit": 0,
+     "error": 0,
+     "invalid": 0,
+     "noChange": 0
+    },
+    "lastFailures": {},
+    "spent": 9379.417747492702,
+    "spentRead": 1013.1880689406516,
+    "energyBalance": 5102.9502525071985,
+    "storedAccount": {
+     "balance": 5092.356728697676,
+     "settledWorldSeconds": 239.8344761904762
+    },
+    "deityEnergyStored": {
+     "balance": 1172.7584320749047,
+     "settledWorldSeconds": 13.713000000000001
+    },
+    "source": "const TARGET = 10;\nfunction utility(grid: any): any {\n  let bonds = 0;\n  for (const cell of grid.cells) {\n    for (const other of [cell.right, cell.down]) {\n      if (other !== null && cell.value + other.value === TARGET) bonds += 1;\n    }\n  }\n  return bonds;\n}\nfunction agent(grid: any) {\n  const n: number = grid.size, real: any[] = grid.cells, rows: any[][] = [];\n  // The prelude's own Cell and Grid classes (the agent's cells are metered views of Cell): a plain, writable board.\n  const CellClass: any = Object.getPrototypeOf(real[0]).constructor, GridClass: any = Object.getPrototypeOf(grid).constructor;\n  for (let r = 0; r < n; r++) {\n    const row: any[] = [];\n    for (let k = 0; k < n; k++) {\n      const x: any = new CellClass(), v: number = real[r * n + k].value;\n      x.row = r; x.col = k; x.value = v; x.symbol = String(v); x.colour = grid.palette[0];\n      row.push(x);\n    }\n    rows.push(row);\n  }\n  const at = (r: number, k: number): any => (r >= 0 && r < n && k >= 0 && k < n ? rows[r][k] : null);\n  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {\n    const x: any = rows[r][k];\n    x.left = at(r, k - 1); x.right = at(r, k + 1); x.up = at(r - 1, k); x.down = at(r + 1, k);\n    x.upLeft = at(r - 1, k - 1); x.upRight = at(r - 1, k + 1); x.downLeft = at(r + 1, k - 1); x.downRight = at(r + 1, k + 1);\n  }\n  const board: any = new GridClass(rows);\n  const list = (o: any): number[] => (typeof o === \"number\" ? [o] : o);\n  const beats = (a: number[], b: number[]): boolean => {\n    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] > b[i];\n    return false;\n  };\n  let best: number[] = list(utility(board)), move: number[] | null = null;\n  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {\n    const x: any = rows[r][k], old: number = x.value;\n    for (let d = 0; d < 10; d++) {\n      if (d === old) continue;\n      x.value = d; x.symbol = String(d);\n      const u: number[] = list(utility(board));\n      if (beats(u, best)) { best = u; move = [r, k, d]; }\n    }\n    x.value = old; x.symbol = String(old);\n  }\n  return move === null ? [] : [write([move[0], move[1]], move[2])];\n}"
+   },
+   {
+    "seat": 2,
+    "policy": "greedy",
+    "utility": {
+     "familyId": "magic_accountant",
+     "params": {
+      "axis": "cols",
+      "target": 20
+     }
+    },
+    "summonPrice": 4442.530280384037,
+    "expectedActCost": 17.96940396664864,
+    "powerShare": 1,
+    "validation": {
+     "changeRate": 1,
+     "skipRate": 0,
+     "expectedSuccessRate": 1,
+     "warnings": []
+    },
+    "totalPayoff": 20473.00620314847,
+    "rank": 3,
+    "acts": 610,
+    "transforms": 446,
+    "skips": 164,
+    "failures": {
+     "collision": 0,
+     "commit": 0,
+     "error": 0,
+     "invalid": 0,
+     "noChange": 0
+    },
+    "lastFailures": {},
+    "spent": 8286.752272905978,
+    "spentRead": 1013.1880689406516,
+    "energyBalance": 6161.1197270939565,
+    "storedAccount": {
+     "balance": 6145.229441379671,
+     "settledWorldSeconds": 239.75171428571429
+    },
+    "deityEnergyStored": {
+     "balance": 1144.597719615963,
+     "settledWorldSeconds": 14.252
+    },
+    "source": "const TARGET = 20;\nfunction utility(grid: any): any {\n  let exact = 0;\n  let distance = 0;\n  for (const line of grid.columns) {\n    let total = 0;\n    for (const cell of line) total += cell.value;\n    if (total === TARGET) exact += 1;\n    distance += Math.abs(total - TARGET);\n  }\n  return [exact, -distance];\n}\nfunction agent(grid: any) {\n  const n: number = grid.size, real: any[] = grid.cells, rows: any[][] = [];\n  // The prelude's own Cell and Grid classes (the agent's cells are metered views of Cell): a plain, writable board.\n  const CellClass: any = Object.getPrototypeOf(real[0]).constructor, GridClass: any = Object.getPrototypeOf(grid).constructor;\n  for (let r = 0; r < n; r++) {\n    const row: any[] = [];\n    for (let k = 0; k < n; k++) {\n      const x: any = new CellClass(), v: number = real[r * n + k].value;\n      x.row = r; x.col = k; x.value = v; x.symbol = String(v); x.colour = grid.palette[0];\n      row.push(x);\n    }\n    rows.push(row);\n  }\n  const at = (r: number, k: number): any => (r >= 0 && r < n && k >= 0 && k < n ? rows[r][k] : null);\n  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {\n    const x: any = rows[r][k];\n    x.left = at(r, k - 1); x.right = at(r, k + 1); x.up = at(r - 1, k); x.down = at(r + 1, k);\n    x.upLeft = at(r - 1, k - 1); x.upRight = at(r - 1, k + 1); x.downLeft = at(r + 1, k - 1); x.downRight = at(r + 1, k + 1);\n  }\n  const board: any = new GridClass(rows);\n  const list = (o: any): number[] => (typeof o === \"number\" ? [o] : o);\n  const beats = (a: number[], b: number[]): boolean => {\n    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] > b[i];\n    return false;\n  };\n  let best: number[] = list(utility(board)), move: number[] | null = null;\n  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {\n    const x: any = rows[r][k], old: number = x.value;\n    for (let d = 0; d < 10; d++) {\n      if (d === old) continue;\n      x.value = d; x.symbol = String(d);\n      const u: number[] = list(utility(board));\n      if (beats(u, best)) { best = u; move = [r, k, d]; }\n    }\n    x.value = old; x.symbol = String(old);\n  }\n  return move === null ? [] : [write([move[0], move[1]], move[2])];\n}"
+   }
+  ],
+  "objects": [
+   {
+    "version": 94,
+    "net": [
+     18.38251554,
+     18.96095328175979,
+     13.804884095836652
+    ]
+   },
+   {
+    "version": 74,
+    "net": [
+     33.63431844805357,
+     45.229440286137425,
+     21.178141526995965
+    ]
+   },
+   {
+    "version": 48,
+    "net": [
+     33.63431844805357,
+     45.229440286137425,
+     21.178141526995965
+    ]
+   },
+   {
+    "version": 91,
+    "net": [
+     3.019160107416271,
+     11.49051950146678,
+     4.627262209020323
+    ]
+   },
+   {
+    "version": 85,
+    "net": [
+     33.63431844805357,
+     45.229440286137425,
+     21.178141526995965
+    ]
+   },
+   {
+    "version": 77,
+    "net": [
+     18.38251554,
+     13.794256302591506,
+     11.278037780008466
+    ]
+   },
+   {
+    "version": 100,
+    "net": [
+     14.76346561975979,
+     11.49051950146678,
+     2.7037559878930053
+    ]
+   },
+   {
+    "version": 35,
+    "net": [
+     33.63431844805357,
+     45.229440286137425,
+     21.178141526995965
+    ]
+   },
+   {
+    "version": 93,
+    "net": [
+     33.63431844805357,
+     45.229440286137425,
+     21.178141526995965
+    ]
+   },
+   {
+    "version": 83,
+    "net": [
+     24.570024771137426,
+     39.43246364538785,
+     13.916826571289395
+    ]
+   },
+   {
+    "version": 81,
+    "net": [
+     12.577995726383293,
+     25.02428468707982,
+     13.655942887881483
+    ]
+   },
+   {
+    "version": 58,
+    "net": [
+     33.63431844805357,
+     33.448995735274806,
+     21.178141526995965
+    ]
+   },
+   {
+    "version": 64,
+    "net": [
+     33.63431844805357,
+     33.448995735274806,
+     21.178141526995965
+    ]
+   },
+   {
+    "version": 69,
+    "net": [
+     12.577995726383293,
+     11.49051950146678,
+     13.573632475458687
+    ]
+   },
+   {
+    "version": 70,
+    "net": [
+     6.873444137097088,
+     27.545188538072626,
+     14.063897699249738
+    ]
+   },
+   {
+    "version": 51,
+    "net": [
+     12.577995726383293,
+     27.545188538072626,
+     21.178141526995965
+    ]
+   },
+   {
+    "version": 34,
+    "net": [
+     33.63431844805357,
+     45.229440286137425,
+     21.178141526995965
+    ]
+   },
+   {
+    "version": 62,
+    "net": [
+     14.76346561975979,
+     16.26818749144505,
+     3.7518802733552796
+    ]
+   },
+   {
+    "version": 38,
+    "net": [
+     33.63431844805357,
+     39.43246364538785,
+     21.178141526995965
+    ]
+   },
+   {
+    "version": 60,
+    "net": [
+     6.873444137097088,
+     11.49051950146678,
+     9.052460689156641
+    ]
+   },
+   {
+    "version": 29,
+    "net": [
+     5.4987990220335785,
+     13.794256302591506,
+     16.128714464995966
+    ]
+   },
+   {
+    "version": 35,
+    "net": [
+     0.000001,
+     45.229440286137425,
+     21.178141526995965
+    ]
+   },
+   {
+    "version": 19,
+    "net": [
+     12.577995726383293,
+     3.2380540747713837,
+     3.31214186897412
+    ]
+   },
+   {
+    "version": 18,
+    "net": [
+     14.76346561975979,
+     11.49051950146678,
+     10.493529935274807
+    ]
+   },
+   {
+    "version": 12,
+    "net": [
+     3.019160107416271,
+     9.1294503312181,
+     8.414904093078654
+    ]
+   }
+  ]
+ },
+ {
+  "table": "a",
+  "label": "a8-mwc0iybo",
+  "gameId": "pd7016gp9btm19gv2xvbwgj2t58j00jr",
+  "playedAt": "2026-11-11T11:19:57.078Z",
+  "setup": "grid-annotated-basics",
+  "overrides": {
+   "halfLifeSeconds": 240,
+   "planningSeconds": 30,
+   "languages": [
+    "python",
+    "typescript"
+   ],
+   "startingEnergy": 500
+  },
+  "settings": {
+   "commitClause": false,
+   "defenceGoals": false,
+   "durationMode": "fixed",
+   "excludedDefenceFamilies": [],
+   "excludedFamilies": [
+    "staircase_climber",
+    "looking_glass",
+    "pinwheel",
+    "constellation",
+    "mountain_climb",
+    "round_numbers",
+    "divisibility_detective",
+    "seesaw",
+    "stepping_stones",
+    "column_addition",
+    "ladder_of_numbers",
+    "snap",
+    "young_tableau",
+    "fillomino",
+    "bingo_caller",
+    "full_house",
+    "twenty_one",
+    "sudoku_scholar"
+   ],
+   "halfLifeSeconds": 240,
+   "interactionComputeMs": 1000,
+   "interactionRateHz": 25,
+   "languages": [
+    "python",
+    "typescript"
+   ],
+   "maxAgentsPerGod": 200,
+   "objectSelection": "uniform",
+   "objectType": "Grid",
+   "pauseSeconds": 180,
+   "peerNoiseBits": 8,
+   "penaltyWeight": 1,
+   "planningSeconds": 30,
+   "powerPerSecond": 64,
+   "priorId": "uniform",
+   "scoreIntervalSeconds": 10,
+   "spawnFunctionId": "uniform",
+   "spawnRateHz": 0.1,
+   "startingEnergy": 500,
+   "startingObjectCount": 10,
+   "stepBudget": 500000,
+   "typeArgs": {
+    "colours": "mono",
+    "size": 4,
+    "symbols": "base10"
+   },
+   "utilitySelectorId": "fair-aligned"
+  },
+  "agentLanguage": "typescript",
+  "summonedInPlanning": false,
+  "worldSeconds": 240,
+  "endAtWorld": 240,
+  "phase": "ended",
+  "wallRunningSeconds": 231.452,
+  "worstStallMs": 0,
+  "objectsAtStart": 10,
+  "objectsAtEnd": 32,
+  "engineStats": {
+   "acts": 1878,
+   "commits": 130,
+   "discarded": 0,
+   "opportunities": 4292
+  },
+  "events": {
+   "transform": 1670,
+   "fail": 208,
+   "skip": 0,
+   "spawn": 32
+  },
+  "seats": [
+   {
+    "seat": 0,
+    "policy": "random",
+    "utility": {
+     "familyId": "number_bonds",
+     "params": {}
+    },
+    "summonPrice": 450.2851482071002,
+    "expectedActCost": 14.532273195331168,
+    "powerShare": 1,
+    "validation": {
+     "changeRate": 0.8910891089108911,
+     "skipRate": 0,
+     "expectedSuccessRate": 0.84375,
+     "warnings": []
+    },
+    "totalPayoff": 46.032071642286105,
+    "rank": 2,
+    "acts": 621,
+    "transforms": 557,
+    "skips": 0,
+    "failures": {
+     "collision": 0,
+     "commit": 0,
+     "error": 0,
+     "invalid": 0,
+     "noChange": 64
+    },
+    "lastFailures": {},
+    "spent": 9083.801034997117,
+    "spentRead": 0,
+    "energyBalance": 5233.830965002856,
+    "storedAccount": {
+     "balance": 5226.049317944032,
+     "settledWorldSeconds": 239.87841176470587
+    },
+    "deityEnergyStored": {
+     "balance": 1092.0828517928999,
+     "settledWorldSeconds": 16.287
+    },
+    "source": "function agent(grid) {\n  const n = grid.size;\n  const r = Math.floor(Math.random() * n), k = Math.floor(Math.random() * n);\n  return [write([r, k], Math.floor(Math.random() * 10))];\n}"
+   },
+   {
+    "seat": 1,
+    "policy": "random",
+    "utility": {
+     "familyId": "mirrormancer",
+     "params": {
+      "axis": "TB"
+     }
+    },
+    "summonPrice": 450.2851482071002,
+    "expectedActCost": 14.532273195331168,
+    "powerShare": 1,
+    "validation": {
+     "changeRate": 0.8910891089108911,
+     "skipRate": 0,
+     "expectedSuccessRate": 0.84375,
+     "warnings": []
+    },
+    "totalPayoff": 34.75575888076017,
+    "rank": 3,
+    "acts": 632,
+    "transforms": 558,
+    "skips": 0,
+    "failures": {
+     "collision": 0,
+     "commit": 0,
+     "error": 0,
+     "invalid": 0,
+     "noChange": 74
+    },
+    "lastFailures": {},
+    "spent": 9100.109474916322,
+    "spentRead": 0,
+    "energyBalance": 5385.522525083655,
+    "storedAccount": {
+     "balance": 5375.146995671889,
+     "settledWorldSeconds": 239.83788235294116
+    },
+    "deityEnergyStored": {
+     "balance": 924.0828517928998,
+     "settledWorldSeconds": 13.661999999999999
+    },
+    "source": "function agent(grid) {\n  const n = grid.size;\n  const r = Math.floor(Math.random() * n), k = Math.floor(Math.random() * n);\n  return [write([r, k], Math.floor(Math.random() * 10))];\n}"
+   },
+   {
+    "seat": 2,
+    "policy": "random",
+    "utility": {
+     "familyId": "mirrormancer",
+     "params": {
+      "axis": "LR"
+     }
+    },
+    "summonPrice": 450.2851482071002,
+    "expectedActCost": 14.532273195331168,
+    "powerShare": 1,
+    "validation": {
+     "changeRate": 0.8910891089108911,
+     "skipRate": 0,
+     "expectedSuccessRate": 0.84375,
+     "warnings": []
+    },
+    "totalPayoff": 51.20904650965033,
+    "rank": 1,
+    "acts": 625,
+    "transforms": 555,
+    "skips": 0,
+    "failures": {
+     "collision": 0,
+     "commit": 0,
+     "error": 0,
+     "invalid": 0,
+     "noChange": 70
+    },
+    "lastFailures": {},
+    "spent": 9051.184155158708,
+    "spentRead": 0,
+    "energyBalance": 5337.103844841266,
+    "storedAccount": {
+     "balance": 5324.13443307656,
+     "settledWorldSeconds": 239.79735294117646
+    },
+    "deityEnergyStored": {
+     "balance": 1021.4268517928998,
+     "settledWorldSeconds": 15.183
+    },
+    "source": "function agent(grid) {\n  const n = grid.size;\n  const r = Math.floor(Math.random() * n), k = Math.floor(Math.random() * n);\n  return [write([r, k], Math.floor(Math.random() * 10))];\n}"
+   }
+  ],
+  "objects": [
+   {
+    "version": 75,
+    "net": [
+     0.8850198718365314,
+     1.0444943917626537,
+     1.0444943917626537
+    ]
+   },
+   {
+    "version": 84,
+    "net": [
+     0.2927839719182657,
+     3.019160107416271,
+     1.0444943917626537
+    ]
+   },
+   {
+    "version": 99,
+    "net": [
+     0.2927839719182657,
+     1.0444943917626537,
+     0.000001
+    ]
+   },
+   {
+    "version": 81,
+    "net": [
+     0.8850198718365314,
+     0.000001,
+     1.0444943917626537
+    ]
+   },
+   {
+    "version": 86,
+    "net": [
+     0.2927839719182657,
+     1.0444943917626537,
+     1.0444943917626537
+    ]
+   },
+   {
+    "version": 67,
+    "net": [
+     0.8850198718365314,
+     3.019160107416271,
+     1.0444943917626537
+    ]
+   },
+   {
+    "version": 88,
+    "net": [
+     0.8850198718365314,
+     0.000001,
+     3.019160107416271
+    ]
+   },
+   {
+    "version": 75,
+    "net": [
+     0.8850198718365314,
+     0.000001,
+     0.000001
+    ]
+   },
+   {
+    "version": 70,
+    "net": [
+     3.2380540747713837,
+     1.0444943917626537,
+     1.0444943917626537
+    ]
+   },
+   {
+    "version": 78,
+    "net": [
+     0.8850198718365314,
+     3.019160107416271,
+     0.000001
+    ]
+   },
+   {
+    "version": 77,
+    "net": [
+     0.8850198718365314,
+     0.000001,
+     1.0444943917626537
+    ]
+   },
+   {
+    "version": 87,
+    "net": [
+     0.2927839719182657,
+     0.000001,
+     5.42726096624977
+    ]
+   },
+   {
+    "version": 71,
+    "net": [
+     1.8681599155099198,
+     0.000001,
+     1.0444943917626537
+    ]
+   },
+   {
+    "version": 57,
+    "net": [
+     0.000001,
+     0.000001,
+     0.000001
+    ]
+   },
+   {
+    "version": 69,
+    "net": [
+     0.000001,
+     1.0444943917626537,
+     0.000001
+    ]
+   },
+   {
+    "version": 63,
+    "net": [
+     0.8850198718365314,
+     0.000001,
+     1.0444943917626537
+    ]
+   },
+   {
+    "version": 47,
+    "net": [
+     0.8850198718365314,
+     1.0444943917626537,
+     1.0444943917626537
+    ]
+   },
+   {
+    "version": 40,
+    "net": [
+     1.8681599155099198,
+     0.000001,
+     1.0444943917626537
+    ]
+   },
+   {
+    "version": 52,
+    "net": [
+     4.902119302548886,
+     0.000001,
+     1.0444943917626537
+    ]
+   },
+   {
+    "version": 37,
+    "net": [
+     0.2927839719182657,
+     3.019160107416271,
+     0.000001
+    ]
+   },
+   {
+    "version": 48,
+    "net": [
+     0.000001,
+     0.000001,
+     0.000001
+    ]
+   },
+   {
+    "version": 41,
+    "net": [
+     1.8681599155099198,
+     0.000001,
+     1.0444943917626537
+    ]
+   },
+   {
+    "version": 38,
+    "net": [
+     0.2927839719182657,
+     1.0444943917626537,
+     0.000001
+    ]
+   },
+   {
+    "version": 36,
+    "net": [
+     1.8681599155099198,
+     0.000001,
+     0.000001
+    ]
+   },
+   {
+    "version": 28,
+    "net": [
+     0.2927839719182657,
+     0.000001,
+     3.019160107416271
+    ]
+   },
+   {
+    "version": 22,
+    "net": [
+     0.2927839719182657,
+     1.0444943917626537,
+     0.000001
+    ]
+   },
+   {
+    "version": 14,
+    "net": [
+     0.2927839719182657,
+     0.000001,
+     1.0444943917626537
+    ]
+   },
+   {
+    "version": 23,
+    "net": [
+     0.8850198718365314,
+     0.000001,
+     3.019160107416271
+    ]
+   },
+   {
+    "version": 9,
+    "net": [
+     0.2927839719182657,
+     1.0444943917626537,
+     1.0444943917626537
+    ]
+   },
+   {
+    "version": 7,
+    "net": [
+     0.2927839719182657,
+     1.0444943917626537,
+     0.000001
+    ]
+   },
+   {
+    "version": 1,
+    "net": [
+     0.2927839719182657,
+     1.0444943917626537,
+     4.835835156412884
+    ]
+   },
+   {
+    "version": 0,
+    "net": [
+     0.2927839719182657,
+     1.0444943917626537,
+     3.019160107416271
+    ]
+   }
+  ]
+ },
+ {
+  "table": "c",
+  "label": "c9-mwc0iybo",
+  "gameId": "pd73vnda52g4ap1dz15pxrz7gs8j1gcz",
+  "playedAt": "2026-11-11T11:24:34.699Z",
+  "setup": "grid-annotated-basics",
+  "overrides": {
+   "halfLifeSeconds": 240,
+   "planningSeconds": 30,
+   "languages": [
+    "python",
+    "typescript"
+   ],
+   "startingEnergy": 4675
+  },
+  "settings": {
+   "commitClause": false,
+   "defenceGoals": false,
+   "durationMode": "fixed",
+   "excludedDefenceFamilies": [],
+   "excludedFamilies": [
+    "staircase_climber",
+    "looking_glass",
+    "pinwheel",
+    "constellation",
+    "mountain_climb",
+    "round_numbers",
+    "divisibility_detective",
+    "seesaw",
+    "stepping_stones",
+    "column_addition",
+    "ladder_of_numbers",
+    "snap",
+    "young_tableau",
+    "fillomino",
+    "bingo_caller",
+    "full_house",
+    "twenty_one",
+    "sudoku_scholar"
+   ],
+   "halfLifeSeconds": 240,
+   "interactionComputeMs": 1000,
+   "interactionRateHz": 25,
+   "languages": [
+    "python",
+    "typescript"
+   ],
+   "maxAgentsPerGod": 200,
+   "objectSelection": "uniform",
+   "objectType": "Grid",
+   "pauseSeconds": 180,
+   "peerNoiseBits": 8,
+   "penaltyWeight": 1,
+   "planningSeconds": 30,
+   "powerPerSecond": 64,
+   "priorId": "uniform",
+   "scoreIntervalSeconds": 10,
+   "spawnFunctionId": "uniform",
+   "spawnRateHz": 0.1,
+   "startingEnergy": 4675,
+   "startingObjectCount": 10,
+   "stepBudget": 500000,
+   "typeArgs": {
+    "colours": "mono",
+    "size": 4,
+    "symbols": "base10"
+   },
+   "utilitySelectorId": "fair-aligned"
+  },
+  "agentLanguage": "typescript",
+  "summonedInPlanning": true,
+  "worldSeconds": 240,
+  "endAtWorld": 240,
+  "phase": "ended",
+  "wallRunningSeconds": 241.537,
+  "worstStallMs": 0,
+  "objectsAtStart": 10,
+  "objectsAtEnd": 34,
+  "engineStats": {
+   "acts": 2462,
+   "commits": 215,
+   "discarded": 0,
+   "opportunities": 5736
+  },
+  "events": {
+   "transform": 2314,
+   "fail": 83,
+   "skip": 65,
+   "spawn": 34
+  },
+  "seats": [
+   {
+    "seat": 0,
+    "policy": "random",
+    "utility": {
+     "familyId": "number_bonds",
+     "params": {}
+    },
+    "summonPrice": 450.2851482071002,
+    "expectedActCost": 14.532273195331168,
+    "powerShare": 1,
+    "validation": {
+     "changeRate": 0.8910891089108911,
+     "skipRate": 0,
+     "expectedSuccessRate": 0.84375,
+     "warnings": []
+    },
+    "totalPayoff": 850.6492743358302,
+    "rank": 3,
+    "acts": 821,
+    "transforms": 738,
+    "skips": 0,
+    "failures": {
+     "collision": 0,
+     "commit": 0,
+     "error": 0,
+     "invalid": 0,
+     "noChange": 83
+    },
+    "lastFailures": {},
+    "spent": 12035.628660373191,
+    "spentRead": 0,
+    "energyBalance": 3324.3713396267585,
+    "storedAccount": {
+     "balance": 3315.7313396267573,
+     "settledWorldSeconds": 239.86499999999998
+    },
+    "deityEnergyStored": {
+     "balance": 4224.7148517929,
+     "settledWorldSeconds": 0
+    },
+    "source": "function agent(grid) {\n  const n = grid.size;\n  const r = Math.floor(Math.random() * n), k = Math.floor(Math.random() * n);\n  return [write([r, k], Math.floor(Math.random() * 10))];\n}"
+   },
+   {
+    "seat": 1,
+    "policy": "greedy",
+    "utility": {
+     "familyId": "mirrormancer",
+     "params": {
+      "axis": "TB"
+     }
+    },
+    "summonPrice": 4630.213114325509,
+    "expectedActCost": 17.807934264478295,
+    "powerShare": 1,
+    "validation": {
+     "changeRate": 0.9900990099009901,
+     "skipRate": 0.009900990099009901,
+     "expectedSuccessRate": 1,
+     "warnings": []
+    },
+    "totalPayoff": 2078.996018122694,
+    "rank": 1,
+    "acts": 821,
+    "transforms": 807,
+    "skips": 14,
+    "failures": {
+     "collision": 0,
+     "commit": 0,
+     "error": 0,
+     "invalid": 0,
+     "noChange": 0
+    },
+    "lastFailures": {},
+    "spent": 14524.562497749497,
+    "spentRead": 1363.651482951275,
+    "energyBalance": 835.4375022503066,
+    "storedAccount": {
+     "balance": 829.6775022503064,
+     "settledWorldSeconds": 239.91
+    },
+    "deityEnergyStored": {
+     "balance": 44.786885674490804,
+     "settledWorldSeconds": 0
+    },
+    "source": "function utility(grid: any): any {\n  let mirrors = 0;\n  let pairs = 0;\n  for (const line of grid.columns) {\n    const half = Math.floor(line.length / 2);\n    let matches = 0;\n    for (let i = 0; i < half; i++) {\n      if (line[i].value === line[line.length - 1 - i].value) matches += 1;\n    }\n    pairs += matches;\n    if (matches === half) mirrors += 1;\n  }\n  return [mirrors, pairs];\n}\nfunction agent(grid: any) {\n  const n: number = grid.size, real: any[] = grid.cells, rows: any[][] = [];\n  // The prelude's own Cell and Grid classes (the agent's cells are metered views of Cell): a plain, writable board.\n  const CellClass: any = Object.getPrototypeOf(real[0]).constructor, GridClass: any = Object.getPrototypeOf(grid).constructor;\n  for (let r = 0; r < n; r++) {\n    const row: any[] = [];\n    for (let k = 0; k < n; k++) {\n      const x: any = new CellClass(), v: number = real[r * n + k].value;\n      x.row = r; x.col = k; x.value = v; x.symbol = String(v); x.colour = grid.palette[0];\n      row.push(x);\n    }\n    rows.push(row);\n  }\n  const at = (r: number, k: number): any => (r >= 0 && r < n && k >= 0 && k < n ? rows[r][k] : null);\n  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {\n    const x: any = rows[r][k];\n    x.left = at(r, k - 1); x.right = at(r, k + 1); x.up = at(r - 1, k); x.down = at(r + 1, k);\n    x.upLeft = at(r - 1, k - 1); x.upRight = at(r - 1, k + 1); x.downLeft = at(r + 1, k - 1); x.downRight = at(r + 1, k + 1);\n  }\n  const board: any = new GridClass(rows);\n  const list = (o: any): number[] => (typeof o === \"number\" ? [o] : o);\n  const beats = (a: number[], b: number[]): boolean => {\n    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] > b[i];\n    return false;\n  };\n  let best: number[] = list(utility(board)), move: number[] | null = null;\n  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {\n    const x: any = rows[r][k], old: number = x.value;\n    for (let d = 0; d < 10; d++) {\n      if (d === old) continue;\n      x.value = d; x.symbol = String(d);\n      const u: number[] = list(utility(board));\n      if (beats(u, best)) { best = u; move = [r, k, d]; }\n    }\n    x.value = old; x.symbol = String(old);\n  }\n  return move === null ? [] : [write([move[0], move[1]], move[2])];\n}"
+   },
+   {
+    "seat": 2,
+    "policy": "greedy",
+    "utility": {
+     "familyId": "magic_accountant",
+     "params": {
+      "axis": "cols",
+      "target": 15
+     }
+    },
+    "summonPrice": 4442.530280384037,
+    "expectedActCost": 17.96940396664864,
+    "powerShare": 1,
+    "validation": {
+     "changeRate": 1,
+     "skipRate": 0,
+     "expectedSuccessRate": 1,
+     "warnings": []
+    },
+    "totalPayoff": 1923.3120305043287,
+    "rank": 2,
+    "acts": 820,
+    "transforms": 769,
+    "skips": 51,
+    "failures": {
+     "collision": 0,
+     "commit": 0,
+     "error": 0,
+     "invalid": 0,
+     "noChange": 0
+    },
+    "lastFailures": {},
+    "spent": 13903.180816772272,
+    "spentRead": 1361.9905189038313,
+    "energyBalance": 1456.8191832274993,
+    "storedAccount": {
+     "balance": 1445.6142601505749,
+     "settledWorldSeconds": 239.82492307692306
+    },
+    "deityEnergyStored": {
+     "balance": 232.46971961596319,
+     "settledWorldSeconds": 0
+    },
+    "source": "const TARGET = 15;\nfunction utility(grid: any): any {\n  let exact = 0;\n  let distance = 0;\n  for (const line of grid.columns) {\n    let total = 0;\n    for (const cell of line) total += cell.value;\n    if (total === TARGET) exact += 1;\n    distance += Math.abs(total - TARGET);\n  }\n  return [exact, -distance];\n}\nfunction agent(grid: any) {\n  const n: number = grid.size, real: any[] = grid.cells, rows: any[][] = [];\n  // The prelude's own Cell and Grid classes (the agent's cells are metered views of Cell): a plain, writable board.\n  const CellClass: any = Object.getPrototypeOf(real[0]).constructor, GridClass: any = Object.getPrototypeOf(grid).constructor;\n  for (let r = 0; r < n; r++) {\n    const row: any[] = [];\n    for (let k = 0; k < n; k++) {\n      const x: any = new CellClass(), v: number = real[r * n + k].value;\n      x.row = r; x.col = k; x.value = v; x.symbol = String(v); x.colour = grid.palette[0];\n      row.push(x);\n    }\n    rows.push(row);\n  }\n  const at = (r: number, k: number): any => (r >= 0 && r < n && k >= 0 && k < n ? rows[r][k] : null);\n  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {\n    const x: any = rows[r][k];\n    x.left = at(r, k - 1); x.right = at(r, k + 1); x.up = at(r - 1, k); x.down = at(r + 1, k);\n    x.upLeft = at(r - 1, k - 1); x.upRight = at(r - 1, k + 1); x.downLeft = at(r + 1, k - 1); x.downRight = at(r + 1, k + 1);\n  }\n  const board: any = new GridClass(rows);\n  const list = (o: any): number[] => (typeof o === \"number\" ? [o] : o);\n  const beats = (a: number[], b: number[]): boolean => {\n    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] > b[i];\n    return false;\n  };\n  let best: number[] = list(utility(board)), move: number[] | null = null;\n  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {\n    const x: any = rows[r][k], old: number = x.value;\n    for (let d = 0; d < 10; d++) {\n      if (d === old) continue;\n      x.value = d; x.symbol = String(d);\n      const u: number[] = list(utility(board));\n      if (beats(u, best)) { best = u; move = [r, k, d]; }\n    }\n    x.value = old; x.symbol = String(old);\n  }\n  return move === null ? [] : [write([move[0], move[1]], move[2])];\n}"
+   }
+  ],
+  "objects": [
+   {
+    "version": 132,
+    "net": [
+     0.2927839719182657,
+     3.019160107416271,
+     21.433330289717713
+    ]
+   },
+   {
+    "version": 118,
+    "net": [
+     1.8681599155099198,
+     5.4987990220335785,
+     12.921758944623578
+    ]
+   },
+   {
+    "version": 146,
+    "net": [
+     0.8850198718365314,
+     21.60900582827481,
+     0.5316301574366424
+    ]
+   },
+   {
+    "version": 138,
+    "net": [
+     0.8850198718365314,
+     5.4987990220335785,
+     3.651676320160826
+    ]
+   },
+   {
+    "version": 124,
+    "net": [
+     1.8681599155099198,
+     12.21420710580323,
+     9.9792701660055
+    ]
+   },
+   {
+    "version": 122,
+    "net": [
+     0.2927839719182657,
+     21.60900582827481,
+     3.4954469451470342
+    ]
+   },
+   {
+    "version": 144,
+    "net": [
+     0.2927839719182657,
+     21.60900582827481,
+     0.8324981086826573
+    ]
+   },
+   {
+    "version": 145,
+    "net": [
+     0.8850198718365314,
+     3.019160107416271,
+     21.433330289717713
+    ]
+   },
+   {
+    "version": 126,
+    "net": [
+     3.2380540747713837,
+     12.21420710580323,
+     9.371718640115953
+    ]
+   },
+   {
+    "version": 113,
+    "net": [
+     0.2927839719182657,
+     4.835835156412884,
+     3.3832611516243745
+    ]
+   },
+   {
+    "version": 127,
+    "net": [
+     0.8850198718365314,
+     0.000001,
+     17.75453674041627
+    ]
+   },
+   {
+    "version": 73,
+    "net": [
+     1.8681599155099198,
+     9.531371586524386,
+     10.34710935941627
+    ]
+   },
+   {
+    "version": 66,
+    "net": [
+     0.8850198718365314,
+     14.76346561975979,
+     1.6231271872287212
+    ]
+   },
+   {
+    "version": 67,
+    "net": [
+     0.2927839719182657,
+     14.76346561975979,
+     5.496072286872906
+    ]
+   },
+   {
+    "version": 68,
+    "net": [
+     0.2927839719182657,
+     3.019160107416271,
+     21.433330289717713
+    ]
+   },
+   {
+    "version": 47,
+    "net": [
+     3.2380540747713837,
+     33.63431844805357,
+     1.0677333493850347
+    ]
+   },
+   {
+    "version": 53,
+    "net": [
+     3.2380540747713837,
+     1.0444943917626537,
+     9.371718640115953
+    ]
+   },
+   {
+    "version": 59,
+    "net": [
+     1.8681599155099198,
+     6.873444137097088,
+     8.04256542613587
+    ]
+   },
+   {
+    "version": 50,
+    "net": [
+     1.8681599155099198,
+     21.60900582827481,
+     1.0677333493850347
+    ]
+   },
+   {
+    "version": 43,
+    "net": [
+     1.8681599155099198,
+     21.60900582827481,
+     1.2670440204886724
+    ]
+   },
+   {
+    "version": 44,
+    "net": [
+     1.8681599155099198,
+     1.0444943917626537,
+     21.433330289717713
+    ]
+   },
+   {
+    "version": 43,
+    "net": [
+     0.8850198718365314,
+     21.60900582827481,
+     3.3053361323312123
+    ]
+   },
+   {
+    "version": 42,
+    "net": [
+     1.8681599155099198,
+     3.019160107416271,
+     14.925964193524386
+    ]
+   },
+   {
+    "version": 33,
+    "net": [
+     0.2927839719182657,
+     14.76346561975979,
+     3.219518921935956
+    ]
+   },
+   {
+    "version": 41,
+    "net": [
+     0.8850198718365314,
+     3.019160107416271,
+     17.75453674041627
+    ]
+   },
+   {
+    "version": 32,
+    "net": [
+     0.2927839719182657,
+     6.873444137097088,
+     2.677233370692215
+    ]
+   },
+   {
+    "version": 17,
+    "net": [
+     0.8850198718365314,
+     1.0444943917626537,
+     9.9792701660055
+    ]
+   },
+   {
+    "version": 24,
+    "net": [
+     0.8850198718365314,
+     21.60900582827481,
+     0.9025843605561816
+    ]
+   },
+   {
+    "version": 25,
+    "net": [
+     1.8681599155099198,
+     5.4987990220335785,
+     12.921758944623578
+    ]
+   },
+   {
+    "version": 21,
+    "net": [
+     0.000001,
+     24.570024771137426,
+     4.999124823671411
+    ]
+   },
+   {
+    "version": 9,
+    "net": [
+     0.2927839719182657,
+     1.0444943917626537,
+     21.433330289717713
+    ]
+   },
+   {
+    "version": 11,
+    "net": [
+     4.902119302548886,
+     12.21420710580323,
+     3.1775589766023966
+    ]
+   },
+   {
+    "version": 10,
+    "net": [
+     0.8850198718365314,
+     21.60900582827481,
+     0.5316301574366424
+    ]
+   },
+   {
+    "version": 1,
+    "net": [
+     0.2927839719182657,
+     5.4987990220335785,
+     4.140191346171701
+    ]
+   }
+  ]
+ },
+ {
+  "table": "c",
+  "label": "c10-mwc0iybo",
+  "gameId": "pd70ferhhvm20kc8r4z0jn244d8j0ws6",
+  "playedAt": "2026-11-11T11:24:34.849Z",
+  "setup": "grid-annotated-basics",
+  "overrides": {
+   "halfLifeSeconds": 240,
+   "planningSeconds": 30,
+   "languages": [
+    "python",
+    "typescript"
+   ],
+   "startingEnergy": 4675
+  },
+  "settings": {
+   "commitClause": false,
+   "defenceGoals": false,
+   "durationMode": "fixed",
+   "excludedDefenceFamilies": [],
+   "excludedFamilies": [
+    "staircase_climber",
+    "looking_glass",
+    "pinwheel",
+    "constellation",
+    "mountain_climb",
+    "round_numbers",
+    "divisibility_detective",
+    "seesaw",
+    "stepping_stones",
+    "column_addition",
+    "ladder_of_numbers",
+    "snap",
+    "young_tableau",
+    "fillomino",
+    "bingo_caller",
+    "full_house",
+    "twenty_one",
+    "sudoku_scholar"
+   ],
+   "halfLifeSeconds": 240,
+   "interactionComputeMs": 1000,
+   "interactionRateHz": 25,
+   "languages": [
+    "python",
+    "typescript"
+   ],
+   "maxAgentsPerGod": 200,
+   "objectSelection": "uniform",
+   "objectType": "Grid",
+   "pauseSeconds": 180,
+   "peerNoiseBits": 8,
+   "penaltyWeight": 1,
+   "planningSeconds": 30,
+   "powerPerSecond": 64,
+   "priorId": "uniform",
+   "scoreIntervalSeconds": 10,
+   "spawnFunctionId": "uniform",
+   "spawnRateHz": 0.1,
+   "startingEnergy": 4675,
+   "startingObjectCount": 10,
+   "stepBudget": 500000,
+   "typeArgs": {
+    "colours": "mono",
+    "size": 4,
+    "symbols": "base10"
+   },
+   "utilitySelectorId": "fair-aligned"
+  },
+  "agentLanguage": "typescript",
+  "summonedInPlanning": true,
+  "worldSeconds": 240,
+  "endAtWorld": 240,
+  "phase": "ended",
+  "wallRunningSeconds": 241.883,
+  "worstStallMs": 0,
+  "objectsAtStart": 10,
+  "objectsAtEnd": 31,
+  "engineStats": {
+   "acts": 2488,
+   "commits": 216,
+   "discarded": 0,
+   "opportunities": 5799
+  },
+  "events": {
+   "transform": 2328,
+   "fail": 87,
+   "skip": 73,
+   "spawn": 31
+  },
+  "seats": [
+   {
+    "seat": 0,
+    "policy": "greedy",
+    "utility": {
+     "familyId": "magic_accountant",
+     "params": {
+      "axis": "cols",
+      "target": 15
+     }
+    },
+    "summonPrice": 4442.530280384037,
+    "expectedActCost": 17.96940396664864,
+    "powerShare": 1,
+    "validation": {
+     "changeRate": 1,
+     "skipRate": 0,
+     "expectedSuccessRate": 1,
+     "warnings": []
+    },
+    "totalPayoff": 1968.7479158200751,
+    "rank": 1,
+    "acts": 829,
+    "transforms": 779,
+    "skips": 50,
+    "failures": {
+     "collision": 0,
+     "commit": 0,
+     "error": 0,
+     "invalid": 0,
+     "noChange": 0
+    },
+    "lastFailures": {},
+    "spent": 14081.213892391312,
+    "spentRead": 1376.9391953308248,
+    "energyBalance": 1278.7861076084619,
+    "storedAccount": {
+     "balance": 1263.502907608471,
+     "settledWorldSeconds": 239.76120000000014
+    },
+    "deityEnergyStored": {
+     "balance": 232.46971961596319,
+     "settledWorldSeconds": 0
+    },
+    "source": "const TARGET = 15;\nfunction utility(grid: any): any {\n  let exact = 0;\n  let distance = 0;\n  for (const line of grid.columns) {\n    let total = 0;\n    for (const cell of line) total += cell.value;\n    if (total === TARGET) exact += 1;\n    distance += Math.abs(total - TARGET);\n  }\n  return [exact, -distance];\n}\nfunction agent(grid: any) {\n  const n: number = grid.size, real: any[] = grid.cells, rows: any[][] = [];\n  // The prelude's own Cell and Grid classes (the agent's cells are metered views of Cell): a plain, writable board.\n  const CellClass: any = Object.getPrototypeOf(real[0]).constructor, GridClass: any = Object.getPrototypeOf(grid).constructor;\n  for (let r = 0; r < n; r++) {\n    const row: any[] = [];\n    for (let k = 0; k < n; k++) {\n      const x: any = new CellClass(), v: number = real[r * n + k].value;\n      x.row = r; x.col = k; x.value = v; x.symbol = String(v); x.colour = grid.palette[0];\n      row.push(x);\n    }\n    rows.push(row);\n  }\n  const at = (r: number, k: number): any => (r >= 0 && r < n && k >= 0 && k < n ? rows[r][k] : null);\n  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {\n    const x: any = rows[r][k];\n    x.left = at(r, k - 1); x.right = at(r, k + 1); x.up = at(r - 1, k); x.down = at(r + 1, k);\n    x.upLeft = at(r - 1, k - 1); x.upRight = at(r - 1, k + 1); x.downLeft = at(r + 1, k - 1); x.downRight = at(r + 1, k + 1);\n  }\n  const board: any = new GridClass(rows);\n  const list = (o: any): number[] => (typeof o === \"number\" ? [o] : o);\n  const beats = (a: number[], b: number[]): boolean => {\n    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] > b[i];\n    return false;\n  };\n  let best: number[] = list(utility(board)), move: number[] | null = null;\n  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {\n    const x: any = rows[r][k], old: number = x.value;\n    for (let d = 0; d < 10; d++) {\n      if (d === old) continue;\n      x.value = d; x.symbol = String(d);\n      const u: number[] = list(utility(board));\n      if (beats(u, best)) { best = u; move = [r, k, d]; }\n    }\n    x.value = old; x.symbol = String(old);\n  }\n  return move === null ? [] : [write([move[0], move[1]], move[2])];\n}"
+   },
+   {
+    "seat": 1,
+    "policy": "random",
+    "utility": {
+     "familyId": "number_bonds",
+     "params": {}
+    },
+    "summonPrice": 450.2851482071002,
+    "expectedActCost": 14.613008046416342,
+    "powerShare": 1,
+    "validation": {
+     "changeRate": 0.8960396039603961,
+     "skipRate": 0,
+     "expectedSuccessRate": 0.84375,
+     "warnings": []
+    },
+    "totalPayoff": 543.3617337557029,
+    "rank": 3,
+    "acts": 830,
+    "transforms": 743,
+    "skips": 0,
+    "failures": {
+     "collision": 0,
+     "commit": 0,
+     "error": 0,
+     "invalid": 0,
+     "noChange": 87
+    },
+    "lastFailures": {},
+    "spent": 12117.170859969216,
+    "spentRead": 0,
+    "energyBalance": 3242.8291400307135,
+    "storedAccount": {
+     "balance": 3242.8291400307135,
+     "settledWorldSeconds": 240
+    },
+    "deityEnergyStored": {
+     "balance": 4224.7148517929,
+     "settledWorldSeconds": 0
+    },
+    "source": "function agent(grid) {\n  const n = grid.size;\n  const r = Math.floor(Math.random() * n), k = Math.floor(Math.random() * n);\n  return [write([r, k], Math.floor(Math.random() * 10))];\n}"
+   },
+   {
+    "seat": 2,
+    "policy": "greedy",
+    "utility": {
+     "familyId": "mirrormancer",
+     "params": {
+      "axis": "TB"
+     }
+    },
+    "summonPrice": 4630.213114325509,
+    "expectedActCost": 17.807934264478295,
+    "powerShare": 1,
+    "validation": {
+     "changeRate": 0.9900990099009901,
+     "skipRate": 0.009900990099009901,
+     "expectedSuccessRate": 1,
+     "warnings": []
+    },
+    "totalPayoff": 1918.0179681737961,
+    "rank": 2,
+    "acts": 829,
+    "transforms": 806,
+    "skips": 23,
+    "failures": {
+     "collision": 0,
+     "commit": 0,
+     "error": 0,
+     "invalid": 0,
+     "noChange": 0
+    },
+    "lastFailures": {},
+    "spent": 14521.54177020984,
+    "spentRead": 1376.9391953308248,
+    "energyBalance": 838.4582297899705,
+    "storedAccount": {
+     "balance": 825.722229789977,
+     "settledWorldSeconds": 239.8010000000001
+    },
+    "deityEnergyStored": {
+     "balance": 44.786885674490804,
+     "settledWorldSeconds": 0
+    },
+    "source": "function utility(grid: any): any {\n  let mirrors = 0;\n  let pairs = 0;\n  for (const line of grid.columns) {\n    const half = Math.floor(line.length / 2);\n    let matches = 0;\n    for (let i = 0; i < half; i++) {\n      if (line[i].value === line[line.length - 1 - i].value) matches += 1;\n    }\n    pairs += matches;\n    if (matches === half) mirrors += 1;\n  }\n  return [mirrors, pairs];\n}\nfunction agent(grid: any) {\n  const n: number = grid.size, real: any[] = grid.cells, rows: any[][] = [];\n  // The prelude's own Cell and Grid classes (the agent's cells are metered views of Cell): a plain, writable board.\n  const CellClass: any = Object.getPrototypeOf(real[0]).constructor, GridClass: any = Object.getPrototypeOf(grid).constructor;\n  for (let r = 0; r < n; r++) {\n    const row: any[] = [];\n    for (let k = 0; k < n; k++) {\n      const x: any = new CellClass(), v: number = real[r * n + k].value;\n      x.row = r; x.col = k; x.value = v; x.symbol = String(v); x.colour = grid.palette[0];\n      row.push(x);\n    }\n    rows.push(row);\n  }\n  const at = (r: number, k: number): any => (r >= 0 && r < n && k >= 0 && k < n ? rows[r][k] : null);\n  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {\n    const x: any = rows[r][k];\n    x.left = at(r, k - 1); x.right = at(r, k + 1); x.up = at(r - 1, k); x.down = at(r + 1, k);\n    x.upLeft = at(r - 1, k - 1); x.upRight = at(r - 1, k + 1); x.downLeft = at(r + 1, k - 1); x.downRight = at(r + 1, k + 1);\n  }\n  const board: any = new GridClass(rows);\n  const list = (o: any): number[] => (typeof o === \"number\" ? [o] : o);\n  const beats = (a: number[], b: number[]): boolean => {\n    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] > b[i];\n    return false;\n  };\n  let best: number[] = list(utility(board)), move: number[] | null = null;\n  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {\n    const x: any = rows[r][k], old: number = x.value;\n    for (let d = 0; d < 10; d++) {\n      if (d === old) continue;\n      x.value = d; x.symbol = String(d);\n      const u: number[] = list(utility(board));\n      if (beats(u, best)) { best = u; move = [r, k, d]; }\n    }\n    x.value = old; x.symbol = String(old);\n  }\n  return move === null ? [] : [write([move[0], move[1]], move[2])];\n}"
+   }
+  ],
+  "objects": [
+   {
+    "version": 139,
+    "net": [
+     21.433330289717713,
+     0.2927839719182657,
+     4.835835156412884
+    ]
+   },
+   {
+    "version": 134,
+    "net": [
+     21.433330289717713,
+     0.2927839719182657,
+     3.019160107416271
+    ]
+   },
+   {
+    "version": 104,
+    "net": [
+     6.982708235790264,
+     1.8681599155099198,
+     0.000001
+    ]
+   },
+   {
+    "version": 148,
+    "net": [
+     7.811348855110314,
+     0.000001,
+     14.76346561975979
+    ]
+   },
+   {
+    "version": 106,
+    "net": [
+     11.791367256717711,
+     0.8850198718365314,
+     14.76346561975979
+    ]
+   },
+   {
+    "version": 137,
+    "net": [
+     3.992488877430033,
+     0.000001,
+     6.873444137097088
+    ]
+   },
+   {
+    "version": 138,
+    "net": [
+     3.3405812207737213,
+     0.2927839719182657,
+     12.577995726383293
+    ]
+   },
+   {
+    "version": 158,
+    "net": [
+     7.748491832518306,
+     4.902119302548886,
+     9.531371586524386
+    ]
+   },
+   {
+    "version": 137,
+    "net": [
+     2.482602745620444,
+     0.000001,
+     9.531371586524386
+    ]
+   },
+   {
+    "version": 140,
+    "net": [
+     14.660755268447502,
+     0.8850198718365314,
+     12.21420710580323
+    ]
+   },
+   {
+    "version": 91,
+    "net": [
+     1.6231271872287212,
+     1.8681599155099198,
+     6.873444137097088
+    ]
+   },
+   {
+    "version": 124,
+    "net": [
+     3.862780628471264,
+     3.2380540747713837,
+     14.76346561975979
+    ]
+   },
+   {
+    "version": 95,
+    "net": [
+     13.888256255146011,
+     0.8850198718365314,
+     5.4987990220335785
+    ]
+   },
+   {
+    "version": 96,
+    "net": [
+     1.9509112172164573,
+     0.000001,
+     14.76346561975979
+    ]
+   },
+   {
+    "version": 100,
+    "net": [
+     7.87356065543632,
+     0.8850198718365314,
+     18.38251554
+    ]
+   },
+   {
+    "version": 84,
+    "net": [
+     14.925964193524386,
+     1.8681599155099198,
+     1.0444943917626537
+    ]
+   },
+   {
+    "version": 82,
+    "net": [
+     8.682532197506644,
+     0.2927839719182657,
+     3.019160107416271
+    ]
+   },
+   {
+    "version": 68,
+    "net": [
+     17.75453674041627,
+     0.8850198718365314,
+     6.873444137097088
+    ]
+   },
+   {
+    "version": 53,
+    "net": [
+     0.9025843605561816,
+     0.8850198718365314,
+     33.63431844805357
+    ]
+   },
+   {
+    "version": 35,
+    "net": [
+     14.925964193524386,
+     0.000001,
+     3.019160107416271
+    ]
+   },
+   {
+    "version": 27,
+    "net": [
+     3.25313446449713,
+     1.8681599155099198,
+     9.531371586524386
+    ]
+   },
+   {
+    "version": 28,
+    "net": [
+     7.87356065543632,
+     0.2927839719182657,
+     12.577995726383293
+    ]
+   },
+   {
+    "version": 22,
+    "net": [
+     7.838557674589051,
+     0.000001,
+     6.873444137097088
+    ]
+   },
+   {
+    "version": 29,
+    "net": [
+     21.433330289717713,
+     0.8850198718365314,
+     1.0444943917626537
+    ]
+   },
+   {
+    "version": 18,
+    "net": [
+     5.75603935939497,
+     3.2380540747713837,
+     0.000001
+    ]
+   },
+   {
+    "version": 20,
+    "net": [
+     15.96340867515916,
+     3.2380540747713837,
+     3.019160107416271
+    ]
+   },
+   {
+    "version": 4,
+    "net": [
+     0.4726589993698042,
+     0.000001,
+     6.873444137097088
+    ]
+   },
+   {
+    "version": 6,
+    "net": [
+     14.660755268447502,
+     1.8681599155099198,
+     3.019160107416271
+    ]
+   },
+   {
+    "version": 4,
+    "net": [
+     0.5893658427274735,
+     0.8850198718365314,
+     12.577995726383293
+    ]
+   },
+   {
+    "version": 1,
+    "net": [
+     1.0677333493850347,
+     0.2927839719182657,
+     1.0444943917626537
+    ]
+   },
+   {
+    "version": 0,
+    "net": [
+     1.6231271872287212,
+     0.8850198718365314,
+     0.000001
+    ]
+   }
+  ]
+ },
+ {
+  "table": "c",
+  "label": "c11-mwc0iybo",
+  "gameId": "pd799mzx3wscgbxmpcf5ydh37n8j164v",
+  "playedAt": "2026-11-11T11:24:33.342Z",
+  "setup": "grid-annotated-basics",
+  "overrides": {
+   "halfLifeSeconds": 240,
+   "planningSeconds": 30,
+   "languages": [
+    "python",
+    "typescript"
+   ],
+   "startingEnergy": 4675
+  },
+  "settings": {
+   "commitClause": false,
+   "defenceGoals": false,
+   "durationMode": "fixed",
+   "excludedDefenceFamilies": [],
+   "excludedFamilies": [
+    "staircase_climber",
+    "looking_glass",
+    "pinwheel",
+    "constellation",
+    "mountain_climb",
+    "round_numbers",
+    "divisibility_detective",
+    "seesaw",
+    "stepping_stones",
+    "column_addition",
+    "ladder_of_numbers",
+    "snap",
+    "young_tableau",
+    "fillomino",
+    "bingo_caller",
+    "full_house",
+    "twenty_one",
+    "sudoku_scholar"
+   ],
+   "halfLifeSeconds": 240,
+   "interactionComputeMs": 1000,
+   "interactionRateHz": 25,
+   "languages": [
+    "python",
+    "typescript"
+   ],
+   "maxAgentsPerGod": 200,
+   "objectSelection": "uniform",
+   "objectType": "Grid",
+   "pauseSeconds": 180,
+   "peerNoiseBits": 8,
+   "penaltyWeight": 1,
+   "planningSeconds": 30,
+   "powerPerSecond": 64,
+   "priorId": "uniform",
+   "scoreIntervalSeconds": 10,
+   "spawnFunctionId": "uniform",
+   "spawnRateHz": 0.1,
+   "startingEnergy": 4675,
+   "startingObjectCount": 10,
+   "stepBudget": 500000,
+   "typeArgs": {
+    "colours": "mono",
+    "size": 4,
+    "symbols": "base10"
+   },
+   "utilitySelectorId": "fair-aligned"
+  },
+  "agentLanguage": "typescript",
+  "summonedInPlanning": true,
+  "worldSeconds": 240,
+  "endAtWorld": 240,
+  "phase": "ended",
+  "wallRunningSeconds": 240.499,
+  "worstStallMs": 5149,
+  "objectsAtStart": 10,
+  "objectsAtEnd": 26,
+  "engineStats": {
+   "acts": 2475,
+   "commits": 214,
+   "discarded": 0,
+   "opportunities": 5767
+  },
+  "events": {
+   "transform": 2283,
+   "fail": 68,
+   "skip": 124,
+   "spawn": 26
+  },
+  "seats": [
+   {
+    "seat": 0,
+    "policy": "greedy",
+    "utility": {
+     "familyId": "mirrormancer",
+     "params": {
+      "axis": "LR"
+     }
+    },
+    "summonPrice": 4630.213114325509,
+    "expectedActCost": 17.807934264478295,
+    "powerShare": 1,
+    "validation": {
+     "changeRate": 0.9900990099009901,
+     "skipRate": 0.009900990099009901,
+     "expectedSuccessRate": 1,
+     "warnings": []
+    },
+    "totalPayoff": 5939.113893601924,
+    "rank": 1,
+    "acts": 825,
+    "transforms": 758,
+    "skips": 67,
+    "failures": {
+     "collision": 0,
+     "commit": 0,
+     "error": 0,
+     "invalid": 0,
+     "noChange": 0
+    },
+    "lastFailures": {},
+    "spent": 13732.092797898234,
+    "spentRead": 1370.29533914105,
+    "energyBalance": 1627.907202101539,
+    "storedAccount": {
+     "balance": 1625.252725911062,
+     "settledWorldSeconds": 239.9585238095238
+    },
+    "deityEnergyStored": {
+     "balance": 44.786885674490804,
+     "settledWorldSeconds": 0
+    },
+    "source": "function utility(grid: any): any {\n  let mirrors = 0;\n  let pairs = 0;\n  for (const line of grid.rows) {\n    const half = Math.floor(line.length / 2);\n    let matches = 0;\n    for (let i = 0; i < half; i++) {\n      if (line[i].value === line[line.length - 1 - i].value) matches += 1;\n    }\n    pairs += matches;\n    if (matches === half) mirrors += 1;\n  }\n  return [mirrors, pairs];\n}\nfunction agent(grid: any) {\n  const n: number = grid.size, real: any[] = grid.cells, rows: any[][] = [];\n  // The prelude's own Cell and Grid classes (the agent's cells are metered views of Cell): a plain, writable board.\n  const CellClass: any = Object.getPrototypeOf(real[0]).constructor, GridClass: any = Object.getPrototypeOf(grid).constructor;\n  for (let r = 0; r < n; r++) {\n    const row: any[] = [];\n    for (let k = 0; k < n; k++) {\n      const x: any = new CellClass(), v: number = real[r * n + k].value;\n      x.row = r; x.col = k; x.value = v; x.symbol = String(v); x.colour = grid.palette[0];\n      row.push(x);\n    }\n    rows.push(row);\n  }\n  const at = (r: number, k: number): any => (r >= 0 && r < n && k >= 0 && k < n ? rows[r][k] : null);\n  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {\n    const x: any = rows[r][k];\n    x.left = at(r, k - 1); x.right = at(r, k + 1); x.up = at(r - 1, k); x.down = at(r + 1, k);\n    x.upLeft = at(r - 1, k - 1); x.upRight = at(r - 1, k + 1); x.downLeft = at(r + 1, k - 1); x.downRight = at(r + 1, k + 1);\n  }\n  const board: any = new GridClass(rows);\n  const list = (o: any): number[] => (typeof o === \"number\" ? [o] : o);\n  const beats = (a: number[], b: number[]): boolean => {\n    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] > b[i];\n    return false;\n  };\n  let best: number[] = list(utility(board)), move: number[] | null = null;\n  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {\n    const x: any = rows[r][k], old: number = x.value;\n    for (let d = 0; d < 10; d++) {\n      if (d === old) continue;\n      x.value = d; x.symbol = String(d);\n      const u: number[] = list(utility(board));\n      if (beats(u, best)) { best = u; move = [r, k, d]; }\n    }\n    x.value = old; x.symbol = String(old);\n  }\n  return move === null ? [] : [write([move[0], move[1]], move[2])];\n}"
+   },
+   {
+    "seat": 1,
+    "policy": "greedy",
+    "utility": {
+     "familyId": "mirrormancer",
+     "params": {
+      "axis": "TB"
+     }
+    },
+    "summonPrice": 4630.213114325509,
+    "expectedActCost": 17.807934264478295,
+    "powerShare": 1,
+    "validation": {
+     "changeRate": 0.9900990099009901,
+     "skipRate": 0.009900990099009901,
+     "expectedSuccessRate": 1,
+     "warnings": []
+    },
+    "totalPayoff": 5654.772839124607,
+    "rank": 2,
+    "acts": 824,
+    "transforms": 767,
+    "skips": 57,
+    "failures": {
+     "collision": 0,
+     "commit": 0,
+     "error": 0,
+     "invalid": 0,
+     "noChange": 0
+    },
+    "lastFailures": {},
+    "spent": 13877.207793123634,
+    "spentRead": 1368.6343750936062,
+    "energyBalance": 1482.7922068761395,
+    "storedAccount": {
+     "balance": 1466.8653497332812,
+     "settledWorldSeconds": 239.75114285714284
+    },
+    "deityEnergyStored": {
+     "balance": 44.786885674490804,
+     "settledWorldSeconds": 0
+    },
+    "source": "function utility(grid: any): any {\n  let mirrors = 0;\n  let pairs = 0;\n  for (const line of grid.columns) {\n    const half = Math.floor(line.length / 2);\n    let matches = 0;\n    for (let i = 0; i < half; i++) {\n      if (line[i].value === line[line.length - 1 - i].value) matches += 1;\n    }\n    pairs += matches;\n    if (matches === half) mirrors += 1;\n  }\n  return [mirrors, pairs];\n}\nfunction agent(grid: any) {\n  const n: number = grid.size, real: any[] = grid.cells, rows: any[][] = [];\n  // The prelude's own Cell and Grid classes (the agent's cells are metered views of Cell): a plain, writable board.\n  const CellClass: any = Object.getPrototypeOf(real[0]).constructor, GridClass: any = Object.getPrototypeOf(grid).constructor;\n  for (let r = 0; r < n; r++) {\n    const row: any[] = [];\n    for (let k = 0; k < n; k++) {\n      const x: any = new CellClass(), v: number = real[r * n + k].value;\n      x.row = r; x.col = k; x.value = v; x.symbol = String(v); x.colour = grid.palette[0];\n      row.push(x);\n    }\n    rows.push(row);\n  }\n  const at = (r: number, k: number): any => (r >= 0 && r < n && k >= 0 && k < n ? rows[r][k] : null);\n  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {\n    const x: any = rows[r][k];\n    x.left = at(r, k - 1); x.right = at(r, k + 1); x.up = at(r - 1, k); x.down = at(r + 1, k);\n    x.upLeft = at(r - 1, k - 1); x.upRight = at(r - 1, k + 1); x.downLeft = at(r + 1, k - 1); x.downRight = at(r + 1, k + 1);\n  }\n  const board: any = new GridClass(rows);\n  const list = (o: any): number[] => (typeof o === \"number\" ? [o] : o);\n  const beats = (a: number[], b: number[]): boolean => {\n    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] > b[i];\n    return false;\n  };\n  let best: number[] = list(utility(board)), move: number[] | null = null;\n  for (let r = 0; r < n; r++) for (let k = 0; k < n; k++) {\n    const x: any = rows[r][k], old: number = x.value;\n    for (let d = 0; d < 10; d++) {\n      if (d === old) continue;\n      x.value = d; x.symbol = String(d);\n      const u: number[] = list(utility(board));\n      if (beats(u, best)) { best = u; move = [r, k, d]; }\n    }\n    x.value = old; x.symbol = String(old);\n  }\n  return move === null ? [] : [write([move[0], move[1]], move[2])];\n}"
+   },
+   {
+    "seat": 2,
+    "policy": "random",
+    "utility": {
+     "familyId": "number_bonds",
+     "params": {}
+    },
+    "summonPrice": 450.2851482071002,
+    "expectedActCost": 14.532273195331168,
+    "powerShare": 1,
+    "validation": {
+     "changeRate": 0.8910891089108911,
+     "skipRate": 0,
+     "expectedSuccessRate": 0.84375,
+     "warnings": []
+    },
+    "totalPayoff": 1807.3872737429638,
+    "rank": 3,
+    "acts": 826,
+    "transforms": 758,
+    "skips": 0,
+    "failures": {
+     "collision": 0,
+     "commit": 0,
+     "error": 0,
+     "invalid": 0,
+     "noChange": 68
+    },
+    "lastFailures": {},
+    "spent": 12361.797458757288,
+    "spentRead": 0,
+    "energyBalance": 2998.202541242642,
+    "storedAccount": {
+     "balance": 2998.202541242642,
+     "settledWorldSeconds": 240
+    },
+    "deityEnergyStored": {
+     "balance": 4224.7148517929,
+     "settledWorldSeconds": 0
+    },
+    "source": "function agent(grid) {\n  const n = grid.size;\n  const r = Math.floor(Math.random() * n), k = Math.floor(Math.random() * n);\n  return [write([r, k], Math.floor(Math.random() * 10))];\n}"
+   }
+  ],
+  "objects": [
+   {
+    "version": 130,
+    "net": [
+     24.570024771137426,
+     6.873444137097088,
+     9.1294503312181
+    ]
+   },
+   {
+    "version": 99,
+    "net": [
+     18.38251554,
+     6.873444137097088,
+     0.2927839719182657
+    ]
+   },
+   {
+    "version": 136,
+    "net": [
+     18.38251554,
+     33.63431844805357,
+     4.902119302548886
+    ]
+   },
+   {
+    "version": 153,
+    "net": [
+     14.76346561975979,
+     9.531371586524386,
+     6.828510422942395
+    ]
+   },
+   {
+    "version": 155,
+    "net": [
+     21.60900582827481,
+     18.38251554,
+     0.2927839719182657
+    ]
+   },
+   {
+    "version": 125,
+    "net": [
+     24.570024771137426,
+     14.76346561975979,
+     0.000001
+    ]
+   },
+   {
+    "version": 133,
+    "net": [
+     24.570024771137426,
+     6.873444137097088,
+     4.902119302548886
+    ]
+   },
+   {
+    "version": 125,
+    "net": [
+     12.21420710580323,
+     24.570024771137426,
+     1.8681599155099198
+    ]
+   },
+   {
+    "version": 134,
+    "net": [
+     24.570024771137426,
+     14.76346561975979,
+     4.902119302548886
+    ]
+   },
+   {
+    "version": 110,
+    "net": [
+     21.60900582827481,
+     18.38251554,
+     0.8850198718365314
+    ]
+   },
+   {
+    "version": 98,
+    "net": [
+     24.570024771137426,
+     5.42726096624977,
+     4.902119302548886
+    ]
+   },
+   {
+    "version": 99,
+    "net": [
+     14.76346561975979,
+     14.76346561975979,
+     9.1294503312181
+    ]
+   },
+   {
+    "version": 118,
+    "net": [
+     3.019160107416271,
+     6.873444137097088,
+     1.8681599155099198
+    ]
+   },
+   {
+    "version": 105,
+    "net": [
+     9.531371586524386,
+     21.60900582827481,
+     0.2927839719182657
+    ]
+   },
+   {
+    "version": 105,
+    "net": [
+     1.0444943917626537,
+     14.76346561975979,
+     1.8681599155099198
+    ]
+   },
+   {
+    "version": 81,
+    "net": [
+     6.873444137097088,
+     5.4987990220335785,
+     0.2927839719182657
+    ]
+   },
+   {
+    "version": 52,
+    "net": [
+     9.531371586524386,
+     21.60900582827481,
+     0.8850198718365314
+    ]
+   },
+   {
+    "version": 52,
+    "net": [
+     14.76346561975979,
+     0.000001,
+     0.8850198718365314
+    ]
+   },
+   {
+    "version": 63,
+    "net": [
+     6.873444137097088,
+     12.21420710580323,
+     3.2380540747713837
+    ]
+   },
+   {
+    "version": 56,
+    "net": [
+     12.21420710580323,
+     21.60900582827481,
+     0.000001
+    ]
+   },
+   {
+    "version": 60,
+    "net": [
+     14.76346561975979,
+     14.76346561975979,
+     0.2927839719182657
+    ]
+   },
+   {
+    "version": 31,
+    "net": [
+     14.76346561975979,
+     9.531371586524386,
+     0.2927839719182657
+    ]
+   },
+   {
+    "version": 26,
+    "net": [
+     5.4987990220335785,
+     9.531371586524386,
+     0.2927839719182657
+    ]
+   },
+   {
+    "version": 19,
+    "net": [
+     6.873444137097088,
+     6.873444137097088,
+     1.8681599155099198
+    ]
+   },
+   {
+    "version": 12,
+    "net": [
+     5.4987990220335785,
+     6.873444137097088,
+     0.2927839719182657
+    ]
+   },
+   {
+    "version": 6,
+    "net": [
+     24.570024771137426,
+     6.873444137097088,
+     0.000001
+    ]
+   }
+  ]
+ }
+]
