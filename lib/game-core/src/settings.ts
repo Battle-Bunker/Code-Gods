@@ -480,6 +480,11 @@ export const TYPE_DEFAULTS: Readonly<Record<string, {
   readonly of?: (inst: Instantiation) => Partial<GameSettings>;
   readonly byKey?: Readonly<Record<string, Partial<GameSettings>>>;
 }>> = {
+  // The general defaults give each deity 8 bits/s (Int and string worlds). At 30 s a deity would hold 240 bits, and its
+  // first summon at the default half share would leave it a store of 120: less than what is left of its 200 starting
+  // bits. 60 s keeps the starting energy through the first two default summons (docs/energy-model.md §6.1).
+  Int: { all: { fullChargeSeconds: 60 } },
+  string: { all: { fullChargeSeconds: 60 } },
   Grid: {
     // Power 64 bits/s per deity (docs/energy-model.md §6): two agents at the former 32 bits/s each. The 32 was the measured value of
     // grid-lab PR #14 §4.9 (held out) for the 80-object world: 0.46 hits per object, dynamism +0.056. The global

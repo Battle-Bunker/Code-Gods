@@ -342,3 +342,22 @@ test("the default setup: the dearest example agent is payable in planning, and a
   for (const seed of SEED_SETUPS.filter(x => x.settings.objectType === "Grid")) assert.equal(seed.settings.startingEnergy, 600, seed.seedId);
   assert.equal(DEFAULT_SETTINGS.startingEnergy, 200);
 });
+
+test("every world's defaults keep the starting energy: the store holds it in planning and after the first default summons", async () => {
+  const { settleDeityEnergy, chargeDeityAccount, defaultShare } = await import("../src/energy.ts");
+  for (const type of ["Int", "string", "Grid"]) {
+    const s = defaultSettingsFor(type);
+    const terms = (allocated: number) => ({ powerPerSecond: s.powerPerSecond, allocated, fullChargeSeconds: s.fullChargeSeconds });
+    let own = settleDeityEnergy({ balance: s.startingEnergy, settledWorldSeconds: 0 }, 0, terms(0)), allocated = 0;
+    assert.equal(own.balance, s.startingEnergy, `${type}: the planning store (${s.powerPerSecond} × ${s.fullChargeSeconds}) holds the starting energy`);
+    // Two small agents (60 bits each, a one-move agent) at the default shares: a half, then a quarter.
+    for (const left of [s.startingEnergy - 60, s.startingEnergy - 120]) {
+      own = chargeDeityAccount(own, 60, 0, terms(allocated));
+      allocated += defaultShare(allocated);
+      own = settleDeityEnergy(own, 0, terms(allocated));
+      // Grid (600 bits, P = 64): 540 then 480 = its quarter-power store exactly. Int and string (200 bits, P = 8, T = 60): 140, 80.
+      assert.equal(own.balance, left, `${type}: nothing is lost to the capacity with ${100 * allocated}% allocated`);
+    }
+  }
+  assert.deepEqual([defaultSettingsFor("Int").fullChargeSeconds, defaultSettingsFor("string").fullChargeSeconds, defaultSettingsFor("Grid").fullChargeSeconds], [60, 60, 30]);
+});
