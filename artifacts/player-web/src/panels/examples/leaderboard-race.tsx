@@ -1,9 +1,9 @@
 /**
- * Leaderboard race: every god's total payoff over the last few minutes (public standings, sampled
- * once a second while this panel is open).
+ * Leaderboard race: every player's total over the last few minutes, from the scoreboard's publications the server
+ * keeps (useStandingsHistory: the same for every viewer, from the game's start), each player in the colour the
+ * built-in panes give them (usePlayerStyle).
  */
-import { useEffect, useRef, useState } from "react";
-import { definePanel, LineChart, useLeaderboard, useGame } from "@sdk";
+import { definePanel, LineChart, useDockState, useGame, useLeaderboard, usePlayerStyle, useStandingsHistory } from "@sdk";
 
 export default definePanel({
   title: "Leaderboard race",
@@ -11,18 +11,17 @@ export default definePanel({
   size: "md",
   Component() {
     const board = useLeaderboard({ hz: 1 });
-    const world = useGame({ hz: 1 })?.worldSeconds ?? 0;
-    const series = useRef(new Map<string, { label: string; points: { x: number; y: number }[] }>());
-    const [, redraw] = useState(0);
-    useEffect(() => {
-      for (const row of board) {
-        const s = series.current.get(row.godId) ?? { label: row.label, points: [] };
-        if (s.points.at(-1)?.x !== world) s.points.push({ x: world, y: row.totalPayoff });
-        s.points = s.points.filter(p => p.x >= world - 300);
-        series.current.set(row.godId, s);
-      }
-      redraw(n => n + 1);
-    }, [board, world]);
-    return <div data-testid="example-race"><LineChart series={[...series.current.values()]} width={360} height={160} xLabel="world s" yLabel="total payoff" /></div>;
+    const game = useGame({ hz: 1 });
+    const world = game?.worldSeconds ?? 0;
+    // The history's totals are in the game's roster order.
+    const roster = useDockState()?.roster ?? [];
+    const history = useStandingsHistory(game?.gameId).filter(r => r.world >= world - 300);
+    const style = usePlayerStyle();
+    const series = board.map(row => ({
+      label: row.label,
+      ...style(row.godId),
+      points: history.map(r => ({ x: r.world, y: r.totals[roster.indexOf(row.godId)] ?? 0 })),
+    }));
+    return <div data-testid="example-race"><LineChart series={series} width={360} height={160} xLabel="world s" yLabel="total payoff" /></div>;
   },
 });
