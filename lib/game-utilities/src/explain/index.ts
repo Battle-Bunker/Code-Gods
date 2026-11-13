@@ -282,10 +282,15 @@ function climbTier(rng: Rng, g: GridSpec, l: Lens, p: Draw["params"], from: Cand
   return cur;
 }
 
-/** Whether a board scores at least one of a tiered draw's ★ tiers (a base draw: always, it has none to score). */
+/**
+ * Whether a board scores at least one of a tiered draw's ★ tiers. A base draw has none to score, so it always passes.
+ * A tiered draw must really score one: below the gate a board has no ★ units at all, which is a board to reject rather
+ * than one that has nothing to improve — taking it for the latter would let the tier climb hand back a board whose base
+ * is unfinished, ahead of the better board the ordinary climb had found.
+ */
 function scoresTier(l: Lens, p: Draw["params"], b: Board): boolean {
-  const tier = l.parts(p, b).filter(t => t.id.startsWith("tier"));
-  return !tier.length || tier.some(t => t.points.some(x => x > 0));
+  if (!isTiered(p)) return true;
+  return l.parts(p, b).some(t => t.id.startsWith("tier") && t.points.some(x => x > 0));
 }
 
 function caption(ordinal: Ordinal | null, rich: boolean): string {

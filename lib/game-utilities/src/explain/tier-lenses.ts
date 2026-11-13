@@ -11,6 +11,7 @@
 import type { CardTier, Params } from "../types.ts";
 import { baseParams, tierValue, tiersOf, type TierValue } from "../families/grid/tiers.ts";
 import type { Board } from "./board.ts";
+import { heatOf } from "./heat.ts";
 import { MORE_TIER_LENSES } from "./tier-lenses-more.ts";
 import { count, type Lens } from "./lens.ts";
 import type { BreakdownItem, Cell, Part, TierStatus } from "./model.ts";
@@ -36,15 +37,6 @@ export interface TierLens {
 }
 
 const num = (v: TierValue, k: string) => v[k] as number;
-
-/**
- * How close a unit that scores nothing is, for `Part.heat`. A unit may have to meet several conditions in turn (these
- * two boxes must share exactly one pair, and then add up to x): `met` of `conditions` already hold and the next is
- * `away` off. Meeting one more condition always beats closing a gap, so a search that follows heat uphill never trades
- * the link away to bring the sum nearer.
- */
-export const heatOf = (away: number, met = 0, conditions = 1): number =>
-  (met + 1 / (1 + Math.max(0, away))) / (conditions + 1);
 
 /** A set of cells against a total: a point when it adds up to it, else how far off it is. */
 function sumUnit(b: Board, x: number, id: string, group: string, shape: Part["shape"], name: string, cells: Cell[]): Part {

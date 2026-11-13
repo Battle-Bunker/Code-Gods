@@ -9,7 +9,8 @@
 import type { TierValue } from "../families/grid/tiers.ts";
 import type { Board } from "./board.ts";
 import type { Cell, Fact, Part } from "./model.ts";
-import { heatOf, type TierLens } from "./tier-lenses.ts";
+import { heatOf } from "./heat.ts";
+import type { TierLens } from "./tier-lenses.ts";
 
 const num = (v: TierValue, k: string) => v[k] as number;
 

@@ -1,6 +1,6 @@
 /**
  * ✌️ Two Pair's tiers (docs/layered-rules-design.md §5.4; measurements in docs/layered-rules-measurements/two-pair.md,
- * scripts/two-pair-sweep.ts).
+ * scripts/tier-sweep.ts and scripts/two-pair-exact.ts).
  *
  * The base is Two Pair as shipped: the 2×2 boxes are disjoint units scoring [two different pairs, one pair], so it has
  * an exact law and an exact sampler of boards given the base (src/tiers/hybrid.ts).
