@@ -710,12 +710,13 @@ export async function boardFor(ctx: QueryCtx, caller: Viewer, args: { roomId: st
   const atCursor = split > 0 ? Number(args.cursor!.slice(0, split)) : undefined;
   if (args.cursor && (atCursor === undefined || !Number.isFinite(atCursor))) return fail("BAD_REQUEST", "Not a board cursor: pass the previous page's cursor");
   if (atCursor !== undefined && args.world !== undefined && args.world !== atCursor) return fail("BAD_REQUEST", "This cursor is of the board at another world time");
-  const world = atCursor ?? args.world ?? nowWorld, current = world >= nowWorld;
-  // Paid observation: the board now is the caller's knowledge (each object as last told); a past board would be a look
-  // at every object then, which is paid for (lib/knowledge.ts).
-  // (A later page of the board "now" carries its first page's world, by then just past: it is still the knowledge.)
+  // Paid observation (lib/knowledge.ts): a seated god's board of a live game is its knowledge, each object as last told,
+  // whatever moment is asked for. So a world time is refused outright, past, present or future (never by comparing it
+  // with the clock, which moves with the tick), and a later page (its cursor carries the first page's world) is still
+  // the knowledge: the per-object history below is never read for such a game.
   const known = paidLive(game);
-  if (known && args.world !== undefined && args.world < nowWorld) return fail("FORBIDDEN", "This game charges for looking: a past board is not free while the game is live. The board now (no world) is what you have been told; look to refresh it.");
+  if (known && args.world !== undefined) return fail("FORBIDDEN", "This game charges for looking: while it is live there is no board at a chosen world time. Ask without `world` for the board as you have been told it; look to refresh it.");
+  const world = known ? nowWorld : atCursor ?? args.world ?? nowWorld, current = world >= nowWorld;
   const limit = Math.max(1, Math.min(max, Math.floor(args.limit ?? max)));
   const page = await ctx.db.query("objectViews")
     .withIndex("by_game_god_created", q => q.eq("gameId", game._id).eq("godId", viewer.subject).lte("createdAt", world))
