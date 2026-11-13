@@ -285,7 +285,7 @@ export function AgentsView({ agents, self, powerPerSecond, fullChargeSeconds, ch
   );
 }
 
-export default function Agents({ params, phase }: PanelProps<"agents">) {
+export default function Agents({ params, phase, paneId }: PanelProps<"agents">) {
   const { agents: all, economy, secondsUntilEligible, loading: agentsLoading } = useMyAgents({ hz: 1 });
   const game = useGame({ hz: 1 });
   const self = useDockState({ hz: 1 })?.self;
@@ -326,7 +326,9 @@ export default function Agents({ params, phase }: PanelProps<"agents">) {
   // The version the last replace replaced (the runner remembers it for this page): shown on the agent that replaced
   // it, with what each earned a move, and one press to put it back (a replace with the previous code and name).
   // "Your points now" is the goal pane's: here only when no goal pane is on screen, so the two never sit side by side.
-  const goalPaneShown = Object.values(useDock().layout.panes).some(p => p.kind === "panel" && p.panelId === "my-card");
+  // (Maximised over the goal pane, this pane is the only one in sight: then it shows the figure itself.)
+  const dockNow = useDock();
+  const goalPaneShown = dockNow.maximised !== paneId && Object.values(dockNow.layout.panes).some(p => p.kind === "panel" && p.panelId === "my-card");
   const openObject = useOpenObject();
   const paidLooks = !ended && economy?.observation !== undefined && economy.observation !== "free";
   const recent = useEvents({ hz: 1, limit: 50 });
@@ -343,7 +345,8 @@ export default function Agents({ params, phase }: PanelProps<"agents">) {
     const lost = replaceLoss({ energy: self?.energy ?? 0, cost: previous.cost ?? 0, allocated: self?.allocated, share: share ?? defaultShare(self?.allocated ?? 0), powerPerSecond: economy?.powerPerSecond, fullChargeSeconds: economy?.fullChargeSeconds });
     out.set(target.id, {
       busy: !!runnerState.busy,
-      ...(runnerState.replace?.putBack && runnerState.replace.oldId === target.id ? { status: PUTTING_BACK } : {}),
+      // Only while that put-back is in flight; a busy or unanswered one leaves the button (and its notice) again.
+      ...(runnerState.busy === "summon" && runnerState.replace?.putBack && runnerState.replace.oldId === target.id ? { status: PUTTING_BACK } : {}),
       text: paidLooks ? null : compared ?? (previous.restored ? "The previous version is back. Once it has made a few moves, this line says how it is doing."
         : "This is your new version. Once it has made a few moves, this line compares it with the one before."),
       caveat: compared !== null,

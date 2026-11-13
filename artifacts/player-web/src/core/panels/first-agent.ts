@@ -433,3 +433,18 @@ export function shelfOpen(s: { agents: readonly { summonCost?: number }[]; energ
   if (s.ended || !s.agents.length) return false;
   return s.energy >= (s.agents[0]?.summonCost ?? 100);
 }
+
+/**
+ * A language switch with an untouched starter in the editor: the same starter (same id) in the new language, or null
+ * to leave the editor alone (the player's own code, a starter the new language does not have, or already this
+ * language's). Without it the old language's code stayed and the check failed.
+ */
+export function starterSwap(source: string, language: string, byLanguage: Readonly<Record<string, readonly { id: string; source: string }[] | undefined>>): string | null {
+  if (!source.trim() || byLanguage[language]?.some(s => s.source === source)) return null;
+  for (const [other, starters] of Object.entries(byLanguage)) {
+    if (other === language) continue;
+    const held = starters?.find(s => s.source === source);
+    if (held) return byLanguage[language]?.find(s => s.id === held.id)?.source ?? null;
+  }
+  return null;
+}

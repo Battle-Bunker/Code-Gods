@@ -35,3 +35,13 @@ export function niceTicks(lo: number, hi: number, count = 3): number[] {
   for (let v = Math.ceil(lo / step) * step; v <= hi + step * 1e-9; v += step) out.push(Math.round(v / step) * step + 0);   // + 0: never a "-0" tick
   return out;
 }
+
+/**
+ * Whose line is the accent colour: the real viewer, the person at the screen, in every pane. Live, that is the
+ * observation's own player; in a replay it is the replay's viewer (`replayViewerId`), NOT the player the panes are
+ * "seen as", so one player never has two colours on one screen. -1: nobody among the players (a spectator).
+ */
+export function viewerIndex(roster: readonly string[] | undefined | null, s: { selfId: string | undefined | null; replay: boolean; replayViewerId?: string | null }): number {
+  const id = s.replay ? s.replayViewerId : s.selfId;
+  return id && roster ? roster.indexOf(id) : -1;
+}

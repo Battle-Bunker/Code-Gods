@@ -25,7 +25,7 @@ import { forgeLanguage, forgeLanguages, forgeSandbox } from "@/core/game/languag
 import { useAffordances } from "@/core/use-affordances";
 import { useDockActions } from "@/dock/actions";
 import { summonNeeds } from "./summon-needs";
-import { PUTTING_BACK, DIFFERENT_IDEAS, replaceQuestion, shelfOpen, starterShelf, COMPARISON_CAVEAT, MOVE_MEANS, afterCheck, checkedLine, replaceLoss, versionComparison, REPLACE_WHY, draftOrigin, replaceBlocked, replaceLabel, replaceOffer, replaceShare, sameVersionNote, COPY_HINT, COPY_LABEL, REPLACE_QUESTION, SUMMONED_NEXT, isCopy, replaceNeedsConfirm, armedStep, armedText, energyHint, firstAgentFill, firstAgentHint, firstSummonStep, lacksEnergy, nextFreeName, proposedName, secondAgentHint, storeAfterSummonText, summonReady, summonedText, untouchedExample, type ArmedSummon, type Example } from "./first-agent";
+import { starterSwap, PUTTING_BACK, DIFFERENT_IDEAS, replaceQuestion, shelfOpen, starterShelf, COMPARISON_CAVEAT, MOVE_MEANS, afterCheck, checkedLine, replaceLoss, versionComparison, REPLACE_WHY, draftOrigin, replaceBlocked, replaceLabel, replaceOffer, replaceShare, sameVersionNote, COPY_HINT, COPY_LABEL, REPLACE_QUESTION, SUMMONED_NEXT, isCopy, replaceNeedsConfirm, armedStep, armedText, energyHint, firstAgentFill, firstAgentHint, firstSummonStep, lacksEnergy, nextFreeName, proposedName, secondAgentHint, storeAfterSummonText, summonReady, summonedText, untouchedExample, type ArmedSummon, type Example } from "./first-agent";
 import { progressLine } from "@/core/game/command-deadline";
 import { PRICE_GROWS, otherDiagnostics, priceParts, storeTooSmall } from "./validation-text";
 import { OBSERVER_DESCRIPTION, OBSERVER_NAME, observerRate, observerSource, rateText } from "./observer";
@@ -143,6 +143,26 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
   const blocked = replacing && originAgent ? replaceBlocked({ oldShare: originAgent.powerShare, allocated: obs?.self.allocated, name: originAgent.name?.trim() || "that agent" }) : null;
   const twinsNote = replacing ? sameVersionNote(originAgent, agents) : null;
   const shelf = useMemo(() => starterShelf(starters, { source, agents }), [starters, source, agents]);
+  // The shelf opens by itself ONCE, the first time the player has an agent and the energy for another; after that the
+  // disclosure is the player's own to open and close (its `open` is not controlled).
+  const shelfBox = useRef<HTMLDetailsElement>(null);
+  const shelfOpened = useRef(false);
+  const shelfDue = !ended && shelfOpen({ agents, energy: obs?.self.energy ?? 0 });
+  useEffect(() => {
+    if (!shelfDue || shelfOpened.current || !shelfBox.current) return;
+    shelfOpened.current = true;
+    shelfBox.current.open = true;
+  });
+  // A language switch with an untouched starter of any kind in the editor: the same starter in the new language.
+  const startersByLanguage = useMemo(() => {
+    const out: Record<string, { id: string; source: string }[]> = {};
+    if (!card || !board || board.objectType !== "Grid") return out;
+    for (const l of allowed) { try { out[l] = starterAgents({ familyId: card.familyId, language: l, summary: card.summary, cardSource: card.source, mutators: mutatorNames(board, l), ...boardFacts(board) }); } catch { /* none in this language */ } }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [card?.familyId, card?.summary, card?.source, board?.key, languageKey]);
+  const swap = ended ? null : starterSwap(source, language, startersByLanguage);
+  useEffect(() => { if (swap !== null) runner.setDraft({ source: swap }); }, [swap]);
   // A ready-made starter, unchanged, beside agents the player runs: whether the two undo each other is not known here.
   const starterLoaded = !copy && starters.some(x => x.source === source);
   const hint = ended ? null : agentCount === 0 ? firstAgentHint(source, language, examples) : copy ? COPY_HINT : replacing ? REPLACE_WHY : starterLoaded ? DIFFERENT_IDEAS : secondAgentHint(agentCount);
@@ -179,6 +199,8 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
     runner.setOrigin(null);
     runner.setDraft({ source: starter.source });
     if (!nameTyped.current) setName(nextFreeName(starter.name, agents.map(a => a.name), AGENT_NAME_MAX));
+    // The observer's own description does not describe a starter ("Only looks…" on an agent that changes grids).
+    if (description === OBSERVER_DESCRIPTION) setDescription("");
   };
   const loadObserver = () => {
     if (!observer) return;
@@ -500,7 +522,7 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
         // Other starting points, below the code so they are never read as describing the agent in the editor: the
         // ready-made agents for the player's goal (to pick without typing), then the standing watch (./observer.ts).
         // Closed until the player has an agent and the energy for another; then it opens by itself.
-        <details data-testid="details-other-starts" className="max-w-[75ch] text-xs text-muted-foreground" open={shelfOpen({ agents, energy })}>
+        <details ref={shelfBox} data-testid="details-other-starts" className="max-w-[75ch] text-xs text-muted-foreground">
           <summary className="cursor-pointer font-semibold">Other starting points</summary>
           {shelf.length > 1 && (
             <ul className="mt-1 space-y-1.5" data-testid="list-starters">
@@ -509,9 +531,9 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
                   <strong className="font-semibold text-foreground">{row.title}: {row.name}.</strong> {row.blurb} <span data-testid={`text-starter-note-${row.id}`}>{row.note}</span>{" "}
                   {row.state === "editor" ? null : askReplace === row.id
                     ? <><span role="alert" className="font-semibold text-foreground">{replaceQuestion(row.title)}</span>{" "}
-                      <TextButton boxed tone="danger" testId={`button-starter-replace-${row.id}`} onClick={() => loadStarter(row)}>Replace it</TextButton>{" "}
+                      <TextButton boxed tone="danger" testId={`button-starter-replace-${row.id}`} disabled={!!busy} onClick={() => loadStarter(row)}>Replace it</TextButton>{" "}
                       <TextButton testId={`button-starter-keep-${row.id}`} onClick={() => setAskReplace(null)}>Keep my code</TextButton></>
-                    : <TextButton boxed testId={`button-starter-${row.id}`} onClick={() => { if (replaceNeedsConfirm({ source, untouched: untouchedExample(source, examples) !== null || starters.some(x => x.source === source), copy })) setAskReplace(row.id); else loadStarter(row); }}>Use this one</TextButton>}
+                    : <TextButton boxed testId={`button-starter-${row.id}`} disabled={!!busy} title={busy ? "Wait for the command in flight" : undefined} onClick={() => { if (replaceNeedsConfirm({ source, untouched: untouchedExample(source, examples) !== null || starters.some(x => x.source === source), copy })) setAskReplace(row.id); else loadStarter(row); }}>Use this one</TextButton>}
                 </li>
               ))}
             </ul>
@@ -524,9 +546,9 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
             of your power it {rateText(observer.perSecond)}.{" "}
             {askReplace === "observer"
               ? <><span role="alert" className="font-semibold text-foreground">{REPLACE_QUESTION}</span>{" "}
-                <TextButton boxed tone="danger" testId="button-observer-replace" onClick={loadObserver}>Replace it</TextButton>{" "}
+                <TextButton boxed tone="danger" testId="button-observer-replace" disabled={!!busy} onClick={loadObserver}>Replace it</TextButton>{" "}
                 <TextButton testId="button-observer-keep" onClick={() => setAskReplace(null)}>Keep my code</TextButton></>
-              : <TextButton boxed testId="button-observer-template" onClick={() => { if (replaceNeedsConfirm({ source, untouched: untouchedExample(source, examples) !== null || starters.some(x => x.source === source), copy })) setAskReplace("observer"); else loadObserver(); }}>Use this agent</TextButton>}
+              : <TextButton boxed testId="button-observer-template" disabled={!!busy} onClick={() => { if (replaceNeedsConfirm({ source, untouched: untouchedExample(source, examples) !== null || starters.some(x => x.source === source), copy })) setAskReplace("observer"); else loadObserver(); }}>Use this agent</TextButton>}
           </p>
           )}
         </details>

@@ -7,7 +7,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  FIRST_AGENT_HINT, STARTER_AGENT_HINT, armedStep, armedText, energyHint, firstAgentFill, firstAgentHint, untouchedExample, lacksEnergy, readyText, summonReady, summonedText, COPY_HINT, REPLACE_WHY, DIFFERENT_IDEAS, PRICE_AFTER_CHECK, replaceQuestion, shelfOpen, starterShelf, COMPARISON_CAVEAT, previousTarget, putBackLabel, putBackText, BUSY_NOTHING_CHANGED, afterCheck, checkedLine, replaceLoss, versionComparison, PENDING_REPLACE_MS, pendingReplaceOnReceipt, pendingReplaceOnSend, replaceBlocked, sameVersionNote, bothText, draftOrigin, replaceLabel, replaceOffer, replaceShare, replaceStep, replacedText, FIRST_SUMMON_MAX_AGE_MS, FIRST_SUMMON_WARMING_MS, firstSummonLabel, isCopy, replaceNeedsConfirm, firstSummonStep, nextFreeName, proposedName, secondAgentHint, storeAfterSummonText, type ArmedSummon, type Examples, type FirstAgentState,
+  FIRST_AGENT_HINT, STARTER_AGENT_HINT, armedStep, armedText, energyHint, firstAgentFill, firstAgentHint, untouchedExample, lacksEnergy, readyText, summonReady, summonedText, COPY_HINT, REPLACE_WHY, starterSwap, DIFFERENT_IDEAS, PRICE_AFTER_CHECK, replaceQuestion, shelfOpen, starterShelf, COMPARISON_CAVEAT, previousTarget, putBackLabel, putBackText, BUSY_NOTHING_CHANGED, afterCheck, checkedLine, replaceLoss, versionComparison, PENDING_REPLACE_MS, pendingReplaceOnReceipt, pendingReplaceOnSend, replaceBlocked, sameVersionNote, bothText, draftOrigin, replaceLabel, replaceOffer, replaceShare, replaceStep, replacedText, FIRST_SUMMON_MAX_AGE_MS, FIRST_SUMMON_WARMING_MS, firstSummonLabel, isCopy, replaceNeedsConfirm, firstSummonStep, nextFreeName, proposedName, secondAgentHint, storeAfterSummonText, type ArmedSummon, type Examples, type FirstAgentState,
 } from "../src/core/panels/first-agent.ts";
 
 const py = { name: "Mirror maker", source: "# My goal: mirrors\ndef agent(grid):\n    return []\n", specific: true };
@@ -347,4 +347,17 @@ test("the shelf opens by itself once the player has an agent and the energy for 
   assert.equal(shelfOpen({ agents: [{ summonCost: 170 }], energy: 120 }), false, "not enough to spare");
   assert.equal(shelfOpen({ agents: [{ summonCost: undefined }], energy: 120 }), true, "no price known: about 100 is enough");
   assert.equal(shelfOpen({ agents: [{ summonCost: 170 }], energy: 480, ended: true }), false);
+});
+
+test("switching the language swaps an untouched starter of any kind for the same starter in the new language", () => {
+  const byLanguage = {
+    python: [{ id: "tiny", source: "PY-S" }, { id: "thorough", source: "PY-T" }],
+    typescript: [{ id: "tiny", source: "TS-S" }, { id: "thorough", source: "TS-T" }],
+  };
+  assert.equal(starterSwap("PY-T", "typescript", byLanguage), "TS-T", "the Thorough one stays the Thorough one");
+  assert.equal(starterSwap("PY-S", "typescript", byLanguage), "TS-S");
+  assert.equal(starterSwap("TS-T", "typescript", byLanguage), null, "already this language's");
+  assert.equal(starterSwap("PY-T edited", "typescript", byLanguage), null, "the player's own code is never swapped");
+  assert.equal(starterSwap("PY-T", "typescript", { python: byLanguage.python, typescript: [{ id: "tiny", source: "TS-S" }] }), null, "no such starter in the new language: left alone");
+  assert.equal(starterSwap("", "typescript", byLanguage), null);
 });

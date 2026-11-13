@@ -211,6 +211,12 @@ test("showing a panel reuses its open pane, adds one otherwise, and at four pane
   const kept = showPanel(layout, "public-chat", undefined, panelPanesOf(layout).find(p => p.kind === "panel" && p.panelId === "objects")!.id);
   assert.ok(kept.replaced);
   assert.ok(panelPanesOf(kept.layout).some(p => p.kind === "panel" && p.panelId === "objects"), "the objects stay");
+  // "show this grid" pressed in My agents (the focused pane) on a dock with no Objects pane: My agents is not the pane that gives way.
+  const noObjects = setPanePanel(layout, panelPanesOf(layout).find(p => p.kind === "panel" && p.panelId === "objects")!.id, "rules", "human");
+  const fromAgents = showPanel(noObjects, "objects", undefined, panelPanesOf(noObjects).find(p => p.kind === "panel" && p.panelId === "agents")!.id);
+  assert.ok(fromAgents.replaced);
+  assert.ok(panelPanesOf(fromAgents.layout).some(p => p.kind === "panel" && p.panelId === "agents"), "My agents stays");
+  assert.ok(panelPanesOf(fromAgents.layout).some(p => p.kind === "panel" && p.panelId === "objects"));
   assert.throws(() => showPanel(base, "what-if"), /assistant/, "a what-if needs the assistant's parameters");
 });
 
