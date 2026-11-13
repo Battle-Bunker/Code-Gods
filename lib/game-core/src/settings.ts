@@ -183,6 +183,12 @@ export const ENERGY_LIMITS = Object.freeze({
 export const SCORE_INTERVALS: readonly number[] = Object.freeze([5, 10, 20, 30, 60]);
 export const DEFAULT_SCORE_INTERVAL_SECONDS = 10;
 /**
+ * What a new player's first agent may cost to summon, in bits: the dearest shipped Python example agent for a beginner
+ * rule (572, "Spread of Three"; the examples' own budget test holds each one under it). The Grid setups' starting
+ * energy covers it during planning.
+ */
+export const BEGINNER_AGENT_BUDGET_BITS = 572;
+/**
  * The default time to a full energy store (docs/energy-model.md §6.1): chosen so that the largest program a deity can
  * ever afford (retained power × this) makes code size matter, by the sweep in lib/game-core/scripts/balance-settings.ts.
  */
@@ -479,7 +485,11 @@ export const TYPE_DEFAULTS: Readonly<Record<string, {
     // grid-lab PR #14 §4.9 (held out) for the 80-object world: 0.46 hits per object, dynamism +0.056. The global
     // interaction cap binds in about 75% of snapshots, and the study predates defence goals. The documented
     // alternative is the "grid-low-income" seed setup (half the power: 32 bits/s).
-    all: { spawnRateHz: 0.5, startingObjectCount: 80, powerPerSecond: 64, excludedFamilies: WEAK_GRID_FAMILIES },
+    // Starting energy 600 (13 Nov 2026): a new player's first agent must be payable during planning, when nothing
+    // accrues. The dearest shipped Python example agent for a beginner rule costs 572 bits (BEGINNER_AGENT_BUDGET_BITS).
+    // It is under the planning store (64 × 30 = 1,920), and after a first summon at the default half share the god's own
+    // 32 bits/s refills the price of the same agent again in 17 s (test/settings.test.ts pins both).
+    all: { spawnRateHz: 0.5, startingObjectCount: 80, powerPerSecond: 64, startingEnergy: 600, excludedFamilies: WEAK_GRID_FAMILIES },
     // A mono board (one colour, numbers only) cannot deal the weak colour families, so excluding them there means nothing:
     // of the weak list only sudoku_scholar and ladder_of_numbers read numbers alone (the ladder needs numerals).
     of: inst => (inst.terms["colours.count"] === 1
@@ -759,7 +769,7 @@ export const SETTINGS_DOCS = {
     consequence: "It rarely binds, so changing it seldom matters.",
   },
   startingEnergy: {
-    question: "How much energy does each player start with?", section: "energy", tier: "ask", control: "number", unit: "bits", suggested: [50, 100, 200, 400],
+    question: "How much energy does each player start with?", section: "energy", tier: "ask", control: "number", unit: "bits", suggested: [50, 100, 200, 400, 600],
     meaning: "The energy, in bits, each player holds for summoning agents when planning begins.",
     consequence: "Raising it allows bigger or more first agents and a faster start.",
   },
