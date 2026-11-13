@@ -462,8 +462,17 @@ irrelevant.
     agents' power. At 120 s and more it is not.
   - Agents can still store a mid-sized change: the smallest default agent (an eighth of the power) holds 240 bits, 2.8
     row repaints on 4×4; a half-share agent 960. At 5 s the eighth holds 40 bits, less than one row.
-  - Low power is the exception: with P = 8 (the default Int settings) the deity holds 240 bits, and its second default
-    summon leaves it 60. Such a room wants T = 60 or more.
+  - Low power needs longer: with P = 8 (Int and string worlds) a 30-second store holds 240 bits, and after the first
+    default summon 120, less than what is left of the 200 starting bits. Those worlds default to 60 s (`TYPE_DEFAULTS`,
+    13 Nov 2026); a test checks that every world's defaults keep the starting energy through two default summons.
+- **Starting energy on the Grid setups is 600** (13 Nov 2026; it was 200). A new player's first agent must be payable in
+  planning, when nothing accrues: the dearest shipped Python example agent for a beginner rule costs 572 bits
+  (`BEGINNER_AGENT_BUDGET_BITS`). 600 is under the planning store (1,920), and after a first summon at the default half
+  share the god's own 32 bits/s pays for the same agent again in 17 s (its store, 960, is full within the first
+  minute). Code size still matters: that agent is 15% of the god's whole first minute of power (572 of 3,840 bits), a
+  typical 250-bit example 6.5%, and nothing over 960 bits can be bought while half the power is with an agent. Low
+  income (P = 32) holds 480 after a first summon, so there the dearest example is a first agent only. Rooms and setups
+  already stored keep the starting energy they have.
 - **What a deity can afford.** A summon is paid from the deity's own account, so the largest program a deity can ever
   buy costs (unallocated power) × T. With all power allocated the deity's account holds nothing, and a refused summon
   says how much it can hold. Keeping power back for later agents is now a real choice against giving it to agents.
