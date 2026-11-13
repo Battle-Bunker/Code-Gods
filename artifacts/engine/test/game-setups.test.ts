@@ -41,7 +41,7 @@ test("system setups: seeded once in the shipped order, owned by the system, and 
   const [ann] = await gods("Seed Ann");
   const system = (await list(ann)).filter(r => r.system);
   assert.deepEqual(system.map(d => d.seedId), SEED_SETUPS.map(s => s.seedId), "each seed exactly once, in order, first");
-  assert.deepEqual(system.map(d => d.name), ["First steps", "Annotated basics", "Annotated colours", "Classic", "Low income", "Big board", "Master"]);
+  assert.deepEqual(system.map(d => d.name), ["First steps", "Annotated basics", "Annotated colours", "Basics with bidding", "Classic", "Low income", "Big board", "Master"]);
   for (const d of system) {
     assert.ok(!("settings" in d), "a list row has no settings");
     assert.deepEqual((await get(ann, d.id)).settings, seedSetupSettings(d.seedId!), `${d.name}: the complete shipped settings`);
@@ -219,7 +219,10 @@ test("the catalogue pages in order, at most 30 a page; search finds by name, own
   assert.equal(await found(tag), 3, "by name");
   assert.equal(await found(bob.name.split(" ").at(-1)!), 3, "by owner");
   assert.equal(await found(`Pager summary ${tag}`), 3, "by summary");
-  assert.deepEqual((await setupEntries(ann.c, "Annotated basics")).map(e => e.seedId)[0], "grid-annotated-basics", "a system setup by name, best first");
+  // A system setup by name. Among the system's it is the best match; a player's copy with those words in its name (other
+  // tests leave "Annotated basics's copy" setups behind) may rank above it, so this does not ask for the very first place.
+  const byName = await setupEntries(ann.c, "Annotated basics");
+  assert.equal(byName.find(e => e.system)?.seedId, "grid-annotated-basics", "a system setup by name: the first of the system's");
   // A row: what the list shows, with the owner's name; null once deleted.
   const row = await ann.c.query(api.setups.row, { setupId: made[0].id });
   assert.deepEqual([row.name, row.ownerName, row.mine, row.editable, row.system], [names[0], bob.name, false, false, false]);

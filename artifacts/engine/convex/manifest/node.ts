@@ -5,8 +5,10 @@
  * can instantiate, minus retired shapes: game-utilities playableInstantiations, the list the settings model is given on
  * the server), each saying how its first game here goes (`prepare`: how many rule tables would be computed on demand,
  * and about how long that takes; none for a shape whose tables are shipped or analytic) and the priors under which the
- * Aligned Lottery has measured synergy for it (`synergy`). `offered` keeps the shapes whose every table is shipped, for
- * diagnostics. Game setups are a table of their own (convex/setups.ts).
+ * Aligned Lottery has measured synergy for it (`synergy`). Each shape is stored ONCE: the document used to repeat the
+ * shapes whose every table is shipped under `offered` (for diagnostics; no page read it), which took it past the
+ * query-cost gate's 64 KiB (docs/convex-read-architecture.md R8). A shape whose tables are all shipped is one whose
+ * `prepare` is null. Game setups are a table of their own (convex/setups.ts).
  *
  * - `refresh` (internal): recompute and store (a write only when it changed). Run by every deploy and calibration
  *   upload (scripts/upload-calibration.mjs, which the deploy workflow and the dev script run).
@@ -16,7 +18,7 @@
  */
 import { OBJECT_TYPES, instanceInfo, type Instantiation } from "@workspace/game-types";
 import { LANGUAGES } from "@workspace/game-core";
-import { analyticFor, coverage, firstUseSeconds, offeredInstantiations, playableInstantiations, synergyFor, type CalibrationManifest } from "@workspace/game-utilities";
+import { analyticFor, coverage, firstUseSeconds, playableInstantiations, synergyFor, type CalibrationManifest } from "@workspace/game-utilities";
 import { action, internalAction, type ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { calibrationManifest, forgetCalibrationIndex } from "../engine/calibration";
@@ -48,8 +50,6 @@ function compute(calibration: CalibrationManifest) {
       classes: T.classes.map(c => ({ id: c.id, slot: c.slot, superclasses: c.superclasses, badge: c.badge })),
       // The same list the settings model is given on the server (engine/settingsDomain.ts).
       playable: playableInstantiations(T.id).map(inst => ({ ...shape(inst), prepare: prepareOf(calibration, inst), synergy: priorIds(calibration).filter(p => synergyFor(inst, p)) })),
-      // Diagnostics: the shapes whose every dealable table is shipped in file storage.
-      offered: offeredInstantiations(calibration, T.id).map(shape),
     })),
     priors: priorIds(calibration),
   };

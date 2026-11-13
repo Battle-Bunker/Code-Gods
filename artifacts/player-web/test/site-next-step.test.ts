@@ -90,3 +90,17 @@ test("spectators watch: only players count toward the minimum, and the step offe
   const full = withRoles([["bob", true], ...["a", "b", "c", "d", "e", "f", "g", "h"].map(id => [id, false] as [string, boolean])]);
   assert.deepEqual(nextStep("bob", full), { status: "The next game is full; you'll watch it.", primary: null, secondary: [] }, "no dead Play button");
 });
+
+test("during the bid phase the status says Bidding and names no other step; a failed one is the owner's to retry", () => {
+  const bidding = { ...room(["ada", "bob", "cy"]), bidding: {} };
+  assert.deepEqual(nextStep("bob", bidding), { status: "Bidding: bid for the rule you want, or pass.", primary: null, secondary: [] });
+  assert.deepEqual(nextStep("ada", bidding, { start: { phase: "bidding", endsAt: 31_000 } }), { status: "Bidding: bid for the rule you want, or pass.", primary: null, secondary: [] }, "no second start");
+  const watching = { ...withRoles([["ada", true], ["bob", false], ["cy", false], ["di", false]]), bidding: {} };
+  assert.deepEqual(nextStep("ada", watching), { status: "Bidding: the players are bidding for their rules.", primary: null, secondary: [] });
+  const failed = { ...bidding, bidding: { error: "Players left during bidding and fewer than three remain. Start again." } };
+  assert.deepEqual(nextStep("ada", failed), { status: "Bidding failed; start again to retry.", primary: "owner.start", secondary: [] });
+  assert.deepEqual(nextStep("bob", failed), { status: "Bidding failed; Ada can retry.", primary: null, secondary: [] });
+  assert.equal(nextStep("ada", failed, { start: { phase: "starting", source: "owner" } }).status, "Starting the game: dealing secret goals…", "a retry is starting");
+  // Once dealt, the room prepares: that is what shows.
+  assert.equal(nextStep("bob", { ...bidding, bidding: null, preparing: { ready: 1, total: 4 } }).status, "Preparing rule tables: 1 of 4 ready.");
+});

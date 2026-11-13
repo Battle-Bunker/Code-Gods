@@ -7,6 +7,7 @@ import { HowScoringWorks } from "@workspace/object-views";
 import { rulesText } from "@workspace/player-client/rules";
 import { Term } from "@workspace/ui-kit";
 import { useObjectContext, useRoomInfo } from "@/sdk";
+import { bidLine } from "@/site/lib/settings-form";
 import { Section, type PanelProps } from "./kit";
 import { endRuleSentence } from "./end-rule";
 
@@ -34,6 +35,7 @@ export default function Rules({ params }: PanelProps<"rules">) {
     ["Objects", objectType], ["Languages", allowedLanguages(settings).map(l => LANGUAGE_SPECS[l].label).join(", ") || undefined], ["Planning", settings.planningSeconds !== undefined ? `${settings.planningSeconds} s` : undefined],
     ["Starting energy", settings.startingEnergy !== undefined ? `${settings.startingEnergy} ⚡` : undefined], ["Power per second", settings.powerPerSecond !== undefined ? `${settings.powerPerSecond} ⚡ energy` : undefined],
     ["Energy fills in", fullChargeSeconds !== undefined ? `${fullChargeSeconds} s` : undefined],
+    ["Bidding", bidLine(settings) ?? undefined],   // only a game with a bid phase says so
     ["Pause length", settings.pauseSeconds !== undefined ? `${settings.pauseSeconds} s` : undefined], [settings.durationMode === "fixed" ? "Game length (fixed)" : "Game half-life", settings.halfLifeSeconds !== undefined ? `${settings.halfLifeSeconds} world s` : undefined],
   ];
   return (

@@ -233,6 +233,83 @@ test("permissions: a read grant never lists or runs act or owner tools; revoked 
   assert.equal((await modern(old.token, "tools/list")).status, 401);
 });
 
+test("bid phase: the bid tools show, place, replace, withdraw and finish; bids are sealed; a read grant cannot bid; the phase ends when every human is done", { timeout: 240000 }, async () => {
+  const [host, ada, bo] = await gods("Bid Host", "Bid Ada", "Bid Bo");
+  await touch(host);
+  const { roomId } = await roomWith([host, ada, bo], { ...TS_INT, bidSeconds: 300 });
+  const owner = await credential(host, roomId, "owner"), actor = await credential(ada, roomId, "act");
+  const reader = await credential(bo, roomId, "read"), boActs = await credential(bo, roomId, "act");
+  const BID_TOOLS = ["place_bid", "withdraw_bid", "finish_bidding"];
+  const readerTools = await listTools(reader.token), actorTools = await listTools(actor.token);
+  assert.ok(readerTools.includes("get_bidding") && BID_TOOLS.every(t => !readerTools.includes(t)), "a read grant may look at the bid phase, never bid");
+  assert.ok(["get_bidding", ...BID_TOOLS].every(t => actorTools.includes(t)), "an act grant lists every bid tool");
+
+  // No bid phase yet: the read says so plainly, a bid is a conflict.
+  const closed = (await call(actor.token, "get_bidding")).data;
+  assert.equal(closed.open, false);
+  assert.match(closed.message, /No bid phase is open/);
+  assert.equal((await call(actor.token, "place_bid", { familyId: "anything", percent: 10 })).error?.code, "CONFLICT");
+
+  // The owner's start opens the bid phase instead of dealing.
+  const started = await call(owner.token, "start_game", { requestId: randomUUID() });
+  assert.equal(started.data?.result?.status, "bidding", JSON.stringify(started).slice(0, 400));
+  const rules = (await call(reader.token, "get_rules")).data;
+  assert.deepEqual([rules.bidding?.seconds, rules.bidding?.players, rules.activeGame], [300, 3, null], "get_rules shows the room's bid phase: its clock, never a bid");
+  assert.match(rules.rules, /## Bidding/);
+  const phase = (await call(actor.token, "get_bidding")).data;
+  assert.deepEqual([phase.open, phase.seated, phase.bids, phase.done, phase.waitingFor, phase.pricing, phase.minPercent, phase.maxPercent], [true, true, [], false, 3, "first", 1, 100]);
+  assert.ok(phase.secondsLeft > 200 && phase.secondsLeft <= 300 && phase.endsAt > Date.now(), `the clock: ${phase.secondsLeft} s left`);
+  assert.ok(phase.families.length >= 3 && phase.families.every((f: any) => f.id && f.name && f.emoji && f.theme), "the pool: id, name, emoji and what each family rewards");
+  assert.match(phase.meaning, /handicap/);
+  const [first, second] = phase.families.map((f: any) => f.id);
+
+  // Place (idempotent), replace, a second family; refusals leave the bids as they were.
+  const placed = await call(actor.token, "place_bid", { familyId: first, percent: 10 });
+  assert.deepEqual(placed.data, { bids: [{ familyId: first, percent: 10 }], done: false, ended: false }, JSON.stringify(placed).slice(0, 300));
+  assert.deepEqual((await call(actor.token, "place_bid", { familyId: first, percent: 10 })).data, placed.data, "the same bid again changes nothing");
+  assert.deepEqual((await call(actor.token, "place_bid", { familyId: first, percent: 25 })).data.bids, [{ familyId: first, percent: 25 }], "one bid per family: the new one replaces it");
+  await call(actor.token, "place_bid", { familyId: second, percent: 5 });
+  for (const percent of [0, 101, 2.5]) assert.ok((await call(actor.token, "place_bid", { familyId: first, percent })).error, `a bid of ${percent}% is refused`);
+  assert.equal((await call(actor.token, "place_bid", { familyId: "no-such-family", percent: 10 })).error?.code, "BAD_REQUEST");
+  assert.deepEqual((await call(actor.token, "withdraw_bid", { familyId: second })).data.bids, [{ familyId: first, percent: 25 }]);
+  assert.deepEqual((await call(actor.token, "withdraw_bid", { familyId: second })).data.bids, [{ familyId: first, percent: 25 }], "withdrawing nothing changes nothing");
+  assert.deepEqual((await call(actor.token, "get_bidding")).data.bids, [{ familyId: first, percent: 25 }], "the bid placed through the tool shows in the player's own read");
+
+  // Sealed: another player's read (and the room's) shows the clock and a count, never Ada's bid.
+  const theirs = (await call(reader.token, "get_bidding")).data;
+  assert.deepEqual([theirs.open, theirs.bids, theirs.done, theirs.waitingFor], [true, [], false, 3]);
+  for (const view of [theirs, (await call(reader.token, "get_rules")).data.bidding, (await call(owner.token, "get_room_state")).data.bidding]) {
+    assert.ok(!/"percent"\s*:\s*25/.test(JSON.stringify(view)), "nobody else reads Ada's bid");
+  }
+
+  // A read grant cannot bid, pass or withdraw.
+  for (const [name, args] of [["place_bid", { familyId: first, percent: 50 }], ["withdraw_bid", { familyId: first }], ["finish_bidding", {}]] as const) {
+    assert.match((await call(reader.token, name, args)).rpcError?.message ?? "", new RegExp(`${name} needs the act permission; this connection has read`));
+  }
+  assert.deepEqual((await call(reader.token, "get_bidding")).data.bids, [], "the refused bid was not placed");
+
+  // Done, taken back by a changed bid, done again; the last human's pass ends the phase at once.
+  assert.deepEqual((await call(actor.token, "finish_bidding")).data, { bids: [{ familyId: first, percent: 25 }], done: true, ended: false });
+  assert.equal((await call(reader.token, "get_bidding")).data.waitingFor, 2, "a count of who is still bidding, never who");
+  assert.equal((await call(actor.token, "place_bid", { familyId: first, percent: 20 })).data.done, false, "a changed bid means bidding again");
+  assert.equal((await call(actor.token, "finish_bidding", { done: false })).data.done, false);
+  assert.equal((await call(actor.token, "finish_bidding")).data.done, true);
+  assert.deepEqual((await call(owner.token, "finish_bidding")).data, { bids: [], done: true, ended: false }, "the owner passes: no bids, done");
+  const last = await call(boActs.token, "finish_bidding");
+  assert.deepEqual(last.data, { bids: [], done: true, ended: true }, "every human is done: the phase ends " + JSON.stringify(last).slice(0, 300));
+
+  // The game is dealt and starts by itself, long before the 300 s deadline; Ada won her rule and pays her bid.
+  const room = await waitFor(async () => { const r = await host.c.query(api.rooms.get, { room: roomId }); return r.activeGame ? r : null; }, "the game starts when bidding ends", 180_000, 250);
+  assert.equal(room.bidding, null);
+  assert.equal((await call(actor.token, "get_bidding")).data.open, false);
+  assert.equal((await call(actor.token, "place_bid", { familyId: first, percent: 10 })).error?.code, "CONFLICT", "bidding is over");
+  const mine = (await call(actor.token, "get_observation", { objectsLimit: 1 })).data.self.utility;
+  assert.deepEqual([mine.familyId, mine.handicap, mine.bid], [first, 20, { won: true, familyId: first, percent: 20, handicap: 20, pricing: "first", bids: [{ familyId: first, percent: 20 }] }]);
+  const bos = (await call(reader.token, "get_observation", { objectsLimit: 1 })).data.self.utility;
+  assert.deepEqual([bos.handicap, bos.bid], [0, { won: false, handicap: 0, pricing: "first", bids: [] }], "Bo passed: no handicap, and nothing of Ada's bid");
+  assert.notEqual(bos.familyId, first, "a won rule is dealt to nobody else");
+});
+
 test("get_chat pages through messages that share one timestamp without skipping or repeating any", async () => {
   const { ada, roomId } = await lobby();
   const { token } = await credential(ada, roomId, "read");
@@ -351,8 +428,15 @@ test("disclosure: every read tool, as one of three players, reveals no other god
   assert.deepEqual((await call(boToken, "list_utility_candidates", {})).data, (await call(token, "list_utility_candidates", {})).data, "the same candidates for every player");
   // The layout tools: view state only, and the caller's own stored panels; nothing of another god's leaks through them.
   await ada.c.action(api.panels.save, { slug: "mcp-mine", source: "export default () => null;\n" });
+  // The default dock uses all four built-in panel slots (player-client DEFAULT_LAYOUT), so adding a fifth is refused,
+  // and says what to do; closing one makes room.
+  const place = { relativeTo: "p1", direction: "right" };
+  const full = await call(token, "open_panel", { panelId: "objects", params: { limit: 3 }, place });
+  assert.match(JSON.stringify(full), /At most 4 panels; change one .* or close one first/);
+  const closed = await call(token, "close_pane", { paneId: "p5" });
+  assert.ok(closed && !closed.error && !closed.rpcError, `close_pane: ${JSON.stringify(closed).slice(0, 300)}`);
   // With `place`, open_panel adds a pane (without it, it would switch the never-chosen first pane instead).
-  const opened = await call(token, "open_panel", { panelId: "objects", params: { limit: 3, highlight: [objects[0].id] }, place: { relativeTo: "p1", direction: "right" } });
+  const opened = await call(token, "open_panel", { panelId: "objects", params: { limit: 3, highlight: [objects[0].id] }, place });
   assert.ok(!opened.error, JSON.stringify(opened).slice(0, 300));
   const layoutCalls: [string, Record<string, unknown>][] = [
     ["get_layout", {}], ["set_panel_params", { paneId: opened.data.paneId, params: { sortBy: "othersCare" } }], ["open_panel", { slug: "mcp-mine" }],

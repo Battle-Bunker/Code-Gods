@@ -170,7 +170,7 @@ export const fillTotals = internalMutation({
     if (!game) return;
     const objects = await ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", gameId)).take(2100);
     const world = (await clockDoc(ctx, gameId))?.worldSeconds ?? 0;
-    await writeTotals(ctx, gameId, world, godTotalsOf(game.roster.map(m => m.id), objects, game.phase !== "ended"), true);
+    await writeTotals(ctx, gameId, world, godTotalsOf(game.roster.map(m => m.id), objects, game.phase !== "ended", game.handicaps), true);
   },
 });
 

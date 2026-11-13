@@ -130,17 +130,19 @@ type RowLook = { label: string; disabled: boolean; reason?: string; onLook: (obj
  * every object, in two steps (the total price first, then pay). `can` is the look affordance (hidden for a viewer who
  * cannot act: the sentence stays, the button goes).
  */
-export function LookBar({ price, energy, count, can, onLookAll, boards, stale }: {
+export function LookBar({ price, energy, count, can, onLookAll, boards, stale, noPower }: {
   /** Absent in a game that offers the god no look ("agents" mode): the sentence says so and no button shows. */
   price?: number; energy: number; count: number; can: Affordance; onLookAll: () => void;
   /** "boards" mode: every board is live; only the others' interest ages. */
   boards?: boolean;
   /** How many objects have changed since the god last saw them (player.staleCount). */
   stale?: { count: number; more: boolean };
+  /** All the god's power is with its agents: its own energy holds nothing, which the unaffordable reason then says. */
+  noPower?: boolean;
 }) {
   const [confirm, setConfirm] = useState(false);
-  const all = lookOffer({ price: price ?? 0, energy, count });
-  const single = lookOffer({ price: price ?? 0, energy });
+  const all = lookOffer({ price: price ?? 0, energy, count, noPower });
+  const single = lookOffer({ price: price ?? 0, energy, noPower });
   const shown = price !== undefined && (can.ok || !can.hidden);
   // Why the look at all is off: its own total against the balance first, else what stops any look (the phase, a command in flight).
   const reason = all.reason ?? (can.ok ? null : can.reason);
@@ -182,7 +184,26 @@ const scalesOf = (t: MyTotals | null | undefined) => ({
 type Scales = ReturnType<typeof scalesOf>;
 
 /** Space for one row: the object (a grid draws taller), the rectangle with its labels, four lines of text. */
-const rowHeightFor = (ctx: Parameters<typeof objectRowHeight>[0]) => Math.max(SIDE + LABEL_H, objectRowHeight(ctx)) + 64;
+/**
+ * In a narrow pane (a phone, a slim column) the text beside the object wraps and needs the room; in a wide one it sits
+ * in four short lines beside the object, and the same allowance would leave an empty band under every row.
+ */
+const rowHeightFor = (ctx: Parameters<typeof objectRowHeight>[0], wide = false) => Math.max(SIDE + LABEL_H, objectRowHeight(ctx)) + (wide ? 20 : 64);
+/** The pane width from which a row's text no longer wraps (px). */
+const WIDE_PANE = 560;
+/** Whether the element is at least WIDE_PANE wide, followed as the pane is resized (false until measured). */
+function useWidePane() {
+  // A callback ref: the list mounts only once the game's rows have loaded.
+  const [el, setEl] = useState<HTMLDivElement | null>(null);
+  const [wide, setWide] = useState(false);
+  useEffect(() => {
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(([entry]) => setWide(entry.contentRect.width >= WIDE_PANE));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [el]);
+  return [setEl, wide] as const;
+}
 /** Paid observation adds one line to every row (when it was seen, whether it has changed since): one height for the list. */
 const SEEN_LINE = 20;
 
@@ -235,19 +256,32 @@ function ObjectRow({ objectId, position, byPayoff, scales, world, highlighted, o
       </div>
       {seen && (
         // Paid observation: one line across the row's head, above its board (its own SEEN_LINE of height; at the foot it read
-        // as the next row's):
-        // the badge, when it was seen and whether it has changed since (truncated when narrow), and the look.
-        <div className="absolute inset-x-0 top-1.5 flex h-[18px] min-w-0 items-center gap-2 pl-10 font-mono text-[11px] text-muted-foreground" data-testid={`text-seen-${o.id}`} data-stale={seen.stale || undefined}>
-          {seen.stale && <span className="shrink-0 border border-destructive px-1 text-[10px] font-semibold uppercase leading-[14px] tracking-wide text-destructive" data-testid={`badge-stale-${o.id}`}>stale</span>}
-          <span className="min-w-0 truncate" title={boards ? (seen.stale ? "It has changed since you last saw the others' interest in it: the payoff shown may no longer be so." : "Nothing has changed it since you last saw the others' interest: the payoff is as it is now.")
-            : seen.stale ? "It has changed since you last saw it: what is shown here may no longer be so." : "Nothing has changed it since you last saw it: this is how it is now."}>
-            {boards ? "others' interest " : ""}{seen.seen}{seen.note && <> · <span className={seen.stale ? "font-semibold text-destructive" : "text-[hsl(var(--accent))]"}>{seen.note}</span></>}
-          </span>
-          {seen.stale && look && (
-            <span className="ml-auto shrink-0 font-sans">
-              <TextButton boxed testId={`button-look-${o.id}`} disabled={look.disabled} title={look.reason ?? "Pay this much of your own energy to see it as it is now"} onClick={() => look.onLook(o.id)}>{look.label}</TextButton>
-            </span>
-          )}
+        // as the next row's): the badge, when it was seen, whether it has changed since, and the look. The age gives way
+        // first (truncated); "changed N×" always shows. A narrow row (a phone; a container query) starts at the row's edge
+        // and words a stale row shortly ("1m 5s ago · changed 3×"), so the badge, the change and the priced button all fit.
+        <div className="@container absolute inset-x-0 top-1.5" data-testid={`text-seen-${o.id}`} data-stale={seen.stale || undefined}>
+          <div className="flex h-[18px] min-w-0 items-center gap-2 font-mono text-[11px] text-muted-foreground @[26rem]:pl-10"
+            title={boards ? (seen.stale ? "It has changed since you last saw the others' interest in it: the points shown may no longer be so." : "Nothing has changed it since you last saw the others' interest: the points are as they are now.")
+              : seen.stale ? "It has changed since you last saw it: what is shown here may no longer be so." : "Nothing has changed it since you last saw it: this is how it is now."}>
+            {seen.stale && <span className="shrink-0 border border-destructive px-1 text-[10px] font-semibold uppercase leading-[14px] tracking-wide text-destructive" data-testid={`badge-stale-${o.id}`}>stale</span>}
+            {seen.stale ? (<>
+              <span className="min-w-0 truncate">
+                {boards && <span className="hidden @[34rem]:inline">others' interest </span>}
+                <span className="hidden @[26rem]:inline">{seen.seen}</span>
+                <span className="@[26rem]:hidden">{seen.age < 1 ? "just now" : `${ageText(seen.age)} ago`}</span>
+              </span>
+              {seen.note && <span className="-ml-2 shrink-0 whitespace-pre"> · <span className="font-semibold text-destructive">
+                <span className="hidden @[26rem]:inline">{seen.note}</span><span className="@[26rem]:hidden">changed {seen.changes}×</span>
+              </span></span>}
+            </>) : (
+              <span className="min-w-0 truncate">{boards ? "others' interest " : ""}{seen.seen}{seen.note && <> · <span className="text-[hsl(var(--accent))]">{seen.note}</span></>}</span>
+            )}
+            {seen.stale && look && (
+              <span className="ml-auto shrink-0 font-sans">
+                <TextButton boxed testId={`button-look-${o.id}`} disabled={look.disabled} title={look.reason ?? "Pay this much of your own energy to see it as it is now"} onClick={() => look.onLook(o.id)}>{look.label}</TextButton>
+              </span>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -255,7 +289,7 @@ function ObjectRow({ objectId, position, byPayoff, scales, world, highlighted, o
 }
 
 /** The full breakdown of the object whose "why?" is open, under the list (rows keep one height). */
-function ObjectDetail({ objectId, noun, comparative, world }: { objectId: string; noun: string; comparative: string | undefined; world: number }) {
+function ObjectDetail({ objectId, noun, comparative, world, boards }: { objectId: string; noun: string; comparative: string | undefined; world: number; boards?: boolean }) {
   const o: MyObject | null | undefined = useMyObject(objectId);
   if (!o) return null;
   const seen = staleness(o, world);
@@ -263,8 +297,8 @@ function ObjectDetail({ objectId, noun, comparative, world }: { objectId: string
     <div className="space-y-1 border-l-2 border-[hsl(var(--card-border))] pl-3" data-testid={`object-detail-${o.id}`}>
       {seen && (
         <p className="text-xs text-muted-foreground" data-testid={`text-detail-seen-${o.id}`}>
-          As you last saw it, {seen.age < 1 ? "just now" : `${ageText(seen.age)} ago`}
-          {seen.stale ? <>; it has <span className="font-semibold text-destructive">{seen.note}</span>, so this may no longer be so.</> : seen.note ? ": nothing has changed it since." : "."}
+          {boards ? "The others' interest and your points as you last saw them" : "As you last saw it"}, {seen.age < 1 ? "just now" : `${ageText(seen.age)} ago`}
+          {seen.stale ? <>; it has <span className="font-semibold text-destructive">{seen.note}</span>, so {boards ? "they" : "this"} may no longer be so.</> : seen.note ? ": nothing has changed it since." : "."}
         </p>
       )}
       <ScoreBreakdown score={o} noun={noun} comparative={comparative} />
@@ -311,6 +345,7 @@ export default function Objects({ paneId, params, phase }: PanelProps<"objects">
   const lookAt = useCallback((objectId: string) => void commands.run({ type: "look", objectId }), [commands]);
   const lookAll = useCallback(() => void commands.run({ type: "look" }), [commands]);
   const { ctx, noun } = useObjectContext();
+  const [paneRef, widePane] = useWidePane();
   const [open, setOpen] = useState<string | null>(null);
   const toggle = useCallback((id: string) => setOpen(o => (o === id ? null : id)), []);
   const comparative = card?.penalty?.comparative;
@@ -324,26 +359,28 @@ export default function Objects({ paneId, params, phase }: PanelProps<"objects">
   if (!gameId || !totals) return null;
   if (!total) return <PanelEmpty testId="panel-empty-objects">The world holds no {noun}s yet. They spawn once the world starts running.</PanelEmpty>;
   if (skeleton.loaded && !skeleton.rows.length && !skeleton.more) return <PanelEmpty>No {noun} matches this view right now ({total} in the world).</PanelEmpty>;
+  const noPower = (dockState?.self.allocated ?? 0) >= 1 - 1e-9;
   const header = (
     <header className="space-y-1.5">
-      {paid && <LookBar price={lookPrice} energy={energy} count={(dockState as { objectCount?: number } | undefined)?.objectCount ?? total} can={can.look} onLookAll={lookAll} boards={boards} stale={staleCount} />}
+      {paid && <LookBar price={lookPrice} energy={energy} count={(dockState as { objectCount?: number } | undefined)?.objectCount ?? total} can={can.look} onLookAll={lookAll} boards={boards} stale={staleCount} noPower={noPower} />}
       <SortSelector paneId={paneId} value={params.sortBy} paid={paid} />
       <PayoffKey />
     </header>
   );
   // One look at one object: the same button on every stale row (hidden for a viewer who cannot act).
-  const one = lookPrice !== undefined ? lookOffer({ price: lookPrice, energy }) : null;
+  const one = lookPrice !== undefined ? lookOffer({ price: lookPrice, energy, noPower }) : null;
+  // Off for the phase or a command in flight (the affordance's reason), else for the price (with what to do when no power is kept).
   const look: RowLook | undefined = one && (can.look.ok || !can.look.hidden)
-    ? { label: one.label, disabled: !can.look.ok, ...(can.look.ok ? {} : { reason: can.look.reason }), onLook: lookAt } : undefined;
+    ? { label: one.label, disabled: !can.look.ok, ...(can.look.ok ? {} : { reason: can.look.reason === lookOffer({ price: lookPrice!, energy }).reason ? one.reason! : can.look.reason }), onLook: lookAt } : undefined;
   if (params.layout === "grid") return <div className="space-y-3">{header}<ObjectsGrid params={params} world={world} /></div>;
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" ref={paneRef}>
       {header}
-      <VirtualRows rows={skeleton.rows} rowHeight={rowHeightFor(ctx) + (paid ? SEEN_LINE : 0)} maxHeight={640} keyOf={r => r.id} onNearEnd={loadMore} testId="list-objects"
+      <VirtualRows rows={skeleton.rows} rowHeight={rowHeightFor(ctx, widePane) + (paid ? SEEN_LINE : 0)} maxHeight={640} keyOf={r => r.id} onNearEnd={loadMore} testId="list-objects"
         render={(r, i) => <ObjectRow objectId={r.id} position={i + 1} byPayoff={params.sortBy === "payoff" && params.filter === "all"} scales={scales} world={world} boards={boards}
           highlighted={highlight.has(r.id)} open={open === r.id} onOpen={toggle} ctx={ctx} noun={noun} comparative={comparative} changed={changed} look={look} />} />
       {skeleton.more && <TextButton onClick={loadMore} testId="button-objects-more">Load more ({skeleton.rows.length} of {matching})</TextButton>}
-      {open && <ObjectDetail objectId={open} noun={noun} comparative={comparative} world={world} />}
+      {open && <ObjectDetail objectId={open} noun={noun} comparative={comparative} world={world} boards={boards} />}
       <p className="font-mono text-[11px] text-muted-foreground" data-testid="text-objects-footer">
         {skeleton.rows.length} of {matching}{params.filter !== "all" ? ` matching (${total} in all)` : ""} · Σ your net bits {formatBits(totals?.sumOwnNetBits ?? 0)} · Σ others' {formatBits(totals?.sumPeerNetBits ?? 0)}
       </p>

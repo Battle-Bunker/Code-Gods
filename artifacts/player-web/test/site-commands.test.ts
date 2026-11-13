@@ -155,6 +155,17 @@ test("while the next game prepares its rule tables the owner can end the prepara
   assert.equal(avail(scope({ room: room(["ada", "bob", "cy"]) }), "rooms.endActiveGame").ok, false, "nothing to end");
 });
 
+test("while the players bid for their rules the owner can cancel the bidding; Start and watch-or-play wait for it", () => {
+  const bidding = { ...room(["ada", "bob", "cy"]), bidding: {} };
+  assert.deepEqual(avail(scope({ room: bidding }), "rooms.endActiveGame"), { ok: true });
+  assert.equal(find(scope({ room: bidding }), "rooms.endActiveGame").human.title, "Cancel bidding", "the command says what it does now");
+  assert.deepEqual(avail(scope({ room: bidding }), "owner.start"), { ok: false, reason: "The players are bidding for their rules; the game starts by itself when bidding ends." });
+  assert.equal(avail(scope({ room: bidding, user: { id: "bob", name: "Bob", isAdmin: false } }), "rooms.setSpectator").ok, false, "the players are dealt in");
+  const failed = { ...bidding, bidding: { error: "Players left during bidding" } };
+  assert.equal(avail(scope({ room: failed }), "owner.start").ok, true, "a failed bid phase may be started again");
+  assert.deepEqual(avail(scope({ room: failed }), "rooms.endActiveGame"), { ok: true }, "and cleared");
+});
+
 test("the palette lists the same commands however it was opened: one list per context (home, room, live game, ended game)", () => {
   const game = (status: "active" | "ended") => ({ id: "g1", shortCode: "7A8P", roomShortCode: "K7QX", status, ownerId: "ada" }) as unknown as NonNullable<EngineScope["game"]>;
   const contexts: Record<string, EngineScope> = {

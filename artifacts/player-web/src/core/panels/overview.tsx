@@ -9,7 +9,8 @@ import { useLeaderboard } from "@/sdk";
 import { useNow, useSituation } from "@/core/game/situation";
 import type { nextStep } from "./next-step";
 import { useNextStep } from "./use-next-step";
-import { BigNumber, PreparingNote, PrimaryButton, clock, fmt, ordinal, type PanelProps } from "./kit";
+import { cardHandicap, handicapNote } from "@/site/lib/bidding";
+import { BiddingNote, BigNumber, PreparingNote, PrimaryButton, clock, fmt, ordinal, type PanelProps } from "./kit";
 
 export default function Overview({ paneId, params, phase }: PanelProps<"overview">) {
   const { step, go, offered, situation: s, agents } = useNextStep(paneId, phase);
@@ -32,16 +33,20 @@ export default function Overview({ paneId, params, phase }: PanelProps<"overview
     : phase === "running" ? `The world is running (world time ${clock(obs?.economy?.worldSeconds ?? 0)}).`
     : phase === "paused" ? `The world is paused${left ? `; it resumes in ${left} s` : ""}.`
     : `The game is over (world time ${clock(obs?.economy?.worldSeconds ?? 0)}): every panel shows its final state.`;
+  // Your score is after your handicap from bidding, if you won a rule (docs/bid-phase.md): say so wherever it shows.
+  const handicap = s.seated ? cardHandicap(obs?.self.utility) : 0;
+  const note = handicapNote(standing.total, handicap, fmt);
   const focus = params.focus === "auto" ? (phase === "planning" ? "goal" : "standing") : params.focus;
   const middle = !s.seated && phase !== "ended" ? "You're watching this game; you play in the next one."
     : focus === "goal" ? (obs?.self.utility ? `Your secret goal: ${ruleScoreWording(obs.self.utility.summary)}` : "Your secret goal is dealt when the game starts.")
     : focus === "agents" ? (agents.length ? `You have ${agents.length} agent${agents.length === 1 ? "" : "s"}; ${acting} can act now.` : "You have no agents yet.")
-    : standing.rank ? `You're ${ordinal(standing.rank)} of ${standing.of}, with ${fmt(standing.total)} points.` : "Nobody has scored yet.";
+    : standing.rank ? `You're ${ordinal(standing.rank)} of ${standing.of}, with ${fmt(standing.total)} points${note ? ` (${note})` : ""}.` : "Nobody has scored yet.";
 
   return (
     <div className="space-y-6" data-testid="panel-overview">
       {/* After a game ended, the next one may be preparing its rule tables. */}
       {s.room?.preparing && <PreparingNote preparing={s.room.preparing} />}
+      {s.room?.bidding && !s.room.preparing && <BiddingNote bidding={s.room.bidding} room={s.room.shortCode} />}
       <div className="max-w-[68ch] space-y-1 text-base leading-relaxed">
         <p>{situation}</p>
         <p>{middle}</p>
@@ -49,11 +54,12 @@ export default function Overview({ paneId, params, phase }: PanelProps<"overview
       </div>
       <dl className="grid grid-cols-3 gap-4">
         <BigNumber label="Rank" value={standing.rank ? `${standing.rank}/${standing.of}` : "–"} testId="stat-rank" />
-        <BigNumber label="Your points now" value={fmt(standing.total)} testId="stat-payoff" tone={standing.total > 0 ? "good" : standing.total < 0 ? "bad" : undefined} />
+        <BigNumber label={handicap > 0 ? `Your points now (after a ${handicap}% handicap)` : "Your points now"} value={fmt(standing.total)} testId="stat-payoff" tone={standing.total > 0 ? "good" : standing.total < 0 ? "bad" : undefined} />
         {phase === "ended"
           ? <BigNumber label="Agents" value={String(agents.length)} testId="stat-agents" />
           : <BigNumber label="Agents acting" value={agents.length ? `${acting}/${agents.length}` : "0"} testId="stat-agents" />}
       </dl>
+      {note && <p className="text-xs text-muted-foreground" data-testid="text-handicap">Your payoff is {fmt(standing.total)} bits {note}.</p>}
       {offered && <PrimaryButton onClick={go} busy={step.busy} testId="button-next-step">{step.label}</PrimaryButton>}
     </div>
   );
@@ -69,6 +75,7 @@ function Lobby({ next, onNext, offered }: { next: ReturnType<typeof nextStep>; o
         {offered && <p>Next: {next.why}</p>}
       </div>
       {room?.preparing && <PreparingNote preparing={room.preparing} />}
+      {room?.bidding && !room.preparing && <BiddingNote bidding={room.bidding} room={room.shortCode} />}
       {room && (
         <ul className="grid gap-1 text-sm sm:grid-cols-2" aria-label="Who is here">
           {room.members.map(m => (

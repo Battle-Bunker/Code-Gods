@@ -91,7 +91,7 @@ export function usePlayerCommands(scopePaneId: string | null): { commands: Comma
     }));
     const obs = s.obs;
     return {
-      phase: obs?.phase, hasObservation: !!obs, permission, isOwner: s.isOwner, seated: s.seated, ready: s.ready, pauseUsed: s.pauseUsed, preparing: !!s.room?.preparing, starting,
+      phase: obs?.phase, hasObservation: !!obs, permission, isOwner: s.isOwner, seated: s.seated, ready: s.ready, pauseUsed: s.pauseUsed, preparing: !!s.room?.preparing || !!s.room?.bidding, starting,
       agents: s.agentList.map((a, i) => ({ id: a.id, label: `agent ${i + 1} (${a.language}, ${a.acts} acts)` })),
       unknownOutcome: !!runner.unknown, busy: !!runner.busy, assistantOn: !!status?.enabled, assistantAvailable: status?.available !== false, aiEnabled: s.room?.aiEnabled !== false,
       roomCode: obs?.roomShortCode ?? s.room?.shortCode, gameCode: obs?.gameShortCode,

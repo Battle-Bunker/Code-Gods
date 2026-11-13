@@ -5,3 +5,4 @@
 - [AI quotas](ai-quotas.md) — no approvals; per-game token quotas default 300k (AI players, assistant); AI only in admin-owned rooms (2026-11-03).
 - [Assistant modes](assistant-modes.md) — no per-action approvals; Autopilot, On request (default) or Read-only per player per room, Read-only enforced in the dispatch (2026-11-03).
 - [Paid observation](paid-observation.md): a setup setting; a seated god sees each object as last told and pays its own energy to look; one read price; what is free
+- [Bid phase](bid-phase.md) — players bid a handicap percent for a rule family before the deal (owner, 2026-11-11): highest bid wins it exclusively, the rest are dealt as before, no bids = the old deal exactly; handicap comes off totals only; the phase is a step of the start on the room.

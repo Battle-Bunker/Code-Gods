@@ -8,6 +8,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { PANELS, type PanelId, type PanelParams, type Phase } from "@workspace/player-client/panels";
 import { useObjectRank, type LiveObject } from "@/sdk";
 import { composer } from "@/core/chat/composer";
+import { Link } from "@/core/navigation";
 
 export type PanelProps<K extends PanelId> = {
   paneId: string;
@@ -124,6 +125,19 @@ export function PreparingNote({ preparing: p }: { preparing: PreparingInfo }) {
         ? <p className="text-destructive" role="alert">Preparing the game failed: {p.error}</p>
         : <p>The game is preparing its rule tables, <span data-testid="text-preparing-count">{p.ready} of {p.total}</span> ready{p.pieces && <> ({p.pieces.done} of {p.pieces.total} parts computed)</>}. It is the first game on {p.instance} on this server (about {p.estimateSeconds} s); it starts by itself, with planning time after.</p>}
       {p.dealerNote && <p className="text-xs text-muted-foreground">{p.dealerNote}.</p>}
+    </div>
+  );
+}
+
+/** The room's bid phase (rooms.get `bidding`), as panels show it: the bidding itself is on the room page. */
+export type BiddingInfo = { seconds: number; players: number; error?: string };
+export function BiddingNote({ bidding: b, room }: { bidding: BiddingInfo; room?: string }) {
+  return (
+    <div className="space-y-1 border-l-2 border-[hsl(var(--accent))] pl-3 text-sm" data-testid="note-bidding" aria-live="polite">
+      {b.error
+        ? <p className="text-destructive" role="alert">Bidding failed: {b.error}</p>
+        : <p>The next game's players are bidding for their rules ({b.seconds} s, or until everyone is done); the game starts by itself after.
+          {room && <>{" "}<Link to={{ kind: "room", room }} className="font-semibold underline underline-offset-2" data-testid="link-bidding-room">Open room {room} to bid</Link></>}</p>}
     </div>
   );
 }

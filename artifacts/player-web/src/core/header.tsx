@@ -1,6 +1,6 @@
 /**
  * The global header, 44 px on the page background: where am I. Identity (initials and full name), the phase pill
- * (the only primary-coloured element here), energy, the connection dot, the room code and the client mode in small
+ * (the only primary-coloured element here), energy ("owes 312 ⚡" when it is below zero), the connection dot, the room code and the client mode in small
  * print, and the command palette (search field + menu; Cmd/Ctrl+K). Everything else lives in the palette.
  */
 import { CommandPalette, PaletteTrigger } from "@workspace/ui-kit";
@@ -20,6 +20,7 @@ import { useMyAgents } from "@/sdk";
 import { useDockActions } from "@/dock/actions";
 import { useAffordances } from "@/core/use-affordances";
 import { useOwnerActions } from "@/core/game/owner";
+import { owedText } from "./panels/energy-capacity";
 
 const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]!.toUpperCase()).join("") || "?";
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
@@ -68,7 +69,7 @@ export function Header() {
         {permission === "read" && <span className="label shrink-0">view only</span>}
       </div>
       <span data-testid="text-phase" className="shrink-0 bg-primary px-2 py-0.5 font-mono text-[11px] font-semibold text-primary-foreground">{phasePill(s, now)}</span>
-      {self && live && s.seated && <span className="hidden shrink-0 font-mono text-xs tabular-nums sm:inline" title={`Your energy: it pays for summons${s.obs?.economy?.lookPrice !== undefined ? " and looks" : ""} and refills every second${self.capacity !== undefined ? `, until it is full at ${bits(self.capacity)} ⚡` : ""}`} data-testid="text-energy">⚡ {bits(self.energy)} energy</span>}
+      {self && live && s.seated && <span className="hidden shrink-0 font-mono text-xs tabular-nums sm:inline" title={owedText(self.energy) ? "You owe energy: you cannot summon until your income has repaid it" : `Your energy: it pays for summons${s.obs?.economy?.lookPrice !== undefined ? " and looks" : ""} and refills every second${self.capacity !== undefined ? `, until it is full at ${bits(self.capacity)} ⚡` : ""}`} data-testid="text-energy">{owedText(self.energy) ?? `⚡ ${bits(self.energy)} energy`}</span>}
       <span data-testid="status-connection" className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground" title={s.obs ? "Live" : "Connecting to the engine"}>
         <span aria-hidden className={`h-2 w-2 ${s.obs ? "bg-[hsl(var(--accent))]" : "beat bg-muted-foreground"}`} />
         <span className={s.obs ? "sr-only" : ""}>{s.obs ? "live" : "connecting"}</span>

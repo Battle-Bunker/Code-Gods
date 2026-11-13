@@ -26,7 +26,9 @@
  * note shows, with TypeScript ticked and Python unticked in the languages multi-select, 1 s planning), saves it for
  * the next game, and bob reads it under Details and as a read-only page offering "Duplicate and edit"; alice adds a mock AI player and changes the AI quotas in the
  * AI quotas sheet; bob chats; the palette explains connecting a player
- * app and shows owner commands dimmed to members; alice starts the game, the room shows its rule tables being
+ * app and shows owner commands dimmed to members; alice starts the game (at phone width on a setup with a two-minute
+ * bid phase: bob and carol get the bidding screen, bob bids and takes it back, both pass and it ends; at desktop width
+ * the walk passes through a bid phase only if the setup has one), the room shows its rule tables being
  * prepared (the computed cache of that range is forgotten first), and every viewer is then taken to the game page,
  * which updates live; alice ends it from the owner menu; the room's past games show it and the Setup combobox puts
  * the room on First steps at once, with Undo (then alice deletes her copy, so runs leave no setups behind). Then the device page approves an `act` request made through POST
@@ -40,6 +42,7 @@ import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import path from "node:path";
+import { ConvexHttpClient } from "convex/browser";
 import { instantiate, objectType } from "@workspace/game-types";
 import { LENSES, applicable, canonicalSupport, context, familiesFor, family as familyOf, instantiateKey, paramsKey, tableKey } from "@workspace/game-utilities";
 
@@ -101,6 +104,34 @@ function claimDealable(instance: string, families: string[]) {
     convexRun("calibration/cache:claim", { key, instance, family: id, paramsKey: paramsKey(p), prior: "uniform" });
     return { key, instance, familyId: id, params: p };
   }));
+}
+
+/**
+ * Change some of the room's next-game settings as its owner (the engine's owner.settings, with the page's own Convex
+ * JWT): for settings a check needs without walking the configuration form again.
+ */
+const CLOUD = process.env.CG_TEST_CLOUD_URL ?? `http://127.0.0.1:${process.env.CONVEX_LOCAL_CLOUD_PORT ?? "3210"}`;
+async function ownerSettings(page: Page, room: string, settings: Record<string, unknown>) {
+  const token = await page.evaluate(async () => ((await (await fetch("/api/auth/convex/token")).json()) as { token: string }).token);
+  const client = new ConvexHttpClient(CLOUD);
+  client.setAuth(token);
+  const state = await client.query("rooms:get" as never, { room } as never) as { id: string; revision: number };
+  await client.action("owner:settings" as never, { roomId: state.id, revision: state.revision, settings } as never);
+}
+/**
+ * A start on a setup with a bid phase (docs/bid-phase.md) shows the bidding screen first: every player passes, so the
+ * deal is the dealer's own and the start goes on as without bidding. Returns false when the start had no bid phase.
+ */
+async function passIfBidding(owner: Page, players: Page[]) {
+  const seen = (what: string, p: Promise<unknown>) => p.then(() => what, () => null);
+  const first = await Promise.race([
+    seen("bidding", owner.getByTestId("panel-bidding").waitFor({ timeout: 60_000 })),
+    seen("preparing", owner.getByTestId("panel-preparing").waitFor({ timeout: 60_000 })),
+    seen("game", owner.waitForURL(/\/games\/[0-9A-Z]+$/, { timeout: 60_000 })),
+  ]);
+  if (first !== "bidding") return false;
+  for (const p of players) await p.getByTestId("button-bidding-done").click();
+  return true;
 }
 
 const results: string[] = [];
@@ -458,10 +489,16 @@ try {
     });
 
     let gameCode = "";
-    await check(`${name}: alice starts the game; the room prepares its rule tables, then every viewer is taken to the game page, which updates live`, async () => {
+    // The phone run starts with a bid phase (docs/bid-phase.md), the desktop run with the setup as it is: both ways into a game.
+    const withBidding = name === "phone";
+    let pending: ReturnType<typeof claimDealable> = [];
+    await check(`${name}: alice starts the game; the Start button reads "Starting…" in the same frame`, async () => {
+      if (withBidding) {
+        await ownerSettings(a, code, { bidSeconds: 120 });
+      }
       // So this run's first game on the range prepares again, and deterministically: every table its deal can need is
       // claimed first (as if computing elsewhere), so the room waits until this script runs the compute actions.
-      const pending = claimDealable("Int(0,2147483647)", ["many-faced", "smooth-operator", "truncation-saint"]);
+      pending = claimDealable("Int(0,2147483647)", ["many-faced", "smooth-operator", "truncation-saint"]);
       // The click registers in the same frame: by the next animation frame the button reads "Starting…" and refuses a
       // second click, before the start action (a Node action) has answered.
       await a.evaluate(() => document.querySelector('[data-testid="button-start"]')!.addEventListener("click", () => requestAnimationFrame(() => {
@@ -474,6 +511,43 @@ try {
       await a.getByTestId("button-start").click();
       await a.waitForFunction(() => (window as unknown as { startFrame?: unknown }).startFrame);
       assert.deepEqual(await a.evaluate(() => (window as unknown as { startFrame: unknown }).startFrame), { text: "Starting…", disabled: "true" });
+    });
+
+    if (withBidding) await check(`${name}: the start opens the bidding screen: players bid or pass with one button, the spectating owner watches the clock and may cancel; when every player has passed it ends`, async () => {
+      for (const p of [b, c]) await p.getByTestId("button-bidding-done").filter({ hasText: /^Pass$/ }).waitFor({ timeout: 60_000 });
+      assert.equal(await b.getByTestId("text-bidding-title").innerText(), "Bid for your rule");
+      assert.match(await b.getByTestId("bidding-countdown-value").innerText(), /^[0-2]:\d\d$/);
+      assert.match(await b.getByTestId("text-bidding-example").innerText(), /If nobody bids, rules are dealt at random as usual\./);
+      assert.equal(await b.getByTestId("text-viewer-seat").innerText(), "Bidding: bid for the rule you want, or pass.");
+      // The owner watches this game: the clock and Cancel, no bids; the Start button is gone (the start is under way).
+      await a.getByTestId("panel-bidding").waitFor();
+      assert.equal(await a.getByTestId("panel-bidding").getAttribute("data-seated"), "false");
+      assert.equal(await a.getByTestId("text-bidding-title").innerText(), "The players are bidding for their rules");
+      assert.equal(await a.getByTestId("text-viewer-seat").innerText(), "Bidding: the players are bidding for their rules.");
+      await a.getByTestId("button-cancel-bidding").waitFor();
+      assert.equal(await a.getByTestId("button-start").count(), 0, "no second start while the players bid");
+      assert.equal(await a.locator('[data-testid^="bid-family-"]').count(), 0, "a spectator has nothing to bid on");
+      // Bob bids 10% on the first rule (the button now finishes instead of passing), then takes it back.
+      const family = (await b.locator('[data-testid^="bid-family-"]').first().getAttribute("data-testid"))!.replace("bid-family-", "");
+      await b.getByTestId(`chip-bid-${family}-10`).click();
+      await b.getByTestId(`text-bid-${family}`).filter({ hasText: "10%" }).waitFor();
+      await b.getByTestId("button-bidding-done").filter({ hasText: /^Done bidding$/ }).waitFor();
+      assert.match(await b.getByTestId("text-your-bids").innerText(), /10%/);
+      await shot(b, `room-bidding-${name}`, false);
+      await noHorizontalScroll(b, `${name} bidding`);
+      await b.getByTestId(`button-bid-remove-${family}`).click();
+      await b.getByTestId("button-bidding-done").filter({ hasText: /^Pass$/ }).waitFor();
+      // One click passes; the last pass ends the bid phase for everyone at once (long before its two minutes are up).
+      await b.getByTestId("button-bidding-done").click();
+      await b.getByTestId("text-bidding-done").filter({ hasText: "You passed. Waiting for 1 more player…" }).waitFor();
+      await b.getByTestId("button-bidding-change").waitFor();
+      await c.getByTestId("button-bidding-done").click();
+      for (const p of [a, b, c]) await p.getByTestId("panel-bidding").waitFor({ state: "detached", timeout: 30_000 });
+    });
+    // A start without the check above still passes through a bid phase its setup may have (nobody bids).
+    else await passIfBidding(a, [b, c]);
+
+    await check(`${name}: the room prepares its rule tables, then every viewer is taken to the game page, which updates live`, async () => {
       // A shape with no shipped tables: everyone in the room sees the progress until the last table lands.
       await b.getByTestId("text-preparing").filter({ hasText: /The game is preparing its rule tables, \d+ of \d+ ready/ }).waitFor({ timeout: 30_000 });
       await a.getByTestId("panel-preparing").waitFor();

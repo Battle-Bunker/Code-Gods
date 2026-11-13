@@ -3,12 +3,13 @@
  * palette and the assistant pane read and drive one tracker, so a click on any of them shows everywhere at once.
  */
 import { useSyncExternalStore } from "react";
-import { startTracker, startView, type StartView } from "@workspace/player-client/start";
+import { startTracker } from "@workspace/player-client/start";
+import { roomStartView, type RoomStartView } from "@/site/lib/bidding";
 import { useRoom, useRoomInfo } from "@/sdk";
 
-export function useStartView(): StartView {
+export function useStartView(): RoomStartView {
   const { roomId } = useRoom();
   const room = useRoomInfo();
   const request = useSyncExternalStore(startTracker.subscribe, () => startTracker.get(roomId));
-  return startView(request, room ? { activeGame: room.activeGame, preparing: room.preparing } : null, startTracker.now());
+  return roomStartView(request, room ? { activeGame: room.activeGame, preparing: room.preparing, bidding: room.bidding } : null, startTracker.now());
 }

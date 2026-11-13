@@ -20,7 +20,8 @@ export type SkillRead = "rules" | "observation" | "layout";
 export interface SkillEntry { name: string; description: string; reads: readonly SkillRead[]; tools: readonly string[] }
 
 export const SKILLS = [
-  { name: "game-rules", description: "The room's full rules: scoring, agents, energy, timing, phases. Load when the briefing isn't enough.", reads: ["rules"], tools: [] },
+  { name: "game-rules", description: "The room's full rules: scoring, agents, energy, timing, phases. Load when the briefing isn't enough.", reads: ["rules"],
+    tools: ["get_bidding", "place_bid", "withdraw_bid", "finish_bidding"] },
   { name: "writing-agents", description: "Writing, validating, summoning agents: workflow, mutators, helpers, your utility's source.", reads: ["observation"],
     tools: ["evaluate_value", "validate_agent", "summon_agent", "destroy_agent", "allocate_power"] },
   { name: "screen", description: "The player's screen: panes, every built-in panel and its parameters; when to open, move or close one.", reads: ["layout"], tools: ["get_layout", "move_pane", "close_pane"] },

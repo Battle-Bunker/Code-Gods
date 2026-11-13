@@ -113,6 +113,44 @@ test("each turn starts with a briefing of the player's live situation, kept for 
   assert.match(JSON.parse(finalText(l)).context[0], /no game is running/i);
 });
 
+test("a bid phase: the briefing says bidding is open and names the bid tools; the assistant bids for its player on request, and Read-only refuses to", { timeout: 180_000 }, async () => {
+  const { members: [ann, bob], roomId } = await assistantRoom(["Ann Bids", "Bob Bids", "Cyd Bids"], { start: false, roomSettings: { ...settings, bidSeconds: 300 } });
+  const started = await ann.c.action(api.owner.start, { roomId });
+  assert.equal(started.status, "bidding", JSON.stringify(started));
+  const family = (await ann.c.query(api.bidding.mine, { roomId }))!.families[0].id;
+  const sent = await ann.c.mutation(api.assistant.send, { roomId, text: mock([
+    { echo: true, tools: [{ name: "load_tools", input: { names: ["get_bidding", "place_bid", "finish_bidding"] } }] },
+    { tools: [{ name: "place_bid", input: { familyId: family, percent: 10 } }, { name: "get_bidding" }] },
+    { text: ["Bid placed."] },
+  ]) });
+  const t = await until(ann, sent, DONE, "the bidding turn finishes");
+  assert.equal(t.turn.status, "done", JSON.stringify(t.turn.error));
+  const echoed = JSON.parse(t.messages.find((m: any) => m.role === "assistant" && m.text.startsWith("{")).text);
+  const briefing = (echoed.context as string[]).join("\n");
+  assert.match(briefing, /<bidding>Bidding is open until \d{4}-[^<]*load_tools[^<]*get_bidding[^<]*place_bid[^<]*finish_bidding[^<]*<\/bidding>/, briefing.slice(-900));
+  assert.ok(!echoed.system.includes("\n- place_bid: "), "the bid tools are named by the briefing of an open bid phase, not by the always-on index");
+  assert.deepEqual(t.calls.map((c: any) => [c.tool, c.status]), [["load_tools", "ok"], ["place_bid", "ok"], ["get_bidding", "ok"]], JSON.stringify(t.calls.map((c: any) => c.resultJson)).slice(0, 600));
+  assert.deepEqual(JSON.parse(t.calls[2].resultJson).data.bids, [{ familyId: family, percent: 10 }], "the assistant reads the bid it placed as Ann");
+  assert.deepEqual((await ann.c.query(api.bidding.mine, { roomId }))!.bids, [{ familyId: family, percent: 10 }], "the bid is Ann's own");
+  assert.deepEqual((await bob.c.query(api.bidding.mine, { roomId }))!.bids, [], "and nobody else's");
+
+  await bob.c.mutation(api.assistant.setMode, { roomId, mode: "readOnly" });
+  const ro = await bob.c.mutation(api.assistant.send, { roomId, text: mock([
+    { tools: [{ name: "place_bid", input: { familyId: family, percent: 50 } }, { name: "finish_bidding", input: {} }, { name: "get_bidding" }] },
+    { text: "ok" },
+  ]) });
+  const r = await until(bob, ro, DONE, "the read-only turn finishes");
+  const [place, finish, look] = [...r.calls].sort((a: any, b: any) => a.index - b.index);
+  for (const call of [place, finish]) {
+    assert.equal(call.status, "error", call.tool);
+    assert.match(call.resultJson, /READ_ONLY/);
+  }
+  assert.equal(look.status, "ok", "Read-only may look at the bid phase");
+  const bobs = (await bob.c.query(api.bidding.mine, { roomId }))!;
+  assert.deepEqual([bobs.bids, bobs.done], [[], false], "nothing was bid or finished for Bob");
+  await ann.c.mutation(api.rooms.endActiveGame, { roomId });   // end the bid phase: nothing is dealt
+});
+
 test("load_tools puts index tools in context for the rest of the thread; load_skill returns the skill with live data", { timeout: 180_000 }, async () => {
   const { members: [ann], roomId } = await assistantRoom(["Ann Load", "Bob Load", "Cyd Load"]);
   const mineObs = await ann.c.query(api.player.observation, { roomId });

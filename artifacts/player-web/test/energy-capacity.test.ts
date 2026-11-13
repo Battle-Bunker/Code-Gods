@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { plain } from "../src/core/panels/agent-labels.ts";
-import { fillText, fullIn, ownEnergyLine, shareCapacityLines, storeFraction, storeState, storedLine } from "../src/core/panels/energy-capacity.ts";
+import { agentDebtLine, destroyDebtLine, fillText, fullIn, owedText, owes, ownEnergyLine, shareCapacityLines, storeFraction, storeState, storedLine } from "../src/core/panels/energy-capacity.ts";
 
 // Hand-derived: power 64 bits/s, full charge 30 s. A 25% agent earns 16 bits/s and holds at most 16 × 30 = 480 bits.
 
@@ -77,4 +77,72 @@ test("a share change that allocates everything says the player's own energy hold
   const [, own] = shareCapacityLines({ newShare: 0.08, agentShare: 0.02, allocated: 0.94, total: 64, fullChargeSeconds: 30, agentEnergy: 0, ownEnergy: 0 });
   assert.match(own, /will hold nothing/);
   assert.match(own, /cannot summon/);
+});
+
+// Debt (docs/energy-model.md §7.2). Hand-derived with power 64 bits/s and full charge 30 s: a 25% agent may owe at most 480 bits.
+
+test("what is owed: a number only when it shows as one", () => {
+  assert.equal(owes(-312), 312);
+  assert.equal(owes(-0.04), 0, "shows as 0");
+  assert.equal(owes(5), 0);
+  assert.equal(owedText(-312), "owes 312 ⚡");
+  assert.equal(owedText(0), null);
+  assert.equal(owedText(42), null);
+});
+
+test("an agent in debt says how much it owes and how much it may owe", () => {
+  assert.equal(agentDebtLine(-120, 480), "Owes 120 ⚡ (it may owe at most 480)");
+  assert.equal(agentDebtLine(-120, 0), "Owes 120 ⚡", "no power: no limit to name");
+  assert.equal(agentDebtLine(0, 480), null);
+  assert.equal(agentDebtLine(42, 480), null);
+  assert.equal(agentDebtLine(-120, undefined), null, "a game without capacity looks as it did");
+});
+
+test("destroying an agent that owes: its debt moves to the player", () => {
+  const base = { agentShare: 0.25, allocated: 0.75, total: 64, fullChargeSeconds: 30 };
+  // 100 − 412 = −312. Its 25% returns: you keep 50% = 32 bits/s, so 312 / 32 = 9.75 → 10 s.
+  assert.equal(destroyDebtLine({ ...base, agentEnergy: -412, ownEnergy: 100 }),
+    "This agent owes 412 ⚡: if you destroy it, you will owe them. Your own energy will be −312 ⚡, and you cannot summon until your income has repaid it (about 10 s).");
+  // 500 − 412 = 88 left.
+  assert.equal(destroyDebtLine({ ...base, agentEnergy: -412, ownEnergy: 500 }),
+    "This agent owes 412 ⚡: if you destroy it, they will be paid from your own energy (88 ⚡ left).");
+  // A 0% agent while everything is with the others: nothing comes back, so there is no income to repay it.
+  assert.equal(destroyDebtLine({ agentShare: 0, allocated: 1, total: 64, fullChargeSeconds: 30, agentEnergy: -40, ownEnergy: 0 }),
+    "This agent owes 40 ⚡: if you destroy it, you will owe them. Your own energy will be −40 ⚡, and you cannot summon until you keep some power for yourself.");
+  assert.equal(destroyDebtLine({ ...base, agentEnergy: 5, ownEnergy: 100 }), null);
+  assert.equal(destroyDebtLine({ ...base, agentEnergy: 0, ownEnergy: 100 }), null);
+  assert.equal(destroyDebtLine({ ...base, fullChargeSeconds: undefined, agentEnergy: -412, ownEnergy: 100 }), null);
+});
+
+test("lowering the share of an agent that owes: the same fraction of its debt moves to the player", () => {
+  const base = { agentShare: 0.25, allocated: 0.75, total: 64, fullChargeSeconds: 30, agentEnergy: -412 };
+  // 25% → 12.5% takes half its power: 206 of 412 move. 100 − 206 = −106; you keep 37.5% = 24 bits/s: 106 / 24 = 4.4 → 5 s.
+  const lines = shareCapacityLines({ ...base, newShare: 0.125, ownEnergy: 100 });
+  assert.equal(lines.length, 3);
+  assert.equal(lines[2], "It owes 412 ⚡: 206 of them move to you. Your own energy will be −106 ⚡, and you cannot summon until your income has repaid it (about 5 s).");
+  // 230 − 206 = 24 left.
+  assert.equal(shareCapacityLines({ ...base, newShare: 0.125, ownEnergy: 230 })[2], "It owes 412 ⚡: 206 of them move to you. They will be paid from your own energy (24 ⚡ left).");
+  // To 0%: all of it. 100 − 412 = −312; you keep 50% = 32 bits/s: 9.75 → 10 s.
+  assert.equal(shareCapacityLines({ ...base, newShare: 0, ownEnergy: 100 })[2],
+    "It owes 412 ⚡: all of them move to you. Your own energy will be −312 ⚡, and you cannot summon until your income has repaid it (about 10 s).");
+  // Raising its share moves none of its debt.
+  assert.equal(shareCapacityLines({ ...base, allocated: 0.5, newShare: 0.5, ownEnergy: 100 }).length, 2);
+});
+
+test("raising a share while the player owes: the agent takes the same fraction of the debt as of the unallocated power", () => {
+  // You keep 50%; 25% → 50% gives the agent half of it: 156 of 312 move. It holds 400: no debt for it.
+  const base = { newShare: 0.5, agentShare: 0.25, allocated: 0.5, total: 64, fullChargeSeconds: 30, ownEnergy: -312 };
+  assert.equal(shareCapacityLines({ ...base, agentEnergy: 400 })[2], "You owe 312 ⚡: 156 of them move to this agent.");
+  // It holds 100: 100 − 156 = −56.
+  assert.equal(shareCapacityLines({ ...base, agentEnergy: 100 })[2], "You owe 312 ⚡: 156 of them move to this agent. It will owe 56 ⚡ and wait for its income to repay them.");
+  // You keep 25% and give all of it: everything moves.
+  assert.equal(shareCapacityLines({ ...base, allocated: 0.75, agentEnergy: 400 })[2], "You owe 312 ⚡: all of them move to this agent.");
+  // Lowering a share moves none of your debt.
+  assert.equal(shareCapacityLines({ ...base, newShare: 0.125, agentEnergy: 400 }).length, 2);
+});
+
+test("your own energy below zero: what you owe and when you can summon again, and no meter", () => {
+  // 312 / 32 = 9.75 → 10 s.
+  assert.equal(plain(ownEnergyLine({ energy: -312, income: 32, capacity: 960 })), "You owe 312 ⚡: you cannot summon until your income has repaid it (about 10 s).");
+  assert.equal(plain(ownEnergyLine({ energy: -312, income: 0, capacity: 0 })), "You owe 312 ⚡ and keep no power for yourself: take some power back from an agent to repay it.");
 });

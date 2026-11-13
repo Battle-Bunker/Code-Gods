@@ -34,8 +34,8 @@ export function deityAccount(game: { settings: GameSettings }, deity: DeityPower
 /**
  * Charge a god's own account `bits` now (a paid query; a summon charges the same account with its share change, in
  * game/commands.ts): the account is settled at the game's world time within its capacity, and `deities.account` and
- * `deities.spent` are written. Returns the new balance, or null (nothing written) when the god cannot pay: its account
- * is never negative. `deities` is a cold document that other queries read, so charge it per request, never per tick.
+ * `deities.spent` are written. Returns the new balance, or null (nothing written) when the god cannot pay: a charge
+ * never takes the account below zero (it may already be: a god owes what an agent of its owed, §7.2). `deities` is a cold document that other queries read, so charge it per request, never per tick.
  */
 export async function chargeGod(ctx: MutationCtx, game: Clock, deity: Doc<"deities">, bits: number, nowMs = Date.now()): Promise<number | null> {
   const settled = deityAccount(game, deity, worldNow(game, nowMs));

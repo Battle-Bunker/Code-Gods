@@ -42,7 +42,7 @@ test("a skipper pays only what it read, never fails, is never futile, and has no
   // Skips: every act, each paying log2 10 bits read at the read price, none a failure, no futile memo.
   assert.equal(looker.skips, looker.acts);
   assert.equal(looker.transforms ?? 0, 0);
-  assert.deepEqual(looker.failures, { collision: 0, noChange: 0, commit: 0, invalid: 0, error: 0 });
+  assert.deepEqual(looker.failures, { collision: 0, noChange: 0, commit: 0, invalid: 0, error: 0, unaffordable: 0 });
   assert.ok(Math.abs(looker.spent - looker.acts * digit) < 1e-6, `${looker.spent} for ${looker.acts} acts`);
   assert.ok(Math.abs(looker.spentRead - looker.spent) < 1e-9, "all of a skipper's spend is reading");
   const memo = await admin.query(internal.testing.futileActs, { gameId: game.gameId });
@@ -60,14 +60,15 @@ test("a skipper pays only what it read, never fails, is never futile, and has no
   assert.ok(transforms.length > 0);
   // An agent that reads nothing still pays for the offer (docs/energy-model.md §7.1).
   for (const e of transforms) { assert.ok(Math.abs(e.cost.read - offer) < 1e-12); assert.ok(e.cost.change > 0); assert.ok(Math.abs(e.cost.total - e.cost.change - offer) < 1e-9); }
-  assert.equal(state.batches.at(-1).schema, 12);
+  assert.equal(state.batches.at(-1).schema, 13);
 
   // The owner sees the skips, and the estimate split into reading and changing (no decision bits, no floor).
   const obs = observationSchema.parse(await ada.c.query(api.player.observation, { roomId }));
   const [mine] = obs.agents;
   assert.ok((mine.skips ?? 0) > 0);
-  // The summon-time estimate is of the act alone (the offer's price depends on how many objects are live).
-  assert.ok(Math.abs(mine.breakdown.read - (digit - offer)) < 1e-6, JSON.stringify(mine.breakdown));
+  // The summon-time estimate includes the turn itself (the 5 objects the game held when it was summoned): what it pays.
+  assert.ok(Math.abs(mine.breakdown.read - digit) < 1e-6, JSON.stringify(mine.breakdown));
+  assert.ok(Math.abs(mine.expectedActCost - digit) < 1e-6, "a skipper is told what each turn costs it, not 0");
   assert.equal(obs.economy?.changeReadRatio, CHANGE_READ_RATIO);
   assert.equal(mine.breakdown.change, 0);
   assert.equal(mine.outcomes?.transforms ?? 0, 0);
@@ -133,7 +134,7 @@ test("a room's cost model prices the change: by distance a nudge costs 7.14 and 
       assert.ok(Math.abs(e.cost.read - digit - offer) < 1e-9 && Math.abs(e.cost.total - e.cost.read - e.cost.change) < 1e-9);
     }
     // The log is stamped with the schema that says "priced under the game's cost model" (lib/world.ts EVENT_LOG_SCHEMA 12).
-    assert.ok(state.batches.every((b: any) => b.schema === 12));
+    assert.ok(state.batches.every((b: any) => b.schema === 13));
     await host.c.mutation(api.rooms.endActiveGame, { roomId });
   }
 });

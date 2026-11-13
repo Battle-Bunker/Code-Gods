@@ -104,3 +104,4 @@ export function afterShareLine(newShare: number, agentShare: number, allocated: 
   const own = Math.max(0, 1 - (allocated - agentShare + newShare));
   return `Then ${percent(newShare)} (${perSecond(newShare * total)}) goes to this agent and ${percent(own)} (${perSecond(own * total)}) stays with you.`;
 }
+

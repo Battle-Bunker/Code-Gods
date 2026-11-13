@@ -177,7 +177,8 @@ export type Started = { gameId: string; shortCode: string; guid: string };
 /**
  * Start the room's game and return its id, short code and guid. A start whose random deal draws a table this
  * deployment has not computed yet returns `{ status: "preparing" }` with no gameId (convex/owner.ts startGame); the game then
- * begins by itself once the tables land, so wait for it. Never read `.gameId` off `api.owner.start` directly
+ * begins by itself once the tables land, so wait for it. So does a start on a setup with a bid phase (`{ status: "bidding" }`,
+ * convex/bidding.ts): the game begins when bidding ends. Never read `.gameId` off `api.owner.start` directly
  * (test/unit/start-result-guard.test.ts enforces this).
  */
 export async function startGame(owner: God, roomId: string, args: { requestId?: string; holdSettled?: boolean } = {}, ms = 120_000): Promise<Started> {
@@ -198,13 +199,14 @@ export async function startedGame(owner: God, roomId: string, started: any, ms =
       "hold rarity's corrections are in", ms, 100);
     return g;
   };
-  if (started?.status !== "preparing") {
+  if (started?.status !== "preparing" && started?.status !== "bidding") {
     assert.ok(started?.gameId, `the start began a game: ${JSON.stringify(started)}`);
     return settled({ gameId: started.gameId, shortCode: started.shortCode, guid: started.guid });
   }
   const game = await waitFor(async () => {
     const room = await owner.c.query(api.rooms.get, { room: roomId });
     if (room.preparing?.error) throw new Error(`the game in ${roomId} failed to prepare: ${room.preparing.error}`);
+    if (room.bidding?.error) throw new Error(`the game in ${roomId} failed after bidding: ${room.bidding.error}`);
     return room.activeGame;
   }, `the prepared game in ${roomId} starts`, ms, 500);
   const { guid } = await owner.c.query(api.games.header, { code: game.shortCode });

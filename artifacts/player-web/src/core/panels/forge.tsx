@@ -24,6 +24,7 @@ import { useDockActions } from "@/dock/actions";
 import { summonNeeds } from "./summon-needs";
 import { armedStep, armedText, energyHint, firstAgentFill, firstAgentHint, lacksEnergy, summonReady, summonedText, untouchedExample, type ArmedSummon, type Example } from "./first-agent";
 import { progressLine } from "@/core/game/command-deadline";
+import { OBSERVER_DESCRIPTION, OBSERVER_NAME, observerRate, observerSource, rateText } from "./observer";
 import { GhostButton, PanelEmpty, PrimaryButton, TextButton, type PanelProps } from "./kit";
 
 const fmt = (v: number) => (Number.isInteger(v) ? String(v) : v.toFixed(3));
@@ -105,6 +106,15 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
   }, [fill?.source]);
   // Only for the first agent: once one is summoned the line would read as if nothing had happened.
   const hint = agentCount === 0 ? firstAgentHint(source, language, examples) : null;
+  // Paid observation (economy.observation; docs/energy-model.md §11.3): the observer agent as a ready template.
+  const observer = useMemo(() => {
+    const e = obs?.economy, mode = e?.observation;
+    const template = observerSource(language, instance?.objectType);
+    if (!e || !mode || mode === "free" || e.fullRead === undefined || !template || ended) return null;
+    const objects = (obs as { objectCount?: number }).objectCount ?? 0;
+    return { source: template, boards: mode === "boards",
+      ...observerRate({ fullRead: e.fullRead, objects, changeReadRatio: e.changeReadRatio ?? 32, powerPerSecond: e.powerPerSecond, share: 0.1 }) };
+  }, [obs, language, instance?.objectType, ended]);
   const insert = (name: string) => {
     const el = editor.current;
     const at = el ? el.selectionStart : source.length, end = el ? el.selectionEnd : source.length;
@@ -168,6 +178,16 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
         </label>
         <span className="ml-auto font-mono text-[11px] text-muted-foreground">{bytes(source)} / 16384 bytes</span>
       </div>
+      {observer && observer.source !== source && (
+        // Paid observation: the standing watch, one click away, with what it costs (./observer.ts).
+        <p data-testid="text-observer-template" className="max-w-[75ch] text-xs text-muted-foreground">
+          <strong className="font-semibold text-foreground">An agent that only looks.</strong>{" "}
+          It reads the whole object and changes nothing, so each object it is handed is shown to you as it is
+          {observer.boards ? " (the others' interest in it, here)" : ""}. A turn costs it {observer.perTurn.toFixed(2)} energy; with a 10% share
+          of your power it {rateText(observer.perSecond)}.{" "}
+          <TextButton boxed testId="button-observer-template" onClick={() => { runner.setDraft({ source: observer.source }); if (!name.trim()) setName(OBSERVER_NAME); if (!description.trim()) setDescription(OBSERVER_DESCRIPTION); }}>Use this agent</TextButton>
+        </p>
+      )}
       {assistantDraft && assistantDraft !== source && (
         <p className="text-xs text-muted-foreground">Your assistant has a draft here. <TextButton onClick={() => runner.setDraft({ source: assistantDraft })}>Load it</TextButton></p>
       )}

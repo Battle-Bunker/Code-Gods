@@ -3,6 +3,11 @@
  * at most its power × the game's `fullChargeSeconds`, income past a full store is wasted, and a store whose power falls
  * loses what it holds above its new limit. The panel only calls these when the observation carries a capacity (a game
  * started before the rule has none, and looks as it did).
+ *
+ * Debt (§7.2): an account below zero owes. An agent may owe at most its capacity; what it owes moves to the player with
+ * its power (all of it when it is destroyed, the fraction of the power taken when its share is lowered), and a player
+ * who owes cannot summon until their own income has repaid it. Raising an agent's share while the player owes moves the
+ * same fraction of the player's debt as of their unallocated power onto the agent (game-core `movePower`).
  */
 import { energyCapacity, roundShare, secondsToFull } from "@workspace/game-core";
 import { bits, num, type Seg } from "./agent-labels.ts";
@@ -41,6 +46,43 @@ export function fillText(energy: number, income: number, capacity: number): stri
   return income > 0 ? fullIn(secondsToFull(energy, income, capacity)) : "no income";
 }
 
+/** What a balance owes: 0 unless it shows as a negative number. */
+export const owes = (energy: number): number => (energy < 0 && num(energy) !== "0" ? -energy : 0);
+/** The header's energy when the player owes: "owes 312 ⚡" (null when they do not). */
+export const owedText = (energy: number): string | null => (owes(energy) > 0 ? `owes ${bits(owes(energy))}` : null);
+/** Under an agent's energy: "Owes 120 ⚡ (it may owe at most 480)". Null when it owes nothing or the game has no capacity. */
+export function agentDebtLine(energy: number, capacity: number | undefined): string | null {
+  if (capacity === undefined || owes(energy) === 0) return null;
+  return `Owes ${bits(owes(energy))}${capacity > 0 ? ` (it may owe at most ${num(capacity)})` : ""}`;
+}
+
+/** When a player who owes can summon again: once `income` (energy per world second) has repaid `owed`. */
+const repaid = (owed: number, income: number): string =>
+  income > 0 ? `until your income has repaid it (about ${duration(owed / income)})` : "until you keep some power for yourself";
+/** The player's own energy after `moved` of debt land on it, with `income` from then on. */
+function ownAfterDebt(ownEnergy: number, moved: number, income: number, paid: string): string {
+  const after = ownEnergy - moved;
+  return owes(after) > 0
+    ? `Your own energy will be ${bits(after)}, and you cannot summon ${repaid(-after, income)}.`
+    : `${paid} be paid from your own energy (${bits(after)} left).`;
+}
+/** "206" of the 412 owed, or "all" of them. */
+const part = (moved: number, debt: number): string => (num(moved) === num(debt) ? "all" : num(moved));
+
+/**
+ * In the Destroy confirmation: what destroying an agent that owes does to the player's own energy (its whole debt moves
+ * to them, and its share of the power comes back as their income). Null when it owes nothing or the game has no capacity.
+ */
+export function destroyDebtLine({ agentEnergy, agentShare, ownEnergy, allocated, total, fullChargeSeconds }: {
+  agentEnergy: number; agentShare: number; ownEnergy: number; allocated: number; total: number; fullChargeSeconds: number | undefined;
+}): string | null {
+  const debt = owes(agentEnergy);
+  if (fullChargeSeconds === undefined || debt === 0) return null;
+  const income = Math.max(0, roundShare(1 - (allocated - agentShare))) * total;
+  const head = `This agent owes ${bits(debt)}: if you destroy it, `;
+  return owes(ownEnergy - debt) > 0 ? `${head}you will owe them. ${ownAfterDebt(ownEnergy, debt, income, "")}` : head + ownAfterDebt(ownEnergy, debt, income, "they will");
+}
+
 /** "at most 240 ⚡ (now 480)" or "nothing (now at most 480 ⚡)". */
 const holds = (next: number, now: number): string => (next > 0 ? `at most ${bits(next)} (now ${num(now)})` : `nothing (now at most ${bits(now)})`);
 /** What a store holding `energy` loses when its limit becomes `capacity`: 0 unless it shows as a number. */
@@ -48,7 +90,9 @@ const lost = (energy: number, capacity: number): number => (num(energy - capacit
 
 /**
  * Under the power-share control, before the player presses Set: what the new share does to this agent's limit and to
- * the player's own (one sentence each; a loss is named only when there is one). Empty for a game without the rule.
+ * the player's own (one sentence each; a loss is named only when there is one), then, when debt moves with the power,
+ * how much of it and what that does (lowering the share of an agent that owes; raising one while the player owes).
+ * Empty for a game without the rule.
  */
 export function shareCapacityLines({ newShare, agentShare, allocated, total, fullChargeSeconds, agentEnergy, ownEnergy }: {
   newShare: number; agentShare: number; allocated: number; total: number; fullChargeSeconds: number | undefined; agentEnergy: number; ownEnergy: number;
@@ -62,12 +106,27 @@ export function shareCapacityLines({ newShare, agentShare, allocated, total, ful
   const own = ownNext > 0
     ? `Your own energy will hold ${holds(ownNext, ownNow)}${ownLoss > 0 ? `: ${bits(ownLoss)} above that will be lost` : ""}.`
     : `Your own energy will hold ${holds(ownNext, ownNow)}: ${ownLoss > 0 ? `the ${bits(ownLoss)} you hold will be lost, and ` : ""}you cannot summon until you take power back.`;
-  return [agent, own];
+  const lines = [agent, own];
+  const agentDebt = owes(agentEnergy), ownDebt = owes(ownEnergy);
+  if (newShare < agentShare && agentDebt > 0) {
+    const moved = agentDebt * (agentShare - newShare) / agentShare;
+    lines.push(`It owes ${bits(agentDebt)}: ${part(moved, agentDebt)} of them move to you. ${ownAfterDebt(ownEnergy, moved, Math.max(0, roundShare(1 - (allocated - agentShare + newShare))) * total, "They will")}`);
+  } else if (newShare > agentShare && ownDebt > 0) {
+    const unallocated = roundShare(1 - allocated);
+    const moved = ownDebt * Math.min(1, unallocated > 0 ? (newShare - agentShare) / unallocated : 1);
+    const after = agentEnergy - moved;
+    lines.push(`You owe ${bits(ownDebt)}: ${part(moved, ownDebt)} of them move to this agent.${owes(after) > 0 ? ` It will owe ${bits(-after)} and wait for its income to repay them.` : ""}`);
+  }
+  return lines;
 }
 
-/** The player's own energy against its limit, under their power line. */
+/** The player's own energy against its limit, under their power line; below zero, what they owe and when they can summon again. */
 export function ownEnergyLine({ energy, income, capacity }: { energy: number; income: number; capacity: number }): Seg[] {
   const term: Seg = { term: "energy", text: "energy" };
+  const owed = owes(energy);
+  if (owed > 0) return income > 0
+    ? [`You owe ${bits(owed)}: you cannot summon ${repaid(owed, income)}.`]
+    : [`You owe ${bits(owed)} and keep no power for yourself: take some power back from an agent to repay it.`];
   if (!(capacity > 0)) return ["Your ", term, " can hold nothing: all your power is with your agents. You cannot summon until you take some power back."];
   const head: Seg[] = ["Your ", term, `: ${num(energy)} of ${bits(capacity)}. `];
   if (energy >= capacity - EPSILON) return [...head, "It is full: its income is being wasted. Summon with it or give your agents more power."];

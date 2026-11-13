@@ -12,6 +12,7 @@ import {
 } from "@workspace/ui-kit/core";
 import type { GridRendererId } from "@workspace/object-views";
 import { countWord, firstName } from "./next-step.ts";
+import { openBidding } from "./bidding.ts";
 export { STEP_IDS } from "./next-step.ts";
 
 /** Client-only commands: the human text every button and palette row of these actions uses. */
@@ -59,6 +60,8 @@ export interface CmdRoom {
   aiEnabled: boolean; aiQuota: number; assistantQuota: number;
   /** The next game is preparing its rule tables (rooms.get `preparing`). */
   preparing?: { error?: string } | null;
+  /** The next game's players are bidding for their rules (rooms.get `bidding`); End cancels the bidding. */
+  bidding?: { error?: string } | null;
 }
 export interface CmdGame { shortCode: string; status: string; roomShortCode?: string | null; roster?: readonly { id: string }[]; ownerId?: string | null }
 export interface Template { id: string; name: string; provider: string; model: string }
@@ -157,6 +160,7 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
   const adminOnly = "AI is only available in rooms run by an administrator for now.";
   const ais = room?.members.filter(m => m.kind === "ai") ?? [];
   const players = room?.members.filter(m => !m.spectator).length ?? 0;
+  const bidding = !!openBidding(room) && !running;
 
   // State checks layered over the catalogue's audience rule (which stays first: "Only the room owner…").
   const needRoom = (a: Availability) => (!room ? no("Open a room first.", { hidden: true }) : a);
@@ -182,14 +186,15 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
     "owner.start": () => ownerOnly(() => running ? no(`Game ${running.shortCode} is already running.`)
       : scope.starting ? no("The game is already starting.")
       : room!.preparing && !room!.preparing.error ? no("The game is preparing its rule tables; it starts by itself.")
+      : bidding ? no("The players are bidding for their rules; the game starts by itself when bidding ends.")
       : notAdminRoom && ais.some(a => !a.spectator) ? no(`${adminOnly} Remove the AI players to start.`, { fix: "rooms.removeAi" })
       : players < scope.minPlayers ? no(`Needs ${scope.minPlayers} players; ${players} ${players === 1 ? "plays" : "play"} (spectators don't count).`, aiOff || notAdminRoom ? {} : { fix: "rooms.addAi" }) : ok),
     "owner.settings": () => ownerOnly(() => lobby(ok)),
     "rooms.addAi": () => addAi(),
     "rooms.removeAi": () => (aiOff && !ais.length ? no("AI players are not set up on this server.", { hidden: true })
       : ownerOnly(() => lobby(ais.length ? ok : no("No AI players are seated.")))),
-    // With no game running it ends a preparation (the next game computing its rule tables).
-    "rooms.endActiveGame": () => ownerOnly(() => running || room!.preparing ? ok : no("No game is running.")),
+    // With no game running it ends a preparation (the next game computing its rule tables) or cancels the bidding.
+    "rooms.endActiveGame": () => ownerOnly(() => running || room!.preparing || room!.bidding ? ok : no("No game is running.")),
     "rooms.startWorldNow": () => ownerOnly(() => running?.phase === "planning" ? ok : no(running ? "The world has started." : "No game is running.")),
     "rooms.resume": () => ownerOnly(() => running?.phase === "recovery" ? ok : no(running ? "The game is not paused for safety." : "No game is running.")),
     "rooms.setAiQuotas": () => (aiOff ? no("AI players are not set up on this server.", { hidden: true }) : notAdminRoom ? no(adminOnly, { hidden: true }) : ownerOnly(() => ok)),
@@ -199,6 +204,7 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
     "rooms.setReady": () => (!room || !me ? no("Join the room first.", { hidden: !room }) : me.spectator ? no("Spectators have no ready state.", { hidden: true }) : ok),
     "rooms.setSpectator": () => (!room || !me ? no("Join the room first.", { hidden: !room })
       : room.preparing && !room.preparing.error ? no("The next game is preparing with its players dealt.")
+      : bidding ? no("The next game's players are bidding for their rules; change this after it starts.")
       : me.spectator && players >= scope.maxPlayers ? no(`The next game is full (${scope.maxPlayers} players).`) : ok),
     "rooms.history": () => needRoom(ok),
     "rooms.create": () => (user ? ok : no("Sign in first.")),
@@ -250,6 +256,7 @@ export function engineCommands(scope: EngineScope, act: EngineActions): Command[
     if (c.id === "rooms.addAi") extra.human = { title: "Add an AI player: choose which…", tooltip: c.human.tooltip };
     if (c.id === "rooms.setAiQuotas") extra.confirm = "none"; // the sheet is the form and its Save the confirmation
     if (c.id === "owner.start" && room) extra.summary = () => `${players} players (${ais.length} AI) start now; each gets a secret goal. Spectators watch.`;
+    if (c.id === "rooms.endActiveGame" && bidding) { extra.human = { title: "Cancel bidding", tooltip: "Stops the bidding: nothing is dealt and no game starts. You can start again." }; extra.confirmLabel = "Cancel bidding"; extra.summary = () => "The bidding stops and nothing is dealt. You can start again."; }
     if (c.id === "rooms.endActiveGame" && running) { extra.confirmLabel = `End game ${running.shortCode}`; extra.summary = () => `The current leaderboard becomes the final result of game ${running.shortCode}.`; }
     // A state check replaces the audience rule: it knows the room (the owner's name, who is seated, what runs).
     return { ...c, ...extra, available: state ? (ctx: PaletteContext) => state(c.available(ctx)) : c.available };

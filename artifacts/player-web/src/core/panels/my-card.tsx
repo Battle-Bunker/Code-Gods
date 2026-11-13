@@ -9,6 +9,7 @@ import { instantiate } from "@workspace/game-types";
 import { UtilityCardView, useGoalExplainer } from "@workspace/object-views";
 import { useMutators, useMyAgents, useMyCard } from "@/sdk";
 import { GoalCard } from "@/core/goal/goal-card";
+import { bidOutcomeText, cardBid } from "@/site/lib/bidding";
 import { PanelEmpty, type PanelProps } from "./kit";
 import { LatestActLine, PointsNow, useOwnActLines } from "./score-lines";
 
@@ -23,9 +24,16 @@ export default function MyCard({ params }: PanelProps<"my-card">) {
   }, [instance?.key]); // eslint-disable-line react-hooks/exhaustive-deps
   const { agents } = useMyAgents({ hz: 1 });
   const acts = useOwnActLines(agents);
+  const bid = cardBid(card);
   if (!card) return <PanelEmpty>Your secret goal is dealt when the game starts. Until then, nobody knows what anyone wants.</PanelEmpty>;
   return (
     <div className="space-y-4" data-testid="panel-utility">
+      {/* A game dealt after a bid phase somebody won (docs/bid-phase.md): how this goal came to you, and what it costs. */}
+      {bid && (
+        <p className={`border-l-2 pl-3 text-sm ${bid.won ? "border-primary" : "border-[hsl(var(--accent))]"}`} data-testid="text-bid-outcome" data-won={bid.won ? "true" : "false"}>
+          {bidOutcomeText(bid, card.name)}
+        </p>
+      )}
       <div className="space-y-1 border-b border-[hsl(var(--card-border))] pb-3" data-testid="score-now">
         <PointsNow />
         <LatestActLine line={acts.latest} />

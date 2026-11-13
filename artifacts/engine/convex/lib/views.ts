@@ -3,7 +3,7 @@
  * read-model sync, the start, the end and the backfill compute them exactly as the observation does (lib/projection.ts
  * personalObject). Live, the others' sum carries each value's disclosure noise (settings.peerNoiseBits); ended, exact.
  */
-import { viewOf } from "./world.ts";
+import { applyHandicap, viewOf } from "./world.ts";
 
 type Score = { god: string; ordinal: number | number[]; rewardBits: number; netBits: number; penaltyBits?: number };
 /** What a row is computed from: an object's scores (every roster god's) and its value's disclosure noise. */
@@ -35,8 +35,8 @@ export type GodTotals = {
 };
 
 /** Every roster god's totals over these objects. */
-export function godTotalsOf(roster: readonly string[], objects: readonly Scored[], live: boolean): GodTotals[] {
-  return roster.map(godId => {
+export function godTotalsOf(roster: readonly string[], objects: readonly Scored[], live: boolean, handicaps?: readonly number[]): GodTotals[] {
+  return roster.map((godId, index) => {
     const t: GodTotals = { godId, objectCount: 0, score: 0, sumOwnNetBits: 0, sumPeerNetBits: 0, contested: 0, chips: 0, maxOwn: 0, maxCare: 0, maxPayoff: 0, minPayoff: 0 };
     for (const o of objects) {
       const r = viewRowOf(o, godId, live);
@@ -48,6 +48,8 @@ export function godTotalsOf(roster: readonly string[], objects: readonly Scored[
       if (q === "contested") t.contested++;
       else if (q === "chips") t.chips++;
     }
+    // The score is the god's total as ranked: net of its handicap (docs/bid-phase.md). Per-object payoffs stay as they are.
+    t.score = applyHandicap(t.score, handicaps?.[index]);
     return t;
   });
 }

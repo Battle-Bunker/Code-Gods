@@ -5,7 +5,7 @@
  * (catalogue paths or `ui.*` ids) so the page button and the palette row run the same command.
  */
 
-import type { StartView } from "@workspace/player-client/start";
+import type { RoomStartView } from "./bidding.ts";
 
 /** The ids a page's next step can name; every one is a palette command (tested). */
 export const STEP_IDS = [
@@ -31,9 +31,11 @@ export interface StepRoom {
   activeGame: { shortCode: string; phase: string; roster: readonly { id: string }[] } | null;
   /** A start waiting for rule tables computed on demand (rooms.get `preparing`). */
   preparing?: { ready: number; total: number; error?: string } | null;
+  /** A start in its bid phase (rooms.get `bidding`): the players bid for their rules before the game is dealt. */
+  bidding?: { error?: string } | null;
 }
 /** `start`: this browser's pending start (@workspace/player-client/start); the click shows before the room changes. */
-export interface StepOptions { minPlayers?: number; maxPlayers?: number; aiAvailable?: boolean; recoveryReason?: string | null; start?: StartView }
+export interface StepOptions { minPlayers?: number; maxPlayers?: number; aiAvailable?: boolean; recoveryReason?: string | null; start?: RoomStartView }
 
 export const firstName = (name: string) => name.split(/\s+/)[0] || name;
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
@@ -73,6 +75,14 @@ export function nextStep(viewerId: string | null | undefined, room: StepRoom, op
   if (owner && opts.start?.phase === "starting") {
     return { status: opts.start.source === "assistant" ? "Your assistant is starting the game…" : "Starting the game: dealing secret goals…", primary: "owner.start", secondary: [] };
   }
+  // Bidding (docs/bid-phase.md): the bidding screen below has the one button (Pass or Done bidding); nothing else starts.
+  const b = room.bidding;
+  if (b && !b.error && !(p && !p.error)) {
+    return { status: watching ? "Bidding: the players are bidding for their rules." : "Bidding: bid for the rule you want, or pass.", primary: null, secondary: [] };
+  }
+  if (b?.error && !p) return owner
+    ? { status: "Bidding failed; start again to retry.", primary: "owner.start", secondary: [] }
+    : { status: `Bidding failed; ${firstName(room.ownerName)} can retry.`, primary: null, secondary: [] };
   if (p) {
     if (p.error) return owner
       ? { status: "Preparing the game failed; start again to retry.", primary: "owner.start", secondary: [] }

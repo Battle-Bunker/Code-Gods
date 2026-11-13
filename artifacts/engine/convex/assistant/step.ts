@@ -67,7 +67,7 @@ const cacheKeyOf = (system: string, tools: { name: string }[]) =>
 /**
  * The player's live situation for the turn's briefing, read as the turn's credential like any tool call: the
  * observation and the layout (absent when a read fails; the briefing says so), and with no game running the room's
- * `preparing` (get_rules). The rules are the game-rules skill.
+ * `preparing` and `bidding` (get_rules). The rules are the game-rules skill.
  */
 async function briefingFor(ctx: ActionCtx, credentialId: Context["turn"]["credentialId"]): Promise<string> {
   const read = async (tool: string, args: Record<string, unknown>) => {
@@ -76,8 +76,25 @@ async function briefingFor(ctx: ActionCtx, credentialId: Context["turn"]["creden
   const [observation, layout] = await Promise.all([read("get_observation", { objectsLimit: 1 }), read("get_layout", {})]);
   // With no game running, the next one may be preparing its rule tables (rooms.preparing, through get_rules).
   const phase = (observation as { phase?: string } | undefined)?.phase;
-  const preparing = phase === "lobby" || phase === "ended" ? ((await read("get_rules", {})) as { preparing?: unknown } | undefined)?.preparing : undefined;
-  return assistantBriefing({ observation: inPlayerWords(observation), layout, preparing });
+  // Or its players may be bidding for their rules (rooms.bidding): the player can ask the assistant to bid or pass.
+  const room = phase === "lobby" || phase === "ended" ? (await read("get_rules", {})) as { preparing?: unknown; bidding?: unknown } | undefined : undefined;
+  return assistantBriefing({ observation: inPlayerWords(observation), layout, preparing: room?.preparing }) + biddingBriefing(room?.bidding, Date.now());
+}
+
+/**
+ * The room's open bid phase (rooms.get `bidding`: its clock and pricing, never a bid), so the assistant can act on
+ * "bid 10% on Leapfrog" or "pass". The player's own bids and the pool are get_bidding's.
+ */
+export function biddingBriefing(value: unknown, now: number): string {
+  if (!value || typeof value !== "object") return "";
+  const b = value as { endsAt?: unknown; pricing?: unknown; error?: unknown; visibility?: unknown };
+  if (typeof b.error === "string") return `\n<bidding>Bidding for the next game's rules failed: ${b.error.slice(0, 300)} The owner can start again.</bidding>`;
+  if (typeof b.endsAt !== "number") return "";
+  const left = Math.max(0, Math.round((b.endsAt - now) / 1000));
+  return `\n<bidding>Bidding is open until ${new Date(b.endsAt).toISOString()} (about ${left} s left, or until every human player is done; ${b.pricing === "second" ? "second" : "first"}-price): `
+    + "load_tools {names: [\"get_bidding\", \"place_bid\", \"withdraw_bid\", \"finish_bidding\"]} (those the grant and mode allow), then "
+    + "get_bidding (the rules to bid on and the player's own bids), place_bid, withdraw_bid, finish_bidding (with no bids: a pass). "
+    + `A bid is a handicap: a whole percent (1 to 100) taken off the player's own final score if it wins the rule. ${b.visibility === "open" ? "Bidding is open: the players see each other's bids (get_bidding table)." : "Bids are sealed."} The game is dealt and starts by itself when bidding ends.</bidding>`;
 }
 
 
