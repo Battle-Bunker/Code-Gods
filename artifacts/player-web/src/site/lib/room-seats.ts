@@ -38,15 +38,15 @@ export function aiSeats<R extends { godId?: string } | null | undefined | void>(
     addOnce(templateId?: string): Promise<R | undefined> {
       return inFlight ? Promise.resolve(undefined) : exclusive(() => add(templateId));
     },
-    /** Add default AI players, one at a time, until `min` players are in; `members` is read afresh before every seat. */
-    fill(min: number, members: () => readonly Member[]): Promise<void> {
+    /** Add AI players (`templateId`, else the default), one at a time, until `min` players are in; `members` is read afresh before every seat. */
+    fill(min: number, members: () => readonly Member[], templateId?: string): Promise<void> {
       const waitFor = inFlight;
       return exclusive(async () => {
         if (waitFor) await waitFor.catch(() => undefined);
         // Every seat added counts at once (by its id until the room shows it; `blind` for an engine that returned none).
         let blind = 0;
         for (let i = 0; i < min && players(members()) + blind < min; i++) {
-          const r = await add();
+          const r = await add(templateId);
           if (!(r && typeof r === "object" && typeof r.godId === "string")) blind++;
         }
       });

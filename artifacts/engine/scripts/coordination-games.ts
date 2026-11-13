@@ -6,7 +6,7 @@
  * Run from artifacts/engine with the dev engine up (`pnpm --filter @workspace/engine dev`, wait for `[dev] READY`):
  *
  *   node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/coordination-games.ts \
- *     --table a|b|c|all|fill|probe [--games N] [--plans rrr,ggg] [--seconds 240] [--concurrency 3]
+ *     --table a|b|c|all|fill|probe [--games N] [--plans rrr,ggg,tee] [--seconds 240] [--concurrency 3] [--out FILE]
  *
  * Tables: a = random/random/random; b = greedy/greedy/greedy; c = one random seat (rotated through seats 0, 1, 2) and
  * two greedy seats; probe = one short random/greedy/greedy game that is printed, not recorded.
@@ -16,10 +16,17 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { energyCapacity, instantiationOf, leaderboard, seedSetupSettings, type GameSettings } from "@workspace/game-core";
 import { availableFamilies, context, family, type UtilityDescriptor } from "@workspace/game-utilities";
+import { starterAgentsFor } from "@workspace/game-utilities/example-agents";
 import { admin, api, envelope, gods, internal, raw, roomWith, sleep, startGame, touch, waitFor, type God } from "../test/game-helpers.ts";
 
-type Policy = "random" | "greedy";
-const OUT = fileURLToPath(new URL("../../../lib/game-utilities/scripts/coordination-engine-games.json", import.meta.url));
+/**
+ * `example`: the rule's first ready-made agent (the example the forge pre-fills, game-utilities starterAgents);
+ * `thorough`: its fullest one that is not bold (Thorough, else Careful): the shipped agents practice opponents may run.
+ */
+type Policy = "random" | "greedy" | "example" | "thorough";
+const arg0 = (name: string) => { const i = process.argv.indexOf(`--${name}`); return i < 0 ? undefined : process.argv[i + 1]; };
+/** Where game records are appended (`--out FILE`; default the model's validation set). */
+const OUT = arg0("out") ?? fileURLToPath(new URL("../../../lib/game-utilities/scripts/coordination-engine-games.json", import.meta.url));
 const SETUP = "grid-annotated-basics";
 /** Planning long enough for three summons (each is examined in the sandbox: 30 s was too short with three games at once); the range's minimum is 0: no planning at all. */
 const PLANNING_SECONDS = 90;
@@ -68,7 +75,12 @@ def agent(grid):
 `;
 }
 
-const sourceOf = (policy: Policy, utility: UtilityDescriptor, settings: GameSettings) => policy === "random" ? RANDOM_SOURCE : greedySource(utility, settings);
+function starterSource(policy: "example" | "thorough", utility: UtilityDescriptor, settings: GameSettings): string {
+  const starters = starterAgentsFor(utility.familyId, utility.params, instantiationOf(settings), LANGUAGE);
+  return (policy === "example" ? starters[0] : [...starters].reverse().find(s => s.id !== "bold") ?? starters[0])!.source;
+}
+const sourceOf = (policy: Policy, utility: UtilityDescriptor, settings: GameSettings) =>
+  policy === "random" ? RANDOM_SOURCE : policy === "greedy" ? greedySource(utility, settings) : starterSource(policy, utility, settings);
 
 /** The dearest summon price validated so far, by whether the game has a greedy seat: later games start with enough energy. */
 const dearest = new Map<boolean, number>();
@@ -242,14 +254,15 @@ async function main() {
     for (let i = 0; i < 3; i++) plans.push(b[2 * i], b[2 * i + 1], a[i]);
     plans.push(...c);
   }
-  // Replays for games of a batch that failed to start: --table fill --plans rrr,ggg,rgg
-  if (table === "fill") plans.push(...arg("plans", "").split(",").filter(Boolean).map(p => [...p].map(ch => (ch === "r" ? R : G))));
+  // Replays, or any tables: --table fill --plans rrr,ggg,gee (r random, g greedy, e example, t thorough)
+  const LETTER: Record<string, Policy> = { r: R, g: G, e: "example", t: "thorough" };
+  if (table === "fill") plans.push(...arg("plans", "").split(",").filter(Boolean).map(p => [...p].map(ch => LETTER[ch]!)));
   const stamp = Date.now().toString(36);
   // A game the machine starved (fewer than 93% of rate × seconds opportunities) or that failed is replayed, at most twice.
   const queue = plans.map(policies => ({ policies, tries: 0 }));
   for (let n = 0; queue.length; ) {
     const batch = queue.splice(0, concurrency);
-    const tableOf = (p: Policy[]) => (p.every(x => x === "random") ? "a" : p.every(x => x === "greedy") ? "b" : "c");
+    const tableOf = (p: Policy[]) => (p.some(x => x === "example" || x === "thorough") ? p.map(x => x[0]).join("") : p.every(x => x === "random") ? "a" : p.every(x => x === "greedy") ? "b" : "c");
     const results = await Promise.allSettled(batch.map(p => playGame(`${table === "probe" ? "probe" : tableOf(p.policies)}${n++}-${stamp}`, tableOf(p.policies), p.policies, seconds)));
     results.forEach((r, j) => {
       const again = () => { if (table !== "probe" && batch[j].tries < 2) queue.push({ policies: batch[j].policies, tries: batch[j].tries + 1 }); };

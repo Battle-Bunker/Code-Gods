@@ -25,7 +25,8 @@ export const scoreV = v.object({
   penaltyOrdinal: v.optional(ordinal), penaltyBits: v.optional(v.number()),
 });
 const aiAgentSnapshot = v.object({
-  id: v.string(), name: v.string(), provider: v.union(v.literal("anthropic"), v.literal("openai")), model: v.string(),
+  // "builtin": a practice opponent that calls no model (lib/aiModels.ts BUILTIN_AI_MODELS).
+  id: v.string(), name: v.string(), provider: v.union(v.literal("anthropic"), v.literal("openai"), v.literal("builtin")), model: v.string(),
   prompt: v.string(), revision: v.number(),
 });
 const rosterEntry = v.object({ id: v.string(), name: v.string(), kind });
@@ -578,7 +579,7 @@ export const gameTables = {
   }).index("by_key", ["roomId", "actorId", "requestId"]),
 
   aiTemplates: defineTable({
-    templateId: v.string(), name: v.string(), provider: v.union(v.literal("anthropic"), v.literal("openai")), model: v.string(),
+    templateId: v.string(), name: v.string(), provider: v.union(v.literal("anthropic"), v.literal("openai"), v.literal("builtin")), model: v.string(),
     prompt: v.string(), revision: v.number(), createdAt: v.number(), updatedAt: v.number(),
     /** Deleted templates stay as tombstones so seeding never recreates them. */
     deleted: v.boolean(),

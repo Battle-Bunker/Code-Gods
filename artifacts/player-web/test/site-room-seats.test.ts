@@ -71,3 +71,11 @@ test("the owner gets a second Start in the Members header once enough players ar
   assert.equal(membersStart({ ...base, hasGame: true }), false, "a game is running");
   assert.equal(membersStart({ ...base, startUnavailable: "The next game is preparing." }), false);
 });
+
+test("a practice game seats the template it names (the practice partner) in every missing seat", async () => {
+  const asked: (string | undefined)[] = [];
+  const room = fakeRoom([{ id: "me" }]);
+  const seats = aiSeats(async (templateId?: string) => { asked.push(templateId); return room.addNow(); });
+  await seats.fill(3, room.members, "practice-example");
+  assert.deepEqual(asked, ["practice-example", "practice-example"]);
+});

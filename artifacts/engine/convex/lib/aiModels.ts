@@ -9,6 +9,13 @@ export const AI_MODEL_CATALOG = Object.freeze([
   Object.freeze({ id: "gpt-4.1-mini", label: "GPT-4.1 mini", provider: "openai" as const, inputUsdPerMillion: 0.4, outputUsdPerMillion: 1.6, cacheReadUsdPerMillion: 0.1 }),
 ]);
 export type AIModel = (typeof AI_MODEL_CATALOG)[number];
+/**
+ * Players that call no model (ai/turn.ts builtinProvider), free and always available: "example-agent" summons its rule's
+ * example agent once (game-utilities starterAgents, the one the forge pre-fills for a new player) and leaves it alone.
+ * A practice game seats them (aiTemplates PRACTICE_TEMPLATE_ID), so a player who only summons the example meets equals.
+ */
+export const BUILTIN_AI_MODELS = Object.freeze([Object.freeze({ id: "example-agent", label: "Example agent", provider: "builtin" as const })]);
+export const isBuiltinModel = (provider: string, model: string) => BUILTIN_AI_MODELS.some(m => m.provider === provider && m.id === model);
 export const DEFAULT_AGENT_MODEL = "claude-sonnet-5-5";
 export function findModel(provider: string, model: string): AIModel | undefined {
   return AI_MODEL_CATALOG.find(item => item.provider === provider && item.id === model);
