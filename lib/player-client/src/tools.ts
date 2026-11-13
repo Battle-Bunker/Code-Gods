@@ -151,6 +151,9 @@ export const READ_TOOLS = [
   def({ name: "get_my_utility", short: "The player's utility (family, parameters, defence goal) and game settings.", title: "My utility", functions: ["player.myUtility"], permission: "read", annotations: read,
     note: "The observation's self.utility has the readable name, summary and source. typedParams lists each param by name and type (colour, symbol, int, choice, bool) with its value and how it reads.",
     input: obj({}), output: result(anyData) }),
+  def({ name: "get_bidding", short: "The open bid phase: clock, rules to bid on, the player's own bids.", functions: ["bidding.mine"], permission: "read", annotations: read,
+    note: "With none open: {open: false, message}; once the game has started the outcome is get_observation's self.utility.bid. A family's theme says what it rewards.",
+    input: obj({}), output: result(anyData) }),
   def({ name: "evaluate_value", short: "Score a hypothetical object value with the player's own utility.", title: "Evaluate a value", functions: [], permission: "read", annotations: read,
     about: "Score a hypothetical object value with YOUR OWN utility in the current game: ordinal, reward bits, penalty bits and net bits. Other gods' utilities are never evaluated. Use it to check what an agent should aim for before writing it.",
     input: obj({ value: z.union([z.number(), z.string().max(1024)]).describe("A wire value of the game's object type (see the observation's instance.codec).") }),
@@ -195,6 +198,13 @@ export const ACT_TOOLS = [
     note: "Applies from the next game; a running game's players never change. Another member's choice (deityId from get_room_state) is the owner's to set.",
     input: obj({ spectator: z.boolean().describe("true to watch the next game, false to play it."),
       deityId: id.optional().describe("Another human member's id (owner only); omit for the player themselves.") }), output: result(anyData) }),
+  def({ name: "place_bid", short: "Bid a handicap (percent of the player's own score) on a rule in the bid phase.", functions: ["bidding.place"], permission: "act", annotations: acts,
+    input: obj({ familyId: id.describe("A rule family's id from get_bidding (families[].id)."),
+      percent: z.number().int().min(1).max(100).describe("The handicap bid: a whole percent of the player's own final score, 1 to 100.") }), output: result(anyData) }),
+  def({ name: "withdraw_bid", short: "Take back the player's bid on a rule in the bid phase.", functions: ["bidding.withdraw"], permission: "act", annotations: acts,
+    input: obj({ familyId: id.describe("The rule family's id (get_bidding bids[].familyId).") }), output: result(anyData) }),
+  def({ name: "finish_bidding", short: "Mark the player done bidding (with no bids: pass).", functions: ["bidding.done"], permission: "act", annotations: acts,
+    input: obj({ done: z.boolean().default(true).describe("true (default): done bidding; false: take it back and keep bidding.") }), output: result(anyData) }),
   def({ name: "send_chat", short: "Post a public chat message to the room as the player.", title: "Send chat", functions: ["commands.submit"], permission: "act", annotations: acts,
     about: "Post a PUBLIC chat message to the room as the human you act for; everyone in the room reads it.",
     input: obj({ text: z.string().trim().min(1).max(2000), commandId: optionalCommandId }), output: result(receiptData) }),
@@ -392,12 +402,18 @@ export const INFERENCE_TOOLS = [
     }), output: result(anyData) }),
 ] as const;
 
+/**
+ * The bid phase's tools (convex/bidding.ts): of use only while a start's bid phase is open, when the assistant's
+ * briefing names them; otherwise they load with the game-rules skill, whose rules text has the bidding section.
+ */
+export const BID_TOOLS = ["get_bidding", "place_bid", "withdraw_bid", "finish_bidding"] as const;
 export const GROUPS = [READ_TOOLS, ACT_TOOLS, OWNER_TOOLS, SETUP_TOOLS, PANEL_TOOLS, LAYOUT_TOOLS, CODE_TOOLS, INFERENCE_TOOLS] as const;
 /**
- * Tools the in-client assistant reaches only through their skill (load_skill loads a skill's tools): kept out of its
+ * Tools the in-client assistant reaches only through their skill (load_skill loads a skill's tools) or, for the bid
+ * tools, the briefing of an open bid phase (load_tools loads them by name): kept out of its
  * always-on index to hold the system prompt's budget. Every other surface (MCP, the CLI) lists them like any tool.
  */
-export const SKILL_LOADED_TOOLS: readonly string[] = INFERENCE_TOOLS.map(t => t.name);
+export const SKILL_LOADED_TOOLS: readonly string[] = [...INFERENCE_TOOLS.map(t => t.name), ...BID_TOOLS];
 /**
  * The tools an assistant keeps loaded at every step (the cached prefix): the reads and screen changes nearly every
  * question uses, public chat, and the skill loader. Every other tool is a line of the index, loaded on demand.

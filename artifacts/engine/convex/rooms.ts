@@ -23,6 +23,7 @@ import {
 } from "./lib/rooms";
 import { touchActivity } from "./activity";
 import { cancelPreparing } from "./game/lobby";
+import { cancelBidding, openBidding } from "./bidding";
 
 /** Players of one game (spectators aside), and members of a room (players and spectators). */
 export const MAX_GODS = 8, MAX_MEMBERS = 24;
@@ -186,6 +187,7 @@ async function setSpectatorFor(ctx: MutationCtx, viewer: Viewer, { roomId, spect
   if (target !== me) await requireOwnerAs(ctx, viewer, room);
   if (target.kind !== "human") fail("BAD_REQUEST", "AI seats always play; remove the seat instead");
   if (room.preparing && !room.preparing.error) fail("CONFLICT", "The next game is preparing with its players dealt; change this after it starts");
+  if (openBidding(room)) fail("CONFLICT", "The next game's players are bidding for their rules; change this after it starts");
   if (target.spectator === spectator) return { spectator };
   if (!spectator && playersOf(await membersOf(ctx, room._id)).length >= MAX_GODS) fail("CONFLICT", "The next game already has eight players");
   await ctx.db.patch(target._id, { spectator, ...(spectator ? { ready: false } : {}) });
@@ -359,7 +361,9 @@ async function endFor(ctx: MutationCtx, viewer: Viewer, { roomId }: { roomId: st
   const room = await requireRoom(ctx, roomId);
   await requireOwnerAs(ctx, viewer, room);
   const game = await activeGame(ctx, room);
-  if (!game && room.preparing) { await cancelPreparing(ctx, room); return { cancelled: "preparing" as const }; }
+  if (!game && openBidding(room)) { await cancelBidding(ctx, room); return { cancelled: "bidding" as const }; }
+  if (!game && room.preparing) { await cancelPreparing(ctx, room); if (room.bidding) await cancelBidding(ctx, (await ctx.db.get(room._id))!); return { cancelled: "preparing" as const }; }
+  if (!game && room.bidding) { await cancelBidding(ctx, room); return { cancelled: "bidding" as const }; }
   if (!game) return fail("CONFLICT", "There is no active game to end");
   await endGame(ctx, await withEngine(ctx, game), "owner");
   return { gameId: game._id };

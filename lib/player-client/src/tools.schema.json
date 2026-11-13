@@ -524,6 +524,51 @@
       "additionalProperties": false
     }
   },
+  "get_bidding": {
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "notice": {
+          "type": "string"
+        },
+        "data": {},
+        "nextCursor": {
+          "description": "Pass back as the cursor argument for the next page; null when there is none.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "untrusted",
+        "notice",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  },
   "evaluate_value": {
     "input": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -1760,6 +1805,174 @@
       "required": [
         "spectator"
       ],
+      "additionalProperties": false
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "notice": {
+          "type": "string"
+        },
+        "data": {},
+        "nextCursor": {
+          "description": "Pass back as the cursor argument for the next page; null when there is none.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "untrusted",
+        "notice",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "place_bid": {
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "familyId": {
+          "description": "A rule family's id from get_bidding (families[].id).",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "percent": {
+          "description": "The handicap bid: a whole percent of the player's own final score, 1 to 100.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        }
+      },
+      "required": [
+        "familyId",
+        "percent"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "notice": {
+          "type": "string"
+        },
+        "data": {},
+        "nextCursor": {
+          "description": "Pass back as the cursor argument for the next page; null when there is none.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "untrusted",
+        "notice",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "withdraw_bid": {
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "familyId": {
+          "description": "The rule family's id (get_bidding bids[].familyId).",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "familyId"
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "untrusted": {
+          "type": "boolean",
+          "const": true
+        },
+        "notice": {
+          "type": "string"
+        },
+        "data": {},
+        "nextCursor": {
+          "description": "Pass back as the cursor argument for the next page; null when there is none.",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "untrusted",
+        "notice",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "finish_bidding": {
+    "input": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "done": {
+          "description": "true (default): done bidding; false: take it back and keep bidding.",
+          "default": true,
+          "type": "boolean"
+        }
+      },
       "additionalProperties": false
     },
     "output": {

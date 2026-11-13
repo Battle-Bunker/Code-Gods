@@ -13,33 +13,42 @@
  * random objects. random: any candidate; greedy: maximises own total payoff; deny: own payoff minus the mean rival's.
  * Families are dealt uniformly from the setup's pool (one sampled param per god), so each family meets every other.
  */
+import { fileURLToPath } from "node:url";
 import { instantiate, objectType, seededRng, type Instantiation, type ObjectValue, type Rng } from "@workspace/game-types";
 import { SEED_SETUPS } from "../../game-core/src/settings.ts";
 import { availableFamilies, context, evaluator, surprisal, tableFor, type CalibrationTable } from "../src/index.ts";
 import { shippedTables } from "../src/calibration-data.ts";
 
-const [setupArg = "annotated", gamesArg = "60", policyArg = "greedy", playersArg = "3"] = process.argv.slice(2);
+export type Policy = "random" | "greedy" | "deny";
+export interface God { familyId: string; score: (w: ObjectValue) => number; top: number }
+
+/**
+ * The model on one seed setup: its pool, the dealt-rule scorer and the simulated game. Exported for the scripts that
+ * build on it (scripts/bid-market.ts); running this file prints the balance table below.
+ */
+export function harness(setupArg = "annotated", ROUNDS = Number(process.env.ROUNDS ?? 40)) {
 const setup = SEED_SETUPS.find(s => s.seedId === (setupArg === "first-steps" ? "grid-first-steps" : "grid-annotated-basics"))!;
 const inst: Instantiation = instantiate(setup.settings.objectType, setup.settings.typeArgs);
 const type = objectType(inst.objectType), codec = type.codec(inst), ctx = context(inst), tables = shippedTables(inst.key);
-const K = setup.settings.startingObjectCount ?? 10, ROUNDS = Number(process.env.ROUNDS ?? 40), C = 16, P = Number(playersArg), GAMES = Number(gamesArg);
+const K = setup.settings.startingObjectCount ?? 10, C = 16;
 
-interface God { familyId: string; score: (w: ObjectValue) => number; top: number }
 const pool = availableFamilies(inst, "reward", setup.settings.excludedFamilies).map(f => f.id);
+/** The scorer of one dealt rule (surprisal bits from its shipped table), or null when it has no table. */
+function god(draw: { familyId: string; params: unknown }): God | null {
+  const t: CalibrationTable | undefined = tableFor(tables, draw as never, inst);
+  if (!t) return null;
+  const ev = evaluator(draw as never, inst);
+  return { familyId: draw.familyId, score: w => surprisal(t, ev(w)), top: t.levels[t.levels.length - 1][1] };
+}
 function deal(familyId: string, rng: Rng): God | null {
   const f = availableFamilies(inst, "reward").find(x => x.id === familyId)!;
-  const params = f.sample(rng, ctx), draw = { familyId, params };
-  const t: CalibrationTable | undefined = tableFor(tables, draw, inst);
-  if (!t) return null;
-  const ev = evaluator(draw, inst);
-  return { familyId, score: w => surprisal(t, ev(w)), top: t.levels[t.levels.length - 1][1] };
+  return god({ familyId, params: f.sample(rng, ctx) });
 }
 const payoffs = (bits: number[][]): number[] => bits[0].map((_, i) => bits.reduce((s, b) => {
   const peers = b.reduce((a, x, j) => a + (j === i ? 0 : x), 0);
   return s + (peers > 0 ? b[i] * peers : 0);
 }, 0));
 
-type Policy = "random" | "greedy" | "deny";
 function play(gods: God[], policies: Policy[], seed: string) {
   const rng = seededRng(seed);
   const objs = Array.from({ length: K }, () => type.spawn(inst, rng));
@@ -63,7 +72,14 @@ function play(gods: God[], policies: Policy[], seed: string) {
   return { pay, winner, early, own: gods.map((_, i) => bits.reduce((s, b) => s + b[i], 0) / K) };
 }
 
+return { setup, inst, tables, pool, K, ROUNDS, god, deal, payoffs, play };
+}
+
 interface Stat { games: number; wins: number; pay: number[]; own: number[]; share: number[]; firstSeatWins: number; firstSeatGames: number; early: number; vs: Map<string, [number, number]> }
+function main() {
+const [setupArg = "annotated", gamesArg = "60", policyArg = "greedy", playersArg = "3"] = process.argv.slice(2);
+const { setup, inst, pool, K, ROUNDS, deal, play } = harness(setupArg);
+const P = Number(playersArg), GAMES = Number(gamesArg);
 const stats = new Map<string, Stat>(pool.map(f => [f, { games: 0, wins: 0, pay: [], own: [], share: [], firstSeatWins: 0, firstSeatGames: 0, early: 0, vs: new Map() }]));
 const missing = new Set<string>();
 let seat0 = 0, total = 0;
@@ -103,3 +119,5 @@ if (process.env.MATRIX) {
   console.log("".padEnd(22) + ids.map(i => i.slice(0, 6).padStart(7)).join(""));
   for (const a of ids) console.log(a.slice(0, 21).padEnd(22) + ids.map(b => { const v = stats.get(a)!.vs.get(b); return v && v[1] >= 8 ? (v[0] / v[1]).toFixed(2).padStart(7) : "      ."; }).join(""));
 }
+}
+if (process.argv[1] === fileURLToPath(import.meta.url)) main();

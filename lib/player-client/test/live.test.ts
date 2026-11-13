@@ -124,6 +124,23 @@ test("tools and call: the CLI is an MCP client of /mcp with the device credentia
   assert.equal(parse(bad).code, "INVALID");
 });
 
+test("bid: with no bid phase open the CLI says so, a bid is refused as a conflict, a read credential cannot bid, and bad arguments never reach the engine", async () => {
+  const show = await cli(["bid"], { env: apps.bob.env });
+  assert.equal(show.status, 0, show.stdout);
+  const shown = parse(show);
+  assert.equal(shown.open, false);
+  assert.match(shown.message, /No bid phase is open/);
+  const placed = await cli(["bid", "place", "leapfrog", "10"], { env: apps.bob.env });
+  assert.equal(placed.status, 1);
+  assert.equal(parse(placed).code, "CONFLICT", placed.stdout);
+  assert.equal(parse(await cli(["bid", "show"], { env: apps.carol.env })).open, false, "a read credential may look");
+  const reader = await cli(["bid", "pass"], { env: apps.carol.env });
+  assert.equal(reader.status, 1);
+  assert.match(parse(reader).error, /finish_bidding needs the act permission/, reader.stdout);
+  assert.equal(parse(await cli(["bid", "place", "leapfrog", "0"], { env: apps.bob.env })).code, "INVALID");
+  assert.equal(parse(await cli(["bid", "frobnicate"], { env: apps.bob.env })).code, "INVALID");
+});
+
 test("panel: push, list and pull a stored panel with the device credential; diagnostics on a syntax error; read cannot push", async () => {
   // The engine keeps panels across runs: a fresh slug per run starts at version 1.
   const slug = `cli-${randomUUID().slice(0, 8)}`;

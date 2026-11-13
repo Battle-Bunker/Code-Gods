@@ -7,7 +7,9 @@
 import assert from "node:assert/strict";
 import { raw } from "./game-helpers.ts";
 
-export const FORBIDDEN_KEYS = ["scores", "endAtWorld", "net", "deities", "prompt", "penaltyOrdinal", "aiAgent", "descriptor", "seed", "noise", "noiseKey"];
+export const FORBIDDEN_KEYS = ["scores", "endAtWorld", "net", "deities", "prompt", "penaltyOrdinal", "aiAgent", "descriptor", "seed", "noise", "noiseKey",
+  // The bid phase (docs/bid-phase.md): the game's handicap list, the auction record and the private bid rows.
+  "handicaps", "auction", "roomBids"];
 
 /** Every number (as JSON prints it) in a value. */
 export function numbers(value: unknown, out = new Set<string>()) {
@@ -68,6 +70,12 @@ export function disclosureChecker(gameId: string, viewerSubject: string, secrets
           if (Math.abs(x) > 1e-6 && !isSmallInteger(x)) assert.ok(!seen.has(JSON.stringify(x)), `${label}: the exact ${what} ${x} of ${r.objectId} v${r.version}`);
         }
       }
+    }
+    // Another god's outcome of the bid phase (what they bid, won and pay: on their own card only) never appears.
+    const ownBid = JSON.stringify(secret.deities.find((x: any) => x.godId === viewerSubject)?.card?.bid);
+    for (const d of secret.deities) {
+      if (d.godId === viewerSubject || !d.card?.bid || JSON.stringify(d.card.bid) === ownBid) continue;
+      assert.ok(!json.includes(JSON.stringify(d.card.bid)), `${label}: ${d.godId}'s bids and handicap`);
     }
     // Other gods' descriptors never appear.
     const own = secret.deities.find((x: any) => x.godId === viewerSubject)?.utility;

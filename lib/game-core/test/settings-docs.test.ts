@@ -58,6 +58,9 @@ test("dependencies point at real fields; penalty weight hides while no defence g
   }
   assert.deepEqual(SETTINGS_DOCS.penaltyWeight.hiddenWhen, { defenceGoals: false });
   assert.deepEqual(SETTINGS_DOCS.excludedDefenceFamilies.hiddenWhen, { defenceGoals: false }, "the checklist belongs to the switch");
+  assert.deepEqual(SETTINGS_DOCS.bidPricing.hiddenWhen, { bidSeconds: 0 }, "the price rule means nothing without a bid phase");
+  assert.equal(SETTINGS_DOCS.bidSeconds.section, "goals");
+  assert.equal(SETTINGS_DOCS.bidPricing.section, "goals");
   assert.equal(SETTINGS_DOCS.languages.control, "multiselect", "a game allows a set of languages");
   assert.deepEqual(SETTINGS_DOCS.languages.suggested, ["python", "typescript"], "pre-authored: the supported languages, no free text");
 });

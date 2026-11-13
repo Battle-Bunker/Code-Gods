@@ -5,7 +5,7 @@
  *
  * Why it exists: `owner.start` is a Node action. On a cold instance it first boots the isolated runtime it checks
  * (about 1–2 s), and a shape new to the server then reports `preparing` while its rule tables compute (tens of
- * seconds). The click must register in the same frame, never twice, and never stick:
+ * seconds); a setup with bidding reports `bidding` first (the players bid for their rules, then the game is dealt). The click must register in the same frame, never twice, and never stick:
  * - the request is held in memory only, so a reload mid-start shows the room as it is (the subscription is the truth);
  * - once the call returns, the room has START_LAG_MS (60 s) to show the game or the preparation, then the pending view ends;
  * - a call that never settles stops showing as pending after START_TIMEOUT_MS.
@@ -20,7 +20,7 @@ export const START_TIMEOUT_MS = 90_000;
 export type StartSource = "owner" | "assistant";
 export type StartRequest = { requestId: string; since: number; source: StartSource; returnedAt?: number };
 /** What the room's subscription says (rooms.get / the player client's room info). */
-export type StartRoom = { activeGame: unknown; preparing?: { ready: number; total: number; error?: string } | null };
+export type StartRoom = { activeGame: unknown; preparing?: { ready: number; total: number; error?: string } | null; bidding?: { endsAt: number; error?: string } | null };
 export type StartView =
   | { phase: "idle" }
   | { phase: "starting"; source: StartSource }
@@ -32,15 +32,18 @@ const isLive = (r: StartRequest | null | undefined, now: number, lag = START_LAG
   !!r && now - r.since < START_TIMEOUT_MS && (r.returnedAt === undefined || now - r.returnedAt < lag);
 
 /**
- * The start control's state. A live game ends any pending start; a preparation in progress shows its progress; a live
- * request shows "starting" (also over a failed preparation it retries); otherwise the control is idle.
+ * The start control's state. A live game ends any pending start, and so does an open bid phase (a start on a setup
+ * with bidding answers `{status: "bidding"}`: the room's `bidding` is then what the page shows, and the game is dealt
+ * by itself when it ends); a preparation in progress shows its progress; a live request shows "starting" (also over a
+ * failed preparation or failed bidding it retries); otherwise the control is idle.
  */
 export function startView(request: StartRequest | null | undefined, room: StartRoom | null | undefined, now: number): StartView {
   if (room?.activeGame) return { phase: "idle" };
-  const p = room?.preparing;
+  const p = room?.preparing, b = room?.bidding;
+  if (b && !b.error) return { phase: "idle" };
   if (p && !p.error) return { phase: "preparing", ready: p.ready, total: p.total };
-  // A failed preparation is shown soon after the call returned (a retry has START_ERROR_LAG_MS to replace it).
-  if (isLive(request, now, p?.error ? START_ERROR_LAG_MS : START_LAG_MS)) return { phase: "starting", source: request.source };
+  // A failed preparation (or bid phase) is shown soon after the call returned (a retry has START_ERROR_LAG_MS to replace it).
+  if (isLive(request, now, p?.error || b?.error ? START_ERROR_LAG_MS : START_LAG_MS)) return { phase: "starting", source: request.source };
   return { phase: "idle" };
 }
 
