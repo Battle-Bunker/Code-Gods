@@ -7,7 +7,7 @@ import type { CardText, GridSpec } from "../_util.ts";
 import { fromFn, full, gridFamily, pyCard, sentences, tsCard, tuple, wire } from "../_util.ts";
 import { tierPoints } from "../../../tuples.ts";
 import { halfTurnPairs, pairTop } from "./_pairs.ts";
-import { linesSum, windowsSum, type GridTiers, type TierValue } from "../tiers.ts";
+import { foldTotal, linesSum, windowsSum, type GridTiers, type TierValue } from "../tiers.ts";
 
 type NinesP = Record<string, never>;
 
@@ -33,14 +33,10 @@ const ninesText = (g: GridSpec): CardText => {
  * up to the target T at the base's top, so a line and its image add up to N·T together and x folds with N·T − x; at
  * x = N·T/2 (18 on 4×4 digits) both long diagonals are free and the tier is Magic Eighteen's own goal.
  */
-const foldX = (id: string, whole: (g: GridSpec) => number) => (v: TierValue, g: GridSpec): TierValue => {
-  const x = v.x as number;
-  return { id, x: Math.min(x, whole(g) - x) };
-};
 export const ninesTiers: GridTiers<NinesP> = {
   interactions: [
-    { ...linesSum, canonical: foldX("lines", g => g.N * ninesTarget(g)) },
-    { ...windowsSum, canonical: foldX("squares", g => 4 * ninesTarget(g)) },
+    { ...linesSum, canonical: foldTotal("lines", g => g.N * ninesTarget(g)) },
+    { ...windowsSum, canonical: foldTotal("squares", g => 4 * ninesTarget(g)) },
   ],
   // The base's greedy ten-move level on 4×4 (docs/layered-rules-design.md §3): three quarters of the pairs.
   gate: g => (3 * g.N * g.N) / 8,

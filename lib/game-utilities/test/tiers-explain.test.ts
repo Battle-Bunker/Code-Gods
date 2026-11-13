@@ -340,7 +340,7 @@ test("a tiered draw's goal example scores its ★ tier, for nearly every draw of
   // teaches the player only half the rule. The ordinary search never found one for ✌️ Two Pair's linked boxes (1 of 35
   // draws): one ★ point is worth less than the rest of what makes a board teach well, and a cell change anywhere on
   // the board almost never moves one of these units. `climbTier` in explain/index.ts goes looking for one on purpose.
-  const want: Record<string, number> = { opposite_nines: 1, mirrormancer: 0.7, kings_and_subjects: 0.8, two_pair: 0.9 };
+  const want: Record<string, number> = { opposite_nines: 1, mirrormancer: 0.7, kings_and_subjects: 0.8, two_pair: 0.9, crosswise_threes: 0.9 };
   for (const [familyId, least] of Object.entries(want)) {
     const f = family(familyId), dealt = f.tiered!(CTX, 1) as Params[];
     let scored = 0;

@@ -21,13 +21,16 @@ import { ninesTiers } from "../src/families/grid/beginner/opposite_nines.ts";
 import { mirrorTiers } from "../src/families/grid/layered/mirror-tiers.ts";
 import { courtTiers } from "../src/families/grid/layered/royal_court.ts";
 import { pairTiers } from "../src/families/grid/layered/pair-tiers.ts";
+import { threesTiers } from "../src/families/grid/beginner/crosswise_threes.ts";
 import type { GridTiers } from "../src/families/grid/tiers.ts";
 import { gridSpec } from "../src/families/grid/_util.ts";
 import type { Ordinal, Params } from "../src/types.ts";
 
 const TIERED = FAMILIES.filter(f => f.tiered);
 /** The tier specs by family id (each family exports its own). */
-const SPECS: Record<string, GridTiers<any>> = { opposite_nines: ninesTiers, mirrormancer: mirrorTiers, kings_and_subjects: courtTiers, two_pair: pairTiers };
+const SPECS: Record<string, GridTiers<any>> = {
+  opposite_nines: ninesTiers, mirrormancer: mirrorTiers, kings_and_subjects: courtTiers, two_pair: pairTiers, crosswise_threes: threesTiers,
+};
 /** Expert draws carry two tiers: together they may add up to 26 bits over the base's top (one tier: 20). */
 const EXPERT_BAND = { min: TIER_MIN_ADDED_BITS, max: 26 };
 const beginner = instantiate("Grid", { size: 4, symbols: "base10", colours: "mono" });

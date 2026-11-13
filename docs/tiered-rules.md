@@ -47,6 +47,7 @@ Then:
 | Mirrormancer | mirrors holding two ys, halves add up to x | 15 | 3 |
 | Kings and Subjects | pairs of kings x apart, same-number roads of y | 6 | 2 |
 | Two Pair | links by total x, links through y, roads of equal numbers of y | 35 | – |
+| Crosswise Threes | lines x | 8 | – |
 
 The seeded setup **Tiered rules** deals one interaction per rule; the Lab setups deal the other compositions and, as
 **Lab · two ★ tiers**, the pairs.

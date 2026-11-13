@@ -18,6 +18,7 @@ import { ninesTiers } from "../src/families/grid/beginner/opposite_nines.ts";
 import { mirrorTiers } from "../src/families/grid/layered/mirror-tiers.ts";
 import { courtTiers } from "../src/families/grid/layered/royal_court.ts";
 import { pairTiers } from "../src/families/grid/layered/pair-tiers.ts";
+import { threesTiers } from "../src/families/grid/beginner/crosswise_threes.ts";
 import type { Params } from "../src/types.ts";
 
 const FAMILIES: Record<string, { spec: GridTiers<any>; base: Params }> = {
@@ -25,6 +26,7 @@ const FAMILIES: Record<string, { spec: GridTiers<any>; base: Params }> = {
   mirrormancer: { spec: mirrorTiers, base: { axis: "LR" } },
   kings_and_subjects: { spec: courtTiers, base: { squares: "corners" } },
   two_pair: { spec: pairTiers, base: {} },
+  crosswise_threes: { spec: threesTiers, base: {} },
 };
 
 const argv = process.argv.slice(2);
