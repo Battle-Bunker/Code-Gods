@@ -12,14 +12,20 @@ import { syncRows } from "./objectViews";
 const PAGE = 25;
 
 export const page = internalMutation({
-  args: { gameId: v.id("games"), godId: v.string(), world: v.number(), cursor: v.union(v.string(), v.null()) },
-  handler: async (ctx, { gameId, godId, world, cursor }) => {
+  /** `remaining`: how many objects the look still covers, oldest first (the count it was charged for); absent: all. */
+  args: { gameId: v.id("games"), godId: v.string(), world: v.number(), cursor: v.union(v.string(), v.null()), remaining: v.optional(v.number()) },
+  handler: async (ctx, { gameId, godId, world, cursor, remaining }) => {
     const game = await ctx.db.get(gameId);
     // Once ended the end's fill makes every row exact.
     if (!game || !paidLive(game)) return;
-    const objects = await ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", gameId)).paginate({ cursor, numItems: PAGE });
+    if (remaining !== undefined && remaining <= 0) return;
+    // by_game is creation order: the first `remaining` objects are the ones that existed when the price was quoted.
+    const objects = await ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", gameId)).paginate({ cursor, numItems: Math.min(PAGE, remaining ?? PAGE) });
     const me: ReadonlySet<string> = new Set([godId]);
     await syncRows(ctx, objects.page, true, { world, told: () => me, boards: boardsLive(game) });
-    if (!objects.isDone) await ctx.scheduler.runAfter(0, internal.game.looks.page, { gameId, godId, world, cursor: objects.continueCursor });
+    const left = remaining === undefined ? undefined : remaining - objects.page.length;
+    if (!objects.isDone && (left === undefined || left > 0)) {
+      await ctx.scheduler.runAfter(0, internal.game.looks.page, { gameId, godId, world, cursor: objects.continueCursor, ...(left !== undefined ? { remaining: left } : {}) });
+    }
   },
 });

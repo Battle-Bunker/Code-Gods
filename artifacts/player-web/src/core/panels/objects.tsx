@@ -37,7 +37,7 @@ import { useNow } from "@/core/game/situation";
 import { PanelEmpty, PrimaryButton, TextButton, referObject, type PanelProps } from "./kit";
 import { payoffLabels, payoffRect, type PayoffScale } from "./payoff-geometry";
 import { useNextStep } from "./use-next-step";
-import { ageText, lookAllNote, lookOffer, staleness } from "./knowledge";
+import { ageText, lookOffer, staleness } from "./knowledge";
 import { whyTitle, whyUnavailable } from "./object-why";
 import { useReplayChanged } from "@/core/replay/parts";
 
@@ -133,7 +133,9 @@ type RowLook = { label: string; disabled: boolean; reason?: string; onLook: (obj
  */
 export function LookBar({ price, energy, count, can, onLookAll, boards, stale, noPower }: {
   /** Absent in a game that offers the god no look ("agents" mode): the sentence says so and no button shows. */
-  price?: number; energy: number; count: number; can: Affordance; onLookAll: () => void;
+  price?: number; energy: number; count: number; can: Affordance;
+  /** Pays for a look at the `count` objects the button showed: the price charged is the price shown. */
+  onLookAll: (count: number) => void;
   /** "boards" mode: every board is live; only the others' interest ages. */
   boards?: boolean;
   /** How many objects have changed since the god last saw them (player.staleCount). */
@@ -152,23 +154,26 @@ export function LookBar({ price, energy, count, can, onLookAll, boards, stale, n
     <div className="space-y-1 text-xs text-muted-foreground" data-testid="objects-paid-observation">
       <p data-testid="text-paid-observation" className="max-w-[70ch]">
         {boards
-          ? <>Every board is shown as it is. The other players' interest in it, and so your payoff, is as you <Term id="last-seen">last saw it</Term>.</>
+          ? <>Every board here is live: you see it as it is. What you see as you <Term id="last-seen">last saw it</Term> is the other players'
+            interest in each (and so your payoff).</>
           : <>You see each object as you <Term id="last-seen">last saw it</Term>.</>}{" "}
         Your agents' changes and complete reads refresh it
         {price !== undefined ? <>; a <Term id="look">look</Term> costs {price.toFixed(2)} energy.</>
-          : <>, and nothing else does: to watch the world, summon an agent that reads the whole object and returns no calls.</>}
-        {stale && stale.count > 0 && <> <span className="font-semibold text-destructive" data-testid="text-stale-count">{stale.count}{stale.more ? "+" : ""} of {count} {stale.count === 1 && !stale.more ? "has" : "have"} changed since you last saw {stale.count === 1 && !stale.more ? "it" : "them"}.</span></>}
+          : <>, and nothing else does.</>}{" "}
+        {/* Said plainly, not as an alarm: in a busy world most objects have always changed since. */}
+        {stale && stale.count > 0 && <span data-testid="text-stale-count">{stale.count}{stale.more ? "+" : ""} of {count} {stale.count === 1 && !stale.more ? "has" : "have"} changed since you last saw {boards ? "the others' interest in " : ""}{stale.count === 1 && !stale.more ? "it" : "them"}.{" "}</span>}
+        {/* What a look is, so nobody pays for one expecting it to last. */}
+        <span data-testid="text-look-snapshot">{price !== undefined ? "A look is a snapshot: it is true when you take it and ages as the world moves on. " : ""}To keep watching, summon an agent that only looks (Agent code offers one under Other starting points).</span>
       </p>
       {shown && (
         <p className="flex flex-wrap items-center gap-x-4 gap-y-1">
           {confirm ? (<>
-            <TextButton boxed tone="danger" testId="button-confirm-look-all" disabled={disabled} title={reason ?? undefined} onClick={() => { setConfirm(false); onLookAll(); }}>
-              Pay about {all.total.toFixed(2)} energy to look at all {count}
+            <TextButton boxed tone="danger" testId="button-confirm-look-all" disabled={disabled} title={reason ?? undefined} onClick={() => { setConfirm(false); onLookAll(count); }}>
+              Pay {all.total.toFixed(2)} energy to look at all {count}
             </TextButton>
-            <span data-testid="text-look-all-note">{lookAllNote({ price: price ?? 0, count })}</span>
             <TextButton testId="button-cancel-look-all" onClick={() => setConfirm(false)}>Keep my energy</TextButton>
           </>) : (
-            <TextButton boxed testId="button-look-all" disabled={disabled} title={reason ?? `About ${all.total.toFixed(2)} energy, from your own energy. ${lookAllNote({ price: price ?? 0, count })}`} onClick={() => setConfirm(true)}>{all.label}</TextButton>
+            <TextButton boxed testId="button-look-all" disabled={disabled} title={reason ?? `${all.total.toFixed(2)} energy for ${count} objects, from your own energy`} onClick={() => setConfirm(true)}>{all.label}</TextButton>
           )}
           {/* Why no look can be paid for, said once and in sight (a row's own button carries it only as a title). */}
           {disabled && (single.reason ?? reason) && <span data-testid="text-look-reason" className="min-w-0 break-words">{single.reason ?? reason}</span>}
@@ -234,7 +239,8 @@ function ObjectRow({ objectId, position, byPayoff, scales, world, highlighted, o
   const strength = relativeStrength(o.payoff, scales.best);
   // Paid observation: the row is the object as the god last saw it; stale once it has changed since (./knowledge.ts).
   const seen = staleness(o, world);
-  const dim = seen?.stale ? "opacity-50 grayscale" : "";
+  // Drawn a little quieter, not greyed out: it is the object as the player saw it, and often still nearly so.
+  const dim = seen?.stale ? "opacity-70" : "";
   return (
     <div key={lit ? `${o.id}:${change!.version}` : o.id} data-testid={`row-object-${o.id}`} className={`relative h-full min-w-0 overflow-hidden border-t border-[hsl(var(--card-border))] pt-2 pb-2 ${highlighted ? "bg-[hsl(var(--primary)/0.06)]" : ""} ${lit ? "replay-changed" : ""}`}>
       <div className={`flex min-w-0 items-start gap-3 ${seen ? "mt-5" : ""}`.trimEnd()}>
@@ -265,15 +271,15 @@ function ObjectRow({ objectId, position, byPayoff, scales, world, highlighted, o
           <div className="flex h-[18px] min-w-0 items-center gap-2 font-mono text-[11px] text-muted-foreground @[26rem]:pl-10"
             title={boards ? (seen.stale ? "It has changed since you last saw the others' interest in it: the points shown may no longer be so." : "Nothing has changed it since you last saw the others' interest: the points are as they are now.")
               : seen.stale ? "It has changed since you last saw it: what is shown here may no longer be so." : "Nothing has changed it since you last saw it: this is how it is now."}>
-            {seen.stale && <span className="shrink-0 border border-destructive px-1 text-[10px] font-semibold uppercase leading-[14px] tracking-wide text-destructive" data-testid={`badge-stale-${o.id}`}>stale</span>}
+            {seen.stale && <span className="shrink-0 border border-[hsl(var(--card-border))] px-1 text-[10px] font-semibold uppercase leading-[14px] tracking-wide text-foreground" data-testid={`badge-stale-${o.id}`}>{boards ? "interest as seen" : "as seen"}</span>}
             {seen.stale ? (<>
               <span className="min-w-0 truncate">
                 {boards && <span className="hidden @[34rem]:inline">others' interest </span>}
                 <span className="hidden @[26rem]:inline">{seen.seen}</span>
                 <span className="@[26rem]:hidden">{seen.age < 1 ? "just now" : `${ageText(seen.age)} ago`}</span>
               </span>
-              {seen.note && <span className="-ml-2 shrink-0 whitespace-pre"> · <span className="font-semibold text-destructive">
-                <span className="hidden @[26rem]:inline">{seen.note}</span><span className="@[26rem]:hidden">changed {seen.changes}×</span>
+              {seen.note && <span className="-ml-2 shrink-0 whitespace-pre"> · <span className="font-semibold text-foreground">
+                <span className="hidden @[26rem]:inline">{boards ? `board ${seen.note}` : seen.note}</span><span className="@[26rem]:hidden">changed {seen.changes}×</span>
               </span></span>}
             </>) : (
               <span className="min-w-0 truncate">{boards ? "others' interest " : ""}{seen.seen}{seen.note && <> · <span className="text-[hsl(var(--accent))]">{seen.note}</span></>}</span>
@@ -356,7 +362,7 @@ export default function Objects({ paneId, params, phase }: PanelProps<"objects">
   const { can } = useAffordances();
   const commands = useGameCommands();
   const lookAt = useCallback((objectId: string) => void commands.run({ type: "look", objectId }), [commands]);
-  const lookAll = useCallback(() => void commands.run({ type: "look" }), [commands]);
+  const lookAll = useCallback((count: number) => void commands.run({ type: "look", count }), [commands]);
   const { ctx, noun } = useObjectContext();
   const [paneRef, widePane] = useWidePane();
   // The open "why?": the object and, when the list is by points, the rank its row showed.

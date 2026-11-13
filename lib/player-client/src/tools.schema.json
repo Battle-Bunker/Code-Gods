@@ -1524,6 +1524,12 @@
           "minLength": 1,
           "maxLength": 128
         },
+        "count": {
+          "description": "With no objectId: the object count the price was quoted for (get_observation objectCount). The look covers that many, oldest first, and charges exactly lookPrice x count, even if objects were born since (those are already known from birth).",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2000
+        },
         "commandId": {
           "description": "A fresh UUID per new intent; resend the identical call (same id) to retry: never applied twice.",
           "type": "string",

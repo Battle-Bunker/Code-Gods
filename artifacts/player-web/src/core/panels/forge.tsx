@@ -138,13 +138,13 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
     return { source: template, boards: mode === "boards",
       ...observerRate({ fullRead: e.fullRead, objects, changeReadRatio: e.changeReadRatio ?? 32, powerPerSecond: e.powerPerSecond, share: 0.1 }) };
   }, [obs, language, instance?.objectType, ended]);
-  // The looker comes with its own name (the next free one) and description: under the name of the agent it replaced,
-  // a player summoned a looker called "Simple pair maker".
+  // The observer comes with its own name (the next free one) and description: under the name of the agent it replaced,
+  // a player summoned an observer called "Simple pair maker".
   const loadObserver = () => {
     if (!observer) return;
     setAskReplace(false);
     runner.setDraft({ source: observer.source });
-    // A name or description the player typed is theirs; anything else (the example's name) gives way to the looker's.
+    // A name or description the player typed is theirs; anything else (the example's name) gives way to the observer's.
     if (!nameTyped.current) setName(nextFreeName(OBSERVER_NAME, agents.map(a => a.name), AGENT_NAME_MAX));
     if (!description.trim()) setDescription(OBSERVER_DESCRIPTION);
   };
