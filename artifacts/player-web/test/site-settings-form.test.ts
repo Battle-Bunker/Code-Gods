@@ -195,7 +195,7 @@ test("tiered rules: the control's choices are none, one tier or two; none remove
   // The draft refuses tiered rules on a world that offers none, instead of failing only when the owner saves.
   const { settingsDomain } = await import("../src/site/lib/settings-form.ts");
   const domain = settingsDomain([]);
-  assert.deepEqual(domain.tiered!("Grid", { size: 4, symbols: "base10", colours: "mono" }, { depth: 1 }).sort(), ["kings_and_subjects", "mirrormancer", "opposite_nines", "two_pair"]);
+  assert.deepEqual(domain.tiered!("Grid", { size: 4, symbols: "base10", colours: "mono" }, { depth: 1 }).sort(), ["crosswise_threes", "kings_and_subjects", "mirrormancer", "opposite_nines", "two_pair"]);
   assert.deepEqual(domain.tiered!("Grid", { size: 6, symbols: "base16", colours: "rainbow6" }, { depth: 1 }), [], "no family offers tiers on a 6×6 of hex digits");
   assert.deepEqual(domain.tiered!("Grid", { size: 4, symbols: "base10", colours: "mono" }, { depth: 2 }).sort(), ["kings_and_subjects", "mirrormancer", "opposite_nines"], "the families that deal a pair");
   assert.deepEqual(domain.tiered!("Grid", { size: 6, symbols: "base16", colours: "rainbow6" }, { depth: 2 }), [], "two tiers need a world that offers them too");
