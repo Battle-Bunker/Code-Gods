@@ -29,7 +29,8 @@ can explain the score, and see the natural end of the game at about 350–410 s 
 |---|---|
 | #321 | Atomic replace, pane-local query errors, energy lines. A beginner's first agent (beginner rule on the beginner board, Python) gets the largest share that still leaves the store able to pay for the dearest starter: 0.701562 (`firstAgentShare`, `isBeginnerGoal` in game-core). `BEGINNER_AGENT_BUDGET_BITS` is 573, derived by the example-agents test from every starter's price. |
 | #327 | Walk fixes: replace says what it keeps; a shelf starter is offered as Replace of the agent in the editor or the only goal agent (never an observer); whose store is full; "Starting the world…"; the dock routes on the header's roomId, so a timed-out room query no longer tears it down (`dockRoomId`); site error boundaries; `usePlayerStyle`. |
-| next | "Energy about 0 ⚡" for a working agent; "✨ rarity a → b (fewer random grids score this well)". |
+| #330 | "Energy about 0 ⚡" for a working agent; "✨ rarity a → b (fewer random grids score this well)". |
+| #331 | Power explained after the first summon; no negative energy for a working agent with capacities; "Other starting points" button; no stale price after a replace; Objects pane in house words. Walks after #330: Jo 6.5 / 38.4 / 56.8 / **66.9** / 356.7 s, Sam 3.7 / 24.1 / 81.9 / 81.9 / 385.5 s. |
 
 Walks on merged round 7 (before #327): Sam (phone): seated 4.2 s, summoned 44.6 s, first scoring move 92.7 s,
 explained ~93 s, end 358.7 s. Jo (desktop): 4.3 / 81 / 96 / not explained / 405.8 s.
@@ -41,7 +42,9 @@ explained ~93 s, end 358.7 s. Jo (desktop): 4.3 / 81 / 96 / not explained / 405.
 3. Balance: every walker finishes 1st of 3 (balance session's).
 4. Jargon still met: "bits" in setup details and prices, "1 in 2.2 billion" rarity text, power vs energy after the
    first summon ("70% of your power… 19.1 ⚡/s" is half understood).
-5. On a phone, scrolling stacked panes often scrolls the Objects list instead (Sam).
+5. On a phone, scrolling stacked panes often scrolls the Objects list or the code box instead of the page (Sam, twice):
+   nested scroll areas in `src/dock/stacked.tsx`; needs a look in a phone browser before changing.
+   `e2e/objects-scroll.ts` (no package script) is stale: it expects a first page of 12 rows and gets 36.
 6. Replay events show no points delta (needs engine data).
 7. The assistant's mock reply locally is not a product bug (no provider key), but its numbers are unrounded.
 8. No walk yet on #327 and later.
