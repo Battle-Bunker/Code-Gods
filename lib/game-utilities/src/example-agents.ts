@@ -460,7 +460,7 @@ Object.assign(RECIPES, {
       }`,
   },
 } satisfies Record<string, Recipe>);
-const MORE = "Want more? Summon the thorough version later, when you have more energy.";
+const MORE = "Want more? Open Other starting points and pick Thorough when you have the energy.";
 const TINY: Record<string, NonNullable<Recipe["tiny"]>> = {
   opposite_nines: {
     does: [

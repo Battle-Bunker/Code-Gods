@@ -23,6 +23,8 @@ import { codeCommands, engineCommands, paletteContextFor, type EngineActions, ty
 import { oncePerKey } from "@/site/lib/click-once";
 import { aiSeats } from "@/site/lib/room-seats";
 import { errMsg, startRaced } from "@/site/lib/errors";
+import { ErrorBoundary, type ErrorFallbackProps } from "@/components/error-boundary";
+import { ErrorLine } from "@/site/components/page-parts";
 import type { GameRecord, GameView, Manifest, RoomState } from "@/site/lib/types";
 import { useSetupEntries } from "@/site/hooks/use-setups";
 import { rulesFor } from "@/site/components/game-rules";
@@ -114,7 +116,7 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
   const { user, kind, login, logout } = useAuth();
   const manifest = useManifest(!!user).data;
   useWarmSandboxes(user?.id);
-  const [, navigate] = useLocation();
+  const [path, navigate] = useLocation();
   const { toast } = useToast();
   const [palette, setPalette] = useState<{ open: boolean; init?: PaletteOpenInit }>({ open: false });
   const [sheet, setSheet] = useState<Sheet | null>(null);
@@ -309,7 +311,8 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
             )}
           </div>
         </header>
-        <main className="flex-1">{children}</main>
+        {/* A page that throws (a paged query's error, a render bug) keeps the header and its navigation; a new route clears it. */}
+        <main className="flex-1"><ErrorBoundary FallbackComponent={PageError} resetKey={path}>{children}</ErrorBoundary></main>
       </div>
       <CommandPalette commands={commands} context={ctx} open={palette.open} init={palette.init} onOpenChange={o => setPalette(p => ({ open: o, init: o ? p.init : undefined }))}
         placeholder={placeholder} suggested={suggested} recentKey={user ? `code-gods:palette-recent:${user.id}` : undefined} chip={chip}
@@ -321,4 +324,9 @@ export function Page({ children, room, game, history, crumbs = [], placeholder =
         viewer={{ meId: user?.id, ownerId: room?.ownerId ?? game?.ownerId ?? undefined, roomLive: room ? !!room.activeGame : !!(game && (game.status === "active" || game.roomActiveGame)) }} />
     </PageCtx.Provider>
   );
+}
+
+/** What a page shows when it threw: the error, and a retry that renders it afresh. The header stays. */
+function PageError({ error, resetError }: ErrorFallbackProps) {
+  return <div className="mx-auto max-w-3xl p-6" data-testid="page-error"><ErrorLine message={`This page hit an error: ${errMsg(error)}`} onRetry={resetError} /></div>;
 }

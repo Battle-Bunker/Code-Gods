@@ -3,7 +3,7 @@
  * (the only primary-coloured element here), energy ("overdrawn by 312 ⚡" when it is below zero), the connection dot, the room code and the client mode in small
  * print, and the command palette (search field + menu; Cmd/Ctrl+K). Everything else lives in the palette.
  */
-import { useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { errorsLine, queryErrors } from "@/sdk/query-errors";
 import { CommandPalette, PaletteTrigger } from "@workspace/ui-kit";
 import { useRoom } from "@/sdk";
@@ -112,6 +112,7 @@ export function PlayerPalette({ compact, suggested = ["ui.forge.edit", "ui.panel
  * player still without an agent keeps the line and the button. The game timer stands down while the planning line
  * shows (game-timer.tsx). On a phone the two buttons stack under the text.
  */
+const START_WORLD_WAIT_MS = 10_000;
 export function PlanningBar() {
   const { permission } = useRoom();
   const s = useSituation();
@@ -123,10 +124,18 @@ export function PlanningBar() {
   // The button summons the pre-filled example itself (dock.summonFirst), so it says so while the summon is in flight.
   const { busy: running, firstSummon } = useRunner();
   const summoning = running === "summon";
+  // "Start the world now" says it was pressed until the world starts (the bar then changes): on a phone the receipt's
+  // notice was out of view, and a walker asked "did that do anything?". A refused start turns the button back on.
+  const [startingWorld, setStartingWorld] = useState(false);
   const line = planningLine({
     phase: s.phase, seated: s.seated, owner: s.isOwner && permission !== "read", planningEndsAt: s.obs?.planningEndsAt, nowMs: now,
     agents: loading ? undefined : s.agents, canSummon: editCode.ok,
   });
+  const offered = !!line?.startNow;
+  useEffect(() => { if (!offered) setStartingWorld(false); }, [offered]);
+  // An accepted start that has not started the world after a while (the engine had nothing to do, or its tick is late)
+  // gives the button back rather than leave it dead for the rest of planning.
+  useEffect(() => { if (!startingWorld) return; const t = setTimeout(() => setStartingWorld(false), START_WORLD_WAIT_MS); return () => clearTimeout(t); }, [startingWorld]);
   if (!line) return null;
   return (
     <div role={s.phase === "planning" ? "timer" : "status"} aria-live="off" data-testid="banner-planning" className="flex flex-col items-center justify-center gap-x-4 gap-y-2 border-b border-[hsl(var(--card-border))] bg-muted px-3 py-2 text-center text-sm sm:flex-row sm:flex-wrap sm:text-left">
@@ -136,8 +145,9 @@ export function PlanningBar() {
           className="w-full shrink-0 bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-70 sm:w-auto sm:py-1">{firstSummonLabel({ summoning, pending: firstSummon > 0 })}</button>
       )}
       {line.startNow && (
-        <button type="button" data-testid="button-start-world-now" onClick={() => void owner.startWorldNow()}
-          className={`w-full shrink-0 px-3 py-1.5 text-sm font-semibold hover:opacity-90 sm:w-auto sm:py-1 ${line.summon ? "border border-primary bg-background text-primary" : "bg-primary text-primary-foreground"}`}>Start the world now</button>
+        <button type="button" data-testid="button-start-world-now" disabled={startingWorld} aria-busy={startingWorld || undefined}
+          onClick={() => { setStartingWorld(true); owner.startWorldNow().then(r => { if (r === undefined) setStartingWorld(false); }, () => setStartingWorld(false)); }}
+          className={`w-full shrink-0 px-3 py-1.5 text-sm font-semibold hover:opacity-90 disabled:opacity-70 sm:w-auto sm:py-1 ${line.summon ? "border border-primary bg-background text-primary" : "bg-primary text-primary-foreground"}`}>{startingWorld ? "Starting the world…" : "Start the world now"}</button>
       )}
     </div>
   );

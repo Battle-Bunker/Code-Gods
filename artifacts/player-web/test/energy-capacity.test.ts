@@ -27,7 +27,7 @@ test("an agent's store: debt, filling, full (income wasted), or no income", () =
   assert.equal(storeFraction(5, 0), 0);
   // (480 − 336) / 16 = 9 s.
   assert.equal(fillText(336, 16, 480), "full in 9 s");
-  assert.equal(fillText(480, 16, 480), "Full: its income is being wasted. Use it or re-allocate it.");
+  assert.equal(fillText(480, 16, 480), "Full: this agent earns faster than it spends, so the extra is lost. A smaller power share keeps that power for you.");
   assert.equal(fillText(5, 0, 0), "no income");
 });
 
@@ -68,7 +68,7 @@ test("a game without the rule says nothing about capacity", () => {
 test("your own energy: fills and then stops; full; or holds nothing when all power is given away", () => {
   // (480 − 230) / 16 = 15.6 → 16 s.
   assert.equal(plain(ownEnergyLine({ energy: 230, income: 16, capacity: 480 })), "Your energy: 230 of 480 ⚡. It fills in 16 s and then stops.");
-  assert.equal(plain(ownEnergyLine({ energy: 480, income: 16, capacity: 480 })), "Your energy is full (480 ⚡). Energy pays for summoning; your agents run on their own share of your power.", "a fact, never an instruction to spend");
+  assert.equal(plain(ownEnergyLine({ energy: 480, income: 16, capacity: 480 })), "Your own energy is full (480 ⚡). It pays for summoning; your agents run on their own stores, filled by their share of your power.", "a fact, never an instruction to spend");
   assert.equal(ownStoreFull(480, 480), true);
   assert.equal(ownStoreFull(230, 480), false);
   assert.equal(ownStoreFull(0, 0), false);
@@ -181,7 +181,7 @@ test("your own energy below zero: what you owe and when you can summon again, an
 });
 
 test("a full store with one agent says what can be done with the power, not to spend it", () => {
-  assert.equal(fullStoreOneAgent("Mirror maker"), "Your energy is full. Give Mirror maker more power so it acts more often, or add another ready-made agent.");
+  assert.equal(fullStoreOneAgent("Mirror maker"), "Your own energy is full. Give Mirror maker more power so it acts more often, or add another ready-made agent.");
 });
 
 test("the destroy confirmation says the energy the agent holds comes back to the player, in a game with capacity", () => {

@@ -277,6 +277,15 @@ export function draftOrigin(previous: string | null, source: string, language: s
   if (same) return same.id;
   return previous !== null && agents.some(a => a.id === previous) ? previous : null;
 }
+/**
+ * The agent a shelf starter is a new version of: the one in the editor if it is a candidate, else the player's only
+ * candidate, else none (a new agent). Candidates are the agents that chase the goal (the caller leaves out observers,
+ * which only look: a starter must not replace a player's eyes).
+ */
+export function starterOrigin(origin: string | null, candidates: readonly string[]): string | null {
+  if (origin !== null && candidates.includes(origin)) return origin;
+  return candidates.length === 1 ? candidates[0]! : null;
+}
 /** Whether the draft is a changed version of `origin` (an unchanged one is a copy: isCopy). */
 export const replaceOffer = (origin: OwnAgent | undefined, source: string): boolean => !!origin && !!source.trim() && origin.source !== source;
 export const replaceLabel = (name: string): string => `Replace ${name} with this version`;
@@ -316,10 +325,12 @@ export function pendingReplaceOnReceipt(pending: PendingReplace | null, commandI
 }
 const whole = (x: number) => Math.round(x).toLocaleString("en-US");
 const forPrice = (cost: number | undefined): string => (cost !== undefined && Number.isFinite(cost) && cost > 0 ? ` for ${whole(cost)} ⚡` : "");
+/** What a replace leaves as it was (the engine's replace: same agent, energy and share; the price is paid from the god's own store). A walker asked. */
+const KEEPS = " It keeps its stored ⚡ and its share of your power; the price came from your own energy.";
 /** "Replaced: NAME now runs your new version for 178 ⚡." (our own words: never the engine's raw sentence in bits). */
-export const replacedText = (name: string, s: { cost?: number } = {}): string => `Replaced: ${name} now runs your new version${forPrice(s.cost)}.`;
+export const replacedText = (name: string, s: { cost?: number } = {}): string => `Replaced: ${name} now runs your new version${forPrice(s.cost)}.${KEEPS}`;
 /** "Put back: NAME runs the previous version again for 169 ⚡." (the put-back's own words: it is not "your new version"). */
-export const putBackText = (name: string, s: { cost?: number } = {}): string => `Put back: ${name} runs the previous version again${forPrice(s.cost)}.`;
+export const putBackText = (name: string, s: { cost?: number } = {}): string => `Put back: ${name} runs the previous version again${forPrice(s.cost)}.${KEEPS}`;
 /** The put-back's button: it pays the previous version's summon price again. */
 export const putBackLabel = (cost: number | undefined): string =>
   `Put the previous version back · costs ${cost !== undefined && Number.isFinite(cost) ? `${(Math.round(cost * 10) / 10).toLocaleString("en-US", { maximumFractionDigits: 1 })} ⚡` : "its summon price again"}`;

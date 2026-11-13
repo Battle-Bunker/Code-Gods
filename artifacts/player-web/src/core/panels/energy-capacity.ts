@@ -40,7 +40,8 @@ export const storedLine = (energy: number, capacity: number): Seg[] => [{ term: 
 /** How full the meter is, from 0 to 1. */
 export const storeFraction = (energy: number, capacity: number): number => (capacity > 0 ? Math.min(1, Math.max(0, energy) / capacity) : 0);
 
-export const FULL_TEXT = "Full: its income is being wasted. Use it or re-allocate it.";
+/** An agent's own store is full (not the player's: a walker read the two "full" figures as one). */
+export const FULL_TEXT = "Full: this agent earns faster than it spends, so the extra is lost. A smaller power share keeps that power for you.";
 /** Beside the meter: "full in 9 s", the full warning, or "no income". */
 export function fillText(energy: number, income: number, capacity: number): string {
   const state = storeState(energy, income, capacity);
@@ -162,7 +163,7 @@ export function shareCapacityLines({ newShare, agentShare, allocated, total, ful
  * The player's own store is full and they have exactly one agent: what they can do with the power, the controls one
  * press away, without telling them to spend for its own sake. (With two or more agents the neutral sentence stands.)
  */
-export const fullStoreOneAgent = (name: string): string => `Your energy is full. Give ${name} more power so it acts more often, or add another ready-made agent.`;
+export const fullStoreOneAgent = (name: string): string => `Your own energy is full. Give ${name} more power so it acts more often, or add another ready-made agent.`;
 /**
  * Whether that advice (and its "Give NAME more power" button) is shown: only to a player who can change the share
  * right now. In a replay, as a spectator or seen as another player the neutral line stands (the button would lead to
@@ -190,6 +191,6 @@ export function ownEnergyLine({ energy, income, capacity }: { energy: number; in
   const head: Seg[] = ["Your ", term, `: ${num(energy)} of ${bits(capacity)}. `];
   // A neutral fact, with no instruction to spend: "its income is being wasted. Summon with it…" led two first-time
   // players to pay for looks and summon copies they did not need. The detail is the tooltip's (OWN_FULL_DETAIL).
-  if (energy >= capacity - EPSILON) return ["Your ", term, ` is full (${bits(capacity)}). Energy pays for summoning; your agents run on their own share of your power.`];
+  if (energy >= capacity - EPSILON) return ["Your own ", term, ` is full (${bits(capacity)}). It pays for summoning; your agents run on their own stores, filled by their share of your power.`];
   return [...head, `It fills in ${duration(secondsToFull(energy, income, capacity))} and then stops.`];
 }
