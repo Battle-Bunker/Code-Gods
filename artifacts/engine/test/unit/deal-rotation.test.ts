@@ -47,3 +47,17 @@ test("params are part of a rule: a game that is not a rotation of the one before
   const g2: PastDeal = { ...past(["a", "b", "c"], ["z", "x", "y"]), utilities: [{ familyId: "z", params: { axis: "rows" } }, u("x"), u("y")] };
   assert.equal(rotatedDeal(["a", "b", "c"], KEY, [g2, g1])?.round, 2);
 });
+
+test("a new seat order in the middle of a round does not break it: everyone still holds each rule once", () => {
+  const g1 = past(["a", "b", "c"], ["x", "y", "z"]);
+  const r2 = rotatedDeal(["b", "a", "c"], KEY, [g1])!;
+  const g2: PastDeal = { godIds: ["b", "a", "c"], utilities: r2.utilities, dealKey: KEY, bid: false };
+  const r3 = rotatedDeal(["c", "b", "a"], KEY, [g2, g1])!;
+  assert.equal(r3.round, 3);
+  for (const [k, g] of ["c", "b", "a"].entries()) {
+    const held = [g1, g2].map(game => game.utilities[game.godIds.indexOf(g)].familyId);
+    assert.ok(!held.includes(r3.utilities[k].familyId), `${g} gets a rule it has not held: ${held} then ${r3.utilities[k].familyId}`);
+  }
+  const g3: PastDeal = { godIds: ["c", "b", "a"], utilities: r3.utilities, dealKey: KEY, bid: false };
+  assert.equal(rotatedDeal(["a", "b", "c"], KEY, [g3, g2, g1]), null);
+});

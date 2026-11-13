@@ -23,6 +23,9 @@ import { scoreV } from "./tables";
 import { publicSalienceOf, publishStandings } from "./readModel";
 import { scheduleFill } from "./objectViews";
 import { dealKeyOf } from "../lib/dealRotation";
+import { clockDoc } from "./state";
+/** A passed-on deal's card line (owner.ts Rotation). */
+const rotationV = v.object({ round: v.number(), of: v.number(), from: v.string() });
 
 /** The second half's watchdog period while tables compute (owner.ts completeStart; finished() normally launches at once). */
 export const PREPARING_WATCHDOG_MS = 60_000;
@@ -60,9 +63,13 @@ export const pastDeals = internalQuery({
     const games = await ctx.db.query("games").withIndex("by_room", q => q.eq("roomId", roomId)).order("desc").take(8);
     const out: { godIds: string[]; names: string[]; utilities: unknown[]; dealKey: string; bid: boolean }[] = [];
     for (const game of games) {
+      // A game ended before its world ran (ended in planning) was never played: it neither counts nor breaks a round.
+      if (game.phase === "ended" && ((await clockDoc(ctx, game._id))?.worldSeconds ?? 0) <= 0) continue;
       const deities = (await ctx.db.query("deities").withIndex("by_game", q => q.eq("gameId", game._id)).take(16)).sort((a, b) => a.index - b.index);
+      // Dealt with a winning bid: it keeps its auction (bidding.ts); a bid phase nobody won leaves an ordinary deal.
+      const bid = !!game.handicaps?.length || !!await ctx.db.query("gameAuctions").withIndex("by_game", q => q.eq("gameId", game._id)).first();
       out.push({ godIds: deities.map(d => d.godId), names: deities.map(d => game.roster.find(r => r.id === d.godId)?.name ?? d.godId), utilities: deities.map(d => d.utility),
-        dealKey: dealKeyOf(game.settings as Record<string, unknown>), bid: !!game.handicaps?.some(h => h > 0) });
+        dealKey: dealKeyOf(game.settings as Record<string, unknown>), bid });
     }
     return out;
   },
@@ -127,7 +134,7 @@ export const beginPreparing = internalMutation({
   args: {
     roomId: v.id("rooms"), principal: v.optional(principalV), revision: v.number(), memberIds: v.array(v.string()), requestId: v.string(),
     instance: v.string(), total: v.number(), pending: v.array(v.string()), estimateSeconds: v.number(),
-    deals: v.array(v.object({ godId: v.string(), utility: v.any(), bid: v.optional(v.any()) })),
+    deals: v.array(v.object({ godId: v.string(), utility: v.any(), bid: v.optional(v.any()), rotation: v.optional(rotationV) })),
     dealer: v.object({ selectorId: v.string(), dealtAs: v.string(), note: v.optional(v.string()) }),
     /**
      * The deal of a bid phase (owner.ts completeBidding; `bidding` is that phase's requestId): it runs without the

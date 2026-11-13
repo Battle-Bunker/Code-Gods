@@ -11,10 +11,11 @@ test("playing again with the same three players: two passed-on games, then a fre
   const members = await gods("Rota", "Rotb", "Rotc");
   await Promise.all(members.map(touch));
   const owner = members[0];
-  const { roomId } = await roomWith(members, {});
-  const play = async () => {
+  const { roomId } = await roomWith(members, { planningSeconds: 5 });
+  const play = async (run = true) => {
     const { gameId } = await startGame(owner, roomId);
     const g = await raw(gameId);
+    if (run) await waitFor(async () => (await raw(gameId)).game.worldSeconds > 0 || undefined, "the world runs");
     const deities = [...g.deities].sort((a: any, b: any) => a.index - b.index);
     await owner.c.mutation(api.rooms.endActiveGame, { roomId });
     await waitFor(async () => (await raw(gameId)).game.phase === "ended" || undefined, "the game ends");
@@ -22,6 +23,14 @@ test("playing again with the same three players: two passed-on games, then a fre
   };
   const first = await play();
   assert.ok(first.cards.every((c: any) => c.rotation === undefined), "the first game is an ordinary deal");
+  // A game ended before its world ran was never played: it neither counts nor breaks the round.
+  const unplayed = await (async () => {
+    const { gameId } = await startGame(owner, roomId);
+    await owner.c.mutation(api.rooms.endActiveGame, { roomId });
+    await waitFor(async () => (await raw(gameId)).game.phase === "ended" || undefined, "the game ends");
+    return (await raw(gameId)).game.worldSeconds;
+  })();
+  if (unplayed > 0) console.warn(`the planning-only game ran ${unplayed} world seconds: that check is not exercised`);
   let last = first;
   for (const round of [2, 3]) {
     const next = await play();

@@ -35,25 +35,34 @@ export function canonical(x: unknown): string {
 }
 
 const sameSet = (a: readonly string[], b: readonly string[]) => a.length === b.length && [...a].sort().join("\n") === [...b].sort().join("\n");
-/** `newer` is `older` passed one seat along (each player holds the rule of the player before them in `older`). */
-function passedOn(newer: PastDeal, older: PastDeal): boolean {
-  if (!sameSet(newer.godIds, older.godIds) || newer.dealKey !== older.dealKey || newer.bid || older.bid) return false;
-  const P = older.godIds.length;
-  return newer.godIds.every((g, k) => canonical(newer.utilities[k]) === canonical(older.utilities[(older.godIds.indexOf(g) - 1 + P) % P]));
+/** The utility god `g` holds when the round that began with `base` has passed its rules `shift` seats along. */
+const heldAfter = (base: PastDeal, g: string, shift: number) => {
+  const P = base.godIds.length;
+  return base.utilities[((base.godIds.indexOf(g) - shift) % P + P) % P];
+};
+/** `game` is `base` passed `shift` seats along, by the base game's seat order (so a new seat order cannot break the round). */
+function passedOn(game: PastDeal, base: PastDeal, shift: number): boolean {
+  if (!sameSet(game.godIds, base.godIds) || game.dealKey !== base.dealKey || game.bid || base.bid) return false;
+  return game.godIds.every((g, k) => canonical(game.utilities[k]) === canonical(heldAfter(base, g, shift)));
 }
 
 /**
  * The deal for a game of `godIds` (roster order) given the room's earlier games (newest first), or null for a fresh
- * deal. `round` is this game's place in the rotation (2 for the first passed-on game), `of` the number of players, and
- * `from[k]` the player whose rule seat k now holds.
+ * deal. The round began with the oldest game of the longest run of history[m], …, history[0] in which each game is
+ * that first one passed one more seat along (by the first game's seat order). `round` is this game's place in it (2
+ * for the first passed-on game), `of` the number of players, and `from[k]` the player who held seat k's rule last game.
  */
 export function rotatedDeal(godIds: readonly string[], dealKey: string, history: readonly PastDeal[]): { utilities: UtilityDescriptor[]; round: number; of: number; from: string[] } | null {
   const last = history[0];
   if (!last || last.bid || last.dealKey !== dealKey || !sameSet(godIds, last.godIds)) return null;
   const P = godIds.length;
   let played = 1;
-  while (played < history.length && passedOn(history[played - 1], history[played])) played++;
+  for (let m = Math.min(P, history.length) - 1; m >= 1; m--) {
+    if (history.slice(0, m).every((game, j) => passedOn(game, history[m], m - j))) { played = m + 1; break; }
+  }
   if (played >= P) return null;
-  const from = godIds.map(g => last.godIds[(last.godIds.indexOf(g) - 1 + P) % P]);
-  return { utilities: from.map(f => last.utilities[last.godIds.indexOf(f)]), round: played + 1, of: P, from };
+  const base = history[played - 1];
+  // Seat k's rule was held last game by the player before them in the round's first seat order.
+  const from = godIds.map(g => base.godIds[(base.godIds.indexOf(g) - 1 + P) % P]);
+  return { utilities: godIds.map(g => heldAfter(base, g, played)), round: played + 1, of: P, from };
 }

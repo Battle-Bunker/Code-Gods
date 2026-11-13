@@ -24,7 +24,7 @@ import { AI_ADMIN_ONLY } from "./lib/aiAccess";
 import { principalV, type Principal } from "./lib/rooms";
 import type { RoomSetupChange } from "./setups";
 import { salienceOf } from "./lib/world";
-import { canonical, dealKeyOf, rotatedDeal, type PastDeal } from "./lib/dealRotation";
+import { dealKeyOf, rotatedDeal, type PastDeal } from "./lib/dealRotation";
 import { preparingLine, preparingView } from "./lib/projection";
 import { MAX_GODS } from "./rooms";
 import { PREPARING_WATCHDOG_MS } from "./game/lobby";
@@ -91,7 +91,9 @@ export type Preparing = { status: "preparing"; instance: string; ready: number; 
 export type Bidding = { status: "bidding"; startedAt: number; endsAt: number; seconds: number; pricing: "first" | "second"; players: number; message: string };
 type StartResult = Started | Preparing | Bidding;
 /** `bid`: the god's outcome of the bid phase, when somebody won a bid (it goes on the god's own card, with its handicap). */
-type Deal = { godId: string; utility: UtilityDescriptor; bid?: BidOutcome };
+/** `rotation`: a passed-on deal's line for the card (lib/dealRotation.ts): this game's round, of how many, and who held the rule last game. */
+type Rotation = { round: number; of: number; from: string };
+type Deal = { godId: string; utility: UtilityDescriptor; bid?: BidOutcome; rotation?: Rotation };
 
 function biddingResult(b: RoomBidding): Bidding {
   const view = biddingView(b);
@@ -102,20 +104,19 @@ function biddingResult(b: RoomBidding): Bidding {
 export const MAX_PREPARING_MS = 30 * 60_000;
 
 /**
- * The rotated deal (lib/dealRotation.ts) for a start without bids: the last game's rules passed one seat along when the
- * room plays again with the same players and dealing settings, else null (a fresh deal).
+ * The rotated deal (lib/dealRotation.ts) for a start without bids, as each god's utility and the line its card shows:
+ * the last game's rules passed one seat along when the room plays again with the same players and dealing settings.
+ * Null (a fresh deal) otherwise, and when a passed-on rule can no longer be dealt here (a deploy withdrew it).
  */
-async function rotationFor(ctx: ActionCtx, roomId: Id<"rooms">, settings: GameSettings, godIds: readonly string[]) {
+async function rotationFor(ctx: ActionCtx, roomId: Id<"rooms">, settings: GameSettings, godIds: readonly string[]): Promise<{ utility: UtilityDescriptor; rotation: Rotation }[] | null> {
   if ((settings.bidSeconds ?? 0) > 0) return null;
   const history = await ctx.runQuery(internal.game.lobby.pastDeals, { roomId });
-  const deal = rotatedDeal(godIds, dealKeyOf(settings as unknown as Record<string, unknown>), history as PastDeal[]);
-  return deal && { ...deal, names: history[0]!.names, last: history[0]!.godIds };
-}
-/** What each god's card says about a rotated deal: this game's round, of how many, and whose rule it held last game. */
-async function rotationOf(ctx: ActionCtx, roomId: Id<"rooms">, settings: GameSettings, deals: readonly Deal[]) {
-  const r = await rotationFor(ctx, roomId, settings, deals.map(d => d.godId));
-  if (!r || deals.some((d, k) => canonical(d.utility) !== canonical(r.utilities[k]))) return null;
-  return new Map(deals.map((d, k) => [d.godId, { round: r.round, of: r.of, from: r.names[r.last.indexOf(r.from[k])]! }]));
+  const r = rotatedDeal(godIds, dealKeyOf(settings as unknown as Record<string, unknown>), history as PastDeal[]);
+  if (!r) return null;
+  const dealable = new Set(catalogFor(settings).filter(f => f.role !== "penalty" && !f.excluded).map(f => f.id));
+  if (r.utilities.some(u => !dealable.has(u.familyId))) return null;
+  const nameOf = (godId: string) => (history[0]!.names[history[0]!.godIds.indexOf(godId)] ?? godId).slice(0, 128);
+  return r.utilities.map((utility, k) => ({ utility, rotation: { round: r.round, of: r.of, from: nameOf(r.from[k]!) } }));
 }
 
 /** Spawn and score the starting objects, then commit the game (the start's last step, both halves). */
@@ -131,13 +132,12 @@ async function launch(ctx: ActionCtx, settings: GameSettings, deals: readonly De
     objects.push({ value: value as number | string, scores, salience: salienceOf(scores), noise: disclosureNoise(settings, noiseKey, value) });
   }
   const next = poissonIntervalSeconds(settings.spawnRateHz, openUniform());
-  const rotation = await rotationOf(ctx, commit.roomId, settings, deals);
   const args = {
     ...commit,
     seasonCommitment: seasonCommitment(), noiseKey, endAtWorld: gameEndSeconds(settings.durationMode, settings.halfLifeSeconds, openUniform),
     nextSpawn: Number.isFinite(next) ? next : Number.MAX_VALUE, catalog: catalogFor(settings),
     // A god's outcome of the bid phase is on its own card (private like the card): what it won, and its handicap.
-    deities: deals.map(d => ({ godId: d.godId, utility: d.utility, card: { ...utilityCard(settings, d.utility), ...(d.bid ? { bid: d.bid, handicap: d.bid.handicap } : {}), ...(rotation?.get(d.godId) ? { rotation: rotation.get(d.godId) } : {}) } })),
+    deities: deals.map(d => ({ godId: d.godId, utility: d.utility, card: { ...utilityCard(settings, d.utility), ...(d.bid ? { bid: d.bid, handicap: d.bid.handicap } : {}), ...(d.rotation ? { rotation: d.rotation } : {}) } })),
     objects,
     ...(deals.some(d => d.bid?.handicap) ? { handicaps: deals.map(d => d.bid?.handicap ?? 0) } : {}),
   };
@@ -212,8 +212,9 @@ async function startGame(ctx: ActionCtx, args: { roomId: string; requestId?: str
     }));
   }
   // Playing again with the same players: the last game's rules pass one seat along (lib/dealRotation.ts).
-  const dealt = (await rotationFor(ctx, room._id, settings, members.map(m => m.godId)))?.utilities ?? deal(settings, members.length);
-  const deals = members.map((m, i) => ({ godId: m.godId, utility: dealt[i] }));
+  const rotated = await rotationFor(ctx, room._id, settings, members.map(m => m.godId));
+  const dealt = rotated?.map(r => r.utility) ?? deal(settings, members.length);
+  const deals: Deal[] = members.map((m, i) => ({ godId: m.godId, utility: dealt[i], ...(rotated ? { rotation: rotated[i]!.rotation } : {}) }));
   let resolved;
   try { resolved = await resolveTables(ctx, inst, drawsOf(dealt), priorOf(settings.priorId), { owner: { id: context.ownerId, roomId: room._id } }); } catch (error) {
     // The rate limit's words reach the owner as they are; anything else is the tables failing.
