@@ -79,10 +79,6 @@ export function spendsAsItEarns(a: { energy: number; income: number; acts?: numb
 export const overdraftTone = (state: Overdraft): "neutral" | "alarm" => (state === "stuck" ? "alarm" : "neutral");
 export const WORKING_TEXT = "Working: it spends energy as fast as it earns it.";
 /**
- * The energy of a working agent (a routine overdraft: it spends as fast as it earns): "about 0 ⚡" below zero, since a
- * bare "−8.9 ⚡" read as broken to a first-time player; the exact figure is the line's tooltip.
- */
-/**
  * Which energy line an agent's row shows: against its store while it holds energy; "about 0 ⚡" while it spends as it
  * earns (a routine overdraft, in a game with or without capacities: a walker still saw "−13.4 ⚡" when the game had
  * capacities); the number beside a real debt line; else the plain line. Pure, for the row in agents.tsx.
@@ -95,6 +91,10 @@ export function agentEnergyShown(s: { energy: number; capacity: number | undefin
 }
 /** Beside the bar of an agent with no store limit: seconds of income it holds; nothing while it spends as it earns (the line above says so; "0 s of its income" read as broken). */
 export const runwayCaption = (secs: number | null, working: boolean): string | null => (working ? null : secs === null ? "no income" : `${num(secs)} s of its income`);
+/**
+ * The energy of a working agent (a routine overdraft: it spends as fast as it earns): "about 0 ⚡" below zero, since a
+ * bare "−8.9 ⚡" read as broken to a first-time player; the exact figure is the line's tooltip.
+ */
 export const workingEnergyLine = (energy: number): Seg[] => [{ term: "agent-energy", text: "Energy" }, energy < 0 ? " about 0 ⚡" : ` ${num(energy)} ⚡`];
 
 /** The header's energy when the player is overdrawn: "overdrawn by 312 ⚡" (null when they are not). */

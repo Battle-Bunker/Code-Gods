@@ -132,7 +132,7 @@ export function PlanningBar() {
     // A summon accepted in this game counts as an agent until the list catches up (runner.summonedIn).
     agents: loading ? undefined : Math.max(s.agents, summonedIn !== null && summonedIn === s.obs?.gameId ? 1 : 0), canSummon: editCode.ok,
   });
-  // Cleared here too (the forge may be closed): once an agent is listed, the list speaks for itself.
+  // Cleared here (the bar is always mounted in the dock): once an agent is listed, the list speaks for itself.
   useEffect(() => { if (summonedIn !== null && s.agents > 0) runner.setSummonedIn(null); }, [summonedIn, s.agents]);
   const offered = !!line?.startNow;
   useEffect(() => { if (!offered) setStartingWorld(false); }, [offered]);

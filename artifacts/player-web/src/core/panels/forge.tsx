@@ -252,8 +252,6 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
   // Kept by the runner, so a pane switch that remounts the editor does not forget it.
   const firstSent = useRunner().firstSent;
   useEffect(() => { if (firstSent !== null && (agentCount ?? 0) > 0) runner.setFirstSent(null); }, [firstSent, agentCount]);
-  const summonedIn = useRunner().summonedIn;
-  useEffect(() => { if (summonedIn !== null && (agentCount ?? 0) > 0) runner.setSummonedIn(null); }, [summonedIn, agentCount]);
   const firstShare = summonShare({
     // Python only: the beginner budget is the Python starters' (TypeScript's tree costs about twice as much).
     agents: agentCount, allocated: obs?.self.allocated, beginner: language === "python" && isBeginnerGoal({ boardKey: board?.key, familyId: card?.familyId }),
