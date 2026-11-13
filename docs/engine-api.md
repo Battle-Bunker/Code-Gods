@@ -292,7 +292,7 @@ Every public function above has an entry in `lib/player-client/src/catalog.ts` (
 | `code.objects.list` | query | player | Show my stored objects | What your assistant's scripts saved for you: keys, sizes and how much of your store is used. | `list_code_objects` |
 | `code.runs.list` | query | player | Show my code runs | The analytics scripts your assistant ran for you in this game, newest first, with its budget. | `list_code_runs` |
 | `code.runs.get` | query | player | Show a code run | One analytics run's source, result table and printed output. | `get_code_run` |
-| `commands.submit` | action | player | Send a game command | Validate, summon or destroy an agent, share out your power, mark yourself ready, chat publicly or use your pause. | `validate_agent`, `summon_agent`, `destroy_agent`, `allocate_power`, `set_ready`, `send_chat`, `pause_game` |
+| `commands.submit` | action | player | Send a game command | Validate, summon or destroy an agent, share out your power, mark yourself ready, chat publicly or use your pause. | `validate_agent`, `summon_agent`, `destroy_agent`, `allocate_power`, `look`, `set_ready`, `send_chat`, `pause_game` |
 | `games.resolve` | query | player | Open a game by code | Finds a game's page from its code, current or historical. | — (Resolves a code for the game page; the room's games reach the assistant through list_games and get_game_history.) |
 | `games.header` | query | player | Open a game's header | A game's codes, room, status, roster, settings and deadlines, as its page header shows them. | — (The game page's header subscription; the assistant reads the human's own view with get_observation.) |
 | `games.standings` | query | player | Show a game's standings | The published scoreboard of a game, ranked, with its live agent and object counts. | — (The spectator page's leaderboard subscription; the assistant reads the leaderboard from get_observation.) |
@@ -331,6 +331,7 @@ Every public function above has an entry in `lib/player-client/src/catalog.ts` (
 | `player.objectsTop` | query | player | My best objects | Your top (or bottom) objects by payoff or another sort, with their ranks. | — (Small top-N lists in panels (my card, results); the assistant reads the observation.) |
 | `player.objectRank` | query | player | An object's rank | Where one object stands by your payoff (#1 is your best). | — (The #rank badge of one object in a panel.) |
 | `player.totals` | query | player | My totals | Your score and sums over every object, and how many are contested or chips. | — (The Objects panel's footer and the overview's figures.) |
+| `player.staleCount` | query | player | Changed since I looked | How many objects have changed since you last saw them, in a game where looking costs energy. | — (The Objects panel's look bar: why a look is worth its price.) |
 | `player.series` | query | player | Open the utility series | Every change to every object this game, with your bits and the others' total before and after. | `get_utility_series` |
 | `player.board` | query | player | Board at a moment | Every object as it was at a world time, with your bits and the others' total. | `get_board_at` |
 | `player.myUtility` | query | player | Open my secret goal | Your own utility descriptor and the settings to evaluate it; nobody else's. | `get_my_utility` |

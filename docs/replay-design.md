@@ -83,7 +83,7 @@ Notes on the choices:
 - **Discarded windows** never reach the log (a discarded commit writes nothing), so the log and the state cannot
   disagree.
 
-**Schema.** Every `tickBatches` doc carries `schema` (`EVENT_LOG_SCHEMA` in `convex/lib/world.ts`, now 11). Version 2
+**Schema.** Every `tickBatches` doc carries `schema` (`EVENT_LOG_SCHEMA` in `convex/lib/world.ts`, now 12). Version 2
 added `summon`, `destroy`, `totals` and the chat stamps. A batch without `schema` predates them: a replay of such a
 game has no agent lifetimes, no leaderboard curve, and chat placed by wall time; the replay view says so. Bump the
 schema whenever an event's fields or meaning change, and keep the reducer reading every schema it has seen.
@@ -92,12 +92,12 @@ Schema history (the full list is the comment on `EVENT_LOG_SCHEMA`): 2 summons, 
 3 act seeds; 4 the published scoreboard, disclosure noise and `objectEvents`; 5 the energy model's cost shape
 (`{read, change, total}`) and `skip`; 6 the power budget; 7 hold rarity's `rescore`; 8 the read price κ; 9 runtime
 errors marked on failed acts; 10 the selection and exposure rules of 11 Nov 2026 (no rate limit per agent; every offer
-charged as a read); **11 cost models**: an act's `cost.change` is priced under the game's
+charged as a read); 11 the `look` event of paid observation; **12 cost models**: an act's `cost.change` is priced under the game's
 `settings.costModel` (`"distance-v1"` charges a number by how far it moved; docs/mutation-cost-design.md §11). Every
-batch below 11 is priced under `"set-v1"`, and so is a game whose settings do not name a model (every game started
-before 11). The model is a setting of the game, fixed at its start and carried in the replay's `game.settings`, so no
+batch below 12 is priced under `"set-v1"`, and so is a game whose settings do not name a model (every game started
+before 12). The model is a setting of the game, fixed at its start and carried in the replay's `game.settings`, so no
 event gains a field: a game that was running across the deploy keeps ticking under `"set-v1"`, and only its batches'
-stamp moves to 11. The replay plays recorded costs back and never re-prices an act, so an old log reads the same
+stamp moves to 12. The replay plays recorded costs back and never re-prices an act, so an old log reads the same
 under any later model; the replay's observation reports the model as `economy.costModel`.
 
 **Storage.** The new events are small and rare: a summon is about 400 bytes plus its source (summons are capped by

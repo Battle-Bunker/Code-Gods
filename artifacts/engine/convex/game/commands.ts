@@ -6,17 +6,21 @@
  * action (commands.ts), and are re-checked here: game, phase, seat, energy and the agent cap.
  */
 import { ConvexError, v } from "convex/values";
+import { boardsLive, godLooks, lookPriceOf, paidLive } from "../lib/knowledge";
+import { viewRowOf } from "../lib/views";
+import { syncRows } from "./objectViews";
 import { allowedLanguages, assertShare, defaultShare, newAgentAccount, roundShare, spendDeityEnergy, upgradeStoredSettings, type GameSettings, type Language } from "@workspace/game-core";
 import { sha256 } from "@workspace/game-types";
 import { GAME_COMMANDS, envelopeSchema, type CommandResult, type Envelope } from "@workspace/player-client";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx, type QueryCtx } from "../_generated/server";
+import { internal } from "../_generated/api";
 import { appendEvents } from "../engine/loop";
 import { withEngine, writeGame } from "./state";
 import { fail, messageOf } from "../lib/errors";
 import { memberOf, principalV, requireMemberAs, requireRoom, viewerOf, type Principal } from "../lib/rooms";
 import { godEnergy, settledAccount, worldNow } from "../lib/world";
-import { deityAccount, deityCapacityOf } from "../lib/power";
+import { chargeGod, deityAccount, deityCapacityOf } from "../lib/power";
 import { agentLanguage, languageV } from "../lib/language";
 
 const CHAT_INTERVAL_MS = 1000;
@@ -57,7 +61,11 @@ export const prepare = internalQuery({
     if (!prior && game && (command.type === "validate" || command.type === "summon") && envelope.gameId === game._id &&
         allowedLanguages(game.settings as GameSettings).includes(command.language) && game.phase !== "ended" && game.phase !== "recovery" &&
         game.roster.some(m => m.id === member.godId)) {
-      const live = await ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", game._id)).take(16);
+      // The sample world the agent is examined on: the game's objects, or, under paid observation, the same objects as
+      // this god was last told them (an examination is free, so it must not report on boards the god has not paid to see).
+      const live = paidLive(game) && !boardsLive(game)
+        ? await ctx.db.query("objectViews").withIndex("by_game_god_created", q => q.eq("gameId", game._id).eq("godId", member.godId)).take(16)
+        : await ctx.db.query("objects").withIndex("by_game", q => q.eq("gameId", game._id)).take(16);
       // A game the single-language migration has not reached yet is examined as its one language (validateSettings needs the set).
       const settings = (upgradeStoredSettings(game.settings, true) ?? game.settings) as GameSettings;
       // The player's live agents running this exact code (the copies warning), read here, off the mutation's read set.
@@ -113,7 +121,10 @@ export const apply = internalMutation({
     let receipt: CommandResult;
     try {
       const result = await run(ctx, room, member, envelope, args.examined);
-      receipt = { commandId: envelope.commandId, accepted: true, message: "Accepted",
+      const look = command.type === "look" ? result as NonNullable<CommandResult["look"]> : undefined;
+      receipt = { commandId: envelope.commandId, accepted: true,
+        message: look ? `Looked at ${look.looked === 1 ? "1 object" : `${look.looked} objects`} for ${look.price.toFixed(2)} energy; ${look.energy.toFixed(2)} left` : "Accepted",
+        ...(look ? { look } : {}),
         ...(command.type === "validate" ? { validation: result as NonNullable<CommandResult["validation"]> } : {}),
         // A summon is never refused for what the examination found: it is told, with the agent summoned.
         ...(command.type === "summon" && (result as { warnings?: string[] }).warnings ? { warnings: (result as { warnings: string[] }).warnings } : {}) };
@@ -281,6 +292,36 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     await writeGame(ctx, game, { nextBatch, executionEpoch: game.executionEpoch + 1 });
     return { agentId: agent._id, share, allocated: roundShare(others + share) };
   }
+  if (command.type === "look") {
+    // Paid observation (lib/knowledge.ts, docs/energy-model.md §11): the god pays its own energy to be told one object
+    // as it is now, or all of them. Refused, with the price and the balance, when it cannot pay.
+    if (!paidLive(game)) fail("BAD_REQUEST", "Looking is free in this game: every object is already shown as it is");
+    // "agents": a god never looks for itself; its agents' changes and complete reads are its only eyes.
+    if (!godLooks(settings)) fail("BAD_REQUEST", "A god cannot look in this game: only your agents see the world. Summon an agent that reads the whole object and returns no calls to watch it.");
+    // Before the world runs nothing has changed: every object is as its god was told at its birth, so a look buys nothing.
+    if (game.phase === "planning") fail("CONFLICT", "The world has not started: every object is still exactly as you see it, so there is nothing to pay for");
+    const world = worldNow(game, now), each = lookPriceOf(settings);
+    const id = command.objectId === undefined ? null : ctx.db.normalizeId("objects", command.objectId);
+    const object = id ? await ctx.db.get(id) : null;
+    if (command.objectId !== undefined && (!object || object.gameId !== game._id)) fail("NOT_FOUND", "This game has no object with that ID");
+    const count = object ? 1 : game.objectCount, cost = each * count;
+    const own = deityAccount(game, deity, world);
+    // The shared charge (lib/power.ts chargeGod): settled within the account's capacity, never into debt.
+    const left = own.balance < cost ? null : await chargeGod(ctx, game, deity, cost, now);
+    if (left === null) {
+      fail("CONFLICT", `Not enough energy to look: ${object ? "a look at one object" : `a look at all ${count} objects`} costs ${cost.toFixed(2)} and you have ${Math.max(0, own.balance).toFixed(2)}`
+        + (deity.allocated >= 1 - 1e-9 ? ". All your power is with your agents, so your own energy holds nothing: keep some power for yourself to look" : ""));
+    }
+    const me: ReadonlySet<string> = new Set([member.godId]);
+    if (object) await syncRows(ctx, [object], true, { world, told: () => me, boards: boardsLive(game) });
+    else await ctx.scheduler.runAfter(0, internal.game.looks.page, { gameId: game._id, godId: member.godId, world, cursor: null });
+    const nextBatch = await appendEvents(ctx, game, [{ t: "look", ownerId: member.godId, world, cost, count, ...(object ? { objectId: object._id } : {}) }], world, world);
+    await writeGame(ctx, game, { nextBatch });
+    const view = object ? viewRowOf(object, member.godId, true) : null;
+    return {
+      looked: count, price: cost, energy: left as number, worldSeconds: world,
+      ...(object && view ? { object: { id: object._id, value: object.value, version: object.version, own: { netBits: view.netBits }, peerNetBits: view.peerNetBits, peerCare: view.peerCare, payoff: view.payoff } } : {}),
+    };
+  }
   return fail("BAD_REQUEST", "Unknown command");
 }
-

@@ -226,6 +226,7 @@ function toolArgs(envelope: Envelope): Record<string, unknown> {
     case "summon": return { ...base, source: c.source, language: c.language, name: c.name, ...(c.description ? { description: c.description } : {}), ...(c.powerShare !== undefined ? { powerShare: c.powerShare } : {}) };
     case "allocatePower": return { ...base, agentId: c.agentId, share: c.share };
     case "destroy": return { ...base, agentId: c.agentId };
+    case "look": return { ...base, ...(c.objectId ? { objectId: c.objectId } : {}) };
     case "ready": return { ...base, ready: c.ready };
     case "chat": return { ...base, text: c.text };
     case "pause": return base;

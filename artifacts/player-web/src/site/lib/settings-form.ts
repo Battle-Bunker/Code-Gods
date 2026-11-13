@@ -51,6 +51,7 @@ export const LABELS: Readonly<Record<SettingsKey, string>> = {
   priorId: "Rarity reference",
   commitClause: "Conditional moves", objectSelection: "Act targeting", scoreIntervalSeconds: "Score updates", peerNoiseBits: "Blur on others' interest",
   costModel: "Change pricing",
+  observation: "Looking at the world",
 };
 
 type Limit = { min: number; max?: number; int?: boolean; above?: boolean; unit: string };
@@ -260,7 +261,7 @@ export function formatValue(key: SettingsKey, v: unknown): string {
   if (key === "defenceGoals") return v ? "every player" : "off";
   if (key === "languages" && Array.isArray(v)) return v.map(l => choiceLabel(key, l)).join(", ") || "none";
   if (key === "costModel") return choiceLabel(key, costModelOf(v));   // optional: absent is the default model
-  if ((key === "utilitySelectorId" || key === "objectSelection" || key === "durationMode") && typeof v === "string") return choiceLabel(key, v);
+  if ((key === "utilitySelectorId" || key === "objectSelection" || key === "durationMode" || key === "observation") && typeof v === "string") return choiceLabel(key, v);
   const unit = (SETTINGS_DOCS[key] as FieldDoc).unit;
   return typeof v === "number" ? `${n(v)}${unit ? ` ${unit}` : ""}` : String(v);
 }
@@ -275,6 +276,7 @@ const NAMED: Partial<Record<SettingsKey, Record<string, string>>> = {
     "dial-v1": "Dial: distance, 9 next to 0", "log-v1": "Log: a far move costs little more",
     "multiply-v1": "Multiply: add or multiply, the cheaper",
   },   // a model game-types adds later shows as its capitalised name until it gets words here (choiceLabel)
+  observation: { free: "Free", boards: "Boards free", paid: "Paid", agents: "Agents only" },
   languages: Object.fromEntries(LANGUAGES.map(l => [l, LANGUAGE_SPECS[l].label])),
 };
 const duration = (s: number) => (s >= 60 && s % 60 === 0 ? `${s / 60} min` : `${n(s)} s`);

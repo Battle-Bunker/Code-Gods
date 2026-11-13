@@ -1,6 +1,7 @@
 /** My points over time: one line per object (payoff, your bits or the others'), for the objects that matter most to you now. */
 import { useMemo } from "react";
-import { LineChart, Obj, fmtBits, useGameId, useMyObjects, useObjects, useObjectsTop, useTrajectories, type TrajectoryPoint } from "@/sdk";
+import { LineChart, Obj, fmtBits, useDockState, useGameId, useMyObjects, useObjects, useObjectsTop, useTrajectories, type TrajectoryPoint } from "@/sdk";
+import { seenHint } from "./knowledge";
 import { PanelEmpty, referObject, ranksOf, type PanelProps } from "./kit";
 
 const VALUE: Record<string, (p: TrajectoryPoint) => number> = { payoff: p => p.payoff, mine: p => p.ownNetBits, others: p => p.peerNetBits };
@@ -11,6 +12,8 @@ export default function BitsOverTime({ params }: PanelProps<"bits-over-time">) {
   const trajectories = useTrajectories({ hz: 1 });
   // Top or bottom by payoff (at most 20 lines), ranked by the server (player.objectsTop); chosen ids each read alone.
   const gameId = useGameId();
+  // Paid observation: each object's figures are as the god last saw it (./knowledge.ts), at the world clock's distance.
+  const world = useDockState({ hz: 1 })?.economy?.worldSeconds ?? 0;
   const n = Math.min(20, params.count);
   const top = useObjectsTop({ gameId, n, dir: params.objects === "bottom" ? "asc" : "desc" }) ?? [];
   const picked = useMyObjects(params.objects === "ids" ? params.ids : []);
@@ -29,7 +32,7 @@ export default function BitsOverTime({ params }: PanelProps<"bits-over-time">) {
           <li key={o.id} className="flex items-center gap-2">
             <button type="button" className="w-7 text-left font-mono text-muted-foreground hover:text-foreground" onClick={() => referObject(ranks.get(o.id))}>#{ranks.get(o.id)}</button>
             <Obj value={o.value} />
-            <span className="tabular-nums">now {fmtBits(o.own.netBits)} yours · payoff {fmtBits(o.payoff)}</span>
+            <span className="tabular-nums">{seenHint(o, world) ? "last" : "now"} {fmtBits(o.own.netBits)} yours · payoff {fmtBits(o.payoff)}{seenHint(o, world) && <span className="text-muted-foreground" data-testid={`text-seen-${o.id}`}> · {seenHint(o, world)}</span>}</span>
           </li>
         ))}
       </ol>
