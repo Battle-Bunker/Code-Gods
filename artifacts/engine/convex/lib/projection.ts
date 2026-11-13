@@ -375,7 +375,7 @@ export function observation(input: ObservationInput): Observation {
     economy: {
       powerPerSecond: powerOf(settings), startingEnergy: settings.startingEnergy,
       ...(fullChargeOf(settings) !== undefined ? { fullChargeSeconds: fullChargeOf(settings) } : {}),
-      changeReadRatio: CHANGE_READ_RATIO, maxAgentsPerGod: settings.maxAgentsPerGod,
+      changeReadRatio: CHANGE_READ_RATIO, maxAgentsPerGod: settings.maxAgentsPerGod, fullRead: lookPriceOf(settings),
       penaltyWeight: settings.penaltyWeight, worldSeconds: game ? worldNow(game, now) : 0,
       durationMode: settings.durationMode, lengthSeconds: settings.halfLifeSeconds,
       commitClause: settings.commitClause, objectSelection: settings.objectSelection, costModel: costModelOf(settings),

@@ -802,6 +802,11 @@ given to it and the number of agents gives nothing (§6, §7). A god that keeps 
 directly: watching closely costs power either way. On the default setup (P = 64 bits/s, 10 objects) looking at
 everything once a second costs 16.6 bits/s, a quarter of a god's power.
 
+The forge offers it ready-made where looking costs energy ("An agent that only looks", `player-web`
+`core/panels/observer.ts`), with its cost under the offer price of §7.1: one turn costs the whole read plus the offer
+(log2 of the live objects, at the read price), 1.76 energy on the default setup with 10 objects, so a 10% share (6.4
+bits/s) refreshes about 3.6 objects a second. The observation carries the whole-read price as `economy.fullRead`.
+
 ### 11.4 What a seated god can read while the game is live
 
 | Path | Free game | Paid game |
@@ -855,6 +860,9 @@ energy would be detailed analysis that could expensively derive the goals of oth
   dataset and `fit_utility_mixture`) is that log. The rival inference fits the other gods' rules to (value, others' sum)
   pairs; in a paid game it has exactly the pairs the god paid for. The time resolution of the history is the rate the
   god samples at, and each sample costs one look.
+- The code-run datasets (`run_code`: `objects`, `observation`, `events`, `game_history`, `trajectories`,
+  `utility_series`) have no price of their own: each is read through the same functions as the dock, so in a paid live
+  game it holds what the god was told and nothing else. Their descriptions say so (`lib/player-client/src/datasets.ts`).
 - There is no purchase of the past: a state nobody paid to see at the time is not for sale later. (It would be a second
   mechanism; the price would be the same, one look per row.)
 - What an inference costs on the default setup (look 1.66; cheapest change 16.3; a small agent's summon price is tens of
