@@ -9,19 +9,26 @@ import { useMemo } from "react";
 import { useGoalExplainer } from "@workspace/object-views";
 import { SCORE_LINES, scoreMovesLine, Term } from "@workspace/ui-kit";
 import { useDockState, useEvents, useGameId, useMyTotals, useObjectContext, useRoomInfo } from "@/sdk";
+import { useStandings } from "@/sdk/hooks";
 import { agentLabel } from "./agent-name";
-import { actLine, asOfText, latestOwnActs, pointsNowText, type OwnAct } from "./score-line";
+import { actLine, asOfText, fresherPoints, latestOwnActs, pointsNowText, type OwnAct } from "./score-line";
 
 /**
  * "Your points now": one figure, the same number wherever it is shown, with how old it is. It is your total as the
- * engine last counted it (player.totals: the score and the world time of the count, the Objects panel's own
- * subscription; dock.state's `self.score` until that loads), never promised to be live.
+ * engine last counted it (the fresher of player.totals and your row of the published scoreboard, score-line.ts
+ * fresherPoints; dock.state's `self.score` until one loads), never promised to be live.
  */
 export function PointsNow({ className = "" }: { className?: string }) {
   const dock = useDockState({ hz: 1 });
-  const totals = useMyTotals(useGameId());
-  const score = totals?.score ?? dock?.self.score;
-  const age = dock?.phase === "ended" ? null : asOfText(dock?.economy?.worldSeconds, totals?.world);
+  const gameId = useGameId();
+  const totals = useMyTotals(gameId);
+  // The fresher of the two counts the page holds: your own totals, and your row of the published scoreboard (the
+  // leaderboard's own subscription), so this never trails the leaderboard beside it.
+  const standings = useStandings(gameId);
+  const published = standings?.rows.find(r => r.godId === dock?.self.godId);
+  const count = fresherPoints([totals && { score: totals.score, world: totals.world }, published && { score: published.totalPayoff, world: standings?.world }, { score: dock?.self.score }]);
+  const score = count?.score;
+  const age = dock?.phase === "ended" ? null : asOfText(dock?.economy?.worldSeconds, count?.world);
   const { noun } = useObjectContext();
   // Live points are blurred only where the room blurs what the others want (peerNoiseBits; 0 on the beginner setup).
   const room = useRoomInfo();
@@ -69,6 +76,10 @@ export function useOwnActLines(agents: readonly { id: string; name?: string }[],
   const events = useEvents({ hz: 1, limit: 50 });
   const goal = useGoalExplainer();
   const { noun } = useObjectContext();
+  // A room that blurs the others' side: a small move of it is not named as the cause (score-line.ts pointsCause).
+  const room = useRoomInfo();
+  const ended = useDockState({ hz: 1 })?.phase === "ended";
+  const estimate = !ended && liveIsEstimate(room?.settings);
   return useMemo(() => {
     const acts = latestOwnActs(events);
     const say = (act: OwnAct): string => {
@@ -78,13 +89,13 @@ export function useOwnActLines(agents: readonly { id: string; name?: string }[],
         // An act by an agent no longer in the list is never told as a live agent's.
         agent: index < 0 ? "(now destroyed)" : agentLabel(agents[index]?.name, index), before: act.before, after: act.after, noun,
         ruleBefore: score(act.before), ruleAfter: score(act.after), pointsBefore: act.pointsBefore, pointsAfter: act.pointsAfter,
-        ownAfter: act.ownAfter, othersAfter: act.othersAfter, third,
+        ownAfter: act.ownAfter, othersAfter: act.othersAfter, ownBefore: act.ownBefore, othersBefore: act.othersBefore, third, estimate,
       });
     };
     const byAgent = new Map<string, string>();
     for (const [id, act] of acts) byAgent.set(id, say(act));
     return { byAgent, latest: acts.latest ? say(acts.latest) : undefined };
-  }, [events, goal, noun, agents, third]);
+  }, [events, goal, noun, agents, third, estimate]);
 }
 
 /** The latest act of any of your agents, under "Your points now". */

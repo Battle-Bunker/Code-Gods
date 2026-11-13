@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   actualLine, afterShareLine, agentState, energyLine, estimateLine, laneKind, num, plain, runwayFraction, runwayText, shareLine, skipLine, spentLine,
-  statusText, summonLine, yourPowerLine,
+  statusText, summonLine, yourPowerLine, allocationSettled,
 } from "../src/core/panels/agent-labels.ts";
 import { agentLabel } from "../src/core/panels/agent-name.ts";
 
@@ -18,6 +18,12 @@ test("numbers: one decimal at most, a real minus, energy as ⚡", () => {
 test("the player's own line says where the budget goes", () => {
   assert.equal(plain(yourPowerLine({ total: 64, allocated: 0.75, income: 16, energy: 230 })),
     "Your power: 64 ⚡/s — 75% to your agents, 25% (16 ⚡/s) refills your energy (230 ⚡) for summoning");
+  // After a destroy the total still counts the agent that is gone for a moment: the split is not shown while it disagrees.
+  assert.equal(allocationSettled(0.75, [0.5, 0.25]), true);
+  assert.equal(allocationSettled(0.75, [0.5]), false, "one 50% agent left, 75% still reported");
+  assert.equal(allocationSettled(0.5, [0.5, undefined]), true, "a share that is not known disagrees with nothing");
+  assert.equal(allocationSettled(0, []), true);
+  assert.equal(plain(yourPowerLine({ total: 64, allocated: 0.75, income: 16, energy: 230, settling: true })), "Your power: 64 ⚡/s — your split is updating after the change you just made");
   assert.equal(plain(yourPowerLine({ total: 64, allocated: 1, income: 0, energy: 5 })),
     "Your power: 64 ⚡/s — 100% to your agents, nothing is left to refill your energy (5 ⚡) for summoning");
 });

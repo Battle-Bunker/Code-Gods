@@ -55,3 +55,11 @@ test("bidding: nobody starts again while the players bid; the step says where th
     assert.match(s.why, /bidding for their rules on the room page/);
   }
 });
+
+test("with no agent while the world runs, the button says what it does: it summons the example, or opens the player's own code", () => {
+  const base = { phase: "running" as const, seated: true, isOwner: false, players: 3, agents: 0 };
+  assert.deepEqual(nextStep(base), { label: "Summon your first agent", why: "a working agent for your goal is ready; nothing in the world moves your way without one.", action: { kind: "summon" } });
+  assert.deepEqual(nextStep({ ...base, ownDraft: true }), { label: "Write an agent", why: "your own code is in the editor: validate it, then summon it.", action: { kind: "forge" } });
+  assert.deepEqual(nextStep({ ...base, phase: "planning" }).action, { kind: "summon" });
+  assert.deepEqual(nextStep({ ...base, phase: "planning", ownDraft: true }).action, { kind: "forge" }, "the player's own code is never summoned for them");
+});

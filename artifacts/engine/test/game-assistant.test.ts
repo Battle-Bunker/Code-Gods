@@ -583,7 +583,7 @@ test("the assistant arranges the player's screen: open_panel changes the layout 
   assert.equal(t.turn.status, "done", JSON.stringify(t.turn.error));
   assert.deepEqual(t.calls.map((c: any) => [c.tool, c.status]), [["open_panel", "ok"], ["open_panel", "ok"], ["get_layout", "ok"], ["move_pane", "ok"], ["close_pane", "error"]]);
   // The objects panel is the default pane, so the first open_panel reuses it (parameters replaced) rather than adding one.
-  assert.equal(t.calls[0].summary, "Updated Top 4 by payoff · only ones others care about", "the chip names the change; no confirmation card");
+  assert.equal(t.calls[0].summary, "Updated By points · only ones others care about", "the chip names the change; no confirmation card");
   assert.match(t.calls[4].resultJson, /At most 2 layout changes/, "get_layout is a read; the third change is refused before it runs");
   const layout = await ann.c.query(api.layout.current, { roomId });
   assert.equal(layout.source, "room");

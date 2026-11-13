@@ -44,12 +44,24 @@ export function statusText(state: AgentState, ended: boolean, wait: number): str
 }
 
 /** The god's own line at the top. `total` is the whole budget (energy per world second), `allocated` the share (0 to 1) given to agents. */
-export function yourPowerLine({ total, allocated, income, energy }: { total: number; allocated: number; income: number; energy: number }): Seg[] {
+export function yourPowerLine({ total, allocated, income, energy, settling }: { total: number; allocated: number; income: number; energy: number; /** The split is known to be out of date (allocationSettled): it is not shown. */ settling?: boolean }): Seg[] {
+  if (settling) return [`Your `, { term: "power", text: "power" }, `: ${perSecond(total)} — your split is updating after the change you just made`];
   const own = Math.max(0, 1 - allocated);
   const refill: Seg[] = own > 0
     ? [`${percent(own)} (${perSecond(income)}) refills your `, { term: "energy", text: "energy" }, ` (${bits(energy)}) for summoning`]
     : ["nothing is left to refill your ", { term: "energy", text: "energy" }, ` (${bits(energy)}) for summoning`];
   return [`Your `, { term: "power", text: "power" }, `: ${perSecond(total)} — ${percent(Math.min(1, allocated))} to your agents, `, ...refill];
+}
+
+/**
+ * Whether the player's allocated share agrees with the shares of the agents listed beside it. The two come from two
+ * subscriptions, so for a moment after a destroy (or a new share) the total still counts an agent that is gone: the
+ * line then would state a figure known to be stale ("75% to your agents" with one 50% agent left). True when a share
+ * is unknown (a game without power shares): nothing can be said to disagree.
+ */
+export function allocationSettled(allocated: number, shares: readonly (number | undefined)[]): boolean {
+  if (shares.some(s => s === undefined)) return true;
+  return Math.abs(allocated - shares.reduce<number>((n, s) => n + (s ?? 0), 0)) < 0.005;
 }
 
 /** "Power share 25% · earns 16 ⚡/s". */

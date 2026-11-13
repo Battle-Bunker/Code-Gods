@@ -20,10 +20,13 @@ const ROOMY: ReadonlySet<PanelId> = new Set<PanelId>(["forge"]);
  * instead, else the largest panel nobody chose (in the default dock, the objects top right: room for the agent editor),
  * else the largest.
  *
- * The agent editor needs room (EDITOR_MIN), and the player needs their goal beside it: it never takes the goal card's
- * pane, takes the focused pane only when that is big enough (and not My agents, while another pane has the room), else
- * the largest other pane, and a pane is split for it only when both halves stay big enough.
+ * The agent editor needs room (EDITOR_MIN), and the player needs their goal, their objects and their agents beside it:
+ * a pane is split for it when both halves stay big enough; otherwise it takes the leaderboard's pane, else the focused
+ * pane (unless that is the goal card, Objects or My agents), else another such pane, and only then Objects or My
+ * agents; never the goal card while another pane exists. The pane it takes is given room (withRoom).
  */
+/** The panes a player plays from: showing another panel never replaces them while any other pane can give way. */
+const KEPT: ReadonlySet<PanelId> = new Set<PanelId>(["my-card", "objects"]);
 export function showPanel(layout: DockLayout, panelId: PanelId, params?: Record<string, unknown>, focused?: string | null): { layout: DockLayout; paneId: string; replaced?: boolean } {
   const panels = panelPanesOf(layout);
   const open = panels.find(p => p.panelId === panelId);
@@ -43,14 +46,21 @@ export function showPanel(layout: DockLayout, panelId: PanelId, params?: Record<
       const target = side && stack ? ((area[side.id] ?? 0) >= (area[stack.id] ?? 0) ? side : stack) : side ?? stack;
       if (target) return openPane(layout, { id: "", kind: "panel", panelId, params: values, setBy: "human" }, { relativeTo: target.id, direction: target === side ? "right" : "below" });
     }
-    // My agents is where the new agent's moves are told, so it is kept while another pane has the room.
+    // A player in their first minute needs the goal, the boards and their agents more than the leaderboard: the editor
+    // takes the leaderboard's pane; else the focused pane unless it is one of those three; else another lesser pane;
+    // only then the rest (My agents, where the new agent's moves are told, last but for the goal card).
     const candidates = others.length ? others : panels;
+    const lesser = candidates.filter(p => !KEPT.has(p.panelId) && p.panelId !== "agents");
     const spare = candidates.filter(p => p.panelId !== "agents" && fits(p.id));
-    const target = spare.find(p => p.id === focused) ?? largest(spare) ?? largest(candidates.filter(p => fits(p.id))) ?? largest(candidates)!;
+    const target = lesser.find(p => p.panelId === "race") ?? lesser.find(p => p.id === focused) ?? largest(lesser.filter(p => fits(p.id))) ?? largest(lesser)
+      ?? spare.find(p => p.id === focused) ?? largest(spare) ?? largest(candidates.filter(p => fits(p.id))) ?? largest(candidates)!;
     return { layout: withRoom(setPanePanel(layout, target.id, panelId, "human", values), target.id), paneId: target.id, replaced: true };
   }
   if (panels.length >= LAYOUT_LIMITS.panelPanes) {
-    const target = panels.find(p => p.id === focused) ?? largest(panels.filter(p => p.setBy === "default")) ?? largest(panels)!;
+    // Never the goal card or the objects while another pane can give way ("Where did my boards go?"): the focused pane
+    // unless it is one of those, else the pane the editor is in, else the largest default one.
+    const spare = panels.filter(p => !KEPT.has(p.panelId)), from = spare.length ? spare : panels;
+    const target = from.find(p => p.id === focused) ?? from.find(p => p.panelId === "forge") ?? largest(from.filter(p => p.setBy === "default")) ?? largest(from)!;
     return { layout: setPanePanel(layout, target.id, panelId, "human", values), paneId: target.id, replaced: true };
   }
   return openPane(layout, { id: "", kind: "panel", panelId, params: values, setBy: "human" });

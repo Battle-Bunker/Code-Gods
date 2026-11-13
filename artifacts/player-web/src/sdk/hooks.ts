@@ -241,7 +241,7 @@ export function useTransformations({ hz }: Live = {}): Transformation[] | undefi
 }
 
 /** The published standings of a game (games.standings) in the observation's leaderboard shape, with their world time. */
-function useStandings(gameId: string | undefined) {
+export function useStandings(gameId: string | undefined) {
   const s = useSdkQuery("games.standings", gameId ? { gameId } : "skip");
   return useMemo(() => s && {
     rows: s.rows.map(r => ({ godId: r.deityId, label: r.name, isAI: r.kind === "ai", totalPayoff: r.totalPayoff })) as Standing[],
