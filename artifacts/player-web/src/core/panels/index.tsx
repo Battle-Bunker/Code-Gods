@@ -4,6 +4,7 @@
  * (invalid → defaults), shows a phase-aware empty state outside the panel's phases, and contains a crash to its pane.
  */
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { PaneErrors } from "@/core/pane-errors";
 import { PANELS, defaultPanelParams, parsePanelParams, type PanelId, type Phase } from "@workspace/player-client/panels";
 import { PanelEmpty, outOfPhase, type PanelProps, type PanelView } from "./kit";
 import Overview from "./overview";
@@ -76,7 +77,7 @@ export function PanelHost({ paneId, panelId, params, phase }: { paneId: string; 
   const View = PANEL_VIEWS[panelId] as unknown as (props: PanelProps<PanelId>) => ReactNode;
   return (
     <PanelViewBoundary key={panelId} panelId={panelId}>
-      <View paneId={paneId} params={values as never} phase={phase} />
+      <PaneErrors><View paneId={paneId} params={values as never} phase={phase} /></PaneErrors>
     </PanelViewBoundary>
   );
 }

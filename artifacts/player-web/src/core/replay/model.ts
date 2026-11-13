@@ -3,6 +3,7 @@
  * event reads as. No React.
  */
 import type { ReplayEvent } from "@workspace/player-client/replay";
+import { describeChange } from "../panels/score-line.ts";
 
 /** Playback speeds, in world seconds per second. */
 export const SPEEDS = [0.25, 0.5, 1, 2, 4, 8, 16, 64] as const;
@@ -51,6 +52,18 @@ const callText = (calls: unknown) => (Array.isArray(calls) ? calls : []).map(c =
   const [name, args] = c as [string, Record<string, unknown>];
   return `${name}(${Object.entries(args ?? {}).map(([k, v]) => `${k}=${typeof v === "string" ? v : JSON.stringify(v)}`).join(", ")})`;
 }).join(" · ");
+
+/**
+ * A change to an object, as the end screen tells it. The viewer's own agents in the act line's words (the agent's
+ * name, "changed 2 to 5 at row 3, column 4"); another player's stays brief ("Bo's agent changed a grid"): no object
+ * codes, no raw calls. The replay's events carry no points change for the viewer, so none is said here.
+ */
+export function transformSentence(ev: Extract<ReplayEvent, { type: "object.transformed" }>, o: { names: ReadonlyMap<string, string>; viewerId?: string; agentName?: string; noun?: string }): string {
+  const noun = o.noun ?? "object";
+  if (o.viewerId && ev.ownerId === o.viewerId) return `Your agent ${o.agentName?.trim() || "(unnamed)"} ${describeChange(ev.before as never, ev.value as never, noun)}`;
+  const who = ev.ownerId ? o.names.get(ev.ownerId) ?? "Someone" : "Someone";
+  return `${who}'s agent changed ${/^[aeiou]/i.test(noun) ? "an" : "a"} ${noun}`;
+}
 
 /** One event as a sentence; `names` maps god ids to names. */
 export function describeEvent(ev: ReplayEvent, names: ReadonlyMap<string, string>): string {

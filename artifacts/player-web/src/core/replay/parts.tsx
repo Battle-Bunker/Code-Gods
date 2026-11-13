@@ -6,7 +6,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState, useSyn
 import { TransformationView, type ObjectContext } from "@workspace/object-views";
 import { cursorAtWorld, godEnergyAt, stateAt, type ReplayAgent, type ReplayEvent } from "@workspace/player-client/replay";
 import { niceTicks, playerColour } from "@/sdk/player-colour";
-import { SPEEDS, describeEvent, replayKeyIgnored, shortId, worldAtFraction } from "./model";
+import { SPEEDS, transformSentence, describeEvent, replayKeyIgnored, shortId, worldAtFraction } from "./model";
 import { useReplay, useReplayCoarse, type Changed, type ReplayController } from "./controller";
 
 export const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
@@ -249,6 +249,9 @@ export function EventList({ controller: c, ctx }: { controller: ReplayController
   const openCode = useContext(AgentCodeContext);
   const { replay } = c, cursor = v.cursor;
   const names = new Map(replay.game.roster.map(g => [g.id, g.name]));
+  // The agents as they ended the game, for their names in the viewer's own lines.
+  // Every agent's name, from its summon (an agent destroyed before the end is not among the final agents).
+  const endAgents = useMemo(() => new Map(replay.log.flatMap(entry => (entry.event.type === "agent.summoned" ? [[entry.event.agentId, { name: entry.event.name }] as const] : []))), [replay]);
   const from = Math.max(0, cursor - 30), to = Math.min(replay.log.length, cursor + 20);
   const here = useRef<HTMLLIElement | null>(null), list = useRef<HTMLOListElement | null>(null);
   // Keep the current event in view inside the list only (scrollIntoView would scroll the page too).
@@ -268,7 +271,7 @@ export function EventList({ controller: c, ctx }: { controller: ReplayController
             className={`cursor-pointer border-l-2 px-2 py-1 ${current ? "bg-[hsl(var(--primary)/0.1)]" : ""} ${applied ? "" : "opacity-40"}`}
             style={{ borderColor: owner !== undefined ? godColour(owner, replay.viewer.index) : "transparent" }} onClick={() => c.seek(i + 1)}>
             <span className="mr-2 font-mono text-muted-foreground tabular-nums">{clock(entry.world)}</span>
-            <EventLine ev={ev} names={names} ctx={ctx} onAgent={openCode} />
+            <EventLine ev={ev} names={names} ctx={ctx} onAgent={openCode} viewerId={replay.game.roster[replay.viewer.index]?.id} agentName={id => endAgents.get(id)?.name} />
           </li>
         );
       })}
@@ -277,12 +280,13 @@ export function EventList({ controller: c, ctx }: { controller: ReplayController
   );
 }
 
-function EventLine({ ev, names, ctx, onAgent }: { ev: ReplayEvent; names: ReadonlyMap<string, string>; ctx: ObjectContext; onAgent: (id: string) => void }) {
+function EventLine({ ev, names, ctx, onAgent, viewerId, agentName }: { ev: ReplayEvent; names: ReadonlyMap<string, string>; ctx: ObjectContext; onAgent: (id: string) => void;
+  /** The real viewer, and an agent's name (as it ended the game): the viewer's own agents are told by name. */ viewerId?: string; agentName: (id: string) => string | undefined }) {
   const code = (id: string | undefined) => id && (
     <button type="button" className="ml-1 font-mono underline" onClick={e => { e.stopPropagation(); onAgent(id); }} data-testid={`button-replay-agent-${id}`}>code</button>
   );
   if (ev.type === "object.transformed") {
-    return <span>{describeEvent(ev, names)}{code(ev.agentId)}<span className="mt-0.5 block"><TransformationView before={ev.before} after={ev.value} {...ctx} /></span></span>;
+    return <span>{transformSentence(ev, { names, viewerId, agentName: ev.agentId ? agentName(ev.agentId) : undefined, noun: ctx.objectType === "Grid" ? "grid" : "object" })}{code(ev.agentId)}<span className="mt-0.5 block"><TransformationView before={ev.before} after={ev.value} {...ctx} /></span></span>;
   }
   return <span>{describeEvent(ev, names)}{ev.type === "agent.summoned" || ev.type === "agent.failed" ? code(ev.agentId) : null}</span>;
 }

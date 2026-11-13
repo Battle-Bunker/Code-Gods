@@ -6,7 +6,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { SPEEDS, worldAtFraction, describeEvent, endedGameReplay, parseReplayParams, replayKeyIgnored, replaySearch, shortId } from "../src/core/replay/model.ts";
+import { SPEEDS, transformSentence, worldAtFraction, describeEvent, endedGameReplay, parseReplayParams, replayKeyIgnored, replaySearch, shortId } from "../src/core/replay/model.ts";
 
 test("deep-link parameters: an exact event wins over a world time; junk is ignored; speeds are the offered ones", () => {
   assert.deepEqual(parseReplayParams("?t=12.5&speed=4&play=1&as=god-b"), { t: 12.5, speed: 4, play: true, as: "god-b" });
@@ -72,4 +72,14 @@ test("the replay's keys leave a modified key to the browser (Alt+Left is Back, C
   assert.equal(replayKeyIgnored(key({ altKey: true })), true);
   assert.equal(replayKeyIgnored(key({ ctrlKey: true })), true);
   assert.equal(replayKeyIgnored(key({ metaKey: true })), true);
+});
+
+test("the end screen tells a change in plain words: the viewer's own agent by name and cell, another player's briefly", () => {
+  const names = new Map([["g1", "Ada"], ["g2", "Bo"]]);
+  const ev = { type: "object.transformed" as const, objectId: "obj4c95", before: "1R,2R/3R,4R", value: "1R,2R/3R,5R", version: 3, worldSeconds: 1, agentId: "a46qw", ownerId: "g1",
+    calls: [["write", { kind: "cell", region: [2, 3], symbol: 5 }]], cost: { read: 1, change: 1 } as never, net: [1, 2] };
+  assert.equal(transformSentence(ev, { names, viewerId: "g1", agentName: "Mirror maker", noun: "grid" }), "Your agent Mirror maker changed 4 to 5 at row 2, column 2");
+  assert.equal(transformSentence(ev, { names, viewerId: "g2", noun: "grid" }), "Ada's agent changed a grid");
+  assert.equal(transformSentence({ ...ev, ownerId: undefined }, { names, viewerId: "g2", noun: "object" }), "Someone's agent changed an object");
+  assert.ok(!/4c95|write\(|46qw/.test(transformSentence(ev, { names, viewerId: "g2", noun: "grid" })), "no object code, no raw call, no agent code");
 });

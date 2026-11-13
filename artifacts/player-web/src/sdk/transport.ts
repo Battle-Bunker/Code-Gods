@@ -1,6 +1,8 @@
 /** The host transport of the SDK (see transport-types.ts): Convex directly, in the player client. */
-import { useCallback, useMemo, useRef, useSyncExternalStore } from "react";
-import { useAction, useQueries, useQuery } from "convex/react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
+import { useAction, useQueries } from "convex/react";
+import { PaneErrorContext } from "./pane-error-context";
+import { queryErrors } from "./query-errors";
 import type { FunctionReference } from "convex/server";
 import { api } from "@workspace/engine/convex/_generated/api";
 import type { CommandResult } from "@workspace/player-client";
@@ -33,6 +35,24 @@ export const QUERY_REFS: Record<QueryName, FunctionReference<"query">> = {
 };
 
 const noSubscription = () => () => {};
+const NONE: readonly [string, string][] = [];
+
+/**
+ * This consumer's failed queries ([key, message] each), held in its pane's record, or the dock's outside any pane,
+ * while they fail: let go when one delivers a value (it leaves the list) or the consumer unmounts. Counted per holder
+ * there, so one consumer letting go does not hide a failure another still has (sdk/query-errors.ts).
+ */
+function useHeldFailures(failures: readonly [string, string][]) {
+  const pane = useContext(PaneErrorContext);
+  const signature = failures.map(f => `${f[0]}\u0000${f[1]}`).join("\u0001");
+  useEffect(() => {
+    if (!failures.length) return;
+    const record = pane ?? queryErrors;
+    for (const [key, message] of failures) record.hold(key, message);
+    return () => { for (const [key] of failures) record.release(key); };
+    // `signature` covers the failures.
+  }, [signature, pane]); // eslint-disable-line react-hooks/exhaustive-deps
+}
 
 /**
  * A live query; in the dock's replay mode (sdk/replay-source.ts) the replay answers it at the playhead instead, and
@@ -41,13 +61,25 @@ const noSubscription = () => () => {};
 export const useSdkQuery: UseSdkQuery = (name, args) => {
   const replay = useReplaySource();
   const served = !!replay && args !== "skip" && replay.serves(name);
-  const live = useQuery(QUERY_REFS[name], (served ? "skip" : args) as never);
+  // Through useQueries, which hands a failure back as a value: one failed query must not throw through the root and
+  // take the page down (query-errors.ts). The consumer gets "not loaded"; the failure is recorded for the pane it is
+  // in (which says so above its content), or for the dock when it is outside any pane (the header, the dock's own
+  // state). No retry here: the live subscription re-delivers by itself, and the record clears when it does.
+  const off = served || args === "skip";
+  const key = off ? "" : `${name}:${JSON.stringify(args)}`;
+  const request = useMemo(() => (off ? {} : { q: { query: QUERY_REFS[name], args: args as Record<string, unknown> } }),
+    // `key` covers name and args.
+    [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  const answered = (useQueries(request as Parameters<typeof useQueries>[0]) as Record<string, unknown>).q;
+  const failure = answered instanceof Error ? answered : null;
+  useHeldFailures(failure ? [[key, failure.message]] : NONE);
+  const live = failure ? undefined : answered;
   const fromReplay = useSyncExternalStore(served ? replay!.subscribe : noSubscription,
     () => (served ? replay!.answer(name, args as Record<string, unknown>) : undefined));
   return (served ? fromReplay : live) as never;
 };
 
-/** Several live queries of one name (useQueries); in replay mode the replay answers each. A failed one throws, like useQuery. */
+/** Several live queries of one name (useQueries); in replay mode the replay answers each. A failed one is "not loaded", like useSdkQuery's. */
 export const useSdkQueries: UseSdkQueries = (name, argsList) => {
   const replay = useReplaySource();
   const served = !!replay && replay.serves(name);
@@ -64,10 +96,14 @@ export const useSdkQueries: UseSdkQueries = (name, argsList) => {
     if (next.length !== answers.current.length || next.some((a, i) => a !== answers.current[i])) answers.current = next;
     return answers.current;
   });
+  // Each failed one is held for its pane (or the dock) like useSdkQuery's, so a list that cannot load says so
+  // instead of loading for ever; its consumer gets "not loaded" for it.
+  const failures = served ? NONE : argsList.flatMap((args, i): [string, string][] => { const r = live[String(i)]; return r instanceof Error ? [[`${name}:${JSON.stringify(args)}`, r.message]] : []; });
+  useHeldFailures(failures);
   return argsList.map((_args, i) => {
     if (served) return fromReplay[i];
     const result = live[String(i)];
-    if (result instanceof Error) throw result;
+    if (result instanceof Error) return undefined;
     return result;
   }) as never;
 };

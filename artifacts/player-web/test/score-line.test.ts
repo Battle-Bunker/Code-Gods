@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { SCORE_LINES, scoreMovesLine } from "@workspace/ui-kit/core";
-import { accumulateFirstMoves, actLine, agentEarnings, earningsLine, fresherPoints, othersWantClause, ruleDirection, asOfText, describeChange, latestOwnActs, pointsNowText, ruleScoreChange, ruleScoreText, signed } from "../src/core/panels/score-line.ts";
+import { pointsBeforeAgent, accumulateFirstMoves, actLine, agentEarnings, earningsLine, fresherPoints, othersWantClause, ruleDirection, asOfText, describeChange, latestOwnActs, pointsNowText, ruleScoreChange, ruleScoreText, signed } from "../src/core/panels/score-line.ts";
 
 test("a change is said in plain words", () => {
   assert.equal(describeChange("1R,2R/3R,4R", "1R,2R/4R,4R", "grid"), "changed 3 to 4 at row 2, column 1");
@@ -172,6 +172,11 @@ test("what each agent's moves earned, counted from the events the pane holds, wi
   assert.equal(earningsLine(earned.get("a1"), "grid"), "2 of its latest moves, counted here: +108 points on 2 grids (+54 a move). Only the latest events are counted, not the whole game.");
   assert.equal(earningsLine(earned.get("a2"), "grid"), "1 of its latest moves, counted here: −10 points on 1 grid. Only the latest events are counted, not the whole game.");
   assert.equal(earningsLine(undefined, "grid"), null);
+  // A replace keeps the agent's id: only the moves of its current program count (after its agent.replaced event, or after a known boundary).
+  const replacedMid = [...events.slice(0, 2), { type: "agent.replaced", agentId: "a1", worldSeconds: 1.5 }, ...events.slice(2)];
+  assert.deepEqual(agentEarnings(replacedMid).get("a1"), { moves: 1, points: 58, objects: 1 }, "the +50 was the old program's");
+  assert.deepEqual(agentEarnings(events, new Map([["a1", 1]])).get("a1"), { moves: 1, points: 58, objects: 1 }, "the same from a boundary, when the event is not among them");
+  assert.deepEqual(agentEarnings(events, new Map([["a1", 1]])).get("a2"), { moves: 1, points: -10, objects: 1 }, "another agent is untouched");
   assert.equal(earningsLine({ moves: 1234, points: 1240.4, objects: 23 }, "grid"), "1,234 of its latest moves, counted here: +1,240.4 points on 23 grids (+1 a move). Only the latest events are counted, not the whole game.");
   assert.equal(earningsLine({ moves: 2, points: 108, objects: 2 }, "grid", { third: true }), "2 of their agent's latest moves, counted here: +108 points on 2 grids (+54 a move). Only the latest events are counted, not the whole game.");
   // A room that blurs the others' side: the points are an estimate, and the line says "about".
@@ -233,8 +238,15 @@ test("an agent's first counted moves are accumulated as they arrive and frozen a
   assert.deepEqual({ moves: b.moves, points: b.points, frozen: b.frozen }, { moves: 4, points: 35 + 20 - 10, frozen: true });
   // Frozen: later moves never change it.
   assert.equal(accumulateFirstMoves(b, [move(6, "o1", 60), move(7, "o1", 500)], "a9", 4), b);
+  // A replace keeps the agent's id: only the moves after it are the new program's (events 2 and 3 are at world 2 and 3).
+  const since = accumulateFirstMoves(undefined, first, "a9", 4, 2);
+  assert.deepEqual({ moves: since.moves, points: since.points }, { moves: 1, points: 5 }, "the move at world 3 only");
   // The limit is never passed inside one batch either.
   const many = [spawn(1, "o1", 0), ...Array.from({ length: 30 }, (_, i) => move(i + 2, "o1", i + 1))];
   assert.equal(accumulateFirstMoves(undefined, many, "a9").moves, 20);
   assert.equal(accumulateFirstMoves(undefined, many, "a9").points, 20, "the first 20 moves, +1 each");
+});
+
+test("before the first agent, one short clause says why there are points already", () => {
+  assert.equal(pointsBeforeAgent("grid"), "Every grid already gives everyone some points; your agent's job is to raise yours.");
 });

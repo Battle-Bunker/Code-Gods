@@ -35,6 +35,8 @@ function assertRate(value: number, what: string): void {
 /** Shares are kept to this many decimals, so Σ s ≤ 1 holds exactly where it should. */
 const SHARE_DECIMALS = 1e6;
 export const roundShare = (s: number): number => Math.round(s * SHARE_DECIMALS) / SHARE_DECIMALS;
+/** The largest kept share not above `s` (a bound that must hold, such as a store that must stay large enough). */
+export const floorShare = (s: number): number => Math.floor(s * SHARE_DECIMALS + 1e-9) / SHARE_DECIMALS;
 
 /** A valid power share: a finite number in [0, 1]. */
 export function assertShare(share: number): void {
@@ -46,6 +48,22 @@ export const agentIncome = (powerPerSecond: number, share: number): number => po
 export const deityIncome = (powerPerSecond: number, allocated: number): number => powerPerSecond * Math.max(0, 1 - allocated);
 /** The share a new agent gets when its summon names none: half of what the deity has not allocated (it keeps the rest). */
 export const defaultShare = (allocated: number): number => roundShare(Math.max(0, 1 - allocated) / 2);
+
+/** What the forge aims to give a beginner's FIRST agent: three quarters of the god's power, so one agent acts often. */
+export const FIRST_AGENT_SHARE_TARGET = 0.75;
+/**
+ * The share a beginner's first agent is summoned with (the forge sends it; the engine's own default is untouched): as
+ * close to FIRST_AGENT_SHARE_TARGET as still leaves the god's own store able to hold `need` (the dearest agent it may
+ * want to pay for next, e.g. a Replace with the dearest starter): (1 − allocated − share) × P × T ≥ need. Undefined
+ * (send nothing: the engine default) when the game has no capacity, or when that share is not above the default.
+ */
+export function firstAgentShare(s: { allocated: number; powerPerSecond: number; fullChargeSeconds: number | undefined; need: number }): number | undefined {
+  if (s.fullChargeSeconds === undefined || !(s.powerPerSecond > 0) || !(s.fullChargeSeconds > 0)) return undefined;
+  const free = Math.max(0, 1 - s.allocated);
+  const bound = free - Math.max(0, s.need) / (s.powerPerSecond * s.fullChargeSeconds);
+  const share = floorShare(Math.min(FIRST_AGENT_SHARE_TARGET, free, bound));
+  return share > defaultShare(s.allocated) ? share : undefined;
+}
 
 /**
  * What an account earning `perSecond` can hold (docs/energy-model.md §6.1): `fullChargeSeconds` of its income, so an

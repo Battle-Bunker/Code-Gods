@@ -19,13 +19,13 @@ import { useEvents, useMyAgents, useMutators, useDockState, useMyCard, useRoomIn
 import { liveIsEstimate } from "./score-lines";
 import { usePreviousVersion } from "./use-previous-version";
 import { agentEarnings } from "./score-line";
-import { LANGUAGE_SPECS, changeCostHint, costModelOf, defaultShare, isLanguage } from "@workspace/game-core";
+import { LANGUAGE_SPECS, changeCostHint, costModelOf, defaultShare, isBeginnerGoal, isLanguage } from "@workspace/game-core";
 import { runner, useGameCommands, useRunner, type Lang } from "@/core/game/runner";
 import { forgeLanguage, forgeLanguages, forgeSandbox } from "@/core/game/language";
 import { useAffordances } from "@/core/use-affordances";
 import { useDockActions } from "@/dock/actions";
 import { summonNeeds } from "./summon-needs";
-import { starterSwap, PUTTING_BACK, DIFFERENT_IDEAS, replaceQuestion, shelfOpen, starterShelf, COMPARISON_CAVEAT, MOVE_MEANS, afterCheck, checkedLine, replaceLoss, versionComparison, REPLACE_WHY, draftOrigin, replaceBlocked, replaceLabel, replaceOffer, replaceShare, sameVersionNote, COPY_HINT, COPY_LABEL, REPLACE_QUESTION, SUMMONED_NEXT, isCopy, replaceNeedsConfirm, armedStep, armedText, energyHint, firstAgentFill, firstAgentHint, firstSummonStep, lacksEnergy, nextFreeName, proposedName, secondAgentHint, storeAfterSummonText, summonReady, summonedText, untouchedExample, type ArmedSummon, type Example } from "./first-agent";
+import { boundaryOf, descriptionToSend, keepsNameNote, priceKey, startsWithLine, summonShare, starterSwap, PUTTING_BACK, DIFFERENT_IDEAS, replaceQuestion, shelfOpen, starterShelf, COMPARISON_CAVEAT, MOVE_MEANS, afterCheck, checkedLine, versionComparison, REPLACE_WHY, draftOrigin, replaceLabel, replaceOffer, sameVersionNote, COPY_HINT, COPY_LABEL, REPLACE_QUESTION, SUMMONED_NEXT, isCopy, replaceNeedsConfirm, armedStep, armedText, energyHint, firstAgentFill, firstAgentHint, firstSummonStep, lacksEnergy, nextFreeName, proposedName, secondAgentHint, storeAfterSummonText, summonReady, summonedText, untouchedExample, type ArmedSummon, type Example } from "./first-agent";
 import { progressLine } from "@/core/game/command-deadline";
 import { PRICE_GROWS, otherDiagnostics, priceParts, storeTooSmall } from "./validation-text";
 import { OBSERVER_DESCRIPTION, OBSERVER_NAME, observerRate, observerSource, rateText } from "./observer";
@@ -71,6 +71,7 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
   // A name the player typed themselves is never changed for them (first-agent.ts proposedName).
   const nameTyped = useRef(false);
   const [description, setDescription] = useState("");
+  const descriptionTyped = useRef(false);
   // The agent this editor last summoned (and the share of the player's power it took): said plainly under the buttons,
   // since the button itself goes back to "Summon".
   const [summoned, setSummonedState] = useState<{ name: string; share?: number; source: string } | null>(null);
@@ -80,19 +81,18 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
   // What was summoned (its own source, not whatever the editor holds by the time the receipt arrives).
   const setSummoned = (agentName: string, agentSource: string) => setSummonedState({ name: agentName, share: shareAtSummon.current, source: agentSource });
   const summonRow = useRef<HTMLDivElement>(null);
+  const statusLine = useRef<HTMLDivElement>(null);
   const helpersBox = useRef<HTMLDivElement>(null);
   const [ringing, setRinging] = useState(false);
   const dock = useDockActions();
   const obs = useDockState({ hz: 2 });
-  // A summon from here takes the default share: half of the power you have not given to agents yet.
-  const newShare = obs?.self.allocated !== undefined ? defaultShare(obs.self.allocated) : undefined;
   const { instance } = useMutators();
   const commands = useGameCommands();
   const { draft, validation, busy, notice, retrying, failed, firstSummon, unknown, origin, replaced, replace: replacePendingState } = useRunner();
   const replacePending = replacePendingState !== null;
   // A put-back (My agents) is a summon too, but it is said as what it is, here and there.
   const puttingBack = !!replacePendingState?.putBack;
-  const summoningWord = puttingBack ? "Putting the previous version back…" : "Summoning…";
+  const summoningWord = "Summoning…";
   const { can } = useAffordances({ language });
   const editor = useRef<HTMLTextAreaElement>(null);
   const source = draft.source;
@@ -137,12 +137,23 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
   // is offered as its replacement, since a changed copy summoned beside it undoes its work (first-agent.ts).
   useEffect(() => { if (!agentsLoading) runner.setOrigin(draftOrigin(origin, source, language, agents)); });
   const originAgent = origin ? agents.find(a => a.id === origin) : undefined;
+  // A draft that adopts an agent shows that agent's own description (not one left from another draft), unless the
+  // player typed in the box since; a replace then sends a description only when it differs (descriptionToSend).
+  const originDescription = originAgent ? originAgent.description ?? "" : undefined;
+  useEffect(() => {
+    if (!origin || originDescription === undefined) return;
+    descriptionTyped.current = false;
+    setDescription(originDescription);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [origin, originDescription === undefined]);
   const replacing = !ended && replaceOffer(originAgent, source);
   // How the last replace ended (the runner finishes it, on a retry too): said only while the editor holds that code.
   const replaceResult = replaced && replaced.source === source ? replaced : null;
-  const blocked = replacing && originAgent ? replaceBlocked({ oldShare: originAgent.powerShare, allocated: obs?.self.allocated, name: originAgent.name?.trim() || "that agent" }) : null;
   const twinsNote = replacing ? sameVersionNote(originAgent, agents) : null;
-  const shelf = useMemo(() => starterShelf(starters, { source, agents }), [starters, source, agents]);
+  // The starters' prices checked in THIS game (a price depends on the game's settings and on the language).
+  const priceMemory = useRunner().prices;
+  const prices = obs?.gameId && priceMemory.gameId === obs.gameId ? priceMemory.prices : undefined;
+  const shelf = useMemo(() => starterShelf(starters, { source, agents, prices, language }), [starters, source, agents, prices, language]);
   // The shelf opens by itself ONCE, the first time the player has an agent and the energy for another; after that the
   // disclosure is the player's own to open and close (its `open` is not controlled).
   const shelfBox = useRef<HTMLDetailsElement>(null);
@@ -153,6 +164,13 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
     shelfOpened.current = true;
     shelfBox.current.open = true;
   });
+  // "Other starting points" pressed in My agents: the shelf opens and comes into view.
+  const shelfAsked = useRunner().shelf;
+  useEffect(() => {
+    if (!shelfAsked || Date.now() - shelfAsked > 5000 || !shelfBox.current) return;
+    shelfBox.current.open = true;
+    shelfBox.current.scrollIntoView({ block: "nearest" });
+  }, [shelfAsked]);
   // A language switch with an untouched starter of any kind in the editor: the same starter in the new language.
   const startersByLanguage = useMemo(() => {
     const out: Record<string, { id: string; source: string }[]> = {};
@@ -178,10 +196,12 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
     // offered for something that is already in the game); a copy, if asked for, gets the next free name when summoned.
     const twin = agents.find(a => a.source === source && a.language === language);
     if (twin) { if (!nameTyped.current && twin.name && name !== twin.name) setName(twin.name); return; }
+    // A replace keeps the agent's name: no "NAME 2" is proposed for it (the note under the box says so).
+    if (replacing) return;
     const next = proposedName({ name, typed: nameTyped.current, existing: agents.map(a => a.name) });
     if (next) setName(next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agentNames, name, ended, source, language]);
+  }, [agentNames, name, ended, source, language, replacing]);
   // Paid observation (economy.observation; docs/energy-model.md §11.3): the observer agent as a ready template.
   const observer = useMemo(() => {
     const e = obs?.economy, mode = e?.observation;
@@ -200,7 +220,8 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
     runner.setDraft({ source: starter.source });
     if (!nameTyped.current) setName(nextFreeName(starter.name, agents.map(a => a.name), AGENT_NAME_MAX));
     // The observer's own description does not describe a starter ("Only looks…" on an agent that changes grids).
-    if (description === OBSERVER_DESCRIPTION) setDescription("");
+    // Nor does one loaded from the agent that was in the editor (only what the player typed for this draft stays).
+    if (!descriptionTyped.current || description === OBSERVER_DESCRIPTION) setDescription("");
   };
   const loadObserver = () => {
     if (!observer) return;
@@ -209,7 +230,7 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
     runner.setDraft({ source: observer.source });
     // A name or description the player typed is theirs; anything else (the example's name) gives way to the observer's.
     if (!nameTyped.current) setName(nextFreeName(OBSERVER_NAME, agents.map(a => a.name), AGENT_NAME_MAX));
-    if (!description.trim()) setDescription(OBSERVER_DESCRIPTION);
+    if (!descriptionTyped.current || !description.trim()) setDescription(OBSERVER_DESCRIPTION);
   };
   const insert = (name: string) => {
     const el = editor.current;
@@ -222,6 +243,22 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
   const gameplay = can.validate.ok;
   const current = validation && validation.source === source && validation.language === language ? validation.result.validation : undefined;
   const energy = obs?.self.energy ?? 0;
+  // A beginner's first agent takes as much of the player's power as still leaves a store for the dearest starter
+  // (first-agent.ts summonShare); any other summon from here takes the engine's default share: half of what is free.
+  // Once this game's first summon is sent, the next one (before the agent list catches up) takes the default too.
+  // Kept by the runner, so a pane switch that remounts the editor does not forget it.
+  const firstSent = useRunner().firstSent;
+  useEffect(() => { if (firstSent !== null && (agentCount ?? 0) > 0) runner.setFirstSent(null); }, [firstSent, agentCount]);
+  const firstShare = summonShare({
+    // Python only: the beginner budget is the Python starters' (TypeScript's tree costs about twice as much).
+    agents: agentCount, allocated: obs?.self.allocated, beginner: language === "python" && isBeginnerGoal({ boardKey: board?.key, familyId: card?.familyId }),
+    firstSent: !!obs?.gameId && firstSent === obs.gameId, powerPerSecond: obs?.economy?.powerPerSecond, fullChargeSeconds: obs?.economy?.fullChargeSeconds,
+    price: current?.valid ? current.cost : undefined, prices: prices?.values(),
+  });
+  const newShare = firstShare ?? (obs?.self.allocated !== undefined ? defaultShare(obs.self.allocated) : undefined);
+  // A starter's valid check is remembered for the shelf (starters only: the player's own code is not listed there).
+  const starterPrice = current?.valid && starters.some(x => x.source === source) ? current.cost : undefined;
+  useEffect(() => { if (obs?.gameId && starterPrice !== undefined) runner.setPrice(obs.gameId, priceKey(language, source), starterPrice); }, [obs?.gameId, starterPrice, language, source]);
   // The draft is exactly an agent the player has (just summoned or replaced, or opened unchanged): nothing about a
   // price, an energy wait or an armed summon is said for it; "Summon another copy" is the one quiet action.
   const copyNow = !ended && isCopy(source, language, agents);
@@ -243,7 +280,12 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
   const summon = (agent: Omit<ArmedSummon, "cost">, wasArmed?: ArmedSummon) => {
     setRefused(null);
     shareAtSummon.current = newShare;
-    void commands.run({ type: "summon", language: agent.language as Lang, source: agent.source, name: agent.name, ...(agent.description ? { description: agent.description } : {}) }).then(async result => {
+    const gameId = obs?.gameId;
+    if (firstShare !== undefined && gameId) runner.setFirstSent(gameId);
+    void commands.run({ type: "summon", language: agent.language as Lang, source: agent.source, name: agent.name, ...(agent.description ? { description: agent.description } : {}), ...(firstShare !== undefined ? { powerShare: firstShare } : {}) }).then(async result => {
+      // Not accepted (refused, or no outcome): no agent is known to hold the share, so the next summon is still the
+      // first. (Should an unknown outcome have made one, it shows in the agent list and its share in `allocated`.)
+      if (!result?.accepted && firstShare !== undefined && runner.get().firstSent === gameId) runner.setFirstSent(null);
       if (!result) return;
       if (result.accepted) { setSummoned(agent.name, agent.source); return; }
       if (wasArmed) { setRefused({ armed: wasArmed, message: result.message || "The game refused this summon." }); return; }
@@ -263,11 +305,16 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
     setArmed(null);
     summon(armed, armed);
   });
+  // Beside the price: what of the player's stored energy would move to the new agent with its share (not for a copy's note).
+  // With Replace offered (which keeps the agent's energy) the line is about "Summon beside it"; nothing for an exact copy.
+  const starts = current?.valid && !ended && !copyNow ? startsWithLine({ energy, cost: current.cost, allocated: obs?.self.allocated, share: newShare, powerPerSecond: obs?.economy?.powerPerSecond, fullChargeSeconds: obs?.economy?.fullChargeSeconds, beside: replacing }) : null;
   const summonOn = !busy && (canSummon || canArm) && !!name.trim();
   // The player's own code with no check of it yet: the primary button checks and goes on (one press).
   const needsCheck = summonable && !canSummon && !canArm && !untouched && !(checked && !!current);
   const pressSummon = (as = name) => {
-    const agent = { name: as.trim(), ...(description.trim() ? { description: description.trim() } : {}), language, source };
+    // Beside an adopted agent, its own description is not the new one's: only a description the player changed is sent.
+    const sent = replacing ? descriptionToSend(description, originDescription) : description.trim() || undefined;
+    const agent = { name: as.trim(), ...(sent ? { description: sent } : {}), language, source };
     // Not payable yet: arm a one-shot that summons when the energy is there (the effect above fires it).
     if (!canSummon) { if (current) { setRefused(null); setArmed({ ...agent, cost: current.cost }); } return; }
     summon(agent);
@@ -298,25 +345,26 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
   // version so the two can be compared. Not in a room whose looking costs energy (score-lines.tsx says why).
   const events = useEvents({ hz: 1, limit: 50 });
   const paidLooksEarly = obs?.economy?.observation !== undefined && obs.economy.observation !== "free";
-  const remembered = usePreviousVersion(obs?.gameId, agents, agentsLoading, paidLooksEarly ? undefined : events);
+  const remembered = usePreviousVersion(obs?.gameId, agents, agentsLoading, paidLooksEarly ? undefined : events, obs?.economy?.worldSeconds);
   const room = useRoomInfo();
   const paidLooks = obs?.economy?.observation !== undefined && obs.economy.observation !== "free";
-  const earnings = useMemo(() => (paidLooks ? new Map<string, { moves: number; points: number; objects: number }>() : agentEarnings(events)), [events, paidLooks]);
+  // Since a replace keeps the agent's id, each agent's figure is its CURRENT program's: from its latest replace on.
+  const earnings = useMemo(() => (paidLooks ? new Map<string, { moves: number; points: number; objects: number }>() : agentEarnings(events, boundaryOf(remembered?.previous))), [events, paidLooks, remembered?.previous]);
   const pressReplace = (checkedCost?: number) => {
     const old = originAgent;
-    if (!old || blocked) return;
+    if (!old) return;
     if (checkedCost === undefined && (!canSummon || busy)) return;
-    const as = nameTyped.current && name.trim() ? name.trim() : old.name?.trim() || name.trim() || "Agent";
-    const share = replaceShare({ oldShare: old.powerShare, allocated: obs?.self.allocated });
     setRefused(null); setSummonedState(null);
-    const spill = replaceLoss({ energy: energyNow.current, cost: checkedCost ?? current?.cost ?? 0, allocated: obs?.self.allocated, share: share ?? newShare, powerPerSecond: obs?.economy?.powerPerSecond, fullChargeSeconds: obs?.economy?.fullChargeSeconds });
-    // The runner keeps the replace until its summon is accepted (now, or through "Try again" / "Retry the same
-    // command") and then destroys the old agent; refused or given up, nothing is destroyed.
-    void commands.replace({ type: "summon", language, source, name: as, ...(description.trim() ? { description: description.trim() } : {}), ...(share !== undefined ? { powerShare: share } : {}) },
-      { oldId: old.id, name: as, source, share, oldShare: old.powerShare,
-        cost: checkedCost ?? current?.cost, lost: spill, ...(obs?.self.income ? { refill: spill / obs.self.income } : {}),
-        ...(obs?.gameId ? { previous: { gameId: obs.gameId, source: old.source, language: old.language, name: old.name?.trim() || as, share: old.powerShare, cost: old.summonCost, newSource: source,
-          knownIds: agents.map(a => a.id), ...(earnings.get(old.id) ? { before: earnings.get(old.id) } : {}) } } : {}) });
+    // The engine's one "replace" command: the agent keeps its id, name, power share, energy and counts, and the player
+    // pays the new program's price. The runner keeps the intent until the receipt (also through a retry), then writes
+    // the confirmation and the previous-version memory.
+    const kept = old.name?.trim() || name.trim() || "Agent";
+    // A description goes with it only when the player changed it for this draft (else the agent keeps its own).
+    const said = descriptionToSend(description, old.description);
+    void commands.replace({ type: "replace", agentId: old.id, language, source, ...(said ? { description: said } : {}) },
+      { name: kept, source, cost: checkedCost ?? current?.cost,
+        ...(obs?.gameId ? { previous: { gameId: obs.gameId, agentId: old.id, source: old.source, language: old.language, name: kept, cost: old.summonCost, newSource: source, sentWorld: obs.economy?.worldSeconds,
+          ...(earnings.get(old.id) ? { before: earnings.get(old.id) } : {}) } } : {}) });
   };
   // "Summon my first agent", pressed outside this pane (runner.firstSummon): the untouched example is summoned here, by
   // this pane's own summon; the player's own code is not, and the Summon button is shown with an attention ring.
@@ -362,7 +410,7 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
     return () => clearTimeout(timer);
   }, [ringing]);
   // The waiting line counts the seconds from the client's clock (command-deadline.ts progressLine).
-  const waiting = busy === "validate" || busy === "summon";
+  const waiting = busy === "validate" || busy === "summon" || busy === "replace";
   const [waited, setWaited] = useState(0);
   useEffect(() => {
     setWaited(0);
@@ -370,6 +418,14 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
     const since = Date.now(), timer = setInterval(() => setWaited(Date.now() - since), 500);
     return () => clearInterval(timer);
   }, [waiting]);
+  // On a phone the row is not sticky: the status line is brought into view when a check or a summon starts and when it ends.
+  const statusSeen = useRef(false);
+  useEffect(() => {
+    // Not when the pane first shows (that would pull the phone's page to the editor), only when `busy` changes after.
+    if (!statusSeen.current) { statusSeen.current = true; return; }
+    if (typeof window === "undefined" || window.matchMedia?.("(min-width: 640px)").matches) return;
+    statusLine.current?.scrollIntoView({ block: "nearest" });
+  }, [busy]);
   const arg = instance?.objectType === "Grid" ? "grid" : "x";
   const noun = instance?.objectType === "Grid" ? "grid" : "object";
   // What a change costs in this room, with its own numbers (game-core change-cost.ts; the room's cost model).
@@ -401,11 +457,12 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
         </label>
         <label className="space-y-0.5 text-xs text-muted-foreground">
           Description (optional)
-          <input data-testid="input-agent-description" value={description} maxLength={AGENT_DESCRIPTION_MAX} onChange={e => setDescription(e.target.value)} placeholder="What it does and why"
+          <input data-testid="input-agent-description" value={description} maxLength={AGENT_DESCRIPTION_MAX} onChange={e => { descriptionTyped.current = true; setDescription(e.target.value); }} placeholder="What it does and why"
             className="block w-full border border-[hsl(var(--input))] bg-background px-2 py-1 text-sm text-foreground outline-none focus:border-primary" />
         </label>
       </div>
-      {taken !== name.trim() && !copyNow && (
+      {replacing && originAgent?.name?.trim() && <p data-testid="text-name-kept" className="text-xs text-muted-foreground">{keepsNameNote(originAgent.name.trim())}</p>}
+      {taken !== name.trim() && !copyNow && !replacing && (
         // A name the player typed themselves stays; the pane says it is taken and offers the next free one.
         <p data-testid="text-name-taken" className="text-xs text-muted-foreground">You already have an agent named {name.trim()}. <TextButton boxed testId="button-next-free-name" onClick={() => { nameTyped.current = false; setName(taken); }}>Name this one {taken}</TextButton></p>
       )}
@@ -419,10 +476,10 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
         {replacing && originAgent ? (<>
           {/* A changed version of an agent the player has: replacing it is the main action, a second agent the other. */}
           {/* One press: unchecked code is checked first and, valid and payable, replaced straight away. Never "Summoning". */}
-          <PrimaryButton testId="button-replace" disabled={!!busy || !summonable || !!blocked || (!!tooSmall && !canSummon)} onClick={() => (canSummon ? pressReplace() : checkThen("replace", cost => pressReplace(cost)))}>
+          <PrimaryButton testId="button-replace" disabled={!!busy || !summonable || (!!tooSmall && !canSummon)} onClick={() => (canSummon ? pressReplace() : checkThen("replace", cost => pressReplace(cost)))}>
             <Sparkles size={14} /> {oneStep?.phase === "checking" || busy === "validate" ? "Checking…"
               // "Replacing…" only while a replace is in flight; a "Summon beside it" or an armed summon is a summon.
-              : (busy === "summon" || busy === "destroy") && (replacePending || oneStep?.then === "replace") ? "Replacing…" : busy === "summon" ? summoningWord
+              : busy === "replace" ? (puttingBack ? PUTTING_BACK : "Replacing…") : busy === "summon" ? summoningWord
               : canSummon ? `${replaceLabel(originAgent.name?.trim() || "your agent")}${current ? ` · cost ${fmt(current.cost)}` : ""}` : `Check and replace ${originAgent.name?.trim() || "your agent"}`}
           </PrimaryButton>
           <GhostButton testId="button-summon" disabled={!summonOn} onClick={() => pressSummon()}>{canArm ? "Summon beside it as soon as I have the energy" : "Summon beside it"}</GhostButton>
@@ -445,6 +502,21 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
         )}
         {/* With no code view to go back to, Done goes to My agents (leaving edit mode alone would change nothing). */}
         <TextButton onClick={() => { runner.setEditing(false); if (onlyEditor) dock.show("agents"); }}>Done</TextButton>
+        {/* The one-line status, inside the row itself (directly under the buttons): the progress, then the confirmation
+            or the error. With the pane scrolled down only the sticky row is in sight, and it must say what is happening. */}
+        <div ref={statusLine} className="basis-full space-y-0.5 empty:hidden" data-testid="forge-status">
+          {(busy === "validate" || busy === "summon" || busy === "replace") && <p data-testid="text-forge-progress" role="status" className="flex items-center gap-1.5 text-sm font-semibold text-foreground"><Loader2 size={14} className="shrink-0 animate-spin" />{puttingBack ? PUTTING_BACK : oneStep?.phase === "going" && oneStep.cost !== undefined ? checkedLine(oneStep.cost, oneStep.then) : progressLine(busy, retrying, waited)}</p>}
+          {replaceResult && !busy && <p data-testid="text-replaced" role="status" className={`text-sm font-semibold ${replaceResult.ok ? "text-[hsl(var(--accent))]" : "text-destructive"}`}>{replaceResult.text}{" "}
+        <TextButton boxed testId="button-open-my-agents-replaced" onClick={() => {
+          // My agents comes to the front and brings this agent's own row (its comparison first) into view, ringed.
+          dock.show("agents");
+          const shown = remembered?.agentId ?? agents.find(a => a.source === source)?.id;
+          if (shown) setTimeout(() => runner.revealAgent(shown), 50);
+        }}>See it in My agents</TextButton></p>}
+          {notice && !(refused && !notice.ok) && !(notice.ok && (summoned || replaceResult)) && <p data-testid="text-notice" className={`text-sm ${notice.ok ? "text-[hsl(var(--accent))]" : "text-destructive"}`}>
+        {notice.text}
+      </p>}
+        </div>
       </div>
       {/* Why the price is what it is, where the price is (a helper function took it from 349.5 to 565 unexplained). */}
       {current?.valid && <p data-testid="text-price-grows" className="text-xs text-muted-foreground">{PRICE_GROWS}</p>}
@@ -460,14 +532,15 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
           }}>Room helpers ({obs.instance.helpers.length}): how to read and change {noun === "grid" ? "a grid" : "an object"}</TextButton>}
         </p>
       )}
-      {(busy === "validate" || busy === "summon") && <p data-testid="text-forge-progress" role="status" className="flex items-center gap-1.5 text-sm font-semibold text-foreground"><Loader2 size={14} className="shrink-0 animate-spin" />{puttingBack ? PUTTING_BACK : oneStep?.phase === "going" && oneStep.cost !== undefined ? checkedLine(oneStep.cost, oneStep.then) : progressLine(busy, retrying, waited)}</p>}
       {summoned && !busy && (() => {
         // Why the player's own store just shrank: the share the agent took, and the live capacity.
         // Dropped once that agent's share is no longer the one it was summoned with (a change in My agents made the
         // sentence false: "25% of your power now feeds this agent… at most 0").
         const live = agents.find(a => a.source === summoned.source && a.name === summoned.name);
         const unchanged = !live || live.powerShare === undefined || summoned.share === undefined || Math.abs(live.powerShare - summoned.share) < 0.005;
-        const store = unchanged && (obs?.self.capacity ?? 0) > 0 ? storeAfterSummonText({ share: summoned.share, capacity: obs?.self.capacity }) : null;
+        // From the real numbers, once the state carries this agent: its share and the income the player keeps.
+        const settled = !!live && live.powerShare !== undefined && (obs?.self.allocated ?? 0) >= live.powerShare - 0.005;
+        const store = unchanged && settled ? storeAfterSummonText({ share: live!.powerShare, income: obs?.self.income }) : null;
         return (
           <div data-testid="text-summoned" className="space-y-0.5 text-sm">
             <p className="font-semibold text-[hsl(var(--accent))]">{summonedText(summoned.name, obs?.phase === "planning")}{" "}
@@ -478,14 +551,7 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
           </div>
         );
       })()}
-      {(blocked || twinsNote) && !busy && <p data-testid="text-replace-note" className={`text-xs ${blocked ? "font-semibold text-foreground" : "text-muted-foreground"}`}>{blocked ?? twinsNote}</p>}
-      {replaceResult && !busy && <p data-testid="text-replaced" role="status" className={`text-sm font-semibold ${replaceResult.ok ? "text-[hsl(var(--accent))]" : "text-destructive"}`}>{replaceResult.text}{" "}
-        <TextButton boxed testId="button-open-my-agents-replaced" onClick={() => {
-          // My agents comes to the front and brings this agent's own row (its comparison first) into view, ringed.
-          dock.show("agents");
-          const shown = remembered?.agentId ?? agents.find(a => a.source === source)?.id;
-          if (shown) setTimeout(() => runner.revealAgent(shown), 50);
-        }}>See it in My agents</TextButton></p>}
+      {twinsNote && !busy && <p data-testid="text-replace-note" className="text-xs text-muted-foreground">{twinsNote}</p>}
       {/* Did the change help: the two versions' counted moves, once the new one has enough (first-agent.ts versionComparison). */}
       {(() => {
         // Only the agent the replace made, in this game (use-previous-version.ts), and only while the editor holds its code.
@@ -503,9 +569,6 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
         const needs = short ?? summonNeeds(!!current?.valid || (untouched && !current), !!name.trim(), !current || current.cost <= energy);
         return needs && <p data-testid="text-summon-needs" className="text-xs text-muted-foreground">{needs}</p>;
       })()}
-      {notice && !(refused && !notice.ok) && !(notice.ok && (summoned || replaceResult)) && <p data-testid="text-notice" className={`text-sm ${notice.ok ? "text-[hsl(var(--accent))]" : "text-destructive"}`}>
-        {notice.text}
-      </p>}
       {/* Still busy after every try: one button, the same command again (it can never apply twice). */}
       {failed && !busy && <GhostButton testId="button-try-again" onClick={() => void commands.retry(failed).then(result => { if (failed.command.type === "summon" && result?.accepted) setSummoned(failed.command.name, failed.command.source); })}>Try again</GhostButton>}
       <textarea ref={editor} data-testid="input-source" value={source} onChange={e => runner.setDraft({ source: e.target.value })}
@@ -562,6 +625,7 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
             {/* The verdict, the price and any warning; the rest is under "Details" (it was a wall of jargon on a phone). */}
             <p className="text-xs" data-testid="text-validation-verdict"><strong className="font-mono">{current.valid ? "VALID" : "INVALID"}</strong>
               {current.valid && <> · Price {fmt(current.cost)} ⚡, paid once from your energy; about {(Math.round(current.expectedActCost * 10) / 10).toFixed(1)} ⚡ a move.</>}</p>
+            {starts && <p data-testid="text-starts-with" className="text-xs text-muted-foreground">{starts}</p>}
             {current.warnings?.length ? (
               // The examination's warnings (docs/rules-design.md §11): shown before the summon, which they never block.
               <div data-testid="text-validation-warnings" className="mt-1 space-y-0.5 text-xs">

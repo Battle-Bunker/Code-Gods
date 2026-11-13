@@ -6,7 +6,7 @@
  */
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_SETUP_SEED_ID, seedSetupSettings, instantiationOf, codecOf, type GameSettings } from "@workspace/game-core";
+import { BEGINNER_AGENT_BUDGET_BITS, DEFAULT_SETUP_SEED_ID, deityIncome, energyCapacity, firstAgentShare, seedSetupSettings, instantiationOf, codecOf, type GameSettings } from "@workspace/game-core";
 import { applyCalls, instanceInfo, objectType, seededRng, type Instantiation, type ObjectValue } from "@workspace/game-types";
 import { createRuntime, type ActSettings, type GameRuntime, type PricingVocab } from "@workspace/game-runtime";
 import {
@@ -184,6 +184,25 @@ test("the generator is total: every family the board can deal, and an unknown on
   assert.deepEqual(pool.map(f => f.id).filter(id => !payable.includes(id)).sort(), Object.keys(NOT_PAYABLE_IN_PLANNING).sort(),
     `default-pool examples priced above ${PAYABLE} (starting energy ${settings.startingEnergy}) are exactly those listed in NOT_PAYABLE_IN_PLANNING`);
   assert.ok(PAYABLE < settings.startingEnergy, "payable means under the default setup's starting energy");
+});
+
+/**
+ * A beginner's first agent is summoned with a large share (the forge's firstAgentShare), so the god's own store shrinks.
+ * It must still hold the price of every shipped Python starter for a default-pool rule, or "Replace" with the dearest
+ * one is refused for good. The bound comes from the starters' real prices, not from BEGINNER_AGENT_BUDGET_BITS alone.
+ */
+test("after a beginner's first summon, the god's own store can still pay for every shipped starter", async () => {
+  let dearest = 0, which = "";
+  for (const f of pool) for (const params of f.support(ctx)) for (const starter of starterAgentsFor(f.id, params, inst, "python")) {
+    const { cost } = await runtime("python").inspect(starter.source, room);
+    if (cost > dearest) { dearest = cost; which = `${f.id} ${starter.id}`; }
+  }
+  assert.ok(dearest > 0);
+  assert.ok(dearest <= BEGINNER_AGENT_BUDGET_BITS, `the dearest starter (${which}, ${dearest.toFixed(1)}) is within BEGINNER_AGENT_BUDGET_BITS`);
+  const share = firstAgentShare({ allocated: 0, powerPerSecond: settings.powerPerSecond, fullChargeSeconds: settings.fullChargeSeconds, need: BEGINNER_AGENT_BUDGET_BITS });
+  assert.ok(share !== undefined && share >= 0.65, `close to three quarters (${share})`);
+  const store = energyCapacity(deityIncome(settings.powerPerSecond, share), settings.fullChargeSeconds);
+  assert.ok(store >= dearest, `the store after the first summon (${store.toFixed(1)}) holds ${which} (${dearest.toFixed(1)})`);
 });
 
 for (const f of tested) for (const language of LANGUAGES) {

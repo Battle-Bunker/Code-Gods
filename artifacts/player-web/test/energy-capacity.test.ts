@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { plain } from "../src/core/panels/agent-labels.ts";
-import { overdraft, overdraftTone, spendsAsItEarns, agentDebtDetail, agentDebtLine, destroyDebtLine, fillText, fullIn, owedText, owes, ownEnergyLine, ownStoreFull, shareCapacityLines, storeFraction, storeState, storedLine } from "../src/core/panels/energy-capacity.ts";
+import { destroyReturnsLine, fullStoreAdvice, fullStoreOneAgent, overdraft, overdraftTone, spendsAsItEarns, agentDebtDetail, agentDebtLine, destroyDebtLine, fillText, fullIn, owedText, owes, ownEnergyLine, ownStoreFull, shareCapacityLines, storeFraction, storeState, storedLine } from "../src/core/panels/energy-capacity.ts";
 
 // Hand-derived: power 64 bits/s, full charge 30 s. A 25% agent earns 16 bits/s and holds at most 16 × 30 = 480 bits.
 
@@ -178,4 +178,27 @@ test("your own energy below zero: what you owe and when you can summon again, an
   // 312 / 32 = 9.75 → 10 s.
   assert.equal(plain(ownEnergyLine({ energy: -312, income: 32, capacity: 960 })), "You are overdrawn by 312 ⚡: you cannot summon until your income has covered it (about 10 s).");
   assert.equal(plain(ownEnergyLine({ energy: -312, income: 0, capacity: 0 })), "You are overdrawn by 312 ⚡ and keep no power for yourself: take some power back from an agent to cover it.");
+});
+
+test("a full store with one agent says what can be done with the power, not to spend it", () => {
+  assert.equal(fullStoreOneAgent("Mirror maker"), "Your energy is full. Give Mirror maker more power so it acts more often, or add another ready-made agent.");
+});
+
+test("the destroy confirmation says the energy the agent holds comes back to the player, in a game with capacity", () => {
+  assert.equal(destroyReturnsLine(312.4, 30), "The 312 ⚡ it holds come back to you.");
+  assert.equal(destroyReturnsLine(1, 30), "The 1 ⚡ it holds comes back to you.");
+  assert.equal(destroyReturnsLine(0.2, 30), null, "nothing worth saying");
+  assert.equal(destroyReturnsLine(-40, 30), null, "overdrawn: the debt sentence speaks instead");
+  assert.equal(destroyReturnsLine(312.4, undefined), null, "a game without capacity returns nothing (the engine's held: 0)");
+});
+
+test("the full-store advice with 'Give NAME more power' is only for a player who can change that share", () => {
+  const base = { ended: false, agents: 1, energy: 480, capacity: 480, canAllocate: true, hasShare: true, seenAs: false };
+  assert.equal(fullStoreAdvice(base), true);
+  assert.equal(fullStoreAdvice({ ...base, canAllocate: false }), false, "a replay or a spectator: the neutral line");
+  assert.equal(fullStoreAdvice({ ...base, hasShare: false }), false, "no share control is shown for this agent");
+  assert.equal(fullStoreAdvice({ ...base, seenAs: true }), false, "seen as another player");
+  assert.equal(fullStoreAdvice({ ...base, ended: true }), false);
+  assert.equal(fullStoreAdvice({ ...base, agents: 2 }), false);
+  assert.equal(fullStoreAdvice({ ...base, energy: 200 }), false, "not full");
 });

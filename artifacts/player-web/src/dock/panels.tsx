@@ -4,6 +4,7 @@
  * shell/stored-frame.tsx). A pane names a stored panel by slug and a file panel by file id; this module renders its
  * body and keeps the "let it act" grants and compile errors in step with the registry. `?panels=off` loads neither.
  */
+import { PaneErrors } from "@/core/pane-errors";
 import { createContext, useContext, useEffect, useMemo, useRef, useSyncExternalStore, type ReactNode } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@workspace/engine/convex/_generated/api";
@@ -92,5 +93,6 @@ export function PanelPaneBody({ entry, missing }: { entry: PanelEntry | undefine
   // The boundary catches a failing panels.code query (a panel removed or a version pruned mid-render).
   if (entry.origin === "stored") return <PanelBoundary resetKey={entry.version} file={entry.file}><StoredPanelBody entry={entry} /></PanelBoundary>;
   if (isSandboxed) return <PanelBoundary resetKey={generation} file={entry.file}><SandboxedFilePanelBody entry={entry} generation={generation} /></PanelBoundary>;
-  return <PanelBody entry={entry} status={statuses[entry.file] ?? { kind: "loading" }} buildError={buildErrors[entry.file]} />;
+  // A file panel runs in the page (devserver mode): its failed SDK queries stay in its own pane, like a built-in panel's.
+  return <PaneErrors><PanelBody entry={entry} status={statuses[entry.file] ?? { kind: "loading" }} buildError={buildErrors[entry.file]} /></PaneErrors>;
 }
