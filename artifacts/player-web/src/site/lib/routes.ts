@@ -38,3 +38,12 @@ export function invitedTo(path: string): string | null {
   const room = decodeURIComponent(m[1]).toUpperCase();
   return m[2] ? `Sign in to watch or play game ${decodeURIComponent(m[2]).toUpperCase()} in room ${room}.` : `Sign in to open room ${room}.`;
 }
+
+/**
+ * The room id a seated player's dock runs in, or null when the game page shows something else. Only the room's id is
+ * needed, and the game's header carries it: a transiently failed room query keeps the dock (it re-runs when the room
+ * changes or the socket reconnects); while the room is still loading, or the engine refused it, the page waits or explains.
+ */
+export function dockRoomId(s: { active: boolean; seated: boolean; roomId: string | null | undefined; roomLoaded: boolean; roomFailedTransiently: boolean }): string | null {
+  return s.active && s.seated && s.roomId && (s.roomLoaded || s.roomFailedTransiently) ? s.roomId : null;
+}

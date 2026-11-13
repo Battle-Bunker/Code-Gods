@@ -277,12 +277,16 @@ export function draftOrigin(previous: string | null, source: string, language: s
   if (same) return same.id;
   return previous !== null && agents.some(a => a.id === previous) ? previous : null;
 }
-/** Whether the draft is a changed version of `origin` (an unchanged one is a copy: isCopy). */
-/** The agent a shelf starter is a new version of: the one in the editor if it still exists, else the player's only agent, else none (a new agent). */
-export function starterOrigin(origin: string | null, agentIds: readonly string[]): string | null {
-  if (origin !== null && agentIds.includes(origin)) return origin;
-  return agentIds.length === 1 ? agentIds[0]! : null;
+/**
+ * The agent a shelf starter is a new version of: the one in the editor if it is a candidate, else the player's only
+ * candidate, else none (a new agent). Candidates are the agents that chase the goal (the caller leaves out observers,
+ * which only look: a starter must not replace a player's eyes).
+ */
+export function starterOrigin(origin: string | null, candidates: readonly string[]): string | null {
+  if (origin !== null && candidates.includes(origin)) return origin;
+  return candidates.length === 1 ? candidates[0]! : null;
 }
+/** Whether the draft is a changed version of `origin` (an unchanged one is a copy: isCopy). */
 export const replaceOffer = (origin: OwnAgent | undefined, source: string): boolean => !!origin && !!source.trim() && origin.source !== source;
 export const replaceLabel = (name: string): string => `Replace ${name} with this version`;
 export const REPLACE_WHY = "Two agents with different ideas undo each other's work; replacing keeps one.";

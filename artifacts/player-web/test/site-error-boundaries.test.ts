@@ -26,6 +26,8 @@ function throwingHooks(): string[] {
   for (const path of sources(join(SRC, "site/hooks"))) {
     const text = code(read(path));
     for (const m of text.matchAll(/export function (use\w+)\([^]*?\n\}/g)) if (/\buseLivePages\(/.test(m[0])) hooks.push(m[1]!);
+    // An arrow hook on one line: export const useX = (…) => useLivePages(…).
+    for (const m of text.matchAll(/export const (use\w+)\s*=[^\n]*\buseLivePages\(/g)) hooks.push(m[1]!);
   }
   return hooks;
 }

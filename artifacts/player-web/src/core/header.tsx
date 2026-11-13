@@ -112,6 +112,7 @@ export function PlayerPalette({ compact, suggested = ["ui.forge.edit", "ui.panel
  * player still without an agent keeps the line and the button. The game timer stands down while the planning line
  * shows (game-timer.tsx). On a phone the two buttons stack under the text.
  */
+const START_WORLD_WAIT_MS = 10_000;
 export function PlanningBar() {
   const { permission } = useRoom();
   const s = useSituation();
@@ -132,6 +133,9 @@ export function PlanningBar() {
   });
   const offered = !!line?.startNow;
   useEffect(() => { if (!offered) setStartingWorld(false); }, [offered]);
+  // An accepted start that has not started the world after a while (the engine had nothing to do, or its tick is late)
+  // gives the button back rather than leave it dead for the rest of planning.
+  useEffect(() => { if (!startingWorld) return; const t = setTimeout(() => setStartingWorld(false), START_WORLD_WAIT_MS); return () => clearTimeout(t); }, [startingWorld]);
   if (!line) return null;
   return (
     <div role={s.phase === "planning" ? "timer" : "status"} aria-live="off" data-testid="banner-planning" className="flex flex-col items-center justify-center gap-x-4 gap-y-2 border-b border-[hsl(var(--card-border))] bg-muted px-3 py-2 text-center text-sm sm:flex-row sm:flex-wrap sm:text-left">

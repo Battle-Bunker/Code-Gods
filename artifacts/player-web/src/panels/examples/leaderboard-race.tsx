@@ -17,11 +17,10 @@ export default definePanel({
     const roster = useDockState()?.roster ?? [];
     const history = useStandingsHistory(game?.gameId).filter(r => r.world >= world - 300);
     const style = usePlayerStyle();
-    const series = board.map(row => ({
-      label: row.label,
-      ...style(row.godId),
-      points: history.map(r => ({ x: r.world, y: r.totals[roster.indexOf(row.godId)] ?? 0 })),
-    }));
+    const series = board.map(row => {
+      const i = roster.indexOf(row.godId);   // once per player, not per point
+      return { label: row.label, ...style(row.godId), points: history.map(r => ({ x: r.world, y: r.totals[i] ?? 0 })) };
+    });
     return <div data-testid="example-race"><LineChart series={series} width={360} height={160} xLabel="world s" yLabel="total payoff" /></div>;
   },
 });

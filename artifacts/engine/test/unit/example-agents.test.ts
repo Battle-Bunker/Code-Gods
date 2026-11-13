@@ -266,7 +266,7 @@ test("starter agents: the first is the example itself; simple then thorough wher
       assert.ok(["careful", "careful,bold", "tiny,thorough", "tiny,thorough,bold"].includes(ids), `${f.id}: ${ids}`);
       for (const s of starters) {
         assert.ok(s.title && s.blurb.endsWith(".") && s.name.length <= 40 && !/[—–]/.test(s.blurb + s.source), `${f.id} ${s.id}`);
-        if (s.id === "tiny") assert.match(s.source, /Want more\? Open Other starting points and use Thorough: it replaces this agent when you have the energy\./);
+        if (s.id === "tiny") assert.match(s.source, /Want more\? Open Other starting points and pick Thorough when you have the energy\./);
         if (s.id !== "careful") await runtime(language).inspect(s.source, room);
       }
     }

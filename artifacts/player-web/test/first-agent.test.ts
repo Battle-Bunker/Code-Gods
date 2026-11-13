@@ -402,4 +402,5 @@ test("a starter from the shelf is offered as the new version of the agent in the
   assert.equal(starterOrigin("gone", ["a1"]), "a1");
   assert.equal(starterOrigin(null, ["a1", "a2"]), null, "several agents and none in the editor: a new agent");
   assert.equal(starterOrigin(null, []), null);
+  assert.equal(starterOrigin("observer", ["a1"]), "a1", "the editor holds an observer (not a candidate): the only goal agent");
 });

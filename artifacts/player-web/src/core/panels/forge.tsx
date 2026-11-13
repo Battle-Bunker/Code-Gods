@@ -219,7 +219,7 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
   // new agent. The name is the starter's, for "Summon beside it" (a replace keeps the agent's own).
   const loadStarter = (starter: { name: string; source: string }) => {
     setAskReplace(null);
-    runner.setOrigin(starterOrigin(origin, agents.map(a => a.id)));
+    runner.setOrigin(starterOrigin(origin, agents.filter(a => a.description !== OBSERVER_DESCRIPTION && !(a.name ?? "").startsWith(OBSERVER_NAME)).map(a => a.id)));
     runner.setDraft({ source: starter.source });
     if (!nameTyped.current) setName(nextFreeName(starter.name, agents.map(a => a.name), AGENT_NAME_MAX));
     // The observer's own description does not describe a starter ("Only looks…" on an agent that changes grids).
