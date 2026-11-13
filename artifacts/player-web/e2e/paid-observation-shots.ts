@@ -300,7 +300,9 @@ if (wanted("paid")) {
     await step("6c phone forge", async () => {
       await choosePanel(phone, "p1", "forge", "Agent code");
       // The template is under "Other starting points", closed until asked for.
-      await phone.click("[data-testid=details-other-starts] summary", { timeout: 20_000 });
+      await phone.waitForSelector("[data-testid=details-other-starts]", { timeout: 20_000 });
+      // It may already be open (it opens by itself once the player has an agent and energy to spare): open it only if closed.
+      if (!await phone.locator("[data-testid=details-other-starts]").evaluate(el => (el as HTMLDetailsElement).open)) await phone.click("[data-testid=details-other-starts] summary");
       await phone.waitForSelector("[data-testid=text-observer-template]", { timeout: 20_000 });
       await phone.locator("[data-testid=text-observer-template]").scrollIntoViewIfNeeded();
       await sleep(400);
@@ -315,7 +317,8 @@ if (wanted("paid")) {
   if (!onlyB) await step("9 forge observer (C)", async () => {
     await choosePanel(page, "p1", "forge", "Agent code");
     await page.waitForSelector("[data-testid=panel-forge]", { timeout: 20_000 });
-    await page.click("[data-testid=details-other-starts] summary", { timeout: 20_000 });
+    await page.waitForSelector("[data-testid=details-other-starts]", { timeout: 20_000 });
+    if (!await page.locator("[data-testid=details-other-starts]").evaluate(el => (el as HTMLDetailsElement).open)) await page.click("[data-testid=details-other-starts] summary");
     const tpl = page.locator("[data-testid=text-observer-template]");
     await tpl.waitFor({ timeout: 20_000 });
     log("9 template", (await tpl.innerText()).replace(/\s+/g, " "));

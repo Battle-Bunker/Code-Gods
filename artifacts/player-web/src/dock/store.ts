@@ -26,6 +26,8 @@ export type DockSnapshot = {
   hiddenPanes: boolean;
   /** "Show my panes" is on: the ended game shows the player's own arrangement; "Back to the results" returns. */
   myPanes: boolean;
+  /** The pane maximised over the others through the store (desktop), or null. Dockview's own ways out of it are not seen here. */
+  maximised: string | null;
   phase: Phase;
   loaded: boolean;
   canWrite: boolean;
@@ -50,6 +52,7 @@ export class DockStore {
   private replayArranged = false;
   /** "Show my panes" was pressed: the ended game shows every pane, the results first. */
   private myPanes = false;
+  private maximisedPane: string | null = null;
   /** The player's arrangement as it was before a change made in the results-only view, for "Show my panes". */
   private keptLocal: DockLayout | undefined;
   private assistantAvailable = true;
@@ -90,11 +93,11 @@ export class DockStore {
     const withT = !derived || this.myPanes ? timeline : withResultsOnly(timeline);
     // Offered only when it would bring something back, counted on what is shown (a room without an assistant does not show its pane).
     const hiddenPanes = (derived && !this.myPanes && hiddenByResultsOnly(this.shownOf(timeline)) > 0) || !!this.keptLocal;
-    return { layout: this.assistantAvailable ? withT : withoutAssistant(withT), hiddenPanes, myPanes: own, history: this.history, assistantAvailable: this.assistantAvailable, focused: this.focused, phase: this.phase, loaded: this.sync.latest !== null, canWrite: this.options.canWrite };
+    return { layout: this.assistantAvailable ? withT : withoutAssistant(withT), hiddenPanes, myPanes: own, maximised: this.maximisedPane, history: this.history, assistantAvailable: this.assistantAvailable, focused: this.focused, phase: this.phase, loaded: this.sync.latest !== null, canWrite: this.options.canWrite };
   }
   private emit() {
     const next = this.build();
-    const same = sameLayout(next.layout, this.snapshot.layout, 0) && next.history === this.snapshot.history && next.assistantAvailable === this.snapshot.assistantAvailable && next.focused === this.snapshot.focused && next.hiddenPanes === this.snapshot.hiddenPanes && next.myPanes === this.snapshot.myPanes
+    const same = sameLayout(next.layout, this.snapshot.layout, 0) && next.history === this.snapshot.history && next.assistantAvailable === this.snapshot.assistantAvailable && next.focused === this.snapshot.focused && next.hiddenPanes === this.snapshot.hiddenPanes && next.myPanes === this.snapshot.myPanes && next.maximised === this.snapshot.maximised
       && next.phase === this.snapshot.phase && next.loaded === this.snapshot.loaded;
     if (same) return;
     this.snapshot = next;
@@ -240,6 +243,9 @@ export class DockStore {
     const panel = this.api?.getPanel(paneId);
     if (!panel) return;
     if (panel.api.isMaximized()) panel.api.exitMaximized(); else panel.api.maximize();
+    // What the panels may need to know (My agents shows "Your points now" itself while it covers the goal pane).
+    this.maximisedPane = panel.api.isMaximized() ? paneId : null;
+    this.emit();
   }
   /** Bring a pane to the player: dockview activates it; the phone's stacked layout scrolls to it (onReveal). */
   activate(paneId: string) {

@@ -13,6 +13,7 @@ import { useMyTotals, useMyUtility, useStandings } from "@/sdk/hooks";
 import { useReplaySource } from "@/sdk/replay-source";
 import { fresherPoints } from "./score-line";
 import { ownNow, publishedLine } from "./race-text";
+import { playerColour, playerDash, viewerIndex } from "@/sdk/player-colour";
 
 export default function Race({ params }: PanelProps<"race">) {
   const board = useLeaderboard({ hz: 1 });
@@ -47,8 +48,12 @@ export default function Race({ params }: PanelProps<"race">) {
   // You first, so you get the primary colour and the solid line.
   const ordered = [...shown].sort((a, b) => (a.godId === me ? -1 : b.godId === me ? 1 : 0));
   const history = samples.filter(s => s.x >= world - params.window);
+  const accent = viewerIndex(roster, { selfId: me, replay: !!replay, replayViewerId: replay?.viewerId });
   const series = ordered.map(r => ({
     label: `${r.godId === me ? "You" : r.label}${r.isAI ? " (AI)" : ""}`,
+    // One colour per player everywhere, by the game's roster order (sdk/player-colour.ts): the same as the replay's.
+    // The accent is the person at the screen, also in a replay seen as another player (viewerIndex).
+    ...(roster && roster.indexOf(r.godId) >= 0 ? { colour: playerColour(roster.indexOf(r.godId), accent), dash: playerDash(roster.indexOf(r.godId), accent) } : {}),
     points: history.map(s => ({ x: s.x, y: params.metric === "gap" ? (s.totals[r.godId] ?? 0) - Math.max(...Object.values(s.totals)) : s.totals[r.godId] ?? 0 })),
   }));
   const mine = board.find(r => r.godId === me);
