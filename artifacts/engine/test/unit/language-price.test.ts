@@ -6,7 +6,8 @@
  * to 2.1 times Python, which put every strategy past plain greedy over a god's store in TypeScript only).
  *
  * Needs the built Python runtime (lib/game-runtime/dist/python-runtime.bin.gz: `pnpm --filter @workspace/engine dev`
- * builds it); skipped, saying so, where it has not been built.
+ * builds it); skipped, saying so, where it has not been built. CI's `unit (rest)` job builds the bundle and sets
+ * CG_REQUIRE_PYTHON_RUNTIME=1, where a missing bundle is a failure, not a skip (.github/workflows/deploy.yml).
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -15,7 +16,7 @@ import { LANGUAGE_SPECS } from "@workspace/game-core";
 
 const bundle = new URL("../../../../lib/game-runtime/dist/python-runtime.bin.gz", import.meta.url);
 
-test("the same program costs about the same to summon in Python and in TypeScript", { skip: existsSync(bundle) ? false : "the Python runtime bundle is not built" }, async () => {
+test("the same program costs about the same to summon in Python and in TypeScript", { skip: existsSync(bundle) || process.env.CG_REQUIRE_PYTHON_RUNTIME ? false : "the Python runtime bundle is not built" }, async () => {
   const { pricePairs } = await import("../../scripts/language-price.ts");
   const rows = await pricePairs();
   assert.equal(rows.length, 10);
