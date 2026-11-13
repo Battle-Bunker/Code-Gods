@@ -495,3 +495,7 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:50;op
 @media (pointer: coarse) { input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea { font-size: max(16px, 1em); } }
 /* Players who ask for reduced motion get none anywhere, not only where a component remembered to guard (2.3.3). */
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
+/* An object's popover that opened above it stands a line clear (lib/object-views views.tsx, data-clear-above): the gap is
+   inside Radix's positioning wrapper, which must not take the clicks meant for what shows through it (a row's Look button). */
+[data-radix-popper-content-wrapper]:has(> [data-clear-above]){pointer-events:none!important}
+[data-clear-above]{pointer-events:auto}
