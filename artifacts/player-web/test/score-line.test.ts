@@ -172,6 +172,11 @@ test("what each agent's moves earned, counted from the events the pane holds, wi
   assert.equal(earningsLine(earned.get("a1"), "grid"), "2 of its latest moves, counted here: +108 points on 2 grids (+54 a move). Only the latest events are counted, not the whole game.");
   assert.equal(earningsLine(earned.get("a2"), "grid"), "1 of its latest moves, counted here: −10 points on 1 grid. Only the latest events are counted, not the whole game.");
   assert.equal(earningsLine(undefined, "grid"), null);
+  // A replace keeps the agent's id: only the moves of its current program count (after its agent.replaced event, or after a known boundary).
+  const replacedMid = [...events.slice(0, 2), { type: "agent.replaced", agentId: "a1", worldSeconds: 1.5 }, ...events.slice(2)];
+  assert.deepEqual(agentEarnings(replacedMid).get("a1"), { moves: 1, points: 58, objects: 1 }, "the +50 was the old program's");
+  assert.deepEqual(agentEarnings(events, new Map([["a1", 1]])).get("a1"), { moves: 1, points: 58, objects: 1 }, "the same from a boundary, when the event is not among them");
+  assert.deepEqual(agentEarnings(events, new Map([["a1", 1]])).get("a2"), { moves: 1, points: -10, objects: 1 }, "another agent is untouched");
   assert.equal(earningsLine({ moves: 1234, points: 1240.4, objects: 23 }, "grid"), "1,234 of its latest moves, counted here: +1,240.4 points on 23 grids (+1 a move). Only the latest events are counted, not the whole game.");
   assert.equal(earningsLine({ moves: 2, points: 108, objects: 2 }, "grid", { third: true }), "2 of their agent's latest moves, counted here: +108 points on 2 grids (+54 a move). Only the latest events are counted, not the whole game.");
   // A room that blurs the others' side: the points are an estimate, and the line says "about".

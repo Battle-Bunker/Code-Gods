@@ -35,6 +35,24 @@ export const QUERY_REFS: Record<QueryName, FunctionReference<"query">> = {
 };
 
 const noSubscription = () => () => {};
+const NONE: readonly [string, string][] = [];
+
+/**
+ * This consumer's failed queries ([key, message] each), held in its pane's record, or the dock's outside any pane,
+ * while they fail: let go when one delivers a value (it leaves the list) or the consumer unmounts. Counted per holder
+ * there, so one consumer letting go does not hide a failure another still has (sdk/query-errors.ts).
+ */
+function useHeldFailures(failures: readonly [string, string][]) {
+  const pane = useContext(PaneErrorContext);
+  const signature = failures.map(f => `${f[0]}\u0000${f[1]}`).join("\u0001");
+  useEffect(() => {
+    if (!failures.length) return;
+    const record = pane ?? queryErrors;
+    for (const [key, message] of failures) record.hold(key, message);
+    return () => { for (const [key] of failures) record.release(key); };
+    // `signature` covers the failures.
+  }, [signature, pane]); // eslint-disable-line react-hooks/exhaustive-deps
+}
 
 /**
  * A live query; in the dock's replay mode (sdk/replay-source.ts) the replay answers it at the playhead instead, and
@@ -54,15 +72,7 @@ export const useSdkQuery: UseSdkQuery = (name, args) => {
     [key]); // eslint-disable-line react-hooks/exhaustive-deps
   const answered = (useQueries(request as Parameters<typeof useQueries>[0]) as Record<string, unknown>).q;
   const failure = answered instanceof Error ? answered : null;
-  const pane = useContext(PaneErrorContext);
-  useEffect(() => {
-    if (!key) return;
-    const record = pane ?? queryErrors;
-    if (failure) record.report(key, failure.message);
-    else if (answered !== undefined) record.clear(key);
-    // Gone with its consumer: a failure nobody is subscribed to any more is not shown.
-    return () => { if (failure) record.clear(key); };
-  }, [key, failure, answered, pane]);
+  useHeldFailures(failure ? [[key, failure.message]] : NONE);
   const live = failure ? undefined : answered;
   const fromReplay = useSyncExternalStore(served ? replay!.subscribe : noSubscription,
     () => (served ? replay!.answer(name, args as Record<string, unknown>) : undefined));
@@ -86,10 +96,13 @@ export const useSdkQueries: UseSdkQueries = (name, argsList) => {
     if (next.length !== answers.current.length || next.some((a, i) => a !== answers.current[i])) answers.current = next;
     return answers.current;
   });
+  // Each failed one is held for its pane (or the dock) like useSdkQuery's, so a list that cannot load says so
+  // instead of loading for ever; its consumer gets "not loaded" for it.
+  const failures = served ? NONE : argsList.flatMap((args, i): [string, string][] => { const r = live[String(i)]; return r instanceof Error ? [[`${name}:${JSON.stringify(args)}`, r.message]] : []; });
+  useHeldFailures(failures);
   return argsList.map((_args, i) => {
     if (served) return fromReplay[i];
     const result = live[String(i)];
-    // A failed one is "not loaded" for its consumer, like useSdkQuery's (the page stands).
     if (result instanceof Error) return undefined;
     return result;
   }) as never;

@@ -16,7 +16,7 @@ import { useActions, useDockState } from "@/sdk";
 import { errorText, noticeStore } from "@/core/notices";
 import { BUSY_ATTEMPTS, BUSY_RETRY_MS, busyMessage, createAttempts, deadlineFor, headerNotice, isBusy, receiptNotice, type Examined } from "./command-deadline";
 
-import { pendingReplaceOnReceipt, pendingReplaceOnSend, putBackText, replacedText, type PendingReplace, type PreviousVersion } from "@/core/panels/first-agent";
+import { pendingReplaceOnReceipt, pendingReplaceOnSend, putBackText, rememberPrice, replacedText, type PendingReplace, type PreviousVersion, type PriceMemory } from "@/core/panels/first-agent";
 export type Lang = Language;
 export type Unknown = { envelope: Envelope; error: string };
 export type Validation = { source: string; language: Lang; result: CommandResult };
@@ -71,10 +71,10 @@ export type RunnerState = {
   /** "Other starting points" was pressed outside the forge: the editor opens its shelf (the time of the press). */
   shelf: number;
   /** The summon price of each program checked on this page (by its exact source), so a starter's price is shown once known. Never hard-coded. */
-  prices: ReadonlyMap<string, number>;
+  prices: PriceMemory;
 };
 
-let state: RunnerState = { busy: null, notice: null, unknown: null, retrying: null, failed: null, validation: null, draft: { source: "", language: null }, editing: false, firstSummon: 0, ownDraft: false, origin: null, replace: null, replaced: null, previous: null, reveal: null, revealObject: null, shelf: 0, prices: new Map() };
+let state: RunnerState = { busy: null, notice: null, unknown: null, retrying: null, failed: null, validation: null, draft: { source: "", language: null }, editing: false, firstSummon: 0, ownDraft: false, origin: null, replace: null, replaced: null, previous: null, reveal: null, revealObject: null, shelf: 0, prices: { gameId: "", prices: new Map() } };
 const listeners = new Set<() => void>();
 /** One command at a time, each with its deadline; only the latest attempt's outcome reaches the state. */
 const attempts = createAttempts();
@@ -97,8 +97,18 @@ export const runner = {
   clearPrevious() { if (state.previous) set({ previous: null }); },
   /** The remembered agent's first counted moves, as they accumulate (score-line.ts accumulateFirstMoves). */
   setPreviousSince(since: NonNullable<PreviousVersion["since"]>) { if (state.previous && state.previous.since !== since) set({ previous: { ...state.previous, since } }); },
-  /** The world time of the replace, once known (its event's, else when its receipt was seen): only later moves are the new version's. */
-  setPreviousWorld(replacedWorld: number) { if (state.previous && state.previous.replacedWorld === undefined) set({ previous: { ...state.previous, replacedWorld } }); },
+  /**
+   * The world time of the replace (panels/first-agent.ts replaceBoundary): the stand-in first, then its own event's,
+   * which overwrites it and starts the count of the new version's moves again (it was counted from the stand-in).
+   */
+  setPreviousWorld(replacedWorld: number, fromEvent: boolean) {
+    const p = state.previous;
+    if (!p || p.fromEvent || (p.replacedWorld === replacedWorld && !!p.fromEvent === fromEvent)) return;
+    const { since: _since, ...rest } = p;
+    set({ previous: { ...(p.replacedWorld === undefined ? p : rest), replacedWorld, fromEvent } });
+  },
+  /** A starter's checked price, for the shelf: by game, language and source (first-agent.ts rememberPrice); another game's are dropped. */
+  setPrice(gameId: string, key: string, cost: number) { const prices = rememberPrice(state.prices, gameId, key, cost); if (prices !== state.prices) set({ prices }); },
   setOrigin(origin: string | null) { if (state.origin !== origin) set({ origin }); },
   setOwnDraft(ownDraft: boolean) { if (state.ownDraft !== ownDraft) set({ ownDraft }); },
   /** Ignored while a summon is in flight: a second press can never buy a second copy. */
@@ -149,7 +159,6 @@ export function useGameCommands() {
       set({
         busy: null, unknown: null, retrying: null, notice,
         ...(command.type === "validate" && result.validation ? { validation: { source: command.source, language: command.language, result } } : {}),
-        ...(command.type === "validate" && result.accepted && result.validation?.valid ? { prices: new Map(state.prices).set(command.source, result.validation.cost) } : {}),
       });
       // The forge shows its own notices; anything else is said under the header.
       if (!examined && !(command.type === "chat" && result.accepted)) noticeStore.push(headerNotice(command.type, result, say), result.accepted ? "info" : "error");

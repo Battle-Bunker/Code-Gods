@@ -34,7 +34,7 @@ import {
   STATE_LEGEND, actualLine, afterShareLine, agentState, energyLine, estimateLine, laneKind, num, perSecond, plain, runwayFraction, runwaySeconds, runwayText,
   allocationSettled, shareLine, skipLine, spentLine, statusText, summonLine, yourPowerLine, type Seg,
 } from "./agent-labels";
-import { OWN_FULL_DETAIL, WORKING_TEXT, fullStoreOneAgent, spendsAsItEarns, overdraft, overdraftTone, agentDebtDetail, agentDebtLine, destroyDebtLine, fillText, owes, ownEnergyLine, ownStoreFull, shareCapacityLines, storeFraction, storeState, storedLine } from "./energy-capacity";
+import { OWN_FULL_DETAIL, destroyReturnsLine, fullStoreAdvice, WORKING_TEXT, fullStoreOneAgent, spendsAsItEarns, overdraft, overdraftTone, agentDebtDetail, agentDebtLine, destroyDebtLine, fillText, owes, ownEnergyLine, ownStoreFull, shareCapacityLines, storeFraction, storeState, storedLine } from "./energy-capacity";
 import { PanelEmpty, TextButton, type PanelProps } from "./kit";
 import { maxShareFor, parseSharePercent, shareProblem } from "./power-share";
 import { PointsNow, useOpenObject, useOwnActLines } from "./score-lines";
@@ -136,6 +136,8 @@ export type AgentsViewProps = {
   showCosts: boolean;
   showSource: boolean;
   can: Affordances["can"];
+  /** The agents are shown as another player sees them (a replay): no advice about what to do with them. */
+  seenAs?: boolean;
   wait: (a: MyAgent) => number;
   onEdit: (a: MyAgent) => void;
   onSetShare: (a: MyAgent, share: number) => void;
@@ -161,7 +163,7 @@ export type AgentsViewProps = {
 };
 
 /** The panel without its data hooks, so the gallery (src/gallery/agents.tsx) can draw it from fixtures. */
-export function AgentsView({ agents, self, powerPerSecond, fullChargeSeconds, changeReadRatio, costModel, world, samples, window: windowS, ended, showCosts, showSource, can, wait, onEdit, onSetShare, onDestroy, footer, header, actLines, actObjects, onShowObject, onOtherStarts, earnLines, versions, rung, settling }: AgentsViewProps) {
+export function AgentsView({ agents, self, powerPerSecond, fullChargeSeconds, changeReadRatio, costModel, world, samples, window: windowS, ended, showCosts, showSource, can, wait, onEdit, onSetShare, onDestroy, footer, header, actLines, actObjects, onShowObject, onOtherStarts, earnLines, versions, rung, settling, seenAs }: AgentsViewProps) {
   const [confirm, setConfirm] = useState<string | null>(null);
   const { editCode, destroy, allocatePower } = can;
   const showDestroy = destroy.ok || !destroy.hidden;
@@ -178,7 +180,7 @@ export function AgentsView({ agents, self, powerPerSecond, fullChargeSeconds, ch
           <p className="font-medium text-foreground" title={SCORE_LINES.energy}><Say segs={yourPowerLine({ total, allocated: self.allocated, income: self.income, energy: self.energy ?? 0, settling })} /></p>
           {self.capacity !== undefined && (
             <p data-testid="text-own-capacity" title={ownStoreFull(self.energy ?? 0, self.capacity) ? OWN_FULL_DETAIL : undefined} className={`flex flex-wrap items-center gap-x-3 gap-y-1 ${self.capacity > 0 && owes(self.energy ?? 0) === 0 ? "text-foreground" : "font-semibold text-destructive"}`}>
-              {!ended && agents.length === 1 && ownStoreFull(self.energy ?? 0, self.capacity) ? (<>
+              {fullStoreAdvice({ ended, agents: agents.length, energy: self.energy ?? 0, capacity: self.capacity, canAllocate: allocatePower.ok, hasShare: agents[0]?.powerShare !== undefined, seenAs: !!seenAs }) ? (<>
                 <span data-testid="text-full-one-agent">{fullStoreOneAgent(agentLabel(agents[0].name, 0))}</span>
                 {/* The controls are one press away; nothing is changed by the press itself. */}
                 <TextButton boxed testId="button-give-more-power" onClick={() => { const input = document.getElementById(`input-power-share-${agents[0].id}`); input?.scrollIntoView({ block: "center" }); input?.focus(); }}>Give {agentLabel(agents[0].name, 0)} more power</TextButton>
@@ -273,6 +275,7 @@ export function AgentsView({ agents, self, powerPerSecond, fullChargeSeconds, ch
                   </>) : (
                     <TextButton testId={`button-destroy-agent-${a.id}`} disabled={!destroy.ok} onClick={() => setConfirm(a.id)} title={destroy.ok ? "Free. It can't be undone." : destroy.reason}>Destroy</TextButton>
                   ))}
+                  {confirm === a.id && !destroyDebt && destroyReturnsLine(a.energy) && <p data-testid={`text-destroy-returns-${a.id}`} className="basis-full text-xs text-muted-foreground">{destroyReturnsLine(a.energy)}</p>}
                   {destroyDebt && <p data-testid={`text-destroy-debt-${a.id}`} role="alert" className="basis-full text-xs font-semibold text-destructive">{destroyDebt}</p>}
                 </div>
               )}
@@ -362,7 +365,7 @@ export default function Agents({ params, phase, paneId }: PanelProps<"agents">) 
         void commands.replace({ type: "replace", agentId: target.id, language: previous.language as Lang, source: previous.source },
           { name: previous.name, source: previous.source, putBack: true, outgoingSource: target.source, language: previous.language, cost: previous.cost,
             // What is remembered next: the restored version, to say how undoing went (no further put-back from it).
-            previous: { gameId: previous.gameId, agentId: target.id, restored: true, source: target.source, language: target.language, name: previous.name, newSource: previous.source } })
+            previous: { gameId: previous.gameId, agentId: target.id, restored: true, source: target.source, language: target.language, name: previous.name, newSource: previous.source, sentWorld: world } })
           .then(result => {
             if (result === undefined) notifyError(new Error(BUSY_NOTHING_CHANGED));
             else if (!result.accepted) notifyError(new Error(`${previous.name} was not put back: ${result.message || "the game refused"}`));
@@ -397,6 +400,7 @@ export default function Agents({ params, phase, paneId }: PanelProps<"agents">) 
       <AgentsView agents={agents} self={self} powerPerSecond={economy?.powerPerSecond} fullChargeSeconds={economy?.fullChargeSeconds} changeReadRatio={economy?.changeReadRatio} costModel={costModelOf(economy)} world={world} samples={history} window={params.window} ended={ended}
         showCosts={params.showCosts} showSource={params.showSource} can={can.can} wait={secondsUntilEligible}
         onEdit={a => dock.forgeEdit(a.source, isLanguage(a.language) ? a.language : undefined, a.id)}
+        seenAs={!!can.seenAs}
         onSetShare={(a, share) => void commands.run({ type: "allocatePower", agentId: a.id, share })}
         onDestroy={a => void commands.run({ type: "destroy", agentId: a.id }, destroyedText(agentLabel(a.name, agents.indexOf(a)))).then(result => {
           // Accepted: the split shown is the one from before the destroy until the next state arrives (both

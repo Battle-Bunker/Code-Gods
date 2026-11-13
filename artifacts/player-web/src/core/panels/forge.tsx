@@ -25,7 +25,7 @@ import { forgeLanguage, forgeLanguages, forgeSandbox } from "@/core/game/languag
 import { useAffordances } from "@/core/use-affordances";
 import { useDockActions } from "@/dock/actions";
 import { summonNeeds } from "./summon-needs";
-import { starterSwap, PUTTING_BACK, DIFFERENT_IDEAS, replaceQuestion, shelfOpen, starterShelf, COMPARISON_CAVEAT, MOVE_MEANS, afterCheck, checkedLine, versionComparison, REPLACE_WHY, draftOrigin, replaceLabel, replaceOffer, sameVersionNote, COPY_HINT, COPY_LABEL, REPLACE_QUESTION, SUMMONED_NEXT, isCopy, replaceNeedsConfirm, armedStep, armedText, energyHint, firstAgentFill, firstAgentHint, firstSummonStep, lacksEnergy, nextFreeName, proposedName, secondAgentHint, storeAfterSummonText, summonReady, summonedText, untouchedExample, type ArmedSummon, type Example } from "./first-agent";
+import { boundaryOf, descriptionToSend, keepsNameNote, priceKey, startsWithLine, summonShare, starterSwap, PUTTING_BACK, DIFFERENT_IDEAS, replaceQuestion, shelfOpen, starterShelf, COMPARISON_CAVEAT, MOVE_MEANS, afterCheck, checkedLine, versionComparison, REPLACE_WHY, draftOrigin, replaceLabel, replaceOffer, sameVersionNote, COPY_HINT, COPY_LABEL, REPLACE_QUESTION, SUMMONED_NEXT, isCopy, replaceNeedsConfirm, armedStep, armedText, energyHint, firstAgentFill, firstAgentHint, firstSummonStep, lacksEnergy, nextFreeName, proposedName, secondAgentHint, storeAfterSummonText, summonReady, summonedText, untouchedExample, type ArmedSummon, type Example } from "./first-agent";
 import { progressLine } from "@/core/game/command-deadline";
 import { PRICE_GROWS, otherDiagnostics, priceParts, storeTooSmall } from "./validation-text";
 import { OBSERVER_DESCRIPTION, OBSERVER_NAME, observerRate, observerSource, rateText } from "./observer";
@@ -71,6 +71,7 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
   // A name the player typed themselves is never changed for them (first-agent.ts proposedName).
   const nameTyped = useRef(false);
   const [description, setDescription] = useState("");
+  const descriptionTyped = useRef(false);
   // The agent this editor last summoned (and the share of the player's power it took): said plainly under the buttons,
   // since the button itself goes back to "Summon".
   const [summoned, setSummonedState] = useState<{ name: string; share?: number; source: string } | null>(null);
@@ -85,8 +86,6 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
   const [ringing, setRinging] = useState(false);
   const dock = useDockActions();
   const obs = useDockState({ hz: 2 });
-  // A summon from here takes the default share: half of the power you have not given to agents yet.
-  const newShare = obs?.self.allocated !== undefined ? defaultShare(obs.self.allocated) : undefined;
   const { instance } = useMutators();
   const commands = useGameCommands();
   const { draft, validation, busy, notice, retrying, failed, firstSummon, unknown, origin, replaced, replace: replacePendingState } = useRunner();
@@ -122,6 +121,10 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
   // Not known while the agent list is loading (an empty list then is not "no agents"), unless a share above zero
   // already says an agent holds it.
   const agentCount = !obs ? undefined : (obs.self.allocated ?? 0) > 0 ? Math.max(1, agents.length) : agentsLoading ? undefined : agents.length;
+  // The first agent takes three quarters of the player's power (first-agent.ts summonShare); any later summon from
+  // here takes the engine's default share: half of the power not given to agents yet.
+  const firstShare = summonShare({ agents: agentCount, allocated: obs?.self.allocated });
+  const newShare = firstShare ?? (obs?.self.allocated !== undefined ? defaultShare(obs.self.allocated) : undefined);
   const fill = firstAgentFill({ editable: !ended, agents: agentCount, source, language, examples, offered: offered.current });
   useEffect(() => {
     if (!fill) return;
@@ -138,12 +141,23 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
   // is offered as its replacement, since a changed copy summoned beside it undoes its work (first-agent.ts).
   useEffect(() => { if (!agentsLoading) runner.setOrigin(draftOrigin(origin, source, language, agents)); });
   const originAgent = origin ? agents.find(a => a.id === origin) : undefined;
+  // A draft that adopts an agent shows that agent's own description (not one left from another draft), unless the
+  // player typed in the box since; a replace then sends a description only when it differs (descriptionToSend).
+  const originDescription = originAgent ? originAgent.description ?? "" : undefined;
+  useEffect(() => {
+    if (!origin || originDescription === undefined) return;
+    descriptionTyped.current = false;
+    setDescription(originDescription);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [origin, originDescription === undefined]);
   const replacing = !ended && replaceOffer(originAgent, source);
   // How the last replace ended (the runner finishes it, on a retry too): said only while the editor holds that code.
   const replaceResult = replaced && replaced.source === source ? replaced : null;
   const twinsNote = replacing ? sameVersionNote(originAgent, agents) : null;
-  const prices = useRunner().prices;
-  const shelf = useMemo(() => starterShelf(starters, { source, agents, prices }), [starters, source, agents, prices]);
+  // The starters' prices checked in THIS game (a price depends on the game's settings and on the language).
+  const priceMemory = useRunner().prices;
+  const prices = obs?.gameId && priceMemory.gameId === obs.gameId ? priceMemory.prices : undefined;
+  const shelf = useMemo(() => starterShelf(starters, { source, agents, prices, language }), [starters, source, agents, prices, language]);
   // The shelf opens by itself ONCE, the first time the player has an agent and the energy for another; after that the
   // disclosure is the player's own to open and close (its `open` is not controlled).
   const shelfBox = useRef<HTMLDetailsElement>(null);
@@ -186,10 +200,12 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
     // offered for something that is already in the game); a copy, if asked for, gets the next free name when summoned.
     const twin = agents.find(a => a.source === source && a.language === language);
     if (twin) { if (!nameTyped.current && twin.name && name !== twin.name) setName(twin.name); return; }
+    // A replace keeps the agent's name: no "NAME 2" is proposed for it (the note under the box says so).
+    if (replacing) return;
     const next = proposedName({ name, typed: nameTyped.current, existing: agents.map(a => a.name) });
     if (next) setName(next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agentNames, name, ended, source, language]);
+  }, [agentNames, name, ended, source, language, replacing]);
   // Paid observation (economy.observation; docs/energy-model.md §11.3): the observer agent as a ready template.
   const observer = useMemo(() => {
     const e = obs?.economy, mode = e?.observation;
@@ -208,7 +224,8 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
     runner.setDraft({ source: starter.source });
     if (!nameTyped.current) setName(nextFreeName(starter.name, agents.map(a => a.name), AGENT_NAME_MAX));
     // The observer's own description does not describe a starter ("Only looks…" on an agent that changes grids).
-    if (description === OBSERVER_DESCRIPTION) setDescription("");
+    // Nor does one loaded from the agent that was in the editor (only what the player typed for this draft stays).
+    if (!descriptionTyped.current || description === OBSERVER_DESCRIPTION) setDescription("");
   };
   const loadObserver = () => {
     if (!observer) return;
@@ -217,7 +234,7 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
     runner.setDraft({ source: observer.source });
     // A name or description the player typed is theirs; anything else (the example's name) gives way to the observer's.
     if (!nameTyped.current) setName(nextFreeName(OBSERVER_NAME, agents.map(a => a.name), AGENT_NAME_MAX));
-    if (!description.trim()) setDescription(OBSERVER_DESCRIPTION);
+    if (!descriptionTyped.current || !description.trim()) setDescription(OBSERVER_DESCRIPTION);
   };
   const insert = (name: string) => {
     const el = editor.current;
@@ -230,6 +247,9 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
   const gameplay = can.validate.ok;
   const current = validation && validation.source === source && validation.language === language ? validation.result.validation : undefined;
   const energy = obs?.self.energy ?? 0;
+  // A starter's valid check is remembered for the shelf (starters only: the player's own code is not listed there).
+  const starterPrice = current?.valid && starters.some(x => x.source === source) ? current.cost : undefined;
+  useEffect(() => { if (obs?.gameId && starterPrice !== undefined) runner.setPrice(obs.gameId, priceKey(language, source), starterPrice); }, [obs?.gameId, starterPrice, language, source]);
   // The draft is exactly an agent the player has (just summoned or replaced, or opened unchanged): nothing about a
   // price, an energy wait or an armed summon is said for it; "Summon another copy" is the one quiet action.
   const copyNow = !ended && isCopy(source, language, agents);
@@ -251,7 +271,7 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
   const summon = (agent: Omit<ArmedSummon, "cost">, wasArmed?: ArmedSummon) => {
     setRefused(null);
     shareAtSummon.current = newShare;
-    void commands.run({ type: "summon", language: agent.language as Lang, source: agent.source, name: agent.name, ...(agent.description ? { description: agent.description } : {}) }).then(async result => {
+    void commands.run({ type: "summon", language: agent.language as Lang, source: agent.source, name: agent.name, ...(agent.description ? { description: agent.description } : {}), ...(firstShare !== undefined ? { powerShare: firstShare } : {}) }).then(async result => {
       if (!result) return;
       if (result.accepted) { setSummoned(agent.name, agent.source); return; }
       if (wasArmed) { setRefused({ armed: wasArmed, message: result.message || "The game refused this summon." }); return; }
@@ -271,6 +291,8 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
     setArmed(null);
     summon(armed, armed);
   });
+  // Beside the price: what of the player's stored energy would move to the new agent with its share (not for a replace or a copy's note).
+  const starts = current?.valid && !ended && !replacing && !copyNow ? startsWithLine({ energy, cost: current.cost, allocated: obs?.self.allocated, share: newShare, powerPerSecond: obs?.economy?.powerPerSecond, fullChargeSeconds: obs?.economy?.fullChargeSeconds }) : null;
   const summonOn = !busy && (canSummon || canArm) && !!name.trim();
   // The player's own code with no check of it yet: the primary button checks and goes on (one press).
   const needsCheck = summonable && !canSummon && !canArm && !untouched && !(checked && !!current);
@@ -309,20 +331,22 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
   const remembered = usePreviousVersion(obs?.gameId, agents, agentsLoading, paidLooksEarly ? undefined : events, obs?.economy?.worldSeconds);
   const room = useRoomInfo();
   const paidLooks = obs?.economy?.observation !== undefined && obs.economy.observation !== "free";
-  const earnings = useMemo(() => (paidLooks ? new Map<string, { moves: number; points: number; objects: number }>() : agentEarnings(events)), [events, paidLooks]);
+  // Since a replace keeps the agent's id, each agent's figure is its CURRENT program's: from its latest replace on.
+  const earnings = useMemo(() => (paidLooks ? new Map<string, { moves: number; points: number; objects: number }>() : agentEarnings(events, boundaryOf(remembered?.previous))), [events, paidLooks, remembered?.previous]);
   const pressReplace = (checkedCost?: number) => {
     const old = originAgent;
     if (!old) return;
     if (checkedCost === undefined && (!canSummon || busy)) return;
-    const as = nameTyped.current && name.trim() ? name.trim() : old.name?.trim() || name.trim() || "Agent";
     setRefused(null); setSummonedState(null);
     // The engine's one "replace" command: the agent keeps its id, name, power share, energy and counts, and the player
     // pays the new program's price. The runner keeps the intent until the receipt (also through a retry), then writes
     // the confirmation and the previous-version memory.
-    const kept = old.name?.trim() || as;
-    void commands.replace({ type: "replace", agentId: old.id, language, source, ...(description.trim() ? { description: description.trim() } : {}) },
+    const kept = old.name?.trim() || name.trim() || "Agent";
+    // A description goes with it only when the player changed it for this draft (else the agent keeps its own).
+    const said = descriptionToSend(description, old.description);
+    void commands.replace({ type: "replace", agentId: old.id, language, source, ...(said ? { description: said } : {}) },
       { name: kept, source, cost: checkedCost ?? current?.cost,
-        ...(obs?.gameId ? { previous: { gameId: obs.gameId, agentId: old.id, source: old.source, language: old.language, name: kept, cost: old.summonCost, newSource: source,
+        ...(obs?.gameId ? { previous: { gameId: obs.gameId, agentId: old.id, source: old.source, language: old.language, name: kept, cost: old.summonCost, newSource: source, sentWorld: obs.economy?.worldSeconds,
           ...(earnings.get(old.id) ? { before: earnings.get(old.id) } : {}) } } : {}) });
   };
   // "Summon my first agent", pressed outside this pane (runner.firstSummon): the untouched example is summoned here, by
@@ -416,11 +440,12 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
         </label>
         <label className="space-y-0.5 text-xs text-muted-foreground">
           Description (optional)
-          <input data-testid="input-agent-description" value={description} maxLength={AGENT_DESCRIPTION_MAX} onChange={e => setDescription(e.target.value)} placeholder="What it does and why"
+          <input data-testid="input-agent-description" value={description} maxLength={AGENT_DESCRIPTION_MAX} onChange={e => { descriptionTyped.current = true; setDescription(e.target.value); }} placeholder="What it does and why"
             className="block w-full border border-[hsl(var(--input))] bg-background px-2 py-1 text-sm text-foreground outline-none focus:border-primary" />
         </label>
       </div>
-      {taken !== name.trim() && !copyNow && (
+      {replacing && originAgent?.name?.trim() && <p data-testid="text-name-kept" className="text-xs text-muted-foreground">{keepsNameNote(originAgent.name.trim())}</p>}
+      {taken !== name.trim() && !copyNow && !replacing && (
         // A name the player typed themselves stays; the pane says it is taken and offers the next free one.
         <p data-testid="text-name-taken" className="text-xs text-muted-foreground">You already have an agent named {name.trim()}. <TextButton boxed testId="button-next-free-name" onClick={() => { nameTyped.current = false; setName(taken); }}>Name this one {taken}</TextButton></p>
       )}
@@ -496,7 +521,9 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
         // sentence false: "25% of your power now feeds this agent… at most 0").
         const live = agents.find(a => a.source === summoned.source && a.name === summoned.name);
         const unchanged = !live || live.powerShare === undefined || summoned.share === undefined || Math.abs(live.powerShare - summoned.share) < 0.005;
-        const store = unchanged && (obs?.self.capacity ?? 0) > 0 ? storeAfterSummonText({ share: summoned.share, capacity: obs?.self.capacity }) : null;
+        // From the real numbers, once the state carries this agent: its share and the income the player keeps.
+        const settled = !!live && live.powerShare !== undefined && (obs?.self.allocated ?? 0) >= live.powerShare - 0.005;
+        const store = unchanged && settled ? storeAfterSummonText({ share: live!.powerShare, income: obs?.self.income }) : null;
         return (
           <div data-testid="text-summoned" className="space-y-0.5 text-sm">
             <p className="font-semibold text-[hsl(var(--accent))]">{summonedText(summoned.name, obs?.phase === "planning")}{" "}
@@ -581,6 +608,7 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
             {/* The verdict, the price and any warning; the rest is under "Details" (it was a wall of jargon on a phone). */}
             <p className="text-xs" data-testid="text-validation-verdict"><strong className="font-mono">{current.valid ? "VALID" : "INVALID"}</strong>
               {current.valid && <> · Price {fmt(current.cost)} ⚡, paid once from your energy; about {(Math.round(current.expectedActCost * 10) / 10).toFixed(1)} ⚡ a move.</>}</p>
+            {starts && <p data-testid="text-starts-with" className="text-xs text-muted-foreground">{starts}</p>}
             {current.warnings?.length ? (
               // The examination's warnings (docs/rules-design.md §11): shown before the summon, which they never block.
               <div data-testid="text-validation-warnings" className="mt-1 space-y-0.5 text-xs">

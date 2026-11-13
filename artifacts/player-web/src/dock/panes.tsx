@@ -29,8 +29,13 @@ function Frame({ paneId, children, className = "", attrs }: { paneId: string; ch
     el.addEventListener("scroll", measure, { passive: true });
     const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
     observer?.observe(el);
-    if (el.firstElementChild) observer?.observe(el.firstElementChild);
-    return () => { el.removeEventListener("scroll", measure); observer?.disconnect(); };
+    // The content grows and shrinks without the pane's box changing (its wrapper is as tall as the pane): any change
+    // inside it is measured again, once a frame at most, so the fade comes when a pane fills after load and goes when
+    // its content shrinks.
+    let frame = 0;
+    const changed = typeof MutationObserver === "undefined" ? null : new MutationObserver(() => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; measure(); }); });
+    changed?.observe(el, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ["open", "class", "style"] });
+    return () => { el.removeEventListener("scroll", measure); observer?.disconnect(); changed?.disconnect(); if (frame) cancelAnimationFrame(frame); };
   }, []);
   const fade = more ? { maskImage: FADE, WebkitMaskImage: FADE } : undefined;
   return (

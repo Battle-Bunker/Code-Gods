@@ -7,7 +7,8 @@
  */
 import { useCallback, useMemo } from "react";
 import { useDockActions } from "@/dock/actions";
-import { runner } from "@/core/game/runner";
+import { runner, useRunner } from "@/core/game/runner";
+import { boundaryOf } from "./first-agent";
 import { useGoalExplainer } from "@workspace/object-views";
 import { SCORE_LINES, scoreMovesLine, Term } from "@workspace/ui-kit";
 import { useDockState, useEvents, useGameId, useMyAgents, useMyTotals, useObjectContext, useRoomInfo } from "@/sdk";
@@ -94,6 +95,7 @@ export function useOwnActLines(agents: readonly { id: string; name?: string }[],
   // A room that blurs the others' side: a small move of it is not named as the cause (score-line.ts pointsCause).
   const room = useRoomInfo();
   const dockNow = useDockState({ hz: 1 });
+  const previous = useRunner().previous;
   const ended = dockNow?.phase === "ended";
   const observation = dockNow?.economy?.observation;
   const paid = !ended && observation !== undefined && observation !== "free";
@@ -116,12 +118,13 @@ export function useOwnActLines(agents: readonly { id: string; name?: string }[],
     const earned = new Map<string, string>();
     // Not in a room whose looking costs energy: there the points "before" a move are the player's last look at the
     // object, which may predate changes they were never told about, so after minus before is not the move's own effect.
-    const sums = paid ? new Map<string, AgentEarnings>() : agentEarnings(events);
+    // A replace keeps the agent's id: its figure is its current program's, from its latest replace on.
+    const sums = paid ? new Map<string, AgentEarnings>() : agentEarnings(events, boundaryOf(previous));
     for (const [id, sum] of sums) { const line = earningsLine(sum, noun, { third, estimate }); if (line) earned.set(id, line); }
     const objects = new Map<string, string>();
     for (const [id, act] of acts) objects.set(id, act.objectId);
     return { byAgent, latest: acts.latest ? say(acts.latest) : undefined, objects, latestObject: acts.latest?.objectId, earned, sums, estimate };
-  }, [events, goal, noun, agents, third, estimate, paid]);
+  }, [events, goal, noun, agents, third, estimate, paid, previous]);
 }
 
 /** The latest act of any of your agents, under "Your points now". */

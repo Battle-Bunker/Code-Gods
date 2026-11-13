@@ -3,9 +3,8 @@
  * without a renderer fails the typecheck here. `PanelHost` parses the pane's parameters with the panel's schema
  * (invalid → defaults), shows a phase-aware empty state outside the panel's phases, and contains a crash to its pane.
  */
-import { Component, useMemo, useState, type ErrorInfo, type ReactNode } from "react";
-import { PaneErrorContext } from "@/sdk/pane-error-context";
-import { PANE_ERROR_LINE } from "@/sdk/query-errors";
+import { Component, type ErrorInfo, type ReactNode } from "react";
+import { PaneErrors } from "@/core/pane-errors";
 import { PANELS, defaultPanelParams, parsePanelParams, type PanelId, type Phase } from "@workspace/player-client/panels";
 import { PanelEmpty, outOfPhase, type PanelProps, type PanelView } from "./kit";
 import Overview from "./overview";
@@ -39,30 +38,6 @@ export const PANEL_VIEWS = {
  * objects panel, whose empty state says what will appear and offers the next step).
  */
 const ALWAYS_RENDER: ReadonlySet<PanelId> = new Set(["overview", "objects", "public-chat", "rules", "results", "forge", "what-if", "code-output", "timeline"]);
-
-/**
- * One pane's failed live queries, said above its content: the content stays mounted (so its subscriptions stay live
- * and the line goes by itself when a value arrives), "Try again" remounts it. The dock and the other panes are untouched.
- */
-function PaneErrors({ children }: { children: ReactNode }) {
-  const [failed, setFailed] = useState<ReadonlySet<string>>(new Set());
-  const [attempt, setAttempt] = useState(0);
-  const record = useMemo(() => ({
-    report: (key: string) => setFailed(f => (f.has(key) ? f : new Set(f).add(key))),
-    clear: (key: string) => setFailed(f => { if (!f.has(key)) return f; const next = new Set(f); next.delete(key); return next; }),
-  }), []);
-  return (
-    <PaneErrorContext.Provider value={record}>
-      {failed.size > 0 && (
-        <p role="status" data-testid="text-pane-error" className="mb-2 flex flex-wrap items-center gap-2 border-l-2 border-destructive pl-2 text-xs text-muted-foreground">
-          <span>{PANE_ERROR_LINE}</span>
-          <button type="button" className="underline" data-testid="button-pane-retry" onClick={() => { setFailed(new Set()); setAttempt(a => a + 1); }}>Try again</button>
-        </p>
-      )}
-      <div key={attempt} className="contents">{children}</div>
-    </PaneErrorContext.Provider>
-  );
-}
 
 class PanelViewBoundary extends Component<{ children: ReactNode; panelId: PanelId }, { error: Error | null }> {
   state = { error: null as Error | null };

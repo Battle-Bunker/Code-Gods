@@ -5,7 +5,7 @@
  */
 import { useEffect } from "react";
 import { runner, useRunner } from "@/core/game/runner";
-import { COMPARE_OVER, previousTarget, type PreviousVersion } from "./first-agent";
+import { COMPARE_OVER, previousTarget, replaceBoundary, type PreviousVersion } from "./first-agent";
 import { accumulateFirstMoves } from "./score-line";
 
 type Events = Parameters<typeof accumulateFirstMoves>[1];
@@ -18,11 +18,11 @@ export function usePreviousVersion(gameId: string | undefined, agents: readonly 
   const step = loading ? { wait: true as const } : previousTarget(previous, gameId, agents);
   const clear = "clear" in step;
   useEffect(() => { if (clear) runner.clearPrevious(); }, [clear]);
-  // When the replace happened: its `agent.replaced` event's world time when the page has it, else now (the receipt was just seen).
+  // When the replace happened: its OWN `agent.replaced` event's world time (at or after the press), which overwrites
+  // the stand-in (the time the receipt was first seen) used until that event arrives (first-agent.ts replaceBoundary).
   useEffect(() => {
-    if (!previous || previous.replacedWorld !== undefined) return;
-    const at = [...(events ?? [])].reverse().find(e => e.type === "agent.replaced" && e.agentId === previous.agentId)?.worldSeconds ?? worldNow;
-    if (typeof at === "number") runner.setPreviousWorld(at);
+    const boundary = replaceBoundary(previous, events ?? [], worldNow);
+    if (boundary) runner.setPreviousWorld(boundary.world, boundary.fromEvent);
   }, [previous, events, worldNow]);
   // Its first counted moves since then, accumulated as they arrive and frozen at COMPARE_OVER: the comparison never rolls.
   useEffect(() => {

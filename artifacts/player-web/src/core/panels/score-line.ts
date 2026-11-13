@@ -305,14 +305,18 @@ export interface AgentEarnings {
  * the points before. It is the move's own effect at that moment, not what the object earned later, and it covers only
  * the events held, which the line says.
  */
-export function agentEarnings(events: readonly EventLike[]): Map<string, AgentEarnings> {
+export function agentEarnings(events: readonly EventLike[], /** Agent id → the world time of its latest replace known to the page: only its later moves are its current program's. */ boundaries?: ReadonlyMap<string, number>): Map<string, AgentEarnings> {
   const points = new Map<string, number>(), sums = new Map<string, { moves: number; points: number; objects: Set<string> }>();
   for (const e of events) {
+    // A replace keeps the agent's id: what it earned before is another program's, so its count starts again.
+    if (e.type === "agent.replaced" && e.agentId) { sums.delete(e.agentId); continue; }
     if (e.type !== "object.spawned" && e.type !== "object.rescored" && e.type !== "object.transformed") continue;
     if (!e.objectId) continue;
     const before = points.get(e.objectId);
     if (typeof e.payoff === "number") points.set(e.objectId, e.payoff); else points.delete(e.objectId);
     if (e.type !== "object.transformed" || !e.mine || !e.agentId || before === undefined || typeof e.payoff !== "number") continue;
+    const boundary = boundaries?.get(e.agentId);
+    if (boundary !== undefined && !((e.worldSeconds ?? -Infinity) > boundary)) continue;
     const sum = sums.get(e.agentId) ?? { moves: 0, points: 0, objects: new Set<string>() };
     sum.moves += 1; sum.points += e.payoff - before; sum.objects.add(e.objectId);
     sums.set(e.agentId, sum);

@@ -71,14 +71,57 @@ export function summonedText(name: string, planning: boolean): string {
 export const SUMMONED_NEXT = "Then try the change suggested in the code and press Replace.";
 
 /**
- * Why the player's own energy store shrank at a summon: the share of their power the new agent takes, and what their
- * store now holds at most (the live capacity). Null when either is unknown or the game has no capacity.
+ * What the summoned agent took and what the player keeps, from the real numbers: the share it was summoned with and
+ * the player's own income after it (⚡ per second). Null when either is unknown.
  */
-export function storeAfterSummonText(s: { share: number | undefined; capacity: number | undefined }): string | null {
-  if (s.share === undefined || !(s.share > 0) || s.capacity === undefined || !Number.isFinite(s.capacity)) return null;
-  const part = Math.abs(s.share - 0.5) < 0.005 ? "Half" : `${Math.round(s.share * 100)}%`;
-  return `${part} of your power now feeds this agent, so your own store is smaller: at most ${Math.round(s.capacity)} ⚡.`;
+export function storeAfterSummonText(s: { share: number | undefined; income: number | undefined }): string | null {
+  if (s.share === undefined || !(s.share > 0) || s.income === undefined || !Number.isFinite(s.income)) return null;
+  const part = Math.abs(s.share - 0.75) < 0.005 ? "Three quarters" : Math.abs(s.share - 0.5) < 0.005 ? "Half" : `${Math.round(s.share * 100)}%`;
+  const keep = Math.round(s.income * 10) / 10;
+  return keep > 0 ? `${part} of your power now feeds this agent; you keep ${keep.toLocaleString("en-US", { maximumFractionDigits: 1 })} ⚡/s for replacing it or adding another.`
+    : `${part} of your power now feeds this agent; you keep none for yourself, so you cannot summon or replace until you take some back in My agents.`;
 }
+
+/**
+ * The share a summon from the forge asks for. The FIRST agent takes three quarters of the player's power (decided for
+ * the beginner setup: one agent should act often, and a quarter is kept for replacing it or adding another), never
+ * more than what is free; any later agent takes the engine's own default (half of what is unallocated): undefined.
+ */
+export const FIRST_AGENT_SHARE = 0.75;
+export function summonShare(s: { agents: number | undefined; allocated: number | undefined }): number | undefined {
+  if (s.agents !== 0) return undefined;
+  const free = Math.max(0, 1 - (s.allocated ?? 0));
+  const share = Math.floor(Math.min(FIRST_AGENT_SHARE, free) * 1e6 + 1e-9) / 1e6;
+  return share > 0 ? share : undefined;
+}
+
+/**
+ * Beside the price, before a summon: energy moves with power, so when the player's own store would hold more than its
+ * new limit ((unallocated − share) × power × fullChargeSeconds) after paying the price, the excess goes to the new
+ * agent. Null when nothing would move, the price is not payable, or the game has no capacity.
+ */
+export function startsWithLine(s: { energy: number; cost: number; allocated: number | undefined; share: number | undefined; powerPerSecond: number | undefined; fullChargeSeconds: number | undefined }): string | null {
+  if (s.share === undefined || s.powerPerSecond === undefined || s.fullChargeSeconds === undefined || s.cost > s.energy) return null;
+  const limit = Math.max(0, 1 - (s.allocated ?? 0) - s.share) * s.powerPerSecond * s.fullChargeSeconds;
+  const moved = Math.round(s.energy - s.cost - limit);
+  return moved >= 1 ? `It starts with ${moved.toLocaleString("en-US")} ⚡ of your energy that would no longer fit in your own store.` : null;
+}
+
+/** A starter's remembered price: by language and exact source, in one game (the price depends on the game's settings). */
+export const priceKey = (language: string, source: string): string => `${language}\u0000${source}`;
+export interface PriceMemory { readonly gameId: string; readonly prices: ReadonlyMap<string, number> }
+export function rememberPrice(memory: PriceMemory, gameId: string, key: string, cost: number): PriceMemory {
+  if (memory.gameId === gameId && memory.prices.get(key) === cost) return memory;
+  return { gameId, prices: new Map(memory.gameId === gameId ? memory.prices : []).set(key, cost) };
+}
+
+/** The description a replace sends: only one the player changed for this draft (else the engine keeps the agent's own). */
+export function descriptionToSend(description: string, base: string | undefined): string | undefined {
+  const typed = description.trim();
+  return typed && typed !== (base ?? "").trim() ? typed : undefined;
+}
+/** Under the name box while a replace is offered: the name is the agent's, whatever the box says. */
+export const keepsNameNote = (name: string): string => `Replacing keeps the name ${name}. A new name here is for 'Summon beside it'.`;
 
 /**
  * "Summon my first agent" (the planning banner, My agents' empty state, a pane outside its phase): the editor is
@@ -304,8 +347,11 @@ export interface PreviousVersion {
   readonly newSource: string;
   /** The old program's counted moves when it was replaced ("before"). */
   readonly before?: { moves: number; points: number; objects: number };
-  /** The world time of the replace (its `agent.replaced` event's, else the time its receipt was seen): only moves after it are the new version's. */
+  /** The dock's world time when Replace was pressed: only an `agent.replaced` event at or after it is this replace's (an earlier one is the previous replace's). */
+  readonly sentWorld?: number;
+  /** The world time of the replace: only moves after it are the new version's. `fromEvent`: it is the replace's own `agent.replaced` event's; otherwise the time its receipt was seen stands in until that event arrives. */
   readonly replacedWorld?: number;
+  readonly fromEvent?: boolean;
   /** The new version's first counted moves since then, accumulated as they arrive and frozen at COMPARE_OVER (score-line.ts accumulateFirstMoves). */
   readonly since?: { readonly moves: number; readonly points: number; readonly keys: readonly string[]; readonly frozen: boolean };
   /** This memory is of a put-back: the agent runs the restored version; its line says how that is going, and no further put-back is offered. */
@@ -353,8 +399,9 @@ export function previousTarget(previous: PreviousVersion | null, gameId: string 
 export interface Starter { readonly id: string; readonly title: string; readonly blurb: string; readonly name: string; readonly source: string; readonly specific: boolean }
 export interface ShelfRow extends Starter { readonly state: "editor" | "running" | "available"; readonly note: string }
 export const PRICE_AFTER_CHECK = "Its price is shown after Check.";
-export function starterShelf(starters: readonly Starter[], s: { source: string; agents: readonly { source?: string; name?: string }[]; /** The prices checked on this page, by exact source (never hard-coded): shown once known. */ prices?: ReadonlyMap<string, number> }): ShelfRow[] {
+export function starterShelf(starters: readonly Starter[], s: { source: string; agents: readonly { source?: string; name?: string }[]; /** The starters' prices checked in this game, by priceKey(language, source) (never hard-coded): shown once known. */ prices?: ReadonlyMap<string, number>; language?: string }): ShelfRow[] {
   return starters.map(starter => {
+    const price = s.prices?.get(priceKey(s.language ?? "", starter.source));
     const runs = s.agents.find(a => a.source === starter.source);
     const state = starter.source === s.source ? "editor" as const : runs ? "running" as const : "available" as const;
     return {
@@ -362,7 +409,7 @@ export function starterShelf(starters: readonly Starter[], s: { source: string; 
       // Written as the agent's own comment ("my goal"); here it is said to the player.
       blurb: starter.blurb.replace(/\bmy goal\b/g, "your goal"),
       note: `${state === "editor" ? "In the editor now." : state === "running" ? `You are running this one (${runs!.name?.trim() || starter.name}).` : ""}${
-        s.prices?.has(starter.source) ? `${state === "available" ? "" : " "}It costs about ${Math.round(s.prices.get(starter.source)!).toLocaleString("en-US")} ⚡ to summon.` : state === "available" ? PRICE_AFTER_CHECK : ""}`,
+        price !== undefined ? `${state === "available" ? "" : " "}It costs about ${Math.round(price).toLocaleString("en-US")} ⚡ to summon.` : state === "available" ? PRICE_AFTER_CHECK : ""}`,
     };
   });
 }
@@ -391,4 +438,24 @@ export function starterSwap(source: string, language: string, byLanguage: Readon
     if (held) return byLanguage[language]?.find(s => s.id === held.id)?.source ?? null;
   }
   return null;
+}
+
+/**
+ * When the remembered replace happened, for the "since" count: its own `agent.replaced` event (the agent's, at or
+ * after the press: an earlier one is a previous replace's, and taking it compared a version with itself), which
+ * overwrites a stand-in; until that event is among the events, the world time now stands in (the receipt was just
+ * seen). Null: nothing to change.
+ */
+export function replaceBoundary(previous: Pick<PreviousVersion, "agentId" | "sentWorld" | "replacedWorld" | "fromEvent"> | null,
+  events: readonly { type: string; agentId?: string; worldSeconds?: number }[], worldNow: number | undefined): { world: number; fromEvent: boolean } | null {
+  if (!previous || previous.fromEvent) return null;
+  const own = [...events].reverse().find(e => e.type === "agent.replaced" && e.agentId === previous.agentId && typeof e.worldSeconds === "number" && e.worldSeconds >= (previous.sentWorld ?? -Infinity));
+  if (own) return { world: own.worldSeconds!, fromEvent: true };
+  if (previous.replacedWorld !== undefined || typeof worldNow !== "number") return null;
+  return { world: worldNow, fromEvent: false };
+}
+
+/** The remembered replace as the boundary of that agent's earnings (score-line.ts agentEarnings): only its later moves are its current program's. */
+export function boundaryOf(previous: Pick<PreviousVersion, "agentId" | "replacedWorld"> | null | undefined): ReadonlyMap<string, number> | undefined {
+  return previous && previous.replacedWorld !== undefined ? new Map([[previous.agentId, previous.replacedWorld]]) : undefined;
 }
