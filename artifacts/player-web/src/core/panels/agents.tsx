@@ -31,7 +31,7 @@ import {
   STATE_LEGEND, actualLine, afterShareLine, agentState, energyLine, estimateLine, laneKind, num, perSecond, plain, runwayFraction, runwaySeconds, runwayText,
   shareLine, skipLine, spentLine, statusText, summonLine, yourPowerLine, type Seg,
 } from "./agent-labels";
-import { agentDebtLine, destroyDebtLine, fillText, owes, ownEnergyLine, shareCapacityLines, storeFraction, storeState, storedLine } from "./energy-capacity";
+import { agentDebtLine, destroyDebtLine, fillText, incomeMeterText, owes, ownEnergyLine, shareCapacityLines, storeFraction, storeState, storedLine } from "./energy-capacity";
 import { PanelEmpty, TextButton, type PanelProps } from "./kit";
 import { maxShareFor, parseSharePercent, shareProblem } from "./power-share";
 import { PointsNow, useOwnActLines } from "./score-lines";
@@ -52,7 +52,7 @@ function EnergyMeter({ energy, income }: { energy: number; income: number }) {
       <span role="meter" aria-label={text} aria-valuemin={0} aria-valuemax={10} aria-valuenow={Math.min(10, secs ?? 0)} className="inline-block h-1.5 w-20 bg-muted">
         <span className={`block h-full ${energy <= 0 ? "bg-destructive" : "bg-[hsl(var(--accent))]"}`} style={{ width: `${Math.round(runwayFraction(secs ?? 0) * 100)}%` }} />
       </span>
-      <span className="text-muted-foreground">{secs === null ? "no income" : `${num(secs)} s of its income`}</span>
+      <span className="text-muted-foreground">{incomeMeterText(energy, income, secs)}</span>
     </span>
   );
 }

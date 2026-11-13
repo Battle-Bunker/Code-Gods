@@ -170,7 +170,7 @@ export async function examineAgent(ctx: ActionCtx, settings: GameSettings, langu
   const breakdown: CostBreakdown = { read: measured.expectedRead, change: measured.expectedChange };
   const d = measured.diagnostics;
   const diagnostics = [
-    `Summon price ${price.cost.toFixed(1)} bits (${inspection.complexityFunctionId}: structure ${inspection.parts.structure.toFixed(1)}, names ${inspection.parts.names.toFixed(1)}, literals ${inspection.parts.literals.toFixed(1)}, literal moves ${price.parts.literalMoves.toFixed(1)}${usesClause ? `, commit clause ${COMMIT_CLAUSE_BITS.toFixed(2)}` : ""}).`,
+    `Summon price ${price.cost.toFixed(1)} bits (${inspection.complexityFunctionId}: structure ${price.parts.structure.toFixed(1)}, names ${price.parts.names.toFixed(1)}, literals ${price.parts.literals.toFixed(1)}, literal moves ${price.parts.literalMoves.toFixed(1)}${usesClause ? `, commit clause ${COMMIT_CLAUSE_BITS.toFixed(2)}` : ""}).`,
     `Each act: about ${measured.expectedActCost.toFixed(2)} bits = reading ${measured.expectedRead.toFixed(2)} (${measured.expectedReadBits.toFixed(1)} bits of the object looked at, at 1/${CHANGE_READ_RATIO} each) + changing ${measured.expectedChange.toFixed(2)} (looking is ${CHANGE_READ_RATIO}× cheaper than changing; an act pays its reads, plus its change only when it changes the object; there is no fixed charge).`,
     `Measured on ${d.n} reference objects${measured.randomized ? " (it uses random)" : ""}: changes ${(100 * d.changeRate).toFixed(0)}%, skips ${(100 * d.skipRate).toFixed(0)}%, invalid or failing ${(100 * d.invalidRate).toFixed(0)}%${d.errors.length ? ` (${d.errors.map(([e, n]) => `${e} ×${n}`).join(", ")})` : ""}; mutators ${d.mutators.join(", ") || "none"}.`,
   ];

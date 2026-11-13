@@ -46,6 +46,15 @@ export function fillText(energy: number, income: number, capacity: number): stri
   return income > 0 ? fullIn(secondsToFull(energy, income, capacity)) : "no income";
 }
 
+/**
+ * Beside an agent's income meter: how many seconds of its income it holds, or, when it owes, how long its income takes
+ * to repay that ("0 s of its income" under a debt said nothing). `held`: the seconds of income held (null: no income).
+ */
+export function incomeMeterText(energy: number, income: number, held: number | null): string {
+  if (held === null || !(income > 0)) return "no income";
+  return energy < 0 && num(energy) !== "0" ? `out of debt in about ${duration(-energy / income)}` : `${num(held)} s of its income`;
+}
+
 /** What a balance owes: 0 unless it shows as a negative number. */
 export const owes = (energy: number): number => (energy < 0 && num(energy) !== "0" ? -energy : 0);
 /** The header's energy when the player owes: "owes 312 ⚡" (null when they do not). */

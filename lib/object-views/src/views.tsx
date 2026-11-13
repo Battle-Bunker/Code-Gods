@@ -220,13 +220,16 @@ function GridView({ model, previous, typeLabel, className, mode, grid }: {
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Content side="bottom" align="start" sideOffset={6} collisionPadding={8}
+          // Never taller than the room on the side it opened on (Radix's available height, less the clear line below):
+          // the large explained view once ran off the top of the viewport when it opened upward, and off the bottom when
+          // neither side had room. It scrolls inside instead.
           // Flipped above its object (no room below), it stands a line clear of it: a list row may carry a line of its
           // own just above the object (the dock's "seen … ago" line and its Look button), which must stay in sight.
           data-clear-above=""
           onOpenAutoFocus={(e) => { if (!pinned.current) e.preventDefault(); }}
           onPointerEnter={clear} onPointerLeave={hoverOut}
           aria-label={`Grid ${model.size} by ${model.size} details`}
-          className={`z-50 data-[side=top]:mb-7 ${explained ? "w-[min(calc(100vw-16px),46rem)] max-h-[min(90vh,48rem)]" : "w-[min(calc(100vw-16px),22rem)] max-h-[min(80vh,36rem)]"} overflow-auto border bg-popover text-popover-foreground shadow-lg p-3 space-y-3 text-left whitespace-normal font-sans`}
+          className={`z-50 data-[side=top]:mb-7 ${explained ? "w-[min(calc(100vw-16px),46rem)] max-h-[min(var(--radix-popover-content-available-height,90vh)_-_1.75rem,48rem)]" : "w-[min(calc(100vw-16px),22rem)] max-h-[min(var(--radix-popover-content-available-height,80vh)_-_1.75rem,36rem)]"} overflow-auto border bg-popover text-popover-foreground shadow-lg p-3 space-y-3 text-left whitespace-normal font-sans`}
           data-testid="grid-object-detail">
           <div className="flex items-baseline justify-between gap-2">
             <span className="text-sm font-semibold">Grid {model.size}×{model.size}</span>

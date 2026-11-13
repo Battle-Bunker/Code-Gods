@@ -104,8 +104,22 @@ jobs:
         run: pnpm --filter @workspace/game-utilities test
         env:
           CG_SHARD: ${{ matrix.shard }}
+      # The engine's unit suite runs agents in the Python sandbox (test/unit/example-agents.test.ts, language-price.test.ts),
+      # so "rest" builds the runtime bundle first, as the `runtime` job does (about 2 s with the cached CPython).
+      - if: matrix.shard == 'rest'
+        uses: actions/cache@v4
+        id: cpython
+        with:
+          path: .cache/code-gods
+          key: cpython-wasi-${{ hashFiles('lib/game-runtime/python/setup.py') }}
+      - if: matrix.shard == 'rest' && steps.cpython.outputs.cache-hit != 'true'
+        run: pnpm --filter @workspace/game-runtime setup:python
+      - if: matrix.shard == 'rest'
+        run: pnpm --filter @workspace/game-runtime build:python
       - if: matrix.shard == 'rest'
         run: pnpm run test:offline:rest
+        env:
+          CG_REQUIRE_PYTHON_RUNTIME: 1   # a test that needs the bundle fails here instead of skipping itself
       - name: Calibration tables are fresh   # every instance file in git matches the current code (seconds; builds nothing)
         if: matrix.shard == 'rest'
         run: pnpm --filter @workspace/game-utilities calibrate --check

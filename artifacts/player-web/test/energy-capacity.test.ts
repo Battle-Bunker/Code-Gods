@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { plain } from "../src/core/panels/agent-labels.ts";
-import { agentDebtLine, destroyDebtLine, fillText, fullIn, owedText, owes, ownEnergyLine, shareCapacityLines, storeFraction, storeState, storedLine } from "../src/core/panels/energy-capacity.ts";
+import { agentDebtLine, destroyDebtLine, fillText, fullIn, incomeMeterText, owedText, owes, ownEnergyLine, shareCapacityLines, storeFraction, storeState, storedLine } from "../src/core/panels/energy-capacity.ts";
 
 // Hand-derived: power 64 bits/s, full charge 30 s. A 25% agent earns 16 bits/s and holds at most 16 × 30 = 480 bits.
 
@@ -145,4 +145,12 @@ test("your own energy below zero: what you owe and when you can summon again, an
   // 312 / 32 = 9.75 → 10 s.
   assert.equal(plain(ownEnergyLine({ energy: -312, income: 32, capacity: 960 })), "You owe 312 ⚡: you cannot summon until your income has repaid it (about 10 s).");
   assert.equal(plain(ownEnergyLine({ energy: -312, income: 0, capacity: 0 })), "You owe 312 ⚡ and keep no power for yourself: take some power back from an agent to repay it.");
+});
+
+test("beside the income meter: seconds of income held, or how long a debt takes to repay", () => {
+  // What would break: an agent owing 815 at 57.6 a second said "0 s of its income" beside an empty bar.
+  assert.equal(incomeMeterText(160, 32, 5), "5 s of its income");
+  assert.equal(incomeMeterText(-815.3, 57.6, 0), "out of debt in about 15 s", "815.3 ÷ 57.6 = 14.2 s, rounded up as the other waits are");
+  assert.equal(incomeMeterText(-0.01, 57.6, 0), "0 s of its income", "a balance that shows as 0 owes nothing");
+  assert.equal(incomeMeterText(5, 0, null), "no income");
 });

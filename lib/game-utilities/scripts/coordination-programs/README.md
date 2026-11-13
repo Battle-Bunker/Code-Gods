@@ -3,7 +3,7 @@
 The smallest honest agent programs found for six policies on the default setup (Annotated basics: Grid 4×4, base10,
 mono), for a god whose own rule is **Magic Eighteen** (rows) and whose two rivals hold **Opposite Nines** and
 **Leapfrog**. One file per policy and language. Every price below is the engine's own examination (the `validate`
-command, `artifacts/engine/convex/engine/pricing.ts` `examineAgent`), measured on the local dev engine on 2026-11-11:
+command, `artifacts/engine/convex/engine/pricing.ts` `examineAgent`), measured on the local dev engine (first on 2026-11-11; the price table again on 2026-11-13):
 
 ```
 cd artifacts/engine
@@ -14,7 +14,7 @@ node --experimental-transform-types --disable-warning=ExperimentalWarning script
 ## What each program does
 
 Every program except `random` reads the 16 values once (16 × log2 10 = 53.2 bits read, 1.66 energy bits per act at
-1/32), tries all 160 one-cell writes (the 144 real ones and the 16 that rewrite a cell's own digit, which never win),
+1/32, plus 0.10 for the offer), tries all 160 one-cell writes (the 144 real ones and the 16 that rewrite a cell's own digit, which never win),
 and returns the best write, or `[]` (a skip) when none strictly beats the board as it is. All are deterministic except
 `random`.
 
@@ -51,39 +51,47 @@ nines); their accuracy against the shipped tables was not measured.
 
 ## Prices
 
-Deity capacity on the default setup: 64 bits/s × `fullChargeSeconds` 30 = **1920 bits**; `startingEnergy` is 200. A
-deity that has allocated no power earns 64 bits per world second, so it can pay a price `p ≤ 1920` after
-`(p − 200) / 64` world seconds from the start (world time does not run in planning), and can never pay more than 1920.
+Measured again on 2026-11-13 on the final economy: changes priced by distance (`distance-v1`, the default setup's cost
+model), the offer charged (log2 of the 10 live objects, 0.10 energy bits, inside "read"), TypeScript's structure bits
+weighted by 0.44 (docs/energy-model.md §5.1), `startingEnergy` 600.
 
-| policy | language | summon price | structure | names | literals | expected act cost (read + change) | affordable (≤ 1920) | world seconds to save from 200 |
+Deity capacity on the default setup: 64 bits/s × `fullChargeSeconds` 30 = **1920 bits**; `startingEnergy` is 600. A
+deity that has allocated no power earns 64 bits per world second, so it can pay a price `p ≤ 1920` after
+`(p − 600) / 64` world seconds from the start (world time does not run in planning), and can never pay more than 1920.
+
+| policy | language | summon price | structure | names | literals | expected act cost (read + change) | affordable (≤ 1920) | world seconds to save from 600 |
 |---|---|---|---|---|---|---|---|---|
-| random | Python | **142.6** | 85.6 | 34.4 | 21.8 | 14.9–15.0 (0 + 15.0) | yes, in planning | 0 |
-| random | TypeScript | 304.2 | 225.5 | 60.5 | 17.0 | 14.5 (0 + 14.5) | yes | 1.6 |
-| greedy | Python | **737.9** | 420.0 | 178.7 | 137.6 | 17.97 (1.66 + 16.31) | yes | 8.4 |
-| greedy | TypeScript | 1319.7 | 974.6 | 220.6 | 123.0 | 17.97 | yes | 17.5 |
-| considerate | Python | **1179.2** | 670.1 | 322.5 | 183.8 | 17.97 | yes | 15.3 |
-| considerate | TypeScript | 2019.3 | 1456.7 | 373.4 | 187.0 | 17.97 | **no** | never |
-| payoff | Python | **1599.4** | 753.7 | 326.6 | 515.9 | 17.81 | yes | 21.9 |
-| payoff | TypeScript | 2646.8 | 1777.5 | 401.7 | 464.5 | 17.81 | **no** | never |
-| cooperator | Python | **1796.9** | 872.0 | 405.9 | 515.9 | 17.81 | yes | 25.0 |
-| cooperator | TypeScript | 2916.7 | 1955.2 | 494.3 | 464.5 | 17.81 | **no** | never |
-| deny | Python | **1611.7** | 761.4 | 326.6 | 520.5 | 17.89 | yes | 22.1 |
-| deny | TypeScript | 2660.7 | 1788.5 | 401.7 | 467.5 | 17.89 | **no** | never |
-| payoff, formula proxy | Python | 1397.8 | 767.8 | 362.4 | 264.3 | 17.89 | yes | 18.7 |
-| cooperator, formula proxy | Python | 1595.2 | 886.1 | 441.7 | 264.3 | 17.89 | yes | 21.8 |
-| deny, formula proxy | Python | 1410.1 | 775.5 | 362.4 | 268.9 | 17.89 | yes | 18.9 |
+| random | Python | **142.7** | 85.6 | 34.5 | 21.8 | 13.85 (0.10 + 13.74) | yes, in planning | 0 |
+| random | TypeScript | 177.9 | 99.2 | 60.6 | 17.0 | 13.67 (0.10 + 13.57) | yes, in planning | 0 |
+| greedy | Python | **738.0** | 420.0 | 178.7 | 137.6 | 25.35 (1.76 + 23.59) | yes | 2.2 |
+| greedy | TypeScript | 774.1 | 428.8 | 220.7 | 123.0 | 25.35 | yes | 2.7 |
+| considerate | Python | **1179.3** | 670.1 | 322.5 | 183.8 | 22.29 (1.76 + 20.53) | yes | 9.1 |
+| considerate | TypeScript | 1203.7 | 640.9 | 373.5 | 187.0 | 22.29 | yes | 9.4 |
+| payoff | Python | **1599.5** | 753.7 | 326.6 | 515.9 | 19.85 (1.76 + 18.09) | yes | 15.6 |
+| payoff | TypeScript | 1651.5 | 782.1 | 401.8 | 464.5 | 19.85 | yes | 16.4 |
+| cooperator | Python | **1796.9** | 872.0 | 406.0 | 515.9 | 19.50 (1.76 + 17.74) | yes | 18.7 |
+| cooperator | TypeScript | 1821.9 | 860.3 | 494.4 | 464.5 | 19.50 | yes | 19.1 |
+| deny | Python | **1611.8** | 761.4 | 326.6 | 520.5 | 23.79 (1.76 + 22.03) | yes | 15.8 |
+| deny | TypeScript | 1659.3 | 786.9 | 401.8 | 467.5 | 23.78 | yes | 16.6 |
+| payoff, formula proxy | Python | 1397.9 | 767.8 | 362.5 | 264.3 | 19.88 | yes | 12.5 |
+| cooperator, formula proxy | Python | 1595.3 | 886.1 | 441.8 | 264.3 | 19.54 | yes | 15.6 |
+| deny, formula proxy | Python | 1410.1 | 775.5 | 362.5 | 268.9 | 23.48 | yes | 12.7 |
 
 (The parts also include 1–3 bits of move flags, not shown; the expected act cost is the examination's mean over 202
-reference objects, where an act that skips pays only its 1.66 bits of reading.)
+reference objects, where an act that skips pays only its 1.76 bits of reading.)
 
-Python is cheaper for every policy, by a factor of 1.6 to 2.1: Python is priced by `ast-bits-v1` (corpus-weighted
-grammar), TypeScript by `ts-ast-bits-v1-uniform` (uniform over node kinds, so its structure bits are about 2.3× Python's
-for the same program).
+The two languages now cost about the same: TypeScript is 1% to 5% dearer than Python for every policy but `random`
+(25%: a 35-bit difference on a tiny program), and every program fits the store in either language. Before the weight
+(11 Nov 2026) TypeScript cost 1.6 to 2.1 times Python and four of the six TypeScript programs were over 1920 bits.
+`artifacts/engine/test/unit/language-price.test.ts` pins the ratio on ten paired programs.
+
+Under `distance-v1` a one-cell write is priced by how far the digit moves, so the policies no longer pay the same per
+act: `greedy` and `deny` choose far writes (23.6 and 22.0 bits of change), `cooperator` and `payoff` near ones (17.7,
+18.1). Under `set-v1` (11 Nov 2026) every one of them paid 16.3.
 
 For comparison, the generic greedy the engine games use (`artifacts/engine/scripts/coordination-games.ts`
-`greedySource`: the card's Python source verbatim plus a board rebuilt from the prelude's `Cell` and `Grid`) costs
-1093.5 (Leapfrog) to 1423.9 (Two Pair) bits in Python; the same idea in TypeScript costs 2406–3018 bits, over the
-capacity.
+`greedySource`: the card's Python source verbatim plus a board rebuilt from the prelude's `Cell` and `Grid`) cost
+1093.5 (Leapfrog) to 1423.9 (Two Pair) bits in Python on 11 Nov 2026 (Python's price function has not changed since).
 
 ## Limits
 

@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { DEFAULT_SETTINGS, applySettingsChange, seedSetupSettings, supportedCostModels } from "@workspace/game-core";
 import { COST_MODELS, objectType } from "@workspace/game-types";
 import {
-  SECTIONS, LABELS, argChoices, choiceLabel, costModelChoices, formatValue, toggleLanguage, dealerNote, formatSeconds, defenceBlocker, draftErrors, fieldError, fieldsOf, firstUseNote, isHidden, lengthLine, bidLine, paceWord,
+  SECTIONS, LABELS, ROOM_DETAILS, argChoices, choiceLabel, costModelChoices, formatValue, toggleLanguage, dealerNote, formatSeconds, defenceBlocker, draftErrors, fieldError, fieldsOf, firstUseNote, isHidden, lengthLine, bidLine, paceWord,
   settingsDomain, shelfEntries, stepChoices,
 } from "../src/site/lib/settings-form.ts";
 import { editBlocker, freeName, ownerLabel } from "../src/site/lib/setup-words.ts";
@@ -230,6 +230,15 @@ test("the bid phase on the form: bidding time in whole seconds up to 10 minutes,
   assert.equal(bidLine({ bidSeconds: 30, bidPricing: "first" }), "30 s, first price");
   assert.equal(bidLine({ bidSeconds: 120, bidPricing: "second" }), "120 s, second price");
   assert.equal(bidLine({ bidSeconds: 30 }), "30 s, first price");
+});
+
+test("the room's details list says how the world is looked at, beside how changes are priced", () => {
+  // What would break: a player joining a paid-observation room (the default setup) reads the details and is not told
+  // that looking costs energy.
+  assert.equal(ROOM_DETAILS[ROOM_DETAILS.indexOf("costModel") + 1], "observation");
+  const basics = seedSetupSettings("grid-annotated-basics");
+  assert.equal(`${LABELS.observation}: ${formatValue("observation", basics.observation)}`, "Looking at the world: Paid");
+  assert.equal(formatValue("observation", seedSetupSettings("grid-classic").observation), "Free");
 });
 
 test("the cost model: a choice under Energy › More, offered where the world has more than one, read as set-v1 when absent", () => {
