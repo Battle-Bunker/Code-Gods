@@ -9,7 +9,7 @@
  *   ended                    its replay, for its players, its spectators and the room's owner (core/play.tsx Replay);
  *                            the engine refuses anyone else, and that refusal is shown
  */
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useParams } from "wouter";
 // The dock (player view and replay) loads only on a game page: home, room and configure stay light.
 const Play = lazy(() => import("@/core/play").then(m => ({ default: m.Play })));
@@ -32,7 +32,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Skeleton } from "@/components/ui/skeleton";
 import { gameStep } from "@/site/lib/next-step";
 import { gamePath, roomPath } from "@/site/lib/routes";
-import { errMsg, fmt, notFoundMsg, reload, transient } from "@/site/lib/errors";
+import { errMsg, fmt, heldThroughTransient, notFoundMsg, reload, transient } from "@/site/lib/errors";
 import { endReasonLabel, fmtDuration, fmtWhen, secsLeft, toMs, worldSecondsAt } from "@/site/lib/time";
 import type { FunctionReturnType } from "convex/server";
 import { DEFAULT_SCORE_INTERVAL_SECONDS, gameTimer, paidObservation } from "@workspace/game-core";
@@ -202,10 +202,14 @@ export default function Game() {
   // The page routes on the game's cold header (play, watch or replay): a tick never re-runs it. The world is read by the
   // components that show it (the spectator view), never under the dock.
   const q = useLive(api.games.header, isAuthenticated && code ? { code } : "skip");
-  const game = q.data;
+  // Through a timed-out header or room query the page keeps what it showed (errors.ts heldThroughTransient): the dock
+  // is not torn down (a walker lost a summon in flight to "Could not load this game's room: … timed out").
+  const game = useHeld(`game:${code}`, q);
   const active = game?.status === "active";
   // The room (membership, the owner's commands, the replay's room); the header carries only its codes.
-  const room = useLive(api.rooms.get, game?.roomId ? { room: game.roomId } : "skip");
+  const roomLive = useLive(api.rooms.get, game?.roomId ? { room: game.roomId } : "skip");
+  const roomData = useHeld(`room:${game?.roomId ?? ""}`, roomLive);
+  const room = { ...roomLive, data: roomData, error: roomData !== undefined ? null : roomLive.error };
   const seated = !!game && game.roster.some(r => r.id === user?.id);
   // The object type and utility catalog (static for the game), for the spectator view and the page's rules text.
   // Only the spectator view reads it: wait for the room (or its absence) to know whether the dock takes the page.
@@ -256,3 +260,10 @@ export default function Game() {
   );
 }
 
+/** One subscription's value, held through a transient failure for the same key (errors.ts heldThroughTransient). */
+function useHeld<T>(key: string, live: { data: T | undefined; error: Error | null }): T | undefined {
+  const held = useRef<{ key: string; data: T } | null>(null);
+  const shown = heldThroughTransient(held.current, key, live);
+  if (shown !== undefined) held.current = { key, data: shown };
+  return shown;
+}

@@ -33,3 +33,14 @@ export const transient = (e: unknown): boolean => e instanceof Error && !(e inst
 export const reload = () => window.location.reload();
 export const rid = () => crypto.randomUUID();
 export const fmt = (n: number, d = 0) => n.toLocaleString(undefined, { maximumFractionDigits: d, minimumFractionDigits: d });
+
+/**
+ * What a page shows of one subscription: its value; while a transient failure stands (a timeout: Convex re-runs it when
+ * the data changes or the socket reconnects), the last value it had for the SAME arguments, so a page that routes on it
+ * (the game page's dock) is not torn down and rebuilt, losing an editor and a summon in flight. A refusal (ConvexError)
+ * or other arguments show nothing old. Pure: `held` is the caller's last { key, data }.
+ */
+export function heldThroughTransient<T>(held: { key: string; data: T } | null, key: string, live: { data: T | undefined; error: Error | null }): T | undefined {
+  if (live.data !== undefined) return live.data;
+  return live.error && transient(live.error) && held?.key === key ? held.data : undefined;
+}
