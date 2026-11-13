@@ -25,7 +25,13 @@ export const COMMIT_CLAUSE_BITS = 1 + Math.log2(3) + 1;
 export const GAME_COMPONENT = 16;
 /** -log2(1/8): the flag bits of a literal move (game-runtime MOVE_FLAG_BITS). */
 const MOVE_FLAG_BITS = 3;
-const CONCURRENCY = 4;
+/**
+ * Runs in flight per pass of an examination: one `runtime/acts:run` call carries that many (lib/programs.ts ACT_BATCH).
+ * An examination is about 230 runs; at 4 a call it was about 60 nested action calls, and on a loaded backend the
+ * calls, not the runs, were its time (measured with eight other games running: 5–8 s a validate at 4, 2.2–4.5 s at 16;
+ * idle, 1.5 s either way). Results never depend on it.
+ */
+const CONCURRENCY = 16;
 
 /** The estimated cost per act in energy bits, split: what its reads cost (bits read × READ_PRICE) and its change (docs/energy-model.md §5). */
 export type CostBreakdown = { read: number; change: number };
@@ -77,6 +83,10 @@ export function seasonMixture(inst: Instantiation): ReferenceMixture {
 export class AgentFault extends Error {}
 
 /** Throws AgentFault for the agent's own compile errors; host failures propagate as they are. */
+/** The examination's deadline passed before every run was done; the `remembered` runs it finished are kept for the next attempt. */
+export class ExaminationUnfinished extends Error {
+  constructor(readonly remembered: number) { super(`The examination ran out of time after ${remembered} runs`); this.name = "ExaminationUnfinished"; }
+}
 /** A cache-only examination met a run (or an inspection) it has not seen: the caller examines in the sandbox. */
 export class CacheMiss extends Error {}
 export type StoredExamination = { inspection: Inspection | undefined; runs: CachedRun[]; usedAt: number } | null;
@@ -131,7 +141,10 @@ export async function examineAgent(ctx: ActionCtx, settings: GameSettings, langu
   const started = performance.now();
   // The measurement and the futility probe (docs/rules-design.md §11: the game's objects first, then the reference
   // mixture) run side by side; after a host failure neither runs anything more.
-  const probing = probeFutility(async (value, seed) => {
+  let probing: ReturnType<typeof probeFutility> | undefined;
+  let measured: Awaited<ReturnType<typeof measureAgent>>, probed: Awaited<ReturnType<typeof probeFutility>>;
+  try {
+  probing = probeFutility(async (value, seed) => {
     if (hostFailure) throw hostFailure;
     runs++;
     try { const result = await run(value, seed); return { calls: result.calls, usedRandom: result.usedRandom, steps: result.steps, readBits: result.readBits }; }
@@ -140,7 +153,7 @@ export async function examineAgent(ctx: ActionCtx, settings: GameSettings, langu
       return { calls: "[]", error: (error as Error).message.slice(0, 200) };
     }
   }, inst, [...game, ...mixture.values], { salt: seasonSalt(), concurrency: CONCURRENCY, costModel });
-  const measured = await measureAgent(async (value, seed, at) => {
+  measured = await measureAgent(async (value, seed, at) => {
     if (hostFailure) throw hostFailure;
     runs++;
     try {
@@ -155,9 +168,20 @@ export async function examineAgent(ctx: ActionCtx, settings: GameSettings, langu
       return { calls: "[]", error: (error as Error).message.slice(0, 200), readBits: failedReadBits(error as { readBits?: number; code?: string }, readBound(inst)) };
     }
   }, inst, mixture, { salt: seasonSalt(), concurrency: CONCURRENCY, costModel });
-  const probed = await probing;
+  probed = await probing;
   // A capacity or configuration failure is not the agent's price: never charge from a partial measurement.
   if (hostFailure) throw hostFailure;
+  } catch (error) {
+    // The examination did not finish (its deadline passed, or the sandbox failed). The runs it did finish are still
+    // the program's answers: they are remembered, so the same command sent again carries on from here instead of
+    // starting over. Under load this is what lets a retry succeed at all: each attempt adds to the last.
+    await probing?.catch(() => { /* it stopped with the measurement */ });
+    if (learned && !who.cacheOnly && !(error instanceof CacheMiss)) {
+      await ctx.runMutation(internal.engine.examinationCache.put, { key, inspection, used }).catch(e => console.warn(`examination cache not stored: ${(e as Error).message}`));
+      if (who.deadline !== undefined && Date.now() >= who.deadline) throw new ExaminationUnfinished(used.length);
+    }
+    throw error;
+  }
   // What this examination learned is remembered for the next one of the same program (best effort: it is a cache).
   if (learned) await ctx.runMutation(internal.engine.examinationCache.put, { key, inspection, used }).catch(error => console.warn(`examination cache not stored: ${(error as Error).message}`));
   else if (stored && Date.now() - stored.usedAt > TOUCH_AFTER_MS) await ctx.runMutation(internal.engine.examinationCache.touch, { key }).catch(() => { /* the next examination marks it */ });

@@ -36,6 +36,11 @@ export const BACKGROUND_SLOT_MS = 2 * 60_000;
  */
 export const EXAMINATION_WAIT_MS = 3_000;
 /**
+ * How long before the caller's deadline a player's examination stops asking the sandbox for more: the time to save
+ * the runs it finished (lib/examinationCache.ts), so the same command sent again carries on instead of starting over.
+ */
+export const EXAMINATION_SAVE_MS = 1_500;
+/**
  * When a job waiting up to `waitMs` for a slot asks again: a few times, further apart each time (1, 2, 3… s plus up
  * to a second at random), so fifty waiters cost a handful of mutations a second, not a hundred. `random` in [0, 1).
  */

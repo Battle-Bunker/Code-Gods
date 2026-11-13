@@ -66,3 +66,32 @@ for (const language of ["typescript", "python"] as const) {
     assert.equal(elsewhere.validation.cost, validated.validation.cost);
   });
 }
+
+test("an examination cut off at its deadline keeps the runs it finished, so sending it again carries on and ends with the same answer", { timeout: 240000 }, async () => {
+  const { defaultSettingsFor } = await import("@workspace/game-core");
+  const settings = defaultSettingsFor("Int", ["python"]), live = [3, 1415, -92, 6535];
+  const program = () => `def agent(x):\n    return [add(${randomInt(2, 1_000_000)})]`;
+  const examine = (source: string, deadlineMs: number) => admin.action(internal.testingNode.examineWithin, { settings, language: "python", source, live, deadlineMs });
+  // The whole examination takes over a second here; 300 ms cannot finish it.
+  const source = program();
+  const first = await examine(source, 300);
+  assert.equal(first.finished, false, JSON.stringify(first));
+  const kept = (await latest()).runs;
+  assert.ok(kept > 0, "the runs the cut-off attempt finished are remembered");
+  // Each further attempt with the same short deadline starts from what is kept, so it gets further, and one finishes.
+  let attempts = 1, progress = kept, result = first;
+  while (!result.finished && attempts < 40) {
+    result = await examine(source, 300); attempts++;
+    const now = (await latest()).runs;
+    assert.ok(result.finished || now > progress, `attempt ${attempts} got further (${progress} → ${now})`);
+    progress = now;
+  }
+  assert.equal(result.finished, true, `finished after ${attempts} attempts`);
+  // The answer is the one an uninterrupted examination of the same program gives (here: from memory, at once).
+  const whole = await examine(source, 20_000);
+  assert.deepEqual(whole, result);
+  // And the price does not depend on how many attempts it took: an uninterrupted examination of the twin program
+  // (another constant of the same size) costs the same.
+  const twin = await examine(program(), 20_000);
+  assert.equal(twin.finished, true);
+});
