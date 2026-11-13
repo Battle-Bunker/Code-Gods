@@ -51,7 +51,8 @@ function PayoffRectangle({ o, scale, strength, dim = "" }: { o: Pick<LiveObject,
   const yoursText = formatBits(o.own.netBits), othersText = formatBits(o.peerCare);
   // 10px monospace digits are about 6px wide: keep the bottom label's left end on the box.
   const at = payoffLabels(g, SIDE, { gap: 3, below: 11, halfLabel: yoursText.length * 3 });
-  const title = `your bits ${formatBits(o.own.netBits)} × others' care ${formatBits(o.peerCare)} = payoff ${formatBits(o.payoff)}`;
+  // The house words (score lines, the key below): ✨ rarity × how much the others want it = this object's points.
+  const title = `your ✨ rarity ${formatBits(o.own.netBits)} × how much the others want it ${formatBits(o.peerCare)} = your points ${formatBits(o.payoff)}`;
   const top = SIDE - g.height;
   return (
     <svg width={SIDE + LABEL_W} height={SIDE + LABEL_H} viewBox={`0 0 ${SIDE + LABEL_W} ${SIDE + LABEL_H}`} className={`shrink-0 overflow-visible ${dim}`.trimEnd()}
@@ -101,7 +102,7 @@ function BeforeTheWorld({ paneId, phase, noun }: Pick<PanelProps<"objects">, "pa
   return (
     <PanelEmpty testId="panel-empty-objects" action={offered ? <PrimaryButton onClick={go} busy={step.busy} testId="button-next-step">{step.label}</PrimaryButton> : undefined}>
       {when}, its {noun}s appear here, best first: each one marked with what makes up your score, and a rectangle whose width is
-      your bits and whose height is what the others care, on one scale, so its area is your payoff.{offered ? ` Next: ${step.why}` : ""}
+      your ✨ rarity for it and whose height is how much the others want it, on one scale, so its area is your points.{offered ? ` Next: ${step.why}` : ""}
     </PanelEmpty>
   );
 }
