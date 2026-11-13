@@ -183,7 +183,7 @@ Measured first (3 players, model as §5, every god the same style; win share by 
 | As shipped (develop of 13 Nov, 120 games) | 2% to 86% | – | – | the problem |
 | (a) **Par**: each rule scaled so reference greedy play holds 15 bits per object (`--equal-par 15`, par measured on 600 other deals: Mirrormancer 19.9 … Magic Eighteen 9.7) | 4% to 63% | 1% to 95% | 0% to 79% | rejected (`par3.txt`) |
 | (b) **Symmetric deal**: the same rule for everyone, turned or relabelled | – | – | – | impossible: under rotations, reflections and the digit complement 9 − d no beginner rule has more than 2 distinct variants (Opposite Nines, Two Pair, Spread of Three: 1), so two seats would hold the identical rule |
-| (c) **Fixed combinations**: every one of the 56 three-rule deals of the pool (`combos`, 60 games per style) | | | | rejected: 0 of 56 keep every rule within 20–45% for all three styles; the best (Leapfrog, Strangers, Crosswise Threes) is 65/10/25 under greedy. Inside one deal the winner is close to certain (100/0/0 in 39 of 56 deals under greedy) (`combos3.txt`) |
+| (c) **Fixed combinations**: every one of the 56 three-rule deals of the pool (`combos`, 60 games per style) | | | | rejected: 0 of 56 keep every rule within 20–45% for all three styles; the best (Leapfrog, Strangers, Crosswise Threes) is 65/10/25 under greedy. Inside one deal the winner is often close to certain (one rule wins at least 95% in 22 of 56 deals under greedy, 100% in 15) (`combos3.txt`) |
 | (c) narrower dealt parameters | | | | nothing to narrow: only Magic Eighteen has a parameter (rows or columns) |
 | (e) the bid phase (docs/bid-phase.md §3, §5) | 41 → 9 to 22 points of spread | | | needs accurate bids, measured for greedy tables only; a lone low bidder takes the best rule |
 
