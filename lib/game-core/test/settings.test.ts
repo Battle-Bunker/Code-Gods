@@ -318,6 +318,7 @@ test("the Lab setups are Annotated basics under each other cost model, after the
     ["lab-cost-dial", "Lab · dial numbers", "Numbers are a dial: 9 and 0 are one step apart, and a step either way costs the same", "dial-v1"],
     ["lab-cost-log", "Lab · gentle distance", "A far move costs only a little more than a middling one", "log-v1"],
     ["lab-cost-multiply", "Lab · multiply and divide", "Adds, plus multiply and divide by the last digit; a number's move costs the cheaper of the two", "multiply-v1"],
+    ["lab-cost-proportional", "Lab · strictly proportional", "Twice as far costs twice as much, with no charge for choosing the cell", "proportional-v1"],
   ]);
   // Everything but the cost model is Annotated basics (the board, the rule pool, the pacing): the pool cannot drift.
   const { costModel: _basics, ...basics } = seedSetupSettings(ANNOTATED_BASICS_SEED_ID);
@@ -332,7 +333,8 @@ test("the Lab setups are Annotated basics under each other cost model, after the
   }
   // Each model of COST_MODELS is tried by exactly one system setup on this board.
   const tried = [ANNOTATED_BASICS_SEED_ID, ...lab.map(s => s.seedId)].map(id => costModelOf(seedSetupSettings(id))).sort();
-  assert.deepEqual(tried, ["dial-v1", "distance-v1", "log-v1", "multiply-v1", "set-v1"]);
+  assert.deepEqual(tried, ["dial-v1", "distance-v1", "log-v1", "multiply-v1", "proportional-v1", "set-v1"]);
+  assert.deepEqual(tried, [...COST_MODELS].sort());
 });
 
 test("fullChargeSeconds: a default, validated bounds, and stored room/setup settings without it get the default", () => {

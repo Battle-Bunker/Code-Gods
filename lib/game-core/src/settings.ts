@@ -698,6 +698,7 @@ export const LAB_SETUPS: readonly SeedSetup[] = Object.freeze([
   labCostSeed("lab-cost-dial", "Lab · dial numbers", "Numbers are a dial: 9 and 0 are one step apart, and a step either way costs the same", "dial-v1"),
   labCostSeed("lab-cost-log", "Lab · gentle distance", "A far move costs only a little more than a middling one", "log-v1"),
   labCostSeed("lab-cost-multiply", "Lab · multiply and divide", "Adds, plus multiply and divide by the last digit; a number's move costs the cheaper of the two", "multiply-v1"),
+  labCostSeed("lab-cost-proportional", "Lab · strictly proportional", "Twice as far costs twice as much, with no charge for choosing the cell", "proportional-v1"),
   // Paid observation's other values (docs/energy-model.md §11.8): Annotated basics itself is "paid".
   ...([
     ["lab-observation-free", "Lab · everything always visible", "Annotated basics, but looking is free: every object is shown as it changes", "free"],

@@ -362,7 +362,7 @@ A nudge costs 0.44× a set-v1 change, ±4 about the same, and ±5 and beyond mor
 | 6×6 cards rainbow6 | 5♠ → 7♥ (rank by 2 and suit) | 18.26 | 34.9 | 33.0 |
 | 7×7 cards mono (2 families) | a rank by ±1 | 8.20 | 11.6 | 31.5 |
 
-**Three variants** are declared beside distance-v1 (`COST_MODELS`), each differing from it in one declaration; everything
+**Four variants** are declared beside distance-v1 (`COST_MODELS`), each differing from it in one declaration; everything
 above holds for them except as said:
 
 - **"dial-v1"**: numbers are a *dial* (cyclic: 9 and 0 are one step apart), so d is the shorter way round and a wrap
@@ -379,6 +379,14 @@ above holds for them except as said:
   price stops being a distance on the number line: 43 of the 90 digit pairs are cheaper than their add (3 → 9 costs a
   ×3, not a +6), and a → b need not cost what b → a costs. A cell pays its cheapest ROUTE (0 → 9 is +1 then ×9, two
   located steps, 16.33 bits, not a +9 at 19.26), so one call never costs more than calls that do the same.
+- **"proportional-v1"** (the owner's first request: a cost strictly proportional to the distance): no ℓ_where and no
+  ℓ_which, w = λ·d alone. The argument code then names the cell and the family as well, so each family's λ is the
+  Kraft root with mass 1/(sites × families) in place of 1 (`generatorMass`): Σ over every cell, family and argument of
+  2^(−λ·d) = 1, the smallest rate that keeps the whole a valid code. On the beginner board 2·Σ x^k = 1/16 gives
+  x ≈ 1/33, λ = 5.044 bits per step: ±1 is 5.04 bits (6.3 energy), ±2 10.09 (15.2), ±3 15.13 (26.6), ±5 25.22 (57.0),
+  ±9 45.40 (148.5). A colour or a suit has one distance, so its λ is log2(sites × families × (n − 1)): the located
+  price exactly. A nudge costs a little less than under distance-v1 (6.3 against 7.1) and every move of 2 or more
+  costs more; W is exactly proportional to the distance, the energy more than proportional (the square).
 
 **Where a model is offered.** The rule of §2.1 (a complete look costs less than the smallest change) is kept under every
 model: a room may choose a model only where it holds for that board (`supportedCostModels`, checked by

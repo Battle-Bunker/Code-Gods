@@ -46,6 +46,10 @@ test("the kid texts: short, concrete, and every model has one", () => {
   assert.equal(changeCostKid("distance-v1"), "A move costs the changes it makes, cell by cell. Adding 1 to a number is the cheapest change; the further a number moves, the more it costs. Writing a 7 over a 5 costs the same as adding 2.");
   assert.match(changeCostHint(MONO, "distance-v1"), /moving a number by 1 costs 7\.1 bits, by 2 9\.7, by 9 34\.9\./);
   assert.match(changeCostHint(MONO, "set-v1"), /changing a cell's symbol costs 16\.3 bits/);
+  // proportional-v1 (W = 5.044·k on this board, no charge for the cell): its own words and the room's prices.
+  assert.equal(changePriceList(MONO, "proportional-v1"), "move a cell's number by 1, 2, 3, 4, 5, 6, 7, 8, 9: 6.3, 15.2, 26.6, 40.5, 57.0, 76.1, 97.7, 121.8, 148.5 bits");
+  assert.match(changeCostExplained(MONO, "proportional-v1"), /cost model proportional-v1\)\. A number pays in strict proportion to how far it moved, with no charge for choosing the cell/);
+  assert.match(changeCostKid("proportional-v1"), /a number that moves twice as far costs twice as much/);
   assert.equal(changeCostHint({ objectType: "Int", typeArgs: { min: 0, max: 99 } }, "set-v1"), "");
   // Every model the engine knows has its words, and a price list on a Grid.
   for (const model of COST_MODELS) {

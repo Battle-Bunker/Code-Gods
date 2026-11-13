@@ -541,6 +541,7 @@ What one digit change costs (energy bits, from `moveEnergy`):
 | `dial-v1` (9 and 0 are one apart) | 7.1 | 9.7 | 12.5 | 18.9 | 7.1 | 12.1 |
 | `log-v1` | 7.2 | 10.5 | 12.7 | 15.5 | 19.1 | 12.8 |
 | `multiply-v1` | 8.8 | 10.1 to 11.5 | 10.3 to 14.5 | 10.3 to 21.3 | 22.1 to 37.8 | 14.1 |
+| `proportional-v1` (a variant: no charge for the cell) | 6.3 | 15.2 | 26.6 | 57.0 | 148.5 | 41.8 |
 
 Under `multiply-v1` the price depends on the two digits: the cheaper of an add and a multiply mod 10, plus 1 bit to say
 which. So every nudge costs 8.8 where the slider charges 7.1, and some far changes are cheap (3 to 9 is ×3 for 10.1; 5
@@ -572,6 +573,7 @@ to 0 is ×2 for 10.3; 8 to 4 is ×3 for 10.1). The framework's moves are one-cel
 | `dial-v1`, 64 | 0.31; 2.78; 0.31 | 0.69; 1.74; 0.21 | 0.39; 1.80; 0.19 | 0.80; 1.53; 0.15 | 1.26 (0.07) | 0.238 (×1.93) |
 | `log-v1`, 64 | 0.29; 2.40; 0.29 | 0.65; 1.85; 0.23 | 0.35; 1.77; 0.21 | 0.74; 1.57; 0.17 | 1.31 (0.08) | 0.216 (×1.76) |
 | `multiply-v1`, 64 | 0.26; 2.66; 0.31 | 0.59; 1.97; 0.26 | 0.35; 1.99; 0.25 | 0.72; 1.60; 0.18 | 1.26 (0.08) | 0.211 (×1.72) |
+| `proportional-v1`, 64 | 0.11; 2.53; 0.28 | 0.20; 3.27; 0.34 | 0.27; 1.75; 0.21 | 0.45; 1.78; 0.22 | 2.44 (0.23) | 0.125 (×1.01) |
 | `set-v1`, 16 | 0.17; 3.17; 0.35 | 0.46; 2.68; 0.31 | 0.17; 3.17; 0.35 | 0.46; 2.68; 0.31 | 1.98 (0.18) | 0.125 |
 | `distance-v1`, 16 | 0.24; 3.07; 0.34 | 0.55; 2.64; 0.32 | 0.34; 1.69; 0.19 | 0.70; 1.83; 0.20 | 1.50 (0.12) | 0.207 (×1.65) |
 | `dial-v1`, 16 | 0.31; 2.82; 0.29 | 0.71; 1.89; 0.21 | 0.38; 1.85; 0.21 | 0.80; 1.65; 0.16 | 1.29 (0.08) | 0.238 (×1.90) |
@@ -608,6 +610,12 @@ What the eight show:
 - **`multiply-v1` is `distance-v1` with dearer nudges and a few cheap jumps.** It helps magic_eighteen (+0.19 on the
   slider at 64) and costs strangers (0.71 to 0.62: its fixes are nudges, each 1 bit dearer). The pool is no more even
   than on the slider at 64 (CV 0.18) and less even at 32 (0.25 against 0.17).
+- **`proportional-v1` (the variant with no charge for the cell, λ = 5.04) is the slowest distance price and the least
+  even.** With the cost-aware agent it holds 0.45 of top at 64 energy, what `set-v1` holds, and buys the same bits per
+  energy (×1.01); `rateE` max/min is 2.44, above the design's 1.6 and above `set-v1`'s 2.01. Only a ±1 is cheap (6.3),
+  so the blind agent does worse than under `set-v1` (0.20 against 0.45 at 64), and magic_eighteen, whose fixes are far
+  changes, falls to 0.40 of top at 64 (0.76 under `set-v1`) while crosswise_threes and strangers, fixed by nudges, lead
+  (0.62, 0.59).
 - **16 against 64 starts** agree on every pool row within 0.02 of mean share and 0.07 of CV. The max/min at 32 energy
   (one to four moves) is noisy.
 

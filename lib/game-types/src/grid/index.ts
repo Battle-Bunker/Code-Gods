@@ -7,7 +7,7 @@ import { assemblePrelude, availableOf, memo, offerKey } from "../prelude.ts";
 import type { Codec, Instantiation, InstanceInfo, ObjectTypeDef, ParamSchema, PreludeParts, Rng, TypeArgs } from "../types.ts";
 import { draw } from "../util.ts";
 import {
-  DEFAULT_COST_MODEL, closedUnderComposition, effectWork, generatorOf, locationBits, layerSize, numberLayerKind, siteWork,
+  DEFAULT_COST_MODEL, closedUnderComposition, effectWork, generatorMass, generatorOf, locationBits, layerSize, numberLayerKind, siteWork,
   type CostModel, type CostRow, type Family, type Layer,
 } from "../structure/index.ts";
 import { decodeGrid, encodeGrid, gridMaxLength, gridTypeKey, type GridTypeArgs, type GridValue } from "./codec.ts";
@@ -134,7 +134,8 @@ function layerBits(inst: Instantiation): Record<string, number> {
  * each family. A layer with one value (a mono board's colour) is no family: there is nothing to move.
  *   set-v1:       "symbol" (the whole symbol set, overwritten) and "colour" (overwritten).
  *   the others:   "rank" (the counting order: digits 0–9, cards A–K; a slider, or a dial under dial-v1), "suit" (cards
- *                 only, categorical) and "colour" (categorical).
+ *                 only, categorical) and "colour" (categorical). Under proportional-v1 each family's rate is the one
+ *                 that shares one Kraft budget over every cell and family (structure/index.ts generatorMass).
  */
 export function gridFamilies(inst: Instantiation, model: CostModel = DEFAULT_COST_MODEL): readonly Family<GridValue>[] {
   const key = `${inst.key}|${model}`;
@@ -150,8 +151,9 @@ export function gridFamilies(inst: Instantiation, model: CostModel = DEFAULT_COS
     : [["rank", { kind: numberLayerKind(model), n: R }, (v, i) => s.ranks[v.sym[i]], (v, i, x) => { v.sym[i] += x - s.ranks[v.sym[i]]; }],
       ["suit", { kind: "categorical", n: suits }, (v, i) => (v.sym[i] - s.ranks[v.sym[i]]) / R, (v, i, x) => { v.sym[i] = x * R + s.ranks[v.sym[i]]; }],
       ["colour", { kind: "categorical", n: C }, (v, i) => v.col[i], (v, i, x) => { v.col[i] = x; }]];
+  const mass = generatorMass(model, sites, layers.filter(([, layer]) => layerSize(layer) > 1).length);
   const open = layers.flatMap(([id, layer, get, set]) => {
-    const generator = generatorOf(layer, model);
+    const generator = generatorOf(layer, model, mass);
     return generator ? [{ id, generator, sites, get, set }] : [];
   });
   // A layer with several generators (multiply-v1's numbers) is priced by its cheapest route, not its cheapest step.
