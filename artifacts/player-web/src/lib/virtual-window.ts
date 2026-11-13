@@ -20,3 +20,12 @@ export function visibleWindow({ scrollTop, viewport, rowHeight, count, overscan 
 export function wantsMore({ end, count }: { end: number; count: number }): boolean {
   return count === 0 || end >= count - FIRST_SCREEN_ROWS;
 }
+
+/**
+ * How tall a scrolling list may be: 640 px on a wide screen; on a phone at most 45% of the screen's height, so a swipe
+ * beside or below it scrolls the page (a walker's swipes kept landing in a 640 px Objects list that filled the screen).
+ */
+export function listMaxHeight(s: { phone: boolean; viewportHeight: number; max?: number }): number {
+  const max = s.max ?? 640;
+  return s.phone && s.viewportHeight > 0 ? Math.min(max, Math.max(200, Math.round(s.viewportHeight * 0.45))) : max;
+}

@@ -19,6 +19,8 @@
  * long ago it was seen and, when the object has changed since, how often, draws it dimmed with a "stale" badge and
  * offers "Look · price" (the look command, paid from the god's own energy). A free game shows none of this.
  */
+import { useIsMobile } from "@/hooks/use-mobile";
+import { listMaxHeight } from "@/lib/virtual-window";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Term } from "@workspace/ui-kit";
 import { OBJECT_SORTS, OBJECT_SORT_LABELS, mutationLine, type ObjectSort } from "@workspace/player-client/objects-page";
@@ -375,6 +377,7 @@ export default function Objects({ paneId, params, phase }: PanelProps<"objects">
   const lookAll = useCallback((count: number) => void commands.run({ type: "look", count }), [commands]);
   const { ctx, noun } = useObjectContext();
   const [paneRef, widePane] = useWidePane();
+  const phone = useIsMobile();
   // The open "why?": the object and, when the list is by points, the rank its row showed.
   const [open, setOpen] = useState<{ id: string; rank?: number; /** The act sentence this box was opened from ("show this grid"). */ from?: string } | null>(null);
   const toggle = useCallback((id: string, rank?: number) => setOpen(o => (o?.id === id ? null : { id, rank })), []);
@@ -419,7 +422,7 @@ export default function Objects({ paneId, params, phase }: PanelProps<"objects">
     <div className="space-y-3" ref={paneRef}>
       {header}
       {open && <ObjectDetail objectId={open.id} from={open.from} noun={noun} comparative={comparative} world={world} boards={boards} onHide={() => setOpen(null)} />}
-      <VirtualRows rows={skeleton.rows} rowHeight={rowHeightFor(ctx, widePane) + (paid ? SEEN_LINE : 0)} maxHeight={640} keyOf={r => r.id} onNearEnd={loadMore} testId="list-objects"
+      <VirtualRows rows={skeleton.rows} rowHeight={rowHeightFor(ctx, widePane) + (paid ? SEEN_LINE : 0)} maxHeight={listMaxHeight({ phone, viewportHeight: typeof window === "undefined" ? 0 : window.innerHeight })} keyOf={r => r.id} onNearEnd={loadMore} testId="list-objects"
         render={(r, i) => <ObjectRow objectId={r.id} position={i + 1} byPayoff={byPayoff} scales={scales} world={world} boards={boards}
           highlighted={highlight.has(r.id)} open={open?.id === r.id} onOpen={toggle} ctx={ctx} noun={noun} comparative={comparative} changed={changed} look={look} />} />
       {skeleton.more && <TextButton onClick={loadMore} testId="button-objects-more">Load more ({skeleton.rows.length} of {matching})</TextButton>}
