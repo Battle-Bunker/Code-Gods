@@ -33,7 +33,7 @@ test("event sentences name the god behind every move and what changed", () => {
   assert.equal(describeEvent({ type: "agent.failed", objectId: "obj9999", agentId: "bbbb5678", ownerId: "g2", worldSeconds: 1, reason: "another object already has this value", cost: charge }, names),
     "Bo's agent 5678 failed on object 9999: another object already has this value");
   assert.equal(describeEvent({ type: "agent.skipped", objectId: "obj9999", agentId: "bbbb5678", ownerId: "g2", worldSeconds: 1, cost: { read: 1.5, change: 0, total: 1.5 } }, names),
-    "Bo's agent 5678 looked at object 9999 and did nothing (paid 1.5 bits to look)");
+    "Bo's agent 5678 looked at object 9999 and did nothing (paid 1.5 ⚡ to look)");
   assert.equal(describeEvent({ type: "phase", phase: "paused", worldSeconds: 3, reason: "paused by Bo" }, names), "Paused: paused by Bo");
   assert.equal(describeEvent({ type: "object.spawned", objectId: "obj7777", value: 5, version: 0, worldSeconds: 2, net: [0, 0] }, names), "Object 7777 appeared");
   assert.equal(describeEvent({ type: "agent.destroyed", agentId: "aaaa1234", ownerId: "g1", worldSeconds: 4 }, names), "Ada destroyed agent 1234");

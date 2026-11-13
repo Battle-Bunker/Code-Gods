@@ -167,6 +167,9 @@ test("penalty weight and the defence checklist hide while defence goals are off;
   assert.deepEqual(stepChoices("fullChargeSeconds", 30), [10, 30, 60, 120, 300], "the suggested steps come from SETTINGS_DOCS");
   assert.deepEqual(stepChoices("fullChargeSeconds", 45), [10, 30, 45, 60, 120, 300]);
   assert.equal(formatValue("fullChargeSeconds", 30), "30 s");
+  // Energy reads in ⚡, as everywhere in the game (a walker did not know what "600 bits" meant); the engine's docs keep bits.
+  assert.equal(formatValue("startingEnergy", 600), "600 ⚡");
+  assert.equal(formatValue("powerPerSecond", 64), "64 ⚡/s");
   assert.deepEqual(stepChoices("pauseSeconds", 240), [60, 180, 240, 300]);
   // Catches: the summary adding planning to the game ("15 min") beside a Time field that says "Long (10 min)".
   assert.equal(lengthLine({ planningSeconds: 60, halfLifeSeconds: 300 }), "1 min planning, then about 5 min (ends at a hidden moment, often after 2 to 12 min)");
