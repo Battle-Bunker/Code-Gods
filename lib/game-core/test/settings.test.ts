@@ -251,6 +251,12 @@ test("Annotated basics starts with 10 objects, spawns 0.1 per second and plans f
   assert.deepEqual([s.startingObjectCount, s.spawnRateHz, s.planningSeconds], [10, 0.1, 60]);
   assert.doesNotThrow(() => validateSettings(s));
 });
+test("Annotated basics is sized for a first game: five minutes with a countdown, and live points that equal the final", () => {
+  const s = seedSetupSettings(ANNOTATED_BASICS_SEED_ID);
+  assert.deepEqual([s.durationMode, s.halfLifeSeconds], ["fixed", 300]);
+  // Disclosure noise makes every live total read high and drop at the end (the others' sum is floored after the noise).
+  assert.equal(s.peerNoiseBits, 0);
+});
 
 test("energy settings have upper bounds, so no allowed value overflows an account or a score (balance harness)", () => {
   // Unbounded before: 1e308 bits/s passed, then every settlement threw "Energy overflow"; a weight of 1e308 made netBits −Infinity.

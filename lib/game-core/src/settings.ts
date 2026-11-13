@@ -597,6 +597,10 @@ export const SEED_SETUPS: readonly SeedSetup[] = Object.freeze([
       startingObjectCount: 10, spawnRateHz: 0.1, planningSeconds: 60,
       // Paid observation (owner, 2026-11-11: a costly use of a god's own energy; docs/energy-model.md §11).
       observation: "paid",
+      // No disclosure noise on the beginner setup: with noise, a live total reads high (the others' sum is floored at 0
+      // after the noise) and every total drops when the game ends (live 308, final 194 in a first game), which a new
+      // player reads as a bug. Eight known simple rules have little secrecy to protect; docs/public-log-design.md §5.2.
+      peerNoiseBits: 0,
     }),
   seed(ANNOTATED_COLOURS_SEED_ID, "Annotated colours", "Every rule with picture-by-picture explanations, on a small slowed-down coloured board",
     "Grid", { size: 4, symbols: "base10", colours: "rgb" }, {

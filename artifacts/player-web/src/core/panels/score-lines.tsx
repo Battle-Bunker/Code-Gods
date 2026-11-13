@@ -8,7 +8,7 @@
 import { useMemo } from "react";
 import { useGoalExplainer } from "@workspace/object-views";
 import { SCORE_LINES, scoreMovesLine, Term } from "@workspace/ui-kit";
-import { useDockState, useEvents, useGameId, useMyTotals, useObjectContext } from "@/sdk";
+import { useDockState, useEvents, useGameId, useMyTotals, useObjectContext, useRoomInfo } from "@/sdk";
 import { agentLabel } from "./agent-name";
 import { actLine, asOfText, latestOwnActs, pointsNowText, type OwnAct } from "./score-line";
 
@@ -23,7 +23,10 @@ export function PointsNow({ className = "" }: { className?: string }) {
   const score = totals?.score ?? dock?.self.score;
   const age = dock?.phase === "ended" ? null : asOfText(dock?.economy?.worldSeconds, totals?.world);
   const { noun } = useObjectContext();
-  return typeof score === "number" ? <PointsNowView score={score} age={age} noun={noun} className={className} /> : null;
+  // Live points are blurred only where the room blurs what the others want (peerNoiseBits; 0 on the beginner setup).
+  const room = useRoomInfo();
+  const estimate = dock?.phase !== "ended" && liveIsEstimate(room?.settings);
+  return typeof score === "number" ? <PointsNowView score={score} age={age} noun={noun} estimate={estimate} className={className} /> : null;
 }
 
 /**
@@ -32,14 +35,19 @@ export function PointsNow({ className = "" }: { className?: string }) {
  * already have points?"). On a phone the second line is left to the "points" help (its gloss says the same), so the
  * goal card stays on the first screen.
  */
-export function PointsNowView({ score, age, noun = "object", className = "" }: { score: number; age?: string | null; noun?: string; className?: string }) {
+/** Whether the live figures are an estimate: the room adds noise to what the others want (unknown settings: assume so). */
+export const liveIsEstimate = (settings: unknown): boolean => {
+  const noise = (settings as { peerNoiseBits?: unknown } | null | undefined)?.peerNoiseBits;
+  return typeof noise === "number" ? noise > 0 : true;
+};
+export function PointsNowView({ score, age, noun = "object", estimate = false, className = "" }: { score: number; age?: string | null; noun?: string; estimate?: boolean; className?: string }) {
   const why = scoreMovesLine(noun);
   return (
     <div className={className} title={`${why} ${SCORE_LINES.total}`} data-testid="text-points-now">
       <p className="flex flex-wrap items-baseline gap-x-2">
         <span className="text-sm font-semibold">Your <Term id="payoff">points</Term> now:</span>
         <span className={`font-mono text-2xl font-semibold leading-none tabular-nums ${score < 0 ? "text-destructive" : ""}`} data-testid="value-points-now">{pointsNowText(score)}</span>
-        <span className="text-xs text-muted-foreground">an estimate{age ? `, ${age}` : ""}; what the leaderboard ranks</span>
+        <span className="text-xs text-muted-foreground">{estimate ? "an estimate" : ""}{estimate && age ? ", " : ""}{age ?? ""}{estimate || age ? "; " : ""}what the leaderboard ranks</span>
       </p>
       <p className="hidden text-xs leading-snug text-muted-foreground sm:block" data-testid="text-points-why">{why}</p>
     </div>
