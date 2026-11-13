@@ -6,7 +6,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { DEFAULT_SETTINGS, type GameSettings } from "../src/settings.ts";
-import { SettingsChangeError, applySettingsChange, sameSettings, type SettingsDomain } from "../src/settings-model.ts";
+import { SETTINGS_FIELDS, SettingsChangeError, applySettingsChange, canonicalCostModel, sameSettings, type SettingsDomain } from "../src/settings-model.ts";
 
 const INT_WIDE = { min: -2147483648, max: 2147483647 };
 const INT_SMALL = { min: 0, max: 9999 };
@@ -160,4 +160,34 @@ test("a whole settings object is a change of the fields that differ: re-applying
   assert.throws(() => applySettingsChange(start, { colour: "red" } as never, domain), /Unknown setting colour/);
   assert.ok(sameSettings(edited, Object.fromEntries(Object.entries(edited).reverse()) as GameSettings), "key order is not a difference");
   assert.ok(!sameSettings(edited, { ...edited, startingObjectCount: 81 }));
+});
+
+test("the cost model: one of the instantiation's models, the default never stored, dropped when the world stops supporting it", () => {
+  assert.deepEqual([...SETTINGS_FIELDS].sort(), [...Object.keys(DEFAULT_SETTINGS), "costModel"].sort());
+  const grid = applySettingsChange(start, { objectType: "Grid" }, domain);
+  assert.ok(!("costModel" in grid));
+  const distance = applySettingsChange(grid, { costModel: "distance-v1" }, domain);
+  assert.deepEqual(distance, { ...grid, costModel: "distance-v1" }, "nothing else moves");
+  assert.deepEqual(applySettingsChange(distance, { costModel: "set-v1" }, domain), grid, "the default is the field's absence: and back again");
+  assert.deepEqual(applySettingsChange(grid, { costModel: "set-v1" }, domain), grid, "choosing the default where it already holds is no change");
+  assert.deepEqual(applySettingsChange(distance, { planningSeconds: 99 }, domain), { ...distance, planningSeconds: 99 }, "another field leaves it alone");
+  // The 7×7 cards in six colours do not offer it (a full look would cost more than its cheapest change: settings.ts
+  // lookIsCheaperThanChange), so the model goes when the board changes to that one.
+  assert.deepEqual(applySettingsChange(distance, { typeArgs: GRID7 }, domain), { ...grid, typeArgs: GRID7, excludedFamilies: [] }, "dropped where the board does not offer it");
+  // A world that has only the default model: the field goes with the change of world, and cannot be chosen there.
+  const int = applySettingsChange(distance, { objectType: "Int" }, domain);
+  assert.ok(!("costModel" in int));
+  assert.deepEqual(int, { ...start, excludedFamilies: [] });
+  assert.deepEqual(applySettingsChange(distance, { ...distance, objectType: "Int" }, domain), int, "the whole settings sent back with the world edited");
+  for (const [base, bad, message] of [[start, "distance-v1", /Unsupported costModel for Int\(/], [grid, "free", /costModel must be one of set-v1, distance-v1/], [grid, 7, /costModel must be one of/]] as const) {
+    assert.throws(() => applySettingsChange(base, { costModel: bad as never }, domain),
+      (e: unknown) => e instanceof SettingsChangeError && e.field === "costModel" && message.test(e.message), String(bad));
+  }
+  assert.deepEqual(applySettingsChange(start, { costModel: "set-v1" }, domain), start);
+  // The same spelling for complete settings from anywhere (a saved setup).
+  assert.deepEqual(canonicalCostModel({ ...grid, costModel: "set-v1" }), grid);
+  assert.equal(canonicalCostModel(distance), distance);
+  assert.equal(canonicalCostModel(grid), grid);
+  const refused = { ...start, costModel: "distance-v1" as const };
+  assert.equal(canonicalCostModel(refused), refused, "only the default's spelling is touched: validateSettings refuses the rest");
 });

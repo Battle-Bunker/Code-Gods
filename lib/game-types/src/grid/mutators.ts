@@ -25,6 +25,7 @@
  */
 import type { HelperDoc, Instantiation, MutatorDef, MutatorKind, MutatorScope, Rng } from "../types.ts";
 import { fail, lg, mdoc, mod } from "../mutators.ts";
+import type { CostModel } from "../structure/index.ts";
 import type { GridTypeArgs, GridValue } from "./codec.ts";
 import { COLOUR_COMPONENTS, RANK_GLYPHS, SUIT_GLYPHS, SYMBOL_COMPONENTS, type SymbolComponent } from "./components.ts";
 
@@ -246,6 +247,10 @@ interface GridMutatorSpec {
    * colour leaves it nothing to do). `paint` does not set it: painting a mono cell its only colour is a valid no-change.
    */
   coloured?: true;
+  /** The mutator is arithmetic modulo 10: offered only on the digits 0–9. */
+  base10?: true;
+  /** Offered only under these cost models (MutatorDef.costModels). */
+  costModels?: readonly CostModel[];
   kind: MutatorKind;
   scope: MutatorScope;
   fields: readonly Field[];
@@ -293,8 +298,9 @@ function def(s: GridMutatorSpec): GridMutator {
   const spaces = new Map<string, readonly GP[]>();
   return Object.freeze({
     id: s.id, name: s.name, emoji: s.emoji, summary: s.summary,
-    requires: [...s.requires.map(has => ({ has })), ...(s.coloured ? [{ term: "colours.count", op: ">=" as const, value: 2 }] : [])],
-    scope: s.scope, kind: s.kind,
+    requires: [...s.requires.map(has => ({ has })), ...(s.coloured ? [{ term: "colours.count", op: ">=" as const, value: 2 }] : []),
+      ...(s.base10 ? [{ term: "symbols.base", op: "==" as const, value: 10 }] : [])],
+    scope: s.scope, kind: s.kind, ...(s.costModels ? { costModels: s.costModels } : {}),
     parse: (raw: Readonly<Record<string, unknown>>, inst: Instantiation) => parseFields(s.fields, raw, gridCtx(inst)),
     describeBits: (p: GP, inst: Instantiation) => describeFields(s.fields, p, gridCtx(inst)),
     apply: (v: GridValue, p: GP, inst: Instantiation) => s.apply(v, p, gridCtx(inst)),
@@ -1334,6 +1340,117 @@ const step_rank = def({
   }),
 });
 
+/**
+ * The slider's own move (docs/mutation-cost-design.md §0): add a whole number to every number in an area. Unlike
+ * step_rank it never wraps: an add that would take any cell below the lowest number or above the highest cannot apply,
+ * so the act fails. Under distance-v1 this is the elementary number mutator (a cell pays for how far it moved); under
+ * set-v1 it is a composite priced like any other symbol change.
+ */
+const add = def({
+  id: "add", name: "Add", emoji: "➕", summary: "Add to (or take away from) every number in an area, without wrapping: 9 + 1 does not fit.",
+  requires: ["Ranked"], kind: "bijective", scope: "local",
+  fields: [F_kind("cell", "line", "block", "ring", "all"), F_REGION,
+    { name: "k", choices: g => cached(`add:${g.R}`, () => range(g.R, 1).flatMap(k => [k, -k])) }],
+  terms: (p, g) => ({ dsym: regionSize(p.kind, p.region, g.N), scope: REGION_SCOPE[p.kind] }),
+  apply: (v, p, g) => {
+    const out = copy(v);
+    for (const i of resolveCells(p, g, v)) {
+      const r = rankOf(g, v.sym[i]) + p.k;
+      if (r < 0 || r >= g.R) return null;
+      out.sym[i] = v.sym[i] + p.k;
+    }
+    return out;
+  },
+  text: (p, g) => `${p.k > 0 ? `add ${p.k} to` : `take ${-p.k} from`} every number in ${regionText(p, g)}`,
+  guest: guest({
+    py: `def add(where, amount=1):
+    k = _M_INT(amount, "amount")
+    if k == 0:
+        _M_FAIL("adding 0 does nothing")
+    return _M_CALL("add", **_M_WHERE(where), k=k)
+`,
+    js: `function add(where, amount = 1) {
+  const k = __M_INT(amount, "amount");
+  if (k === 0) __M_FAIL("adding 0 does nothing");
+  return { __m: "add", ...__M_WHERE(where), k };
+}
+`,
+    dts: `declare function add(where: Area, amount?: number): MutatorCall;\n`,
+    doc: [["add(where, amount=1)", "add(where, amount = 1)",
+      "Add a whole number to every number in a cell, row or column, square, ring or everything: add(cell, 1), add(cell, -2). It never wraps: if any number would leave the range (9 + 1), the move fails.", "Ranked"]],
+  }),
+});
+
+const gcd = (a: number, b: number): number => (b === 0 ? a : gcd(b, a % b));
+/** The digits that have an inverse modulo the base (base 10: 1, 3, 7, 9), with it. */
+const inverses = (S: number): Map<number, number> => cached(`inv:${S}`, () =>
+  new Map(range(S, 1).filter(u => gcd(u, S) === 1).map(u => [u, range(S, 1).find(v => (u * v) % S === 1)!])));
+
+/**
+ * Multiply and divide modulo the number base (docs/mutation-cost-design.md §4), offered only in rooms priced by
+ * multiply-v1: every number in an area becomes the last digit of number × m. ×1 is not a move. ×0, and a multiplier
+ * that shares a factor with the base (2, 4, 5, 6, 8 in base 10), merges numbers and cannot be undone.
+ */
+const multiply = def({
+  id: "multiply", name: "Multiply", emoji: "✖️", summary: "Multiply every number in an area, keeping only the last digit: 7 × 8 = 56 leaves 6.",
+  requires: ["Numeral"], base10: true, costModels: ["multiply-v1"], kind: "overwrite", scope: "local",
+  fields: [F_kind("cell", "line", "block", "ring", "all"), F_REGION,
+    { name: "m", choices: g => cached(`mul:${g.S}`, () => range(g.S).filter(m => m !== 1)) }],
+  terms: (p, g) => {
+    const n = regionSize(p.kind, p.region, g.N);
+    return { erase: n * Math.log2(gcd(p.m, g.S)), dsym: n * (1 - 1 / g.S), scope: REGION_SCOPE[p.kind] };
+  },
+  apply: (v, p, g) => {
+    const out = copy(v);
+    for (const i of resolveCells(p, g, v)) out.sym[i] = (v.sym[i] * p.m) % g.S;
+    return out;
+  },
+  text: (p, g) => `multiply every number in ${regionText(p, g)} by ${p.m}, keeping the last digit`,
+  guest: guest({
+    py: `def multiply(where, by):
+    m = _M_INT(by, "by") % len(_SYMBOLS)
+    if m == 1:
+        _M_FAIL("multiplying by 1 does nothing")
+    return _M_CALL("multiply", **_M_WHERE(where), m=m)
+`,
+    js: `function multiply(where, by) {
+  const m = ((__M_INT(by, "by") % __SYMBOLS.length) + __SYMBOLS.length) % __SYMBOLS.length;
+  if (m === 1) __M_FAIL("multiplying by 1 does nothing");
+  return { __m: "multiply", ...__M_WHERE(where), m };
+}
+`,
+    dts: `declare function multiply(where: Area, by: number): MutatorCall;\n`,
+    doc: [["multiply(where, by)", "multiply(where, by)",
+      "Multiply every number in a cell, row or column, square, ring or everything, keeping only the last digit: multiply(cell, 3) turns 4 into 2 (12).", "Numeral"]],
+  }),
+});
+
+const divide = def({
+  id: "divide", name: "Divide", emoji: "➗", summary: "Undo a multiply: divide every number in an area by 3, 7 or 9 (the multipliers that can be undone).",
+  requires: ["Numeral"], base10: true, costModels: ["multiply-v1"], kind: "bijective", scope: "local",
+  fields: [F_kind("cell", "line", "block", "ring", "all"), F_REGION,
+    { name: "u", choices: g => cached(`div:${g.S}`, () => [...inverses(g.S).keys()].filter(u => u !== 1)) }],
+  terms: (p, g) => ({ dsym: regionSize(p.kind, p.region, g.N) * (1 - 1 / g.S), scope: REGION_SCOPE[p.kind] }),
+  apply: (v, p, g) => {
+    const out = copy(v), inv = inverses(g.S).get(p.u)!;
+    for (const i of resolveCells(p, g, v)) out.sym[i] = (v.sym[i] * inv) % g.S;
+    return out;
+  },
+  text: (p, g) => `divide every number in ${regionText(p, g)} by ${p.u} (the number that ×${p.u} would have made it)`,
+  guest: guest({
+    py: `def divide(where, by):
+    return _M_CALL("divide", **_M_WHERE(where), u=_M_INT(by, "by"))
+`,
+    js: `function divide(where, by) {
+  return { __m: "divide", ...__M_WHERE(where), u: __M_INT(by, "by") };
+}
+`,
+    dts: `declare function divide(where: Area, by: number): MutatorCall;\n`,
+    doc: [["divide(where, by)", "divide(where, by)",
+      "Undo a multiply: divide(cell, 3) turns 2 back into 4 (because 4 × 3 = 12 ends in 2). Only by a number whose multiply can be undone (3, 7 or 9 in base 10); anything else fails.", "Numeral"]],
+  }),
+});
+
 const write_ramp = def({
   id: "write_ramp", name: "Count along", emoji: "🪜", summary: "Write a counting run along a row or column: 3, 4, 5, 6, ... (cards keep their suit).",
   requires: ["Ranked"], kind: "overwrite", scope: "line",
@@ -1645,7 +1762,7 @@ export const GRID_MUTATORS: readonly GridMutator[] = Object.freeze([
   swap_cells, shift_line, reverse_line, swap_lines, turn_block, turn_grid,
   sort_line, mirror_fold,
   paint, recolour, swap_colours, hue_turn, pattern_line, motif, majority_line,
-  write, step_rank, write_ramp, swap_symbols,
+  write, step_rank, add, multiply, divide, write_ramp, swap_symbols,
   paint_by_key, stamp, tally,
   blend, suit_swap, suit_set,
 ]);

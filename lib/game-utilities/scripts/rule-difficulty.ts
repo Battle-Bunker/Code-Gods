@@ -12,6 +12,10 @@
  *   --moves cell|symbol             one-cell moves: symbol and colour (default) or symbol only
  *   --shape "Grid(4,base10,rgb)"    the board, overriding the setup's
  *   --budget default|quick          sample sizes (lib DEFAULT_BUDGET / QUICK_BUDGET)
+ *   --starts N                      start boards per rule, overriding the budget's
+ *   --cost-model set-v1|distance-v1 the room's cost model (any of game-types COST_MODELS), for the energy columns
+ *   --act-overhead BITS             energy every act pays besides its change (its offer and its reads), default 0
+ *                                   rateE, e32, e64 and the energy table (default set-v1)
  *   --params N                      distinct canonical params per family (default 1; rows are id#k when > 1)
  *   --no-pairs                      skip the synergy matrix
  *   --calibrate                     calibrate families here even when a shipped table exists
@@ -27,10 +31,10 @@
 import { pathToFileURL } from "node:url";
 import { resolve } from "node:path";
 import { writeFileSync } from "node:fs";
-import { instantiate, type Instantiation } from "@workspace/game-types";
+import { COST_MODELS, DEFAULT_COST_MODEL, isCostModel, instantiate, type Instantiation } from "@workspace/game-types";
 import { SEED_SETUPS } from "../../game-core/src/settings.ts";
 import {
-  DEFAULT_BUDGET, QUICK_BUDGET, adHocRule, verdict, colourBlind, familyParams, familyRule, measurePool, poolFamilies, space,
+  DEFAULT_BUDGET, ENERGY_BUDGETS, QUICK_BUDGET, adHocRule, verdict, colourBlind, familyParams, familyRule, measurePool, poolFamilies, space,
   type MoveSet, type PoolReport, type Rule,
 } from "./rule-difficulty-lib.ts";
 import type { Ordinal } from "../src/index.ts";
@@ -53,7 +57,9 @@ function parseShape(s: string): Instantiation {
 }
 const inst = opt("shape") ? parseShape(opt("shape")!) : instantiate(setup.settings.objectType, setup.settings.typeArgs);
 const moveSet = (opt("moves") ?? "cell") as MoveSet;
-const budget = opt("budget") === "quick" ? QUICK_BUDGET : DEFAULT_BUDGET;
+const budget = { ...(opt("budget") === "quick" ? QUICK_BUDGET : DEFAULT_BUDGET), ...(opt("starts") ? { starts: Number(opt("starts")) } : {}) };
+const costModel = opt("cost-model") ?? DEFAULT_COST_MODEL;
+if (!isCostModel(costModel)) throw new Error(`--cost-model must be one of ${COST_MODELS.join(", ")}, got ${costModel}`);
 const sp = space(inst, moveSet);
 const log = (s: string) => process.stderr.write(s + "\n");
 
@@ -79,23 +85,47 @@ if (opt("adhoc")) {
   for (const x of list) { log(`calibrating ${x.id}`); rules.push(adHocRule(x.id, sourceOf(x.utility), inst, { top: x.top })); }
 }
 const chosen = flag("numbers-only") ? rules.filter(r => colourBlind(r, sp)) : rules;
-log(`${inst.key}, moves=${moveSet}, ${chosen.length} rules, budget=${opt("budget") ?? "default"}`);
+log(`${inst.key}, moves=${moveSet}, cost model=${costModel}, ${chosen.length} rules, budget=${opt("budget") ?? "default"}`);
 const t0 = performance.now();
-const report = measurePool(chosen, { sp, budget }, { pairs: !flag("no-pairs"), log });
+const actOverhead = Number(opt("act-overhead") ?? 0);
+if (!(actOverhead >= 0)) throw new Error(`--act-overhead must be a number of bits, 0 or more`);
+const report = measurePool(chosen, { sp, budget, costModel, actOverhead }, { pairs: !flag("no-pairs"), log });
 log(`measured in ${((performance.now() - t0) / 1000).toFixed(1)}s`);
 print(report);
-if (opt("json")) writeFileSync(opt("json")!, JSON.stringify({ shape: inst.key, moves: moveSet, budget, ...report }, (_, v) => (v === Infinity ? "inf" : v), 2) + "\n");
+if (opt("json")) writeFileSync(opt("json")!, JSON.stringify({ shape: inst.key, moves: moveSet, costModel, budget, ...report }, (_, v) => (v === Infinity ? "inf" : v), 2) + "\n");
 
 if (opt("markdown")) writeFileSync(opt("markdown")!, markdown(report));
+
+/**
+ * The energy table (Markdown; the text output prints the same lines): bits held after 32 and 64 energy bits by the
+ * steepest and the per-energy greedy under the cost model, then the pool's share-of-top spread for each agent.
+ */
+function energyLines(r: PoolReport): string[] {
+  const f = (x: number, d = 2) => (Number.isFinite(x) ? x.toFixed(d) : "–"), [i32, i64] = [ENERGY_BUDGETS.indexOf(32), ENERGY_BUDGETS.indexOf(64)];
+  const mean = (a: number[]) => a.reduce((x, y) => x + y, 0) / a.length;
+  const stat = (policy: "steepest" | "per-energy", i: number) => {
+    const xs = r.rules.map(x => x.energyBits[policy][i] / x.topBits), m = mean(xs), sd = Math.sqrt(mean(xs.map(x => (x - m) ** 2)));
+    return `${f(m)}; ${f(Math.max(...xs) / Math.max(1e-9, Math.min(...xs)))}; ${f(sd / m)}`;
+  };
+  const s = r.summary;
+  return [
+    `Energy, cost model ${costModel}: bits held after 32 / 64 energy bits (energy of an act = W + 0.05·W²); rateE = bits gained per energy bit over the first 64, per-energy greedy.`, "",
+    "| rule | top | steepest 32 / 64 | per-energy 32 / 64 | rateE | e32 | e64 |", "|---|--:|--:|--:|--:|--:|--:|",
+    ...r.rules.map(x => `| ${x.id} | ${f(x.topBits, 1)} | ${f(x.energyBits.steepest[i32], 1)} / ${f(x.energyBits.steepest[i64], 1)} | ${f(x.energyBits["per-energy"][i32], 1)} / ${f(x.energyBits["per-energy"][i64], 1)} | ${f(x.rateE, 3)} | ${f(x.e32)} | ${f(x.e64)} |`),
+    `| **share of top at 32: mean; max/min; CV** | | ${stat("steepest", i32)} | ${stat("per-energy", i32)} | | | |`,
+    `| **share of top at 64: mean; max/min; CV** | | ${stat("steepest", i64)} | ${stat("per-energy", i64)} | | | |`,
+    "", `Pool check (reported, not a gate): rateE max/min ${f(s.rateERatio)} (CV ${f(s.rateECv)}); the design's target is ≤ 1.6.`,
+  ];
+}
 
 function markdown(r: PoolReport): string {
   const f = (x: number, d = 2) => (Number.isFinite(x) ? x.toFixed(d) : x === Infinity ? "∞" : "–");
   const syn = new Map(r.partners.map(p => [p.id, p]));
   const lines = [
     `${inst.key}, moves: ${moveSet}, budget: ${opt("budget") ?? "default"}`, "",
-    "| rule | reads | card | top | rate4 | rate8 | g10 | g20 | uniform max | reach16 | to90 | plat | trap | esc2 | gap | K | **DIFF** | **SYN** | confl |",
-    "|---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|",
-    ...[...r.rules].sort((a, b) => a.difficulty - b.difficulty || b.rate4 - a.rate4).map(x => `| ${x.id} | ${x.colourBlind ? "numbers" : "colours"} | ${f(x.cardBits, 0)} | ${f(x.topBits, 1)} | ${f(x.rate4)} | ${f(x.rate8)} | ${f(x.greedy10, 1)} | ${f(x.greedy20, 1)} | ${x.uniformTop.length ? x.uniformTop.join(", ") : "–"} | ${f(x.reach16)} | ${f(x.movesTo90, 0)} | ${f(x.plateau)} | ${f(x.trap)} | ${f(x.escape2)} | ${f(x.gap)} | ${f(x.entangle, 1)} | **${f(x.difficulty, 1)}** | **${f(syn.get(x.id)?.synergy ?? NaN, 1)}** | ${f(syn.get(x.id)?.conflict ?? NaN)} |`),
+    "| rule | reads | card | top | rate4 | rate8 | rateE | g10 | g20 | uniform max | reach16 | to90 | plat | trap | esc2 | gap | K | **DIFF** | **SYN** | confl |",
+    "|---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|",
+    ...[...r.rules].sort((a, b) => a.difficulty - b.difficulty || b.rate4 - a.rate4).map(x => `| ${x.id} | ${x.colourBlind ? "numbers" : "colours"} | ${f(x.cardBits, 0)} | ${f(x.topBits, 1)} | ${f(x.rate4)} | ${f(x.rate8)} | ${f(x.rateE, 3)} | ${f(x.greedy10, 1)} | ${f(x.greedy20, 1)} | ${x.uniformTop.length ? x.uniformTop.join(", ") : "–"} | ${f(x.reach16)} | ${f(x.movesTo90, 0)} | ${f(x.plateau)} | ${f(x.trap)} | ${f(x.escape2)} | ${f(x.gap)} | ${f(x.entangle, 1)} | **${f(x.difficulty, 1)}** | **${f(syn.get(x.id)?.synergy ?? NaN, 1)}** | ${f(syn.get(x.id)?.conflict ?? NaN)} |`),
   ];
   if (r.pairs.length) {
     const ids = r.rules.map(x => x.id), at = new Map(r.pairs.flatMap(p => [[`${p.a}|${p.b}`, p], [`${p.b}|${p.a}`, p]]));
@@ -104,6 +134,7 @@ function markdown(r: PoolReport): string {
       ...ids.map(a => `| \`${a}\` | ${ids.map(b => { const p = at.get(`${a}|${b}`); return p ? `${f(p.difficulty, 0)} (${f(p.ceiling, 1)})` : "·"; }).join(" | ")} |`));
   }
   const s = r.summary;
+  lines.push("", ...energyLines(r));
   lines.push("", `Pool: rate4 max/min ${f(s.rateRatio)} (CV ${f(s.rateCv)}); reach16 max/min ${f(s.reachRatio)}; card max/min ${f(s.cardBitsRatio)}; `
     + `DIFF max ${f(s.difficultyMax, 1)}, spread ${f(s.difficultySpread, 1)}; worst pair ${s.worstPair || "–"} (${f(s.worstPairDifficulty, 1)}); `
     + `lowest ceiling ${f(s.minCeiling)}; dominated: ${s.dominated.join(", ") || "none"}.`, "");
@@ -116,7 +147,7 @@ function print(r: PoolReport) {
   const f = (x: number, d = 2) => (Number.isFinite(x) ? x.toFixed(d) : x === Infinity ? "inf" : "-");
   const cols: [string, number, (x: PoolReport["rules"][number]) => string][] = [
     ["rule", 24, x => x.id], ["card", 6, x => f(x.cardBits, 0)], ["top", 6, x => f(x.topBits, 1)],
-    ["rate4", 6, x => f(x.rate4)], ["rate8", 6, x => f(x.rate8)], ["g10", 6, x => f(x.greedy10, 1)], ["g20", 6, x => f(x.greedy20, 1)], ["unif", 6, x => (x.uniformTop.length === sp.S ? "all" : x.uniformTop.length > 4 ? `${x.uniformTop.length}` : x.uniformTop.join("") || "-")], ["reach16", 8, x => f(x.reach16)], ["to90", 5, x => f(x.movesTo90, 0)],
+    ["rate4", 6, x => f(x.rate4)], ["rate8", 6, x => f(x.rate8)], ["rateE", 7, x => f(x.rateE, 3)], ["e32", 6, x => f(x.e32)], ["e64", 6, x => f(x.e64)], ["g10", 6, x => f(x.greedy10, 1)], ["g20", 6, x => f(x.greedy20, 1)], ["unif", 6, x => (x.uniformTop.length === sp.S ? "all" : x.uniformTop.length > 4 ? `${x.uniformTop.length}` : x.uniformTop.join("") || "-")], ["reach16", 8, x => f(x.reach16)], ["to90", 5, x => f(x.movesTo90, 0)],
     ["plat", 5, x => f(x.plateau)], ["trap", 5, x => f(x.trap)], ["esc2", 5, x => f(x.escape2)], ["gap", 5, x => f(x.gap)],
     ["K", 5, x => f(x.entangle, 1)], ["DIFF", 6, x => f(x.difficulty, 1)],
   ];
@@ -138,6 +169,7 @@ function print(r: PoolReport) {
       return p ? f(p.difficulty, 0).padStart(8) : "       .";
     }).join(""));
   }
+  console.log("\n" + energyLines(r).filter(Boolean).join("\n").replace(/\*\*/g, ""));
   const s = r.summary;
   console.log(`\npool: rate max/min ${f(s.rateRatio)} (cv ${f(s.rateCv)}), reach16 max/min ${f(s.reachRatio)}, card max/min ${f(s.cardBitsRatio)}, `
     + `difficulty max ${f(s.difficultyMax, 1)} spread ${f(s.difficultySpread, 1)}, worst pair ${s.worstPair || "-"} ${f(s.worstPairDifficulty, 1)}, `

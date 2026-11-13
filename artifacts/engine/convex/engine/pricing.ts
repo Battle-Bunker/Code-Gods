@@ -4,14 +4,15 @@
  *   summon price   = description bits (ast-bits-v1 / ts-ast-bits-v1-uniform) + each literal move   (god pays once)
  *   act charge     = the bits the act read × READ_PRICE + its change when that commits          (agent pays, per act)
  * (docs/energy-model.md §2). expectedActCost, the estimate shown at validation and summon, is measured by RUNNING the
- * agent on the season's reference mixture plus up to 16 live objects; nothing is charged or scheduled from it.
+ * agent on the season's reference mixture plus up to 16 live objects; nothing is charged or scheduled from it. Its
+ * changes are priced under the game's cost model (settings.costModel), as the tick will charge them.
  */
-import { instantiationOf, type GameSettings, type Language, type ObjectValue } from "@workspace/game-core";
+import { costModelOf, instantiationOf, type GameSettings, type Language, type ObjectValue } from "@workspace/game-core";
 import type { Inspection } from "@workspace/game-runtime";
 import {
   CHANGE_READ_RATIO, availableMutators, futilityWarnings, failedReadBits, measureAgent, readBound, parseAct, probeFutility, referenceMixture, withComponents, type FutilityProfile, type Instantiation,
   type ReferenceMixture,
-} from "@workspace/game-types";
+type CostModel } from "@workspace/game-types";
 import type { ActionCtx } from "../_generated/server";
 import { act, inspect, isAgentFault } from "./runtime";
 import { seasonCommitment, seasonSalt } from "./node";
@@ -40,8 +41,8 @@ export type Examination = {
 
 const lg = (x: number) => (x > 1 ? Math.log2(x) : 0);
 
-export function summonPrice(inspection: Inspection, inst: Instantiation): { cost: number; parts: SummonParts } {
-  const avail = availableMutators(inst), byId = new Map(avail.map(m => [m.id, m]));
+export function summonPrice(inspection: Inspection, inst: Instantiation, model?: CostModel): { cost: number; parts: SummonParts } {
+  const avail = availableMutators(inst, model), byId = new Map(avail.map(m => [m.id, m]));
   let literalMoves = 0;
   inspection.literalMoves.forEach(([id, raw], i) => {
     const m = byId.get(id);
@@ -72,14 +73,14 @@ export class AgentFault extends Error {}
 
 /** Throws AgentFault for the agent's own compile errors; host failures propagate as they are. */
 export async function examineAgent(ctx: ActionCtx, settings: GameSettings, language: Language, source: string, live: readonly ObjectValue[]): Promise<Examination> {
-  const inst = instantiationOf(settings);
+  const inst = instantiationOf(settings), costModel = costModelOf(settings);
   let inspection: Inspection;
   try { inspection = await inspect(ctx, source, language, settings); }
   catch (error) {
     if (!isAgentFault(error)) throw error;
     throw new AgentFault((error as Error).message.slice(0, 1000));
   }
-  const price = summonPrice(inspection, inst);
+  const price = summonPrice(inspection, inst, costModelOf(settings));
   const game = live.slice(0, GAME_COMPONENT);
   const mixture = game.length ? withComponents(seasonMixture(inst), { game }) : seasonMixture(inst);
   let hostFailure: unknown, runs = 0, usesClause = false, firstFault: string | undefined;
@@ -95,7 +96,7 @@ export async function examineAgent(ctx: ActionCtx, settings: GameSettings, langu
       if (!isAgentFault(error)) { hostFailure ??= error; throw error; }
       return { calls: "[]", error: (error as Error).message.slice(0, 200) };
     }
-  }, inst, [...game, ...mixture.values], { salt: seasonSalt(), concurrency: CONCURRENCY });
+  }, inst, [...game, ...mixture.values], { salt: seasonSalt(), concurrency: CONCURRENCY, costModel });
   const measured = await measureAgent(async (value, seed, at) => {
     if (hostFailure) throw hostFailure;
     runs++;
@@ -110,7 +111,7 @@ export async function examineAgent(ctx: ActionCtx, settings: GameSettings, langu
       if (at.component === "game" && at.replicate === 0 && sample.value === undefined) Object.assign(sample, { value, error: (error as Error).message });
       return { calls: "[]", error: (error as Error).message.slice(0, 200), readBits: failedReadBits(error as { readBits?: number; code?: string }, readBound(inst)) };
     }
-  }, inst, mixture, { salt: seasonSalt(), concurrency: CONCURRENCY });
+  }, inst, mixture, { salt: seasonSalt(), concurrency: CONCURRENCY, costModel });
   const probed = await probing;
   // A capacity or configuration failure is not the agent's price: never charge from a partial measurement.
   if (hostFailure) throw hostFailure;

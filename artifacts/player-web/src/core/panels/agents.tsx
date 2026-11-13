@@ -12,7 +12,7 @@
  * with a legend and one named row per agent. Each action appears only where it works (core/affordances.ts): none does in
  * a read-only replay, and Destroy goes after the end. In a replay seen as another god, the panel says whose agents these are.
  */
-import { isLanguage } from "@workspace/game-core";
+import { changeCostKid, costModelOf, isLanguage, type CostModel } from "@workspace/game-core";
 import { SCORE_LINES, Term } from "@workspace/ui-kit";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { SUMMON_FIRST } from "@/core/planning-line";
@@ -119,6 +119,8 @@ export type AgentsViewProps = {
   fullChargeSeconds?: number;
   /** κ, economy.changeReadRatio: bits read for the price of one bit changed (1 on a replay of a game before the read price). */
   changeReadRatio?: number;
+  /** economy.costModel: how the room prices a changed cell (absent: set-v1). */
+  costModel?: CostModel;
   world: number;
   samples: ReadonlyMap<string, readonly Sample[]>;
   window: number;
@@ -138,7 +140,7 @@ export type AgentsViewProps = {
 };
 
 /** The panel without its data hooks, so the gallery (src/gallery/agents.tsx) can draw it from fixtures. */
-export function AgentsView({ agents, self, powerPerSecond, fullChargeSeconds, changeReadRatio, world, samples, window: windowS, ended, showCosts, showSource, can, wait, onEdit, onSetShare, onDestroy, footer, header, actLines }: AgentsViewProps) {
+export function AgentsView({ agents, self, powerPerSecond, fullChargeSeconds, changeReadRatio, costModel, world, samples, window: windowS, ended, showCosts, showSource, can, wait, onEdit, onSetShare, onDestroy, footer, header, actLines }: AgentsViewProps) {
   const [confirm, setConfirm] = useState<string | null>(null);
   const { editCode, destroy, allocatePower } = can;
   const showDestroy = destroy.ok || !destroy.hidden;
@@ -162,7 +164,7 @@ export function AgentsView({ agents, self, powerPerSecond, fullChargeSeconds, ch
           <p className="text-muted-foreground" data-testid="text-energy-income">⚡ is <Term id="energy">energy</Term>: {SCORE_LINES.energy}</p>
           <p className="text-muted-foreground">
             The world hands out <Term id="turn">turns</Term> at random: the more energy an agent has, the more turns it gets. An act pays what it
-            looks at (<Term id="read-bits">reading cost</Term>{changeReadRatio !== undefined && changeReadRatio > 1 ? `: looking is ${changeReadRatio}× cheaper than changing` : ""}) plus, if it changes the object, the <Term id="change-cost">change cost</Term>. Every turn also pays a little for being given its object, so a turn is never free.
+            looks at (<Term id="read-bits">reading cost</Term>{changeReadRatio !== undefined && changeReadRatio > 1 ? `: looking is ${changeReadRatio}× cheaper than changing` : ""}) plus, if it changes the object, the <Term id="change-cost">change cost</Term>. Every turn also pays a little for being given its object, so a turn is never free. <span data-testid="text-change-cost-rule">{changeCostKid(costModelOf(costModel))}</span>
           </p>
         </div>
       )}
@@ -274,7 +276,7 @@ export default function Agents({ params, phase }: PanelProps<"agents">) {
   return (
     <div className="space-y-4">
       {owner}
-      <AgentsView agents={agents} self={self} powerPerSecond={economy?.powerPerSecond} fullChargeSeconds={economy?.fullChargeSeconds} changeReadRatio={economy?.changeReadRatio} world={world} samples={history} window={params.window} ended={ended}
+      <AgentsView agents={agents} self={self} powerPerSecond={economy?.powerPerSecond} fullChargeSeconds={economy?.fullChargeSeconds} changeReadRatio={economy?.changeReadRatio} costModel={costModelOf(economy)} world={world} samples={history} window={params.window} ended={ended}
         showCosts={params.showCosts} showSource={params.showSource} can={can.can} wait={secondsUntilEligible}
         onEdit={a => dock.forgeEdit(a.source, isLanguage(a.language) ? a.language : undefined)}
         onSetShare={(a, share) => void commands.run({ type: "allocatePower", agentId: a.id, share })}

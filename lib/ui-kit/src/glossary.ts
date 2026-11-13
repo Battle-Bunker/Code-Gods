@@ -56,7 +56,7 @@ export const GLOSSARY = {
   power: { term: "Power", gloss: "Your fixed income of ⚡ energy per second. You split it: a share to each agent, and the rest refills your own energy." },
   "power-share": { term: "Power share", gloss: "The slice of your power one agent gets (0 to 100%). That slice is its income; all your agents' shares add up to at most 100%." },
   "read-bits": { term: "Reading cost", gloss: "The ⚡ energy an act pays for looking at the object: a little for each bit it reads. Looking is much cheaper than changing. Never free." },
-  "change-cost": { term: "Change cost", gloss: "The extra ⚡ energy an act pays when it really changes the object, on top of reading it. No change, no change cost." },
+  "change-cost": { term: "Change cost", gloss: "The ⚡ energy an act pays for really changing the object, cell by cell, on top of reading it. Where distance is priced, small steps cost least." },
   look: { term: "Look", gloss: "Where looking costs energy: paying your own ⚡ energy to see one object, or all of them, as it is right now." },
   "last-seen": { term: "Last seen", gloss: "Where looking costs energy, an object shows as you last saw it: at its birth, after your agent changed or fully read it, or after a look." },
   skip: { term: "Skip", gloss: "A turn where the agent looked and changed nothing. It pays only for reading (and a little for the turn itself), so skipping is cheap." },

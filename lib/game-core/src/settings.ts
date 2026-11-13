@@ -6,8 +6,8 @@
  * game-core knows no object type itself: arguments, codecs and spawn priors all come from the
  * `@workspace/game-types` registry.
  */
-import { READ_PRICE, instantiate, objectType as objectTypeDef, readBound } from "@workspace/game-types";
-import type { Codec, Instantiation, ObjectValue, TypeArgs } from "@workspace/game-types";
+import { COST_MODELS, DEFAULT_COST_MODEL, READ_PRICE, changeCost, instantiate, isCostModel, objectType as objectTypeDef, readBound } from "@workspace/game-types";
+import type { Codec, CostModel, Instantiation, ObjectValue, TypeArgs } from "@workspace/game-types";
 
 export type { ObjectValue, TypeArgs } from "@workspace/game-types";
 
@@ -144,6 +144,51 @@ export interface GameSettings {
    * OBSERVATION_MODES. Stored settings without it are "free" (upgradeStoredSettings), and an ended game is always open.
    */
   observation: ObservationMode;
+  /**
+   * How a change is priced (game-types structure/index.ts; docs/mutation-cost-design.md §11 stage 1): "set-v1" charges
+   * every changed cell the same; "distance-v1" (and the other models of game-types COST_MODELS) charges a number by how
+   * far it moved and a colour for having changed.
+   * OPTIONAL: absent means "set-v1" (read it with `costModelOf`), so settings stored before cost models existed need no
+   * migration, and the settings model never stores the default (applySettingsChange). Only the models the object type
+   * supports (`supportedCostModels`: every model on Grid, "set-v1" alone elsewhere).
+   */
+  costModel?: CostModel;
+}
+
+/** The fields a settings object may leave out (each has a reader that supplies its default): not in DEFAULT_SETTINGS. */
+export const OPTIONAL_SETTINGS_FIELDS = Object.freeze(["costModel"] as const);
+
+/**
+ * A room's cost model: from its settings or the observation's economy (their `costModel`), or the value itself.
+ * Anything else (absent, an older game, an unknown id) is "set-v1".
+ */
+export function costModelOf(from: unknown): CostModel {
+  if (isCostModel(from)) return from;
+  const model = from && typeof from === "object" ? (from as { costModel?: unknown }).costModel : undefined;
+  return isCostModel(model) ? model : DEFAULT_COST_MODEL;
+}
+
+/** The cost models rooms of this instantiation may use, the default first ([] never: "set-v1" is always offered). */
+export function supportedCostModels(settings: Pick<GameSettings, "objectType" | "typeArgs">): CostModel[] {
+  const inst = instantiationOf(settings), typeDef = objectTypeDef(settings.objectType);
+  return COST_MODELS.filter(m => m === DEFAULT_COST_MODEL || (typeDef.supportsCostModel?.(inst, m) === true && lookIsCheaperThanChange(settings, m)));
+}
+
+/** The cheapest change an act can make under a cost model (energy bits), or undefined where the type has no cost table. */
+export function cheapestChange(settings: Pick<GameSettings, "objectType" | "typeArgs">, model: CostModel): number | undefined {
+  const rows = objectTypeDef(settings.objectType).costTable?.(instantiationOf(settings), model) ?? [];
+  return rows.length ? Math.min(...rows.map(r => changeCost(r.work))) : undefined;
+}
+
+/**
+ * The rule that sets the read price (docs/energy-model.md §2.1): a complete look at an object costs less than the
+ * smallest change to it. A cost model that would break it on a board is not offered there (a big board under a distance
+ * model: the 7×7 cards in six colours, where a colour change would cost 12.64 against a look of 12.69), so looking
+ * before changing always pays, whatever the room's settings.
+ */
+export function lookIsCheaperThanChange(settings: Pick<GameSettings, "objectType" | "typeArgs">, model: CostModel): boolean {
+  const cheapest = cheapestChange(settings, model);
+  return cheapest === undefined || readBound(instantiationOf(settings)) * READ_PRICE < cheapest;
 }
 export type ObservationMode = "free" | "boards" | "paid" | "agents";
 /** The pre-authored choices of observation, from the most open to the most austere. */
@@ -387,6 +432,12 @@ export function validateSettings(settings: GameSettings, domain?: FamilyDomain):
   if (settings.objectSelection !== "uniform" && settings.objectSelection !== "shelter") {
     throw new Error("objectSelection must be uniform or shelter");
   }
+  if (settings.costModel !== undefined) {
+    if (!isCostModel(settings.costModel)) throw new Error(`costModel must be one of ${COST_MODELS.join(", ")}`);
+    if (!supportedCostModels(settings).includes(settings.costModel)) {
+      throw new Error(`costModel ${settings.costModel} is not offered for ${instantiationOf(settings).key}`);
+    }
+  }
   if (!Number.isInteger(settings.scoreIntervalSeconds)) throw new Error("scoreIntervalSeconds must be a whole number of seconds");
   inRange("scoreIntervalSeconds", settings.scoreIntervalSeconds);
   if (!PEER_NOISE_OPTIONS.includes(settings.peerNoiseBits)) {
@@ -595,6 +646,7 @@ export const SEED_SETUPS: readonly SeedSetup[] = Object.freeze([
     "Grid", { size: 4, symbols: "base10", colours: "mono" }, {
       interactionRateHz: 25, durationMode: "fixed", halfLifeSeconds: 300, excludedFamilies: ANNOTATED_BASICS_EXCLUDED,
       startingObjectCount: 10, spawnRateHz: 0.1, planningSeconds: 60,
+      costModel: "distance-v1",
       // Paid observation (owner, 2026-11-11: a costly use of a god's own energy; docs/energy-model.md §11).
       observation: "paid",
       // No disclosure noise on the beginner setup: with noise, a live total reads high (the others' sum is floored at 0
@@ -622,6 +674,15 @@ export const SEED_SETUPS: readonly SeedSetup[] = Object.freeze([
 const lab = (...args: Parameters<typeof seed>): SeedSetup => Object.freeze({ ...seed(...args), lab: true as const });
 
 /**
+ * A Lab setup that is Annotated basics under another cost model: everything else is that seed's own settings, so its
+ * board, rule pool and pacing cannot drift from it. "set-v1" stays unspelled, as in every stored setup.
+ */
+function labCostSeed(seedId: string, name: string, summary: string, costModel: CostModel): SeedSetup {
+  const { costModel: _replaced, ...rest } = SEED_SETUPS.find(s => s.seedId === ANNOTATED_BASICS_SEED_ID)!.settings;
+  return Object.freeze({ seedId, name, summary, lab: true as const, settings: Object.freeze({ ...rest, ...(costModel === DEFAULT_COST_MODEL ? {} : { costModel }) }) });
+}
+
+/**
  * The LAB setups: experimental alternatives the owner can try on a deployment without offering them to players.
  * The engine seeds them like the system setups (setups:ensureSeeded, on every deploy), but lists them only for
  * administrators (ADMIN_EMAILS), under "Lab" in the setup picker; nobody else can see, open, apply or copy one, and a
@@ -636,6 +697,11 @@ const lab = (...args: Parameters<typeof seed>): SeedSetup => Object.freeze({ ...
  * To retire one, delete its entry: the next deploy's seed sync removes the stored row (rooms that ran it keep their settings).
  */
 export const LAB_SETUPS: readonly SeedSetup[] = Object.freeze([
+  // The alternative cost models (docs/energy-model.md §4.5), each on Annotated basics' board, rules and pacing.
+  labCostSeed("lab-cost-set", "Lab · flat price", "Annotated basics with the flat price: every changed number costs the same", "set-v1"),
+  labCostSeed("lab-cost-dial", "Lab · dial numbers", "Numbers are a dial: 9 and 0 are one step apart, and a step either way costs the same", "dial-v1"),
+  labCostSeed("lab-cost-log", "Lab · gentle distance", "A far move costs only a little more than a middling one", "log-v1"),
+  labCostSeed("lab-cost-multiply", "Lab · multiply and divide", "Adds, plus multiply and divide by the last digit; a number's move costs the cheaper of the two", "multiply-v1"),
   // Paid observation's other values (docs/energy-model.md §11.8): Annotated basics itself is "paid".
   ...([
     ["lab-observation-free", "Lab · everything always visible", "Annotated basics, but looking is free: every object is shown as it changes", "free"],
@@ -693,7 +759,7 @@ export interface FieldDoc {
   readonly dependsOn?: readonly (keyof GameSettings)[];
 }
 
-/** Every GameSettings field, documented once; a field without docs (or a stale key) fails the typecheck. */
+/** Every GameSettings field (the optional ones too), documented once; a field without docs (or a stale key) fails the typecheck. */
 export const SETTINGS_DOCS = {
   objectType: {
     question: "What are the objects in the world?", section: "world", tier: "ask", control: "segmented", suggested: ["Grid", "Int", "string"],
@@ -776,6 +842,11 @@ export const SETTINGS_DOCS = {
     question: "How long does an empty energy store take to fill?", section: "energy", tier: "ask", control: "number", unit: "s", suggested: [10, 30, 60, 120, 300],
     meaning: "Every agent, and each player's own energy, stores at most this many seconds of its power, and income past a full store is lost.",
     consequence: "Shortening it stops energy piling up, so players must spend or re-allocate it, and big agents and big changes need more power kept for them.",
+  },
+  costModel: {
+    question: "How is a change priced?", section: "energy", tier: "more", control: "segmented", suggested: COST_MODELS, dependsOn: ["objectType", "typeArgs"],
+    meaning: "Flat charges every changed cell the same, while distance charges a number by how far it moved and a colour for having changed; dial, gentle and multiply are variants of distance.",
+    consequence: "Under distance, adding 1 to a number is the cheapest change and a far jump costs more, so small careful steps are rewarded.",
   },
   startingObjectCount: {
     question: "How many objects does the world start with?", section: "population", tier: "ask", control: "number", suggested: [10, 40, 80, 160],

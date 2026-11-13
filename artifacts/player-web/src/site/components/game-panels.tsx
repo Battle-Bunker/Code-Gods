@@ -185,10 +185,13 @@ export function Chat({ messages, canPost, placeholder, pending, onSend, title = 
   );
 }
 
-/** The settings a newcomer asks about, as key/values (the full list is the configuration page). */
+/**
+ * The settings a newcomer asks about, as key/values (the full list is the configuration page). The cost model is
+ * optional: a room on the default one stores none and shows no row, another model shows as its label (formatValue).
+ */
 const SHOWN: readonly SettingsKey[] = [
   "languages", "planningSeconds", "halfLifeSeconds", "interactionRateHz", "startingObjectCount", "spawnRateHz",
-  "startingEnergy", "powerPerSecond", "fullChargeSeconds", "maxAgentsPerGod", "defenceGoals", "utilitySelectorId",
+  "startingEnergy", "powerPerSecond", "fullChargeSeconds", "costModel", "maxAgentsPerGod", "defenceGoals", "utilitySelectorId",
 ];
 
 /** "Python · Grid 4×4 base10 · 75 s planning, then a 5 min game · slow pace". */

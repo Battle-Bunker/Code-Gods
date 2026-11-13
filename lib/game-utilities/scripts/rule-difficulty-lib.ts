@@ -10,7 +10,8 @@
  */
 import ts from "typescript";
 import {
-  COLOUR_COMPONENTS, SYMBOL_COMPONENTS, gridArgs, objectType, seededRng, type GridValue, type Instantiation, type Rng,
+  COLOUR_COMPONENTS, DEFAULT_COST_MODEL, SYMBOL_COMPONENTS, changeCost, gridArgs, objectType, seededRng,
+  type CostModel, type GridValue, type Instantiation, type Rng,
 } from "@workspace/game-types";
 import { makeTsAstBits } from "../../game-runtime/engine/ts-ast-bits.mjs";
 import {
@@ -217,6 +218,69 @@ export function beam(value: (g: GridValue) => number, sp: Space, start: GridValu
 }
 
 // ------------------------------------------------------------------------------------------------
+// energy: what a climb costs (docs/rule-difficulty.md §2.6, docs/mutation-cost-design.md §8)
+// ------------------------------------------------------------------------------------------------
+
+/** The agent of an energy climb: "steepest" is `greedy` (cost-blind, but it pays); "per-energy" weighs gain against cost. */
+export type Policy = "steepest" | "per-energy";
+/** Energy budgets (bits) the energy climbs are read at; the climb may spend up to the largest. */
+export const ENERGY_BUDGETS = Object.freeze([32, 64, 128] as const);
+
+/** The energy of one act that takes g to h under a cost model: changeCost(W), W the type's callWork of the net effect. */
+export function moveEnergy(inst: Instantiation, g: GridValue, h: GridValue, model: CostModel = DEFAULT_COST_MODEL): number {
+  return changeCost(objectType(inst.objectType).callWork(g, h, { id: "", params: null }, inst, model));
+}
+
+export interface EnergyClimb {
+  /** Bits held after spending at most each budget. */
+  readonly bitsAt: number[];
+  /** The boards after 0, 1, ... moves, until the climb stopped or the largest budget ran out. */
+  readonly boards: GridValue[];
+  readonly spent: number;
+}
+
+/**
+ * One agent climbing one rule by one-cell moves, one move per act, paying `cost(before, after)` energy per act and
+ * never more than the largest budget in all. "steepest" takes the best strictly higher ordinal (the first found on
+ * ties), whatever it costs; "per-energy" takes the strictly improving move with the most bits gained per energy bit
+ * (the first found on ties; a higher ordinal worth no more bits ranks below every bit gain, cheapest first).
+ */
+export function energyClimb(rule: Rule, sp: Space, start: GridValue, cost: (g: GridValue, h: GridValue) => number, budgets: readonly number[], policy: Policy): EnergyClimb {
+  const cap = Math.max(...budgets);
+  let g = start, o = rule.score(g), bits = rule.bits(o), spent = 0;
+  const boards = [g], trace: [number, number][] = [[0, bits]];
+  for (;;) {
+    let best: { h: GridValue; ho: Ordinal; hb: number; e: number } | null = null, bestKey = -Infinity;
+    for (const m of sp.moves(g)) {
+      const h = apply(g, m), e = cost(g, h);
+      if (!(spent + e <= cap + 1e-9)) continue;
+      const ho = rule.score(h);
+      if (cmp(ho, o) <= 0) continue;
+      const hb = rule.bits(ho);
+      if (policy === "steepest") {
+        if (best && cmp(ho, best.ho) <= 0) continue;
+      } else {
+        const gain = hb - bits, key = gain > 1e-12 ? gain / e : -e;
+        if (key <= bestKey) continue;
+        bestKey = key;
+      }
+      best = { h, ho, hb, e };
+    }
+    if (!best) break;
+    g = best.h; o = best.ho; bits = best.hb; spent += best.e;
+    boards.push(g); trace.push([spent, bits]);
+  }
+  const bitsAt = budgets.map(B => { let x = trace[0][1]; for (const [e, v] of trace) if (e <= B + 1e-9) x = v; return x; });
+  return { bitsAt, boards, spent };
+}
+
+/** Mean, max/min and coefficient of variation of a list of positive numbers (the pool-spread measures). */
+export function spread(xs: readonly number[]): { mean: number; ratio: number; cv: number } {
+  const m = mean(xs), sd = Math.sqrt(mean(xs.map(x => (x - m) ** 2)));
+  return { mean: m, ratio: xs.length ? Math.max(...xs) / Math.max(1e-9, Math.min(...xs)) : NaN, cv: m > 0 ? sd / m : NaN };
+}
+
+// ------------------------------------------------------------------------------------------------
 // per-rule estimators
 // ------------------------------------------------------------------------------------------------
 
@@ -276,9 +340,19 @@ export interface RuleReport {
   entangle: number;
   /** Headline: algorithmic difficulty, 100 × (gap + trap) / 2. */
   difficulty: number;
+  /** Energy climbs under the room's cost model: mean bits held after each of ENERGY_BUDGETS energy bits, per agent. */
+  energyBits: Record<Policy, number[]>;
+  /** The per-energy greedy: mean bits gained per energy bit over the first 64, and the share of top held after 32 and 64. */
+  rateE: number; e32: number; e64: number;
 }
 
-export interface Context { sp: Space; budget: Budget }
+export interface Context {
+  sp: Space; budget: Budget;
+  /** The room's cost model (default set-v1): only the energy columns depend on it. */
+  costModel?: CostModel;
+  /** Energy every act pays besides its change (its offer and what it reads; docs/energy-model.md §3, §7.1). Default 0. */
+  actOverhead?: number;
+}
 
 /** The start boards a rule (or pair) is measured from: seeded by the label only, so every rule shares them. */
 export function starts(sp: Space, n: number, label = "starts"): GridValue[] {
@@ -286,7 +360,7 @@ export function starts(sp: Space, n: number, label = "starts"): GridValue[] {
   return Array.from({ length: n }, () => sp.spawn(rng));
 }
 
-const mean = (a: readonly number[]) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : NaN);
+function mean(a: readonly number[]): number { return a.length ? a.reduce((x, y) => x + y, 0) / a.length : NaN; }
 const median = (a: readonly number[]) => { const s = [...a].sort((x, y) => x - y); return s.length ? s[Math.floor((s.length - 1) / 2)] : NaN; };
 
 let tsBits: ReturnType<typeof makeTsAstBits>["tsAstBits"] | null = null;
@@ -379,6 +453,12 @@ export function measureRule(rule: Rule, ctx: Context): RuleReport {
   const end = climbs.map(c => at(c, b.longSteps));
   const gap = bm > 0 ? Math.max(0, (bm - g16) / bm) : 0;
   const trap = mean(end.map(e => (top - e) / top));
+  // Energy: the same starts, each act paying the cost model's price of its net effect.
+  const overhead = ctx.actOverhead ?? 0;
+  const cost = (g: GridValue, h: GridValue) => moveEnergy(inst, g, h, ctx.costModel) + overhead;
+  const paid = (policy: Policy) => S.map(g => energyClimb(rule, sp, g, cost, ENERGY_BUDGETS, policy).bitsAt.map(x => Math.min(top, x)));
+  const careful = paid("per-energy"), heldAt = (cs: number[][]) => ENERGY_BUDGETS.map((_, j) => mean(cs.map(c => c[j])));
+  const energyBits = { steepest: heldAt(paid("steepest")), "per-energy": heldAt(careful) };
   return {
     id: rule.id, calibration: rule.calibration, topBits: top, cardBits: cardBits(rule.source, inst), colourBlind: colourBlind(rule, sp),
     greedy10: mean(climbs.map(c => at(c, 10))), greedy20: mean(climbs.map(c => at(c, 20))), uniformTop: uniformTop(rule, sp),
@@ -392,6 +472,8 @@ export function measureRule(rule: Rule, ctx: Context): RuleReport {
     escape2: escape2(rule, sp, climbs.filter((c, i) => c.stopped && end[i] < 0.9 * top).map(c => c.boards[c.boards.length - 1])),
     entangle: entanglement(rule, sp, strata, b.entangleMoves),
     difficulty: 100 * (gap + trap) / 2,
+    energyBits, rateE: mean(careful.map((c, i) => (c[1] - at(climbs[i], 0)) / ENERGY_BUDGETS[1])),
+    e32: energyBits["per-energy"][0] / top, e64: energyBits["per-energy"][1] / top,
   };
 }
 
@@ -520,6 +602,9 @@ export interface PoolSummary {
    * 10 points easier (DIFF). */
   dominated: string[];
   cardBitsRatio: number;
+  /** Energy balance (reported, not a threshold yet): max / min and CV of rateE; mean, max / min and CV of e32 and e64. */
+  rateERatio: number; rateECv: number;
+  e32: { mean: number; ratio: number; cv: number }; e64: { mean: number; ratio: number; cv: number };
 }
 
 export function summarise(rules: readonly RuleReport[], pairs: readonly PairReport[]): PoolSummary {
@@ -528,11 +613,13 @@ export function summarise(rules: readonly RuleReport[], pairs: readonly PairRepo
   const worst = pairs.reduce<PairReport | null>((w, p) => (!w || p.difficulty > w.difficulty ? p : w), null);
   const dominated = rules.filter(r => rules.some(o => o !== r && o.rate4 > 0 && o.rate4 >= 1.25 * r.rate4 && o.reach16 >= r.reach16 && o.difficulty <= r.difficulty - 10)).map(r => r.id);
   const ratio = (a: number[]) => (a.length ? Math.max(...a) / Math.max(1e-9, Math.min(...a)) : NaN);
+  const rateE = spread(rules.map(r => r.rateE));
   return {
     rateRatio: ratio(rate), rateCv: m > 0 ? sd / m : NaN, reachRatio: ratio(reach),
     difficultySpread: Math.max(...diff) - Math.min(...diff), difficultyMax: Math.max(...diff),
     worstPair: worst ? `${worst.a} × ${worst.b}` : "", worstPairDifficulty: worst?.difficulty ?? NaN,
     minCeiling: pairs.length ? Math.min(...pairs.map(p => p.ceiling)) : NaN, dominated, cardBitsRatio: ratio(card),
+    rateERatio: rateE.ratio, rateECv: rateE.cv, e32: spread(rules.map(r => r.e32)), e64: spread(rules.map(r => r.e64)),
   };
 }
 

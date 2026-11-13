@@ -46,8 +46,13 @@ export const EVENTS_PER_BATCH = 400;
  * the agent was given (log2 of the live objects, inside cost.read). Replay reads recorded costs either way.
  * 11 adds the `look` event (paid observation, lib/knowledge.ts): a god paid its own energy to be told one object, or all
  * of them.
+ * 12 is cost models (docs/mutation-cost-design.md §11): an act's cost.change (and cost.work) is priced under the game's
+ * settings.costModel ("distance-v1" charges a number by how far it moved); in every batch below 12 it is priced under
+ * "set-v1", whatever the settings say. A game without the setting (every game started before 12) is "set-v1" too, so a
+ * game that was running across the deploy changes its stamp and nothing else. Replay reads recorded costs and never
+ * re-prices.
  */
-export const EVENT_LOG_SCHEMA = 11;
+export const EVENT_LOG_SCHEMA = 12;
 
 export type Clock = {
   phase: "planning" | "running" | "paused" | "recovery" | "ended";

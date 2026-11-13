@@ -8,7 +8,10 @@
  *   StoryPlayer    a process rule told step by step (Castle Keeper's flood), ending on the score.
  */
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { COLOUR_COMPONENTS, SYMBOL_COMPONENTS, type GridColourSet, type GridSymbolSet, type Instantiation } from "@workspace/game-types";
+import {
+  COLOUR_COMPONENTS, SYMBOL_COMPONENTS, changeCost, decodeGrid, effectWork, gridArgs, gridFamilies,
+  type CostModel, type GridColourSet, type GridSymbolSet, type Instantiation,
+} from "@workspace/game-types";
 import {
   toneOf, tupleText, whatIf, type Cell, type Draw, type GoalExplainer, type Part, type Story, type StoryRole, type WhatIfEntry,
 } from "@workspace/game-utilities";
@@ -72,16 +75,23 @@ const VERDICT_BG: Readonly<Record<-1 | 0 | 1, string>> = { 1: "rgba(22,163,74,0.
 
 /**
  * Pick a cell (hover, tap or the arrow keys); the table lists every symbol × colour it could show, each scored by the
- * card program, better in green and worse in red. Point at one to see the board it makes and its score.
+ * card program, better in green and worse in red. Point at one to see the board it makes, its score and what an act
+ * that makes that one change would pay under the room's cost model (`costModel`; absent: set-v1), priced by the
+ * engine's own functions: under distance-v1 a number costs more the further it moves.
  */
-export function WhatIfBoard({ draw, inst, goal, value, grid, initialFocus = { r: 0, c: 0 }, testId = "what-if" }: {
-  draw: Draw; inst: Instantiation; goal: GoalExplainer; value: string; grid: GridSettings; initialFocus?: Cell; testId?: string;
+export function WhatIfBoard({ draw, inst, goal, value, grid, costModel, initialFocus = { r: 0, c: 0 }, testId = "what-if" }: {
+  draw: Draw; inst: Instantiation; goal: GoalExplainer; value: string; grid: GridSettings; costModel?: CostModel; initialFocus?: Cell; testId?: string;
 }) {
   const cue = useCue();
   const [focus, setFocus] = useState<Cell>(initialFocus);
   const [preview, setPreview] = useState<WhatIfEntry | null>(null);
   const table = useMemo(() => whatIf(draw, inst, value, focus), [draw, inst, value, focus]);
   const shown = preview?.value ?? value;
+  const cost = useMemo(() => {
+    if (!preview || preview.current) return undefined;
+    const args = gridArgs(inst);
+    return changeCost(effectWork(gridFamilies(inst, costModel), decodeGrid(value, args), decodeGrid(preview.value, args)));
+  }, [preview, value, inst, costModel]);
   const model = useMemo(() => gridModel(shown, grid), [shown, grid.size, grid.symbols, grid.colours]);
   if (!model || !table) return null;
   const size = model.size, px = 44, geo = { cell: px, gap: 2, size };
@@ -95,7 +105,7 @@ export function WhatIfBoard({ draw, inst, goal, value, grid, initialFocus = { r:
       <div className="space-y-2">
         <p className="text-xs" aria-live="polite" data-testid="what-if-score">
           {preview
-            ? <>With this change, your rule score: <b>{score(preview.ordinal)}</b> <span style={{ color: TONE_COLOUR[toneOf([preview.delta])] }}>({signed(preview.delta)})</span></>
+            ? <>With this change, your rule score: <b>{score(preview.ordinal)}</b> <span style={{ color: TONE_COLOUR[toneOf([preview.delta])] }}>({signed(preview.delta)})</span>{cost !== undefined && <span className="text-muted-foreground" data-testid="what-if-cost">, costs {cost.toFixed(1)} ⚡ energy</span>}</>
             : <>This board's rule score: <b>{score(table.ordinal)}</b>. Pick a cell, then point at a change.</>}
         </p>
         <div role="grid" tabIndex={0} aria-label="Board: pick a cell" className="relative outline-none focus-visible:ring-2 focus-visible:ring-ring"

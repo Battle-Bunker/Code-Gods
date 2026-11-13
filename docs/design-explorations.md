@@ -20,8 +20,8 @@ Lab setups found in `lib/game-core/src/settings.ts` (no list named `LAB_SETUPS` 
 seeded setups whose names start with "Lab:"):
 
 - On `develop`: none yet.
-- On `claude/distance-cost` (#277): **Lab: flat price**, **Lab: dial numbers**, **Lab: gentle distance**,
-  **Lab: multiply and divide**.
+- On `claude/distance-cost` (#277): **Lab · flat price**, **Lab · dial numbers**, **Lab · gentle distance**,
+  **Lab · multiply and divide**.
 - On `claude/layered-rules` (#286): **Lab: tiers without a gate**, **Lab: unlocking tiers**,
   **Lab: tiers with unequal reach**, and the administrator-only **Expert tiered rules** (no game can be dealt from it yet).
 - On `claude/bid-phase`, `claude/first-five-minutes` and the `variant/*` branches: none found. On

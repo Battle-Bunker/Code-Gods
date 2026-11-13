@@ -21,7 +21,7 @@ export type OwnScore = { ordinal: number | readonly number[]; rewardBits: number
 export type Evaluator = {
   /** Your score of any value of this game's object type (wire form, as in `object.value`). */
   score(value: ObjectValue): OwnScore;
-  /** Apply mutator calls (`[["paint", {...}], ...]`) to a value: the engine's validation, result and act cost. */
+  /** Apply mutator calls (`[["paint", {...}], ...]`) to a value: the engine's validation, result and act cost (under the room's cost model). */
   apply(value: ObjectValue, calls: readonly MutatorCallWire[]): ActOutcome;
 };
 
@@ -44,6 +44,8 @@ export async function createEvaluator(settings: GameSettings, descriptor: Utilit
   const penalty = descriptor.penalty ? { fn: utilities.evaluator(descriptor.penalty, inst), table: tables.penalty as CalibrationTable } : undefined;
   if (descriptor.penalty && !tables.penalty) throw new Error("No calibration table for the defence goal");
   const typeDef = types.objectType(inst.objectType);
+  // The room's cost model (settings.costModel; absent: set-v1), so a what-if costs what the engine would charge.
+  const costModel = core.costModelOf(settings);
   return {
     // Mirrors the engine's scoring (createUtilitiesAdapter.score in the engine): keep the two in step.
     score(value) {
@@ -57,7 +59,7 @@ export async function createEvaluator(settings: GameSettings, descriptor: Utilit
       };
     },
     apply(value, calls) {
-      return types.applyCalls(typeDef, inst, value, JSON.stringify(calls));
+      return types.applyCalls(typeDef, inst, value, JSON.stringify(calls), costModel);
     },
   };
 }

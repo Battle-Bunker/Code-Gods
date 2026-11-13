@@ -1,4 +1,5 @@
 /** The object-type registry: every type the product offers, and instantiation from settings. */
+import type { CostModel } from "./structure/index.ts";
 import { registerObjectType } from "./constraints.ts";
 import { GRID } from "./grid/index.ts";
 import { INT } from "./int/index.ts";
@@ -22,13 +23,13 @@ export function instantiate(id: string, typeArgs: TypeArgs = {}): Instantiation 
   return objectType(id).instantiate(typeArgs);
 }
 
-export function instanceInfo(inst: Instantiation): InstanceInfo {
-  return objectType(inst.objectType).describe(inst);
+export function instanceInfo(inst: Instantiation, model?: CostModel): InstanceInfo {
+  return objectType(inst.objectType).describe(inst, model);
 }
 
 /** The mutators whose requirements this instantiation meets, in the type's order. */
-export function availableMutators(inst: Instantiation): MutatorDef<any, any>[] {
-  return availableOf(objectType(inst.objectType).mutators, inst);
+export function availableMutators(inst: Instantiation, model?: CostModel): MutatorDef<any, any>[] {
+  return availableOf(objectType(inst.objectType).mutators, inst, model);
 }
 
 /** Canonical key for (type, args) without keeping the instantiation: "Grid(5,base10,rgby)". */

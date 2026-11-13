@@ -13,6 +13,7 @@
  */
 import { applyCalls } from "../mutators.ts";
 import { objectType } from "../registry.ts";
+import type { CostModel } from "../structure/index.ts";
 import type { Instantiation, ObjectTypeDef, ObjectValue } from "../types.ts";
 import { isSkip, type AgentRun, type RunActs } from "./measure.ts";
 import { deriveSeed } from "./rng.ts";
@@ -46,7 +47,7 @@ const pct = (x: number) => `${Math.round(100 * x)}%`;
 const isRun = (x: unknown): x is AgentRun => typeof x === "object" && x !== null && !Array.isArray(x) && "calls" in x;
 
 export async function probeFutility(run: RunActs, inst: Instantiation, values: readonly ObjectValue[],
-  opts: { salt: string | Uint8Array; concurrency?: number }): Promise<FutilityProfile> {
+  opts: { salt: string | Uint8Array; concurrency?: number; costModel?: CostModel }): Promise<FutilityProfile> {
   const typeDef = objectType(inst.objectType) as ObjectTypeDef<unknown>;
   const sample = [...new Set(values)].slice(0, PROBE_OBJECTS);
   const n = sample.length;
@@ -59,7 +60,7 @@ export async function probeFutility(run: RunActs, inst: Instantiation, values: r
     if (r.usedRandom) randomized = true;
     if (r.error) return { ok: false, reason: r.error };
     if (isSkip(r.calls)) return { ok: false, reason: "skipped", skip: true };
-    const out = applyCalls(typeDef, inst, value, r.calls);
+    const out = applyCalls(typeDef, inst, value, r.calls, opts.costModel);
     return out.ok ? { ok: true, value: out.value } : { ok: false, reason: out.reason };
   };
   // A deterministic agent's result on a value is reused (it is the same act).

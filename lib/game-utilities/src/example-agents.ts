@@ -4,7 +4,7 @@
  *
  * An agent sees one object per act and nothing else (not its rule, not its score), so an example is the family's rule
  * written as "find one small change that helps, make it, else skip". Examples only use the read helpers every Grid
- * has and ONE number mutator, chosen from what the board's prelude offers (`add` when it exists, else `write`), so a
+ * has and ONE number mutator, chosen from what the board's prelude offers (`write` when it exists, else `add`), so a
  * renamed mutator changes the generated call, never breaks it. A family without its own example gets the fallback
  * (`specific: false`): a valid agent that nudges a random number, whose comments say it does not chase the goal yet.
  *
@@ -54,11 +54,13 @@ interface Pen {
 }
 function pen(mutators: readonly string[] | undefined): Pen | null {
   const has = (name: string) => !mutators || mutators.includes(name);
-  if (mutators && mutators.includes("add")) {
-    return { mutator: "add", set: (c, v) => `add(${c}, ${v} - ${c}.value)`, nudge: (c, k) => `add(${c}, ${k})` };
-  }
+  // `write` first: it reads as plain words ("make this cell 5"), is priced by how far the number moved exactly as the
+  // `add` it amounts to, and its syntax tree is smaller (a cheaper summon). `add` only on a board without `write`.
   if (has("write")) {
     return { mutator: "write", set: (c, v) => `write(${c}, ${v})`, nudge: (c, k) => `write(${c}, ${c}.value ${k < 0 ? "-" : "+"} ${Math.abs(k)})` };
+  }
+  if (mutators && mutators.includes("add")) {
+    return { mutator: "add", set: (c, v) => `add(${c}, ${v} - ${c}.value)`, nudge: (c, k) => `add(${c}, ${k})` };
   }
   return null;
 }

@@ -134,10 +134,16 @@ test("examples call only mutators the default board's prelude offers", () => {
   }
 });
 
-test("the generator follows the prelude: add when it is offered, write otherwise, and a skip when there is neither", () => {
+test("the generator follows the prelude: write when it is offered, add on a board without it, and a skip when there is neither", () => {
   for (const language of LANGUAGES) for (const familyId of [...EXAMPLE_AGENT_FAMILIES, "no_such_family"]) {
-    const withAdd = buildExampleAgent({ familyId, language, mutators: ["write", "add", "paint"] }).source;
-    assert.ok(withAdd.includes("add(") && !withAdd.includes("write("), `${familyId} ${language}: add replaces write`);
+    // Both exist on the default board: `write` reads plainly, costs by distance like the `add` it amounts to, and is
+    // the cheaper summon. (The `add` form is generated text only: no ranked board lacks `write`, so no sandbox runs it.)
+    const withBoth = buildExampleAgent({ familyId, language, mutators: ["write", "add", "paint"] }).source;
+    assert.ok(withBoth.includes("write(") && !withBoth.includes("add("), `${familyId} ${language}: write is preferred`);
+    const onlyAdd = buildExampleAgent({ familyId, language, mutators: ["add", "paint"] }).source;
+    assert.ok(onlyAdd.includes("add(") && !onlyAdd.includes("write("), `${familyId} ${language}: add where there is no write`);
+    // An example never shadows a helper: a top-level `add` or `write` of its own would replace the prelude's.
+    assert.ok(!/^(def|function|const|let|var)\s+(add|write)\b/m.test(withBoth + "\n" + onlyAdd), `${familyId} ${language}: defines no add or write of its own`);
     const withWrite = buildExampleAgent({ familyId, language, mutators: ["write", "paint"] }).source;
     assert.ok(withWrite.includes("write(") && !withWrite.includes("add("), `${familyId} ${language}: write`);
     const neither = buildExampleAgent({ familyId, language, mutators: ["paint"] });

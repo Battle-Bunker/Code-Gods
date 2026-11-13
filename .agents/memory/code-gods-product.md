@@ -304,3 +304,24 @@ primary and secondary (and tertiary) points in explaining the rule."
 
 **How to apply:** use `src/tuples.ts` (tierName, tierPoints, impactText, tupleText) and docs/rules-design.md P4's
 sentence pattern; `test/points-tuples.test.ts` enforces it for every family on every shape.
+
+## Change cost has two models; one rule is true of both (2026-11-11)
+
+**Rule:** a move costs the changes it makes, cell by cell (W = the sum over changed cells, C = W + 0.05·W²). What one
+changed cell costs is the room's cost model, the optional setting `costModel` (`economy.costModel` for clients; absent
+= "set-v1"). "set-v1": every changed cell costs the same. "distance-v1" (Grid only): a number pays for how far it
+moved (log2 cells + log2 families + 1.585·|k|; λ = 1.585 is the Kraft root of the argument space, not a tuned knob), a
+colour or suit pays a flat log2(n − 1), nothing for erasure; every mutator is priced by its net effect per cell
+(`write(cell, 7)` on a 5 costs what `add(cell, 2)` costs). Every Ranked Grid has `add(where, amount=1)` in both
+models; it never wraps and fails out of range. Reads and summons stay priced. Variants in code: "dial-v1" (numbers
+wrap: 9 and 0 are one step apart), "log-v1" (price grows with log2 of the distance) and "multiply-v1" (digits only:
+adds plus multiply/divide modulo the base, a number pays the cheaper, plus 1 bit). The Lab setups (administrators only)
+run the beginner pool under each.
+
+**Why:** the owner (2026-11-11) wants adding a small number to cost less than setting a cell, with the cost following
+the argument, and dislikes rules that grow more complicated.
+
+**How to apply:** texts that explain cost say the one rule and then the room's model; they take words and numbers from
+`lib/game-core/src/change-cost.ts` (which reads game-types `costTable` / `changeCost`), never a re-derived formula.
+Kid-facing (`changeCostKid`): "Adding 1 to a number is the cheapest change; the further a number moves, the more it costs. Writing a 7
+over a 5 costs the same as adding 2." Specification: docs/energy-model.md §4 (§4.5 for distance-v1).
