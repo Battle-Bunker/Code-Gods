@@ -35,7 +35,8 @@ export function GoalCard({ card, goal, inst, sourceOpen = false, initialExample 
   const score = useMemo(() => goal?.score(example) ?? null, [goal, example]);
   return (
     <div className="space-y-5" data-testid="goal-card">
-      <UtilityCardView card={card} grid={ctx.grid} goal={goal} sourceOpen={sourceOpen} />
+      {/* A tiered rule's ★ block opens once the example object reaches its gate (or already holds a tier point). */}
+      <UtilityCardView card={card} grid={ctx.grid} goal={goal} ordinal={score} sourceOpen={sourceOpen} />
       <section className="space-y-2" data-testid="goal-card-example-object">
         <header className="flex flex-wrap items-baseline justify-between gap-2">
           <h3 className="label !text-[hsl(var(--foreground))]">Try a {noun}</h3>

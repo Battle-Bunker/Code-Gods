@@ -42,9 +42,13 @@ import { twoPair } from "./lenses/two-pair.ts";
 import { spreadThree } from "./lenses/spread-three.ts";
 import { crosswiseThrees } from "./lenses/crosswise-threes.ts";
 import { magicEighteen } from "./lenses/magic-eighteen.ts";
+import { explainableTiers, tieredLens } from "./tier-lenses.ts";
+import { baseParams, isTiered } from "../families/grid/tiers.ts";
+import { kingsAndSubjects } from "./lenses/royal-court.ts";
 
 export * from "./model.ts";
 export { type Lens } from "./lens.ts";
+export { TIER_LENSES, tieredLens, type TierLens } from "./tier-lenses.ts";
 export * from "./units.ts";
 export { boardOf, readBoard, type Board } from "./board.ts";
 export { scoreWorkings, curveOf, type ScoreWorkings, type RarityWorkings, type DefenceWorkings, type TableSpot, type WorkingsTables } from "./workings.ts";
@@ -57,6 +61,7 @@ export const LENSES: readonly Lens[] = Object.freeze([
   strangers, steppingStones,
   twoPair, spreadThree,
   crosswiseThrees, magicEighteen,
+  kingsAndSubjects,
 ]);
 const byFamily = new Map(LENSES.map(l => [l.familyId, l]));
 export const lensFor = (familyId: string): Lens | undefined => byFamily.get(familyId);
@@ -108,8 +113,14 @@ export function explainer(draw: Draw, inst: Instantiation, options: ExplainerOpt
   if (inst.objectType !== "Grid") return null;
   // A draw whose params are not today's (e.g. a replay file written while the typed-params migration ran) is not
   // explained: no annotation rather than a wrong one.
-  if (!paramsInDomain(family(draw.familyId).params(context(inst)), draw.params)) return null;
-  const l = lensFor(draw.familyId), p = draw.params;
+  const f = family(draw.familyId), ctx = context(inst);
+  if (!paramsInDomain(f.params(ctx), draw.params)) return null;
+  // A tiered draw (params carrying `tiers`) is explained by its base's lens and its tiers' (tier-lenses.ts). A draw
+  // whose units cannot add up to its ordinal (the unlocked composition's clamped first component, or an interaction
+  // with no tier lens) is annotated like a family without a lens: the example board and its score, no units.
+  const own = lensFor(draw.familyId), p = draw.params;
+  const l = isTiered(p) && !explainableTiers(p) ? undefined
+    : own && f.cardTiers ? tieredLens(own, q => f.cardTiers!(q, ctx)) : own;
   let card: ((wire: ObjectValue) => Ordinal) | null | undefined;
   const score = (value: ObjectValue): Ordinal | null => {
     try {
@@ -138,7 +149,8 @@ export function explainer(draw: Draw, inst: Instantiation, options: ExplainerOpt
       try { parts = l.parts(p, b); components = l.components(p, b); } catch { return null; }
       const ordinal = score(value);
       if (ordinal === null) return null;
-      return { familyId: draw.familyId, size: b.N, parts, components, ordinal, verified: addsUp(parts, components.length, ordinal) };
+      const tiers = l.tiers?.(p, b);
+      return { familyId: draw.familyId, size: b.N, parts, components, ordinal, verified: addsUp(parts, components.length, ordinal), ...(tiers ? { tiers } : {}) };
     },
     hover(value) {
       const b = board(value);
@@ -204,7 +216,10 @@ function illumination(l: Lens, p: Draw["params"], b: Board): number {
   const total = parts.reduce((s, t) => s + t.points[0], 0), won = parts.reduce((s, t) => s + Math.max(0, t.points[0]), 0);
   // A varied board (several numbers, every colour) looks like a real game, not a test pattern.
   const variety = Math.min(new Set(b.cells.map(x => b.sym(x))).size, 8) + 2 * new Set(b.cells.map(x => b.col(x))).size;
-  return Math.min(gains, 6) * 3 + Math.min(rest, 6) * 2 + tones * 8 + Math.min(won, 6) * 2 + variety * 2
+  // A tiered draw (docs/tiered-rules.md) teaches most on a board past its gate that already holds a ★ point.
+  const tier = parts.filter(t => t.id.startsWith("tier"));
+  const star = tier.some(t => t.points.some(x => x > 0)) ? 45 : tier.length ? 15 : 0;
+  return Math.min(gains, 6) * 3 + Math.min(rest, 6) * 2 + tones * 8 + Math.min(won, 6) * 2 + variety * 2 + star
     - Math.max(0, parts.length - 24) - (gains === 0 ? 40 : 0) - (total <= 0 ? 20 : 0);
 }
 
@@ -220,7 +235,8 @@ function searchExample(draw: Draw, inst: Instantiation, l: Lens | undefined, sco
   const rng = seededRng(`goal-example|${inst.key}|${draw.familyId}|${paramsKey(p)}`);
   const pool: Candidate[] = [];
   let exemplar: Candidate | null = null;
-  try { if (f.exemplar) exemplar = fromWire(g, inst, f.exemplar(p, ctx)); } catch { exemplar = null; }
+  // A tiered draw starts from its base's exemplar: its own is a search that takes seconds, too slow for a goal card.
+  try { if (f.exemplar) exemplar = fromWire(g, inst, f.exemplar(baseParams(p), ctx)); } catch { exemplar = null; }
   // The search shrinks on bigger boards (a rating looks at every cell's pieces), so it stays well under a second.
   const budget = g.N <= 4 ? 160 : g.N <= 5 ? 100 : 60;
   for (let k = 0; k < budget; k++) pool.push(randomBoard(rng, g));

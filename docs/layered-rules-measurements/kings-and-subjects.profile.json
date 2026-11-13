@@ -1,0 +1,1457 @@
+{
+  "instance": "Grid(4,base10,mono)",
+  "compose": "gated",
+  "variants": [
+    {
+      "id": "kings_and_subjects.base",
+      "family": "kings_and_subjects",
+      "params": {
+        "squares": "corners"
+      },
+      "report": {
+        "id": "kings_and_subjects.base",
+        "calibration": "shipped",
+        "topBits": 14.608299136,
+        "cardBits": 1291.4092611572116,
+        "colourBlind": true,
+        "greedy10": 14.608299136,
+        "greedy20": 14.608299136,
+        "uniformTop": [],
+        "greedy4": 12.761323180583334,
+        "greedy8": 14.608299136,
+        "greedy16": 14.608299136,
+        "rate4": 2.790990498827941,
+        "rate8": 1.626367243841054,
+        "reach16": 1,
+        "reachEnd": 1,
+        "movesTo50": 2,
+        "movesTo90": 4,
+        "beam16": 14.608299136,
+        "gap": 0,
+        "plateau": 0,
+        "trap": 0,
+        "stall": 0,
+        "escape2": null,
+        "entangle": 3,
+        "difficulty": 0
+      },
+      "table": {
+        "from": "shipped",
+        "kind": "sampled",
+        "seconds": 8.380126546,
+        "levels": 84,
+        "priorMean": 1.3983000563920778
+      }
+    },
+    {
+      "id": "kings_and_subjects.pairs(x=1)",
+      "family": "kings_and_subjects",
+      "params": {
+        "squares": "corners",
+        "tiers": [
+          {
+            "id": "pairs",
+            "x": 1,
+            "gate": 4
+          }
+        ]
+      },
+      "interaction": "pairs",
+      "report": {
+        "id": "kings_and_subjects.pairs(x=1)",
+        "calibration": "shipped",
+        "topBits": 28.264975088,
+        "cardBits": 3128.8467388103395,
+        "colourBlind": true,
+        "greedy10": 17.306598089666664,
+        "greedy20": 17.306598089666664,
+        "uniformTop": [],
+        "greedy4": 13.422408392666663,
+        "greedy8": 17.306598089666664,
+        "greedy16": 17.306598089666664,
+        "rate4": 2.9628954125625007,
+        "rate8": 1.96697141840625,
+        "reach16": 0.612298366999596,
+        "reachEnd": 0.612298366999596,
+        "movesTo50": 4,
+        "movesTo90": "inf",
+        "beam16": 19.69538968875001,
+        "gap": 0.12128684107468156,
+        "plateau": 0,
+        "trap": 0.3877016330004039,
+        "stall": 1,
+        "escape2": 1,
+        "entangle": 3.1666666666666665,
+        "difficulty": 25.44942370375427
+      },
+      "table": {
+        "from": "shipped",
+        "kind": "hybrid",
+        "seconds": 21.774746804000003,
+        "levels": 185,
+        "priorMean": 1.4119888005720818
+      },
+      "tier": {
+        "layout": {
+          "compose": "gated",
+          "gate": 4,
+          "at": 2,
+          "arity": 1,
+          "baseArity": 2
+        },
+        "addedTop": 13.656675952,
+        "baseAgent": 15.514014736166665,
+        "baseAgentOwn": 14.608299136,
+        "baseAgentLoss": -0.9057156001666655,
+        "accidental": 0.05225334454876716,
+        "tierAgent": 17.306598089666664,
+        "tierShare": 0.1854915345375636
+      },
+      "live": {
+        "tierTop": 6,
+        "tierMin": 0,
+        "shareAtTop": 0.00008911479074921233,
+        "addedBits": 13.453975572772455,
+        "degenerate": [],
+        "problems": [],
+        "seconds": 0.00016672700000344777,
+        "levels": 185,
+        "topTier": [
+          [
+            [
+              0
+            ],
+            1
+          ],
+          [
+            [
+              1
+            ],
+            0.5582275390624996
+          ],
+          [
+            [
+              2
+            ],
+            0.21662662923336018
+          ],
+          [
+            [
+              3
+            ],
+            0.09540879861742725
+          ],
+          [
+            [
+              4
+            ],
+            0.02806826228857419
+          ],
+          [
+            [
+              5
+            ],
+            0.00640375759489076
+          ],
+          [
+            [
+              6
+            ],
+            0.00008911479074921233
+          ]
+        ]
+      },
+      "exact": null
+    },
+    {
+      "id": "kings_and_subjects.pairs(x=2)",
+      "family": "kings_and_subjects",
+      "params": {
+        "squares": "corners",
+        "tiers": [
+          {
+            "id": "pairs",
+            "x": 2,
+            "gate": 4
+          }
+        ]
+      },
+      "interaction": "pairs",
+      "report": {
+        "id": "kings_and_subjects.pairs(x=2)",
+        "calibration": "shipped",
+        "topBits": 27.830889125,
+        "cardBits": 3128.8467388103395,
+        "colourBlind": true,
+        "greedy10": 17.49007941016667,
+        "greedy20": 17.49007941016667,
+        "uniformTop": [],
+        "greedy4": 13.42679757266667,
+        "greedy8": 17.49007941016667,
+        "greedy16": 17.49007941016667,
+        "rate4": 2.9639927075625003,
+        "rate8": 1.9899065834687502,
+        "reach16": 0.6284412737089178,
+        "reachEnd": 0.6284412737089178,
+        "movesTo50": 4,
+        "movesTo90": "inf",
+        "beam16": 21.293387088916667,
+        "gap": 0.17861449955651454,
+        "plateau": 0,
+        "trap": 0.3715587262910823,
+        "stall": 1,
+        "escape2": 1,
+        "entangle": 3,
+        "difficulty": 27.508661292379845
+      },
+      "table": {
+        "from": "shipped",
+        "kind": "hybrid",
+        "seconds": 11.143361534000004,
+        "levels": 185,
+        "priorMean": 1.4119898233341257
+      },
+      "tier": {
+        "layout": {
+          "compose": "gated",
+          "gate": 4,
+          "at": 2,
+          "arity": 1,
+          "baseArity": 2
+        },
+        "addedTop": 13.222589989,
+        "baseAgent": 15.528801049499998,
+        "baseAgentOwn": 14.608299136,
+        "baseAgentLoss": -0.920501913499999,
+        "accidental": 0.0551311536427074,
+        "tierAgent": 17.49007941016667,
+        "tierShare": 0.2057682496101184
+      },
+      "live": {
+        "tierTop": 6,
+        "tierMin": 0,
+        "shareAtTop": 0.00012039894661728034,
+        "addedBits": 13.019889609683345,
+        "degenerate": [],
+        "problems": [],
+        "seconds": 0.000014517999996314757,
+        "levels": 185,
+        "topTier": [
+          [
+            [
+              0
+            ],
+            1
+          ],
+          [
+            [
+              1
+            ],
+            0.6062011718749998
+          ],
+          [
+            [
+              2
+            ],
+            0.2796630859375
+          ],
+          [
+            [
+              3
+            ],
+            0.11849494278430933
+          ],
+          [
+            [
+              4
+            ],
+            0.031185924883175127
+          ],
+          [
+            [
+              5
+            ],
+            0.005668437762579075
+          ],
+          [
+            [
+              6
+            ],
+            0.00012039894661728034
+          ]
+        ]
+      },
+      "exact": null
+    },
+    {
+      "id": "kings_and_subjects.pairs(x=3)",
+      "family": "kings_and_subjects",
+      "params": {
+        "squares": "corners",
+        "tiers": [
+          {
+            "id": "pairs",
+            "x": 3,
+            "gate": 4
+          }
+        ]
+      },
+      "interaction": "pairs",
+      "report": {
+        "id": "kings_and_subjects.pairs(x=3)",
+        "calibration": "shipped",
+        "topBits": 27.545551804,
+        "cardBits": 3130.8467388103395,
+        "colourBlind": true,
+        "greedy10": 17.88522856133333,
+        "greedy20": 17.88522856133333,
+        "uniformTop": [],
+        "greedy4": 13.768175165250002,
+        "greedy8": 17.88522856133333,
+        "greedy16": 17.88522856133333,
+        "rate4": 3.0493371057083336,
+        "rate8": 2.039300227364583,
+        "reach16": 0.6492964340883578,
+        "reachEnd": 0.6492964340883578,
+        "movesTo50": 4,
+        "movesTo90": "inf",
+        "beam16": 21.31377859925,
+        "gap": 0.16086073250462093,
+        "plateau": 0,
+        "trap": 0.35070356591164215,
+        "stall": 1,
+        "escape2": 0.6666666666666666,
+        "entangle": 3.6666666666666665,
+        "difficulty": 25.578214920813153
+      },
+      "table": {
+        "from": "shipped",
+        "kind": "hybrid",
+        "seconds": 12.319110531999998,
+        "levels": 185,
+        "priorMean": 1.4119903589914968
+      },
+      "tier": {
+        "layout": {
+          "compose": "gated",
+          "gate": 4,
+          "at": 2,
+          "arity": 1,
+          "baseArity": 2
+        },
+        "addedTop": 12.937252668,
+        "baseAgent": 15.966942550833332,
+        "baseAgentOwn": 14.608299136,
+        "baseAgentLoss": -1.3586434148333328,
+        "accidental": 0.09077217711311503,
+        "tierAgent": 17.88522856133333,
+        "tierShare": 0.24140849058265093
+      },
+      "live": {
+        "tierTop": 6,
+        "tierMin": 0,
+        "shareAtTop": 0.0001467296156082953,
+        "addedBits": 12.734552288503815,
+        "degenerate": [],
+        "problems": [],
+        "seconds": 0.000013755000007222407,
+        "levels": 185,
+        "topTier": [
+          [
+            [
+              0
+            ],
+            1
+          ],
+          [
+            [
+              1
+            ],
+            0.6433105468749994
+          ],
+          [
+            [
+              2
+            ],
+            0.3330078124999997
+          ],
+          [
+            [
+              3
+            ],
+            0.1427640914916991
+          ],
+          [
+            [
+              4
+            ],
+            0.03532505047041918
+          ],
+          [
+            [
+              5
+            ],
+            0.0053901749375029305
+          ],
+          [
+            [
+              6
+            ],
+            0.0001467296156082953
+          ]
+        ]
+      },
+      "exact": null
+    },
+    {
+      "id": "kings_and_subjects.pairs(x=4)",
+      "family": "kings_and_subjects",
+      "params": {
+        "squares": "corners",
+        "tiers": [
+          {
+            "id": "pairs",
+            "x": 4,
+            "gate": 4
+          }
+        ]
+      },
+      "interaction": "pairs",
+      "report": {
+        "id": "kings_and_subjects.pairs(x=4)",
+        "calibration": "shipped",
+        "topBits": 27.453342142,
+        "cardBits": 3130.8467388103395,
+        "colourBlind": true,
+        "greedy10": 18.115322447666667,
+        "greedy20": 18.115322447666667,
+        "uniformTop": [],
+        "greedy4": 14.232877032750002,
+        "greedy8": 18.115322447666667,
+        "greedy16": 18.115322447666667,
+        "rate4": 3.1655125725833333,
+        "rate8": 2.06806196315625,
+        "reach16": 0.6598585466923026,
+        "reachEnd": 0.6598585466923026,
+        "movesTo50": 4,
+        "movesTo90": "inf",
+        "beam16": 20.863676228000003,
+        "gap": 0.13172912339604465,
+        "plateau": 0,
+        "trap": 0.34014145330769735,
+        "stall": 1,
+        "escape2": 1,
+        "entangle": 3.1666666666666665,
+        "difficulty": 23.5935288351871
+      },
+      "table": {
+        "from": "shipped",
+        "kind": "hybrid",
+        "seconds": 13.728744418999995,
+        "levels": 185,
+        "priorMean": 1.4119903597731565
+      },
+      "tier": {
+        "layout": {
+          "compose": "gated",
+          "gate": 4,
+          "at": 2,
+          "arity": 1,
+          "baseArity": 2
+        },
+        "addedTop": 12.845043006000001,
+        "baseAgent": 15.376475128333333,
+        "baseAgentOwn": 14.608299136,
+        "baseAgentLoss": -0.7681759923333331,
+        "accidental": 0.044728704957391195,
+        "tierAgent": 18.115322447666667,
+        "tierShare": 0.26136951276812326
+      },
+      "live": {
+        "tierTop": 6,
+        "tierMin": 0,
+        "shareAtTop": 0.00015641401138299918,
+        "addedBits": 12.642342626192152,
+        "degenerate": [],
+        "problems": [],
+        "seconds": 0.0000134529999922961,
+        "levels": 185,
+        "topTier": [
+          [
+            [
+              0
+            ],
+            1
+          ],
+          [
+            [
+              1
+            ],
+            0.6701660156249998
+          ],
+          [
+            [
+              2
+            ],
+            0.3641357421874997
+          ],
+          [
+            [
+              3
+            ],
+            0.15219736099243147
+          ],
+          [
+            [
+              4
+            ],
+            0.033999166334979194
+          ],
+          [
+            [
+              5
+            ],
+            0.004781132765856448
+          ],
+          [
+            [
+              6
+            ],
+            0.00015641401138299918
+          ]
+        ]
+      },
+      "exact": null
+    },
+    {
+      "id": "kings_and_subjects.pairs(x=5)",
+      "family": "kings_and_subjects",
+      "params": {
+        "squares": "corners",
+        "tiers": [
+          {
+            "id": "pairs",
+            "x": 5,
+            "gate": 4
+          }
+        ]
+      },
+      "interaction": "pairs",
+      "report": {
+        "id": "kings_and_subjects.pairs(x=5)",
+        "calibration": "shipped",
+        "topBits": 27.731582807,
+        "cardBits": 3130.8467388103395,
+        "colourBlind": true,
+        "greedy10": 17.578833079333336,
+        "greedy20": 17.578833079333336,
+        "uniformTop": [],
+        "greedy4": 14.369524806583334,
+        "greedy8": 17.578833079333336,
+        "greedy16": 17.578833079333336,
+        "rate4": 3.1996745160416675,
+        "rate8": 2.0010007921145827,
+        "reach16": 0.633892165538279,
+        "reachEnd": 0.633892165538279,
+        "movesTo50": 4,
+        "movesTo90": "inf",
+        "beam16": 22.23878335116667,
+        "gap": 0.209541601186059,
+        "plateau": 0,
+        "trap": 0.36610783446172107,
+        "stall": 1,
+        "escape2": 1,
+        "entangle": 3.3333333333333335,
+        "difficulty": 28.782471782389003
+      },
+      "table": {
+        "from": "shipped",
+        "kind": "hybrid",
+        "seconds": 22.18916576199999,
+        "levels": 185,
+        "priorMean": 1.4119903073891806
+      },
+      "tier": {
+        "layout": {
+          "compose": "gated",
+          "gate": 4,
+          "at": 2,
+          "arity": 1,
+          "baseArity": 2
+        },
+        "addedTop": 13.123283671,
+        "baseAgent": 15.858701572666666,
+        "baseAgentOwn": 14.608299136,
+        "baseAgentLoss": -1.2504024366666666,
+        "accidental": 0.08108782970466742,
+        "tierAgent": 17.578833079333336,
+        "tierShare": 0.21421893282844937
+      },
+      "live": {
+        "tierTop": 6,
+        "tierMin": 0,
+        "shareAtTop": 0.00012897836514648065,
+        "addedBits": 12.920583291525192,
+        "degenerate": [],
+        "problems": [],
+        "seconds": 0.000013092000008327887,
+        "levels": 185,
+        "topTier": [
+          [
+            [
+              0
+            ],
+            1
+          ],
+          [
+            [
+              1
+            ],
+            0.6962890624999996
+          ],
+          [
+            [
+              2
+            ],
+            0.39111328125000017
+          ],
+          [
+            [
+              3
+            ],
+            0.16051304340362557
+          ],
+          [
+            [
+              4
+            ],
+            0.03479872620664533
+          ],
+          [
+            [
+              5
+            ],
+            0.004048240487662728
+          ],
+          [
+            [
+              6
+            ],
+            0.00012897836514648065
+          ]
+        ]
+      },
+      "exact": null
+    },
+    {
+      "id": "kings_and_subjects.sameRoads(y=2)",
+      "family": "kings_and_subjects",
+      "params": {
+        "squares": "corners",
+        "tiers": [
+          {
+            "id": "sameRoads",
+            "y": 2,
+            "gate": 4
+          }
+        ]
+      },
+      "interaction": "sameRoads",
+      "report": {
+        "id": "kings_and_subjects.sameRoads(y=2)",
+        "calibration": "shipped",
+        "topBits": 40.279111983,
+        "cardBits": 1953.6663846595798,
+        "colourBlind": true,
+        "greedy10": 17.57015057275,
+        "greedy20": 17.57015057275,
+        "uniformTop": [],
+        "greedy4": 13.984951575083334,
+        "greedy8": 17.57015057275,
+        "greedy16": 17.57015057275,
+        "rate4": 3.1035312081666664,
+        "rate8": 1.9999154787916664,
+        "reach16": 0.4362099785160499,
+        "reachEnd": 0.4362099785160499,
+        "movesTo50": "inf",
+        "movesTo90": "inf",
+        "beam16": 19.505951674083338,
+        "gap": 0.09924156143098363,
+        "plateau": 0,
+        "trap": 0.5637900214839501,
+        "stall": 1,
+        "escape2": 1,
+        "entangle": 3.3333333333333335,
+        "difficulty": 33.15157914574669
+      },
+      "table": {
+        "from": "shipped",
+        "kind": "hybrid",
+        "seconds": 28.63778493799998,
+        "levels": 185,
+        "priorMean": 1.4119864205502264
+      },
+      "tier": {
+        "layout": {
+          "compose": "gated",
+          "gate": 4,
+          "at": 2,
+          "arity": 1,
+          "baseArity": 2
+        },
+        "addedTop": 25.670812847,
+        "baseAgent": 15.725142956666668,
+        "baseAgentOwn": 14.608299136,
+        "baseAgentLoss": -1.1168438206666682,
+        "accidental": 0.035893647117165146,
+        "tierAgent": 17.57015057275,
+        "tierShare": 0.10833747735395773
+      },
+      "live": {
+        "tierTop": 6,
+        "tierMin": 0,
+        "shareAtTop": 2.154439059771049e-8,
+        "addedBits": 25.468112467988504,
+        "degenerate": [],
+        "problems": [
+          "adds 25.5 bits, above the cap of 20"
+        ],
+        "seconds": 0.00004297400001087226,
+        "levels": 185,
+        "topTier": [
+          [
+            [
+              0
+            ],
+            1
+          ],
+          [
+            [
+              1
+            ],
+            0.6817626953124996
+          ],
+          [
+            [
+              2
+            ],
+            0.25842285156250017
+          ],
+          [
+            [
+              3
+            ],
+            0.05069403350353233
+          ],
+          [
+            [
+              4
+            ],
+            0.004381271450256465
+          ],
+          [
+            [
+              5
+            ],
+            0.00008824582388822227
+          ],
+          [
+            [
+              6
+            ],
+            2.154439059771049e-8
+          ]
+        ]
+      },
+      "exact": null
+    },
+    {
+      "id": "kings_and_subjects.sameRoads(y=3)",
+      "family": "kings_and_subjects",
+      "params": {
+        "squares": "corners",
+        "tiers": [
+          {
+            "id": "sameRoads",
+            "y": 3,
+            "gate": 4
+          }
+        ]
+      },
+      "interaction": "sameRoads",
+      "report": {
+        "id": "kings_and_subjects.sameRoads(y=3)",
+        "calibration": "shipped",
+        "topBits": 40.733824771,
+        "cardBits": 1955.6663846595798,
+        "colourBlind": true,
+        "greedy10": 15.617579992666668,
+        "greedy20": 15.617579992666668,
+        "uniformTop": [],
+        "greedy4": 13.534597229,
+        "greedy8": 15.617579992666668,
+        "greedy16": 15.617579992666668,
+        "rate4": 2.990942621645834,
+        "rate8": 1.75584415628125,
+        "reach16": 0.38340568509013256,
+        "reachEnd": 0.38340568509013256,
+        "movesTo50": "inf",
+        "movesTo90": "inf",
+        "beam16": 18.3209052915,
+        "gap": 0.1475541331512446,
+        "plateau": 0,
+        "trap": 0.6165943149098675,
+        "stall": 1,
+        "escape2": 1,
+        "entangle": 3,
+        "difficulty": 38.2074224030556
+      },
+      "table": {
+        "from": "shipped",
+        "kind": "hybrid",
+        "seconds": 15.80562731099999,
+        "levels": 183,
+        "priorMean": 1.4119730836949396
+      },
+      "tier": {
+        "layout": {
+          "compose": "gated",
+          "gate": 4,
+          "at": 2,
+          "arity": 1,
+          "baseArity": 2
+        },
+        "addedTop": 26.125525635000002,
+        "baseAgent": 15.012644634416667,
+        "baseAgentOwn": 14.608299136,
+        "baseAgentLoss": -0.4043454984166672,
+        "accidental": 0.0077786706281173824,
+        "tierAgent": 15.617579992666668,
+        "tierShare": 0.03111468251246953
+      },
+      "live": {
+        "tierTop": 4,
+        "tierMin": 0,
+        "shareAtTop": 1.5719981316664192e-8,
+        "addedBits": 25.922825256157083,
+        "degenerate": [],
+        "problems": [
+          "adds 25.9 bits, above the cap of 20"
+        ],
+        "seconds": 0.000013898000004701316,
+        "levels": 183,
+        "topTier": [
+          [
+            [
+              0
+            ],
+            1
+          ],
+          [
+            [
+              1
+            ],
+            0.18688964843750006
+          ],
+          [
+            [
+              2
+            ],
+            0.008372619748115545
+          ],
+          [
+            [
+              3
+            ],
+            0.00006438904347305645
+          ],
+          [
+            [
+              4
+            ],
+            1.5719981316664192e-8
+          ]
+        ]
+      },
+      "exact": null
+    },
+    {
+      "id": "kings_and_subjects.sameRoads(y=4)",
+      "family": "kings_and_subjects",
+      "params": {
+        "squares": "corners",
+        "tiers": [
+          {
+            "id": "sameRoads",
+            "y": 4,
+            "gate": 4
+          }
+        ]
+      },
+      "interaction": "sameRoads",
+      "report": {
+        "id": "kings_and_subjects.sameRoads(y=4)",
+        "calibration": "shipped",
+        "topBits": 27.200666713,
+        "cardBits": 1955.6663846595798,
+        "colourBlind": true,
+        "greedy10": 15.194259562,
+        "greedy20": 15.194259562,
+        "uniformTop": [],
+        "greedy4": 12.929661870750001,
+        "greedy8": 15.194259562,
+        "greedy16": 15.194259562,
+        "rate4": 2.8397087820833335,
+        "rate8": 1.7029291024479167,
+        "reach16": 0.5585987917986662,
+        "reachEnd": 0.5585987917986662,
+        "movesTo50": 4,
+        "movesTo90": "inf",
+        "beam16": 15.960779655999998,
+        "gap": 0.04802522874951459,
+        "plateau": 0,
+        "trap": 0.4414012082013337,
+        "stall": 1,
+        "escape2": 0.6666666666666666,
+        "entangle": 3,
+        "difficulty": 24.471321847542416
+      },
+      "table": {
+        "from": "shipped",
+        "kind": "hybrid",
+        "seconds": 20.838718751999988,
+        "levels": 181,
+        "priorMean": 1.4119626824460618
+      },
+      "tier": {
+        "layout": {
+          "compose": "gated",
+          "gate": 4,
+          "at": 2,
+          "arity": 1,
+          "baseArity": 2
+        },
+        "addedTop": 12.592367577000001,
+        "baseAgent": 14.810999514999999,
+        "baseAgentOwn": 14.608299136,
+        "baseAgentLoss": -0.2027003789999995,
+        "accidental": 0,
+        "tierAgent": 15.194259562,
+        "tierShare": 0.030933845185274023
+      },
+      "live": {
+        "tierTop": 2,
+        "tierMin": 0,
+        "shareAtTop": 0.00018635392189025863,
+        "addedBits": 12.389667198088867,
+        "degenerate": [],
+        "problems": [],
+        "seconds": 0.000013703000004170462,
+        "levels": 181,
+        "topTier": [
+          [
+            [
+              0
+            ],
+            1
+          ],
+          [
+            [
+              1
+            ],
+            0.04125976562499997
+          ],
+          [
+            [
+              2
+            ],
+            0.00018635392189025863
+          ]
+        ]
+      },
+      "exact": null
+    }
+  ],
+  "pairs": [
+    {
+      "a": "kings_and_subjects.base",
+      "b": "mirrormancer",
+      "conflict": 0.4748225751943224,
+      "corr": -0.23466651247957188,
+      "naive": 0.25091689425073865,
+      "considerate": 0.5785521230359884,
+      "ceiling": 1,
+      "gap": 0.42144787696401165,
+      "difficulty": 42.14478769640117
+    },
+    {
+      "a": "kings_and_subjects.base",
+      "b": "magic_eighteen",
+      "conflict": 0.6720070364399936,
+      "corr": -0.26372317567362813,
+      "naive": 0.49952571677297714,
+      "considerate": 0.6365556133433831,
+      "ceiling": 1,
+      "gap": 0.36344438665661694,
+      "difficulty": 36.34443866566169
+    },
+    {
+      "a": "kings_and_subjects.base",
+      "b": "opposite_nines",
+      "conflict": 0.6790631924810882,
+      "corr": -0.270887434190897,
+      "naive": 0.2978845221851596,
+      "considerate": 0.45163859716170374,
+      "ceiling": 0.9037287767186355,
+      "gap": 0.5002498439835388,
+      "difficulty": 54.83614028382963
+    },
+    {
+      "a": "kings_and_subjects.base",
+      "b": "two_pair",
+      "conflict": 0.6695932995248173,
+      "corr": -0.2849498700014199,
+      "naive": 0.2418763845159038,
+      "considerate": 0.2714383623357603,
+      "ceiling": 0.42536021890082554,
+      "gap": 0.3618623691769181,
+      "difficulty": 72.85616376642396
+    },
+    {
+      "a": "kings_and_subjects.base",
+      "b": "spread_three",
+      "conflict": 0.6902099118425188,
+      "corr": -0.23679663675250973,
+      "naive": 0.3098224369584295,
+      "considerate": 0.5439900651500807,
+      "ceiling": 1,
+      "gap": 0.45600993484991925,
+      "difficulty": 45.600993484991925
+    },
+    {
+      "a": "kings_and_subjects.base",
+      "b": "strangers",
+      "conflict": 0.620380411759722,
+      "corr": -0.28533708696962595,
+      "naive": 0.2826995658360734,
+      "considerate": 0.4850325012060437,
+      "ceiling": 0.8244746619090624,
+      "gap": 0.41170720749264017,
+      "difficulty": 51.49674987939563
+    },
+    {
+      "a": "kings_and_subjects.base",
+      "b": "leapfrog",
+      "conflict": 0.44858589028200335,
+      "corr": -0.18383836634834017,
+      "naive": 0.20785218023964083,
+      "considerate": 0.6068272506622302,
+      "ceiling": 1,
+      "gap": 0.3931727493377698,
+      "difficulty": 39.31727493377698
+    },
+    {
+      "a": "kings_and_subjects.base",
+      "b": "crosswise_threes",
+      "conflict": 0.5526495960564152,
+      "corr": -0.1776970324062141,
+      "naive": 0.26608247685739655,
+      "considerate": 0.7761590408809891,
+      "ceiling": 1,
+      "gap": 0.22384095911901092,
+      "difficulty": 22.384095911901092
+    },
+    {
+      "a": "kings_and_subjects.pairs(x=1)",
+      "b": "mirrormancer",
+      "conflict": 0.4748225751943224,
+      "corr": -0.2340088064729372,
+      "naive": 0.179141483375782,
+      "considerate": 0.4266024361616067,
+      "ceiling": 0.7759367924348299,
+      "gap": 0.4502098104886081,
+      "difficulty": 57.33975638383932
+    },
+    {
+      "a": "kings_and_subjects.pairs(x=1)",
+      "b": "magic_eighteen",
+      "conflict": 0.6720070364399936,
+      "corr": -0.2636761657315107,
+      "naive": 0.35814768169979966,
+      "considerate": 0.45792890738996983,
+      "ceiling": 0.7759367924348299,
+      "gap": 0.40983735807523164,
+      "difficulty": 54.20710926100302
+    },
+    {
+      "a": "kings_and_subjects.pairs(x=1)",
+      "b": "opposite_nines",
+      "conflict": 0.6790631924810882,
+      "corr": -0.2672120215962144,
+      "naive": 0.20163881118276258,
+      "considerate": 0.325530692212199,
+      "ceiling": 0.7517863666255085,
+      "gap": 0.5669904288456492,
+      "difficulty": 67.4469307787801
+    },
+    {
+      "a": "kings_and_subjects.pairs(x=1)",
+      "b": "two_pair",
+      "conflict": 0.6695932995248173,
+      "corr": -0.2852204983623099,
+      "naive": 0.17163190155920555,
+      "considerate": 0.19828332106600213,
+      "ceiling": 0.30749182890864163,
+      "gap": 0.35515905651947016,
+      "difficulty": 80.17166789339979
+    },
+    {
+      "a": "kings_and_subjects.pairs(x=1)",
+      "b": "spread_three",
+      "conflict": 0.6902099118425188,
+      "corr": -0.2335414442511157,
+      "naive": 0.22149696278594597,
+      "considerate": 0.40332902799498827,
+      "ceiling": 0.7616495902980938,
+      "gap": 0.4704532988232375,
+      "difficulty": 59.667097200501175
+    },
+    {
+      "a": "kings_and_subjects.pairs(x=1)",
+      "b": "strangers",
+      "conflict": 0.620380411759722,
+      "corr": -0.2808005057351235,
+      "naive": 0.2030534980695717,
+      "considerate": 0.36234681985015815,
+      "ceiling": 0.7238821712179886,
+      "gap": 0.49943950237028056,
+      "difficulty": 63.76531801498418
+    },
+    {
+      "a": "kings_and_subjects.pairs(x=1)",
+      "b": "leapfrog",
+      "conflict": 0.44858589028200335,
+      "corr": -0.18126787756200438,
+      "naive": 0.1484332629746546,
+      "considerate": 0.4549267736136897,
+      "ceiling": 0.8842007023043564,
+      "gap": 0.4854937658066953,
+      "difficulty": 54.50732263863103
+    },
+    {
+      "a": "kings_and_subjects.pairs(x=1)",
+      "b": "crosswise_threes",
+      "conflict": 0.5526495960564152,
+      "corr": -0.17902062541950842,
+      "naive": 0.19026633057822673,
+      "considerate": 0.5906461541239372,
+      "ceiling": 0.8024539893642926,
+      "gap": 0.2639501305341512,
+      "difficulty": 40.93538458760628
+    },
+    {
+      "a": "kings_and_subjects.pairs(x=5)",
+      "b": "mirrormancer",
+      "conflict": 0.4748225751943224,
+      "corr": -0.23651939217715873,
+      "naive": 0.1808560912964864,
+      "considerate": 0.4374694844062474,
+      "ceiling": 0.7634930836632886,
+      "gap": 0.4270157860406006,
+      "difficulty": 56.25305155937526
+    },
+    {
+      "a": "kings_and_subjects.pairs(x=5)",
+      "b": "magic_eighteen",
+      "conflict": 0.6720070364399936,
+      "corr": -0.2656009670868612,
+      "naive": 0.3573164678981364,
+      "considerate": 0.4623118594395702,
+      "ceiling": 0.7435833477647698,
+      "gap": 0.37826491027631093,
+      "difficulty": 53.76881405604298
+    },
+    {
+      "a": "kings_and_subjects.pairs(x=5)",
+      "b": "opposite_nines",
+      "conflict": 0.6790631924810882,
+      "corr": -0.2691501186956953,
+      "naive": 0.2161589979717911,
+      "considerate": 0.32864642784629877,
+      "ceiling": 0.6702268231477876,
+      "gap": 0.5096489479445513,
+      "difficulty": 67.13535721537012
+    },
+    {
+      "a": "kings_and_subjects.pairs(x=5)",
+      "b": "two_pair",
+      "conflict": 0.6695932995248173,
+      "corr": -0.2872407418781711,
+      "naive": 0.17327463339503418,
+      "considerate": 0.19948151205390366,
+      "ceiling": 0.31043491007255425,
+      "gap": 0.35741276002985223,
+      "difficulty": 80.05184879460964
+    },
+    {
+      "a": "kings_and_subjects.pairs(x=5)",
+      "b": "spread_three",
+      "conflict": 0.6902099118425188,
+      "corr": -0.23540343735296537,
+      "naive": 0.22361696558846877,
+      "considerate": 0.3662149536247157,
+      "ceiling": 0.7634930836632886,
+      "gap": 0.5203428014467493,
+      "difficulty": 63.37850463752843
+    },
+    {
+      "a": "kings_and_subjects.pairs(x=5)",
+      "b": "strangers",
+      "conflict": 0.620380411759722,
+      "corr": -0.2826620975894655,
+      "naive": 0.2049969738606396,
+      "considerate": 0.3568372258986178,
+      "ceiling": 0.6294807020231974,
+      "gap": 0.43312443931685807,
+      "difficulty": 64.31627741013821
+    },
+    {
+      "a": "kings_and_subjects.pairs(x=5)",
+      "b": "leapfrog",
+      "conflict": 0.44858589028200335,
+      "corr": -0.18292996304593412,
+      "naive": 0.14985395484119712,
+      "considerate": 0.45699266190686794,
+      "ceiling": 0.7932559471243897,
+      "gap": 0.4239026337419852,
+      "difficulty": 54.30073380931321
+    },
+    {
+      "a": "kings_and_subjects.pairs(x=5)",
+      "b": "crosswise_threes",
+      "conflict": 0.5526495960564152,
+      "corr": -0.1803660438199502,
+      "naive": 0.19208741719258982,
+      "considerate": 0.5982061812410776,
+      "ceiling": 0.7932559471243897,
+      "gap": 0.24588503444617296,
+      "difficulty": 40.17938187589224
+    },
+    {
+      "a": "kings_and_subjects.sameRoads(y=2)",
+      "b": "mirrormancer",
+      "conflict": 0.4748225751943224,
+      "corr": -0.23721545359464222,
+      "naive": 0.15006538470842307,
+      "considerate": 0.37030003358224867,
+      "ceiling": 0.8379014465820028,
+      "gap": 0.5580625441180587,
+      "difficulty": 62.96999664177514
+    },
+    {
+      "a": "kings_and_subjects.sameRoads(y=2)",
+      "b": "magic_eighteen",
+      "conflict": 0.6720070364399936,
+      "corr": -0.266091432814399,
+      "naive": 0.3000174422133656,
+      "considerate": 0.38360337517375814,
+      "ceiling": 0.617600119255911,
+      "gap": 0.378880665314757,
+      "difficulty": 61.63966248262418
+    },
+    {
+      "a": "kings_and_subjects.sameRoads(y=2)",
+      "b": "opposite_nines",
+      "conflict": 0.6790631924810882,
+      "corr": -0.26963365506323456,
+      "naive": 0.1689112158841319,
+      "considerate": 0.27269445156233985,
+      "ceiling": 0.5472322595998117,
+      "gap": 0.5016842542108904,
+      "difficulty": 72.73055484376601
+    },
+    {
+      "a": "kings_and_subjects.sameRoads(y=2)",
+      "b": "two_pair",
+      "conflict": 0.6695932995248173,
+      "corr": -0.28776966194251624,
+      "naive": 0.14377466821401963,
+      "considerate": 0.16455576042991957,
+      "ceiling": 0.2575834403641544,
+      "gap": 0.3611555145110201,
+      "difficulty": 83.54442395700804
+    },
+    {
+      "a": "kings_and_subjects.sameRoads(y=2)",
+      "b": "spread_three",
+      "conflict": 0.6902099118425188,
+      "corr": -0.2359144152938559,
+      "naive": 0.18554623030833856,
+      "considerate": 0.34548279471118026,
+      "ceiling": 0.6346154211668847,
+      "gap": 0.4556029002952188,
+      "difficulty": 65.45172052888198
+    },
+    {
+      "a": "kings_and_subjects.sameRoads(y=2)",
+      "b": "strangers",
+      "conflict": 0.620380411759722,
+      "corr": -0.2831120344638673,
+      "naive": 0.16613153665270894,
+      "considerate": 0.2998094333238437,
+      "ceiling": 0.5623370063140776,
+      "gap": 0.46685096311020025,
+      "difficulty": 70.01905666761563
+    },
+    {
+      "a": "kings_and_subjects.sameRoads(y=2)",
+      "b": "leapfrog",
+      "conflict": 0.44858589028200335,
+      "corr": -0.18335230548127682,
+      "naive": 0.12434135462132365,
+      "considerate": 0.39221453108661763,
+      "ceiling": 0.749808539821603,
+      "gap": 0.47691375830430704,
+      "difficulty": 60.77854689133824
+    },
+    {
+      "a": "kings_and_subjects.sameRoads(y=2)",
+      "b": "crosswise_threes",
+      "conflict": 0.5526495960564152,
+      "corr": -0.18056607930298657,
+      "naive": 0.15938458003826916,
+      "considerate": 0.48372190289360534,
+      "ceiling": 0.6451169330476246,
+      "gap": 0.25017949752390795,
+      "difficulty": 51.62780971063947
+    },
+    {
+      "a": "kings_and_subjects.sameRoads(y=4)",
+      "b": "mirrormancer",
+      "conflict": 0.4748225751943224,
+      "corr": -0.23768570961858987,
+      "naive": 0.18261258111939338,
+      "considerate": 0.4264786213392679,
+      "ceiling": 0.8447424842414244,
+      "gap": 0.4951377143979634,
+      "difficulty": 57.35213786607321
+    },
+    {
+      "a": "kings_and_subjects.sameRoads(y=4)",
+      "b": "magic_eighteen",
+      "conflict": 0.6720070364399936,
+      "corr": -0.2672178663320228,
+      "naive": 0.36508725586431656,
+      "considerate": 0.4668018717487691,
+      "ceiling": 0.7379083237528792,
+      "gap": 0.3673985551827193,
+      "difficulty": 53.319812825123094
+    },
+    {
+      "a": "kings_and_subjects.sameRoads(y=4)",
+      "b": "opposite_nines",
+      "conflict": 0.6790631924810882,
+      "corr": -0.2706320703912682,
+      "naive": 0.21825835264293014,
+      "considerate": 0.3318382700547009,
+      "ceiling": 0.7379083237528792,
+      "gap": 0.5502987845874585,
+      "difficulty": 66.81617299452991
+    },
+    {
+      "a": "kings_and_subjects.sameRoads(y=4)",
+      "b": "two_pair",
+      "conflict": 0.6695932995248173,
+      "corr": -0.2887332680822803,
+      "naive": 0.17495749145054407,
+      "considerate": 0.20024572761106227,
+      "ceiling": 0.31344988046314837,
+      "gap": 0.3611555145110201,
+      "difficulty": 79.97542723889377
+    },
+    {
+      "a": "kings_and_subjects.sameRoads(y=4)",
+      "b": "spread_three",
+      "conflict": 0.6902099118425188,
+      "corr": -0.2368201547459235,
+      "naive": 0.2257887526788001,
+      "considerate": 0.4007411432978832,
+      "ceiling": 0.7379083237528792,
+      "gap": 0.4569228583033455,
+      "difficulty": 59.925885670211684
+    },
+    {
+      "a": "kings_and_subjects.sameRoads(y=4)",
+      "b": "strangers",
+      "conflict": 0.620380411759722,
+      "corr": -0.2839609416846628,
+      "naive": 0.20698792199919389,
+      "considerate": 0.35708285785068145,
+      "ceiling": 0.608386715746038,
+      "gap": 0.4130659848270908,
+      "difficulty": 64.29171421493184
+    },
+    {
+      "a": "kings_and_subjects.sameRoads(y=4)",
+      "b": "leapfrog",
+      "conflict": 0.44858589028200335,
+      "corr": -0.18396058906486018,
+      "naive": 0.15130934926398945,
+      "considerate": 0.4477828793437345,
+      "ceiling": 0.8447424842414244,
+      "gap": 0.4699178889459527,
+      "difficulty": 55.22171206562655
+    },
+    {
+      "a": "kings_and_subjects.sameRoads(y=4)",
+      "b": "crosswise_threes",
+      "conflict": 0.5526495960564152,
+      "corr": -0.1814740719058817,
+      "naive": 0.1939529866129427,
+      "considerate": 0.5722140156577532,
+      "ceiling": 0.7379083237528792,
+      "gap": 0.22454592631837006,
+      "difficulty": 42.778598434224676
+    }
+  ],
+  "games": [
+    {
+      "id": "kings_and_subjects.pairs(x=1)",
+      "games": 40,
+      "winBase": 0.1,
+      "winTier": 0.15,
+      "ownBase": 6.094353764087499,
+      "ownTier": 5.96769950966,
+      "payRatio": 0.9862831054773253
+    },
+    {
+      "id": "kings_and_subjects.pairs(x=5)",
+      "games": 40,
+      "winBase": 0.2,
+      "winTier": 0.2,
+      "ownBase": 6.1300463274225,
+      "ownTier": 6.002279592747499,
+      "payRatio": 0.9889507509813336
+    },
+    {
+      "id": "kings_and_subjects.sameRoads(y=2)",
+      "games": 40,
+      "winBase": 0.125,
+      "winTier": 0.2,
+      "ownBase": 6.241211163850001,
+      "ownTier": 6.574640768020001,
+      "payRatio": 1.0121827802105254
+    },
+    {
+      "id": "kings_and_subjects.sameRoads(y=4)",
+      "games": 40,
+      "winBase": 0.05,
+      "winTier": 0.05,
+      "ownBase": 5.651940765960001,
+      "ownTier": 5.782838439860002,
+      "payRatio": 1.0046302597173238
+    }
+  ],
+  "comparison": [],
+  "sweep": []
+}

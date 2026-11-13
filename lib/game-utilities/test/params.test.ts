@@ -51,7 +51,8 @@ test("every typed family × every shape: named params, exact domains, support in
         // The canonical form (a calibration orbit's representative) has the same names, and its colours and symbols are the
         // shape's own; a number may be the orbit's mirror image outside the dealt range (Magic Accountant's T ↔ N·Σ − T).
         const canon = f.canonical(p, ctx) as Record<string, unknown>;
-        assert.deepEqual(Object.keys(canon).sort(), fields.map(x => x.key).sort(), `${where}: canonical names`);
+        // An optional param (a tiered draw's `tiers`, docs/tiered-rules.md) is absent from a base draw.
+        assert.deepEqual(Object.keys(canon).sort(), fields.filter(x => !x.optional).map(x => x.key).sort(), `${where}: canonical names`);
         for (const x of fields.filter(y => y.kind === "colour" || y.kind === "symbol")) {
           assert.ok(x.options.some(o => o.value === canon[x.key]), `${where}: canonical ${x.key} ${String(canon[x.key])} is not one of the shape's`);
         }

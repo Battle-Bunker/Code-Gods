@@ -10,6 +10,8 @@ import {
 } from "../../analytic.ts";
 import { solvedAnalytic } from "../../analytic/hook.ts";
 import { tierPoints } from "../../tuples.ts";
+import { isTiered } from "./tiers.ts";
+import { mirrorTiers, type MirrorP } from "./layered/mirror-tiers.ts";
 
 const DIRS4 = ["→", "←", "↓", "↑"] as const;
 type Dir4 = (typeof DIRS4)[number];
@@ -288,7 +290,17 @@ const parityPainter = gridFamily<ParityP>({
 });
 
 // --- Mirrormancer --------------------------------------------------------------------------------
-type MirrorP = { axis: "LR" | "TB" };
+/**
+ * The lines that can be mirrors. A base card reads them straight off the grid; a tiered card names them `lines` first,
+ * because its tiers read them too (layered/mirror-tiers.ts). The base card's text is the same as it has always been.
+ */
+const mirrorLines = (p: MirrorP, lang: "py" | "ts"): { hoist: string; lines: string } => {
+  const lines = p.axis === "LR" ? "grid.rows" : "grid.columns";
+  const kind = p.axis === "LR" ? "rows" : "columns";
+  if (!isTiered(p)) return { hoist: "", lines };
+  return lang === "py" ? { hoist: `lines = ${lines}  # the ${kind} can be mirrors\n        `, lines: "lines" }
+    : { hoist: `const lines = ${lines}; // the ${kind} can be mirrors\n      `, lines: "lines" };
+};
 const mirrorText = (p: MirrorP, g: GridSpec): CardText => {
   const kind = p.axis === "LR" ? "row" : "column";
   const shown = g.cards ? "ranks" : "numbers";
@@ -300,6 +312,7 @@ const mirrorText = (p: MirrorP, g: GridSpec): CardText => {
   };
 };
 const mirrormancer = gridFamily<MirrorP>({
+  tiers: mirrorTiers,
   id: "mirrormancer", name: "Mirrormancer", emoji: "🪞", theme: "Lines that read the same both ways",
   analytic: solvedAnalytic("mirrormancer"),
   shape: tuple(2), tags: ["shortlist"],
@@ -310,9 +323,9 @@ const mirrormancer = gridFamily<MirrorP>({
   summary: (p, g) => mirrorText(p, g).about,
   python: (p, g) => pyCard(mirrorText(p, g), `
     def utility(grid):
-        mirrors = 0
+        ${mirrorLines(p, "py").hoist}mirrors = 0
         pairs = 0
-        for line in ${p.axis === "LR" ? "grid.rows" : "grid.columns"}:
+        for line in ${mirrorLines(p, "py").lines}:
             half = len(line) // 2
             matches = 0
             for i in range(half):
@@ -324,9 +337,9 @@ const mirrormancer = gridFamily<MirrorP>({
         return (mirrors, pairs)`),
   typescript: (p, g) => tsCard(mirrorText(p, g), `
     function utility(grid) {
-      let mirrors = 0;
+      ${mirrorLines(p, "ts").hoist}let mirrors = 0;
       let pairs = 0;
-      for (const line of ${p.axis === "LR" ? "grid.rows" : "grid.columns"}) {
+      for (const line of ${mirrorLines(p, "ts").lines}) {
         const half = Math.floor(line.length / 2);
         let matches = 0;
         for (let i = 0; i < half; i++) {

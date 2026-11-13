@@ -18,6 +18,8 @@
  * object type (settingsOptionsFor); excluded reward families are reward families
  * of the object type and excluded defence families its defence families, and each list keeps only those that exist in
  * the instantiation (excluding one its board cannot deal means nothing).
+ * Tiered rules (`ruleTiers`, the one optional field): a depth and at most a known composition, or null to switch them
+ * off (the field is then absent, as in every ordinary game).
  * Everything else (every number, the defence switch, the prior, the commit clause, act targeting) is free:
  * `validateSettings` (the single validator) says whether a value is within bounds. No field is retuned to "suit"
  * another, and nothing is repaired.
@@ -31,7 +33,7 @@ import { instantiate, objectType as objectTypeDef } from "@workspace/game-types"
 import type { TypeArgs } from "@workspace/game-types";
 import { COST_MODELS, DEFAULT_COST_MODEL, isCostModel } from "@workspace/game-types";
 import {
-  DEFAULT_SETTINGS, OPTIONAL_SETTINGS_FIELDS, OPTION_KEYS, settingsOptionsFor, supportedCostModels, upgradeLegacyLanguage, validLanguages,
+  DEFAULT_SETTINGS, OPTIONAL_SETTINGS_FIELDS, OPTION_KEYS, validRuleTiers, settingsOptionsFor, supportedCostModels, upgradeLegacyLanguage, validLanguages,
   type FamilyDomain, type FamilyRole, type GameSettings,
 } from "./settings.ts";
 
@@ -169,13 +171,19 @@ export function applySettingsChange(settings: GameSettings, patch: Partial<GameS
     if (unknown.length) throw new SettingsChangeError(field, `Not ${role} families of ${next.objectType}: ${unknown.join(", ")}`);
     next = keepExisting({ ...next, [field]: [...new Set(ids as string[])] }, domain);
   }
+  // An optional field: null switches tiered rules off (the field goes), an object switches them on.
+  if (given.ruleTiers === null) { const { ruleTiers: _off, ...rest } = next; next = rest; }
+  else if (changed("ruleTiers")) {
+    if (!validRuleTiers(given.ruleTiers)) throw new SettingsChangeError("ruleTiers", "ruleTiers must be a depth of 1 or 2 with at most a known composition, or null for none");
+    next = { ...next, ruleTiers: { depth: given.ruleTiers.depth, ...(given.ruleTiers.compose ? { compose: given.ruleTiers.compose } : {}) } };
+  }
   if (changed("costModel")) {
     const model = given.costModel;
     if (!isCostModel(model)) throw new SettingsChangeError("costModel", `costModel must be one of ${COST_MODELS.join(", ")}: ${String(model)}`);
     if (!supportedCostModels(next).includes(model)) throw new SettingsChangeError("costModel", `Unsupported costModel for ${keyOf(next.objectType, next.typeArgs)}: ${model}`);
     next = { ...next, costModel: model };
   }
-  const handled = new Set<string>(["objectType", "typeArgs", "languages", "costModel", ...EXCLUDED.map(([f]) => f), ...OPTION_KEYS]);
+  const handled = new Set<string>(["objectType", "typeArgs", "languages", "costModel", ...OPTIONAL_SETTINGS_FIELDS, ...EXCLUDED.map(([f]) => f), ...OPTION_KEYS]);
   for (const key of Object.keys(given) as (keyof GameSettings)[]) {
     if (!handled.has(key) && changed(key)) next = { ...next, [key]: given[key] };
   }

@@ -46,7 +46,16 @@ export interface UtilityFamily<P extends Params = Params> {
   /** Optional: what one draw additionally needs from the shape (params-dependent needs). `applicable` checks it. */
   needs?(params: P, ctx: FamilyContext): readonly Constraint[];
   /** Fixed per (family, instantiation): a few families change arity with the board (Sudoku Scholar at N ≤ 4). */
-  shape(ctx: FamilyContext): ScoreShape;
+  shape(ctx: FamilyContext, params?: P): ScoreShape;
+  /**
+   * Optional: the tiered draws of this family here (docs/layered-rules-design.md): params carrying `tiers`, a list of
+   * `depth` interactions on top of the base, each of which passed the liveness check on this shape. They are never in
+   * `support` (so every pool that deals the base is unchanged); a setup deals them by asking for a tier depth
+   * (`SelectOptions.tiers`). `compose` picks the variant (`TierCompose`; default "gated").
+   */
+  tiered?(ctx: FamilyContext, depth: number, compose?: TierCompose): readonly P[];
+  /** Optional: the ★ blocks of a tiered draw's goal card, in the order of the ordinal's tier components (none: a base draw). */
+  cardTiers?(params: P, ctx: FamilyContext): readonly CardTier[];
   /** "reward" families are dealt as utilities; "penalty" families only as defence goals (badness, higher = worse). */
   readonly role: "reward" | "penalty";
   readonly tags: readonly string[];
@@ -83,6 +92,37 @@ export interface UtilityFamily<P extends Params = Params> {
   analytic?(params: P, ctx: FamilyContext): AnalyticSurvival | null;
 }
 
+/**
+ * Which tiered draws to deal. "gated" (the default): [...base, base ≥ gate ? tier : 0], values inside the balance band.
+ * The others are Lab variants: "plain" is [...base, tier] (no gate), "unlock" is [min(base, gate), tier, ...base], and
+ * "uncapped" is gated with the values outside the balance band added (deliberately unequal reach).
+ */
+export type TierCompose = "gated" | "plain" | "unlock" | "uncapped";
+
+/** One dealt interaction: which one, its own params (x, y, k) and the base level at which it starts to count. */
+export interface TierParams {
+  readonly id: string;
+  /** The tier counts once the base's first component reaches this (0: always, the plain lexicographic composition). */
+  readonly gate: number;
+  /** Absent: gated (or plain, when the gate is 0). "unlock": once the base reaches the gate, the tier outranks the rest of the base. */
+  readonly compose?: "unlock";
+  readonly [param: string]: ParamJson | undefined;
+}
+
+/** One "★ To score even higher" block of a goal card. */
+export interface CardTier {
+  readonly id: string;
+  /** "★ To score even higher (once you have 6 pairs that add up to 9)". */
+  readonly heading: string;
+  /** The interaction, one idea per sentence. */
+  readonly text: string;
+  /** The block opens once the ordinal's first component reaches this. */
+  readonly gate: number;
+  /** Where this tier's points sit in the ordinal, and how many components it has. */
+  readonly index: number;
+  readonly arity: number;
+}
+
 /** A tiny board shown on a goal card: a grid wire value of `size`×`size` cells and one plain caption. */
 export interface CardExample {
   readonly value: ObjectValue;
@@ -109,6 +149,8 @@ export interface UtilityCard {
   readonly example?: CardExample;
   /** The dealt params by name and type, with how each value reads ("Your colour: red"). */
   readonly params: readonly CardParam[];
+  /** Tiered draws: the ★ blocks. `summary` holds the whole text (base, then each block from its ★ on). */
+  readonly tiers?: readonly CardTier[];
   readonly penalty?: {
     readonly familyId: string; readonly emoji: string; readonly name: string; readonly summary: string;
     /** The defence goal's params by name and type (as `UtilityCard.params`). */
