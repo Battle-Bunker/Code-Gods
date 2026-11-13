@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { instantiate } from "@workspace/game-types";
 import {
   EXACT_TOP, calibrationError, courtTopSample, exactTopFromBoards, headroomShare, mirrorExactTop, mirrorQualifying, ninesExactTop, sentenceCount, tierFloor,
-  tierLayout, tierOf, topTierOf, threesCheckCard, threesTopCounts, twoPairExactTop, twoPairTopCounts,
+  tierLayout, tierOf, topTierOf, threesCheckCard, threesTopCounts, twoPairExactTop, twoPairTopCounts, midLevelCheck,
 } from "../scripts/tiered-profile.ts";
 import { context, evaluator, family } from "../src/catalog.ts";
 import { objectType } from "@workspace/game-types";
@@ -174,4 +174,34 @@ test("Crosswise Threes at its top: the sample counts every total in one pass, an
   // A draw whose tier the count cannot read is refused rather than silently compared.
   assert.throws(() => threesCheckCard("lines", 12, () => [6, 0, 99], 1), /the card reads 99/);
   assert.throws(() => threesCheckCard("lines", 12, () => [5, 0, 0], 1), /scores 5,0,0/);
+});
+
+test("a table at one base level between the gate and the top, against exact draws of that level", () => {
+  // Three one-cell units over two symbols, each scoring its own symbol: B is the number of 1s, binomial(3, ½).
+  const base: DisjointBase = {
+    id: "mid@1", symbols: 2, cells: 3, arity: 1, units: [[0], [1], [2]], score: ([s]) => [s],
+  };
+  // The tier is "cell 0 shows a 1", so among the three boards with B = 1 exactly one scores it: P(I ≥ 1 | B = 1) = ⅓.
+  const tier = (board: Uint8Array) => board[0];
+  // A table that states that law exactly: G(b, i) = P(B > b) + P(B = b) · P(I ≥ i | B = b), stored as −log2 G.
+  const bits = (g: number) => -Math.log2(g);
+  const table = {
+    levels: [[[1, 0], bits(0.5 + 0.375)], [[1, 1], bits(0.5 + 0.375 / 3)], [[2, 0], bits(0.125 + 0.375)], [[3, 0], bits(0.125)]],
+  } as unknown as Parameters<typeof midLevelCheck>[1];
+  const m = midLevelCheck(base, table, tier, 1, 60_000, 11, 0)!;
+  assert.deepEqual([...m.base], [1], "the commonest level at or above the gate");
+  assert.equal(m.index, 1);
+  assert.equal(m.levels, 4);
+  assert.ok(Math.abs(m.pBase - 0.375) < 1e-12);
+  const one = m.rows.find(r => r.tier === 1)!;
+  assert.ok(Math.abs(one.table! - -Math.log2(1 / 3)) < 1e-9, `the table's own conditional law: ${one.table}`);
+  assert.ok(Math.abs(one.sample - -Math.log2(1 / 3)) < 0.05, `exact draws agree: ${one.sample}`);
+  assert.ok(m.maxError < 0.05, `max error ${m.maxError}`);
+  assert.equal(Math.abs(m.rows.find(r => r.tier === 0)!.sample), 0, "every board has tier ≥ 0");
+  // A table that is wrong by a factor of 4 at that level reads as 2 bits out, which is what the check is for.
+  const wrong = { levels: [[[1, 0], bits(0.875)], [[1, 1], bits(0.5 + 0.375 / 12)]] } as unknown as Parameters<typeof midLevelCheck>[1];
+  const bad = midLevelCheck(base, wrong, tier, 1, 60_000, 11, 0)!;
+  assert.ok(Math.abs(bad.rows.find(r => r.tier === 1)!.error! - 2) < 0.05, `off by two bits: ${bad.rows.find(r => r.tier === 1)!.error}`);
+  // One attainable level at or above the gate is not a middle at all.
+  assert.equal(midLevelCheck(base, table, tier, 3, 100, 11, 0), null);
 });

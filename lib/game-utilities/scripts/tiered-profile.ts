@@ -11,6 +11,9 @@
  *   --families a,b        only these families
  *   --interactions a,b    profile only these interactions (to split a long run over processes)
  *   --check               every dealt and Lab value's shipped table against the reference law at the base's top
+ *   --check-mid           every dealt value's shipped table at ONE base level between the gate and the top, against
+ *                         plain Monte Carlo over exact draws of that level (--mid-sample N, default 200,000;
+ *                         --mid-at F picks the level, 0 the commonest at or above the gate and 1 the one below the top)
  *   --values "a;b"        with --check: only these values, e.g. "sameRoads(y=2);sameRoads(y=3)"
  *   --top-sample N       boards of a sampled reference (Kings and Subjects, Crosswise Threes; default 2,000,000;
  *                        0: none. Crosswise Threes' rarest levels need 20,000,000 to be compared at all.)
@@ -45,7 +48,9 @@ import { FAMILIES, applicable, assertOrdinal, context, evaluator, family } from 
 import { analyticFor, priorMeanBits, surprisal, tableFor, type CalibrationTable } from "../src/calibration.ts";
 import { shippedTables } from "../src/calibration-data.ts";
 import { baseParams, tiersOf } from "../src/families/grid/tiers.ts";
-import { liveness, mulberry32, type HybridLaw, type Liveness } from "../src/tiers/hybrid.ts";
+import { gridSpec } from "../src/families/grid/_util.ts";
+import { baseLaw, drawGiven, liveness, mulberry32, type DisjointBase, type HybridLaw, type Liveness } from "../src/tiers/hybrid.ts";
+import { TIER_SPECS } from "./tier-specs.ts";
 import { courtScore, courtSquares } from "../src/families/grid/layered/royal_court.ts";
 import type { Ordinal, Params, TierParams } from "../src/types.ts";
 
@@ -323,6 +328,73 @@ export function threesCheckCard(kind: "lines" | "squares", x: number, tier: (boa
   }
   return checked;
 }
+
+/**
+ * A tiered table at ONE base level between the gate and the top, against plain Monte Carlo (design §7.3, "what is
+ * exact and what is sampled"). Every reference above checks the base's *top* level; the levels in between were checked
+ * against nothing at all, and they are where the multilevel splitting of `conditionalTier` does its work.
+ *
+ * The check inverts the hybrid formula. The table stores G(b, i) = P(score ≥ [b, i]), and the base's own law is exact
+ * by convolution, so
+ *
+ *   P(I ≥ i | B = b) = (G(b, i) − P(B > b)) / P(B = b)
+ *
+ * is the table's conditional law at that level, with nothing sampled in it but the splitting estimate itself. Against
+ * it: `n` boards drawn with `drawGiven`, which is an EXACT uniform sampler of {B = b} (tested against brute force in
+ * test/tiers-hybrid.test.ts), scored by the tier. The sampler and the convolution are the two parts of the hybrid that
+ * are not approximations, so this isolates the one that is.
+ */
+export interface MidLevelCheck {
+  /** The base ordinal the check is at, and where it sits among the attainable ones. */
+  readonly base: readonly number[];
+  readonly index: number;
+  readonly levels: number;
+  readonly pBase: number;
+  readonly boards: number;
+  readonly rows: readonly { tier: number; table: number | null; sample: number; hits: number; error: number | null }[];
+  /** The worst error in bits over the rows with at least 100 sampled boards (NaN: none has). */
+  readonly maxError: number;
+  readonly untrusted: number;
+}
+export function midLevelCheck(
+  base: DisjointBase, table: CalibrationTable, tier: (board: Uint8Array) => Ordinal, gate: number, n: number, seed = 5, at_ = 0.5,
+): MidLevelCheck | null {
+  const law = baseLaw(base);
+  // The attainable base levels at or above the gate, rarest last; the top is already covered by the other references.
+  const above = law.filter(l => l.ordinal[0] >= gate);
+  if (above.length < 2) return null;
+  const at = above[Math.min(above.length - 2, Math.floor(at_ * (above.length - 1)))], index = law.indexOf(at);
+  // P(B > b): the base levels strictly after this one.
+  const pAbove = law.slice(index + 1).reduce((t, l) => t + l.p, 0);
+  const rand = mulberry32(seed), counts = new Map<number, number>();
+  for (let k = 0; k < n; k++) {
+    const t = tupleOf2(tier(drawGiven(base, at.ordinal, rand)));
+    counts.set(t, (counts.get(t) ?? 0) + 1);
+  }
+  const tiers = [...counts.keys()].sort((a, b) => a - b);
+  const rows: MidLevelCheck["rows"] = tiers.map(i => {
+    let hits = 0;
+    for (const [t, c] of counts) if (t >= i) hits += c;
+    const level = table.levels.find(([o]) => {
+      const v = typeof o === "number" ? [o] : o;
+      return v.length === at.ordinal.length + 1 && at.ordinal.every((x, k) => v[k] === x) && v[v.length - 1] === i;
+    });
+    // A table's level is its SURPRISAL in bits, positive and increasing (as `topTierOf` reads it), so G = 2^−bits.
+    const g = level ? 2 ** -level[1] : null;
+    const fromTable = g === null ? null : Math.max(0, (g - pAbove) / at.p);
+    return {
+      tier: i, table: fromTable === null ? null : -Math.log2(Math.max(fromTable, Number.MIN_VALUE)), sample: -Math.log2(hits / n), hits,
+      error: fromTable === null || fromTable <= 0 ? null : Math.abs(-Math.log2(fromTable) + Math.log2(hits / n)),
+    };
+  });
+  const trusted = rows.filter(r => r.error !== null && r.hits >= 100);
+  return {
+    base: at.ordinal, index, levels: law.length, pBase: at.p, boards: n, rows,
+    maxError: trusted.length ? Math.max(...trusted.map(r => r.error!)) : NaN,
+    untrusted: rows.filter(r => r.error !== null).length - trusted.length,
+  };
+}
+const tupleOf2 = (o: Ordinal): number => { const v = typeof o === "number" ? [o] : o; return v[v.length - 1]; };
 
 const threesCache = new Map<string, ReturnType<typeof threesTopCounts>>();
 /** Sampled P(tier ≥ i | all 6 fold pairs 3 apart) for "lines add up to x" or "2×2 squares add up to x" on 4×4 digits. */
@@ -710,6 +782,30 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
     }
   }
 
+  // The shipped tables at ONE base level between the gate and the top, against plain Monte Carlo over exact draws.
+  const mids: (MidLevelCheck & { id: string; status: string })[] = [];
+  if (flag("check-mid")) for (const f of fams) {
+    const spec = TIER_SPECS[f.id];
+    if (!spec) { log(`check-mid ${f.id}: no tier spec`); continue; }
+    const n = Number(opt("mid-sample") ?? 200_000);
+    for (const p of draws(f, "gated", 1)) {
+      if (opt("values") && !opt("values")!.split(";").includes(label(p))) continue;
+      const g = gridSpec(ctx), base = spec.base(baseParams(p) as never, g);
+      const shipped = tableFor(shippedTables(inst.key), { familyId: f.id, params: p }, inst);
+      if (!base || !shipped) { log(`check-mid ${f.id}.${label(p)}: no ${base ? "shipped table" : "disjoint base"}`); continue; }
+      const ev = evaluator({ familyId: f.id, params: p }, inst), codec = objectType(inst.objectType).codec(inst), col = new Uint8Array(base.cells);
+      const size = Math.round(Math.sqrt(base.cells));
+      const m = midLevelCheck(base, shipped, board => {
+        const o = tup(ev(codec.encode({ size, sym: board, col } as GridValue)));
+        return o[o.length - 1];
+      }, spec.gate(g), n, 5, Number(opt("mid-at") ?? 0.5));
+      if (!m) { log(`check-mid ${f.id}.${label(p)}: only one base level at or above the gate`); continue; }
+      mids.push({ ...m, id: `${f.id}.${label(p)}`, status: "dealt" });
+      log(`check-mid ${f.id}.${label(p)}: base ${m.base.join(",")} (level ${m.index + 1} of ${m.levels}, P = ${m.pBase.toExponential(2)}), `
+        + `max error ${m.maxError.toFixed(2)} over ${m.rows.filter(r => r.hits >= 100).length} level(s)${m.untrusted ? `, ${m.untrusted} under 100 boards` : ""}`);
+    }
+  }
+
   // One fresh build per family and kind of draw: the base, and the first dealt value of each interaction.
   const builds: BuildRow[] = [];
   if (flag("build-time")) for (const f of fams) {
@@ -721,10 +817,10 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
     }
   }
 
-  const md = markdown({ variants, pairs, gameReports, beginner: beginner.map(b => b.id), comparison, sweep, checks, builds, compose, budget: budget === QUICK_BUDGET ? "quick" : "default" });
+  const md = markdown({ variants, pairs, gameReports, beginner: beginner.map(b => b.id), comparison, sweep, checks, mids, builds, compose, budget: budget === QUICK_BUDGET ? "quick" : "default" });
   console.log(md);
   if (opt("markdown")) writeFileSync(opt("markdown")!, md);
-  if (opt("json")) writeFileSync(opt("json")!, JSON.stringify({ instance: inst.key, compose, variants, pairs, games: gameReports, comparison, sweep, checks, builds },
+  if (opt("json")) writeFileSync(opt("json")!, JSON.stringify({ instance: inst.key, compose, variants, pairs, games: gameReports, comparison, sweep, checks, mids, builds },
     (_, v) => (v === Infinity ? "inf" : typeof v === "number" && Number.isNaN(v) ? null : v), 2) + "\n");
 }
 
@@ -749,7 +845,7 @@ interface BuildRow { id: string; kind: string; levels: number; seconds: number }
 
 const f = (x: number | null | undefined, d = 1) => (x === null || x === undefined ? "–" : Number.isFinite(x) ? x.toFixed(d) : x === Infinity ? "∞" : "–");
 
-export function markdown(r: { variants: VariantReport[]; pairs: PairReport[]; gameReports: GameReport[]; beginner: string[]; comparison: CompareRow[]; sweep: SweepRow[]; checks?: CheckRow[]; builds?: BuildRow[]; compose: string; budget: string }): string {
+export function markdown(r: { mids?: (MidLevelCheck & { id: string })[]; variants: VariantReport[]; pairs: PairReport[]; gameReports: GameReport[]; beginner: string[]; comparison: CompareRow[]; sweep: SweepRow[]; checks?: CheckRow[]; builds?: BuildRow[]; compose: string; budget: string }): string {
   const out: string[] = [];
   const tiered = r.variants.filter(v => v.tier);
   if (r.variants.length) {
@@ -798,6 +894,11 @@ export function markdown(r: { variants: VariantReport[]; pairs: PairReport[]; ga
     "| variant | status | table levels | table top | tier top | added bits (table) | added bits (reference) | levels: tier table/reference | max error (bits) | not compared | levels missed | reference |",
     "|---|---|--:|--:|--:|--:|--:|---|--:|---|--:|---|",
     ...r.checks.map(c => `| ${c.id} | ${c.status} | ${f(c.levels, 0)} | ${f(c.top, 2)} | ${key(c.tierTop)} | ${f(c.added, 2)} | ${f(c.refAdded, 2)}${c.sampled ? ` at ${c.refTop}` : ""} | ${c.rows.map(x => `${x.tier}: ${f(x.hybrid, 2)}/${f(x.exact, 2)}${x.hits === undefined ? "" : ` [${x.hits}]`}`).join(", ")} | ${f(c.maxError, 2)} | ${[c.aboveReference ? `${c.aboveReference} above the reference` : "", c.untrusted ? `${c.untrusted} under 100 boards` : ""].filter(Boolean).join("; ") || "–"} | ${c.missed} | ${c.how} |`), "");
+  if (r.mids?.length) out.push("### Shipped tables at one base level between the gate and the top", "",
+    "P(tier ≥ i | B = b) backed out of the table — (G(b, i) − P(B > b)) / P(B = b), with the base's law exact by convolution — against plain Monte Carlo over `drawGiven`, which draws {B = b} exactly. Boards at each level in brackets; the max error counts only levels with at least 100.", "",
+    "| variant | base level | of levels at or above the gate | P(B = b) | boards | levels: tier table/sample | max error (bits) | not compared |",
+    "|---|---|--:|--:|--:|---|--:|---|",
+    ...r.mids.map(m => `| ${m.id} | ${m.base.join(", ")} | ${m.index + 1} of ${m.levels} | ${m.pBase.toExponential(2)} | ${m.boards.toExponential(0)} | ${m.rows.map(x => `${x.tier}: ${f(x.table, 2)}/${f(x.sample, 2)} [${x.hits}]`).join(", ")} | ${f(m.maxError, 2)} | ${m.untrusted ? `${m.untrusted} under 100 boards` : "–"} |`), "");
   if (r.builds?.length) out.push("### One fresh build", "", "| draw | estimator | levels | seconds |", "|---|---|--:|--:|",
     ...r.builds.map(b => `| ${b.id} | ${b.kind} | ${b.levels} | ${f(b.seconds)} |`), "");
   return out.join("\n");
