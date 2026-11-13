@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  agentIncome, deityIncome, defaultShare, assertShare, spendDeityEnergy, newAgentAccount, settleAgentEnergy, chargeAct, pickByEnergy, selectionWeight, offerReadBits,
+  agentIncome, deityIncome, defaultShare, assertShare, spendDeityEnergy, newAgentAccount, settleAgentEnergy, chargeAct, pickByEnergy, selectionWeight, offerReadBits, affordable, actCredit, movePower,
   energyCapacity, secondsToFull, settleDeityEnergy, chargeDeityAccount,
 } from "../src/energy.ts";
 
@@ -102,14 +102,18 @@ function playSplit(shares: readonly number[], program: { offer: number; act: num
     ...shares.map(share => ({ god: 0, income: P * share, cost: program, account: newAgentAccount(0) })),
     ...[0.45, 0.45].map(share => ({ god: 1, income: P * share, cost: { offer: 0, act: 12, actProbability: 1 }, account: newAgentAccount(0) })),
   ];
-  const out = { offers: 0, acts: 0, spent: 0 };
+  const out = { offers: 0, acts: 0, spent: 0, lowest: 0 };
   for (let k = 1; k <= room.rateHz * room.seconds; k++) {
     const world = k / room.rateHz;
     for (const a of agents) a.account = settleAgentEnergy(a.account, world, a.income, energyCapacity(a.income, room.fullChargeSeconds));
     const pick = pickByEnergy(agents, a => a.account.balance, rand);
     if (!pick) continue;
-    const acts = rand() < pick.cost.actProbability, cost = pick.cost.offer + (acts ? pick.cost.act : 0);
+    // The change commits only within the agent's credit (§7.2: it may owe at most its capacity); else it pays the offer.
+    const wants = rand() < pick.cost.actProbability;
+    const acts = wants && affordable(pick.account.balance, pick.cost.offer + pick.cost.act, actCredit(energyCapacity(pick.income, room.fullChargeSeconds)));
+    const cost = pick.cost.offer + (acts ? pick.cost.act : 0);
     pick.account = chargeAct(pick.account, cost);
+    if (pick.account.balance < out.lowest) out.lowest = pick.account.balance;
     if (pick.god === 0) { out.offers++; out.spent += cost; if (acts) out.acts++; }
   }
   return out;
@@ -120,6 +124,11 @@ test("agent-count neutrality: a power budget split over n agents gets the offers
     skipper: { offer: 0.2, act: 0, actProbability: 0 },      // never acts: pays only for being offered
     actor: { offer: 0.2, act: 12, actProbability: 1 },       // always changes one cell
     looker: { offer: 2.5, act: 12, actProbability: 0.3 },    // reads the board, acts on 3 offers in 10
+    // A change of 50 bits: often more than a small agent holds, so it acts on credit and must stay within it. Every
+    // split below gives each agent a capacity of at least 57.6 bits (3% of 64 bits/s for 30 s), so each may owe it.
+    // (A change that costs more than an agent can hold is another matter: it must save first, and in a busy room its
+    // turns keep coming and it is mostly refused. That is impact as a function of the agent's power, not a leak.)
+    bigActor: { offer: 0.2, act: 50, actProbability: 1 },
   };
   const rooms = {
     "offers scarce, stores full (capped)": { rateHz: 5, seconds: 600, fullChargeSeconds: 30 },
@@ -135,7 +144,13 @@ test("agent-count neutrality: a power budget split over n agents gets the offers
     for (const [programName, program] of Object.entries(programs)) {
       const mean = (shares: number[]) => {
         const sum = { offers: 0, acts: 0, spent: 0 };
-        for (let i = 0; i < SEEDS; i++) { const r = playSplit(shares, program, room, 101 + i); sum.offers += r.offers; sum.acts += r.acts; sum.spent += r.spent; }
+        for (let i = 0; i < SEEDS; i++) {
+          const r = playSplit(shares, program, room, 101 + i); sum.offers += r.offers; sum.acts += r.acts; sum.spent += r.spent;
+          // Credit is a function of power too: however the budget is split, no agent ever owes more than its own capacity,
+          // so the god's agents together never owe more than the budget's (0.9 × 64 bits/s × T).
+          const smallest = Math.min(...shares) * 64 * (room.fullChargeSeconds ?? Infinity);
+          assert.ok(r.lowest >= -Math.max(smallest, 0.9 * 64 * (room.fullChargeSeconds ?? Infinity)) - 1e-6, `${r.lowest}`);
+        }
         return { offers: sum.offers / SEEDS, acts: sum.acts / SEEDS, spent: sum.spent / SEEDS };
       };
       const one = mean(splits["1 agent"]);
@@ -243,3 +258,67 @@ test("an offer is a read of which object the agent was given: log2 of the live o
   // At the read price (1/32) that is 0.198 energy bits on a Grid seed: under 2% of the cheapest change there (11.5).
   assert.ok(Math.abs(offerReadBits(80) / 32 - 0.1976) < 1e-4);
 });
+
+// ------------------------------------------------------------------------------------------------ debt (§7.2)
+
+test("credit: an act may leave an account owing at most what it can hold", () => {
+  // A quarter of 64 bits/s for 30 s holds 480 bits: from a full store an act may cost up to 960, from empty up to 480.
+  const credit = actCredit(energyCapacity(16, 30));
+  assert.equal(credit, 480);
+  assert.equal(affordable(480, 960, credit), true);
+  assert.equal(affordable(480, 961, credit), false);
+  assert.equal(affordable(0.1, 480, credit), true);
+  assert.equal(affordable(0.1, 985, credit), false, "a whole-grid repaint on a nearly empty quarter-share agent");
+  assert.equal(affordable(0.1, 0.05, actCredit(0)), true, "what it holds, it may spend");
+  assert.equal(affordable(0.1, 12, actCredit(0)), false, "no power, no credit");
+  assert.equal(affordable(0.1, 1e9, actCredit(Infinity)), true, "a game from before capacities keeps its unbounded debt");
+});
+
+test("debt moves with power: taken from an agent that owes, its debt goes to the deity; given by a deity that owes, the agent takes its part", () => {
+  const at = (balance: number) => ({ balance, settledWorldSeconds: 40 });
+  // Destroyed (share 0.5 → 0) while owing 412: the deity, which held 100, now owes 312.
+  assert.deepEqual(movePower(at(-412), at(100), 0.5, 0, 0.5), { agent: at(0), deity: at(-312) });
+  // Half its power taken (0.5 → 0.25): half its debt moves.
+  assert.deepEqual(movePower(at(-412), at(0), 0.5, 0.25, 0.5), { agent: at(-206), deity: at(-206) });
+  // An agent that owes nothing: nothing moves (its energy above the new capacity is lost at the next settle, not moved).
+  assert.deepEqual(movePower(at(300), at(100), 0.5, 0.25, 0.5), { agent: at(300), deity: at(100) });
+  // A deity that owes 312 gives half of its unallocated power (0.25 of 0.5) to an agent: half the debt goes with it.
+  assert.deepEqual(movePower(at(50), at(-312), 0, 0.25, 0.5), { agent: at(-106), deity: at(-156) });
+  // All of it: the deity owes nothing, the agent everything.
+  assert.deepEqual(movePower(at(0), at(-312), 0, 0.5, 0.5), { agent: at(-312), deity: at(0) });
+  // A deity that owes nothing: giving power moves nothing.
+  assert.deepEqual(movePower(at(0), at(200), 0, 0.5, 0.5), { agent: at(0), deity: at(200) });
+  assert.deepEqual(movePower(at(-10), at(-5), 0.3, 0.3, 0.2), { agent: at(-10), deity: at(-5) }, "no change of share, no move");
+  // An agent that already has no power and still owes (stored before this rule): destroying it moves all of it.
+  assert.deepEqual(movePower(at(-70), at(100), 0, 0, 0.4), { agent: at(0), deity: at(30) });
+});
+
+test("no re-allocation or destroy makes a debt disappear: the total owed is unchanged, and it is always on an account with power", () => {
+  // The exploit this closes: an agent takes a big act on credit, then its power is moved to another agent (or it is
+  // destroyed and summoned again), leaving the debt on an account with no income. Random walks over re-allocations.
+  let seed = 5;
+  const rand = () => (seed = (seed * 48271) % 2147483647) / 2147483647;
+  for (let trial = 0; trial < 200; trial++) {
+    const shares = [0.4, 0.3, 0.2];
+    let accounts = [-380, 120, -60].map(balance => ({ balance, settledWorldSeconds: 0 }));
+    let deity = { balance: 50, settledWorldSeconds: 0 };
+    const total = () => accounts.reduce((sum, a) => sum + a.balance, deity.balance);
+    const before = total();
+    for (let step = 0; step < 30; step++) {
+      const i = Math.floor(rand() * 3), unallocated = Math.max(0, 1 - shares.reduce((x, y) => x + y, 0));
+      const to = Math.round(rand() * (shares[i] + unallocated) * 100) / 100;
+      const moved = movePower(accounts[i], deity, shares[i], to, unallocated);
+      accounts[i] = moved.agent; deity = moved.deity; shares[i] = to;
+      assert.ok(Math.abs(total() - before) < 1e-9, "re-allocation neither creates nor cancels energy or debt");
+      accounts.forEach((a, k) => assert.ok(shares[k] > 0 || a.balance >= -1e-9, `an agent with no power owes nothing (${a.balance})`));
+      const left = 1 - shares.reduce((x, y) => x + y, 0);
+      assert.ok(left > 1e-9 || deity.balance >= -1e-9, `a deity with no power of its own owes nothing (${deity.balance})`);
+      // And nobody owes more than its power can repay in T seconds (its capacity): debt arrives only with the power
+      // that was repaying it. Starts within it: the agents owe 380 and 60 of capacities 768 and 384 (P = 64, T = 30).
+      const capacityOf = (share: number) => share * 64 * 30;
+      accounts.forEach((a, k) => assert.ok(a.balance >= -capacityOf(shares[k]) - 1e-6, `agent ${k} owes ${-a.balance} with a capacity of ${capacityOf(shares[k])}`));
+      assert.ok(deity.balance >= -capacityOf(Math.max(0, left)) - 1e-6, `the deity owes ${-deity.balance} with a capacity of ${capacityOf(left)}`);
+    }
+  }
+});
+
