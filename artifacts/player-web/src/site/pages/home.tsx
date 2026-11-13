@@ -11,8 +11,10 @@ import { errMsg } from "@/site/lib/errors";
 import { fmtWhen, isoWhen } from "@/site/lib/time";
 import type { RoomListRow } from "@/site/lib/types";
 
+/** A game needs three players (AI players count); a lobby with fewer says how many are missing. */
+const MIN_PLAYERS = 3;
 const statusWords = (r: RoomListRow) =>
-  r.activeGameShortCode ? `Game ${r.activeGameShortCode} ${r.phase === "recovery" ? "paused" : r.phase}` : `Lobby · ${r.memberCount} player${r.memberCount === 1 ? "" : "s"}`;
+  r.activeGameShortCode ? `Game ${r.activeGameShortCode} ${r.phase === "recovery" ? "paused" : r.phase}` : `Lobby · ${r.memberCount} player${r.memberCount === 1 ? "" : "s"}${r.memberCount < MIN_PLAYERS ? ` · needs ${MIN_PLAYERS - r.memberCount} more` : ""}`;
 
 /** Signed in: your rooms, prominently with owner and creation date (no names); one Create room. */
 function Rooms() {
