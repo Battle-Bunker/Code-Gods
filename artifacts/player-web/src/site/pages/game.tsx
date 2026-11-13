@@ -31,7 +31,7 @@ import {
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { gameStep } from "@/site/lib/next-step";
-import { gamePath, roomPath } from "@/site/lib/routes";
+import { dockRoomId, gamePath, roomPath } from "@/site/lib/routes";
 import { errMsg, fmt, notFoundMsg, reload, transient } from "@/site/lib/errors";
 import { endReasonLabel, fmtDuration, fmtWhen, secsLeft, toMs, worldSecondsAt } from "@/site/lib/time";
 import type { FunctionReturnType } from "convex/server";
@@ -226,8 +226,13 @@ export default function Game() {
     ? { permission: permission ?? "read", mode: "devserver" as const }
     : { permission: room.data?.ownerId === user?.id ? "owner" as const : "act" as const, mode: "site" as const }, [kind, permission, room.data?.ownerId, user?.id]);
 
+  // A seated player's dock needs only the room's id, which the game's header carries: a failed room query (a timeout,
+  // which Convex re-runs when the room changes or the socket reconnects) no longer tears the dock down and rebuilds it
+  // (a walker lost a summon in flight to "Could not load this game's room"). Until the room is back, owner commands
+  // are not offered (access falls back to "act"); the dock's own panes read their own subscriptions.
+  const dockRoom = isAuthenticated && game ? dockRoomId({ active, seated, roomId: game.roomId, roomLoaded: !!room.data, roomFailedTransiently: !!roomFailed }) : null;
+  if (dockRoom) return <Suspense fallback={dockFallback}><Play roomId={dockRoom} access={access} /></Suspense>;
   if (isAuthenticated && game && room.data) {
-    if (active && seated) return <Suspense fallback={dockFallback}><Play roomId={room.data.id} access={access} /></Suspense>;
     if (!active) return <Suspense fallback={dockFallback}><Replay room={room.data} game={game.shortCode} gameId={game.id} meId={user?.id} access={access} /></Suspense>;
   }
   const step = game ? gameStep(user?.id, game) : null;

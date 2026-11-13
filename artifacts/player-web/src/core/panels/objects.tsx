@@ -19,6 +19,8 @@
  * long ago it was seen and, when the object has changed since, how often, draws it dimmed with a "stale" badge and
  * offers "Look · price" (the look command, paid from the god's own energy). A free game shows none of this.
  */
+import { useIsMobile } from "@/hooks/use-mobile";
+import { listMaxHeight } from "@/lib/virtual-window";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Term } from "@workspace/ui-kit";
 import { OBJECT_SORTS, OBJECT_SORT_LABELS, mutationLine, type ObjectSort } from "@workspace/player-client/objects-page";
@@ -51,7 +53,8 @@ function PayoffRectangle({ o, scale, strength, dim = "" }: { o: Pick<LiveObject,
   const yoursText = formatBits(o.own.netBits), othersText = formatBits(o.peerCare);
   // 10px monospace digits are about 6px wide: keep the bottom label's left end on the box.
   const at = payoffLabels(g, SIDE, { gap: 3, below: 11, halfLabel: yoursText.length * 3 });
-  const title = `your bits ${formatBits(o.own.netBits)} × others' care ${formatBits(o.peerCare)} = payoff ${formatBits(o.payoff)}`;
+  // The house words (score lines, the key below): ✨ rarity × how much the others want it = this object's points.
+  const title = `your ✨ rarity ${formatBits(o.own.netBits)} × how much the others want it ${formatBits(o.peerCare)} = your points ${formatBits(o.payoff)}`;
   const top = SIDE - g.height;
   return (
     <svg width={SIDE + LABEL_W} height={SIDE + LABEL_H} viewBox={`0 0 ${SIDE + LABEL_W} ${SIDE + LABEL_H}`} className={`shrink-0 overflow-visible ${dim}`.trimEnd()}
@@ -101,7 +104,7 @@ function BeforeTheWorld({ paneId, phase, noun }: Pick<PanelProps<"objects">, "pa
   return (
     <PanelEmpty testId="panel-empty-objects" action={offered ? <PrimaryButton onClick={go} busy={step.busy} testId="button-next-step">{step.label}</PrimaryButton> : undefined}>
       {when}, its {noun}s appear here, best first: each one marked with what makes up your score, and a rectangle whose width is
-      your bits and whose height is what the others care, on one scale, so its area is your payoff.{offered ? ` Next: ${step.why}` : ""}
+      your ✨ rarity for it and whose height is how much the others want it, on one scale, so its area is your points.{offered ? ` Next: ${step.why}` : ""}
     </PanelEmpty>
   );
 }
@@ -304,7 +307,7 @@ function ObjectRow({ objectId, position, byPayoff, scales, world, highlighted, o
  * into view when it opens: under the list it was out of sight below a 640px scroller, so "why?" turned into "hide" and
  * seemed to open nothing (three first-time walks). It always says something: the breakdown, or why there is none.
  */
-function ObjectDetail({ objectId, noun, comparative, world, boards, onHide }: { objectId: string; noun: string; comparative: string | undefined; world: number; boards?: boolean; onHide: () => void }) {
+function ObjectDetail({ objectId, noun, comparative, world, boards, onHide, from }: { objectId: string; noun: string; comparative: string | undefined; world: number; boards?: boolean; onHide: () => void; /** The sentence it was opened from. */ from?: string }) {
   const o: MyObject | null | undefined = useMyObject(objectId);
   // The rank NOW (player.objectRank), not the row's when it was clicked: the list re-ranks while the box is open, and
   // only one detail is open at a time, so this is one subscription.
@@ -321,6 +324,8 @@ function ObjectDetail({ objectId, noun, comparative, world, boards, onHide }: { 
       <p className="flex flex-wrap items-center gap-2 text-sm font-semibold" data-testid="text-object-detail-title"><span>{whyTitle(o.payoff, noun)}</span>
         {rankNote(rank) && <span className="font-mono text-[11px] font-normal text-muted-foreground" data-testid="text-object-detail-rank">{rankNote(rank)}</span>}
         <span className="ml-auto">{hide}</span></p>
+      {/* The latest-act line moves on every second: the sentence this was opened from stays here, to tie the two together. */}
+      {from && <p className="text-xs text-muted-foreground" data-testid="text-object-detail-from">Opened from: {from}</p>}
       {seen && (
         <p className="text-xs text-muted-foreground" data-testid={`text-detail-seen-${o.id}`}>
           {boards ? "The others' interest and your points as you last saw them" : "As you last saw it"}, {seen.age < 1 ? "just now" : `${ageText(seen.age)} ago`}
@@ -372,12 +377,13 @@ export default function Objects({ paneId, params, phase }: PanelProps<"objects">
   const lookAll = useCallback((count: number) => void commands.run({ type: "look", count }), [commands]);
   const { ctx, noun } = useObjectContext();
   const [paneRef, widePane] = useWidePane();
+  const phone = useIsMobile();
   // The open "why?": the object and, when the list is by points, the rank its row showed.
-  const [open, setOpen] = useState<{ id: string; rank?: number } | null>(null);
+  const [open, setOpen] = useState<{ id: string; rank?: number; /** The act sentence this box was opened from ("show this grid"). */ from?: string } | null>(null);
   const toggle = useCallback((id: string, rank?: number) => setOpen(o => (o?.id === id ? null : { id, rank })), []);
   // An act line elsewhere was pressed ("show this grid"): that object's detail opens here.
   const shown = useRunner().revealObject;
-  useEffect(() => { if (shown && Date.now() - shown.at < 5000) setOpen({ id: shown.objectId }); }, [shown?.at]);   // a fresh press only: never an old one on a remount // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (shown && Date.now() - shown.at < 5000) setOpen({ id: shown.objectId, ...(shown.from ? { from: shown.from } : {}) }); }, [shown?.at]);   // a fresh press only: never an old one on a remount // eslint-disable-line react-hooks/exhaustive-deps
   const comparative = card?.penalty?.comparative;
   const byPayoff = params.sortBy === "payoff" && params.filter === "all";
   const scales = scalesOf(totals);
@@ -407,7 +413,7 @@ export default function Objects({ paneId, params, phase }: PanelProps<"objects">
     return (
       <div className="space-y-3">
         {header}
-        {open && <ObjectDetail objectId={open.id} noun={noun} comparative={comparative} world={world} boards={boards} onHide={() => setOpen(null)} />}
+        {open && <ObjectDetail objectId={open.id} from={open.from} noun={noun} comparative={comparative} world={world} boards={boards} onHide={() => setOpen(null)} />}
         <ObjectsGrid params={params} world={world} onOpen={toggle} />
       </div>
     );
@@ -415,8 +421,8 @@ export default function Objects({ paneId, params, phase }: PanelProps<"objects">
   return (
     <div className="space-y-3" ref={paneRef}>
       {header}
-      {open && <ObjectDetail objectId={open.id} noun={noun} comparative={comparative} world={world} boards={boards} onHide={() => setOpen(null)} />}
-      <VirtualRows rows={skeleton.rows} rowHeight={rowHeightFor(ctx, widePane) + (paid ? SEEN_LINE : 0)} maxHeight={640} keyOf={r => r.id} onNearEnd={loadMore} testId="list-objects"
+      {open && <ObjectDetail objectId={open.id} from={open.from} noun={noun} comparative={comparative} world={world} boards={boards} onHide={() => setOpen(null)} />}
+      <VirtualRows rows={skeleton.rows} rowHeight={rowHeightFor(ctx, widePane) + (paid ? SEEN_LINE : 0)} maxHeight={listMaxHeight({ phone, viewportHeight: typeof window === "undefined" ? 0 : window.innerHeight })} keyOf={r => r.id} onNearEnd={loadMore} testId="list-objects"
         render={(r, i) => <ObjectRow objectId={r.id} position={i + 1} byPayoff={byPayoff} scales={scales} world={world} boards={boards}
           highlighted={highlight.has(r.id)} open={open?.id === r.id} onOpen={toggle} ctx={ctx} noun={noun} comparative={comparative} changed={changed} look={look} />} />
       {skeleton.more && <TextButton onClick={loadMore} testId="button-objects-more">Load more ({skeleton.rows.length} of {matching})</TextButton>}

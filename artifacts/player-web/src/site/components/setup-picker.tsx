@@ -21,6 +21,9 @@ import { useRun } from "@/site/hooks/use-run";
 import { usePage } from "@/site/components/layout";
 import { PICKER_PAGE, useInView, useSetupPages, useSetupRow } from "@/site/hooks/use-setups";
 import { LAB_NOTE, editBlocker, labStartsAt, ownerLabel } from "@/site/lib/setup-words";
+import { ErrorBoundary, type ErrorFallbackProps } from "@/components/error-boundary";
+import { ErrorLine } from "@/site/components/page-parts";
+import { errMsg } from "@/site/lib/errors";
 
 export function setupTitle(room: Pick<RoomState, "setup">): string {
   return room.setup ? `${room.setup.name}${room.setup.deleted ? " (deleted)" : ""}` : "No setup";
@@ -29,7 +32,19 @@ export function setupTitle(room: Pick<RoomState, "setup">): string {
 /** Within this many pixels of the list's end, the next page loads. */
 const LOAD_AHEAD = 120;
 
+/**
+ * The setup picker, inside its own error boundary: its paged list throws a failed query to the nearest boundary
+ * (useLivePages), and that must take down only the picker, not the room page around it.
+ */
 export function SetupPicker({ room }: { room: RoomState }) {
+  return <ErrorBoundary FallbackComponent={PickerError} resetKey={room.setup?.id}><SetupPickerList room={room} /></ErrorBoundary>;
+}
+/** The picker's query failed: the error, and a retry that subscribes afresh (the room page keeps working). */
+function PickerError({ error, resetError }: ErrorFallbackProps) {
+  return <div data-testid="setup-picker-error"><ErrorLine message={`The list of setups could not be loaded: ${errMsg(error)}`} onRetry={resetError} /></div>;
+}
+
+function SetupPickerList({ room }: { room: RoomState }) {
   const { act } = usePage();
   const [, navigate] = useLocation();
   const runner = useRun();

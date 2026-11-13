@@ -290,10 +290,15 @@ export const SCORE_INTERVALS: readonly number[] = Object.freeze([5, 10, 20, 30, 
 export const DEFAULT_SCORE_INTERVAL_SECONDS = 10;
 /**
  * What a new player's first agent may cost to summon, in bits: the dearest shipped Python example agent for a beginner
- * rule (572, "Spread of Three"; the examples' own budget test holds each one under it). The Grid setups' starting
+ * rule (572.2 rounded up, "Spread of Three"'s thorough starter; the engine's example-agents test holds every starter under it). The Grid setups' starting
  * energy covers it during planning.
  */
-export const BEGINNER_AGENT_BUDGET_BITS = 572;
+export const BEGINNER_AGENT_BUDGET_BITS = 573;
+/** The beginner setups' board (Annotated basics and its twins): with a BEGINNER_POOL goal, a game a first-timer plays. */
+export const BEGINNER_BOARD_KEY = "Grid(4,base10,mono)";
+/** Whether a player's goal is a beginner's: a BEGINNER_POOL rule on the beginner board (the forge's first-agent share). */
+export const isBeginnerGoal = (s: { boardKey: string | undefined; familyId: string | undefined }): boolean =>
+  s.boardKey === BEGINNER_BOARD_KEY && s.familyId !== undefined && BEGINNER_POOL.includes(s.familyId);
 /**
  * The default time to a full energy store (docs/energy-model.md §6.1): chosen so that the largest program a deity can
  * ever afford (retained power × this) makes code size matter, by the sweep in lib/game-core/scripts/balance-settings.ts.
@@ -641,7 +646,7 @@ export const TYPE_DEFAULTS: Readonly<Record<string, {
     // interaction cap binds in about 75% of snapshots, and the study predates defence goals. The documented
     // alternative is the "grid-low-income" seed setup (half the power: 32 bits/s).
     // Starting energy 600 (13 Nov 2026): a new player's first agent must be payable during planning, when nothing
-    // accrues. The dearest shipped Python example agent for a beginner rule costs 572 bits (BEGINNER_AGENT_BUDGET_BITS).
+    // accrues. The dearest shipped Python example agent for a beginner rule costs 572.2 bits (BEGINNER_AGENT_BUDGET_BITS: 573).
     // It is under the planning store (64 × 30 = 1,920), and after a first summon at the default half share the god's own
     // 32 bits/s refills the price of the same agent again in 17 s (test/settings.test.ts pins both).
     all: { spawnRateHz: 0.5, startingObjectCount: 80, powerPerSecond: 64, startingEnergy: 600, excludedFamilies: WEAK_GRID_FAMILIES },

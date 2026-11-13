@@ -40,7 +40,8 @@ export const storedLine = (energy: number, capacity: number): Seg[] => [{ term: 
 /** How full the meter is, from 0 to 1. */
 export const storeFraction = (energy: number, capacity: number): number => (capacity > 0 ? Math.min(1, Math.max(0, energy) / capacity) : 0);
 
-export const FULL_TEXT = "Full: its income is being wasted. Use it or re-allocate it.";
+/** An agent's own store is full (not the player's: a walker read the two "full" figures as one). */
+export const FULL_TEXT = "Full: this agent earns faster than it spends, so the extra is lost. A smaller power share keeps that power for you.";
 /** Beside the meter: "full in 9 s", the full warning, or "no income". */
 export function fillText(energy: number, income: number, capacity: number): string {
   const state = storeState(energy, income, capacity);
@@ -77,6 +78,24 @@ export function spendsAsItEarns(a: { energy: number; income: number; acts?: numb
 /** Red is for "stuck" only; everything else, a full store included, is neutral. */
 export const overdraftTone = (state: Overdraft): "neutral" | "alarm" => (state === "stuck" ? "alarm" : "neutral");
 export const WORKING_TEXT = "Working: it spends energy as fast as it earns it.";
+/**
+ * Which energy line an agent's row shows: against its store while it holds energy; "about 0 ⚡" while it spends as it
+ * earns (a routine overdraft, in a game with or without capacities: a walker still saw "−13.4 ⚡" when the game had
+ * capacities); the number beside a real debt line; else the plain line. Pure, for the row in agents.tsx.
+ */
+export type AgentEnergyShown = "stored" | "working" | "owed" | "plain";
+export function agentEnergyShown(s: { energy: number; capacity: number | undefined; working: boolean; debt: boolean }): AgentEnergyShown {
+  if (s.capacity !== undefined && s.energy > 0) return "stored";
+  if (s.working) return "working";
+  return s.debt ? "owed" : "plain";
+}
+/** Beside the bar of an agent with no store limit: seconds of income it holds; nothing while it spends as it earns (the line above says so; "0 s of its income" read as broken). */
+export const runwayCaption = (secs: number | null, working: boolean): string | null => (working ? null : secs === null ? "no income" : `${num(secs)} s of its income`);
+/**
+ * The energy of a working agent (a routine overdraft: it spends as fast as it earns): "about 0 ⚡" below zero, since a
+ * bare "−8.9 ⚡" read as broken to a first-time player; the exact figure is the line's tooltip.
+ */
+export const workingEnergyLine = (energy: number): Seg[] => [{ term: "agent-energy", text: "Energy" }, energy < 0 ? " about 0 ⚡" : ` ${num(energy)} ⚡`];
 
 /** The header's energy when the player is overdrawn: "overdrawn by 312 ⚡" (null when they are not). */
 export const owedText = (energy: number): string | null => (owes(energy) > 0 ? `overdrawn by ${bits(owes(energy))}` : null);
@@ -158,6 +177,23 @@ export function shareCapacityLines({ newShare, agentShare, allocated, total, ful
   return lines;
 }
 
+/**
+ * The player's own store is full and they have exactly one agent: what they can do with the power, the controls one
+ * press away, without telling them to spend for its own sake. (With two or more agents the neutral sentence stands.)
+ */
+export const fullStoreOneAgent = (name: string): string => `Your own energy is full. Give ${name} more power so it acts more often, or add another ready-made agent.`;
+/**
+ * Whether that advice (and its "Give NAME more power" button) is shown: only to a player who can change the share
+ * right now. In a replay, as a spectator or seen as another player the neutral line stands (the button would lead to
+ * a control that is not there).
+ */
+export const fullStoreAdvice = (s: { ended: boolean; agents: number; energy: number; capacity: number; canAllocate: boolean; hasShare: boolean; seenAs: boolean }): boolean =>
+  !s.ended && !s.seenAs && s.canAllocate && s.hasShare && s.agents === 1 && ownStoreFull(s.energy, s.capacity);
+/** In the Destroy confirmation: the energy the agent holds goes back to the player with its power. Null when it holds none (or is overdrawn: destroyDebtLine), and in a game without capacity, where the engine returns nothing. */
+export function destroyReturnsLine(agentEnergy: number, fullChargeSeconds: number | undefined): string | null {
+  const held = Math.round(agentEnergy);
+  return fullChargeSeconds !== undefined && held >= 1 ? `The ${bits(held)} it holds ${held === 1 ? "comes" : "come"} back to you.` : null;
+}
 /** The tooltip on the player's own full store: the precise rule, never an instruction in the main line. */
 export const OWN_FULL_DETAIL = "A full store keeps no more: the income that would refill it is not saved up. That costs you nothing unless you want to summon a dearer agent later; to use that power instead, give an agent a larger share.";
 /** Whether the player's own store is full (the line then carries OWN_FULL_DETAIL as its tooltip). */
@@ -173,6 +209,6 @@ export function ownEnergyLine({ energy, income, capacity }: { energy: number; in
   const head: Seg[] = ["Your ", term, `: ${num(energy)} of ${bits(capacity)}. `];
   // A neutral fact, with no instruction to spend: "its income is being wasted. Summon with it…" led two first-time
   // players to pay for looks and summon copies they did not need. The detail is the tooltip's (OWN_FULL_DETAIL).
-  if (energy >= capacity - EPSILON) return ["Your ", term, ` is full (${bits(capacity)}). Energy pays for summoning; your agents run on their own share of your power.`];
+  if (energy >= capacity - EPSILON) return ["Your own ", term, ` is full (${bits(capacity)}). It pays for summoning; your agents run on their own stores, filled by their share of your power.`];
   return [...head, `It fills in ${duration(secondsToFull(energy, income, capacity))} and then stops.`];
 }

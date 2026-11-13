@@ -9,6 +9,7 @@
  *   your goal, explained            useMyGoal → explainer for GoalBoard; MyGoalProvider explains grids' rich views
  *   actions                         useActions → validate, summon, destroy, chat, pause, ready, retry
  *   rate limits                     useThrottled, useSnapshot (every live hook takes { hz }, max 5)
+ *   player colours                  usePlayerStyle → style(godId): { colour, dash }, as the built-in panes draw players
  *   rendering                       Obj, ObjectGrid, ObjectView, TransformationView, useObjectContext,
  *                                   Sparkline, LineChart, BarList, ScatterPlot, Heatmap, Timeline, TimelineLegend, Table, Legend
  */
@@ -21,4 +22,5 @@ export { createEvaluator, type Evaluator, type OwnScore } from "./evaluator";
 export { useMyGoal, MyGoalProvider } from "./goal";
 export { useThrottled, useSnapshot, DEFAULT_HZ, MAX_HZ } from "./throttle";
 export * from "./charts";
+export { usePlayerStyle } from "./player-style";
 export * from "./objects";

@@ -138,6 +138,11 @@ test("the forge shows the engine's own answer: a warming sandbox and a refusal a
   assert.deepEqual(receiptNotice("summon", { commandId, accepted: false, message: "Not enough energy" }), { ok: false, text: "Not enough energy" });
   assert.equal(receiptNotice("summon", { commandId, accepted: true, message: "" }), null, "the forge's own 'Summoned: …' line says it; never a bare 'Accepted.' beside it");
   assert.deepEqual(receiptNotice("summon", { commandId, accepted: true, message: "Summoned for 178 energy" }), { ok: true, text: "Summoned for 178 energy" });
+  // The engine's one-command replace: examined like a summon; its accepted sentence (in bits) is never shown, its refusal is.
+  assert.equal(receiptNotice("replace", { commandId, accepted: true, message: "Accepted: the agent's program is replaced, for 178 bits of your own energy" }), null);
+  assert.deepEqual(receiptNotice("replace", { commandId, accepted: false, message: "You have no agent with that id" }), { ok: false, text: "You have no agent with that id" });
+  assert.equal(deadlineFor("replace"), deadlineFor("summon"), "a replace is examined, and waits, as a summon does");
+  assert.equal(progressLine("replace", null, 500), "Replacing its program…");
   // Under the header: what happened, never a bare "Accepted." after a destroy.
   assert.equal(headerNotice("destroy", { accepted: true, message: "" }, destroyedText("Simple spread keeper")), "Destroyed: Simple spread keeper. Its power share is yours again.");
   assert.equal(headerNotice("destroy", { accepted: true, message: "" }), "Destroyed. Its power share is yours again.");

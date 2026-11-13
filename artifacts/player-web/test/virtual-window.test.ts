@@ -4,7 +4,7 @@
 // its next page, or a window past the loaded rows.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { visibleWindow, wantsMore } from "../src/lib/virtual-window.ts";
+import { listMaxHeight, visibleWindow, wantsMore } from "../src/lib/virtual-window.ts";
 
 test("the window covers the rows in view plus the overscan, clamped to the loaded rows", () => {
   // 32 px rows, a 320 px viewport: rows 0-9 are in view; overscan 3 adds rows 10-12.
@@ -24,4 +24,12 @@ test("the skeleton asks for its next page when the window nears the end of the l
   assert.equal(wantsMore({ end: 13, count: 50 }), false);
   assert.equal(wantsMore({ end: 40, count: 50 }), true, "within a screenful of the end");
   assert.equal(wantsMore({ end: 0, count: 0 }), true, "nothing loaded yet");
+});
+
+test("a list on a phone takes at most 45% of the screen, so a swipe beside it scrolls the page", () => {
+  assert.equal(listMaxHeight({ phone: false, viewportHeight: 900 }), 640);
+  assert.equal(listMaxHeight({ phone: true, viewportHeight: 844 }), 380);
+  assert.equal(listMaxHeight({ phone: true, viewportHeight: 300 }), 200, "never too short to read");
+  assert.equal(listMaxHeight({ phone: true, viewportHeight: 2000 }), 640, "never taller than on a wide screen");
+  assert.equal(listMaxHeight({ phone: true, viewportHeight: 0 }), 640, "no window (a test): the wide value");
 });

@@ -61,6 +61,8 @@ export function receiptNotice(type: string, result: CommandResult): { ok: boolea
   if (type === "validate" && result.validation?.diagnostics.length) return null;
   // An accepted summon with no sentence of its own: the forge's "Summoned: …" line says it; a bare "Accepted." says nothing.
   if (type === "summon" && result.accepted && !result.message) return null;
+  // An accepted replace: the forge's "Replaced: NAME now runs your new version for N ⚡." says it, never the engine's sentence in bits.
+  if (type === "replace" && result.accepted) return null;
   return { ok: result.accepted, text: result.message || (result.accepted ? "Accepted." : "Rejected.") };
 }
 

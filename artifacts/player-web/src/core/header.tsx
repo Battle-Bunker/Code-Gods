@@ -3,6 +3,8 @@
  * (the only primary-coloured element here), energy ("overdrawn by 312 ⚡" when it is below zero), the connection dot, the room code and the client mode in small
  * print, and the command palette (search field + menu; Cmd/Ctrl+K). Everything else lives in the palette.
  */
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { errorsLine, queryErrors } from "@/sdk/query-errors";
 import { CommandPalette, PaletteTrigger } from "@workspace/ui-kit";
 import { useRoom } from "@/sdk";
 import { useDock } from "@/dock/store";
@@ -110,6 +112,7 @@ export function PlayerPalette({ compact, suggested = ["ui.forge.edit", "ui.panel
  * player still without an agent keeps the line and the button. The game timer stands down while the planning line
  * shows (game-timer.tsx). On a phone the two buttons stack under the text.
  */
+const START_WORLD_WAIT_MS = 10_000;
 export function PlanningBar() {
   const { permission } = useRoom();
   const s = useSituation();
@@ -119,12 +122,23 @@ export function PlanningBar() {
   const { loading } = useMyAgents();
   const { editCode } = useAffordances().can;
   // The button summons the pre-filled example itself (dock.summonFirst), so it says so while the summon is in flight.
-  const { busy: running, firstSummon } = useRunner();
+  const { busy: running, firstSummon, summonedIn } = useRunner();
   const summoning = running === "summon";
+  // "Start the world now" says it was pressed until the world starts (the bar then changes): on a phone the receipt's
+  // notice was out of view, and a walker asked "did that do anything?". A refused start turns the button back on.
+  const [startingWorld, setStartingWorld] = useState(false);
   const line = planningLine({
     phase: s.phase, seated: s.seated, owner: s.isOwner && permission !== "read", planningEndsAt: s.obs?.planningEndsAt, nowMs: now,
-    agents: loading ? undefined : s.agents, canSummon: editCode.ok,
+    // A summon accepted in this game counts as an agent until the list catches up (runner.summonedIn).
+    agents: loading ? undefined : Math.max(s.agents, summonedIn !== null && summonedIn === s.obs?.gameId ? 1 : 0), canSummon: editCode.ok,
   });
+  // Cleared here (the bar is always mounted in the dock): once an agent is listed, the list speaks for itself.
+  useEffect(() => { if (summonedIn !== null && s.agents > 0) runner.setSummonedIn(null); }, [summonedIn, s.agents]);
+  const offered = !!line?.startNow;
+  useEffect(() => { if (!offered) setStartingWorld(false); }, [offered]);
+  // An accepted start that has not started the world after a while (the engine had nothing to do, or its tick is late)
+  // gives the button back rather than leave it dead for the rest of planning.
+  useEffect(() => { if (!startingWorld) return; const t = setTimeout(() => setStartingWorld(false), START_WORLD_WAIT_MS); return () => clearTimeout(t); }, [startingWorld]);
   if (!line) return null;
   return (
     <div role={s.phase === "planning" ? "timer" : "status"} aria-live="off" data-testid="banner-planning" className="flex flex-col items-center justify-center gap-x-4 gap-y-2 border-b border-[hsl(var(--card-border))] bg-muted px-3 py-2 text-center text-sm sm:flex-row sm:flex-wrap sm:text-left">
@@ -134,8 +148,9 @@ export function PlanningBar() {
           className="w-full shrink-0 bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-70 sm:w-auto sm:py-1">{firstSummonLabel({ summoning, pending: firstSummon > 0 })}</button>
       )}
       {line.startNow && (
-        <button type="button" data-testid="button-start-world-now" onClick={() => void owner.startWorldNow()}
-          className={`w-full shrink-0 px-3 py-1.5 text-sm font-semibold hover:opacity-90 sm:w-auto sm:py-1 ${line.summon ? "border border-primary bg-background text-primary" : "bg-primary text-primary-foreground"}`}>Start the world now</button>
+        <button type="button" data-testid="button-start-world-now" disabled={startingWorld} aria-busy={startingWorld || undefined}
+          onClick={() => { setStartingWorld(true); owner.startWorldNow().then(r => { if (r === undefined) setStartingWorld(false); }, () => setStartingWorld(false)); }}
+          className={`w-full shrink-0 px-3 py-1.5 text-sm font-semibold hover:opacity-90 disabled:opacity-70 sm:w-auto sm:py-1 ${line.summon ? "border border-primary bg-background text-primary" : "bg-primary text-primary-foreground"}`}>{startingWorld ? "Starting the world…" : "Start the world now"}</button>
       )}
     </div>
   );
@@ -147,6 +162,7 @@ export function HeaderBanners() {
   const commands = useGameCommands();
   const notices = useNotices();
   const gameNotice = useSituation().obs?.notice;
+  const liveDataLine = errorsLine(useSyncExternalStore(queryErrors.subscribe, queryErrors.get, queryErrors.get));
   return (
     <>
       <PlanningBar />
@@ -156,6 +172,11 @@ export function HeaderBanners() {
           className={`border-b border-[hsl(var(--card-border))] px-4 py-1.5 text-sm ${gameNotice.kind === "retrying" ? "bg-[hsl(var(--destructive)/0.15)]" : "bg-[hsl(var(--chart-4)/0.25)]"}`}>
           {gameNotice.text}
         </div>
+      )}
+      {liveDataLine && (
+        // A live query outside any pane failed (the dock's own state, the header's data): the page stands, the dock
+        // shows what it can (the default layout without the game's state), and this goes when the data arrives.
+        <div data-testid="banner-live-data" role="status" className="border-b border-[hsl(var(--card-border))] bg-[hsl(var(--chart-4)/0.25)] px-4 py-1.5 text-sm">{liveDataLine}</div>
       )}
       {unknown && (
         <div data-testid="banner-unknown" role="alert" className="flex flex-wrap items-center gap-3 border-b border-[hsl(var(--card-border))] bg-[hsl(var(--chart-4)/0.25)] px-4 py-1.5 text-sm">

@@ -15,13 +15,13 @@
  * with a legend and one named row per agent. Each action appears only where it works (core/affordances.ts): none does in
  * a read-only replay, and Destroy goes after the end. In a replay seen as another god, the panel says whose agents these are.
  */
-import { changeCostKid, costModelOf, defaultShare, isLanguage, type CostModel } from "@workspace/game-core";
+import { changeCostKid, costModelOf, isLanguage, type CostModel } from "@workspace/game-core";
 import { SCORE_LINES, Term } from "@workspace/ui-kit";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Sparkline, Timeline, TimelineLegend, useAgentSeries, useDockState, useEvents, useGame, useMyAgents, type MyAgent } from "@/sdk";
 import { useDockActions } from "@/dock/actions";
-import { useGameCommands, useRunner, type Lang } from "@/core/game/runner";
-import { BUSY_NOTHING_CHANGED, PUTTING_BACK, COMPARISON_CAVEAT, MOVE_MEANS, firstSummonLabel, putBackLabel, replaceLoss, replaceShare, versionComparison } from "./first-agent";
+import { runner, useGameCommands, useRunner, type Lang } from "@/core/game/runner";
+import { BUSY_NOTHING_CHANGED, PUTTING_BACK, COMPARISON_CAVEAT, MOVE_MEANS, firstSummonLabel, putBackLabel, versionComparison } from "./first-agent";
 import { usePreviousVersion } from "./use-previous-version";
 import { notifyError } from "@/core/notices";
 import { useAffordances } from "@/core/use-affordances";
@@ -34,7 +34,7 @@ import {
   STATE_LEGEND, actualLine, afterShareLine, agentState, energyLine, estimateLine, laneKind, num, perSecond, plain, runwayFraction, runwaySeconds, runwayText,
   allocationSettled, shareLine, skipLine, spentLine, statusText, summonLine, yourPowerLine, type Seg,
 } from "./agent-labels";
-import { OWN_FULL_DETAIL, WORKING_TEXT, spendsAsItEarns, overdraft, overdraftTone, agentDebtDetail, agentDebtLine, destroyDebtLine, fillText, owes, ownEnergyLine, ownStoreFull, shareCapacityLines, storeFraction, storeState, storedLine } from "./energy-capacity";
+import { OWN_FULL_DETAIL, destroyReturnsLine, fullStoreAdvice, WORKING_TEXT, workingEnergyLine, agentEnergyShown, runwayCaption, fullStoreOneAgent, spendsAsItEarns, overdraft, overdraftTone, agentDebtDetail, agentDebtLine, destroyDebtLine, fillText, owes, ownEnergyLine, ownStoreFull, shareCapacityLines, storeFraction, storeState, storedLine } from "./energy-capacity";
 import { PanelEmpty, TextButton, type PanelProps } from "./kit";
 import { maxShareFor, parseSharePercent, shareProblem } from "./power-share";
 import { PointsNow, useOpenObject, useOwnActLines } from "./score-lines";
@@ -48,7 +48,7 @@ function Say({ segs }: { segs: readonly Seg[] }) {
 }
 
 /** The energy as a bar: how many seconds of the agent's income it holds (full at 10 s), explained by its tooltip. */
-function EnergyMeter({ energy, income }: { energy: number; income: number }) {
+function EnergyMeter({ energy, income, working = false }: { energy: number; income: number; working?: boolean }) {
   const secs = runwaySeconds(energy, income);
   const text = runwayText(energy, income);
   return (
@@ -56,7 +56,7 @@ function EnergyMeter({ energy, income }: { energy: number; income: number }) {
       <span role="meter" aria-label={text} aria-valuemin={0} aria-valuemax={10} aria-valuenow={Math.min(10, secs ?? 0)} className="inline-block h-1.5 w-20 bg-muted">
         <span className={`block h-full ${overdraftTone(overdraft(energy, income)) === "alarm" ? "bg-destructive" : "bg-[hsl(var(--accent))]"}`} style={{ width: `${Math.round(runwayFraction(secs ?? 0) * 100)}%` }} />
       </span>
-      <span className="text-muted-foreground">{secs === null ? "no income" : `${num(secs)} s of its income`}</span>
+      {runwayCaption(secs, working) && <span className="text-muted-foreground">{runwayCaption(secs, working)}</span>}
     </span>
   );
 }
@@ -136,6 +136,8 @@ export type AgentsViewProps = {
   showCosts: boolean;
   showSource: boolean;
   can: Affordances["can"];
+  /** The agents are shown as another player sees them (a replay): no advice about what to do with them. */
+  seenAs?: boolean;
   wait: (a: MyAgent) => number;
   onEdit: (a: MyAgent) => void;
   onSetShare: (a: MyAgent, share: number) => void;
@@ -148,8 +150,10 @@ export type AgentsViewProps = {
   /** Agent id → one plain sentence for its latest act: the change, your rule score, the points (score-line.ts). */
   actLines?: ReadonlyMap<string, string>;
   /** Agent id → the object its latest act changed, and how to open that object's detail in Objects. */
+  /** "Other starting points": opens the editor with its shelf of ready-made agents open. */
+  onOtherStarts?: () => void;
   actObjects?: ReadonlyMap<string, string>;
-  onShowObject?: (objectId: string) => void;
+  onShowObject?: (objectId: string, from?: string) => void;
   /** Agent id → what its moves among the recent events earned (score-line.ts earningsLine). */
   earnLines?: ReadonlyMap<string, string>;
   /** Agent id → for an agent that replaced an earlier version: the comparison (null until there is enough to compare) and the way back. */
@@ -159,7 +163,7 @@ export type AgentsViewProps = {
 };
 
 /** The panel without its data hooks, so the gallery (src/gallery/agents.tsx) can draw it from fixtures. */
-export function AgentsView({ agents, self, powerPerSecond, fullChargeSeconds, changeReadRatio, costModel, world, samples, window: windowS, ended, showCosts, showSource, can, wait, onEdit, onSetShare, onDestroy, footer, header, actLines, actObjects, onShowObject, earnLines, versions, rung, settling }: AgentsViewProps) {
+export function AgentsView({ agents, self, powerPerSecond, fullChargeSeconds, changeReadRatio, costModel, world, samples, window: windowS, ended, showCosts, showSource, can, wait, onEdit, onSetShare, onDestroy, footer, header, actLines, actObjects, onShowObject, onOtherStarts, earnLines, versions, rung, settling, seenAs }: AgentsViewProps) {
   const [confirm, setConfirm] = useState<string | null>(null);
   const { editCode, destroy, allocatePower } = can;
   const showDestroy = destroy.ok || !destroy.hidden;
@@ -176,7 +180,12 @@ export function AgentsView({ agents, self, powerPerSecond, fullChargeSeconds, ch
           <p className="font-medium text-foreground" title={SCORE_LINES.energy}><Say segs={yourPowerLine({ total, allocated: self.allocated, income: self.income, energy: self.energy ?? 0, settling })} /></p>
           {self.capacity !== undefined && (
             <p data-testid="text-own-capacity" title={ownStoreFull(self.energy ?? 0, self.capacity) ? OWN_FULL_DETAIL : undefined} className={`flex flex-wrap items-center gap-x-3 gap-y-1 ${self.capacity > 0 && owes(self.energy ?? 0) === 0 ? "text-foreground" : "font-semibold text-destructive"}`}>
-              <span><Say segs={ownEnergyLine({ energy: self.energy ?? 0, income: self.income, capacity: self.capacity })} /></span>
+              {fullStoreAdvice({ ended, agents: agents.length, energy: self.energy ?? 0, capacity: self.capacity, canAllocate: allocatePower.ok, hasShare: agents[0]?.powerShare !== undefined, seenAs: !!seenAs }) ? (<>
+                <span data-testid="text-full-one-agent">{fullStoreOneAgent(agentLabel(agents[0].name, 0))}</span>
+                {/* The controls are one press away; nothing is changed by the press itself. */}
+                <TextButton boxed testId="button-give-more-power" onClick={() => { const input = document.getElementById(`input-power-share-${agents[0].id}`); input?.scrollIntoView({ block: "center" }); input?.focus(); }}>Give {agentLabel(agents[0].name, 0)} more power</TextButton>
+                {onOtherStarts && <TextButton boxed testId="button-other-starts" onClick={onOtherStarts}>Other starting points</TextButton>}
+              </>) : <span><Say segs={ownEnergyLine({ energy: self.energy ?? 0, income: self.income, capacity: self.capacity })} /></span>}
               {self.capacity > 0 && owes(self.energy ?? 0) === 0 && <CapacityMeter bare testId="meter-own-energy" energy={self.energy ?? 0} income={self.income} capacity={self.capacity} />}
             </p>
           )}
@@ -224,14 +233,18 @@ export function AgentsView({ agents, self, powerPerSecond, fullChargeSeconds, ch
               <div data-testid={`text-agent-energy-${a.id}`} className="space-y-0.5 text-xs text-muted-foreground">
                 {a.powerShare !== undefined && a.income !== undefined && <p data-testid={`text-agent-share-${a.id}`}><Say segs={shareLine(a.powerShare, a.income)} /></p>}
                 <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                  <span className={alarm ? "font-semibold text-destructive" : "text-foreground"}><Say segs={capped ? storedLine(a.energy, a.capacity!) : debt || working ? [{ term: "agent-energy", text: "Energy" }, ` ${num(a.energy)} ⚡`] : energyLine(a.energy)} /></span>
+                  {(() => {
+                    const shown = agentEnergyShown({ energy: a.energy, capacity: a.capacity, working, debt: !!debt });
+                    return <span className={alarm ? "font-semibold text-destructive" : "text-foreground"} title={shown === "working" && a.energy < 0 ? `Exactly ${num(a.energy)} ⚡: it spends each bit of energy as it comes in.` : undefined}>
+                      <Say segs={shown === "stored" ? storedLine(a.energy, a.capacity!) : shown === "working" ? workingEnergyLine(a.energy) : shown === "owed" ? [{ term: "agent-energy", text: "Energy" }, ` ${num(a.energy)} ⚡`] : energyLine(a.energy)} /></span>;
+                  })()}
                   {/* A game without capacities has no line beside it: the routine overdraft is still said as work. */}
                   {working && !debt && <span data-testid={`text-agent-working-${a.id}`} className="text-muted-foreground">{WORKING_TEXT}</span>}
                   {debt && <span data-testid={`text-agent-debt-${a.id}`} title={agentDebtDetail(a.capacity) ?? undefined} className={alarm ? "font-semibold text-destructive" : "text-muted-foreground"}>{debt}</span>}
                 </p>
                 <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
                   {capped ? <CapacityMeter testId={`meter-agent-capacity-${a.id}`} energy={a.energy} income={a.income ?? 0} capacity={a.capacity!}
-                    spending={!ended && spendsAsItEarns({ energy: a.energy, income: a.income ?? 0, acts: a.acts })} /> : <EnergyMeter energy={a.energy} income={a.income ?? 0} />}
+                    spending={!ended && spendsAsItEarns({ energy: a.energy, income: a.income ?? 0, acts: a.acts })} /> : <EnergyMeter energy={a.energy} income={a.income ?? 0} working={working} />}
                   <span title="Energy over the last minutes of this game: the dashed line is 0" className="inline-flex items-center"><Sparkline values={history} zero width={90} height={18} label={`${label}: energy over time`} /></span>
                 </p>
                 <p data-testid={`text-agent-spent-${a.id}`}><Say segs={spentLine(a.spent, a.spentRead, a.acts)} /></p>
@@ -240,7 +253,7 @@ export function AgentsView({ agents, self, powerPerSecond, fullChargeSeconds, ch
                 {showCosts && <p data-testid={`text-expected-act-cost-${a.id}`}><Say segs={estimateLine(a.expectedActCost, a.breakdown)} /></p>}
               </div>
               {actLines?.get(a.id) && <p data-testid={`text-agent-act-${a.id}`} className="text-xs text-foreground">Latest: {actLines.get(a.id)}
-                {actObjects?.get(a.id) && onShowObject && <>{" "}<TextButton testId={`button-agent-act-object-${a.id}`} onClick={() => onShowObject(actObjects.get(a.id)!)}>show this grid</TextButton></>}</p>}
+                {actObjects?.get(a.id) && onShowObject && <>{" "}<TextButton testId={`button-agent-act-object-${a.id}`} onClick={() => onShowObject(actObjects.get(a.id)!, actLines.get(a.id))}>show this grid</TextButton></>}</p>}
               {/* What its moves earned, so two agents can be compared; the window is said in the line itself. */}
               {earnLines?.get(a.id) && <p data-testid={`text-agent-earned-${a.id}`} className="text-xs text-foreground">{earnLines.get(a.id)}</p>}
               {a.diagnosis && (
@@ -266,6 +279,7 @@ export function AgentsView({ agents, self, powerPerSecond, fullChargeSeconds, ch
                   </>) : (
                     <TextButton testId={`button-destroy-agent-${a.id}`} disabled={!destroy.ok} onClick={() => setConfirm(a.id)} title={destroy.ok ? "Free. It can't be undone." : destroy.reason}>Destroy</TextButton>
                   ))}
+                  {confirm === a.id && !destroyDebt && destroyReturnsLine(a.energy, fullChargeSeconds) && <p data-testid={`text-destroy-returns-${a.id}`} className="basis-full text-xs text-muted-foreground">{destroyReturnsLine(a.energy, fullChargeSeconds)}</p>}
                   {destroyDebt && <p data-testid={`text-destroy-debt-${a.id}`} role="alert" className="basis-full text-xs font-semibold text-destructive">{destroyDebt}</p>}
                 </div>
               )}
@@ -332,41 +346,39 @@ export default function Agents({ params, phase, paneId }: PanelProps<"agents">) 
   const openObject = useOpenObject();
   const paidLooks = !ended && economy?.observation !== undefined && economy.observation !== "free";
   const recent = useEvents({ hz: 1, limit: 50 });
-  const remembered = usePreviousVersion(game?.gameId, all, agentsLoading, paidLooks ? undefined : recent);
+  const remembered = usePreviousVersion(game?.gameId, all, agentsLoading, paidLooks ? undefined : recent, world);
   const versions = useMemo(() => {
     const out = new Map<string, { text: string | null; caveat?: boolean; label?: string; onRevert?: () => void; busy?: boolean; status?: string }>();
     // Only the agent the replace made, in this game (never a twin with the same code): usePreviousVersion.
     const target = remembered && !ended && !can.seenAs ? all.find(a => a.id === remembered.agentId) : undefined;
     if (!remembered || !target) return out;
     const previous = remembered.previous;
-    const share = replaceShare({ oldShare: target.powerShare, allocated: self?.allocated });
     // Where looking costs energy the earnings are not counted (score-lines.tsx), so nothing is compared there: the button alone.
     const compared = paidLooks ? null : versionComparison(previous.before, previous.since, { estimate: acts.estimate, restored: previous.restored });
-    const lost = replaceLoss({ energy: self?.energy ?? 0, cost: previous.cost ?? 0, allocated: self?.allocated, share: share ?? defaultShare(self?.allocated ?? 0), powerPerSecond: economy?.powerPerSecond, fullChargeSeconds: economy?.fullChargeSeconds });
     out.set(target.id, {
       busy: !!runnerState.busy,
       // Only while that put-back is in flight; a busy or unanswered one leaves the button (and its notice) again.
-      ...(runnerState.busy === "summon" && runnerState.replace?.putBack && runnerState.replace.oldId === target.id ? { status: PUTTING_BACK } : {}),
+      ...(runnerState.busy === "replace" && runnerState.replace?.putBack && runnerState.replace.agentId === target.id ? { status: PUTTING_BACK } : {}),
       text: paidLooks ? null : compared ?? (previous.restored ? "The previous version is back. Once it has made a few moves, this line says how it is doing."
         : "This is your new version. Once it has made a few moves, this line compares it with the one before."),
       caveat: compared !== null,
       // A put-back is offered for a new version, not for a version that was itself put back.
       ...(!previous.restored && can.can.destroy.ok && isLanguage(previous.language) ? { label: putBackLabel(previous.cost), onRevert: () => {
-        // A paid summon of the previous code under its name, through the runner's one replace path; its own words afterwards.
-        void commands.replace({ type: "summon", language: previous.language as Lang, source: previous.source, name: previous.name, ...(share !== undefined ? { powerShare: share } : {}) },
-          { oldId: target.id, name: previous.name, source: previous.source, share, oldShare: target.powerShare, putBack: true, outgoingSource: target.source, language: previous.language,
-            cost: previous.cost, lost, ...(self?.income ? { refill: lost / self.income } : {}),
+        // The engine's one "replace" command with the previous code (it pays that code's price again), through the
+        // runner's one replace path; its own words afterwards.
+        void commands.replace({ type: "replace", agentId: target.id, language: previous.language as Lang, source: previous.source },
+          { name: previous.name, source: previous.source, putBack: true, outgoingSource: target.source, language: previous.language, cost: previous.cost,
             // What is remembered next: the restored version, to say how undoing went (no further put-back from it).
-            previous: { gameId: previous.gameId, restored: true, source: target.source, language: target.language, name: previous.name, newSource: previous.source, knownIds: all.map(a => a.id) } })
+            previous: { gameId: previous.gameId, agentId: target.id, restored: true, source: target.source, language: target.language, name: previous.name, newSource: previous.source, sentWorld: world } })
           .then(result => {
             if (result === undefined) notifyError(new Error(BUSY_NOTHING_CHANGED));
-            else if (!result.accepted) notifyError(new Error(`${previous.name} was not put back: ${result.message || "the game refused the summon"}`));
+            else if (!result.accepted) notifyError(new Error(`${previous.name} was not put back: ${result.message || "the game refused"}`));
           });
       } } : {}),
     });
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [remembered, runnerState.busy, runnerState.replace, all, acts.estimate, ended, paidLooks, self?.allocated, self?.energy, self?.income, can.seenAs, can.can.destroy.ok, commands]);
+  }, [remembered, runnerState.busy, runnerState.replace, all, acts.estimate, ended, paidLooks, can.seenAs, can.can.destroy.ok, commands]);
   // "See it in My agents" (the forge): that agent's row comes into view inside the pane, with a short ring.
   const reveal = runnerState.reveal;
   const [rung, setRung] = useState<string | null>(null);
@@ -392,6 +404,7 @@ export default function Agents({ params, phase, paneId }: PanelProps<"agents">) 
       <AgentsView agents={agents} self={self} powerPerSecond={economy?.powerPerSecond} fullChargeSeconds={economy?.fullChargeSeconds} changeReadRatio={economy?.changeReadRatio} costModel={costModelOf(economy)} world={world} samples={history} window={params.window} ended={ended}
         showCosts={params.showCosts} showSource={params.showSource} can={can.can} wait={secondsUntilEligible}
         onEdit={a => dock.forgeEdit(a.source, isLanguage(a.language) ? a.language : undefined, a.id)}
+        seenAs={!!can.seenAs}
         onSetShare={(a, share) => void commands.run({ type: "allocatePower", agentId: a.id, share })}
         onDestroy={a => void commands.run({ type: "destroy", agentId: a.id }, destroyedText(agentLabel(a.name, agents.indexOf(a)))).then(result => {
           // Accepted: the split shown is the one from before the destroy until the next state arrives (both
@@ -399,7 +412,7 @@ export default function Agents({ params, phase, paneId }: PanelProps<"agents">) 
           if (result?.accepted && (a.powerShare ?? 0) > 0) setAwaiting({ allocated: self?.allocated, at: Date.now() });
         })}
         settling={!ended && self?.allocated !== undefined && (!allocationSettled(self.allocated, all.map(a => a.powerShare)) || (!!awaiting && awaiting.allocated === self.allocated))}
-        header={can.seenAs || goalPaneShown ? undefined : <PointsNow />} actLines={acts.byAgent} actObjects={acts.objects} onShowObject={openObject} earnLines={acts.earned} versions={versions} rung={rung}
+        header={can.seenAs || goalPaneShown ? undefined : <PointsNow />} actLines={acts.byAgent} actObjects={acts.objects} onShowObject={openObject} onOtherStarts={editCode.ok ? () => { dock.forgeEdit(); runner.openShelf(); } : undefined} earnLines={acts.earned} versions={versions} rung={rung}
         footer={ended && <p data-testid="text-agents-ended" className="text-xs text-muted-foreground">
           {can.readOnly ? `These are ${can.whose} agents as they ended the game.` : "The game is over: these are your agents as they ended it. Edit a copy keeps the code for the next game."}
         </p>} />

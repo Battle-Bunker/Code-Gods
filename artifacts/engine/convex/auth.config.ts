@@ -17,9 +17,16 @@ import type { AuthConfig } from "convex/server";
 import { getAuthConfigProvider } from "@convex-dev/better-auth/auth-config";
 
 const site = (process.env.CONVEX_SITE_URL ?? "").replace(/\/+$/, "");
-// Convex refuses a push when auth config reads an UNSET env var; checking the key list first keeps the
-// URL fallbacks usable for a brand-new deployment (first push before the keys exist).
-const optional = (name: string) => Object.keys(process.env).includes(name) ? process.env[name] : undefined;
+/**
+ * An env var, or undefined while it is unset (a brand-new deployment's first push, before the keys exist: the URL
+ * fallbacks below). Read directly: in Convex's runtime `process.env` lists no keys (`Object.keys` is empty and `in` is
+ * false, so a key-list check never found these and the JWKS was always fetched by URL: an HTTP request before every
+ * function call a signed-in browser made, nested calls included; test/game-auth-jwks.test.ts). Reading an unset
+ * variable here throws, which fails the push unless it is caught.
+ */
+const optional = (name: string): string | undefined => {
+  try { return process.env[name] || undefined; } catch { return undefined; }
+};
 const playerJwks = optional("PLAYER_JWT_JWKS");
 
 export default {

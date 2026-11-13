@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { DEFAULT_LAYOUT, assistantSide, closePane, paneExtents, panelPanesOf, paneOrder, panesOf, movePane, openPane, parseLayout, setPanePanel, setPaneParams, type DockLayout } from "@workspace/player-client/layout";
 import { SINGLE_LAYOUT } from "./single-layout.ts";
 import {
-  effectiveLayout, initialSync, keepAssistantPane, pushPlan, sameLayout, syncReducer, withResultsFirst, withResultsOnly, hiddenByResultsOnly, withTimeline, withoutAssistant, type SyncState,
+  effectiveLayout, initialSync, keepAssistantPane, pushPlan, sameLayout, syncReducer, moreBelow, withResultsFirst, withResultsOnly, hiddenByResultsOnly, withTimeline, withoutAssistant, type SyncState,
 } from "../src/dock/layout-sync.ts";
 import { back, canUndo, lastParams, observe, emptyHistory, resetView } from "../src/dock/history.ts";
 import { EDITOR_MIN, dockAssistant, showPanel } from "../src/dock/operations.ts";
@@ -430,4 +430,11 @@ test("an editor left as a sliver (an arrangement carried from another room) gets
   assert.ok(usable(parseLayout(shown.layout, { phase: "planning", storedSlugs: [] }).layout, "p3"), "and parseLayout keeps it");
   const fine = showPanel(DEFAULT_LAYOUT("planning"), "forge", undefined, null).layout;
   assert.equal(showPanel(fine, "forge").layout, fine, "an editor with room is left alone");
+});
+
+test("a pane fades at its bottom edge only while more content is below it", () => {
+  assert.equal(moreBelow({ scrollHeight: 900, scrollTop: 0, clientHeight: 400 }), true);
+  assert.equal(moreBelow({ scrollHeight: 900, scrollTop: 500, clientHeight: 400 }), false, "scrolled to the end");
+  assert.equal(moreBelow({ scrollHeight: 404, scrollTop: 0, clientHeight: 400 }), false, "a few pixels of rounding is not content");
+  assert.equal(moreBelow({ scrollHeight: 400, scrollTop: 0, clientHeight: 400 }), false);
 });

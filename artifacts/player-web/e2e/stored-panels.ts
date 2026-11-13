@@ -496,6 +496,15 @@ await check("after the game ends its page turns into the replay without a reload
   async function sweep() {
   // The replay follows each layout set below, without a reload.
   await page.waitForSelector("[data-testid=replay-transport]", { timeout: 60_000 });
+  // An ended game opens on two things only: how it went (the results) and the replay timeline; the player's own panes
+  // are one press away ("Show my panes", in the results pane and in the replay's header).
+  await page.locator("[data-testid=text-results-headline]").waitFor({ timeout: 30_000 });
+  await page.locator("[data-testid=panel-timeline]").waitFor({ timeout: 30_000 });
+  const showMine = page.locator("[data-testid=button-show-my-panes], [data-testid=button-show-my-panes-header]").first();
+  await showMine.waitFor({ timeout: 30_000 });
+  assert(await page.locator("[data-testid=button-back-to-results]").count() === 0, "\"Back to the results\" offered while the results show");
+  await showMine.click();
+  await page.locator("[data-testid=button-back-to-results]").waitFor({ timeout: 30_000 });
   const blank: string[] = [];
   for (const id of PANEL_IDS) {
     await show(id);
@@ -511,6 +520,11 @@ await check("after the game ends its page turns into the replay without a reload
   await forge.waitFor({ timeout: 20_000 });
   assert(/Read-only replay/.test(await forge.textContent() ?? ""), `the forge's note: ${await forge.textContent()}`);
   assert(await page.locator("[data-testid=pane-p1] [data-testid=input-source]").count() === 0, "an editor in the replay's forge");
+  // And back: the results with the timeline again, the other panes away.
+  await page.locator("[data-testid=button-back-to-results]").click();
+  await page.locator("[data-testid=text-results-headline]").waitFor({ timeout: 30_000 });
+  assert(await page.locator("[data-testid=button-back-to-results]").count() === 0, "\"Back to the results\" still offered on the results");
+  assert(await page.locator("[data-testid=button-show-my-panes], [data-testid=button-show-my-panes-header]").count() > 0, "\"Show my panes\" is offered again");
   // Phone-size screenshots of the frozen agents, objects and feed panels (CG_E2E_SHOTS=<dir> keeps them).
   if (process.env.CG_E2E_SHOTS) {
     const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
@@ -518,6 +532,8 @@ await check("after the game ends its page turns into the replay without a reload
     const shot = await phone.newPage();
     await shot.goto(`${SITE}${GAME_PATH}`);
     await shot.waitForSelector("[data-testid=dock-stacked]", { state: "attached", timeout: 60_000 });
+    // A fresh page opens on the results and the timeline: the panes to photograph are behind "Show my panes".
+    await shot.locator("[data-testid=button-show-my-panes], [data-testid=button-show-my-panes-header]").first().click({ timeout: 30_000 });
     for (const id of ["agents", "objects", "feed"]) {
       await show(id);
       await shot.locator(`[data-testid=pane-p1] ${CONTENT[id]}`).first().waitFor({ state: "attached", timeout: 20_000 }).catch(() => {});

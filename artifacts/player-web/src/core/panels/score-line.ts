@@ -211,7 +211,9 @@ function ownActLine({ agent, before, after, noun = "object", ruleBefore, ruleAft
   // What the move did to the rarity, so its size can be read: only when both sides are known and show differently.
   const rare = (x: number) => minus((Math.round(x * 10) / 10 === 0 ? 0 : Math.round(x * 10) / 10).toFixed(1));
   const rarity = typeof rarityBefore === "number" && typeof rarityAfter === "number" && Number.isFinite(rarityBefore) && Number.isFinite(rarityAfter)
-    && rare(rarityBefore) !== rare(rarityAfter) && ruleDirection(ruleBefore, ruleAfter) !== 0 ? `: ✨ ${rare(rarityBefore)} → ${rare(rarityAfter)}` : "";
+    && rare(rarityBefore) !== rare(rarityAfter) && ruleDirection(ruleBefore, ruleAfter) !== 0
+    // Named and given its reason: a walker could not say why one more pair moved "✨ 1.0 → 2.9".
+    ? `: ✨ rarity ${rare(rarityBefore)} → ${rare(rarityAfter)} (${rarityAfter > rarityBefore ? "fewer" : "more"} random ${noun}s score this well)` : "";
   const plain = ruleScoreChange(ruleBefore, ruleAfter);
   const rule = plain ? plain + rarity : plain;
   const others = othersWantClause(othersAfter, noun);
@@ -305,14 +307,18 @@ export interface AgentEarnings {
  * the points before. It is the move's own effect at that moment, not what the object earned later, and it covers only
  * the events held, which the line says.
  */
-export function agentEarnings(events: readonly EventLike[]): Map<string, AgentEarnings> {
+export function agentEarnings(events: readonly EventLike[], /** Agent id → the world time of its latest replace known to the page: only its later moves are its current program's. */ boundaries?: ReadonlyMap<string, number>): Map<string, AgentEarnings> {
   const points = new Map<string, number>(), sums = new Map<string, { moves: number; points: number; objects: Set<string> }>();
   for (const e of events) {
+    // A replace keeps the agent's id: what it earned before is another program's, so its count starts again.
+    if (e.type === "agent.replaced" && e.agentId) { sums.delete(e.agentId); continue; }
     if (e.type !== "object.spawned" && e.type !== "object.rescored" && e.type !== "object.transformed") continue;
     if (!e.objectId) continue;
     const before = points.get(e.objectId);
     if (typeof e.payoff === "number") points.set(e.objectId, e.payoff); else points.delete(e.objectId);
     if (e.type !== "object.transformed" || !e.mine || !e.agentId || before === undefined || typeof e.payoff !== "number") continue;
+    const boundary = boundaries?.get(e.agentId);
+    if (boundary !== undefined && !((e.worldSeconds ?? -Infinity) > boundary)) continue;
     const sum = sums.get(e.agentId) ?? { moves: 0, points: 0, objects: new Set<string>() };
     sum.moves += 1; sum.points += e.payoff - before; sum.objects.add(e.objectId);
     sums.set(e.agentId, sum);
@@ -343,7 +349,7 @@ const eventKey = (e: EventLike): string => String(e.id ?? e.seq ?? `${e.objectId
  * never changes again. Each move is keyed by its event, so the window dropping old events loses nothing already
  * counted and a move seen again in a later window is not counted twice. The same object back when nothing is new.
  */
-export function accumulateFirstMoves(acc: FirstMoves | undefined, events: readonly EventLike[], agentId: string, limit = FIRST_MOVES): FirstMoves {
+export function accumulateFirstMoves(acc: FirstMoves | undefined, events: readonly EventLike[], agentId: string, limit = FIRST_MOVES, /** Only moves after this world time count (a replace keeps the agent's id: earlier moves are the old program's). */ afterWorld?: number): FirstMoves {
   const start: FirstMoves = acc ?? { moves: 0, points: 0, keys: [], frozen: false };
   if (start.frozen) return start;
   const points = new Map<string, number>(), seen = new Set(start.keys);
@@ -355,9 +361,13 @@ export function accumulateFirstMoves(acc: FirstMoves | undefined, events: readon
     const before = points.get(e.objectId);
     if (typeof e.payoff === "number") points.set(e.objectId, e.payoff); else points.delete(e.objectId);
     if (moves >= limit || e.type !== "object.transformed" || !e.mine || e.agentId !== agentId || before === undefined || typeof e.payoff !== "number") continue;
+    if (afterWorld !== undefined && !((e.worldSeconds ?? -Infinity) > afterWorld)) continue;
     const key = eventKey(e);
     if (seen.has(key)) continue;
     seen.add(key); keys.push(key); moves += 1; sum += e.payoff - before;
   }
   return moves === start.moves ? start : { moves, points: sum, keys, frozen: moves >= limit };
 }
+
+/** Under "Your points now" until the player has an agent, on every screen: why there are points already, and what an agent is for. */
+export const pointsBeforeAgent = (noun = "object"): string => `Every ${noun} already gives everyone some points; your agent's job is to raise yours.`;

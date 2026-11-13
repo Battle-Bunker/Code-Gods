@@ -89,6 +89,15 @@ export const QUOTA_LIMITS = { aiQuota: { min: 0, max: 1_000_000, int: true, unit
 
 const n = (v: number) => v.toLocaleString("en-US");
 const unitText = (u: string) => (u ? ` ${u}` : "");
+/**
+ * A setting's unit as players read it: energy in ⚡, as everywhere in the game ("600 bits" and "64 bits/s" in a room's
+ * details meant nothing to a first-time walker). The engine's own docs keep bits. Other units as documented.
+ */
+const ENERGY_KEYS: readonly SettingsKey[] = ["startingEnergy", "powerPerSecond"];
+export function shownUnit(key: SettingsKey, unit: string | undefined): string {
+  if (!unit) return "";
+  return ENERGY_KEYS.includes(key) ? unit.replace(/^bits\b/, "⚡") : unit;
+}
 
 /** The message for a number outside its field's limits, or null when it is fine. */
 export function limitError(limit: Limit | undefined, value: unknown): string | null {
@@ -300,7 +309,7 @@ export function formatValue(key: SettingsKey, v: unknown): string {
   if (key === "costModel") return choiceLabel(key, costModelOf(v));   // optional: absent is the default model
   if ((key === "utilitySelectorId" || key === "objectSelection" || key === "durationMode" || key === "observation" || key === "bidPricing" || key === "bidVisibility" || key === "bidDisclosure") && typeof v === "string") return choiceLabel(key, v);
   if (key === "bidSeconds" && v === 0) return "No bidding";
-  const unit = (SETTINGS_DOCS[key] as FieldDoc).unit;
+  const unit = shownUnit(key, (SETTINGS_DOCS[key] as FieldDoc).unit);
   return typeof v === "number" ? `${n(v)}${unit ? ` ${unit}` : ""}` : String(v);
 }
 
