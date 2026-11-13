@@ -16,6 +16,12 @@ The design and its measurements are in `docs/layered-rules-design.md`; the numbe
 - The card is the base's card with the interaction's code nested before the `return` and the "★ To score even higher"
   sentences added (`tieredCard` in `src/families/grid/tiers.ts`). The goal card shows the ★ block collapsed until the
   base reaches the gate.
+- Above the gate the goal board says what the tier wants and, while it scores nothing, which unit comes nearest
+  (`TierStatus.nearest`, from the `Part.heat` the tier lenses set). **To look at it:**
+  `pnpm --filter @workspace/player-web dev`, then `/annotations.html` — the last two sections show ✌️ Two Pair and
+  ↙️ Crosswise Threes with a ★, each on the base's own exemplar (the ★ open and empty) beside the card's example
+  (which scores it). `pnpm --filter @workspace/player-web e2e:annotations` checks them, and
+  `node --experimental-transform-types e2e/annotations-shots.ts <dir>` writes `star-<family>.png`.
 
 ## Adding tiers to a family
 
