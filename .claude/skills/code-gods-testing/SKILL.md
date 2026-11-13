@@ -57,6 +57,11 @@ mock first (`/mock {json}` scripts in `test/game-assistant.test.ts`); keep live 
   branches to production functions.
 - **Hand-derived expectations.** Scoring expectations come from game-core's documented formulas on literal
   inputs, or from hand-checked fixtures, never from the engine's own projection code.
+- **A reused local deployment lies to you.** The setups suite asserts on catalogue search order and on how a copy's
+  name is deduplicated, and earlier runs leave their own setups behind ("Annotated basics's copy", "Classic's copy"),
+  which outrank the system ones. Two failures in `test/game-setups.test.ts` ("a system setup by name, best first";
+  "duplicate: …'s copy, deduplicated") mean the deployment is dirty, not that the code is broken. Wipe it and start
+  again: stop `dev`, `rm -rf artifacts/engine/.convex/local`, start `dev`, wait for `[dev] READY`, `deploy-static`.
 - **Time.** Don't sleep a fixed time to wait for a tick; poll for the observable outcome with a bound
   (`waitFor` in `game-helpers.ts`, `until` in the e2e). Games under test set a long `halfLifeSeconds` unless the
   test is about the lifetime.
