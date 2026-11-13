@@ -37,6 +37,8 @@ export function GoalCard({ card, goal, inst, sourceOpen = false, initialExample 
   const rarity = useMemo(() => (goal && score !== null ? goal.rarity(score) : null), [goal, score]);
   const scale = useMemo(() => goal?.scale(5) ?? [], [goal]);
   // The scale starts open where there is room for it, closed on a phone.
+  // A screen with no hover (a phone, a tablet) is told to tap.
+  const [touch] = useState(() => typeof window !== "undefined" && !!window.matchMedia?.("(hover: none)").matches);
   const [wide] = useState(() => typeof window !== "undefined" && !!window.matchMedia?.("(min-width: 640px)").matches);
   return (
     <div className="space-y-5" data-testid="goal-card">
@@ -56,7 +58,7 @@ export function GoalCard({ card, goal, inst, sourceOpen = false, initialExample 
           <GoalExplainerProvider value={goal}>
             <span data-testid="example-object"><ObjectView value={example} {...ctx} /></span>
           </GoalExplainerProvider>
-          {goal && <span className="text-sm">Your rule score for this {noun}: <span className="font-mono font-semibold" data-testid="example-object-score">{ordinalText(score)}</span>{goal.rich ? " (hover it to see why)." : "."}</span>}
+          {goal && <span className="text-sm">Your rule score for this {noun}: <span className="font-mono font-semibold" data-testid="example-object-score">{ordinalText(score)}</span>{goal.rich ? ` (${touch ? "tap" : "hover"} it to see why).` : "."}</span>}
         </div>
         {editing && <ObjectEditor value={example} inst={inst} onChange={setExample} />}
         {/* Rule score → ✨ rarity, from the player's own table (the game's; absent in the rule gallery): this board's

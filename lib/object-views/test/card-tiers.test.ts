@@ -5,7 +5,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { instantiate } from "@workspace/game-types";
-import { card, context, family } from "@workspace/game-utilities";
+import { card, context, family, FAMILIES } from "@workspace/game-utilities";
+import { ruleScoreWording, usesReservedPoints } from "@workspace/game-utilities/card-text";
 import { cardSections, tierBonus, tierOpens } from "../src/card-tiers.ts";
 
 const CTX = context(instantiate("Grid", { size: 4, symbols: "base10", colours: "mono" }));
@@ -45,10 +46,30 @@ test("a block opens at its gate, or when the board already holds a tier point; n
   assert.equal(tierOpens({ ...t, gate: 0 }, null), true, "nothing to wait for");
 });
 
-test("the bonus line names the tier's points, only when the board has some", () => {
+test("the bonus line names what the tier adds to the rule score, only when the board has some", () => {
   const t = CARD.tiers![0];
-  assert.equal(tierBonus(t, [8, 0, 2]), "Bonus: 2 tertiary points; open ★ to see why.");
-  assert.equal(tierBonus(t, [8, 0, 1]), "Bonus: 1 tertiary point; open ★ to see why.");
+  assert.equal(tierBonus(t, [8, 0, 2]), "Bonus: +2 to your tertiary rule score; open ★ to see why.");
+  assert.equal(tierBonus(t, [8, 0, 1]), "Bonus: +1 to your tertiary rule score; open ★ to see why.");
   assert.equal(tierBonus(t, [8, 0, 0]), null);
   assert.equal(tierBonus(t, null), null);
+});
+
+test("no tiered draw's card text reaches a player with the reserved word 'points' — base, block titles, bodies or bonus lines", () => {
+  let checked = 0;
+  for (const inst of [instantiate("Grid", {}), instantiate("Grid", { size: 4, symbols: "base10", colours: "rgb" }), instantiate("Grid", { size: 5, symbols: "cards", colours: "rainbow6" })]) {
+    const ctx = context(inst);
+    for (const f of FAMILIES) {
+      if (f.objectType !== inst.objectType || !f.tiered) continue;
+      for (const compose of ["gated", "plain", "unlock", "uncapped"] as const) {
+        for (const params of f.tiered(ctx, 1, compose).slice(0, 20)) {
+          const s = cardSections(card({ familyId: f.id, params }, ctx));
+          const shown = [ruleScoreWording(s.base), ...s.tiers.flatMap(t => [t.title, ruleScoreWording(t.body),
+            tierBonus(t.tier, Array.from({ length: t.tier.index + t.tier.arity }, (_, k) => (k < t.tier.index ? 9 : 2))) ?? ""])];
+          for (const text of shown) assert.ok(!usesReservedPoints(text), `${f.id}/${compose}: ${text}`);
+          checked += shown.length;
+        }
+      }
+    }
+  }
+  assert.ok(checked > 200, `only ${checked} texts checked`);
 });

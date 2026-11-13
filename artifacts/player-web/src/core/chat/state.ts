@@ -106,6 +106,7 @@ export const STEP_VERBS = {
   get_receipt: ["checked a command", "checking a command", "check a command"],
   validate_agent: ["tested agent code", "testing agent code", "test agent code"],
   summon_agent: ["summoned an agent", "summoning an agent", "summon an agent"],
+  replace_agent: ["replaced an agent's program", "replacing an agent's program", "replace an agent's program"],
   destroy_agent: ["destroyed an agent", "destroying an agent", "destroy an agent"],
   allocate_power: ["shared out power", "sharing out power", "share out power"],
   look: ["paid for a look", "paying for a look", "pay for a look"],

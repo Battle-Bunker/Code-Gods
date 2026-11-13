@@ -8,8 +8,13 @@ import assert from "node:assert/strict";
 import { instantiate } from "@workspace/game-types";
 import {
   EXACT_TOP, calibrationError, courtTopSample, exactTopFromBoards, headroomShare, mirrorExactTop, mirrorQualifying, ninesExactTop, sentenceCount, tierFloor,
-  tierLayout, tierOf, topTierOf,
+  tierLayout, tierOf, topTierOf, threesCheckCard, threesTopCounts, twoPairExactTop, twoPairTopCounts,
 } from "../scripts/tiered-profile.ts";
+import { context, evaluator, family } from "../src/catalog.ts";
+import { objectType } from "@workspace/game-types";
+import { gridSpec } from "../src/families/grid/_util.ts";
+import { withTiers } from "../src/families/grid/tiers.ts";
+import { threesTiers } from "../src/families/grid/beginner/crosswise_threes.ts";
 import { courtScore } from "../src/families/grid/layered/royal_court.ts";
 import { conditionalTier, mulberry32, type DisjointBase } from "../src/tiers/hybrid.ts";
 
@@ -118,3 +123,55 @@ test("Kings and Subjects at its top: the sample draws four courts and tallies th
   assert.deepEqual(s.hits, [[0, 400], [1, 100]]);
 });
 
+
+test("Two Pair at its top, exactly: the ring of four links over the 45⁴ choices of number pairs", () => {
+  const c = twoPairTopCounts();
+  assert.equal(c.boards, 45 ** 4);
+  // Every choice of four number pairs is counted once, for the links themselves and for linking through one number.
+  assert.equal(c.links.reduce((a, b) => a + b, 0), c.boards);
+  assert.equal(c.via.reduce((a, b) => a + b, 0), c.boards);
+  // All four borders link when the four boxes are a b / b c / c d / d a, and 77,760 of the choices are (docs: 5.72 bits).
+  assert.equal(c.links[4], 77_760);
+  assert.equal(c.via[4], 4_104);
+  assert.equal((-Math.log2(c.links[4] / c.boards)).toFixed(2), "5.72");
+  // A sum tier's histogram is a subset of the links': a link with a total is a link.
+  for (const x of [14, 28, 36]) {
+    const h = c.sums.get(x)!;
+    for (let k = 1; k <= 4; k++) assert.ok(h.slice(k).reduce((a, b) => a + b, 0) <= c.links.slice(k).reduce((a, b) => a + b, 0), `x=${x} k=${k}`);
+  }
+  // Odd totals are dead: a link's eight numbers are 4a + 2b + 2c.
+  assert.deepEqual(c.sums.get(15), [c.boards, 0, 0, 0, 0]);
+  const top = twoPairExactTop("linkSums", 14)!;
+  assert.equal(top.survival[0][1], 1);
+  assert.ok(top.survival.at(-1)![1] > 0 && top.survival.at(-1)![1] < 1e-4, "the top level is rare");
+  assert.equal(twoPairExactTop("equalRoads", 3), null, "roads read arrangements the count cannot see");
+});
+
+test("Crosswise Threes at its top: the sample counts every total in one pass, and the card agrees with the count", () => {
+  for (const n of [500, 2000]) {
+    const c = threesTopCounts(n, 7);
+    // Every board is counted exactly once at every total, for both kinds of unit.
+    for (const counts of [c.lines, c.squares]) {
+      for (let x = 0; x <= 36; x++) {
+        const row = Array.from({ length: 11 }, (_, k) => counts[x * 11 + k]);
+        assert.equal(row.reduce((a, b) => a + b, 0), n, `every board is counted at x=${x}`);
+      }
+    }
+    // There are 10 lines and 9 squares on a board, so that is what the totals share out.
+    const spread = (counts: Float64Array) => Array.from({ length: 37 }, (_, x) => Array.from({ length: 11 }, (_, k) => k * counts[x * 11 + k]).reduce((a, b) => a + b, 0)).reduce((a, b) => a + b, 0);
+    assert.equal(spread(c.lines), 10 * n);
+    assert.equal(spread(c.squares), 9 * n);
+  }
+  // The card reads the same tier the count does, on boards the sampler draws, for both kinds and several totals.
+  const inst = instantiate("Grid", { size: 4, symbols: "base10", colours: "mono" });
+  const f = family("crosswise_threes"), ctx = context(inst), codec = objectType(inst.objectType).codec(inst), col = new Uint8Array(16);
+  for (const v of [{ id: "lines", x: 12 }, { id: "lines", x: 17 }, { id: "squares", x: 18 }]) {
+    const params = withTiers(threesTiers, {}, [v], gridSpec(ctx));
+    const ev = evaluator({ familyId: f.id, params }, inst);
+    const checked = threesCheckCard(v.id as "lines" | "squares", v.x, board => ev(codec.encode({ size: 4, sym: board, col } as never)), 150);
+    assert.equal(checked, 150, `${v.id} x=${v.x}`);
+  }
+  // A draw whose tier the count cannot read is refused rather than silently compared.
+  assert.throws(() => threesCheckCard("lines", 12, () => [6, 0, 99], 1), /the card reads 99/);
+  assert.throws(() => threesCheckCard("lines", 12, () => [5, 0, 0], 1), /scores 5,0,0/);
+});

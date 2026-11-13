@@ -431,3 +431,56 @@ test("debt moves with power in a replay: the recorded amount leaves the agent an
   const old = buildReplay([page([{ seq: 0, at: T0, worldFrom: 0, worldTo: 20, events: events.map(e => { const { owed: _, ...rest } = e as any; return rest; }) }])]);
   assert.equal(godEnergyAt(old, stateAt(old, 6), 0), 100 - 30 + 10 * 2 + 5 * 3);
 });
+
+test("a replaced program in a replay: its god pays the new summon price and nothing else moves (log schema 14)", () => {
+  // P = 4 bits/s, T = 20 s. a1 has half the power (2/s) and pays a 6-bit act at 5 s: it holds 4, and has acted once.
+  const events: ReplayEvent[] = [
+    { type: "phase", phase: "running", worldSeconds: 0 },
+    summon("a1", "me", 30, 0.5),               // me: 100 − 30 = 70, held to 40 (2/s × 20 s)
+    { type: "object.spawned", objectId: "o1", value: 1, version: 0, worldSeconds: 0, net: [1, 1] },
+    { type: "agent.failed", objectId: "o1", agentId: "a1", ownerId: "me", worldSeconds: 5, reason: "Invalid call", cost: charge(6) },
+    { type: "agent.replaced", agentId: "a1", ownerId: "me", worldSeconds: 10, language: "python", source: "new src", summonCost: 25, expectedActCost: 9, breakdown: { read: 1, change: 8 }, randomized: true },
+  ];
+  const replay = buildReplay([page([{ seq: 0, at: T0, worldFrom: 0, worldTo: 20, events }])]);
+  replay.game.settings = { ...replay.game.settings, fullChargeSeconds: 20 };
+  const before = stateAt(replay, 4), after = stateAt(replay, 5);
+  const was = before.agents.get("a1")!, now = after.agents.get("a1")!;
+  assert.equal(godEnergyAt(replay, after, 0), 40 - 25, "my own energy paid the new program's summon price, and only that");
+  assert.equal(after.spent[0], before.spent[0] + 25);
+  assert.equal(after.deities[0].allocated, 0.5, "no power moved");
+  assert.deepEqual([now.account, now.share, now.acts, now.spent, now.summonedAt, now.name], [was.account, was.share, was.acts, was.spent, was.summonedAt, was.name], "the agent's account, share, acts and spending stay");
+  assert.deepEqual([now.source, now.language, now.summonCost, now.expectedActCost, now.randomized], ["new src", "python", 25, 9, true]);
+  assert.equal(was.failureKinds.invalid + was.failureKinds.error, 1);
+  assert.deepEqual([now.transforms, Object.values(now.failureKinds).reduce((a, b) => a + b, 0)], [0, 0], "how the old program's acts ended is not the new program's diagnosis");
+  // The owner sees what it became; another god only that it happened.
+  const shown = (pov: number) => replayEvents(replay, { room: { roomId: "r", roomShortCode: "R" }, cursor: replay.log.length, pov }).events.find(e => e.type === "agent.replaced") as any;
+  assert.deepEqual([shown(0).mine, shown(0).source, shown(0).summonCost], [true, "new src", 25]);
+  assert.deepEqual([shown(1).mine, shown(1).source, shown(1).summonCost], [false, undefined, undefined]);
+});
+
+test("energy moves with power in a replay: the recorded amount leaves the account whose capacity fell (log schema 15)", () => {
+  // P = 4 bits/s, T = 20 s: all of my power holds 80; I start with 100, held to 80.
+  const events: ReplayEvent[] = [
+    { type: "phase", phase: "running", worldSeconds: 0 },
+    // I pay 30 (50 left), then give half my power: I hold at most 40, so 10 went to a1, whose account starts with it.
+    { ...summon("a1", "me", 30, 0.5), account: { balance: 10, settledWorldSeconds: 0 }, held: -10 },
+    // At 10 s a1 holds 10 + 20 = 30 and I am full (40). Half its power is taken: it holds at most 20, so 10 comes to me (my capacity is 60 now).
+    { type: "agent.power", agentId: "a1", ownerId: "me", worldSeconds: 10, share: 0.25, held: 10 },
+    // At 15 s it holds 20 (full) and I hold 50 + 5 s × 3/s = 60 (full). Destroyed: its 20 come to me (capacity 80).
+    { type: "agent.destroyed", agentId: "a1", ownerId: "me", worldSeconds: 15, held: 20 },
+  ];
+  const replay = buildReplay([page([{ seq: 0, at: T0, worldFrom: 0, worldTo: 20, events }])]);
+  replay.game.settings = { ...replay.game.settings, fullChargeSeconds: 20 };
+  const upto = (n: number) => stateAt(replay, n);
+  assert.deepEqual(upto(2).agents.get("a1")!.account, { balance: 10, settledWorldSeconds: 0 });
+  assert.equal(godEnergyAt(replay, upto(2), 0), 40, "80 − 30 − the 10 that went with the power");
+  const lowered = upto(3);
+  assert.deepEqual(lowered.agents.get("a1")!.account, { balance: 20, settledWorldSeconds: 10 });
+  assert.equal(godEnergyAt(replay, lowered, 0), 50, "full at 40, plus the 10 that came back");
+  assert.equal(godEnergyAt(replay, upto(4), 0), 80, "60 and the agent's 20: all my power's capacity, nothing lost");
+  // Without `held` (a log from before schema 15) the same events lose that energy, as those games did.
+  const old = buildReplay([page([{ seq: 0, at: T0, worldFrom: 0, worldTo: 20, events: events.map(e => { const { held: _, ...rest } = e as any; return rest.type === "agent.summoned" ? { ...rest, account } : rest; }) }])]);
+  old.game.settings = { ...old.game.settings, fullChargeSeconds: 20 };
+  assert.equal(godEnergyAt(old, stateAt(old, 3), 0), 40);
+  assert.equal(godEnergyAt(old, stateAt(old, 4), 0), 40 + 5 * 3);
+});

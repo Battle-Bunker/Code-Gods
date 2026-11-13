@@ -12,7 +12,8 @@
  *   --interactions a,b    profile only these interactions (to split a long run over processes)
  *   --check               every dealt and Lab value's shipped table against the reference law at the base's top
  *   --values "a;b"        with --check: only these values, e.g. "sameRoads(y=2);sameRoads(y=3)"
- *   --top-sample N       boards of a sampled reference (Kings and Subjects; default 2,000,000; 0: none)
+ *   --top-sample N       boards of a sampled reference (Kings and Subjects, Crosswise Threes; default 2,000,000;
+ *                        0: none. Crosswise Threes' rarest levels need 20,000,000 to be compared at all.)
  *   --build-time          one fresh build per family: the base and the first dealt value of each interaction
  *   --compare-value V     with --compare: only this value, e.g. "lines(x=18)"
  *   --compose gated|plain|unlock|uncapped   which tiered draws to profile (default gated)
@@ -192,6 +193,53 @@ export function mirrorQualifying(id: string, v: Record<string, unknown>): number
 }
 
 /**
+ * ✌️ Two Pair at its top on 4×4 digits, exactly. Every box holds two different pairs, so a box is a choice of two
+ * numbers out of ten (45 of them) and one of the 6 arrangements of `aabb`; the arrangements cancel for the link tiers,
+ * which read only *which* two numbers each box holds. The four corner boxes make a ring, so the whole law is a count
+ * over the 45⁴ choices: how many of the ring's four borders are links, how many link through one number (which is the
+ * same count for every y, since relabelling digits is a symmetry), and how many link with each total x.
+ *
+ * `equalRoads` is not here: it reads arrangements inside the boxes and roads across them, which do not cancel.
+ */
+export function twoPairTopCounts(): { boards: number; links: number[]; via: number[]; sums: Map<number, number[]> } {
+  const sets: [number, number][] = [];
+  for (let a = 0; a < 10; a++) for (let b = a + 1; b < 10; b++) sets.push([a, b]);
+  const n = sets.length;
+  // shared[i][j]: the one number sets i and j share, or −1 (none, or both: a link shares exactly one).
+  const shared = sets.map(x => sets.map(y => { const c = x.filter(d => y.includes(d)); return c.length === 1 ? c[0] : -1; }));
+  const total = sets.map(([a, b]) => 2 * (a + b));
+  const links = new Array<number>(5).fill(0), via = new Array<number>(5).fill(0), sums = new Map<number, number[]>();
+  for (let x = 0; x <= 72; x++) sums.set(x, new Array<number>(5).fill(0));
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) for (let k = 0; k < n; k++) for (let l = 0; l < n; l++) {
+    const ring: [number, number][] = [[i, j], [j, k], [k, l], [l, i]];
+    let all = 0, v = 0;
+    const hit = new Map<number, number>();
+    for (const [a, b] of ring) {
+      if (shared[a][b] < 0) continue;
+      all++;
+      if (shared[a][b] === 0) v++;   // y = 0; every other y has the same count
+      const t = total[a] + total[b];
+      hit.set(t, (hit.get(t) ?? 0) + 1);
+    }
+    links[all]++; via[v]++;
+    for (const [t, c] of hit) sums.get(t)![c]++;
+  }
+  // `hit` holds only the totals that occurred, so fill in each total's "no link adds up to it" count.
+  const boards = n ** 4;
+  for (const h of sums.values()) h[0] = boards - h.slice(1).reduce((a, b) => a + b, 0);
+  return { boards, links, via, sums };
+}
+let twoPairCache: ReturnType<typeof twoPairTopCounts> | null = null;
+/** Exact P(tier ≥ i | all four boxes hold two different pairs) for one of Two Pair's three link tiers. */
+export function twoPairExactTop(id: string, value: number): ExactTop | null {
+  const c = twoPairCache ??= twoPairTopCounts();
+  const counts = id === "links" ? c.links : id === "linksVia" ? c.via : id === "linkSums" ? c.sums.get(value) : undefined;
+  if (!counts) return null;
+  const how = `exact count over the 45⁴ = ${c.boards.toLocaleString("en")} choices of four number pairs at the top`;
+  return { boards: c.boards, survival: survivalOf(counts.map((n, h) => [h, n] as const), c.boards), how };
+}
+
+/**
  * Kings and Subjects at its top (four courts, no gap) has no product form for its tiers (they read kings and roads
  * across boxes), and the top set is too large to enumerate. An independent check instead: `n` boards drawn uniformly
  * at the top (each corner box an independent uniform court), the tier read through the card. Unbiased, not exact:
@@ -216,7 +264,84 @@ export function courtTopSample(tier: (board: Uint8Array) => number, n: number, s
   for (let i = sorted.length - 1; i >= 0; i--) { above += sorted[i][1]; hits.unshift([sorted[i][0], above]); }
   return { boards: n, survival: survivalOf(sorted, n), hits, how: `sampled, not exact: ${n.toExponential(0)} uniform boards with four courts (${courts.length} courts a box, ${(courts.length ** 4).toExponential(1)} top boards), independent of the hybrid law` };
 }
-/** Boards per draw for `courtTopSample` (`--top-sample N`; 0 turns the check off). */
+/** The uniform top boards of ↙️ Crosswise Threes: each fold pair one of its 14 fillings, each fold-line cell a digit. */
+function* threesTopBoards(n: number, seed: number): Generator<{ board: Uint8Array; lines: Uint8Array; squares: Uint8Array }> {
+  // The fold takes (r, c) to (3 − c, 3 − r); the pairs are the cells with r + c < 3, the fold line r + c = 3.
+  const pairs: [number, number][] = [];
+  for (let r = 0; r < 4; r++) for (let c = 0; r + c < 3; c++) pairs.push([4 * r + c, 4 * (3 - c) + (3 - r)]);
+  const free = [3, 6, 9, 12];
+  const fillings: [number, number][] = [];
+  for (let a = 0; a + 3 <= 9; a++) { fillings.push([a, a + 3]); fillings.push([a + 3, a]); }
+  // The 10 lines (four rows, four columns, the ↘ and the ↙ diagonal) and the 9 overlapping 2×2 squares, as cell indices.
+  const lineCells: number[][] = [], squareCells: number[][] = [];
+  for (let r = 0; r < 4; r++) lineCells.push([0, 1, 2, 3].map(c => 4 * r + c));
+  for (let c = 0; c < 4; c++) lineCells.push([0, 1, 2, 3].map(r => 4 * r + c));
+  lineCells.push([0, 5, 10, 15]); lineCells.push([3, 6, 9, 12]);
+  for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) squareCells.push([4 * r + c, 4 * r + c + 1, 4 * r + 4 + c, 4 * r + 5 + c]);
+  const rand = mulberry32(seed), board = new Uint8Array(16), lines = new Uint8Array(37), squares = new Uint8Array(37);
+  const sum = (cells: number[]) => board[cells[0]] + board[cells[1]] + board[cells[2]] + board[cells[3]];
+  for (let k = 0; k < n; k++) {
+    for (const [i, j] of pairs) { const f = fillings[Math.floor(rand() * fillings.length)]; board[i] = f[0]; board[j] = f[1]; }
+    for (const i of free) board[i] = Math.floor(rand() * 10);
+    lines.fill(0); squares.fill(0);
+    for (const cells of lineCells) lines[sum(cells)]++;
+    for (const cells of squareCells) squares[sum(cells)]++;
+    yield { board, lines, squares };
+  }
+}
+
+/**
+ * ↙️ Crosswise Threes at its top on 4×4 digits. Its top set is every board whose 6 fold pairs are 3 apart and whose 4
+ * fold-line cells are anything: 14⁶ · 10⁴ ≈ 7.5 · 10¹⁰ boards, too many to enumerate and with no product form for a
+ * tier that reads lines across the fold. An independent check instead: `n` boards drawn uniformly at the top, and for
+ * every total x at once, how many of them have exactly h of the 10 lines (and of the 9 squares) adding up to x
+ * (`counts[x * 11 + h]`, as `ninesTopCounts` does for Opposite Nines). One pass serves every dealt value, which is what
+ * makes 2 · 10⁷ boards affordable. The sums are read off the board rather than through the card, so every variant also
+ * runs `threesCheckCard` on a fresh short sample of its own before its count is trusted.
+ */
+export function threesTopCounts(n: number, seed = 1): { lines: Float64Array; squares: Float64Array } {
+  const counts = { lines: new Float64Array(37 * 11), squares: new Float64Array(37 * 11) };
+  for (const { lines, squares } of threesTopBoards(n, seed)) {
+    for (let x = 0; x <= 36; x++) { counts.lines[x * 11 + lines[x]]++; counts.squares[x * 11 + squares[x]]++; }
+  }
+  return counts;
+}
+
+/**
+ * That the count above reads the same tier the card does, for one draw: `n` uniform top boards through the card, whose
+ * base must be at its top and whose tier must be the count taken off the board. Throws on the first disagreement. It
+ * uses its own seed, so it never shares the (cached) big sample and runs for every variant.
+ */
+export function threesCheckCard(kind: "lines" | "squares", x: number, tier: (board: Uint8Array) => Ordinal, n = 200, seed = 99): number {
+  let checked = 0;
+  for (const b of threesTopBoards(n, seed)) {
+    const o = tup(tier(b.board));
+    if (o[0] !== 6 || o[1] !== 0) throw new Error(`crosswise_threes: a sampled top board scores ${o}`);
+    const want = (kind === "lines" ? b.lines : b.squares)[x];
+    if (o[o.length - 1] !== want) throw new Error(`crosswise_threes ${kind} x=${x}: the card reads ${o[o.length - 1]}, the count ${want}`);
+    checked++;
+  }
+  return checked;
+}
+
+const threesCache = new Map<string, ReturnType<typeof threesTopCounts>>();
+/** Sampled P(tier ≥ i | all 6 fold pairs 3 apart) for "lines add up to x" or "2×2 squares add up to x" on 4×4 digits. */
+export function threesTopSample(kind: "lines" | "squares", x: number, n: number, seed = 1): ExactTop {
+  const key = `${n}:${seed}`;
+  let counts = threesCache.get(key);
+  if (!counts) threesCache.set(key, counts = threesTopCounts(n, seed));
+  const of = counts[kind];
+  const row = Array.from({ length: 11 }, (_, h) => [h, of[x * 11 + h]] as const);
+  let above = 0;
+  const hits: [number, number][] = [];
+  for (let i = 10; i >= 0; i--) { above += row[i][1]; if (row[i][1] > 0) hits.unshift([i, above]); }
+  return {
+    boards: n, survival: survivalOf(row, n), hits,
+    how: `sampled, not exact: ${n.toExponential(0)} uniform boards with all 6 pairs 3 apart (14 fillings a pair, 10 digits each free cell), every total x in one pass`,
+  };
+}
+
+/** Boards for a sampled reference, `courtTopSample` and `threesTopSample` (`--top-sample N`; 0 turns them off). */
 export const TOP_SAMPLE = { n: 2_000_000 };
 const digits4 = (inst: Instantiation) => inst.key.replace(/,[a-z]+\)$/, ")") === "Grid(4,base10)";
 
@@ -249,6 +374,24 @@ export const EXACT_TOP: Record<string, (params: Params, inst: Instantiation) => 
       if (first) { first = false; if (o[0] !== 4 || o[1] !== 0) throw new Error(`kings_and_subjects: a sampled top board scores ${o}`); }
       return o[o.length - 1];
     }, TOP_SAMPLE.n);
+  },
+  two_pair: (p, inst) => {
+    const t = tiersOf(p);
+    if (!digits4(inst) || t.length !== 1 || t[0].compose === "unlock") return null;
+    // linkSums folds with 72 − x; the enumeration keys every total, so take the value as dealt.
+    return twoPairExactTop(t[0].id as string, (t[0].x ?? t[0].y ?? 0) as number);
+  },
+  // Not exact: an independent uniform sample of the top (see threesTopSample), with the card checked against it.
+  crosswise_threes: (p, inst) => {
+    const t = tiersOf(p);
+    const kind = t[0].id === "lines" ? "lines" : t[0].id === "squares" ? "squares" : null;
+    if (!digits4(inst) || t.length !== 1 || !kind || t[0].compose === "unlock" || !TOP_SAMPLE.n) return null;
+    const x = t[0].x as number;
+    if (!Number.isInteger(x) || x < 0 || x > 36) return null;
+    const ev = evaluator({ familyId: "crosswise_threes", params: p }, inst), codec = objectType(inst.objectType).codec(inst), col = new Uint8Array(16);
+    // This draw's own short sample through the card first: the count off the board must be the tier the card scores.
+    threesCheckCard(kind, x, board => ev(codec.encode({ size: 4, sym: board, col } as GridValue)));
+    return threesTopSample(kind, x, TOP_SAMPLE.n);
   },
 };
 
@@ -555,9 +698,15 @@ export async function main(argv: readonly string[] = process.argv.slice(2)): Pro
         tierTop: last[0], added: -Math.log2(last[1]), how: e?.how ?? "", sampled: !!e?.hits, rows: rows.map(r => ({ ...r, hits: e?.hits?.find(([t]) => t === r.tier)?.[1] })),
         maxError: trusted.length ? Math.max(...trusted.map(r => r.error!)) : NaN, missed: rows.filter(r => r.error === null).length,
         refTop: e ? e.survival[e.survival.length - 1][0] : NaN, refAdded: e ? -Math.log2(e.survival[e.survival.length - 1][1]) : NaN,
+        // What `maxError` does NOT cover: levels the table claims above the reference's own top, and levels where a
+        // sampled reference has too few boards to trust. A thin sample otherwise reports a clean error over the easy
+        // levels and says nothing about the top, which is the level that matters.
+        aboveReference: e ? Math.max(0, last[0] - e.survival[e.survival.length - 1][0]) : NaN,
+        untrusted: rows.filter(r => r.error !== null).length - trusted.length,
       });
       const c = checks[checks.length - 1];
-      log(`check ${c.id}: ${c.status} +${c.added.toFixed(2)} (reference +${c.refAdded.toFixed(2)}) max error ${c.maxError.toFixed(2)}`);
+      const caveat = [c.aboveReference ? `${c.aboveReference} level(s) above the reference's top` : "", c.untrusted ? `${c.untrusted} under 100 boards` : ""].filter(Boolean);
+      log(`check ${c.id}: ${c.status} +${c.added.toFixed(2)} (reference +${c.refAdded.toFixed(2)}) max error ${c.maxError.toFixed(2)}${caveat.length ? ` — NOT COMPARED: ${caveat.join(", ")}` : ""}`);
     }
   }
 
@@ -591,6 +740,10 @@ interface SweepRow {
 interface CheckRow {
   id: string; family: string; interaction: string; status: string; source: string; levels: number; top: number; baseTop: number; tierTop: number[]; added: number;
   how: string; sampled: boolean; rows: (TierError & { hits?: number })[]; maxError: number; missed: number; refTop: number; refAdded: number;
+  /** Tier levels the table claims above the reference's own top: never compared, however clean `maxError` looks. */
+  aboveReference: number;
+  /** Levels with a reference error that a sampled reference has too few boards (under 100) to trust. */
+  untrusted: number;
 }
 interface BuildRow { id: string; kind: string; levels: number; seconds: number }
 
@@ -642,9 +795,9 @@ export function markdown(r: { variants: VariantReport[]; pairs: PairReport[]; ga
     ...r.sweep.map(s => `| ${s.family} | ${s.interaction} | ${s.param} = ${s.values.join(", ")} | ${s.status} | ${s.live ? `${key(s.live.tierMin)}–${key(s.live.tierTop)}` : "–"} | ${s.live ? s.live.shareAtTop.toExponential(2) : "–"} | ${s.live ? f(s.live.addedBits) : "–"} | ${f(s.exactAdded)} | ${f(s.exactTop, 0)} | ${f(s.exactMax, 2)}${s.exactMissed ? ` (${s.exactMissed} missed)` : ""} | ${s.live ? f(s.live.seconds) : "–"} | ${s.live ? s.live.problems.join("; ") || "alive" : s.error} |`), "");
   if (r.checks?.length) out.push("### Shipped tables against the reference law at the base's top", "",
     "Bits of P(tier ≥ i | base at its top): table / reference at every tier level of the reference (a sampled reference shows its boards at that level in brackets; its max error counts only levels with at least 100 boards).", "",
-    "| variant | status | table levels | table top | tier top | added bits (table) | added bits (reference) | levels: tier table/reference | max error (bits) | levels missed | reference |",
-    "|---|---|--:|--:|--:|--:|--:|---|--:|--:|---|",
-    ...r.checks.map(c => `| ${c.id} | ${c.status} | ${f(c.levels, 0)} | ${f(c.top, 2)} | ${key(c.tierTop)} | ${f(c.added, 2)} | ${f(c.refAdded, 2)}${c.sampled ? ` at ${c.refTop}` : ""} | ${c.rows.map(x => `${x.tier}: ${f(x.hybrid, 2)}/${f(x.exact, 2)}${x.hits === undefined ? "" : ` [${x.hits}]`}`).join(", ")} | ${f(c.maxError, 2)} | ${c.missed} | ${c.how} |`), "");
+    "| variant | status | table levels | table top | tier top | added bits (table) | added bits (reference) | levels: tier table/reference | max error (bits) | not compared | levels missed | reference |",
+    "|---|---|--:|--:|--:|--:|--:|---|--:|---|--:|---|",
+    ...r.checks.map(c => `| ${c.id} | ${c.status} | ${f(c.levels, 0)} | ${f(c.top, 2)} | ${key(c.tierTop)} | ${f(c.added, 2)} | ${f(c.refAdded, 2)}${c.sampled ? ` at ${c.refTop}` : ""} | ${c.rows.map(x => `${x.tier}: ${f(x.hybrid, 2)}/${f(x.exact, 2)}${x.hits === undefined ? "" : ` [${x.hits}]`}`).join(", ")} | ${f(c.maxError, 2)} | ${[c.aboveReference ? `${c.aboveReference} above the reference` : "", c.untrusted ? `${c.untrusted} under 100 boards` : ""].filter(Boolean).join("; ") || "–"} | ${c.missed} | ${c.how} |`), "");
   if (r.builds?.length) out.push("### One fresh build", "", "| draw | estimator | levels | seconds |", "|---|---|--:|--:|",
     ...r.builds.map(b => `| ${b.id} | ${b.kind} | ${b.levels} | ${f(b.seconds)} |`), "");
   return out.join("\n");

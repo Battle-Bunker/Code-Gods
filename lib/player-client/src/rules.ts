@@ -19,7 +19,7 @@ const lookPrice = (s: Settings): string => {
 };
 /** ", up to a full store..." when these settings give accounts a capacity (fullChargeSeconds), else "." (a game from before it). */
 const capacityText = (s: Settings): string => typeof s.fullChargeSeconds === "number"
-  ? `, until it is full: an agent holds at most ${n(s, "fullChargeSeconds")} seconds of its income (a 25% share: ${(0.25 * Number(s.powerPerSecond ?? 8) * s.fullChargeSeconds).toFixed(0)} bits), and your own energy at most ${n(s, "fullChargeSeconds")} seconds of your unallocated power. Energy fills up in ${n(s, "fullChargeSeconds")} seconds and then stops: use it or re-allocate it. Taking power from an agent lowers what it can hold, and what it holds above that is lost.`
+  ? `, until it is full: an agent holds at most ${n(s, "fullChargeSeconds")} seconds of its income (a 25% share: ${(0.25 * Number(s.powerPerSecond ?? 8) * s.fullChargeSeconds).toFixed(0)} bits), and your own energy at most ${n(s, "fullChargeSeconds")} seconds of your unallocated power. Energy fills up in ${n(s, "fullChargeSeconds")} seconds and then stops: use it or re-allocate it. Taking power from an agent lowers what it can hold, and what it holds above that comes to you with the power.`
   : ".";
 
 /**
@@ -68,8 +68,9 @@ Looking is ${CHANGE_READ_RATIO}× cheaper than changing: each bit of the object 
 So look before you change, return no calls when nothing is worth doing (a skip: it pays only what it read), and save energy to act more often.
 ${changeCostExplained(s as Parameters<typeof changeCostExplained>[0], costModelOf(s))}
 An act may cost more than the agent has: it then owes the rest and gets no turns until its income has repaid it.${typeof s.fullChargeSeconds === "number" ? ` It may owe at most what it can hold, so a change that would leave it owing more does not happen (the act fails with "could not afford this change" and pays only what it read): big changes need a big power share.
-What an account owes goes wherever its power goes: if you destroy an agent that owes, or take power from it, what it owes (or the same part of it) becomes yours, out of your own energy, which can then be below zero; you cannot summon until your own income has repaid it. If you owe and give an agent power, it takes the same part of your debt.` : ""}
-You may destroy your own agents at any time, for free (their power share comes back to you${typeof s.fullChargeSeconds === "number" ? ", and so does anything they owe" : ""}).
+What an account holds or owes beyond what its power supports goes where the power goes: lower an agent's share (or destroy it) and the energy it holds above its new limit, or the same part of what it owes, becomes yours; give an agent power and it takes what you hold above your new limit, or the same part of what you owe. Nothing is lost by moving power. While you owe, you cannot summon until your own income has repaid it.` : ""}
+Replacing an agent's program costs what summoning it would; everything else stays (its name, its power share and the energy it holds).
+You may destroy your own agents at any time, for free (their power share comes back to you${typeof s.fullChargeSeconds === "number" ? ", and so does anything they hold or owe" : ""}).
 At most ${n(s, "maxAgentsPerGod", 200)} agents per god.
 
 ## Energy and timing

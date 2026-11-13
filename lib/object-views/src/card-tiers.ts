@@ -3,7 +3,7 @@
  * text splits into the base rule and its blocks, when a block opens by itself, and the bonus line of a closed block.
  * A card without `tiers` (every base draw, and every card stored before tiers existed) is its summary, unchanged.
  */
-import { tierPoints, type Ordinal } from "@workspace/game-utilities";
+import { signedPoints, tierName, type Ordinal } from "@workspace/game-utilities";
 
 /** One ★ block as the card carries it (game-utilities `CardTier`). */
 export interface CardTierLike {
@@ -52,10 +52,15 @@ export function tierOpens(t: CardTierLike, ordinal: Ordinal | null | undefined):
   return !!ord && (ord[0] >= t.gate || tierSlice(t, ord).some(x => x > 0));
 }
 
-/** A closed block's line when the board has tier points: "Bonus: 2 tertiary points; open ★ to see why." Else null. */
+/**
+ * A closed block's line when the board already holds some of this tier: "Bonus: +2 to your tertiary rule score; open ★
+ * to see why." Else null. It says "rule score", never the reserved word "points" (card-text.ts).
+ */
 export function tierBonus(t: CardTierLike, ordinal: Ordinal | null | undefined): string | null {
   const ord = asArray(ordinal);
   if (!ord) return null;
   const won = tierSlice(t, ord).map((x, k) => [x, t.index + k] as const).filter(([x]) => x > 0);
-  return won.length ? `Bonus: ${won.map(([x, k]) => tierPoints(x, k, ord.length)).join(", ")}; open ★ to see why.` : null;
+  return won.length
+    ? `Bonus: ${won.map(([x, k]) => `${signedPoints(x)} to your ${tierName(k)} rule score`).join(", ")}; open ★ to see why.`
+    : null;
 }

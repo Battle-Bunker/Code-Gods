@@ -7,7 +7,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  FIRST_AGENT_HINT, STARTER_AGENT_HINT, armedStep, armedText, energyHint, firstAgentFill, firstAgentHint, untouchedExample, lacksEnergy, readyText, summonReady, summonedText, COPY_HINT, REPLACE_WHY, PENDING_REPLACE_MS, pendingReplaceOnReceipt, pendingReplaceOnSend, replaceBlocked, sameVersionNote, bothText, draftOrigin, replaceLabel, replaceOffer, replaceShare, replaceStep, replacedText, FIRST_SUMMON_MAX_AGE_MS, FIRST_SUMMON_WARMING_MS, firstSummonLabel, isCopy, replaceNeedsConfirm, firstSummonStep, nextFreeName, proposedName, secondAgentHint, storeAfterSummonText, type ArmedSummon, type Examples, type FirstAgentState,
+  FIRST_AGENT_HINT, STARTER_AGENT_HINT, armedStep, armedText, energyHint, firstAgentFill, firstAgentHint, untouchedExample, lacksEnergy, readyText, summonReady, summonedText, COPY_HINT, REPLACE_WHY, starterSwap, DIFFERENT_IDEAS, PRICE_AFTER_CHECK, replaceQuestion, shelfOpen, starterShelf, COMPARISON_CAVEAT, previousTarget, putBackLabel, putBackText, BUSY_NOTHING_CHANGED, afterCheck, checkedLine, replaceLoss, versionComparison, PENDING_REPLACE_MS, pendingReplaceOnReceipt, pendingReplaceOnSend, replaceBlocked, sameVersionNote, bothText, draftOrigin, replaceLabel, replaceOffer, replaceShare, replaceStep, replacedText, FIRST_SUMMON_MAX_AGE_MS, FIRST_SUMMON_WARMING_MS, firstSummonLabel, isCopy, replaceNeedsConfirm, firstSummonStep, nextFreeName, proposedName, secondAgentHint, storeAfterSummonText, type ArmedSummon, type Examples, type FirstAgentState,
 } from "../src/core/panels/first-agent.ts";
 
 const py = { name: "Mirror maker", source: "# My goal: mirrors\ndef agent(grid):\n    return []\n", specific: true };
@@ -255,4 +255,109 @@ test("replace: the new version is summoned first, and the old one is destroyed o
   assert.equal(replacedText("Simple spread keeper", { share: 0.25, oldShare: 0.5 }), "Replaced: Simple spread keeper now runs your new version. It has 25% of your power (the old one had 50%); raise it in My agents.");
   assert.equal(replacedText("Simple spread keeper", { share: undefined, oldShare: 0.5 }), "Replaced: Simple spread keeper now runs your new version. Its share of your power may differ from the old one's (50%); check it in My agents.");
   assert.equal(bothText("Simple spread keeper", "No such agent"), "The new version of Simple spread keeper is in the game, but the old one could not be destroyed (No such agent). Both are running: destroy the old one in My agents.");
+});
+
+test("one press: the check goes straight on when the code is valid and payable, and stops with the reason otherwise", () => {
+  assert.equal(afterCheck({ accepted: true, valid: true, cost: 174, energy: 400 }), "go");
+  assert.equal(afterCheck({ accepted: true, valid: false, cost: 0, energy: 400 }), "invalid");
+  assert.equal(afterCheck({ accepted: false, valid: undefined, cost: undefined, energy: 400 }), "invalid", "the sandbox was not ready: the forge says so");
+  assert.equal(afterCheck(undefined), "invalid", "no answer");
+  assert.equal(afterCheck({ accepted: true, valid: true, cost: 425, energy: 226 }), "short", "valid but not payable yet: the energy line says when");
+  assert.equal(afterCheck({ accepted: true, valid: true, cost: 174, energy: 174 }), "go");
+  assert.equal(checkedLine(174.382, "replace"), "Checked: 174.4 ⚡. Replacing…");
+  assert.equal(checkedLine(174, "summon"), "Checked: 174 ⚡. Summoning…");
+});
+
+test("a replace says what the moment with two versions cost the player's own store", () => {
+  // 64 ⚡/s, full in 30 s. The old agent has 50%, nothing else: your store holds 960. The new version takes 25% of
+  // what is free: during the overlap you keep 25% = 480. With 737 − 174 = 563 left after paying, 83 is above 480 and is lost.
+  assert.equal(replaceLoss({ energy: 737, cost: 174, allocated: 0.5, share: 0.25, powerPerSecond: 64, fullChargeSeconds: 30 }), 83);
+  assert.equal(replaceLoss({ energy: 300, cost: 174, allocated: 0.5, share: 0.25, powerPerSecond: 64, fullChargeSeconds: 30 }), 0, "what is left fits the smaller store");
+  assert.equal(replaceLoss({ energy: 737, cost: 174, allocated: 0.5, share: 0.5, powerPerSecond: 64, fullChargeSeconds: 30 }), 563, "everything given away for a moment: the store holds nothing");
+  assert.equal(replaceLoss({ energy: 737, cost: 174, allocated: 0.5, share: 0.25, powerPerSecond: 64, fullChargeSeconds: undefined }), 0, "a game without capacity loses nothing");
+  // The price and what moved are said together, and the move is plainly not a charge: nothing is lost, and the store refills in so many seconds.
+  assert.equal(replacedText("Keeper", { share: 0.5, oldShare: 0.5, cost: 178.4, lost: 782, refill: 24.4 }),
+    "Replaced: Keeper now runs your new version for 178 ⚡. While the two versions overlapped, your own store was smaller, so 782 ⚡ of your stored energy went to the new version: it is not lost, and your own store refills in about 24 s.");
+  assert.equal(replacedText("Keeper", { share: 0.5, oldShare: 0.5, lost: 83 }), "Replaced: Keeper now runs your new version. While the two versions overlapped, your own store was smaller, so 83 ⚡ of your stored energy went to the new version: it is not lost.");
+  assert.equal(replacedText("Keeper", { share: 0.5, oldShare: 0.5, cost: 178.4, lost: 0.4, refill: 1 }), "Replaced: Keeper now runs your new version for 178 ⚡.", "under 1 ⚡: not said");
+  assert.equal(replacedText("Keeper", { share: 0.5, oldShare: 0.5, lost: 0.2 }), "Replaced: Keeper now runs your new version.");
+});
+
+test("did the change help: before against the new version's FIRST moves, frozen at 20, with the caveat", () => {
+  const before = { moves: 20, points: 162, objects: 9 };
+  assert.equal(versionComparison(before, { moves: 7, points: 300 }), null, "fewer than 8 counted moves: too early to say");
+  assert.equal(versionComparison(before, undefined), null);
+  assert.equal(versionComparison(before, { moves: 12, points: 267.6, frozen: false }), "Before your change: +8.1 points a move. Since: +22.3 a move so far, over its first 12 moves.");
+  assert.equal(versionComparison(before, { moves: 20, points: -70, frozen: true }), "Before your change: +8.1 points a move. Since: −3.5 a move over its first 20 moves.");
+  assert.equal(versionComparison(undefined, { moves: 20, points: -70, frozen: true }), "Since your change: −3.5 points a move over its first 20 moves. Nothing was counted for the version before it.");
+  assert.equal(versionComparison({ moves: 0, points: 0 }, { moves: 9, points: 18 }), "Since your change: +2 points a move so far, over its first 9 moves. Nothing was counted for the version before it.");
+  assert.equal(versionComparison(before, { moves: 20, points: -70, frozen: true }, { estimate: true }), "Before your change: about +8.1 points a move. Since: about −3.5 a move over its first 20 moves.");
+  // After a put-back: how the restored version is doing, in the same terms.
+  assert.equal(versionComparison(undefined, { moves: 20, points: 720, frozen: true }, { restored: true }), "Back on the previous version: +36 points a move over its first 20 moves since.");
+  assert.equal(versionComparison(undefined, { moves: 9, points: 90 }, { restored: true }), "Back on the previous version: +10 points a move so far, over its first 9 moves since.");
+  assert.equal(COMPARISON_CAVEAT, "Every agent earns most just after it starts, so read this as a rough guide; your total points over the next minute are the real test.");
+});
+
+test("the previous version belongs to one game and one agent: never a twin with the same code, never the next game", () => {
+  const previous = { gameId: "g1", source: "OLD", language: "python", name: "Keeper", newSource: "NEW", knownIds: ["a1", "a2"] };
+  const live = [{ id: "a2", source: "NEW" }, { id: "a7", source: "NEW" }, { id: "a3", source: "OTHER" }];
+  // Not yet identified: the agent with the new code that did not exist when Replace was pressed (a2 did: it is a twin).
+  assert.deepEqual(previousTarget(previous, "g1", live), { adopt: "a7" });
+  assert.deepEqual(previousTarget(previous, "g1", [live[0], live[2]]), { wait: true }, "the new agent is not in the list yet");
+  // Identified: only that agent, while it lives.
+  assert.deepEqual(previousTarget({ ...previous, agentId: "a7" }, "g1", live), { target: "a7" });
+  assert.deepEqual(previousTarget({ ...previous, agentId: "a7" }, "g1", [live[0]]), { clear: true }, "destroyed (or replaced again): the memory goes");
+  assert.deepEqual(previousTarget({ ...previous, agentId: "a7" }, "g2", live), { clear: true }, "another game");
+  assert.deepEqual(previousTarget(previous, undefined, live), { wait: true }, "the game is not known yet");
+  assert.deepEqual(previousTarget(null, "g1", live), { none: true });
+});
+
+test("putting the previous version back is a paid summon and says so, before and after", () => {
+  assert.equal(putBackLabel(169.2), "Put the previous version back · costs 169.2 ⚡");
+  assert.equal(putBackLabel(undefined), "Put the previous version back · costs its summon price again");
+  assert.equal(putBackText("Keeper", {}), "Put back: Keeper runs the previous version again.");
+  assert.equal(putBackText("Keeper", { cost: 169.2, lost: 83, refill: 5.2 }), "Put back: Keeper runs the previous version again for 169 ⚡. While the two versions overlapped, your own store was smaller, so 83 ⚡ of your stored energy went to the new version: it is not lost, and your own store refills in about 5 s.");
+  assert.equal(BUSY_NOTHING_CHANGED, "The game is busy; nothing changed. Try again.");
+});
+
+test("the starter shelf: ready-made agents to pick without typing, each marked by where it already is", () => {
+  const starters = [
+    { id: "tiny", title: "Simple", blurb: "A short agent that costs little to summon and does the simple part of my goal.", name: "Simple spread keeper", source: "S", specific: true },
+    { id: "thorough", title: "Thorough", blurb: "A longer agent that chases every part of my goal. It costs more to summon.", name: "Spread keeper", source: "T", specific: true },
+    { id: "bold", title: "Bold", blurb: "Bigger changes each turn.", name: "Bold spread keeper", source: "B", specific: true },
+  ];
+  const rows = starterShelf(starters, { source: "S", agents: [{ source: "S", name: "Simple spread keeper" }, { source: "B", name: "Bold spread keeper" }] });
+  assert.deepEqual(rows.map(r => [r.id, r.state]), [["tiny", "editor"], ["thorough", "available"], ["bold", "running"]]);
+  // The blurbs are the player's own goal, said to the player.
+  assert.equal(rows[0].blurb, "A short agent that costs little to summon and does the simple part of your goal.");
+  assert.equal(rows[1].note, PRICE_AFTER_CHECK);
+  assert.equal(rows[0].note, "In the editor now.");
+  assert.equal(rows[2].note, "You are running this one (Bold spread keeper).");
+  assert.equal(PRICE_AFTER_CHECK, "Its price is shown after Check.");
+  // A starter that does not chase the goal is not offered as a choice beside real ones; alone, it stays.
+  const fallback = { id: "careful", title: "Careful", blurb: "A starter that does not chase my goal yet.", name: "First agent", source: "F", specific: false };
+  assert.deepEqual(starterShelf([fallback], { source: "", agents: [] }).map(r => r.id), ["careful"]);
+  assert.equal(replaceQuestion("Thorough"), "Replace the code in the editor with the Thorough agent? Your summoned agents are not affected.");
+  assert.equal(DIFFERENT_IDEAS, "Two agents with different ideas can undo each other's work; watch your points.");
+});
+
+test("the shelf opens by itself once the player has an agent and the energy for another like it", () => {
+  assert.equal(shelfOpen({ agents: [], energy: 960 }), false, "before the first agent: closed");
+  assert.equal(shelfOpen({ agents: [{ summonCost: 170 }], energy: 480 }), true);
+  assert.equal(shelfOpen({ agents: [{ summonCost: 170 }], energy: 120 }), false, "not enough to spare");
+  assert.equal(shelfOpen({ agents: [{ summonCost: undefined }], energy: 120 }), true, "no price known: about 100 is enough");
+  assert.equal(shelfOpen({ agents: [{ summonCost: 170 }], energy: 480, ended: true }), false);
+});
+
+test("switching the language swaps an untouched starter of any kind for the same starter in the new language", () => {
+  const byLanguage = {
+    python: [{ id: "tiny", source: "PY-S" }, { id: "thorough", source: "PY-T" }],
+    typescript: [{ id: "tiny", source: "TS-S" }, { id: "thorough", source: "TS-T" }],
+  };
+  assert.equal(starterSwap("PY-T", "typescript", byLanguage), "TS-T", "the Thorough one stays the Thorough one");
+  assert.equal(starterSwap("PY-S", "typescript", byLanguage), "TS-S");
+  assert.equal(starterSwap("TS-T", "typescript", byLanguage), null, "already this language's");
+  assert.equal(starterSwap("PY-T edited", "typescript", byLanguage), null, "the player's own code is never swapped");
+  assert.equal(starterSwap("PY-T", "typescript", { python: byLanguage.python, typescript: [{ id: "tiny", source: "TS-S" }] }), null, "no such starter in the new language: left alone");
+  assert.equal(starterSwap("", "typescript", byLanguage), null);
 });

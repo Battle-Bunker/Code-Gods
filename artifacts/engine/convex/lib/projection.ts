@@ -224,19 +224,29 @@ export function projectEvent(ev: Ev, godId: string, index: number, live = true) 
       type: "agent.summoned" as const, agentId: ev.agentId, mine, worldSeconds: ev.world,
       ...(mine ? {
         name: ev.name, ...(ev.description ? { description: ev.description } : {}), language: ev.language, source: ev.source, summonCost: ev.summonCost, expectedActCost: ev.expectedActCost,
-        ...(ev.powerShare !== undefined ? { powerShare: ev.powerShare } : {}),
+        ...(ev.powerShare !== undefined ? { powerShare: ev.powerShare } : {}), ...(ev.held !== undefined ? { held: ev.held } : {}),
         breakdown: costBreakdown(ev.breakdown), randomized: ev.randomized, account: ev.account,
       } : {}),
+    };
+  }
+  if (ev.t === "replace") {
+    // As a summon: the owner's own while the game is live; after the end everyone sees that it happened, the owner what.
+    const mine = ev.ownerId === godId;
+    if (live && !mine) return null;
+    return {
+      type: "agent.replaced" as const, agentId: ev.agentId, mine, worldSeconds: ev.world,
+      ...(mine ? { ...(ev.description ? { description: ev.description } : {}), language: ev.language, source: ev.source, summonCost: ev.summonCost, expectedActCost: ev.expectedActCost,
+        breakdown: costBreakdown(ev.breakdown), randomized: ev.randomized } : {}),
     };
   }
   if (ev.t === "destroy") {
     const mine = ev.ownerId === godId;
     // `owed` (the debt that moved to its god with its power, §7.2) is the owner's own account: theirs alone while live.
-    return live && !mine ? null : { type: "agent.destroyed" as const, agentId: ev.agentId, mine, worldSeconds: ev.world, ...(mine && ev.owed !== undefined ? { owed: ev.owed } : {}) };
+    return live && !mine ? null : { type: "agent.destroyed" as const, agentId: ev.agentId, mine, worldSeconds: ev.world, ...(mine && ev.owed !== undefined ? { owed: ev.owed } : {}), ...(mine && ev.held !== undefined ? { held: ev.held } : {}) };
   }
   if (ev.t === "power") {
     if (ev.ownerId !== godId) return null;
-    return { type: "agent.power" as const, agentId: ev.agentId, worldSeconds: ev.world, share: ev.share, ...(ev.owed !== undefined ? { owed: ev.owed } : {}) };
+    return { type: "agent.power" as const, agentId: ev.agentId, worldSeconds: ev.world, share: ev.share, ...(ev.owed !== undefined ? { owed: ev.owed } : {}), ...(ev.held !== undefined ? { held: ev.held } : {}) };
   }
   if (ev.t === "look") {
     // A god's looks are its own while the game is live (what it chose to watch says what it cares about).
@@ -306,11 +316,16 @@ export function replayEvent(ev: Ev) {
     case "summon": return {
       type: "agent.summoned" as const, agentId: ev.agentId, ownerId: ev.ownerId, worldSeconds: ev.world, language: ev.language, source: ev.source,
       ...(ev.name ? { name: ev.name } : {}), ...(ev.description ? { description: ev.description } : {}),
-      summonCost: ev.summonCost, expectedActCost: ev.expectedActCost, ...(ev.powerShare !== undefined ? { powerShare: ev.powerShare } : {}),
+      summonCost: ev.summonCost, expectedActCost: ev.expectedActCost, ...(ev.powerShare !== undefined ? { powerShare: ev.powerShare } : {}), ...(ev.held !== undefined ? { held: ev.held } : {}),
       breakdown: costBreakdown(ev.breakdown), randomized: ev.randomized, account: ev.account,
     };
-    case "destroy": return { type: "agent.destroyed" as const, agentId: ev.agentId, ownerId: ev.ownerId, worldSeconds: ev.world, ...(ev.owed !== undefined ? { owed: ev.owed } : {}) };
-    case "power": return { type: "agent.power" as const, agentId: ev.agentId, ownerId: ev.ownerId, worldSeconds: ev.world, share: ev.share, ...(ev.owed !== undefined ? { owed: ev.owed } : {}) };
+    case "replace": return {
+      type: "agent.replaced" as const, agentId: ev.agentId, ownerId: ev.ownerId, worldSeconds: ev.world, language: ev.language, source: ev.source,
+      ...(ev.description ? { description: ev.description } : {}), summonCost: ev.summonCost, expectedActCost: ev.expectedActCost,
+      breakdown: costBreakdown(ev.breakdown), randomized: ev.randomized,
+    };
+    case "destroy": return { type: "agent.destroyed" as const, agentId: ev.agentId, ownerId: ev.ownerId, worldSeconds: ev.world, ...(ev.owed !== undefined ? { owed: ev.owed } : {}), ...(ev.held !== undefined ? { held: ev.held } : {}) };
+    case "power": return { type: "agent.power" as const, agentId: ev.agentId, ownerId: ev.ownerId, worldSeconds: ev.world, share: ev.share, ...(ev.owed !== undefined ? { owed: ev.owed } : {}), ...(ev.held !== undefined ? { held: ev.held } : {}) };
     case "look": return { type: "god.looked" as const, ownerId: ev.ownerId, worldSeconds: ev.world, price: ev.cost, count: ev.count, ...(ev.objectId ? { objectId: ev.objectId } : {}) };
   }
 }

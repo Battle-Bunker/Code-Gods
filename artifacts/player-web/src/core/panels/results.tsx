@@ -68,7 +68,9 @@ export default function Results({ params, phase }: PanelProps<"results">) {
     ? `You finished ${finishPlace(rows, mine)} of ${rows.length} with ${fmt(mine.total)} points${note ? ` (${note})` : ""}.${live && best[0] ? ` Your best object gave you ${fmt(best[0].payoff)} points${worst[0] && worst[0].payoff < 0 ? `; your worst took ${fmt(-worst[0].payoff)}` : ""}.` : ""}`
     : "You didn't play in this game.";
   return (
-    <div className="space-y-5" data-testid="panel-results">
+    // The pane scrolls inside itself; the padding lets its last element scroll clear of the pane's bottom edge (the
+    // replay bar sits right under the dock).
+    <div className="space-y-5 pb-10" data-testid="panel-results">
       {next}
       {/* The outcome is the panel's headline; once this game has ended, the next step is the room (its next game). */}
       <p className="font-serif text-xl font-semibold leading-snug" data-testid="text-results-headline">{record ? `Game ${record.shortCode}: ` : ""}{why}</p>
@@ -111,6 +113,9 @@ export default function Results({ params, phase }: PanelProps<"results">) {
         // nothing to say so: the link above brings it into view, and the sentences come before the chart.
         <div ref={whySection} data-testid="section-results-why" className="scroll-mt-2">
         <Section title="Why: your best and worst objects">
+          {/* The chart first, at its own modest height (it scales down to the pane), then the objects it is about. */}
+          {chart.some(c => c.points.length > 1) && <LineChart width={400} height={150} xLabel="world s" yLabel="points" format={fmt}
+            series={chart} />}
           <p className="text-xs text-muted-foreground" data-testid="text-results-formula">Each object's points: your ✨ rarity × how much the others want it. Your total is every object's points added up.</p>
           <ul className="space-y-1 text-xs">
             {[...best, ...worst].map(o => ({ o, line: productText(o.own.netBits, o.peerCare, o.payoff) })).map(({ o, line }) => (
@@ -126,8 +131,6 @@ export default function Results({ params, phase }: PanelProps<"results">) {
               </li>
             ))}
           </ul>
-          {chart.some(c => c.points.length > 1) && <LineChart width={400} height={150} xLabel="world s" yLabel="points" format={fmt}
-            series={chart} />}
         </Section>
         </div>
       )}

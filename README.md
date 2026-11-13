@@ -150,7 +150,7 @@ Agent, the `pnpm player` CLI and the in-client assistant all use the same tool r
     `evaluate_value`, `get_utility_series`, `get_board_at`, `list_games`, `get_game_history`, `get_replay`.
   - *Analyse:* `run_code` (Python or TypeScript over named datasets, read-only), `list_utility_candidates`,
     `fit_utility_mixture`.
-  - *Act:* `validate_agent` (free), `summon_agent`, `destroy_agent`, `send_chat` (public), `pause_game`,
+  - *Act:* `validate_agent` (free), `summon_agent`, `replace_agent`, `destroy_agent`, `send_chat` (public), `pause_game`,
     `set_ready`, `get_receipt`.
   - *Shape the player's screen:* `get_layout`, `open_panel`, `set_panel_params`, `move_pane`, `close_pane`,
     `save_panel` and the other panel tools.

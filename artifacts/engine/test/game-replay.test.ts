@@ -75,7 +75,7 @@ test("an ended game's replay, cut at any snapshot, rebuilds the whole engine sta
   };
   assert.equal((await ada.c.query(api.games.resolve, { code: game.shortCode })).ended, true, "the client opens an ended game as its replay");
   const final = snapshots.at(-1);
-  assert.ok(final.batches.every((b: any) => b.schema === 13), "every batch carries the event schema");
+  assert.ok(final.batches.every((b: any) => b.schema === 15), "every batch carries the event schema");
   // The live scoreboard's publications (docs/public-log-design.md §3) are marked in the log: the start, then only
   // batches reaching the next 10 s multiple of world time (the default interval), then the end. Stored totals stay
   // exact on every scoring batch, so this ended game's replay below steps per event.
@@ -111,7 +111,7 @@ test("an ended game's replay, cut at any snapshot, rebuilds the whole engine sta
   const pages = adaPages;
   assert.ok(pages.length > 1, "the replay pages");
   assert.ok(pages.some(p => p.eventOffset !== undefined), "a batch larger than a page is split across pages");
-  assert.equal(pages[0].game.logSchema, 13);
+  assert.equal(pages[0].game.logSchema, 15);
   // Fully revealed: every god's dealt utility and card, the end deadline, every agent's source (Bo's marker too), every act's seed.
   assert.equal(pages[0].game.endAtWorld, final.game.endAtWorld);
   assert.deepEqual(pages[0].gods!.map(g => [g.godId, g.utility, g.card]), [...final.deities].sort((a: any, b: any) => a.index - b.index).map((d: any) => [d.godId, d.utility, d.card]));

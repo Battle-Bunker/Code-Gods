@@ -99,6 +99,8 @@ export type PaletteActions = {
   /** `watch` opens the ended game's replay (its page); the others drive the replay on screen. */
   replay: { watch(): void; toggle(): void; start(): void; end(): void };
   notify(text: string): void;
+  /** A notice that stays until dismissed (a definition to read); absent: `notify`. */
+  notifyKept?(text: string): void;
 };
 
 const OK: Availability = { ok: true };
@@ -331,7 +333,7 @@ export function playerCommands(s: PaletteState, a: PaletteActions): Command[] {
       pick("Explain a term", GLOSSARY_IDS.map(id => ({ id, label: GLOSSARY[id].term, detail: GLOSSARY[id].gloss })), id => {
         const { term, gloss } = GLOSSARY[id as keyof typeof GLOSSARY];
         if (s.assistantOn) a.assistant.handoff(`Explain "${term}" in this game, with an example from my situation.`);
-        else a.notify(`${term}: ${gloss}`);
+        else (a.notifyKept ?? a.notify)(`${term}: ${gloss}`);
       }), { keywords: ["glossary", "help", "what is", "meaning"] }),
   ];
 

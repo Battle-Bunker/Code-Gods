@@ -8,7 +8,7 @@ import { bindRuntime, sandboxGate } from "./engine/runtime";
  */
 import { ConvexError, v } from "convex/values";
 import type { Language } from "@workspace/game-core";
-import { EXAMINATION_DEADLINE_MS, envelopeSchema, type CommandResult } from "@workspace/player-client";
+import { EXAMINATION_DEADLINE_MS, envelopeSchema, examinesProgram, type CommandResult } from "@workspace/player-client";
 import { internal } from "./_generated/api";
 import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { AgentFault, examinationKey, examineAgent, type StoredExamination } from "./engine/pricing";
@@ -34,7 +34,7 @@ export async function runEnvelope(ctx: ActionCtx, roomId: string, raw: unknown, 
   }
   let examined: { gameId: string; source: string; language: Language; error?: string; twins?: number; result?: Awaited<ReturnType<typeof examineAgent>> } | undefined;
   const command = envelope.command;
-  if (prepared.examine && (command.type === "validate" || command.type === "summon")) {
+  if (prepared.examine && examinesProgram(command)) {
     // A cold sandbox is never waited for: the caller is told it is warming (nothing examined, claimed or receipted).
     const notReady = await sandboxGate(ctx, command.language);
     if (notReady) {
@@ -62,7 +62,7 @@ export async function runEnvelope(ctx: ActionCtx, roomId: string, raw: unknown, 
         : asAi ? { busy: false as const, value: await examineNow() }
         // The wait for a slot counts towards the deadline: the caller's own (the app's) starts when it asked.
         : await withBackgroundSlot(ctx, "examination", EXAMINATION_WAIT_MS, () => within(examineNow(), EXAMINATION_DEADLINE_MS - (Date.now() - asked)));
-      if (ran.busy) fail("UNAVAILABLE", "The agent sandbox is busy with other players' agents: nothing was validated, summoned or paid. Send the same command again in a few seconds.");
+      if (ran.busy) fail("UNAVAILABLE", "The agent sandbox is busy with other players' agents: nothing was validated, summoned, replaced or paid. Send the same command again in a few seconds.");
       const e = ran.value;
       examined = { gameId: envelope.gameId!, source: command.source, language: command.language, twins: prepared.examine.twins, result: e };
     } catch (error) {

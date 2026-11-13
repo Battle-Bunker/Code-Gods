@@ -9,7 +9,8 @@
  * (see the balance-families harness).
  *
  *   node --experimental-transform-types lib/game-core/scripts/balance-settings.ts [--games 200] [--only <name>] [--kappa 32]
- *        [--T <seconds>] [--no-cap] [--offer] [--debt-bound]      the economy rules below, applied to the default table
+ *        [--T <seconds>] [--no-cap] [--offer] [--debt-bound] [--moves]   the economy rules below, applied to the default table
+ *        [--parking]                                              what parking energy in an idle agent costs against keeping power unallocated
  *        [--experiments [1,2,…]] [--wingames 1000] [--rooms …]    the capacity experiments (capacity-experiments.ts)
  *
  * Policies: random = always (edits blindly, reads nothing), greedy (reads the board, keeps the best of 4 edits for its
@@ -26,12 +27,14 @@
  *                      reading (readSpent) and on its own (offerSpent).
  *   debtBound          R4: an act whose cost would leave the balance below −capacity does not commit; the agent pays its
  *                      reads and the offer only.
+ *   energyMoves        R5: what an account holds above its new capacity goes where the power goes (game-core movePower)
+ *                      instead of being lost: here, a god's excess at a summon goes to the new agent.
  *   shares             pre-created agents (one list of power shares per god) in place of priced summons.
  */
 import {
   DEFAULT_SETTINGS, SEED_SETUPS, validateSettings, type GameSettings, type AgentAccount,
   newAgentAccount, settleAgentEnergy, chargeAct, pickByEnergy, offerReadBits, affordable, actCredit, defaultShare, energyCapacity,
-  settleDeityEnergy, chargeDeityAccount,
+  settleDeityEnergy, chargeDeityAccount, movePower,
   netBits, softHinge, rankTotals, gameEndSeconds, poissonIntervalSeconds, CHANGE_READ_RATIO, CHANGE_BETA,
 } from "../src/index.ts";
 
@@ -44,7 +47,7 @@ if (!(KAPPA >= 1)) throw new Error(`--kappa must be a number ≥ 1, not ${arg("k
 /** The economy rules the CLI applies to the default table. */
 const CLI_RULES: Partial<Config> = {
   ...(flag("T") && arg("T", "none") !== "none" ? { fullChargeSeconds: Number(arg("T", "")) } : {}),
-  ...(flag("no-cap") ? { rateCap: false } : {}), ...(flag("offer") ? { offerPrice: true } : {}), ...(flag("debt-bound") ? { debtBound: true } : {}), ...(flag("no-debt") ? { noDebt: true } : {}),
+  ...(flag("no-cap") ? { rateCap: false } : {}), ...(flag("offer") ? { offerPrice: true } : {}), ...(flag("debt-bound") ? { debtBound: true } : {}), ...(flag("no-debt") ? { noDebt: true } : {}), ...(flag("moves") ? { energyMoves: true } : {}),
 };
 
 /** mulberry32: a seeded uniform in [0, 1). */
@@ -70,6 +73,8 @@ export interface Config {
   debtBound?: boolean;
   /** No credit: a change commits only if the balance pays for it; otherwise the agent pays its reads and the offer. */
   noDebt?: boolean;
+  /** R5: energy moves with power (movePower): at a summon the new agent takes what its god holds above its lowered capacity; false: it is lost (default false). */
+  energyMoves?: boolean;
   /** Pre-created agents: each god's agents' power shares (Σ ≤ 1). No summon is priced when set. */
   shares?: number[][];
 }
@@ -138,8 +143,11 @@ export function play(c: Config, seed: number): Result {
   const trySummon = (g: number, t: number) => {
     if (c.shares || agents.filter(a => a.god === g).length >= Math.min(c.agentsPerGod, s.maxAgentsPerGod)) return;
     try { deity[g] = chargeDeityAccount(deity[g], c.summonBits, t, power(g)); } catch { return; }
-    const share = defaultShare(allocated[g]); allocated[g] += share;
-    agents.push({ god: g, share, acct: newAgentAccount(t) });
+    const share = defaultShare(allocated[g]);
+    // R5: the god's capacity falls with the power it gives away; what it holds above it goes to the new agent.
+    const moved = c.energyMoves && T !== undefined ? movePower(newAgentAccount(t), deity[g], 0, share, Math.max(0, 1 - allocated[g]), P * T) : { agent: newAgentAccount(t), deity: deity[g] };
+    deity[g] = moved.deity; allocated[g] += share;
+    agents.push({ god: g, share, acct: moved.agent });
   };
   if (c.shares) c.shares.forEach((list, g) => list.forEach(share => { allocated[g] += share; agents.push({ god: g, share, acct: newAgentAccount(0) }); }));
   for (let g = 0; g < n; g++) settleDeity(g, 0);
@@ -271,7 +279,29 @@ function configs(): Config[] {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  if (flag("experiments")) {
+  if (flag("parking")) {
+    // The summon-funding route (docs/energy-model.md §6.1): a god that wants `u` of its power's energy for a later
+    // summon can keep that power unallocated (A), or give it to an idle agent and take it back when it summons (B: the
+    // agent's store comes back with the power). B pays the offer price on every offer the idle agent is given; the
+    // worst case for B's cost is the best case for the exploit, so both ends are shown: the idle agent is offered
+    // nothing (B = A), and it is offered every opportunity in the game.
+    console.table(SEED_SETUPS.map(sd => {
+      const st = sd.settings as GameSettings, T = st.fullChargeSeconds, P = st.powerPerSecond, u = 0.5;
+      const offer = offerReadBits(st.startingObjectCount) / KAPPA, perSecond = st.interactionRateHz * offer;
+      let kept: AgentAccount = { balance: 0, settledWorldSeconds: 0 }, parked: AgentAccount = { balance: 0, settledWorldSeconds: 0 };
+      for (let t = 1; t <= T; t++) {
+        kept = settleAgentEnergy(kept, t, u * P, energyCapacity(u * P, T));
+        // Settled first; it is offered (and charged) only while it holds energy, as the draw is ∝ positive energy.
+        parked = settleAgentEnergy(parked, t, u * P, energyCapacity(u * P, T));
+        if (parked.balance > 0) parked = chargeAct(parked, perSecond);
+      }
+      const idle = settleAgentEnergy({ balance: 0, settledWorldSeconds: 0 }, T, u * P, energyCapacity(u * P, T));
+      const takeBack = (a: AgentAccount) => movePower(a, { balance: 0, settledWorldSeconds: T }, u, 0, 1 - u, P * T).deity.balance;
+      const back = takeBack(parked);
+      return { setup: sd.seedId, "kept unallocated (A)": kept.balance.toFixed(0), "parked, offered nothing (B)": takeBack(idle).toFixed(0),
+        "parked, offered everything (B)": back.toFixed(0), "offer bits": offer.toFixed(3), "offers/s": st.interactionRateHz, "B worst / A": (back / kept.balance).toFixed(3) };
+    }));
+  } else if (flag("experiments")) {
     // Not awaited at the top level: capacity-experiments imports this module back.
     void import("./capacity-experiments.ts").then(m => m.runExperiments(arg("experiments", "all"), GAMES, Number(arg("wingames", "1000")), arg("rooms", "")));
   } else {

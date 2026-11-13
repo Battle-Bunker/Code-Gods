@@ -15,6 +15,8 @@ export interface ReplaySource {
   subscribe(listener: () => void): () => void;
   /** Why a command is refused in a replay. */
   readonly refusal: string;
+  /** The real viewer of the replay (the person at the screen), when they played in it: their colour is the accent in every pane, whoever the panes are "seen as". */
+  readonly viewerId?: string;
 }
 
 export const ReplaySourceContext = createContext<ReplaySource | null>(null);

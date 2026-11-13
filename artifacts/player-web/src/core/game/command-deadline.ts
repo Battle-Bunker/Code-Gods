@@ -15,8 +15,8 @@ import { EXAMINATION_DEADLINE_MS, type CommandResult } from "@workspace/player-c
 export const COMMAND_MARGIN_MS = 5_000;
 export const COMMAND_DEADLINE_MS = EXAMINATION_DEADLINE_MS + COMMAND_MARGIN_MS;
 
-export type Examined = "validate" | "summon";
-const isExamined = (type: string): type is Examined => type === "validate" || type === "summon";
+export type Examined = "validate" | "summon" | "replace";
+const isExamined = (type: string): type is Examined => type === "validate" || type === "summon" || type === "replace";
 
 /** How long the app waits for a command's receipt: only the commands that use the sandbox have a deadline. */
 export function deadlineFor(type: string): number | null {
@@ -43,14 +43,14 @@ export function progressLine(type: Examined, retry?: { attempt: number; of: numb
   const seconds = elapsedMs !== undefined && elapsedMs >= 2_000 ? Math.floor(elapsedMs / 1000) : null;
   if (retry && retry.attempt > 1) return `The game is busy checking agents. Trying again (${retry.attempt} of ${retry.of})…${seconds !== null ? ` ${seconds} s` : ""}`;
   if (type === "validate") return seconds !== null ? `Checking your agent… ${seconds} s (this can take up to 20 seconds).` : "Checking your agent… this can take up to 20 seconds.";
-  return `Summoning…${seconds !== null ? ` ${seconds} s` : ""}`;
+  return `${type === "replace" ? "Replacing its program" : "Summoning"}…${seconds !== null ? ` ${seconds} s` : ""}`;
 }
 
 /** After the last try: what did not happen, and that nothing was spent. The forge puts one "Try again" button beside it. */
 export function busyMessage(type: Examined): string {
   return type === "validate"
     ? "The game is still busy checking agents, so yours was not checked. Your code is safe."
-    : "The game is still busy checking agents, so yours was not summoned and nothing was spent. Your code is safe.";
+    : `The game is still busy checking agents, so yours was not ${type === "replace" ? "replaced" : "summoned"} and nothing was spent. Your code is safe.`;
 }
 
 /**

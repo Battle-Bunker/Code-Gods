@@ -5,7 +5,7 @@
  * author (an agent or another device) writes a later version (`lastForeignVersion` from panels.list), and is then
  * dropped. Pure reducer: the host keeps the state (grants persisted per browser; see stored-frame.tsx).
  */
-export const CONFIRMED_COMMANDS: ReadonlySet<string> = new Set(["chat", "summon", "destroy", "pause"]);
+export const CONFIRMED_COMMANDS: ReadonlySet<string> = new Set(["chat", "summon", "replace", "destroy", "pause"]);
 
 /** `key`: "stored:<slug>" or, for a file panel run sandboxed, "file:<id>". */
 export type PanelInfo = { key: string; currentVersion: number; lastForeignVersion: number };

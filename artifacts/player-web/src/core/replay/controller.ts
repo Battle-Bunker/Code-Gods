@@ -304,7 +304,8 @@ export function replayDock(name: QueryName, o: ReplayObservation, series: Return
 
 /** The controller as the SDK's replay source: answers move with the playhead and the point of view only. */
 export function replaySource(c: ReplayController): ReplaySource {
-  return { serves: name => c.serves(name), answer: (name, args) => c.answer(name, args), subscribe: c.subscribeAnswers, refusal: c.refusal };
+  const viewer = c.replay.game.roster[c.replay.viewer.index];
+  return { serves: name => c.serves(name), answer: (name, args) => c.answer(name, args), subscribe: c.subscribeAnswers, refusal: c.refusal, ...(viewer ? { viewerId: viewer.id } : {}) };
 }
 
 /** The controller's view, re-rendered on every change (every frame while playing or dragging: the clock, the thumb). */

@@ -83,7 +83,7 @@ Notes on the choices:
 - **Discarded windows** never reach the log (a discarded commit writes nothing), so the log and the state cannot
   disagree.
 
-**Schema.** Every `tickBatches` doc carries `schema` (`EVENT_LOG_SCHEMA` in `convex/lib/world.ts`, now 12). Version 2
+**Schema.** Every `tickBatches` doc carries `schema` (`EVENT_LOG_SCHEMA` in `convex/lib/world.ts`, now 15). Version 2
 added `summon`, `destroy`, `totals` and the chat stamps. A batch without `schema` predates them: a replay of such a
 game has no agent lifetimes, no leaderboard curve, and chat placed by wall time; the replay view says so. Bump the
 schema whenever an event's fields or meaning change, and keep the reducer reading every schema it has seen.

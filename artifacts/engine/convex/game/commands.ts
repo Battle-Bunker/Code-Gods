@@ -1,17 +1,17 @@
 /**
- * Player commands (protocol v3 envelopes): chat, ready, pause, validate, summon, destroy. One apply path for
+ * Player commands (protocol v3 envelopes): chat, ready, pause, validate, summon, replace, destroy. One apply path for
  * humans (browser or player credential with `act`) and AI seats, with idempotent receipts per
  * (room, god, commandId): the same envelope returns the stored receipt, a reused id with different content
- * is rejected. Rejected commands also get a receipt. Validate and summon arrive pre-examined by the Node
+ * is rejected. Rejected commands also get a receipt. Validate, summon and replace arrive pre-examined by the Node
  * action (commands.ts), and are re-checked here: game, phase, seat, energy and the agent cap.
  */
 import { ConvexError, v } from "convex/values";
 import { boardsLive, godLooks, lookPriceOf, paidLive } from "../lib/knowledge";
 import { viewRowOf } from "../lib/views";
 import { syncRows } from "./objectViews";
-import { READ_PRICE, offerReadBits, allowedLanguages, assertShare, defaultShare, movePower, newAgentAccount, roundShare, spendDeityEnergy, upgradeStoredSettings, type AgentAccount, type GameSettings, type Language } from "@workspace/game-core";
+import { READ_PRICE, offerReadBits, allowedLanguages, assertShare, defaultShare, energyCapacity, movePower, newAgentAccount, roundShare, spendDeityEnergy, upgradeStoredSettings, type AgentAccount, type GameSettings, type Language } from "@workspace/game-core";
 import { sha256 } from "@workspace/game-types";
-import { GAME_COMMANDS, envelopeSchema, type CommandResult, type Envelope } from "@workspace/player-client";
+import { GAME_COMMANDS, envelopeSchema, examinesProgram, type CommandResult, type Envelope } from "@workspace/player-client";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx, type QueryCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
@@ -20,12 +20,12 @@ import { withEngine, writeGame } from "./state";
 import { fail, messageOf } from "../lib/errors";
 import { memberOf, principalV, requireMemberAs, requireRoom, viewerOf, type Principal } from "../lib/rooms";
 import { godEnergy, settledAccount, worldNow } from "../lib/world";
-import { chargeGod, deityAccount, deityCapacityOf, fullChargeOf } from "../lib/power";
+import { chargeGod, deityAccount, deityCapacityOf, fullChargeOf, powerOf } from "../lib/power";
 import { agentLanguage, languageV } from "../lib/language";
 import { dryRunVerdict, summonDryRunWarnings } from "../lib/dryRun";
 
 const CHAT_INTERVAL_MS = 1000;
-/** Agent examinations (validate, summon) per human per room per rolling minute: a looping client cannot burn the sandbox. */
+/** Agent examinations (validate, summon, replace) per human per room per rolling minute: a looping client cannot burn the sandbox. */
 export const EXAMINATIONS_PER_MINUTE = 30;
 const EXAMINATION_WINDOW_MS = 60_000;
 
@@ -59,7 +59,7 @@ export const prepare = internalQuery({
     const game = room.currentGameId ? await ctx.db.get(room.currentGameId) : null;
     const command = envelope.command;
     let examine: null | { settings: GameSettings; live: (number | string)[]; twins: number } = null;
-    if (!prior && game && (command.type === "validate" || command.type === "summon") && envelope.gameId === game._id &&
+    if (!prior && game && examinesProgram(command) && envelope.gameId === game._id &&
         allowedLanguages(game.settings as GameSettings).includes(command.language) && game.phase !== "ended" && game.phase !== "recovery" &&
         game.roster.some(m => m.id === member.godId)) {
       // The sample world the agent is examined on: the game's objects, or, under paid observation, the same objects as
@@ -71,8 +71,11 @@ export const prepare = internalQuery({
       const settings = (upgradeStoredSettings(game.settings, true) ?? game.settings) as GameSettings;
       // The player's live agents running this exact code (the copies warning), read here, off the mutation's read set.
       const own = await ctx.db.query("agents").withIndex("by_game_owner", q => q.eq("gameId", game._id).eq("ownerId", member.godId)).take(settings.maxAgentsPerGod + 1);
-      const twins = own.filter(a => a.source === command.source && agentLanguage(a, settings) === command.language).length;
-      examine = { settings, live: live.map(o => o.value), twins };
+      // (Not the agent being replaced: its code is the one going away.)
+      const twins = own.filter(a => !(command.type === "replace" && a._id === command.agentId) && a.source === command.source && agentLanguage(a, settings) === command.language).length;
+      // A replacement of an agent that is not this god's is not examined (nor counted against the rate limit): the
+      // mutation refuses it.
+      if (command.type !== "replace" || own.some(a => a._id === command.agentId)) examine = { settings, live: live.map(o => o.value), twins };
     }
     return { roomId: room._id, godId: member.godId, prior: prior ? { hash: prior.hash, result: prior.result as CommandResult } : null, examine };
   },
@@ -126,14 +129,19 @@ export const apply = internalMutation({
       const look = command.type === "look" ? result as NonNullable<CommandResult["look"]> : undefined;
       // Debt that moved with the power on a destroy or a re-allocation (docs/energy-model.md §7.2).
       const owed = command.type === "destroy" || command.type === "allocatePower" ? (result as { owed?: number }).owed : undefined;
+      // Energy that moved with the power (§6.1): onto the god (positive) or onto the agent, a summoned one included.
+      const held = command.type === "destroy" || command.type === "allocatePower" || command.type === "summon" ? (result as { held?: number }).held : undefined;
       receipt = { commandId: envelope.commandId, accepted: true,
         message: look ? `Looked at ${look.looked === 1 ? "1 object" : `${look.looked} objects`} for ${look.price.toFixed(2)} energy; ${look.energy.toFixed(2)} left`
           : owed !== undefined && Math.abs(owed) >= 0.05 ? (owed > 0 ? `Accepted: ${owed.toFixed(1)} bits the agent owed are now owed by you` : `Accepted: ${(-owed).toFixed(1)} bits you owed are now owed by the agent`)
+          : held !== undefined && Math.abs(held) >= 0.05 && command.type !== "summon" ? (held > 0 ? `Accepted: ${held.toFixed(1)} bits the agent held are now yours` : `Accepted: ${(-held).toFixed(1)} bits you held went to the agent with the power`)
+          // A replacement says what it cost: the receipt is the only place the price is told with the act.
+          : command.type === "replace" ? `Accepted: the agent's program is replaced, for ${(result as { summonCost: number }).summonCost.toFixed(0)} bits of your own energy`
           : "Accepted",
-        ...(look ? { look } : {}), ...(owed !== undefined ? { owed } : {}),
+        ...(look ? { look } : {}), ...(owed !== undefined ? { owed } : {}), ...(held !== undefined ? { held } : {}),
         ...(command.type === "validate" ? { validation: result as NonNullable<CommandResult["validation"]> } : {}),
-        // A summon is never refused for what the examination found: it is told, with the agent summoned.
-        ...(command.type === "summon" && (result as { warnings?: string[] }).warnings ? { warnings: (result as { warnings: string[] }).warnings } : {}) };
+        // A summon (or a replacement) is never refused for what the examination found: it is told, with the agent summoned.
+        ...((command.type === "summon" || command.type === "replace") && (result as { warnings?: string[] }).warnings ? { warnings: (result as { warnings: string[] }).warnings } : {}) };
     } catch (error) {
       // A transient failure (the sandbox could not examine the agent) is not the command's outcome: no
       // receipt, so the client's retry of the identical envelope runs it.
@@ -163,22 +171,26 @@ export const claimExamination = internalMutation({
       .take(EXAMINATIONS_PER_MINUTE);
     if (recent.length >= EXAMINATIONS_PER_MINUTE) {
       const wait = Math.max(1, Math.ceil((recent[0].at + EXAMINATION_WINDOW_MS - now) / 1000));
-      fail("RATE_LIMITED", `At most ${EXAMINATIONS_PER_MINUTE} agent checks a minute (validate and summon together); try again in ${wait} s with the same command`);
+      fail("RATE_LIMITED", `At most ${EXAMINATIONS_PER_MINUTE} agent checks a minute (validate, summon and replace together); try again in ${wait} s with the same command`);
     }
     await ctx.db.insert("examinations", { roomId, godId, at: now });
   },
 });
 
 /**
- * A change of an agent's share from `from` to `to` (0: destroyed), both accounts settled: debt moves with the power
- * (game-core movePower; docs/energy-model.md §7.2). `owed`: the debt that moved onto the deity's own account (negative:
- * from the deity onto the agent). A game without capacity (started before the setting) keeps its old behaviour.
+ * A change of an agent's share from `from` to `to` (0: destroyed; from 0: summoned), both accounts settled: what an
+ * account holds or owes beyond what its power supports goes where the power goes (game-core movePower;
+ * docs/energy-model.md §6.1, §7.2). `owed`: the debt that moved onto the deity's own account (negative: onto the
+ * agent). `held`: the energy that moved onto it (negative: onto the agent). A game without capacity (started before
+ * the setting) keeps its old behaviour: nothing moves.
  */
 function shiftPower(settings: GameSettings, agent: AgentAccount, deity: AgentAccount, from: number, to: number, allocated: number) {
-  if (fullChargeOf(settings) === undefined) return { agent, deity, owed: 0 };
-  const moved = movePower(agent, deity, from, to, Math.max(0, 1 - allocated));
-  return { ...moved, owed: deity.balance - moved.deity.balance };
+  const seconds = fullChargeOf(settings);
+  if (seconds === undefined) return { agent, deity, owed: 0, held: 0 };
+  return movePower(agent, deity, from, to, Math.max(0, 1 - allocated), energyCapacity(powerOf(settings), seconds));
 }
+/** The event fields for what moved with the power: absent when nothing did. */
+const movedFields = (moved: { owed: number; held: number }) => ({ ...(moved.owed !== 0 ? { owed: moved.owed } : {}), ...(moved.held !== 0 ? { held: moved.held } : {}) });
 
 type Examined = { gameId: string; source: string; language: Language; error?: string; twins?: number; result?: { cost: number; parts: unknown; expectedActCost: number;
   breakdown: { read: number; change: number }; randomized: boolean; diagnostics: string[];
@@ -232,7 +244,11 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     await ctx.db.patch(deity._id, { pauseUsed: true });
     return { pauseEndsAt };
   }
-  if (command.type === "validate" || command.type === "summon") {
+  if (examinesProgram(command)) {
+    // Replacing a program (docs/energy-model.md §5.2): the agent must be this god's, checked before anything else.
+    const replacedId = command.type === "replace" ? ctx.db.normalizeId("agents", command.agentId) : null;
+    const replaced = replacedId ? await ctx.db.get(replacedId) : null;
+    if (command.type === "replace" && (!replaced || replaced.gameId !== game._id || replaced.ownerId !== member.godId)) fail("NOT_FOUND", "You have no agent with that ID");
     if (!examined || examined.gameId !== game._id || examined.source !== command.source || examined.language !== command.language) fail("UNAVAILABLE", "The agent could not be examined; retry");
     if (examined.error !== undefined || !examined.result) return fail("BAD_REQUEST", examined.error ?? "Examination failed");
     // The estimate per act includes the turn itself (docs/energy-model.md §7.1): being given an object is a read of which
@@ -247,9 +263,9 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     const dry = dryRunVerdict(e);
     // A dry-run finding says it all: the futility warnings of the same runs ("never changes an object") would only repeat it.
     const found = !dry.valid || dry.warnings.length > 0;
-    // A validation says an invalid agent in its verdict and diagnostics; a summon is not refused for it (callers that
+    // A validation says an invalid agent in its verdict and diagnostics; a summon or a replacement is not refused for it (callers that
     // summoned such agents before do not all handle a refusal), so its receipt carries the finding as a warning.
-    const dryWarnings = command.type === "summon" ? summonDryRunWarnings(dry) : dry.warnings;
+    const dryWarnings = command.type === "validate" ? dry.warnings : summonDryRunWarnings(dry);
     const warnings = [...dryWarnings, ...(found ? [] : e.warnings ?? []), ...(twins ? [copiesWarning(twins, e.futility)] : [])];
     const findings = { ...(e.futility ? { futility: e.futility, expectedSuccessRate: e.futility.successRate } : {}), ...(warnings.length ? { warnings } : {}) };
     if (command.type === "validate") {
@@ -273,6 +289,24 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
           ? `Insufficient energy: you owe ${(-own.balance).toFixed(0)} bits (what an agent of yours owed when you took its power). Your own income repays it; keep some power unallocated until it has`
           : "Insufficient energy");
     }
+    if (command.type === "replace") {
+      if (!replaced) return fail("NOT_FOUND", "You have no agent with that ID");
+      // One rule: replacing a program costs what summoning it would; everything else stays. The agent keeps its id,
+      // name, power share and account (stored energy or debt, untouched: not even settled), its acts and what it has
+      // spent. What described the old program goes: its prices, its counted outcomes (the owner's diagnosis) and the
+      // memo of the pairs it could only fail on.
+      const record = { summonCost: e.cost, expectedActCost: e.expectedActCost, breakdown: e.breakdown, randomized: e.randomized };
+      await ctx.db.patch(replaced._id, { source: command.source, language: command.language, ...(command.description ? { description: command.description } : {}), ...record,
+        transforms: undefined, failures: undefined, lastFailures: undefined });
+      const memo = await ctx.db.query("futileActs").withIndex("by_agent", q => q.eq("agentId", replaced._id)).unique();
+      if (memo) await ctx.db.delete(memo._id);
+      await chargeGod(ctx, game, deity, e.cost, now);
+      const nextBatch = await appendEvents(ctx, game, [{ t: "replace", agentId: replaced._id, ownerId: member.godId, world, language: command.language, source: command.source, ...(command.description ? { description: command.description } : {}), ...record }], world, world);
+      // Bumping the epoch discards a window in flight: its acts ran the old program, and its commit would count them
+      // against the new one.
+      await writeGame(ctx, game, { nextBatch, executionEpoch: game.executionEpoch + 1 });
+      return { id: replaced._id, summonCost: e.cost, expectedActCost: e.expectedActCost, ...(warnings.length ? { warnings } : {}) };
+    }
     const owned = await ctx.db.query("agents").withIndex("by_game_owner", q => q.eq("gameId", game._id).eq("ownerId", member.godId)).take(settings.maxAgentsPerGod + 1);
     if (owned.length >= settings.maxAgentsPerGod) fail("CONFLICT", `This god has reached the ${settings.maxAgentsPerGod}-agent resource limit`);
     // Power (docs/energy-model.md §6): the new agent's share comes out of what the deity has not allocated.
@@ -280,17 +314,21 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     if (command.powerShare === undefined && allocated >= 1 - 1e-9) fail("BAD_REQUEST", "All your power is given to your agents, so a new agent would never act: take some from another agent first (allocatePower), or summon with a powerShare");
     const powerShare = roundShare(command.powerShare ?? defaultShare(allocated));
     if (allocated + powerShare > 1 + 1e-9) fail("BAD_REQUEST", `Only ${(100 * Math.max(0, 1 - allocated)).toFixed(0)}% of your power is unallocated: give the new agent at most that, or take some from another agent first`);
+    // The price is paid first; then the power moves, and with it what the god's own account holds above its new,
+    // lower capacity (§6.1): the new agent starts with that, and nothing is lost. (No debt moves: a god that owes
+    // cannot pay a price, so it never summons.)
+    const moved = shiftPower(settings, newAgentAccount(world), spendDeityEnergy(own, e.cost), 0, powerShare, allocated);
     const record = {
       summonCost: e.cost, expectedActCost: e.expectedActCost, powerShare,
-      breakdown: e.breakdown, randomized: e.randomized, account: newAgentAccount(world),
+      breakdown: e.breakdown, randomized: e.randomized, account: moved.agent,
     };
     const agentId = await ctx.db.insert("agents", { gameId: game._id, ownerId: member.godId, source: command.source, language: command.language, createdAt: now, name: command.name, ...(command.description ? { description: command.description } : {}), ...record, acts: 0, spent: 0 });
-    await ctx.db.patch(deity._id, { spent: deity.spent + e.cost, account: spendDeityEnergy(own, e.cost), allocated: roundShare(allocated + powerShare) });
+    await ctx.db.patch(deity._id, { spent: deity.spent + e.cost, account: moved.deity, allocated: roundShare(allocated + powerShare) });
     // The summon is in the event log with the agent's whole record (its source stays its owner's), so a replay has
     // every agent, destroyed ones included, and its energy from then on (docs/replay-design.md §2).
-    const nextBatch = await appendEvents(ctx, game, [{ t: "summon", agentId, ownerId: member.godId, world, language: command.language, source: command.source, name: command.name, ...(command.description ? { description: command.description } : {}), ...record }], world, world);
+    const nextBatch = await appendEvents(ctx, game, [{ t: "summon", agentId, ownerId: member.godId, world, language: command.language, source: command.source, name: command.name, ...(command.description ? { description: command.description } : {}), ...record, ...(moved.held !== 0 ? { held: moved.held } : {}) }], world, world);
     await writeGame(ctx, game, { agentCount: game.agentCount + 1, nextBatch });
-    return { id: agentId, summonCost: e.cost, expectedActCost: e.expectedActCost, powerShare, ...(warnings.length ? { warnings } : {}) };
+    return { id: agentId, summonCost: e.cost, expectedActCost: e.expectedActCost, powerShare, ...(moved.held !== 0 ? { held: moved.held } : {}), ...(warnings.length ? { warnings } : {}) };
   }
   if (command.type === "destroy") {
     // Gods may destroy their own agents at any time, for free. Energy already spent is not refunded.
@@ -305,11 +343,11 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     await ctx.db.delete(agent._id);
     const memo = await ctx.db.query("futileActs").withIndex("by_agent", q => q.eq("agentId", agent._id)).unique();
     if (memo) await ctx.db.delete(memo._id);
-    const nextBatch = await appendEvents(ctx, game, [{ t: "destroy", agentId: agent._id, ownerId: member.godId, world, ...(moved.owed !== 0 ? { owed: moved.owed } : {}) }], world, world);
+    const nextBatch = await appendEvents(ctx, game, [{ t: "destroy", agentId: agent._id, ownerId: member.godId, world, ...movedFields(moved) }], world, world);
     // Bumping the epoch discards a window in flight, as a re-allocation does: an act of this agent simulated in it would
     // commit its change while the debt it ran up, on an account that no longer exists, was lost (§7.2).
     await writeGame(ctx, game, { agentCount: Math.max(0, game.agentCount - 1), nextBatch, executionEpoch: game.executionEpoch + 1 });
-    return { destroyed: agent._id, ...(moved.owed > 0 ? { owed: moved.owed } : {}) };
+    return { destroyed: agent._id, ...(moved.owed > 0 ? { owed: moved.owed } : {}), ...(moved.held !== 0 ? { held: moved.held } : {}) };
   }
   if (command.type === "allocatePower") {
     // Re-allocate (docs/energy-model.md §6): both accounts are settled at the old rates first, then the share changes.
@@ -326,11 +364,11 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     const moved = shiftPower(settings, settledAccount(settings, agent, world), deityAccount(game, deity, world), agent.powerShare, share, deity.allocated);
     await ctx.db.patch(agent._id, { account: moved.agent, powerShare: share });
     await ctx.db.patch(deity._id, { account: moved.deity, allocated: roundShare(others + share) });
-    const nextBatch = await appendEvents(ctx, game, [{ t: "power", agentId: agent._id, ownerId: member.godId, world, share, ...(moved.owed !== 0 ? { owed: moved.owed } : {}) }], world, world);
+    const nextBatch = await appendEvents(ctx, game, [{ t: "power", agentId: agent._id, ownerId: member.godId, world, share, ...movedFields(moved) }], world, world);
     // Bumping the epoch discards a window in flight (simulated at the old share), as a pause does: its commit would
     // overwrite the account settled here.
     await writeGame(ctx, game, { nextBatch, executionEpoch: game.executionEpoch + 1 });
-    return { agentId: agent._id, share, allocated: roundShare(others + share), ...(moved.owed !== 0 ? { owed: moved.owed } : {}) };
+    return { agentId: agent._id, share, allocated: roundShare(others + share), ...movedFields(moved) };
   }
   if (command.type === "look") {
     // Paid observation (lib/knowledge.ts, docs/energy-model.md §11): the god pays its own energy to be told one object

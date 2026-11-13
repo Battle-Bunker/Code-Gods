@@ -5,13 +5,15 @@
  *                        your rule score on that object (your goal program on the two values) and to the object's points
  *                        (the recent events, player.events, the feed's own subscription).
  */
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
+import { useDockActions } from "@/dock/actions";
+import { runner } from "@/core/game/runner";
 import { useGoalExplainer } from "@workspace/object-views";
 import { SCORE_LINES, scoreMovesLine, Term } from "@workspace/ui-kit";
 import { useDockState, useEvents, useGameId, useMyTotals, useObjectContext, useRoomInfo } from "@/sdk";
 import { useStandings } from "@/sdk/hooks";
 import { agentLabel } from "./agent-name";
-import { actLine, agentEarnings, asOfText, earningsLine, fresherPoints, latestOwnActs, pointsNowText, type OwnAct } from "./score-line";
+import { actLine, agentEarnings, asOfText, earningsLine, fresherPoints, latestOwnActs, pointsNowText, type AgentEarnings, type OwnAct } from "./score-line";
 
 /**
  * "Your points now": one figure, the same number wherever it is shown, with how old it is. It is your total as the
@@ -66,8 +68,14 @@ export interface OwnActLines {
   byAgent: ReadonlyMap<string, string>;
   /** The sentence for the latest act of any of your agents. */
   latest?: string;
+  /** The object each sentence is about (agent id → object id; `latestObject` for `latest`), so the line can open that grid's detail. */
+  objects: ReadonlyMap<string, string>;
+  latestObject?: string;
   /** Agent id → what its moves among the recent events earned, with the window said (score-line.ts earningsLine). */
   earned: ReadonlyMap<string, string>;
+  /** Agent id → the counted moves behind that line (empty where the line is hidden), and whether the figures are an estimate. */
+  sums: ReadonlyMap<string, AgentEarnings>;
+  estimate: boolean;
 }
 
 /**
@@ -103,12 +111,29 @@ export function useOwnActLines(agents: readonly { id: string; name?: string }[],
     const earned = new Map<string, string>();
     // Not in a room whose looking costs energy: there the points "before" a move are the player's last look at the
     // object, which may predate changes they were never told about, so after minus before is not the move's own effect.
-    if (!paid) for (const [id, sum] of agentEarnings(events)) { const line = earningsLine(sum, noun, { third, estimate }); if (line) earned.set(id, line); }
-    return { byAgent, latest: acts.latest ? say(acts.latest) : undefined, earned };
+    const sums = paid ? new Map<string, AgentEarnings>() : agentEarnings(events);
+    for (const [id, sum] of sums) { const line = earningsLine(sum, noun, { third, estimate }); if (line) earned.set(id, line); }
+    const objects = new Map<string, string>();
+    for (const [id, act] of acts) objects.set(id, act.objectId);
+    return { byAgent, latest: acts.latest ? say(acts.latest) : undefined, objects, latestObject: acts.latest?.objectId, earned, sums, estimate };
   }, [events, goal, noun, agents, third, estimate, paid]);
 }
 
 /** The latest act of any of your agents, under "Your points now". */
-export function LatestActLine({ line }: { line?: string }) {
-  return line ? <p className="text-sm leading-snug" aria-live="polite" data-testid="text-latest-act">{line}</p> : null;
+export function LatestActLine({ line, objectId }: { line?: string; /** The grid the sentence is about: the line opens its detail in Objects. */ objectId?: string }) {
+  const open = useOpenObject();
+  if (!line) return null;
+  return (
+    <p className="text-sm leading-snug" aria-live="polite" data-testid="text-latest-act">{line}
+      {objectId && <>{" "}<button type="button" data-testid="button-latest-act-object" onClick={() => open(objectId)} className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground">show this grid</button></>}
+    </p>
+  );
+}
+/**
+ * Open one object's detail ("why") in the Objects panel: the panel comes to the front and shows it (an act line names
+ * a cell, "row 4, column 2", but not which grid in the list).
+ */
+export function useOpenObject(): (objectId: string) => void {
+  const dock = useDockActions();
+  return useCallback((objectId: string) => { dock.show("objects"); setTimeout(() => runner.showObject(objectId), 50); }, [dock]);
 }

@@ -71,10 +71,11 @@ test("power: shares out of a fixed budget, re-allocation, destroy returns the sh
 /**
  * Capacity (docs/energy-model.md §6.1): every account holds at most its power × fullChargeSeconds. Hand-derived: P = 40
  * bits/s and T = 10 s, so a god with nothing allocated holds 400 bits, an agent with half the power 200, and the god's
- * own account then 200. Lowering a share drops what is held above the new capacity at once. A game stored without the
- * setting has no capacity.
+ * own account then 200. Energy moves with power: what an account holds above a lowered capacity goes to the account
+ * that gained the power (the new agent at a summon, the god when a share is lowered), so nothing is lost. A game stored
+ * without the setting has no capacity.
  */
-test("capacity: accounts fill to power × fullChargeSeconds and stop; lowering a share loses the excess", { timeout: 180000 }, async () => {
+test("capacity: accounts fill to power × fullChargeSeconds and stop; energy above a lowered capacity moves with the power", { timeout: 180000 }, async () => {
   const [host, ada, bo] = await gods("Cap Host", "Cap Ada", "Cap Bo");
   await touch(host);
   const { roomId } = await roomWith([host, ada, bo], {
@@ -104,9 +105,12 @@ test("capacity: accounts fill to power × fullChargeSeconds and stop; lowering a
   const saver = obs.agents.find(a => a.name === "Saver")!;
   assert.equal(saver.powerShare, 0.5);
   near(saver.capacity!, 200, "half of 40 bits/s × 10 s");
-  assert.equal(saver.energy, 0, "an agent starts empty");
   near(obs.self.capacity!, 200, "the god keeps the other half");
-  near(obs.self.energy, 200, "what the god held above its new capacity is lost");
+  near(obs.self.energy, 200, "the god holds what its lowered capacity allows");
+  // The god paid the price from 400, then gave half its power: the 200 − price it held above 200 went with it.
+  near(saver.energy, 200 - saver.summonCost!, "the new agent starts with what its god held above its new capacity");
+  near(saver.energy + obs.self.energy, 400 - saver.summonCost!, "nothing is lost by the summon");
+  near(first.held, -saver.energy, "the receipt says what moved");
 
   // Running: both fill to their capacity and stop there (the saver never acts: it pays at most the price of its offers).
   await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 3600 }, kick: true });
@@ -116,17 +120,23 @@ test("capacity: accounts fill to power × fullChargeSeconds and stop; lowering a
   assert.ok(full.energy <= 200 + 1e-6 && full.energy > 180, `the saver is full: ${full.energy}`);
   near(obs.self.energy, 200, "the god's own energy stays at its capacity");
 
-  // Lowering the saver's share to 10% (4 bits/s: holds 40) loses the rest at once; the god's capacity rises to 360.
-  assert.equal((await send({ type: "allocatePower", agentId: saver.id, share: 0.1 })).accepted, true);
+  // Lowering the saver's share to 10% (4 bits/s: holds 40) moves the rest to the god, whose capacity rises to 360.
+  const lower = await send({ type: "allocatePower", agentId: saver.id, share: 0.1 });
+  assert.equal(lower.accepted, true);
+  assert.ok(lower.held > 140 - 1e-6 && lower.held <= 160 + 1e-6, `what the saver held above 40 moved to its god: ${lower.held}`);
+  assert.match(lower.message, /bits the agent held are now yours/);
   obs = await observe();
   const lowered = obs.agents.find(a => a.id === saver.id)!;
   near(lowered.capacity!, 40, "10% of 40 bits/s × 10 s");
-  assert.ok(lowered.energy <= 40 + 1e-6, `energy above the new capacity is lost: ${lowered.energy}`);
+  assert.ok(lowered.energy <= 40 + 1e-6, `it keeps what its new capacity holds: ${lowered.energy}`);
   near(obs.self.capacity!, 360, "90% unallocated");
-  assert.ok(obs.self.energy >= 200 - 1e-6 && obs.self.energy <= 360 + 1e-6, `the god keeps what it had and refills: ${obs.self.energy}`);
+  assert.ok(obs.self.energy >= 200 + lower.held - 1e-6 && obs.self.energy <= 360 + 1e-6, `the god has what it had and what moved: ${obs.self.energy}`);
+  const powerEvents = (await raw(game.gameId)).batches.flatMap((b: any) => b.events);
+  near(powerEvents.find((e: any) => e.t === "power").held, lower.held, "the log records what moved, for the replay");
+  near(powerEvents.find((e: any) => e.t === "summon").held, first.held, "and what the summoned agent took");
   const world = (await raw(game.gameId)).game.worldSeconds;
   await waitFor(async () => (await raw(game.gameId)).game.worldSeconds >= world + 6, "the god's store refills", 60000, 250);
-  near((await observe()).self.energy, 360, "full again: 160 bits at 36 bits/s takes under 5 s");
+  near((await observe()).self.energy, 360, "full again within 6 s at 36 bits/s");
 
   // A game stored without the setting (started before it existed) has no capacity: nothing is reported, energy keeps growing.
   await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: {}, unsetSettings: ["fullChargeSeconds"] });
@@ -225,8 +235,8 @@ test("debt: an agent may owe at most what it holds, and what it owes follows its
   await waitFor(async () => (await observe(bo)).self.energy >= 60, "Bo's income repays the debt", 60000, 250);
   const again = await send(bo, { type: "summon", name: "Again", language: "typescript", source: "function agent(n) { return []; }", powerShare: 0.5 });
   assert.equal(again.accepted, true, again.message);
-  // A re-summoned agent starts empty (here: at most a second or two of its own 20 bits/s): nothing was gained.
-  assert.ok((await observe(bo)).agents.find(a => a.name === "Again")!.energy < 60, "a re-summoned agent starts empty");
+  // A re-summoned agent brings no new energy (here: at most a second or two of its own 20 bits/s): nothing was gained.
+  assert.ok((await observe(bo)).agents.find(a => a.name === "Again")!.energy < 60, "a re-summoned agent gains nothing");
   await host.c.mutation(api.rooms.endActiveGame, { roomId });
 });
 
@@ -287,5 +297,83 @@ test("debt: a god that owes gives an agent power, and the same fraction of its d
   assert.deepEqual(events.filter((e: any) => e.t === "power").map((e: any) => e.owed), [half.owed, ...(rest.owed !== undefined ? [rest.owed] : [])]);
   // Idle now has all of Bo's power (40 bits/s) and repays what it took within the capacity time.
   await waitFor(async () => (await stored()).idle.account.balance > 0 || ((await bo.c.query(api.player.observation, { roomId })) as any).agents[0].energy > 0, "Idle's income repays the debt", 60000, 250);
+  await host.c.mutation(api.rooms.endActiveGame, { roomId });
+});
+
+/**
+ * Replacing a program (docs/energy-model.md §5.2): it costs what summoning the new program would, and everything else
+ * stays. Checked in a paused game, where no account earns: the god's energy before and after differs by exactly the
+ * price, and the agent's id, name, share, account (its stored energy), acts and spending are the same documents' values.
+ */
+test("replace: the god pays the new program's summon price; the agent keeps its name, share and stored energy", { timeout: 240000 }, async () => {
+  const [host, ada, bo] = await gods("Replace Host", "Replace Ada", "Replace Bo");
+  await touch(host);
+  const { roomId } = await roomWith([host, ada, bo], {
+    objectType: "Int", typeArgs: { min: -1000000, max: 1000000 }, languages: ["typescript"],
+    startingObjectCount: 3, spawnRateHz: 0, planningSeconds: 3600, powerPerSecond: 40, startingEnergy: 5000, interactionRateHz: 20, fullChargeSeconds: 10,
+  });
+  const game = await startGame(host, roomId);
+  const send = (god: typeof ada, command: Record<string, unknown>) => god.c.action(api.commands.submit, { roomId, envelope: envelope(command, game.gameId) });
+  const observe = async () => observationSchema.parse(await ada.c.query(api.player.observation, { roomId }));
+  const skipper = "function agent(n) { return []; }", mover = "function agent(n) { return [add(3)]; }";
+  const summoned = await send(ada, { type: "summon", name: "Keeper", description: "Waits.", language: "typescript", source: skipper, powerShare: 0.5 });
+  assert.equal(summoned.accepted, true, summoned.message);
+  const other = await send(ada, { type: "summon", name: "Other", language: "typescript", source: mover, powerShare: 0.25 });
+  assert.equal(other.accepted, true, other.message);
+  const mine = async (name: string) => (await raw(game.gameId)).agents.find((a: any) => a.name === name);
+
+  // Run until Keeper holds energy and has acted, then pause: world time, and so every income, stops.
+  await admin.mutation(internal.testing.patchGame, { gameId: game.gameId, patch: { planningEndsAt: Date.now(), endAtWorld: 3600 }, kick: true });
+  await waitFor(async () => { const a = await mine("Keeper"); return a.acts >= 3 && a.account.balance > 20; }, "Keeper acts and stores energy", 120000, 250);
+  assert.equal((await send(ada, { type: "pause" })).accepted, true);
+  await waitFor(async () => (await raw(game.gameId)).game.phase === "paused", "the game pauses", 30000, 100);
+  const was = await mine("Keeper"), wasOther = await mine("Other"), before = await observe();
+  const validated = await send(ada, { type: "validate", language: "typescript", source: mover });
+  const price = validated.validation.cost;
+
+  // Only its owner replaces it, and nothing is paid for a refusal.
+  const stolen = await send(bo, { type: "replace", agentId: was._id, language: "typescript", source: mover });
+  assert.equal(stolen.accepted, false);
+  assert.match(stolen.message, /no agent with that ID/);
+
+  const replaced = await send(ada, { type: "replace", agentId: was._id, language: "typescript", source: mover });
+  assert.equal(replaced.accepted, true, replaced.message);
+  assert.match(replaced.message, new RegExp(`replaced, for ${price.toFixed(0)} bits`), "at the price a summon of this program is told");
+  assert.match(replaced.warnings.join(" "), /already have an agent with this exact code/, "the same warnings as a summon (Other runs this code)");
+  const now = await mine("Keeper"), after = await observe(), state = await raw(game.gameId);
+  // The god: energy before and after differs only by the price; no power moved.
+  assert.ok(Math.abs(before.self.energy - after.self.energy - price) < 1e-6, `${before.self.energy} − ${after.self.energy} vs ${price}`);
+  assert.equal(after.self.allocated, before.self.allocated);
+  // The agent: the same id, name, description, share, stored energy, acts and spending; the new program and its prices.
+  assert.deepEqual([now._id, now.name, now.description, now.powerShare, now.account, now.acts, now.spent, now.skips, now.createdAt],
+    [was._id, "Keeper", "Waits.", 0.5, was.account, was.acts, was.spent, was.skips, was.createdAt]);
+  assert.ok(now.account.balance > 20, "its store is neither emptied nor clipped");
+  assert.deepEqual([now.source, now.summonCost, now.expectedActCost], [mover, price, wasOther.expectedActCost], "the new program's prices, as an agent summoned with it has");
+  assert.notEqual(now.expectedActCost, was.expectedActCost);
+  assert.equal(now.failures, undefined, "the old program's outcomes are not the new program's diagnosis");
+  // Nothing else moved: the other agent, the agent count, and the log has the one event.
+  assert.deepEqual(await mine("Other"), wasOther);
+  assert.equal(state.game.agentCount, 2);
+  const events = state.batches.flatMap((b: any) => b.events).filter((e: any) => e.t === "replace");
+  assert.deepEqual(events.map((e: any) => [e.agentId, e.ownerId, e.source, e.summonCost]), [[was._id, ada.subject, mover, price]]);
+  assert.equal(after.agents.find(a => a.id === was._id)!.summonCost, price);
+
+  // Destroying it returns everything it holds with its power (§6.1): it always fits, the god's capacity rises by the agent's.
+  const paused = await observe(), holding = paused.agents.find(a => a.id === was._id)!, ownBefore = paused.self.energy;
+  assert.ok(holding.energy > 20);
+  const destroyed = await send(ada, { type: "destroy", agentId: holding.id });
+  assert.equal(destroyed.accepted, true, destroyed.message);
+  assert.ok(Math.abs(destroyed.held - holding.energy) < 1e-6, `all it held moved: ${destroyed.held} vs ${holding.energy}`);
+  const ownAfter = await observe();
+  assert.ok(Math.abs(ownAfter.self.energy - ownBefore - holding.energy) < 1e-6, "and it is the god's own energy now");
+  assert.ok(ownAfter.self.energy <= ownAfter.self.capacity! + 1e-6, "within the god's capacity");
+  const kept = await send(ada, { type: "summon", name: "Keeper", language: "typescript", source: mover, powerShare: 0.5 });
+  assert.equal(kept.accepted, true, kept.message);
+  // A program the god cannot pay for is refused, as a summon is, and nothing changes.
+  await admin.mutation(internal.testing.setGodEnergy, { gameId: game.gameId, godId: ada.subject, balance: 1 });
+  const poor = await send(ada, { type: "replace", agentId: (await mine("Keeper"))._id, language: "typescript", source: skipper });
+  assert.equal(poor.accepted, false);
+  assert.match(poor.message, /Insufficient energy/);
+  assert.equal((await mine("Keeper")).source, mover);
   await host.c.mutation(api.rooms.endActiveGame, { roomId });
 });

@@ -2,7 +2,7 @@
  * Full games on Int, string and Grid with three gods, in TypeScript and Python (ported from api-server
  * game-integration "full games through the real routes"): start, planning → running, observation schema,
  * scoring parity with game-core personalView/leaderboard, validation (free; broken source; wrong language),
- * summon (god pays description bits; agent starts empty), transforms with charges summing to the agent's
+ * summon (god pays description bits; agent starts with what its god held above its lowered capacity: here nothing), transforms with charges summing to the agent's
  * spend, destroy (owner only, free), end by owner, the history record.
  */
 import test from "node:test";
@@ -87,7 +87,7 @@ for (const spec of SPECS) for (const language of languages) {
     secret = await raw(game.gameId);
     assert.ok(secret.deities.every((d: any) => d.spent === 0), "validation is free");
 
-    // Summon: the god pays the description bits; the agent starts with no energy.
+    // Summon: the god pays the description bits; the agent starts with no energy (its god holds less than its lowered capacity).
     const before = obs.self.energy;
     assert.equal((await send(ada, { type: "summon", name: "Test agent", language, source })).accepted, true);
     assert.equal((await send(bo, { type: "summon", name: "Test agent", language, source })).accepted, true);

@@ -49,11 +49,20 @@ export type ReplayEvent =
   | { type: "agent.summoned"; agentId: string; ownerId: string; worldSeconds: number; language: string; source: string; name?: string; description?: string; summonCost: number;
     expectedActCost: number; breakdown: Breakdown; randomized: boolean; account: AgentAccount;
     /** The share of its owner's power the agent was given (log schema 6); absent in older logs, which replay as share 0. */
-    powerShare?: number }
+    powerShare?: number;
+    /** The energy its god held above its lowered capacity, which the agent's `account` starts with (log schema 15; negative, as on agent.power). */
+    held?: number }
+  /**
+   * The owner replaced the agent's program (log schema 14; docs/energy-model.md §5.2): its god paid `summonCost`, the
+   * new program's summon price. The agent keeps its id, name, power share and account.
+   */
+  | { type: "agent.replaced"; agentId: string; ownerId: string; worldSeconds: number; language: string; source: string; description?: string; summonCost: number;
+    expectedActCost: number; breakdown: Breakdown; randomized: boolean }
   /** The owner re-allocated power: the agent's share from then on (log schema 6). */
   /** `owed` (log schema 13): the debt that moved with the power, from the agent onto its god's own account (negative: the other way). */
-  | { type: "agent.power"; agentId: string; ownerId: string; worldSeconds: number; share: number; owed?: number }
-  | { type: "agent.destroyed"; agentId: string; ownerId: string; worldSeconds: number; owed?: number }
+  /** `held` (log schema 15): the energy that moved with the power, from the agent onto its god's own account (negative: the other way). Without it, a log lost that energy. */
+  | { type: "agent.power"; agentId: string; ownerId: string; worldSeconds: number; share: number; owed?: number; held?: number }
+  | { type: "agent.destroyed"; agentId: string; ownerId: string; worldSeconds: number; owed?: number; held?: number }
   /** A god paid `cost` of its own energy to look at `count` objects (log schema 11; paid observation). */
   | { type: "god.looked"; ownerId: string; worldSeconds: number; price: number; count: number; objectId?: string };
 
@@ -235,7 +244,24 @@ export function applyEntry(state: ReplayState, entry: LogEntry, settings: GameSe
       if (i !== undefined) {
         state.spent[i] += ev.summonCost;
         const d = settleDeity(settings, state.deities[i], entry.world);
-        state.deities[i] = { balance: d.balance - ev.summonCost, world: d.world, allocated: roundShare(d.allocated + (ev.powerShare ?? 0)) };
+        // What the god held above its lowered capacity went to the agent (`held`, negative; its account starts with it).
+        state.deities[i] = { balance: d.balance - ev.summonCost + (ev.held ?? 0), world: d.world, allocated: roundShare(d.allocated + (ev.powerShare ?? 0)) };
+      }
+      break;
+    }
+    case "agent.replaced": {
+      // The god pays the new program's summon price; the agent's account, share, name, acts and spending stay.
+      const agent = state.agents.get(ev.agentId), i = roster.get(ev.ownerId);
+      if (agent && agent.alive) {
+        Object.assign(agent, { language: ev.language, source: ev.source, summonCost: ev.summonCost, expectedActCost: ev.expectedActCost, breakdown: ev.breakdown, randomized: ev.randomized,
+          ...(ev.description ? { description: ev.description } : {}),
+          // How the old program's acts ended is not the new program's diagnosis.
+          transforms: 0, failures: 0, failureKinds: { ...NO_FAILURES }, lastFailures: {}, unmarked: false });
+      }
+      if (i !== undefined) {
+        state.spent[i] += ev.summonCost;
+        const d = settleDeity(settings, state.deities[i], entry.world);
+        state.deities[i] = { ...d, balance: d.balance - ev.summonCost };
       }
       break;
     }
@@ -253,7 +279,8 @@ export function applyEntry(state: ReplayState, entry: LogEntry, settings: GameSe
       if (!agent || !agent.alive) break;
       // Both accounts are settled at the old rates, then the share changes.
       // Debt moves with the power (docs/energy-model.md §7.2): the recorded amount, never recomputed.
-      const owed = ev.owed ?? 0;
+      // So does energy above a lowered capacity (§6.1). One signed amount: what the god's own balance loses.
+      const owed = (ev.owed ?? 0) - (ev.held ?? 0);
       if (agent.account) { const a = settleAccount(settings, agent.account, entry.world, agent.share); agent.account = { ...a, balance: a.balance + owed }; }
       if (i !== undefined) {
         const d = settleDeity(settings, state.deities[i], entry.world);
@@ -268,10 +295,10 @@ export function applyEntry(state: ReplayState, entry: LogEntry, settings: GameSe
         agent.alive = false; agent.destroyedAt = entry.world;
         // Its share returns to its owner, whose income changes from now.
         const i = roster.get(agent.ownerId);
-        if (i !== undefined && (agent.share > 0 || ev.owed)) {
+        if (i !== undefined && (agent.share > 0 || ev.owed || ev.held)) {
           const d = settleDeity(settings, state.deities[i], entry.world);
-          // What it owed is now its god's (§7.2): the recorded amount.
-          state.deities[i] = { ...d, balance: d.balance - (ev.owed ?? 0), allocated: Math.max(0, roundShare(d.allocated - agent.share)) };
+          // What it owed, or held, is now its god's (§6.1, §7.2): the recorded amounts.
+          state.deities[i] = { ...d, balance: d.balance - (ev.owed ?? 0) + (ev.held ?? 0), allocated: Math.max(0, roundShare(d.allocated - agent.share)) };
         }
         agent.share = 0;
       }
@@ -541,8 +568,12 @@ function projected(ev: ReplayEvent, seq: number, pov: number, roster: Replay["ga
       expectedActCost: ev.expectedActCost, breakdown: ev.breakdown, randomized: ev.randomized, account: ev.account,
       ...(ev.powerShare !== undefined ? { powerShare: ev.powerShare } : {}),
     };
-    case "agent.power": return mine ? { type: "agent.power" as const, seq, agentId: ev.agentId, worldSeconds: ev.worldSeconds, share: ev.share, ...(ev.owed !== undefined ? { owed: ev.owed } : {}) } : null;
-    case "agent.destroyed": return { type: "agent.destroyed" as const, seq, agentId: ev.agentId, mine, worldSeconds: ev.worldSeconds, ...(mine && ev.owed !== undefined ? { owed: ev.owed } : {}) };
+    case "agent.replaced": return {
+      type: "agent.replaced" as const, seq, agentId: ev.agentId, mine, worldSeconds: ev.worldSeconds,
+      ...(mine ? { ...(ev.description ? { description: ev.description } : {}), language: ev.language, source: ev.source, summonCost: ev.summonCost, expectedActCost: ev.expectedActCost, breakdown: ev.breakdown, randomized: ev.randomized } : {}),
+    };
+    case "agent.power": return mine ? { type: "agent.power" as const, seq, agentId: ev.agentId, worldSeconds: ev.worldSeconds, share: ev.share, ...(ev.owed !== undefined ? { owed: ev.owed } : {}), ...(ev.held !== undefined ? { held: ev.held } : {}) } : null;
+    case "agent.destroyed": return { type: "agent.destroyed" as const, seq, agentId: ev.agentId, mine, worldSeconds: ev.worldSeconds, ...(mine && ev.owed !== undefined ? { owed: ev.owed } : {}), ...(mine && ev.held !== undefined ? { held: ev.held } : {}) };
     case "god.looked": return { type: "god.looked" as const, seq, mine, worldSeconds: ev.worldSeconds, price: ev.price, count: ev.count, ...(ev.objectId ? { objectId: ev.objectId } : {}) };
   }
 }
