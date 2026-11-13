@@ -115,6 +115,9 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
     return { source: template, boards: mode === "boards",
       ...observerRate({ fullRead: e.fullRead, objects, changeReadRatio: e.changeReadRatio ?? 32, powerPerSecond: e.powerPerSecond, share: 0.1 }) };
   }, [obs, language, instance?.objectType, ended]);
+  const [replaceObserver, setReplaceObserver] = useState(false);
+  // The observer is a new agent of its own: its name and description replace whatever the form held for other code.
+  const loadObserver = () => { if (!observer) return; runner.setDraft({ source: observer.source }); setName(OBSERVER_NAME); setDescription(OBSERVER_DESCRIPTION); setReplaceObserver(false); };
   const insert = (name: string) => {
     const el = editor.current;
     const at = el ? el.selectionStart : source.length, end = el ? el.selectionEnd : source.length;
@@ -185,7 +188,14 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
           It reads the whole object and changes nothing, so each object it is handed is shown to you as it is
           {observer.boards ? " (the others' interest in it, here)" : ""}. A turn costs it {observer.perTurn.toFixed(2)} energy; with a 10% share
           of your power it {rateText(observer.perSecond)}.{" "}
-          <TextButton boxed testId="button-observer-template" onClick={() => { runner.setDraft({ source: observer.source }); if (!name.trim()) setName(OBSERVER_NAME); if (!description.trim()) setDescription(OBSERVER_DESCRIPTION); }}>Use this agent</TextButton>
+          {/* It loads as a NEW agent named Observer, and never over code in the editor without asking. */}
+          {replaceObserver ? (<>
+            <span data-testid="text-observer-replace">This replaces the code in the editor (it is not one of your agents until you summon it). </span>
+            <TextButton boxed tone="danger" testId="button-observer-replace" onClick={loadObserver}>Replace it with the observer</TextButton>{" "}
+            <TextButton testId="button-observer-keep" onClick={() => setReplaceObserver(false)}>Keep my code</TextButton>
+          </>) : (
+            <TextButton boxed testId="button-observer-template" onClick={() => (source.trim() ? setReplaceObserver(true) : loadObserver())}>Use this agent</TextButton>
+          )}
         </p>
       )}
       {assistantDraft && assistantDraft !== source && (

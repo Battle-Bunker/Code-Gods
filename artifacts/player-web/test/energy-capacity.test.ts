@@ -67,7 +67,7 @@ test("a game without the rule says nothing about capacity", () => {
 test("your own energy: fills and then stops; full; or holds nothing when all power is given away", () => {
   // (480 − 230) / 16 = 15.6 → 16 s.
   assert.equal(plain(ownEnergyLine({ energy: 230, income: 16, capacity: 480 })), "Your energy: 230 of 480 ⚡. It fills in 16 s and then stops.");
-  assert.equal(plain(ownEnergyLine({ energy: 480, income: 16, capacity: 480 })), "Your energy: 480 of 480 ⚡. It is full: its income is being wasted. Summon with it or give your agents more power.");
+  assert.equal(plain(ownEnergyLine({ energy: 480, income: 16, capacity: 480 })), "Your energy: 480 of 480 ⚡. It is full, so it has stopped filling. Keep it for a summon you want, or give your agents more of your power.");
   assert.equal(plain(ownEnergyLine({ energy: 0, income: 0, capacity: 0 })), "Your energy can hold nothing: all your power is with your agents. You cannot summon until you take some power back.");
   assert.deepEqual(ownEnergyLine({ energy: 230, income: 16, capacity: 480 }).flatMap(s => (typeof s === "string" ? [] : [s.term])), ["energy"]);
 });

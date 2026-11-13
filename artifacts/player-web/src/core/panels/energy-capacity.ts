@@ -129,6 +129,6 @@ export function ownEnergyLine({ energy, income, capacity }: { energy: number; in
     : [`You owe ${bits(owed)} and keep no power for yourself: take some power back from an agent to repay it.`];
   if (!(capacity > 0)) return ["Your ", term, " can hold nothing: all your power is with your agents. You cannot summon until you take some power back."];
   const head: Seg[] = ["Your ", term, `: ${num(energy)} of ${bits(capacity)}. `];
-  if (energy >= capacity - EPSILON) return [...head, "It is full: its income is being wasted. Summon with it or give your agents more power."];
+  if (energy >= capacity - EPSILON) return [...head, "It is full, so it has stopped filling. Keep it for a summon you want, or give your agents more of your power."];
   return [...head, `It fills in ${duration(secondsToFull(energy, income, capacity))} and then stops.`];
 }
