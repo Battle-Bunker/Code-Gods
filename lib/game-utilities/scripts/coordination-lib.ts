@@ -255,6 +255,11 @@ export interface GameResult {
   readonly created: number[];
   /** Each god's mean own bits per object at the end. */
   readonly ownBits: number[];
+  /**
+   * Every 30 world seconds (and at the end): the god leading on points, the mean share of its rule's top each god
+   * holds per object, and the share of objects where a god holds its top (saturation, docs/beginner-pool.md §6).
+   */
+  readonly checkpoints?: { t: number; leader: number; topShare: number[]; atTop: number[] }[];
   readonly opportunities: number;
   /** Opportunities nobody could take (no agent with energy and off the cap). */
   readonly idle: number;
@@ -299,13 +304,19 @@ export function playGame(rules: readonly Rule[], policies: readonly Policy[], sp
   };
   const r: GameResult = { final: zero(), average: zero(), score: zero(), acts: zero(), changes: zero(), skips: zero(), refused: zero(), readSpent: zero(), changeSpent: zero(),
     destroyed: zero(), created: zero(), ownBits: zero(), opportunities: 0, idle: 0, objects: 0 };
-  const integral = zero();
+  const integral = zero(), checkpoints: NonNullable<GameResult["checkpoints"]> = [];
+  const tops = rules.map(x => x.topBits);
+  const checkpoint = (t: number) => checkpoints.push({ t, leader: totals.indexOf(Math.max(...totals)),
+    topShare: tops.map((top, g) => sum(objects.map(o => o.bits[g])) / Math.max(1, objects.length) / top),
+    atTop: tops.map((top, g) => objects.filter(o => o.bits[g] >= top - 1e-6).length / Math.max(1, objects.length)) });
+  let nextCheck = 30;
   let nextSpawn = econ.spawnRateHz > 0 ? poissonIntervalSeconds(econ.spawnRateHz, u()) : Infinity, last = 0;
   const count = Math.floor(econ.interactionRateHz * T);
   for (let k = 1; k <= count; k++) {
     const t = k / econ.interactionRateHz;
     for (let g = 0; g < P; g++) integral[g] += totals[g] * (t - last);
     last = t;
+    while (t >= nextCheck && nextCheck < T) { checkpoint(nextCheck); nextCheck += 30; }
     while (nextSpawn <= t) { spawn(); nextSpawn += poissonIntervalSeconds(econ.spawnRateHz, u()); }
     (r as { opportunities: number }).opportunities++;
     if (!objects.length) continue;
@@ -351,7 +362,8 @@ export function playGame(rules: readonly Rule[], policies: readonly Policy[], sp
     r.ownBits[g] = sum(objects.map(o => o.bits[g])) / Math.max(1, objects.length);
   }
   (r as { objects: number }).objects = objects.length;
-  return r;
+  checkpoint(T);
+  return { ...r, checkpoints };
 }
 
 // ------------------------------------------------------------------------------------------------

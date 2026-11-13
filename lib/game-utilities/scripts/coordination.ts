@@ -20,6 +20,10 @@
  *   --players P                       gods (default 3)
  *   --pool a,b,c                      deal from exactly these rule families instead of the setup's pool
  *   --equal-tops B                    experiment: scale every rule's bits so that its best board is worth B bits
+ *   --equal-par B [--par-games N] [--par-policy greedy]   experiment (mode rules): scale every rule's bits so that
+ *                                     reference play holds B bits per object at the end (measured first, on other deals)
+ *   --match                           tables/duel/equilibria: a match of P rounds per game, the dealt rules rotated each round
+ *   --saturation                      mode rules: also print saturation and the leader's lead over the game's time
  *   --set a,b,c                       the policies in play (default: all but random and sniper for equilibria)
  *   --duration S  --objects K  --spawn HZ  --power B  --rate HZ      override the setup
  *   --kappa K  --capacity S|none  --distance | --flat (default: the setup's cost model)  --unbounded-debt  --erasure L  --erasure-noise SIGMA  --aggregate sum|min|geo  --scoring final|integral
@@ -56,10 +60,12 @@ interface EngineGame {
   settings: { objectType: string; typeArgs: Record<string, unknown>; powerPerSecond: number; interactionRateHz: number; fullChargeSeconds?: number };
   seats: { policy: Policy; utility: { familyId: string; params: Record<string, unknown> }; totalPayoff: number; rank: number; acts: number; transforms: number; skips: number; spent: number; spentRead: number }[];
 }
-export interface Run { setup: string; games: number; players: number; econ: Econ; tuning: Tuning; /** --pool: deal from exactly these families instead of the setup's pool. */ pool?: string[]; /** --equal-tops B: scale every rule so its best board is worth B bits (0: as shipped). */ equalTops?: number }
+export interface Run { setup: string; games: number; players: number; econ: Econ; tuning: Tuning; /** --pool: deal from exactly these families instead of the setup's pool. */ pool?: string[]; /** --equal-tops B: scale every rule so its best board is worth B bits (0: as shipped). */ equalTops?: number;
+  /** --match: every table is a match of P rounds with the rules rotated (fix candidate d). */ match?: boolean;
+  /** --equal-par B: per family, the factor that scales its bits so reference greedy play holds B bits per object (computed before the run). */ scale?: Record<string, number> }
 /** The pool in force (the worker processes set it from their Run before they deal). */
-let POOL: readonly string[] | undefined, EQUAL_TOPS = 0;
-export function setPool(pool: readonly string[] | undefined, equalTops = 0) { POOL = pool; EQUAL_TOPS = equalTops; }
+let POOL: readonly string[] | undefined, EQUAL_TOPS = 0, SCALE: Record<string, number> = {};
+export function setPool(pool: readonly string[] | undefined, equalTops = 0, scale: Record<string, number> = {}) { POOL = pool; EQUAL_TOPS = equalTops; SCALE = scale; ruleCache.clear(); }
 
 export function setupOf(id: string) {
   const setup = SEED_SETUPS.find(s => s.seedId === (id === "first-steps" ? "grid-first-steps" : id === "annotated" ? "grid-annotated-basics" : id));
@@ -87,17 +93,18 @@ export function saveHoldTables() { if (holdDirty) { writeFileSync(HOLD_FILE, JSO
  */
 export function gameRule(familyId: string, params: Params, inst: Instantiation, players: number): Rule {
   const key = `${inst.key}|${familyId}|${JSON.stringify(params)}|m=${players - 1}`;
-  let rule = ruleCache.get(key);
+  let rule = ruleCache.get(`${key}|${SCALE[familyId] ?? 1}`);
   if (rule) return rule;
   const base = familyRule(familyId, params, inst);
-  if (players < 2) { ruleCache.set(key, base); return base; }
+  if (players < 2) return base;
   holdTables ??= existsSync(HOLD_FILE) ? JSON.parse(readFileSync(HOLD_FILE, "utf8")) as Record<string, HoldTable> : {};
   let hold = holdTables[key];
   if (!hold) { hold = holdTables[key] = buildHoldTable(familyId, params, inst, players - 1, `coordination|${key}`); holdDirty = true; }
   const top = base.topBits + (hold.levels.length ? hold.levels[hold.levels.length - 1][1] : 0);
   // --equal-tops B (an experiment, docs/beginner-pool.md §5): every rule's bits are scaled so its best board is worth B.
-  const scale = EQUAL_TOPS ? EQUAL_TOPS / top : 1;
-  ruleCache.set(key, rule = { ...base, bits: o => scale * (base.bits(o) + holdBits(hold, o)), topBits: scale * top });
+  // --equal-par B: scaled so reference greedy play holds B bits per object at the end (the par, measured per family).
+  const scale = (EQUAL_TOPS ? EQUAL_TOPS / top : 1) * (SCALE[familyId] ?? 1);
+  ruleCache.set(`${key}|${SCALE[familyId] ?? 1}`, rule = { ...base, bits: o => scale * (base.bits(o) + holdBits(hold, o)), topBits: scale * top });
   return rule;
 }
 /** The rules of game `g`: the setup's own dealer (settings.utilitySelectorId) on a seed shared by every table. */
@@ -115,7 +122,13 @@ export function playTable(run: Run, policies: readonly Policy[]): GameResult[] {
     const { inst, rules } = dealOf(run.setup, P, g), sp = space(inst, "symbol");
     const seatOf = (slot: number) => (slot + g) % P, bySeat = new Array<Policy>(P);
     policies.forEach((p, slot) => (bySeat[seatOf(slot)] = p));
-    const r = playGame(rules, bySeat, sp, run.econ, seededRng(`coordination|game|${run.setup}|${g}`), run.tuning);
+    // --match: P rounds on the same deal, the rules passed one seat on each round, so every player holds every rule
+    // once; the match is decided by the sum of the rounds' points.
+    const rounds = run.match ? Array.from({ length: P }, (_, k) => playGame(rules.map((_, s) => rules[(s + k) % P]), bySeat, sp, run.econ, seededRng(`coordination|game|${run.setup}|${g}|round${k}`), run.tuning))
+      : [playGame(rules, bySeat, sp, run.econ, seededRng(`coordination|game|${run.setup}|${g}`), run.tuning)];
+    const add = (f: (x: GameResult) => readonly number[]) => rounds.map(f).reduce((a, b) => a.map((x, i) => x + b[i]));
+    const r: GameResult = { ...rounds[0], final: add(x => x.final), average: add(x => x.average), score: add(x => x.score), acts: add(x => x.acts), changes: add(x => x.changes), skips: add(x => x.skips),
+      refused: add(x => x.refused), readSpent: add(x => x.readSpent), changeSpent: add(x => x.changeSpent), destroyed: add(x => x.destroyed), created: add(x => x.created), ownBits: add(x => x.ownBits).map(x => x / rounds.length) };
     const slots = <T>(a: readonly T[]) => policies.map((_, slot) => a[seatOf(slot)]);
     out.push({ ...r, final: slots(r.final), average: slots(r.average), score: slots(r.score), acts: slots(r.acts), changes: slots(r.changes), skips: slots(r.skips), refused: slots(r.refused),
       readSpent: slots(r.readSpent), changeSpent: slots(r.changeSpent), destroyed: slots(r.destroyed), created: slots(r.created), ownBits: slots(r.ownBits) });
@@ -134,13 +147,13 @@ export function playSeats(run: Run, policy: Policy): TableStats {
 
 // ------------------------------------------------------------------------------------------------ by dealt rule
 /** One game at a table where every god plays `policy`: what each seat's dealt rule got. */
-export interface RuleGame { families: string[]; score: number[]; ownBits: number[]; topBits: number[]; changes: number[]; refused: number[] }
+export interface RuleGame { families: string[]; score: number[]; ownBits: number[]; topBits: number[]; changes: number[]; refused: number[]; checkpoints?: GameResult["checkpoints"] }
 export function playRules(run: Run, policy: Policy, from: number, to: number): RuleGame[] {
   const P = run.players, out: RuleGame[] = [];
   for (let g = from; g < to; g++) {
     const { inst, rules, families } = dealOf(run.setup, P, g);
     const r = playGame(rules, new Array<Policy>(P).fill(policy), space(inst, "symbol"), run.econ, seededRng(`coordination|game|${run.setup}|${g}`), run.tuning);
-    out.push({ families, score: r.score, ownBits: r.ownBits, topBits: rules.map(x => x.topBits), changes: r.changes, refused: r.refused });
+    out.push({ families, score: r.score, ownBits: r.ownBits, topBits: rules.map(x => x.topBits), changes: r.changes, refused: r.refused, checkpoints: r.checkpoints });
   }
   return out;
 }
@@ -159,6 +172,24 @@ export function ruleStats(games: readonly RuleGame[]): Map<string, RuleStats> {
   }
   for (const s of acc.values()) for (const k of ["win", "rank", "relative", "ownBits", "topShare", "changes", "refused"] as const) s[k] /= s.n;
   return acc;
+}
+/**
+ * Saturation and contest over a game's time (--saturation): per checkpoint, the mean share of its rule's top a god holds
+ * per object, the share of (object, god) pairs at the top, and how often the leader then is the final winner.
+ */
+export function saturationMarkdown(games: readonly RuleGame[]): string {
+  const ts = games[0]?.checkpoints?.map(c => c.t) ?? [];
+  const lines = ["| world second | share of top held | objects at a god's top | leader then wins |", "|---|---|---|---|"];
+  ts.forEach((t, k) => {
+    let share = 0, at = 0, n = 0, same = 0;
+    for (const g of games) {
+      const c = g.checkpoints![k], winner = g.score.indexOf(Math.max(...g.score));
+      c.topShare.forEach((x, i) => { share += x; at += c.atTop[i]; n++; });
+      if (c.leader === winner) same++;
+    }
+    lines.push(`| ${t} | ${(100 * share / n).toFixed(0)}% | ${(100 * at / n).toFixed(0)}% | ${(100 * same / games.length).toFixed(0)}% |`);
+  });
+  return lines.join("\n");
 }
 export function rulesMarkdown(policies: readonly Policy[], byPolicy: ReadonlyMap<Policy, ReadonlyMap<string, RuleStats>>, players: number): string {
   const rules = [...new Set(policies.flatMap(p => [...byPolicy.get(p)!.keys()]))].sort();
@@ -250,7 +281,7 @@ function runOf(): Run {
     ...(opt("scoring") ? { scoring: opt("scoring") as Econ["scoring"] } : {}), ...(opt("learn") ? { learnSeconds: num("learn", 0) } : {}),
     ...(opt("agents") ? { agentsPerGod: num("agents", 1) } : {}), ...(opt("candidates") ? { candidates: num("candidates", 24) } : {}), ...(opt("cap") ? { agentCapHz: num("cap", 4) } : {}), ...(flag("free-offers") ? { offerReads: false } : {}), ...(opt("peer-noise") ? { peerNoiseBits: num("peer-noise", 8) } : {}),
   };
-  return { setup, games: num("games", 24), players: num("players", 3), econ: econOf(setup, patch), ...(opt("pool") ? { pool: opt("pool")!.split(",") } : {}), ...(opt("equal-tops") ? { equalTops: num("equal-tops", 0) } : {}),
+  return { setup, games: num("games", 24), players: num("players", 3), econ: econOf(setup, patch), ...(opt("pool") ? { pool: opt("pool")!.split(",") } : {}), ...(opt("equal-tops") ? { equalTops: num("equal-tops", 0) } : {}), ...(flag("match") ? { match: true } : {}),
     tuning: { hoarderThreshold: num("hoard", DEFAULT_TUNING.hoarderThreshold), sniperSeconds: num("snipe", DEFAULT_TUNING.sniperSeconds),
       ...(flag("summon") ? { summonBits: SUMMON_BITS, startingEnergy: setupOf(setup).settings.startingEnergy } : {}) } };
 }
@@ -258,19 +289,19 @@ function runOf(): Run {
 async function main() {
   if (flag("worker")) {
     const { run, tables } = JSON.parse(opt("worker")!) as { run: Run; tables: Policy[][] };
-    setPool(run.pool, run.equalTops);
+    setPool(run.pool, run.equalTops, run.scale);
     process.stdout.write(JSON.stringify(tables.map(t => [profileKey(t), summarise(t, playTable(run, t), run.econ.durationSeconds)])));
     return;
   }
   if (flag("rules-worker")) {
     const { run, policy, from, to } = JSON.parse(opt("rules-worker")!) as { run: Run; policy: Policy; from: number; to: number };
-    setPool(run.pool, run.equalTops);
+    setPool(run.pool, run.equalTops, run.scale);
     process.stdout.write(JSON.stringify(playRules(run, policy, from, to)));
     return;
   }
   const mode = argv[0] && !argv[0].startsWith("--") ? argv[0] : "report";
   const run = runOf(), jobs = num("jobs", availableParallelism()), P = run.players;
-  setPool(run.pool, run.equalTops);
+  setPool(run.pool, run.equalTops, run.scale);
   const set = (opt("set")?.split(",") as Policy[] | undefined) ?? ZOO;
   for (const p of set) if (!POLICIES.includes(p)) throw new Error(`Unknown policy: ${p}`);
   console.log(`setup ${run.setup}, ${P} gods, ${run.games} games per table, econ ${JSON.stringify(run.econ)}`);
@@ -358,15 +389,28 @@ async function main() {
     const policies = (opt("set")?.split(",") as Policy[] | undefined) ?? ["greedy", "considerate", "deny"];
     for (let g = 0; g < run.games; g++) dealOf(run.setup, P, g);
     saveHoldTables();
-    const byPolicy = new Map<Policy, Map<string, RuleStats>>();
-    for (const policy of policies) {
-      const step = Math.ceil(run.games / jobs);
-      const parts = await Promise.all(Array.from({ length: Math.ceil(run.games / step) }, (_, k) => new Promise<RuleGame[]>((resolve, reject) => {
-        execFile(process.execPath, ["--experimental-strip-types", "--disable-warning=ExperimentalWarning", SELF, "--rules-worker", JSON.stringify({ run, policy, from: k * step, to: Math.min(run.games, (k + 1) * step) })],
+    const rulesIn = async (r: Run, policy: Policy, from: number, to: number) => {
+      const step = Math.ceil((to - from) / jobs);
+      const parts = await Promise.all(Array.from({ length: Math.ceil((to - from) / step) }, (_, k) => new Promise<RuleGame[]>((resolve, reject) => {
+        execFile(process.execPath, ["--experimental-strip-types", "--disable-warning=ExperimentalWarning", SELF, "--rules-worker", JSON.stringify({ run: r, policy, from: from + k * step, to: Math.min(to, from + (k + 1) * step) })],
           { maxBuffer: 1 << 28 }, (error, stdout, stderr) => (error ? reject(new Error(`${error.message}\n${stderr}`)) : resolve(JSON.parse(stdout))));
       })));
-      byPolicy.set(policy, ruleStats(parts.flat()));
+      if (flag("saturation")) console.log(`\n${policy}:\n${saturationMarkdown(parts.flat())}`);
+      return ruleStats(parts.flat());
+    };
+    if (opt("equal-par")) {
+      // Par: each family's own bits per object at the end under reference greedy play, as shipped, on deals disjoint
+      // from the measured ones (games 100000 on); every family is then scaled so its par is B.
+      const B = num("equal-par", 0), parGames = num("par-games", 300);
+      for (let g = 100000; g < 100000 + parGames; g++) dealOf(run.setup, P, g);
+      saveHoldTables();
+      const par = await rulesIn({ ...run, scale: {} }, (opt("par-policy") ?? "greedy") as Policy, 100000, 100000 + parGames);
+      run.scale = Object.fromEntries([...par].map(([f, s]) => [f, B / s.ownBits]));
+      setPool(run.pool, run.equalTops, run.scale);
+      console.log(`par (${opt("par-policy") ?? "greedy"}, ${parGames} games): ${[...par].map(([f, s]) => `${f} ${s.ownBits.toFixed(2)} (×${run.scale![f].toFixed(3)})`).join(", ")}`);
     }
+    const byPolicy = new Map<Policy, Map<string, RuleStats>>();
+    for (const policy of policies) byPolicy.set(policy, await rulesIn(run, policy, 0, run.games));
     console.log(`\n${rulesMarkdown(policies, byPolicy, P)}`);
     json.rules = Object.fromEntries([...byPolicy].map(([p, m]) => [p, Object.fromEntries(m)]));
   } else if (mode === "validate") {
