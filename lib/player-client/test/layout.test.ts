@@ -83,7 +83,7 @@ test("the default layout: the goal and objects by payoff side by side on top; th
   assert.deepEqual(shown("p3"), ["agents", { agentIds: [], window: 120, showSource: false, showCosts: false }]);
   assert.equal(shown("p4"), "assistant");
   assert.deepEqual(shown("p5"), ["race", { show: "all", metric: "total", window: 300 }]);
-  assert.deepEqual(panesOf(layout).map(paneCaption), ["Goal and an example object", "Top 12 by payoff", "Your assistant (private)", "All agents · last 120 s", "Everyone · total payoff · last 300 s"], "the captions of the owner's screenshot");
+  assert.deepEqual(panesOf(layout).map(paneCaption), ["Goal and an example object", "By points", "Your assistant (private)", "All agents · last 120 s", "Everyone · total points · last 300 s"], "the captions of the owner's screenshot");
   assert.equal(panelPanesOf(layout).length, LAYOUT_LIMITS.panelPanes, "every built-in panel slot is used");
   assert.equal(assistantSide(layout), "column");
   assert.deepEqual(parseLayout(layout, ctx), { layout, warnings: [] });
@@ -239,7 +239,7 @@ test("presets keep every built-in panel; carried layouts reset parameters; the b
   assert.deepEqual(carried.panes.p3, { id: "p3", kind: "panel", panelId: "objects", params: { sortBy: "payoff", filter: "all", limit: 12, highlight: [], layout: "list" }, setBy: "assistant" }, "parameters reset; the panel and who chose it stay");
   assert.deepEqual(carried.root, base.root, "the arrangement is kept");
   const lines = describeLayout(setPaneParams(base, "p3", { limit: 3 }, "assistant"));
-  assert.deepEqual(lines, ["[p1] objects — Top 12 by payoff (default)", "[p3] objects — Top 3 by payoff (set by you)", "[p2] this conversation (below the panels)"]);
+  assert.deepEqual(lines, ["[p1] objects — By points (default)", "[p3] objects — By points (set by you)", "[p2] this conversation (below the panels)"]);
 });
 
 test("a stored layout with tab groups keeps only each group's active tab; the pane model has no tabs", () => {

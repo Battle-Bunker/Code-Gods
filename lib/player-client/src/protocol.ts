@@ -35,7 +35,9 @@ export const commandSchema = z.discriminatedUnion("type", [
   // Paid observation (docs/energy-model.md §11): pay economy.lookPrice from your own energy to be told one object as it
   // is now (objectId), or every object (no objectId: the price times the number of objects). Refused when looking is free.
   // (An empty objectId means none: a structured-output model must send every key.)
-  z.object({ type: z.literal("look"), objectId: z.preprocess(v => (v === "" ? undefined : v), id.optional()) }).strict(),
+  // count (a look at all only): how many objects the price was quoted for. The look then covers that many, oldest
+  // first, and is charged for exactly them: an object born since is already known from its birth.
+  z.object({ type: z.literal("look"), objectId: z.preprocess(v => (v === "" ? undefined : v), id.optional()), count: z.number().int().min(1).max(2000).optional() }).strict(),
 ]);
 export type Command = z.infer<typeof commandSchema>;
 /** Commands that act on the current game and therefore need its gameId. */

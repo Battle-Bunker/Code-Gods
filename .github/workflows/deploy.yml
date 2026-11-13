@@ -100,12 +100,8 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - if: matrix.shard != 'rest'
-        run: pnpm --filter @workspace/game-utilities test
-        env:
-          CG_SHARD: ${{ matrix.shard }}
-      # The engine's unit suite runs agents in the Python sandbox (test/unit/example-agents.test.ts, language-price.test.ts),
-      # so "rest" builds the runtime bundle first, as the `runtime` job does (about 2 s with the cached CPython).
+      # The "rest" shard runs the tests that compile a starter agent (ai-player, engine example agents), which need the
+      # pinned Python runtime; `dist/python-runtime.bin.gz` is built, not committed, so this shard builds it too.
       - if: matrix.shard == 'rest'
         uses: actions/cache@v4
         id: cpython
@@ -116,6 +112,10 @@ jobs:
         run: pnpm --filter @workspace/game-runtime setup:python
       - if: matrix.shard == 'rest'
         run: pnpm --filter @workspace/game-runtime build:python
+      - if: matrix.shard != 'rest'
+        run: pnpm --filter @workspace/game-utilities test
+        env:
+          CG_SHARD: ${{ matrix.shard }}
       - if: matrix.shard == 'rest'
         run: pnpm run test:offline:rest
         env:

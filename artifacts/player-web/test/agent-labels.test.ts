@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   actualLine, afterShareLine, agentState, energyLine, estimateLine, laneKind, num, plain, runwayFraction, runwayText, shareLine, skipLine, spentLine,
-  statusText, summonLine, yourPowerLine,
+  statusText, summonLine, yourPowerLine, allocationSettled,
 } from "../src/core/panels/agent-labels.ts";
 import { agentLabel } from "../src/core/panels/agent-name.ts";
 
@@ -18,6 +18,12 @@ test("numbers: one decimal at most, a real minus, energy as ⚡", () => {
 test("the player's own line says where the budget goes", () => {
   assert.equal(plain(yourPowerLine({ total: 64, allocated: 0.75, income: 16, energy: 230 })),
     "Your power: 64 ⚡/s — 75% to your agents, 25% (16 ⚡/s) refills your energy (230 ⚡) for summoning");
+  // After a destroy the total still counts the agent that is gone for a moment: the split is not shown while it disagrees.
+  assert.equal(allocationSettled(0.75, [0.5, 0.25]), true);
+  assert.equal(allocationSettled(0.75, [0.5]), false, "one 50% agent left, 75% still reported");
+  assert.equal(allocationSettled(0.5, [0.5, undefined]), true, "a share that is not known disagrees with nothing");
+  assert.equal(allocationSettled(0, []), true);
+  assert.equal(plain(yourPowerLine({ total: 64, allocated: 0.75, income: 16, energy: 230, settling: true })), "Your power: 64 ⚡/s — your split is updating after the change you just made");
   assert.equal(plain(yourPowerLine({ total: 64, allocated: 1, income: 0, energy: 5 })),
     "Your power: 64 ⚡/s — 100% to your agents, nothing is left to refill your energy (5 ⚡) for summoning");
 });
@@ -51,7 +57,12 @@ test("state: energy 0 or below waits for income even if the server still says el
   assert.equal(agentState({ energy: -3, eligible: false }), "waiting");
   assert.equal(agentState({ energy: 5, eligible: false }), "limit");
   assert.equal(agentState({ energy: 5, eligible: true }), "can");
-  assert.deepEqual([{ energy: 5, eligible: true }, { energy: 0, eligible: false }, { energy: 5, eligible: false }].map(laneKind), ["ok", "cool", "idle"]);
+  assert.deepEqual([{ energy: 5, eligible: true }, { energy: 0, eligible: false }, { energy: 5, eligible: false }].map(a => laneKind(a)), ["ok", "cool", "idle"]);
+  // With its income known: overdrawn by at most two seconds of it is work, not waiting (an all-orange timeline read as "stuck").
+  assert.equal(laneKind({ energy: -2.4, eligible: false }, 32), "ok");
+  assert.equal(laneKind({ energy: -64, eligible: false }, 32), "ok");
+  assert.equal(laneKind({ energy: -65, eligible: false }, 32), "cool");
+  assert.equal(laneKind({ energy: -2.4, eligible: false }, 0), "cool", "no income: it waits");
   assert.equal(statusText("waiting", false, 2.34), "waiting for income (about 2.3 s)");
   assert.equal(statusText("waiting", false, Infinity), "waiting for income");
   assert.equal(statusText("can", true, 0), "at the end: could act");

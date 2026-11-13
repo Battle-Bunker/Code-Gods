@@ -3,6 +3,8 @@
  * points on them over the game, each as a product that multiplies out as displayed). In the lobby it shows the room's last finished game; the assistant may pick an
  * older one.
  */
+import { useRef } from "react";
+import { useDock, useDockStore } from "@/dock/store";
 import { dimensionVar, productText } from "@workspace/object-views";
 import { LineChart, Obj, Table, useGame, useLeaderboard, useMyCard, useObjectsTop, useRoomInfo, useTrajectories } from "@/sdk";
 import { usePastGames } from "@/core/game/past-games";
@@ -11,7 +13,7 @@ import { finishPlace, liveResultRows } from "./results-rank";
 import { liveIsEstimate } from "./score-lines";
 import { HANDICAP_FOOTNOTE, auctionLines, cardBid, cardHandicap, handicapLabel, handicapNote, handicapsOf } from "@/site/lib/bidding";
 import { ruleName, useAuction } from "@/core/game/auction";
-import { BiddingNote, ObjectRef, PanelEmpty, PreparingNote, Section, fmt, referObject, type PanelProps } from "./kit";
+import { BiddingNote, ObjectRef, PanelEmpty, PreparingNote, Section, fmt, referObjectId, type PanelProps } from "./kit";
 
 /** Your ✨ rarity × how much the others want it, in the dimension colours every panel uses. */
 const YOURS = dimensionVar("yours"), OTHERS = dimensionVar("others");
@@ -19,6 +21,8 @@ const YOURS = dimensionVar("yours"), OTHERS = dimensionVar("others");
 type Row = { id: string; name: string; isAI: boolean; total: number; rank: number };
 
 export default function Results({ params, phase }: PanelProps<"results">) {
+  const whySection = useRef<HTMLDivElement>(null);
+  const store = useDockStore(), dock = useDock();
   const game = useGame({ hz: 1 });
   const board = useLeaderboard({ hz: 1 });
   const past = usePastGames();
@@ -74,6 +78,15 @@ export default function Results({ params, phase }: PanelProps<"results">) {
           Back to room {room.shortCode} for the next game
         </Link>
       )}
+      {dock.hiddenPanes && (
+        // The ended game shows the results and the timeline only; the goal, code, agents and objects are one press away.
+        <button type="button" data-testid="button-show-my-panes" onClick={() => store.showMyPanes()}
+          className="ml-3 border border-[hsl(var(--input))] px-3 py-1.5 text-sm font-semibold">Show my panes</button>
+      )}
+      {params.section !== "standings" && live && best.length > 0 && (
+        <button type="button" data-testid="button-results-why" onClick={() => whySection.current?.scrollIntoView({ block: "start", behavior: "smooth" })}
+          className="ml-3 text-sm underline underline-offset-2 text-muted-foreground hover:text-foreground">Why: your best and worst objects ↓</button>
+      )}
       {params.section !== "mine" && (
         <Section title="Final standings">
           <Table rows={rows} rowKey={r => r.id} columns={[
@@ -94,15 +107,16 @@ export default function Results({ params, phase }: PanelProps<"results">) {
         </Section>
       )}
       {params.section !== "standings" && live && best.length > 0 && (
+        // The pane scrolls inside itself (the dock's frame), and the panes below it cut this section at the fold with
+        // nothing to say so: the link above brings it into view, and the sentences come before the chart.
+        <div ref={whySection} data-testid="section-results-why" className="scroll-mt-2">
         <Section title="Why: your best and worst objects">
-          {chart.some(c => c.points.length > 1) && <LineChart width={400} height={150} xLabel="world s" yLabel="points"
-            series={chart} />}
           <p className="text-xs text-muted-foreground" data-testid="text-results-formula">Each object's points: your ✨ rarity × how much the others want it. Your total is every object's points added up.</p>
           <ul className="space-y-1 text-xs">
             {[...best, ...worst].map(o => ({ o, line: productText(o.own.netBits, o.peerCare, o.payoff) })).map(({ o, line }) => (
               <li key={o.id} className="flex items-center gap-2">
                 {ranks.has(o.id)
-                  ? <button type="button" className="w-7 text-left font-mono text-muted-foreground hover:text-foreground" onClick={() => referObject(ranks.get(o.id))}>#{ranks.get(o.id)}</button>
+                  ? <button type="button" className="w-7 text-left font-mono text-muted-foreground hover:text-foreground" onClick={() => referObjectId(o.id)}>#{ranks.get(o.id)}</button>
                   : <span className="w-7 font-mono"><ObjectRef objectId={o.id} /></span>}
                 <Obj value={o.value} />
                 <span className="tabular-nums" data-testid={`text-result-payoff-${o.id}`}>
@@ -112,7 +126,10 @@ export default function Results({ params, phase }: PanelProps<"results">) {
               </li>
             ))}
           </ul>
+          {chart.some(c => c.points.length > 1) && <LineChart width={400} height={150} xLabel="world s" yLabel="points" format={fmt}
+            series={chart} />}
         </Section>
+        </div>
       )}
     </div>
   );

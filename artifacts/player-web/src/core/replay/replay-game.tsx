@@ -20,6 +20,7 @@ import { engineSite } from "@/core/connection";
 import { endReasonLabel } from "@/site/lib/time";
 import { Link, hrefTo } from "../navigation";
 import { PlayerPalette } from "../header";
+import { BackToResults } from "@/dock/results-toggle";
 import { parseReplayParams, replaySearch } from "./model";
 import { ReplayController, replaySource } from "./controller";
 import { AgentCode, AgentCodeContext, ReplayBar, ReplayControllerContext, useReplayKeys } from "./parts";
@@ -160,6 +161,7 @@ function ReplayDock({ room, gameCode, access, controller, partial }: { room: Roo
         <span className="font-serif text-base">Game <span className="font-mono" data-testid="text-game-code">{gameCode}</span></span>
         <span className="label" data-testid="text-game-status">{controller.replay.game.endReason ? `game over: ${endReasonLabel(controller.replay.game.endReason)}` : "ended"} · read-only replay</span>
         {partial && <span className="text-xs text-destructive" data-testid="text-replay-partial">Only part of the replay loaded ({partial}).</span>}
+        <BackToResults />
         <PlayerPalette compact suggested={["ui.replay.toggle", "ui.replay.start", "ui.replay.end"]} />
       </div>
     </div>

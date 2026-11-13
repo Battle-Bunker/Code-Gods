@@ -1,6 +1,6 @@
 ---
 name: Paid observation
-description: A game setting ("free" | "paid", Annotated basics is paid): a seated god sees each object as last told (birth, own agents' changes and complete reads, paid looks); one price for a look; knowledge rows and log; what is free.
+description: A game setting ("free" | "paid"; Annotated basics is free since 2026-11-13, "Basics with paid looks" is paid): a seated god sees each object as last told (birth, own agents' changes and complete reads, paid looks); one price for a look; knowledge rows and log; what is free.
 ---
 In a paid game a seated god never reads the live world: every player-facing read of objects goes through the god's own
 knowledge (`objectViews` rows with `learnedAt`, and `knowledgeLog` for the series).

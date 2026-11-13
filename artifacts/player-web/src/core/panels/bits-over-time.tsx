@@ -2,7 +2,7 @@
 import { useMemo } from "react";
 import { LineChart, Obj, fmtBits, useDockState, useGameId, useMyObjects, useObjects, useObjectsTop, useTrajectories, type TrajectoryPoint } from "@/sdk";
 import { seenHint } from "./knowledge";
-import { PanelEmpty, referObject, ranksOf, type PanelProps } from "./kit";
+import { PanelEmpty, referObjectId, ranksOf, type PanelProps } from "./kit";
 
 const VALUE: Record<string, (p: TrajectoryPoint) => number> = { payoff: p => p.payoff, mine: p => p.ownNetBits, others: p => p.peerNetBits };
 const NAME = { payoff: "payoff", mine: "your net bits", others: "others' net bits" } as const;
@@ -30,7 +30,7 @@ export default function BitsOverTime({ params }: PanelProps<"bits-over-time">) {
       <ol className="space-y-1 text-xs">
         {chosen.map(o => (
           <li key={o.id} className="flex items-center gap-2">
-            <button type="button" className="w-7 text-left font-mono text-muted-foreground hover:text-foreground" onClick={() => referObject(ranks.get(o.id))}>#{ranks.get(o.id)}</button>
+            <button type="button" className="w-7 text-left font-mono text-muted-foreground hover:text-foreground" onClick={() => referObjectId(o.id)}>#{ranks.get(o.id)}</button>
             <Obj value={o.value} />
             <span className="tabular-nums">{seenHint(o, world) ? "last" : "now"} {fmtBits(o.own.netBits)} yours · payoff {fmtBits(o.payoff)}{seenHint(o, world) && <span className="text-muted-foreground" data-testid={`text-seen-${o.id}`}> · {seenHint(o, world)}</span>}</span>
           </li>

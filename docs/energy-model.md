@@ -788,7 +788,7 @@ values, so each can be tried on one deployment by duplicating a setup and changi
 |---|---|---|
 | `free` (stored settings without the field) | every object as it is: the game as it was | — |
 | `boards` | every board and its own bits live; the others' interest (and the payoff) and the history as last told | yes |
-| `paid` (the default setup, Annotated basics) | every object as last told | yes |
+| `paid` (the setup "Basics with paid looks"; the default setup, Annotated basics, is `free`) | every object as last told | yes |
 | `agents` | every object as last told | no: its agents are its only eyes |
 
 Two sentences carry it: **an object's birth is public; its life is paid** and **activity is public; content is paid**.

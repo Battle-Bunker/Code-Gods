@@ -233,12 +233,12 @@ test("the bid phase on the form: bidding time in whole seconds up to 10 minutes,
 });
 
 test("the room's details list says how the world is looked at, beside how changes are priced", () => {
-  // What would break: a player joining a paid-observation room (the default setup) reads the details and is not told
-  // that looking costs energy.
+  // What would break: a player joining a room where looking costs energy reads the details and is not told.
   assert.equal(ROOM_DETAILS[ROOM_DETAILS.indexOf("costModel") + 1], "observation");
-  const basics = seedSetupSettings("grid-annotated-basics");
-  assert.equal(`${LABELS.observation}: ${formatValue("observation", basics.observation)}`, "Looking at the world: Paid");
-  assert.equal(formatValue("observation", seedSetupSettings("grid-classic").observation), "Free");
+  assert.equal(`${LABELS.observation}: ${formatValue("observation", "paid")}`, "Looking at the world: Paid");
+  assert.equal(formatValue("observation", "free"), "Free");
+  // Every seed setup stores a mode, so the row is never missing.
+  for (const id of ["grid-annotated-basics", "grid-classic"]) assert.match(formatValue("observation", seedSetupSettings(id).observation), /^(Free|Boards free|Paid|Agents only)$/, id);
 });
 
 test("the cost model: a choice under Energy › More, offered where the world has more than one, read as set-v1 when absent", () => {

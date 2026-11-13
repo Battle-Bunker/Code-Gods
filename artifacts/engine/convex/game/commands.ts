@@ -344,7 +344,10 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     const id = command.objectId === undefined ? null : ctx.db.normalizeId("objects", command.objectId);
     const object = id ? await ctx.db.get(id) : null;
     if (command.objectId !== undefined && (!object || object.gameId !== game._id)) fail("NOT_FOUND", "This game has no object with that ID");
-    const count = object ? 1 : game.objectCount, cost = each * count;
+    // A look at all is charged for the set it was quoted for (command.count: the object count the player was shown):
+    // that many objects, oldest first. An object born since is already known from its birth, so it is neither looked
+    // at nor paid for, and the price charged is the price shown.
+    const count = object ? 1 : Math.min(game.objectCount, command.count ?? game.objectCount), cost = each * count;
     const own = deityAccount(game, deity, world);
     // The shared charge (lib/power.ts chargeGod): settled within the account's capacity, never into debt.
     const left = own.balance < cost ? null : await chargeGod(ctx, game, deity, cost, now);
@@ -354,7 +357,7 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     }
     const me: ReadonlySet<string> = new Set([member.godId]);
     if (object) await syncRows(ctx, [object], true, { world, told: () => me, boards: boardsLive(game) });
-    else await ctx.scheduler.runAfter(0, internal.game.looks.page, { gameId: game._id, godId: member.godId, world, cursor: null });
+    else await ctx.scheduler.runAfter(0, internal.game.looks.page, { gameId: game._id, godId: member.godId, world, cursor: null, remaining: count });
     const nextBatch = await appendEvents(ctx, game, [{ t: "look", ownerId: member.godId, world, cost, count, ...(object ? { objectId: object._id } : {}) }], world, world);
     await writeGame(ctx, game, { nextBatch });
     const view = object ? viewRowOf(object, member.godId, true) : null;

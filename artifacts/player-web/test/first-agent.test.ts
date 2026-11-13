@@ -7,7 +7,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  FIRST_AGENT_HINT, STARTER_AGENT_HINT, armedStep, armedText, energyHint, firstAgentFill, firstAgentHint, untouchedExample, lacksEnergy, readyText, summonReady, summonedText, type ArmedSummon, type Examples, type FirstAgentState,
+  FIRST_AGENT_HINT, STARTER_AGENT_HINT, armedStep, armedText, energyHint, firstAgentFill, firstAgentHint, untouchedExample, lacksEnergy, readyText, summonReady, summonedText, COPY_HINT, REPLACE_WHY, PENDING_REPLACE_MS, pendingReplaceOnReceipt, pendingReplaceOnSend, replaceBlocked, sameVersionNote, bothText, draftOrigin, replaceLabel, replaceOffer, replaceShare, replaceStep, replacedText, FIRST_SUMMON_MAX_AGE_MS, FIRST_SUMMON_WARMING_MS, firstSummonLabel, isCopy, replaceNeedsConfirm, firstSummonStep, nextFreeName, proposedName, secondAgentHint, storeAfterSummonText, type ArmedSummon, type Examples, type FirstAgentState,
 } from "../src/core/panels/first-agent.ts";
 
 const py = { name: "Mirror maker", source: "# My goal: mirrors\ndef agent(grid):\n    return []\n", specific: true };
@@ -73,7 +73,8 @@ test("a summon refused for lack of energy is recognised from the engine's messag
 });
 
 test("after a summon the next step is said; My agents in planning says the agent is ready", () => {
-  assert.equal(summonedText("Mirror maker", true), "Summoned: Mirror maker is in the game. It acts when the world starts. Watch 'My agents' for what it does. Then try the change suggested in the code and summon again.");
+  assert.equal(summonedText("Mirror maker", true), "Summoned: Mirror maker is in the game. It acts when the world starts.");
+  assert.ok(!summonedText("Mirror maker", true).includes("Watch"), "My agents is a button beside the line, not a pane the player has to find");
   assert.match(summonedText("Mirror maker", false), /It acts whenever it gets a turn\./);
   assert.equal(readyText([]), null);
   assert.equal(readyText(["Mirror maker"]), "Mirror maker is ready. It acts when the world starts.");
@@ -119,4 +120,139 @@ test("an armed summon is dropped when the game has ended or gameplay is off", ()
   const armed: ArmedSummon = { name: "A", language: "python", source: "x", cost: 300 };
   assert.equal(armedStep(armed, { source: "x", language: "python", energy: 400, busy: false, canSummon: false, over: true }), "disarm");
   assert.equal(armedStep(armed, { source: "x", language: "python", energy: 400, busy: false, canSummon: false }), "wait", "a warming sandbox only waits");
+});
+
+test("'Summon my first agent' summons the untouched example at once, and leads an edited draft to the Summon button", () => {
+  const base = { requested: true, busy: false, agents: 0 as number | undefined, source: py.source, untouched: true, filling: false, enabled: true, warming: false, first: true, ageMs: 500 };
+  assert.equal(firstSummonStep({ ...base, requested: false }), "idle");
+  assert.equal(firstSummonStep(base), "summon", "the pre-filled example: one click summons it");
+  assert.equal(firstSummonStep({ ...base, busy: true }), "wait", "never beside a command in flight");
+  assert.equal(firstSummonStep({ ...base, agents: undefined, source: "", untouched: false }), "wait", "the agent list is still loading: the example may yet arrive");
+  assert.equal(firstSummonStep({ ...base, source: "", untouched: false, filling: true }), "wait", "the example is about to be put in the editor");
+  assert.equal(firstSummonStep({ ...base, source: "", untouched: false }), "ring", "an editor the player cleared stays theirs");
+  assert.equal(firstSummonStep({ ...base, source: "def agent(grid): return []", untouched: false }), "ring", "the player's own code is never summoned for them");
+  assert.equal(firstSummonStep({ ...base, enabled: false }), "ring", "Summon is off (the forge says why): show where it is");
+  assert.equal(firstSummonStep({ ...base, agents: 1 }), "ring", "not a first agent any more");
+  // The sandbox is still warming (the start of planning): Summon is off, but the request waits for it instead of being used up.
+  assert.equal(firstSummonStep({ ...base, enabled: false, warming: true }), "wait");
+  assert.equal(firstSummonStep({ ...base, enabled: false, warming: true, ageMs: 30_000 }), "wait", "a warming sandbox may take longer than a click lasts");
+  assert.equal(firstSummonStep({ ...base, enabled: false, warming: true, ageMs: FIRST_SUMMON_WARMING_MS + 1 }), "expire");
+  assert.equal(firstSummonStep({ ...base, enabled: false, warming: true, untouched: false, source: "def agent(grid): return []" }), "ring", "the player's own code never waits to be summoned for them");
+  // A request never outlives its click: after 10 s it is dropped, not acted on.
+  assert.equal(firstSummonStep({ ...base, ageMs: FIRST_SUMMON_MAX_AGE_MS + 1 }), "expire");
+  assert.equal(firstSummonStep({ ...base, busy: true, ageMs: FIRST_SUMMON_MAX_AGE_MS + 1 }), "expire");
+  // This editor already summoned an agent (the agent list may lag the receipt): a second press never buys a second copy.
+  assert.equal(firstSummonStep({ ...base, first: false }), "ring");
+  assert.equal(firstSummonStep({ ...base, first: false, enabled: false, warming: true }), "ring");
+  // What the banner's button says meanwhile.
+  assert.equal(firstSummonLabel({ summoning: true, pending: true }), "Summoning…");
+  assert.equal(firstSummonLabel({ summoning: false, pending: true }), "Getting ready…");
+  assert.equal(firstSummonLabel({ summoning: false, pending: false }), "Summon my first agent");
+});
+
+test("a name the player already uses gets the next free number, unless they typed it themselves", () => {
+  assert.equal(nextFreeName("Simple spread keeper", ["Simple spread keeper"]), "Simple spread keeper 2");
+  assert.equal(nextFreeName("Simple spread keeper", ["Simple spread keeper", "Simple spread keeper 2"]), "Simple spread keeper 3");
+  assert.equal(nextFreeName("Simple spread keeper 2", ["Simple spread keeper", "Simple spread keeper 2"]), "Simple spread keeper 3", "a numbered name counts on");
+  assert.equal(nextFreeName("Keeper", ["keeper ", undefined]), "Keeper 2", "case and outer spaces do not make a name new");
+  assert.equal(nextFreeName("Keeper", ["Other"]), "Keeper", "a free name stays");
+  assert.equal(nextFreeName("x".repeat(40), ["x".repeat(40)], 40), `${"x".repeat(38)} 2`, "within the name's length limit");
+  assert.equal(proposedName({ name: "Keeper", typed: false, existing: ["Keeper"] }), "Keeper 2");
+  assert.equal(proposedName({ name: "Keeper", typed: true, existing: ["Keeper"] }), null, "a typed name is never changed for the player");
+  assert.equal(proposedName({ name: "Keeper", typed: false, existing: [] }), null);
+  assert.equal(proposedName({ name: " ", typed: false, existing: [""] }), null);
+});
+
+test("with an agent already in the game the forge says what another one means", () => {
+  assert.equal(secondAgentHint(0), null);
+  assert.equal(secondAgentHint(undefined), null);
+  assert.equal(secondAgentHint(1), "A second agent runs beside the first. To replace the first one instead, destroy it in My agents.");
+  assert.equal(secondAgentHint(3), "A new agent runs beside the ones you have. To replace one instead, destroy it in My agents.");
+});
+
+test("the summoned line says why the player's own store shrank", () => {
+  assert.equal(storeAfterSummonText({ share: 0.5, capacity: 480 }), "Half of your power now feeds this agent, so your own store is smaller: at most 480 ⚡.");
+  assert.equal(storeAfterSummonText({ share: 0.25, capacity: 360.4 }), "25% of your power now feeds this agent, so your own store is smaller: at most 360 ⚡.");
+  assert.equal(storeAfterSummonText({ share: 0.5, capacity: undefined }), null, "a game with no capacity");
+  assert.equal(storeAfterSummonText({ share: 0.5, capacity: Infinity }), null);
+  assert.equal(storeAfterSummonText({ share: undefined, capacity: 480 }), null);
+  assert.equal(storeAfterSummonText({ share: 0, capacity: 480 }), null);
+});
+
+test("the same code again is called a copy; a template replaces lost-able code only after asking", () => {
+  const mine = [{ source: py.source, language: "python" }];
+  assert.equal(isCopy(py.source, "python", mine), true);
+  assert.equal(isCopy(py.source, "typescript", mine), false);
+  assert.equal(isCopy(py.source + "\n# changed", "python", mine), false);
+  assert.equal(isCopy("", "python", [{ source: "", language: "python" }]), false);
+  assert.match(COPY_HINT, /^You already have this agent\./);
+  assert.equal(replaceNeedsConfirm({ source: "def agent(grid): return []", untouched: false, copy: false }), true, "the player's own unsummoned code would be lost");
+  assert.equal(replaceNeedsConfirm({ source: py.source, untouched: true, copy: false }), false, "the untouched example can be had again");
+  assert.equal(replaceNeedsConfirm({ source: py.source, untouched: false, copy: true }), false, "the code of a summoned agent is kept by that agent");
+  assert.equal(replaceNeedsConfirm({ source: " ", untouched: false, copy: false }), false);
+});
+
+test("an edited copy of an agent the player has is offered as a replacement, not as a second agent that fights the first", () => {
+  const mine = [{ id: "a1", name: "Simple spread keeper", source: py.source, language: "python" }, { id: "a2", name: "Other", source: "def agent(grid): return []", language: "python" }];
+  // The draft's origin: the agent whose code the editor held; it stays while that code is being edited.
+  assert.equal(draftOrigin(null, py.source, "python", mine), "a1");
+  assert.equal(draftOrigin("a1", py.source + "\n# 2 and 5", "python", mine), "a1", "an edit keeps the origin");
+  assert.equal(draftOrigin("a1", "def agent(grid): return []", "python", mine), "a2", "the code of another agent: that one");
+  assert.equal(draftOrigin("a1", py.source + "x", "python", [mine[1]]), null, "the origin was destroyed");
+  assert.equal(draftOrigin(null, "something new", "python", mine), null);
+  assert.equal(draftOrigin("a1", "", "python", mine), null, "an emptied editor starts afresh");
+  assert.equal(draftOrigin("a1", py.source, "typescript", mine), "a1", "another language is still an edit of it");
+  // Offered only for a changed draft of an agent that exists.
+  assert.equal(replaceOffer(mine[0], py.source + "\n# 2 and 5"), true);
+  assert.equal(replaceOffer(mine[0], py.source), false, "unchanged: that is a copy (isCopy), not a new version");
+  assert.equal(replaceOffer(undefined, "anything"), false);
+  assert.equal(replaceOffer(mine[0], "  "), false);
+  assert.equal(replaceLabel("Simple spread keeper"), "Replace Simple spread keeper with this version");
+  assert.equal(REPLACE_WHY, "Two agents with different ideas undo each other's work; replacing keeps one.");
+});
+
+test("a replace whose summon is accepted only through a retry still destroys the old agent; an abandoned one destroys nothing", () => {
+  const pending = { commandId: "c1", oldId: "a1", name: "Keeper", source: "S", at: 1_000 };
+  // The receipt of the pending summon, on whichever path it arrives (the first send, "Try again", "Retry the same command").
+  assert.equal(pendingReplaceOnReceipt(pending, "c1", { accepted: true }), "destroy");
+  assert.equal(pendingReplaceOnReceipt(pending, "c1", { accepted: false }), "clear", "refused: nothing is destroyed");
+  assert.equal(pendingReplaceOnReceipt(pending, "c1", undefined), "keep", "no answer yet: the retry may still be accepted");
+  assert.equal(pendingReplaceOnReceipt(pending, "c2", { accepted: true }), "keep", "another command's receipt");
+  assert.equal(pendingReplaceOnReceipt(null, "c1", { accepted: true }), "none");
+  // Sending: the same envelope again keeps it; any other command means the player moved on, so it is abandoned.
+  assert.equal(pendingReplaceOnSend(pending, "c1", 5_000), "keep");
+  assert.equal(pendingReplaceOnSend(pending, "c9", 5_000), "clear");
+  assert.equal(pendingReplaceOnSend(pending, "c1", 1_000 + PENDING_REPLACE_MS + 1), "clear", "it expires: a summon retried much later is only a summon");
+  assert.equal(pendingReplaceOnSend(null, "c1", 5_000), "none");
+});
+
+test("replace: the new version is summoned first, and the old one is destroyed only when that is accepted", () => {
+  assert.deepEqual(replaceStep("summoning", { accepted: true }), { next: "destroying" });
+  assert.deepEqual(replaceStep("summoning", { accepted: false, message: "Not enough energy" }), { done: "refused", message: "Not enough energy" }, "nothing is destroyed");
+  assert.deepEqual(replaceStep("summoning", { accepted: false }), { done: "refused", message: "The game refused this summon." });
+  assert.deepEqual(replaceStep("summoning", undefined), { done: "unknown" }, "no answer: the old agent stays; the retry banner has the summon");
+  assert.deepEqual(replaceStep("destroying", { accepted: true }), { done: "replaced" });
+  assert.deepEqual(replaceStep("destroying", { accepted: false, message: "No such agent" }), { done: "both", message: "No such agent" });
+  assert.deepEqual(replaceStep("destroying", undefined), { done: "both", message: "no answer from the game" });
+  // The share the new version asks for: the old one's, as far as the power not given out allows (the old share is free only after the destroy).
+  assert.equal(replaceShare({ oldShare: 0.25, allocated: 0.5 }), 0.25);
+  assert.equal(replaceShare({ oldShare: 0.5, allocated: 0.75 }), 0.25);
+  assert.equal(replaceShare({ oldShare: 0.5, allocated: 1 }), undefined, "nothing free: the engine's default");
+  // Never more than what is free: floored to the engine's 6 decimals, not rounded up (0.15625 once became 0.1563 and was refused).
+  assert.equal(replaceShare({ oldShare: 0.5, allocated: 0.84375 }), 0.15625);
+  assert.equal(replaceShare({ oldShare: 0.5, allocated: 0.96875 }), 0.03125);
+  assert.equal(replaceShare({ oldShare: 0.3333339, allocated: 0 }), 0.333333);
+  // Nothing free at all: the replace cannot start, and the pane says what to do in replace terms.
+  assert.equal(replaceBlocked({ oldShare: 0.5, allocated: 1, name: "Keeper" }), "Replacing needs a little free power for the new version first. Lower Keeper's share in My agents, then replace.");
+  assert.equal(replaceBlocked({ oldShare: 0.5, allocated: 0.75, name: "Keeper" }), null);
+  assert.equal(replaceBlocked({ oldShare: undefined, allocated: 1, name: "Keeper" }), null, "a game without power shares");
+  // Two agents run the old version: only the one the draft came from is replaced, and the pane says so.
+  const twins = [{ id: "a1", name: "Keeper", source: "S" }, { id: "a2", name: "Keeper 2", source: "S" }, { id: "a3", name: "Other", source: "T" }];
+  assert.equal(sameVersionNote(twins[0], twins), "You have 2 agents running the old version; this replaces Keeper only.");
+  assert.equal(sameVersionNote(twins[2], twins), null);
+  assert.equal(replaceShare({ oldShare: undefined, allocated: 0.5 }), undefined);
+  assert.equal(replacedText("Simple spread keeper", { share: 0.5, oldShare: 0.5 }), "Replaced: Simple spread keeper now runs your new version.");
+  assert.equal(replacedText("Simple spread keeper", { share: 0.25, oldShare: 0.5 }), "Replaced: Simple spread keeper now runs your new version. It has 25% of your power (the old one had 50%); raise it in My agents.");
+  assert.equal(replacedText("Simple spread keeper", { share: undefined, oldShare: 0.5 }), "Replaced: Simple spread keeper now runs your new version. Its share of your power may differ from the old one's (50%); check it in My agents.");
+  assert.equal(bothText("Simple spread keeper", "No such agent"), "The new version of Simple spread keeper is in the game, but the old one could not be destroyed (No such agent). Both are running: destroy the old one in My agents.");
 });

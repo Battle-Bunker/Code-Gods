@@ -3,7 +3,7 @@
  * a payoff rectangle drawn to scale (width:
  * your bits, height: what the others care, on one scale, so equal values make a square and the area is the payoff),
  * its two values labelled on their edges, `yours × others = payoff`, the relative payoff bar, and "why?" for the full
- * breakdown. Colour coding, the same in every panel: "yours" petrol blue, "others" raspberry (lib/object-views
+ * breakdown (shown above the list, in view: ./object-why.ts). Colour coding, the same in every panel: "yours" petrol blue, "others" raspberry (lib/object-views
  * dimensions.ts); the rectangle's fill and the bar run one amber ramp from muted to strong by the payoff relative to
  * the best shown. Before the world runs, the empty state says what will appear and offers the one next
  * step. The list scrolls over the whole collection (docs/convex-read-architecture.md §4.3): a skeleton of ids in the
@@ -19,7 +19,7 @@
  * long ago it was seen and, when the object has changed since, how often, draws it dimmed with a "stale" badge and
  * offers "Look · price" (the look command, paid from the god's own energy). A free game shows none of this.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Term } from "@workspace/ui-kit";
 import { OBJECT_SORTS, OBJECT_SORT_LABELS, mutationLine, type ObjectSort } from "@workspace/player-client/objects-page";
 import {
@@ -34,10 +34,11 @@ import { useAffordances } from "@/core/use-affordances";
 import type { Affordance } from "@/core/affordances";
 import { useReplaySource } from "@/sdk/replay-source";
 import { useNow } from "@/core/game/situation";
-import { PanelEmpty, PrimaryButton, TextButton, referObject, type PanelProps } from "./kit";
+import { AskAboutObject, PanelEmpty, PrimaryButton, TextButton, type PanelProps } from "./kit";
 import { payoffLabels, payoffRect, type PayoffScale } from "./payoff-geometry";
 import { useNextStep } from "./use-next-step";
 import { ageText, lookOffer, staleness } from "./knowledge";
+import { rankNote, whyTitle, whyUnavailable } from "./object-why";
 import { useReplayChanged } from "@/core/replay/parts";
 
 /** The rectangle's box: the side the largest value fills, and room for the two edge labels. */
@@ -79,12 +80,12 @@ function PayoffKey() {
   const swatch = (colour: string) => <span aria-hidden className="inline-block h-[3px] w-3 align-middle" style={{ background: colour }} />;
   return (
     <p className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] text-muted-foreground" data-testid="text-payoff-caption">
-      <span className="inline-flex items-center gap-1">{swatch(YOURS)}<span>width: <span style={{ color: YOURS }}>your bits</span></span></span>
-      <span className="inline-flex items-center gap-1">{swatch(OTHERS)}<span>height: <span style={{ color: OTHERS }}>what the others care</span></span></span>
+      <span className="inline-flex items-center gap-1">{swatch(YOURS)}<span>width: <span style={{ color: YOURS }}>your ✨ rarity</span></span></span>
+      <span className="inline-flex items-center gap-1">{swatch(OTHERS)}<span>height: <span style={{ color: OTHERS }}>how much the others want it</span></span></span>
       <span className="inline-flex items-center gap-1">
         <span aria-hidden className="inline-block h-2.5 w-6 align-middle"
           style={{ background: `linear-gradient(to right, ${KEY_STOPS})` }} />
-        area: your payoff, low → high
+        area: your points, low → high
       </span>
     </p>
   );
@@ -132,7 +133,9 @@ type RowLook = { label: string; disabled: boolean; reason?: string; onLook: (obj
  */
 export function LookBar({ price, energy, count, can, onLookAll, boards, stale, noPower }: {
   /** Absent in a game that offers the god no look ("agents" mode): the sentence says so and no button shows. */
-  price?: number; energy: number; count: number; can: Affordance; onLookAll: () => void;
+  price?: number; energy: number; count: number; can: Affordance;
+  /** Pays for a look at the `count` objects the button showed: the price charged is the price shown. */
+  onLookAll: (count: number) => void;
   /** "boards" mode: every board is live; only the others' interest ages. */
   boards?: boolean;
   /** How many objects have changed since the god last saw them (player.staleCount). */
@@ -151,17 +154,21 @@ export function LookBar({ price, energy, count, can, onLookAll, boards, stale, n
     <div className="space-y-1 text-xs text-muted-foreground" data-testid="objects-paid-observation">
       <p data-testid="text-paid-observation" className="max-w-[70ch]">
         {boards
-          ? <>Every board is shown as it is. The other players' interest in it, and so your payoff, is as you <Term id="last-seen">last saw it</Term>.</>
+          ? <>Every board here is live: you see it as it is. What you see as you <Term id="last-seen">last saw it</Term> is the other players'
+            interest in each (and so your payoff).</>
           : <>You see each object as you <Term id="last-seen">last saw it</Term>.</>}{" "}
         Your agents' changes and complete reads refresh it
         {price !== undefined ? <>; a <Term id="look">look</Term> costs {price.toFixed(2)} energy.</>
-          : <>, and nothing else does: to watch the world, summon an agent that reads the whole object and returns no calls.</>}
-        {stale && stale.count > 0 && <> <span className="font-semibold text-destructive" data-testid="text-stale-count">{stale.count}{stale.more ? "+" : ""} of {count} {stale.count === 1 && !stale.more ? "has" : "have"} changed since you last saw {stale.count === 1 && !stale.more ? "it" : "them"}.</span></>}
+          : <>, and nothing else does.</>}{" "}
+        {/* Said plainly, not as an alarm: in a busy world most objects have always changed since. */}
+        {stale && stale.count > 0 && <span data-testid="text-stale-count">{stale.count}{stale.more ? "+" : ""} of {count} {stale.count === 1 && !stale.more ? "has" : "have"} changed since you last saw {boards ? "the others' interest in " : ""}{stale.count === 1 && !stale.more ? "it" : "them"}.{" "}</span>}
+        {/* What a look is, so nobody pays for one expecting it to last. */}
+        <span data-testid="text-look-snapshot">{price !== undefined ? "A look is a snapshot: it is true when you take it and ages as the world moves on. " : ""}To keep watching, summon an agent that only looks (Agent code offers one under Other starting points).</span>
       </p>
       {shown && (
         <p className="flex flex-wrap items-center gap-x-4 gap-y-1">
           {confirm ? (<>
-            <TextButton boxed tone="danger" testId="button-confirm-look-all" disabled={disabled} title={reason ?? undefined} onClick={() => { setConfirm(false); onLookAll(); }}>
+            <TextButton boxed tone="danger" testId="button-confirm-look-all" disabled={disabled} title={reason ?? undefined} onClick={() => { setConfirm(false); onLookAll(count); }}>
               Pay {all.total.toFixed(2)} energy to look at all {count}
             </TextButton>
             <TextButton testId="button-cancel-look-all" onClick={() => setConfirm(false)}>Keep my energy</TextButton>
@@ -208,7 +215,7 @@ function useWidePane() {
 const SEEN_LINE = 20;
 
 type RowProps = {
-  objectId: string; position: number; byPayoff: boolean; scales: Scales; world: number; highlighted: boolean; open: boolean; onOpen: (id: string) => void;
+  objectId: string; position: number; byPayoff: boolean; scales: Scales; world: number; highlighted: boolean; open: boolean; onOpen: (id: string, rank?: number) => void;
   ctx: ReturnType<typeof useObjectContext>["ctx"]; noun: string; comparative: string | undefined; changed: ReturnType<typeof useReplayChanged>;
   /** "boards" mode: the board is live; only the others' interest (and the payoff) is as last seen. */
   boards?: boolean;
@@ -232,12 +239,12 @@ function ObjectRow({ objectId, position, byPayoff, scales, world, highlighted, o
   const strength = relativeStrength(o.payoff, scales.best);
   // Paid observation: the row is the object as the god last saw it; stale once it has changed since (./knowledge.ts).
   const seen = staleness(o, world);
-  const dim = seen?.stale ? "opacity-50 grayscale" : "";
+  // Drawn a little quieter, not greyed out: it is the object as the player saw it, and often still nearly so.
+  const dim = seen?.stale ? "opacity-70" : "";
   return (
     <div key={lit ? `${o.id}:${change!.version}` : o.id} data-testid={`row-object-${o.id}`} className={`relative h-full min-w-0 overflow-hidden border-t border-[hsl(var(--card-border))] pt-2 pb-2 ${highlighted ? "bg-[hsl(var(--primary)/0.06)]" : ""} ${lit ? "replay-changed" : ""}`}>
       <div className={`flex min-w-0 items-start gap-3 ${seen ? "mt-5" : ""}`.trimEnd()}>
-        <button type="button" onClick={() => referObject(rank)} title="Ask your assistant about this object"
-          className="w-7 shrink-0 pt-0.5 text-left font-mono text-xs text-muted-foreground hover:text-foreground">{label}</button>
+        <span className="w-7 shrink-0 pt-0.5 font-mono text-xs text-muted-foreground" data-testid={`text-object-rank-${o.id}`}>{label}</span>
         <span className={`max-w-[40%] shrink-0 truncate font-mono text-xs ${boards ? "" : dim}`.trimEnd()} data-stale={seen?.stale || undefined} data-testid={seen ? `object-seen-${o.id}` : undefined}><ObjectView value={o.value} compareTo={lit ? change!.before as never : undefined} {...ctx} showTitle /></span>
         <PayoffRectangle o={o} scale={scales.scale} strength={strength} dim={dim} />
         <span className="min-w-0 flex-1 space-y-1">
@@ -249,9 +256,13 @@ function ObjectRow({ objectId, position, byPayoff, scales, world, highlighted, o
             <span className={`absolute inset-y-0 left-0 ${o.payoff < 0 ? "bg-destructive" : ""}`} data-testid={`payoff-bar-${o.id}`}
               style={{ width: `${Math.min(100, (100 * Math.abs(o.payoff)) / scales.max)}%`, ...(o.payoff < 0 ? {} : { background: rampVar(strength) }) }} />
           </span>
-          <span className="block truncate font-mono text-[11px] text-muted-foreground" data-testid={`text-mutations-${o.id}`}>{mutationLine(o, world)}</span>
+          <span className="block break-words font-mono text-[11px] text-muted-foreground" data-testid={`text-mutations-${o.id}`}>{mutationLine(o, world)}</span>
           <span className="block truncate" data-testid={`text-rarity-${o.id}`}><ScoreBreakdown score={o} noun={noun} comparative={comparative} compact /></span>
-          <TextButton onClick={() => onOpen(o.id)} testId={`button-object-detail-${o.id}`}>{open ? "hide" : "why?"}</TextButton>
+          <span className="flex flex-wrap items-center gap-x-3">
+            <TextButton onClick={() => onOpen(o.id, byPayoff ? position : undefined)} testId={`button-object-detail-${o.id}`}>{open ? "hide" : "why?"}</TextButton>
+            {/* Referring it to the assistant is asked for, never what a click on the board does. */}
+            <AskAboutObject objectId={o.id} />
+          </span>
         </span>
       </div>
       {seen && (
@@ -263,15 +274,15 @@ function ObjectRow({ objectId, position, byPayoff, scales, world, highlighted, o
           <div className="flex h-[18px] min-w-0 items-center gap-2 font-mono text-[11px] text-muted-foreground @[26rem]:pl-10"
             title={boards ? (seen.stale ? "It has changed since you last saw the others' interest in it: the points shown may no longer be so." : "Nothing has changed it since you last saw the others' interest: the points are as they are now.")
               : seen.stale ? "It has changed since you last saw it: what is shown here may no longer be so." : "Nothing has changed it since you last saw it: this is how it is now."}>
-            {seen.stale && <span className="shrink-0 border border-destructive px-1 text-[10px] font-semibold uppercase leading-[14px] tracking-wide text-destructive" data-testid={`badge-stale-${o.id}`}>stale</span>}
+            {seen.stale && <span className="shrink-0 border border-[hsl(var(--card-border))] px-1 text-[10px] font-semibold uppercase leading-[14px] tracking-wide text-foreground" data-testid={`badge-stale-${o.id}`}>{boards ? "interest as seen" : "as seen"}</span>}
             {seen.stale ? (<>
               <span className="min-w-0 truncate">
                 {boards && <span className="hidden @[34rem]:inline">others' interest </span>}
                 <span className="hidden @[26rem]:inline">{seen.seen}</span>
                 <span className="@[26rem]:hidden">{seen.age < 1 ? "just now" : `${ageText(seen.age)} ago`}</span>
               </span>
-              {seen.note && <span className="-ml-2 shrink-0 whitespace-pre"> · <span className="font-semibold text-destructive">
-                <span className="hidden @[26rem]:inline">{seen.note}</span><span className="@[26rem]:hidden">changed {seen.changes}×</span>
+              {seen.note && <span className="-ml-2 shrink-0 whitespace-pre"> · <span className="font-semibold text-foreground">
+                <span className="hidden @[26rem]:inline">{boards ? `board ${seen.note}` : seen.note}</span><span className="@[26rem]:hidden">changed {seen.changes}×</span>
               </span></span>}
             </>) : (
               <span className="min-w-0 truncate">{boards ? "others' interest " : ""}{seen.seen}{seen.note && <> · <span className="text-[hsl(var(--accent))]">{seen.note}</span></>}</span>
@@ -288,13 +299,28 @@ function ObjectRow({ objectId, position, byPayoff, scales, world, highlighted, o
   );
 }
 
-/** The full breakdown of the object whose "why?" is open, under the list (rows keep one height). */
-function ObjectDetail({ objectId, noun, comparative, world, boards }: { objectId: string; noun: string; comparative: string | undefined; world: number; boards?: boolean }) {
+/**
+ * The full breakdown of the object whose "why?" is open. It sits ABOVE the list (rows keep one height) and is scrolled
+ * into view when it opens: under the list it was out of sight below a 640px scroller, so "why?" turned into "hide" and
+ * seemed to open nothing (three first-time walks). It always says something: the breakdown, or why there is none.
+ */
+function ObjectDetail({ objectId, noun, comparative, world, boards, onHide }: { objectId: string; noun: string; comparative: string | undefined; world: number; boards?: boolean; onHide: () => void }) {
   const o: MyObject | null | undefined = useMyObject(objectId);
-  if (!o) return null;
+  // The rank NOW (player.objectRank), not the row's when it was clicked: the list re-ranks while the box is open, and
+  // only one detail is open at a time, so this is one subscription.
+  const rank = useObjectRank(objectId);
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => { box.current?.scrollIntoView({ block: "nearest" }); }, [objectId]);
+  const hide = <TextButton boxed testId="button-object-detail-hide" onClick={onHide}>hide</TextButton>;
+  const missing = whyUnavailable(o, noun);
+  if (!o) return <div ref={box} className="flex flex-wrap items-center gap-2 border-l-2 border-[hsl(var(--card-border))] pl-3 text-xs text-muted-foreground" data-testid="object-detail-none"><span>{missing}</span>{hide}</div>;
   const seen = staleness(o, world);
   return (
-    <div className="space-y-1 border-l-2 border-[hsl(var(--card-border))] pl-3" data-testid={`object-detail-${o.id}`}>
+    <div ref={box} className="max-h-[40vh] scroll-mt-4 space-y-1 overflow-auto border-l-2 border-primary bg-[hsl(var(--primary)/0.04)] py-1 pl-3 pr-1" data-testid={`object-detail-${o.id}`}>
+      {/* A block in the flow, at most 40% of the window with its own scroll; the heading names the grid, not its changing rank. */}
+      <p className="flex flex-wrap items-center gap-2 text-sm font-semibold" data-testid="text-object-detail-title"><span>{whyTitle(o.payoff, noun)}</span>
+        {rankNote(rank) && <span className="font-mono text-[11px] font-normal text-muted-foreground" data-testid="text-object-detail-rank">{rankNote(rank)}</span>}
+        <span className="ml-auto">{hide}</span></p>
       {seen && (
         <p className="text-xs text-muted-foreground" data-testid={`text-detail-seen-${o.id}`}>
           {boards ? "The others' interest and your points as you last saw them" : "As you last saw it"}, {seen.age < 1 ? "just now" : `${ageText(seen.age)} ago`}
@@ -307,12 +333,12 @@ function ObjectDetail({ objectId, noun, comparative, world, boards }: { objectId
 }
 
 /** The grid layout: one window of the collection (player.objectsPage, at most 90 objects) drawn as a board. */
-function ObjectsGrid({ params, world }: Pick<PanelProps<"objects">, "params"> & { world: number }) {
+function ObjectsGrid({ params, world, onOpen }: Pick<PanelProps<"objects">, "params"> & { world: number; /** A click on a board opens its "why?" (never the assistant). */ onOpen: (id: string, rank?: number) => void }) {
   const data = useObjectsPage({ sort: params.sortBy, filter: params.filter, limit: 90, hz: 1 });
   const shown = data?.rows ?? [];
   // The window's position is the payoff rank only when it is by payoff and unfiltered.
   const ranks = params.sortBy === "payoff" && params.filter === "all" ? new Map(shown.map((o, i) => [o.id, i + 1])) : new Map<string, number>();
-  return <ObjectGrid objects={shown} max={shown.length} badge={(o: LiveObject) => (ranks.has(o.id) ? `#${ranks.get(o.id)} · ` : "") + formatBits(o.payoff) + (o.knownAt !== undefined ? ` · ${staleness(o, world)!.seen}` : "")} onSelect={id => referObject(ranks.get(id))} />;
+  return <ObjectGrid objects={shown} max={shown.length} badge={(o: LiveObject) => (ranks.has(o.id) ? `#${ranks.get(o.id)} · ` : "") + formatBits(o.payoff) + (o.knownAt !== undefined ? ` · ${staleness(o, world)!.seen}` : "")} onSelect={id => onOpen(id, ranks.get(id))} />;
 }
 
 export default function Objects({ paneId, params, phase }: PanelProps<"objects">) {
@@ -343,12 +369,14 @@ export default function Objects({ paneId, params, phase }: PanelProps<"objects">
   const { can } = useAffordances();
   const commands = useGameCommands();
   const lookAt = useCallback((objectId: string) => void commands.run({ type: "look", objectId }), [commands]);
-  const lookAll = useCallback(() => void commands.run({ type: "look" }), [commands]);
+  const lookAll = useCallback((count: number) => void commands.run({ type: "look", count }), [commands]);
   const { ctx, noun } = useObjectContext();
   const [paneRef, widePane] = useWidePane();
-  const [open, setOpen] = useState<string | null>(null);
-  const toggle = useCallback((id: string) => setOpen(o => (o === id ? null : id)), []);
+  // The open "why?": the object and, when the list is by points, the rank its row showed.
+  const [open, setOpen] = useState<{ id: string; rank?: number } | null>(null);
+  const toggle = useCallback((id: string, rank?: number) => setOpen(o => (o?.id === id ? null : { id, rank })), []);
   const comparative = card?.penalty?.comparative;
+  const byPayoff = params.sortBy === "payoff" && params.filter === "all";
   const scales = scalesOf(totals);
   const highlight = new Set(params.highlight);
   const total = totals?.objectCount ?? 0;
@@ -372,15 +400,23 @@ export default function Objects({ paneId, params, phase }: PanelProps<"objects">
   // Off for the phase or a command in flight (the affordance's reason), else for the price (with what to do when no power is kept).
   const look: RowLook | undefined = one && (can.look.ok || !can.look.hidden)
     ? { label: one.label, disabled: !can.look.ok, ...(can.look.ok ? {} : { reason: can.look.reason === lookOffer({ price: lookPrice!, energy }).reason ? one.reason! : can.look.reason }), onLook: lookAt } : undefined;
-  if (params.layout === "grid") return <div className="space-y-3">{header}<ObjectsGrid params={params} world={world} /></div>;
+  if (params.layout === "grid") {
+    return (
+      <div className="space-y-3">
+        {header}
+        {open && <ObjectDetail objectId={open.id} noun={noun} comparative={comparative} world={world} boards={boards} onHide={() => setOpen(null)} />}
+        <ObjectsGrid params={params} world={world} onOpen={toggle} />
+      </div>
+    );
+  }
   return (
     <div className="space-y-3" ref={paneRef}>
       {header}
+      {open && <ObjectDetail objectId={open.id} noun={noun} comparative={comparative} world={world} boards={boards} onHide={() => setOpen(null)} />}
       <VirtualRows rows={skeleton.rows} rowHeight={rowHeightFor(ctx, widePane) + (paid ? SEEN_LINE : 0)} maxHeight={640} keyOf={r => r.id} onNearEnd={loadMore} testId="list-objects"
-        render={(r, i) => <ObjectRow objectId={r.id} position={i + 1} byPayoff={params.sortBy === "payoff" && params.filter === "all"} scales={scales} world={world} boards={boards}
-          highlighted={highlight.has(r.id)} open={open === r.id} onOpen={toggle} ctx={ctx} noun={noun} comparative={comparative} changed={changed} look={look} />} />
+        render={(r, i) => <ObjectRow objectId={r.id} position={i + 1} byPayoff={byPayoff} scales={scales} world={world} boards={boards}
+          highlighted={highlight.has(r.id)} open={open?.id === r.id} onOpen={toggle} ctx={ctx} noun={noun} comparative={comparative} changed={changed} look={look} />} />
       {skeleton.more && <TextButton onClick={loadMore} testId="button-objects-more">Load more ({skeleton.rows.length} of {matching})</TextButton>}
-      {open && <ObjectDetail objectId={open} noun={noun} comparative={comparative} world={world} boards={boards} />}
       <p className="font-mono text-[11px] text-muted-foreground" data-testid="text-objects-footer">
         {skeleton.rows.length} of {matching}{params.filter !== "all" ? ` matching (${total} in all)` : ""} · Σ your net bits {formatBits(totals?.sumOwnNetBits ?? 0)} · Σ others' {formatBits(totals?.sumPeerNetBits ?? 0)}
       </p>

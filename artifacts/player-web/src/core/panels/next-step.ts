@@ -8,12 +8,15 @@ import type { RoomStartView } from "../../site/lib/bidding.ts";
 export type NextStepAction =
   | { kind: "panel"; panelId: PanelId }
   | { kind: "forge" }
+  /** "Summon my first agent": the editor opens and summons the example it holds (dock.summonFirst). */
+  | { kind: "summon" }
   | { kind: "start" }
   | { kind: "palette"; command: string };
 /** `busy`: a start is pending; the button shows a spinner and does nothing (no second start). */
 export type NextStep = { label: string; why: string; action: NextStepAction; busy?: true };
 /** `start`: the pending start (@workspace/player-client/start), so the click shows at once and progress follows. */
 export type NextStepContext = { phase: Phase; seated: boolean; isOwner: boolean; players: number; agents: number; start?: RoomStartView;
+  /** The editor holds code the player wrote or changed: the step opens it and never summons it for them. */ ownDraft?: boolean;
   /** AI seats exist in this room (its owner is an administrator); absent means yes. */ aiEnabled?: boolean };
 
 export function nextStep(s: NextStepContext): NextStep {
@@ -38,12 +41,14 @@ export function nextStep(s: NextStepContext): NextStep {
   if (live && !s.seated) return { label: "Watch the race", why: "you are not dealt into this game; you watch it.", action: { kind: "panel", panelId: "race" } };
   if (s.phase === "planning") {
     return s.agents === 0
-      ? { label: "Summon your first agent", why: "agents are how you change the world; testing one is free.", action: { kind: "forge" } }
+      ? { label: "Summon your first agent", why: "agents are how you change the world; testing one is free.", action: s.ownDraft ? { kind: "forge" } : { kind: "summon" } }
       : { label: "Read your secret goal", why: "check your agent aims at what you score for before the world starts.", action: { kind: "panel", panelId: "my-card" } };
   }
   if (s.phase === "running") {
     return s.agents === 0
-      ? { label: "Write an agent", why: "summon an agent; nothing in the world moves your way without one.", action: { kind: "forge" } }
+      ? s.ownDraft
+        ? { label: "Write an agent", why: "your own code is in the editor: validate it, then summon it.", action: { kind: "forge" } }
+        : { label: "Summon your first agent", why: "a working agent for your goal is ready; nothing in the world moves your way without one.", action: { kind: "summon" } }
       : { label: "See which objects pay", why: "push the objects that pay you, and talk about the ones the others care about.", action: { kind: "panel", panelId: "objects" } };
   }
   if (s.phase === "paused") return { label: "Make a public proposal", why: "the world is stopped: a good moment to negotiate.", action: { kind: "panel", panelId: "public-chat" } };

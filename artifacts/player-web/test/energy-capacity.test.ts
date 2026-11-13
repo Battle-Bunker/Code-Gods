@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { plain } from "../src/core/panels/agent-labels.ts";
-import { agentDebtLine, destroyDebtLine, fillText, fullIn, incomeMeterText, owedText, owes, ownEnergyLine, shareCapacityLines, storeFraction, storeState, storedLine } from "../src/core/panels/energy-capacity.ts";
+import { overdraft, overdraftTone, spendsAsItEarns, agentDebtDetail, agentDebtLine, destroyDebtLine, fillText, fullIn, owedText, owes, ownEnergyLine, ownStoreFull, shareCapacityLines, storeFraction, storeState, storedLine } from "../src/core/panels/energy-capacity.ts";
 
 // Hand-derived: power 64 bits/s, full charge 30 s. A 25% agent earns 16 bits/s and holds at most 16 × 30 = 480 bits.
 
@@ -53,11 +53,12 @@ test("raising a share: your own energy holds less, and loses what it holds above
   ]);
   // Everything given away: 25% → 50% with 75% given out leaves you 0%.
   assert.deepEqual(shareCapacityLines({ newShare: 0.5, agentShare: 0.25, allocated: 0.75, total: 64, fullChargeSeconds: 30, agentEnergy: 0, ownEnergy: 230 }), [
+    // What it does to the player comes first, in its first words (a player set 50% and only then read "You cannot summon").
+    "This leaves you nothing for summoning. Your own energy will hold nothing (now at most 480 ⚡): the 230 ⚡ you hold will be lost, and you cannot summon until you take power back.",
     "This agent will hold at most 960 ⚡ (now 480).",
-    "Your own energy will hold nothing (now at most 480 ⚡): the 230 ⚡ you hold will be lost, and you cannot summon until you take power back.",
   ]);
-  assert.equal(shareCapacityLines({ newShare: 0.5, agentShare: 0.25, allocated: 0.75, total: 64, fullChargeSeconds: 30, agentEnergy: 0, ownEnergy: 0 })[1],
-    "Your own energy will hold nothing (now at most 480 ⚡): you cannot summon until you take power back.");
+  assert.equal(shareCapacityLines({ newShare: 0.5, agentShare: 0.25, allocated: 0.75, total: 64, fullChargeSeconds: 30, agentEnergy: 0, ownEnergy: 0 })[0],
+    "This leaves you nothing for summoning. Your own energy will hold nothing (now at most 480 ⚡): you cannot summon until you take power back.");
 });
 
 test("a game without the rule says nothing about capacity", () => {
@@ -67,14 +68,17 @@ test("a game without the rule says nothing about capacity", () => {
 test("your own energy: fills and then stops; full; or holds nothing when all power is given away", () => {
   // (480 − 230) / 16 = 15.6 → 16 s.
   assert.equal(plain(ownEnergyLine({ energy: 230, income: 16, capacity: 480 })), "Your energy: 230 of 480 ⚡. It fills in 16 s and then stops.");
-  assert.equal(plain(ownEnergyLine({ energy: 480, income: 16, capacity: 480 })), "Your energy: 480 of 480 ⚡. It is full: its income is being wasted. Summon with it or give your agents more power.");
+  assert.equal(plain(ownEnergyLine({ energy: 480, income: 16, capacity: 480 })), "Your energy is full (480 ⚡). Energy pays for summoning; your agents run on their own share of your power.", "a fact, never an instruction to spend");
+  assert.equal(ownStoreFull(480, 480), true);
+  assert.equal(ownStoreFull(230, 480), false);
+  assert.equal(ownStoreFull(0, 0), false);
   assert.equal(plain(ownEnergyLine({ energy: 0, income: 0, capacity: 0 })), "Your energy can hold nothing: all your power is with your agents. You cannot summon until you take some power back.");
   assert.deepEqual(ownEnergyLine({ energy: 230, income: 16, capacity: 480 }).flatMap(s => (typeof s === "string" ? [] : [s.term])), ["energy"]);
 });
 
 test("a share change that allocates everything says the player's own energy holds nothing, whatever the float rounding", () => {
   // 2% and 92% allocated; the 2% agent is raised to 8%: 1 − (0.94 − 0.02 + 0.08) is 1.1e-16 in floats, 0 as shares.
-  const [, own] = shareCapacityLines({ newShare: 0.08, agentShare: 0.02, allocated: 0.94, total: 64, fullChargeSeconds: 30, agentEnergy: 0, ownEnergy: 0 });
+  const [own] = shareCapacityLines({ newShare: 0.08, agentShare: 0.02, allocated: 0.94, total: 64, fullChargeSeconds: 30, agentEnergy: 0, ownEnergy: 0 });
   assert.match(own, /will hold nothing/);
   assert.match(own, /cannot summon/);
 });
@@ -85,30 +89,59 @@ test("what is owed: a number only when it shows as one", () => {
   assert.equal(owes(-312), 312);
   assert.equal(owes(-0.04), 0, "shows as 0");
   assert.equal(owes(5), 0);
-  assert.equal(owedText(-312), "owes 312 ⚡");
+  assert.equal(owedText(-312), "overdrawn by 312 ⚡");
   assert.equal(owedText(0), null);
   assert.equal(owedText(42), null);
 });
 
 test("an agent in debt says how much it owes and how much it may owe", () => {
-  assert.equal(agentDebtLine(-120, 480), "Owes 120 ⚡ (it may owe at most 480)");
-  assert.equal(agentDebtLine(-120, 0), "Owes 120 ⚡", "no power: no limit to name");
+  assert.equal(agentDebtLine(-120, 480), "Overdrawn by 120 ⚡; it waits for income.", "never 'owes' (read as: to whom?); the bound is not in the main line");
+  assert.equal(agentDebtLine(-120, 0), "Overdrawn by 120 ⚡", "no power share: no income to wait for");
+  assert.equal(agentDebtDetail(480), "Its acts cost more energy than it held. It may be overdrawn by at most 480, and it acts again once its income has covered this.", "the bound, for the tooltip");
+  assert.equal(agentDebtDetail(0), null, "no power: no limit to name");
+  assert.equal(agentDebtDetail(undefined), null);
   assert.equal(agentDebtLine(0, 480), null);
   assert.equal(agentDebtLine(42, 480), null);
   assert.equal(agentDebtLine(-120, undefined), null, "a game without capacity looks as it did");
+});
+
+test("a routine overdraft is work, not trouble: red only when the agent cannot act for a long time", () => {
+  // A 50% agent of 64 ⚡/s earns 32 ⚡/s.
+  assert.equal(overdraft(12, 32), "none");
+  assert.equal(overdraft(-0.04, 32), "none", "shows as 0");
+  assert.equal(overdraft(-2.4, 32), "working", "less than two seconds of its income");
+  assert.equal(overdraft(-64, 32), "working", "exactly two seconds");
+  assert.equal(overdraft(-100, 32), "waiting", "about three seconds: said, in a neutral colour");
+  assert.equal(overdraft(-321, 32), "stuck", "more than ten seconds of income");
+  assert.equal(overdraft(-2.4, 0), "stuck", "no income: it can never cover it");
+  assert.equal(agentDebtLine(-2.4, 960, 32), "Working: it spends energy as fast as it earns it.");
+  assert.equal(agentDebtLine(-100, 960, 32), "Overdrawn by 100 ⚡; it waits for income.");
+  assert.equal(agentDebtLine(-100, 960), "Overdrawn by 100 ⚡; it waits for income.", "income unknown: as before");
+  // "Energy 13.6 of 960 ⚡ … full in 30 s" for an agent that spends as it earns: it never fills, so that is not said.
+  assert.equal(spendsAsItEarns({ energy: 13.6, income: 32, acts: 2076 }), true);
+  assert.equal(spendsAsItEarns({ energy: -2.4, income: 32, acts: 10 }), true, "−2.4 with 32 a second: well within two seconds of income");
+  assert.equal(spendsAsItEarns({ energy: -2.4, income: 1, acts: 10 }), false, "the same debt with 1 a second is more than two seconds: it waits");
+  assert.equal(spendsAsItEarns({ energy: -400, income: 32, acts: 10 }), false, "stuck in debt: its own line says so");
+  assert.equal(spendsAsItEarns({ energy: 13.6, income: 32, acts: 0 }), false, "not acting yet: it is filling");
+  assert.equal(spendsAsItEarns({ energy: 400, income: 32, acts: 50 }), false, "it holds a reserve: it is filling");
+  assert.equal(spendsAsItEarns({ energy: 5, income: 0, acts: 50 }), false);
+  assert.equal(overdraftTone("working"), "neutral");
+  assert.equal(overdraftTone("waiting"), "neutral");
+  assert.equal(overdraftTone("stuck"), "alarm");
+  assert.equal(overdraftTone("none"), "neutral");
 });
 
 test("destroying an agent that owes: its debt moves to the player", () => {
   const base = { agentShare: 0.25, allocated: 0.75, total: 64, fullChargeSeconds: 30 };
   // 100 − 412 = −312. Its 25% returns: you keep 50% = 32 bits/s, so 312 / 32 = 9.75 → 10 s.
   assert.equal(destroyDebtLine({ ...base, agentEnergy: -412, ownEnergy: 100 }),
-    "This agent owes 412 ⚡: if you destroy it, you will owe them. Your own energy will be −312 ⚡, and you cannot summon until your income has repaid it (about 10 s).");
+    "This agent is overdrawn by 412 ⚡: if you destroy it, that moves to your own energy. Your own energy will be −312 ⚡, and you cannot summon until your income has covered it (about 10 s).");
   // 500 − 412 = 88 left.
   assert.equal(destroyDebtLine({ ...base, agentEnergy: -412, ownEnergy: 500 }),
-    "This agent owes 412 ⚡: if you destroy it, they will be paid from your own energy (88 ⚡ left).");
+    "This agent is overdrawn by 412 ⚡: if you destroy it, that moves to your own energy and is paid from it (88 ⚡ left).");
   // A 0% agent while everything is with the others: nothing comes back, so there is no income to repay it.
   assert.equal(destroyDebtLine({ agentShare: 0, allocated: 1, total: 64, fullChargeSeconds: 30, agentEnergy: -40, ownEnergy: 0 }),
-    "This agent owes 40 ⚡: if you destroy it, you will owe them. Your own energy will be −40 ⚡, and you cannot summon until you keep some power for yourself.");
+    "This agent is overdrawn by 40 ⚡: if you destroy it, that moves to your own energy. Your own energy will be −40 ⚡, and you cannot summon until you keep some power for yourself.");
   assert.equal(destroyDebtLine({ ...base, agentEnergy: 5, ownEnergy: 100 }), null);
   assert.equal(destroyDebtLine({ ...base, agentEnergy: 0, ownEnergy: 100 }), null);
   assert.equal(destroyDebtLine({ ...base, fullChargeSeconds: undefined, agentEnergy: -412, ownEnergy: 100 }), null);
@@ -119,12 +152,12 @@ test("lowering the share of an agent that owes: the same fraction of its debt mo
   // 25% → 12.5% takes half its power: 206 of 412 move. 100 − 206 = −106; you keep 37.5% = 24 bits/s: 106 / 24 = 4.4 → 5 s.
   const lines = shareCapacityLines({ ...base, newShare: 0.125, ownEnergy: 100 });
   assert.equal(lines.length, 3);
-  assert.equal(lines[2], "It owes 412 ⚡: 206 of them move to you. Your own energy will be −106 ⚡, and you cannot summon until your income has repaid it (about 5 s).");
+  assert.equal(lines[2], "It is overdrawn by 412 ⚡: 206 of that moves to you. Your own energy will be −106 ⚡, and you cannot summon until your income has covered it (about 5 s).");
   // 230 − 206 = 24 left.
-  assert.equal(shareCapacityLines({ ...base, newShare: 0.125, ownEnergy: 230 })[2], "It owes 412 ⚡: 206 of them move to you. They will be paid from your own energy (24 ⚡ left).");
+  assert.equal(shareCapacityLines({ ...base, newShare: 0.125, ownEnergy: 230 })[2], "It is overdrawn by 412 ⚡: 206 of that moves to you. It is paid from your own energy (24 ⚡ left).");
   // To 0%: all of it. 100 − 412 = −312; you keep 50% = 32 bits/s: 9.75 → 10 s.
   assert.equal(shareCapacityLines({ ...base, newShare: 0, ownEnergy: 100 })[2],
-    "It owes 412 ⚡: all of them move to you. Your own energy will be −312 ⚡, and you cannot summon until your income has repaid it (about 10 s).");
+    "It is overdrawn by 412 ⚡: all of that moves to you. Your own energy will be −312 ⚡, and you cannot summon until your income has covered it (about 10 s).");
   // Raising its share moves none of its debt.
   assert.equal(shareCapacityLines({ ...base, allocated: 0.5, newShare: 0.5, ownEnergy: 100 }).length, 2);
 });
@@ -132,25 +165,17 @@ test("lowering the share of an agent that owes: the same fraction of its debt mo
 test("raising a share while the player owes: the agent takes the same fraction of the debt as of the unallocated power", () => {
   // You keep 50%; 25% → 50% gives the agent half of it: 156 of 312 move. It holds 400: no debt for it.
   const base = { newShare: 0.5, agentShare: 0.25, allocated: 0.5, total: 64, fullChargeSeconds: 30, ownEnergy: -312 };
-  assert.equal(shareCapacityLines({ ...base, agentEnergy: 400 })[2], "You owe 312 ⚡: 156 of them move to this agent.");
+  assert.equal(shareCapacityLines({ ...base, agentEnergy: 400 })[2], "You are overdrawn by 312 ⚡: 156 of that moves to this agent.");
   // It holds 100: 100 − 156 = −56.
-  assert.equal(shareCapacityLines({ ...base, agentEnergy: 100 })[2], "You owe 312 ⚡: 156 of them move to this agent. It will owe 56 ⚡ and wait for its income to repay them.");
+  assert.equal(shareCapacityLines({ ...base, agentEnergy: 100 })[2], "You are overdrawn by 312 ⚡: 156 of that moves to this agent. It will be overdrawn by 56 ⚡ and wait for its income to cover it.");
   // You keep 25% and give all of it: everything moves.
-  assert.equal(shareCapacityLines({ ...base, allocated: 0.75, agentEnergy: 400 })[2], "You owe 312 ⚡: all of them move to this agent.");
+  assert.equal(shareCapacityLines({ ...base, allocated: 0.75, agentEnergy: 400 })[2], "You are overdrawn by 312 ⚡: all of that moves to this agent.");
   // Lowering a share moves none of your debt.
   assert.equal(shareCapacityLines({ ...base, newShare: 0.125, agentEnergy: 400 }).length, 2);
 });
 
 test("your own energy below zero: what you owe and when you can summon again, and no meter", () => {
   // 312 / 32 = 9.75 → 10 s.
-  assert.equal(plain(ownEnergyLine({ energy: -312, income: 32, capacity: 960 })), "You owe 312 ⚡: you cannot summon until your income has repaid it (about 10 s).");
-  assert.equal(plain(ownEnergyLine({ energy: -312, income: 0, capacity: 0 })), "You owe 312 ⚡ and keep no power for yourself: take some power back from an agent to repay it.");
-});
-
-test("beside the income meter: seconds of income held, or how long a debt takes to repay", () => {
-  // What would break: an agent owing 815 at 57.6 a second said "0 s of its income" beside an empty bar.
-  assert.equal(incomeMeterText(160, 32, 5), "5 s of its income");
-  assert.equal(incomeMeterText(-815.3, 57.6, 0), "out of debt in about 15 s", "815.3 ÷ 57.6 = 14.2 s, rounded up as the other waits are");
-  assert.equal(incomeMeterText(-0.01, 57.6, 0), "0 s of its income", "a balance that shows as 0 owes nothing");
-  assert.equal(incomeMeterText(5, 0, null), "no income");
+  assert.equal(plain(ownEnergyLine({ energy: -312, income: 32, capacity: 960 })), "You are overdrawn by 312 ⚡: you cannot summon until your income has covered it (about 10 s).");
+  assert.equal(plain(ownEnergyLine({ energy: -312, income: 0, capacity: 0 })), "You are overdrawn by 312 ⚡ and keep no power for yourself: take some power back from an agent to cover it.");
 });

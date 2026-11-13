@@ -45,6 +45,7 @@ try {
     // Every annotated family explains its bits: raw parts, the share of boards, then −log₂(P) with the same P.
     const how = board.locator("[data-testid=how-this-scores]");
     assert.equal(await how.count(), 1, `${f}: "How this scores" is shown`);
+    await how.locator("[data-testid=how-maths] summary").click();   // the formula is behind "the maths"
     const rarity = await how.locator("[data-testid=how-rarity]").innerText(), bits = await how.locator("[data-testid=how-bits]").innerText();
     const p = /P = (\d\.\d+)/.exec(rarity)?.[1];
     assert.ok(p, `${f}: shows P (${rarity})`);

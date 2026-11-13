@@ -6,7 +6,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { EXAMINATION_DEADLINE_MS } from "@workspace/player-client";
-import { BUSY_ATTEMPTS, COMMAND_DEADLINE_MS, busyMessage, isBusy, progressLine, createAttempts, deadlineFor, receiptNotice, type Timers } from "../src/core/game/command-deadline.ts";
+import { BUSY_ATTEMPTS, COMMAND_DEADLINE_MS, busyMessage, isBusy, progressLine, createAttempts, deadlineFor, destroyedText, headerNotice, receiptNotice, type Timers } from "../src/core/game/command-deadline.ts";
 
 /** Timers fired by hand, in the order of their deadlines. */
 function manualTimers() {
@@ -120,6 +120,15 @@ test("a command without a deadline waits as long as it takes", async () => {
   assert.deepEqual(await outcome, { status: "done", value: "receipt" });
 });
 
+test("the waiting line counts the seconds after two, and says which try it is", () => {
+  assert.equal(progressLine("validate", null, 1_900), "Checking your agent… this can take up to 20 seconds.");
+  assert.equal(progressLine("validate", null, 6_400), "Checking your agent… 6 s (this can take up to 20 seconds).");
+  assert.equal(progressLine("summon", null, 500), "Summoning…");
+  assert.equal(progressLine("summon", null, 3_000), "Summoning… 3 s");
+  assert.equal(progressLine("summon", { attempt: 2, of: 3 }, 9_200), "The game is busy checking agents. Trying again (2 of 3)… 9 s");
+  assert.equal(progressLine("validate"), "Checking your agent… this can take up to 20 seconds.", "no clock: as before");
+});
+
 test("the forge shows the engine's own answer: a warming sandbox and a refusal are said, a diagnosed validation is not repeated", () => {
   const commandId = "c";
   // The typed "not ready" answer (engine commands.ts): nothing was examined; the sentence is the engine's.
@@ -127,7 +136,15 @@ test("the forge shows the engine's own answer: a warming sandbox and a refusal a
     notReady: { language: "python", state: "warming", retryAfterMs: 1500 } }),
     { ok: false, text: "The Python sandbox is warming up; try again in a moment." });
   assert.deepEqual(receiptNotice("summon", { commandId, accepted: false, message: "Not enough energy" }), { ok: false, text: "Not enough energy" });
-  assert.deepEqual(receiptNotice("summon", { commandId, accepted: true, message: "" }), { ok: true, text: "Accepted." });
+  assert.equal(receiptNotice("summon", { commandId, accepted: true, message: "" }), null, "the forge's own 'Summoned: …' line says it; never a bare 'Accepted.' beside it");
+  assert.deepEqual(receiptNotice("summon", { commandId, accepted: true, message: "Summoned for 178 energy" }), { ok: true, text: "Summoned for 178 energy" });
+  // Under the header: what happened, never a bare "Accepted." after a destroy.
+  assert.equal(headerNotice("destroy", { accepted: true, message: "" }, destroyedText("Simple spread keeper")), "Destroyed: Simple spread keeper. Its power share is yours again.");
+  assert.equal(headerNotice("destroy", { accepted: true, message: "" }), "Destroyed. Its power share is yours again.");
+  assert.equal(destroyedText(" "), "Destroyed: your agent. Its power share is yours again.");
+  assert.equal(headerNotice("destroy", { accepted: false, message: "No such agent" }, destroyedText("X")), "No such agent", "a refusal is the engine's sentence");
+  assert.equal(headerNotice("look", { accepted: true, message: "Looked at 14 objects for 23.25 energy" }), "Looked at 14 objects for 23.25 energy");
+  assert.equal(headerNotice("ready", { accepted: true, message: "" }), "Accepted.");
   assert.deepEqual(receiptNotice("summon", { commandId, accepted: false, message: "" }), { ok: false, text: "Rejected." });
   // Its diagnostics are listed in the forge's validation box already.
   assert.equal(receiptNotice("validate", { commandId, accepted: true, message: "Invalid", validation: { valid: false, cost: 0, expectedActCost: 0, diagnostics: ["SyntaxError"] } }), null);
