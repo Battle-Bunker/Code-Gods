@@ -18,7 +18,7 @@ const READ = ["whoami", "get_rules", "get_observation", "get_events", "get_traje
   "evaluate_value", "get_chat", "get_receipt", "list_setups", "get_setup", "list_panels", "get_panel", "get_layout",
   "run_code", "get_code_run", "list_code_runs", "list_code_objects", "load_skill",
   "get_utility_series", "get_board_at", "list_utility_candidates", "fit_utility_mixture"];
-const ACT = ["validate_agent", "summon_agent", "destroy_agent", "allocate_power", "look", "set_ready", "set_spectator", "place_bid", "withdraw_bid", "finish_bidding", "send_chat", "pause_game", "wake_engine",
+const ACT = ["validate_agent", "summon_agent", "replace_agent", "destroy_agent", "allocate_power", "look", "set_ready", "set_spectator", "place_bid", "withdraw_bid", "finish_bidding", "send_chat", "pause_game", "wake_engine",
   "save_setup", "duplicate_setup", "delete_setup", "save_panel", "rollback_panel", "delete_panel", "open_panel", "set_panel_params", "move_pane", "close_pane"];
 const OWNER = ["get_room_state", "get_ai_catalog", "update_settings", "set_ai_quotas", "start_game", "resume_game", "end_game", "add_ai", "remove_ai"];
 /** Tools whose executor reaches no public function: an engine-internal path (the sandbox, the skills). */
@@ -155,6 +155,9 @@ test("buildEnvelope: v3 envelopes with the game's language and id; the given com
   assert.deepEqual(buildEnvelope("set_ready", { ready: false, commandId: uuid }, game).command, { type: "ready", ready: false });
   assert.deepEqual(buildEnvelope("pause_game", { commandId: uuid, gameId: "g0" }, game).gameId, "g0", "an explicit gameId wins");
   assert.deepEqual(buildEnvelope("destroy_agent", { agentId: "a1", commandId: uuid }, game).command, { type: "destroy", agentId: "a1" });
+  // A replacement names the agent and carries the new program, in the game's language unless it names one; it needs a commandId.
+  assert.deepEqual(buildEnvelope("replace_agent", { agentId: "a1", source: "s", commandId: uuid }, game).command, { type: "replace", agentId: "a1", language: game.language, source: "s" });
+  assert.equal(tool("replace_agent").input.safeParse({ agentId: "a1", source: "s" }).success, false, "replace_agent without commandId");
   assert.deepEqual(buildEnvelope("allocate_power", { agentId: "a1", share: 0.25, commandId: uuid }, game).command, { type: "allocatePower", agentId: "a1", share: 0.25 });
   assert.deepEqual(buildEnvelope("summon_agent", { source: "x", name: "N", powerShare: 0.4, commandId: uuid }, game).command, { type: "summon", language: "typescript", source: "x", name: "N", powerShare: 0.4 });
   assert.deepEqual(buildEnvelope("validate_agent", { source: "def agent(x):\n    return []", language: "python", commandId: uuid }, game).command.type, "validate");

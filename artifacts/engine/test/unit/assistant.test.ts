@@ -85,7 +85,7 @@ test("uuidv5 matches the RFC 9562 example; command ids depend only on (turn, cal
 
 test("modes: Read-only runs only tools that change nothing, owner grant or not; Autopilot all but wake_engine; On request all; nothing waits for an approval", () => {
   // Catches: a Read-only assistant summoning, chatting, changing the screen or the room because the model was offered (or guessed) the tool.
-  for (const tool of ["summon_agent", "destroy_agent", "send_chat", "pause_game", "set_ready", "set_spectator", "save_panel", "delete_panel", "save_setup", "open_panel", "move_pane", "close_pane",
+  for (const tool of ["summon_agent", "replace_agent", "destroy_agent", "send_chat", "pause_game", "set_ready", "set_spectator", "save_panel", "delete_panel", "save_setup", "open_panel", "move_pane", "close_pane",
     "start_game", "update_settings", "end_game", "add_ai", "wake_engine", "not_a_tool"]) {
     assert.equal(allowedInMode(tool, "readOnly"), false, tool);
   }

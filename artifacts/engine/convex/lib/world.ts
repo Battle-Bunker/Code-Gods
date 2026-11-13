@@ -72,8 +72,10 @@ export const EVENTS_PER_BATCH = 400;
  * 13 marks debt within capacity (docs/energy-model.md §7.2): a change that would leave the agent owing more than it can
  * hold fails ("could not afford this change"), and `power` and `destroy` events carry `owed`, the debt that moved with
  * the power between the agent and its god's own account. Replay applies the recorded amount.
+ * 14 adds the `replace` event (docs/energy-model.md §5.2): an agent's program was replaced for the new program's summon
+ * price; the agent keeps its id, name, power share and account. Replay charges the recorded price to its god.
  */
-export const EVENT_LOG_SCHEMA = 13;
+export const EVENT_LOG_SCHEMA = 14;
 
 export type Clock = {
   phase: "planning" | "running" | "paused" | "recovery" | "ended";
