@@ -23,67 +23,28 @@ game optimised for beginners with good balance and UX; keep a list of major judg
 Result measured by walks after #319: non-coders summon in about 30–45 s, see a first scoring move at about 41–110 s,
 can explain the score, and see the natural end of the game at about 350–410 s (before: never reached).
 
-## The open pull request, #321 (round 7), item by item
+## Round 7 and after (merged 2026-11-13)
 
-Head when this was written: the commit after `9f81b8d0` that adds this file. Verified on `9f81b8d0`: root typecheck,
-player-web unit tests (now 408/408), `e2e:site` 30 checks, `e2e:panels` 22/22, live engine files `game-first-agent`,
-`game-validate-dry-run`, `game-room-setup`, `game-spectators`, `game-assistant-chips`. An independent review of
-`9f81b8d0` then found the problems marked below. **No walk has completed on round 7** (both were cut off).
+| PR | What |
+|---|---|
+| #321 | Atomic replace, pane-local query errors, energy lines. A beginner's first agent (beginner rule on the beginner board, Python) gets the largest share that still leaves the store able to pay for the dearest starter: 0.701562 (`firstAgentShare`, `isBeginnerGoal` in game-core). `BEGINNER_AGENT_BUDGET_BITS` is 573, derived by the example-agents test from every starter's price. |
+| #327 | Walk fixes: replace says what it keeps; a shelf starter is offered as Replace of the agent in the editor or the only goal agent (never an observer); whose store is full; "Starting the world…"; the dock routes on the header's roomId, so a timed-out room query no longer tears it down (`dockRoomId`); site error boundaries; `usePlayerStyle`. |
+| next | "Energy about 0 ⚡" for a working agent; "✨ rarity a → b (fewer random grids score this well)". |
 
-| Item | State | Where |
-|---|---|---|
-| Replace and "Put the previous version back" use the engine `replace` command | done, reviewed | `artifacts/player-web/src/core/game/runner.ts`, `core/panels/forge.tsx`, `use-previous-version.ts` |
-| A failed query takes down only its pane; no retry loops; default layout when `dock.state` fails | done, reviewed | `src/sdk/transport.ts`, `src/sdk/query-errors.ts`, `src/core/pane-errors.tsx`, `src/dock/*` |
-| "No game yet" and "not seated" get their own sentences instead of "you no longer have access" | done after review (unit-tested, not seen in a browser) | `src/sdk/query-errors.ts`, `test/query-errors.test.ts` |
-| Full-store advice with the control one press away | done, reviewed | `core/panels/energy-capacity.ts`, `agents.tsx` |
-| "Your points now" explained before the first agent | done, reviewed | `core/panels/score-lines.tsx` |
-| Destroy confirmation says how much energy comes back | done; now also silent in a game without `fullChargeSeconds` (review finding) | `energy-capacity.ts` `destroyReturnsLine`, `agents.tsx` |
-| Summon preview "It starts with N ⚡…" | done, matches the engine; **not shown** for "Summon beside it" / "Summon another copy" | `core/panels/first-agent.ts`, `forge.tsx` |
-| `replaceLoss` removed | done | — |
-| **First agent's share is 75%** | **half done and wrong as it stands: must be fixed before merge** | `first-agent.ts` `summonShare` (line ~128), `forge.tsx` ~123–126, ~274 |
-| Second summon right after the first | not started | `forge.tsx` |
-| Description carried to a new agent by "Summon beside it" | not started | `forge.tsx` ~146–152 |
-| Tests on unreachable `summonShare` states | not started | `artifacts/player-web/test/first-agent.test.ts` |
-
-### What is wrong with the 75% share (do this first)
-
-Engine rule (`lib/game-core/src/energy.ts` `movePower`, `artifacts/engine/convex/game/commands.ts` ~283–350): after a
-summon at share `s`, the player's own store holds at most `(1 − allocated − s) × P × T` (P = power, T =
-`fullChargeSeconds`). Beginner setup: P = 64, T = 30, start 600. A flat 75% leaves a store of at most 480 ⚡, but the
-dearest starter costs 572 (`BEGINNER_AGENT_BUDGET_BITS`, `lib/game-core/src/settings.ts`), so a Replace with it is
-refused for good ("costs 572 bits, but your own energy holds at most 480"). `summonShare` also has no setup input, so
-int/string worlds (P = 8, T = 60, start 200) get 75% too and keep a 120 ⚡ store.
-
-The fix I had specified (not yet written):
-
-1. `summonShare` takes the economy and the price: first share = `min(0.75, 1 − need / (P × T))`, where `need` = the
-   larger of the price being summoned and the dearest starter price known for this game (remembered starter prices or
-   the setup's agent budget; no new query). Floor as now. Below the engine default (half of what is free), or with no
-   capacity, send nothing and let the engine default apply. On the beginner setup that gives about 70%.
-2. Make `storeAfterSummonText` true for the same numbers.
-3. Test: for every beginner starter, the store's cap after the first summon ≥ that starter's price.
-4. Once the forge has sent a first summon in a game, remember it locally and stop sending the special share, so a
-   second summon before the subscription updates is not refused ("Only 25% of your power is unallocated"). While the
-   agent list is loading, do not treat it as "no agents".
-5. Check the pinned intent still reads true: `lib/game-core/test/settings.test.ts` ~472–488,
-   `artifacts/engine/test/game-first-agent.test.ts` ~41. Do not change engine defaults.
-6. Then the walk the coordinator asked for: a first summon plus two replaces is comfortable at this share.
-
-Accepted as is: destroying your only agent and summoning again counts as "first" again; summons by the assistant or
-from a file keep the engine's default half.
+Walks on merged round 7 (before #327): Sam (phone): seated 4.2 s, summoned 44.6 s, first scoring move 92.7 s,
+explained ~93 s, end 358.7 s. Jo (desktop): 4.3 / 81 / 96 / not explained / 405.8 s.
 
 ## What remains, ordered by how much it hurts a beginner
 
-1. The first-agent share fix above, then a walk measuring a first summon plus two replaces.
-2. Checking edited code takes 10–12 s idle and 40–100 s under load (an untouched example is ≤ 4 s). The engine side
-   belongs to the tick lead; the web side already lets Summon proceed without waiting for validation.
-3. Balance: every walker finished 1st of 3 against the default opponents. With the integration session.
-4. Round-7 walk questions never answered: is the Destroy confirmation understood; is the full-store advice seen and one
-   press away on a phone; does the points explanation before the first agent make sense; any pane error visible.
-5. Site pages have no error boundary: `useLivePages` still throws (`artifacts/player-web/src/site/**`).
-6. Replay events show no points delta.
-7. Example panel `leaderboard-race.tsx` colours do not follow the player colours.
-8. "Summon beside it" carries the old description; "It starts with N ⚡" missing there.
+1. AI seats are admin-only: a beginner who invites one friend cannot start (a product and funding decision, reported).
+2. Checking edited code is slow under load (tick lead's).
+3. Balance: every walker finishes 1st of 3 (balance session's).
+4. Jargon still met: "bits" in setup details and prices, "1 in 2.2 billion" rarity text, power vs energy after the
+   first summon ("70% of your power… 19.1 ⚡/s" is half understood).
+5. On a phone, scrolling stacked panes often scrolls the Objects list instead (Sam).
+6. Replay events show no points delta (needs engine data).
+7. The assistant's mock reply locally is not a product bug (no provider key), but its numbers are unrounded.
+8. No walk yet on #327 and later.
 
 ## Persona walks, exactly as run
 
@@ -102,6 +63,8 @@ replace `<WALK>` with that path, because walkers are forbidden to read anything 
 - Times are read from the harness clock at five milestones: seated; first agent summoned; first scoring move; score
   change understood (the walker must write a correct explanation; a guess counts as not understood); game end seen.
   Limit about 660 s.
+- A game needs three players: give a walker two friends (`friends CODE bob unverified` for `alice`; the other walker
+  as `admin` with `friends CODE carol` plus an AI seat). Only these five identities exist in the fake provider.
 - Two walks at a time, no more: the machine has 4 cores and the agent sandbox saturates, which makes summons and checks
   slow and falsifies the timings. A fresh room per walk. **Never run live engine tests during a walk** (see gotchas).
 - The site under test is the static build the local engine serves on :3211; rebuild it before walks
@@ -162,3 +125,8 @@ replace `<WALK>` with that path, because walkers are forbidden to read anything 
 12. Left #281 a draft overnight on 11-11 rather than merge unverified after a quota stall.
 13. Round-7 PR left as a draft at handover: the review showed the flat 75% share breaks Replace for the dearest starter.
 14. Proposed share rule: as close to 75% as still leaves a store able to pay for the dearest starter (about 70%).
+15. The beginner first-agent share applies to Python only (TypeScript starters cost up to about 1,100).
+16. "Summon beside it" sends only a description the player changed; an exact copy shows no "starts with" line.
+17. A shelf starter replaces the agent in the editor, or the only goal agent; never an observer.
+18. A timed-out room query keeps the dock by routing on the header's roomId, not by holding a stale result (read rules).
+19. A working agent's small overdraft reads "about 0 ⚡" (exact in the tooltip).
