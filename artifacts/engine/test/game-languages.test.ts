@@ -27,6 +27,12 @@ test("each agent is written in one of the game's languages, priced and run in it
   assert.match(validated.validation.diagnostics[0], /\(ast-bits-v1:/);
   const tsValidated = await send(bo, { type: "validate", language: "typescript", source: TS.Int });
   assert.match(tsValidated.validation.diagnostics[0], /\(ts-ast-bits-v1-uniform:/);
+  // Language-fair (docs/energy-model.md §5.1): the same one-move agent costs about the same in either language. Before
+  // TypeScript's structure bits were weighted it cost about 1.5 times Python's.
+  const same = { python: "def agent(n):\n    return [add(1)]", typescript: "function agent(n) { return [add(1)]; }" };
+  const pyPrice = (await send(ada, { type: "validate", language: "python", source: same.python })).validation.cost;
+  const tsPrice = (await send(bo, { type: "validate", language: "typescript", source: same.typescript })).validation.cost;
+  assert.ok(tsPrice / pyPrice > 0.6 && tsPrice / pyPrice < 1.2, `TypeScript ${tsPrice} against Python ${pyPrice}`);
   // Python source sent as TypeScript does not compile: the language decides the sandbox.
   assert.equal((await send(ada, { type: "validate", language: "typescript", source: PY.Int })).validation.valid, false);
 
