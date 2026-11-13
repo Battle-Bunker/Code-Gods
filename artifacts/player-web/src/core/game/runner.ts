@@ -16,7 +16,7 @@ import { useActions, useDockState } from "@/sdk";
 import { errorText, noticeStore } from "@/core/notices";
 import { BUSY_ATTEMPTS, BUSY_RETRY_MS, busyMessage, createAttempts, deadlineFor, headerNotice, isBusy, receiptNotice, type Examined } from "./command-deadline";
 
-import { bothText, pendingReplaceOnReceipt, pendingReplaceOnSend, putBackText, replaceStep, replacedText, type PendingReplace, type PreviousVersion } from "@/core/panels/first-agent";
+import { pendingReplaceOnReceipt, pendingReplaceOnSend, putBackText, replacedText, type PendingReplace, type PreviousVersion } from "@/core/panels/first-agent";
 export type Lang = Language;
 export type Unknown = { envelope: Envelope; error: string };
 export type Validation = { source: string; language: Lang; result: CommandResult };
@@ -52,9 +52,9 @@ export type RunnerState = {
    */
   origin: string | null;
   /**
-   * A replace in flight (panels/first-agent.ts PendingReplace): its summon's command id and the agent to destroy once
-   * that summon is accepted, on whichever path the receipt arrives (the first send, "Try again", "Retry the same
-   * command"). Abandoned by any other command, a refusal, a dismissal or its age; then nothing is destroyed.
+   * A replace in flight (panels/first-agent.ts PendingReplace): the engine's one "replace" command, kept until its
+   * receipt arrives (also through "Try again" / "Retry the same command") so the confirmation and the previous-version
+   * memory are written then. Dropped by any other command, a refusal, a dismissal or its age.
    */
   replace: PendingReplace | null;
   /** How the last replace ended, for the forge: said only while the editor still holds the code it was for. */
@@ -67,10 +67,14 @@ export type RunnerState = {
   /** "See it in My agents": the agent whose row My agents brings into view and rings (a number so a second press is a new request). */
   reveal: { agentId: string; at: number } | null;
   /** An act line was pressed: the object whose detail ("why") the Objects panel opens. */
-  revealObject: { objectId: string; at: number } | null;
+  revealObject: { objectId: string; at: number; /** The sentence the press came from, shown at the top of the box it opens. */ from?: string } | null;
+  /** "Other starting points" was pressed outside the forge: the editor opens its shelf (the time of the press). */
+  shelf: number;
+  /** The summon price of each program checked on this page (by its exact source), so a starter's price is shown once known. Never hard-coded. */
+  prices: ReadonlyMap<string, number>;
 };
 
-let state: RunnerState = { busy: null, notice: null, unknown: null, retrying: null, failed: null, validation: null, draft: { source: "", language: null }, editing: false, firstSummon: 0, ownDraft: false, origin: null, replace: null, replaced: null, previous: null, reveal: null, revealObject: null };
+let state: RunnerState = { busy: null, notice: null, unknown: null, retrying: null, failed: null, validation: null, draft: { source: "", language: null }, editing: false, firstSummon: 0, ownDraft: false, origin: null, replace: null, replaced: null, previous: null, reveal: null, revealObject: null, shelf: 0, prices: new Map() };
 const listeners = new Set<() => void>();
 /** One command at a time, each with its deadline; only the latest attempt's outcome reaches the state. */
 const attempts = createAttempts();
@@ -87,13 +91,14 @@ export const runner = {
    * offered as its replacement. Code loaded with no origin (a draft, a template) is nobody's new version.
    */
   edit(source: string, language?: Lang, origin?: string) { set({ draft: { source, language: language ?? state.draft.language }, editing: true, ownDraft: source.trim().length > 0, origin: origin ?? null }); },
-  showObject(objectId: string) { set({ revealObject: { objectId, at: Date.now() } }); },
+  openShelf() { set({ shelf: Date.now(), editing: true }); },
+  showObject(objectId: string, from?: string) { set({ revealObject: { objectId, at: Date.now(), ...(from ? { from } : {}) } }); },
   revealAgent(agentId: string) { set({ reveal: { agentId, at: Date.now() } }); },
   clearPrevious() { if (state.previous) set({ previous: null }); },
-  /** The new version's agent, once the agent list shows it (panels/first-agent.ts previousTarget). */
   /** The remembered agent's first counted moves, as they accumulate (score-line.ts accumulateFirstMoves). */
   setPreviousSince(since: NonNullable<PreviousVersion["since"]>) { if (state.previous && state.previous.since !== since) set({ previous: { ...state.previous, since } }); },
-  adoptPrevious(agentId: string) { if (state.previous && state.previous.agentId !== agentId) set({ previous: { ...state.previous, agentId } }); },
+  /** The world time of the replace, once known (its event's, else when its receipt was seen): only later moves are the new version's. */
+  setPreviousWorld(replacedWorld: number) { if (state.previous && state.previous.replacedWorld === undefined) set({ previous: { ...state.previous, replacedWorld } }); },
   setOrigin(origin: string | null) { if (state.origin !== origin) set({ origin }); },
   setOwnDraft(ownDraft: boolean) { if (state.ownDraft !== ownDraft) set({ ownDraft }); },
   /** Ignored while a summon is in flight: a second press can never buy a second copy. */
@@ -106,7 +111,7 @@ export const runner = {
   },
   /** `olderThanMs`: only a request at least that old (an editor going away leaves a fresh one for the editor that opens). */
   takeFirstSummon(olderThanMs = 0) { if (state.firstSummon && Date.now() - state.firstSummon >= olderThanMs) set({ firstSummon: 0 }); },
-  /** "It didn't apply": an uncertain replace summon is given up with it, so nothing is destroyed later. */
+  /** "It didn't apply": an uncertain replace is given up with it. */
   dismissUnknown() { set({ unknown: null, ...(state.replace && state.unknown?.envelope.commandId === state.replace.commandId ? { replace: null } : {}) }); },
   clearNotice() { set({ notice: null }); },
 };
@@ -122,7 +127,7 @@ export function useGameCommands() {
   const gameId = useDockState({ hz: 1 })?.gameId;
   const send = useCallback(async function send(envelope: Envelope, say?: string): Promise<CommandResult | undefined> {
     const command = envelope.command;
-    // A pending replace lives only while its own summon is the command in hand: anything else abandons it.
+    // A pending replace lives only while its own command is the one in hand: anything else drops it.
     const abandoned = pendingReplaceOnSend(state.replace, envelope.commandId, Date.now()) === "clear";
     set({ busy: command.type, notice: null, failed: null, retrying: null, ...(abandoned ? { replace: null } : {}) });
     const examined = examinesProgram(command);
@@ -144,30 +149,27 @@ export function useGameCommands() {
       set({
         busy: null, unknown: null, retrying: null, notice,
         ...(command.type === "validate" && result.validation ? { validation: { source: command.source, language: command.language, result } } : {}),
+        ...(command.type === "validate" && result.accepted && result.validation?.valid ? { prices: new Map(state.prices).set(command.source, result.validation.cost) } : {}),
       });
       // The forge shows its own notices; anything else is said under the header.
       if (!examined && !(command.type === "chat" && result.accepted)) noticeStore.push(headerNotice(command.type, result, say), result.accepted ? "info" : "error");
-      // The summon of a replace, accepted now or on a retry: the old agent is destroyed (free), and only then.
+      // The replace's own receipt, now or on a retry: its confirmation and the previous-version memory are written here.
       const step = pendingReplaceOnReceipt(state.replace, envelope.commandId, result);
       if (step === "clear") set({ replace: null });
-      if (step === "destroy") {
+      if (step === "done") {
         const pending = state.replace!;
-        set({ replace: null });
-        const said = pending.putBack ? putBackText(pending.name, { cost: pending.cost, lost: pending.lost, refill: pending.refill })
-          : replacedText(pending.name, { share: pending.share, oldShare: pending.oldShare, cost: pending.cost, lost: pending.lost, refill: pending.refill });
-        const end = replaceStep("destroying", await send({ version: VERSION, commandId: crypto.randomUUID(), command: { type: "destroy", agentId: pending.oldId }, ...(envelope.gameId ? { gameId: envelope.gameId } : {}) }, said));
-        const done = "done" in end && end.done === "replaced";
-        const both = bothText(pending.name, "done" in end && end.done === "both" ? end.message : "no answer from the game");
-        // Both versions are running: said as an error under the header too, so it is seen wherever the player is.
-        if (!done) noticeStore.push(both, "error");
-        // A put-back done: the editor, if it still holds the version that went away, is given the restored code (its
-        // origin is then the restored agent, by the forge's draftOrigin), so the next press cannot summon the gone version beside it.
-        const restore = done && pending.putBack && pending.outgoingSource !== undefined && state.draft.source === pending.outgoingSource;
+        const said = pending.putBack ? putBackText(pending.name, { cost: pending.cost }) : replacedText(pending.name, { cost: pending.cost });
+        // A put-back done: the editor, if it still holds the version that went away, is given the restored code.
+        const restore = pending.putBack && pending.outgoingSource !== undefined && state.draft.source === pending.outgoingSource;
         set({
-          ...(done ? { previous: pending.previous ?? null } : {}),
-          ...(restore ? { draft: { source: pending.source, language: (pending.language as Lang | undefined) ?? state.draft.language }, origin: null, ownDraft: true } : {}),
-          replaced: done ? { ok: true, text: said, source: pending.source } : { ok: false, text: both, source: pending.source },
+          replace: null, previous: pending.previous ?? null,
+          // The forge's own line says it ("Replaced: …"): never the engine's raw sentence in bits beside it.
+          notice: null,
+          ...(restore ? { draft: { source: pending.source, language: (pending.language as Lang | undefined) ?? state.draft.language }, origin: pending.agentId, ownDraft: true } : {}),
+          replaced: { ok: true, text: said, source: pending.source },
         });
+        // Said under the header too when the forge is not what the player is looking at (a put-back from My agents).
+        if (pending.putBack) noticeStore.push(said);
       }
       return result;
     }
@@ -194,13 +196,13 @@ export function useGameCommands() {
   }, [send, gameId]);
   const retry = useCallback((envelope: Envelope) => send(envelope), [send]);
   /**
-   * Replace an agent: summon the new version, and destroy `old.oldId` only when that summon is accepted, including
-   * through a later retry of the same envelope (the pending replace is kept in the state until then).
+   * Replace an agent's program: the engine's one command (the agent keeps its id, name, share, energy and counts; the
+   * player pays the new program's price). `old` is what the confirmation and the previous-version memory need.
    */
-  const replace = useCallback((command: Extract<Command, { type: "summon" }>, old: Omit<PendingReplace, "commandId" | "at">) => {
+  const replace = useCallback((command: Extract<Command, { type: "replace" }>, old: Omit<PendingReplace, "commandId" | "at" | "agentId">) => {
     if (state.busy) return Promise.resolve(undefined);
     const envelope: Envelope = { version: VERSION, commandId: crypto.randomUUID(), command, ...(gameId ? { gameId } : {}) };
-    set({ replace: { ...old, commandId: envelope.commandId, at: Date.now() }, replaced: null });
+    set({ replace: { ...old, agentId: command.agentId, commandId: envelope.commandId, at: Date.now() }, replaced: null });
     return send(envelope);
   }, [send, gameId]);
   return useMemo(() => ({ run, retry, replace, canAct: actions.canAct }), [run, retry, replace, actions.canAct]);

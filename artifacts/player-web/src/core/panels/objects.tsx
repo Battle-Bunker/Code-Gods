@@ -304,7 +304,7 @@ function ObjectRow({ objectId, position, byPayoff, scales, world, highlighted, o
  * into view when it opens: under the list it was out of sight below a 640px scroller, so "why?" turned into "hide" and
  * seemed to open nothing (three first-time walks). It always says something: the breakdown, or why there is none.
  */
-function ObjectDetail({ objectId, noun, comparative, world, boards, onHide }: { objectId: string; noun: string; comparative: string | undefined; world: number; boards?: boolean; onHide: () => void }) {
+function ObjectDetail({ objectId, noun, comparative, world, boards, onHide, from }: { objectId: string; noun: string; comparative: string | undefined; world: number; boards?: boolean; onHide: () => void; /** The sentence it was opened from. */ from?: string }) {
   const o: MyObject | null | undefined = useMyObject(objectId);
   // The rank NOW (player.objectRank), not the row's when it was clicked: the list re-ranks while the box is open, and
   // only one detail is open at a time, so this is one subscription.
@@ -321,6 +321,8 @@ function ObjectDetail({ objectId, noun, comparative, world, boards, onHide }: { 
       <p className="flex flex-wrap items-center gap-2 text-sm font-semibold" data-testid="text-object-detail-title"><span>{whyTitle(o.payoff, noun)}</span>
         {rankNote(rank) && <span className="font-mono text-[11px] font-normal text-muted-foreground" data-testid="text-object-detail-rank">{rankNote(rank)}</span>}
         <span className="ml-auto">{hide}</span></p>
+      {/* The latest-act line moves on every second: the sentence this was opened from stays here, to tie the two together. */}
+      {from && <p className="text-xs text-muted-foreground" data-testid="text-object-detail-from">Opened from: {from}</p>}
       {seen && (
         <p className="text-xs text-muted-foreground" data-testid={`text-detail-seen-${o.id}`}>
           {boards ? "The others' interest and your points as you last saw them" : "As you last saw it"}, {seen.age < 1 ? "just now" : `${ageText(seen.age)} ago`}
@@ -373,11 +375,11 @@ export default function Objects({ paneId, params, phase }: PanelProps<"objects">
   const { ctx, noun } = useObjectContext();
   const [paneRef, widePane] = useWidePane();
   // The open "why?": the object and, when the list is by points, the rank its row showed.
-  const [open, setOpen] = useState<{ id: string; rank?: number } | null>(null);
+  const [open, setOpen] = useState<{ id: string; rank?: number; /** The act sentence this box was opened from ("show this grid"). */ from?: string } | null>(null);
   const toggle = useCallback((id: string, rank?: number) => setOpen(o => (o?.id === id ? null : { id, rank })), []);
   // An act line elsewhere was pressed ("show this grid"): that object's detail opens here.
   const shown = useRunner().revealObject;
-  useEffect(() => { if (shown && Date.now() - shown.at < 5000) setOpen({ id: shown.objectId }); }, [shown?.at]);   // a fresh press only: never an old one on a remount // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (shown && Date.now() - shown.at < 5000) setOpen({ id: shown.objectId, ...(shown.from ? { from: shown.from } : {}) }); }, [shown?.at]);   // a fresh press only: never an old one on a remount // eslint-disable-line react-hooks/exhaustive-deps
   const comparative = card?.penalty?.comparative;
   const byPayoff = params.sortBy === "payoff" && params.filter === "all";
   const scales = scalesOf(totals);
@@ -407,7 +409,7 @@ export default function Objects({ paneId, params, phase }: PanelProps<"objects">
     return (
       <div className="space-y-3">
         {header}
-        {open && <ObjectDetail objectId={open.id} noun={noun} comparative={comparative} world={world} boards={boards} onHide={() => setOpen(null)} />}
+        {open && <ObjectDetail objectId={open.id} from={open.from} noun={noun} comparative={comparative} world={world} boards={boards} onHide={() => setOpen(null)} />}
         <ObjectsGrid params={params} world={world} onOpen={toggle} />
       </div>
     );
@@ -415,7 +417,7 @@ export default function Objects({ paneId, params, phase }: PanelProps<"objects">
   return (
     <div className="space-y-3" ref={paneRef}>
       {header}
-      {open && <ObjectDetail objectId={open.id} noun={noun} comparative={comparative} world={world} boards={boards} onHide={() => setOpen(null)} />}
+      {open && <ObjectDetail objectId={open.id} from={open.from} noun={noun} comparative={comparative} world={world} boards={boards} onHide={() => setOpen(null)} />}
       <VirtualRows rows={skeleton.rows} rowHeight={rowHeightFor(ctx, widePane) + (paid ? SEEN_LINE : 0)} maxHeight={640} keyOf={r => r.id} onNearEnd={loadMore} testId="list-objects"
         render={(r, i) => <ObjectRow objectId={r.id} position={i + 1} byPayoff={byPayoff} scales={scales} world={world} boards={boards}
           highlighted={highlight.has(r.id)} open={open?.id === r.id} onOpen={toggle} ctx={ctx} noun={noun} comparative={comparative} changed={changed} look={look} />} />

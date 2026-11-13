@@ -290,3 +290,8 @@ function sameNode(a: Node, b: Node, tolerance: number): boolean {
 export function sameLayout(a: DockLayout, b: DockLayout, tolerance = 1): boolean {
   return a === b || (sameNode(a.root, b.root, tolerance) && canonical(a.panes) === canonical(b.panes));
 }
+
+/** Whether a scroller has content below its bottom edge (more than a few pixels: rounding is not content). */
+export function moreBelow(s: { scrollHeight: number; scrollTop: number; clientHeight: number }): boolean {
+  return s.scrollHeight - s.scrollTop - s.clientHeight > 8;
+}

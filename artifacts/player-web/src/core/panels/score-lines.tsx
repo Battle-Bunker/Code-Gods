@@ -10,10 +10,10 @@ import { useDockActions } from "@/dock/actions";
 import { runner } from "@/core/game/runner";
 import { useGoalExplainer } from "@workspace/object-views";
 import { SCORE_LINES, scoreMovesLine, Term } from "@workspace/ui-kit";
-import { useDockState, useEvents, useGameId, useMyTotals, useObjectContext, useRoomInfo } from "@/sdk";
+import { useDockState, useEvents, useGameId, useMyAgents, useMyTotals, useObjectContext, useRoomInfo } from "@/sdk";
 import { useStandings } from "@/sdk/hooks";
 import { agentLabel } from "./agent-name";
-import { actLine, agentEarnings, asOfText, earningsLine, fresherPoints, latestOwnActs, pointsNowText, type AgentEarnings, type OwnAct } from "./score-line";
+import { pointsBeforeAgent, actLine, agentEarnings, asOfText, earningsLine, fresherPoints, latestOwnActs, pointsNowText, type AgentEarnings, type OwnAct } from "./score-line";
 
 /**
  * "Your points now": one figure, the same number wherever it is shown, with how old it is. It is your total as the
@@ -35,7 +35,10 @@ export function PointsNow({ className = "" }: { className?: string }) {
   // Live points are blurred only where the room blurs what the others want (peerNoiseBits; 0 on the beginner setup).
   const room = useRoomInfo();
   const estimate = dock?.phase !== "ended" && liveIsEstimate(room?.settings);
-  return typeof score === "number" ? <PointsNowView score={score} age={age} noun={noun} estimate={estimate} className={className} /> : null;
+  // Before the player has an agent: one short clause, on a phone too ("why do I already have points?").
+  const { agents, loading } = useMyAgents({ hz: 1 });
+  const noAgent = !loading && agents.length === 0 && dock?.phase !== "ended";
+  return typeof score === "number" ? <PointsNowView score={score} age={age} noun={noun} estimate={estimate} noAgent={noAgent} className={className} /> : null;
 }
 
 /**
@@ -49,7 +52,7 @@ export const liveIsEstimate = (settings: unknown): boolean => {
   const noise = (settings as { peerNoiseBits?: unknown } | null | undefined)?.peerNoiseBits;
   return typeof noise === "number" ? noise > 0 : true;
 };
-export function PointsNowView({ score, age, noun = "object", estimate = false, className = "" }: { score: number; age?: string | null; noun?: string; estimate?: boolean; className?: string }) {
+export function PointsNowView({ score, age, noun = "object", estimate = false, noAgent = false, className = "" }: { score: number; age?: string | null; noun?: string; estimate?: boolean; /** The player has no agent yet: the short clause shows on every screen. */ noAgent?: boolean; className?: string }) {
   const why = scoreMovesLine(noun);
   return (
     <div className={className} title={`${why} ${SCORE_LINES.total}`} data-testid="text-points-now">
@@ -58,7 +61,9 @@ export function PointsNowView({ score, age, noun = "object", estimate = false, c
         <span className={`font-mono text-2xl font-semibold leading-none tabular-nums ${score < 0 ? "text-destructive" : ""}`} data-testid="value-points-now">{pointsNowText(score)}</span>
         <span className="text-xs text-muted-foreground">{estimate ? "an estimate" : ""}{estimate && age ? ", " : ""}{age ?? ""}{estimate || age ? "; " : ""}what the leaderboard ranks</span>
       </p>
-      <p className="hidden text-xs leading-snug text-muted-foreground sm:block" data-testid="text-points-why">{why}</p>
+      {noAgent
+        ? <p className="text-xs leading-snug text-muted-foreground" data-testid="text-points-before-agent">{pointsBeforeAgent(noun)}</p>
+        : <p className="hidden text-xs leading-snug text-muted-foreground sm:block" data-testid="text-points-why">{why}</p>}
     </div>
   );
 }
@@ -125,7 +130,7 @@ export function LatestActLine({ line, objectId }: { line?: string; /** The grid 
   if (!line) return null;
   return (
     <p className="text-sm leading-snug" aria-live="polite" data-testid="text-latest-act">{line}
-      {objectId && <>{" "}<button type="button" data-testid="button-latest-act-object" onClick={() => open(objectId)} className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground">show this grid</button></>}
+      {objectId && <>{" "}<button type="button" data-testid="button-latest-act-object" onClick={() => open(objectId, line)} className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground">show this grid</button></>}
     </p>
   );
 }
@@ -133,7 +138,7 @@ export function LatestActLine({ line, objectId }: { line?: string; /** The grid 
  * Open one object's detail ("why") in the Objects panel: the panel comes to the front and shows it (an act line names
  * a cell, "row 4, column 2", but not which grid in the list).
  */
-export function useOpenObject(): (objectId: string) => void {
+export function useOpenObject(): (objectId: string, /** The sentence the press came from: the box it opens carries it, since the latest-act line moves on every second. */ from?: string) => void {
   const dock = useDockActions();
-  return useCallback((objectId: string) => { dock.show("objects"); setTimeout(() => runner.showObject(objectId), 50); }, [dock]);
+  return useCallback((objectId: string, from?: string) => { dock.show("objects"); setTimeout(() => runner.showObject(objectId, from), 50); }, [dock]);
 }

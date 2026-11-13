@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { SCORE_LINES, scoreMovesLine } from "@workspace/ui-kit/core";
-import { accumulateFirstMoves, actLine, agentEarnings, earningsLine, fresherPoints, othersWantClause, ruleDirection, asOfText, describeChange, latestOwnActs, pointsNowText, ruleScoreChange, ruleScoreText, signed } from "../src/core/panels/score-line.ts";
+import { pointsBeforeAgent, accumulateFirstMoves, actLine, agentEarnings, earningsLine, fresherPoints, othersWantClause, ruleDirection, asOfText, describeChange, latestOwnActs, pointsNowText, ruleScoreChange, ruleScoreText, signed } from "../src/core/panels/score-line.ts";
 
 test("a change is said in plain words", () => {
   assert.equal(describeChange("1R,2R/3R,4R", "1R,2R/4R,4R", "grid"), "changed 3 to 4 at row 2, column 1");
@@ -233,8 +233,15 @@ test("an agent's first counted moves are accumulated as they arrive and frozen a
   assert.deepEqual({ moves: b.moves, points: b.points, frozen: b.frozen }, { moves: 4, points: 35 + 20 - 10, frozen: true });
   // Frozen: later moves never change it.
   assert.equal(accumulateFirstMoves(b, [move(6, "o1", 60), move(7, "o1", 500)], "a9", 4), b);
+  // A replace keeps the agent's id: only the moves after it are the new program's (events 2 and 3 are at world 2 and 3).
+  const since = accumulateFirstMoves(undefined, first, "a9", 4, 2);
+  assert.deepEqual({ moves: since.moves, points: since.points }, { moves: 1, points: 5 }, "the move at world 3 only");
   // The limit is never passed inside one batch either.
   const many = [spawn(1, "o1", 0), ...Array.from({ length: 30 }, (_, i) => move(i + 2, "o1", i + 1))];
   assert.equal(accumulateFirstMoves(undefined, many, "a9").moves, 20);
   assert.equal(accumulateFirstMoves(undefined, many, "a9").points, 20, "the first 20 moves, +1 each");
+});
+
+test("before the first agent, one short clause says why there are points already", () => {
+  assert.equal(pointsBeforeAgent("grid"), "Every grid already gives everyone some points; your agent's job is to raise yours.");
 });

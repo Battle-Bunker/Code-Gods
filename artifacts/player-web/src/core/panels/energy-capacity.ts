@@ -158,6 +158,11 @@ export function shareCapacityLines({ newShare, agentShare, allocated, total, ful
   return lines;
 }
 
+/**
+ * The player's own store is full and they have exactly one agent: what they can do with the power, the controls one
+ * press away, without telling them to spend for its own sake. (With two or more agents the neutral sentence stands.)
+ */
+export const fullStoreOneAgent = (name: string): string => `Your energy is full. Give ${name} more power so it acts more often, or add another ready-made agent.`;
 /** The tooltip on the player's own full store: the precise rule, never an instruction in the main line. */
 export const OWN_FULL_DETAIL = "A full store keeps no more: the income that would refill it is not saved up. That costs you nothing unless you want to summon a dearer agent later; to use that power instead, give an agent a larger share.";
 /** Whether the player's own store is full (the line then carries OWN_FULL_DETAIL as its tooltip). */

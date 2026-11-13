@@ -1,6 +1,8 @@
 /** The host transport of the SDK (see transport-types.ts): Convex directly, in the player client. */
-import { useCallback, useMemo, useRef, useSyncExternalStore } from "react";
-import { useAction, useQueries, useQuery } from "convex/react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
+import { useAction, useQueries } from "convex/react";
+import { PaneErrorContext } from "./pane-error-context";
+import { queryErrors } from "./query-errors";
 import type { FunctionReference } from "convex/server";
 import { api } from "@workspace/engine/convex/_generated/api";
 import type { CommandResult } from "@workspace/player-client";
@@ -41,13 +43,33 @@ const noSubscription = () => () => {};
 export const useSdkQuery: UseSdkQuery = (name, args) => {
   const replay = useReplaySource();
   const served = !!replay && args !== "skip" && replay.serves(name);
-  const live = useQuery(QUERY_REFS[name], (served ? "skip" : args) as never);
+  // Through useQueries, which hands a failure back as a value: one failed query must not throw through the root and
+  // take the page down (query-errors.ts). The consumer gets "not loaded"; the failure is recorded for the pane it is
+  // in (which says so above its content), or for the dock when it is outside any pane (the header, the dock's own
+  // state). No retry here: the live subscription re-delivers by itself, and the record clears when it does.
+  const off = served || args === "skip";
+  const key = off ? "" : `${name}:${JSON.stringify(args)}`;
+  const request = useMemo(() => (off ? {} : { q: { query: QUERY_REFS[name], args: args as Record<string, unknown> } }),
+    // `key` covers name and args.
+    [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  const answered = (useQueries(request as Parameters<typeof useQueries>[0]) as Record<string, unknown>).q;
+  const failure = answered instanceof Error ? answered : null;
+  const pane = useContext(PaneErrorContext);
+  useEffect(() => {
+    if (!key) return;
+    const record = pane ?? queryErrors;
+    if (failure) record.report(key, failure.message);
+    else if (answered !== undefined) record.clear(key);
+    // Gone with its consumer: a failure nobody is subscribed to any more is not shown.
+    return () => { if (failure) record.clear(key); };
+  }, [key, failure, answered, pane]);
+  const live = failure ? undefined : answered;
   const fromReplay = useSyncExternalStore(served ? replay!.subscribe : noSubscription,
     () => (served ? replay!.answer(name, args as Record<string, unknown>) : undefined));
   return (served ? fromReplay : live) as never;
 };
 
-/** Several live queries of one name (useQueries); in replay mode the replay answers each. A failed one throws, like useQuery. */
+/** Several live queries of one name (useQueries); in replay mode the replay answers each. A failed one is "not loaded", like useSdkQuery's. */
 export const useSdkQueries: UseSdkQueries = (name, argsList) => {
   const replay = useReplaySource();
   const served = !!replay && replay.serves(name);
@@ -67,7 +89,8 @@ export const useSdkQueries: UseSdkQueries = (name, argsList) => {
   return argsList.map((_args, i) => {
     if (served) return fromReplay[i];
     const result = live[String(i)];
-    if (result instanceof Error) throw result;
+    // A failed one is "not loaded" for its consumer, like useSdkQuery's (the page stands).
+    if (result instanceof Error) return undefined;
     return result;
   }) as never;
 };

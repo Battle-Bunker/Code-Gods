@@ -3,6 +3,8 @@
  * (the only primary-coloured element here), energy ("overdrawn by 312 ⚡" when it is below zero), the connection dot, the room code and the client mode in small
  * print, and the command palette (search field + menu; Cmd/Ctrl+K). Everything else lives in the palette.
  */
+import { useSyncExternalStore } from "react";
+import { errorsLine, queryErrors } from "@/sdk/query-errors";
 import { CommandPalette, PaletteTrigger } from "@workspace/ui-kit";
 import { useRoom } from "@/sdk";
 import { useDock } from "@/dock/store";
@@ -147,6 +149,7 @@ export function HeaderBanners() {
   const commands = useGameCommands();
   const notices = useNotices();
   const gameNotice = useSituation().obs?.notice;
+  const liveDataLine = errorsLine(useSyncExternalStore(queryErrors.subscribe, queryErrors.get, queryErrors.get));
   return (
     <>
       <PlanningBar />
@@ -156,6 +159,11 @@ export function HeaderBanners() {
           className={`border-b border-[hsl(var(--card-border))] px-4 py-1.5 text-sm ${gameNotice.kind === "retrying" ? "bg-[hsl(var(--destructive)/0.15)]" : "bg-[hsl(var(--chart-4)/0.25)]"}`}>
           {gameNotice.text}
         </div>
+      )}
+      {liveDataLine && (
+        // A live query outside any pane failed (the dock's own state, the header's data): the page stands, the dock
+        // shows what it can (the default layout without the game's state), and this goes when the data arrives.
+        <div data-testid="banner-live-data" role="status" className="border-b border-[hsl(var(--card-border))] bg-[hsl(var(--chart-4)/0.25)] px-4 py-1.5 text-sm">{liveDataLine}</div>
       )}
       {unknown && (
         <div data-testid="banner-unknown" role="alert" className="flex flex-wrap items-center gap-3 border-b border-[hsl(var(--card-border))] bg-[hsl(var(--chart-4)/0.25)] px-4 py-1.5 text-sm">

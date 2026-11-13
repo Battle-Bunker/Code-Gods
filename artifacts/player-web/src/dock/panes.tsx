@@ -4,17 +4,37 @@
  * sandboxed frame, a file panel in-process).
  * Pointer and focus inside a pane make it the focused pane (the palette's "this pane").
  */
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { moreBelow } from "./layout-sync";
 import { AssistantPane } from "@/core/chat/pane";
 import { PanelHost } from "@/core/panels";
 import { PanelPaneBody, entryFor, usePanels } from "./panels";
 import { useDock, useDockStore } from "./store";
 
+/** The bottom fade of a pane with more content below. */
+const FADE = "linear-gradient(to bottom, #000 calc(100% - 32px), transparent)";
+
 function Frame({ paneId, children, className = "", attrs }: { paneId: string; children: ReactNode; className?: string; attrs?: Record<string, string> }) {
   const store = useDockStore();
   const focus = () => store.setFocused(paneId);
+  // A pane that scrolls says so: while more content is below its bottom edge, the last lines fade out (a soft mask),
+  // instead of a sentence sliced through at the divider with no hint that the pane scrolls.
+  const box = useRef<HTMLDivElement>(null);
+  const [more, setMore] = useState(false);
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const measure = () => setMore(moreBelow({ scrollHeight: el.scrollHeight, scrollTop: el.scrollTop, clientHeight: el.clientHeight }));
+    measure();
+    el.addEventListener("scroll", measure, { passive: true });
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
+    observer?.observe(el);
+    if (el.firstElementChild) observer?.observe(el.firstElementChild);
+    return () => { el.removeEventListener("scroll", measure); observer?.disconnect(); };
+  }, []);
+  const fade = more ? { maskImage: FADE, WebkitMaskImage: FADE } : undefined;
   return (
-    <div data-testid={`pane-${paneId}`} onPointerDownCapture={focus} onFocusCapture={focus} className={`h-full min-h-0 bg-card ${className}`} {...attrs}>
+    <div ref={box} data-testid={`pane-${paneId}`} data-more-below={more || undefined} style={fade} onPointerDownCapture={focus} onFocusCapture={focus} className={`h-full min-h-0 bg-card ${className}`} {...attrs}>
       {children}
     </div>
   );
