@@ -196,7 +196,7 @@ per rule and no choice of deal levels a single game for every way of playing.
 same dealing settings, the last game's rules pass one seat along (each player gets the rule of the player before them
 in the last game's order), until everyone has held every rule; the next game is then dealt afresh. The goal card says
 "Game 2 of 3: Alice held this rule last game. The rules pass one player along each game, so everyone holds each rule
-once." A deal made with bids is never rotated. The first game is exactly as before. Fair over a round of P games by
+once." A deal made with bids is never rotated; a game ended before its world ran does not count; a rule that can no longer be dealt (withdrawn by a deploy) starts a fresh deal. The first game is exactly as before. Fair over a round of P games by
 construction (each player holds each of the P rules once, against the same table); within one game the dealt rule
 still matters as in §5. Code: `artifacts/engine/convex/lib/dealRotation.ts` (stateless: it reads the room's last 8
 games), tests `test/unit/deal-rotation.test.ts`, `test/game-deal-rotation.test.ts`.
