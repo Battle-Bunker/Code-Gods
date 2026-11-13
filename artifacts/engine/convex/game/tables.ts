@@ -86,11 +86,13 @@ export const eventV = v.union(
     decisionBits: v.optional(v.number()), perActFloorBits: v.optional(v.number()),
     breakdown, randomized: v.boolean(), account,
   }),
-  v.object({ t: v.literal("destroy"), agentId: v.string(), ownerId: v.string(), world: v.number() }),
+  /** `owed` (schema 13): the debt that moved from the agent onto its god's own account with its power (docs/energy-model.md §7.2); absent: none. */
+  v.object({ t: v.literal("destroy"), agentId: v.string(), ownerId: v.string(), world: v.number(), owed: v.optional(v.number()) }),
   /** The hold corrections arrived during planning (schema 7): the object re-scored with them, before the world ran. */
   v.object({ t: v.literal("rescore"), objectId: v.string(), value: wire, version: v.number(), world: v.number(), net: v.array(v.number()), noise: v.optional(v.number()) }),
   /** The owner re-allocated its power (schema 6): the agent's share from `world` on. */
-  v.object({ t: v.literal("power"), agentId: v.string(), ownerId: v.string(), world: v.number(), share: v.number() }),
+  /** `owed` (schema 13): the debt that moved with the power, from the agent onto its god's own account (negative: from the god onto the agent); absent: none. */
+  v.object({ t: v.literal("power"), agentId: v.string(), ownerId: v.string(), world: v.number(), share: v.number(), owed: v.optional(v.number()) }),
   /**
    * A god paid for a look (schema 11; paid observation, lib/knowledge.ts): `cost` energy from its own account for `count`
    * objects (one: `objectId`; absent: every object then). PRIVATE to its god while the game is live.
@@ -99,7 +101,8 @@ export const eventV = v.union(
 );
 
 /** An agent's failure breakdown (lib/futility.ts FAILURE_KINDS) and the last reason of the kinds the diagnosis quotes. */
-export const failuresV = v.object({ collision: v.number(), noChange: v.number(), commit: v.number(), invalid: v.number(), error: v.number() });
+/** `unaffordable` (changes the agent could not pay for: docs/energy-model.md §7.2) is absent on agents counted before it existed: read as 0. */
+export const failuresV = v.object({ collision: v.number(), noChange: v.number(), commit: v.number(), invalid: v.number(), error: v.number(), unaffordable: v.optional(v.number()) });
 export const lastFailuresV = v.object({ invalid: v.optional(v.string()), error: v.optional(v.string()) });
 /** One agent's futile pairs (lib/futility.ts Futile). */
 export const futileEntriesV = v.array(v.object({ o: v.id("objects"), v: v.number(), by: v.optional(v.id("objects")), bv: v.optional(v.number()) }));

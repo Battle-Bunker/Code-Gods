@@ -6,10 +6,13 @@
  */
 import assert from "node:assert/strict";
 import test from "node:test";
-import { OBJECT_TYPES } from "@workspace/game-types";
+import { COST_MODELS, OBJECT_TYPES } from "@workspace/game-types";
 import {
-  DEFAULT_SETTINGS, ROOM_QUOTA_DOCS, SEED_SETUPS, SETTINGS_DOCS, TYPE_DEFAULTS, type FieldDoc, type GameSettings,
+  DEFAULT_SETTINGS, OPTIONAL_SETTINGS_FIELDS, ROOM_QUOTA_DOCS, SEED_SETUPS, SETTINGS_DOCS, TYPE_DEFAULTS, costModelOf, type FieldDoc, type GameSettings,
 } from "../src/settings.ts";
+
+/** The default settings with every optional field read as its default (as its reader gives it). */
+const DEFAULTS_READ: Readonly<Record<keyof GameSettings, unknown>> = { ...DEFAULT_SETTINGS, costModel: costModelOf(DEFAULT_SETTINGS) };
 
 const LAYOUT_WORDS = /\b(below|above|click|button|tab|panel|page|screen)\b/i;
 const paramDocs = OBJECT_TYPES.flatMap(t => t.params.map((p): [string, Pick<FieldDoc, "question" | "meaning" | "consequence">] => [`${t.id}.${p.id}`, p]));
@@ -17,7 +20,7 @@ const docs = [...Object.entries({ ...SETTINGS_DOCS, ...ROOM_QUOTA_DOCS }), ...pa
 
 test("every settings field, type argument and room quota has a question, a meaning and a consequence", () => {
   assert.ok(paramDocs.length >= 6, "Grid size/symbols/colours, Int min/max and string maxLength are documented");
-  assert.deepEqual(Object.keys(SETTINGS_DOCS).sort(), Object.keys(DEFAULT_SETTINGS).sort(), "one doc per GameSettings field, no stale keys");
+  assert.deepEqual(Object.keys(SETTINGS_DOCS).sort(), [...Object.keys(DEFAULT_SETTINGS), ...OPTIONAL_SETTINGS_FIELDS].sort(), "one doc per GameSettings field (the optional ones too), no stale keys");
   assert.deepEqual(Object.keys(ROOM_QUOTA_DOCS).sort(), ["aiQuota", "assistantModel", "assistantQuota"]);
   for (const [key, doc] of docs) {
     assert.match(doc.question, /^[A-Z].*\?$/, `${key}: the question is a question`);
@@ -67,9 +70,10 @@ test("every field is a control: asked or under More, never a fixed fact, with a 
   for (const [key, doc] of Object.entries(SETTINGS_DOCS) as [keyof GameSettings, FieldDoc][]) {
     assert.ok(doc.tier === "ask" || doc.tier === "more", `${key}: tier ${doc.tier}`);
     assert.ok(doc.control in kinds, `${key}: a known control kind (${doc.control})`);
-    assert.ok(kinds[doc.control]!(DEFAULT_SETTINGS[key]), `${key}: a ${doc.control} control fits its value`);
+    assert.ok(kinds[doc.control]!(DEFAULTS_READ[key]), `${key}: a ${doc.control} control fits its value`);
   }
-  for (const key of ["languages", "utilitySelectorId", "priorId", "spawnFunctionId", "objectSelection", "commitClause"] as const) {
+  assert.deepEqual(SETTINGS_DOCS.costModel.suggested, COST_MODELS, "pre-authored: the cost models of game-types");
+  for (const key of ["languages", "utilitySelectorId", "priorId", "spawnFunctionId", "objectSelection", "commitClause", "costModel"] as const) {
     assert.notEqual(SETTINGS_DOCS[key].control, undefined, `${key} is edited, not asserted`);
   }
 });

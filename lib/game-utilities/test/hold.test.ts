@@ -4,7 +4,7 @@
  */
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { instantiate } from "@workspace/game-types";
+import { NOISE_VERSION, instantiate } from "@workspace/game-types";
 import { context, family } from "../src/catalog.ts";
 import { SMOKE_HOLD_BUDGET, buildHoldTable, holdBits, holdKeyPart } from "../scripts/hold.ts";
 
@@ -38,4 +38,16 @@ test("holdBits: none for one player or below the lowest level; the top level's a
   assert.equal(holdBits(t, 5), 1.5);
   assert.equal(holdBits(t, 20), 3);
   assert.ok(holdBits(t, 7) > 1.5 && holdBits(t, 7) < 3);
+});
+
+test("a hold table belongs to a cost model: its own cache key and noise; set-v1 keeps the key it had before cost models", () => {
+  assert.equal(holdKeyPart(2), `hold:hold-ams@1:m=2:${NOISE_VERSION}`, "tables cached before cost models existed stay valid");
+  assert.equal(holdKeyPart(2, "set-v1"), holdKeyPart(2));
+  assert.equal(holdKeyPart(2, "distance-v1"), `hold:hold-ams@1:m=2:${NOISE_VERSION}|cost=distance-v1`);
+  const p = draw("chessmaster");
+  const set = buildHoldTable("chessmaster", p, g4, 2, "unit", SMOKE_HOLD_BUDGET), distance = buildHoldTable("chessmaster", p, g4, 2, "unit", SMOKE_HOLD_BUDGET, "distance-v1");
+  assert.deepEqual(buildHoldTable("chessmaster", p, g4, 2, "unit", SMOKE_HOLD_BUDGET, "set-v1"), set);
+  assert.equal(set.noise, NOISE_VERSION);
+  assert.equal(distance.noise, `${NOISE_VERSION}|cost=distance-v1`);
+  assert.notDeepEqual(distance.levels, set.levels, "the noise is the model's: the same seed holds differently");
 });

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { LANGUAGES, RETIRED_LANGUAGES, type Language, type StoredLanguage } from "@workspace/game-core";
+import { COST_MODELS, LANGUAGES, RETIRED_LANGUAGES, type CostModel, type Language, type StoredLanguage } from "@workspace/game-core";
 
 /**
  * Player protocol v3 (docs/player-client-integration.md has the migration note from v2).
@@ -134,7 +134,11 @@ export const observationSchema = z.object({
     durationMode: z.enum(["fixed", "halfLife"]).optional(), lengthSeconds: finite.optional(),
     commitClause: z.boolean().optional(), objectSelection: z.enum(["uniform", "shelter"]).optional(),
     /** Paid observation (docs/energy-model.md §11): how objects are shown ("paid": as last told; "boards": the board live, the others' interest as last told; "agents": as last told, and no paid looks) and what one look at one object costs (absent when a god cannot look). */
-    observation: z.enum(["free", "boards", "paid", "agents"]).optional(), lookPrice: z.number().optional() }).optional(),
+    observation: z.enum(["free", "boards", "paid", "agents"]).optional(), lookPrice: z.number().optional(),
+    /** What reading the whole of one object costs an act, in energy (its full read at the read price): the price of an observer agent's turn, before the offer. */
+    fullRead: finite.optional(),
+    /** How a change is priced (game-core settings.costModel; absent on older servers: "set-v1"). */
+    costModel: z.enum(COST_MODELS as readonly [CostModel, ...CostModel[]]).optional() }).optional(),
   self: z.object({ godId: id, label: z.string().max(128), isAI: z.boolean(), energy: finite, ready: z.boolean(), pauseUsed: z.boolean().optional(),
     // Power: the share (0–1) of economy.powerPerSecond given to your agents, and your own income (bits per world second) from the rest.
     // capacity: the most your own energy can hold, income x economy.fullChargeSeconds (absent: no capacity).
@@ -164,7 +168,7 @@ export const observationSchema = z.object({
     // the object, or failed by kind (collision: another object already had the value; noChange; commit: the commit
     // clause kept the object; invalid call; error: the code raised or timed out), with the last invalid call or error.
     outcomes: z.object({ transforms: z.number().int().nonnegative(),
-      failures: z.object({ collision: count, noChange: count, commit: count, invalid: count, error: count }),
+      failures: z.object({ collision: count, noChange: count, commit: count, invalid: count, error: count, unaffordable: count.optional() }),
       lastFailures: z.object({ invalid: z.string().max(300).optional(), error: z.string().max(300).optional() }).optional() }).optional(),
     // "38 of 38 acts failed: another object already has this value", and when most acts fail, why and how to fix it.
     diagnosis: z.object({ summary: z.string().max(500), hint: z.string().max(600).optional() }).optional() })).max(200),
@@ -207,6 +211,9 @@ export const resultSchema = z.object({
   // time of the look and, for one object, the object as it is then (your own bits, the others' sum as disclosed, payoff).
   look: z.object({ looked: z.number().int().nonnegative(), price: finite, energy: finite, worldSeconds: finite,
     object: z.object({ id, value: wire, version: z.number().int().nonnegative(), own: z.object({ netBits: finite }), peerNetBits: finite, peerCare: finite, payoff: finite }).optional() }).optional(),
+  // A destroy or an allocatePower that moved debt with the power (docs/energy-model.md §7.2): the bits that moved from
+  // the agent onto your own energy (negative: from your own energy onto the agent). Absent when nothing was owed.
+  owed: finite.optional(),
 });
 export type CommandResult = z.infer<typeof resultSchema>;
 /** Room-credential permissions, weakest first: read < act < owner. */

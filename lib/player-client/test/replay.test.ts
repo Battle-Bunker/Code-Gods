@@ -115,6 +115,10 @@ test("a re-allocation settles both accounts and then changes the rates; a destro
   const p8 = page([{ seq: 0, at: T0, worldFrom: 0, worldTo: 1, events: [{ type: "phase", phase: "running", worldSeconds: 0 }] }]);
   const priced = buildReplay([{ ...p8, game: { ...p8.game, logSchema: 8 } }]);
   assert.equal(replayObservation(priced, { room: { roomId: "r", roomShortCode: "R" }, cursor: 1, pov: 0 }).economy!.changeReadRatio, CHANGE_READ_RATIO);
+  // The cost model the recorded change costs were priced under: the game's settings; a game from before cost models is set-v1.
+  assert.equal(obs.economy!.costModel, "set-v1");
+  const byDistance = buildReplay([{ ...p8, game: { ...p8.game, logSchema: 10, settings: { ...p8.game.settings, costModel: "distance-v1" } } }]);
+  assert.equal(replayObservation(byDistance, { room: { roomId: "r", roomShortCode: "R" }, cursor: 1, pov: 0 }).economy!.costModel, "distance-v1");
   // The event window carries the god's own re-allocations.
   assert.equal(replayEvents(replay, { room: { roomId: "r", roomShortCode: "R" }, cursor: replay.log.length, pov: 0 }).events.filter(e => e.type === "agent.power").length, 2);
   assert.equal(replayEvents(replay, { room: { roomId: "r", roomShortCode: "R" }, cursor: replay.log.length, pov: 1 }).events.filter(e => e.type === "agent.power").length, 0, "another god's are not shown");
@@ -348,7 +352,7 @@ test("My agents at a playhead: the spend split into reading and changing, and ho
   // At the end: 5 read of 15 spent; one collision and one runtime error of three counted acts (skips are not counted).
   const end = at(9, events.length);
   assert.deepEqual([end.acts, end.spent, end.spentRead], [4, 15, 5]);
-  assert.deepEqual(end.outcomes, { transforms: 1, failures: { collision: 1, noChange: 0, commit: 0, invalid: 0, error: 1 }, lastFailures: { error: "TypeError: x is undefined" } });
+  assert.deepEqual(end.outcomes, { transforms: 1, failures: { collision: 1, noChange: 0, commit: 0, invalid: 0, error: 1, unaffordable: 0 }, lastFailures: { error: "TypeError: x is undefined" } });
   assert.match(end.diagnosis!.summary, /^2 of 3 acts failed: another object already has this value ×1, its code raised or ran out of time ×1$/);
   assert.match(end.diagnosis!.hint!, /only one object can hold a value/, "most acts failed: the fix for the first of the tied kinds");
   // A log from before the {read, change, total} cost (schema ≤ 4): the total only, never a made-up split.
@@ -399,4 +403,31 @@ test("a game with fullChargeSeconds replays its accounts within their capacity; 
   assert.equal(godEnergyAt(legacy, stateAt(legacy, 4), 0), 100 - 30 + 30 * 2 + 20 * 3);
   const old = replayObservation(legacy, { room: { roomId: "r", roomShortCode: "R" }, cursor: 3, pov: 0 });
   assert.deepEqual([old.economy!.fullChargeSeconds, old.self.capacity, old.agents[0].capacity, old.agents[0].energy], [undefined, undefined, undefined, 60]);
+});
+
+test("debt moves with power in a replay: the recorded amount leaves the agent and lands on its god (log schema 13)", () => {
+  // P = 4 bits/s, T = 20 s. a1 has half the power (2/s, holds 40) and commits a 50-bit change at 5 s: it owes 40.
+  const events: ReplayEvent[] = [
+    { type: "phase", phase: "running", worldSeconds: 0 },
+    summon("a1", "me", 30, 0.5),               // me: 80 − 30 = 50, held to 40
+    { type: "object.spawned", objectId: "o1", value: 1, version: 0, worldSeconds: 0, net: [1, 1] },
+    { type: "object.transformed", objectId: "o1", value: 2, before: 1, version: 1, worldSeconds: 5, agentId: "a1", ownerId: "me", calls: [], cost: charge(50), net: [1, 1], seed: "1" },
+    // At 10 s it has repaid 10 and owes 30; half its power is taken, so 15 of the debt moves to me (I hold 40).
+    { type: "agent.power", agentId: "a1", ownerId: "me", worldSeconds: 10, share: 0.25, owed: 15 },
+    // At 15 s it has repaid 5 more and owes 10; destroyed: I take the 10.
+    { type: "agent.destroyed", agentId: "a1", ownerId: "me", worldSeconds: 15, owed: 10 },
+  ];
+  const replay = buildReplay([page([{ seq: 0, at: T0, worldFrom: 0, worldTo: 20, events }])]);
+  replay.game.settings = { ...replay.game.settings, fullChargeSeconds: 20 };
+  const upto = (n: number) => stateAt(replay, n);
+  assert.deepEqual(upto(4).agents.get("a1")!.account, { balance: -40, settledWorldSeconds: 5 });
+  const lowered = upto(5);
+  assert.deepEqual(lowered.agents.get("a1")!.account, { balance: -15, settledWorldSeconds: 10 }, "−40 + 10 s × 2/s = −30, of which 15 moved");
+  assert.equal(godEnergyAt(replay, lowered, 0), 40 - 15, "my own energy paid the part that moved");
+  const destroyed = upto(6);
+  // 5 s at 3/s from 25 is 40, minus the 10 it still owed (−15 + 5 s × 1/s).
+  assert.equal(godEnergyAt(replay, destroyed, 0), 40 - 10);
+  // Without `owed` (a log from before schema 13) nothing moves: the old behaviour, replayed as it was charged.
+  const old = buildReplay([page([{ seq: 0, at: T0, worldFrom: 0, worldTo: 20, events: events.map(e => { const { owed: _, ...rest } = e as any; return rest; }) }])]);
+  assert.equal(godEnergyAt(old, stateAt(old, 6), 0), 100 - 30 + 10 * 2 + 5 * 3);
 });

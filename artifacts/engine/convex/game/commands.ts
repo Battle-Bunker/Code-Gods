@@ -9,7 +9,7 @@ import { ConvexError, v } from "convex/values";
 import { boardsLive, godLooks, lookPriceOf, paidLive } from "../lib/knowledge";
 import { viewRowOf } from "../lib/views";
 import { syncRows } from "./objectViews";
-import { allowedLanguages, assertShare, defaultShare, newAgentAccount, roundShare, spendDeityEnergy, upgradeStoredSettings, type GameSettings, type Language } from "@workspace/game-core";
+import { READ_PRICE, offerReadBits, allowedLanguages, assertShare, defaultShare, movePower, newAgentAccount, roundShare, spendDeityEnergy, upgradeStoredSettings, type AgentAccount, type GameSettings, type Language } from "@workspace/game-core";
 import { sha256 } from "@workspace/game-types";
 import { GAME_COMMANDS, envelopeSchema, type CommandResult, type Envelope } from "@workspace/player-client";
 import type { Doc, Id } from "../_generated/dataModel";
@@ -20,7 +20,7 @@ import { withEngine, writeGame } from "./state";
 import { fail, messageOf } from "../lib/errors";
 import { memberOf, principalV, requireMemberAs, requireRoom, viewerOf, type Principal } from "../lib/rooms";
 import { godEnergy, settledAccount, worldNow } from "../lib/world";
-import { chargeGod, deityAccount, deityCapacityOf } from "../lib/power";
+import { chargeGod, deityAccount, deityCapacityOf, fullChargeOf } from "../lib/power";
 import { agentLanguage, languageV } from "../lib/language";
 
 const CHAT_INTERVAL_MS = 1000;
@@ -122,9 +122,13 @@ export const apply = internalMutation({
     try {
       const result = await run(ctx, room, member, envelope, args.examined);
       const look = command.type === "look" ? result as NonNullable<CommandResult["look"]> : undefined;
+      // Debt that moved with the power on a destroy or a re-allocation (docs/energy-model.md §7.2).
+      const owed = command.type === "destroy" || command.type === "allocatePower" ? (result as { owed?: number }).owed : undefined;
       receipt = { commandId: envelope.commandId, accepted: true,
-        message: look ? `Looked at ${look.looked === 1 ? "1 object" : `${look.looked} objects`} for ${look.price.toFixed(2)} energy; ${look.energy.toFixed(2)} left` : "Accepted",
-        ...(look ? { look } : {}),
+        message: look ? `Looked at ${look.looked === 1 ? "1 object" : `${look.looked} objects`} for ${look.price.toFixed(2)} energy; ${look.energy.toFixed(2)} left`
+          : owed !== undefined && Math.abs(owed) >= 0.05 ? (owed > 0 ? `Accepted: ${owed.toFixed(1)} bits the agent owed are now owed by you` : `Accepted: ${(-owed).toFixed(1)} bits you owed are now owed by the agent`)
+          : "Accepted",
+        ...(look ? { look } : {}), ...(owed !== undefined ? { owed } : {}),
         ...(command.type === "validate" ? { validation: result as NonNullable<CommandResult["validation"]> } : {}),
         // A summon is never refused for what the examination found: it is told, with the agent summoned.
         ...(command.type === "summon" && (result as { warnings?: string[] }).warnings ? { warnings: (result as { warnings: string[] }).warnings } : {}) };
@@ -162,6 +166,17 @@ export const claimExamination = internalMutation({
     await ctx.db.insert("examinations", { roomId, godId, at: now });
   },
 });
+
+/**
+ * A change of an agent's share from `from` to `to` (0: destroyed), both accounts settled: debt moves with the power
+ * (game-core movePower; docs/energy-model.md §7.2). `owed`: the debt that moved onto the deity's own account (negative:
+ * from the deity onto the agent). A game without capacity (started before the setting) keeps its old behaviour.
+ */
+function shiftPower(settings: GameSettings, agent: AgentAccount, deity: AgentAccount, from: number, to: number, allocated: number) {
+  if (fullChargeOf(settings) === undefined) return { agent, deity, owed: 0 };
+  const moved = movePower(agent, deity, from, to, Math.max(0, 1 - allocated));
+  return { ...moved, owed: deity.balance - moved.deity.balance };
+}
 
 type Examined = { gameId: string; source: string; language: Language; error?: string; twins?: number; result?: { cost: number; parts: unknown; expectedActCost: number;
   breakdown: { read: number; change: number }; randomized: boolean; diagnostics: string[];
@@ -218,7 +233,12 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
   if (command.type === "validate" || command.type === "summon") {
     if (!examined || examined.gameId !== game._id || examined.source !== command.source || examined.language !== command.language) fail("UNAVAILABLE", "The agent could not be examined; retry");
     if (examined.error !== undefined || !examined.result) return fail("BAD_REQUEST", examined.error ?? "Examination failed");
-    const e = examined.result;
+    // The estimate per act includes the turn itself (docs/energy-model.md §7.1): being given an object is a read of which
+    // of the live objects it is, at the read price. The examination measures the act alone, so it is added here, from
+    // the number of objects the game holds now. Without it a skipper was told "0 bits per act" and then paid for every turn.
+    const turn = offerReadBits(game.objectCount) * READ_PRICE;
+    const e = { ...examined.result, expectedActCost: examined.result.expectedActCost + turn,
+      breakdown: { read: examined.result.breakdown.read + turn, change: examined.result.breakdown.change } };
     // Copies of the player's own live agents: the same code acts the same way on the same objects.
     const twins = examined.twins ?? 0;
     const warnings = [...(e.warnings ?? []), ...(twins ? [copiesWarning(twins, e.futility)] : [])];
@@ -238,7 +258,10 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
       const capacity = deityCapacityOf(deity, settings);
       fail("CONFLICT", e.cost > capacity
         ? `Insufficient energy: this agent costs ${e.cost.toFixed(0)} bits, but your own energy holds at most ${capacity.toFixed(0)} bits with ${(100 * Math.max(0, 1 - deity.allocated)).toFixed(0)}% of your power unallocated. Take power back from an agent first (allocatePower), or write a smaller agent`
-        : "Insufficient energy");
+        : own.balance < 0
+          // Debt moved here with an agent's power (§7.2): the god's own income repays it.
+          ? `Insufficient energy: you owe ${(-own.balance).toFixed(0)} bits (what an agent of yours owed when you took its power). Your own income repays it; keep some power unallocated until it has`
+          : "Insufficient energy");
     }
     const owned = await ctx.db.query("agents").withIndex("by_game_owner", q => q.eq("gameId", game._id).eq("ownerId", member.godId)).take(settings.maxAgentsPerGod + 1);
     if (owned.length >= settings.maxAgentsPerGod) fail("CONFLICT", `This god has reached the ${settings.maxAgentsPerGod}-agent resource limit`);
@@ -265,14 +288,18 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     const agent = id ? await ctx.db.get(id) : null;
     if (!agent || agent.gameId !== game._id || agent.ownerId !== member.godId) fail("NOT_FOUND", "You have no agent with that ID");
     const world = worldNow(game, now);
-    // Its power share returns to the deity (settled first: the deity's income changes from now).
-    await ctx.db.patch(deity._id, { account: deityAccount(game, deity, world), allocated: roundShare(Math.max(0, deity.allocated - agent.powerShare)) });
+    // Its power share returns to the deity (settled first: the deity's income changes from now), and so does what it
+    // owes: debt moves with power (docs/energy-model.md §7.2).
+    const moved = shiftPower(settings, settledAccount(settings, agent, world), deityAccount(game, deity, world), agent.powerShare, 0, deity.allocated);
+    await ctx.db.patch(deity._id, { account: moved.deity, allocated: roundShare(Math.max(0, deity.allocated - agent.powerShare)) });
     await ctx.db.delete(agent._id);
     const memo = await ctx.db.query("futileActs").withIndex("by_agent", q => q.eq("agentId", agent._id)).unique();
     if (memo) await ctx.db.delete(memo._id);
-    const nextBatch = await appendEvents(ctx, game, [{ t: "destroy", agentId: agent._id, ownerId: member.godId, world }], world, world);
-    await writeGame(ctx, game, { agentCount: Math.max(0, game.agentCount - 1), nextBatch });
-    return { destroyed: agent._id };
+    const nextBatch = await appendEvents(ctx, game, [{ t: "destroy", agentId: agent._id, ownerId: member.godId, world, ...(moved.owed !== 0 ? { owed: moved.owed } : {}) }], world, world);
+    // Bumping the epoch discards a window in flight, as a re-allocation does: an act of this agent simulated in it would
+    // commit its change while the debt it ran up, on an account that no longer exists, was lost (§7.2).
+    await writeGame(ctx, game, { agentCount: Math.max(0, game.agentCount - 1), nextBatch, executionEpoch: game.executionEpoch + 1 });
+    return { destroyed: agent._id, ...(moved.owed > 0 ? { owed: moved.owed } : {}) };
   }
   if (command.type === "allocatePower") {
     // Re-allocate (docs/energy-model.md §6): both accounts are settled at the old rates first, then the share changes.
@@ -284,13 +311,16 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     const world = worldNow(game, now);
     const others = deity.allocated - agent.powerShare;
     if (others + share > 1 + 1e-9) fail("BAD_REQUEST", `Your other agents hold ${(100 * others).toFixed(0)}% of your power: this one can have at most ${(100 * Math.max(0, 1 - others)).toFixed(0)}%`);
-    await ctx.db.patch(agent._id, { account: settledAccount(settings, agent, world), powerShare: share });
-    await ctx.db.patch(deity._id, { account: deityAccount(game, deity, world), allocated: roundShare(others + share) });
-    const nextBatch = await appendEvents(ctx, game, [{ t: "power", agentId: agent._id, ownerId: member.godId, world, share }], world, world);
+    // Debt moves with the power (§7.2): to the deity when power is taken from an agent that owes, to the agent when a
+    // deity that owes gives it power.
+    const moved = shiftPower(settings, settledAccount(settings, agent, world), deityAccount(game, deity, world), agent.powerShare, share, deity.allocated);
+    await ctx.db.patch(agent._id, { account: moved.agent, powerShare: share });
+    await ctx.db.patch(deity._id, { account: moved.deity, allocated: roundShare(others + share) });
+    const nextBatch = await appendEvents(ctx, game, [{ t: "power", agentId: agent._id, ownerId: member.godId, world, share, ...(moved.owed !== 0 ? { owed: moved.owed } : {}) }], world, world);
     // Bumping the epoch discards a window in flight (simulated at the old share), as a pause does: its commit would
     // overwrite the account settled here.
     await writeGame(ctx, game, { nextBatch, executionEpoch: game.executionEpoch + 1 });
-    return { agentId: agent._id, share, allocated: roundShare(others + share) };
+    return { agentId: agent._id, share, allocated: roundShare(others + share), ...(moved.owed !== 0 ? { owed: moved.owed } : {}) };
   }
   if (command.type === "look") {
     // Paid observation (lib/knowledge.ts, docs/energy-model.md §11): the god pays its own energy to be told one object
@@ -309,7 +339,7 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     // The shared charge (lib/power.ts chargeGod): settled within the account's capacity, never into debt.
     const left = own.balance < cost ? null : await chargeGod(ctx, game, deity, cost, now);
     if (left === null) {
-      fail("CONFLICT", `Not enough energy to look: ${object ? "a look at one object" : `a look at all ${count} objects`} costs ${cost.toFixed(2)} and you have ${Math.max(0, own.balance).toFixed(2)}`
+      fail("CONFLICT", `Not enough energy to look: ${object ? "a look at one object" : `a look at all ${count} objects`} costs ${cost.toFixed(2)} and you ${own.balance < 0 ? `owe ${(-own.balance).toFixed(2)} (what an agent of yours owed when you took its power; your own income repays it)` : `have ${own.balance.toFixed(2)}`}`
         + (deity.allocated >= 1 - 1e-9 ? ". All your power is with your agents, so your own energy holds nothing: keep some power for yourself to look" : ""));
     }
     const me: ReadonlySet<string> = new Set([member.godId]);

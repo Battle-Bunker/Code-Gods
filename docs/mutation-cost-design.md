@@ -1,9 +1,35 @@
 # Mutation cost as a cost function: design brainstorm (2026-11-11)
 
-Status: a design proposal, not shipped. Nothing in the engine's charging, the mutators, the preludes, the noise or any
-stored data changes with this document. The prototype that produced its numbers is
-`lib/game-utilities/scripts/mutation-cost.ts` (with `mutation-cost-lib.ts`, unit-tested in
-`lib/game-utilities/test/mutation-cost.test.ts`). It sits outside the shipped code path.
+Status (2026-11-13): the cost function of this document is shipped as a room setting, `costModel`
+(docs/energy-model.md §4.5; `lib/game-types/src/structure/`). What shipped, and where it departs from the text below:
+
+- **Shipped as values of `costModel`:** `set-v1` (the flat price, the default when the setting is absent), `distance-v1`
+  (the recommendation R: a slider, 4 + 1.585·|k| on the beginner board; the default setup "Annotated basics" uses it),
+  `dial-v1` (A1), `log-v1` (A2, on a slider) and `multiply-v1` (§4.3: add or multiply modulo the base, the cheaper, plus
+  1 bit to say which; erasing multiplies are allowed and pay log2 gcd(m, base)). The strictly proportional X1 is a
+  variant branch only.
+- **Reads and summons keep their prices.** §6, §7 and every mention of two-level selection, cooldowns, agent limits and
+  rate limits are NOT shipped and are not planned by this work.
+- **A mutator does the same thing under every model.** `count_on` (step_rank) still wraps and pays for the distance each
+  number moved (9 → 0 is nine steps on a slider, one on a dial); the new `add(where, amount)` never wraps and fails out
+  of range in every room. Only multiply-v1 changes what is offered (it adds `multiply` and `divide`).
+- **Cards are in:** rank is a slider (A–K), suit categorical. Multiply needs the digits 0–9. A model is offered on a
+  board only where a full look stays cheaper than the model's cheapest change (the rule that sets the read price,
+  energy-model.md §2.1): the biggest boards (6×6 and 7×7 with many colours or cards) keep the flat price.
+- **λ is the exact Kraft root of each generator's declared argument space** (1.58491 for ten digits), which gives
+  categorical layers log2(n − 1) by the same rule.
+- §8's numbers are confirmed with the real implementation (docs/rule-difficulty.md §6.4).
+- **What remains (stage 2, not started in shipped code).** Int and string still have only the flat price. To put them
+  on the structure module: (1) Int add as the positional signed-digit norm (a place is a site, its digit a dial; the
+  price of a change is its cheapest signed-digit form, a small DP generalising `signedDigits`); (2) Int multiply as the
+  magnitude code λ·log2|m| with λ = 2.185, which also replaces today's per-prime code, which is not a valid prefix code
+  (Σ 2^(−w) over ±m exceeds 1) and must stay as it is under `set-v1` because stored games were priced by it; (3) string
+  with categorical characters and the three families substitute, insert, delete; (4) their noise and cost tables from
+  the same declared arguments, `supportsCostModel`, the settings form and wording; (5) bit-for-bit regression tests for
+  `set-v1`. Draft #300 holds an untested sketch of (1)–(3).
+
+The prototype that produced the original numbers is `lib/game-utilities/scripts/mutation-cost.ts` (with
+`mutation-cost-lib.ts`, unit-tested in `lib/game-utilities/test/mutation-cost.test.ts`).
 
 The owner's request (11 Nov 2026): drop the spawn (summon) and read costs, so that energy is spent only on mutation.
 Make mutation cost a smooth function of the arguments: adding k costs in proportion to |k|; no "set value" for numbers;

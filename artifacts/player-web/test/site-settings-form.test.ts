@@ -6,10 +6,10 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_SETTINGS, applySettingsChange, seedSetupSettings } from "@workspace/game-core";
-import { objectType } from "@workspace/game-types";
+import { DEFAULT_SETTINGS, applySettingsChange, seedSetupSettings, supportedCostModels } from "@workspace/game-core";
+import { COST_MODELS, objectType } from "@workspace/game-types";
 import {
-  SECTIONS, argChoices, choiceLabel, formatValue, toggleLanguage, dealerNote, formatSeconds, defenceBlocker, draftErrors, fieldError, fieldsOf, firstUseNote, isHidden, lengthLine, paceWord,
+  SECTIONS, LABELS, argChoices, choiceLabel, costModelChoices, formatValue, toggleLanguage, dealerNote, formatSeconds, defenceBlocker, draftErrors, fieldError, fieldsOf, firstUseNote, isHidden, lengthLine, paceWord,
   settingsDomain, shelfEntries, stepChoices,
 } from "../src/site/lib/settings-form.ts";
 import { editBlocker, freeName, ownerLabel } from "../src/site/lib/setup-words.ts";
@@ -183,6 +183,31 @@ test("penalty weight and the defence checklist hide while defence goals are off;
   assert.equal(paceWord(25), "slow");
   assert.equal(paceWord(100), "normal");
   assert.equal(paceWord(300), "fast");
+});
+
+test("the cost model: a choice under Energy › More, offered where the world has more than one, read as set-v1 when absent", () => {
+  assert.deepEqual(fieldsOf("energy"), ["startingEnergy", "powerPerSecond", "fullChargeSeconds", "costModel", "observation"], "asked, then more");
+  assert.equal(LABELS.costModel, "Change pricing");
+  const classic = seedSetupSettings("grid-classic"), basics = seedSetupSettings("grid-annotated-basics");
+  assert.deepEqual(costModelChoices(classic), supportedCostModels(classic), "the models the world offers (game-core), the default first");
+  assert.deepEqual(costModelChoices(classic).slice(0, 2), ["set-v1", "distance-v1"]);
+  assert.deepEqual(costModelChoices(classic).slice(0, 2).map(v => choiceLabel("costModel", v)), ["Flat: every change alike", "Distance: further costs more"]);
+  for (const v of COST_MODELS) assert.match(choiceLabel("costModel", v), /^[A-Z][a-z]+: /, `${v} has a label in plain words`);
+  assert.equal(choiceLabel("costModel", "future-v2"), "Future", "a model without words yet shows its name, not its id");
+  assert.equal(isHidden("costModel", classic), false);
+  for (const s of [DEFAULT_SETTINGS, { ...DEFAULT_SETTINGS, objectType: "string", typeArgs: { maxLength: 128 } }]) {
+    assert.deepEqual(costModelChoices(s), ["set-v1"]);
+    assert.equal(isHidden("costModel", s), true, `${s.objectType} has one model: nothing to choose`);
+  }
+  assert.equal(formatValue("costModel", classic.costModel), "Flat: every change alike", "absent is the default");
+  assert.equal(formatValue("costModel", basics.costModel), "Distance: further costs more", "the default setup prices by distance");
+  // A pick goes through the settings model: the default is the field's absence, so picking it back leaves no unsaved change.
+  const domain = settingsDomain([{ id: "Grid", playable: [{ args: classic.typeArgs }] }, { id: "Int", defaults: DEFAULT_SETTINGS.typeArgs, playable: [{ args: DEFAULT_SETTINGS.typeArgs }] }]);
+  const picked = applySettingsChange(classic, { costModel: "distance-v1" }, domain);
+  assert.deepEqual(draftErrors(picked, domain), {});
+  assert.deepEqual(applySettingsChange(picked, { costModel: "set-v1" }, domain), classic);
+  assert.ok(!("costModel" in applySettingsChange(picked, { objectType: "Int" }, domain)), "a world without the model drops it");
+  assert.match(draftErrors({ ...DEFAULT_SETTINGS, costModel: "distance-v1" }, domain)._form ?? "", /costModel distance-v1 is not offered/);
 });
 
 test("the picker's Lab heading goes before the first Lab setup, and before each one that follows an ordinary setup in a search", async () => {

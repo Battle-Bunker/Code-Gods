@@ -30,7 +30,7 @@
  */
 import {
   DEFAULT_SETTINGS, SEED_SETUPS, validateSettings, type GameSettings, type AgentAccount,
-  newAgentAccount, settleAgentEnergy, chargeAct, pickByEnergy, offerReadBits, defaultShare, energyCapacity,
+  newAgentAccount, settleAgentEnergy, chargeAct, pickByEnergy, offerReadBits, affordable, actCredit, defaultShare, energyCapacity,
   settleDeityEnergy, chargeDeityAccount,
   netBits, softHinge, rankTotals, gameEndSeconds, poissonIntervalSeconds, CHANGE_READ_RATIO, CHANGE_BETA,
 } from "../src/index.ts";
@@ -44,7 +44,7 @@ if (!(KAPPA >= 1)) throw new Error(`--kappa must be a number ≥ 1, not ${arg("k
 /** The economy rules the CLI applies to the default table. */
 const CLI_RULES: Partial<Config> = {
   ...(flag("T") && arg("T", "none") !== "none" ? { fullChargeSeconds: Number(arg("T", "")) } : {}),
-  ...(flag("no-cap") ? { rateCap: false } : {}), ...(flag("offer") ? { offerPrice: true } : {}), ...(flag("debt-bound") ? { debtBound: true } : {}),
+  ...(flag("no-cap") ? { rateCap: false } : {}), ...(flag("offer") ? { offerPrice: true } : {}), ...(flag("debt-bound") ? { debtBound: true } : {}), ...(flag("no-debt") ? { noDebt: true } : {}),
 };
 
 /** mulberry32: a seeded uniform in [0, 1). */
@@ -68,6 +68,8 @@ export interface Config {
   offerPrice?: boolean;
   /** R4: an act that would leave the balance below −capacity does not commit (default false). */
   debtBound?: boolean;
+  /** No credit: a change commits only if the balance pays for it; otherwise the agent pays its reads and the offer. */
+  noDebt?: boolean;
   /** Pre-created agents: each god's agents' power shares (Σ ≤ 1). No summon is priced when set. */
   shares?: number[][];
 }
@@ -174,11 +176,12 @@ export function play(c: Config, seed: number): Result {
         const pay = (cost: number) => { a.acct = chargeAct(a.acct, cost); g.spent += cost; };
         if (c.offerPrice) { const offer = offerReadBits(objs.length) / KAPPA; pay(offer); g.offerSpent += offer; offerSpent += offer; readSpent += offer; }
         // R4: the change commits only if it leaves the balance at or above −capacity (reads are paid first).
-        const affordable = (reads: number) => !c.debtBound || a.acct.balance - reads - changeBits >= -capacityOf(a);
+        // noDebt: the change commits only if the balance pays for it (no credit at all).
+        const canPay = (reads: number) => c.noDebt ? affordable(a.acct.balance, reads + changeBits, 0) : !c.debtBound || affordable(a.acct.balance, reads + changeBits, actCredit(capacityOf(a)));
         const oi = Math.floor(u() * objs.length), o = objs[oi], pol = c.policies[a.god];
         if (pol === "hoard") { skips++; g.skips++; continue; }
         if (pol === "random" || pol === "always") {
-          if (!affordable(0)) { g.blocked++; continue; }
+          if (!canPay(0)) { g.blocked++; continue; }
           objs[oi] = edit(o, u, frac); pay(changeBits); changeSpent += changeBits; acts++; g.acts++; continue;
         }
         const noise = () => s.peerNoiseBits * Math.sqrt(-2 * Math.log(uo())) * Math.cos(2 * Math.PI * u());
@@ -186,7 +189,7 @@ export function play(c: Config, seed: number): Result {
         const base = value(o); let best: Obj | null = null, bestV = base;
         for (let k = 0; k < 4; k++) { const cand = edit(o, u, frac), v = value(cand); if (v > bestV) { bestV = v; best = cand; } }
         readSpent += lookCharge;
-        if (best && affordable(lookCharge)) { objs[oi] = best; pay(lookCharge + changeBits); changeSpent += changeBits; acts++; g.acts++; }
+        if (best && canPay(lookCharge)) { objs[oi] = best; pay(lookCharge + changeBits); changeSpent += changeBits; acts++; g.acts++; }
         else { pay(lookCharge); skips++; g.skips++; if (best) g.blocked++; }
       }
       if (t > end / 2) for (const a of agents) gods[a.god].lateEnergy += a.acct.balance * dt;

@@ -78,3 +78,21 @@ and is averaged out above.
 
 Anchors on the same yardstick: honest_minesweeper (greedy stalls on every board, never reaches 90% of top; K 5.3, DIFF
 33, SYN 60) against Mirrormancer (never stalls, K 1.0, DIFF 0, SYN 36.5).
+
+## 4. Energy under the five cost models (2026-11-11)
+
+Annotated basics now prices changes with `distance-v1`. docs/rule-difficulty.md §6.4 measures the eight under all five
+cost models (`difficulty --no-pairs --starts 64 --cost-model <model>`, one canonical variant per rule). With the
+cost-aware greedy, share of top held after 64 energy bits (mean; max/min; CV) and `rateE` max/min:
+
+| model | share of top at 64 | `rateE` max/min | bits per energy against set-v1 |
+|---|--:|--:|--:|
+| `set-v1` | 0.45; 2.64; 0.31 | 2.01 | ×1 |
+| `distance-v1` | 0.69; 1.73; 0.18 | 1.47 | ×1.64 |
+| `dial-v1` | 0.80; 1.53; 0.15 | 1.26 | ×1.93 |
+| `log-v1` | 0.74; 1.57; 0.17 | 1.31 | ×1.76 |
+| `multiply-v1` | 0.72; 1.60; 0.18 | 1.26 | ×1.72 |
+
+Every distance price makes the pool more even and faster than `set-v1`. Magic Eighteen is the one rule the slider does
+not speed up (0.76 to 0.74 of top at 64): its row totals are often fixed by one far change. The dial and multiply make
+it cheap (0.97, 0.93) through the price list, not the rule.

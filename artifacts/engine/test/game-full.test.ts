@@ -131,10 +131,12 @@ for (const spec of SPECS) for (const language of languages) {
     // Destroy: owner only, free.
     assert.equal((await send(bo, { type: "destroy", agentId: acted.id })).accepted, false);
     const energyBefore = obs.self.energy;
-    assert.equal((await send(ada, { type: "destroy", agentId: acted.id })).accepted, true);
+    const destroyed = await send(ada, { type: "destroy", agentId: acted.id });
+    assert.equal(destroyed.accepted, true);
     obs = observationSchema.parse(await ada.c.query(api.player.observation, { roomId }));
     assert.equal(obs.agents.length, 0);
-    assert.ok(obs.self.energy >= energyBefore, "destroying costs nothing");
+    // Free, except that what the agent owed after its last act is now its god's (docs/energy-model.md §7.2).
+    assert.ok(obs.self.energy >= energyBefore - (destroyed.owed ?? 0) - 1e-6, `destroying costs nothing but the agent's own debt: ${energyBefore} − ${destroyed.owed ?? 0} → ${obs.self.energy}`);
     assert.equal((await raw(game.gameId)).agents.length, 1, "Bo's agent lives on");
     // The live agent count is published with the scoreboard (games.standings), so check it at the next publication.
     await waitFor(async () => (await host.c.query(api.games.standings, { gameId: game.gameId })).agentCount === 1, "the public standings count live agents", 30_000, 250);

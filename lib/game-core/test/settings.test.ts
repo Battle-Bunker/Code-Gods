@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { COST_MODELS } from "@workspace/game-types";
 import {
   DEFAULT_SETTINGS, SETTINGS_OPTIONS, MAX_AGENTS_PER_GOD, settingsOptionsFor, validateSettings, LANGUAGES, LANGUAGE_SPECS,
   grammarFor, complexityFor, allowedLanguages, upgradeLegacyLanguage,
   upgradeStoredSettings, FIRST_STEPS_SEED_ID, ANNOTATED_BASICS_SEED_ID, DEFAULT_SETUP_SEED_ID,
+  costModelOf, supportedCostModels, OPTIONAL_SETTINGS_FIELDS,
   instantiationOf, codecOf, assertObjectValue, defaultSettingsFor, SEED_SETUPS, SETUP_NAME_MAX, seedSetupSettings, ALL_SEED_SETUPS, LAB_SETUPS, ENERGY_LIMITS, type GameSettings,
 } from "../src/settings.ts";
 import { gameEndSeconds } from "../src/random.ts";
@@ -268,6 +270,69 @@ test("the default setup (Annotated basics) is the numbers-only 4×4 board; First
   assert.deepEqual(s.typeArgs, { size: 4, symbols: "base10", colours: "mono" });
   assert.doesNotThrow(() => validateSettings(s));
   assert.deepEqual(seedSetupSettings(FIRST_STEPS_SEED_ID).typeArgs, { size: 4, symbols: "base10", colours: "rgb" });
+});
+
+test("the cost model is optional: absent reads as set-v1, and distance-v1 is offered only where the object type supports it", () => {
+  assert.ok(!("costModel" in DEFAULT_SETTINGS), "stored settings need no migration: the default is never spelled out");
+  assert.deepEqual([...OPTIONAL_SETTINGS_FIELDS], ["costModel"]);
+  assert.equal(costModelOf(DEFAULT_SETTINGS), "set-v1");
+  assert.equal(costModelOf({ costModel: "distance-v1" }), "distance-v1");
+  for (const odd of [null, undefined, {}, { costModel: "free" }, { costModel: 1 }]) assert.equal(costModelOf(odd as never), "set-v1");
+  const grid = defaultSettingsFor("Grid", ["python"], { size: 4, symbols: "base10", colours: "mono" });
+  assert.deepEqual(COST_MODELS.slice(0, 2), ["set-v1", "distance-v1"]);
+  // Which further models a Grid offers is the type's own business (game-types supportsCostModel): the default comes first.
+  const cards = defaultSettingsFor("Grid", ["python"], { size: 5, symbols: "cards", colours: "rgb" });
+  for (const g of [grid, cards]) {
+    const offered = supportedCostModels(g);
+    assert.deepEqual(offered.slice(0, 2), ["set-v1", "distance-v1"]);
+    assert.ok(offered.every(m => COST_MODELS.includes(m)));
+    for (const model of COST_MODELS) {
+      if (offered.includes(model)) assert.doesNotThrow(() => validateSettings({ ...g, costModel: model }), model);
+      else assert.throws(() => validateSettings({ ...g, costModel: model }), /is not offered for Grid\(/, model);
+    }
+  }
+  for (const type of ["Int", "string"]) assert.deepEqual(supportedCostModels(defaultSettingsFor(type)), ["set-v1"], type);
+  for (const ok of [grid, { ...grid, costModel: "set-v1" }, { ...grid, costModel: "distance-v1" }, { ...DEFAULT_SETTINGS, costModel: "set-v1" }] as GameSettings[]) {
+    assert.doesNotThrow(() => validateSettings(ok), JSON.stringify(ok.costModel));
+  }
+  assert.throws(() => validateSettings({ ...grid, costModel: "free" as never }), /costModel must be one of set-v1, distance-v1/);
+  assert.throws(() => validateSettings({ ...grid, costModel: null as never }), /costModel must be one of/);
+  assert.throws(() => validateSettings({ ...DEFAULT_SETTINGS, costModel: "distance-v1" }), /costModel distance-v1 is not offered for Int\(/);
+  assert.throws(() => validateSettings({ ...defaultSettingsFor("string"), costModel: "distance-v1" }), /not offered for string\(/);
+});
+
+test("only the default setup (Annotated basics) prices changes by distance; every other ordinary seed keeps the default model unspelled", () => {
+  for (const s of SEED_SETUPS) {
+    validateSettings(s.settings);
+    if (s.seedId === DEFAULT_SETUP_SEED_ID) assert.equal(s.settings.costModel, "distance-v1");
+    else assert.ok(!("costModel" in s.settings), `${s.seedId} is untouched`);
+  }
+  assert.equal(seedSetupSettings(DEFAULT_SETUP_SEED_ID).costModel, "distance-v1");
+});
+
+test("the Lab setups are Annotated basics under each other cost model, after the ordinary seeds", () => {
+  const lab = LAB_SETUPS.filter(s => s.seedId.startsWith("lab-cost-"));
+  assert.ok(lab.every(s => s.lab === true) && !SEED_SETUPS.some(s => s.seedId.startsWith("lab-")), "Lab setups are never among the ordinary seeds");
+  assert.deepEqual(lab.map(s => [s.seedId, s.name, s.summary, s.settings.costModel]), [
+    ["lab-cost-set", "Lab · flat price", "Annotated basics with the flat price: every changed number costs the same", undefined],
+    ["lab-cost-dial", "Lab · dial numbers", "Numbers are a dial: 9 and 0 are one step apart, and a step either way costs the same", "dial-v1"],
+    ["lab-cost-log", "Lab · gentle distance", "A far move costs only a little more than a middling one", "log-v1"],
+    ["lab-cost-multiply", "Lab · multiply and divide", "Adds, plus multiply and divide by the last digit; a number's move costs the cheaper of the two", "multiply-v1"],
+  ]);
+  // Everything but the cost model is Annotated basics (the board, the rule pool, the pacing): the pool cannot drift.
+  const { costModel: _basics, ...basics } = seedSetupSettings(ANNOTATED_BASICS_SEED_ID);
+  for (const s of lab) {
+    const { costModel, ...rest } = seedSetupSettings(s.seedId);
+    assert.deepEqual(rest, basics, s.seedId);
+    assert.equal("costModel" in s.settings, s.seedId !== "lab-cost-set", `${s.seedId}: set-v1 stays unspelled`);
+    assert.equal(costModelOf(s.settings), costModel ?? "set-v1");
+    assert.ok(supportedCostModels(s.settings).includes(costModelOf(s.settings)));
+    assert.ok(s.name.length <= SETUP_NAME_MAX && s.summary.length <= 160, s.seedId);
+    validateSettings(s.settings);
+  }
+  // Each model of COST_MODELS is tried by exactly one system setup on this board.
+  const tried = [ANNOTATED_BASICS_SEED_ID, ...lab.map(s => s.seedId)].map(id => costModelOf(seedSetupSettings(id))).sort();
+  assert.deepEqual(tried, ["dial-v1", "distance-v1", "log-v1", "multiply-v1", "set-v1"]);
 });
 
 test("fullChargeSeconds: a default, validated bounds, and stored room/setup settings without it get the default", () => {

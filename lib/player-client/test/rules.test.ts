@@ -30,3 +30,14 @@ test("settings explained: lists and missing values read as words, never as [obje
   assert.ok(lines.includes("- languages = ?:"));
   assert.equal(lines.includes("[object Object]"), false);
 });
+
+test("the rules say what a change costs under the room's cost model, with the room's own prices", () => {
+  const grid = { ...DEFAULT_SETTINGS, objectType: "Grid", typeArgs: { size: 4, symbols: "base10", colours: "mono" } } as unknown as Record<string, unknown>;
+  const set = rulesText(grid), distance = rulesText({ ...grid, costModel: "distance-v1" });
+  for (const text of [set, distance]) assert.match(text, /A change costs W \+ 0\.05·W², where W adds up what the act's calls really changed, cell by cell/);
+  assert.match(set, /cost model set-v1\)[^\n]*\n[^\n]*change a cell's symbol: 16\.3 bits/);
+  assert.match(distance, /This room prices by distance \(cost model distance-v1\)/);
+  assert.match(distance, /move a cell's number by 1, 2, 3, 4, 5, 6, 7, 8, 9: 7\.1, 9\.7, 12\.6, 15\.7, 19\.0, 22\.6, 26\.5, 30\.6, 34\.9 bits/);
+  assert.match(distance, /write\(cell, 7\) on a 5 costs what add\(cell, 2\) costs/);
+  assert.doesNotMatch(set, /prices by distance/);
+});

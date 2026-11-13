@@ -7,7 +7,7 @@
  * TypeScript compilation). Batches of one language go in one call, and the languages' calls run in parallel.
  * An action that runs a pool calls `bindRuntime(ctx)` first, so the Python bundle can load from file storage.
  */
-import { LANGUAGE_SPECS, codecOf, isLanguage, defaultSettingsFor, instantiationOf, validateSettings, type GameSettings, type ObjectValue } from "@workspace/game-core";
+import { LANGUAGE_SPECS, codecOf, costModelOf, isLanguage, defaultSettingsFor, instantiationOf, validateSettings, type GameSettings, type ObjectValue } from "@workspace/game-core";
 import { objectType, withCommitClause } from "@workspace/game-types";
 import { compilationKey, type ActResult, type ActSettings, type Compiled, type Inspection, type Language, type PricingVocab } from "@workspace/game-runtime";
 import { internal } from "../_generated/api";
@@ -34,10 +34,10 @@ const actSettingsCache = new Map<string, ActSettings>();
 /** The runtime's view of a room: the instantiation's prelude and wire bound, never the full settings. */
 export function actSettings(settings: GameSettings): ActSettings {
   const inst = instantiationOf(settings);
-  const key = `${inst.key}\0${settings.interactionComputeMs}\0${settings.stepBudget}\0${settings.commitClause}`;
+  const key = `${inst.key}\0${settings.interactionComputeMs}\0${settings.stepBudget}\0${settings.commitClause}\0${costModelOf(settings)}`;
   let cached = actSettingsCache.get(key);
   if (!cached) {
-    const base = objectType(inst.objectType).prelude(inst), parts = settings.commitClause ? withCommitClause(base) : base;
+    const base = objectType(inst.objectType).prelude(inst, costModelOf(settings)), parts = settings.commitClause ? withCommitClause(base) : base;
     cached = Object.freeze({
       objectType: inst.objectType, wireMaxLength: codecOf(settings).maxLength,
       interactionComputeMs: settings.interactionComputeMs, stepBudget: settings.stepBudget,

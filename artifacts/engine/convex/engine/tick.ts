@@ -20,7 +20,7 @@
  * (its energy after that act) ÷ (the energy it was drawn at), else the draw is repeated: the sequential draw exactly.
  */
 import { v } from "convex/values";
-import { chargeAct, instantiationOf, isLanguage, offerReadBits, pickByEnergy, poissonIntervalSeconds, type GameSettings, type ObjectValue } from "@workspace/game-core";
+import { actCredit, affordable, chargeAct, costModelOf, instantiationOf, isLanguage, offerReadBits, pickByEnergy, poissonIntervalSeconds, type GameSettings, type ObjectValue } from "@workspace/game-core";
 import { actCharge, applyCalls, deriveSeed, failedReadBits, isSkip, objectType, readBound, type ActOutcome, type MutatorCallWire } from "@workspace/game-types";
 import type { UtilityDescriptor } from "@workspace/game-utilities";
 import type { Id } from "../_generated/dataModel";
@@ -33,7 +33,8 @@ import { gameScoringTables } from "./pinned";
 import { disclosureNoise, openUniform, scoresOf, seasonSalt, uniform01, uniqueSpawn } from "./node";
 import { act, bindRuntime, ensureSandboxes, isAgentFault, runtimeVersion, WORKERS } from "./runtime";
 import { effectiveSandbox, planningEnd } from "../lib/sandboxes";
-import { FutileMemo, failureKind, futileAfter, pickPair, type ActKind } from "../lib/futility";
+import { FutileMemo, NO_FAILURES, failureKind, futileAfter, pickPair, unaffordableReason, type ActKind } from "../lib/futility";
+import { agentCapacityOf } from "../lib/power";
 import { MAX_OBJECTS, MAX_SIMULATE_MS, MIN_TICK_MS, TICK_SECONDS, leaseRenewalDue, waveBudgetMs, planSpawns, agentStatus, pickObject, salienceOf, secondsUntilEligible, settledAccount, commitRaises, disclosedTotalsOf, scoreIntervalOf, scoreboardDue, totalsOf } from "../lib/world";
 import { godTotalsOf } from "../lib/views";
 import { paidLive, readWhole } from "../lib/knowledge";
@@ -57,11 +58,11 @@ const LATE = Symbol("late");
 
 const net = (scores: readonly Score[], roster: readonly string[]) => roster.map(id => scores.find(s => s.god === id)?.netBits ?? 0);
 
-/** The outcome of one act on `before`: applyCalls, or a failure when the runtime refused it (the agent's fault). */
+/** The outcome of one act on `before`: applyCalls priced under the game's cost model, or a failure when the runtime refused it (the agent's fault). */
 function actOutcome(settings: GameSettings, before: ObjectValue, result: ActResult): ActOutcome {
   if ("error" in result) return { ok: false, reason: result.error, cost: { work: 0, total: 0 } };
   const inst = instantiationOf(settings);
-  return applyCalls(objectType(inst.objectType), inst, before, result.calls);
+  return applyCalls(objectType(inst.objectType), inst, before, result.calls, costModelOf(settings));
 }
 
 export const run = internalAction({
@@ -157,7 +158,7 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
     const futile = new FutileMemo(snap.futile);
     // An agent whose sandbox is not ready sits the window out: never picked, never charged, its energy still accrues.
     // A past game's agent in a retired language (game-core RETIRED_LANGUAGES) sits out too: it can no longer act.
-    const agents = snap.agents.filter(a => isLanguage(a.language) && !unready.has(a.language)).map(a => ({ ...a, failures: { ...a.failures }, lastFailures: { ...a.lastFailures }, fromActs: a.acts, touched: false }));
+    const agents = snap.agents.filter(a => isLanguage(a.language) && !unready.has(a.language)).map(a => ({ ...a, failures: { ...NO_FAILURES, ...a.failures }, lastFailures: { ...a.lastFailures }, fromActs: a.acts, touched: false }));
     const salt = seasonSalt();
     const readCap = readBound(instantiationOf(settings));
     // Paid observation (lib/knowledge.ts): which gods this window tells which objects (their agents changed the object,
@@ -203,8 +204,16 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
         }
       }
       const duplicate = outcome.ok && occupied.has(outcome.value); // includes the object's own value
-      const cost = actCharge(outcome, readBits, { commits: !duplicate });
-      agent.account = chargeAct(settledAccount(settings, agent, p.world), cost.total);
+      let cost = actCharge(outcome, readBits, { commits: !duplicate });
+      const settled = settledAccount(settings, agent, p.world);
+      // Credit (§7.2): a change that would leave the agent owing more than it can hold does not commit; it pays its reads,
+      // like any change that does not commit. (A game from before capacities has no bound: its credit is unbounded.)
+      const credit = actCredit(agentCapacityOf(agent, settings));
+      if (outcome.ok && !duplicate && !affordable(settled.balance, cost.total, credit)) {
+        outcome = { ok: false, reason: unaffordableReason(cost.total, settled.balance, credit), cost: outcome.cost };
+        cost = actCharge(outcome, readBits);
+      }
+      agent.account = chargeAct(settled, cost.total);
       agent.acts++; agent.spent += cost.total; agent.spentRead += cost.read; agent.touched = true; acts++;
       const kind: ActKind = "error" in result ? "error" : !outcome.ok ? failureKind(outcome.reason) : duplicate ? "collision" : "transform";
       if (kind === "transform") agent.transforms++;
