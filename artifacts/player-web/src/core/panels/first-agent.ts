@@ -293,14 +293,14 @@ export function replaceStep(state: "summoning" | "destroying", receipt: { accept
 const percentOf = (share: number) => `${Math.round(share * 100)}%`;
 /** "Replaced: NAME now runs your new version." and, when its share is not the old one's, what it has. */
 /**
- * The sentence a confirmation adds when the player's own store spilled energy while both versions held power
- * (replaceLoss): stated beside the price, as a spill that refills and not as a charge ("I lost 782?! For changing one
+ * The sentence a confirmation adds when energy left the player's own store while both versions held power
+ * (replaceLoss): it went to the new version with the power (game-core movePower), stated beside the price and not as a charge ("I lost 782?! For changing one
  * word?"). `refill`: the seconds the player's own income needs to earn it back, when known.
  */
 const whole = (x: number) => Math.round(x).toLocaleString("en-US");
 const lossSentence = (lost: number | undefined, refill?: number): string =>
   lost !== undefined && Math.round(lost) >= 1
-    ? ` While the two versions overlapped, your own store was smaller and ${whole(lost)} ⚡ of stored energy spilled; it refills${refill !== undefined && Number.isFinite(refill) && refill > 0 ? ` in about ${Math.max(1, Math.round(refill))} s` : ""}.` : "";
+    ? ` While the two versions overlapped, your own store was smaller, so ${whole(lost)} ⚡ of your stored energy went to the new version: it is not lost${refill !== undefined && Number.isFinite(refill) && refill > 0 ? `, and your own store refills in about ${Math.max(1, Math.round(refill))} s` : ""}.` : "";
 const forPrice = (cost: number | undefined): string => (cost !== undefined && Number.isFinite(cost) && cost > 0 ? ` for ${whole(cost)} ⚡` : "");
 /** "Put back: NAME runs the previous version again for 169 ⚡." (the put-back's own words: it is not "your new version"). */
 export const putBackText = (name: string, s: { cost?: number; lost?: number; refill?: number }): string => `Put back: ${name} runs the previous version again${forPrice(s.cost)}.${lossSentence(s.lost, s.refill)}`;
@@ -337,7 +337,7 @@ export function checkedLine(cost: number, then: "replace" | "summon"): string {
  * What the player's own energy store loses in a replace. The new version is summoned before the old one is destroyed
  * (so there is never no agent), and for that moment both hold a share of the power: the player's own store then holds
  * only (1 − allocated − share) × power × fullChargeSeconds, and the engine drops what it holds above that when it next
- * settles (game-core energy.ts movePower: "what an account holds above its new capacity is lost"). 0 with no capacity.
+ * settles (before energy moved with power; now game-core movePower gives it to the new version, so nothing is lost: this figure is what moves). 0 with no capacity.
  */
 export function replaceLoss(s: { energy: number; cost: number; allocated: number | undefined; share: number | undefined; powerPerSecond: number | undefined; fullChargeSeconds: number | undefined }): number {
   if (s.fullChargeSeconds === undefined || s.powerPerSecond === undefined || s.share === undefined) return 0;

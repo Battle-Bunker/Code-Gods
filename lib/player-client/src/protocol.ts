@@ -235,6 +235,9 @@ export const resultSchema = z.object({
   // A destroy or an allocatePower that moved debt with the power (docs/energy-model.md §7.2): the bits that moved from
   // the agent onto your own energy (negative: from your own energy onto the agent). Absent when nothing was owed.
   owed: finite.optional(),
+  // A summon, a destroy or an allocatePower that moved energy with the power (§6.1): the bits that moved from the agent
+  // onto your own energy (negative: from your own energy onto the agent). Absent when nothing moved.
+  held: finite.optional(),
 });
 export type CommandResult = z.infer<typeof resultSchema>;
 /** Room-credential permissions, weakest first: read < act < owner. */

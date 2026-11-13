@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  agentIncome, deityIncome, defaultShare, assertShare, spendDeityEnergy, newAgentAccount, settleAgentEnergy, chargeAct, pickByEnergy, selectionWeight, offerReadBits, affordable, actCredit, movePower,
+  agentIncome, deityIncome, defaultShare, assertShare, spendDeityEnergy, newAgentAccount, settleAgentEnergy, chargeAct, pickByEnergy, selectionWeight, offerReadBits, affordable, actCredit, movePower as movePowerFull,
   energyCapacity, secondsToFull, settleDeityEnergy, chargeDeityAccount,
 } from "../src/energy.ts";
 
@@ -276,11 +276,12 @@ test("credit: an act may leave an account owing at most what it can hold", () =>
 
 test("debt moves with power: taken from an agent that owes, its debt goes to the deity; given by a deity that owes, the agent takes its part", () => {
   const at = (balance: number) => ({ balance, settledWorldSeconds: 40 });
+  const movePower = (...args: Parameters<typeof movePowerFull>) => { const { agent, deity } = movePowerFull(...args); return { agent, deity }; };
   // Destroyed (share 0.5 → 0) while owing 412: the deity, which held 100, now owes 312.
   assert.deepEqual(movePower(at(-412), at(100), 0.5, 0, 0.5), { agent: at(0), deity: at(-312) });
   // Half its power taken (0.5 → 0.25): half its debt moves.
   assert.deepEqual(movePower(at(-412), at(0), 0.5, 0.25, 0.5), { agent: at(-206), deity: at(-206) });
-  // An agent that owes nothing: nothing moves (its energy above the new capacity is lost at the next settle, not moved).
+  // An agent that owes nothing, in a game with no capacity: nothing moves.
   assert.deepEqual(movePower(at(300), at(100), 0.5, 0.25, 0.5), { agent: at(300), deity: at(100) });
   // A deity that owes 312 gives half of its unallocated power (0.25 of 0.5) to an agent: half the debt goes with it.
   assert.deepEqual(movePower(at(50), at(-312), 0, 0.25, 0.5), { agent: at(-106), deity: at(-156) });
@@ -291,6 +292,82 @@ test("debt moves with power: taken from an agent that owes, its debt goes to the
   assert.deepEqual(movePower(at(-10), at(-5), 0.3, 0.3, 0.2), { agent: at(-10), deity: at(-5) }, "no change of share, no move");
   // An agent that already has no power and still owes (stored before this rule): destroying it moves all of it.
   assert.deepEqual(movePower(at(-70), at(100), 0, 0, 0.4), { agent: at(0), deity: at(30) });
+});
+
+test("energy moves with power: what an account holds above its new capacity goes to the account that gains the power", () => {
+  const at = (balance: number) => ({ balance, settledWorldSeconds: 40 });
+  const W = 64 * 30;   // P = 64 bits/s, T = 30 s: all of a deity's power holds 1920
+  // Half an agent's power taken (0.5 → 0.25, capacity 960 → 480) while it holds 700: 220 goes to the deity.
+  assert.deepEqual(movePowerFull(at(700), at(100), 0.5, 0.25, 0.5, W), { agent: at(480), deity: at(320), owed: 0, held: 220 });
+  // It holds less than its new capacity: nothing moves.
+  assert.deepEqual(movePowerFull(at(300), at(100), 0.5, 0.25, 0.5, W), { agent: at(300), deity: at(100), owed: 0, held: 0 });
+  // Destroyed: all its power moves, so all it holds does. It fits: the deity's capacity rises from 960 to 1920.
+  assert.deepEqual(movePowerFull(at(960), at(960), 0.5, 0, 0.5, W), { agent: at(0), deity: at(1920), owed: 0, held: 960 });
+  // A summon or a raise: the deity gives half its power (capacity 1920 → 960) while holding 1500: 540 goes to the agent.
+  assert.deepEqual(movePowerFull(at(0), at(1500), 0, 0.5, 1, W), { agent: at(540), deity: at(960), owed: 0, held: -540 });
+  // The deity gives all its unallocated power: all it holds goes with it.
+  assert.deepEqual(movePowerFull(at(10), at(200), 0.25, 0.75, 0.5, W), { agent: at(210), deity: at(0), owed: 0, held: -200 });
+  // Energy that lands on a deity that owes repays it.
+  assert.deepEqual(movePowerFull(at(700), at(-100), 0.5, 0.25, 0.5, W), { agent: at(480), deity: at(120), owed: 0, held: 220 });
+  // Debt still moves as before, and takes precedence on the account that gives: an account cannot both owe and hold.
+  assert.deepEqual(movePowerFull(at(-412), at(100), 0.5, 0.25, 0.5, W), { agent: at(-206), deity: at(-106), owed: 206, held: 0 });
+  assert.deepEqual(movePowerFull(at(50), at(-312), 0, 0.25, 0.5, W), { agent: at(-106), deity: at(-156), owed: -156, held: 0 });
+  // A game with no capacity: no energy moves.
+  assert.deepEqual(movePowerFull(at(700), at(100), 0.5, 0.25, 0.5), { agent: at(700), deity: at(100), owed: 0, held: 0 });
+});
+
+test("no walk of summons, re-allocations and destroys changes what a deity's accounts hold and owe together, and every account stays within its capacity either way", () => {
+  // P = 64, T = 30. Random walks from random settled states (each account within ±its capacity). After every move:
+  //  (a) the sum of all balances is unchanged; the total held and the total owed never rise, and each falls only by
+  //      what the other does (energy landing on an account that owes repays it: the same account cannot do both);
+  //  (b) every account holds at most its capacity and owes at most its capacity;
+  //  (c) so the deity's accounts together never hold more than P × T, however many agents there are.
+  const W = 64 * 30;
+  let seed = 11;
+  const rand = () => (seed = (seed * 48271) % 2147483647) / 2147483647;
+  for (let trial = 0; trial < 300; trial++) {
+    const n = 1 + Math.floor(rand() * 6);
+    const shares: number[] = [];
+    let left = 1;
+    for (let i = 0; i < n; i++) { const s = Math.round(rand() * left * 100) / 100; shares.push(s); left = Math.round((left - s) * 100) / 100; }
+    const within = (share: number) => (rand() * 2 - 1) * share * W;
+    let accounts = shares.map(s => ({ balance: within(s), settledWorldSeconds: 0 }));
+    let deity = { balance: within(left), settledWorldSeconds: 0 };
+    const all = () => [...accounts, deity];
+    const sum = () => all().reduce((t, a) => t + a.balance, 0);
+    const heldOf = () => all().reduce((t, a) => t + Math.max(0, a.balance), 0), owedOf = () => all().reduce((t, a) => t + Math.max(0, -a.balance), 0);
+    const before = sum();
+    for (let step = 0; step < 40; step++) {
+      const unallocated = Math.max(0, Math.round((1 - shares.reduce((x, y) => x + y, 0)) * 100) / 100);
+      const wasHeld = heldOf(), wasOwed = owedOf();
+      const roll = rand();
+      if (roll < 0.15 && shares.length < 8) {
+        // Summon: a new, empty agent takes a share of the unallocated power.
+        const to = Math.round(rand() * unallocated * 100) / 100;
+        const moved = movePowerFull({ balance: 0, settledWorldSeconds: 0 }, deity, 0, to, unallocated, W);
+        accounts.push(moved.agent); shares.push(to); deity = moved.deity;
+      } else if (roll < 0.3 && shares.length > 0) {
+        // Destroy: all of its power moves, so all it holds or owes does, and the agent is gone.
+        const i = Math.floor(rand() * shares.length);
+        const moved = movePowerFull(accounts[i], deity, shares[i], 0, unallocated, W);
+        assert.ok(Math.abs(moved.agent.balance) < 1e-9, `a destroyed agent leaves nothing behind (${moved.agent.balance})`);
+        deity = moved.deity; accounts.splice(i, 1); shares.splice(i, 1);
+      } else if (shares.length > 0) {
+        const i = Math.floor(rand() * shares.length);
+        const to = Math.round(rand() * (shares[i] + unallocated) * 100) / 100;
+        const moved = movePowerFull(accounts[i], deity, shares[i], to, unallocated, W);
+        assert.ok(moved.owed === 0 || moved.held === 0, "one thing moves");
+        accounts[i] = moved.agent; deity = moved.deity; shares[i] = to;
+      }
+      assert.ok(Math.abs(sum() - before) < 1e-6, `(a) nothing is made or lost (${sum()} vs ${before})`);
+      assert.ok(heldOf() <= wasHeld + 1e-6 && owedOf() <= wasOwed + 1e-6, "(a) neither total rises");
+      assert.ok(Math.abs((wasHeld - heldOf()) - (wasOwed - owedOf())) < 1e-6, "(a) they fall only together: a repayment");
+      const now = Math.max(0, 1 - shares.reduce((x, y) => x + y, 0));
+      accounts.forEach((a, k) => assert.ok(Math.abs(a.balance) <= shares[k] * W + 1e-6, `(b) agent ${k} at ${a.balance} with a capacity of ${shares[k] * W}`));
+      assert.ok(Math.abs(deity.balance) <= now * W + 1e-6, `(b) the deity at ${deity.balance} with a capacity of ${now * W}`);
+      assert.ok(heldOf() <= W + 1e-6, "(c) together at most P × T");
+    }
+  }
 });
 
 test("no re-allocation or destroy makes a debt disappear: the total owed is unchanged, and it is always on an account with power", () => {
@@ -307,7 +384,7 @@ test("no re-allocation or destroy makes a debt disappear: the total owed is unch
     for (let step = 0; step < 30; step++) {
       const i = Math.floor(rand() * 3), unallocated = Math.max(0, 1 - shares.reduce((x, y) => x + y, 0));
       const to = Math.round(rand() * (shares[i] + unallocated) * 100) / 100;
-      const moved = movePower(accounts[i], deity, shares[i], to, unallocated);
+      const moved = movePowerFull(accounts[i], deity, shares[i], to, unallocated);
       accounts[i] = moved.agent; deity = moved.deity; shares[i] = to;
       assert.ok(Math.abs(total() - before) < 1e-9, "re-allocation neither creates nor cancels energy or debt");
       accounts.forEach((a, k) => assert.ok(shares[k] > 0 || a.balance >= -1e-9, `an agent with no power owes nothing (${a.balance})`));
