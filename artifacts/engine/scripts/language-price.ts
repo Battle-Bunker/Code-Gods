@@ -39,20 +39,29 @@ const programs: [string, Record<Language, string>][] = [
   ...POLICIES.map((p): [string, Record<Language, string>] => [`policy: ${p}`, { python: readFileSync(join(dir, `${p}.py`), "utf8"), typescript: readFileSync(join(dir, `${p}.ts`), "utf8") }]),
 ];
 
-const runtimes = { python: createRuntime({ language: "python", workers: 1, queueLimit: 64 }), typescript: createRuntime({ language: "typescript", workers: 1, queueLimit: 64 }) };
-const f = (x: number) => x.toFixed(1);
-const rows: string[] = [];
-let sumPy = 0, sumTs = 0, sumPyRest = 0, sumTsRest = 0;
-for (const [name, source] of programs) {
-  const py = await runtimes.python.inspect(source.python, room), ts = await runtimes.typescript.inspect(source.typescript, room);
-  const total = (i: typeof py) => i.cost + i.literalMoveFallbackBits.reduce((a, b) => a + b, 0);
-  const weighted = fairSummonBits("typescript", total(ts), ts.parts.structure).cost;
-  rows.push(`| ${name} | ${f(total(py))} | ${f(total(ts))} | ${(total(ts) / total(py)).toFixed(2)} | ${f(py.parts.structure)} | ${f(ts.parts.structure)} | ${(py.parts.structure / ts.parts.structure).toFixed(3)} | ${f(py.parts.names)} / ${f(ts.parts.names)} | ${f(py.parts.literals)} / ${f(ts.parts.literals)} | ${f(weighted)} | ${(weighted / total(py)).toFixed(2)} |`);
-  sumPy += py.parts.structure; sumTs += ts.parts.structure; sumPyRest += total(py) - py.parts.structure; sumTsRest += total(ts) - ts.parts.structure;
+export type PricedPair = { name: string; python: number; typescript: number; typescriptWeighted: number; structure: { python: number; typescript: number }; names: { python: number; typescript: number }; literals: { python: number; typescript: number } };
+
+/** Price every reference program in both languages with the runtime's own inspection (no engine needed). */
+export async function pricePairs(): Promise<PricedPair[]> {
+  const runtimes = { python: createRuntime({ language: "python", workers: 1, queueLimit: 64 }), typescript: createRuntime({ language: "typescript", workers: 1, queueLimit: 64 }) };
+  try {
+    const out: PricedPair[] = [];
+    for (const [name, source] of programs) {
+      const py = await runtimes.python.inspect(source.python, room), ts = await runtimes.typescript.inspect(source.typescript, room);
+      const total = (i: typeof py) => i.cost + i.literalMoveFallbackBits.reduce((a, b) => a + b, 0);
+      out.push({ name, python: total(py), typescript: total(ts), typescriptWeighted: fairSummonBits("typescript", total(ts), ts.parts.structure).cost,
+        structure: { python: py.parts.structure, typescript: ts.parts.structure }, names: { python: py.parts.names, typescript: ts.parts.names },
+        literals: { python: py.parts.literals, typescript: ts.parts.literals } });
+    }
+    return out;
+  } finally { for (const r of Object.values(runtimes)) r.close(); }
 }
-console.log("| program | Python | TypeScript, unweighted | ratio | structure, Python | structure, TypeScript | Python ÷ TypeScript structure | names Py / TS | literals Py / TS | TypeScript, weighted | ratio |");
-console.log("|---|---|---|---|---|---|---|---|---|---|---|");
-for (const r of rows) console.log(r);
-console.log(`\nStructure bits over all programs: Python ${f(sumPy)}, TypeScript ${f(sumTs)}: ratio ${(sumPy / sumTs).toFixed(3)}.`);
-console.log(`The weight that makes the totals equal over all programs: ${((sumPy + sumPyRest - sumTsRest) / sumTs).toFixed(3)}.`);
-for (const r of Object.values(runtimes)) r.close();
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const f = (x: number) => x.toFixed(1), rows = await pricePairs();
+  console.log("| program | Python | TypeScript, unweighted | ratio | structure, Python | structure, TypeScript | Python ÷ TypeScript structure | names Py / TS | literals Py / TS | TypeScript, weighted | ratio |");
+  console.log("|---|---|---|---|---|---|---|---|---|---|---|");
+  for (const r of rows) console.log(`| ${r.name} | ${f(r.python)} | ${f(r.typescript)} | ${(r.typescript / r.python).toFixed(2)} | ${f(r.structure.python)} | ${f(r.structure.typescript)} | ${(r.structure.python / r.structure.typescript).toFixed(3)} | ${f(r.names.python)} / ${f(r.names.typescript)} | ${f(r.literals.python)} / ${f(r.literals.typescript)} | ${f(r.typescriptWeighted)} | ${(r.typescriptWeighted / r.python).toFixed(2)} |`);
+  const sum = (pick: (r: PricedPair) => number) => rows.reduce((a, r) => a + pick(r), 0);
+  console.log(`\nStructure bits over all programs: Python ${f(sum(r => r.structure.python))}, TypeScript ${f(sum(r => r.structure.typescript))}: ratio ${(sum(r => r.structure.python) / sum(r => r.structure.typescript)).toFixed(3)}.`);
+}
