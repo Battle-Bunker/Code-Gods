@@ -199,8 +199,8 @@ test("the bid phase on the form: bidding time in whole seconds up to 10 minutes,
   assert.equal(formatValue("bidSeconds", 30), "30 s");
   assert.equal(formatValue("bidPricing", "first"), "First price");
   assert.equal(formatValue("bidPricing", "second"), "Second price");
-  assert.deepEqual(stepChoices("bidSeconds", 0).map(v => choiceLabel("bidSeconds", v)), ["No bidding", "20 s", "30 s", "1 min", "2 min"]);
-  assert.deepEqual(stepChoices("bidSeconds", 45), [0, 20, 30, 45, 60, 120], "a custom time joins the presets");
+  assert.deepEqual(stepChoices("bidSeconds", 0).map(v => choiceLabel("bidSeconds", v)), ["No bidding", "20 s", "30 s", "45 s", "1 min", "2 min"]);
+  assert.deepEqual(stepChoices("bidSeconds", 50), [0, 20, 30, 45, 50, 60, 120], "a custom time joins the presets");
   assert.deepEqual(stepChoices("bidPricing", "first").map(v => choiceLabel("bidPricing", v)), ["First price", "Second price"]);
   assert.equal(isHidden("bidPricing", { ...DEFAULT_SETTINGS, bidSeconds: 0 }), true, "nothing is bid, so nothing is paid");
   assert.equal(isHidden("bidPricing", { ...DEFAULT_SETTINGS, bidSeconds: 30 }), false);

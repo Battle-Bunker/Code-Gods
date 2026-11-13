@@ -13,6 +13,7 @@ import type { RoomState } from "@/site/lib/types";
 import { usePage } from "@/site/components/layout";
 import { errMsg } from "@/site/lib/errors";
 import { routeHref } from "@/core/routes";
+import { useNow } from "@/core/game/situation";
 import { galleryFamilies, gallerySearch, instOf } from "@/site/lib/rule-gallery";
 import {
   BID_CHIPS, bidExample, bidSummary, countdownText, doneLine, everyonesBids, parsePercent, placeBid, primaryLabel, secondsLeft, stepPercent, withdrawBid,
@@ -21,15 +22,9 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { Minus, Plus } from "lucide-react";
 
-function useNow(ms = 500) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => { const t = setInterval(() => setNow(Date.now()), ms); return () => clearInterval(t); }, [ms]);
-  return now;
-}
-
 /** The bid phase's clock: read on request by a screen reader, never announced every second. */
 function Countdown({ endsAt }: { endsAt: number }) {
-  const now = useNow();
+  const now = useNow(500);
   const text = countdownText(endsAt, now), left = secondsLeft(endsAt, now);
   return (
     <div role="timer" aria-live="off" aria-label={left > 0 ? `Bidding ends in ${left} seconds` : "Bidding is ending"}

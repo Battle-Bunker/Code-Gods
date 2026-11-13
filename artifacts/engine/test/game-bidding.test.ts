@@ -8,7 +8,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { leaderboard } from "@workspace/game-core";
 import { disclosureChecker } from "./disclosure.ts";
-import { admin, api, gods, internal, raw, rejects, roomWith, startedGame, touch, waitFor, type God } from "./game-helpers.ts";
+import { admin, api, gods, internal, raw, rejects, roomWith, startGame, startedGame, touch, waitFor, type God } from "./game-helpers.ts";
 
 /** The default setup's board (Annotated basics: the eight beginner rules), with a bid phase and a game that does not end. */
 const bidding = (seconds: number, more: Record<string, unknown> = {}) => ({ bidSeconds: seconds, halfLifeSeconds: 100000, planningSeconds: 3600, ...more });
@@ -24,6 +24,8 @@ const start = (host: God, roomId: string) => host.c.action(api.owner.start, { ro
 const mine = (god: God, roomId: string) => god.c.query(api.bidding.mine, { roomId });
 const place = (god: God, roomId: string, familyId: string, percent: number) => god.c.mutation(api.bidding.place, { roomId, familyId, percent });
 const done = (god: God, roomId: string) => god.c.mutation(api.bidding.done, { roomId });
+/** The requestId of the room's open bid phase (dev fixture). */
+const raw_bidding = async (host: God, roomId: string) => (await admin.query(internal.testing.roomBidding, { roomId })).requestId as string;
 const familyOf = (r: any, god: God) => r.deities.find((d: any) => d.godId === god.subject).utility.familyId as string;
 const cardOf = (r: any, god: God) => r.deities.find((d: any) => d.godId === god.subject).card;
 
@@ -222,6 +224,25 @@ test("variants: open bidding shows the players each other's bids live; the discl
   await all.host.c.mutation(api.rooms.endActiveGame, { roomId: all.roomId });
 });
 
+test("once the deal has begun no bid is taken: a late change is refused, not silently dropped", { timeout: 120_000 }, async () => {
+  const { host, ada, bo, roomId } = await table("Closed", 300);
+  const started = await start(host, roomId);
+  await place(ada, roomId, "leapfrog", 9);
+  // The deal's first step, as the engine runs it when the phase ends (here before anyone is done: it waits).
+  const early = await admin.mutation(internal.bidding.takeForDeal, { roomId, requestId: (await raw_bidding(host, roomId)) });
+  assert.equal(early.state, "wait", "nobody is done and the deadline is far: the bidding stays open");
+  assert.equal((await place(bo, roomId, "two_pair", 4)).done, false);
+  for (const g of [ada, bo, host]) await done(g, roomId);
+  // The last "done" started the deal: from then on a change of mind is refused with the reason (or the phase is over).
+  const late = await rejects(place(ada, roomId, "leapfrog", 50));
+  assert.match(late, /Bidding has ended|No bidding is open/);
+  const game = await startedGame(host, roomId, started);
+  const r = await raw(game.gameId);
+  assert.equal(cardOf(r, ada).handicap, 9, "the deal was made from the bids as they stood");
+  assert.equal(cardOf(r, bo).handicap, 4);
+  await host.c.mutation(api.rooms.endActiveGame, { roomId });
+});
+
 test("the deadline ends the phase when nobody finishes; a spectator cannot bid", { timeout: 120_000 }, async () => {
   const { host, ada, bo, roomId, shortCode } = await table("Deadline", 3);
   const [watcher] = await gods("Deadline Watcher");
@@ -266,6 +287,14 @@ test("a player who leaves during bidding is not dealt in and their bid is droppe
   const failed = await waitFor(async () => (await three.host.c.query(api.rooms.get, { room: three.roomId })).bidding?.error, "the start reports the short table", 30_000);
   assert.match(failed, /fewer than three/);
   assert.equal(await mine(three.ada, three.roomId), null, "a failed bid phase is not open");
+  // The failure stays on the room only until the next start: a start without a bid phase clears it with the rest.
+  const [late] = await gods("Short Late");
+  await late.c.mutation(api.rooms.join, { room: three.shortCode });
+  const now = await three.host.c.query(api.rooms.get, { room: three.roomId });
+  await three.host.c.action(api.owner.settings, { roomId: three.roomId, revision: now.revision, settings: { bidSeconds: 0 } });
+  const after = await startGame(three.host, three.roomId);
+  assert.equal((await three.host.c.query(api.rooms.get, { room: three.roomId })).bidding, null, "the old failure is gone once a game starts");
+  assert.deepEqual(await three.host.c.mutation(api.rooms.endActiveGame, { roomId: three.roomId }), { gameId: after.gameId });
 });
 
 test("the owner cancels a bid phase with the end command; the next start opens a fresh one with no old bids", { timeout: 120_000 }, async () => {

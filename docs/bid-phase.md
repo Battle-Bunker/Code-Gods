@@ -18,13 +18,34 @@ their own final score. Code: `lib/game-utilities/src/bidding.ts` (tests: `test/b
   standing on that family behind theirs, and at least 1%.
 - If nobody bids, the deal is exactly today's deal.
 
-<!-- lead: fill --> Where it is on (which setups, which setting).
+**Where it is on.** The setup setting `bidSeconds` (configure page, Goals: "Bidding time"); 0 means no bid phase.
+It is 0 on the default setup, **Annotated basics**, and on every other setup but one: **Basics with bidding** is
+Annotated basics with a 45-second bid phase and nothing else changed. A first game goes straight to
+planning; there is no evidence yet on how beginners take to bidding.
 
-<!-- lead: fill --> How long the phase lasts and what ends it.
+**How long, and what ends it.** The phase starts when the owner presses Start, before any rule is dealt, and lasts
+`bidSeconds`. It ends at once when every human player has pressed **Pass** or **Done bidding**, so a table that does
+not want to bid loses one click each. AI players do not bid. Then the rules are dealt and planning begins as usual.
+The owner can cancel it (the room's end command); nothing is dealt. A player who leaves during bidding is not dealt
+in and their bids are dropped; if fewer than three players remain the start fails and says so.
 
-<!-- lead: fill --> Disclosure: what players see of the pool, of each other's bids, and of the result.
+**What players see.** Everyone in the room sees that bidding is under way and its clock. Each player sees the pool's
+rules (name, one line, a link to the full card), their own bids and how many players are still bidding. Bids are
+sealed. After the deal each player's goal card says what they won and their handicap, or that they were dealt at
+random; nobody is told another player's bids, rule or handicap. Standings show scores after handicaps. When the game
+has ended, the results and the replay show every handicap and who won which rule.
 
-<!-- lead: fill --> Tools: what a player's program or assistant can do during the phase.
+**Where the handicap applies.** It is taken off every total the game ranks or shows for that player: their own live
+score, the scoreboard, the final standings and the totals the replay plays back. Numbers per object are not scaled.
+A score is shown to one decimal; nothing is rounded before ranking.
+
+**Tools.** The assistant, MCP clients and the player CLI can read the phase and act in it: `get_bidding`,
+`place_bid`, `withdraw_bid`, `finish_bidding` (CLI: `bid show | place FAMILY PERCENT | withdraw FAMILY | done | pass`).
+Placing and withdrawing need the "act" permission, so a read-only assistant cannot bid.
+
+**How it is built.** The phase is a step of the start, held on the room before the game exists (`convex/bidding.ts`,
+`owner.ts completeBidding`). There is no "bidding" game phase, and a game dealt without a winning bid carries no
+trace of it.
 
 ## 2. What rational bids look like on the beginner pool
 
@@ -138,8 +159,39 @@ Limits:
   nobody contests costs 1%, so an uncontested strong rule is almost free.
 - In the simulations they differ only when bids differ. With misjudged values second price charged about half as much
   at 3 players (2.7% against 5.0%) with the same spread. At a table of equal, accurate bidders they are the same.
-- Neither stops the lone bidder. A minimum bid per rule would; it has not been simulated.
+- Neither stops the lone bidder. A minimum bid is measured in section 5.
 
-<!-- lead: fill --> Sealed or open bidding.
+**Sealed or open bidding** (`bidVisibility`). Sealed (shipped): quick, and a player's wishes stay secret. Open:
+every player sees every bid as it is placed, so it becomes a live auction where players raise each other; it takes
+longer and tells the table who wants what. Lab setup: **Lab · bidding, open bids**.
 
-<!-- lead: fill --> Disclosure variants (who sees which bids, and when).
+**What is told after the deal** (`bidDisclosure`). Private (shipped): each player knows only their own result.
+Handicaps: everyone sees each player's handicap during the game, not their rule (**Lab · bidding, handicaps shown**).
+All: everyone sees every bid and who won which rule, which gives away the winners' goals (**Lab · bidding, auction
+shown**). Second price is **Lab · bidding, second price**. Lab setups are listed for administrators only.
+
+## 5. Re-run on 2026-11-13, and a minimum bid
+
+The tables above are from 1,000 games per column. A second run on the merged code, 300 games per column
+(`bid-market --games 300`), agrees on the direction and differs in size, because the bids come from each run's own
+estimate of what a rule is worth (this run: Opposite Nines 4%, Leapfrog 4%, Mirrormancer 3% at 3 players):
+
+| Spread of win shares, best − worst rule | Nobody bids | All truthful, first price | All truthful, second price |
+|---|---|---|---|
+| 3 players | 41 points | 22 | 14 |
+| 4 players | 29 points | 24 | 24 |
+
+| One bidder among passers (win share; fair 33% / 25%) | 3 players | 4 players |
+|---|---|---|
+| Bids their value, first price | 35% | 27% |
+| Bids their value, second price (pays 1%) | 45% | 48% |
+| Bids 1% on the best rule | 53% | 44% |
+
+So the levelling at 3 players is somewhere between 9 and 22 points of spread left, not a fixed number, and the lone
+low bid is confirmed.
+
+**A minimum bid of 5%** (`--min 5`) was measured as a way to remove that edge. The lone bidder who bids the minimum
+on the best rule wins 39% at 3 players (from 53%) and 35% at 4 (from 44%). But at 3 players no rule is worth 5% to a
+well-informed bidder, so nobody bids and the pool is as uneven as without bidding (41 points). It is not shipped:
+it halves the edge and removes the market where the table is smallest. The honest remedy today is in the rules
+text: passing lets someone else take the strongest rule cheaply.

@@ -605,6 +605,8 @@ const ANNOTATED_BASICS_EXCLUDED: readonly string[] = Object.freeze([
   "fillomino", "bingo_caller", "full_house", "twenty_one", "sudoku_scholar", "magic_accountant", "number_bonds",
 ]);
 
+/** Annotated basics with a bid phase before the deal (docs/bid-phase.md). */
+export const ANNOTATED_BIDDING_SEED_ID = "grid-annotated-bidding";
 /** The coloured annotated setup: every family with a rich annotation (a lens), on the coloured 4×4 board. */
 export const ANNOTATED_COLOURS_SEED_ID = "grid-annotated-colours";
 /**
@@ -647,6 +649,14 @@ export const SEED_SETUPS: readonly SeedSetup[] = Object.freeze([
       interactionRateHz: 25, durationMode: "fixed", halfLifeSeconds: 600, excludedFamilies: ANNOTATED_COLOURS_EXCLUDED,
       startingObjectCount: 10, spawnRateHz: 0.1, planningSeconds: 300,
     }),
+  // Annotated basics with a bid phase (docs/bid-phase.md; the default setup itself has none: a first game goes straight
+  // to planning). 45 s, and it ends at once when every human player has passed or finished.
+  seed(ANNOTATED_BIDDING_SEED_ID, "Basics with bidding", "The beginner board and its eight rules, but first each player may bid part of their score for the rule they want",
+    "Grid", { size: 4, symbols: "base10", colours: "mono" }, {
+      interactionRateHz: 25, durationMode: "fixed", halfLifeSeconds: 600, excludedFamilies: ANNOTATED_BASICS_EXCLUDED,
+      startingObjectCount: 10, spawnRateHz: 0.1, planningSeconds: 300, observation: "paid",
+      bidSeconds: 45,
+    }),
   seed("grid-classic", "Classic", "5×5 with four colours: the standard game",
     "Grid", { size: 5, symbols: "base10", colours: "rgby" }, {}),
   // grid-lab PR #14 §4.9's alternative economy: half the income, half the floor (see TYPE_DEFAULTS.Grid).
@@ -684,6 +694,16 @@ export const LAB_SETUPS: readonly SeedSetup[] = Object.freeze([
   ] as const).map(([seedId, name, summary, observation]) => {
     const basics = SEED_SETUPS.find(x => x.seedId === ANNOTATED_BASICS_SEED_ID)!.settings;
     return lab(seedId, name, summary, basics.objectType, { ...basics.typeArgs }, { ...basics, observation });
+  }),
+  // The bid phase's alternatives (docs/bid-phase.md §4): "Basics with bidding" is first price, sealed, private.
+  ...([
+    ["lab-bidding-second-price", "Lab · bidding, second price", "Basics with bidding, but a winner pays the highest bid they beat, not their own", { bidPricing: "second" }],
+    ["lab-bidding-open", "Lab · bidding, open bids", "Basics with bidding, but every player sees every bid as it is placed", { bidVisibility: "open" }],
+    ["lab-bidding-handicaps-shown", "Lab · bidding, handicaps shown", "Basics with bidding, but everyone sees each player's handicap during the game", { bidDisclosure: "handicaps" }],
+    ["lab-bidding-auction-shown", "Lab · bidding, auction shown", "Basics with bidding, but everyone sees every bid and who won which rule", { bidDisclosure: "all" }],
+  ] as const).map(([seedId, name, summary, patch]) => {
+    const bidding = SEED_SETUPS.find(x => x.seedId === ANNOTATED_BIDDING_SEED_ID)!.settings;
+    return lab(seedId, name, summary, bidding.objectType, { ...bidding.typeArgs }, { ...bidding, ...patch });
   }),
 ]);
 
@@ -873,7 +893,7 @@ export const SETTINGS_DOCS = {
     consequence: "Paid looking gives a player's own energy a use and makes watching the others costly; boards keeps every board live and charges only for the others' interest; agents allows no paid looks.",
   },
   bidSeconds: {
-    question: "How long may players bid for rules before the game is dealt?", section: "goals", tier: "ask", control: "number", unit: "s", suggested: [0, 20, 30, 60, 120],
+    question: "How long may players bid for rules before the game is dealt?", section: "goals", tier: "ask", control: "number", unit: "s", suggested: [0, 20, 30, 45, 60, 120],
     meaning: "Before rules are dealt, each player may bid a share of their own score for the rules they want: the highest bid wins a rule for that player alone, the rest are dealt at random, and zero is no bidding.",
     consequence: "Bidding lets players pay for the rule they want, so a strong rule costs its holder part of their score, and it adds up to this many seconds before planning.",
   },

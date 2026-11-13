@@ -222,7 +222,7 @@ async function startGame(ctx: ActionCtx, args: { roomId: string; requestId?: str
 export const completeBidding = internalAction({
   args: { roomId: v.id("rooms"), requestId: v.string() },
   handler: async (ctx, { roomId, requestId }): Promise<void> => {
-    const state = await ctx.runQuery(internal.bidding.forDeal, { roomId, requestId });
+    const state = await ctx.runMutation(internal.bidding.takeForDeal, { roomId, requestId });
     if (state.state === "gone") return;
     if (state.state === "wait") return void await ctx.scheduler.runAfter(state.wait, internal.owner.completeBidding, { roomId, requestId });
     await ctx.scheduler.runAfter(BIDDING_WATCHDOG_MS, internal.owner.completeBidding, { roomId, requestId });

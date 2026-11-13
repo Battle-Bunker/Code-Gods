@@ -506,7 +506,7 @@ try {
     if (withBidding) await check(`${name}: the start opens the bidding screen: players bid or pass with one button, the spectating owner watches the clock and may cancel; when every player has passed it ends`, async () => {
       for (const p of [b, c]) await p.getByTestId("button-bidding-done").filter({ hasText: /^Pass$/ }).waitFor({ timeout: 60_000 });
       assert.equal(await b.getByTestId("text-bidding-title").innerText(), "Bid for your rule");
-      assert.match(await b.getByTestId("bidding-countdown-value").innerText(), /^[01]:\d\d$/);
+      assert.match(await b.getByTestId("bidding-countdown-value").innerText(), /^[0-2]:\d\d$/);
       assert.match(await b.getByTestId("text-bidding-example").innerText(), /If nobody bids, rules are dealt at random as usual\./);
       assert.equal(await b.getByTestId("text-viewer-seat").innerText(), "Bidding: bid for the rule you want, or pass.");
       // The owner watches this game: the clock and Cancel, no bids; the Start button is gone (the start is under way).

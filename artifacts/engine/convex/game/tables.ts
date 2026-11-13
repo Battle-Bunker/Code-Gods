@@ -168,6 +168,8 @@ export const gameTables = {
       pricing: v.union(v.literal("first"), v.literal("second")),
       /** Open bidding (settings.bidVisibility): every player of the phase sees every bid, live. Absent: sealed. */
       open: v.optional(v.boolean()),
+      /** The deal has begun (bidding.ts takeForDeal): no bid is taken any more, though the phase is still the room's. */
+      closed: v.optional(v.boolean()),
       error: v.optional(v.string()),
     })),
   }).index("by_short_code", ["shortCode"]).index("by_encoded", ["encoded"]).index("by_guid", ["guid"]),

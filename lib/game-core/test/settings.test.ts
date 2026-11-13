@@ -3,7 +3,7 @@ import test from "node:test";
 import {
   DEFAULT_SETTINGS, SETTINGS_OPTIONS, MAX_AGENTS_PER_GOD, settingsOptionsFor, validateSettings, LANGUAGES, LANGUAGE_SPECS,
   grammarFor, complexityFor, allowedLanguages, upgradeLegacyLanguage,
-  upgradeStoredSettings, FIRST_STEPS_SEED_ID, ANNOTATED_BASICS_SEED_ID, DEFAULT_SETUP_SEED_ID,
+  upgradeStoredSettings, FIRST_STEPS_SEED_ID, ANNOTATED_BASICS_SEED_ID, ANNOTATED_BIDDING_SEED_ID, DEFAULT_SETUP_SEED_ID,
   instantiationOf, codecOf, assertObjectValue, defaultSettingsFor, SEED_SETUPS, SETUP_NAME_MAX, seedSetupSettings, ALL_SEED_SETUPS, LAB_SETUPS, ENERGY_LIMITS, BID_PRICINGS, TIME_LIMITS, type GameSettings,
 } from "../src/settings.ts";
 import { gameEndSeconds } from "../src/random.ts";
@@ -189,7 +189,7 @@ test("defaultSettingsFor gives valid settings for every type and language", () =
   assert.equal(defaultSettingsFor("Grid", ["python"], { size: 7, symbols: "cards", colours: "rainbow6" }).powerPerSecond, 64);
   assert.equal(defaultSettingsFor("Int").powerPerSecond, 8);
   for (const s of SEED_SETUPS) { validateSettings(s.settings); assert.ok(s.name.length <= SETUP_NAME_MAX, s.name); }
-  assert.deepEqual(SEED_SETUPS.map(s => s.seedId), ["grid-first-steps", "grid-annotated-basics", "grid-annotated-colours", "grid-classic", "grid-low-income", "grid-big", "grid-master"]);
+  assert.deepEqual(SEED_SETUPS.map(s => s.seedId), ["grid-first-steps", "grid-annotated-basics", "grid-annotated-colours", "grid-annotated-bidding", "grid-classic", "grid-low-income", "grid-big", "grid-master"]);
   assert.equal(seedSetupSettings("grid-first-steps").interactionRateHz, 25);
   assert.deepEqual(seedSetupSettings("grid-classic"), { ...classic, interactionRateHz: 100 }, "Classic is the tuned 5×5 board, complete");
   assert.ok(!seedSetupSettings("grid-master").excludedFamilies.includes("ladder_of_numbers"), "cards cannot deal it, so it is not listed");
@@ -298,7 +298,17 @@ test("the settings of a game started before fullChargeSeconds existed still vali
 test("the bid phase settings: off by default, whole seconds from 0 to 600, a first or second price", () => {
   assert.equal(DEFAULT_SETTINGS.bidSeconds, 0, "no bid phase unless the owner asks for one");
   assert.equal(DEFAULT_SETTINGS.bidPricing, "first");
-  for (const seed of SEED_SETUPS) assert.deepEqual([seed.settings.bidSeconds, seed.settings.bidPricing], [0, "first"], seed.seedId);
+  // Only "Basics with bidding" has a bid phase (45 s); the default setup and every other system setup have none.
+  for (const seed of SEED_SETUPS) assert.deepEqual([seed.settings.bidSeconds, seed.settings.bidPricing], [seed.seedId === ANNOTATED_BIDDING_SEED_ID ? 45 : 0, "first"], seed.seedId);
+  assert.notEqual(DEFAULT_SETUP_SEED_ID, ANNOTATED_BIDDING_SEED_ID);
+  const { bidSeconds: _b, ...basics } = seedSetupSettings(ANNOTATED_BASICS_SEED_ID), { bidSeconds: _c, ...withBids } = seedSetupSettings(ANNOTATED_BIDDING_SEED_ID);
+  assert.deepEqual(withBids, basics, "the bidding setup is Annotated basics with a bid phase and nothing else");
+  // The Lab alternatives differ from it in exactly one bid setting each.
+  const variants = LAB_SETUPS.filter(s => s.seedId.startsWith("lab-bidding-")).map(s => {
+    const base = seedSetupSettings(ANNOTATED_BIDDING_SEED_ID) as unknown as Record<string, unknown>, mine = s.settings as unknown as Record<string, unknown>;
+    return Object.keys(base).filter(k => JSON.stringify(base[k]) !== JSON.stringify(mine[k])).map(k => `${k}=${String(mine[k])}`).join();
+  });
+  assert.deepEqual(variants, ["bidPricing=second", "bidVisibility=open", "bidDisclosure=handicaps", "bidDisclosure=all"]);
   assert.deepEqual(TIME_LIMITS.bidSeconds, { min: 0, max: 600 });
   for (const ok of [0, 1, 30, 600]) assert.doesNotThrow(() => validateSettings(settings({ bidSeconds: ok })), String(ok));
   for (const bad of [601, 1.5, -1, NaN, Infinity, "30", null]) {

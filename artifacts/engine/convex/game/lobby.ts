@@ -155,7 +155,8 @@ export const beginPreparing = internalMutation({
       ...(pieces.total > pending.length ? { pieces } : {}),
       ...(failure ? { error: failure } : {}),
     };
-    await ctx.db.patch(room._id, { preparing, seq: room.seq + 1, ...(args.bidding !== undefined ? { bidding: undefined } : {}) });
+    // The bid phase ends here; a failed earlier one (its error still shown) is cleared by any new start.
+    await ctx.db.patch(room._id, { preparing, seq: room.seq + 1, bidding: undefined });
     if (failure) await forgetWaits(ctx, room._id);
     else if (!pending.length) await ctx.scheduler.runAfter(0, internal.owner.completeStart, { roomId: room._id, requestId: args.requestId });
     else await ctx.scheduler.runAfter(PREPARING_WATCHDOG_MS, internal.owner.completeStart, { roomId: room._id, requestId: args.requestId, watchdog: true });
@@ -278,7 +279,7 @@ export const commitStart = internalMutation({
     // The assistant's conversation and working state are per (player, game): the last game's turns end here.
     await endTurnsForNewGame(ctx, room._id);
     await ctx.db.patch(room._id, {
-      activeGameId: gameId, currentGameId: gameId, seq: room.seq + 1, preparing: undefined,
+      activeGameId: gameId, currentGameId: gameId, seq: room.seq + 1, preparing: undefined, bidding: undefined,
       aiUsed: 0, aiReservedUsd: 0, aiInputTokens: 0, aiOutputTokens: 0, aiCalls: [],
     });
     await ctx.scheduler.runAt(nextDeadline({ phase: "planning", planningEndsAt, pauseEndsAt: 0 }, now)!, internal.engine.tick.run, { gameId, seq: 0 });

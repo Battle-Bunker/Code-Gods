@@ -117,7 +117,8 @@ async function change(ctx: MutationCtx, viewer: Viewer, roomId: string, c: Chang
   const b = openBidding(room);
   if (!b) return fail("CONFLICT", "No bidding is open in this room");
   const now = Date.now();
-  if (now > b.endsAt + BID_GRACE_MS) fail("CONFLICT", "Bidding has ended");
+  // Closed: the deal is being made from the bids as they were (takeForDeal), so a later change would be ignored.
+  if (b.closed || now > b.endsAt + BID_GRACE_MS) fail("CONFLICT", "Bidding has ended; the game is being dealt");
   if (member.spectator || !b.memberIds.includes(member.godId)) fail("FORBIDDEN", "Only the players of the game being started may bid");
   const old = await rowOf(ctx, room._id, member.godId);
   const current = old && old.requestId === b.requestId ? old : null;
@@ -194,12 +195,12 @@ export const doneAs = internalMutation({
 // the start's halves (owner.ts)
 // ------------------------------------------------------------------------------------------------
 
-/** Drop the room's bid rows (a new bid phase begins, or one ended). Bounded: at most one row per member. */
+/**
+ * Drop the room's bid rows (a new bid phase begins, or one ended), those of players who have left the room included.
+ * Bounded: a phase has at most eight players, each at most one row.
+ */
 async function forgetBids(ctx: MutationCtx, roomId: Id<"rooms">) {
-  for (const m of await membersOf(ctx, roomId)) {
-    const row = await rowOf(ctx, roomId, m.godId);
-    if (row) await ctx.db.delete(row._id);
-  }
+  for (const row of await ctx.db.query("roomBids").withIndex("by_room_god", q => q.eq("roomId", roomId)).take(64)) await ctx.db.delete(row._id);
 }
 
 /**
@@ -238,11 +239,11 @@ export const begin = internalMutation({
 });
 
 /**
- * What the deal needs when the bid phase is over: the room, the players still seated (in the phase's order) and their
+ * Close the bidding and return what the deal needs: the room, the players still seated (in the phase's order) and their
  * bids (`deal`). `gone`: this bid phase is no longer the room's (dealt, cancelled, failed, replaced); `wait`: it is
  * neither past its deadline nor finished by every human player (ms until the deadline).
  */
-export const forDeal = internalQuery({
+export const takeForDeal = internalMutation({
   args: { roomId: v.id("rooms"), requestId: v.string() },
   handler: async (ctx, { roomId, requestId }) => {
     const room = await ctx.db.get(roomId);
@@ -250,7 +251,9 @@ export const forDeal = internalQuery({
     if (!room || !b || b.requestId !== requestId) return { state: "gone" as const };
     const humans = await humansOf(ctx, room, b);
     const now = Date.now();
-    if (now < b.endsAt + BID_GRACE_MS && !humans.every(h => h.done)) return { state: "wait" as const, wait: b.endsAt + BID_GRACE_MS - now };
+    if (!b.closed && now < b.endsAt + BID_GRACE_MS && !humans.every(h => h.done)) return { state: "wait" as const, wait: b.endsAt + BID_GRACE_MS - now };
+    // From here no bid is taken (change refuses): the deal is made from exactly these bids, also by a retried run.
+    if (!b.closed) await ctx.db.patch(room._id, { bidding: { ...b, closed: true } });
     const current = new Map((await membersOf(ctx, room._id)).filter(m => !m.spectator).map(m => [m.godId, m]));
     const playerIds = b.memberIds.filter(id => current.has(id));
     const bids: { playerId: string; familyId: string; percent: number }[] = [];

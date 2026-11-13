@@ -361,8 +361,9 @@ async function endFor(ctx: MutationCtx, viewer: Viewer, { roomId }: { roomId: st
   const room = await requireRoom(ctx, roomId);
   await requireOwnerAs(ctx, viewer, room);
   const game = await activeGame(ctx, room);
+  if (!game && openBidding(room)) { await cancelBidding(ctx, room); return { cancelled: "bidding" as const }; }
+  if (!game && room.preparing) { await cancelPreparing(ctx, room); if (room.bidding) await cancelBidding(ctx, (await ctx.db.get(room._id))!); return { cancelled: "preparing" as const }; }
   if (!game && room.bidding) { await cancelBidding(ctx, room); return { cancelled: "bidding" as const }; }
-  if (!game && room.preparing) { await cancelPreparing(ctx, room); return { cancelled: "preparing" as const }; }
   if (!game) return fail("CONFLICT", "There is no active game to end");
   await endGame(ctx, await withEngine(ctx, game), "owner");
   return { gameId: game._id };

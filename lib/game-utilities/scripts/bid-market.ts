@@ -5,12 +5,14 @@
  * deals with `dealWithBids` (src/bidding.ts) and takes each winner's handicap off their total with `applyHandicap`.
  *
  *   node --experimental-strip-types lib/game-utilities/scripts/bid-market.ts [--games 100] [--players 3,4]
- *        [--policy greedy|deny|random] [--shade 0.67] [--noise 0] [--rounds 40] [--workers 4]
+ *        [--policy greedy|deny|random] [--shade 0.67] [--noise 0] [--min 1] [--rounds 40] [--workers 4]
  *     --games:  games per batch (one batch per family for the strength table, one per bidding scenario; 36 batches
  *               for both table sizes). 100 is a quick look (two to three minutes on four cores, win shares within
  *               about ±5 points); docs/bid-phase.md used 1000 (23 minutes).
  *     --shade:  the fraction of their value a shading bidder bids. Default (n − 1) / n: the first-price equilibrium
  *               with n bidders whose values are independent and uniform (2/3 at a table of 3, 3/4 at 4).
+ *     --min:    the smallest bid allowed (whole percent, default 1): bidders bid only where their bid reaches it, and the
+ *               lowball bidder bids exactly it on the best rule. Measures a minimum bid as a rule of the game.
  *     --noise:  each bidder misjudges each family's value by up to this many points (whole, uniform). Default 0:
  *               everybody at the table has the same values, so equal bids are common and are won at random.
  *
@@ -65,17 +67,17 @@ export function equalisingByScore(meanScore: number, reference: number): number 
 export type BidderType = "truthful" | "shading" | "never" | "lowball";
 
 /** What one bidder bids: family → whole percent, only where the bid is at least the minimum. */
-export function bidsOf(type: BidderType, values: Readonly<Record<string, number>>, shade: number): Record<string, number> {
+export function bidsOf(type: BidderType, values: Readonly<Record<string, number>>, shade: number, min: number = BID_MIN_PERCENT): Record<string, number> {
   const out: Record<string, number> = {};
   if (type === "never") return out;
   if (type === "lowball") {
     const best = Object.entries(values).sort((a, b) => b[1] - a[1])[0];
-    if (best && Math.round(best[1]) >= BID_MIN_PERCENT) out[best[0]] = BID_MIN_PERCENT;
+    if (best && Math.round(best[1]) >= BID_MIN_PERCENT) out[best[0]] = min;
     return out;
   }
   for (const [f, v] of Object.entries(values)) {
     const percent = Math.min(BID_MAX_PERCENT, Math.round(type === "shading" ? shade * v : v));
-    if (percent >= BID_MIN_PERCENT) out[f] = percent;
+    if (percent >= min) out[f] = percent;
   }
   return out;
 }
@@ -94,7 +96,7 @@ export function spread(shares: readonly number[], weights?: readonly number[]): 
 
 interface Common { n: number; from: number; to: number; rounds: number; policy: Policy }
 interface StrengthJob extends Common { kind: "strength"; family: string }
-interface MarketJob extends Common { kind: "market"; pricing: BidPricing; table: BidderType[]; values: Record<string, number>; shade: number; noise: number }
+interface MarketJob extends Common { kind: "market"; pricing: BidPricing; table: BidderType[]; values: Record<string, number>; shade: number; noise: number; min: number }
 type Job = StrengthJob | MarketJob;
 /** Numbers per game: strength [holder's score, best rival's score]; market, per seat [player, family index, score, handicap, won]. */
 const MARKET_FIELDS = 5;
@@ -115,7 +117,7 @@ function runJob(job: Job): number[] {
     else ids.forEach((playerId, i) => {
       if (job.table[i] === "never") return;
       const mine = job.noise ? Object.fromEntries(h.pool.map(f => [f, (job.values[f] ?? 0) + rng.int(2 * job.noise + 1) - job.noise])) : job.values;
-      for (const [familyId, percent] of Object.entries(bidsOf(job.table[i], mine, job.shade))) bids.push({ playerId, familyId, percent });
+      for (const [familyId, percent] of Object.entries(bidsOf(job.table[i], mine, job.shade, job.min))) bids.push({ playerId, familyId, percent });
     });
     // The engine's default dealer. It has no synergy matrix for this board, so there it is the plain lottery.
     const { deal, wins } = dealWithBids(fairAligned.id, h.inst, seats, bids, rng, options, job.kind === "market" ? job.pricing : "first");
@@ -182,7 +184,7 @@ interface MarketResult {
 async function main() {
   const args = process.argv.slice(2);
   const flag = (name: string, fallback: string) => { const i = args.indexOf(`--${name}`); return i >= 0 && args[i + 1] !== undefined ? args[i + 1] : fallback; };
-  const GAMES = Number(flag("games", "100")), ROUNDS = Number(flag("rounds", "40")), NOISE = Number(flag("noise", "0"));
+  const GAMES = Number(flag("games", "100")), ROUNDS = Number(flag("rounds", "40")), NOISE = Number(flag("noise", "0")), MIN = Number(flag("min", "1"));
   const sizes = flag("players", "3,4").split(",").map(Number), policy = flag("policy", "greedy") as Policy;
   const workers = Number(flag("workers", String(Math.min(8, availableParallelism()))));
   const shadeOf = (n: number) => Number(flag("shade", String((n - 1) / n)));
@@ -196,7 +198,7 @@ async function main() {
   };
   /** Runs the scenarios and adds each one's games up. */
   async function market(scenarios: readonly Scenario[], values: Map<number, Record<string, number>>, what: string): Promise<MarketResult[]> {
-    const jobs = scenarios.flatMap(s => chunks<MarketJob>({ kind: "market", ...common(s.n), pricing: s.pricing, table: s.table, values: values.get(s.n) ?? {}, shade: shadeOf(s.n), noise: NOISE }));
+    const jobs = scenarios.flatMap(s => chunks<MarketJob>({ kind: "market", ...common(s.n), pricing: s.pricing, table: s.table, values: values.get(s.n) ?? {}, shade: shadeOf(s.n), noise: NOISE, min: MIN }));
     const rows = await runJobs(jobs, workers, progress(what, jobs.length)), per = Math.ceil(GAMES / CHUNK);
     return scenarios.map((s, i) => {
       const r: MarketResult = { held: pool.map(() => 0), won: pool.map(() => 0), paid: pool.map(() => 0), bought: pool.map(() => 0), byType: new Map(), meanScore: 0, games: GAMES };
@@ -211,7 +213,7 @@ async function main() {
     });
   }
 
-  console.log(`# Bid market on ${h.setup.name} (${h.inst.key}): policy=${policy} rounds=${ROUNDS} games per batch=${GAMES} noise=${NOISE}`);
+  console.log(`# Bid market on ${h.setup.name} (${h.inst.key}): policy=${policy} rounds=${ROUNDS} games per batch=${GAMES} noise=${NOISE} min bid=${MIN}%`);
   console.log(`Families: ${pool.join(", ")}\n`);
 
   // 1. Strength of each family when one player holds it alone, and the table where nobody bids.

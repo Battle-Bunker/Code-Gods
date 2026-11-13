@@ -54,7 +54,7 @@ const USAGE = `Usage: pnpm player <command>
   bid [show] | place FAMILY PERCENT | withdraw FAMILY | done | pass | reopen [--pretty]
       The bid phase of a game start (a setup with bidding): before the game is dealt, bid a handicap, a whole
       percent (1-100) taken off your own final score, on rules of the pool. The highest bid wins a rule and
-      nobody else is dealt it; bids are sealed. show: the clock, the rules and your bids. place: bid on a
+      nobody else is dealt it; bids are sealed unless the setup opens them. show: the clock, the rules and your bids. place: bid on a
       rule by its id (replaces your earlier bid on it). withdraw: take a bid back. done: you are finished
       (pass: the same with no bids); bidding ends early once every human player is done. reopen: take
       "done" back. place, withdraw, done, pass and reopen need an act or owner credential.
