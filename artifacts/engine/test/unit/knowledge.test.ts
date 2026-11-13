@@ -4,12 +4,14 @@ import assert from "node:assert/strict";
 import { SEED_SETUPS, DEFAULT_SETUP_SEED_ID, DEFAULT_SETTINGS, paidObservation, upgradeStoredSettings, validateSettings } from "@workspace/game-core";
 import { lookPriceOf, paidLive, readWhole, toldEvent } from "../../convex/lib/knowledge.ts";
 
-test("the setting: absent is free, the default setup is paid, an ended game is open", () => {
+test("the setting: absent is free, the default setup is free and \"Basics with paid looks\" is paid, an ended game is open", () => {
   assert.equal(DEFAULT_SETTINGS.observation, "free");
   assert.equal(paidObservation({}), false, "settings stored before the setting are free");
   assert.equal((upgradeStoredSettings({ languages: ["python"] }) as { observation: string }).observation, "free");
   assert.throws(() => validateSettings({ ...DEFAULT_SETTINGS, observation: "cheap" as never }), /observation/);
-  const beginner = SEED_SETUPS.find(s => s.seedId === DEFAULT_SETUP_SEED_ID)!.settings;
+  // A first game sees everything (the walks of 2026-11-13); the paid twin is otherwise the same setup.
+  assert.equal(SEED_SETUPS.find(s => s.seedId === DEFAULT_SETUP_SEED_ID)!.settings.observation, "free");
+  const beginner = SEED_SETUPS.find(s => s.seedId === "grid-annotated-paid")!.settings;
   assert.equal(beginner.observation, "paid");
   assert.equal(paidLive({ settings: beginner, phase: "running" }), true);
   assert.equal(paidLive({ settings: beginner, phase: "planning" }), true);
@@ -19,7 +21,7 @@ test("the setting: absent is free, the default setup is paid, an ended game is o
 
 test("a look costs the object's full read at the read price: less than the cheapest change on every seed setup", () => {
   const price = Object.fromEntries(SEED_SETUPS.map(s => [s.name, Math.round(lookPriceOf(s.settings) * 100) / 100]));
-  assert.deepEqual(price, { "First steps": 2.45, "Annotated basics": 1.66, "Annotated colours": 2.45, "Basics with bidding": 1.66, Classic: 4.16, "Low income": 4.16, "Big board": 7.41, Master: 12.69, "Tiered rules": 1.66 });
+  assert.deepEqual(price, { "First steps": 2.45, "Annotated basics": 1.66, "Annotated colours": 2.45, "Basics with bidding": 1.66, "Basics with paid looks": 1.66, Classic: 4.16, "Low income": 4.16, "Big board": 7.41, Master: 12.69, "Tiered rules": 1.66 });
 });
 
 test("an act tells its god the object only when it read all of it", () => {

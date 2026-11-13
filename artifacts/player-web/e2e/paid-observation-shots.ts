@@ -299,6 +299,8 @@ if (wanted("paid")) {
     // (C) The forge's observer template on the phone, before anything is loaded into the editor.
     await step("6c phone forge", async () => {
       await choosePanel(phone, "p1", "forge", "Agent code");
+      // The template is under "Other starting points", closed until asked for.
+      await phone.click("[data-testid=details-other-starts] summary", { timeout: 20_000 });
       await phone.waitForSelector("[data-testid=text-observer-template]", { timeout: 20_000 });
       await phone.locator("[data-testid=text-observer-template]").scrollIntoViewIfNeeded();
       await sleep(400);
@@ -313,6 +315,7 @@ if (wanted("paid")) {
   if (!onlyB) await step("9 forge observer (C)", async () => {
     await choosePanel(page, "p1", "forge", "Agent code");
     await page.waitForSelector("[data-testid=panel-forge]", { timeout: 20_000 });
+    await page.click("[data-testid=details-other-starts] summary", { timeout: 20_000 });
     const tpl = page.locator("[data-testid=text-observer-template]");
     await tpl.waitFor({ timeout: 20_000 });
     log("9 template", (await tpl.innerText()).replace(/\s+/g, " "));

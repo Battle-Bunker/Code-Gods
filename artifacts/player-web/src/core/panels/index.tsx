@@ -56,7 +56,7 @@ function FirstAgentButton() {
   const dock = useDockActions();
   const { editCode } = useAffordances().can;
   if (loading || agents.length || !editCode.ok) return null;
-  return <button type="button" onClick={() => dock.forgeEdit()} data-testid="button-first-agent"
+  return <button type="button" onClick={() => dock.summonFirst()} data-testid="button-first-agent"
     className="bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground">{SUMMON_FIRST}</button>;
 }
 

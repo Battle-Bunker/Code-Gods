@@ -51,9 +51,9 @@ test("a stored goal pane carrying the retired live-examples keys still parses, t
 });
 
 test("summaries read as pane captions", () => {
-  assert.equal(panelSummary("objects", {}), "Top 12 by payoff");
-  assert.equal(panelSummary("objects", { limit: 5, filter: "chips", layout: "grid" }), "Top 5 by payoff · only ones others care about · grid");
-  assert.equal(panelSummary("objects", { annotate: "none" }), "Top 12 by payoff", "a retired key is ignored");
+  assert.equal(panelSummary("objects", {}), "By points");
+  assert.equal(panelSummary("objects", { limit: 5, filter: "chips", layout: "grid" }), "By points · only ones others care about · grid");
+  assert.equal(panelSummary("objects", { annotate: "none" }), "By points", "a retired key is ignored");
   assert.equal(panelSummary("race", {}), "Everyone · total payoff · last 300 s");
   assert.equal(panelSummary("bits-over-time", { objects: "ids", ids: ["a", "b"] }), "Payoff · 2 chosen objects");
   assert.equal(panelSummary("forge", { source: "def agent(x): return []", language: "python" }), "A draft · python");

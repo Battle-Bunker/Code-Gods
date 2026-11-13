@@ -207,6 +207,10 @@ test("showing a panel reuses its open pane, adds one otherwise, and at four pane
   const parsed = parseLayout(full.layout, ctx).layout;
   assert.equal(panelPanesOf(parsed).length, 4, "nothing parseLayout would drop");
   assert.ok(panelPanesOf(parsed).some(p => p.panelId === "public-chat"));
+  // The goal card and the objects are never replaced while another pane can give way, even when one of them has the focus.
+  const kept = showPanel(layout, "public-chat", undefined, panelPanesOf(layout).find(p => p.kind === "panel" && p.panelId === "objects")!.id);
+  assert.ok(kept.replaced);
+  assert.ok(panelPanesOf(kept.layout).some(p => p.kind === "panel" && p.panelId === "objects"), "the objects stay");
   assert.throws(() => showPanel(base, "what-if"), /assistant/, "a what-if needs the assistant's parameters");
 });
 

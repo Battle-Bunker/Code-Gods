@@ -26,7 +26,7 @@ export function useNextStep(paneId: string, phase: Phase) {
     if (step.busy || !offered) return;
     const action = step.action;
     if (action.kind === "panel") dock.show(action.panelId);
-    else if (action.kind === "forge") dock.forgeEdit();
+    else if (action.kind === "forge") { if (agents.length) dock.forgeEdit(); else dock.summonFirst(); }
     else if (action.kind === "start") void owner.start();
     else paletteStore.open(paneId, step.label);
   };

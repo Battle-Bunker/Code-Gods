@@ -55,10 +55,19 @@ export type LookOffer = { total: number; label: string; ok: boolean; reason: str
  * the engine's refusal states them (game/commands.ts "look"). `noPower`: all the god's power is with its agents, so its
  * own energy holds nothing; the reason then says what to do about it, as the engine's does.
  */
+/**
+ * Why the look at all says "about": the engine charges for every object in the world when the command arrives, and
+ * new ones may have spawned since the price was shown (a player was quoted 19.93 for 12 and charged 23.25 for 14).
+ */
+export function lookAllNote({ price, count }: { price: number; count: number }): string {
+  return `${count} ${count === 1 ? "object" : "objects"} now; each new one costs ${price.toFixed(2)} more.`;
+}
+
 export function lookOffer({ price, energy, count, noPower }: { price: number; energy: number; count?: number; noPower?: boolean }): LookOffer {
   const all = count !== undefined;
   const total = Math.round(price * (count ?? 1) * 100) / 100;
-  const label = all ? `Look at all ${count} · ${total.toFixed(2)} energy` : `Look · ${total.toFixed(2)} energy`;
+  // The look at all is charged for the objects in the world when it arrives, so its price is "about".
+  const label = all ? `Look at all ${count} · about ${total.toFixed(2)} energy` : `Look · ${total.toFixed(2)} energy`;
   if (all && count <= 0) return { total, label, ok: false, reason: "There are no objects to look at yet" };
   // The engine compares the exact price (game/commands.ts), so the cents shown are not what decides.
   if (energy >= price * (count ?? 1)) return { total, label, ok: true, reason: null };

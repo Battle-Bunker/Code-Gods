@@ -24,6 +24,8 @@ const ROOMY: ReadonlySet<PanelId> = new Set<PanelId>(["forge"]);
  * pane, takes the focused pane only when that is big enough (and not My agents, while another pane has the room), else
  * the largest other pane, and a pane is split for it only when both halves stay big enough.
  */
+/** The panes a player plays from: showing another panel never replaces them while any other pane can give way. */
+const KEPT: ReadonlySet<PanelId> = new Set<PanelId>(["my-card", "objects"]);
 export function showPanel(layout: DockLayout, panelId: PanelId, params?: Record<string, unknown>, focused?: string | null): { layout: DockLayout; paneId: string; replaced?: boolean } {
   const panels = panelPanesOf(layout);
   const open = panels.find(p => p.panelId === panelId);
@@ -50,7 +52,10 @@ export function showPanel(layout: DockLayout, panelId: PanelId, params?: Record<
     return { layout: withRoom(setPanePanel(layout, target.id, panelId, "human", values), target.id), paneId: target.id, replaced: true };
   }
   if (panels.length >= LAYOUT_LIMITS.panelPanes) {
-    const target = panels.find(p => p.id === focused) ?? largest(panels.filter(p => p.setBy === "default")) ?? largest(panels)!;
+    // Never the goal card or the objects while another pane can give way ("Where did my boards go?"): the focused pane
+    // unless it is one of those, else the pane the editor is in, else the largest default one.
+    const spare = panels.filter(p => !KEPT.has(p.panelId)), from = spare.length ? spare : panels;
+    const target = from.find(p => p.id === focused) ?? from.find(p => p.panelId === "forge") ?? largest(from.filter(p => p.setBy === "default")) ?? largest(from)!;
     return { layout: setPanePanel(layout, target.id, panelId, "human", values), paneId: target.id, replaced: true };
   }
   return openPane(layout, { id: "", kind: "panel", panelId, params: values, setBy: "human" });

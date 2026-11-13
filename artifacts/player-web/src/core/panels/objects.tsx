@@ -3,7 +3,7 @@
  * a payoff rectangle drawn to scale (width:
  * your bits, height: what the others care, on one scale, so equal values make a square and the area is the payoff),
  * its two values labelled on their edges, `yours × others = payoff`, the relative payoff bar, and "why?" for the full
- * breakdown. Colour coding, the same in every panel: "yours" petrol blue, "others" raspberry (lib/object-views
+ * breakdown (shown above the list, in view: ./object-why.ts). Colour coding, the same in every panel: "yours" petrol blue, "others" raspberry (lib/object-views
  * dimensions.ts); the rectangle's fill and the bar run one amber ramp from muted to strong by the payoff relative to
  * the best shown. Before the world runs, the empty state says what will appear and offers the one next
  * step. The list scrolls over the whole collection (docs/convex-read-architecture.md §4.3): a skeleton of ids in the
@@ -19,7 +19,7 @@
  * long ago it was seen and, when the object has changed since, how often, draws it dimmed with a "stale" badge and
  * offers "Look · price" (the look command, paid from the god's own energy). A free game shows none of this.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Term } from "@workspace/ui-kit";
 import { OBJECT_SORTS, OBJECT_SORT_LABELS, mutationLine, type ObjectSort } from "@workspace/player-client/objects-page";
 import {
@@ -37,7 +37,8 @@ import { useNow } from "@/core/game/situation";
 import { PanelEmpty, PrimaryButton, TextButton, referObject, type PanelProps } from "./kit";
 import { payoffLabels, payoffRect, type PayoffScale } from "./payoff-geometry";
 import { useNextStep } from "./use-next-step";
-import { ageText, lookOffer, staleness } from "./knowledge";
+import { ageText, lookAllNote, lookOffer, staleness } from "./knowledge";
+import { whyTitle, whyUnavailable } from "./object-why";
 import { useReplayChanged } from "@/core/replay/parts";
 
 /** The rectangle's box: the side the largest value fills, and room for the two edge labels. */
@@ -162,11 +163,12 @@ export function LookBar({ price, energy, count, can, onLookAll, boards, stale, n
         <p className="flex flex-wrap items-center gap-x-4 gap-y-1">
           {confirm ? (<>
             <TextButton boxed tone="danger" testId="button-confirm-look-all" disabled={disabled} title={reason ?? undefined} onClick={() => { setConfirm(false); onLookAll(); }}>
-              Pay {all.total.toFixed(2)} energy to look at all {count}
+              Pay about {all.total.toFixed(2)} energy to look at all {count}
             </TextButton>
+            <span data-testid="text-look-all-note">{lookAllNote({ price: price ?? 0, count })}</span>
             <TextButton testId="button-cancel-look-all" onClick={() => setConfirm(false)}>Keep my energy</TextButton>
           </>) : (
-            <TextButton boxed testId="button-look-all" disabled={disabled} title={reason ?? `${all.total.toFixed(2)} energy for ${count} objects, from your own energy`} onClick={() => setConfirm(true)}>{all.label}</TextButton>
+            <TextButton boxed testId="button-look-all" disabled={disabled} title={reason ?? `About ${all.total.toFixed(2)} energy, from your own energy. ${lookAllNote({ price: price ?? 0, count })}`} onClick={() => setConfirm(true)}>{all.label}</TextButton>
           )}
           {/* Why no look can be paid for, said once and in sight (a row's own button carries it only as a title). */}
           {disabled && (single.reason ?? reason) && <span data-testid="text-look-reason" className="min-w-0 break-words">{single.reason ?? reason}</span>}
@@ -288,13 +290,23 @@ function ObjectRow({ objectId, position, byPayoff, scales, world, highlighted, o
   );
 }
 
-/** The full breakdown of the object whose "why?" is open, under the list (rows keep one height). */
-function ObjectDetail({ objectId, noun, comparative, world, boards }: { objectId: string; noun: string; comparative: string | undefined; world: number; boards?: boolean }) {
+/**
+ * The full breakdown of the object whose "why?" is open. It sits ABOVE the list (rows keep one height) and is scrolled
+ * into view when it opens: under the list it was out of sight below a 640px scroller, so "why?" turned into "hide" and
+ * seemed to open nothing (three first-time walks). It always says something: the breakdown, or why there is none.
+ */
+function ObjectDetail({ objectId, noun, comparative, world, boards, onHide }: { objectId: string; noun: string; comparative: string | undefined; world: number; boards?: boolean; onHide: () => void }) {
   const o: MyObject | null | undefined = useMyObject(objectId);
-  if (!o) return null;
+  const rank = useObjectRank(objectId);
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => { box.current?.scrollIntoView({ block: "nearest" }); }, [objectId]);
+  const hide = <TextButton boxed testId="button-object-detail-hide" onClick={onHide}>hide</TextButton>;
+  const missing = whyUnavailable(o, noun);
+  if (!o) return <div ref={box} className="flex flex-wrap items-center gap-2 border-l-2 border-[hsl(var(--card-border))] pl-3 text-xs text-muted-foreground" data-testid="object-detail-none"><span>{missing}</span>{hide}</div>;
   const seen = staleness(o, world);
   return (
-    <div className="space-y-1 border-l-2 border-[hsl(var(--card-border))] pl-3" data-testid={`object-detail-${o.id}`}>
+    <div ref={box} className="space-y-1 border-l-2 border-primary bg-[hsl(var(--primary)/0.04)] py-1 pl-3" data-testid={`object-detail-${o.id}`}>
+      <p className="flex flex-wrap items-center gap-2 text-sm font-semibold" data-testid="text-object-detail-title"><span>{whyTitle(rank, o.payoff, noun)}</span>{hide}</p>
       {seen && (
         <p className="text-xs text-muted-foreground" data-testid={`text-detail-seen-${o.id}`}>
           {boards ? "The others' interest and your points as you last saw them" : "As you last saw it"}, {seen.age < 1 ? "just now" : `${ageText(seen.age)} ago`}
@@ -376,11 +388,11 @@ export default function Objects({ paneId, params, phase }: PanelProps<"objects">
   return (
     <div className="space-y-3" ref={paneRef}>
       {header}
+      {open && <ObjectDetail objectId={open} noun={noun} comparative={comparative} world={world} boards={boards} onHide={() => setOpen(null)} />}
       <VirtualRows rows={skeleton.rows} rowHeight={rowHeightFor(ctx, widePane) + (paid ? SEEN_LINE : 0)} maxHeight={640} keyOf={r => r.id} onNearEnd={loadMore} testId="list-objects"
         render={(r, i) => <ObjectRow objectId={r.id} position={i + 1} byPayoff={params.sortBy === "payoff" && params.filter === "all"} scales={scales} world={world} boards={boards}
           highlighted={highlight.has(r.id)} open={open === r.id} onOpen={toggle} ctx={ctx} noun={noun} comparative={comparative} changed={changed} look={look} />} />
       {skeleton.more && <TextButton onClick={loadMore} testId="button-objects-more">Load more ({skeleton.rows.length} of {matching})</TextButton>}
-      {open && <ObjectDetail objectId={open} noun={noun} comparative={comparative} world={world} boards={boards} />}
       <p className="font-mono text-[11px] text-muted-foreground" data-testid="text-objects-footer">
         {skeleton.rows.length} of {matching}{params.filter !== "all" ? ` matching (${total} in all)` : ""} · Σ your net bits {formatBits(totals?.sumOwnNetBits ?? 0)} · Σ others' {formatBits(totals?.sumPeerNetBits ?? 0)}
       </p>

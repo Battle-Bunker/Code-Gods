@@ -14,7 +14,7 @@ import type { Language } from "@workspace/game-core";
 import { GAME_COMMANDS, VERSION, type Command, type CommandResult, type Envelope } from "@workspace/player-client";
 import { useActions, useDockState } from "@/sdk";
 import { errorText, noticeStore } from "@/core/notices";
-import { BUSY_ATTEMPTS, BUSY_RETRY_MS, busyMessage, createAttempts, deadlineFor, isBusy, receiptNotice, type Examined } from "./command-deadline";
+import { BUSY_ATTEMPTS, BUSY_RETRY_MS, busyMessage, createAttempts, deadlineFor, headerNotice, isBusy, receiptNotice, type Examined } from "./command-deadline";
 
 export type Lang = Language;
 export type Unknown = { envelope: Envelope; error: string };
@@ -34,9 +34,15 @@ export type RunnerState = {
    */
   draft: { source: string; language: Lang | null };
   editing: boolean;
+  /**
+   * "Summon my first agent" was pressed outside the forge (the planning banner, an empty pane): the editor, once it is
+   * showing, summons the untouched example or leads to its Summon button (panels/first-agent.ts firstSummonStep), and
+   * takes the request. A number so a second press is a new request.
+   */
+  firstSummon: number;
 };
 
-let state: RunnerState = { busy: null, notice: null, unknown: null, retrying: null, failed: null, validation: null, draft: { source: "", language: null }, editing: false };
+let state: RunnerState = { busy: null, notice: null, unknown: null, retrying: null, failed: null, validation: null, draft: { source: "", language: null }, editing: false, firstSummon: 0 };
 const listeners = new Set<() => void>();
 /** One command at a time, each with its deadline; only the latest attempt's outcome reaches the state. */
 const attempts = createAttempts();
@@ -49,6 +55,8 @@ export const runner = {
   setEditing(editing: boolean) { set({ editing }); },
   /** Load code into the editor (the agents panel's "Edit a copy", the assistant's draft) and open edit mode. */
   edit(source: string, language?: Lang) { set({ draft: { source, language: language ?? state.draft.language }, editing: true }); },
+  requestFirstSummon() { set({ firstSummon: state.firstSummon + 1, editing: true }); },
+  takeFirstSummon() { if (state.firstSummon) set({ firstSummon: 0 }); },
   dismissUnknown() { set({ unknown: null }); },
   clearNotice() { set({ notice: null }); },
 };
@@ -62,7 +70,7 @@ export function useRunner(): RunnerState {
 export function useGameCommands() {
   const actions = useActions();
   const gameId = useDockState({ hz: 1 })?.gameId;
-  const send = useCallback(async (envelope: Envelope): Promise<CommandResult | undefined> => {
+  const send = useCallback(async (envelope: Envelope, say?: string): Promise<CommandResult | undefined> => {
     const command = envelope.command;
     set({ busy: command.type, notice: null, failed: null, retrying: null });
     const examined = command.type === "validate" || command.type === "summon";
@@ -86,7 +94,7 @@ export function useGameCommands() {
         ...(command.type === "validate" && result.validation ? { validation: { source: command.source, language: command.language, result } } : {}),
       });
       // The forge shows its own notices; anything else is said under the header.
-      if (!examined && !(command.type === "chat" && result.accepted)) noticeStore.push(result.message || (result.accepted ? "Accepted." : "Rejected."), result.accepted ? "info" : "error");
+      if (!examined && !(command.type === "chat" && result.accepted)) noticeStore.push(headerNotice(command.type, result, say), result.accepted ? "info" : "error");
       return result;
     }
     // Still busy after every try: the forge says so in plain words beside one "Try again" (the same envelope), and its
@@ -101,13 +109,15 @@ export function useGameCommands() {
     set({ busy: null, retrying: null, ...(examined ? { notice: { ok: false, text } } : {}), unknown: { envelope, error: text } });
     return undefined;
   }, [actions]);
-  const run = useCallback((command: Command) => {
+  /** `say`: what an accepted command did, in the caller's words (it knows the names), for the notice under the header. */
+  const run = useCallback((command: Command, say?: string) => {
     if (state.busy) return Promise.resolve(undefined);
     const envelope: Envelope = {
       version: VERSION, commandId: crypto.randomUUID(), command,
       ...(GAME_COMMANDS.includes(command.type) && gameId ? { gameId } : {}),
     };
-    return send(envelope);
+    return send(envelope, say);
   }, [send, gameId]);
-  return useMemo(() => ({ run, retry: send, canAct: actions.canAct }), [run, send, actions.canAct]);
+  const retry = useCallback((envelope: Envelope) => send(envelope), [send]);
+  return useMemo(() => ({ run, retry, canAct: actions.canAct }), [run, retry, actions.canAct]);
 }

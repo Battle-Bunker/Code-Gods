@@ -9,8 +9,8 @@
  * skipped, how its acts ended when some failed (the engine's diagnosis, with a fix when most fail), the power-share
  * control (slider, percentage box and Set: allocatePower; before Set it says what the new share does to the agent's
  * capacity and to the player's own, what would be lost, and what debt moves with the power) and "Edit a copy" / Destroy
- * (inline confirm, which says what destroying an agent that owes does to the player's own energy). An agent below zero
- * in a game with capacity says what it owes and how much it may owe; a player below zero is told what they owe and when
+ * (inline confirm, which says what destroying an overdrawn agent does to the player's own energy). An agent below zero
+ * in a game with capacity says by how much it is overdrawn (how far it may be, in the tooltip); a player below zero is told the same and when
  * they can summon again (docs/energy-model.md §7.2). Last, a timeline
  * with a legend and one named row per agent. Each action appears only where it works (core/affordances.ts): none does in
  * a read-only replay, and Destroy goes after the end. In a replay seen as another god, the panel says whose agents these are.
@@ -25,13 +25,14 @@ import { useGameCommands } from "@/core/game/runner";
 import { useAffordances } from "@/core/use-affordances";
 import type { Affordances } from "@/core/affordances";
 import { AgentName, agentLabel } from "./agent-name";
+import { destroyedText } from "@/core/game/command-deadline";
 import { AgentSource } from "./agent-source";
 import { pruneSourceOpen } from "./agent-source-state";
 import {
   STATE_LEGEND, actualLine, afterShareLine, agentState, energyLine, estimateLine, laneKind, num, perSecond, plain, runwayFraction, runwaySeconds, runwayText,
-  shareLine, skipLine, spentLine, statusText, summonLine, yourPowerLine, type Seg,
+  allocationSettled, shareLine, skipLine, spentLine, statusText, summonLine, yourPowerLine, type Seg,
 } from "./agent-labels";
-import { agentDebtLine, destroyDebtLine, fillText, owes, ownEnergyLine, shareCapacityLines, storeFraction, storeState, storedLine } from "./energy-capacity";
+import { OWN_FULL_DETAIL, agentDebtDetail, agentDebtLine, destroyDebtLine, fillText, owes, ownEnergyLine, ownStoreFull, shareCapacityLines, storeFraction, storeState, storedLine } from "./energy-capacity";
 import { PanelEmpty, TextButton, type PanelProps } from "./kit";
 import { maxShareFor, parseSharePercent, shareProblem } from "./power-share";
 import { PointsNow, useOwnActLines } from "./score-lines";
@@ -106,7 +107,7 @@ function PowerShareControl({ id, share, allocated, total, fullChargeSeconds, age
         : changed && parsed !== null && (<>
           <p data-testid={`text-power-preview-${id}`} className="text-muted-foreground">{afterShareLine(parsed, share, allocated, total)}</p>
           {shareCapacityLines({ newShare: parsed, agentShare: share, allocated, total, fullChargeSeconds, agentEnergy, ownEnergy }).map((line, i) => (
-            <p key={i} data-testid={`text-power-capacity-${id}-${i}`} className={line.includes("lost") || line.includes("cannot summon") || line.includes("will owe") ? "font-semibold text-destructive" : "text-muted-foreground"}>{line}</p>
+            <p key={i} data-testid={`text-power-capacity-${id}-${i}`} className={line.includes("lost") || line.includes("cannot summon") || line.includes("will be overdrawn") ? "font-semibold text-destructive" : "text-muted-foreground"}>{line}</p>
           ))}
         </>)}
     </div>
@@ -136,6 +137,8 @@ export type AgentsViewProps = {
   onSetShare: (a: MyAgent, share: number) => void;
   onDestroy: (a: MyAgent) => void;
   footer?: ReactNode;
+  /** The player's allocated total disagrees with the agents listed (a destroy or a new share still arriving): the split is not shown. */
+  settling?: boolean;
   /** "Your points now", above your power line (the panel passes <PointsNow />). */
   header?: ReactNode;
   /** Agent id → one plain sentence for its latest act: the change, your rule score, the points (score-line.ts). */
@@ -143,7 +146,7 @@ export type AgentsViewProps = {
 };
 
 /** The panel without its data hooks, so the gallery (src/gallery/agents.tsx) can draw it from fixtures. */
-export function AgentsView({ agents, self, powerPerSecond, fullChargeSeconds, changeReadRatio, costModel, world, samples, window: windowS, ended, showCosts, showSource, can, wait, onEdit, onSetShare, onDestroy, footer, header, actLines }: AgentsViewProps) {
+export function AgentsView({ agents, self, powerPerSecond, fullChargeSeconds, changeReadRatio, costModel, world, samples, window: windowS, ended, showCosts, showSource, can, wait, onEdit, onSetShare, onDestroy, footer, header, actLines, settling }: AgentsViewProps) {
   const [confirm, setConfirm] = useState<string | null>(null);
   const { editCode, destroy, allocatePower } = can;
   const showDestroy = destroy.ok || !destroy.hidden;
@@ -157,18 +160,22 @@ export function AgentsView({ agents, self, powerPerSecond, fullChargeSeconds, ch
       {header}
       {self?.allocated !== undefined && self.income !== undefined && (
         <div className="space-y-1 text-xs" data-testid="text-unallocated-power">
-          <p className="font-medium text-foreground" title={SCORE_LINES.energy}><Say segs={yourPowerLine({ total, allocated: self.allocated, income: self.income, energy: self.energy ?? 0 })} /></p>
+          <p className="font-medium text-foreground" title={SCORE_LINES.energy}><Say segs={yourPowerLine({ total, allocated: self.allocated, income: self.income, energy: self.energy ?? 0, settling })} /></p>
           {self.capacity !== undefined && (
-            <p data-testid="text-own-capacity" className={`flex flex-wrap items-center gap-x-3 gap-y-1 ${self.capacity > 0 && owes(self.energy ?? 0) === 0 ? "text-foreground" : "font-semibold text-destructive"}`}>
+            <p data-testid="text-own-capacity" title={ownStoreFull(self.energy ?? 0, self.capacity) ? OWN_FULL_DETAIL : undefined} className={`flex flex-wrap items-center gap-x-3 gap-y-1 ${self.capacity > 0 && owes(self.energy ?? 0) === 0 ? "text-foreground" : "font-semibold text-destructive"}`}>
               <span><Say segs={ownEnergyLine({ energy: self.energy ?? 0, income: self.income, capacity: self.capacity })} /></span>
               {self.capacity > 0 && owes(self.energy ?? 0) === 0 && <CapacityMeter bare testId="meter-own-energy" energy={self.energy ?? 0} income={self.income} capacity={self.capacity} />}
             </p>
           )}
-          <p className="text-muted-foreground" data-testid="text-energy-income">⚡ is <Term id="energy">energy</Term>: {SCORE_LINES.energy}</p>
+          {/* The explanation is one closed disclosure, so the agents come first ("That's a LOT of text."). */}
+          <details data-testid="details-how-energy-works" className="space-y-1">
+          <summary className="cursor-pointer font-semibold text-muted-foreground">How energy works</summary>
+          <p className="mt-1 text-muted-foreground" data-testid="text-energy-income">⚡ is <Term id="energy">energy</Term>: {SCORE_LINES.energy}</p>
           <p className="text-muted-foreground">
             The world hands out <Term id="turn">turns</Term> at random: the more energy an agent has, the more turns it gets. An act pays what it
             looks at (<Term id="read-bits">reading cost</Term>{changeReadRatio !== undefined && changeReadRatio > 1 ? `: looking is ${changeReadRatio}× cheaper than changing` : ""}) plus, if it changes the object, the <Term id="change-cost">change cost</Term>. Every turn also pays a little for being given its object, so a turn is never free. <span data-testid="text-change-cost-rule">{changeCostKid(costModelOf(costModel))}</span>
           </p>
+          </details>
         </div>
       )}
       <ul className="space-y-4">
@@ -191,7 +198,7 @@ export function AgentsView({ agents, self, powerPerSecond, fullChargeSeconds, ch
                 {a.powerShare !== undefined && a.income !== undefined && <p data-testid={`text-agent-share-${a.id}`}><Say segs={shareLine(a.powerShare, a.income)} /></p>}
                 <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
                   <span className={a.energy <= 0 ? "font-semibold text-destructive" : "text-foreground"}><Say segs={capped ? storedLine(a.energy, a.capacity!) : energyLine(a.energy)} /></span>
-                  {debt && <span data-testid={`text-agent-debt-${a.id}`} className="font-semibold text-destructive">{debt}</span>}
+                  {debt && <span data-testid={`text-agent-debt-${a.id}`} title={agentDebtDetail(a.capacity) ?? undefined} className="font-semibold text-destructive">{debt}</span>}
                 </p>
                 <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
                   {capped ? <CapacityMeter testId={`meter-agent-capacity-${a.id}`} energy={a.energy} income={a.income ?? 0} capacity={a.capacity!} /> : <EnergyMeter energy={a.energy} income={a.income ?? 0} />}
@@ -275,7 +282,7 @@ export default function Agents({ params, phase }: PanelProps<"agents">) {
   const { editCode } = can.can;
   const owner = can.seenAs ? <p data-testid="text-agents-owner" className="text-xs text-muted-foreground">Seen as {can.seenAs}: these are {can.whose} agents.</p> : null;
   if (!all.length) {
-    return <PanelEmpty action={(phase === "planning" || phase === "running") && editCode.ok ? <TextButton onClick={() => dock.forgeEdit()}>{SUMMON_FIRST}</TextButton> : undefined}>
+    return <PanelEmpty action={(phase === "planning" || phase === "running") && editCode.ok ? <TextButton onClick={() => dock.summonFirst()}>{SUMMON_FIRST}</TextButton> : undefined}>
       {can.seenAs ? `${can.seenAs} has no agents ${ended ? "at the end of this game" : "at this moment"}.`
         : can.readOnly && !ended ? "No agents at this moment." : ended ? "You summoned no agents in this game." : "No agents summoned yet. An agent is a small program that changes objects your way when the world picks it."}
     </PanelEmpty>;
@@ -287,7 +294,8 @@ export default function Agents({ params, phase }: PanelProps<"agents">) {
         showCosts={params.showCosts} showSource={params.showSource} can={can.can} wait={secondsUntilEligible}
         onEdit={a => dock.forgeEdit(a.source, isLanguage(a.language) ? a.language : undefined)}
         onSetShare={(a, share) => void commands.run({ type: "allocatePower", agentId: a.id, share })}
-        onDestroy={a => void commands.run({ type: "destroy", agentId: a.id })}
+        onDestroy={a => void commands.run({ type: "destroy", agentId: a.id }, destroyedText(agentLabel(a.name, agents.indexOf(a))))}
+        settling={!ended && self?.allocated !== undefined && !allocationSettled(self.allocated, all.map(a => a.powerShare))}
         header={can.seenAs ? undefined : <PointsNow />} actLines={acts.byAgent}
         footer={ended && <p data-testid="text-agents-ended" className="text-xs text-muted-foreground">
           {can.readOnly ? `These are ${can.whose} agents as they ended the game.` : "The game is over: these are your agents as they ended it. Edit a copy keeps the code for the next game."}

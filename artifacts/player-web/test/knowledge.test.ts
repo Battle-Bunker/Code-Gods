@@ -5,7 +5,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ageText, lookOffer, seenText, staleness } from "../src/core/panels/knowledge.ts";
+import { ageText, lookAllNote, lookOffer, seenText, staleness } from "../src/core/panels/knowledge.ts";
 
 test("ages are compact world seconds: now, 42s, 3m 10s, 1h 2m", () => {
   assert.equal(ageText(0), "now");
@@ -48,11 +48,17 @@ test("one look: the price on the button, affordable or the reason with price and
 
 test("a look at all: the price times the object count, said before paying", () => {
   const all = lookOffer({ price: 1.66, energy: 100, count: 40 });
-  assert.deepEqual(all, { total: 66.4, label: "Look at all 40 · 66.40 energy", ok: true, reason: null });
+  assert.deepEqual(all, { total: 66.4, label: "Look at all 40 · about 66.40 energy", ok: true, reason: null });
   const poor = lookOffer({ price: 1.66, energy: 12.5, count: 40 });
   assert.equal(poor.ok, false);
   assert.equal(poor.reason, "A look at all 40 objects costs 66.40 energy; you have 12.50");
   const none = lookOffer({ price: 1.66, energy: 12.5, count: 0 });
   assert.equal(none.ok, false);
   assert.equal(none.reason, "There are no objects to look at yet");
+});
+
+test("the look at all is quoted as 'about', with what a new object adds (quoted 19.93 for 12, charged 23.25 for 14)", () => {
+  assert.equal(lookAllNote({ price: 1.66, count: 12 }), "12 objects now; each new one costs 1.66 more.");
+  assert.equal(lookAllNote({ price: 1.66, count: 1 }), "1 object now; each new one costs 1.66 more.");
+  assert.equal(lookOffer({ price: 1.66, energy: 100, count: 12 }).label, "Look at all 12 · about 19.92 energy");
 });

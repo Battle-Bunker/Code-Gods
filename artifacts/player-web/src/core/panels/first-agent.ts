@@ -62,9 +62,79 @@ export function summonReady(s: { untouched: boolean; valid: boolean; price: numb
 /** The engine refused a summon for lack of energy (its receipt's message): the forge then waits for the energy instead. */
 export const lacksEnergy = (message: string | undefined): boolean => /insufficient energy|not enough energy/i.test(message ?? "");
 
-/** Said once an agent is summoned: where it is, when it acts, and the next thing to try. */
+/** Said once an agent is summoned: where it is and when it acts (the forge adds a button to My agents and the next thing to try). */
 export function summonedText(name: string, planning: boolean): string {
-  return `Summoned: ${name} is in the game. ${planning ? "It acts when the world starts." : "It acts whenever it gets a turn."} Watch 'My agents' for what it does. Then try the change suggested in the code and summon again.`;
+  return `Summoned: ${name} is in the game. ${planning ? "It acts when the world starts." : "It acts whenever it gets a turn."}`;
+}
+export const SUMMONED_NEXT = "Then try the change suggested in the code and summon again.";
+
+/**
+ * Why the player's own energy store shrank at a summon: the share of their power the new agent takes, and what their
+ * store now holds at most (the live capacity). Null when either is unknown or the game has no capacity.
+ */
+export function storeAfterSummonText(s: { share: number | undefined; capacity: number | undefined }): string | null {
+  if (s.share === undefined || !(s.share > 0) || s.capacity === undefined || !Number.isFinite(s.capacity)) return null;
+  const part = Math.abs(s.share - 0.5) < 0.005 ? "Half" : `${Math.round(s.share * 100)}%`;
+  return `${part} of your power now feeds this agent, so your own store is smaller: at most ${Math.round(s.capacity)} ⚡.`;
+}
+
+/**
+ * "Summon my first agent" (the planning banner, My agents' empty state, a pane outside its phase): the editor is
+ * opened, and then
+ * - "summon": it holds the untouched example and its Summon button is on, so the click summons it (the forge's own
+ *   summon, with its busy retries and its wait for energy);
+ * - "ring": the player's own code, an editor they cleared, or Summon is off: the Summon button is brought into view
+ *   with an attention ring, and nothing is summoned for them;
+ * - "wait": a command is in flight, or the example has not arrived in the editor yet.
+ */
+export type FirstSummonStep = "idle" | "wait" | "summon" | "ring";
+export function firstSummonStep(s: { requested: boolean; busy: boolean; agents: number | undefined; source: string; untouched: boolean; /** The example is about to be put in the editor (firstAgentFill). */ filling: boolean; /** The Summon button is on. */ enabled: boolean }): FirstSummonStep {
+  if (!s.requested) return "idle";
+  if (s.busy) return "wait";
+  if (!s.source.trim() && (s.agents === undefined || s.filling)) return "wait";
+  return s.agents === 0 && s.untouched && s.enabled ? "summon" : "ring";
+}
+
+const sameName = (a: string | undefined, b: string) => (a ?? "").trim().toLowerCase() === b.trim().toLowerCase();
+/** `name`, or `name` with the next free number ("Keeper 2", "Keeper 3") when the player already has an agent of that name. */
+export function nextFreeName(name: string, existing: readonly (string | undefined)[], max = 40): string {
+  const wanted = name.trim();
+  if (!wanted || !existing.some(n => sameName(n, wanted))) return wanted;
+  const numbered = /^(.*\S)\s+(\d+)$/.exec(wanted);
+  const stem = numbered ? numbered[1] : wanted;
+  for (let n = numbered ? Number(numbered[2]) + 1 : 2; ; n++) {
+    const suffix = ` ${n}`, next = `${stem.slice(0, Math.max(1, max - suffix.length)).trimEnd()}${suffix}`;
+    if (!existing.some(e => sameName(e, next))) return next;
+  }
+}
+/** The name to put in the field instead, or null to leave it: only a name the player did not type themselves is changed. */
+export function proposedName(s: { name: string; typed: boolean; existing: readonly (string | undefined)[] }): string | null {
+  if (s.typed || !s.name.trim()) return null;
+  const next = nextFreeName(s.name, s.existing);
+  return next === s.name.trim() ? null : next;
+}
+
+/** The editor holds exactly the code of an agent the player already has: Summon makes a copy, and the pane says so. */
+export const COPY_LABEL = "Summon another copy";
+export const COPY_HINT = "You already have this agent. A copy acts as well, at the same price; changing the code first is more useful.";
+export function isCopy(source: string, language: string, agents: readonly { source?: string; language?: string }[]): boolean {
+  return !!source.trim() && agents.some(a => a.source === source && (a.language === undefined || a.language === language));
+}
+
+/**
+ * Whether replacing the editor's code with a template must be asked first: only for code that would be lost, that is
+ * code the player wrote or edited which is not the code of one of their summoned agents (nor an untouched example).
+ */
+export function replaceNeedsConfirm(s: { source: string; untouched: boolean; copy: boolean }): boolean {
+  return !!s.source.trim() && !s.untouched && !s.copy;
+}
+export const REPLACE_QUESTION = "Replace the code in the editor with the looker? Your summoned agents are not affected.";
+
+/** Above the editor once the player has an agent: what summoning another one means. */
+export function secondAgentHint(agents: number | undefined): string | null {
+  if (!agents) return null;
+  return agents === 1 ? "A second agent runs beside the first. To replace the first one instead, destroy it in My agents."
+    : "A new agent runs beside the ones you have. To replace one instead, destroy it in My agents.";
 }
 
 /** My agents during planning, once the player has an agent: nothing left to write, only to wait for the world. */

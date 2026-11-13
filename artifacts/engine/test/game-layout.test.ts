@@ -73,7 +73,7 @@ test("the layout tools open, reparameterise, move and close panes as the human, 
   await ada.c.mutation(api.layout.set, { roomId, layout: { ...second.layout, panes: { ...second.layout.panes, p1: { ...second.layout.panes.p1, setBy: "human" } } } });
   const opened = await admin.mutation(internal.layout.openPanelAs, { principal, panelId: "objects", params: { limit: 5, filter: "chips" } });
   assert.equal(opened.reused, false);
-  assert.equal(opened.summary, "Top 5 by payoff · only ones others care about");
+  assert.equal(opened.summary, "By points · only ones others care about");
   assert.deepEqual(Object.keys(opened.layout.panes).sort(), ["p1", "p2", "p3"]);
   assert.equal(panelPane(opened.layout, opened.paneId).setBy, "assistant");
   assert.equal(panelPane(opened.layout, "p1").panelId, "race", "the player's pane is untouched");
