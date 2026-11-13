@@ -100,6 +100,18 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # The "rest" shard runs the tests that compile a starter agent (ai-player, engine example agents), which need the
+      # pinned Python runtime; `dist/python-runtime.bin.gz` is built, not committed, so this shard builds it too.
+      - if: matrix.shard == 'rest'
+        uses: actions/cache@v4
+        id: cpython
+        with:
+          path: .cache/code-gods
+          key: cpython-wasi-${{ hashFiles('lib/game-runtime/python/setup.py') }}
+      - if: matrix.shard == 'rest' && steps.cpython.outputs.cache-hit != 'true'
+        run: pnpm --filter @workspace/game-runtime setup:python
+      - if: matrix.shard == 'rest'
+        run: pnpm --filter @workspace/game-runtime build:python
       - if: matrix.shard != 'rest'
         run: pnpm --filter @workspace/game-utilities test
         env:
