@@ -21,7 +21,7 @@ import { useGameCommands, useRunner } from "@/core/game/runner";
 import { useOwnerActions } from "@/core/game/owner";
 import { useStartView } from "@/core/game/start";
 import { useSituation } from "@/core/game/situation";
-import { notify, notifyError } from "@/core/notices";
+import { notify, notifyError, notifyKept } from "@/core/notices";
 import { navigate, hrefTo } from "@/core/navigation";
 import { useReplayController } from "@/core/replay/parts";
 import { useLive } from "@/site/lib/convex";
@@ -56,7 +56,7 @@ function useThreads(roomId: Id<"rooms">): LiveOptions {
 }
 
 const roomUrl = (code: string) => `${location.origin}/rooms/${encodeURIComponent(code)}`;
-const copy = (text: string, done: string) => navigator.clipboard?.writeText(text).then(() => notify(done), () => notify(text));
+const copy = (text: string, done: string) => navigator.clipboard?.writeText(text).then(() => notify(done), () => notifyKept(text));   // the link itself, to copy by hand: kept until dismissed
 
 export function usePlayerCommands(scopePaneId: string | null): { commands: Command[]; context: PaletteContext } {
   const { roomId, permission } = useRoom();
@@ -155,7 +155,7 @@ export function usePlayerCommands(scopePaneId: string | null): { commands: Comma
       start: () => replayController?.seek(0),
       end: () => replayController?.seekWorld(replayController.endWorld),
     },
-    notify,
+    notify, notifyKept,
   }), [replayController, game, wake, join, s.obs, permission, roomId, room, owner, actions, setEnabled, removePanel, rollback, panels.stored, status, cancel, setMode, state.roomCode, state.gameCode]);
 
   const context = useMemo((): PaletteContext => ({

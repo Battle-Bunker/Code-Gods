@@ -7,7 +7,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  FIRST_AGENT_HINT, STARTER_AGENT_HINT, armedStep, armedText, energyHint, firstAgentFill, firstAgentHint, untouchedExample, lacksEnergy, readyText, summonReady, summonedText, COPY_HINT, REPLACE_WHY, afterCheck, checkedLine, replaceLoss, versionComparison, PENDING_REPLACE_MS, pendingReplaceOnReceipt, pendingReplaceOnSend, replaceBlocked, sameVersionNote, bothText, draftOrigin, replaceLabel, replaceOffer, replaceShare, replaceStep, replacedText, FIRST_SUMMON_MAX_AGE_MS, FIRST_SUMMON_WARMING_MS, firstSummonLabel, isCopy, replaceNeedsConfirm, firstSummonStep, nextFreeName, proposedName, secondAgentHint, storeAfterSummonText, type ArmedSummon, type Examples, type FirstAgentState,
+  FIRST_AGENT_HINT, STARTER_AGENT_HINT, armedStep, armedText, energyHint, firstAgentFill, firstAgentHint, untouchedExample, lacksEnergy, readyText, summonReady, summonedText, COPY_HINT, REPLACE_WHY, COMPARISON_CAVEAT, previousTarget, putBackLabel, putBackText, BUSY_NOTHING_CHANGED, afterCheck, checkedLine, replaceLoss, versionComparison, PENDING_REPLACE_MS, pendingReplaceOnReceipt, pendingReplaceOnSend, replaceBlocked, sameVersionNote, bothText, draftOrigin, replaceLabel, replaceOffer, replaceShare, replaceStep, replacedText, FIRST_SUMMON_MAX_AGE_MS, FIRST_SUMMON_WARMING_MS, firstSummonLabel, isCopy, replaceNeedsConfirm, firstSummonStep, nextFreeName, proposedName, secondAgentHint, storeAfterSummonText, type ArmedSummon, type Examples, type FirstAgentState,
 } from "../src/core/panels/first-agent.ts";
 
 const py = { name: "Mirror maker", source: "# My goal: mirrors\ndef agent(grid):\n    return []\n", specific: true };
@@ -261,7 +261,7 @@ test("one press: the check goes straight on when the code is valid and payable, 
   assert.equal(afterCheck({ accepted: true, valid: true, cost: 174, energy: 400 }), "go");
   assert.equal(afterCheck({ accepted: true, valid: false, cost: 0, energy: 400 }), "invalid");
   assert.equal(afterCheck({ accepted: false, valid: undefined, cost: undefined, energy: 400 }), "invalid", "the sandbox was not ready: the forge says so");
-  assert.equal(afterCheck(undefined, 400), "invalid", "no answer");
+  assert.equal(afterCheck(undefined), "invalid", "no answer");
   assert.equal(afterCheck({ accepted: true, valid: true, cost: 425, energy: 226 }), "short", "valid but not payable yet: the energy line says when");
   assert.equal(afterCheck({ accepted: true, valid: true, cost: 174, energy: 174 }), "go");
   assert.equal(checkedLine(174.382, "replace"), "Checked: 174.4 ⚡. Replacing…");
@@ -275,16 +275,47 @@ test("a replace says what the moment with two versions cost the player's own sto
   assert.equal(replaceLoss({ energy: 300, cost: 174, allocated: 0.5, share: 0.25, powerPerSecond: 64, fullChargeSeconds: 30 }), 0, "what is left fits the smaller store");
   assert.equal(replaceLoss({ energy: 737, cost: 174, allocated: 0.5, share: 0.5, powerPerSecond: 64, fullChargeSeconds: 30 }), 563, "everything given away for a moment: the store holds nothing");
   assert.equal(replaceLoss({ energy: 737, cost: 174, allocated: 0.5, share: 0.25, powerPerSecond: 64, fullChargeSeconds: undefined }), 0, "a game without capacity loses nothing");
-  assert.equal(replacedText("Keeper", { share: 0.5, oldShare: 0.5, lost: 83 }), "Replaced: Keeper now runs your new version. For a moment both versions shared your power, so your own store shrank and lost 83 ⚡; it refills.");
+  // The price and the spill are said together, and the spill is plainly not a charge: it refills, in so many seconds.
+  assert.equal(replacedText("Keeper", { share: 0.5, oldShare: 0.5, cost: 178.4, lost: 782, refill: 24.4 }),
+    "Replaced: Keeper now runs your new version for 178 ⚡. While the two versions overlapped, your own store was smaller and 782 ⚡ of stored energy spilled; it refills in about 24 s.");
+  assert.equal(replacedText("Keeper", { share: 0.5, oldShare: 0.5, lost: 83 }), "Replaced: Keeper now runs your new version. While the two versions overlapped, your own store was smaller and 83 ⚡ of stored energy spilled; it refills.");
+  assert.equal(replacedText("Keeper", { share: 0.5, oldShare: 0.5, cost: 178.4, lost: 0.4, refill: 1 }), "Replaced: Keeper now runs your new version for 178 ⚡.", "under 1 ⚡: not said");
   assert.equal(replacedText("Keeper", { share: 0.5, oldShare: 0.5, lost: 0.2 }), "Replaced: Keeper now runs your new version.");
 });
 
-test("did the change help: per move before and since, once the new version has enough counted moves", () => {
-  const before = { moves: 20, points: 254, objects: 9 }, since = { moves: 14, points: -49, objects: 6 };
-  assert.equal(versionComparison(before, since), "Before your change: +12.7 points a move. Since: −3.5 a move (over its last 14 moves).");
-  assert.equal(versionComparison(before, { moves: 7, points: 30, objects: 3 }), null, "fewer than 8 counted moves: too early to say");
+test("did the change help: before against the new version's FIRST moves, frozen at 20, with the caveat", () => {
+  const before = { moves: 20, points: 162, objects: 9 };
+  assert.equal(versionComparison(before, { moves: 7, points: 300 }), null, "fewer than 8 counted moves: too early to say");
   assert.equal(versionComparison(before, undefined), null);
-  assert.equal(versionComparison(undefined, since), "Since your change: −3.5 points a move (over its last 14 moves). Nothing was counted for the version before it.");
-  assert.equal(versionComparison({ moves: 0, points: 0, objects: 0 }, since), "Since your change: −3.5 points a move (over its last 14 moves). Nothing was counted for the version before it.");
-  assert.equal(versionComparison(before, since, true), "Before your change: about +12.7 points a move. Since: about −3.5 a move (over its last 14 moves).");
+  assert.equal(versionComparison(before, { moves: 12, points: 267.6, frozen: false }), "Before your change: +8.1 points a move. Since: +22.3 a move so far, over its first 12 moves.");
+  assert.equal(versionComparison(before, { moves: 20, points: -70, frozen: true }), "Before your change: +8.1 points a move. Since: −3.5 a move over its first 20 moves.");
+  assert.equal(versionComparison(undefined, { moves: 20, points: -70, frozen: true }), "Since your change: −3.5 points a move over its first 20 moves. Nothing was counted for the version before it.");
+  assert.equal(versionComparison({ moves: 0, points: 0 }, { moves: 9, points: 18 }), "Since your change: +2 points a move so far, over its first 9 moves. Nothing was counted for the version before it.");
+  assert.equal(versionComparison(before, { moves: 20, points: -70, frozen: true }, { estimate: true }), "Before your change: about +8.1 points a move. Since: about −3.5 a move over its first 20 moves.");
+  // After a put-back: how the restored version is doing, in the same terms.
+  assert.equal(versionComparison(undefined, { moves: 20, points: 720, frozen: true }, { restored: true }), "Back on the previous version: +36 points a move over its first 20 moves since.");
+  assert.equal(versionComparison(undefined, { moves: 9, points: 90 }, { restored: true }), "Back on the previous version: +10 points a move so far, over its first 9 moves since.");
+  assert.equal(COMPARISON_CAVEAT, "Every agent earns most just after it starts, so read this as a rough guide; your total points over the next minute are the real test.");
+});
+
+test("the previous version belongs to one game and one agent: never a twin with the same code, never the next game", () => {
+  const previous = { gameId: "g1", source: "OLD", language: "python", name: "Keeper", newSource: "NEW", knownIds: ["a1", "a2"] };
+  const live = [{ id: "a2", source: "NEW" }, { id: "a7", source: "NEW" }, { id: "a3", source: "OTHER" }];
+  // Not yet identified: the agent with the new code that did not exist when Replace was pressed (a2 did: it is a twin).
+  assert.deepEqual(previousTarget(previous, "g1", live), { adopt: "a7" });
+  assert.deepEqual(previousTarget(previous, "g1", [live[0], live[2]]), { wait: true }, "the new agent is not in the list yet");
+  // Identified: only that agent, while it lives.
+  assert.deepEqual(previousTarget({ ...previous, agentId: "a7" }, "g1", live), { target: "a7" });
+  assert.deepEqual(previousTarget({ ...previous, agentId: "a7" }, "g1", [live[0]]), { clear: true }, "destroyed (or replaced again): the memory goes");
+  assert.deepEqual(previousTarget({ ...previous, agentId: "a7" }, "g2", live), { clear: true }, "another game");
+  assert.deepEqual(previousTarget(previous, undefined, live), { wait: true }, "the game is not known yet");
+  assert.deepEqual(previousTarget(null, "g1", live), { none: true });
+});
+
+test("putting the previous version back is a paid summon and says so, before and after", () => {
+  assert.equal(putBackLabel(169.2), "Put the previous version back · costs 169.2 ⚡");
+  assert.equal(putBackLabel(undefined), "Put the previous version back · costs its summon price again");
+  assert.equal(putBackText("Keeper", {}), "Put back: Keeper runs the previous version again.");
+  assert.equal(putBackText("Keeper", { cost: 169.2, lost: 83, refill: 5.2 }), "Put back: Keeper runs the previous version again for 169 ⚡. While the two versions overlapped, your own store was smaller and 83 ⚡ of stored energy spilled; it refills in about 5 s.");
+  assert.equal(BUSY_NOTHING_CHANGED, "The game is busy; nothing changed. Try again.");
 });
