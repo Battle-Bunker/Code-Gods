@@ -25,9 +25,9 @@ export function within<T>(work: Promise<T>, ms: number): Promise<T> {
 }
 
 /** What the player or the assistant is told when the examination was given up: nothing was stored, so the same command can be sent again. */
-export function examinationBusyMessage(type: "validate" | "summon", ms: number): string {
+export function examinationBusyMessage(type: "validate" | "summon" | "replace", ms: number): string {
   const seconds = Math.round(ms / 1000);
   return type === "validate"
     ? `The agent sandbox is busy: validating this agent took longer than ${seconds} seconds, so nothing was validated. Send the same command again in a moment.`
-    : `The agent sandbox is busy: examining this agent took longer than ${seconds} seconds, so nothing was summoned or paid. Send the same command again in a moment.`;
+    : `The agent sandbox is busy: examining this agent took longer than ${seconds} seconds, so nothing was ${type === "replace" ? "replaced" : "summoned"} or paid. Send the same command again in a moment.`;
 }

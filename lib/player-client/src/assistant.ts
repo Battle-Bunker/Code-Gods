@@ -224,6 +224,7 @@ function toolArgs(envelope: Envelope): Record<string, unknown> {
   switch (c.type) {
     case "validate": return { ...base, source: c.source, language: c.language };
     case "summon": return { ...base, source: c.source, language: c.language, name: c.name, ...(c.description ? { description: c.description } : {}), ...(c.powerShare !== undefined ? { powerShare: c.powerShare } : {}) };
+    case "replace": return { ...base, agentId: c.agentId, source: c.source, language: c.language, ...(c.description ? { description: c.description } : {}) };
     case "allocatePower": return { ...base, agentId: c.agentId, share: c.share };
     case "destroy": return { ...base, agentId: c.agentId };
     case "look": return { ...base, ...(c.objectId ? { objectId: c.objectId } : c.count !== undefined ? { count: c.count } : {}) };

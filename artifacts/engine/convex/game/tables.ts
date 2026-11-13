@@ -76,6 +76,14 @@ export const eventV = v.union(
     t: v.literal("skip"), objectId: v.string(), world: v.number(), agentId: v.string(), ownerId: v.string(), cost: charge, seed: v.optional(v.string()),
   }),
   v.object({ t: v.literal("phase"), phase, world: v.number(), reason: v.optional(v.string()) }),
+  /**
+   * An agent's program was replaced (schema 14; docs/energy-model.md §5.2): the new program's record. Its god paid
+   * `summonCost`; the agent's id, name, power share and account are untouched.
+   */
+  v.object({
+    t: v.literal("replace"), agentId: v.string(), ownerId: v.string(), world: v.number(), language: v.string(), source: v.string(),
+    description: v.optional(v.string()), summonCost: v.number(), expectedActCost: v.number(), breakdown: v.object({ read: v.number(), change: v.number() }), randomized: v.boolean(),
+  }),
   v.object({
     t: v.literal("summon"), agentId: v.string(), ownerId: v.string(), world: v.number(), language: v.string(), source: v.string(),
     name: v.optional(v.string()), description: v.optional(v.string()),

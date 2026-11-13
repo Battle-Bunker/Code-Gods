@@ -229,6 +229,16 @@ export function projectEvent(ev: Ev, godId: string, index: number, live = true) 
       } : {}),
     };
   }
+  if (ev.t === "replace") {
+    // As a summon: the owner's own while the game is live; after the end everyone sees that it happened, the owner what.
+    const mine = ev.ownerId === godId;
+    if (live && !mine) return null;
+    return {
+      type: "agent.replaced" as const, agentId: ev.agentId, mine, worldSeconds: ev.world,
+      ...(mine ? { ...(ev.description ? { description: ev.description } : {}), language: ev.language, source: ev.source, summonCost: ev.summonCost, expectedActCost: ev.expectedActCost,
+        breakdown: costBreakdown(ev.breakdown), randomized: ev.randomized } : {}),
+    };
+  }
   if (ev.t === "destroy") {
     const mine = ev.ownerId === godId;
     // `owed` (the debt that moved to its god with its power, §7.2) is the owner's own account: theirs alone while live.
@@ -308,6 +318,11 @@ export function replayEvent(ev: Ev) {
       ...(ev.name ? { name: ev.name } : {}), ...(ev.description ? { description: ev.description } : {}),
       summonCost: ev.summonCost, expectedActCost: ev.expectedActCost, ...(ev.powerShare !== undefined ? { powerShare: ev.powerShare } : {}),
       breakdown: costBreakdown(ev.breakdown), randomized: ev.randomized, account: ev.account,
+    };
+    case "replace": return {
+      type: "agent.replaced" as const, agentId: ev.agentId, ownerId: ev.ownerId, worldSeconds: ev.world, language: ev.language, source: ev.source,
+      ...(ev.description ? { description: ev.description } : {}), summonCost: ev.summonCost, expectedActCost: ev.expectedActCost,
+      breakdown: costBreakdown(ev.breakdown), randomized: ev.randomized,
     };
     case "destroy": return { type: "agent.destroyed" as const, agentId: ev.agentId, ownerId: ev.ownerId, worldSeconds: ev.world, ...(ev.owed !== undefined ? { owed: ev.owed } : {}) };
     case "power": return { type: "agent.power" as const, agentId: ev.agentId, ownerId: ev.ownerId, worldSeconds: ev.world, share: ev.share, ...(ev.owed !== undefined ? { owed: ev.owed } : {}) };

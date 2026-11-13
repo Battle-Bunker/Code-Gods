@@ -11,7 +11,7 @@
  */
 import { useCallback, useMemo, useSyncExternalStore } from "react";
 import type { Language } from "@workspace/game-core";
-import { GAME_COMMANDS, VERSION, type Command, type CommandResult, type Envelope } from "@workspace/player-client";
+import { GAME_COMMANDS, VERSION, examinesProgram, type Command, type CommandResult, type Envelope } from "@workspace/player-client";
 import { useActions, useDockState } from "@/sdk";
 import { errorText, noticeStore } from "@/core/notices";
 import { BUSY_ATTEMPTS, BUSY_RETRY_MS, busyMessage, createAttempts, deadlineFor, headerNotice, isBusy, receiptNotice, type Examined } from "./command-deadline";
@@ -125,7 +125,7 @@ export function useGameCommands() {
     // A pending replace lives only while its own summon is the command in hand: anything else abandons it.
     const abandoned = pendingReplaceOnSend(state.replace, envelope.commandId, Date.now()) === "clear";
     set({ busy: command.type, notice: null, failed: null, retrying: null, ...(abandoned ? { replace: null } : {}) });
-    const examined = command.type === "validate" || command.type === "summon";
+    const examined = examinesProgram(command);
     let outcome = await attempts.run(() => actions.retry(envelope), deadlineFor(command.type));
     // The game is busy checking agents: the SAME envelope goes again by itself (its command id makes a second arrival
     // a no-op, so a summon is never paid twice), with the try said in the forge.

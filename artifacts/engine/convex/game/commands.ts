@@ -1,8 +1,8 @@
 /**
- * Player commands (protocol v3 envelopes): chat, ready, pause, validate, summon, destroy. One apply path for
+ * Player commands (protocol v3 envelopes): chat, ready, pause, validate, summon, replace, destroy. One apply path for
  * humans (browser or player credential with `act`) and AI seats, with idempotent receipts per
  * (room, god, commandId): the same envelope returns the stored receipt, a reused id with different content
- * is rejected. Rejected commands also get a receipt. Validate and summon arrive pre-examined by the Node
+ * is rejected. Rejected commands also get a receipt. Validate, summon and replace arrive pre-examined by the Node
  * action (commands.ts), and are re-checked here: game, phase, seat, energy and the agent cap.
  */
 import { ConvexError, v } from "convex/values";
@@ -11,7 +11,7 @@ import { viewRowOf } from "../lib/views";
 import { syncRows } from "./objectViews";
 import { READ_PRICE, offerReadBits, allowedLanguages, assertShare, defaultShare, movePower, newAgentAccount, roundShare, spendDeityEnergy, upgradeStoredSettings, type AgentAccount, type GameSettings, type Language } from "@workspace/game-core";
 import { sha256 } from "@workspace/game-types";
-import { GAME_COMMANDS, envelopeSchema, type CommandResult, type Envelope } from "@workspace/player-client";
+import { GAME_COMMANDS, envelopeSchema, examinesProgram, type CommandResult, type Envelope } from "@workspace/player-client";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx, type QueryCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
@@ -25,7 +25,7 @@ import { agentLanguage, languageV } from "../lib/language";
 import { dryRunVerdict, summonDryRunWarnings } from "../lib/dryRun";
 
 const CHAT_INTERVAL_MS = 1000;
-/** Agent examinations (validate, summon) per human per room per rolling minute: a looping client cannot burn the sandbox. */
+/** Agent examinations (validate, summon, replace) per human per room per rolling minute: a looping client cannot burn the sandbox. */
 export const EXAMINATIONS_PER_MINUTE = 30;
 const EXAMINATION_WINDOW_MS = 60_000;
 
@@ -59,7 +59,7 @@ export const prepare = internalQuery({
     const game = room.currentGameId ? await ctx.db.get(room.currentGameId) : null;
     const command = envelope.command;
     let examine: null | { settings: GameSettings; live: (number | string)[]; twins: number } = null;
-    if (!prior && game && (command.type === "validate" || command.type === "summon") && envelope.gameId === game._id &&
+    if (!prior && game && examinesProgram(command) && envelope.gameId === game._id &&
         allowedLanguages(game.settings as GameSettings).includes(command.language) && game.phase !== "ended" && game.phase !== "recovery" &&
         game.roster.some(m => m.id === member.godId)) {
       // The sample world the agent is examined on: the game's objects, or, under paid observation, the same objects as
@@ -71,8 +71,11 @@ export const prepare = internalQuery({
       const settings = (upgradeStoredSettings(game.settings, true) ?? game.settings) as GameSettings;
       // The player's live agents running this exact code (the copies warning), read here, off the mutation's read set.
       const own = await ctx.db.query("agents").withIndex("by_game_owner", q => q.eq("gameId", game._id).eq("ownerId", member.godId)).take(settings.maxAgentsPerGod + 1);
-      const twins = own.filter(a => a.source === command.source && agentLanguage(a, settings) === command.language).length;
-      examine = { settings, live: live.map(o => o.value), twins };
+      // (Not the agent being replaced: its code is the one going away.)
+      const twins = own.filter(a => !(command.type === "replace" && a._id === command.agentId) && a.source === command.source && agentLanguage(a, settings) === command.language).length;
+      // A replacement of an agent that is not this god's is not examined (nor counted against the rate limit): the
+      // mutation refuses it.
+      if (command.type !== "replace" || own.some(a => a._id === command.agentId)) examine = { settings, live: live.map(o => o.value), twins };
     }
     return { roomId: room._id, godId: member.godId, prior: prior ? { hash: prior.hash, result: prior.result as CommandResult } : null, examine };
   },
@@ -129,11 +132,13 @@ export const apply = internalMutation({
       receipt = { commandId: envelope.commandId, accepted: true,
         message: look ? `Looked at ${look.looked === 1 ? "1 object" : `${look.looked} objects`} for ${look.price.toFixed(2)} energy; ${look.energy.toFixed(2)} left`
           : owed !== undefined && Math.abs(owed) >= 0.05 ? (owed > 0 ? `Accepted: ${owed.toFixed(1)} bits the agent owed are now owed by you` : `Accepted: ${(-owed).toFixed(1)} bits you owed are now owed by the agent`)
+          // A replacement says what it cost: the receipt is the only place the price is told with the act.
+          : command.type === "replace" ? `Accepted: the agent's program is replaced, for ${(result as { summonCost: number }).summonCost.toFixed(0)} bits of your own energy`
           : "Accepted",
         ...(look ? { look } : {}), ...(owed !== undefined ? { owed } : {}),
         ...(command.type === "validate" ? { validation: result as NonNullable<CommandResult["validation"]> } : {}),
-        // A summon is never refused for what the examination found: it is told, with the agent summoned.
-        ...(command.type === "summon" && (result as { warnings?: string[] }).warnings ? { warnings: (result as { warnings: string[] }).warnings } : {}) };
+        // A summon (or a replacement) is never refused for what the examination found: it is told, with the agent summoned.
+        ...((command.type === "summon" || command.type === "replace") && (result as { warnings?: string[] }).warnings ? { warnings: (result as { warnings: string[] }).warnings } : {}) };
     } catch (error) {
       // A transient failure (the sandbox could not examine the agent) is not the command's outcome: no
       // receipt, so the client's retry of the identical envelope runs it.
@@ -163,7 +168,7 @@ export const claimExamination = internalMutation({
       .take(EXAMINATIONS_PER_MINUTE);
     if (recent.length >= EXAMINATIONS_PER_MINUTE) {
       const wait = Math.max(1, Math.ceil((recent[0].at + EXAMINATION_WINDOW_MS - now) / 1000));
-      fail("RATE_LIMITED", `At most ${EXAMINATIONS_PER_MINUTE} agent checks a minute (validate and summon together); try again in ${wait} s with the same command`);
+      fail("RATE_LIMITED", `At most ${EXAMINATIONS_PER_MINUTE} agent checks a minute (validate, summon and replace together); try again in ${wait} s with the same command`);
     }
     await ctx.db.insert("examinations", { roomId, godId, at: now });
   },
@@ -232,7 +237,11 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     await ctx.db.patch(deity._id, { pauseUsed: true });
     return { pauseEndsAt };
   }
-  if (command.type === "validate" || command.type === "summon") {
+  if (examinesProgram(command)) {
+    // Replacing a program (docs/energy-model.md §5.2): the agent must be this god's, checked before anything else.
+    const replacedId = command.type === "replace" ? ctx.db.normalizeId("agents", command.agentId) : null;
+    const replaced = replacedId ? await ctx.db.get(replacedId) : null;
+    if (command.type === "replace" && (!replaced || replaced.gameId !== game._id || replaced.ownerId !== member.godId)) fail("NOT_FOUND", "You have no agent with that ID");
     if (!examined || examined.gameId !== game._id || examined.source !== command.source || examined.language !== command.language) fail("UNAVAILABLE", "The agent could not be examined; retry");
     if (examined.error !== undefined || !examined.result) return fail("BAD_REQUEST", examined.error ?? "Examination failed");
     // The estimate per act includes the turn itself (docs/energy-model.md §7.1): being given an object is a read of which
@@ -247,9 +256,9 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
     const dry = dryRunVerdict(e);
     // A dry-run finding says it all: the futility warnings of the same runs ("never changes an object") would only repeat it.
     const found = !dry.valid || dry.warnings.length > 0;
-    // A validation says an invalid agent in its verdict and diagnostics; a summon is not refused for it (callers that
+    // A validation says an invalid agent in its verdict and diagnostics; a summon or a replacement is not refused for it (callers that
     // summoned such agents before do not all handle a refusal), so its receipt carries the finding as a warning.
-    const dryWarnings = command.type === "summon" ? summonDryRunWarnings(dry) : dry.warnings;
+    const dryWarnings = command.type === "validate" ? dry.warnings : summonDryRunWarnings(dry);
     const warnings = [...dryWarnings, ...(found ? [] : e.warnings ?? []), ...(twins ? [copiesWarning(twins, e.futility)] : [])];
     const findings = { ...(e.futility ? { futility: e.futility, expectedSuccessRate: e.futility.successRate } : {}), ...(warnings.length ? { warnings } : {}) };
     if (command.type === "validate") {
@@ -272,6 +281,24 @@ async function run(ctx: MutationCtx, room: Doc<"rooms">, member: Doc<"members">,
           // Debt moved here with an agent's power (§7.2): the god's own income repays it.
           ? `Insufficient energy: you owe ${(-own.balance).toFixed(0)} bits (what an agent of yours owed when you took its power). Your own income repays it; keep some power unallocated until it has`
           : "Insufficient energy");
+    }
+    if (command.type === "replace") {
+      if (!replaced) return fail("NOT_FOUND", "You have no agent with that ID");
+      // One rule: replacing a program costs what summoning it would; everything else stays. The agent keeps its id,
+      // name, power share and account (stored energy or debt, untouched: not even settled), its acts and what it has
+      // spent. What described the old program goes: its prices, its counted outcomes (the owner's diagnosis) and the
+      // memo of the pairs it could only fail on.
+      const record = { summonCost: e.cost, expectedActCost: e.expectedActCost, breakdown: e.breakdown, randomized: e.randomized };
+      await ctx.db.patch(replaced._id, { source: command.source, language: command.language, ...(command.description ? { description: command.description } : {}), ...record,
+        transforms: undefined, failures: undefined, lastFailures: undefined });
+      const memo = await ctx.db.query("futileActs").withIndex("by_agent", q => q.eq("agentId", replaced._id)).unique();
+      if (memo) await ctx.db.delete(memo._id);
+      await chargeGod(ctx, game, deity, e.cost, now);
+      const nextBatch = await appendEvents(ctx, game, [{ t: "replace", agentId: replaced._id, ownerId: member.godId, world, language: command.language, source: command.source, ...(command.description ? { description: command.description } : {}), ...record }], world, world);
+      // Bumping the epoch discards a window in flight: its acts ran the old program, and its commit would count them
+      // against the new one.
+      await writeGame(ctx, game, { nextBatch, executionEpoch: game.executionEpoch + 1 });
+      return { id: replaced._id, summonCost: e.cost, expectedActCost: e.expectedActCost, ...(warnings.length ? { warnings } : {}) };
     }
     const owned = await ctx.db.query("agents").withIndex("by_game_owner", q => q.eq("gameId", game._id).eq("ownerId", member.godId)).take(settings.maxAgentsPerGod + 1);
     if (owned.length >= settings.maxAgentsPerGod) fail("CONFLICT", `This god has reached the ${settings.maxAgentsPerGod}-agent resource limit`);
