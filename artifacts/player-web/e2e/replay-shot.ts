@@ -65,13 +65,22 @@ const browser = await chromium.launch();
 const T = "[data-testid=replay-transport]";
 const GAME_PATH = `/rooms/${shortCode}/games/${gameCode}`;
 const cursorOf = async (page: import("playwright").Page) => Number(await page.getAttribute(T, "data-cursor"));
-const open = async (width: number, height: number, query: string) => {
+/**
+ * `results`: leave the replay as it opens, on the results and the timeline only. Otherwise the player's own panes are
+ * brought back first ("Show my panes"), since the checks below look at the built-in panels at the playhead.
+ */
+const open = async (width: number, height: number, query: string, { results = false }: { results?: boolean } = {}) => {
   const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 1 });
   await context.addCookies(session.split("; ").map(pair => ({ name: pair.slice(0, pair.indexOf("=")), value: pair.slice(pair.indexOf("=") + 1), url: SITE })));
   const page = await context.newPage();
   await page.goto(`${SITE}${GAME_PATH}${query}`);
   await page.waitForSelector(T, { timeout: 60_000 });
   await page.waitForSelector("[data-testid=panel-timeline]", { timeout: 30_000 });
+  if (!results) {
+    await page.locator("[data-testid=button-show-my-panes], [data-testid=button-show-my-panes-header]").first().click({ timeout: 30_000 });
+    await page.waitForSelector("[data-testid=button-back-to-results]", { timeout: 30_000 });
+    await page.waitForSelector("[data-testid=panel-timeline]", { timeout: 30_000 });
+  }
   return { page, context };
 };
 
@@ -169,8 +178,8 @@ const boardText = (page: import("playwright").Page) => page.locator("[data-testi
 
 let events = 0;
 {
-  // An ended game opens in the dock's replay mode at its end, with the Timeline and the built-in panels showing it.
-  const { page, context } = await open(1440, 900, "");
+  // An ended game opens in the dock's replay mode at its end, on the results and the Timeline (the other panes are behind "Show my panes").
+  const { page, context } = await open(1440, 900, "", { results: true });
   events = Number(await page.getAttribute(T, "data-events"));
   assert.ok(events > 20, `a real game's log (${events} events)`);
   assert.equal(await cursorOf(page), events, "an ended game opens at its end");

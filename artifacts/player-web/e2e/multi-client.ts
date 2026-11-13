@@ -584,6 +584,9 @@ await check("an ended game's page is its read-only replay: the open page turns i
   // Read-only: no control that acts appears in any panel (core/affordances.ts): agents, chat, forge.
   // Whatever carol's layout holds: wait for its panels, let them settle, then look for controls in every one.
   await page.locator("[data-testid=menu-panel]").first().waitFor({ timeout: 30_000 });
+  // A replay opens on the results and the timeline only: bring carol's own panes back, so every panel is looked at.
+  await page.locator("[data-testid=button-show-my-panes], [data-testid=button-show-my-panes-header]").first().click({ timeout: 30_000 });
+  await page.getByTestId("button-back-to-results").waitFor({ timeout: 30_000 });
   await sleep(1500);
   for (const sel of ["[data-testid^=button-load-agent-]", "[data-testid^=button-destroy-agent-]", "[data-testid=input-chat]", "[data-testid=button-send-chat]",
     "[data-testid=input-source]", "[data-testid=button-validate]", "[data-testid=button-summon]", "[data-testid=button-forge-edit]",
