@@ -260,7 +260,12 @@ export function sameVersionNote(origin: OwnAgent | undefined, agents: readonly O
  * accepted: the first send, the forge's "Try again", or "Retry the same command" under the header. The same envelope
  * keeps it; any other command, a refusal, a dismissal or PENDING_REPLACE_MS abandon it, and then nothing is destroyed.
  */
-export interface PendingReplace { readonly commandId: string; readonly oldId: string; readonly name: string; readonly source: string; readonly share?: number; readonly oldShare?: number; readonly at: number }
+export interface PendingReplace { readonly commandId: string; readonly oldId: string; readonly name: string; readonly source: string; readonly share?: number; readonly oldShare?: number; readonly at: number;
+  /** For the confirmation: the price paid, what the player's own store will spill while both versions hold power (replaceLoss), and the seconds their income needs to refill it. */
+  readonly cost?: number; readonly lost?: number; readonly refill?: number;
+  /** The version being replaced, kept for "Put the previous version back" and the before/since comparison. */ readonly previous?: PreviousVersion;
+  /** This replace puts a previous version back: its confirmation says so, and the editor, if it still holds `outgoingSource` (the version going away), is given the restored code. */
+  readonly putBack?: boolean; readonly outgoingSource?: string; readonly language?: string }
 export const PENDING_REPLACE_MS = 10 * 60_000;
 export function pendingReplaceOnSend(pending: PendingReplace | null, commandId: string, now: number): "none" | "keep" | "clear" {
   if (!pending) return "none";
@@ -287,11 +292,111 @@ export function replaceStep(state: "summoning" | "destroying", receipt: { accept
 }
 const percentOf = (share: number) => `${Math.round(share * 100)}%`;
 /** "Replaced: NAME now runs your new version." and, when its share is not the old one's, what it has. */
-export function replacedText(name: string, s: { share: number | undefined; oldShare: number | undefined }): string {
-  const head = `Replaced: ${name} now runs your new version.`;
+/**
+ * The sentence a confirmation adds when the player's own store spilled energy while both versions held power
+ * (replaceLoss): stated beside the price, as a spill that refills and not as a charge ("I lost 782?! For changing one
+ * word?"). `refill`: the seconds the player's own income needs to earn it back, when known.
+ */
+const whole = (x: number) => Math.round(x).toLocaleString("en-US");
+const lossSentence = (lost: number | undefined, refill?: number): string =>
+  lost !== undefined && Math.round(lost) >= 1
+    ? ` While the two versions overlapped, your own store was smaller and ${whole(lost)} ⚡ of stored energy spilled; it refills${refill !== undefined && Number.isFinite(refill) && refill > 0 ? ` in about ${Math.max(1, Math.round(refill))} s` : ""}.` : "";
+const forPrice = (cost: number | undefined): string => (cost !== undefined && Number.isFinite(cost) && cost > 0 ? ` for ${whole(cost)} ⚡` : "");
+/** "Put back: NAME runs the previous version again for 169 ⚡." (the put-back's own words: it is not "your new version"). */
+export const putBackText = (name: string, s: { cost?: number; lost?: number; refill?: number }): string => `Put back: ${name} runs the previous version again${forPrice(s.cost)}.${lossSentence(s.lost, s.refill)}`;
+/** The put-back's button: it is a summon, and it costs the previous version's summon price again. */
+export const putBackLabel = (cost: number | undefined): string =>
+  `Put the previous version back · costs ${cost !== undefined && Number.isFinite(cost) ? `${(Math.round(cost * 10) / 10).toLocaleString("en-US", { maximumFractionDigits: 1 })} ⚡` : "its summon price again"}`;
+export const BUSY_NOTHING_CHANGED = "The game is busy; nothing changed. Try again.";
+export function replacedText(name: string, s: { share: number | undefined; oldShare: number | undefined; /** The price paid for the new version. */ cost?: number; /** What the player's own store spilled while both versions held power (replaceLoss), and the seconds to refill it. */ lost?: number; refill?: number }): string {
+  const head = `Replaced: ${name} now runs your new version${forPrice(s.cost)}.${lossSentence(s.lost, s.refill)}`;
   if (s.oldShare === undefined) return head;
   if (s.share === undefined) return `${head} Its share of your power may differ from the old one's (${percentOf(s.oldShare)}); check it in My agents.`;
   return Math.abs(s.share - s.oldShare) < 0.005 ? head : `${head} It has ${percentOf(s.share)} of your power (the old one had ${percentOf(s.oldShare)}); raise it in My agents.`;
 }
 export const bothText = (name: string, message: string): string =>
   `The new version of ${name} is in the game, but the old one could not be destroyed (${message}). Both are running: destroy the old one in My agents.`;
+
+/**
+ * One press: "Check and replace NAME" (or "Check and summon") validates first and goes straight on. After the check:
+ * "go" when the code is valid and the player's energy covers the price, "short" when it is valid but not payable yet
+ * (the pane's energy line says when it will be), "invalid" when the check found a problem or gave no answer.
+ */
+export function afterCheck(check: { accepted: boolean; valid: boolean | undefined; cost: number | undefined; energy: number } | undefined): "go" | "short" | "invalid" {
+  if (!check || !check.accepted || !check.valid || check.cost === undefined) return "invalid";
+  return check.cost <= check.energy ? "go" : "short";
+}
+/** The progress line once the price is known: "Checked: 174 ⚡. Replacing…". */
+export function checkedLine(cost: number, then: "replace" | "summon"): string {
+  const price = (Math.round(cost * 10) / 10).toLocaleString("en-US", { maximumFractionDigits: 1 });
+  return `Checked: ${price} ⚡. ${then === "replace" ? "Replacing" : "Summoning"}…`;
+}
+
+/**
+ * What the player's own energy store loses in a replace. The new version is summoned before the old one is destroyed
+ * (so there is never no agent), and for that moment both hold a share of the power: the player's own store then holds
+ * only (1 − allocated − share) × power × fullChargeSeconds, and the engine drops what it holds above that when it next
+ * settles (game-core energy.ts movePower: "what an account holds above its new capacity is lost"). 0 with no capacity.
+ */
+export function replaceLoss(s: { energy: number; cost: number; allocated: number | undefined; share: number | undefined; powerPerSecond: number | undefined; fullChargeSeconds: number | undefined }): number {
+  if (s.fullChargeSeconds === undefined || s.powerPerSecond === undefined || s.share === undefined) return 0;
+  const during = Math.max(0, 1 - (s.allocated ?? 0) - s.share) * s.powerPerSecond * s.fullChargeSeconds;
+  return Math.max(0, Math.round((s.energy - s.cost - during) * 1000) / 1000);
+}
+
+/** The version a replace replaced, remembered for this game: its code, name and share, and what its moves had earned. */
+export interface PreviousVersion {
+  /** The game it belongs to: it is never shown in, or carried into, another game. */
+  readonly gameId: string;
+  readonly source: string; readonly language: string; readonly name: string; readonly share?: number;
+  /** What the previous version cost to summon (its agent's own summon price), for the put-back's label. */
+  readonly cost?: number;
+  /** The player's agents when Replace was pressed: the new version is the agent with `newSource` that is NOT one of these (a twin with the same code is). */
+  readonly knownIds: readonly string[];
+  /** The new version's agent, once it has been seen in the agent list. */
+  readonly agentId?: string;
+  /** That agent's first counted moves, accumulated as they arrive and frozen at COMPARE_OVER (score-line.ts accumulateFirstMoves). */
+  readonly since?: { readonly moves: number; readonly points: number; readonly keys: readonly string[]; readonly frozen: boolean };
+  /** This memory is of a put-back: the agent runs the restored version; its line says how that is going, and no further put-back is offered. */
+  readonly restored?: boolean;
+  /** The source of the version that replaced it (the agent the comparison is shown on). */
+  readonly newSource: string;
+  readonly before?: { moves: number; points: number; objects: number };
+}
+/** The fewest counted moves of the new version before it is compared, and how many it is compared over (then frozen). */
+export const COMPARE_MOVES = 8, COMPARE_OVER = 20;
+/** Always under the comparison: why it is only a rough guide. */
+export const COMPARISON_CAVEAT = "Every agent earns most just after it starts, so read this as a rough guide; your total points over the next minute are the real test.";
+/** What "a move" is, said once beside the comparison (the row also counts "acts", which include looks). */
+export const MOVE_MEANS = "A move is an act that changed a grid; acts that only looked are not counted.";
+/**
+ * Did the change help, like for like and stable. "Before" is the old version's average over its last counted moves
+ * when it was replaced; "since" is the new version's average over its FIRST counted moves (score-line.ts
+ * accumulateFirstMoves: up to COMPARE_OVER, then frozen), never a rolling window, because every agent earns most right
+ * after it starts and a rolling figure mostly measured how recently it started (a player undid a good change over it).
+ * Null until COMPARE_MOVES are in. `restored`: the line for a version that was put back. `estimate`: live points are "about".
+ */
+export function versionComparison(before: { moves: number; points: number } | undefined, since: { moves: number; points: number; frozen?: boolean } | undefined, o: { estimate?: boolean; restored?: boolean } = {}): string | null {
+  if (!since || since.moves < COMPARE_MOVES) return null;
+  const each = (e: { moves: number; points: number }) => { const r = Math.round(e.points / e.moves * 10) / 10; return `${o.estimate ? "about " : ""}${r === 0 ? "+0" : `${r > 0 ? "+" : "−"}${Math.abs(r).toLocaleString("en-US", { maximumFractionDigits: 1 })}`}`; };
+  const over = `${since.frozen ? "" : "so far, "}over its first ${since.moves.toLocaleString("en-US")} moves`;
+  if (o.restored) return `Back on the previous version: ${each(since)} points a move ${over} since.`;
+  if (!before || before.moves < 1) return `Since your change: ${each(since)} points a move ${over}. Nothing was counted for the version before it.`;
+  return `Before your change: ${each(before)} points a move. Since: ${each(since)} a move ${over}.`;
+}
+
+/**
+ * Which live agent the remembered previous version belongs to (the comparison and the put-back are shown on it, and
+ * only on it): the identified agent while it lives; before that, the agent with the new code that did not exist when
+ * Replace was pressed (never a twin by source alone). Another game, or the agent gone (destroyed, replaced again):
+ * the memory is cleared.
+ */
+export function previousTarget(previous: PreviousVersion | null, gameId: string | undefined, agents: readonly { id: string; source?: string }[]):
+  { none: true } | { wait: true } | { clear: true } | { adopt: string } | { target: string } {
+  if (!previous) return { none: true };
+  if (gameId === undefined) return { wait: true };
+  if (previous.gameId !== gameId) return { clear: true };
+  if (previous.agentId !== undefined) return agents.some(a => a.id === previous.agentId) ? { target: previous.agentId } : { clear: true };
+  const found = agents.find(a => a.source === previous.newSource && !previous.knownIds.includes(a.id));
+  return found ? { adopt: found.id } : { wait: true };
+}

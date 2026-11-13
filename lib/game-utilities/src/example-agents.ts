@@ -635,6 +635,8 @@ function skipper(i: ExampleInput, goal: string): ExampleAgent {
 /** The families that have an example of their own (the rest get the fallback). */
 export const EXAMPLE_AGENT_FAMILIES: readonly string[] = Object.freeze(Object.keys(RECIPES));
 
+/** Under every "Try this": a comment only (comments cost nothing, so no summon price moves). */
+const EXPERIMENT = "It may do better or worse: watch your points after Replace.";
 function render(i: ExampleInput, p: Pen, recipe: Recipe, variant: Variant, name: string): ExampleAgent {
   const goal = firstSentence(i.summary);
   const c = ctxOf(i, p);
@@ -646,7 +648,8 @@ function render(i: ExampleInput, p: Pen, recipe: Recipe, variant: Variant, name:
     .replace("LO", String(c.lo)).replace("HI", String(c.hi)).replace("APART", String(apart(c))).replaceAll("SPREAD", String(spread(c)));
   // The player's first view of the API: how to read a number and how to change one, in the board's own words.
   const api = `cell.value reads a cell's number; ${p.mutator === "add" ? "add(cell, 1) adds one to it" : "write(cell, 5) changes it to 5"}.`;
-  const head = [...(goal ? [`My goal: ${goal}`] : []), ...variant.does.map(words), api, words(tryThis)].map(l => `${mark} ${l}`);
+  // The first edit is an experiment: it may make the agent worse (said the same way in every room, so it promises no panel).
+  const head = [...(goal ? [`My goal: ${goal}`] : []), ...variant.does.map(words), api, words(tryThis), EXPERIMENT].map(l => `${mark} ${l}`);
   return { name, source: `${head.join("\n")}\n${dedent(variant[i.language](c))}\n`, specific: recipe !== FALLBACK };
 }
 function recipeFor(i: ExampleInput, p: Pen): Recipe {

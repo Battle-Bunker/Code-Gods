@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { SCORE_LINES, scoreMovesLine } from "@workspace/ui-kit/core";
-import { actLine, agentEarnings, earningsLine, fresherPoints, othersWantClause, ruleDirection, asOfText, describeChange, latestOwnActs, pointsNowText, ruleScoreChange, ruleScoreText, signed } from "../src/core/panels/score-line.ts";
+import { accumulateFirstMoves, actLine, agentEarnings, earningsLine, fresherPoints, othersWantClause, ruleDirection, asOfText, describeChange, latestOwnActs, pointsNowText, ruleScoreChange, ruleScoreText, signed } from "../src/core/panels/score-line.ts";
 
 test("a change is said in plain words", () => {
   assert.equal(describeChange("1R,2R/3R,4R", "1R,2R/4R,4R", "grid"), "changed 3 to 4 at row 2, column 1");
@@ -216,4 +216,25 @@ test("why your points move before you have done anything: one plain clause, in t
   assert.equal(scoreMovesLine("grid"), "Every grid on the table gives you points when it is rare by your rule and the others want it too, so this moves when anyone changes a grid.");
   assert.equal(scoreMovesLine("object"), SCORE_LINES.moves);
   assert.ok(!SCORE_LINES.moves.includes("—"));
+});
+
+test("an agent's first counted moves are accumulated as they arrive and frozen at the limit: never a rolling window", () => {
+  const scored = (payoff: number) => ({ own: { netBits: 1 }, peerCare: 1, payoff });
+  const move = (id: number, objectId: string, payoff: number, agentId = "a9") => ({ id, type: "object.transformed", objectId, before: "A", value: "B", mine: true, agentId, worldSeconds: id, ...scored(payoff) });
+  const spawn = (id: number, objectId: string, payoff: number) => ({ id, type: "object.spawned", objectId, worldSeconds: id, ...scored(payoff) });
+  // First batch: o1 spawned at 10, moved to 40 (+30), then to 45 (+5); another agent's move does not count.
+  const first = [spawn(1, "o1", 10), move(2, "o1", 40), move(3, "o1", 45), move(4, "o1", 50, "other")];
+  const a = accumulateFirstMoves(undefined, first, "a9", 4);
+  assert.deepEqual({ moves: a.moves, points: a.points, frozen: a.frozen }, { moves: 2, points: 35, frozen: false });
+  assert.equal(accumulateFirstMoves(a, first, "a9", 4), a, "the same events again: nothing is counted twice (the same object back)");
+  // The window moved on: events 1 and 2 dropped out, two new moves arrived. Nothing counted is lost, nothing doubled.
+  const second = [move(3, "o1", 45), move(4, "o1", 50, "other"), move(5, "o1", 70), move(6, "o1", 60)];
+  const b = accumulateFirstMoves(a, second, "a9", 4);
+  assert.deepEqual({ moves: b.moves, points: b.points, frozen: b.frozen }, { moves: 4, points: 35 + 20 - 10, frozen: true });
+  // Frozen: later moves never change it.
+  assert.equal(accumulateFirstMoves(b, [move(6, "o1", 60), move(7, "o1", 500)], "a9", 4), b);
+  // The limit is never passed inside one batch either.
+  const many = [spawn(1, "o1", 0), ...Array.from({ length: 30 }, (_, i) => move(i + 2, "o1", i + 1))];
+  assert.equal(accumulateFirstMoves(undefined, many, "a9").moves, 20);
+  assert.equal(accumulateFirstMoves(undefined, many, "a9").points, 20, "the first 20 moves, +1 each");
 });

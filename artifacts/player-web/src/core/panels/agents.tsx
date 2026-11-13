@@ -15,13 +15,15 @@
  * with a legend and one named row per agent. Each action appears only where it works (core/affordances.ts): none does in
  * a read-only replay, and Destroy goes after the end. In a replay seen as another god, the panel says whose agents these are.
  */
-import { changeCostKid, costModelOf, isLanguage, type CostModel } from "@workspace/game-core";
+import { changeCostKid, costModelOf, defaultShare, isLanguage, type CostModel } from "@workspace/game-core";
 import { SCORE_LINES, Term } from "@workspace/ui-kit";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Sparkline, Timeline, TimelineLegend, useAgentSeries, useDockState, useGame, useMyAgents, type MyAgent } from "@/sdk";
+import { Sparkline, Timeline, TimelineLegend, useAgentSeries, useDockState, useEvents, useGame, useMyAgents, type MyAgent } from "@/sdk";
 import { useDockActions } from "@/dock/actions";
-import { useGameCommands, useRunner } from "@/core/game/runner";
-import { firstSummonLabel } from "./first-agent";
+import { useGameCommands, useRunner, type Lang } from "@/core/game/runner";
+import { BUSY_NOTHING_CHANGED, COMPARISON_CAVEAT, MOVE_MEANS, firstSummonLabel, putBackLabel, replaceLoss, replaceShare, versionComparison } from "./first-agent";
+import { usePreviousVersion } from "./use-previous-version";
+import { notifyError } from "@/core/notices";
 import { useAffordances } from "@/core/use-affordances";
 import type { Affordances } from "@/core/affordances";
 import { AgentName, agentLabel } from "./agent-name";
@@ -146,10 +148,14 @@ export type AgentsViewProps = {
   actLines?: ReadonlyMap<string, string>;
   /** Agent id → what its moves among the recent events earned (score-line.ts earningsLine). */
   earnLines?: ReadonlyMap<string, string>;
+  /** Agent id → for an agent that replaced an earlier version: the comparison (null until there is enough to compare) and the way back. */
+  versions?: ReadonlyMap<string, { text: string | null; /** The comparison is shown: its caveat goes under it. */ caveat?: boolean; /** The put-back button's words (it is a paid summon). */ label?: string; onRevert?: () => void; /** A command is in flight: the button waits. */ busy?: boolean }>;
+  /** The agent whose row is ringed for a moment ("See it in My agents"). */
+  rung?: string | null;
 };
 
 /** The panel without its data hooks, so the gallery (src/gallery/agents.tsx) can draw it from fixtures. */
-export function AgentsView({ agents, self, powerPerSecond, fullChargeSeconds, changeReadRatio, costModel, world, samples, window: windowS, ended, showCosts, showSource, can, wait, onEdit, onSetShare, onDestroy, footer, header, actLines, earnLines, settling }: AgentsViewProps) {
+export function AgentsView({ agents, self, powerPerSecond, fullChargeSeconds, changeReadRatio, costModel, world, samples, window: windowS, ended, showCosts, showSource, can, wait, onEdit, onSetShare, onDestroy, footer, header, actLines, earnLines, versions, rung, settling }: AgentsViewProps) {
   const [confirm, setConfirm] = useState<string | null>(null);
   const { editCode, destroy, allocatePower } = can;
   const showDestroy = destroy.ok || !destroy.hidden;
@@ -195,11 +201,20 @@ export function AgentsView({ agents, self, powerPerSecond, fullChargeSeconds, ch
           const working = over === "working" && !ended;
           const statusColour = working || state === "can" ? "text-[hsl(var(--accent))]" : state === "waiting" && alarm ? "text-destructive" : "text-muted-foreground";
           return (
-            <li key={a.id} data-testid={`row-agent-${a.id}`} className="min-w-0 space-y-1.5">
+            <li key={a.id} data-testid={`row-agent-${a.id}`} className={`min-w-0 scroll-mt-2 space-y-1.5 ${rung === a.id ? "attention-ring" : ""}`}>
               <div className="flex flex-wrap items-baseline justify-between gap-x-3 text-sm">
                 <span className="flex flex-wrap items-baseline gap-x-2"><AgentName id={a.id} name={label} description={a.description} /> <span className="text-xs font-normal text-muted-foreground">{a.language} · <span data-testid={`text-agent-summon-${a.id}`}><Say segs={summonLine(a.summonCost)} /></span></span></span>
                 <span data-testid={`text-agent-status-${a.id}`} className={`text-xs font-semibold ${statusColour}`}>{working ? "working" : statusText(state, ended, ended ? 0 : wait(a))}</span>
               </div>
+              {/* Did the change help: first in the row, above the energy details (it was below the fold). The comparison
+                  is over the new version's FIRST moves and frozen, with its caveat; then the way back, a paid summon. */}
+              {versions?.get(a.id) && (
+                <div data-testid={`text-agent-version-${a.id}`} className="space-y-0.5 border-l-2 border-primary pl-2 text-xs text-foreground">
+                  {versions.get(a.id)!.text && <p title={MOVE_MEANS}>{versions.get(a.id)!.text}</p>}
+                  {versions.get(a.id)!.caveat && <p className="text-muted-foreground" data-testid={`text-agent-version-caveat-${a.id}`}>{COMPARISON_CAVEAT} {MOVE_MEANS}</p>}
+                  {versions.get(a.id)!.onRevert && <TextButton boxed testId={`button-revert-version-${a.id}`} disabled={!!versions.get(a.id)!.busy} onClick={versions.get(a.id)!.onRevert!}>{versions.get(a.id)!.label}</TextButton>}
+                </div>
+              )}
               <div data-testid={`text-agent-energy-${a.id}`} className="space-y-0.5 text-xs text-muted-foreground">
                 {a.powerShare !== undefined && a.income !== undefined && <p data-testid={`text-agent-share-${a.id}`}><Say segs={shareLine(a.powerShare, a.income)} /></p>}
                 <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -264,7 +279,7 @@ export function AgentsView({ agents, self, powerPerSecond, fullChargeSeconds, ch
 }
 
 export default function Agents({ params, phase }: PanelProps<"agents">) {
-  const { agents: all, economy, secondsUntilEligible } = useMyAgents({ hz: 1 });
+  const { agents: all, economy, secondsUntilEligible, loading: agentsLoading } = useMyAgents({ hz: 1 });
   const game = useGame({ hz: 1 });
   const self = useDockState({ hz: 1 })?.self;
   // Each agent's energy at every scoreboard publication, kept by the server (dock.agentSeries), and its energy now.
@@ -301,6 +316,55 @@ export default function Agents({ params, phase }: PanelProps<"agents">) {
   }, [awaiting, self?.allocated]);
   const ended = phase === "ended";
   const { editCode } = can.can;
+  // The version the last replace replaced (the runner remembers it for this page): shown on the agent that replaced
+  // it, with what each earned a move, and one press to put it back (a replace with the previous code and name).
+  const paidLooks = !ended && economy?.observation !== undefined && economy.observation !== "free";
+  const recent = useEvents({ hz: 1, limit: 50 });
+  const remembered = usePreviousVersion(game?.gameId, all, agentsLoading, paidLooks ? undefined : recent);
+  const versions = useMemo(() => {
+    const out = new Map<string, { text: string | null; caveat?: boolean; label?: string; onRevert?: () => void; busy?: boolean }>();
+    // Only the agent the replace made, in this game (never a twin with the same code): usePreviousVersion.
+    const target = remembered && !ended && !can.seenAs ? all.find(a => a.id === remembered.agentId) : undefined;
+    if (!remembered || !target) return out;
+    const previous = remembered.previous;
+    const share = replaceShare({ oldShare: target.powerShare, allocated: self?.allocated });
+    // Where looking costs energy the earnings are not counted (score-lines.tsx), so nothing is compared there: the button alone.
+    const compared = paidLooks ? null : versionComparison(previous.before, previous.since, { estimate: acts.estimate, restored: previous.restored });
+    const lost = replaceLoss({ energy: self?.energy ?? 0, cost: previous.cost ?? 0, allocated: self?.allocated, share: share ?? defaultShare(self?.allocated ?? 0), powerPerSecond: economy?.powerPerSecond, fullChargeSeconds: economy?.fullChargeSeconds });
+    out.set(target.id, {
+      busy: !!runnerState.busy,
+      text: paidLooks ? null : compared ?? (previous.restored ? "The previous version is back. Once it has made a few moves, this line says how it is doing."
+        : "This is your new version. Once it has made a few moves, this line compares it with the one before."),
+      caveat: compared !== null,
+      // A put-back is offered for a new version, not for a version that was itself put back.
+      ...(!previous.restored && can.can.destroy.ok && isLanguage(previous.language) ? { label: putBackLabel(previous.cost), onRevert: () => {
+        // A paid summon of the previous code under its name, through the runner's one replace path; its own words afterwards.
+        void commands.replace({ type: "summon", language: previous.language as Lang, source: previous.source, name: previous.name, ...(share !== undefined ? { powerShare: share } : {}) },
+          { oldId: target.id, name: previous.name, source: previous.source, share, oldShare: target.powerShare, putBack: true, outgoingSource: target.source, language: previous.language,
+            cost: previous.cost, lost, ...(self?.income ? { refill: lost / self.income } : {}),
+            // What is remembered next: the restored version, to say how undoing went (no further put-back from it).
+            previous: { gameId: previous.gameId, restored: true, source: target.source, language: target.language, name: previous.name, newSource: previous.source, knownIds: all.map(a => a.id) } })
+          .then(result => {
+            if (result === undefined) notifyError(new Error(BUSY_NOTHING_CHANGED));
+            else if (!result.accepted) notifyError(new Error(`${previous.name} was not put back: ${result.message || "the game refused the summon"}`));
+          });
+      } } : {}),
+    });
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remembered, runnerState.busy, all, acts.estimate, ended, paidLooks, self?.allocated, self?.energy, self?.income, can.seenAs, can.can.destroy.ok, commands]);
+  // "See it in My agents" (the forge): that agent's row comes into view inside the pane, with a short ring.
+  const reveal = runnerState.reveal;
+  const [rung, setRung] = useState<string | null>(null);
+  useEffect(() => {
+    if (!reveal) return;
+    const row = document.querySelector<HTMLElement>(`[data-testid="row-agent-${reveal.agentId}"]`);
+    if (!row) return;
+    row.scrollIntoView({ block: "start", behavior: "smooth" });
+    setRung(reveal.agentId);
+    const timer = setTimeout(() => setRung(null), 2400);
+    return () => clearTimeout(timer);
+  }, [reveal?.at]); // eslint-disable-line react-hooks/exhaustive-deps
   const owner = can.seenAs ? <p data-testid="text-agents-owner" className="text-xs text-muted-foreground">Seen as {can.seenAs}: these are {can.whose} agents.</p> : null;
   if (!all.length) {
     return <PanelEmpty action={(phase === "planning" || phase === "running") && editCode.ok ? <TextButton disabled={summoning} onClick={() => dock.summonFirst()}>{firstSummonLabel({ summoning, pending: runnerState.firstSummon > 0 })}</TextButton> : undefined}>
@@ -321,7 +385,7 @@ export default function Agents({ params, phase }: PanelProps<"agents">) {
           if (result?.accepted && (a.powerShare ?? 0) > 0) setAwaiting({ allocated: self?.allocated, at: Date.now() });
         })}
         settling={!ended && self?.allocated !== undefined && (!allocationSettled(self.allocated, all.map(a => a.powerShare)) || (!!awaiting && awaiting.allocated === self.allocated))}
-        header={can.seenAs ? undefined : <PointsNow />} actLines={acts.byAgent} earnLines={acts.earned}
+        header={can.seenAs ? undefined : <PointsNow />} actLines={acts.byAgent} earnLines={acts.earned} versions={versions} rung={rung}
         footer={ended && <p data-testid="text-agents-ended" className="text-xs text-muted-foreground">
           {can.readOnly ? `These are ${can.whose} agents as they ended the game.` : "The game is over: these are your agents as they ended it. Edit a copy keeps the code for the next game."}
         </p>} />

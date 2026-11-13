@@ -11,7 +11,7 @@ import { SCORE_LINES, scoreMovesLine, Term } from "@workspace/ui-kit";
 import { useDockState, useEvents, useGameId, useMyTotals, useObjectContext, useRoomInfo } from "@/sdk";
 import { useStandings } from "@/sdk/hooks";
 import { agentLabel } from "./agent-name";
-import { actLine, agentEarnings, asOfText, earningsLine, fresherPoints, latestOwnActs, pointsNowText, type OwnAct } from "./score-line";
+import { actLine, agentEarnings, asOfText, earningsLine, fresherPoints, latestOwnActs, pointsNowText, type AgentEarnings, type OwnAct } from "./score-line";
 
 /**
  * "Your points now": one figure, the same number wherever it is shown, with how old it is. It is your total as the
@@ -68,6 +68,9 @@ export interface OwnActLines {
   latest?: string;
   /** Agent id → what its moves among the recent events earned, with the window said (score-line.ts earningsLine). */
   earned: ReadonlyMap<string, string>;
+  /** Agent id → the counted moves behind that line (empty where the line is hidden), and whether the figures are an estimate. */
+  sums: ReadonlyMap<string, AgentEarnings>;
+  estimate: boolean;
 }
 
 /**
@@ -103,8 +106,9 @@ export function useOwnActLines(agents: readonly { id: string; name?: string }[],
     const earned = new Map<string, string>();
     // Not in a room whose looking costs energy: there the points "before" a move are the player's last look at the
     // object, which may predate changes they were never told about, so after minus before is not the move's own effect.
-    if (!paid) for (const [id, sum] of agentEarnings(events)) { const line = earningsLine(sum, noun, { third, estimate }); if (line) earned.set(id, line); }
-    return { byAgent, latest: acts.latest ? say(acts.latest) : undefined, earned };
+    const sums = paid ? new Map<string, AgentEarnings>() : agentEarnings(events);
+    for (const [id, sum] of sums) { const line = earningsLine(sum, noun, { third, estimate }); if (line) earned.set(id, line); }
+    return { byAgent, latest: acts.latest ? say(acts.latest) : undefined, earned, sums, estimate };
   }, [events, goal, noun, agents, third, estimate, paid]);
 }
 

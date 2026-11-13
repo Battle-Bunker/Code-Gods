@@ -254,6 +254,8 @@ export interface OwnAct {
   othersBefore?: number;
 }
 type EventLike = {
+  /** What tells one event from another, when the window gives it (else the object and its version). */
+  id?: string | number; seq?: number; version?: number;
   type: string; objectId?: string; agentId?: string; mine?: boolean; before?: unknown; value?: unknown; worldSeconds?: number; payoff?: number;
   own?: { netBits?: number }; peerCare?: number;
 };
@@ -329,4 +331,33 @@ export function earningsLine(earned: AgentEarnings | undefined, noun = "object",
   const head = `${earned.moves.toLocaleString("en-US")} of ${third ? "their agent's" : "its"} latest moves, counted here`;
   const each = earned.moves > 1 ? ` (${about}${signed(earned.points / earned.moves)} a move)` : "";
   return `${head}: ${about}${signed(earned.points)} points on ${count(earned.objects, noun)}${each}. Only the latest events are counted, not the whole game${estimate ? ", and live points are an estimate" : ""}.`;
+}
+
+/** The first counted moves of one agent, accumulated as its events arrive: frozen at FIRST_MOVES, never rolling. */
+export interface FirstMoves { readonly moves: number; readonly points: number; readonly keys: readonly string[]; readonly frozen: boolean }
+export const FIRST_MOVES = 20;
+const eventKey = (e: EventLike): string => String(e.id ?? e.seq ?? `${e.objectId}:${e.version ?? e.worldSeconds}`);
+/**
+ * `acc` with the agent's counted moves among `events` that it has not counted yet (a move counts when its object's
+ * points just before it are among the events, as in agentEarnings), until FIRST_MOVES are in; then it is frozen and
+ * never changes again. Each move is keyed by its event, so the window dropping old events loses nothing already
+ * counted and a move seen again in a later window is not counted twice. The same object back when nothing is new.
+ */
+export function accumulateFirstMoves(acc: FirstMoves | undefined, events: readonly EventLike[], agentId: string, limit = FIRST_MOVES): FirstMoves {
+  const start: FirstMoves = acc ?? { moves: 0, points: 0, keys: [], frozen: false };
+  if (start.frozen) return start;
+  const points = new Map<string, number>(), seen = new Set(start.keys);
+  let moves = start.moves, sum = start.points;
+  const keys = [...start.keys];
+  for (const e of events) {
+    if (e.type !== "object.spawned" && e.type !== "object.rescored" && e.type !== "object.transformed") continue;
+    if (!e.objectId) continue;
+    const before = points.get(e.objectId);
+    if (typeof e.payoff === "number") points.set(e.objectId, e.payoff); else points.delete(e.objectId);
+    if (moves >= limit || e.type !== "object.transformed" || !e.mine || e.agentId !== agentId || before === undefined || typeof e.payoff !== "number") continue;
+    const key = eventKey(e);
+    if (seen.has(key)) continue;
+    seen.add(key); keys.push(key); moves += 1; sum += e.payoff - before;
+  }
+  return moves === start.moves ? start : { moves, points: sum, keys, frozen: moves >= limit };
 }
