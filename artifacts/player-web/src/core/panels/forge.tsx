@@ -246,10 +246,12 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
   // A beginner's first agent takes as much of the player's power as still leaves a store for the dearest starter
   // (first-agent.ts summonShare); any other summon from here takes the engine's default share: half of what is free.
   // Once this game's first summon is sent, the next one (before the agent list catches up) takes the default too.
-  const [firstSent, setFirstSent] = useState<string | undefined>(undefined);
-  useEffect(() => { if (firstSent !== undefined && (agentCount ?? 0) > 0) setFirstSent(undefined); }, [firstSent, agentCount]);
+  // Kept by the runner, so a pane switch that remounts the editor does not forget it.
+  const firstSent = useRunner().firstSent;
+  useEffect(() => { if (firstSent !== null && (agentCount ?? 0) > 0) runner.setFirstSent(null); }, [firstSent, agentCount]);
   const firstShare = summonShare({
-    agents: agentCount, allocated: obs?.self.allocated, beginner: isBeginnerGoal({ boardKey: board?.key, familyId: card?.familyId }),
+    // Python only: the beginner budget is the Python starters' (TypeScript's tree costs about twice as much).
+    agents: agentCount, allocated: obs?.self.allocated, beginner: language === "python" && isBeginnerGoal({ boardKey: board?.key, familyId: card?.familyId }),
     firstSent: !!obs?.gameId && firstSent === obs.gameId, powerPerSecond: obs?.economy?.powerPerSecond, fullChargeSeconds: obs?.economy?.fullChargeSeconds,
     price: current?.valid ? current.cost : undefined, prices: prices?.values(),
   });
@@ -279,12 +281,13 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
     setRefused(null);
     shareAtSummon.current = newShare;
     const gameId = obs?.gameId;
-    if (firstShare !== undefined && gameId) setFirstSent(gameId);
+    if (firstShare !== undefined && gameId) runner.setFirstSent(gameId);
     void commands.run({ type: "summon", language: agent.language as Lang, source: agent.source, name: agent.name, ...(agent.description ? { description: agent.description } : {}), ...(firstShare !== undefined ? { powerShare: firstShare } : {}) }).then(async result => {
+      // Not accepted (refused, or no outcome): no agent is known to hold the share, so the next summon is still the
+      // first. (Should an unknown outcome have made one, it shows in the agent list and its share in `allocated`.)
+      if (!result?.accepted && firstShare !== undefined && runner.get().firstSent === gameId) runner.setFirstSent(null);
       if (!result) return;
       if (result.accepted) { setSummoned(agent.name, agent.source); return; }
-      // Refused: no agent took the share, so the next summon is still the first.
-      if (firstShare !== undefined) setFirstSent(sent => (sent === gameId ? undefined : sent));
       if (wasArmed) { setRefused({ armed: wasArmed, message: result.message || "The game refused this summon." }); return; }
       // Not enough energy for an agent summoned without a validation: learn its price (free), then wait for the energy.
       if (!lacksEnergy(result.message)) return;
@@ -302,9 +305,9 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
     setArmed(null);
     summon(armed, armed);
   });
-  // Beside the price: what of the player's stored energy would move to the new agent with its share (not for a replace or a copy's note).
-  // With Replace offered (which keeps the agent's energy) the line is about "Summon beside it"; a copy is a summon too.
-  const starts = current?.valid && !ended ? startsWithLine({ energy, cost: current.cost, allocated: obs?.self.allocated, share: newShare, powerPerSecond: obs?.economy?.powerPerSecond, fullChargeSeconds: obs?.economy?.fullChargeSeconds, beside: replacing }) : null;
+  // Beside the price: what of the player's stored energy would move to the new agent with its share (not for a copy's note).
+  // With Replace offered (which keeps the agent's energy) the line is about "Summon beside it"; nothing for an exact copy.
+  const starts = current?.valid && !ended && !copyNow ? startsWithLine({ energy, cost: current.cost, allocated: obs?.self.allocated, share: newShare, powerPerSecond: obs?.economy?.powerPerSecond, fullChargeSeconds: obs?.economy?.fullChargeSeconds, beside: replacing }) : null;
   const summonOn = !busy && (canSummon || canArm) && !!name.trim();
   // The player's own code with no check of it yet: the primary button checks and goes on (one press).
   const needsCheck = summonable && !canSummon && !canArm && !untouched && !(checked && !!current);

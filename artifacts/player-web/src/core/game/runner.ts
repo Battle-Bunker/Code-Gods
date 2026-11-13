@@ -72,9 +72,11 @@ export type RunnerState = {
   shelf: number;
   /** The summon price of each program checked on this page (by its exact source), so a starter's price is shown once known. Never hard-coded. */
   prices: PriceMemory;
+  /** The game whose first agent the forge has just asked for at the beginner share (cleared when an agent shows or the summon fails): a second summon before the agent list catches up takes the default. */
+  firstSent: string | null;
 };
 
-let state: RunnerState = { busy: null, notice: null, unknown: null, retrying: null, failed: null, validation: null, draft: { source: "", language: null }, editing: false, firstSummon: 0, ownDraft: false, origin: null, replace: null, replaced: null, previous: null, reveal: null, revealObject: null, shelf: 0, prices: { gameId: "", prices: new Map() } };
+let state: RunnerState = { busy: null, notice: null, unknown: null, retrying: null, failed: null, validation: null, draft: { source: "", language: null }, editing: false, firstSummon: 0, ownDraft: false, origin: null, replace: null, replaced: null, previous: null, reveal: null, revealObject: null, shelf: 0, prices: { gameId: "", prices: new Map() }, firstSent: null };
 const listeners = new Set<() => void>();
 /** One command at a time, each with its deadline; only the latest attempt's outcome reaches the state. */
 const attempts = createAttempts();
@@ -109,6 +111,7 @@ export const runner = {
   },
   /** A starter's checked price, for the shelf: by game, language and source (first-agent.ts rememberPrice); another game's are dropped. */
   setPrice(gameId: string, key: string, cost: number) { const prices = rememberPrice(state.prices, gameId, key, cost); if (prices !== state.prices) set({ prices }); },
+  setFirstSent(gameId: string | null) { if (state.firstSent !== gameId) set({ firstSent: gameId }); },
   setOrigin(origin: string | null) { if (state.origin !== origin) set({ origin }); },
   setOwnDraft(ownDraft: boolean) { if (state.ownDraft !== ownDraft) set({ ownDraft }); },
   /** Ignored while a summon is in flight: a second press can never buy a second copy. */

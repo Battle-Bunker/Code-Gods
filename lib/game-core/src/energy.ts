@@ -35,6 +35,8 @@ function assertRate(value: number, what: string): void {
 /** Shares are kept to this many decimals, so Σ s ≤ 1 holds exactly where it should. */
 const SHARE_DECIMALS = 1e6;
 export const roundShare = (s: number): number => Math.round(s * SHARE_DECIMALS) / SHARE_DECIMALS;
+/** The largest kept share not above `s` (a bound that must hold, such as a store that must stay large enough). */
+export const floorShare = (s: number): number => Math.floor(s * SHARE_DECIMALS + 1e-9) / SHARE_DECIMALS;
 
 /** A valid power share: a finite number in [0, 1]. */
 export function assertShare(share: number): void {
@@ -59,7 +61,7 @@ export function firstAgentShare(s: { allocated: number; powerPerSecond: number; 
   if (s.fullChargeSeconds === undefined || !(s.powerPerSecond > 0) || !(s.fullChargeSeconds > 0)) return undefined;
   const free = Math.max(0, 1 - s.allocated);
   const bound = free - Math.max(0, s.need) / (s.powerPerSecond * s.fullChargeSeconds);
-  const share = Math.floor(Math.min(FIRST_AGENT_SHARE_TARGET, free, bound) * SHARE_DECIMALS + 1e-9) / SHARE_DECIMALS;
+  const share = floorShare(Math.min(FIRST_AGENT_SHARE_TARGET, free, bound));
   return share > defaultShare(s.allocated) ? share : undefined;
 }
 
