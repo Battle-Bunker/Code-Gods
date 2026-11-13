@@ -19,6 +19,14 @@ Status (2026-11-13): the cost function of this document is shipped as a room set
 - **λ is the exact Kraft root of each generator's declared argument space** (1.58491 for ten digits), which gives
   categorical layers log2(n − 1) by the same rule.
 - §8's numbers are confirmed with the real implementation (docs/rule-difficulty.md §6.4).
+- **What remains (stage 2, not started in shipped code).** Int and string still have only the flat price. To put them
+  on the structure module: (1) Int add as the positional signed-digit norm (a place is a site, its digit a dial; the
+  price of a change is its cheapest signed-digit form, a small DP generalising `signedDigits`); (2) Int multiply as the
+  magnitude code λ·log2|m| with λ = 2.185, which also replaces today's per-prime code, which is not a valid prefix code
+  (Σ 2^(−w) over ±m exceeds 1) and must stay as it is under `set-v1` because stored games were priced by it; (3) string
+  with categorical characters and the three families substitute, insert, delete; (4) their noise and cost tables from
+  the same declared arguments, `supportsCostModel`, the settings form and wording; (5) bit-for-bit regression tests for
+  `set-v1`. Draft #300 holds an untested sketch of (1)–(3).
 
 The prototype that produced the original numbers is `lib/game-utilities/scripts/mutation-cost.ts` (with
 `mutation-cost-lib.ts`, unit-tested in `lib/game-utilities/test/mutation-cost.test.ts`).
