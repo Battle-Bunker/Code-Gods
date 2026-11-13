@@ -194,7 +194,7 @@ export function agentView(game: ClockedGame, agent: Doc<"agents">, nowMs = Date.
 /** The owner's breakdown of how the agent's acts ended (counted by the tick) and its diagnosis (lib/futility.ts). */
 export function agentOutcomes(agent: Pick<Doc<"agents">, "transforms" | "failures" | "lastFailures">) {
   if (agent.failures === undefined && agent.transforms === undefined) return {};
-  const outcomes = { transforms: agent.transforms ?? 0, failures: agent.failures ?? NO_FAILURES, ...(agent.lastFailures ? { lastFailures: agent.lastFailures } : {}) };
+  const outcomes = { transforms: agent.transforms ?? 0, failures: { ...NO_FAILURES, ...agent.failures }, ...(agent.lastFailures ? { lastFailures: agent.lastFailures } : {}) };
   const diagnosis = diagnoseAgent(outcomes);
   return { outcomes, ...(diagnosis ? { diagnosis } : {}) };
 }
@@ -231,11 +231,12 @@ export function projectEvent(ev: Ev, godId: string, index: number, live = true) 
   }
   if (ev.t === "destroy") {
     const mine = ev.ownerId === godId;
-    return live && !mine ? null : { type: "agent.destroyed" as const, agentId: ev.agentId, mine, worldSeconds: ev.world };
+    // `owed` (the debt that moved to its god with its power, §7.2) is the owner's own account: theirs alone while live.
+    return live && !mine ? null : { type: "agent.destroyed" as const, agentId: ev.agentId, mine, worldSeconds: ev.world, ...(mine && ev.owed !== undefined ? { owed: ev.owed } : {}) };
   }
   if (ev.t === "power") {
     if (ev.ownerId !== godId) return null;
-    return { type: "agent.power" as const, agentId: ev.agentId, worldSeconds: ev.world, share: ev.share };
+    return { type: "agent.power" as const, agentId: ev.agentId, worldSeconds: ev.world, share: ev.share, ...(ev.owed !== undefined ? { owed: ev.owed } : {}) };
   }
   if (ev.t === "look") {
     // A god's looks are its own while the game is live (what it chose to watch says what it cares about).
@@ -308,8 +309,8 @@ export function replayEvent(ev: Ev) {
       summonCost: ev.summonCost, expectedActCost: ev.expectedActCost, ...(ev.powerShare !== undefined ? { powerShare: ev.powerShare } : {}),
       breakdown: costBreakdown(ev.breakdown), randomized: ev.randomized, account: ev.account,
     };
-    case "destroy": return { type: "agent.destroyed" as const, agentId: ev.agentId, ownerId: ev.ownerId, worldSeconds: ev.world };
-    case "power": return { type: "agent.power" as const, agentId: ev.agentId, ownerId: ev.ownerId, worldSeconds: ev.world, share: ev.share };
+    case "destroy": return { type: "agent.destroyed" as const, agentId: ev.agentId, ownerId: ev.ownerId, worldSeconds: ev.world, ...(ev.owed !== undefined ? { owed: ev.owed } : {}) };
+    case "power": return { type: "agent.power" as const, agentId: ev.agentId, ownerId: ev.ownerId, worldSeconds: ev.world, share: ev.share, ...(ev.owed !== undefined ? { owed: ev.owed } : {}) };
     case "look": return { type: "god.looked" as const, ownerId: ev.ownerId, worldSeconds: ev.world, price: ev.cost, count: ev.count, ...(ev.objectId ? { objectId: ev.objectId } : {}) };
   }
 }
@@ -377,7 +378,7 @@ export function observation(input: ObservationInput): Observation {
     economy: {
       powerPerSecond: powerOf(settings), startingEnergy: settings.startingEnergy,
       ...(fullChargeOf(settings) !== undefined ? { fullChargeSeconds: fullChargeOf(settings) } : {}),
-      changeReadRatio: CHANGE_READ_RATIO, maxAgentsPerGod: settings.maxAgentsPerGod,
+      changeReadRatio: CHANGE_READ_RATIO, maxAgentsPerGod: settings.maxAgentsPerGod, fullRead: lookPriceOf(settings),
       penaltyWeight: settings.penaltyWeight, worldSeconds: game ? worldNow(game, now) : 0,
       durationMode: settings.durationMode, lengthSeconds: settings.halfLifeSeconds,
       commitClause: settings.commitClause, objectSelection: settings.objectSelection, costModel: costModelOf(settings),

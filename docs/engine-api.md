@@ -318,7 +318,7 @@ Every public function above has an entry in `lib/player-client/src/catalog.ts` (
 | `games.object` | query | player | Show one object | One object of a game: its value and how many bits all players together see in it. | — (One row of the spectator list subscribes to it; the assistant reads its own objects with get_observation.) |
 | `layout.current` | query | player | Show the dock layout | The panes you see in this room, as every open client of yours renders them. | `get_layout`, `load_skill` |
 | `layout.set` | mutation | player | Arrange the dock | Moves, resizes, adds or closes panes; every open client of yours follows. | `open_panel`, `set_panel_params`, `move_pane`, `close_pane` |
-| `manifest.get` | query | infrastructure | Show server info | Object types, offered instantiations, options, runtimes and whether AI players are funded. | `get_rules` |
+| `manifest.get` | query | infrastructure | Show server info | Object types, playable instantiations, options, runtimes and whether AI players are funded. | `get_rules` |
 | `manifest.node.warm` | action | infrastructure | Warm the agent sandboxes | Boots this server's agent sandboxes ahead of a game and refreshes its settings manifest. | — (The app calls it once per session so a game's start finds the sandboxes warm; agents are told by validate_agent when one is warming.) |
 | `version.current` | query | infrastructure | Show deployed versions | The app's and the engine functions' builds now live, so open pages can update themselves. | — |
 | `owner.settings` | action | owner | Choose the next game's setup | Puts the next game on a game setup, or changes the room's setup; running games keep theirs. | `update_settings` |

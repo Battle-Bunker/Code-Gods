@@ -29,6 +29,7 @@ test("paid observation: a god sees what it was told, and pays its own energy to 
   assert.equal(start.economy?.observation, "paid");
   const price = start.economy!.lookPrice!;
   assert.ok(Math.abs(price - 25 * (Math.log2(10) + Math.log2(4)) / 32) < 1e-9, `one look costs the board's full read at the read price (${price})`);
+  assert.equal(start.economy!.fullRead, price, "an observer agent's whole read costs what a look does");
   assert.equal(start.objects.length, 12, "the starting world is known");
   assert.ok(start.objects.every(o => o.knownAt === 0), "each object is known as of its birth");
 

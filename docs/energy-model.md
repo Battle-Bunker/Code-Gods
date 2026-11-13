@@ -534,8 +534,9 @@ much less than mutation) to get exposure to mutation opportunities."
   | Big board | 80 | 0.198 | 17.8 | 1.1% | 2.7% |
   | Master | 80 | 0.198 | 18.7 | 1.1% | 1.6% |
 
-- **The summon-time estimate** (`expectedActCost`, `breakdown.read`) is of the act alone; the offer's price depends on
-  how many objects are live.
+- **The summon-time estimate** (`expectedActCost`, `breakdown.read`) includes the offer, at the number of objects the
+  game holds when the agent is validated or summoned (the examination measures the act alone; `game/commands.ts` adds
+  it). So an agent that reads nothing and skips is told about 0.2 bits per act, which is what it pays, not 0.
 - **Is it enough against hoarding?** With the capacity, yes; and it is the capacity that does the work. The experiment
   (`lib/game-core/scripts/capacity-experiments.ts`, First steps, 100 games per row): one god's three agents read
   nothing and never act; the other two gods play greedy.
@@ -559,20 +560,61 @@ much less than mutation) to get exposure to mutation opportunities."
   agent: log2 objects + log2 of the room's agents with energy), not a per-agent rule. The measurements above do not call
   for it.
 
-### 7.2 Debt (open)
+### 7.2 Debt: at most a full store, and it moves with power (13 Nov 2026)
 
-A balance may go negative by one whole act: an agent with 0.1 bits can commit a 985-bit repaint of a 4×4 grid and then
-waits until income repays it. Debt is per agent, not per unit of power: n agents can owe n acts, and one agent's debt
-does not reduce its siblings' weight in the draw. In the long run this is neutral (every bit spent is repaid from the
-agent's own income before it acts again), with two exceptions that exist today:
+A balance may go negative: an act's cost is known only after it has run. Until this rule the debt had no bound and
+was per agent, not per unit of power: an agent with 0.1 bits could commit a 985-bit repaint of a 4×4 grid, n agents
+could owe n such acts, and the debt could be left unpaid by destroying the agent (re-summon: about 60 bits) or by
+giving its power to another agent. That was free energy, on develop and in production.
 
-- **Destroying an agent in debt, or giving its power to another agent, leaves the debt unpaid.** Destroy and re-summon
-  costs a summon price (about 60 bits for a small agent) against an act of any size.
-- **Debts outstanding when the game ends are never repaid.**
+One principle: **what an account owes is repaid by the power it holds.** Two consequences, both in terms of power:
 
-Proposed rule (not shipped; see the variant branch `variant/debt-within-capacity`): an account's balance stays within
-its capacity on both sides (an act that would leave it owing more than its capacity does not commit and pays its
-reads), and power cannot be taken from an account in debt.
+- **An account may owe at most what it can hold** (its capacity, s·P·T), so its debt is always repayable within T
+  seconds by its own income. A change that would leave the agent owing more does not commit: the act fails as "could
+  not afford this change: it costs X bits, the agent had Y and may owe at most Z" (`failures.unaffordable`), pays its
+  reads like any change that does not commit, and is not remembered as futile (it commits once the agent holds more).
+  game-core `actCredit` and `affordable`; the tick applies them.
+- **Debt moves with power** (game-core `movePower`). When power is taken from an agent that owes (its share is
+  lowered, or it is destroyed), the same fraction of its debt moves onto its god's own account: a god's own energy can
+  therefore be negative, and until its own income has repaid it the god cannot pay for anything (a summon, a look).
+  When a god that owes gives an agent power, the agent takes the same fraction of the god's debt as it takes of the
+  god's unallocated power. Energy never moves this way (what an account holds above a lowered capacity is still lost);
+  debt is never lost. The `power` and `destroy` events record what moved (`owed`, `EVENT_LOG_SCHEMA` 13), the command's
+  receipt says it, and the replay applies the recorded amount.
+
+There is no rule about what an agent in debt may not do, and no special state: an agent in debt is simply not in the
+draw (its weight is zero), as before.
+
+**What this gives.**
+
+- Destroy and re-summon gains nothing: the debt is the god's, and the god cannot summon until it is repaid.
+- Moving power between agents gains nothing: the debt arrives with the power (`lib/game-core/test/energy.test.ts`:
+  over random re-allocations the total owed never changes, and no account without power ever owes).
+- Credit is a function of power: a god's accounts together can owe at most P·T, however many agents hold it. The
+  agent-count property test (§7) now includes a program that acts on credit.
+- The largest change an agent can ever make costs its capacity plus what it holds: at most 2·s·P·T. A whole 4×4 grid
+  (985 bits) needs a share of at least 26% at P = 64, T = 30.
+- Play is unchanged where it was sound: in the balance harness the bound changes no act count or win share on any
+  seed (`balance-settings.ts --T 30 --no-cap --offer --debt-bound`, 100 games per row: identical to the unbounded
+  rows), because agents there never owe more than a store.
+
+**What it costs.** An agent whose changes cost more than it can hold (more than s·P·T) must save before it can act,
+and in a busy room its turns keep coming while it saves, each one costing its reads: it is mostly refused. That is the
+agent's impact following its power, and the diagnosis says so ("give it a bigger power share, or make each act change
+less"). The same mechanism is why having no credit at all does not work (`variant/no-credit`, #293): there, every
+agent that looks before acting is in that position, and the harness shows 0 changes per game in the 100 Hz rooms
+(Classic 3,476 → 0, Big 2,416 → 0, Master 1,635 → 0).
+
+**Alternatives kept as branches.** `variant/debt-within-capacity` (#292: the same bound, but an agent in debt cannot
+be destroyed or given less power, a rule about a state); `variant/no-credit` (#293).
+
+A game without capacity (started before the setting) keeps its old behaviour. Stored data:
+`agents.failures.unaffordable` and the events' `owed` are optional (absent reads as 0 / nothing moved); nothing migrates.
+
+Tests: game-core (`affordable`, `movePower`, conservation under random re-allocation, neutrality with credit); engine
+unit (the failure kind and its diagnosis); replay (the recorded amount); `test/game-power.test.ts` on the real tick (a
+5% agent is refused a change a 90% agent commits; no account owes more than its capacity; half the power takes half
+the debt; a destroyed agent's debt lands on its god, who cannot summon until its income has repaid it).
 
 **What was removed, and why.** Until 11 Nov 2026 two limits were per agent, so a god gained turns by running more
 agents with the same power:
@@ -594,7 +636,7 @@ reports `economy.maxAgentOpportunityHz` (a replay of an older game still does). 
 **Per-agent quantities that remain** (none is an advantage in turns): `maxAgentsPerGod` (a limit); the summon price
 (each program is priced by its own description, so n small programs cost what their lengths cost, plus each one's own
 boilerplate: never cheaper than one); the futility memo (per agent and object: n copies of a deterministic agent each
-fail once on an object before being kept off it, and pay their reads); and debt (§7.2).
+fail once on an object before being kept off it, and pay their reads). Debt is bounded by power and moves with it (§7.2).
 
 ## 8. Hold rarity (PR 5)
 
@@ -760,6 +802,11 @@ given to it and the number of agents gives nothing (§6, §7). A god that keeps 
 directly: watching closely costs power either way. On the default setup (P = 64 bits/s, 10 objects) looking at
 everything once a second costs 16.6 bits/s, a quarter of a god's power.
 
+The forge offers it ready-made where looking costs energy ("An agent that only looks", `player-web`
+`core/panels/observer.ts`), with its cost under the offer price of §7.1: one turn costs the whole read plus the offer
+(log2 of the live objects, at the read price), 1.76 energy on the default setup with 10 objects, so a 10% share (6.4
+bits/s) refreshes about 3.6 objects a second. The observation carries the whole-read price as `economy.fullRead`.
+
 ### 11.4 What a seated god can read while the game is live
 
 | Path | Free game | Paid game |
@@ -813,6 +860,9 @@ energy would be detailed analysis that could expensively derive the goals of oth
   dataset and `fit_utility_mixture`) is that log. The rival inference fits the other gods' rules to (value, others' sum)
   pairs; in a paid game it has exactly the pairs the god paid for. The time resolution of the history is the rate the
   god samples at, and each sample costs one look.
+- The code-run datasets (`run_code`: `objects`, `observation`, `events`, `game_history`, `trajectories`,
+  `utility_series`) have no price of their own: each is read through the same functions as the dock, so in a paid live
+  game it holds what the god was told and nothing else. Their descriptions say so (`lib/player-client/src/datasets.ts`).
 - There is no purchase of the past: a state nobody paid to see at the time is not for sale later. (It would be a second
   mechanism; the price would be the same, one look per row.)
 - What an inference costs on the default setup (look 1.66; cheapest change 16.3; a small agent's summon price is tens of

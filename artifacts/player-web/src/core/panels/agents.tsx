@@ -6,7 +6,10 @@
  * of its income it holds), what it spent (reading and changing), the actual average per act against the summon-time estimate, how often it
  * skipped, how its acts ended when some failed (the engine's diagnosis, with a fix when most fail), the power-share
  * control (slider, percentage box and Set: allocatePower; before Set it says what the new share does to the agent's
- * capacity and to the player's own, and what would be lost) and "Edit a copy" / Destroy (inline confirm). Last, a timeline
+ * capacity and to the player's own, what would be lost, and what debt moves with the power) and "Edit a copy" / Destroy
+ * (inline confirm, which says what destroying an agent that owes does to the player's own energy). An agent below zero
+ * in a game with capacity says what it owes and how much it may owe; a player below zero is told what they owe and when
+ * they can summon again (docs/energy-model.md §7.2). Last, a timeline
  * with a legend and one named row per agent. Each action appears only where it works (core/affordances.ts): none does in
  * a read-only replay, and Destroy goes after the end. In a replay seen as another god, the panel says whose agents these are.
  */
@@ -25,7 +28,7 @@ import {
   STATE_LEGEND, actualLine, afterShareLine, agentState, energyLine, estimateLine, laneKind, num, perSecond, plain, runwayFraction, runwaySeconds, runwayText,
   shareLine, skipLine, spentLine, statusText, summonLine, yourPowerLine, type Seg,
 } from "./agent-labels";
-import { fillText, ownEnergyLine, shareCapacityLines, storeFraction, storeState, storedLine } from "./energy-capacity";
+import { agentDebtLine, destroyDebtLine, fillText, owes, ownEnergyLine, shareCapacityLines, storeFraction, storeState, storedLine } from "./energy-capacity";
 import { PanelEmpty, TextButton, type PanelProps } from "./kit";
 import { maxShareFor, parseSharePercent, shareProblem } from "./power-share";
 
@@ -99,7 +102,7 @@ function PowerShareControl({ id, share, allocated, total, fullChargeSeconds, age
         : changed && parsed !== null && (<>
           <p data-testid={`text-power-preview-${id}`} className="text-muted-foreground">{afterShareLine(parsed, share, allocated, total)}</p>
           {shareCapacityLines({ newShare: parsed, agentShare: share, allocated, total, fullChargeSeconds, agentEnergy, ownEnergy }).map((line, i) => (
-            <p key={i} data-testid={`text-power-capacity-${id}-${i}`} className={line.includes("lost") || line.includes("cannot summon") ? "font-semibold text-destructive" : "text-muted-foreground"}>{line}</p>
+            <p key={i} data-testid={`text-power-capacity-${id}-${i}`} className={line.includes("lost") || line.includes("cannot summon") || line.includes("will owe") ? "font-semibold text-destructive" : "text-muted-foreground"}>{line}</p>
           ))}
         </>)}
     </div>
@@ -147,9 +150,9 @@ export function AgentsView({ agents, self, powerPerSecond, fullChargeSeconds, ch
         <div className="space-y-1 text-xs" data-testid="text-unallocated-power">
           <p className="font-medium text-foreground"><Say segs={yourPowerLine({ total, allocated: self.allocated, income: self.income, energy: self.energy ?? 0 })} /></p>
           {self.capacity !== undefined && (
-            <p data-testid="text-own-capacity" className={`flex flex-wrap items-center gap-x-3 gap-y-1 ${self.capacity > 0 ? "text-foreground" : "font-semibold text-destructive"}`}>
+            <p data-testid="text-own-capacity" className={`flex flex-wrap items-center gap-x-3 gap-y-1 ${self.capacity > 0 && owes(self.energy ?? 0) === 0 ? "text-foreground" : "font-semibold text-destructive"}`}>
               <span><Say segs={ownEnergyLine({ energy: self.energy ?? 0, income: self.income, capacity: self.capacity })} /></span>
-              {self.capacity > 0 && <CapacityMeter bare testId="meter-own-energy" energy={self.energy ?? 0} income={self.income} capacity={self.capacity} />}
+              {self.capacity > 0 && owes(self.energy ?? 0) === 0 && <CapacityMeter bare testId="meter-own-energy" energy={self.energy ?? 0} income={self.income} capacity={self.capacity} />}
             </p>
           )}
           <p className="text-muted-foreground">
@@ -165,6 +168,8 @@ export function AgentsView({ agents, self, powerPerSecond, fullChargeSeconds, ch
           const history = (samples.get(a.id) ?? []).filter(s => s.at >= world - windowS).map(s => s.energy);
           // Against its capacity when the game has one and the agent is not in debt (debt shows as it always did).
           const capped = a.capacity !== undefined && a.energy > 0;
+          const debt = agentDebtLine(a.energy, a.capacity);
+          const destroyDebt = confirm === a.id ? destroyDebtLine({ agentEnergy: a.energy, agentShare: a.powerShare ?? 0, ownEnergy: self?.energy ?? 0, allocated: self?.allocated ?? a.powerShare ?? 0, total, fullChargeSeconds }) : null;
           const statusColour = state === "waiting" ? "text-destructive" : state === "can" ? "text-[hsl(var(--accent))]" : "text-muted-foreground";
           return (
             <li key={a.id} data-testid={`row-agent-${a.id}`} className="min-w-0 space-y-1.5">
@@ -176,6 +181,7 @@ export function AgentsView({ agents, self, powerPerSecond, fullChargeSeconds, ch
                 {a.powerShare !== undefined && a.income !== undefined && <p data-testid={`text-agent-share-${a.id}`}><Say segs={shareLine(a.powerShare, a.income)} /></p>}
                 <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
                   <span className={a.energy <= 0 ? "font-semibold text-destructive" : "text-foreground"}><Say segs={capped ? storedLine(a.energy, a.capacity!) : energyLine(a.energy)} /></span>
+                  {debt && <span data-testid={`text-agent-debt-${a.id}`} className="font-semibold text-destructive">{debt}</span>}
                 </p>
                 <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
                   {capped ? <CapacityMeter testId={`meter-agent-capacity-${a.id}`} energy={a.energy} income={a.income ?? 0} capacity={a.capacity!} /> : <EnergyMeter energy={a.energy} income={a.income ?? 0} />}
@@ -204,11 +210,12 @@ export function AgentsView({ agents, self, powerPerSecond, fullChargeSeconds, ch
                 <div className="flex flex-wrap gap-4">
                   {editCode.ok && <TextButton testId={`button-load-agent-${a.id}`} onClick={() => onEdit(a)}>Edit a copy</TextButton>}
                   {showDestroy && (confirm === a.id ? (<>
-                    <TextButton tone="danger" testId={`button-confirm-destroy-${a.id}`} disabled={!destroy.ok} title={destroy.ok ? undefined : destroy.reason} onClick={() => { setConfirm(null); onDestroy(a); }}>Destroy it (free, cannot be undone)</TextButton>
+                    <TextButton tone="danger" testId={`button-confirm-destroy-${a.id}`} disabled={!destroy.ok} title={destroy.ok ? undefined : destroy.reason} onClick={() => { setConfirm(null); onDestroy(a); }}>{destroyDebt ? "Destroy it (cannot be undone)" : "Destroy it (free, cannot be undone)"}</TextButton>
                     <TextButton onClick={() => setConfirm(null)}>Keep</TextButton>
                   </>) : (
                     <TextButton testId={`button-destroy-agent-${a.id}`} disabled={!destroy.ok} onClick={() => setConfirm(a.id)} title={destroy.ok ? "Free. It can't be undone." : destroy.reason}>Destroy</TextButton>
                   ))}
+                  {destroyDebt && <p data-testid={`text-destroy-debt-${a.id}`} role="alert" className="basis-full text-xs font-semibold text-destructive">{destroyDebt}</p>}
                 </div>
               )}
             </li>

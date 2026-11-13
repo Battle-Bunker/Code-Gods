@@ -428,8 +428,15 @@ test("disclosure: every read tool, as one of three players, reveals no other god
   assert.deepEqual((await call(boToken, "list_utility_candidates", {})).data, (await call(token, "list_utility_candidates", {})).data, "the same candidates for every player");
   // The layout tools: view state only, and the caller's own stored panels; nothing of another god's leaks through them.
   await ada.c.action(api.panels.save, { slug: "mcp-mine", source: "export default () => null;\n" });
+  // The default dock uses all four built-in panel slots (player-client DEFAULT_LAYOUT), so adding a fifth is refused,
+  // and says what to do; closing one makes room.
+  const place = { relativeTo: "p1", direction: "right" };
+  const full = await call(token, "open_panel", { panelId: "objects", params: { limit: 3 }, place });
+  assert.match(JSON.stringify(full), /At most 4 panels; change one .* or close one first/);
+  const closed = await call(token, "close_pane", { paneId: "p5" });
+  assert.ok(closed && !closed.error && !closed.rpcError, `close_pane: ${JSON.stringify(closed).slice(0, 300)}`);
   // With `place`, open_panel adds a pane (without it, it would switch the never-chosen first pane instead).
-  const opened = await call(token, "open_panel", { panelId: "objects", params: { limit: 3, highlight: [objects[0].id] }, place: { relativeTo: "p1", direction: "right" } });
+  const opened = await call(token, "open_panel", { panelId: "objects", params: { limit: 3, highlight: [objects[0].id] }, place });
   assert.ok(!opened.error, JSON.stringify(opened).slice(0, 300));
   const layoutCalls: [string, Record<string, unknown>][] = [
     ["get_layout", {}], ["set_panel_params", { paneId: opened.data.paneId, params: { sortBy: "othersCare" } }], ["open_panel", { slug: "mcp-mine" }],

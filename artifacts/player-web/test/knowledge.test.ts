@@ -41,6 +41,9 @@ test("one look: the price on the button, affordable or the reason with price and
   assert.equal(poor.reason, "A look costs 1.66 energy; you have 0.40");
   assert.equal(lookOffer({ price: 1.66, energy: -2 }).reason, "A look costs 1.66 energy; you have 0.00", "a debt reads as nothing to spend");
   assert.equal(lookOffer({ price: 1.66, energy: 1.66 }).ok, true, "exactly the price is enough (the engine refuses only below it)");
+  assert.equal(lookOffer({ price: 1.66, energy: 0, noPower: true }).reason, "A look costs 1.66 energy; you have 0.00. All your power is with your agents: keep some power for yourself to look",
+    "a god whose power is all with its agents is told what to do about it");
+  assert.equal(lookOffer({ price: 1.66, energy: 5, noPower: true }).reason, null, "an affordable look says nothing of power");
 });
 
 test("a look at all: the price times the object count, said before paying", () => {
