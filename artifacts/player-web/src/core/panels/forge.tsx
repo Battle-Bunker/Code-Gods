@@ -252,6 +252,8 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
   // Kept by the runner, so a pane switch that remounts the editor does not forget it.
   const firstSent = useRunner().firstSent;
   useEffect(() => { if (firstSent !== null && (agentCount ?? 0) > 0) runner.setFirstSent(null); }, [firstSent, agentCount]);
+  const summonedIn = useRunner().summonedIn;
+  useEffect(() => { if (summonedIn !== null && (agentCount ?? 0) > 0) runner.setSummonedIn(null); }, [summonedIn, agentCount]);
   const firstShare = summonShare({
     // Python only: the beginner budget is the Python starters' (TypeScript's tree costs about twice as much).
     agents: agentCount, allocated: obs?.self.allocated, beginner: language === "python" && isBeginnerGoal({ boardKey: board?.key, familyId: card?.familyId }),
@@ -290,7 +292,7 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
       // first. (Should an unknown outcome have made one, it shows in the agent list and its share in `allocated`.)
       if (!result?.accepted && firstShare !== undefined && runner.get().firstSent === gameId) runner.setFirstSent(null);
       if (!result) return;
-      if (result.accepted) { setSummoned(agent.name, agent.source); return; }
+      if (result.accepted) { setSummoned(agent.name, agent.source); if (gameId) runner.setSummonedIn(gameId); return; }
       if (wasArmed) { setRefused({ armed: wasArmed, message: result.message || "The game refused this summon." }); return; }
       // Not enough energy for an agent summoned without a validation: learn its price (free), then wait for the energy.
       if (!lacksEnergy(result.message)) return;
@@ -550,7 +552,9 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
               <TextButton boxed testId="button-open-my-agents" onClick={() => dock.show("agents")}>See what it does in My agents</TextButton></p>
             {store && <p data-testid="text-summoned-store" className="text-xs text-muted-foreground">{store}</p>}
             {/* The next thing to try, until the player has tried it (a changed version summoned says nothing more). */}
-            {untouchedExample(summoned.source, examples) !== null && <p className="text-xs text-muted-foreground">{SUMMONED_NEXT}</p>}
+            {untouchedExample(summoned.source, examples) !== null && <p className="text-xs text-muted-foreground">{SUMMONED_NEXT}{" "}
+              {/* The code's "Want more?" names this shelf; on a phone it sat below the code box, out of reach (a walker searched for it). */}
+              <TextButton testId="button-open-starting-points" onClick={() => runner.openShelf()}>Other starting points</TextButton></p>}
           </div>
         );
       })()}
@@ -568,6 +572,9 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
       {gameplay && !busy && !armed && !refused && (!copyNow || (checked && !!current)) && !(canSummon && name.trim()) && source.trim() && (() => {
         // Too dear for now: say both numbers and when it will be payable, not only that it is.
         if (tooSmall) return <p data-testid="text-store-too-small" className="text-sm font-semibold text-foreground">{tooSmall}</p>;
+        // The code the player just summoned or put in place by a replace: its price was paid, so "costs N and you have M"
+        // is not news (a walker saw it right after a successful replace).
+        if (copyNow && (replaceResult?.ok || summoned?.source === source)) return null;
         const short = current?.valid && name.trim() ? energyHint({ cost: current.cost, energy: obs?.self.energy ?? 0, income: obs?.self.income, planning: obs?.phase === "planning" }) : null;
         const needs = short ?? summonNeeds(!!current?.valid || (untouched && !current), !!name.trim(), !current || current.cost <= energy);
         return needs && <p data-testid="text-summon-needs" className="text-xs text-muted-foreground">{needs}</p>;
