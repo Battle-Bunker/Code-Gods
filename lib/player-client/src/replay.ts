@@ -51,8 +51,9 @@ export type ReplayEvent =
     /** The share of its owner's power the agent was given (log schema 6); absent in older logs, which replay as share 0. */
     powerShare?: number }
   /** The owner re-allocated power: the agent's share from then on (log schema 6). */
-  | { type: "agent.power"; agentId: string; ownerId: string; worldSeconds: number; share: number }
-  | { type: "agent.destroyed"; agentId: string; ownerId: string; worldSeconds: number }
+  /** `owed` (log schema 12): the debt that moved with the power, from the agent onto its god's own account (negative: the other way). */
+  | { type: "agent.power"; agentId: string; ownerId: string; worldSeconds: number; share: number; owed?: number }
+  | { type: "agent.destroyed"; agentId: string; ownerId: string; worldSeconds: number; owed?: number }
   /** A god paid `cost` of its own energy to look at `count` objects (log schema 11; paid observation). */
   | { type: "god.looked"; ownerId: string; worldSeconds: number; price: number; count: number; objectId?: string };
 
@@ -251,10 +252,12 @@ export function applyEntry(state: ReplayState, entry: LogEntry, settings: GameSe
       const agent = state.agents.get(ev.agentId), i = roster.get(ev.ownerId);
       if (!agent || !agent.alive) break;
       // Both accounts are settled at the old rates, then the share changes.
-      if (agent.account) agent.account = settleAccount(settings, agent.account, entry.world, agent.share);
+      // Debt moves with the power (docs/energy-model.md §7.2): the recorded amount, never recomputed.
+      const owed = ev.owed ?? 0;
+      if (agent.account) { const a = settleAccount(settings, agent.account, entry.world, agent.share); agent.account = { ...a, balance: a.balance + owed }; }
       if (i !== undefined) {
         const d = settleDeity(settings, state.deities[i], entry.world);
-        state.deities[i] = { ...d, allocated: Math.max(0, roundShare(d.allocated - agent.share + ev.share)) };
+        state.deities[i] = { ...d, balance: d.balance - owed, allocated: Math.max(0, roundShare(d.allocated - agent.share + ev.share)) };
       }
       agent.share = ev.share;
       break;
@@ -265,9 +268,10 @@ export function applyEntry(state: ReplayState, entry: LogEntry, settings: GameSe
         agent.alive = false; agent.destroyedAt = entry.world;
         // Its share returns to its owner, whose income changes from now.
         const i = roster.get(agent.ownerId);
-        if (i !== undefined && agent.share > 0) {
+        if (i !== undefined && (agent.share > 0 || ev.owed)) {
           const d = settleDeity(settings, state.deities[i], entry.world);
-          state.deities[i] = { ...d, allocated: Math.max(0, roundShare(d.allocated - agent.share)) };
+          // What it owed is now its god's (§7.2): the recorded amount.
+          state.deities[i] = { ...d, balance: d.balance - (ev.owed ?? 0), allocated: Math.max(0, roundShare(d.allocated - agent.share)) };
         }
         agent.share = 0;
       }

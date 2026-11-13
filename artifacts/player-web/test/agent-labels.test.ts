@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  actualLine, afterShareLine, agentState, energyLine, estimateLine, laneKind, num, plain, runwayFraction, runwayText, shareLine, skipLine, spentLine,
+  actualLine, afterShareLine, agentState, energyLine, estimateLine, failureKindsLine, laneKind, num, plain, runwayFraction, runwayText, shareLine, skipLine, spentLine,
   statusText, summonLine, yourPowerLine,
 } from "../src/core/panels/agent-labels.ts";
 import { agentLabel } from "../src/core/panels/agent-name.ts";
@@ -74,4 +74,13 @@ test("re-allocation preview and unnamed agents", () => {
   assert.equal(agentLabel(undefined, 0), "Agent 1");
   assert.equal(agentLabel("  ", 1), "Agent 2");
   assert.equal(agentLabel("Hoarder", 1), "Hoarder");
+});
+
+test("failed acts by kind: only the kinds that happened, a kind absent from the data counts as 0", () => {
+  assert.equal(failureKindsLine({ collision: 30, noChange: 0, commit: 0, invalid: 0, error: 0, unaffordable: 2 }),
+    "Failed acts: 30 × another object already had the value · 2 × could not afford the change");
+  assert.equal(failureKindsLine({ collision: 0, noChange: 3, commit: 1, invalid: 4, error: 5 }),
+    "Failed acts: 3 × changed nothing · 1 × kept by the commit clause · 4 × invalid call · 5 × code raised or ran out of time");
+  assert.equal(failureKindsLine({ collision: 0, noChange: 0, commit: 0, invalid: 0, error: 0 }), null);
+  assert.equal(failureKindsLine(undefined), null);
 });

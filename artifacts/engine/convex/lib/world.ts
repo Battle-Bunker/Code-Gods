@@ -46,8 +46,11 @@ export const EVENTS_PER_BATCH = 400;
  * the agent was given (log2 of the live objects, inside cost.read). Replay reads recorded costs either way.
  * 11 adds the `look` event (paid observation, lib/knowledge.ts): a god paid its own energy to be told one object, or all
  * of them.
+ * 12 marks debt within capacity (docs/energy-model.md §7.2): a change that would leave the agent owing more than it can
+ * hold fails ("could not afford this change"), and `power` and `destroy` events carry `owed`, the debt that moved with
+ * the power between the agent and its god's own account. Replay applies the recorded amount.
  */
-export const EVENT_LOG_SCHEMA = 11;
+export const EVENT_LOG_SCHEMA = 12;
 
 export type Clock = {
   phase: "planning" | "running" | "paused" | "recovery" | "ended";

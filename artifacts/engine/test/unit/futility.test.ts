@@ -127,3 +127,15 @@ test("the memo keeps at most MAX_FUTILE_PER_AGENT pairs per agent, forgetting th
   assert.equal(row.entries.length, MAX_FUTILE_PER_AGENT);
   assert.equal(row.entries[0].o, "o1", "the oldest went");
 });
+
+test("a change the agent could not afford is its own failure kind, never remembered as futile (docs/energy-model.md §7.2)", async () => {
+  const { unaffordableReason, failureKind, futileAfter, diagnoseAgent, NO_FAILURES } = await import("../../convex/lib/futility.ts");
+  assert.equal(unaffordableReason(986.13, 11.52, 480), "could not afford this change: it costs 986.1 bits, the agent had 11.5 and may owe at most 480.0");
+  assert.equal(failureKind(unaffordableReason(986.13, 11.52, 480)), "unaffordable");
+  assert.equal(futileAfter({ object: { id: "o", version: 3 }, deterministic: true, kind: "unaffordable" }), null, "it commits once the agent holds more");
+  const d = diagnoseAgent({ transforms: 1, failures: { ...NO_FAILURES, unaffordable: 9 } })!;
+  assert.match(d.summary, /9 of 10 acts failed: it could not afford the change/);
+  assert.match(d.hint!, /bigger power share/);
+  // Counts stored before the kind existed have no entry for it.
+  assert.equal(diagnoseAgent({ transforms: 3, failures: { collision: 0, noChange: 0, commit: 0, invalid: 0, error: 0 } }), undefined);
+});

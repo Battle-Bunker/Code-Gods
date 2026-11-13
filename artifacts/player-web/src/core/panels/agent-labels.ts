@@ -104,3 +104,18 @@ export function afterShareLine(newShare: number, agentShare: number, allocated: 
   const own = Math.max(0, 1 - (allocated - agentShare + newShare));
   return `Then ${percent(newShare)} (${perSecond(newShare * total)}) goes to this agent and ${percent(own)} (${perSecond(own * total)}) stays with you.`;
 }
+
+/** Each failure kind in a few words (the engine's `outcomes.failures`; its diagnosis names the main one). */
+export const FAILURE_LABELS = {
+  collision: "another object already had the value",
+  noChange: "changed nothing",
+  commit: "kept by the commit clause",
+  invalid: "invalid call",
+  error: "code raised or ran out of time",
+  unaffordable: "could not afford the change",
+} as const;
+/** "Failed acts: 30 × another object already had the value · 2 × could not afford the change"; null when none failed. A kind absent from the data counts as 0. */
+export function failureKindsLine(failures: Partial<Record<keyof typeof FAILURE_LABELS, number>> | undefined): string | null {
+  const parts = (Object.keys(FAILURE_LABELS) as (keyof typeof FAILURE_LABELS)[]).flatMap(k => ((failures?.[k] ?? 0) > 0 ? [`${failures![k]} × ${FAILURE_LABELS[k]}`] : []));
+  return parts.length ? `Failed acts: ${parts.join(" · ")}` : null;
+}

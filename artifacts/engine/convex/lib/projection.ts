@@ -191,7 +191,7 @@ export function agentView(game: ClockedGame, agent: Doc<"agents">, nowMs = Date.
 /** The owner's breakdown of how the agent's acts ended (counted by the tick) and its diagnosis (lib/futility.ts). */
 export function agentOutcomes(agent: Pick<Doc<"agents">, "transforms" | "failures" | "lastFailures">) {
   if (agent.failures === undefined && agent.transforms === undefined) return {};
-  const outcomes = { transforms: agent.transforms ?? 0, failures: agent.failures ?? NO_FAILURES, ...(agent.lastFailures ? { lastFailures: agent.lastFailures } : {}) };
+  const outcomes = { transforms: agent.transforms ?? 0, failures: { ...NO_FAILURES, ...agent.failures }, ...(agent.lastFailures ? { lastFailures: agent.lastFailures } : {}) };
   const diagnosis = diagnoseAgent(outcomes);
   return { outcomes, ...(diagnosis ? { diagnosis } : {}) };
 }
@@ -305,8 +305,8 @@ export function replayEvent(ev: Ev) {
       summonCost: ev.summonCost, expectedActCost: ev.expectedActCost, ...(ev.powerShare !== undefined ? { powerShare: ev.powerShare } : {}),
       breakdown: costBreakdown(ev.breakdown), randomized: ev.randomized, account: ev.account,
     };
-    case "destroy": return { type: "agent.destroyed" as const, agentId: ev.agentId, ownerId: ev.ownerId, worldSeconds: ev.world };
-    case "power": return { type: "agent.power" as const, agentId: ev.agentId, ownerId: ev.ownerId, worldSeconds: ev.world, share: ev.share };
+    case "destroy": return { type: "agent.destroyed" as const, agentId: ev.agentId, ownerId: ev.ownerId, worldSeconds: ev.world, ...(ev.owed !== undefined ? { owed: ev.owed } : {}) };
+    case "power": return { type: "agent.power" as const, agentId: ev.agentId, ownerId: ev.ownerId, worldSeconds: ev.world, share: ev.share, ...(ev.owed !== undefined ? { owed: ev.owed } : {}) };
     case "look": return { type: "god.looked" as const, ownerId: ev.ownerId, worldSeconds: ev.world, price: ev.cost, count: ev.count, ...(ev.objectId ? { objectId: ev.objectId } : {}) };
   }
 }

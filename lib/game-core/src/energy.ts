@@ -163,7 +163,39 @@ export function pickByEnergy<T>(candidates: readonly T[], energy: (c: T) => numb
   return undefined;
 }
 
-/** Deduct one act's actual cost. The balance may go negative (a cooldown). */
+/**
+ * Credit (docs/energy-model.md §7.2): an account may owe at most what it can hold, so its balance stays within
+ * ±capacity as far as its own acts go. A change that would leave it owing more does not commit. Unbounded (as before)
+ * in a game stored without `fullChargeSeconds`, which keeps the economy it started with.
+ */
+export const actCredit = (capacity: number): number => capacity;
+
+/** True when an act costing `cost` leaves the settled `balance` at or above −`credit`: the change may commit. */
+export function affordable(balance: number, cost: number, credit: number): boolean {
+  return balance - cost >= -credit - 1e-9;
+}
+
+/**
+ * Debt moves with power (docs/energy-model.md §7.2): what an account owes is repaid by the power it holds, so when a
+ * deity changes an agent's share from `from` to `to` (0: the agent is destroyed) the debt goes where the power goes.
+ * Both accounts are settled to the same world time first.
+ *  - Power taken from an agent that owes: the same fraction of its debt moves onto the deity's own account, which may
+ *    then be negative (the deity cannot pay for anything until its own income has repaid it).
+ *  - Power given to an agent by a deity that owes: the agent takes the same fraction of the deity's debt as it takes
+ *    of the deity's unallocated power (`unallocated`, before the change).
+ * Energy never moves (what an account holds above its new capacity is lost when it is next settled); debt is never
+ * lost. The sum of the two balances is unchanged whenever debt moves.
+ */
+export function movePower(agent: AgentAccount, deity: AgentAccount, from: number, to: number, unallocated: number): { agent: AgentAccount; deity: AgentAccount } {
+  assertShare(from); assertShare(to);
+  let moved = 0;   // debt moving from the agent to the deity (negative: from the deity to the agent)
+  if (to < from && agent.balance < 0) moved = -agent.balance * (from > 0 ? (from - to) / from : 1);
+  else if (to > from && deity.balance < 0) moved = deity.balance * Math.min(1, unallocated > 0 ? (to - from) / unallocated : 1);
+  if (moved === 0) return { agent, deity };
+  return { agent: { ...agent, balance: agent.balance + moved }, deity: { ...deity, balance: deity.balance - moved } };
+}
+
+/** Deduct one act's actual cost. The balance may go negative: by at most the account's capacity when the act changed the object (§7.2). */
 export function chargeAct(account: AgentAccount, cost: number): AgentAccount {
   assertClock(account.balance, "agent balance");
   assertRate(cost, "act cost");
