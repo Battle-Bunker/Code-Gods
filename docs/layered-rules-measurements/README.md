@@ -9,34 +9,52 @@ the base's top). One file per family:
 - [`opposite-nines.md`](opposite-nines.md): "lines add up to x", "2×2 squares add up to x"; the composition comparison.
 - [`mirrormancer.md`](mirrormancer.md): "mirrors holding exactly two ys", "mirrors whose half adds up to x".
 - [`kings-and-subjects.md`](kings-and-subjects.md): "pairs of kings with x in between", "same-number roads of y".
+- [`two-pair.md`](two-pair.md): "linked boxes adding up to x", "links through y", "roads of y equal numbers".
+- [`crosswise-threes.md`](crosswise-threes.md): "lines add up to x", and why "2×2 squares add up to x" is not dealt here.
 
 [`mirror-tiers.md`](mirror-tiers.md) and [`royal-court.md`](royal-court.md) are the family authors' notes on how the
 tiers were chosen; their numbers are from the older budget.
 
 ## Summary
 
-One row per family and interaction. Ranges are over the dealt tables. `+top` is over the base's exact top. Tier share
-is the share of the tier's headroom a one-cell greedy agent holds after 48 moves. Mean `SYN` and the payoff ratio are
-over the two values of each interaction that were paired and played (first and last dealt). Sampled, except the
-calibration error's reference for Opposite Nines and Mirrormancer, which is exact.
+One row per family and interaction, re-measured on 2026-11-13 against the dealt sets that ship now, over **every**
+dealt table (the profile skips a value whose table another value already covers, so the rows below cover all 44).
+Ranges are over those tables. `base top` and `top bits` are the shipped tables' own; `+top` is over the base's exact
+top (the hybrid law's, which is exact by convolution and a little above the base's sampled table). Tier share is the
+share of the tier's headroom a one-cell greedy agent holds after 48 moves, playing the base only ("base-only": the
+tier points it gets by accident) or the whole rule. Mean `SYN` and the payoff ratio are over the two values of each
+interaction that were paired and played (first and last dealt), 40 games each. Sampled, except the calibration error's
+reference for Opposite Nines and Mirrormancer, which is exact.
 
-| family | interaction | dealt values | tables | base top | top bits | +top | tier share, base-only agent | tier share, tier-aware agent | mean SYN, base → tiered | payoff ratio | max calibration error, dealt (bits) | Lab |
-|---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
-| Opposite Nines | lines | 17 | 9 | 26.58 | 37.5–43.1 | 10.9–16.5 | 0.01–0.11 (mean 0.06) | 0.05–0.25 (mean 0.13) | 28.4 → 41.5–42.5 | 1.00–1.03 | 0.38 (exact reference) | 0.39 |
-| Opposite Nines | squares | 13 | 4 | 26.58 | 37.9–43.5 | 11.3–17.0 | 0.04–0.12 (mean 0.06) | 0.07–0.25 (mean 0.13) | 28.4 → 39.4–44.0 | 1.00–1.01 | 0.16 (exact reference) | 0.56 |
-| Mirrormancer | holding | 10 | 1 | 26.58 | 36.9 | 10.4 | 0.06 | 0.11 | 31.1 → 41.5 | 1.00 | 0.06 (exact reference) | – |
-| Mirrormancer | halves | 5 | 3 | 26.58 | 41.0–42.7 | 14.4–16.1 | 0.01–0.07 (mean 0.04) | 0.02–0.09 (mean 0.05) | 31.1 → 44.2–45.3 | 1.00 | 0.28 (exact reference) | – |
-| Kings and Subjects | pairs | 5 | 5 | 14.81 | 27.5–28.3 | 12.6–13.5 | 0.04–0.09 (mean 0.06) | 0.19–0.26 (mean 0.22) | 45.6 → 59.8–59.9 | 0.99 | 0.30 (sampled reference) | 0.07 |
-| Kings and Subjects | sameRoads | 3 | 3 | 14.81 | 27.2–40.7 | 12.4–25.9 | 0.00–0.04 (mean 0.01) | 0.03–0.11 (mean 0.06) | 45.6 → 60.0–66.1 | 1.00–1.01 | **about 4.8** at the top level of y = 2 (sampled reference); 0.43 below it | – |
+| family | interaction | dealt values | tables | base top | top bits | +top | tier share, base-only agent | tier share, tier-aware agent | mean SYN, base → tiered | payoff ratio | max calibration error, dealt (bits) |
+|---|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| Opposite Nines | lines | 15 | 8 | 26.4 | 37.5–41.6 | 11.1–15.2 | 0.01–0.11 | 0.05–0.25 | 28.4 → 41.2–41.5 | 1.00 | 0.38 (exact reference) |
+| Opposite Nines | squares | 6 | 3 | 26.4 | 37.9–41.1 | 11.5–14.7 | 0.04–0.12 | 0.08–0.25 | 28.4 → 39.4–41.1 | 1.00 | 0.16 (exact reference) |
+| Mirrormancer | holding | 10 | 1 | 26.6 | 36.9 | 10.4 | 0.06 | 0.11 | 31.1 → 41.5 | 1.00 | 0.06 (exact reference) |
+| Mirrormancer | halves | 5 | 3 | 26.6 | 41.0–42.7 | 14.4–16.1 | 0.01–0.07 | 0.02–0.09 | 31.1 → 44.2–45.3 | 1.00 | 0.28 (exact reference) |
+| Kings and Subjects | pairs | 5 | 5 | 14.6 | 27.5–28.3 | 12.8–13.7 | 0.04–0.09 | 0.19–0.26 | 45.6 → 59.8–59.9 | 0.99 | 0.30 (sampled reference) |
+| Kings and Subjects | sameRoads | 1 | 1 | 14.6 | 27.2 | 12.6 | 0.00 | 0.03 | 45.6 → 60.0 | 1.00 | 0.30 (sampled reference) |
+| Two Pair | linkSums | 23 | 12 | 20.5 | 36.1–38.3 | 15.6–17.8 | 0.00–0.04 | **0.00–0.06** | 27.2 → 44.0–46.4 | 1.00–1.02 | not measured |
+| Two Pair | linksVia | 10 | 1 | 20.5 | 30.8 | 10.2 | 0.03 | 0.03 | 27.2 → 40.0 | 1.01 | not measured |
+| Two Pair | equalRoads | 2 | 2 | 20.5 | 35.3–37.3 | 14.8–16.8 | 0.00–0.01 | 0.00–0.02 | 27.2 → 42.6–45.7 | 1.00–1.02 | not measured |
+| Crosswise Threes | lines | 8 | 8 | 16.2 | 32.3–36.7 | 16.1–20.5 | 0.03–0.08 | **0.35–0.57** | 21.0 → 43.0–43.2 | 0.99–1.01 | not measured |
+
+**How reachable each tier is.** The tier-aware share is the one number a beginner feels, and the five families are not
+alike: Crosswise Threes' lines are **0.35 to 0.57** — a one-cell climber gets a third to a half of that tier — while
+Two Pair's linked boxes are **0.00 to 0.06**, the least reachable tier that ships. Two Pair's ★ asks for two cells to
+change together (a box's pair must move as a pair), and a one-cell agent cannot take the first step; Crosswise Threes
+leaves four cells free of the base, so a line's total can be tuned one cell at a time. The same thing showed up in the
+goal-card example search, which could not find a board scoring Two Pair's tier until its moves were aimed at a unit
+(`climbTier`, `src/explain/index.ts`). Kings and Subjects' pairs of kings (0.19–0.26) and Opposite Nines (0.05–0.25)
+sit in between, and Mirrormancer's halves (0.02–0.09) and Two Pair's are the ones a player has to plan for.
 
 **Max calibration error per family** (shipped table against the reference, bits of P(tier ≥ i | base at its top)):
-Opposite Nines 0.38 dealt, 0.56 Lab (exact); Mirrormancer 0.28 (exact); Kings and Subjects 0.30 for pairs and
-sameRoads y = 4, and about 4.8 at the top level of sameRoads y = 2 (sampled: 12 boards of 2·10⁷; 3.9 to 5.6 at 95%).
-The bound the tables declare is 1 bit.
+Opposite Nines 0.38 dealt, 0.56 Lab (exact); Mirrormancer 0.28 (exact); Kings and Subjects 0.30 (sampled). Two Pair
+and Crosswise Threes have no reference law, so their tables are unchecked against one. The bound the tables declare is
+1 bit.
 
-**Pool check.** Max top / min top over the 25 dealt tiered tables: 43.54 (Opposite Nines squares x = 10) / 27.20
-(Kings and Subjects sameRoads y = 4) = **1.60** (must be ≤ 2.5: passes). With sameRoads y = 2 at its sampled value
-(35.5 bits) the ratio is the same.
+**Pool check.** Max top / min top over the **44** dealt tiered tables: 42.72 (Mirrormancer halves x = 8) / 27.20
+(Kings and Subjects sameRoads y = 4) = **1.57** (must be ≤ 2.5: passes).
 
 **Build.** One fresh `buildTable` per kind of draw, on four cores shared with other work (the hybrid store of
 `scripts/calibrate.ts` is not used):
@@ -58,26 +76,36 @@ The bound the tables declare is 1 bit.
 
 ## What contradicts the design document or the shipped code
 
-1. **Kings and Subjects sameRoads y = 2 and y = 3 are dealt but fail the liveness check on the shipped law**: their
-   tables add 25.5 and 25.9 bits (cap: 20). `test/royal-court.test.ts` "every dealt tier is alive" fails. The older
-   budget saw a lower best tier (5 and 3 roads; +13.9 and +15.0).
-2. **The sameRoads y = 2 table is wrong at its top level by about 4.8 bits** (25.5 in the table; 20.7 by an
-   independent sample, 19.9 to 21.6 at 95%), beyond the declared bound of 1 bit. y = 3 is consistent with its table
-   (24.3 by the sample from one board; above the cap either way).
-3. **Comparable reach per tier** (design §8.3: within 15% of the group's median): the three sameRoads values add 12.4,
-   about 20.7 and about 24–26 bits. Mirrormancer halves (14.4–16.1) and Kings and Subjects pairs (12.6–13.5) are
-   inside; Opposite Nines lines (10.9–16.5, median 12.5) and squares (11.3–17.0) are not.
-4. **Opposite Nines lines x = 18 reaches all ten lines and adds 14.84 bits exactly** (15.06 in the shipped table), not
+1. **Fixed: Kings and Subjects sameRoads y = 2 and y = 3 are no longer dealt.** They failed the liveness check on the
+   shipped law (their tables added 25.5 and 25.9 bits against a cap of 20), and the y = 2 table was wrong at its top
+   level by about 4.8 bits (20.7 by an independent sample of 2·10⁷ boards, 19.9 to 21.6 at 95%), beyond the declared
+   bound of 1 bit. Both are out of `COURT_DEALT` and out of the Lab, so no table that ships rests on that estimate;
+   only y = 4 (12.6 bits, within 0.30 of its reference) is dealt. The 4.8-bit measurement stands as a limit of the
+   hybrid law at this budget when the best tier is about 21 bits over the base: the fix was to stop dealing the value,
+   not to trust a better number.
+2. **Equal opportunity is now checked per tier signature, not per group median.** The design's §8.3 "within 15% of the
+   group's median" is implemented as `test/equal-opportunity.test.ts`: the dealt draws are grouped by their tier
+   signature and each group's tops must sit within 15% of each other (`TOP_RATIO`), which is what the dealt sets above
+   were chosen against. Across interactions the tops do differ — Opposite Nines lines reach 37.5–41.6 and Kings and
+   Subjects sameRoads 27.2 — and the pool check (2.5×) is what bounds that.
+3. **Opposite Nines lines x = 18 reaches all ten lines and adds 14.84 bits exactly** (15.06 in the shipped table), not
    the 10.1 of the design's prototype (8 lines). Still true.
-5. **Synergy with Crosswise Threes gets worse, not better**: `SYN` 25 → 39 with lines x = 18 (design: 43 → 31). Still
+4. **Synergy with Crosswise Threes gets worse, not better**: `SYN` 25 → 39 with lines x = 18 (design: 43 → 31). Still
    true.
-6. **Magic Eighteen's ceiling falls** with lines x = 18: 1.00 → 0.88 (design: stays at 1.00; the earlier run on the
+5. **Magic Eighteen's ceiling falls** with lines x = 18: 1.00 → 0.88 (design: stays at 1.00; the earlier run on the
    old tables read 0.93). `SYN` 23 → 33.
-7. **Kings and Subjects: a gated tier moves the early climb**: `rate4` 2.79 → up to 3.20 (pairs x = 5). The design
+6. **Kings and Subjects: a gated tier moves the early climb**: `rate4` 2.79 → up to 3.20 (pairs x = 5). The design
    says gated tiers leave `rate4` unchanged; that holds for Opposite Nines (2.95 → 2.98) and Mirrormancer
    (2.89 → 2.91).
-8. **The earlier run's calibration finding is fixed**: at the old budget the worst dealt table was 2.34 bits off
+7. **The earlier run's calibration finding is fixed**: at the old budget the worst dealt table was 2.34 bits off
    (squares x = 10); on the shipped tables Opposite Nines is within 0.38 and Mirrormancer within 0.28, exactly.
+8. **How reachable a tier is varies by a factor of ten across families.** The design treats the interactions as
+   interchangeable once each is alive and inside the band. They are not, for the one thing a beginner feels: a
+   tier-aware one-cell climber holds 0.35 to 0.57 of Crosswise Threes' lines and 0.00 to 0.06 of Two Pair's linked
+   boxes. Liveness and the bit band do not predict it — Two Pair's linkSums add *more* bits over the base (15.6–17.8)
+   than Opposite Nines' lines do (11.1–15.2), and are far less reachable. What seems to decide it is whether a single
+   cell can move the tier at all: Two Pair's pairs have to move two cells at a time. Worth a rule of its own before
+   more interactions are added; not fixed here.
 
 What agrees: gated and plain compositions cost a base-only player nothing and unlock costs 7.1 bits (lines x = 18);
 payoff ratios 0.99 to 1.03 (design: 0.95 to 1.06); the pool ratio; mean `SYN` rises by 10 to 20 with a tier.
@@ -85,7 +113,9 @@ payoff ratios 0.99 to 1.03 (design: 0.95 to 1.06); the pool ratio; mean `SYN` ri
 ## Not verified
 
 - Kings and Subjects: nothing is exact. The reference is a sample; it cannot check a level rarer than about 1 in 10⁷
-  (the y = 3 top rests on one board; the Lab tops, 31.7 to 33.9 added bits, are unchecked).
+  (the Lab tops, 31.7 to 33.9 added bits, are unchecked).
+- Two Pair and Crosswise Threes have no reference law at all (no exact enumeration and no sampled `EXACT_TOP`), so
+  their 20 dealt tables are unchecked against anything but the hybrid law that built them.
 - Tier levels below the base's top (between the gate and the top) are not compared with any reference, in any family.
 - The liveness sweep over every x of Opposite Nines (dealt or not) was not rerun on version 2.
 - Synergy and games were run for two values per interaction, 40 games each; depth 2 (pairs of interactions) not at all.

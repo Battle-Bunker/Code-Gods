@@ -8,7 +8,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { instantiate, seededRng } from "@workspace/game-types";
-import { context, evaluator, family, paramsKey } from "../src/catalog.ts";
+import { context, evaluator, family, FAMILIES, paramsKey } from "../src/catalog.ts";
 import { addsUp, aimAt, explainer, groupOf, hitTest, lensFor, readBoard, type Explanation } from "../src/explain/index.ts";
 import { TIER_LENSES, tieredLens } from "../src/explain/tier-lenses.ts";
 import { gridSpec } from "../src/families/grid/_util.ts";
@@ -332,5 +332,48 @@ test("a draw whose units cannot add up to its ordinal is annotated like a family
     const ex = e.explain(f.exemplar!(baseParams(p), CTX));
     if (rich) assert.ok(ex?.verified, `${compose}: its units add up`);
     else assert.equal(ex, null, "unlock: no units rather than units that do not add up");
+  }
+});
+
+test("a tiered draw's goal example scores its ★ tier, for nearly every draw of every tiered family", () => {
+  // The example board is the card's one worked example, so a tiered draw whose example scores nothing on the ★ tier
+  // teaches the player only half the rule. The ordinary search never found one for ✌️ Two Pair's linked boxes (1 of 35
+  // draws): one ★ point is worth less than the rest of what makes a board teach well, and a cell change anywhere on
+  // the board almost never moves one of these units. `climbTier` in explain/index.ts goes looking for one on purpose.
+  const want: Record<string, number> = { opposite_nines: 1, mirrormancer: 0.7, kings_and_subjects: 0.8, two_pair: 0.9, crosswise_threes: 0.9 };
+  for (const [familyId, least] of Object.entries(want)) {
+    const f = family(familyId), dealt = f.tiered!(CTX, 1) as Params[];
+    let scored = 0;
+    for (const params of dealt) {
+      const draw = { familyId, params }, example = explainer(draw, INST)!.example();
+      assert.ok(example, `${familyId} ${paramsKey(params)}: an example board`);
+      const ord = evaluator(draw, INST)(example.value) as number[];
+      if (f.cardTiers!(params as never, CTX).some(t => ord.slice(t.index, t.index + t.arity).some(x => x > 0))) scored++;
+    }
+    assert.ok(scored >= Math.ceil(dealt.length * least),
+      `${familyId}: only ${scored} of ${dealt.length} examples score the ★ tier (want ${least * 100}%)`);
+  }
+});
+
+test("the search for one never hands back a board below the gate, on any shape (the ★ tier has no units there)", () => {
+  // Below the gate a board has no ★ units at all. Reading that as "nothing to improve" let the tier climb return a
+  // board whose base was unfinished, ahead of the better board the ordinary climb had found: on Grid(4,base10,rgby)
+  // Kings and Subjects' roads of 4 lost its above-gate example for one scoring [3, −20, 0].
+  for (const colours of ["mono", "rgb", "rgby", "rainbow6"]) {
+    const inst = instantiate("Grid", { size: 4, symbols: "base10", colours });
+    const ctx = context(inst);
+    let checked = 0;
+    for (const f of FAMILIES) {
+      if (f.objectType !== inst.objectType || !f.tiered) continue;
+      for (const params of f.tiered(ctx, 1)) {
+        const draw = { familyId: f.id, params }, example = explainer(draw, inst)!.example();
+        assert.ok(example, `${f.id} ${paramsKey(params)} on ${colours}: an example board`);
+        const ord = evaluator(draw, inst)(example.value) as number[];
+        const gate = f.cardTiers!(params as never, ctx)[0].gate;
+        assert.ok(ord[0] >= gate, `${f.id} ${paramsKey(params)} on ${colours}: the example's base is ${ord[0]}, below the gate of ${gate}`);
+        checked++;
+      }
+    }
+    assert.ok(checked > 90, `${colours}: only ${checked} draws checked`);
   }
 });

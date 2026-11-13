@@ -104,11 +104,22 @@ const MIRROR_DEALT: readonly TierValue[] = [
   ...[7, 8, 9, 10, 11].map(x => ({ id: "halves", x })),
 ];
 
+/**
+ * Expert (two tiers: holding, then halves among boards equal on holding), on 4×4 digits. Exact at the base's top: four
+ * different mirrors holding two ys are four of the 18 mirrors `y a a y` and `a y y a`; a half of x with two different
+ * numbers among them is a = x − y, so at most 2 of the four score, and 4!·C(16, 2) = 2,880 of the 10⁸ top boards hold
+ * both: 15.1 bits (the hybrid law reads 15.0 to 15.2; docs/layered-rules-measurements/expert-pairs.md). Dealt with
+ * y = 0 and x ≤ 9 only: the two values fold separately (every y to 0, x to 18 − x), and no one relabelling of the
+ * digits does both, so only pairs that are their own canonical form share nothing they should not.
+ */
+const MIRROR_PAIRS: readonly (readonly [TierValue, TierValue])[] = [7, 8, 9].map(x => [{ id: "holding", y: 0 }, { id: "halves", x }] as const);
+
 export const mirrorTiers: GridTiers<MirrorP> = {
   interactions: [mirrorsHolding, mirrorHalves],
   gate: () => MIRROR_GATE,
   gateText: gate => `${gate} mirrors`,
   dealt: g => (g.N === 4 && g.base === 10 ? MIRROR_DEALT : []),
+  dealtPairs: g => (g.N === 4 && g.base === 10 ? MIRROR_PAIRS : []),
   // One unit per line; none where a line has too many fillings to list (6 cells of digits).
   base: (p, g) => (g.S ** g.N > MAX_UNIT_FILLINGS ? null : {
     id: "mirrormancer-lines@1", symbols: g.S, cells: g.N * g.N, arity: 2,

@@ -7,7 +7,7 @@ import type { CardText, GridSpec } from "../_util.ts";
 import { fromFn, full, gridFamily, pyCard, sentences, tsCard, tuple, wire } from "../_util.ts";
 import { tierPoints } from "../../../tuples.ts";
 import { halfTurnPairs, pairTop } from "./_pairs.ts";
-import { linesSum, windowsSum, type GridTiers, type TierValue } from "../tiers.ts";
+import { foldTotal, linesSum, windowsSum, type GridTiers, type TierValue } from "../tiers.ts";
 
 type NinesP = Record<string, never>;
 
@@ -33,20 +33,17 @@ const ninesText = (g: GridSpec): CardText => {
  * up to the target T at the base's top, so a line and its image add up to N·T together and x folds with N·T − x; at
  * x = N·T/2 (18 on 4×4 digits) both long diagonals are free and the tier is Magic Eighteen's own goal.
  */
-const foldX = (id: string, whole: (g: GridSpec) => number) => (v: TierValue, g: GridSpec): TierValue => {
-  const x = v.x as number;
-  return { id, x: Math.min(x, whole(g) - x) };
-};
 export const ninesTiers: GridTiers<NinesP> = {
   interactions: [
-    { ...linesSum, canonical: foldX("lines", g => g.N * ninesTarget(g)) },
-    { ...windowsSum, canonical: foldX("squares", g => 4 * ninesTarget(g)) },
+    { ...linesSum, canonical: foldTotal("lines", g => g.N * ninesTarget(g)) },
+    { ...windowsSum, canonical: foldTotal("squares", g => 4 * ninesTarget(g)) },
   ],
   // The base's greedy ten-move level on 4×4 (docs/layered-rules-design.md §3): three quarters of the pairs.
   gate: g => (3 * g.N * g.N) / 8,
   gateText: (gate, g) => `${gate} opposite pairs that add up to ${g.say.tile(ninesTarget(g))}`,
   dealt: g => (g.N === 4 && g.base === 10 ? NINES_DEALT : []),
   lab: g => (g.N === 4 && g.base === 10 ? NINES_LAB : []),
+  dealtPairs: g => (g.N === 4 && g.base === 10 ? NINES_PAIRS : []),
   base: (_p, g) => ({
     id: "opposite-nines-pairs@1", symbols: g.S, cells: g.N * g.N, arity: 2,
     units: halfTurnPairs(g.N).map(([a, b]) => [a.r * g.N + a.c, b.r * g.N + b.c]),
@@ -69,6 +66,19 @@ const NINES_DEALT: readonly TierValue[] = [
  */
 const NINES_LAB: readonly TierValue[] = [
   ...[9, 10, 26, 27].map(x => ({ id: "lines", x })), ...[9, 10, 26, 27].map(x => ({ id: "squares", x })),
+];
+
+/**
+ * Expert (two tiers: lines, then squares among boards equal on lines), measured on 4×4 digits against a band of 6 to 26
+ * bits for the two together (docs/layered-rules-measurements/expert-pairs.md). Both totals are at most 18, so each
+ * pair is its own canonical form: the two values fold separately (x ~ 36 − x), which is one symmetry of the pair only
+ * when both fold together.
+ */
+const NINES_PAIRS: readonly (readonly [TierValue, TierValue])[] = [
+  [{ id: "lines", x: 18 }, { id: "squares", x: 16 }],
+  [{ id: "lines", x: 16 }, { id: "squares", x: 16 }],
+  [{ id: "lines", x: 14 }, { id: "squares", x: 16 }],
+  [{ id: "lines", x: 16 }, { id: "squares", x: 14 }],
 ];
 
 export const oppositeNines = gridFamily<NinesP>({

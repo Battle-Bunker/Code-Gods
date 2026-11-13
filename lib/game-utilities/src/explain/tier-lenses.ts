@@ -11,6 +11,8 @@
 import type { CardTier, Params } from "../types.ts";
 import { baseParams, tierValue, tiersOf, type TierValue } from "../families/grid/tiers.ts";
 import type { Board } from "./board.ts";
+import { heatOf } from "./heat.ts";
+import { MORE_TIER_LENSES } from "./tier-lenses-more.ts";
 import { count, type Lens } from "./lens.ts";
 import type { BreakdownItem, Cell, Part, TierStatus } from "./model.ts";
 import { defaultGeometry, type HoverMode } from "./units.ts";
@@ -41,7 +43,7 @@ function sumUnit(b: Board, x: number, id: string, group: string, shape: Part["sh
   const total = cells.reduce((s, c) => s + b.value(c), 0), gap = total - x;
   const sum = `${cells.map(c => b.glyph(c)).join(" + ")} = ${total}`;
   return {
-    id, group, shape, cells, points: [gap === 0 ? 1 : 0],
+    id, group, shape, cells, points: [gap === 0 ? 1 : 0], heat: heatOf(Math.abs(gap)),
     title: gap === 0 ? `${name} adds up to ${x}` : `${name}: ${Math.abs(gap)} ${gap < 0 ? "short of" : "over"} ${x}`,
     facts: [{ text: gap === 0 ? sum : `${sum}, not ${x}`, ok: gap === 0 }],
   };
@@ -90,18 +92,18 @@ const squares: TierLens = {
  * One unit per line that can be a mirror (the base's rows or columns). A mirror that passes `test` scores 1 the first
  * time its reading appears and 0 when an earlier line reads the same (the card counts different mirrors).
  */
-function mirrorUnits(b: Board, base: Params, test: (numbers: number[]) => { ok: boolean; fact: string; miss?: string }, hit: string): Part[] {
+function mirrorUnits(b: Board, base: Params, test: (numbers: number[]) => { ok: boolean; fact: string; miss?: string; away?: number }, hit: string): Part[] {
   const rows = base.axis !== "TB", kind = rows ? "Row" : "Column", seen = new Map<string, number>();
   return Array.from({ length: b.N }, (_, i): Part => {
     const cells = rows ? b.row(i) : b.column(i), numbers = cells.map(c => b.value(c)), read = cells.map(c => b.glyph(c)).join(" ");
     const unit = { id: `mirror:${i}`, group: "mirror", shape: "line" as const, cells };
-    if (numbers.some((n, k) => n !== numbers[numbers.length - 1 - k])) {
-      return { ...unit, points: [0], title: `${kind} ${i + 1} is not a mirror`, facts: [{ text: `${read} does not read the same both ways`, ok: false }] };
-    }
-    const { ok, fact, miss } = test(numbers), key = numbers.join(" "), first = seen.get(key);
-    if (!ok) return { ...unit, points: [0], title: `${kind} ${i + 1}: a mirror, but ${miss}`, facts: [{ text: fact, ok: false }] };
+    // A line that does not read the same both ways is as far from the tier as the cells that break it (heat ≤ 1/2).
+    const broken = numbers.filter((n, k) => n !== numbers[numbers.length - 1 - k]).length;
+    if (broken) return { ...unit, points: [0], heat: heatOf(broken, 0, 2), title: `${kind} ${i + 1} is not a mirror`, facts: [{ text: `${read} does not read the same both ways`, ok: false }] };
+    const { ok, fact, miss, away } = test(numbers), key = numbers.join(" "), first = seen.get(key);
+    if (!ok) return { ...unit, points: [0], heat: heatOf(away ?? 1, 1, 2), title: `${kind} ${i + 1}: a mirror, but ${miss}`, facts: [{ text: fact, ok: false }] };
     if (first !== undefined) {
-      return { ...unit, points: [0], title: `${kind} ${i + 1} repeats ${kind.toLowerCase()} ${first + 1}`, facts: [{ text: fact, ok: true }, { text: `${read} is already counted: the same mirror counts once`, ok: false }] };
+      return { ...unit, points: [0], heat: heatOf(2, 1, 2), title: `${kind} ${i + 1} repeats ${kind.toLowerCase()} ${first + 1}`, facts: [{ text: fact, ok: true }, { text: `${read} is already counted: the same mirror counts once`, ok: false }] };
     }
     seen.set(key, i);
     return { ...unit, points: [1], title: `${kind} ${i + 1}: a mirror ${hit}`, facts: [{ text: fact, ok: true }] };
@@ -118,7 +120,7 @@ const holding: TierLens = {
     const y = num(v, "y");
     return mirrorUnits(b, base, numbers => {
       const held = numbers.filter(n => n === y).length;
-      return { ok: held === 2, fact: held === 2 ? `holds exactly two ${y}s` : `holds ${held === 0 ? "no" : held} ${y}${held === 1 ? "" : "s"}, not two`, miss: `without exactly two ${y}s` };
+      return { ok: held === 2, away: Math.abs(held - 2), fact: held === 2 ? `holds exactly two ${y}s` : `holds ${held === 0 ? "no" : held} ${y}${held === 1 ? "" : "s"}, not two`, miss: `without exactly two ${y}s` };
     }, `holding exactly two ${y}s`);
   },
   modes: MIRROR_MODES,
@@ -134,8 +136,8 @@ const halves: TierLens = {
     return mirrorUnits(b, base, numbers => {
       const half = numbers.slice(0, Math.floor(numbers.length / 2)), total = half.reduce((s, n) => s + n, 0);
       const sum = `${half.join(" + ")} = ${total}`, different = half.some(n => n !== half[0]);
-      if (total !== x) return { ok: false, fact: `its half: ${sum}, not ${x}`, miss: `its half does not add up to ${x}` };
-      return different ? { ok: true, fact: `its half: ${sum}` } : { ok: false, fact: `its half: ${sum}, but the numbers are not different`, miss: "its half is one number repeated" };
+      if (total !== x) return { ok: false, away: Math.abs(total - x), fact: `its half: ${sum}, not ${x}`, miss: `its half does not add up to ${x}` };
+      return different ? { ok: true, fact: `its half: ${sum}` } : { ok: false, away: 1, fact: `its half: ${sum}, but the numbers are not different`, miss: "its half is one number repeated" };
     }, `whose half adds up to ${x}`);
   },
   modes: MIRROR_MODES,
@@ -188,6 +190,7 @@ const pairs: TierLens = {
       const names = `kings ${b.glyph(a)} and ${b.glyph(z)}`, sum = `${inner.map(c => b.glyph(c)).join(" + ")} = ${total}`;
       out.push({
         id: `pair:${a.r},${a.c}-${z.r},${z.c}`, group: "pair", shape: "region", cells: path, anchor, points: [ok ? 1 : 0],
+        heat: heatOf(Math.abs(total - x)),
         title: ok ? `${names}: ${x} between them` : `${names}: no path with ${x} between them`,
         facts: [{ text: ok ? `in between: ${sum}` : `the nearest path: ${sum}, not ${x}`, ok }],
         spots: [{ cell: a, label: "king", tone: ok ? "gain" : "zero" }, { cell: z, label: "king", tone: ok ? "gain" : "zero" }],
@@ -214,6 +217,7 @@ const sameRoads: TierLens = {
       const ok = road.length === y, shows = b.glyph(road[0]);
       out.push({
         id: `road:${road[0].r},${road[0].c}`, group: "road", shape: "region", cells: road, points: [ok ? 1 : 0],
+        heat: heatOf(Math.abs(road.length - y)),
         title: ok ? `a road of ${y} subjects showing ${shows}` : `a road of ${road.length} subjects showing ${shows}: not ${y}`,
         facts: [{ text: `${count(road.length, "subject")} showing ${shows} ${road.length === 1 ? "stands alone" : "touch side by side"}`, ok }],
       });
@@ -224,7 +228,8 @@ const sameRoads: TierLens = {
 };
 
 /** The tier lenses, by interaction id. */
-export const TIER_LENSES: Readonly<Record<string, TierLens>> = Object.freeze({ lines, squares, holding, halves, pairs, sameRoads });
+/** One lens per interaction id; the Two Pair ones live beside, in ./tier-lenses-more.ts. */
+export const TIER_LENSES: Readonly<Record<string, TierLens>> = Object.freeze({ lines, squares, holding, halves, pairs, sameRoads, ...MORE_TIER_LENSES });
 
 // ------------------------------------------------------------------------------------------------
 // a tiered draw's lens: its base's lens and its tiers'

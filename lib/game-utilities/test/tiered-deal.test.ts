@@ -88,9 +88,13 @@ test("a tiered draw is uniform over the families, then over the family's tiered 
 });
 
 test("no family offering tiers there: the deal fails like an empty pool", () => {
-  assert.throws(() => selector("divine-lottery").select(MONO4, 1, seededRng(1), { tiers: { depth: 2 } }), /No calibrated utility family is available for Grid\(4,base10,mono\)/);
-  assert.throws(() => selector("fair-aligned").select(CLASSIC, 1, seededRng(1), { tiers: { depth: 1 } }), /No calibrated utility family is available/);
-  assert.deepEqual(availableFamilies(CLASSIC, "reward", [], { depth: 1 }), []);
+  // The beginner board offers both depths; no other shipped board offers either.
+  for (const depth of [1, 2] as const) {
+    assert.ok(availableFamilies(MONO4, "reward", [], { depth }).length > 0, `the beginner board offers ${depth}`);
+    assert.deepEqual(availableFamilies(CLASSIC, "reward", [], { depth }), []);
+    assert.throws(() => selector("divine-lottery").select(CLASSIC, 1, seededRng(1), { tiers: { depth } }), /No calibrated utility family is available for Grid\(5,base10,rgby\)/);
+    assert.throws(() => selector("fair-aligned").select(CLASSIC, 1, seededRng(1), { tiers: { depth } }), /No calibrated utility family is available/);
+  }
 });
 
 test("what a tiered game can deal: inference candidates and table coverage name the tiered draws, not the base ones", () => {

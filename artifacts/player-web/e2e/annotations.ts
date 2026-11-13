@@ -56,18 +56,18 @@ try {
   // A family without a lens: the board and its score, no breakdown, no crash.
   const plain = page.locator("[data-testid=example-plain]");
   assert.equal(await plain.getAttribute("data-rich"), null);
-  assert.match(await plain.locator("[data-testid=goal-board-total]").innerText(), /^This board: \(\d+\) points/, "the total is a points tuple, (n) for one tier");
+  assert.match(await plain.locator("[data-testid=goal-board-total]").innerText(), /^This board's rule score: \(\d+\)/, "the total is a points tuple, (n) for one tier");
   assert.equal(await plain.locator("[data-testid=goal-unit]").count(), 0);
 
   // Points tuples: a two-tier rule's boxes show each tier's derivation, the impact as a tuple, and the total names each tier.
   {
     const chess = page.locator("[data-testid=example-chessmaster]");
-    assert.match(await chess.locator("[data-testid=goal-board-total]").innerText(), /^This board: \(\d+, \d+\) points — primary: chessboards, \d+ · secondary: places where/);
+    assert.match(await chess.locator("[data-testid=goal-board-total]").innerText(), /^This board's rule score: \(\d+, \d+\) — primary: chessboards, \d+ · secondary: places where/);
     const impacts = await chess.locator("[data-testid=goal-unit-impact]").allInnerTexts();
     assert.ok(impacts.every(t => /^\([+−]?\d+, [+−]?\d+\)$/.test(t)), `every impact is a 2-tuple (${impacts.slice(0, 3)})`);
     const seam = chess.locator('[data-testid=goal-unit][data-part^="seam:"]').first();
     assert.equal(await seam.locator("[data-testid=goal-unit-tier]").getAttribute("data-tier"), "1", "a touching pair derives secondary points");
-    assert.match(await seam.locator("[data-testid=goal-unit-tier]").innerText(), /^secondary points\s*\+1/);
+    assert.match(await seam.locator("[data-testid=goal-unit-tier]").innerText(), /^secondary rule score\s*\+1/);
     const text = await page.locator("body").innerText();
     assert.doesNotMatch(text, /\bwins?\b|\btie/i, "no player-facing text talks about winning or ties");
   }
@@ -124,7 +124,7 @@ try {
   const what = page.locator("[data-mode=whatif]");
   const cell = what.locator("[data-testid=what-if-table] td:not([data-current])").first();
   await cell.hover();
-  assert.match(await what.locator("[data-testid=what-if-score]").innerText(), /^With this change: \d+ points/);
+  assert.match(await what.locator("[data-testid=what-if-score]").innerText(), /^With this change, your rule score: \d+/);
   // Mode 3, the story: its last step gives the score.
   const tale = page.locator("[data-mode=story]");
   while (!(await tale.locator("[data-testid=button-step-next]").isDisabled())) await tale.locator("[data-testid=button-step-next]").click();

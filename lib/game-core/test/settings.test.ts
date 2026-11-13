@@ -293,6 +293,7 @@ test("tiered rules are one optional setting: absent everywhere but the tiered se
     "grid-tiered": [{ depth: 1 }, false],
     "lab-tiers-plain": [{ depth: 1, compose: "plain" }, true],
     "lab-tiers-unlock": [{ depth: 1, compose: "unlock" }, true],
+    "lab-tiers-expert": [{ depth: 2 }, true],
     "lab-tiers-uncapped": [{ depth: 1, compose: "uncapped" }, true],
   });
   // The tiered seed: the board and pace of Annotated basics.
