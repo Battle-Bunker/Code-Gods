@@ -1,20 +1,23 @@
 "use node";
 /**
  * Open-agent pricing (ported from api-server pricing.ts):
- *   summon price   = description bits (ast-bits-v1 / ts-ast-bits-v1-uniform) + each literal move   (god pays once)
+ *   summon price   = description bits (ast-bits-v1 / ts-ast-bits-v1-uniform, the structure part weighted per language:
+ *                    game-core fairSummonBits) + each literal move                                   (god pays once)
  *   act charge     = the bits the act read × READ_PRICE + its change when that commits          (agent pays, per act)
  * (docs/energy-model.md §2). expectedActCost, the estimate shown at validation and summon, is measured by RUNNING the
  * agent on the season's reference mixture plus up to 16 live objects; nothing is charged or scheduled from it. Its
  * changes are priced under the game's cost model (settings.costModel), as the tick will charge them.
  */
-import { costModelOf, instantiationOf, type GameSettings, type Language, type ObjectValue } from "@workspace/game-core";
+import { costModelOf, fairSummonBits, instantiationOf, type GameSettings, type Language, type ObjectValue } from "@workspace/game-core";
 import type { Inspection } from "@workspace/game-runtime";
 import {
-  CHANGE_READ_RATIO, availableMutators, futilityWarnings, failedReadBits, measureAgent, readBound, parseAct, probeFutility, referenceMixture, withComponents, type FutilityProfile, type Instantiation,
+  CHANGE_READ_RATIO, sha256, availableMutators, futilityWarnings, failedReadBits, measureAgent, readBound, parseAct, probeFutility, referenceMixture, withComponents, type FutilityProfile, type Instantiation,
   type ReferenceMixture,
 type CostModel } from "@workspace/game-types";
 import type { ActionCtx } from "../_generated/server";
-import { act, inspect, isAgentFault } from "./runtime";
+import { act, actSettings, inspect, isAgentFault, runtimeVersion, type ActLane } from "./runtime";
+import { internal } from "../_generated/api";
+import { EXAMINATION_CACHE_VERSION, TOUCH_AFTER_MS, type CachedRun } from "../lib/examinationCache";
 import { seasonCommitment, seasonSalt } from "./node";
 
 /** The commit clause's summon price when any measured act uses it: 1 + log2 3 + 1 bits. */
@@ -39,7 +42,7 @@ export type Examination = {
 
 const lg = (x: number) => (x > 1 ? Math.log2(x) : 0);
 
-export function summonPrice(inspection: Inspection, inst: Instantiation, model?: CostModel): { cost: number; parts: SummonParts } {
+export function summonPrice(inspection: Inspection, inst: Instantiation, language: Language, model?: CostModel): { cost: number; parts: SummonParts } {
   const avail = availableMutators(inst, model), byId = new Map(avail.map(m => [m.id, m]));
   let literalMoves = 0;
   inspection.literalMoves.forEach(([id, raw], i) => {
@@ -51,7 +54,9 @@ export function summonPrice(inspection: Inspection, inst: Instantiation, model?:
     }
     literalMoves += bits;
   });
-  return { cost: inspection.cost + literalMoves, parts: { ...inspection.parts, literalMoves, commitClause: 0 } };
+  // Language-fair (game-core LANGUAGE_SPECS.structureWeight): the same program costs about the same in either language.
+  const fair = fairSummonBits(language, inspection.cost, inspection.parts.structure);
+  return { cost: fair.cost + literalMoves, parts: { ...inspection.parts, structure: fair.structure, literalMoves, commitClause: 0 } };
 }
 
 const mixtures = new Map<string, ReferenceMixture>();
@@ -70,15 +75,53 @@ export function seasonMixture(inst: Instantiation): ReferenceMixture {
 export class AgentFault extends Error {}
 
 /** Throws AgentFault for the agent's own compile errors; host failures propagate as they are. */
-export async function examineAgent(ctx: ActionCtx, settings: GameSettings, language: Language, source: string, live: readonly ObjectValue[]): Promise<Examination> {
+/** A cache-only examination met a run (or an inspection) it has not seen: the caller examines in the sandbox. */
+export class CacheMiss extends Error {}
+export type StoredExamination = { inspection: Inspection | undefined; runs: CachedRun[]; usedAt: number } | null;
+/** The examination cache's key for a program (lib/examinationCache.ts): its text and everything else its runs depend on. */
+export function examinationKey(settings: GameSettings, language: Language, source: string): string {
+  return sha256([EXAMINATION_CACHE_VERSION, language, runtimeVersion(language), instantiationOf(settings).key, actSettings(settings).prelude.key,
+    settings.interactionComputeMs, settings.stepBudget, settings.commitClause, seasonCommitment(), source].join("\0"));
+}
+const runKey = (value: ObjectValue, seed: bigint) => sha256(`${typeof value}:${String(value)}\0${seed}`).slice(0, 24);
+
+/**
+ * `who`: whose examination it is (engine/runtime.ts ActLane): a person's runs go ahead of an AI seat's in the sandbox
+ * queue. `deadline` (epoch ms): when the caller stops waiting; runs the sandbox has not started by then are dropped
+ * there (a host failure, which ends the examination), so an abandoned examination does not keep the sandbox busy.
+ * `stored`: the program's remembered runs when the caller already read them (else they are read here); `cacheOnly`:
+ * answer from them alone, or throw CacheMiss without touching the sandbox.
+ */
+export async function examineAgent(ctx: ActionCtx, settings: GameSettings, language: Language, source: string, live: readonly ObjectValue[],
+  who: { lane: "human" | "background"; deadline?: number; stored?: StoredExamination; cacheOnly?: boolean } = { lane: "background" }): Promise<Examination> {
+  const lane: ActLane = { lane: who.lane, ...(who.deadline !== undefined ? { deadline: who.deadline } : {}) };
   const inst = instantiationOf(settings), costModel = costModelOf(settings);
+  const key = examinationKey(settings, language, source);
+  const stored: StoredExamination = who.stored !== undefined ? who.stored : await ctx.runQuery(internal.engine.examinationCache.get, { key }) as StoredExamination;
+  const known = new Map((stored?.runs ?? []).map(run => [run.k, run]));
+  const used: CachedRun[] = [];
+  let learned = false;
+  /** One run of the agent: remembered (the same program, object and seed always answer the same), else in the sandbox. */
+  const run = async (value: ObjectValue, seed: bigint) => {
+    const k = runKey(value, seed), hit = known.get(k);
+    if (hit) { used.push(hit); return hit; }
+    if (who.cacheOnly) throw new CacheMiss();
+    const result = await act(ctx, source, language, value, settings, seed, lane);
+    const entry: CachedRun = { k, calls: result.calls, usedRandom: result.usedRandom, ...(result.steps !== undefined ? { steps: result.steps } : {}), ...(result.readBits !== undefined ? { readBits: result.readBits } : {}) };
+    used.push(entry); learned = true;
+    return entry;
+  };
   let inspection: Inspection;
-  try { inspection = await inspect(ctx, source, language, settings); }
-  catch (error) {
-    if (!isAgentFault(error)) throw error;
-    throw new AgentFault((error as Error).message.slice(0, 1000));
+  if (stored?.inspection) inspection = stored.inspection;
+  else if (who.cacheOnly) throw new CacheMiss();
+  else {
+    try { inspection = await inspect(ctx, source, language, settings); learned = true; }
+    catch (error) {
+      if (!isAgentFault(error)) throw error;
+      throw new AgentFault((error as Error).message.slice(0, 1000));
+    }
   }
-  const price = summonPrice(inspection, inst, costModelOf(settings));
+  const price = summonPrice(inspection, inst, language, costModelOf(settings));
   const game = live.slice(0, GAME_COMPONENT);
   const mixture = game.length ? withComponents(seasonMixture(inst), { game }) : seasonMixture(inst);
   let hostFailure: unknown, runs = 0, usesClause = false;
@@ -89,7 +132,7 @@ export async function examineAgent(ctx: ActionCtx, settings: GameSettings, langu
   const probing = probeFutility(async (value, seed) => {
     if (hostFailure) throw hostFailure;
     runs++;
-    try { const result = await act(ctx, source, language, value, settings, seed); return { calls: result.calls, usedRandom: result.usedRandom, steps: result.steps, readBits: result.readBits }; }
+    try { const result = await run(value, seed); return { calls: result.calls, usedRandom: result.usedRandom, steps: result.steps, readBits: result.readBits }; }
     catch (error) {
       if (!isAgentFault(error)) { hostFailure ??= error; throw error; }
       return { calls: "[]", error: (error as Error).message.slice(0, 200) };
@@ -99,7 +142,7 @@ export async function examineAgent(ctx: ActionCtx, settings: GameSettings, langu
     if (hostFailure) throw hostFailure;
     runs++;
     try {
-      const result = await act(ctx, source, language, value, settings, seed);
+      const result = await run(value, seed);
       if (settings.commitClause && !usesClause) { try { usesClause = parseAct(result.calls).commit !== undefined; } catch { /* invalid act */ } }
       if (at.component === "game" && at.replicate === 0 && sample.value === undefined) Object.assign(sample, { value, calls: result.calls });
       return { calls: result.calls, usedRandom: result.usedRandom, steps: result.steps, readBits: result.readBits };
@@ -112,6 +155,9 @@ export async function examineAgent(ctx: ActionCtx, settings: GameSettings, langu
   const probed = await probing;
   // A capacity or configuration failure is not the agent's price: never charge from a partial measurement.
   if (hostFailure) throw hostFailure;
+  // What this examination learned is remembered for the next one of the same program (best effort: it is a cache).
+  if (learned) await ctx.runMutation(internal.engine.examinationCache.put, { key, inspection, used }).catch(error => console.warn(`examination cache not stored: ${(error as Error).message}`));
+  else if (stored && Date.now() - stored.usedAt > TOUCH_AFTER_MS) await ctx.runMutation(internal.engine.examinationCache.touch, { key }).catch(() => { /* the next examination marks it */ });
   // An agent the measurement saw read `random` (on inputs the probe's sample may have missed) makes no deterministic claims.
   const { warnings: _w, ...profile } = measured.randomized ? { ...probed, deterministic: false, constant: false, idempotent: false } : probed;
   const warnings = futilityWarnings(profile);

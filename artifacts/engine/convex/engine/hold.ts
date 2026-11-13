@@ -57,12 +57,28 @@ export const start = internalAction({
 });
 
 export const computeOne = internalAction({
-  args: { gameId: v.id("games"), key: v.string(), draw: v.object({ familyId: v.string(), params: v.any() }), m: v.number() },
-  handler: async (ctx, { gameId, key, draw, m }) => {
+  args: { gameId: v.id("games"), key: v.string(), draw: v.object({ familyId: v.string(), params: v.any() }), m: v.number(), slot: v.optional(v.id("workSlots")) },
+  handler: async (ctx, { gameId, key, draw, m, slot }) => {
+    // Background work, capped deployment-wide (engine/background.ts): past the cap it is queued and run when a
+    // computation in flight ends (`slot`: this run is that queued one), so many games starting together compute their
+    // tables a few at a time and the games' ticks keep the scheduler. A slot request that fails is asked again.
+    let held = slot ?? null;
+    const release = async () => { if (held) await ctx.runMutation(internal.engine.background.release, { slot: held }).catch(() => { /* it expires */ }); };
     const game = await ctx.runQuery(internal.engine.holdData.status, { gameId });
-    if (!game || game.holdState !== "computing") return;
-    try { await compute(ctx, key, draw, instantiationOf(game.settings as GameSettings), m, costModelOf(game.settings), gameId); }
+    if (!game || game.holdState !== "computing") return release();
+    if (!held) {
+      try { held = await ctx.runMutation(internal.engine.background.takeHold, { hold: { gameId, key, draw, m } }); }
+      catch { return void await ctx.scheduler.runAfter(2000 + Math.floor(Math.random() * 2000), internal.engine.hold.computeOne, { gameId, key, draw, m }); }
+      if (!held) return;   // queued
+    }
+    try {
+      // Another game may have computed this table meanwhile: then only this game's pending key is settled.
+      const cached = (await ctx.runQuery(internal.engine.holdData.missing, { keys: [key] })).length === 0;
+      if (cached) await ctx.runMutation(internal.engine.holdData.settle, { gameId, key });
+      else await compute(ctx, key, draw, instantiationOf(game.settings as GameSettings), m, costModelOf(game.settings), gameId);
+    }
     catch (error) { await ctx.runMutation(internal.engine.holdData.failed, { gameId, message: `hold table ${draw.familyId}: ${(error as Error).message}` }); }
+    finally { await release(); }
   },
 });
 

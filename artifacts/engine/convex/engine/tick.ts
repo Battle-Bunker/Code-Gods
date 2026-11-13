@@ -35,7 +35,7 @@ import { act, bindRuntime, ensureSandboxes, isAgentFault, runtimeVersion, WORKER
 import { effectiveSandbox, planningEnd } from "../lib/sandboxes";
 import { FutileMemo, NO_FAILURES, failureKind, futileAfter, pickPair, unaffordableReason, type ActKind } from "../lib/futility";
 import { agentCapacityOf } from "../lib/power";
-import { MAX_OBJECTS, MIN_TICK_MS, TICK_SECONDS, planSpawns, agentStatus, pickObject, salienceOf, secondsUntilEligible, settledAccount, commitRaises, disclosedTotalsOf, scoreIntervalOf, scoreboardDue, totalsOf } from "../lib/world";
+import { MAX_OBJECTS, MAX_SIMULATE_MS, MIN_TICK_MS, TICK_SECONDS, leaseRenewalDue, waveBudgetMs, planSpawns, agentStatus, pickObject, salienceOf, secondsUntilEligible, settledAccount, commitRaises, disclosedTotalsOf, scoreIntervalOf, scoreboardDue, totalsOf } from "../lib/world";
 import { godTotalsOf } from "../lib/views";
 import { paidLive, readWhole } from "../lib/knowledge";
 
@@ -53,8 +53,8 @@ const HOLD_FAILED_POLL_MS = 5000;
 /** The longest planning waits for hold rarity's corrections (docs/energy-model.md §8), from the start. */
 const HOLD_MAX_MS = 10 * 60_000;
 
-/** Wall-clock budget for one window's simulation: opportunities past it are dropped (no debt). */
-const MAX_SIMULATE_MS = 4000;
+/** No answer from the sandbox within the wave's budget (lib/world.ts waveBudgetMs). */
+const LATE = Symbol("late");
 
 const net = (scores: readonly Score[], roster: readonly string[]) => roster.map(id => scores.find(s => s.god === id)?.netBits ?? 0);
 
@@ -90,6 +90,20 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
       objects: [], spawns: [], agents: [], events: [], stats: { opportunities: 0, acts: 0, simulateMs: 0 },
     };
     if (game.phase === "ended" || game.phase === "recovery") return { result: "stopped" };
+    // The heartbeat: this tick keeps its own lease while it is alive, so the watchdog never restarts the game under a
+    // slow tick (which would discard its window as stale). It writes only when the lease is running low (a late start,
+    // a wave held up by the sandboxes): in normal running, never. False: the lease is lost (the game was restarted,
+    // paused or ended meanwhile) and nothing this tick does can commit.
+    let leaseUntil = game.tick.leaseUntil;
+    const keepLease = async (): Promise<boolean> => {
+      if (!leaseRenewalDue(leaseUntil, Date.now())) return true;
+      const renewed = await ctx.runMutation(internal.engine.loop.renewLease, { gameId, seq });
+      if (renewed === null) return false;
+      leaseUntil = renewed;
+      return true;
+    };
+    // The lease counts from the scheduled time: a tick that starts late takes a full one from its real start.
+    if (!await keepLease()) return { result: "stale" };
     const now = Date.now();
     if (isIdle(snap.lastActivity, now)) return ctx.runMutation(internal.engine.loop.commit, { ...base, kind: "park" });
 
@@ -125,6 +139,7 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
     // before pinning): a deploy that re-keys the shipped tables never reaches a game in progress.
     const deals = snap.deities.map(d => ({ godId: d.godId, utility: d.utility as UtilityDescriptor }));
     const tables = await gameScoringTables(ctx, game, deals);
+    if (!await keepLease()) return { result: "stale" };
     const started = performance.now();
     const target = game.worldSeconds + Math.max(0, now - lastTick) / 1000;
     const until = Math.min(target, game.endAtWorld);
@@ -158,7 +173,7 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
     /** `offerBits`: what the offer told the agent, which of the live objects it holds (§7.1); read bits like the meter's. */
     type Pending = { object: typeof objects[number]; agent: typeof agents[number]; world: number; before: ObjectValue; seed: bigint; offerBits: number };
     let wave: Pending[] = [];
-    let acts = 0, opportunities = 0, applied = 0, exhausted: string | null = null;
+    let acts = 0, opportunities = 0, applied = 0, late = 0, lost = false, exhausted: string | null = null;
 
     const apply = (p: Pending, result: ActResult | null) => {
       if (!result) return; // a host failure (capacity, unavailable): not the agent's fault, nothing is charged
@@ -227,24 +242,39 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
       }
     };
     const flush = async () => {
+      if (!await keepLease()) { lost = true; wave = []; return; }
+      // The wave is bounded by the time left in the tick: an act the sandbox has not answered by then (its queue is
+      // full of other games' work) is a host skip, not a wait. Its late answer is dropped; the agent is not charged and
+      // its act index (so its seed) is offered again.
+      let expire!: () => void;
+      const budget = waveBudgetMs(performance.now() - started), lane = { deadline: Date.now() + budget };
+      const expired = new Promise<typeof LATE>(resolve => { expire = () => resolve(LATE); });
+      const timer = setTimeout(expire, budget);
       const results = await Promise.all(wave.map(async (p): Promise<ActResult | null> => {
-        try {
-          const { calls, usedRandom, readBits } = await act(ctx, p.agent.source, p.agent.language, p.before, settings, p.seed);
-          return { calls, usedRandom, readBits: readBits ?? 0 };
-        }
-        catch (error) {
-          // An unreadable meter (a trap, the hard wall) is charged the whole object's information; a compile error read nothing.
-          if (isAgentFault(error)) return { error: (error as Error).message.slice(0, 300), readBits: failedReadBits(error as { readBits?: number; code?: string }, readCap) };
-          console.warn(`act skipped (host): ${(error as Error).message}`);
-          return null;
-        }
+        const answer = (async (): Promise<ActResult | null> => {
+          try {
+            const { calls, usedRandom, readBits } = await act(ctx, p.agent.source, p.agent.language, p.before, settings, p.seed, lane);
+            return { calls, usedRandom, readBits: readBits ?? 0 };
+          }
+          catch (error) {
+            // An unreadable meter (a trap, the hard wall) is charged the whole object's information; a compile error read nothing.
+            if (isAgentFault(error)) return { error: (error as Error).message.slice(0, 300), readBits: failedReadBits(error as { readBits?: number; code?: string }, readCap) };
+            console.warn(`act skipped (host): ${(error as Error).message}`);
+            return null;
+          }
+        })();
+        const result = await Promise.race([answer, expired]);
+        if (result !== LATE) return result;
+        late++;
+        return null;
       }));
+      clearTimeout(timer); expire();
       wave.forEach((p, i) => apply(p, results[i]));
       wave = [];
     };
 
     for (let k = 0; k < count; k++) {
-      if (performance.now() - started > MAX_SIMULATE_MS) break;
+      if (lost || late || performance.now() - started > MAX_SIMULATE_MS) break;
       const world = windowStart + (k + 1) / count * windowLength;
       opportunities++;
       for (let attempt = 0; attempt < 2; attempt++) {
@@ -287,12 +317,16 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
           const settled = agentStatus(settings, agent, world);
           if (!settled.eligible || uniform01() * drawnAt >= settled.energy || futile.isFutile(agent.id, object, versionOf)) continue;
         }
+        // That flush lost the lease or ran out of time: nothing more is offered in this tick.
+        if (lost || late) break;
         wave.push({ object, agent, world, before: object.value, seed: deriveSeed(salt, ["play", game._id, agent.id, agent.acts]), offerBits: offerReadBits(objects.length) });
         if (wave.length >= WORKERS) await flush();
         break;
       }
     }
-    if (wave.length) await flush();
+    if (wave.length && !lost && !late) await flush();
+    if (lost) return { result: "stale" };
+    if (late) console.warn(`tick ${gameId}#${seq}: ${late} act(s) skipped (host): no answer from the sandbox within the wave's budget`);
 
     // Spawns (a Poisson process), the lifetime end and the object limit.
     const spawns: { tmp: string; value: ObjectValue; scores: Score[]; salience: number; noise: number }[] = [];
@@ -331,6 +365,7 @@ async function tick(ctx: ActionCtx, gameId: Id<"games">, seq: number): Promise<u
     const simulateMs = performance.now() - started;
     const due = !!game.scoreboard && phase !== "ended" && scoreboardDue(game.scoreboard.world, until, scoreIntervalOf(game));
     const changed = objects.filter(o => o.changed);
+    if (!await keepLease()) return { result: "stale" };
     const commitStarted = Date.now();
     const committed = await ctx.runMutation(internal.engine.loop.commit, {
       ...base, kind: "window",

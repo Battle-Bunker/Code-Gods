@@ -8,6 +8,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:game": "node --experimental-transform-types --disable-warning=ExperimentalWarning --test --test-concurrency=1 test/game*.test.ts",
     "bench": "node scripts/bench.mjs",
+    "load": "node --experimental-transform-types --disable-warning=ExperimentalWarning scripts/load.ts",
     "test:auth": "node scripts/test-auth.mjs",
     "gen-jwt-key": "node scripts/gen-jwt-key.mjs",
     "deploy-static": "node scripts/deploy-static.mjs",

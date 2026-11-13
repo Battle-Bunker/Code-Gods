@@ -30,7 +30,8 @@ const aiAgentSnapshot = v.object({
 });
 const rosterEntry = v.object({ id: v.string(), name: v.string(), kind });
 const leaseV = v.object({ seq: v.number(), leaseUntil: v.number() });
-const statsV = v.object({ acts: v.number(), commits: v.number(), discarded: v.number(), opportunities: v.number() });
+/** `restarts`: how often the watchdog restarted the loop (a tick action died or never started); absent reads as 0. */
+const statsV = v.object({ acts: v.number(), commits: v.number(), discarded: v.number(), opportunities: v.number(), restarts: v.optional(v.number()) });
 const scoreboardV = v.object({ totals: v.array(v.number()), world: v.number(), at: v.number() });
 const account = v.object({ balance: v.number(), settledWorldSeconds: v.number() });
 /** An agent's estimated cost per act in energy bits, split (docs/energy-model.md §5): what its reads cost and its change. */
@@ -112,6 +113,28 @@ export const gameTables = {
    * noise version) in `key` (engine/hold.ts holdCacheKey). Engine only, never projected.
    */
   holdTables: defineTable({ key: v.string(), table: v.any(), computedAt: v.number() }).index("by_key", ["key"]),
+
+  /**
+   * The examination cache (lib/examinationCache.ts): per agent program (the key hashes its text, language, the room's
+   * sandbox rules, the season and the runtime), its inspection and its deterministic runs on objects. Engine only; holds
+   * no player, room or goal.
+   */
+  examinationRuns: defineTable({
+    key: v.string(), inspection: v.any(), usedAt: v.number(),
+    runs: v.array(v.object({ k: v.string(), calls: v.string(), usedRandom: v.boolean(), steps: v.optional(v.number()), readBits: v.optional(v.number()) })),
+  }).index("by_key", ["key"]).index("by_usedAt", ["usedAt"]),
+
+  /**
+   * The background jobs running now (engine/background.ts): one row per agent examination, hold computation or AI
+   * seat turn in flight, at most lib/background.ts BACKGROUND_LIMITS of each kind live. Engine only; a few rows at any time.
+   */
+  workSlots: defineTable({
+    kind: v.union(v.literal("examination"), v.literal("hold"), v.literal("turn"), v.literal("turnQueue"), v.literal("holdQueue")), expiresAt: v.number(),
+    /** A `turnQueue` row: the AI seat's turn waiting for a `turn` slot, oldest first (ai/turn.ts runs it when one is free). */
+    turn: v.optional(v.object({ gameId: v.id("games"), godId: v.string(), chain: v.number() })),
+    /** A `holdQueue` row: the hold computation waiting for a `hold` slot (engine/hold.ts computeOne). */
+    hold: v.optional(v.object({ gameId: v.id("games"), key: v.string(), draw: v.object({ familyId: v.string(), params: v.any() }), m: v.number() })),
+  }).index("by_kind", ["kind"]),
 
   rooms: defineTable({
     /** Short code from the room GUID (Crockford base32 prefix); `encoded` is the full 26-digit encoding. */
@@ -206,6 +229,12 @@ export const gameTables = {
     aiAgent: v.optional(aiAgentSnapshot), status: v.optional(v.string()),
     /** AI seats: the turn chain generation (a stale scheduled turn exits) and consecutive failures. */
     aiChain: v.optional(v.number()), aiFailures: v.optional(v.number()),
+    /**
+     * AI seats: when the chain's next turn is due (ai/seats.ts startAll and afterTurn write it with the turn they
+     * schedule; absent: none is scheduled, or the seat predates the field). A turn that dies without scheduling the next
+     * leaves it in the past, and the seat watchdog restarts the chain.
+     */
+    aiNextAt: v.optional(v.number()),
   }).index("by_room", ["roomId"]).index("by_room_god", ["roomId", "godId"]).index("by_god", ["godId"]).index("by_room_user", ["roomId", "userId"]),
 
   games: defineTable({
@@ -265,7 +294,9 @@ export const gameTables = {
      */
     replayStorageId: v.optional(v.id("_storage")),
   }).index("by_room", ["roomId"]).index("by_short_code", ["shortCode"]).index("by_encoded", ["encoded"])
-    .index("by_guid", ["guid"]).index("by_phase", ["phase"]),
+    .index("by_guid", ["guid"]).index("by_phase", ["phase"])
+    /** The idle-parked games a returning human resumes (activity.ts): never crowded out by games stopped for other reasons. */
+    .index("by_phase_autoResume", ["phase", "autoResume"]),
 
   /**
    * A game's public clock (read-architecture §4.1, R3): what changes on every tick commit and what readers of the world

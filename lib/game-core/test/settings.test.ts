@@ -451,3 +451,67 @@ test("Lab setups: complete, valid, marked, with ids and names of their own, and 
   }
   assert.ok(!LAB_SETUPS.some(s => s.seedId === DEFAULT_SETUP_SEED_ID), "a new room never starts on a Lab setup");
 });
+
+/**
+ * A beginner's first minutes on the default setup (owner, 11 Nov 2026: "we still want to motivate simpler agents";
+ * coordinator, 13 Nov: every shipped Python example must be payable in planning, a second agent within about a minute).
+ * Hand-derived for Annotated basics: P = 64 bits/s, T = 30 s, starting energy 600.
+ */
+test("the default setup: the dearest example agent is payable in planning, and again within a minute of the world starting", async () => {
+  const { BEGINNER_AGENT_BUDGET_BITS } = await import("../src/settings.ts");
+  const { chargeDeityAccount, settleDeityEnergy, defaultShare, energyCapacity, deityIncome } = await import("../src/energy.ts");
+  const s = SEED_SETUPS.find(x => x.seedId === DEFAULT_SETUP_SEED_ID)!.settings;
+  assert.deepEqual([s.powerPerSecond, s.fullChargeSeconds, s.startingEnergy, BEGINNER_AGENT_BUDGET_BITS], [64, 30, 600, 572]);
+  // Planning: world time is stopped, nothing accrues; the store with nothing allocated (1,920) holds the starting energy.
+  const terms = (allocated: number) => ({ powerPerSecond: s.powerPerSecond, allocated, fullChargeSeconds: s.fullChargeSeconds });
+  let own = settleDeityEnergy({ balance: s.startingEnergy, settledWorldSeconds: 0 }, 0, terms(0));
+  assert.equal(own.balance, 600, "none of the starting energy is lost to the capacity");
+  own = chargeDeityAccount(own, BEGINNER_AGENT_BUDGET_BITS, 0, terms(0));
+  assert.equal(own.balance, 28);
+  // The first summon takes the default share, half: the god keeps 32 bits/s and holds at most 960.
+  const allocated = defaultShare(0);
+  assert.deepEqual([allocated, deityIncome(64, allocated), energyCapacity(deityIncome(64, allocated), 30)], [0.5, 32, 960]);
+  // The same agent again: (572 − 28) / 32 = 17 s of world time.
+  assert.throws(() => chargeDeityAccount(own, BEGINNER_AGENT_BUDGET_BITS, 16.9, terms(allocated)), /Insufficient/);
+  assert.doesNotThrow(() => chargeDeityAccount(own, BEGINNER_AGENT_BUDGET_BITS, 17, terms(allocated)));
+  assert.equal(settleDeityEnergy(own, 60, terms(allocated)).balance, 960, "a full store within the first minute");
+  // Code size still matters: that agent is 15% of the god's whole first minute of power (572 of 3,840 bits), and a
+  // program over 960 bits cannot be bought at all while half the power is with an agent.
+  assert.ok(BEGINNER_AGENT_BUDGET_BITS / (64 * 60) > 0.1);
+  assert.throws(() => chargeDeityAccount(own, 961, 3600, terms(allocated)), /Insufficient/);
+  // Every Grid setup starts the same way; other worlds keep the general default.
+  for (const seed of SEED_SETUPS.filter(x => x.settings.objectType === "Grid")) assert.equal(seed.settings.startingEnergy, 600, seed.seedId);
+  assert.equal(DEFAULT_SETTINGS.startingEnergy, 200);
+});
+
+test("every world's defaults keep the starting energy: the store holds it in planning and after the first default summons", async () => {
+  const { settleDeityEnergy, chargeDeityAccount, defaultShare } = await import("../src/energy.ts");
+  for (const type of ["Int", "string", "Grid"]) {
+    const s = defaultSettingsFor(type);
+    const terms = (allocated: number) => ({ powerPerSecond: s.powerPerSecond, allocated, fullChargeSeconds: s.fullChargeSeconds });
+    let own = settleDeityEnergy({ balance: s.startingEnergy, settledWorldSeconds: 0 }, 0, terms(0)), allocated = 0;
+    assert.equal(own.balance, s.startingEnergy, `${type}: the planning store (${s.powerPerSecond} × ${s.fullChargeSeconds}) holds the starting energy`);
+    // Two small agents (60 bits each, a one-move agent) at the default shares: a half, then a quarter.
+    for (const left of [s.startingEnergy - 60, s.startingEnergy - 120]) {
+      own = chargeDeityAccount(own, 60, 0, terms(allocated));
+      allocated += defaultShare(allocated);
+      own = settleDeityEnergy(own, 0, terms(allocated));
+      // Grid (600 bits, P = 64): 540 then 480 = its quarter-power store exactly. Int and string (200 bits, P = 8, T = 60): 140, 80.
+      assert.equal(own.balance, left, `${type}: nothing is lost to the capacity with ${100 * allocated}% allocated`);
+    }
+  }
+  assert.deepEqual([defaultSettingsFor("Int").fullChargeSeconds, defaultSettingsFor("string").fullChargeSeconds, defaultSettingsFor("Grid").fullChargeSeconds], [60, 60, 30]);
+});
+
+test("the summon price is language-fair: TypeScript's structure bits are weighted to Python's scale (docs/energy-model.md §5.1)", async () => {
+  const { fairSummonBits } = await import("../src/settings.ts");
+  assert.deepEqual([LANGUAGE_SPECS.python.structureWeight, LANGUAGE_SPECS.typescript.structureWeight], [1, 0.44]);
+  // Python is unchanged.
+  assert.deepEqual(fairSummonBits("python", 737.9, 420.0), { cost: 737.9, structure: 420.0 });
+  // The greedy policy program (lib/game-utilities/scripts/coordination-programs): TypeScript inspection 1,319.7 bits, of
+  // which 974.6 are structure. Weighted: 974.6 × 0.44 = 428.8, so 1,319.7 − 974.6 + 428.8 = 773.9 (Python: 737.9).
+  const greedy = fairSummonBits("typescript", 1319.7, 974.6);
+  assert.ok(Math.abs(greedy.structure - 428.824) < 1e-9 && Math.abs(greedy.cost - 773.924) < 1e-9, JSON.stringify(greedy));
+  // The dearest policy (cooperator, 2,916.7 with 1,955.2 of structure) now fits a god's store of 1,920 bits: 1,821.8.
+  assert.ok(Math.abs(fairSummonBits("typescript", 2916.7, 1955.2).cost - 1821.788) < 1e-9);
+});

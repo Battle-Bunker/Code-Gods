@@ -101,3 +101,20 @@ test("the commit clause decides on the payoffs the owner sees: own bits exact, t
   assert.equal(commitRaises(after, before, "a", 0, 0), true, "exact: 4 > 3");
   assert.equal(commitRaises(after, before, "a", 5, -2), false, "disclosed: before 3·6 = 18, after 2·0 = 0");
 });
+
+test("a tick renews its lease only when it is running low, and a wave gets the budget left (at least the minimum)", async () => {
+  const { LEASE_MS, LEASE_RENEW_BELOW_MS, MAX_SIMULATE_MS, MIN_WAVE_MS, leaseRenewalDue, waveBudgetMs } = await import("../../convex/lib/world.ts");
+  const start = 1_000_000;
+  // Scheduled on time: the lease has LEASE_MS left, and a tick that commits within ten seconds never writes it.
+  assert.equal(leaseRenewalDue(start + LEASE_MS, start), false);
+  assert.equal(leaseRenewalDue(start + LEASE_MS, start + (LEASE_MS - LEASE_RENEW_BELOW_MS)), false);
+  // Started (or still simulating) later than that: it renews, well before the watchdog could see the lease expired.
+  assert.equal(leaseRenewalDue(start + LEASE_MS, start + (LEASE_MS - LEASE_RENEW_BELOW_MS) + 1), true);
+  assert.equal(leaseRenewalDue(start + LEASE_MS, start + LEASE_MS + 5000), true);
+  // A renewal must leave room for the longest wave and the commit before the next one is due.
+  assert.ok(LEASE_RENEW_BELOW_MS > MAX_SIMULATE_MS + MIN_WAVE_MS + 5000);
+  assert.equal(waveBudgetMs(0), MAX_SIMULATE_MS);
+  assert.equal(waveBudgetMs(1500), MAX_SIMULATE_MS - 1500);
+  assert.equal(waveBudgetMs(MAX_SIMULATE_MS - 10), MIN_WAVE_MS);
+  assert.equal(waveBudgetMs(60_000), MIN_WAVE_MS);
+});
