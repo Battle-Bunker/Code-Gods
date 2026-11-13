@@ -18,6 +18,11 @@ export interface ObjectViewProps extends ObjectContext {
   showTitle?: boolean;
   /** Draw with this renderer of the type (e.g. "tiles") instead of the viewer's choice or the type's default. */
   renderer?: string;
+  /**
+   * Draw the object only, with no control of its own (a grid's popover trigger): for an object inside another
+   * control, such as a button that opens its detail, where a button in a button would act twice.
+   */
+  plain?: boolean;
 }
 
 export type ObjectComponent = ComponentType<ObjectViewProps>;
@@ -182,8 +187,8 @@ export function useGridRenderer(): GridRendererId {
   return asGridRenderer(useObjectRenderer("Grid"));
 }
 
-function GridView({ model, previous, typeLabel, className, mode, grid }: {
-  model: GridModel; previous: GridModel | null; typeLabel?: string; className?: string; mode: GridRendererId; grid?: GridSettings;
+function GridView({ model, previous, typeLabel, className, mode, grid, plain }: {
+  model: GridModel; previous: GridModel | null; typeLabel?: string; className?: string; mode: GridRendererId; grid?: GridSettings; plain?: boolean;
 }) {
   const cue = useColourCue();
   // The viewer's own goal, when the app provides it: the rich view explains this grid with it (annotations-design.md §3).
@@ -201,6 +206,15 @@ function GridView({ model, previous, typeLabel, className, mode, grid }: {
   const hoverIn = (e: PointerEvent) => { if (e.pointerType !== "mouse") return; clear(); if (!open) timer.current = setTimeout(() => setOpen(true), 120); };
   const hoverOut = (e: PointerEvent) => { if (e.pointerType !== "mouse" || pinned.current) return; clear(); timer.current = setTimeout(() => setOpen(false), 160); };
 
+  if (plain) {
+    return (
+      <span data-object-type="Grid" data-renderer={mode} data-testid="grid-object-plain" className={`inline-flex align-middle ${className ?? ""}`}>
+        {mode === "digits"
+          ? <Digits model={model} cue={cue} changes={changes} label={label} />
+          : <Cells model={model} px={compactPx(model.size)} cue={cue} changes={changes} detail={false} label={label} />}
+      </span>
+    );
+  }
   const view = (
     <Popover.Root open={open} onOpenChange={(o) => { clear(); pinned.current = o; setOpen(o); }}>
       <Popover.Trigger asChild>
@@ -272,7 +286,7 @@ export function GridObject(props: ObjectViewProps) {
   const previous = useMemo(() => (compareTo === undefined ? null : gridModel(compareTo, grid)), [compareTo, key]);
   if (!model) return <StringObject {...props} />;
   const typeLabel = grid?.size && grid.symbols && grid.colours ? `Grid(${grid.size},${grid.symbols},${grid.colours})` : undefined;
-  return <GridView model={model} previous={previous} typeLabel={typeLabel} className={className} mode={mode} grid={grid} />;
+  return <GridView model={model} previous={previous} typeLabel={typeLabel} className={className} mode={mode} grid={grid} plain={props.plain} />;
 }
 
 // Built-in types. Later registrations are tried first when inferring, so Grid wins over string.

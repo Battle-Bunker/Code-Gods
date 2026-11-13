@@ -304,10 +304,11 @@ function ObjectRow({ objectId, position, byPayoff, scales, world, highlighted, o
  * into view when it opens: under the list it was out of sight below a 640px scroller, so "why?" turned into "hide" and
  * seemed to open nothing (three first-time walks). It always says something: the breakdown, or why there is none.
  */
-function ObjectDetail({ objectId, position, noun, comparative, world, boards, onHide }: { objectId: string; /** The row's rank when the list is by points (no subscription for it); else undefined and the rank is read. */ position: number | undefined; noun: string; comparative: string | undefined; world: number; boards?: boolean; onHide: () => void }) {
+function ObjectDetail({ objectId, noun, comparative, world, boards, onHide }: { objectId: string; noun: string; comparative: string | undefined; world: number; boards?: boolean; onHide: () => void }) {
   const o: MyObject | null | undefined = useMyObject(objectId);
-  const ranked = useObjectRank(position === undefined ? objectId : undefined);
-  const rank = position ?? ranked;
+  // The rank NOW (player.objectRank), not the row's when it was clicked: the list re-ranks while the box is open, and
+  // only one detail is open at a time, so this is one subscription.
+  const rank = useObjectRank(objectId);
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => { box.current?.scrollIntoView({ block: "nearest" }); }, [objectId]);
   const hide = <TextButton boxed testId="button-object-detail-hide" onClick={onHide}>hide</TextButton>;
@@ -403,7 +404,7 @@ export default function Objects({ paneId, params, phase }: PanelProps<"objects">
     return (
       <div className="space-y-3">
         {header}
-        {open && <ObjectDetail objectId={open.id} position={byPayoff ? open.rank : undefined} noun={noun} comparative={comparative} world={world} boards={boards} onHide={() => setOpen(null)} />}
+        {open && <ObjectDetail objectId={open.id} noun={noun} comparative={comparative} world={world} boards={boards} onHide={() => setOpen(null)} />}
         <ObjectsGrid params={params} world={world} onOpen={toggle} />
       </div>
     );
@@ -411,7 +412,7 @@ export default function Objects({ paneId, params, phase }: PanelProps<"objects">
   return (
     <div className="space-y-3" ref={paneRef}>
       {header}
-      {open && <ObjectDetail objectId={open.id} position={byPayoff ? open.rank : undefined} noun={noun} comparative={comparative} world={world} boards={boards} onHide={() => setOpen(null)} />}
+      {open && <ObjectDetail objectId={open.id} noun={noun} comparative={comparative} world={world} boards={boards} onHide={() => setOpen(null)} />}
       <VirtualRows rows={skeleton.rows} rowHeight={rowHeightFor(ctx, widePane) + (paid ? SEEN_LINE : 0)} maxHeight={640} keyOf={r => r.id} onNearEnd={loadMore} testId="list-objects"
         render={(r, i) => <ObjectRow objectId={r.id} position={i + 1} byPayoff={byPayoff} scales={scales} world={world} boards={boards}
           highlighted={highlight.has(r.id)} open={open?.id === r.id} onOpen={toggle} ctx={ctx} noun={noun} comparative={comparative} changed={changed} look={look} />} />

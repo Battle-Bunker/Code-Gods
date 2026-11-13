@@ -80,7 +80,10 @@ export function useOwnActLines(agents: readonly { id: string; name?: string }[],
   const { noun } = useObjectContext();
   // A room that blurs the others' side: a small move of it is not named as the cause (score-line.ts pointsCause).
   const room = useRoomInfo();
-  const ended = useDockState({ hz: 1 })?.phase === "ended";
+  const dockNow = useDockState({ hz: 1 });
+  const ended = dockNow?.phase === "ended";
+  const observation = dockNow?.economy?.observation;
+  const paid = !ended && observation !== undefined && observation !== "free";
   const estimate = !ended && liveIsEstimate(room?.settings);
   return useMemo(() => {
     const acts = latestOwnActs(events);
@@ -98,9 +101,11 @@ export function useOwnActLines(agents: readonly { id: string; name?: string }[],
     const byAgent = new Map<string, string>();
     for (const [id, act] of acts) byAgent.set(id, say(act));
     const earned = new Map<string, string>();
-    for (const [id, sum] of agentEarnings(events)) { const line = earningsLine(sum, noun, third); if (line) earned.set(id, line); }
+    // Not in a room whose looking costs energy: there the points "before" a move are the player's last look at the
+    // object, which may predate changes they were never told about, so after minus before is not the move's own effect.
+    if (!paid) for (const [id, sum] of agentEarnings(events)) { const line = earningsLine(sum, noun, { third, estimate }); if (line) earned.set(id, line); }
     return { byAgent, latest: acts.latest ? say(acts.latest) : undefined, earned };
-  }, [events, goal, noun, agents, third, estimate]);
+  }, [events, goal, noun, agents, third, estimate, paid]);
 }
 
 /** The latest act of any of your agents, under "Your points now". */

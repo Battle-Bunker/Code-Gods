@@ -32,7 +32,7 @@ import {
   STATE_LEGEND, actualLine, afterShareLine, agentState, energyLine, estimateLine, laneKind, num, perSecond, plain, runwayFraction, runwaySeconds, runwayText,
   allocationSettled, shareLine, skipLine, spentLine, statusText, summonLine, yourPowerLine, type Seg,
 } from "./agent-labels";
-import { OWN_FULL_DETAIL, overdraft, overdraftTone, agentDebtDetail, agentDebtLine, destroyDebtLine, fillText, owes, ownEnergyLine, ownStoreFull, shareCapacityLines, storeFraction, storeState, storedLine } from "./energy-capacity";
+import { OWN_FULL_DETAIL, WORKING_TEXT, overdraft, overdraftTone, agentDebtDetail, agentDebtLine, destroyDebtLine, fillText, owes, ownEnergyLine, ownStoreFull, shareCapacityLines, storeFraction, storeState, storedLine } from "./energy-capacity";
 import { PanelEmpty, TextButton, type PanelProps } from "./kit";
 import { maxShareFor, parseSharePercent, shareProblem } from "./power-share";
 import { PointsNow, useOwnActLines } from "./score-lines";
@@ -156,7 +156,7 @@ export function AgentsView({ agents, self, powerPerSecond, fullChargeSeconds, ch
   const total = powerPerSecond ?? ((self?.income ?? 0) + agents.reduce((n, a) => n + (a.income ?? 0), 0));
   const lanes = agents.map((a, i) => {
     const list = (samples.get(a.id) ?? []).filter(s => s.at >= world - windowS);
-    return { label: agentLabel(a.name, i), spans: list.slice(1).map((s, j) => ({ start: list[j].at, end: s.at, kind: laneKind(list[j], a.income) })) };
+    return { label: agentLabel(a.name, i), spans: list.slice(1).map((s, j) => ({ start: list[j].at, end: s.at, kind: laneKind(list[j], a.income) })) };   // the samples (dock.agentSeries) carry energy only, so each is judged by the agent's income now
   });
   return (
     <div className="space-y-4">
@@ -203,7 +203,9 @@ export function AgentsView({ agents, self, powerPerSecond, fullChargeSeconds, ch
               <div data-testid={`text-agent-energy-${a.id}`} className="space-y-0.5 text-xs text-muted-foreground">
                 {a.powerShare !== undefined && a.income !== undefined && <p data-testid={`text-agent-share-${a.id}`}><Say segs={shareLine(a.powerShare, a.income)} /></p>}
                 <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                  <span className={alarm ? "font-semibold text-destructive" : "text-foreground"}><Say segs={capped ? storedLine(a.energy, a.capacity!) : debt ? [{ term: "agent-energy", text: "Energy" }, ` ${num(a.energy)} ⚡`] : energyLine(a.energy)} /></span>
+                  <span className={alarm ? "font-semibold text-destructive" : "text-foreground"}><Say segs={capped ? storedLine(a.energy, a.capacity!) : debt || working ? [{ term: "agent-energy", text: "Energy" }, ` ${num(a.energy)} ⚡`] : energyLine(a.energy)} /></span>
+                  {/* A game without capacities has no line beside it: the routine overdraft is still said as work. */}
+                  {working && !debt && <span data-testid={`text-agent-working-${a.id}`} className="text-muted-foreground">{WORKING_TEXT}</span>}
                   {debt && <span data-testid={`text-agent-debt-${a.id}`} title={agentDebtDetail(a.capacity) ?? undefined} className={alarm ? "font-semibold text-destructive" : "text-muted-foreground"}>{debt}</span>}
                 </p>
                 <p className="flex flex-wrap items-center gap-x-3 gap-y-1">

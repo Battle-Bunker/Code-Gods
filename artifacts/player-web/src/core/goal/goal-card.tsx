@@ -66,7 +66,7 @@ export function GoalCard({ card, goal, inst, sourceOpen = false, initialExample 
           <details className="text-sm" data-testid="details-rarity-scale" open={wide}>
             <summary className="cursor-pointer font-medium">How rare is each rule score?</summary>
             <ul className="mt-1 space-y-0.5 font-mono text-xs" data-testid="list-rarity-scale">
-              {scale.map(row => <li key={row.ordinal.join(",")}>{scaleRowText(row)}</li>)}
+              {scale.map(row => <li key={row.ordinal.join(",")}>{scaleRowText(row, noun)}</li>)}
             </ul>
             <p className="mt-1 text-xs text-muted-foreground" data-testid="text-sparkle-means">{sparkleMeans(noun)}{scale[0].ordinal.length > 1 ? " Each row is the lowest rule score with that primary value." : ""}</p>
           </details>

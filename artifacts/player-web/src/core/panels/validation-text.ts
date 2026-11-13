@@ -1,6 +1,6 @@
 /**
  * The forge's words about an agent's price (pure, unit-tested): why a summon costs what it costs, the price's parts in
- * ⚡ with plain labels (read from the engine's own diagnostic line, convex/engine/pricing.ts), and what to say when the
+ * ⚡ with plain labels (from the receipt's own `parts`), and what to say when the
  * player's own store can no longer hold the price at all.
  */
 const amount = (x: number) => (Math.round(x * 10) / 10).toLocaleString("en-US", { maximumFractionDigits: 1 });
@@ -8,28 +8,32 @@ const amount = (x: number) => (Math.round(x * 10) / 10).toLocaleString("en-US", 
 /** Beside the Summon button, once there is a price. */
 export const PRICE_GROWS = "The price grows with the amount of code (not with what it does): shorter is cheaper.";
 
-const PARTS: readonly [RegExp, string][] = [
-  [/structure (\d+(?:\.\d+)?)/, "the shape of the code"],
-  [/names (\d+(?:\.\d+)?)/, "the names it uses"],
-  [/literals (\d+(?:\.\d+)?)/, "the numbers and text written in it"],
-  [/literal moves (\d+(?:\.\d+)?)/, "moves written out in full"],
-  [/commit clause (\d+(?:\.\d+)?)/, "its commit clause"],
+/** The parts of a summon price as the receipt carries them (convex/engine/pricing.ts SummonParts; the structure already weighted for the language). */
+export type PriceParts = { structure?: number; names?: number; literals?: number; moveFlags?: number; literalMoves?: number; commitClause?: number };
+const LABELS: readonly [keyof PriceParts, string][] = [
+  ["structure", "the shape of the code"], ["names", "the names it uses"], ["literals", "the numbers and text written in it"],
+  ["moveFlags", "the kinds of move it can make"], ["literalMoves", "moves written out in full"], ["commitClause", "its commit clause"],
 ];
 /**
- * "Of the price: the shape of the code 295.2 ⚡, the names it uses 238.3 ⚡, the numbers and text written in it 29.6 ⚡."
- * from the engine's "Summon price … (ast-bits-v1: structure 295.2, names 238.3, literals 29.6, literal moves 0.0)."
- * Parts that are 0 are left out; null when the line is not there or names no part.
+ * "Of the price (565 ⚡): the shape of the code 295.2 ⚡, the names it uses 238.3 ⚡, …" from the receipt's own `parts`
+ * (never from the engine's prose line, whose figures are unweighted and leave parts out), so the figures shown add up
+ * to the price shown in every language: each part to one decimal, the rounding left over put on the largest part, and
+ * whatever the named parts do not cover said as "the rest". Parts that show as 0 are left out; null without parts.
  */
-export function priceParts(diagnostics: readonly string[]): string | null {
-  const line = diagnostics.find(d => d.startsWith("Summon price "));
-  if (!line) return null;
-  const parts = PARTS.flatMap(([pattern, label]) => {
-    const value = Number(pattern.exec(line)?.[1]);
-    return Number.isFinite(value) && value > 0 ? [`${label} ${amount(value)} ⚡`] : [];
-  });
-  return parts.length ? `Of the price: ${parts.join(", ")}.` : null;
+export function priceParts(parts: PriceParts | null | undefined, cost: number): string | null {
+  if (!parts || !Number.isFinite(cost)) return null;
+  const tenths = (x: number) => Math.round(x * 10);
+  const rows = LABELS.flatMap(([key, label]) => { const v = parts[key]; return typeof v === "number" && Number.isFinite(v) && v > 0 ? [{ label, tenths: tenths(v), exact: v }] : []; });
+  if (!rows.length) return null;
+  const rest = cost - rows.reduce((sum, r) => sum + r.exact, 0);
+  if (Math.abs(rest) >= 0.05) rows.push({ label: "the rest", tenths: tenths(rest), exact: rest });
+  // The rounding left over (a tenth or two) goes on the largest part, so the line adds up to the price as shown.
+  const off = tenths(cost) - rows.reduce((sum, r) => sum + r.tenths, 0);
+  if (off !== 0) rows.reduce((big, r) => (r.tenths > big.tenths ? r : big)).tenths += off;
+  const shown = rows.filter(r => r.tenths !== 0).map(r => `${r.label} ${amount(r.tenths / 10)} ⚡`);
+  return shown.length ? `Of the price (${amount(cost)} ⚡): ${shown.join(", ")}.` : null;
 }
-/** The diagnostics for "Details": the price line gives way to its plain parts (said above them); the rest as the engine wrote it. */
+/** The diagnostics for "Details": the engine's price line gives way to the plain parts (said above them); the rest as the engine wrote it. */
 export const otherDiagnostics = (diagnostics: readonly string[]): string[] => diagnostics.filter(d => !d.startsWith("Summon price "));
 
 /**

@@ -168,11 +168,14 @@ test("what each agent's moves earned, counted from the events the pane holds, wi
   const earned = agentEarnings(events);
   assert.deepEqual(earned.get("a1"), { moves: 2, points: 108, objects: 2 });
   assert.deepEqual(earned.get("a2"), { moves: 1, points: -10, objects: 1 });
-  assert.equal(earningsLine(earned.get("a1"), "grid"), "Its last 2 moves seen here: +108 points on 2 grids (+54 a move). Only the latest events are counted, not the whole game.");
-  assert.equal(earningsLine(earned.get("a2"), "grid"), "Its last move seen here: −10 points on 1 grid. Only the latest events are counted, not the whole game.");
+  // N is the number of moves counted (a move whose grid's points just before it are not among the events is not one of them).
+  assert.equal(earningsLine(earned.get("a1"), "grid"), "2 of its latest moves, counted here: +108 points on 2 grids (+54 a move). Only the latest events are counted, not the whole game.");
+  assert.equal(earningsLine(earned.get("a2"), "grid"), "1 of its latest moves, counted here: −10 points on 1 grid. Only the latest events are counted, not the whole game.");
   assert.equal(earningsLine(undefined, "grid"), null);
-  assert.equal(earningsLine({ moves: 1234, points: 1240.4, objects: 23 }, "grid"), "Its last 1,234 moves seen here: +1,240.4 points on 23 grids (+1 a move). Only the latest events are counted, not the whole game.");
-  assert.equal(earningsLine({ moves: 2, points: 108, objects: 2 }, "grid", true), "Its last 2 moves seen here: +108 points on 2 grids (+54 a move). Only the latest events are counted, not the whole game.".replace("Its", "Their agent's"));
+  assert.equal(earningsLine({ moves: 1234, points: 1240.4, objects: 23 }, "grid"), "1,234 of its latest moves, counted here: +1,240.4 points on 23 grids (+1 a move). Only the latest events are counted, not the whole game.");
+  assert.equal(earningsLine({ moves: 2, points: 108, objects: 2 }, "grid", { third: true }), "2 of their agent's latest moves, counted here: +108 points on 2 grids (+54 a move). Only the latest events are counted, not the whole game.");
+  // A room that blurs the others' side: the points are an estimate, and the line says "about".
+  assert.equal(earningsLine({ moves: 12, points: 648, objects: 9 }, "grid", { estimate: true }), "12 of its latest moves, counted here: about +648 points on 9 grids (about +54 a move). Only the latest events are counted, not the whole game, and live points are an estimate.");
 });
 
 test("your points now", () => {

@@ -1,6 +1,7 @@
 /** The goal card's rule score → ✨ rarity words (src/rarity-scale-text.ts). What would break: an overstated share, jargon, or a row nobody can read. */
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { rarityText } from "../src/rarity.ts";
 import { exampleRarityLine, rarerThanPercent, scaleRowText, sparkle, sparkleMeans, SPARKLE_MEANS } from "../src/rarity-scale-text.ts";
 
 test("the example board's line says how rare its rule score is, and which way is up", () => {
@@ -8,7 +9,8 @@ test("the example board's line says how rare its rule score is, and which way is
   assert.equal(exampleRarityLine([7, 2], 6.4), "This board's rule score (7, 2) is rarer than 98.8% of random boards: ✨ 6.4. A higher rule score is rarer, and rarer is worth more.");
   assert.equal(exampleRarityLine([3, -26], 9.1, "grid"), "This grid's rule score (3, −26) is rarer than 99.81% of random grids: ✨ 9.1. A higher rule score is rarer, and rarer is worth more.");
   assert.equal(exampleRarityLine([5], 1), "This board's rule score 5 is rarer than 50% of random boards: ✨ 1.0. A higher rule score is rarer, and rarer is worth more.");
-  assert.equal(exampleRarityLine([0, -20], 0.02), "This board's rule score (0, −20) is common among random boards: ✨ 0. A higher rule score is rarer, and rarer is worth more.");
+  assert.equal(exampleRarityLine([0, -20], 0.02), "This board's rule score (0, −20) makes it an everyday board: ✨ 0.0. A higher rule score is rarer, and rarer is worth more.");
+  assert.equal(exampleRarityLine([1, -9], 0.9, "grid"), "This grid's rule score (1, −9) makes it an everyday grid: ✨ 0.9. A higher rule score is rarer, and rarer is worth more.", "below ✨ 1: the Objects rows' own words");
 });
 
 test("the share is never rounded up, and stops at 'more than 99.99%'", () => {
@@ -25,9 +27,11 @@ test("a row of the scale: the primary value, how rare, its ✨", () => {
   assert.equal(scaleRowText({ ordinal: [2, -15], bits: 6.4 }), "(2, …) 1 in 84: ✨ 6.4");
   assert.equal(scaleRowText({ ordinal: [4, -3], bits: 15.3 }), "(4, …) 1 in 40,000: ✨ 15.3");
   assert.equal(scaleRowText({ ordinal: [8, 0], bits: 30.4 }), "(8, …) 1 in 1.4 billion: ✨ 30.4");
-  assert.equal(scaleRowText({ ordinal: [0, -30], bits: 0 }), "(0, …) common: ✨ 0");
+  // Below ✨ 1 a row says what an Objects row says (rarityText): "an everyday grid"; zero is "0.0" everywhere.
+  assert.equal(scaleRowText({ ordinal: [0, -30], bits: 0 }, "grid"), "(0, …) an everyday grid: ✨ 0.0");
+  assert.equal(scaleRowText({ ordinal: [1, -9], bits: 0.6 }, "grid"), `(1, …) ${rarityText(0.6, "grid").oneIn}: ✨ 0.6`);
   assert.equal(scaleRowText({ ordinal: [3], bits: 2 }), "3 1 in 4: ✨ 2.0");
-  assert.equal(sparkle(-0.01), "0");
+  assert.equal(sparkle(-0.01), "0.0");
 });
 
 test("what ✨ means: plain words, no bits and no logarithms", () => {

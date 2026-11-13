@@ -82,7 +82,8 @@ export class DockStore {
     // Two things only until "Show my panes": the results and the timeline (withResultsOnly).
     const derived = this.replayTimeline && !this.replayArranged;
     const withT = !derived ? timeline : this.myPanes ? withResultsFirst(timeline) : withResultsOnly(timeline);
-    const hiddenPanes = (derived && !this.myPanes && hiddenByResultsOnly(timeline) > 0) || !!this.keptLocal;
+    // Offered only when it would bring something back, counted on what is shown (a room without an assistant does not show its pane).
+    const hiddenPanes = (derived && !this.myPanes && hiddenByResultsOnly(this.shownOf(timeline)) > 0) || !!this.keptLocal;
     return { layout: this.assistantAvailable ? withT : withoutAssistant(withT), hiddenPanes, history: this.history, assistantAvailable: this.assistantAvailable, focused: this.focused, phase: this.phase, loaded: this.sync.latest !== null, canWrite: this.options.canWrite };
   }
   private emit() {
@@ -114,6 +115,7 @@ export class DockStore {
     const latest = this.sync.latest && (this.raw !== undefined ? { ...this.sync.latest, layout: this.parse(this.raw) } : this.sync.latest);
     const clean = !this.sync.dirty && !this.sync.gesture && !this.sync.inFlight;
     const local = clean && latest ? latest.layout : this.parse(this.sync.local);
+    this.noteReplaced(local);
     this.sync = { ...this.sync, local, latest };
     this.history = observe(this.history, null, local);
     this.emit();
@@ -121,7 +123,9 @@ export class DockStore {
   server(raw: unknown, updatedAt: number | null) {
     const first = this.sync.latest === null;
     this.raw = raw;
+    const before = this.sync.local;
     this.dispatch({ type: "server", layout: this.parse(raw), updatedAt }, first);
+    if (this.sync.local !== before) { this.noteReplaced(this.sync.local, before); this.emit(); }
     // An edit made before the first server layout arrived had nothing to push against; now it does.
     if (this.sync.dirty) this.schedule(PUSH_SOON_MS);
   }
@@ -146,6 +150,15 @@ export class DockStore {
     // A change made in the results-only view: the arrangement it hid is kept for "Show my panes".
     if (!this.replayArranged && !this.myPanes) this.keptLocal = this.sync.local;
     this.replayArranged = true;
+  }
+  /**
+   * The server's layout (or a re-parse of it) replaced `local`: what the human arranged in this replay, and the
+   * arrangement kept for "Show my panes", belonged to the layout that is gone, so the derived view starts again.
+   */
+  private noteReplaced(next: DockLayout, before: DockLayout = this.sync.local) {
+    if (sameLayout(next, before, 0)) return;
+    this.keptLocal = undefined;
+    this.replayArranged = false;
   }
   /** "Show my panes": the ended game's other panes come back, the results first (a replay's dock is never saved). */
   showMyPanes() {

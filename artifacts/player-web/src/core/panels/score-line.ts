@@ -317,11 +317,16 @@ export function agentEarnings(events: readonly EventLike[]): Map<string, AgentEa
   }
   return new Map([...sums].map(([id, s]) => [id, { moves: s.moves, points: s.points, objects: s.objects.size }]));
 }
-/** "Its last 12 moves seen here: +648 points on 9 grids (+54 a move). Only the latest events are counted, not the whole game." */
-export function earningsLine(earned: AgentEarnings | undefined, noun = "object", third = false): string | null {
+/**
+ * "12 of its latest moves, counted here: +648 points on 9 grids (+54 a move). Only the latest events are counted, not
+ * the whole game." The number is the moves counted, never the moves made. `estimate`: the room blurs the others' side
+ * while the game is live (score-lines.tsx liveIsEstimate), so the figures are "about" and the note says so.
+ */
+export function earningsLine(earned: AgentEarnings | undefined, noun = "object", { third = false, estimate = false }: { third?: boolean; estimate?: boolean } = {}): string | null {
   if (!earned || earned.moves < 1) return null;
   const count = (n: number, word: string) => `${n.toLocaleString("en-US")} ${word}${n === 1 ? "" : "s"}`;
-  const head = `${third ? "Their agent's" : "Its"} last ${earned.moves === 1 ? "move" : count(earned.moves, "move")} seen here`;
-  const each = earned.moves > 1 ? ` (${signed(earned.points / earned.moves)} a move)` : "";
-  return `${head}: ${signed(earned.points)} points on ${count(earned.objects, noun)}${each}. Only the latest events are counted, not the whole game.`;
+  const about = estimate ? "about " : "";
+  const head = `${earned.moves.toLocaleString("en-US")} of ${third ? "their agent's" : "its"} latest moves, counted here`;
+  const each = earned.moves > 1 ? ` (${about}${signed(earned.points / earned.moves)} a move)` : "";
+  return `${head}: ${about}${signed(earned.points)} points on ${count(earned.objects, noun)}${each}. Only the latest events are counted, not the whole game${estimate ? ", and live points are an estimate" : ""}.`;
 }

@@ -69,7 +69,7 @@ export default function Feed({ params }: PanelProps<"feed">) {
       <Section title="Your moves: cost against yield">
         <Table rows={rows} rowKey={r => r.id} columns={[
           { header: "mutator", cell: r => r.name }, { header: "acts", cell: r => r.acts, align: "right" },
-          { header: "⚡ per act", cell: r => avg(r.cost, r.acts), align: "right" }, { header: "your ✨ rarity per act", cell: r => avg(r.dMine, r.acts), align: "right" },
+          { header: "⚡ per act", cell: r => avg(r.cost, r.acts), align: "right" }, { header: "change in your ✨ rarity per act", cell: r => avg(r.dMine, r.acts), align: "right" },
         ]} />
       </Section>
     );
@@ -80,8 +80,8 @@ export default function Feed({ params }: PanelProps<"feed">) {
       <span className={`w-14 shrink-0 ${c.mine ? "font-semibold" : "text-muted-foreground"}`}>{c.mine ? "yours" : "others'"}</span>
       {c.objectId && <ObjectRef objectId={c.objectId} />}
       <TransformationView before={c.before as never} after={c.after as never} {...ctx} />
-      {c.dMine !== undefined && <span className={c.dMine > 0 ? "text-[hsl(var(--accent))]" : c.dMine < 0 ? "text-destructive" : "text-muted-foreground"}>your ✨ rarity {c.dMine >= 0 ? "+" : ""}{figure(c.dMine)}</span>}
-      {c.dOthers !== undefined && <span className="text-muted-foreground">the others' ✨ rarity {c.dOthers >= 0 ? "+" : ""}{figure(c.dOthers)}</span>}
+      {c.dMine !== undefined && <span className={c.dMine > 0 ? "text-[hsl(var(--accent))]" : c.dMine < 0 ? "text-destructive" : "text-muted-foreground"}>change in your ✨ rarity {c.dMine >= 0 ? "+" : ""}{figure(c.dMine)}</span>}
+      {c.dOthers !== undefined && <span className="text-muted-foreground">change in the others' ✨ rarity {c.dOthers >= 0 ? "+" : ""}{figure(c.dOthers)}</span>}
       {c.calls && <span className="basis-full text-muted-foreground sm:basis-auto">{c.calls.map(call => call[0]).join("; ")}{c.cost !== undefined ? ` · cost ${figure(c.cost)} ⚡` : ""}</span>}
     </li>
   );

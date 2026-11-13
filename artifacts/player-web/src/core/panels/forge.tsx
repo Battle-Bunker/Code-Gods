@@ -77,7 +77,6 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
   const setSummoned = (agentName: string, agentSource: string) => setSummonedState({ name: agentName, share: shareAtSummon.current, source: agentSource });
   const summonRow = useRef<HTMLDivElement>(null);
   const helpersBox = useRef<HTMLDivElement>(null);
-  const [helpersOpen, setHelpersOpen] = useState(false);
   const [ringing, setRinging] = useState(false);
   const dock = useDockActions();
   const obs = useDockState({ hz: 2 });
@@ -315,7 +314,12 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
       {!ended && (costHint || obs?.instance) && (
         <p className="text-xs text-muted-foreground" data-testid="text-forge-costs">
           {costHint && <span data-testid="text-forge-change-cost">{costHint} </span>}
-          {obs?.instance && <TextButton boxed testId="button-open-helpers" onClick={() => { setHelpersOpen(true); requestAnimationFrame(() => helpersBox.current?.scrollIntoView({ block: "nearest" })); }}>Room helpers ({obs.instance.helpers.length}): how to read and change {noun === "grid" ? "a grid" : "an object"}</TextButton>}
+          {obs?.instance && <TextButton boxed testId="button-open-helpers" onClick={() => {
+            // The drawer's own `open` is only its first state (the player may have closed it since): set it on the element.
+            const drawer = helpersBox.current?.querySelector("details");
+            if (drawer) drawer.open = true;
+            requestAnimationFrame(() => helpersBox.current?.scrollIntoView({ block: "nearest" }));
+          }}>Room helpers ({obs.instance.helpers.length}): how to read and change {noun === "grid" ? "a grid" : "an object"}</TextButton>}
         </p>
       )}
       {(busy === "validate" || busy === "summon") && <p data-testid="text-forge-progress" role="status" className="flex items-center gap-1.5 text-sm font-semibold text-foreground"><Loader2 size={14} className="shrink-0 animate-spin" />{progressLine(busy, retrying, waited)}</p>}
@@ -355,7 +359,7 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
           : `function agent(${arg}) {\n  // return a list of moves, e.g. [swap(...)]\n  return [];\n}`}
         className="h-56 w-full resize-y border-l-4 border-[hsl(var(--input))] bg-secondary p-3 font-mono text-[13px] leading-relaxed text-secondary-foreground caret-[hsl(var(--primary))] outline-none focus:border-primary" />
       <p className="text-xs text-muted-foreground">Write <code>{language === "python" ? `def agent(${arg}):` : `function agent(${arg})`}</code>. It reads the {noun} and returns at most 16 moves from the room's helpers; each act costs ⚡ energy from the agent's own store.</p>
-      {obs?.instance && <div ref={helpersBox}><HelpersDrawer helpers={obs.instance.helpers} language={language} onInsert={insert} open={showHelpers || helpersOpen} /></div>}
+      {obs?.instance && <div ref={helpersBox}><HelpersDrawer helpers={obs.instance.helpers} language={language} onInsert={insert} open={showHelpers} /></div>}
       {observer && observer.source !== source && (
         // Paid observation: the standing watch as another starting point, below the code and closed until asked for, so
         // it is never read as describing the agent in the editor (./observer.ts).
@@ -396,7 +400,7 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
                 <summary className="cursor-pointer text-muted-foreground">Details</summary>
                 <div className="mt-1"><AgentCost summonCost={current.cost} expectedActCost={current.expectedActCost} breakdown={current.breakdown as ActCostBreakdown | undefined}
                   powerShare={newShare} income={newShare !== undefined ? newShare * (obs?.economy?.powerPerSecond ?? 0) : undefined} godEnergy={obs?.self.energy} /></div>
-                {priceParts(current.diagnostics) && <p className="mt-1" data-testid="text-price-parts">{priceParts(current.diagnostics)}</p>}
+                {priceParts(current.parts, current.cost) && <p className="mt-1" data-testid="text-price-parts">{priceParts(current.parts, current.cost)}</p>}
                 <ul className="mt-1 space-y-0.5 font-mono text-muted-foreground">{otherDiagnostics(current.diagnostics).map((d, i) => <li key={i} className="whitespace-pre-wrap break-words">{d}</li>)}</ul>
               </details>
             )}
