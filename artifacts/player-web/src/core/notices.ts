@@ -13,7 +13,8 @@ const emit = (value: readonly Notice[]) => { notices = value; for (const l of li
 export const noticeStore = {
   subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
   get: () => notices,
-  push(text: string, tone: Notice["tone"] = "info", ms = 6000): number {
+  // An informative line ("The world starts now.") goes after 4 s; an error stays 6 s (or as long as its caller asks).
+  push(text: string, tone: Notice["tone"] = "info", ms = tone === "error" ? 6000 : 4000): number {
     const id = next++;
     emit([...notices.slice(-2), { id, text, tone }]);
     setTimeout(() => noticeStore.dismiss(id), ms);

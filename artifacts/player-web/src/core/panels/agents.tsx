@@ -20,8 +20,9 @@ import { SCORE_LINES, Term } from "@workspace/ui-kit";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Sparkline, Timeline, TimelineLegend, useAgentSeries, useDockState, useGame, useMyAgents, type MyAgent } from "@/sdk";
 import { useDockActions } from "@/dock/actions";
-import { useGameCommands, useRunner } from "@/core/game/runner";
-import { firstSummonLabel } from "./first-agent";
+import { useGameCommands, useRunner, type Lang } from "@/core/game/runner";
+import { firstSummonLabel, replaceShare, versionComparison } from "./first-agent";
+import { notifyError } from "@/core/notices";
 import { useAffordances } from "@/core/use-affordances";
 import type { Affordances } from "@/core/affordances";
 import { AgentName, agentLabel } from "./agent-name";
@@ -146,10 +147,12 @@ export type AgentsViewProps = {
   actLines?: ReadonlyMap<string, string>;
   /** Agent id → what its moves among the recent events earned (score-line.ts earningsLine). */
   earnLines?: ReadonlyMap<string, string>;
+  /** Agent id → for an agent that replaced an earlier version: the comparison (null until there is enough to compare) and the way back. */
+  versions?: ReadonlyMap<string, { text: string | null; onRevert?: () => void }>;
 };
 
 /** The panel without its data hooks, so the gallery (src/gallery/agents.tsx) can draw it from fixtures. */
-export function AgentsView({ agents, self, powerPerSecond, fullChargeSeconds, changeReadRatio, costModel, world, samples, window: windowS, ended, showCosts, showSource, can, wait, onEdit, onSetShare, onDestroy, footer, header, actLines, earnLines, settling }: AgentsViewProps) {
+export function AgentsView({ agents, self, powerPerSecond, fullChargeSeconds, changeReadRatio, costModel, world, samples, window: windowS, ended, showCosts, showSource, can, wait, onEdit, onSetShare, onDestroy, footer, header, actLines, earnLines, versions, settling }: AgentsViewProps) {
   const [confirm, setConfirm] = useState<string | null>(null);
   const { editCode, destroy, allocatePower } = can;
   const showDestroy = destroy.ok || !destroy.hidden;
@@ -221,6 +224,13 @@ export function AgentsView({ agents, self, powerPerSecond, fullChargeSeconds, ch
               {actLines?.get(a.id) && <p data-testid={`text-agent-act-${a.id}`} className="text-xs text-foreground">Latest: {actLines.get(a.id)}</p>}
               {/* What its moves earned, so two agents can be compared; the window is said in the line itself. */}
               {earnLines?.get(a.id) && <p data-testid={`text-agent-earned-${a.id}`} className="text-xs text-foreground">{earnLines.get(a.id)}</p>}
+              {/* Did the change help: this agent replaced an earlier version; the two compared, and the way back. */}
+              {versions?.get(a.id) && (
+                <p data-testid={`text-agent-version-${a.id}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-foreground">
+                  <span>{versions.get(a.id)!.text ?? "This is your new version. Once it has made a few moves, this line compares it with the one before."}</span>
+                  {versions.get(a.id)!.onRevert && <TextButton boxed testId={`button-revert-version-${a.id}`} onClick={versions.get(a.id)!.onRevert!}>Put the previous version back</TextButton>}
+                </p>
+              )}
               {a.diagnosis && (
                 // How its acts ended (engine-counted) and, when most fail, why and what to change.
                 <div data-testid={`text-agent-diagnosis-${a.id}`} className="space-y-0.5 text-xs">
@@ -301,6 +311,25 @@ export default function Agents({ params, phase }: PanelProps<"agents">) {
   }, [awaiting, self?.allocated]);
   const ended = phase === "ended";
   const { editCode } = can.can;
+  // The version the last replace replaced (the runner remembers it for this page): shown on the agent that replaced
+  // it, with what each earned a move, and one press to put it back (a replace with the previous code and name).
+  const versions = useMemo(() => {
+    const out = new Map<string, { text: string | null; onRevert?: () => void }>();
+    const previous = runnerState.previous;
+    const target = previous && !ended && !can.seenAs ? all.find(a => a.source === previous.newSource) : undefined;
+    if (!previous || !target) return out;
+    const share = replaceShare({ oldShare: target.powerShare, allocated: self?.allocated });
+    out.set(target.id, {
+      text: versionComparison(previous.before, acts.sums.get(target.id), acts.estimate),
+      ...(can.can.destroy.ok && isLanguage(previous.language) ? { onRevert: () => {
+        void commands.replace({ type: "summon", language: previous.language as Lang, source: previous.source, name: previous.name, ...(share !== undefined ? { powerShare: share } : {}) },
+          { oldId: target.id, name: previous.name, source: previous.source, share, oldShare: target.powerShare })
+          .then(result => { if (result && !result.accepted) notifyError(new Error(`${previous.name} was not put back: ${result.message || "the game refused the summon"}`)); });
+      } } : {}),
+    });
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [runnerState.previous, all, acts.sums, acts.estimate, ended, self?.allocated, can.seenAs, can.can.destroy.ok, commands]);
   const owner = can.seenAs ? <p data-testid="text-agents-owner" className="text-xs text-muted-foreground">Seen as {can.seenAs}: these are {can.whose} agents.</p> : null;
   if (!all.length) {
     return <PanelEmpty action={(phase === "planning" || phase === "running") && editCode.ok ? <TextButton disabled={summoning} onClick={() => dock.summonFirst()}>{firstSummonLabel({ summoning, pending: runnerState.firstSummon > 0 })}</TextButton> : undefined}>
@@ -321,7 +350,7 @@ export default function Agents({ params, phase }: PanelProps<"agents">) {
           if (result?.accepted && (a.powerShare ?? 0) > 0) setAwaiting({ allocated: self?.allocated, at: Date.now() });
         })}
         settling={!ended && self?.allocated !== undefined && (!allocationSettled(self.allocated, all.map(a => a.powerShare)) || (!!awaiting && awaiting.allocated === self.allocated))}
-        header={can.seenAs ? undefined : <PointsNow />} actLines={acts.byAgent} earnLines={acts.earned}
+        header={can.seenAs ? undefined : <PointsNow />} actLines={acts.byAgent} earnLines={acts.earned} versions={versions}
         footer={ended && <p data-testid="text-agents-ended" className="text-xs text-muted-foreground">
           {can.readOnly ? `These are ${can.whose} agents as they ended the game.` : "The game is over: these are your agents as they ended it. Edit a copy keeps the code for the next game."}
         </p>} />

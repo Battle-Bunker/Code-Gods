@@ -16,7 +16,7 @@ import { useActions, useDockState } from "@/sdk";
 import { errorText, noticeStore } from "@/core/notices";
 import { BUSY_ATTEMPTS, BUSY_RETRY_MS, busyMessage, createAttempts, deadlineFor, headerNotice, isBusy, receiptNotice, type Examined } from "./command-deadline";
 
-import { bothText, pendingReplaceOnReceipt, pendingReplaceOnSend, replaceStep, replacedText, type PendingReplace } from "@/core/panels/first-agent";
+import { bothText, pendingReplaceOnReceipt, pendingReplaceOnSend, replaceStep, replacedText, type PendingReplace, type PreviousVersion } from "@/core/panels/first-agent";
 export type Lang = Language;
 export type Unknown = { envelope: Envelope; error: string };
 export type Validation = { source: string; language: Lang; result: CommandResult };
@@ -59,9 +59,14 @@ export type RunnerState = {
   replace: PendingReplace | null;
   /** How the last replace ended, for the forge: said only while the editor still holds the code it was for. */
   replaced: { ok: boolean; text: string; source: string } | null;
+  /**
+   * The version the last replace replaced (its code, name, share and what its moves had earned), remembered for this
+   * page: My agents compares the two versions and offers "Put the previous version back" (a replace with that code).
+   */
+  previous: PreviousVersion | null;
 };
 
-let state: RunnerState = { busy: null, notice: null, unknown: null, retrying: null, failed: null, validation: null, draft: { source: "", language: null }, editing: false, firstSummon: 0, ownDraft: false, origin: null, replace: null, replaced: null };
+let state: RunnerState = { busy: null, notice: null, unknown: null, retrying: null, failed: null, validation: null, draft: { source: "", language: null }, editing: false, firstSummon: 0, ownDraft: false, origin: null, replace: null, replaced: null, previous: null };
 const listeners = new Set<() => void>();
 /** One command at a time, each with its deadline; only the latest attempt's outcome reaches the state. */
 const attempts = createAttempts();
@@ -78,6 +83,7 @@ export const runner = {
    * offered as its replacement. Code loaded with no origin (a draft, a template) is nobody's new version.
    */
   edit(source: string, language?: Lang, origin?: string) { set({ draft: { source, language: language ?? state.draft.language }, editing: true, ownDraft: source.trim().length > 0, origin: origin ?? null }); },
+  clearPrevious() { if (state.previous) set({ previous: null }); },
   setOrigin(origin: string | null) { if (state.origin !== origin) set({ origin }); },
   setOwnDraft(ownDraft: boolean) { if (state.ownDraft !== ownDraft) set({ ownDraft }); },
   /** Ignored while a summon is in flight: a second press can never buy a second copy. */
@@ -137,9 +143,10 @@ export function useGameCommands() {
       if (step === "destroy") {
         const pending = state.replace!;
         set({ replace: null });
-        const said = replacedText(pending.name, { share: pending.share, oldShare: pending.oldShare });
+        const said = replacedText(pending.name, { share: pending.share, oldShare: pending.oldShare, lost: pending.lost });
         const end = replaceStep("destroying", await send({ version: VERSION, commandId: crypto.randomUUID(), command: { type: "destroy", agentId: pending.oldId }, ...(envelope.gameId ? { gameId: envelope.gameId } : {}) }, said));
-        set({ replaced: "done" in end && end.done === "replaced" ? { ok: true, text: said, source: pending.source }
+        const done = "done" in end && end.done === "replaced";
+        set({ ...(done ? { previous: pending.previous ?? null } : {}), replaced: done ? { ok: true, text: said, source: pending.source }
           : { ok: false, text: bothText(pending.name, "done" in end && end.done === "both" ? end.message : "no answer from the game"), source: pending.source } });
       }
       return result;

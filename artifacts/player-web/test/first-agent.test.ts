@@ -7,7 +7,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  FIRST_AGENT_HINT, STARTER_AGENT_HINT, armedStep, armedText, energyHint, firstAgentFill, firstAgentHint, untouchedExample, lacksEnergy, readyText, summonReady, summonedText, COPY_HINT, REPLACE_WHY, PENDING_REPLACE_MS, pendingReplaceOnReceipt, pendingReplaceOnSend, replaceBlocked, sameVersionNote, bothText, draftOrigin, replaceLabel, replaceOffer, replaceShare, replaceStep, replacedText, FIRST_SUMMON_MAX_AGE_MS, FIRST_SUMMON_WARMING_MS, firstSummonLabel, isCopy, replaceNeedsConfirm, firstSummonStep, nextFreeName, proposedName, secondAgentHint, storeAfterSummonText, type ArmedSummon, type Examples, type FirstAgentState,
+  FIRST_AGENT_HINT, STARTER_AGENT_HINT, armedStep, armedText, energyHint, firstAgentFill, firstAgentHint, untouchedExample, lacksEnergy, readyText, summonReady, summonedText, COPY_HINT, REPLACE_WHY, afterCheck, checkedLine, replaceLoss, versionComparison, PENDING_REPLACE_MS, pendingReplaceOnReceipt, pendingReplaceOnSend, replaceBlocked, sameVersionNote, bothText, draftOrigin, replaceLabel, replaceOffer, replaceShare, replaceStep, replacedText, FIRST_SUMMON_MAX_AGE_MS, FIRST_SUMMON_WARMING_MS, firstSummonLabel, isCopy, replaceNeedsConfirm, firstSummonStep, nextFreeName, proposedName, secondAgentHint, storeAfterSummonText, type ArmedSummon, type Examples, type FirstAgentState,
 } from "../src/core/panels/first-agent.ts";
 
 const py = { name: "Mirror maker", source: "# My goal: mirrors\ndef agent(grid):\n    return []\n", specific: true };
@@ -255,4 +255,36 @@ test("replace: the new version is summoned first, and the old one is destroyed o
   assert.equal(replacedText("Simple spread keeper", { share: 0.25, oldShare: 0.5 }), "Replaced: Simple spread keeper now runs your new version. It has 25% of your power (the old one had 50%); raise it in My agents.");
   assert.equal(replacedText("Simple spread keeper", { share: undefined, oldShare: 0.5 }), "Replaced: Simple spread keeper now runs your new version. Its share of your power may differ from the old one's (50%); check it in My agents.");
   assert.equal(bothText("Simple spread keeper", "No such agent"), "The new version of Simple spread keeper is in the game, but the old one could not be destroyed (No such agent). Both are running: destroy the old one in My agents.");
+});
+
+test("one press: the check goes straight on when the code is valid and payable, and stops with the reason otherwise", () => {
+  assert.equal(afterCheck({ accepted: true, valid: true, cost: 174, energy: 400 }), "go");
+  assert.equal(afterCheck({ accepted: true, valid: false, cost: 0, energy: 400 }), "invalid");
+  assert.equal(afterCheck({ accepted: false, valid: undefined, cost: undefined, energy: 400 }), "invalid", "the sandbox was not ready: the forge says so");
+  assert.equal(afterCheck(undefined, 400), "invalid", "no answer");
+  assert.equal(afterCheck({ accepted: true, valid: true, cost: 425, energy: 226 }), "short", "valid but not payable yet: the energy line says when");
+  assert.equal(afterCheck({ accepted: true, valid: true, cost: 174, energy: 174 }), "go");
+  assert.equal(checkedLine(174.382, "replace"), "Checked: 174.4 ⚡. Replacing…");
+  assert.equal(checkedLine(174, "summon"), "Checked: 174 ⚡. Summoning…");
+});
+
+test("a replace says what the moment with two versions cost the player's own store", () => {
+  // 64 ⚡/s, full in 30 s. The old agent has 50%, nothing else: your store holds 960. The new version takes 25% of
+  // what is free: during the overlap you keep 25% = 480. With 737 − 174 = 563 left after paying, 83 is above 480 and is lost.
+  assert.equal(replaceLoss({ energy: 737, cost: 174, allocated: 0.5, share: 0.25, powerPerSecond: 64, fullChargeSeconds: 30 }), 83);
+  assert.equal(replaceLoss({ energy: 300, cost: 174, allocated: 0.5, share: 0.25, powerPerSecond: 64, fullChargeSeconds: 30 }), 0, "what is left fits the smaller store");
+  assert.equal(replaceLoss({ energy: 737, cost: 174, allocated: 0.5, share: 0.5, powerPerSecond: 64, fullChargeSeconds: 30 }), 563, "everything given away for a moment: the store holds nothing");
+  assert.equal(replaceLoss({ energy: 737, cost: 174, allocated: 0.5, share: 0.25, powerPerSecond: 64, fullChargeSeconds: undefined }), 0, "a game without capacity loses nothing");
+  assert.equal(replacedText("Keeper", { share: 0.5, oldShare: 0.5, lost: 83 }), "Replaced: Keeper now runs your new version. For a moment both versions shared your power, so your own store shrank and lost 83 ⚡; it refills.");
+  assert.equal(replacedText("Keeper", { share: 0.5, oldShare: 0.5, lost: 0.2 }), "Replaced: Keeper now runs your new version.");
+});
+
+test("did the change help: per move before and since, once the new version has enough counted moves", () => {
+  const before = { moves: 20, points: 254, objects: 9 }, since = { moves: 14, points: -49, objects: 6 };
+  assert.equal(versionComparison(before, since), "Before your change: +12.7 points a move. Since: −3.5 a move (over its last 14 moves).");
+  assert.equal(versionComparison(before, { moves: 7, points: 30, objects: 3 }), null, "fewer than 8 counted moves: too early to say");
+  assert.equal(versionComparison(before, undefined), null);
+  assert.equal(versionComparison(undefined, since), "Since your change: −3.5 points a move (over its last 14 moves). Nothing was counted for the version before it.");
+  assert.equal(versionComparison({ moves: 0, points: 0, objects: 0 }, since), "Since your change: −3.5 points a move (over its last 14 moves). Nothing was counted for the version before it.");
+  assert.equal(versionComparison(before, since, true), "Before your change: about +12.7 points a move. Since: about −3.5 a move (over its last 14 moves).");
 });

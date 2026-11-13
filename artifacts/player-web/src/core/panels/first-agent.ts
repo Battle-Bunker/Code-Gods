@@ -260,7 +260,9 @@ export function sameVersionNote(origin: OwnAgent | undefined, agents: readonly O
  * accepted: the first send, the forge's "Try again", or "Retry the same command" under the header. The same envelope
  * keeps it; any other command, a refusal, a dismissal or PENDING_REPLACE_MS abandon it, and then nothing is destroyed.
  */
-export interface PendingReplace { readonly commandId: string; readonly oldId: string; readonly name: string; readonly source: string; readonly share?: number; readonly oldShare?: number; readonly at: number }
+export interface PendingReplace { readonly commandId: string; readonly oldId: string; readonly name: string; readonly source: string; readonly share?: number; readonly oldShare?: number; readonly at: number;
+  /** What the player's own store will lose while both versions hold power (replaceLoss), for the confirmation. */ readonly lost?: number;
+  /** The version being replaced, kept for "Put the previous version back" and the before/since comparison. */ readonly previous?: PreviousVersion }
 export const PENDING_REPLACE_MS = 10 * 60_000;
 export function pendingReplaceOnSend(pending: PendingReplace | null, commandId: string, now: number): "none" | "keep" | "clear" {
   if (!pending) return "none";
@@ -287,11 +289,60 @@ export function replaceStep(state: "summoning" | "destroying", receipt: { accept
 }
 const percentOf = (share: number) => `${Math.round(share * 100)}%`;
 /** "Replaced: NAME now runs your new version." and, when its share is not the old one's, what it has. */
-export function replacedText(name: string, s: { share: number | undefined; oldShare: number | undefined }): string {
-  const head = `Replaced: ${name} now runs your new version.`;
+export function replacedText(name: string, s: { share: number | undefined; oldShare: number | undefined; /** What the player's own store lost while both versions held power (replaceLoss). */ lost?: number }): string {
+  const head = `Replaced: ${name} now runs your new version.${s.lost !== undefined && Math.round(s.lost) >= 1 ? ` For a moment both versions shared your power, so your own store shrank and lost ${Math.round(s.lost).toLocaleString("en-US")} ⚡; it refills.` : ""}`;
   if (s.oldShare === undefined) return head;
   if (s.share === undefined) return `${head} Its share of your power may differ from the old one's (${percentOf(s.oldShare)}); check it in My agents.`;
   return Math.abs(s.share - s.oldShare) < 0.005 ? head : `${head} It has ${percentOf(s.share)} of your power (the old one had ${percentOf(s.oldShare)}); raise it in My agents.`;
 }
 export const bothText = (name: string, message: string): string =>
   `The new version of ${name} is in the game, but the old one could not be destroyed (${message}). Both are running: destroy the old one in My agents.`;
+
+/**
+ * One press: "Check and replace NAME" (or "Check and summon") validates first and goes straight on. After the check:
+ * "go" when the code is valid and the player's energy covers the price, "short" when it is valid but not payable yet
+ * (the pane's energy line says when it will be), "invalid" when the check found a problem or gave no answer.
+ */
+export function afterCheck(check: { accepted: boolean; valid: boolean | undefined; cost: number | undefined; energy: number } | undefined, _energy?: number): "go" | "short" | "invalid" {
+  if (!check || !check.accepted || !check.valid || check.cost === undefined) return "invalid";
+  return check.cost <= check.energy ? "go" : "short";
+}
+/** The progress line once the price is known: "Checked: 174 ⚡. Replacing…". */
+export function checkedLine(cost: number, then: "replace" | "summon"): string {
+  const price = (Math.round(cost * 10) / 10).toLocaleString("en-US", { maximumFractionDigits: 1 });
+  return `Checked: ${price} ⚡. ${then === "replace" ? "Replacing" : "Summoning"}…`;
+}
+
+/**
+ * What the player's own energy store loses in a replace. The new version is summoned before the old one is destroyed
+ * (so there is never no agent), and for that moment both hold a share of the power: the player's own store then holds
+ * only (1 − allocated − share) × power × fullChargeSeconds, and the engine drops what it holds above that when it next
+ * settles (game-core energy.ts movePower: "what an account holds above its new capacity is lost"). 0 with no capacity.
+ */
+export function replaceLoss(s: { energy: number; cost: number; allocated: number | undefined; share: number | undefined; powerPerSecond: number | undefined; fullChargeSeconds: number | undefined }): number {
+  if (s.fullChargeSeconds === undefined || s.powerPerSecond === undefined || s.share === undefined) return 0;
+  const during = Math.max(0, 1 - (s.allocated ?? 0) - s.share) * s.powerPerSecond * s.fullChargeSeconds;
+  return Math.max(0, Math.round((s.energy - s.cost - during) * 1000) / 1000);
+}
+
+/** The version a replace replaced, remembered for this game: its code, name and share, and what its moves had earned. */
+export interface PreviousVersion {
+  readonly source: string; readonly language: string; readonly name: string; readonly share?: number;
+  /** The source of the version that replaced it (the agent the comparison is shown on). */
+  readonly newSource: string;
+  readonly before?: { moves: number; points: number; objects: number };
+}
+/** The fewest counted moves of the new version before it is compared. */
+export const COMPARE_MOVES = 8;
+/**
+ * "Before your change: +12.7 points a move. Since: −3.5 a move (over its last 14 moves)." from the two versions'
+ * counted moves (score-line.ts agentEarnings). Null until the new version has COMPARE_MOVES counted moves.
+ * `estimate`: the room blurs live points, so the figures are "about".
+ */
+export function versionComparison(before: { moves: number; points: number } | undefined, since: { moves: number; points: number } | undefined, estimate = false): string | null {
+  if (!since || since.moves < COMPARE_MOVES) return null;
+  const each = (e: { moves: number; points: number }) => { const r = Math.round(e.points / e.moves * 10) / 10; return `${estimate ? "about " : ""}${r === 0 ? "+0" : `${r > 0 ? "+" : "−"}${Math.abs(r).toLocaleString("en-US", { maximumFractionDigits: 1 })}`}`; };
+  const window = `(over its last ${since.moves.toLocaleString("en-US")} moves)`;
+  if (!before || before.moves < 1) return `Since your change: ${each(since)} points a move ${window}. Nothing was counted for the version before it.`;
+  return `Before your change: ${each(before)} points a move. Since: ${each(since)} a move ${window}.`;
+}
