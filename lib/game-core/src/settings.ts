@@ -810,7 +810,9 @@ export const SEED_SETUPS: readonly SeedSetup[] = Object.freeze([
     "Grid", { size: 6, symbols: "base16", colours: "rainbow6" }, {}),
   seed("grid-master", "Master", "7×7 playing cards in rainbow colours",
     "Grid", { size: 7, symbols: "cards", colours: "rainbow6" }, {}),
-  // Tiered rules (docs/layered-rules-design.md). New seeds go at the end: the order above is the learning order.
+  // Tiered rules (docs/layered-rules-design.md). The order above is the learning order, with the twins of Annotated
+  // basics (the same board with one setting changed, such as paid looks) sitting together right after it; any other
+  // new seed goes at the end.
   seed(TIERED_RULES_SEED_ID, "Tiered rules", "Each rule has an easy base and a ★ bonus that opens once the base is well along",
     "Grid", { ...ANNOTATED_BASICS_BOARD }, tieredPatch({ depth: 1 })),
 ]);

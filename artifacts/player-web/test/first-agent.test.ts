@@ -7,7 +7,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  FIRST_AGENT_HINT, STARTER_AGENT_HINT, armedStep, armedText, energyHint, firstAgentFill, firstAgentHint, untouchedExample, lacksEnergy, readyText, summonReady, summonedText, COPY_HINT, isCopy, replaceNeedsConfirm, firstSummonStep, nextFreeName, proposedName, secondAgentHint, storeAfterSummonText, type ArmedSummon, type Examples, type FirstAgentState,
+  FIRST_AGENT_HINT, STARTER_AGENT_HINT, armedStep, armedText, energyHint, firstAgentFill, firstAgentHint, untouchedExample, lacksEnergy, readyText, summonReady, summonedText, COPY_HINT, FIRST_SUMMON_MAX_AGE_MS, FIRST_SUMMON_WARMING_MS, firstSummonLabel, isCopy, replaceNeedsConfirm, firstSummonStep, nextFreeName, proposedName, secondAgentHint, storeAfterSummonText, type ArmedSummon, type Examples, type FirstAgentState,
 } from "../src/core/panels/first-agent.ts";
 
 const py = { name: "Mirror maker", source: "# My goal: mirrors\ndef agent(grid):\n    return []\n", specific: true };
@@ -123,7 +123,7 @@ test("an armed summon is dropped when the game has ended or gameplay is off", ()
 });
 
 test("'Summon my first agent' summons the untouched example at once, and leads an edited draft to the Summon button", () => {
-  const base = { requested: true, busy: false, agents: 0 as number | undefined, source: py.source, untouched: true, filling: false, enabled: true };
+  const base = { requested: true, busy: false, agents: 0 as number | undefined, source: py.source, untouched: true, filling: false, enabled: true, warming: false, first: true, ageMs: 500 };
   assert.equal(firstSummonStep({ ...base, requested: false }), "idle");
   assert.equal(firstSummonStep(base), "summon", "the pre-filled example: one click summons it");
   assert.equal(firstSummonStep({ ...base, busy: true }), "wait", "never beside a command in flight");
@@ -133,6 +133,21 @@ test("'Summon my first agent' summons the untouched example at once, and leads a
   assert.equal(firstSummonStep({ ...base, source: "def agent(grid): return []", untouched: false }), "ring", "the player's own code is never summoned for them");
   assert.equal(firstSummonStep({ ...base, enabled: false }), "ring", "Summon is off (the forge says why): show where it is");
   assert.equal(firstSummonStep({ ...base, agents: 1 }), "ring", "not a first agent any more");
+  // The sandbox is still warming (the start of planning): Summon is off, but the request waits for it instead of being used up.
+  assert.equal(firstSummonStep({ ...base, enabled: false, warming: true }), "wait");
+  assert.equal(firstSummonStep({ ...base, enabled: false, warming: true, ageMs: 30_000 }), "wait", "a warming sandbox may take longer than a click lasts");
+  assert.equal(firstSummonStep({ ...base, enabled: false, warming: true, ageMs: FIRST_SUMMON_WARMING_MS + 1 }), "expire");
+  assert.equal(firstSummonStep({ ...base, enabled: false, warming: true, untouched: false, source: "def agent(grid): return []" }), "ring", "the player's own code never waits to be summoned for them");
+  // A request never outlives its click: after 10 s it is dropped, not acted on.
+  assert.equal(firstSummonStep({ ...base, ageMs: FIRST_SUMMON_MAX_AGE_MS + 1 }), "expire");
+  assert.equal(firstSummonStep({ ...base, busy: true, ageMs: FIRST_SUMMON_MAX_AGE_MS + 1 }), "expire");
+  // This editor already summoned an agent (the agent list may lag the receipt): a second press never buys a second copy.
+  assert.equal(firstSummonStep({ ...base, first: false }), "ring");
+  assert.equal(firstSummonStep({ ...base, first: false, enabled: false, warming: true }), "ring");
+  // What the banner's button says meanwhile.
+  assert.equal(firstSummonLabel({ summoning: true, pending: true }), "Summoning…");
+  assert.equal(firstSummonLabel({ summoning: false, pending: true }), "Getting ready…");
+  assert.equal(firstSummonLabel({ summoning: false, pending: false }), "Summon my first agent");
 });
 
 test("a name the player already uses gets the next free number, unless they typed it themselves", () => {

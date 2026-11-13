@@ -124,6 +124,8 @@ export interface ActLineInput {
   /** The same two figures before the act: only when the object's previous event is among the recent events. */
   ownBefore?: number;
   othersBefore?: number;
+  /** The room blurs the others' side while the game is live (score-lines.tsx liveIsEstimate): see pointsCause. */
+  estimate?: boolean;
   /** Seen as another player (a replay): "Their agent … their rule score". */
   third?: boolean;
 }
@@ -141,11 +143,12 @@ export function zeroPointsReason(ownAfter: number | undefined, othersAfter: numb
 /**
  * How much the others want an object, as one short clause for the act line: the same step on two objects pays very
  * differently because of this figure (a player saw +41.6 once and +0.4 another time for the same step). The bands:
- * 0 none, below 1 "barely", 8 and above "a lot", between them the bare figure; below 0 they would rather not have it.
+ * what shows as 0.0 none, below 1 "barely", 8 and above "a lot", between them the bare figure; below 0 they would rather not have it.
  */
 export function othersWantClause(others: number | undefined, noun = "object"): string | null {
   if (typeof others !== "number" || !Number.isFinite(others)) return null;
-  if (others === 0) return `the others do not want this ${noun}`;
+  // What shows as 0.0 is none.
+  if (Math.abs(others) < 0.05) return `the others do not want this ${noun}`;
   if (others < 0) return `the others would rather not have this ${noun}: ${amount(others)}`;
   if (others < 1) return `the others barely want this ${noun}: ${amount(others)}`;
   if (others >= 8) return `the others want this ${noun} a lot: ${amount(others)}`;
@@ -169,14 +172,15 @@ const span = (a: number, b: number) => (amount(a) === amount(b) ? "" : `${amount
  * (points = your ✨ rarity × how much the others want it). A factor is named only when its own change pushed the points
  * the way they went; with a figure missing, or when neither explains the move, null (nothing is guessed).
  */
-export function pointsCause(i: { rule: -1 | 0 | 1; pointsDelta: number; ownBefore?: number; ownAfter?: number; othersBefore?: number; othersAfter?: number; noun?: string }): string | null {
+export function pointsCause(i: { rule: -1 | 0 | 1; pointsDelta: number; ownBefore?: number; ownAfter?: number; othersBefore?: number; othersAfter?: number; noun?: string;
+  /** The room blurs the others' side (live figures are an estimate): a small move of it may be noise, so it is named only when it accounts for at least half of the points' move. */ estimate?: boolean }): string | null {
   const { ownBefore, ownAfter, othersBefore, othersAfter, noun = "object" } = i;
   if (!isKnown(ownBefore) || !isKnown(ownAfter) || !isKnown(othersBefore) || !isKnown(othersAfter)) return null;
   const way = Math.sign(i.pointsDelta);
   const byOthers = ownBefore * (othersAfter - othersBefore), byOwn = (ownAfter - ownBefore) * othersAfter;
   const causes: string[] = [];
   const figures = (text: string) => (text ? ` (${text})` : "");
-  if (way !== 0 && Math.sign(byOthers) === way) {
+  if (way !== 0 && Math.sign(byOthers) === way && (!i.estimate || Math.abs(byOthers) >= Math.abs(i.pointsDelta) / 2)) {
     causes.push(`the others want this ${noun} ${othersAfter > othersBefore ? "more" : "less"} now${figures(span(othersBefore, othersAfter))}`);
   }
   if (way !== 0 && Math.sign(byOwn) === way) {
@@ -199,7 +203,7 @@ export function actLine(input: ActLineInput): string {
   const theirs = (text: string) => input.third ? text.replace(/\byour\b/g, "their").replace(/\bYour\b/g, "Their").replace(/\byou\b/g, "them") : text;
   return theirs(ownActLine(input));
 }
-function ownActLine({ agent, before, after, noun = "object", ruleBefore, ruleAfter, pointsBefore, pointsAfter, ownBefore, othersBefore, ownAfter, othersAfter }: ActLineInput): string {
+function ownActLine({ agent, before, after, noun = "object", ruleBefore, ruleAfter, pointsBefore, pointsAfter, ownBefore, othersBefore, ownAfter, othersAfter, estimate }: ActLineInput): string {
   const head = `Your agent ${agent} ${describeChange(before, after, noun)}`;
   const rule = ruleScoreChange(ruleBefore, ruleAfter);
   const others = othersWantClause(othersAfter, noun);
@@ -209,7 +213,7 @@ function ownActLine({ agent, before, after, noun = "object", ruleBefore, ruleAft
     if (moved && way !== null && Math.sign(delta) !== way) {
       const told = way === 0 ? rule : `your rule score went ${way > 0 ? "up" : "down"} (${ruleScoreText(ruleBefore)} → ${ruleScoreText(ruleAfter)}${typeof ruleAfter === "object" && ruleAfter && ruleAfter.length > 1 ? ", primary first" : ""})`;
       const change = `but this ${noun}'s points ${delta > 0 ? "rose" : "fell"} ${signed(Math.abs(delta)).slice(1)} (${amount(pointsBefore)} → ${amount(pointsAfter)})`;
-      const cause = pointsCause({ rule: way, pointsDelta: delta, ownBefore, ownAfter, othersBefore, othersAfter, noun });
+      const cause = pointsCause({ rule: way, pointsDelta: delta, ownBefore, ownAfter, othersBefore, othersAfter, noun, estimate });
       return cause ? `${head}: ${told}, ${change} because ${cause}.`
         : `${head}: ${told}, ${change}. ${article(noun).replace(/^a/, "A")}'s points are your ✨ rarity for it × how much the others want it, not the rule score alone.`;
     }

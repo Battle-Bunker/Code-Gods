@@ -76,6 +76,10 @@ export function useOwnActLines(agents: readonly { id: string; name?: string }[],
   const events = useEvents({ hz: 1, limit: 50 });
   const goal = useGoalExplainer();
   const { noun } = useObjectContext();
+  // A room that blurs the others' side: a small move of it is not named as the cause (score-line.ts pointsCause).
+  const room = useRoomInfo();
+  const ended = useDockState({ hz: 1 })?.phase === "ended";
+  const estimate = !ended && liveIsEstimate(room?.settings);
   return useMemo(() => {
     const acts = latestOwnActs(events);
     const say = (act: OwnAct): string => {
@@ -85,13 +89,13 @@ export function useOwnActLines(agents: readonly { id: string; name?: string }[],
         // An act by an agent no longer in the list is never told as a live agent's.
         agent: index < 0 ? "(now destroyed)" : agentLabel(agents[index]?.name, index), before: act.before, after: act.after, noun,
         ruleBefore: score(act.before), ruleAfter: score(act.after), pointsBefore: act.pointsBefore, pointsAfter: act.pointsAfter,
-        ownAfter: act.ownAfter, othersAfter: act.othersAfter, ownBefore: act.ownBefore, othersBefore: act.othersBefore, third,
+        ownAfter: act.ownAfter, othersAfter: act.othersAfter, ownBefore: act.ownBefore, othersBefore: act.othersBefore, third, estimate,
       });
     };
     const byAgent = new Map<string, string>();
     for (const [id, act] of acts) byAgent.set(id, say(act));
     return { byAgent, latest: acts.latest ? say(acts.latest) : undefined };
-  }, [events, goal, noun, agents, third]);
+  }, [events, goal, noun, agents, third, estimate]);
 }
 
 /** The latest act of any of your agents, under "Your points now". */

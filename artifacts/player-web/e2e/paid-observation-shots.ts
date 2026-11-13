@@ -197,9 +197,9 @@ const pickBoard = (page: Page, which: "low" | "high") => page.evaluate(w => {
   return el ? el.getAttribute("data-testid")!.replace("object-seen-", "") : null;
 }, which);
 
-// ---- The default: paid observation ----
+// ---- Paid observation ("Basics with paid looks"; the default setup's looking is free, so the game asks for it) ----
 if (wanted("paid")) {
-  const game = await startGame();
+  const game = await startGame({ observation: "paid" });
   const { observe, submit } = game;
   const { page, context } = await open(game, 1440, 900);
   current = page;

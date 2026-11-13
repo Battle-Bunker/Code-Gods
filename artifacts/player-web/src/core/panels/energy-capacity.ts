@@ -52,10 +52,10 @@ export function fillText(energy: number, income: number, capacity: number): stri
 export const owes = (energy: number): number => (energy < 0 && num(energy) !== "0" ? -energy : 0);
 /** The header's energy when the player is overdrawn: "overdrawn by 312 ⚡" (null when they are not). */
 export const owedText = (energy: number): string | null => (owes(energy) > 0 ? `overdrawn by ${bits(owes(energy))}` : null);
-/** Under an agent's energy: "Overdrawn by 120 ⚡; it waits for income." Null when it is not overdrawn or the game has no capacity. */
+/** Under an agent's energy: "Overdrawn by 120 ⚡; it waits for income." (the wait only with a power share to earn from). Null when it is not overdrawn or the game has no capacity. */
 export function agentDebtLine(energy: number, capacity: number | undefined): string | null {
   if (capacity === undefined || owes(energy) === 0) return null;
-  return `Overdrawn by ${bits(owes(energy))}; it waits for income.`;
+  return `Overdrawn by ${bits(owes(energy))}${capacity > 0 ? "; it waits for income." : ""}`;
 }
 /** The detail behind that line (a tooltip, never the main line): how far an agent may be overdrawn. Null with no power or no capacity. */
 export function agentDebtDetail(capacity: number | undefined): string | null {

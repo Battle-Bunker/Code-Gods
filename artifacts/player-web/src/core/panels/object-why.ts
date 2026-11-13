@@ -4,9 +4,10 @@
  */
 const points = (x: number) => (Math.round(x * 10) / 10).toLocaleString("en-US", { maximumFractionDigits: 1 }).replace("-", "−");
 
-/** "Why #3 gives you 301.5 points", "Why #7 takes 12 points from you", "Why this grid gives you 0 points". */
+/** "Why #3 gives you 301.5 points", "Why #7 takes 12 points from you", "Why this grid gives you no points". */
 export function whyTitle(rank: number | null | undefined, payoff: number, noun = "object"): string {
   const which = typeof rank === "number" ? `#${rank}` : `this ${noun}`;
+  if (points(Math.abs(payoff)) === "0") return `Why ${which} gives you no points`;
   return payoff < 0 ? `Why ${which} takes ${points(-payoff)} points from you` : `Why ${which} gives you ${points(payoff)} points`;
 }
 

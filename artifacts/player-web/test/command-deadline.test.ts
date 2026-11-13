@@ -120,6 +120,15 @@ test("a command without a deadline waits as long as it takes", async () => {
   assert.deepEqual(await outcome, { status: "done", value: "receipt" });
 });
 
+test("the waiting line counts the seconds after two, and says which try it is", () => {
+  assert.equal(progressLine("validate", null, 1_900), "Checking your agent… this can take up to 20 seconds.");
+  assert.equal(progressLine("validate", null, 6_400), "Checking your agent… 6 s (this can take up to 20 seconds).");
+  assert.equal(progressLine("summon", null, 500), "Summoning…");
+  assert.equal(progressLine("summon", null, 3_000), "Summoning… 3 s");
+  assert.equal(progressLine("summon", { attempt: 2, of: 3 }, 9_200), "The game is busy checking agents. Trying again (2 of 3)… 9 s");
+  assert.equal(progressLine("validate"), "Checking your agent… this can take up to 20 seconds.", "no clock: as before");
+});
+
 test("the forge shows the engine's own answer: a warming sandbox and a refusal are said, a diagnosed validation is not repeated", () => {
   const commandId = "c";
   // The typed "not ready" answer (engine commands.ts): nothing was examined; the sentence is the engine's.

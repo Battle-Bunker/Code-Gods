@@ -310,14 +310,16 @@ test("an edit in a room without an assistant puts its stored pane back where it 
   assert.ok(bottom?.type === "split" && bottom.direction === "row" && bottom.children.length === 3, "in the bottom row");
 });
 
-test("the agent editor in the full default dock takes the largest panel nobody chose (objects), unless a panel is focused", () => {
+test("the agent editor in the full default dock takes the leaderboard's pane, whatever is focused: the goal, the objects and My agents stay", () => {
   const dock = DEFAULT_LAYOUT("running");
-  for (const focused of [null, "p4"]) {
+  for (const focused of [null, "p1", "p2", "p3", "p4", "p5"]) {
     const r = showPanel(dock, "forge", undefined, focused);
     assert.ok(r.replaced);
-    assert.equal(r.paneId, "p2", `objects, top right (focused ${focused})`);
+    assert.equal(r.paneId, "p5", `the leaderboard, bottom right (focused ${focused})`);
+    const e = paneExtents(r.layout.root)[r.paneId];
+    assert.ok(e.width >= EDITOR_MIN.width && e.height >= EDITOR_MIN.height, "a pane a quarter wide is given room for the editor");
+    assert.deepEqual(panelPanesOf(r.layout).map(p => p.panelId).sort(), ["agents", "forge", "my-card", "objects"]);
   }
-  assert.equal(showPanel(dock, "forge", undefined, "p5").paneId, "p2", "a focused pane a quarter wide is too small for the editor");
   assert.equal(showPanel(dock, "public-chat", undefined, "p5").paneId, "p5", "any other panel: the focused pane, as before");
 });
 
@@ -359,9 +361,9 @@ test("hidden assistant: changes never shrink its neighbour (the editor once ende
 
 test("the agent editor always opens with room to work: never the goal card, never a sliver", () => {
   const usable = (layout: DockLayout, id: string) => { const e = paneExtents(layout.root)[id]; return e.width >= EDITOR_MIN.width && e.height >= EDITOR_MIN.height; };
-  // The default dock with the assistant: My agents (a quarter wide) is focused, the objects (top right) show the editor.
+  // The default dock with the assistant: My agents (a quarter wide) is focused; the leaderboard shows the editor, with room.
   const admin = showPanel(DEFAULT_LAYOUT("planning"), "forge", undefined, "p3");
-  assert.equal(admin.paneId, "p2");
+  assert.equal(admin.paneId, "p5");
   assert.ok(usable(admin.layout, admin.paneId));
   // No assistant: the leaderboard the button was clicked in has the room, and shows it.
   const alice = showPanel(withoutAssistant(DEFAULT_LAYOUT("planning")), "forge", undefined, "p5");

@@ -6,7 +6,9 @@ import { whyTitle, whyUnavailable } from "../src/core/panels/object-why.ts";
 test("why? always says something: the breakdown's heading, or why there is none", () => {
   assert.equal(whyTitle(1, 301.54, "grid"), "Why #1 gives you 301.5 points");
   assert.equal(whyTitle(7, -12, "grid"), "Why #7 takes 12 points from you");
-  assert.equal(whyTitle(null, 0, "grid"), "Why this grid gives you 0 points", "the rank is still loading");
+  assert.equal(whyTitle(3, -0.04, "grid"), "Why #3 gives you no points", "a loss that shows as 0 is no points, never 'takes 0 points from you'");
+  assert.equal(whyTitle(3, 0.04, "grid"), "Why #3 gives you no points");
+  assert.equal(whyTitle(null, 0, "grid"), "Why this grid gives you no points", "the rank is still loading");
   assert.equal(whyUnavailable({ id: "o1" }, "grid"), null);
   assert.equal(whyUnavailable(undefined, "grid"), "Loading this grid's points…");
   assert.equal(whyUnavailable(null, "grid"), "There is nothing to explain for this grid now: it is no longer in the world, so it gives nobody points.");

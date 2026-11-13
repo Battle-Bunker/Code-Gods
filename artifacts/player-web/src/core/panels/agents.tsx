@@ -18,10 +18,10 @@
 import { changeCostKid, costModelOf, isLanguage, type CostModel } from "@workspace/game-core";
 import { SCORE_LINES, Term } from "@workspace/ui-kit";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { SUMMON_FIRST } from "@/core/planning-line";
 import { Sparkline, Timeline, TimelineLegend, useAgentSeries, useDockState, useGame, useMyAgents, type MyAgent } from "@/sdk";
 import { useDockActions } from "@/dock/actions";
-import { useGameCommands } from "@/core/game/runner";
+import { useGameCommands, useRunner } from "@/core/game/runner";
+import { firstSummonLabel } from "./first-agent";
 import { useAffordances } from "@/core/use-affordances";
 import type { Affordances } from "@/core/affordances";
 import { AgentName, agentLabel } from "./agent-name";
@@ -259,6 +259,8 @@ export default function Agents({ params, phase }: PanelProps<"agents">) {
   // Each agent's energy at every scoreboard publication, kept by the server (dock.agentSeries), and its energy now.
   const series = useAgentSeries(game?.gameId);
   const dock = useDockActions();
+  const runnerState = useRunner();
+  const summoning = runnerState.busy === "summon";
   const commands = useGameCommands();
   const can = useAffordances();
   const world = game?.worldSeconds ?? 0;
@@ -282,7 +284,7 @@ export default function Agents({ params, phase }: PanelProps<"agents">) {
   const { editCode } = can.can;
   const owner = can.seenAs ? <p data-testid="text-agents-owner" className="text-xs text-muted-foreground">Seen as {can.seenAs}: these are {can.whose} agents.</p> : null;
   if (!all.length) {
-    return <PanelEmpty action={(phase === "planning" || phase === "running") && editCode.ok ? <TextButton onClick={() => dock.summonFirst()}>{SUMMON_FIRST}</TextButton> : undefined}>
+    return <PanelEmpty action={(phase === "planning" || phase === "running") && editCode.ok ? <TextButton disabled={summoning} onClick={() => dock.summonFirst()}>{firstSummonLabel({ summoning, pending: runnerState.firstSummon > 0 })}</TextButton> : undefined}>
       {can.seenAs ? `${can.seenAs} has no agents ${ended ? "at the end of this game" : "at this moment"}.`
         : can.readOnly && !ended ? "No agents at this moment." : ended ? "You summoned no agents in this game." : "No agents summoned yet. An agent is a small program that changes objects your way when the world picks it."}
     </PanelEmpty>;

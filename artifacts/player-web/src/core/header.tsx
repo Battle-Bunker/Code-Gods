@@ -15,7 +15,8 @@ import { paletteStore, usePaletteState } from "./palette/store";
 import { usePlayerCommands } from "./palette/use-commands";
 import { useWide } from "./use-wide";
 import { Link } from "./navigation";
-import { SUMMON_FIRST, planningLine } from "./planning-line";
+import { planningLine } from "./planning-line";
+import { firstSummonLabel } from "./panels/first-agent";
 import { useMyAgents } from "@/sdk";
 import { useDockActions } from "@/dock/actions";
 import { useAffordances } from "@/core/use-affordances";
@@ -118,7 +119,8 @@ export function PlanningBar() {
   const { loading } = useMyAgents();
   const { editCode } = useAffordances().can;
   // The button summons the pre-filled example itself (dock.summonFirst), so it says so while the summon is in flight.
-  const summoning = useRunner().busy === "summon";
+  const { busy: running, firstSummon } = useRunner();
+  const summoning = running === "summon";
   const line = planningLine({
     phase: s.phase, seated: s.seated, owner: s.isOwner && permission !== "read", planningEndsAt: s.obs?.planningEndsAt, nowMs: now,
     agents: loading ? undefined : s.agents, canSummon: editCode.ok,
@@ -129,7 +131,7 @@ export function PlanningBar() {
       <span className="font-medium tabular-nums" data-testid="text-planning">{line.text}</span>
       {line.summon && (
         <button type="button" data-testid="button-summon-first-agent" onClick={() => dock.summonFirst()} disabled={summoning} aria-busy={summoning || undefined}
-          className="w-full shrink-0 bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-70 sm:w-auto sm:py-1">{summoning ? "Summoning…" : SUMMON_FIRST}</button>
+          className="w-full shrink-0 bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-70 sm:w-auto sm:py-1">{firstSummonLabel({ summoning, pending: firstSummon > 0 })}</button>
       )}
       {line.startNow && (
         <button type="button" data-testid="button-start-world-now" onClick={() => void owner.startWorldNow()}

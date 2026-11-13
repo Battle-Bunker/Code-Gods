@@ -72,7 +72,8 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
   const [summoned, setSummonedState] = useState<{ name: string; share?: number; source: string } | null>(null);
   const [askReplace, setAskReplace] = useState(false);
   const shareAtSummon = useRef<number | undefined>(undefined);
-  const setSummoned = (agentName: string) => setSummonedState({ name: agentName, share: shareAtSummon.current, source: runner.get().draft.source });
+  // What was summoned (its own source, not whatever the editor holds by the time the receipt arrives).
+  const setSummoned = (agentName: string, agentSource: string) => setSummonedState({ name: agentName, share: shareAtSummon.current, source: agentSource });
   const summonRow = useRef<HTMLDivElement>(null);
   const [ringing, setRinging] = useState(false);
   const dock = useDockActions();
@@ -81,7 +82,7 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
   const newShare = obs?.self.allocated !== undefined ? defaultShare(obs.self.allocated) : undefined;
   const { instance } = useMutators();
   const commands = useGameCommands();
-  const { draft, validation, busy, notice, retrying, failed, firstSummon } = useRunner();
+  const { draft, validation, busy, notice, retrying, failed, firstSummon, unknown } = useRunner();
   const { can } = useAffordances({ language });
   const editor = useRef<HTMLTextAreaElement>(null);
   const source = draft.source;
@@ -143,9 +144,9 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
     if (!observer) return;
     setAskReplace(false);
     runner.setDraft({ source: observer.source });
-    nameTyped.current = false;
-    setName(nextFreeName(OBSERVER_NAME, agents.map(a => a.name), AGENT_NAME_MAX));
-    setDescription(OBSERVER_DESCRIPTION);
+    // A name or description the player typed is theirs; anything else (the example's name) gives way to the looker's.
+    if (!nameTyped.current) setName(nextFreeName(OBSERVER_NAME, agents.map(a => a.name), AGENT_NAME_MAX));
+    if (!description.trim()) setDescription(OBSERVER_DESCRIPTION);
   };
   const insert = (name: string) => {
     const el = editor.current;
@@ -175,7 +176,7 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
     shareAtSummon.current = newShare;
     void commands.run({ type: "summon", language: agent.language as Lang, source: agent.source, name: agent.name, ...(agent.description ? { description: agent.description } : {}) }).then(async result => {
       if (!result) return;
-      if (result.accepted) { setSummoned(agent.name); return; }
+      if (result.accepted) { setSummoned(agent.name, agent.source); return; }
       if (wasArmed) { setRefused({ armed: wasArmed, message: result.message || "The game refused this summon." }); return; }
       // Not enough energy for an agent summoned without a validation: learn its price (free), then wait for the energy.
       if (!lacksEnergy(result.message)) return;
@@ -203,9 +204,25 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
   // "Summon my first agent", pressed outside this pane (runner.firstSummon): the untouched example is summoned here, by
   // this pane's own summon; the player's own code is not, and the Summon button is shown with an attention ring.
   const exampleName = untouched ? examples[language]?.name : undefined;
-  const firstStep = firstSummonStep({ requested: firstSummon > 0, busy: !!busy, agents: agentCount, source, untouched, filling: !!fill,
-    enabled: !busy && (canSummon || canArm) && !!(name.trim() || exampleName) });
+  // Re-read every second while a request waits, so its age is the clock's (a request never outlives its click).
+  const [clock, setClock] = useState(() => Date.now());
   useEffect(() => {
+    if (!firstSummon) return;
+    setClock(Date.now());
+    const timer = setInterval(() => setClock(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [firstSummon]);
+  // Summon is off only for now: the sandbox is warming or restarting, or an uncertain command waits for its retry.
+  const firstStep = firstSummonStep({ requested: firstSummon > 0, busy: !!busy, agents: agentCount, source, untouched, filling: !!fill,
+    enabled: !busy && (canSummon || canArm) && !!(name.trim() || exampleName), warming: !ended && (!sandbox.ready || !!unknown),
+    first: summoned === null, ageMs: firstSummon ? Math.max(0, clock - firstSummon) : 0 });
+  // A request this editor has seen goes with it: it is never acted on by a later editor. A fresh one (the press that
+  // is opening the editor, which may remount the pane) is left for the editor that opens.
+  useEffect(() => () => runner.takeFirstSummon(1000), []);
+  // The next step (use-next-step.ts) never summons the player's own code: it reads this.
+  useEffect(() => { runner.setOwnDraft(source.trim().length > 0 && untouchedExample(source, examples) === null); }, [source, examples]);
+  useEffect(() => {
+    if (firstStep === "expire") { runner.takeFirstSummon(); return; }
     if (firstStep !== "summon" && firstStep !== "ring") return;
     runner.takeFirstSummon();
     summonRow.current?.scrollIntoView({ block: "nearest" });
@@ -227,6 +244,15 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
     const timer = setTimeout(() => setRinging(false), 2400);
     return () => clearTimeout(timer);
   }, [ringing]);
+  // The waiting line counts the seconds from the client's clock (command-deadline.ts progressLine).
+  const waiting = busy === "validate" || busy === "summon";
+  const [waited, setWaited] = useState(0);
+  useEffect(() => {
+    setWaited(0);
+    if (!waiting) return;
+    const since = Date.now(), timer = setInterval(() => setWaited(Date.now() - since), 500);
+    return () => clearInterval(timer);
+  }, [waiting]);
   const arg = instance?.objectType === "Grid" ? "grid" : "x";
   const noun = instance?.objectType === "Grid" ? "grid" : "object";
   // What a change costs in this room, with its own numbers (game-core change-cost.ts; the room's cost model).
@@ -276,7 +302,7 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
         {/* With no code view to go back to, Done goes to My agents (leaving edit mode alone would change nothing). */}
         <TextButton onClick={() => { runner.setEditing(false); if (onlyEditor) dock.show("agents"); }}>Done</TextButton>
       </div>
-      {(busy === "validate" || busy === "summon") && <p data-testid="text-forge-progress" role="status" className="flex items-center gap-1.5 text-sm font-semibold text-foreground"><Loader2 size={14} className="shrink-0 animate-spin" />{progressLine(busy, retrying)}</p>}
+      {(busy === "validate" || busy === "summon") && <p data-testid="text-forge-progress" role="status" className="flex items-center gap-1.5 text-sm font-semibold text-foreground"><Loader2 size={14} className="shrink-0 animate-spin" />{progressLine(busy, retrying, waited)}</p>}
       {summoned && !busy && (() => {
         // Why the player's own store just shrank: the share the agent took, and the live capacity.
         const store = storeAfterSummonText({ share: summoned.share, capacity: obs?.self.capacity });
@@ -301,7 +327,7 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
         {notice.text}
       </p>}
       {/* Still busy after every try: one button, the same command again (it can never apply twice). */}
-      {failed && !busy && <GhostButton testId="button-try-again" onClick={() => void commands.retry(failed).then(result => { if (failed.command.type === "summon" && result?.accepted) setSummoned(failed.command.name); })}>Try again</GhostButton>}
+      {failed && !busy && <GhostButton testId="button-try-again" onClick={() => void commands.retry(failed).then(result => { if (failed.command.type === "summon" && result?.accepted) setSummoned(failed.command.name, failed.command.source); })}>Try again</GhostButton>}
       <textarea ref={editor} data-testid="input-source" value={source} onChange={e => runner.setDraft({ source: e.target.value })} maxLength={16384} spellCheck={false}
         aria-label="Agent source"
         placeholder={language === "python" ? `def agent(${arg}):\n    # return a list of moves, e.g. [swap(...)]\n    return []`

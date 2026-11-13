@@ -6,6 +6,8 @@
  * - switching the language swaps the example while it is untouched;
  * - an edited draft is never overwritten, and players who already have agents keep the editor as it was.
  */
+import { SUMMON_FIRST } from "../planning-line.ts";
+
 export interface Example { readonly name: string; readonly source: string; readonly specific: boolean }
 /** The example per language the game allows (absent: none can be offered, e.g. the goal card has not arrived). */
 export type Examples = Readonly<Record<string, Example | undefined>>;
@@ -87,12 +89,32 @@ export function storeAfterSummonText(s: { share: number | undefined; capacity: n
  *   with an attention ring, and nothing is summoned for them;
  * - "wait": a command is in flight, or the example has not arrived in the editor yet.
  */
-export type FirstSummonStep = "idle" | "wait" | "summon" | "ring";
-export function firstSummonStep(s: { requested: boolean; busy: boolean; agents: number | undefined; source: string; untouched: boolean; /** The example is about to be put in the editor (firstAgentFill). */ filling: boolean; /** The Summon button is on. */ enabled: boolean }): FirstSummonStep {
+export type FirstSummonStep = "idle" | "wait" | "summon" | "ring" | "expire";
+/** A request never outlives its click: after this long it is dropped, not acted on. */
+export const FIRST_SUMMON_MAX_AGE_MS = 10_000;
+/** While the sandbox warms (the banner says "Getting ready…") the request may wait this long. */
+export const FIRST_SUMMON_WARMING_MS = 60_000;
+export function firstSummonStep(s: {
+  requested: boolean; busy: boolean; agents: number | undefined; source: string; untouched: boolean;
+  /** The example is about to be put in the editor (firstAgentFill). */ filling: boolean;
+  /** The Summon button is on. */ enabled: boolean;
+  /** Summon is off only for now: the sandbox is warming or restarting, or an uncertain command waits for its retry. */ warming: boolean;
+  /** This editor has not summoned an agent yet (the agent list can lag the receipt). */ first: boolean;
+  /** How long ago the button was pressed. */ ageMs: number;
+}): FirstSummonStep {
   if (!s.requested) return "idle";
+  const mine = s.first && s.agents === 0 && s.untouched;
+  if (s.ageMs > (mine && s.warming && !s.busy ? FIRST_SUMMON_WARMING_MS : FIRST_SUMMON_MAX_AGE_MS)) return "expire";
   if (s.busy) return "wait";
-  if (!s.source.trim() && (s.agents === undefined || s.filling)) return "wait";
-  return s.agents === 0 && s.untouched && s.enabled ? "summon" : "ring";
+  if (s.first && !s.source.trim() && (s.agents === undefined || s.filling)) return "wait";
+  if (!mine) return "ring";
+  // Off only for now: the request waits (it is not used up), and is summoned when the sandbox is ready.
+  if (s.warming) return "wait";
+  return s.enabled ? "summon" : "ring";
+}
+/** What a "Summon my first agent" button says: while its request waits for the sandbox, and while the summon is in flight. */
+export function firstSummonLabel(s: { summoning: boolean; pending: boolean }): string {
+  return s.summoning ? "Summoning…" : s.pending ? "Getting ready…" : SUMMON_FIRST;
 }
 
 const sameName = (a: string | undefined, b: string) => (a ?? "").trim().toLowerCase() === b.trim().toLowerCase();

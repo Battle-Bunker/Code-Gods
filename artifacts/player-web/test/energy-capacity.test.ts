@@ -95,7 +95,7 @@ test("what is owed: a number only when it shows as one", () => {
 
 test("an agent in debt says how much it owes and how much it may owe", () => {
   assert.equal(agentDebtLine(-120, 480), "Overdrawn by 120 ⚡; it waits for income.", "never 'owes' (read as: to whom?); the bound is not in the main line");
-  assert.equal(agentDebtLine(-120, 0), "Overdrawn by 120 ⚡; it waits for income.");
+  assert.equal(agentDebtLine(-120, 0), "Overdrawn by 120 ⚡", "no power share: no income to wait for");
   assert.equal(agentDebtDetail(480), "Its acts cost more energy than it held. It may be overdrawn by at most 480, and it acts again once its income has covered this.", "the bound, for the tooltip");
   assert.equal(agentDebtDetail(0), null, "no power: no limit to name");
   assert.equal(agentDebtDetail(undefined), null);

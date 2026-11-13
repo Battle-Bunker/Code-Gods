@@ -24,8 +24,8 @@ import Timeline from "./timeline";
 import { useMyAgents } from "@/sdk";
 import { useDockActions } from "@/dock/actions";
 import { useAffordances } from "@/core/use-affordances";
-import { SUMMON_FIRST } from "@/core/planning-line";
-import { readyText } from "./first-agent";
+import { firstSummonLabel, readyText } from "./first-agent";
+import { useRunner } from "@/core/game/runner";
 
 export const PANEL_VIEWS = {
   overview: Overview, "my-card": MyCard, objects: Objects, "others-care": OthersCare, "bits-over-time": BitsOverTime, race: Race,
@@ -55,9 +55,11 @@ function FirstAgentButton() {
   const { agents, loading } = useMyAgents({ hz: 1 });
   const dock = useDockActions();
   const { editCode } = useAffordances().can;
+  const { busy, firstSummon } = useRunner();
+  const summoning = busy === "summon";
   if (loading || agents.length || !editCode.ok) return null;
-  return <button type="button" onClick={() => dock.summonFirst()} data-testid="button-first-agent"
-    className="bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground">{SUMMON_FIRST}</button>;
+  return <button type="button" onClick={() => dock.summonFirst()} disabled={summoning} aria-busy={summoning || undefined} data-testid="button-first-agent"
+    className="bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground disabled:opacity-70">{firstSummonLabel({ summoning, pending: firstSummon > 0 })}</button>;
 }
 
 /** A panel opened outside its phases. In planning, once the player has an agent, there is nothing left to write: say it is ready. */

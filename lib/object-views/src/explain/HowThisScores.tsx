@@ -45,8 +45,12 @@ export function HowThisScores({ workings, noun = "board" }: { workings: ScoreWor
       </div>
       <div data-testid="how-bits" className="space-y-1">
         <h4 className="font-semibold">{t.bitsTitle}</h4>
-        <p className="font-mono">{t.bitsLines[0]}</p>
         {t.bitsLines.slice(1).map((l, i) => <p key={i}>{l}</p>)}
+        {/* The formula is for those who ask for it: closed, it is one small link under the plain sentence. */}
+        <details data-testid="how-maths">
+          <summary className="cursor-pointer text-muted-foreground">the maths</summary>
+          <p className="mt-1 font-mono">{t.bitsLines[0]}</p>
+        </details>
       </div>
       {(t.defenceLines.length > 0 || t.netLines.length > 0) && (
         <div data-testid="how-net" className="space-y-1">

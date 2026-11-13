@@ -37,12 +37,17 @@ export type RunnerState = {
   /**
    * "Summon my first agent" was pressed outside the forge (the planning banner, an empty pane): the editor, once it is
    * showing, summons the untouched example or leads to its Summon button (panels/first-agent.ts firstSummonStep), and
-   * takes the request. A number so a second press is a new request.
+   * takes the request. The time of the press (0: none), so a request never outlives its click (firstSummonStep).
    */
   firstSummon: number;
+  /**
+   * The editor holds code the player wrote or changed (not empty, not the untouched example): the forge's Editor says
+   * so while it is mounted, and loading other code into the editor (`edit`) sets it. The next step reads it.
+   */
+  ownDraft: boolean;
 };
 
-let state: RunnerState = { busy: null, notice: null, unknown: null, retrying: null, failed: null, validation: null, draft: { source: "", language: null }, editing: false, firstSummon: 0 };
+let state: RunnerState = { busy: null, notice: null, unknown: null, retrying: null, failed: null, validation: null, draft: { source: "", language: null }, editing: false, firstSummon: 0, ownDraft: false };
 const listeners = new Set<() => void>();
 /** One command at a time, each with its deadline; only the latest attempt's outcome reaches the state. */
 const attempts = createAttempts();
@@ -54,9 +59,18 @@ export const runner = {
   setDraft(draft: Partial<RunnerState["draft"]>) { set({ draft: { ...state.draft, ...draft } }); },
   setEditing(editing: boolean) { set({ editing }); },
   /** Load code into the editor (the agents panel's "Edit a copy", the assistant's draft) and open edit mode. */
-  edit(source: string, language?: Lang) { set({ draft: { source, language: language ?? state.draft.language }, editing: true }); },
-  requestFirstSummon() { set({ firstSummon: state.firstSummon + 1, editing: true }); },
-  takeFirstSummon() { if (state.firstSummon) set({ firstSummon: 0 }); },
+  edit(source: string, language?: Lang) { set({ draft: { source, language: language ?? state.draft.language }, editing: true, ownDraft: source.trim().length > 0 }); },
+  setOwnDraft(ownDraft: boolean) { if (state.ownDraft !== ownDraft) set({ ownDraft }); },
+  /** Ignored while a summon is in flight: a second press can never buy a second copy. */
+  requestFirstSummon() {
+    if (state.busy === "summon") return;
+    const at = Date.now();
+    set({ firstSummon: at, editing: true });
+    // Whatever happens to the editor, no request is left standing (the buttons would say "Getting ready…" for ever).
+    setTimeout(() => { if (state.firstSummon === at) set({ firstSummon: 0 }); }, 60_000);
+  },
+  /** `olderThanMs`: only a request at least that old (an editor going away leaves a fresh one for the editor that opens). */
+  takeFirstSummon(olderThanMs = 0) { if (state.firstSummon && Date.now() - state.firstSummon >= olderThanMs) set({ firstSummon: 0 }); },
   dismissUnknown() { set({ unknown: null }); },
   clearNotice() { set({ notice: null }); },
 };

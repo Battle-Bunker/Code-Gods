@@ -79,6 +79,16 @@ test("when the points and the rule score disagree, the line names the factor tha
   // The same rule score, a rarer grid by the rule (the table changed around it): 10 × 2 = 20, 12 × 2 = 24.
   assert.equal(actLine({ ...base, ruleBefore: 5, ruleAfter: 5, pointsBefore: 20, pointsAfter: 24, ownBefore: 10, othersBefore: 2, ownAfter: 12, othersAfter: 2 }),
     `${head}your rule score stayed 5, but this grid's points rose 4 (20.0 → 24.0) because this grid is rarer by your rule now (your ✨ rarity 10.0 → 12.0).`);
+  // A room that blurs the others' side (an estimate): the others are named as the cause only when their move accounts
+  // for at least half of the points' move. 30 × 4 = 120, 25 × 3.9 = 97.5: the others explain 30 × −0.1 = −3 of −22.5.
+  const blurred = { ...base, ruleBefore: 4, ruleAfter: 5, pointsBefore: 120, pointsAfter: 97.5, ownBefore: 30, othersBefore: 4, ownAfter: 25, othersAfter: 3.9 };
+  assert.equal(actLine({ ...blurred, estimate: true }),
+    `${head}your rule score went up (4 → 5), but this grid's points fell 22.5 (120.0 → 97.5) because a higher rule score is not rarer here (your ✨ rarity 30.0 → 25.0).`);
+  assert.equal(actLine(blurred),
+    `${head}your rule score went up (4 → 5), but this grid's points fell 22.5 (120.0 → 97.5) because the others want this grid less now (4.0 → 3.9) and a higher rule score is not rarer here (your ✨ rarity 30.0 → 25.0).`, "an exact room names both");
+  // Blurred, and the others' move is most of it: 10 × 2 = 20, 10 × 2.5 = 25.
+  assert.equal(actLine({ ...base, ruleBefore: 5, ruleAfter: 5, pointsBefore: 20, pointsAfter: 25, ownBefore: 10, othersBefore: 2, ownAfter: 10, othersAfter: 2.5, estimate: true }),
+    `${head}your rule score stayed 5, but this grid's points rose 5 (20.0 → 25.0) because the others want this grid more now (2.0 → 2.5).`);
   // The figures before the act are not in the window: say what is known, never a guessed cause.
   assert.equal(actLine({ ...base, ruleBefore: 4, ruleAfter: 5, pointsBefore: 102.1, pointsAfter: 98.4, ownAfter: 25.9, othersAfter: 3.8 }),
     `${head}your rule score went up (4 → 5), but this grid's points fell 3.7 (102.1 → 98.4). A grid's points are your ✨ rarity for it × how much the others want it, not the rule score alone.`);
@@ -102,6 +112,10 @@ test("how much the others want a grid is always said when the event gives it", (
   assert.equal(othersWantClause(0, "grid"), "the others do not want this grid");
   assert.equal(othersWantClause(-1.2, "grid"), "the others would rather not have this grid: −1.2");
   assert.equal(othersWantClause(undefined, "grid"), null);
+  // A figure that shows as 0.0 is none: never "barely … 0.0" or "would rather not … 0.0".
+  assert.equal(othersWantClause(0.04, "grid"), "the others do not want this grid");
+  assert.equal(othersWantClause(-0.04, "grid"), "the others do not want this grid");
+  assert.equal(othersWantClause(0.05, "grid"), "the others barely want this grid: 0.1");
   // The same (3, 7) → (4, 8) step on two grids: +41.6 once and +0.4 another time.
   const base = { agent: "Keeper", before: "1R,2R/3R,4R", after: "1R,2R/4R,4R", noun: "grid", ruleBefore: [3, 7], ruleAfter: [4, 8] };
   assert.equal(actLine({ ...base, pointsBefore: 100, pointsAfter: 141.6, othersAfter: 12 }),

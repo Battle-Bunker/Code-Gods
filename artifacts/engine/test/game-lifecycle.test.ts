@@ -14,8 +14,8 @@ test("room lobby lifecycle: launch, spectate, end by lifetime, history, second g
   await touch(host);
   const { roomId, shortCode } = await roomWith([host, ada, bo]);
   // The game page's narrow queries (games.ts): its object count (skeleton pages) and its own chat.
-  // The public count (the room runs the default setup, whose looking is paid: a seated god reads no object from the
-  // spectator's queries, convex/lib/knowledge.ts).
+  // The public count. (The room runs the default setup, whose looking is free; in a game whose looking is paid a
+  // seated god reads no object from the spectator's queries, convex/lib/knowledge.ts, so the count is read here too.)
   const objectCount = async (gameId: string) => (await host.c.query(api.games.standings, { gameId })).objectCount;
   const gameChat = async (gameId: string) => {
     const header = await host.c.query(api.games.header, { code: gameId });

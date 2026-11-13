@@ -210,7 +210,7 @@ function useWidePane() {
 const SEEN_LINE = 20;
 
 type RowProps = {
-  objectId: string; position: number; byPayoff: boolean; scales: Scales; world: number; highlighted: boolean; open: boolean; onOpen: (id: string) => void;
+  objectId: string; position: number; byPayoff: boolean; scales: Scales; world: number; highlighted: boolean; open: boolean; onOpen: (id: string, rank?: number) => void;
   ctx: ReturnType<typeof useObjectContext>["ctx"]; noun: string; comparative: string | undefined; changed: ReturnType<typeof useReplayChanged>;
   /** "boards" mode: the board is live; only the others' interest (and the payoff) is as last seen. */
   boards?: boolean;
@@ -253,7 +253,7 @@ function ObjectRow({ objectId, position, byPayoff, scales, world, highlighted, o
           </span>
           <span className="block truncate font-mono text-[11px] text-muted-foreground" data-testid={`text-mutations-${o.id}`}>{mutationLine(o, world)}</span>
           <span className="block truncate" data-testid={`text-rarity-${o.id}`}><ScoreBreakdown score={o} noun={noun} comparative={comparative} compact /></span>
-          <TextButton onClick={() => onOpen(o.id)} testId={`button-object-detail-${o.id}`}>{open ? "hide" : "why?"}</TextButton>
+          <TextButton onClick={() => onOpen(o.id, byPayoff ? position : undefined)} testId={`button-object-detail-${o.id}`}>{open ? "hide" : "why?"}</TextButton>
         </span>
       </div>
       {seen && (
@@ -295,9 +295,10 @@ function ObjectRow({ objectId, position, byPayoff, scales, world, highlighted, o
  * into view when it opens: under the list it was out of sight below a 640px scroller, so "why?" turned into "hide" and
  * seemed to open nothing (three first-time walks). It always says something: the breakdown, or why there is none.
  */
-function ObjectDetail({ objectId, noun, comparative, world, boards, onHide }: { objectId: string; noun: string; comparative: string | undefined; world: number; boards?: boolean; onHide: () => void }) {
+function ObjectDetail({ objectId, position, noun, comparative, world, boards, onHide }: { objectId: string; /** The row's rank when the list is by points (no subscription for it); else undefined and the rank is read. */ position: number | undefined; noun: string; comparative: string | undefined; world: number; boards?: boolean; onHide: () => void }) {
   const o: MyObject | null | undefined = useMyObject(objectId);
-  const rank = useObjectRank(objectId);
+  const ranked = useObjectRank(position === undefined ? objectId : undefined);
+  const rank = position ?? ranked;
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => { box.current?.scrollIntoView({ block: "nearest" }); }, [objectId]);
   const hide = <TextButton boxed testId="button-object-detail-hide" onClick={onHide}>hide</TextButton>;
@@ -358,9 +359,11 @@ export default function Objects({ paneId, params, phase }: PanelProps<"objects">
   const lookAll = useCallback(() => void commands.run({ type: "look" }), [commands]);
   const { ctx, noun } = useObjectContext();
   const [paneRef, widePane] = useWidePane();
-  const [open, setOpen] = useState<string | null>(null);
-  const toggle = useCallback((id: string) => setOpen(o => (o === id ? null : id)), []);
+  // The open "why?": the object and, when the list is by points, the rank its row showed.
+  const [open, setOpen] = useState<{ id: string; rank?: number } | null>(null);
+  const toggle = useCallback((id: string, rank?: number) => setOpen(o => (o?.id === id ? null : { id, rank })), []);
   const comparative = card?.penalty?.comparative;
+  const byPayoff = params.sortBy === "payoff" && params.filter === "all";
   const scales = scalesOf(totals);
   const highlight = new Set(params.highlight);
   const total = totals?.objectCount ?? 0;
@@ -388,10 +391,10 @@ export default function Objects({ paneId, params, phase }: PanelProps<"objects">
   return (
     <div className="space-y-3" ref={paneRef}>
       {header}
-      {open && <ObjectDetail objectId={open} noun={noun} comparative={comparative} world={world} boards={boards} onHide={() => setOpen(null)} />}
+      {open && <ObjectDetail objectId={open.id} position={byPayoff ? open.rank : undefined} noun={noun} comparative={comparative} world={world} boards={boards} onHide={() => setOpen(null)} />}
       <VirtualRows rows={skeleton.rows} rowHeight={rowHeightFor(ctx, widePane) + (paid ? SEEN_LINE : 0)} maxHeight={640} keyOf={r => r.id} onNearEnd={loadMore} testId="list-objects"
-        render={(r, i) => <ObjectRow objectId={r.id} position={i + 1} byPayoff={params.sortBy === "payoff" && params.filter === "all"} scales={scales} world={world} boards={boards}
-          highlighted={highlight.has(r.id)} open={open === r.id} onOpen={toggle} ctx={ctx} noun={noun} comparative={comparative} changed={changed} look={look} />} />
+        render={(r, i) => <ObjectRow objectId={r.id} position={i + 1} byPayoff={byPayoff} scales={scales} world={world} boards={boards}
+          highlighted={highlight.has(r.id)} open={open?.id === r.id} onOpen={toggle} ctx={ctx} noun={noun} comparative={comparative} changed={changed} look={look} />} />
       {skeleton.more && <TextButton onClick={loadMore} testId="button-objects-more">Load more ({skeleton.rows.length} of {matching})</TextButton>}
       <p className="font-mono text-[11px] text-muted-foreground" data-testid="text-objects-footer">
         {skeleton.rows.length} of {matching}{params.filter !== "all" ? ` matching (${total} in all)` : ""} · Σ your net bits {formatBits(totals?.sumOwnNetBits ?? 0)} · Σ others' {formatBits(totals?.sumPeerNetBits ?? 0)}
