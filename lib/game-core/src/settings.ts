@@ -879,6 +879,8 @@ export const LAB_SETUPS: readonly SeedSetup[] = Object.freeze([
     "Grid", { ...ANNOTATED_BASICS_BOARD }, tieredPatch({ depth: 1, compose: "plain" })),
   lab("lab-tiers-unlock", "Lab · unlocking tiers", "Tiered rules, but once unlocked the ★ bonus outranks the rest of the base; rarity near the top is a rough estimate (sampled tables)",
     "Grid", { ...ANNOTATED_BASICS_BOARD }, tieredPatch({ depth: 1, compose: "unlock" })),
+  lab("lab-tiers-expert", "Lab · two ★ tiers", "Tiered rules, but each rule carries two ★ bonuses: the second breaks ties among boards equal on the first",
+    "Grid", { ...ANNOTATED_BASICS_BOARD }, tieredPatch({ depth: 2 })),
   lab("lab-tiers-uncapped", "Lab · tiers with unequal reach", "Tiered rules, with ★ bonuses outside the balance band added: some rules reach much further than others",
     "Grid", { ...ANNOTATED_BASICS_BOARD }, tieredPatch({ depth: 1, compose: "uncapped" })),
 ]);

@@ -205,6 +205,15 @@ export function tieredCard<P extends Params>(lang: "typescript" | "python", sour
 
 const num = (v: TierValue, k: string): number => v[k] as number;
 
+/**
+ * The canonical form of a total-valued interaction (`x`) on a base that has a value symmetry taking every total x to
+ * `whole − x`: a half-turn base where partners add up to T (a line and its image add up to N·T), or a base that reads
+ * only differences, where turning every number v into (S−1) − v leaves it alone and a total of k cells becomes
+ * k(S−1) − x. The two values are then the same rule read twice, and share one calibration table.
+ */
+export const foldTotal = (id: string, whole: (g: GridSpec) => number) =>
+  (v: TierValue, g: GridSpec): TierValue => ({ id, x: Math.min(num(v, "x"), whole(g) - num(v, "x")) });
+
 /** Rows, columns and the two long diagonals that add up to x: a unit kind most bases do not score themselves. */
 export const linesSum: Interaction = {
   id: "lines", fn: ["magicLines", "magic_lines"],

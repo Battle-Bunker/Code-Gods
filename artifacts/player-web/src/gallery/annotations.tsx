@@ -7,9 +7,10 @@
 import React, { StrictMode, useMemo } from "react";
 import { createRoot } from "react-dom/client";
 import { instantiate } from "@workspace/game-types";
-import { context, explainer, family, instanceTables, story, tableFor, whatIf, type CalibrationFile } from "@workspace/game-utilities";
+import { baseParams, context, explainer, family, instanceTables, story, tableFor, whatIf, type CalibrationFile } from "@workspace/game-utilities";
 import firstSteps from "../../../../lib/game-utilities/data/calibration/v1/Grid(4,base10,rgb).json";
 import { GoalBoard, GoalExplainerProvider, GridObject, PartScrubber, StoryPlayer, WhatIfBoard } from "@workspace/object-views";
+import { ruleScoreWording } from "@workspace/game-utilities/card-text";
 import "../index.css";
 
 const GRID = { size: 4, symbols: "base10", colours: "rgb" } as const;
@@ -41,6 +42,14 @@ export const SHOWCASE = [
   { familyId: "magic_eighteen", params: { axis: "rows" } },
 ] as const;
 
+/**
+ * Tiered draws (docs/tiered-rules.md): the ★ tier's own line on the goal board, on two boards each — the base's
+ * exemplar, which maxes the base and so opens the tier but scores none of it (the "Nearest:" line), and the goal
+ * card's own example, which scores it. ✌️ Two Pair's linked boxes are the tier a one-cell climber never reaches and
+ * ↙️ Crosswise Threes' lines the one it reaches most (docs/layered-rules-measurements/README.md).
+ */
+const TIERED = ["two_pair", "crosswise_threes"] as const;
+
 /** A family without a lens: its example board shows the score only (no breakdown). */
 const PLAIN = { familyId: "rainbow_steps" } as const;
 
@@ -63,6 +72,36 @@ function Family({ familyId, params }: { familyId: string; params: Record<string,
         </div>
       </GoalExplainerProvider>
       {example && <GoalBoard goal={goal} value={example.value} grid={GRID} caption={example.caption} testId={`example-${familyId}`} />}
+    </section>
+  );
+}
+
+function TieredFamily({ familyId }: { familyId: string }) {
+  const f = family(familyId);
+  const params = useMemo(() => f.tiered!(context(INST), 1)[0], [familyId]);
+  const goal = useMemo(() => withTables({ familyId, params: params as never }), [params]);
+  const example = useMemo(() => goal.example(), [goal]);
+  // The BASE's exemplar, on the base's own params (a tiered draw carries `tiers` beside them), as the example search does.
+  const exemplar = useMemo(() => String(f.exemplar!(baseParams(params) as never, context(INST))), [params]);
+  const card = useMemo(() => f.cardTiers!(params as never, context(INST))[0], [params]);
+  return (
+    <section className="space-y-4 border bg-card p-5" data-tiered-family={familyId}>
+      <header>
+        <h2 className="text-xl font-semibold"><span aria-hidden>{f.emoji} </span>{f.name} <span className="text-base font-normal text-muted-foreground">and its ★</span></h2>
+        <p className="mt-1 max-w-3xl text-sm leading-relaxed">{ruleScoreWording(card.text)}</p>
+      </header>
+      <div className="space-y-4 md:flex md:gap-6 md:space-y-0">
+        <div className="md:flex-1">
+          <p className="mb-1 text-xs font-medium">The base at its top, the ★ open and empty</p>
+          <GoalBoard goal={goal} value={exemplar} grid={GRID} testId={`tiered-empty-${familyId}`} />
+        </div>
+        {example && (
+          <div className="md:flex-1">
+            <p className="mb-1 text-xs font-medium">The card's example, which scores the ★</p>
+            <GoalBoard goal={goal} value={example.value} grid={GRID} caption={example.caption} testId={`tiered-scoring-${familyId}`} />
+          </div>
+        )}
+      </div>
     </section>
   );
 }
@@ -144,6 +183,7 @@ function Gallery() {
     <main className="mx-auto max-w-5xl space-y-6 p-6">
       {!only && <h1 className="text-2xl font-semibold">Goal annotations: First Steps</h1>}
       {shown.map(s => <Family key={s.familyId} familyId={s.familyId} params={s.params} />)}
+      {!only && TIERED.map(id => <TieredFamily key={id} familyId={id} />)}
       {!only && <PlainFamily />}
       {!only && <Modes only={null} />}
     </main>

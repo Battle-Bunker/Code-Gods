@@ -255,8 +255,12 @@ The card text for each prototype is in `FAMILIES[*].card` and `interactions[*].c
   - "this square: 9 = 2 + 3 + 3, one too many";
   - "this walk adds up to 18, 2 short of 20".
 - **Headline:**
-  - tier open: "This board: 5 primary points and 2 secondary points (5, 2)";
-  - tier collapsed: "5 primary points. Bonus: 2 secondary points; tap ★ to see why."
+  - tier open: "This board's rule score: (5, 2)";
+  - tier collapsed: "Bonus: +2 to your secondary rule score; open ★ to see why."
+
+  (As shipped, in the player-facing wording of `lib/game-utilities/src/card-text.ts`: "points" is reserved for the
+  payoff the leaderboard adds up, so neither the headline nor a ★ block ever says it. `tierBonus` in
+  `lib/object-views/src/card-tiers.ts`, tested over every tiered draw of every composition.)
 
 **Learning the second tier.** The full text is always on the card (P8: the card, summary and assistant briefing are
 rendered from one text), collapsed under a ★ line that names the idea and its params. It opens by itself on the first
