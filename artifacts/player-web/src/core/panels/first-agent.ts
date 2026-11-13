@@ -238,8 +238,38 @@ export const REPLACE_WHY = "Two agents with different ideas undo each other's wo
 export function replaceShare(s: { oldShare: number | undefined; allocated: number | undefined }): number | undefined {
   if (s.oldShare === undefined || !(s.oldShare > 0)) return undefined;
   const free = Math.max(0, 1 - (s.allocated ?? 0));
-  const share = Math.round(Math.min(s.oldShare, free) * 10000) / 10000;
+  // Floored to the engine's 6 decimals: never a hair more than what is free (a share rounded up was refused).
+  const share = Math.floor(Math.min(s.oldShare, free) * 1e6 + 1e-9) / 1e6;
   return share > 0 ? share : undefined;
+}
+
+/** Nothing is free for the new version to start with (the old agent and the others hold all the power): why Replace is off, and what to do. */
+export function replaceBlocked(s: { oldShare: number | undefined; allocated: number | undefined; name: string }): string | null {
+  if (s.oldShare === undefined || !(s.oldShare > 0) || replaceShare(s) !== undefined) return null;
+  return `Replacing needs a little free power for the new version first. Lower ${s.name}'s share in My agents, then replace.`;
+}
+/** Several agents run the code the draft started from: only the one it came from is replaced, and the pane says so. */
+export function sameVersionNote(origin: OwnAgent | undefined, agents: readonly OwnAgent[]): string | null {
+  if (!origin) return null;
+  const twins = agents.filter(a => a.source === origin.source).length;
+  return twins > 1 ? `You have ${twins} agents running the old version; this replaces ${origin.name?.trim() || "one of them"} only.` : null;
+}
+
+/**
+ * A replace in flight, kept by the runner (core/game/runner.ts) so that it finishes on whichever path its summon is
+ * accepted: the first send, the forge's "Try again", or "Retry the same command" under the header. The same envelope
+ * keeps it; any other command, a refusal, a dismissal or PENDING_REPLACE_MS abandon it, and then nothing is destroyed.
+ */
+export interface PendingReplace { readonly commandId: string; readonly oldId: string; readonly name: string; readonly source: string; readonly share?: number; readonly oldShare?: number; readonly at: number }
+export const PENDING_REPLACE_MS = 10 * 60_000;
+export function pendingReplaceOnSend(pending: PendingReplace | null, commandId: string, now: number): "none" | "keep" | "clear" {
+  if (!pending) return "none";
+  return pending.commandId === commandId && now - pending.at <= PENDING_REPLACE_MS ? "keep" : "clear";
+}
+export function pendingReplaceOnReceipt(pending: PendingReplace | null, commandId: string, receipt: { accepted: boolean } | undefined): "none" | "keep" | "destroy" | "clear" {
+  if (!pending) return "none";
+  if (pending.commandId !== commandId || !receipt) return "keep";
+  return receipt.accepted ? "destroy" : "clear";
 }
 
 /**

@@ -100,8 +100,6 @@ export function AskAboutObject({ objectId }: { objectId: string }) {
     className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline" onClick={() => referObjectId(objectId)}>ask my assistant</button>;
 }
 export const referObjectId = (objectId: string) => { if (objectId) composer.fill(`object ${objectId}: `); };
-/** Clicking an object puts a reference into the assistant's composer: point, then ask. */
-export const referObject = (rank: number | undefined) => { if (rank) composer.fill(`object #${rank}`); };
 
 const PHASE_WORD: Record<Phase, string> = { lobby: "in the lobby", planning: "during planning", running: "while the world runs", paused: "while it is paused", ended: "after the game" };
 /** Where a panel has data, in words ("while the world runs, while it is paused"). */

@@ -7,7 +7,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  FIRST_AGENT_HINT, STARTER_AGENT_HINT, armedStep, armedText, energyHint, firstAgentFill, firstAgentHint, untouchedExample, lacksEnergy, readyText, summonReady, summonedText, COPY_HINT, REPLACE_WHY, bothText, draftOrigin, replaceLabel, replaceOffer, replaceShare, replaceStep, replacedText, FIRST_SUMMON_MAX_AGE_MS, FIRST_SUMMON_WARMING_MS, firstSummonLabel, isCopy, replaceNeedsConfirm, firstSummonStep, nextFreeName, proposedName, secondAgentHint, storeAfterSummonText, type ArmedSummon, type Examples, type FirstAgentState,
+  FIRST_AGENT_HINT, STARTER_AGENT_HINT, armedStep, armedText, energyHint, firstAgentFill, firstAgentHint, untouchedExample, lacksEnergy, readyText, summonReady, summonedText, COPY_HINT, REPLACE_WHY, PENDING_REPLACE_MS, pendingReplaceOnReceipt, pendingReplaceOnSend, replaceBlocked, sameVersionNote, bothText, draftOrigin, replaceLabel, replaceOffer, replaceShare, replaceStep, replacedText, FIRST_SUMMON_MAX_AGE_MS, FIRST_SUMMON_WARMING_MS, firstSummonLabel, isCopy, replaceNeedsConfirm, firstSummonStep, nextFreeName, proposedName, secondAgentHint, storeAfterSummonText, type ArmedSummon, type Examples, type FirstAgentState,
 } from "../src/core/panels/first-agent.ts";
 
 const py = { name: "Mirror maker", source: "# My goal: mirrors\ndef agent(grid):\n    return []\n", specific: true };
@@ -211,6 +211,21 @@ test("an edited copy of an agent the player has is offered as a replacement, not
   assert.equal(REPLACE_WHY, "Two agents with different ideas undo each other's work; replacing keeps one.");
 });
 
+test("a replace whose summon is accepted only through a retry still destroys the old agent; an abandoned one destroys nothing", () => {
+  const pending = { commandId: "c1", oldId: "a1", name: "Keeper", source: "S", at: 1_000 };
+  // The receipt of the pending summon, on whichever path it arrives (the first send, "Try again", "Retry the same command").
+  assert.equal(pendingReplaceOnReceipt(pending, "c1", { accepted: true }), "destroy");
+  assert.equal(pendingReplaceOnReceipt(pending, "c1", { accepted: false }), "clear", "refused: nothing is destroyed");
+  assert.equal(pendingReplaceOnReceipt(pending, "c1", undefined), "keep", "no answer yet: the retry may still be accepted");
+  assert.equal(pendingReplaceOnReceipt(pending, "c2", { accepted: true }), "keep", "another command's receipt");
+  assert.equal(pendingReplaceOnReceipt(null, "c1", { accepted: true }), "none");
+  // Sending: the same envelope again keeps it; any other command means the player moved on, so it is abandoned.
+  assert.equal(pendingReplaceOnSend(pending, "c1", 5_000), "keep");
+  assert.equal(pendingReplaceOnSend(pending, "c9", 5_000), "clear");
+  assert.equal(pendingReplaceOnSend(pending, "c1", 1_000 + PENDING_REPLACE_MS + 1), "clear", "it expires: a summon retried much later is only a summon");
+  assert.equal(pendingReplaceOnSend(null, "c1", 5_000), "none");
+});
+
 test("replace: the new version is summoned first, and the old one is destroyed only when that is accepted", () => {
   assert.deepEqual(replaceStep("summoning", { accepted: true }), { next: "destroying" });
   assert.deepEqual(replaceStep("summoning", { accepted: false, message: "Not enough energy" }), { done: "refused", message: "Not enough energy" }, "nothing is destroyed");
@@ -223,6 +238,18 @@ test("replace: the new version is summoned first, and the old one is destroyed o
   assert.equal(replaceShare({ oldShare: 0.25, allocated: 0.5 }), 0.25);
   assert.equal(replaceShare({ oldShare: 0.5, allocated: 0.75 }), 0.25);
   assert.equal(replaceShare({ oldShare: 0.5, allocated: 1 }), undefined, "nothing free: the engine's default");
+  // Never more than what is free: floored to the engine's 6 decimals, not rounded up (0.15625 once became 0.1563 and was refused).
+  assert.equal(replaceShare({ oldShare: 0.5, allocated: 0.84375 }), 0.15625);
+  assert.equal(replaceShare({ oldShare: 0.5, allocated: 0.96875 }), 0.03125);
+  assert.equal(replaceShare({ oldShare: 0.3333339, allocated: 0 }), 0.333333);
+  // Nothing free at all: the replace cannot start, and the pane says what to do in replace terms.
+  assert.equal(replaceBlocked({ oldShare: 0.5, allocated: 1, name: "Keeper" }), "Replacing needs a little free power for the new version first. Lower Keeper's share in My agents, then replace.");
+  assert.equal(replaceBlocked({ oldShare: 0.5, allocated: 0.75, name: "Keeper" }), null);
+  assert.equal(replaceBlocked({ oldShare: undefined, allocated: 1, name: "Keeper" }), null, "a game without power shares");
+  // Two agents run the old version: only the one the draft came from is replaced, and the pane says so.
+  const twins = [{ id: "a1", name: "Keeper", source: "S" }, { id: "a2", name: "Keeper 2", source: "S" }, { id: "a3", name: "Other", source: "T" }];
+  assert.equal(sameVersionNote(twins[0], twins), "You have 2 agents running the old version; this replaces Keeper only.");
+  assert.equal(sameVersionNote(twins[2], twins), null);
   assert.equal(replaceShare({ oldShare: undefined, allocated: 0.5 }), undefined);
   assert.equal(replacedText("Simple spread keeper", { share: 0.5, oldShare: 0.5 }), "Replaced: Simple spread keeper now runs your new version.");
   assert.equal(replacedText("Simple spread keeper", { share: 0.25, oldShare: 0.5 }), "Replaced: Simple spread keeper now runs your new version. It has 25% of your power (the old one had 50%); raise it in My agents.");

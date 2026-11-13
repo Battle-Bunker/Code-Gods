@@ -9,8 +9,8 @@ import { LineChart, Table, useDockState, useGame, useLeaderboard, useMyCard, use
 import { HANDICAP_FOOTNOTE, cardBid, cardHandicap, handicapLabel, handicapsOf } from "@/site/lib/bidding";
 import { useAuction } from "@/core/game/auction";
 import { PanelEmpty, fmt, type PanelProps } from "./kit";
-import { useMyTotals, useStandings } from "@/sdk/hooks";
-import { useRoomInfo } from "@/sdk";
+import { useMyTotals, useMyUtility, useStandings } from "@/sdk/hooks";
+import { useReplaySource } from "@/sdk/replay-source";
 import { fresherPoints } from "./score-line";
 import { ownNow, publishedLine } from "./race-text";
 
@@ -31,7 +31,11 @@ export default function Race({ params }: PanelProps<"race">) {
   // carry the fresher figure the page already holds (the same one "Your points now" shows), marked "now".
   const standings = useStandings(game?.gameId);
   const totals = useMyTotals(game?.gameId);
-  const interval = (useRoomInfo()?.settings as { scoreIntervalSeconds?: number } | undefined)?.scoreIntervalSeconds;
+  // The interval of THIS game (your own utility's query carries the game's settings; the room's are the next game's).
+  // A viewer with no seat has none here: the line then says only the age.
+  const interval = (useMyUtility()?.settings as { scoreIntervalSeconds?: number } | undefined)?.scoreIntervalSeconds;
+  // A replay shows a past moment: nothing is "published N s ago" there.
+  const replay = useReplaySource();
   const phase = useDockState()?.phase;
   if (!board.length) return <PanelEmpty>No standings yet: they start when the world runs.</PanelEmpty>;
   const me = game?.self.godId;
@@ -48,8 +52,8 @@ export default function Race({ params }: PanelProps<"race">) {
     points: history.map(s => ({ x: s.x, y: params.metric === "gap" ? (s.totals[r.godId] ?? 0) - Math.max(...Object.values(s.totals)) : s.totals[r.godId] ?? 0 })),
   }));
   const mine = board.find(r => r.godId === me);
-  const now = mine && phase !== "ended" ? ownNow({ published: mine.totalPayoff, publishedAt: standings?.world, fresher: fresherPoints([totals && { score: totals.score, world: totals.world }]), format: fmt }) : null;
-  const age = publishedLine({ worldNow: world, publishedAt: standings?.world, interval, ended: phase === "ended" });
+  const now = mine && phase !== "ended" && !replay ? ownNow({ published: mine.totalPayoff, publishedAt: standings?.world, fresher: fresherPoints([totals && { score: totals.score, world: totals.world }]), format: fmt }) : null;
+  const age = replay ? (phase === "ended" ? "Final scores." : null) : publishedLine({ worldNow: world, publishedAt: standings?.world, interval, ended: phase === "ended" });
   return (
     <div className="space-y-4" data-testid="panel-race">
       {age && <p className="text-xs text-muted-foreground" data-testid="text-race-published">{age}</p>}

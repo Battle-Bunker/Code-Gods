@@ -13,7 +13,7 @@ import { finishPlace, liveResultRows } from "./results-rank";
 import { liveIsEstimate } from "./score-lines";
 import { HANDICAP_FOOTNOTE, auctionLines, cardBid, cardHandicap, handicapLabel, handicapNote, handicapsOf } from "@/site/lib/bidding";
 import { ruleName, useAuction } from "@/core/game/auction";
-import { BiddingNote, ObjectRef, PanelEmpty, PreparingNote, Section, fmt, referObject, type PanelProps } from "./kit";
+import { BiddingNote, ObjectRef, PanelEmpty, PreparingNote, Section, fmt, referObjectId, type PanelProps } from "./kit";
 
 /** Your ✨ rarity × how much the others want it, in the dimension colours every panel uses. */
 const YOURS = dimensionVar("yours"), OTHERS = dimensionVar("others");
@@ -116,7 +116,7 @@ export default function Results({ params, phase }: PanelProps<"results">) {
             {[...best, ...worst].map(o => ({ o, line: productText(o.own.netBits, o.peerCare, o.payoff) })).map(({ o, line }) => (
               <li key={o.id} className="flex items-center gap-2">
                 {ranks.has(o.id)
-                  ? <button type="button" className="w-7 text-left font-mono text-muted-foreground hover:text-foreground" onClick={() => referObject(ranks.get(o.id))}>#{ranks.get(o.id)}</button>
+                  ? <button type="button" className="w-7 text-left font-mono text-muted-foreground hover:text-foreground" onClick={() => referObjectId(o.id)}>#{ranks.get(o.id)}</button>
                   : <span className="w-7 font-mono"><ObjectRef objectId={o.id} /></span>}
                 <Obj value={o.value} />
                 <span className="tabular-nums" data-testid={`text-result-payoff-${o.id}`}>

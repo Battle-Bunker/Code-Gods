@@ -16,6 +16,7 @@ import { useActions, useDockState } from "@/sdk";
 import { errorText, noticeStore } from "@/core/notices";
 import { BUSY_ATTEMPTS, BUSY_RETRY_MS, busyMessage, createAttempts, deadlineFor, headerNotice, isBusy, receiptNotice, type Examined } from "./command-deadline";
 
+import { bothText, pendingReplaceOnReceipt, pendingReplaceOnSend, replaceStep, replacedText, type PendingReplace } from "@/core/panels/first-agent";
 export type Lang = Language;
 export type Unknown = { envelope: Envelope; error: string };
 export type Validation = { source: string; language: Lang; result: CommandResult };
@@ -50,9 +51,17 @@ export type RunnerState = {
    * edited draft of it is offered as a replacement (panels/first-agent.ts draftOrigin). Kept here so it outlives the pane.
    */
   origin: string | null;
+  /**
+   * A replace in flight (panels/first-agent.ts PendingReplace): its summon's command id and the agent to destroy once
+   * that summon is accepted, on whichever path the receipt arrives (the first send, "Try again", "Retry the same
+   * command"). Abandoned by any other command, a refusal, a dismissal or its age; then nothing is destroyed.
+   */
+  replace: PendingReplace | null;
+  /** How the last replace ended, for the forge: said only while the editor still holds the code it was for. */
+  replaced: { ok: boolean; text: string; source: string } | null;
 };
 
-let state: RunnerState = { busy: null, notice: null, unknown: null, retrying: null, failed: null, validation: null, draft: { source: "", language: null }, editing: false, firstSummon: 0, ownDraft: false, origin: null };
+let state: RunnerState = { busy: null, notice: null, unknown: null, retrying: null, failed: null, validation: null, draft: { source: "", language: null }, editing: false, firstSummon: 0, ownDraft: false, origin: null, replace: null, replaced: null };
 const listeners = new Set<() => void>();
 /** One command at a time, each with its deadline; only the latest attempt's outcome reaches the state. */
 const attempts = createAttempts();
@@ -64,7 +73,11 @@ export const runner = {
   setDraft(draft: Partial<RunnerState["draft"]>) { set({ draft: { ...state.draft, ...draft } }); },
   setEditing(editing: boolean) { set({ editing }); },
   /** Load code into the editor (the agents panel's "Edit a copy", the assistant's draft) and open edit mode. */
-  edit(source: string, language?: Lang) { set({ draft: { source, language: language ?? state.draft.language }, editing: true, ownDraft: source.trim().length > 0 }); },
+  /**
+   * `origin`: the id of the player's agent this code is (My agents' "Edit a copy"), so a changed draft of it is
+   * offered as its replacement. Code loaded with no origin (a draft, a template) is nobody's new version.
+   */
+  edit(source: string, language?: Lang, origin?: string) { set({ draft: { source, language: language ?? state.draft.language }, editing: true, ownDraft: source.trim().length > 0, origin: origin ?? null }); },
   setOrigin(origin: string | null) { if (state.origin !== origin) set({ origin }); },
   setOwnDraft(ownDraft: boolean) { if (state.ownDraft !== ownDraft) set({ ownDraft }); },
   /** Ignored while a summon is in flight: a second press can never buy a second copy. */
@@ -77,7 +90,8 @@ export const runner = {
   },
   /** `olderThanMs`: only a request at least that old (an editor going away leaves a fresh one for the editor that opens). */
   takeFirstSummon(olderThanMs = 0) { if (state.firstSummon && Date.now() - state.firstSummon >= olderThanMs) set({ firstSummon: 0 }); },
-  dismissUnknown() { set({ unknown: null }); },
+  /** "It didn't apply": an uncertain replace summon is given up with it, so nothing is destroyed later. */
+  dismissUnknown() { set({ unknown: null, ...(state.replace && state.unknown?.envelope.commandId === state.replace.commandId ? { replace: null } : {}) }); },
   clearNotice() { set({ notice: null }); },
 };
 
@@ -90,9 +104,11 @@ export function useRunner(): RunnerState {
 export function useGameCommands() {
   const actions = useActions();
   const gameId = useDockState({ hz: 1 })?.gameId;
-  const send = useCallback(async (envelope: Envelope, say?: string): Promise<CommandResult | undefined> => {
+  const send = useCallback(async function send(envelope: Envelope, say?: string): Promise<CommandResult | undefined> {
     const command = envelope.command;
-    set({ busy: command.type, notice: null, failed: null, retrying: null });
+    // A pending replace lives only while its own summon is the command in hand: anything else abandons it.
+    const abandoned = pendingReplaceOnSend(state.replace, envelope.commandId, Date.now()) === "clear";
+    set({ busy: command.type, notice: null, failed: null, retrying: null, ...(abandoned ? { replace: null } : {}) });
     const examined = command.type === "validate" || command.type === "summon";
     let outcome = await attempts.run(() => actions.retry(envelope), deadlineFor(command.type));
     // The game is busy checking agents: the SAME envelope goes again by itself (its command id makes a second arrival
@@ -115,6 +131,17 @@ export function useGameCommands() {
       });
       // The forge shows its own notices; anything else is said under the header.
       if (!examined && !(command.type === "chat" && result.accepted)) noticeStore.push(headerNotice(command.type, result, say), result.accepted ? "info" : "error");
+      // The summon of a replace, accepted now or on a retry: the old agent is destroyed (free), and only then.
+      const step = pendingReplaceOnReceipt(state.replace, envelope.commandId, result);
+      if (step === "clear") set({ replace: null });
+      if (step === "destroy") {
+        const pending = state.replace!;
+        set({ replace: null });
+        const said = replacedText(pending.name, { share: pending.share, oldShare: pending.oldShare });
+        const end = replaceStep("destroying", await send({ version: VERSION, commandId: crypto.randomUUID(), command: { type: "destroy", agentId: pending.oldId }, ...(envelope.gameId ? { gameId: envelope.gameId } : {}) }, said));
+        set({ replaced: "done" in end && end.done === "replaced" ? { ok: true, text: said, source: pending.source }
+          : { ok: false, text: bothText(pending.name, "done" in end && end.done === "both" ? end.message : "no answer from the game"), source: pending.source } });
+      }
       return result;
     }
     // Still busy after every try: the forge says so in plain words beside one "Try again" (the same envelope), and its
@@ -139,5 +166,15 @@ export function useGameCommands() {
     return send(envelope, say);
   }, [send, gameId]);
   const retry = useCallback((envelope: Envelope) => send(envelope), [send]);
-  return useMemo(() => ({ run, retry, canAct: actions.canAct }), [run, retry, actions.canAct]);
+  /**
+   * Replace an agent: summon the new version, and destroy `old.oldId` only when that summon is accepted, including
+   * through a later retry of the same envelope (the pending replace is kept in the state until then).
+   */
+  const replace = useCallback((command: Extract<Command, { type: "summon" }>, old: Omit<PendingReplace, "commandId" | "at">) => {
+    if (state.busy) return Promise.resolve(undefined);
+    const envelope: Envelope = { version: VERSION, commandId: crypto.randomUUID(), command, ...(gameId ? { gameId } : {}) };
+    set({ replace: { ...old, commandId: envelope.commandId, at: Date.now() }, replaced: null });
+    return send(envelope);
+  }, [send, gameId]);
+  return useMemo(() => ({ run, retry, replace, canAct: actions.canAct }), [run, retry, replace, actions.canAct]);
 }

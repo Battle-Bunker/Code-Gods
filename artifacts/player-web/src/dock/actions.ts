@@ -55,8 +55,8 @@ export function dockActions(store: DockStore) {
     openPanel(slug: string) { attempt(store, layout => showOwnPanel(layout, { id: "", kind: "stored-panel", slug }).layout); },
     openFile(fileId: string) { attempt(store, layout => showOwnPanel(layout, { id: "", kind: "file-panel", fileId }).layout); },
     /** The forge panel in edit mode (the palette's "Write agent code…", the overview's next step, "Edit a copy"). */
-    forgeEdit(source?: string, language?: Lang) {
-      if (source !== undefined) runner.edit(source, language); else runner.setEditing(true);
+    forgeEdit(source?: string, language?: Lang, /** The id of the player's agent this code is ("Edit a copy"). */ origin?: string) {
+      if (source !== undefined) runner.edit(source, language, origin); else runner.setEditing(true);
       this.show("forge");
     },
     /**

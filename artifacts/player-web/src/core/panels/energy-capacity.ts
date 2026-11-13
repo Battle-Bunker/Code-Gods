@@ -71,7 +71,8 @@ export function overdraft(energy: number, income: number): Overdraft {
  * will not fill, so "full in 30 s" beside it is false. (One that has not acted yet is filling.)
  */
 export function spendsAsItEarns(a: { energy: number; income: number; acts?: number }): boolean {
-  return a.income > 0 && (a.acts ?? 0) > 0 && a.energy <= WORKING_SECONDS * a.income;
+  // Within two seconds of income either side of 0: deeper in debt it is waiting or stuck, which its own line says.
+  return a.income > 0 && (a.acts ?? 0) > 0 && a.energy <= WORKING_SECONDS * a.income && a.energy >= -WORKING_SECONDS * a.income;
 }
 /** Red is for "stuck" only; everything else, a full store included, is neutral. */
 export const overdraftTone = (state: Overdraft): "neutral" | "alarm" => (state === "stuck" ? "alarm" : "neutral");

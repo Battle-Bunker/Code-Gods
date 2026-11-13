@@ -119,7 +119,9 @@ test("a routine overdraft is work, not trouble: red only when the agent cannot a
   assert.equal(agentDebtLine(-100, 960), "Overdrawn by 100 ⚡; it waits for income.", "income unknown: as before");
   // "Energy 13.6 of 960 ⚡ … full in 30 s" for an agent that spends as it earns: it never fills, so that is not said.
   assert.equal(spendsAsItEarns({ energy: 13.6, income: 32, acts: 2076 }), true);
-  assert.equal(spendsAsItEarns({ energy: -2.4, income: 32, acts: 10 }), true);
+  assert.equal(spendsAsItEarns({ energy: -2.4, income: 32, acts: 10 }), true, "−2.4 with 32 a second: well within two seconds of income");
+  assert.equal(spendsAsItEarns({ energy: -2.4, income: 1, acts: 10 }), false, "the same debt with 1 a second is more than two seconds: it waits");
+  assert.equal(spendsAsItEarns({ energy: -400, income: 32, acts: 10 }), false, "stuck in debt: its own line says so");
   assert.equal(spendsAsItEarns({ energy: 13.6, income: 32, acts: 0 }), false, "not acting yet: it is filling");
   assert.equal(spendsAsItEarns({ energy: 400, income: 32, acts: 50 }), false, "it holds a reserve: it is filling");
   assert.equal(spendsAsItEarns({ energy: 5, income: 0, acts: 50 }), false);

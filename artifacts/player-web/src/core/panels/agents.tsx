@@ -313,7 +313,7 @@ export default function Agents({ params, phase }: PanelProps<"agents">) {
       {owner}
       <AgentsView agents={agents} self={self} powerPerSecond={economy?.powerPerSecond} fullChargeSeconds={economy?.fullChargeSeconds} changeReadRatio={economy?.changeReadRatio} costModel={costModelOf(economy)} world={world} samples={history} window={params.window} ended={ended}
         showCosts={params.showCosts} showSource={params.showSource} can={can.can} wait={secondsUntilEligible}
-        onEdit={a => dock.forgeEdit(a.source, isLanguage(a.language) ? a.language : undefined)}
+        onEdit={a => dock.forgeEdit(a.source, isLanguage(a.language) ? a.language : undefined, a.id)}
         onSetShare={(a, share) => void commands.run({ type: "allocatePower", agentId: a.id, share })}
         onDestroy={a => void commands.run({ type: "destroy", agentId: a.id }, destroyedText(agentLabel(a.name, agents.indexOf(a)))).then(result => {
           // Accepted: the split shown is the one from before the destroy until the next state arrives (both
