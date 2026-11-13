@@ -4,7 +4,7 @@ import {
   DEFAULT_SETTINGS, SETTINGS_OPTIONS, MAX_AGENTS_PER_GOD, settingsOptionsFor, validateSettings, LANGUAGES, LANGUAGE_SPECS,
   grammarFor, complexityFor, allowedLanguages, upgradeLegacyLanguage,
   upgradeStoredSettings, FIRST_STEPS_SEED_ID, ANNOTATED_BASICS_SEED_ID, DEFAULT_SETUP_SEED_ID,
-  instantiationOf, codecOf, assertObjectValue, defaultSettingsFor, SEED_SETUPS, SETUP_NAME_MAX, seedSetupSettings, ENERGY_LIMITS, type GameSettings,
+  instantiationOf, codecOf, assertObjectValue, defaultSettingsFor, SEED_SETUPS, SETUP_NAME_MAX, seedSetupSettings, ALL_SEED_SETUPS, LAB_SETUPS, ENERGY_LIMITS, type GameSettings,
 } from "../src/settings.ts";
 import { gameEndSeconds } from "../src/random.ts";
 
@@ -268,4 +268,45 @@ test("the default setup (Annotated basics) is the numbers-only 4×4 board; First
   assert.deepEqual(s.typeArgs, { size: 4, symbols: "base10", colours: "mono" });
   assert.doesNotThrow(() => validateSettings(s));
   assert.deepEqual(seedSetupSettings(FIRST_STEPS_SEED_ID).typeArgs, { size: 4, symbols: "base10", colours: "rgb" });
+});
+
+test("fullChargeSeconds: a default, validated bounds, and stored room/setup settings without it get the default", () => {
+  assert.equal(DEFAULT_SETTINGS.fullChargeSeconds, 30);
+  for (const seed of SEED_SETUPS) assert.equal(seed.settings.fullChargeSeconds, 30, seed.seedId);
+  for (const bad of [0, 0.5, -1, NaN, Infinity, 1_000_001, "30"]) {
+    assert.throws(() => validateSettings({ ...DEFAULT_SETTINGS, fullChargeSeconds: bad as number }), /fullChargeSeconds/, String(bad));
+  }
+  assert.doesNotThrow(() => validateSettings({ ...DEFAULT_SETTINGS, fullChargeSeconds: 1 }));
+  assert.doesNotThrow(() => validateSettings({ ...DEFAULT_SETTINGS, fullChargeSeconds: 12.5 }));
+  const { fullChargeSeconds: _, ...old } = DEFAULT_SETTINGS;
+  assert.equal(upgradeStoredSettings(old)?.fullChargeSeconds, 30);
+  assert.equal(upgradeStoredSettings({ ...old, fullChargeSeconds: 120 }), null, "a chosen value is kept");
+});
+
+test("upgradeStoredSettings leaves a started game's economy alone: no capacity is added to a game that had none", () => {
+  const { fullChargeSeconds: _, ...old } = DEFAULT_SETTINGS;
+  assert.equal(upgradeStoredSettings(old, true), null);
+  const { scoreIntervalSeconds: __, ...older } = old;
+  assert.deepEqual(upgradeStoredSettings(older, true), old, "its other fields are still filled");
+});
+
+test("the settings of a game started before fullChargeSeconds existed still validate (it is examined and summoned into)", () => {
+  const { fullChargeSeconds: _, ...old } = DEFAULT_SETTINGS;
+  assert.doesNotThrow(() => validateSettings(old as GameSettings));
+});
+
+test("Lab setups: complete, valid, marked, with ids and names of their own, and never the default or among the system setups", () => {
+  const ids = ALL_SEED_SETUPS.map(s => s.seedId), names = ALL_SEED_SETUPS.map(s => s.name.toLowerCase());
+  assert.equal(new Set(ids).size, ids.length, "seed ids are unique across the system and Lab setups");
+  assert.equal(new Set(names).size, names.length, "and so are names (the picker shows both to an administrator)");
+  assert.deepEqual(ALL_SEED_SETUPS, [...SEED_SETUPS, ...LAB_SETUPS], "the system's first: Lab setups never shift a system setup's position");
+  assert.ok(SEED_SETUPS.every(s => !s.lab), "no system setup is marked Lab");
+  for (const s of LAB_SETUPS) {
+    assert.equal(s.lab, true, s.seedId);
+    assert.match(s.seedId, /^lab-[a-z0-9-]+$/, `${s.seedId}: a Lab seed id starts with "lab-"`);
+    assert.ok(s.name.length <= SETUP_NAME_MAX && s.summary.length > 0 && s.summary.length <= 160, s.seedId);
+    assert.doesNotThrow(() => validateSettings(s.settings), s.seedId);
+    assert.deepEqual(seedSetupSettings(s.seedId), { ...s.settings }, s.seedId);
+  }
+  assert.ok(!LAB_SETUPS.some(s => s.seedId === DEFAULT_SETUP_SEED_ID), "a new room never starts on a Lab setup");
 });

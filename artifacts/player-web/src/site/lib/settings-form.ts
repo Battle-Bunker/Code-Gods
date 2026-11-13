@@ -44,10 +44,11 @@ export const LABELS: Readonly<Record<SettingsKey, string>> = {
   spawnFunctionId: "New objects", planningSeconds: "Planning", durationMode: "Game end", halfLifeSeconds: "Game length",
   startingObjectCount: "Starting objects", spawnRateHz: "New objects per second", interactionRateHz: "World speed", interactionComputeMs: "CPU limit per act",
   stepBudget: "Steps per act", pauseSeconds: "Pause length", startingEnergy: "Starting energy",
-  powerPerSecond: "Power per player", maxAgentsPerGod: "Agents per player",
+  powerPerSecond: "Power per player", fullChargeSeconds: "Energy fills in", maxAgentsPerGod: "Agents per player",
   penaltyWeight: "Defence weight", defenceGoals: "Defence goals", excludedFamilies: "Rules never dealt", excludedDefenceFamilies: "Defence goals never dealt",
   priorId: "Rarity reference",
   commitClause: "Conditional moves", objectSelection: "Act targeting", scoreIntervalSeconds: "Score updates", peerNoiseBits: "Blur on others' interest",
+  observation: "Looking at the world",
 };
 
 type Limit = { min: number; max?: number; int?: boolean; above?: boolean; unit: string };
@@ -64,6 +65,7 @@ export const LIMITS: Readonly<Partial<Record<SettingsKey, Limit>>> = {
   pauseSeconds: { ...TIME_LIMITS.pauseSeconds, unit: "seconds" },
   startingEnergy: { ...ENERGY_LIMITS.startingEnergy, unit: "bits" },
   powerPerSecond: { ...ENERGY_LIMITS.powerPerSecond, unit: "bits per second" },
+  fullChargeSeconds: { ...TIME_LIMITS.fullChargeSeconds, unit: "seconds" },
   maxAgentsPerGod: { min: 1, max: 200, int: true, unit: "agents" },
   penaltyWeight: { ...ENERGY_LIMITS.penaltyWeight, unit: "" },
 };
@@ -246,7 +248,7 @@ export function formatValue(key: SettingsKey, v: unknown): string {
   if (key === "commitClause") return v ? "offered" : "off";
   if (key === "defenceGoals") return v ? "every player" : "off";
   if (key === "languages" && Array.isArray(v)) return v.map(l => choiceLabel(key, l)).join(", ") || "none";
-  if ((key === "utilitySelectorId" || key === "objectSelection" || key === "durationMode") && typeof v === "string") return choiceLabel(key, v);
+  if ((key === "utilitySelectorId" || key === "objectSelection" || key === "durationMode" || key === "observation") && typeof v === "string") return choiceLabel(key, v);
   const unit = (SETTINGS_DOCS[key] as FieldDoc).unit;
   return typeof v === "number" ? `${n(v)}${unit ? ` ${unit}` : ""}` : String(v);
 }
@@ -256,6 +258,7 @@ const NAMED: Partial<Record<SettingsKey, Record<string, string>>> = {
   halfLifeSeconds: { 120: "Short", 300: "Normal", 600: "Long", 1200: "Marathon" },
   utilitySelectorId: { "fair-aligned": "Aligned Lottery", "divine-lottery": "Divine Lottery" },
   objectSelection: { uniform: "Uniform", shelter: "Shelter" },
+  observation: { free: "Free", boards: "Boards free", paid: "Paid", agents: "Agents only" },
   languages: Object.fromEntries(LANGUAGES.map(l => [l, LANGUAGE_SPECS[l].label])),
 };
 const duration = (s: number) => (s >= 60 && s % 60 === 0 ? `${s / 60} min` : `${n(s)} s`);

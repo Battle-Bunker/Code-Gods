@@ -21,6 +21,7 @@ export const QUERY_REFS: Record<QueryName, FunctionReference<"query">> = {
   "player.objectsTop": api.player.objectsTop,
   "player.objectRank": api.player.objectRank,
   "player.totals": api.player.totals,
+  "player.staleCount": api.player.staleCount,
   "dock.state": api.dock.state,
   "dock.agents": api.dock.agents,
   "dock.transformations": api.dock.transformations,

@@ -20,7 +20,7 @@
  * Pure: no React, no Convex; browser-safe.
  */
 import { NO_FAILURES, diagnoseAgent, failureKind, type FailureKind } from "@workspace/engine/convex/lib/futility.ts";
-import { CHANGE_READ_RATIO, DEFAULT_SCORE_INTERVAL_SECONDS, MAX_AGENT_OPPORTUNITY_HZ, agentIncome, allowedLanguages, chargeAct, deityIncome, instantiationOf, roundShare, settleAgentEnergy, type AgentAccount, type GameSettings } from "@workspace/game-core";
+import { CHANGE_READ_RATIO, DEFAULT_SCORE_INTERVAL_SECONDS, agentIncome, allowedLanguages, chargeAct, deityIncome, energyCapacity, fullChargeOf, settleDeityEnergy, instantiationOf, roundShare, settleAgentEnergy, type AgentAccount, type GameSettings } from "@workspace/game-core";
 
 /** The replay API version this reducer reads (player.replay's `version`). */
 export const REPLAY_VERSION = 2;
@@ -52,7 +52,9 @@ export type ReplayEvent =
     powerShare?: number }
   /** The owner re-allocated power: the agent's share from then on (log schema 6). */
   | { type: "agent.power"; agentId: string; ownerId: string; worldSeconds: number; share: number }
-  | { type: "agent.destroyed"; agentId: string; ownerId: string; worldSeconds: number };
+  | { type: "agent.destroyed"; agentId: string; ownerId: string; worldSeconds: number }
+  /** A god paid `cost` of its own energy to look at `count` objects (log schema 11; paid observation). */
+  | { type: "god.looked"; ownerId: string; worldSeconds: number; price: number; count: number; objectId?: string };
 
 /** `from`: the index in its batch of the first event served (a batch larger than a page is split across pages). */
 export type ReplayBatch = { seq: number; at: number; worldFrom: number; worldTo: number; from?: number; events: ReplayEvent[] };
@@ -152,19 +154,21 @@ const noActs = () => ({ acts: 0, transforms: 0, failures: 0, skips: 0, spent: 0,
 const powerOf = (settings: GameSettings): number => settings.powerPerSecond ?? 0;
 
 /**
- * The agent's account accrued to `world` at its share of the power (as the engine's lib/world settledAccount): never
- * backwards, no cap. A game logged before the energy model (schema ≤ 4) capped income at a battery; its replay shows the
- * uncapped balance.
+ * The agent's account accrued to `world` at its share of the power, within its capacity (as the engine's lib/world
+ * settledAccount; docs/energy-model.md §6.1): never backwards. A game whose settings carry no fullChargeSeconds (started
+ * before capacities) has none. A game logged before the energy model (schema ≤ 4) capped income at a battery; its replay
+ * shows the uncapped balance.
  */
 export function settleAccount(settings: GameSettings, account: AgentAccount, world: number, share: number): AgentAccount {
-  if (!(world > account.settledWorldSeconds)) return account;
-  return settleAgentEnergy(account, world, agentIncome(powerOf(settings), share));
+  const income = agentIncome(powerOf(settings), share);
+  return settleAgentEnergy(account, Math.max(world, account.settledWorldSeconds), income, energyCapacity(income, fullChargeOf(settings)));
 }
 
-/** A god's own account accrued to `world` at its unallocated power. */
+/** A god's own account accrued to `world` at its unallocated power, within that power's capacity. */
 function settleDeity(settings: GameSettings, d: ReplayDeity, world: number): ReplayDeity {
-  if (!(world > d.world)) return d;
-  return { ...d, balance: d.balance + (world - d.world) * deityIncome(powerOf(settings), d.allocated), world };
+  const account = settleDeityEnergy({ balance: d.balance, settledWorldSeconds: d.world }, world,
+    { powerPerSecond: powerOf(settings), allocated: d.allocated, fullChargeSeconds: fullChargeOf(settings) });
+  return { ...d, balance: account.balance, world: account.settledWorldSeconds };
 }
 
 function setObject(state: ReplayState, o: ReplayObject) {
@@ -231,6 +235,15 @@ export function applyEntry(state: ReplayState, entry: LogEntry, settings: GameSe
         state.spent[i] += ev.summonCost;
         const d = settleDeity(settings, state.deities[i], entry.world);
         state.deities[i] = { balance: d.balance - ev.summonCost, world: d.world, allocated: roundShare(d.allocated + (ev.powerShare ?? 0)) };
+      }
+      break;
+    }
+    case "god.looked": {
+      const i = roster.get(ev.ownerId);
+      if (i !== undefined) {
+        state.spent[i] += ev.price;
+        const d = settleDeity(settings, state.deities[i], entry.world);
+        state.deities[i] = { ...d, balance: d.balance - ev.price };
       }
       break;
     }
@@ -323,9 +336,10 @@ export function godEnergyAt(replay: Replay, state: ReplayState, index: number): 
   return settleDeity(replay.game.settings, state.deities[index], state.world).balance;
 }
 /** God `index`'s share of power given to its agents at a state (Σ of their shares), and its own income from the rest. */
-export function godPowerAt(replay: Replay, state: ReplayState, index: number): { allocated: number; income: number } {
-  const allocated = state.deities[index].allocated;
-  return { allocated, income: deityIncome(powerOf(replay.game.settings), allocated) };
+export function godPowerAt(replay: Replay, state: ReplayState, index: number): { allocated: number; income: number; capacity?: number } {
+  const allocated = state.deities[index].allocated, settings = replay.game.settings;
+  const income = deityIncome(powerOf(settings), allocated), capacity = energyCapacity(income, fullChargeOf(settings));
+  return { allocated, income, ...(Number.isFinite(capacity) ? { capacity } : {}) };
 }
 
 /**
@@ -458,7 +472,10 @@ export function replayObservation(replay: Replay, at: ReplayAt, state: ReplaySta
     phase: (state.phase === "recovery" ? "paused" : state.phase) as "planning" | "running" | "paused" | "ended",
     language: languages[0], languages, instance: game.objectInstance,
     economy: {
-      powerPerSecond: powerOf(settings), startingEnergy: settings.startingEnergy, maxAgentOpportunityHz: MAX_AGENT_OPPORTUNITY_HZ,
+      powerPerSecond: powerOf(settings), startingEnergy: settings.startingEnergy,
+      // Games logged before schema 10 offered each agent at most 4 opportunities per world second (docs/energy-model.md §7).
+      ...((game.logSchema ?? 1) < 10 ? { maxAgentOpportunityHz: 4 } : {}),
+      ...(fullChargeOf(settings) !== undefined ? { fullChargeSeconds: fullChargeOf(settings) } : {}),
       // The read price the log was charged at: event-log schema 8 introduced κ (docs/energy-model.md §2.1); before it, 1.
       changeReadRatio: (game.logSchema ?? 1) >= 8 ? CHANGE_READ_RATIO : 1,
       maxAgentsPerGod: settings.maxAgentsPerGod, penaltyWeight: settings.penaltyWeight, worldSeconds: state.world,
@@ -481,6 +498,7 @@ export function replayObservation(replay: Replay, at: ReplayAt, state: ReplaySta
         source: a.source ?? "", language: a.language ?? languages[0], summonCost: a.summonCost ?? 0,
         expectedActCost: a.expectedActCost ?? 0, breakdown: a.breakdown ?? { read: 0, change: 0 }, randomized: a.randomized ?? false,
         energy: account?.balance ?? 0, eligible: (account?.balance ?? 0) > 0, acts: a.acts, spent: a.spent, skips: a.skips, powerShare: a.share, income: agentIncome(powerOf(settings), a.share),
+        ...(fullChargeOf(settings) !== undefined ? { capacity: energyCapacity(agentIncome(powerOf(settings), a.share), fullChargeOf(settings)) } : {}),
         ...(a.acts > 0 && splitCost ? { spentRead: a.spentRead } : {}),
         ...(a.acts > 0 && (kindsMarked || !a.unmarked) ? outcomesOf(a) : {}),
       };
@@ -520,6 +538,7 @@ function projected(ev: ReplayEvent, seq: number, pov: number, roster: Replay["ga
     };
     case "agent.power": return mine ? { type: "agent.power" as const, seq, agentId: ev.agentId, worldSeconds: ev.worldSeconds, share: ev.share } : null;
     case "agent.destroyed": return { type: "agent.destroyed" as const, seq, agentId: ev.agentId, mine, worldSeconds: ev.worldSeconds };
+    case "god.looked": return { type: "god.looked" as const, seq, mine, worldSeconds: ev.worldSeconds, price: ev.price, count: ev.count, ...(ev.objectId ? { objectId: ev.objectId } : {}) };
   }
 }
 

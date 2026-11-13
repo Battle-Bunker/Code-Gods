@@ -1,10 +1,12 @@
 /**
  * My agents: every number is written as a sentence a newcomer can read (core/panels/agent-labels.ts), with the key words
  * as hover glossary terms. The player's own line (their power, how it is split, their energy for summoning) comes first;
- * then, per agent: its status, power share and income, energy (with a meter of how many seconds of its income that
- * holds), what it spent (reading and changing), the actual average per act against the summon-time estimate, how often it
+ * then, per agent: its status, power share and income, energy (with a meter against its capacity and the time until it
+ * is full, or the warning that a full store wastes its income; in a game without capacity, a meter of how many seconds
+ * of its income it holds), what it spent (reading and changing), the actual average per act against the summon-time estimate, how often it
  * skipped, how its acts ended when some failed (the engine's diagnosis, with a fix when most fail), the power-share
- * control (slider, percentage box and Set: allocatePower) and "Edit a copy" / Destroy (inline confirm). Last, a timeline
+ * control (slider, percentage box and Set: allocatePower; before Set it says what the new share does to the agent's
+ * capacity and to the player's own, and what would be lost) and "Edit a copy" / Destroy (inline confirm). Last, a timeline
  * with a legend and one named row per agent. Each action appears only where it works (core/affordances.ts): none does in
  * a read-only replay, and Destroy goes after the end. In a replay seen as another god, the panel says whose agents these are.
  */
@@ -23,6 +25,7 @@ import {
   STATE_LEGEND, actualLine, afterShareLine, agentState, energyLine, estimateLine, laneKind, num, perSecond, plain, runwayFraction, runwaySeconds, runwayText,
   shareLine, skipLine, spentLine, statusText, summonLine, yourPowerLine, type Seg,
 } from "./agent-labels";
+import { fillText, ownEnergyLine, shareCapacityLines, storeFraction, storeState, storedLine } from "./energy-capacity";
 import { PanelEmpty, TextButton, type PanelProps } from "./kit";
 import { maxShareFor, parseSharePercent, shareProblem } from "./power-share";
 
@@ -47,12 +50,29 @@ function EnergyMeter({ energy, income }: { energy: number; income: number }) {
   );
 }
 
+/** The energy as a bar against what the store can hold, with the time until it is full or the warning that it is. */
+function CapacityMeter({ energy, income, capacity, testId, bare }: { energy: number; income: number; capacity: number; testId: string; /** The bar alone: the sentence beside it already says it. */ bare?: boolean }) {
+  const full = storeState(energy, income, capacity) === "full";
+  const text = fillText(energy, income, capacity);
+  const label = `${num(energy)} of ${num(capacity)} bits: ${text}`;
+  return (
+    <span className="inline-flex flex-wrap items-center gap-x-1.5" title={`Holds at most ${num(capacity)} bits. Income past that is not stored.`} data-testid={testId}>
+      <span role="meter" aria-label={label} aria-valuemin={0} aria-valuemax={capacity} aria-valuenow={Math.min(capacity, Math.max(0, energy))} className="inline-block h-1.5 w-20 bg-muted">
+        <span className={`block h-full ${full ? "bg-destructive" : "bg-[hsl(var(--accent))]"}`} style={{ width: `${Math.round(storeFraction(energy, capacity) * 100)}%` }} />
+      </span>
+      {!bare && <span className={full ? "font-semibold text-destructive" : "text-muted-foreground"}>{text}</span>}
+    </span>
+  );
+}
+
 /**
  * One agent's power share: a slider and a percentage box (each moves the other), what that means in bits per second and
  * for you, and Set, which sends allocatePower as Destroy sends destroy. The slider stops at what your other agents leave.
+ * In a game with capacity (`fullChargeSeconds`), the caption also says what each store will hold and what would be lost.
  */
-function PowerShareControl({ id, share, allocated, total, onSet, disabled, reason }: {
-  id: string; share: number; allocated: number; total: number; onSet: (share: number) => void; disabled: boolean; reason?: string;
+function PowerShareControl({ id, share, allocated, total, fullChargeSeconds, agentEnergy, ownEnergy, onSet, disabled, reason }: {
+  id: string; share: number; allocated: number; total: number; fullChargeSeconds?: number; agentEnergy: number; ownEnergy: number;
+  onSet: (share: number) => void; disabled: boolean; reason?: string;
 }) {
   const shown = String(Math.round(share * 1000) / 10);
   const [draft, setDraft] = useState<string | null>(null);
@@ -76,16 +96,23 @@ function PowerShareControl({ id, share, allocated, total, onSet, disabled, reaso
       </div>
       {problem
         ? <p data-testid={`text-power-problem-${id}`} className="text-destructive">{problem}</p>
-        : changed && parsed !== null && <p data-testid={`text-power-preview-${id}`} className="text-muted-foreground">{afterShareLine(parsed, share, allocated, total)}</p>}
+        : changed && parsed !== null && (<>
+          <p data-testid={`text-power-preview-${id}`} className="text-muted-foreground">{afterShareLine(parsed, share, allocated, total)}</p>
+          {shareCapacityLines({ newShare: parsed, agentShare: share, allocated, total, fullChargeSeconds, agentEnergy, ownEnergy }).map((line, i) => (
+            <p key={i} data-testid={`text-power-capacity-${id}-${i}`} className={line.includes("lost") || line.includes("cannot summon") ? "font-semibold text-destructive" : "text-muted-foreground"}>{line}</p>
+          ))}
+        </>)}
     </div>
   );
 }
 
 export type AgentsViewProps = {
   agents: readonly MyAgent[];
-  /** Your own power line: the whole budget (bits per world second), the share given to agents, your income and energy. */
-  self?: { allocated?: number; income?: number; energy?: number };
+  /** Your own power line: the whole budget (bits per world second), the share given to agents, your income, energy and its capacity. */
+  self?: { allocated?: number; income?: number; energy?: number; capacity?: number };
   powerPerSecond?: number;
+  /** economy.fullChargeSeconds: every store holds at most this many seconds of its power (absent: the game has no capacity). */
+  fullChargeSeconds?: number;
   /** κ, economy.changeReadRatio: bits read for the price of one bit changed (1 on a replay of a game before the read price). */
   changeReadRatio?: number;
   world: number;
@@ -103,7 +130,7 @@ export type AgentsViewProps = {
 };
 
 /** The panel without its data hooks, so the gallery (src/gallery/agents.tsx) can draw it from fixtures. */
-export function AgentsView({ agents, self, powerPerSecond, changeReadRatio, world, samples, window: windowS, ended, showCosts, showSource, can, wait, onEdit, onSetShare, onDestroy, footer }: AgentsViewProps) {
+export function AgentsView({ agents, self, powerPerSecond, fullChargeSeconds, changeReadRatio, world, samples, window: windowS, ended, showCosts, showSource, can, wait, onEdit, onSetShare, onDestroy, footer }: AgentsViewProps) {
   const [confirm, setConfirm] = useState<string | null>(null);
   const { editCode, destroy, allocatePower } = can;
   const showDestroy = destroy.ok || !destroy.hidden;
@@ -117,9 +144,15 @@ export function AgentsView({ agents, self, powerPerSecond, changeReadRatio, worl
       {self?.allocated !== undefined && self.income !== undefined && (
         <div className="space-y-1 text-xs" data-testid="text-unallocated-power">
           <p className="font-medium text-foreground"><Say segs={yourPowerLine({ total, allocated: self.allocated, income: self.income, energy: self.energy ?? 0 })} /></p>
+          {self.capacity !== undefined && (
+            <p data-testid="text-own-capacity" className={`flex flex-wrap items-center gap-x-3 gap-y-1 ${self.capacity > 0 ? "text-foreground" : "font-semibold text-destructive"}`}>
+              <span><Say segs={ownEnergyLine({ energy: self.energy ?? 0, income: self.income, capacity: self.capacity })} /></span>
+              {self.capacity > 0 && <CapacityMeter bare testId="meter-own-energy" energy={self.energy ?? 0} income={self.income} capacity={self.capacity} />}
+            </p>
+          )}
           <p className="text-muted-foreground">
             The world hands out <Term id="turn">turns</Term> at random: the more energy an agent has, the more turns it gets. An act pays what it
-            looks at (<Term id="read-bits">read bits</Term>{changeReadRatio !== undefined && changeReadRatio > 1 ? `, 1/${changeReadRatio} bit of energy per bit: looking is ${changeReadRatio}× cheaper than changing` : ""}) plus, if it changes the object, the <Term id="change-cost">change cost</Term>.
+            looks at (<Term id="read-bits">read bits</Term>{changeReadRatio !== undefined && changeReadRatio > 1 ? `, 1/${changeReadRatio} bit of energy per bit: looking is ${changeReadRatio}× cheaper than changing` : ""}) plus, if it changes the object, the <Term id="change-cost">change cost</Term>. Every turn also pays a little for being given its object, so a turn is never free.
           </p>
         </div>
       )}
@@ -128,6 +161,8 @@ export function AgentsView({ agents, self, powerPerSecond, changeReadRatio, worl
           const state = agentState(a);
           const label = agentLabel(a.name, i);
           const history = (samples.get(a.id) ?? []).filter(s => s.at >= world - windowS).map(s => s.energy);
+          // Against its capacity when the game has one and the agent is not in debt (debt shows as it always did).
+          const capped = a.capacity !== undefined && a.energy > 0;
           const statusColour = state === "waiting" ? "text-destructive" : state === "can" ? "text-[hsl(var(--accent))]" : "text-muted-foreground";
           return (
             <li key={a.id} data-testid={`row-agent-${a.id}`} className="min-w-0 space-y-1.5">
@@ -138,10 +173,10 @@ export function AgentsView({ agents, self, powerPerSecond, changeReadRatio, worl
               <div data-testid={`text-agent-energy-${a.id}`} className="space-y-0.5 text-xs text-muted-foreground">
                 {a.powerShare !== undefined && a.income !== undefined && <p data-testid={`text-agent-share-${a.id}`}><Say segs={shareLine(a.powerShare, a.income)} /></p>}
                 <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                  <span className={a.energy <= 0 ? "font-semibold text-destructive" : "text-foreground"}><Say segs={energyLine(a.energy)} /></span>
+                  <span className={a.energy <= 0 ? "font-semibold text-destructive" : "text-foreground"}><Say segs={capped ? storedLine(a.energy, a.capacity!) : energyLine(a.energy)} /></span>
                 </p>
                 <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                  <EnergyMeter energy={a.energy} income={a.income ?? 0} />
+                  {capped ? <CapacityMeter testId={`meter-agent-capacity-${a.id}`} energy={a.energy} income={a.income ?? 0} capacity={a.capacity!} /> : <EnergyMeter energy={a.energy} income={a.income ?? 0} />}
                   <span title="Energy over the last minutes of this game: the dashed line is 0" className="inline-flex items-center"><Sparkline values={history} zero width={90} height={18} label={`${label}: energy over time`} /></span>
                 </p>
                 <p data-testid={`text-agent-spent-${a.id}`}><Say segs={spentLine(a.spent, a.spentRead, a.acts)} /></p>
@@ -158,6 +193,7 @@ export function AgentsView({ agents, self, powerPerSecond, changeReadRatio, worl
               )}
               {a.powerShare !== undefined && (allocatePower.ok || !allocatePower.hidden) && (
                 <PowerShareControl key={`${a.id}:${a.powerShare}`} id={a.id} share={a.powerShare} allocated={self?.allocated ?? a.powerShare} total={total}
+                  fullChargeSeconds={fullChargeSeconds} agentEnergy={a.energy} ownEnergy={self?.energy ?? 0}
                   disabled={!allocatePower.ok} reason={allocatePower.ok ? undefined : allocatePower.reason}
                   onSet={share => onSetShare(a, share)} />
               )}
@@ -226,7 +262,7 @@ export default function Agents({ params, phase }: PanelProps<"agents">) {
   return (
     <div className="space-y-4">
       {owner}
-      <AgentsView agents={agents} self={self} powerPerSecond={economy?.powerPerSecond} changeReadRatio={economy?.changeReadRatio} world={world} samples={history} window={params.window} ended={ended}
+      <AgentsView agents={agents} self={self} powerPerSecond={economy?.powerPerSecond} fullChargeSeconds={economy?.fullChargeSeconds} changeReadRatio={economy?.changeReadRatio} world={world} samples={history} window={params.window} ended={ended}
         showCosts={params.showCosts} showSource={params.showSource} can={can.can} wait={secondsUntilEligible}
         onEdit={a => dock.forgeEdit(a.source, isLanguage(a.language) ? a.language : undefined)}
         onSetShare={(a, share) => void commands.run({ type: "allocatePower", agentId: a.id, share })}

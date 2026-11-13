@@ -54,6 +54,63 @@ test("system setups: seeded once in the shipped order, owned by the system, and 
   assert.deepEqual((await get(ann, big.id)).settings, seedSetupSettings("grid-big"));
 });
 
+test("Lab setups: an administrator sees, opens, copies and applies one; to anyone else it does not exist, by list, search or id", { timeout: 120_000 }, async () => {
+  await admin.mutation(internal.setups.ensureSeeded, {});
+  const labId = await admin.mutation(internal.testing.seedLabSetup, { seedId: `lab-test-${randomUUID().slice(0, 8)}`, name: "Lab: zebra pricing", settings: classic() }) as string;
+  const root = await adminGod("Lab Admin");
+  const [pat] = await gods("Lab Pat");
+
+  // The administrator: listed last, marked, with everything an ordinary system setup gives.
+  const forAdmin = await setupEntries(root.c);
+  const at = forAdmin.findIndex(e => e.id === labId);
+  assert.ok(at >= SEED_SETUPS.length, "after the ordinary system setups");
+  assert.deepEqual([forAdmin[at].lab, forAdmin[at].system, forAdmin[at].name], [true, true, "Lab: zebra pricing"]);
+  assert.ok(forAdmin.slice(0, at).every(e => !e.lab || e.system), "Lab setups come after every ordinary setup (the non-administrator's page stops before them)");
+  assert.ok((await setupEntries(root.c, "zebra")).some(e => e.id === labId), "and found by search");
+  assert.ok((await setupEntries(root.c, "lab")).some(e => e.id === labId), "and by the word Lab");
+  assert.equal((await root.c.query(api.setups.row, { setupId: labId }) as { lab?: boolean }).lab, true);
+  assert.deepEqual((await get(root, labId)).settings, classic());
+
+  // Anyone else: not in the list, not in a search, and unknown by id, for every read and write that takes an id.
+  const forPat = await setupEntries(pat.c);
+  assert.ok(!forPat.some(e => e.id === labId || e.lab), "not listed");
+  assert.deepEqual(forPat.filter(e => e.system).map(e => e.seedId), SEED_SETUPS.map(x => x.seedId), "their system setups are exactly the ordinary ones");
+  assert.ok(!(await setupEntries(pat.c, "zebra")).some(e => e.id === labId), "not found by search");
+  assert.ok(!(await setupEntries(pat.c, "lab")).some(e => e.lab), "nor by the word Lab");
+  assert.equal(await pat.c.query(api.setups.row, { setupId: labId }), null);
+  assert.equal(await errorCode(pat.c.query(api.setups.get, { setupId: labId })), "NOT_FOUND");
+  assert.equal(await errorCode(pat.c.mutation(api.setups.duplicate, { setupId: labId })), "NOT_FOUND");
+  const mine = await roomWith([pat]);
+  const before = await pat.c.query(api.rooms.get, { room: mine.roomId });
+  assert.equal(await errorCode(pat.c.action(api.owner.settings, { roomId: mine.roomId, revision: before.revision, setupId: labId })), "NOT_FOUND", "cannot apply one by id");
+  assert.equal((await pat.c.query(api.rooms.get, { room: mine.roomId })).setup.id, before.setup.id, "the room is unchanged");
+  assert.notEqual(before.setup.id, labId, "a new room never starts on a Lab setup");
+
+  // An administrator's room runs it; a member sees it as the room's setup (its name), without access to the setup itself.
+  const lab = await roomWith([root, pat]);
+  const room = await root.c.query(api.rooms.get, { room: lab.roomId });
+  await root.c.action(api.owner.settings, { roomId: lab.roomId, revision: room.revision, setupId: labId });
+  const seen = await pat.c.query(api.rooms.get, { room: lab.roomId });
+  assert.deepEqual([seen.setup.id, seen.setup.name, seen.setup.deleted], [labId, "Lab: zebra pricing", false]);
+  assert.equal(await pat.c.query(api.setups.row, { setupId: labId }), null, "still not theirs to open");
+  assert.deepEqual((await pat.c.query(api.setups.get, { setupId: labId, room: lab.roomId }) as Setup).settings, classic(), "but they may read the setup of the room they are in");
+  assert.equal(await errorCode(pat.c.query(api.setups.get, { setupId: labId, room: mine.roomId })), "NOT_FOUND", "naming a room that does not run it opens nothing");
+
+  // A copy of a Lab setup stays Lab: the administrator's own, never in anyone else's catalogue.
+  const copy = await root.c.mutation(api.setups.duplicate, { setupId: labId }) as { id: string; lab?: boolean; mine: boolean };
+  assert.deepEqual([copy.lab, copy.mine], [true, true]);
+  assert.ok(!(await setupEntries(pat.c)).some(e => e.id === copy.id));
+  assert.equal(await errorCode(pat.c.query(api.setups.get, { setupId: copy.id })), "NOT_FOUND");
+  assert.ok((await setupEntries(root.c)).some(e => e.id === copy.id && e.lab));
+  await root.c.mutation(api.setups.remove, { setupId: copy.id });
+
+  // Taken out of the code (this one never was in it), the next seed sync removes it; the room keeps its settings and name.
+  await admin.mutation(internal.setups.ensureSeeded, {});
+  assert.equal(await root.c.query(api.setups.row, { setupId: labId }), null);
+  assert.deepEqual((await pat.c.query(api.rooms.get, { room: lab.roomId })).setup, { id: labId, name: "Lab: zebra pricing", deleted: true });
+  assert.deepEqual((await setupEntries(root.c)).filter(e => e.system && !e.lab).map(e => e.seedId), SEED_SETUPS.map(x => x.seedId), "the ordinary system setups are untouched");
+});
+
 test("nobody edits or deletes a system setup, admins and owner credentials included: they duplicate it", { timeout: 60_000 }, async () => {
   const root = await adminGod("Setup Admin");
   const master = (await list(root)).find(r => r.seedId === "grid-master")!;

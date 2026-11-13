@@ -11,7 +11,7 @@ import { randomBytes } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { createLocalJWKSet, createRemoteJWKSet, jwtVerify } from "jose";
 import {
-  SITE, OIDC, POLL_GAP_MS, SESSION_COOKIE, admin, authorize, browserJwt, browserToken, callback, client, decodeJwt, deviceRequest,
+  SITE, OIDC, POLL_GAP_MS, SESSION_COOKIE, admin, authorize, browserJwt, browserToken, callback, client, cookieJar, decodeJwt, deviceRequest,
   errorCode, login, poll, post, rawSetCookies, signInRequest, sleep, startLogin,
 } from "./helpers.ts";
 
@@ -180,6 +180,62 @@ test("the fake provider does not exist once test fixtures are off", async () => 
 });
 
 // ---------------------------------------------------------------------------------------------
+// The preview-only sign-in (convex/auth/preview.ts, previewRoutes.ts; docs/preview-deployments.md)
+test("preview sign-in: absent without a passphrase; with one, the passphrase page signs a test player in (admin included)", async () => {
+  const passphrase = "correct horse battery staple";
+  const off = await fetch(`${SITE}/api/preview-auth/start`);
+  assert.equal(off.status, 404, "no passphrase on the deployment: the pages do not exist");
+  assert.equal((await signInRequest("/api/auth/sign-in/oauth2", { providerId: "preview", callbackURL: "/" })).status, 400, "nor the provider");
+  deploymentEnv("PREVIEW_SIGN_IN_CODE", passphrase);
+  deploymentEnv("ADMIN_EMAILS", "admin@example.test,unverified@example.test,admin@preview.test");   // as scripts/preview-setup.mjs sets it on a preview
+  try {
+    const startPage = await fetch(`${SITE}/api/preview-auth/start?returnTo=${encodeURIComponent("/rooms?x=<1>")}`);
+    assert.equal(startPage.status, 200);
+    const html = await startPage.text();
+    assert.match(html, /"providerId":"preview","callbackURL":"\/rooms\?x=\\u003c1>"/, "the page starts a sign-in that returns to the asked path, script-safe");
+    // What that page's script does: start the sign-in, then the browser lands on the form.
+    const jar = cookieJar();
+    const started = await signInRequest("/api/auth/sign-in/oauth2", { providerId: "preview", callbackURL: "/rooms" }, jar);
+    assert.equal(started.status, 200, await started.clone().text());
+    const authorizeUrl = new URL((await started.json() as { url: string }).url);
+    assert.equal(authorizeUrl.origin + authorizeUrl.pathname, `${SITE}/api/preview-auth/authorize`);
+    const formPage = await fetch(authorizeUrl);
+    assert.equal(formPage.status, 200);
+    assert.match(await formPage.text(), /name="identity" value="admin"/);
+    const submit = (code: string, identity: string, url = authorizeUrl) => fetch(url, {
+      method: "POST", redirect: "manual", headers: { "content-type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ code, identity }),
+    });
+    const wrong = await submit("not the passphrase", "admin");
+    assert.equal(wrong.status, 403, "a wrong passphrase gets the form again, never a ticket");
+    assert.equal(wrong.headers.get("location"), null);
+    const elsewhere = new URL(authorizeUrl); elsewhere.searchParams.set("redirect_uri", "https://evil.example/cb");
+    assert.equal((await submit(passphrase, "admin", elsewhere)).status, 400, "a ticket is only ever sent to this site's own callback");
+    assert.equal((await submit(passphrase, "nobody")).status, 403, "only the listed players");
+    const right = await submit(passphrase, "admin");
+    assert.equal(right.status, 302, await right.clone().text());
+    const back = new URL(right.headers.get("location")!);
+    assert.equal(back.origin + back.pathname, `${SITE}/api/auth/oauth2/callback/preview`);
+    // The ticket belongs to the browser that started the sign-in (state cookie + PKCE): another browser's callback fails.
+    const stranger = await callback(back, cookieJar());
+    assert.equal(stranger.status, 302);
+    assert.match(stranger.headers.get("location")!, /error/);
+    const done = await callback(back, jar);
+    assert.equal(done.status, 302, await done.clone().text());
+    assert.equal(done.headers.get("location"), "/rooms");
+    assert.ok(jar.jar[SESSION_COOKIE], "session cookie set");
+    const me = await client(await browserJwt(jar.header())).query("auth/user:me", {}) as { name: string; isAdmin: boolean };
+    assert.equal(me.name, "Ada Admin");
+    assert.equal(me.isAdmin, true, "the preview admin sees what admins see (ADMIN_EMAILS lists admin@preview.test)");
+    deploymentEnv("PREVIEW_SIGN_IN_CODE", undefined);
+    assert.equal((await client(await browserJwt(jar.header())).query("auth/user:me", {}) as { isAdmin: boolean }).isAdmin, false, "without the passphrase a preview account is no admin");
+  } finally {
+    deploymentEnv("PREVIEW_SIGN_IN_CODE", undefined);
+    deploymentEnv("ADMIN_EMAILS", "admin@example.test,unverified@example.test");   // scripts/dev.mjs
+  }
+  assert.equal((await fetch(`${SITE}/api/preview-auth/start`)).status, 404, "and off again");
+});
+
+// ---------------------------------------------------------------------------------------------
 test("device flow end to end, with wrong proofs, slow-down, replay, expiry and denial", async () => {
   const A = await login("alice"), alice = A.jwt;
   const B = await login("bob"), bob = B.jwt;
@@ -252,7 +308,7 @@ test("device flow end to end, with wrong proofs, slow-down, replay, expiry and d
     credentialId: claimed.body.credentialId, label: "Replit Agent (self-reported)", isAdmin: false, credentialKind: "device",
   });
   assert.equal((await post("/api/device/token", { credential: "cgc_" + "A".repeat(43) })).status, 401);
-  assert.equal((await post("/api/device/token", { credential: "nope" })).status, 400);
+  assert.equal((await post("/api/device/token", { credential: "nope" })).status, 401, "malformed: unknown, like any other credential the engine does not have");
 
   // Expiry: neither approval nor claim works after five minutes.
   const late = await deviceRequest(room.shortCode, "read");
