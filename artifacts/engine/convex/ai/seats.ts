@@ -20,7 +20,11 @@ import { isIdle, lastHumanActivity, membersOf } from "../lib/rooms";
 import { utcDay } from "../lib/world";
 import { LANGUAGE_SPECS, allowedLanguages, type GameSettings } from "@workspace/game-core";
 import { sandboxViews } from "../runtime/readiness";
+import { clockDoc } from "../game/state";
+import { QUEUE_MS, TURN_RUN_MS, tickOverdue } from "../lib/background";
 
+/** How long a seat waits before looking again at a game whose tick is overdue. */
+const TICK_OVERDUE_WAIT_MS = 3_000;
 /** Turn interval and backoff. */
 export const TURN_MS = 12_000;
 export const MAX_FAILURES = 5;
@@ -40,8 +44,9 @@ export const startAll = internalMutation({
     for (const member of members) {
       if (member.kind !== "ai" || !game.roster.some(r => r.id === member.godId)) continue;
       const chain = (member.aiChain ?? 0) + 1;
-      await ctx.db.patch(member._id, { aiChain: chain, aiFailures: 0 });
-      await ctx.scheduler.runAfter(1000 + 2500 * i++, internal.ai.turn.run, { gameId, godId: member.godId, chain });
+      const delay = 1000 + 2500 * i++;
+      await ctx.db.patch(member._id, { aiChain: chain, aiFailures: 0, aiNextAt: Date.now() + delay });
+      await ctx.scheduler.runAfter(delay, internal.ai.turn.run, { gameId, godId: member.godId, chain });
     }
   },
 });
@@ -61,6 +66,10 @@ export const turnContext = internalQuery({
     // chain: a human returning before the park lands would otherwise leave this seat dead for the rest of the game.
     if (isIdle(await lastHumanActivity(ctx))) return { waitUntil: Date.now() + TURN_MS, status: "Waiting: no human activity" };
     if (game.phase === "paused") return { waitUntil: game.pauseEndsAt, status: "Waiting for the pause to end" };
+    // A turn is background work (lib/background.ts): while its game's loop is behind, it waits rather than add to the
+    // load (and spends no tokens on a world that is not moving).
+    const clock = await clockDoc(ctx, gameId);
+    if (clock && tickOverdue({ phase: game.phase, lastTick: clock.lastTick }, Date.now())) return { waitUntil: Date.now() + TICK_OVERDUE_WAIT_MS, status: "Waiting for the game to catch up" };
     // No tokens are spent before the game's agent sandboxes can run the seat's summons: it waits (a failed one, longer).
     const sandboxes = await sandboxViews(ctx, allowedLanguages(game.settings as GameSettings));
     const notReady = sandboxes.find(s => s.state !== "ready");
@@ -90,9 +99,57 @@ export const afterTurn = internalMutation({
     const delay = args.waitUntil !== undefined ? Math.max(0, args.waitUntil - Date.now()) + 500 : Math.min(60_000, TURN_MS * 2 ** failures);
     const status = stopped ? `Stopped after ${MAX_FAILURES} failed turns (${args.status})`
       : args.ok || game.phase === "recovery" ? args.status : `${args.status}; retrying in ${Math.round(delay / 1000)} s`;
-    await ctx.db.patch(member._id, { aiFailures: failures, status });
-    if (stopped || game.phase === "recovery") return;
+    // aiNextAt: when the next turn is due; none when the chain ends here (the watchdog below restarts only a dead one).
+    const ends = stopped || game.phase === "recovery";
+    await ctx.db.patch(member._id, { aiFailures: failures, status, aiNextAt: ends ? undefined : Date.now() + delay });
+    if (ends) return;
     await ctx.scheduler.runAfter(delay, internal.ai.turn.run, { gameId: args.gameId, godId: args.godId, chain: args.chain });
+  },
+});
+
+/**
+ * The seat's turn is queued for a turn slot (engine/background.ts takeTurn), or has its slot and plays (`playing`). Its
+ * next turn is then due only after the longest the queue (lib/background.ts QUEUE_MS) or a turn (TURN_RUN_MS) may
+ * take, so the watchdog below never restarts a seat whose turn is waiting or still running; one that died is found
+ * two minutes after that.
+ */
+export const queued = internalMutation({
+  args: { gameId: v.id("games"), godId: v.string(), chain: v.number(), playing: v.optional(v.boolean()) },
+  handler: async (ctx, args) => {
+    const game = await ctx.db.get(args.gameId);
+    const member = game && await ctx.db.query("members").withIndex("by_room_god", q => q.eq("roomId", game.roomId).eq("godId", args.godId)).unique();
+    if (!member || member.aiChain !== args.chain) return;
+    await ctx.db.patch(member._id, args.playing ? { aiNextAt: Date.now() + TURN_RUN_MS } : { status: "Waiting for its turn", aiNextAt: Date.now() + QUEUE_MS });
+  },
+});
+
+/** A chain whose next turn is this long overdue is dead: its turn action died without running `afterTurn`. */
+export const CHAIN_OVERDUE_MS = 2 * 60_000;
+/**
+ * The seat watchdog (cron, each minute): a turn action that dies without a word (a timeout, a restart) schedules no next
+ * turn, which would silence the seat for the rest of the game. Every live game's AI seat whose next turn is more than
+ * CHAIN_OVERDUE_MS overdue gets a new chain (the old generation, should it still be alive, exits as stale).
+ */
+export const watchdog = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    let restarted = 0;
+    for (const phase of ["planning", "running", "paused"] as const) {
+      for (const game of await ctx.db.query("games").withIndex("by_phase", q => q.eq("phase", phase)).take(200)) {
+        if (!game.roster.some(r => r.kind === "ai")) continue;
+        for (const member of await membersOf(ctx, game.roomId)) {
+          if (member.kind !== "ai" || member.aiNextAt === undefined || now - member.aiNextAt <= CHAIN_OVERDUE_MS) continue;
+          if (!game.roster.some(r => r.id === member.godId)) continue;
+          const chain = (member.aiChain ?? 0) + 1;
+          console.log(`ai watchdog: restarting ${member.godId}'s chain in game ${game._id}: its turn was due ${now - member.aiNextAt} ms ago`);
+          await ctx.db.patch(member._id, { aiChain: chain, aiFailures: 0, aiNextAt: now + 1000 });
+          await ctx.scheduler.runAfter(1000, internal.ai.turn.run, { gameId: game._id, godId: member.godId, chain });
+          restarted++;
+        }
+      }
+    }
+    return { restarted };
   },
 });
 

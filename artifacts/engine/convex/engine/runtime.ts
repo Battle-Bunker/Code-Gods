@@ -82,7 +82,7 @@ export function inspectHere(source: string, settings: GameSettings): Promise<Ins
  * call list. Run by an action with that language's pool (runtime/acts.ts); acts asked for together (a tick wave, an
  * examination's concurrent acts) go in one call per language.
  */
-export function act(ctx: ActionCtx, source: string, language: StoredLanguage, input: ObjectValue, settings: GameSettings, seed: bigint): Promise<ActResult> {
+export function act(ctx: ActionCtx, source: string, language: StoredLanguage, input: ObjectValue, settings: GameSettings, seed: bigint, lane: ActLane = {}): Promise<ActResult> {
   // A past game's agent in a retired language (lib/language.ts) fails its acts as the agent's own fault.
   if (!isLanguage(language)) return Promise.reject(Object.assign(new Error(`${language} agents are no longer supported`), { code: "EXECUTION" }));
   return new Promise((resolve, reject) => {
@@ -99,17 +99,29 @@ export function act(ctx: ActionCtx, source: string, language: StoredLanguage, in
         for (let i = 0; i < queue!.length; i += ACT_BATCH) void sendActs(ctx, language, settings, queue!.slice(i, i + ACT_BATCH));
       });
     }
-    queue.push({ source, input: input as string | number, seed: seed.toString(), resolve, reject });
+    queue.push({ source, input: input as string | number, seed: seed.toString(), lane, resolve, reject });
   });
 }
-type ActRequest = { source: string; input: string | number; seed: string; resolve: (result: ActResult) => void; reject: (error: unknown) => void };
+/**
+ * How an act queues for its sandbox (game-runtime RequestOptions). `lane`: who waits for it. A game's tick (the
+ * default) goes first and gives each act the wave's `deadline` (past it nobody is waiting for the answer, so the
+ * sandbox drops the act instead of running it late). "human": a person's validate or summon (the assistant's on a
+ * person's behalf included), served right behind ticks. "background": an AI seat's examinations, after both.
+ */
+export type ActLane = { lane?: "human" | "background"; deadline?: number };
+const PRIORITY = { tick: 0, human: 1, background: 2 } as const;
+type ActRequest = { source: string; input: string | number; seed: string; lane: ActLane; resolve: (result: ActResult) => void; reject: (error: unknown) => void };
 /** Acts waiting to be sent, per action, room settings and language. */
 const actQueues = new WeakMap<ActionCtx, Map<GameSettings, Map<Language, ActRequest[]>>>();
 async function sendActs(ctx: ActionCtx, language: Language, settings: GameSettings, batch: ActRequest[]): Promise<void> {
   let replies: Awaited<ReturnType<typeof ctx.runAction<typeof internal.runtime.acts.run>>>["replies"];
   try {
+    // One lane per batch: the most urgent of its acts'; the earliest deadline.
+    const deadlines = batch.flatMap(r => (r.lane.deadline !== undefined ? [r.lane.deadline] : []));
+    const lane = batch.some(r => !r.lane.lane) ? undefined : batch.some(r => r.lane.lane === "human") ? "human" as const : "background" as const;
     ({ replies } = await ctx.runAction(internal.runtime.acts.run, { language, settings,
-      requests: batch.map(({ source, input, seed }) => ({ source, input, seed })) }));
+      requests: batch.map(({ source, input, seed }) => ({ source, input, seed })),
+      ...(lane ? { lane } : {}), ...(deadlines.length ? { deadline: Math.min(...deadlines) } : {}) }));
   } catch (error) {
     // The call itself failed (the other action ran out of memory, or the deployment refused it): the host's failure.
     const failure = Object.assign(new Error(`The ${LANGUAGE_SPECS[language].label} runtime is unavailable: ${(error as Error)?.message ?? error}`), { code: "UNAVAILABLE" });
@@ -124,14 +136,15 @@ async function sendActs(ctx: ActionCtx, language: Language, settings: GameSettin
   });
 }
 /** One act on this instance's pool of its language (runtime/acts.ts only). */
-export async function actHere(ctx: ActionCtx, source: string, language: Language, input: string | number, settings: GameSettings, seed: string): Promise<ActResult> {
+export async function actHere(ctx: ActionCtx, source: string, language: Language, input: string | number, settings: GameSettings, seed: string, lane: ActLane = {}): Promise<ActResult> {
   const room = actSettings(settings);
+  const options = { priority: PRIORITY[lane.lane ?? "tick"], ...(lane.deadline !== undefined ? { deadline: lane.deadline } : {}) };
   if (language === "typescript") {
     // The program first (another action compiles it), then this instance's pool runs it.
     const { js } = await compiledProgram(ctx, language, source, settings);
-    return runtimeFor(language).actCompiled(source, js, input, room, seed).catch(serverBug);
+    return runtimeFor(language).actCompiled(source, js, input, room, seed, options).catch(serverBug);
   }
-  return runtimeFor(language).act(source, input, room, seed).catch(serverBug);
+  return runtimeFor(language).act(source, input, room, seed, options).catch(serverBug);
 }
 
 type KnownProgram = Compiled | { error: { code: string; message: string } };

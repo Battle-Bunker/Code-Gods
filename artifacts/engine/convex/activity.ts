@@ -20,9 +20,10 @@ export async function touchActivity(ctx: MutationCtx, force = false) {
   if (doc && !force && now - doc.lastHumanActivityAt < 60_000) return { resumed: 0 };
   if (doc) await ctx.db.patch(doc._id, { lastHumanActivityAt: now });
   else await ctx.db.insert("activity", { key: "global", lastHumanActivityAt: now });
-  const parked = await ctx.db.query("games").withIndex("by_phase", q => q.eq("phase", "recovery")).take(200);
+  // Only the idle-parked ones, by index: games stopped for other reasons (however many) never crowd them out.
+  const parked = await ctx.db.query("games").withIndex("by_phase_autoResume", q => q.eq("phase", "recovery").eq("autoResume", true)).take(200);
   let resumed = 0;
-  for (const game of parked) if (game.autoResume) { await resumeGame(ctx, await withEngine(ctx, game)); resumed++; }
+  for (const game of parked) { await resumeGame(ctx, await withEngine(ctx, game)); resumed++; }
   return { resumed };
 }
 

@@ -5,7 +5,7 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { internalMutation, internalQuery } from "../_generated/server";
+import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
 import { publicSalienceOf } from "../game/readModel";
 import { liveGame, writeGame } from "../game/state";
 import { scheduleFill } from "../game/objectViews";
@@ -60,13 +60,20 @@ export const store = internalMutation({
     if (!await ctx.db.query("holdTables").withIndex("by_key", q => q.eq("key", key)).first()) {
       await ctx.db.insert("holdTables", { key, table, computedAt: Date.now() });
     }
-    if (!gameId) return;
-    const game = await ctx.db.get(gameId);
-    if (!game || game.holdState !== "computing") return;
-    const pending = (game.holdPending ?? []).filter(k => k !== key);
-    await ctx.db.patch(gameId, { holdPending: pending });
-    if (!pending.length) await ctx.scheduler.runAfter(0, internal.engine.hold.finish, { gameId });
+    if (gameId) await settleKey(ctx, gameId, key);
   },
+});
+async function settleKey(ctx: MutationCtx, gameId: Id<"games">, key: string) {
+  const game = await ctx.db.get(gameId);
+  if (!game || game.holdState !== "computing") return;
+  const pending = (game.holdPending ?? []).filter(k => k !== key);
+  await ctx.db.patch(gameId, { holdPending: pending });
+  if (!pending.length) await ctx.scheduler.runAfter(0, internal.engine.hold.finish, { gameId });
+}
+/** A game's pending key is in the cache already (another game computed it meanwhile): done, as `store` does. */
+export const settle = internalMutation({
+  args: { gameId: v.id("games"), key: v.string() },
+  handler: async (ctx, { gameId, key }) => settleKey(ctx, gameId, key),
 });
 
 /** The keys a computing game waits for (an empty list finishes at once); the start set `computing` (game/lobby.ts). */

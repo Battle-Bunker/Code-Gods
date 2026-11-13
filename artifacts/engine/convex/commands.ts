@@ -6,12 +6,14 @@ import { bindRuntime, sandboxGate } from "./engine/runtime";
  * receipt. Validate and summon examine the agent here first (the sandbox, a few hundred runs), then commit
  * through game/commands.ts:apply, which re-checks energy, the agent cap and the phase and stores the receipt.
  */
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import type { Language } from "@workspace/game-core";
 import { EXAMINATION_DEADLINE_MS, envelopeSchema, type CommandResult } from "@workspace/player-client";
 import { internal } from "./_generated/api";
 import { action, internalAction, type ActionCtx } from "./_generated/server";
-import { AgentFault, examineAgent } from "./engine/pricing";
+import { AgentFault, examinationKey, examineAgent, type StoredExamination } from "./engine/pricing";
+import { withBackgroundSlot } from "./engine/background";
+import { EXAMINATION_WAIT_MS } from "./lib/background";
 import { envelopeHash } from "./game/commands";
 import { DeadlineExceeded, examinationBusyMessage, within } from "./lib/deadline";
 import { fail, messageOf } from "./lib/errors";
@@ -42,14 +44,31 @@ export async function runEnvelope(ctx: ActionCtx, roomId: string, raw: unknown, 
     // The abuse cap, before the expensive part (throws RATE_LIMITED; nothing is receipted).
     await ctx.runMutation(internal.game.commands.claimExamination, { roomId: prepared.roomId, godId: prepared.godId });
     try {
-      const examining = examineAgent(ctx, prepared.examine.settings, command.language, command.source, prepared.examine.live);
+      // Examinations are background work, capped deployment-wide (engine/background.ts) so every game's tick keeps
+      // its capacity: past the cap this one waits a few seconds for a slot, then answers "busy" (retryable).
       // A person (the forge, the assistant's validate_agent, an agent tool) is waiting: under a congested sandbox queue
       // the examination is given up at its deadline and the caller told so. An AI seat's turn has its own bounds.
-      const e = asAi ? await examining : await within(examining, EXAMINATION_DEADLINE_MS);
+      const examine = prepared.examine, asked = Date.now();
+      // The program's remembered runs (lib/examinationCache.ts). When they answer the whole examination (a summon
+      // after its validate, an example another player already examined on the same objects), nothing runs in the
+      // sandbox and no slot is needed: the answer is immediate however busy the deployment is.
+      const stored = await ctx.runQuery(internal.engine.examinationCache.get, { key: examinationKey(examine.settings, command.language, command.source) }) as StoredExamination;
+      const who = asAi ? { lane: "background" as const, stored } : { lane: "human" as const, deadline: asked + EXAMINATION_DEADLINE_MS, stored };
+      const remembered = !stored ? undefined
+        : await examineAgent(ctx, examine.settings, command.language, command.source, examine.live, { ...who, cacheOnly: true }).catch(() => undefined);
+      const examineNow = () => examineAgent(ctx, examine.settings, command.language, command.source, examine.live, who);
+      // An AI seat's turn already holds its own slot (ai/turn.ts): its examinations run under that one.
+      const ran = remembered ? { busy: false as const, value: remembered }
+        : asAi ? { busy: false as const, value: await examineNow() }
+        // The wait for a slot counts towards the deadline: the caller's own (the app's) starts when it asked.
+        : await withBackgroundSlot(ctx, "examination", EXAMINATION_WAIT_MS, () => within(examineNow(), EXAMINATION_DEADLINE_MS - (Date.now() - asked)));
+      if (ran.busy) fail("UNAVAILABLE", "The agent sandbox is busy with other players' agents: nothing was validated, summoned or paid. Send the same command again in a few seconds.");
+      const e = ran.value;
       examined = { gameId: envelope.gameId!, source: command.source, language: command.language, twins: prepared.examine.twins, result: e };
     } catch (error) {
+      if (error instanceof ConvexError) throw error;   // the "busy" answer above
       // Not finished in time: nothing is receipted (the commit below is never reached), so the identical envelope can
-      // be sent again. The abandoned examination's remaining runs end by their own limits.
+      // be sent again. The sandbox drops the abandoned examination's remaining runs at the same deadline.
       if (error instanceof DeadlineExceeded) {
         console.error(`Agent examination given up after ${error.ms} ms (sandbox busy)`);
         fail("UNAVAILABLE", examinationBusyMessage(command.type, error.ms));
