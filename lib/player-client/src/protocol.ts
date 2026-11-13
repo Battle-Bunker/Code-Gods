@@ -135,6 +135,8 @@ export const observationSchema = z.object({
     commitClause: z.boolean().optional(), objectSelection: z.enum(["uniform", "shelter"]).optional(),
     /** Paid observation (docs/energy-model.md §11): how objects are shown ("paid": as last told; "boards": the board live, the others' interest as last told; "agents": as last told, and no paid looks) and what one look at one object costs (absent when a god cannot look). */
     observation: z.enum(["free", "boards", "paid", "agents"]).optional(), lookPrice: z.number().optional(),
+    /** What reading the whole of one object costs an act, in energy (its full read at the read price): the price of an observer agent's turn, before the offer. */
+    fullRead: finite.optional(),
     /** How a change is priced (game-core settings.costModel; absent on older servers: "set-v1"). */
     costModel: z.enum(COST_MODELS as readonly [CostModel, ...CostModel[]]).optional() }).optional(),
   self: z.object({ godId: id, label: z.string().max(128), isAI: z.boolean(), energy: finite, ready: z.boolean(), pauseUsed: z.boolean().optional(),

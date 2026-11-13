@@ -36,12 +36,19 @@ const EVENT = "{ seq: number; worldSeconds: number; type: 'phase' | 'object.spaw
   + "own?: { netBits: number }; peerNetBits?: number; peerCare?: number; payoff?: number; reason?: string; "
   + "source?: string; summonCost?: number; expectedActCost?: number /* agent.summoned: source, price and act cost only when mine */; powerShare?: number; share?: number /* agent.summoned powerShare; agent.power share (mine only) */; price?: number; count?: number /* god.looked (yours, paid observation): energy paid and objects looked at */ }";
 
+/**
+ * Paid observation (docs/energy-model.md §11): a dataset has no price of its own. In a live game whose looking costs
+ * energy it holds what the player has been told and nothing else, so what an analysis can use is what was paid for.
+ */
+const TOLD_OBJECTS = " Where looking costs energy (economy.observation is boards, paid or agents) and the game is live, each object is as you were last told it (knownAt: the world time), not as it is now.";
+const TOLD_LOG = " Where looking costs energy and the game is live, it holds only births and your own agents' events (and your own looks, god.looked): another god's change is not in it.";
+
 export const DATASETS: { readonly [K in DatasetName]: DatasetSpec } = {
   objects: {
     shape: `${OBJECT}[]`,
     about: "Every live object of the current game with YOUR scores: own.netBits (your utility's bits for it, the defence goal's penalty included), "
       + "peerCare (how much the other gods together care, the only thing disclosed about them), and payoff (your bits times their care: what the object "
-      + "earns you). Use it to rank, filter or cluster objects; ids match the objects panel.",
+      + "earns you). Use it to rank, filter or cluster objects; ids match the objects panel." + TOLD_OBJECTS,
   },
   my_utility: {
     shape: "{ name: string; summary: string; source: string; language: string; utility: { familyId: string; params: unknown; penalty?: { familyId: string; params: unknown } } | null; game: { gameId: string; settings: Record<string, unknown> } | null } | null",
@@ -66,13 +73,13 @@ export const DATASETS: { readonly [K in DatasetName]: DatasetSpec } = {
     about: "The game's event log as you see it, one entry per event, oldest first, from the newest `limit` tick batches: spawns and transformations with "
       + "the object's new value and YOUR scores after it (own.netBits, peerCare, payoff); mine: true and calls / cost on your own agents' moves only; "
       + "agent.failed for your agents' failed acts; agent.summoned and agent.destroyed for every agent (mine: true, with source, language, summonCost, "
-      + "expectedActCost and the starting account, only for yours); agent.skipped when your agent returned no calls (it paid only what it read); agent.power when you re-allocated an agent's power share; phase changes. Use it for what changed when, which mutators paid off, or your agents' activity.",
+      + "expectedActCost and the starting account, only for yours); agent.skipped when your agent returned no calls (it paid only what it read); agent.power when you re-allocated an agent's power share; phase changes. Use it for what changed when, which mutators paid off, or your agents' activity." + TOLD_LOG,
   },
   trajectories: {
     shape: "{ objectId: string; points: { seq: number; worldSeconds: number; value: number | string; ownNetBits: number; peerNetBits: number; payoff: number }[] }[]",
     limit: { default: 400, max: 2000 }, gameId: true,
     about: "Per object, your net bits, the others' aggregate and your payoff over the game (the bits-over-time series), from the first batch up to `limit` batches. "
-      + "Use it for trends, correlations over time, or which objects are rising.",
+      + "Use it for trends, correlations over time, or which objects are rising." + TOLD_LOG,
   },
   chat: {
     shape: "{ id: string; authorId: string; authorName: string; kind: string; text: string; timestamp: number }[]",
@@ -113,7 +120,8 @@ export const DATASETS: { readonly [K in DatasetName]: DatasetSpec } = {
     about: "The game's public transformation log as columns (one index per event, oldest first; `limit` is rows): every spawn and transformation, "
       + "unattributed while live (mine: your own), with the value before and after and YOUR bits and the OTHER gods' summed bits before and after "
       + "(dOwn, dOthers: the changes). While live the others' sums carry the game's disclosure noise (peerNoiseBits, fixed per value; exact after the end). others is how many other gods there are. Use it to infer what the other gods want: which values raise "
-      + "or lower dOthers, which objects their agents keep moving, periodicities. Pair with utility_candidates and the fit_utility_mixture tool.",
+      + "or lower dOthers, which objects their agents keep moving, periodicities. Pair with utility_candidates and the fit_utility_mixture tool."
+      + " Where looking costs energy and the game is live, it is YOUR KNOWLEDGE OVER TIME instead: one row per time you were told an object (its birth, your agent's change or whole read, a look you paid for), with the value, your bits and the others' sum then; seq is 0, mine false, and before is known only when you were told the version just before. More samples cost looks (or an observer agent's turns).",
   },
   utility_candidates: {
     shape: "{ others: number; defenceGoals: boolean; penaltyWeight: number; families: { familyId: string; name: string; theme: string; role: 'reward' | 'penalty'; tags: string[]; params: Record<string, unknown>[]; count: number }[] } | null",
