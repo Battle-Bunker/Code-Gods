@@ -7,7 +7,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  FIRST_AGENT_HINT, STARTER_AGENT_HINT, armedStep, armedText, energyHint, firstAgentFill, firstAgentHint, untouchedExample, lacksEnergy, readyText, summonReady, summonedText, COPY_HINT, REPLACE_WHY, descriptionToSend, keepsNameNote, priceKey, rememberPrice, startsWithLine, summonShare, replaceBoundary, starterSwap, DIFFERENT_IDEAS, PRICE_AFTER_CHECK, replaceQuestion, shelfOpen, starterShelf, COMPARISON_CAVEAT, previousTarget, putBackLabel, putBackText, BUSY_NOTHING_CHANGED, afterCheck, checkedLine, versionComparison, PENDING_REPLACE_MS, pendingReplaceOnReceipt, pendingReplaceOnSend, sameVersionNote, draftOrigin, replaceLabel, replaceOffer, replacedText, FIRST_SUMMON_MAX_AGE_MS, FIRST_SUMMON_WARMING_MS, firstSummonLabel, isCopy, replaceNeedsConfirm, firstSummonStep, nextFreeName, proposedName, secondAgentHint, storeAfterSummonText, type ArmedSummon, type Examples, type FirstAgentState,
+  FIRST_AGENT_HINT, STARTER_AGENT_HINT, armedStep, armedText, energyHint, firstAgentFill, firstAgentHint, untouchedExample, lacksEnergy, readyText, summonReady, summonedText, COPY_HINT, REPLACE_WHY, descriptionToSend, keepsNameNote, priceKey, rememberPrice, startsWithLine, summonShare, replaceBoundary, starterSwap, DIFFERENT_IDEAS, PRICE_AFTER_CHECK, replaceQuestion, shelfOpen, starterShelf, COMPARISON_CAVEAT, previousTarget, putBackLabel, putBackText, BUSY_NOTHING_CHANGED, afterCheck, checkedLine, versionComparison, PENDING_REPLACE_MS, pendingReplaceOnReceipt, pendingReplaceOnSend, sameVersionNote, draftOrigin, replaceLabel, replaceOffer, replacedText, FIRST_SUMMON_MAX_AGE_MS, FIRST_SUMMON_WARMING_MS, firstSummonLabel, isCopy, replaceNeedsConfirm, firstSummonStep, nextFreeName, proposedName, secondAgentHint, storeAfterSummonText, starterOrigin, type ArmedSummon, type Examples, type FirstAgentState,
 } from "../src/core/panels/first-agent.ts";
 
 const py = { name: "Mirror maker", source: "# My goal: mirrors\ndef agent(grid):\n    return []\n", specific: true };
@@ -229,8 +229,8 @@ test("a replace accepted only through a retry still writes its confirmation and 
 });
 
 test("a replace is one command: the confirmation says the price in ⚡, in our own words", () => {
-  assert.equal(replacedText("Simple spread keeper", { cost: 178.4 }), "Replaced: Simple spread keeper now runs your new version for 178 ⚡.");
-  assert.equal(replacedText("Simple spread keeper"), "Replaced: Simple spread keeper now runs your new version.", "price unknown: not guessed");
+  assert.equal(replacedText("Simple spread keeper", { cost: 178.4 }), "Replaced: Simple spread keeper now runs your new version for 178 ⚡. It keeps its stored ⚡ and its share of your power; the price came from your own energy.");
+  assert.equal(replacedText("Simple spread keeper"), "Replaced: Simple spread keeper now runs your new version. It keeps its stored ⚡ and its share of your power; the price came from your own energy.", "price unknown: not guessed");
   assert.ok(!/bits/.test(replacedText("Keeper", { cost: 178.4 })));
   // Two agents run the old version: only the one the draft came from is replaced, and the pane says so.
   const twins = [{ id: "a1", name: "Keeper", source: "S" }, { id: "a2", name: "Keeper 2", source: "S" }, { id: "a3", name: "Other", source: "T" }];
@@ -278,8 +278,8 @@ test("the previous version belongs to one game and one agent: never a twin with 
 test("putting the previous version back pays its price again and says so, before and after", () => {
   assert.equal(putBackLabel(169.2), "Put the previous version back · costs 169.2 ⚡");
   assert.equal(putBackLabel(undefined), "Put the previous version back · costs its summon price again");
-  assert.equal(putBackText("Keeper"), "Put back: Keeper runs the previous version again.");
-  assert.equal(putBackText("Keeper", { cost: 169.2 }), "Put back: Keeper runs the previous version again for 169 ⚡.");
+  assert.equal(putBackText("Keeper"), "Put back: Keeper runs the previous version again. It keeps its stored ⚡ and its share of your power; the price came from your own energy.");
+  assert.equal(putBackText("Keeper", { cost: 169.2 }), "Put back: Keeper runs the previous version again for 169 ⚡. It keeps its stored ⚡ and its share of your power; the price came from your own energy.");
   assert.equal(BUSY_NOTHING_CHANGED, "The game is busy; nothing changed. Try again.");
 });
 
@@ -394,4 +394,12 @@ test("a replace sends a description only when the player changed it for this dra
   assert.equal(descriptionToSend("  ", "Pairs to nine"), undefined, "an emptied box is not a new description");
   assert.equal(descriptionToSend("New", undefined), "New");
   assert.equal(keepsNameNote("Mirror maker"), "Replacing keeps the name Mirror maker. A new name here is for 'Summon beside it'.");
+});
+
+test("a starter from the shelf is offered as the new version of the agent in the editor, or of the only agent", () => {
+  assert.equal(starterOrigin("a1", ["a1", "a2"]), "a1");
+  assert.equal(starterOrigin(null, ["a1"]), "a1", "the only agent: Replace it, not a second agent beside it");
+  assert.equal(starterOrigin("gone", ["a1"]), "a1");
+  assert.equal(starterOrigin(null, ["a1", "a2"]), null, "several agents and none in the editor: a new agent");
+  assert.equal(starterOrigin(null, []), null);
 });

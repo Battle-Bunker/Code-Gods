@@ -25,7 +25,7 @@ import { forgeLanguage, forgeLanguages, forgeSandbox } from "@/core/game/languag
 import { useAffordances } from "@/core/use-affordances";
 import { useDockActions } from "@/dock/actions";
 import { summonNeeds } from "./summon-needs";
-import { boundaryOf, descriptionToSend, keepsNameNote, priceKey, startsWithLine, summonShare, starterSwap, PUTTING_BACK, DIFFERENT_IDEAS, replaceQuestion, shelfOpen, starterShelf, COMPARISON_CAVEAT, MOVE_MEANS, afterCheck, checkedLine, versionComparison, REPLACE_WHY, draftOrigin, replaceLabel, replaceOffer, sameVersionNote, COPY_HINT, COPY_LABEL, REPLACE_QUESTION, SUMMONED_NEXT, isCopy, replaceNeedsConfirm, armedStep, armedText, energyHint, firstAgentFill, firstAgentHint, firstSummonStep, lacksEnergy, nextFreeName, proposedName, secondAgentHint, storeAfterSummonText, summonReady, summonedText, untouchedExample, type ArmedSummon, type Example } from "./first-agent";
+import { boundaryOf, starterOrigin, descriptionToSend, keepsNameNote, priceKey, startsWithLine, summonShare, starterSwap, PUTTING_BACK, DIFFERENT_IDEAS, replaceQuestion, shelfOpen, starterShelf, COMPARISON_CAVEAT, MOVE_MEANS, afterCheck, checkedLine, versionComparison, REPLACE_WHY, draftOrigin, replaceLabel, replaceOffer, sameVersionNote, COPY_HINT, COPY_LABEL, REPLACE_QUESTION, SUMMONED_NEXT, isCopy, replaceNeedsConfirm, armedStep, armedText, energyHint, firstAgentFill, firstAgentHint, firstSummonStep, lacksEnergy, nextFreeName, proposedName, secondAgentHint, storeAfterSummonText, summonReady, summonedText, untouchedExample, type ArmedSummon, type Example } from "./first-agent";
 import { progressLine } from "@/core/game/command-deadline";
 import { PRICE_GROWS, otherDiagnostics, priceParts, storeTooSmall } from "./validation-text";
 import { OBSERVER_DESCRIPTION, OBSERVER_NAME, observerRate, observerSource, rateText } from "./observer";
@@ -213,10 +213,13 @@ function Editor({ language, allowed, assistantDraft, showHelpers, ended, onlyEdi
   }, [obs, language, instance?.objectType, ended]);
   // The observer comes with its own name (the next free one) and description: under the name of the agent it replaced,
   // a player summoned an observer called "Simple pair maker".
-  // A starter from the shelf: loaded like the observer, as a NEW agent (no origin), under its own name unless the player typed one.
+  // A starter from the shelf is another version of an agent for the same goal: it is offered as the new version of the
+  // agent in the editor, or of the player's only agent, so Replace comes first (a walker summoned it beside the first,
+  // and two agents with different ideas undo each other's work). With several agents and none in the editor it is a
+  // new agent. The name is the starter's, for "Summon beside it" (a replace keeps the agent's own).
   const loadStarter = (starter: { name: string; source: string }) => {
     setAskReplace(null);
-    runner.setOrigin(null);
+    runner.setOrigin(starterOrigin(origin, agents.map(a => a.id)));
     runner.setDraft({ source: starter.source });
     if (!nameTyped.current) setName(nextFreeName(starter.name, agents.map(a => a.name), AGENT_NAME_MAX));
     // The observer's own description does not describe a starter ("Only looks…" on an agent that changes grids).
