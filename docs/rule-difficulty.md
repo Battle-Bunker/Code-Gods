@@ -750,3 +750,55 @@ The brainstorm proposed "an improving move on at least 99% of random boards". It
   at 32 energy (one to four moves): compare pools on `e64` and `rateE`, with `--starts 64` when the difference matters.
 - **No agent-ladder estimate yet.** The cheapest template agent that reaches X% of the top, priced in ast-bits, was
   proposed but not built. Card bits plus `DIFF` and `esc2` stand in for it.
+
+## 9. Win share by dealt rule, and what would make a single game fair (2026-11-13)
+
+The thresholds of §5 make rules comparably simple. They do not make a game fair: on the beginner pool the dealt rule
+decides most single games. Measured with the coordination model (`lib/game-utilities/scripts/coordination.ts`,
+docs/beginner-pool.md §5 and §6, raw tables in `docs/balance-results-2026-11-13/`), 3 players, every god playing the
+same style, win share by dealt rule (fair 33%), lowest to highest:
+
+| Deal and scoring | greedy | considerate | deny (spoiler) |
+|---|---|---|---|
+| As shipped (600 games) | 1% (Magic Eighteen) to 83% (Opposite Nines) | 9% to 93% (Magic Eighteen) | 21% to 87% (Opposite Nines) |
+| Every rule scaled to a best board of 26 bits (`--equal-tops 26`, 300 games) | 15% to 63% | 4% to 96% | 1% to 68% |
+| Every rule scaled so reference greedy play holds 15 bits per object: "par" (`--equal-par 15`, 600 games) | 4% to 63% | 1% to 95% | 0% to 79% |
+| Pool of five without the three outliers (`--pool`, 300 games) | 9% to 52% | 10% to 60% | 22% to 50% |
+| Each of the 56 fixed three-rule deals (`combos`, 60 games each) | 0 of 56 keep every rule within 20–45% under all three styles; best 65/10/25 | | |
+| Symmetric deal (one family, turned or relabelled) | not possible: no beginner rule has more than 2 variants under rotation, reflection and 9 − d | | |
+| Bid phase, truthful greedy bidders (docs/bid-phase.md) | spread 41 → 9 to 22 points | not measured | not measured |
+
+**The finding.** Points on an object are own bits × the others' bits, so the totals at a table sit close together and a
+small systematic edge wins nearly every game. That edge is not how many bits a rule holds: par equalised every rule's
+own bits per object (14.7 to 15.6) and Mirrormancer still won 4% under greedy. **The winner is set by the rule pair's
+conflict (how one rule's good boards line up with the others', the SYN measure of §2.4) together with the table's
+style**, and each style favours a different rule (Opposite Nines under greedy and spoiling, Magic Eighteen under
+considerate play). Inside one fixed deal the outcome is often close to certain: one rule wins at least 95% in 22 of
+the 56 deals under greedy.
+
+**Shipped.** Not a scoring change: a room that plays again with the same players passes the rules one seat along until
+everyone has held each (docs/beginner-pool.md §6). Fair over a rotation by construction; each single game is as before.
+
+### What would make a single game fair
+
+Ruled out, with numbers above: a constant per rule on bits (equal tops, par) or on points (a fixed handicap is the
+same class: it moves the edge, and the edge's sign depends on the style); choosing the pool or the deal from the
+existing eight; a symmetric deal from the existing families; narrowing dealt parameters (only Magic Eighteen has one).
+
+Left untried, for the owner to decide on scoring:
+
+1. **Score against the same deal's reference outcome.** At the deal, play the table's three rules with a reference
+   agent (the shipped example agents, or greedy) offline, many times, and score each player by their points over the
+   reference player's points in their seat. It removes the deal's edge for the reference style exactly; whether it
+   holds for other styles is the open question, since par (its per-rule average) did not. Information-theoretic form:
+   bits of the final board under the distribution of boards reference play reaches on this deal, not under the spawn
+   prior.
+2. **Conflict-matched deals.** Deal only combinations whose pairwise conflicts are equal (every pair at the same SYN),
+   which needs new rules: none of the 56 existing triples is close.
+3. **Rules designed for a symmetric deal.** A chiral family with at least 4 distinct turned or relabelled variants that
+   conflict moderately with each other; every seat is then equal by construction, and the conflict comes from the
+   parameters.
+4. **A match inside one sitting.** The rotation compressed into one game (rules passed along every 100 s): fair by
+   construction, but each player must rewrite their agent twice, which a first game should not ask.
+5. **The bid phase as default.** Already built; levels greedy tables when bids are accurate; asks a beginner to price
+   rules they have not played.
