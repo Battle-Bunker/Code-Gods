@@ -57,6 +57,8 @@ export interface CompactFaceProps<S, P> {
   readonly before?: S;
   /** The cheapest move that makes the object rarer, drawn as a hint: true computes it here (own rule only), or pass one. */
   readonly next?: boolean | Move<S> | null;
+  /** When the object does not score (a vertical line, for a rule that reads its y-intercept): "To score: <the move>". */
+  readonly toScore?: boolean;
 }
 
 /** The rule's primary representation at 160 × 100 with its marks, the bits, one line per part, and the next move. */
@@ -66,10 +68,13 @@ export function CompactFace<S, P>(props: CompactFaceProps<S, P>): ReactElement {
   const e = a.sites[site]!.evaluation;
   const parts = a.sites[site]!.parts;
   const rep = props.rep ?? props.rule.family.main.rep;
-  const next = useMemo(
-    () => (props.next === true ? (a.score === null && !props.value ? null : moves(props.rule, props.state, props.value, { k: 1 })[0] ?? null) : props.next || null),
-    [props.next, props.rule, props.state, props.value, a.score],
-  );
+  // The next move (asked for), or, not scoring and asked for (`toScore`), the cheapest move that makes it score: one
+  // search either way, only when the caller wants a hint.
+  const next = useMemo(() => {
+    if (props.next !== true && !(props.toScore && a.score === null)) return props.next || null;
+    if (a.score === null) return moves(props.rule, props.state, props.value, { k: 1 }).find(m => m.utility !== null) ?? null;
+    return props.next === true ? moves(props.rule, props.state, props.value, { k: 1 })[0] ?? null : null;
+  }, [props.next, props.toScore, props.rule, props.state, props.value, a.score]);
   const bits = bitsLine(a);
   return (
     <div className="v2v v2v-compact-face" data-scoring={a.score === null ? undefined : ""}>
@@ -79,7 +84,7 @@ export function CompactFace<S, P>(props: CompactFaceProps<S, P>): ReactElement {
       {a.worst
         ? <div className="v2v-face-why">{a.worst}</div>
         : parts.map(p => <div key={p.term} className="v2v-face-part" data-role={p.role} title={p.sentence}>{partLine(p)}</div>)}
-      {next && <div className="v2v-face-next" title={next.words}>next: {next.words}{next.bits !== null ? ` → ${fmtBits(next.bits)}` : ""}</div>}
+      {next && <div className="v2v-face-next" title={next.words} data-testid={a.score === null ? "text-to-score" : undefined}>{a.score === null ? "To score" : "next"}: {next.words}{a.score === null && next.text.length <= 28 && !next.words.includes(next.text) ? ` → ${next.text}` : ""}{next.bits !== null ? ` → ${fmtBits(next.bits)}` : ""}</div>}
     </div>
   );
 }

@@ -24,7 +24,7 @@ test("equation text: signs fold into operators, implied 1s and zero terms drop",
   assert.equal(repText(lineType, mc(0, -4), "si"), "y = −4");
   assert.equal(repText(lineType, mc(q(1, 2), q(11, 2)), "si"), "y = ½x + 5½");
   assert.equal(repText(lineType, mc(-3, 10), "gen"), "3x + y − 10 = 0");
-  assert.equal(repText(lineType, abc(1, 0, -3), "gen"), "x − 3 = 0");
+  assert.equal(repText(lineType, abc(1, 0, -3), "gen"), "x = 3");
   assert.equal(repText(lineType, abc(1, 0, -3), "si"), "a vertical line has no gradient or y-intercept");
   assert.equal(repText(lineType, mc(2, 1), "seq"), "3, 5, 7, 9, … (+ 2 each time; start 1)");
   assert.equal(repText(lineType, mc(2, -1), "mach"), "1 → × 2 → − 1 → 1");
@@ -115,4 +115,20 @@ test("the storyboard's compact plane: the x-intercept ringed, minute 3 ticked, t
   assert.match(html, /class="ring"/);
   assert.match(html, /data-ref="cart\.xAxisMark\(x=3\)"/);
   assert.match(html, /data-mark="measure"[^>]*>.*⅓/);
+});
+
+test("the pegboard (Exact Change's coins): the line across a board of pegs, the pegs it passes through lit, the ways in words", async () => {
+  const { pegsOn } = await import("../src/render/pegboard.tsx");
+  const { normalise } = await import("@workspace/v2-linear");
+  // 2x + 3y = 12: (0, 4), (3, 2), (6, 0).
+  const s = { lines: [normalise(2n, 3n, -12n) as never] } as LineState;
+  const html = renderToStaticMarkup(<RepView type={lineType} state={s} rep="coins" size="expanded" />);
+  assert.doesNotMatch(html, /no drawing/);
+  assert.equal((html.match(/class="peg" data-on=""/g) ?? []).length, 3, "three ways to pay");
+  assert.match(html, /<line[^>]*class="line"/, "the line is drawn across the board");
+  assert.equal(repText(lineType, s, "coins"), "the bill 12: 3 ways to pay");
+  assert.deepEqual(pegsOn({ from: { x: q(0), y: q(4) }, to: { x: q(1), y: q(10, 3) } }, 0, 12), [{ x: 0, y: 4 }, { x: 3, y: 2 }, { x: 6, y: 0 }]);
+  // Not a coin line: the board says why.
+  const neg = renderToStaticMarkup(<RepView type={lineType} state={mc(2, 3)} rep="coins" size="expanded" />);
+  assert.match(neg, /both positive/);
 });

@@ -106,14 +106,16 @@ test("plane: two cited points at the same place get one label", async () => {
   assert.equal((drawn.match(/\(1, 4\)/g) ?? []).length, 1);
 });
 
-test("compact face: the main part's quantity, target and distance; a cited implicit coefficient is shown", async () => {
+test("compact face: the main part's quantity, target and distance; a cited coefficient of 1 marks its variable, never a written 1", async () => {
   const { mMeetsC } = await import("@workspace/v2-linear");
   const tri = { type: lineType, family: triangleArea, params: { A: 8 }, variant: lineQ };
   assert.match(text(renderToStaticMarkup(<CompactFace rule={tri} state={mc(2, -6)} />)), /area 9 · off by 1/);
   const mmc = { type: lineType, family: mMeetsC, params: {}, variant: lineQ };
   const html = renderToStaticMarkup(<CompactFace rule={mmc} state={mc(1, 5)} />);
   assert.match(text(html), /gradient 1, y-intercept 5 · off by 4/);
-  assert.match(html, /data-ref="si\.m"[^>]*>(<span[^>]*>)?<span class="v2v-implied">1<\/span>/);
+  // The mark sits on the variable (the element node is "x"); a faint "1" read as "1x" in playtest round 10.
+  assert.match(html, /data-ref="si\.m"[^>]*data-focus[^>]*>(<span[^>]*>)*x</);
+  assert.doesNotMatch(html, /v2v-implied|>1<\/span><span class="v2v-var">x/);
 });
 
 test("identity badges: the elements a part reads carry its role in every view, projected by meaning", async () => {

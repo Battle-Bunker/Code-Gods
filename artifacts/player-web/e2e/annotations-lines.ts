@@ -154,6 +154,8 @@ try {
     const text = await page.locator(".la-page").innerText();
     assert.doesNotMatch(text, /\d\/\d/, `${file}: a fraction written with a slash`);
     assert.doesNotMatch(text, /NaN|undefined|Infinity/, `${file}: a broken number`);
+    assert.doesNotMatch(text, /no drawing for/, `${file}: a view without a drawing`);
+    assert.doesNotMatch(text, /(^|[^\d⁄₀-₉⁰-⁹.,])1 ?[xy]\b|−1 ?[xy]\b|\+ 0(?![\d.,⁄])|\+ −|− −/, `${file}: an equation written as no one writes it`);
     assert.match(text, /[½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞]|⁄/, `${file}: the rational line's fractions are typeset`);
     const bad = await page.evaluate(() => {
       const out: string[] = [];
@@ -182,6 +184,26 @@ try {
       assert.ok(buf.length <= MAX, `${file}: ${buf.length} bytes`);
       writeFileSync(`${OUT}/${file}.jpg`, buf);
     }
+    await page.close();
+    console.log(`ok ${file}`);
+  }
+
+  // A vertical line (x = 3), about 30% of newborn lines on line-q: every view names it, the compact face says what would
+  // make it score.
+  for (const [frame, width] of [["line", 1440], ["line", 390], ["compact", 1440], ["compact", 390]] as const) {
+    const file = `vertical-prime-landing-${frame}-${width}`;
+    const page = await browser.newPage({ viewport: { width, height: 900 }, deviceScaleFactor: OUT ? 2 : 1 });
+    const errors: string[] = [];
+    page.on("pageerror", e => errors.push(e.message));
+    await page.goto(`${BASE}/annotations-lines.html?rational=prime-landing&vertical=1&frame=${frame}`);
+    await page.locator(".v2v-expanded, .la-compact").first().waitFor();
+    assert.deepEqual(errors, [], `${file}: page errors`);
+    const text = await page.locator(".la-page").innerText();
+    assert.match(text, /x = 3/, `${file}: the line is named`);
+    assert.doesNotMatch(text, /x − 3 = 0|0y/, `${file}: written as a person writes it`);
+    if (frame === "compact") assert.match(text, /To score: /, `${file}: what would make it score`);
+    else assert.match(text, /What would make it rarer/, `${file}: the moves`);
+    if (OUT) writeFileSync(`${OUT}/${file}.jpg`, await page.locator(".la-page").screenshot({ type: "jpeg", quality: 70 }));
     await page.close();
     console.log(`ok ${file}`);
   }

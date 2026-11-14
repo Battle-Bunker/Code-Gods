@@ -83,10 +83,11 @@ export const playOps = [
   }),
   affordance({
     id: "object.read", title: "Read an object in one representation", group: "objects", scope: "game",
-    description: "One object's state shown in one representation: its static elements (coordinates and derived). Free for a human; `bits` is what an agent pays for the same read (the coordinates' code lengths).",
+    description: "One object's state shown in one representation: its static elements (coordinates and derived), and for an equation the line as a person writes it (`text`, e.g. \"y = −x + 12\", \"x = 3\"): quote it as written. Free for a human; `bits` is what an agent pays for the same read (the coordinates' code lengths).",
     tooltip: "See an object as an equation, a graph, a table…", keywords: ["read", "view", "representation", "equation", "graph"],
     params: obj({ objectId: id, rep, site }),
-    result: z.object({ rep: z.string(), site: z.number().int(), elements: z.record(z.string(), elementValue), bits: z.number() }),
+    result: z.object({ rep: z.string(), site: z.number().int(), elements: z.record(z.string(), elementValue), bits: z.number(),
+      text: z.string().nullable().optional().describe("For an equation, the object written as a person writes it; null for a picture.") }),
     contexts: GAME, caller: "member", effect: "read", confirm: "none", runs: "server",
   }),
   affordance({

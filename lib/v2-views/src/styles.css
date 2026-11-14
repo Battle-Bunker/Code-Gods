@@ -74,7 +74,6 @@
 .v2v-el[data-cand] { color: var(--v2v-cand); background: var(--v2v-cand-bg); }
 .v2v-el[data-lit] { background: var(--v2v-lit); box-shadow: 0 0 0 2px var(--v2v-lit); }
 .v2v-el[data-changed] { text-decoration: underline 2px var(--v2v-changed); text-underline-offset: 3px; }
-.v2v-implied { opacity: 0.45; }
 .v2v-was { color: var(--v2v-faint); text-decoration: line-through; font-size: 0.75em; margin-right: 2px; }
 
 .v2v-rep[data-size="expanded"] .v2v-undef { min-height: 200px; }
@@ -414,3 +413,14 @@
 .v2v-climb-history [data-dir="-1"] { color: var(--v2v-focus); }
 .v2v-climb-verdict { margin: 2px 0 0; font-size: 12px; color: var(--v2v-muted); }
 .v2v-climb-history[data-kind="undoing"] .v2v-climb-verdict { color: var(--v2v-focus); font-weight: 600; }
+
+/* The pegboard (Exact Change's coins): pegs at the whole points, the line across, the pegs it passes through lit. */
+.v2v-pegboard { display: block; width: 100%; max-width: 260px; height: auto; }
+.v2v-pegboard .peg { fill: var(--v2v-faint); }
+.v2v-pegboard .peg[data-on] { fill: var(--v2v-cand); stroke: var(--v2v-card); stroke-width: 1.5; }
+.v2v-pegboard .line { stroke: var(--v2v-line); stroke-width: 2; }
+.v2v-pegboard .tick-label { font-size: 10px; fill: var(--v2v-muted); }
+/* A view that cannot show the object names it first ("x = 3"), then says why. */
+.v2v-undef-what { font-family: var(--v2v-math, inherit); font-size: 15px; color: var(--v2v-ink); margin-bottom: 2px; }
+/* What makes a non-scoring object score: the whole move, wrapped, never cut short. */
+.v2v-face-next[data-testid="text-to-score"] { white-space: normal; overflow: visible; text-overflow: clip; }

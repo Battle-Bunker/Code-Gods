@@ -9,6 +9,7 @@
 import { EngineHost } from "@workspace/v2-agents/pure";
 import { evaluateObject, Qn, representation, variantMutators, type Q, type Score, type Variant } from "@workspace/v2-core";
 import { objectTypeOf } from "../sdk/object-types.ts";
+import { typesetNumbers } from "@workspace/v2-views/format";
 import type { GameRule } from "../sdk/rule.ts";
 
 /**
@@ -143,7 +144,7 @@ export function whatIf(i: WhatIfInput, from?: Standing): WhatIf {
     if (!quote.valid || !priced.valid) return { ok: false, reason: (quote.reason ?? "this move is not allowed").replace(/^[\w.]+: /, "") };
     const m = mutatorOf(i.rule, i.call.mutator);
     return {
-      ok: true, after: priced.result, what: m.describe(m.args(i.rule.variant).decode(i.call.args)), price: quote.total, charge: quote.charge,
+      ok: true, after: priced.result, what: typesetNumbers(m.describe(m.args(i.rule.variant).decode(i.call.args))), price: quote.total, charge: quote.charge,
       from: from ?? standing(i.rule, i.state, i.value, i.want), to: standing(i.rule, priced.result, i.value, i.want),
     };
   } catch (e) {
