@@ -10,4 +10,4 @@ export { GRID_CATALOGUE, GRID_LENSES, type GridFamilyEntry, type GridTieBreakerE
 export { gridUndescribed } from "./grid-starters.ts";
 export * from "./host.ts";
 export * from "./compat.gen.ts";
-export { readHold, readLeave, setHold, setLeave, type Hold, type HoldTarget } from "./leave.ts";
+export { readLeave, setLeave } from "./leave.ts";

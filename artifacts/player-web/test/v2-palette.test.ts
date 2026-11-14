@@ -62,23 +62,23 @@ test("in a room without AI, none of the assistant's operations is listed", () =>
   assert.deepEqual(ids.filter(id => id.startsWith("assistant.") || id === "pitch.draft"), []);
 });
 
-test("leave alone and hold open Agent code at their controls, not a page that says to find them (playtest round 7)", async () => {
+test("leave alone opens Agent code at its control, not a page that says to find it (playtest round 7)", async () => {
   const opened: string[] = [];
   const host = { perform: async () => ({ ok: true as const, result: {} }), navigate() {}, panes: { open: async (p: string) => { opened.push(p); }, close: async () => {} } };
   const rows = paletteCommands(ctx, host as never);
-  for (const id of ["agent.leaveAlone", "agent.hold"]) {
+  for (const id of ["agent.leaveAlone"]) {
     const p = rows.find(r => r.id === id)?.performer;
     assert.equal(p?.kind, "submit", id);
     if (p?.kind === "submit") await p.run();
   }
-  assert.deepEqual(opened, ["forge", "forge"]);
+  assert.deepEqual(opened, ["forge"]);
+  assert.equal(rows.find(r => r.id === "agent.hold"), undefined, "no hold operation");
 });
 
 test("a grid game's palette says grids, not objects (round 8b)", () => {
   const host = { perform: async () => ({ ok: true as const, result: {} }), navigate() {}, noun: { one: "grid", many: "grids" } };
   const rows = paletteCommands(ctx, host as never);
   assert.equal(rows.find(r => r.id === "agent.leaveAlone")!.human.title, "Leave grids alone");
-  assert.equal(rows.find(r => r.id === "agent.hold")!.human.title, "Settle and hold grids");
   for (const r of rows) assert.doesNotMatch(`${r.human.title} ${r.human.tooltip}`, /\bobjects?\b/i, r.id);
   assert.equal(nouned("Objects and an object", { one: "line", many: "lines" }), "Lines and a line");
 });

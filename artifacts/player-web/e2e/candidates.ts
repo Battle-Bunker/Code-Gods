@@ -2,9 +2,8 @@
  * Playtest round 8, end to end at desktop (1440×900) and phone (390×844), on seeded games (convex/v2/testing.ts):
  * (1) on line 1, each "What would make it rarer" candidate shows your bits × the others' total bits = points
  *     (v2/play:othersAt), ordered "Best for points" or "Best for my rarity";
- * (2) one tap from a candidate: "Hold it here" opens the agent's hold control filled in with that candidate's line, and
- *     "Propose this in chat" opens the chat with the proposal in plain words in its box; a board in a message is drawn;
- * (3) in an ended game with a deal held on line 6 (seed `held`), the end summary names it: who held it, what it earned.
+ * (2) one tap from a candidate: "Propose this in chat" opens the chat with the proposal in plain words in its box; a
+ *     board in a message is drawn.
  * Captures each into the given directory (deviceScaleFactor 2).
  *
  *   node --experimental-transform-types e2e/candidates.ts [screenshot dir]      (SKIP_DEPLOY=1 reuses the upload)
@@ -54,15 +53,6 @@ async function signIn(browser: any, who: string, viewport: { width: number; heig
   return { context, page, errors, subject };
 }
 
-/** "y = −3x + 10" → { m: -3, c: 10 } ("y = x", "y = −x − 4", "y = 7"). */
-function mc(eq: string): { m: number; c: number } {
-  const t = eq.replace(/\s/g, "").replace(/−/g, "-").replace(/^y=/, "");
-  const mm = /^([+-]?\d*)x/.exec(t);
-  const m = mm ? (mm[1] === "" || mm[1] === "+" ? 1 : mm[1] === "-" ? -1 : Number(mm[1])) : 0;
-  const rest = mm ? t.slice(mm[0].length) : t;
-  return { m, c: rest ? Number(rest) : 0 };
-}
-
 const browser = await chromium.launch();
 const shot = (page: Page, name: string) => page.screenshot({ path: path.join(OUT, name), type: "jpeg", quality: 70 });
 /** Each candidate row's "your X bits" (the first number of its points formula). */
@@ -101,17 +91,7 @@ try {
     await shot(page, `candidates-${label}.jpg`);
     await line.getByTestId("button-order-points").click();
 
-    // (2a) "Hold it here" on a candidate: the agent's hold control, filled in with the candidate's line, not the current one.
-    const now = mc(await line.locator(".v2v-chip-eq").first().innerText());
-    await line.getByTestId("button-hold-move").first().click();
-    const form = page.getByTestId("hold");
-    await form.waitFor({ timeout: 10_000 });
-    assert.equal(await form.getByTestId("input-hold-numbers").inputValue(), "1", `${label}: line 1`);
-    const held = { m: Number(await form.getByTestId("input-hold-m").inputValue()), c: Number(await form.getByTestId("input-hold-c").inputValue()) };
-    assert.notDeepEqual(held, now, `${label}: the candidate's line, not where it is`);
-    assert.equal(await form.getByTestId("text-hold-done").count(), 0, `${label}: nothing saved`);
-
-    // (2b) "Propose this in chat": the chat opens with the proposal written in its box, in plain words; sent by the player.
+    // (2) "Propose this in chat": the chat opens with the proposal written in its box, in plain words; sent by the player.
     line = await openLine();
     await line.getByTestId("button-propose").first().click();
     const box = page.getByTestId("input-chat");
@@ -130,22 +110,8 @@ try {
     await board.scrollIntoViewIfNeeded();
     await shot(page, `proposed-${label}.jpg`);
 
-    // (3) The end summary names the held deal: the line, who held it, what it earned against before the hold.
-    const room2 = `D${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
-    const e = convexRun("v2/testing:seedGame", { owner: subject, practice: 2, code: room2, phase: "ended", held: 6 });
-    await page.goto(`${SITE}/rooms/${room2}/games/${e.gameId}`);
-    if (await page.getByTestId("tab-results").count()) await page.getByTestId("tab-results").click();
-    const deal = page.getByTestId("summary-held-6");
-    await deal.waitFor({ timeout: 30_000 });
-    const said = await deal.innerText();
-    const m = /^Line 6, held at y = .+ by you and Practice partner \d: ([\d.,]+) points? for you at the end, up from ([\d.,]+) points? before the hold\.$/.exec(said);
-    assert.ok(m, `${label}: ${said}`);
-    // The seed's hold began from half the points it ended on.
-    assert.ok(Math.abs(Number(m[2]) * 2 - Number(m[1])) < 0.02, `${label}: ${said}`);
-    await deal.scrollIntoViewIfNeeded();
-    await shot(page, `held-summary-${label}.jpg`);
     assert.deepEqual(errors, [], `${label}: no page errors`);
-    console.log(`ok ${label}: candidates with others' totals, propose and hold per candidate, held deal in the summary`);
+    console.log(`ok ${label}: candidates with others' totals, propose per candidate`);
     await context.close();
   }
 } finally {

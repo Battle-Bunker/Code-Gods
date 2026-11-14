@@ -63,11 +63,3 @@ test("the others' total after a candidate move: only the sum, from the live stat
   await assert.rejects(bo!.query("v2/play:othersAt", { objectId, calls: Array(5).fill(shift) }), /at most 4/);
 });
 
-test("one object's moves are the caller's own act-log rows for it, newest first", async () => {
-  const all = await bo!.query("v2/play:moves", { gameId, paginationOpts: page });
-  const first = all.page[0];
-  if (!first) return;
-  const rows = await bo!.query("v2/play:objectMoves", { gameId, number: first.number });
-  assert.deepEqual(rows.map((r: { seq: number }) => r.seq), all.page.filter((m: { number: number }) => m.number === first.number).map((m: { seq: number }) => m.seq));
-  assert.deepEqual(await bo!.query("v2/play:objectMoves", { gameId, number: 9999 }), []);
-});

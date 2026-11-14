@@ -1,7 +1,7 @@
 /** The forge's leave-alone control: what the player types, and what saving says (src/panes/leave-alone.ts). */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { leaveLine, listWords, parseNumbers } from "../src/panes/leave-alone.ts";
+import { leaveLine, listWords, missingLeave, parseNumbers } from "../src/panes/leave-alone.ts";
 
 test("numbers typed with commas or spaces (or a #) read sorted without repeats; anything else says what is wrong", () => {
   assert.deepEqual(parseNumbers("19, 3 #3", "line"), { numbers: [3, 19] });
@@ -23,4 +23,8 @@ test("a board typed in the numbers box is refused, saying where it goes (round 8
   assert.ok("error" in r);
   assert.match(r.error, /^"245364645353636354" is not a grid number: it looks like a board, which goes in the board box/);
   assert.ok("error" in parseNumbers("1000", "line"), "no game has a line 1000");
+});
+
+test("an agent whose code has no LEAVE says so where the control would be (annotations, #559)", () => {
+  assert.match(missingLeave("Closest first"), /^Closest first's code has no leave-alone list \(LEAVE\), so there is nothing here to set\. Replace it with a starter/);
 });

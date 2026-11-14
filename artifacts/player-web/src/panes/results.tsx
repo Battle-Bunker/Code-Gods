@@ -9,13 +9,10 @@ import { roomPath } from "@/site/lib/routes";
 import { useMemo } from "react";
 import { useAffordance } from "@workspace/v2-affordances/react";
 import { GameSummary, summarise, type SummaryTug } from "@workspace/v2-views";
-import { readHold } from "@workspace/v2-agents/pure";
 import { usePaneOps } from "@/dock/open-pane";
 import { toast } from "@/hooks/use-toast";
-import { decodeState, objectWord, useAgentProgramsOf, useGame, useObjectMovesOf, useLeaderboard, useMoves, useMyAgents, useTugs, useMyObjects, useMyRule, useObjectIds, useRotationRound } from "@/sdk";
+import { decodeState, objectWord, useGame, useLeaderboard, useMoves, useTugs, useMyObjects, useMyRule, useObjectIds, useRotationRound } from "@/sdk";
 import { foldTugs } from "./tug-of-war";
-import { heldDeals } from "./held-deals";
-import { targetOf } from "./hold";
 import { AffordanceButton } from "@/site/components/action";
 import { isTied, ordinal, pointsText, TIE_NOTE, totalNote, totalsSumNote } from "@/core/words";
 import { LineByLine, TiedMark } from "@/core/score-help";
@@ -100,8 +97,6 @@ function Rotation({ summary }: { summary: ReturnType<typeof rotationSummary> }) 
  * game's panes already share: Lines' skeleton by your points and its objects, the act log's tug-of-wars, your rule.
  */
 
-/** How many held objects the summary reads the moves of at most. */
-const HELD_MAX = 10;
 
 function EndSummary({ total }: { total: number }) {
   const header = useGame();
@@ -112,16 +107,9 @@ function EndSummary({ total }: { total: number }) {
   const serverTugs = useTugs();
   const moves = useMoves(30, { replayOnly: true });
   const round = useRotationRound();
-  const agents = useMyAgents();
   const done = serverTugs !== undefined;
   const top = useMemo(() => ids.results.slice(0, 5).map(r => r.objectId), [ids.results]);
   const objects = useMyObjects(top);
-  // The deals held: every version of the agents' code that set TARGET and SETTLE (a hold may have been stopped since),
-  // each held object's own moves (one small read each, never the whole act log); SETTLE [] means the tugs' objects.
-  const programs = useAgentProgramsOf(useMemo(() => (agents ?? []).map(a => a.agentId), [agents]));
-  const holds = useMemo(() => programs.flatMap(p => (p ?? []).flatMap(v => { const h = readHold(v.source); return h && h.target !== null ? [h] : []; })), [programs]);
-  const heldNumbers = useMemo(() => [...new Set(holds.flatMap(h => (h.numbers.length ? h.numbers : (serverTugs ?? []).map(t => t.number))))].sort((a, b) => a - b).slice(0, HELD_MAX), [holds, serverTugs]);
-  const heldMoves = useObjectMovesOf(heldNumbers);
   const summary = useMemo(() => {
     if (!my || !header) return null;
     const objs = objects.flatMap(o => (o?.value ? [{ number: o.number, id: o.objectId, state: decodeState(o.state, header.variant), points: o.value.points, bits: o.value.rarityBits, want: o.value.want }] : []));
@@ -139,10 +127,8 @@ function EndSummary({ total }: { total: number }) {
       : [])));
     // In a rotation that goes on, the next game deals another rule: the advice is the lesson, not this game's line.
     const rotates = !!round && round.games.some(g => g.gameId === header.gameId) && round.round < round.of;
-    const held = heldDeals(heldMoves.flatMap(r => r ?? []), holds, w => targetOf(decodeState(w, header.variant), my.rule?.type.id ?? ""))
-      .map(d => ({ number: d.number, state: decodeState(d.stateAfter, header.variant), by: d.by, before: d.before, after: d.after }));
-    return summarise({ rule: my.rule as never, value: my.bits ?? undefined, objects: objs as never, tugs, total, rotates, movesRead: null, language: agents?.[0]?.language === "python" ? "python" : "typescript", holds: held as never });
-  }, [my, header, objects, serverTugs, moves.results, total, round, agents, holds, heldMoves]);
+    return summarise({ rule: my.rule as never, value: my.bits ?? undefined, objects: objs as never, tugs, total, rotates, movesRead: null });
+  }, [my, header, objects, serverTugs, moves.results, total, round]);
   const openObject = useAffordance("view.openObject");
   const panes = usePaneOps(header?.phase ?? "ended");
   const onOpen = async (id: string | undefined) => {

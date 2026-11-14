@@ -199,20 +199,15 @@ try {
     await page.keyboard.press("Escape");
     await page.getByTestId("text-bits-help").waitFor({ state: "detached" });
     if (label === "desktop") {
-      // A deal one press from the object it is about (persona walk: "hold grid 12? don't know how"): the forge opens with
-      // the hold control filled in at this object's state; the player reads the price and saves.
+      // A deal one press from the object it is about: "Leave this line alone" opens the forge's leave-alone control
+      // with this line's number added (nothing saved until Save). No hold or settle control exists (owner, 14 November).
       const n = /(\d+)/.exec(await line.locator("span.font-semibold").first().innerText())![1]!;
-      const here = line.getByTestId("button-hold-here");
-      if (await here.count()) {
-        await here.click();
-        const hold = page.getByTestId("hold");
-        await hold.waitFor({ timeout: 15_000 });
-        assert.equal(await hold.getByTestId("input-hold-numbers").inputValue(), n, "filled in with this object's number");
-        await hold.getByTestId("text-hold").getByText(new RegExp(`will hold (line|grid) ${n} at .* for [\\d.]+ ⚡`)).waitFor();
-        await hold.getByTestId("button-hold").click();
-        await hold.getByTestId("text-hold-done").getByText(new RegExp(`holds (line|grid) ${n} at `)).waitFor({ timeout: 30_000 });
-        console.log(`${label}: ${(await hold.getByTestId("text-hold-done").innerText()).trim()}`);
-      } else console.log(`${label}: this object's state is not a whole-number target: no "Hold it here"`);
+      await line.getByTestId("button-leave-here").click();
+      const leave = page.getByTestId("leave-alone");
+      await leave.waitFor({ timeout: 15_000 });
+      assert.ok((await leave.getByTestId("input-leave-alone").inputValue()).split(/[\s,]+/).includes(n), "filled in with this line's number");
+      assert.equal(await page.getByTestId("hold").count(), 0, "no hold control");
+      assert.equal(await line.getByTestId("button-hold-here").count(), 0, "no 'Hold this line here'");
     }
     if (label === "phone") await line.screenshot({ path: path.join(shots, "score-words-phone-one-line.png") });
     if (label === "desktop") {
@@ -256,18 +251,6 @@ try {
     await line.screenshot({ path: path.join(shots, `annotations-${label}-one-line.png`) });
     await line.locator(".v2v-exp-body").scrollIntoViewIfNeeded();
     await line.screenshot({ path: path.join(shots, `annotations-${label}-parts.png`) });
-    // A contested line offers "Hold it here" first, with the starters' settings for it.
-    const hold = line.getByTestId("hold-it-here");
-    if (await hold.count()) {
-      await hold.screenshot({ path: path.join(shots, `annotations-${label}-hold.png`) });
-      // Its button opens the agent's hold control, filled in with this line (nothing saved until Save).
-      const go = hold.getByTestId("button-hold-it-here");
-      if (await go.count()) {
-        await go.click();
-        await page.getByTestId("hold").waitFor({ timeout: 10_000 });
-        assert.notEqual(await page.getByTestId("input-hold-numbers").inputValue(), "", "the line's number is filled in");
-      } else assert.match(await hold.innerText(), /TARGET = /);
-    }
     await shot(page, `game-${label}-line`);
 
 
@@ -284,7 +267,7 @@ try {
     const said = await summary.innerText();
     assert.match(said, /What earned your points/i);
     assert.match(said, /What cost you/);
-    assert.match(said, /(settle line \d+ at|hold line \d+ |pull the same line back and forth|is the one the others want most|Open your secret goal)/, said);
+    assert.match(said, /(leave it alone|leave that line alone|is the one the others want most|Open your secret goal)/, said);
     await summary.screenshot({ path: path.join(shots, `game-${label}-summary.png`) });
     // The results say what a total is, and step to the line-by-line list.
     await results.getByTestId("text-results-note").getByText(/Each total is the sum of that player's points on every line\./).waitFor();

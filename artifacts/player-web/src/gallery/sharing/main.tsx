@@ -10,7 +10,7 @@ import { StrictMode, useMemo, type ReactElement } from "react";
 import { createRoot } from "react-dom/client";
 import { applyPriced, evaluateObject, isInvalid, q, type Score } from "@workspace/v2-core";
 import { fromMC, lineType, lineZ, primeLanding, wholeCrossing, type LineState } from "@workspace/v2-linear";
-import { CompactFace, ExpandedFace, GoalCard, holdHere, ObjectChip, repText, type Move, type RuleRef } from "@workspace/v2-views";
+import { CompactFace, ExpandedFace, GoalCard, ObjectChip, repText, type Move, type RuleRef } from "@workspace/v2-views";
 import "@workspace/v2-views/styles.css";
 import "./style.css";
 import { valueFor } from "../values";
@@ -99,12 +99,11 @@ function Frame({ f }: { f: string }): ReactElement {
             <p>At <b>{text(joint.s)}</b>: you {joint.a.toFixed(2)} bits × Bo {joint.b.toFixed(2)} bits = <b>{joint.p.toFixed(2)}</b>, for {joint.price.toFixed(2)} ⚡ to get there.</p>
             <span className="sr-btn">Propose: settle line {LINE} at {text(joint.s)} and hold it</span>
           </div>
-          <ExpandedFace rule={ADA} state={NOW} value={va} hold={{ number: LINE }} />
+          <ExpandedFace rule={ADA} state={NOW} value={va} />
         </div>
       );
     }
     case "propose": {
-      const h = holdHere(lineType, joint.s, LINE)!;
       return (
         <div className="sr-cols">
           <div className="sr-card sr-chat">
@@ -112,11 +111,6 @@ function Frame({ f }: { f: string }): ReactElement {
             <div className="sr-msg" data-mine=""><b>You → Bo</b>Proposal: settle line {LINE} at {text(joint.s)} and both hold it. For me it is {joint.a.toFixed(2)} bits there, for you {joint.b.toFixed(2)}.</div>
             <div className="sr-msg"><b>Bo</b>Deal.<div><span className="sr-btn">Accepted ✓</span></div></div>
             <div className="sr-msg" data-mine=""><b>Your agent</b>Holding line {LINE} at {text(joint.s)} as agreed.</div>
-          </div>
-          <div className="sr-card">
-            <h3>On acceptance, both agents' code</h3>
-            <p className="sr-code">{h.code}</p>
-            <p className="sr-muted">Filled in for both of you (the starters' settle-and-hold settings). Either of you can change it back; the other sees that in the act log.</p>
           </div>
         </div>
       );

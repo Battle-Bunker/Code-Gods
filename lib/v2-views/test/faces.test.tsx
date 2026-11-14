@@ -148,20 +148,7 @@ test("a triangle too thin to see is drawn stretched in a labelled inset: its leg
   }
 });
 
-test("expanded face: a contested line lists 'Hold it here' first, with the settings that do it", () => {
-  const html = renderToStaticMarkup(<ExpandedFace rule={tank} state={mc(-3, 10)} value={VALUE} hold={{ number: 24 }} />);
-  const t = text(html);
-  assert.match(t, /Hold it here/);
-  assert.match(t, /TARGET = \{ m: -3, c: 10 \}; SETTLE = \[24\]/);
-  assert.ok(t.indexOf("Hold it here") < t.indexOf("What would make it rarer") || !/What would make it rarer/.test(t) || t.indexOf("Hold it here") > -1);
-  assert.ok(html.indexOf("v2v-hold") < html.indexOf("v2v-move-option") || html.indexOf("v2v-move-option") === -1, "hold comes before the moves");
-});
 
-test("hold it here: with the app's set-up action, a button instead of the code", () => {
-  const html = renderToStaticMarkup(<ExpandedFace rule={tank} state={mc(-3, 10)} value={VALUE} hold={{ number: 24, onHold: () => {} }} />);
-  assert.match(html, /data-testid="button-hold-it-here"[^>]*>Hold it here: set up my agent</);
-  assert.doesNotMatch(html, /TARGET =/);
-});
 
 test("candidates with the others' total: yours × others' = points, ordered by points or by your rarity, both-raising marked", async () => {
   const { moves, proposalText } = await import("../src/index.ts");
@@ -172,7 +159,7 @@ test("candidates with the others' total: yours × others' = points, ordered by p
   const others = new Map(list.map((m, i) => [lineType.encode(m.after), 2 + i * 3] as const));
   const atState = (x: LineState) => others.get(lineType.encode(x)) ?? null;
   const at = (m: (typeof list)[number]) => atState(m.after);
-  const html = renderToStaticMarkup(<ExpandedFace rule={tank} state={s} value={VALUE} others={{ now: 2.5, at: atState }} onPropose={() => {}} onHoldMove={() => {}} />);
+  const html = renderToStaticMarkup(<ExpandedFace rule={tank} state={s} value={VALUE} others={{ now: 2.5, at: atState }} onPropose={() => {}} />);
   const t = text(html);
   assert.match(t, /Best for points/);
   assert.match(t, /Best for my rarity/);
@@ -184,7 +171,6 @@ test("candidates with the others' total: yours × others' = points, ordered by p
   assert.deepEqual([...shown].sort((a, b) => b - a), shown, "descending points");
   assert.match(html, /data-both=""/, "a candidate raising both is marked");
   assert.equal((html.match(/data-testid="button-propose"/g) ?? []).length, list.length, "propose on each");
-  assert.equal((html.match(/data-testid="button-hold-move"/g) ?? []).length, list.length, "hold on each");
   // The proposal reads plainly, names the line and its state, and both sides' bits there.
   const p = proposalText(lineType, 8, list[0]!.after, list[0]!.bits!, at(list[0]!)!);
   assert.match(p, /^Shall we settle line 8 at y = .+ and both hold it\? There I get [\d.]+ bits and the rest of you [\d.]+ bits together\.$/, p);
