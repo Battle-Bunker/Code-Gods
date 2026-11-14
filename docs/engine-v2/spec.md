@@ -434,6 +434,9 @@ For a call `a` made on state s with result s′ in a variant with N mutators and
 W(a, s) = log2 N + (perSite ? log2 k : 0) + args.bits(a) + max(0, φ(s′) − φ(s))
 ```
 
+(log2 N is the uniform "which" code. A variant may declare a weighted one, `Variant.which`: bits per mutator with Kraft
+sum 1, used in place of log2 N in the price, in the walk's draw and as the o of that mutator's size code.)
+
 The first three terms are the call's code length: which mutator, where, the argument. **Mixed costing** (owner decision
 17) decides the argument code: an amount added (a shift, a tilt, a step, a slide, a nudge, an intercept move, a pivot's
 anchor) is priced by **steps**, `1 + STEP·(|n| − 1) + G` bits for a nonzero integer n with G = −log2(1 − 2^−STEP), and
@@ -965,7 +968,9 @@ line past `heightCap`). The cheap-in-one-lens, dear-in-another examples of #346 
 
 **The lens mutators (a trial: variant `line-q-lenses`, preset `lines-lenses`).** The first five of
 [lenses-and-mutators.md](lenses-and-mutators.md) §5 (owner decisions 25, 27 and 28), offered beside the nine by
-`line-q-lenses` only (N = 14, "which" = log2 14 = 3.81 bits, uniform until the spec lead settles a weighted code).
+`line-q-lenses` only (N = 14), with a weighted "which" code (`Variant.which`, a prefix code with Kraft sum 1; the walk
+draws a mutator with probability 2^−which and each size code uses its own mutator's which bits as o): the nine at
+log2 12 = 3.58 bits, the five at log2 20 = 4.32 (owner-decisions.md, coordinator's call 12, a trial).
 `line-q` keeps its nine, its prices and its values. `line-q-lenses` has line-q's params, so the same law π ∝ 2^−φ, and
 reads line-q's value functions (`Variant.valuesOf`). Representation moves (turn, swap, fold) are priced as choices and
 digits; the lean adds an amount (priced by size); the zoom is a factor (digits). Each is undone by itself or by the same

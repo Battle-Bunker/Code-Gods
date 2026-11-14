@@ -22,6 +22,9 @@ export const lineQ: Variant = {
  */
 export const lineQLenses: Variant = {
   id: "line-q-lenses", objectType: "line", mutators: [...ALL_MUTATORS, ...lensMutators.map(m => m.id)], birthMixSteps: 64, valuesOf: "line-q",
+  // The weighted which code (coordinator's trial, agreed with the spec lead, 15 Nov): the nine share 3/4 of the mass
+  // (log2 12 = 3.58 bits each, against log2 9 = 3.17 on line-q), the five share 1/4 (log2 20 = 4.32 bits each).
+  which: Object.fromEntries([...ALL_MUTATORS.map(id => [id, Math.log2(12)]), ...lensMutators.map(m => [m.id, Math.log2(20)])]),
   params: { domain: "Q", linesPerObject: 1, argDomain: "Q", heightCap: 1_000_000 },
 };
 export const lineZ4: Variant = {

@@ -6,13 +6,14 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   amountCode, applyCall, applyPriced, cycleDiagnostic, factorCode, isInvalid, mixedIntBits, nonzeroRatBits, Qn, q, ratBits, rng, stepsRatBits,
-  walkStep, type Q,
+  drawMutator, variantMutators, walkStep, type Q,
 } from "@workspace/v2-core";
 import { describeLine, lensMutators, lineQ, lineQLenses, lineType, normalise, preset, type Line, type LineState } from "../src/index.ts";
 import { abc, mc } from "./helpers.ts";
 
 const v = lineQLenses;
-const which = Math.log2(14);
+/** The five's "which" bits under line-q-lenses' weighted code (the nine pay log2 12). */
+const which = Math.log2(20);
 const run = (s: LineState, mutator: string, args: Record<string, string>) => applyCall(lineType, v, s, { mutator, site: 0, args });
 const to = (s: LineState, mutator: string, args: Record<string, string>) => {
   const r = run(s, mutator, args);
@@ -24,6 +25,19 @@ const fee = (s: LineState, mutator: string, args: Record<string, string>) => {
   return r.price.which + r.price.arg;
 };
 const near = (a: number, b: number, why = "") => assert.ok(Math.abs(a - b) < 1e-9, `${why} ${a} vs ${b}`);
+
+test("the weighted which code is a complete prefix code; the walk draws each mutator with probability 2^−which", () => {
+  const w = v.which!;
+  assert.deepEqual(Object.keys(w).sort(), [...v.mutators].sort());
+  near(Object.values(w).reduce((a, b) => a + 2 ** -b, 0), 1, "Kraft");
+  near(w["si.shift"]!, Math.log2(12)); near(w["rot.turn"]!, Math.log2(20));
+  // A unit shift costs which + its size code at o = log2 12.
+  near(fee(mc(1, 1), "si.shift", { k: "1" }), amountCode(Math.log2(12), 1, true).rate);
+  // The walk's draw: each mutator with probability 2^−which.
+  const r = rng("which-draws"), n = 200_000, ms = variantMutators(lineType, v), count = new Map<string, number>();
+  for (let i = 0; i < n; i++) { const m = drawMutator(ms, v, r); count.set(m.id, (count.get(m.id) ?? 0) + 1); }
+  for (const m of ms) { const p = 2 ** -w[m.id]!; assert.ok(Math.abs(count.get(m.id)! / n - p) < 4 * Math.sqrt(p * (1 - p) / n), `${m.id}`); }
+});
 
 test("line-q is untouched: nine mutators, which = log2 9; the lens variant offers fourteen and is dealt only by its own preset", () => {
   assert.equal(lineQ.mutators.length, 9);

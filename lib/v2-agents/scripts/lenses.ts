@@ -112,8 +112,8 @@ type Fee =
   | { k: "disp"; ch: number; size: number }
   | { k: "factor"; ch: number; size: number }
   | { k: "flat"; ch: number };                                      // choices and information only (no size)
-function fee(f: Fee, N: number): number {
-  const o = Math.log2(N) + f.ch;
+function fee(f: Fee, N: number, which = Math.log2(N)): number {
+  const o = which + f.ch;
   switch (f.k) {
     case "amountQ": return amountCode(o, 1, true).rate * f.size;
     case "amountZ": return amountCode(o, 1, false).rate * f.size;
@@ -375,7 +375,8 @@ function build(): Edges {
         if (!inBox(t)) return;
         const j = idx[keyOf(t)]!;
         if (j < 0 || j === i) return;
-        const ws = NSETS.map(N => fee(f, N));
+        // N = 14 is line-q-lenses with its weighted which code: the nine at log2 12, the five at log2 20.
+        const ws = NSETS.map(N => fee(f, N, N === 14 ? Math.log2(M.built ? 20 : 12) : Math.log2(N)));
         const cur = best.get(j);
         if (!cur) best.set(j, ws); else for (let z = 0; z < ws.length; z++) cur[z] = Math.min(cur[z]!, ws[z]!);
       });
@@ -441,7 +442,7 @@ const SETS: MutSet[] = [
   { id: "existing nine", muts: ids(m => m.existing), Nz: 0 },
   ...PROPOSED.map(p => ({ id: `nine + ${p.id}`, muts: ids(m => m.existing || m === p), Nz: 1 })),
   { id: "all eighteen", muts: ids(m => !m.built), Nz: 2 },
-  { id: "the nine + the five as built (line-q-lenses)", muts: ids(m => m.existing || !!m.built), Nz: 3 },
+  { id: "the nine + the five as built (line-q-lenses, weighted which)", muts: ids(m => m.existing || !!m.built), Nz: 3 },
 ];
 
 // π on the box: 2^−φ, normalised.

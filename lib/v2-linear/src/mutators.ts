@@ -1,6 +1,6 @@
 /** The line's nine mutators (spec §12.4). Prices are the call's code length; v2-core adds "which", "where" and the surcharge. */
 import {
-  amountCode, amountSize, choiceBits, factorCode, factorSize, gcd, mixedIntBits, mixedPosBits, nonzeroRatBits, Qn, q, ratBits, sampleAmount,
+  amountCode, amountSize, choiceBits, whichBits, factorCode, factorSize, gcd, mixedIntBits, mixedPosBits, nonzeroRatBits, Qn, q, ratBits, sampleAmount,
   sampleDisplacement, sampleFactor, sampleMixedInt, sampleNonzeroRat, sampleRat, sampleStepsInt, sampleStepsRat, stepsIntBits, stepsRatBits,
   type ArgCode, type Invalid, type Mutator, type Q, type Rng, type Variant,
 } from "@workspace/v2-core";
@@ -111,8 +111,8 @@ const oneOf = (values: readonly string[]): Field => ({
   decode: w => { if (typeof w !== "string" || !values.includes(w)) throw new RangeError(`must be one of ${values.join(", ")}`); return w; },
 });
 
-/** The bits every call of a mutator pays before its arguments: which (log2 of the variant's mutators) and where. */
-const baseBits = (v: Variant, perSite: boolean): number => Math.log2(v.mutators.length) + (perSite ? Math.log2(lineParams(v).linesPerObject) : 0);
+/** The bits every call of a mutator pays before its arguments: which (the variant's which code) and where. */
+const baseBits = (v: Variant, perSite: boolean, id: string): number => whichBits(v, id) + (perSite ? Math.log2(lineParams(v).linesPerObject) : 0);
 
 /** The argument code of choices `spec` and an optional size, for a call whose which + where cost `base` bits. */
 function fields(base: number, spec: Readonly<Record<string, Field>>, size?: Size): ArgCode<Args> {
@@ -210,7 +210,7 @@ const w = (x: Q) => Qn.toWire(x);
 export const shift: M = {
   id: "si.shift", reps: ["si", "cart"], title: "move the line up or down", perSite: true,
   describe: a => `move the line ${Qn.sign(k(a)) > 0 ? "up" : "down"} ${w(Qn.abs(k(a)))}`,
-  args: v => fields(baseBits(v, true), {}, amount(argD(v))),
+  args: v => fields(baseBits(v, true, "si.shift"), {}, amount(argD(v))),
   apply: viaMC((m, c, a) => [m, Qn.add(c, k(a))]),
   inverse: { kind: "mutator", id: "si.shift", args: a => ({ k: Qn.neg(k(a)) }) },
 };
@@ -218,7 +218,7 @@ export const shift: M = {
 export const tilt: M = {
   id: "si.tilt", reps: ["si", "mach"], title: "change the gradient, keeping the y-intercept", perSite: true,
   describe: a => `add ${w(k(a))} to the gradient`,
-  args: v => fields(baseBits(v, true), {}, amount(argD(v))),
+  args: v => fields(baseBits(v, true, "si.tilt"), {}, amount(argD(v))),
   apply: viaMC((m, c, a) => [Qn.add(m, k(a)), c]),
   inverse: { kind: "mutator", id: "si.tilt", args: a => ({ k: Qn.neg(k(a)) }) },
 };
@@ -226,7 +226,7 @@ export const tilt: M = {
 export const step: M = {
   id: "seq.step", reps: ["seq"], title: "change the pattern's step, keeping term 1", perSite: true,
   describe: a => `add ${w(k(a))} to the step`,
-  args: v => fields(baseBits(v, true), {}, amount(argD(v))),
+  args: v => fields(baseBits(v, true, "seq.step"), {}, amount(argD(v))),
   apply: viaMC((m, c, a) => [Qn.add(m, k(a)), Qn.sub(c, k(a))]),
   inverse: { kind: "mutator", id: "seq.step", args: a => ({ k: Qn.neg(k(a)) }) },
 };
@@ -234,7 +234,7 @@ export const step: M = {
 export const pivot: M = {
   id: "cart.pivot", reps: ["cart"], title: "turn the line about its point at x = x0", perSite: true,
   describe: a => `turn about the point at x = ${w(Qa(a, "x0"))}, gradient ${Qn.sign(k(a)) > 0 ? "+" : "−"}${w(Qn.abs(k(a)))}`,
-  args: v => fields(baseBits(v, true), { x0: position(argD(v)) }, amount(argD(v))),
+  args: v => fields(baseBits(v, true, "cart.pivot"), { x0: position(argD(v)) }, amount(argD(v))),
   apply: viaMC((m, c, a) => [Qn.add(m, k(a)), Qn.sub(c, Qn.mul(k(a), Qa(a, "x0")))]),
   inverse: { kind: "mutator", id: "cart.pivot", args: a => ({ x0: Qa(a, "x0"), k: Qn.neg(k(a)) }) },
 };
@@ -242,7 +242,7 @@ export const pivot: M = {
 export const slide: M = {
   id: "cart.slide", reps: ["cart"], title: "slide the line across the plane", perSite: true,
   describe: a => `slide by (${w(Qa(a, "u"))}, ${w(Qa(a, "v"))})`,
-  args: v => fields(baseBits(v, true), {}, displacement(argD(v))),
+  args: v => fields(baseBits(v, true, "cart.slide"), {}, displacement(argD(v))),
   apply: (state, site, a, v) => {
     const l = state.lines[site]!;
     // a(x − u) + b(y − v) + c = 0
@@ -256,7 +256,7 @@ const AXES = ["x", "y", "origin", "diagonal"] as const;
 export const mirror: M = {
   id: "cart.mirror", reps: ["cart"], title: "reflect the line", perSite: true,
   describe: a => ({ x: "reflect in the x-axis", y: "reflect in the y-axis", origin: "turn half a turn about the origin", diagonal: "reflect in y = x (swap x and y)" })[S(a, "axis") as (typeof AXES)[number]],
-  args: v => fields(baseBits(v, true), { axis: oneOf(AXES) }),
+  args: v => fields(baseBits(v, true, "cart.mirror"), { axis: oneOf(AXES) }),
   apply: (state, site, a, v) => {
     const { a: A, b: B, c: C } = state.lines[site]!;
     const t = ({ x: [A, -B, C], y: [-A, B, C], origin: [-A, -B, C], diagonal: [B, A, C] } as const)[S(a, "axis") as (typeof AXES)[number]];
@@ -269,7 +269,7 @@ const COEFS = ["a", "b", "c"] as const;
 export const nudge: M = {
   id: "gen.nudge", reps: ["gen"], title: "add to one number of ax + by + c = 0", perSite: true,
   describe: a => `add ${w(k(a))} to ${S(a, "which")}`,
-  args: v => fields(baseBits(v, true), { which: oneOf(COEFS) }, amount("Z")),
+  args: v => fields(baseBits(v, true, "gen.nudge"), { which: oneOf(COEFS) }, amount("Z")),
   apply: (state, site, a, v) => {
     const l = state.lines[site]!;
     const d = k(a).n, which = S(a, "which");
@@ -287,7 +287,7 @@ export const nudge: M = {
 export const move: M = {
   id: "int.move", reps: ["int"], title: "move one intercept, keeping the other", perSite: true,
   describe: a => `move the ${S(a, "axis")}-intercept by ${w(k(a))}`,
-  args: v => fields(baseBits(v, true), { axis: oneOf(["x", "y"]) }, amount(argD(v))),
+  args: v => fields(baseBits(v, true, "int.move"), { axis: oneOf(["x", "y"]) }, amount(argD(v))),
   apply: (state, site, a, v) => {
     const l = state.lines[site]!;
     if (l.a === 0n || l.b === 0n || l.c === 0n) return { invalid: "this move needs a line that crosses both axes away from the origin" };
@@ -303,7 +303,7 @@ export const move: M = {
 export const stretch: M = {
   id: "mach.stretch", reps: ["mach"], title: "multiply every output by a factor", perSite: true,
   describe: a => `multiply every output by ${w(Qa(a, "f"))}`,
-  args: v => fields(baseBits(v, true), {}, factor),
+  args: v => fields(baseBits(v, true, "mach.stretch"), {}, factor),
   apply: viaMC((m, c, a) => [Qn.mul(m, Qa(a, "f")), Qn.mul(c, Qa(a, "f"))]),
   inverse: { kind: "partial", id: "mach.stretch", args: a => ({ f: Qn.inv(Qa(a, "f")) }), note: "undone by the reciprocal factor, at the same price, wherever it keeps the line on the board" },
 };
@@ -378,7 +378,7 @@ const turnWords = (t: Q | string): string =>
 export const turn: M = {
   id: "rot.turn", reps: ["cart", "norm"], title: "turn the line about a point", perSite: true,
   describe: a => `turn the line ${turnWords(a.turn!)} about ${a.centre === "origin" ? "the origin" : pinWords(Qa(a, "centre"))}`,
-  args: v => fields(baseBits(v, true), { centre: centre(argD(v)), turn: turnField }),
+  args: v => fields(baseBits(v, true, "rot.turn"), { centre: centre(argD(v)), turn: turnField }),
   apply: (state, site, a, v) => {
     const l = state.lines[site]!;
     const t = a.turn!;
@@ -411,7 +411,7 @@ const PAIRS = ["m-c", "b-c"] as const;
 export const swap: M = {
   id: "coef.swap", reps: ["si", "gen"], title: "swap two numbers of the equation", perSite: true,
   describe: a => (S(a, "pair") === "m-c" ? "swap the gradient and the y-intercept (y = mx + c becomes y = cx + m)" : "swap b and c in ax + by + c = 0"),
-  args: v => fields(baseBits(v, true), { pair: oneOf(PAIRS) }),
+  args: v => fields(baseBits(v, true, "coef.swap"), { pair: oneOf(PAIRS) }),
   apply: (state, site, a, v) => {
     const { a: A, b: B, c: C } = state.lines[site]!;
     // m ↔ c is a ↔ c in ax + by + c = 0 (−a/b ↔ −c/b): the lines cross at x = 1 and a + b + c stays.
@@ -423,7 +423,7 @@ export const swap: M = {
 export const lean: M = {
   id: "basis.lean", reps: ["crossing", "cart"], title: "lean the line, keeping where it crosses the x-axis", perSite: true,
   describe: a => `lean the line ${w(Qn.abs(k(a)))} ${Qn.sign(k(a)) > 0 ? "further left" : "further right"} for every 1 up, keeping its x-axis crossing`,
-  args: v => fields(baseBits(v, true), {}, amount(argD(v))),
+  args: v => fields(baseBits(v, true, "basis.lean"), {}, amount(argD(v))),
   apply: (state, site, a, v) => {
     const l = state.lines[site]!;
     if (l.a === 0n) return { invalid: "a level line never crosses the x-axis, so it has nothing to lean about" };
@@ -436,7 +436,7 @@ export const lean: M = {
 export const zoom: M = {
   id: "basis.zoom", reps: ["tri", "norm"], title: "zoom in or out from the origin", perSite: true,
   describe: a => `zoom by ${w(Qa(a, "f"))} from the origin (both crossings × ${w(Qa(a, "f"))}, same gradient)`,
-  args: v => fields(baseBits(v, true), {}, factor),
+  args: v => fields(baseBits(v, true, "basis.zoom"), {}, factor),
   apply: (state, site, a, v) => {
     const l = state.lines[site]!;
     if (l.c === 0n) return { invalid: "a line through the origin looks the same at every zoom" };

@@ -240,6 +240,13 @@ back) or TRIAL (a declared experiment, measured and reported).
 11. Hold rarity is not restored: `hold-measurement.md` shows hold is already mostly a function of bits under the walk's
     kernel (and weak), energy adds nothing beyond bits, and real opponents differ from kernel noise; the product payoff
     already prices other players' moves.
+12. **TRIAL** (proposed by the lens-mutators session, agreed with the spec lead, 15 Nov; for the coordinator to declare to
+    the owner): the five lens mutators of `lenses-and-mutators.md` §5 on a separate variant `line-q-lenses` (preset
+    `lines-lenses`, not the default), with a **weighted "which" code** instead of the uniform log2 N: the nine share 3/4
+    of the mass (log2 12 = 3.58 bits each, against log2 9 = 3.17 on line-q) and the five share 1/4 (log2 20 = 4.32 bits
+    each). Motivation: a uniform log2 14 would tax every existing call by 0.64 bit whether or not anyone uses the new
+    moves. Prices only: a move and its inverse are the same mutator at the same bits, so the law, and every value, is
+    unchanged. Measured: how often agents use the five, and the balance and collapse runs (`lenses-and-mutators.md` §7).
 
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 

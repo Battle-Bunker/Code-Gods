@@ -25,6 +25,11 @@ export interface Variant {
    * only in its menu shares that variant's values (and their keys) instead of a duplicate set.
    */
   readonly valuesOf?: string;
+  /**
+   * The "which" code: bits per offered mutator id, a prefix code (Kraft sum Σ 2^−bits = 1). Absent: uniform, log2 N
+   * each. A move and its inverse are the same mutator, so they pay the same bits and the potential stays exact.
+   */
+  readonly which?: Readonly<Record<string, number>>;
 }
 
 export interface ObjectType<S> {

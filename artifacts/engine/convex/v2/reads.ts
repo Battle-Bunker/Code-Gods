@@ -5,7 +5,7 @@
  */
 import { OpFailure } from "@workspace/v2-affordances";
 import { EngineHost } from "@workspace/v2-agents/pure";
-import { rng } from "@workspace/v2-core";
+import { rng, whichBits } from "@workspace/v2-core";
 import type { Doc } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import { decode, typeOf, variantOf } from "./world.ts";
@@ -37,7 +37,6 @@ export function ask(host: EngineHost<unknown>, request: Record<string, unknown>)
 export function mutatorsOf(rep: string, variantId: string) {
   const variant = variantOf(variantId), type = typeOf(variantId);
   if (!type.representations.some(r => r.id === rep)) throw new OpFailure(`No representation ${rep}.`, `One of: ${type.representations.map(r => r.id).join(", ")}.`);
-  const which = Math.log2(variant.mutators.length);
   return type.mutators.filter(m => m.reps.includes(rep) && variant.mutators.includes(m.id)).map(m => {
     const code = m.args(variant), r = rng("arg-names", m.id);
     let sample: Record<string, string> = {};
@@ -45,6 +44,6 @@ export function mutatorsOf(rep: string, variantId: string) {
     const domain = (variant.params as { argDomain?: string }).argDomain === "Q" ? "rational" : "integer";
     // A named argument (a cell, a line, a box, an axis) is a choice; a number is the variant's number domain.
     const codeOf = (w: string) => (/^-?\d+(\/\d+)?$/.test(w) ? domain : "choice");
-    return { id: m.id, reps: [...m.reps], args: Object.entries(sample).map(([name, w]) => ({ name, code: codeOf(w) })), baseBits: which, effect: m.title };
+    return { id: m.id, reps: [...m.reps], args: Object.entries(sample).map(([name, w]) => ({ name, code: codeOf(w) })), baseBits: whichBits(variant, m.id), effect: m.title };
   });
 }
