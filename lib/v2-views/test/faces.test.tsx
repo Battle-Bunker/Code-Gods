@@ -147,3 +147,12 @@ test("a triangle too thin to see is drawn stretched in a labelled inset: its leg
     assert.match(inset, /class="note inset-label"[^>]*>(area )?≈? ?[\d.]+/, `${size}: labelled with the area`);
   }
 });
+
+test("expanded face: a contested line lists 'Hold it here' first, with the settings that do it", () => {
+  const html = renderToStaticMarkup(<ExpandedFace rule={tank} state={mc(-3, 10)} value={VALUE} hold={{ number: 24 }} />);
+  const t = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+  assert.match(t, /Hold it here/);
+  assert.match(t, /TARGET = \{ m: -3, c: 10 \}; SETTLE = \[24\]/);
+  assert.ok(t.indexOf("Hold it here") < t.indexOf("What would make it rarer") || !/What would make it rarer/.test(t) || t.indexOf("Hold it here") > -1);
+  assert.ok(html.indexOf("v2v-hold") < html.indexOf("v2v-move-option") || html.indexOf("v2v-move-option") === -1, "hold comes before the moves");
+});

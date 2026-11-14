@@ -6,7 +6,7 @@
  * bits. Computed in the browser for the viewer's own rule only.
  */
 import {
-  applyPriced, compareScores, evaluateObject, isInvalid, variantMutators, type Call, type Mutator, type ObjectType, type Price, type Score,
+  applyPriced, compareScores, elementValue, evaluateObject, isInvalid, variantMutators, type Call, type Mutator, type ObjectType, type Price, type Score,
 } from "@workspace/v2-core";
 import type { RuleRef } from "./annotate.ts";
 import { changesBetween, contributors } from "./contributors.ts";
@@ -131,4 +131,23 @@ function frontierOf<F extends Found>(found: readonly F[], better: (u: Score, bit
   const frontier: F[] = [];
   for (const f of sorted) if (!frontier.length || better(f.utility, f.bits, frontier[frontier.length - 1]!)) frontier.push(f);
   return frontier;
+}
+
+/** A number as a JavaScript literal a player can paste: 2, -3, 1 / 2. */
+const lit = (n: bigint, d: bigint) => (d === 1n ? `${n}` : `${n} / ${d}`);
+
+/**
+ * "Hold it here" on a contested line (agents session, #531; docs/engine-v2/rule-compatibility.md: settling a contested
+ * line at a state the sides like and holding it pays, pulling it back and forth does not): the starters' TARGET and
+ * SETTLE settings that hold this line where it is. Lines only (TARGET is y = mx + c); null for anything else.
+ */
+export function holdHere<S>(type: ObjectType<S>, state: S, number: number): { why: string; code: string } | null {
+  try {
+    const m = elementValue(type, state, { rep: "si", name: "m" }, 0), c = elementValue(type, state, { rep: "si", name: "c" }, 0);
+    if (m.kind !== "number" || c.kind !== "number") return null;
+    return {
+      why: "This line is contested: moving it starts a tug-of-war that costs both sides. Holding it here pays while the rules on every side still like it.",
+      code: `TARGET = { m: ${lit(m.q.n, m.q.d)}, c: ${lit(c.q.n, c.q.d)} }; SETTLE = [${number}]`,
+    };
+  } catch { return null; }
 }

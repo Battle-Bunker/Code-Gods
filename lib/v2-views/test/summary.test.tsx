@@ -53,7 +53,7 @@ test("what cost: each tug-of-war with whom and the energy your agent burnt, dear
 
 test("one thing to try next game: talk to whoever pulled hardest against you, about that line", () => {
   // What pays (rule-compatibility.md): settling a contested line at a state both like and holding it, not keeping off.
-  assert.equal(summarise(base).next.text, "Next game, tell each other what your rules want and settle line 4 at a line that suits you both; then both hold it.");
+  assert.match(summarise(base).next.text, /^Next game, tell each other what your rules want and settle line 4 at a line that suits you both; then both hold it\./);
   assert.equal(summarise(base).next.number, 4);
   // No tug-of-war: make the most wanted line rarer for you, with the move that does it and its price.
   const calm = summarise({ ...base, tugs: [] });
@@ -62,7 +62,7 @@ test("one thing to try next game: talk to whoever pulled hardest against you, ab
   const practice = summarise({ ...base, tugs: base.tugs.map(t => ({ ...t, practice: true })) });
   // Practice partners do not talk: the state the pull passed through that was worth most to you, to hold next time.
   const held = summarise({ ...base, tugs: base.tugs.map((t, i) => ({ ...t, practice: true, ...(i === 0 ? { best: { state: mc(3, 23), points: 41.5 } } : {}) })) });
-  assert.equal(held.next.text, "Next game, hold line 4 at y = 3x + 23: it was worth 41.50 points to you there.");
+  assert.equal(held.next.text, "Next game, hold line 4 at y = 3x + 23: it was worth 41.50 points to you there. In your agent's code: TARGET = { m: 3, c: 23 }; SETTLE = [4].");
   assert.equal(practice.next.text, "Next game, settle line 4 at a line your rule likes and hold it there.");
 });
 
@@ -96,4 +96,11 @@ test("nothing scored and no tug: the summary still says one thing to try", () =>
   assert.equal(s.earned.length, 0);
   assert.match(s.earnedNote, /No line scored for you this game/);
   assert.ok(s.next.text.length > 10);
+});
+
+test("the hold advice names the agent's settings for that line", () => {
+  const held = summarise({ ...base, tugs: [{ number: 24, withNames: ["Practice partner 1"], flips: 3, mySpend: 22.46, practice: true, best: { state: mc(2, 7), points: 79.5 } }] });
+  assert.equal(held.next.text, "Next game, hold line 24 at y = 2x + 7: it was worth 79.50 points to you there. In your agent's code: TARGET = { m: 2, c: 7 }; SETTLE = [24].");
+  const people = summarise(base);
+  assert.match(people.next.text, /then both hold it\. In your agent's code: SETTLE = \[4\] and TARGET = the line you agree\.$/);
 });

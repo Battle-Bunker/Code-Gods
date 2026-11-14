@@ -119,3 +119,11 @@ test("contributors never throw, and say no steps, on a walk of lines under every
     }
   }
 });
+
+test("hold it here: a contested line names its own TARGET and SETTLE (the starters' settle-and-hold settings)", async () => {
+  const { holdHere } = await import("../src/moves.ts");
+  const h = holdHere(lineType, mc(2, 7), 24)!;
+  assert.equal(h.code, "TARGET = { m: 2, c: 7 }; SETTLE = [24]");
+  assert.match(h.why, /tug-of-war/);
+  assert.equal(holdHere(lineType, mc(q(1, 2), -3), 5)!.code, "TARGET = { m: 1 / 2, c: -3 }; SETTLE = [5]");
+});

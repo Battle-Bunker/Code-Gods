@@ -11,7 +11,7 @@ import { contributors } from "./contributors.ts";
 import { CompactFace, partLine } from "./faces.tsx";
 import { fmtBits, fmtEnergy, fmtNum, pointsText, scoreFormula } from "./format.ts";
 import { chipRep, repText, RepView } from "./rep-view.tsx";
-import { moves } from "./moves.ts";
+import { holdHere, moves } from "./moves.ts";
 import { nounOf } from "./refs.ts";
 
 export interface SummaryObject<S> {
@@ -105,9 +105,9 @@ export function summarise<S>(input: SummaryInput<S>): Summary<S> {
   if (top) {
     const at = `${noun} ${top.number}`;
     next = { number: top.number, text: !top.practice
-      ? `Next game, tell each other what your rules want and settle ${at} at a ${noun} that suits you both; then both hold it.`
+      ? `Next game, tell each other what your rules want and settle ${at} at a ${noun} that suits you both; then both hold it.${holdHere(rule.type, top.best?.state ?? input.objects[0]?.state ?? (rule.type.origin(rule.variant) as S), top.number) ? ` In your agent's code: SETTLE = [${top.number}] and TARGET = the ${noun} you agree.` : ""}`
       : top.best
-        ? `Next game, hold ${at} ${(w => (w ? `at ${w}` : "like this"))(written(rule, top.best.state))}: it was worth ${pointsText(top.best.points)} to you there.`
+        ? `Next game, hold ${at} ${(w => (w ? `at ${w}` : "like this"))(written(rule, top.best.state))}: it was worth ${pointsText(top.best.points)} to you there.${(h => (h ? ` In your agent's code: ${h.code}.` : ""))(holdHere(rule.type, top.best.state, top.number))}`
         : `Next game, settle ${at} at a ${noun} your rule likes and hold it there.`,
       ...(top.practice && top.best && written(rule, top.best.state) === null ? { state: top.best.state } : {}) };
   } else {
