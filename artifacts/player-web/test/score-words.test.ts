@@ -70,3 +70,9 @@ test("others' bits are said to be every other player's bits on the line added to
   assert.equal(countedNote(40), "Totals are counted every few seconds; this one at 0:40, so a move's points join the total at the next count.");
   assert.equal(countedNote(null), null);
 });
+
+test("a rule won by bid says so during the game, with what comes off the total", async () => {
+  const { bidNote } = await import("../src/core/words.ts");
+  assert.equal(bidNote({ bid: 10, handicap: 10, title: "Prime Landing" }), "You won Prime Landing in the bid: 10% comes off your total at the end of the game.");
+  assert.equal(bidNote({ bid: null, handicap: null, title: "Prime Landing" }), null);
+});

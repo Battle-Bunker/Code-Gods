@@ -3,9 +3,9 @@
  * the first agent exists (ux-lessons 2.4: walkers asked "11 points and I haven't done anything?").
  */
 import { summonFirst } from "@/panes/first-summon";
-import { useAgentCount, useGame, useGameScope, useLeaderboard, useMe } from "@/sdk";
+import { useAgentCount, useGame, useGameScope, useLeaderboard, useMe, useMyRule } from "@/sdk";
 import { useOpenPane } from "@/dock/open-pane";
-import { isTied, ordinal, pointsText, powerText, SCORE_SENTENCE, TIE_NOTE, totalNote, TOTAL_NOTE, countedNote } from "@/core/words";
+import { bidNote, isTied, ordinal, pointsText, powerText, SCORE_SENTENCE, TIE_NOTE, totalNote, TOTAL_NOTE, countedNote } from "@/core/words";
 import { BitsHelp, LineByLine, TiedMark } from "@/core/score-help";
 
 export function OverviewPane() {
@@ -14,9 +14,11 @@ export function OverviewPane() {
   const standings = useLeaderboard();
   const me = useMe();
   const openPane = useOpenPane(header?.phase ?? "planning");
-  if (!header) return null;
-  const mine = standings?.rows.find(r => r.memberId === header.me);
+  const rule = useMyRule();
   const count = useAgentCount();
+  if (!header) return null;
+  const bid = rule ? bidNote({ bid: rule.row.bid, handicap: rule.row.handicap, title: rule.row.title }) : null;
+  const mine = standings?.rows.find(r => r.memberId === header.me);
   const none = seated && count === 0;
   const step = !seated ? "You're watching: open Lines to see the world, and the Leaderboard to see who leads."
     : header.phase === "ended" ? "The game is over: How the game went says where you finished."
@@ -26,6 +28,7 @@ export function OverviewPane() {
   return (
     <div className="space-y-3 p-4 text-sm" data-testid="overview">
       <p className="text-base" data-testid="text-next-step">{step}</p>
+      {bid && <p className="border-l-2 border-primary pl-2" data-testid="text-overview-bid">{bid}</p>}
       {seated && none && header.phase !== "ended" && (
         <button type="button" className="bg-primary text-primary-foreground px-3 py-1.5 font-medium" onClick={() => void summonFirst(header.gameId, openPane)} data-testid="button-overview-summon">Summon my first agent</button>
       )}

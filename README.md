@@ -162,7 +162,7 @@ Agent, the `pnpm player` CLI and the in-client assistant all use the same tool r
 
 References: [docs/engine-api.md](docs/engine-api.md) (every route, function and tool, with arguments),
 [docs/external-clients.md](docs/external-clients.md) (how any app on any origin signs in),
-[docs/room-assistant.md](docs/room-assistant.md) (acting for a player from a dev environment),
+[PILOT.md](PILOT.md) (the `pnpm player` command line: connect, status, tools),
 [clients/hello](clients/hello) (the smallest client: about 100 lines, with a Replit quickstart) and
 [clients/claude-artifact](clients/claude-artifact) (a Code Gods dashboard as a claude.ai artifact).
 
@@ -261,7 +261,7 @@ deploys"). `main` changes only by a release from `develop`.
 - **Play a local game first.** Then read your goal card's source next to its annotation.
 - **Add a goal family** in `lib/game-utilities`: a short Python and TypeScript card, a plain-language summary and its
   calibration. The parity and freshness tests tell you when you're done.
-- **Build a panel or a client.** A panel is one TSX file; [docs/panels.md](docs/panels.md) shows how.
+- **Build a panel or a client.** A panel is one TSX file against the app's `@sdk` version 2; the in-game "Your panels" pane has an example to start from.
   [clients/hello](clients/hello) is the template for a client of your own.
 - **Improve the information game:** analysis tools, assistant skills, and how the noisy totals are shown.
 

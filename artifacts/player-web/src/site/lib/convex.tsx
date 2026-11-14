@@ -3,7 +3,7 @@
  *
  * - "site": Google through Better Auth on this same origin (`/api/auth/*`): an HttpOnly session cookie, exchanged by
  *   the Convex client for 10-minute JWTs at `/api/auth/convex/token`.
- * - "token": a player JWT the app fetches itself (a dev server's room credential): the human in that one room.
+ * - "account": an account grant from the engine's /connect page, on any other origin: the human everywhere.
  *
  * Either way the signed-in human is the `auth/user:me` query, and pages read it through useSession.
  */
@@ -26,19 +26,15 @@ export interface AuthUser { id: string; name: string; isAdmin: boolean }
 
 /**
  * How the app signs in (core/connection.ts): the site's Google session; an account grant from the engine's /connect
- * page (the human everywhere, from any origin); or a token it fetches (a dev server's room credential).
+ * page (the human everywhere, from any origin).
  */
 export type EngineAuth =
   | { kind: "site" }
-  | { kind: "account"; auth: PlayerAuth; session: AccountSession }
-  | { kind: "token"; fetchAccessToken: () => Promise<string | null> };
+  | { kind: "account"; auth: PlayerAuth; session: AccountSession };
 
 type Session = {
-  /** "site" and "account": the human everywhere; "token": the human in one room (credential `roomId`). */
+  /** "site" or "account": the human everywhere. */
   kind: EngineAuth["kind"];
-  roomId?: string;
-  /** "token": the credential's permission in its room. */
-  permission?: "read" | "act" | "owner";
   user: AuthUser | null;
   isLoading: boolean;
   error: Error | null;
@@ -61,8 +57,6 @@ function useEngineSession(auth: EngineAuth): Session {
   const { isLoading: authLoading, isAuthenticated } = useConvexAuth();
   const me = useLive(api.auth.user.me, isAuthenticated ? {} : "skip");
   const login = useCallback(() => {
-    // A token app signs in where its credential comes from (`pnpm player connect`), not here.
-    if (auth.kind === "token") { toast({ title: "This player app signs in with its credential", description: "Run `pnpm player status`." }); return; }
     const returnTo = window.location.pathname + window.location.search || "/";
     if (auth.kind === "account") {
       auth.auth.signInWithRedirect({ permission: "account", returnTo })
@@ -90,9 +84,7 @@ function useEngineSession(auth: EngineAuth): Session {
   // Convex still holds a JWT but the engine knows no such human (the session just ended, or no users row):
   // say so instead of offering a "Sign in" that would come back to the same state.
   const missing = isAuthenticated && data === null ? new Error("Your session ended or the engine has no profile for you. Reload to sign in again; if it persists, ask the operator.") : null;
-  const roomId = data && "roomId" in data ? data.roomId : undefined;
-  const permission = data && "permission" in data ? data.permission : undefined;
-  return { kind, roomId, permission, user, isLoading: authLoading || me.isLoading, error: me.error ?? missing, refetch: () => window.location.reload(), login, logout };
+  return { kind, user, isLoading: authLoading || me.isLoading, error: me.error ?? missing, refetch: () => window.location.reload(), login, logout };
 }
 
 export function useSession(): Session {
@@ -126,7 +118,7 @@ export function EngineProvider({ client, auth, children }: { client: ConvexReact
   // An account grant's player JWTs are refreshed (one refresh at a time across tabs) by the SDK.
   const grant = auth.kind === "account" ? auth : null;
   const accountToken = useMemo(() => (grant ? grant.auth.fetchToken(grant.session) : null), [grant?.auth, grant?.session]); // eslint-disable-line react-hooks/exhaustive-deps
-  const fetchToken = auth.kind === "token" ? auth.fetchAccessToken : accountToken;
+  const fetchToken = accountToken;
   const tokenSource = fetchToken ?? siteToken;
   // The SDK's transport reads the same source for the engine routes it calls outside React (calibration tables): set
   // while rendering, so it is there before any child's effect asks.

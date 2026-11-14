@@ -109,3 +109,12 @@ test("the palette: entries with search text, aliases find them, available rows f
   assert.equal(entries.find(e => e.id === "seats.removeAi")!.needsInput, true);
   assert.ok(paletteFor(ctx("home", "signedIn")).some(e => e.id === "account.approveConnection"), "consent is on the palette: a human's click");
 });
+
+test("in a room where AI cannot spend, nothing that spends the AI budget is offered, and running one says why", () => {
+  const off = "AI is only available in rooms run by an administrator.";
+  const live = ctx("live", "seated", { room: { players: 3, minPlayers: 3, aiOff: off } });
+  const offered = ids(live);
+  for (const id of ["assistant.send", "pitch.draft"]) assert.ok(!offered.includes(id), `${id} is not offered`);
+  assert.deepEqual(refusal(AFFORDANCES["assistant.send"], live), { ok: false, reason: off, hidden: true });
+  assert.ok(ids(ctx("live", "seated", { room: { players: 3, minPlayers: 3 } })).includes("assistant.send"), "offered where AI can spend");
+});
