@@ -3,9 +3,9 @@
  * rule, account, values, agents and moves; another player's rule, score or value never leaves the server while the
  * game is live (v2-disclosure.test.ts). Each reads one document or one index page.
  */
-import { paginationOptsValidator } from "convex/server";
+import { paginationOptsValidator, type PaginationOptions } from "convex/server";
 import { v } from "convex/values";
-import type { Doc } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import { query, type QueryCtx } from "../_generated/server";
 import { slimKnots, valueFnIn, type ValueScope } from "./values";
 import { seatRules } from "./loop";
@@ -188,31 +188,40 @@ export const moves = query({
  * after and before; a member not seated reads the rows without bits. While live another player's move says nothing of
  * who made it; an ended game attributes every move and shows exact sums.
  */
+/**
+ * One page of the public log as `member` sees it (v1's public log): every born and move event, newest first; the
+ * caller's own bits, the others' sum (noisy while live) and points; the mover, agent, calls and charge only on the
+ * caller's own moves while live, on every move after the end. `play:log` and the `log.list` affordance share it.
+ */
+export async function logPage(ctx: QueryCtx, game: Doc<"v2Games">, memberId: Id<"v2Members">, paginationOpts: PaginationOptions) {
+  const i = game.roster.findIndex(r => r.memberId === memberId), live = disclosesNoise(game);
+  const page = await ctx.db.query("v2Log").withIndex("by_game_seq", q => q.eq("gameId", game._id)).order("desc").paginate(pageOpts(paginationOpts));
+  const view = (bits: readonly number[] | undefined, noise: number | undefined) => {
+    if (i < 0 || !bits) return { own: null, others: null, points: null };
+    const own = bits[i] ?? 0, others = bits.reduce((t, b) => t + b, 0) - own + (live ? noise ?? 0 : 0);
+    return { own, others, points: own * Math.max(0, others) };
+  };
+  return {
+    ...page,
+    page: page.page.map(r => {
+      const mine = !!r.by && r.by === memberId, open = r.kind === "move" && attributed(game, mine);
+      const now = view(r.bits, r.noise), was = view(r.bitsBefore, r.noiseBefore);
+      return {
+        seq: r.seq, worldSeconds: r.worldSeconds, kind: r.kind, objectId: r.objectId, number: r.number, version: r.version,
+        stateBefore: r.stateBefore ?? null, state: r.state, mine, ...now, ownBefore: was.own, othersBefore: was.others, pointsBefore: was.points,
+        by: open && r.by ? { memberId: r.by, name: game.roster.find(x => x.memberId === r.by)?.name ?? "A player" } : null,
+        agentId: open ? r.agentId ?? null : null, calls: open ? r.calls ?? null : null, charge: open ? r.charge ?? null : null,
+      };
+    }),
+  };
+}
+
 export const log = query({
   args: { gameId: v.string(), paginationOpts: paginationOptsValidator },
   returns: logPageV,
   handler: async (ctx, { gameId, paginationOpts }) => {
     const { game, member } = await requireGameMember(ctx, gameId);
-    const i = game.roster.findIndex(r => r.memberId === member._id), live = disclosesNoise(game);
-    const page = await ctx.db.query("v2Log").withIndex("by_game_seq", q => q.eq("gameId", game._id)).order("desc").paginate(pageOpts(paginationOpts));
-    const view = (bits: readonly number[] | undefined, noise: number | undefined) => {
-      if (i < 0 || !bits) return { own: null, others: null, points: null };
-      const own = bits[i] ?? 0, others = bits.reduce((t, b) => t + b, 0) - own + (live ? noise ?? 0 : 0);
-      return { own, others, points: own * Math.max(0, others) };
-    };
-    return {
-      ...page,
-      page: page.page.map(r => {
-        const mine = !!r.by && r.by === member._id, open = r.kind === "move" && attributed(game, mine);
-        const now = view(r.bits, r.noise), was = view(r.bitsBefore, r.noiseBefore);
-        return {
-          seq: r.seq, worldSeconds: r.worldSeconds, kind: r.kind, objectId: r.objectId, number: r.number, version: r.version,
-          stateBefore: r.stateBefore ?? null, state: r.state, mine, ...now, ownBefore: was.own, othersBefore: was.others, pointsBefore: was.points,
-          by: open && r.by ? { memberId: r.by, name: game.roster.find(x => x.memberId === r.by)?.name ?? "A player" } : null,
-          agentId: open ? r.agentId ?? null : null, calls: open ? r.calls ?? null : null, charge: open ? r.charge ?? null : null,
-        };
-      }),
-    };
+    return await logPage(ctx, game, member._id, paginationOpts);
   },
 });
 

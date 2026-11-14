@@ -73,6 +73,7 @@ import type * as v2_ops_bid from "../v2/ops/bid.js";
 import type * as v2_ops_chat from "../v2/ops/chat.js";
 import type * as v2_ops_define from "../v2/ops/define.js";
 import type * as v2_ops_game from "../v2/ops/game.js";
+import type * as v2_ops_log from "../v2/ops/log.js";
 import type * as v2_ops_moves from "../v2/ops/moves.js";
 import type * as v2_ops_object from "../v2/ops/object.js";
 import type * as v2_ops_objects from "../v2/ops/objects.js";
@@ -186,6 +187,7 @@ declare const fullApi: ApiFromModules<{
   "v2/ops/chat": typeof v2_ops_chat;
   "v2/ops/define": typeof v2_ops_define;
   "v2/ops/game": typeof v2_ops_game;
+  "v2/ops/log": typeof v2_ops_log;
   "v2/ops/moves": typeof v2_ops_moves;
   "v2/ops/object": typeof v2_ops_object;
   "v2/ops/objects": typeof v2_ops_objects;

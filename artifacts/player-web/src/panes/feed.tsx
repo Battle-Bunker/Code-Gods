@@ -3,14 +3,16 @@
  * viewer, newest first, one sentence each (move-line.ts) from the `v2Moves` row, with the line before → after written
  * by v2-views in the representation that changed. Older pages load on request; every loaded page stays live.
  */
-import { createContext, useContext, useMemo } from "react";
+import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import { chipRep, defaultRep, repText, RepView } from "@workspace/v2-views";
-import { decodeState, objectTypeOf, objectWord, useGame, useGameScope, useMoves, useMyAgents, useMyRule, variantOf, type Move, useOthersBlurred } from "@/sdk";
+import { decodeState, objectTypeOf, objectWord, useGame, useGameScope, useMoves, useMyAgents, useMyRule, variantOf, type Move, useOthersBlurred, usePublicLog, type LogEntry } from "@/sdk";
 import { num, timeLeft } from "@/core/words";
 import { useReplaying } from "@/core/affordance-runtime";
 import { callWords, moveSentence, moveWho } from "./move-line";
 import { foldTugs, tugSentence, type FeedItem } from "./tug-of-war";
 import { noteLines } from "./move-notes";
+import { logLine } from "./log-line";
+import { VirtualRows } from "@/components/virtual-rows";
 
 /** What your agents noted for you, by move (each note once, on its newest move). */
 const NotesContext = createContext<ReadonlyMap<number, string[]>>(new Map());
@@ -85,7 +87,7 @@ function TugRow({ tug, names, variant, kinds }: { tug: Extract<FeedItem<Move>, {
   );
 }
 
-export function FeedPane() {
+function ConcernsFeed() {
   const header = useGame();
   const replaying = useReplaying();
   const { seated } = useGameScope();
@@ -98,7 +100,6 @@ export function FeedPane() {
   // Who each seat is (a person, a practice partner, an AI player): practice partners read no chat.
   const kinds = useMemo(() => new Map((header?.roster ?? []).map(r => [r.memberId as string, r.kind as string])), [header?.roster]);
   if (!header) return null;
-  if (!seated) return <p className="p-4 text-sm text-muted-foreground" data-testid="feed-spectator">Each player sees the moves that changed their own points here. You're watching, so there are none to show.</p>;
   if (moves.status === "LoadingFirstPage") return null;
   if (moves.results.length === 0) {
     return (
@@ -122,6 +123,69 @@ export function FeedPane() {
         <button type="button" className="w-full border-t py-2 text-xs underline underline-offset-4 text-muted-foreground" onClick={() => moves.loadMore(30)} data-testid="button-feed-earlier">Earlier moves</button>
       )}
       {moves.status === "LoadingMore" && <p className="border-t py-2 text-center text-xs text-muted-foreground">Loading earlier moves…</p>}
+    </div>
+  );
+}
+
+/** Rows of the public log are one fixed height (two lines), so the busy list is virtualised. */
+const LOG_ROW_H = 56;
+
+function LogRowView({ r, variant, approx, length }: { r: LogEntry; variant: string; approx: boolean; length: number | null }) {
+  const change = useMemo(() => {
+    // A board written out is sixteen digits (round 6): a grid's row says which grid and your points only.
+    if (objectTypeOf(variant).id === "grid") return null;
+    try {
+      const after = lineText(decodeState(r.state, variant), "", 0, variant);
+      return { before: r.stateBefore ? lineText(decodeState(r.stateBefore, variant), "", 0, variant) : "", after };
+    } catch { return null; }
+  }, [r.state, r.stateBefore, variant]);
+  return (
+    <div className={`h-full overflow-hidden border-b px-4 py-1.5 ${r.mine ? "" : "text-muted-foreground"}`} data-testid="row-log">
+      <p className="text-[11px] tabular-nums text-muted-foreground">{timeLeft(r.worldSeconds, length)}</p>
+      <p className="line-clamp-2 text-xs text-foreground" data-testid="text-log-line">{logLine(r, { noun: objectWord(variant).one, change, approx })}</p>
+    </div>
+  );
+}
+
+/** "All moves (the public log)": every move in the game, unattributed while it runs, virtualised (v2/play:log). */
+function PublicLog() {
+  const header = useGame();
+  const blurred = useOthersBlurred();
+  const log = usePublicLog();
+  const { results, status, loadMore } = log;
+  const onNearEnd = useCallback(() => { if (status === "CanLoadMore") loadMore(50); }, [status, loadMore]);
+  if (!header || status === "LoadingFirstPage") return null;
+  if (!results.length) return <p className="p-4 text-sm text-muted-foreground" data-testid="public-log-empty">No {objectWord(header.variant).one} has been born or moved yet.</p>;
+  return (
+    <div data-testid="public-log">
+      <VirtualRows rows={results} rowHeight={LOG_ROW_H} maxHeight={480} keyOf={r => String(r.seq)} onNearEnd={onNearEnd} testId="public-log-list"
+        render={r => <LogRowView r={r} variant={header.variant} approx={blurred} length={header.worldSeconds} />} />
+    </div>
+  );
+}
+
+type FeedMode = "mine" | "all";
+
+export function FeedPane() {
+  const header = useGame();
+  const replaying = useReplaying();
+  const { seated } = useGameScope();
+  // A spectator has no points, so no "moves that changed your points": the public log is what they see.
+  const [mode, setMode] = useState<FeedMode>(seated ? "mine" : "all");
+  if (!header) return null;
+  // A replay's frame has the moves that concerned the player it is watched as; the public log is a live read.
+  if (replaying) return <ConcernsFeed />;
+  const tab = (m: FeedMode, label: string) => (
+    <button type="button" aria-pressed={mode === m} onClick={() => setMode(m)} data-testid={`button-feed-mode-${m}`}
+      className={`px-2 py-1 text-xs ${mode === m ? "border-b-2 border-primary font-semibold" : "text-muted-foreground"}`}>{label}</button>
+  );
+  return (
+    <div>
+      <div className="flex gap-2 border-b px-3" role="group" aria-label="Which moves">
+        {seated && tab("mine", "Moves that changed your points")}
+        {tab("all", "All moves (the public log)")}
+      </div>
+      {mode === "mine" && seated ? <ConcernsFeed /> : <PublicLog />}
     </div>
   );
 }

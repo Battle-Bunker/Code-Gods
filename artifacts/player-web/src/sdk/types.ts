@@ -25,4 +25,5 @@ export type AgentEnergy = FunctionReturnType<typeof api.v2.play.agentEnergy>;
 export type AgentProgram = FunctionReturnType<typeof api.v2.play.agentPrograms>[number];
 export type Move = FunctionReturnType<typeof api.v2.play.moves>["page"][number];
 export type Tug = FunctionReturnType<typeof api.v2.play.tugs>[number];
+export type LogEntry = FunctionReturnType<typeof api.v2.play.log>["page"][number];
 export type Digest = NonNullable<FunctionReturnType<typeof api.v2.play.digest>>;

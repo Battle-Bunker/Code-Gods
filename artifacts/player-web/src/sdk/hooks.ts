@@ -144,6 +144,13 @@ export function useTugs(): Tug[] | null | undefined {
   return replay ? null : live;
 }
 
+/** The public log (v1's): every move in the game, newest first, for room members; none in a replay (its frame has the moves). */
+export function usePublicLog(pageSize = 50) {
+  const { gameId } = useGameScope();
+  const replay = useReplaySource();
+  return useLivePaged(api.v2.play.log, gameId && !replay ? { gameId } : "skip", pageSize);
+}
+
 /** The viewer's live agents (≤ 20). Undefined while loading, which never means none. */
 export function useMyAgents(): Agent[] | undefined {
   const { gameId, seated } = useGameScope();

@@ -147,6 +147,17 @@ try {
     // While the game runs another player's move is unattributed (v1's public log): no name, no agent, no calls.
     const logText = await feed.innerText();
     assert.doesNotMatch(logText, /Practice partner \d+'s agent|the agents of|Another player's agent|Talk to Practice partner/, `${label}: the live act log names no one`);
+    // "All moves (the public log)": every move in the game, unattributed while it runs (v1's public log).
+    await feed.getByTestId("button-feed-mode-all").click();
+    const logRow = feed.getByTestId("text-log-line").first();
+    await logRow.waitFor({ timeout: 15_000 });
+    const logged = await feed.getByTestId("public-log").innerText();
+    assert.match(logged, /Line \d+ (changed|was born)|Your agent moved line \d+/, `${label}: the public log lists moves: ${logged.slice(0, 200)}`);
+    assert.doesNotMatch(logged, /Practice partner \d+ moved/, `${label}: live, the public log names no other mover`);
+    assert.match(logged, /Your points (about|stayed about)/, `${label}: live, your points in the log are estimates`);
+    console.log(`${label}: public log: ${(await logRow.innerText()).slice(0, 140)}`);
+    await feed.getByTestId("button-feed-mode-mine").click();
+    await feed.getByTestId("text-move-line").first().waitFor();
     assert.match(sentence, /Your rarity ([\d.,]+ → [\d.,]+ bits?|stayed [\d.,]+ bits?)/, `the move says your rarity in bits: ${sentence}`);
     assert.match(sentence, /Points on this line [−\d.,]+ → [−\d.,]+|Points on this line stayed|No points on this line/, `the move says the points before → after: ${sentence}`);
     assert.match(sentence, FORMULA, `the move says yours × others' = points: ${sentence}`);

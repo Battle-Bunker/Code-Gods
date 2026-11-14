@@ -355,6 +355,7 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
     return { score: [String(-d)], terms: [], number: numberOf(g, a.objectId), bits: bitsAt(d), points: bitsAt(d) };
   },
   "moves.list": (_e, a) => page([], a),
+  "log.list": (_e, a) => page([], a),
   "pitch.draft": (e, a) => ({ draft: `Proposal to ${a.to?.length ? a.to.join(", ") : "everyone"}: let's protect lines whose gradient suits ${gameOf(e).rules[e.userId]}.${a.aim ? ` ${a.aim}` : ""}` }),
   "agents.list": e => ({ agents: gameOf(e).agents.filter(a => a.ownerId === e.userId).map(a => ({ agentId: a.agentId, name: a.name, language: a.language, share: a.share, energy: a.energy, acts: a.acts, version: a.versions.length - 1 })) }),
   "agent.programs": (e, a) => ({ versions: agentOf(e, a.agentId).versions.map((v, version) => ({ version, ...v, acts: 0 })).reverse() }),
