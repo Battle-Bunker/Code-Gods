@@ -386,42 +386,52 @@ line-q they would be valued by direct draws (spec §7.0). The design aim, from l
 coincidences between several numbers, not one number's size, and a per-game dealt twist where possible, so no answer
 carries over. For each: the lens's own mutator (the "keeper" that climbs it cheaply) and what it entangles with.
 
+**Every secondary ties to the primary** (the owner, relayed by the coordinator on 14 November: "Secondary rules should tie
+to the primary in some way even if they invoke an extra dimension of the object. For example, a primary that seeks
+proximity to integers in the y intercept could have a secondary that seeks to maximise the largest common factor of that
+closest integer with the floor of the gradient. That's better than a secondary that just independently wants the
+gradient to be close to a large prime."). So each secondary below is a relation between the primary's **anchor** (the
+whole number, peg or point the primary measures closeness to) and a number from another lens, never an independent wish.
+
 1. **Turnstile** (the angle lens). *Primary:* "Give your line a quarter turn about the point where it crosses the
    y-axis. The turned line crosses the x-axis at c × m. Make c × m as close as possible to a whole number." *Secondaries:*
-   (a) the bigger that whole number's smallest prime factor, the better; (b) the turned line's gradient, −1/m, as close as
-   possible to a whole number. *Entangles:* m and c in a product, so Prime Landing (c), Prime Gradient (m) and
+   (a) the greatest common factor of that whole number and ⌊c⌋, the bigger the better; (b) the greatest common factor of
+   that whole number and ⌊m⌋, the bigger the better. *Entangles:* m and c in a product, so Prime Landing (c), Prime Gradient (m) and
    Whole Crossing (−c/m) all pull on it. *Keeper:* coef.swap a ↔ c keeps m × c exactly (the swap's ally); zoom
    multiplies it by f.
 2. **Whole Hypotenuse** (the normal form). *Primary:* "Draw the slope triangle of your gradient p/q: q along, p up.
    Make its sloping side, √(p² + q²), as close as possible to a whole number." (Pythagoras, school year 8–9.)
-   *Secondaries:* (a) the bigger that whole number's smallest prime factor, the better (only primes 4k + 1 occur);
-   (b) the y-intercept as close as possible to a multiple of that whole number. *Keeper:* orbit.turn by a Pythagorean
+   *Secondaries:* (a) the y-intercept as close as possible to a multiple of that whole number; (b) the greatest common
+   factor of that whole number and the nearest whole number to the y-intercept, the bigger the better. *Keeper:* orbit.turn by a Pythagorean
    angle and rot.turn by a Pythagorean tangent both keep a Pythagorean gradient Pythagorean and multiply the hypotenuse
    (Gaussian integers multiply): a multiplicative climb, not a ramp in one number. *Entangles:* Prime Gradient, Pell-like
    rules, Pythagorean Area.
 3. **Mirror Meeting** (the fold lens, with a dealt mirror). *Primary:* "The mirror is the line y = x + d (d dealt per
    game). Your line hits the mirror at one point. Make that point as close as possible to a peg (whole x and whole y)."
-   The point is x = (d − c)/(m − 1). *Secondaries:* (a) your reflection's y-intercept as close as possible to a prime;
-   (b) the peg's distance² from the origin with the biggest smallest prime factor. *Keeper:* the fold in the dealt
+   The point is x = (d − c)/(m − 1). *Secondaries:* (a) the greatest common factor of the peg's
+   x and ⌊m⌋, the bigger the better; (b) the peg's distance² from the origin as close as possible to a multiple of ⌊c⌋. *Keeper:* the fold in the dealt
    mirror keeps the meeting point and wrecks everyone else: a free move for this god that its neighbours must police.
    The dealt d means no answer carries over between games.
 4. **Swap Twins** (the reciprocal chart). *Primary:* "Your line y = mx + c and its swap y = cx + m always cross at
    x = 1. Together with the y-axis they make a thin triangle with corners (0, c), (0, m) and (1, m + c). Make its area,
-   |m − c| ÷ 2, as close as possible to a whole number." *Secondaries:* (a) the crossing height m + c as close as possible
-   to a prime; (b) the swap's x-intercept −m/c as close as possible to a whole number. *Keeper:* coef.swap keeps the area
+   |m − c| ÷ 2, as close as possible to a whole number." *Secondaries:* (a) the greatest common factor of the whole
+   area and ⌊m + c⌋ (the crossing height), the bigger the better; (b) ⌊c⌋ as close as possible to a multiple of the whole
+   area. *Keeper:* coef.swap keeps the area
    and the crossing exactly; it is this god's own move, and it wrecks Prime Staircase (97%).
 5. **Slanted Graph Paper** (another basis, with a dealt slant). *Primary:* "On graph paper whose rows are each pushed s
    squares right (s dealt per game, e.g. ½), your line's gradient is m ÷ (1 − s·m). Make it as close as possible to a
-   whole number." *Secondaries:* (a) the slanted y-intercept, c ÷ (1 − s·m), as close as possible to a prime; (b) the
-   bigger that slanted gradient's whole number, the better. *Keeper:* basis.lean by s′ changes the slant the line sees;
+   whole number." *Secondaries:* (a) the greatest common factor of that whole number and
+   ⌊c ÷ (1 − s·m)⌋ (the slanted y-intercept), the bigger the better; (b) the slanted y-intercept as close as possible to a
+   multiple of that whole number. *Keeper:* basis.lean by s′ changes the slant the line sees;
    tilt and lean together walk the modular group. *Entangles:* every gradient rule, through a dealt Möbius twist.
-6. **Family Tree** (the fraction tree; a secondary for existing families). "Tie-breaker: the gradient and the
-   y-intercept as close as possible in the fraction tree (the fewest up-and-down steps from one to the other)." For
-   Prime Gradient, Treasure or Same on Both Rulers. *Keeper:* sb.step. It couples m and c in a metric no school lens
+6. **Family Tree** (the fraction tree; a secondary for existing families). "Tie-breaker: the y-intercept as close as
+   possible, in the fraction tree, to the whole number or prime your main rule aims at (the fewest up-and-down steps)."
+   For Prime Gradient (the anchor is the prime nearest m) or Whole Crossing (the whole number nearest the x-intercept). *Keeper:* sb.step. It couples m and c in a metric no school lens
    shows, and its own move is the gentlest in the game (6% destroy).
 7. **Pole Star** (the dual point; second pool, advanced). *Primary:* "Make 1 ÷ (your line's distance from the origin)²,
-   that is (a² + b²) ÷ c², as close as possible to a whole number." *Secondary:* the line's pole (−a/c, −b/c) as close
-   as possible to a peg. *Keeper:* pole.slide by whole steps keeps the pole on pegs; zoom moves the distance.
+   that is (a² + b²) ÷ c², as close as possible to a whole number." *Secondary:* the greatest common factor of that whole
+   number and c² (the pole's denominator squared), the bigger the better: it ties the pole's grid to the primary's
+   anchor. *Keeper:* pole.slide by whole steps keeps the pole on pegs; zoom moves the distance.
    *Entangles:* Ruler (the same distance, the other way up) — a natural rival pair, since Ruler wants the line far and
    Pole Star rewards particular near distances.
 
