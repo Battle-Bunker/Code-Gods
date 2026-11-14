@@ -30,6 +30,8 @@ To be recorded as decisions 15 and 16 in [owner-decisions.md](owner-decisions.md
     those interface surfaces DRYly." Consequence: §2.5 makes **one affordance directory** a core v2 contract, built
     first (workstream W6), from which the assistant's tools, the MCP tools, the CLI, the palette and the UI's buttons
     are generated, with a parity test.
+18. On the bid phase: "I want that still in the rebuilt app." Consequence: bidding is not deleted; it is part of M3,
+    ported onto the v2 rule contract (§5.9).
 
 ## 0. The plan on one page
 
@@ -60,8 +62,9 @@ To be recorded as decisions 15 and 16 in [owner-decisions.md](owner-decisions.md
    with the new annotation and representation views, and the v1 engine leaves `develop`; M3 the full inventory on
    lines, persona walks passed; M4 grids on the v2 contracts, beginner pool recalibrated, same UI; M5 the v1 tables' stored
    rows and definitions gone and the final inventory of what remains.
-8. **Deleted, not deferred** (everything stays on `archive/engine-v1`): integers and strings (owner), paid looks,
-   bidding, tiers (replaced by v2 ladders), hold rarity and defence goals (spec §8), disclosure noise, Lab setups and
+8. **Kept, on v2:** the bid phase (decision 18, §5.9, M3). **Deleted, not deferred** (everything stays on
+   `archive/engine-v1`): integers and strings (owner), paid looks,
+   tiers (replaced by v2 ladders), hold rarity and defence goals (spec §8), disclosure noise, Lab setups and
    user-saved setups (replaced by deployed presets), the playing-card and colour boards, `lib/grid-lab`. D1 deletes the
    ones v1 can lose today (§5.8). Each with its reason in §1.8.
 
@@ -104,6 +107,8 @@ v2 (how) · **×** dropped or deferred (why). The milestone where it lands on v2
   The configure page keeps its layout and loses most of its fields (M3). User-saved setups: **×** deferred; presets are
   enough while the engine is moving (guess: nobody but the owner saved setups).
 - [ ] **D** Setup picker with the Lab group for admins (M3).
+- [ ] **R** Bid phase before the deal: handicap-percent bids on rule families, highest bid wins the family exclusively,
+  sealed, disclosure by preset; on v2 rule families, through the affordance directory (decision 18, §5.9) (M3).
 - [ ] **D** Past games list and the replay link (M3).
 
 ### 1.3 Planning and the first agent
@@ -201,11 +206,11 @@ v2 (how) · **×** dropped or deferred (why). The milestone where it lands on v2
 |---|---|---|
 | Integer and string objects | **×** deleted in D1 (owner, decisions 15) | "I might want to abandon those in favour of richer and more technically specific types." A later richer type is a new v2 object-type package; the old code is on `archive/engine-v1`. |
 | Paid looks (`look`, `knowledge.ts`, `observer.ts`, stale boards, `knowledgeLog`) | **×** deleted in D1 | Walks: paid looks cost attention and sped nobody up (ux 2.7). v2 already prices what agents read (spec §6.2); human observation is free and exact. |
-| Bidding (`bidding.tsx` 302, `roomBids`, `gameAuctions`) | **×** deleted in D1 | It answers single-game fairness, which is undecided (design-explorations "Decisions waiting" 1). Rotation is the fairness mechanism kept. If the owner revives it, it is a new v2 deal mechanism (bids on rule keys, handicaps as points multipliers), entered through the affordance directory; the old code is archived. |
+| Bidding (`bidding.tsx` 302, `roomBids`, `gameAuctions`) | **R** kept (decision 18), ported in M3 | The room-level bid phase before the deal, on v2 rule families, through the affordance directory; §5.9. |
 | Tiers (★ bonus, gates, `card-tiers.ts`, `ruleTiers`) | **R** replaced by ladders; v1 tiers deleted in D1 | A v2 rule's score is a tuple of laddered components (main part, tie-breakers; rule brainstorm B §0). The ★ gate is a rung; the goal card's "steps to the top" is the ladder. No tier tables. |
 | Hold rarity, defence goals | **×** (spec §8) | Not in v2's first version. |
 | Disclosure noise (`peerNoiseBits`) | **×** | Already off on the beginner setup; it read as a bug (ux 2.7). |
-| Playing-card, glyph and colour boards (First steps, Classic, Low income, Big board, Master, Annotated colours, Tiered rules) | **×** deleted in D1 | Only Annotated basics stays playable on v1 until D2; M4 ports the beginner digit grid only. Other grid variants are new `v2-grid` variants when wanted. |
+| Playing-card, glyph and colour boards (First steps, Classic, Low income, Big board, Master, Annotated colours, Tiered rules) | **×** deleted in D1 | Only Annotated basics and Basics with bidding stay playable on v1 until D2; M4 ports the beginner digit grid only. Other grid variants are new `v2-grid` variants when wanted. |
 | User-saved setups, Lab setups | **×** deleted (Lab setups in D1, saved setups in D2) | Presets in code (decision 7); trial variants are admin-only presets. |
 | `lib/grid-lab` (Python research lab, imported by nothing) | **×** deleted in D1 | Its families were ported into game-utilities long ago; archived. |
 | `examinationRuns` cache, futility tracking, `futileActs` | **R** | v2's check is one act; futility is visible in the act log (skips) and needs no table. |
@@ -304,7 +309,7 @@ engine switch: a pane converted to v2 stops serving v1, and until D2 the v1 app 
 | Room page (`room.tsx` 286, `next-step.ts` 137, `room-seats.ts` 61, `rotation-note.tsx` 27) | keep with edits: data from `v2/rooms.get`, actions from affordances (~120 changed lines) |
 | Configure (`configure.tsx` 698, `settings-form.ts` 371) | rewrite for v2 (~250 lines): preset picker plus the few overrides |
 | Setup picker (`setup-picker.tsx` 154) | keep with edits: options from `lib/v2-linear` presets (code, no query) |
-| Bidding (`bidding.tsx` 302, `site/lib/bidding.ts` 196) | deleted in D1 |
+| Bidding (`bidding.tsx` 302, `site/lib/bidding.ts` 196) | keep with edits (~100 changed lines): families and cards from v2, bids through affordances; converted on `claude/v2-app` against W3-1's fixtures (§5.9) |
 | Game page router (`site/pages/game.tsx` 263) | keep with edits: header from `v2/games.header`; picks Play, Spectate, Replay as today |
 | Dock (`dock/*`, ~1,800 lines: shell, store, layout-sync, desktop, stacked, adapter, headers, operations, history, panel-search) | keep; layout types from `lib/v2-client/layout.ts` (a copy of player-client's 507-line `layout.ts` and 215-line `panels.ts` with v2 panel ids); `layout.current/set` → `v2/layout.*`; pane operations are affordances |
 | Header (`core/header.tsx` 206, timers, planning line) | keep, imports to sdk2 |
@@ -353,7 +358,7 @@ Where it drifted:
 
 1. **The unit is a Convex function, not an operation.** Nine game commands share `commands.submit`, so they have one
    catalogue entry; their per-command text lives in tool `about` strings and palette performers.
-2. **About 70 entries are exempted by `why`**, most of them not plain subscriptions: bidding, the assistant's queue
+2. **About 70 entries are exempted by `why`**, most of them not plain subscriptions: bidding (four of them), the assistant's queue
    edits, code objects, consent pages, admin data. Each is a capability one surface has and another lacks.
 3. **Buttons bypass it.** The app calls `useMutation` at 60 sites and `useAction` at 18 directly; the two palette bind
    tables restate the performers; a button and its palette command can disagree on confirmation or availability.
@@ -598,15 +603,17 @@ minute 3."
 | `v2Games` | `games` | header: room, codes, phase, deadlines, preset, variant key, seed, roster, rotation, summary, replay file | lobby, tick (phase only) | cold |
 | `v2Clocks` | `gameClocks` | world seconds, last tick, object and agent counts | every commit | hot; no public query (clients interpolate) |
 | `v2Engine` | `gameEngine` | lease, next birth, next batch, failures | the loop | internal |
-| `v2Rules` | `deities` (utility part) | (game, player): family, params, artefact hash, card sentence, ladder with rung rarity | deal | private to the player |
+| `v2Rules` | `deities` (utility part) | (game, player): family, params, layers (a dealt rule is `{family, params, layers}`; the beginner pool deals 2), artefact hash, card sentence, ladder with rung rarity and each rung's layer, won by bid and handicap | deal | private to the player |
 | `v2Players` | `deities` (account part) | (game, player): energy, power, allocated, ready, pause used | commands, tick | hot per player |
 | `v2Objects` | `objects` (cold part) | object: number, born at | tick | |
 | `v2ObjectStates` | `objects` (hot part) | object: state wire, version, changed at | tick | shared by all viewers |
-| `v2ObjectValues` | `objectViews` | (object, player): score wire, level, rarity, peer sum, points, version | tick | indexes `by_game_player_points`, `_rarity`, `_want`, `_born` |
+| `v2ObjectValues` | `objectViews` | (object, player): score wire (`(string \| null)[] \| null`), level, rarity, peer sum, points, version | tick | indexes `by_game_player_points`, `_rarity`, `_want`, `_born` |
 | `v2Agents` | `agents` (cold part) | agent: owner, name, language, source hash, current program version, share | commands | |
 | `v2AgentEnergy` | `agents` (hot part) | agent: energy, acts, skips, failures, spend, points gained | tick | hot |
 | `v2AgentPrograms` | new | (agent, version): source, language, summoned at, acts, points gained | commands, tick | the put-back comparison |
-| `v2Standings` | `standings` | game: rows (player, total, rank) | scoreboard | ≤ 8 rows in one doc |
+| `v2Standings` | `standings` | game: rows (player, total, handicap %, net total, rank) | scoreboard | ≤ 8 rows in one doc; rank by net total |
+| `v2RoomBids` | `roomBids` | (room, player): bids [{family, percent}], done | bid affordances | private to the player |
+| `v2Auctions` | `gameAuctions` | game: every bid, the order of wins, each winner's family and handicap | deal | disclosed per preset; everything after the end |
 | `v2StandingsHistory` | `standingsHistory` | (game, seq): totals | scoreboard | race, results |
 | `v2Moves` | `objectEvents` (projection) | (move, player concerned): §2.3 | tick | the act log |
 | `v2Digests` | `objectDigests` | (game, player): packed [object, own rarity, want] | tick | others-care |
@@ -616,7 +623,9 @@ minute 3."
 | `v2Panels`, `v2PanelVersions` | `panels*` | stored panel with `sdk: 2` | panel commands | per human |
 | `v2WorkSlots` | `workSlots` | background slot | checks, AI seats | avoids widening the old table |
 
-Dropped with no v2 twin: `holdTables`, `examinationRuns`, `roomBids`, `gameAuctions`, `knowledgeLog`, `godTotals`
+Bidding's tables get v2 twins (§5.9): `v2RoomBids` (from `roomBids`) and `v2Auctions` (from `gameAuctions`).
+
+Dropped with no v2 twin: `holdTables`, `examinationRuns`, `knowledgeLog`, `godTotals`
 (standings are exact), `agentSamples`, `futileActs`, `catalogs`, `examinations` (rate limit moves into `v2WorkSlots`),
 `gameSetups`, every `calibration*` table.
 
@@ -624,7 +633,7 @@ Dropped with no v2 twin: `holdTables`, `examinationRuns`, `roomBids`, `gameAucti
 
 | Area | Today | v2 (file in `convex/v2/`) | Work |
 |---|---|---|---|
-| Rooms | `rooms.ts` 417, `lib/rooms.ts` 148 | `rooms.ts` (~300): create, list, get, join, leave, setSpectator, setReady, chat, history | copy, drop settings and AI quota fields, drop bidding hooks |
+| Rooms | `rooms.ts` 417, `lib/rooms.ts` 148 | `rooms.ts` (~300): create, list, get, join, leave, setSpectator, setReady, chat, history | copy, drop settings and AI quota fields; keep the room's bid-phase state (§5.9) |
 | Owner and lobby | `owner.ts` 388, `game/lobby.ts` 329, `setups.ts` 441 | `owner.ts` (~250): command (settings, start, startWorldNow, end, resume, fillPracticePartners, addAi, removeAi); `lobby.ts` (~200): deal, births at start, header | rewrite around presets; deal draws from the preset's dealable pool, refusing any rule without a converged artefact (spec §7.6) |
 | Rotation | `lib/dealRotation.ts` 71 | `rotation.ts` (~70) keyed by rule key | copy |
 | Tick | `engine/tick.ts` 393, `engine/loop.ts` 471, `game/state.ts` 84, `lib/world.ts` 227, `engine/background.ts` 107 | `loop.ts` (~350, the lease, watchdog, commit pattern copied), `tick.ts` (~350): births by the birth walk, opportunities and offers (`v2-economy`), acts through the agent host (`v2-agents`), values (`v2-valuation` lookup), standings, events, moves | the commit writes clocks, states, values, energy, moves, events; standings on the scoreboard cadence |
@@ -645,14 +654,14 @@ Dropped with no v2 twin: `holdTables`, `examinationRuns`, `roomBids`, `gameAucti
 ### 4.4 The assistant, MCP and CLI (M3)
 
 They are generated from the affordance directory (§2.5); there is no separate tool registry. The v2 directory has about
-40 affordances at M3 instead of today's 60 tools plus 47 `ui.*` commands, because paid looks, bidding, setups, hold and
+40 affordances at M3 instead of today's 60 tools plus 47 `ui.*` commands, because paid looks, setups, hold and
 inference tools go and view operations join. The executors are the `defineOp` internal twins, so
 `agent/registry.ts` (452) has no v2 counterpart. The assistant's prompt teaches the v2 vocabulary (points, ✨ rarity,
 ⚡ energy, power) and lists the context's affordances.
 
 ### 4.5 What is switched off, and when
 
-- **D1 (now):** integer and string objects, paid looks, bidding, tiers, hold rarity, disclosure noise, Lab setups, the
+- **D1 (now):** integer and string objects, paid looks, tiers, hold rarity, disclosure noise, Lab setups, the
   older grid setups and `lib/grid-lab` leave `develop` (§5.8). Annotated basics stays playable on v1.
 - **D2 (end of M2):** the v1 engine, its Convex modules, the v1 game screen and the v1-only libraries leave `develop`;
   v2 lines are the only game on `develop` and the dev deployment. Production (`main`) keeps v1 until the owner promotes.
@@ -691,8 +700,8 @@ components and passes subscriptions' data in). W4 never touches Convex; W5 never
 | W2-2 | W2 | Simple and Thorough starters for every family in the beginner pool, both languages; summon price; `check`; the price tests of ux 1.4–1.5 | W2-1, W1-5 |
 | W6-1 | W6 | the directory contract (§2.5): types, `defineOp`, `useAffordance`'s interface, the parity test, import boundary | 2 |
 | W6-2 | W6 | generators: assistant and MCP tool lists, the CLI, palette entries, `useAffordance`; the MCP endpoint routes v2 rooms' credentials to the generated tools | W6-1 |
-| W3-1 | W3 | **API contract**: `convex/v2/schema.ts`, validators and stubbed queries over fixtures, every M1–M2 operation declared in the directory with a stub `defineOp`, import-boundary extended, R8 rows (marked pending) | 2, W6-1 |
-| W3-2 | W3 | v2-economy (spec PR 8) | 2 |
+| W3-1 | W3 | **API contract**: `convex/v2/schema.ts`, validators and stubbed queries over fixtures, every M1–M2 operation and the bid operations (§5.9) declared in the directory with a stub `defineOp`, import-boundary extended, R8 rows (marked pending) | 2, W6-1 |
+| W3-2 | W3 | v2-economy (spec PR 8), including the pure bid mechanism and its tests copied and cleaned from `game-utilities/src/bidding.ts` (§5.9) | 2 |
 | W3-3 | W3 | rooms, owner, lobby, deal, rotation, practice partners | W3-1, W1-5 |
 | W3-4 | W3 | loop and tick: births, offers, acts via `runAct`, values, moves, standings, events; commands | W3-2, W3-3, W2-2 |
 
@@ -718,7 +727,7 @@ needs at least six for rotation across three seats; spec §7.8's levers apply); 
 | W4-3 | W4 | `ObjectChip`, `CompactFace`, `ExpandedFace`, `RepSwitcher`, `PartsList`, `LadderView`, `GoalCard`, `MoveLine`; a gallery page (`src/gallery/v2.tsx`) with the §3.4 storyboards as fixtures | W4-1, W4-2 |
 | D1 | W5 | deletion of what v1 can lose today (§5.8); ui-kit loses its player-client type imports | — (can start now) |
 | W5-2 | W5 | on the integration branch `claude/v2-app` (with a `preview` deployment): `v2-client` layout, panels, types; `src/sdk` rewritten over W3-1's contract; room page, home, game router, header and dock on v2; buttons through `useAffordance` | W3-1, W6-2 |
-| W5-3 | W5 | on `claude/v2-app`: panes on v2: overview, objects (compact faces), popover (expanded), my-card (goal card), act log (`move-line.ts`), agents, forge (summon, replace, destroy, starters), results headline, chat | W4-3, W5-2, W3-4 |
+| W5-3 | W5 | on `claude/v2-app`: the bidding screen converted against W3-1's fixtures (§5.9); panes on v2: overview, objects (compact faces), popover (expanded), my-card (goal card), act log (`move-line.ts`), agents, forge (summon, replace, destroy, starters), results headline, chat | W4-3, W5-2, W3-4 |
 | D2 | W5 | `claude/v2-app` merges into `develop` together with the deletion of the v1 engine, its Convex modules and the v1-only libraries (§5.8) | W5-3 and M2's acceptance |
 
 **Acceptance (M2):** `e2e/v2-line-game.ts` (desktop 1440×900 and phone 390×844): create a v2 room, "Play a practice
@@ -742,6 +751,7 @@ bigger than estimated.
 | W5-5 | W5 + W3 | replay: `v2Events` file, reducer, controller, parts with points changes and any player's annotation |
 | W5-6 | W5 + W3 | forge put-back comparison (`v2AgentPrograms`), check report |
 | W3-5 | W3 | rotation and running totals on repeat games; model-backed AI seats; quotas |
+| W3-8 | W3 + W5 | the bid phase on v2 (§5.9): `v2RoomBids`, `v2Auctions`, the bid affordances' handlers, the deal with bids, handicaps in standings, disclosure; the bidding screen wired to them; tests ported from `game-bidding` |
 | W3-6 | W3 + W6 | every remaining operation of §1 in the directory with its handler; the CLI as `pnpm player`; MCP tests ported |
 | W3-7 | W3 + W5 | assistant on v2 (prompt; tools generated from the directory; client affordances performed by the pane); stored panels with `@sdk` v2 and rewritten examples |
 | W5-7 | W5 | palette complete from the directory (no hand-written palette commands left); site smoke on v2 |
@@ -823,15 +833,13 @@ basics stays playable on v1):
   `IntObject` and `StringObject` in object-views; the number and text editors in `object-editors.tsx` and
   `object-editor-model.ts`; their setups and settings options; the Int and string games in `e2e/multi-client.ts`; their
   docs and tests.
-- **Bidding**: `convex/bidding.ts`, `dealWithBids`, `bidding.tsx`, `site/lib/bidding.ts`, the bid tools and skill, Lab
-  bidding setups, `game-bidding` tests, `e2e/bidding-shots.ts`, `docs/bid-phase.md`, `.agents/memory/bid-phase.md`.
 - **Paid looks**: `game/looks.ts`, the `look` command and tool, `knowledge.ts`, `observer.ts`, stale-board fields'
   writers, `game-paid-observation` tests, `e2e/paid-observation-shots.ts`, the setup, `.agents/memory/paid-observation.md`.
 - **Tiers**: `card-tiers.ts`, `ruleTiers`, `TIER_COMPOSITIONS`, the Tiered rules setup and Lab tier setups,
   `docs/tiered-rules.md`, `docs/handover-tiered-rules.md` if present.
 - **Hold rarity and disclosure noise**: `engine/hold.ts`, `engine/holdData.ts`, hold work slots, `game-hold` tests,
   `peerNoiseBits` and the noise fields' writers.
-- **Setups**: every Lab setup and every setup but Annotated basics (First steps, Classic, Low income, Big board, Master,
+- **Setups**: every Lab setup and every setup but Annotated basics and Basics with bidding (First steps, Classic, Low income, Big board, Master,
   Annotated colours); the deep colour and glyph code goes in D2, not here (cheap boundary first).
 - **`lib/grid-lab`** (imported by nothing) and docs that only served removed features or superseded designs:
   `docs/brainstorm/`, `docs/research/` items about removed features, `docs/clean-implementation-plan.md`,
@@ -845,7 +853,7 @@ basics stays playable on v1):
 - Libraries: `game-types`, `game-utilities`, `game-core`, `object-views`, `player-client`, `ai-player`, `game-runtime`
   (each already copied and cleaned where v2 needed it: v2-sandbox, v2-economy, v2-views, v2-client, v2-ai).
 - Convex v1 modules: `engine/*`, `calibration/*`, `owner.ts`, `game/*`, `player.ts`, `dock.ts`, `games.ts`, `rooms.ts`,
-  `setups*`, `manifest*`, `commands.ts`, `replays.ts`, `ai/*`, `agent/registry.ts`, `agent/node.ts`, `agent/rules.ts`,
+  `setups*`, `manifest*`, `commands.ts`, `bidding.ts` (already ported, §5.9), `replays.ts`, `ai/*`, `agent/registry.ts`, `agent/node.ts`, `agent/rules.ts`,
   `agent/series.ts`, v1 `assistant*`, `layout.ts`, `panels.ts`, `lib/*` v1 helpers, v1 `testing.ts` fixtures, crons for
   v1 caches; shared modules (`auth/*`, `agent/oauth*`, `agent/connect.ts`, `activity.ts`, `aiTemplates.ts`, `version.ts`,
   `lib/rooms.ts`'s `encodeUuid`) lose their imports of v1 libraries.
@@ -859,8 +867,58 @@ basics stays playable on v1):
 
 **D3, at M5**: §5.6.
 
-**What can be deleted now**, in one line: integers and strings, bidding, paid looks, tiers, hold rarity, disclosure
+**What can be deleted now**, in one line: integers and strings, paid looks, tiers, hold rarity, disclosure
 noise, every setup but Annotated basics, `lib/grid-lab`, and the docs of all of these (D1).
+
+### 5.9 The bid phase on v2 (decision 18)
+
+**Rules carried over unchanged** (`docs/bid-phase.md`, `.agents/memory/bid-phase.md`): a room-level step of the start,
+before the game exists; each human player bids whole percents 1–100 of handicap on rule families, sealed; the
+mechanism sorts every bid highest first (ties uniformly at random), gives the top bidder that family exclusively, drops
+that player's other bids and the family's other bids, and repeats; everyone else is dealt as usual from the families
+nobody won; **no bids gives the dealer's own deal, byte for byte** (same generator, nothing drawn first); the handicap
+(first price by default, second price as a preset option) comes off the winner's totals only (net = total − h% × |total|),
+never off per-object points, since a player's points are a product with the others' rarity; disclosure by preset
+(`none`, `handicaps`, `all`), everything after the end; AI seats and practice partners do not bid; the phase ends at its
+deadline or when every human is done.
+
+**On the v2 rule contract.** A dealt v2 rule is `{family, params, layers}`. **A bid names a family only**; the winner's
+params and layers are drawn by the dealer from that family's dealable grid exactly as for everyone else.
+Recommendation and reasons: a player bids before seeing anything but cards, and a family's card is what they can judge;
+family-plus-layer bids would multiply the bid screen by the layer choices (with two layers dealt, often ten or more
+options a family) and make most bids unopposed; and the dealer's balance band (spec §7.8) keeps working on layers. If
+the owner later wants bids on layers, the bid's `family` widens to `{family, layers?}` without changing the mechanism.
+
+**Rotation.** Today rotation is off when the setup has a bid phase, and a deal made with winning bids neither rotates
+nor continues a rotation. **That stays**: the auction is itself the fairness instrument, and rotating a rule someone
+paid for would void their bid. An all-pass auction is identical to no bidding, so it may continue or start a rotation
+(today's rule, since `bid` is false for it).
+
+**Affordances** (all in the directory, so the assistant, MCP, CLI and palette reach them, and today's four `why`
+exemptions disappear): `bid.state` (read: the families on offer with card and ladder top, the deadline, my bids, who is
+done), `bid.place {family, percent}`, `bid.withdraw {family}`, `bid.done`, `game.auction` (read, by disclosure). Context:
+`room` while the room's bid phase is open; caller: `seated` human. The bidding screen keeps its layout and words
+(`bidding.tsx` 302, `site/lib/bidding.ts` 196).
+
+**Presets.** `Lines · beginner with bidding` (45 s bid phase, first price, sealed); admin presets for second price and
+open disclosure. Bidding stays off on `Lines · beginner`.
+
+**Who and when.** W3 carries it, with W5 for the screen and W6 for the entries:
+- W3-1 (M1) declares the bid affordances with stub handlers and the `v2RoomBids` and `v2Auctions` tables;
+- W3-2 (M1) copies the pure mechanism (`game-utilities/src/bidding.ts`) and its tests, including the byte-for-byte
+  no-bids test, into `lib/v2-economy`;
+- W5-3 (M2) converts the bidding screen on `claude/v2-app` against the fixtures;
+- W3-8 (M3) implements the handlers, the deal with bids, handicaps in `v2Standings`, disclosure and the replay's auction,
+  and ports `game-bidding` and the disclosure checks.
+
+So when D2 deletes `convex/bidding.ts` and the v1 libraries, the mechanism, its tests and the screen are already on v2,
+and the server side is the archived module copied and cleaned in W3-8. D1 no longer touches bidding, and Basics with
+bidding stays playable on v1 until D2.
+
+**Acceptance (in M3's):** `v2-bidding.test.ts` (all-pass equals the plain deal byte for byte; exclusive wins; ties at
+random under a seed; handicaps in standings and results; first and second price; disclosure per preset;
+rotation off after a won bid, on after an all-pass); the parity test covers the bid affordances; an e2e step in
+`multi-client` bids from the screen and from the assistant.
 
 ---
 
@@ -906,7 +964,9 @@ directory with a stub `defineOp` handler (W6-1 must have landed; never a public 
 import-boundary test extended to `convex/v2/**`, R8 rows. Then W3-2 (v2-economy, spec PR 8 with the agent-count
 neutrality tests), W3-3 (rooms, owner commands, lobby, deal from presets refusing unconverged rules, rotation, practice
 partners), W3-4 (loop and tick with births, offers, `runAct` from W2, values, `v2Moves`, standings, events; the
-operations summon, replace, destroy, allocatePower, check, ready, pause, chat as `defineOp` handlers). M1's acceptance tests (§5.2) are yours. Copy the
+operations summon, replace, destroy, allocatePower, check, ready, pause, chat as `defineOp` handlers). M1's acceptance tests (§5.2) are yours, and the bid phase (§5.9: stubs in W3-1, mechanism in W3-2, handlers in W3-8).
+Follow the spec's layered rules: `v2Rules` holds `layers` and each rung's layer (artefact schema 2), score wire is
+`(string | null)[] | null`, and a `too-coarse` artefact is not dealable. Copy the
 lease, watchdog and commit pattern from `engine/loop.ts`; do not import anything from the old engine.
 
 **W4, views and annotations.** You build `lib/v2-views` (spec §11, PR 9, enlarged by this plan §3). Read spec §3–§4 and
@@ -939,6 +999,7 @@ for lines, not around it.
 1. Deleting v1's stored games from the deployments (D3-a) is irreversible; the plan asks then, with an export first.
 2. Between D2 and M4 `develop` has no grid game (lines only); the archive branch and production keep grids. Acceptable?
    (Guess: yes, under decision 15.)
-3. Bidding and single-game fairness: deleted; a v2 deal mechanism only if the owner asks.
+3. Bidding on layered rules: the plan has bids name a family, not a family plus layers (§5.9). Say if you want bids on
+   the layers too.
 4. Whether the beginner pool mixes story families (rule brainstorm B) with the spec's twelve: W1 decides from the
    calibration report and the first walks.
