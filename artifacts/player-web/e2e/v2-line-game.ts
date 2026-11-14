@@ -99,6 +99,15 @@ try {
     assert.equal(await page.getByTestId("button-summon-first").count(), 0, "nothing offers the first summon again (ux 1.8)");
     console.log(`${label}: summoned at ${clock(t0)}`);
     if (label === "desktop") {
+      // A chat deal kept without touching code (the coordinator's item 2): the agent leaves line 3 alone; only that part
+      // of its code changes, priced as that small edit.
+      const leave = page.getByTestId("leave-alone");
+      await leave.getByTestId("input-leave-alone").fill("3");
+      await leave.getByTestId("text-leave-alone").getByText(/will leave line 3 alone: only that part of its code changes, for [\d,.]+ ⚡/).waitFor();
+      await leave.getByTestId("button-leave-alone").click();
+      await leave.getByTestId("text-leave-alone-done").getByText(/now leaves line 3 alone \(it cost [\d.]+ ⚡\)/).waitFor({ timeout: 30_000 });
+      await leave.getByTestId("text-leave-alone").getByText(/leaves line 3 alone\./).waitFor({ timeout: 10_000 });
+      console.log(`${label}: ${(await leave.getByTestId("text-leave-alone-done").innerText()).trim()}`);
       // Editing the agent's code prices only the change (owner decision 21), beside the whole program's price.
       const box = page.getByTestId("input-forge-code");
       await box.fill((await box.inputValue()) + "\nconst extra = 1;\n");

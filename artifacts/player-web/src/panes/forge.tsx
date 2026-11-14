@@ -16,6 +16,7 @@ import { onFirstSummon, takeFirstSummon } from "./first-summon";
 import { energyText } from "@/core/words";
 import { useWide } from "@/core/use-wide";
 import { PullBack } from "./pull-back-ui";
+import { LeaveAlone } from "./leave-alone-ui";
 import { shortfallOf, shortText } from "./pull-back";
 import {
   affordLine, comparisonText, editLine, editPrice, FIRST_SHARE, openingProgram, otherStartingPoints, primaryAction, replacedText, summonedText, summonPrice, type Language,
@@ -211,6 +212,8 @@ export function ForgePane() {
           </details>
         )}
       </div>
+      {agent && current && <LeaveAlone agentId={agent.agentId} name={agent.name} language={current.language as Language} source={current.source}
+        one={objectWord(header?.variant).one} many={objectWord(header?.variant).many} />}
       {!runner.busy && <p className="text-xs text-muted-foreground" data-testid="text-forge-price">{replacePrice !== null
         ? editLine({ edit: replacePrice, full: price, energy: me?.energy ?? 0 })
         : affordLine({ price, energy: me?.energy ?? 0, justRan: ran === source, ownPerSecond: me?.ownPerSecond ?? 0, capacity: me?.capacity ?? 0 })}</p>}

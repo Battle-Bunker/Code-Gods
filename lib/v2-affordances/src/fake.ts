@@ -373,6 +373,13 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
     agent.versions.push({ language: a.language, source: a.source });
     return { version: agent.versions.length - 1, price: FAKE_PRESET.summonPrice };
   },
+  "agent.leaveAlone": (e, a) => {
+    const agent = agentOf(e, a.agentId), last = agent.versions.at(-1)!;
+    if (!/LEAVE\s*=\s*\[/.test(last.source)) throw new OpFailure("That agent's code has no leave-alone list (LEAVE) to set.");
+    spend(e, FAKE_PRESET.summonPrice);
+    agent.versions.push({ language: last.language, source: last.source.replace(/LEAVE\s*=\s*\[[^\]]*\]/, `LEAVE = [${[...new Set(a.numbers)].sort((x, y) => x - y).join(", ")}]`) });
+    return { version: agent.versions.length - 1, price: FAKE_PRESET.summonPrice };
+  },
   "agent.putBack": (e, a) => {
     const agent = agentOf(e, a.agentId), v = agent.versions[a.version];
     if (!v) throw new OpFailure(`That agent has no version ${a.version}.`);

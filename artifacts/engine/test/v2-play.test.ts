@@ -9,7 +9,7 @@
  */
 import { before, test } from "node:test";
 import assert from "node:assert/strict";
-import { startersFor } from "@workspace/v2-agents";
+import { readLeave, startersFor } from "@workspace/v2-agents";
 import { admin, humans, perform, type Human } from "./v2-helpers.ts";
 
 let ada: Human, bo: Human, roomId: string, gameId: string;
@@ -90,6 +90,26 @@ test("planning: check, summon, replace, put back, split power, destroy", async (
   assert.equal((await ada!.query("v2/play:agents", { gameId })).length, 1);
 
   assert.equal((await perform(bo!, "agent.destroy", { agentId }, scope())).error.code, "refused", "another player's agent");
+});
+
+test("leave alone: a deal honoured by setting only the code's leave-alone list, priced as that edit", async () => {
+  const rule = await bo!.query("v2/play:myRule", { gameId });
+  const [simple] = startersFor(rule.family, "typescript", rule.tieBreaker);
+  const summoned = await perform(bo!, "agent.summon", { language: "typescript", source: simple!.source, name: "Dealer" }, scope(), "action");
+  assert.equal(summoned.ok, true, JSON.stringify(summoned));
+  const agentId = summoned.result.agentId;
+  const left = await perform(bo!, "agent.leaveAlone", { agentId, numbers: [19, 3, 3] }, scope(), "action");
+  assert.equal(left.ok, true, JSON.stringify(left));
+  assert.ok(left.result.price > 0 && left.result.price < summoned.result.price / 4, `the edit costs a little: ${left.result.price} vs ${summoned.result.price}`);
+  const versions = (await perform(bo!, "agent.programs", { agentId }, scope(), "query")).result.versions;
+  assert.deepEqual(readLeave(versions[0].source), [3, 19]);
+  assert.equal(versions[0].source.split("\n").length, simple!.source.split("\n").length, "nothing else changed");
+  // A program without the knob says what to do instead.
+  await perform(bo!, "agent.replace", { agentId, language: "typescript", source: "function agent(offer) {\n  return null;\n}\n" }, scope(), "action");
+  const none = await perform(bo!, "agent.leaveAlone", { agentId, numbers: [3] }, scope(), "action");
+  assert.equal(none.ok, false);
+  assert.match(none.error.message, /no leave-alone list/);
+  assert.equal((await perform(bo!, "agent.destroy", { agentId }, scope())).ok, true);
 });
 
 test("ready: the world starts when every human is ready", async () => {
