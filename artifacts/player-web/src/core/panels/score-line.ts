@@ -378,3 +378,13 @@ export function accumulateFirstMoves(acc: FirstMoves | undefined, events: readon
 
 /** Under "Your points now" until the player has an agent, on every screen: why there are points already, and what an agent is for. */
 export const pointsBeforeAgent = (noun = "object"): string => `Every ${noun} already gives everyone some points; your agent's job is to raise yours.`;
+
+/**
+ * The header's points, always in view (a phone walker never found their total during the game): "229 points", or
+ * null before the game has a total for the player.
+ */
+export function headerPoints(score: number | undefined | null): string | null {
+  if (typeof score !== "number" || !Number.isFinite(score)) return null;
+  const n = Math.round(score);
+  return `${(n === 0 ? 0 : n).toLocaleString("en-US")} point${n === 1 ? "" : "s"}`;
+}

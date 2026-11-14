@@ -257,3 +257,13 @@ test("the others' want says what it was when it changed, so the before points ca
   assert.equal(othersWantClause(2.4, "grid", 2.41), "how much the others want this grid: 2.4", "the same when shown: said once");
   assert.equal(othersWantClause(2.4, "grid"), "how much the others want this grid: 2.4");
 });
+
+test("the header's points: whole, grouped, and nothing before there is a total", async () => {
+  const { headerPoints } = await import("../src/core/panels/score-line.ts");
+  assert.equal(headerPoints(229.8), "230 points");
+  assert.equal(headerPoints(20245.2), "20,245 points");
+  assert.equal(headerPoints(1), "1 point");
+  assert.equal(headerPoints(-0.2), "0 points");
+  assert.equal(headerPoints(undefined), null);
+  assert.equal(headerPoints(null), null);
+});
