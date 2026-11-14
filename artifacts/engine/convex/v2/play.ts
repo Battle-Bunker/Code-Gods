@@ -7,7 +7,8 @@ import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import { query, type QueryCtx } from "../_generated/server";
-import { fail, ownEnergyNow, playerOf, requireGameMember, requireSeat, requireUser } from "./access";
+import { agentIncome, energyCapacity, ownIncome, settle } from "@workspace/v2-economy";
+import { fail, ownAccountNow, playerOf, requireGameMember, requireSeat, requireUser, worldNow } from "./access";
 import {
   agentEnergyV, agentProgramsV, agentRowV, digestV, meV, movesPageV, myRuleV, objectIdsV, objectSortV, playObjectV,
 } from "./validators";
@@ -33,7 +34,11 @@ export const me = query({
   handler: async (ctx, { gameId }) => {
     const { game, member } = await requireSeat(ctx, gameId);
     const player = await playerOf(ctx, game._id, member._id) ?? fail("NOT_FOUND", "No account in this game");
-    return { memberId: player.memberId, energy: await ownEnergyNow(ctx, game, player), power: player.power, ready: player.ready, pauseUsed: player.pauseUsed, agents: player.agents };
+    const own = await ownAccountNow(ctx, game, player), ownPerSecond = ownIncome(player.power, player.allocated);
+    return {
+      memberId: player.memberId, energy: own.balance, power: player.power, ready: player.ready, pauseUsed: player.pauseUsed, agents: player.agents,
+      ownPerSecond, capacity: energyCapacity(ownPerSecond, game.settings.economy.fullChargeSeconds), settledAt: own.settledWorldSeconds,
+    };
   },
 });
 
@@ -107,7 +112,15 @@ export const agentEnergy = query({
   handler: async (ctx, { agentId }) => {
     const agent = await ownAgent(ctx, agentId);
     const e = await ctx.db.query("v2AgentEnergy").withIndex("by_agent", q => q.eq("agentId", agent._id)).unique() ?? fail("NOT_FOUND", "No energy row");
-    return { agentId: agent._id, energy: e.energy, acts: e.acts, skips: e.skips, failures: e.failures, spend: e.spend, pointsGained: e.pointsGained, lastActAt: e.lastActAt ?? null };
+    // Settled to the world clock (the row holds the balance as of the agent's last act), so it grows between acts.
+    const game = (await ctx.db.get(agent.gameId))!, world = await worldNow(ctx, game);
+    const perSecond = agent.destroyedAt === undefined ? agentIncome(game.settings.economy.powerPerSecond, agent.share) : 0;
+    const capacity = energyCapacity(perSecond, game.settings.economy.fullChargeSeconds);
+    const now = world === null ? { balance: e.energy, settledWorldSeconds: e.settledAt } : settle({ balance: e.energy, settledWorldSeconds: e.settledAt }, Math.max(e.settledAt, world), perSecond, capacity);
+    return {
+      agentId: agent._id, energy: now.balance, acts: e.acts, skips: e.skips, failures: e.failures, spend: e.spend, pointsGained: e.pointsGained, lastActAt: e.lastActAt ?? null,
+      perSecond, capacity, settledAt: now.settledWorldSeconds,
+    };
   },
 });
 

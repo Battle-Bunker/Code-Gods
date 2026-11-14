@@ -1,6 +1,7 @@
 /**
- * `assistant.*`: the human's conversation with their in-client assistant (v2/assistant.ts). Any surface may do these
- * for the human but the in-client assistant itself: a conversation does not drive itself.
+ * `assistant.*`: the human's conversation with their in-client assistant (v2/assistant.ts), on every surface: a remote
+ * assistant may hand it work, and the assistant itself may change its mode, stop after this, or queue a follow-up
+ * (a send while its turn runs waits for the next turn, bounded by the allowance like any other).
  */
 import { OpFailure } from "@workspace/v2-affordances";
 import type { MutationCtx } from "../../_generated/server";
@@ -11,9 +12,8 @@ import { callerOf, defineOp, inRoom } from "./define";
 
 type Env = Parameters<typeof inRoom<"mutation">>[0];
 
-/** The human in their room, never the assistant acting on its own conversation. */
+/** The human in their room (an AI player has no assistant). */
 function human(env: Env) {
-  if (callerOf(env).via === "assistant") throw new OpFailure("The assistant cannot run its own conversation.");
   const r = inRoom(env);
   if (r.member.kind !== "human" || !r.member.userId) throw new OpFailure("Only a human has an assistant.");
   return { ...r, userId: r.member.userId };

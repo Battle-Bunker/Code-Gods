@@ -98,11 +98,20 @@ export async function requireSeat(ctx: QueryCtx, gameId: string) {
 }
 /** The own store's balance now: accrued to the game's world time (the stored balance is as of its last write). */
 export async function ownEnergyNow(ctx: QueryCtx, game: Doc<"v2Games">, player: Doc<"v2Players">): Promise<number> {
-  if (game.phase === "planning") return player.energy;
-  const clock = await ctx.db.query("v2Clocks").withIndex("by_game", q => q.eq("gameId", game._id)).unique();
-  const world = Math.max(player.settledAt, clock?.worldSeconds ?? 0);
-  return settleOwn({ balance: player.energy, settledWorldSeconds: player.settledAt }, world,
-    { powerPerSecond: player.power, allocated: player.allocated, fullChargeSeconds: game.settings.economy.fullChargeSeconds }).balance;
+  return (await ownAccountNow(ctx, game, player)).balance;
+}
+
+/** The world second the clock last reached (a game's accounts settle to it; during planning, nothing accrues). */
+export async function worldNow(ctx: QueryCtx, game: Doc<"v2Games">): Promise<number | null> {
+  if (game.phase === "planning") return null;
+  return (await ctx.db.query("v2Clocks").withIndex("by_game", q => q.eq("gameId", game._id)).unique())?.worldSeconds ?? 0;
+}
+
+/** The player's own store settled to the world clock (as of planning: as it stands). */
+export async function ownAccountNow(ctx: QueryCtx, game: Doc<"v2Games">, player: Doc<"v2Players">) {
+  const world = await worldNow(ctx, game);
+  return settleOwn({ balance: player.energy, settledWorldSeconds: player.settledAt }, world === null ? player.settledAt : Math.max(player.settledAt, world),
+    { powerPerSecond: player.power, allocated: player.allocated, fullChargeSeconds: game.settings.economy.fullChargeSeconds });
 }
 
 /** The scope a call names: the room or game in view (app) or bound (a credential). */

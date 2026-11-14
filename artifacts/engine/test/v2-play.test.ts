@@ -82,6 +82,8 @@ test("ready: the world starts when every human is ready", async () => {
   const header = await ada!.query("v2/games:header", { gameId });
   assert.equal(header.phase, "live");
   const e0 = (await me(bo!)).energy;
+  const mine = await me(bo!);
+  assert.ok(mine.ownPerSecond > 0 && mine.capacity > mine.ownPerSecond && mine.energy <= mine.capacity + 1e-9, `the store holds at most its capacity: ${JSON.stringify(mine)}`);
   // World time moves with the tick (the first one can be slow: a sandbox's cold start), so wait for the store to grow.
   for (let i = 0; (await me(bo!)).energy <= e0; i++) {
     assert.ok(i < 60, "the own store accrues while the world runs, read as of now");
@@ -127,6 +129,7 @@ test("pause once, resume by the owner, end by the owner", async () => {
   const moves = await ada!.query("v2/play:moves", { gameId, paginationOpts: { numItems: 50, cursor: null } });
   const energy = await ada!.query("v2/play:agentEnergy", { agentId: (await ada!.query("v2/play:agents", { gameId }))[0].agentId });
   assert.ok(energy.acts > 0 || moves.page.length > 0, "Ada's agent acts once the world runs");
+  assert.ok(energy.settledAt >= (energy.lastActAt ?? 0) && energy.perSecond > 0, `an agent's energy is settled to the world clock: ${JSON.stringify(energy)}`);
   assert.equal((await perform(ada!, "game.end", {}, scope())).ok, true);
   const header = await ada!.query("v2/games:header", { gameId });
   assert.equal(header.phase, "ended");

@@ -22,9 +22,14 @@ export const { op: list, as: listAs } = defineOp("room.list", "query", async (en
   return { page: rows, nextCursor: page.isDone ? null : page.continueCursor };
 });
 
-export const { op: create, as: createAs } = defineOp("room.create", "mutation", async ({ ctx, caller }, a) => {
-  if (a.preset !== undefined && !isPreset(a.preset)) throw new OpFailure(`No preset ${a.preset}.`);
-  return await createRoom(ctx, caller.userId!, { name: a.name, preset: a.preset ?? DEFAULT_PRESET });
+/** A deployed preset (v2/setups:presets lists them). */
+function checkPreset(preset: string | undefined) {
+  if (preset !== undefined && !isPreset(preset)) throw new OpFailure(`No preset ${preset}.`, "Pick one of the deployed presets (v2/setups:presets).");
+}
+
+export const { op: create, as: createAs } = defineOp("room.create", "mutation", async (env, a) => {
+  checkPreset(a.preset);
+  return await createRoom(env.ctx, env.caller.userId!, { name: a.name, preset: a.preset ?? DEFAULT_PRESET });
 });
 
 export const { op: join, as: joinAs } = defineOp("room.join", "mutation", async ({ ctx, caller }, a) => {
@@ -59,6 +64,7 @@ export const { op: setSpectator, as: setSpectatorAs } = defineOp("room.setSpecta
 
 export const { op: settings, as: settingsAs } = defineOp("room.settings", "mutation", async (env, a) => {
   const { room } = inRoom(env);
+  checkPreset(a.preset);
   await changeSettings(env.ctx, room, a);
   return { ok: true as const };
 });

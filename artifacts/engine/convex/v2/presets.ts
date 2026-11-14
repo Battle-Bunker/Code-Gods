@@ -5,8 +5,7 @@
  * (convex/v2/deal.ts) deals only the pool's rules whose artefact converged.
  */
 import { LINES_BEGINNER_ECONOMY } from "@workspace/v2-economy";
-import { lineType, lineZ, preset as linearPreset, type PoolRule } from "@workspace/v2-linear";
-import { fixturesOn } from "../auth/identity.ts";
+import { preset as linearPreset, type PoolRule } from "@workspace/v2-linear";
 
 export interface PresetBid { pricing: "first" | "second"; disclosure: "none" | "handicaps" | "all"; seconds: number }
 /** The economy a preset plays (docs/energy-model.md; `lib/v2-economy` owns the maths). */
@@ -53,23 +52,11 @@ function fromPool(id: string, extra: Partial<Preset> & { id?: string; title?: st
 
 const BEGINNER = fromPool("lines-beginner");
 
-/**
- * Local deployments only (TEST_FIXTURES): every line family's rules on `line-z`, with a bid phase, so the tests of the
- * bid mechanism have several families to bid on whatever W1's beginner pool converges to.
- */
-const EVERY_FAMILY: readonly PoolRule[] = lineType.families.flatMap(f =>
-  f.dealable(lineZ).map(params => ({ family: f.id, params, tieBreakers: f.tieBreakers.map(t => t.id) })));
-const TEST_PRESETS: readonly Preset[] = fixturesOn(process.env) ? [{
-  ...BEGINNER, id: "test-every-family-bidding", title: "Every family (tests)", pool: EVERY_FAMILY,
-  families: [...new Set(EVERY_FAMILY.map(r => r.family))], bid: { pricing: "first", disclosure: "none", seconds: 45 },
-}] : [];
-
 export const PRESETS: readonly Preset[] = [
   BEGINNER,
   { ...BEGINNER, id: "lines-beginner-bidding", title: "Lines · beginner with bidding", bid: { pricing: "first", disclosure: "none", seconds: 45 } },
   fromPool("lines-rational"),
   fromPool("lines-four"),
-  ...TEST_PRESETS,
 ];
 export const DEFAULT_PRESET = BEGINNER.id;
 

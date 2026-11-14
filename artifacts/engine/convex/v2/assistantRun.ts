@@ -30,13 +30,11 @@ const RESOLVE = makeFunctionReference<"query", Record<string, unknown>, { ctx: A
 /** A tool result kept in the thread at most this long (the model saw it whole). */
 const RESULT_CHARS = 8 * 1024;
 
-/** The tools a mode offers: never the assistant's own operations (a conversation does not drive itself). */
-export function toolsFor(ctx: AffordanceContext, mode: Mode) {
-  return assistantTools(ctx).filter(t => {
-    const a = affordanceForTool(t.name);
-    return !!a && !a.id.startsWith("assistant.") && (mode !== "readOnly" || a.effect === "read");
-  });
-}
+/**
+ * The turn's tools: the directory's for the human's context, as any surface gets them. Read-only mode is the read
+ * grant (the same narrowing a read-only MCP credential gets), set on the delegate, so nothing is filtered here.
+ */
+export const grantFor = (grant: Grant, mode: Mode): Grant => mode === "readOnly" ? "read" : grant;
 
 /** A run's new messages as stored: tool results clipped (a later turn replays them). */
 function stored(messages: readonly ChatMessage[]) {
@@ -84,10 +82,10 @@ export const run = internalAction({
     const abort = new AbortController();
     let index = 0, result: RunResult | null = null, error: string | undefined, status: "done" | "failed" | "cancelled" | "budget" = "done";
     try {
-      const delegate: Delegate = { userId: input.userId, roomId: input.roomId, grant: input.grant, via: "assistant" };
+      const delegate: Delegate = { userId: input.userId, roomId: input.roomId, grant: grantFor(input.grant, input.mode), via: "assistant" };
       const scope = input.gameId ? { gameId: input.gameId as string } : {};
       const caller = await ctx.runQuery(RESOLVE, { who: { delegate }, scope });
-      const tools = toolsFor(caller.ctx, input.mode);
+      const tools = assistantTools(caller.ctx);
       const starters = input.rule ? startersFor(input.rule.family, "typescript").slice(0, 1).map(s => ({ title: s.title, summary: s.summary, language: "typescript", source: s.source })) : [];
       const system = assistantSystemPrompt({ context: caller.ctx.context, playerName: input.name, ...(input.rule ? { rule: input.rule.card } : {}), affordances: tools, starters }) +
         (input.mode === "readOnly" ? "\n\nMODE. Read-only: answer and explain; you cannot change anything." : "");

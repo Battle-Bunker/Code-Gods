@@ -33,7 +33,7 @@ Code: `artifacts/engine/convex/v2/`.
 | `v2/rooms:chat`, `v2/rooms:history` | `roomId, paginationOpts` | member |
 | `v2/games:header`, `standings` | `gameId` | member; `header.me` is the caller's seat or null |
 | `v2/games:standingsHistory` | `gameId, after` | member; ≤ 100 rows after `after` |
-| `v2/play:myRule`, `me`, `agents`, `digest` | `gameId` | seated |
+| `v2/play:myRule`, `me`, `agents`, `digest` | `gameId` | seated; `me` adds `ownPerSecond`, `capacity` (the store stops at it) and `settledAt` (world s) |
 | `v2/play:objectIds` | `gameId, sort (points, rarity, want, born, recent), paginationOpts` | seated |
 | `v2/play:object` | `objectId` | member; `value` is the caller's own, null for a spectator |
 | `v2/play:agentEnergy`, `agentPrograms` | `agentId` | the agent's owner |
@@ -47,6 +47,8 @@ Code: `artifacts/engine/convex/v2/`.
 | `v2/assistant:turn` | `turnId` | the turn's human: outcome and tool calls (activity chips) |
 | `v2/panels:list`, `code` | `{}`, `slug, version?` | signed in: the caller's own panels |
 | `v2/rooms:aiQuotas` | `roomId` | member: the owner's per-game token quotas `{ai, assistant}` |
+| `v2/setups:presets` | `{}` | signed in: the deployed presets (the setup picker); `room.create`/`room.settings` refuse any other id |
+| `v2/gallery:family` | `preset, family` | signed in: the family's dealable rules with card, layers and ladder, each rung's ✨ rarity |
 
 Values: `rarityBits` is the player's n_i, `want` is Σ_{j≠i} n_j and `points` = n_i · want (spec §8). States travel as
 the object type's wire (`line-z`: `a,b,c` per line, `;` between lines). Scores are `(string | null)[] | null`.
