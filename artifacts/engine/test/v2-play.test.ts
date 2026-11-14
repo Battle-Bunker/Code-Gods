@@ -132,6 +132,7 @@ test("pause once, resume by the owner, end by the owner", async () => {
   for (const m of moves.page) {
     assert.ok(m.by && (m.mine ? m.by.name === "Play Ada" : m.by.name !== "Play Ada"), `every move names its mover: ${JSON.stringify(m.by)}`);
     if (!m.mine) assert.equal(m.charge, null, "another player's spend is theirs");
+    assert.ok(Array.isArray(m.notes) && (m.mine || m.notes.length === 0), "notes are the caller's own agent's");
   }
   assert.ok(energy.settledAt >= (energy.lastActAt ?? 0) && energy.perSecond > 0, `an agent's energy is settled to the world clock: ${JSON.stringify(energy)}`);
   assert.equal((await perform(ada!, "game.end", {}, scope())).ok, true);
