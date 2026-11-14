@@ -9,10 +9,9 @@ import { lineType, type LineState } from "@workspace/v2-linear";
 import { activeOp, compareOp, digestScale, partsNote, payoffRect, serverSort, SORTS, switcherOf, whyLine, widen } from "../src/panes/lines.ts";
 import { workedExample } from "../src/panes/worked-example.ts";
 
-test("every order the human can pick pages by a server sort; a step up is a rarer line", () => {
-  // Catches: "level" sent to the server, which has no such index (the pane would throw on its first page).
+test("every order the human can pick pages by a server sort", () => {
   assert.equal(serverSort("points"), "points");
-  assert.equal(serverSort("level"), "rarity");
+  assert.equal(serverSort("rarity"), "rarity");
   assert.equal(serverSort("recent"), "recent");
   assert.equal(serverSort(undefined), "points");
   for (const s of SORTS) assert.ok(["points", "rarity", "recent"].includes(serverSort(s.sort)));

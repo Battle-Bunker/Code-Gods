@@ -8,8 +8,7 @@ import assert from "node:assert/strict";
 import { appliedAtWorld, frameAt, indexReplay, nextStop, prevStop, resolveCursor, worldAt } from "../src/replay/fold.ts";
 import { cursorWorld, playheadAt, stepOp } from "../src/replay/playhead.ts";
 
-const ladder = [{ level: 0, label: "nothing", rarityBits: 0 }, { level: 1, label: "one", rarityBits: 2 }];
-const val = (memberId: string, rarityBits: number, level = 1) => ({ memberId, score: [String(level)], level, rarityBits });
+const val = (memberId: string, rarityBits: number, u = 1) => ({ memberId, score: [String(u)], rarityBits });
 const standings = (m1: number, m2: number) => [
   { memberId: "m1", total: m1, net: m1, rank: 1 },
   { memberId: "m2", total: m2, net: m2 - 0.1 * m2, rank: 2 },
@@ -47,8 +46,8 @@ const FILE = {
     roster: [{ memberId: "m1", name: "Ada", kind: "human" }, { memberId: "m2", name: "Bo", kind: "practice" }],
   },
   rules: [
-    { memberId: "m1", family: "prime-gradient", params: {}, tieBreaker: null, ruleKey: "k1", card: "Ada's card", layers: ["main"], ladder, handicap: null },
-    { memberId: "m2", family: "triangle-area", params: {}, tieBreaker: null, ruleKey: "k2", card: "Bo's card", layers: ["main"], ladder, handicap: 10 },
+    { memberId: "m1", family: "prime-gradient", params: {}, tieBreaker: null, ruleKey: "k1", card: "Ada's card", layers: ["main"], contentHash: "h1", handicap: null },
+    { memberId: "m2", family: "triangle-area", params: {}, tieBreaker: null, ruleKey: "k2", card: "Bo's card", layers: ["main"], contentHash: "h2", handicap: 10 },
   ],
   events: EVENTS.map(([kind, data], seq) => ({ seq, kind, data })),
 };
@@ -81,14 +80,14 @@ test("the playhead shows each line, value and move as it was, and nothing that c
   const mid = frameAt(ix, 10);
   assert.deepEqual(mid.object("o1", "m1"), {
     objectId: "o1", number: 1, bornAt: 0, state: "s1b", version: 2, changedAt: 4,
-    value: { score: ["2"], level: 2, rarityBits: 4, want: 1, points: 4, version: 2 },
+    value: { score: ["2"], rarityBits: 4, want: 1, points: 4, version: 2 },
   });
   assert.equal(mid.object("o2", "m1")!.state, "s2a");
   assert.deepEqual(mid.standings!.rows.map(r => r.total), [2, 2], "the scoreboard is the one published by then");
   assert.deepEqual(mid.moves("m1"), [{
     seq: 0, worldSeconds: 4, objectId: "o1", number: 1, agentId: "a1", mine: true,
     calls: [{ mutator: "shift", site: 0, args: { by: "1" } }], rep: "si", stateBefore: "s1a", stateAfter: "s1b",
-    before: { score: ["1"], level: 1, rarityBits: 2, want: 1, points: 2 }, after: { score: ["2"], level: 2, rarityBits: 4, want: 1, points: 4 },
+    before: { score: ["1"], rarityBits: 2, want: 1, points: 2 }, after: { score: ["2"], rarityBits: 4, want: 1, points: 4 },
     charge: 1.5,
   }]);
   const bo = mid.moves("m2");
@@ -114,12 +113,12 @@ test("lines sort like the server's indexes, best first, and the digest packs eve
   assert.deepEqual(end.object("o1", null)!.value, null, "no point of view: no values");
 });
 
-test("every player's rule is open in the replay, with its card and the steps of its ladder", () => {
+test("every player's rule is open in the replay, with its card (a replay file carries no value function)", () => {
   const bo = frameAt(ix, END).rule("m2")!;
   assert.equal(bo.family, "triangle-area");
   assert.equal(bo.title, "Triangle Area");
   assert.equal(bo.primary, "tri");
-  assert.deepEqual([bo.card, bo.handicap, bo.ladder], ["Bo's card", 10, ladder]);
+  assert.deepEqual([bo.card, bo.handicap, bo.contentHash, bo.value.knots], ["Bo's card", 10, "h2", []]);
   assert.equal(frameAt(ix, END).rule("nobody"), null);
   assert.deepEqual(frameAt(ix, END).agents("m1").map(a => [a.agentId, a.name, a.language, a.share]), [["a1", "Agent 1", "typescript", 0.7]]);
   assert.deepEqual(frameAt(ix, 7).agents("m1"), [], "not summoned yet");
