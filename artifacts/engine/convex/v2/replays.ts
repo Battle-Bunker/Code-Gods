@@ -5,28 +5,19 @@
  * request: never a storage URL, since sign-in is required everywhere (owner decision 2026-11-02).
  */
 import { valueRecord } from "./values";
-import { makeFunctionReference } from "convex/server";
+import { PAGE } from "./replayFormat";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
-import { internalAction, internalMutation, internalQuery, query } from "../_generated/server";
+import { internalMutation, internalQuery, query } from "../_generated/server";
 import { requireGameMember } from "./access";
 import { replayV } from "./validators";
 
-/** The stored file's shape; a reader that finds another version folds `v2Events` itself. */
 /** A rule's value function for the replay file (what valueLookup takes), so a replay's faces show bits. */
 const valueFnOf = (ruleKey: string) => {
   const r = valueRecord(ruleKey);
   return r ? { knots: r.knots.map(k => ({ u: k.u, bits: k.bits, lo: k.lo, hi: k.hi })), tail: r.tail ?? null } : null;
 };
 
-export const STORED_REPLAY_VERSION = 1;
-const PAGE = 200;
-/**
- * A pause between the build's pages: the build runs once a game ends, often while other games tick, and a build that
- * reads the whole record back to back starved their commits (8 builds at once held commits for 8–17 s on the local
- * backend, one timing out with "too many system operations").
- */
-const PAGE_PAUSE_MS = 100;
 
 /** Whether the file is stored (for any member of the game's room). */
 export const stored = query({
@@ -69,31 +60,8 @@ export const events = internalQuery({
     (await ctx.db.query("v2Events").withIndex("by_game_seq", q => q.eq("gameId", gameId).gt("seq", after)).take(PAGE)).map(e => ({ seq: e.seq, kind: e.kind, data: e.data })),
 });
 
-const HEADER = makeFunctionReference<"query", { gameId: Id<"v2Games"> }, unknown>("v2/replays:header");
-const EVENTS = makeFunctionReference<"query", { gameId: Id<"v2Games">; after: number }, { seq: number }[]>("v2/replays:events");
-const ATTACH = makeFunctionReference<"mutation", { gameId: Id<"v2Games">; file: Id<"_storage"> }, boolean>("v2/replays:attach");
 
 /** Scheduled by the end (loop.ts endGame). Idempotent: a game with its file is left alone; a losing race deletes its copy. */
-export const build = internalAction({
-  args: { gameId: v.id("v2Games") },
-  handler: async (ctx, { gameId }): Promise<{ stored: boolean }> => {
-    const head = await ctx.runQuery(HEADER, { gameId });
-    if (!head) return { stored: false };
-    const events: { seq: number }[] = [];
-    for (let after = -1; ;) {
-      const page = await ctx.runQuery(EVENTS, { gameId, after });
-      events.push(...page);
-      if (page.length < PAGE) break;
-      after = page.at(-1)!.seq;
-      await new Promise(r => setTimeout(r, PAGE_PAUSE_MS));
-    }
-    const file = await ctx.storage.store(new Blob([JSON.stringify({ version: STORED_REPLAY_VERSION, ...(head as object), events })], { type: "application/json" }));
-    const kept = await ctx.runMutation(ATTACH, { gameId, file });
-    if (!kept) await ctx.storage.delete(file);
-    return { stored: kept };
-  },
-});
-
 export const attach = internalMutation({
   args: { gameId: v.id("v2Games"), file: v.id("_storage") },
   handler: async (ctx, { gameId, file }) => {

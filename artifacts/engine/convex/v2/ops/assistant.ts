@@ -33,7 +33,7 @@ function chosenGrant(env: Env, owner: boolean, want: Grant | undefined, consent:
   return want;
 }
 
-async function setPrefs(ctx: MutationCtx, roomId: Parameters<typeof prefsOf>[1], userId: string, patch: { mode?: "autopilot" | "onRequest" | "readOnly"; grant?: Grant; chain?: number }) {
+async function setPrefs(ctx: MutationCtx, roomId: Parameters<typeof prefsOf>[1], userId: string, patch: { mode?: "autopilot" | "onRequest" | "readOnly"; grant?: Grant; chain?: number; stopped?: boolean }) {
   const row = await prefsOf(ctx, roomId, userId);
   if (row) { await ctx.db.patch(row._id, patch); return { ...row, ...patch }; }
   const doc = { roomId, userId, mode: patch.mode ?? "onRequest" as const, grant: patch.grant ?? "act" as const, chain: 0 };
@@ -71,7 +71,8 @@ export const { op: setMode, as: setModeAs } = defineOp("assistant.setMode", "mut
   const grant = chosenGrant(env, room.ownerId === userId, a.grant, a.ownerConsent, prefs?.grant) ?? prefs?.grant ?? "act";
   if (a.mode === "autopilot" && grant === "read") throw new OpFailure("Autopilot needs the assistant to act: give it act rights.");
   // Choosing autopilot starts a new chain of ticks; any other mode ends the chain at its next tick.
-  const row = await setPrefs(env.ctx, room._id, userId, { mode: a.mode, grant });
+  // Choosing a mode is asking again: it lifts a Stop's hold on autopilot.
+  const row = await setPrefs(env.ctx, room._id, userId, { mode: a.mode, grant, stopped: false });
   if (a.mode === "autopilot") {
     const chain = row.chain + 1;
     await setPrefs(env.ctx, room._id, userId, { chain });

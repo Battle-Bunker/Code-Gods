@@ -40,7 +40,7 @@ export const { op: save, as: saveAs } = defineOp("panel.save", "action", async (
   const result = await env.ctx.runAction(COMPILE, { source: a.source });
   if (!result.ok) return { saved: false, slug: a.slug, version: null, diagnostics: result.diagnostics };
   const { version } = await guarded(() => env.ctx.runMutation(COMMIT, {
-    userId, delegate: delegateOf(c), slug: a.slug, source: a.source,
+    userId, delegate: delegateOf(c), ...(c.turnId ? { turnId: c.turnId } : {}), slug: a.slug, source: a.source,
     ...(a.title !== undefined ? { title: a.title } : {}), ...(a.placement ? { placement: a.placement } : {}), ...(a.size ? { size: a.size } : {}),
     compiled: result.compiled, manifest: result.manifest, compilerVersion: result.compilerVersion, sourceHash: result.sourceHash,
   }));

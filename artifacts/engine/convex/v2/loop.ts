@@ -28,7 +28,7 @@ const MAX_FAILURES = 20;
 /** A move concerns a player whose points on the object changed by more than this (plan §2.3). */
 const CONCERN = 0.05;
 
-const BUILD_REPLAY = makeFunctionReference<"action", { gameId: Id<"v2Games"> }>("v2/replays:build");
+const BUILD_REPLAY = makeFunctionReference<"action", { gameId: Id<"v2Games"> }>("v2/replayBuild:build");
 const TICK = makeFunctionReference<"action", { gameId: Id<"v2Games">; leaseId: string }>("v2/tick:tick");
 
 // ---------------------------------------------------------------- reading the game

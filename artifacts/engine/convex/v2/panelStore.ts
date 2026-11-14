@@ -3,6 +3,7 @@
  * (ops/panel.ts), and the save's transactional halves. Kept apart from the app's live reads in v2/panels.ts so those
  * page queries do not load this module's imports.
  */
+import { assertTurnRuns } from "./turnFence";
 import { OpFailure } from "@workspace/v2-affordances";
 import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
@@ -79,11 +80,12 @@ export const precheck = internalQuery({
 
 export const commit = internalMutation({
   args: {
-    userId: v.string(), delegate: v.union(v.string(), v.null()), slug: v.string(), source: v.string(),
+    userId: v.string(), delegate: v.union(v.string(), v.null()), turnId: v.optional(v.string()), slug: v.string(), source: v.string(),
     title: v.optional(v.string()), placement: v.optional(placementV), size: v.optional(sizeV),
     compiled: v.string(), manifest: manifestV, compilerVersion: v.string(), sourceHash: v.string(),
   },
   handler: (ctx, a) => outcome(async () => {
+    await assertTurnRuns(ctx, a.turnId);
     const existing = await checkSave(ctx, a.userId, a.slug);
     if (bytes(a.compiled) > LIMITS.compiledBytes)
       throw new OpFailure(`The compiled panel is ${kb(bytes(a.compiled))}; the limit is ${kb(LIMITS.compiledBytes)}. Make the source smaller.`);

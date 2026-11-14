@@ -7,6 +7,8 @@
  * `scoped(env)` gives a handler the room, game, member and player its context was derived from, read again in the
  * handler's own transaction.
  */
+import { assertTurnRuns } from "../turnFence";
+import { failureOf, outcome } from "../failure";
 import { makeDefineOp, type Caller, type Delegate, type OpHost, type OpEnv, type OpKind, type OpScope } from "@workspace/v2-affordances/convex";
 import { OpFailure, type OpOutcome, type ReceiptStore } from "@workspace/v2-affordances";
 import { v } from "convex/values";
@@ -28,16 +30,21 @@ export interface V2Caller extends Caller {
   boundRoom: string | null;
   /** The surface calling: the app (a signed-in session), or a delegate's (the in-client assistant, MCP, the CLI). */
   via: Delegate["via"] | "app";
+  /** The in-client assistant's turn acting, if any (turnFence.ts). */
+  turnId?: string;
   records?: Resolved;
 }
 
 async function resolveIn(ctx: QueryCtx, who: Who, scope: OpScope): Promise<V2Caller> {
+  const turnId = "delegate" in who && typeof who.delegate.turnId === "string" ? who.delegate.turnId : undefined;
+  // A stopped assistant turn does nothing more: a query or mutation op checks here, in its own transaction.
+  await assertTurnRuns(ctx, turnId);
   const user = "session" in who ? await currentUser(ctx) : await userById(ctx, who.delegate.userId);
   const boundRoom = "delegate" in who ? who.delegate.roomId : null;
   // A credential bound to one room acts in that room only, whatever it names.
   const bound = boundRoom ? { ...scope, roomId: boundRoom } : scope;
   const records = await resolveContext(ctx, user, bound, "delegate" in who ? who.delegate.grant : undefined);
-  return { ctx: records.ctx, callerKey: user?.userId ?? "signed-out", userId: user?.userId ?? null, scope: bound, boundRoom, via: "delegate" in who ? who.delegate.via : "app", records };
+  return { ctx: records.ctx, callerKey: user?.userId ?? "signed-out", userId: user?.userId ?? null, scope: bound, boundRoom, via: "delegate" in who ? who.delegate.via : "app", ...(turnId ? { turnId } : {}), records };
 }
 
 const scopeV = v.object({ roomId: v.optional(v.string()), gameId: v.optional(v.string()), replay: v.optional(v.boolean()) });
@@ -46,10 +53,10 @@ const whoV = v.union(v.object({ session: v.literal(true) }), v.object({ delegate
 /** Actions have no database: they resolve through this query (the caller's auth identity carries over). */
 export const resolveCaller = internalQuery({
   args: { who: whoV, scope: scopeV },
-  handler: async (ctx, { who, scope }) => {
+  handler: (ctx, { who, scope }) => outcome(async () => {
     const { records: _, ...caller } = await resolveIn(ctx, who as Who, scope);
     return caller;
-  },
+  }),
 });
 
 export const receiptGet = internalQuery({
@@ -75,7 +82,8 @@ const RECEIPT_PUT = makeFunctionReference<"mutation", { key: string; outcome: Op
 
 export const host: OpHost<DataModel> = {
   resolve: async (ctx, who, scope) =>
-    "db" in ctx ? resolveIn(ctx as QueryCtx, who, scope) : ctx.runQuery(RESOLVE, { who, scope }),
+    // From an action, a refusal (a stopped turn) crosses back as the OpFailure it was (failure.ts).
+    "db" in ctx ? resolveIn(ctx as QueryCtx, who, scope) : ctx.runQuery(RESOLVE, { who, scope }).catch(e => { throw failureOf(e); }),
   receipts: ctx => "db" in ctx ? receiptsIn(ctx as MutationCtx) : {
     get: key => ctx.runQuery(RECEIPT_GET, { key }),
     put: async (key, outcome) => { await ctx.runMutation(RECEIPT_PUT, { key, outcome }); },
