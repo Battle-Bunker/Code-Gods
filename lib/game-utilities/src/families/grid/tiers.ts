@@ -1,5 +1,5 @@
 /**
- * Tiered rules for grid families (docs/layered-rules-design.md): a family is a simple base plus a menu of
+ * Tiered rules for grid families (archive/engine-v1:docs/layered-rules-design.md): a family is a simple base plus a menu of
  * INTERACTIONS, each written once and dealt with its own parameters. A tiered draw's params are the base's params plus
  * `tiers: [{ id, ...params, gate }]`; its ordinal is the gated lexicographic tuple
  *

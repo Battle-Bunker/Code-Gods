@@ -20,7 +20,7 @@ export interface UtilityCardLike {
   source: string;
   /** A tiny example board (its own size) and what it scores (docs/rules-design.md §3.2). */
   example?: { value: string; size: number; caption: string };
-  /** A tiered draw's ★ blocks (docs/layered-rules-design.md §4). Absent on base draws and on cards dealt before tiers. */
+  /** A tiered draw's ★ blocks (archive/engine-v1:docs/layered-rules-design.md §4). Absent on base draws and on cards dealt before tiers. */
   tiers?: readonly CardTierLike[];
   penalty?: { familyId: string; emoji: string; name: string; summary: string; comparative: string; source: string };
 }

@@ -32,25 +32,31 @@ behind them and the redesign plan are in `docs/convex-read-architecture.md`; the
 `.agents/memory/convex-reads.md`; Convex's own audit workflow is `.claude/skills/convex-performance-audit`. A new page
 query needs an entry in the query-cost gate (R8).
 
-## Engine v2 (the owner's standing instruction, 2026-11-14)
+## Engine v2 (the owner's standing instructions, 2026-11-14)
 
-The engine is being rebuilt from a fresh slate, for linear equations first, in new `lib/v2-*` packages, new `v2*` Convex
-tables and a `/v2` route tree (`docs/engine-v2/spec.md`; the decisions behind it: `docs/engine-v2/owner-decisions.md`).
-The owner, verbatim: "I don't care about throwing away prior work. It will still be available in git. You have a
-burdensome bias towards attachment to keeping prior work and backwards compatibility that tends to accumulate mess and
-technical debt. Try to adjust against that bias for this project. We are in rapid exploration mode which is cheaper and
-faster than ever with AI coding ... Being encumbered by backwards compatibility baggage and attachment to prior work is
-one of the biggest hazards to our rapid exploration priority." So, in v2 work:
+The engine is being rebuilt from a fresh slate, for linear equations first, in new `lib/v2-*` packages and new `v2*`
+Convex tables, and integrated into the existing app (`docs/engine-v2/spec.md`, `docs/engine-v2/integration-plan.md`;
+the decisions behind them: `docs/engine-v2/owner-decisions.md`). The owner, verbatim: "I don't care about throwing away
+prior work. It will still be available in git. You have a burdensome bias towards attachment to keeping prior work and
+backwards compatibility that tends to accumulate mess and technical debt. Try to adjust against that bias for this
+project. We are in rapid exploration mode which is cheaper and faster than ever with AI coding ... Being encumbered by
+backwards compatibility baggage and attachment to prior work is one of the biggest hazards to our rapid exploration
+priority." So, in v2 work (decision 15):
 
-- No compatibility with stored games, old calibration tables, old settings or the old event log. The old engine is kept
-  on the branch `archive/engine-v1` (owner decision 15): v1 code, the integer and string objects and anything else v2
-  does not need are deleted from `develop` as the integration plan schedules (§5.8), not kept beside v2 for safety.
+- **Delete early.** Everything as it stood before v2 is on the branch `archive/engine-v1` (never push to it). What v1
+  can lose today is deleted now (integer and string objects, bidding, paid looks, tiers, hold rarity, score noise, every
+  setup but Annotated basics); the rest of the old engine leaves `develop` as soon as v2 replaces it
+  (integration plan §5.8). Old code lives only on the archive branch: no legacy copies, no adapters, no frozen v1
+  directories kept "for reference" on `develop`.
+- No compatibility with stored games, old calibration tables, old settings or the old event log.
 - Every operation is an affordance in one directory (`lib/v2-affordances`, owner decision 16) that generates the
   assistant tools, MCP, CLI, command palette and buttons; never add an operation to one surface by hand.
 - Nothing in v2 imports from the old rule/object/annotation/calibration libraries (`game-types`, `game-utilities`,
-  `game-core`, `object-views`, `grid-lab`, `player-client`, `ai-player`, `game-runtime`); copy and clean what is good.
+  `game-core`, `object-views`, `player-client`, `ai-player`, `game-runtime`); copy and clean what is good.
   `lib/v2-core/test/import-boundary.test.ts` enforces it.
-- v2 tables are new, so the schema-migration steps below do not apply to them until v2 holds data worth keeping.
+- Stored v1 data while v1 is being deleted: widen or loosen the validators of deleted fields so existing rows still
+  load; no data migrations for deleted features and no row deletions (rows go in D3, with the owner's sign-off). The
+  schema-migration steps below do not apply to v2 tables until v2 holds data worth keeping.
 
 ## Orientation
 
@@ -59,8 +65,8 @@ one of the biggest hazards to our rapid exploration priority." So, in v2 work:
 - API: `docs/engine-api.md`.
 - Pilot and deploy: `PILOT.md`. A push to `develop` deploys the dev Convex deployment and a push to `main` deploys
   production (`.github/workflows/deploy.yml`, PILOT.md "Automatic deploys").
-- Preview deployments (a branch on its own Convex preview, label `preview` on its pull request): `docs/preview-deployments.md`;
-  the index of design variants to try: `docs/design-explorations.md`.
+- Preview deployments (a branch on its own Convex preview, label `preview` on its pull request): `docs/preview-deployments.md`.
+  Older design variants and setups: `docs/design-explorations.md` (a pointer to `archive/engine-v1`).
 - Running locally (no Convex account needed): `pnpm --filter @workspace/engine dev`. It starts the official
   CLI's local Convex backend plus a stand-in OIDC provider, which Better Auth offers as the test-only provider "fake" beside Google.
 

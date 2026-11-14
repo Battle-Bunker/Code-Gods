@@ -29,7 +29,7 @@ Status: plan adopted 2026-10-31. It supersedes the Replit-specific parts of `doc
 
 The app's site pages (`artifacts/player-web/src/site`) are the room display and owner control panel, and a game's spectator view is the common display of a live game. Sign-in, device and connector approval, and credential management (Connected apps) live on the engine's own origin.
 
-**Rights come from the Google identity, never from the app** (docs/unify-apps-plan.md §3). The same app runs in three modes (`src/core/connection.ts`): **site** (served by the engine; the session cookie), **account** (any other origin; an account grant) and **devserver** (a Vite dev server holding a room credential, `CODE_GODS_CREDENTIAL`, which gives the browser 10-minute JWTs from `/__codegods/token`). Site and account are the human everywhere; devserver is the human in one room with the credential's permission.
+**Rights come from the Google identity, never from the app** (archive/engine-v1:docs/unify-apps-plan.md §3). The same app runs in three modes (`src/core/connection.ts`): **site** (served by the engine; the session cookie), **account** (any other origin; an account grant) and **devserver** (a Vite dev server holding a room credential, `CODE_GODS_CREDENTIAL`, which gives the browser 10-minute JWTs from `/__codegods/token`). Site and account are the human everywhere; devserver is the human in one room with the credential's permission.
 
 ## 2. Identity (Wave 1A)
 
@@ -321,6 +321,6 @@ e2e of the drawer (the unit-tested UI state and the engine suite cover the behav
 | 1C: stored panels | `artifacts/engine/convex/panels/**`, `artifacts/player-web/src/{shell,sdk}`, the panel frame, the CSP plugin | 0 |
 | 2: assistant, artifacts, docs | `convex/assistant/**`, `lib/ai-player` ChatProvider, `player-web/src/core/assistant`, `clients/claude-artifact`, the final docs and memory pass | 1A–1C |
 
-(`artifacts/code-gods`, the engine UI of these waves, has since been merged into `artifacts/player-web`: docs/unify-apps-plan.md.)
+(`artifacts/code-gods`, the engine UI of these waves, has since been merged into `artifacts/player-web`: archive/engine-v1:docs/unify-apps-plan.md.)
 
 The coordinator integrates each wave, runs every suite (`.claude/skills/code-gods-testing/SKILL.md`), reviews, and merges to `develop` through a PR.

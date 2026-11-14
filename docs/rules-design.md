@@ -12,8 +12,6 @@ are all different colours."* Two failures:
 
 How hard a rule is to *write an algorithm for* and to *combine with other rules* (beyond how hard it is to read) is
 measured by the rule-difficulty framework: [rule-difficulty.md](rule-difficulty.md).
-How a family grows an easy base plus interactions that reach higher (tiers, their parameters, cards and calibration):
-[layered-rules-design.md](layered-rules-design.md).
 
 This document sets the principles for rule text, the machinery that renders it for each shape, the declarations that
 say what a rule needs from a shape, the one checker that uses them, and the audit of every family.
@@ -302,7 +300,7 @@ grid shape, that every typed family's support and canonical forms lie in the dec
 **Consumers.** The goal card carries the dealt params (`UtilityCard.params`: name, label, type, value, how it reads);
 `player.myUtility` (the MCP `get_my_utility` tool) returns them as `typedParams`; the rule gallery's pickers are built
 from the fields (a colour is a row of named swatches, the rest labelled selects); the lenses (annotations) and the
-analytic solvers read the named params; the Python reference rules (lib/grid-lab) take the same params, checked by
+analytic solvers read the named params; the Python reference rules (archive/engine-v1:lib/grid-lab) take the same params, checked by
 `test/gridlab_parity.py`.
 
 **Calibration.** The table key hashes the canonical params, so the typed families' keys moved while their card programs

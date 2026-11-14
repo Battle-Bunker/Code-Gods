@@ -69,7 +69,7 @@ export interface Part {
   readonly heat?: number;
 }
 
-/** Where one ★ tier of a tiered draw stands on a board (docs/layered-rules-design.md §4). */
+/** Where one ★ tier of a tiered draw stands on a board (archive/engine-v1:docs/layered-rules-design.md §4). */
 export interface TierStatus {
   /** The interaction's id (the card's `tiers[].id`). */
   readonly id: string;

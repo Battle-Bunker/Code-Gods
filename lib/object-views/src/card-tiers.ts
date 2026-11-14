@@ -1,5 +1,5 @@
 /**
- * The goal card's "★ To score even higher" blocks (docs/layered-rules-design.md §4), without React: how a tiered card's
+ * The goal card's "★ To score even higher" blocks (archive/engine-v1:docs/layered-rules-design.md §4), without React: how a tiered card's
  * text splits into the base rule and its blocks, when a block opens by itself, and the bonus line of a closed block.
  * A card without `tiers` (every base draw, and every card stored before tiers existed) is its summary, unchanged.
  */

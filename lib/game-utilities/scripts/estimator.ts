@@ -1,5 +1,5 @@
 /**
- * The offline survival estimator (a TypeScript port of lib/grid-lab/gridlab/calibrate.py, estimator 3), generic
+ * The offline survival estimator (a TypeScript port of archive/engine-v1:lib/grid-lab/gridlab/calibrate.py, estimator 3), generic
  * over object types: it only uses the type's `spawn` (μ), `propose` (symmetric MCMC moves), `codec` and the
  * trusted host `evaluator`, so the tables and live scores share one evaluator.
  *

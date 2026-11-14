@@ -1,5 +1,5 @@
 /**
- * How the app reaches the engine (docs/unify-apps-plan.md §3). Rights come from the human's Google identity, never from
+ * How the app reaches the engine (archive/engine-v1:docs/unify-apps-plan.md §3). Rights come from the human's Google identity, never from
  * which app they run; the app only chooses how it proves that identity:
  *
  *  "site"     : the app served by the engine itself (or a dev server proxying /api to it: CODE_GODS_SITE_URL). It

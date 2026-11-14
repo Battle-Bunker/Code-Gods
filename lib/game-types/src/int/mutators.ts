@@ -1,5 +1,5 @@
 /**
- * Int mutators, designed on the Grid principles (lib/grid-lab/docs/mutators.md §1):
+ * Int mutators, designed on the Grid principles (archive/engine-v1:lib/grid-lab/docs/mutators.md §1):
  *
  * Grid Lab's descriptors (D = description bits, E = pointwise erasure; summon pricing and the reference mixture use D).
  * The act charge never reads these D and E terms: applyCalls prices each call by its elementary decomposition (docs/energy-model.md §4).

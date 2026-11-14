@@ -187,7 +187,7 @@ async function startGame(ctx: ActionCtx, args: { roomId: string; requestId?: str
   // A preparation in progress is reported, not restarted; a failed one may be started afresh. So is a bid phase.
   if (room.bidding && !room.bidding.error) return biddingResult(room.bidding);
   if (room.preparing && !room.preparing.error) return preparingResult(room.preparing);
-  // Spectators watch: only players are dealt in (docs/unify-apps-plan.md §2).
+  // Spectators watch: only players are dealt in (archive/engine-v1:docs/unify-apps-plan.md §2).
   const members = context.members.filter(m => !m.spectator);
   if (members.length < 3) fail("BAD_REQUEST", "At least three players are required (spectators don't count)");
   if (members.length > MAX_GODS) fail("BAD_REQUEST", "At most eight players can play");

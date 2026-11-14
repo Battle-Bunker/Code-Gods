@@ -6,7 +6,7 @@ The measuring stick is the rule-difficulty framework (docs/rule-difficulty.md).
 
 Code: `BEGINNER_POOL` in `lib/game-core/src/settings.ts` (the default setup, `grid-annotated-basics`, deals exactly
 these on `Grid(4,base10,mono)`); the new families live in `lib/game-utilities/src/families/grid/beginner/`, each with a
-lens in `src/explain/lenses/` and a Python reference in `lib/grid-lab/gridlab/rules/beginner/`.
+lens in `src/explain/lenses/` and a Python reference in `archive/engine-v1:lib/grid-lab/gridlab/rules/beginner/`.
 
 ## 1. The eight
 
@@ -160,7 +160,7 @@ share of its top). A win share is good to about ±3 points at 3 players (each ru
   running the shipped example agent) the best boards were at the top of all three rules and the final order was the
   order of the tops: 31,626 / 29,909 / 23,740 points for 31.1 / 25.3 / 17.9 bits.
 
-**Fixes measured (none shipped).** 300 games per table, 3 players; raw tables in `docs/balance-results-2026-11-13/`.
+**Fixes measured (none shipped).** 300 games per table, 3 players; raw tables in `archive/engine-v1:docs/balance-results-2026-11-13/`.
 
 | Change | greedy | considerate | deny |
 |---|---|---|---|
@@ -171,12 +171,12 @@ share of its top). A win share is good to about ±3 points at 3 players (each ru
 Neither levels the pool. Equal tops moves the win to other rules (Crosswise Threes 63%, Leapfrog 59% under greedy;
 Mirrormancer falls to 1% under deny). Dropping the three outliers leaves Spread of Three on top under every policy.
 Because the winner turns on a few percent of points, no constant per rule can level every way of playing at once; see
-`docs/handover-integration.md` for the diagnosis and the fix proposed.
+`archive/engine-v1:docs/handover-integration.md` for the diagnosis and the fix proposed.
 
 ## 6. The fix: the rules pass one seat along when a room plays again (2026-11-13)
 
 Measured first (3 players, model as §5, every god the same style; win share by rule, lowest to highest; raw tables in
-`docs/balance-results-2026-11-13/`):
+`archive/engine-v1:docs/balance-results-2026-11-13/`):
 
 | Candidate | greedy | considerate | deny | Verdict |
 |---|---|---|---|---|

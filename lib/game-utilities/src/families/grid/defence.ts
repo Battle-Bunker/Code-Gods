@@ -1,5 +1,5 @@
 /**
- * Penalty families: defence goals (lib/grid-lab/gridlab/rules/defence.py PENALTIES, docs/defence-goals.md).
+ * Penalty families: defence goals (archive/engine-v1:lib/grid-lab/gridlab/rules/defence.py PENALTIES, docs/defence-goals.md).
  *
  * A penalty's ordinal is *badness* (higher = worse). It is never dealt on its own: the selector attaches it to a
  * reward draw as `descriptor.penalty`. Cards define `def penalty(grid):` / `function penalty(grid)` (grid-lab

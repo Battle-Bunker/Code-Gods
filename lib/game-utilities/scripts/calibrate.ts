@@ -66,7 +66,7 @@ export function jobsFor(inst: Instantiation, families?: ReadonlySet<string>): Jo
   const ctx = context(inst), out: Job[] = [];
   for (const f of familiesFor(inst.objectType)) {
     if (!available(f, inst).ok || (families && !families.has(f.id))) continue;
-    // Tiered draws (docs/layered-rules-design.md) are not in the support; their tables ship where the family deals them.
+    // Tiered draws (archive/engine-v1:docs/layered-rules-design.md) are not in the support; their tables ship where the family deals them.
     for (const p of [...canonicalSupport(f, ctx), ...tieredCanonicalSupport(f, ctx)]) {
       out.push({ instance: inst.key, args: inst.args, objectType: inst.objectType, familyId: f.id, params: p, key: tableKey(f.id, p, inst) });
     }

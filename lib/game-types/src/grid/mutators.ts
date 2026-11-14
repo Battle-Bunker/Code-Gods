@@ -1,8 +1,8 @@
 /**
- * Grid mutators: 25 of the 26 mutators of lib/grid-lab/gridlab/mutators.py, all but `flatten` (Grid Lab
+ * Grid mutators: 25 of the 26 mutators of archive/engine-v1:lib/grid-lab/gridlab/mutators.py, all but `flatten` (Grid Lab
  * experiments found it did not help; parity runs gridlab with COST_KNOBS["disabled"] = ["flatten"]),
  * ported with identical fields, regions, apply, D and analytic terms. Rationale and cost
- * tables: lib/grid-lab/docs/mutators.md. Every mutator is a bijection (erases 0) or an idempotent
+ * tables: archive/engine-v1:lib/grid-lab/docs/mutators.md. Every mutator is a bijection (erases 0) or an idempotent
  * overwrite; none is random at apply time.
  *
  * The one deliberate difference: erasure is POINTWISE, log2 |f⁻¹(f(x))| given the call

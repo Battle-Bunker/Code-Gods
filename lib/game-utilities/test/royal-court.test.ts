@@ -4,7 +4,7 @@
  * dealt tier.
  *
  * What would break: a tie for biggest crowning a king (the all-zero board and the 0/k checkerboards would then top the
- * rule: docs/layered-rules-design.md §10 finding 1); unit scores that do not add up to the card's ordinal (the hybrid
+ * rule: archive/engine-v1:docs/layered-rules-design.md §10 finding 1); unit scores that do not add up to the card's ordinal (the hybrid
  * table would calibrate another rule); a path or road operator that counts something other than the card says; a tier
  * that counts below the gate; a dealt value that is dead, maxed by most boards or outside the 6–20 bit band.
  */

@@ -2,7 +2,7 @@
  * The interactions of 🫅 Kings and Subjects (./royal_court.ts): operators over the base's vocabulary, `kings` (the king
  * cell of each court) and `subjects` (a court's other three cells), both lists of cells the base card builds.
  *
- * Which of them are dealt, and with which values, is decided by measurement (docs/layered-rules-measurements/
+ * Which of them are dealt, and with which values, is decided by measurement (archive/engine-v1:docs/layered-rules-measurements/
  * royal-court.md, scripts/royal-court-sweep.ts). The ones that are never dealt stay here so the sweep can reproduce the
  * numbers that rejected them; an interaction costs nothing until a value of it is dealt.
  */

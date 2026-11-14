@@ -1,5 +1,5 @@
 /**
- * Kid card rendering, shared by every family (lib/grid-lab/gridlab/rules/cards.py `card`): a header comment
+ * Kid card rendering, shared by every family (archive/engine-v1:lib/grid-lab/gridlab/rules/cards.py `card`): a header comment
  * (emoji, name, 1-3 plain sentences), the dealt settings as UPPER_CASE constants, then the program.
  */
 import type { ParamScalar } from "../types.ts";
