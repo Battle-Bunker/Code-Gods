@@ -13,6 +13,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx, type QueryCtx } from "../_generated/server";
 import { decode, distinctBirths, heldReason, scopeOf, valuesOf, type SeatRule, type Value as ExactValue } from "./world.ts";
 import { disclosesNoise, noiseAt, shownAt } from "./disclose.ts";
+import { endWorldOf, scoreIntervalOf } from "./duration.ts";
 
 /** Wall milliseconds between ticks; world time advances by the wall time that passed, at most MAX_DT a tick. */
 export const TICK_MS = 1500;
@@ -231,7 +232,7 @@ export async function startWorld(ctx: MutationCtx, game: Doc<"v2Games">) {
   const engine = await engineOf(ctx, game._id), clock = await clockOf(ctx, game._id);
   await ctx.db.patch(engine._id, { leaseId, objects: states.length });
   await ctx.db.patch(clock._id, { lastTickAt: now, worldSeconds: 0, objects: states.length });
-  await ctx.db.patch(game._id, { phase: "live", startedAt: now, endsAt: now + game.settings.worldSeconds * 1000 });
+  await ctx.db.patch(game._id, { phase: "live", startedAt: now, endsAt: now + endWorldOf(game) * 1000 });
   await appendEvent(ctx, game._id, "phase", { phase: "live", worldSeconds: 0 });
   await scoreboard(ctx, { ...game, phase: "live" }, 0);
   await ctx.scheduler.runAfter(0, TICK, { gameId: game._id, leaseId });
@@ -270,7 +271,7 @@ export async function resumeGame(ctx: MutationCtx, game: Doc<"v2Games">) {
   const engine = await engineOf(ctx, game._id), clock = await clockOf(ctx, game._id);
   await ctx.db.patch(engine._id, { leaseId });
   await ctx.db.patch(clock._id, { lastTickAt: now });
-  await ctx.db.patch(game._id, { phase: "live", pausedBy: undefined, endsAt: now + Math.max(0, game.settings.worldSeconds - clock.worldSeconds) * 1000 });
+  await ctx.db.patch(game._id, { phase: "live", pausedBy: undefined, endsAt: now + Math.max(0, endWorldOf(game) - clock.worldSeconds) * 1000 });
   await appendEvent(ctx, game._id, "phase", { phase: "live", worldSeconds: clock.worldSeconds });
   await ctx.scheduler.runAfter(0, TICK, { gameId: game._id, leaseId });
   await ctx.scheduler.runAfter(WATCHDOG_MS, WATCHDOG, { gameId: game._id, leaseId });
@@ -331,7 +332,7 @@ export const snapshot = internalQuery({
       withEnergy.push({ agentId: a._id, memberId: a.memberId, language: a.language, source: a.source, version: a.version, share: a.share, power: p.power, energy: e.energy, settledAt: e.settledAt });
     }
     return {
-      phase: game.phase, seed: game.seed, variant: game.variant, settings: game.settings, endsAt: game.endsAt ?? null, leaseId: engine.leaseId, tick: engine.tick,
+      phase: game.phase, seed: game.seed, variant: game.variant, settings: game.settings, endsAt: game.endsAt ?? null, endWorld: endWorldOf(game), leaseId: engine.leaseId, tick: engine.tick,
       acts: engine.acts, objects: engine.objects, worldSeconds: clock.worldSeconds, lastTickAt: clock.lastTickAt,
       seats: await seatRules(ctx, game), agents: withEnergy,
       // Decision 24: every object's state (the tick's `occupied`), and the disclosure noise's key (the tick's `disclosed`).
@@ -398,7 +399,7 @@ export const commit = internalMutation({
     if (!game || !engine || game.phase !== "live" || engine.leaseId !== a.leaseId) return { committed: false };
     if (engine.failures) await ctx.db.patch(engine._id, { failures: 0 });
     const clock = await clockOf(ctx, game._id), seats = await seatRules(ctx, game);
-    const world = Math.max(clock.worldSeconds, Math.min(a.world, game.settings.worldSeconds));
+    const world = Math.max(clock.worldSeconds, Math.min(a.world, endWorldOf(game)));
     const changes: { number: number; values: Value[]; before?: Map<string, Value> }[] = [];
     const tugMoves: TugMove[] = [];
     // Acts are numbered by the tick's opportunities (their seeds are `act:<n>`), whether or not each one ran.
@@ -485,8 +486,8 @@ export const commit = internalMutation({
     await ctx.db.patch(engine._id, { tick: engine.tick + 1, objects, acts, moves });
     await ctx.db.patch(clock._id, { tick: clock.tick + 1, worldSeconds: world, lastTickAt: a.now, objects, commits: clock.commits + 1 });
     const fresh = (await ctx.db.get(game._id))!;
-    if (world >= game.settings.worldSeconds) { await endGame(ctx, fresh); return { committed: true, ended: true }; }
-    if (world - engine.scoreboardAt >= SCOREBOARD_SECONDS) await scoreboard(ctx, fresh, world);
+    if (world >= endWorldOf(game)) { await endGame(ctx, fresh); return { committed: true, ended: true }; }
+    if (world - engine.scoreboardAt >= scoreIntervalOf(game)) await scoreboard(ctx, fresh, world);
     await ctx.scheduler.runAfter(TICK_MS, TICK, { gameId: game._id, leaseId: a.leaseId });
     return { committed: true, ended: false };
   },

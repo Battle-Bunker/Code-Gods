@@ -136,12 +136,13 @@ test("ready: the world starts when every human is ready", async () => {
 });
 
 test("reads: a representation, an element, a quote and a score, as an agent is told them", async () => {
-  // A line with a gradient (y = mx + c reads it; a vertical line has no m): the newest few, the first that reads.
+  // A line with a gradient that a shift can move (a vertical line cannot): the newest few, the first that does.
   const newest = (await ada!.query("v2/play:objectIds", { gameId, sort: "born", paginationOpts: { numItems: 10, cursor: null } })).page;
   let objectId = "", si: any = null;
   for (const o of newest) {
     si = await perform(ada!, "object.read", { objectId: o.objectId, rep: "si" }, scope(), "query");
-    if (si.ok && si.result.elements.m) { objectId = o.objectId; break; }
+    const shifts = await perform(ada!, "object.quote", { objectId: o.objectId, calls: [{ mutator: "si.shift", args: { k: "1" } }] }, scope(), "query");
+    if (si.ok && si.result.elements.m && shifts.result?.valid) { objectId = o.objectId; break; }
   }
   assert.equal(si.ok, true, JSON.stringify(si));
   assert.ok(si.result.elements.m && si.result.bits > 0);

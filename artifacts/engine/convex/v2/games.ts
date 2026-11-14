@@ -1,4 +1,5 @@
 /** Live game queries every member reads: the header, the scoreboard and its history (integration plan §2.2). */
+import { durationModeOf, scoreIntervalOf } from "./duration";
 import { peerNoiseBitsOf } from "./disclose";
 import { v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
@@ -11,7 +12,9 @@ export function headerView(game: Doc<"v2Games">, me: Doc<"v2Members">["_id"] | n
     gameId: game._id, roomId: game.roomId, number: game.number, code: game.code, phase: game.phase,
     preset: game.preset, variant: game.variant,
     planningSeconds: game.settings.planningSeconds, worldSeconds: game.settings.worldSeconds, startingEnergy: game.settings.startingEnergy,
-    planningEndsAt: game.planningEndsAt ?? null, endsAt: game.endsAt ?? null, startedAt: game.startedAt ?? null, endedAt: game.endedAt ?? null,
+    // In halfLife mode the end is hidden while live (v1): no deadline, only the mode and the half-life.
+    planningEndsAt: game.planningEndsAt ?? null, endsAt: durationModeOf(game) === "halfLife" && game.phase !== "ended" ? null : game.endsAt ?? null,
+    durationMode: durationModeOf(game), scoreIntervalSeconds: scoreIntervalOf(game), startedAt: game.startedAt ?? null, endedAt: game.endedAt ?? null,
     roster: game.roster, pausedBy: game.pausedBy ?? null, me, summary: game.summary ?? null,
     // σ of the disclosure noise on the others' sums while live (disclose.ts); 0: exact (a game without a key).
     peerNoiseBits: peerNoiseBitsOf(game),

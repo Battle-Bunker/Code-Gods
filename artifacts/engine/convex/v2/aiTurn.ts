@@ -4,6 +4,7 @@
  * assistant tools for the seat's context, performed through the same `<verb>As` functions an assistant or MCP client
  * calls, as the AI's principal (`member:<id>`). Spending is held to the seat's allowance per game (v2/ai.ts).
  */
+import { endWorldOf } from "./duration";
 import { disclosed } from "./disclose";
 import { affordanceForTool, assistantTools, type AffordanceContext } from "@workspace/v2-affordances";
 import type { Delegate } from "@workspace/v2-affordances/convex";
@@ -57,7 +58,7 @@ export const deals = internalQuery({
     if (!game || !me) return null;
     const clock = await ctx.db.query("v2Clocks").withIndex("by_game", q => q.eq("gameId", gameId)).unique();
     // World time runs to endsAt (tick.ts); while paused it stands still at the clock's.
-    const worldAt = (at: number) => game.endsAt !== undefined ? game.settings.worldSeconds - (game.endsAt - at) / 1000 : Math.min(clock?.worldSeconds ?? 0, (clock?.worldSeconds ?? 0) - (Date.now() - at) / 1000);
+    const worldAt = (at: number) => game.endsAt !== undefined ? endWorldOf(game) - (game.endsAt - at) / 1000 : Math.min(clock?.worldSeconds ?? 0, (clock?.worldSeconds ?? 0) - (Date.now() - at) / 1000);
     const since = game.createdAt;   // deals struck while planning count too
     const chat = (await ctx.db.query("v2Chat").withIndex("by_room", q => q.eq("roomId", game.roomId).gte("at", since)).order("desc").take(CHAT_ROWS))
       .reverse().map(m => ({ from: m.from, text: m.text, at: worldAt(m.at) }));

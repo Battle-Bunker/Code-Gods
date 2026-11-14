@@ -11,6 +11,7 @@ import { isPreset, presetOf } from "./presets.ts";
 import { summonPracticePartners } from "./agents.ts";
 import { makeFunctionReference } from "convex/server";
 import { DEFAULT_PEER_NOISE_BITS, newNoiseKey } from "./disclose.ts";
+import { DEFAULT_SCORE_INTERVAL_SECONDS, drawEnd } from "./duration.ts";
 
 const PLANNING_ENDS = makeFunctionReference<"mutation", { gameId: Id<"v2Games"> }>("v2/loop:planningEnds");
 const AI_TURN = makeFunctionReference<"action", { gameId: Id<"v2Games">; memberId: Id<"v2Members">; n: number }>("v2/aiTurn:turn");
@@ -256,13 +257,18 @@ export async function startGame(ctx: MutationCtx, room: Doc<"v2Rooms">, auction?
     startingEnergy: room.overrides.startingEnergy ?? preset.startingEnergy,
     startingObjects: preset.startingObjects, minPlayers: preset.minPlayers, economy: preset.economy,
     // Disclosure noise on the others' sums while live (disclose.ts; v1's peerNoiseBits, default 8).
-    peerNoiseBits: DEFAULT_PEER_NOISE_BITS,
+    peerNoiseBits: room.overrides.peerNoiseBits ?? DEFAULT_PEER_NOISE_BITS,
+    // How the game ends and how often standings are published (duration.ts; v1's settings).
+    durationMode: room.overrides.durationMode ?? preset.durationMode,
+    scoreIntervalSeconds: room.overrides.scoreIntervalSeconds ?? DEFAULT_SCORE_INTERVAL_SECONDS,
   };
   const number = room.games + 1;
   const gameId = await ctx.db.insert("v2Games", {
     roomId: room._id, number, code: `${room.code}-${number}`, phase: "planning", preset: preset.id, variant: preset.variant, seed,
     settings, noiseKey: newNoiseKey(), roster: seats.map(m => ({ memberId: m._id, name: m.name, kind: m.kind })), createdAt: now, startedAt: now,
     planningEndsAt: now + settings.planningSeconds * 1000, dealKey, rotates: wins.length === 0 && !again,
+    // Drawn once, at the start (v1); in halfLife mode it is never disclosed while live.
+    endAtWorld: drawEnd(settings.durationMode, settings.worldSeconds),
     ...(rotation ? { rotation } : {}),
     artefacts: seats.map((m, i) => ({ memberId: m._id, ruleKey: rules[i]!.ruleKey, contentHash: rules[i]!.contentHash })),
   });

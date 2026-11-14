@@ -32,6 +32,8 @@ export interface Preset {
   worldSeconds: number;
   startingEnergy: number;
   startingObjects: number;
+  /** How its games end (duration.ts): v1's beginner setups were fixed, ten minutes. */
+  durationMode: "fixed" | "halfLife";
   economy: PresetEconomy;
   bid?: PresetBid;
 }
@@ -56,7 +58,7 @@ function fromPool(id: string, extra: Partial<Preset> & { id?: string; title?: st
     id: p.id, title: p.title, variant: p.variant, pool, families: [...new Set(pool.map(r => r.family))],
     minPlayers: 3, planningSeconds: 60, worldSeconds: 300, startingEnergy: LINES_BEGINNER_ECONOMY.startingEnergy,
     // v1 Annotated basics' starting count, restored (coordinator's call, 14 Nov).
-    startingObjects: 10,
+    startingObjects: 10, durationMode: "fixed",
     economy: ECONOMY, ...extra,
   };
 }
