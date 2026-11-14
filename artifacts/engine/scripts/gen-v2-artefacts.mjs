@@ -24,7 +24,7 @@ export function generate() {
         const a = JSON.parse(readFileSync(join(SRC, variant, family, file), "utf8"));
         rows.push({
           ruleKey: a.ruleKey, variant: a.variant, family: a.family, params: a.params, tieBreaker: a.tieBreaker, status: a.status,
-          cap: a.cap, dealable: a.dealable, primarySense: a.primarySense, curve: a.curve, contentHash: a.contentHash,
+          cap: a.cap, convergedCap: a.convergedCap, tail: a.tail, dealable: a.dealable, primarySense: a.primarySense, curve: a.curve, contentHash: a.contentHash,
           rungs: a.rungs.map(r => ({ score: r.score, label: r.label, layer: r.layer, ...(r.main !== undefined ? { main: r.main } : {}), bits: r.bits })),
         });
       }
