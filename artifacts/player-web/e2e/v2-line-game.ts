@@ -118,7 +118,7 @@ try {
     await page.getByTestId("text-phase").getByText("Running").waitFor({ timeout: 30_000 });
 
     const feed = page.getByTestId("pane-feed");
-    // The first scoring move (a move can also leave the step and the points where they were).
+    // The first scoring move (a move can also leave your rarity and the points where they were).
     const mine = feed.getByText(/^Your agent .* changed a line.*Your rarity/).first();
     await mine.waitFor({ timeout: 60_000 });
     const sentence = await mine.innerText();

@@ -6,7 +6,8 @@
  * the panes round the same way). A line's score is written once, by `scoreFormula`: the product shown is the product of
  * the full values, and "≈" stands in for "=" when the shown figures do not multiply to it.
  */
-import { BITS_HELP, fmtBits, fmtNum } from "@workspace/v2-views/format";
+import { BITS_HELP, chanceText, fmtBits, fmtNum } from "@workspace/v2-views/format";
+export { chanceText };
 
 /** 2 decimal places, en-US grouping, a true minus sign, never "−0.00": every measure a player reads. */
 export const num = fmtNum;
