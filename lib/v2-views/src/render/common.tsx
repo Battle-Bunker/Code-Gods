@@ -100,11 +100,12 @@ export function Readouts({ p, placed, drawnNotes }: { p: RenderProps; placed: Re
     ? p.marks.filter((m): m is Extract<Mark, { kind: "note" }> => m.kind === "note" && !drawnNotes?.has(m.text) && !shown.has(m.text)).map(m => m.text)
     : [];
   if (p.size === "compact") {
-    // A compact face has no room under the picture: focused numbers only, as one short overlay line.
+    // A compact face says its parts in the lines under the picture; a caption over the picture covered it (playtest
+    // round 4). The focused numbers stay for a screen reader, not drawn.
     const focused = items.filter(r => markState(p.marks, r).focus);
     if (!focused.length) return null;
     return (
-      <div className="v2v-overlay">
+      <div className="v2v-sr">
         {focused.map(r => <span key={key(r)}>{p.labelOf(r).replace(/\s*\(.*\)/, "")} <El p={p} r={r}>{fmtValue(p.values(r))}</El></span>)}
       </div>
     );

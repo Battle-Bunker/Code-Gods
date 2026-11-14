@@ -322,12 +322,12 @@ export function ExpandedFace<S, P>(props: ExpandedFaceProps<S, P>): ReactElement
 
       <div className="v2v-exp-body">
         <PartsList parts={sa.parts} active={lit} onActive={setHoverPart} selected={sel} onSelect={setSelected} />
-        {sa.parts.length > 1 && <p className="v2v-combine">The main part counts first; the tie-breaker decides between {a.noun}s that are equally good on the main part.</p>}
+        {sa.parts.length > 1 && <p className="v2v-combine">The main part counts first; {`the tie-breaker decides between ${a.noun}s that are equally good on the main part.`}</p>}
         {props.improvement !== false && <MovesList list={list} noun={a.noun} />}
         <details className="v2v-working">
           <summary>How it was worked out</summary>
           <ul>{sa.working.map((w, i) => <li key={i}>{w}</li>)}</ul>
-          {a.bits !== null && <p>{fmtBits(a.bits)}: only {chanceText(a.bits)} random {a.noun}s are at least this good on both parts. {BITS_HELP}</p>}
+          {a.bits !== null && <p>{`${fmtBits(a.bits)}: only ${chanceText(a.bits)} random ${a.noun}s are at least this good on both parts. ${BITS_HELP}`}</p>}
         </details>
       </div>
     </div>

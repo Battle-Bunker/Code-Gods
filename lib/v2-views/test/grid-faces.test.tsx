@@ -6,7 +6,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { renderToStaticMarkup } from "react-dom/server";
-import type { Score } from "@workspace/v2-core";
+import { rng, walkStep, type Score } from "@workspace/v2-core";
 import { grid4, gridType, type GridState } from "@workspace/v2-grid";
 import { annotate, CompactFace, ExpandedFace, GoalCard, mainLine, MoveLine, repText, type RuleRef } from "../src/index.ts";
 import { key as refNodeKey } from "../src/render/common.tsx";
@@ -78,4 +78,17 @@ test("move line: the cells that changed, the move in words, the rarity with the 
   assert.doesNotMatch(t, /\bline\b/);
   const many = text(renderToStaticMarkup(<MoveLine rule={rule} before={B} after={board("1331", "0480", "2222", "9003")} who="Ada's agent" />));
   assert.match(many, /changed a grid: row 1, column 1: 3 → 1; row 1, column 2: 1 → 3; and 2 more ?\./);
+});
+
+test("playtest round 4: a plural noun is one word; a compact face draws nothing over its board", () => {
+  const g = rng("playtest-4");
+  const boards: GridState[] = [B];
+  for (let i = 0; i < 30; i++) boards.push(walkStep(gridType, grid4, boards[boards.length - 1]!, g));
+  for (const base of rules) for (const board of boards.slice(0, 3)) {
+    const rule = { ...base, tieBreaker: base.family.tieBreakers[0]?.id };
+    const html = renderToStaticMarkup(<ExpandedFace rule={rule} state={board} value={VALUE} />) + renderToStaticMarkup(<GoalCard rule={rule} example={board} />);
+    assert.doesNotMatch(html, /grid<!-- -->s/, `${rule.family.id}: "grid" and "s" render as separate text`);
+    // The part lines under the face say the quantity; an overlay caption on the board covered cells on a phone.
+    for (const b of boards) assert.doesNotMatch(renderToStaticMarkup(<CompactFace rule={rule} state={b} value={VALUE} />), /v2v-overlay/, rule.family.id);
+  }
 });

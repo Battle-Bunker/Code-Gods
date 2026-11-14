@@ -45,7 +45,7 @@ export function GoalCard<S, P>({ rule, example, value, mine }: GoalCardProps<S, 
         <p className="v2v-goal-hint">Tap a part to see only its marks; point at a number to find it in every view.</p>
         <ExpandedFace rule={rule} state={example} value={value} improvement={!mine} />
       </details>
-      {!mine && <p className="v2v-goal-hint">Open one of your {noun}s to see it explained here.</p>}
+      {!mine && <p className="v2v-goal-hint">{`Open one of your ${noun}s to see it explained here.`}</p>}
     </article>
   );
 }
