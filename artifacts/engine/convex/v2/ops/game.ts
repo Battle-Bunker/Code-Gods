@@ -3,7 +3,7 @@ import { membersOf, openBidding, rotationFor, startGame } from "../lobby";
 import { presetOf } from "../presets";
 import { OpFailure } from "@workspace/v2-affordances";
 import { endGame, pauseGame, resumeGame, startWorld } from "../loop.ts";
-import { defineOp, inGame, inRoom, notYet, seated } from "./define";
+import { defineOp, inGame, inRoom, seated } from "./define";
 
 export const { op: get, as: getAs } = defineOp("game.get", "query", async env => {
   const { game, player } = inGame(env);

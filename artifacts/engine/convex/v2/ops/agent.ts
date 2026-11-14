@@ -5,7 +5,7 @@
 import { OpFailure } from "@workspace/v2-affordances";
 import { makeFunctionReference } from "convex/server";
 import { destroyAgent, ownAgent } from "../agents.ts";
-import { failureOf } from "../commands";
+import { failureOf } from "../failure";
 import { MAX_AGENTS } from "../play";
 import { callerOf, defineOp, seated } from "./define";
 

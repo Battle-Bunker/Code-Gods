@@ -223,9 +223,24 @@ export const v2Tables = {
    * AI spending per (game, member): a human's assistant and pitch drafts, or an AI player's turns, each held to the
    * game's allowance (convex/v2/ai.ts). Tokens are the provider's input plus output tokens; usd at catalogue prices.
    */
-  /** Model spend per member per game (absent: the room's lobby, before its first game). */
-  v2AiUsage: defineTable({ gameId: v.optional(v.id("v2Games")), memberId: v.id("v2Members"), tokens: v.number(), usd: v.number(), calls: v.number() })
-    .index("by_member_game", ["memberId", "gameId"]),
+  /**
+   * Model spend (v2/ai.ts) per member per game, or, between games (`gameId` absent), per UTC day in the room's lobby
+   * (`lobbyDay`); `recent` holds the call times of the last minute (the rate limit).
+   */
+  v2AiUsage: defineTable({
+    gameId: v.optional(v.id("v2Games")), lobbyDay: v.optional(v.string()), memberId: v.id("v2Members"),
+    tokens: v.number(), usd: v.number(), calls: v.number(), recent: v.optional(v.array(v.number())),
+  }).index("by_member_game", ["memberId", "gameId", "lobbyDay"]),
+  /** A room's spend per game (or lobby day) per pool: "ai" (its AI players together) or "assistant" (every player's). */
+  v2AiPools: defineTable({
+    roomId: v.id("v2Rooms"), gameId: v.optional(v.id("v2Games")), lobbyDay: v.optional(v.string()), pool: v.union(v.literal("ai"), v.literal("assistant")),
+    tokens: v.number(), usd: v.number(), recent: v.array(v.number()),
+  }).index("by_room_game_pool", ["roomId", "gameId", "lobbyDay", "pool"]),
+  /** The deployment's spend per UTC day per pool (the daily USD ceilings), in shards by room so rooms never contend. */
+  v2AiDaily: defineTable({ day: v.string(), pool: v.union(v.literal("ai"), v.literal("assistant")), shard: v.number(), usd: v.number() })
+    .index("by_day_pool_shard", ["day", "pool", "shard"]),
+  /** The owner's per-game token quotas (`room.aiQuotas`); a room with no row has the defaults. */
+  v2RoomQuotas: defineTable({ roomId: v.id("v2Rooms"), ai: v.number(), assistant: v.number() }).index("by_room", ["roomId"]),
   /** A game's auction: every bid, the order of wins and each winner's handicap (disclosed per preset). */
   v2Auctions: defineTable({
     gameId: v.id("v2Games"), pricing: v.union(v.literal("first"), v.literal("second")),

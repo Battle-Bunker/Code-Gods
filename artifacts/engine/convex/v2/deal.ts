@@ -13,7 +13,7 @@ import { canonicalJson, hashHex, rng, ruleLayers, scoreFromWire, type Rng, type 
 import type { BidDealer } from "@workspace/v2-economy";
 import { lineType } from "@workspace/v2-linear";
 import { CATALOGUE } from "@workspace/v2-agents/pure";
-import { findVariant, ruleKey } from "@workspace/v2-valuation";
+import { findVariant, ruleKey, rungBits } from "@workspace/v2-valuation";
 import { artefactFor, dealable } from "./artefacts.ts";
 import type { Preset } from "./presets.ts";
 
@@ -101,7 +101,7 @@ export function offers(pool: readonly DealtRule[]) {
   for (const id of [...new Set(pool.map(r => r.family))]) {
     const rules = pool.filter(r => r.family === id), f = familyOf(id);
     // Each rule's top is its cap's value (call (g)): the rungs above it are not dealt.
-    const top = Math.max(...rules.map(r => { const a = artefactFor(r.ruleKey); return a ? a.rungs[a.cap]?.bits ?? 0 : 0; }));
+    const top = Math.max(...rules.map(r => { const a = artefactFor(r.ruleKey); return a ? rungBits(a, a.cap) : 0; }));
     out.push({ family: id, title: f.title, card: f.card(rules[0]!.params, null), top: Math.round(top) });
   }
   return out;
@@ -163,7 +163,7 @@ export function ruleView(rule: DealtRule): RuleView {
   return {
     title: f.title, card: f.card(rule.params, rule.tieBreaker), depends: [...f.depends], primary: f.main.rep, layers,
     // The dealt ladder stops at the cap (call (g)): the rungs above it did not converge, and lines there score as the cap.
-    ladder: a.rungs.slice(0, a.cap + 1).map((r, level) => ({ level, label: r.label, rarityBits: r.bits ?? 0, ...(r.layer >= 0 ? { layer: layers[r.layer]! } : {}) })),
+    ladder: a.rungs.slice(0, a.cap + 1).map((r, level) => ({ level, label: r.label, rarityBits: rungBits(a, level), ...(r.layer >= 0 ? { layer: layers[r.layer]! } : {}) })),
   };
 }
 

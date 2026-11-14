@@ -72,19 +72,32 @@ values).
 ## Capped ladders (coordinator's call (g), provisional)
 
 A rule that misses only its rarest rungs is dealt with its ladder capped at the last rung through which every rung
-converged (`cap`, `dealable` in each artefact; spec §7.5); a line above the cap scores as the cap. It is not dealt when
-it is too coarse, unreachable, or fewer than six rungs converge. Of the 70 artefacts, 42 are dealable (27 of 34 on
-`line-z`, 15 of 36 on `line-q`, where many rules miss already on their first rung, at about 3 bits ± 4%). Ruler + far
-and Exact Change + big-piles are no longer dealt or calibrated on whole-number variants (they cannot decide anything
-there: `Layer.dealtOn`).
+converged (`convergedCap`); where the converged tie-breaker rungs at the main top fit a curve (log-distance for a
+distance, quadratic for a size or count; at least 4 points, every residual within twice its error), the tail above is
+valued by the curve for at most one more span of thresholds and marked fitted (`tail`), and `cap` is the dealt top. A
+line above the cap scores as the cap (spec §7.5). A rule is not dealt when it is too coarse, unreachable, fewer than six
+rungs converge, or its dealt top is worth under 4 bits. Ruler + far and Exact Change + big-piles are not dealt or
+calibrated on whole-number variants (`Layer.dealtOn`).
 
-**The beginner pool on `line-z` (`lines-beginner`): all 8 families deal.** Capped tops, by tie-breaker:
-Prime Staircase 9.1 (first-prime), 8.5 (last-prime), 9.2 (near-miss), 8.4 (step-back); Square Area 8.2 (spf), 6.6
-(omega; lpf not dealt); Treasure 11.4 (prime-gradient), 10.9 (prime-terms), 8.1 (square-start); Ruler 9.3
-(prime-gradient), 11.2 (square-area); Exact Change 8.9 (big-bill), 9.7 (prime-coins); Prime Landing 7.1 (big-prime),
-4.2 (next-prime), 7.8 (prime-gradient); Same on Both Rulers 7.0 (prime-start), 0.3 (steep, capped at its ninth rung),
-7.3 (whole-lamp; whole-values too coarse); Pythagorean Area 8.5 (prime-height; slanted-square and whole-legs not
-dealt).
+**The beginner pool on `line-z` at 8× budget (256M steps per rule, 14 November).** 25 pairings in four parallel lanes,
+29.9 minutes of wall time (50 s to 7.2 min per pairing). 13 of 25 now converge through their top rung (4 at 32M).
+Best dealt top per family against the curator's reference (layered-line-rules.md §9.2 and §9.5, "joint top at the cap"):
+
+| Family | Dealt tops by tie-breaker (bits) | Best | Curator's reference | At 32M |
+|---|---|--:|--:|--:|
+| Prime Staircase | first-prime 12.3, last-prime 13.2, near-miss 12.7, step-back 14.0 | 14.0 | 22.8 (first prime ≥ 13) | 9.2 |
+| Square Area | spf 11.3, lpf 16.0 (fitted), omega 16.7 (fitted) | 16.7 | 22.6 (spf ≥ 29) | 8.2 |
+| Treasure | prime-gradient 14.3, prime-terms 11.8, square-start 11.9 | 14.3 | 16.8 | 11.4 |
+| Ruler | prime-gradient 12.1, square-area 11.2 | 12.1 | 23.1 (prime gradient) | 11.2 |
+| Exact Change | big-bill 14.0 (fitted), prime-coins 11.6 | 14.0 | 16.3 | 9.7 |
+| Prime Landing | big-prime 12.3, prime-gradient 7.8, next-prime 4.2 | 12.3 | 23.7 (prime ≥ 37) | 7.8 |
+| Same on Both Rulers | steep 11.8, prime-start 7.0, whole-lamp 7.4 | 11.8 | 15.8 (steep) | 7.3 |
+| Pythagorean Area | slanted-square 14.3, prime-height 9.9, whole-legs 9.7 | 14.3 | 13.8 | 8.5 |
+
+The ladders still stop short of the curator's tops where the tie-breaker climbs prime sizes (Staircase, Ruler, Prime
+Landing, Square Area + spf): their rungs above about 13 bits are reached by too few chains even at 256M. The analytic
+calibration study (analytic-calibration.md) is the route past that. Of all 70 artefacts, 35 are dealable (27 of 34 on
+`line-z`, 8 of 36 on `line-q`).
 
 | Variant | Family | Tie-breaker | Status | Dealt | Cap (rung) | Cap bits | Uncapped top | Rungs within 2% | Steps | Drift flags |
 |---|---|---|---|---|---|--:|---|---|---|---|
@@ -94,7 +107,7 @@ dealt).
 | line-q | exact-change | big-piles | unconverged | no | 4/30 | — | 29.87 ± 3.92 | 7/29 | 26.8M | 0 |
 | line-q | exact-change | prime-coins | unconverged | yes | 23/29 | 10.23 | 17.04 ± 2.58 | 23/29 | 25.9M | 0 |
 | line-q | m-meets-c | meetPrime | unconverged | yes | 36/40 | 8.61 | 10.92 ± 0.36 | 35/39 | 18.9M | 0 |
-| line-q | m-meets-c | size | unconverged | yes | 28/41 | 2.15 | 19.98 ± 1.27 | 27/38 | 19.3M | 0 |
+| line-q | m-meets-c | size | unconverged | no | 28/41 | — | 19.98 ± 1.27 | 27/38 | 19.3M | 0 |
 | line-q | prime-gradient | cPrime | unconverged | no | 1/40 | — | 9.13 ± 0.21 | 31/40 | 18.9M | 0 |
 | line-q | prime-gradient | prime | unconverged | yes | 32/42 | 5.32 | 34.40 ± 3.21 | 26/36 | 19.8M | 0 |
 | line-q | prime-landing | big-prime | unconverged | no | 4/39 | — | 22.21 ± 10.17 | 25/34 | 18.4M | 0 |
@@ -110,10 +123,10 @@ dealt).
 | line-q | ruler | far | unconverged | no | 0/44 | — | 18.18 ± 0.88 | 0/42 | 20.7M | 0 |
 | line-q | ruler | prime-gradient | unconverged | no | 0/40 | — | 18.38 ± 4.41 | 10/40 | 19.2M | 0 |
 | line-q | ruler | square-area | unconverged | no | 0/42 | — | 12.41 ± 1.03 | 5/42 | 20.1M | 0 |
-| line-q | same-on-both-rulers | prime-start | unconverged | yes | 10/37 | 2.88 | 12.65 ± 1.06 | 20/36 | 17.5M | 0 |
-| line-q | same-on-both-rulers | steep | unconverged | yes | 8/39 | 0.80 | 19.11 ± 2.73 | 10/38 | 18.4M | 0 |
-| line-q | same-on-both-rulers | whole-lamp | unconverged | yes | 11/37 | 1.39 | 9.31 ± 0.21 | 15/36 | 17.5M | 0 |
-| line-q | same-on-both-rulers | whole-values | unconverged | yes | 8/43 | 0.83 | 11.99 ± 0.30 | 11/37 | 20.3M | 0 |
+| line-q | same-on-both-rulers | prime-start | unconverged | no | 10/37 | — | 12.65 ± 1.06 | 20/36 | 17.5M | 0 |
+| line-q | same-on-both-rulers | steep | unconverged | no | 8/39 | — | 19.11 ± 2.73 | 10/38 | 18.4M | 0 |
+| line-q | same-on-both-rulers | whole-lamp | unconverged | no | 11/37 | — | 9.31 ± 0.21 | 15/36 | 17.5M | 0 |
+| line-q | same-on-both-rulers | whole-values | unconverged | no | 8/43 | — | 11.99 ± 0.30 | 11/37 | 20.3M | 0 |
 | line-q | square-area | lpf | unconverged | no | 0/47 | — | 31.69 ± 1.48 | 5/45 | 22.1M | 0 |
 | line-q | square-area | omega | unconverged | no | 0/43 | — | 23.14 ± 2.57 | 0/31 | 20.3M | 0 |
 | line-q | square-area | spf | unconverged | no | 0/47 | — | 30.02 ± 10.63 | 14/43 | 22.1M | 0 |
@@ -122,38 +135,38 @@ dealt).
 | line-q | treasure | square-start | unconverged | yes | 9/42 | 6.63 | 12.78 ± 0.87 | 9/42 | 19.8M | 0 |
 | line-q | triangle-area | even | unconverged | no | 0/37 | — | 23.38 ± 1.75 | 13/36 | 17.8M | 0 |
 | line-q | triangle-area | legs | unconverged | no | 0/40 | — | 9.78 ± 0.30 | 0/37 | 18.9M | 0 |
-| line-q | whole-intercept | omega | unconverged | yes | 29/34 | 3.44 | 11.76 ± 1.45 | 22/27 | 30.2M | 0 |
-| line-q | whole-intercept | spf | unconverged | yes | 28/39 | 1.03 | 31.44 ± 2.77 | 27/37 | 18.4M | 0 |
+| line-q | whole-intercept | omega | unconverged | no | 29/34 | — | 11.76 ± 1.45 | 22/27 | 30.2M | 0 |
+| line-q | whole-intercept | spf | unconverged | no | 28/39 | — | 31.44 ± 2.77 | 27/37 | 18.4M | 0 |
 | line-z | crossing-check | size | unconverged | yes | 25/28 | 5.50 | 10.04 ± 0.24 | 17/20 | 25.3M | 0 |
-| line-z | crossing-check | whole | unconverged | yes | 27/36 | 2.71 | 9.91 ± 0.21 | 27/28 | 31.9M | 0 |
-| line-z | exact-change | big-bill | unconverged | yes | 21/31 | 8.94 | 16.22 ± 0.69 | 21/31 | 27.6M | 0 |
-| line-z | exact-change | prime-coins | unconverged | yes | 27/28 | 9.71 | 11.83 ± 0.34 | 27/28 | 25.3M | 0 |
+| line-z | crossing-check | whole | unconverged | no | 27/36 | — | 9.91 ± 0.21 | 27/28 | 31.9M | 0 |
+| line-z | exact-change | big-bill | unconverged | yes | 30/31 | 14.00 (fitted) | 14.65 ± 0.48 | 29/31 | 207.4M | 0 |
+| line-z | exact-change | prime-coins | flagged | yes | 28/28 | 11.60 | 11.60 ± 0.19 | 28/28 | 48.6M | 0 |
 | line-z | m-meets-c | meetPrime | converged | yes | 35/35 | 9.41 | 9.41 ± 0.10 | 35/35 | 31.0M | 0 |
-| line-z | m-meets-c | size | unconverged | yes | 7/37 | 0.30 | 15.10 ± 0.63 | 8/37 | 17.5M | 0 |
+| line-z | m-meets-c | size | unconverged | no | 7/37 | — | 15.10 ± 0.63 | 8/37 | 17.5M | 0 |
 | line-z | prime-gradient | cPrime | converged | yes | 35/35 | 7.56 | 7.56 ± 0.11 | 35/35 | 16.6M | 0 |
-| line-z | prime-gradient | prime | unconverged | yes | 20/38 | 0.36 | 27.38 ± 1.69 | 19/27 | 18.0M | 0 |
-| line-z | prime-landing | big-prime | unconverged | yes | 20/27 | 7.05 | 25.63 ± 1.45 | 15/22 | 24.2M | 0 |
+| line-z | prime-gradient | prime | unconverged | no | 20/38 | — | 27.38 ± 1.69 | 19/27 | 18.0M | 0 |
+| line-z | prime-landing | big-prime | unconverged | yes | 23/27 | 12.31 | 27.16 ± 0.68 | 18/22 | 181.5M | 0 |
 | line-z | prime-landing | next-prime | converged | yes | 20/20 | 4.24 | 4.24 ± 0.05 | 20/20 | 18.2M | 0 |
 | line-z | prime-landing | prime-gradient | converged | yes | 20/20 | 7.81 | 7.81 ± 0.11 | 20/20 | 18.2M | 0 |
-| line-z | prime-staircase | first-prime | unconverged | yes | 12/34 | 9.08 | — | 9/23 | 30.2M | 0 |
-| line-z | prime-staircase | last-prime | unconverged | yes | 9/37 | 8.47 | 20.39 ± 0.97 | 6/20 | 17.5M | 0 |
-| line-z | prime-staircase | near-miss | unconverged | yes | 14/26 | 9.16 | 15.55 ± 7.48 | 14/24 | 23.7M | 0 |
-| line-z | prime-staircase | step-back | unconverged | yes | 11/28 | 8.43 | 15.70 ± 9.34 | 11/24 | 25.0M | 0 |
-| line-z | pythagorean-area | prime-height | unconverged | yes | 31/35 | 8.50 | 10.26 ± 0.25 | 31/32 | 31.4M | 0 |
-| line-z | pythagorean-area | slanted-square | unconverged | no | 0/38 | — | 14.89 ± 0.63 | 13/29 | 18.3M | 0 |
-| line-z | pythagorean-area | whole-legs | unconverged | no | 0/37 | — | 9.79 ± 0.23 | 22/34 | 17.5M | 1 |
-| line-z | ruler | prime-gradient | unconverged | yes | 34/35 | 9.27 | 11.52 ± 0.27 | 34/35 | 31.4M | 0 |
+| line-z | prime-staircase | first-prime | unconverged | yes | 20/34 | 12.34 | — | 17/23 | 226.9M | 0 |
+| line-z | prime-staircase | last-prime | unconverged | yes | 23/37 | 13.20 | 18.50 ± 3.16 | 19/20 | 246.3M | 0 |
+| line-z | prime-staircase | near-miss | unconverged | yes | 22/26 | 12.67 | 16.95 ± 1.36 | 22/24 | 175.4M | 0 |
+| line-z | prime-staircase | step-back | unconverged | yes | 23/28 | 13.95 | 17.02 ± 0.76 | 22/25 | 188.0M | 0 |
+| line-z | pythagorean-area | prime-height | flagged | yes | 35/35 | 9.92 | 9.92 ± 0.15 | 32/32 | 60.3M | 0 |
+| line-z | pythagorean-area | slanted-square | flagged | yes | 38/38 | 14.34 | 14.34 ± 0.24 | 29/29 | 253.1M | 0 |
+| line-z | pythagorean-area | whole-legs | converged | yes | 37/37 | 9.71 | 9.71 ± 0.15 | 34/34 | 32.8M | 0 |
+| line-z | ruler | prime-gradient | flagged | yes | 35/35 | 12.08 | 12.08 ± 0.23 | 35/35 | 118.1M | 0 |
 | line-z | ruler | square-area | flagged | yes | 35/35 | 11.18 | 11.18 ± 0.21 | 35/35 | 31.4M | 0 |
 | line-z | same-on-both-rulers | prime-start | flagged | yes | 35/35 | 7.03 | 7.03 ± 0.13 | 33/33 | 16.9M | 0 |
-| line-z | same-on-both-rulers | steep | unconverged | yes | 9/39 | 0.28 | 15.04 ± 4.32 | 21/27 | 18.4M | 0 |
-| line-z | same-on-both-rulers | whole-lamp | unconverged | yes | 31/37 | 7.27 | 7.45 ± 0.16 | 30/35 | 17.5M | 0 |
-| line-z | same-on-both-rulers | whole-values | too-coarse | no | 8/43 | — | 9.54 ± 0.21 | 13/15 | 20.2M | 0 |
-| line-z | square-area | lpf | unconverged | no | 0/47 | — | 30.27 ± 2.88 | 6/44 | 22.1M | 0 |
-| line-z | square-area | omega | unconverged | yes | 37/43 | 6.59 | 21.05 ± 2.87 | 26/32 | 20.3M | 1 |
-| line-z | square-area | spf | unconverged | yes | 38/47 | 8.19 | 40.65 ± 7.35 | 35/44 | 22.1M | 0 |
-| line-z | treasure | prime-gradient | unconverged | yes | 31/32 | 11.40 | 13.86 ± 0.57 | 31/32 | 28.5M | 0 |
-| line-z | treasure | prime-terms | unconverged | yes | 32/34 | 10.86 | 14.37 ± 0.84 | 26/28 | 30.5M | 0 |
-| line-z | treasure | square-start | unconverged | yes | 23/33 | 8.08 | 12.12 ± 0.53 | 25/33 | 29.3M | 0 |
+| line-z | same-on-both-rulers | steep | unconverged | yes | 37/39 | 11.83 | 15.20 ± 0.73 | 25/27 | 130.8M | 0 |
+| line-z | same-on-both-rulers | whole-lamp | converged | yes | 37/37 | 7.43 | 7.43 ± 0.08 | 35/35 | 63.3M | 0 |
+| line-z | same-on-both-rulers | whole-values | too-coarse | no | 43/43 | — | 9.90 ± 0.14 | 15/15 | 37.9M | 0 |
+| line-z | square-area | lpf | unconverged | yes | 44/47 | 15.95 (fitted) | 30.32 ± 2.04 | 38/44 | 156.9M | 0 |
+| line-z | square-area | omega | unconverged | yes | 43/43 | 16.68 (fitted) | 15.40 ± 0.82 | 32/35 | 143.9M | 0 |
+| line-z | square-area | spf | unconverged | yes | 40/47 | 11.31 | 38.57 ± 2.04 | 37/44 | 156.9M | 0 |
+| line-z | treasure | prime-gradient | flagged | yes | 32/32 | 14.28 | 14.28 ± 0.21 | 32/32 | 213.9M | 0 |
+| line-z | treasure | prime-terms | unconverged | yes | 33/34 | 11.76 | 16.03 ± 0.36 | 28/29 | 227.2M | 0 |
+| line-z | treasure | square-start | flagged | yes | 33/33 | 11.90 | 11.90 ± 0.14 | 33/33 | 111.2M | 0 |
 | line-z | triangle-area | even | unconverged | no | 0/33 | — | 8.91 ± 0.15 | 17/26 | 29.6M | 0 |
 | line-z | triangle-area | legs | converged | yes | 36/36 | 8.84 | 8.84 ± 0.14 | 34/34 | 31.9M | 0 |
 | line-z | whole-intercept | omega | too-coarse | no | 0/34 | — | — | 0/7 | 30.2M | 0 |

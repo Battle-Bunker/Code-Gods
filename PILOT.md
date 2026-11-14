@@ -211,17 +211,16 @@ a modified client can do no more than its human could, and never sees opponents'
 
 ## First smoke game
 
-Start with three humans, or two humans and one AI. Use the "First steps" setup (Grid 4×4) or Int, a
+Start with three humans, or two humans and one AI. Use the "First steps" setup (Grid 4×4), a
 short planning phase and the default world rates. A valid first summon is an agent that returns
-mutator calls. Int, Python:
+mutator calls. Python:
 
 ```python
-def agent(x):
-    return [add(1)]
+def agent(grid):
+    return [slide(row(0), 1)]
 ```
 
-TypeScript: `function agent(x) { return [add(1)]; }`. On a Grid:
-`def agent(grid):\n    return [paint(row(2), "red")]`. The mutators and helpers of the room are listed
+TypeScript: `function agent(grid) { return [slide(row(0), 1)]; }`. The mutators and helpers of the room are listed
 in the observation's `instance` and in the app. An agent that returns `[]`, or calls that
 change nothing, validates but every act fails: every object value is unique, so a change onto an
 existing value fails as well.
@@ -231,7 +230,7 @@ ts-ast-bits-v1; a move helper on literal arguments is priced as that move), show
 `cost`. Validation also runs the agent on a few hundred reference objects and reports `decisionBits`
 (the information its choices carry: an agent that always makes the same move pays about nothing for
 deciding) and `expectedActCost` with its breakdown. The new agent starts at 0 energy and earns 2 bits
-per second of world time on Int and string boards, 32 on Grid boards (none during planning or
+per second of world time on Grid boards (none during planning or
 pauses). It is **eligible** to act once its energy reaches its `expectedActCost`; each act pays
 decisionBits plus the information it erases, how much it moves and a 2-bit floor, and a failed act
 still pays decisionBits + the floor, so energy can go negative: a **cooldown** until income brings it
@@ -301,7 +300,7 @@ the engine.
 ## Verification boundary
 
 Tested locally, against the Convex local backend: the engine's functions and HTTP actions, full games
-on Int, string and Grid in both languages, disclosure, idle parking, the device flow and credentials,
+on Grid boards in both languages, disclosure, idle parking, the device flow and credentials,
 revocation, the room assistant, the player app's token endpoint, static hosting of the app, mock AI
 seats, Better Auth sign-in, sign-out and session expiry through the stand-in provider, and the app's site
 pages and its account mode end to end in Playwright with stand-in identities.

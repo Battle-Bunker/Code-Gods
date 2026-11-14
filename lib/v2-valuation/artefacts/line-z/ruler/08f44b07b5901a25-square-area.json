@@ -1,5 +1,5 @@
 {
- "schema": 3,
+ "schema": 4,
  "ruleKey": "line@1/line-z#7c3aa34b892803e6/ruler/{}/tb=square-area",
  "objectType": "line",
  "objectTypeVersion": 1,
@@ -10,7 +10,7 @@
  "tieBreaker": "square-area",
  "seed": "v2",
  "config": {
-  "computeBudget": 32000000,
+  "computeBudget": 256000000,
   "targetRelError": 0.02,
   "absFloorBits": 0.03,
   "replicates": 8,
@@ -423,6 +423,8 @@
    "error": 0.2121
   }
  ],
+ "cap": 35,
+ "dealable": true,
  "primarySense": "min",
  "curve": null,
  "diagnostics": {
@@ -2063,7 +2065,7 @@
    null
   ]
  },
- "cap": 35,
- "dealable": true,
- "contentHash": "000dbb710bcd6dde"
+ "convergedCap": 35,
+ "tail": null,
+ "contentHash": "e1fd46eaafb55f19"
 }

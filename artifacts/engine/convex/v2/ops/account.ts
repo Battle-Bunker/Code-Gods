@@ -2,6 +2,7 @@
 import { OpFailure } from "@workspace/v2-affordances";
 import { normalizeUserCode, sha256Hex } from "../../auth/crypto";
 import { memberOf, roomById } from "../access";
+import type { MutationCtx } from "../../_generated/server";
 import { callerOf, defineOp } from "./define";
 
 export const { op: whoami, as: whoamiAs } = defineOp("account.whoami", "query", async env => {
@@ -36,16 +37,22 @@ export const { op: revokeConnection, as: revokeConnectionAs } = defineOp("accoun
 const RANK = { read: 0, act: 1, owner: 2 } as const;
 
 /**
- * Consent (the human's own click; the directory refuses every delegate): approves a pending device request for a v2
- * room by its user code, with the permission lowered or kept, never raised; an owner grant needs the room's current
- * owner. The device then claims its credential on its next poll (auth/device.ts). An OAuth request carries a browser
- * completion secret and a room choice this affordance has no parameters for yet: it is approved on /connect.
+ * Consent (the human's own click; the directory refuses every delegate). Two kinds of request:
+ *
+ * - A device code (8 letters and digits): its room comes with it. The permission may be lowered, never raised; an
+ *   owner grant needs the room's current owner. The device claims its credential on its next poll (auth/device.ts).
+ * - An OAuth request (an MCP client's /oauth/authorize, with the browser's one-time `completion` secret): the human
+ *   chooses the room (`room`), lowers or keeps the permission, and gives explicit consent to an owner grant
+ *   (`ownerConsent`) or to an account grant (`accountConsent`: the app acts as them in every room, approved as asked
+ *   or not at all). The browser then collects the code at /oauth/authorize/complete with the same secret, which is
+ *   what keeps someone who merely knows the request key from collecting it (agent/connect.ts explains).
  */
 export const { op: approveConnection, as: approveConnectionAs } = defineOp("account.approveConnection", "mutation", async (env, a) => {
   const userId = callerOf(env).userId!, ctx = env.ctx;
+  if (a.completion !== undefined) return await approveOAuth(ctx, userId, { ...a, completion: a.completion });
   if (a.grant === "account") throw new OpFailure("A device code connects one room; an account grant is only for OAuth requests.");
   const code = normalizeUserCode(a.request);
-  if (!code) throw new OpFailure("That is not a device code (8 letters and digits).", "Approve an app's connection on the connect page.");
+  if (!code) throw new OpFailure("That is not a device code (8 letters and digits).", "An app's OAuth request also needs the browser's completion secret: approve it on the connect page.");
   const userCodeHash = await sha256Hex(code);
   const device = await ctx.db.query("devices").withIndex("by_user_code", q => q.eq("userCodeHash", userCodeHash)).first();
   if (!device || device.status !== "pending" || device.subject || device.expiresAt <= Date.now()) throw new OpFailure("Invalid or expired approval code.");
@@ -57,3 +64,30 @@ export const { op: approveConnection, as: approveConnectionAs } = defineOp("acco
   await ctx.db.patch(device._id, { status: "approved", subject: userId, permission: a.grant });
   return { ok: true as const };
 });
+
+async function approveOAuth(ctx: MutationCtx, userId: string, a: {
+  request: string; grant: "read" | "act" | "owner" | "account"; room?: string; completion: string; ownerConsent?: boolean; accountConsent?: boolean;
+}) {
+  const keyHash = a.request.length >= 20 && a.request.length <= 128 ? await sha256Hex(a.request) : null;
+  const request = keyHash ? await ctx.db.query("oauthRequests").withIndex("by_key", q => q.eq("keyHash", keyHash)).unique() : null;
+  if (!request || request.status !== "pending" || request.expiresAt <= Date.now()) throw new OpFailure("Invalid or expired connection request.");
+  const completionHash = await sha256Hex(a.completion);
+  if ((request.permission === "account") !== (a.grant === "account")) {
+    throw new OpFailure(request.permission === "account" ? "The app asked to act as you in every room: approve that or deny it." : "A room connection cannot be approved for every room.");
+  }
+  if (a.grant === "account") {
+    if (a.accountConsent !== true) throw new OpFailure("Acting as you in every room needs your explicit consent: the app can join and create rooms, play and run the rooms you own.", "Pass accountConsent: true.");
+    await ctx.db.patch(request._id, { status: "approved", subject: userId, grantedPermission: "account", completionHash });
+    return { ok: true as const };
+  }
+  if (RANK[a.grant] > RANK[request.permission as keyof typeof RANK]) throw new OpFailure(`The app asked for ${request.permission}: you may lower the permission, not raise it.`);
+  if (!a.room) throw new OpFailure("Choose the room the app acts in.");
+  const room = await roomById(ctx, a.room) ?? await ctx.db.query("v2Rooms").withIndex("by_code", q => q.eq("code", a.room!.toUpperCase())).first();
+  if (!room || !await memberOf(ctx, room._id, userId)) throw new OpFailure("Join this room first.", "room.join");
+  if (a.grant === "owner") {
+    if (room.ownerId !== userId) throw new OpFailure("Only the room's current owner can approve an owner grant.");
+    if (a.ownerConsent !== true) throw new OpFailure("An owner grant needs your explicit consent: it can configure the room and its AI quotas, start and end games and play as you.", "Pass ownerConsent: true.");
+  }
+  await ctx.db.patch(request._id, { status: "approved", subject: userId, roomId: room._id, grantedPermission: a.grant, completionHash });
+  return { ok: true as const };
+}

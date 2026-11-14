@@ -76,9 +76,17 @@ existing code. The specification that follows from them is [spec.md](spec.md).
 18. On the bid phase: "I want that still in the rebuilt app." (Integration plan §5.9 ports bidding onto v2 rule
     families in M3: a bid names a family; the dealer draws the winner's parameters and tie-breaker.)
 
+19. On requiring consistent prices (each mutator may carry a handling fee shared by a move and its inverse; the
+    asymmetric part comes from one energy function of the line): "I'm comfortable with this constraint. If you still
+    think this makes sense after your analysis, implement it. Please consider whether the analytical approach can
+    actually fully substitute for the simulation one (tested with the simulation method at lower rungs). Don't be
+    attached to the simulation method just because we thought of it first and decided on it before thinking of the
+    chained analytical approach." (The study: [analytic-calibration.md](analytic-calibration.md).)
+
 ## Coordinator's calls (provisional: the owner has not ruled on these)
 
-- **(a) No detailed balance requirement.** Mutator price lists are NOT required to satisfy detailed balance; value is
+- **(a) No detailed balance requirement.** *Withdrawn 14 November by owner decision 19: every price list is now an exact
+  potential, gated by lib/v2-linear's potential test.* The original call: Mutator price lists are NOT required to satisfy detailed balance; value is
   whatever the stationary law of the actual priced walk gives, and the cycle test from #347 is reported per price list
   as a diagnostic, because requiring consistency makes prices drop out of value, which is the opposite of what the
   owner asked for.
@@ -102,8 +110,8 @@ existing code. The specification that follows from them is [spec.md](spec.md).
   only its rarest rungs is NOT backlogged. Its dealable ladder is capped at the last rung that converged to the 2%
   margin (or, where the converged rungs fit an algebraic curve well, the tail may be snapped to that curve and marked
   'fitted'); rungs above the cap score as the cap. A rule is 'too hard' only if fewer than 6 rungs converge." Built as
-  the artefact's `cap` and `dealable` (spec §7.5); the snapped tail is not built yet (curves are fitted to one-layer
-  ladders only, and the joint ladders have none).
+  the artefact's `cap`, `convergedCap`, `tail` and `dealable` (spec §7.5): the fitted tail is built for tie-breaker
+  rungs at the main top. The coordinator added the same day: a pairing whose dealt top is under 4 bits is not dealable.
 
 ## The architect's judgment calls (provisional, recorded so later sessions can revisit them)
 

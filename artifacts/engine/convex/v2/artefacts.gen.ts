@@ -13,10 +13,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "size",
   "status": "unconverged",
   "cap": 0,
+  "convergedCap": 0,
+  "tail": null,
   "dealable": false,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "7c973ce71e5a34dd",
+  "contentHash": "cbc9b472d01ccfbc",
   "rungs": [
    {
     "score": null,
@@ -400,10 +402,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "whole",
   "status": "unconverged",
   "cap": 0,
+  "convergedCap": 0,
+  "tail": null,
   "dealable": false,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "b39b1d226553ff1e",
+  "contentHash": "66ecb42f0c72b139",
   "rungs": [
    {
     "score": null,
@@ -816,10 +820,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "big-bill",
   "status": "unconverged",
   "cap": 9,
+  "convergedCap": 9,
+  "tail": null,
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "06d0ae7f19e74c4e",
+  "contentHash": "8043799dae9624c2",
   "rungs": [
    {
     "score": null,
@@ -1144,10 +1150,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "big-piles",
   "status": "unconverged",
   "cap": 4,
+  "convergedCap": 4,
+  "tail": null,
   "dealable": false,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "fc86469e9f52c0a9",
+  "contentHash": "f3a81a64de15fa10",
   "rungs": [
    {
     "score": null,
@@ -1462,10 +1470,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "prime-coins",
   "status": "unconverged",
   "cap": 23,
+  "convergedCap": 23,
+  "tail": null,
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "9ee4ed38aadcb5de",
+  "contentHash": "3c11deaf40c5a6c8",
   "rungs": [
    {
     "score": null,
@@ -1768,10 +1778,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "meetPrime",
   "status": "unconverged",
   "cap": 36,
+  "convergedCap": 36,
+  "tail": null,
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "db5ec9f58b187b7d",
+  "contentHash": "37b3c876eedf4fad",
   "rungs": [
    {
     "score": null,
@@ -2182,10 +2194,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "size",
   "status": "unconverged",
   "cap": 28,
-  "dealable": true,
+  "convergedCap": 28,
+  "tail": null,
+  "dealable": false,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "de861317b3c11049",
+  "contentHash": "3c9a650cc2168883",
   "rungs": [
    {
     "score": null,
@@ -2606,10 +2620,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "cPrime",
   "status": "unconverged",
   "cap": 1,
+  "convergedCap": 1,
+  "tail": null,
   "dealable": false,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "143f1d7962b8eb88",
+  "contentHash": "3bf9536dd2107568",
   "rungs": [
    {
     "score": null,
@@ -3020,10 +3036,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "prime",
   "status": "unconverged",
   "cap": 32,
+  "convergedCap": 32,
+  "tail": null,
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "490e6edeebb21a0f",
+  "contentHash": "b15bbbb9b4cc8f5b",
   "rungs": [
    {
     "score": null,
@@ -3454,10 +3472,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "big-prime",
   "status": "unconverged",
   "cap": 4,
+  "convergedCap": 4,
+  "tail": null,
   "dealable": false,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "354f1a7b244d53ea",
+  "contentHash": "1a6fe41ebb2324d5",
   "rungs": [
    {
     "score": null,
@@ -3859,10 +3879,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "next-prime",
   "status": "converged",
   "cap": 34,
+  "convergedCap": 34,
+  "tail": null,
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "f0a580b6ef0988e6",
+  "contentHash": "a8012e82263fdf28",
   "rungs": [
    {
     "score": null,
@@ -4214,10 +4236,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "prime-gradient",
   "status": "flagged",
   "cap": 34,
+  "convergedCap": 34,
+  "tail": null,
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "8c0f0ab98d5d66c6",
+  "contentHash": "4886fb887f2e1b7c",
   "rungs": [
    {
     "score": null,
@@ -4569,10 +4593,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "first-prime",
   "status": "unconverged",
   "cap": 8,
+  "convergedCap": 8,
+  "tail": null,
   "dealable": false,
   "primarySense": "max",
   "curve": null,
-  "contentHash": "6ae3db591426538d",
+  "contentHash": "2e24fa984771cece",
   "rungs": [
    {
     "score": null,
@@ -4816,10 +4842,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "last-prime",
   "status": "unconverged",
   "cap": 8,
+  "convergedCap": 8,
+  "tail": null,
   "dealable": false,
   "primarySense": "max",
   "curve": null,
-  "contentHash": "f621b6f87cc1fabe",
+  "contentHash": "a096e5d305472425",
   "rungs": [
    {
     "score": null,
@@ -5063,10 +5091,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "near-miss",
   "status": "unconverged",
   "cap": 4,
+  "convergedCap": 4,
+  "tail": null,
   "dealable": false,
   "primarySense": "max",
   "curve": null,
-  "contentHash": "d7c81f16e0fec20d",
+  "contentHash": "b8f4845526a855ae",
   "rungs": [
    {
     "score": null,
@@ -5310,10 +5340,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "step-back",
   "status": "unconverged",
   "cap": 7,
+  "convergedCap": 7,
+  "tail": null,
   "dealable": true,
   "primarySense": "max",
   "curve": null,
-  "contentHash": "bb21adf72b0fff73",
+  "contentHash": "2b836c6593565ad1",
   "rungs": [
    {
     "score": null,
@@ -5559,10 +5591,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "prime-height",
   "status": "unconverged",
   "cap": 0,
+  "convergedCap": 0,
+  "tail": null,
   "dealable": false,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "7ec7a8a25e2fae28",
+  "contentHash": "9f736ea5835c7fb3",
   "rungs": [
    {
     "score": null,
@@ -5945,10 +5979,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "slanted-square",
   "status": "unconverged",
   "cap": 0,
+  "convergedCap": 0,
+  "tail": null,
   "dealable": false,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "38fc2eea7e8d3abb",
+  "contentHash": "e2d5fb80a94128c6",
   "rungs": [
    {
     "score": null,
@@ -6351,10 +6387,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "whole-legs",
   "status": "unconverged",
   "cap": 0,
+  "convergedCap": 0,
+  "tail": null,
   "dealable": false,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "5a7e03f9100a85f2",
+  "contentHash": "aee552f27010c46d",
   "rungs": [
    {
     "score": null,
@@ -6735,10 +6773,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "far",
   "status": "unconverged",
   "cap": 0,
+  "convergedCap": 0,
+  "tail": null,
   "dealable": false,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "e493cc454e170899",
+  "contentHash": "bcf5b43ba73acdb0",
   "rungs": [
    {
     "score": null,
@@ -7188,10 +7228,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "prime-gradient",
   "status": "unconverged",
   "cap": 0,
+  "convergedCap": 0,
+  "tail": null,
   "dealable": false,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "06cd7b41861a2bc1",
+  "contentHash": "a47a77cda63a03c6",
   "rungs": [
    {
     "score": null,
@@ -7601,10 +7643,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "square-area",
   "status": "unconverged",
   "cap": 0,
+  "convergedCap": 0,
+  "tail": null,
   "dealable": false,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "d6b8f1b12c19a7c4",
+  "contentHash": "5ab962c8ceab3051",
   "rungs": [
    {
     "score": null,
@@ -8036,10 +8080,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "prime-start",
   "status": "unconverged",
   "cap": 10,
-  "dealable": true,
+  "convergedCap": 10,
+  "tail": null,
+  "dealable": false,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "48b27b2587945ef9",
+  "contentHash": "e4a996149bdfb9d8",
   "rungs": [
    {
     "score": null,
@@ -8422,10 +8468,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "steep",
   "status": "unconverged",
   "cap": 8,
-  "dealable": true,
+  "convergedCap": 8,
+  "tail": null,
+  "dealable": false,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "1568fcedd07ae6fb",
+  "contentHash": "848597566552b7eb",
   "rungs": [
    {
     "score": null,
@@ -8828,10 +8876,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "whole-lamp",
   "status": "unconverged",
   "cap": 11,
-  "dealable": true,
+  "convergedCap": 11,
+  "tail": null,
+  "dealable": false,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "ee14c7ef0d124551",
+  "contentHash": "56a35ed9bb41e92b",
   "rungs": [
    {
     "score": null,
@@ -9214,10 +9264,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "whole-values",
   "status": "unconverged",
   "cap": 8,
-  "dealable": true,
+  "convergedCap": 8,
+  "tail": null,
+  "dealable": false,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "344149344b0aea61",
+  "contentHash": "883801fa3e04bb59",
   "rungs": [
    {
     "score": null,
@@ -9658,10 +9710,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "lpf",
   "status": "unconverged",
   "cap": 0,
+  "convergedCap": 0,
+  "tail": null,
   "dealable": false,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "c8fb9b146f1df19d",
+  "contentHash": "a2ef34e72dc10c46",
   "rungs": [
    {
     "score": null,
@@ -10141,10 +10195,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "omega",
   "status": "unconverged",
   "cap": 0,
+  "convergedCap": 0,
+  "tail": null,
   "dealable": false,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "b4f58ee93f1177f3",
+  "contentHash": "92d8afa67e68099c",
   "rungs": [
    {
     "score": null,
@@ -10584,10 +10640,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "spf",
   "status": "unconverged",
   "cap": 0,
+  "convergedCap": 0,
+  "tail": null,
   "dealable": false,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "a8dbc3310d4dd5fc",
+  "contentHash": "685f756a44eee123",
   "rungs": [
    {
     "score": null,
@@ -11070,10 +11128,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "prime-gradient",
   "status": "unconverged",
   "cap": 1,
+  "convergedCap": 1,
+  "tail": null,
   "dealable": false,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "630391f217a4df87",
+  "contentHash": "1d12802eaa01bab7",
   "rungs": [
    {
     "score": null,
@@ -11506,10 +11566,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "prime-terms",
   "status": "unconverged",
   "cap": 4,
+  "convergedCap": 4,
+  "tail": null,
   "dealable": false,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "53abf8b51acfca77",
+  "contentHash": "4427eeefd3d2eb76",
   "rungs": [
    {
     "score": null,
@@ -11942,10 +12004,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "square-start",
   "status": "unconverged",
   "cap": 9,
+  "convergedCap": 9,
+  "tail": null,
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "e3076d142030683a",
+  "contentHash": "581f7c89755c7246",
   "rungs": [
    {
     "score": null,
@@ -12377,10 +12441,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "even",
   "status": "unconverged",
   "cap": 0,
+  "convergedCap": 0,
+  "tail": null,
   "dealable": false,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "22bb9b9bebab7a28",
+  "contentHash": "322e92105496a215",
   "rungs": [
    {
     "score": null,
@@ -12763,10 +12829,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "legs",
   "status": "unconverged",
   "cap": 0,
+  "convergedCap": 0,
+  "tail": null,
   "dealable": false,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "0dd35eabef571dce",
+  "contentHash": "74305908951a302f",
   "rungs": [
    {
     "score": null,
@@ -13177,10 +13245,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "omega",
   "status": "unconverged",
   "cap": 29,
-  "dealable": true,
+  "convergedCap": 29,
+  "tail": null,
+  "dealable": false,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "5f79aff9c68dab78",
+  "contentHash": "f81abb2c86374785",
   "rungs": [
    {
     "score": null,
@@ -13532,10 +13602,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "spf",
   "status": "unconverged",
   "cap": 28,
-  "dealable": true,
+  "convergedCap": 28,
+  "tail": null,
+  "dealable": false,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "e6e2c76ad7d902e4",
+  "contentHash": "647cc90212ead8be",
   "rungs": [
    {
     "score": null,
@@ -13940,10 +14012,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "size",
   "status": "unconverged",
   "cap": 25,
+  "convergedCap": 25,
+  "tail": null,
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "7e7176f2e19c1c15",
+  "contentHash": "7a1163decf6cbd19",
   "rungs": [
    {
     "score": null,
@@ -14238,10 +14312,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "whole",
   "status": "unconverged",
   "cap": 27,
-  "dealable": true,
+  "convergedCap": 27,
+  "tail": null,
+  "dealable": false,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "8226c31643253d12",
+  "contentHash": "ce9c55e9de0b5ecd",
   "rungs": [
    {
     "score": null,
@@ -14614,11 +14690,25 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   },
   "tieBreaker": "big-bill",
   "status": "unconverged",
-  "cap": 21,
+  "cap": 30,
+  "convergedCap": 29,
+  "tail": {
+   "from": 30,
+   "bits": [
+    14
+   ],
+   "curve": {
+    "model": "quadratic-count",
+    "alpha": 9.761805820835962,
+    "beta": 0.09980641727509376,
+    "gamma": -0.0004861525289299345,
+    "snapped": false
+   }
+  },
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "1a334e43f679faea",
+  "contentHash": "0539c39ae8f5a529",
   "rungs": [
    {
     "score": null,
@@ -14635,7 +14725,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; the bill at least 15",
     "layer": 1,
     "main": 0,
-    "bits": 2.5913
+    "bits": 2.5423
    },
    {
     "score": [
@@ -14645,7 +14735,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; the bill at least 30",
     "layer": 1,
     "main": 0,
-    "bits": 2.6015
+    "bits": 2.5548
    },
    {
     "score": [
@@ -14655,7 +14745,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; the bill at least 60",
     "layer": 1,
     "main": 0,
-    "bits": 2.6104
+    "bits": 2.5646
    },
    {
     "score": [
@@ -14664,7 +14754,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target within 5",
     "layer": 0,
     "main": 1,
-    "bits": 2.6214
+    "bits": 2.5762
    },
    {
     "score": [
@@ -14674,7 +14764,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target within 5; the bill at least 15",
     "layer": 1,
     "main": 1,
-    "bits": 5.3531
+    "bits": 5.321
    },
    {
     "score": [
@@ -14684,7 +14774,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target within 5; the bill at least 30",
     "layer": 1,
     "main": 1,
-    "bits": 5.3938
+    "bits": 5.3582
    },
    {
     "score": [
@@ -14694,7 +14784,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target within 5; the bill at least 60",
     "layer": 1,
     "main": 1,
-    "bits": 5.4049
+    "bits": 5.3756
    },
    {
     "score": [
@@ -14703,7 +14793,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target within 4",
     "layer": 0,
     "main": 2,
-    "bits": 5.4091
+    "bits": 5.3815
    },
    {
     "score": [
@@ -14713,7 +14803,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target within 4; the bill at least 15",
     "layer": 1,
     "main": 2,
-    "bits": 6.1326
+    "bits": 6.0866
    },
    {
     "score": [
@@ -14723,7 +14813,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target within 4; the bill at least 30",
     "layer": 1,
     "main": 2,
-    "bits": 6.2016
+    "bits": 6.1561
    },
    {
     "score": [
@@ -14733,7 +14823,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target within 4; the bill at least 60",
     "layer": 1,
     "main": 2,
-    "bits": 6.2238
+    "bits": 6.1842
    },
    {
     "score": [
@@ -14742,7 +14832,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target within 3",
     "layer": 0,
     "main": 3,
-    "bits": 6.2347
+    "bits": 6.1965
    },
    {
     "score": [
@@ -14752,7 +14842,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target within 3; the bill at least 15",
     "layer": 1,
     "main": 3,
-    "bits": 6.7971
+    "bits": 6.7739
    },
    {
     "score": [
@@ -14762,7 +14852,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target within 3; the bill at least 30",
     "layer": 1,
     "main": 3,
-    "bits": 6.8862
+    "bits": 6.8613
    },
    {
     "score": [
@@ -14772,7 +14862,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target within 3; the bill at least 60",
     "layer": 1,
     "main": 3,
-    "bits": 6.9206
+    "bits": 6.8965
    },
    {
     "score": [
@@ -14781,7 +14871,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target within 2",
     "layer": 0,
     "main": 4,
-    "bits": 6.9315
+    "bits": 6.9156
    },
    {
     "score": [
@@ -14791,7 +14881,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target within 2; the bill at least 15",
     "layer": 1,
     "main": 4,
-    "bits": 7.5096
+    "bits": 7.4888
    },
    {
     "score": [
@@ -14801,7 +14891,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target within 2; the bill at least 30",
     "layer": 1,
     "main": 4,
-    "bits": 7.6607
+    "bits": 7.6365
    },
    {
     "score": [
@@ -14811,7 +14901,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target within 2; the bill at least 60",
     "layer": 1,
     "main": 4,
-    "bits": 7.7256
+    "bits": 7.6951
    },
    {
     "score": [
@@ -14820,7 +14910,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target within 1",
     "layer": 0,
     "main": 5,
-    "bits": 7.7745
+    "bits": 7.7449
    },
    {
     "score": [
@@ -14830,7 +14920,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target within 1; the bill at least 15",
     "layer": 1,
     "main": 5,
-    "bits": 8.9425
+    "bits": 8.9486
    },
    {
     "score": [
@@ -14840,7 +14930,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target within 1; the bill at least 30",
     "layer": 1,
     "main": 5,
-    "bits": 9.3016
+    "bits": 9.3052
    },
    {
     "score": [
@@ -14850,7 +14940,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target within 1; the bill at least 60",
     "layer": 1,
     "main": 5,
-    "bits": 9.5028
+    "bits": 9.5257
    },
    {
     "score": [
@@ -14859,7 +14949,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target exactly",
     "layer": 0,
     "main": 6,
-    "bits": 9.6361
+    "bits": 9.6587
    },
    {
     "score": [
@@ -14869,7 +14959,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target exactly; the bill at least 10",
     "layer": 1,
     "main": 6,
-    "bits": 10.8577
+    "bits": 10.7221
    },
    {
     "score": [
@@ -14879,7 +14969,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target exactly; the bill at least 15",
     "layer": 1,
     "main": 6,
-    "bits": 11.3214
+    "bits": 11.1244
    },
    {
     "score": [
@@ -14889,7 +14979,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target exactly; the bill at least 20",
     "layer": 1,
     "main": 6,
-    "bits": 12.0313
+    "bits": 11.6198
    },
    {
     "score": [
@@ -14899,7 +14989,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target exactly; the bill at least 30",
     "layer": 1,
     "main": 6,
-    "bits": 12.5063
+    "bits": 12.2814
    },
    {
     "score": [
@@ -14909,7 +14999,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target exactly; the bill at least 45",
     "layer": 1,
     "main": 6,
-    "bits": 13.3374
+    "bits": 13.2982
    },
    {
     "score": [
@@ -14919,7 +15009,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target exactly; the bill at least 60",
     "layer": 1,
     "main": 6,
-    "bits": 15.0746
+    "bits": 13.9412
    },
    {
     "score": [
@@ -14929,7 +15019,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target exactly; the bill at least 90",
     "layer": 1,
     "main": 6,
-    "bits": 16.2215
+    "bits": 14.6454
    }
   ]
  },
@@ -14941,12 +15031,14 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
    "ways": 6
   },
   "tieBreaker": "prime-coins",
-  "status": "unconverged",
-  "cap": 27,
+  "status": "flagged",
+  "cap": 28,
+  "convergedCap": 28,
+  "tail": null,
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "008cd4279f63ff0b",
+  "contentHash": "4f34422b6ff80f12",
   "rungs": [
    {
     "score": null,
@@ -14963,7 +15055,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; the coins to primes within 3",
     "layer": 1,
     "main": 0,
-    "bits": 2.1709
+    "bits": 2.1545
    },
    {
     "score": [
@@ -14973,7 +15065,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; the coins to primes within 2",
     "layer": 1,
     "main": 0,
-    "bits": 2.1973
+    "bits": 2.1816
    },
    {
     "score": [
@@ -14983,7 +15075,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; the coins to primes within 1",
     "layer": 1,
     "main": 0,
-    "bits": 2.4309
+    "bits": 2.4257
    },
    {
     "score": [
@@ -14992,7 +15084,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target within 5",
     "layer": 0,
     "main": 1,
-    "bits": 2.5835
+    "bits": 2.5724
    },
    {
     "score": [
@@ -15002,7 +15094,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target within 5; the coins to primes within 3",
     "layer": 1,
     "main": 1,
-    "bits": 2.5982
+    "bits": 2.5875
    },
    {
     "score": [
@@ -15012,7 +15104,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target within 5; the coins to primes within 2",
     "layer": 1,
     "main": 1,
-    "bits": 2.7155
+    "bits": 2.704
    },
    {
     "score": [
@@ -15022,7 +15114,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target within 5; the coins to primes within 1",
     "layer": 1,
     "main": 1,
-    "bits": 3.7811
+    "bits": 3.8132
    },
    {
     "score": [
@@ -15031,7 +15123,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target within 4",
     "layer": 0,
     "main": 2,
-    "bits": 5.3858
+    "bits": 5.4072
    },
    {
     "score": [
@@ -15041,7 +15133,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target within 4; the coins to primes within 3",
     "layer": 1,
     "main": 2,
-    "bits": 5.3877
+    "bits": 5.4081
    },
    {
     "score": [
@@ -15051,7 +15143,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target within 4; the coins to primes within 2",
     "layer": 1,
     "main": 2,
-    "bits": 5.4094
+    "bits": 5.4334
    },
    {
     "score": [
@@ -15061,7 +15153,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target within 4; the coins to primes within 1",
     "layer": 1,
     "main": 2,
-    "bits": 5.9035
+    "bits": 5.9127
    },
    {
     "score": [
@@ -15070,7 +15162,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target within 3",
     "layer": 0,
     "main": 3,
-    "bits": 6.2467
+    "bits": 6.245
    },
    {
     "score": [
@@ -15080,7 +15172,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target within 3; the coins to primes within 3",
     "layer": 1,
     "main": 3,
-    "bits": 6.2468
+    "bits": 6.2451
    },
    {
     "score": [
@@ -15090,7 +15182,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target within 3; the coins to primes within 2",
     "layer": 1,
     "main": 3,
-    "bits": 6.2649
+    "bits": 6.2632
    },
    {
     "score": [
@@ -15100,7 +15192,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target within 3; the coins to primes within 1",
     "layer": 1,
     "main": 3,
-    "bits": 6.6404
+    "bits": 6.6525
    },
    {
     "score": [
@@ -15109,7 +15201,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target within 2",
     "layer": 0,
     "main": 4,
-    "bits": 6.9096
+    "bits": 6.9196
    },
    {
     "score": [
@@ -15119,7 +15211,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target within 2; the coins to primes within 3",
     "layer": 1,
     "main": 4,
-    "bits": 6.9096
+    "bits": 6.9202
    },
    {
     "score": [
@@ -15129,7 +15221,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target within 2; the coins to primes within 2",
     "layer": 1,
     "main": 4,
-    "bits": 6.9193
+    "bits": 6.9371
    },
    {
     "score": [
@@ -15139,7 +15231,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target within 2; the coins to primes within 1",
     "layer": 1,
     "main": 4,
-    "bits": 7.3691
+    "bits": 7.4076
    },
    {
     "score": [
@@ -15148,7 +15240,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target within 1",
     "layer": 0,
     "main": 5,
-    "bits": 7.7016
+    "bits": 7.7219
    },
    {
     "score": [
@@ -15158,7 +15250,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target within 1; the coins to primes within 3",
     "layer": 1,
     "main": 5,
-    "bits": 7.702
+    "bits": 7.7225
    },
    {
     "score": [
@@ -15168,7 +15260,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target within 1; the coins to primes within 2",
     "layer": 1,
     "main": 5,
-    "bits": 7.7386
+    "bits": 7.7483
    },
    {
     "score": [
@@ -15178,7 +15270,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target within 1; the coins to primes within 1",
     "layer": 1,
     "main": 5,
-    "bits": 8.5947
+    "bits": 8.6258
    },
    {
     "score": [
@@ -15187,7 +15279,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target exactly",
     "layer": 0,
     "main": 6,
-    "bits": 9.6209
+    "bits": 9.4952
    },
    {
     "score": [
@@ -15197,7 +15289,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target exactly; the coins to primes within 4",
     "layer": 1,
     "main": 6,
-    "bits": 9.6209
+    "bits": 9.4952
    },
    {
     "score": [
@@ -15207,7 +15299,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target exactly; the coins to primes within 3",
     "layer": 1,
     "main": 6,
-    "bits": 9.6281
+    "bits": 9.4989
    },
    {
     "score": [
@@ -15217,7 +15309,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target exactly; the coins to primes within 2",
     "layer": 1,
     "main": 6,
-    "bits": 9.7091
+    "bits": 9.5832
    },
    {
     "score": [
@@ -15227,7 +15319,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the ways to the target exactly; the coins to primes within 1",
     "layer": 1,
     "main": 6,
-    "bits": 11.8273
+    "bits": 11.5993
    }
   ]
  },
@@ -15239,6 +15331,8 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "meetPrime",
   "status": "converged",
   "cap": 35,
+  "convergedCap": 35,
+  "tail": null,
   "dealable": true,
   "primarySense": "min",
   "curve": {
@@ -15248,7 +15342,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
    "delta": 0.25,
    "snapped": true
   },
-  "contentHash": "07d6e9c71eb90188",
+  "contentHash": "ad59718dd5317099",
   "rungs": [
    {
     "score": null,
@@ -15610,10 +15704,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "size",
   "status": "unconverged",
   "cap": 7,
-  "dealable": true,
+  "convergedCap": 7,
+  "tail": null,
+  "dealable": false,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "d80418d6614c5fd1",
+  "contentHash": "52460f0635e073be",
   "rungs": [
    {
     "score": null,
@@ -15995,10 +16091,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "cPrime",
   "status": "converged",
   "cap": 35,
+  "convergedCap": 35,
+  "tail": null,
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "906cd2d2b00a9773",
+  "contentHash": "f7070eb61a2d6e5c",
   "rungs": [
    {
     "score": null,
@@ -16360,10 +16458,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "prime",
   "status": "unconverged",
   "cap": 20,
-  "dealable": true,
+  "convergedCap": 20,
+  "tail": null,
+  "dealable": false,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "71a07aef5d30e79c",
+  "contentHash": "9d7ece65df21c706",
   "rungs": [
    {
     "score": null,
@@ -16754,11 +16854,13 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "params": {},
   "tieBreaker": "big-prime",
   "status": "unconverged",
-  "cap": 20,
+  "cap": 23,
+  "convergedCap": 23,
+  "tail": null,
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "6122c1765c4984af",
+  "contentHash": "a5f7941a3d5f8e86",
   "rungs": [
    {
     "score": null,
@@ -16775,7 +16877,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; the prime at least 5",
     "layer": 1,
     "main": 0,
-    "bits": 0.1916
+    "bits": 0.1958
    },
    {
     "score": [
@@ -16785,7 +16887,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; the prime at least 13",
     "layer": 1,
     "main": 0,
-    "bits": 0.1916
+    "bits": 0.1958
    },
    {
     "score": [
@@ -16795,7 +16897,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; the prime at least 23",
     "layer": 1,
     "main": 0,
-    "bits": 0.1916
+    "bits": 0.1958
    },
    {
     "score": [
@@ -16804,7 +16906,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "c to a prime within 4",
     "layer": 0,
     "main": 1,
-    "bits": 0.192
+    "bits": 0.1968
    },
    {
     "score": [
@@ -16814,7 +16916,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "c to a prime within 4; the prime at least 5",
     "layer": 1,
     "main": 1,
-    "bits": 0.357
+    "bits": 0.3658
    },
    {
     "score": [
@@ -16824,7 +16926,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "c to a prime within 4; the prime at least 13",
     "layer": 1,
     "main": 1,
-    "bits": 0.357
+    "bits": 0.3658
    },
    {
     "score": [
@@ -16834,7 +16936,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "c to a prime within 4; the prime at least 23",
     "layer": 1,
     "main": 1,
-    "bits": 0.357
+    "bits": 0.3658
    },
    {
     "score": [
@@ -16843,7 +16945,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "c to a prime within 2",
     "layer": 0,
     "main": 2,
-    "bits": 0.36
+    "bits": 0.3688
    },
    {
     "score": [
@@ -16853,7 +16955,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "c to a prime within 2; the prime at least 5",
     "layer": 1,
     "main": 2,
-    "bits": 2.1682
+    "bits": 2.1702
    },
    {
     "score": [
@@ -16863,7 +16965,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "c to a prime within 2; the prime at least 13",
     "layer": 1,
     "main": 2,
-    "bits": 2.2177
+    "bits": 2.2183
    },
    {
     "score": [
@@ -16873,7 +16975,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "c to a prime within 2; the prime at least 23",
     "layer": 1,
     "main": 2,
-    "bits": 2.2482
+    "bits": 2.2493
    },
    {
     "score": [
@@ -16882,7 +16984,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "c to a prime within 1",
     "layer": 0,
     "main": 3,
-    "bits": 2.2965
+    "bits": 2.3006
    },
    {
     "score": [
@@ -16892,7 +16994,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "c to a prime within 1; the prime at least 5",
     "layer": 1,
     "main": 3,
-    "bits": 3.0488
+    "bits": 3.0314
    },
    {
     "score": [
@@ -16902,7 +17004,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "c to a prime within 1; the prime at least 13",
     "layer": 1,
     "main": 3,
-    "bits": 3.398
+    "bits": 3.3904
    },
    {
     "score": [
@@ -16912,7 +17014,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "c to a prime within 1; the prime at least 23",
     "layer": 1,
     "main": 3,
-    "bits": 3.5466
+    "bits": 3.5445
    },
    {
     "score": [
@@ -16921,7 +17023,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "c to a prime exactly",
     "layer": 0,
     "main": 4,
-    "bits": 3.7896
+    "bits": 3.7959
    },
    {
     "score": [
@@ -16931,7 +17033,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "c to a prime exactly; the prime at least 2",
     "layer": 1,
     "main": 4,
-    "bits": 3.7896
+    "bits": 3.7959
    },
    {
     "score": [
@@ -16941,7 +17043,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "c to a prime exactly; the prime at least 3",
     "layer": 1,
     "main": 4,
-    "bits": 4.6124
+    "bits": 4.6182
    },
    {
     "score": [
@@ -16951,7 +17053,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "c to a prime exactly; the prime at least 5",
     "layer": 1,
     "main": 4,
-    "bits": 5.7758
+    "bits": 5.754
    },
    {
     "score": [
@@ -16961,7 +17063,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "c to a prime exactly; the prime at least 7",
     "layer": 1,
     "main": 4,
-    "bits": 7.0546
+    "bits": 7.0705
    },
    {
     "score": [
@@ -16971,7 +17073,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "c to a prime exactly; the prime at least 11",
     "layer": 1,
     "main": 4,
-    "bits": 8.9612
+    "bits": 8.8982
    },
    {
     "score": [
@@ -16981,7 +17083,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "c to a prime exactly; the prime at least 13",
     "layer": 1,
     "main": 4,
-    "bits": 10.3891
+    "bits": 10.2968
    },
    {
     "score": [
@@ -16991,7 +17093,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "c to a prime exactly; the prime at least 17",
     "layer": 1,
     "main": 4,
-    "bits": 12.4428
+    "bits": 12.3051
    },
    {
     "score": [
@@ -17001,7 +17103,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "c to a prime exactly; the prime at least 19",
     "layer": 1,
     "main": 4,
-    "bits": 13.5257
+    "bits": 13.4889
    },
    {
     "score": [
@@ -17011,7 +17113,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "c to a prime exactly; the prime at least 23",
     "layer": 1,
     "main": 4,
-    "bits": 14.6824
+    "bits": 15.9385
    },
    {
     "score": [
@@ -17021,7 +17123,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "c to a prime exactly; the prime at least 29",
     "layer": 1,
     "main": 4,
-    "bits": 23.4942
+    "bits": 24.3151
    },
    {
     "score": [
@@ -17031,7 +17133,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "c to a prime exactly; the prime at least 31",
     "layer": 1,
     "main": 4,
-    "bits": 25.6331
+    "bits": 27.1571
    }
   ]
  },
@@ -17043,10 +17145,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "next-prime",
   "status": "converged",
   "cap": 20,
+  "convergedCap": 20,
+  "tail": null,
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "a5652d6d2ff1f891",
+  "contentHash": "67bb1be4cba3ec50",
   "rungs": [
    {
     "score": null,
@@ -17261,10 +17365,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "prime-gradient",
   "status": "converged",
   "cap": 20,
+  "convergedCap": 20,
+  "tail": null,
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "9ce94a49b41442d3",
+  "contentHash": "acf6d58578e0e59c",
   "rungs": [
    {
     "score": null,
@@ -17478,11 +17584,13 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "params": {},
   "tieBreaker": "first-prime",
   "status": "unconverged",
-  "cap": 12,
+  "cap": 20,
+  "convergedCap": 20,
+  "tail": null,
   "dealable": true,
   "primarySense": "max",
   "curve": null,
-  "contentHash": "3a1e7d5ad055f954",
+  "contentHash": "c70bb5fa2cdb93e0",
   "rungs": [
    {
     "score": null,
@@ -17499,7 +17607,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; y(0) at least 7",
     "layer": 1,
     "main": 0,
-    "bits": 3.7542
+    "bits": 3.7805
    },
    {
     "score": [
@@ -17509,7 +17617,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; y(0) at least 17",
     "layer": 1,
     "main": 0,
-    "bits": 3.7542
+    "bits": 3.7805
    },
    {
     "score": [
@@ -17519,7 +17627,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; y(0) at least 23",
     "layer": 1,
     "main": 0,
-    "bits": 3.7542
+    "bits": 3.7805
    },
    {
     "score": [
@@ -17528,7 +17636,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 1",
     "layer": 0,
     "main": 1,
-    "bits": 3.7542
+    "bits": 3.7805
    },
    {
     "score": [
@@ -17538,7 +17646,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 1; y(0) at least 7",
     "layer": 1,
     "main": 1,
-    "bits": 6.0365
+    "bits": 6.0233
    },
    {
     "score": [
@@ -17548,7 +17656,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 1; y(0) at least 17",
     "layer": 1,
     "main": 1,
-    "bits": 6.8082
+    "bits": 6.8002
    },
    {
     "score": [
@@ -17558,7 +17666,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 1; y(0) at least 23",
     "layer": 1,
     "main": 1,
-    "bits": 6.8509
+    "bits": 6.8297
    },
    {
     "score": [
@@ -17567,7 +17675,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 2",
     "layer": 0,
     "main": 2,
-    "bits": 6.8611
+    "bits": 6.8332
    },
    {
     "score": [
@@ -17577,7 +17685,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 2; y(0) at least 7",
     "layer": 1,
     "main": 2,
-    "bits": 8.7596
+    "bits": 8.5863
    },
    {
     "score": [
@@ -17587,7 +17695,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 2; y(0) at least 17",
     "layer": 1,
     "main": 2,
-    "bits": 9.0816
+    "bits": 8.8645
    },
    {
     "score": [
@@ -17597,7 +17705,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 2; y(0) at least 23",
     "layer": 1,
     "main": 2,
-    "bits": 9.0833
+    "bits": 8.875
    },
    {
     "score": [
@@ -17606,7 +17714,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 3",
     "layer": 0,
     "main": 3,
-    "bits": 9.0834
+    "bits": 8.8767
    },
    {
     "score": [
@@ -17616,7 +17724,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 3; y(0) at least 7",
     "layer": 1,
     "main": 3,
-    "bits": 11.1953
+    "bits": 10.7722
    },
    {
     "score": [
@@ -17626,7 +17734,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 3; y(0) at least 17",
     "layer": 1,
     "main": 3,
-    "bits": 12.1116
+    "bits": 11.8806
    },
    {
     "score": [
@@ -17636,7 +17744,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 3; y(0) at least 23",
     "layer": 1,
     "main": 3,
-    "bits": 12.118
+    "bits": 11.9224
    },
    {
     "score": [
@@ -17645,7 +17753,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 4",
     "layer": 0,
     "main": 4,
-    "bits": 12.118
+    "bits": 11.9226
    },
    {
     "score": [
@@ -17655,7 +17763,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 4; y(0) at least 7",
     "layer": 1,
     "main": 4,
-    "bits": 12.1433
+    "bits": 12.041
    },
    {
     "score": [
@@ -17665,7 +17773,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 4; y(0) at least 17",
     "layer": 1,
     "main": 4,
-    "bits": 12.3244
+    "bits": 12.3389
    },
    {
     "score": [
@@ -17675,7 +17783,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 4; y(0) at least 23",
     "layer": 1,
     "main": 4,
-    "bits": 12.3274
+    "bits": 12.3404
    },
    {
     "score": [
@@ -17684,7 +17792,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 5",
     "layer": 0,
     "main": 5,
-    "bits": 12.3274
+    "bits": 12.3406
    },
    {
     "score": [
@@ -17694,7 +17802,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 5; y(0) at least 7",
     "layer": 1,
     "main": 5,
-    "bits": 18.4702
+    "bits": 16.896
    },
    {
     "score": [
@@ -17704,7 +17812,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 5; y(0) at least 17",
     "layer": 1,
     "main": 5,
-    "bits": 18.4887
+    "bits": 17.4507
    },
    {
     "score": [
@@ -17714,7 +17822,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 5; y(0) at least 23",
     "layer": 1,
     "main": 5,
-    "bits": 18.4887
+    "bits": 17.4507
    },
    {
     "score": [
@@ -17723,7 +17831,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 6",
     "layer": 0,
     "main": 6,
-    "bits": 18.4887
+    "bits": 17.453
    },
    {
     "score": [
@@ -17733,7 +17841,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 6; y(0) at least 3",
     "layer": 1,
     "main": 6,
-    "bits": 18.4887
+    "bits": 17.453
    },
    {
     "score": [
@@ -17743,7 +17851,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 6; y(0) at least 5",
     "layer": 1,
     "main": 6,
-    "bits": 18.4887
+    "bits": 17.453
    },
    {
     "score": [
@@ -17753,7 +17861,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 6; y(0) at least 7",
     "layer": 1,
     "main": 6,
-    "bits": 18.4887
+    "bits": 17.453
    },
    {
     "score": [
@@ -17763,7 +17871,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 6; y(0) at least 11",
     "layer": 1,
     "main": 6,
-    "bits": 19.4092
+    "bits": 28.353
    },
    {
     "score": [
@@ -17773,7 +17881,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 6; y(0) at least 13",
     "layer": 1,
     "main": 6,
-    "bits": 19.4092
+    "bits": 28.4412
    },
    {
     "score": [
@@ -17834,11 +17942,13 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "params": {},
   "tieBreaker": "last-prime",
   "status": "unconverged",
-  "cap": 9,
+  "cap": 23,
+  "convergedCap": 23,
+  "tail": null,
   "dealable": true,
   "primarySense": "max",
   "curve": null,
-  "contentHash": "dcd1d00f84bfbb39",
+  "contentHash": "fb4e272306a844cb",
   "rungs": [
    {
     "score": null,
@@ -17855,7 +17965,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; the last prime at least 13",
     "layer": 1,
     "main": 0,
-    "bits": 3.7466
+    "bits": 3.813
    },
    {
     "score": [
@@ -17865,7 +17975,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; the last prime at least 23",
     "layer": 1,
     "main": 0,
-    "bits": 3.7466
+    "bits": 3.813
    },
    {
     "score": [
@@ -17875,7 +17985,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; the last prime at least 37",
     "layer": 1,
     "main": 0,
-    "bits": 3.7466
+    "bits": 3.813
    },
    {
     "score": [
@@ -17884,7 +17994,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 1",
     "layer": 0,
     "main": 1,
-    "bits": 3.7466
+    "bits": 3.813
    },
    {
     "score": [
@@ -17894,7 +18004,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 1; the last prime at least 13",
     "layer": 1,
     "main": 1,
-    "bits": 6.6715
+    "bits": 6.7177
    },
    {
     "score": [
@@ -17904,7 +18014,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 1; the last prime at least 23",
     "layer": 1,
     "main": 1,
-    "bits": 6.7621
+    "bits": 6.8256
    },
    {
     "score": [
@@ -17914,7 +18024,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 1; the last prime at least 37",
     "layer": 1,
     "main": 1,
-    "bits": 6.7681
+    "bits": 6.8282
    },
    {
     "score": [
@@ -17923,7 +18033,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 2",
     "layer": 0,
     "main": 2,
-    "bits": 6.7681
+    "bits": 6.8282
    },
    {
     "score": [
@@ -17933,7 +18043,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 2; the last prime at least 13",
     "layer": 1,
     "main": 2,
-    "bits": 8.4675
+    "bits": 8.4936
    },
    {
     "score": [
@@ -17943,7 +18053,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 2; the last prime at least 23",
     "layer": 1,
     "main": 2,
-    "bits": 8.7851
+    "bits": 8.7247
    },
    {
     "score": [
@@ -17953,7 +18063,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 2; the last prime at least 37",
     "layer": 1,
     "main": 2,
-    "bits": 8.9289
+    "bits": 8.8198
    },
    {
     "score": [
@@ -17962,7 +18072,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 3",
     "layer": 0,
     "main": 3,
-    "bits": 9.0007
+    "bits": 8.9264
    },
    {
     "score": [
@@ -17972,7 +18082,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 3; the last prime at least 13",
     "layer": 1,
     "main": 3,
-    "bits": 10.2413
+    "bits": 10.2519
    },
    {
     "score": [
@@ -17982,7 +18092,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 3; the last prime at least 23",
     "layer": 1,
     "main": 3,
-    "bits": 10.5822
+    "bits": 10.6351
    },
    {
     "score": [
@@ -17992,7 +18102,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 3; the last prime at least 37",
     "layer": 1,
     "main": 3,
-    "bits": 10.7118
+    "bits": 11.0397
    },
    {
     "score": [
@@ -18001,7 +18111,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 4",
     "layer": 0,
     "main": 4,
-    "bits": 11.1012
+    "bits": 11.5851
    },
    {
     "score": [
@@ -18011,7 +18121,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 4; the last prime at least 13",
     "layer": 1,
     "main": 4,
-    "bits": 11.1012
+    "bits": 11.5851
    },
    {
     "score": [
@@ -18021,7 +18131,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 4; the last prime at least 23",
     "layer": 1,
     "main": 4,
-    "bits": 11.1012
+    "bits": 11.5851
    },
    {
     "score": [
@@ -18031,7 +18141,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 4; the last prime at least 37",
     "layer": 1,
     "main": 4,
-    "bits": 11.1028
+    "bits": 11.6008
    },
    {
     "score": [
@@ -18040,7 +18150,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 5",
     "layer": 0,
     "main": 5,
-    "bits": 11.4209
+    "bits": 12.1688
    },
    {
     "score": [
@@ -18050,7 +18160,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 5; the last prime at least 13",
     "layer": 1,
     "main": 5,
-    "bits": 11.4209
+    "bits": 12.1688
    },
    {
     "score": [
@@ -18060,7 +18170,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 5; the last prime at least 23",
     "layer": 1,
     "main": 5,
-    "bits": 11.4209
+    "bits": 12.1688
    },
    {
     "score": [
@@ -18070,7 +18180,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 5; the last prime at least 37",
     "layer": 1,
     "main": 5,
-    "bits": 11.9653
+    "bits": 13.201
    },
    {
     "score": [
@@ -18079,7 +18189,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 6",
     "layer": 0,
     "main": 6,
-    "bits": 20.3901
+    "bits": 18.5007
    },
    {
     "score": [
@@ -18089,7 +18199,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 6; the last prime at least 5",
     "layer": 1,
     "main": 6,
-    "bits": 20.3901
+    "bits": 18.5007
    },
    {
     "score": [
@@ -18099,7 +18209,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 6; the last prime at least 7",
     "layer": 1,
     "main": 6,
-    "bits": 20.3901
+    "bits": 18.5007
    },
    {
     "score": [
@@ -18109,7 +18219,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 6; the last prime at least 11",
     "layer": 1,
     "main": 6,
-    "bits": 20.3901
+    "bits": 18.5007
    },
    {
     "score": [
@@ -18119,7 +18229,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 6; the last prime at least 13",
     "layer": 1,
     "main": 6,
-    "bits": 20.3901
+    "bits": 18.5007
    },
    {
     "score": [
@@ -18129,7 +18239,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 6; the last prime at least 17",
     "layer": 1,
     "main": 6,
-    "bits": 20.3901
+    "bits": 18.5007
    },
    {
     "score": [
@@ -18139,7 +18249,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 6; the last prime at least 19",
     "layer": 1,
     "main": 6,
-    "bits": 20.3901
+    "bits": 18.5007
    },
    {
     "score": [
@@ -18149,7 +18259,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 6; the last prime at least 23",
     "layer": 1,
     "main": 6,
-    "bits": 20.3901
+    "bits": 18.5007
    },
    {
     "score": [
@@ -18159,7 +18269,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 6; the last prime at least 29",
     "layer": 1,
     "main": 6,
-    "bits": 20.3901
+    "bits": 18.5007
    },
    {
     "score": [
@@ -18169,7 +18279,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 6; the last prime at least 31",
     "layer": 1,
     "main": 6,
-    "bits": 20.3901
+    "bits": 18.5007
    },
    {
     "score": [
@@ -18179,7 +18289,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 6; the last prime at least 37",
     "layer": 1,
     "main": 6,
-    "bits": 20.3901
+    "bits": 18.5007
    },
    {
     "score": [
@@ -18189,7 +18299,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 6; the last prime at least 41",
     "layer": 1,
     "main": 6,
-    "bits": 20.3901
+    "bits": 18.5007
    },
    {
     "score": [
@@ -18199,7 +18309,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 6; the last prime at least 43",
     "layer": 1,
     "main": 6,
-    "bits": 20.3901
+    "bits": 18.5007
    },
    {
     "score": [
@@ -18209,7 +18319,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 6; the last prime at least 47",
     "layer": 1,
     "main": 6,
-    "bits": 20.3901
+    "bits": 18.5007
    }
   ]
  },
@@ -18220,11 +18330,13 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "params": {},
   "tieBreaker": "near-miss",
   "status": "unconverged",
-  "cap": 14,
+  "cap": 22,
+  "convergedCap": 22,
+  "tail": null,
   "dealable": true,
   "primarySense": "max",
   "curve": null,
-  "contentHash": "17c1040d81eb6fce",
+  "contentHash": "9382124eb03468e0",
   "rungs": [
    {
     "score": null,
@@ -18241,7 +18353,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; the first miss to a prime within 4",
     "layer": 1,
     "main": 0,
-    "bits": 0.0011
+    "bits": 0.0016
    },
    {
     "score": [
@@ -18251,7 +18363,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; the first miss to a prime within 2",
     "layer": 1,
     "main": 0,
-    "bits": 0.0066
+    "bits": 0.0076
    },
    {
     "score": [
@@ -18261,7 +18373,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; the first miss to a prime within 1",
     "layer": 1,
     "main": 0,
-    "bits": 1.2973
+    "bits": 1.2903
    },
    {
     "score": [
@@ -18270,7 +18382,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 1",
     "layer": 0,
     "main": 1,
-    "bits": 3.8628
+    "bits": 3.8041
    },
    {
     "score": [
@@ -18280,7 +18392,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 1; the first miss to a prime within 4",
     "layer": 1,
     "main": 1,
-    "bits": 5.0315
+    "bits": 4.9907
    },
    {
     "score": [
@@ -18290,7 +18402,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 1; the first miss to a prime within 2",
     "layer": 1,
     "main": 1,
-    "bits": 5.047
+    "bits": 5.0057
    },
    {
     "score": [
@@ -18300,7 +18412,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 1; the first miss to a prime within 1",
     "layer": 1,
     "main": 1,
-    "bits": 5.2488
+    "bits": 5.2049
    },
    {
     "score": [
@@ -18309,7 +18421,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 2",
     "layer": 0,
     "main": 2,
-    "bits": 6.9888
+    "bits": 6.8975
    },
    {
     "score": [
@@ -18319,7 +18431,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 2; the first miss to a prime within 4",
     "layer": 1,
     "main": 2,
-    "bits": 6.9934
+    "bits": 6.8981
    },
    {
     "score": [
@@ -18329,7 +18441,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 2; the first miss to a prime within 2",
     "layer": 1,
     "main": 2,
-    "bits": 7.0067
+    "bits": 6.9121
    },
    {
     "score": [
@@ -18339,7 +18451,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 2; the first miss to a prime within 1",
     "layer": 1,
     "main": 2,
-    "bits": 7.2096
+    "bits": 7.0621
    },
    {
     "score": [
@@ -18348,7 +18460,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 3",
     "layer": 0,
     "main": 3,
-    "bits": 9.1395
+    "bits": 9.0761
    },
    {
     "score": [
@@ -18358,7 +18470,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 3; the first miss to a prime within 4",
     "layer": 1,
     "main": 3,
-    "bits": 9.1399
+    "bits": 9.077
    },
    {
     "score": [
@@ -18368,7 +18480,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 3; the first miss to a prime within 2",
     "layer": 1,
     "main": 3,
-    "bits": 9.1595
+    "bits": 9.1005
    },
    {
     "score": [
@@ -18378,7 +18490,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 3; the first miss to a prime within 1",
     "layer": 1,
     "main": 3,
-    "bits": 11.1765
+    "bits": 11.2516
    },
    {
     "score": [
@@ -18387,7 +18499,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 4",
     "layer": 0,
     "main": 4,
-    "bits": 12.1238
+    "bits": 11.9531
    },
    {
     "score": [
@@ -18397,7 +18509,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 4; the first miss to a prime within 4",
     "layer": 1,
     "main": 4,
-    "bits": 12.1239
+    "bits": 11.9835
    },
    {
     "score": [
@@ -18407,7 +18519,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 4; the first miss to a prime within 2",
     "layer": 1,
     "main": 4,
-    "bits": 12.1239
+    "bits": 11.9844
    },
    {
     "score": [
@@ -18417,7 +18529,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 4; the first miss to a prime within 1",
     "layer": 1,
     "main": 4,
-    "bits": 12.2808
+    "bits": 12.5574
    },
    {
     "score": [
@@ -18426,7 +18538,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 5",
     "layer": 0,
     "main": 5,
-    "bits": 12.2809
+    "bits": 12.5574
    },
    {
     "score": [
@@ -18436,7 +18548,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 5; the first miss to a prime within 4",
     "layer": 1,
     "main": 5,
-    "bits": 12.6157
+    "bits": 12.5839
    },
    {
     "score": [
@@ -18446,7 +18558,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 5; the first miss to a prime within 2",
     "layer": 1,
     "main": 5,
-    "bits": 12.6239
+    "bits": 12.6667
    },
    {
     "score": [
@@ -18456,7 +18568,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 5; the first miss to a prime within 1",
     "layer": 1,
     "main": 5,
-    "bits": 15.5462
+    "bits": 16.9506
    },
    {
     "score": [
@@ -18465,7 +18577,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 6",
     "layer": 0,
     "main": 6,
-    "bits": 15.5477
+    "bits": 16.9506
    },
    {
     "score": [
@@ -18475,7 +18587,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 6; the first miss to a prime within 8",
     "layer": 1,
     "main": 6,
-    "bits": 15.5477
+    "bits": 16.9506
    },
    {
     "score": [
@@ -18485,7 +18597,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 6; the first miss to a prime within 4",
     "layer": 1,
     "main": 6,
-    "bits": 15.5477
+    "bits": 16.9506
    }
   ]
  },
@@ -18496,11 +18608,13 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "params": {},
   "tieBreaker": "step-back",
   "status": "unconverged",
-  "cap": 11,
+  "cap": 23,
+  "convergedCap": 23,
+  "tail": null,
   "dealable": true,
   "primarySense": "max",
   "curve": null,
-  "contentHash": "08e045b2f4afb10b",
+  "contentHash": "51db01d78aca9d7b",
   "rungs": [
    {
     "score": null,
@@ -18517,7 +18631,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; y(−1) to a prime within 2",
     "layer": 1,
     "main": 0,
-    "bits": 0.0152
+    "bits": 0.0157
    },
    {
     "score": [
@@ -18527,7 +18641,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; y(−1) to a prime within 1",
     "layer": 1,
     "main": 0,
-    "bits": 0.7231
+    "bits": 0.715
    },
    {
     "score": [
@@ -18537,7 +18651,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; y(−1) to a prime exactly",
     "layer": 1,
     "main": 0,
-    "bits": 1.9802
+    "bits": 1.9484
    },
    {
     "score": [
@@ -18546,7 +18660,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 1",
     "layer": 0,
     "main": 1,
-    "bits": 3.868
+    "bits": 3.7985
    },
    {
     "score": [
@@ -18556,7 +18670,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 1; y(−1) to a prime within 2",
     "layer": 1,
     "main": 1,
-    "bits": 3.8766
+    "bits": 3.806
    },
    {
     "score": [
@@ -18566,7 +18680,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 1; y(−1) to a prime within 1",
     "layer": 1,
     "main": 1,
-    "bits": 3.9496
+    "bits": 3.8764
    },
    {
     "score": [
@@ -18576,7 +18690,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 1; y(−1) to a prime exactly",
     "layer": 1,
     "main": 1,
-    "bits": 4.1942
+    "bits": 4.1074
    },
    {
     "score": [
@@ -18585,7 +18699,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 2",
     "layer": 0,
     "main": 2,
-    "bits": 7.0606
+    "bits": 6.8366
    },
    {
     "score": [
@@ -18595,7 +18709,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 2; y(−1) to a prime within 2",
     "layer": 1,
     "main": 2,
-    "bits": 7.0608
+    "bits": 6.8367
    },
    {
     "score": [
@@ -18605,7 +18719,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 2; y(−1) to a prime within 1",
     "layer": 1,
     "main": 2,
-    "bits": 7.1153
+    "bits": 6.8938
    },
    {
     "score": [
@@ -18615,7 +18729,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 2; y(−1) to a prime exactly",
     "layer": 1,
     "main": 2,
-    "bits": 8.428
+    "bits": 8.0649
    },
    {
     "score": [
@@ -18624,7 +18738,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 3",
     "layer": 0,
     "main": 3,
-    "bits": 9.3965
+    "bits": 9.0183
    },
    {
     "score": [
@@ -18634,7 +18748,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 3; y(−1) to a prime within 2",
     "layer": 1,
     "main": 3,
-    "bits": 9.3974
+    "bits": 9.0208
    },
    {
     "score": [
@@ -18644,7 +18758,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 3; y(−1) to a prime within 1",
     "layer": 1,
     "main": 3,
-    "bits": 9.5705
+    "bits": 9.1804
    },
    {
     "score": [
@@ -18654,7 +18768,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 3; y(−1) to a prime exactly",
     "layer": 1,
     "main": 3,
-    "bits": 11.0355
+    "bits": 10.4645
    },
    {
     "score": [
@@ -18663,7 +18777,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 4",
     "layer": 0,
     "main": 4,
-    "bits": 12.2122
+    "bits": 11.9979
    },
    {
     "score": [
@@ -18673,7 +18787,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 4; y(−1) to a prime within 2",
     "layer": 1,
     "main": 4,
-    "bits": 12.2122
+    "bits": 11.9979
    },
    {
     "score": [
@@ -18683,7 +18797,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 4; y(−1) to a prime within 1",
     "layer": 1,
     "main": 4,
-    "bits": 12.2246
+    "bits": 11.9985
    },
    {
     "score": [
@@ -18693,7 +18807,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 4; y(−1) to a prime exactly",
     "layer": 1,
     "main": 4,
-    "bits": 12.2246
+    "bits": 11.9985
    },
    {
     "score": [
@@ -18702,7 +18816,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 5",
     "layer": 0,
     "main": 5,
-    "bits": 12.7235
+    "bits": 12.3448
    },
    {
     "score": [
@@ -18712,7 +18826,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 5; y(−1) to a prime within 2",
     "layer": 1,
     "main": 5,
-    "bits": 12.7235
+    "bits": 12.3525
    },
    {
     "score": [
@@ -18722,7 +18836,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 5; y(−1) to a prime within 1",
     "layer": 1,
     "main": 5,
-    "bits": 12.7242
+    "bits": 12.3542
    },
    {
     "score": [
@@ -18732,7 +18846,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 5; y(−1) to a prime exactly",
     "layer": 1,
     "main": 5,
-    "bits": 14.6761
+    "bits": 13.9513
    },
    {
     "score": [
@@ -18741,7 +18855,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 6",
     "layer": 0,
     "main": 6,
-    "bits": 15.6967
+    "bits": 17.0172
    },
    {
     "score": [
@@ -18751,7 +18865,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 6; y(−1) to a prime within 4",
     "layer": 1,
     "main": 6,
-    "bits": 15.6967
+    "bits": 17.0172
    },
    {
     "score": [
@@ -18761,7 +18875,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 6; y(−1) to a prime within 2",
     "layer": 1,
     "main": 6,
-    "bits": 15.6967
+    "bits": 17.0172
    },
    {
     "score": [
@@ -18771,7 +18885,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 6; y(−1) to a prime within 1",
     "layer": 1,
     "main": 6,
-    "bits": 15.6967
+    "bits": 17.0172
    },
    {
     "score": [
@@ -18781,7 +18895,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "a run of primes at least 6; y(−1) to a prime exactly",
     "layer": 1,
     "main": 6,
-    "bits": 15.6967
+    "bits": 17.0172
    }
   ]
  },
@@ -18793,12 +18907,14 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
    "A": 6
   },
   "tieBreaker": "prime-height",
-  "status": "unconverged",
-  "cap": 31,
+  "status": "flagged",
+  "cap": 35,
+  "convergedCap": 35,
+  "tail": null,
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "a7b058de8e5457ce",
+  "contentHash": "40c5cdffc4726ec2",
   "rungs": [
    {
     "score": null,
@@ -18815,7 +18931,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; |c| to a prime within 2",
     "layer": 1,
     "main": 0,
-    "bits": 2.2187
+    "bits": 2.2343
    },
    {
     "score": [
@@ -18825,7 +18941,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; |c| to a prime within 1",
     "layer": 1,
     "main": 0,
-    "bits": 2.2939
+    "bits": 2.3211
    },
    {
     "score": [
@@ -18835,7 +18951,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; |c| to a prime exactly",
     "layer": 1,
     "main": 0,
-    "bits": 2.5062
+    "bits": 2.5392
    },
    {
     "score": [
@@ -18844,7 +18960,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 16",
     "layer": 0,
     "main": 1,
-    "bits": 2.5249
+    "bits": 2.5595
    },
    {
     "score": [
@@ -18854,7 +18970,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 16; |c| to a prime within 2",
     "layer": 1,
     "main": 1,
-    "bits": 2.5254
+    "bits": 2.5598
    },
    {
     "score": [
@@ -18864,7 +18980,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 16; |c| to a prime within 1",
     "layer": 1,
     "main": 1,
-    "bits": 2.5388
+    "bits": 2.5749
    },
    {
     "score": [
@@ -18874,7 +18990,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 16; |c| to a prime exactly",
     "layer": 1,
     "main": 1,
-    "bits": 2.6028
+    "bits": 2.6364
    },
    {
     "score": [
@@ -18883,7 +18999,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 8",
     "layer": 0,
     "main": 2,
-    "bits": 2.6057
+    "bits": 2.6395
    },
    {
     "score": [
@@ -18893,7 +19009,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 8; |c| to a prime within 2",
     "layer": 1,
     "main": 2,
-    "bits": 2.6063
+    "bits": 2.6398
    },
    {
     "score": [
@@ -18903,7 +19019,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 8; |c| to a prime within 1",
     "layer": 1,
     "main": 2,
-    "bits": 2.6377
+    "bits": 2.6665
    },
    {
     "score": [
@@ -18913,7 +19029,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 8; |c| to a prime exactly",
     "layer": 1,
     "main": 2,
-    "bits": 3.5235
+    "bits": 3.5323
    },
    {
     "score": [
@@ -18922,7 +19038,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 4",
     "layer": 0,
     "main": 3,
-    "bits": 4.3802
+    "bits": 4.4148
    },
    {
     "score": [
@@ -18932,7 +19048,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 4; |c| to a prime within 2",
     "layer": 1,
     "main": 3,
-    "bits": 4.3828
+    "bits": 4.4166
    },
    {
     "score": [
@@ -18942,7 +19058,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 4; |c| to a prime within 1",
     "layer": 1,
     "main": 3,
-    "bits": 4.4131
+    "bits": 4.455
    },
    {
     "score": [
@@ -18952,7 +19068,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 4; |c| to a prime exactly",
     "layer": 1,
     "main": 3,
-    "bits": 4.7511
+    "bits": 4.7975
    },
    {
     "score": [
@@ -18961,7 +19077,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 2",
     "layer": 0,
     "main": 4,
-    "bits": 5.4628
+    "bits": 5.5163
    },
    {
     "score": [
@@ -18971,7 +19087,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 2; |c| to a prime within 2",
     "layer": 1,
     "main": 4,
-    "bits": 5.464
+    "bits": 5.5172
    },
    {
     "score": [
@@ -18981,7 +19097,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 2; |c| to a prime within 1",
     "layer": 1,
     "main": 4,
-    "bits": 5.5114
+    "bits": 5.5623
    },
    {
     "score": [
@@ -18991,7 +19107,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 2; |c| to a prime exactly",
     "layer": 1,
     "main": 4,
-    "bits": 6.2539
+    "bits": 6.2873
    },
    {
     "score": [
@@ -19000,7 +19116,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 1",
     "layer": 0,
     "main": 5,
-    "bits": 7.4283
+    "bits": 7.4437
    },
    {
     "score": [
@@ -19010,7 +19126,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 1; |c| to a prime within 2",
     "layer": 1,
     "main": 5,
-    "bits": 7.4284
+    "bits": 7.4457
    },
    {
     "score": [
@@ -19020,7 +19136,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 1; |c| to a prime within 1",
     "layer": 1,
     "main": 5,
-    "bits": 7.598
+    "bits": 7.6157
    },
    {
     "score": [
@@ -19030,7 +19146,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 1; |c| to a prime exactly",
     "layer": 1,
     "main": 5,
-    "bits": 7.8953
+    "bits": 7.9237
    },
    {
     "score": [
@@ -19039,7 +19155,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 1/2",
     "layer": 0,
     "main": 6,
-    "bits": 7.9409
+    "bits": 7.9564
    },
    {
     "score": [
@@ -19049,7 +19165,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 1/2; |c| to a prime within 2",
     "layer": 1,
     "main": 6,
-    "bits": 7.941
+    "bits": 7.9565
    },
    {
     "score": [
@@ -19059,7 +19175,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 1/2; |c| to a prime within 1",
     "layer": 1,
     "main": 6,
-    "bits": 7.9738
+    "bits": 7.9848
    },
    {
     "score": [
@@ -19069,7 +19185,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 1/2; |c| to a prime exactly",
     "layer": 1,
     "main": 6,
-    "bits": 8.1923
+    "bits": 8.1887
    },
    {
     "score": [
@@ -19078,7 +19194,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 1/4",
     "layer": 0,
     "main": 7,
-    "bits": 8.1934
+    "bits": 8.1937
    },
    {
     "score": [
@@ -19088,7 +19204,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 1/4; |c| to a prime within 2",
     "layer": 1,
     "main": 7,
-    "bits": 8.1943
+    "bits": 8.1941
    },
    {
     "score": [
@@ -19098,7 +19214,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 1/4; |c| to a prime within 1",
     "layer": 1,
     "main": 7,
-    "bits": 8.2821
+    "bits": 8.2892
    },
    {
     "score": [
@@ -19108,7 +19224,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 1/4; |c| to a prime exactly",
     "layer": 1,
     "main": 7,
-    "bits": 8.4969
+    "bits": 8.4506
    },
    {
     "score": [
@@ -19117,7 +19233,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A exactly",
     "layer": 0,
     "main": 8,
-    "bits": 10.2565
+    "bits": 9.9244
    },
    {
     "score": [
@@ -19127,7 +19243,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A exactly; |c| to a prime within 4",
     "layer": 1,
     "main": 8,
-    "bits": 10.2565
+    "bits": 9.9244
    },
    {
     "score": [
@@ -19137,7 +19253,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A exactly; |c| to a prime within 2",
     "layer": 1,
     "main": 8,
-    "bits": 10.2565
+    "bits": 9.9244
    },
    {
     "score": [
@@ -19147,7 +19263,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A exactly; |c| to a prime within 1",
     "layer": 1,
     "main": 8,
-    "bits": 10.2565
+    "bits": 9.9244
    }
   ]
  },
@@ -19159,12 +19275,14 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
    "A": 6
   },
   "tieBreaker": "slanted-square",
-  "status": "unconverged",
-  "cap": 0,
-  "dealable": false,
+  "status": "flagged",
+  "cap": 38,
+  "convergedCap": 38,
+  "tail": null,
+  "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "fcfb225acbd5e1f6",
+  "contentHash": "104d58d189364082",
   "rungs": [
    {
     "score": null,
@@ -19181,7 +19299,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; side² to a square within 8",
     "layer": 1,
     "main": 0,
-    "bits": 2.4821
+    "bits": 2.4961
    },
    {
     "score": [
@@ -19191,7 +19309,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; side² to a square within 2",
     "layer": 1,
     "main": 0,
-    "bits": 2.592
+    "bits": 2.6029
    },
    {
     "score": [
@@ -19201,7 +19319,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; side² to a square within 1/2",
     "layer": 1,
     "main": 0,
-    "bits": 2.631
+    "bits": 2.6349
    },
    {
     "score": [
@@ -19210,7 +19328,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 16",
     "layer": 0,
     "main": 1,
-    "bits": 2.6312
+    "bits": 2.6358
    },
    {
     "score": [
@@ -19220,7 +19338,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 16; side² to a square within 8",
     "layer": 1,
     "main": 1,
-    "bits": 2.6394
+    "bits": 2.6432
    },
    {
     "score": [
@@ -19230,7 +19348,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 16; side² to a square within 2",
     "layer": 1,
     "main": 1,
-    "bits": 2.6806
+    "bits": 2.6836
    },
    {
     "score": [
@@ -19240,7 +19358,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 16; side² to a square within 1/2",
     "layer": 1,
     "main": 1,
-    "bits": 2.706
+    "bits": 2.7058
    },
    {
     "score": [
@@ -19249,7 +19367,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 8",
     "layer": 0,
     "main": 2,
-    "bits": 2.7087
+    "bits": 2.7069
    },
    {
     "score": [
@@ -19259,7 +19377,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 8; side² to a square within 8",
     "layer": 1,
     "main": 2,
-    "bits": 2.7125
+    "bits": 2.7129
    },
    {
     "score": [
@@ -19269,7 +19387,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 8; side² to a square within 2",
     "layer": 1,
     "main": 2,
-    "bits": 2.7428
+    "bits": 2.742
    },
    {
     "score": [
@@ -19279,7 +19397,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 8; side² to a square within 1/2",
     "layer": 1,
     "main": 2,
-    "bits": 3.0589
+    "bits": 3.0449
    },
    {
     "score": [
@@ -19288,7 +19406,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 4",
     "layer": 0,
     "main": 3,
-    "bits": 4.5038
+    "bits": 4.5011
    },
    {
     "score": [
@@ -19298,7 +19416,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 4; side² to a square within 8",
     "layer": 1,
     "main": 3,
-    "bits": 4.5038
+    "bits": 4.5011
    },
    {
     "score": [
@@ -19308,7 +19426,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 4; side² to a square within 2",
     "layer": 1,
     "main": 3,
-    "bits": 4.6773
+    "bits": 4.6917
    },
    {
     "score": [
@@ -19318,7 +19436,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 4; side² to a square within 1/2",
     "layer": 1,
     "main": 3,
-    "bits": 5.3683
+    "bits": 5.3792
    },
    {
     "score": [
@@ -19327,7 +19445,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 2",
     "layer": 0,
     "main": 4,
-    "bits": 5.5371
+    "bits": 5.5542
    },
    {
     "score": [
@@ -19337,7 +19455,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 2; side² to a square within 8",
     "layer": 1,
     "main": 4,
-    "bits": 5.5371
+    "bits": 5.5542
    },
    {
     "score": [
@@ -19347,7 +19465,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 2; side² to a square within 2",
     "layer": 1,
     "main": 4,
-    "bits": 6.2145
+    "bits": 6.2378
    },
    {
     "score": [
@@ -19357,7 +19475,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 2; side² to a square within 1/2",
     "layer": 1,
     "main": 4,
-    "bits": 7.4017
+    "bits": 7.4774
    },
    {
     "score": [
@@ -19366,7 +19484,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 1",
     "layer": 0,
     "main": 5,
-    "bits": 7.5213
+    "bits": 7.6293
    },
    {
     "score": [
@@ -19376,7 +19494,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 1; side² to a square within 8",
     "layer": 1,
     "main": 5,
-    "bits": 7.5213
+    "bits": 7.6293
    },
    {
     "score": [
@@ -19386,7 +19504,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 1; side² to a square within 2",
     "layer": 1,
     "main": 5,
-    "bits": 7.6126
+    "bits": 7.7208
    },
    {
     "score": [
@@ -19396,7 +19514,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 1; side² to a square within 1/2",
     "layer": 1,
     "main": 5,
-    "bits": 7.8787
+    "bits": 7.9827
    },
    {
     "score": [
@@ -19405,7 +19523,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 1/2",
     "layer": 0,
     "main": 6,
-    "bits": 7.9694
+    "bits": 8.0648
    },
    {
     "score": [
@@ -19415,7 +19533,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 1/2; side² to a square within 8",
     "layer": 1,
     "main": 6,
-    "bits": 7.9694
+    "bits": 8.0648
    },
    {
     "score": [
@@ -19425,7 +19543,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 1/2; side² to a square within 2",
     "layer": 1,
     "main": 6,
-    "bits": 8.1044
+    "bits": 8.1899
    },
    {
     "score": [
@@ -19435,7 +19553,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 1/2; side² to a square within 1/2",
     "layer": 1,
     "main": 6,
-    "bits": 8.2487
+    "bits": 8.3046
    },
    {
     "score": [
@@ -19444,7 +19562,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 1/4",
     "layer": 0,
     "main": 7,
-    "bits": 8.2819
+    "bits": 8.3307
    },
    {
     "score": [
@@ -19454,7 +19572,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 1/4; side² to a square within 8",
     "layer": 1,
     "main": 7,
-    "bits": 8.2819
+    "bits": 8.3307
    },
    {
     "score": [
@@ -19464,7 +19582,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 1/4; side² to a square within 2",
     "layer": 1,
     "main": 7,
-    "bits": 9.3373
+    "bits": 9.3573
    },
    {
     "score": [
@@ -19474,7 +19592,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 1/4; side² to a square within 1/2",
     "layer": 1,
     "main": 7,
-    "bits": 9.8769
+    "bits": 9.856
    },
    {
     "score": [
@@ -19483,7 +19601,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A exactly",
     "layer": 0,
     "main": 8,
-    "bits": 9.972
+    "bits": 9.9616
    },
    {
     "score": [
@@ -19493,7 +19611,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A exactly; side² to a square within 16",
     "layer": 1,
     "main": 8,
-    "bits": 9.972
+    "bits": 9.9616
    },
    {
     "score": [
@@ -19503,7 +19621,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A exactly; side² to a square within 8",
     "layer": 1,
     "main": 8,
-    "bits": 9.972
+    "bits": 9.9616
    },
    {
     "score": [
@@ -19513,7 +19631,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A exactly; side² to a square within 4",
     "layer": 1,
     "main": 8,
-    "bits": 9.972
+    "bits": 9.9616
    },
    {
     "score": [
@@ -19523,7 +19641,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A exactly; side² to a square within 2",
     "layer": 1,
     "main": 8,
-    "bits": 13.9983
+    "bits": 13.1103
    },
    {
     "score": [
@@ -19533,7 +19651,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A exactly; side² to a square within 1",
     "layer": 1,
     "main": 8,
-    "bits": 13.9983
+    "bits": 13.1103
    },
    {
     "score": [
@@ -19543,7 +19661,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A exactly; side² to a square within 1/2",
     "layer": 1,
     "main": 8,
-    "bits": 14.8942
+    "bits": 14.3396
    }
   ]
  },
@@ -19555,12 +19673,14 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
    "A": 6
   },
   "tieBreaker": "whole-legs",
-  "status": "unconverged",
-  "cap": 0,
-  "dealable": false,
+  "status": "converged",
+  "cap": 37,
+  "convergedCap": 37,
+  "tail": null,
+  "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "ca89b44b92f5bdc9",
+  "contentHash": "bb90d75642b8baf0",
   "rungs": [
    {
     "score": null,
@@ -19577,7 +19697,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; the legs to whole within 1/4",
     "layer": 1,
     "main": 0,
-    "bits": 2.3109
+    "bits": 2.3557
    },
    {
     "score": [
@@ -19587,7 +19707,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; the legs to whole within 1/8",
     "layer": 1,
     "main": 0,
-    "bits": 2.3286
+    "bits": 2.377
    },
    {
     "score": [
@@ -19597,7 +19717,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; the legs to whole within 1/16",
     "layer": 1,
     "main": 0,
-    "bits": 2.3318
+    "bits": 2.3822
    },
    {
     "score": [
@@ -19606,7 +19726,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 16",
     "layer": 0,
     "main": 1,
-    "bits": 2.5499
+    "bits": 2.5971
    },
    {
     "score": [
@@ -19616,7 +19736,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 16; the legs to whole within 1/4",
     "layer": 1,
     "main": 1,
-    "bits": 2.5764
+    "bits": 2.6272
    },
    {
     "score": [
@@ -19626,7 +19746,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 16; the legs to whole within 1/8",
     "layer": 1,
     "main": 1,
-    "bits": 2.5828
+    "bits": 2.6348
    },
    {
     "score": [
@@ -19636,7 +19756,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 16; the legs to whole within 1/16",
     "layer": 1,
     "main": 1,
-    "bits": 2.585
+    "bits": 2.6371
    },
    {
     "score": [
@@ -19645,7 +19765,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 8",
     "layer": 0,
     "main": 2,
-    "bits": 2.6229
+    "bits": 2.6774
    },
    {
     "score": [
@@ -19655,7 +19775,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 8; the legs to whole within 1/4",
     "layer": 1,
     "main": 2,
-    "bits": 2.9885
+    "bits": 3.059
    },
    {
     "score": [
@@ -19665,7 +19785,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 8; the legs to whole within 1/8",
     "layer": 1,
     "main": 2,
-    "bits": 3.2833
+    "bits": 3.3534
    },
    {
     "score": [
@@ -19675,7 +19795,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 8; the legs to whole within 1/16",
     "layer": 1,
     "main": 2,
-    "bits": 3.5131
+    "bits": 3.5808
    },
    {
     "score": [
@@ -19684,7 +19804,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 4",
     "layer": 0,
     "main": 3,
-    "bits": 4.4985
+    "bits": 4.4707
    },
    {
     "score": [
@@ -19694,7 +19814,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 4; the legs to whole within 1/4",
     "layer": 1,
     "main": 3,
-    "bits": 4.7799
+    "bits": 4.7405
    },
    {
     "score": [
@@ -19704,7 +19824,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 4; the legs to whole within 1/8",
     "layer": 1,
     "main": 3,
-    "bits": 4.9235
+    "bits": 4.8733
    },
    {
     "score": [
@@ -19714,7 +19834,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 4; the legs to whole within 1/16",
     "layer": 1,
     "main": 3,
-    "bits": 4.9409
+    "bits": 4.8902
    },
    {
     "score": [
@@ -19723,7 +19843,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 2",
     "layer": 0,
     "main": 4,
-    "bits": 5.5734
+    "bits": 5.5193
    },
    {
     "score": [
@@ -19733,7 +19853,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 2; the legs to whole within 1/4",
     "layer": 1,
     "main": 4,
-    "bits": 5.7543
+    "bits": 5.7116
    },
    {
     "score": [
@@ -19743,7 +19863,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 2; the legs to whole within 1/8",
     "layer": 1,
     "main": 4,
-    "bits": 5.828
+    "bits": 5.7791
    },
    {
     "score": [
@@ -19753,7 +19873,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 2; the legs to whole within 1/16",
     "layer": 1,
     "main": 4,
-    "bits": 5.8505
+    "bits": 5.8019
    },
    {
     "score": [
@@ -19762,7 +19882,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 1",
     "layer": 0,
     "main": 5,
-    "bits": 7.6003
+    "bits": 7.4173
    },
    {
     "score": [
@@ -19772,7 +19892,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 1; the legs to whole within 1/4",
     "layer": 1,
     "main": 5,
-    "bits": 7.8553
+    "bits": 7.7028
    },
    {
     "score": [
@@ -19782,7 +19902,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 1; the legs to whole within 1/8",
     "layer": 1,
     "main": 5,
-    "bits": 7.8951
+    "bits": 7.7438
    },
    {
     "score": [
@@ -19792,7 +19912,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 1; the legs to whole within 1/16",
     "layer": 1,
     "main": 5,
-    "bits": 8.0139
+    "bits": 7.8597
    },
    {
     "score": [
@@ -19801,7 +19921,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 1/2",
     "layer": 0,
     "main": 6,
-    "bits": 8.0701
+    "bits": 7.9034
    },
    {
     "score": [
@@ -19811,7 +19931,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 1/2; the legs to whole within 1/4",
     "layer": 1,
     "main": 6,
-    "bits": 8.2247
+    "bits": 8.0481
    },
    {
     "score": [
@@ -19821,7 +19941,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 1/2; the legs to whole within 1/8",
     "layer": 1,
     "main": 6,
-    "bits": 8.2566
+    "bits": 8.0687
    },
    {
     "score": [
@@ -19831,7 +19951,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 1/2; the legs to whole within 1/16",
     "layer": 1,
     "main": 6,
-    "bits": 8.3053
+    "bits": 8.1231
    },
    {
     "score": [
@@ -19840,7 +19960,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 1/4",
     "layer": 0,
     "main": 7,
-    "bits": 8.3108
+    "bits": 8.1279
    },
    {
     "score": [
@@ -19850,7 +19970,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 1/4; the legs to whole within 1/4",
     "layer": 1,
     "main": 7,
-    "bits": 9.1941
+    "bits": 9.1242
    },
    {
     "score": [
@@ -19860,7 +19980,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 1/4; the legs to whole within 1/8",
     "layer": 1,
     "main": 7,
-    "bits": 9.6664
+    "bits": 9.6113
    },
    {
     "score": [
@@ -19870,7 +19990,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A within 1/4; the legs to whole within 1/16",
     "layer": 1,
     "main": 7,
-    "bits": 9.743
+    "bits": 9.6606
    },
    {
     "score": [
@@ -19879,7 +19999,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A exactly",
     "layer": 0,
     "main": 8,
-    "bits": 9.743
+    "bits": 9.6606
    },
    {
     "score": [
@@ -19889,7 +20009,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A exactly; the legs to whole within 1/2",
     "layer": 1,
     "main": 8,
-    "bits": 9.743
+    "bits": 9.6606
    },
    {
     "score": [
@@ -19899,7 +20019,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A exactly; the legs to whole within 1/4",
     "layer": 1,
     "main": 8,
-    "bits": 9.7925
+    "bits": 9.7086
    },
    {
     "score": [
@@ -19909,7 +20029,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A exactly; the legs to whole within 1/8",
     "layer": 1,
     "main": 8,
-    "bits": 9.7925
+    "bits": 9.7094
    },
    {
     "score": [
@@ -19919,7 +20039,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A exactly; the legs to whole within 1/16",
     "layer": 1,
     "main": 8,
-    "bits": 9.7925
+    "bits": 9.7094
    },
    {
     "score": [
@@ -19929,7 +20049,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to A exactly; the legs to whole exactly",
     "layer": 1,
     "main": 8,
-    "bits": 9.7925
+    "bits": 9.7094
    }
   ]
  },
@@ -19939,12 +20059,14 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "family": "ruler",
   "params": {},
   "tieBreaker": "prime-gradient",
-  "status": "unconverged",
-  "cap": 34,
+  "status": "flagged",
+  "cap": 35,
+  "convergedCap": 35,
+  "tail": null,
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "a06942d4373addab",
+  "contentHash": "9868c091b0767bde",
   "rungs": [
    {
     "score": null,
@@ -19961,7 +20083,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; m to a prime within 2",
     "layer": 1,
     "main": 0,
-    "bits": 1.1394
+    "bits": 1.1781
    },
    {
     "score": [
@@ -19971,7 +20093,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; m to a prime within 1",
     "layer": 1,
     "main": 0,
-    "bits": 1.1396
+    "bits": 1.1785
    },
    {
     "score": [
@@ -19981,7 +20103,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; m to a prime exactly",
     "layer": 1,
     "main": 0,
-    "bits": 1.1516
+    "bits": 1.1889
    },
    {
     "score": [
@@ -19990,7 +20112,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "distance² to a square within 8",
     "layer": 0,
     "main": 1,
-    "bits": 1.1569
+    "bits": 1.194
    },
    {
     "score": [
@@ -20000,7 +20122,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "distance² to a square within 8; m to a prime within 2",
     "layer": 1,
     "main": 1,
-    "bits": 1.1696
+    "bits": 1.207
    },
    {
     "score": [
@@ -20010,7 +20132,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "distance² to a square within 8; m to a prime within 1",
     "layer": 1,
     "main": 1,
-    "bits": 1.1699
+    "bits": 1.2073
    },
    {
     "score": [
@@ -20020,7 +20142,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "distance² to a square within 8; m to a prime exactly",
     "layer": 1,
     "main": 1,
-    "bits": 1.1809
+    "bits": 1.2181
    },
    {
     "score": [
@@ -20029,7 +20151,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "distance² to a square within 4",
     "layer": 0,
     "main": 2,
-    "bits": 1.1838
+    "bits": 1.2203
    },
    {
     "score": [
@@ -20039,7 +20161,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "distance² to a square within 4; m to a prime within 2",
     "layer": 1,
     "main": 2,
-    "bits": 1.2111
+    "bits": 1.2483
    },
    {
     "score": [
@@ -20049,7 +20171,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "distance² to a square within 4; m to a prime within 1",
     "layer": 1,
     "main": 2,
-    "bits": 1.2116
+    "bits": 1.2488
    },
    {
     "score": [
@@ -20059,7 +20181,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "distance² to a square within 4; m to a prime exactly",
     "layer": 1,
     "main": 2,
-    "bits": 1.2265
+    "bits": 1.2647
    },
    {
     "score": [
@@ -20068,7 +20190,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "distance² to a square within 2",
     "layer": 0,
     "main": 3,
-    "bits": 1.2375
+    "bits": 1.2759
    },
    {
     "score": [
@@ -20078,7 +20200,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "distance² to a square within 2; m to a prime within 2",
     "layer": 1,
     "main": 3,
-    "bits": 1.2577
+    "bits": 1.2964
    },
    {
     "score": [
@@ -20088,7 +20210,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "distance² to a square within 2; m to a prime within 1",
     "layer": 1,
     "main": 3,
-    "bits": 1.2591
+    "bits": 1.2978
    },
    {
     "score": [
@@ -20098,7 +20220,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "distance² to a square within 2; m to a prime exactly",
     "layer": 1,
     "main": 3,
-    "bits": 1.2706
+    "bits": 1.3103
    },
    {
     "score": [
@@ -20107,7 +20229,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "distance² to a square within 1",
     "layer": 0,
     "main": 4,
-    "bits": 1.2778
+    "bits": 1.3176
    },
    {
     "score": [
@@ -20117,7 +20239,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "distance² to a square within 1; m to a prime within 2",
     "layer": 1,
     "main": 4,
-    "bits": 2.1228
+    "bits": 2.1675
    },
    {
     "score": [
@@ -20127,7 +20249,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "distance² to a square within 1; m to a prime within 1",
     "layer": 1,
     "main": 4,
-    "bits": 2.2377
+    "bits": 2.278
    },
    {
     "score": [
@@ -20137,7 +20259,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "distance² to a square within 1; m to a prime exactly",
     "layer": 1,
     "main": 4,
-    "bits": 3.2274
+    "bits": 3.252
    },
    {
     "score": [
@@ -20146,7 +20268,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "distance² to a square within 1/2",
     "layer": 0,
     "main": 5,
-    "bits": 4.4738
+    "bits": 4.476
    },
    {
     "score": [
@@ -20156,7 +20278,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "distance² to a square within 1/2; m to a prime within 2",
     "layer": 1,
     "main": 5,
-    "bits": 5.1121
+    "bits": 5.1074
    },
    {
     "score": [
@@ -20166,7 +20288,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "distance² to a square within 1/2; m to a prime within 1",
     "layer": 1,
     "main": 5,
-    "bits": 5.1317
+    "bits": 5.1248
    },
    {
     "score": [
@@ -20176,7 +20298,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "distance² to a square within 1/2; m to a prime exactly",
     "layer": 1,
     "main": 5,
-    "bits": 6.0355
+    "bits": 6.1212
    },
    {
     "score": [
@@ -20185,7 +20307,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "distance² to a square within 1/4",
     "layer": 0,
     "main": 6,
-    "bits": 6.2137
+    "bits": 6.2819
    },
    {
     "score": [
@@ -20195,7 +20317,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "distance² to a square within 1/4; m to a prime within 2",
     "layer": 1,
     "main": 6,
-    "bits": 6.6494
+    "bits": 6.7508
    },
    {
     "score": [
@@ -20205,7 +20327,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "distance² to a square within 1/4; m to a prime within 1",
     "layer": 1,
     "main": 6,
-    "bits": 6.6921
+    "bits": 6.7894
    },
    {
     "score": [
@@ -20215,7 +20337,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "distance² to a square within 1/4; m to a prime exactly",
     "layer": 1,
     "main": 6,
-    "bits": 6.7983
+    "bits": 6.9057
    },
    {
     "score": [
@@ -20224,7 +20346,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "distance² to a square within 1/8",
     "layer": 0,
     "main": 7,
-    "bits": 7.3386
+    "bits": 7.457
    },
    {
     "score": [
@@ -20234,7 +20356,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "distance² to a square within 1/8; m to a prime within 2",
     "layer": 1,
     "main": 7,
-    "bits": 7.6671
+    "bits": 7.7943
    },
    {
     "score": [
@@ -20244,7 +20366,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "distance² to a square within 1/8; m to a prime within 1",
     "layer": 1,
     "main": 7,
-    "bits": 7.6913
+    "bits": 7.8082
    },
    {
     "score": [
@@ -20254,7 +20376,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "distance² to a square within 1/8; m to a prime exactly",
     "layer": 1,
     "main": 7,
-    "bits": 7.7478
+    "bits": 7.8791
    },
    {
     "score": [
@@ -20263,7 +20385,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "distance² to a square within 1/16",
     "layer": 0,
     "main": 8,
-    "bits": 8.1212
+    "bits": 8.2588
    },
    {
     "score": [
@@ -20273,7 +20395,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "distance² to a square within 1/16; m to a prime within 2",
     "layer": 1,
     "main": 8,
-    "bits": 9.0373
+    "bits": 9.3022
    },
    {
     "score": [
@@ -20283,7 +20405,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "distance² to a square within 1/16; m to a prime within 1",
     "layer": 1,
     "main": 8,
-    "bits": 9.2745
+    "bits": 9.4895
    },
    {
     "score": [
@@ -20293,7 +20415,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "distance² to a square within 1/16; m to a prime exactly",
     "layer": 1,
     "main": 8,
-    "bits": 11.5162
+    "bits": 12.0809
    }
   ]
  },
@@ -20305,10 +20427,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "square-area",
   "status": "flagged",
   "cap": 35,
+  "convergedCap": 35,
+  "tail": null,
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "000dbb710bcd6dde",
+  "contentHash": "e1fd46eaafb55f19",
   "rungs": [
    {
     "score": null,
@@ -20671,10 +20795,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "prime-start",
   "status": "flagged",
   "cap": 35,
+  "convergedCap": 35,
+  "tail": null,
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "50cf42cd0d9b1bcb",
+  "contentHash": "c6b45b8684a32d60",
   "rungs": [
    {
     "score": null,
@@ -21036,11 +21162,13 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   },
   "tieBreaker": "steep",
   "status": "unconverged",
-  "cap": 9,
+  "cap": 37,
+  "convergedCap": 37,
+  "tail": null,
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "1fbddcbaed9ff6f7",
+  "contentHash": "19dc74bc92285dc4",
   "rungs": [
    {
     "score": null,
@@ -21067,7 +21195,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; |m − 1| at least 2",
     "layer": 1,
     "main": 0,
-    "bits": 0.1548
+    "bits": 0.1561
    },
    {
     "score": [
@@ -21077,7 +21205,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; |m − 1| at least 5",
     "layer": 1,
     "main": 0,
-    "bits": 0.1645
+    "bits": 0.164
    },
    {
     "score": [
@@ -21086,7 +21214,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 16",
     "layer": 0,
     "main": 1,
-    "bits": 0.1675
+    "bits": 0.1661
    },
    {
     "score": [
@@ -21096,7 +21224,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 16; |m − 1| at least 1/2",
     "layer": 1,
     "main": 1,
-    "bits": 0.1675
+    "bits": 0.1661
    },
    {
     "score": [
@@ -21106,7 +21234,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 16; |m − 1| at least 2",
     "layer": 1,
     "main": 1,
-    "bits": 0.2553
+    "bits": 0.2604
    },
    {
     "score": [
@@ -21116,7 +21244,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 16; |m − 1| at least 5",
     "layer": 1,
     "main": 1,
-    "bits": 0.2737
+    "bits": 0.2795
    },
    {
     "score": [
@@ -21125,7 +21253,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 8",
     "layer": 0,
     "main": 2,
-    "bits": 0.2846
+    "bits": 0.2876
    },
    {
     "score": [
@@ -21135,7 +21263,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 8; |m − 1| at least 1/2",
     "layer": 1,
     "main": 2,
-    "bits": 0.2846
+    "bits": 0.2876
    },
    {
     "score": [
@@ -21145,7 +21273,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 8; |m − 1| at least 2",
     "layer": 1,
     "main": 2,
-    "bits": 1.3462
+    "bits": 1.3617
    },
    {
     "score": [
@@ -21155,7 +21283,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 8; |m − 1| at least 5",
     "layer": 1,
     "main": 2,
-    "bits": 1.9796
+    "bits": 2.0086
    },
    {
     "score": [
@@ -21164,7 +21292,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 4",
     "layer": 0,
     "main": 3,
-    "bits": 3.6097
+    "bits": 3.5655
    },
    {
     "score": [
@@ -21174,7 +21302,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 4; |m − 1| at least 1/2",
     "layer": 1,
     "main": 3,
-    "bits": 3.6097
+    "bits": 3.5655
    },
    {
     "score": [
@@ -21184,7 +21312,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 4; |m − 1| at least 2",
     "layer": 1,
     "main": 3,
-    "bits": 4.4317
+    "bits": 4.4762
    },
    {
     "score": [
@@ -21194,7 +21322,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 4; |m − 1| at least 5",
     "layer": 1,
     "main": 3,
-    "bits": 4.67
+    "bits": 4.7376
    },
    {
     "score": [
@@ -21203,7 +21331,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 2",
     "layer": 0,
     "main": 4,
-    "bits": 4.8026
+    "bits": 4.8602
    },
    {
     "score": [
@@ -21213,7 +21341,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 2; |m − 1| at least 1/2",
     "layer": 1,
     "main": 4,
-    "bits": 4.8026
+    "bits": 4.8602
    },
    {
     "score": [
@@ -21223,7 +21351,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 2; |m − 1| at least 2",
     "layer": 1,
     "main": 4,
-    "bits": 5.4301
+    "bits": 5.5105
    },
    {
     "score": [
@@ -21233,7 +21361,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 2; |m − 1| at least 5",
     "layer": 1,
     "main": 4,
-    "bits": 5.5812
+    "bits": 5.7039
    },
    {
     "score": [
@@ -21242,7 +21370,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 1",
     "layer": 0,
     "main": 5,
-    "bits": 5.6559
+    "bits": 5.7778
    },
    {
     "score": [
@@ -21252,7 +21380,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 1; |m − 1| at least 1/2",
     "layer": 1,
     "main": 5,
-    "bits": 5.6559
+    "bits": 5.7778
    },
    {
     "score": [
@@ -21262,7 +21390,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 1; |m − 1| at least 2",
     "layer": 1,
     "main": 5,
-    "bits": 6.7847
+    "bits": 6.8396
    },
    {
     "score": [
@@ -21272,7 +21400,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 1; |m − 1| at least 5",
     "layer": 1,
     "main": 5,
-    "bits": 7.0477
+    "bits": 7.0876
    },
    {
     "score": [
@@ -21281,7 +21409,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 1/2",
     "layer": 0,
     "main": 6,
-    "bits": 7.1847
+    "bits": 7.1922
    },
    {
     "score": [
@@ -21291,7 +21419,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 1/2; |m − 1| at least 1/2",
     "layer": 1,
     "main": 6,
-    "bits": 7.1847
+    "bits": 7.1922
    },
    {
     "score": [
@@ -21301,7 +21429,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 1/2; |m − 1| at least 2",
     "layer": 1,
     "main": 6,
-    "bits": 7.1847
+    "bits": 7.1922
    },
    {
     "score": [
@@ -21311,7 +21439,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 1/2; |m − 1| at least 5",
     "layer": 1,
     "main": 6,
-    "bits": 7.2024
+    "bits": 7.2186
    },
    {
     "score": [
@@ -21320,7 +21448,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 1/4",
     "layer": 0,
     "main": 7,
-    "bits": 7.2229
+    "bits": 7.2595
    },
    {
     "score": [
@@ -21330,7 +21458,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 1/4; |m − 1| at least 1/2",
     "layer": 1,
     "main": 7,
-    "bits": 7.2229
+    "bits": 7.2595
    },
    {
     "score": [
@@ -21340,7 +21468,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 1/4; |m − 1| at least 2",
     "layer": 1,
     "main": 7,
-    "bits": 7.2229
+    "bits": 7.2595
    },
    {
     "score": [
@@ -21350,7 +21478,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 1/4; |m − 1| at least 5",
     "layer": 1,
     "main": 7,
-    "bits": 7.2389
+    "bits": 7.275
    },
    {
     "score": [
@@ -21359,7 +21487,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly",
     "layer": 0,
     "main": 8,
-    "bits": 7.2461
+    "bits": 7.2915
    },
    {
     "score": [
@@ -21369,7 +21497,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; |m − 1| at least 1/4",
     "layer": 1,
     "main": 8,
-    "bits": 7.2461
+    "bits": 7.2915
    },
    {
     "score": [
@@ -21379,7 +21507,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; |m − 1| at least 1/2",
     "layer": 1,
     "main": 8,
-    "bits": 7.2461
+    "bits": 7.2915
    },
    {
     "score": [
@@ -21389,7 +21517,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; |m − 1| at least 1",
     "layer": 1,
     "main": 8,
-    "bits": 7.2461
+    "bits": 7.2915
    },
    {
     "score": [
@@ -21399,7 +21527,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; |m − 1| at least 2",
     "layer": 1,
     "main": 8,
-    "bits": 10.3273
+    "bits": 10.4898
    },
    {
     "score": [
@@ -21409,7 +21537,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; |m − 1| at least 3",
     "layer": 1,
     "main": 8,
-    "bits": 11.9122
+    "bits": 11.8341
    },
    {
     "score": [
@@ -21419,7 +21547,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; |m − 1| at least 5",
     "layer": 1,
     "main": 8,
-    "bits": 13.5202
+    "bits": 13.8696
    },
    {
     "score": [
@@ -21429,7 +21557,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; |m − 1| at least 8",
     "layer": 1,
     "main": 8,
-    "bits": 15.0403
+    "bits": 15.2014
    }
   ]
  },
@@ -21441,12 +21569,14 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
    "T": 6
   },
   "tieBreaker": "whole-lamp",
-  "status": "unconverged",
-  "cap": 31,
+  "status": "converged",
+  "cap": 37,
+  "convergedCap": 37,
+  "tail": null,
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "15d0346bf1bcfba6",
+  "contentHash": "19e5149ce3b672d0",
   "rungs": [
    {
     "score": null,
@@ -21492,7 +21622,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 16",
     "layer": 0,
     "main": 1,
-    "bits": 0.1671
+    "bits": 0.1689
    },
    {
     "score": [
@@ -21502,7 +21632,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 16; the lamp to whole within 1/4",
     "layer": 1,
     "main": 1,
-    "bits": 0.1824
+    "bits": 0.1833
    },
    {
     "score": [
@@ -21522,7 +21652,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 16; the lamp to whole within 1/16",
     "layer": 1,
     "main": 1,
-    "bits": 0.1932
+    "bits": 0.1924
    },
    {
     "score": [
@@ -21531,7 +21661,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 8",
     "layer": 0,
     "main": 2,
-    "bits": 0.2805
+    "bits": 0.289
    },
    {
     "score": [
@@ -21541,7 +21671,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 8; the lamp to whole within 1/4",
     "layer": 1,
     "main": 2,
-    "bits": 0.4892
+    "bits": 0.4982
    },
    {
     "score": [
@@ -21551,7 +21681,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 8; the lamp to whole within 1/8",
     "layer": 1,
     "main": 2,
-    "bits": 0.6614
+    "bits": 0.671
    },
    {
     "score": [
@@ -21561,7 +21691,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 8; the lamp to whole within 1/16",
     "layer": 1,
     "main": 2,
-    "bits": 0.7914
+    "bits": 0.7989
    },
    {
     "score": [
@@ -21570,7 +21700,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 4",
     "layer": 0,
     "main": 3,
-    "bits": 3.514
+    "bits": 3.554
    },
    {
     "score": [
@@ -21580,7 +21710,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 4; the lamp to whole within 1/4",
     "layer": 1,
     "main": 3,
-    "bits": 3.6207
+    "bits": 3.6569
    },
    {
     "score": [
@@ -21590,7 +21720,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 4; the lamp to whole within 1/8",
     "layer": 1,
     "main": 3,
-    "bits": 3.6649
+    "bits": 3.7003
    },
    {
     "score": [
@@ -21600,7 +21730,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 4; the lamp to whole within 1/16",
     "layer": 1,
     "main": 3,
-    "bits": 3.693
+    "bits": 3.7238
    },
    {
     "score": [
@@ -21609,7 +21739,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 2",
     "layer": 0,
     "main": 4,
-    "bits": 4.8523
+    "bits": 4.8097
    },
    {
     "score": [
@@ -21619,7 +21749,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 2; the lamp to whole within 1/4",
     "layer": 1,
     "main": 4,
-    "bits": 4.9328
+    "bits": 4.8987
    },
    {
     "score": [
@@ -21629,7 +21759,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 2; the lamp to whole within 1/8",
     "layer": 1,
     "main": 4,
-    "bits": 4.9631
+    "bits": 4.9301
    },
    {
     "score": [
@@ -21639,7 +21769,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 2; the lamp to whole within 1/16",
     "layer": 1,
     "main": 4,
-    "bits": 4.9785
+    "bits": 4.9424
    },
    {
     "score": [
@@ -21648,7 +21778,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 1",
     "layer": 0,
     "main": 5,
-    "bits": 5.6621
+    "bits": 5.7105
    },
    {
     "score": [
@@ -21658,7 +21788,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 1; the lamp to whole within 1/4",
     "layer": 1,
     "main": 5,
-    "bits": 5.7393
+    "bits": 5.7928
    },
    {
     "score": [
@@ -21668,7 +21798,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 1; the lamp to whole within 1/8",
     "layer": 1,
     "main": 5,
-    "bits": 5.7843
+    "bits": 5.8327
    },
    {
     "score": [
@@ -21678,7 +21808,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 1; the lamp to whole within 1/16",
     "layer": 1,
     "main": 5,
-    "bits": 5.805
+    "bits": 5.8467
    },
    {
     "score": [
@@ -21687,7 +21817,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 1/2",
     "layer": 0,
     "main": 6,
-    "bits": 7.1696
+    "bits": 7.121
    },
    {
     "score": [
@@ -21697,7 +21827,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 1/2; the lamp to whole within 1/4",
     "layer": 1,
     "main": 6,
-    "bits": 7.1969
+    "bits": 7.1593
    },
    {
     "score": [
@@ -21707,7 +21837,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 1/2; the lamp to whole within 1/8",
     "layer": 1,
     "main": 6,
-    "bits": 7.231
+    "bits": 7.1907
    },
    {
     "score": [
@@ -21717,7 +21847,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 1/2; the lamp to whole within 1/16",
     "layer": 1,
     "main": 6,
-    "bits": 7.2449
+    "bits": 7.2015
    },
    {
     "score": [
@@ -21726,7 +21856,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 1/4",
     "layer": 0,
     "main": 7,
-    "bits": 7.2458
+    "bits": 7.2145
    },
    {
     "score": [
@@ -21736,7 +21866,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 1/4; the lamp to whole within 1/4",
     "layer": 1,
     "main": 7,
-    "bits": 7.2458
+    "bits": 7.2145
    },
    {
     "score": [
@@ -21746,7 +21876,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 1/4; the lamp to whole within 1/8",
     "layer": 1,
     "main": 7,
-    "bits": 7.2515
+    "bits": 7.2212
    },
    {
     "score": [
@@ -21756,7 +21886,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 1/4; the lamp to whole within 1/16",
     "layer": 1,
     "main": 7,
-    "bits": 7.2682
+    "bits": 7.2291
    },
    {
     "score": [
@@ -21765,7 +21895,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly",
     "layer": 0,
     "main": 8,
-    "bits": 7.2747
+    "bits": 7.2411
    },
    {
     "score": [
@@ -21775,7 +21905,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; the lamp to whole within 1/2",
     "layer": 1,
     "main": 8,
-    "bits": 7.2747
+    "bits": 7.2411
    },
    {
     "score": [
@@ -21785,7 +21915,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; the lamp to whole within 1/4",
     "layer": 1,
     "main": 8,
-    "bits": 7.4265
+    "bits": 7.3891
    },
    {
     "score": [
@@ -21795,7 +21925,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; the lamp to whole within 1/8",
     "layer": 1,
     "main": 8,
-    "bits": 7.4465
+    "bits": 7.4213
    },
    {
     "score": [
@@ -21805,7 +21935,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; the lamp to whole within 1/16",
     "layer": 1,
     "main": 8,
-    "bits": 7.4503
+    "bits": 7.4242
    },
    {
     "score": [
@@ -21815,7 +21945,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; the lamp to whole exactly",
     "layer": 1,
     "main": 8,
-    "bits": 7.4504
+    "bits": 7.4264
    }
   ]
  },
@@ -21828,11 +21958,13 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   },
   "tieBreaker": "whole-values",
   "status": "too-coarse",
-  "cap": 8,
+  "cap": 43,
+  "convergedCap": 43,
+  "tail": null,
   "dealable": false,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "493e05af7163a899",
+  "contentHash": "027d660f7f7b639d",
   "rungs": [
    {
     "score": null,
@@ -21849,7 +21981,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; different whole values at least 3",
     "layer": 1,
     "main": 0,
-    "bits": 0.1471
+    "bits": 0.1498
    },
    {
     "score": [
@@ -21859,7 +21991,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; different whole values at least 6",
     "layer": 1,
     "main": 0,
-    "bits": 0.1471
+    "bits": 0.1498
    },
    {
     "score": [
@@ -21869,7 +22001,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; different whole values at least 9",
     "layer": 1,
     "main": 0,
-    "bits": 0.1471
+    "bits": 0.1498
    },
    {
     "score": [
@@ -21878,7 +22010,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 16",
     "layer": 0,
     "main": 1,
-    "bits": 0.1596
+    "bits": 0.1614
    },
    {
     "score": [
@@ -21888,7 +22020,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 16; different whole values at least 3",
     "layer": 1,
     "main": 1,
-    "bits": 0.2482
+    "bits": 0.2477
    },
    {
     "score": [
@@ -21898,7 +22030,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 16; different whole values at least 6",
     "layer": 1,
     "main": 1,
-    "bits": 0.2482
+    "bits": 0.2477
    },
    {
     "score": [
@@ -21908,7 +22040,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 16; different whole values at least 9",
     "layer": 1,
     "main": 1,
-    "bits": 0.2482
+    "bits": 0.2477
    },
    {
     "score": [
@@ -21917,7 +22049,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 8",
     "layer": 0,
     "main": 2,
-    "bits": 0.2827
+    "bits": 0.2792
    },
    {
     "score": [
@@ -21927,7 +22059,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 8; different whole values at least 3",
     "layer": 1,
     "main": 2,
-    "bits": 1.2681
+    "bits": 1.2815
    },
    {
     "score": [
@@ -21937,7 +22069,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 8; different whole values at least 6",
     "layer": 1,
     "main": 2,
-    "bits": 1.2681
+    "bits": 1.2815
    },
    {
     "score": [
@@ -21947,7 +22079,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 8; different whole values at least 9",
     "layer": 1,
     "main": 2,
-    "bits": 1.2681
+    "bits": 1.2815
    },
    {
     "score": [
@@ -21956,7 +22088,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 4",
     "layer": 0,
     "main": 3,
-    "bits": 3.5227
+    "bits": 3.5705
    },
    {
     "score": [
@@ -21966,7 +22098,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 4; different whole values at least 3",
     "layer": 1,
     "main": 3,
-    "bits": 4.3627
+    "bits": 4.4229
    },
    {
     "score": [
@@ -21976,7 +22108,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 4; different whole values at least 6",
     "layer": 1,
     "main": 3,
-    "bits": 4.3627
+    "bits": 4.4229
    },
    {
     "score": [
@@ -21986,7 +22118,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 4; different whole values at least 9",
     "layer": 1,
     "main": 3,
-    "bits": 4.3627
+    "bits": 4.4229
    },
    {
     "score": [
@@ -21995,7 +22127,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 2",
     "layer": 0,
     "main": 4,
-    "bits": 4.7865
+    "bits": 4.856
    },
    {
     "score": [
@@ -22005,7 +22137,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 2; different whole values at least 3",
     "layer": 1,
     "main": 4,
-    "bits": 5.4729
+    "bits": 5.5246
    },
    {
     "score": [
@@ -22015,7 +22147,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 2; different whole values at least 6",
     "layer": 1,
     "main": 4,
-    "bits": 5.4729
+    "bits": 5.5246
    },
    {
     "score": [
@@ -22025,7 +22157,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 2; different whole values at least 9",
     "layer": 1,
     "main": 4,
-    "bits": 5.4729
+    "bits": 5.5246
    },
    {
     "score": [
@@ -22034,7 +22166,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 1",
     "layer": 0,
     "main": 5,
-    "bits": 5.7642
+    "bits": 5.8006
    },
    {
     "score": [
@@ -22044,7 +22176,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 1; different whole values at least 3",
     "layer": 1,
     "main": 5,
-    "bits": 6.6672
+    "bits": 6.7516
    },
    {
     "score": [
@@ -22054,7 +22186,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 1; different whole values at least 6",
     "layer": 1,
     "main": 5,
-    "bits": 6.6672
+    "bits": 6.7516
    },
    {
     "score": [
@@ -22064,7 +22196,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 1; different whole values at least 9",
     "layer": 1,
     "main": 5,
-    "bits": 6.6672
+    "bits": 6.7516
    },
    {
     "score": [
@@ -22073,7 +22205,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 1/2",
     "layer": 0,
     "main": 6,
-    "bits": 7.0388
+    "bits": 7.1197
    },
    {
     "score": [
@@ -22083,7 +22215,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 1/2; different whole values at least 3",
     "layer": 1,
     "main": 6,
-    "bits": 7.0388
+    "bits": 7.1197
    },
    {
     "score": [
@@ -22093,7 +22225,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 1/2; different whole values at least 6",
     "layer": 1,
     "main": 6,
-    "bits": 7.0388
+    "bits": 7.1197
    },
    {
     "score": [
@@ -22103,7 +22235,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 1/2; different whole values at least 9",
     "layer": 1,
     "main": 6,
-    "bits": 7.0388
+    "bits": 7.1197
    },
    {
     "score": [
@@ -22112,7 +22244,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 1/4",
     "layer": 0,
     "main": 7,
-    "bits": 7.1084
+    "bits": 7.1774
    },
    {
     "score": [
@@ -22122,7 +22254,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 1/4; different whole values at least 3",
     "layer": 1,
     "main": 7,
-    "bits": 7.1084
+    "bits": 7.1774
    },
    {
     "score": [
@@ -22132,7 +22264,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 1/4; different whole values at least 6",
     "layer": 1,
     "main": 7,
-    "bits": 7.1084
+    "bits": 7.1774
    },
    {
     "score": [
@@ -22142,7 +22274,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T within 1/4; different whole values at least 9",
     "layer": 1,
     "main": 7,
-    "bits": 7.1084
+    "bits": 7.1774
    },
    {
     "score": [
@@ -22151,7 +22283,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly",
     "layer": 0,
     "main": 8,
-    "bits": 7.1335
+    "bits": 7.205
    },
    {
     "score": [
@@ -22161,7 +22293,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; different whole values at least 1",
     "layer": 1,
     "main": 8,
-    "bits": 7.1335
+    "bits": 7.205
    },
    {
     "score": [
@@ -22171,7 +22303,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; different whole values at least 2",
     "layer": 1,
     "main": 8,
-    "bits": 9.5429
+    "bits": 9.8969
    },
    {
     "score": [
@@ -22181,7 +22313,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; different whole values at least 3",
     "layer": 1,
     "main": 8,
-    "bits": 9.5429
+    "bits": 9.8969
    },
    {
     "score": [
@@ -22191,7 +22323,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; different whole values at least 4",
     "layer": 1,
     "main": 8,
-    "bits": 9.5429
+    "bits": 9.8969
    },
    {
     "score": [
@@ -22201,7 +22333,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; different whole values at least 5",
     "layer": 1,
     "main": 8,
-    "bits": 9.5429
+    "bits": 9.8969
    },
    {
     "score": [
@@ -22211,7 +22343,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; different whole values at least 6",
     "layer": 1,
     "main": 8,
-    "bits": 9.5429
+    "bits": 9.8969
    },
    {
     "score": [
@@ -22221,7 +22353,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; different whole values at least 7",
     "layer": 1,
     "main": 8,
-    "bits": 9.5429
+    "bits": 9.8969
    },
    {
     "score": [
@@ -22231,7 +22363,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; different whole values at least 8",
     "layer": 1,
     "main": 8,
-    "bits": 9.5429
+    "bits": 9.8969
    },
    {
     "score": [
@@ -22241,7 +22373,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; different whole values at least 9",
     "layer": 1,
     "main": 8,
-    "bits": 9.5429
+    "bits": 9.8969
    },
    {
     "score": [
@@ -22251,7 +22383,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; different whole values at least 10",
     "layer": 1,
     "main": 8,
-    "bits": 9.5429
+    "bits": 9.8969
    },
    {
     "score": [
@@ -22261,7 +22393,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the unchanged number to T exactly; different whole values at least 11",
     "layer": 1,
     "main": 8,
-    "bits": 9.5429
+    "bits": 9.8969
    }
   ]
  },
@@ -22272,11 +22404,27 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "params": {},
   "tieBreaker": "lpf",
   "status": "unconverged",
-  "cap": 0,
-  "dealable": false,
+  "cap": 44,
+  "convergedCap": 41,
+  "tail": {
+   "from": 42,
+   "bits": [
+    13.2031,
+    15.0938,
+    15.9453
+   ],
+   "curve": {
+    "model": "quadratic-count",
+    "alpha": 5.33203125,
+    "beta": 0.70703125,
+    "gamma": -0.0078125,
+    "snapped": true
+   }
+  },
+  "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "dae9f76be1a1f0e9",
+  "contentHash": "30e6dd5221a1e149",
   "rungs": [
    {
     "score": null,
@@ -22293,7 +22441,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; the root's largest prime factor at least 5",
     "layer": 1,
     "main": 0,
-    "bits": 2.2199
+    "bits": 2.2933
    },
    {
     "score": [
@@ -22303,7 +22451,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; the root's largest prime factor at least 13",
     "layer": 1,
     "main": 0,
-    "bits": 2.2522
+    "bits": 2.3291
    },
    {
     "score": [
@@ -22313,7 +22461,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; the root's largest prime factor at least 23",
     "layer": 1,
     "main": 0,
-    "bits": 2.2648
+    "bits": 2.3425
    },
    {
     "score": [
@@ -22322,7 +22470,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 8",
     "layer": 0,
     "main": 1,
-    "bits": 2.2795
+    "bits": 2.3574
    },
    {
     "score": [
@@ -22332,7 +22480,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 8; the root's largest prime factor at least 5",
     "layer": 1,
     "main": 1,
-    "bits": 2.3225
+    "bits": 2.4021
    },
    {
     "score": [
@@ -22342,7 +22490,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 8; the root's largest prime factor at least 13",
     "layer": 1,
     "main": 1,
-    "bits": 2.3555
+    "bits": 2.4341
    },
    {
     "score": [
@@ -22352,7 +22500,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 8; the root's largest prime factor at least 23",
     "layer": 1,
     "main": 1,
-    "bits": 2.3651
+    "bits": 2.4432
    },
    {
     "score": [
@@ -22361,7 +22509,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 4",
     "layer": 0,
     "main": 2,
-    "bits": 2.3663
+    "bits": 2.4448
    },
    {
     "score": [
@@ -22371,7 +22519,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 4; the root's largest prime factor at least 5",
     "layer": 1,
     "main": 2,
-    "bits": 2.4821
+    "bits": 2.5513
    },
    {
     "score": [
@@ -22381,7 +22529,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 4; the root's largest prime factor at least 13",
     "layer": 1,
     "main": 2,
-    "bits": 2.5052
+    "bits": 2.5733
    },
    {
     "score": [
@@ -22391,7 +22539,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 4; the root's largest prime factor at least 23",
     "layer": 1,
     "main": 2,
-    "bits": 2.5144
+    "bits": 2.5805
    },
    {
     "score": [
@@ -22400,7 +22548,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 2",
     "layer": 0,
     "main": 3,
-    "bits": 2.5153
+    "bits": 2.5822
    },
    {
     "score": [
@@ -22410,7 +22558,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 2; the root's largest prime factor at least 5",
     "layer": 1,
     "main": 3,
-    "bits": 2.6863
+    "bits": 2.7388
    },
    {
     "score": [
@@ -22420,7 +22568,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 2; the root's largest prime factor at least 13",
     "layer": 1,
     "main": 3,
-    "bits": 2.6979
+    "bits": 2.7488
    },
    {
     "score": [
@@ -22430,7 +22578,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 2; the root's largest prime factor at least 23",
     "layer": 1,
     "main": 3,
-    "bits": 2.6985
+    "bits": 2.7496
    },
    {
     "score": [
@@ -22439,7 +22587,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1",
     "layer": 0,
     "main": 4,
-    "bits": 2.6985
+    "bits": 2.7496
    },
    {
     "score": [
@@ -22449,7 +22597,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1; the root's largest prime factor at least 5",
     "layer": 1,
     "main": 4,
-    "bits": 2.9453
+    "bits": 2.979
    },
    {
     "score": [
@@ -22459,7 +22607,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1; the root's largest prime factor at least 13",
     "layer": 1,
     "main": 4,
-    "bits": 2.9721
+    "bits": 3.0052
    },
    {
     "score": [
@@ -22469,7 +22617,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1; the root's largest prime factor at least 23",
     "layer": 1,
     "main": 4,
-    "bits": 2.9778
+    "bits": 3.013
    },
    {
     "score": [
@@ -22478,7 +22626,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/2",
     "layer": 0,
     "main": 5,
-    "bits": 2.9779
+    "bits": 3.0131
    },
    {
     "score": [
@@ -22488,7 +22636,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/2; the root's largest prime factor at least 5",
     "layer": 1,
     "main": 5,
-    "bits": 3.623
+    "bits": 3.6608
    },
    {
     "score": [
@@ -22498,7 +22646,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/2; the root's largest prime factor at least 13",
     "layer": 1,
     "main": 5,
-    "bits": 3.6563
+    "bits": 3.6906
    },
    {
     "score": [
@@ -22508,7 +22656,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/2; the root's largest prime factor at least 23",
     "layer": 1,
     "main": 5,
-    "bits": 3.6563
+    "bits": 3.6906
    },
    {
     "score": [
@@ -22517,7 +22665,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/4",
     "layer": 0,
     "main": 6,
-    "bits": 3.6563
+    "bits": 3.6906
    },
    {
     "score": [
@@ -22527,7 +22675,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/4; the root's largest prime factor at least 5",
     "layer": 1,
     "main": 6,
-    "bits": 4.2157
+    "bits": 4.2269
    },
    {
     "score": [
@@ -22537,7 +22685,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/4; the root's largest prime factor at least 13",
     "layer": 1,
     "main": 6,
-    "bits": 4.2168
+    "bits": 4.2277
    },
    {
     "score": [
@@ -22547,7 +22695,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/4; the root's largest prime factor at least 23",
     "layer": 1,
     "main": 6,
-    "bits": 4.2174
+    "bits": 4.2296
    },
    {
     "score": [
@@ -22556,7 +22704,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/8",
     "layer": 0,
     "main": 7,
-    "bits": 4.2176
+    "bits": 4.2297
    },
    {
     "score": [
@@ -22566,7 +22714,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/8; the root's largest prime factor at least 5",
     "layer": 1,
     "main": 7,
-    "bits": 4.8136
+    "bits": 4.8263
    },
    {
     "score": [
@@ -22576,7 +22724,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/8; the root's largest prime factor at least 13",
     "layer": 1,
     "main": 7,
-    "bits": 4.8136
+    "bits": 4.8269
    },
    {
     "score": [
@@ -22586,7 +22734,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/8; the root's largest prime factor at least 23",
     "layer": 1,
     "main": 7,
-    "bits": 4.8136
+    "bits": 4.8269
    },
    {
     "score": [
@@ -22595,7 +22743,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/16",
     "layer": 0,
     "main": 8,
-    "bits": 4.8138
+    "bits": 4.8271
    },
    {
     "score": [
@@ -22605,7 +22753,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/16; the root's largest prime factor at least 5",
     "layer": 1,
     "main": 8,
-    "bits": 6.1287
+    "bits": 6.139
    },
    {
     "score": [
@@ -22615,7 +22763,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/16; the root's largest prime factor at least 13",
     "layer": 1,
     "main": 8,
-    "bits": 6.1287
+    "bits": 6.1415
    },
    {
     "score": [
@@ -22625,7 +22773,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/16; the root's largest prime factor at least 23",
     "layer": 1,
     "main": 8,
-    "bits": 6.1287
+    "bits": 6.1415
    },
    {
     "score": [
@@ -22634,7 +22782,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square exactly",
     "layer": 0,
     "main": 9,
-    "bits": 6.1287
+    "bits": 6.1415
    },
    {
     "score": [
@@ -22644,7 +22792,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square exactly; the root's largest prime factor at least 2",
     "layer": 1,
     "main": 9,
-    "bits": 6.682
+    "bits": 6.7034
    },
    {
     "score": [
@@ -22654,7 +22802,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square exactly; the root's largest prime factor at least 3",
     "layer": 1,
     "main": 9,
-    "bits": 7.5134
+    "bits": 7.4615
    },
    {
     "score": [
@@ -22664,7 +22812,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square exactly; the root's largest prime factor at least 5",
     "layer": 1,
     "main": 9,
-    "bits": 8.9427
+    "bits": 8.6207
    },
    {
     "score": [
@@ -22674,7 +22822,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square exactly; the root's largest prime factor at least 7",
     "layer": 1,
     "main": 9,
-    "bits": 10.2796
+    "bits": 10.0869
    },
    {
     "score": [
@@ -22684,7 +22832,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square exactly; the root's largest prime factor at least 11",
     "layer": 1,
     "main": 9,
-    "bits": 12.6878
+    "bits": 12.2383
    },
    {
     "score": [
@@ -22694,7 +22842,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square exactly; the root's largest prime factor at least 13",
     "layer": 1,
     "main": 9,
-    "bits": 14.1731
+    "bits": 13.5009
    },
    {
     "score": [
@@ -22704,7 +22852,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square exactly; the root's largest prime factor at least 17",
     "layer": 1,
     "main": 9,
-    "bits": 15.5506
+    "bits": 14.7128
    },
    {
     "score": [
@@ -22714,7 +22862,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square exactly; the root's largest prime factor at least 19",
     "layer": 1,
     "main": 9,
-    "bits": 16.9535
+    "bits": 17.4187
    },
    {
     "score": [
@@ -22724,7 +22872,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square exactly; the root's largest prime factor at least 23",
     "layer": 1,
     "main": 9,
-    "bits": 22.3651
+    "bits": 23.4657
    },
    {
     "score": [
@@ -22734,7 +22882,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square exactly; the root's largest prime factor at least 29",
     "layer": 1,
     "main": 9,
-    "bits": 26.8828
+    "bits": 25.9648
    },
    {
     "score": [
@@ -22744,7 +22892,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square exactly; the root's largest prime factor at least 31",
     "layer": 1,
     "main": 9,
-    "bits": 30.2707
+    "bits": 30.3165
    }
   ]
  },
@@ -22755,11 +22903,27 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "params": {},
   "tieBreaker": "omega",
   "status": "unconverged",
-  "cap": 37,
+  "cap": 43,
+  "convergedCap": 40,
+  "tail": {
+   "from": 41,
+   "bits": [
+    12.3203,
+    14.3711,
+    16.6797
+   ],
+   "curve": {
+    "model": "quadratic-count",
+    "alpha": 5.93359375,
+    "beta": 0.6328125,
+    "gamma": 0.12890625,
+    "snapped": true
+   }
+  },
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "582bab435c6f9c71",
+  "contentHash": "1f7acfdf71f0cbcf",
   "rungs": [
    {
     "score": null,
@@ -22776,7 +22940,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; prime factors of the root at least 2",
     "layer": 1,
     "main": 0,
-    "bits": 2.2469
+    "bits": 2.3043
    },
    {
     "score": [
@@ -22786,7 +22950,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; prime factors of the root at least 4",
     "layer": 1,
     "main": 0,
-    "bits": 2.2991
+    "bits": 2.3509
    },
    {
     "score": [
@@ -22796,7 +22960,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; prime factors of the root at least 6",
     "layer": 1,
     "main": 0,
-    "bits": 2.3092
+    "bits": 2.3597
    },
    {
     "score": [
@@ -22805,7 +22969,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 8",
     "layer": 0,
     "main": 1,
-    "bits": 2.3101
+    "bits": 2.3608
    },
    {
     "score": [
@@ -22815,7 +22979,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 8; prime factors of the root at least 2",
     "layer": 1,
     "main": 1,
-    "bits": 2.3388
+    "bits": 2.3927
    },
    {
     "score": [
@@ -22825,7 +22989,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 8; prime factors of the root at least 4",
     "layer": 1,
     "main": 1,
-    "bits": 2.3978
+    "bits": 2.4482
    },
    {
     "score": [
@@ -22835,7 +22999,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 8; prime factors of the root at least 6",
     "layer": 1,
     "main": 1,
-    "bits": 2.3986
+    "bits": 2.4494
    },
    {
     "score": [
@@ -22844,7 +23008,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 4",
     "layer": 0,
     "main": 2,
-    "bits": 2.3986
+    "bits": 2.4494
    },
    {
     "score": [
@@ -22854,7 +23018,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 4; prime factors of the root at least 2",
     "layer": 1,
     "main": 2,
-    "bits": 2.476
+    "bits": 2.5276
    },
    {
     "score": [
@@ -22864,7 +23028,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 4; prime factors of the root at least 4",
     "layer": 1,
     "main": 2,
-    "bits": 2.5331
+    "bits": 2.5877
    },
    {
     "score": [
@@ -22874,7 +23038,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 4; prime factors of the root at least 6",
     "layer": 1,
     "main": 2,
-    "bits": 2.5345
+    "bits": 2.589
    },
    {
     "score": [
@@ -22883,7 +23047,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 2",
     "layer": 0,
     "main": 3,
-    "bits": 2.5345
+    "bits": 2.589
    },
    {
     "score": [
@@ -22893,7 +23057,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 2; prime factors of the root at least 2",
     "layer": 1,
     "main": 3,
-    "bits": 2.638
+    "bits": 2.7057
    },
    {
     "score": [
@@ -22903,7 +23067,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 2; prime factors of the root at least 4",
     "layer": 1,
     "main": 3,
-    "bits": 2.6822
+    "bits": 2.7529
    },
    {
     "score": [
@@ -22913,7 +23077,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 2; prime factors of the root at least 6",
     "layer": 1,
     "main": 3,
-    "bits": 2.6825
+    "bits": 2.753
    },
    {
     "score": [
@@ -22922,7 +23086,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1",
     "layer": 0,
     "main": 4,
-    "bits": 2.6825
+    "bits": 2.753
    },
    {
     "score": [
@@ -22932,7 +23096,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1; prime factors of the root at least 2",
     "layer": 1,
     "main": 4,
-    "bits": 2.9376
+    "bits": 3.0101
    },
    {
     "score": [
@@ -22942,7 +23106,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1; prime factors of the root at least 4",
     "layer": 1,
     "main": 4,
-    "bits": 2.9485
+    "bits": 3.0224
    },
    {
     "score": [
@@ -22952,7 +23116,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1; prime factors of the root at least 6",
     "layer": 1,
     "main": 4,
-    "bits": 2.9485
+    "bits": 3.0226
    },
    {
     "score": [
@@ -22961,7 +23125,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/2",
     "layer": 0,
     "main": 5,
-    "bits": 2.9485
+    "bits": 3.0226
    },
    {
     "score": [
@@ -22971,7 +23135,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/2; prime factors of the root at least 2",
     "layer": 1,
     "main": 5,
-    "bits": 3.6168
+    "bits": 3.7153
    },
    {
     "score": [
@@ -22981,7 +23145,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/2; prime factors of the root at least 4",
     "layer": 1,
     "main": 5,
-    "bits": 3.6248
+    "bits": 3.723
    },
    {
     "score": [
@@ -22991,7 +23155,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/2; prime factors of the root at least 6",
     "layer": 1,
     "main": 5,
-    "bits": 3.6248
+    "bits": 3.7232
    },
    {
     "score": [
@@ -23000,7 +23164,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/4",
     "layer": 0,
     "main": 6,
-    "bits": 3.6248
+    "bits": 3.7232
    },
    {
     "score": [
@@ -23010,7 +23174,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/4; prime factors of the root at least 2",
     "layer": 1,
     "main": 6,
-    "bits": 4.1959
+    "bits": 4.2958
    },
    {
     "score": [
@@ -23020,7 +23184,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/4; prime factors of the root at least 4",
     "layer": 1,
     "main": 6,
-    "bits": 4.2011
+    "bits": 4.299
    },
    {
     "score": [
@@ -23030,7 +23194,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/4; prime factors of the root at least 6",
     "layer": 1,
     "main": 6,
-    "bits": 4.2011
+    "bits": 4.299
    },
    {
     "score": [
@@ -23039,7 +23203,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/8",
     "layer": 0,
     "main": 7,
-    "bits": 4.2011
+    "bits": 4.299
    },
    {
     "score": [
@@ -23049,7 +23213,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/8; prime factors of the root at least 2",
     "layer": 1,
     "main": 7,
-    "bits": 4.8374
+    "bits": 4.9203
    },
    {
     "score": [
@@ -23059,7 +23223,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/8; prime factors of the root at least 4",
     "layer": 1,
     "main": 7,
-    "bits": 4.8419
+    "bits": 4.9265
    },
    {
     "score": [
@@ -23069,7 +23233,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/8; prime factors of the root at least 6",
     "layer": 1,
     "main": 7,
-    "bits": 4.8419
+    "bits": 4.9265
    },
    {
     "score": [
@@ -23078,7 +23242,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/16",
     "layer": 0,
     "main": 8,
-    "bits": 4.8419
+    "bits": 4.9265
    },
    {
     "score": [
@@ -23088,7 +23252,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/16; prime factors of the root at least 2",
     "layer": 1,
     "main": 8,
-    "bits": 6.0274
+    "bits": 6.1159
    },
    {
     "score": [
@@ -23098,7 +23262,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/16; prime factors of the root at least 4",
     "layer": 1,
     "main": 8,
-    "bits": 6.0281
+    "bits": 6.1173
    },
    {
     "score": [
@@ -23108,7 +23272,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/16; prime factors of the root at least 6",
     "layer": 1,
     "main": 8,
-    "bits": 6.0281
+    "bits": 6.1173
    },
    {
     "score": [
@@ -23117,7 +23281,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square exactly",
     "layer": 0,
     "main": 9,
-    "bits": 6.0281
+    "bits": 6.1173
    },
    {
     "score": [
@@ -23127,7 +23291,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square exactly; prime factors of the root at least 1",
     "layer": 1,
     "main": 9,
-    "bits": 6.5902
+    "bits": 6.6974
    },
    {
     "score": [
@@ -23137,7 +23301,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square exactly; prime factors of the root at least 2",
     "layer": 1,
     "main": 9,
-    "bits": 7.6743
+    "bits": 7.7016
    },
    {
     "score": [
@@ -23147,7 +23311,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square exactly; prime factors of the root at least 3",
     "layer": 1,
     "main": 9,
-    "bits": 8.8678
+    "bits": 9.0256
    },
    {
     "score": [
@@ -23157,7 +23321,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square exactly; prime factors of the root at least 4",
     "layer": 1,
     "main": 9,
-    "bits": 10.2854
+    "bits": 10.4898
    },
    {
     "score": [
@@ -23167,7 +23331,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square exactly; prime factors of the root at least 5",
     "layer": 1,
     "main": 9,
-    "bits": 11.6657
+    "bits": 12.0711
    },
    {
     "score": [
@@ -23177,7 +23341,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square exactly; prime factors of the root at least 6",
     "layer": 1,
     "main": 9,
-    "bits": 13.5716
+    "bits": 13.681
    },
    {
     "score": [
@@ -23187,7 +23351,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square exactly; prime factors of the root at least 7",
     "layer": 1,
     "main": 9,
-    "bits": 21.0535
+    "bits": 15.4003
    }
   ]
  },
@@ -23198,11 +23362,13 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "params": {},
   "tieBreaker": "spf",
   "status": "unconverged",
-  "cap": 38,
+  "cap": 40,
+  "convergedCap": 40,
+  "tail": null,
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "4f32a6a305eafa92",
+  "contentHash": "b6fbcd640e035d3e",
   "rungs": [
    {
     "score": null,
@@ -23219,7 +23385,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; the root's smallest prime factor at least 5",
     "layer": 1,
     "main": 0,
-    "bits": 2.3797
+    "bits": 2.3455
    },
    {
     "score": [
@@ -23229,7 +23395,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; the root's smallest prime factor at least 13",
     "layer": 1,
     "main": 0,
-    "bits": 2.3979
+    "bits": 2.3644
    },
    {
     "score": [
@@ -23239,7 +23405,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; the root's smallest prime factor at least 23",
     "layer": 1,
     "main": 0,
-    "bits": 2.4026
+    "bits": 2.3694
    },
    {
     "score": [
@@ -23248,7 +23414,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 8",
     "layer": 0,
     "main": 1,
-    "bits": 2.4104
+    "bits": 2.379
    },
    {
     "score": [
@@ -23258,7 +23424,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 8; the root's smallest prime factor at least 5",
     "layer": 1,
     "main": 1,
-    "bits": 2.4639
+    "bits": 2.4391
    },
    {
     "score": [
@@ -23268,7 +23434,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 8; the root's smallest prime factor at least 13",
     "layer": 1,
     "main": 1,
-    "bits": 2.4854
+    "bits": 2.4608
    },
    {
     "score": [
@@ -23278,7 +23444,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 8; the root's smallest prime factor at least 23",
     "layer": 1,
     "main": 1,
-    "bits": 2.4923
+    "bits": 2.4684
    },
    {
     "score": [
@@ -23287,7 +23453,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 4",
     "layer": 0,
     "main": 2,
-    "bits": 2.493
+    "bits": 2.4696
    },
    {
     "score": [
@@ -23297,7 +23463,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 4; the root's smallest prime factor at least 5",
     "layer": 1,
     "main": 2,
-    "bits": 2.6176
+    "bits": 2.5914
    },
    {
     "score": [
@@ -23307,7 +23473,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 4; the root's smallest prime factor at least 13",
     "layer": 1,
     "main": 2,
-    "bits": 2.6322
+    "bits": 2.603
    },
    {
     "score": [
@@ -23317,7 +23483,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 4; the root's smallest prime factor at least 23",
     "layer": 1,
     "main": 2,
-    "bits": 2.6384
+    "bits": 2.6086
    },
    {
     "score": [
@@ -23326,7 +23492,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 2",
     "layer": 0,
     "main": 3,
-    "bits": 2.6389
+    "bits": 2.609
    },
    {
     "score": [
@@ -23336,7 +23502,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 2; the root's smallest prime factor at least 5",
     "layer": 1,
     "main": 3,
-    "bits": 2.8087
+    "bits": 2.7782
    },
    {
     "score": [
@@ -23346,7 +23512,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 2; the root's smallest prime factor at least 13",
     "layer": 1,
     "main": 3,
-    "bits": 2.812
+    "bits": 2.7823
    },
    {
     "score": [
@@ -23356,7 +23522,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 2; the root's smallest prime factor at least 23",
     "layer": 1,
     "main": 3,
-    "bits": 2.8138
+    "bits": 2.7839
    },
    {
     "score": [
@@ -23365,7 +23531,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1",
     "layer": 0,
     "main": 4,
-    "bits": 2.8139
+    "bits": 2.7839
    },
    {
     "score": [
@@ -23375,7 +23541,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1; the root's smallest prime factor at least 5",
     "layer": 1,
     "main": 4,
-    "bits": 3.0329
+    "bits": 3.0152
    },
    {
     "score": [
@@ -23385,7 +23551,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1; the root's smallest prime factor at least 13",
     "layer": 1,
     "main": 4,
-    "bits": 3.0586
+    "bits": 3.0435
    },
    {
     "score": [
@@ -23395,7 +23561,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1; the root's smallest prime factor at least 23",
     "layer": 1,
     "main": 4,
-    "bits": 3.0658
+    "bits": 3.0525
    },
    {
     "score": [
@@ -23404,7 +23570,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/2",
     "layer": 0,
     "main": 5,
-    "bits": 3.0658
+    "bits": 3.0526
    },
    {
     "score": [
@@ -23414,7 +23580,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/2; the root's smallest prime factor at least 5",
     "layer": 1,
     "main": 5,
-    "bits": 3.6825
+    "bits": 3.701
    },
    {
     "score": [
@@ -23424,7 +23590,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/2; the root's smallest prime factor at least 13",
     "layer": 1,
     "main": 5,
-    "bits": 3.7189
+    "bits": 3.7338
    },
    {
     "score": [
@@ -23434,7 +23600,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/2; the root's smallest prime factor at least 23",
     "layer": 1,
     "main": 5,
-    "bits": 3.7191
+    "bits": 3.7339
    },
    {
     "score": [
@@ -23443,7 +23609,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/4",
     "layer": 0,
     "main": 6,
-    "bits": 3.7191
+    "bits": 3.7339
    },
    {
     "score": [
@@ -23453,7 +23619,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/4; the root's smallest prime factor at least 5",
     "layer": 1,
     "main": 6,
-    "bits": 4.2615
+    "bits": 4.2949
    },
    {
     "score": [
@@ -23463,7 +23629,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/4; the root's smallest prime factor at least 13",
     "layer": 1,
     "main": 6,
-    "bits": 4.2615
+    "bits": 4.2952
    },
    {
     "score": [
@@ -23473,7 +23639,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/4; the root's smallest prime factor at least 23",
     "layer": 1,
     "main": 6,
-    "bits": 4.2621
+    "bits": 4.2963
    },
    {
     "score": [
@@ -23482,7 +23648,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/8",
     "layer": 0,
     "main": 7,
-    "bits": 4.2623
+    "bits": 4.2965
    },
    {
     "score": [
@@ -23492,7 +23658,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/8; the root's smallest prime factor at least 5",
     "layer": 1,
     "main": 7,
-    "bits": 4.8707
+    "bits": 4.8855
    },
    {
     "score": [
@@ -23502,7 +23668,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/8; the root's smallest prime factor at least 13",
     "layer": 1,
     "main": 7,
-    "bits": 4.8707
+    "bits": 4.8865
    },
    {
     "score": [
@@ -23512,7 +23678,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/8; the root's smallest prime factor at least 23",
     "layer": 1,
     "main": 7,
-    "bits": 4.8707
+    "bits": 4.8865
    },
    {
     "score": [
@@ -23521,7 +23687,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/16",
     "layer": 0,
     "main": 8,
-    "bits": 4.8708
+    "bits": 4.8865
    },
    {
     "score": [
@@ -23531,7 +23697,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/16; the root's smallest prime factor at least 5",
     "layer": 1,
     "main": 8,
-    "bits": 6.1757
+    "bits": 6.1276
    },
    {
     "score": [
@@ -23541,7 +23707,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/16; the root's smallest prime factor at least 13",
     "layer": 1,
     "main": 8,
-    "bits": 6.1757
+    "bits": 6.1276
    },
    {
     "score": [
@@ -23551,7 +23717,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square within 1/16; the root's smallest prime factor at least 23",
     "layer": 1,
     "main": 8,
-    "bits": 6.1757
+    "bits": 6.1276
    },
    {
     "score": [
@@ -23560,7 +23726,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square exactly",
     "layer": 0,
     "main": 9,
-    "bits": 6.1757
+    "bits": 6.1276
    },
    {
     "score": [
@@ -23570,7 +23736,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square exactly; the root's smallest prime factor at least 2",
     "layer": 1,
     "main": 9,
-    "bits": 6.6716
+    "bits": 6.6799
    },
    {
     "score": [
@@ -23580,7 +23746,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square exactly; the root's smallest prime factor at least 3",
     "layer": 1,
     "main": 9,
-    "bits": 8.1903
+    "bits": 8.1107
    },
    {
     "score": [
@@ -23590,7 +23756,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square exactly; the root's smallest prime factor at least 5",
     "layer": 1,
     "main": 9,
-    "bits": 9.8845
+    "bits": 9.6888
    },
    {
     "score": [
@@ -23600,7 +23766,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square exactly; the root's smallest prime factor at least 7",
     "layer": 1,
     "main": 9,
-    "bits": 11.1647
+    "bits": 11.3113
    },
    {
     "score": [
@@ -23610,7 +23776,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square exactly; the root's smallest prime factor at least 11",
     "layer": 1,
     "main": 9,
-    "bits": 13.1257
+    "bits": 13.3332
    },
    {
     "score": [
@@ -23620,7 +23786,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square exactly; the root's smallest prime factor at least 13",
     "layer": 1,
     "main": 9,
-    "bits": 15.7596
+    "bits": 15.1841
    },
    {
     "score": [
@@ -23630,7 +23796,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square exactly; the root's smallest prime factor at least 17",
     "layer": 1,
     "main": 9,
-    "bits": 17.371
+    "bits": 18.3013
    },
    {
     "score": [
@@ -23640,7 +23806,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square exactly; the root's smallest prime factor at least 19",
     "layer": 1,
     "main": 9,
-    "bits": 24.1907
+    "bits": 24.1395
    },
    {
     "score": [
@@ -23650,7 +23816,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square exactly; the root's smallest prime factor at least 23",
     "layer": 1,
     "main": 9,
-    "bits": 28.5049
+    "bits": 26.978
    },
    {
     "score": [
@@ -23660,7 +23826,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square exactly; the root's smallest prime factor at least 29",
     "layer": 1,
     "main": 9,
-    "bits": 40.0547
+    "bits": 37.5975
    },
    {
     "score": [
@@ -23670,7 +23836,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "the area to a square exactly; the root's smallest prime factor at least 31",
     "layer": 1,
     "main": 9,
-    "bits": 40.6483
+    "bits": 38.5729
    }
   ]
  },
@@ -23683,12 +23849,14 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
    "T": 37
   },
   "tieBreaker": "prime-gradient",
-  "status": "unconverged",
-  "cap": 31,
+  "status": "flagged",
+  "cap": 32,
+  "convergedCap": 32,
+  "tail": null,
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "8c8ae0d74a7a3fee",
+  "contentHash": "c6e727040e30683a",
   "rungs": [
    {
     "score": null,
@@ -23705,7 +23873,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; m to a prime within 2",
     "layer": 1,
     "main": 0,
-    "bits": 0.3464
+    "bits": 0.348
    },
    {
     "score": [
@@ -23715,7 +23883,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; m to a prime within 1",
     "layer": 1,
     "main": 0,
-    "bits": 1.9145
+    "bits": 1.9078
    },
    {
     "score": [
@@ -23725,7 +23893,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; m to a prime exactly",
     "layer": 1,
     "main": 0,
-    "bits": 2.3474
+    "bits": 2.3468
    },
    {
     "score": [
@@ -23734,7 +23902,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 32",
     "layer": 0,
     "main": 1,
-    "bits": 2.566
+    "bits": 2.5837
    },
    {
     "score": [
@@ -23744,7 +23912,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 32; m to a prime within 2",
     "layer": 1,
     "main": 1,
-    "bits": 2.6241
+    "bits": 2.6416
    },
    {
     "score": [
@@ -23754,7 +23922,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 32; m to a prime within 1",
     "layer": 1,
     "main": 1,
-    "bits": 3.0852
+    "bits": 3.0934
    },
    {
     "score": [
@@ -23764,7 +23932,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 32; m to a prime exactly",
     "layer": 1,
     "main": 1,
-    "bits": 3.7074
+    "bits": 3.7209
    },
    {
     "score": [
@@ -23773,7 +23941,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 16",
     "layer": 0,
     "main": 2,
-    "bits": 4.6694
+    "bits": 4.7143
    },
    {
     "score": [
@@ -23783,7 +23951,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 16; m to a prime within 2",
     "layer": 1,
     "main": 2,
-    "bits": 4.7327
+    "bits": 4.7795
    },
    {
     "score": [
@@ -23793,7 +23961,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 16; m to a prime within 1",
     "layer": 1,
     "main": 2,
-    "bits": 5.0338
+    "bits": 5.0767
    },
    {
     "score": [
@@ -23803,7 +23971,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 16; m to a prime exactly",
     "layer": 1,
     "main": 2,
-    "bits": 5.6168
+    "bits": 5.6409
    },
    {
     "score": [
@@ -23812,7 +23980,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 8",
     "layer": 0,
     "main": 3,
-    "bits": 5.8288
+    "bits": 5.8346
    },
    {
     "score": [
@@ -23822,7 +23990,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 8; m to a prime within 2",
     "layer": 1,
     "main": 3,
-    "bits": 5.8649
+    "bits": 5.8768
    },
    {
     "score": [
@@ -23832,7 +24000,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 8; m to a prime within 1",
     "layer": 1,
     "main": 3,
-    "bits": 6.3681
+    "bits": 6.3416
    },
    {
     "score": [
@@ -23842,7 +24010,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 8; m to a prime exactly",
     "layer": 1,
     "main": 3,
-    "bits": 6.8561
+    "bits": 6.8712
    },
    {
     "score": [
@@ -23851,7 +24019,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 4",
     "layer": 0,
     "main": 4,
-    "bits": 6.9505
+    "bits": 6.9583
    },
    {
     "score": [
@@ -23861,7 +24029,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 4; m to a prime within 2",
     "layer": 1,
     "main": 4,
-    "bits": 6.9876
+    "bits": 7.0097
    },
    {
     "score": [
@@ -23871,7 +24039,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 4; m to a prime within 1",
     "layer": 1,
     "main": 4,
-    "bits": 7.1486
+    "bits": 7.1968
    },
    {
     "score": [
@@ -23881,7 +24049,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 4; m to a prime exactly",
     "layer": 1,
     "main": 4,
-    "bits": 7.5761
+    "bits": 7.6759
    },
    {
     "score": [
@@ -23890,7 +24058,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 2",
     "layer": 0,
     "main": 5,
-    "bits": 7.6653
+    "bits": 7.763
    },
    {
     "score": [
@@ -23900,7 +24068,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 2; m to a prime within 2",
     "layer": 1,
     "main": 5,
-    "bits": 7.6727
+    "bits": 7.7731
    },
    {
     "score": [
@@ -23910,7 +24078,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 2; m to a prime within 1",
     "layer": 1,
     "main": 5,
-    "bits": 7.8044
+    "bits": 7.9281
    },
    {
     "score": [
@@ -23920,7 +24088,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 2; m to a prime exactly",
     "layer": 1,
     "main": 5,
-    "bits": 8.0793
+    "bits": 8.1993
    },
    {
     "score": [
@@ -23929,7 +24097,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 1",
     "layer": 0,
     "main": 6,
-    "bits": 8.109
+    "bits": 8.2273
    },
    {
     "score": [
@@ -23939,7 +24107,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 1; m to a prime within 2",
     "layer": 1,
     "main": 6,
-    "bits": 8.1616
+    "bits": 8.2939
    },
    {
     "score": [
@@ -23949,7 +24117,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 1; m to a prime within 1",
     "layer": 1,
     "main": 6,
-    "bits": 8.5497
+    "bits": 8.6888
    },
    {
     "score": [
@@ -23959,7 +24127,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 1; m to a prime exactly",
     "layer": 1,
     "main": 6,
-    "bits": 10.829
+    "bits": 10.7068
    },
    {
     "score": [
@@ -23968,7 +24136,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T exactly",
     "layer": 0,
     "main": 7,
-    "bits": 11.2907
+    "bits": 11.1929
    },
    {
     "score": [
@@ -23978,7 +24146,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T exactly; m to a prime within 4",
     "layer": 1,
     "main": 7,
-    "bits": 11.3221
+    "bits": 11.2291
    },
    {
     "score": [
@@ -23988,7 +24156,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T exactly; m to a prime within 2",
     "layer": 1,
     "main": 7,
-    "bits": 11.3421
+    "bits": 11.2869
    },
    {
     "score": [
@@ -23998,7 +24166,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T exactly; m to a prime within 1",
     "layer": 1,
     "main": 7,
-    "bits": 11.4015
+    "bits": 11.3909
    },
    {
     "score": [
@@ -24008,7 +24176,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T exactly; m to a prime exactly",
     "layer": 1,
     "main": 7,
-    "bits": 13.8617
+    "bits": 14.2791
    }
   ]
  },
@@ -24022,11 +24190,13 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   },
   "tieBreaker": "prime-terms",
   "status": "unconverged",
-  "cap": 32,
+  "cap": 33,
+  "convergedCap": 33,
+  "tail": null,
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "7e267ab12803a953",
+  "contentHash": "4ceb55fae21716d7",
   "rungs": [
    {
     "score": null,
@@ -24043,7 +24213,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; different primes at least 3",
     "layer": 1,
     "main": 0,
-    "bits": 2.1519
+    "bits": 2.1299
    },
    {
     "score": [
@@ -24053,7 +24223,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; different primes at least 5",
     "layer": 1,
     "main": 0,
-    "bits": 2.5821
+    "bits": 2.5439
    },
    {
     "score": [
@@ -24063,7 +24233,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; different primes at least 7",
     "layer": 1,
     "main": 0,
-    "bits": 2.6136
+    "bits": 2.5727
    },
    {
     "score": [
@@ -24072,7 +24242,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 32",
     "layer": 0,
     "main": 1,
-    "bits": 2.6136
+    "bits": 2.5728
    },
    {
     "score": [
@@ -24082,7 +24252,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 32; different primes at least 3",
     "layer": 1,
     "main": 1,
-    "bits": 3.9175
+    "bits": 3.9034
    },
    {
     "score": [
@@ -24092,7 +24262,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 32; different primes at least 5",
     "layer": 1,
     "main": 1,
-    "bits": 4.3765
+    "bits": 4.3871
    },
    {
     "score": [
@@ -24102,7 +24272,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 32; different primes at least 7",
     "layer": 1,
     "main": 1,
-    "bits": 4.6451
+    "bits": 4.6641
    },
    {
     "score": [
@@ -24111,7 +24281,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 16",
     "layer": 0,
     "main": 2,
-    "bits": 4.6744
+    "bits": 4.6943
    },
    {
     "score": [
@@ -24121,7 +24291,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 16; different primes at least 3",
     "layer": 1,
     "main": 2,
-    "bits": 5.4719
+    "bits": 5.5127
    },
    {
     "score": [
@@ -24131,7 +24301,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 16; different primes at least 5",
     "layer": 1,
     "main": 2,
-    "bits": 5.6111
+    "bits": 5.665
    },
    {
     "score": [
@@ -24141,7 +24311,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 16; different primes at least 7",
     "layer": 1,
     "main": 2,
-    "bits": 5.7162
+    "bits": 5.7704
    },
    {
     "score": [
@@ -24150,7 +24320,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 8",
     "layer": 0,
     "main": 3,
-    "bits": 5.7166
+    "bits": 5.7717
    },
    {
     "score": [
@@ -24160,7 +24330,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 8; different primes at least 3",
     "layer": 1,
     "main": 3,
-    "bits": 6.5472
+    "bits": 6.6357
    },
    {
     "score": [
@@ -24170,7 +24340,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 8; different primes at least 5",
     "layer": 1,
     "main": 3,
-    "bits": 6.7315
+    "bits": 6.8275
    },
    {
     "score": [
@@ -24180,7 +24350,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 8; different primes at least 7",
     "layer": 1,
     "main": 3,
-    "bits": 6.8362
+    "bits": 6.8987
    },
    {
     "score": [
@@ -24189,7 +24359,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 4",
     "layer": 0,
     "main": 4,
-    "bits": 6.8362
+    "bits": 6.8987
    },
    {
     "score": [
@@ -24199,7 +24369,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 4; different primes at least 3",
     "layer": 1,
     "main": 4,
-    "bits": 7.43
+    "bits": 7.5528
    },
    {
     "score": [
@@ -24209,7 +24379,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 4; different primes at least 5",
     "layer": 1,
     "main": 4,
-    "bits": 7.5816
+    "bits": 7.7182
    },
    {
     "score": [
@@ -24219,7 +24389,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 4; different primes at least 7",
     "layer": 1,
     "main": 4,
-    "bits": 7.591
+    "bits": 7.7429
    },
    {
     "score": [
@@ -24228,7 +24398,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 2",
     "layer": 0,
     "main": 5,
-    "bits": 7.591
+    "bits": 7.7429
    },
    {
     "score": [
@@ -24238,7 +24408,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 2; different primes at least 3",
     "layer": 1,
     "main": 5,
-    "bits": 7.8225
+    "bits": 8.0318
    },
    {
     "score": [
@@ -24248,7 +24418,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 2; different primes at least 5",
     "layer": 1,
     "main": 5,
-    "bits": 7.9124
+    "bits": 8.1245
    },
    {
     "score": [
@@ -24258,7 +24428,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 2; different primes at least 7",
     "layer": 1,
     "main": 5,
-    "bits": 7.9934
+    "bits": 8.2047
    },
    {
     "score": [
@@ -24267,7 +24437,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 1",
     "layer": 0,
     "main": 6,
-    "bits": 7.9934
+    "bits": 8.2047
    },
    {
     "score": [
@@ -24277,7 +24447,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 1; different primes at least 3",
     "layer": 1,
     "main": 6,
-    "bits": 10.0543
+    "bits": 10.5551
    },
    {
     "score": [
@@ -24287,7 +24457,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 1; different primes at least 5",
     "layer": 1,
     "main": 6,
-    "bits": 10.4936
+    "bits": 11.0388
    },
    {
     "score": [
@@ -24297,7 +24467,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 1; different primes at least 7",
     "layer": 1,
     "main": 6,
-    "bits": 10.4936
+    "bits": 11.0388
    },
    {
     "score": [
@@ -24306,7 +24476,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T exactly",
     "layer": 0,
     "main": 7,
-    "bits": 10.4936
+    "bits": 11.0388
    },
    {
     "score": [
@@ -24316,7 +24486,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T exactly; different primes at least 1",
     "layer": 1,
     "main": 7,
-    "bits": 10.4936
+    "bits": 11.0388
    },
    {
     "score": [
@@ -24326,7 +24496,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T exactly; different primes at least 2",
     "layer": 1,
     "main": 7,
-    "bits": 10.4936
+    "bits": 11.0388
    },
    {
     "score": [
@@ -24336,7 +24506,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T exactly; different primes at least 3",
     "layer": 1,
     "main": 7,
-    "bits": 10.5473
+    "bits": 11.0935
    },
    {
     "score": [
@@ -24346,7 +24516,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T exactly; different primes at least 4",
     "layer": 1,
     "main": 7,
-    "bits": 10.8552
+    "bits": 11.4998
    },
    {
     "score": [
@@ -24356,7 +24526,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T exactly; different primes at least 5",
     "layer": 1,
     "main": 7,
-    "bits": 11.0861
+    "bits": 11.7561
    },
    {
     "score": [
@@ -24366,7 +24536,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T exactly; different primes at least 6",
     "layer": 1,
     "main": 7,
-    "bits": 14.3727
+    "bits": 16.0298
    }
   ]
  },
@@ -24379,12 +24549,14 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
    "T": 37
   },
   "tieBreaker": "square-start",
-  "status": "unconverged",
-  "cap": 23,
+  "status": "flagged",
+  "cap": 33,
+  "convergedCap": 33,
+  "tail": null,
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "77c617cfdb5b0174",
+  "contentHash": "614f1e142a31dd91",
   "rungs": [
    {
     "score": null,
@@ -24401,7 +24573,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; c to a square within 4",
     "layer": 1,
     "main": 0,
-    "bits": 0.134
+    "bits": 0.1362
    },
    {
     "score": [
@@ -24411,7 +24583,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; c to a square within 2",
     "layer": 1,
     "main": 0,
-    "bits": 0.1958
+    "bits": 0.1957
    },
    {
     "score": [
@@ -24421,7 +24593,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "anything; c to a square within 1",
     "layer": 1,
     "main": 0,
-    "bits": 0.2529
+    "bits": 0.252
    },
    {
     "score": [
@@ -24430,7 +24602,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 32",
     "layer": 0,
     "main": 1,
-    "bits": 2.5764
+    "bits": 2.5715
    },
    {
     "score": [
@@ -24440,7 +24612,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 32; c to a square within 4",
     "layer": 1,
     "main": 1,
-    "bits": 2.6144
+    "bits": 2.6048
    },
    {
     "score": [
@@ -24450,7 +24622,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 32; c to a square within 2",
     "layer": 1,
     "main": 1,
-    "bits": 2.6906
+    "bits": 2.6806
    },
    {
     "score": [
@@ -24460,7 +24632,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 32; c to a square within 1",
     "layer": 1,
     "main": 1,
-    "bits": 2.8732
+    "bits": 2.8633
    },
    {
     "score": [
@@ -24469,7 +24641,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 16",
     "layer": 0,
     "main": 2,
-    "bits": 4.7249
+    "bits": 4.7052
    },
    {
     "score": [
@@ -24479,7 +24651,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 16; c to a square within 4",
     "layer": 1,
     "main": 2,
-    "bits": 4.7817
+    "bits": 4.7482
    },
    {
     "score": [
@@ -24489,7 +24661,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 16; c to a square within 2",
     "layer": 1,
     "main": 2,
-    "bits": 4.8964
+    "bits": 4.8745
    },
    {
     "score": [
@@ -24499,7 +24671,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 16; c to a square within 1",
     "layer": 1,
     "main": 2,
-    "bits": 5.017
+    "bits": 4.9824
    },
    {
     "score": [
@@ -24508,7 +24680,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 8",
     "layer": 0,
     "main": 3,
-    "bits": 5.8085
+    "bits": 5.8056
    },
    {
     "score": [
@@ -24518,7 +24690,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 8; c to a square within 4",
     "layer": 1,
     "main": 3,
-    "bits": 5.9523
+    "bits": 5.9201
    },
    {
     "score": [
@@ -24528,7 +24700,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 8; c to a square within 2",
     "layer": 1,
     "main": 3,
-    "bits": 6.1021
+    "bits": 6.0777
    },
    {
     "score": [
@@ -24538,7 +24710,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 8; c to a square within 1",
     "layer": 1,
     "main": 3,
-    "bits": 6.1757
+    "bits": 6.1418
    },
    {
     "score": [
@@ -24547,7 +24719,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 4",
     "layer": 0,
     "main": 4,
-    "bits": 7.0894
+    "bits": 6.9396
    },
    {
     "score": [
@@ -24557,7 +24729,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 4; c to a square within 4",
     "layer": 1,
     "main": 4,
-    "bits": 7.1728
+    "bits": 6.9954
    },
    {
     "score": [
@@ -24567,7 +24739,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 4; c to a square within 2",
     "layer": 1,
     "main": 4,
-    "bits": 7.3377
+    "bits": 7.1534
    },
    {
     "score": [
@@ -24577,7 +24749,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 4; c to a square within 1",
     "layer": 1,
     "main": 4,
-    "bits": 7.3886
+    "bits": 7.2165
    },
    {
     "score": [
@@ -24586,7 +24758,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 2",
     "layer": 0,
     "main": 5,
-    "bits": 7.9474
+    "bits": 7.7977
    },
    {
     "score": [
@@ -24596,7 +24768,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 2; c to a square within 4",
     "layer": 1,
     "main": 5,
-    "bits": 7.9667
+    "bits": 7.8261
    },
    {
     "score": [
@@ -24606,7 +24778,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 2; c to a square within 2",
     "layer": 1,
     "main": 5,
-    "bits": 8.062
+    "bits": 7.8776
    },
    {
     "score": [
@@ -24616,7 +24788,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 2; c to a square within 1",
     "layer": 1,
     "main": 5,
-    "bits": 8.0758
+    "bits": 7.9063
    },
    {
     "score": [
@@ -24625,7 +24797,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 1",
     "layer": 0,
     "main": 6,
-    "bits": 8.4106
+    "bits": 8.2257
    },
    {
     "score": [
@@ -24635,7 +24807,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 1; c to a square within 4",
     "layer": 1,
     "main": 6,
-    "bits": 8.49
+    "bits": 8.3059
    },
    {
     "score": [
@@ -24645,7 +24817,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 1; c to a square within 2",
     "layer": 1,
     "main": 6,
-    "bits": 8.6229
+    "bits": 8.4159
    },
    {
     "score": [
@@ -24655,7 +24827,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T within 1; c to a square within 1",
     "layer": 1,
     "main": 6,
-    "bits": 8.7345
+    "bits": 8.5204
    },
    {
     "score": [
@@ -24664,7 +24836,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T exactly",
     "layer": 0,
     "main": 7,
-    "bits": 11.2799
+    "bits": 10.9503
    },
    {
     "score": [
@@ -24674,7 +24846,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T exactly; c to a square within 8",
     "layer": 1,
     "main": 7,
-    "bits": 11.2895
+    "bits": 10.9747
    },
    {
     "score": [
@@ -24684,7 +24856,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T exactly; c to a square within 4",
     "layer": 1,
     "main": 7,
-    "bits": 11.3729
+    "bits": 11.0619
    },
    {
     "score": [
@@ -24694,7 +24866,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T exactly; c to a square within 2",
     "layer": 1,
     "main": 7,
-    "bits": 11.6901
+    "bits": 11.3077
    },
    {
     "score": [
@@ -24704,7 +24876,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T exactly; c to a square within 1",
     "layer": 1,
     "main": 7,
-    "bits": 11.8574
+    "bits": 11.452
    },
    {
     "score": [
@@ -24714,7 +24886,7 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
     "label": "y(k) to T exactly; c to a square exactly",
     "layer": 1,
     "main": 7,
-    "bits": 12.1172
+    "bits": 11.8982
    }
   ]
  },
@@ -24728,10 +24900,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "even",
   "status": "unconverged",
   "cap": 0,
+  "convergedCap": 0,
+  "tail": null,
   "dealable": false,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "453ada3b95cd8a9c",
+  "contentHash": "d1bac560638e8c09",
   "rungs": [
    {
     "score": null,
@@ -25075,10 +25249,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "legs",
   "status": "converged",
   "cap": 36,
+  "convergedCap": 36,
+  "tail": null,
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "45b457204acb6805",
+  "contentHash": "c1fd9eeb2e0f4b6d",
   "rungs": [
    {
     "score": null,
@@ -25450,10 +25626,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "omega",
   "status": "too-coarse",
   "cap": 0,
+  "convergedCap": 0,
+  "tail": null,
   "dealable": false,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "78a5616b5e7857a1",
+  "contentHash": "baf9cf395c4e68e2",
   "rungs": [
    {
     "score": null,
@@ -25805,10 +25983,12 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "tieBreaker": "spf",
   "status": "too-coarse",
   "cap": 0,
+  "convergedCap": 0,
+  "tail": null,
   "dealable": false,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "c8881caba7a7fed7",
+  "contentHash": "21d1baf90deb5206",
   "rungs": [
    {
     "score": null,

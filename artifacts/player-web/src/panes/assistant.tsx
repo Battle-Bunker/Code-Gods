@@ -228,7 +228,7 @@ function Composer({ status, threadId, fresh, onSent }: { status: Status; threadI
   const [error, setError] = useState<string | null>(null);
   const busy = isBusy(status.turn?.status);
   const allowance = allowanceWords(status.allowance);
-  const reason = !send.available ? send.reason ?? "Not available now." : allowance.out ? "This game's assistant allowance is used up." : null;
+  const reason = status.off ?? (!send.available ? send.reason ?? "Not available now." : null) ?? (allowance.out ? "This game's assistant allowance is used up." : null);
   const go = async () => {
     const t = text.trim();
     if (!t || sending || reason) return;

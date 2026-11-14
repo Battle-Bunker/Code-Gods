@@ -9,7 +9,14 @@ import { makeFunctionReference } from "convex/server";
 import type { ActionCtx } from "../_generated/server";
 
 export async function performAs(ctx: ActionCtx, delegate: Delegate, scope: { gameId?: string }, id: string, args: unknown): Promise<unknown> {
-  if (!isAffordanceId(id)) throw new Error(`No tool ${id}`);
+  const out = await outcomeAs(ctx, delegate, scope, id, args);
+  if (!out.ok) throw new Error(`${out.error.message}${out.error.fix ? ` (${out.error.fix})` : ""}`);
+  return out.result;
+}
+
+/** The same, answering the outcome (refusals and failures as values): what MCP's callTool needs. */
+export async function outcomeAs(ctx: ActionCtx, delegate: Delegate, scope: { gameId?: string }, id: string, args: unknown): Promise<OpOutcome> {
+  if (!isAffordanceId(id)) return { ok: false, error: { code: "unknown", message: `No tool ${id}` } };
   const a = AFFORDANCES[id];
   let out: OpOutcome;
   try {
@@ -27,6 +34,5 @@ export async function performAs(ctx: ActionCtx, delegate: Delegate, scope: { gam
     if (!o) throw e;
     out = o as OpOutcome;
   }
-  if (!out.ok) throw new Error(`${out.error.message}${out.error.fix ? ` (${out.error.fix})` : ""}`);
-  return out.result;
+  return out;
 }

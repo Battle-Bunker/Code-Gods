@@ -1,5 +1,5 @@
 {
- "schema": 3,
+ "schema": 4,
  "ruleKey": "line@1/line-q#27ee6970d0d6e90d/exact-change/{\"ways\":6}/tb=big-bill",
  "objectType": "line",
  "objectTypeVersion": 1,
@@ -1711,5 +1711,7 @@
  },
  "cap": 9,
  "dealable": true,
- "contentHash": "06d0ae7f19e74c4e"
+ "convergedCap": 9,
+ "tail": null,
+ "contentHash": "8043799dae9624c2"
 }

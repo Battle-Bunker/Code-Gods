@@ -4,14 +4,16 @@
  * origin and size checks stay in mcp.ts; this module answers what a v2 principal sees and does:
  * - its context is resolved by the server (`v2/ops/define:resolveCaller` with the credential as delegate), so the tool
  *   list is `mcpTools(context)`, narrowed by the credential's grant;
- * - a call runs `callTool`, whose `perform` invokes the affordance's internal twin (`opPath(id).internal`, by its
- *   declared kind) or, for a view operation, `view:applyAs`, always as the delegating human with `via: "mcp"`.
+ * - a call runs `callTool`, whose `perform` is v2/perform.ts `outcomeAs` (the internal twin by its declared kind, or
+ *   `view:applyAs` for a view operation), the same dispatch the in-client assistant uses, as the delegating human
+ *   with `via: "mcp"`.
  */
 import { fromJsonSchema, McpServer, type CallToolResult, type JsonSchemaType } from "@modelcontextprotocol/server";
 import { CfWorkerJsonSchemaValidator } from "@modelcontextprotocol/server/validators/cf-worker";
 import { makeFunctionReference } from "convex/server";
-import { AFFORDANCES, affordanceForTool, callTool, isAffordanceId, mcpTools, opKind, type AffordanceContext, type OpOutcome } from "@workspace/v2-affordances";
-import { opPath, outcomeOf, VIEW_OP_PATH, type Delegate } from "@workspace/v2-affordances/convex";
+import { affordanceForTool, callTool, mcpTools, type AffordanceContext, type OpOutcome } from "@workspace/v2-affordances";
+import type { Delegate } from "@workspace/v2-affordances/convex";
+import { outcomeAs } from "../v2/perform";
 import type { ActionCtx } from "../_generated/server";
 import type { Who } from "./store";
 
@@ -29,24 +31,9 @@ export async function v2ContextFor(ctx: ActionCtx, who: Who): Promise<Affordance
   return (await ctx.runQuery(RESOLVE, { who: { delegate: delegateOf(who) }, scope: {} })).ctx;
 }
 
-/** Runs one affordance as the credential's human, through its internal twin; a rolled-back failure comes back as its outcome. */
-export async function performV2(ctx: ActionCtx, who: Who, id: string, args: unknown): Promise<OpOutcome> {
-  if (!isAffordanceId(id)) return { ok: false, error: { code: "unknown", message: `Unknown affordance: ${id}` } };
-  const a = AFFORDANCES[id], delegate = delegateOf(who);
-  try {
-    if (a.runs === "client") return await ctx.runMutation(makeFunctionReference<"mutation", { id: string; args: unknown; delegate: Delegate }, OpOutcome>(VIEW_OP_PATH.internal), { id, args, delegate });
-    const path = opPath(id).internal, input = { args, delegate };
-    switch (opKind(a)) {
-      case "query": return await ctx.runQuery(makeFunctionReference<"query", typeof input, OpOutcome>(path), input);
-      case "mutation": return await ctx.runMutation(makeFunctionReference<"mutation", typeof input, OpOutcome>(path), input);
-      case "action": return await ctx.runAction(makeFunctionReference<"action", typeof input, OpOutcome>(path), input);
-    }
-  } catch (e) {
-    const outcome = outcomeOf(e);
-    if (outcome) return outcome;
-    throw e;
-  }
-}
+/** Runs one affordance as the credential's human, through the same dispatch the in-client assistant uses (v2/perform.ts). */
+export const performV2 = (ctx: ActionCtx, who: Who, id: string, args: unknown): Promise<OpOutcome> =>
+  outcomeAs(ctx, delegateOf(who), {}, id, args);
 
 const validator = new CfWorkerJsonSchemaValidator();
 

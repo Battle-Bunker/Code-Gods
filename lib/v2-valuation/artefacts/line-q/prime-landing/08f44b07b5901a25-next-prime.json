@@ -1,5 +1,5 @@
 {
- "schema": 3,
+ "schema": 4,
  "ruleKey": "line@1/line-q#27ee6970d0d6e90d/prime-landing/{}/tb=next-prime",
  "objectType": "line",
  "objectTypeVersion": 1,
@@ -1962,5 +1962,7 @@
  },
  "cap": 34,
  "dealable": true,
- "contentHash": "f0a580b6ef0988e6"
+ "convergedCap": 34,
+ "tail": null,
+ "contentHash": "a8012e82263fdf28"
 }

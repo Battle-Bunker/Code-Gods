@@ -90,6 +90,8 @@ test("parts are the recorded terms on every family and a walk of states: no seco
       assert.equal(parts.length, e.sites[0]!.components.length);
       if (e.score !== null) {
         parts.forEach((part, j) => {
+          // An undefined tie-breaker is a null score part: the part shows it undefined, with its reason.
+          if (e.score![j] === null) { assert.ok(part.value !== null && typeof part.value === "object" && "undefined" in part.value, `${f.id} part ${j}`); return; }
           const v = part.value as Q;
           assert.ok(Qn.eq(part.sense === "min" ? Qn.neg(v) : v, e.score![j]!), `${f.id} part ${j}`);
         });

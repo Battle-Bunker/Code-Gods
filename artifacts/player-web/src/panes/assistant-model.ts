@@ -28,11 +28,11 @@ export function chipView(call: Call): { label: string; tone: "ok" | "error"; det
   return call.ok ? { label, tone: "ok", detail: null } : { label, tone: "error", detail: call.summary || null };
 }
 
-export interface Allowance { tokens: number; usd: number; usedTokens: number; usedUsd: number }
-/** The share of this game's allowance used (the larger of tokens and money), in words; `low` from 80%. */
+export interface Allowance { tokens: number; usedTokens: number; usedUsd: number }
+/** The share of this game's token quota used, in words; `low` from 80%. */
 export function allowanceWords(a: Allowance): { used: number; text: string; low: boolean; out: boolean } {
   const share = (used: number, limit: number) => (limit > 0 ? used / limit : 1);
-  const used = Math.min(1, Math.max(share(a.usedTokens, a.tokens), share(a.usedUsd, a.usd), 0));
+  const used = Math.min(1, Math.max(share(a.usedTokens, a.tokens), 0));
   if (used >= 1) return { used: 1, text: "This game's assistant allowance is used up. You can still do everything yourself.", low: true, out: true };
   const pct = Math.floor(used * 100);
   const text = used === 0 ? "None of this game's assistant allowance used yet."

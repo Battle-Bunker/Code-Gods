@@ -1,5 +1,5 @@
 {
- "schema": 3,
+ "schema": 4,
  "ruleKey": "line@1/line-q#27ee6970d0d6e90d/m-meets-c/{}/tb=meetPrime",
  "objectType": "line",
  "objectTypeVersion": 1,
@@ -2549,5 +2549,7 @@
  },
  "cap": 36,
  "dealable": true,
- "contentHash": "db5ec9f58b187b7d"
+ "convergedCap": 36,
+ "tail": null,
+ "contentHash": "37b3c876eedf4fad"
 }

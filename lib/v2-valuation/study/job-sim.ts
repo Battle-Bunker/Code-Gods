@@ -1,0 +1,10 @@
+import { writeFileSync } from "node:fs";
+import { lineType, lineZ, primeGradient, primeLanding } from "@workspace/v2-linear";
+import { estimate } from "../src/estimate.ts";
+const [which, out] = [process.argv[2]!, process.argv[3]!];
+const noNudge = { ...lineZ, id: "line-z-no-nudge", mutators: lineZ.mutators.filter(m => m !== "gen.nudge") };
+const jobs = { "pg-prime": [primeGradient, "prime"], "pg-cprime": [primeGradient, "cPrime"], "pl-big": [primeLanding, "big-prime"], "pl-pg": [primeLanding, "prime-gradient"] } as const;
+const [f, tb] = jobs[which as keyof typeof jobs];
+const t = Date.now();
+const e = estimate({ type: lineType, variant: noNudge, family: f as never, params: {}, tieBreaker: tb, seed: "v2" });
+writeFileSync(out, JSON.stringify({ which, ms: Date.now() - t, status: e.status, convergedThrough: e.convergedThrough, bits: e.rungs.map(r => r.bits), error: e.rungs.map(r => r.error), empty: e.rungs.map(r => r.empty), steps: e.steps }));
