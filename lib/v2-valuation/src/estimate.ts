@@ -5,7 +5,7 @@
  * at least that good. Checked against an exactly solvable price list in test/estimate.test.ts.
  */
 import {
-  canonicalJson, evaluateObject, hashHex, levelOf, meets, objectLadder, rng, ruleLayers, tieBreakerId, toWireQ, walkStep,
+  canonicalJson, evaluateObject, hashHex, levelOf, objectLadder, rng, ruleLayers, tieBreakerId, toWireQ, walkStep,
   type ObjectType, type RuleFamily, type Rung, type Score, type TieBreaker, type Variant,
 } from "@workspace/v2-core";
 import { stationary } from "./linalg.ts";
@@ -31,8 +31,8 @@ export interface ValuationConfig {
   /** Samples per chain in the first pass; each further pass doubles it. */
   readonly initialSamples: number;
   /**
-   * A layer must take at least this many distinct values among the samples where it counts (every earlier layer at its
-   * top), or the rule is too coarse to extend a ladder (owner decision 13: "Require all rules to be continuous").
+   * A layer must take at least this many distinct values among all the samples (on the joint ladder every layer grades
+   * lines at every level of the layers before it), or the rule is too coarse to extend a ladder (owner decision 13: "Require all rules to be continuous").
    */
   readonly minLevels: number;
 }
@@ -67,7 +67,7 @@ export interface Estimate {
   readonly steps: number;
   /** Per rung: a state from replicate 0's chain on that rung's upper set at the end of the run (wire), to show sizes. */
   readonly examples: readonly string[];
-  /** Per dealt layer: distinct values it took among samples where it counts (null for multi-line objects). */
+  /** Per dealt layer: distinct values it took among all samples (null for multi-line objects). */
   readonly distinctLevels: readonly (number | null)[];
   /** The pooled level-matrix counts the values come from: row l, column j. */
   readonly levelMatrix: readonly (readonly number[])[];
@@ -149,9 +149,8 @@ export function estimate<S, P>(input: EstimateInput<S, P>): Estimate {
   // The ladder calibrated: the full one, truncated below the first rung no replicate's climb could reach (step 1).
   let rungs: readonly Rung[] = fullLadder;
   const singleSite = type.sites(type.origin(variant), variant) === 1;
-  // Where each layer counts for the continuity check: the main layer everywhere, the tie-breaker at the main layer's top.
-  const mainTop = [...fullLadder].reverse().find(r => r.layer === 0);
-  const layerPrefix: Score[] = Array.from({ length: layers }, (_, j) => (j === 0 || !mainTop?.score ? null : mainTop.score.slice(0, 1)));
+  // The continuity check counts each layer's distinct values over every sample: on the joint ladder (spec §4.4) the
+  // tie-breaker grades lines at every main level, so it extends the ladder wherever it takes many values.
   const distinct: Set<string>[] = Array.from({ length: layers }, () => new Set());
   let n = rungs.length - 1;
 
@@ -185,7 +184,6 @@ export function estimate<S, P>(input: EstimateInput<S, P>): Estimate {
     const sc = scored(s).score;
     if (sc === null) return;
     for (let j = 0; j < layers; j++) {
-      if (j > 0 && !meets(sc, layerPrefix[j]!)) break;
       const v = sc[j];
       distinct[j]!.add(v === null || v === undefined ? "undefined" : toWireQ(v));
     }
@@ -449,7 +447,7 @@ export function estimate<S, P>(input: EstimateInput<S, P>): Estimate {
   const distinctLevels = Array.from({ length: layers }, (_, j) => (singleSite ? distinct[j]!.size : null));
   distinctLevels.forEach((d, j) => {
     if (d !== null && d < cfg.minLevels) {
-      reasons.push(`layer ${j} (${ruleLayers(family, tb)[j]!.id}) takes ${d} distinct values where it counts, fewer than ${cfg.minLevels}: too coarse to extend the ladder`);
+      reasons.push(`layer ${j} (${ruleLayers(family, tb)[j]!.id}) takes ${d} distinct values, fewer than ${cfg.minLevels}: too coarse to extend the ladder`);
       status = "too-coarse";   // a design fault, whatever the budget did
     }
   });

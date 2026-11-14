@@ -313,7 +313,7 @@ type TieBreaker = string | null;                         // a dealt rule's choic
   from that family's converged rules in the room's pool, records `wonByBid` and the `handicap` on `v2Rules`, and the
   standings carry the handicap and the net total (integration plan §5.9).
 - **Continuity is checked, not trusted.** Calibration counts the distinct values each dealt layer takes among the samples
-  where it counts (the main layer everywhere, the tie-breaker where the main layer is at its top); a layer with fewer
+  among all samples (on the joint ladder the tie-breaker grades every main level, so it counts everywhere); a layer with fewer
   than `minLevels` (default 6) makes the rule **too coarse**, and it goes on the backlog (§7.5) whatever its values.
 - **Ordering and value: value follows the order.** Scores compare as plain lexicographic tuples (coordinator's call (f):
   no gating), so the tie-breaker orders lines at every main level, and value follows that order (the coordinator,
