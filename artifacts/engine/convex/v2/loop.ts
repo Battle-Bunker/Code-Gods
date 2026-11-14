@@ -257,7 +257,7 @@ export const snapshot = internalQuery({
       withEnergy.push({ agentId: a._id, memberId: a.memberId, language: a.language, source: a.source, version: a.version, share: a.share, power: p.power, energy: e.energy, settledAt: e.settledAt });
     }
     return {
-      phase: game.phase, seed: game.seed, variant: game.variant, settings: game.settings, leaseId: engine.leaseId, tick: engine.tick,
+      phase: game.phase, seed: game.seed, variant: game.variant, settings: game.settings, endsAt: game.endsAt ?? null, leaseId: engine.leaseId, tick: engine.tick,
       acts: engine.acts, objects: engine.objects, worldSeconds: clock.worldSeconds, lastTickAt: clock.lastTickAt,
       seats: await seatRules(ctx, game), agents: withEnergy,
     };
