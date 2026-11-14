@@ -15,6 +15,7 @@ import { AI_PRINCIPAL } from "./access";
 import { OpFailure } from "@workspace/v2-affordances";
 import { providerFor, spendWithin } from "./ai";
 import { performAs } from "./perform";
+import { startersFor } from "@workspace/v2-agents/pure";
 
 export const AI_TURN_MS = 20_000;
 /** Turns that ran (a paused game's skipped turns do not count): about ten minutes of play. */
@@ -24,7 +25,7 @@ const INFO = makeFunctionReference<"query", { gameId: Id<"v2Games">; memberId: I
 const RESOLVE = makeFunctionReference<"query", Record<string, unknown>, { ctx: AffordanceContext }>("v2/ops/define:resolveCaller");
 const TURN = makeFunctionReference<"action", { gameId: Id<"v2Games">; memberId: Id<"v2Members">; n: number }>("v2/aiTurn:turn");
 
-type Info = { phase: string; roomId: string; name: string; card: string; energy: number; agents: number; worldSeconds: number };
+type Info = { phase: string; roomId: string; name: string; card: string; family: string | null; energy: number; agents: number; worldSeconds: number };
 
 export const info = internalQuery({
   args: { gameId: v.id("v2Games"), memberId: v.id("v2Members") },
@@ -34,7 +35,7 @@ export const info = internalQuery({
     const rule = await ctx.db.query("v2Rules").withIndex("by_game_member", q => q.eq("gameId", gameId).eq("memberId", memberId)).unique();
     const player = await ctx.db.query("v2Players").withIndex("by_game_member", q => q.eq("gameId", gameId).eq("memberId", memberId)).unique();
     const clock = await ctx.db.query("v2Clocks").withIndex("by_game", q => q.eq("gameId", gameId)).unique();
-    return { phase: game.phase, roomId: game.roomId, name: member.name, card: rule?.card ?? "", energy: player?.energy ?? 0, agents: player?.agents ?? 0, worldSeconds: clock?.worldSeconds ?? 0 };
+    return { phase: game.phase, roomId: game.roomId, name: member.name, card: rule?.card ?? "", family: rule?.family ?? null, energy: player?.energy ?? 0, agents: player?.agents ?? 0, worldSeconds: clock?.worldSeconds ?? 0 };
   },
 });
 
@@ -49,11 +50,14 @@ export const turn = internalAction({
     const caller = await ctx.runQuery(RESOLVE, { who: { delegate }, scope: { gameId } });
     // Server operations only, and nothing that spends the AI budget itself.
     const tools = assistantTools(caller.ctx).filter(t => { const a = affordanceForTool(t.name); return a?.runs === "server" && a.spends !== "aiBudget" && !a.id.startsWith("assistant.") && !a.id.startsWith("panel."); });
+    // Its rule's Simple starter to begin from (and edit to honour deals: agent.programs → check → replace). Simple only,
+    // since every turn pays for the prompt.
+    const starters = seat.family ? startersFor(seat.family, "typescript").filter(s => s.kind === "simple").map(s => ({ title: s.title, summary: s.summary, language: "typescript", source: s.source })) : [];
     const briefing = `Turn ${n + 1} of ${MAX_TURNS}. The game is ${seat.phase}${seat.phase === "live" ? ` at ${Math.round(seat.worldSeconds)} s` : ""}. ` +
       `You have ${Math.round(seat.energy)} ⚡ in your own store and ${seat.agents} agent(s). Act, then stop.`;
     try {
       await spendWithin(ctx, { roomId: seat.roomId as Id<"v2Rooms">, gameId, memberId, pool: "ai" }, budget => runAssistant({
-        provider: providerFor(), system: aiSeatSystemPrompt({ name: seat.name, rule: seat.card, affordances: tools }),
+        provider: providerFor(), system: aiSeatSystemPrompt({ name: seat.name, rule: seat.card, affordances: tools, starters }),
         messages: [{ role: "user", content: briefing }], tools, maxSteps: 6, budget,
         perform: (name, args) => performAs(ctx, delegate, { gameId }, affordanceForTool(name)!.id, args),
       }));

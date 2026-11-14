@@ -92,7 +92,7 @@ test("the CLI parses flags and JSON and validates with the affordance's schema",
     "a nullable string flag keeps digits as a string");
   assert.deepEqual(parseCli(["game", "ready", "--ready", "false"]), { ok: true, id: "game.ready", args: { ready: false } });
   assert.deepEqual(parseCli(["game", "ready", "--ready"]), { ok: true, id: "game.ready", args: { ready: true } });
-  assert.deepEqual(parseCli(["power", "allocate", "--shares", '{"a1":2,"a2":1}']), { ok: true, id: "power.allocate", args: { shares: { a1: 2, a2: 1 } } });
+  assert.deepEqual(parseCli(["power", "allocate", "--shares", '{"a1":0.5,"a2":0.25}']), { ok: true, id: "power.allocate", args: { shares: { a1: 0.5, a2: 0.25 } } });
   const bad = parseCli(["agent", "summon", "--language", "cobol", "--source", "x"]);
   assert.ok(!bad.ok && /language/.test(bad.error));
   assert.deepEqual(parseCli(["agent", "summon", "--colour", "red"]), { ok: false, error: "Unknown flag --colour for agent summon" });
