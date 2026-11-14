@@ -43,7 +43,7 @@ export function grantAllows(a: AnyAffordance, ctx: AffordanceContext): boolean {
   switch (ctx.grant) {
     case undefined: case "owner": return true;
     case "act": return a.caller !== "owner" && a.caller !== "admin";
-    case "read": return a.effect === "read";
+    case "read": return a.effect === "read" && !a.spends;
   }
 }
 
@@ -69,8 +69,17 @@ export function availableAffordances(ctx: AffordanceContext, dir: Directory = DI
   return out;
 }
 
-/** Why an affordance cannot run in this context now, or null when it can (the server's and `useAffordance`'s check). */
-export function refusal(a: AnyAffordance, ctx: AffordanceContext, args?: Record<string, unknown>): Availability & { ok: false } | null {
+/** Who is calling: a human at the app (a button, a form) or one of the generated surfaces. */
+export type Via = Surface | "app";
+
+/**
+ * Why an affordance cannot run in this context now, or null when it can: the one check the server (`defineOp`), the
+ * assistant and MCP executors and `useAffordance` all apply. A consent affordance refuses every caller but the human's
+ * own click, whatever the tool lists showed: a delegated credential or an assistant cannot approve on the human's behalf.
+ */
+export function refusal(a: AnyAffordance, ctx: AffordanceContext, args?: Record<string, unknown>, via: Via = "app"): Availability & { ok: false } | null {
+  if (via !== "app" && !onSurface(a, via) || ctx.grant !== undefined && a.surfaces?.because === "consent")
+    return { ok: false, reason: "Only the human can do this, with their own click.", hidden: true };
   if (!callerAllows(a.caller, ctx.principal)) return { ok: false, reason: callerReason(a.caller), hidden: true };
   if (!grantAllows(a, ctx)) return { ok: false, reason: "This connection's permission does not allow it.", fix: "Reconnect with a wider permission." };
   if (!a.contexts.includes(ctx.context)) return { ok: false, reason: `Not available ${contextWords(ctx)}.` };

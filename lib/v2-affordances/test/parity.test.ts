@@ -49,6 +49,7 @@ test("unsound declarations are named", () => {
     extra({ id: "test.spend", effect: "write", spends: "energy", confirm: "none" }),
     extra({ id: "Bad id", title: "lower case title that is also far too long to fit in sixty characters", keywords: [] }),
     extra({ id: "game.end" }),
+    extra({ id: "test.when", params: z.object({ at: z.date() }).strict() }),
   ]);
   for (const want of [
     "check 5: test.boom is destructive but does not confirm",
@@ -59,4 +60,5 @@ test("unsound declarations are named", () => {
     "check 5: duplicate id game.end",
   ]) assert.ok(p.includes(want), `${want}\n in\n${p.join("\n")}`);
   assert.ok(p.some(x => x.startsWith("check 5: Bad id title")));
+  assert.ok(p.some(x => x.startsWith("check 5: test.when schema has no JSON Schema")), p.join("\n"));
 });

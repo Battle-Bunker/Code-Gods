@@ -5,8 +5,9 @@
  *      unless it declares the consent exemption (the only one allowed);
  *   4. for every context and caller, the assistant, MCP and the palette offer the same set;
  *   5. text limits, unique ids, keywords present, destructive and spending affordances confirm.
- * Check 2 (every server affordance has exactly one handler, every public v2 function is one) is `handlerProblems`
- * in server.ts; check 3 (the app calls no v2 mutation except through `useAffordance`) is a source scan in player-web.
+ * Checks 2 (every server affordance has exactly one handler, every public v2 function is one) and 3 (the app calls no
+ * v2 mutation or action except through `useAffordance`) need the server binding and the React hook, which W6-2 adds;
+ * until then nothing enforces them.
  */
 import { z } from "zod/v4";
 import { DIRECTORY, type Directory } from "./directory.ts";
@@ -46,8 +47,14 @@ export const GENERATORS: Generators = {
   cli: dir => cliCommands(dir).map(c => toolName(c.id)),
 };
 
-export function parityProblems(dir: Directory = DIRECTORY, gen: Generators = GENERATORS): string[] {
+export function parityProblems(all: Directory = DIRECTORY, gen: Generators = GENERATORS): string[] {
   const problems: string[] = [];
+  // Schemas first: an affordance whose schema has no JSON Schema cannot be put on any surface, so it is reported
+  // (check 5) and left out of the surface checks rather than crashing them.
+  const dir = all.filter(a => {
+    try { jsonSchema(a.params); jsonSchema(a.result, "output"); return true; }
+    catch (e) { problems.push(`check 5: ${a.id} schema has no JSON Schema: ${(e as Error).message}`); return false; }
+  });
   const reached = new Map<string, Set<Surface>>(dir.map(a => [toolName(a.id), new Set()]));
   const mark = (names: readonly string[], s: Surface) => { for (const n of names) reached.get(n)?.add(s); };
   const exempt = new Set(dir.filter(a => a.surfaces).map(a => toolName(a.id)));
@@ -81,7 +88,7 @@ export function parityProblems(dir: Directory = DIRECTORY, gen: Generators = GEN
 
   // Check 5: the declarations themselves.
   const seen = new Set<string>();
-  for (const a of dir) {
+  for (const a of all) {
     if (seen.has(toolName(a.id))) problems.push(`check 5: duplicate id ${a.id}`);
     seen.add(toolName(a.id));
     if (!/^[a-z]+\.[a-z][a-zA-Z]*$/.test(a.id)) problems.push(`check 5: ${a.id} is not "namespace.verb"`);
@@ -95,7 +102,6 @@ export function parityProblems(dir: Directory = DIRECTORY, gen: Generators = GEN
     if (a.runs === "client" && a.spends) problems.push(`check 5: ${a.id} is a view operation that spends`);
     if (a.runs === "server" && a.effect !== "read" && !("requestId" in a.params.shape)) problems.push(`check 5: ${a.id} writes on the server but takes no requestId`);
     if (!(a.params instanceof z.ZodObject)) problems.push(`check 5: ${a.id} params must be an object`);
-    try { jsonSchema(a.params); jsonSchema(a.result, "output"); } catch (e) { problems.push(`check 5: ${a.id} schema has no JSON Schema: ${(e as Error).message}`); }
   }
   return problems;
 }

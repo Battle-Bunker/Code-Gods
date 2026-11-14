@@ -20,21 +20,28 @@ export function affordanceForTool(name: string, dir: Directory = DIRECTORY): Any
 }
 
 type JsonSchema = Record<string, unknown>;
-const schemaCache = new WeakMap<z.ZodType, JsonSchema>();
-/** JSON Schema of a zod schema, as callers send it (defaults optional). */
+const schemaCache = { input: new WeakMap<z.ZodType, JsonSchema>(), output: new WeakMap<z.ZodType, JsonSchema>() };
+/**
+ * JSON Schema of a zod schema (input: as callers send it, defaults optional), computed once per schema. Throws on a
+ * type JSON Schema cannot express (a date, a transform), so the parity test fails instead of a surface getting `{}`.
+ */
 export function jsonSchema(s: z.ZodType, io: "input" | "output" = "input"): JsonSchema {
-  if (io === "input") {
-    const hit = schemaCache.get(s);
-    if (hit) return hit;
-  }
-  const { $schema: _, ...out } = z.toJSONSchema(s, { io, unrepresentable: "any" }) as JsonSchema;
-  if (io === "input") schemaCache.set(s, out);
+  const hit = schemaCache[io].get(s);
+  if (hit) return hit;
+  const { $schema: _, ...out } = z.toJSONSchema(s, { io }) as JsonSchema;
+  schemaCache[io].set(s, out);
   return out;
 }
 
 /** What every model-facing result looks like: game data marked untrusted. */
 export const toolResult = <T extends z.ZodType>(data: T) => z.object({ untrusted: z.literal(true), notice: z.string(), data });
 export const wrapResult = (data: unknown) => ({ untrusted: true as const, notice: UNTRUSTED_NOTICE, data });
+const wrapped = new WeakMap<z.ZodType, z.ZodType>();
+const resultSchema = (a: AnyAffordance) => {
+  let w = wrapped.get(a.result);
+  if (!w) wrapped.set(a.result, w = toolResult(a.result));
+  return jsonSchema(w, "output");
+};
 
 /** The model-facing description: the declaration's, plus what to do before spending or destroying. */
 export function modelDescription(a: AnyAffordance): string {
@@ -71,11 +78,12 @@ export function mcpTools(ctx: AffordanceContext, dir: Directory = DIRECTORY): Mc
     .filter(o => onSurface(o.affordance, "mcp"))
     .map(({ affordance: a }) => ({
       name: toolName(a.id), title: a.title, description: modelDescription(a),
-      inputSchema: jsonSchema(a.params), outputSchema: jsonSchema(toolResult(a.result), "output"),
+      inputSchema: jsonSchema(a.params), outputSchema: resultSchema(a),
       annotations: {
-        title: a.title, readOnlyHint: a.effect === "read", destructiveHint: a.effect === "destructive",
-        // Server writes take a requestId and are never applied twice; reads and view operations are naturally idempotent.
-        idempotentHint: a.effect === "read" || a.runs === "client" || "requestId" in a.params.shape, openWorldHint: false,
+        title: a.title, readOnlyHint: a.effect === "read" && !a.spends, destructiveHint: a.effect === "destructive",
+        // Only server reads. A write's requestId is optional (a retry without it applies twice), and view operations
+        // such as replay.step move from where they are.
+        idempotentHint: a.effect === "read" && a.runs === "server" && !a.spends, openWorldHint: false,
       },
     }));
 }
@@ -87,33 +95,51 @@ export interface CliCommand { id: string; words: [string, string]; usage: string
 
 const kebab = (s: string) => s.replace(/[A-Z]/g, c => `-${c.toLowerCase()}`);
 
-/** Every CLI command: `<namespace> <verb> --flag value`, plus `call <id> '<json>'` for any of them. Not context-filtered: the server decides. */
-export function cliCommands(dir: Directory = DIRECTORY): CliCommand[] {
-  return dir.filter(a => onSurface(a, "cli")).map(a => {
-    const schema = jsonSchema(a.params) as { properties?: Record<string, JsonSchema>; required?: string[] };
-    const required = new Set(schema.required ?? []);
-    const flags = Object.entries(schema.properties ?? {}).map(([param, p]) => ({
-      name: kebab(param), param, type: flagType(p), required: required.has(param),
-      description: p.description as string | undefined, choices: p.enum as unknown[] | undefined,
-    }));
-    const dot = a.id.indexOf(".");
-    const [ns, verb] = dot < 0 ? [a.id, ""] : [a.id.slice(0, dot), a.id.slice(dot + 1)];
-    const usage = [ns, kebab(verb), ...flags.map(f => f.required ? `--${f.name} <${f.type}>` : `[--${f.name} <${f.type}>]`)].join(" ");
-    return { id: a.id, words: [ns, kebab(verb)], usage, help: `${a.title}. ${modelDescription(a)}`, flags };
-  });
+const wordsOf = (id: string): [string, string] => {
+  const dot = id.indexOf(".");
+  return dot < 0 ? [id, ""] : [id.slice(0, dot), kebab(id.slice(dot + 1))];
+};
+
+/** One CLI command, built from the affordance's JSON Schema. */
+export function cliCommand(a: AnyAffordance): CliCommand {
+  const schema = jsonSchema(a.params) as { properties?: Record<string, JsonSchema>; required?: string[] };
+  const required = new Set(schema.required ?? []);
+  const flags = Object.entries(schema.properties ?? {}).map(([param, p]) => ({
+    name: kebab(param), param, type: flagType(p), required: required.has(param),
+    description: p.description as string | undefined, choices: p.enum as unknown[] | undefined,
+  }));
+  const words = wordsOf(a.id);
+  const usage = [...words, ...flags.map(f => f.required ? `--${f.name} <${f.type}>` : `[--${f.name} <${f.type}>]`)].join(" ");
+  return { id: a.id, words, usage, help: `${a.title}. ${modelDescription(a)}`, flags };
 }
 
+/** Every CLI command: `<namespace> <verb> --flag value`, plus `call <id> '<json>'` for any of them. Not context-filtered: the server decides. */
+export function cliCommands(dir: Directory = DIRECTORY): CliCommand[] {
+  return dir.filter(a => onSurface(a, "cli")).map(cliCommand);
+}
+
+/** A flag's type: the schema's one type, ignoring null ("cursor": string or null is a string flag); "json" otherwise. */
 function flagType(p: JsonSchema): string {
-  if (typeof p.type === "string") return p.type === "integer" ? "number" : p.type;
-  return "json";
+  const types = new Set<string>();
+  const collect = (x: JsonSchema) => {
+    if (typeof x.type === "string") types.add(x.type);
+    else if (Array.isArray(x.type)) for (const t of x.type) types.add(t as string);
+    else if (Array.isArray(x.anyOf)) for (const y of x.anyOf) collect(y as JsonSchema);
+    else types.add("json");
+  };
+  collect(p);
+  types.delete("null");
+  if (types.size !== 1) return "json";
+  const [t] = types as Set<string> & [string];
+  return t === "integer" ? "number" : t;
 }
 
 export type CliParse = { ok: true; id: string; args: Record<string, unknown> } | { ok: false; error: string };
 
 /**
  * Parses `["agent", "summon", "--language", "python", "--source", "…"]` or `["call", "agent.summon", "{…}"]` into an
- * affordance id and its arguments, validated by the affordance's own schema. Values of number, boolean, array and
- * object flags are parsed as JSON; `--flag` alone is true and `--no-flag` false.
+ * affordance id and its arguments, validated by the affordance's own schema. String flags take the value as it is;
+ * number, array, object and mixed flags parse it as JSON; a boolean flag is `--flag`, `--flag true|false` or `--no-flag`.
  */
 export function parseCli(argv: readonly string[], dir: Directory = DIRECTORY): CliParse {
   let id: string, raw: Record<string, unknown>;
@@ -121,7 +147,8 @@ export function parseCli(argv: readonly string[], dir: Directory = DIRECTORY): C
     id = argv[1] ?? "";
     try { raw = argv[2] ? JSON.parse(argv[2]) : {}; } catch { return { ok: false, error: "The arguments must be one JSON object." }; }
   } else {
-    const cmd = cliCommands(dir).find(c => c.words[0] === argv[0] && c.words[1] === argv[1]);
+    const found = dir.find(a => onSurface(a, "cli") && wordsOf(a.id).join(" ") === `${argv[0]} ${argv[1]}`);
+    const cmd = found && cliCommand(found);
     if (!cmd) return { ok: false, error: `Unknown command: ${argv.slice(0, 2).join(" ")}` };
     id = cmd.id; raw = {};
     for (let i = 2; i < argv.length; i++) {
@@ -133,7 +160,12 @@ export function parseCli(argv: readonly string[], dir: Directory = DIRECTORY): C
       const flag = cmd.flags.find(f => f.name === name);
       if (!flag) return { ok: false, error: `Unknown flag --${name} for ${cmd.words.join(" ")}` };
       if (value === undefined) {
-        if (flag.type === "boolean") { raw[flag.param] = !negated; continue; }
+        if (flag.type === "boolean") {
+          // `--flag true|false` as well as `--flag` and `--no-flag`.
+          if (!negated && (argv[i + 1] === "true" || argv[i + 1] === "false")) raw[flag.param] = argv[++i] === "true";
+          else raw[flag.param] = !negated;
+          continue;
+        }
         value = argv[++i];
         if (value === undefined) return { ok: false, error: `--${name} needs a value` };
       }

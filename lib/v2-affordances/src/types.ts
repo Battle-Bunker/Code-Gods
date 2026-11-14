@@ -49,11 +49,15 @@ export interface GameFacts {
   energy?: number;
   /** Whether the viewer has used their one pause. */
   pauseUsed?: boolean;
-  /** Seats filled and the preset's minimum, for start checks. */
-  players?: number;
-  minPlayers?: number;
   /** The viewer's live agents. */
   agents?: number;
+}
+
+/** The room in view, from its cold document (enough for lobby checks). */
+export interface RoomFacts {
+  /** Players seated (humans, practice partners and AI players) and the preset's minimum. */
+  players: number;
+  minPlayers: number;
 }
 
 /** Everything availability depends on. Built by the app from its subscriptions, by the server from the game header. */
@@ -62,6 +66,7 @@ export interface AffordanceContext {
   principal: Principal;
   /** A delegated credential's permission (MCP, CLI); a human at the app has none, so nothing is narrowed. */
   grant?: Grant;
+  room?: RoomFacts;
   game?: GameFacts;
 }
 

@@ -124,7 +124,7 @@ each answer carries `bits`, what an agent pays for the same read (spec §3.1, §
 | `object.quote` | Price a change to an object | objectId, calls | server · game | seated | planning, live, paused, ended, replay | read |
 | `object.score` | Score an object under my rule | objectId | server · game | seated | planning, live, paused, ended, replay | read |
 | `moves.list` | List moves that concern me | cursor, limit | server · game | seated | planning, live, paused, ended, replay | read |
-| `pitch.draft` | Draft a cooperation pitch | to, aim | server · game | seated | planning, live, paused | read; spends aiBudget; confirm summary |
+| `pitch.draft` | Draft a cooperation pitch | to, aim | server · game | seated | planning, live, paused | write; spends aiBudget; confirm summary |
 | `agents.list` | List my agents | — | server · game | seated | planning, live, paused, ended | read |
 | `agent.programs` | List an agent's versions | agentId | server · game | seated | planning, live, paused, ended | read |
 | `agent.check` | Check an agent's code | language, source | server · game | seated | planning, live, paused | read |
@@ -142,13 +142,13 @@ each answer carries `bits`, what an agent pays for the same read (spec §3.1, §
 | `view.openObject` | Open an object | objectId | client · room | member | planning, live, paused, ended, replay | write |
 | `view.sortObjects` | Sort objects | sort | client · room | member | planning, live, paused, ended, replay | write |
 | `view.filterObjects` | Filter objects | mine, minLevel | client · room | member | planning, live, paused, ended, replay | write |
-| `view.showGlossary` | Explain a term | term | client · none | anyone | signedOut, home, room, planning, live, paused, ended, replay, admin | read |
-| `replay.open` | Watch a replay | gameId | client · room | member | room, ended, replay | read |
-| `replay.play` | Play the replay | — | client · game | member | replay | read |
-| `replay.pause` | Pause the replay | — | client · game | member | replay | read |
-| `replay.seek` | Jump to a moment in the replay | seq, worldSeconds | client · game | member | replay | read |
-| `replay.step` | Step the replay | by | client · game | member | replay | read |
-| `replay.speed` | Set the replay speed | speed | client · game | member | replay | read |
+| `view.showGlossary` | Explain a term | term | client · none | anyone | signedOut, home, room, planning, live, paused, ended, replay, admin | write |
+| `replay.open` | Watch a replay | gameId | client · room | member | room, ended, replay | write |
+| `replay.play` | Play the replay | — | client · game | member | replay | write |
+| `replay.pause` | Pause the replay | — | client · game | member | replay | write |
+| `replay.seek` | Jump to a moment in the replay | seq, worldSeconds | client · game | member | replay | write |
+| `replay.step` | Step the replay | by | client · game | member | replay | write |
+| `replay.speed` | Set the replay speed | speed | client · game | member | replay | write |
 | `account.whoami` | Show who I am | — | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | read |
 | `account.connections` | List connected assistants | — | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | read |
 | `account.revokeConnection` | Disconnect an assistant | connectionId | server · none | signedIn | home, room, planning, live, paused, ended, replay, admin | destructive; confirm modal |

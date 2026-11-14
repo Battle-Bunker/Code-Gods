@@ -79,7 +79,7 @@ export const viewOps = [
     description: "Opens the glossary at a term (points, ✨ rarity, ⚡ energy, power, representation, mutator), or its index.",
     tooltip: "What does this word mean?", keywords: ["glossary", "help", "what is", "define"],
     params: obj({ term: z.string().max(40).optional() }), result: done,
-    contexts: CONTEXTS, caller: "anyone", effect: "read", confirm: "none", runs: "client",
+    contexts: CONTEXTS, caller: "anyone", effect: "write", confirm: "none", runs: "client",
   }),
 
   // Replay controls: the replay pane folds v2Events; these move its cursor.
@@ -88,35 +88,35 @@ export const viewOps = [
     description: "Opens the replay of a finished game of the room in view (ids from room.history), at its start.",
     tooltip: "Replay a finished game.", keywords: ["replay", "watch again", "rewind"],
     params: obj({ gameId: id }), result: done,
-    contexts: ["room", "ended", "replay"], caller: "member", effect: "read", confirm: "none", runs: "client",
+    contexts: ["room", "ended", "replay"], caller: "member", effect: "write", confirm: "none", runs: "client",
   }),
   affordance({
     id: "replay.play", title: "Play the replay", group: "replay", scope: "game",
     description: "Plays the replay from its cursor at the current speed.", tooltip: "Play.", keywords: ["play", "resume replay"],
-    params: obj({}), result: done, contexts: ["replay"], caller: "member", effect: "read", confirm: "none", runs: "client",
+    params: obj({}), result: done, contexts: ["replay"], caller: "member", effect: "write", confirm: "none", runs: "client",
   }),
   affordance({
     id: "replay.pause", title: "Pause the replay", group: "replay", scope: "game",
     description: "Stops the replay at its cursor.", tooltip: "Pause.", keywords: ["pause replay", "stop"],
-    params: obj({}), result: done, contexts: ["replay"], caller: "member", effect: "read", confirm: "none", runs: "client",
+    params: obj({}), result: done, contexts: ["replay"], caller: "member", effect: "write", confirm: "none", runs: "client",
   }),
   affordance({
     id: "replay.seek", title: "Jump to a moment in the replay", group: "replay", scope: "game",
     description: "Moves the replay's cursor to an event number (0 = the start) or a world time in seconds.",
     tooltip: "Jump to a point in time.", keywords: ["seek", "jump", "go to time"],
     params: obj({ seq: z.number().int().min(0).optional(), worldSeconds: z.number().min(0).optional() }), result: done,
-    contexts: ["replay"], caller: "member", effect: "read", confirm: "none", runs: "client",
+    contexts: ["replay"], caller: "member", effect: "write", confirm: "none", runs: "client",
   }),
   affordance({
     id: "replay.step", title: "Step the replay", group: "replay", scope: "game",
     description: "Moves the replay's cursor by a number of moves, backwards when negative.", tooltip: "Step forwards or back.", keywords: ["step", "next move", "previous move"],
     params: obj({ by: z.number().int().min(-100).max(100).default(1) }), result: done,
-    contexts: ["replay"], caller: "member", effect: "read", confirm: "none", runs: "client",
+    contexts: ["replay"], caller: "member", effect: "write", confirm: "none", runs: "client",
   }),
   affordance({
     id: "replay.speed", title: "Set the replay speed", group: "replay", scope: "game",
     description: "Sets how many world seconds the replay plays per real second.", tooltip: "Faster or slower.", keywords: ["speed", "fast forward", "slow motion"],
     params: obj({ speed: z.union([z.literal(0.5), z.literal(1), z.literal(2), z.literal(4), z.literal(8)]) }), result: done,
-    contexts: ["replay"], caller: "member", effect: "read", confirm: "none", runs: "client",
+    contexts: ["replay"], caller: "member", effect: "write", confirm: "none", runs: "client",
   }),
 ] as const;

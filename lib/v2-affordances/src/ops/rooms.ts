@@ -122,9 +122,9 @@ export const roomOps = [
     params: obj({ requestId: requestId.optional() }), result: z.object({ gameId: id }),
     contexts: ["room"], caller: "owner", effect: "write", confirm: "summary", runs: "server",
     available: ctx => {
-      const g = ctx.game;
-      if (g?.players !== undefined && g.minPlayers !== undefined && g.players < g.minPlayers)
-        return { ok: false, reason: `Needs ${g.minPlayers} players; ${g.players} seated.`, fix: "seats.fillPracticePartners" };
+      const r = ctx.room;
+      if (r && r.players < r.minPlayers)
+        return { ok: false, reason: `Needs ${r.minPlayers} players; ${r.players} seated.`, fix: "seats.fillPracticePartners" };
       return { ok: true };
     },
   }),
