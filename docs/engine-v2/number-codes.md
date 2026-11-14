@@ -205,3 +205,14 @@ were never thresholds:
 | | c = 29 | 17.93 | exact | knot | 1 in 250,000 |
 | | c = 53 | 30.12 | [29.94, 30.34] | knot | 1 in 1.2 billion |
 | | c = 101 | 53.97 | [29.94, ∞] | extrapolated | — |
+
+**Whole Intercept on `line-q`: the primary carries about 1.2 bits.** Under the mixed code 45% of the law's mass has c
+whole (b = 1 is the commonest denominator by far). Closeness among non-whole c is worth little: c within 1/2 of a whole
+number is 0.23 bits (85% of lines), within 1/3 is 0.59, within 1/7 is 0.89, within 1/30 is 1.06, and whole is 1.16. The
+range is all in the secondary: whole with spf ≥ 2 is 2.93 bits, ≥ 5 is 5.98, ≥ 13 is 10.71. That is the law, not an
+error. If the owner wants closeness to carry more, these are options; none is applied:
+- A fraction variant whose denominator code is flatter (for instance b drawn from a code that gives 1 … D nearly
+  equal weight), so a whole c has probability about 1/D and the primary spans about log2 D bits.
+- A primary whose exact value is not the commonest case: c close to a prime (Prime Landing), or close to a target T
+  that is not whole (c close to T = k + 1/2, say), so landing exactly is rare under the same code.
+- Leave the primary as it is and deal Whole Intercept with a secondary (spf, omega) that carries the range, as now.
