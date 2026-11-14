@@ -292,8 +292,8 @@ export function exampleFor(family: string, tieBreaker: string, language: Shipped
 }
 
 /** The Simple, Thorough and Bold starters for a family, then Naive (a teaching example, never a default), in one language. */
-export function startersFor(family: string, language: ShippedLanguage): ShippedAgent[] {
-  if (isGridTypeFamily(family)) return gridStartersFor(family, language);
+export function startersFor(family: string, language: ShippedLanguage, tieBreaker?: string | null): ShippedAgent[] {
+  if (isGridTypeFamily(family)) return gridStartersFor(family, language, tieBreaker);   // grids: written for the dealt tie-breaker (lines read it themselves)
   return (["simple", "thorough", "bold", "naive"] as const).map(k => render(k, family, null, language));
 }
 
@@ -317,7 +317,7 @@ export function hasStarters(family: string): boolean {
 
 /** Where a shipped agent's rendered copy is committed (for reading and review): agents/<family>/<name>.<ext>. */
 export function shippedPath(a: ShippedAgent): string {
-  const name = a.kind === "example" ? `example-${a.tieBreaker}` : a.kind;
+  const name = a.kind === "example" ? `example-${a.tieBreaker}` : a.tieBreaker ? `${a.kind}-${a.tieBreaker}` : a.kind;   // grid starters are written per tie-breaker
   return `agents/${a.family}/${name}.${a.language === "python" ? "py" : "ts"}`;
 }
 

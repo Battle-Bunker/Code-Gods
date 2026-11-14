@@ -10,7 +10,7 @@
  */
 import { readdirSync, readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { evaluateSite, hashHex, layerLadders, levelOf, rng, scoreFromWire, type ObjectType, type Score, type Variant } from "@workspace/v2-core";
+import { evaluateSite, hashHex, layerLadders, levelOf, objectLadder, rng, scoreFromWire, scoreToWire, type ObjectType, type Score, type Variant } from "@workspace/v2-core";
 import type { Sandbox } from "@workspace/v2-sandbox";
 import { runAct, type Program } from "./act.ts";
 import { births } from "./births.ts";
@@ -33,6 +33,8 @@ export interface HarnessInput<S> {
   readonly seed: string;
   /** A cap on acts per player, in case an agent spends nothing. */
   readonly maxActs?: number;
+  /** A rule with no calibrated artefact is valued at one bit a rung of its own ladder (valuedArtefact). */
+  readonly standIn?: boolean;
 }
 
 /** How one rule fares on the shared lines (every player's rule is measured on every line). */
@@ -111,13 +113,27 @@ function bitsOf(a: ArtefactFile, score: Score): number {
 }
 
 /**
+ * The committed artefact for a rule when it has values; else, with `standIn`, the rule's own ladder at one bit a rung
+ * (status "stand-in"), so points can be compared before a family is calibrated; else null.
+ */
+export function valuedArtefact<S>(type: ObjectType<S>, variant: Variant, rule: HarnessPlayer["rule"], standIn = false): ArtefactFile | null {
+  const found = findArtefact(variant.id, rule);
+  if (found && found.rungs.every(x => x.bits !== null)) return found;
+  if (!standIn) return null;
+  const family = type.families.find(f => f.id === rule.family)!;
+  const rungs = objectLadder(type, family, rule.params, variant, rule.tieBreaker).map((g, i) => ({
+    score: scoreToWire(g.score), bits: i, layer: g.layer, label: g.label, ...(g.main !== undefined ? { main: g.main } : {}),
+  }));
+  return { family: rule.family, params: rule.params, tieBreaker: rule.tieBreaker, variant: variant.id, status: "stand-in", rungs };
+}
+
+/**
  * A player's value of a line: `bits(s)` is n_i, their rarity on their committed artefact (0 without values); `level(s)`
  * the rung their rule's score reaches; `rungs` the ladder with each rung's rarity, as `runAct`'s `rungs` takes it.
  */
-export function valuer<S>(type: ObjectType<S>, variant: Variant, rule: HarnessPlayer["rule"]) {
+export function valuer<S>(type: ObjectType<S>, variant: Variant, rule: HarnessPlayer["rule"], standIn = false) {
   const family = type.families.find(f => f.id === rule.family)!;
-  const found = findArtefact(variant.id, rule);
-  const a = found && found.rungs.every(x => x.bits !== null) ? found : null;
+  const a = valuedArtefact(type, variant, rule, standIn);
   const scoreOf = (s: S) => evaluateSite(type, family, rule.params, s, variant, 0, rule.tieBreaker).score;
   const ladder = a ? a.rungs.map(r => ({ score: scoreFromWire(r.score), label: r.label, layer: r.layer, ...(r.main !== undefined ? { main: r.main } : {}) })) : [];
   return {
@@ -142,7 +158,7 @@ export async function runHarness<S>(boxes: Sandboxes, input: HarnessInput<S>): P
   const sandboxOf = new Map<string, Sandbox>();
   for (const p of players) sandboxOf.set(p.program.language, await boxes.get(p.program.language));
 
-  const valuers = players.map(p => valuer(type, variant, p.rule));
+  const valuers = players.map(p => valuer(type, variant, p.rule, input.standIn));
   /** Every player's points on a state: π_i = n_i · Σ_{j≠i} n_j. */
   const pointsOf = (s: S) => { const n = valuers.map(v => v.bits(s)); const total = n.reduce((a, b) => a + b, 0); return n.map(x => x * (total - x)); };
   const bitsAll = (s: S) => valuers.map(v => v.bits(s));
@@ -206,9 +222,10 @@ export async function runHarness<S>(boxes: Sandboxes, input: HarnessInput<S>): P
     const tops = ladders.map(l => l.length - 1);
     const atTop = (ls: S[]) => ls.filter(s => levels(s)[0] === tops[0]).length;
     const found = findArtefact(variant.id, p.rule);
-    const a = found && found.rungs.every(x => x.bits !== null) ? found : null;   // an unconverged run may have no values
+    const a = valuedArtefact(type, variant, p.rule, input.standIn);   // an unconverged run may have no values
     const name = `${p.rule.family}/${p.rule.tieBreaker}`;
-    if (found) artefacts[name] = a ? found.status : `${found.status}, no values`;
+    if (a) artefacts[name] = a.status;
+    else if (found) artefacts[name] = `${found.status}, no values`;
     const bits = (ls: S[]) => ls.reduce((t, s) => t + bitsOf(a!, scoreOf(s)), 0);
     return {
       player: p.name, rule: name,

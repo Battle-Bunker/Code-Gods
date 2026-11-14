@@ -9,7 +9,7 @@ import { useMemo, useState } from "react";
 import { ObjectChip } from "@workspace/v2-views";
 import { decodeState, objectWord, useGame, useGameScope, useMyObject, useMyRule, type GameRule, type MyRule } from "@/sdk";
 import { useView } from "@/core/affordance-runtime";
-import { bitsText, energyText, pointsText } from "@/core/words";
+import { bitsText, chanceText, energyText, pointsText } from "@/core/words";
 import { argError, mutatorChoices, standing, whatIf, wireNumber, type MutatorChoice } from "./what-if-model";
 
 const field = "h-9 min-w-0 border bg-background px-2 text-sm";
@@ -84,8 +84,7 @@ function Tryout({ rule, my, state, want, sites }: { rule: GameRule; my: MyRule; 
           <div className="space-y-2 border-t pt-3 text-sm" data-testid="what-if-result">
             <p data-testid="text-what-if-after">It would {out.what}: <ObjectChip type={rule.type} state={out.after} sites={sites} /></p>
             <dl className="space-y-1">
-              <Delta label="Your rule" from={out.from.level} to={out.to.level} fmt={l => `step ${l} of ${out.to.top}`} testId="text-what-if-step" />
-              <Delta label="Your rarity" from={out.from.rarity} to={out.to.rarity} fmt={bitsText} testId="text-what-if-rarity" />
+              <Delta label="Your rarity" from={out.from.rarity} to={out.to.rarity} fmt={b => `${bitsText(b)} (${chanceText(b)} by chance)`} testId="text-what-if-rarity" />
               <Delta label="Your points on it" from={out.from.points} to={out.to.points} fmt={pointsText} testId="text-what-if-points" />
             </dl>
             {want !== null && <p className="text-xs text-muted-foreground">Points assume the others' bits on this {rule.type.id} stay as they are now ({bitsText(want)}): their rules are secret, so nobody can tell how much they would want it after.</p>}

@@ -4,7 +4,7 @@
  *   /rule-gallery lists the rules of a board; a rule's page follows its numbers and tie-breaker in the URL and shows the
  *   goal card's steps to the top → a new room's owner picks a setup (no Lab group for a player) and changes the
  *   settings; the next game starts with them (its header says so) → during the live game, One line's "Try a change"
- *   opens What if, which shows the line after a change, the rule's step and the price, and explains a bad number.
+ *   opens What if, which shows the line after a change, your rarity with its chance and the price, and explains a bad number.
  * Every page is checked for sideways scrolling at both sizes.
  *
  *   pnpm --filter @workspace/player-web run e2e:gallery        (SKIP_DEPLOY=1 reuses the uploaded build)
@@ -150,7 +150,11 @@ try {
     await page.getByTestId("button-open-what-if").click();
     const whatIf = page.getByTestId("pane-what-if");
     await whatIf.getByTestId("what-if-result").waitFor({ timeout: 15_000 });
-    assert.match(await whatIf.getByTestId("text-what-if-step").innerText(), /Your rule\s*step \d+ of \d+ → step \d+ of \d+/);
+    // Owner decision 23: no steps; the rarity says its chance.
+    assert.doesNotMatch(await whatIf.getByTestId("what-if-result").innerText(), /\bstep\b/i);
+    if (await whatIf.getByTestId("text-what-if-rarity").count()) {
+      assert.match(await whatIf.getByTestId("text-what-if-rarity").innerText(), /Your rarity\s*[\d.]+ bits \(1 in [^)]+ by chance\) → [\d.]+ bits \(1 in [^)]+ by chance\)/);
+    }
     assert.match(await whatIf.getByTestId("text-what-if-charge").innerText(), /An agent would spend about [\d.]+ ⚡/);
     assert.match(await whatIf.getByTestId("text-what-if-after").innerText(), /It would move the line up 1:\s+y =/);
     await whatIf.getByTestId("input-what-if-k").fill("abc");

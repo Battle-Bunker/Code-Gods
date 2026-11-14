@@ -25,14 +25,15 @@
     "@workspace/v2-ai": "workspace:*",
     "@workspace/v2-core": "workspace:*",
     "@workspace/v2-economy": "workspace:*",
+    "@workspace/v2-grid": "workspace:*",
     "@workspace/v2-linear": "workspace:*",
     "@workspace/v2-sandbox": "workspace:*",
     "@workspace/v2-valuation": "workspace:*",
     "better-auth": "1.6.33",
     "convex": "1.48.0",
     "jose": "6.2.13",
-    "typescript": "5.9.3",
-    "quickjs-emscripten": "0.31.0"
+    "quickjs-emscripten": "0.31.0",
+    "typescript": "5.9.3"
   },
   "devDependencies": {
     "@types/node": "catalog:"

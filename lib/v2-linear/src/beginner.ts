@@ -114,6 +114,10 @@ export const squareArea = family("square-area", "Square Area", ["tri", "cart"], 
   ctx.term("lpf", `largest prime factor of ${sq.root}`, q(largestPrimeFactor(sq.root)), [area]);
   ctx.term("omega", `prime factors of ${sq.root}`, q(primeFactorCount(sq.root)), [area]);
   ctx.mark({ kind: "note", ref: area, text: `area ${Qn.toWire(a)}, nearest square ${sq.root * sq.root} = ${sq.root}²` });
+  // The nearest square itself, as a shape the plane draws beside the triangle (marks only: no term changes).
+  const sqRef = ref("tri", "square", { s: sq.root });
+  ctx.read(sqRef);
+  ctx.mark({ kind: "candidate", ref: sqRef, term: "square" });
 });
 
 // ---------------------------------------------------------------- 3. Treasure
