@@ -230,11 +230,18 @@ whole game on one line reaches y = −x + 269 (13.5×).
   any of these rules reward. Rationals add states, not structure. They would add structure only with rules that reward
   something about fractions themselves: continued fractions, Farey neighbours, a rational point on a conic
   (`layered-line-rules.md` §1.5 has the lenses).
-- **Grids are what the owner asked for, at least at this scale.** Every greedy climb ends somewhere different, annealing
+- **Grids are closer to what the owner asked for.** Every greedy climb ends somewhere different, annealing
   runs disagree by more than 2×, and nothing short of a large search finds the best board. Neither search proves its best
   board is the global optimum. Grids have 16 coupled numbers, rules that read overlapping sets of cells (rows, columns,
   mirrors), and bounded per-cell values. So high bits come from coincidences across many cells, not from one number's
   size. That is the structural difference proposals 1–3 import into lines.
+- **But the grids are not safe either** (from the grid session, 14 November):
+  - Every grid main part is a sum of bounded per-unit distances (Σ|row − 18|, Σ|b_i + b_{15−i} − 9|, palindrome gaps). That makes each main smooth, nearly separable and bounded, with a global top.
+  - Several mains share satisfying patterns: rows like "2 7 2 7" are palindromes in pairs, sum to 18 and pair to 9.
+  - A plain hill-climb with 6 restarts found 8118455454451881, at 26, 37 and 31 bits for the three rules.
+  - Far moves are cheap there too: cells.add +9 costs 18.4 bits in one act, against 94 as unit steps.
+  - So the grid's hardness here is moderate: a few seconds of restarts get within about 5% of the best board found (≈ 5,830 against 6,110). It comes from 16 coupled cells, not from rules that resist a solver.
+  - The same proposals apply: coupling between objects, coincidences across units rather than separable distances, and path-consistent prices.
 - Grid tables still beat naive 1.6–3× by settling (`ai-table-results.md`). Agreement on a good board is possible there
   too, but no one can say in one sentence which board is best.
 
