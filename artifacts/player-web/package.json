@@ -9,17 +9,8 @@
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test test/*.test.ts",
-    "e2e": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/multi-client.ts",
-    "e2e:panels": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/stored-panels.ts",
-    "e2e:assistant": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/assistant-games.ts",
-    "e2e:replay": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/replay-shot.ts ../../docs/screenshots/replay",
-    "e2e:annotations": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/annotations.ts",
-    "videos:annotations": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/annotations-videos.ts ../../docs/videos/annotations",
-    "e2e:glyphs": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/grid-glyphs.ts",
     "e2e:v2-views": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v2-views.ts ../../docs/screenshots/v2-views",
-    "e2e:site": "node --experimental-strip-types --disable-warning=ExperimentalWarning e2e/site-smoke.ts",
-    "e2e:account": "node --experimental-strip-types --disable-warning=ExperimentalWarning e2e/account-mode.ts",
-    "e2e:update": "node --experimental-strip-types --disable-warning=ExperimentalWarning e2e/auto-update.ts"
+    "e2e:site": "node --experimental-transform-types --disable-warning=ExperimentalWarning e2e/v2-site.ts"
   },
   "devDependencies": {
     "@convex-dev/better-auth": "0.12.6",
