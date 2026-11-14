@@ -5,7 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { exampleAgent } from "@workspace/game-utilities/example-agents";
-import { instantiationOf, type GameSettings } from "@workspace/game-core";
+import { BEGINNER_AGENT_BUDGET_BITS, firstAgentShare, instantiationOf, type GameSettings } from "@workspace/game-core";
 import { admin, api, gods, internal, raw, rejects, roomWith, startGame, touch, waitFor } from "./game-helpers.ts";
 
 test("a player who is not an administrator practises against two practice partners, which each summon their rule's example agent and spend nothing on a model; a model-backed AI seat stays refused", { timeout: 300_000 }, async () => {
@@ -26,6 +26,8 @@ test("a player who is not an administrator practises against two practice partne
     assert.ok(deity?.aiAgent?.provider === "builtin", "the agent is a practice partner's");
     const language = agent.language as "python" | "typescript";
     assert.equal(agent.source, exampleAgent(deity.utility.familyId, deity.utility.params, instantiationOf(settings), language).source, "its rule's example agent");
+    // On a beginner's terms: the share "Summon my first agent" asks for (player-web first-agent.ts), not the engine default.
+    assert.equal(agent.powerShare, firstAgentShare({ allocated: 0, powerPerSecond: settings.powerPerSecond, fullChargeSeconds: settings.fullChargeSeconds, need: BEGINNER_AGENT_BUDGET_BITS }));
   }
   const { room } = await admin.query(internal.testing.rawRoom, { roomId });
   assert.equal(room.aiUsed ?? 0, 0, "no model tokens");
