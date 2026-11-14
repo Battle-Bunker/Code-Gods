@@ -32,6 +32,7 @@ test("call (g): the cap is the last rung through which every rung converged; lin
   assert.deepEqual(capOf({ status: "unconverged", rungs, config: DEFAULT_CONFIG }), { cap: 7, dealable: true, converged: 7 });
   // An empty rung passes; a missing value stops the cap; fewer than six converged rungs is too hard; too coarse never deals.
   assert.equal(capOf({ status: "unconverged", rungs: [rung(0, 0), { bits: 1, error: 0.01, empty: true as const }, rung(1, 0.01), { bits: null, error: null }], config: DEFAULT_CONFIG }).cap, 2);
+  assert.equal(capOf({ status: "unconverged", rungs: [rung(0, 0), rung(1, 0.01), { bits: 1, error: 0.01, empty: true as const }, { bits: null, error: null }], config: DEFAULT_CONFIG }).cap, 1);
   assert.equal(capOf({ status: "unconverged", rungs: rungs.slice(0, MIN_DEALABLE_RUNGS), config: DEFAULT_CONFIG }).dealable, false);
   assert.equal(capOf({ status: "too-coarse", rungs, config: DEFAULT_CONFIG }).dealable, false);
   // The committed Prime Gradient + prime artefact on line-z is capped below its top: y = 31x scores as the cap.

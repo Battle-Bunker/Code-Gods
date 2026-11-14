@@ -3453,11 +3453,11 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "params": {},
   "tieBreaker": "big-prime",
   "status": "unconverged",
-  "cap": 6,
+  "cap": 4,
   "dealable": false,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "beaf7a42ca77f9dc",
+  "contentHash": "354f1a7b244d53ea",
   "rungs": [
    {
     "score": null,
@@ -6734,11 +6734,11 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "params": {},
   "tieBreaker": "far",
   "status": "unconverged",
-  "cap": 1,
+  "cap": 0,
   "dealable": false,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "b305206877a3ed90",
+  "contentHash": "e493cc454e170899",
   "rungs": [
    {
     "score": null,
@@ -14237,11 +14237,11 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   },
   "tieBreaker": "whole",
   "status": "unconverged",
-  "cap": 35,
+  "cap": 27,
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "2f8472a955c05b5b",
+  "contentHash": "8226c31643253d12",
   "rungs": [
    {
     "score": null,
@@ -18794,11 +18794,11 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   },
   "tieBreaker": "prime-height",
   "status": "unconverged",
-  "cap": 34,
+  "cap": 31,
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "a71c1af995c0f3ad",
+  "contentHash": "a7b058de8e5457ce",
   "rungs": [
    {
     "score": null,
@@ -21442,11 +21442,11 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   },
   "tieBreaker": "whole-lamp",
   "status": "unconverged",
-  "cap": 32,
+  "cap": 31,
   "dealable": true,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "e155ac161b8e02b9",
+  "contentHash": "15d0346bf1bcfba6",
   "rungs": [
    {
     "score": null,
@@ -21828,11 +21828,11 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   },
   "tieBreaker": "whole-values",
   "status": "too-coarse",
-  "cap": 10,
+  "cap": 8,
   "dealable": false,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "5d57928f42407842",
+  "contentHash": "493e05af7163a899",
   "rungs": [
    {
     "score": null,
@@ -25449,11 +25449,11 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "params": {},
   "tieBreaker": "omega",
   "status": "too-coarse",
-  "cap": 27,
+  "cap": 0,
   "dealable": false,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "0580db708c7f85d4",
+  "contentHash": "78a5616b5e7857a1",
   "rungs": [
    {
     "score": null,
@@ -25804,11 +25804,11 @@ export const ARTEFACT_RECORDS: readonly ArtefactRecord[] = [
   "params": {},
   "tieBreaker": "spf",
   "status": "too-coarse",
-  "cap": 27,
+  "cap": 0,
   "dealable": false,
   "primarySense": "min",
   "curve": null,
-  "contentHash": "acb773450b011bc8",
+  "contentHash": "c8881caba7a7fed7",
   "rungs": [
    {
     "score": null,

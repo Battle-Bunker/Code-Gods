@@ -83,7 +83,7 @@ export function capOf(a: { readonly status: string; readonly rungs: readonly { b
   let cap = 0, converged = 0;
   for (let i = 1; i < a.rungs.length; i++) {
     const r = a.rungs[i]!;
-    if (r.empty) { cap = i; continue; }
+    if (r.empty) continue;   // passes, but the cap only ever sits on a converged rung
     const { bits, error } = r;
     if (bits === null || error === null || !Number.isFinite(bits) || !Number.isFinite(error)) break;
     if (error > Math.max(a.config.targetRelError * bits, a.config.absFloorBits)) break;
