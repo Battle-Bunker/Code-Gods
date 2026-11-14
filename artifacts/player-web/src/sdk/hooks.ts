@@ -6,7 +6,7 @@
  * Disclosure: every answer is the viewer's own (their rule, values, agents, moves) or public (standings, chat). Another
  * player's rule or value never reaches the browser during a live game.
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { api } from "@workspace/engine/convex/_generated/api";
 import { useGameScope } from "./game";
 import { useLivePaged, useLiveValue, useLiveValues } from "./live";
@@ -116,4 +116,30 @@ export function useChat(pageSize = 50) {
 export function useDigest() {
   const { gameId, seated } = useGameScope();
   return useLiveValue(api.v2.play.digest, gameId && seated ? { gameId } : "skip");
+}
+
+// ------------------------------------------------------------------ an accepted summon counts at once (ux-lessons 1.8)
+
+const accepted = new Set<string>();
+const acceptedListeners = new Set<() => void>();
+/** The forge records an accepted summon, so nothing offers "Summon my first agent" while the subscriptions catch up. */
+export function noteSummoned(gameId: string) {
+  if (accepted.has(gameId)) return;
+  accepted.add(gameId);
+  for (const l of acceptedListeners) l();
+}
+/**
+ * How many agents the viewer has, as far as anything on this page knows: the account's count, the agent list, or a
+ * summon this page saw accepted. Undefined while nothing is known yet (never read as "none").
+ */
+export function useAgentCount(): number | undefined {
+  const { gameId } = useGameScope();
+  const me = useMe();
+  const agents = useMyAgents();
+  const local = useSyncExternalStore(
+    fn => { acceptedListeners.add(fn); return () => { acceptedListeners.delete(fn); }; },
+    () => !!gameId && accepted.has(gameId),
+  );
+  if (me === undefined && agents === undefined) return local ? 1 : undefined;
+  return Math.max(me?.agents ?? 0, agents?.length ?? 0, local ? 1 : 0);
 }
