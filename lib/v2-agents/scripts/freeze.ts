@@ -135,6 +135,7 @@ for (let g = 0; g < Number(o.games); g++) {
     frozen: Object.fromEntries(Object.entries(frozen).map(([k, v]) => [k, +v.toFixed(2)])), gained: Math.round(r.seats.reduce((a, s) => a + s.gained, 0)),
     byMutator: Object.fromEntries(Object.entries(r.byMutator).map(([k, v]) => [k, { moves: v.moves, points: Math.round(v.points), charge: Math.round(v.charge) }])),
     digits: { max: Math.max(...final.map(digits)), mean: +(final.reduce((a, s) => a + digits(s), 0) / final.length).toFixed(1) },
-    endpoint: { meanPerObject: +(final.reduce((a, s) => a + tableTotal(s), 0) / final.length).toFixed(1), bestPerObject: +Math.max(...final.map(tableTotal)).toFixed(1), windowBest: +windowBest.toFixed(1) } }));
+    endpoint: { meanPerObject: +(final.reduce((a, s) => a + tableTotal(s), 0) / final.length).toFixed(1), bestPerObject: +Math.max(...final.map(tableTotal)).toFixed(1), windowBest: +windowBest.toFixed(1),
+      bestLine: (best => ({ si: (new EngineHost({ type: lineType, variant, state: best, rule: rules[0]!, energy: 0 }).handle({ op: "view", rep: "si" } as never, { hostCallsLeft: 5 }) as { result: { elements: { m: { q: string }; c: { q: string } } } }).result.elements, bits: bitsOf.map(f => +f(best).toFixed(1)) }))(final.reduce((a, s) => (tableTotal(s) > tableTotal(a) ? s : a))) } }));
 }
 await boxes.close();
