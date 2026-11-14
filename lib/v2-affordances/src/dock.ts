@@ -219,9 +219,9 @@ function anchorOf(all: Leaf[], place: DockPlace): Leaf {
 
 /**
  * The tree with `pane` added at `place` (unchanged when it is already in it): one line ("object") gets a group of its
- * own below the lines it is opened from (when they are in front), so the list stays in view; any other pane becomes a
- * tab of the group at that place, shown when `show` (a pane just opened), else behind the tab shown there (a pane
- * carried over from elsewhere).
+ * own below the lines it is opened from (when they are in front), so the list stays in view; any other pane opened to
+ * the front (`show`) gets a group of its own beside the group at that place, so nothing in view is covered (up to
+ * MAX_SPLIT groups; then it is a tab in front there); a pane carried over from elsewhere joins behind the tab shown there.
  * Nothing is ever taken out to make room.
  */
 export function dockInsert(n: DockNode | null, pane: string, place: DockPlace, show: boolean): DockNode {
@@ -231,8 +231,16 @@ export function dockInsert(n: DockNode | null, pane: string, place: DockPlace, s
   const lines = pane === "object" ? leaves.find(l => l.group.active === "objects") : undefined;
   if (lines) return normaliseDock(replaceAt(n, lines.path, g => ({ split: "column", sizes: [45, 55], children: [g, { tabs: [pane], active: pane }] })))!;
   const anchor = anchorOf(leaves, place);
+  // A pane opened to the front gets a group of its own beside the one at that place, so the pane the player acted from
+  // stays in view (One line opened from Results covered Results). Past MAX_SPLIT groups it becomes a tab instead.
+  if (show && leaves.length < MAX_SPLIT) {
+    const wide = anchor.rect.w * 16 > anchor.rect.h * 9 * 1.6;
+    return normaliseDock(replaceAt(n, anchor.path, g => ({ split: wide ? "row" : "column", sizes: [50, 50], children: [g, { tabs: [pane], active: pane }] })))!;
+  }
   return replaceAt(n, anchor.path, g => {
     const group = g as DockGroup;
     return { tabs: [...group.tabs, pane], active: show ? pane : group.active };
   });
 }
+/** Groups on one screen before an opened pane joins a group as a tab rather than splitting it. */
+export const MAX_SPLIT = 6;

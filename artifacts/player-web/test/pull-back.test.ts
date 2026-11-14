@@ -37,6 +37,8 @@ test("a refused purchase's shortfall is read from the server's numbers, and said
   assert.deepEqual(s, { price: 456.45, store: 443.55, secondsToPay: 1.34, payNow: { a1: 0.01 } });
   assert.equal(shortText(s, "summon"), "This summon costs 456.45 ⚡ and your store holds 443.55 ⚡: it pays by itself in about 2 seconds, or pull power back from your agents to pay now.");
   assert.equal(shortText({ ...s, secondsToPay: null }, "edit"), "This edit costs 456.45 ⚡ and your store holds 443.55 ⚡: waiting never pays it at this split. Pull power back from your agents, or shorten the code.");
+  // In planning nothing accrues (round 6: "pays by itself in about 2 seconds" waited until the world started).
+  assert.equal(shortText(s, "summon", true), "This summon costs 456.45 ⚡ and your store holds 443.55 ⚡. Energy only comes in once the world runs: pull power back from your agents to pay now, or start the world.");
   assert.equal(shortfallOf(new Error("no numbers")), null);
   assert.equal(shortfallOf({ data: { price: "x" } }), null);
 });

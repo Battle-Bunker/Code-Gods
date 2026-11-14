@@ -1,7 +1,7 @@
 /** The dock's arrangement in the view state: its text form and `view.arrangeDock` (dock.ts, layout.ts). */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { EMPTY_VIEW, PRINCIPALS, applyView, defaultDock, dockPanes, formatDock, parseDock, type AffordanceContext, type ViewState } from "../src/index.ts";
+import { EMPTY_VIEW, PRINCIPALS, applyView, defaultDock, dockGroups, dockPanes, formatDock, parseDock, type AffordanceContext, type ViewState } from "../src/index.ts";
 
 const live: AffordanceContext = { context: "live", principal: PRINCIPALS.seated! };
 const TEXT = "row(column(my-card 50, agents 50) 28, column(objects 45, object 55) 42, column(feed|*public-chat 55, race 45) 30)";
@@ -47,13 +47,13 @@ test("moving or closing a pane takes it out of every arrangement; reopening an o
   // Catches: a pane moved with the menu (or by an assistant) staying where the arrangement put it.
   const base: ViewState = { ...EMPTY_VIEW, panes: [{ pane: "feed", place: "right" }, { pane: "race", place: "right" }], dock: { live: parseDock("row(objects 60, feed|race 40)"), ended: parseDock("row(results, race)") } };
   const moved = applyView(base, "view.movePane", { pane: "race", place: "left" }, live).view;
-  assert.equal(formatDock(moved.dock.live!), "row(objects|*race 60, feed 40)", "placed at the left on the screen in view");
+  assert.equal(formatDock(moved.dock.live!), "row(column(objects 50, race 50) 60, feed 40)", "placed at the left on the screen in view, beside what is there");
   assert.equal(formatDock(moved.dock.ended!), "results", "and out of the other screens' arrangements, to join at its place there");
   const closed = applyView(base, "view.closePane", { pane: "feed" }, live).view;
   assert.equal(formatDock(closed.dock.live!), "row(objects 60, race 40)");
   const front = applyView(base, "view.openPane", { pane: "race" }, live).view;
   assert.equal(formatDock(front.dock.live!), "row(objects 60, feed|*race 40)");
-  assert.equal(formatDock(applyView(base, "view.openPane", { pane: "race", place: "main" }, live).view.dock.live!), "row(objects|*race 60, feed 40)");
+  assert.equal(formatDock(applyView(base, "view.openPane", { pane: "race", place: "main" }, live).view.dock.live!), "row(column(objects 50, race 50) 60, feed 40)");
 });
 
 test("opening a pane shows it on the screen in view and takes nothing away; one line opens below the lines", () => {
@@ -81,18 +81,29 @@ test("a view stored before the dock existed still reduces, and a no-op stays a n
 test("a pane opened for the human never covers the assistant's conversation while another group can take it", () => {
   const v: ViewState = { ...EMPTY_VIEW, panes: [{ pane: "assistant", place: "right" }], dock: { planning: parseDock("row(overview 26, my-card 34, forge|*assistant 40)") } };
   const r = applyView(v, "view.openPane", { pane: "rules" }, { ...live, context: "planning" });
-  assert.equal(formatDock(r.view.dock.planning!), "row(overview 26, my-card|*rules 34, forge|*assistant 40)");
+  assert.equal(formatDock(r.view.dock.planning!), "row(overview 26, column(my-card 50, rules 50) 34, forge|*assistant 40)");
 });
 
 test("the assistant's conversation stays in front: opened at a place, or after an assistant arranges the dock", () => {
   // Catches (real-assistant walk): opened from a pane's menu it joined behind the tab there, and an assistant's own
   // "Arrange the dock" put another tab over the conversation it was still answering in.
   const opened = applyView(EMPTY_VIEW, "view.openPane", { pane: "assistant", place: "right" }, live).view;
-  assert.equal(formatDock(opened.dock.live!), "row(column(my-card 45, agents 55) 33, objects 37, column(feed 50, race|*assistant 50) 30)");
+  assert.equal(formatDock(opened.dock.live!), "row(column(my-card 45, agents 55) 33, objects 37, column(feed 50, race 25, assistant 25) 30)");
   const delegated: AffordanceContext = { ...live, grant: "act" };
   const arranged = applyView(opened, "view.arrangeDock", { dock: "row(objects 70, column(feed 50, *race|assistant 50) 30)" }, delegated).view;
   assert.equal(formatDock(arranged.dock.live!), "row(objects 70, column(feed 50, race|*assistant 50) 30)");
   // The human's own arrangement is the human's: a tab they bring forward stays forward.
   const human = applyView(opened, "view.arrangeDock", { dock: "row(objects 70, column(feed 50, *race|assistant 50) 30)" }, live).view;
   assert.equal(formatDock(human.dock.live!), "row(objects 70, column(feed 50, race|assistant 50) 30)");
+});
+
+test("opening a pane never hides the one the player acted from: One line opened from Results sits beside it", () => {
+  // Catches (the annotations session): a summary entry opened One line as a tab over Results itself.
+  const ended: AffordanceContext = { ...live, context: "ended" };
+  const v = applyView(EMPTY_VIEW, "view.openObject", { objectId: "o1" }, ended).view;
+  const tree = v.dock.ended!;
+  assert.equal(formatDock(tree), "row(my-card 28, column(results 50, object 50) 44, race 28)");
+  // Every pane of the screen is still the active tab of its group.
+  const fronts = dockGroups(tree).map(l => l.group.active);
+  for (const p of ["my-card", "results", "race", "object"]) assert.ok(fronts.includes(p), `${p} in view: ${formatDock(tree)}`);
 });

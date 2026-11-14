@@ -158,6 +158,17 @@ try {
     console.log(`${label}: ended dock: ${await dockText(page)}`);
     await usable(page, ["results", "my-card", "race"], `${label} ended`);
     await page.screenshot({ path: path.join(shots, `dock-${viewport.width}-ended.png`) });
+    // Opening a pane never hides the one acted from (One line opened from Results' summary became a tab over Results):
+    // from Results, open the line-by-line list, then one line from it; Results stays in view throughout.
+    await page.getByTestId("pane-results").getByTestId("button-line-by-line-results").click();
+    await page.getByTestId("pane-objects").waitFor({ timeout: 15_000 });
+    await page.locator("[data-testid^=row-line-]").first().click();
+    await page.getByTestId("pane-object").waitFor({ timeout: 15_000 });
+    for (const p of ["results", "objects", "object"]) {
+      assert.ok(await page.getByTestId(`pane-${p}`).isVisible(), `${label}: ${p} in view after opening from Results: ${await dockText(page)}`);
+    }
+    assert.ok(await page.getByTestId("pane-results").getByText(/You finished/).first().isVisible(), `${label}: Results' headline still in view`);
+    console.log(`${label}: opened from Results, all in view: ${await dockText(page)}`);
     assert.deepEqual(errors, [], `${label}: page errors`);
     await context.close();
   }

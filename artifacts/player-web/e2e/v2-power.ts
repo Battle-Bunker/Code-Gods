@@ -92,20 +92,22 @@ try {
     await page.waitForURL(/\/games\//, { timeout: 30_000 });
     await page.getByTestId("button-summon-first").click();
     await page.getByTestId("text-forge-status").getByText(/is summoned/).waitFor({ timeout: 60_000 });
+    // Force a lasting shortfall while still planning: the first agent takes 99% of the power (its energy goes with it),
+    // then ask for a second agent. Nothing accrues in planning, so the forge must not promise "pays by itself in about
+    // N s" (round 6): it says energy comes in once the world runs, and offers to pull power back now.
+    if (label === "phone") await page.getByTestId("button-forge-show-code").click().catch(() => {});
+    await allocate(page, { [await firstAgent(page)]: 0.99 });
+    await page.getByTestId("button-summon-beside").click();
+    await page.getByTestId("text-forge-status").getByText(/Energy only comes in once the world runs: pull power back from your agents to pay now, or start the world\./).waitFor({ timeout: 30_000 });
+    assert.doesNotMatch(await page.getByTestId("text-forge-status").innerText(), /pays by itself/, `${label}: no false promise in planning`);
+    await page.getByTestId("button-pull-back").getByText("Pull power back to pay for this now").waitFor({ timeout: 10_000 });
     const startNow = page.getByTestId("button-start-world");
     if (await startNow.count()) { await startNow.click(); await startNow.click().catch(() => {}); }
     await page.getByTestId("text-phase").getByText("Running").waitFor({ timeout: 30_000 });
-    if (label === "phone") await page.getByTestId("button-forge-show-code").click().catch(() => {});
     // On a desktop the live screen keeps the lines in front; the agent code (opened in planning) is a tab: bring it forward.
-    else if (await page.getByTestId("tab-forge").count()) await page.getByTestId("tab-forge").locator("h2").click();
-    // Force a lasting shortfall: the first agent takes 99% of the power, so the own store barely refills, then ask
-    // for a second agent. The forge must keep the purchase wanted and offer to pull power back (round 5: 13 ⚡ short,
-    // the offer lived about a second and was never seen).
-    await allocate(page, { [await firstAgent(page)]: 0.99 });
+    if (label !== "phone" && await page.getByTestId("tab-forge").count()) await page.getByTestId("tab-forge").locator("h2").click();
+    // The purchase stays wanted into the running world (round 5: the offer lived about a second and was never seen).
     const pull = page.getByTestId("button-pull-back");
-    await page.getByTestId("button-summon-beside").click();
-    // "… your store holds 19.20 ⚡: waiting never pays it at this split. Pull power back from your agents, …" (or "it pays
-    // by itself in about N s, or pull power back …" when it would).
     await page.getByTestId("text-forge-status").getByText(/your store holds .* pull power back from your agents/i).waitFor({ timeout: 30_000 });
     await page.waitForTimeout(3000);
     assert.ok(await pull.isVisible(), `${label}: the offer to pull power back stays on screen while the purchase waits`);
@@ -117,8 +119,13 @@ try {
     const proposal = page.getByTestId("text-pull-back-proposal");
     await proposal.waitFor({ timeout: 90_000 });
     console.log(`${label}: paid ${clock(wanted)} after asking; ${(await proposal.innerText()).trim()}`);
-    await page.getByTestId("button-pull-back-use").click();
-    await page.getByTestId("text-pull-back-done").waitFor({ timeout: 15_000 });
+    // Nobody presses anything: the new split applies by itself, and the first agent has its power again (round 6: it was
+    // left at 1%, 9 moves and no points, while the new agent had the rest).
+    await page.getByTestId("text-pull-back-done").waitFor({ timeout: 20_000 });
+    const shares = await (await client(page)).query("v2/play:agents" as never, { gameId: gameIdOf(page) } as never) as { name: string; share: number }[];
+    console.log(`${label}: split now ${shares.map(a => `${a.name} ${Math.round(a.share * 100)}%`).join(", ")}`);
+    assert.equal(shares.length, 2, `${label}: two agents`);
+    for (const a of shares) assert.ok(a.share >= 0.2, `${label}: ${a.name} has its power again (${a.share})`);
     assert.ok(Date.now() - wanted < 60_000, `${label}: a summon wanted is paid within a minute`);
     assert.deepEqual(errors, [], `${label}: no page errors`);
     await context.close();
