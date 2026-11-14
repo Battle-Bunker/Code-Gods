@@ -57,6 +57,9 @@ test("model seats play through the directory's tools on the server's economy: th
   assert.equal(b!.messages, 1); assert.equal(b!.proposals, 0); assert.equal(c!.messages, 0);
   assert.deepEqual(report.chat.map(m => m.from), ["Ada", "Bo"]);
   assert.equal(report.deals.length, 1);
+  // Ada edited her agent to skip line 2, then summoned a second, unedited one: every agent must skip it, so pending again.
+  assert.deepEqual(a!.commitments, { enacted: 0, pending: 1, retracted: 0 });
+  assert.deepEqual(b!.commitments, { enacted: 0, pending: 1, retracted: 0 }, "Bo only said it");
   assert.deepEqual({ by: report.deals[0]!.by, with: report.deals[0]!.with, lines: report.deals[0]!.lines }, { by: 0, with: 1, lines: [2] });
   assert.ok(report.usd > 0);
 });
