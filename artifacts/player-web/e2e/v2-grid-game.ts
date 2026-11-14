@@ -152,6 +152,8 @@ try {
       console.log(`${label}: ${priced}`);
       await box.fill(await box.inputValue().then(v => v.replace("\nconst extra = 1;\n", "")));
       // TARGET/SETTLE as a form (persona walk: "hold grid 12? don't know how"): numbers and a board, priced, then saved.
+      // Saved in planning, so a deal agreed before the world runs holds from its first second (round 8b).
+      assert.equal((await page.getByTestId("text-phase").innerText()).trim().toLowerCase(), "planning");
       const hold = page.getByTestId("hold");
       await hold.getByTestId("input-hold-numbers").fill("12");
       await hold.getByTestId("input-hold-board").fill("9779855879979779");
