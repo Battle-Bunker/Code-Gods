@@ -1,8 +1,8 @@
 import path from 'path';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
-import { defineConfig, type Plugin } from 'vite';
-import { devPageCsp, injectCsp, injectPageCsp } from './vite/csp';
+import { build as viteBuild, defineConfig, type Plugin } from 'vite';
+import { devPageCsp, frameHtml, injectCsp, injectPageCsp } from './vite/csp';
 
 const isBuild = process.argv.includes("build");
 // Defaults: dev server on port 22772 at "/"; the engine hosts a build at "/" too. The app never assumes its prefix
@@ -27,6 +27,59 @@ const basePath = process.env.BASE_PATH || "/";
  */
 const hostedDev = !!process.env.CODE_GODS_SITE_URL;
 const siteUrl = (process.env.CODE_GODS_SITE_URL ?? "").replace(/\/+$/, "");
+const frameConfig = path.resolve(import.meta.dirname, 'vite.frame.config.ts');
+
+/**
+ * Stored panels in a dev server: the frame (panel-frame.html, panel-runtime.js, panel-frame.css) is built in memory with
+ * vite.frame.config.ts on first use and rebuilt after a change under src/; the frame CSP names this request's own origin.
+ */
+function framePlugin(): Plugin {
+  let built: Promise<Map<string, string>> | undefined;
+  const build = () => built ??= viteBuild({ configFile: frameConfig, mode: "development", logLevel: "warn", build: { write: false } }).then(result => {
+    const files = new Map<string, string>();
+    for (const output of [result].flat() as { output: { fileName: string; type: string; code?: string; source?: string | Uint8Array }[] }[]) {
+      for (const item of output.output) files.set(item.fileName, item.type === "chunk" ? item.code! : typeof item.source === "string" ? item.source : Buffer.from(item.source!).toString("utf8"));
+    }
+    return files;
+  }).catch(error => { built = undefined; throw error; });
+  const types: Record<string, string> = { "panel-runtime.js": "text/javascript", "panel-frame.css": "text/css" };
+  return {
+    name: "code-gods-panel-frame-dev",
+    apply: "serve",
+    configureServer(server) {
+      const src = path.resolve(import.meta.dirname, 'src') + path.sep;
+      for (const event of ["add", "change", "unlink"] as const) server.watcher.on(event, file => { if (file.startsWith(src)) built = undefined; });
+      server.middlewares.use(async (req, res, next) => {
+        const url = new URL(req.url ?? "/", "http://x");
+        const base = server.config.base;
+        if (!url.pathname.startsWith(base)) { next(); return; }
+        const name = url.pathname.slice(base.length);
+        try {
+          if (name === "panel-frame.html") {
+            const proto = String(req.headers["x-forwarded-proto"] ?? "").split(",")[0].trim() || ((req.socket as { encrypted?: boolean }).encrypted ? "https" : "http");
+            res.setHeader("Content-Type", "text/html; charset=utf-8");
+            res.setHeader("Cache-Control", "no-store");
+            res.end(frameHtml(`${proto}://${req.headers.host}`));
+            return;
+          }
+          if (types[name]) {
+            const body = (await build()).get(name);
+            res.setHeader("Content-Type", types[name]);
+            res.setHeader("Cache-Control", "no-store");
+            res.end(body ?? "");
+            return;
+          }
+        } catch (error) {
+          res.statusCode = 500;
+          res.end(String((error as Error).message ?? error));
+          return;
+        }
+        next();
+      });
+    },
+  };
+}
+
 /** The page's CSP as a meta tag (vite/csp.ts): the app's policy in a build, frame-src 'self' in a dev server. */
 const pageCspPlugins = (): Plugin[] => [
   (() => {
@@ -41,6 +94,7 @@ const pageCspPlugins = (): Plugin[] => [
 export default defineConfig({
   base: basePath,
   plugins: [
+    framePlugin(),
     ...pageCspPlugins(),
     react(),
     tailwindcss(),

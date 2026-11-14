@@ -17,6 +17,8 @@ import { PointsOverTimePane } from "./points-over-time";
 import { RulesPane } from "./rules";
 import { AssistantPane } from "./assistant";
 import { WhatIfPane } from "./what-if";
+import { MyPanelsPane } from "./my-panels";
+export { StoredPanelPane } from "./stored-panel";
 
 function ChatPane() {
   return <RoomChat roomId={useGameScope().roomId} height="h-full min-h-[200px]" />;
@@ -38,4 +40,5 @@ export const PANE_COMPONENTS: PaneComponents = {
   "points-over-time": PointsOverTimePane,
   rules: RulesPane,
   assistant: AssistantPane,
+  "my-panels": MyPanelsPane,
 };

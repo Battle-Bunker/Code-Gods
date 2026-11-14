@@ -17,6 +17,7 @@ import type { z } from "zod/v4";
 const READ_PANES: Partial<Record<AffordanceId, PaneId>> = {
   "game.standings": "race", "game.get": "overview", "rule.explain": "my-card", "rule.ladder": "my-card", "objects.list": "objects",
   "moves.list": "feed", "agents.list": "agents", "agent.programs": "forge", "chat.list": "public-chat", "rep.mutators": "my-card",
+  "panel.list": "my-panels", "panel.code": "my-panels",
 };
 
 export interface PaletteHost {
