@@ -1,7 +1,7 @@
 /** `object.*`: reads of an object (free for a human; `bits` is what an agent pays), quotes and scores (reads.ts). */
 import { defineOp, inGame, seated } from "./define";
 import { ask, hostFor, objectIn } from "../reads.ts";
-import { encode, valueOf } from "../world.ts";
+import { encode, scopeOf, valueOf } from "../world.ts";
 import type { Id } from "../../_generated/dataModel";
 import type { QueryCtx } from "../../_generated/server";
 
@@ -35,7 +35,7 @@ export const { op: quote, as: quoteAs } = defineOp("object.quote", "query", asyn
   if (priced.valid) {
     const terms = ask(await hostFor(env.ctx, game, member, encode(priced.result, game.variant)), { op: "myScore" }).terms;
     const rule = await myRuleRow(env.ctx, game._id, member._id);
-    if (rule) after = { score: valueOf(priced.result, game.variant, rule).score, terms };
+    if (rule) after = { score: valueOf(priced.result, game.variant, rule, scopeOf(game).objects).score, terms };
   }
   return { valid: q.valid, ...(q.reason ? { reason: q.reason } : {}), bits: q.bits, total: q.total, charge: q.charge, after: after as never };
 });

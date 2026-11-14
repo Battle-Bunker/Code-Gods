@@ -4,8 +4,8 @@
  * that good, with its interval. No levels, ladders or caps. Pure; any runtime.
  */
 import type { Score } from "@workspace/v2-core";
-import { valueLookup } from "@workspace/v2-valuation";
-import { VALUE_RECORDS, type ValueRecord } from "./values.gen.ts";
+import { valueLookup, withUniqueness } from "@workspace/v2-valuation";
+import { UNIQUENESS, VALUE_RECORDS, type ValueRecord } from "./values.gen.ts";
 
 const BY_KEY = new Map(VALUE_RECORDS.map(r => [r.ruleKey, r]));
 const LOOKUPS = new Map<string, ReturnType<typeof valueLookup>>();
@@ -13,15 +13,37 @@ const LOOKUPS = new Map<string, ReturnType<typeof valueLookup>>();
 /** The rule's value function, or null when it has none (such a rule is not dealt). */
 export const valueRecord = (ruleKey: string): ValueRecord | null => BY_KEY.get(ruleKey) ?? null;
 
-/** A utility's worth under a dealt rule: bits, and the interval [lo, hi] (hi = Infinity past the last knot). */
-export function worthOf(ruleKey: string, utility: Score) {
+/**
+ * The game a worth is looked up in (owner decision 24, spec §2.6): its variant and `objects`, the object count the
+ * uniqueness correction assumes (world.ts `valueObjects`, fixed per game).
+ */
+export interface ValueScope { variant: string; objects: number }
+
+/** The uniqueness correction's table for a variant (values.gen.ts), with the game's object count: what an agent host takes. */
+export function uniquenessOf(scope: ValueScope): { ns: number[]; heldMass: number[]; objects: number } | null {
+  const t = UNIQUENESS.find(u => u.variant === scope.variant);
+  return t ? { ns: [...t.ns], heldMass: [...t.heldMass], objects: scope.objects } : null;
+}
+
+/** A utility's worth under a dealt rule in a game: bits, and the interval [lo, hi] (hi = Infinity past the last knot). */
+export function worthOf(ruleKey: string, utility: Score, scope: ValueScope) {
   let f = LOOKUPS.get(ruleKey);
   if (!f) {
     const r = valueRecord(ruleKey);
     if (!r) throw new Error(`No value function for ${ruleKey}`);
     LOOKUPS.set(ruleKey, f = valueLookup(r));
   }
-  return f(utility);
+  const u = uniquenessOf(scope);
+  return (u ? withUniqueness(f, u, u.objects) : f)(utility);
+}
+
+/** A rule's value function as `valueLookup` takes it, with the game's uniqueness correction (agents, faces, replays). */
+export const slimKnots = <U>(knots: readonly { u: U; bits: number; lo: number; hi: number }[]) => knots.map(k => ({ u: k.u, bits: k.bits, lo: k.lo, hi: k.hi }));
+export function valueFnIn(ruleKey: string, scope: ValueScope) {
+  const r = valueRecord(ruleKey);
+  if (!r) return null;
+  const u = uniquenessOf(scope);
+  return { knots: r.knots, tail: r.tail, ...(u ? { uniqueness: u } : {}) };
 }
 
 /** The most bits a rule's states reach in its value function (its last knot): a family's "top" in the bid phase. */

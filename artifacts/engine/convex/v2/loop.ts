@@ -11,7 +11,7 @@ import { makeFunctionReference } from "convex/server";
 import { v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, internalQuery, type MutationCtx, type QueryCtx } from "../_generated/server";
-import { decode, distinctBirths, heldReason, valuesOf, type SeatRule, type Value } from "./world.ts";
+import { decode, distinctBirths, heldReason, scopeOf, valuesOf, type SeatRule, type Value } from "./world.ts";
 
 /** Wall milliseconds between ticks; world time advances by the wall time that passed, at most MAX_DT a tick. */
 export const TICK_MS = 1500;
@@ -81,7 +81,7 @@ async function holderOf(ctx: MutationCtx, gameId: Id<"v2Games">, state: string, 
 async function addObject(ctx: MutationCtx, game: Doc<"v2Games">, seats: SeatRule[], number: number, wire: string, world: number) {
   const objectId = await ctx.db.insert("v2Objects", { gameId: game._id, number, bornAt: world });
   await ctx.db.insert("v2ObjectStates", { objectId, gameId: game._id, state: wire, version: 1, changedAt: world });
-  const values = valuesOf(decode(wire, game.variant), game.variant, seats);
+  const values = valuesOf(decode(wire, game.variant), game.variant, seats, scopeOf(game).objects);
   for (const val of values)
     await ctx.db.insert("v2ObjectValues", { objectId, gameId: game._id, memberId: val.memberId as Id<"v2Members">, number, score: val.score, rarityBits: val.rarityBits, want: val.want, points: val.points, version: 1, changedAt: world });
   return { objectId, values };
@@ -97,7 +97,7 @@ const concerns = (mine: boolean, was: number, now: number) => mine || Math.abs(n
 async function changeObject(ctx: MutationCtx, game: Doc<"v2Games">, seats: SeatRule[], objectId: Id<"v2Objects">, wire: string, world: number, mover: string) {
   const st = (await ctx.db.query("v2ObjectStates").withIndex("by_object", q => q.eq("objectId", objectId)).unique())!;
   await ctx.db.patch(st._id, { state: wire, version: st.version + 1, changedAt: world });
-  const after = valuesOf(decode(wire, game.variant), game.variant, seats);
+  const after = valuesOf(decode(wire, game.variant), game.variant, seats, scopeOf(game).objects);
   const before = new Map<string, Value>();
   for (const val of after) {
     const row = (await ctx.db.query("v2ObjectValues").withIndex("by_object_member", q => q.eq("objectId", objectId).eq("memberId", val.memberId as Id<"v2Members">)).unique())!;

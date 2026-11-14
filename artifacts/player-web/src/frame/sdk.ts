@@ -65,7 +65,7 @@ export const useMyRule: Hook<"useMyRule"> = () => {
   const variant = useGame()?.variant;
   return useMemo(() => {
     if (!raw || !variant) return undefined;
-    const value = valueOf(raw.row.value?.knots, raw.row.value?.tail);
+    const value = valueOf(raw.row.value?.knots, raw.row.value?.tail, (raw.row.value as { uniqueness?: never } | undefined)?.uniqueness);
     return { row: raw.row, rule: ruleRefOf(raw.row, variant), value, bits: bitsOf(value) };
   }, [raw, variant]);
 };

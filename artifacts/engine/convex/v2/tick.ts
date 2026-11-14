@@ -14,13 +14,13 @@ import type { Id } from "../_generated/dataModel";
 import { internalAction } from "../_generated/server";
 import { MAX_DT } from "./loop";
 import { sandboxFor } from "./runtime";
-import { birthDraws, decode, typeOf, variantOf } from "./world";
-import { valueRecord } from "./values";
+import { birthDraws, decode, scopeOf, typeOf, variantOf } from "./world";
+import { valueFnIn } from "./values";
 
 type Snapshot = {
   phase: string; seed: string; variant: string; leaseId: string; tick: number; acts: number; objects: number; endsAt: number | null;
   worldSeconds: number; lastTickAt: number;
-  settings: { worldSeconds: number; economy: { powerPerSecond: number; fullChargeSeconds: number; opportunitiesPerSecond: number; birthsPerSecond: number } };
+  settings: { worldSeconds: number; startingObjects: number; economy: { powerPerSecond: number; fullChargeSeconds: number; opportunitiesPerSecond: number; birthsPerSecond: number } };
   seats: { memberId: string; rule: { family: string; params: unknown; tieBreaker: string | null; ruleKey: string } }[];
   agents: { agentId: string; memberId: string; language: "typescript" | "python"; source: string; version: number; share: number; energy: number; settledAt: number }[];
 };
@@ -68,10 +68,12 @@ export const tick = internalAction({
       const batches = [];
       for (let i = 0; i < objectIds.length; i += per) batches.push(ctx.runQuery(ACT_INPUTS, { gameId, memberIds, objectIds: objectIds.slice(i, i + per) }));
       // Each seat's view of the others (W2 #517): their rules and value functions, for the host's othersAfter.
+      // Values in this game (decision 24): the uniqueness correction at the game's object count, as the commit values.
+      const scope = scopeOf(snap);
       const ruleOf = (r: Snapshot["seats"][number]["rule"]) => ({ family: r.family, params: r.params as Record<string, unknown>, tieBreaker: r.tieBreaker });
       const othersOf = new Map(snap.seats.map(seat => [seat.memberId, snap.seats.flatMap(o => {
-        const vf = o.memberId === seat.memberId ? null : valueRecord(o.rule.ruleKey);
-        return vf ? [{ rule: ruleOf(o.rule), values: { knots: vf.knots, tail: vf.tail } }] : [];
+        const vf = o.memberId === seat.memberId ? null : valueFnIn(o.rule.ruleKey, scope);
+        return vf ? [{ rule: ruleOf(o.rule), values: vf }] : [];
       })]));
       const told = new Map<string, ActInput>();
       for (const rows of await Promise.all(batches)) for (const { memberId, objectId, ...input } of rows) told.set(`${memberId}:${objectId}`, input);
@@ -90,12 +92,12 @@ export const tick = internalAction({
         // What the agent may know of its owner's stake in the line (W2's worth/recent/contested), as of the last commit.
         const input = told.get(`${agent.memberId}:${s.objectId}`) ?? { history: [] };
         // The seat's value function (decision 23), as the deal recorded it by ruleKey: replay re-derives it from the bundle.
-        const vf = valueRecord(seat.rule.ruleKey);
+        const vf = valueFnIn(seat.rule.ruleKey, scope);
         const { record } = await runAct(sandbox, {
           type: typeOf(snap.variant), variant, state: decode(local.get(number) ?? s.state, snap.variant),
           rule: ruleOf(seat.rule),
           program: { language: agent.language, source: agent.source }, seed, energy, object: number, liveObjects: snap.objects,
-          ...input, ...(vf ? { values: { knots: vf.knots, tail: vf.tail } } : {}), others: othersOf.get(seat.memberId)!,
+          ...input, ...(vf ? { values: vf } : {}), others: othersOf.get(seat.memberId)!,
         });
         // The credit rule (docs/energy-model.md §7.2): a change that would leave the agent owing more than its capacity
         // does not commit and pays only its reads; a change that does not change the state is not a change.
