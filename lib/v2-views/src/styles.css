@@ -74,7 +74,6 @@
 .v2v-el[data-cand] { color: var(--v2v-cand); background: var(--v2v-cand-bg); }
 .v2v-el[data-lit] { background: var(--v2v-lit); box-shadow: 0 0 0 2px var(--v2v-lit); }
 .v2v-el[data-changed] { text-decoration: underline 2px var(--v2v-changed); text-underline-offset: 3px; }
-.v2v-implied { opacity: 0.45; }
 .v2v-was { color: var(--v2v-faint); text-decoration: line-through; font-size: 0.75em; margin-right: 2px; }
 
 .v2v-rep[data-size="expanded"] .v2v-undef { min-height: 200px; }

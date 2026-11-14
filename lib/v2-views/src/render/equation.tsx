@@ -24,8 +24,7 @@ function Line({ p, ps, label }: { p: RenderProps<Eq>; ps: Piece[]; label: string
           <El key={i} p={p} r={x.r}>
             {p.before && p.size === "expanded" ? <Was p={p} r={x.r} /> : null}
             {x.op}{x.mag}
-            {/* A coefficient of 1 a rule cites is shown, faint, so the mark has a number to sit on. */}
-            {x.variable && markState(p.marks, x.r).focus && <span className="v2v-implied">1</span>}
+            {/* A coefficient of 1 a rule cites carries its mark on the variable: no "1" is written (it read as "1x"). */}
             {x.variable && <span className="v2v-var">{x.variable}</span>}
           </El>
         ))}
