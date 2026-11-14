@@ -95,3 +95,26 @@ line state good for everyone and proposes settling lines there. Spent: $0.16.
   table total of 157,701 against naive's 8,695 (docs/engine-v2/rule-compatibility.md and scripts/anarchy.ts). The seats
   have not yet used TARGET/SETTLE to settle whole sets of lines.
 - A lone model seat cannot make a deal and loses to naive seats.
+
+## Re-run after #550 (contested-line rule in the starters; "settle a whole deal in one edit" in the prompt)
+
+The mixed table, 2 games, 300 s, the cheapest model at low effort. Spent $0.137 over 428 model calls.
+
+| Table | Seat kind | Points gained per seat (mean) | Deals accepted / kept | Commitments enacted / pending / retracted |
+|---|---|--:|--:|--:|
+| models | model | 3,454 | 13 / 11 | 26 / 0 / 0 |
+| mix | model | 6,044 | – | – |
+| mix | starter | 3,157 | – | – |
+| mix | naive | 7,654 | – | – |
+
+- **Deals are now kept.**
+  - 11 of 13 accepted deals were kept, against 5 of 16 before.
+  - Every commitment ended enacted in code, against 16 / 8 / 8 before.
+- **The all-model table gains about 10,400.** That is 1.3× the naive table's 8,159 ± 348 over 6 games, and about the
+  same as before (3,396 a seat).
+- **The model seats still never settle.**
+  - They found a state good for two of them in chat ("y = 17x + 3 suits us both").
+  - They still agreed to leave each other's lines alone, never to settle lines at that state.
+  - A settled table pays 18× (`rule-compatibility.md`), so this gap is the next prompt target.
+- **A lone model seat in "mix" gains less than the naive seats beside it** (6,044 against 7,654 a seat). Rules rotate
+  over the 3 games, so this is a rough comparison.
