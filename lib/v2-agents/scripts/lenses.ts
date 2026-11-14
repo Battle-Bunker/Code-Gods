@@ -3,7 +3,8 @@
  * proposed lens mutators. Measurements behind docs/engine-v2/lenses-and-mutators.md. Analysis only: nothing here
  * changes the engine's mutators, prices or rules.
  *
- *   node --experimental-strip-types scripts/lenses.ts [--H 16] [--sources 30] [--part all|check|topology|collateral]
+ *   node --experimental-strip-types scripts/lenses.ts [--H 16] [--sources 30] [--part all|check|topology|turn|collateral|dynamics|balance]
+ *     [--tables 60]
  *
  * The model. Every fraction line (line-q) with |a|, |b|, |c| ≤ H (a box; the engine's box is 10^6) is one node. Each
  * mutator's calls are enumerated up to small arguments (an amount's size ≤ 6, a factor's |p|, q ≤ 8, …: the act charge
@@ -21,8 +22,8 @@ import { findValues } from "../src/harness.ts";
 import { valueLookup } from "@workspace/v2-valuation";
 
 const { values: o } = parseArgs({ options: {
-  // parts: check, topology, turn, collateral, dynamics
-  H: { type: "string", default: "16" }, sources: { type: "string", default: "30" }, part: { type: "string", default: "all" },
+  // parts: check, topology, turn, collateral, dynamics, balance
+  H: { type: "string", default: "16" }, tables: { type: "string", default: "60" }, sources: { type: "string", default: "30" }, part: { type: "string", default: "all" },
 } });
 const H = Number(o.H), NSRC = Number(o.sources);
 const want = (p: string) => o.part === "all" || o.part!.split(",").includes(p);
@@ -111,8 +112,8 @@ type Fee =
   | { k: "disp"; ch: number; size: number }
   | { k: "factor"; ch: number; size: number }
   | { k: "flat"; ch: number };                                      // choices and information only (no size)
-function fee(f: Fee, N: number): number {
-  const o = Math.log2(N) + f.ch;
+function fee(f: Fee, N: number, which = Math.log2(N)): number {
+  const o = which + f.ch;
   switch (f.k) {
     case "amountQ": return amountCode(o, 1, true).rate * f.size;
     case "amountZ": return amountCode(o, 1, false).rate * f.size;
@@ -126,7 +127,7 @@ const factorSz = (x: R) => Math.log2(Math.abs(x[0]) * x[1]);
 // ---------------------------------------------------------------- mutators
 
 type Emit = (to: L3 | null, f: Fee) => void;
-interface Mut { id: string; lens: string; existing: boolean; additive: boolean; title: string; gen(l: L3, emit: Emit): void }
+interface Mut { id: string; lens: string; existing: boolean; additive: boolean; title: string; gen(l: L3, emit: Emit): void; built?: boolean }
 const viaMC = (l: L3, emit: Emit, f: (m: R, c: R) => [R, R] | null, fe: Fee) => {
   const m = slope(l), c = yint(l);
   if (!m || !c) return;
@@ -270,7 +271,56 @@ const PROPOSED: Mut[] = [
     }
   } },
 ];
-const ALL = [...EXISTING, ...PROPOSED];
+/**
+ * The five as built in the engine (lib/v2-linear mutators.ts, variant line-q-lenses), at the engine's prices: a turn
+ * pays 1 bit for its centre's kind (origin or a pin) and an origin turn is any Pythagorean tangent; the fold pays 1 bit
+ * for its kind (a crease through a pin or a mirror line). lib/v2-linear/test/lens-mutators.test.ts checks these
+ * formulas and prices against the engine call by call.
+ */
+const PYTH_T: R[] = [];
+for (const [u, v] of [[2, 1], [3, 2], [4, 1], [4, 3], [5, 2], [5, 4]] as [number, number][]) {
+  const a = u * u - v * v, b = 2 * u * v;
+  for (const t of [r(b, a), r(a, b)]) for (const sg of [1, -1]) { const x: R = [sg * t[0], t[1]]; if (!PYTH_T.some(y => y[0] === x[0] && y[1] === x[1])) PYTH_T.push(x); }
+}
+const BUILT: Mut[] = [
+  { id: "rot.turn", lens: "angle", existing: false, additive: false, built: true, title: "turn about a pin or the origin", gen: (l, e) => {
+    const [a, b, c] = l;
+    e(norm(-b, a, c), { k: "flat", ch: 1 + 2 }); e(norm(b, -a, c), { k: "flat", ch: 1 + 2 });   // quarter turns about the origin
+    for (const t of PYTH_T) {
+      const rr = Math.round(Math.hypot(t[0], t[1]));
+      e(norm(a * t[1] - b * t[0], a * t[0] + b * t[1], c * rr), { k: "flat", ch: 1 + 1 + nonzeroRatBits(Qof(t)) });
+    }
+    const m = slope(l), cc = yint(l);
+    if (!m || !cc) return;
+    X0.forEach((x0, i) => {
+      const y0 = add(mul(m, x0), cc);
+      e(through(x0, y0, div([-1, 1], m)), { k: "flat", ch: 1 + X0bits[i]! + 2 });
+      for (const t of TURN6) e(through(x0, y0, div(add(m, t), sub([1, 1], mul(m, t)))), { k: "flat", ch: 1 + X0bits[i]! + 1 + nonzeroRatBits(Qof(t)) });
+    });
+  } },
+  { ...PROPOSED.find(m => m.id === "coef.swap")!, built: true },
+  { ...PROPOSED.find(m => m.id === "basis.lean")!, built: true },
+  { ...PROPOSED.find(m => m.id === "basis.zoom")!, built: true },
+  { id: "fold", lens: "reflection", existing: false, additive: false, built: true, title: "fold in a crease through a pin, or in any mirror paid in full", gen: (l, e) => {
+    for (const { M, bits } of AUX) {
+      const [a, b, c] = l;
+      const p1: [R, R] = b !== 0 ? [[0, 1], r(-c, b)] : [r(-c, a), [0, 1]];
+      const p2: [R, R] = b !== 0 ? [[1, 1], r(-c - a, b)] : [r(-c, a), [1, 1]];
+      e(lineThrough(reflectPt(p1, M), reflectPt(p2, M)), { k: "flat", ch: 1 + bits });
+    }
+    const m = slope(l), cc = yint(l);
+    if (!m || !cc) return;
+    X0.forEach((x0, i) => {
+      const y0 = add(mul(m, x0), cc);
+      for (const sv of FOLD6) {
+        const d = sub([1, 1], mul(sv, sv)), T = div(mul([2, 1], sv), d);
+        const m2 = T === null ? div([1, 1], m) : div(sub(T, m), add([1, 1], mul(m, T)));
+        e(through(x0, y0, m2), { k: "flat", ch: 1 + X0bits[i]! + ratBits(Qof(sv)) });
+      }
+    });
+  } },
+];
+const ALL = [...EXISTING, ...PROPOSED, ...BUILT];
 
 say(`# Lenses and mutators: script output (scripts/lenses.ts --H ${H} --sources ${NSRC})`);
 say(`\nAnalysis for docs/engine-v2/lenses-and-mutators.md. Nothing here changes the engine.\n`);
@@ -312,7 +362,7 @@ if (want("check")) {
 
 // ---------------------------------------------------------------- the graph
 
-const NSETS = [9, 10, 18] as const;
+const NSETS = [9, 10, 18, 14] as const;
 interface Edges { to: Int32Array; mut: Int8Array; fee: Float32Array[]; start: Int32Array }
 function build(): Edges {
   const to: number[] = [], mut: number[] = [], fees: number[][] = NSETS.map(() => []), start = new Int32Array(NS + 1);
@@ -325,7 +375,8 @@ function build(): Edges {
         if (!inBox(t)) return;
         const j = idx[keyOf(t)]!;
         if (j < 0 || j === i) return;
-        const ws = NSETS.map(N => fee(f, N));
+        // N = 14 is line-q-lenses with its weighted which code: the nine at log2 12, the five at log2 20.
+        const ws = NSETS.map(N => fee(f, N, N === 14 ? Math.log2(M.built ? 20 : 12) : Math.log2(N)));
         const cur = best.get(j);
         if (!cur) best.set(j, ws); else for (let z = 0; z < ws.length; z++) cur[z] = Math.min(cur[z]!, ws[z]!);
       });
@@ -390,7 +441,8 @@ const SETS: MutSet[] = [
   { id: "additive only (the unit-path baseline)", muts: ids(m => m.existing && m.additive), Nz: 0 },
   { id: "existing nine", muts: ids(m => m.existing), Nz: 0 },
   ...PROPOSED.map(p => ({ id: `nine + ${p.id}`, muts: ids(m => m.existing || m === p), Nz: 1 })),
-  { id: "all eighteen", muts: ids(() => true), Nz: 2 },
+  { id: "all eighteen", muts: ids(m => !m.built), Nz: 2 },
+  { id: "the nine + the five as built (line-q-lenses, weighted which)", muts: ids(m => m.existing || !!m.built), Nz: 3 },
 ];
 
 // π on the box: 2^−φ, normalised.
@@ -446,7 +498,7 @@ if (want("topology")) {
 
   // Which mutators the cheapest routes actually use (all eighteen), by count of acts on the reconstructed routes.
   say(`\nActs on the cheapest routes with all eighteen offered (share of acts, over every source–target pair):\n`);
-  const all = SETS.length - 1, use = new Map<string, number>();
+  const all = SETS.length - 2, use = new Map<string, number>();
   let acts = 0;
   sources.forEach(s => {
     const dist = dijkstra(s, SETS[all]!, true);
@@ -513,7 +565,7 @@ if (want("collateral")) {
     const tot = dn.reduce((a, b) => a + b, 0);
     const destroy = dd.reduce((a, b) => a + b, 0) / tot, keep = kp.reduce((a, b) => a + b, 0) / tot;
     summary.push({ id: M.id, destroy, keep });
-    say(`| ${M.id} | ${cols.join(" | ")} | ${pct(destroy)} | ${pct(keep)} | ${calls.toLocaleString("en")} |`);
+    say(`| ${M.id}${M.built ? " (as built)" : ""} | ${cols.join(" | ")} | ${pct(destroy)} | ${pct(keep)} | ${calls.toLocaleString("en")} |`);
   });
   say(`\nColumns: ${rules.map(rl => `${short(rl)} = ${rl.family}/${rl.tieBreaker}`).join("; ")}.`);
 
@@ -543,7 +595,7 @@ if (want("collateral")) {
         aspects.forEach((a, z) => { if (a[1](states[j]!) === A[z]) keep[z]!++; });
       }
     }
-    say(`| ${M.id} | ${aspects.map((_, z) => (n ? pct(keep[z]! / n) : "–")).join(" | ")} |`);
+    say(`| ${M.id}${M.built ? " (as built)" : ""} | ${aspects.map((_, z) => (n ? pct(keep[z]! / n) : "–")).join(" | ")} |`);
   });
 
   // Peaks within reach: the best table total (three rules, Σ n_i Σ_{j≠i} n_j) on lines reachable within a budget.
@@ -624,7 +676,7 @@ if (want("dynamics")) {
   say(`"revisits" the share of moves onto a line it had held before (a tug of war).\n`);
   say(`| Mutator set | Runs that reach a fixed point | Mean turns to it | Mean distinct lines | Revisits | Mean table total at the end | Mean bits each at the end |`);
   say(`|---|--:|--:|--:|--:|--:|--:|`);
-  for (const set of [SETS[0]!, SETS[1]!, SETS[SETS.length - 1]!]) {
+  for (const set of [SETS[0]!, SETS[1]!, SETS[SETS.length - 2]!, SETS[SETS.length - 1]!]) {
     let fixed = 0, turnsToFix = 0, distinct = 0, rev = 0, moves = 0, total = 0;
     const each = [0, 0, 0];
     const F = set.Nz;
@@ -656,4 +708,129 @@ if (want("dynamics")) {
     }
     say(`| ${set.id} | ${pct(fixed / NSRC)} | ${fixed ? Math.round(turnsToFix / fixed) : "–"} | ${f1(distinct / NSRC)} | ${moves ? pct(rev / moves) : "–"} | ${f1(total / NSRC)} | ${each.map(x => f1(x / NSRC)).join(", ")} |`);
   }
+}
+
+// ---------------------------------------------------------------- part 5: balance and dynamics of the menu as built, over many tables
+
+if (want("balance")) {
+  const NT = Number(o.tables);
+  const pool = presets.find(p => p.id === "lines-beginner")!.rules;
+  const rules = pool.flatMap(pr => (pr.tieBreakers as string[]).map(tb => ({ family: pr.family, params: pr.params as Record<string, unknown>, tieBreaker: tb })))
+    .filter(rl => findValues("line-q", rl));
+  const t2 = performance.now();
+  const bits = rules.map(rl => {
+    const fam = lineType.families.find(f => f.id === rl.family)!;
+    const look = valueLookup(findValues("line-q", rl)!);
+    return Float64Array.from(states, l => look(evaluateSite(lineType, fam, rl.params, { lines: [{ a: BigInt(l[0]), b: BigInt(l[1]), c: BigInt(l[2]) }] }, lineQ, 0, rl.tieBreaker).score).bits);
+  });
+  const name = (z: number) => `${rules[z]!.family}/${rules[z]!.tieBreaker}`;
+  // Tables: three rules of three different families, seeded.
+  const tables: number[][] = [];
+  while (tables.length < NT) {
+    const t = [0, 1, 2].map(() => Math.floor(rand() * rules.length));
+    if (new Set(t.map(z => rules[z]!.family)).size === 3 && !tables.some(u => u.join() === t.join())) tables.push(t);
+  }
+  const nine = SETS[1]!, built = SETS[SETS.length - 1]!;
+  const builtIds = new Set([...built.muts].filter(i => ALL[i]!.built));
+  say(`\n## 5. Balance and dynamics: the nine against the nine + the five as built (line-q-lenses)`);
+  say(`\n${rules.length} rules of the beginner pool (every family with each tie-breaker that has values on line-q), ${NT} seeded`);
+  say(`three-rule tables of three different families, ${NSRC} newborn lines each. On each line the three take turns as selfish`);
+  say(`climbers: each takes the offered call that raises its own bits most per ⚡ (charge W + 0.05·W², W ≤ 40), or passes;`);
+  say(`300 turns; a fixed point is three passes in a row. "Time-mean" is a seat's bits averaged over the 300 turns. Values took`);
+  say(`${f1((performance.now() - t2) / 1000)} s.\n`);
+  interface Run { end: number[]; mean: number[]; fixed: boolean; distinct: number; rev: number; moves: number; lensMoves: number[]; ownMoves: number[] }
+  const climb = (set: MutSet, seats: number[], src: number): Run => {
+    const F = set.Nz, B = seats.map(z => bits[z]!);
+    let cur = src, passes = 0, t = 0, rev = 0, moves = 0;
+    const seen = new Set([cur]), sum = [0, 0, 0], lensMoves = [0, 0, 0], ownMoves = [0, 0, 0];
+    for (; t < 300; t++) {
+      if (passes < 3) {
+        const who = t % 3, Bw = B[who]!;
+        let best = -1, bestRate = 0, bestMut = -1;
+        for (let e = G.start[cur]!; e < G.start[cur + 1]!; e++) {
+          if (!set.muts.has(G.mut[e]!)) continue;
+          const j = G.to[e]!, W = G.fee[F]![e]! + Math.max(0, phi[j]! - phi[cur]!);
+          if (W > 40) continue;
+          const gain = Bw[j]! - Bw[cur]!;
+          if (gain <= 0.05) continue;
+          const rate = gain / charge(W);
+          if (rate > bestRate) { bestRate = rate; best = j; bestMut = G.mut[e]!; }
+        }
+        if (best < 0) passes++;
+        else {
+          passes = 0; moves++; ownMoves[who]!++;
+          if (builtIds.has(bestMut)) lensMoves[who]!++;
+          if (seen.has(best)) rev++;
+          seen.add(best); cur = best;
+        }
+      }
+      B.forEach((b, k) => { sum[k]! += b[cur]!; });
+    }
+    return { end: B.map(b => b[cur]!), mean: sum.map(x => x / 300), fixed: passes >= 3, distinct: seen.size, rev, moves, lensMoves, ownMoves };
+  };
+  const tot = (n: number[]) => n.reduce((a, x, k) => a + x * n.reduce((b, y, l) => b + (l === k ? 0 : y), 0), 0);
+  const agg = (set: MutSet) => {
+    const perTable = tables.map(seats => sources.map(src => climb(set, seats, src)));
+    return perTable;
+  };
+  const R9 = agg(nine), R14 = agg(built);
+  const summ = (R: Run[][]) => {
+    const all = R.flat();
+    const n = all.length;
+    const dom = all.map(x => { const s = x.mean.reduce((a, b) => a + b, 0); return s > 0 ? Math.max(...x.mean) / s : 1 / 3; });
+    return {
+      fixed: all.filter(x => x.fixed).length / n, distinct: all.reduce((a, x) => a + x.distinct, 0) / n,
+      rev: all.reduce((a, x) => a + x.rev, 0) / Math.max(1, all.reduce((a, x) => a + x.moves, 0)),
+      total: all.reduce((a, x) => a + tot(x.end), 0) / n, meanBits: all.reduce((a, x) => a + x.mean.reduce((b, y) => b + y, 0) / 3, 0) / n,
+      dominance: dom.reduce((a, b) => a + b, 0) / n, dom60: dom.filter(d => d > 0.6).length / n,
+      lensShare: all.reduce((a, x) => a + x.lensMoves.reduce((b, y) => b + y, 0), 0) / Math.max(1, all.reduce((a, x) => a + x.moves, 0)),
+    };
+  };
+  const a9 = summ(R9), a14 = summ(R14);
+  say(`| Menu | Runs reaching a fixed point | Distinct lines | Revisits | Lens moves | Table total at the end | Time-mean bits per seat | Leader's share of the time-mean bits | Runs one seat leads with > 60% |`);
+  say(`|---|--:|--:|--:|--:|--:|--:|--:|--:|`);
+  for (const [id, a] of [["the nine", a9], ["the nine + the five as built", a14]] as const)
+    say(`| ${id} | ${pct(a.fixed)} | ${f1(a.distinct)} | ${pct(a.rev)} | ${pct(a.lensShare)} | ${f1(a.total)} | ${f2(a.meanBits)} | ${pct(a.dominance)} | ${pct(a.dom60)} |`);
+
+  // Per rule: its time-mean bits change from the nine to the fourteen, minus its tablemates' change (its advantage).
+  const per = new Map<number, { adv: number[]; d: number[]; lens: number; own: number }>();
+  tables.forEach((seats, ti) => sources.forEach((_, si) => {
+    const x9 = R9[ti]![si]!, x14 = R14[ti]![si]!;
+    seats.forEach((z, k) => {
+      const d = x14.mean[k]! - x9.mean[k]!;
+      const others = seats.map((_, l) => x14.mean[l]! - x9.mean[l]!).filter((_, l) => l !== k);
+      const e = per.get(z) ?? { adv: [], d: [], lens: 0, own: 0 };
+      e.adv.push(d - (others[0]! + others[1]!) / 2); e.d.push(d);
+      e.lens += x14.lensMoves[k]!; e.own += x14.ownMoves[k]!;
+      per.set(z, e);
+    });
+  }));
+  const meanSe = (xs: number[]) => { const m = xs.reduce((a, b) => a + b, 0) / xs.length; const v = xs.reduce((a, b) => a + (b - m) ** 2, 0) / Math.max(1, xs.length - 1); return [m, Math.sqrt(v / xs.length)] as const; };
+  const rows = [...per].map(([z, e]) => ({ z, n: e.adv.length, adv: meanSe(e.adv), d: meanSe(e.d), lens: e.own ? e.lens / e.own : 0 })).sort((x, y) => y.adv[0] - x.adv[0]);
+  say(`\nPer rule (seats over all tables and lines): the change in its time-mean bits from the nine to the fourteen, and its`);
+  say(`advantage (that change minus its two tablemates' mean change), ± one standard error; "lens moves" is the share of its`);
+  say(`own moves made with one of the five. A rule with an advantage above 1 bit and 3 standard errors is flagged.\n`);
+  say(`| Rule | Seats | Change (bits) | Advantage (bits) | Lens moves | Flag |`);
+  say(`|---|--:|--:|--:|--:|---|`);
+  for (const x of rows) say(`| ${name(x.z)} | ${x.n} | ${f2(x.d[0])} ± ${f2(x.d[1])} | ${f2(x.adv[0])} ± ${f2(x.adv[1])} | ${pct(x.lens)} | ${x.adv[0] > 1 && x.adv[0] > 3 * x.adv[1] ? "**advantaged**" : x.adv[0] < -1 && -x.adv[0] > 3 * x.adv[1] ? "disadvantaged" : ""} |`);
+
+  // Cheap peaks: the energy from a newborn to a line within 90% of the table's best total in the box, nine against fourteen.
+  const d9 = sources.map(src => dijkstra(src, nine)), d14 = sources.map(src => dijkstra(src, built));
+  const ratios: number[] = [], c9s: number[] = [], c14s: number[] = [];
+  for (const seats of tables) {
+    const T = Float64Array.from(states, (_, i) => tot(seats.map(z => bits[z]![i]!)));
+    const best = T.reduce((a, b) => Math.max(a, b), 0);
+    const tg: number[] = [];
+    T.forEach((x, i) => { if (x >= 0.9 * best && best > 0) tg.push(i); });
+    if (!tg.length) continue;
+    sources.forEach((_, k) => {
+      const c9 = Math.min(...tg.map(i => d9[k]![i]!)), c14 = Math.min(...tg.map(i => d14[k]![i]!));
+      if (isFinite(c9) && isFinite(c14) && c14 > 0) { ratios.push(c9 / c14); c9s.push(c9); c14s.push(c14); }
+    });
+  }
+  const q2 = (xs: number[], p: number) => { const s2 = xs.slice().sort((a, b) => a - b); return s2[Math.min(s2.length - 1, Math.floor(p * s2.length))]!; };
+  say(`\nCheap peaks: the cheapest energy from a newborn line to a line within 90% of its table's best total in the box`);
+  say(`(${ratios.length} table–line pairs). The nine: median ${Math.round(q2(c9s, 0.5))} ⚡, p10 ${Math.round(q2(c9s, 0.1))}; the fourteen: median`);
+  say(`${Math.round(q2(c14s, 0.5))} ⚡, p10 ${Math.round(q2(c14s, 0.1))}. Nine over fourteen: median ${f2(q2(ratios, 0.5))}, p90 ${f2(q2(ratios, 0.9))},`);
+  say(`max ${f2(q2(ratios, 1))}; ${pct(ratios.filter(x => x >= 1.5).length / ratios.length)} of pairs at least 1.5× cheaper.`);
 }

@@ -1,6 +1,6 @@
 /**
  * The cycle diagnostic (analytic calibration study, docs/engine-v2/analytic-calibration.md §2): how far a variant's
- * price list is from an exact potential. The walk (v2-core walkStep) proposes a mutator uniformly, its arguments from
+ * price list is from an exact potential. The walk (v2-core walkStep) proposes a mutator by its "which" code, its arguments from
  * their code (2^−bits) and accepts growth of the read length φ with probability 2^−Δφ: Metropolis on φ. The effective
  * price of s → t is −log2 q(s → t) + max(0, Δφ), q the proposal weight summed over every (mutator, arguments) that
  * maps s to t. Around any loop the Δφ terms telescope, so the price list is cycle-consistent with E = φ (up to a
@@ -8,7 +8,7 @@
  */
 import { isInvalid } from "./contracts.ts";
 import type { ObjectType, Variant } from "./contracts.ts";
-import { variantMutators } from "./walk.ts";
+import { variantMutators, whichBits } from "./walk.ts";
 
 export interface Edge { readonly to: string; q: number; readonly byMutator: Map<string, number> }
 export interface ProposalTable<S> { readonly out: (s: S) => Map<string, Edge>; readonly decode: (w: string) => S }
@@ -31,7 +31,7 @@ export function proposals<S>(type: ObjectType<S>, variant: Variant, maxArgBits: 
         if (isInvalid(r)) continue;
         const to = type.encode(r);
         if (to === key) continue;
-        const w = 2 ** -code.bits(a) / ms.length / sites;
+        const w = 2 ** -(code.bits(a) + whichBits(variant, m.id)) / sites;
         let e = edges.get(to);
         if (!e) edges.set(to, e = { to, q: 0, byMutator: new Map() });
         e.q += w;

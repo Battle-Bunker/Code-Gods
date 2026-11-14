@@ -7,9 +7,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { compareScores, type Score } from "@workspace/v2-core";
-import { lineType, lineQ, lineZ } from "@workspace/v2-linear";
+import { lineType, lineQ, lineQLenses, lineZ } from "@workspace/v2-linear";
 import { familyOf } from "../src/sdk/rule.ts";
-import { argError, mutatorChoices, whatIf } from "../src/panes/what-if-model.ts";
+import { argError, formError, mutatorChoices, whatIf, wireArgs } from "../src/panes/what-if-model.ts";
 
 const rule = (family: string, tieBreaker: string | null, variant = lineZ) => ({ type: lineType, family: familyOf(family)!, params: {}, variant, tieBreaker });
 
@@ -89,4 +89,24 @@ test("a move the board refuses says why in words, without the mutator's code nam
   const frac = whatIf({ rule: rule("m-meets-c", "size"), state: lineType.decode("-2,1,-3"), call: { mutator: "si.shift", args: { k: "1/2" } }, value: null, want: null });
   assert.equal(frac.ok, false);
   assert.match((frac as { reason: string }).reason, /^k .*whole numbers/);
+});
+
+test("the lens moves: a number or a word (a turn about the origin), and a move with two shapes (a fold in a crease or a mirror)", () => {
+  const cs = mutatorChoices(lineQLenses);
+  const turn = cs.find(c => c.id === "rot.turn")!;
+  const centre = turn.args.find(a => a.name === "centre")!;
+  assert.equal(centre.kind, "number");
+  assert.deepEqual((centre as { words?: string[] }).words, ["origin"]);
+  assert.deepEqual((turn.args.find(a => a.name === "turn") as { words?: string[] }).words, ["left", "right"]);
+  assert.equal(formError(turn.args, { centre: "origin", turn: "3/4" }), null);
+  assert.match(formError(turn.args, { centre: "here", turn: "1" })![1], /origin/);
+  const fold = cs.find(c => c.id === "fold")!;
+  assert.deepEqual(fold.args.map(a => [a.name, a.kind, a.start, a.optional ?? false]), [["x0", "number", "0", true], ["s", "number", "0", true], ["mirror", "text", "", true]]);
+  // A crease leaves the mirror out; a mirror leaves the crease out.
+  assert.deepEqual(wireArgs(fold.args, { x0: "0", s: "1", mirror: "" }), { x0: "0", s: "1" });
+  assert.deepEqual(wireArgs(fold.args, { x0: "", s: "", mirror: "0,1,0" }), { mirror: "0,1,0" });
+  const out = whatIf({ rule: rule("prime-landing", null, lineQLenses), state: { lines: [{ a: -2n, b: 1n, c: -1n }] }, call: { mutator: "fold", args: { mirror: "0,1,0" } }, value: null, want: null });
+  assert.ok(out.ok, out.ok ? "" : out.reason);
+  if (out.ok) assert.equal(lineType.encode(out.after as never), "2,1,1");
+  assert.equal(argError("left", true, ["left", "right"]), null);
 });

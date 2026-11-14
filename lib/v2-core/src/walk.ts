@@ -14,6 +14,13 @@ export function variantMutators<S>(type: ObjectType<S>, variant: Variant): reado
       if (!m) throw new Error(`Variant ${variant.id} offers unknown mutator ${id}`);
       return m;
     });
+    if (variant.which) {
+      // The which code must be complete over the offered mutators, or the walk's draw and the prices disagree.
+      const ids = Object.keys(variant.which);
+      if (ids.length !== variant.mutators.length || !variant.mutators.every(id => id in variant.which!)) throw new Error(`${variant.id}'s which code must price exactly its mutators`);
+      const kraft = ids.reduce((t, id) => t + 2 ** -variant.which![id]!, 0);
+      if (Math.abs(kraft - 1) > 1e-9) throw new Error(`${variant.id}'s which code has Kraft sum ${kraft}, not 1`);
+    }
     resolved.set(variant, ms);
   }
   return ms;
@@ -22,6 +29,22 @@ export function variantMutators<S>(type: ObjectType<S>, variant: Variant): reado
 export interface Applied<S> {
   readonly result: S;
   readonly price: Price;
+}
+
+/** The "which" bits of a mutator in a variant (spec §5.2): the variant's code, or uniform log2 N. */
+export function whichBits(variant: Variant, id: string): number {
+  const w = variant.which?.[id];
+  if (w !== undefined) return w;
+  if (variant.which) throw new Error(`${variant.id}'s which code has no entry for ${id}`);
+  return Math.log2(variant.mutators.length);
+}
+
+/** Draw a mutator with probability 2^−which (uniform when the variant has no which code). */
+export function drawMutator<S>(ms: readonly Mutator<S, any>[], variant: Variant, rng: Rng): Mutator<S, any> {
+  if (!variant.which) return ms[rng.below(ms.length)]!;
+  let u = rng.unit();
+  for (const m of ms) { u -= 2 ** -whichBits(variant, m.id); if (u < 0) return m; }
+  return ms[ms.length - 1]!;
 }
 
 /** Apply one mutator with decoded arguments and price it. Unchanged results are invalid (a call must change the object). */
@@ -33,7 +56,7 @@ export function applyPriced<S, A>(type: ObjectType<S>, variant: Variant, state: 
   const result = mutator.apply(state, mutator.perSite ? site : 0, args, variant);
   if (isInvalid(result)) return result;
   if (type.encode(result) === type.encode(state)) return { invalid: "that call does not change the object" };
-  const which = Math.log2(ms.length);
+  const which = whichBits(variant, mutator.id);
   const where = mutator.perSite ? Math.log2(k) : 0;
   const arg = mutator.args(variant).bits(args);
   const surcharge = Math.max(0, type.readLength(result, variant) - type.readLength(state, variant));
@@ -73,7 +96,7 @@ export function applyCalls<S>(type: ObjectType<S>, variant: Variant, state: S, c
  */
 export function walkStep<S>(type: ObjectType<S>, variant: Variant, state: S, rng: Rng, accept?: (s: S) => boolean): S {
   const ms = variantMutators(type, variant);
-  const m = ms[rng.below(ms.length)]!;
+  const m = drawMutator(ms, variant, rng);
   const site = m.perSite ? rng.below(type.sites(state, variant)) : 0;
   const a = m.args(variant).sample(rng);
   if (a === null) return state;

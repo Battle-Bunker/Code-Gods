@@ -5,7 +5,7 @@
  * surcharge (half the growth of the board's total). Every move's inverse is proposed with the same weight, so the
  * price list is an exact potential (owner decision 19; test/potential.test.ts).
  */
-import { amountCode, choiceBits, sampleAmount, type ArgCode, type Invalid, type Mutator, type Rng, type Variant } from "@workspace/v2-core";
+import { amountCode, choiceBits, sampleAmount, whichBits, type ArgCode, type Invalid, type Mutator, type Rng, type Variant } from "@workspace/v2-core";
 import { at, cellLabel, cellName, gridParams, inDomain, type GridState } from "./grid.ts";
 import { BOX_NAMES, boxes, lines, pairs } from "./units.ts";
 
@@ -91,7 +91,7 @@ function fields(base: number, spec: Readonly<Record<string, Field>>, amount = fa
 }
 
 /** "which": log2 of the variant's mutators. */
-const base = (v: Variant): number => Math.log2(v.mutators.length);
+const base = (v: Variant, id: string): number => whichBits(v, id);
 
 // ---------------------------------------------------------------- helpers
 
@@ -128,7 +128,7 @@ const lineWords = (name: unknown): string => {
 export const add: M = {
   id: "cells.add", reps: ["cells"], title: "add to one cell", perSite: false,
   describe: a => `${signed(k(a))} in ${cellWords(a.cell)}`,
-  args: v => fields(base(v), { cell: oneOf(cellNames(N(v))) }, true),
+  args: v => fields(base(v, "cells.add"), { cell: oneOf(cellNames(N(v))) }, true),
   apply: (s, _site, a, v) => { const i = cellIndex(N(v), a.cell as string); return addTo(s, v, [i], () => k(a)); },
   inverse: { kind: "mutator", id: "cells.add", args: a => ({ ...a, k: -k(a) }) },
 };
@@ -136,7 +136,7 @@ export const add: M = {
 export const swap: M = {
   id: "cells.swap", reps: ["cells"], title: "swap two cells", perSite: false,
   describe: a => `swap ${cellWords(a.a)} and ${cellWords(a.b)}`,
-  args: v => fields(base(v), { a: oneOf(cellNames(N(v))), b: oneOf(cellNames(N(v))) }),
+  args: v => fields(base(v, "cells.swap"), { a: oneOf(cellNames(N(v))), b: oneOf(cellNames(N(v))) }),
   apply: (s, _site, a, v) => {
     const i = cellIndex(N(v), a.a as string), j = cellIndex(N(v), a.b as string);
     if (i === j) return { invalid: "swap needs two different cells" };
@@ -148,7 +148,7 @@ export const swap: M = {
 export const lineAdd: M = {
   id: "tally.add", reps: ["tally"], title: "add to every cell of a row or column", perSite: false,
   describe: a => `${signed(k(a))} in every cell of ${lineWords(a.line)}`,
-  args: v => fields(base(v), { line: oneOf(lines(N(v)).map(l => l.name)) }, true),
+  args: v => fields(base(v, "tally.add"), { line: oneOf(lines(N(v)).map(l => l.name)) }, true),
   apply: (s, _site, a, v) => addTo(s, v, lineCells(N(v), a.line as string), () => k(a)),
   inverse: { kind: "mutator", id: "tally.add", args: a => ({ ...a, k: -k(a) }) },
 };
@@ -157,7 +157,7 @@ export const lineAdd: M = {
 export const rotateFor = (n: number): M => ({
   id: "tally.rotate", reps: ["tally"], title: "move a row's or column's numbers along, the last coming round to the front", perSite: false,
   describe: a => `move ${lineWords(a.line)}'s numbers ${a.j} place${a.j === "1" ? "" : "s"} along`,
-  args: v => fields(base(v), { line: oneOf(lines(N(v)).map(l => l.name)), j: oneOf(Array.from({ length: N(v) - 1 }, (_, i) => String(i + 1))) }),
+  args: v => fields(base(v, "tally.rotate"), { line: oneOf(lines(N(v)).map(l => l.name)), j: oneOf(Array.from({ length: N(v) - 1 }, (_, i) => String(i + 1))) }),
   apply: (s, _site, a, v) => {
     const cs = lineCells(N(v), a.line as string), j = Number(a.j), L = cs.length;
     return write(s, v, cs.map((c, pos) => [c, s.cells[cs[(pos - j + L) % L]!]!] as [number, number]));
@@ -184,7 +184,7 @@ const SPIN_WORDS: Readonly<Record<string, string>> = {
 export const spin: M = {
   id: "turn.spin", reps: ["turn"], title: "turn or flip the whole board", perSite: false,
   describe: a => SPIN_WORDS[a.how as string]!,
-  args: v => fields(base(v), { how: oneOf(Object.keys(SPINS)) }),
+  args: v => fields(base(v, "turn.spin"), { how: oneOf(Object.keys(SPINS)) }),
   apply: (s, _site, a, v) => {
     const n = N(v), f = SPINS[a.how as string]!;
     return permute(s, i => { const [r, c] = f(n, Math.floor(i / n), i % n); return at(n, r, c); });
@@ -199,7 +199,7 @@ export const balanceFor = (n: number): M => ({
     const [i, j] = pairs(n)[Number(String(a.pair).slice(4))]!;
     return `${signed(k(a))} in ${cellLabel(n, i)} and ${signed(-k(a))} in its opposite, ${cellLabel(n, j)}`;
   },
-  args: v => fields(base(v), { pair: oneOf(pairs(N(v)).map((_, i) => `pair${i}`)) }, true),
+  args: v => fields(base(v, "turn.balance"), { pair: oneOf(pairs(N(v)).map((_, i) => `pair${i}`)) }, true),
   apply: (s, _site, a, v) => {
     const [i, j] = pairs(N(v))[Number((a.pair as string).slice(4))]!;
     return write(s, v, [[i, s.cells[i]! + k(a)], [j, s.cells[j]! - k(a)]]);
@@ -210,7 +210,7 @@ export const balanceFor = (n: number): M => ({
 export const reverse: M = {
   id: "mirror.reverse", reps: ["mirror"], title: "write a row or column backwards", perSite: false,
   describe: a => `write ${lineWords(a.line)} backwards`,
-  args: v => fields(base(v), { line: oneOf(lines(N(v)).map(l => l.name)) }),
+  args: v => fields(base(v, "mirror.reverse"), { line: oneOf(lines(N(v)).map(l => l.name)) }),
   apply: (s, _site, a, v) => {
     const cs = lineCells(N(v), a.line as string);
     return write(s, v, cs.map((c, pos) => [c, s.cells[cs[cs.length - 1 - pos]!]!] as [number, number]));
@@ -221,7 +221,7 @@ export const reverse: M = {
 export const tilt: M = {
   id: "steps.tilt", reps: ["steps"], title: "make every step along a row or column bigger by k (the first number stays)", perSite: false,
   describe: a => `${signed(k(a))} on every step along ${lineWords(a.line)}`,
-  args: v => fields(base(v), { line: oneOf(lines(N(v)).map(l => l.name)) }, true),
+  args: v => fields(base(v, "steps.tilt"), { line: oneOf(lines(N(v)).map(l => l.name)) }, true),
   apply: (s, _site, a, v) => addTo(s, v, lineCells(N(v), a.line as string), pos => pos * k(a)),
   inverse: { kind: "mutator", id: "steps.tilt", args: a => ({ ...a, k: -k(a) }) },
 };
@@ -229,7 +229,7 @@ export const tilt: M = {
 export const boxAdd: M = {
   id: "boxes.add", reps: ["boxes"], title: "add to every cell of a corner box", perSite: false,
   describe: a => `${signed(k(a))} in every cell of the ${BOX_NAMES[Number(String(a.box).slice(3))]} box`,
-  args: v => fields(base(v), { box: oneOf(boxes(N(v)).map((_, i) => `box${i}`)) }, true),
+  args: v => fields(base(v, "boxes.add"), { box: oneOf(boxes(N(v)).map((_, i) => `box${i}`)) }, true),
   apply: (s, _site, a, v) => addTo(s, v, boxes(N(v))[Number((a.box as string).slice(3))]!, () => k(a)),
   inverse: { kind: "mutator", id: "boxes.add", args: a => ({ ...a, k: -k(a) }) },
 };

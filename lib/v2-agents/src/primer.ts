@@ -3,7 +3,7 @@
  * on purpose. The views and moves are read from the object type and the helpers from HELPERS, so the text cannot
  * drift from the code (test/primer.test.ts checks the helpers exist in both guest libraries).
  */
-import type { ObjectType } from "@workspace/v2-core";
+import type { ObjectType, Variant } from "@workspace/v2-core";
 import { lineType } from "@workspace/v2-linear";
 import { GRID_CATALOGUE } from "./grid-catalogue.ts";
 import { exampleFor, hasStarters } from "./starters.ts";
@@ -42,17 +42,38 @@ function views<S>(type: ObjectType<S>): string {
   }).join("\n");
 }
 
-function moves<S>(type: ObjectType<S>): string {
-  const v = type.variants[0]!;
+function moves<S>(type: ObjectType<S>, v: Variant): string {
   return type.mutators.filter(m => v.mutators.includes(m.id)).map(m => {
     return `- ${m.id}(${argNames(m.args(v))}): ${m.title}`;
   }).join("\n");
+}
+/** "a | b | c", or the first two, an ellipsis and the last when there are more than eight. */
+const choiceList = (all: readonly string[]) => (all.length > 8 ? [all[0], all[1], "…", all[all.length - 1]] : all).join(" | ");
+/**
+ * A mutator's arguments from its code's cheapest values: names in order, a word-only argument with its choices, a number
+ * that also takes words with them ("centre: origin | number"), and a move with two shapes as both ("x0, s or mirror").
+ */
+function argNames(code: { enumerate?(maxBits: number): Iterable<unknown>; decode(w: unknown): unknown }): string {
+  const combos = code.enumerate ? ([...code.enumerate(12)] as Record<string, unknown>[]) : [];
+  if (!combos.length) return argNamesByProbe(code);
+  const shapes: string[][] = [];
+  for (const c of combos) { const k = Object.keys(c); if (!shapes.some(s => s.join() === k.join())) shapes.push(k); }
+  const label = (name: string) => {
+    const vals = combos.filter(c => name in c).map(c => c[name]);
+    const words = [...new Set(vals.filter((x): x is string => typeof x === "string"))];
+    if (!words.length) return name;
+    const numbers = vals.some(x => typeof x !== "string");
+    if (numbers) return `${name}: ${choiceList(words)} | number`;
+    // Named choices (an axis, a cell) are listed; anything else made of words (a mirror line "a,b,c") is typed text.
+    return words.every(x => /^[\w-]+$/.test(x)) ? `${name}: ${choiceList(words)}` : `${name}: text`;
+  };
+  return shapes.map(s => s.map(label).join(", ")).join(" or ");
 }
 /**
  * A mutator's arguments, read from its argument code's own errors: "missing argument k" names one, "axis must be one
  * of x, y" gives its choices.
  */
-function argNames(code: { decode(w: unknown): unknown }): string {
+function argNamesByProbe(code: { decode(w: unknown): unknown }): string {
   const names: string[] = [];
   const probe: Record<string, string> = {};
   for (let i = 0; i < 8; i++) {
@@ -61,8 +82,7 @@ function argNames(code: { decode(w: unknown): unknown }): string {
       const missing = /missing argument (\w+)/.exec(msg), choice = /^(\w+) must be one of (.+)$/.exec(msg);
       if (missing) { names.push(missing[1]!); probe[missing[1]!] = "2"; }
       else if (choice) {
-        const all = choice[2]!.split(", "), shown = all.length > 8 ? [all[0], all[1], "…", all[all.length - 1]] : all;   // r0c0 | r0c1 | … | r3c3
-        const label = `${choice[1]}: ${shown.join(" | ")}`, at = names.indexOf(choice[1]!);
+        const label = `${choice[1]}: ${choiceList(choice[2]!.split(", "))}`, at = names.indexOf(choice[1]!);
         if (at < 0) names.push(label); else names[at] = label;
         probe[choice[1]!] = choice[2]!.split(", ")[0]!;
       }
@@ -128,7 +148,7 @@ function withoutKnobs(source: string | undefined): string | undefined {
 }
 
 /** The primer for an object type (default: the line). */
-export function agentPrimer<S>(type: ObjectType<S> = lineType as unknown as ObjectType<S>): string {
+export function agentPrimer<S>(type: ObjectType<S> = lineType as unknown as ObjectType<S>, variant: Variant = type.variants[0]!): string {
   const w = WORDS[type.id];
   if (!w) throw new Error(`no primer words for the object type ${type.id}`);
   const { one, many } = w;
@@ -155,7 +175,7 @@ VIEWS (look(offer, view); * marks the numbers a view's moves change; names with 
 ${views(type)}
 
 MOVES (move(name, args)):
-${moves(type)}
+${moves(type, variant)}
 
 HELPERS (the same names in both languages):
 ${HELPERS.map(h => ({ ...h, says: h.says.replace(/\bline\b/g, one), ...w.helpers?.[h.name] })).map(h => `- ${h.ts}${h.py !== h.ts ? `  /  Python: ${h.py}` : ""}: ${h.says}`).join("\n")}

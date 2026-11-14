@@ -73,9 +73,9 @@ test("every tie-breaker is dealable on a walk of lines: no throw, marks cite rea
   assert.ok(q(1));
 });
 
-test("presets: three pools over the beginner families, every named tie-breaker exists", async () => {
+test("presets: four pools over the beginner families, every named tie-breaker exists", async () => {
   const { presets, families, lineType: t } = await import("../src/index.ts");
-  assert.deepEqual(presets.map(p => p.id), ["lines-beginner", "lines-whole", "lines-four"]);
+  assert.deepEqual(presets.map(p => p.id), ["lines-beginner", "lines-whole", "lines-four", "lines-lenses"]);
   for (const p of presets) {
     assert.ok(t.variants.some(v => v.id === p.variant), p.id);
     for (const r of p.rules) {

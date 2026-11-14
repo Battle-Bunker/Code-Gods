@@ -5,7 +5,7 @@
  */
 import { OpFailure } from "@workspace/v2-affordances";
 import { EngineHost } from "@workspace/v2-agents/pure";
-import { rng } from "@workspace/v2-core";
+import { rng, whichBits } from "@workspace/v2-core";
 import type { Doc } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import { decode, typeOf, variantOf } from "./world.ts";
@@ -37,14 +37,25 @@ export function ask(host: EngineHost<unknown>, request: Record<string, unknown>)
 export function mutatorsOf(rep: string, variantId: string) {
   const variant = variantOf(variantId), type = typeOf(variantId);
   if (!type.representations.some(r => r.id === rep)) throw new OpFailure(`No representation ${rep}.`, `One of: ${type.representations.map(r => r.id).join(", ")}.`);
-  const which = Math.log2(variant.mutators.length);
   return type.mutators.filter(m => m.reps.includes(rep) && variant.mutators.includes(m.id)).map(m => {
-    const code = m.args(variant), r = rng("arg-names", m.id);
-    let sample: Record<string, string> = {};
-    for (let i = 0; i < 256 && Object.keys(sample).length === 0; i++) { const a = code.sample(r); if (a !== null) sample = { ...code.encode(a) }; }
+    const code = m.args(variant);
+    // Every argument value up to 12 bits (cheapest first), as on the wire: a sample of one call would show one shape only.
+    let combos = code.enumerate ? [...code.enumerate(12)].map(a => code.encode(a)) : [];
+    if (!combos.length) {
+      const r = rng("arg-names", m.id);
+      for (let i = 0; i < 256 && !combos.length; i++) { const a = code.sample(r); if (a !== null) combos = [code.encode(a)]; }
+    }
     const domain = (variant.params as { argDomain?: string }).argDomain === "Q" ? "rational" : "integer";
-    // A named argument (a cell, a line, a box, an axis) is a choice; a number is the variant's number domain.
-    const codeOf = (w: string) => (/^-?\d+(\/\d+)?$/.test(w) ? domain : "choice");
-    return { id: m.id, reps: [...m.reps], args: Object.entries(sample).map(([name, w]) => ({ name, code: codeOf(w) })), baseBits: which, effect: m.title };
+    // A named argument (a cell, a line, a box, an axis) is a choice, a number the variant's number domain, an argument that
+    // takes either both; one a move's other shape leaves out is optional (a fold: x0 and s, or mirror).
+    const isNumber = (w: string) => /^-?\d+(\/\d+)?$/.test(w);
+    const names = [...new Set(combos.flatMap(c => Object.keys(c)))];
+    const codeOf = (name: string) => {
+      const ws = combos.filter(c => name in c).map(c => c[name]!);
+      const nums = ws.some(isNumber), words = ws.some(w => !isNumber(w));
+      const kind = nums && words ? `${domain} or choice` : nums ? domain : ws.every(w => /^[\w-]+$/.test(w)) ? "choice" : "line a,b,c";
+      return combos.every(c => name in c) ? kind : `${kind}, optional`;
+    };
+    return { id: m.id, reps: [...m.reps], args: names.map(name => ({ name, code: codeOf(name) })), baseBits: whichBits(variant, m.id), effect: m.title };
   });
 }

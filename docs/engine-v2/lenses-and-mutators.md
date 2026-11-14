@@ -1,6 +1,8 @@
 # Lenses and mutators on a line (14 November 2026)
 
-Status: design and measurement. **Nothing here changes the engine's dealt rules, mutators or prices.** Every proposal is
+Status: design and measurement. **The first five of §5 are built** (15 November) as a trial: variant `line-q-lenses`,
+preset `lines-lenses`, not dealt by default (spec §12.4; the balance and collapse runs are in §7 below). Nothing else
+here changes the engine's dealt rules, mutators or prices. Every proposal is
 for the coordinator and the owner to choose from. The script is `lib/v2-agents/scripts/lenses.ts`
 (`node --experimental-strip-types scripts/lenses.ts [--H 16] [--sources 30]` from `lib/v2-agents`, about two
 minutes); its full output is [scripts/lenses-results.md](scripts/lenses-results.md).
@@ -518,5 +520,56 @@ menu, and refuse a menu under which one rule's keepers leave another rule's bits
 - **Two lines per object, grids.** Not touched. On grids the same three kinds of move exist (add to a cell; symmetries
   of the board; recolourings), and decision 25 already covers them.
 - **The families of §4** are unmeasured proposals; the rule-design session owns them.
-- **Nothing here is built.** Adding a mutator to a variant is a deploy (decision 7), with the potential test
-  (`lib/v2-linear/test/potential.test.ts`) and an affordance entry (decision 16).
+- **Built so far:** the five of §5, on the trial variant `line-q-lenses` only (§7). The rest is unbuilt. Adding a mutator
+  to a variant is a deploy (decision 7), with the potential test (`lib/v2-linear/test/potential.test.ts`) and an
+  affordance entry (decision 16).
+
+---
+
+## 7. The five as built: balance and collapse runs (15 November)
+
+Built on the trial variant `line-q-lenses` (spec §12.4) with the weighted "which" code (the nine at log2 12, the five at
+log2 20; owner-decisions.md, coordinator's call 12). Beginner pool as of #620 (the "bigger prime" tie-breakers not yet
+replaced by relations: **rerun both on the new pool when it lands**).
+
+**Balance** (`scripts/lenses.ts --part dynamics,balance --tables 60 --sources 30`, box H = 16, the five at engine prices;
+output in [scripts/lens-balance-results.md](scripts/lens-balance-results.md)). Selfish climbers, 60 three-rule tables ×
+30 newborn lines:
+
+| | the nine | nine + five |
+|---|--:|--:|
+| runs reaching a fixed point | 0% | 0% |
+| distinct lines per run | 10.4 | 11.4 |
+| revisits (tug of war) | 96% | 96% |
+| moves made with the five | – | 25% |
+| leader's share of the time-mean bits | 47% | 46% |
+| runs one seat leads with > 60% | 9% | 6% |
+| top-of-table line: cost from a newborn, nine over fourteen | | median 0.97, p90 1.22, max 4.96 (2% ≥ 1.5×) |
+
+No rule gets the study's "private highway" (all eighteen gave Whole Crossing 10 bits against 2–3); per-rule advantages
+are within about ±2 bits of time-mean bits (flagged up: Prime Landing/m-spf +2.2, Same on Both Rulers/prime-start
++2.1 and /steep +1.9, three more about +1.1; flagged down: Whole Crossing/k-gpf −1.9, three more about −1.0 to −1.4).
+On the study's own table (§3.4) the weighted five give 5.0, 2.4, 9.2 bits against the nine's 6.8, 4.7, 8.5: Whole
+Crossing still leads, Treasure loses most.
+
+**Collapse, with the shortcut climber** (`scripts/freeze.ts`, starter seats with the representation shortcuts when
+stuck; `--agents shortcut` on line-q against `--agents lens` on line-q-lenses, 3 games × 300 s per table, unique objects,
+10 objects, births 0.05/s):
+
+| table | menu | objects moved, last minute | idle acts | frozen (points, shortcuts) | points gained | best object's line (bits) |
+|---|---|--:|--:|--:|--:|---|
+| mixed | nine | 5.3 | 88% | 49% | 16k | y = −x + 47 (30, 7, 29) |
+| mixed | nine + five | 13.0 | 76% | 30% | **227k** | y = −x + 283 (153, 0.5, 154) |
+| conflict | nine | 17.0 | 81% | 46% | 212k | y = −2x + 734 (4, 249, 199) |
+| conflict | nine + five | 14.0 | 65% | 31% | 187k | y = −x + 383 (206, 2, 207) |
+| compatible | nine | 2.0 | 99% | 65% | 9k | y = 79x + 17 |
+| compatible | nine + five | 2.0 | 99% | 64% | 22k | y = 127x + 2 |
+
+- **Dynamics improve**: fewer frozen boards and idle acts, more objects moving at the end (except conflict, already busy).
+- **BUG (reported, not fixed here): the menu makes an aligned high peak reachable on the mixed table.** On y = −x + p the
+  y-intercept and the x-crossing are the same prime, so Prime Landing/big-prime and Whole Crossing/k-spf climb one hill
+  together (decision 30's failure). Turns and leans bring the line to gradient −1, then the existing `mach.stretch`
+  climbs both at once (the elevator: 551 stretch moves, 385k of the points). Points 14× the nine. The conflict table
+  already had the same failure on line-q (y = −2x + 734). The fix belongs in the pool and the deal (decision 30: no
+  two seated rules rewarding the same number in the same direction), not in removing the moves; until then
+  `lines-lenses` stays a non-default trial and must not be dealt by default.

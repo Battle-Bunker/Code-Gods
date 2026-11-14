@@ -4,7 +4,8 @@
  * that good, with its interval. No levels, ladders or caps. Pure; any runtime.
  */
 import type { Score } from "@workspace/v2-core";
-import { valueLookup, withUniqueness } from "@workspace/v2-valuation";
+import type { ObjectType } from "@workspace/v2-core";
+import { findVariant, valueLookup, valuesVariant, withUniqueness } from "@workspace/v2-valuation";
 import { UNIQUENESS, VALUE_RECORDS, type ValueRecord } from "./values.gen.ts";
 
 const BY_KEY = new Map(VALUE_RECORDS.map(r => [r.ruleKey, r]));
@@ -21,7 +22,10 @@ export interface ValueScope { variant: string; objects: number }
 
 /** The uniqueness correction's table for a variant (values.gen.ts), with the game's object count: what an agent host takes. */
 export function uniquenessOf(scope: ValueScope): { ns: number[]; heldMass: number[]; objects: number } | null {
-  const t = UNIQUENESS.find(u => u.variant === scope.variant);
+  // A variant that differs from another only in its menu shares that variant's law, so its table (Variant.valuesOf).
+  let id = scope.variant;
+  try { const f = findVariant(id); id = valuesVariant(f.type as ObjectType<unknown>, f.variant).id; } catch (e) { if (!/^Unknown variant/.test((e as Error).message)) throw e; }
+  const t = UNIQUENESS.find(u => u.variant === id);
   return t ? { ns: [...t.ns], heldMass: [...t.heldMass], objects: scope.objects } : null;
 }
 
