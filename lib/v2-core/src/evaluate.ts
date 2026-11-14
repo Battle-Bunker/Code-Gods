@@ -272,8 +272,8 @@ export function evaluateSite<S, P>(type: ObjectType<S>, family: RuleFamily<S, P>
   const ctx = new Context<S>(type, family as RuleFamily<S, unknown>, state, site, variant, sites);
   family.evaluate(ctx, params);
   for (const l of [family.main, ...family.tieBreakers]) if (!ctx.terms.has(l.id)) throw new Error(`${family.id} did not record layer ${l.id}`);
-  const { score, components } = scoreOf(family, params, variant, tieBreaker, id => ctx.terms.get(id)!.value);
-  return { score, components, terms: [...ctx.terms.values()], marks: ctx.marks, reads: [...ctx.reads.values()] };
+  const { score, components, utility } = scoreOf(family, params, variant, tieBreaker, id => ctx.terms.get(id)!.value);
+  return { score, utility, components, terms: [...ctx.terms.values()], marks: ctx.marks, reads: [...ctx.reads.values()] };
 }
 
 /**
@@ -282,16 +282,17 @@ export function evaluateSite<S, P>(type: ObjectType<S>, family: RuleFamily<S, P>
  * follows. evaluateSite makes every score this way, and exact sums that know a rule's terms use it too.
  */
 export function scoreOf<P>(family: RuleFamily<any, P>, params: P, variant: Variant, tieBreaker: TieBreaker | undefined,
-  value: (layerId: string) => Q | Undef): { score: Score; components: ScoreComponent[] } {
+  value: (layerId: string) => Q | Undef): { score: Score; utility: Score; components: ScoreComponent[] } {
   const layers = ruleLayers(family, tieBreaker);
-  const score: (Q | null)[] = [];
+  const score: (Q | null)[] = [], utility: (Q | null)[] = [];
   const components: ScoreComponent[] = [];
   let worst = false;
   layers.forEach((layer, j) => {
     const v = value(layer.id);
     components.push({ term: layer.id, sense: layer.sense });
-    if (isUndef(v)) { if (j === 0) worst = true; score.push(null); return; }
+    if (isUndef(v)) { if (j === 0) worst = true; score.push(null); utility.push(null); return; }
     let c = layer.sense === "max" ? v : neg(v);
+    utility.push(c);
     // The main layer saturates at its top when a tie-breaker follows: beyond its top it only opens the tie-breaker, so
     // a state past it must not outrank, or skip the rungs of, the tie-breaker.
     if (j < layers.length - 1) {
@@ -300,11 +301,13 @@ export function scoreOf<P>(family: RuleFamily<any, P>, params: P, variant: Varia
     }
     score.push(c);
   });
-  return { score: worst ? null : score, components };
+  return { score: worst ? null : score, utility: worst ? null : utility, components };
 }
 
 export interface ObjectEvaluation {
   readonly score: Score;
+  /** The site's utilities (Evaluation.utility) on a one-site object; several sites: undefined until PR 2. */
+  readonly utility?: Score;
   /** One evaluation per site (line). */
   readonly sites: readonly Evaluation[];
 }
@@ -316,7 +319,7 @@ export interface ObjectEvaluation {
 export function evaluateObject<S, P>(type: ObjectType<S>, family: RuleFamily<S, P>, params: P, state: S, variant: Variant, tieBreaker?: TieBreaker): ObjectEvaluation {
   const k = type.sites(state, variant);
   const sites = Array.from({ length: k }, (_, i) => evaluateSite(type, family, params, state, variant, i, tieBreaker));
-  if (k === 1) return { score: sites[0]!.score, sites };
+  if (k === 1) return { score: sites[0]!.score, utility: sites[0]!.utility, sites };
   const ladder = ruleLadder(family, params, variant, tieBreaker);
   let total = 0n;
   for (const e of sites) total += BigInt(levelOf(e.score, ladder));

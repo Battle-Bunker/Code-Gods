@@ -202,28 +202,27 @@ export const sameOnBothRulers = family<T>("same-on-both-rulers", "Same on Both R
 // ---------------------------------------------------------------- 8. Whole Crossing (the curator's §10.5)
 
 const crossingShape: Shape<object> = {
-  main: distance("crossing", "the x-axis crossing close to a whole number", "The line should cross the x-axis as close as possible to a whole number.", "cart", ds("1/3", "1/4", "1/6", "1/8", "1/12", "1/16", "0"), "the crossing to a whole number"),
+  main: distance("crossing", "the x-axis crossing close to a whole number", "The line should cross the x-axis as close as possible to a whole number.", "crossing", ds("1/3", "1/4", "1/6", "1/8", "1/12", "1/16", "0"), "the crossing to a whole number"),
   tieBreakers: [
-    more("k-spf", "that whole number's smallest prime factor", "That whole number's smallest prime factor should be as big as possible.", "cart", primes(2, 31), "its smallest prime factor"),
-    more("k-gpf", "that whole number's largest prime factor", "That whole number's largest prime factor should be as big as possible.", "cart", primes(2, 37), "its largest prime factor"),
+    more("k-spf", "that whole number's smallest prime factor", "That whole number's smallest prime factor should be as big as possible.", "crossing", primes(2, 31), "its smallest prime factor"),
+    more("k-gpf", "that whole number's largest prime factor", "That whole number's largest prime factor should be as big as possible.", "crossing", primes(2, 37), "its largest prime factor"),
     factorTies<object>("m", "the gradient")[0]!,
   ],
 };
-export const wholeCrossing = family("whole-crossing", "Whole Crossing", ["crossing", "si", "cart"], crossingShape, [{}], ctx => {
-  const mRef = ref("si", "m"), cRef = ref("si", "c"), xRef = ref("crossing", "x0"), kRef = ref("crossing", "near");
-  const mv = ctx.read(mRef);
-  const m = num(mv);
-  if (m === null || Qn.isZero(m)) return allUndefined(ctx, crossingShape, m === null ? mv : { kind: "undefined", reason: "a flat line never crosses the x-axis (or lies along it)" }, mRef);
-  const c = num(ctx.read(cRef))!;
-  ctx.read(xRef);
-  ctx.read(kRef);
-  const x = Qn.neg(Qn.div(c, m));
-  const k = Qn.floor(Qn.add(x, q(1, 2)));   // the nearest whole number
-  ctx.term("crossing", `distance from the crossing ${Qn.toWire(x)} to ${k}`, gap(x, q(k)), [xRef]);
-  ctx.term("k-spf", `smallest prime factor of ${k}`, spfQ(q(k)), [kRef]);
-  ctx.term("k-gpf", `largest prime factor of ${k}`, gpfQ(q(k)), [kRef]);
-  ctx.term("m-spf", "the gradient's smallest prime factor", spfQ(m), [mRef]);
+export const wholeCrossing = family("whole-crossing", "Whole Crossing", ["crossing", "si"], crossingShape, [{}], ctx => {
+  const xRef = ref("crossing", "x0"), kRef = ref("crossing", "near"), mRef = ref("si", "m");
+  const xv = ctx.read(xRef);
+  const x = num(xv);
+  if (x === null) return allUndefined(ctx, crossingShape, xv, xRef);   // a flat line never crosses (or lies along the axis)
+  const k = num(ctx.read(kRef))!;   // the whole number nearest the crossing (a half rounds up)
+  ctx.term("crossing", `distance from the crossing ${Qn.toWire(x)} to ${Qn.toWire(k)}`, gap(x, k), [xRef, kRef]);
+  ctx.term("k-spf", `smallest prime factor of ${Qn.toWire(k)}`, spfQ(k), [kRef]);
+  ctx.term("k-gpf", `largest prime factor of ${Qn.toWire(k)}`, gpfQ(k), [kRef]);
+  // A vertical line crosses at x0 but has no gradient: its m-spf is undefined (it ranks last), not its crossing.
+  const mv = ctx.read(mRef), m = num(mv);
+  ctx.term("m-spf", "the gradient's smallest prime factor", m === null ? mv : spfQ(m), [mRef]);
   ctx.mark({ kind: "focus", ref: xRef });
+  ctx.mark({ kind: "candidate", ref: kRef, term: "crossing" });
 });
 
 // ---------------------------------------------------------------- 9. Divisibility Ladder (the curator's §10.5; D §11)
@@ -238,9 +237,10 @@ const ladderShape: Shape<object> = {
 };
 export const divisibilityLadder = family("divisibility-ladder", "Divisibility Ladder", ["table", "si"], ladderShape, [{}], ctx => {
   const mRef = ref("si", "m"), cRef = ref("si", "c");
-  const c = num(ctx.read(cRef));
+  const cv = ctx.read(cRef), c = num(cv);
+  if (c === null) return allUndefined(ctx, ladderShape, cv, cRef);   // a vertical line has no y(n)
+  if (Qn.isZero(c)) return allUndefined(ctx, ladderShape, { kind: "undefined", reason: "the line goes through (0, 0), where every n divides y(n): the rule wants a line that does not" }, cRef);
   const m = num(ctx.read(mRef))!;
-  if (c === null || Qn.isZero(c)) return allUndefined(ctx, ladderShape, { kind: "undefined", reason: "the line goes through (0, 0), where every n divides y(n): the rule wants a line that does not" }, cRef);
   let run = 0;
   const cols: ElementRef[] = [];
   for (let n = 1; n <= 12; n++) {
