@@ -20,7 +20,7 @@ import { AffordanceProvider, type AffordanceRuntime } from "@workspace/v2-afford
 import { VIEW_OP_PATH, opPath, outcomeOf } from "@workspace/v2-affordances/convex";
 import { api } from "@workspace/engine/convex/_generated/api";
 import { useLive } from "@/site/lib/convex";
-import { storedViewOf } from "./stored-view";
+import { shownView, storedViewOf, undoFailed } from "./stored-view";
 
 export interface RuntimeScope { roomId?: string; gameId?: string }
 
@@ -68,7 +68,7 @@ export function AffordanceRuntimeProvider({ context, scope, onSignIn, children }
   // one room, and goes when the server refuses or fails it.
   const [localState, setLocalState] = useState<{ roomId?: string; view: ViewState } | null>(null);
   const local = localState && localState.roomId === scope.roomId ? localState.view : null;
-  const view = local && local.version > stored.version ? local : stored;
+  const view = shownView(local, stored);
   const viewNow = useRef(view);
   viewNow.current = view;
   const contextNow = useRef(context);
@@ -89,7 +89,11 @@ export function AffordanceRuntimeProvider({ context, scope, onSignIn, children }
       const before = viewNow.current;
       viewNow.current = applied.view;
       setLocalState({ roomId: scope.roomId, view: applied.view });
-      const undo = () => { viewNow.current = before; setLocalState(null); };
+      const undo = () => {
+        const next = undoFailed(viewNow.current, applied.view);
+        viewNow.current = next ?? before;
+        setLocalState(cur => (next && cur ? { ...cur, view: next } : null));
+      };
       try {
         const out = await convex.mutation(makeFunctionReference<"mutation">(VIEW_OP_PATH.public), { id, args: args ?? {}, ...where }) as OpOutcome;
         if (!out.ok) undo();
