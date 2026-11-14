@@ -32,7 +32,7 @@ test("a dealt grid rule resolves against the grid type, and its moves are descri
   assert.equal(callWords([{ mutator: "cells.add", site: 0, args: { cell: "r0c1", k: "2" } }], grid4), "+2 in row 1, column 2");
   const choices = mutatorChoices(grid4);
   assert.deepEqual(choices.map(c => c.id), grid4.mutators);
-  const out = whatIf({ rule, state: decodeState("0120/3001/0000/9000", "grid-4-d10"), call: { mutator: "cells.add", args: { cell: "r0c0", k: "1" } }, rarities: [0], want: null } as never);
-  assert.ok(out.ok, JSON.stringify(out));
+  const out = whatIf({ rule, state: decodeState("0120/3001/0000/9000", "grid-4-d10"), call: { mutator: "cells.add", args: { cell: "r0c0", k: "1" } }, value: null, want: null });
+  assert.ok(out.ok, out.ok ? "" : out.reason);
   if (out.ok) assert.equal(gridType.encode(out.after as never), "1120/3001/0000/9000");
 });

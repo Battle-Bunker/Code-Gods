@@ -6,6 +6,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { compareScores, type Score } from "@workspace/v2-core";
 import { lineType, lineQ, lineZ } from "@workspace/v2-linear";
 import { familyOf } from "../src/sdk/rule.ts";
 import { argError, mutatorChoices, whatIf } from "../src/panes/what-if-model.ts";
@@ -43,48 +44,49 @@ test("a typed number is checked before anything is worked out", () => {
 });
 
 test("halving the outputs of y = 4x + 2 on a whole-number board gives y = 2x + 1", () => {
-  const out = whatIf({ rule: rule("m-meets-c", "size"), state: lineType.decode("-4,1,-2"), call: { mutator: "mach.stretch", args: { f: "1/2" } }, rarities: [], want: null });
+  const out = whatIf({ rule: rule("m-meets-c", "size"), state: lineType.decode("-4,1,-2"), call: { mutator: "mach.stretch", args: { f: "1/2" } }, value: null, want: null });
   assert.ok(out.ok, out.ok ? "" : out.reason);
   assert.equal(lineType.encode(out.after), "-2,1,-1");
 });
 
 test("an unknown move is a refusal, never a crash", () => {
-  const out = whatIf({ rule: rule("m-meets-c", "size"), state: lineType.decode("-2,1,-3"), call: { mutator: "no.such", args: {} }, rarities: [], want: null });
+  const out = whatIf({ rule: rule("m-meets-c", "size"), state: lineType.decode("-2,1,-3"), call: { mutator: "no.such", args: {} }, value: null, want: null });
   assert.equal(out.ok, false);
 });
 
 test("moving y = 2x + 3 up 1 under m Meets c: the line, the price and the score match the engine's own answers", () => {
   // y = 2x + 3 is the wire -2,1,-3. Up 1: y = 2x + 4. Main part |m − c|: 1 before, 2 after (worse).
-  const out = whatIf({ rule: rule("m-meets-c", "size"), state: lineType.decode("-2,1,-3"), call: { mutator: "si.shift", args: { k: "1" } }, rarities: [], want: null });
+  const out = whatIf({ rule: rule("m-meets-c", "size"), state: lineType.decode("-2,1,-3"), call: { mutator: "si.shift", args: { k: "1" } }, value: null, want: null });
   assert.ok(out.ok);
   assert.equal(lineType.encode(out.after), "-2,1,-4");
   assert.ok(out.price > 0 && out.charge > out.price, "the charge is the price plus the radical surcharge");
-  assert.ok(out.to.level < out.from.level, `step ${out.from.level} → ${out.to.level}: a worse main part is a lower step`);
-  assert.equal(out.from.top, out.to.top);
+  assert.equal(compareScores(out.to.score, out.from.score), -1, "a worse main part is a worse score");
   assert.match(out.what, /up/);
 });
 
-test("rarity comes from the dealt ladder at the step reached (capped at its top) and points are rarity times the want", () => {
-  const rarities = Array.from({ length: 10 }, (_, i) => i * 1.5);
-  const out = whatIf({ rule: rule("m-meets-c", "size"), state: lineType.decode("-2,1,-3"), call: { mutator: "si.tilt", args: { k: "1" } }, rarities, want: 4 });
+test("rarity is the rule's value function at the score reached (decision 23), and points are rarity times the want", () => {
+  // A value function worth 1.5 bits per unit of the main part's score, 0 at the worst.
+  const value = (u: Score) => (u === null || u[0] === null ? 0 : 1.5 * (Number(u[0].n) / Number(u[0].d)));
+  const out = whatIf({ rule: rule("m-meets-c", "size"), state: lineType.decode("-2,1,-3"), call: { mutator: "si.tilt", args: { k: "1" } }, value, want: 4 });
   assert.ok(out.ok);
-  // y = 3x + 3: m = c, the main part's best; the step is at least the ladder's top here, so the cap applies.
-  assert.equal(out.to.rarity, rarities[Math.min(out.to.level, rarities.length - 1)]);
+  // y = 3x + 3: m = c, the main part's best.
+  assert.equal(out.to.rarity, value(out.to.score));
+  assert.ok(out.to.rarity! > out.from.rarity!, "a better score is rarer");
   assert.equal(out.to.points, out.to.rarity! * 4);
   assert.equal(out.from.points, out.from.rarity! * 4);
 });
 
-test("without a want (a spectator, or none yet) there are no points; without rarities, no rarity", () => {
-  const out = whatIf({ rule: rule("m-meets-c", "size"), state: lineType.decode("-2,1,-3"), call: { mutator: "si.shift", args: { k: "1" } }, rarities: [], want: null });
+test("without a want (a spectator, or none yet) there are no points; without a value function, no rarity", () => {
+  const out = whatIf({ rule: rule("m-meets-c", "size"), state: lineType.decode("-2,1,-3"), call: { mutator: "si.shift", args: { k: "1" } }, value: null, want: null });
   assert.ok(out.ok);
   assert.equal(out.to.rarity, null);
   assert.equal(out.to.points, null);
 });
 
 test("a move the board refuses says why in words, without the mutator's code name", () => {
-  const zero = whatIf({ rule: rule("m-meets-c", "size"), state: lineType.decode("-2,1,-3"), call: { mutator: "si.shift", args: { k: "0" } }, rarities: [], want: null });
+  const zero = whatIf({ rule: rule("m-meets-c", "size"), state: lineType.decode("-2,1,-3"), call: { mutator: "si.shift", args: { k: "0" } }, value: null, want: null });
   assert.deepEqual(zero, { ok: false, reason: "k must not be 0" });
-  const frac = whatIf({ rule: rule("m-meets-c", "size"), state: lineType.decode("-2,1,-3"), call: { mutator: "si.shift", args: { k: "1/2" } }, rarities: [], want: null });
+  const frac = whatIf({ rule: rule("m-meets-c", "size"), state: lineType.decode("-2,1,-3"), call: { mutator: "si.shift", args: { k: "1/2" } }, value: null, want: null });
   assert.equal(frac.ok, false);
   assert.match((frac as { reason: string }).reason, /^k .*whole numbers/);
 });

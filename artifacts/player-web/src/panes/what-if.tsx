@@ -7,6 +7,7 @@
  */
 import { useMemo, useState } from "react";
 import { ObjectChip } from "@workspace/v2-views";
+import type { Score } from "@workspace/v2-core";
 import { decodeState, objectWord, useGame, useGameScope, useMyObject, useMyRule, type GameRule, type MyRule } from "@/sdk";
 import { useView } from "@/core/affordance-runtime";
 import { bitsText, chanceText, energyText, pointsText } from "@/core/words";
@@ -35,13 +36,14 @@ function Tryout({ rule, my, state, want, sites }: { rule: GameRule; my: MyRule; 
   const [site, setSite] = useState(0);
   const pick = (next: string) => { const c = choices.find(x => x.id === next)!; setId(next); setArgs(defaults(c)); };
   const bad = choice.args.flatMap(a => (a.kind === "number" ? [[a.name, argError(args[a.name] ?? "", a.fractions)] as const] : [])).find(([, e]) => e) ?? null;
+  const bits = useMemo(() => (my.value ? (u: Score) => my.value!(u).bits : null), [my.value]);
   // The line as it is now, worked out once per line rather than once per keystroke.
-  const before = useMemo(() => { try { return standing(rule, state, my.rarities, want); } catch { return undefined; } }, [rule, state, my.rarities, want]);
+  const before = useMemo(() => { try { return standing(rule, state, bits, want); } catch { return undefined; } }, [rule, state, bits, want]);
   const out = useMemo(() => {
     if (bad) return null;
     const wire = Object.fromEntries(choice.args.map(a => [a.name, a.kind === "number" ? wireNumber(args[a.name] ?? "") : args[a.name] ?? ""]));
-    return whatIf({ rule, state, call: { mutator: choice.id, site, args: wire }, rarities: my.rarities, want }, before);
-  }, [rule, state, choice, args, site, my.rarities, want, bad?.[1], before]); // eslint-disable-line react-hooks/exhaustive-deps
+    return whatIf({ rule, state, call: { mutator: choice.id, site, args: wire }, value: bits, want }, before);
+  }, [rule, state, choice, args, site, bits, want, bad?.[1], before]); // eslint-disable-line react-hooks/exhaustive-deps
   const groups = [...new Set(choices.map(c => c.repTitle))];
   return (
     <div className="space-y-3">

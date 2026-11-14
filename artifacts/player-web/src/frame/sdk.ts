@@ -14,7 +14,7 @@ import type { MyRuleRow } from "../sdk/types";
 
 export { definePanel, PANEL_SDK, type PanelDefinition, type PanelManifest } from "../sdk/panel";
 export { useGameScope, type GameScope } from "../sdk/game";
-export { decodeState, familyOf, ruleRefOf, rungRarities, valueOf, variantOf, type GameRule } from "../sdk/rule";
+export { decodeState, familyOf, ruleRefOf, valueOf, variantOf, type GameRule } from "../sdk/rule";
 export { defaultRepOf, objectTypeOf, objectWord } from "../sdk/object-types";
 export type * from "../sdk/types";
 export type { MyRule } from "../sdk/hooks";
@@ -59,11 +59,11 @@ export const useAgentPrograms: Hook<"useAgentPrograms"> = agentId => value("useA
 export const useStandingsHistory: Hook<"useStandingsHistory"> = () => value("useStandingsHistory") ?? EMPTY;
 const EMPTY: never[] = [];
 
-/** The rule's row and rung rarities cross the bridge; the drawable rule and the value lookup are built here, as the app does. */
+/** The rule's row crosses the bridge; the drawable rule and the value lookup are built here, as the app does. */
 export const useMyRule: Hook<"useMyRule"> = () => {
-  const raw = value<{ row: MyRuleRow; rarities: number[] } | undefined>("useMyRule");
+  const raw = value<{ row: MyRuleRow } | undefined>("useMyRule");
   const variant = useGame()?.variant;
-  return useMemo(() => (raw && variant ? { row: raw.row, rule: ruleRefOf(raw.row, variant), value: valueOf(raw.row.value?.knots, raw.row.value?.tail), rarities: raw.rarities } : undefined), [raw, variant]);
+  return useMemo(() => (raw && variant ? { row: raw.row, rule: ruleRefOf(raw.row, variant), value: valueOf(raw.row.value?.knots, raw.row.value?.tail) } : undefined), [raw, variant]);
 };
 
 export const useObjectIds: Hook<"useObjectIds"> = (sort, pageSize = 30) => usePaged("useObjectIds", [sort, pageSize]) as never;

@@ -4,10 +4,10 @@
  * `object.quote` and `object.score` answer with (lib/v2-agents EngineHost). Nothing is sent and nothing changes.
  *
  * Points after the move assume the others want the line as much as now: their rules are secret, so their want after a
- * move is unknowable. Both sides of a move use the same rarities in bits (the dealt ladder), so before and after compare.
+ * move is unknowable. Both sides of a move read the same value function (bits at any score), so before and after compare.
  */
 import { EngineHost } from "@workspace/v2-agents/pure";
-import { Qn, representation, variantMutators, type Q, type Variant } from "@workspace/v2-core";
+import { evaluateObject, Qn, representation, variantMutators, type Q, type Score, type Variant } from "@workspace/v2-core";
 import { objectTypeOf } from "../sdk/object-types.ts";
 import type { GameRule } from "../sdk/rule.ts";
 
@@ -62,10 +62,9 @@ export function argError(text: string, fractions: boolean): string | null {
 }
 
 export interface Standing {
-  /** The rule's step and its top (the joint ladder, as the goal card counts it). */
-  level: number;
-  top: number;
-  /** rarity in bits at that step, as the server calibrated the dealt ladder (null when unknown). */
+  /** The rule's score of the line (its utility). */
+  score: Score;
+  /** rarity in bits at that score, from the rule's value function (null without one). */
   rarity: number | null;
   /** rarity × the others' want (null without a want). */
   points: number | null;
@@ -78,8 +77,8 @@ export interface WhatIfInput {
   rule: GameRule;
   state: unknown;
   call: { mutator: string; site?: number; args: Record<string, string> };
-  /** rarity in bits per step of the dealt ladder (index = step). */
-  rarities: readonly number[];
+  /** The rule's worth in bits at a score (owner decision 23), null when unknown. */
+  value: ((u: Score) => number) | null;
   /** How much the others want this line now (null for a spectator, or before any value). */
   want: number | null;
 }
@@ -91,13 +90,11 @@ const mutatorOf = (rule: GameRule, id: string) => rule.type.mutators.find(x => x
 const hostOn = (rule: GameRule, state: unknown) =>
   new EngineHost({ type: rule.type, variant: rule.variant, state, rule: { family: rule.family.id, params: rule.params as Record<string, unknown>, tieBreaker: rule.tieBreaker ?? undefined }, energy: 0 });
 
-/** The rule's verdict on a line: its step, rarity in bits and points (the "before" of every move tried on it). */
-export function standing(rule: GameRule, state: unknown, rarities: readonly number[], want: number | null): Standing {
-  const r = hostOn(rule, state).handle({ op: "myScore" } as never, CONTEXT);
-  if (!r.ok) throw new Error(r.error);
-  const { level, top } = r.result as { level: number; top: number };
-  const rarity = rarities.length ? rarities[Math.min(level, rarities.length - 1)]! : null;
-  return { level, top, rarity, points: rarity !== null && want !== null ? rarity * want : null };
+/** The rule's verdict on a line: its score, rarity in bits and points (the "before" of every move tried on it). */
+export function standing(rule: GameRule, state: unknown, value: ((u: Score) => number) | null, want: number | null): Standing {
+  const score = evaluateObject(rule.type, rule.family, rule.params, state, rule.variant, rule.tieBreaker ?? undefined).score;
+  const rarity = value ? value(score) : null;
+  return { score, rarity, points: rarity !== null && want !== null ? rarity * want : null };
 }
 
 /**
@@ -116,7 +113,7 @@ export function whatIf(i: WhatIfInput, from?: Standing): WhatIf {
     const m = mutatorOf(i.rule, i.call.mutator);
     return {
       ok: true, after: priced.result, what: m.describe(m.args(i.rule.variant).decode(i.call.args)), price: quote.total, charge: quote.charge,
-      from: from ?? standing(i.rule, i.state, i.rarities, i.want), to: standing(i.rule, priced.result, i.rarities, i.want),
+      from: from ?? standing(i.rule, i.state, i.value, i.want), to: standing(i.rule, priced.result, i.value, i.want),
     };
   } catch (e) {
     return { ok: false, reason: e instanceof Error ? e.message : String(e) };
