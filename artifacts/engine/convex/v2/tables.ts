@@ -213,6 +213,18 @@ export const v2Tables = {
   }).index("by_game_member_seq", ["gameId", "memberId", "seq"])
     .index("by_game_member_object", ["gameId", "memberId", "objectId", "seq"]),
 
+  /**
+   * Per (player, object) the moves that concerned the player, folded by the tick as they commit: how often the line
+   * changed hands between their agent and others' (`flips`), what their agents spent on it, who pulled, and the best
+   * state it passed through for them. The end summary's tugs-of-war read the most-flipped of these (`v2/play:tugs`).
+   */
+  v2Tugs: defineTable({
+    gameId: v.id("v2Games"), memberId: v.id("v2Members"), objectId: v.id("v2Objects"), number: v.number(),
+    moves: v.number(), flips: v.number(), lastMine: v.boolean(), mySpend: v.number(), others: v.array(v.id("v2Members")),
+    from: v.number(), to: v.number(), best: v.union(v.object({ state: v.string(), points: v.number() }), v.null()),
+  }).index("by_game_member_object", ["gameId", "memberId", "objectId"])
+    .index("by_game_member_flips", ["gameId", "memberId", "flips"]),
+
   /** Per player: every object's own rarity and want, packed [number, rarityBits, want, …] (the others-care scatter). */
   v2Digests: defineTable({ gameId: v.id("v2Games"), memberId: v.id("v2Members"), packed: v.array(v.number()), version: v.number() })
     .index("by_game_member", ["gameId", "memberId"]),

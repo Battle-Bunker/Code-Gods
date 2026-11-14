@@ -11,7 +11,7 @@ import { valueRecord } from "./values";
 import { agentIncome, energyCapacity, ownIncome, settle } from "@workspace/v2-economy";
 import { fail, ownAccountNow, playerOf, requireGameMember, requireSeat, requireUser, worldNow } from "./access";
 import {
-  agentEnergyV, agentProgramsV, agentRowV, digestV, meV, movesPageV, myRuleV, objectIdsV, objectSortV, playObjectV,
+  agentEnergyV, agentProgramsV, agentRowV, digestV, tugsV, meV, movesPageV, myRuleV, objectIdsV, objectSortV, playObjectV,
 } from "./validators";
 import { pageOpts } from "./pages";
 
@@ -163,6 +163,27 @@ export const moves = query({
         notes: m.notes ?? [],
       })),
     };
+  },
+});
+
+/** A tug-of-war: the line changed hands (the caller's agent, then another's, or back) at least this often. */
+export const MIN_TUG_FLIPS = 2;
+/** At most this many tugs, the most-flipped first (R8: one bounded index page). */
+export const MAX_TUGS = 20;
+
+/** The caller's tugs-of-war over the whole game (the tick folds them: loop.ts `foldTugs`), most-flipped first. */
+export const tugs = query({
+  args: { gameId: v.string() },
+  returns: tugsV,
+  handler: async (ctx, { gameId }) => {
+    const { game, member } = await requireSeat(ctx, gameId);
+    const rows = await ctx.db.query("v2Tugs").withIndex("by_game_member_flips", q => q.eq("gameId", game._id).eq("memberId", member._id).gte("flips", MIN_TUG_FLIPS))
+      .order("desc").take(MAX_TUGS);
+    const nameOf = (id: string) => game.roster.find(r => r.memberId === id)?.name ?? "A player";
+    return rows.map(t => ({
+      objectId: t.objectId, number: t.number, moves: t.moves, flips: t.flips, mySpend: t.mySpend,
+      others: t.others.map(memberId => ({ memberId, name: nameOf(memberId) })), from: t.from, to: t.to, best: t.best,
+    }));
   },
 });
 

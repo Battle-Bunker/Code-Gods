@@ -1,5 +1,5 @@
 /** `game.*`: the game in view, its standings, the owner's lobby and game controls, ready and pause. */
-import { membersOf, openBidding, rotationFor, startGame } from "../lobby";
+import { membersOf, openBidding, rematchDeal, rotationFor, startGame } from "../lobby";
 import { presetOf } from "../presets";
 import { OpFailure } from "@workspace/v2-affordances";
 import { endGame, pauseGame, resumeGame, startWorld } from "../loop.ts";
@@ -37,6 +37,11 @@ export const { op: start, as: startAs } = defineOp("game.start", "mutation", asy
     return { gameId: null, bidPhase: true };
   }
   return { gameId: await startGame(env.ctx, room), bidPhase: false };
+});
+/** Deals the room's last game again: the same rule to each player and the same seed (lobby.ts `rematchDeal`). */
+export const { op: rematch, as: rematchAs } = defineOp("game.rematch", "mutation", async env => {
+  const { room } = inRoom(env);
+  return { gameId: await startGame(env.ctx, room, undefined, await rematchDeal(env.ctx, room)) };
 });
 export const { op: startWorldNow, as: startWorldNowAs } = defineOp("game.startWorldNow", "mutation", async env => {
   await startWorld(env.ctx, inGame(env).game);

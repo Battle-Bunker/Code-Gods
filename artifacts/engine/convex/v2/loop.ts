@@ -100,6 +100,29 @@ async function changeObject(ctx: MutationCtx, game: Doc<"v2Games">, seats: SeatR
   return { before, after, stateBefore: st.state };
 }
 
+/** A move as it concerns one player, in commit order (oldest first). */
+interface TugMove { memberId: Id<"v2Members">; objectId: Id<"v2Objects">; number: number; mine: boolean; by: Id<"v2Members">; charge: number; world: number; state: string; points: number }
+
+/** Folds a commit's moves into each player's `v2Tugs` row per object: one read and one write per (player, object). */
+async function foldTugs(ctx: MutationCtx, gameId: Id<"v2Games">, moves: readonly TugMove[]) {
+  const byPair = new Map<string, TugMove[]>();
+  for (const m of moves) { const k = `${m.memberId}:${m.objectId}`; byPair.set(k, [...(byPair.get(k) ?? []), m]); }
+  for (const list of byPair.values()) {
+    const { memberId, objectId, number } = list[0]!;
+    const row = await ctx.db.query("v2Tugs").withIndex("by_game_member_object", q => q.eq("gameId", gameId).eq("memberId", memberId).eq("objectId", objectId)).unique();
+    const t = row ? { moves: row.moves, flips: row.flips, lastMine: row.lastMine, mySpend: row.mySpend, others: [...row.others], from: row.from, to: row.to, best: row.best }
+      : { moves: 0, flips: 0, lastMine: list[0]!.mine, mySpend: 0, others: [] as Id<"v2Members">[], from: list[0]!.world, to: list[0]!.world, best: null as { state: string; points: number } | null };
+    for (const m of list) {
+      if (t.moves > 0 && m.mine !== t.lastMine) t.flips++;
+      t.moves++; t.lastMine = m.mine; t.mySpend += m.charge; t.to = m.world;
+      if (!m.mine && !t.others.includes(m.by)) t.others.push(m.by);
+      if (!t.best || m.points > t.best.points) t.best = { state: m.state, points: m.points };
+    }
+    if (row) await ctx.db.patch(row._id, t);
+    else await ctx.db.insert("v2Tugs", { gameId, memberId, objectId, number, ...t });
+  }
+}
+
 /** Patches each player's digest (packed [number, rarity, want] by object number) and running total (on the engine). */
 async function applyToPlayers(ctx: MutationCtx, gameId: Id<"v2Games">, changes: { number: number; values: Value[]; before?: Map<string, Value> }[]) {
   if (changes.length === 0) return;
@@ -330,6 +353,7 @@ export const commit = internalMutation({
     const clock = await clockOf(ctx, game._id), seats = await seatRules(ctx, game);
     const world = Math.max(clock.worldSeconds, Math.min(a.world, game.settings.worldSeconds));
     const changes: { number: number; values: Value[]; before?: Map<string, Value> }[] = [];
+    const tugMoves: TugMove[] = [];
     // Acts are numbered by the tick's opportunities (their seeds are `act:<n>`), whether or not each one ran.
     let objects = engine.objects, acts = engine.acts + a.picks, moves = engine.moves;
 
@@ -381,6 +405,7 @@ export const commit = internalMutation({
         const was = before.get(val.memberId)!;
         const mine = val.memberId === act.memberId;
         if (!concerns(mine, was.points, val.points)) continue;
+        tugMoves.push({ memberId: val.memberId as Id<"v2Members">, objectId: act.objectId, number: act.number, mine, by: act.memberId as Id<"v2Members">, charge: mine ? charge : 0, world, state: record.after, points: val.points });
         await ctx.db.insert("v2Moves", {
           gameId: game._id, memberId: val.memberId as Id<"v2Members">, seq, worldSeconds: world, objectId: act.objectId, number: act.number,
           ...(mine ? { agentId: act.agentId, charge, ...(record.notes?.length ? { notes: record.notes } : {}) } : {}), mine, by: act.memberId as Id<"v2Members">,
@@ -392,6 +417,7 @@ export const commit = internalMutation({
       }
     }
     await applyToPlayers(ctx, game._id, changes);
+    await foldTugs(ctx, game._id, tugMoves);
 
     await ctx.db.patch(engine._id, { tick: engine.tick + 1, objects, acts, moves });
     await ctx.db.patch(clock._id, { tick: clock.tick + 1, worldSeconds: world, lastTickAt: a.now, objects, commits: clock.commits + 1 });

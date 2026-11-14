@@ -233,6 +233,14 @@ export const FAKE_HANDLERS: ServerHandlers<FakeEnv> = {
     }
     return { gameId: deal(e.state, r), bidPhase: false };
   },
+  "game.rematch": e => {
+    const r = roomOf(e), last = r.games.at(-1) ? e.state.games[r.games.at(-1)!] : undefined;
+    if (!last || last.endedAt === null) throw new OpFailure("There is no ended game to deal again yet.", "game.start");
+    const gameId = deal(e.state, r), game = e.state.games[gameId]!;
+    if (game.seated.join() !== last.seated.join()) { delete e.state.games[gameId]; r.games.pop(); r.gameId = null; throw new OpFailure("A rematch needs the same seated players as the last game.", "game.start"); }
+    game.rules = { ...last.rules };
+    return { gameId };
+  },
   "bid.state": e => {
     const r = roomOf(e), b = r.bid!;
     return {
