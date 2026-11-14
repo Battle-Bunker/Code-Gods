@@ -231,6 +231,35 @@ small-step climber now stalls on those needles. That gives the dynamics the owne
 because climbers are short-sighted, not because the landscape is deep. A seat that knows the rules still plans straight
 along the ramp (H2, H3). The collapse check's test 4 should report freeze fractions at both radii.
 
+### A high peak found by stretching (W2, 14 November): a reported bug
+
+Setup: line-q, the new prices and decision 25's shortcuts, the conflict table (Prime Landing/big-prime, Square Area/spf,
+Whole Crossing/k-spf). A scripted climber that tries stretch, pivot and mirror when it is stuck reached **y = −2x + 734**:
+- the area is 734²/4 = 134,689 = 367², and 367 is prime, so Square Area/spf scores 248.7 bits;
+- it crosses the x-axis at x = 367, so Whole Crossing/k-spf scores 198.6 bits;
+- Prime Landing scores 4.1 bits.
+
+That one line holds 102,419 table points, against 2,792 for the best whole-number line with |m| ≤ 10, |c| ≤ 60 (37×). The
+climber got there almost entirely by `mach.stretch` (269 of its moves, 109% of the game's net points), with numbers of at
+most four digits. To reproduce: `node --experimental-strip-types lib/v2-agents/scripts/freeze.ts --agents shortcut
+--table conflict --games 1`.
+
+**Why it happens.** This is H2 again, now reached through a shortcut:
+- Every "as big as possible" tie-breaker is valued at about the length of the number.
+- A stretch multiplies m and c by a factor and is priced by the factor's digits (decision 25), so it scales a line's
+  numbers for a few bits.
+- Here the line keeps its shape while its numbers grow: the crossing −c/m stays a whole number and the area stays a
+  square.
+- So a cheap move buys an unbounded amount of value.
+
+H1's reachable-state counts left stretch out (§2, H1). With stretch, the magnitude axis of the ramp costs about log(size)
+instead of size. Path-consistent pricing of additive moves does not touch this.
+
+**What fixes it, within decision 25.** Shortcuts are wanted, so the fix belongs in the rules, not the prices. Proposals 2 and 8 below (value from
+coincidences, not size; saturate or target the "as big as possible" tie-breakers) remove it at the source: a stretch
+can scale a line, but it cannot scale a value that does not grow with size. Until then, the collapse check's test 1
+("no ramp") flags exactly these tie-breakers.
+
 ## 2b. Contrasts: grids and fraction lines
 
 | | line-z (2 integers) | line-q (3 integers, rationals) | grid 4×4 digits (16 cells) |
