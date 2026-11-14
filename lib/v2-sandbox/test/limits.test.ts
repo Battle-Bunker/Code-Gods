@@ -17,7 +17,7 @@ const runaway = {
 /** Loops whose steps are slow (native work in each), so the time cap binds before 10 million steps. */
 const slow = {
   python: "def agent(offer):\n    while True:\n        sorted(range(2000))\n",
-  typescript: "function agent(offer: Offer) { for (;;) { 'x'.repeat(20000).split('').reverse(); } }\n",
+  typescript: "function agent(offer: Offer) { for (;;) { 'x'.repeat(2000).split('').reverse(); } }\n",
 };
 
 for (const language of ["python", "typescript"] as const) {
