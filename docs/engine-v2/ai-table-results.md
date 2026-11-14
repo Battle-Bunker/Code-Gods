@@ -74,3 +74,24 @@ be made there.
 - **Ada** (120 s): Ada here: my agent's code already skips lines 2 and 9, as agreed with Cy. Cy, if you can keep your agent off line 20 and 8 for now, I'll avoid moving them too. Happy to talk if you want a different split.
 - **Bo** (120 s): Bo here: my agent is keeping off lines 8, 20 and 2 as agreed. Cy, your agents moved line 8 since our deal and cost me points there, so could you keep them off line 8? Thanks.
 - **Cy** (120 s): Cy here: my agent is keeping off lines 2, 8, 9 and 20 as agreed, and I'm not planning any moves there. Bo, thanks for keeping to line 8 and 20. Ada, your agents' moves on line 2 cost me points, so please keep off it too.
+
+## With settle deals (2026-11-15, after #531)
+
+The same 3-player mixed table on the server's economy (300 s, 2 games): Prime Landing/big-prime, Treasure/prime-terms
+and Whole Crossing/k-spf. The seats ran the cheapest model with the commitments ledger and a prompt that looks for a
+line state good for everyone and proposes settling lines there. Spent: $0.16.
+
+| Seats | Points gained (mean a seat) | Deals accepted / kept | Edits | Commitments at the end: enacted / pending / retracted |
+|---|--:|---|--:|---|
+| Naive (all three) | 2,752 | – | – | – |
+| Model seats (all three) | **3,396** | 16 / 5 | 21 (225 ⚡) | 16 / 8 / 8 |
+| Model seat alone among a starter and a naive seat | 1,343 | no partner to deal with | 0 | – |
+
+- **For the first time, deal-making model seats beat naive play.** They gained 23% more a seat, and the table's total
+  beats the naive table's.
+- They found shared targets in chat ("a prime y-intercept with 2m + c = 37, e.g. c = 5, m = 16" for Prime Landing and
+  Treasure) and agreed to hold specific lines.
+- They are still far below the coordinated optimum. Scripted agents that all settle every line at y = −x + 59 reach a
+  table total of 157,701 against naive's 8,695 (docs/engine-v2/rule-compatibility.md and scripts/anarchy.ts). The seats
+  have not yet used TARGET/SETTLE to settle whole sets of lines.
+- A lone model seat cannot make a deal and loses to naive seats.
