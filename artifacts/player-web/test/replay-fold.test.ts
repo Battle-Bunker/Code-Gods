@@ -47,7 +47,7 @@ const FILE = {
   },
   rules: [
     { memberId: "m1", family: "prime-gradient", params: {}, tieBreaker: null, ruleKey: "k1", card: "Ada's card", layers: ["main"], contentHash: "h1", handicap: null },
-    { memberId: "m2", family: "triangle-area", params: {}, tieBreaker: null, ruleKey: "k2", card: "Bo's card", layers: ["main"], contentHash: "h2", handicap: 10 },
+    { memberId: "m2", family: "triangle-area", params: {}, tieBreaker: null, ruleKey: "k2", card: "Bo's card", layers: ["main"], contentHash: "h2", value: { knots: [{ u: null, bits: 0, lo: 0, hi: 0 }, { u: ["1"], bits: 3, lo: 2.5, hi: 3.5 }], tail: { primary: 1, secondary: 0 } }, handicap: 10 },
   ],
   events: EVENTS.map(([kind, data], seq) => ({ seq, kind, data })),
 };
@@ -113,12 +113,13 @@ test("lines sort like the server's indexes, best first, and the digest packs eve
   assert.deepEqual(end.object("o1", null)!.value, null, "no point of view: no values");
 });
 
-test("every player's rule is open in the replay, with its card (a replay file carries no value function)", () => {
+test("every player's rule is open in the replay, with its card and its value function (so a replay's faces show bits)", () => {
   const bo = frameAt(ix, END).rule("m2")!;
   assert.equal(bo.family, "triangle-area");
   assert.equal(bo.title, "Triangle Area");
   assert.equal(bo.primary, "tri");
-  assert.deepEqual([bo.card, bo.handicap, bo.contentHash, bo.value.knots], ["Bo's card", 10, "h2", []]);
+  assert.deepEqual([bo.card, bo.handicap, bo.contentHash, bo.value.knots.map(k => k.bits)], ["Bo's card", 10, "h2", [0, 3]]);
+  assert.deepEqual(frameAt(ix, END).rule("m1")!.value.knots, [], "a rule the file has no value function for: no knots (no bits drawn)");
   assert.equal(frameAt(ix, END).rule("nobody"), null);
   assert.deepEqual(frameAt(ix, END).agents("m1").map(a => [a.agentId, a.name, a.language, a.share]), [["a1", "Agent 1", "typescript", 0.7]]);
   assert.deepEqual(frameAt(ix, 7).agents("m1"), [], "not summoned yet");
