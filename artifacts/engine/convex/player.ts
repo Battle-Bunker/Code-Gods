@@ -220,7 +220,9 @@ export async function replayPage(ctx: QueryCtx, room: Doc<"rooms">, stored: Doc<
   // batch returns nextCursor = the last whole batch and eventOffset = the events of the cut one already served.
   const batches: (Doc<"tickBatches"> & { from: number })[] = [];
   let events = 0, eventOffset: number | undefined;
-  for await (const b of ctx.db.query("tickBatches").withIndex("by_game_seq", q => q.eq("gameId", game._id).gt("seq", after))) {
+  for await (const stored of ctx.db.query("tickBatches").withIndex("by_game_seq", q => q.eq("gameId", game._id).gt("seq", after))) {
+    // A stored `look` (paid observation, deleted in D1) is never served, and never counted or indexed.
+    const b = { ...stored, events: stored.events.filter(e => e.t !== "look") };
     const from = !batches.length && b.seq === after + 1 ? Math.max(0, Math.floor(args.eventOffset ?? 0)) : 0;
     const left = b.events.length - from;
     if (batches.length && events + left > maxEvents) break;

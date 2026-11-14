@@ -236,6 +236,8 @@ export const commit = internalMutation({
     /** Each roster god's totals after the window as disclosed (lib/views.ts godTotalsOf), when objects changed. */
     godTotals: v.optional(v.array(godTotalsV)),
     wakeAt: v.optional(v.number()),
+    /** LEGACY (D1): paid observation's tellings, sent by a tick that started before the deploy. Ignored. */
+    told: v.optional(v.any()),
   },
   handler: async (ctx, args) => {
     const game = await liveGame(ctx, args.gameId);
@@ -318,7 +320,7 @@ export const commit = internalMutation({
     const resolved = events.map(e => (e.t === "spawn" && ids.has(e.objectId) ? { ...e, objectId: ids.get(e.objectId)! } : e));
     const clock = args.clock!;
     // Each god's object rows and totals (game/objectViews.ts), written off this commit: one scheduled call.
-    const touched = [...new Set([...args.objects.map(c => c.id)]), ...[...ids.values()] as Id<"objects">[]];
+    const touched = [...new Set(args.objects.map(c => c.id)), ...ids.values()] as Id<"objects">[];
     if (touched.length || args.godTotals) {
       await ctx.scheduler.runAfter(0, internal.game.objectViews.sync, { gameId: game._id, objectIds: touched, world: clock.worldSeconds, ...(args.godTotals ? { totals: args.godTotals } : {}) });
     }

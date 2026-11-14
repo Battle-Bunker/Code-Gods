@@ -6,8 +6,6 @@
  * action (commands.ts), and are re-checked here: game, phase, seat, energy and the agent cap.
  */
 import { ConvexError, v } from "convex/values";
-import { viewRowOf } from "../lib/views";
-import { syncRows } from "./objectViews";
 import { READ_PRICE, offerReadBits, allowedLanguages, assertShare, defaultShare, energyCapacity, movePower, newAgentAccount, roundShare, spendDeityEnergy, upgradeStoredSettings, type AgentAccount, type GameSettings, type Language } from "@workspace/game-core";
 import { sha256 } from "@workspace/game-types";
 import { GAME_COMMANDS, envelopeSchema, examinesProgram, type CommandResult, type Envelope } from "@workspace/player-client";

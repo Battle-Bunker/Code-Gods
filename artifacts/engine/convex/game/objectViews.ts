@@ -76,6 +76,8 @@ async function writeTotals(ctx: MutationCtx, gameId: Id<"games">, world: number,
 export const sync = internalMutation({
   args: {
     gameId: v.id("games"), objectIds: v.array(v.id("objects")), world: v.number(), totals: v.optional(v.array(godTotalsV)),
+    /** LEGACY (D1): paid observation's tellings, on a sync scheduled before the deploy. Ignored. */
+    told: v.optional(v.any()),
   },
   handler: async (ctx, { gameId, objectIds, world, totals }) => {
     const game = await ctx.db.get(gameId);

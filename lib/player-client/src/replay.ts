@@ -578,7 +578,9 @@ export function replayEvents(replay: Replay, at: ReplayAt, limit = 20) {
     if (s !== seq) { if (seen === batches) break; seen++; seq = s; }
     i--;
   }
-  const events = replay.log.slice(i, upto).map(e => projected(e.event, e.seq, at.pov, replay.game.roster)).filter(e => e !== null);
+  const events = replay.log.slice(i, upto).map(e => projected(e.event, e.seq, at.pov, replay.game.roster))
+    // An event type this client no longer knows (a stored replay's `god.looked`, deleted in D1) is left out.
+    .filter(e => e != null);
   return { gameId: replay.game.id, events, nextCursor: lastSeq, latestCursor: lastSeq, gap: false };
 }
 
