@@ -1,13 +1,350 @@
 # Line rules, third pass: candidates measured against the collapse check (14 November 2026)
 
 Status: proposals and measurements only. Nothing here changes the dealt rule pool, prices or scoring. The script is
-`lib/v2-agents/scripts/line-rules-v3.ts` (run from `lib/v2-agents`:
-`node --experimental-strip-types scripts/line-rules-v3.ts --part all --n 1500000`, about 25 minutes). It follows
-[landscape-analysis.md](landscape-analysis.md), whose five collapse tests (§4) are applied here.
+`lib/v2-agents/scripts/line-rules-v3.ts`, run from `lib/v2-agents`:
+
+- the first pass: `node --experimental-strip-types scripts/line-rules-v3.ts --part all` (about 25 minutes);
+- the rational pool: `node --max-old-space-size=10000 --experimental-strip-types scripts/line-rules-v3.ts --pool rational --moves mutators --part rules,tables,ident,entangle` (about an hour).
+
+It follows [landscape-analysis.md](landscape-analysis.md), whose five collapse tests (§4) are applied here. Part A is the
+second round, done after the owner's questions about rational lines; Part B is the first round, merged earlier as #607,
+and is kept because its negative results are the evidence for Part A.
+
+---
 
 ---
 
 ## The summary in plain words
+
+**The owner was right about rationals.** The dealt line rules were shaped by the whole-number board and by the demand
+for exact sums. The rational-native families (Whole Intercept, Pell, continued fractions, Farey, Egyptian, cyclic
+decimals) were parked because they "degenerate on whole numbers", and the tie-breakers were rewritten to read one
+coefficient's prime factors (§A0). Rationals do explode the state space. One line's share of a game reaches about
+2 million fraction lines with ±1 steps (55× the whole-number board). With the mutators' shortcuts, a million lines sit
+within 4% of that share.
+
+**What I built (Part A).** A pool of eight rational-native families with kid-readable primaries. Every secondary is a
+relation between the primary's anchor and another aspect of the line, as the owner now requires (§A1): the owner's own
+example, gcd(nearest whole number to c, ⌊m⌋), is the first worked case. I measured it with the five collapse tests, an
+entanglement matrix and the collateral damage of each mutator. Part B is the earlier round on whole-number features,
+merged as #607.
+
+**What works.**
+
+- Every primary is graded on fractions, so there is always something to climb.
+- Entanglement is high and varied: a move that helps one rule changes another's bits 55–95% of the time, with real
+  allies (Root Hunter and Target Gradient coexist 88–94%) and rivals (Farey Pair fights everyone).
+- Which mutator an agent uses decides whom it hurts. A mirror keeps the area and wrecks the gradient rules; a shift
+  spares the gradient rules entirely.
+- The reachable set is far past enumeration.
+- Disclosure noise (σ = 8) hides the others' rules in every run.
+
+**What does not.**
+
+- A relation that is *maximised* still ramps, slowly, along cheap smooth numbers. That includes the owner's example,
+  whose table answer is "gradient T, intercept the biggest smooth number in reach".
+- Rules with a dealt target have interior tops, but each top is the target's simplest form.
+- Every table still has a one-sentence near-best family. A rule-knowing climber with 10⁵ evaluations gets 68–100% of the
+  best I could find.
+- Scripted play freezes within 50–150 s.
+
+**What needs the owner** (§A6):
+
+1. Maximised relations (slow ramps, no top) against compared relations (a top, no ramp). On one line I found no third
+   kind.
+2. Two lines per object with rules that read across them: the next study.
+3. Something that moves the landscape under the seats (drifting targets, redrawn twists, births and deaths) so that a
+   frozen table is not a fixed point.
+4. The law's heavy mass at 0 and ±1.
+
+The audit of all 46 current tie-breakers against the "tied" rule is §A3: 6 are tied, 22 read the anchor alone, 18 are
+independent, and all 24 ramps are among the untied ones.
+
+---
+
+## A0. "Check this": the owner's question, answered plainly
+
+**Were the dealt line rules shaped by the integer variant and by the demand for exact sums? Yes.**
+
+- When the beginner pool was cut to rules an exact sum could value (`layered-line-rules.md` §10.3, §10.5), every
+  rational-native family was set aside because it "degenerates on whole m and c". The eight are Whole Intercept, Pell
+  Gradient, Euclid's Long Way (continued fractions), Farey Neighbours, Egyptian Line, Long Division/Cyclic Decimal, Prime
+  Slope and Steady Gradient; Fence Painters was also marked "line-q". Ruler and Exact Change were replaced by Whole
+  Crossing and Divisibility Ladder because those had a band sum ("c a multiple of m"), not because they were richer.
+  Pythagorean Area went to reserve because its top on whole numbers was one thin family.
+- Tie-breakers were rewritten as the smallest or largest prime factor of one coefficient, so that the sums would
+  separate (`tie-breakers-replaced.md`). That is why 7 of 8 mains read only c and every feature was a whole-number one
+  (landscape-analysis H3). The old tie-breakers that read several points and coupled m and c were the ones removed.
+- **Rationals do explode the degrees of freedom.** Measured here: one line's share of a game (2,475 ⚡) reaches about
+  **2 million fraction lines with ±1 steps**, against 36,000 whole-number lines (55× more). With the mutators'
+  representation shortcuts (stretch by 2 or 3, mirror, pivot, moving an intercept: decision 25), **a million lines are
+  within about 80–100 ⚡**, 4% of the share. The whole reach is not enumerable here; it is far past 10⁸.
+  "Rationals add states, not structure" (landscape-analysis §2b) was true only because every rule read whole-number
+  features, which on fraction lines are sparse plateaus.
+- **My own first pass (Part B, #607) inherited the same bias.** All eight primaries were "distance to a whole number" and
+  most secondaries were whole-number facts. On line-q that gives cheap degenerate tops (y = x + 1) and plateaus. Part B's
+  negative result is evidence against integer-shaped features on rational lines, not against rational lines.
+- **Ideas from the brainstorms that live in the rational world and were cut or flattened:**
+  - numerator and denominator as separate degrees of freedom;
+  - lowest terms, and the gcd structure of ax + by = c (when it has whole-number points, and how far apart they are);
+  - continued-fraction length (Euclid's Long Way), and Pell approximations of √D (Root Hunter);
+  - Farey and mediant neighbours, and Egyptian fractions;
+  - the period of a repeating decimal (Long Division);
+  - lattice points on the line (pegboard rules), the x-intercept and the area as rationals, and two-point form;
+  - prime slopes over several points, and a steady gradient as a fraction.
+
+## A1. The design rule for secondaries (the owner, 14 November), and the first worked case
+
+The owner: "Secondary rules should tie to the primary in some way even if they invoke an extra dimension of the object.
+For example, a primary that seeks proximity to integers in the y intercept could have a secondary that seeks to maximise
+the largest common factor of that closest integer with the floor of the gradient. That's better than a secondary that
+just independently wants the gradient to be close to a large prime."
+
+**Constraint, recorded for every family below:** a secondary is a function of the primary's own anchor (the whole
+number, point, area or crossing the primary singles out) *together with* another aspect of the line. It is a relation
+between the two (gcd, divisibility, ratio, difference, shared factors, congruence, order, coincidence), never an
+independent wish about another coordinate, and never the anchor's size alone.
+
+**The owner's example, measured** (Whole Intercept, secondary gcd(n, ⌊m⌋), n the whole number nearest c; a 0 on
+either side counts as no shared factor, else gcd(0, k) = k would be a free ramp):
+
+- Top in the window |a|, |c| ≤ 12, b ≤ 12: **9.1 bits** at y = 12x + 12. In the window 24: **10.7 bits** at
+  y = 24x + 24. Best within the cheapest 150,000 lines reached from six births: a median of **16.0 bits**.
+- So the relation is tied as asked, and its value no longer tracks one number's length (correlation with φ 0.13, against
+  0.99–1.00 for big-prime). But **it still drifts with size**: a larger common factor needs larger numbers, and under the
+  mixed code (decision 17) smooth numbers (12, 24, 90, 990) are cheap. The one-sentence answer is "make c and ⌊m⌋ the same
+  smooth number, as big as you can afford". It is a slower ramp than big-prime: the top gains 1.6 bits when the window
+  doubles, where big-prime gained 6–7.
+- In a table with Whole Crossing/gcd-c and Target Gradient (T = 5/3)/gcd-tops, the best lines are y = (5/3)x + 90,
+  y = (5/3)x − 80 and y = (5/3)x + 990: "gradient T, intercept the biggest smooth number in reach". That is one sentence.
+- **Conclusion for the owner:** tying the secondary to the anchor fixes the separability (the rules now fight over the
+  same numbers, §A4) but not the ramp. A relation that is *maximised* ("as big a common factor as possible") is still
+  "bigger is better", now along smooth numbers. A relation with no size direction compares, rather than maximises:
+  "the common factor equals the dealt k", "n is a multiple of the gradient's bottom number", "the two are as close to
+  coprime as possible". Such a relation has a top, which the owner prefers to avoid ("I don't want Maxima anywhere
+  ideally"). §A6 sets out the trade-off.
+
+## A2. The rational pool: eight families, every secondary tied
+
+The object is the fraction line (line-q, now the beginner default). m = p/q and c = r/s are in lowest terms, so the
+numerators and denominators are separate degrees of freedom. Every primary is graded on fractions and reads a
+representation a 12-year-old meets. Every secondary is a relation between the primary's anchor and another aspect of
+the line. Dealt parameters in the run: T = 5/3, x = 3/2, the point (2, 7/3), D = 2.
+
+Moves are the mutators, representation shortcuts included (decision 25): nudge a, b or c by ±1; shift and tilt by ±1 or
+±½; pivot about x = −1, 1 or 2; mirror in either axis, the origin or y = x; stretch by 2, ½, 3 or ⅓; move one intercept
+by ±1. Each is priced as one call (which + choices + an amount by steps, or a factor by digits) plus the surcharge
+max(0, Δφ), charged W + 0.05·W².
+
+Bits columns, as in Part B: the top in the window 12 and the window 24 (at the smallest line reaching it), and the
+median best over the cheapest 150,000 lines from six births. With shortcuts those 150,000 lines cost only 64–84 ⚡, so
+"in reach" here understates what a game reaches.
+
+| Family: primary (kid text) | Anchor | Secondary (tied) | Top, window 12 → 24 (bits @ line) | Best in reach | Verdict |
+|---|---|---|---|---|---|
+| **Whole Intercept**: the y-intercept as close to a whole number as possible | n, the whole number nearest c | gcd-floor-m: n and ⌊m⌋ share a big common factor (**the owner's example**) | 9.1 @ y = 12x + 12 → 10.7 @ y = 24x + 24 | 16.0 | slow ramp along smooth numbers |
+| | | gcd-den-m: n shares a big factor with m's bottom number q | 8.0 → 9.4 @ y = (15/4)x + 4 | 14.0 | slow ramp |
+| | | whole-at-n: at x = n, y is nearly whole too | 1.2 @ y = x + 1 | 1.2 | worthless (degenerate) |
+| **Whole Crossing**: the line crosses the x-axis as close to a whole number as possible | N, the whole number nearest X | gcd-c: N and the whole number nearest c share a big factor | 6.4 → 6.9 @ y = x + 24 | 9.5 | edge, slow |
+| | | gcd-num-m: N shares a big factor with m's top number p | 8.0 → 9.4 @ y = 4x + 16 | 13.4 | slow ramp |
+| **Farey Pair**: write m = p/q and c = r/s; p × s and q × r should differ by as close to 1 as possible | the mediant (p + r)/(q + s) | mediant-mid: the mediant close to the average of m and c | 4.8 @ y = x | 4.8 | worthless |
+| | | mediant-x: the mediant's bottom number shares a big factor with the x-intercept's bottom number | 18.8 @ (−11, 10, −10) → 20.9 @ (−17, 16, −16) | 22.4 | slow ramp (slopes n/(n − 1)) |
+| **Root Hunter** (Pell): the gradient as close as possible to √2 | p/q | pell-c: p² − 2q² equals the y-intercept's top number | 13.6 @ m = 7/5 → 21.3 @ m = 24/17 | 21.3 | **ramp** along the convergents of √2 |
+| | | share-den: c is a multiple of 1/q | 11.8 → 19.4 | 19.4 | **ramp** |
+| **Whole Area**: the triangle with the axes has an area as close to a whole number as possible | K, the whole number nearest the area | gcd-x: K and the whole number nearest X share a big factor | 6.3 → 6.8 @ y = x + 24 | 9.4 | edge, slow |
+| | | gcd-den-m: K shares a big factor with q | 9.4 → 11.1 @ y = x/12 + 2 | 16.7 | ramp in q (see table 3) |
+| **Whole at x = T**: at the dealt x, y as close to a whole number as possible | Y, the whole number nearest y(T) | gcd-c: Y and the whole number nearest c share a big factor | 5.3 → 5.9 | 9.7 | slow |
+| | | gcd-den-m: Y shares a big factor with q | 12.5 → 14.3 | 17.8 | slow |
+| **Target Gradient**: the gradient as close as possible to the dealt T | m ≈ T | gcd-tops: the tops of m and c share a big factor | 13.7 @ y = (5/3)x + 5/3, no growth | 13.7 | **interior top**, one sentence |
+| | | same-den: the bottoms of m and c share a big factor | 11.3 @ the same line, no growth | 11.3 | interior top, one sentence |
+| **Near the Point**: the line passes as close as possible to the dealt point | the point (u, v) | lattice: the line's own whole-number point nearest the dealt point is close to it | 13.6 @ y = x/3 + 5/3, no growth | 13.6 | **interior top** |
+| | | gcd-x: the whole numbers nearest X and nearest y(u) share a big factor | 11.8 @ y = 7/3, no growth | 11.8 | interior top |
+
+**Reading it.** On fractions the primaries are graded, and the tied secondaries are worth 10–22 bits in reach, against
+1–10 for Part B's bounded ones. But every secondary that *maximises* a relation (a gcd, a shared factor) still drifts
+outward, more slowly than big-prime did, along smooth numbers or convergents. The three with interior tops (Target
+Gradient's two, Near the Point's) read a dealt target, and their tops are the target's simplest form: one sentence each.
+No secondary got ~30 bits without size.
+
+
+## A3. Audit of the dealt and restored tie-breakers against the owner's rule
+
+The owner's rule: a secondary is a function of the primary's own anchor *together with* another aspect of the line.
+**Tied** means it is such a relation. **Anchor only** means it reads the anchor alone, so it is not tied and is usually
+a size wish. **Independent** means it reads another coordinate without the anchor; the owner's counter-example ("the
+gradient close to a large prime") is one. **Ramp** means "bigger is better" with no bound.
+
+| Family (primary's anchor) | Tie-breaker | Class | Ramp |
+|---|---|---|---|
+| Prime Landing (the prime nearest c) | big-prime: that prime as big as possible | anchor only | **yes** |
+| | prime-gradient: m close to a prime | independent (the owner's counter-example) | no |
+| | next-prime: y(1) = m + c close to a prime | **tied** (the anchor's line one step on) | no |
+| | m-spf, m-gpf: m's smallest / largest prime factor | independent | **yes** |
+| Prime Gradient (the prime nearest m) | prime: that prime as big as possible | anchor only | **yes** |
+| | cPrime: c close to a prime too | independent | no |
+| | c-spf, c-gpf | independent | **yes** |
+| Whole Intercept (the whole number nearest c) | spf, omega of that number | anchor only | **yes** (omega along powers of 2) |
+| Whole Crossing (the whole number nearest the x-intercept) | k-spf, k-gpf | anchor only | **yes** |
+| Square Area (the square nearest the area, and its root) | spf, lpf of the root | anchor only | **yes** |
+| | omega of the root (the owner's example 2) | anchor only | **yes**, slowly. The owner's own; it should become tied, e.g. "the root shares many prime factors with the x-intercept" |
+| Prime Staircase (the run of primes y(0), y(1), …) | first-prime, last-prime as big as possible | anchor only | **yes** |
+| | near-miss: the first non-prime term close to a prime | **tied** (the run and the next term) | no |
+| | step-back: y(−1) close to a prime | **tied** (the run extended backwards) | no |
+| Treasure (y(k) near T) | prime-terms: different primes among y(1) … y(8) | **tied** (the anchor's neighbours in the table) | no |
+| | prime-gradient, square-start | independent | no |
+| | m-spf, m-gpf | independent | **yes** |
+| Same on Both Rulers (the unchanged number c/(1 − m) near T) | steep: m far from 1 | independent | **yes** |
+| | prime-start: \|c\| close to a prime | independent | no |
+| | whole-values: whole numbers among y(−5) … y(5) | independent (reads many points, not the anchor) | no |
+| | whole-lamp: m/(m − 1) close to whole | **tied** (the machine's own second number) | no |
+| Divisibility Ladder (the run n \| y(n)) | steep | independent | **yes** |
+| | m-prime | independent | no |
+| Ruler (the distance² from (0, 0) near a square) | far: that distance as big as possible | anchor only | **yes** |
+| | prime-gradient | independent | no |
+| | square-area | independent (another representation's own wish) | no |
+| Exact Change (ways to pay N near the target) | big-piles | anchor only | **yes** |
+| | big-bill: N as big as possible | anchor only | **yes** |
+| | prime-coins: a and b near primes | independent | no |
+| Pythagorean Area (the triangle of area near A) | slanted-square: the third side² near a square | **tied** (the anchor triangle's third side) | no |
+| | prime-height, whole-legs | anchor only (the triangle's legs) | no |
+| Triangle Area (the triangle of area near A) | legs whole, legs equal | anchor only | no |
+| m Meets c (the shared number) | size: as big as possible | anchor only | **yes** |
+| | meetPrime: that number close to a prime | anchor only | no |
+| Crossing Check (where y(k) meets x(q)) | size | anchor only | **yes** |
+| | whole: x(q) nearly whole | anchor only | no |
+
+The count: of 46 tie-breakers, 6 are tied (next-prime, near-miss, step-back, prime-terms, whole-lamp, slanted-square), 22
+read the anchor alone and 18 are independent. 24 are ramps. Every ramp is an anchor-only or independent one. That fits
+the coordinator's reading that a relation has no "bigger is better" direction by itself, but §A2 shows the tied gcd
+relations of the new pool still drift with size (a larger common factor needs larger numbers), more slowly.
+
+## A4. Entanglement: who fights whom, and through which mutators
+
+8,910 random mutator moves from states along short random walks from births. Each family is represented by its first
+secondary. A cell reads: of the moves that raise the row's bits, the share that lower the column's / the share that raise
+it. The rest leave it unchanged.
+
+| A raised \ B | Whole Intercept | Whole Crossing | Farey Pair | Root Hunter | Whole Area | Whole at x = T | Target Gradient | Near the Point |
+|---|---|---|---|---|---|---|---|---|
+| Whole Intercept | – | 34 / 31 | 54 / 32 | 49 / 36 | 40 / 48 | 43 / 51 | 46 / 35 | 51 / 43 |
+| Whole Crossing | 27 / 27 | – | 53 / 34 | 45 / 37 | 37 / 54 | 49 / 43 | 41 / 36 | 48 / 44 |
+| Farey Pair | 28 / 28 | 36 / 34 | – | 37 / 44 | 43 / 38 | 45 / 45 | 35 / 39 | 52 / 42 |
+| Root Hunter | 30 / 27 | 33 / 31 | 46 / 37 | – | 37 / 43 | 46 / 45 | 3 / 88 | 23 / 71 |
+| Whole Area | 28 / 34 | 33 / 44 | 56 / 31 | 45 / 41 | – | 46 / 47 | 43 / 40 | 47 / 46 |
+| Whole at x = T | 27 / 34 | 37 / 32 | 54 / 34 | 47 / 40 | 41 / 44 | – | 43 / 38 | 48 / 45 |
+| Target Gradient | 30 / 28 | 34 / 32 | 48 / 35 | 5 / 94 | 38 / 45 | 46 / 46 | – | 21 / 73 |
+| Near the Point | 30 / 28 | 34 / 33 | 54 / 31 | 22 / 62 | 38 / 42 | 43 / 45 | 18 / 61 | – |
+
+- **Entanglement is high and varied, as the owner asked.** Almost every pair is touched by most moves: a move that helps one
+  rule changes another's bits 55–95% of the time. Most pairs are mixed (25–55% fight, 30–55% coexist), so there are
+  deals to make.
+- **Some pairs are allies.** Root Hunter (√2) and Target Gradient (T = 5/3) both want m to rise from where births sit,
+  and coexist 88–94% of the time. They will fight only between 1.41 and 1.67. Near the Point leans the same way. Farey
+  Pair fights everyone (45–56%).
+- **Collateral damage by mutator** (mean |Δbits| a move does to each rule):
+
+| Mutator | Whole Intercept | Whole Crossing | Farey Pair | Root Hunter | Whole Area | Whole at x = T | Target Gradient | Near the Point |
+|---|---|---|---|---|---|---|---|---|
+| nudge a, b or c | 0.5 | 0.4 | 0.2 | 0.2 | 0.4 | 0.4 | 0.2 | 0.2 |
+| pivot about x0 | 0.4 | 0.6 | 0.1 | 1.5 | 1.0 | 1.0 | 1.4 | 0.7 |
+| move an intercept | 0.2 | 0.1 | 0.3 | 1.1 | 0.6 | 0.6 | 1.1 | 1.0 |
+| tilt | 0.2 | 0.5 | 0.2 | 1.3 | 0.6 | 0.8 | 1.2 | 0.9 |
+| mirror | 0.3 | 0.1 | 0.2 | 1.7 | 0.0 | 0.4 | 1.7 | 1.5 |
+| shift | 0.7 | 0.4 | 0.2 | 0.0 | 0.7 | 0.5 | 0.0 | 0.6 |
+| stretch | 0.6 | 0.1 | 0.1 | 0.9 | 0.4 | 0.5 | 0.9 | 0.9 |
+
+  The owner's picture holds. A shift does nothing to the gradient rules and most to the intercept and area rules. A
+  mirror keeps the area and the crossing's distance and wrecks the gradient rules. A pivot about the point a rule cares
+  about is how a gradient rule moves without paying for the intercept, and it does 1.0 bits of collateral damage to the
+  area and y(T) rules. Which mutator an agent chooses is a political act.
+
+## A5. The collapse tests on rational tables
+
+Eight tables (six of 3 seats, two of 4). Reach: from every birth, the cheapest million lines cost under ~100 ⚡ of the
+2,475, so the reachable set was capped at 10⁶ ("exact best" below is over those). The full reach is not enumerable here.
+
+| # | Table | Best lines (3 births) | Near-best (≥ 90%) | 10⁵-eval climber / best of 10⁶ | Best 24 distinct keep | Slopes in top 24 | Dynamics: F at 50 s steps; objects moved in the last 100 s; largest coefficient |
+|---|---|---|---|---|---|---|---|
+| 1 | Whole Intercept/gcd-floor-m + Whole Crossing/gcd-c + Target Gradient/gcd-tops (**the owner's example**) | y = (5/3)x + 90, (5/3)x − 80, (5/3)x + 990 | 19–43 | 0.93–0.96 | 0.89 | 3 | 3,391 → 3,678, flat from 100 s; 13%; 3,888 |
+| 2 | Whole Intercept/gcd-den-m + Farey Pair/mediant-mid + Root Hunter/share-den | m = 17/12, 45/32, 38/27 (near √2) | 1–3 | 0.83–1.00 | **0.57** | 12 | flat from 100 s; 8%; 2,430 |
+| 3 | Whole Area/gcd-x + Whole at 3/2/gcd-c + Near the Point/lattice | y = x/324 + 2, x/432 + 2 | 7–20 | 0.93–1.00 | 0.77 | 24 | flat from 150 s; 4%; 5,400 |
+| 4 | Farey Pair/mediant-x + Near the Point/gcd-x + Whole Crossing/gcd-num-m | (−35, 45, −36) on all three | 1 | 0.81–1.00 | 0.86 | 24 | flat from 100 s; 4%; 1,500 |
+| 5 | Root Hunter/pell-c + Whole Intercept/whole-at-n + Whole Area/gcd-den-m | m = 36/25, 45/32 | 1–7 | 0.68–1.00 | 0.80 | 5 | rising to 150 s, then flat; 4%; **12,672** |
+| 6 | Target Gradient/same-den + Whole at 3/2/gcd-den-m + Farey Pair/mediant-mid | m = 20/11, 12/7, 18/11 | 2–11 | 0.93–1.00 | 0.73 | 16 | flat from the start; 13%; 672 |
+| 7 | Table 1 + Near the Point/lattice (4 seats) | y = (5/3)x − 1, on all three | 1–6 | 0.80–1.00 | **0.69** | 23 | flat from the start; 8%; 912 |
+| 8 | Farey Pair/mediant-mid + Root Hunter/share-den + Whole Area/gcd-x + Whole at 3/2/gcd-c (4 seats) | m = 99/70, 24/17 | 3–63 | 0.89–1.00 | 0.85 | 3 | flat from the start; 8%; 2,541 |
+
+Test by test:
+
+1. **Ramp:** 11 of 17 rules drift outward (§A2). The drift is slower than big-prime's and runs along smooth numbers and
+   convergents rather than primes.
+2. **Cheap optimum for a rule-knowing searcher: improved, but it still fails.** The reachable set is no longer
+   enumerable in seconds; shortcuts made it huge. But steepest-ascent climbs with 10⁵ evaluations reach 68–100% of the
+   best of the cheapest million lines, and on most births 93–100%.
+3. **Single answer:** two tables pass the < 70% bar (table 2 at 0.57, table 7 at 0.69). Each still has a sentence:
+   - table 1: "gradient T, intercept the biggest smooth number in reach";
+   - tables 2, 5 and 8: "m a convergent of √2 (17/12, 24/17, 99/70), c a multiple of 1/q";
+   - table 3: "m = 1/(a big smooth number), c = 2";
+   - table 4: "slopes n/(n − 1)";
+   - table 7: "the simplest line through the dealt point with gradient T".
+4. **Convergence in play: fails everywhere.** The table total stops changing by 50–150 s in every table. The seats keep
+   spending (no idle seconds), but late moves touch 4–13% of objects, and in tables 3 and 5 one object is walked out to
+   coefficients of 5,400 and 12,672.
+5. **Disclosure: passes with noise.** Exact sums identify the others' rules in 1–39 probes; σ = 2 takes 97–1,183 or
+   fails; at σ = 8 no table identifies them in 1,500 probes (15 of 15 runs).
+
+## A6. What works, what does not, and what the owner must decide
+
+**What works.**
+
+- Rational-native primaries are graded everywhere, so near every state there is something to climb (the owner's "hill
+  climb a combined landscape that improves several rules at once").
+- Tied secondaries plus primaries reading m, c, the crossing, the area and points give **high, varied entanglement**,
+  with collateral damage that depends on the mutator chosen (§A4).
+- Representation shortcuts (decision 25) put the reachable set far beyond enumeration.
+- Disclosure noise hides the rules.
+
+**What does not.**
+
+- A tied relation that is *maximised* (a gcd, a shared factor) still ramps, along smooth numbers. The owner's own
+  example does this (§A1).
+- Interior tops exist only where a dealt target sits (T, a point), and they are the target's simplest form.
+- Every table still has a one-sentence near-best family, and scripted play freezes.
+
+**The structural reason for the freeze**, as in Part B: with each object an independent universe and every utility
+fixed, a hill climber stops at a local maximum of its own objective. Only conflict between seats over the same object
+keeps it moving. Entanglement raises conflict, but seats still settle on a state no one can improve alone.
+
+**For the owner** (no rule is changed here):
+
+1. **Maximised relations or compared relations.** "As big a common factor as possible" is a slow ramp with no top;
+   "the common factor equals the dealt k", "n is a multiple of q" or "as close to coprime as possible" has a top and no
+   ramp. The owner asked for neither tops nor ramps. On one line the measurements found no third kind: a rule whose
+   value is rare without being large is rare because a coincidence holds, and then the coincidence is its top. **Which do
+   you prefer, or should both kinds be dealt side by side** (the "diversity" the owner allowed for an empirical high
+   maximum)?
+2. **Fewer objects, and possibly two lines per object.** The owner asked for fewer objects in the beginner game. Two lines
+   per object with rules that read across them ("where your two lines cross is nearly a whole-number point, sharing a
+   factor with the first line's intercept") squares the state and multiplies the coincidences needed for a high peak. That
+   is the next measurement (sessions on two- and three-line systems are starting).
+3. **Something that moves the landscape under the seats** so that frozen play is not a fixed point. Candidates:
+   - per-object twists redrawn during a game;
+   - births and deaths;
+   - rules whose dealt target drifts.
+
+   Each is a game-rule change, and only the owner can make it.
+4. **The law's mass at 0 and ±1**, which makes every exact coincidence cheap near the centre (Part B).
+
+**Cards for the spec lead.** The tied secondaries above can replace the anchor-only and independent ones of the
+restored families (§A3): for example Prime Landing's next-prime and Whole Intercept's gcd-den-m. They should be dealt only
+alongside the collapse check (§A5), because they still ramp slowly.
+
+
+---
+
+## Part B. The first round (#607): whole-number features on fraction lines
+
+### B0. The summary of the first round
 
 **What I tried.** Eight rule families on fraction lines (a·x + b·y + c = 0), each with a primary a 12-year-old can read
 ("the y-intercept is as close to a whole number as possible") and three advanced secondaries, 24 rules in all, following
@@ -43,7 +380,7 @@ and four of these rules went through the five collapse tests.
    asks for under 70%), and they are one family each: y = ±x + n, y = ±(7/2)x + 7n, slope = the dealt T.
 6. **Dynamics freeze.** In 5 of 9 tables the table total stops changing within 50 s of a 300 s game; in the others the
    seats walk one or two objects outward along a ramp. Seats with fixed utilities on independent objects converge; that
-   is a mechanism, not a tuning problem (§3.4).
+   is a mechanism, not a tuning problem (§B3.4).
 
 **What works, partly.**
 
@@ -73,7 +410,7 @@ and four of these rules went through the five collapse tests.
 
 ---
 
-## 1. Setup
+### B1. Setup
 
 - **Object.** A fraction line a·x + b·y + c = 0, primitive, b > 0 (or b = 0 < a: a vertical line, which these rules
   score as worst), the line-q object. Every rule reads a representation of the one line: gradient m = −a/b, y-intercept
@@ -86,9 +423,9 @@ and four of these rules went through the five collapse tests.
 - **Prices.** Path-consistent unit steps (#580): one call changes a, b or c by ±1 and costs log2 9 + the one-step code +
   max(0, Δφ) bits, charged W + 0.05·W² ⚡. A line's share of a three-seat game is 2,475 ⚡; a seat's game is 19,800 ⚡.
 - **Table total.** F = Σᵢ nᵢ · Σ_{j≠i} nⱼ on each line, as in landscape-analysis.md.
-- **Twists.** For the tables, Target Gradient's T = 5/3 and Whole at x = T's T = 7. §3.5 varies T.
+- **Twists.** For the tables, Target Gradient's T = 5/3 and Whole at x = T's T = 7. §B3.5 varies T.
 
-## 2. The eight families
+### B2. The eight families
 
 Kid-readable primary first; secondaries are the three alternatives (decision 14: one primary, several secondaries, a
 dealt rule is the primary plus one). Every primary is continuous (decision 13): closer is better, with no buckets.
@@ -129,7 +466,7 @@ about 2 million lines).
 reach 17–33 bits in reach and ramp. *Coincidence rules with an exact top* (rep, sq, x-whole, area-whole, k-whole,
 next-whole, two-pegs) do not ramp at the top, but the top is a tiny line worth 1–10 bits: the exact coincidence is cheap
 near the centre because the law is. *Root near-misses* (hyp-whole, sq, dist-whole) have an exact top plus a ramp of
-ever-better near-misses below it, which climbers walk (§3.4). None reaches the owner's "on order 30 bits within reach"
+ever-better near-misses below it, which climbers walk (§B3.4). None reaches the owner's "on order 30 bits within reach"
 without a ramp. The landscape analysis's correlation test (bits against φ above 0.9) does not fire on line-q, because φ
 there includes a and b; the edge and growth tests do.
 
@@ -137,7 +474,7 @@ there includes a and b; the edge and growth tests do.
 a cheap member, the top is cheap and central; if not, its members are big, and bigger is the direction of travel. To get
 ~30 bits with neither, the best set must need many *independent* numbers to line up, and one line has only three.
 
-## 3. The collapse tests on tables
+### B3. The collapse tests on tables
 
 Nine tables: the owner's pattern with spf everywhere (control, 3 and 4 seats) and seven of the new rules in groups that
 make their primaries share coefficients.
@@ -156,11 +493,11 @@ make their primaries share coefficients.
 
 Columns 3–5 are over the full reach of three births (1.98, 2.01 and 2.26 million lines).
 
-### 3.1 Test 1, no ramp: fails for every size secondary; bounded ones pass by being worth little
+#### B3.1 Test 1, no ramp: fails for every size secondary; bounded ones pass by being worth little
 
-See §2. 8 of 24 rules have a growing top at the window's edge; 4 more ramp below an exact top.
+See §B2. 8 of 24 rules have a growing top at the window's edge; 4 more ramp below an exact top.
 
-### 3.2 Test 2, no cheap optimum for a rule-knowing searcher: fails
+#### B3.2 Test 2, no cheap optimum for a rule-knowing searcher: fails
 
 Exhaustive enumeration of the reach (2 million lines) took a few seconds a birth in a single-threaded script; a frontier
 AI with compute does the same. Against the check's literal bar (10⁵ evaluations reaching 95% of the reference), a
@@ -168,7 +505,7 @@ steepest-ascent climber with restarts passes on tables 5, 6 and 8 and on some bi
 needles, not of a landscape: table 6's optimum is 2 lines out of 2 million, and enumeration finds it. Table 3 has 35,000
 near-best lines (every y = x + n) and is trivial.
 
-### 3.3 Test 3, no single answer: fails
+#### B3.3 Test 3, no single answer: fails
 
 The best 24 distinct lines keep 68–100% of 24 × the best (the check asks for under 70%). Each table's best states are one
 sentence:
@@ -179,7 +516,7 @@ sentence:
 - Table 3: "y = x + n". Table 4: "gradient T, the intercept a multiple of 1/3 that makes the rest whole".
 - Table 6: "a 3-4-5 direction (whole distance), the intercept making y(7) a prime".
 
-### 3.4 Test 4, no convergence in play: fails, by freezing or by walking outward
+#### B3.4 Test 4, no convergence in play: fails, by freezing or by walking outward
 
 Scripted seats (each second each seat makes its best affordable unit move by gain per ⚡ in its own points rate,
 uniqueness enforced, a seat's 19,800 ⚡ over 300 s) never sit idle, but in tables 5–9 the table total stops changing by
@@ -190,7 +527,7 @@ and every utility fixed, a hill climber stops at a local maximum of its objectiv
 between seats over the same object. The rules here make the seats' interests overlap (they share coefficients) but not
 conflict much, because the cheap degenerate lines (y = ±x + n) are good for nearly every rule at once.
 
-### 3.5 Test 5, disclosure: passes with noise, fails without
+#### B3.5 Test 5, disclosure: passes with noise, fails without
 
 | Table | Candidates | σ = 0 | σ = 2 | σ = 8 |
 |---|--:|---|---|---|
@@ -201,7 +538,7 @@ conflict much, because the cheap degenerate lines (y = ±x + n) are good for nea
 The same as the old pool (landscape-analysis H4): exact sums give the rules away; v1's 8-bit noise hides them. Disclosure
 noise was deleted in D1 and is open with the owner (`v1-audit.md`); nothing here changes that.
 
-### 3.6 The twist (d): per object it varies the answer, not its form
+#### B3.6 The twist (d): per object it varies the answer, not its form
 
 Target Gradient/whole intercept with Whole Intercept/rep and Whole Distance/hyp-whole, at six values of T (window 24):
 
@@ -220,16 +557,16 @@ at or near T, then the intercept that makes the secondary exact"). A twist keeps
 opportunity if T is drawn from a set whose members give the same top bits (the six above give 10–12 bits); that is a
 calibration per value, as decision 20 allows.
 
-## 4. Being adversarial: the one-sentence solutions
+### B4. Being adversarial: the one-sentence solutions
 
 For each family alone: Whole Intercept/spf, Whole Crossing/spf, Whole Product/spf: "y = ±x ± (largest affordable
 prime)". Whole Distance/spf: "y = largest affordable prime". Square Area/spf: "y = 2x + 2p". Any rep: "make the number
 7 (or the nearest full-reptend prime)". Any x-whole, k-whole, next-whole, two-pegs, area-whole: "y = x + n". hyp-whole:
 "a horizontal line" (√(0 + 1) = 1). Peg Line: "any line with whole gradient and intercept". Target Gradient: "slope =
-T's simplest fraction". Each table's sentence is in §3.3. I found every one in under a minute from the rule text and
+T's simplest fraction". Each table's sentence is in §B3.3. I found every one in under a minute from the rule text and
 checked it against the measured tops.
 
-## 5. What this suggests for the next round (proposals, for the owner)
+### B5. What this suggests for the next round (proposals, for the owner)
 
 Ranked by what the measurements say would move the tests, and all within "a utility is a pure function of one object"
 except where marked.
@@ -257,7 +594,7 @@ except where marked.
    or estimated so far in which an object's best state depends on states other players are moving. Listed for
    completeness; not proposed.
 
-## 6. Limits of these measurements
+### B6. Limits of these measurements
 
 - Unit steps on a, b, c stand in for the mutators (shift, tilt, step, pivot …); the real moves reach slightly different
   sets at similar costs. The per-rule "best in reach" is over the cheapest 150,000 lines (up to 530–674 ⚡); the table

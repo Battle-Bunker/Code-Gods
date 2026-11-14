@@ -3,7 +3,8 @@
  * docs/engine-v2/landscape-analysis.md §4. Analysis only: nothing here changes the dealt pool, prices or scoring.
  * The write-up is docs/engine-v2/line-rules-v3-proposals.md.
  *
- *   node --experimental-strip-types scripts/line-rules-v3.ts [--part all|rules|tables|twist|ident] [--n 1500000]
+ *   node --experimental-strip-types scripts/line-rules-v3.ts [--part all|rules|tables|twist|ident|entangle] [--n 1500000]
+ *     [--pool v3|rational] [--moves unit|mutators]
  *
  * Object: a fraction line a·x + b·y + c = 0 (primitive, b > 0, or b = 0 < a), drawn from the line-q law
  * (each of a, b, c from the mixed integer code, conditioned on canonical). A rule is a primary and one secondary, both
@@ -15,7 +16,13 @@ import { parseArgs } from "node:util";
 import { mixedIntBits, mixedIntLog2Norm, rng, sampleMixedInt, stepsNonzeroBits, type Rng } from "@workspace/v2-core";
 import { changeCharge } from "@workspace/v2-economy";
 
-const { values: o } = parseArgs({ options: { part: { type: "string", default: "all" }, n: { type: "string", default: "1500000" } } });
+const { values: o } = parseArgs({ options: {
+  part: { type: "string", default: "all" }, n: { type: "string", default: "1500000" },
+  /** v3: the first pass (whole-number features); rational: the rational-native pool with tied secondaries. */
+  pool: { type: "string", default: "v3" },
+  /** unit: ±1 on a, b or c; mutators: the line's mutators, representation shortcuts included (decision 25). */
+  moves: { type: "string", default: "unit" },
+} });
 const want = (p: string) => o.part === "all" || o.part!.split(",").includes(p);
 const say = (s = "") => console.log(s);
 const f1 = (x: number) => (Number.isFinite(x) ? x.toFixed(1) : String(x)), f2 = (x: number) => x.toFixed(2);
@@ -67,12 +74,20 @@ const phiL = (l: L) => phiInt(l[0]) + phiInt(l[1]) + phiInt(l[2]);
 const key = (l: L) => ((l[0] + 4096) * 8192 + l[1]) * 8192 + (l[2] + 4096);
 
 /** The derived numbers a rule may read (every one a representation of the same line). */
-interface D { a: number; b: number; c: number; m: number; k: number; X: number; A: number; dist: number; hyp: number }
+interface D {
+  a: number; b: number; c: number; m: number; k: number; X: number; A: number; dist: number; hyp: number;
+  /** m = p/q and c = r/s in lowest terms (q, s > 0). */
+  p: number; q: number; r: number; s: number;
+}
 function derive(l: L): D | null {
   const [a, b, c] = l;
   if (b === 0) return null;
   const hyp = Math.hypot(a, b);
-  return { a, b, c, m: -a / b, k: -c / b, X: a !== 0 ? -c / a : NaN, A: a !== 0 && c !== 0 ? (c * c) / (2 * Math.abs(a) * b) : NaN, dist: Math.abs(c) / hyp, hyp };
+  const g1 = gcd(a, b) || 1, g2 = gcd(c, b) || 1;
+  return {
+    a, b, c, m: -a / b, k: -c / b, X: a !== 0 ? -c / a : NaN, A: a !== 0 && c !== 0 ? (c * c) / (2 * Math.abs(a) * b) : NaN, dist: Math.abs(c) / hyp, hyp,
+    p: -a / g1 + 0, q: b / g1, r: -c / g2 + 0, s: b / g2,
+  };
 }
 const yAt = (d: D, x: number) => d.m * x + d.k;
 
@@ -133,6 +148,56 @@ function families(T6: number, T7: number): Fam[] {
     ]),
   ];
 }
+/** gcd for relation secondaries: a 0 on either side counts as no shared factor (else gcd(0, n) = n is a free ramp). */
+const rgcd = (x: number, y: number) => (Math.round(x) === 0 || Math.round(y) === 0 ? 0 : gcd(Math.round(x), Math.round(y)));
+const denOf = (x: number) => { for (let d = 1; d <= 100_000; d++) if (Math.abs(x * d - Math.round(x * d)) < 1e-9 * Math.max(1, Math.abs(x * d))) return d; return 100_000; };
+
+/** The rational-native pool: every primary graded on fractions; every secondary a relation between the primary's
+ * anchor and another aspect of the line (the owner's design rule, 14 November). */
+function rationalFamilies(T: number, TX: number, PT: [number, number], D2: number): Fam[] {
+  const fam = (id: string, name: string, text: string, P: (d: D) => number, anchor: (d: D) => number, secs: Sec[]): Fam => ({ id, name, text, P: d => fin(P(d)), anchor, secs });
+  const n = (d: D) => Math.round(d.k), N = (d: D) => Math.round(d.X);
+  const mediant = (d: D) => (d.p + d.r) / (d.q + d.s);
+  return [
+    fam("whole-intercept", "Whole Intercept", "the y-intercept is as close to a whole number as possible", d => -dZ(d.k), d => d.k, [
+      { id: "gcd-floor-m", text: "that whole number and the whole part of the gradient share a big common factor (the owner's example)", f: d => rgcd(n(d), Math.floor(d.m)) },
+      { id: "gcd-den-m", text: "that whole number shares a big factor with the gradient's bottom number", f: d => rgcd(n(d), d.q) },
+      { id: "whole-at-n", text: "at x = that whole number, y is nearly whole too", f: d => -dZ(yAt(d, n(d))) },
+    ]),
+    fam("whole-crossing", "Whole Crossing", "the line crosses the x-axis as close to a whole number as possible", d => -dZ(d.X), d => d.X, [
+      { id: "gcd-c", text: "that whole number shares a big factor with the nearest whole number to the y-intercept", f: d => rgcd(N(d), Math.round(d.k)) },
+      { id: "gcd-num-m", text: "that whole number shares a big factor with the gradient's top number", f: d => rgcd(N(d), d.p) },
+    ]),
+    fam("farey-pair", "Farey Pair", "write the gradient and the y-intercept as fractions p/q and r/s: p × s and q × r differ by as close to 1 as possible", d => (d.p === 0 && d.r === 0 ? W : -Math.abs(Math.abs(d.p * d.s - d.q * d.r) - 1)), d => mediant(d), [
+      { id: "mediant-mid", text: "their in-between fraction (p + r)/(q + s) is close to the average of the two", f: d => -Math.abs(mediant(d) - (d.m + d.k) / 2) },
+      { id: "mediant-x", text: "their in-between fraction's bottom number shares a big factor with the x-intercept's bottom number", f: d => (Number.isFinite(d.X) ? rgcd(d.q + d.s, denOf(d.X)) : 0) },
+    ]),
+    fam("pell-gradient", "Root Hunter", `the gradient is as close as possible to √${D2}`, d => -Math.abs(d.m - Math.sqrt(D2)), d => d.m, [
+      { id: "pell-c", text: `the gradient's leftover p² − ${D2}q² equals the y-intercept's top number`, f: d => -Math.abs(d.p * d.p - D2 * d.q * d.q - d.r) },
+      { id: "share-den", text: "the y-intercept is a fraction with the gradient's bottom number (a multiple of 1/q)", f: d => -dZ(d.k * d.q) },
+    ]),
+    fam("whole-area", "Whole Area", "the triangle the line makes with the axes has an area as close to a whole number as possible", d => -dZ(d.A), d => d.A, [
+      { id: "gcd-x", text: "that whole number shares a big factor with the nearest whole number to the x-intercept", f: d => rgcd(Math.round(d.A), Math.round(d.X)) },
+      { id: "gcd-den-m", text: "that whole number shares a big factor with the gradient's bottom number", f: d => rgcd(Math.round(d.A), d.q) },
+    ]),
+    fam("whole-at-t", "Whole at x = T", `at the dealt x = ${f2(TX)}, y is as close to a whole number as possible`, d => -dZ(yAt(d, TX)), d => yAt(d, TX), [
+      { id: "gcd-c", text: "that whole number shares a big factor with the nearest whole number to the y-intercept", f: d => rgcd(Math.round(yAt(d, TX)), Math.round(d.k)) },
+      { id: "gcd-den-m", text: "that whole number shares a big factor with the gradient's bottom number", f: d => rgcd(Math.round(yAt(d, TX)), d.q) },
+    ]),
+    fam("target-gradient", "Target Gradient", `the gradient is as close as possible to the dealt T = ${f2(T)}`, d => -Math.abs(d.m - T), d => d.m, [
+      { id: "gcd-tops", text: "the gradient's and the y-intercept's top numbers share a big factor", f: d => rgcd(d.p, d.r) },
+      { id: "same-den", text: "the y-intercept's bottom number shares a big factor with the gradient's", f: d => rgcd(d.q, d.s) },
+    ]),
+    fam("near-point", "Near the Point", `the line passes as close as possible to the dealt point (${f2(PT[0])}, ${f2(PT[1])})`, d => -Math.abs(yAt(d, PT[0]) - PT[1]), d => yAt(d, PT[0]), [
+      { id: "lattice", text: "the line's whole-number point nearest the dealt point is close to it", f: d => {
+        let best = 50;
+        for (let x = Math.floor(PT[0]) - 40; x <= Math.ceil(PT[0]) + 40; x++) { const y = yAt(d, x); if (Math.abs(y - Math.round(y)) < 1e-9) best = Math.min(best, Math.hypot(x - PT[0], y - PT[1])); }
+        return -best;
+      } },
+      { id: "gcd-x", text: "the nearest whole numbers to the x-intercept and to y at the point share a big factor", f: d => rgcd(Math.round(d.X), Math.round(yAt(d, PT[0]))) },
+    ]),
+  ];
+}
 const rulesOf = (fs: Fam[]): Rule[] => fs.flatMap(f => f.secs.map(s => ({ id: `${f.id}/${s.id}`, fam: f.id, P: f.P, S: (d: D) => fin(s.f(d)) })));
 
 // ---------------------------------------------------------------- the law and the ladders
@@ -180,13 +245,49 @@ const tableF = (ns: number[]) => { const t = ns.reduce((a, b) => a + b, 0); retu
 
 // ---------------------------------------------------------------- moves and reach (path-consistent unit steps)
 
-const UNIT = Math.log2(9) + stepsNonzeroBits(1n);
-const moveCost = (from: L, to: L) => changeCharge([UNIT + Math.max(0, phiL(to) - phiL(from))]);
-function neighbours(l: L): L[] {
-  const out: L[] = [];
-  for (let i = 0; i < 3; i++) for (const s of [1, -1]) { const v = [...l] as number[]; v[i]! += s; const c = canon(v[0]!, v[1]!, v[2]!); if (c && Math.max(Math.abs(c[0]), c[1], Math.abs(c[2])) < 4000) out.push(c); }
+const WHICH = Math.log2(9);
+const UNIT = WHICH + stepsNonzeroBits(1n);
+/** The price of a move: its call bits w plus the surcharge max(0, Δφ), charged W + 0.05·W². */
+const chargeOf = (from: L, to: L, w: number) => changeCharge([w + Math.max(0, phiL(to) - phiL(from))]);
+type Move = { l: L; w: number; kind: string };
+const ok = (c: L | null): c is L => !!c && Math.max(Math.abs(c[0]), c[1], Math.abs(c[2])) < 4000;
+/** Size σ of an amount p/q: |p| + q − 1, priced by steps (v2-core amountSize). */
+const amountBits = (kn: number, kd: number) => stepsNonzeroBits(BigInt(Math.abs(kn) + kd - 1));
+/** y = mx + c from m = mn/md and c = cn/cd, as a canonical triple. */
+const fromMC = (mn: number, md: number, cn: number, cd: number) => canon(-mn * cd, md * cd, -cn * md);
+function moves(l: L): Move[] {
+  const out: Move[] = [];
+  const add = (c: L | null, w: number, kind: string) => { if (ok(c) && key(c) !== key(l)) out.push({ l: c, w, kind }); };
+  if (o.moves !== "mutators") {
+    for (let i = 0; i < 3; i++) for (const s of [1, -1]) { const v = [...l] as number[]; v[i]! += s; add(canon(v[0]!, v[1]!, v[2]!), UNIT, "unit"); }
+    return out;
+  }
+  const [a, b, c] = l;
+  // nudge one of a, b, c by ±1 (refused when the result has a common factor or turns over)
+  for (let i = 0; i < 3; i++) for (const s of [1, -1]) { const v = [a, b, c]; v[i]! += s; if (gcd(gcd(v[0]!, v[1]!), v[2]!) === 1 && v[1]! >= 0 && !(v[1] === 0 && v[0]! <= 0)) add(canon(v[0]!, v[1]!, v[2]!), WHICH + Math.log2(3) + amountBits(1, 1), "nudge"); }
+  // mirror in x, y, the origin, y = x: a choice of four, no size
+  for (const t of [[a, -b, c], [-a, b, c], [-a, -b, c], [b, a, c]] as const) add(canon(t[0], t[1], t[2]), WHICH + 2, "mirror");
+  if (b === 0) return out;
+  // m = mn/md, c = cn/cd with md = cd = b
+  const mn = -a, cn = -c, den = b;
+  for (const [kn, kd] of [[1, 1], [-1, 1], [1, 2], [-1, 2]] as const) {
+    add(fromMC(mn, den, cn * kd + kn * den, den * kd), WHICH + amountBits(kn, kd), "shift");
+    add(fromMC(mn * kd + kn * den, den * kd, cn, den), WHICH + amountBits(kn, kd), "tilt");
+  }
+  for (const x0 of [-1, 1, 2]) for (const kn of [1, -1]) add(fromMC(mn + kn * den, den, cn - kn * x0 * den, den), WHICH + Math.log2(5) + amountBits(kn, 1), "pivot");
+  // stretch every output by a factor (priced by digits, about the factor's code length)
+  for (const [fn, fd] of [[2, 1], [1, 2], [3, 1], [1, 3]] as const) add(fromMC(mn * fn, den * fd, cn * fn, den * fd), WHICH + 2 + Math.log2(fn + fd), "stretch");
+  // move one intercept by ±1, keeping the other
+  if (a !== 0 && c !== 0) for (const s of [1, -1]) {
+    // x/P + y/R = 1 with P = −c/a, R = −c/b
+    const Pn = -c, Pd = a, Rn = -c, Rd = b;
+    const viaPR = (pn: number, pd: number, rn: number, rd: number) => (pn === 0 || rn === 0 ? null : canon(pd * rn, rd * pn, -pn * rn));
+    add(viaPR(Pn + s * Pd, Pd, Rn, Rd), WHICH + 1 + amountBits(1, 1), "move");
+    add(viaPR(Pn, Pd, Rn + s * Rd, Rd), WHICH + 1 + amountBits(1, 1), "move");
+  }
   return out;
 }
+const neighbours = (l: L): L[] => moves(l).map(m => m.l);
 function reach(start: L, budget: number, maxStates = 150_000): { states: L[]; capped: boolean; spent: number } {
   const dist = new Map<number, number>(), states: L[] = [];
   const heap: [number, L][] = [[0, start]]; dist.set(key(start), 0);
@@ -197,7 +298,7 @@ function reach(start: L, budget: number, maxStates = 150_000): { states: L[]; ca
     const [d, l] = pop(); const k = key(l);
     if (done.has(k)) continue; done.add(k); states.push(l);
     if (states.length >= maxStates) return { states, capped: true, spent: d };
-    for (const n of neighbours(l)) { const nd = d + moveCost(l, n); const nk = key(n); if (nd <= budget && nd < (dist.get(nk) ?? Infinity)) { dist.set(nk, nd); push([nd, n]); } }
+    for (const mv of moves(l)) { const n = mv.l; const nd = d + chargeOf(l, n, mv.w); const nk = key(n); if (nd <= budget && nd < (dist.get(nk) ?? Infinity)) { dist.set(nk, nd); push([nd, n]); } }
   }
   return { states, capped: false, spent: budget };
 }
@@ -231,7 +332,7 @@ function rampTest(v: Valuer, win1: L[], win2: L[], H1: number, H2: number) {
 
 /** Test 2 for a table, on one birth: the reachable set's exact best, and what a rule-knowing climber finds in B evaluations. */
 function searchTest(vs: Valuer[], b0: L, budget: number, B: number, seed: string) {
-  const { states, capped } = reach(b0, budget, 2_500_000);
+  const { states, capped } = reach(b0, budget, o.moves === "mutators" ? 1_000_000 : 2_500_000);
   const index = new Map<number, number>(); states.forEach((l, i) => index.set(key(l), i));
   const raw = (l: L) => tableF(vs.map(v => bitsRaw(v, l)));
   const Fs = new Float64Array(states.length); let best = -1, bestL = b0;
@@ -265,7 +366,7 @@ function dynamicsTest(vs: Valuer[], seed: string) {
   while (objs.length < 24) { const l = birth(r); if (!occ.has(key(l))) { occ.add(key(l)); objs.push(l); } }
   const rate = SEAT_GAME / 300; const energy = vs.map(() => 600);
   const own = (i: number, l: L) => { const ns = vs.map(v => v.bits(l)); return ns[i]! * (ns.reduce((a, b) => a + b, 0) - ns[i]!); };
-  const changedLate = new Set<number>(); let movesLate = 0, idleLate = 0, moves = 0; const Ft: number[] = [];
+  const changedLate = new Set<number>(); let movesLate = 0, idleLate = 0, nMoves = 0; const Ft: number[] = [];
   for (let t = 0; t < 300; t++) {
     let movedThisSecond = 0;
     for (let i = 0; i < vs.length; i++) {
@@ -273,22 +374,23 @@ function dynamicsTest(vs: Valuer[], seed: string) {
       let pick: [number, number, L, number] | null = null;
       for (let o = 0; o < 24; o++) {
         const cur = objs[o]!, f0 = own(i, cur);
-        for (const n of neighbours(cur)) {
+        for (const mv of moves(cur)) {
+          const n = mv.l;
           if (occ.has(key(n))) continue;
-          const cost = moveCost(cur, n); if (cost > energy[i]!) continue;
+          const cost = chargeOf(cur, n, mv.w); if (cost > energy[i]!) continue;
           const g = (own(i, n) - f0) / cost;
           if (g > 0 && (!pick || g > pick[0])) pick = [g, o, n, cost];
         }
       }
       if (pick) {
-        const [, o, n, cost] = pick; occ.delete(key(objs[o]!)); objs[o] = n; occ.add(key(n)); energy[i]! -= cost; moves++; movedThisSecond++;
+        const [, o, n, cost] = pick; occ.delete(key(objs[o]!)); objs[o] = n; occ.add(key(n)); energy[i]! -= cost; nMoves++; movedThisSecond++;
         if (t >= 200) { changedLate.add(o); movesLate++; }
       }
     }
     if (t >= 200 && movedThisSecond === 0) idleLate++;
     if (t % 50 === 49) Ft.push(objs.reduce((s, l) => s + tableF(vs.map(v => v.bits(l))), 0));
   }
-  return { moves, movesLate, changedLate: changedLate.size / 24, idleLate, Ft, slopes: new Set(objs.map(l => `${l[0]}/${l[1]}`)).size, maxH: Math.max(...objs.map(height)) };
+  return { moves: nMoves, movesLate, changedLate: changedLate.size / 24, idleLate, Ft, slopes: new Set(objs.map(l => `${l[0]}/${l[1]}`)).size, maxH: Math.max(...objs.map(height)) };
 }
 
 /** Test 5: probes until a seat that knows its own rule identifies the others' rules from disclosed sums ± σ. */
@@ -317,7 +419,10 @@ function gauss(r: Rng) { return Math.sqrt(-2 * Math.log(1 - r.unit())) * Math.co
 
 const N = Number(o.n);
 const T6 = 5 / 3, T7 = 7;
-const FAMS = families(T6, T7), RULES = rulesOf(FAMS);
+const RATIONAL = o.pool === "rational";
+const RT = 5 / 3, RTX = 3 / 2, RPT: [number, number] = [2, 7 / 3], RD = 2;
+const FAMS = RATIONAL ? rationalFamilies(RT, RTX, RPT, RD) : families(T6, T7), RULES = rulesOf(FAMS);
+say(`Pool: ${o.pool}; moves: ${o.moves}`);
 let t0 = performance.now();
 const smp = drawLaw(N, "a");
 say(`Law: ${smp.ls.length.toLocaleString("en")} canonical tilted draws of ${N.toLocaleString("en")} (t = ${TILT}), ${((performance.now() - t0) / 1000).toFixed(0)} s`);
@@ -332,7 +437,7 @@ const BIRTHS: L[] = Array.from({ length: 8 }, () => birth(br));
 if (want("rules")) {
   say("\n## Rules: ramp test (windows |a|, |c| ≤ H, 1 ≤ b ≤ H), and bits within a line's share of a game\n");
   const w1 = windowLines(12), w2 = windowLines(24);
-  const big = reach(BIRTHS[0]!, LINE_SHARE, 3_000_000);
+  const big = reach(BIRTHS[0]!, LINE_SHARE, o.moves === "mutators" ? 1_000_000 : 3_000_000);
   say(`Reachable lines from birth ${show(BIRTHS[0]!)} with ${LINE_SHARE} ⚡ (unit steps): ${big.states.length}${big.capped ? `+ (stopped at ${big.spent.toFixed(0)} ⚡)` : ""}`);
   const rs = BIRTHS.slice(0, 6).map(b => reach(b, LINE_SHARE));
   const reaches = rs.map(r => r.states);
@@ -346,7 +451,16 @@ if (want("rules")) {
   }
 }
 
-const TABLES: string[][] = [
+const TABLES: string[][] = RATIONAL ? [
+  ["whole-intercept/gcd-floor-m", "whole-crossing/gcd-c", "target-gradient/gcd-tops"],   // the owner's example in a table
+  ["whole-intercept/gcd-den-m", "farey-pair/mediant-mid", "pell-gradient/share-den"],
+  ["whole-area/gcd-x", "whole-at-t/gcd-c", "near-point/lattice"],
+  ["farey-pair/mediant-x", "near-point/gcd-x", "whole-crossing/gcd-num-m"],
+  ["pell-gradient/pell-c", "whole-intercept/whole-at-n", "whole-area/gcd-den-m"],
+  ["target-gradient/same-den", "whole-at-t/gcd-den-m", "farey-pair/mediant-mid"],
+  ["whole-intercept/gcd-floor-m", "whole-crossing/gcd-c", "target-gradient/gcd-tops", "near-point/lattice"],
+  ["farey-pair/mediant-mid", "pell-gradient/share-den", "whole-area/gcd-x", "whole-at-t/gcd-c"],
+] : [
   ["whole-intercept/spf", "whole-crossing/spf", "whole-distance/spf"],                  // control: the owner's pattern, spf everywhere
   ["whole-intercept/rep", "whole-crossing/area-whole", "whole-distance/hyp-whole"],
   ["peg-line/two-pegs", "whole-at-t/next-whole", "whole-product/x-whole"],
@@ -372,7 +486,7 @@ if (want("tables")) {
   }
 }
 
-if (want("twist")) {
+if (want("twist") && !RATIONAL) {
   say("\n## Twist: a per-object target slope (Target Gradient) against a per-game one\n");
   const win = windowLines(24);
   const Ts = [5 / 3, -2 / 7, 3 / 4, 7 / 2, -4 / 5, 1 / 6];
@@ -386,11 +500,39 @@ if (want("twist")) {
 
 if (want("ident")) {
   say("\n## Identification under disclosed sums (σ = 0, 2, 8)\n");
-  for (const ids of [TABLES[1]!, TABLES[2]!, TABLES[6]!]) {
+  for (const ids of [TABLES[1]!, TABLES[2]!, TABLES[RATIONAL ? 7 : 6]!]) {
     const vs = ids.map(byId);
     for (const sigma of [0, 2, 8]) {
       const runs = Array.from({ length: 5 }, (_, i) => identTest(VS, vs, sigma, `${ids.join()}-${sigma}-${i}`, 1500));
       say(`${ids.join(" + ")}, σ = ${sigma}: candidates ${runs[0]!.candidates}, probes ${runs.map(x => x.probes).join(", ")}`);
     }
   }
+}
+
+if (want("entangle")) {
+  // Entanglement: random moves from states along random walks from births; for each pair of rules, how their bits
+  // change together. fight = P(B falls | A rises), coexist = P(B rises | A rises); and for each mutator, the mean |Δbits|
+  // it does to each rule (where collateral damage flows).
+  say("\n## Entanglement (random moves from states along short random walks from births)\n");
+  const r = rng("v3-entangle"); const reps = FAMS.map(f => byId(`${f.id}/${f.secs[0]!.id}`));
+  const dels: number[][] = []; const kinds: string[] = [];
+  for (let walk = 0; walk < 300; walk++) {
+    let l = birth(r);
+    for (let step = 0; step < 30; step++) {
+      const ms = moves(l); if (!ms.length) break;
+      const mv = ms[r.below(ms.length)]!;
+      dels.push(reps.map(v => v.bits(mv.l) - v.bits(l))); kinds.push(mv.kind);
+      l = mv.l;
+    }
+  }
+  say(`${dels.length} moves. Cell (A row, B column): fight % / coexist % (of the moves that raise A, the share that lower / raise B).\n`);
+  say(`| A \\ B | ${reps.map(v => v.rule.fam).join(" | ")} |`); say(`|---|${reps.map(() => "---").join("|")}|`);
+  reps.forEach((_, i) => {
+    const up = dels.filter(d => d[i]! > 1e-9);
+    say(`| ${reps[i]!.rule.id} (${up.length}) | ${reps.map((_, j) => i === j ? "–" : `${Math.round(100 * up.filter(d => d[j]! < -1e-9).length / Math.max(1, up.length))} / ${Math.round(100 * up.filter(d => d[j]! > 1e-9).length / Math.max(1, up.length))}`).join(" | ")} |`);
+  });
+  say("\nMean |Δbits| a move of each kind does to each rule:\n");
+  const ks = [...new Set(kinds)];
+  say(`| mutator (moves) | ${reps.map(v => v.rule.fam).join(" | ")} |`); say(`|---|${reps.map(() => "---").join("|")}|`);
+  for (const k of ks) { const ds = dels.filter((_, i) => kinds[i] === k); say(`| ${k} (${ds.length}) | ${reps.map((_, j) => f1(ds.reduce((s, d) => s + Math.abs(d[j]!), 0) / ds.length)).join(" | ")} |`); }
 }
